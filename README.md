@@ -43,7 +43,7 @@ We will breathe & sustain a vibrant community with the sharp focus of scaling da
 
 Team
 --------
-'''sh
+```
 SriSatish Ambati
 Cliff Click
 Jan Vitek
@@ -51,4 +51,4 @@ Petr Maj
 Kevin Normoyle
 Tomas Nykodym
 Lauren Brems
-'''
+```
