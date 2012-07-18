@@ -47,12 +47,12 @@ function build_classes() {
     echo "building classes..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
     # javac, followed by horrible awk script to remove junk error messages about 'Unsafe'
-    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java |& awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
+    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java | awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
 }
 
 function build_h2o_jar() {
-    echo "creating jar file..."
     local JAR_FILE="${JAR_ROOT}/hexbase_impl.jar"
+    echo "creating jar file...${JAR_FILE}"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${CLASSES} .
 }
 
@@ -64,8 +64,8 @@ function build_initializer() {
 }
 
 function build_jar() {
-    echo "creating jar file..."
     local JAR_FILE="${OUTDIR}/h2o.jar"
+    echo "creating jar file...${JAR_FILE}"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${JAR_ROOT} .
 }
 
@@ -85,8 +85,9 @@ build_classes
 build_h2o_jar
 build_initializer
 build_jar
-build_example "DLR"
-build_example "LR"
-build_example "H2O_WordCount1"
-build_example "HelloWorld"
-build_example "Average"
+### examples will move to h2o.analytics pkg
+#build_example "DLR"
+#build_example "LR"
+#build_example "H2O_WordCount1"
+#build_example "HelloWorld"
+#build_example "Average"
