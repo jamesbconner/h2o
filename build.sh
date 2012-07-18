@@ -19,11 +19,11 @@ fi
 # This is where the source files (java) are relative to the path of this file
 SRC=src
 # and this is where the jar contents is stored relative to this file again
-JAR_ROOT=jar 
+JAR_ROOT=lib
 
 # additional dependencies, relative to this file, but all dependencies should be
 # inside the JAR_ROOT tree so that they are packed to the jar file properly
-DEPENDENCIES="${JAR_ROOT}/lib/sigar/*${SEP}${JAR_ROOT}/lib/apache/*"
+DEPENDENCIES="${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*"
 
 DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"

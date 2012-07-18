@@ -24,7 +24,9 @@ public class init {
       System.setProperty("org.hyperic.sigar.path",loader.binlib().getAbsolutePath());
       //System.out.println("    "+System.getProperty("org.hyperic.sigar.path"));
       //System.out.println("Extracting dependencies...");
-      loader.addInternalJarFolder("lib",true);
+      loader.addInternalJarFolder("sigar",true);
+      loader.addInternalJarFolder("apache",true);
+      loader.addInternalJarFolder("hadoop",true);
     } else {
       loader._binlib = new File("lib/binlib");
       //System.out.println("Not running from jar file, skipping jar extractions...");
