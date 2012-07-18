@@ -17,8 +17,8 @@ public class init {
   public static void main(String[] args) {
     Loader loader = Loader.instance();
     if (loader.runningFromJar()) {
-      //System.out.println("Extracting H2O implementation jar...");
-      loader.addInternalJar("h2o_impl.jar");
+      //System.out.println("Extracting implementation jar...");
+      loader.addInternalJar("hexbase_impl.jar");
       //System.out.println("Extracting sigar binaries...");
       loader._binlib = loader.extractInternalFolder("binlib");
       System.setProperty("org.hyperic.sigar.path",loader.binlib().getAbsolutePath());
@@ -26,17 +26,17 @@ public class init {
       //System.out.println("Extracting dependencies...");
       loader.addInternalJarFolder("lib",true);
     } else {
-      loader._binlib = new File("jar/binlib");
+      loader._binlib = new File("lib/binlib");
       //System.out.println("Not running from jar file, skipping jar extractions...");
-      System.setProperty("org.hyperic.sigar.path","jar/binlib");
+      System.setProperty("org.hyperic.sigar.path","lib/binlib");
       //System.out.println(new File("jar/binlib").getAbsolutePath());
-//      System.load(new File("jar/binlib/libleveldb.so").getAbsolutePath());
+      //System.load(new File("jar/binlib/libleveldb.so").getAbsolutePath());
     }
     try {
       Class<?> c = Class.forName("water.H2O",true,loader);
       c.getMethod("main",String[].class).invoke(null, (Object)args);
     } catch (Exception e) {
-      System.err.println("Unable to run H2O:");
+      System.err.println("Unable to run Hexbase:");
       throw new Error(e);
     }
   }

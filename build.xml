@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project default="main" name="0xbase">
+	
+  <property name="basedir" value="."/>
+  <property name="build.src" value="${basedir}/src"/>
+  <property name="build.lib" value="${basedir}/lib"/>
+  <property name="build.src.test" value="${basedir}/test"/>
+  <property name="build.dir" value="${basedir}/build"/>
+  <property name="jar.dir" value="${basedir}/build/jar"/>
+  <property name="build.dir.lib" value="${build.dir}/lib"/>
+  <property name="build.classes" value="${build.dir}/classes"/>
+  <property name="build.testclasses" value="${build.dir}/test-classes"/>
+  <property name="ice.dir" value="${user.dir}/ice"/>
+  <property name="test.name" value="water.test.TNightly"/>
+  <property name="0xbase" value="${build.dir}/hexbase.jar"/>
+  
+  <path id="build.classpath">
+       <pathelement location="${build.lib}/hyperic-sigar-1.6.4/sigar-bin/lib/sigar.jar" />
+       <fileset dir="${jar.dir}">
+        <include name="**/*.jar"/>
+       </fileset>
+       <fileset dir="${build.lib}">
+        <include name="**/*.jar"/>
+       </fileset>
+  </path>
+
+   <target name="init">
+	  <mkdir dir="${build.dir}"/>
+	  <mkdir dir="${build.dir.lib}"/>
+	  <mkdir dir="${build.classes}"/>
+	  <mkdir dir="${jar.dir}"/>
+	  <mkdir dir="${jar.dir}/lib"/>
+  	  <mkdir dir="${build.testclasses}"/>
+   </target>
+	
+  <target name="main" depends="compile, jar" description="Main target">
+      <echo>
+          Building the product jar file.
+      </echo>
+  </target>
+
+<!-- compile everything -->
+  <target name="compile" depends="init" description="Compilation target">
+      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true"       >
+        <classpath refid="build.classpath"/>
+      </javac>
+  </target>
+
+ <!-- build 0xbase_impl.jar first -->  
+ <!-- 0xbase_impl.jar doesnot have init, and supplemental jars -->  
+ <!-- 0xbase_impl.jar sits in jar -->
+  <target name="prejar" description="prepare for one jar" depends="compile">
+    <jar jarfile="${jar.dir}/hexbase_impl.jar" manifest="${basedir}/manifest.txt" basedir="${build.classes}" includes="*/**/*.class" excludes="init/*"  />
+    <copy todir="${jar.dir}/init">
+	 <fileset dir="${build.classes}/init"/>
+    </copy>
+  </target>
+
+ <!-- make one single hexbase.jar -->
+  <target name="jar" description="hexbase.jar target" depends="compile, prejar">
+    <jar jarfile="${jar.dir}/hexbase.jar" manifest="${basedir}/manifest.txt" basedir="${jar.dir}"/>
+  </target>
+
+  <target name="run" description="run the cloud" depends="compile,jar">
+    <echo>ant run needs more testing/experimental</echo>
+    <java fork="true" failonerror="true" jar="${0xbase}">
+       <jvmarg value="-ea"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+    </java>
+  </target>
+  <target name="runhdfs" description="run the cloud" depends="compile,jar">
+    <java fork="true" failonerror="true" jar="${0xbase}">
+       <arg line=" -hdfs "/>
+       <jvmarg value="-ea"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+    </java>
+  </target>
+
+  <target name="compile-tests" depends="compile">
+    <javac includeantruntime="false" srcdir="${build.src.test}" destdir="${build.testclasses}">
+      <classpath refid="test.compile.classpath"/>
+    </javac>
+  </target>
+
+  <!-- compile examples in-situ, write their jars same place -->
+  <property name="build.src.examples" value="${basedir}/examples/src"/>
+  <property name="build.examples.classes" value="${basedir}/examples/classes"/>
+  <property name="build.examples.jars" value="${basedir}/examples/src"/>
+
+  <!-- run this for running examples --> 
+  <target name="examples" depends="compile-examples"/> 
+
+  <target name="clean-examples">
+    <delete dir="${build.examples.classes}"/>
+    <delete file="${build.examples.jars}/DLR.jar"/>
+    <delete file="${build.examples.jars}/0xbase_WordCount1.jar"/>
+    <delete file="${build.examples.jars}/HelloWorld.jar"/>
+    <delete file="${build.examples.jars}/LR.jar"/>
+    <delete file="${build.examples.jars}/Average.jar"/>
+  </target>
+  <target name="compile-examples" depends="compile">
+    <mkdir dir="${build.examples.classes}"/>
+    <javac includeantruntime="false" srcdir="${build.src.examples}" destdir="${build.examples.classes}">
+      <classpath refid="build.classpath"/>
+    </javac>
+    <jar jarfile="${build.examples.jars}/DLR.jar">
+	<fileset dir="${build.examples.classes}" includes="DLR*class"/>
+	<fileset dir="${build.examples.classes}" includes="Pair.class"/>
+    </jar>
+    <jar jarfile="${build.examples.jars}/LR.jar">
+	<fileset dir="${build.examples.classes}" includes="LR*class"/>
+    </jar>
+    <jar jarfile="${build.examples.jars}/Average.jar">
+	<fileset dir="${build.examples.classes}" includes="Average*class"/>
+    </jar>
+  </target>
+
+ <!-- CAUTION: Nightly test clears ICE dir -->
+  <target name="nightly" description="nightly tests" depends="clean">
+    <echo>CAUTION: Nightly test clearing ice.dir=${ice.dir}</echo>
+    <delete dir="${ice.dir}" failonerror="false"/>
+    <antcall target="test"/>
+    <antcall target="examples"/>
+  </target>
+
+ <!-- default: run nightly tests -->
+ <!-- Pass test name in commandline likeso, -Dtest.name=water.test.T4b  -->
+  <target name="test" description="tests" depends="compile,jar">
+    <echo>Using default ${test.name}, pass testname likeso:</echo>
+    <echo> ant test -Dtest.name=water.test.T1 </echo>
+
+    <java fork="true" failonerror="true" jar="${0xbase}" args="-test ${test.name}">
+       <jvmarg value="-ea"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+    </java>
+  </target>
+	
+  <target name="clean" description="get rid of any build artifacts">
+  	<delete dir="${build.dir}" />
+  	<delete dir="${build.classes}" />
+        <delete dir="${jar.dir}/init"/>
+        <delete file="${jar.dir}/0xbase_impl.jar"/>
+  	<delete dir="doc"/>
+  </target>
+	
+</project>

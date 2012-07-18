@@ -38,7 +38,7 @@ CLASSES="${OUTDIR}/classes"
 function clean() {
     rm -fr ${CLASSES}
     rm -fr ${JAR_ROOT}/init
-    rm -fr ${JAR_ROOT}/h2o_impl.jar
+    rm -fr ${JAR_ROOT}/hexbase_impl.jar
     mkdir ${OUTDIR}
     mkdir ${CLASSES}
 }
@@ -52,7 +52,7 @@ function build_classes() {
 
 function build_h2o_jar() {
     echo "creating jar file..."
-    local JAR_FILE="${JAR_ROOT}/h2o_impl.jar"
+    local JAR_FILE="${JAR_ROOT}/hexbase_impl.jar"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${CLASSES} .
 }
 
