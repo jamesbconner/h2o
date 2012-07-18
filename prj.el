@@ -1,8 +1,8 @@
 (jde-project-file-version "1.0")
 (jde-set-variables
  '(jde-javadoc-gen-destination-directory "./doc")
- '(jde-run-working-directory "$HOME/Desktop/h2o_work")
- '(jde-run-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes" "./jar/lib/sigar/sigar.jar")))
+ '(jde-run-working-directory "$HOME/Desktop/hexbase")
+ '(jde-run-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes" "./lib/sigar/sigar.jar")))
  '(jde-run-option-debug nil)
  '(jde-compile-option-directory "$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes")
  '(jde-run-option-application-args (quote ("-name" "Cliff")))
