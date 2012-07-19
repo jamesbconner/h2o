@@ -47,7 +47,7 @@ function build_classes() {
     echo "building classes..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
     # javac, followed by horrible awk script to remove junk error messages about 'Unsafe'
-    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java | awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
+    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java 2>&1 | awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
 }
 
 function build_h2o_jar() {
