@@ -16,7 +16,6 @@ import java.io.*;
 public class PersistIce extends Persistence {
 
   private static final short SENTINEL_FILE = 0;
-  private static final short SENTINEL_LEVELDB = 1;
   
   @Override public Value load(Key k, Value sentinel) {
     VectorClock vc = VectorClock.NOW;
@@ -68,9 +67,9 @@ public class PersistIce extends Persistence {
   // initialization routines ---------------------------------------------------
 
   protected static final String ROOT;
-  public static final String DEFAULT_ROOT = "/tmp/ice";
+  public static final String DEFAULT_ROOT = "/tmp";
   
-  private static final String ICE_DIR = "/tmp/ice";
+  private static final String ICE_DIR = "ice";
 
   private static final File iceRoot;
   
@@ -79,7 +78,7 @@ public class PersistIce extends Persistence {
   static {
     ROOT = (H2O.OPT_ARGS.ice_root==null) ? DEFAULT_ROOT : H2O.OPT_ARGS.ice_root;
     H2O.OPT_ARGS.ice_root = ROOT;
-    iceRoot = new File(ROOT+File.separator+ICE_DIR);
+    iceRoot = new File(ROOT+File.separator+ICE_DIR+H2O.WEB_PORT);
     iceRoot.mkdirs();
     _instance = new PersistIce();
   }

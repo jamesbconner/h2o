@@ -112,17 +112,6 @@ public class H2ONode implements Comparable {
   }
   public static final H2ONode intern( InetAddress ip, int port ) { return intern(new H2Okey(ip,port)); }
 
-  //public static final H2ONode intern( int ip4, int port ) {
-  //  byte[] b = new byte[4];
-  //  b[0] = (byte)(ip4>>24);
-  //  b[1] = (byte)(ip4>>16);
-  //  b[2] = (byte)(ip4>> 8);
-  //  b[3] = (byte)(ip4>> 0);
-  //  try {
-  //    return intern(new H2Okey(InetAddress.getByAddress(b),port));
-  //  } catch( UnknownHostException e ) { throw new Error(e); }
-  //}
-
   public final int ip4() {
     byte[] b = _key._inet.getAddress();
     return
