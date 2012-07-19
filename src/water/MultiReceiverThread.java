@@ -74,14 +74,14 @@ public class MultiReceiverThread extends Thread {
       }
 
       // Look at the packet.
-      int first_byte = 0xFF&pack.getData()[0];
+      byte[] pbuf = pack.getData();
+      int first_byte = UDP.get_ctrl(pbuf);
       assert first_byte != 0xab; // did not receive a clobbered packet?
 
       // Get the Cloud we are operating under for this packet
       H2O cloud = H2O.CLOUD;
       // Get the H2ONode (many people use it).
-      System.out.println("multicast recv on "+pack.getAddress()+":"+pack.getPort());
-      H2ONode h2o = H2ONode.intern(pack.getAddress(),pack.getPort());
+      H2ONode h2o = H2ONode.intern(pack.getAddress(),UDP.get_port(pbuf));
       // Record the last time we heard from any given Node
       h2o._last_heard_from = System.currentTimeMillis();
 

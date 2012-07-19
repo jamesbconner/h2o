@@ -29,9 +29,9 @@ public class init {
       loader.addInternalJarFolder("hadoop",true);
     } else {
       loader._binlib = new File("lib/binlib");
-      System.out.println("Not running from jar file, skipping jar extractions...");
+      //System.out.println("Not running from jar file, skipping jar extractions...");
       System.setProperty("org.hyperic.sigar.path","lib/binlib");
-      System.out.println(new File("lib/binlib").getAbsolutePath());
+      //System.out.println(new File("lib/binlib").getAbsolutePath());
     }
     try {
       Class<?> c = Class.forName("water.H2O",true,loader);

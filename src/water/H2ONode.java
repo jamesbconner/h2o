@@ -44,7 +44,7 @@ public class H2ONode implements Comparable {
     int write( byte[] buf, int off ) {
       byte[] ip = _inet.getAddress();
       if( ip.length != 4 ) throw new Error("unimplemented: ipv6 wire line protocol");
-      System.arraycopy(buf,off,ip,0,4);
+      System.arraycopy(ip,0,buf,off,4);
       off += 4;
       buf[off++] = (byte)(_port>>0);
       buf[off++] = (byte)(_port>>8);
@@ -69,6 +69,9 @@ public class H2ONode implements Comparable {
   // The last clock tick we heard from this guy
   public final AtomicInteger _clock;
 
+  // The wire-line protocol health buffer
+  byte[] _health_buf = new byte[offset.max.x];
+
   // These are INTERN'd upon construction, and are uniquely numbered within the
   // same run of a JVM.  If a remote Node goes down, then back up... it will
   // come back with the SAME IP address, and the same unique_idx and history
@@ -82,6 +85,9 @@ public class H2ONode implements Comparable {
     _unique_idx = unique_idx;
     _last_heard_from = System.currentTimeMillis();
     _clock = new AtomicInteger(0);
+    // Nail down the buffer type
+    UDP.set_ctrl(_health_buf,UDP.udp.heartbeat.ordinal());
+    UDP.set_port(_health_buf,_key._port);
   }
 
   // ---------------
@@ -299,6 +305,7 @@ public class H2ONode implements Comparable {
   // Buffer size and offsets, in bytes.
   public static enum size {
     udp_enum(1),                // Packet type
+    port(2),                    // Sending node port #
     cloud_id(16),               // Unique identifier for this Cloud
     num_cpus(2),                // Number of CPUs for this Node, limit of 65535
     free_mem(3),                // Free memory in K (goes up and down with GC)
@@ -323,7 +330,8 @@ public class H2ONode implements Comparable {
 
   public static enum offset {
     udp_enum(0),
-    cloud_id(udp_enum.x+size.udp_enum.x),
+    port    (udp_enum.x+size.udp_enum.x),
+    cloud_id(port    .x+size.port    .x),
     num_cpus(cloud_id.x+size.cloud_id.x),
     free_mem(num_cpus.x+size.num_cpus.x),
     tot_mem (free_mem.x+size.free_mem.x),
@@ -344,11 +352,6 @@ public class H2ONode implements Comparable {
     offset(int x) { this.x=x; }
   }
   
-  // The wire-line protocol health buffer
-  byte[] _health_buf = new byte[offset.max.x];
-  // Nail down the buffer type
-  { _health_buf[offset.udp_enum.x] = (byte)UDP.udp.heartbeat.ordinal(); }
-
   // Getters and Setters
   public void set_health( byte[] buf ) {  System.arraycopy(buf,0,_health_buf,0,_health_buf.length);  }
   public void set_num_cpus (int  n) {     set_buf(offset.num_cpus.x,size.num_cpus.x,n); }

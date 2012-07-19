@@ -42,7 +42,8 @@ public abstract class Paxos {
   // plus the proposal number (8 bytes), so we can add 8 more bytes of Promise
   // if more Proposals float by, plus the UDP Packet type.
   static final int udp_off = 0;
-  static final int promise_off  = udp_off+1; // 8 bytes of Promise to ignore lessthan
+  static final int port_off = 1;
+  static final int promise_off  = port_off+3; // 8 bytes of Promise to ignore lessthan
   static final int old_proposal_off = promise_off+8; // 8 bytes of prior accepted proposal
   // The remainder of the UDP packet is the *Value* previously accepted
   static final int id_lo_off = old_proposal_off+8;
@@ -386,7 +387,7 @@ public abstract class Paxos {
   }
 
   static int singlecast_promise() {
-    BUF[udp_off] = (byte)UDP.udp.paxos_promise.ordinal(); // Set the UDP type byte
+    UDP.set_ctrl(BUF,UDP.udp.paxos_promise.ordinal()); // Set the UDP type byte
     return MultiCast.singlecast(LEADER,BUF,BUF.length);
   }
 

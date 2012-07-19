@@ -27,6 +27,7 @@ public class Remote extends H2OPage {
     // string starts with '/Node=', but the rest of it should be an
     // IPV4 xx.xx.xx.xx:port style string.
     String addr = args.getProperty("Node");
+    if( addr.charAt(0)=='/' ) addr = addr.substring(1);
     String[] adrs = addr.split(":");
     H2ONode h2o=null;
     try {

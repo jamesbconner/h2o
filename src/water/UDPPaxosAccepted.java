@@ -17,7 +17,7 @@ public class UDPPaxosAccepted extends UDP {
 
   // Build an Accepted packet.  It has the membership, plus proposal
   static void build_and_multicast( byte[] buf ) {
-    buf[0] = (byte)UDP.udp.paxos_accepted.ordinal();
+    set_ctrl(buf,UDP.udp.paxos_accepted.ordinal());
     MultiCast.multicast(buf);
   }
 

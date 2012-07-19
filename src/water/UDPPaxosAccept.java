@@ -18,7 +18,7 @@ public class UDPPaxosAccept extends UDP {
   // Build an AcceptRequest packet.  It is our PROPOSAL with the 8 bytes of
   // Accept number set, plus the Value (wireline member protocol)
   static void build_and_multicast( byte[] buf ) {
-    buf[0] = (byte)UDP.udp.paxos_accept.ordinal();
+    set_ctrl(buf,UDP.udp.paxos_accept.ordinal());
     MultiCast.multicast(buf);
   }
 

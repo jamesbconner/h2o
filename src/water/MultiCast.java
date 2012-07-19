@@ -23,7 +23,8 @@ public abstract class MultiCast {
   // Paxos driving threads.  Errors silently throw the packet away.  It's UDP,
   // so packet loss is expected.  Always returns a 0 (for handy flow-coding).
   synchronized private static int send( InetAddress ip, int port, byte[] buf, int off, int len ) {
-    assert (0xFF&buf[0]) != 0xab; // did not receive a clobbered packet?
+    assert UDP.get_ctrl(buf) != 0xab; // did not receive a clobbered packet?
+    UDP.set_port(buf,H2O.UDP_PORT);   // Always jam in the sender (that's me!) port
     try {
       if( sock == null ) {
         sock = new MulticastSocket();
@@ -36,7 +37,6 @@ public abstract class MultiCast {
       DPack.setData(buf,off,len);
       TimeLine.record_send(DPack);
       sock.send(DPack);
-      System.out.println(((ip==H2O.CLOUD_MULTICAST_GROUP)?"multi":"single")+"cast send on DPack port "+DPack.getPort()+" and sock port "+sock.getPort());
       
     } catch( Exception e ) {
       // On any error from anybody, close all sockets & re-open

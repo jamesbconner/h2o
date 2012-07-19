@@ -18,7 +18,6 @@ public class Cloud extends H2OPage {
   
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
-//    response.clear();
     response.replace("cloud_name",H2O.CLOUD.NAME);
     response.replace("node_name",H2O.SELF.toString());
     final H2O cloud = H2O.CLOUD;
@@ -27,6 +26,7 @@ public class Cloud extends H2OPage {
       RString row = response.restartGroup("tableRow");
       // This hangs on ipv6 name resolution
       //String name = h2o._inet.getHostName();
+      row.replace("host",h2o);
       row.replace("node",h2o);
       row.replace("num_cpus" ,            h2o.get_num_cpus () );
       row.replace("free_mem" ,toMegabytes(h2o.get_free_mem ()));
@@ -75,7 +75,7 @@ public class Cloud extends H2OPage {
     + "<tbody>"
     + "%tableRow{"
     + "  <tr>"
-    + "    <td><a href='Remote?Node=%node'>%node</a></td>"
+    + "    <td><a href='Remote?Node=%host'>%node</a></td>"
     + "    <td>%num_cpus</td>"
     + "    <td>%num_keys</td>"
     + "    <td>%val_size</td>"
@@ -96,7 +96,4 @@ public class Cloud extends H2OPage {
     + "</tbody>"
     + "</table>\n"
     ;
-
-//  private final RString response = new RString(html);
-
 }

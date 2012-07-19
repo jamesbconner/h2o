@@ -76,24 +76,42 @@ public abstract class UDP {
     return udp.UDPS[(int)(lo&0xFF)]._udp.print16(lo,hi);
   }
 
+  // Set/get the 1st control byte
+  public static int  get_ctrl( byte[] buf ) { return 0xFF&buf[0]; }
+  public static void set_ctrl( byte[] buf, int c ) { buf[0] = (byte)c; }
+  // Set/get the port in next 2 bytes
+  public static int  get_port( byte[] buf ) { return (buf[1]&0xff) + ((buf[2]&0xff)<<8); }
+  public static void set_port( byte[] buf, int port ) { 
+    buf[1] = (byte)port; buf[2] = (byte)(port>>8); }
 
+  // Generic set/get
   public static int set2( byte[] buf, int off, int x ) {
+    assert off >= 3;            // All packets have a control byte & port#
     for( int i=0; i<2; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 2;
   }
   public static int get2( byte[] buf, int off ) {
+    assert off >= 3;            // All packets have a control byte & port#
     int sum=0;
     for( int i=0; i<2; i++ )
       sum |= (0xff&buf[off+i])<<(i<<3);
     return sum;
   }
   public static int set4( byte[] buf, int off, int x ) {
+    assert off >= 3;            // All packets have a control byte & port#
+    return set4_raw(buf,off,x);
+  }
+  public static int set4_raw( byte[] buf, int off, int x ) {
     for( int i=0; i<4; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 4;
   }
   public static int get4( byte[] buf, int off ) {
+    assert off >= 3;            // All packets have a control byte & port#
+    return get4_raw(buf,off);
+  }
+  public static int get4_raw( byte[] buf, int off ) {
     int sum=0;
     for( int i=0; i<4; i++ )
       sum |= (0xff&buf[off+i])<<(i<<3);
@@ -101,11 +119,16 @@ public abstract class UDP {
   }
 
   public static int set8( byte[] buf, int off, long x ) {
+    assert off >= 3;            // All packets have a control byte & port#
     for( int i=0; i<8; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 8;
   }
   public static long get8( byte[] buf, int off ) {
+    assert off >= 3;            // All packets have a control byte & port#
+    return get8_raw(buf,off);
+  }
+  public static long get8_raw( byte[] buf, int off ) {
     long sum=0;
     for( int i=0; i<8; i++ )
       sum |= ((long)(0xff&buf[off+i]))<<(i<<3);

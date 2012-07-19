@@ -24,7 +24,6 @@ public class DebugView extends H2OPage {
   
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
-//    response.clear();
     // get the offset index
     int offset = 0;
     try {

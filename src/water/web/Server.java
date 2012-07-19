@@ -166,7 +166,7 @@ public class Server extends NanoHTTPD {
         bytes = readStreamToBytes(is);
       } else { // to allow us to read things not only from the loader
         try {
-          InputStream is = new FileInputStream(new File("jar/resources"+uri));
+          InputStream is = new FileInputStream(new File("lib/resources"+uri));
           bytes = readStreamToBytes(is);
         } catch (FileNotFoundException e) {
           // pass
