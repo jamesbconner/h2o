@@ -14,15 +14,14 @@ public class PersistHdfs extends Persistence {
 
   @Override public Value load(Key k, Value sentinel) {
     assert (sentinel.type()=='I'); // we have only normal values at the moment that can reside in the HDFS
-    VectorClock vc = VectorClock.NOW;
     long size = size(k,sentinel);
     if ((size> 2*ValueArray.chunk_size()) && k.user_allowed()) {
-      ValueArray value = new ValueArray(k,size, vc.weak_vc(), vc.weak_jvmboot_time(),k._kb);
+      ValueArray value = new ValueArray(k,size,k._kb);
       value.setPersistenceBackend(this);
       value.makeChunks();
       return value;
     } else {
-      Value value = new Value((int)size,0,vc.weak_vc(),vc.weak_jvmboot_time(),k,Value.PERSISTED);
+      Value value = new Value((int)size,0,k,Value.PERSISTED);
       value.setPersistenceBackend(this);
       return value;
     }

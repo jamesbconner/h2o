@@ -33,12 +33,12 @@ public class ValueCode extends Value {
   } */
   
   // A "code" object: a verified class file, as raw bytes
-  ValueCode( int max, int len, VectorClock vc, long vcl, Key key, int mode ) {
-    super( max, len, vc,vcl, key, mode );
+  ValueCode( int max, int len, Key key, int mode ) {
+    super( max, len, key, mode );
   }
 
-  static ValueCode make_wire(int max, int len, VectorClock vc, long vcl, Key key ) {
-    return new ValueCode(max,len,vc,vcl,key,NOT_STARTED);
+  static ValueCode make_wire(int max, int len, Key key ) {
+    return new ValueCode(max,len,key,NOT_STARTED);
   }
 
   @Override public byte type() { return 'C'; }
@@ -73,7 +73,7 @@ public class ValueCode extends Value {
       // We like the class!  Furthermore we have made it "distribution ready"!
       // Wrapping it a ValueCode tells the rest of the system that it can load
       // this class fearlessly.
-      ValueCode val = new ValueCode(jarbits.length,jarbits.length,null,0,obj,NOT_STARTED);
+      ValueCode val = new ValueCode(jarbits.length,jarbits.length,obj,NOT_STARTED);
       byte [] mem = val.mem();
       for(int i = 0; i < mem.length; ++i)
         mem[i] = jarbits[i];

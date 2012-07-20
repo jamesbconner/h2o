@@ -66,9 +66,6 @@ public class H2ONode implements Comparable {
   public final int _unique_idx; // Dense integer index, skipping 0.
   public long _last_heard_from; // Time in msec since we last heard from this Node
 
-  // The last clock tick we heard from this guy
-  public final AtomicInteger _clock;
-
   // The wire-line protocol health buffer
   byte[] _health_buf = new byte[offset.max.x];
 
@@ -84,7 +81,6 @@ public class H2ONode implements Comparable {
     _key = key;
     _unique_idx = unique_idx;
     _last_heard_from = System.currentTimeMillis();
-    _clock = new AtomicInteger(0);
     // Nail down the buffer type
     UDP.set_ctrl(_health_buf,UDP.udp.heartbeat.ordinal());
     UDP.set_port(_health_buf,_key._port);
@@ -240,7 +236,7 @@ public class H2ONode implements Comparable {
   // Record this packet (Node,task#) as being seen already, or report back the
   // prior version of this same task#.
   DatagramPacket putIfAbsent( DatagramPacket p ) {
-    int tnum = UDP.get4(p.getData(),1);
+    int tnum = UDP.get_task(p.getData());
     return WORK.putIfAbsent(tnum,p);
   }
   // Stop tracking a remote task, because we got an ACKACK
@@ -251,11 +247,6 @@ public class H2ONode implements Comparable {
   // This Node rebooted recently; we can quit tracking prior work history
   void rebooted() {
     WORK.clear();
-    // All Values tagged with a clock on this guy need to be set to "as if"
-    // those writes came from him at time 0 - he's resetting his clock, and
-    // these writes already came before his next update.
-    for( Value val : H2O.values() )
-      val.reset_vc(this);
   }
 
   // ---------------

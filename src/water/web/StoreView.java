@@ -153,7 +153,6 @@ public class StoreView extends H2OPage {
       row.replace("home2",cloud._memary[idx2]);
     int repl = key.replica(cloud);
     row.replace("replica",(repl==255?"":("r"+repl)));
-    row.replace("clock",val.vector_clock_string());
     // Now the first 100 bytes of Value as a String
     row.replace("value",vs);
     if (val.is_deleted())
@@ -174,7 +173,7 @@ public class StoreView extends H2OPage {
           + "<p>%navup</p>"
           + "<table class='table table-striped table-bordered table-condensed'>"
           + "<colgroup><col/><col/><col style=\"text-align:center\"/><col/></colgroup>\n"
-          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Clock<th>Value</thead>\n"
+          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Value</thead>\n"
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"

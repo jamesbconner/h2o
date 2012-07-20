@@ -43,7 +43,7 @@ public abstract class Paxos {
   // if more Proposals float by, plus the UDP Packet type.
   static final int udp_off = 0;
   static final int port_off = 1;
-  static final int promise_off  = port_off+3; // 8 bytes of Promise to ignore lessthan
+  static final int promise_off  = port_off+2; // 8 bytes of Promise to ignore lessthan
   static final int old_proposal_off = promise_off+8; // 8 bytes of prior accepted proposal
   // The remainder of the UDP packet is the *Value* previously accepted
   static final int id_lo_off = old_proposal_off+8;

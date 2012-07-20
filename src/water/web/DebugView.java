@@ -125,7 +125,6 @@ public class DebugView extends H2OPage {
       row.replace("home2",cloud._memary[idx2]);
     int repl = key.replica(cloud);
     row.replace("replica",(repl==255?"":("r"+repl)));
-    row.replace("clock",val.vector_clock_string());
     row.replace("class",val.getClass().getName());
     row.replace("max",val._max);
     row.replace("in_mem",val.mem()==null ? "null" : val.mem().length);
@@ -150,7 +149,7 @@ public class DebugView extends H2OPage {
           + "<p>%navup</p>"
           + "<table class='table table-striped table-bordered table-condensed'>"
           + "<colgroup><col/><col/><col style=\"text-align:center\"/><col/></colgroup>\n"
-          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Clock<th>Class<th>Max<th>In Mem<th>Persistence<th>State</thead>\n"
+          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Class<th>Max<th>In Mem<th>Persistence<th>State</thead>\n"
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"

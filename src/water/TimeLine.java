@@ -130,7 +130,7 @@ public class TimeLine extends UDP {
         // Make a new empty snapshot
         CLOUD = H2O.CLOUD;
         SNAPSHOT = new long[CLOUD.size()][];
-        // Broadcast a UDP packet, with the hopes of getting all SnapSHots as close
+        // Broadcast a UDP packet, with the hopes of getting all SnapShots as close
         // as possible to the same point in time.
         byte[] buf = new byte[16];
         buf[0] = (byte)UDP.udp.timeline.ordinal();
@@ -163,10 +163,11 @@ public class TimeLine extends UDP {
       return; // No I/O needed for my own snapshot
     }
     try {
-      Socket sock = new Socket( p.getAddress(), H2O.TCP_PORT );
+      Socket sock = new Socket( p.getAddress(), target._key.tcp_port() );
       DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
       // Write out the initial operation
       dos.writeByte(UDP.udp.timeline.ordinal());
+      dos.writeShort(H2O.UDP_PORT); // Our node identifier
       dos.writeInt(a.length);
       long start = System.currentTimeMillis();
       for( int i=0; i<a.length; i++ )
@@ -201,6 +202,10 @@ public class TimeLine extends UDP {
 
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-  public String print16( long lo, long hi ) { return ""; }
+  public String print16( byte[] buf ) {
+    int udp     = get_ctrl(buf);
+    int port    = get_port(buf);
+    return "";
+  }
 }
 

@@ -18,12 +18,11 @@ public class PersistIce extends Persistence {
   private static final short SENTINEL_FILE = 0;
   
   @Override public Value load(Key k, Value sentinel) {
-    VectorClock vc = VectorClock.NOW;
     Value result = null;
     switch (sentinel.type()) {
-    case 'I': result = new Value((int)size(k,sentinel),0,vc.weak_vc(),vc.weak_jvmboot_time(),k,Value.PERSISTED); break;
-    case 'A': result = new ValueArray((int)size(k,sentinel),0,vc.weak_vc(),vc.weak_jvmboot_time(),k,Value.PERSISTED); break;
-    case 'C': result = new ValueCode((int)size(k,sentinel),0,vc.weak_vc(),vc.weak_jvmboot_time(),k,Value.PERSISTED); break;
+    case 'I': result = new Value     ((int)size(k,sentinel),0,k,Value.PERSISTED); break;
+    case 'A': result = new ValueArray((int)size(k,sentinel),0,k,Value.PERSISTED); break;
+    case 'C': result = new ValueCode ((int)size(k,sentinel),0,k,Value.PERSISTED); break;
     default:
       Log.die("[ice] unrecognized value type "+(char)sentinel.type()+" for key "+k.toString());
     }

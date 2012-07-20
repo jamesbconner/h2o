@@ -43,14 +43,18 @@ public class TCPReceiverThread extends Thread {
 
         // Open a TCP connection
         client = sock.accept();
-        
-        // Record the last time we heard from any given Node
-        H2ONode hello = H2ONode.intern(client.getInetAddress(),client.getPort());
-        hello._last_heard_from = System.currentTimeMillis();
-        
-        // Hand off the TCP connection to the proper handler
         DataInputStream dis = new DataInputStream(new BufferedInputStream(client.getInputStream()));
-        FJPacket.call((0xFF&dis.read()),dis,hello);
+
+        // Put out the control byte & sender port#
+        int ctrl = dis.readByte()&0xFF;
+        int port = dis.readShort()&0xFFFF;
+
+        // Record the last time we heard from any given Node
+        H2ONode hello = H2ONode.intern(client.getInetAddress(),port);
+        hello._last_heard_from = System.currentTimeMillis();
+
+        // Hand off the TCP connection to the proper handler
+        FJPacket.call(ctrl,dis,hello);
         // Write 1 byte of ACK
         OutputStream os = client.getOutputStream();
         os.write(99);           // Write 1 byte of ack

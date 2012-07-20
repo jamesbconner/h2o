@@ -26,8 +26,6 @@ public abstract class UDP {
       paxos_accepted( true, new UDPPaxosAccepted()),
       rebooted      ( true, new UDPRebooted()),  // This node has rebooted recently
       timeline      (false, new TimeLine()),     // Get timeline dumps from across the Cloud
-      hazkey        (false, new UDPHazKeys()),   // Haz a Key (and want to know it is replicated)
-      hazkeyack     (false, new UDPHazKeyAck()), // I also Haz this Key
 
       // All my *reliable* tasks (below), are sent to remote nodes who then ACK
       // back an answer.  To be reliable, I might send the TASK multiple times.
@@ -42,6 +40,7 @@ public abstract class UDP {
       // identical result ACK packets.
       getkeys(false,new TaskGetKeys.RemoteHandler()), // Get a collection of Keys
       getkey (false,new TaskGetKey .RemoteHandler()), // Get a Value for 1 Key
+      putkey (false,new TaskPutKey .RemoteHandler()), // Put a Value for 1 Key
       rexec  (false,new TaskRemExec.RemoteHandler()); // Remote execution request
 
     final UDP _udp;           // The Callable S.A.M. instance
@@ -59,21 +58,21 @@ public abstract class UDP {
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
   static final char[] cs = new char[32];
   static char hex(long x) { x &= 0xf; return (char)(x+((x<10)?'0':('a'-10))); }
-  public String print16( long lo, long hi ) {
-    for( int i=0; i<8; i++ ) {
-      cs[(i<<1)+0   ] = hex((lo>>(i<<3))>>4);
-      cs[(i<<1)+1   ] = hex((lo>>(i<<3))   );
-    }
-    for( int i=0; i<8; i++ ) {
-      cs[(i<<1)+0+16] = hex((hi>>(i<<3))>>4);
-      cs[(i<<1)+1+16] = hex((hi>>(i<<3))   );
+  public String print16( byte[] buf ) {
+    for( int i=0; i<16; i++ ) {
+      byte b = buf[i];
+      cs[(i<<1)+0   ] = hex(b>>4);
+      cs[(i<<1)+1   ] = hex(b   );
     }
     return new String(cs);
   }
 
   // Dispatch on the enum opcode and return a pretty string
+  static private final byte[] pbuf = new byte[16];
   static public String printx16( long lo, long hi ) {
-    return udp.UDPS[(int)(lo&0xFF)]._udp.print16(lo,hi);
+    set8_raw(pbuf,0,lo);
+    set8_raw(pbuf,8,hi);
+    return udp.UDPS[(int)(lo&0xFF)]._udp.print16(pbuf);
   }
 
   // Set/get the 1st control byte
@@ -81,25 +80,34 @@ public abstract class UDP {
   public static void set_ctrl( byte[] buf, int c ) { buf[0] = (byte)c; }
   // Set/get the port in next 2 bytes
   public static int  get_port( byte[] buf ) { return (buf[1]&0xff) + ((buf[2]&0xff)<<8); }
-  public static void set_port( byte[] buf, int port ) { 
-    buf[1] = (byte)port; buf[2] = (byte)(port>>8); }
+  public static void set_port( byte[] buf, int port ) {
+    assert // Assert buffer is clean (0), or from the Pool (0xab) or is recycled w/same port
+      (buf[1]==0xab||buf[1]==0||buf[1]==(byte)port) &&
+      (buf[2]==0xab||buf[2]==0||buf[2]==(byte)(port>>8));
+    buf[1] = (byte)port; buf[2] = (byte)(port>>8);
+  }
+  public static final int SZ_PORT = 1+2; // Offset past the control & port bytes
+  // Set/get the task# in the next 4 bytes
+  public static int  get_task( byte[] buf ) { return get4(buf,SZ_PORT); }
+  public static void set_task( byte[] buf, int t ) { set4(buf,SZ_PORT,t); }
+  public static final int SZ_TASK = SZ_PORT+4; // Offset past the control & port & task bytes
 
   // Generic set/get
   public static int set2( byte[] buf, int off, int x ) {
-    assert off >= 3;            // All packets have a control byte & port#
+    assert off >= SZ_PORT;      // All packets have a control byte & port#
     for( int i=0; i<2; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 2;
   }
   public static int get2( byte[] buf, int off ) {
-    assert off >= 3;            // All packets have a control byte & port#
+    assert off >= SZ_PORT;      // All packets have a control byte & port#
     int sum=0;
     for( int i=0; i<2; i++ )
       sum |= (0xff&buf[off+i])<<(i<<3);
     return sum;
   }
   public static int set4( byte[] buf, int off, int x ) {
-    assert off >= 3;            // All packets have a control byte & port#
+    assert off >= SZ_PORT;      // All packets have a control byte & port#
     return set4_raw(buf,off,x);
   }
   public static int set4_raw( byte[] buf, int off, int x ) {
@@ -108,7 +116,7 @@ public abstract class UDP {
     return 4;
   }
   public static int get4( byte[] buf, int off ) {
-    assert off >= 3;            // All packets have a control byte & port#
+    assert off >= SZ_PORT;      // All packets have a control byte & port#
     return get4_raw(buf,off);
   }
   public static int get4_raw( byte[] buf, int off ) {
@@ -119,13 +127,16 @@ public abstract class UDP {
   }
 
   public static int set8( byte[] buf, int off, long x ) {
-    assert off >= 3;            // All packets have a control byte & port#
+    assert off >= SZ_PORT;      // All packets have a control byte & port#
+    return set8_raw(buf,off,x);
+  }
+  public static int set8_raw( byte[] buf, int off, long x ) {
     for( int i=0; i<8; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 8;
   }
   public static long get8( byte[] buf, int off ) {
-    assert off >= 3;            // All packets have a control byte & port#
+    assert off >= SZ_PORT;      // All packets have a control byte & port#
     return get8_raw(buf,off);
   }
   public static long get8_raw( byte[] buf, int off ) {

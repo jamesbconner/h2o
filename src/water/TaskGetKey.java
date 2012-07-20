@@ -39,7 +39,7 @@ public class TaskGetKey extends DFutureTask<Value> {
   // Pack key+len into the outgoing UDP packet
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    int off = 5;
+    int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
     off += UDP.set4(buf,off,_len);
     off = _key.write(buf,off);
     return off;
@@ -52,8 +52,8 @@ public class TaskGetKey extends DFutureTask<Value> {
     void call(DatagramPacket p, H2ONode h2o) {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
-      int off = 5;              // Skip udp byte and task#
-      int len = get4(buf,5);
+      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
+      int len = get4(buf,off);
       off += 4;
       // Get a local Key
       Key key = Key.read(buf,off);
@@ -61,21 +61,22 @@ public class TaskGetKey extends DFutureTask<Value> {
 
       // Smack the result into a UDP packet
       // Missed Key sends back a length==-3
-      off = 5;                  // Skip udp byte and task#
-      if( val == null ) {       // Missed!  No Key
-        buf[off++] = 0;         // Value-type == 0
-        buf[off++] = 0;         // persistence
+      off = UDP.SZ_TASK;         // Skip udp byte and port and task#
+      if( val == null ) {        // Missed!  No Key
+        buf[off++] = 0;          // Value-type == 0
+        buf[off++] = 0;          // persistence
         off += set4(buf,off,-3); // Value-len == -3
       } else {
+        System.out.println("home must record remote caching, non-home assert if sending to other non-home");
         if( len > val._max ) len = val._max; // Limit return bytes to _max
         if (val._max <0) len = 0; // this is important for sentinels
-        if( off+val.wire_len(len,h2o) <= MultiCast.MTU ) { // Small Value!
-          off = val.write(buf,off,len,h2o); // Just jam into reply packet
+        if( off+val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
+          off = val.write(buf,off,len); // Just jam into reply packet
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
           if( !tcp_send(h2o,key,val,len,get4(buf,1)) )
             return; // If the TCP failed... then so do we; no result; caller will retry
-          off = val.write(buf,off,-2/*tha Big Value cookie*/,h2o); // Just jam into reply packet
+          off = val.write(buf,off,-2/*tha Big Value cookie*/); // Just jam into reply packet
         }
       }
 
@@ -95,7 +96,7 @@ public class TaskGetKey extends DFutureTask<Value> {
         dos.writeInt(tnum);
         key.write(dos);
         // Start the (large) write
-        val.write(dos,len,h2o);
+        val.write(dos,len);
         dos.flush(); // Flush before trying to get the ack
         InputStream is = sock.getInputStream();
         int ack = is.read(); // Read 1 byte of ack
@@ -130,7 +131,7 @@ public class TaskGetKey extends DFutureTask<Value> {
       if( tgk == null ) return;
       assert tgk._key.equals(key);
       // Big Read of Big Value
-      Value val = Value.read(dis,key,h2o);
+      Value val = Value.read(dis,key);
       // Single TCP reader thread, so _tcp_val is set single-threadedly
       tgk._tcp_val = val;
       // Here we have the Value, and we're on the correct Node but wrong
@@ -143,38 +144,34 @@ public class TaskGetKey extends DFutureTask<Value> {
     }
 
     // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-    private static final byte [] keyname = new byte[4];
-    public String print16( long lo, long hi ) {
-      int udp     = (int)(lo&0xFF)        ; lo>>>= 8;
-      int tasknum = (int)lo               ; lo>>>=32;
-      int vlen = (int)(lo|((hi&0xFF)<<24)); hi>>>= 8;
-      byte rf     = (byte)(hi&0xFF)       ; hi>>>= 8;
-      short klen  = (short)(hi&0xFFFF)    ; hi>>>=16;
-      set2(keyname,0,(int)hi);
-      return "task# "+tasknum+" len="+((vlen==Integer.MAX_VALUE)?"all":String.valueOf(vlen))+" key["+klen+"]="+new String(keyname);
+    public String print16( byte[] buf ) {
+      int udp     = get_ctrl(buf);
+      int port    = get_port(buf);
+      int tasknum = get_task(buf);
+      int off     = UDP.SZ_TASK;           // Skip udp byte and port and task#
+      int vlen    = get4(buf,off); off+=4; // 11
+      byte rf     = buf[off++];            // 12
+      int klen    = get2(buf,off); off+=2; // 14
+      return "task# "+tasknum+" len="+((vlen==Integer.MAX_VALUE)?"all":String.valueOf(vlen))+" key["+klen+"]="+new String(buf,14,2);
     }
   }
 
   // Unpack the answer
   protected Value unpack( DatagramPacket p ) {
     try {
-      // First 5 bytes have UDP type# and task#.
+      // First SZ_TASK bytes have UDP type# and port and task#.
       byte[] buf = p.getData();
-      int len = UDP.get4(buf,5+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
+      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
+      int len = UDP.get4(buf,off+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
       if( len == -3 ) return null;   // Remote-miss
 
-      Value val = (len == /*Big Value cookie*/-2) ? _tcp_val : Value.read(buf,5,_key,_target);
-      // make sure that val is not marked as persisted or in progress - keep DO_NOT_PERSIST and CACHE values
-      if ((val.persistenceState()==Value.IN_PROGRESS) || (val.persistenceState()==Value.PERSISTED))
-        val.setPersistenceState(Value.NOT_STARTED);
-      Value old = H2O.get(_key);
-      // If we have this exact *Value* (not Key) already and are just extending
-      // it... then just extend in place.
-      if( old != null && old.same_clock(val) )
-        return old.extend(val);
-      // Not same value: need to officially put_if_later, in case of racing other updates
-      Value res = H2O.put_if_later(_key,val);
-      if( res != old ) throw new Error("unimplemented, fling out invalidates");
+      Value val = (len == /*Big Value cookie*/-2) ? _tcp_val : Value.read(buf,off,_key);
+      // Need to officially put_if_later, in case of racing other updates
+      Value old = H2O.STORE.get(_key);
+      H2O.putIfMatch(_key,val,old);
+      // If we succeeded, return Value.  If we failed, it means a racing write
+      // superceded our write... but we can still return our write.  It is "as
+      // if" we get in just prior to the racing other write.
       return val;
     } finally {
       // Cleanup the dup-TaskGetKey-removal.  The next TGK to the same target &

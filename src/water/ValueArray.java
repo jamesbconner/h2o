@@ -44,22 +44,18 @@ public class ValueArray extends Value {
     initialize(sz,null);
   }
   
-  public ValueArray(Key key, long sz, VectorClock vc, long vcl, byte[] uid) {
-    super(2+8+uid.length,2+8+uid.length,vc,vcl,key,NOT_STARTED);
+  public ValueArray(Key key, long sz, byte[] uid) {
+    super(2+8+uid.length,2+8+uid.length,key,NOT_STARTED);
     initialize(sz,uid);
   }
   
-  public ValueArray( int max, int len, VectorClock vc, long vcl, Key key, int mode ) {
-    super(max,len,vc,vcl,key,mode);
+  public ValueArray( int max, int len, Key key, int mode ) {
+    super(max,len,key,mode);
   }
-  static ValueArray make_wire(int max, int len, VectorClock vc, long vcl, Key key ) {
-    return new ValueArray(max,len,vc,vcl,key,NOT_STARTED);
+  static ValueArray make_wire(int max, int len, Key key ) {
+    return new ValueArray(max,len,key,NOT_STARTED);
   }
   
-/*  @Override public Value create(int max, int len, VectorClock vc, long vcl, Key key, int state) {
-    return new ValueArray(max,len,vc,vcl,key,state);
-  } */
-
   @Override public long length() { return UDP.get8(get(),2); }
 
   @Override public byte type() { return 'A'; }
@@ -96,11 +92,9 @@ public class ValueArray extends Value {
   
   public void makeChunks() {
     Persistence p = persistenceBackend();
-    long sz = length();
     for (int i = 0; i<chunks(); ++i) {
       Key k = chunk_get(i);
-      H2O.put_if_later(k,p.getSentinel((short)0, (byte)'I'));
-      sz -= chunk_size();
+      DKV.put(k,p.getSentinel((short)0, (byte)'I'));
     }
   }
   
@@ -110,10 +104,8 @@ public class ValueArray extends Value {
       DKV.remove(k);
     }
   }
-  
-  
-  
-  
+
+
   static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
     // Main Key
     Key key = Key.make(keyname,rf);

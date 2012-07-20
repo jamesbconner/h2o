@@ -126,8 +126,8 @@ public class Value {
    * @param key
    * @return 
    */
-  static Value make_wire(int max, int len, VectorClock vc, long vcl, Key key ) {
-    return new Value(max,len,vc,vcl,key,NOT_STARTED);
+  static Value make_wire(int max, int len, Key key ) {
+    return new Value(max,len,key,NOT_STARTED);
   }
   
   /// Loads the value with itself as being the sentinel.
@@ -212,9 +212,6 @@ public class Value {
 
   // The FAST path get-byte-array - final method for speed
   public final byte[] get( int len ) {
-    if (persistenceState() == PERSISTED) {
-      H2O.mark_dirty();
-    }
     if( len > _max ) len = _max;
     if( _mem != null && len <= _mem.length ) return _mem;
     if( _max == 0 ) return _mem;
@@ -282,24 +279,12 @@ public class Value {
   
   // Makes a "deleted" Value of the correct persistence type.  When this Value
   // is persisted, it removes any trace from the persistence layer (e.g. disk).
-  // The Value has a VectorClock to order the delete operation relative to
-  // other racing put operations.
-  //
+  // Its persistence state is changed to DELETE_PENDING, all of its data is
+  // freed
   // @param key
-  // @return a "deleted" Value.
- // abstract protected Value make_deleted(Key k, VectorClock vc, long weak);
-
-  /** Marks the current value as a deleted one. 
-   * 
-   * Its persistence state is changed to DELETE_PENDING, all of its data is
-   * freed and its vector clocks 
-   * y
-   * @param vc
-   * @param weak 
-   */
-  public Value makeDeleted(Key key, VectorClock vc, long weak) {
+  public Value makeDeleted(Key key) {
     Persistence p = persistenceBackend();
-    return ValueDeleted.create(p.sentinelData(key,this),vc,weak,key,persistenceBackend(),type());
+    return ValueDeleted.create(p.sentinelData(key,this),key,persistenceBackend(),type());
   }
   
   // time of last access to this value 
@@ -373,81 +358,28 @@ public class Value {
   protected boolean is_local_persist() { return is_local_persist(null); }
   
   // --------------------------------------------------------------------------
-  // Vector Clocks!  VCs are used to order updates to the *same* Key with
-  // different Values, and to order updates to unrelated Keys.  Typically all
-  // updates are weak-updates with a corresponding "weak" Vector Clock.
-  protected long _vcl;            // Fast short "weak clock" form
-  protected VectorClock _vc;      // Typically NULL
-
-  public long vcl() { return _vcl; }
-  public VectorClock vc() { return _vc; }
-
-  // Initialize a weak-ordering vector clock.  This is expected to be the
-  // common case and needs to be memory efficient.
-  public void init_weak_vector_clock( VectorClock vc ) {
-    assert _vc == null;
-    assert _vcl == 0; // This is a known fresh Value
-    _vcl = vc.weak_long();
-    _vc  = vc.weak_vc();
-  }
-
-  // Test if this Value is out-of-order with the current clock
-  public boolean happens_before( VectorClock vc ) {
-    return _vc.happens_before(_vcl,vc,0);
-  }
-  // Test if this Value is out-of-order with the given Value
+  // Test if this Value is out-of-order with the given Value.  Only useful if a
+  // Value is updated.  If these are all local writes, then the local Node
+  // defines the ordering.  If these are remote writes, then TaskGetKeys are
+  // used to prevent a late-arriving 1st TGK from overwriting a quick-arriving
+  // 2nd TGK (from the same remote writer).  If we have racing unrelated remote
+  // writers, then always the most recent arriving write wins.
   public boolean happens_before( Value val ) {
-    return _vc.happens_before(_vcl,val._vc,val._vcl);
+    throw new Error("unimplemented");
   }
-  // Line-wire VectorClock test
-  public boolean happens_before( byte[] buf, int off ) {
-    return _vc.happens_before(_vcl,buf,off);
-  }
-  public boolean same_clock( Value val ) {
-    boolean res = _vc.same_clock(_vcl,val._vc,val._vcl);
-    assert !res || equals_val(val) || val.is_sentinel() || is_sentinel(); // If clocks match, the Values are supposed to be the same Value! clocks do not need to match for sentinels 
-    return res;
-  }
-  public boolean same_clock( byte[] buf, int off ) {
-    return _vc.same_clock(_vcl,buf,off);
-  }
-
-  // Dense line-wire UDP format of just the vector clock
-  public int write_vc( byte[] buf, int off, H2ONode h2o ) {
-    return _vc.write(_vcl,buf,off,h2o);
-  }
-
-  // Update the max-visible clock number
-  public void apply_max_vector_clock() { _vc.apply_max_vector_clock(_vcl); }
-
-  // Any Value tagged with a clock from this Node need to be set to "as if"
-  // those writes came from him at time 0 - he's resetting his clock, and
-  // these writes already came before his next update.
-  public void reset_vc( H2ONode h2o ) {
-    _vcl = _vc.reset_weak(h2o,_vcl);
-    _vc  = _vc.reset     (h2o);
-  }
-
-  // Pretty string for printing
-  public String vector_clock_string() {
-    return _vc.toString(_vcl);
-  }
-
 
   // --------------------------------------------------------------------------
   // Set just the initial fields
-  public Value(int max, int length, VectorClock vc, long vcl, Key k, int mode) {
+  public Value(int max, int length, Key k, int mode) {
     if( length > 0 )
       _mem = MemoryManager.allocateMemory(length);
     _max = max;
-    _vcl = vcl;
-    _vc  = vc ;
     _key = k;
     _persistenceInfo = (byte)mode; // default persistence and mode
   }
   
   public Value(Key key, int max) {
-    this(max,max,null,0,key,NOT_STARTED);
+    this(max,max,key,NOT_STARTED);
   }
 
   public Value( Key key, String s ) { 
@@ -468,7 +400,6 @@ public class Value {
   // this reports 'true'.  However, if it reports 'false' then the Values
   // definitely different.
   boolean equals_val( Value val ) {
-    if( !_vc.same_clock(_vcl,val._vc,val._vcl) ) return false;
     if( _max != val._max ) return false;
     if( !is_same_key(val) ) return false;
     // If we have any cached bits, they need to be equal.
@@ -479,21 +410,19 @@ public class Value {
   }
 
   // --------------------------------------------------------------------------
-  // Serialized format length 1+4+4+len+vectorclk bytes
-  final int wire_len(int len, H2ONode h2o) {
-    // add one byte for the value persistency's type
-    return 1+4+4+1+(len>0?len:0)+_vc.wire_len(_vcl,h2o);
+  // Serialized format length 1+1+4+4+len bytes
+  final int wire_len(int len) {
+    return 1/*value-type*/+1/*persist info*/+4/*len*/+4/*max*/+(len>0?len:0);
   }
 
   // Write up to len bytes to the packet
-  final int write( byte[] buf, int off, int len, H2ONode h2o ) {
+  final int write( byte[] buf, int off, int len ) {
     assert (len <= _max) || (_max<0);
     buf[off++] = type();        // Value type
     buf[off++] = _persistenceInfo;
     off += UDP.set4(buf,off,len);
     off += UDP.set4(buf,off,_max);
-    off = _vc.write(_vcl,buf,off,h2o);
-    if(len > 0 ) { // Deleted keys have -1 len/max
+    if(len > 0 ) {              // Deleted keys have -1 len/max
       get(len);                 // Force in-memory from disk
       System.arraycopy(_mem,0,buf,off,len);
       off += len;
@@ -503,34 +432,33 @@ public class Value {
   } 
 
   // Write up to len bytes of Value to the Stream
-  final void write( DataOutputStream dos, int len, H2ONode h2o ) throws IOException {
+  final void write( DataOutputStream dos, int len ) throws IOException {
     if( len > _max ) len = _max;
     dos.writeByte(type());      // Value type
     dos.writeByte(_persistenceInfo);      // Value type
     dos.writeInt(len);
     dos.writeInt(_max);
-    _vc.write(_vcl,dos,h2o);
     if( len > 0 ) {             // Deleted keys have -1 len/max
       get(len);                 // Force in-memory from disk
       dos.write(_mem,0,len);    // Sub-class specific data
     }
   }
 
-  static Value construct(int max, int len, VectorClock vc, long vcl, Key key, byte p, byte type) {
+  static Value construct(int max, int len, Key key, byte p, byte type) {
     Value result = null;
     if (max<0) {
       assert (len == 0);
       if ((max & ValueDeleted.MAX_MASK) == ValueDeleted.MAX_MASK)
-        result = new ValueDeleted(max,len,vc,vcl,key,persistenceState(p));
+        result = new ValueDeleted(max,len,key,persistenceState(p));
       else if ((max & ValueSentinel.MAX_MASK) == ValueSentinel.MAX_MASK)
-        result = new ValueSentinel(max,len,vc,vcl,key,persistenceState(p));
+        result = new ValueSentinel(max,len,key,persistenceState(p));
       else
         throw new Error("Unable to construct value with negative max ("+max+") that does not correspond to any sentinel type (key "+key.toString()+")");
     } else {
       switch (type) {
-      case 'A': result = ValueArray.make_wire(max,len,vc,vcl,key); break;
-      case 'C': result = ValueCode .make_wire(max,len,vc,vcl,key); break;
-      case 'I': result = Value     .make_wire(max,len,vc,vcl,key); break;
+      case 'A': result = ValueArray.make_wire(max,len,key); break;
+      case 'C': result = ValueCode .make_wire(max,len,key); break;
+      case 'I': result = Value     .make_wire(max,len,key); break;
       default:
         throw new Error("Unable to construct value of type "+(char)(type)+"(0x"+Integer.toHexString(0xff & type)+" (key "+key.toString()+")");
       }
@@ -540,39 +468,32 @@ public class Value {
   }
   
   // Read 4+4+len+vc value bytes from the the UDP packet and into a new Value.
-  static Value read( byte[] buf, int off, Key key, H2ONode h2o ) {
+  static Value read( byte[] buf, int off, Key key ) {
     byte type = buf[off++];
     byte p = buf[off++];
     int len = UDP.get4(buf,off); off += 4;
     int max = UDP.get4(buf,off); off += 4;
-    long weakvc = VectorClock.read8(buf,off);
-    VectorClock vc = VectorClock.read(weakvc,buf,off,h2o);
-    off += vc.wire_len(weakvc,h2o);
-    
-    Value val = construct(max,len,vc,weakvc,key,p,type);
+    System.out.println("val read of "+len+"/"+max);
+    Value val = construct(max,len,key,p,type);
     byte [] mem = val.mem();
     System.arraycopy(buf,off,mem,0,len);
     return val;
   }
-  static Value read( DataInputStream dis, Key key, H2ONode h2o ) throws IOException {
+  static Value read( DataInputStream dis, Key key ) throws IOException {
     byte type = dis.readByte();
     byte p = dis.readByte();
     int len = dis.readInt();
     int max = dis.readInt();
-    long weakvc = VectorClock.read8(dis);
-    VectorClock vc = VectorClock.read(weakvc,dis,h2o);
-    Value val = construct(max,len,vc,weakvc,key,p,type);
+    Value val = construct(max,len,key,p,type);
     val._persistenceInfo = p;
     if( len > 0 )
       dis.readFully(val.mem());
     return val;
   }
 
-  private boolean _extended = false;
   // This can only *extend* a Value, and is used when we have partially cached
   // Value and are caching more of it.
   Value extend( Value val ) {
-    assert same_clock(val);
     assert _max==val._max;
     if( is_deleted() ) return this; // deleted-key is already loaded
     byte[] mem = _mem;
@@ -581,10 +502,8 @@ public class Value {
       assert equal_buf_chk(val._mem,0,mem,0,Math.min(val._mem.length,oldlen));
       if( val._mem.length <= oldlen ) return this; // Already loaded elsewhere
       // Attempt atomic update of _mem
-      if( CAS_mem(mem,val._mem) ) {
-        _extended = true;
+      if( CAS_mem(mem,val._mem) )
         return this;
-      }
       mem = _mem;
     }
   }
@@ -629,7 +548,7 @@ public class Value {
     }    
   }
   
-  public long length() { return _max; }  
+  public long length() { return _max<0?0:_max; }
 }
 
 

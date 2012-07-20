@@ -22,14 +22,18 @@ public class UDPPaxosProposal extends UDP {
   static final byte[] PROPOSAL_BUF = new byte[16];
   static void build_and_multicast( final long proposal_num ) {
     set_ctrl(PROPOSAL_BUF,UDP.udp.paxos_proposal.ordinal());
-    set8(PROPOSAL_BUF,3,proposal_num);
+    set8(PROPOSAL_BUF,SZ_PORT,proposal_num);
     MultiCast.multicast(PROPOSAL_BUF);
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-  public String print16( long lo, long hi ) {
-    long pnum = (lo>>>8) | ((hi&0xFF)<<56);
-    return "p#"+Long.toHexString(pnum);
+  public String print16( byte[] buf ) {
+    int udp     = get_ctrl(buf);
+    int port    = get_port(buf);
+    int off     = SZ_PORT;
+    long promise= get8(buf,off); off += 8;
+    int old_pro = get4(buf,off); off += 4;
+    return "old proposal="+old_pro+" old promise="+promise;
   }
 }
 

@@ -59,6 +59,7 @@ public class Remote extends H2OPage {
       row.replace("key",key.toString());
       row.replace("value",val.getString(100));
       row.append();
+      alt++;
     }
     response.replace("noOfKeys",alt);
     return response.toString();

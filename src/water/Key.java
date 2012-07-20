@@ -332,13 +332,13 @@ public final class Key implements Comparable {
   // non-blocking invalidate (but returns the task to block for it).
   void invalidate_mem_caches() {
     long d = _mem_replicas;
+    assert d == 0 || home();    // Only home node tracks mem replicas
     while( d != 0 ) {
       int idx = (int)(d&0xff);
       d >>= 8;
       H2ONode h2o = H2ONode.IDX.get(idx);
-      if( h2o != H2O.SELF ) {
-        throw new Error("unimplemented: invalidating "+h2o+" for key="+this);
-      }
+      assert h2o != H2O.SELF;   // No point in tracking self
+      throw new Error("unimplemented: invalidating "+h2o+" for key="+this);
     }
   }
 
@@ -353,35 +353,6 @@ public final class Key implements Comparable {
       set_disk_replica(H2O.SELF);// Was persisted already
   }
 
-
-  // Issue any desired HazKeys packets if we do not understand that this Value
-  // is fully replicated.  Return FALSE if we are a replica, and the value is
-  // not believed to be fully replicated (hence driving the repair to try
-  // again).  Return TRUE if we are a caching copy (hence do not care to
-  // maintain the replication factor), or if replication is achieved.
-  boolean repair( H2O cloud, byte [] buf, Value val ) {
-    if( !val.is_local_persist()) return false; // Only bother if it's on-disk for me
-    if( !is_disk_replica(H2O.SELF) ) // We got it known local?  This is racily cleared
-      set_disk_replica(H2O.SELF); // Racily set
-    int d = desired();            // Get desired replication count
-    boolean repl_achieved = true;
-    for( int i=0; i<d; i++ ) {    // For all replicas...
-      int idx = cloud.D(this,i);
-      if( idx == -1 ) break;      // Happens if too few Nodes in Cloud to replicate
-      H2ONode h2o = cloud._memary[idx];
-      if( !is_disk_replica(h2o) ) { // We do not know if this guy has key?
-        if( h2o == H2O.SELF ) {
-          assert val.is_local_persist();
-          set_disk_replica(H2O.SELF); // Racily set
-          continue;
-        }
-        repl_achieved = false;      // Oops, missing some
-        // Tell this guy we have a Key for him to replicate
-        UDPHazKeys.build_and_send(h2o,buf,this,val);
-      }
-    }
-    return repl_achieved;
-  }
 
   // --------------------------------------------------------------------------
   // Read/Write keys in UDP packets

@@ -100,7 +100,6 @@ public final class H2O {
       H2O cloud = CLOUD = new H2O(id,members,idx);
       CLOUDS[idx] = cloud;   // Also remember here
     }
-    mark_dirty();               // Trigger a round of replication-cleaning
     Paxos.print("Announcing new Cloud Membership: ",members,"");
   }
 
@@ -147,21 +146,11 @@ public final class H2O {
   // Dummy shared volatile for ordering games
   static public volatile int VOLATILE;
 
-  // Put-if-later.
-  // - Will invoke tie-breaking logic if the vector-clocks are not comparable.
-  // - Returns NULL if the existing Value has a newer VectorClock vs the
-  // attempted put Value, and does not change the STORE.
-  // - Returns the old value on success, also bumping the local Clock and
-  // kicking the persistence engine.  Returns the old value if the old value is
-  // semantically the same Value... without changing the vector clock.
-  // - Weak puts from the SAME Node but different threads can have a narrow
-  // race where they submit unrelated Values to the same Key with equal
-  // VectorClocks; normally writes to the same Key will never have equal VCs.
-  // In this case I act "as if" the new write "succeeded but was overwritten"
-  // by the existing Value.
-  //
-  // If the old value is loaded and the new value is not, then the old value is
-  // always kept. 
+  // PutIfMatch
+  // - Atomically update the STORE, returning the old Value on success
+  // - Kick the persistence engine as needed
+  // - Kick HazKeys to Key Home as needed
+  // - Return existing Value on fail, no change.
   //
   // Keys are interned here: I always keep the existing Key, if any.  The
   // existing Key is blind jammed into the Value prior to atomically inserting
@@ -179,61 +168,40 @@ public final class H2O {
   // the Key will be set in the wrong Key copy... leading to extra rounds of
   // replication.
 
-  public static final Value put_if_later( Key key, Value val ) {
-    while( true ) {
-      Value old = STORE.get(key);
-      if( old != null ) {            // Have an old value at all?
-        // if the old value is loaded and the new value is just a sentinel, keep
-        // the old value always. 
-        if( old == val ) return old; // Trivial success, perhaps dup UDP packets
-        // Less trivial equality check; remove dup write attempts for the same Value
-        if( old.same_clock(val) ) {
-          // We can only get the SAME clock from racing unrelated writes on the
-          // same Node, or if we're handed the same clock twice from e.g. dup UDP
-          // packets writes.
-          return ((old.mem() == val.mem()) || Arrays.equals(old.mem(),val.mem()))
-            ? old          // Trivial success: dup write attempt of equal Value
-            : val;         // Fail: racing unrelated weak-writes from same Node
-        }
-        if( val.happens_before(old) ) return null; // Existing is strictly newer
-        if( !old.happens_before(val) ) {
-          System.out.println("old vc="+old.vector_clock_string());
-          System.out.println("new vc="+val.vector_clock_string());
-          throw new Error("unimplemented: tie-breaker node needs to break this tie");
-        }
-      }
+  public static final Value putIfMatch( Key key, Value val, Value old ) {
+    if( old == val ) return old; // Trivial success?
+    if( old != null ) {
+      if( old.mem()==val.mem() ) return old;
+      if( Arrays.equals(old.mem(),val.mem()) ) return old; // Less trivial success
       // Interning: use the same One True Key found in the STORE.
-      Key key2 = STORE.getk(key);
+      Key key2 = old._key;
       if( key2 != null ) key = key2; // Use the existing Key, if any
-      if (!val.is_sentinel())
+      if( !val.is_sentinel() )
         val._key = key;         // Ignore users key, use the interned key
-      // Insert into the K/V store
-      Value res = STORE.putIfMatchUnlocked(key,val,old);
-      if( res == old ) {               // Success?
-        if (!val.is_sentinel()) {
-          assert (val._key == key);        // These match on success
-          val.apply_max_vector_clock();  // Changed the STORE, so take max VC
-          SELF._clock.getAndIncrement(); // Changed the STORE, so bump clock
-        }
-        key.invalidate_mem_caches();
-        key.set_mem_replica(SELF); // RAM copy is here
-        // initiate local persisting
-        key.clr_disk_replicas(); // Not cached any disk
-        key.is_local_persist(val,res); // Start persisting
-        mark_dirty();            // Start the K/V repair sweeper
-   
-        return res;              // Return success
-      }
-      // Racing updates, just try again
     }
+
+    // Insert into the K/V store
+    Value res = STORE.putIfMatchUnlocked(key,val,old);
+    assert res==null || res._key == key || val.is_sentinel(); // Keys matched
+    if( res != old )            // Failed?
+      return res;
+    // Home node needs to invalidate any remote caches
+    key.invalidate_mem_caches();
+    // initiate local persisting
+    key.clr_disk_replicas(); // Not cached any disk
+    // make sure that val is not marked as persisted or in progress - keep DO_NOT_PERSIST and CACHE values
+    if ((val.persistenceState()==Value.IN_PROGRESS) || (val.persistenceState()==Value.PERSISTED))
+      val.setPersistenceState(Value.NOT_STARTED);
+    key.is_local_persist(val,res); // Start persisting
+    return res;              // Return success
   }
-  // Raw put; no bumping of vector clock or marking the memory as out-of-sync
-  // with disk.  Used to import initial keys from local storage, or to intern keys.
+
+  // Raw put; no marking the memory as out-of-sync with disk.  Used to import
+  // initial keys from local storage, or to intern keys.
   public static final Value putIfAbsent_raw( Key key, Value val ) {
     assert val.is_same_key(key);
     Value res = STORE.putIfMatchUnlocked(key,val,null);
     assert res == null;
-    
     return res;
   }
 
@@ -242,18 +210,22 @@ public final class H2O {
   // return "deleted" Values.
   public static Value get( Key key ) {
     Value v = STORE.get(key);
-    if(v != null)
+    if( v == null ) return v;
+    if( v.is_deleted() ) return v;
+    if( !v.is_sentinel() ) {
       v.touch();
-    if( (v==null || v.is_deleted()) || !v.is_sentinel())
       return v;
+    }
+    // Unloaded sentinel - so "inflate" from disk
     Value vnew = v.load(key); // At least read size
     assert vnew.is_same_key(key);
     // Attempt to set it atomically in case of a racing put from another thread.
     return (STORE.putIfMatchUnlocked(key,vnew,v) == v)
       ? vnew                    // Success
-      // Retry after failed put; it should never again be the sentinel ON_LOCAL_DISK
+      // Retry after failed put; it should never again be the Sentinel
       : STORE.get(key);
   }
+
   public static Value raw_get( Key key ) { return STORE.get(key); }
   public static Key getk( Key key ) { return STORE.getk(key); }
   public static Set<Key> keySet( ) { return STORE.keySet(); }
@@ -357,13 +329,7 @@ public final class H2O {
     // Nodes.  There should be only 1 of these, and it never shuts down.
     new TCPReceiverThread().start();
 
-    // Start the Persistent meta-data cleaner thread, which updates the K/V
-    // mappings periodically to disk.  There should be only 1 of these, and it
-    // never shuts down.
-    new Cleaner().start();
-
     water.web.Server.start();
-    
   }
 
   /** Finalizes the node startup.
@@ -462,38 +428,4 @@ public final class H2O {
     PersistIce.initialize();
   }
 
-  // Cleaner API ---------------------------------------------------------------
-
-  static AtomicBoolean _dirty = new AtomicBoolean();
-
-  static void mark_dirty() {
-    if( !_dirty.get() ) // Read-before-write to help with cache issues
-      _dirty.set(true);
-  }
-
-  static final int MAX_REPLICATING_KEYS = 100;
-  // Make sure the remote replicas are up-to-date periodically.
-  public static class Cleaner extends Thread {
-
-    public void run() {
-      byte[] hazkeys_buffer = new byte[MultiCast.MTU];
-      // Once/sec, write out the top-level K/V... if dirty.
-      while( true ) {                
-        // Persist all values... which also persists all metadata needed to reload
-        H2O cloud = CLOUD;
-        long now = System.currentTimeMillis();
-        for( Key key : keySet() ) {
-          byte [] k = key._kb;
-          int keySize = (k != null)? k.length:0;
-          key.cloud_info(cloud); // Update all cloud caches
-          // fetch value withOUT loading it from disk
-          Value val = raw_get(key);
-          // Trigger any replication/repair action required
-          if( !key.repair(cloud, hazkeys_buffer, val) )
-            mark_dirty();       // Not yet all persisted
-        }
-        try { Thread.sleep(1000); } catch( InterruptedException e ) { }
-      }
-    }
-  }
 }

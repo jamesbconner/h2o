@@ -14,7 +14,7 @@ public class TaskGetKeys extends DFutureTask<Key[]> {
 
   // Asking to send a request for N keys... not the answer!
   // Finish building the outbound UDP packet and send it.
-  // First 5 bytes of UDP type & task num, then offset/length
+  // First SZ_TASK bytes of UDP type & port & task num, then offset/length
   public TaskGetKeys( H2ONode target, int skip, int len ) {
     super( target,UDP.udp.getkeys );
     _skip = skip;               // Set final fields
@@ -25,7 +25,7 @@ public class TaskGetKeys extends DFutureTask<Key[]> {
   // Pack off/len into the outgoing UDP packet
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    int off = 5;                // Skip udp & task#
+    int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
     UDP.set4(buf,off+0,_skip);
     UDP.set4(buf,off+4,_len );
     return off+4+4;
@@ -38,13 +38,14 @@ public class TaskGetKeys extends DFutureTask<Key[]> {
     void call(DatagramPacket p, H2ONode h2o) {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
-      int off = 5;                // Skip udp & task#
+      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       final int skip = get4(buf,off);
       final int len  = get4(buf,off+4);
 
-      // First 5 bytes have UDP type# and task#.  The number of responses I am
-      // returning in the next byte.  This limits me to 255 responses.
-      off = 6;
+      // First SZ_TASK bytes have UDP type# and port# and task#.  The number of
+      // responses I am returning in the next byte.  This limits me to 255
+      // responses.
+      off += 1;
       int num = 0;
       for( Key key : H2O.keySet() ) {
         if( num < skip ) continue; // Skip the first so many Keys
@@ -56,18 +57,20 @@ public class TaskGetKeys extends DFutureTask<Key[]> {
         num++;         // Wrote another key
         if( num >= skip+len ) break; // Have hit requested key count
       }
-      buf[5] = (byte)(num-skip); // Set number of keys returned
+      buf[SZ_TASK] = (byte)(num-skip); // Set number of keys returned
 
       // Send it back
       reply(p,off,h2o);
     }
 
     // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-    public String print16( long lo, long hi ) {
-      int udp     = (int)(lo&0xFF)        ; lo>>>= 8;
-      int tasknum = (int)lo               ; lo>>>=32;
-      int skip = (int)(lo|((hi&0xFF)<<24)); hi>>>= 8;
-      int len     = (int)hi               ; hi>>>=32;
+    public String print16( byte[] buf ) {
+      int udp     = get_ctrl(buf);
+      int port    = get_port(buf);
+      int tasknum = get_task(buf);
+      int off     = UDP.SZ_TASK;           // Skip udp byte and port and task#
+      int skip    = get4(buf,off); off+=4; // 11
+      int len     = get4(buf,off); off+=4; // 15
       return "task# "+tasknum+" skip "+skip+" keys, return next "+len+" keys";
     }
   }
@@ -75,11 +78,11 @@ public class TaskGetKeys extends DFutureTask<Key[]> {
   // Unpack the answer
   protected Key[] unpack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    // First 5 bytes have UDP type# and task#.  Result key count in the next
-    // byte.  Keys jammed in after that.
-    int numkeys = buf[5];
+    // First SZ_TASK bytes have UDP type# and port# and task#.  Result key
+    // count in the next byte.  Keys jammed in after that.
+    int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
+    int numkeys = buf[off++];
     Key[] keys = new Key[numkeys];
-    int off = 6;
     for( int i=0; i<numkeys; i++ ) {
       keys[i] = Key.read(buf,off);
       off += keys[i].wire_len();

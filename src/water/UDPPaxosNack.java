@@ -22,6 +22,12 @@ public class UDPPaxosNack extends UDP {
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-  // Since we are not recording the entire promise value, do not print it.
-  public String print16( long lo, long hi ) { return ""; }
+  public String print16( byte[] buf ) {
+    int udp     = get_ctrl(buf);
+    int port    = get_port(buf);
+    int off     = SZ_PORT;
+    long promise= get8(buf,off); off += 8;
+    int old_pro = get4(buf,off); off += 4;
+    return "old proposal="+old_pro+" old promise="+promise;
+  }
 }

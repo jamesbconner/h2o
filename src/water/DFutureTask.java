@@ -62,7 +62,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // 'Pack' a UDP packet, by default.  Override this if you want to use a more
   // clever encoding.  By default Serialize the 'args' array.
   protected int pack( DatagramPacket pack ) {
-    if( _args == null || _args.length == 0 ) return 5;
+    if( _args == null || _args.length == 0 ) return UDP.SZ_TASK;
     throw new Error("unimplemented: pack that UDP buffer from _args");
   }
 
@@ -104,8 +104,8 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     }
     // ACKACK the remote, telling him "we got the answer"
     byte[] buf = p.getData();
-    buf[0] = (byte)UDP.udp.ackack.ordinal();
-    MultiCast.singlecast(_target,buf,5);
+    UDP.set_ctrl(buf,UDP.udp.ackack.ordinal());
+    MultiCast.singlecast(_target,buf,UDP.SZ_TASK);
     UDPReceiverThread.free_pack(p);
     UDPTimeOutThread.PENDING.remove(this);
   }
@@ -153,23 +153,23 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   private void fire_and_forget() {
     DatagramPacket p = get_pack();
     int len = pack(p);          // Call users' arg-fill code
-    // Assert user did not crush the 1st 5 bytes
+    // Assert user did not crush the 1st SZ_TASK bytes
     byte[] buf = p.getData();
-    assert buf[0] == _type.ordinal();
-    assert UDP.get4(buf,1) == _tasknum;
+    assert UDP.get_ctrl(buf) == _type.ordinal();
+    assert UDP.get_task(buf) == _tasknum;
     // Targeted UDP packet delivery
     _target.send(p,len);
     // Done with packet
     UDPReceiverThread.free_pack(p);
   }
 
-  // Get a fresh UDP packet.  Pre-fill the 1st 5 bytes of UDP packet-type and
-  // task number.
+  // Get a fresh UDP packet.  Pre-fill the 1st SZ_TASK bytes of UDP packet-type
+  // and task number.
   protected final DatagramPacket get_pack() {
     DatagramPacket p = UDPReceiverThread.get_pack(); // Get a fresh empty packet
     final byte[] buf = p.getData();
-    buf[0] = (byte)_type.ordinal();
-    UDP.set4(buf,1,_tasknum);
+    UDP.set_ctrl(buf,_type.ordinal());
+    UDP.set_task(buf,_tasknum);
     return p;
   }
 
@@ -178,10 +178,10 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     byte[] buf = p.getData();
     H2O.VOLATILE = 0;           // Dummy volatile write
     // This is a response to a remote task-type.  The response task# is in bytes
-    // 1-4.  One-shot set the response to be a standard 'ack'.  Forever-more,
+    // 3-7.  One-shot set the response to be a standard 'ack'.  Forever-more,
     // this packet is the Answer to the original work request.  Volatile-write
     // between setting the ACK byte setting the rest of the answer packet.
-    buf[0] = (byte)UDP.udp.ack.ordinal();
+    UDP.set_ctrl(buf,UDP.udp.ack.ordinal());
     // Ship the reply to the original caller.
     if( h2o != null ) h2o.send(p,len);
   }

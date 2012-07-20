@@ -29,6 +29,5 @@ public class UDPHeartbeat extends UDP {
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-  public String print16( long lo, long hi ) { return ""; }
+  public String print16( byte[] buf ) { return ""; }
 }
-
