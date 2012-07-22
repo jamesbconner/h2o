@@ -171,8 +171,7 @@ public final class H2O {
   public static final Value putIfMatch( Key key, Value val, Value old ) {
     if( old == val ) return old; // Trivial success?
     if( old != null ) {
-      if( old.mem()==val.mem() ) return old;
-      if( Arrays.equals(old.mem(),val.mem()) ) return old; // Less trivial success
+      if( val.true_ifequals(old) ) return old;
       // Interning: use the same One True Key found in the STORE.
       Key key2 = old._key;
       if( key2 != null ) key = key2; // Use the existing Key, if any
@@ -184,13 +183,10 @@ public final class H2O {
     Value res = STORE.putIfMatchUnlocked(key,val,old);
     assert res==null || res._key == key || val.is_sentinel(); // Keys matched
     if( res != old )            // Failed?
-      return res;
-    // Home node needs to invalidate any remote caches
-    key.invalidate_mem_caches();
-    // initiate local persisting
-    key.clr_disk_replicas(); // Not cached any disk
-    // make sure that val is not marked as persisted or in progress - keep DO_NOT_PERSIST and CACHE values
-    if ((val.persistenceState()==Value.IN_PROGRESS) || (val.persistenceState()==Value.PERSISTED))
+      return res;               // Return the failure cause
+    // make sure that val is not marked as persisted or in progress - keep
+    // DO_NOT_PERSIST and CACHE values
+    if( (val.persistenceState()==Value.IN_PROGRESS) || (val.persistenceState()==Value.PERSISTED))
       val.setPersistenceState(Value.NOT_STARTED);
     key.is_local_persist(val,res); // Start persisting
     return res;              // Return success

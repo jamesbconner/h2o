@@ -112,18 +112,24 @@ public class DebugView extends H2OPage {
     row.replace("keyHref",urlEncode(new String(key._kb)));
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
     // Dump out the current replication info: Mem/Disk/Replication_desired
-    int d = key.count_disk_replicas();
     int r = key.desired();
-    if( d < r )
-      row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
-    row.replace("r1",d);
-    row.replace("r2",r);
+    int repl = key.replica(cloud);
+    if( repl < r ) { // If we should be replicating, then report what replication we know of
+      int d = key.count_disk_replicas();
+      if( val.is_persisted() ) d++; // One more for self
+      if( d < r )
+        row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
+      row.replace("r1",d);
+      row.replace("r2",r);
+    } else {                // Else not tracking replications, so cannot report
+      row.replace("r1","");
+      row.replace("r2","");
+    }
     row.replace("home",cloud._memary[key.home(cloud)]);
     // Dump out the 2nd replica
     int idx2 = cloud.D(key,1);
     if( idx2 != -1 )
       row.replace("home2",cloud._memary[idx2]);
-    int repl = key.replica(cloud);
     row.replace("replica",(repl==255?"":("r"+repl)));
     row.replace("class",val.getClass().getName());
     row.replace("max",val._max);
@@ -158,7 +164,6 @@ public class DebugView extends H2OPage {
           + "    <td>%home</td>"
           + "    <td>%home2</td>"
           + "    <td>%replica</td>"
-          + "    <td>%clock</td>"
           + "    <td>%class</td>"
           + "    <td>%max</td>"
           + "    <td>%in_mem</td>"
@@ -169,7 +174,4 @@ public class DebugView extends H2OPage {
           + "</tbody>"
           + "</table>\n"
           ;
-
-//  final static RString response = new RString(html);
-  
 }

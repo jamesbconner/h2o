@@ -15,55 +15,65 @@ public abstract class DKV {
   // update.  i.e., The User has initiated a change against the K/V store.
   // This is a WEAK update: it is not strongly ordered with other updates
   static public void put( Key key, Value val ) {
+    Value local;
+    assert val.is_same_key(key);
     while( true ) {
-      assert val.is_same_key(key);
-      Value old = get(key);
-      Value res = putIfMatch_and_replicate(key,val,old);
-      if( res == old ) {
-        if( old != null ) old.free_mem(); // Free the memory
-        return;
-      }
+      local = H2O.get(key);
+      Value res = DputIfMatch(key,val,local);
+      if( res == local ) break;
     }
+    if( local != null )         // Was there a local old?
+      local.free_mem();         // Free the memory
   }
   static protected Value put_return_old( Key key, Value val ) {
-    while( true ) {
-      assert val.is_same_key(key);
-      Value old = get(key);
-      Value res = putIfMatch_and_replicate(key,val,old);
-      // Caller must free the memory of the returned value
-      if( res == old ) return old;
-    }
+    throw new Error("unimplemented: need a TaskPutKey that returns old");
+    //assert val.is_same_key(key);
+    //while( true ) {
+    //  Value old = H2O.get(key);
+    //  Value res = DputIfMatch(key,val,old);
+    //  // Caller must free the memory of the returned value
+    //  if( res == old ) return old;
+    //}
   }
 
   // Remove this Key: really writes a new tombstone deleted Value
   static public void remove( Key key ) {
+    Value old;
     while( true ) {
-      Value old = get(key);
-      if( old == null ) return; // Trivial success
-      Value res = putIfMatch_and_replicate(key,old.makeDeleted(key),old);
-      if( res == old ) {        // Worked?
-        old.free_mem();         // Free the memory
-        return;
-      }
+      // need to fetch the remote old value, to make a correct deleted-value???
+      old = DKV.get(key);       // 
+      Value res = DputIfMatch(key,old.makeDeleted(key),old);
+      if( res == old ) break;
     }
+    if( old != null )           // Was there an old?
+      old.free_mem();           // Free the memory
   }
 
   // Do a PUT, and on success trigger replication.
-  static private Value putIfMatch_and_replicate( Key key, Value val, Value old ) {
+  static private Value DputIfMatch( Key key, Value val, Value old ) {
+    // Check for trivial success: no need to invalidate remotes if the new
+    // value equals the old.
+    if( old == val ) return old; // Trivial success?
+    if( old != null && val.true_ifequals(old) )
+      return old;               // Less trivial success, but no disk i/o
+    // Almost surely old is unequals val.  Time for a true update.
+
     // local update first, since this is a weak update
     Value res = H2O.putIfMatch(key,val,old);
     if( res != old )            // Failed?
       return res;               // Return fail value
 
-    H2O cloud = H2O.CLOUD;      // Cloud used for replication
-    for( int i=0; i<key.desired(); i++ ) {
-      int idx = cloud.D(key,i);
-      if( idx == -1 ) break; // Short count of replicas (cloud too small?)
-      H2ONode target = cloud._memary[idx];
-      if( target != H2O.SELF &&
-          !key.is_disk_replica(target) ) // Unless we know replica has a copy...
-        // Eagerly inform replica of an updated key, but do not block for it
-        new TaskPutKey(target,key,val);
+    // The 'D' part of DputIfMatch: do Distribution.
+    // If PUT is on non-HOME, replicate/push to HOME
+    // If PUT is on     HOME, invalidate remote caches
+    if( key.home() ) {          // On     HOME?
+      key.invalidate_remote_caches();
+    } else {                    // On non-HOME?
+      H2O cloud = H2O.CLOUD;
+      int home_idx = cloud.D(key,0);
+      H2ONode target = cloud._memary[home_idx];
+      // Start a write, but do not block for it
+      new TaskPutKey(target,key,val);
     }
 
     return old;                 // Return success value
@@ -90,18 +100,19 @@ public abstract class DKV {
       // inform the home-node that his copy has been Shared... in case it
       // changes and he needs to issue an invalidate.  For now, always and only
       // fetch from the Home node.
-      int idx = cloud.D(key,0); // Distribution function for home node
+      int home_idx = cloud.D(key,0); // Distribution function for home node
+      H2ONode home = cloud._memary[home_idx];
       
       // If we missed in the cache AND we are the home node, then there is 
       // no V for this K.
-      if( cloud._memary[idx] == H2O.SELF ) return null;
+      if( home == H2O.SELF ) return null;
 
-      TaskGetKey tgk = TaskGetKey.make( cloud._memary[idx], key, len );
+      TaskGetKey tgk = TaskGetKey.make( home, key, len );
       Value res = tgk.get();    // Block for it
       if( !tgk.isCancelled() )  // Task not canceled?
         return res;             // Then we got the desired result
       // Probably task canceled because the remote died; retry on new cloud
-      throw new Error("untested: Cloud changed during a remote Get");
+      throw new Error("untested: Cloud changed during a remote Get?");
     }
   }
   static public Value get( Key key ) { return get(key,Integer.MAX_VALUE); }

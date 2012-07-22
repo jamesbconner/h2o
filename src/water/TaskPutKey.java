@@ -15,7 +15,7 @@ import java.net.SocketException;
  * @version 1.0
  */
 
-public class TaskPutKey extends DFutureTask<Value> {
+public class TaskPutKey extends DFutureTask<Object> {
 
   final Key _key; // The LOCAL Key; presumably a bare Key no Value, and NOT interned
   final Value _val; // Value to be pushed
@@ -33,7 +33,7 @@ public class TaskPutKey extends DFutureTask<Value> {
   // Pack key+value into the outgoing UDP packet
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    int off = 1+2+4;          // Skip udp byte and port and task#
+    int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
     int len = _val._max < 0 ? 0 : _val._max;
     if( off+_key.wire_len()+_val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
       off = _key.write(buf,off);
@@ -51,15 +51,28 @@ public class TaskPutKey extends DFutureTask<Value> {
     void call(DatagramPacket p, H2ONode h2o) {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
-      int off = 1+2+4;          // Skip udp byte and port and task#
+      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       Key key = Key.read(buf,off);
+      assert key.home();        // Only PUT to home for keys
       off += key.wire_len();
       Value val = Value.read(buf,off,key);
-      System.out.println("TPK called with key "+key+" and now barfs");
-      throw new Error("unimplemented");
+      // We are about to update the local STORE for this key.
+      // All known replicas will become invalid... except the sender.
+      // Clear his replica-bits so we do not invalidate him.
+      key. clr_mem_replica(h2o);
+      key.clr_disk_replica(h2o);
+      // Home-node side PUT (which may require invalidates)
+      DKV.put(key,val);
+      // Now we assume the sender is still valid in ram.
+      key.set_mem_replica(h2o);
+      // There's a weird race where another thread is writing also, and we set
+      // blind-set the mem-replica field... preventing invalidates.  If we
+      // see a change, force an invalidate to 
+      if( !H2O.get(key).true_ifequals(val) )
+        key.invalidate(h2o);
 
       // Send it back
-      //reply(p,off,h2o);
+      reply(p,off,h2o);
     }
 
     // TCP large K/V send from the remote to the target
@@ -128,35 +141,16 @@ public class TaskPutKey extends DFutureTask<Value> {
       int udp     = get_ctrl(buf);
       int port    = get_port(buf);
       int tasknum = get_task(buf);
-      int off     = 1+2+4;
+      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       byte rf     = buf[off++];            //  8
       int klen    = get2(buf,off); off+=2; // 10
       return "task# "+tasknum+" key["+klen+"]="+new String(buf,10,Math.min(klen,6));
     }
   }
 
-  // Unpack the answer
+  // Unpack the answer: there is none!  There is a bulkier version which
+  // returns the old value.
   protected Value unpack( DatagramPacket p ) {
-    throw new Error("unimplemented");
-    //try {
-    //  // First 7 bytes have UDP type# and port and task#.
-    //  byte[] buf = p.getData();
-    //  int off = 1+2+4;          // Skip udp byte and port and task#
-    //  int len = UDP.get4(buf,off+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
-    //  if( len == -3 ) return null;   // Remote-miss
-    //
-    //  Value val = (len == /*Big Value cookie*/-2) ? _tcp_val : Value.read(buf,off,_key);
-    //  // Need to officially put_if_later, in case of racing other updates
-    //  Value old = H2O.STORE.get(_key);
-    //  H2O.putIfMatch(_key,val,old);
-    //  // If we succeeded, return Value.  If we failed, it means a racing write
-    //  // superceded our write... but we can still return our write.  It is "as
-    //  // if" we get in just prior to the racing other write.
-    //  return val;
-    //} finally {
-    //  // Cleanup the dup-TaskGetKey-removal.  The next TGK to the same target &
-    //  // key will start a fresh K/V fetch.
-    //  _target.TGKS.remove(_key);
-    //}
+    return null;
   }
 }

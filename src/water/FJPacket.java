@@ -26,21 +26,27 @@ public class FJPacket extends CountedCompleter {
   // Main computation task!  Called by some worker from the FJ pool
   public void compute() {
     // Switch to a handler based on the first byte of the packet
-    int first_byte = 0xFF&_pack.getData()[0];
+    int first_byte = UDP.get_ctrl(_pack.getData());
     UDP.udp.UDPS[first_byte]._udp.call(_pack,_h2o);
     // Complete this task
     tryComplete();
   }
 
+  // Oops, uncaught exception
+  public boolean onExceptionCompletion( Throwable ex, CountedCompleter caller ) {
+    throw new Error(ex);
+    //return true;
+  }
+
   // Same dispatch, but for TCP args.
   // Dispatch on the enum opcode and Do The Call
   static public void call( int first_byte, DataInputStream dis, H2ONode h2o ) {
-   try {
-     UDP.udp.UDPS[first_byte]._udp.tcp_read_call(dis,h2o);
-   } catch(IOException e) {
-     System.err.println("Call failed: " +e);
-   } catch(ArrayIndexOutOfBoundsException e) {
-     System.err.println("TCP Format Error: " +e);
-   }
+    try {
+      UDP.udp.UDPS[first_byte]._udp.tcp_read_call(dis,h2o);
+    } catch(IOException e) {
+      System.err.println("Call failed: " +e);
+    } catch(ArrayIndexOutOfBoundsException e) {
+      System.err.println("TCP Format Error: " +e);
+    }
   }
 }

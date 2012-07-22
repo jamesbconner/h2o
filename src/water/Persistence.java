@@ -3,9 +3,6 @@ package water;
 import java.util.HashMap;
 
 /** The persistence object abstract class and handler.
- * 
- * 
- * 
  *
  * @author peta
  */
@@ -156,29 +153,4 @@ public abstract class Persistence {
     return _persistenceObjects[index];
   }
 
-  // Sentinels -----------------------------------------------------------------
-  
-  // a map of sentinels available to this persistence backend, sentinels are
-  // identifiable by their max size and type. Just all of it in a long
-  private final HashMap<Long,Value> _sentinels = new HashMap();
-  
-  /** Returns a sentinel with given user data, type and persistency.
-   * 
-   * The persistence used is this. This is a non-public method to be only used
-   * by persistence backends when they create sentinels during the startup.
-   * 
-   * @param max
-   * @param type
-   * @return 
-   */
-  protected Value getSentinel(short userData, byte type) {
-    long idx = (userData << 8) | (0xff & type);
-    if (!_sentinels.containsKey(idx)) {
-      synchronized (_sentinels) {
-        if (!_sentinels.containsKey(idx))
-          _sentinels.put(idx, ValueSentinel.create(userData,this,type));
-      }
-    }
-    return _sentinels.get(idx);
-  }
 }

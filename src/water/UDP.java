@@ -82,8 +82,8 @@ public abstract class UDP {
   public static int  get_port( byte[] buf ) { return (buf[1]&0xff) + ((buf[2]&0xff)<<8); }
   public static void set_port( byte[] buf, int port ) {
     assert // Assert buffer is clean (0), or from the Pool (0xab) or is recycled w/same port
-      (buf[1]==0xab||buf[1]==0||buf[1]==(byte)port) &&
-      (buf[2]==0xab||buf[2]==0||buf[2]==(byte)(port>>8));
+      (buf[1]==(byte)0xab||buf[1]==0||buf[1]==(byte)port) &&
+      (buf[2]==(byte)0xab||buf[2]==0||buf[2]==(byte)(port>>8));
     buf[1] = (byte)port; buf[2] = (byte)(port>>8);
   }
   public static final int SZ_PORT = 1+2; // Offset past the control & port bytes

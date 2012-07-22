@@ -140,18 +140,24 @@ public class StoreView extends H2OPage {
     String vs = val.getString(100); // First, get the string which might force mem loading
     vs = vs.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
     if( val.is_deleted() ) vs = "<span class='label label-inverse'>deleted</span>";
-    int d = key.count_disk_replicas();
     int r = key.desired();
-    if( d < r )
-      row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
-    row.replace("r1",d);
-    row.replace("r2",r);
+    int repl = key.replica(cloud);
+    if( repl < r ) { // If we should be replicating, then report what replication we know of
+      int d = key.count_disk_replicas();
+      if( val.is_persisted() ) d++; // One more for self
+      if( d < r )
+        row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
+      row.replace("r1",d);
+      row.replace("r2",r);
+    } else {                // Else not tracking replications, so cannot report
+      row.replace("r1","");
+      row.replace("r2","");
+    }
     row.replace("home",cloud._memary[key.home(cloud)]);
     // Dump out the 2nd replica
     int idx2 = cloud.D(key,1);
     if( idx2 != -1 )
       row.replace("home2",cloud._memary[idx2]);
-    int repl = key.replica(cloud);
     row.replace("replica",(repl==255?"":("r"+repl)));
     // Now the first 100 bytes of Value as a String
     row.replace("value",vs);
@@ -162,34 +168,30 @@ public class StoreView extends H2OPage {
   }
 
   final static String html =
-            "<div class='alert alert-success'>"
-          + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
-          + "</div>"
-          + "<form class='well form-inline' action='StoreView'>"
-          + "  <input type='text' class='input-small span10' placeholder='filter prefix' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
-          + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"
-          + "</form>"
-          + "<p>Displaying %noOfKeys keys"
-          + "<p>%navup</p>"
-          + "<table class='table table-striped table-bordered table-condensed'>"
-          + "<colgroup><col/><col/><col style=\"text-align:center\"/><col/></colgroup>\n"
-          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Value</thead>\n"
-          + "<tbody>"
-          + "%tableRow{"
-          + "  <tr>"
-          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</td>"
-          + "    <td style='%replicationStyle'>%r1/%r2</td>"
-          + "    <td>%home</td>"
-          + "    <td>%home2</td>"
-          + "    <td>%replica</td>"
-          + "    <td>%clock</td>"
-          + "    <td>%value</td>"
-          + "  </tr>\n"
-          + "}"
-          + "</tbody>"
-          + "</table>\n"
-          ;
-
-//  final static RString response = new RString(html);
-  
+    "<div class='alert alert-success'>"
+    + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
+    + "</div>"
+    + "<form class='well form-inline' action='StoreView'>"
+    + "  <input type='text' class='input-small span10' placeholder='filter prefix' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
+    + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"
+    + "</form>"
+    + "<p>Displaying %noOfKeys keys"
+    + "<p>%navup</p>"
+    + "<table class='table table-striped table-bordered table-condensed'>"
+    + "<colgroup><col/><col/><col style=\"text-align:center\"/><col/></colgroup>\n"
+    + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Value</thead>\n"
+    + "<tbody>"
+    + "%tableRow{"
+    + "  <tr>"
+    + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</td>"
+    + "    <td style='%replicationStyle'>%r1/%r2</td>"
+    + "    <td>%home</td>"
+    + "    <td>%home2</td>"
+    + "    <td>%replica</td>"
+    + "    <td>%value</td>"
+    + "  </tr>\n"
+    + "}"
+    + "</tbody>"
+    + "</table>\n"
+    ;
 }

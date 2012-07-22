@@ -1,13 +1,8 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Properties;
-
 import water.Key;
-import water.UKV;
+import water.DKV;
 
 /**
  *
@@ -24,7 +19,7 @@ public class Remove extends H2OPage {
       return H2OPage.error("Not a valid key: "+ keys);
     }
     // Distributed remove
-    UKV.remove(key);
+    DKV.remove(key);
     // HTML file save of Value
     return H2OPage.success("Removed key <strong>"+keys+"</strong>");
   }
@@ -32,9 +27,4 @@ public class Remove extends H2OPage {
   @Override public String[] requiredArguments() {
     return new String[] { "Key" };
   }
-  
-  
-  
-  
-  
 }

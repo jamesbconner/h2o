@@ -259,6 +259,9 @@ public final class Key implements Comparable {
   // that have "checked in" with disk completion.  Monotonically increases over
   // time; limit of 8 replicas.  Tossed out on an update.  Implemented as 8 bytes
   // of dense integer indices, H2ONode._unique_idx;
+  static private boolean cache_has_overflowed( long d ) {
+    return (d>>>56)!=0;         // Overflowed if last byte is set
+  }
 
   // Return the cache slot shift of this node, or a blank slot, or 64 if full
   static private int get_byte_shift( H2ONode h2o, long d ) {
@@ -280,13 +283,15 @@ public final class Key implements Comparable {
   boolean  is_mem_replica( H2ONode h2o ) { return is_replica( _mem_replicas,h2o); }
 
   static long set_replica( long d, H2ONode h2o ) {
+    assert h2o != H2O.SELF;     // This is always for REMOTE replicas & caching
     int idx = get_byte_shift(h2o,d);
     if( idx < 64 )                         // Cache not full
       d |= (((long)h2o._unique_idx)<<idx); // cache it
     return d;
   }
-  void set_disk_replica( H2ONode h2o ) { _disk_replicas=set_replica(_disk_replicas,h2o); }
-  void  set_mem_replica( H2ONode h2o ) {  _mem_replicas=set_replica( _mem_replicas,h2o); }
+  // Only the HOME node for a key tracks replicas
+  void set_disk_replica( H2ONode h2o ) { assert home(); _disk_replicas=set_replica(_disk_replicas,h2o); }
+  void  set_mem_replica( H2ONode h2o ) { assert home();  _mem_replicas=set_replica( _mem_replicas,h2o); }
 
   static long clr_replica( long d, H2ONode h2o ) {
     int idx = get_byte_shift(h2o,d);
@@ -295,6 +300,7 @@ public final class Key implements Comparable {
     return d;
   }
   void clr_disk_replica( H2ONode h2o ) { _disk_replicas=clr_replica(_disk_replicas,h2o); }
+  void  clr_mem_replica( H2ONode h2o ) {  _mem_replicas=clr_replica( _mem_replicas,h2o); }
 
   // Query the known level of persistence.  Only counts up to 8 known replicas right now.
   public int count_disk_replicas() {
@@ -330,16 +336,21 @@ public final class Key implements Comparable {
 
   // Inform all the cached copies of this key, that it has changed.  This is a
   // non-blocking invalidate (but returns the task to block for it).
-  void invalidate_mem_caches() {
+  void invalidate_remote_caches() {
+    assert home();   // Only home node tracks mem replicas & issue invalidates
     long d = _mem_replicas;
-    assert d == 0 || home();    // Only home node tracks mem replicas
+    if( cache_has_overflowed(d) ) 
+      throw new Error("unimplemented: bulk invalidate for key="+this);
     while( d != 0 ) {
       int idx = (int)(d&0xff);
       d >>= 8;
       H2ONode h2o = H2ONode.IDX.get(idx);
-      assert h2o != H2O.SELF;   // No point in tracking self
-      throw new Error("unimplemented: invalidating "+h2o+" for key="+this);
+      invalidate(h2o);
     }
+  }
+  void invalidate(H2ONode target) {
+    assert target != H2O.SELF;   // No point in tracking self, nor invalidating self
+    throw new Error("unimplemented: invalidating "+target+" for key="+this);
   }
 
   // Stores (or at least starts storing) the Value on the disk
@@ -349,8 +360,7 @@ public final class Key implements Comparable {
     if( desired()      <=  0 ) return;
     if( replica(H2O.CLOUD) == -1 ) return;
     // tell the persistence layer to persist
-    if( val.is_local_persist(oldValue) ) // Ask (and start) local persistence
-      set_disk_replica(H2O.SELF);// Was persisted already
+    val.is_local_persist(oldValue); // Ask (and start) local persistence
   }
 
 

@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Properties;
@@ -30,9 +26,8 @@ public class PutValue extends H2OPage {
     }
     Value val = new Value(key, val_s);
     // Insert in store
-    UKV.put(key,val);
+    DKV.put(key,val);
     RString response = new RString(html);
-//    response.clear();
     response.replace("key",key_s);
     response.replace("rf",rf);
     response.replace("vsize",val_s.length());
@@ -44,15 +39,12 @@ public class PutValue extends H2OPage {
   }
   
   public static final String html = 
-            "<div class='alert alert-success'>"
-          + "Key <strong>%key</strong> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
-          + "</div>"
-          + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
-          + "<a href='Put'><button class='btn'>Put again</button></a>"
-          + "</p>"
-          ;
-  
-//  public static final RString response = new RString(html);
-
-  
+    "<div class='alert alert-success'>"
+    + "Key <strong>%key</strong> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
+    + "</div>"
+    + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
+    + "<a href='Put'><button class='btn'>Put again</button></a>"
+    + "</p>"
+    ;
+ 
 }
