@@ -17,8 +17,8 @@ public abstract class Persistence {
   
   // Persistence types.
   public enum type {
-    ICE (new PersistIce() ), // ICE backed (files & leveldb if enabled)
-    HDFS(new PersistHdfs()); // HDFS backend to existing hadoop
+    ICE (new PersistIce() ), // 0: ICE backed (files & leveldb if enabled)
+    HDFS(new PersistHdfs()); // 1: HDFS backend to existing hadoop
     //S3  (new PersistS3()  ), // Amazon S3 cloud backend
     final Persistence _persist;
     type( Persistence persist ) { _persist = persist; }

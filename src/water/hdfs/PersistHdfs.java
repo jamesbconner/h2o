@@ -25,7 +25,7 @@ public class PersistHdfs extends Persistence {
   
   // The _persistenceInfo byte given K/V's already on disk when JVM starts.
   private static final byte ON_DISK =
-    (byte)(type.HDFS.ordinal() | // Persisted by the HDFS mechanism
+    (byte)(1/*type.HDFS.ordinal()*/ | // Persisted by the HDFS mechanism
            8 |                   // Goal: persist object to disk
            16 |                  // Goal is met
            0);                   // No more status bits needed
@@ -41,13 +41,13 @@ public class PersistHdfs extends Persistence {
       if (!H2O.OPT_ARGS.hdfs.isEmpty())
         System.err.println("[hdfs] connection server "+H2O.OPT_ARGS.hdfs+" from commandline ignored");
     } else {
-      if( !H2O.OPT_ARGS.hdfs.isEmpty() ) {
+      if( H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty() ) {
         _conf.set("fs.default.name",H2O.OPT_ARGS.hdfs);
         System.out.println("[hdfs] fs.default.name = "+H2O.OPT_ARGS.hdfs);
       }
     }
     ROOT = H2O.OPT_ARGS.hdfs_root==null ? DEFAULT_ROOT : H2O.OPT_ARGS.hdfs_root;
-    if( H2O.OPT_ARGS.hdfs_config!=null || !H2O.OPT_ARGS.hdfs.isEmpty() ) {
+    if( H2O.OPT_ARGS.hdfs_config!=null || (H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty()) ) {
       System.out.println("[hdfs] hdfs root for H2O set to " + ROOT);
       try {
         _fs = FileSystem.get(_conf);

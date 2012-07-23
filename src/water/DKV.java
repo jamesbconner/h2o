@@ -16,7 +16,7 @@ public abstract class DKV {
   // This is a WEAK update: it is not strongly ordered with other updates
   static public void put( Key key, Value val ) {
     Value local;
-    assert val.is_same_key(key);
+    assert val==null || val.is_same_key(key);
     while( true ) {
       local = H2O.get(key);
       Value res = DputIfMatch(key,val,local);
@@ -46,7 +46,7 @@ public abstract class DKV {
     // Check for trivial success: no need to invalidate remotes if the new
     // value equals the old.
     if( old == val ) return old; // Trivial success?
-    if( old != null && val.true_ifequals(old) )
+    if( old != null && val != null && val.true_ifequals(old) )
       return old;               // Less trivial success, but no disk i/o
     // Almost surely old is unequals val.  Time for a true update.
 

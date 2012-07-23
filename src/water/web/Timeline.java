@@ -153,7 +153,7 @@ public class Timeline extends H2OPage {
 
     // Report time to build this page... because building it is slow...
     long now2 = System.currentTimeMillis();
-    System.out.println("took "+(now2-ctm)+"ms to gen html");
+    //System.out.println("took "+(now2-ctm)+"ms to gen html");
 
     return response.toString();
   }

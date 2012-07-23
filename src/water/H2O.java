@@ -171,7 +171,7 @@ public final class H2O {
   public static final Value putIfMatch( Key key, Value val, Value old ) {
     if( old == val ) return old; // Trivial success?
     if( old != null ) {
-      if( val.true_ifequals(old) ) return old;
+      if( val != null && val.true_ifequals(old) ) return old;
       // Interning: use the same One True Key found in the STORE.
       Key key2 = old._key;
       if( key2 != null ) key = key2; // Use the existing Key, if any
@@ -182,9 +182,9 @@ public final class H2O {
     assert res==null || res._key == key; // Keys matched
     if( res != old )            // Failed?
       return res;               // Return the failure cause
-    old.remove_persist();       // Start removing the old guy
-    val. start_persist();       // Start  storing the new guy
-    return res;                 // Return success
+    if( old != null ) old.remove_persist(); // Start removing the old guy
+    if( val != null ) val. start_persist(); // Start  storing the new guy
+    return res;                             // Return success
   }
 
   // Raw put; no marking the memory as out-of-sync with disk.  Used to import

@@ -26,14 +26,14 @@ public class PersistIce extends Persistence {
 
   // The _persistenceInfo byte for new K/V's not yet on disk
   public static final byte INIT =
-    (byte)(type.ICE.ordinal() | // Persisted by the ICE mechanism (local disk)
+    (byte)(0/*type.ICE.ordinal()*/ | // Persisted by the ICE mechanism (local disk)
            0 |                  // Goal: no object on disk
            16 |                 // Goal is met
            0);                  // No more status bits needed
 
   // The _persistenceInfo byte given K/V's already on disk when JVM starts.
   private static final byte ON_DISK =
-    (byte)(type.ICE.ordinal() | // Persisted by the ICE mechanism (local disk)
+    (byte)(0/*type.ICE.ordinal()*/ | // Persisted by the ICE mechanism (local disk)
            8 |                  // Goal: persist object to disk
            16 |                 // Goal is met
            0);                  // No more status bits needed
