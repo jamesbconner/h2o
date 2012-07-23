@@ -77,7 +77,7 @@ public class KeysView extends H2OPage {
         continue;
       }
       Value val = H2O.get(key);
-      if(( val == null) || (val instanceof ValueDeleted)) {  // Internel sentinal
+      if( val == null ) { // Racing delete nuked key?
         keysize--;              // Dont count these keys
         continue; 
       }

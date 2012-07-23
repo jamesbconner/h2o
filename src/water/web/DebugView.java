@@ -1,14 +1,7 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Properties;
-
-import water.H2O;
-import water.Key;
-import water.Value;
+import water.*;
 
 /**
  *
@@ -135,11 +128,9 @@ public class DebugView extends H2OPage {
     row.replace("max",val._max);
     row.replace("in_mem",val.mem()==null ? "null" : val.mem().length);
     // Now the first 100 bytes of Value as a String
-    if (val.is_deleted())
-      row.replace("delBtnStyle","visibility:hidden");
     row.replace("ktr",urlEncode(ks));
-    row.replace("persist",val.persistenceBackend().name());
-    row.replace("pstate",Value.persistenceStateToString(val.persistenceState()));
+    row.replace("persist",val.name_persist());
+    row.replace("pstate",Persistence.stateString(val));
     row.append();
   }
 

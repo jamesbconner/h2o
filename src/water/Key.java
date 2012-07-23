@@ -353,16 +353,6 @@ public final class Key implements Comparable {
     throw new Error("unimplemented: invalidating "+target+" for key="+this);
   }
 
-  // Stores (or at least starts storing) the Value on the disk
-  public void is_local_persist( Value val, Value oldValue ) {
-    assert val.is_same_key(this);
-    // do nothing if we should not be on a disk, or are not a replica
-    if( desired()      <=  0 ) return;
-    if( replica(H2O.CLOUD) == -1 ) return;
-    // tell the persistence layer to persist
-    val.is_local_persist(oldValue); // Ask (and start) local persistence
-  }
-
 
   // --------------------------------------------------------------------------
   // Read/Write keys in UDP packets

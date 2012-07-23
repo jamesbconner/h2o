@@ -38,15 +38,7 @@ public abstract class DKV {
 
   // Remove this Key: really writes a new tombstone deleted Value
   static public void remove( Key key ) {
-    Value old;
-    while( true ) {
-      // need to fetch the remote old value, to make a correct deleted-value???
-      old = DKV.get(key);       // 
-      Value res = DputIfMatch(key,old.makeDeleted(key),old);
-      if( res == old ) break;
-    }
-    if( old != null )           // Was there an old?
-      old.free_mem();           // Free the memory
+    put(key,null);
   }
 
   // Do a PUT, and on success trigger replication.
@@ -88,7 +80,6 @@ public abstract class DKV {
       // Hit in local cache?
       if( val != null ) {
         // See if we have enough data cached locally
-        if( val.is_deleted() ) return null; // The special "deleted key" Value is not visible to clients
         if( len > val._max ) len = val._max;
         if( len == 0 ) return val;
         if( len <= val.get(len).length ) // We get something?

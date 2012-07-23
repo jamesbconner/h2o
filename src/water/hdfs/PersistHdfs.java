@@ -6,152 +6,33 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import water.*;
 
-/**
- *
- * @author peta
- */
+// Persistence backend for HDFS
+//
+// @author peta, cliffc
 public class PersistHdfs extends Persistence {
 
-  @Override public Value load(Key k, Value sentinel) {
-    assert (sentinel.type()=='I'); // we have only normal values at the moment that can reside in the HDFS
-    long size = size(k,sentinel);
-    if ((size> 2*ValueArray.chunk_size()) && k.user_allowed()) {
-      ValueArray value = new ValueArray(k,size,k._kb);
-      value.setPersistenceBackend(this);
-      value.makeChunks();
-      return value;
-    } else {
-      Value value = new Value((int)size,0,k,Value.PERSISTED);
-      value.setPersistenceBackend(this);
-      return value;
-    }
-  }
-  
-  @Override public byte[] get(Key k, Value v, int len) {
-     try {
-      FSDataInputStream s = null;
-      try {
-        s = _fs.open(getPathForKey(k));
-        byte[] b = new byte[len];
-        int br = s.read(getOffsetForKey(k),b, 0, len);
-        assert (br == len);
-        // the load was successful, check that it is still needed and update
-        return b;
-      } finally {
-        if( s != null )
-          s.close();
-      }
-    } catch( IOException e ) {
-      return null;
-    } 
-  }
+  @Override public void store(Value v) { file_store(v);  }
+  @Override public void delete(Value v) { file_delete(v); }
+  @Override public byte[] load(Value v, int len) { return file_load(v,len); }
 
-  @Override public boolean store(Key k, Value v) {
-    int replica = k.replica(water.H2O.CLOUD);
-    // replica numbers larger than 127 are not supported yet and default to
-    // checking that desired replication factor has been achieved 
-    if( replica < 0 ) {
-      replica = k.desired();
-    }
-    // if we are home, do the persist normally
-    if( replica == 0 ) {
-      if (v instanceof ValueArray) // never store arraylets on HDFS, they are virtual
-        return false;
-      // on hdfs it is not possible to update arraylet chunks one at a time
-      if (k.type()==Key.ARRAYLET_CHUNK)
-        return false; // I believe this should be an error
-      try {
-        Path p = getPathForKey(k);
-        _fs.mkdirs(p.getParent());
-        FSDataOutputStream s = _fs.create(p);
-        try {
-          byte[] m = v.mem();
-          if (m!=null) 
-            s.write(m);
-        } finally {
-          s.close();
-        }
-        return true;
-      } catch( IOException e ) {
-        return false;
-      }
-    }
-    // if we are something else determine our persistence based on the HDFS
-    // replication reported for the file
-    try {
-      FileStatus fs = _fs.getFileStatus(getPathForKey(k));
-      if( fs.getReplication() >= replica + 1 ) {
-        return true;
-      }
-    } catch(IOException e) {
-      return false;
-    }
-    return false;
-  }
+  // initialization routines ---------------------------------------------------
 
-  @Override public boolean delete(Key k, Value v) {
-    //assert (key.kind() == Key.HDFS_FILE);
-    int replica = k.replica(water.H2O.CLOUD);
-    // replica numbers larger than 127 are not supported yet and default to
-    // checking that desired replication factor has been achieved 
-    if( replica != 0 ) {
-      return true;
-    }
-    // only the arraylet itself can delete the file from HDFS
-    if (k.type()==Key.ARRAYLET_CHUNK)
-      return true; // again, this might be an error
-
-    /*else if (v instanceof ValueArray) { // not really here, done by the UKV guy
-      ((ValueArray)v).deleteChunks();
-      return true;
-    } */
-    Path p = getPathForKey(k);
-    try {  _fs.delete(p, false); } // Try to delete, ignoring errors
-    catch( IOException e ) { }
-    try { return !_fs.exists(p); } // Check & return status but...
-    catch( IOException e ) {
-      return false; // Assume failure to delete if IO exception on 'exists' call
-    }
-  }
-
-  @Override public long size(Key k, Value v) {
-    try {
-      long size = _fs.getFileStatus(getPathForKey(k)).getLen();
-      if (k.type()==Key.ARRAYLET_CHUNK) {
-        long offset = getOffsetForKey(k);
-        size = (size-offset <=ValueArray.chunk_size()) ? size-offset : ValueArray.chunk_size();
-      } 
-      return size;
-    } catch( IOException e ) {
-      return 0;
-    }
-  }
-
-  @Override public String name() {
-    return "hdfs";
-  }
-
-  @Override public Type type() {
-    return Type.HDFS;
-  }
-  
-  private PersistHdfs() {
-    super(Type.HDFS);
-  }
-  
+  static final String ROOT;
+  public static final String DEFAULT_ROOT="ice";
   private final static Configuration _conf;
   private static FileSystem _fs;
   private static Path _root;
   
-  static final String ROOT;
-  public static final String DEFAULT_ROOT="ice";
-  
-  private static final PersistHdfs _instance;
-  
+  // The _persistenceInfo byte given K/V's already on disk when JVM starts.
+  private static final byte ON_DISK =
+    (byte)(type.HDFS.ordinal() | // Persisted by the HDFS mechanism
+           8 |                   // Goal: persist object to disk
+           16 |                  // Goal is met
+           0);                   // No more status bits needed
   
   static {
     _conf = new Configuration();
-    if (H2O.OPT_ARGS.hdfs_config!=null) {
+    if( H2O.OPT_ARGS.hdfs_config!=null ) {
       File p = new File(H2O.OPT_ARGS.hdfs_config);
       if (!p.exists())
         Log.die("[hdfs] Unable to open hdfs configuration file "+p.getAbsolutePath());
@@ -160,28 +41,26 @@ public class PersistHdfs extends Persistence {
       if (!H2O.OPT_ARGS.hdfs.isEmpty())
         System.err.println("[hdfs] connection server "+H2O.OPT_ARGS.hdfs+" from commandline ignored");
     } else {
-      if (H2O.OPT_ARGS.hdfs.isEmpty())
-        Log.die("[hdfs] you must specify the server to connect to. Use -hdfs=server:port");
-      _conf.set("fs.default.name",H2O.OPT_ARGS.hdfs);
-      System.out.println("[hdfs] fs.default.name = "+H2O.OPT_ARGS.hdfs);
+      if( !H2O.OPT_ARGS.hdfs.isEmpty() ) {
+        _conf.set("fs.default.name",H2O.OPT_ARGS.hdfs);
+        System.out.println("[hdfs] fs.default.name = "+H2O.OPT_ARGS.hdfs);
+      }
     }
     ROOT = H2O.OPT_ARGS.hdfs_root==null ? DEFAULT_ROOT : H2O.OPT_ARGS.hdfs_root;
-    System.out.println("[hdfs] hdfs root for H2O set to " + ROOT);
-    try {
-      _fs = FileSystem.get(_conf);
-      _root = new Path(ROOT);
-      _fs.mkdirs(_root);
-    } catch( IOException e ) {
-      // pass
-      System.out.println(e.getMessage());
-      Log.die("[hdfs] Unable to initialize persistency store home at " + ROOT);
+    if( H2O.OPT_ARGS.hdfs_config!=null || !H2O.OPT_ARGS.hdfs.isEmpty() ) {
+      System.out.println("[hdfs] hdfs root for H2O set to " + ROOT);
+      try {
+        _fs = FileSystem.get(_conf);
+        _root = new Path(ROOT);
+        _fs.mkdirs(_root);
+        System.out.println("[hdfs] loading persistent keys...");
+        loadPersistentKeysFromFolder(_root,"");
+      } catch( IOException e ) {
+        // pass
+        System.out.println(e.getMessage());
+        Log.die("[hdfs] Unable to initialize persistency store home at " + ROOT);
+      }
     }
-    _instance = new PersistHdfs();
-  }
-  
-  public static void initialize() {
-    System.out.println("[hdfs] loading persistent keys...");
-    loadPersistentKeysFromFolder(_root,"");
   }
   
   
@@ -196,12 +75,14 @@ public class PersistHdfs extends Persistence {
           // it is a file, therefore a value for us
           assert (_fs.isFile(p));
           Key k = decodeFile(p, prefix);
-          if( k == null ) {
+          if( k == null )
             continue;
-          }
-          Value val = _instance.getSentinel((short)0, (byte)'I');
+          long size = _fs.getFileStatus(p).getLen();
+          Value val = (size < ValueArray.chunk_size())
+            ? new Value((int)size,0,k,0)
+            : new ValueArray(k,size);
+          val._persistenceInfo = ON_DISK;
           H2O.putIfAbsent_raw(k, val);
-          k.is_local_persist(val,null); // Register knowledge of this key on disk
         }
       }
     } catch( IOException e ) {
@@ -209,6 +90,8 @@ public class PersistHdfs extends Persistence {
     }
   }
   
+  // file implementation -------------------------------------------------------
+
   // Decodes the given file on a prefixed path to a key. 
   // TODO As of now does not support filenames (including prefix) larger than
   // 512 bytes.
@@ -223,21 +106,79 @@ public class PersistHdfs extends Persistence {
     return Key.make(prefix.getBytes());
   }
   
-  
   // Returns the path for given key. 
   // TODO Something should be done about keys whose value is larger than 512
   // bytes, for now, they are not supported.
   static Path getPathForKey(Key k) {
-    if (k.type()==Key.ARRAYLET_CHUNK)
-      return new Path(_root, new String(k._kb).substring(10).replace(":","%37"));
-    else
-      return new Path(_root, new String(k._kb).replace(":","%37"));
+    return new Path(_root, new String(k._kb).replace(":","%37"));
   }
   
-  // Returns the offset of the hdfsvalue (a non-arraylet value always returns
-  // 0, arraylets return their respective offsets. 
-  static long getOffsetForKey(Key k) {
-    return (k.type()==Key.ARRAYLET_CHUNK) ? UDP.get8(k._kb,2) : 0;
-  }
   
+  public byte[] file_load(Value v, int len) {
+    assert is_goal(v) == true && is(v)==true; // State is: store-done
+    if( v instanceof ValueArray )
+      throw new Error("unimplemented: loading from arraylets");
+    try {
+      FSDataInputStream s = null;
+      try {
+        s = _fs.open(getPathForKey(v._key));
+        byte[] b = new byte[len];
+        int br = s.read(0,b, 0, len);
+        assert (br == len);
+        return b;
+      } finally {
+        if( s != null )
+          s.close();
+      }
+    } catch( IOException e ) {
+      return null;
+    } 
+  }
+
+  public void file_store(Value v) {
+    // Only the home node does persistence.
+    if( !v._key.home() ) return;
+    // Never store arraylets on HDFS, instead we'll store the entire array.
+    assert !(v instanceof ValueArray);
+
+    assert is_goal(v) == false && is(v)==true; // State was: file-not-present
+    set_info(v, 8);                            // Not-atomically set state to "store not-done"
+    clr_info(v,16);
+    assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
+    
+    try {
+      Path p = getPathForKey(v._key);
+      _fs.mkdirs(p.getParent());
+      FSDataOutputStream s = _fs.create(p);
+      try {
+        byte[] m = v.mem();
+        if (m!=null) 
+          s.write(m);
+      } finally {
+        s.close();
+        set_info(v,16);       // Set state to "store done"
+        assert is_goal(v) == true && is(v)==true; // State is: store-done
+      }
+    } catch( IOException e ) {
+      // Ignore IO errors, except that we never set state to "store done"
+    }
+  }
+
+  public void file_delete(Value v) {
+    // Only the home node does persistence.
+    if( !v._key.home() ) return;
+    // Never store arraylets on HDFS, instead we'll store the entire array.
+    assert !(v instanceof ValueArray);
+    assert is_goal(v) == true && is(v)==true; // State was: store-done
+    clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
+    clr_info(v,16);
+    assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
+
+    Path p = getPathForKey(v._key);
+    try { _fs.delete(p, false); } // Try to delete, ignoring errors
+    catch( IOException e ) { }
+    set_info(v,16);
+    assert is_goal(v) == false && is(v)==true; // State is: remove-done
+  }
+
 }

@@ -34,7 +34,7 @@ public class Hdfs {
       Loader loader = Loader.instance();
       if (!loader.addInternalJar("hadoop/"+version+"/hadoop-core-"+version+".jar"))
         Log.die("[hdfs] Unable to initialize hadoop version "+version+" please use different version.");
-      PersistHdfs.initialize();
+      new PersistHdfs();        // Touch & thus start HDFS
       return true;
     }
     return false;

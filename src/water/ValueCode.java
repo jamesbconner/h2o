@@ -37,12 +37,7 @@ public class ValueCode extends Value {
     super( max, len, key, mode );
   }
 
-  static ValueCode make_wire(int max, int len, Key key ) {
-    return new ValueCode(max,len,key,NOT_STARTED);
-  }
-
-  @Override public byte type() { return 'C'; }
-
+  @Override public byte type() { return CODE; }
 
   @Override protected boolean getString_impl( int len, StringBuilder sb ) {
     sb.append("[code]");
@@ -73,7 +68,7 @@ public class ValueCode extends Value {
       // We like the class!  Furthermore we have made it "distribution ready"!
       // Wrapping it a ValueCode tells the rest of the system that it can load
       // this class fearlessly.
-      ValueCode val = new ValueCode(jarbits.length,jarbits.length,obj,NOT_STARTED);
+      ValueCode val = new ValueCode(jarbits.length,jarbits.length,obj,PersistIce.INIT);
       byte [] mem = val.mem();
       for(int i = 0; i < mem.length; ++i)
         mem[i] = jarbits[i];

@@ -90,7 +90,7 @@ public class Value {
     if( _mem != null && len <= _mem.length ) return _mem;
     if( _max == 0 ) return _mem;
     assert (_key!=null) && _key.desired()>0 && is_persisted();  // Should already be on disk!
-    return CAS_mem_if_larger(get_from_persist(len));
+    return CAS_mem_if_larger(load_persist(len));
   }
   
   public final byte[] get() { return get(Integer.MAX_VALUE); }
@@ -103,7 +103,7 @@ public class Value {
 
   // ---
   // A Value is persisted. The Key is used to define the filename.
-  protected Key _key;
+  public final Key _key;
 
   // Assertion check that Keys match, for those Values that require an internal
   // Key (usually for disk filename persistence).
@@ -131,14 +131,12 @@ public class Value {
    * N - HDFS iNode
    * * - Internal value (no persistence at all)
    */
-  public byte type() {
-    return 'I';
-  }
-  
   public static final byte ICE = (byte)'I';
   public static final byte ARRAYLET = (byte)'A';
   public static final byte CODE = (byte)'C';
   
+  public byte type() { return ICE;  }
+
   protected boolean getString_impl( int len, StringBuilder sb ) {
     sb.append(name_persist());
     sb.append(is_persisted() ? "." : "!");
@@ -152,29 +150,34 @@ public class Value {
   // backend index that can be translated to the persistence backend singleton
   // and the persistence state, which determines the state of the persistence
   // of the value.
-  //
-  private byte _persistenceInfo;
+  public byte _persistenceInfo;
+  final boolean CAS_persist( int old, int nnn ) {
+    // TODO: MAKE ME ATOMIC PLEASE
+    int tmp = _persistenceInfo&0xFF;
+    if( tmp!=old ) return false;
+    _persistenceInfo = (byte)nnn;
+    return true;
+  }
 
+  // Asks  if persistence goal is to either persist (or to remove).
+  // True  if the last call was to start(),
+  // False if the last call was to remove().
+  boolean is_goal_persist() {    return Persistence.p(this).is_goal(this); }
+  // Asks if persistence is completed (of either storing or deletion)
+  public boolean is_persisted() {return Persistence.p(this).is(this); }
+  // Pretty name
+  public String name_persist() { return Persistence.p(this).name(this); }
   // Start this Value persisting.  Ok to call repeatedly, or if the value is
   // already persisted.  Depending on how busy the disk is, and how big the
   // Value is, it might be a long time before the value is persisted.
-  void start_persist() { Persistence.start(this); }
+  void start_persist() {                Persistence.p(this).store(this); }
   // Remove any trace of this value from the persistence layer.  Called right
   // after the Value is itself deleted.  Depending on how busy the disk is, and
   // how big the Value is, it might be a long time before the disk space is
   // returned.
-  void remove_persist() { Persistence.remove(this); }
-  // Asks if persistence goal is to either persist (or to remove)
-  boolean is_goal_persist() { return Persistence.is_goal(this); }
-  // Asks if persistence is completed (of either storing or deletion)
-  boolean is_persisted() { return Persistence.is(this); }
-  // Block until is_persisted() returns true;
-  void block_till_persisted() { Persistence.block_till(this); }
+  void remove_persist() {               Persistence.p(this).delete(this); }
   // Load more of this Value from the persistence layer
-  byte[] get_from_persist(int len) { return Persistence.get_from(this,len); }
-  // Pretty name
-  String name_persist() { return Persistence.name(this); }
-
+  byte[] load_persist(int len) { return Persistence.p(this).load(this,len); }
 
   // ---
   // Larger values are chunked into arraylets.  This is the number of chunks:
@@ -279,15 +282,11 @@ public class Value {
     }
   }
 
-  static Value make_wire(int max, int len, Key key, byte p ) {
-    return new Value(max,len,key,p);
-  }
-  
   static Value construct(int max, int len, Key key, byte p, byte type) {
     switch (type) {
-    case 'A': return new ValueArray(max,len,key,p); break;
-    case 'C': return new ValueCode (max,len,key,p); break;
-    case 'I': return new Value     (max,len,key,p); break;
+    case 'A': return new ValueArray(max,len,key,p);
+    case 'C': return new ValueCode (max,len,key,p);
+    case 'I': return new Value     (max,len,key,p);
     default:
       throw new Error("Unable to construct value of type "+(char)(type)+"(0x"+Integer.toHexString(0xff & type)+" (key "+key.toString()+")");
     }

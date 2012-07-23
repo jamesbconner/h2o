@@ -2,113 +2,66 @@ package water;
 
 import java.io.*;
 
-
-/** Persistence backend for the local storage. 
- * 
- * Stores all keys as files, or if leveldb is enabled, stores values smaller
- * than arraylet chunk size in a leveldb format.
- * 
- * Metadata stored are the value type and the desired replication factor of the
- * key.
- *
- * @author peta
- */
+// Persistence backend for the local storage device
+//
+// Stores all keys as files, or if leveldb is enabled, stores values smaller
+// than arraylet chunk size in a leveldb format.
+//
+// Metadata stored are the value type and the desired replication factor of the
+// key.
+//
+// @author peta, cliffc
 public class PersistIce extends Persistence {
 
-  private static final short SENTINEL_FILE = 0;
-  
-  @Override public Value load(Key k, Value sentinel) {
-    Value result = null;
-    switch (sentinel.type()) {
-    case 'I': result = new Value     ((int)size(k,sentinel),0,k,Value.PERSISTED); break;
-    case 'A': result = new ValueArray((int)size(k,sentinel),0,k,Value.PERSISTED); break;
-    case 'C': result = new ValueCode ((int)size(k,sentinel),0,k,Value.PERSISTED); break;
-    default:
-      Log.die("[ice] unrecognized value type "+(char)sentinel.type()+" for key "+k.toString());
-    }
-    assert (result.type() == sentinel.type());
-    result.setPersistenceBackend(this);
-    return result;
-  }
+  @Override public void store(Value v) { file_store(v);  }
+  @Override public void delete(Value v) { file_delete(v); }
+  @Override public byte[] load(Value v, int len) { return file_load(v,len); }
 
-  @Override public byte[] get(Key k, Value v, int len) {
-    return file_get(k,v,len);
-  }
-
-  @Override public boolean store(Key k, Value v) {
-    return file_store(k,v);  
-  }
-
-  @Override public boolean delete(Key k, Value v) {
-    return file_delete(k,v);
-  }
-  
-  @Override public long size(Key k, Value v) {
-    return file_size(k,v);
-  }
-  
-
-  @Override public String name() {
-    return "ice";
-  }
-
-  @Override public Type type() {
-    return Type.ICE;
-  }
-  
-  @Override public short sentinelData(Key k, Value v) {
-    return SENTINEL_FILE;
-  }
-  
-  
-  
-  
   // initialization routines ---------------------------------------------------
 
   protected static final String ROOT;
   public static final String DEFAULT_ROOT = "/tmp";
-  
   private static final String ICE_DIR = "ice";
-
   private static final File iceRoot;
-  
-  private static final Persistence _instance;
-  
+
+  // The _persistenceInfo byte for new K/V's not yet on disk
+  public static final byte INIT =
+    (byte)(type.ICE.ordinal() | // Persisted by the ICE mechanism (local disk)
+           0 |                  // Goal: no object on disk
+           16 |                 // Goal is met
+           0);                  // No more status bits needed
+
+  // The _persistenceInfo byte given K/V's already on disk when JVM starts.
+  private static final byte ON_DISK =
+    (byte)(type.ICE.ordinal() | // Persisted by the ICE mechanism (local disk)
+           8 |                  // Goal: persist object to disk
+           16 |                 // Goal is met
+           0);                  // No more status bits needed
+
+  // Load into the K/V store all the files found on the local disk
   static {
     ROOT = (H2O.OPT_ARGS.ice_root==null) ? DEFAULT_ROOT : H2O.OPT_ARGS.ice_root;
     H2O.OPT_ARGS.ice_root = ROOT;
     iceRoot = new File(ROOT+File.separator+ICE_DIR+H2O.WEB_PORT);
+    // Make the directory as-needed
     iceRoot.mkdirs();
-    _instance = new PersistIce();
-  }
- 
-  private PersistIce() {
-    super(Type.ICE);
-  }
- 
-  public static void initialize() {
     initializeFilesFromFolder(iceRoot);
-  }  
-  
-  // Initializes the files on the local disk (values larger or equal in size to
-  // the arraylet chunk size are stored as files. 
+  }
+
+  // Initializes Key/Value pairs for files on the local disk.
   private static void initializeFilesFromFolder(File dir) {
-    for (File f:dir.listFiles()) {
-      if (f.isDirectory()) {
-        initializeFilesFromFolder(f);
+    for (File f : dir.listFiles()) {
+      if( f.isDirectory() ) {
+        initializeFilesFromFolder(f); // Recursively keep loading K/V pairs
       } else {
         Key k = decodeKey(f);
-        Value ice = _instance.getSentinel(SENTINEL_FILE,decodeType(f));
+        Value ice = Value.construct((int)f.length(),0,k,ON_DISK,decodeType(f));
         H2O.putIfAbsent_raw(k,ice);
-        k.is_local_persist(ice,null);
       }
     }
   }
-  
-  public static Persistence instance() {
-    return _instance;
-  }
-  
+
+
   // file implementation -------------------------------------------------------
 
   // the filename can be either byte encoded if it starts with % followed by
@@ -140,8 +93,8 @@ public class PersistIce extends Persistence {
         kb = new byte[j];
         System.arraycopy(nkb,0,kb,0,j);
       }
-    // system key, encoded by % and then 2 bytes for each byte of the key
     } else {
+      // system key, encoded by % and then 2 bytes for each byte of the key
       kb = new byte[(key.length()-1)/2];
       int j = 0;
       // Then hexelate the entire thing
@@ -174,8 +127,9 @@ public class PersistIce extends Persistence {
     return (byte)ext.charAt(0);
   }
   
-  private static File encodeKeyToFile(Key k, Value v) {
+  private static File encodeKeyToFile(Value v) {
     // check if we are system key
+    Key k = v._key;
     StringBuilder sb = null;
     if (k._kb[0]<32) {
       sb = new StringBuilder(k._kb.length/2+4);
@@ -219,10 +173,10 @@ public class PersistIce extends Persistence {
     }
   }
   
-  private byte[] file_get(Key k, Value v, int len) {
+  private byte[] file_load(Value v, int len) {
+    assert is_goal(v) == true && is(v)==true; // State is: store-done
     try {
-      File f = encodeKeyToFile(k,v);
-      InputStream s = new FileInputStream(encodeKeyToFile(k,v));
+      InputStream s = new FileInputStream(encodeKeyToFile(v));
       try {
         byte[] b = MemoryManager.allocateMemory(len);
         int br = s.read(b, 0, len);
@@ -239,34 +193,37 @@ public class PersistIce extends Persistence {
     }
   }
   
-  private boolean file_store(Key k, Value v) {
+  private void file_store(Value v) {
+    assert is_goal(v) == false && is(v)==true; // State was: file-not-present
+    set_info(v, 8);                            // Not-atomically set state to "store not-done"
+    clr_info(v,16);
+    assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
     try {
-      // Nuke any prior file      
-      new File(iceRoot,getDirectoryForKey(k)).mkdirs();
-      OutputStream s = new FileOutputStream(encodeKeyToFile(k,v));
+      new File(iceRoot,getDirectoryForKey(v._key)).mkdirs();
+      // Nuke any prior file.
+      OutputStream s = new FileOutputStream(encodeKeyToFile(v));
       try {
         byte[] m = v.mem(); // we are not single threaded anymore 
-        if (m!=null)
+        if( m!=null )
           s.write(m);
       } finally {
         s.close();
+        set_info(v,16);         // Set state to "store done"
+        assert is_goal(v) == true && is(v)==true; // State is: store-done
       }
-      return true;
     } catch( IOException e ) {
-      return false;
+      // Ignore IO errors, except that we never set state to "store done"
     }
   }
   
-  private boolean file_delete(Key k, Value v) {
-    if (v==null)
-      return true;
-    File f = encodeKeyToFile(k, v);
+  private void file_delete(Value v) {
+    assert is_goal(v) == true && is(v)==true; // State was: store-done
+    clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
+    clr_info(v,16);
+    assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
+    File f = encodeKeyToFile(v);
     f.delete();
-    return !f.exists();
+    set_info(v,16);
+    assert is_goal(v) == false && is(v)==true; // State is: remove-done
   }
-
-  private long file_size(Key k, Value v) {
-    return encodeKeyToFile(k, v).length();
-  }
-  
 }

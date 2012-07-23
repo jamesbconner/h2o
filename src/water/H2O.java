@@ -175,21 +175,16 @@ public final class H2O {
       // Interning: use the same One True Key found in the STORE.
       Key key2 = old._key;
       if( key2 != null ) key = key2; // Use the existing Key, if any
-      if( !val.is_sentinel() )
-        val._key = key;         // Ignore users key, use the interned key
     }
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
-    assert res==null || res._key == key || val.is_sentinel(); // Keys matched
+    assert res==null || res._key == key; // Keys matched
     if( res != old )            // Failed?
       return res;               // Return the failure cause
-    // make sure that val is not marked as persisted or in progress - keep
-    // DO_NOT_PERSIST and CACHE values
-    if( (val.persistenceState()==Value.IN_PROGRESS) || (val.persistenceState()==Value.PERSISTED))
-      val.setPersistenceState(Value.NOT_STARTED);
-    key.is_local_persist(val,res); // Start persisting
-    return res;              // Return success
+    old.remove_persist();       // Start removing the old guy
+    val. start_persist();       // Start  storing the new guy
+    return res;                 // Return success
   }
 
   // Raw put; no marking the memory as out-of-sync with disk.  Used to import
@@ -205,21 +200,8 @@ public final class H2O {
   // stored value, replace it with a proper value and continue.  This WILL
   // return "deleted" Values.
   public static Value get( Key key ) {
-    Value v = STORE.get(key);
-    if( v == null ) return v;
-    if( v.is_deleted() ) return v;
-    if( !v.is_sentinel() ) {
-      v.touch();
-      return v;
-    }
-    // Unloaded sentinel - so "inflate" from disk
-    Value vnew = v.load(key); // At least read size
-    assert vnew.is_same_key(key);
-    // Attempt to set it atomically in case of a racing put from another thread.
-    return (STORE.putIfMatchUnlocked(key,vnew,v) == v)
-      ? vnew                    // Success
-      // Retry after failed put; it should never again be the Sentinel
-      : STORE.get(key);
+    // No funny placeholders right now
+    return STORE.get(key);
   }
 
   public static Value raw_get( Key key ) { return STORE.get(key); }
@@ -418,10 +400,6 @@ public final class H2O {
   }
 
   static void initializePersistence() {
-    if (OPT_ARGS.hdfs!=null) Hdfs.initialize();
-    // Note that we get a LocalPersist EVEN IF HDFS is out there... for our
-    // internal non-HDFS keys.
-    PersistIce.initialize();
+    if( OPT_ARGS.hdfs!=null ) Hdfs.initialize();
   }
-
 }

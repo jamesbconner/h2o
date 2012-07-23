@@ -135,12 +135,4 @@ public class ValueBlock {
     }
   }
 
-  // Make from the wire: assume not locally persisted yet
-  static ValueBlock make_wire(int max, int len, VectorClock vc, long vcl, Key key ) {
-    return new ValueBlock(max,len,vc,vcl,key,NOT_STARTED);
-  }
-  
-  
-  
-  
 } */

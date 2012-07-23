@@ -44,21 +44,13 @@ public class ValueArray extends Value {
     initialize(sz,null);
   }
   
-  public ValueArray(Key key, long sz, byte[] uid) {
-    super(2+8+uid.length,2+8+uid.length,key,NOT_STARTED);
-    initialize(sz,uid);
-  }
-  
   public ValueArray( int max, int len, Key key, int mode ) {
     super(max,len,key,mode);
-  }
-  static ValueArray make_wire(int max, int len, Key key ) {
-    return new ValueArray(max,len,key,NOT_STARTED);
   }
   
   @Override public long length() { return UDP.get8(get(),2); }
 
-  @Override public byte type() { return 'A'; }
+  @Override public byte type() { return ARRAYLET; }
 
   @Override protected boolean getString_impl( int len, StringBuilder sb ) {
     sb.append("[array] size=").append(length());
@@ -90,21 +82,6 @@ public class ValueArray extends Value {
     return 1 << LOG_CHK;
   }
   
-  public void makeChunks() {
-    Persistence p = persistenceBackend();
-    for (int i = 0; i<chunks(); ++i) {
-      Key k = chunk_get(i);
-      DKV.put(k,p.getSentinel((short)0, (byte)'I'));
-    }
-  }
-  
-  public void deleteChunks() {
-    for (int i = 0; i<chunks(); ++i) {
-      Key k = chunk_get(i);
-      DKV.remove(k);
-    }
-  }
-
 
   static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
     // Main Key

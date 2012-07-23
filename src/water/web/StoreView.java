@@ -139,7 +139,6 @@ public class StoreView extends H2OPage {
     // Dump out the current replication info: Mem/Disk/Replication_desired
     String vs = val.getString(100); // First, get the string which might force mem loading
     vs = vs.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
-    if( val.is_deleted() ) vs = "<span class='label label-inverse'>deleted</span>";
     int r = key.desired();
     int repl = key.replica(cloud);
     if( repl < r ) { // If we should be replicating, then report what replication we know of
@@ -161,8 +160,6 @@ public class StoreView extends H2OPage {
     row.replace("replica",(repl==255?"":("r"+repl)));
     // Now the first 100 bytes of Value as a String
     row.replace("value",vs);
-    if (val.is_deleted())
-      row.replace("delBtnStyle","visibility:hidden");
     row.replace("ktr",urlEncode(ks));
     row.append();
   }

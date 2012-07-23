@@ -32,11 +32,6 @@ public class ValueINode {
       mem[i] = sbytes[i];
   }
 
-  // Make from the wire: assume not locally persisted yet
-  static ValueINode make_wire(int max, int len, VectorClock vc, long vcl, Key key ) {
-    return new ValueINode(max,len,vc,vcl,key,NOT_STARTED);
-  }
-
   @Override protected byte type() { return 'N'; }
 
   // Return an Ice Value for this Key

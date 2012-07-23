@@ -129,7 +129,6 @@ public abstract class MemoryManager {
 
   // Try to allocate memory, return null if there is not enough free memory
   public static byte[] tryAllocateMemory(int size) {
-
     final int numkeys = H2O.STORE.size(); // Part of the memory footprint estimate
     SimpleValueIterator myIter = null;
     int i = 0;                  // Iterator index
@@ -151,24 +150,11 @@ public abstract class MemoryManager {
       if( !(o instanceof Value)) // Ignore tombstone, etc
         continue;
       Value v = (Value)o;
-      if( !v.is_local_persist() ) // Is on disk?
-        continue;                 // Nope...
-      // do not delete a value that is marked as non-persistent one, this value
-      // fakes that it is persisted so if we delete it, we loose it
-      if (v.persistenceState()==Value.DO_NOT_PERSIST)
-        continue;
-      // we cannot delete a PersistNone value that reports it's persisted, we can only delete PersistNone caches. 
-      if ((v.persistenceBackend()==PersistNone._instance) && (v.persistenceState()!=Value.CACHE))
-        continue;
+      if( !v.is_persisted() )   // Is on disk?
+        continue;               // Nope...
       byte[] mem = v.mem();
       if( mem == null ) continue; // Already freed
-      // if the value is CACHE value, we should delete it from the store as well
-      if (v.persistenceState()==Value.CACHE)
-        DKV.remove(v._key);
-      else
-        if( !v.CAS_mem(mem,null) ) // One-shot free attempt
-          continue;                // Failed?  Try another Value
-      // Now just try again
+      v.CAS_mem(mem,null);        // One-shot free attempt
     }
   }
 
