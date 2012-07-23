@@ -23,7 +23,7 @@ JAR_ROOT=lib
 
 # additional dependencies, relative to this file, but all dependencies should be
 # inside the JAR_ROOT tree so that they are packed to the jar file properly
-DEPENDENCIES="${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*"
+DEPENDENCIES="${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*${SEP}${JAR_ROOT}/junit/*"
 
 DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"

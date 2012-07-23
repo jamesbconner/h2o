@@ -4,10 +4,12 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import jsr166y.ForkJoinPool;
+import org.junit.runner.*;
+import org.junit.runner.notification.*;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
+import water.test.Test;
 
 
 /**
@@ -225,12 +227,13 @@ public final class H2O {
     public String name;               // set_cloud_name_and_mcast()
     public String nodes;              // set_cloud_name_and_mcast()
     public int port;                  // set_cloud_name_and_mcast()
-    public String ip;
+    public String ip;                 // Named IP4/IP6 address instead of the default
     public String ice_root;           // ice root directory
     public String hdfs;               // HDFS backend
     public String hdfs_root;          // root of the HDFS installation (for I only)
     public String hdfs_config;        // configuration file of the HDFS
     public String hdfs_datanode;      // Datanode root
+    public String test;               // JUnit test classes
   }
 
   // Start up an H2O Node and join any local Cloud
@@ -251,6 +254,7 @@ public final class H2O {
     startNetworkServices();  // start server services
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
+
   }
 
 
@@ -322,6 +326,34 @@ public final class H2O {
                        (MULTICAST_ENABLED
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
                         : ", configuration based on -nodes "+NODES_FILE));
+
+    // Start running tests
+    String doTest=OPT_ARGS.test;   // Tests enabled?
+    if( doTest==null ) {           // If nothing on the cmd-line then...
+      assert (doTest="-test")!=null; // Always run basic tests if asserts are enabled
+    }
+    if( doTest != null ) {
+      Result r = org.junit.runner.JUnitCore.runClasses(Test.class);
+      List<Failure> lf = r.getFailures();
+      if( lf.size() > 0 ) {
+        System.err.println("--- JUNIT FAILURES ---");
+        for( Failure f : lf ) { // Report failures
+          System.err.println(f);
+          // Print out exactly 1 line of the stack trace, with the file & line numebr
+          String hdr = f.getTestHeader();
+          int idx = hdr.indexOf('(');
+          String testclass0 = hdr.substring(idx+1);
+          String testclass = testclass0.substring(0,testclass0.length()-1);
+          String[] ts = f.getTrace().split("\n");
+          for( int i=0; i<ts.length; i++ ) {
+            if( ts[i].indexOf(testclass) != -1 ) {
+              System.err.println(ts[i]);
+              break;
+            }
+          }
+        }
+      }
+    }
   }
   
 
