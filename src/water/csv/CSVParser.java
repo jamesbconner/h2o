@@ -1,0 +1,628 @@
+package water.csv;
+
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Type;
+import java.util.Collection;
+
+
+/**
+ * Simple CSVParser, parses InputStream assuming data in csv format. 
+ * 
+ * Takes object and the array of attribute names (Java identifiers) of this object which will be filled when parsing.
+ * Object data are rewritten upon each call of the next() function, which returns true f it was successful.
+ * Right now, it can parser records (or arrays) with any of the following data types: int, float, double, String.
+ * 
+ * Data can be distributed to several streams, which can be pushed to the parser via addData method. Records can cross the stream boundaries.
+ * However, this WILL FAIL if quoted value including newline character crosses the stream boundary in such a way that the newline character is in the second stream.
+ *  
+ * @author tomas
+ */
+public final class CSVParser {
+	
+	//private ArrayList<InputStream> _inputs = new ArrayList<InputStream>();		
+	//int _currentInput;
+	Object _record;	
+	final CSVParserSetup _setup;
+	
+	int _index = -1;
+	int _from = 0;
+	int _to;
+	byte [] _data;
+	byte [] _nextData;
+	int _length; // _data.length + _nextData.length - max length of data
+	int _column;
+	int _state = 0;
+	
+	boolean _newLineFlag = false;
+	//final Map<String, IObjectParser> _parsers;
+	final static int NEWLINE_STATE = 1000;
+	
+	boolean _dontParseFlag;
+	boolean _resetParsers = false;
+	boolean _done;
+	
+	final String [] _columnNames;
+	final String [] _columns;
+	
+  final FieldValueParser [] _columnParsers;
+	Field [] _fields;
+	
+	/**
+	 * Creates the CSVParser 
+	 * 
+	 * @param input - InputData      
+	 * @param csvRecord - record object which will be filled upon each successfull call of next method.
+	 * 										Can be either an array or an arbitrary object with attribute names specified in columns arg.
+	 * @param columns   - in case of filling a Java object, this argument contains attribute names (Java ids) which will be filled
+	 *                    by the next() method. The MUST be in the same order as the colymns in csv file. 
+	 * @param separator - character interpreted as a separator, right now it has to be single char fitting inside 1 byte
+	 * @param parseColumnNames - set this to true if you expect first line to contain names of the columns in the csv file
+	 * @param skipUntilNewline - set this to true if you want to start parsing after first newline char
+	 * @param trimSpaces - if set, all spaces at the beginning and end of each field are trimmed
+	 * @param collapseSpaceSeparators - if set, in case separator is a space, multiple consecutive spaces will be treated as a single separator                        
+	 * 
+	 * @author tomas
+	 */
+	public CSVParser(byte [] data, Object csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, CSVParseException, IOException, IllegalArgumentException, IllegalAccessException{
+		_setup = setup;	
+		_column = 0;
+		_data = data;
+		_length = _data.length;
+		_columns = columns;
+		_record = csvRecord;
+		int i = 0;
+		FloatingDecimal f = new FloatingDecimal(false,0, new char[64],0,false);
+		if(csvRecord.getClass().isArray()){
+			_columnParsers = new FieldValueParser[Array.getLength(csvRecord)];
+			_columnNames = setup.parseColumnNames?new String[Array.getLength(csvRecord)]:null;
+			if(csvRecord.getClass().getComponentType().equals(Integer.TYPE)){
+				setArrayParser(new FieldValueParser(DataType.typeInt));				
+			} else if(csvRecord.getClass().getComponentType().equals(Double.TYPE)){
+				setArrayParser(new FieldValueParser(DataType.typeDouble,f));
+			} else if(csvRecord.getClass().getComponentType().equals(Float.TYPE)){
+				setArrayParser(new FieldValueParser(DataType.typeFloat,f));
+			} else if(CSVString.class.equals(csvRecord.getClass().getComponentType())){								
+				setArrayParser(new FieldValueParser(DataType.typeCSVString));
+			}else if(String.class.equals(csvRecord.getClass().getComponentType())){
+				setArrayParser(new FieldValueParser(DataType.typeString));
+			} else { 
+				throw new UnsupportedOperationException();
+			}
+		} else if(csvRecord.getClass().isInstance(Collection.class)){
+			 throw new UnsupportedOperationException();
+		} else {
+			_columnNames = _setup.parseColumnNames?new String[_columns.length]:null;
+			_fields = new Field[columns.length];
+			_columnParsers = new FieldValueParser[columns.length];
+			for(String colName: columns){
+				if(colName != null){							
+					_fields[i] = csvRecord.getClass().getDeclaredField(colName);
+					Type t = _fields[i].getGenericType();
+					if(Integer.TYPE.equals(t)){
+						_columnParsers[i] = new FieldValueParser(DataType.typeInt);
+					} else if(Double.TYPE.equals(t)){
+						_columnParsers[i] = new FieldValueParser(DataType.typeDouble,f);				
+					} else if(Float.TYPE.equals(t)){
+						_columnParsers[i] = new FieldValueParser(DataType.typeFloat,f);				
+					} else if(CSVString.class.equals(t)){
+						_columnParsers[i] = new FieldValueParser(DataType.typeCSVString);
+						_fields[i].set(_record, _columnParsers[i]._csvString);
+					} else if(String.class.equals(t)){
+						_columnParsers[i] = new FieldValueParser(DataType.typeString);						
+					} else { // no parser available for this type
+						throw new UnsupportedOperationException();
+					}
+				} else {
+					_columnParsers[i] = null;
+				}
+				++i;
+			}
+		}			
+	}
+	
+	protected final void setArrayParser(FieldValueParser p){
+		for(int i = 0; i < _columnParsers.length; ++i){
+			_columnParsers[i] = new FieldValueParser(p);
+			if(p._type == DataType.typeCSVString){
+				Array.set(_record, i, _columnParsers[i]._csvString);
+			}
+		}
+		
+	}
+	public void setNextData(byte [] d){
+		_nextData = d;						
+		_length = _data.length + ((_nextData != null)?_nextData.length:0);
+	}
+		
+	//private byte _b;
+		
+	private boolean nextByte() throws IOException {		
+		//System.out.println("index = " + _index + ", length = " + _length + " ,_data.length = " + _data.length);
+		return(!_done && (_data != null) && (++_index != _length));							
+	}
+	
+	// set the attribute value and reset given parser
+	protected void endField() throws IllegalArgumentException, IllegalAccessException, CSVParseException {		
+		if(!_dontParseFlag){ 
+			if(_column == _columnParsers.length){
+				if(_setup.ignoreAdditionalColumns)
+					return;
+				throw new CSVParseException("Too many columns");									
+			}
+			// parse the data						
+			if(_columnParsers[_column] != null){				
+				//_columnParsers[_column].pushData(_data, _from, _to+1);				
+				switch(_columnParsers[_column]._type){			
+				case typeInt:			
+					if(_record.getClass().isArray())
+						Array.setInt(_record, _column, _columnParsers[_column].getIntVal(_from, _to - _from + 1));
+					 else
+						_fields[_column].setInt(_record, _columnParsers[_column].getIntVal(_from, _to - _from + 1));				
+					break;
+				
+				case typeFloat:
+				{
+					float v = _columnParsers[_column].getFloatVal(_from, _to - _from + 1);
+					if(_record.getClass().isArray())
+						Array.setFloat(_record, _column, v);
+					else
+						_fields[_column].setFloat(_record, v);
+					break;
+				}
+				case typeDouble:
+				{
+					double v = _columnParsers[_column].getDoubleVal(_from, _to - _from + 1);
+					if(_record.getClass().isArray())
+						Array.setDouble(_record, _column, v);
+					else
+						_fields[_column].setDouble(_record, v);
+					break;
+				}
+				case typeCSVString:
+				{
+					_columnParsers[_column]._csvString._offset = _from;
+					_columnParsers[_column]._csvString._len = _to - _from + 1;
+					// no need to do anything else here, CSVString object is already shared with the current csv record
+					break; 
+				}
+				case typeString:
+				{
+					_columnParsers[_column]._csvString._offset = _from;
+					_columnParsers[_column]._csvString._len = _to - _from + 1;
+					String v = _columnParsers[_column]._csvString.toString();											
+					if(_record.getClass().isArray())
+						Array.set(_record, _column, v);
+					else
+						_fields[_column].set(_record, v);
+				}
+				break;
+				default:
+					throw new IllegalStateException (); // should not get here
+				}								
+			}
+			++_column;
+		}
+		_from = _index+1;		
+		_state = 0;
+		_newLineFlag = false;
+	}
+	
+	// called after newline, in case of incomplete record, set all the remaining values to their default values
+	protected void endRecord() throws IllegalArgumentException, IllegalAccessException, CSVParseException{
+		if(_dontParseFlag)
+			return;
+		// set all unset fields to default values
+		if(_column != _columnParsers.length){
+			if(_setup.toleratePartialRecords){
+				for(int i = _column; i != _columnParsers.length; ++i)
+					endField();
+			} else {
+				_column = 0;
+				throw new CSVParseException("Partial record with " + _column + " columns");
+			}
+		}
+		_column = 0;
+		_resetParsers = true;
+	}		
+	
+	protected boolean addChar(char c) throws CSVParseException, IllegalArgumentException, IllegalAccessException{
+		switch(_state){			
+		case 0:
+			if(c == _setup.separator){
+				if(!_setup.collapseSpaceSeparators)						
+					endField();						
+				break;
+			}else if(c == '\n'){
+				// if we separate by spaces there can be some additional spaces before the newline
+				// which should be ignored
+				if(!_setup.collapseSpaceSeparators || _column != _columnParsers.length)
+					endField();
+				endRecord();					
+				return true;
+			} else if(Character.isWhitespace(c)){
+				if(_setup.trimSpaces)
+					++_from; // skip spaces at the beginning of a value
+				else {
+					_to = _index;					
+				}
+				break;
+			} else if(c == '"'){
+				_state = 2;
+				_from = _index+1;
+			}else{
+				_state = 1;
+				if(_setup.trimSpaces || _setup.collapseSpaceSeparators)
+					_from = _index;
+				else {
+					switch(_columnParsers[_column]._type){
+					case typeInt:
+					case typeFloat:
+					case typeDouble:
+						_from = _index;
+						break;
+					}
+				}
+				_to = _index;
+			}			
+			break;
+		case 1:
+			if((c == _setup.separator) || (c == '\n')){				
+				endField();					
+				if(c == '\n'){
+					endRecord();
+					return true;
+				}				
+			} else if(!Character.isWhitespace(c) || !_setup.trimSpaces){
+			// skip spaces at the beginning of a value				
+				_to = _index;				
+			}
+			break;
+		case 2:
+			if(c == '"')
+				_state = 3;
+			else
+				_to = _index;									
+			break;				
+		case 3:				
+			if(c == '"'){
+				_to = _index; 
+				_state = 2;
+			} else {		
+				if((c == _setup.separator) || (c == '\n')){
+					endField();
+					if(c == '\n'){
+						endRecord();
+						return true;
+					}
+				} else if(Character.isWhitespace(c)){
+					_state = 4;						
+				} else {
+					throw new CSVParseException("unexpected character '" + c + "'");
+				}
+			} 																						
+			break;
+		case 4:
+			if((c == _setup.separator) || (c == '\n')){
+				endField();
+				if(c == '\n'){
+					endRecord();
+					return true;
+				}
+			}	else if(!Character.isWhitespace(c)){				
+				throw new CSVParseException("unexpected character '" + c + "'");
+			}				
+			break;
+		default:
+			throw new CSVParseException("unexpected state during CSVLine parsing");
+		}	
+	return false;
+	}
+	
+	/**
+	 * Parses next CSVRecord and returns true if csv record has been successfully parsed. Note data previously returned by this method is 
+	 * rewritten. 
+	 * 
+	 * Returns true if the expected number of columns have been read (or partial records are allowed)
+	 * and all of them were successfully parsed and newline character was encountered in the end. It keeps its state, so 
+	 * if it returns true because the last record did not finish, you can put in more data and continue form the same state.    
+	 *  
+	 * @return true if new CSVRecord has been successfully parsed
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws CSVParseException
+	 */
+	public boolean next() throws IOException, IllegalArgumentException, IllegalAccessException, CSVParseException {		
+		if(_resetParsers){
+			for(FieldValueParser p:_columnParsers)
+				p.reset();
+			_resetParsers = false;
+		}
+		while(nextByte()){
+			char c;		
+			try{
+				c = (_index < _data.length)?(char)_data[_index]:(char)_nextData[_index - _data.length];
+			}catch(Throwable t){
+				t.printStackTrace();
+				return false;
+			}
+		
+			// lines can be ended by \r\n or just \n, however, \r can also be part of the field's value
+			// -> when encouter \r, do not pass it in and wait for the next char, if it is \n, treat both as a single newline char,
+			// otherwise pass \r to the underlying parser as such
+			if(_newLineFlag) {
+				_newLineFlag = false;
+				if(c == '\n')
+					_to = Math.min(_to, _index - 2);
+				else
+					addChar('\r');
+			}	
+			if((c == '\r') && (_state != 2)) {
+				_newLineFlag = true;
+				continue;
+			} 								
+			if(addChar(c)){
+				_done = (_index >= _data.length);
+				return true;
+			}
+		}		
+		if(_index == _length)
+			--_index;
+		//_columnParsers[_column].pushData(_data, _from, _to+1);		
+		return false;
+	}
+	
+	public static class CSVParseException extends Exception {
+		private static final long serialVersionUID = 1L;
+		public CSVParseException (String msg){super(msg);}		
+	}	
+	
+	public final String [] columnNames() {return _columnNames;}
+	
+	public void reset() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException  {
+		_index = -1;
+		_from = 0;
+		//_currentInput = 0;
+		for(FieldValueParser p :_columnParsers)
+			p.reset();
+		_resetParsers = false;
+		if(_setup.parseColumnNames){			
+			// parse column names
+			CSVParserSetup s = new CSVParserSetup(_setup);
+			CSVParser p = new CSVParser(_data,_columnNames, null, s);
+			if(!p.next()){
+				throw new CSVParseException("unexpected exception while parsing header (column names) of the csv file");
+			}
+			_index = p._index;
+			_from = p._index+1;
+			p = null;
+		} else {
+			if(_setup.skipFirstRecord){
+				_dontParseFlag = true;
+				next();
+				_dontParseFlag = false;
+				_column = 0;
+			}
+		}		
+	}
+	
+	public void close() {
+		_data = null;
+	}
+	
+	public enum DataType {
+		typeInt, typeFloat, typeDouble, typeCSVString, typeString, typeCharSeq, typeObj;		
+	}	
+  	
+	final class FieldValueParser  {
+		final DataType _type;
+		CSVString _csvString;
+		final FloatingDecimal _floatingDecimal;
+		int _radix = 10;
+		
+		FieldValueParser(DataType t){
+			this(t, ((t == DataType.typeFloat) || (t == DataType.typeDouble))?new FloatingDecimal(0.0):null);
+		}
+		
+		FieldValueParser(DataType t, FloatingDecimal f){
+			_type = t;
+			_floatingDecimal = f;
+			_csvString = new CSVString(0,0, CSVParser.this);
+		}
+		
+		protected CSVParser csvParser(){return CSVParser.this;}
+		/**
+		 * copy constructor. FloatingDecimal is SHARED.
+		 * @param other
+		 */
+		FieldValueParser(FieldValueParser other){
+			if(CSVParser.this != other.csvParser())
+				throw new UnsupportedOperationException("copy constructor of FieldValueParser can only be applied on classes with the same CSVParser class");
+			_type = other._type;
+			_floatingDecimal = other._floatingDecimal;			
+			_csvString = new CSVString(other._csvString._offset, other._csvString._len, CSVParser.this);
+		}
+		
+		private final void parseFloat(int from, int len){
+			int state = 0;
+			final int N = from + len;
+			_floatingDecimal.isNegative = false;
+			_floatingDecimal.nDigits = 0;
+			_floatingDecimal.decExponent = 0;
+			
+			for(int i = from; i < N; ++i){
+				byte b = (i < _data.length)?_data[i]:_nextData[i - _data.length];
+				char ch = (char)b;
+				switch(state){
+				case 0:
+					switch(ch){
+					case '.':
+						state = 3;
+						break;
+					case '-':
+						_floatingDecimal.isNegative = !_floatingDecimal.isNegative;
+						break;
+					case ' ':
+					case '\t':
+						break;
+					case '0':
+						state = 1;
+						break;
+					default:
+						state = 2;
+						_floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
+						++_floatingDecimal.decExponent;
+					}
+					break;	
+				case 1: // leading zeros
+					if(ch == '0')
+						break; // ignore leading zeros
+					// otherwise fall through
+				case 2: // integer part
+					switch(ch){
+					case '.':
+						state = 3;
+						break;
+					case 'e':
+					case 'E':
+						state = 4;
+						break;
+					case ' ':
+					case '\t':
+						state = 5;
+						break;
+					default:
+						if(_floatingDecimal.nDigits == _floatingDecimal.digits.length)
+							throw new NumberFormatException("too many digits");
+						_floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
+						++_floatingDecimal.decExponent;
+					}
+					break;				
+				case 3: // afetr decimal point
+					switch(ch){
+					case ' ':
+					case '\t':
+						state = 5;
+						break;
+					case 'e':
+					case 'E':
+						state = 4;
+						break;
+					default:
+						if(_floatingDecimal.nDigits == _floatingDecimal.digits.length)
+							throw new NumberFormatException("too many digits");						
+						_floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
+					}
+					break;
+				case 4: // parse int and add it to exponent
+					_floatingDecimal.decExponent += getIntVal(i, N-i);
+					return;					
+				case 5: // should be trailing spaces...ignore them but throw exception if anything else
+					switch(ch){
+					case ' ':
+					case '\t':
+						break;
+					default:
+						throw new NumberFormatException("Unexpected char (" + (i - from) + ") '" + ch + "'");
+					}
+					break;					
+				}
+			}
+		} 
+		
+		final double getDoubleVal(int from, int len){
+			parseFloat(from, len);
+			return _floatingDecimal.doubleValue();
+		}
+		final float getFloatVal(int from, int len) {
+			parseFloat(from, len);
+			return _floatingDecimal.floatValue();
+		}
+		
+		private final int getDigit(char c){
+			int i = Integer.MAX_VALUE;
+			if(Character.isLetterOrDigit(c)){
+				if(Character.isDigit(c)){
+					i = Character.getNumericValue(c);				
+				} else {
+					i = Character.isUpperCase(c)?(10 + c - 'A'):(10 + c - 'a'); 				
+				}
+			}							
+			return i;
+		}
+		
+		final int getIntVal(int offset, int len){
+			int sign = 1;
+			int res = 0;			
+			int state = 0;
+			int N = offset + len;
+			
+			for(int i = offset; i < N; ++i ){
+				byte b = (i < _data.length)?_data[i]:_nextData[i - _data.length];
+				char ch = (char)b;
+				switch(state){
+				case 0:
+					if(Character.isWhitespace(ch))
+						break;
+					else if(ch == '-'){
+						sign *= -1;
+						break;
+					}
+					state = 1;
+				case 1:
+					if(Character.isWhitespace(ch))
+						state = 2;						
+					 else						
+						res = _radix * res + getDigit(ch);
+					break;
+				case 2:
+					if(!Character.isWhitespace(ch))
+						throw new NumberFormatException();
+				}
+			}			
+			return sign*res;
+		}
+		
+		void toString(StringBuilder bldr){
+			bldr.setLength(0);
+			int N = _csvString._len + _csvString._offset;
+			int M = Math.min(_data.length, N);
+			for(int i = _csvString._offset; i < M; ++i)
+				bldr.append(_data[i]);
+			for(int i = 0; i < Math.max(0, N - _data.length); ++i)
+				bldr.append(_nextData[i]);			
+	 }
+	 @Override	
+	  public String toString(){
+		  StringBuilder bldr = new StringBuilder();
+		  toString(bldr);
+		  return bldr.toString();
+	  }
+	 
+	 	public void reset(){
+	 		_csvString._offset = -1;
+	 		_csvString._len = -1;
+	 	}
+	}
+	
+	public static class CSVParserSetup{
+		public byte separator = (byte)',';
+		public boolean parseColumnNames = true;		
+		public boolean trimSpaces = false;
+		public boolean collapseSpaceSeparators = false; 
+		public boolean toleratePartialRecords = false;
+		public boolean skipFirstRecord = false;
+		public boolean ignoreAdditionalColumns = false;
+		public CSVParserSetup(){}
+		public CSVParserSetup(CSVParserSetup other){
+			separator = other.separator;
+			parseColumnNames = other.parseColumnNames;
+			trimSpaces = other.trimSpaces;
+			collapseSpaceSeparators = other.collapseSpaceSeparators;
+			toleratePartialRecords = other.toleratePartialRecords;
+			skipFirstRecord = other.skipFirstRecord;
+		}
+	}	
+}
