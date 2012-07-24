@@ -52,16 +52,12 @@ public final class CSVParser {
 	/**
 	 * Creates the CSVParser 
 	 * 
-	 * @param input - InputData      
-	 * @param csvRecord - record object which will be filled upon each successfull call of next method.
+	 * @param data      - first array with input data      
+	 * @param csvRecord - record object which will be filled upon each successful call of next method.
 	 * 										Can be either an array or an arbitrary object with attribute names specified in columns arg.
 	 * @param columns   - in case of filling a Java object, this argument contains attribute names (Java ids) which will be filled
-	 *                    by the next() method. The MUST be in the same order as the colymns in csv file. 
-	 * @param separator - character interpreted as a separator, right now it has to be single char fitting inside 1 byte
-	 * @param parseColumnNames - set this to true if you expect first line to contain names of the columns in the csv file
-	 * @param skipUntilNewline - set this to true if you want to start parsing after first newline char
-	 * @param trimSpaces - if set, all spaces at the beginning and end of each field are trimmed
-	 * @param collapseSpaceSeparators - if set, in case separator is a space, multiple consecutive spaces will be treated as a single separator                        
+	 *                    by the next() method. They MUST be in the same order as the columns in csv file. 
+	 * @param setup     - CSVParser setup, pass this if you want to override default settings                       
 	 * 
 	 * @author tomas
 	 */
@@ -121,7 +117,7 @@ public final class CSVParser {
 			}
 		}			
 	}
-	
+	// helper method to set parser for each field of an array
 	protected final void setArrayParser(FieldValueParser p){
 		for(int i = 0; i < _columnParsers.length; ++i){
 			_columnParsers[i] = new FieldValueParser(p);
@@ -131,6 +127,10 @@ public final class CSVParser {
 		}
 		
 	}
+	/**
+	 * Add additional data containing (part of) thelast record.
+	 * @param d
+	 */
 	public void setNextData(byte [] d){
 		_nextData = d;						
 		_length = _data.length + ((_nextData != null)?_nextData.length:0);
@@ -324,9 +324,10 @@ public final class CSVParser {
 	 * Parses next CSVRecord and returns true if csv record has been successfully parsed. Note data previously returned by this method is 
 	 * rewritten. 
 	 * 
-	 * Returns true if the expected number of columns have been read (or partial records are allowed)
-	 * and all of them were successfully parsed and newline character was encountered in the end. It keeps its state, so 
-	 * if it returns true because the last record did not finish, you can put in more data and continue form the same state.    
+	 * Returns true if next record has been successfully parsed (ended by newline character).
+	 * Keeps its state, so if it returns true because the last record did not finish, you can put in more data via setNextData method and continue parsing from the same state.   
+	 * 
+	 * Parsed data are stored into csvrecord object passed in a constructor.  
 	 *  
 	 * @return true if new CSVRecord has been successfully parsed
 	 * @throws IOException
@@ -374,6 +375,7 @@ public final class CSVParser {
 		return false;
 	}
 	
+	
 	public static class CSVParseException extends Exception {
 		private static final long serialVersionUID = 1L;
 		public CSVParseException (String msg){super(msg);}		
@@ -412,10 +414,12 @@ public final class CSVParser {
 		_data = null;
 	}
 	
+	// types parser can process
 	public enum DataType {
 		typeInt, typeFloat, typeDouble, typeCSVString, typeString, typeCharSeq, typeObj;		
 	}	
-  	
+  
+	// class responsible for parsing individual fields
 	final class FieldValueParser  {
 		final DataType _type;
 		CSVString _csvString;
@@ -445,6 +449,13 @@ public final class CSVParser {
 			_csvString = new CSVString(other._csvString._offset, other._csvString._len, CSVParser.this);
 		}
 		
+		// trims leading and trailing spaces and than parses the string into FloatingDecimal
+		// result is stored in _floatingDecimal var (so that 1 FloatingDecimal instance can be shared across the columns
+		// 
+		// parsing is done so that all assumed digits (non-space nor '.' nor '-' characters) are copied into the digits array
+		// of the _floatingDecimal
+		//  
+		// exponent is computed based on the part of the string before '.' + the explicit exponent expression (parsed as an integer) if present
 		private final void parseFloat(int from, int len){
 			int state = 0;
 			final int N = from + len;
@@ -466,7 +477,7 @@ public final class CSVParser {
 						break;
 					case ' ':
 					case '\t':
-						break;
+						break; // trim the leading spaces
 					case '0':
 						state = 1;
 						break;
@@ -482,7 +493,7 @@ public final class CSVParser {
 					// otherwise fall through
 				case 2: // integer part
 					switch(ch){
-					case '.':
+					case '.':   
 						state = 3;
 						break;
 					case 'e':
@@ -491,7 +502,7 @@ public final class CSVParser {
 						break;
 					case ' ':
 					case '\t':
-						state = 5;
+						state = 5; // trim the trailing spaces
 						break;
 					default:
 						if(_floatingDecimal.nDigits == _floatingDecimal.digits.length)
@@ -500,7 +511,7 @@ public final class CSVParser {
 						++_floatingDecimal.decExponent;
 					}
 					break;				
-				case 3: // afetr decimal point
+				case 3: // after decimal point
 					switch(ch){
 					case ' ':
 					case '\t':
@@ -516,7 +527,7 @@ public final class CSVParser {
 						_floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
 					}
 					break;
-				case 4: // parse int and add it to exponent
+				case 4: // parse int and add it to the exponent
 					_floatingDecimal.decExponent += getIntVal(i, N-i);
 					return;					
 				case 5: // should be trailing spaces...ignore them but throw exception if anything else
@@ -552,7 +563,7 @@ public final class CSVParser {
 			}							
 			return i;
 		}
-		
+		// parse integer from substring 
 		final int getIntVal(int offset, int len){
 			int sign = 1;
 			int res = 0;			
@@ -607,15 +618,26 @@ public final class CSVParser {
 	 	}
 	}
 	
-	public static class CSVParserSetup{
-		public byte separator = (byte)',';
-		public boolean parseColumnNames = true;		
-		public boolean trimSpaces = false;
-		public boolean collapseSpaceSeparators = false; 
-		public boolean toleratePartialRecords = false;
-		public boolean skipFirstRecord = false;
-		public boolean ignoreAdditionalColumns = false;
+	/**
+	 * Represents parameters of CSVParser. 
+	 * 
+	 * All values initialized to their defaults.
+	 * 
+	 * @author tomas
+	 *
+	 */
+	public static class CSVParserSetup {
+		
+		public byte separator = (byte)','; // column separator, can be any character that fits into one byte
+		public boolean parseColumnNames = true; // set this to true if the first line of the data contains column names, applies only to chunk 0 
+		public boolean trimSpaces = false; // if true all fields will be trimmed (applies only to string since number parsers by default trim their input)
+		public boolean collapseSpaceSeparators = false;  // if set and the separator is a whitespace character, multiple spaces will be treated as a single separator
+		public boolean toleratePartialRecords = false; // if false, records with fewer than expected number of columns will trigger a CSVParse exception
+		public boolean skipFirstRecord = false; // if true, the first (probably partial) record will be skipped before parsing
+		public boolean ignoreAdditionalColumns = false; // if false, lines with more columns than expected will trigger a CSVParse exception
+		
 		public CSVParserSetup(){}
+		
 		public CSVParserSetup(CSVParserSetup other){
 			separator = other.separator;
 			parseColumnNames = other.parseColumnNames;

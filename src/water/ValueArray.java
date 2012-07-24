@@ -25,10 +25,10 @@ public class ValueArray extends Value {
     UUID uuid = UUID.randomUUID();
     mem()[0] = 0;
     mem()[1] = 0;
-    UDP.set8(mem(), 2,sz);
+    UDP.set8_raw(mem(), 2,sz);
     if (uid==null) {
-      UDP.set8(mem(), 10,uuid.getLeastSignificantBits());
-      UDP.set8(mem(), 18,uuid. getMostSignificantBits());
+      UDP.set8_raw(mem(), 10,uuid.getLeastSignificantBits());
+      UDP.set8_raw(mem(), 18,uuid. getMostSignificantBits());
     } else {
       System.arraycopy(uid, 0, mem(), 10, uid.length);
     }
@@ -60,7 +60,7 @@ public class ValueArray extends Value {
   // Make a system chunk-key from an offset into the main array
   public Key make_chunkkey( long off ) {
     byte[] kb = get().clone();  // Make a copy of the main Value array
-    UDP.set8(kb,2,off);         // Blast down the offset.
+    UDP.set8_raw(kb,2,off);         // Blast down the offset.
     return Key.make(kb,(byte)_key.desired());        // Presto!  A unique arraylet key!
   }
 
@@ -186,7 +186,7 @@ public class ValueArray extends Value {
     assert off == sz;           // Got them all
 
     // Now insert the main Key
-    UKV.put(key,ary);         // Insert in distributed store
+    UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }
 }

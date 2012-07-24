@@ -168,7 +168,7 @@ public class PersistIce extends Persistence {
     if ((k._kb.length < 10) || (k._kb[0]>=32)) {
       return "not_a_chunk";
     } else {
-      long offset = UDP.get8(k._kb,2);
+      long offset = UDP.get8_raw(k._kb,2);
       return String.valueOf(offset / ValueArray.chunk_size());
     }
   }

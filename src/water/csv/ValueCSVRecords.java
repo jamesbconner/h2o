@@ -12,14 +12,23 @@ import water.csv.CSVParser.CSVParserSetup;
 
 
 /**
- * Wrapper around CSVParser. Takes two keys of two consecutive arraylets. 
- * It will parse all the records from the first one (starting from the second record, unless this is the first arraylet) 
+ * Wrapper around CSVParser implementing iterator interface.  
+ *  
+ * Allows for iteration over csv records stored in a Value. if passed Value is an arraylet, its behavior depends on the index.
+ * The chunk 0 is parsed completely + the first record of chunk 1. For all other chunks, first record is skipped and the first record from the next chunk is parsed as well. 
+ * 
+ * Note that escaped sequences (quoted) are not allowed to cross a chunk boundary. Such record will cause an exception.
+ * 
+ * Iterator interface returns this as an iterator, meaning all iterators returned by iterator() are shared and call to iterator() method
+ * reset all previously returned iterators (which are all in fact the same object).
+ * 
+ * Objects returned by iterator's next method all all the same object as the one passed in as an csvRecord argument with the values of its attributes set by the method.
+ * Therefore, every call to the next or hasNext() method overwrites previously returned data. 
+ *  
  * @author tomas
  *
  */
 public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {	
-	Key _k;
-	Key _nextK;	
 	Value _nextData;
 	T _rec;
 	String [] _columns;
@@ -42,19 +51,17 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
 				e.printStackTrace();	
 				_next = false;
 			} 
-		if(!_next && (_nextK != null)){
-			_done = true;				
-			if(_nextData != null){
-				if(_parser._state == 2)
-					throw new IllegalStateException("There is an escaped (quoted) sequence crossing chunk boundary, handling of these cases is not currently implemented.");
-				_parser.setNextData(_nextData.get());
-				try {
-					_next = _parser.next();
-				} catch (Exception e) {
-					_next = false;					
-					e.printStackTrace();
-				}
-			}							
+		if(!_next && (_nextData != null)){
+			_done = true;							
+			if(_parser._state == 2)
+				throw new IllegalStateException("There is an escaped (quoted) sequence crossing chunk boundary, handling of these cases is not currently implemented.");
+			_parser.setNextData(_nextData.get());
+			try {
+				_next = _parser.next();
+			} catch (Exception e) {
+				_next = false;					
+				e.printStackTrace();
+			}										
 			_parser.close();
 		}		
 		return _next;
@@ -78,9 +85,21 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
 	public ValueCSVRecords(Value v, int index, T csvRecord, String [] columns) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
 		this(v, index, csvRecord, columns, new CSVParserSetup());
 	}
-	public CSVParser parser() {
-		return _parser;
-	}	
+	
+	/**
+	 * 
+	 * @param v     - Value containing the data to be parsed or arraylet root in case of arraylets
+	 * @param index - index of the arraylet chunk to be parsed in case of arraylet
+	 * @param csvRecord - instance of an object which will be filled by next() method. 
+	 * @param columns - atrributes to be filled by next method, in the same order as the columns in the csv file.
+	 * @param setup - contains settings of CSVParser
+	 * @throws NoSuchFieldException - happens in case of mismatch between the passed object nad passed columns attribute.
+	 * @throws SecurityException 
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws CSVParseException
+	 * @throws IOException
+	 */
 	public ValueCSVRecords(Value v, int index,  T csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {		
 		byte [] data = null;
 		byte [] nextData = null;
@@ -109,7 +128,10 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
 		_parser.setNextData(nextData);
 		iterator();
 	}			
-	
+	/**
+	 * Getter for column names.
+	 * @return column names if parseColumn names set to true and we have the first chunk, null otherwise
+	 */
 	public final String [] columnNames() {
 		if(_parser != null)
 			return _parser.columnNames();
