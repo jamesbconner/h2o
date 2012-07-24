@@ -9,10 +9,15 @@ import static org.junit.Assert.*;
 import water.*;
 
 public class Test {
+  // Request that tests be "clean" on the K/V store, and restore it to the same
+  // count of keys after all tests run.
+  static int _initial_keycnt;
+
 
   // A no-arg constructor for JUnit alone
   public Test() { }
 
+  // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
   // value for it, get the value for it, delete it.
   @org.junit.Test public void test0() {
@@ -29,14 +34,42 @@ public class Test {
     assertNull(v3);
   }
 
+  // ---
   // Repeat test0, but with at least 3 JVMs in the Cloud
   @org.junit.Test public void test1() {
     h2o_cloud_of_size(3);
     test0();
   }
 
+  // ---
+  // Make 100 keys, verify them all, delete them all.
+  @org.junit.Test public void test2() {
+    Key   keys[] = new Key  [100];
+    Value vals[] = new Value[keys.length];
+    for( int i=0; i<keys.length; i++ ) {
+      Key k = keys[i] = Key.make("key"+i);
+      Value v0 = DKV.get(k);
+      assertNull(v0);
+      Value v1 = vals[i] = new Value(k,"bits for Value"+i);
+      DKV.put(k,v1);
+      assertEquals(v1._key,k);
+    }
+    for( int i=0; i<keys.length; i++ ) {
+      Value v = DKV.get(keys[i]);
+      assertEquals(vals[i],v);
+    }
+    for( int i=0; i<keys.length; i++ ) {
+      DKV.remove(keys[i]);
+    }
+    for( int i=0; i<keys.length; i++ ) {
+      Value v3 = DKV.get(keys[i]);
+      assertNull(v3);
+    }
+  }
+
+  // ---
   // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
-  void h2o_cloud_of_size( int cnt ) {
+  static public void h2o_cloud_of_size( int cnt ) {
     int num = H2O.CLOUD.size();
     while( num < cnt ) {
       launch_dev_jvm(num);
@@ -44,15 +77,25 @@ public class Test {
     }
   }
 
+  @BeforeClass public static void record_initial_keycnt() {
+    System.out.println("Running tests in Test.class");
+    _initial_keycnt = H2O.store_size();
+  }
+
   // Kill excess JVMs once all testing is done
   @AfterClass public static void kill_test_jvms() {
     for( int i=0; i<TEST_JVMS.length; i++ ) {
       if( TEST_JVMS[i] != null ) {
-        System.out.println("Killing nested JVM on port "+(H2O.WEB_PORT+3*i));
+        System.out.println("  Killing nested JVM on port "+(H2O.WEB_PORT+3*i));
         TEST_JVMS[i].destroy();
         TEST_JVMS[i] = null;
       }
     }
+
+    int leaked_keys = H2O.store_size() - _initial_keycnt;
+    if( leaked_keys > 0 )
+      System.err.println("Tests leaked "+leaked_keys+" keys");
+    System.out.println("Done testing Test.class");
   }
 
   public static Process[] TEST_JVMS = new Process[10];
@@ -61,14 +104,14 @@ public class Test {
   public static void launch_dev_jvm(int num) {
     String[] args = new String[]{"java","-classpath",System.getProperty("java.class.path"),"-ea","init.init","-test=none","-Xmx512m","-name",H2O.NAME,"-port",Integer.toString(H2O.WEB_PORT+3*num),"-ip",H2O.SELF._key._inet.getHostAddress()};
     try {
-      System.out.println("Launching nested JVM on port "+(H2O.WEB_PORT+3*num));
+      System.out.println("  Launching nested JVM on port "+(H2O.WEB_PORT+3*num));
       Process P = RUNTIME.exec(args);
       TEST_JVMS[num] = P;
       while( H2O.CLOUD.size() == num ) { // Takes a while for the new JVM to be recognized
         try { Thread.sleep(10); }        // sleep 10msec & test again
         catch( InterruptedException ie ) {} 
       }
-      System.out.println("Nested JVM joined cloud");
+      System.out.println("  Nested JVM joined cloud");
       if( H2O.CLOUD.size() == num+1 ) return;
       throw new Error("JVMs are dying on me");
     } catch( IOException e ) {
