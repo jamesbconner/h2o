@@ -210,6 +210,7 @@ public final class H2O {
   public static Key getk( Key key ) { return STORE.getk(key); }
   public static Set<Key> keySet( ) { return STORE.keySet(); }
   public static Collection<Value> values( ) { return STORE.values(); }
+  public static int store_size() { return STORE.size(); }
 
 
   // --------------------------------------------------------------------------
