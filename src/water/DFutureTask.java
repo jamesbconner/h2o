@@ -105,6 +105,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     // ACKACK the remote, telling him "we got the answer"
     byte[] buf = p.getData();
     UDP.set_ctrl(buf,UDP.udp.ackack.ordinal());
+    UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
     MultiCast.singlecast(_target,buf,UDP.SZ_TASK);
     UDPReceiverThread.free_pack(p);
     UDPTimeOutThread.PENDING.remove(this);

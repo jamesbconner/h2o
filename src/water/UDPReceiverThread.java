@@ -155,7 +155,7 @@ public class UDPReceiverThread extends Thread {
       // we just want to send the dup reply back.
       DatagramPacket old = h2o.putIfAbsent(pack);
       if( old != null ) {       // We've seen this packet before?
-        if( (0xFF&old.getData()[0]) == ACK ) {
+        if( UDP.get_ctrl(old.getData()) == ACK ) {
           int dum = H2O.VOLATILE; // Dummy volatile read between 1st byte & rest of packet
           // This is an old re-send of the same thing we've answered to
           // before.  Send back the same old answer ACK.

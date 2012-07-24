@@ -81,10 +81,19 @@ public abstract class UDP {
   // Set/get the port in next 2 bytes
   public static int  get_port( byte[] buf ) { return (buf[1]&0xff) + ((buf[2]&0xff)<<8); }
   public static void set_port( byte[] buf, int port ) {
-    assert // Assert buffer is clean (0), or from the Pool (0xab) or is recycled w/same port
-      (buf[1]==(byte)0xab||buf[1]==0||buf[1]==(byte)port) &&
-      (buf[2]==(byte)0xab||buf[2]==0||buf[2]==(byte)(port>>8));
+    int port1 = (0xFF&buf[1])+((0xFF&buf[2])<<8);
+    if( port1 != 0 && port1 != 0xabab && port1 != port ) {
+      System.err.println("good port 0x"+Integer.toHexString(port )+" port "+port );
+      System.err.println("bad  port 0x"+Integer.toHexString(port1)+" port "+port1);
+      throw new Error("broken ports");
+    }
+    // Assert buffer is clean (0), or from the Pool (0xab) or is recycled w/same port
+    assert port1 == 0 || port1 == 0xabab || port1 == port;
     buf[1] = (byte)port; buf[2] = (byte)(port>>8);
+  }
+  public static void clr_port( byte[] buf ) { // Reset the port assert
+    buf[1]=0;
+    buf[2]=0;
   }
   public static final int SZ_PORT = 1+2; // Offset past the control & port bytes
   // Set/get the task# in the next 4 bytes

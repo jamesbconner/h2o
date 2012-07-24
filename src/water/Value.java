@@ -295,6 +295,7 @@ public class Value {
   // Read 4+4+len+vc value bytes from the the UDP packet and into a new Value.
   static Value read( byte[] buf, int off, Key key ) {
     byte type = buf[off++];
+    if( type==0 ) return null;  // Deleted sentinel
     byte p = buf[off++];
     int len = UDP.get4(buf,off); off += 4;
     int max = UDP.get4(buf,off); off += 4;

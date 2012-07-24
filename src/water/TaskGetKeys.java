@@ -38,6 +38,7 @@ public class TaskGetKeys extends DFutureTask<Key[]> {
     void call(DatagramPacket p, H2ONode h2o) {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
+      UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       final int skip = get4(buf,off);
       final int len  = get4(buf,off+4);

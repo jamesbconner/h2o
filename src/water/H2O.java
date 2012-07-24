@@ -332,7 +332,7 @@ public final class H2O {
     if( doTest==null ) {           // If nothing on the cmd-line then...
       assert (doTest="-test")!=null; // Always run basic tests if asserts are enabled
     }
-    if( doTest != null ) {
+    if( doTest != null && !doTest.equals("none") ) {
       Result r = org.junit.runner.JUnitCore.runClasses(Test.class);
       List<Failure> lf = r.getFailures();
       if( lf.size() > 0 ) {
@@ -355,7 +355,6 @@ public final class H2O {
       }
     }
   }
-  
 
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
   // and "-nodes <filename>".  Ignore the rest.  Set multi-cast port as a hash

@@ -34,6 +34,11 @@ public class TaskPutKey extends DFutureTask<Object> {
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
+    if( _val == null ) {        // This is a send of a deleted value
+      off = _key.write(buf,off);
+      buf[off++] = 0;           // Deleted sentinel
+      return off;
+    }
     int len = _val._max < 0 ? 0 : _val._max;
     if( off+_key.wire_len()+_val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
       off = _key.write(buf,off);
@@ -51,6 +56,7 @@ public class TaskPutKey extends DFutureTask<Object> {
     void call(DatagramPacket p, H2ONode h2o) {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
+      UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       Key key = Key.read(buf,off);
       assert key.home();        // Only PUT to home for keys
