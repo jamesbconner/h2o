@@ -7,6 +7,7 @@ import java.util.NoSuchElementException;
 import water.DKV;
 import water.Key;
 import water.Value;
+import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 
@@ -46,15 +47,17 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
 			return false;
 		if(!_next)
 			try {
-				_next = _parser.next();				
-			} catch (Exception e) {
-				e.printStackTrace();	
-				_next = false;
+				_next = _parser.next();
+			} catch(CSVEscapedBoundaryException e){
+				throw e;
+			} catch (Exception e1) {
+				e1.printStackTrace();
+				_parser.close();				
+				return false;
 			} 
+			 
 		if(!_next && (_nextData != null)){
-			_done = true;							
-			if(_parser._state == 2)
-				throw new IllegalStateException("There is an escaped (quoted) sequence crossing chunk boundary, handling of these cases is not currently implemented.");
+			_done = true;										
 			_parser.setNextData(_nextData.get());
 			try {
 				_next = _parser.next();

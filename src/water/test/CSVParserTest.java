@@ -2,7 +2,14 @@ package water.test;
 
 import init.init;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.StringTokenizer;
 
 import junit.framework.Assert;
 
@@ -17,9 +24,12 @@ import water.DKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
+import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
+
+ 
 
 public class CSVParserTest {
 	public static class Record {
@@ -101,6 +111,26 @@ public class CSVParserTest {
 			return "{d->" + d + ", f->" + f + ", i->" + i + ", s->" + s.toString() + "}";
 		}
 	}
+	
+	public static class PyTriggerRecord {
+		public CSVString time;
+		public CSVString processName;		
+		public int PID;
+		public CSVString Operation;
+		public CSVString Path;		
+		public CSVString Result;
+		public CSVString Detail;
+	}
+	
+	public static class TimeSeriesRecord {
+		public CSVString date;
+		public double value;
+		@Override
+		public String toString(){
+			return date.toString() + ", " + Double.toString(value);
+		}
+	}
+	
 	
 	@Test
 	public void testLineEnding(){
@@ -292,6 +322,114 @@ public class CSVParserTest {
 		}
 		
 	}		
+	
+	@Test
+	public void testParsingPyTriggerCSV(){		
+		Key k = Key.make("pytriggerCSV");
+		Value v = DKV.get(k);
+		Assert.assertNotNull(v);
+		PyTriggerRecord r = new PyTriggerRecord();
+		int recCounter = 0;
+		if(v != null){
+			for(int i = 0; i < v.chunks(); ++i){
+				System.out.println("parsing chunk " + i);
+				try {
+					ValueCSVRecords<PyTriggerRecord> p1 = new ValueCSVRecords<PyTriggerRecord>(v, i,r, new String [] {"time","processName","PID","Operation","Path","Result","Detail"});
+					for(PyTriggerRecord x:p1){
+						++recCounter;
+					}
+				} catch(CSVEscapedBoundaryException e){					
+					System.out.println("escaped boundary at chunk " + i + ", skipping the next one");
+					return;				
+				} catch (Exception e) {
+					System.err.println("error after processing " + recCounter + " records");
+					e.printStackTrace();
+					Assert.assertTrue(false);
+				} 								
+			}			
+		}				
+	}
+	
+	// does not handle escaped stuff
+  ArrayList<String> nextCSVLine(BufferedReader r) {
+      ArrayList<String> result = new ArrayList<String>();    
+      //read comma separated file line by line
+      try {
+	      String strLine = null;
+	      if((strLine = r.readLine()) != null) {     
+	         //break comma separated line using ","
+	      	 StringTokenizer st = new StringTokenizer(strLine, ",");         
+	         while(st.hasMoreTokens()) {
+	            //display csv values
+	            result.add(st.nextToken());
+	          }         
+	          //reset token number
+	      }                      
+      } catch(Exception e){
+      	e.printStackTrace();      	
+      }      
+  	return result;
+	}
+	
+	@Test
+	public void testParsingbigDataCSV(){		
+		Key k = Key.make("bigdata_csv");
+		Value v = DKV.get(k);
+		Assert.assertNotNull(v);
+		TimeSeriesRecord r = new TimeSeriesRecord();
+		final int expectedNRecords = 14102837;
+		int recCounter = 0;
+		File f = new File("c:\\Users\\tomas\\big_data.csv");
+		BufferedReader reader = null;
+		try {
+			reader = new BufferedReader(new FileReader(f));
+			reader.readLine();
+		} catch (FileNotFoundException e1) {
+			Assert.assertTrue(false);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			Assert.assertTrue(false);
+		}
+		Assert.assertTrue(f.exists());
+		System.out.println(f.getAbsolutePath());		
+		CSVParserSetup setup = new CSVParserSetup();
+		if(v != null){
+			for(int i = 0; i < v.chunks(); ++i){
+				System.out.println("Processing chunk # "  + i);
+				try {
+					ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v, i,r, new String [] {"date","value"}, setup);
+					for(TimeSeriesRecord x:p1){						
+						++recCounter;
+						ArrayList<String> str = nextCSVLine(reader);
+						Assert.assertEquals(str.size(), 2);
+						//System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'");
+						Assert.assertTrue(x.date.equals(str.get(0)));
+						if(str.get(1).trim().equals(".")){
+							Assert.assertEquals(x.value, setup.defaultDouble);
+							continue;
+						} else if(x.value != Double.valueOf((str.get(1).trim()))){
+							System.out.println(x.value + " != " + Double.valueOf(str.get(1).trim()));
+						}
+						Assert.assertEquals(x.value,Double.valueOf((str.get(1).trim())));
+					}
+				} catch(CSVEscapedBoundaryException e){					
+					System.out.println("escaped boundary at chunk " + i + ", skipping the next one");
+					return;				
+				} catch (Exception e) {
+					System.err.println("error after processing " + recCounter + " records");
+					e.printStackTrace();
+					Assert.assertTrue(false);
+				} 								
+			}
+			System.out.println("parsed " + recCounter + " records");
+			Assert.assertEquals(expectedNRecords, recCounter);
+		}				
+	}
+	
+	
+	
+	
 	public void doRun(){
 		Result result = JUnitCore.runClasses(CSVParserTest.class);
 		System.out.println("Test result: " + (result.wasSuccessful()?"OK":"FAILED"));

@@ -6,6 +6,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.Collection;
 
+import org.apache.log4j.NDC;
+
 
 /**
  * Simple CSVParser, parses InputStream assuming data in csv format. 
@@ -28,6 +30,7 @@ public final class CSVParser {
 	
 	int _index = -1;
 	int _from = 0;
+	int _recordStart; // for debugging purposes, marks beginning of the current record
 	int _to;
 	byte [] _data;
 	byte [] _nextData;
@@ -139,7 +142,7 @@ public final class CSVParser {
 	//private byte _b;
 		
 	private boolean nextByte() throws IOException {		
-		//System.out.println("index = " + _index + ", length = " + _length + " ,_data.length = " + _data.length);
+		//System.out.println("index = " + _index + ", length = " + _length + " ,_data.length = " + _data.length);		
 		return(!_done && (_data != null) && (++_index != _length));							
 	}
 	
@@ -211,6 +214,7 @@ public final class CSVParser {
 	
 	// called after newline, in case of incomplete record, set all the remaining values to their default values
 	protected void endRecord() throws IllegalArgumentException, IllegalAccessException, CSVParseException{
+		_recordStart = _index + 1;
 		if(_dontParseFlag)
 			return;
 		// set all unset fields to default values
@@ -299,7 +303,9 @@ public final class CSVParser {
 				} else if(Character.isWhitespace(c)){
 					_state = 4;						
 				} else {
-					throw new CSVParseException("unexpected character '" + c + "'");
+					CSVString parsedString = new CSVString(_recordStart, _index - _recordStart, this);
+					//CSVString parsedString = new CSVString(_index - 64, 128, this);
+					throw new CSVParseException("unexpected character '" + c + "', parsed string = '" +  parsedString.toString() + "'");
 				}
 			} 																						
 			break;
@@ -343,12 +349,9 @@ public final class CSVParser {
 		}
 		while(nextByte()){
 			char c;		
-			try{
-				c = (_index < _data.length)?(char)_data[_index]:(char)_nextData[_index - _data.length];
-			}catch(Throwable t){
-				t.printStackTrace();
-				return false;
-			}
+			c = (_index < _data.length)?(char)_data[_index]:(char)_nextData[_index - _data.length];
+			if((_index == _data.length) && (_state == 2))
+				throw new CSVEscapedBoundaryException(); 			
 		
 			// lines can be ended by \r\n or just \n, however, \r can also be part of the field's value
 			// -> when encouter \r, do not pass it in and wait for the next char, if it is \n, treat both as a single newline char,
@@ -380,6 +383,12 @@ public final class CSVParser {
 		private static final long serialVersionUID = 1L;
 		public CSVParseException (String msg){super(msg);}		
 	}	
+	
+	public static class CSVEscapedBoundaryException extends RuntimeException {
+		private static final long serialVersionUID = 1L;
+		public CSVEscapedBoundaryException (){super("Encoutered chunk boundaryinside escaped sequence. Currently unimplemented");}		
+	}	
+	
 	
 	public final String [] columnNames() {return _columnNames;}
 	
@@ -462,10 +471,10 @@ public final class CSVParser {
 			_floatingDecimal.isNegative = false;
 			_floatingDecimal.nDigits = 0;
 			_floatingDecimal.decExponent = 0;
-			
+			int zeroCounter = 0;
 			for(int i = from; i < N; ++i){
 				byte b = (i < _data.length)?_data[i]:_nextData[i - _data.length];
-				char ch = (char)b;
+				char ch = (char)b;				
 				switch(state){
 				case 0:
 					switch(ch){
@@ -479,6 +488,8 @@ public final class CSVParser {
 					case '\t':
 						break; // trim the leading spaces
 					case '0':
+						_floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
+						++_floatingDecimal.decExponent;
 						state = 1;
 						break;
 					default:
@@ -517,18 +528,25 @@ public final class CSVParser {
 					case '\t':
 						state = 5;
 						break;
+					case '0':
+						++zeroCounter;
+						break;
 					case 'e':
 					case 'E':
 						state = 4;
 						break;
 					default:
+						while(zeroCounter > 0){
+							_floatingDecimal.digits[_floatingDecimal.nDigits++] = '0';
+							--zeroCounter;
+						}
 						if(_floatingDecimal.nDigits == _floatingDecimal.digits.length)
 							throw new NumberFormatException("too many digits");						
 						_floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
 					}
 					break;
 				case 4: // parse int and add it to the exponent
-					_floatingDecimal.decExponent += getIntVal(i, N-i);
+					_floatingDecimal.decExponent += parseInt(i, N-i);
 					return;					
 				case 5: // should be trailing spaces...ignore them but throw exception if anything else
 					switch(ch){
@@ -541,30 +559,30 @@ public final class CSVParser {
 					break;					
 				}
 			}
+			if(_floatingDecimal.nDigits == 0)
+				throw new NumberFormatException();
 		} 
 		
 		final double getDoubleVal(int from, int len){
-			parseFloat(from, len);
+			try {
+				parseFloat(from, len);
+			} catch(NumberFormatException e){
+				return _setup.defaultDouble;
+			}
 			return _floatingDecimal.doubleValue();
 		}
+		
 		final float getFloatVal(int from, int len) {
-			parseFloat(from, len);
+			try {
+				parseFloat(from, len);
+			} catch(NumberFormatException e){
+				return _setup.defaultFloat;
+			}
 			return _floatingDecimal.floatValue();
 		}
 		
-		private final int getDigit(char c){
-			int i = Integer.MAX_VALUE;
-			if(Character.isLetterOrDigit(c)){
-				if(Character.isDigit(c)){
-					i = Character.getNumericValue(c);				
-				} else {
-					i = Character.isUpperCase(c)?(10 + c - 'A'):(10 + c - 'a'); 				
-				}
-			}							
-			return i;
-		}
-		// parse integer from substring 
-		final int getIntVal(int offset, int len){
+		
+		final int parseInt(int offset, int len){
 			int sign = 1;
 			int res = 0;			
 			int state = 0;
@@ -594,6 +612,28 @@ public final class CSVParser {
 				}
 			}			
 			return sign*res;
+		}
+		
+		private final int getDigit(char c){
+			int i = Integer.MAX_VALUE;
+			if(Character.isLetterOrDigit(c)){
+				if(Character.isDigit(c)){
+					i = Character.getNumericValue(c);				
+				} else {
+					i = Character.isUpperCase(c)?(10 + c - 'A'):(10 + c - 'a'); 				
+				}
+			}							
+			return i;
+		}
+		// parse integer from substring 
+		final int getIntVal(int offset, int len){
+			int res = _setup.defaultInt;
+			try{
+				res = parseInt(offset, len);
+			} catch (NumberFormatException e){
+				res = _setup.defaultInt;
+			}
+			return res;
 		}
 		
 		void toString(StringBuilder bldr){
@@ -627,7 +667,9 @@ public final class CSVParser {
 	 *
 	 */
 	public static class CSVParserSetup {
-		
+		public double defaultDouble = Double.NaN;
+		public float  defaultFloat = Float.NaN;
+		public int defaultInt = Integer.MAX_VALUE;		
 		public byte separator = (byte)','; // column separator, can be any character that fits into one byte
 		public boolean parseColumnNames = true; // set this to true if the first line of the data contains column names, applies only to chunk 0 
 		public boolean trimSpaces = false; // if true all fields will be trimmed (applies only to string since number parsers by default trim their input)
