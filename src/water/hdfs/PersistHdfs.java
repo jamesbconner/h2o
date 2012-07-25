@@ -14,6 +14,7 @@ public class PersistHdfs extends Persistence {
   @Override public void store(Value v) { file_store(v);  }
   @Override public void delete(Value v) { file_delete(v); }
   @Override public byte[] load(Value v, int len) { return file_load(v,len); }
+  @Override public byte initial() { return ON_DISK; }
 
   // initialization routines ---------------------------------------------------
 

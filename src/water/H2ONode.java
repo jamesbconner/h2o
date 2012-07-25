@@ -117,11 +117,10 @@ public class H2ONode implements Comparable {
       (b[3] << 0);
   }
 
-  static int wire_len() { return H2Okey.wire_len(); }
+  static public int wire_len() { return H2Okey.wire_len(); }
   // Read & return interned from wire
-  static H2ONode read( byte[] buf, int off ) {
-    return intern(H2Okey.read(buf,off));
-  }
+  static H2ONode read( byte[] buf, int off ) { return intern(H2Okey.read(buf,off));  }
+  int write( byte[] buf, int off ) { return _key.write(buf,off); }
 
   // Get a nice Node Name for this Node in the Cloud.  Basically it's the
   // InetAddress we use to communicate to this Node.

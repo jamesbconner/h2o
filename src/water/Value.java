@@ -1,8 +1,9 @@
 package water;
-import java.io.*;
-import java.util.Arrays;
-import java.lang.reflect.Field;
 
+import java.io.*;
+import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.UUID;
 import sun.misc.Unsafe;
 import water.nbhm.UtilUnsafe;
 
@@ -188,7 +189,14 @@ public class Value {
     if( chunknum != 0 ) throw new ArrayIndexOutOfBoundsException(chunknum);
     return _key;                // Self-key
   }
-
+  // Reverse the magic key to an offset
+  public long arraylet_offset() {
+    return UDP.get8(_key._kb,2);
+  }
+  // Reverse the magic key to a UUID
+  public UUID arraylet_uuid() {
+    return new UUID(UDP.get8(_key._kb,18),UDP.get8(_key._kb,10));
+  }
   
   // --------------------------------------------------------------------------
   // Set just the initial fields
@@ -296,7 +304,7 @@ public class Value {
   static Value read( byte[] buf, int off, Key key ) {
     byte type = buf[off++];
     if( type==0 ) return null;  // Deleted sentinel
-    byte p = buf[off++];
+    byte p = Persistence.initial(buf[off++]);
     int len = UDP.get4(buf,off); off += 4;
     int max = UDP.get4(buf,off); off += 4;
     Value val = construct(max,len,key,p,type);
@@ -306,11 +314,10 @@ public class Value {
   }
   static Value read( DataInputStream dis, Key key ) throws IOException {
     byte type = dis.readByte();
-    byte p = dis.readByte();
+    byte p = Persistence.initial(dis.readByte());
     int len = dis.readInt();
     int max = dis.readInt();
     Value val = construct(max,len,key,p,type);
-    val._persistenceInfo = p;
     if( len > 0 )
       dis.readFully(val.mem());
     return val;

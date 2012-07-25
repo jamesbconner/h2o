@@ -33,9 +33,9 @@ public class FJPacket extends CountedCompleter {
   }
 
   // Oops, uncaught exception
-  public boolean onExceptionCompletion( Throwable ex, CountedCompleter caller ) {
-    throw new Error(ex);
-    //return true;
+  public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
+    ex.printStackTrace();
+    return true;
   }
 
   // Same dispatch, but for TCP args.

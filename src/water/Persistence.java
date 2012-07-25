@@ -29,6 +29,7 @@ public abstract class Persistence {
   static type ptype(Value v) { return type.TYPES[info(v)&0x7]; }
   static Persistence p(Value v) { return ptype(v)._persist; }
   static public String name(Value v) { return ptype(v).toString(); }
+  static public byte initial(byte p) { return type.TYPES[p&0x7]._persist.initial(); }
 
   static public String stateString( Value v ) {
     return
@@ -81,4 +82,6 @@ public abstract class Persistence {
   public abstract void delete( Value v );
   // Load more of this Value from the persistence layer
   public abstract byte[] load( Value v, int len);
+  // Return the default initial byte
+  public abstract byte initial();
 }

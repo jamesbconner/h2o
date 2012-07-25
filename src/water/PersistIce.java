@@ -16,6 +16,7 @@ public class PersistIce extends Persistence {
   @Override public void store(Value v) { file_store(v);  }
   @Override public void delete(Value v) { file_delete(v); }
   @Override public byte[] load(Value v, int len) { return file_load(v,len); }
+  @Override public byte initial() { return INIT; }
 
   // initialization routines ---------------------------------------------------
 
@@ -161,16 +162,14 @@ public class PersistIce extends Persistence {
     sb.append('.');
     sb.append((char)v.type());
     sb.append(k.desired());
-    return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
+    return new File(iceRoot,getDirectoryForKey(v)+File.separator+sb.toString());
   }
   
-  private static String getDirectoryForKey(Key k) {
-    if ((k._kb.length < 10) || (k._kb[0]>=32)) {
-      return "not_a_chunk";
-    } else {
-      long offset = UDP.get8(k._kb,2);
-      return String.valueOf(offset / ValueArray.chunk_size());
-    }
+  private static String getDirectoryForKey(Value v) {
+    if( v._key._kb[0] != Key.ARRAYLET_CHUNK )
+      return "not_an_arraylet";
+    // Reverse arraylet key generation
+    return v.arraylet_uuid().toString();
   }
   
   private byte[] file_load(Value v, int len) {
@@ -199,7 +198,7 @@ public class PersistIce extends Persistence {
     clr_info(v,16);
     assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
     try {
-      new File(iceRoot,getDirectoryForKey(v._key)).mkdirs();
+      new File(iceRoot,getDirectoryForKey(v)).mkdirs();
       // Nuke any prior file.
       OutputStream s = new FileOutputStream(encodeKeyToFile(v));
       try {

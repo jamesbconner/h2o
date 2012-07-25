@@ -61,7 +61,7 @@ public class ValueArray extends Value {
   public Key make_chunkkey( long off ) {
     byte[] kb = get().clone();  // Make a copy of the main Value array
     UDP.set8(kb,2,off);         // Blast down the offset.
-    return Key.make(kb,(byte)_key.desired());        // Presto!  A unique arraylet key!
+    return Key.make(kb,(byte)_key.desired()); // Presto!  A unique arraylet key!
   }
 
   // Number of chunks in this array

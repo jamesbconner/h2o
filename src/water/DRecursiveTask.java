@@ -27,7 +27,7 @@ abstract public class DRecursiveTask extends RecursiveTask implements Cloneable 
 
   // Some range of keys.  If _lo==_hi, then refers to a single Key.
   protected final Key[] _keys;
-  final Key _keykey;            // Key holding the Key array
+  public final Key _keykey;     // Key holding the Key array
   private int _lo, _hi;
   public final int idx() { return _lo; }
   // The distributed-code being executed (eventually becomes a process id)
@@ -41,11 +41,15 @@ abstract public class DRecursiveTask extends RecursiveTask implements Cloneable 
     _hi = hi;
     _jarkey = jarkey;
     assert jarkey != null;
-
-    if( lo > 0 || _hi < keys.length ) { // Only inject key for top-level guy
-      _keykey = null;
-      return;
-    }
+    _keykey = null;
+  }
+  public DRecursiveTask( Key[] keys, int lo, int hi ) { this(keys,lo,hi, ValueCode._taskey.get()); }
+  public DRecursiveTask( Key[] keys, Key jarkey ) { 
+    _keys = keys;
+    _lo = 0;
+    _hi = keys.length;
+    _jarkey = jarkey;
+    assert jarkey != null;
 
     // Build & publish _keykey- the list of all keys.  We do this one-time at
     // the start of the task, because all the subtasks use this.
@@ -57,14 +61,11 @@ abstract public class DRecursiveTask extends RecursiveTask implements Cloneable 
     Value vkeys = new Value(_keykey,size);
     byte[] mem = vkeys.mem();
     int off=0;                  // Now fill Value with keys
-    off = UDP.set4(mem,off,keys.length);
+    off = UDP.set4_raw(mem,off,keys.length);
     for( Key k : keys )         // Write them all
       off = k.write(mem,off);
-    UKV.put(_keykey,vkeys);
+    DKV.put(_keykey,vkeys);
   }
-  public DRecursiveTask( Key[] keys, int lo, int hi ) { this(keys,lo,hi, ValueCode._taskey.get()); }
-  public DRecursiveTask( Key[] keys ) { this(keys,0,keys.length); }
-
 
   // "distributed" compute
   public final Object compute() {

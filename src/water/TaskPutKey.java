@@ -59,9 +59,9 @@ public class TaskPutKey extends DFutureTask<Object> {
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       Key key = Key.read(buf,off);
-      assert key.home();        // Only PUT to home for keys
       off += key.wire_len();
       Value val = Value.read(buf,off,key);
+      assert key.home() || val==null; // Only PUT to home for keys, or remote invalidation from home
       // We are about to update the local STORE for this key.
       // All known replicas will become invalid... except the sender.
       // Clear his replica-bits so we do not invalidate him.
@@ -70,11 +70,12 @@ public class TaskPutKey extends DFutureTask<Object> {
       // Home-node side PUT (which may require invalidates)
       DKV.put(key,val);
       // Now we assume the sender is still valid in ram.
-      key.set_mem_replica(h2o);
+      if( val != null ) key.set_mem_replica(h2o);
       // There's a weird race where another thread is writing also, and we set
       // blind-set the mem-replica field... preventing invalidates.  If we
-      // see a change, force an invalidate to 
-      if( !H2O.get(key).true_ifequals(val) )
+      // see a change, force an invalidate to reload
+      Value v2 = H2O.get(key);
+      if( val != v2 && v2 != null && !v2.true_ifequals(val) )
         key.invalidate(h2o);
 
       // Send it back

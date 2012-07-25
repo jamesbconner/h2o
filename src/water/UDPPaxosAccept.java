@@ -10,6 +10,7 @@ import java.net.DatagramPacket;
 
 public class UDPPaxosAccept extends UDP {
   void call(DatagramPacket pack, H2ONode h2o) {
+    UDP.clr_port(pack.getData()); // Recycling this packet buffer for an output buffer
     Paxos.do_accept(pack.getData(),h2o);
     // This is a stateless paxos-style packet; we must free it
     UDPReceiverThread.free_pack(pack);

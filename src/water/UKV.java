@@ -58,14 +58,13 @@ public abstract class UKV {
     Value val = DKV.get(key,len);
     if( val instanceof ValueCode )
       throw new Error("unimplemented: users should get a polite error if they attempt to fetch a ValueCode");
-    throw new Error("unimplemented: this belongs on home-node puts only");
-    //if( val instanceof ValueArray ) {
-    //  Value vchunk0 = DKV.get(((ValueArray)val).make_chunkkey(0),len);
-    //  if( len >= vchunk0._max )
-    //    throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk");
-    //  return vchunk0;           // Else just get the prefix asked for
-    //}
-    //return val;
+    if( val instanceof ValueArray ) {
+      Value vchunk0 = DKV.get(((ValueArray)val).make_chunkkey(0),len);
+      if( len >= vchunk0._max )
+        throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk");
+      return vchunk0;           // Else just get the prefix asked for
+    }
+    return val;
   }
   static public Value get( Key key ) { return get(key,Integer.MAX_VALUE); }
   

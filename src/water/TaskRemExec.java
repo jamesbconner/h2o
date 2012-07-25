@@ -22,7 +22,7 @@ public class TaskRemExec extends DFutureTask<DRecursiveTask> {
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;            // Skip udp byte and port and task#
-    off = _dt._jarkey.write(buf,off);  // Write the Key for the ValueCode jar file
+    off = _dt._jarkey.write(buf,off); // Write the Key for the ValueCode jar file
 
     String clazz = _dt.getClass().getName();  // The exact classname to execute
     off += UDP.set2(buf,off,clazz.length());  // String length
@@ -42,6 +42,7 @@ public class TaskRemExec extends DFutureTask<DRecursiveTask> {
     void call(DatagramPacket p, H2ONode h2o) {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
+      UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
       int off = UDP.SZ_TASK;          // Skip udp byte and port and task#
       Key jarkey = Key.read(buf,off); // Key for ValueCode, the jar file
       off += jarkey.wire_len();
@@ -68,7 +69,6 @@ public class TaskRemExec extends DFutureTask<DRecursiveTask> {
       off += len;
 
       reply(p,off,h2o);
-      //System.out.println("Reply sent.");
     }
 
     // Pretty-print bytes 1-15; byte 0 is the udp_type enum

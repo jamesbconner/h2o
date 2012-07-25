@@ -35,8 +35,8 @@ public abstract class MultiCast {
       DPack.setAddress(ip);
       DPack.setPort(port);
       DPack.setData(buf,off,len);
-      TimeLine.record_send(DPack);
       sock.send(DPack);
+      TimeLine.record_send(DPack);
       
     } catch( Exception e ) {
       // On any error from anybody, close all sockets & re-open

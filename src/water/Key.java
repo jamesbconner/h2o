@@ -107,7 +107,7 @@ public final class Key implements Comparable {
   public int home   ( H2O cloud ) { return home   (cloud_info(cloud)); }
   public int replica( H2O cloud ) { return replica(cloud_info(cloud)); }
   public int desired(           ) { return desired(_cache); }
-  public boolean home()           { return home(H2O.CLOUD)==H2O.CLOUD.nidx(H2O.SELF); }
+  public boolean home()           { return H2O.CLOUD._memary[home(H2O.CLOUD)]==H2O.SELF; }
   
   // Update the cache, but only to strictly newer Clouds
   private boolean set_cache( long cache ) {
@@ -199,17 +199,23 @@ public final class Key implements Comparable {
   }
   
 
+  // Make a Key which is homed to specific nodes.
   static public Key make(byte[] kb, byte rf, byte systemType, H2ONode... replicas) {
-    assert (replicas.length<=3); // no more than 3 replicas allowed to be stored in the key
-    assert (systemType<32); // only system keys allowed
-    throw new Error("unimplemented");
-    //byte[] rr = makeReplicaRecord(replicas);
-    //byte[] nkb = new byte[1+rr.length+kb.length];
-    //assert (nkb.length<=KEY_LENGTH);
-    //nkb[0] = systemType;
-    //System.arraycopy(rr,0,nkb,1,rr.length);
-    //System.arraycopy(kb,0,nkb,1+rr.length,kb.length);
-    //return make(nkb,rf);
+    assert 0 <=replicas.length && replicas.length<=3; // no more than 3 replicas allowed to be stored in the key
+    assert systemType<32; // only system keys allowed
+    // Key byte layout is:
+    // 0 - systemType, from 0-31
+    // 1 - replica-count, plus up to 3 bits for ip4 vs ip6
+    // 2-n - zero, one, two or 3 IP4 (4+2 bytes) or IP6 (16+2 bytes) addresses
+    // n+ - kb.length, repeat of the original kb
+    byte[] nkb = new byte[1+1+replicas.length*H2ONode.wire_len()+kb.length];
+    int off = 0;
+    nkb[off++] = systemType;
+    nkb[off++] = (byte)replicas.length;
+    for( H2ONode h2o : replicas )
+      off = h2o.write(nkb,off);
+    System.arraycopy(kb,0,nkb,off,kb.length);
+    return make(nkb,rf);
   }
 
   // User keys must be all ASCII, but we only check the 1st byte
@@ -339,6 +345,7 @@ public final class Key implements Comparable {
   void invalidate_remote_caches() {
     assert home();   // Only home node tracks mem replicas & issue invalidates
     long d = _mem_replicas;
+    _mem_replicas = 0;          // Needs to be atomic!!
     if( cache_has_overflowed(d) ) 
       throw new Error("unimplemented: bulk invalidate for key="+this);
     while( d != 0 ) {
@@ -350,7 +357,11 @@ public final class Key implements Comparable {
   }
   void invalidate(H2ONode target) {
     assert target != H2O.SELF;   // No point in tracking self, nor invalidating self
-    throw new Error("unimplemented: invalidating "+target+" for key="+this);
+    H2O cloud = H2O.CLOUD;
+    int home_idx = home(cloud);
+    assert cloud._memary[home_idx]==H2O.SELF; // Only home does invalidates
+    new TaskPutKey(target,this,null);         // Fire off a remote delete
+    System.err.println("invalidating "+this+" on "+target);
   }
 
 

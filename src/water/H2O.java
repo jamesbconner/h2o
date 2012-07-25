@@ -129,6 +129,15 @@ public final class H2O {
   public int D( Key key, int repl ) {
     if( repl >= size() ) return -1;
 
+    // See if this is a specifically homed Key
+    byte[] kb = key._kb;
+    if( !key.user_allowed() && repl < kb[1] ) { // Asking for a replica# from the homed list?
+      // Get the specified home
+      H2ONode h2o = H2ONode.read(kb,(1+1+H2ONode.wire_len()*repl));
+      // Reverse the home to the index
+      return nidx(h2o);
+    }
+
     // Easy Cheesy Stupid:
     return ((key._hash+repl)&0x7FFFFFFF) % size();
   }
@@ -186,6 +195,7 @@ public final class H2O {
       return res;               // Return the failure cause
     if( old != null ) old.remove_persist(); // Start removing the old guy
     if( val != null ) val. start_persist(); // Start  storing the new guy
+
     return res;                             // Return success
   }
 
@@ -347,10 +357,9 @@ public final class H2O {
           String testclass = testclass0.substring(0,testclass0.length()-1);
           String[] ts = f.getTrace().split("\n");
           for( int i=0; i<ts.length; i++ ) {
-            if( ts[i].indexOf(testclass) != -1 ) {
-              System.err.println(ts[i]);
+            System.err.println(ts[i]);
+            if( ts[i].indexOf(testclass) != -1 )
               break;
-            }
           }
         }
       }

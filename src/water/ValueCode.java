@@ -188,10 +188,8 @@ public class ValueCode extends Value {
   // Remotely execute obj.jar:clazz.map(arg)
   public static DRecursiveTask exec_map( Key jarkey, String clazz, Key keykey, int idx ) {
     // Get the array of keys, as a local array of keys
-    System.out.println("Getting key "+keykey);
     Value vkeys = UKV.get(keykey);
     while( vkeys == null ) {
-      System.out.println("Looking for "+keykey+" in a loop");
       // Alas, lack of a Strong-Put has me needing a spin-loop here.  Another
       // solution (besides a Strong-Put) is to have the original Key creator
       // make the Key home on itself; then all key lookups would default to the
@@ -201,10 +199,9 @@ public class ValueCode extends Value {
       try { H2O.FJP.managedBlock(new NeedAStrongPut()); } catch( InterruptedException e ) { }
       vkeys = UKV.get(keykey);
     }
-    System.out.println("Cleared the loop...");
     byte[] buf = vkeys.get();
     int off = 0;
-    int klen = UDP.get4(buf,off); off += 4;
+    int klen = UDP.get4_raw(buf,off); off += 4;
     Key[] keys = new Key[klen];
     for( int i=0; i<klen; i++ ) {
       Key k = Key.read(buf,off);
@@ -214,16 +211,24 @@ public class ValueCode extends Value {
 
     // Make a local instance and call map on it
     Exception e=null;
-    Value v = DKV.get(jarkey);
     try {
-      ValueCode val = (ValueCode)v;
-      ClassLoader h2o_ldr = val.getLoader();
-      Class klz = h2o_ldr.loadClass(clazz);
+      // If this is the dev_jar type, then this is an internal function - no need
+      // to pass or load an external jar file.
+      Class klz;
+      if( jarkey.type() == Key.DEV_JAR ) {
+        klz = Class.forName(clazz);
+      } else {
+        Value v = DKV.get(jarkey);
+        ValueCode val = (ValueCode)v;
+        ClassLoader h2o_ldr = val.getLoader();
+        klz = h2o_ldr.loadClass(clazz);
+      }
       Constructor<DRecursiveTask> cdt = klz.getConstructor(Key[].class,int.class,int.class,Key.class);
       DRecursiveTask dt = cdt.newInstance(keys,idx,idx+1,jarkey);
       dt.map(dt._keys[idx]);
       return dt;
     } 
+    catch( NullPointerException   e0 ) { e=e0; }
     catch( ClassNotFoundException e0 ) { e=e0; }
     catch( NoSuchMethodException  e0 ) { e=e0; }
     catch( IllegalAccessException e0 ) { e=e0; }
