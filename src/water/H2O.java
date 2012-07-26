@@ -180,12 +180,12 @@ public final class H2O {
   // replication.
 
   public static final Value putIfMatch( Key key, Value val, Value old ) {
+    assert val==null || val._key == key; // Keys matched
+    assert old==null || old._key == key; // Keys matched
+    assert STORE.getk(key)==null || STORE.getk(key)==key;
     if( old == val ) return old; // Trivial success?
     if( old != null ) {
       if( val != null && val.true_ifequals(old) ) return old;
-      // Interning: use the same One True Key found in the STORE.
-      Key key2 = old._key;
-      if( key2 != null ) key = key2; // Use the existing Key, if any
     }
 
     // Insert into the K/V store

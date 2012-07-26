@@ -56,11 +56,7 @@ public class Test {
       assertEquals(v1._key,k);
     }
     for( int i=0; i<keys.length; i++ ) {
-      Value v;
-      while( (v=DKV.get(keys[i]))==null ) {
-        try { Thread.sleep(10); }        // sleep 10msec & test again
-        catch( InterruptedException ie ) {}
-      }
+      Value v = DKV.get(keys[i]);
       assertEquals(vals[i],v);
     }
     for( int i=0; i<keys.length; i++ ) {
@@ -77,13 +73,6 @@ public class Test {
   //@org.junit.Test public void test3() throws FileNotFoundException, IOException {
   //  h2o_cloud_of_size(2);
   //  H2O cloud = H2O.CLOUD;
-  //  while( cloud.size() < 2 ) {
-  //    try { Thread.sleep(10); }        // sleep 10msec & test again
-  //    catch( InterruptedException ie ) {}
-  //    System.out.print('.');
-  //    cloud = H2O.CLOUD;
-  //  }
-  //  System.out.println();
   //
   //  // Make an execution key homed to the remote node
   //  H2ONode target = cloud._memary[0];

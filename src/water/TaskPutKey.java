@@ -34,7 +34,7 @@ public class TaskPutKey extends DFutureTask<Object> {
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
-    if( _val == null ) {        // This is a send of a deleted value
+    if( _val == null || !_val.is_goal_persist() ) { // This is a send of a deleted value
       off = _key.write(buf,off);
       buf[off++] = 0;           // Deleted sentinel
       return off;
