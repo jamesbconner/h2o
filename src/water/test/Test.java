@@ -70,32 +70,32 @@ public class Test {
 
   // ---
   // Make a remote Node do a put, and we do a get & confirm we can see it.
-  //@org.junit.Test public void test3() throws FileNotFoundException, IOException {
-  //  h2o_cloud_of_size(2);
-  //  H2O cloud = H2O.CLOUD;
-  //
-  //  // Make an execution key homed to the remote node
-  //  H2ONode target = cloud._memary[0];
-  //  if( target == H2O.SELF ) target = cloud._memary[1];
-  //  Key remote_key = Key.make("test3_remote",(byte)1,Key.DFJ_INTERNAL_USER,target); // A key homed to a specific target
-  //  // Put it to the cloud
-  //  Value v1 = new Value(remote_key,"bits for remote_key");
-  //  DKV.put(remote_key,v1);
-  //  // Have the remote node run stuff
-  //  RemoteTest3 rt3 = new RemoteTest3(remote_key);
-  //  rt3.compute();              // Run stuff remotely
-  //  assertEquals(123,rt3._cookie);
-  //  // We should now see the key made by the remote task
-  //  Key local_key = Key.make("test3_local");
-  //  Value v2 = DKV.get(local_key);
-  //  assertNotNull(v2);
-  //  byte[] v2bits = v2.get();
-  //  assertArrayEquals("bits for local_key".getBytes(),v2bits);
-  //
-  //  DKV.remove(remote_key);
-  //  DKV.remove( local_key);
-  //  DKV.remove(rt3._keykey);
-  //}
+  @org.junit.Test public void test3() throws FileNotFoundException, IOException {
+    h2o_cloud_of_size(2);
+    H2O cloud = H2O.CLOUD;
+  
+    // Make an execution key homed to the remote node
+    H2ONode target = cloud._memary[0];
+    if( target == H2O.SELF ) target = cloud._memary[1];
+    Key remote_key = Key.make("test3_remote",(byte)1,Key.DFJ_INTERNAL_USER,target); // A key homed to a specific target
+    // Put it to the cloud
+    Value v1 = new Value(remote_key,"bits for remote_key");
+    DKV.put(remote_key,v1);
+    // Have the remote node run stuff
+    RemoteTest3 rt3 = new RemoteTest3(remote_key);
+    rt3.compute();              // Run stuff remotely
+    assertEquals(123,rt3._cookie);
+    // We should now see the key made by the remote task
+    Key local_key = Key.make("test3_local");
+    Value v2 = DKV.get(local_key);
+    assertNotNull(v2);
+    byte[] v2bits = v2.get();
+    assertArrayEquals("bits for local_key".getBytes(),v2bits);
+  
+    DKV.remove(remote_key);
+    DKV.remove( local_key);
+    DKV.remove(rt3._keykey);
+  }
 
   public static class RemoteTest3 extends DRecursiveTask {
     int _cookie;

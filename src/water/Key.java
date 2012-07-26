@@ -361,7 +361,6 @@ public final class Key implements Comparable {
     int home_idx = home(cloud);
     assert cloud._memary[home_idx]==H2O.SELF; // Only home does invalidates
     new TaskPutKey(target,this,null);         // Fire off a remote delete
-    System.err.println("invalidating "+this+" on "+target);
   }
 
 
