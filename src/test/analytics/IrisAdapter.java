@@ -7,23 +7,13 @@ import analytics.RFBuilder;
 
 
 public class IrisAdapter implements DataAdapter {
-  
-
+ 
   String[] names = new String[] { "ID", "Sepal.Length", "Sepal.Width",
       "Petal.Length", "Petal.Width", "Species" };
 
-  class F {
-    int id;
-    double sl, sw, pl, pw;
-    String class_;
-
+  class F {  int id; double sl, sw, pl, pw;   String class_;
     F(int id_, double sl_, double sw_, double pl_, double pw_, String class_) {
-      id = id_;
-      sl = sl_;
-      sw = sw_;
-      pl = pl_;
-      pw = pw_;
-      this.class_ = class_;
+      id = id_;  sl = sl_;   sw = sw_;  pl = pl_;  pw = pw_; this.class_ = class_;
     }
   }
 
@@ -178,21 +168,11 @@ public class IrisAdapter implements DataAdapter {
       new F(149, 6.2, 3.4, 5.4, 2.3, "virginica"),
       new F(150, 5.9, 3.0, 5.1, 1.8, "virginica") };
 
-  public int numColumns() {
-    return 5;
-  }
-
-  int cur = -1;
+  int cur = -1; 
   
-  public boolean isInt(int index) {
-    return index==0;
-  }
-
-  public int toInt(int index) {
-    if( index==0) 
-      return data[cur].id;
-    throw new Error();
-  }
+  public int numColumns() { return 5;  }
+  public boolean isInt(int index) {  return index==0;  }
+  public int toInt(int index) {  if(index==0) return data[cur].id; else throw new Error(); }
 
   public double toDouble(int index) {
     if (index >0 && index <=4) {
@@ -200,36 +180,20 @@ public class IrisAdapter implements DataAdapter {
       if (index==2) return data[cur].pw;
       if (index==3) return data[cur].sl;
       if (index==4) return data[cur].sw;
-    } else if (index==0)
-      return (double)data[cur].id;
-//    System.out.println(index);
+    } else if (index==0) return (double)data[cur].id;
     throw new Error("Accessing column "+index);
   }
 
-  public Object originals(int index) {
-    return null;
-  }
-
-  public void getRow(int index) {
-    cur = index;
-  }
-
-  public int numRows() {
-    return data.length;
-  }
-
-
-  public int numClasses() {
-    return 3;
-  }
-
+  public Object originals(int index) { return null;  }
+  public void getRow(int index) { cur = index; }
+  public int numRows() { return data.length;  }
+  public int numClasses() { return 3; }
   public int dataClass() {
     if(data[cur].class_.equals("setosa")) return 0;
     if(data[cur].class_.equals("versicolor")) return 1;
     if(data[cur].class_.equals("virginica")) return 2;
     throw new Error();
   }
-  
 
   public static void main(String []_) {
     IrisAdapter data = new IrisAdapter();
@@ -252,15 +216,10 @@ public class IrisAdapter implements DataAdapter {
 }
 
 class IrisBuilder extends RFBuilder {
-
   protected IrisBuilder(long seed, DataAdapter data) { super(seed,data);  }
 
-  @Override
-  protected void createStatistic(ProtoNode node, int[] columns) {
+  @Override  protected void createStatistic(ProtoNode node, int[] columns) {
         node.addStatistic(new AverageStatistic(columns,3));
   }
-
-  @Override
-  protected int numberOfFeatures(ProtoNode node, ProtoTree tree) { return 3;  }
-    
+  @Override protected int numberOfFeatures(ProtoNode node, ProtoTree tree) { return 3; }  
 }
