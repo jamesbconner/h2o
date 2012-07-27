@@ -12,8 +12,7 @@ public class DecisionTree implements Classifier {
   
   /** INode interface provides the toString() method and the classifyRecursive()
    * method that classifies the row using the correct subtree determined by the
-   * node's internal classifier. 
-   */
+   * node's internal classifier.   */
   static interface INode extends Classifier {
     
     /** Classifies the row recursively by the correct subtree. 
@@ -34,49 +33,39 @@ public class DecisionTree implements Classifier {
    */
   public static class LeafNode implements INode {
     // which data category to return. 
-    public final int dataClass;
+    public final int class_;
     
     /** Creates a leaf node of a specified category. 
      * 
      * @param dataClass 
      */
-    public LeafNode(int dataClass) {
-      this.dataClass = dataClass;
-    }
+    public LeafNode(int dataClass) { this.class_ = dataClass; }
     
     /** Returns always the category assigned to the leaf node. 
      * 
      * @param row
      * @return 
      */
-    public int classify(DataAdapter row) {
-      return dataClass;
-    }
+    public int classify(DataAdapter row) { return class_; }
 
     /** Returns always the category assigned to the leaf node. 
      * 
      * @param row
      * @return 
      */
-    public int classifyRecursive(DataAdapter row) {
-      return dataClass;
-    }
+    public int classifyRecursive(DataAdapter row) { return class_; }
     
     /** Leaf node only classifies to single category. 
      * 
      * @return 
      */
-    public int numClasses() {
-      return 1;
-    }
+    public int numClasses() { return 1; }
     
     /** Returns the category of the node. 
      * 
      * @return 
      */
-    public String toString() {
-      return " "+dataClass+" ";
-    }
+    public String toString() { return " "+class_+" "; }
   }
 
   /** Inner node of the decision tree. Contains a list of subnodes and the
@@ -86,7 +75,7 @@ public class DecisionTree implements Classifier {
     
     // classifier that determines which subtree to use
     public final Classifier classifier;
-    
+
     // subtrees
     public final INode[] subnodes;
     
@@ -95,8 +84,7 @@ public class DecisionTree implements Classifier {
      * @param classifier 
      */
     public Node(Classifier classifier) {
-      assert (classifier != null);
-      assert (classifier.numClasses()>1);
+      assert (classifier != null && classifier.numClasses()>1);
       this.classifier = classifier;
       subnodes = new INode[classifier.numClasses()];
     }
@@ -116,17 +104,13 @@ public class DecisionTree implements Classifier {
      * @param row
      * @return 
      */
-    public int classify(DataAdapter row) {
-      return classifier.classify(row);
-    }
+    public int classify(DataAdapter row) { return classifier.classify(row); }
     
     /** Returns to how many categories/subtrees the node itself classifies. 
      * 
      * @return 
      */
-    public int numClasses() {
-      return subnodes.length;
-    }
+    public int numClasses() { return subnodes.length; }
     
     /** Sets the index-th subtree to the given node. 
      * 
@@ -134,8 +118,7 @@ public class DecisionTree implements Classifier {
      * @param subtree 
      */
     void setSubtree(int index, INode subtree) {
-      assert (subnodes[index] == null);
-      subnodes[index] = subtree;
+      assert (subnodes[index] == null); subnodes[index] = subtree;
     }
     
     /** Returns the string representation of the node. That is the contents of
@@ -145,9 +128,7 @@ public class DecisionTree implements Classifier {
      */
     public String toString() {
       StringBuilder sb = new StringBuilder("(");
-      for (int i = 0; i<subnodes.length; ++i) {
-        sb.append(subnodes[i].toString());
-      }
+      for (int i = 0; i<subnodes.length; ++i) sb.append(subnodes[i].toString());
       sb.append(")");
       return sb.toString();
     }

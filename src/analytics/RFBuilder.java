@@ -5,6 +5,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
+import analytics.DecisionTree.INode;
+import analytics.DecisionTree.LeafNode;
+import analytics.DecisionTree.Node;
+
 /** Class capable of building random forests.
  *
  * @author peta
@@ -21,19 +25,12 @@ public abstract class RFBuilder {
    
   protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
   
-  // implementation ------------------------------------------------------------
-  
   private final long seed;
   private final Random random;
-  
-  // all trees under construction
   public ProtoTree[] trees;
-  
   Partition partition_;
-  
   private final DataAdapter data_;
-  
-  
+    
   protected RFBuilder(long seed, DataAdapter data) {
     this.seed = seed;
     random = new Random(seed);
@@ -47,9 +44,7 @@ public abstract class RFBuilder {
   public static class ProtoNode {
     
     long[] statisticsData_ = null;
-    
-    
-    // list of all statistics that must be computed for the node
+      // list of all statistics that must be computed for the node
     protected final ArrayList<Statistic> statistics_ = new ArrayList();
     
     /** Adds the given statistic to the node. All statistics associated with a
@@ -57,14 +52,10 @@ public abstract class RFBuilder {
      * 
      * @param stat 
      */
-    public void addStatistic(Statistic stat) {
-      statistics_.add(stat);
-    }
-
+    public void addStatistic(Statistic stat) {   statistics_.add(stat);  }
     
     /** Initializes the storage space required for the statistics of the given
-     * node. 
-     */
+     * node.    */
     public void initialize() {
       int size = 0;
       for (Statistic s: statistics_) {
@@ -72,8 +63,7 @@ public abstract class RFBuilder {
         size = (size + 7) & -8; // round to multiple of 8
       }
       statisticsData_ = new long[size];
-    }
-    
+    }    
     
     /** Returns the normal node that should be created from the node under
      * construction. Determines the best statistic for the node based on their
@@ -82,8 +72,7 @@ public abstract class RFBuilder {
      * 
      * @return 
      */
-    DecisionTree.INode createNode() {
-      assert (statistics_.size()!=0);
+    INode createNode() {
       Statistic best = statistics_.get(0);
       int bestOffset = 0;
       double bestFitness = best.fitness(statisticsData_,bestOffset);
@@ -98,11 +87,9 @@ public abstract class RFBuilder {
         offset += statistics_.get(i).dataSize();
       }
       Classifier nc = best.createClassifier(statisticsData_,bestOffset);
-      if (nc instanceof Classifier.Const) {
-        return new DecisionTree.LeafNode(nc.classify(null));
-      } else {      
-        return new DecisionTree.Node(nc);
-      }
+      return nc instanceof Classifier.Const ?
+          new LeafNode(nc.classify(null)) : 
+          new Node(nc);      
     }
     
     /** Computes all the statistics of the node on given row. The row is added
@@ -128,8 +115,7 @@ public abstract class RFBuilder {
      */ 
     int[] getRandom(int features, int columns, Random random) {
       int[] cols = new int[columns];
-      for (int i = 0; i<cols.length; ++i)
-        cols[i] = i;
+      for (int i = 0; i<cols.length; ++i) cols[i] = i;
       for (int i = 0; i<features; ++i) {
         int x = random.nextInt(cols.length-i)+i;
         if (i!=x) { // swap the elements
@@ -151,11 +137,11 @@ public abstract class RFBuilder {
    */
   public class ProtoTree {
     
-    DecisionTree.INode[] lastNodes_;
+    INode[] lastNodes_;
     int[] lastOffsets_;
     ProtoNode[] nodes_;    
     int level_ = -1;    
-    DecisionTree.INode root_ = null;    
+    public INode root_ = null;    
     // random generator unique to the tree. 
     Random rnd = null;    
     // random seed used to generate the random, therefore we can always reset it
@@ -172,7 +158,7 @@ public abstract class RFBuilder {
     // initializes the tree under construction to compute the root
     protected final int updateFromLevel0() {
       root_ =  nodes_[0].createNode();
-      lastNodes_ = new DecisionTree.INode[] { root_ };
+      lastNodes_ = new INode[] { root_ };
       lastOffsets_ = new int[] { 0 };
       return root_.numClasses() == 1 ? 0 : root_.numClasses();
     }
@@ -185,7 +171,7 @@ public abstract class RFBuilder {
     protected final int updateToNextLevel() {
       int newNodes = 0;
       // list of new level nodes
-      DecisionTree.INode[] levelNodes = new DecisionTree.INode[nodes_.length];
+      INode[] levelNodes = new INode[nodes_.length];
       lastOffsets_= new int[nodes_.length];
       int nodeIndex = 0; // to which node we are adding
       int subnodeIndex = 0; // which subtree are we setting
@@ -202,7 +188,7 @@ public abstract class RFBuilder {
             break;
           }
         }
-        DecisionTree.INode n = nodes_[i].createNode();
+        INode n = nodes_[i].createNode();
         // fill in the new last level nodes and offsets
         levelNodes[i] = n;
         lastOffsets_[i] = newNodes;
@@ -212,7 +198,7 @@ public abstract class RFBuilder {
           newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode
         // index
-        ((DecisionTree.Node)lastNodes_[nodeIndex]).setSubtree(subnodeIndex,n);
+        ((Node)lastNodes_[nodeIndex]).setSubtree(subnodeIndex,n);
         ++subnodeIndex;
       }
       // change the lastLevelNodes to the levelNodes computed
@@ -300,7 +286,7 @@ public abstract class RFBuilder {
       // use the classifier on the node to classify the node number in the new
       // level
       return lastOffsets_[oldNode]+
-          ((DecisionTree.Node)lastNodes_[oldNode]).classify(row);
+          ((Node)lastNodes_[oldNode]).classify(row);
     }
     
     // compute statistics for the node -----------------------------------------
