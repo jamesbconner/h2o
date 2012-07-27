@@ -45,7 +45,6 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
   boolean _done = false;
   boolean _fresh = false;
 
-  @Override
   public boolean hasNext() {
     if(_next)
       return true;
@@ -76,7 +75,6 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
     return _next;
   }
 
-  @Override
   public T next() {
     _fresh = false;
     if(hasNext()){
@@ -86,7 +84,6 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
     throw new NoSuchElementException();
   }
 
-  @Override
   public void remove() {
     throw new UnsupportedOperationException();
   }
@@ -147,7 +144,6 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
     return null;
   }
 
-  @Override
   public Iterator<T> iterator() {
     if(!_fresh){
       _done = false;
