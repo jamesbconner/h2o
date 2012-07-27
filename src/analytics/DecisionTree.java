@@ -158,28 +158,12 @@ public class DecisionTree implements Classifier {
   private INode root_;
   
   /** Classifies the given row on the tree. Returns the classification of the
-   * row as determined by the tree. 
-   * 
-   * @param row
-   * @return 
-   */
-  public int classify(DataAdapter row) {
-    return root_.classifyRecursive(row);
-  }
+   * row as determined by the tree.  */
+  public int classify(DataAdapter row) { return root_.classifyRecursive(row);  }
   
-  /** Returns the number of classes to which the tree classifies. 
-   * 
-   * @return    
-   */
-  public int numClasses() {
-    throw new Error("NOT IMPLEMENTED");
-  }
+  /** Returns the number of classes to which the tree classifies.  */
+  public int numClasses() { throw new Error("NOT IMPLEMENTED");  }
   
-  /** Creates the decision tree from the root node. 
-   * 
-   * @param root 
-   */ 
-  public DecisionTree(INode root) {
-    root_ = root;
-  }
+  /** Creates the decision tree from the root node.   */ 
+  public DecisionTree(INode root) { root_ = root; }
 }

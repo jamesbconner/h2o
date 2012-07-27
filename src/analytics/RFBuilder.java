@@ -17,10 +17,9 @@ public abstract class RFBuilder {
    * @param node
    * @param columns 
    */
-  protected abstract void createNodeStatistics(ProtoNode node, int[] columns);
+  protected abstract void createStatistic(ProtoNode node, int[] columns);
    
-  protected abstract int getNumberOfNodeFeatures(ProtoNode node, 
-      ProtoTree tree);
+  protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
   
   // implementation ------------------------------------------------------------
   
@@ -30,7 +29,7 @@ public abstract class RFBuilder {
   // all trees under construction
   public ProtoTree[] trees;
   
-  NodePartitioning nodePartitioning_;
+  Partition partition_;
   
   private final DataAdapter data_;
   
@@ -66,7 +65,7 @@ public abstract class RFBuilder {
     /** Initializes the storage space required for the statistics of the given
      * node. 
      */
-    public void initializeStatistics() {
+    public void initialize() {
       int size = 0;
       for (Statistic s: statistics_) {
         size += s.dataSize();
@@ -83,7 +82,7 @@ public abstract class RFBuilder {
      * 
      * @return 
      */
-    DecisionTree.INode createTreeNode() {
+    DecisionTree.INode createNode() {
       assert (statistics_.size()!=0);
       Statistic best = statistics_.get(0);
       int bestOffset = 0;
@@ -127,7 +126,7 @@ public abstract class RFBuilder {
      * @param random
      * @return 
      */ 
-    int[] getColumnArray(int features, int columns, Random random) {
+    int[] getRandom(int features, int columns, Random random) {
       int[] cols = new int[columns];
       for (int i = 0; i<cols.length; ++i)
         cols[i] = i;
@@ -152,19 +151,13 @@ public abstract class RFBuilder {
    */
   public class ProtoTree {
     
-    public DecisionTree.INode[] lastLevelNodes_;
-    
-    public int[] lastLevelNodeOffsets_;
-    
-    public ProtoNode[] currentLevelNodes_;
-    
-    public int currentLevel_ = -1;
-    
-    public DecisionTree.INode root_ = null;
-    
+    DecisionTree.INode[] lastNodes_;
+    int[] lastOffsets_;
+    ProtoNode[] nodes_;    
+    int level_ = -1;    
+    DecisionTree.INode root_ = null;    
     // random generator unique to the tree. 
-    Random rnd = null;
-    
+    Random rnd = null;    
     // random seed used to generate the random, therefore we can always reset it
     final long seed;
     
@@ -172,17 +165,15 @@ public abstract class RFBuilder {
      * 
      * Initializes the seed from the parent
      */
-    public ProtoTree() {
-      this.seed = random.nextLong();
-    }
+    public ProtoTree() { this.seed = random.nextLong();    }
     
     // move to tree next level logic -------------------------------------------
     
     // initializes the tree under construction to compute the root
     protected final int updateFromLevel0() {
-      root_ =  currentLevelNodes_[0].createTreeNode();
-      lastLevelNodes_ = new DecisionTree.INode[] { root_ };
-      lastLevelNodeOffsets_ = new int[] { 0 };
+      root_ =  nodes_[0].createNode();
+      lastNodes_ = new DecisionTree.INode[] { root_ };
+      lastOffsets_ = new int[] { 0 };
       return root_.numClasses() == 1 ? 0 : root_.numClasses();
     }
     
@@ -194,58 +185,56 @@ public abstract class RFBuilder {
     protected final int updateToNextLevel() {
       int newNodes = 0;
       // list of new level nodes
-      DecisionTree.INode[] levelNodes = new DecisionTree.INode[currentLevelNodes_.length];
-      lastLevelNodeOffsets_= new int[currentLevelNodes_.length];
+      DecisionTree.INode[] levelNodes = new DecisionTree.INode[nodes_.length];
+      lastOffsets_= new int[nodes_.length];
       int nodeIndex = 0; // to which node we are adding
       int subnodeIndex = 0; // which subtree are we setting
-      for (int i = 0; i < currentLevelNodes_.length; ++i) {
+      for (int i = 0; i < nodes_.length; ++i) {
         // make sure that nodeIndex and subnodeIndex are set properly
         while (true) {
-          if (lastLevelNodes_[nodeIndex].numClasses()<=subnodeIndex) {
+          if (lastNodes_[nodeIndex].numClasses()<=subnodeIndex) {
             ++nodeIndex; // move to next node
             subnodeIndex = 0; // reset subnode index
-          } else if (lastLevelNodes_[nodeIndex].numClasses()==1) {
+          } else if (lastNodes_[nodeIndex].numClasses()==1) {
             ++nodeIndex; 
             assert (subnodeIndex == 0);
           } else {
             break;
           }
         }
-        DecisionTree.INode n = currentLevelNodes_[i].createTreeNode();
+        DecisionTree.INode n = nodes_[i].createNode();
         // fill in the new last level nodes and offsets
         levelNodes[i] = n;
-        lastLevelNodeOffsets_[i] = newNodes;
+        lastOffsets_[i] = newNodes;
         // if it is not a leaf node, add the number of children to the nodes
         // to be constructed
         if (n.numClasses()>1)
           newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode
         // index
-        ((DecisionTree.Node)lastLevelNodes_[nodeIndex]).setSubtree(subnodeIndex,n);
+        ((DecisionTree.Node)lastNodes_[nodeIndex]).setSubtree(subnodeIndex,n);
         ++subnodeIndex;
       }
       // change the lastLevelNodes to the levelNodes computed
-      lastLevelNodes_ = levelNodes;
+      lastNodes_ = levelNodes;
       // return the amount of nodes to be created
       return newNodes;
     }
     
     // Builds the numNodes of nodesUnderConstruction. These nodes are then
     // initialized to produce the 
-    protected final void buildNodesUnderConstruction(int numNodes) {
+    protected final void buildNodes(int numNodes) {
       // build the new nodes under construction
       // if there are no new nodes to build, set current nodes to null
-      if (numNodes == 0) {
-        currentLevelNodes_ = null;
-      // otherwise build the new nodes
-      } else {
-        currentLevelNodes_ = new ProtoNode[numNodes];
+      if (numNodes == 0) nodes_ = null;
+      else {
+        nodes_ = new ProtoNode[numNodes];
         for (int i = 0; i<numNodes; ++i) {
           ProtoNode n = new ProtoNode();
-          createNodeStatistics(n, n.getColumnArray(getNumberOfNodeFeatures(n,this), 
+          createStatistic(n, n.getRandom(numberOfFeatures(n,this), 
               data_.numColumns(), random));
-          n.initializeStatistics();
-          currentLevelNodes_[i] = n;
+          n.initialize();
+          nodes_[i] = n;
         }        
       }
     }
@@ -258,14 +247,14 @@ public abstract class RFBuilder {
       int newNodes = 0;
       // if the current level is -1 just create the node under construction for
       // the to be root of the tree
-      if (currentLevel_ == -1) {
-        lastLevelNodes_ = null;
+      if (level_ == -1) {
+        lastNodes_ = null;
         newNodes = 1;
       // if currentLevelNodes are null, then the tree has already decided and there is
       // no point in doing anything
-      } else if (currentLevelNodes_ == null) {
-        lastLevelNodeOffsets_ = null;
-        lastLevelNodes_ = null;
+      } else if (nodes_ == null) {
+        lastOffsets_ = null;
+        lastNodes_ = null;
       // if we are not initializing the first level, we must convert all nodes
       // under construction to proper nodes and put them in the tree and then
       // create new nodes under construction for the next level
@@ -273,17 +262,17 @@ public abstract class RFBuilder {
         // numer of nodes to be created for the next level
         // if the current level is 0, we are dealing with the first level, store
         // as root and create children as required
-        if (currentLevel_ == 0) {
+        if (level_ == 0) {
           newNodes = updateFromLevel0();
         // or do the proper update, for which see the method
         } else {
           newNodes = updateToNextLevel();
         }
       }
-      buildNodesUnderConstruction(newNodes);
+      buildNodes(newNodes);
       // reset the random generator for the rows
       rnd = new Random(this.seed);
-      ++currentLevel_;
+      ++level_;
     }
     
     // get node number in new level logic --------------------------------------
@@ -302,16 +291,16 @@ public abstract class RFBuilder {
         return -1;
       // if the lastLevelNodes are not present, we are calculating root and
       // therefore all rows are node 0
-      if (lastLevelNodes_ == null)
+      if (lastNodes_ == null)
         return 0;
       // if the lastNode is leaf, do not include the row in any further tasks
       // for this tree. It has already been decided
-      if (lastLevelNodes_[oldNode].numClasses() == 1)
+      if (lastNodes_[oldNode].numClasses() == 1)
         return -1;
       // use the classifier on the node to classify the node number in the new
       // level
-      return lastLevelNodeOffsets_[oldNode]+
-          ((DecisionTree.Node)lastLevelNodes_[oldNode]).classify(row);
+      return lastOffsets_[oldNode]+
+          ((DecisionTree.Node)lastNodes_[oldNode]).classify(row);
     }
     
     // compute statistics for the node -----------------------------------------
@@ -325,7 +314,7 @@ public abstract class RFBuilder {
      */
     void computeStatistics(DataAdapter row, int nodeNumber) {
       if (nodeNumber!=-1)
-        currentLevelNodes_[nodeNumber].computeStatistics(row);
+        nodes_[nodeNumber].computeStatistics(row);
     }  
   }
  
@@ -338,21 +327,20 @@ public abstract class RFBuilder {
    * @param numTrees 
    */
   public void compute(int numTrees, boolean randomizeInput) {
-    nodePartitioning_ = new NodePartitioning(numTrees,data_.numRows());
+    partition_ = new Partition(numTrees,data_.numRows());
     trees = new ProtoTree[numTrees];
     for (int i = 0; i<numTrees; ++i) {
       trees[i] = new ProtoTree();
       trees[i].createNextLevel();
     } 
     int i=0;
-    while (true) { // for each level
+    while (true) {
       System.out.println("level " + i++);
-      boolean allDone = true;      
+      boolean done = true;      
       for (int t= 0; t < numTrees; ++t) {
         ProtoTree tree = trees[t];
-        int cr = 0;
         for (int r = 0; r < data_.numRows(); ++r) {
-          int node = nodePartitioning_.getNode(t,r);
+          int node = partition_.getNode(t,r);
           // get the randomized row, because at each level the random generator
           // is reset, we always get the same rows in the same order. 
           //
@@ -361,43 +349,22 @@ public abstract class RFBuilder {
           data_.getRow(randomizeInput ? tree.rnd.nextInt(data_.numRows()) : r);
           node = tree.getNodeNumber(data_, node);
           tree.computeStatistics(data_,node);
-          if (node!=-1) cr++;
-          nodePartitioning_.setNode(t,r,node);
+          partition_.setNode(t,r,node);
         }
         tree.createNextLevel();
         // the tree has been done, we may upgrade it to next level
-        if (tree.currentLevelNodes_!=null)
-          allDone = false;
+        if (tree.nodes_!=null) done = false;
       }
-      if (allDone)
-        break;
+      if (done) break;
     }
   }
   
 }
 
 
-/** This is sooo dummy I am embarrassed to even talk about it;).
- * 
- * Just provides information on which row under which tree belongs to which
- * node. 
- * 
- * @author peta
- */
-class NodePartitioning {
-  
+class Partition {
   final int[][] data_;
-
-  
-  public NodePartitioning(int trees, int rows) {
-    data_ = new int[trees][rows];
-  }
-  
-  public int getNode(int tree, int row) {
-    return data_[tree][row];
-  }
-  
-  public void setNode(int tree, int row, int node) {
-    data_[tree][row] = node;
-  }
+  public Partition(int trees, int rows) {  data_ = new int[trees][rows]; }  
+  public int getNode(int tree, int row) { return data_[tree][row];  }
+  public void setNode(int tree, int row, int node) { data_[tree][row] = node;  }
 }

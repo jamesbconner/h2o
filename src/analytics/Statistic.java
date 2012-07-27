@@ -10,78 +10,43 @@ package analytics;
  */
 public abstract class Statistic {
 
-  /** Adds the given row to the statistic measure.
-   * 
-   * @param row 
-   */
+  /** Adds the given row to the statistic measure.   */
   public abstract void addDataPoint(DataAdapter row, long[] data, int offset);
   
   
   /** Returns the size of the data for the statistic. This data will be reserved
-   * in the long array and thus should be multiples of 8 bytes.
-   * 
-   * @return 
-   */
+   * in the long array and thus should be multiples of 8 bytes.   */
   public abstract int dataSize();
   
   /** Produces the classifier from the statistic. If the statistic has seen only
-   * rows of one type, the ConstClassifier should be returned. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */ 
+   * rows of one type, the ConstClassifier should be returned.    */ 
   public abstract Classifier createClassifier(long[] data, int offset);
 
   /** Returns the fitness of the statistic. This is used to determine the best
-   * statistic to produce the classifier when the whole data is analyzed.
-   * @param data
-   * @param offsset
-   * @return 
-   */
+   * statistic to produce the classifier when the whole data is analyzed.   */
   public abstract double fitness(long data[], int offsset);
   
   
-  /** Reads the long value from given data at given offset. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */
+  /** Reads the long value from given data at given offset.    */
   protected final long readLong(long[] data, int offset) {
     assert (offset % 8 == 0);
     return data[(offset) / 8];
   }
   
-  /** Writes the long have to given data at given offset. 
-   * 
-   * @param value
-   * @param data
-   * @param offset 
-   */
+  /** Writes the long have to given data at given offset.    */
   protected final void writeLong(long value, long[] data, int offset) {
     assert (offset % 8 == 0);
     data[(offset) / 8] = value;
   }
   
-  /** Adds the long value to already existing long value. 
-   * 
-   * @param value
-   * @param data
-   * @param offset 
-   */
+  /** Adds the long value to already existing long value.    */
   protected final void addLong(long value, long[] data, int offset) {
     // TODO this should be atomic!!!
     assert (offset % 8 == 0);
     data[(offset) / 8] += value;
   }
   
-  /** Reads a double value. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */
+  /** Reads a double value.    */
   protected final double readDouble(long[] data, int offset) {
     assert (offset % 8 == 0);
     return Double.longBitsToDouble(data[(offset) / 8]);
@@ -98,24 +63,14 @@ public abstract class Statistic {
     data[(offset) / 8] = Double.doubleToLongBits(value);
   }
 
-  /** Adds double value to already stored value. 
-   * 
-   * @param value
-   * @param data
-   * @param offset 
-   */
+  /** Adds double value to already stored value.    */
   protected final void addDouble(double value, long[] data, int offset) {
     // TODO this should be atomic!!!
     assert (offset % 8 == 0);
     data[(offset) / 8] = Double.doubleToLongBits(readDouble(data,offset) + value);
   }
   
-  /** Reads integer value.  Integers are always packed two to a long value. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */
+  /** Reads integer value.  Integers are always packed two to a long value.    */
   protected final int readInteger(long[] data, int offset) {
     assert (offset % 4 == 0);
     if (offset % 8 == 0) 
@@ -124,12 +79,7 @@ public abstract class Statistic {
       return (int)(readLong(data,offset-4) & 0x00000000ffffffffL);
   }
   
-  /** Writes integer value. Integers are always packed two to a long value. 
-   * 
-   * @param value
-   * @param data
-   * @param offset 
-   */
+  /** Writes integer value. Integers are always packed two to a long value.    */
   protected final void writeInteger(int value, long[] data, int offset) {
     assert (offset % 4 == 0);
     // TODO this should be atomic!!!
@@ -140,15 +90,9 @@ public abstract class Statistic {
   } 
   
   /** Adds integer value to an integer value. Integer values are always packed
-   * two to a long. 
-   * 
-   * @param value
-   * @param data
-   * @param offset 
-   */
+   * two to a long.    */
   protected final void addInteger(int value, long[] data, int offset) {
-    assert (offset % 4 == 0);
-    // TODO this should be atomic!!!
+    assert (offset % 4 == 0); // TODO this should be atomic!!!
     writeInteger(readInteger(data,offset)+value,data,offset);
   }
   

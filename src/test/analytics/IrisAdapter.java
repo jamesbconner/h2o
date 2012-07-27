@@ -236,18 +236,16 @@ public class IrisAdapter implements DataAdapter {
     IrisBuilder b = new IrisBuilder(67436482,data);
     int ntrees = 100;
     b.compute(ntrees,false);
+    System.out.println("Testing " +(ntrees) + " trees");
     for (int t = 0;  t< ntrees; ++t) {
-      System.out.println("Testing tree "+t);
       DecisionTree dt = new DecisionTree(b.trees[t].root_);
       for (int r = 0; r< data.numRows(); ++r) {
         data.getRow(r);
         int expected =data.dataClass();
         data.getRow(r);
         int got = dt.classify(data);
-        if (got!=expected) {
+        if (got!=expected) 
           System.out.println(" Row "+r+" expected "+expected+", got "+got);
-          //assertEquals(expected,got);
-        }
       }
     }
   }
@@ -255,19 +253,14 @@ public class IrisAdapter implements DataAdapter {
 
 class IrisBuilder extends RFBuilder {
 
-  protected IrisBuilder(long seed, DataAdapter data) {
-    super(seed,data);
-  }
+  protected IrisBuilder(long seed, DataAdapter data) { super(seed,data);  }
 
   @Override
-  protected void createNodeStatistics(ProtoNode node, int[] columns) {
+  protected void createStatistic(ProtoNode node, int[] columns) {
         node.addStatistic(new AverageStatistic(columns,3));
   }
 
   @Override
-  protected int getNumberOfNodeFeatures(ProtoNode node, ProtoTree tree) {
-    return 3;
-  }
-  
-  
+  protected int numberOfFeatures(ProtoNode node, ProtoTree tree) { return 3;  }
+    
 }
