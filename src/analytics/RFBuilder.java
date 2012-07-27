@@ -196,8 +196,7 @@ public abstract class RFBuilder {
         // to be constructed
         if (n.numClasses()>1)
           newNodes += n.numClasses();
-        // store the node to its proper position and increment the subnode
-        // index
+        // store the node to its proper position and increment the subnode index
         ((Node)lastNodes_[nodeIndex]).setSubtree(subnodeIndex,n);
         ++subnodeIndex;
       }
@@ -231,16 +230,12 @@ public abstract class RFBuilder {
      */
     public void createNextLevel() {
       int newNodes = 0;
-      // if the current level is -1 just create the node under construction for
-      // the to be root of the tree
+      // if the current level is -1; create the node under construction for the root
       if (level_ == -1) {
-        lastNodes_ = null;
-        newNodes = 1;
-      // if currentLevelNodes are null, then the tree has already decided and there is
-      // no point in doing anything
+        lastNodes_ = null;  newNodes = 1;
+      // if nodes are null, then the tree has already decided and nothing needs to be done
       } else if (nodes_ == null) {
-        lastOffsets_ = null;
-        lastNodes_ = null;
+        lastOffsets_ = null; lastNodes_ = null;
       // if we are not initializing the first level, we must convert all nodes
       // under construction to proper nodes and put them in the tree and then
       // create new nodes under construction for the next level
@@ -248,12 +243,7 @@ public abstract class RFBuilder {
         // numer of nodes to be created for the next level
         // if the current level is 0, we are dealing with the first level, store
         // as root and create children as required
-        if (level_ == 0) {
-          newNodes = updateFromLevel0();
-        // or do the proper update, for which see the method
-        } else {
-          newNodes = updateToNextLevel();
-        }
+        newNodes = level_==0? updateFromLevel0() : updateToNextLevel();
       }
       buildNodes(newNodes);
       // reset the random generator for the rows
@@ -273,20 +263,15 @@ public abstract class RFBuilder {
      */
     int getNodeNumber(DataAdapter row, int oldNode) {
       // if we are already -1 ignore the row completely, it has been solved
-      if (oldNode == -1)
-        return -1;
+      if (oldNode == -1) return -1;
       // if the lastLevelNodes are not present, we are calculating root and
       // therefore all rows are node 0
-      if (lastNodes_ == null)
-        return 0;
+      if (lastNodes_ == null) return 0;
       // if the lastNode is leaf, do not include the row in any further tasks
       // for this tree. It has already been decided
-      if (lastNodes_[oldNode].numClasses() == 1)
-        return -1;
-      // use the classifier on the node to classify the node number in the new
-      // level
-      return lastOffsets_[oldNode]+
-          ((Node)lastNodes_[oldNode]).classify(row);
+      if (lastNodes_[oldNode].numClasses() == 1) return -1;
+      // use the classifier on the node to classify the node number in the new level
+      return lastOffsets_[oldNode]+ lastNodes_[oldNode].classify(row);
     }
     
     // compute statistics for the node -----------------------------------------
@@ -299,8 +284,7 @@ public abstract class RFBuilder {
      * @param nodeNumber 
      */
     void computeStatistics(DataAdapter row, int nodeNumber) {
-      if (nodeNumber!=-1)
-        nodes_[nodeNumber].computeStatistics(row);
+      if (nodeNumber!=-1) nodes_[nodeNumber].computeStatistics(row);
     }  
   }
  
