@@ -4,9 +4,11 @@ import init.init;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -21,6 +23,7 @@ import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 
 import water.DKV;
+import water.H2O;
 import water.Key;
 import water.Value;
 import water.ValueArray;
@@ -60,7 +63,8 @@ public class CSVParserTest {
 
   @BeforeClass
   public static void setUpClass() throws Exception {
-    //yinit.main(new String [] {"-ip", "127.0.0.1"});
+    if(H2O.CLOUD == null)
+      init.main(new String [] {"-ip", "192.168.56.1"});
   }
 
   @AfterClass
@@ -169,6 +173,32 @@ public class CSVParserTest {
   int randInt(int N){
     return (int)(N*Math.random());
   }
+  
+  @Test
+  public void testIgnoredColumn(){
+    Key k = Key.make("csvTest");
+    ValueArray var = new ValueArray(k, 3*1024*1024);
+    Key k1 = var.make_chunkkey(0);
+    Value v1 = new Value(k1,"\"test1\", haha,\"test2\"\n12345,xxx,.12345\n1.2345e13,xxx,-12345\n-1.3e-3,xxx,123\n");
+    try{
+      DKV.put(k1,v1);
+      TestRecord2 r1 = new TestRecord2();
+      TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
+      String [] expectedColumnNames = {"test1",null,"test2"};
+      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0, r1, new String [] {"x",null,"y"});
+      assert(Arrays.equals(expectedColumnNames, p1.columnNames()));
+      int i = 0;
+      for(TestRecord2 r:p1){
+        Assert.assertEquals(r,rExp[i++]);
+      }
+      Assert.assertEquals(i,3);
+    } catch(Exception e){
+      e.printStackTrace();
+      Assert.assertTrue(false);
+    } finally {
+      DKV.remove(k1);
+    }
+  }
   @Test
   public void testCSVString() {
     Key k = Key.make("csvTest");
@@ -188,6 +218,7 @@ public class CSVParserTest {
       }
     } catch (Exception e) {
       e.printStackTrace();
+      Assert.assertTrue(false);
     }finally{
       DKV.remove(k1);
       DKV.remove(k2);
@@ -231,7 +262,7 @@ public class CSVParserTest {
       TestRecord2 r1 = new TestRecord2();
       TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
       CSVParserSetup s = new CSVParserSetup((byte)' ',true);
-      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0, r1, new String [] {"x","y"}, s);
+      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0, 1, r1, new String [] {"x","y"}, s);
       String [] expectedColumnNames = {"test1","test2"};
       Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
@@ -321,33 +352,6 @@ public class CSVParserTest {
 
   }
 
-  @Test
-  public void testParsingPyTriggerCSV(){
-    Key k = Key.make("pytriggerCSV");
-    Value v = DKV.get(k);
-    Assert.assertNotNull(v);
-    PyTriggerRecord r = new PyTriggerRecord();
-    int recCounter = 0;
-    if(v != null){
-      for(int i = 0; i < v.chunks(); ++i){
-        System.out.println("parsing chunk " + i);
-        try {
-          ValueCSVRecords<PyTriggerRecord> p1 = new ValueCSVRecords<PyTriggerRecord>(v, i,r, new String [] {"time","processName","PID","Operation","Path","Result","Detail"});
-          for(PyTriggerRecord x:p1){
-            ++recCounter;
-          }
-        } catch(CSVEscapedBoundaryException e){
-          System.out.println("escaped boundary at chunk " + i + ", skipping the next one");
-          return;
-        } catch (Exception e) {
-          System.err.println("error after processing " + recCounter + " records");
-          e.printStackTrace();
-          Assert.assertTrue(false);
-        }
-      }
-    }
-  }
-
   // does not handle escaped stuff
   ArrayList<String> nextCSVLine(BufferedReader r) {
     ArrayList<String> result = new ArrayList<String>();
@@ -375,9 +379,20 @@ public class CSVParserTest {
     Value v = DKV.get(k);
     Assert.assertNotNull(v);
     TimeSeriesRecord r = new TimeSeriesRecord();
+    TimeSeriesRecord r2 = new TimeSeriesRecord();
     final int expectedNRecords = 14102837;
     int recCounter = 0;
+    try {
+      
+      
+      
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      Assert.assertTrue(false);
+    }
+    
     File f = new File("c:\\Users\\tomas\\big_data.csv");
+    Assert.assertTrue(f.exists());    
     BufferedReader reader = null;
     try {
       reader = new BufferedReader(new FileReader(f));
@@ -388,29 +403,44 @@ public class CSVParserTest {
       // TODO Auto-generated catch block
       e.printStackTrace();
       Assert.assertTrue(false);
-    }
-    Assert.assertTrue(f.exists());
-    System.out.println(f.getAbsolutePath());
+    }   
     CSVParserSetup setup = new CSVParserSetup();
     if(v != null){
-      for(int i = 0; i < v.chunks(); ++i){
+      for(int i = 0; i < 1/*v.chunks()*/; ++i){
+        
         System.out.println("Processing chunk # "  + i);
         try {
-          ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v, i,r, new String [] {"date","value"}, setup);
+          ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v, i,v.chunks()+1,r, new String [] {"date","value"}, setup);          
+          InputStream is = f.exists()?new FileInputStream(f):null;
+          ValueCSVRecords<TimeSeriesRecord> p2 = (is != null)?new ValueCSVRecords<TimeSeriesRecord>(is,r2, new String [] {"date","value"}, new CSVParserSetup()):null;
           for(TimeSeriesRecord x:p1){
             ++recCounter;
+            Assert.assertTrue((p2 == null)|| p2.hasNext());
+            r2 = p2.next();
             ArrayList<String> str = nextCSVLine(reader);
+            
             Assert.assertEquals(str.size(), 2);
-            //System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'");
+            if(!x.date.equals(str.get(0))){
+              System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'");
+            }
+            if(!x.date.equals(r2.date.toString())){
+              System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'" + "' <==> '" + r2.date.toString() + "'");
+            }
             Assert.assertTrue(x.date.equals(str.get(0)));
+            Assert.assertTrue(x.date.equals(r2.date.toString()));
+            
+            
             if(str.get(1).trim().equals(".")){
               Assert.assertEquals(x.value, setup._defaultDouble);
+              Assert.assertEquals(r2.value, setup._defaultDouble);
               continue;
             } else if(x.value != Double.valueOf((str.get(1).trim()))){
               System.out.println(x.value + " != " + Double.valueOf(str.get(1).trim()));
             }
             Assert.assertEquals(x.value,Double.valueOf((str.get(1).trim())));
+            Assert.assertEquals(r2.value,Double.valueOf((str.get(1).trim())));                        
           }
+          Assert.assertFalse(p2.hasNext());
         } catch(CSVEscapedBoundaryException e){
           System.out.println("escaped boundary at chunk " + i + ", skipping the next one");
           return;

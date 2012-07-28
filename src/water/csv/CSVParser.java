@@ -6,6 +6,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.Collection;
 
+import org.omg.CORBA._PolicyStub;
+
 /**
  * Simple CSVParser, parses InputStream assuming data in csv format.
  *
@@ -34,8 +36,24 @@ public final class CSVParser {
   int _from = 0;
   int _recordStart; // for debugging purposes, marks beginning of the current record
   int _to;
-  byte [] _data;
-  byte [] _nextData;
+  private byte [][] _data = new byte[2][];
+  
+  final byte[] data(){
+    return _data[_dataIdx];
+  }
+  final byte[] nextData() {
+    return _data[(_dataIdx+1)&1];
+  }
+  
+  final byte getByte(int index){
+    if((index < 0) || (index > _length)) throw new ArrayIndexOutOfBoundsException(index);
+    return (index < data().length)?data()[index]:nextData()[index-data().length];
+  }
+  
+  
+  
+  int _dataIdx;
+ 
   int _length; // _data.length + _nextData.length - max length of data
   int _column;
   int _state = 0;
@@ -45,8 +63,7 @@ public final class CSVParser {
   final static int NEWLINE_STATE = 1000;
 
   boolean _dontParseFlag;
-  boolean _resetParsers = false;
-  boolean _done;
+  boolean _resetParsers = false;  
 
   final String [] _columnNames;
   final String [] _columns;
@@ -73,8 +90,8 @@ public final class CSVParser {
   public CSVParser(byte [] data, Object csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, CSVParseException, IOException, IllegalArgumentException, IllegalAccessException{
     _setup = setup;
     _column = 0;
-    _data = data;
-    _length = _data.length;
+    _data[_dataIdx] = data;
+    _length = (data() != null)?data().length:0;
     _columns = columns;
     _record = csvRecord;
     int i = 0;
@@ -136,20 +153,37 @@ public final class CSVParser {
     }
 
   }
-  /**
-   * Add additional data containing (part of) the last record.
-   * @param d
-   */
-  public void setNextData(byte [] d){
-    _nextData = d;
-    _length = _data.length + ((_nextData != null)?_nextData.length:0);
+      
+  
+  public void addData(byte [] d){
+    if(data() == null)
+      _data[_dataIdx] = d;
+    else if(nextData() == null)
+      _data[(_dataIdx+1) & 1] = d;
+    else if((_index > data().length) && (_from > data().length)){
+      _index -= data().length;
+      _from -= data().length; // recompute indexes
+      _to -= data().length;
+      _data[_dataIdx] = d;
+      _dataIdx = (_dataIdx + 1) & 1;
+      for(int i = 0; i < _column; ++i){
+        if(_columnParsers[i]._type == DataType.typeCSVString){ // recompute string boundaries
+          if(_columnParsers[i]._csvString._offset < data().length)
+            throw new Error("Pushing more data before previous was parsed. Only two active buffers are allowed.");
+          _columnParsers[i]._csvString._offset -= data().length;
+        }
+      }
+    } else
+      throw new Error("Pushing more data before previous was parsed. Only two active buffers are allowed.");
+    _length = ((_data[0] != null)?_data[0].length:0) + ((_data[1] != null)?_data[1].length:0);    
   }
-
+  
+  
   //private byte _b;
 
   private boolean nextByte() throws IOException {
     //System.out.println("index = " + _index + ", length = " + _length + " ,_data.length = " + _data.length);
-    return(!_done && (_data != null) && (++_index != _length));
+    return (++_index < _length);
   }
 
   // set the attribute value and reset given parser
@@ -229,8 +263,7 @@ public final class CSVParser {
       if(_setup._toleratePartialRecords){
         for(int i = _column; i != _columnParsers.length; ++i)
           endField();
-      } else {
-        _column = 0;
+      } else {       
         throw new CSVParseException("Partial record with " + _column + " columns");
       }
     }
@@ -246,6 +279,9 @@ public final class CSVParser {
           endField();
         break;
       }else if(c == '\n'){
+        if(_column == 0){          
+          return false;
+        }
         // if we separate by spaces there can be some additional spaces before the newline
         // which should be ignored
         if(!_setup._collapseSpaceSeparators || _column != _columnParsers.length)
@@ -266,14 +302,14 @@ public final class CSVParser {
         _state = 1;
         if(_setup._trimSpaces || _setup._collapseSpaceSeparators)
           _from = _index;
-        else {
+        else if(_columnParsers[_column] != null){          
           switch(_columnParsers[_column]._type){
           case typeInt:
           case typeFloat:
           case typeDouble:
             _from = _index;
             break;
-          }
+          }          
         }
         _to = _index;
       }
@@ -352,14 +388,16 @@ public final class CSVParser {
    */
   public boolean next() throws IOException, IllegalArgumentException, IllegalAccessException, CSVParseException {
     if(_resetParsers){
-      for(FieldValueParser p:_columnParsers)
-        p.reset();
+      for(FieldValueParser p:_columnParsers){
+        if(p != null)
+          p.reset();
+      }
       _resetParsers = false;
     }
     while(nextByte()){
       char c;
-      c = (_index < _data.length)?(char)_data[_index]:(char)_nextData[_index - _data.length];
-      if((_index == _data.length) && (_state == 2))
+      c = (char)getByte(_index);
+      if((_index == data().length) && (_state == 2))
         throw new CSVEscapedBoundaryException();
 
       // lines can be ended by \r\n or just \n, however, \r can also be part of
@@ -377,8 +415,7 @@ public final class CSVParser {
         _newLineFlag = true;
         continue;
       }
-      if(addChar(c)){
-        _done = (_index >= _data.length);
+      if(addChar(c)){        
         return true;
       }
     }
@@ -406,13 +443,15 @@ public final class CSVParser {
     _index = -1;
     _from = 0;
     //_currentInput = 0;
-    for(FieldValueParser p :_columnParsers)
-      p.reset();
+    for(FieldValueParser p :_columnParsers){
+      if(p != null)
+        p.reset();
+    }
     _resetParsers = false;
     if(_setup._parseColumnNames){
       // parse column names
       CSVParserSetup s = new CSVParserSetup(_setup);
-      CSVParser p = new CSVParser(_data,_columnNames, null, s);
+      CSVParser p = new CSVParser(data(),_columnNames, null, s);
       if(!p.next()){
         throw new CSVParseException("unexpected exception while parsing header (column names) of the csv file");
       }
@@ -430,7 +469,8 @@ public final class CSVParser {
   }
 
   public void close() {
-    _data = null;
+    _data[0] = null;
+    _data[1] = null;
   }
 
   // types parser can process
@@ -485,7 +525,7 @@ public final class CSVParser {
       _floatingDecimal.decExponent = 0;
       int zeroCounter = 0;
       for(int i = from; i < N; ++i){
-        byte b = (i < _data.length)?_data[i]:_nextData[i - _data.length];
+        byte b = getByte(i);
         char ch = (char)b;
         switch(state){
         case 0:
@@ -581,6 +621,7 @@ public final class CSVParser {
       } catch(NumberFormatException e){
         return _setup._defaultDouble;
       }
+    //  System.out.println("parsed " + new CSVString(from,len,CSVParser.this) + " into " + _floatingDecimal.toJavaFormatString());
       return _floatingDecimal.doubleValue();
     }
 
@@ -601,7 +642,7 @@ public final class CSVParser {
       int N = offset + len;
 
       for(int i = offset; i < N; ++i ){
-        byte b = (i < _data.length)?_data[i]:_nextData[i - _data.length];
+        byte b = getByte(i);
         char ch = (char)b;
         switch(state){
         case 0:
@@ -653,9 +694,7 @@ public final class CSVParser {
       int N = _csvString._len + _csvString._offset;
       int M = Math.min(_data.length, N);
       for(int i = _csvString._offset; i < M; ++i)
-        bldr.append(_data[i]);
-      for(int i = 0; i < Math.max(0, N - _data.length); ++i)
-        bldr.append(_nextData[i]);
+        bldr.append((char)getByte(i));      
     }
     @Override
       public String toString(){

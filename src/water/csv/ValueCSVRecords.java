@@ -1,9 +1,10 @@
 package water.csv;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import water.DKV;
 import water.Key;
 import water.Value;
@@ -36,20 +37,142 @@ import water.csv.CSVParser.CSVParserSetup;
  *
  */
 public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
-  Value _nextData;
   T _rec;
   String [] _columns;
+  
+  
+  abstract class ADataProvider {
+    int _currentChunkId;
+    final int _maxChunkId;
+    
+    abstract boolean hasMoreData();
+    final boolean lastChunk() {
+      return (_currentChunkId == _maxChunkId-1);
+    }
+    public ADataProvider(int chunkId,int maxChunkId) {
+      _currentChunkId = chunkId;
+      _maxChunkId = maxChunkId;
+    }
+    final byte [] nextData(){
+      return nextData(Integer.MAX_VALUE);
+    }
+    abstract byte [] nextData(int len);
+    final int chunkIdx(){return _currentChunkId;};
+    void close(){}
+    
+  }
+  
+  class KV_DataProvider extends ADataProvider {
+    Value _root; // arraylet root
+    Value _currentChunk;    
+    int _dataRead;
+    
+    private boolean getChunk(){
+      if(_currentChunkId < _root.chunks()){
+        Key k = _root.chunk_get(_currentChunkId);
+        _currentChunk = DKV.get(k);      
+        return(_currentChunk != null);
+      } else {
+        _currentChunk = null;
+        return false;
+      }         
+    }
+    
+    @Override
+    byte[] nextData(int len) {
+      if(_currentChunk == null)
+        return null;
+      if(_dataRead == _currentChunk.length()){        
+        if(++_currentChunkId > _maxChunkId) 
+          return null;
+        if(!getChunk())
+          return null;
+        _dataRead = 0;
+      }
+      int N = _dataRead + len;
+      byte [] res = _currentChunk.get(N);
+      if(_dataRead > 0){
+        res = Arrays.copyOfRange(res, _dataRead, res.length);
+      }
+      _dataRead += res.length;
+      return res;      
+    }   
+    
+    KV_DataProvider(Value v, int indexFrom, int indexTo){   
+      super(indexFrom,indexTo);
+      _root = v;
+      _currentChunkId = indexFrom;      
+      getChunk();
+    }
+    void close(){_currentChunkId = _maxChunkId+1;}
 
+    @Override
+    boolean hasMoreData() {
+      return (_currentChunk != null) && ((_dataRead < _currentChunk.length()) || (_currentChunkId < _maxChunkId));      
+    }
+  } 
+  
+  class StreamDataProvider extends ADataProvider {
+    
+    byte [][] _data;        
+    InputStream _is;    
+    
+    StreamDataProvider(int chunkSize, InputStream is){
+      super(0,Integer.MAX_VALUE);
+      _data = new byte[][]{new byte[chunkSize],new byte[chunkSize]};
+      _is = is;                        
+    }
+    
+    
+    @Override
+    byte[] nextData(int len) {     
+      byte [] data = (len >= _data[_currentChunkId&1].length)?_data[_currentChunkId&1]:new byte[len];
+      try {
+        int read = _is.read(data);
+        if(read < data.length){
+           data = (read == -1)?null:Arrays.copyOf(data, read);                      
+        }        
+      } catch (IOException e) {
+        e.printStackTrace();
+        data = null;        
+      }
+      if(data != null)
+        ++_currentChunkId;
+      return data;
+    }
+    
+    void close(){
+      try {
+        _is.close();        
+      } catch (IOException e) {
+        e.printStackTrace();
+      }      
+    }
+
+
+    @Override
+    boolean hasMoreData() {          
+      try {
+        return (_is != null) && (_is.available() > 0);
+      } catch (IOException e) {
+        e.printStackTrace();
+        return false;
+      }
+    }
+  }
+  
+  
+  
   CSVParser _parser;
   boolean _next;
-  boolean _done = false;
   boolean _fresh = false;
-
+  ADataProvider _dataProvider;
+  
   public boolean hasNext() {
     if(_next)
       return true;
-    if(_done)
-      return false;
+    if(_dataProvider.chunkIdx() >= _dataProvider._maxChunkId)
+      return false;      
     if(!_next)
       try {
         _next = _parser.next();
@@ -61,16 +184,22 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
         return false;
       }
 
-    if(!_next && (_nextData != null)){
-      _done = true;
-      _parser.setNextData(_nextData.get());
+    if(!_next && _dataProvider.hasMoreData()){
       try {
-        _next = _parser.next();
+        if(_dataProvider.lastChunk()){ // the boundary case
+          _parser.addData(_dataProvider.nextData(1024));
+          if(_next = _parser.next())return _next;         
+        }
+        if(_dataProvider.hasMoreData()){
+          _parser.addData(_dataProvider.nextData(Integer.MAX_VALUE));      
+          _next = _parser.next();
+        }
       } catch (Exception e) {
         _next = false;
         e.printStackTrace();
       }
-      _parser.close();
+      if(!_next && (_parser._column > 0))
+        throw new Error("unfinished record");      
     }
     return _next;
   }
@@ -89,9 +218,32 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
   }
 
   public ValueCSVRecords(Value v, int index, T csvRecord, String [] columns) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
-    this(v, index, csvRecord, columns, new CSVParserSetup());
+    this(v, index, index+1, csvRecord, columns, new CSVParserSetup());
   }
 
+  
+  public ValueCSVRecords(InputStream is, T csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
+    _dataProvider = new StreamDataProvider(1 << water.ValueArray.LOG_CHK, is);
+    _rec = csvRecord;
+    setup._parseColumnNames = setup._parseColumnNames;        
+    _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE), csvRecord, columns, setup);        
+    iterator();        
+  }
+  
+  
+ public ValueCSVRecords(Value v, int indexFrom, int indexTo,  T csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
+   _dataProvider = new KV_DataProvider(v, indexFrom, indexTo);
+   _rec = csvRecord;
+   setup._parseColumnNames = setup._parseColumnNames;        
+   _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE), csvRecord, columns, setup);
+   setup._parseColumnNames = setup._parseColumnNames && (indexFrom == 0);
+   setup._skipFirstRecord = (indexFrom > 0);
+      
+   iterator();
+ }
+ 
+  
+  
   /**
    *
    * @param v     - Value containing the data to be parsed or arraylet root in case of arraylets
@@ -107,33 +259,35 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
    * @throws IOException
    */
   public ValueCSVRecords(Value v, int index,  T csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
-    byte [] data = null;
-    byte [] nextData = null;
-    if(v.chunks() > 1){
-      if(index > v.chunks())
-        throw new ArrayIndexOutOfBoundsException(index);
-      Key chunkKey = v.chunk_get(index);
-      Value chunk = DKV.get(chunkKey);
-      if(chunk == null)
-        throw new CSVParseException("trying to parse non existing data");
-      data = chunk.get();
-      if(index + 1 < v.chunks()){
-        chunk = DKV.get(v.chunk_get(index+1));
-        if(chunk != null){
-          _nextData = chunk;
-          nextData = chunk.get(1024);
-        }
-      }
-    } else {
-      data = v.get();
-    }
-    _rec = csvRecord;
-    setup._parseColumnNames = setup._parseColumnNames && (index == 0);
-    setup._skipFirstRecord = (index > 0);
-    _parser = new CSVParser(data, csvRecord, columns, setup);
-    _parser.setNextData(nextData);
-    iterator();
+    this(v,index,index+1,csvRecord,columns,setup);
   }
+//    byte [] data = null;
+//    byte [] nextData = null;
+//    if(v.chunks() > 1){
+//      if(index > v.chunks())
+//        throw new ArrayIndexOutOfBoundsException(index);
+//      Key chunkKey = v.chunk_get(index);
+//      Value chunk = DKV.get(chunkKey);
+//      if(chunk == null)
+//        throw new CSVParseException("trying to parse non existing data");
+//      data = chunk.get();
+//      if(index + 1 < v.chunks()){
+//        chunk = DKV.get(v.chunk_get(index+1));
+//        if(chunk != null){
+//          _nextData = chunk;
+//          nextData = chunk.get(1024);
+//        }
+//      }
+//    } else {
+//      data = v.get();
+//    }
+//    _rec = csvRecord;
+//    setup._parseColumnNames = setup._parseColumnNames && (index == 0);
+//    setup._skipFirstRecord = (index > 0);
+//    _parser = new CSVParser(data, csvRecord, columns, setup);
+//    _parser.addData(nextData);
+//    iterator();
+//  }
   /**
    * Getter for column names.
    * @return column names if parseColumn names set to true and we have the first chunk, null otherwise
@@ -145,8 +299,7 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
   }
 
   public Iterator<T> iterator() {
-    if(!_fresh){
-      _done = false;
+    if(!_fresh){      
       try {
         _parser.reset();
       } catch (Exception e) {
