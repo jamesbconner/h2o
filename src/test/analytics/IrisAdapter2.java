@@ -10,15 +10,12 @@ import java.util.Map;
 import water.DKV;
 import water.Key;
 import water.Value;
-import water.ValueArray;
-import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
-import analytics.DecisionTree;
 import analytics.RFBuilder;
 
 public class IrisAdapter2 implements DataAdapter {
@@ -41,14 +38,10 @@ public class IrisAdapter2 implements DataAdapter {
 
   String int2Class(int i) {
     switch (i) {
-    case 0:
-      return "setosa";
-    case 1:
-      return "versicolor";
-    case 2:
-      return "virginica";
-    default:
-      throw new Error("unknown class ordinal " + i);
+    case 0:  return "setosa";
+    case 1:  return "versicolor";
+    case 2:  return "virginica";
+    default: throw new Error("unknown class ordinal " + i);
     }
   }
 
@@ -56,9 +49,6 @@ public class IrisAdapter2 implements DataAdapter {
     public int id;
     public double sl, sw, pl, pw;
     public CSVString class_;
-
-    CSVRecord() {
-    }
   }
 
   class F {
@@ -77,58 +67,32 @@ public class IrisAdapter2 implements DataAdapter {
   }
 
   F[] data = null;
-
   int cur = -1;
 
-  public int numColumns() {
-    return 5;
-  }
+  public int numColumns() { return 5; }
 
-  public boolean isInt(int index) {
-    return index == 0;
-  }
+  public boolean isInt(int index) { return index == 0; }
 
   public int toInt(int index) {
-    if (index == 0)
-      return data[cur].id;
-    else
-      throw new Error();
+    if (index == 0)  return data[cur].id;
+    else  throw new Error();
   }
 
   public double toDouble(int index) {
     if (index > 0 && index <= 4) {
-      if (index == 1)
-        return data[cur].pl;
-      if (index == 2)
-        return data[cur].pw;
-      if (index == 3)
-        return data[cur].sl;
-      if (index == 4)
-        return data[cur].sw;
-    } else if (index == 0)
-      return (double) data[cur].id;
+      if (index == 1) return data[cur].pl;
+      if (index == 2) return data[cur].pw;
+      if (index == 3) return data[cur].sl;
+      if (index == 4) return data[cur].sw;
+    } else if (index == 0) return (double) data[cur].id;
     throw new Error("Accessing column " + index);
   }
 
-  public Object originals(int index) {
-    return null;
-  }
-
-  public void getRow(int index) {
-    cur = index;
-  }
-
-  public int numRows() {
-    return data.length;
-  }
-
-  public int numClasses() {
-    return 3;
-  }
-
-  public int dataClass() {
-    return data[cur].class_;
-  }
+  public Object originals(int index) {  return null;  }
+  public void getRow(int index) {  cur = index; }
+  public int numRows() { return data.length; }
+  public int numClasses() {  return 3; }
+  public int dataClass() { return data[cur].class_;  }
 
   public IrisAdapter2(Key k) throws NoSuchFieldException, SecurityException,
       IllegalArgumentException, IllegalAccessException, CSVParseException,
@@ -195,7 +159,5 @@ class IrisBuilder2 extends RFBuilder {
   }
 
   @Override
-  protected int numberOfFeatures(ProtoNode node, ProtoTree tree) {
-    return 3;
-  }
+  protected int numberOfFeatures(ProtoNode node, ProtoTree tree) { return 3; }
 }
