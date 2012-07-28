@@ -7,66 +7,26 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 
-import test.analytics.IrisAdapter2.CSVRecord;
-import test.analytics.IrisAdapter2.F;
-import water.Key;
 import water.csv.CSVParser.CSVParseException;
-import water.csv.ValueCSVRecords;
 import water.csv.CSVParser.CSVParserSetup;
+import water.csv.ValueCSVRecords;
 import analytics.DataAdapter;
 
 public class PokerAdapter implements DataAdapter{
 
-  int [][] data;
-  
+  int [][] data;  
   int currentRow;
-  @Override
-  public void getRow(int index) {
-    currentRow = index;
-    
-  }
-
   HashSet<Integer> _classes;
   
-  @Override
-  public int numRows() {
-    return data.length;    
-  }
-
-  @Override
-  public int numColumns() {
-    return data[0].length-1;
-  }
-
-  @Override
-  public boolean isInt(int index) {
-    return true;
-  }
-
-  @Override
-  public int toInt(int index) {
-    return data[currentRow][index];
-  }
-
-  @Override
-  public double toDouble(int index) {
-    return data[currentRow][index];    
-  }
-
-  @Override
-  public Object originals(int index) {    
-    return null;
-  }
-
-  @Override
-  public int numClasses() {
-    return _classes.size();
-  }
-
-  @Override
-  public int dataClass() {
-    return data[currentRow][data[currentRow].length-1];    
-  }
+  public void getRow(int index) {  currentRow = index;  }
+  public int numRows() { return data.length;  }
+  public int numColumns() { return data[0].length-1; }
+  public boolean isInt(int index) {  return true;  }
+  public int toInt(int index) { return data[currentRow][index]; }
+  public double toDouble(int index) { return data[currentRow][index]; }
+  public Object originals(int index) { return null; }
+  public int numClasses() { return _classes.size(); }
+  public int dataClass() {return data[currentRow][data[currentRow].length-1]; }
   
   public PokerAdapter(File inputFile) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, FileNotFoundException, CSVParseException, IOException{
     int[] r = new int[11];  
@@ -74,16 +34,12 @@ public class PokerAdapter implements DataAdapter{
     CSVParserSetup setup = new CSVParserSetup();
     setup._parseColumnNames = false;
     ValueCSVRecords<int[]> p1 = new ValueCSVRecords<int[]>(
-        new FileInputStream(inputFile), r, new String[] { "id", "sl", "sw", "pl", "pw",
-            "class_" }, setup);
-    for (int[] x : p1) {
-      parsedRecords.add(x.clone());
-    }
+        new FileInputStream(inputFile), r, new String[] { "id", "sl", "sw", "pl", "pw", "class_" }, setup);
+    for (int[] x : p1) parsedRecords.add(x.clone());
     data = new int[parsedRecords.size()][];
     data = parsedRecords.toArray(data);
   }
-  
-  
+    
   public static void main(String[] _) throws Exception {
     PokerAdapter data = new PokerAdapter(new File("C:\\datasets\\poker-hand-testing.data"));    
     System.out.println("there are " + data.numRows() + " rows and " + data.numColumns() + " columns");
