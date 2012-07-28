@@ -1,11 +1,6 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package analytics;
 
 /**
- *
  * @author peta
  */
 public abstract class DistributionStatistic extends Statistic {

@@ -124,8 +124,7 @@ public class AverageStatistic extends Statistic {
       averages_ = new double[numClasses][];
     }
     
-    /** Sets the average vector for given category. 
-     */
+    /** Sets the average vector for given category.  */
     void setAverage(int dataClass, double[] av) {
       averages_[dataClass] = av;
     }

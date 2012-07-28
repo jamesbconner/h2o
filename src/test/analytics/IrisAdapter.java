@@ -2,7 +2,7 @@ package test.analytics;
 
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
-import analytics.DecisionTree;
+import analytics.RF;
 import analytics.RFBuilder;
 
 
@@ -195,29 +195,15 @@ public class IrisAdapter implements DataAdapter {
     throw new Error();
   }
 
-  public static void main(String []_) {
-    IrisAdapter data = new IrisAdapter();
-    IrisBuilder b = new IrisBuilder(67436482,data);
-    int ntrees = 100;
-    b.compute(ntrees,false);
-    System.out.println("Testing " +(ntrees) + " trees");
-    for (int t = 0;  t< ntrees; ++t) {
-      DecisionTree dt = new DecisionTree(b.trees[t].root_);
-      for (int r = 0; r< data.numRows(); ++r) {
-        data.getRow(r);
-        int expected =data.dataClass();
-        data.getRow(r);
-        int got = dt.classify(data);
-        if (got!=expected) 
-          System.out.println(" Row "+r+" expected "+expected+", got "+got);
-      }
-    }
+  public static void main(String []_) {   
+    DataAdapter data=new IrisAdapter();
+    RF rf = new RF(data);
+    rf.compute(100, new IrisBuilder(67436482,data));
   }
 }
 
 class IrisBuilder extends RFBuilder {
   protected IrisBuilder(long seed, DataAdapter data) { super(seed,data);  }
-
   @Override  protected void createStatistic(ProtoNode node, int[] columns) {
         node.addStatistic(new AverageStatistic(columns,3));
   }

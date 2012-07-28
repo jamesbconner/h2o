@@ -16,6 +16,7 @@ import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
+import analytics.RF;
 import analytics.RFBuilder;
 
 public class IrisAdapter2 implements DataAdapter {
@@ -145,19 +146,18 @@ public class IrisAdapter2 implements DataAdapter {
       }
       System.out.println(data.dataClass());
     }
+    
+    RF rf = new RF(data);
+    rf.compute(100, new IrisBuilder2(67436482,data));
   }
 }
 
 class IrisBuilder2 extends RFBuilder {
-  protected IrisBuilder2(long seed, DataAdapter data) {
-    super(seed, data);
-  }
-
+  protected IrisBuilder2(long seed, DataAdapter data) { super(seed, data); }
   @Override
   protected void createStatistic(ProtoNode node, int[] columns) {
     node.addStatistic(new AverageStatistic(columns, 3));
   }
-
   @Override
   protected int numberOfFeatures(ProtoNode node, ProtoTree tree) { return 3; }
 }

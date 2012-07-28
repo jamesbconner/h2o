@@ -1,8 +1,25 @@
 package analytics;
 
+
 public class RF {
     private final DataAdapter data_;
-    RF(DataAdapter data) { data_ = data;  }
+    public RF(DataAdapter data) { data_ = data;  }
     
-    DecisionTree[] computeRF() {  return null;   }
+    public DecisionTree[] compute(int ntrees, RFBuilder b) { 
+      b.compute(ntrees,false);
+      System.out.println("Testing " +(ntrees) + " trees");
+      for (int t = 0;  t< ntrees; ++t) {
+        DecisionTree dt = new DecisionTree(b.trees[t].root_);
+        for (int r = 0; r< data_.numRows(); ++r) {
+          data_.getRow(r);
+          int expected =data_.dataClass();
+          data_.getRow(r);
+          int got = dt.classify(data_);
+          if (got!=expected) 
+            System.out.println(" Row "+r+" expected "+expected+", got "+got);
+        }
+      }
+      return null;
+    }  
+
 }

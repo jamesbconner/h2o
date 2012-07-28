@@ -18,11 +18,11 @@ public class ColumnBinaryClassifier implements Classifier {
     this.value = value;
   }
   
-  @Override public int classify(DataAdapter row) {
+   public int classify(DataAdapter row) {
     return (row.toInt(column) == value) ? 0 : 1;
   }
 
-  @Override public int numClasses() {
+   public int numClasses() {
     return 2; // otherwise we won't be binary:)
   }
   

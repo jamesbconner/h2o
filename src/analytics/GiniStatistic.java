@@ -12,9 +12,7 @@ public class GiniStatistic extends DistributionStatistic {
 
   int value_ = -1;
   double fitness_;
-  
   int seenType_ = -1;
-  
   
   public GiniStatistic(int column, int categories, int dataCategories) {
     super(column,categories,dataCategories);
