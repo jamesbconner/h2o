@@ -251,13 +251,7 @@ public abstract class RFBuilder {
   }
  
   
-  /** Computes n random decision trees. 
-   * 
-   * TODO the trees are still stored in their TreeUnderConstruction roots. This
-   * should change to some better API. 
-   * 
-   * @param numTrees 
-   */
+  /** Computes n random decision trees.  */
   public void compute(int numTrees, boolean randomizeInput) {
     partition_ = new Sample(data_, numTrees, random);
     trees = new ProtoTree[numTrees];
@@ -295,11 +289,10 @@ public abstract class RFBuilder {
   }
 }
 
-/** <<UNTESTED>>
- *  This class samples with replacement the input data. It is based on the Weka class Bagging.java
- *  
- *  The idea is that for each tree and each row we will have a byte that tells us how 
- *  many times that row appears in the sample.
+/** 
+ *  This class samples with replacement the input data (based on the Weka class Bagging.java)
+ *   *  The idea is that for each tree and each row we will have a byte that tells us how 
+ *  many times that row appears in the sample and a byte that tells on which node.
  * */
 class Sample {
   /* Per-tree count of how many time the row occurs in the sample*/
