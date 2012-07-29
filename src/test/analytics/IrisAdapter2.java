@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
 
-import water.DKV;
-import water.Key;
 import water.Value;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
@@ -28,7 +26,7 @@ import analytics.RFBuilder;
  * @author tomas
  *
  */
-public class IrisAdapter2 implements DataAdapter {
+public class IrisAdapter2 extends DataAdapter {
 
   String[] names = new String[] { "ID", "Sepal.Length", "Sepal.Width",
       "Petal.Length", "Petal.Width", "Species" };
@@ -81,7 +79,6 @@ public class IrisAdapter2 implements DataAdapter {
   }
 
   F[] data = null;
-  int cur = -1;
 
   public int numColumns() {
     return 5;
@@ -111,14 +108,6 @@ public class IrisAdapter2 implements DataAdapter {
     } else if (index == 0)
       return (double) data[cur].id;
     throw new Error("Accessing column " + index);
-  }
-
-  public Object originals(int index) {
-    return null;
-  }
-
-  public void getRow(int index) {
-    cur = index;
   }
 
   public int numRows() {
@@ -196,7 +185,7 @@ public class IrisAdapter2 implements DataAdapter {
       System.out.println("there are " + data.numRows() + " rows and "
           + data.numColumns() + " columns");
       for (int i = 0; i < data.numRows(); ++i) {
-        data.getRow(i);
+        data.seekToRow(i);
         for (int j = 0; j < data.numColumns(); ++j) {
           System.out.print(data.isInt(j) ? data.toInt(j) : data.toDouble(j));
           System.out.print(", ");

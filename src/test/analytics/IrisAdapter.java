@@ -6,7 +6,7 @@ import analytics.RF;
 import analytics.RFBuilder;
 
 
-public class IrisAdapter implements DataAdapter {
+public class IrisAdapter extends DataAdapter {
  
   String[] names = new String[] { "ID", "Sepal.Length", "Sepal.Width",
       "Petal.Length", "Petal.Width", "Species" };
@@ -168,7 +168,6 @@ public class IrisAdapter implements DataAdapter {
       new F(149, 6.2, 3.4, 5.4, 2.3, "virginica"),
       new F(150, 5.9, 3.0, 5.1, 1.8, "virginica") };
 
-  int cur = -1; 
   
   public int numColumns() { return 5;  }
   public boolean isInt(int index) {  return index==0;  }
@@ -184,8 +183,6 @@ public class IrisAdapter implements DataAdapter {
     throw new Error("Accessing column "+index);
   }
 
-  public Object originals(int index) { return null;  }
-  public void getRow(int index) { cur = index; }
   public int numRows() { return data.length;  }
   public int numClasses() { return 3; }
   public int dataClass() {

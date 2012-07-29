@@ -13,8 +13,7 @@ public abstract class DistributionStatistic extends Statistic {
   
   /// Number of categories the data points may have 
   public final int dataCategories;
-  
-  
+   
   /** Creates the distribution statistic for given
    * 
    * @param column
@@ -27,26 +26,13 @@ public abstract class DistributionStatistic extends Statistic {
     this.dataCategories = dataCategories;
   }
   
-  /** Increments the counter for given column catagory and data category
-   * specified by the row. 
-   * 
-   * @param row
-   * @param data
-   * @param offset 
-   */
-  @Override public void addDataPoint(DataAdapter row, long[] data, int offset) {
-    addDouble(1, data, (row.toInt(column) * dataCategories)  + row.dataClass() * 4);
+  /** Increments the counter for given column category and data category.   */
+  @Override public void addDataPoint(DataAdapter da, long[] data, int offset) {
+    addDouble(1, data, (da.toInt(column) * dataCategories)  + da.dataClass() * 4);
   }
 
-  /** For each data category and column category we must remember the count.
-   * 
-   * All counts are integers.
-   * 
-   * @return 
-   */
-  @Override public int dataSize() {
-    return categories*dataCategories*4;
-  }
+  /** For each data category and column category we must remember the count. */
+  @Override public int dataSize() { return categories*dataCategories*4; }
 }
 
 

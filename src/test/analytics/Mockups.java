@@ -45,10 +45,10 @@ class DummyStatistic extends Statistic {
 
 
 
-class DummyDataSet implements DataAdapter {
+class DummyDataSet extends DataAdapter {
 
  
-  public void getRow(int index) {
+  public void seekToRow(int index) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
@@ -92,10 +92,6 @@ class DummyDataSet implements DataAdapter {
   
   
 }
-
-
-
-
 
 class DummyClassifier implements Classifier {
 

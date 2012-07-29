@@ -11,7 +11,7 @@ package analytics;
 public abstract class Statistic {
 
   /** Adds the given row to the statistic measure.   */
-  public abstract void addDataPoint(DataAdapter row, long[] data, int offset);
+  public abstract void addDataPoint(DataAdapter adapter, long[] data, int offset);
   
   
   /** Returns the size of the data for the statistic. This data will be reserved

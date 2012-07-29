@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 
-import water.DKV;
-import water.Key;
 import water.Value;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
@@ -25,15 +23,11 @@ import analytics.DataAdapter;
  * @author tomas
  *
  */
-public class PokerAdapter implements DataAdapter {
+public class PokerAdapter extends DataAdapter {
 
   int[][] data;
   int currentRow;
   HashSet<Integer> _classes;
-
-  public void getRow(int index) {
-    currentRow = index;
-  }
 
   public int numRows() {
     return data.length;
@@ -53,10 +47,6 @@ public class PokerAdapter implements DataAdapter {
 
   public double toDouble(int index) {
     return data[currentRow][index];
-  }
-
-  public Object originals(int index) {
-    return null;
   }
 
   public int numClasses() {
@@ -125,7 +115,7 @@ public class PokerAdapter implements DataAdapter {
       System.out.println("there are " + data.numRows() + " rows and "
           + data.numColumns() + " columns");
       for (int i = 0; i < data.numRows(); ++i) {
-        data.getRow(i);
+        data.seekToRow(i);
         for (int j = 0; j < data.numColumns(); ++j) {
           System.out.print(data.toInt(j));
           System.out.print(", ");
