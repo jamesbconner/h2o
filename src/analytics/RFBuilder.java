@@ -459,6 +459,7 @@ class Sample {
   }
 }
 
+/// NOTE: This is code from Wekka!!!
 class Utils {
 
   /** The natural logarithm of 2. */
