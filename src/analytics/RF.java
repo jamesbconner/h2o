@@ -15,11 +15,9 @@ public class RF implements Classifier {
 
   public int classify(DataAdapter data) {
     int[] counts = new int[numClasses()];
-    for (DecisionTree tree: trees_) counts[tree.classify(data)] += 1;
-    int result = 0;
-    for (int i = 1; i<counts.length; ++i)
-      if (counts[result] < counts[i]) result = i;    
-    return result;
+    for (DecisionTree tree: trees_)
+      counts[tree.classify(data)] += 1;
+    return Utils.maxIndex(counts);
   }
 
   public int numClasses() { return trees_[0].numClasses(); }

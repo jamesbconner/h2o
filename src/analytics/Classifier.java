@@ -14,7 +14,7 @@ public interface Classifier {
   /** Returns the number of classes for this classifier. */
   int numClasses();
   
-   static public class Const implements Classifier {
+  static public class Const implements Classifier {
     final int result;
     /** Creates the constant classifier that will always return the given result.  */
     public Const(int result) { this.result = result; }
@@ -22,4 +22,7 @@ public interface Classifier {
     /** The ConstClassifier always classifies to only a single class.  */
     public int numClasses() { return 1; }    
   }
+  
 }
+
+

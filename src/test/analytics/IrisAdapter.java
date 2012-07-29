@@ -194,8 +194,9 @@ public class IrisAdapter extends DataAdapter {
 
   public static void main(String []_) {   
     DataAdapter data=new IrisAdapter();
-    RF rf = RF.compute(100,new IrisBuilder(67436482,data));
-    System.out.println("Built.");
+    IrisBuilder builder = new IrisBuilder(67436482,data);
+    RF rf = RF.compute(100,builder);
+    System.out.println(builder.outOfBagError());
   }
 }
 
