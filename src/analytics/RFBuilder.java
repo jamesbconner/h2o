@@ -1,4 +1,3 @@
-
 package analytics;
 
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ public abstract class RFBuilder {
   private final long seed;
   private final Random random;
   public ProtoTree[] trees;
-  Partition partition_;
+  Sample partition_;
   private final DataAdapter data_;
     
   protected RFBuilder(long seed, DataAdapter data) {
@@ -41,7 +40,7 @@ public abstract class RFBuilder {
   /** Describes the node that is under construction. The node has a list of all
    * statistics that must be computed for the node. 
    */
-  public static class ProtoNode {
+  public class ProtoNode {
     
     long[] statisticsData_ = null;
       // list of all statistics that must be computed for the node
@@ -97,10 +96,10 @@ public abstract class RFBuilder {
      * 
      * @param row DataPoint to be added.
      */
-    void computeStatistics(DataAdapter row) {
+    void computeStatistics() {
       int offset = 0;
       for (Statistic stat : statistics_) {
-        stat.addDataPoint(row,statisticsData_, offset);
+        stat.addDataPoint(data_,statisticsData_, offset);
         offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
       }
     }
@@ -255,13 +254,9 @@ public abstract class RFBuilder {
     
     /** Returns the new node number for the given row. The node number is
      * calculated from the old node number and its classifier. If the oldNode
-     * is -1 it means the node is no longer in the tree and should be ingnored.
-     * 
-     * @param row
-     * @param oldNode
-     * @return 
+     * is -1 it means the node is no longer in the tree and should be ignored
      */
-    int getNodeNumber(DataAdapter row, int oldNode) {
+    int getNodeNumber(int oldNode) {
       // if we are already -1 ignore the row completely, it has been solved
       if (oldNode == -1) return -1;
       // if the lastLevelNodes are not present, we are calculating root and
@@ -271,7 +266,7 @@ public abstract class RFBuilder {
       // for this tree. It has already been decided
       if (lastNodes_[oldNode].numClasses() == 1) return -1;
       // use the classifier on the node to classify the node number in the new level
-      return lastOffsets_[oldNode]+ lastNodes_[oldNode].classify(row);
+      return lastOffsets_[oldNode]+ lastNodes_[oldNode].classify(data_);
     }
     
     // compute statistics for the node -----------------------------------------
@@ -283,8 +278,8 @@ public abstract class RFBuilder {
      * @param row
      * @param nodeNumber 
      */
-    void computeStatistics(DataAdapter row, int nodeNumber) {
-      if (nodeNumber!=-1) nodes_[nodeNumber].computeStatistics(row);
+    void computeStatistics(int nodeNumber) {
+      if (nodeNumber!=-1) nodes_[nodeNumber].computeStatistics();
     }  
   }
  
@@ -297,7 +292,7 @@ public abstract class RFBuilder {
    * @param numTrees 
    */
   public void compute(int numTrees, boolean randomizeInput) {
-    partition_ = new Partition(numTrees,data_.numRows());
+    partition_ = new Sample(data_, numTrees);
     trees = new ProtoTree[numTrees];
     for (int i = 0; i<numTrees; ++i) {
       trees[i] = new ProtoTree();
@@ -316,10 +311,10 @@ public abstract class RFBuilder {
           //
           // TODO maybe do something more efficient like swap the rows, so that
           // we can look at them sequentially rather than this
-          data_.getRow(randomizeInput ? tree.rnd.nextInt(data_.numRows()) : r);
-          node = tree.getNodeNumber(data_, node);
-          tree.computeStatistics(data_,node);
-          partition_.setNode(t,r,node);
+          data_.seekToRow(randomizeInput ? tree.rnd.nextInt(data_.numRows()) : r);
+          node = tree.getNodeNumber(node);
+          tree.computeStatistics(node);
+        //  partition_.setNode(t,r,node);
         }
         tree.createNextLevel();
         // the tree has been done, we may upgrade it to next level
@@ -331,10 +326,71 @@ public abstract class RFBuilder {
   
 }
 
+/** <<UNTESTED>>
+ *  This class samples with replacement the input data. It is based on the Weka class Bagging.java
+ *  
+ *  The idea is that for each tree and each row we will have a byte that tells us how 
+ *  many times that row appears in the sample.
+ * */
+class Sample {
+  final byte[][] values_;
+  int bagSizePercent = 70;
+  int rows_;
+  public Sample(DataAdapter data, int trees) {  
+    rows_=data.numRows(); values_ = new byte[trees][rows_]; 
+    Random r = new Random();
+    for(int i=0;i<trees;i++) weightedSampling(data,r,i);
+  }
+  
+  public int getNode(int tree, int row) { return values_[tree][row];  }
 
-class Partition {
-  final int[][] data_;
-  public Partition(int trees, int rows) {  data_ = new int[trees][rows]; }  
-  public int getNode(int tree, int row) { return data_[tree][row];  }
-  public void setNode(int tree, int row, int node) { data_[tree][row] = node;  }
+  double sum(double[] d) { double r=0.0; for(int i=0;i<d.length;i++) r+=d[i]; return r; }
+  
+  public static void normalize(double[] doubles, double sum) {
+    if (Double.isNaN(sum))  throw new IllegalArgumentException("NaN.");
+    if (sum == 0) throw new IllegalArgumentException("Zero.");
+    for (int i = 0; i < doubles.length; i++) doubles[i] /= sum;
+  }
+
+  void weightedSampling(DataAdapter adapt, Random random, int tree) {
+    double[] weights = new double[rows_];
+    for( int i = 0; i < weights.length; i++ ) { adapt.seekToRow(i); weights[i] = adapt.weight(); }
+    double[] probabilities = new double[rows_];
+    double sumProbs = 0, sumOfWeights = sum(weights);
+    for( int i = 0; i < rows_; i++ ){
+      sumProbs += random.nextDouble();
+      probabilities[i] = sumProbs;
+    }
+    normalize(probabilities, sumProbs / sumOfWeights);
+
+    // Make sure that rounding errors don't mess things up
+    probabilities[rows_ - 1] = sumOfWeights;
+    int k = 0, l = 0;  sumProbs = 0;
+    while( k < rows_ && l < rows_ ){
+      if( weights[l] < 0 ) throw new IllegalArgumentException("Weights have to be positive."); 
+      sumProbs += weights[l];
+      while( k < rows_ && probabilities[k]<=sumProbs ){
+        values_[tree][l]++;
+        k++;
+      }
+      l++;
+    }
+    
+    int sampleSize =0;
+    for(int i=0;i<rows_;i++) sampleSize += (int) values_[tree][i]; 
+    int bagSize = rows_ * bagSizePercent / 100;
+    assert(bagSize>0 && sampleSize>0);
+    while (bagSize> sampleSize) {
+      int offset = random.nextInt(rows_);
+      while(true) {
+        if (values_[tree][offset]!=0) { values_[tree][offset]--; break; }
+        offset = (offset+1)%rows_;
+      }
+      sampleSize--;
+    } 
+    
+  }
 }
+
+
+ 
