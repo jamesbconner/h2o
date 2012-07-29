@@ -123,10 +123,10 @@ public abstract class RFBuilder {
    */
   public class ProtoTree {
     
-    INode[] lastNodes_;
-    int[] lastOffsets_;
-    ProtoNode[] nodes_;    
-    int level_ = -1;    
+    INode[] lastNodes_ = null;
+    int[] lastOffsets_ = null;
+    ProtoNode[] nodes_ = null;    
+    int level_ = 0;    
     public INode root_ = null;    
     // random generator unique to the tree. 
     Random rnd = null;    
@@ -139,13 +139,16 @@ public abstract class RFBuilder {
      */
     public ProtoTree() { 
       this.seed = random.nextLong();
+      buildNodes(1);
+    }
+    
+    
+    protected final int updateFromLevel0() {
       root_ =  nodes_[0].createNode();
       lastNodes_ = new INode[] { root_ };
       lastOffsets_ = new int[] { 0 };
-      int numNodes =root_.numClasses() == 1 ? 0 : root_.numClasses();
-      buildNodes(numNodes);
-    }
-    
+      return root_.numClasses() == 1 ? 0 : root_.numClasses();
+    }  
     
     // we are a level with old nodes. What must be done is:
     // - convert the nodes under construction to normal nodes and add them
@@ -222,12 +225,14 @@ public abstract class RFBuilder {
       // create new nodes under construction for the next level
       } else {
         // numer of nodes to be created for the next level
-        newNodes = updateToNextLevel();
+        newNodes = level_ == 0 ? updateFromLevel0() : updateToNextLevel();
       }
       buildNodes(newNodes);
       // reset the random generator for the rows
       rnd = new Random(this.seed);
       ++level_;
+      
+      
     }
     
     // get node number in new level logic --------------------------------------
@@ -244,6 +249,8 @@ public abstract class RFBuilder {
       if (lastNodes_ == null) return 0;
       // if the lastNode is leaf, do not include the row in any further tasks
       // for this tree. It has already been decided
+      if (oldNode >= lastNodes_.length)
+        System.out.println("error here");
       if (lastNodes_[oldNode].numClasses() == 1) return -1;
       // use the classifier on the node to classify the node number in the new level
       return lastOffsets_[oldNode]+ lastNodes_[oldNode].classify(data_);
@@ -258,26 +265,27 @@ public abstract class RFBuilder {
     for (int i = 0; i<numTrees; ++i) trees[i] = new ProtoTree();
     int i=0;
     while (true) {
-      System.out.println("level " + i++);
       boolean done = true;      
       for (int t= 0; t < numTrees; ++t) {
         ProtoTree tree = trees[t];
                
         for (int r = 0; r < data_.numRows(); ++r) {
           int count = partition_.occurrences(t,r);
-          for (int cnt = 0; cnt < count; cnt++) {
+          int node = partition_.getNode(t, r);
+          if (node != -1) { // the row is still not classified completely
             data_.seekToRow(r);
-            int node = partition_.getNode(t, r);
-            int newNode = tree.getNodeNumber(node);
-            if (newNode!=-1){
-              ProtoNode n = tree.nodes_[newNode];
-              int offset = 0;
-              for (Statistic stat : n.statistics_) {
-                stat.addDataPoint(data_, n.statisticsData_, offset);
-                offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
+            node = tree.getNodeNumber(node);
+            if (node != -1) {
+              ProtoNode n = tree.nodes_[node];
+              for (int cnt = 0; cnt < count; cnt++) {
+                int offset = 0;
+                for (Statistic stat : n.statistics_) {
+                  stat.addDataPoint(data_, n.statisticsData_, offset);
+                  offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
+                }
               }
             }
-            partition_.setNode(t, r, newNode);
+            partition_.setNode(t,r,node);
           }
         }
         tree.createNextLevel();
@@ -297,7 +305,7 @@ public abstract class RFBuilder {
 class Sample {
   /* Per-tree count of how many time the row occurs in the sample*/
   final byte[][] occurrences_;
-  /* Per-tree node id of where  the row falls*/
+  /* Per-tree node id of where the row falls*/
   final byte[][] nodes_;
   int bagSizePercent = 70;
   int rows_;
