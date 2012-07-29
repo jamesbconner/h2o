@@ -35,6 +35,7 @@ public abstract class RFBuilder {
     random = new Random(seed);
     data_ = data;
   }
+  
   // node under construction ---------------------------------------------------
   
   /** Describes the node that is under construction. The node has a list of all
@@ -258,12 +259,12 @@ public abstract class RFBuilder {
   }
  
   
-  /** Computes n random decision trees.  */
-  public void compute(int numTrees, boolean randomizeInput) {
+  /** Computes n random decision trees and returns them as a random forest.
+   */
+  RF compute(int numTrees) {
     partition_ = new Sample(data_, numTrees, random);
     trees = new ProtoTree[numTrees];
     for (int i = 0; i<numTrees; ++i) trees[i] = new ProtoTree();
-    int i=0;
     while (true) {
       boolean done = true;      
       for (int t= 0; t < numTrees; ++t) {
@@ -294,6 +295,10 @@ public abstract class RFBuilder {
       }
       if (done) break;
     }
+    DecisionTree[] rf = new DecisionTree[trees.length];
+    for (int i = 0; i < rf.length; ++i)
+      rf[i] = new DecisionTree(trees[i].root_);
+    return new RF(rf);
   }
 }
 

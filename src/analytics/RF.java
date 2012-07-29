@@ -1,6 +1,47 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
 package analytics;
 
+/**
+ *
+ * @author peta
+ */
+public class RF implements Classifier {
+  private final DecisionTree[] trees_;
+  
+  RF(DecisionTree[] trees) {
+    trees_ = trees;
+    assert (trees != null);
+    assert (trees.length>=1);
+  }
 
+  @Override public int classify(DataAdapter data) {
+    int[] counts = new int[numClasses()];
+    for (DecisionTree tree: trees_) 
+      counts[tree.classify(data)] += 1;
+    int result = 0;
+    for (int i = 1; i<counts.length; ++i) {
+      if (counts[result] < counts[i])
+        result = i;
+    }
+    return result;
+  }
+
+  @Override public int numClasses() {
+    return trees_[0].numClasses();
+  }
+  
+  
+  
+  
+  public static RF compute(int numTrees, RFBuilder builder) {
+    return builder.compute(numTrees);
+  }
+
+}
+/*
 public class RF {
     private final DataAdapter data_;
     public RF(DataAdapter data) { data_ = data;  }
@@ -22,4 +63,4 @@ public class RF {
       return null;
     }  
 
-}
+} */
