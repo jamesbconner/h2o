@@ -220,7 +220,6 @@ public class Value {
       mem[i] = sbytes[i];
     }
   }
-  
 
   // Returns true if the entire value is resident in memory.
   final boolean is_mem_local() { return _mem != null && _mem.length == _max; }
@@ -293,7 +292,7 @@ public class Value {
   static Value construct(int max, int len, Key key, byte p, byte type) {
     switch (type) {
     case 'A': return new ValueArray(max,len,key,p);
-    case 'C': return new ValueCode (max,len,key,p);
+    //case 'C': return new ValueCode (max,len,key,p);
     case 'I': return new Value     (max,len,key,p);
     default:
       throw new Error("Unable to construct value of type "+(char)(type)+"(0x"+Integer.toHexString(0xff & type)+" (key "+key.toString()+")");

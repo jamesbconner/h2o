@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Arrays;
@@ -10,7 +6,6 @@ import java.util.Properties;
 import water.H2O;
 import water.Key;
 import water.Value;
-import water.ValueCode;
 
 /**
  *
@@ -133,9 +128,9 @@ public class StoreView extends H2OPage {
     String ks = key.toString();
     row.replace("keyHref",urlEncode(new String(key._kb)));
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
-    if (val instanceof ValueCode) {
-      row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
-    }
+    //if (val instanceof ValueCode) {
+    //  row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
+    //}
     // Dump out the current replication info: Mem/Disk/Replication_desired
     String vs = val.getString(100); // First, get the string which might force mem loading
     vs = vs.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");

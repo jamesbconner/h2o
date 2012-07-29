@@ -56,8 +56,8 @@ public abstract class UKV {
   static public Value get( Key key, int len ) {
     assert key.user_allowed();
     Value val = DKV.get(key,len);
-    if( val instanceof ValueCode )
-      throw new Error("unimplemented: users should get a polite error if they attempt to fetch a ValueCode");
+    //if( val instanceof ValueCode )
+    //  throw new Error("unimplemented: users should get a polite error if they attempt to fetch a ValueCode");
     if( val instanceof ValueArray ) {
       Value vchunk0 = DKV.get(((ValueArray)val).make_chunkkey(0),len);
       if( len >= vchunk0._max )

@@ -76,11 +76,11 @@ public class TimeLine extends UDP {
     final int idx = next_idx(tl); // Next free index
     long deltams = ms-JVM_BOOT_MSEC;
     assert deltams < 0x0FFFFFFFFL; // No daily overflow
-    int ip4 = get4_raw(p.getAddress().getAddress(),0);
+    int ip4 = get4(p.getAddress().getAddress(),0);
     tl[idx*WORDS_PER_EVENT+0+1] = (deltams)<<32 | (((long)ip4)&0x0FFFFFFFFL);
     tl[idx*WORDS_PER_EVENT+1+1] = (ns&~1)|sr;
-    tl[idx*WORDS_PER_EVENT+2+1] = get8_raw(p.getData(),0);
-    tl[idx*WORDS_PER_EVENT+3+1] = get8_raw(p.getData(),8);
+    tl[idx*WORDS_PER_EVENT+2+1] = get8(p.getData(),0);
+    tl[idx*WORDS_PER_EVENT+3+1] = get8(p.getData(),8);
   }
   public static void record_send( DatagramPacket p ) { record(p,0); }
   public static void record_recv( DatagramPacket p ) { record(p,1); }
@@ -94,7 +94,7 @@ public class TimeLine extends UDP {
   public static long ms( long[] tl, int idx ) { return (x0(tl,idx)>>>32)+JVM_BOOT_MSEC; }
   private static final byte _inet[] = new byte[4];
   public static InetAddress inet( long[] tl, int idx ) { 
-    set4_raw(_inet,0,(int)x0(tl,idx));
+    set4(_inet,0,(int)x0(tl,idx));
     try { return InetAddress.getByAddress(_inet); }
     catch( UnknownHostException e ) { }
     return null;

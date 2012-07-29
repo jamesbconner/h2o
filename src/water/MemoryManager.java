@@ -101,6 +101,7 @@ public abstract class MemoryManager {
   // them, so they may try again.
   public static void freeMemory(byte [] mem) {
     if( mem == null ) return;   // Nothing freed
+    assert USED.get() >= mem.length;
     USED.addAndGet(-mem.length); // Mark memory as freed
     if( NUM_BLOCKED > 0 &&       // wake up sleeping threads if any
         // But only if we have freed ourselves back to the margin-level

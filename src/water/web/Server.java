@@ -97,17 +97,17 @@ public class Server extends NanoHTTPD {
     super(port,null);
     // initialize pages
     registerPage(new Cloud(),"");
-    registerPage(new Compile(),"Compile");
+    //registerPage(new Compile(),"Compile");
     registerPage(new DebugView(),"DebugView");
-    registerPage(new Exec(),"Exec");
-    registerPage(new ExecQuery(),"ExecQuery");
+    //registerPage(new Exec(),"Exec");
+    //registerPage(new ExecQuery(),"ExecQuery");
     registerPage(new Get(),"Get");
     registerPage(new GetQuery(),"GetQuery");
     registerPage(new ImportFolder(),"ImportFolder");
     registerPage(new ImportQuery(),"ImportQuery");
     registerPage(new ImportUrl(),"ImportUrl");
-    registerPage(new PutExec(),"PutExec");
-    registerPage(new PutExecQuery(),"PutExecQuery");
+    //registerPage(new PutExec(),"PutExec");
+    //registerPage(new PutExecQuery(),"PutExecQuery");
     registerPage(new PutFile(),"PutFile");
     registerPage(new PutQuery(),"Put");
     registerPage(new PutValue(),"PutValue");
