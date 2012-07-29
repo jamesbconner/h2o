@@ -10,11 +10,13 @@ public class CSVString {
     _len = len;
     _parser = p;
   }
-
-  public final byte byteAt(int i){
-    if((i < 0) || (i >= _len))
-      throw new ArrayIndexOutOfBoundsException(i);
-    return ((i + _offset) < _parser._data.length)?_parser._data[_offset + i]:_parser._nextData[_offset + i - _parser._data.length];
+  
+  public CSVString(CSVString other){
+    this(other._offset,other._len,other._parser);    
+  }
+  
+  public final byte byteAt(int i){   
+    return _parser.getByte(i);
   }
 
   public final char charAt(int i){
@@ -23,15 +25,17 @@ public class CSVString {
 
   public int compare(byte [] arr){
     int N = Math.min(_len,arr.length);
-    if((_offset + _len) <= _parser._data.length){ // no boundary crossing
+    
+    if((_offset + _len) <= _parser.data().length){ // no boundary crossing
+      byte [] data = _parser.data(); 
       for(int i = 0; i < N; ++i){
-        int res = _parser._data[i+_offset] - arr[i];
+        int res = data[i+_offset] - arr[i];
         if(res != 0)return res;
       }
     } else{
       // deal with the case of crossing the boundary
       for(int i = 0; i < N; ++i){
-        int res = (((i + _offset) < _parser._data.length)?_parser._data[i+_offset]:_parser._nextData[i+_offset-_parser._data.length]) - arr[i];
+        int res = _parser.getByte(i+_offset) - arr[i];
         if(res != 0) return res;
       }
     }
@@ -50,13 +54,13 @@ public class CSVString {
   public String toString(){
     if(_len <= 0)
       return "";
-    if((_offset + _len) <= _parser._data.length)
-      return new String(_parser._data,_offset,_len);
-    else if(_offset >= _parser._data.length){
-      return new String(_parser._nextData,_offset - _parser._data.length, _len);
+    if((_offset + _len) <= _parser.data().length)
+      return new String(_parser.data(),_offset,_len);
+    else if(_offset >= _parser.data().length){
+      return new String(_parser.nextData(),_offset - _parser.data().length, _len);
     }
-    int len1 = _parser._data.length - _offset;
+    int len1 = _parser.data().length - _offset;
     int len2 = _len - len1;
-    return new String(_parser._data,_offset,len1) + new String(_parser._nextData,0,len2);
+    return new String(_parser.data(),_offset,len1) + new String(_parser.nextData(),0,len2);
   }
 }

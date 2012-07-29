@@ -1,0 +1,25 @@
+package analytics;
+
+/** A classifier can simply decide on the class of the data row that is given to
+ * it in the classify() method. The class is returned as an integer starting
+ * from 0. 
+ *
+ * @author peta
+ */
+public interface Classifier {
+  
+  /** Returns the class of the current row data row. */
+  int classify(DataAdapter data); 
+  
+  /** Returns the number of classes for this classifier. */
+  int numClasses();
+  
+   static public class Const implements Classifier {
+    final int result;
+    /** Creates the constant classifier that will always return the given result.  */
+    public Const(int result) { this.result = result; }
+    public int classify(DataAdapter row) { return result; }
+    /** The ConstClassifier always classifies to only a single class.  */
+    public int numClasses() { return 1; }    
+  }
+}
