@@ -70,8 +70,8 @@ public abstract class UDP {
   // Dispatch on the enum opcode and return a pretty string
   static private final byte[] pbuf = new byte[16];
   static public String printx16( long lo, long hi ) {
-    set8_raw(pbuf,0,lo);
-    set8_raw(pbuf,8,hi);
+    set8(pbuf,0,lo);
+    set8(pbuf,8,hi);
     return udp.UDPS[(int)(lo&0xFF)]._udp.print16(pbuf);
   }
 
@@ -116,19 +116,11 @@ public abstract class UDP {
     return sum;
   }
   public static int set4( byte[] buf, int off, int x ) {
-    assert off >= SZ_PORT;      // All packets have a control byte & port#
-    return set4_raw(buf,off,x);
-  }
-  public static int set4_raw( byte[] buf, int off, int x ) {
     for( int i=0; i<4; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 4;
   }
   public static int get4( byte[] buf, int off ) {
-    assert off >= SZ_PORT;      // All packets have a control byte & port#
-    return get4_raw(buf,off);
-  }
-  public static int get4_raw( byte[] buf, int off ) {
     int sum=0;
     for( int i=0; i<4; i++ )
       sum |= (0xff&buf[off+i])<<(i<<3);
@@ -136,19 +128,11 @@ public abstract class UDP {
   }
 
   public static int set8( byte[] buf, int off, long x ) {
-    assert off >= SZ_PORT;      // All packets have a control byte & port#
-    return set8_raw(buf,off,x);
-  }
-  public static int set8_raw( byte[] buf, int off, long x ) {
     for( int i=0; i<8; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 8;
   }
   public static long get8( byte[] buf, int off ) {
-    assert off >= SZ_PORT;      // All packets have a control byte & port#
-    return get8_raw(buf,off);
-  }
-  public static long get8_raw( byte[] buf, int off ) {
     long sum=0;
     for( int i=0; i<8; i++ )
       sum |= ((long)(0xff&buf[off+i]))<<(i<<3);

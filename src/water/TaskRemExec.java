@@ -8,30 +8,49 @@ import java.net.DatagramPacket;
  * @version 1.0
  */
 
-public class TaskRemExec extends DFutureTask<DRecursiveTask> {
+public class TaskRemExec extends DFutureTask<RemoteTask> {
 
-  final DRecursiveTask _dt;     // Task to send & execute remotely
+  final RemoteTask _dt;              // Task to send & execute remotely
+  final Key _args;
   
-  public TaskRemExec( H2ONode target, DRecursiveTask dt ) {
+  public TaskRemExec( H2ONode target, RemoteTask dt, Key args, Value val ) {
     super( target,UDP.udp.rexec );
     _dt = dt;
+    _args = args;
+    DKV.put(args,val);          // Publish the keyset for remote execution
     resend();                   // Initial send after final fields set
   }
 
-  // Pack key+len into the outgoing UDP packet
+  // Pack classloader/class & the instance data into the outgoing UDP packet
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;            // Skip udp byte and port and task#
-    off = _dt._jarkey.write(buf,off); // Write the Key for the ValueCode jar file
-
-    String clazz = _dt.getClass().getName();  // The exact classname to execute
-    off += UDP.set2(buf,off,clazz.length());  // String length
-    clazz.getBytes(0,clazz.length(),buf,off); // Dump the string also
-    off += clazz.length();
-
-    off = _dt._keykey.write(buf,off); // Write the key for the array of Keys in the DRT
-    off += UDP.set2(buf,off,_dt.idx()); // Index position being worked on
-    //System.out.println("Sending remote exec of idx "+_dt.idx()+" class "+clazz);
+    // Class loader first.  3 bytes of null for system loader.
+    Class clazz = _dt.getClass();  // The exact classname to execute
+    ClassLoader cl = clazz.getClassLoader();
+    if( cl != null && false/*cl instanceof JarLoader*/ ) {
+      throw new Error("unimplemented");
+      //off = cl._jarkey.write(buf,off); // Write the Key for the ValueCode jar file
+    } else {
+      buf[off++] = 0; // zero RF
+      off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
+    }
+    // Class name now
+    String sclazz = clazz.getName();  // The exact classname to execute
+    off += UDP.set2(buf,off,sclazz.length());  // String length
+    sclazz.getBytes(0,sclazz.length(),buf,off); // Dump the string also
+    off += sclazz.length();
+    // Then the args key
+    off = _args.write(buf,off);
+    // Then the instance data.
+    if( _dt.wire_len()+off >= MultiCast.MTU ) {
+      // Big object, switch to TCP style comms.  Or really, serialize the
+      // object to the K/V store & send the key over - with the key home being
+      // on the target machine.
+      throw new Error("sending a big object?");
+    } else {
+      off = _dt.write(buf,off);
+    }
     return off;
   }
 
@@ -44,29 +63,50 @@ public class TaskRemExec extends DFutureTask<DRecursiveTask> {
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
       int off = UDP.SZ_TASK;          // Skip udp byte and port and task#
-      Key jarkey = Key.read(buf,off); // Key for ValueCode, the jar file
-      off += jarkey.wire_len();
+      // Unpack the class loader first
+      Key classloader_key;
+      if( buf[off]==0 && UDP.get2(buf,off+1)==0 ) {
+        classloader_key = null; // System loader
+        off += 3;
+      } else {
+        classloader_key = Key.read(buf,off); // Key for the jar file - really a ClassLoader
+        off += classloader_key.wire_len();
+      }
+      // Now the class string name
       int len = get2(buf,off);  off += 2; // Class string length
       String clazz = new String(buf,off,len);
       off += len;               // Skip string
-      Key keykey = Key.read(buf,off); // Key for array of Keys
-      off += keykey.wire_len();
-      int idx = get2(buf,off);  off += 2; // Index into the key array
-      //System.out.println("Receiving remote exec of idx "+idx+" class "+clazz);
-      DRecursiveTask dt = null;
-      try {
-        dt = ValueCode.exec_map(jarkey,clazz,keykey,idx);
-        //System.out.print("Exec returned");
-      } catch (Exception e) {
-        System.out.println("ERROR executing "+e.toString());
+      // Then the args key
+      Key args = Key.read(buf,off);
+      off += args.wire_len();
+      // Make a remote instance of this dude
+      RemoteTask dt = RemoteTask.make(classloader_key,clazz);
+      // Fill in any fields
+      if( dt != null ) {
+        if( dt.wire_len()+off >= MultiCast.MTU ) {
+          // Big object, switch to TCP style comms.  Or really, serialize the
+          // object to the K/V store & send the key over - with the key home
+          // being on the target machine.
+          throw new Error("receiving a big object?");
+        } else {
+          dt.read(buf,off);
+        }
       }
 
+      // Now compute on it!
+      dt.rexec(args);
+
+      DKV.remove(args); // Cleanup the arg-passing
       // Send it back; UDP-sized results only please, for now
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
-      len = dt.wire_len();
-      // missing check for reasonable wire-len results
-      dt.write(buf,off);
-      off += len;
+      if( dt.wire_len()+off >= MultiCast.MTU ) {
+        // Big object, switch to TCP style comms.  Or really, serialize the
+        // object to the K/V store & send the key over - with the key home being
+        // on the target machine.
+        throw new Error("sending a big object?");
+      } else {
+        off = dt.write(buf,off);
+      }
 
       reply(p,off,h2o);
     }
@@ -84,11 +124,19 @@ public class TaskRemExec extends DFutureTask<DRecursiveTask> {
   }
 
   // Unpack the answer
-  protected DRecursiveTask unpack( DatagramPacket p ) {
+  protected RemoteTask unpack( DatagramPacket p ) {
     // First SZ_TASK bytes have UDP type# and port# and task#.
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
-    _dt.read(buf,off);          // Read from UDP packet back into user task
+
+    if( _dt.wire_len()+off >= MultiCast.MTU ) {
+      // Big object, switch to TCP style comms.  Or really, serialize the
+      // object to the K/V store & send the key over - with the key home being
+      // on the target machine.
+      throw new Error("sending a big object?");
+    } else {
+      _dt.read(buf,off);
+    }
     return _dt;
   }
 
