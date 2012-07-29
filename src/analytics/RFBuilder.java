@@ -1,6 +1,5 @@
 package analytics;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
@@ -9,171 +8,181 @@ import analytics.DecisionTree.INode;
 import analytics.DecisionTree.LeafNode;
 import analytics.DecisionTree.Node;
 
-/** Class capable of building random forests.
- *
+/**
+ * Class capable of building random forests.
+ * 
  * @author peta
  */
 public abstract class RFBuilder {
-  
-  /** Creates the statistics for the node under construction. The statistics are
-   * based on the list of selected columns. 
+
+  /**
+   * Creates the statistics for the node under construction. The statistics are
+   * based on the list of selected columns.
    * 
    * @param node
-   * @param columns 
+   * @param columns
    */
   protected abstract void createStatistic(ProtoNode node, int[] columns);
-   
+
   protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
-  
+
   private final long seed;
   private final Random random;
   public ProtoTree[] trees;
   Sample partition_;
   private final DataAdapter data_;
-    
+
   protected RFBuilder(long seed, DataAdapter data) {
     this.seed = seed;
     random = new Random(seed);
     data_ = data;
   }
-  
+
   // node under construction ---------------------------------------------------
-  
-  /** Describes the node that is under construction. The node has a list of all
-   * statistics that must be computed for the node. 
+
+  /**
+   * Describes the node that is under construction. The node has a list of all
+   * statistics that must be computed for the node.
    */
   public class ProtoNode {
-    
+
     long[] statisticsData_ = null;
-      // list of all statistics that must be computed for the node
+    // list of all statistics that must be computed for the node
     protected final ArrayList<Statistic> statistics_ = new ArrayList();
-    
-    /** Adds the given statistic to the node. All statistics associated with a
+
+    /**
+     * Adds the given statistic to the node. All statistics associated with a
      * node under construction are computed for each row.
      * 
-     * @param stat 
+     * @param stat
      */
-    public void addStatistic(Statistic stat) {   statistics_.add(stat);  }
-    
-    /** Initializes the storage space required for the statistics of the given
-     * node.    */
+    public void addStatistic(Statistic stat) {
+      statistics_.add(stat);
+    }
+
+    /**
+     * Initializes the storage space required for the statistics of the given
+     * node.
+     */
     public void initialize() {
       int size = 0;
-      for (Statistic s: statistics_) {
+      for( Statistic s : statistics_ ){
         size += s.dataSize();
         size = (size + 7) & -8; // round to multiple of 8
       }
       statisticsData_ = new long[size];
-    }    
-    
-    /** Returns the normal node that should be created from the node under
+    }
+
+    /**
+     * Returns the normal node that should be created from the node under
      * construction. Determines the best statistic for the node based on their
-     * ordering and creates its classifier which is in turn used to produce
-     * the proper node. 
+     * ordering and creates its classifier which is in turn used to produce the
+     * proper node.
      * 
-     * @return 
+     * @return
      */
     INode createNode() {
       Statistic best = statistics_.get(0);
       int bestOffset = 0;
-      double bestFitness = best.fitness(statisticsData_,bestOffset);
-      int offset = 0+best.dataSize();
-      for (int i = 1; i< statistics_.size(); ++i) {
-        double f = statistics_.get(i).fitness(statisticsData_,offset);
-        if (f>bestFitness) {
+      double bestFitness = best.fitness(statisticsData_, bestOffset);
+      int offset = 0 + best.dataSize();
+      for( int i = 1; i < statistics_.size(); ++i ){
+        double f = statistics_.get(i).fitness(statisticsData_, offset);
+        if( f > bestFitness ){
           best = statistics_.get(i);
           bestOffset = offset;
           bestFitness = f;
         }
         offset += statistics_.get(i).dataSize();
       }
-      Classifier nc = best.createClassifier(statisticsData_,bestOffset);
-      return nc instanceof Classifier.Const ?
-          new LeafNode(nc.classify(null)) : 
-          new Node(nc);      
+      Classifier nc = best.createClassifier(statisticsData_, bestOffset);
+      return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
+          : new Node(nc);
     }
-    
-    /** Returns the array of n randomly selected numbers from 0 to columns
+
+    /**
+     * Returns the array of n randomly selected numbers from 0 to columns
      * exclusively using the random generator provided.
      * 
      * @param features
      * @param columns
      * @param random
-     * @return 
-     */ 
+     * @return
+     */
     int[] getRandom(int features, int columns, Random random) {
       int[] cols = new int[columns];
-      for (int i = 0; i<cols.length; ++i) cols[i] = i;
-      for (int i = 0; i<features; ++i) {
-        int x = random.nextInt(cols.length-i)+i;
-        if (i!=x) { // swap the elements
+      for( int i = 0; i < cols.length; ++i )
+        cols[i] = i;
+      for( int i = 0; i < features; ++i ){
+        int x = random.nextInt(cols.length - i) + i;
+        if( i != x ){ // swap the elements
           int s = cols[i];
           cols[i] = cols[x];
           cols[x] = s;
         }
       }
-      return Arrays.copyOf(cols,features);
-    }    
+      return Arrays.copyOf(cols, features);
+    }
   }
-  
 
   // tree under construction ---------------------------------------------------
-  
-  /** Decision tree currently under construction. Contains both the already
+
+  /**
+   * Decision tree currently under construction. Contains both the already
    * finished parts of the decision tree and the level that is currently under
-   * construction. 
+   * construction.
    */
   public class ProtoTree {
-    
+
     INode[] lastNodes_ = null;
     int[] lastOffsets_ = null;
-    ProtoNode[] nodes_ = null;    
-    int level_ = 0;    
-    public INode root_ = null;    
-    // random generator unique to the tree. 
-    Random rnd = null;    
+    ProtoNode[] nodes_ = null;
+    int level_ = 0;
+    public INode root_ = null;
+    // random generator unique to the tree.
+    Random rnd = null;
     // random seed used to generate the random, therefore we can always reset it
     final long seed;
-    
-    /** Creates the tree under construction.
+
+    /**
+     * Creates the tree under construction.
      * 
      * Initializes the seed from the parent
      */
-    public ProtoTree() { 
+    public ProtoTree() {
       this.seed = random.nextLong();
       buildNodes(1);
     }
-    
-    
+
     protected final int updateFromLevel0() {
-      root_ =  nodes_[0].createNode();
+      root_ = nodes_[0].createNode();
       lastNodes_ = new INode[] { root_ };
       lastOffsets_ = new int[] { 0 };
       return root_.numClasses() == 1 ? 0 : root_.numClasses();
-    }  
-    
+    }
+
     // we are a level with old nodes. What must be done is:
     // - convert the nodes under construction to normal nodes and add them
-    //   to their parents
+    // to their parents
     // - fill in the node offsets appropriately
     // - update the lastLevelNodes appropriately
     protected final int updateToNextLevel() {
       int newNodes = 0;
       // list of new level nodes
       INode[] levelNodes = new INode[nodes_.length];
-      lastOffsets_= new int[nodes_.length];
+      lastOffsets_ = new int[nodes_.length];
       int nodeIndex = 0; // to which node we are adding
       int subnodeIndex = 0; // which subtree are we setting
-      for (int i = 0; i < nodes_.length; ++i) {
+      for( int i = 0; i < nodes_.length; ++i ){
         // make sure that nodeIndex and subnodeIndex are set properly
-        while (true) {
-          if (lastNodes_[nodeIndex].numClasses()<=subnodeIndex) {
+        while( true ){
+          if( lastNodes_[nodeIndex].numClasses() <= subnodeIndex ){
             ++nodeIndex; // move to next node
             subnodeIndex = 0; // reset subnode index
-          } else if (lastNodes_[nodeIndex].numClasses()==1) {
-            ++nodeIndex; 
+          }else if( lastNodes_[nodeIndex].numClasses() == 1 ){
+            ++nodeIndex;
             assert (subnodeIndex == 0);
-          } else {
+          }else{
             break;
           }
         }
@@ -183,10 +192,9 @@ public abstract class RFBuilder {
         lastOffsets_[i] = newNodes;
         // if it is not a leaf node, add the number of children to the nodes
         // to be constructed
-        if (n.numClasses()>1)
-          newNodes += n.numClasses();
+        if( n.numClasses() > 1 ) newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode index
-        ((Node)lastNodes_[nodeIndex]).setSubtree(subnodeIndex,n);
+        ((Node) lastNodes_[nodeIndex]).setSubtree(subnodeIndex, n);
         ++subnodeIndex;
       }
       // change the lastLevelNodes to the levelNodes computed
@@ -194,38 +202,41 @@ public abstract class RFBuilder {
       // return the amount of nodes to be created
       return newNodes;
     }
-    
+
     // Builds the numNodes of nodesUnderConstruction. These nodes are then
-    // initialized to produce the 
+    // initialized to produce the
     protected final void buildNodes(int numNodes) {
       // build the new nodes under construction
       // if there are no new nodes to build, set current nodes to null
-      if (numNodes == 0) nodes_ = null;
-      else {
+      if( numNodes == 0 ) nodes_ = null;
+      else{
         nodes_ = new ProtoNode[numNodes];
-        for (int i = 0; i<numNodes; ++i) {
+        for( int i = 0; i < numNodes; ++i ){
           ProtoNode n = new ProtoNode();
-          createStatistic(n, n.getRandom(numberOfFeatures(n,this), 
+          createStatistic(n, n.getRandom(numberOfFeatures(n, this),
               data_.numColumns(), random));
           n.initialize();
           nodes_[i] = n;
-        }        
+        }
       }
     }
-    
-    /** Moves the decision tree to next level. This means that all current level
+
+    /**
+     * Moves the decision tree to next level. This means that all current level
      * nodes are converted to normal nodes, these are added to the trees and new
      * current level nodes are created so that their statistics can be computed.
      */
     public void createNextLevel() {
       int newNodes = 0;
-      // if nodes are null, then the tree has already decided and nothing needs to be done
-      if (nodes_ == null) {
-        lastOffsets_ = null; lastNodes_ = null;
-      // if we are not initializing the first level, we must convert all nodes
-      // under construction to proper nodes and put them in the tree and then
-      // create new nodes under construction for the next level
-      } else {
+      // if nodes are null, then the tree has already decided and nothing needs
+      // to be done
+      if( nodes_ == null ){
+        lastOffsets_ = null;
+        lastNodes_ = null;
+        // if we are not initializing the first level, we must convert all nodes
+        // under construction to proper nodes and put them in the tree and then
+        // create new nodes under construction for the next level
+      }else{
         // numer of nodes to be created for the next level
         newNodes = level_ == 0 ? updateFromLevel0() : updateToNextLevel();
       }
@@ -233,109 +244,132 @@ public abstract class RFBuilder {
       // reset the random generator for the rows
       rnd = new Random(this.seed);
       ++level_;
-      
-      
+
     }
-    
+
     // get node number in new level logic --------------------------------------
-    
-    /** Returns the new node number for the given row. The node number is
-     * calculated from the old node number and its classifier. If the oldNode
-     * is -1 it means the node is no longer in the tree and should be ignored
+
+    /**
+     * Returns the new node number for the given row. The node number is
+     * calculated from the old node number and its classifier. If the oldNode is
+     * -1 it means the node is no longer in the tree and should be ignored
      */
     int getNodeNumber(int oldNode) {
       // if we are already -1 ignore the row completely, it has been solved
-      if (oldNode == -1) return -1;
+      if( oldNode == -1 ) return -1;
       // if the lastLevelNodes are not present, we are calculating root and
       // therefore all rows are node 0
-      if (lastNodes_ == null) return 0;
+      if( lastNodes_ == null ) return 0;
       // if the lastNode is leaf, do not include the row in any further tasks
       // for this tree. It has already been decided
-      if (oldNode >= lastNodes_.length)
-        System.out.println("error here");
-      if (lastNodes_[oldNode].numClasses() == 1) return -1;
-      // use the classifier on the node to classify the node number in the new level
-      return lastOffsets_[oldNode]+ lastNodes_[oldNode].classify(data_);
+      if( oldNode >= lastNodes_.length ) System.out.println("error here");
+      if( lastNodes_[oldNode].numClasses() == 1 ) return -1;
+      // use the classifier on the node to classify the node number in the new
+      // level
+      return lastOffsets_[oldNode] + lastNodes_[oldNode].classify(data_);
     }
   }
- 
-  
-  /** Computes n random decision trees and returns them as a random forest.
+
+  /**
+   * Computes n random decision trees and returns them as a random forest.
    */
   RF compute(int numTrees) {
     partition_ = new Sample(data_, numTrees, random);
     trees = new ProtoTree[numTrees];
-    for (int i = 0; i<numTrees; ++i) trees[i] = new ProtoTree();
-    while (true) {
-      boolean done = true;      
-      for (int t= 0; t < numTrees; ++t) {
+    for( int i = 0; i < numTrees; ++i )
+      trees[i] = new ProtoTree();
+    while( true ){
+      boolean done = true;
+      for( int t = 0; t < numTrees; ++t ){
         ProtoTree tree = trees[t];
-               
-        for (int r = 0; r < data_.numRows(); ++r) {
-          int count = partition_.occurrences(t,r);
+
+        for( int r = 0; r < data_.numRows(); ++r ){
+          int count = partition_.occurrences(t, r);
           int node = partition_.getNode(t, r);
-          if (node != -1) { // the row is still not classified completely
+          if( node != -1 ){ // the row is still not classified completely
             data_.seekToRow(r);
             node = tree.getNodeNumber(node);
-            if (node != -1) {
+            if( node != -1 ){
               ProtoNode n = tree.nodes_[node];
-              for (int cnt = 0; cnt < count; cnt++) {
+              for( int cnt = 0; cnt < count; cnt++ ){
                 int offset = 0;
-                for (Statistic stat : n.statistics_) {
+                for( Statistic stat : n.statistics_ ){
                   stat.addDataPoint(data_, n.statisticsData_, offset);
-                  offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
+                  offset += (stat.dataSize() + 7) & -8; // round to multiple of
+                                                        // 8
                 }
               }
             }
-            partition_.setNode(t,r,node);
+            partition_.setNode(t, r, node);
           }
         }
         tree.createNextLevel();
         // the tree has been done, we may upgrade it to next level
-        if (tree.nodes_!=null) done = false;
+        if( tree.nodes_ != null ) done = false;
       }
-      if (done) break;
+      if( done ) break;
     }
     DecisionTree[] rf = new DecisionTree[trees.length];
-    for (int i = 0; i < rf.length; ++i)
+    for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);
     return new RF(rf);
   }
 }
 
-/** 
- *  This class samples with replacement the input data (based on the Weka class Bagging.java)
- *   *  The idea is that for each tree and each row we will have a byte that tells us how 
- *  many times that row appears in the sample and a byte that tells on which node.
+/**
+ * This class samples with replacement the input data (based on the Weka class
+ * Bagging.java) * The idea is that for each tree and each row we will have a
+ * byte that tells us how many times that row appears in the sample and a byte
+ * that tells on which node.
  * */
 class Sample {
-  /* Per-tree count of how many time the row occurs in the sample*/
+  /* Per-tree count of how many time the row occurs in the sample */
   final byte[][] occurrences_;
-  /* Per-tree node id of where the row falls*/
+  /* Per-tree node id of where the row falls */
   final byte[][] nodes_;
   int bagSizePercent = 70;
   int rows_;
-  public Sample(DataAdapter data, int trees, Random r) {  
-    rows_=data.numRows(); occurrences_ = new byte[trees][rows_];
-    nodes_= new byte[trees][rows_];
-    for(int i=0;i<trees;i++) weightedSampling(data,r,i);
-  }
-    
-  public int occurrences(int tree, int row) { return occurrences_[tree][row];  }
-  public int getNode(int tree, int row) { return nodes_[tree][row];  }
-  public void setNode(int tree, int row, int val) {nodes_[tree][row]=(byte)val;  }
 
-  double sum(double[] d) { double r=0.0; for(int i=0;i<d.length;i++) r+=d[i]; return r; }
-  
+  public Sample(DataAdapter data, int trees, Random r) {
+    rows_ = data.numRows();
+    occurrences_ = new byte[trees][rows_];
+    nodes_ = new byte[trees][rows_];
+    for( int i = 0; i < trees; i++ )
+      weightedSampling(data, r, i);
+  }
+
+  public int occurrences(int tree, int row) {
+    return occurrences_[tree][row];
+  }
+
+  public int getNode(int tree, int row) {
+    return nodes_[tree][row];
+  }
+
+  public void setNode(int tree, int row, int val) {
+    nodes_[tree][row] = (byte) val;
+  }
+
+  double sum(double[] d) {
+    double r = 0.0;
+    for( int i = 0; i < d.length; i++ )
+      r += d[i];
+    return r;
+  }
+
   void normalize(double[] doubles, double sum) {
-    if (Double.isNaN(sum))  throw new IllegalArgumentException("NaN.");
-    if (sum == 0) throw new IllegalArgumentException("Zero.");
-    for (int i = 0; i < doubles.length; i++) doubles[i] /= sum;
+    if( Double.isNaN(sum) ) throw new IllegalArgumentException("NaN.");
+    if( sum == 0 ) throw new IllegalArgumentException("Zero.");
+    for( int i = 0; i < doubles.length; i++ )
+      doubles[i] /= sum;
   }
 
   void weightedSampling(DataAdapter adapt, Random random, int tree) {
     double[] weights = new double[rows_];
-    for( int i = 0; i < weights.length; i++ ) { adapt.seekToRow(i); weights[i] = adapt.weight(); }
+    for( int i = 0; i < weights.length; i++ ){
+      adapt.seekToRow(i);
+      weights[i] = adapt.weight();
+    }
     double[] probabilities = new double[rows_];
     double sumProbs = 0, sumOfWeights = sum(weights);
     for( int i = 0; i < rows_; i++ ){
@@ -346,34 +380,39 @@ class Sample {
 
     // Make sure that rounding errors don't mess things up
     probabilities[rows_ - 1] = sumOfWeights;
-    int k = 0, l = 0;  sumProbs = 0;
+    int k = 0, l = 0;
+    sumProbs = 0;
     while( k < rows_ && l < rows_ ){
-      if( weights[l] < 0 ) throw new IllegalArgumentException("Weights have to be positive."); 
+      if( weights[l] < 0 ) throw new IllegalArgumentException(
+          "Weights have to be positive.");
       sumProbs += weights[l];
-      while( k < rows_ && probabilities[k]<=sumProbs ){
+      while( k < rows_ && probabilities[k] <= sumProbs ){
         occurrences_[tree][l]++;
         k++;
       }
       l++;
     }
-    
-    int sampleSize =0;
-    for(int i=0;i<rows_;i++) sampleSize += (int) occurrences_[tree][i]; 
+
+    int sampleSize = 0;
+    for( int i = 0; i < rows_; i++ )
+      sampleSize += (int) occurrences_[tree][i];
     int bagSize = rows_ * bagSizePercent / 100;
-    assert(bagSize>0 && sampleSize>0);
-    while (bagSize> sampleSize) {
+    assert (bagSize > 0 && sampleSize > 0);
+    while( bagSize > sampleSize ){
       int offset = random.nextInt(rows_);
-      while(true) {
-        if (occurrences_[tree][offset]!=0) { occurrences_[tree][offset]--; break; }
-        offset = (offset+1)%rows_;
+      while( true ){
+        if( occurrences_[tree][offset] != 0 ){
+          occurrences_[tree][offset]--;
+          break;
+        }
+        offset = (offset + 1) % rows_;
       }
       sampleSize--;
-    } 
+    }
   }
-  
-  
-  double ooberr(DecisionTree[] m_Classifiers,DataAdapter data) {  
-    assert(m_Classifiers.length == occurrences_.length);
+
+  double ooberr(DecisionTree[] m_Classifiers, DataAdapter data) {
+    assert (m_Classifiers.length == occurrences_.length);
     double outOfBagCount = 0.0;
     double errorSum = 0.0;
     for( int i = 0; i < rows_; i++ ){
@@ -383,22 +422,22 @@ class Sample {
       // determine predictions for instance
       int voteCount = 0;
       for( int j = 0; j < m_Classifiers.length; j++ ){
-        if( occurrences_[j][i] > 0) continue;
+        if( occurrences_[j][i] > 0 ) continue;
         voteCount++;
-        double[] newProbs = distributionForInstance(data,m_Classifiers[j]);
-        for( int k = 0; k < newProbs.length; k++ )  votes[k] += newProbs[k];        
+        double[] newProbs = distributionForInstance(data, m_Classifiers[j]);
+        for( int k = 0; k < newProbs.length; k++ )
+          votes[k] += newProbs[k];
       }
       // "vote"
-      if(! Utils.eq(sum(votes), 0) )  Utils.normalize(votes);          
+      if( !Utils.eq(sum(votes), 0) ) Utils.normalize(votes);
       vote = Utils.maxIndex(votes); // predicted class
       // error for instance
-      outOfBagCount += data.weight();      
+      outOfBagCount += data.weight();
       if( vote != data.dataClass() ) errorSum += data.weight();
-    
+
     }
     return errorSum / outOfBagCount;
   }
-
 
   /**
    * Predicts the class memberships for a given instance. If an instance is
@@ -420,8 +459,6 @@ class Sample {
   }
 }
 
-
-
 class Utils {
 
   /** The natural logarithm of 2. */
@@ -430,190 +467,94 @@ class Utils {
   /** The small deviation allowed in double comparisons. */
   public static double SMALL = 1e-6;
 
-  
-
   /**
    * Returns the correlation coefficient of two double vectors.
-   *
-   * @param y1 double vector 1
-   * @param y2 double vector 2
-   * @param n the length of two double vectors
+   * 
+   * @param y1
+   *          double vector 1
+   * @param y2
+   *          double vector 2
+   * @param n
+   *          the length of two double vectors
    * @return the correlation coefficient
    */
-  public static final double correlation(double y1[],double y2[],int n) {
+  public static final double correlation(double y1[], double y2[], int n) {
 
     int i;
     double av1 = 0.0, av2 = 0.0, y11 = 0.0, y22 = 0.0, y12 = 0.0, c;
-    
-    if (n <= 1) {
-      return 1.0;
-    }
-    for (i = 0; i < n; i++) {
+
+    if( n <= 1 ){ return 1.0; }
+    for( i = 0; i < n; i++ ){
       av1 += y1[i];
       av2 += y2[i];
     }
     av1 /= (double) n;
     av2 /= (double) n;
-    for (i = 0; i < n; i++) {
+    for( i = 0; i < n; i++ ){
       y11 += (y1[i] - av1) * (y1[i] - av1);
       y22 += (y2[i] - av2) * (y2[i] - av2);
       y12 += (y1[i] - av1) * (y2[i] - av2);
     }
-    if (y11 * y22 == 0.0) {
-      c=1.0;
-    } else {
+    if( y11 * y22 == 0.0 ){
+      c = 1.0;
+    }else{
       c = y12 / Math.sqrt(Math.abs(y11 * y22));
     }
-    
+
     return c;
   }
 
   /**
-   * Removes all occurrences of a string from another string.
-   *
-   * @param inString the string to remove substrings from.
-   * @param substring the substring to remove.
-   * @return the input string with occurrences of substring removed.
-   */
-  public static String removeSubstring(String inString, String substring) {
-
-    StringBuffer result = new StringBuffer();
-    int oldLoc = 0, loc = 0;
-    while ((loc = inString.indexOf(substring, oldLoc))!= -1) {
-      result.append(inString.substring(oldLoc, loc));
-      oldLoc = loc + substring.length();
-    }
-    result.append(inString.substring(oldLoc));
-    return result.toString();
-  }
-
-  /**
-   * Replaces with a new string, all occurrences of a string from 
-   * another string.
-   *
-   * @param inString the string to replace substrings in.
-   * @param subString the substring to replace.
-   * @param replaceString the replacement substring
-   * @return the input string with occurrences of substring replaced.
-   */
-  public static String replaceSubstring(String inString, String subString,
-          String replaceString) {
-
-    StringBuffer result = new StringBuffer();
-    int oldLoc = 0, loc = 0;
-    while ((loc = inString.indexOf(subString, oldLoc))!= -1) {
-      result.append(inString.substring(oldLoc, loc));
-      result.append(replaceString);
-      oldLoc = loc + subString.length();
-    }
-    result.append(inString.substring(oldLoc));
-    return result.toString();
-  }
-
-
-  /**
-   * Pads a string to a specified length, inserting spaces on the left
-   * as required. If the string is too long, characters are removed (from
-   * the right).
-   *
-   * @param inString the input string
-   * @param length the desired length of the output string
-   * @return the output string
-   */
-  public static String padLeft(String inString, int length) {
-
-    return fixStringLength(inString, length, false);
-  }
-  
-  /**
-   * Pads a string to a specified length, inserting spaces on the right
-   * as required. If the string is too long, characters are removed (from
-   * the right).
-   *
-   * @param inString the input string
-   * @param length the desired length of the output string
-   * @return the output string
-   */
-  public static String padRight(String inString, int length) {
-
-    return fixStringLength(inString, length, true);
-  }
-  
-  /**
-   * Pads a string to a specified length, inserting spaces as
-   * required. If the string is too long, characters are removed (from
-   * the right).
-   *
-   * @param inString the input string
-   * @param length the desired length of the output string
-   * @param right true if inserted spaces should be added to the right
-   * @return the output string
-   */
-  private static /*@pure@*/ String fixStringLength(String inString, int length,
-          boolean right) {
-
-    if (inString.length() < length) {
-      while (inString.length() < length) {
-  inString = (right ? inString.concat(" ") : " ".concat(inString));
-      }
-    } else if (inString.length() > length) {
-      inString = inString.substring(0, length);
-    }
-    return inString;
-  }
- 
-  /**
    * Rounds a double and converts it into String.
-   *
-   * @param value the double value
-   * @param afterDecimalPoint the (maximum) number of digits permitted
-   * after the decimal point
+   * 
+   * @param value
+   *          the double value
+   * @param afterDecimalPoint
+   *          the (maximum) number of digits permitted after the decimal point
    * @return the double as a formatted string
    */
-  public static /*@pure@*/ String doubleToString(double value, int afterDecimalPoint) {
-    
+  public static/* @pure@ */String doubleToString(double value,
+      int afterDecimalPoint) {
+
     StringBuffer stringBuffer;
     double temp;
     int dotPosition;
     long precisionValue;
-    
+
     temp = value * Math.pow(10.0, afterDecimalPoint);
-    if (Math.abs(temp) < Long.MAX_VALUE) {
-      precisionValue =  (temp > 0) ? (long)(temp + 0.5) 
-                                   : -(long)(Math.abs(temp) + 0.5);
-      if (precisionValue == 0) {
-  stringBuffer = new StringBuffer(String.valueOf(0));
-      } else {
-  stringBuffer = new StringBuffer(String.valueOf(precisionValue));
+    if( Math.abs(temp) < Long.MAX_VALUE ){
+      precisionValue = (temp > 0) ? (long) (temp + 0.5) : -(long) (Math
+          .abs(temp) + 0.5);
+      if( precisionValue == 0 ){
+        stringBuffer = new StringBuffer(String.valueOf(0));
+      }else{
+        stringBuffer = new StringBuffer(String.valueOf(precisionValue));
       }
-      if (afterDecimalPoint == 0) {
-  return stringBuffer.toString();
-      }
+      if( afterDecimalPoint == 0 ){ return stringBuffer.toString(); }
       dotPosition = stringBuffer.length() - afterDecimalPoint;
-      while (((precisionValue < 0) && (dotPosition < 1)) ||
-       (dotPosition < 0)) {
-  if (precisionValue < 0) {
-    stringBuffer.insert(1, '0');
-  } else {
-    stringBuffer.insert(0, '0');
-  }
-  dotPosition++;
+      while( ((precisionValue < 0) && (dotPosition < 1)) || (dotPosition < 0) ){
+        if( precisionValue < 0 ){
+          stringBuffer.insert(1, '0');
+        }else{
+          stringBuffer.insert(0, '0');
+        }
+        dotPosition++;
       }
       stringBuffer.insert(dotPosition, '.');
-      if ((precisionValue < 0) && (stringBuffer.charAt(1) == '.')) {
-  stringBuffer.insert(1, '0');
-      } else if (stringBuffer.charAt(0) == '.') {
-  stringBuffer.insert(0, '0');
+      if( (precisionValue < 0) && (stringBuffer.charAt(1) == '.') ){
+        stringBuffer.insert(1, '0');
+      }else if( stringBuffer.charAt(0) == '.' ){
+        stringBuffer.insert(0, '0');
       }
       int currentPos = stringBuffer.length() - 1;
-      while ((currentPos > dotPosition) &&
-       (stringBuffer.charAt(currentPos) == '0')) {
-  stringBuffer.setCharAt(currentPos--, ' ');
+      while( (currentPos > dotPosition)
+          && (stringBuffer.charAt(currentPos) == '0') ){
+        stringBuffer.setCharAt(currentPos--, ' ');
       }
-      if (stringBuffer.charAt(currentPos) == '.') {
-  stringBuffer.setCharAt(currentPos, ' ');
+      if( stringBuffer.charAt(currentPos) == '.' ){
+        stringBuffer.setCharAt(currentPos, ' ');
       }
-      
+
       return stringBuffer.toString().trim();
     }
     return new String("" + value);
@@ -622,118 +563,81 @@ class Utils {
   /**
    * Rounds a double and converts it into a formatted decimal-justified String.
    * Trailing 0's are replaced with spaces.
-   *
-   * @param value the double value
-   * @param width the width of the string
-   * @param afterDecimalPoint the number of digits after the decimal point
+   * 
+   * @param value
+   *          the double value
+   * @param width
+   *          the width of the string
+   * @param afterDecimalPoint
+   *          the number of digits after the decimal point
    * @return the double as a formatted string
    */
-  public static /*@pure@*/ String doubleToString(double value, int width,
-              int afterDecimalPoint) {
-    
+  public static/* @pure@ */String doubleToString(double value, int width,
+      int afterDecimalPoint) {
+
     String tempString = doubleToString(value, afterDecimalPoint);
     char[] result;
     int dotPosition;
 
-    if ((afterDecimalPoint >= width) 
-        || (tempString.indexOf('E') != -1)) { // Protects sci notation
+    if( (afterDecimalPoint >= width) || (tempString.indexOf('E') != -1) ){ // Protects
+                                                                           // sci
+                                                                           // notation
       return tempString;
     }
 
     // Initialize result
     result = new char[width];
-    for (int i = 0; i < result.length; i++) {
+    for( int i = 0; i < result.length; i++ ){
       result[i] = ' ';
     }
 
-    if (afterDecimalPoint > 0) {
+    if( afterDecimalPoint > 0 ){
       // Get position of decimal point and insert decimal point
       dotPosition = tempString.indexOf('.');
-      if (dotPosition == -1) {
-  dotPosition = tempString.length();
-      } else {
-  result[width - afterDecimalPoint - 1] = '.';
+      if( dotPosition == -1 ){
+        dotPosition = tempString.length();
+      }else{
+        result[width - afterDecimalPoint - 1] = '.';
       }
-    } else {
+    }else{
       dotPosition = tempString.length();
     }
-    
 
     int offset = width - afterDecimalPoint - dotPosition;
-    if (afterDecimalPoint > 0) {
+    if( afterDecimalPoint > 0 ){
       offset--;
     }
 
     // Not enough room to decimal align within the supplied width
-    if (offset < 0) {
-      return tempString;
-    }
+    if( offset < 0 ){ return tempString; }
 
     // Copy characters before decimal point
-    for (int i = 0; i < dotPosition; i++) {
+    for( int i = 0; i < dotPosition; i++ ){
       result[offset + i] = tempString.charAt(i);
     }
 
     // Copy characters after decimal point
-    for (int i = dotPosition + 1; i < tempString.length(); i++) {
+    for( int i = dotPosition + 1; i < tempString.length(); i++ ){
       result[offset + i] = tempString.charAt(i);
     }
 
     return new String(result);
   }
 
-  /**
-   * Returns the basic class of an array class (handles multi-dimensional
-   * arrays).
-   * @param c        the array to inspect
-   * @return         the class of the innermost elements
-   */
-  public static Class getArrayClass(Class c) {
-     if (c.getComponentType().isArray())
-        return getArrayClass(c.getComponentType());
-     else
-        return c.getComponentType();
-  }
-
-  /**
-   * Returns the dimensions of the given array. Even though the
-   * parameter is of type "Object" one can hand over primitve arrays, e.g.
-   * int[3] or double[2][4].
-   *
-   * @param array       the array to determine the dimensions for
-   * @return            the dimensions of the array
-   */
-  public static int getArrayDimensions(Class array) {
-    if (array.getComponentType().isArray())
-      return 1 + getArrayDimensions(array.getComponentType());
-    else
-      return 1;
-  }
-
-  /**
-   * Returns the dimensions of the given array. Even though the
-   * parameter is of type "Object" one can hand over primitve arrays, e.g.
-   * int[3] or double[2][4].
-   *
-   * @param array       the array to determine the dimensions for
-   * @return            the dimensions of the array
-   */
-  public static int getArrayDimensions(Object array) {
-    return getArrayDimensions(array.getClass());
-  }
 
   /**
    * Computes entropy for an array of integers.
-   *
-   * @param counts array of counts
-   * @return - a log2 a - b log2 b - c log2 c + (a+b+c) log2 (a+b+c)
-   * when given array [a b c]
+   * 
+   * @param counts
+   *          array of counts
+   * @return - a log2 a - b log2 b - c log2 c + (a+b+c) log2 (a+b+c) when given
+   *         array [a b c]
    */
-  public static /*@pure@*/ double info(int counts[]) {
-    
+  public static/* @pure@ */double info(int counts[]) {
+
     int total = 0;
     double x = 0;
-    for (int j = 0; j < counts.length; j++) {
+    for( int j = 0; j < counts.length; j++ ){
       x -= xlogx(counts[j]);
       total += counts[j];
     }
@@ -742,60 +646,70 @@ class Utils {
 
   /**
    * Tests if a is smaller or equal to b.
-   *
-   * @param a a double
-   * @param b a double
+   * 
+   * @param a
+   *          a double
+   * @param b
+   *          a double
    */
-  public static /*@pure@*/ boolean smOrEq(double a,double b) {
-    
-    return (a-b < SMALL);
+  public static/* @pure@ */boolean smOrEq(double a, double b) {
+
+    return(a - b < SMALL);
   }
 
   /**
    * Tests if a is greater or equal to b.
-   *
-   * @param a a double
-   * @param b a double
+   * 
+   * @param a
+   *          a double
+   * @param b
+   *          a double
    */
-  public static /*@pure@*/ boolean grOrEq(double a,double b) {
-    
-    return (b-a < SMALL);
+  public static/* @pure@ */boolean grOrEq(double a, double b) {
+
+    return(b - a < SMALL);
   }
-  
+
   /**
    * Tests if a is smaller than b.
-   *
-   * @param a a double
-   * @param b a double
+   * 
+   * @param a
+   *          a double
+   * @param b
+   *          a double
    */
-  public static /*@pure@*/ boolean sm(double a,double b) {
-    
-    return (b-a > SMALL);
+  public static/* @pure@ */boolean sm(double a, double b) {
+
+    return(b - a > SMALL);
   }
 
   /**
    * Tests if a is greater than b.
-   *
-   * @param a a double
-   * @param b a double 
+   * 
+   * @param a
+   *          a double
+   * @param b
+   *          a double
    */
-  public static /*@pure@*/ boolean gr(double a,double b) {
-    
-    return (a-b > SMALL);
+  public static/* @pure@ */boolean gr(double a, double b) {
+
+    return(a - b > SMALL);
   }
 
   /**
    * Returns the kth-smallest value in the array.
-   *
-   * @param array the array of integers
-   * @param k the value of k
+   * 
+   * @param array
+   *          the array of integers
+   * @param k
+   *          the value of k
    * @return the kth-smallest value
    */
   public static double kthSmallestValue(int[] array, int k) {
 
     int[] index = new int[array.length];
-    
-    for (int i = 0; i < index.length; i++) {
+
+    for( int i = 0; i < index.length; i++ ){
       index[i] = i;
     }
 
@@ -804,16 +718,18 @@ class Utils {
 
   /**
    * Returns the kth-smallest value in the array
-   *
-   * @param array the array of double
-   * @param k the value of k
+   * 
+   * @param array
+   *          the array of double
+   * @param k
+   *          the value of k
    * @return the kth-smallest value
    */
   public static double kthSmallestValue(double[] array, int k) {
 
     int[] index = new int[array.length];
-    
-    for (int i = 0; i < index.length; i++) {
+
+    for( int i = 0; i < index.length; i++ ){
       index[i] = i;
     }
 
@@ -822,31 +738,33 @@ class Utils {
 
   /**
    * Returns the logarithm of a for base 2.
-   *
-   * @param a   a double
-   * @return  the logarithm for base 2
+   * 
+   * @param a
+   *          a double
+   * @return the logarithm for base 2
    */
-  public static /*@pure@*/ double log2(double a) {
-    
+  public static/* @pure@ */double log2(double a) {
+
     return Math.log(a) / log2;
   }
 
   /**
-   * Returns index of maximum element in a given
-   * array of doubles. First maximum is returned.
-   *
-   * @param doubles the array of doubles
+   * Returns index of maximum element in a given array of doubles. First maximum
+   * is returned.
+   * 
+   * @param doubles
+   *          the array of doubles
    * @return the index of the maximum element
    */
-  public static /*@pure@*/ int maxIndex(double[] doubles) {
+  public static/* @pure@ */int maxIndex(double[] doubles) {
 
     double maximum = 0;
     int maxIndex = 0;
 
-    for (int i = 0; i < doubles.length; i++) {
-      if ((i == 0) || (doubles[i] > maximum)) {
-  maxIndex = i;
-  maximum = doubles[i];
+    for( int i = 0; i < doubles.length; i++ ){
+      if( (i == 0) || (doubles[i] > maximum) ){
+        maxIndex = i;
+        maximum = doubles[i];
       }
     }
 
@@ -854,21 +772,22 @@ class Utils {
   }
 
   /**
-   * Returns index of maximum element in a given
-   * array of integers. First maximum is returned.
-   *
-   * @param ints the array of integers
+   * Returns index of maximum element in a given array of integers. First
+   * maximum is returned.
+   * 
+   * @param ints
+   *          the array of integers
    * @return the index of the maximum element
    */
-  public static /*@pure@*/ int maxIndex(int[] ints) {
+  public static/* @pure@ */int maxIndex(int[] ints) {
 
     int maximum = 0;
     int maxIndex = 0;
 
-    for (int i = 0; i < ints.length; i++) {
-      if ((i == 0) || (ints[i] > maximum)) {
-  maxIndex = i;
-  maximum = ints[i];
+    for( int i = 0; i < ints.length; i++ ){
+      if( (i == 0) || (ints[i] > maximum) ){
+        maxIndex = i;
+        maximum = ints[i];
       }
     }
 
@@ -877,39 +796,39 @@ class Utils {
 
   /**
    * Computes the mean for an array of doubles.
-   *
-   * @param vector the array
+   * 
+   * @param vector
+   *          the array
    * @return the mean
    */
-  public static /*@pure@*/ double mean(double[] vector) {
-  
+  public static/* @pure@ */double mean(double[] vector) {
+
     double sum = 0;
 
-    if (vector.length == 0) {
-      return 0;
-    }
-    for (int i = 0; i < vector.length; i++) {
+    if( vector.length == 0 ){ return 0; }
+    for( int i = 0; i < vector.length; i++ ){
       sum += vector[i];
     }
     return sum / (double) vector.length;
   }
 
   /**
-   * Returns index of minimum element in a given
-   * array of integers. First minimum is returned.
-   *
-   * @param ints the array of integers
+   * Returns index of minimum element in a given array of integers. First
+   * minimum is returned.
+   * 
+   * @param ints
+   *          the array of integers
    * @return the index of the minimum element
    */
-  public static /*@pure@*/ int minIndex(int[] ints) {
+  public static/* @pure@ */int minIndex(int[] ints) {
 
     int minimum = 0;
     int minIndex = 0;
 
-    for (int i = 0; i < ints.length; i++) {
-      if ((i == 0) || (ints[i] < minimum)) {
-  minIndex = i;
-  minimum = ints[i];
+    for( int i = 0; i < ints.length; i++ ){
+      if( (i == 0) || (ints[i] < minimum) ){
+        minIndex = i;
+        minimum = ints[i];
       }
     }
 
@@ -917,21 +836,22 @@ class Utils {
   }
 
   /**
-   * Returns index of minimum element in a given
-   * array of doubles. First minimum is returned.
-   *
-   * @param doubles the array of doubles
+   * Returns index of minimum element in a given array of doubles. First minimum
+   * is returned.
+   * 
+   * @param doubles
+   *          the array of doubles
    * @return the index of the minimum element
    */
-  public static /*@pure@*/ int minIndex(double[] doubles) {
+  public static/* @pure@ */int minIndex(double[] doubles) {
 
     double minimum = 0;
     int minIndex = 0;
 
-    for (int i = 0; i < doubles.length; i++) {
-      if ((i == 0) || (doubles[i] < minimum)) {
-  minIndex = i;
-  minimum = doubles[i];
+    for( int i = 0; i < doubles.length; i++ ){
+      if( (i == 0) || (doubles[i] < minimum) ){
+        minIndex = i;
+        minimum = doubles[i];
       }
     }
 
@@ -940,14 +860,16 @@ class Utils {
 
   /**
    * Normalizes the doubles in the array by their sum.
-   *
-   * @param doubles the array of double
-   * @exception IllegalArgumentException if sum is Zero or NaN
+   * 
+   * @param doubles
+   *          the array of double
+   * @exception IllegalArgumentException
+   *              if sum is Zero or NaN
    */
   public static void normalize(double[] doubles) {
 
     double sum = 0;
-    for (int i = 0; i < doubles.length; i++) {
+    for( int i = 0; i < doubles.length; i++ ){
       sum += doubles[i];
     }
     normalize(doubles, sum);
@@ -955,32 +877,35 @@ class Utils {
 
   /**
    * Normalizes the doubles in the array using the given value.
-   *
-   * @param doubles the array of double
-   * @param sum the value by which the doubles are to be normalized
-   * @exception IllegalArgumentException if sum is zero or NaN
+   * 
+   * @param doubles
+   *          the array of double
+   * @param sum
+   *          the value by which the doubles are to be normalized
+   * @exception IllegalArgumentException
+   *              if sum is zero or NaN
    */
   public static void normalize(double[] doubles, double sum) {
 
-    if (Double.isNaN(sum)) {
-      throw new IllegalArgumentException("Can't normalize array. Sum is NaN.");
-    }
-    if (sum == 0) {
+    if( Double.isNaN(sum) ){ throw new IllegalArgumentException(
+        "Can't normalize array. Sum is NaN."); }
+    if( sum == 0 ){
       // Maybe this should just be a return.
       throw new IllegalArgumentException("Can't normalize array. Sum is zero.");
     }
-    for (int i = 0; i < doubles.length; i++) {
+    for( int i = 0; i < doubles.length; i++ ){
       doubles[i] /= sum;
     }
   }
 
   /**
-   * Converts an array containing the natural logarithms of
-   * probabilities stored in a vector back into probabilities.
-   * The probabilities are assumed to sum to one.
-   *
-   * @param a an array holding the natural logarithms of the probabilities
-   * @return the converted array 
+   * Converts an array containing the natural logarithms of probabilities stored
+   * in a vector back into probabilities. The probabilities are assumed to sum
+   * to one.
+   * 
+   * @param a
+   *          an array holding the natural logarithms of the probabilities
+   * @return the converted array
    */
   public static double[] logs2probs(double[] a) {
 
@@ -988,7 +913,7 @@ class Utils {
     double sum = 0.0;
 
     double[] result = new double[a.length];
-    for(int i = 0; i < a.length; i++) {
+    for( int i = 0; i < a.length; i++ ){
       result[i] = Math.exp(a[i] - max);
       sum += result[i];
     }
@@ -996,156 +921,156 @@ class Utils {
     normalize(result, sum);
 
     return result;
-  } 
+  }
 
   /**
    * Returns the log-odds for a given probabilitiy.
-   *
-   * @param prob the probabilitiy
-   *
-   * @return the log-odds after the probability has been mapped to
-   * [Utils.SMALL, 1-Utils.SMALL]
+   * 
+   * @param prob
+   *          the probabilitiy
+   * 
+   * @return the log-odds after the probability has been mapped to [Utils.SMALL,
+   *         1-Utils.SMALL]
    */
-  public static /*@pure@*/ double probToLogOdds(double prob) {
+  public static/* @pure@ */double probToLogOdds(double prob) {
 
-    if (gr(prob, 1) || (sm(prob, 0))) {
-      throw new IllegalArgumentException("probToLogOdds: probability must " +
-             "be in [0,1] "+prob);
-    }
+    if( gr(prob, 1) || (sm(prob, 0)) ){ throw new IllegalArgumentException(
+        "probToLogOdds: probability must " + "be in [0,1] " + prob); }
     double p = SMALL + (1.0 - 2 * SMALL) * prob;
     return Math.log(p / (1 - p));
   }
 
   /**
-   * Rounds a double to the next nearest integer value. The JDK version
-   * of it doesn't work properly.
-   *
-   * @param value the double value
+   * Rounds a double to the next nearest integer value. The JDK version of it
+   * doesn't work properly.
+   * 
+   * @param value
+   *          the double value
    * @return the resulting integer value
    */
-  public static /*@pure@*/ int round(double value) {
+  public static/* @pure@ */int round(double value) {
 
-    int roundedValue = value > 0
-      ? (int)(value + 0.5)
-      : -(int)(Math.abs(value) + 0.5);
-    
+    int roundedValue = value > 0 ? (int) (value + 0.5) : -(int) (Math
+        .abs(value) + 0.5);
+
     return roundedValue;
   }
 
   /**
    * Rounds a double to the next nearest integer value in a probabilistic
-   * fashion (e.g. 0.8 has a 20% chance of being rounded down to 0 and a
-   * 80% chance of being rounded up to 1). In the limit, the average of
-   * the rounded numbers generated by this procedure should converge to
-   * the original double.
-   *
-   * @param value the double value
-   * @param rand the random number generator
+   * fashion (e.g. 0.8 has a 20% chance of being rounded down to 0 and a 80%
+   * chance of being rounded up to 1). In the limit, the average of the rounded
+   * numbers generated by this procedure should converge to the original double.
+   * 
+   * @param value
+   *          the double value
+   * @param rand
+   *          the random number generator
    * @return the resulting integer value
    */
   public static int probRound(double value, Random rand) {
 
-    if (value >= 0) {
+    if( value >= 0 ){
       double lower = Math.floor(value);
       double prob = value - lower;
-      if (rand.nextDouble() < prob) {
-  return (int)lower + 1;
-      } else {
-  return (int)lower;
+      if( rand.nextDouble() < prob ){
+        return (int) lower + 1;
+      }else{
+        return (int) lower;
       }
-    } else {
+    }else{
       double lower = Math.floor(Math.abs(value));
       double prob = Math.abs(value) - lower;
-      if (rand.nextDouble() < prob) {
-  return -((int)lower + 1);
-      } else {
-  return -(int)lower;
+      if( rand.nextDouble() < prob ){
+        return -((int) lower + 1);
+      }else{
+        return -(int) lower;
       }
     }
   }
 
   /**
    * Rounds a double to the given number of decimal places.
-   *
-   * @param value the double value
-   * @param afterDecimalPoint the number of digits after the decimal point
+   * 
+   * @param value
+   *          the double value
+   * @param afterDecimalPoint
+   *          the number of digits after the decimal point
    * @return the double rounded to the given precision
    */
-  public static /*@pure@*/ double roundDouble(double value,int afterDecimalPoint) {
+  public static/* @pure@ */double roundDouble(double value,
+      int afterDecimalPoint) {
 
-    double mask = Math.pow(10.0, (double)afterDecimalPoint);
+    double mask = Math.pow(10.0, (double) afterDecimalPoint);
 
-    return (double)(Math.round(value * mask)) / mask;
+    return (double) (Math.round(value * mask)) / mask;
   }
 
   /**
-   * Sorts a given array of integers in ascending order and returns an 
-   * array of integers with the positions of the elements of the original 
-   * array in the sorted array. The sort is stable. (Equal elements remain
-   * in their original order.)
-   *
-   * @param array this array is not changed by the method!
-   * @return an array of integers with the positions in the sorted
-   * array.
+   * Sorts a given array of integers in ascending order and returns an array of
+   * integers with the positions of the elements of the original array in the
+   * sorted array. The sort is stable. (Equal elements remain in their original
+   * order.)
+   * 
+   * @param array
+   *          this array is not changed by the method!
+   * @return an array of integers with the positions in the sorted array.
    */
-  public static /*@pure@*/ int[] sort(int[] array) {
+  public static/* @pure@ */int[] sort(int[] array) {
 
     int[] index = new int[array.length];
     int[] newIndex = new int[array.length];
     int[] helpIndex;
     int numEqual;
-    
-    for (int i = 0; i < index.length; i++) {
+
+    for( int i = 0; i < index.length; i++ ){
       index[i] = i;
     }
     quickSort(array, index, 0, array.length - 1);
 
     // Make sort stable
     int i = 0;
-    while (i < index.length) {
+    while( i < index.length ){
       numEqual = 1;
-      for (int j = i + 1; ((j < index.length)
-         && (array[index[i]] == array[index[j]]));
-     j++) {
-  numEqual++;
+      for( int j = i + 1; ((j < index.length) && (array[index[i]] == array[index[j]])); j++ ){
+        numEqual++;
       }
-      if (numEqual > 1) {
-  helpIndex = new int[numEqual];
-  for (int j = 0; j < numEqual; j++) {
-    helpIndex[j] = i + j;
-  }
-  quickSort(index, helpIndex, 0, numEqual - 1);
-  for (int j = 0; j < numEqual; j++) {
-    newIndex[i + j] = index[helpIndex[j]];
-  }
-  i += numEqual;
-      } else {
-  newIndex[i] = index[i];
-  i++;
+      if( numEqual > 1 ){
+        helpIndex = new int[numEqual];
+        for( int j = 0; j < numEqual; j++ ){
+          helpIndex[j] = i + j;
+        }
+        quickSort(index, helpIndex, 0, numEqual - 1);
+        for( int j = 0; j < numEqual; j++ ){
+          newIndex[i + j] = index[helpIndex[j]];
+        }
+        i += numEqual;
+      }else{
+        newIndex[i] = index[i];
+        i++;
       }
     }
     return newIndex;
   }
 
   /**
-   * Sorts a given array of doubles in ascending order and returns an
-   * array of integers with the positions of the elements of the
-   * original array in the sorted array. NOTE THESE CHANGES: the sort
-   * is no longer stable and it doesn't use safe floating-point
-   * comparisons anymore. Occurrences of Double.NaN are treated as 
-   * Double.MAX_VALUE
-   *
-   * @param array this array is not changed by the method!
-   * @return an array of integers with the positions in the sorted
-   * array.  
+   * Sorts a given array of doubles in ascending order and returns an array of
+   * integers with the positions of the elements of the original array in the
+   * sorted array. NOTE THESE CHANGES: the sort is no longer stable and it
+   * doesn't use safe floating-point comparisons anymore. Occurrences of
+   * Double.NaN are treated as Double.MAX_VALUE
+   * 
+   * @param array
+   *          this array is not changed by the method!
+   * @return an array of integers with the positions in the sorted array.
    */
-  public static /*@pure@*/ int[] sort(/*@non_null@*/ double[] array) {
+  public static/* @pure@ */int[] sort(/* @non_null@ */double[] array) {
 
     int[] index = new int[array.length];
-    array = (double[])array.clone();
-    for (int i = 0; i < index.length; i++) {
+    array = (double[]) array.clone();
+    for( int i = 0; i < index.length; i++ ){
       index[i] = i;
-      if (Double.isNaN(array[i])) {
+      if( Double.isNaN(array[i]) ){
         array[i] = Double.MAX_VALUE;
       }
     }
@@ -1155,61 +1080,62 @@ class Utils {
 
   /**
    * Tests if a is equal to b.
-   *
-   * @param a a double
-   * @param b a double
+   * 
+   * @param a
+   *          a double
+   * @param b
+   *          a double
    */
-  public static /*@pure@*/ boolean eq(double a, double b){
-    
-    return (a - b < SMALL) && (b - a < SMALL); 
+  public static/* @pure@ */boolean eq(double a, double b) {
+
+    return (a - b < SMALL) && (b - a < SMALL);
   }
 
   /**
-   * Sorts a given array of doubles in ascending order and returns an 
-   * array of integers with the positions of the elements of the original 
-   * array in the sorted array. The sort is stable (Equal elements remain
-   * in their original order.) Occurrences of Double.NaN are treated as 
-   * Double.MAX_VALUE
-   *
-   * @param array this array is not changed by the method!
-   * @return an array of integers with the positions in the sorted
-   * array.
+   * Sorts a given array of doubles in ascending order and returns an array of
+   * integers with the positions of the elements of the original array in the
+   * sorted array. The sort is stable (Equal elements remain in their original
+   * order.) Occurrences of Double.NaN are treated as Double.MAX_VALUE
+   * 
+   * @param array
+   *          this array is not changed by the method!
+   * @return an array of integers with the positions in the sorted array.
    */
-  public static /*@pure@*/ int[] stableSort(double[] array){
+  public static/* @pure@ */int[] stableSort(double[] array) {
 
     int[] index = new int[array.length];
     int[] newIndex = new int[array.length];
     int[] helpIndex;
     int numEqual;
-    
-    array = (double[])array.clone();
-    for (int i = 0; i < index.length; i++) {
+
+    array = (double[]) array.clone();
+    for( int i = 0; i < index.length; i++ ){
       index[i] = i;
-      if (Double.isNaN(array[i])) {
+      if( Double.isNaN(array[i]) ){
         array[i] = Double.MAX_VALUE;
       }
     }
-    quickSort(array,index,0,array.length-1);
+    quickSort(array, index, 0, array.length - 1);
 
     // Make sort stable
 
     int i = 0;
-    while (i < index.length) {
+    while( i < index.length ){
       numEqual = 1;
-      for (int j = i+1; ((j < index.length) && Utils.eq(array[index[i]],
-              array[index[j]])); j++)
-  numEqual++;
-      if (numEqual > 1) {
-  helpIndex = new int[numEqual];
-  for (int j = 0; j < numEqual; j++)
-    helpIndex[j] = i+j;
-  quickSort(index, helpIndex, 0, numEqual-1);
-  for (int j = 0; j < numEqual; j++) 
-    newIndex[i+j] = index[helpIndex[j]];
-  i += numEqual;
-      } else {
-  newIndex[i] = index[i];
-  i++;
+      for( int j = i + 1; ((j < index.length) && Utils.eq(array[index[i]],
+          array[index[j]])); j++ )
+        numEqual++;
+      if( numEqual > 1 ){
+        helpIndex = new int[numEqual];
+        for( int j = 0; j < numEqual; j++ )
+          helpIndex[j] = i + j;
+        quickSort(index, helpIndex, 0, numEqual - 1);
+        for( int j = 0; j < numEqual; j++ )
+          newIndex[i + j] = index[helpIndex[j]];
+        i += numEqual;
+      }else{
+        newIndex[i] = index[i];
+        i++;
       }
     }
 
@@ -1218,43 +1144,43 @@ class Utils {
 
   /**
    * Computes the variance for an array of doubles.
-   *
-   * @param vector the array
+   * 
+   * @param vector
+   *          the array
    * @return the variance
    */
-  public static /*@pure@*/ double variance(double[] vector) {
-  
+  public static/* @pure@ */double variance(double[] vector) {
+
     double sum = 0, sumSquared = 0;
 
-    if (vector.length <= 1) {
-      return 0;
-    }
-    for (int i = 0; i < vector.length; i++) {
+    if( vector.length <= 1 ){ return 0; }
+    for( int i = 0; i < vector.length; i++ ){
       sum += vector[i];
       sumSquared += (vector[i] * vector[i]);
     }
-    double result = (sumSquared - (sum * sum / (double) vector.length)) / 
-      (double) (vector.length - 1);
+    double result = (sumSquared - (sum * sum / (double) vector.length))
+        / (double) (vector.length - 1);
 
     // We don't like negative variance
-    if (result < 0) {
+    if( result < 0 ){
       return 0;
-    } else {
+    }else{
       return result;
     }
   }
 
   /**
    * Computes the sum of the elements of an array of doubles.
-   *
-   * @param doubles the array of double
+   * 
+   * @param doubles
+   *          the array of double
    * @return the sum of the elements
    */
-  public static /*@pure@*/ double sum(double[] doubles) {
+  public static/* @pure@ */double sum(double[] doubles) {
 
     double sum = 0;
 
-    for (int i = 0; i < doubles.length; i++) {
+    for( int i = 0; i < doubles.length; i++ ){
       sum += doubles[i];
     }
     return sum;
@@ -1262,15 +1188,16 @@ class Utils {
 
   /**
    * Computes the sum of the elements of an array of integers.
-   *
-   * @param ints the array of integers
+   * 
+   * @param ints
+   *          the array of integers
    * @return the sum of the elements
    */
-  public static /*@pure@*/ int sum(int[] ints) {
+  public static/* @pure@ */int sum(int[] ints) {
 
     int sum = 0;
 
-    for (int i = 0; i < ints.length; i++) {
+    for( int i = 0; i < ints.length; i++ ){
       sum += ints[i];
     }
     return sum;
@@ -1278,42 +1205,45 @@ class Utils {
 
   /**
    * Returns c*log2(c) for a given integer value c.
-   *
-   * @param c an integer value
+   * 
+   * @param c
+   *          an integer value
    * @return c*log2(c) (but is careful to return 0 if c is 0)
    */
-  public static /*@pure@*/ double xlogx(int c) {
-    
-    if (c == 0) {
-      return 0.0;
-    }
+  public static/* @pure@ */double xlogx(int c) {
+
+    if( c == 0 ){ return 0.0; }
     return c * Utils.log2((double) c);
   }
 
   /**
    * Partitions the instances around a pivot. Used by quicksort and
    * kthSmallestValue.
-   *
-   * @param array the array of doubles to be sorted
-   * @param index the index into the array of doubles
-   * @param l the first index of the subset 
-   * @param r the last index of the subset 
-   *
+   * 
+   * @param array
+   *          the array of doubles to be sorted
+   * @param index
+   *          the index into the array of doubles
+   * @param l
+   *          the first index of the subset
+   * @param r
+   *          the last index of the subset
+   * 
    * @return the index of the middle element
    */
   private static int partition(double[] array, int[] index, int l, int r) {
-    
+
     double pivot = array[index[(l + r) / 2]];
     int help;
 
-    while (l < r) {
-      while ((array[index[l]] < pivot) && (l < r)) {
+    while( l < r ){
+      while( (array[index[l]] < pivot) && (l < r) ){
         l++;
       }
-      while ((array[index[r]] > pivot) && (l < r)) {
+      while( (array[index[r]] > pivot) && (l < r) ){
         r--;
       }
-      if (l < r) {
+      if( l < r ){
         help = index[l];
         index[l] = index[r];
         index[r] = help;
@@ -1321,9 +1251,9 @@ class Utils {
         r--;
       }
     }
-    if ((l == r) && (array[index[r]] > pivot)) {
+    if( (l == r) && (array[index[r]] > pivot) ){
       r--;
-    } 
+    }
 
     return r;
   }
@@ -1331,27 +1261,31 @@ class Utils {
   /**
    * Partitions the instances around a pivot. Used by quicksort and
    * kthSmallestValue.
-   *
-   * @param array the array of integers to be sorted
-   * @param index the index into the array of integers
-   * @param l the first index of the subset 
-   * @param r the last index of the subset 
-   *
+   * 
+   * @param array
+   *          the array of integers to be sorted
+   * @param index
+   *          the index into the array of integers
+   * @param l
+   *          the first index of the subset
+   * @param r
+   *          the last index of the subset
+   * 
    * @return the index of the middle element
    */
   private static int partition(int[] array, int[] index, int l, int r) {
-    
+
     double pivot = array[index[(l + r) / 2]];
     int help;
 
-    while (l < r) {
-      while ((array[index[l]] < pivot) && (l < r)) {
+    while( l < r ){
+      while( (array[index[l]] < pivot) && (l < r) ){
         l++;
       }
-      while ((array[index[r]] > pivot) && (l < r)) {
+      while( (array[index[r]] > pivot) && (l < r) ){
         r--;
       }
-      if (l < r) {
+      if( l < r ){
         help = index[l];
         index[l] = index[r];
         index[r] = help;
@@ -1359,218 +1293,131 @@ class Utils {
         r--;
       }
     }
-    if ((l == r) && (array[index[r]] > pivot)) {
+    if( (l == r) && (array[index[r]] > pivot) ){
       r--;
-    } 
+    }
 
     return r;
   }
-  
-  /**
-   * Implements quicksort according to Manber's "Introduction to
-   * Algorithms".
-   *
-   * @param array the array of doubles to be sorted
-   * @param index the index into the array of doubles
-   * @param left the first index of the subset to be sorted
-   * @param right the last index of the subset to be sorted
-   */
-  //@ requires 0 <= first && first <= right && right < array.length;
-  //@ requires (\forall int i; 0 <= i && i < index.length; 0 <= index[i] && index[i] < array.length);
-  //@ requires array != index;
-  //  assignable index;
-  private static void quickSort(/*@non_null@*/ double[] array, /*@non_null@*/ int[] index, 
-                                int left, int right) {
 
-    if (left < right) {
+  /**
+   * Implements quicksort according to Manber's "Introduction to Algorithms".
+   * 
+   * @param array
+   *          the array of doubles to be sorted
+   * @param index
+   *          the index into the array of doubles
+   * @param left
+   *          the first index of the subset to be sorted
+   * @param right
+   *          the last index of the subset to be sorted
+   */
+  // @ requires 0 <= first && first <= right && right < array.length;
+  // @ requires (\forall int i; 0 <= i && i < index.length; 0 <= index[i] &&
+  // index[i] < array.length);
+  // @ requires array != index;
+  // assignable index;
+  private static void quickSort(/* @non_null@ */double[] array, /* @non_null@ */
+      int[] index, int left, int right) {
+
+    if( left < right ){
       int middle = partition(array, index, left, right);
       quickSort(array, index, left, middle);
       quickSort(array, index, middle + 1, right);
     }
   }
-  
-  /**
-   * Implements quicksort according to Manber's "Introduction to
-   * Algorithms".
-   *
-   * @param array the array of integers to be sorted
-   * @param index the index into the array of integers
-   * @param left the first index of the subset to be sorted
-   * @param right the last index of the subset to be sorted
-   */
-  //@ requires 0 <= first && first <= right && right < array.length;
-  //@ requires (\forall int i; 0 <= i && i < index.length; 0 <= index[i] && index[i] < array.length);
-  //@ requires array != index;
-  //  assignable index;
-  private static void quickSort(/*@non_null@*/ int[] array, /*@non_null@*/  int[] index, 
-                                int left, int right) {
 
-    if (left < right) {
+  /**
+   * Implements quicksort according to Manber's "Introduction to Algorithms".
+   * 
+   * @param array
+   *          the array of integers to be sorted
+   * @param index
+   *          the index into the array of integers
+   * @param left
+   *          the first index of the subset to be sorted
+   * @param right
+   *          the last index of the subset to be sorted
+   */
+  // @ requires 0 <= first && first <= right && right < array.length;
+  // @ requires (\forall int i; 0 <= i && i < index.length; 0 <= index[i] &&
+  // index[i] < array.length);
+  // @ requires array != index;
+  // assignable index;
+  private static void quickSort(/* @non_null@ */int[] array, /* @non_null@ */
+      int[] index, int left, int right) {
+
+    if( left < right ){
       int middle = partition(array, index, left, right);
       quickSort(array, index, left, middle);
       quickSort(array, index, middle + 1, right);
     }
   }
-  
+
   /**
-   * Implements computation of the kth-smallest element according
-   * to Manber's "Introduction to Algorithms".
-   *
-   * @param array the array of double
-   * @param index the index into the array of doubles
-   * @param left the first index of the subset 
-   * @param right the last index of the subset 
-   * @param k the value of k
-   *
+   * Implements computation of the kth-smallest element according to Manber's
+   * "Introduction to Algorithms".
+   * 
+   * @param array
+   *          the array of double
+   * @param index
+   *          the index into the array of doubles
+   * @param left
+   *          the first index of the subset
+   * @param right
+   *          the last index of the subset
+   * @param k
+   *          the value of k
+   * 
    * @return the index of the kth-smallest element
    */
-  //@ requires 0 <= first && first <= right && right < array.length;
-  private static int select(/*@non_null@*/ double[] array, /*@non_null@*/ int[] index, 
-                            int left, int right, int k) {
-    
-    if (left == right) {
+  // @ requires 0 <= first && first <= right && right < array.length;
+  private static int select(/* @non_null@ */double[] array, /* @non_null@ */
+      int[] index, int left, int right, int k) {
+
+    if( left == right ){
       return left;
-    } else {
+    }else{
       int middle = partition(array, index, left, right);
-      if ((middle - left + 1) >= k) {
+      if( (middle - left + 1) >= k ){
         return select(array, index, left, middle, k);
-      } else {
+      }else{
         return select(array, index, middle + 1, right, k - (middle - left + 1));
       }
     }
   }
 
-  /**
-   * Converts a File's absolute path to a path relative to the user
-   * (ie start) directory. Includes an additional workaround for Cygwin, which
-   * doesn't like upper case drive letters.
-   * @param absolute the File to convert to relative path
-   * @return a File with a path that is relative to the user's directory
-   * @exception Exception if the path cannot be constructed
-   */
-  public static File convertToRelativePath(File absolute) throws Exception {
-    File        result;
-    String      fileStr;
-    
-    result = null;
-    
-    // if we're running windows, it could be Cygwin
-    if (File.separator.equals("\\")) {
-      // Cygwin doesn't like upper case drives -> try lower case drive
-      try {
-        fileStr = absolute.getPath();
-        fileStr =   fileStr.substring(0, 1).toLowerCase() 
-                  + fileStr.substring(1);
-        result = createRelativePath(new File(fileStr));
-      }
-      catch (Exception e) {
-        // no luck with Cygwin workaround, convert it like it is
-        result = createRelativePath(absolute);
-      }
-    }
-    else {
-      result = createRelativePath(absolute);
-    }
+ 
 
-    return result;
-  }
 
   /**
-   * Converts a File's absolute path to a path relative to the user
-   * (ie start) directory.
+   * Implements computation of the kth-smallest element according to Manber's
+   * "Introduction to Algorithms".
    * 
-   * @param absolute the File to convert to relative path
-   * @return a File with a path that is relative to the user's directory
-   * @exception Exception if the path cannot be constructed
-   */
-  protected static File createRelativePath(File absolute) throws Exception {
-    File userDir = new File(System.getProperty("user.dir"));
-    String userPath = userDir.getAbsolutePath() + File.separator;
-    String targetPath = (new File(absolute.getParent())).getPath() 
-      + File.separator;
-    String fileName = absolute.getName();
-    StringBuffer relativePath = new StringBuffer();
-    //    relativePath.append("."+File.separator);
-    //    System.err.println("User dir "+userPath);
-    //    System.err.println("Target path "+targetPath);
-    
-    // file is in user dir (or subdir)
-    int subdir = targetPath.indexOf(userPath);
-    if (subdir == 0) {
-      if (userPath.length() == targetPath.length()) {
-  relativePath.append(fileName);
-      } else {
-  int ll = userPath.length();
-  relativePath.append(targetPath.substring(ll));
-  relativePath.append(fileName);
-      }
-    } else {
-      int sepCount = 0;
-      String temp = new String(userPath);
-      while (temp.indexOf(File.separator) != -1) {
-  int ind = temp.indexOf(File.separator);
-  sepCount++;
-  temp = temp.substring(ind+1, temp.length());
-      }
-      
-      String targetTemp = new String(targetPath);
-      String userTemp = new String(userPath);
-      int tcount = 0;
-      while (targetTemp.indexOf(File.separator) != -1) {
-  int ind = targetTemp.indexOf(File.separator);
-  int ind2 = userTemp.indexOf(File.separator);
-  String tpart = targetTemp.substring(0,ind+1);
-  String upart = userTemp.substring(0,ind2+1);
-  if (tpart.compareTo(upart) != 0) {
-    if (tcount == 0) {
-      tcount = -1;
-    }
-    break;
-  }
-  tcount++;
-  targetTemp = targetTemp.substring(ind+1, targetTemp.length());
-  userTemp = userTemp.substring(ind2+1, userTemp.length());
-      }
-      if (tcount == -1) {
-  // then target file is probably on another drive (under windows)
-  throw new Exception("Can't construct a path to file relative to user "
-          +"dir.");
-      }
-      if (targetTemp.indexOf(File.separator) == -1) {
-  targetTemp = "";
-      }
-      for (int i = 0; i < sepCount - tcount; i++) {
-  relativePath.append(".."+File.separator);
-      }
-      relativePath.append(targetTemp + fileName);
-    }
-    //    System.err.println("new path : "+relativePath.toString());
-    return new File(relativePath.toString());
-  }
-  
-  /**
-   * Implements computation of the kth-smallest element according
-   * to Manber's "Introduction to Algorithms".
-   *
-   * @param array the array of integers
-   * @param index the index into the array of integers
-   * @param left the first index of the subset 
-   * @param right the last index of the subset 
-   * @param k the value of k
-   *
+   * @param array
+   *          the array of integers
+   * @param index
+   *          the index into the array of integers
+   * @param left
+   *          the first index of the subset
+   * @param right
+   *          the last index of the subset
+   * @param k
+   *          the value of k
+   * 
    * @return the index of the kth-smallest element
    */
-  //@ requires 0 <= first && first <= right && right < array.length;
-  private static int select(/*@non_null@*/ int[] array, /*@non_null@*/ int[] index, 
-                            int left, int right, int k) {
-    
-    if (left == right) {
+  // @ requires 0 <= first && first <= right && right < array.length;
+  private static int select(/* @non_null@ */int[] array, /* @non_null@ */
+      int[] index, int left, int right, int k) {
+
+    if( left == right ){
       return left;
-    } else {
+    }else{
       int middle = partition(array, index, left, right);
-      if ((middle - left + 1) >= k) {
+      if( (middle - left + 1) >= k ){
         return select(array, index, left, middle, k);
-      } else {
+      }else{
         return select(array, index, middle + 1, right, k - (middle - left + 1));
       }
     }
