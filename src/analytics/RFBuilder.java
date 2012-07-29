@@ -450,6 +450,4 @@ class Sample {
       sampleSize--;
     }
   }
-  
-  
 }
