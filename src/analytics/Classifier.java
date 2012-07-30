@@ -28,11 +28,10 @@ public interface Classifier {
   public static class Operations {
     
     /** Returns the standard error of the given classifier on the given dataset.
-     * 
-     * @param c
-     * @param d
-     * @return 
-     */ 
+     * Note that for the RF implementation: this error does not look at Bag/OutofBag.
+     * This means that for RF the error reported will be smaller than the actual
+     * error rate. If we wanted a more accurate error rate we could drop the inBag
+     * values.     */ 
     public static double error(Classifier c, DataAdapter d) {
       double err = 0.0;
       double wsum = 0.0;
