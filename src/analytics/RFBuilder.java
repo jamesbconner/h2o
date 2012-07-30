@@ -357,8 +357,8 @@ public abstract class RFBuilder {
 }
 
 /**
- * This class samples with replacement the input data (based on the Weka class
- * Bagging.java) * The idea is that for each tree and each row we will have a
+ * This class samples with replacement the input data.
+ * The idea is that for each tree and each row we will have a
  * byte that tells us how many times that row appears in the sample and a byte
  * that tells on which node.
  * */
@@ -374,34 +374,19 @@ class Sample {
     rows_ = data.numRows();
     occurrences_ = new byte[trees][rows_];
     nodes_ = new byte[trees][rows_];
-    for( int i = 0; i < trees; i++ )
-      weightedSampling(data, r, i);
+    for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
   }
 
-  public int occurrences(int tree, int row) {
-    return occurrences_[tree][row];
-  }
-
-  public int getNode(int tree, int row) {
-    return nodes_[tree][row];
-  }
-
-  public void setNode(int tree, int row, int val) {
-    nodes_[tree][row] = (byte) val;
-  }
-
+  public int occurrences(int tree, int row) { return occurrences_[tree][row]; }
+  public int getNode(int tree, int row) { return nodes_[tree][row];  }
+  public void setNode(int tree, int row, int val) { nodes_[tree][row] = (byte) val;  }
   double sum(double[] d) {
-    double r = 0.0;
-    for( int i = 0; i < d.length; i++ )
-      r += d[i];
-    return r;
+    double r = 0.0; for( int i = 0; i < d.length; i++ ) r += d[i]; return r;
   }
 
   void normalize(double[] doubles, double sum) {
-    if( Double.isNaN(sum) ) throw new IllegalArgumentException("NaN.");
-    if( sum == 0 ) throw new IllegalArgumentException("Zero.");
-    for( int i = 0; i < doubles.length; i++ )
-      doubles[i] /= sum;
+    assert ! Double.isNaN(sum) && sum != 0;
+    for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
   }
 
   void weightedSampling(DataAdapter adapt, Random random, int tree) {
@@ -417,28 +402,24 @@ class Sample {
       probabilities[i] = sumProbs;
     }
     normalize(probabilities, sumProbs / sumOfWeights);
-
-    // Make sure that rounding errors don't mess things up
     probabilities[rows_ - 1] = sumOfWeights;
     int k = 0, l = 0;
     sumProbs = 0;
     while( k < rows_ && l < rows_ ){
-      if( weights[l] < 0 ) throw new IllegalArgumentException(
-          "Weights have to be positive.");
+      assert weights[l] > 0;
       sumProbs += weights[l];
       while( k < rows_ && probabilities[k] <= sumProbs ){
         occurrences_[tree][l]++;
-        k++;
+        k++;        
       }
       l++;
     }
-
     int sampleSize = 0;
     for( int i = 0; i < rows_; i++ )
       sampleSize += (int) occurrences_[tree][i];
     int bagSize = rows_ * bagSizePercent / 100;
     assert (bagSize > 0 && sampleSize > 0);
-    while( bagSize > sampleSize ){
+    while( bagSize < sampleSize ){
       int offset = random.nextInt(rows_);
       while( true ){
         if( occurrences_[tree][offset] != 0 ){
@@ -448,6 +429,7 @@ class Sample {
         offset = (offset + 1) % rows_;
       }
       sampleSize--;
-    }
+    }    
   }
+  void p(String s) { System.out.println(s); }
 }
