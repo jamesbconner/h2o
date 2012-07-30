@@ -322,22 +322,17 @@ public abstract class RFBuilder {
    * much simpler than those of different frameworks.
    * 
    * @return The out-of-bag error for the constructed tree.
-   */
-  
+   */  
   public double outOfBagError() {
-    assert (trees != null); // make sure we have already computed the trees 
-    assert (partition_ != null); // and the partition
-    
-    double err = 0;
-    double oobc = 0;
+    assert (partition_ != null && trees != null); // make sure we have already computed
+    double err = 0, oobc = 0;
     
     for (int r = 0; r < data_.numRows(); ++r) {
       data_.seekToRow(r);
       int[] votes = new int[data_.numClasses()];
       int voteCount = 0;
       for (int t = 0; t < trees.length; ++t) {
-        if (partition_.occurrences(t, r) > 0)
-          continue; // if the tree was trained on the row, don't use the tree
+        if (partition_.occurrences(t, r) > 0) continue; // don't use training data
         votes[trees[t].root_.classifyRecursive(data_)] += 1;
         voteCount += 1;
       }
@@ -347,8 +342,7 @@ public abstract class RFBuilder {
       // me as it would always predict its class to 0. 
       if (voteCount!=0) {
         oobc += data_.weight();
-        if (Utils.maxIndex(votes) != data_.dataClass())
-          err += data_.weight();
+        if (Utils.maxIndex(votes) != data_.dataClass())  err += data_.weight();
       }
     }
     return err / oobc;
