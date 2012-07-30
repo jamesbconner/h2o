@@ -1,15 +1,12 @@
 package test.analytics;
 
-<<<<<<< HEAD
 import analytics.*;
-=======
 import java.util.Random;
 
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
 import analytics.RF;
 import analytics.RFBuilder;
->>>>>>> 9e310d556c9331b8ba48383c2537fe70c719cf15
 
 
 public class IrisAdapter extends DataAdapter {
