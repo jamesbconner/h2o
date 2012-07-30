@@ -1,5 +1,7 @@
 package analytics;
 
+import java.text.DecimalFormat;
+
 /**
  *
  * @author peta
@@ -41,9 +43,14 @@ public class RF implements Classifier {
   public DecisionTree tree(int n) {
     return trees_[n];
   }
-
+  
+  static final DecimalFormat df = new  DecimalFormat ("0.###");
+ 
   public String toString() {
+    String errors="";
+    for (int i = 0; i<numTrees(); ++i) 
+       errors +=" " +  df.format(Classifier.Operations.error(tree(i),data_));
     return "RF:  " + trees_.length + " trees, seed="+ seed_ +", compute(ms)="+time_+"\n"
-        + "OOB err = " + outOfBagError() + "\n";
+        + "OOB err = " + outOfBagError() + "\n" + "Single tree errors: " + errors;
   }
 }

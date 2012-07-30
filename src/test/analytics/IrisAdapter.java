@@ -1,6 +1,5 @@
 package test.analytics;
 
-import analytics.*;
 import java.util.Random;
 
 import analytics.AverageStatistic;
@@ -200,9 +199,6 @@ public class IrisAdapter extends DataAdapter {
     IrisBuilder builder = new IrisBuilder(data);
     RF rf = new RF(data,builder,100,new Random().nextInt());
     rf.compute();
-    for (int i = 0; i<rf.numTrees(); ++i) {
-      System.out.println("tree "+i+": "+Classifier.Operations.error(rf.tree(i),data));
-    }
     System.out.println(rf);
   }
 }
