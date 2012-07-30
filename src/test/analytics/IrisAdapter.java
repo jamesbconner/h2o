@@ -1,6 +1,15 @@
 package test.analytics;
 
+<<<<<<< HEAD
 import analytics.*;
+=======
+import java.util.Random;
+
+import analytics.AverageStatistic;
+import analytics.DataAdapter;
+import analytics.RF;
+import analytics.RFBuilder;
+>>>>>>> 9e310d556c9331b8ba48383c2537fe70c719cf15
 
 
 public class IrisAdapter extends DataAdapter {
@@ -191,17 +200,18 @@ public class IrisAdapter extends DataAdapter {
 
   public static void main(String []_) {   
     DataAdapter data=new IrisAdapter();
-    IrisBuilder builder = new IrisBuilder(67436482,data);
-    RF rf = RF.compute(100,builder);
-    for (int i = 0; i<100; ++i) {
+    IrisBuilder builder = new IrisBuilder(data);
+    RF rf = new RF(data,builder,100,new Random().nextInt());
+    rf.compute();
+    for (int i = 0; i<rf.numTrees(); ++i) {
       System.out.println("tree "+i+": "+Classifier.Operations.error(rf.tree(i),data));
     }
-    System.out.println(builder.outOfBagError());
+    System.out.println(rf);
   }
 }
 
 class IrisBuilder extends RFBuilder {
-  protected IrisBuilder(long seed, DataAdapter data) { super(seed,data);  }
+  protected IrisBuilder(DataAdapter data) { super(data);  }
   @Override  protected void createStatistic(ProtoNode node, int[] columns) {
         node.addStatistic(new AverageStatistic(columns,3));
   }
