@@ -46,23 +46,23 @@ public class GiniStatistic extends DistributionStatistic {
   }
   
   
-  protected double computeGiniOnArray(int[] arr) {
+  protected double computeGiniOnArray(double[] arr) {
     double result = 1;
-    int total = 0;
-    for (int i : arr)
+    double total = 0;
+    for (double i : arr)
       total += i;
-    for (int i : arr) 
-      result -= ((double)i/total) * ((double)i/total);
+    for (double i : arr) 
+      result -= (i/total) * (i/total);
     return result;
   }
   
   protected double computeGiniOnCategory(int cat, long[] data, int offset) {
-    int[] dother = new int[dataCategories];
-    int[] dcol = new int[dataCategories];
+    double[] dother = new double[dataCategories];
+    double[] dcol = new double[dataCategories];
     for (int i = 0; i<categories; ++i) {
-      int[] x = (i == cat) ? dcol : dother;
+      double[] x = (i == cat) ? dcol : dother;
       for (int j = 0; j<dataCategories; ++j)
-        x[j] = readInteger(data,offset + (i*dataCategories+j)*4);
+        x[j] = readDouble(data,offset + (i*dataCategories+j)*8);
     }
     return computeGiniOnArray(dcol) + computeGiniOnArray(dother);
   }

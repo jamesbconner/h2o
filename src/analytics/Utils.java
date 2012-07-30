@@ -18,7 +18,11 @@ public class Utils {
       if (from[i]>from[result])
         result = i;
     return result;
-    
   }
+  
+  public static void normalize(double[] doubles, double sum) {
+    assert ! Double.isNaN(sum) && sum != 0;
+    for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
+  }  
   
 }

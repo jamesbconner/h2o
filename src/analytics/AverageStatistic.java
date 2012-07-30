@@ -53,10 +53,11 @@ public class AverageStatistic extends Statistic {
    */
   public void addDataPoint(DataAdapter row, long[] data, int offset) {
     offset += (columns_.length * 8 + 8) * row.dataClass();
-    addLong(1, data, offset);
+    double w = row.weight();
+    addDouble(w, data, offset);
     offset += 8;
     for (int i = 0; i<columns_.length; ++i) {
-      addDouble(row.toDouble(columns_[i]), data, offset);
+      addDouble(row.toDouble(columns_[i]) * w, data, offset);
       offset +=8;
     }
   }
@@ -73,7 +74,7 @@ public class AverageStatistic extends Statistic {
     AClassifier c = new AClassifier(columns_,numClasses_);
     int result = -1;
     for (int i = 0; i< numClasses_; ++i) {
-      long cnt = readLong(data,offset);
+      double cnt = readDouble(data,offset);
       offset += 8;
       if (cnt == 0) {
         offset += columns_.length * 8;

@@ -23,6 +23,30 @@ public interface Classifier {
     public int numClasses() { return 1; }    
   }
   
+  public static class Operations {
+    
+    /** Returns the standard error of the given classifier on the given dataset.
+     * 
+     * @param c
+     * @param d
+     * @return 
+     */ 
+    public static double error(Classifier c, DataAdapter d) {
+      double err = 0.0;
+      double wsum = 0.0;
+      for (int r = 0; r < d.numRows(); ++r) {
+        d.seekToRow(r);
+        wsum += d.weight();
+        if (d.dataClass() != c.classify(d))
+          err += d.weight();
+      }
+      return err / wsum;
+    }
+    
+  }
+  
 }
+
+
 
 
