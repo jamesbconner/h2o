@@ -25,4 +25,24 @@ public class Utils {
     for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
   }  
   
+  public static String join(int[] what, String with) {
+    if (what==null)
+      return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append(what[0]);
+    for (int i = 1; i<what.length;++i)
+      sb.append(with+what[i]);
+    return sb.toString();
+  }
+
+  public static String join(double[] what, String with) {
+    if (what==null)
+      return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append(what[0]);
+    for (int i = 1; i<what.length;++i)
+      sb.append(with+what[i]);
+    return sb.toString();
+  }
+  
 }

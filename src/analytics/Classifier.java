@@ -14,6 +14,8 @@ public interface Classifier {
   /** Returns the number of classes for this classifier. */
   int numClasses();
   
+  String toString();
+  
   static public class Const implements Classifier {
     final int result;
     /** Creates the constant classifier that will always return the given result.  */

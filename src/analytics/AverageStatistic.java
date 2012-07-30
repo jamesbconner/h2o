@@ -165,6 +165,17 @@ public class AverageStatistic extends Statistic {
       }
       return result;
     }
+    
+    public String toString() {
+      StringBuilder sb = new StringBuilder("avect ");
+      sb.append(Utils.join(columns_," "));
+      for (int i =0; i<averages_.length; ++i) {
+        sb.append(" [");
+        sb.append(Utils.join(averages_[i],", "));  
+        sb.append("]");
+      }
+      return sb.toString();
+    }
   }
   
 }

@@ -20,4 +20,8 @@ public class RF implements Classifier {
   
   public static RF compute(int numTrees, RFBuilder builder) { return builder.compute(numTrees);  }
 
+  
+  public DecisionTree tree(int n) {
+    return trees_[n];
+  }
 }

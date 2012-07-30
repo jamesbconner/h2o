@@ -1,9 +1,6 @@
 package test.analytics;
 
-import analytics.AverageStatistic;
-import analytics.DataAdapter;
-import analytics.RF;
-import analytics.RFBuilder;
+import analytics.*;
 
 
 public class IrisAdapter extends DataAdapter {
@@ -196,6 +193,9 @@ public class IrisAdapter extends DataAdapter {
     DataAdapter data=new IrisAdapter();
     IrisBuilder builder = new IrisBuilder(67436482,data);
     RF rf = RF.compute(100,builder);
+    for (int i = 0; i<100; ++i) {
+      System.out.println("tree "+i+": "+Classifier.Operations.error(rf.tree(i),data));
+    }
     System.out.println(builder.outOfBagError());
   }
 }

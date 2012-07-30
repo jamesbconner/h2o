@@ -25,5 +25,9 @@ public class ColumnBinaryClassifier implements Classifier {
    public int numClasses() {
     return 2; // otherwise we won't be binary:)
   }
+   
+   public String toString() {
+     return "column "+column+" left == "+value;
+   }
   
 }

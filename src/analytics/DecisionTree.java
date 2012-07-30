@@ -26,7 +26,7 @@ public class DecisionTree implements Classifier {
     public final int class_;
     public LeafNode(int dataClass)     { this.class_ = dataClass; }
     public int numClasses()            { return 1; }
-    public String toString()           { return " "+class_+" "; }
+    public String toString()           { return "(leaf "+class_+")"; }
     public int classify(DataAdapter _) { return class_; }
     public int classifyRecursive(DataAdapter _) { return class_; }
   }
@@ -87,7 +87,11 @@ public class DecisionTree implements Classifier {
      */
     public String toString() {
       StringBuilder sb = new StringBuilder("(");
-      for (int i = 0; i<subnodes.length; ++i) sb.append(subnodes[i].toString());
+      sb.append(classifier.toString());
+      for (int i = 0; i<subnodes.length; ++i) {
+        sb.append(" ");
+        sb.append(subnodes[i].toString());
+      }
       sb.append(")");
       return sb.toString();
     }
@@ -106,4 +110,8 @@ public class DecisionTree implements Classifier {
   
   /** Creates the decision tree from the root node.   */ 
   public DecisionTree(INode root) { root_ = root; }
+  
+  public String toString() {
+    return root_.toString();
+  }
 }
