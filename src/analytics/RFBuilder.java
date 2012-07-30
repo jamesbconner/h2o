@@ -26,18 +26,16 @@ public abstract class RFBuilder {
 
   protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
 
-  private final long seed;
-  private final Random random;
+  private  long seed;
+  private  Random random;
   public ProtoTree[] trees;
   Sample partition_;
   private final DataAdapter data_;
 
-  protected RFBuilder(long seed, DataAdapter data) {
-    this.seed = seed;
-    random = new Random(seed);
-    data_ = data;
-  }
-
+  protected RFBuilder(long seed, DataAdapter data) { throw new Error("Deprecated");  }
+  protected RFBuilder(DataAdapter data) {  data_ = data;  }
+  public void setSeed(long seed) { assert random==null; random = new Random(this.seed=seed);  }
+  
   // node under construction ---------------------------------------------------
 
   /**
@@ -273,7 +271,7 @@ public abstract class RFBuilder {
   /**
    * Computes n random decision trees and returns them as a random forest.
    */
-  RF compute(int numTrees) {
+  DecisionTree[] compute(int numTrees) {
     partition_ = new Sample(data_, numTrees, random);
     trees = new ProtoTree[numTrees];
     for( int i = 0; i < numTrees; ++i )
@@ -312,7 +310,7 @@ public abstract class RFBuilder {
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);
-    return new RF(rf);
+    return rf;
   }
   
   /** Computes the out of bag error for the built random forest. 
