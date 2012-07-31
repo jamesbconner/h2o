@@ -22,18 +22,38 @@ public class TaskGetKey extends DFutureTask<Value> {
   final int _len; // Desired max length
   Value _tcp_val; // Only used for TCP receiving of large Values
 
+  // Unify multiple Key/Value fetches for the same Key from the same Node at
+  // the "same time".  Large key fetches are slow, and we'll get multiple
+  // requests close in time.  Batch them up.
   public static TaskGetKey make( H2ONode target, Key key, int len ) {
-    return target.make_tgk(key,len);
+    while( true ) {       // Repeat until we get a unique TGK installed per key
+      // Do we have an old TaskGetKey, of sufficient size, in-progress?
+      TaskGetKey tgk_old = target.TGKS.get(key);
+      if( tgk_old != null && tgk_old._len >= len && !tgk_old.isDone() )
+        return tgk_old;         // Yes - use it!
+      // Make a new TGK and attempt to install it
+      TaskGetKey tgk = new TaskGetKey(target,key,len);
+      if( tgk_old==null ) {
+        if( target.TGKS.putIfAbsent(key,tgk) == null ) { tgk.resend(); return tgk; }
+      } else {
+        if( target.TGKS.replace(key,tgk_old,tgk) ) { tgk.resend(); return tgk; }
+      }
+      // Oops, colliding parallel TGK installs... try again
+      tgk.cancel(true);
+    }
   }
 
   // Asking the remote for the Value matching this specific Key.  Return the
   // first len bytes of that key.  If len==Integer.MAX_VALUE the intent is to
   // cache the entire key locally.
-  protected TaskGetKey( H2ONode target, Key key, int len ) {
+  private TaskGetKey( H2ONode target, Key key, int len ) {
     super( target,UDP.udp.getkey );
     _key  = key;
     _len = len;
-    resend();                   // Initial send after final fields set
+    // The initial resend() happens only after we successfully install a new
+    // TGK in the TGKS set - because an unsuccessful install means that the new
+    // TGK won't be used and it should not start sending packets.
+    //resend();                   // Initial send after final fields set
   }
 
   // Pack key+len into the outgoing UDP packet

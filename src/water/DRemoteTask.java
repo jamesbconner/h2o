@@ -24,7 +24,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
   void ps(String msg) {
     Class clz = getClass();
-    System.out.println(msg+clz+" keys["+_keys.length+"] _lo="+_lo+" _hi="+_hi);
+    System.err.println(msg+clz+" keys["+_keys.length+"] _lo="+_lo+" _hi="+_hi);
   }
 
   // Make a copy of thyself
@@ -150,6 +150,10 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   // Keys; start F/J'ing on individual keys.  
   void rexec( Key args ) {
     Value val = DKV.get(args);
+    if( val == null ) {
+      System.err.println("Missing args in rexec call: possibly the caller did not fence out a DKV.put(args) before calling rexec(,,args,).");
+      throw new Error("Missing args");
+    }
     if( val.type() == Value.ARRAYLET ) {
       throw new Error("unimplemented");
     } else {

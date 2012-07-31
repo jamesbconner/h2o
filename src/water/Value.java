@@ -76,8 +76,8 @@ public class Value {
   final byte[] CAS_mem_if_larger( byte[] nnn ) {
     while( true ) {
       byte[] b = _mem;          // Read it again
-      if( b != null && b.length >= nnn.length ) { 
-        MemoryManager.freeMemory(nnn); // Free 'nnn' and keep '_mem'
+      if( b != null && (nnn==null || b.length >= nnn.length) ) {
+        if( nnn != null ) MemoryManager.freeMemory(nnn); // Free 'nnn' and keep '_mem'
         return b;
       }
       if( CAS_mem(b,nnn) )
@@ -104,7 +104,7 @@ public class Value {
 
   // ---
   // A Value is persisted. The Key is used to define the filename.
-  public final Key _key;
+  public Key _key;
 
   // Assertion check that Keys match, for those Values that require an internal
   // Key (usually for disk filename persistence).
@@ -230,7 +230,7 @@ public class Value {
   // definitely different.  Does no disk i/o.
   boolean false_ifunequals( Value val ) {
     if( _max != val._max ) return false;
-    if( !is_same_key(val) ) return false;
+    if( _key != val._key && !_key.equals(val._key) ) return false;
     // If we have any cached bits, they need to be equal.
     if( _mem!=null && val._mem!=null &&
         !equal_buf_chk(val._mem,0,_mem,0,Math.min(val._mem.length,_mem.length)) )
@@ -249,7 +249,7 @@ public class Value {
   // True equals test.  May require disk I/O
   boolean equals( Value val ) {
     if( this == val ) return true;
-    if( !is_same_key(val) ) return false;
+    if( _key != val._key && !_key.equals(val._key) ) return false;
     if( _max != val._max ) return false;
     return Arrays.equals(val.get(),get());
   }
@@ -354,7 +354,6 @@ public class Value {
     StringBuilder sb = new StringBuilder(len<0?0:len);
     // Sub-class preliminaries
     if( getString_impl(len,sb) ) return sb.toString();
-    if( !is_goal_persist() ) return sb.append("[deleted]").toString();
     // Ensure at least 'len' bytes are memory-local
     get(len);
     sb.append("[");

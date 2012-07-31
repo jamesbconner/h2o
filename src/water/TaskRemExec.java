@@ -18,6 +18,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     _dt = dt;
     _args = args;
     DKV.put(args,val);          // Publish the keyset for remote execution
+    DKV.write_barrier();        // Block until all prior writes have completed
     resend();                   // Initial send after final fields set
   }
 

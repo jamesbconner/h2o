@@ -160,7 +160,6 @@ public final class H2O {
   // PutIfMatch
   // - Atomically update the STORE, returning the old Value on success
   // - Kick the persistence engine as needed
-  // - Kick HazKeys to Key Home as needed
   // - Return existing Value on fail, no change.
   //
   // Keys are interned here: I always keep the existing Key, if any.  The
@@ -181,21 +180,22 @@ public final class H2O {
 
   public static final Value putIfMatch( Key key, Value val, Value old ) {
     assert val==null || val._key == key; // Keys matched
-    assert old==null || old._key == key; // Keys matched
-    assert STORE.getk(key)==null || STORE.getk(key)==key;
     if( old == val ) return old; // Trivial success?
-    if( old != null ) {
-      if( val != null && val.true_ifequals(old) ) return old;
+    if( old != null && val != null ) { // Have an old value?
+      if( val.true_ifequals(old) ) return old;
+      key = val._key = old._key; // Use prior key in val
     }
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
-    assert res==null || res._key == key; // Keys matched
+    Key q=null;
+    if( res != null ) { if( q==null ) q = res._key; else assert q == res._key; }
+    if( old != null ) { if( q==null ) q = old._key; else assert q == old._key; }
     if( res != old )            // Failed?
       return res;               // Return the failure cause
+    if( val != null ) { if( q==null ) q = val._key; else assert q == val._key; }
     if( old != null ) old.remove_persist(); // Start removing the old guy
     if( val != null ) val. start_persist(); // Start  storing the new guy
-
     return res;                             // Return success
   }
 

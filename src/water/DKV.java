@@ -70,7 +70,14 @@ public abstract class DKV {
 
     return old;                 // Return success value
   }
-  
+
+  // Stall until all existing writes have completed.
+  // Used to order successive writes.
+  static public void write_barrier() {
+    for( DFutureTask dt : DFutureTask.TASKS.values() )
+      dt.get();
+  }
+
   // User-Weak-Get a Key from the distributed cloud.
   static public Value get( Key key, int len ) {
     while( true ) {

@@ -27,6 +27,24 @@ public class TaskPutKey extends DFutureTask<Object> {
     super( target,UDP.udp.putkey );
     _key  = key;
     _val = val;
+
+    // A Stronger MM is easier, in many ways than an weaker one.  In this case
+    // I am ordering writes from the same Node to the same Key, so that the
+    // last write from this Node wins.  The specific use-case is simply PUT
+    // then REMOVE, where the PUT and REMOVE swap over the wires and the REMOVE
+    // happens before any PUT, the PUT sticks and a Key is leaked.
+
+    // The fix is to stall earlier outgoing writes to the same Key until they
+    // have completed, i.e., I get the ACK back.  One pass through the pending
+    // TASKs is sufficient, because this thread cannot issue any more PUTs
+    // until the current one finishes.
+    for( DFutureTask dt : TASKS.values() ) {
+      if( dt != this && dt._target == target &&
+          dt instanceof TaskPutKey && ((TaskPutKey)dt)._key.equals(key) ) {
+        dt.get();               // Stall till done to force ordering with this TPK
+      }
+    }
+
     resend();                   // Initial send after final fields set
   }
 
@@ -62,6 +80,7 @@ public class TaskPutKey extends DFutureTask<Object> {
       off += key.wire_len();
       Value val = Value.read(buf,off,key);
       assert key.home() || val==null; // Only PUT to home for keys, or remote invalidation from home
+      off = UDP.SZ_TASK;              // Skip udp byte and port and task#
       // We are about to update the local STORE for this key.
       // All known replicas will become invalid... except the sender.
       // Clear his replica-bits so we do not invalidate him.

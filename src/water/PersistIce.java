@@ -172,8 +172,8 @@ public class PersistIce extends Persistence {
     return v.arraylet_uuid().toString();
   }
   
-  private byte[] file_load(Value v, int len) {
-    assert is_goal(v) == true && is(v)==true; // State is: store-done
+  private synchronized byte[] file_load(Value v, int len) {
+    if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
     try {
       InputStream s = new FileInputStream(encodeKeyToFile(v));
       try {
@@ -192,7 +192,8 @@ public class PersistIce extends Persistence {
     }
   }
   
-  private void file_store(Value v) {
+  private synchronized void file_store(Value v) {
+    if( is_goal(v) == true ) return; // Some other thread is already trying to store
     assert is_goal(v) == false && is(v)==true; // State was: file-not-present
     set_info(v, 8);                            // Not-atomically set state to "store not-done"
     clr_info(v,16);
@@ -215,7 +216,8 @@ public class PersistIce extends Persistence {
     }
   }
   
-  private void file_delete(Value v) {
+  private synchronized void file_delete(Value v) {
+    if( is_goal(v) == false ) return;         // Some other thread is already trying to remove
     assert is_goal(v) == true && is(v)==true; // State was: store-done
     clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
     clr_info(v,16);

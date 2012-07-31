@@ -255,26 +255,6 @@ public class H2ONode implements Comparable {
   // requests close in time.  Batch them up.
   public static final ConcurrentHashMap<Key,TaskGetKey> TGKS = new ConcurrentHashMap();
 
-  public TaskGetKey make_tgk( Key key, int len ) {
-    TaskGetKey tgk = null;
-    while( true ) {       // Repeat until we get a unique TGK installed per key
-      // Do we have an old TaskGetKey, of sufficient size, in-progress?
-      TaskGetKey tgk_old = TGKS.get(key);
-      if( tgk_old != null && tgk_old._len >= len && !tgk_old.isDone() ) {
-        if( tgk != null ) tgk.cancel(true);
-        return tgk_old;         // Yes - use it!
-      }
-      // Make a new TGK and attempt to install it
-      if( tgk == null ) tgk = new TaskGetKey(this,key,len);
-      if( tgk_old==null ) {
-        if( TGKS.putIfAbsent(key,tgk) == null ) return tgk;
-      } else {
-        if( TGKS.replace(key,tgk_old,tgk) ) return tgk;
-      }
-      // Oops, colliding parallel TGK installs... try again
-    }
-  }
-
   // ---------------
   // Build a 'heartbeat packet' used to hold a H2ONodes' latest health
   // measurements.  This is both a wire-line protocol and a directly readable

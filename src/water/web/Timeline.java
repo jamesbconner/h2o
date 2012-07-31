@@ -239,34 +239,34 @@ public class Timeline extends H2OPage {
     // Look for 'send' packets with a ready 'recv' packet.
     // Sorta by definition, if a sender is a multicast, and any of the other
     // ready nodes is not a receive of the cast packet, we're not ready.
-    if( sr0 == 0 && !inet_pack0.isMulticastAddress() ) {
-      throw new Error("unimplemented");
-      // Get the next ready packet for the receiver of the 'send' packet
-      //int pnidx0 = cloud.nidx(H2ONode.intern(inet_pack0)); // pack0 node index
-      //long[]ptl0 = snapshot[pnidx0]; // Ready-packet for receiver
-      //int  pidx0 =     idxs[pnidx0];
-      //if( TimeLine.send_recv(ptl0,pidx0) == 1 ) {       // It is a receieve packet
-      //  InetAddress inet_packpack0 = TimeLine.inet(ptl0,pidx0);
-      //  long pl0 = TimeLine.l0(ptl0,pidx0);
-      //  long ph0 = TimeLine.l8(ptl0,pidx0);
-      //  if( match( inet_host0, inet_pack0, l0, h0, inet_pack0, inet_packpack0, pl0, ph0) )
-      //    return 0;
-      //}
-    }
-    if( sr1 == 0 && !inet_pack1.isMulticastAddress() ) {
-      throw new Error("unimplemented");
-      //// Get the next ready packet for the receiver of the 'send' packet
-      //int pnidx0 = cloud.nidx(H2ONode.intern(inet_pack1)); // pack1 node index
-      //long[]ptl0 = snapshot[pnidx0]; // Ready-packet for receiver
-      //int  pidx0 =     idxs[pnidx0];
-      //if( TimeLine.send_recv(ptl0,pidx0) == 1 ) {       // It is a receieve packet
-      //  InetAddress inet_packpack0 = TimeLine.inet(ptl0,pidx0);
-      //  long pl0 = TimeLine.l0(ptl0,pidx0);
-      //  long ph0 = TimeLine.l8(ptl0,pidx0);
-      //  if( match( inet_host0, inet_pack0, l0, h0, inet_pack0, inet_packpack0, pl0, ph0) )
-      //    return 1;
-      //}
-    }
+    //if( sr0 == 0 && !inet_pack0.isMulticastAddress() ) {
+    //  throw new Error("unimplemented");
+    //  // Get the next ready packet for the receiver of the 'send' packet
+    //  //int pnidx0 = cloud.nidx(H2ONode.intern(inet_pack0)); // pack0 node index
+    //  //long[]ptl0 = snapshot[pnidx0]; // Ready-packet for receiver
+    //  //int  pidx0 =     idxs[pnidx0];
+    //  //if( TimeLine.send_recv(ptl0,pidx0) == 1 ) {       // It is a receieve packet
+    //  //  InetAddress inet_packpack0 = TimeLine.inet(ptl0,pidx0);
+    //  //  long pl0 = TimeLine.l0(ptl0,pidx0);
+    //  //  long ph0 = TimeLine.l8(ptl0,pidx0);
+    //  //  if( match( inet_host0, inet_pack0, l0, h0, inet_pack0, inet_packpack0, pl0, ph0) )
+    //  //    return 0;
+    //  //}
+    //}
+    //if( sr1 == 0 && !inet_pack1.isMulticastAddress() ) {
+    //  throw new Error("unimplemented");
+    //  //// Get the next ready packet for the receiver of the 'send' packet
+    //  //int pnidx0 = cloud.nidx(H2ONode.intern(inet_pack1)); // pack1 node index
+    //  //long[]ptl0 = snapshot[pnidx0]; // Ready-packet for receiver
+    //  //int  pidx0 =     idxs[pnidx0];
+    //  //if( TimeLine.send_recv(ptl0,pidx0) == 1 ) {       // It is a receieve packet
+    //  //  InetAddress inet_packpack0 = TimeLine.inet(ptl0,pidx0);
+    //  //  long pl0 = TimeLine.l0(ptl0,pidx0);
+    //  //  long ph0 = TimeLine.l8(ptl0,pidx0);
+    //  //  if( match( inet_host0, inet_pack0, l0, h0, inet_pack0, inet_packpack0, pl0, ph0) )
+    //  //    return 1;
+    //  //}
+    //}
 
     // Look for 'send' packets.  If we see one, stall until the other guy is a
     // matching 'recv' packet.  Include multi-cast and point-to-point.

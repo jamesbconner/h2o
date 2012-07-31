@@ -24,7 +24,7 @@ public class Test {
     Key k1 = Key.make("key1");
     Value v0 = DKV.get(k1);
     assertNull(v0);
-    Value v1 = new Value(k1,"bits for Value1");
+    Value v1 = new Value(k1,"test0 bits for Value1");
     DKV.put(k1,v1);
     assertEquals(v1._key,k1);
     Value v2 = DKV.get(k1);
@@ -51,7 +51,7 @@ public class Test {
       Key k = keys[i] = Key.make("key"+i);
       Value v0 = DKV.get(k);
       assertNull(v0);
-      Value v1 = vals[i] = new Value(k,"bits for Value"+i);
+      Value v1 = vals[i] = new Value(k,"test2 bits for Value"+i);
       DKV.put(k,v1);
       assertEquals(v1._key,k);
     }
@@ -69,26 +69,25 @@ public class Test {
   }
 
   // ---
-  // Make a remote Node do a put, and we do a get & confirm we can see it.
+  // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
   @org.junit.Test public void test3() throws FileNotFoundException, IOException {
-    h2o_cloud_of_size(2);
-    H2O cloud = H2O.CLOUD;
-
+    h2o_cloud_of_size(3);
+    // Issue a slew of remote key puts
     Key[] keys = new Key[32];
     for( int i=0; i<keys.length; i++ ) {
       Key k = keys[i] = Key.make("key"+i);
       Value val = new Value(k,4);
       byte[] bits = val.mem();
-      UDP.set4(bits,0,i);
+      UDP.set4(bits,0,i);       // Each value holds a shift-count
       DKV.put(k,val);
     }
-
     RemoteBitSet rbs = new RemoteBitSet();
     rbs.rexec(keys);
     assertEquals(-1,rbs._x);
   }
 
-
+  // Remote Bit Set: OR together the result of a single bit-mask where the
+  // shift-amount is passed in in the Key.
   public static class RemoteBitSet extends DRemoteTask {
     int _x;
     public int wire_len() { return 4; }
@@ -96,11 +95,13 @@ public class Test {
     public void write( DataOutputStream dos ) { throw new Error("unimplemented"); }
     public void read( byte[] buf, int off ) { _x = UDP.get4(buf,off);  off += 4; }
     public void read( DataInputStream dis ) { new Error("unimplemented"); }
+    // Set a single bit-mask based on the shift which is passed in the Value
     public void map( Key key ) {
-      Value val = DKV.get(key);
-      _x = 1<<(UDP.get4(val.get(),0));
-      DKV.remove(key);
+      Value val = DKV.get(key);        // Get the Value for the Key
+      _x = 1<<(UDP.get4(val.get(),0)); // Get the shift amount, shift & set
+      DKV.remove(key);                 // Remove Key when done
     }
+    // OR together all results
     public void reduce( RemoteTask rbs ) {
       _x |= ((RemoteBitSet)rbs)._x;
     }
@@ -112,6 +113,8 @@ public class Test {
     int num = H2O.CLOUD.size();
     while( num < cnt ) {
       launch_dev_jvm(num);
+      //try { Thread.sleep(10); }        // sleep 10msec & test again
+      //catch( InterruptedException ie ) {}
       num = H2O.CLOUD.size();
     }
   }
@@ -123,6 +126,7 @@ public class Test {
 
   // Kill excess JVMs once all testing is done
   @AfterClass public static void kill_test_jvms() {
+    DKV.write_barrier();
     for( int i=0; i<TEST_JVMS.length; i++ ) {
       if( TEST_JVMS[i] != null ) {
         System.out.println("  Killing nested JVM on port "+(H2O.WEB_PORT+3*i));

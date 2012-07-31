@@ -1,9 +1,6 @@
 package water;
 import java.net.DatagramPacket;
-import java.util.Hashtable;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import jsr166y.ForkJoinPool;
 
@@ -43,7 +40,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   final Object[] _args;
 
   // The set of current, pending tasks.  Basically a map from task# to DFutureTask.
-  static Hashtable<Integer,DFutureTask> TASKS = new Hashtable<Integer,DFutureTask>();
+  static public ConcurrentHashMap<Integer,DFutureTask> TASKS = new ConcurrentHashMap<Integer,DFutureTask>();
 
   // Make a remotely executed FutureTask.  Must name the remote target as well
   // as the remote function.  This function is expected to be subclassed.
@@ -55,8 +52,6 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     _args = args;
     _started = System.currentTimeMillis();
     _retry = RETRY_MS;
-    // Keep a global record, for awhile
-    TASKS.put(_tasknum,this);
   }
 
   // 'Pack' a UDP packet, by default.  Override this if you want to use a more
@@ -75,21 +70,29 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // Hit the Timeout.  Mostly just auto-resend packet.  Can be overridden if
   // subclass has a better clue about timeouts.
   protected void resend() {
+    // Keep a global record, for awhile
+    TASKS.put(_tasknum,this);
     // We could be racing timeouts-vs-replies.  Blow off timeout if we have an answer.
-    if( _res != null )
-      return;
+    if( isDone() ) return;
     // We could be repeated versions of the same *identical* Future; this
     // will happen if the Future is slow and is getting enqueued multiple times
     // by the retries.  Kill off dups.
     if( UDPTimeOutThread.PENDING.contains(this) )
       return;
-    // Default strategy: re-fire the packet and re-start the timeout.  We're
-    // not counting failures or 'nuttin.  Just keep hammering the target until
-    // we get an answer.
-    fire_and_forget();
-    // Put self on the "TBD" list of tasks awaiting Timeout.
-    // So: dont really 'forget' but remember me in a little bit.
-    UDPTimeOutThread.PENDING.add(this);
+    synchronized(this) {
+      if( isDone() ) return;
+      // Default strategy: re-fire the packet and re-start the timeout.  We're
+      // not counting failures or 'nuttin.  Just keep hammering the target until
+      // we get an answer.
+      fire_and_forget();
+      // Double retry until we exceed existing age.  This is the time to delay
+      // until we try again.  Note that we come here immediately on creation,
+      // so the first doubling happens before anybody does any waiting.
+      _retry<<=1;
+      // Put self on the "TBD" list of tasks awaiting Timeout.
+      // So: dont really 'forget' but remember me in a little bit.
+      UDPTimeOutThread.PENDING.add(this);
+    }
   }
 
   // Got a response packet.  Install it as The Answer packet and wake up
@@ -99,6 +102,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     if( res == null ) res = unpack(p); // ignore dup ACKs; just keep same answer
     synchronized(this) {        // Install the answer under lock
       if( _res == null ) _res = res;
+      UDPTimeOutThread.PENDING.remove(this);
       TASKS.remove(_tasknum);   // Flag as task-completed, even if the result is null
       notifyAll();              // And notify in any case
     }
@@ -108,7 +112,6 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
     MultiCast.singlecast(_target,buf,UDP.SZ_TASK);
     UDPReceiverThread.free_pack(p);
-    UDPTimeOutThread.PENDING.remove(this);
   }
 
   // Similar to FutureTask.get() but does not throw any exceptions.  Returns
@@ -205,23 +208,20 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       if( !isCancelled() ) {
         did = true;             // Did cancel (was not canceled already)
         _target = null;         // Flag as canceled
+        UDPTimeOutThread.PENDING.remove(this);
         TASKS.remove(_tasknum);
       }
       notifyAll();              // notify in any case
     }
-    UDPTimeOutThread.PENDING.remove(this);
     return did;
   }
 
   // ---
-  static final long RETRY_MS = 100; // Initial UDP packet retry in msec
+  static final long RETRY_MS = 50; // Initial UDP packet retry in msec
   // How long until we should do the "timeout" action?
   public long getDelay( TimeUnit unit ) {
     long now_ms = System.currentTimeMillis();
     long age_ms = now_ms - _started;
-    // Double retry until we exceed existing age.
-    // This is the time to delay until we try again.
-    if( _retry < age_ms ) _retry<<=1;
     return unit.convert( _retry - age_ms, TimeUnit.MILLISECONDS );
   }
   // Needed for the DelayQueue API
