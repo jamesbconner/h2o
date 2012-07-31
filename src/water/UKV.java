@@ -26,30 +26,25 @@ public abstract class UKV {
     // bigger or smaller than the old Value.
     if( res != null && res.type() == 'A' ) {
       ValueArray ary = (ValueArray)res;
-      long sz = ary.length();   // Load long-size from the Value field
-      final int chunks = (int)((sz+((1L<<20)-1))>>20); // Divide by 1Meg into chunks, rounding up
-      // Delete all chunks
-      for( int i=0; i<chunks-1; i++ )
-        DKV.remove(ary.make_chunkkey(((long)i)<<20));
+      final int chunks = ary.chunks();
+      for( int i=0; i<chunks; i++ ) // Delete all the chunks
+        DKV.remove(ary.chunk_get(i));
     }
     if( res != null ) res.free_mem();
-    throw new Error("unimplemented: this belongs on home-node puts only");
   }
   
   static public void remove( Key key ) {  
     assert key.user_allowed();
     Value val = DKV.get(key,32); // Get the existing Value, if any
-    if( val == null ) return;     // Trivial delete
+    if( val == null ) return;    // Trivial delete
     if( val.type() == 'A' ) {    // See if this is an Array
       ValueArray ary = (ValueArray)val;
-      long sz = ary.length();   // Load long-size from the Value field
-      final int chunks = (int)((sz+((1L<<20)-1))>>20); // Divide by 1Meg into chunks, rounding up
+      final int chunks = ary.chunks();
       // Delete all chunks
-      for( int i=0; i<chunks-1; i++ )
-        DKV.remove(ary.make_chunkkey(((long)i)<<20));
+      for( int i=0; i<chunks; i++ ) // Delete all the chunks
+        DKV.remove(ary.chunk_get(i));
     }
     DKV.remove(key);
-    throw new Error("unimplemented: this belongs on home-node puts only");
   }
 
   // User-Weak-Get a Key from the distributed cloud.

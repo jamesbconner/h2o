@@ -224,6 +224,12 @@ public class PersistIce extends Persistence {
     assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
     File f = encodeKeyToFile(v);
     f.delete();
+
+    if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
+      f = new File(iceRoot,((ValueArray)v).get_uuid().toString());
+      f.delete();
+    }
+
     set_info(v,16);
     assert is_goal(v) == false && is(v)==true; // State is: remove-done
   }

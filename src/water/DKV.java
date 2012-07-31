@@ -25,15 +25,18 @@ public abstract class DKV {
     if( local != null )         // Was there a local old?
       local.free_mem();         // Free the memory
   }
+
+  // This put is a top-level user-update, and not a reflected or retried
+  // update.  i.e., The User has initiated a change against the K/V store.
+  // This is a WEAK update: it is not strongly ordered with other updates.
+  // User is responsible for cleaning a dead old Value.
   static protected Value put_return_old( Key key, Value val ) {
-    throw new Error("unimplemented: need a TaskPutKey that returns old");
-    //assert val.is_same_key(key);
-    //while( true ) {
-    //  Value old = H2O.get(key);
-    //  Value res = DputIfMatch(key,val,old);
-    //  // Caller must free the memory of the returned value
-    //  if( res == old ) return old;
-    //}
+    assert val==null || val.is_same_key(key);
+    while( true ) {
+      Value old = H2O.get(key);
+      Value res = DputIfMatch(key,val,old);
+      if( res == old ) return old; // User must cleanup a dead old Value
+    }
   }
 
   // Remove this Key: really writes a new tombstone deleted Value

@@ -37,7 +37,7 @@ public class Value {
   // This field is atomically updated (see CAS_mem below), to prevent racing
   // parallel update threads from setting different _mem arrays representing
   // different lengths of caching.
-  private volatile byte[] _mem; 
+  protected volatile byte[] _mem;
   public final byte[] mem() { return _mem; }
 
   public final byte [] allocateMem(int size) {

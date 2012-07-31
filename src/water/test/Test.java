@@ -37,6 +37,7 @@ public class Test {
   // ---
   // Repeat test0, but with at least 3 JVMs in the Cloud
   @org.junit.Test public void test1() {
+    System.out.println("test1");
     h2o_cloud_of_size(3);
     test0();
   }
@@ -44,6 +45,7 @@ public class Test {
   // ---
   // Make 100 keys, verify them all, delete them all.
   @org.junit.Test public void test2() {
+    System.out.println("test2");
     h2o_cloud_of_size(3);
     Key   keys[] = new Key  [100];
     Value vals[] = new Value[keys.length];
@@ -71,6 +73,7 @@ public class Test {
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
   @org.junit.Test public void test3() {
+    System.out.println("test3");
     h2o_cloud_of_size(3);
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
@@ -110,6 +113,7 @@ public class Test {
   // ---
   // Issue a large Key/Value put/get - testing the TCP path
   @org.junit.Test public void test4() {
+    System.out.println("test4");
     h2o_cloud_of_size(2);
 
     // Make an execution key homed to the remote node
@@ -136,13 +140,84 @@ public class Test {
 
 
   // ---
+  // Map in h2o.jar - a multi-megabyte file - into Arraylets.
+  // Run a distributed byte histogram.
+  @org.junit.Test public void test5() {
+    System.out.println("test5");
+    h2o_cloud_of_size(3);
+    String fname = "h2o.jar";
+    Key h2okey = null;
+    FileInputStream fis = null;
+    try {
+      fis = new FileInputStream(fname);
+      h2okey = ValueArray.read_put_file(fname,fis,(byte)0/*replication factor*/);
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+      Assert.fail(e.toString());
+    } catch (IOException e) {
+      e.printStackTrace();
+      fail(e.toString());
+    } finally {
+      try { fis.close(); } catch( IOException e ) { }
+    }
+    if( h2okey == null ) fail("null h2okey");
+
+    ByteHisto bh = new ByteHisto();
+    bh.rexec(h2okey);
+    int sum=0;
+    for( int i=0; i<bh._x.length; i++ )
+      sum += bh._x[i];
+    assertEquals(new File(fname).length(),sum);
+
+    UKV.remove(h2okey);
+  }
+
+  // Byte-wise histogram
+  public static class ByteHisto extends DRemoteTask {
+    int _x[];
+    // Count occurances of bytes
+    public void map( Key key ) {
+      _x = new int[256];        // One-time set histogram array
+      Value val = DKV.get(key); // Get the Value for the Key
+      byte[] bits = val.get();  // Compute local histogram
+      for( int i=0; i<bits.length; i++ )
+        _x[bits[i]&0xFF]++;
+    }
+    // ADD together all results
+    public void reduce( RemoteTask rbs ) {
+      int old=_x[255];
+      for( int i=0; i<_x.length; i++ )
+        _x[i] += ((ByteHisto)rbs)._x[i];
+    }
+
+    public int wire_len() { return 1+((_x==null)?0:4*_x.length); }
+    public int write( byte[] buf, int off ) {
+      buf[off++] = (byte)((_x==null) ? 0 : 1);
+      if( _x==null ) return off;
+      for( int i=0; i<_x.length; i++ )
+        off += UDP.set4(buf,off,_x[i]);
+      return off;
+    }
+    public void write( DataOutputStream dos ) { throw new Error("unimplemented"); }
+    public void read( byte[] buf, int off ) {
+      int flag = buf[off++];
+      if( flag == 0 ) return;
+      _x = new int[256];
+      for( int i=0; i<_x.length; i++ )
+        _x[i] = UDP.get4(buf,(off+=4)-4);
+    }
+    public void read( DataInputStream dis ) { new Error("unimplemented"); }
+  }
+
+
+  // ---
   // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
   static public void h2o_cloud_of_size( int cnt ) {
     int num = H2O.CLOUD.size();
     while( num < cnt ) {
-      launch_dev_jvm(num);
-      //try { Thread.sleep(10); }        // sleep 10msec & test again
-      //catch( InterruptedException ie ) {}
+      //launch_dev_jvm(num);
+      try { Thread.sleep(10); }        // sleep 10msec & test again
+      catch( InterruptedException ie ) {}
       num = H2O.CLOUD.size();
     }
   }

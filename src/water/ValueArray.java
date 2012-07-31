@@ -23,15 +23,18 @@ public class ValueArray extends Value {
 
   private void initialize(long sz, byte[] uid) {
     UUID uuid = UUID.randomUUID();
-    mem()[0] = 0;
-    mem()[1] = 0;
-    UDP.set8(mem(), 2,sz);
+    _mem[0] = 0;
+    _mem[1] = 0;
+    UDP.set8(_mem, 2,sz);
     if (uid==null) {
-      UDP.set8(mem(), 10,uuid.getLeastSignificantBits());
-      UDP.set8(mem(), 18,uuid. getMostSignificantBits());
+      UDP.set8(_mem, 10,uuid.getLeastSignificantBits());
+      UDP.set8(_mem, 18,uuid. getMostSignificantBits());
     } else {
-      System.arraycopy(uid, 0, mem(), 10, uid.length);
+      System.arraycopy(uid, 0, _mem, 10, uid.length);
     }
+  }
+  public UUID get_uuid() {
+    return new UUID( UDP.get8(_mem,18), UDP.get8(_mem,10));
   }
   
   public ValueArray( Key key, long sz ) {
@@ -106,18 +109,18 @@ public class ValueArray extends Value {
     if (sz<buffer.length) {
       // it is a single simple value
       Value val = new Value(key,(int)sz);
-      System.arraycopy(buffer,0,val.mem(),0,(int)sz);
+      System.arraycopy(buffer,0,val._mem,0,(int)sz);
       UKV.put(key,val);
     } else {
       long offset = 0;
       ValueArray ary = new ValueArray(key,0);
       Key ck = ary.make_chunkkey(offset);
       Value val = new Value(ck,(int)chunk_size());
-      System.arraycopy(buffer,0,val.mem(),0,(int)chunk_size());
+      System.arraycopy(buffer,0,val._mem,0,(int)chunk_size());
       DKV.put(ck,val);
       ck = ary.make_chunkkey(offset);
       val = new Value(ck,(int)chunk_size());
-      System.arraycopy(buffer,(int)chunk_size(),val.mem(),0,(int)sz);
+      System.arraycopy(buffer,(int)chunk_size(),val._mem,0,(int)sz);
       DKV.put(ck,val);
       offset += sz;
       while (sz!=0) {
@@ -131,13 +134,13 @@ public class ValueArray extends Value {
         sz = bis.read(buffer,0,(int)chunk_size());
         ck = ary.make_chunkkey(offset);
         val = new Value(ck,(int)sz);
-        System.arraycopy(buffer,0,val.mem(),0,(int)sz);
+        System.arraycopy(buffer,0,val._mem,0,(int)sz);
         DKV.put(ck,val);
         offset += sz;
         if (sz!=chunk_size())
           break;
       }
-      UDP.set8(ary.mem(),2,offset);
+      UDP.set8(ary._mem,2,offset);
       DKV.put(key,ary);
     }
     bis.close();
@@ -156,7 +159,7 @@ public class ValueArray extends Value {
     int chunks = chunks(sz);    // Divide by 1Meg into chunks, rounding up
     if( chunks < 2 ) {          // Not enough chunks, so use a single Value
       Value val = new Value(key,(int)sz);      
-      dis.readFully(val.mem());      
+      dis.readFully(val._mem);
       UKV.put(key,val);         // Insert in distributed store
       return key;
     }
@@ -176,7 +179,7 @@ public class ValueArray extends Value {
       
       Key ckey = ary.make_chunkkey(off);
       Value val = new Value(ckey,sz2);
-      dis.readFully(val.mem());
+      dis.readFully(val._mem);
       // Twiddle the key name for this chunk
       
       DKV.put(ckey,val);         // Insert in distributed store

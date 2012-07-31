@@ -148,29 +148,31 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
   // Top-level remote execution hook.  The Key is an ArrayLet or an array of
   // Keys; start F/J'ing on individual keys.  
-  void rexec( Key args ) {
+  public void rexec( Key args ) {
     Value val = DKV.get(args);
     if( val == null ) {
       System.err.println("Missing args in rexec call: possibly the caller did not fence out a DKV.put(args) before calling rexec(,,args,).");
       throw new Error("Missing args");
     }
+    Key[] keys = null;
     if( val.type() == Value.ARRAYLET ) {
-      throw new Error("unimplemented");
+      ValueArray ary = (ValueArray)val;
+      keys = new Key[ary.chunks()];
+      for( int i=0; i<keys.length; i++ )
+        keys[i] = ary.chunk_get(i);
     } else {
       // Parse all the keys out
       byte[] buf = val.get();
       int off = 0;
       int klen = UDP.get4(buf,off); off += 4;
-      Key[] keys = new Key[klen];
+      keys = new Key[klen];
       for( int i=0; i<klen; i++ ) {
-        Key k = Key.read(buf,off);
+        Key k = keys[i] = Key.read(buf,off);
         off += k.wire_len();
-        keys[i] = k;
       }
-      _keys = keys;
     }
-    _lo = _hi = -1;        // Flag that we are still splitting remotely/globally
-    H2O.FJP.invoke(this);  // Classic fork/join computation style.  Compute result into self.
+
+    rexec(keys);
   }
 
   // Handy constructor to fire off on an array of keys
