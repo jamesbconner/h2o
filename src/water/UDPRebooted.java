@@ -16,11 +16,22 @@ public class UDPRebooted extends UDP {
     UDPReceiverThread.free_pack(pack);
   }
 
-  // Define the packet for a multicast announcement of subnet membership,
-  // and local Node health, published by any Node.
+  // Announce self-node reboot to the world
   static void build_and_multicast( ) {
     byte[] buf = new byte[16];
     buf[0] = (byte)UDP.udp.rebooted.ordinal();
+    buf[SZ_PORT] = 1;    // This is a reboot announcement
+    // Send it 3 times.  Obnoxious, but unlikely to be not heard
+    MultiCast.multicast(buf);
+    MultiCast.multicast(buf);
+    MultiCast.multicast(buf);
+  }
+
+  // Announce self-node reboot to the world
+  static public void global_kill( ) {
+    byte[] buf = new byte[16];
+    buf[0] = (byte)UDP.udp.rebooted.ordinal();
+    buf[SZ_PORT] = 2;    // This is a global-kill announcement
     // Send it 3 times.  Obnoxious, but unlikely to be not heard
     MultiCast.multicast(buf);
     MultiCast.multicast(buf);

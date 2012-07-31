@@ -68,6 +68,7 @@ public abstract class H2OPage extends Page {
     + "              <li><a href=\"/PutExecQuery\">Put &amp; Exec</a></li>"
     + "              <li><a href=\"/ImportQuery\">Import</a></li>"
     + "              <li><a href=\"/DebugView\">Debug View</a></li>"
+    + "              <li><a href=\"/Shutdown\">Shutdown All</a></li>"
     + "            </ul>"
     + "          </div><!--/.nav-collapse -->"
     + "        </div>"

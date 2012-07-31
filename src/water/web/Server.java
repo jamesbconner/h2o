@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import init.Loader;
@@ -16,6 +12,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Properties;
 
+import water.Log;
 import water.H2O;
 import water.NanoHTTPD;
 
@@ -114,6 +111,7 @@ public class Server extends NanoHTTPD {
     registerPage(new Remote(),"Remote");
     registerPage(new Remove(),"Remove");
     registerPage(new RemoveAck(),"RemoveAck");
+    registerPage(new Shutdown(),"Shutdown");
     registerPage(new StoreView(),"StoreView");
     registerPage(new Test(),"Test");
     registerPage(new Timeline(),"Timeline");

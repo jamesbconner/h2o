@@ -97,6 +97,10 @@ public class MultiReceiverThread extends Thread {
         continue;
       }
 
+      // Suicide packet?  Short-n-sweet...
+      if( first_byte == UDP.udp.rebooted.ordinal() && pbuf[UDP.SZ_PORT]==2 )
+        System.exit(-1);
+
       // Paxos stateless packets & ACKs just fire immediately in a worker
       // thread.  Dups are handled by these packet handlers directly.  No
       // current membership check required for Paxos packets
