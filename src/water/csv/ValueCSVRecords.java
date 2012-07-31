@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import water.DKV;
 import water.Key;
+import water.UKV;
 import water.Value;
 import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParseException;
@@ -70,10 +71,10 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
     private boolean getChunk(){
       if(_currentChunkId < _root.chunks()){
         Key k = _root.chunk_get(_currentChunkId);
-        _currentChunk = DKV.get(k);      
+        _currentChunk = DKV.get(k);             
         return(_currentChunk != null);
       } else {
-        _currentChunk = null;
+        _currentChunk = null;        
         return false;
       }         
     }
@@ -94,7 +95,7 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
       if(_dataRead > 0){
         res = Arrays.copyOfRange(res, _dataRead, res.length);
       }
-      _dataRead += res.length;
+      _dataRead = res.length;
       return res;      
     }   
     
@@ -111,6 +112,49 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
       return (_currentChunk != null) && ((_dataRead < _currentChunk.length()) || (_currentChunkId < _maxChunkId));      
     }
   } 
+  
+  class Simple_KV_DataProvider extends ADataProvider {
+    Value _firstChunk; // arraylet root
+    Value _secondChunk;
+    
+    int _dataRead;    
+    
+        
+    @Override
+    byte[] nextData(int len) {
+      int N = _dataRead + len;
+      byte [] res;
+      if(_dataRead < _firstChunk.length()){
+        res = _firstChunk.get(N);
+        res = (_dataRead == 0)?res:Arrays.copyOfRange(res, _dataRead, res.length);
+        _dataRead = res.length;
+      } else {
+        if(_secondChunk == null) return null;
+        assert N > _firstChunk.length();
+        N -= (int)_firstChunk.length();
+        res = _secondChunk.get(N);        
+        res = (_dataRead == _firstChunk.length())?res:Arrays.copyOfRange(res, _dataRead - (int)_firstChunk.length(), res.length);
+        _dataRead = (int)_firstChunk.length() + res.length;
+      }            
+      return res;
+    }   
+    
+    Simple_KV_DataProvider(Key k1, Key k2){   
+      super(0,1);
+      _firstChunk = UKV.get(k1);
+      _secondChunk = (k2 == null)?null:UKV.get(k2);
+      _currentChunkId = 0; // not really applicable here            
+    }
+    
+    void close(){_firstChunk = null; _secondChunk = null;}
+
+    @Override
+    boolean hasMoreData() {
+      long maxData = ((_firstChunk == null)?0:_firstChunk.length()) + ((_secondChunk == null)?0:_secondChunk.length());
+      return _dataRead < maxData;      
+    }
+  } 
+  
   
   class StreamDataProvider extends ADataProvider {
     
@@ -230,15 +274,24 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
     iterator();        
   }
   
-  
+ // TODO just a temporary solution - needed for DAvg because DRemoteTask does not provide more than a single key in its map interface 
+ public ValueCSVRecords(Key k1, Key k2, int index,  T csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
+   _dataProvider = new Simple_KV_DataProvider(k1,k2);
+   _rec = csvRecord;
+   setup._parseColumnNames = setup._parseColumnNames;        
+   _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE), csvRecord, columns, setup);
+   setup._parseColumnNames = setup._parseColumnNames && (index == 0);
+   setup._skipFirstRecord = (index > 0);      
+   iterator();
+ }
+ 
  public ValueCSVRecords(Value v, int indexFrom, int indexTo,  T csvRecord, String [] columns, CSVParserSetup setup) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
    _dataProvider = new KV_DataProvider(v, indexFrom, indexTo);
    _rec = csvRecord;
    setup._parseColumnNames = setup._parseColumnNames;        
    _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE), csvRecord, columns, setup);
    setup._parseColumnNames = setup._parseColumnNames && (indexFrom == 0);
-   setup._skipFirstRecord = (indexFrom > 0);
-      
+   setup._skipFirstRecord = (indexFrom > 0);     
    iterator();
  }
  

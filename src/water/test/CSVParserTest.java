@@ -22,9 +22,11 @@ import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 
+import test.analytics.PokerAvg;
 import water.DKV;
 import water.H2O;
 import water.Key;
+import water.UKV;
 import water.Value;
 import water.ValueArray;
 import water.csv.CSVParser.CSVEscapedBoundaryException;
@@ -468,7 +470,26 @@ public class CSVParserTest {
       System.out.println("\t\t" + failure.getDescription() + failure.getTrace());
     }
   }
+  
+  @Test
+  public void testParsingPokerCSV(){
+    Key k = Key.make("poker.data");
+    Value v = DKV.get(k);
+    try {
+      PokerAvg avg = new PokerAvg();
+      avg.rexec(v);
+      System.out.println();
+      System.out.print("Results: ");
+      for(int i = 0; i < avg.nvalues(); ++i)
+        System.out.print(" " + avg.value(i));
+      System.out.println();
+    } catch (Exception e) {
+      e.printStackTrace();
+      Assert.assertTrue(false);
+    }
+  } 
 }
+
 //System.out.print("Test CSVString sequence...");
 //if(testCSVString())
 //System.out.println("ok");
