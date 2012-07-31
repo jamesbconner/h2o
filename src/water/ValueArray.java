@@ -189,4 +189,40 @@ public class ValueArray extends Value {
     UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }
+  
+  /**
+   * Get the index of this chunks ASSUMING it is an arraylet chunk.
+   * If not, the number returned does not make sense.  
+   * 
+   * Assumes you pass in an arraylet chunk key - must be a system key.
+   * 
+   * @param k - key of arraylet chunk 
+   * @return - index (offset) of arraylet chunk
+   */
+  public static int getChunkIndex(Key k) {
+    if(k._kb[0] != 0 || k._kb[1] != 0) // arraylet chunks are system keys 
+      throw new IllegalArgumentException("can only work an an arraylet chunk (must be a system key)");
+    long n = UDP.get8(k._kb, 2);
+    return (int) (n >> ValueArray.LOG_CHK);
+  }
+
+  /**
+   * Get the chunk with the given index.
+   * The returned key is *not* guaranteed to exist in K/V store. 
+   * 
+   * Assumes you pass in an arraylet chunk key - must be a system key.
+   *   
+   * @param k - key of arraylet chunk 
+   * @param index - offset of the requested chunk 
+   * @return - Key of the chunk with offset == index
+   */
+  public static Key getChunk(Key k, int index) {
+    if(k._kb[0] != 0 || k._kb[1] != 0) // arraylet chunks are system keys 
+      throw new IllegalArgumentException("can only work an an arraylet chunk (must be a system key)");
+    byte[] arr = k._kb.clone();
+    long n = ((long) index) << ValueArray.LOG_CHK;
+    UDP.set8(arr, 2, n);
+    return Key.make(arr);
+  }
+  
 }
