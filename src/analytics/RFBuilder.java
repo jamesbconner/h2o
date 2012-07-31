@@ -26,15 +26,13 @@ public abstract class RFBuilder {
 
   protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
 
-  private  long seed;
   private  Random random;
   public ProtoTree[] trees;
   Sample partition_;
   private final DataAdapter data_;
 
-  protected RFBuilder(long seed, DataAdapter data) { throw new Error("Deprecated");  }
   protected RFBuilder(DataAdapter data) {  data_ = data;  }
-  public void setSeed(long seed) { assert random==null; random = new Random(this.seed=seed);  }
+  public void setRandom(Random rand) { assert random==null; random = rand; }
   
   // node under construction ---------------------------------------------------
 
@@ -188,8 +186,7 @@ public abstract class RFBuilder {
         // fill in the new last level nodes and offsets
         levelNodes[i] = n;
         lastOffsets_[i] = newNodes;
-        // if it is not a leaf node, add the number of children to the nodes
-        // to be constructed
+        // if not a leaf node, add the number of children to nodes to be constructed
         if( n.numClasses() > 1 ) newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode index
         ((Node) lastNodes_[nodeIndex]).setSubtree(subnodeIndex, n);
@@ -293,8 +290,7 @@ public abstract class RFBuilder {
                 int offset = 0;
                 for( Statistic stat : n.statistics_ ){
                   stat.addDataPoint(data_, n.statisticsData_, offset);
-                  offset += (stat.dataSize() + 7) & -8; // round to multiple of
-                                                        // 8
+                  offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
                 }
               }
             }
@@ -306,6 +302,7 @@ public abstract class RFBuilder {
         if( tree.nodes_ != null ) done = false;
       }
       if( done ) break;
+    //  System.out.println("OOBE = "+outOfBagError());
     }
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
@@ -322,26 +319,33 @@ public abstract class RFBuilder {
    * @return The out-of-bag error for the constructed tree.
    */  
   public double outOfBagError() {
-    assert (partition_ != null && trees != null); // make sure we have already computed
+    return outOfBagError(trees);
+  }
+  
+  /** Computes the out of bag error for the built random forest. 
+   * 
+   * Out classifiers are only integer and non-numeric in the final output so we
+   * do not need the double vectors and their normalization. This method is thus
+   * much simpler than those of different frameworks.
+   * 
+   * @return The out-of-bag error for the constructed tree.
+   */  
+  public double outOfBagError(ProtoTree[] ts) {
+    assert (partition_ != null && ts != null); // make sure we have already computed
     double err = 0, oobc = 0;
     
     for (int r = 0; r < data_.numRows(); ++r) {
       data_.seekToRow(r);
       int[] votes = new int[data_.numClasses()];
       int voteCount = 0;
-      for (int t = 0; t < trees.length; ++t) {
+      for (int t = 0; t < ts.length; ++t) {
         if (partition_.occurrences(t, r) > 0) continue; // don't use training data
-        votes[trees[t].root_.classifyRecursive(data_)] += 1;
+        votes[ts[t].root_.classifyRecursive(data_)] += 1;
         voteCount += 1;
       }
-      // TODO check, I believe that we should not even bother with the row if
-      // all trees were trained on it, therefore we are not able to decide on it
-      // when doing out-of-bag, otherwise the weka algorithm makes no sense to
-      // me as it would always predict its class to 0. 
-      if (voteCount!=0) {
-        oobc += data_.weight();
-        if (Utils.maxIndex(votes) != data_.dataClass())  err += data_.weight();
-      }
+      if (voteCount==0) continue; // don't count training data
+      oobc += data_.weight();
+      if (Utils.maxIndex(votes, random) != data_.dataClass())  err += data_.weight();
     }
     return err / oobc;
   }

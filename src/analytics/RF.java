@@ -1,6 +1,7 @@
 package analytics;
 
 import java.text.DecimalFormat;
+import java.util.Random;
 
 /**
  *
@@ -9,21 +10,22 @@ import java.text.DecimalFormat;
 public class RF implements Classifier {
   private DecisionTree[] trees_;
   final int seed_;
+  final Random rand_;
   final RFBuilder builder_;
   final DataAdapter data_;
   final int numTrees_;
   long time_;
   
   public RF(DataAdapter data, RFBuilder builder, int numtrees, int seed) { 
-    builder_=builder; data_=data; seed_ = seed; numTrees_=numtrees;
-    builder.setSeed(seed_);
+    builder_=builder; data_=data; seed_ = seed; rand_=new Random(seed_); numTrees_=numtrees;
+    builder.setRandom(rand_);
   }
   
   public int classify(DataAdapter data) {
     int[] counts = new int[numClasses()];
     for (DecisionTree tree: trees_)
       counts[tree.classify(data)] += 1;
-    return Utils.maxIndex(counts);
+    return Utils.maxIndex(counts, rand_);
   }
 
   public int numClasses() { return trees_[0].numClasses(); }
