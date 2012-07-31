@@ -70,7 +70,7 @@ public class Test {
 
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
-  @org.junit.Test public void test3() throws FileNotFoundException, IOException {
+  @org.junit.Test public void test3() {
     h2o_cloud_of_size(3);
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
@@ -106,6 +106,34 @@ public class Test {
       _x |= ((RemoteBitSet)rbs)._x;
     }
   }
+
+  // ---
+  // Issue a large Key/Value put/get - testing the TCP path
+  @org.junit.Test public void test4() {
+    h2o_cloud_of_size(2);
+
+    // Make an execution key homed to the remote node
+    H2O cloud = H2O.CLOUD;
+    H2ONode target = cloud._memary[0];
+    if( target == H2O.SELF ) target = cloud._memary[1];
+    Key remote_key = Key.make("test4_remote",(byte)1,Key.DFJ_INTERNAL_USER,target); // A key homed to a specific target
+    Value v0 = DKV.get(remote_key);
+    assertNull(v0);
+    // It's a Big Value
+    Value v1 = new Value(remote_key,100000);
+    byte[] bits = v1.mem();
+    for( int i=0; i<bits.length; i++ )
+      bits[i] = (byte)i;
+    // Start the remote-put operation
+    DKV.put(remote_key,v1);
+    assertEquals(v1._key,remote_key);
+    Value v2 = DKV.get(remote_key);
+    assertEquals(v1,v2);
+    DKV.remove(remote_key);
+    Value v3 = DKV.get(remote_key);
+    assertNull(v3);
+  }
+
 
   // ---
   // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs

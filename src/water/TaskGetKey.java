@@ -120,6 +120,7 @@ public class TaskGetKey extends DFutureTask<Value> {
         DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
         // Write out the initial operation & key
         dos.writeByte(UDP.udp.getkey.ordinal());
+        dos.writeShort(H2O.UDP_PORT);
         dos.writeInt(tnum);
         key.write(dos);
         // Start the (large) write

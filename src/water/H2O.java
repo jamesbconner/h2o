@@ -135,7 +135,10 @@ public final class H2O {
       // Get the specified home
       H2ONode h2o = H2ONode.read(kb,(1+1+H2ONode.wire_len()*repl));
       // Reverse the home to the index
-      return nidx(h2o);
+      int idx = nidx(h2o);
+      if( idx != -1 ) return idx;
+      // Else homed to a node which is no longer in the cloud!
+      // Fall back to the normal home mode
     }
 
     // Easy Cheesy Stupid:
