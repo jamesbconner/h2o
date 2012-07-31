@@ -1,5 +1,7 @@
 package test.analytics;
 
+import java.util.Random;
+
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
 import analytics.RF;
@@ -194,13 +196,15 @@ public class IrisAdapter extends DataAdapter {
 
   public static void main(String []_) {   
     DataAdapter data=new IrisAdapter();
-    RF rf = RF.compute(100,new IrisBuilder(67436482,data));
-    System.out.println("Built.");
+    IrisBuilder builder = new IrisBuilder(data);
+    RF rf = new RF(data,builder,100,new Random().nextInt());
+    rf.compute();
+    System.out.println(rf);
   }
 }
 
 class IrisBuilder extends RFBuilder {
-  protected IrisBuilder(long seed, DataAdapter data) { super(seed,data);  }
+  protected IrisBuilder(DataAdapter data) { super(data);  }
   @Override  protected void createStatistic(ProtoNode node, int[] columns) {
         node.addStatistic(new AverageStatistic(columns,3));
   }

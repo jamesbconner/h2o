@@ -14,7 +14,9 @@ public interface Classifier {
   /** Returns the number of classes for this classifier. */
   int numClasses();
   
-   static public class Const implements Classifier {
+  String toString();
+  
+  static public class Const implements Classifier {
     final int result;
     /** Creates the constant classifier that will always return the given result.  */
     public Const(int result) { this.result = result; }
@@ -22,4 +24,30 @@ public interface Classifier {
     /** The ConstClassifier always classifies to only a single class.  */
     public int numClasses() { return 1; }    
   }
+  
+  public static class Operations {
+    
+    /** Returns the standard error of the given classifier on the given dataset.
+     * Note that for the RF implementation: this error does not look at Bag/OutofBag.
+     * This means that for RF the error reported will be smaller than the actual
+     * error rate. If we wanted a more accurate error rate we could drop the inBag
+     * values.     */ 
+    public static double error(Classifier c, DataAdapter d) {
+      double err = 0.0;
+      double wsum = 0.0;
+      for (int r = 0; r < d.numRows(); ++r) {
+        d.seekToRow(r);
+        wsum += d.weight();
+        if (d.dataClass() != c.classify(d))
+          err += d.weight();
+      }
+      return err / wsum;
+    }
+    
+  }
+  
 }
+
+
+
+

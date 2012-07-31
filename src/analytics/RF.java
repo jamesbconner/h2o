@@ -1,66 +1,56 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package analytics;
+
+import java.text.DecimalFormat;
 
 /**
  *
  * @author peta
  */
 public class RF implements Classifier {
-  private final DecisionTree[] trees_;
+  private DecisionTree[] trees_;
+  final int seed_;
+  final RFBuilder builder_;
+  final DataAdapter data_;
+  final int numTrees_;
+  long time_;
   
-  RF(DecisionTree[] trees) {
-    trees_ = trees;
-    assert (trees != null);
-    assert (trees.length>=1);
+  public RF(DataAdapter data, RFBuilder builder, int numtrees, int seed) { 
+    builder_=builder; data_=data; seed_ = seed; numTrees_=numtrees;
+    builder.setSeed(seed_);
   }
-
-  @Override public int classify(DataAdapter data) {
+  
+  public int classify(DataAdapter data) {
     int[] counts = new int[numClasses()];
-    for (DecisionTree tree: trees_) 
+    for (DecisionTree tree: trees_)
       counts[tree.classify(data)] += 1;
-    int result = 0;
-    for (int i = 1; i<counts.length; ++i) {
-      if (counts[result] < counts[i])
-        result = i;
-    }
-    return result;
+    return Utils.maxIndex(counts);
   }
 
-  @Override public int numClasses() {
-    return trees_[0].numClasses();
+  public int numClasses() { return trees_[0].numClasses(); }
+  
+  public void compute() { 
+    long t1 = System.nanoTime();
+    trees_ = builder_.compute(numTrees_);
+    long t2 = System.nanoTime();
+    time_ = (t2-t1)/1000000;
   }
-  
-  
-  
-  
-  public static RF compute(int numTrees, RFBuilder builder) {
-    return builder.compute(numTrees);
-  }
+  public double outOfBagError() { return builder_.outOfBagError(); }
 
+  public int numTrees() {
+    return trees_.length;
+  }
+  
+  public DecisionTree tree(int n) {
+    return trees_[n];
+  }
+  
+  static final DecimalFormat df = new  DecimalFormat ("0.###");
+ 
+  public String toString() {
+    String errors="";
+    for (int i = 0; i<numTrees(); ++i) 
+       errors +=" " +  df.format(Classifier.Operations.error(tree(i),data_));
+    return "RF:  " + trees_.length + " trees, seed="+ seed_ +", compute(ms)="+time_+"\n"
+        + "OOB err = " + outOfBagError() + "\n" + "Single tree errors: " + errors;
+  }
 }
-/*
-public class RF {
-    private final DataAdapter data_;
-    public RF(DataAdapter data) { data_ = data;  }
-    
-    public DecisionTree[] compute(int ntrees, RFBuilder b) { 
-      b.compute(ntrees,false);
-      System.out.println("Testing " +(ntrees) + " trees");
-      for (int t = 0;  t< ntrees; ++t) {
-        DecisionTree dt = new DecisionTree(b.trees[t].root_);
-        for (int r = 0; r< data_.numRows(); ++r) {
-          data_.seekToRow(r);
-          int expected =data_.dataClass();
-          data_.seekToRow(r);
-          int got = dt.classify(data_);
-          if (got!=expected) 
-            System.out.println(" Row "+r+" expected "+expected+", got "+got);
-        }
-      }
-      return null;
-    }  
-
-} */

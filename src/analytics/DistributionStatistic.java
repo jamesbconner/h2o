@@ -28,11 +28,11 @@ public abstract class DistributionStatistic extends Statistic {
   
   /** Increments the counter for given column category and data category.   */
   @Override public void addDataPoint(DataAdapter da, long[] data, int offset) {
-    addDouble(1, data, (da.toInt(column) * dataCategories)  + da.dataClass() * 4);
+    addDouble(da.weight(), data, (da.toInt(column) * dataCategories)  + da.dataClass() * 8);
   }
 
   /** For each data category and column category we must remember the count. */
-  @Override public int dataSize() { return categories*dataCategories*4; }
+  @Override public int dataSize() { return categories*dataCategories*8; }
 }
 
 
