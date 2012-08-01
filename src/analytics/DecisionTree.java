@@ -86,7 +86,7 @@ public class DecisionTree implements Classifier {
       sb.append(classifier.toString());
       for (int i = 0; i<subnodes.length; ++i) {
         sb.append(" ");
-        sb.append(subnodes[i].toString());
+        if (subnodes[i]!= null) sb.append(subnodes[i].toString());
       }
       sb.append(")");
       return sb.toString();
