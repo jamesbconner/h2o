@@ -129,57 +129,19 @@ public abstract class DataAdapter {
 class AdapterWrapper extends DataAdapter {
   protected final DataAdapter data_;
 
-  AdapterWrapper(DataAdapter data) {
-    data_ = data;
-  }
-  
-  @Override public void seekToRow(int index) {
-    data_.seekToRow(index);
-  }  
-  
-  @Override public int numRows() {
-    return data_.numRows();
-  }
-
-  @Override public int numColumns() {
-    return data_.numColumns();
-  }
-
-  @Override public boolean isInt(int index) {
-    return data_.isInt(index);
-  }
-
-  @Override public int toInt(int index) {
-    return data_.toInt(index);
-  }
-
-  @Override public double toDouble(int index) {
-    return data_.toDouble(index);
-  }
-
-  @Override public Object originals(int index) {
-    return data_.originals(index);
-  }
-
-  @Override public int numClasses() {
-    return data_.numClasses();
-  }
-
-  @Override public int dataClass() {
-    return data_.dataClass();
-  }
-  
-  @Override public double weight() {
-    return data_.weight();
-  }
-
-  @Override
-  public Statistic createStatistic() {
-    return data_.createStatistic();
-  }
-
+  AdapterWrapper(DataAdapter data) { data_ = data;  }
+  @Override public void seekToRow(int index) { data_.seekToRow(index);  }  
+  @Override public int numRows() { return data_.numRows(); }
+  @Override public int numColumns() { return data_.numColumns();  }
+  @Override public boolean isInt(int index) { return data_.isInt(index); }
+  @Override public int toInt(int index) { return data_.toInt(index);  }
+  @Override public double toDouble(int index) { return data_.toDouble(index); }
+  @Override public Object originals(int index) { return data_.originals(index); }
+  @Override public int numClasses() { return data_.numClasses(); }
+  @Override public int dataClass() { return data_.dataClass(); }
+  @Override public double weight() { return data_.weight(); }
+  @Override public Statistic createStatistic() { return data_.createStatistic(); }
   @Override  public int numFeatures() { return data_.numFeatures(); }
-
 }
 
 class IntWeightedWrapper extends AdapterWrapper {
@@ -194,13 +156,10 @@ class IntWeightedWrapper extends AdapterWrapper {
   
   // TODO this is to do the same thing as the old code ( the data_.weight()
   // multiplication). I am not sure it is correct though
-  @Override public double weight() {
-    return occurences[cur] * data_.weight();
-  }
+  @Override public double weight() { return occurences[cur] * data_.weight(); }
 }
 
 class OutOfBagSampler extends AdapterWrapper {
-  
   final long seed_;
   Random rnd_;
   int rowOccurence_;
@@ -224,8 +183,7 @@ class OutOfBagSampler extends AdapterWrapper {
   }
   
   @Override public void seekToRow(int index) {
-    if (data_.cur != index-1)
-      reset();
+    if (data_.cur != index-1)  reset();
     while (data_.cur != index) {
       data_.seekToRow(data_.cur+1);
       computeRowOccurence();

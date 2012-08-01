@@ -27,8 +27,7 @@ public class RFBuilder {
    */
   public class ProtoNode {
 
-    long[] statisticsData_ = null;
-    
+    long[] statisticsData_ = null;    
     protected  Statistic statistic_; // the statistic to be computed
 
     ProtoNode(Statistic s) { 
@@ -43,10 +42,7 @@ public class RFBuilder {
      * Returns the normal node that should be created from the node under
      * construction. Determines the best statistic for the node based on their
      * ordering and creates its classifier which is in turn used to produce the
-     * proper node.
-     * 
-     * @return
-     */
+     * proper node.  */
     INode createNode() {
       int defaultCategory = statistic_.defaultCategory(statisticsData_,0);
       Classifier nc = statistic_.createClassifier(statisticsData_, 0);
@@ -191,10 +187,9 @@ public class RFBuilder {
       if( lastNodes_ == null ) return 0;
       // if the lastNode is leaf, do not include the row in any further tasks
       // for this tree. It has already been decided
-      if( oldNode >= lastNodes_.length ) System.out.println("error here");
+      if( oldNode >= lastNodes_.length ) throw new Error();
       if( lastNodes_[oldNode].numClasses() == 1 ) return -1;
-      // use the classifier on the node to classify the node number in the new
-      // level
+      // use the classifier on the node to classify the node number in the new level
       return lastOffsets_[oldNode] + lastNodes_[oldNode].classify(data_);
     }
   }

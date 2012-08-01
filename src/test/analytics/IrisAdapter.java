@@ -173,17 +173,17 @@ public class IrisAdapter extends DataAdapter {
       new F(150, 5.9, 3.0, 5.1, 1.8, "virginica") };
 
   
-  public int numColumns() { return 5;  }
-  public boolean isInt(int index) {  return index==0;  }
-  public int toInt(int index) {  if(index==0) return data[cur].id; else throw new Error(); }
+  public int numColumns() { return 4;  }
+  public boolean isInt(int index) {  return false;  }
+  public int toInt(int index) {  throw new Error(); }
 
   public double toDouble(int index) {
-    if (index >0 && index <=4) {
-      if (index==1) return data[cur].pl;
-      if (index==2) return data[cur].pw;
-      if (index==3) return data[cur].sl;
-      if (index==4) return data[cur].sw;
-    } else if (index==0) return (double)data[cur].id;
+    switch(index) {
+    case 0: return data[cur].pl;
+    case 1: return data[cur].pw;
+    case 2: return data[cur].sl;
+    case 3: return data[cur].sw;
+    }
     throw new Error("Accessing column "+index);
   }
 
@@ -194,7 +194,7 @@ public class IrisAdapter extends DataAdapter {
   public static void main(String[]_) {   
     RF rf = new RF(new IrisAdapter(),1000 * 1000);
     rf.compute();
- //  System.out.println(rf);
+  // System.out.println(rf);
   }
   
   public Statistic createStatistic() { return new AverageStatistic(this); }

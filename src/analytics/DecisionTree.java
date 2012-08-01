@@ -65,11 +65,7 @@ public class DecisionTree implements Classifier {
     }
     
     /** Classifies the row only on the classifier internal to the node. This
-     * determines which subtree to use. 
-     * 
-     * @param row
-     * @return 
-     */
+     * determines which subtree to use.  */
     public int classify(DataAdapter row) { return classifier.classify(row); }
     
     /** Returns to how many categories/subtrees the node itself classifies. 
@@ -78,20 +74,13 @@ public class DecisionTree implements Classifier {
      */
     public int numClasses() { return classifier.numClasses(); } // subnodes might be null
     
-    /** Sets the index-th subtree to the given node. 
-     * 
-     * @param index
-     * @param subtree 
-     */
+    /** Sets the index-th subtree to the given node.   */
     void setSubtree(int index, INode subtree) {
       assert (subnodes[index] == null); subnodes[index] = subtree;
     }
     
     /** Returns the string representation of the node. That is the contents of
-     * the subtrees in parentheses. 
-     * 
-     * @return 
-     */
+     * the subtrees in parentheses.   */
     public String toString() {
       StringBuilder sb = new StringBuilder("(");
       sb.append(classifier.toString());
@@ -123,7 +112,5 @@ public class DecisionTree implements Classifier {
   /** Creates the decision tree from the root node.   */ 
   public DecisionTree(INode root) { root_ = root; }
   
-  public String toString() {
-    return root_.toString();
-  }
+  public String toString() { return root_.toString(); }
 }
