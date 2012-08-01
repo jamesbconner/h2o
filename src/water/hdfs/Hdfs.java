@@ -10,7 +10,7 @@ import water.Log;
  */
 public class Hdfs {
 
-  public static final String DEFAULT_HDFS_VERSION = "1.0.0";
+  public static final String DEFAULT_HDFS_VERSION = "cdh4";
 
   // initialization ------------------------------------------------------------  
   
@@ -30,9 +30,10 @@ public class Hdfs {
       // understands -hdfs=hdfs://server:port
       //             -hdfs-root=root
       //             -hdfs-config=config file
-      String version = DEFAULT_HDFS_VERSION;
+      String version = H2O.OPT_ARGS.hdfs_version==null ? DEFAULT_HDFS_VERSION : H2O.OPT_ARGS.hdfs_version;
       Loader loader = Loader.instance();
-      if (!loader.addInternalJar("hadoop/"+version+"/hadoop-core-"+version+".jar"))
+      // get all files inder jar folder 
+      if (!loader.addInternalJarFolder("hadoop/"+version+"/",true))
         Log.die("[hdfs] Unable to initialize hadoop version "+version+" please use different version.");
       new PersistHdfs();        // Touch & thus start HDFS
       return true;

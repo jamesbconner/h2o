@@ -184,12 +184,12 @@ public class Loader extends URLClassLoader {
   
   /** Adds internal jar folder. 
    * Extracts the jar folder to the root and adds all its jars to the classpath. */
-  boolean addInternalJarFolder(String name, boolean recursive) {
+  public boolean addInternalJarFolder(String name, boolean recursive) {
     return addExternalJarFolder(extractInternalFolder(name),recursive);
   }
 
   /** Adds all jars in the external path to the classpath.  */
-  boolean addExternalJarFolder(String name, boolean recursive) {
+  public boolean addExternalJarFolder(String name, boolean recursive) {
     return addExternalJarFolder(new File(name),recursive);
   }
   
@@ -202,13 +202,14 @@ public class Loader extends URLClassLoader {
    * added. 
    * @return True if all went ok, false if any errors.  
    */
-  boolean addExternalJarFolder(File dir, boolean recursive) {
+  public boolean addExternalJarFolder(File dir, boolean recursive) {
     boolean result = true;
     for (File f : dir.listFiles()) 
       if (f.isDirectory()) {
         if (recursive) result = addExternalJarFolder(f,true) && result;
       } else {
         if (f.getName().endsWith(".jar")) result = addExternalJar(f) && result;
+	System.out.println("adding jar " + f.getName());
       }
     return result;
   }
