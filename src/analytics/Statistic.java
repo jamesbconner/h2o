@@ -33,10 +33,6 @@ public abstract class Statistic {
    * rows of one type, the ConstClassifier should be returned.    */ 
   public abstract Classifier createClassifier(long[] data, int offset);
 
-  /** Returns the fitness of the statistic. This is used to determine the best
-   * statistic to produce the classifier when the whole data is analyzed.   */
-  public abstract double fitness(long data[], int offsset);
-  
   
   /** Reads the long value from given data at given offset.    */
   protected final long readLong(long[] data, int offset) {
@@ -63,12 +59,7 @@ public abstract class Statistic {
     return Double.longBitsToDouble(data[(offset) / 8]);
   }
 
-  /** Writes a double value. 
-   * 
-   * @param value
-   * @param data
-   * @param offset 
-   */
+  /** Writes a double value. */
   protected final void writeDouble(double value, long[] data, int offset) {
     assert (offset % 8 == 0);
     data[(offset) / 8] = Double.doubleToLongBits(value);

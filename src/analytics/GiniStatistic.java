@@ -30,12 +30,6 @@ public class GiniStatistic extends DistributionStatistic {
       return new Classifier.Const(seenType_); 
     }
   }
-
-  @Override public double fitness(long[] data, int offset) {
-    if (value_ == -1)
-      computeBestSplit(data,offset);
-    return fitness_;
-  }
   
   @Override public void addDataPoint(DataAdapter row, long[] data, int offset) {
     super.addDataPoint(row,data,offset);

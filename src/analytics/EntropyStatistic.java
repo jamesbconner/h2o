@@ -32,7 +32,4 @@ public class EntropyStatistic extends Statistic {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  public double fitness(long[] data, int offset) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
 }

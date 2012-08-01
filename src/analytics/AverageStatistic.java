@@ -123,18 +123,6 @@ public class AverageStatistic extends Statistic {
     return result>-1 ? new Classifier.Const(result) :  c;
   }
 
-  /** Returns the fitness of the statistics. The fitness for the numeric 
-   * statistic is a little meaningless without the second pass, so we do not 
-   * support a combination of statistics if one of them is numeric. 
-   * 
-   * TODO Do something about this, or make it permanent. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */
-  public double fitness(long[] data, int offset) {  return 0;  }
-  
 
   public class AClassifier implements Classifier {
     
