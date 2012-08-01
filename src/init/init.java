@@ -26,7 +26,7 @@ public class init {
       //System.out.println("Extracting dependencies...");
       loader.addInternalJarFolder("sigar" ,true);
       loader.addInternalJarFolder("apache",true);
-      loader.addInternalJarFolder("hadoop",true);
+      // removed hadoop folder - pollutes path with other versions jars.
       loader.addInternalJarFolder("junit" ,true);
     } else {
       loader._binlib = new File("lib/binlib");

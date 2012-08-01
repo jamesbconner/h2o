@@ -244,6 +244,7 @@ public final class H2O {
     public String ip;                 // Named IP4/IP6 address instead of the default
     public String ice_root;           // ice root directory
     public String hdfs;               // HDFS backend
+    public String hdfs_version;       // version of the filesystem
     public String hdfs_root;          // root of the HDFS installation (for I only)
     public String hdfs_config;        // configuration file of the HDFS
     public String hdfs_datanode;      // Datanode root
