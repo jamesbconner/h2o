@@ -31,10 +31,10 @@ public class RF implements Classifier {
   public int numClasses() { return trees_[0].numClasses(); }
   
   public void compute() { 
-    long t1 = System.nanoTime();
+    long t1 = System.currentTimeMillis();
     trees_ = builder_.compute(numTrees_);
-    long t2 = System.nanoTime();
-    time_ = (t2-t1)/1000000;
+    long t2 = System.currentTimeMillis();
+    time_ = (t2-t1);
   }
   public double outOfBagError() { return builder_.outOfBagError(); }
 
@@ -53,6 +53,6 @@ public class RF implements Classifier {
     for (int i = 0; i<numTrees(); ++i) 
        errors +=" " +  df.format(Classifier.Operations.error(tree(i),data_));
     return "RF:  " + trees_.length + " trees, seed="+ seed_ +", compute(ms)="+time_+"\n"
-        + "OOB err = " + outOfBagError() + "\n" + "Single tree errors: " + errors;
+        + "OOB err = " + outOfBagError() + "\n";// + "Single tree errors: " + errors;
   }
 }

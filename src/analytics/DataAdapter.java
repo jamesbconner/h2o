@@ -66,6 +66,7 @@ public abstract class DataAdapter {
    */
   
   public static DataAdapter weightedOutOfBagSampling(DataAdapter data, int bagSizePercent, Random r) {
+    if(true) throw new Error("Jan thinks we are not using this method yet :-)");
     byte[] occurrences = new byte[data.numRows()];
     double[] weights = new double[data.numRows()];
     double sumWeights = 0;

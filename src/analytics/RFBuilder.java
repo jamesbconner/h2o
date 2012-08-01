@@ -387,31 +387,40 @@ class Sample {
   public int occurrences(int tree, int row) { return occurrences_[tree][row]; }
   public int getNode(int tree, int row) { return nodes_[tree][row];  }
   public void setNode(int tree, int row, int val) { nodes_[tree][row] = (byte) val;  }
-  double sum(double[] d) {
+  static double sum(double[] d) {
     double r = 0.0; for( int i = 0; i < d.length; i++ ) r += d[i]; return r;
   }
-
-  void normalize(double[] doubles, double sum) {
+  static void normalize(double[] doubles, double sum) {
     assert ! Double.isNaN(sum) && sum != 0;
     for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
   }
 
-  void weightedSampling(DataAdapter adapt, Random random, int tree) {
-    double[] weights = new double[rows_];
-    for( int i = 0; i < weights.length; i++ ){
+  static class WP { double [] weights, probabilities;  }
+  static WP wp = new WP();
+  /// TODO: if the weights change we have to recompute...
+  static private WP wp(int rows_, DataAdapter adapt, Random random) {
+    if(wp.weights!=null) return wp;
+    wp.weights = new double[rows_];
+    for( int i = 0; i < wp.weights.length; i++ ){
       adapt.seekToRow(i);
-      weights[i] = adapt.weight();
+      wp.weights[i] = adapt.weight();
     }
-    double[] probabilities = new double[rows_];
-    double sumProbs = 0, sumOfWeights = sum(weights);
+    wp.probabilities = new double[rows_];
+    double sumProbs = 0, sumOfWeights = sum(wp.weights);
     for( int i = 0; i < rows_; i++ ){
       sumProbs += random.nextDouble();
-      probabilities[i] = sumProbs;
+      wp.probabilities[i] = sumProbs;
     }
-    normalize(probabilities, sumProbs / sumOfWeights);
-    probabilities[rows_ - 1] = sumOfWeights;
-    int k = 0, l = 0;
-    sumProbs = 0;
+    normalize(wp.probabilities, sumProbs / sumOfWeights);
+    wp.probabilities[rows_ - 1] = sumOfWeights;
+    return wp;
+  }
+  
+
+  void weightedSampling(DataAdapter adapt, Random random, int tree) {
+    WP wp = wp(rows_,adapt,random);
+    double[] weights = wp.weights, probabilities = wp.probabilities;
+    int k = 0, l = 0, sumProbs = 0;
     while( k < rows_ && l < rows_ ){
       assert weights[l] > 0;
       sumProbs += weights[l];
