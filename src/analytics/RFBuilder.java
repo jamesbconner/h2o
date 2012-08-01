@@ -27,15 +27,10 @@ public class RFBuilder {
    */
   public class ProtoNode {
 
-    long[] statisticsData_ = null;    
     protected  Statistic statistic_; // the statistic to be computed
 
     ProtoNode(Statistic s) { 
        statistic_ = s; 
-       int size = 0;
-       size += s.dataSize();
-       size = (size + 7) & -8; // round to multiple of 8
-       statisticsData_ = new long[size];
     }
 
     /**
@@ -44,9 +39,9 @@ public class RFBuilder {
      * ordering and creates its classifier which is in turn used to produce the
      * proper node.  */
     INode createNode() {
-      int defaultCategory = statistic_.defaultCategory(statisticsData_,0);
-      Classifier nc = statistic_.createClassifier(statisticsData_, 0);
-      statistic_=null; statisticsData_=null;// Jan -- is this enough to allow GC?
+      int defaultCategory = statistic_.defaultCategory();
+      Classifier nc = statistic_.createClassifier();
+      statistic_=null; // Jan -- is this enough to allow GC?
       if (nc == null)
         return null;
       return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
@@ -217,11 +212,8 @@ public class RFBuilder {
             node = tree.getNodeNumber(node);
             if( node != -1 ){
               ProtoNode n = tree.nodes_[node];
-              for( int cnt = 0; cnt < count; cnt++ ){
-                int offset = 0;
-                n.statistic_.addDataPoint(data_, n.statisticsData_, offset);
-                offset += (n.statistic_.dataSize() + 7) & -8; // round to multiple of 8
-              }
+              for( int cnt = 0; cnt < count; cnt++ )
+                n.statistic_.addDataPoint(data_);
             }
             partition_.setNode(t, tree.rowIndex_, node);
             tree.rowIndex_++;

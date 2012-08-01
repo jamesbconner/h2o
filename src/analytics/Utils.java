@@ -16,9 +16,20 @@ public class Utils {
   public static int maxIndex(int[] from, Random rand) {
     int result = 0;
     for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
-      else if (from[i]==from[result] && rand.nextBoolean()) result = i; // tie breaker
+      else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
     return result;
   }
+
+  /** Returns the index of the largest value in the array. In case of a tie, an
+   * the index is selected randomly.   */
+  public static int maxIndex(double[] from, Random rand) {
+    int result = 0;
+    for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
+      else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
+    return result;
+  }
+  
+  
   
   public static void normalize(double[] doubles, double sum) {
     assert ! Double.isNaN(sum) && sum != 0;

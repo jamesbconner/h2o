@@ -192,7 +192,7 @@ public class IrisAdapter extends DataAdapter {
   public int dataClass() { return data[cur].class_; }
 
   public static void main(String[]_) {   
-    RF rf = new RF(new IrisAdapter(),100000);
+    RF rf = new RF(new IrisAdapter(),10000);
     rf.compute();
     System.out.println(rf);
   }

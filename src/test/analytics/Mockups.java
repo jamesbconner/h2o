@@ -6,29 +6,16 @@ import analytics.DataAdapter;
 import analytics.Statistic;
 
 
+
+
+
+
+
 class DummyStatistic extends Statistic {
 
   int size;
   int classifyTo = -1;
   
-  
-  public void addDataPoint(DataAdapter row, long[] data, int offset) {
-    
-  }
-
-  public int dataSize() {
-    return size;
-  }
-
-  public Classifier createClassifier(long[] data, int offset) {
-    if (classifyTo<0)
-      return new Classifier.Const(-classifyTo);
-    else return new DummyClassifier(classifyTo);
-  }
-
-  public double fitness(long[] data, int offset) {
-    return 0;
-  }
   
   public DummyStatistic() {
     size = 8;
@@ -38,6 +25,17 @@ class DummyStatistic extends Statistic {
   public DummyStatistic(int size, int classifyTo) {
     this.size = size;
     this.classifyTo = classifyTo;
+  }
+
+  @Override
+  public void addDataPoint(DataAdapter adapter) {
+  }
+
+  @Override
+  public Classifier createClassifier() {
+    if (classifyTo<0)
+      return new Classifier.Const(-classifyTo);
+    else return new DummyClassifier(classifyTo);
   }
   
 }
