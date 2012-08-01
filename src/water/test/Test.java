@@ -13,7 +13,6 @@ public class Test {
   // count of keys after all tests run.
   static int _initial_keycnt;
 
-
   // A no-arg constructor for JUnit alone
   public Test() { }
 
@@ -150,15 +149,15 @@ public class Test {
     FileInputStream fis = null;
     try {
       fis = new FileInputStream(fname);
-      h2okey = ValueArray.read_put_file(fname,fis,(byte)0/*replication factor*/);
+      h2okey = ValueArray.read_put_file(fname,fis,(byte)0);
     } catch (FileNotFoundException e) {
       e.printStackTrace();
-      Assert.fail(e.toString());
+      return;
     } catch (IOException e) {
       e.printStackTrace();
       fail(e.toString());
     } finally {
-      try { fis.close(); } catch( IOException e ) { }
+      try { if( fis != null ) fis.close(); } catch( IOException e ) { }
     }
     if( h2okey == null ) fail("null h2okey");
 
@@ -207,6 +206,40 @@ public class Test {
         _x[i] = UDP.get4(buf,(off+=4)-4);
     }
     public void read( DataInputStream dis ) { new Error("unimplemented"); }
+  }
+
+  // ---
+  // Run an atomic function.
+  /*@org.junit.Test*/ public static void test6() {
+    System.out.println("test6");
+    h2o_cloud_of_size(3);
+
+    // Make an execution key homed to the remote node
+    H2O cloud = H2O.CLOUD;
+    H2ONode target = cloud._memary[0];
+    if( target == H2O.SELF ) target = cloud._memary[1];
+    Key key = Key.make("test6_remote",(byte)1,Key.DFJ_INTERNAL_USER,target);
+    // It's a plain empty by array - but too big for atomic update on purpose
+    Value v1 = new Value(key,16);
+    // Remote-put operation
+    DKV.put(key,v1);
+
+    // Atomically run this function on a clone of the bits from the existing
+    // Key and install the result as the new Value.  This function may run
+    // multiple times if there are collisions.
+    final int delta1=(target.hashCode()%3)+1;
+    final int delta2=delta1*2;
+    new Atomic(key) {
+      @Override public void atomic( byte[] bits ) {
+        long l1 = UDP.get8(bits,0);
+        long l2 = UDP.get8(bits,8);
+        l1 += delta1;
+        l2 += delta2;
+        UDP.set8(bits,0,l1);
+        UDP.set8(bits,8,l2);
+      }
+    }.run();
+    System.exit(-1);
   }
 
 
