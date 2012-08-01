@@ -7,7 +7,7 @@ package analytics;
  *
  * @author peta
  */
-public class EntropyStatistic extends Statistic {
+public abstract class EntropyStatistic extends Statistic {
 
 //  /// Number of classes the data can be classified to
 //  public final int numClasses;
