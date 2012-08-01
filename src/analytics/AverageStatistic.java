@@ -1,5 +1,6 @@
 package analytics;
 
+
 /** Calculates average vectors for the specified columns for each data category
  * and produces the AverageClassifier at the end. This is the basic statistic
  * to be used in numeric trees with numbers, not categories as values. This
@@ -16,11 +17,10 @@ package analytics;
 public class AverageStatistic extends Statistic {
 
   // list of columns for which the averages are computed
-  private final int[] columns_;
+  private final byte[] columns_;
   
   // number of the categories the input data should be classified into
-  private final int numClasses_;
-  
+  private final int numClasses_; 
   
   /** Creates the average statistic for given columns and number of input
    * data categories. 
@@ -28,10 +28,15 @@ public class AverageStatistic extends Statistic {
    * @param columns Array of columns the statistic should compute. 
    * @param numClasses Number of final categories for the input data. 
    */
-  public AverageStatistic(int[] columns, int numClasses) {
-    assert (columns!=null);
-    columns_ = columns;
-    numClasses_ = numClasses;
+  public AverageStatistic(DataAdapter data) {
+    
+    columns_ = new byte[data.numFeatures()];
+    A: for(int i=0;i<data.numFeatures();) {
+      columns_[i]=(byte)data.random_.nextInt(data.numColumns());
+      for(int j=0;j<i;j++) if (columns_[i]==columns_[j]) continue A;  
+      i++;
+    }
+    numClasses_ = data.numClasses();
   }
   
   
@@ -91,7 +96,7 @@ public class AverageStatistic extends Statistic {
    * @return Classifier produced by the statistic for the given node. 
    */
   public Classifier createClassifier(long[] data, int offset) {
-    AClassifier c = new AClassifier(columns_,numClasses_);
+    AClassifier c = new AClassifier();
     int result = -1;
     for (int i = 0; i< numClasses_; ++i) {
       double cnt = readDouble(data,offset);
@@ -130,36 +135,21 @@ public class AverageStatistic extends Statistic {
    */
   public double fitness(long[] data, int offset) {  return 0;  }
   
-  
 
-  public static class AClassifier implements Classifier {
-    
-    // columns to look at
-    private final int[] columns_;
+  public class AClassifier implements Classifier {
     
     // For each final category there is a columns size vector of doubles 
-    private final double[][] averages_;
-    
-    /** Creates the classifier with given columns and number of classification
-     * categories.   */
-    public AClassifier(int[] columns, int numClasses) {
-      columns_ = columns;
-      averages_ = new double[numClasses][];
-    }
+    private final double[][] averages_ = new double[numClasses_][];
     
     /** Sets the average vector for given category.  */
-    void setAverage(int dataClass, double[] av) {
-      averages_[dataClass] = av;
-    }
+    void setAverage(int dataClass, double[] av) {  averages_[dataClass] = av;  }
 
     /** Classifies the row based on the average vectors. The final category is the
      * category to whose average the row is closest over the selected columns. 
      */
     public int classify(DataAdapter row) {
       double[] avg = new double[columns_.length];
-      for (int i = 0; i<columns_.length; ++i) {
-        avg[i] = row.toDouble(columns_[i]);
-      }
+      for (int i = 0; i<columns_.length; ++i) avg[i] = row.toDouble(columns_[i]);
       // now we have the vector, compare the distances to find the smallest
       int result = 0;
       double rDistance = distance(avg,averages_[0]);
@@ -177,7 +167,7 @@ public class AverageStatistic extends Statistic {
     public int numClasses() {  return averages_.length;  }
     
     // just get the distance of two vectors 
-    static double distance(double[] a, double[] b) {
+    double distance(double[] a, double[] b) {
       if (b == null) return Double.MAX_VALUE; // largest distance
       assert (a.length == b.length);
       double result = 0;

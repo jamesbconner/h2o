@@ -14,7 +14,12 @@ import java.util.Random;
 public abstract class DataAdapter {
   
   protected int cur = -1; // cursor in the dataset
-
+  protected final int seed_;
+  protected final Random random_;
+  
+  public DataAdapter(int seed){ random_= new Random(seed_=seed); }
+  public DataAdapter() { this(new Random().nextInt()); }
+  
   
   /** Move the cursor to the index-th row. */
   public void seekToRow(int index) { cur = index; }
@@ -47,6 +52,9 @@ public abstract class DataAdapter {
   /** Returns the class of the current data row.    */
   public abstract int dataClass();
   
+  public abstract Statistic createStatistic();
+  public abstract int numFeatures();
+  
   /** Returns the weight of the current row. Weight are used to change
    * likelihood of getting picked during resampling. */
   public double weight() { return 1.0; }
@@ -64,7 +72,6 @@ public abstract class DataAdapter {
    * @param r
    * @return 
    */
-  
   public static DataAdapter weightedOutOfBagSampling(DataAdapter data, int bagSizePercent, Random r) {
     if(true) throw new Error("Jan thinks we are not using this method yet :-)");
     byte[] occurrences = new byte[data.numRows()];
@@ -165,7 +172,14 @@ class AdapterWrapper extends DataAdapter {
   @Override public double weight() {
     return data_.weight();
   }
-  
+
+  @Override
+  public Statistic createStatistic() {
+    return data_.createStatistic();
+  }
+
+  @Override  public int numFeatures() { return data_.numFeatures(); }
+
 }
 
 class IntWeightedWrapper extends AdapterWrapper {

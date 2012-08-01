@@ -15,9 +15,7 @@ public class Utils {
    * the index is selected randomly.   */
   public static int maxIndex(int[] from, Random rand) {
     int result = 0;
-    for (int i = 1; i<from.length; ++i)
-      if (from[i]>from[result])
-        result = i;
+    for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
       else if (from[i]==from[result] && rand.nextBoolean()) result = i; // tie breaker
     return result;
   }
@@ -28,22 +26,27 @@ public class Utils {
   }  
   
   public static String join(int[] what, String with) {
-    if (what==null)
-      return "";
+    if (what==null)  return "";
     StringBuilder sb = new StringBuilder();
     sb.append(what[0]);
-    for (int i = 1; i<what.length;++i)
-      sb.append(with+what[i]);
+    for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
+    return sb.toString();
+  }
+
+
+  public static String join(byte[] what, String with) {
+    if (what==null)  return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append(what[0]);
+    for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
     return sb.toString();
   }
 
   public static String join(double[] what, String with) {
-    if (what==null)
-      return "";
+    if (what==null) return "";
     StringBuilder sb = new StringBuilder();
     sb.append(what[0]);
-    for (int i = 1; i<what.length;++i)
-      sb.append(with+what[i]);
+    for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
     return sb.toString();
   }
   

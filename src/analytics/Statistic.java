@@ -9,7 +9,7 @@ package analytics;
  * @author peta
  */
 public abstract class Statistic {
-
+  
   /** Adds the given row to the statistic measure.   */
   public abstract void addDataPoint(DataAdapter adapter, long[] data, int offset);
   

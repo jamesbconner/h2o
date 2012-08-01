@@ -1,7 +1,5 @@
 package analytics;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
 import analytics.DecisionTree.INode;
@@ -13,26 +11,13 @@ import analytics.DecisionTree.Node;
  * 
  * @author peta
  */
-public abstract class RFBuilder {
+public class RFBuilder {
 
-  /**
-   * Creates the statistics for the node under construction. The statistics are
-   * based on the list of selected columns.
-   * 
-   * @param node
-   * @param columns
-   */
-  protected abstract void createStatistic(ProtoNode node, int[] columns);
-
-  protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
-
-  private  Random random;
   public ProtoTree[] trees;
   Sample partition_;
   private final DataAdapter data_;
 
   protected RFBuilder(DataAdapter data) {  data_ = data;  }
-  public void setRandom(Random rand) { assert random==null; random = rand; }
   
   // node under construction ---------------------------------------------------
 
@@ -43,30 +28,15 @@ public abstract class RFBuilder {
   public class ProtoNode {
 
     long[] statisticsData_ = null;
-    // list of all statistics that must be computed for the node
-    protected final ArrayList<Statistic> statistics_ = new ArrayList();
+    
+    protected  Statistic statistic_; // the statistic to be computed
 
-    /**
-     * Adds the given statistic to the node. All statistics associated with a
-     * node under construction are computed for each row.
-     * 
-     * @param stat
-     */
-    public void addStatistic(Statistic stat) {
-      statistics_.add(stat);
-    }
-
-    /**
-     * Initializes the storage space required for the statistics of the given
-     * node.
-     */
-    public void initialize() {
-      int size = 0;
-      for( Statistic s : statistics_ ){
-        size += s.dataSize();
-        size = (size + 7) & -8; // round to multiple of 8
-      }
-      statisticsData_ = new long[size];
+    ProtoNode(Statistic s) { 
+       statistic_ = s; 
+       int size = 0;
+       size += s.dataSize();
+       size = (size + 7) & -8; // round to multiple of 8
+       statisticsData_ = new long[size];
     }
 
     /**
@@ -78,52 +48,15 @@ public abstract class RFBuilder {
      * @return
      */
     INode createNode() {
-      Statistic best = statistics_.get(0);
-      int defaultCategory = best.defaultCategory(statisticsData_,0);
-      int bestOffset = 0;
-      double bestFitness = best.fitness(statisticsData_, bestOffset);
-      int offset = 0 + best.dataSize();
-      for( int i = 1; i < statistics_.size(); ++i ){
-        double f = statistics_.get(i).fitness(statisticsData_, offset);
-        if (defaultCategory==-1)
-          defaultCategory = statistics_.get(i).defaultCategory(statisticsData_,offset);
-        if( f > bestFitness ){
-          best = statistics_.get(i);
-          bestOffset = offset;
-          bestFitness = f;
-        }
-        offset += statistics_.get(i).dataSize();
-      }
-      Classifier nc = best.createClassifier(statisticsData_, bestOffset);
+      int defaultCategory = statistic_.defaultCategory(statisticsData_,0);
+      Classifier nc = statistic_.createClassifier(statisticsData_, 0);
+      statistic_=null; statisticsData_=null;// Jan -- is this enough to allow GC?
       if (nc == null)
         return null;
       return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
           : new Node(nc,defaultCategory);
     }
 
-    /**
-     * Returns the array of n randomly selected numbers from 0 to columns
-     * exclusively using the random generator provided.
-     * 
-     * @param features
-     * @param columns
-     * @param random
-     * @return
-     */
-    int[] getRandom(int features, int columns, Random random) {
-      int[] cols = new int[columns];
-      for( int i = 0; i < cols.length; ++i )
-        cols[i] = i;
-      for( int i = 0; i < features; ++i ){
-        int x = random.nextInt(cols.length - i) + i;
-        if( i != x ){ // swap the elements
-          int s = cols[i];
-          cols[i] = cols[x];
-          cols[x] = s;
-        }
-      }
-      return Arrays.copyOf(cols, features);
-    }
   }
 
   // tree under construction ---------------------------------------------------
@@ -153,7 +86,7 @@ public abstract class RFBuilder {
      * Initializes the seed from the parent
      */
     public ProtoTree() {
-      this.seed = random.nextLong();
+      this.seed = data_.random_.nextLong();
       buildNodes(1);
     }
 
@@ -205,24 +138,17 @@ public abstract class RFBuilder {
       return newNodes;
     }
 
-    // Builds the numNodes of nodesUnderConstruction. These nodes are then
-    // initialized to produce the
+    // Builds the numNodes of nodesUnderConstruction. 
     protected final void buildNodes(int numNodes) {
-      // build the new nodes under construction
       // if there are no new nodes to build, set current nodes to null
-      if( numNodes == 0 ) nodes_ = null;
-      else{
-        nodes_ = new ProtoNode[numNodes];
-        for( int i = 0; i < numNodes; ++i ){
-          ProtoNode n = new ProtoNode();
-          createStatistic(n, n.getRandom(numberOfFeatures(n, this),
-              data_.numColumns(), random));
-          n.initialize();
-          nodes_[i] = n;
-        }
-      }
+      if( numNodes == 0 ) { nodes_ = null; return; }
+
+      nodes_ = new ProtoNode[numNodes];
+      for( int i = 0; i < numNodes; ++i )
+        nodes_[i] =  new ProtoNode(data_.createStatistic());;
     }
 
+    
     /**
      * Moves the decision tree to next level. This means that all current level
      * nodes are converted to normal nodes, these are added to the trees and new
@@ -277,7 +203,7 @@ public abstract class RFBuilder {
    * Computes n random decision trees and returns them as a random forest.
    */
   DecisionTree[] compute(int numTrees) {
-    partition_ = new Sample(data_, numTrees, random);
+    partition_ = new Sample(data_, numTrees, data_.random_);
     trees = new ProtoTree[numTrees];
     for( int i = 0; i < numTrees; ++i )
       trees[i] = new ProtoTree();
@@ -298,10 +224,8 @@ public abstract class RFBuilder {
               ProtoNode n = tree.nodes_[node];
               for( int cnt = 0; cnt < count; cnt++ ){
                 int offset = 0;
-                for( Statistic stat : n.statistics_ ){
-                  stat.addDataPoint(data_, n.statisticsData_, offset);
-                  offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
-                }
+                n.statistic_.addDataPoint(data_, n.statisticsData_, offset);
+                offset += (n.statistic_.dataSize() + 7) & -8; // round to multiple of 8
               }
             }
             partition_.setNode(t, tree.rowIndex_, node);
@@ -356,7 +280,7 @@ public abstract class RFBuilder {
       }
       if (voteCount==0) continue; // don't count training data
       oobc += data_.weight();
-      if (Utils.maxIndex(votes, random) != data_.dataClass())  err += data_.weight();
+      if (Utils.maxIndex(votes, data_.random_) != data_.dataClass())  err += data_.weight();
     }
     return err / oobc;
   }

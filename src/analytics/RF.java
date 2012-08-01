@@ -1,7 +1,6 @@
 package analytics;
 
 import java.text.DecimalFormat;
-import java.util.Random;
 
 /**
  *
@@ -9,23 +8,20 @@ import java.util.Random;
  */
 public class RF implements Classifier {
   private DecisionTree[] trees_;
-  final int seed_;
-  final Random rand_;
   final RFBuilder builder_;
   final DataAdapter data_;
   final int numTrees_;
   long time_;
   
-  public RF(DataAdapter data, RFBuilder builder, int numtrees, int seed) { 
-    builder_=builder; data_=data; seed_ = seed; rand_=new Random(seed_); numTrees_=numtrees;
-    builder.setRandom(rand_);
+  public RF(DataAdapter data, int numtrees) { 
+    data_=data; numTrees_=numtrees; builder_= new RFBuilder(data);
   }
   
   public int classify(DataAdapter data) {
     int[] counts = new int[numClasses()];
     for (DecisionTree tree: trees_)
       counts[tree.classify(data)] += 1;
-    return Utils.maxIndex(counts, rand_);
+    return Utils.maxIndex(counts, data_.random_);
   }
 
   public int numClasses() { return trees_[0].numClasses(); }
@@ -52,7 +48,7 @@ public class RF implements Classifier {
     String errors="";
     for (int i = 0; i<numTrees(); ++i) 
        errors +=" " +  df.format(Classifier.Operations.error(tree(i),data_));
-    return "RF:  " + trees_.length + " trees, seed="+ seed_ +", compute(ms)="+time_+"\n"
+    return "RF:  " + trees_.length + " trees, seed="+ data_.seed_ +", compute(ms)="+time_+"\n"
         + "OOB err = " + outOfBagError() + "\n";// + "Single tree errors: " + errors;
   }
 }
