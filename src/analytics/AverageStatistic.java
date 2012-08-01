@@ -92,19 +92,6 @@ public class AverageStatistic extends Statistic {
     return new AClassifier(columns_,sums_);
   }
 
-  /** Returns the fitness of the statistics. The fitness for the numeric 
-   * statistic is a little meaningless without the second pass, so we do not 
-   * support a combination of statistics if one of them is numeric. 
-   * 
-   * TODO Do something about this, or make it permanent. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */
-  public double fitness() {  return 0;  }
-  
-
   public static class AClassifier implements Classifier {
     
     private final byte[] columns_;

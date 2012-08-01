@@ -27,16 +27,6 @@ public abstract class Statistic {
   /** Produces the classifier from the statistic. If the statistic has seen only
    * rows of one type, the ConstClassifier should be returned.    */ 
   public abstract Classifier createClassifier();
-
-  /** Returns the fitness of the statistic. This is used to determine the best
-   * statistic to produce the classifier when the whole data is analyzed.   */
-  //public abstract double fitness();
-  
-
-    /** Returns the size of the data for the statistic. This data will be reserved
-   * in the long array and thus should be multiples of 8 bytes.   */
-  //public abstract int dataSize();
-
   
 //  /** Reads the long value from given data at given offset.    */
 //  protected final long readLong(long[] data, int offset) {
