@@ -199,6 +199,7 @@ public class RFBuilder {
       trees[i] = new ProtoTree();
     while( true ){
       boolean done = true;
+      System.out.print(".");
       for( int t = 0; t < numTrees; ++t ){
         ProtoTree tree = trees[t];
 
@@ -226,6 +227,7 @@ public class RFBuilder {
       if( done ) break;
     //  System.out.println("OOBE = "+outOfBagError());
     }
+    System.out.println("");
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);

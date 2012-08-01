@@ -5,7 +5,7 @@ package analytics;
 /**
  * @author peta
  */
-public abstract class DistributionStatistic extends Statistic {
+public abstract class DistributionStatistic{// extends Statistic {
 //
 //  /// Data point column the statistic is interested in
 //  public final int column;

@@ -103,9 +103,6 @@ public class AverageStatistic extends Statistic {
       columns_ = columns;
       averages_ = averages;
     }
-    
-    /** Sets the average vector for given category.  */
-    void setAverage(int dataClass, double[] av) {  averages_[dataClass] = av;  }
 
     /** Classifies the row based on the average vectors. The final category is the
      * category to whose average the row is closest over the selected columns. 
