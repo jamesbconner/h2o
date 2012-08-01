@@ -192,9 +192,9 @@ public class IrisAdapter extends DataAdapter {
   public int dataClass() { return data[cur].class_; }
 
   public static void main(String[]_) {   
-    RF rf = new RF(new IrisAdapter(),1000 * 1000);
+    RF rf = new RF(new IrisAdapter(),100000);
     rf.compute();
-  // System.out.println(rf);
+    System.out.println(rf);
   }
   
   public Statistic createStatistic() { return new AverageStatistic(this); }

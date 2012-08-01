@@ -45,6 +45,7 @@ class DummyStatistic extends Statistic {
 
 
 
+
 class DummyDataSet extends DataAdapter {
 
  
@@ -88,6 +89,16 @@ class DummyDataSet extends DataAdapter {
   public int dataClass() {
     // TODO Auto-generated method stub
     return 0;
+  }
+
+  @Override
+  public Statistic createStatistic() {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+  @Override
+  public int numFeatures() {
+    throw new UnsupportedOperationException("Not supported yet.");
   }
   
   

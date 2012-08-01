@@ -141,7 +141,7 @@ class AdapterWrapper extends DataAdapter {
   @Override public int dataClass() { return data_.dataClass(); }
   @Override public double weight() { return data_.weight(); }
   @Override public Statistic createStatistic() { return data_.createStatistic(); }
-  @Override  public int numFeatures() { return data_.numFeatures(); }
+  @Override public int numFeatures() { return data_.numFeatures(); }
 }
 
 class IntWeightedWrapper extends AdapterWrapper {
