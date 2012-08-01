@@ -5,4 +5,5 @@ build
 h2o_work.xml
 ice
 lib/hexbase_impl.jar
-
+po.*
+*.hprof

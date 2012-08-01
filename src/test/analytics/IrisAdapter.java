@@ -1,21 +1,23 @@
 package test.analytics;
 
-import java.util.Random;
-
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
 import analytics.RF;
-import analytics.RFBuilder;
+import analytics.Statistic;
 
 
 public class IrisAdapter extends DataAdapter {
- 
+   
   String[] names = new String[] { "ID", "Sepal.Length", "Sepal.Width",
       "Petal.Length", "Petal.Width", "Species" };
 
-  class F {  int id; double sl, sw, pl, pw;   String class_;
+  class F {  int id; double sl, sw, pl, pw;   int class_; 
     F(int id_, double sl_, double sw_, double pl_, double pw_, String class_) {
-      id = id_;  sl = sl_;   sw = sw_;  pl = pl_;  pw = pw_; this.class_ = class_;
+      id = id_;  sl = sl_;   sw = sw_;  pl = pl_;  pw = pw_; 
+      if(class_.equals("setosa"))  this.class_ = 0;
+      else if(class_.equals("versicolor")) this.class_ =  1;
+      else if(class_.equals("virginica")) this.class_= 2;
+      else throw new Error();
     }
   }
 
@@ -171,42 +173,34 @@ public class IrisAdapter extends DataAdapter {
       new F(150, 5.9, 3.0, 5.1, 1.8, "virginica") };
 
   
-  public int numColumns() { return 5;  }
-  public boolean isInt(int index) {  return index==0;  }
-  public int toInt(int index) {  if(index==0) return data[cur].id; else throw new Error(); }
+  public int numColumns() { return 4;  }
+  public boolean isInt(int index) {  return false;  }
+  public int toInt(int index) {  throw new Error(); }
 
   public double toDouble(int index) {
-    if (index >0 && index <=4) {
-      if (index==1) return data[cur].pl;
-      if (index==2) return data[cur].pw;
-      if (index==3) return data[cur].sl;
-      if (index==4) return data[cur].sw;
-    } else if (index==0) return (double)data[cur].id;
+    switch(index) {
+    case 0: return data[cur].pl;
+    case 1: return data[cur].pw;
+    case 2: return data[cur].sl;
+    case 3: return data[cur].sw;
+    }
     throw new Error("Accessing column "+index);
   }
 
   public int numRows() { return data.length;  }
   public int numClasses() { return 3; }
-  public int dataClass() {
-    if(data[cur].class_.equals("setosa")) return 0;
-    if(data[cur].class_.equals("versicolor")) return 1;
-    if(data[cur].class_.equals("virginica")) return 2;
-    throw new Error();
-  }
-
-  public static void main(String []_) {   
-    DataAdapter data=new IrisAdapter();
-    IrisBuilder builder = new IrisBuilder(data);
-    RF rf = new RF(data,builder,100,new Random().nextInt());
+  public int dataClass() { return data[cur].class_; }
+  
+  static int TREES = 100 * 1000;
+  public static void main(String[] a) {
+    if(a.length>0) TREES = Integer.parseInt(a[0]);
+    RF rf = new RF(new IrisAdapter(),TREES);
     rf.compute();
+    System.out.print("Done. Computing accuracy.");
     System.out.println(rf);
+    System.out.println(rf.tree(0).toString());
   }
-}
-
-class IrisBuilder extends RFBuilder {
-  protected IrisBuilder(DataAdapter data) { super(data);  }
-  @Override  protected void createStatistic(ProtoNode node, int[] columns) {
-        node.addStatistic(new AverageStatistic(columns,3));
-  }
-  @Override protected int numberOfFeatures(ProtoNode node, ProtoTree tree) { return 3; }  
+  
+  public Statistic createStatistic() { return new AverageStatistic(this); }
+  public int numFeatures() { return 3; }
 }

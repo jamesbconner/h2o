@@ -142,6 +142,7 @@ public class ValueCSVRecords<T> implements Iterable<T>,Iterator<T> {
     Simple_KV_DataProvider(Key k1, Key k2){   
       super(0,1);
       _firstChunk = UKV.get(k1);
+      if(_firstChunk == null) throw new Error("missing key " + k1);
       _secondChunk = (k2 == null)?null:UKV.get(k2);
       _currentChunkId = 0; // not really applicable here            
     }

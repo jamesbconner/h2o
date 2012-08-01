@@ -1,7 +1,5 @@
 package analytics;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
 import analytics.DecisionTree.INode;
@@ -13,26 +11,13 @@ import analytics.DecisionTree.Node;
  * 
  * @author peta
  */
-public abstract class RFBuilder {
+public class RFBuilder {
 
-  /**
-   * Creates the statistics for the node under construction. The statistics are
-   * based on the list of selected columns.
-   * 
-   * @param node
-   * @param columns
-   */
-  protected abstract void createStatistic(ProtoNode node, int[] columns);
-
-  protected abstract int numberOfFeatures(ProtoNode node, ProtoTree tree);
-
-  private  Random random;
   public ProtoTree[] trees;
   Sample partition_;
   private final DataAdapter data_;
 
   protected RFBuilder(DataAdapter data) {  data_ = data;  }
-  public void setRandom(Random rand) { assert random==null; random = rand; }
   
   // node under construction ---------------------------------------------------
 
@@ -42,83 +27,27 @@ public abstract class RFBuilder {
    */
   public class ProtoNode {
 
-    long[] statisticsData_ = null;
-    // list of all statistics that must be computed for the node
-    protected final ArrayList<Statistic> statistics_ = new ArrayList();
+    protected  Statistic statistic_; // the statistic to be computed
 
-    /**
-     * Adds the given statistic to the node. All statistics associated with a
-     * node under construction are computed for each row.
-     * 
-     * @param stat
-     */
-    public void addStatistic(Statistic stat) {
-      statistics_.add(stat);
-    }
-
-    /**
-     * Initializes the storage space required for the statistics of the given
-     * node.
-     */
-    public void initialize() {
-      int size = 0;
-      for( Statistic s : statistics_ ){
-        size += s.dataSize();
-        size = (size + 7) & -8; // round to multiple of 8
-      }
-      statisticsData_ = new long[size];
+    ProtoNode(Statistic s) { 
+       statistic_ = s; 
     }
 
     /**
      * Returns the normal node that should be created from the node under
      * construction. Determines the best statistic for the node based on their
      * ordering and creates its classifier which is in turn used to produce the
-     * proper node.
-     * 
-     * @return
-     */
+     * proper node.  */
     INode createNode() {
-      Statistic best = statistics_.get(0);
-      int bestOffset = 0;
-      double bestFitness = best.fitness(statisticsData_, bestOffset);
-      int offset = 0 + best.dataSize();
-      for( int i = 1; i < statistics_.size(); ++i ){
-        double f = statistics_.get(i).fitness(statisticsData_, offset);
-        if( f > bestFitness ){
-          best = statistics_.get(i);
-          bestOffset = offset;
-          bestFitness = f;
-        }
-        offset += statistics_.get(i).dataSize();
-      }
-      Classifier nc = best.createClassifier(statisticsData_, bestOffset);
+      int defaultCategory = statistic_.defaultCategory();
+      Classifier nc = statistic_.createClassifier();
+      statistic_=null; // Jan -- is this enough to allow GC?
+      if (nc == null)
+        return null;
       return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
-          : new Node(nc);
+          : new Node(nc,defaultCategory);
     }
 
-    /**
-     * Returns the array of n randomly selected numbers from 0 to columns
-     * exclusively using the random generator provided.
-     * 
-     * @param features
-     * @param columns
-     * @param random
-     * @return
-     */
-    int[] getRandom(int features, int columns, Random random) {
-      int[] cols = new int[columns];
-      for( int i = 0; i < cols.length; ++i )
-        cols[i] = i;
-      for( int i = 0; i < features; ++i ){
-        int x = random.nextInt(cols.length - i) + i;
-        if( i != x ){ // swap the elements
-          int s = cols[i];
-          cols[i] = cols[x];
-          cols[x] = s;
-        }
-      }
-      return Arrays.copyOf(cols, features);
-    }
   }
 
   // tree under construction ---------------------------------------------------
@@ -139,6 +68,8 @@ public abstract class RFBuilder {
     Random rnd = null;
     // random seed used to generate the random, therefore we can always reset it
     final long seed;
+    
+    int rowIndex_ = 0;
 
     /**
      * Creates the tree under construction.
@@ -146,7 +77,7 @@ public abstract class RFBuilder {
      * Initializes the seed from the parent
      */
     public ProtoTree() {
-      this.seed = random.nextLong();
+      this.seed = data_.random_.nextLong();
       buildNodes(1);
     }
 
@@ -172,7 +103,7 @@ public abstract class RFBuilder {
       for( int i = 0; i < nodes_.length; ++i ){
         // make sure that nodeIndex and subnodeIndex are set properly
         while( true ){
-          if( lastNodes_[nodeIndex].numClasses() <= subnodeIndex ){
+          if(( lastNodes_[nodeIndex] == null) || (lastNodes_[nodeIndex].numClasses() <= subnodeIndex )){
             ++nodeIndex; // move to next node
             subnodeIndex = 0; // reset subnode index
           }else if( lastNodes_[nodeIndex].numClasses() == 1 ){
@@ -187,7 +118,7 @@ public abstract class RFBuilder {
         levelNodes[i] = n;
         lastOffsets_[i] = newNodes;
         // if not a leaf node, add the number of children to nodes to be constructed
-        if( n.numClasses() > 1 ) newNodes += n.numClasses();
+        if(( n!=null) && (n.numClasses() > 1 )) newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode index
         ((Node) lastNodes_[nodeIndex]).setSubtree(subnodeIndex, n);
         ++subnodeIndex;
@@ -198,24 +129,17 @@ public abstract class RFBuilder {
       return newNodes;
     }
 
-    // Builds the numNodes of nodesUnderConstruction. These nodes are then
-    // initialized to produce the
+    // Builds the numNodes of nodesUnderConstruction. 
     protected final void buildNodes(int numNodes) {
-      // build the new nodes under construction
       // if there are no new nodes to build, set current nodes to null
-      if( numNodes == 0 ) nodes_ = null;
-      else{
-        nodes_ = new ProtoNode[numNodes];
-        for( int i = 0; i < numNodes; ++i ){
-          ProtoNode n = new ProtoNode();
-          createStatistic(n, n.getRandom(numberOfFeatures(n, this),
-              data_.numColumns(), random));
-          n.initialize();
-          nodes_[i] = n;
-        }
-      }
+      if( numNodes == 0 ) { nodes_ = null; return; }
+
+      nodes_ = new ProtoNode[numNodes];
+      for( int i = 0; i < numNodes; ++i )
+        nodes_[i] =  new ProtoNode(data_.createStatistic());;
     }
 
+    
     /**
      * Moves the decision tree to next level. This means that all current level
      * nodes are converted to normal nodes, these are added to the trees and new
@@ -239,6 +163,7 @@ public abstract class RFBuilder {
       // reset the random generator for the rows
       rnd = new Random(this.seed);
       ++level_;
+      rowIndex_ = 0;
 
     }
 
@@ -257,10 +182,9 @@ public abstract class RFBuilder {
       if( lastNodes_ == null ) return 0;
       // if the lastNode is leaf, do not include the row in any further tasks
       // for this tree. It has already been decided
-      if( oldNode >= lastNodes_.length ) System.out.println("error here");
+      if( oldNode >= lastNodes_.length ) throw new Error();
       if( lastNodes_[oldNode].numClasses() == 1 ) return -1;
-      // use the classifier on the node to classify the node number in the new
-      // level
+      // use the classifier on the node to classify the node number in the new level
       return lastOffsets_[oldNode] + lastNodes_[oldNode].classify(data_);
     }
   }
@@ -269,32 +193,31 @@ public abstract class RFBuilder {
    * Computes n random decision trees and returns them as a random forest.
    */
   DecisionTree[] compute(int numTrees) {
-    partition_ = new Sample(data_, numTrees, random);
+    partition_ = new Sample(data_, numTrees, data_.random_);
     trees = new ProtoTree[numTrees];
     for( int i = 0; i < numTrees; ++i )
       trees[i] = new ProtoTree();
     while( true ){
       boolean done = true;
+      System.out.print(".");
       for( int t = 0; t < numTrees; ++t ){
         ProtoTree tree = trees[t];
 
         for( int r = 0; r < data_.numRows(); ++r ){
           int count = partition_.occurrences(t, r);
-          int node = partition_.getNode(t, r);
+          if (count == 0)
+            continue;
+          int node = partition_.getNode(t, tree.rowIndex_);
           if( node != -1 ){ // the row is still not classified completely
             data_.seekToRow(r);
             node = tree.getNodeNumber(node);
             if( node != -1 ){
               ProtoNode n = tree.nodes_[node];
-              for( int cnt = 0; cnt < count; cnt++ ){
-                int offset = 0;
-                for( Statistic stat : n.statistics_ ){
-                  stat.addDataPoint(data_, n.statisticsData_, offset);
-                  offset += (stat.dataSize() + 7) & -8; // round to multiple of 8
-                }
-              }
+              for( int cnt = 0; cnt < count; cnt++ )
+                n.statistic_.addDataPoint(data_);
             }
-            partition_.setNode(t, r, node);
+            partition_.setNode(t, tree.rowIndex_, node);
+            tree.rowIndex_++;
           }
         }
         tree.createNextLevel();
@@ -304,6 +227,7 @@ public abstract class RFBuilder {
       if( done ) break;
     //  System.out.println("OOBE = "+outOfBagError());
     }
+    System.out.println("");
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);
@@ -345,7 +269,7 @@ public abstract class RFBuilder {
       }
       if (voteCount==0) continue; // don't count training data
       oobc += data_.weight();
-      if (Utils.maxIndex(votes, random) != data_.dataClass())  err += data_.weight();
+      if (Utils.maxIndex(votes, data_.random_) != data_.dataClass())  err += data_.weight();
     }
     return err / oobc;
   }
@@ -369,38 +293,47 @@ class Sample {
   public Sample(DataAdapter data, int trees, Random r) {
     rows_ = data.numRows();
     occurrences_ = new byte[trees][rows_];
-    nodes_ = new byte[trees][rows_];
+    nodes_ = new byte[trees][]; //[rows_];
     for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
   }
 
   public int occurrences(int tree, int row) { return occurrences_[tree][row]; }
   public int getNode(int tree, int row) { return nodes_[tree][row];  }
   public void setNode(int tree, int row, int val) { nodes_[tree][row] = (byte) val;  }
-  double sum(double[] d) {
+  static double sum(double[] d) {
     double r = 0.0; for( int i = 0; i < d.length; i++ ) r += d[i]; return r;
   }
-
-  void normalize(double[] doubles, double sum) {
+  static void normalize(double[] doubles, double sum) {
     assert ! Double.isNaN(sum) && sum != 0;
     for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
   }
 
-  void weightedSampling(DataAdapter adapt, Random random, int tree) {
-    double[] weights = new double[rows_];
-    for( int i = 0; i < weights.length; i++ ){
+  static class WP { double [] weights, probabilities;  }
+  static WP wp = new WP();
+  /// TODO: if the weights change we have to recompute...
+  static private WP wp(int rows_, DataAdapter adapt, Random random) {
+    if(wp.weights!=null) return wp;
+    wp.weights = new double[rows_];
+    for( int i = 0; i < wp.weights.length; i++ ){
       adapt.seekToRow(i);
-      weights[i] = adapt.weight();
+      wp.weights[i] = adapt.weight();
     }
-    double[] probabilities = new double[rows_];
-    double sumProbs = 0, sumOfWeights = sum(weights);
+    wp.probabilities = new double[rows_];
+    double sumProbs = 0, sumOfWeights = sum(wp.weights);
     for( int i = 0; i < rows_; i++ ){
       sumProbs += random.nextDouble();
-      probabilities[i] = sumProbs;
+      wp.probabilities[i] = sumProbs;
     }
-    normalize(probabilities, sumProbs / sumOfWeights);
-    probabilities[rows_ - 1] = sumOfWeights;
-    int k = 0, l = 0;
-    sumProbs = 0;
+    normalize(wp.probabilities, sumProbs / sumOfWeights);
+    wp.probabilities[rows_ - 1] = sumOfWeights;
+    return wp;
+  }
+  
+
+  void weightedSampling(DataAdapter adapt, Random random, int tree) {
+    WP wp = wp(rows_,adapt,random);
+    double[] weights = wp.weights, probabilities = wp.probabilities;
+    int k = 0, l = 0, sumProbs = 0;
     while( k < rows_ && l < rows_ ){
       assert weights[l] > 0;
       sumProbs += weights[l];
@@ -425,7 +358,13 @@ class Sample {
         offset = (offset + 1) % rows_;
       }
       sampleSize--;
-    }    
+    } 
+    int empty = 0;
+    for (byte b : occurrences_[tree])
+      if (b == 0) 
+        empty++;
+    // we can remember only the nonempty row nodes (occurrence >= 1)
+    nodes_[tree] = new byte[rows_-empty];
   }
   void p(String s) { System.out.println(s); }
 }

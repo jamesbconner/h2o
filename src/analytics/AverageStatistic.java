@@ -1,5 +1,6 @@
 package analytics;
 
+
 /** Calculates average vectors for the specified columns for each data category
  * and produces the AverageClassifier at the end. This is the basic statistic
  * to be used in numeric trees with numbers, not categories as values. This
@@ -16,11 +17,10 @@ package analytics;
 public class AverageStatistic extends Statistic {
 
   // list of columns for which the averages are computed
-  private final int[] columns_;
+  private final byte[] columns_;
   
-  // number of the categories the input data should be classified into
-  private final int numClasses_;
-  
+  private final double[][] sums_;
+  private final double[] weights_;
   
   /** Creates the average statistic for given columns and number of input
    * data categories. 
@@ -28,22 +28,18 @@ public class AverageStatistic extends Statistic {
    * @param columns Array of columns the statistic should compute. 
    * @param numClasses Number of final categories for the input data. 
    */
-  public AverageStatistic(int[] columns, int numClasses) {
-    assert (columns!=null);
-    columns_ = columns;
-    numClasses_ = numClasses;
+  public AverageStatistic(DataAdapter data) {
+    
+    columns_ = new byte[data.numFeatures()];
+    A: for(int i=0;i<data.numFeatures();) {
+      columns_[i]=(byte)data.random_.nextInt(data.numColumns());
+      for(int j=0;j<i;j++) if (columns_[i]==columns_[j]) continue A;  
+      i++;
+    }
+    sums_ = new double[data.numClasses()][columns_.length];
+    weights_ = new double[data.numClasses()];
   }
   
-  
-  /** Returns the size of the data required to store the statistic. 
-   * 
-   * @return Required size in bytes. 
-   */
-  public int dataSize() {
-    // for each class compute the average (sum + # ) for all classes
-    return (columns_.length * 8 + 8) * numClasses_;
-  }
-
   /** Adds the data point. Increases the category count and adds the columns of
    * the row to the statistic. 
    * 
@@ -51,15 +47,22 @@ public class AverageStatistic extends Statistic {
    * @param data Where the statistic data are stored.
    * @param offset Offset where the statistic data starts. 
    */
-  public void addDataPoint(DataAdapter row, long[] data, int offset) {
-    offset += (columns_.length * 8 + 8) * row.dataClass();
-    double w = row.weight();
-    addDouble(w, data, offset);
-    offset += 8;
-    for (int i = 0; i<columns_.length; ++i) {
-      addDouble(row.toDouble(columns_[i]) * w, data, offset);
-      offset +=8;
-    }
+  public void addDataPoint(DataAdapter row) {
+    int idx = row.dataClass();
+    weights_[idx] += row.weight();
+    for (int i = 0; i<columns_.length; ++i)
+      sums_[idx][i] += row.toDouble(columns_[i]);
+  }
+  
+  /** Returns the default category - the most common answer. This is used only
+   * for the partial results. 
+   * 
+   * @param data
+   * @param offset
+   * @return 
+   */
+  @Override public int defaultCategory() {
+    return Utils.maxIndex(weights_, null);
   }
 
   /** Creates the classifier. If the statistic has seen only rows of one type
@@ -70,64 +73,35 @@ public class AverageStatistic extends Statistic {
    * @param offset Offset to the beginning of the data. 
    * @return Classifier produced by the statistic for the given node. 
    */
-  public Classifier createClassifier(long[] data, int offset) {
-    AClassifier c = new AClassifier(columns_,numClasses_);
+  public Classifier createClassifier() {
     int result = -1;
-    for (int i = 0; i< numClasses_; ++i) {
-      double cnt = readDouble(data,offset);
-      offset += 8;
-      if (cnt == 0) {
-        offset += columns_.length * 8;
-      } else {
-        double[] avg = new double[columns_.length];
-        for (int j = 0; j < columns_.length; ++j) {
-          avg[j] = readDouble(data,offset) / cnt;
-          offset += 8;
-        }
-        c.setAverage(i,avg);
-        // if it is the first average, store it in
+    for (int i = 0; i < weights_.length; ++i) {
+      if (weights_[i] != 0) {
         if (result == -1)
           result = i;
-        // otherwise if it is second or more, we must use proper classifier
-        else if (result >=0)
+        else if (result>=0)
           result = -2;
+        for (int j = 0; j < columns_.length; ++j) 
+          sums_[i][j] /= weights_[i]; // compute the averages
       }
     }
-    return result>=-1 ? new Classifier.Const(result) :  c;
+    if (result == -1)
+      return null;
+    if (result >=0)
+      return new Classifier.Const(result);
+    return new AClassifier(columns_,sums_);
   }
-
-  /** Returns the fitness of the statistics. The fitness for the numeric 
-   * statistic is a little meaningless without the second pass, so we do not 
-   * support a combination of statistics if one of them is numeric. 
-   * 
-   * TODO Do something about this, or make it permanent. 
-   * 
-   * @param data
-   * @param offset
-   * @return 
-   */
-  public double fitness(long[] data, int offset) {  return 0;  }
-  
-  
 
   public static class AClassifier implements Classifier {
     
-    // columns to look at
-    private final int[] columns_;
+    private final byte[] columns_;
     
     // For each final category there is a columns size vector of doubles 
     private final double[][] averages_;
     
-    /** Creates the classifier with given columns and number of classification
-     * categories.   */
-    public AClassifier(int[] columns, int numClasses) {
+    public AClassifier(byte[] columns, double[][] averages) {
       columns_ = columns;
-      averages_ = new double[numClasses][];
-    }
-    
-    /** Sets the average vector for given category.  */
-    void setAverage(int dataClass, double[] av) {
-      averages_[dataClass] = av;
+      averages_ = averages;
     }
 
     /** Classifies the row based on the average vectors. The final category is the
@@ -135,9 +109,7 @@ public class AverageStatistic extends Statistic {
      */
     public int classify(DataAdapter row) {
       double[] avg = new double[columns_.length];
-      for (int i = 0; i<columns_.length; ++i) {
-        avg[i] = row.toDouble(columns_[i]);
-      }
+      for (int i = 0; i<columns_.length; ++i) avg[i] = row.toDouble(columns_[i]);
       // now we have the vector, compare the distances to find the smallest
       int result = 0;
       double rDistance = distance(avg,averages_[0]);
@@ -155,7 +127,7 @@ public class AverageStatistic extends Statistic {
     public int numClasses() {  return averages_.length;  }
     
     // just get the distance of two vectors 
-    static double distance(double[] a, double[] b) {
+    double distance(double[] a, double[] b) {
       if (b == null) return Double.MAX_VALUE; // largest distance
       assert (a.length == b.length);
       double result = 0;

@@ -66,7 +66,7 @@ public class CSVParserTest {
   @BeforeClass
   public static void setUpClass() throws Exception {
     if(H2O.CLOUD == null)
-      init.main(new String [] {"-ip", "192.168.56.1"});
+      init.main(new String [] {"-ip", "192.168.56.1", "-test", "none"});
   }
 
   @AfterClass
@@ -475,13 +475,23 @@ public class CSVParserTest {
   public void testParsingPokerCSV(){
     Key k = Key.make("poker.data");
     Value v = DKV.get(k);
+    ArrayList<Key> kkk = new ArrayList<Key>();    
+    for(int i = 0; i < v.chunks(); ++i){
+      Key kk = v.chunk_get(i);
+      if(DKV.get(kk) != null)
+        kkk.add(kk);    
+    }
+    Key [] keys = new Key[kkk.size()];
+    kkk.toArray(keys);
     try {
-      PokerAvg avg = new PokerAvg();
-      avg.rexec(v);
+      PokerAvg avg = new PokerAvg();      
+      avg.rexec(keys);
       System.out.println();
+      System.out.println("Processed " + avg.N() + " records");
       System.out.print("Results: ");
-      for(int i = 0; i < avg.nvalues(); ++i)
-        System.out.print(" " + avg.value(i));
+      double [] vals = avg.getAvg();      
+      for(int i = 0; i < vals.length; ++i)
+        System.out.print(" " + vals[i]);
       System.out.println();
     } catch (Exception e) {
       e.printStackTrace();

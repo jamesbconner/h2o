@@ -1,6 +1,6 @@
 package water.csv;
 
-public class CSVString {
+public class CSVString implements CharSequence, Comparable<String> {
   int _offset = -1;
   int _len = -1;
   CSVParser _parser;
@@ -42,12 +42,10 @@ public class CSVString {
     return (_len - arr.length);
   }
 
-  public int compare(String s){
-    return compare(s.getBytes());
-  }
+  
 
   public boolean equals(String s){
-    return (s.length() == _len)?(compare(s) == 0):false;
+    return (s.length() == _len)?(compareTo(s) == 0):false;
   }
 
   @Override
@@ -63,4 +61,35 @@ public class CSVString {
     int len2 = _len - len1;
     return new String(_parser.data(),_offset,len1) + new String(_parser.nextData(),0,len2);
   }
+
+  @Override
+  public int compareTo(String arg0) {
+    return compare(arg0.getBytes());
+  }
+
+  @Override
+  public int length() {
+    return _len;
+  }
+
+  @Override
+  public CharSequence subSequence(int off, int end) {
+    return new CSVString(off, end - off, _parser);
+  }
+  
+  int _hash;
+  
+  // taken from String.java
+  @Override
+  public int hashCode(){
+    int h = _hash;
+    if (h == 0 && _len > 0) {
+         int off = _offset;
+        for (int i = 0; i < _len; i++) {
+            h = 31*h + _parser.getByte(off++);
+        }
+        _hash = h;
+    }
+    return h;    
+  }  
 }

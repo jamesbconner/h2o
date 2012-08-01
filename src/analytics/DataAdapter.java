@@ -8,10 +8,18 @@ import java.util.Random;
  * (and to lesser extent the double data). 
  * @author peta
  */
+
+// TODO if we ever use the adapters on adapters, this *SHOULD* again be an
+// interface, or at least an abstract class as it used to be. 
 public abstract class DataAdapter {
   
   protected int cur = -1; // cursor in the dataset
-
+  protected final int seed_;
+  protected final Random random_;
+  
+  public DataAdapter(int seed){ random_= new Random(seed_=seed); }
+  public DataAdapter() { this(new Random().nextInt()); }
+  
   
   /** Move the cursor to the index-th row. */
   public void seekToRow(int index) { cur = index; }
@@ -44,6 +52,9 @@ public abstract class DataAdapter {
   /** Returns the class of the current data row.    */
   public abstract int dataClass();
   
+  public abstract Statistic createStatistic();
+  public abstract int numFeatures();
+  
   /** Returns the weight of the current row. Weight are used to change
    * likelihood of getting picked during resampling. */
   public double weight() { return 1.0; }
@@ -54,9 +65,6 @@ public abstract class DataAdapter {
    *  through the data in parallel.>> */
   public DataAdapter view() { return this; }
   
-  
-  
-  
   /** Returns a weighted and out-of-bag sample from the given data. 
    * 
    * @param data
@@ -64,8 +72,8 @@ public abstract class DataAdapter {
    * @param r
    * @return 
    */
-  
   public static DataAdapter weightedOutOfBagSampling(DataAdapter data, int bagSizePercent, Random r) {
+    if(true) throw new Error("Jan thinks we are not using this method yet :-)");
     byte[] occurrences = new byte[data.numRows()];
     double[] weights = new double[data.numRows()];
     double sumWeights = 0;
@@ -121,42 +129,19 @@ public abstract class DataAdapter {
 class AdapterWrapper extends DataAdapter {
   protected final DataAdapter data_;
 
-  AdapterWrapper(DataAdapter data) {
-    data_ = data;
-  }
-  
-  @Override public int numRows() {
-    return data_.numRows();
-  }
-
-  @Override public int numColumns() {
-    return data_.numColumns();
-  }
-
-  @Override public boolean isInt(int index) {
-    return data_.isInt(index);
-  }
-
-  @Override public int toInt(int index) {
-    return data_.toInt(index);
-  }
-
-  @Override public double toDouble(int index) {
-    return data_.toDouble(index);
-  }
-
-  @Override public int numClasses() {
-    return data_.numClasses();
-  }
-
-  @Override public int dataClass() {
-    return data_.dataClass();
-  }
-  
-  @Override public double weight() {
-    return data_.weight();
-  }
-  
+  AdapterWrapper(DataAdapter data) { data_ = data;  }
+  @Override public void seekToRow(int index) { data_.seekToRow(index);  }  
+  @Override public int numRows() { return data_.numRows(); }
+  @Override public int numColumns() { return data_.numColumns();  }
+  @Override public boolean isInt(int index) { return data_.isInt(index); }
+  @Override public int toInt(int index) { return data_.toInt(index);  }
+  @Override public double toDouble(int index) { return data_.toDouble(index); }
+  @Override public Object originals(int index) { return data_.originals(index); }
+  @Override public int numClasses() { return data_.numClasses(); }
+  @Override public int dataClass() { return data_.dataClass(); }
+  @Override public double weight() { return data_.weight(); }
+  @Override public Statistic createStatistic() { return data_.createStatistic(); }
+  @Override public int numFeatures() { return data_.numFeatures(); }
 }
 
 class IntWeightedWrapper extends AdapterWrapper {
@@ -171,7 +156,37 @@ class IntWeightedWrapper extends AdapterWrapper {
   
   // TODO this is to do the same thing as the old code ( the data_.weight()
   // multiplication). I am not sure it is correct though
-  @Override public double weight() {
-    return occurences[cur] * data_.weight();
+  @Override public double weight() { return occurences[cur] * data_.weight(); }
+}
+
+class OutOfBagSampler extends AdapterWrapper {
+  final long seed_;
+  Random rnd_;
+  int rowOccurence_;
+  final int bagSize;
+  
+  public OutOfBagSampler(DataAdapter data, int bagSize, long seed) {
+    super(data);
+    this.bagSize = bagSize;
+    seed_ = seed;
+    reset();
   }
+  
+  protected final void reset() {
+    rnd_ = new Random(seed_);
+    data_.seekToRow(0);
+    computeRowOccurence();
+  }
+  
+  protected void computeRowOccurence() {
+    // get       
+  }
+  
+  @Override public void seekToRow(int index) {
+    if (data_.cur != index-1)  reset();
+    while (data_.cur != index) {
+      data_.seekToRow(data_.cur+1);
+      computeRowOccurence();
+    }
+  }  
 }

@@ -1,5 +1,6 @@
 package test.analytics;
 
+import analytics.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -12,10 +13,7 @@ import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
-import analytics.AverageStatistic;
-import analytics.DataAdapter;
-import analytics.RF;
-import analytics.RFBuilder;
+
 
 /**
  * Simple adapter for iris dataset.
@@ -192,24 +190,12 @@ public class IrisAdapter2 extends DataAdapter {
         }
         System.out.println(data.dataClass());
       }
-      RF rf = new RF(data);
-      rf.compute(100, new IrisBuilder2(67436482,data));
+      RF rf = new RF(data,1000);
+      rf.compute();
+      System.out.println(rf);
     }
   }
-}
-
-class IrisBuilder2 extends RFBuilder {
-  protected IrisBuilder2(long seed, DataAdapter data) {
-    super(seed, data);
-  }
-
-  @Override
-  protected void createStatistic(ProtoNode node, int[] columns) {
-    node.addStatistic(new AverageStatistic(columns, 3));
-  }
-
-  @Override
-  protected int numberOfFeatures(ProtoNode node, ProtoTree tree) {
-    return 3;
-  }
+  public Statistic createStatistic() { return new AverageStatistic(this); }
+  public int numFeatures() { return 3; }
+  
 }

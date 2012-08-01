@@ -12,6 +12,7 @@ import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
 import analytics.DataAdapter;
+import analytics.Statistic;
 
 /**
  * Simple adaptor for Poker dataset.
@@ -123,5 +124,15 @@ public class PokerAdapter extends DataAdapter {
         System.out.println(data.dataClass());
       }
     }
+  }
+
+  @Override
+  public Statistic createStatistic() {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+  @Override
+  public int numFeatures() {
+    throw new UnsupportedOperationException("Not supported yet.");
   }
 }

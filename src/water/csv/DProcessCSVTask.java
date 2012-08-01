@@ -1,19 +1,10 @@
 package water.csv;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Collection;
-
 import water.DKV;
 import water.DRemoteTask;
 import water.Key;
-import water.RemoteTask;
-import water.UDP;
 import water.ValueArray;
 import water.csv.CSVParser.CSVParserSetup;
-import water.csv.CSVParser.DataType;
 
 /**
  * Base class for distributed CSV parsing.
@@ -31,8 +22,8 @@ public abstract class DProcessCSVTask<T> extends DRemoteTask {
   T _csvRecord;
   CSVParserSetup _setup;
   
+  boolean _mapFinished;
   
-  boolean _isArray;
   
   protected final String[] _columns;
  
@@ -46,9 +37,10 @@ public abstract class DProcessCSVTask<T> extends DRemoteTask {
   }  
 
   @Override
-  public void map(Key key) {
-    int index = getChunkIndex(key);
-    Key nextKey = getChunk(key, index+1);
+  public void map(Key key) {    
+    int index = ValueArray.getChunkIndex(key);
+    System.out.println("Map(" + index + ")");
+    Key nextKey = ValueArray.getChunk(key, index+1);
     if (DKV.get(nextKey) == null)
       nextKey = null;
     try {
@@ -61,37 +53,6 @@ public abstract class DProcessCSVTask<T> extends DRemoteTask {
       e.printStackTrace();
       throw new Error("unexpected exception");
     }
+    _mapFinished = true;
   }
-
- 
-  /**
-   * Get the index of this chunks ASSUMING it is an arraylet chunk.
-   * If not, the number returned does not make sense.  
-   *   
-   * @param k - key of arraylet chunk 
-   * @return - index (offset) of arraylet chunk
-   */
-  public static int getChunkIndex(Key k) {
-    if(k._kb[0] != 0 || k._kb[1] != 0) // arraylet chunks are system keys 
-      throw new IllegalArgumentException("can only work an an arraylet chunk (must be a system key)");
-    long n = UDP.get8(k._kb, 2);
-    return (int) (n >> ValueArray.LOG_CHK);
-  }
-
-  /**
-   * Get the index of this chunks ASSUMING it is an arraylet chunk.
-   * If not, the number returned does not make sense.  
-   *   
-   * @param k - key of arraylet chunk 
-   * @return - index (offset) of arraylet chunk
-   */
-  public static Key getChunk(Key k, int index) {
-    if(k._kb[0] != 0 || k._kb[1] != 0) // arraylet chunks are system keys 
-      throw new IllegalArgumentException("can only work an an arraylet chunk (must be a system key)");
-    byte[] arr = k._kb.clone();
-    long n = ((long) index) << ValueArray.LOG_CHK;
-    UDP.set8(arr, 2, n);
-    return Key.make(arr);
-  }
-
 }
