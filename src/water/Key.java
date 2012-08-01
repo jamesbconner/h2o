@@ -341,26 +341,33 @@ public final class Key implements Comparable {
   boolean is_disk_local() { return is_disk_replica( H2O.SELF); }
 
   // Inform all the cached copies of this key, that it has changed.  This is a
-  // non-blocking invalidate (but returns the task to block for it).
+  // non-blocking invalidate (but returns the task to block for it).  (Well,
+  // actually right now this call just blocks till all invalidates complete; a
+  // future optimization can allow more slop in the Memory Model).
   void invalidate_remote_caches() {
     assert home();   // Only home node tracks mem replicas & issue invalidates
     long d = _mem_replicas;
     _mem_replicas = 0;          // Needs to be atomic!!
     if( cache_has_overflowed(d) ) 
       throw new Error("unimplemented: bulk invalidate for key="+this);
+    TaskPutKey[] tpks = new TaskPutKey[8]; // Collect all the pending invalidates
+    int i=0;
     while( d != 0 ) {
       int idx = (int)(d&0xff);
       d >>= 8;
       H2ONode h2o = H2ONode.IDX.get(idx);
-      invalidate(h2o);
+      tpks[i++] = invalidate(h2o);
     }
+    // Bulk block until all invalidates happen
+    for( int j=0; j<i; j++ )
+      tpks[j].get();
   }
-  void invalidate(H2ONode target) {
+  TaskPutKey invalidate(H2ONode target) {
     assert target != H2O.SELF;   // No point in tracking self, nor invalidating self
     H2O cloud = H2O.CLOUD;
     int home_idx = home(cloud);
     assert cloud._memary[home_idx]==H2O.SELF; // Only home does invalidates
-    new TaskPutKey(target,this,null);         // Fire off a remote delete
+    return new TaskPutKey(target,this,null);  // Fire off a remote delete
   }
 
 

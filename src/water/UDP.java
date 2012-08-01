@@ -74,6 +74,16 @@ public abstract class UDP {
     set8(pbuf,8,hi);
     return udp.UDPS[(int)(lo&0xFF)]._udp.print16(pbuf);
   }
+  static private boolean port_check( byte[] buf, int port ) {
+    int port1 = (0xFF&buf[1])+((0xFF&buf[2])<<8);
+    if( port1 != 0 && port1 != 0xabab && port1 != port ) {
+      System.err.println("good port 0x"+Integer.toHexString(port )+" port "+port );
+      System.err.println("bad  port 0x"+Integer.toHexString(port1)+" port "+port1);
+      throw new Error("broken ports");
+      // return false;
+    }
+    return true;
+  }
 
   // Set/get the 1st control byte
   public static int  get_ctrl( byte[] buf ) { return 0xFF&buf[0]; }
@@ -81,14 +91,8 @@ public abstract class UDP {
   // Set/get the port in next 2 bytes
   public static int  get_port( byte[] buf ) { return (buf[1]&0xff) + ((buf[2]&0xff)<<8); }
   public static void set_port( byte[] buf, int port ) {
-    int port1 = (0xFF&buf[1])+((0xFF&buf[2])<<8);
-    if( port1 != 0 && port1 != 0xabab && port1 != port ) {
-      System.err.println("good port 0x"+Integer.toHexString(port )+" port "+port );
-      System.err.println("bad  port 0x"+Integer.toHexString(port1)+" port "+port1);
-      throw new Error("broken ports");
-    }
     // Assert buffer is clean (0), or from the Pool (0xab) or is recycled w/same port
-    assert port1 == 0 || port1 == 0xabab || port1 == port;
+    assert port_check(buf,port);
     buf[1] = (byte)port; buf[2] = (byte)(port>>8);
   }
   public static void clr_port( byte[] buf ) { // Reset the port assert

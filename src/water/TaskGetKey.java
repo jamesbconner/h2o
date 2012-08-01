@@ -101,7 +101,7 @@ public class TaskGetKey extends DFutureTask<Value> {
           off = val.write(buf,off,len); // Just jam into reply packet
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,key,val,len,get4(buf,1)) )
+          if( !tcp_send(h2o,key,val,len,get_task(buf)) )
             return; // If the TCP failed... then so do we; no result; caller will retry
           off = val.write(buf,off,-2/*tha Big Value cookie*/); // Just jam into reply packet
         }
@@ -159,7 +159,7 @@ public class TaskGetKey extends DFutureTask<Value> {
       if( tgk == null ) return;
       assert tgk._key.equals(key);
       // Big Read of Big Value
-      Value val = Value.read(dis,key);
+      Value val = Value.read(dis,tgk._key);
       // Single TCP reader thread, so _tcp_val is set single-threadedly
       tgk._tcp_val = val;
       // Here we have the Value, and we're on the correct Node but wrong
