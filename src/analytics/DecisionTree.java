@@ -48,9 +48,10 @@ public class DecisionTree implements Classifier {
      */
     public Node(Classifier cl, int defaultCategory) {
       classifier = cl;
-      subnodes = new INode[classifier.numClasses()];
       this.defaultCategory = defaultCategory;
+      subnodes = new INode[classifier.numClasses()];
     }
+    
 
     /** Classifies the row on the proper subtree recursively. 
      * 
@@ -59,9 +60,8 @@ public class DecisionTree implements Classifier {
      * @return 
      */
     public int classifyRecursive(DataAdapter row) {
-      if (subnodes[0]==null)
-        return defaultCategory;
-      return subnodes[classifier.classify(row)].classifyRecursive(row);
+      int cls = classifier.classify(row);
+      return (subnodes[cls] == null) ? defaultCategory : subnodes[cls].classifyRecursive(row);
     }
     
     /** Classifies the row only on the classifier internal to the node. This
@@ -76,7 +76,7 @@ public class DecisionTree implements Classifier {
      * 
      * @return 
      */
-    public int numClasses() { return subnodes.length; }
+    public int numClasses() { return classifier.numClasses(); } // subnodes might be null
     
     /** Sets the index-th subtree to the given node. 
      * 
@@ -110,7 +110,12 @@ public class DecisionTree implements Classifier {
   
   /** Classifies the given row on the tree. Returns the classification of the
    * row as determined by the tree.  */
-  public int classify(DataAdapter row) { return root_.classifyRecursive(row);  }
+  public int classify(DataAdapter row) { 
+    if (root_.classifyRecursive(row) == -1) {
+      System.out.println(this.toString());
+      root_.classifyRecursive(row); 
+    }
+    return root_.classifyRecursive(row);  }
   
   /** Returns the number of classes to which the tree classifies.  */
   public int numClasses() { throw new Error("NOT IMPLEMENTED");  }

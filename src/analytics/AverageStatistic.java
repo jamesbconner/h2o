@@ -113,7 +113,9 @@ public class AverageStatistic extends Statistic {
           result = -2;
       }
     }
-    return result>=-1 ? new Classifier.Const(result) :  c;
+    if (result == -1)
+      return null;
+    return result>-1 ? new Classifier.Const(result) :  c;
   }
 
   /** Returns the fitness of the statistics. The fitness for the numeric 

@@ -95,6 +95,8 @@ public abstract class RFBuilder {
         offset += statistics_.get(i).dataSize();
       }
       Classifier nc = best.createClassifier(statisticsData_, bestOffset);
+      if (nc == null)
+        return null;
       return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
           : new Node(nc,defaultCategory);
     }
@@ -142,6 +144,8 @@ public abstract class RFBuilder {
     Random rnd = null;
     // random seed used to generate the random, therefore we can always reset it
     final long seed;
+    
+    int rowIndex_ = 0;
 
     /**
      * Creates the tree under construction.
@@ -175,7 +179,7 @@ public abstract class RFBuilder {
       for( int i = 0; i < nodes_.length; ++i ){
         // make sure that nodeIndex and subnodeIndex are set properly
         while( true ){
-          if( lastNodes_[nodeIndex].numClasses() <= subnodeIndex ){
+          if(( lastNodes_[nodeIndex] == null) || (lastNodes_[nodeIndex].numClasses() <= subnodeIndex )){
             ++nodeIndex; // move to next node
             subnodeIndex = 0; // reset subnode index
           }else if( lastNodes_[nodeIndex].numClasses() == 1 ){
@@ -190,7 +194,7 @@ public abstract class RFBuilder {
         levelNodes[i] = n;
         lastOffsets_[i] = newNodes;
         // if not a leaf node, add the number of children to nodes to be constructed
-        if( n.numClasses() > 1 ) newNodes += n.numClasses();
+        if(( n!=null) && (n.numClasses() > 1 )) newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode index
         ((Node) lastNodes_[nodeIndex]).setSubtree(subnodeIndex, n);
         ++subnodeIndex;
@@ -242,6 +246,7 @@ public abstract class RFBuilder {
       // reset the random generator for the rows
       rnd = new Random(this.seed);
       ++level_;
+      rowIndex_ = 0;
 
     }
 
@@ -283,7 +288,9 @@ public abstract class RFBuilder {
 
         for( int r = 0; r < data_.numRows(); ++r ){
           int count = partition_.occurrences(t, r);
-          int node = partition_.getNode(t, r);
+          if (count == 0)
+            continue;
+          int node = partition_.getNode(t, tree.rowIndex_);
           if( node != -1 ){ // the row is still not classified completely
             data_.seekToRow(r);
             node = tree.getNodeNumber(node);
@@ -297,7 +304,8 @@ public abstract class RFBuilder {
                 }
               }
             }
-            partition_.setNode(t, r, node);
+            partition_.setNode(t, tree.rowIndex_, node);
+            tree.rowIndex_++;
           }
         }
         tree.createNextLevel();
@@ -372,7 +380,7 @@ class Sample {
   public Sample(DataAdapter data, int trees, Random r) {
     rows_ = data.numRows();
     occurrences_ = new byte[trees][rows_];
-    nodes_ = new byte[trees][rows_];
+    nodes_ = new byte[trees][]; //[rows_];
     for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
   }
 
@@ -428,7 +436,13 @@ class Sample {
         offset = (offset + 1) % rows_;
       }
       sampleSize--;
-    }    
+    } 
+    int empty = 0;
+    for (byte b : occurrences_[tree])
+      if (b == 0) 
+        empty++;
+    // we can remember only the nonempty row nodes (occurrence >= 1)
+    nodes_[tree] = new byte[rows_-empty];
   }
   void p(String s) { System.out.println(s); }
 }
