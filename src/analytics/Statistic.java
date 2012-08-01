@@ -13,6 +13,17 @@ public abstract class Statistic {
   /** Adds the given row to the statistic measure.   */
   public abstract void addDataPoint(DataAdapter adapter, long[] data, int offset);
   
+  /** Returns the default category for the node. Returns -1 if the current
+   * statistic is not capable of computing the default category.
+   * 
+   * @param data
+   * @param offset
+   * @return 
+   */
+  public int defaultCategory(long[] data, int offset) {
+    return -1; // this statistic cannot determine the defaultCategory for the node
+  }
+  
   
   /** Returns the size of the data for the statistic. This data will be reserved
    * in the long array and thus should be multiples of 8 bytes.   */

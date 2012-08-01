@@ -79,11 +79,14 @@ public abstract class RFBuilder {
      */
     INode createNode() {
       Statistic best = statistics_.get(0);
+      int defaultCategory = best.defaultCategory(statisticsData_,0);
       int bestOffset = 0;
       double bestFitness = best.fitness(statisticsData_, bestOffset);
       int offset = 0 + best.dataSize();
       for( int i = 1; i < statistics_.size(); ++i ){
         double f = statistics_.get(i).fitness(statisticsData_, offset);
+        if (defaultCategory==-1)
+          defaultCategory = statistics_.get(i).defaultCategory(statisticsData_,offset);
         if( f > bestFitness ){
           best = statistics_.get(i);
           bestOffset = offset;
@@ -93,7 +96,7 @@ public abstract class RFBuilder {
       }
       Classifier nc = best.createClassifier(statisticsData_, bestOffset);
       return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
-          : new Node(nc);
+          : new Node(nc,defaultCategory);
     }
 
     /**

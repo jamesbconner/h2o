@@ -8,6 +8,9 @@ import java.util.Random;
  * (and to lesser extent the double data). 
  * @author peta
  */
+
+// TODO if we ever use the adapters on adapters, this *SHOULD* again be an
+// interface, or at least an abstract class as it used to be. 
 public abstract class DataAdapter {
   
   protected int cur = -1; // cursor in the dataset
@@ -53,9 +56,6 @@ public abstract class DataAdapter {
    *  come in handy if we ever want to have multiple threads going
    *  through the data in parallel.>> */
   public DataAdapter view() { return this; }
-  
-  
-  
   
   /** Returns a weighted and out-of-bag sample from the given data. 
    * 
@@ -125,6 +125,10 @@ class AdapterWrapper extends DataAdapter {
     data_ = data;
   }
   
+  @Override public void seekToRow(int index) {
+    data_.seekToRow(index);
+  }  
+  
   @Override public int numRows() {
     return data_.numRows();
   }
@@ -143,6 +147,10 @@ class AdapterWrapper extends DataAdapter {
 
   @Override public double toDouble(int index) {
     return data_.toDouble(index);
+  }
+
+  @Override public Object originals(int index) {
+    return data_.originals(index);
   }
 
   @Override public int numClasses() {
@@ -174,4 +182,38 @@ class IntWeightedWrapper extends AdapterWrapper {
   @Override public double weight() {
     return occurences[cur] * data_.weight();
   }
+}
+
+class OutOfBagSampler extends AdapterWrapper {
+  
+  final long seed_;
+  Random rnd_;
+  int rowOccurence_;
+  final int bagSize;
+  
+  public OutOfBagSampler(DataAdapter data, int bagSize, long seed) {
+    super(data);
+    this.bagSize = bagSize;
+    seed_ = seed;
+    reset();
+  }
+  
+  protected final void reset() {
+    rnd_ = new Random(seed_);
+    data_.seekToRow(0);
+    computeRowOccurence();
+  }
+  
+  protected void computeRowOccurence() {
+    // get       
+  }
+  
+  @Override public void seekToRow(int index) {
+    if (data_.cur != index-1)
+      reset();
+    while (data_.cur != index) {
+      data_.seekToRow(data_.cur+1);
+      computeRowOccurence();
+    }
+  }  
 }

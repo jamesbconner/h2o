@@ -61,6 +61,26 @@ public class AverageStatistic extends Statistic {
       offset +=8;
     }
   }
+  
+  /** Returns the default category - the most common answer. This is used only
+   * for the partial results. 
+   * 
+   * @param data
+   * @param offset
+   * @return 
+   */
+  @Override public int defaultCategory(long[] data, int offset) {
+    int result = 0;
+    double max = readDouble(data,offset);
+    for (int i = 1; i<numClasses_; ++i) {
+      double t = readDouble(data, i*(columns_.length * 8 + 8));
+      if (max < t ) {
+        max = t;
+        result = i;
+      }
+    }
+    return result;
+  }
 
   /** Creates the classifier. If the statistic has seen only rows of one type
    * creates the ConstClassifier for that type, otherwise creates a proper

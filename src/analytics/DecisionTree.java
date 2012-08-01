@@ -38,22 +38,29 @@ public class DecisionTree implements Classifier {
     // classifier that determines which subtree to use
     public final Classifier classifier;
     public final INode[] subnodes;
+    // A category that is reported by the inner node if no leaf nodes are 
+    // present for it (important for partial trees)
+    public final int defaultCategory;
     
     /** Creates the inner node with given classifier. 
      * 
      * @param classifier 
      */
-    public Node(Classifier cl) {
+    public Node(Classifier cl, int defaultCategory) {
       classifier = cl;
       subnodes = new INode[classifier.numClasses()];
+      this.defaultCategory = defaultCategory;
     }
 
     /** Classifies the row on the proper subtree recursively. 
      * 
+     * Returns the default category of the row if its subnodes are not created.
      * @param row
      * @return 
      */
     public int classifyRecursive(DataAdapter row) {
+      if (subnodes[0]==null)
+        return defaultCategory;
       return subnodes[classifier.classify(row)].classifyRecursive(row);
     }
     
