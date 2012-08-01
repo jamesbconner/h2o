@@ -49,6 +49,7 @@ public class RF implements Classifier {
     for (int i = 0; i<numTrees(); ++i) 
        errors +=" " +  df.format(Classifier.Operations.error(tree(i),data_));
     return "RF:  " + trees_.length + " trees, seed="+ data_.seed_ +", compute(ms)="+time_+"\n"
+        + "#nodes="+ DecisionTree.nodeCount + "\n"
         + "OOB err = " + outOfBagError() + "\n";// + "Single tree errors: " + errors;
   }
 }

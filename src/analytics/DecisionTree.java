@@ -20,11 +20,13 @@ public class DecisionTree implements Classifier {
     String toString();
   }
   
+  public static int nodeCount;
+  
   /** Leaf node that for any row returns its the data class it belongs to. */
   public static class LeafNode implements INode {
     // which data category to return. 
     public final int class_;
-    public LeafNode(int dataClass)     { this.class_ = dataClass; }
+    public LeafNode(int dataClass)     { this.class_ = dataClass; nodeCount++; }
     public int numClasses()            { return 1; }
     public String toString()           { return "(leaf "+class_+")"; }
     public int classify(DataAdapter _) { return class_; }
@@ -46,9 +48,8 @@ public class DecisionTree implements Classifier {
      * 
      * @param classifier 
      */
-    public Node(Classifier cl, int defaultCategory) {
-      classifier = cl;
-      this.defaultCategory = defaultCategory;
+    public Node(Classifier cl, int dC) {
+      classifier = cl; defaultCategory = dC; nodeCount++;
       subnodes = new INode[classifier.numClasses()];
     }
     
