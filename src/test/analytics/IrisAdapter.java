@@ -192,7 +192,7 @@ public class IrisAdapter extends DataAdapter {
   public int dataClass() { return data[cur].class_; }
   
   static int TREES = 100 * 1000;
-  public static void main(String[] a) {
+  public static void main(String[] a) {     
     if(a.length>0) TREES = Integer.parseInt(a[0]);
     RF rf = new RF(new IrisAdapter(),TREES);
     rf.compute();
