@@ -129,7 +129,7 @@ public abstract class DAvg<T> extends DRemoteTask {
     if (UKV.get(nextKey) == null)
       nextKey = null;
     try {
-      ValueCSVRecords<T> records = new ValueCSVRecords<T>(key, nextKey, index,
+      ValueCSVRecords<T> records = new ValueCSVRecords<T>(key, 1, 
           _csvRecord, _columns, _setup);
       for (T r : records) {
         ++_N;

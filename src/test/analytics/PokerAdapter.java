@@ -73,7 +73,7 @@ public class PokerAdapter extends DataAdapter {
     setup._parseColumnNames = false;
     
     if (v != null) {
-      ValueCSVRecords<int[]> p1 = new ValueCSVRecords<int[]>(v,chunkFrom, chunkTo, r, null, setup);
+      ValueCSVRecords<int[]> p1 = new ValueCSVRecords<int[]>(v.chunk_get(chunkFrom), chunkTo - chunkFrom, r, null, setup);
       for (int[] x : p1)
         parsedRecords.add(x.clone());
       data = new int[parsedRecords.size()][];

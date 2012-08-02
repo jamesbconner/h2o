@@ -34,17 +34,17 @@ public abstract class DProcessCSVTask<T> extends DRemoteTask {
     _csvRecord = csvRecord;
     _setup = setup;
     _columns = columns;    
-  }  
+  }
 
+  
   @Override
   public void map(Key key) {    
     int index = ValueArray.getChunkIndex(key);
-    System.out.println("Map(" + index + ")");
     Key nextKey = ValueArray.getChunk(key, index+1);
     if (DKV.get(nextKey) == null)
       nextKey = null;
     try {
-      ValueCSVRecords<T> records = new ValueCSVRecords<T>(key, nextKey, index,
+      ValueCSVRecords<T> records = new ValueCSVRecords<T>(key, 1,
           _csvRecord, _columns, _setup);      
       for (T r : records) {
         processRecord(r);

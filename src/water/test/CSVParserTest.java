@@ -135,6 +135,14 @@ public class CSVParserTest {
     public String toString(){
       return date.toString() + ", " + Double.toString(value);
     }
+    @Override
+    public boolean equals(Object o){
+      if(o instanceof TimeSeriesRecord){
+        TimeSeriesRecord other = (TimeSeriesRecord)o;        
+        return (Double.isNaN(value) && Double.isNaN(other.value) || (value == other.value)) && date.equals(other.date);
+      }
+      return false;
+    }
   }
 
 
@@ -148,7 +156,7 @@ public class CSVParserTest {
       DKV.put(k1,v1);
       TestRecord3 r1 = new TestRecord3();
       TestRecord3 [] rExp = {new TestRecord3(.123,.123f,123)};
-      ValueCSVRecords<TestRecord3> p1 = new ValueCSVRecords<TestRecord3>(var, 0,r1, new String [] {"d","f","i","s"});
+      ValueCSVRecords<TestRecord3> p1 = new ValueCSVRecords<TestRecord3>(var.chunk_get(0), 1,r1, new String [] {"d","f","i","s"});
       String [] expectedColumnNames = {"double","float","int"," CSVString "};
       Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
@@ -186,8 +194,8 @@ public class CSVParserTest {
       DKV.put(k1,v1);
       TestRecord2 r1 = new TestRecord2();
       TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
-      String [] expectedColumnNames = {"test1",null,"test2"};
-      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0, r1, new String [] {"x",null,"y"});
+      String [] expectedColumnNames = {"test1", " haha","test2"};
+      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0), 1, r1, new String [] {"x",null,"y"});
       assert(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
       for(TestRecord2 r:p1){
@@ -214,7 +222,7 @@ public class CSVParserTest {
       DKV.put(k1,v1);
       DKV.put(k2,v2);
       TestRecord1 r = new TestRecord1();
-      ValueCSVRecords<TestRecord1> p1 = new ValueCSVRecords<TestRecord1>(var,1, r, new String [] {"str1","str2"});
+      ValueCSVRecords<TestRecord1> p1 = new ValueCSVRecords<TestRecord1>(var.chunk_get(1),1, r, new String [] {"str1","str2"});
       for(TestRecord1 x:p1){
         Assert.assertTrue(x.str1.equals("hahagaga"));
       }
@@ -237,7 +245,7 @@ public class CSVParserTest {
       DKV.put(k1,v1);
       TestRecord3 r1 = new TestRecord3();
       TestRecord3 [] rExp = {new TestRecord3(.123,.123f,123)};
-      ValueCSVRecords<TestRecord3> p1 = new ValueCSVRecords<TestRecord3>(var,0, r1, new String [] {"d","f","i","s"});
+      ValueCSVRecords<TestRecord3> p1 = new ValueCSVRecords<TestRecord3>(var.chunk_get(0),1, r1, new String [] {"d","f","i","s"});
       String [] expectedColumnNames = {"double","float","int","CSVString "};
       Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
@@ -264,7 +272,7 @@ public class CSVParserTest {
       TestRecord2 r1 = new TestRecord2();
       TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
       CSVParserSetup s = new CSVParserSetup((byte)' ',true);
-      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0, 1, r1, new String [] {"x","y"}, s);
+      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0), 1, r1, new String [] {"x","y"}, s);
       String [] expectedColumnNames = {"test1","test2"};
       Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
@@ -291,7 +299,7 @@ public class CSVParserTest {
       TestRecord2 r1 = new TestRecord2();
       TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
       String [] expectedColumnNames = {"test1","test2"};
-      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0, r1, new String [] {"x","y"});
+      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0),1, r1, new String [] {"x","y"});
       assert(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
       for(TestRecord2 r:p1){
@@ -326,9 +334,11 @@ public class CSVParserTest {
       expectedR.x = 1.23456e3;
       expectedR.y = 1.23456e3;
 
-      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var, 0,r1, new String [] {"x","y"});
-      ValueCSVRecords<TestRecord2> p2 = new ValueCSVRecords<TestRecord2>(var,1,r2, new String [] {"x","y"});
+      ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0), 1,r1, new String [] {"x","y"});
+      ValueCSVRecords<TestRecord2> p2 = new ValueCSVRecords<TestRecord2>(var.chunk_get(1),1,r2, new String [] {"x","y"});
       String [] expectedColumnNames = {"test1","test2"};
+      String [] colNames = p1.columnNames();      
+      
       Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
       for(TestRecord2 r:p1){
@@ -377,11 +387,13 @@ public class CSVParserTest {
 
   @Test
   public void testParsingbigDataCSV(){
+    Assert.assertTrue(false);
     Key k = Key.make("bigdata_csv");
     Value v = DKV.get(k);
     Assert.assertNotNull(v);
     TimeSeriesRecord r = new TimeSeriesRecord();
     TimeSeriesRecord r2 = new TimeSeriesRecord();
+    TimeSeriesRecord r3 = new TimeSeriesRecord();
     final int expectedNRecords = 14102837;
     int recCounter = 0;
     try {
@@ -412,37 +424,51 @@ public class CSVParserTest {
         
         System.out.println("Processing chunk # "  + i);
         try {
-          ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v, i,v.chunks()+1,r, new String [] {"date","value"}, setup);          
+          ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v.chunk_get(0), v.chunks(),r, new String [] {"date","value"}, setup);          
           InputStream is = f.exists()?new FileInputStream(f):null;
           ValueCSVRecords<TimeSeriesRecord> p2 = (is != null)?new ValueCSVRecords<TimeSeriesRecord>(is,r2, new String [] {"date","value"}, new CSVParserSetup()):null;
-          for(TimeSeriesRecord x:p1){
-            ++recCounter;
-            Assert.assertTrue((p2 == null)|| p2.hasNext());
-            r2 = p2.next();
-            ArrayList<String> str = nextCSVLine(reader);
-            
-            Assert.assertEquals(str.size(), 2);
-            if(!x.date.equals(str.get(0))){
-              System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'");
-            }
-            if(!x.date.equals(r2.date.toString())){
-              System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'" + "' <==> '" + r2.date.toString() + "'");
-            }
-            Assert.assertTrue(x.date.equals(str.get(0)));
-            Assert.assertTrue(x.date.equals(r2.date.toString()));
-            
-            
-            if(str.get(1).trim().equals(".")){
-              Assert.assertEquals(x.value, setup._defaultDouble);
-              Assert.assertEquals(r2.value, setup._defaultDouble);
-              continue;
-            } else if(x.value != Double.valueOf((str.get(1).trim()))){
-              System.out.println(x.value + " != " + Double.valueOf(str.get(1).trim()));
-            }
-            Assert.assertEquals(x.value,Double.valueOf((str.get(1).trim())));
-            Assert.assertEquals(r2.value,Double.valueOf((str.get(1).trim())));                        
+                    
+          for(int j = 0; j < v.chunks(); ++j){
+            System.out.println("processing chunk #" + j);
+            ValueCSVRecords<TimeSeriesRecord> p3 = new ValueCSVRecords<TimeSeriesRecord>(v.chunk_get(j),1,r3, new String [] {"date","value"}, new CSVParserSetup());
+            for(TimeSeriesRecord x:p3){
+              ++recCounter;
+              if(recCounter == 607776){
+                System.out.println("*");
+              }
+              Assert.assertTrue(p1.hasNext());
+              r = p1.next();
+              Assert.assertTrue((p2 == null)|| p2.hasNext());
+              r2 = p2.next();
+              if(!r.equals(r2) || ! r.equals(r3)){
+                System.out.println("mismatch at record " + recCounter + ": " + r + " <==> " + r2 + " <==>" + r3);
+              }
+              Assert.assertTrue(r.equals(r2));
+              Assert.assertTrue(r.equals(r3));
+              ArrayList<String> str = nextCSVLine(reader);
+              Assert.assertEquals(str.size(), 2);
+              if(!x.date.equals(str.get(0))){
+                System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'");
+              }
+              if(!x.date.equals(r2.date.toString())){
+                System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'" + "' <==> '" + r2.date.toString() + "'");
+              }
+              Assert.assertTrue(x.date.equals(str.get(0)));
+              Assert.assertTrue(x.date.equals(r2.date.toString()));
+              if(str.get(1).trim().equals(".")){
+                Assert.assertEquals(x.value, setup._defaultDouble);
+                Assert.assertEquals(r2.value, setup._defaultDouble);
+                continue;
+              } else if(x.value != Double.valueOf((str.get(1).trim()))){
+                System.out.println(x.value + " != " + Double.valueOf(str.get(1).trim()));
+              }
+              Assert.assertEquals(x.value,Double.valueOf((str.get(1).trim())));
+              Assert.assertEquals(r2.value,Double.valueOf((str.get(1).trim())));  
+            }                                                                                                
           }
+          System.out.println("parsed " + recCounter + " records");
           Assert.assertFalse(p2.hasNext());
+          Assert.assertEquals(expectedNRecords, recCounter);          
         } catch(CSVEscapedBoundaryException e){
           System.out.println("escaped boundary at chunk " + i + ", skipping the next one");
           return;
@@ -452,8 +478,7 @@ public class CSVParserTest {
           Assert.assertTrue(false);
         }
       }
-      System.out.println("parsed " + recCounter + " records");
-      Assert.assertEquals(expectedNRecords, recCounter);
+     
     }
   }
 
