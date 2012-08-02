@@ -162,7 +162,7 @@ public class Arguments {
     int count = 0;
     for( int i = 0; i < fields.length; i++ ){
       Field field = fields[i];
-      String name = field.getName().replace("_","-");
+      String name = field.getName()/*.replace("_","-")*/;
       Class cl = field.getType();
       String opt = getValue(name); // optional value
       try{

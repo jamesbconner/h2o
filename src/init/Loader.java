@@ -209,7 +209,7 @@ public class Loader extends URLClassLoader {
         if (recursive) result = addExternalJarFolder(f,true) && result;
       } else {
         if (f.getName().endsWith(".jar")) result = addExternalJar(f) && result;
-	System.out.println("adding jar " + f.getName());
+	//System.out.println("adding jar " + f.getName());
       }
     return result;
   }
