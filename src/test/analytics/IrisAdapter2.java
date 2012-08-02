@@ -135,8 +135,8 @@ public class IrisAdapter2 extends DataAdapter {
     setup._parseColumnNames = false;
     int id = 0;
     if (v != null) {
-      ValueCSVRecords<CSVRecord> p1 = new ValueCSVRecords<CSVRecord>(v,
-          fromChunk, toChunk, r, new String[] { "sl", "sw", "pl", "pw",
+      ValueCSVRecords<CSVRecord> p1 = new ValueCSVRecords<CSVRecord>(v.chunk_get(0),
+          v.chunks(), r, new String[] { "sl", "sw", "pl", "pw",
               "class_" }, setup);
       for (CSVRecord x : p1) {
         parsedRecords.add(new F(id++, x));
