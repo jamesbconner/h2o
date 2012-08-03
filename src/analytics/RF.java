@@ -42,7 +42,10 @@ public class RF { // implements Classifier {
   public double outOfBagError() { return builder_.outOfBagError(); }
   public int numTrees() { return trees_.length; }
   public DecisionTree tree(int n) { return trees_[n];  }
-  public byte[] trees() throws IOException {  return serialize(trees_);  }  
+  private byte[] _trees;
+  public byte[] trees() throws IOException {  
+    return _trees!=null? _trees : ( _trees=serialize(trees_)); 
+  }  
   public void combine(byte[] ts) throws IOException, ClassNotFoundException {
     DecisionTree[] other = (DecisionTree[]) deserialize(ts);
     DecisionTree[] merged = new DecisionTree[other.length+trees_.length];
@@ -60,8 +63,9 @@ public class RF { // implements Classifier {
     return buf;
   }
 
+
   private Object deserialize(byte[] mem) throws IOException, ClassNotFoundException {
-    return new ObjectInputStream(new ByteArrayInputStream(mem)).readObject();   
+    return  new ObjectInputStream(new ByteArrayInputStream(mem)).readObject();   
   }
   
   static final DecimalFormat df = new  DecimalFormat ("0.###");
