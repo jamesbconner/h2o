@@ -4,7 +4,7 @@ package test.analytics;
 
 public class DataChunk {
   
-  static final int SIZE = 100 * 1000;
+  static final int SIZE = 2 * 1000 * 1000;
   class Column {}
 
   class IntColumn extends Column{  int[] data;  IntColumn(){data=new int[SIZE];} }
@@ -25,7 +25,7 @@ public class DataChunk {
   void addFloatCol() { grow(); cols[numCols++]= new FloatColumn(); }
   void addByteCol() { grow(); cols[numCols++]= new ByteColumn(); }
   
-  void setI(int val, int row, int col) { ((IntColumn)cols[col]).data[row]=val; }
+  void setI(int val, int row, int col) {((IntColumn)cols[col]).data[row]=val;}
   void setF(float val, int row, int col) { ((FloatColumn)cols[col]).data[row]=val; }
   void setB(byte val, int row, int col) { ((ByteColumn)cols[col]).data[row]=val; }
 

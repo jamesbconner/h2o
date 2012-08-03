@@ -24,30 +24,31 @@ import org.omg.CORBA._PolicyStub;
  * 
  * @author tomas
  */
-public final class CSVParser {
-
-  // private ArrayList<InputStream> _inputs = new ArrayList<InputStream>();
-  // int _currentInput;
-  Object _record;
+public final class CSVParser {  
+  Object _record; // golden object with csv record
   final CSVParserSetup _setup;
-
-  boolean _closed;
-  int _index = -1;
-  int _from = 0;
+  boolean _closed; // set if no more data should be returned
+  int _index = -1; // index of the current byte
+  int _from = 0; // pointer of to the start of the field which is currently being processed
   int _recordStart; // for debugging purposes, marks beginning of the current
                     // record
-  int _to;
+  int _to; // pointer of to the end of the field which is currently being processed
 
+  // data is kept in a circular buffer so we can be using 2 buffers at the same time 
+  // (needed for records crossing the obundary)  
   private byte[][] _data = new byte[2][];
 
+  // current data buffer
   final byte[] data() {
     return _data[_dataIdx];
   }
 
+  // next data buffer
   final byte[] nextData() {
     return _data[(_dataIdx + 1) & 1];
   }
 
+  // get byte of the given index 
   final byte getByte(int index) {
     if ((index < 0) || (index >= _length))
       throw new ArrayIndexOutOfBoundsException(index);
@@ -55,23 +56,26 @@ public final class CSVParser {
         - data().length];
   }
 
-  int _dataIdx;
+  int _dataIdx; // index into circular buffer with data buffers 
+  // (currently of size 2 so only 0 or 1 are valid values)
 
-  int _length; // _data.length + _nextData.length - max length of data
-  int _column;
-  int _state = 0;
+  int _length; // _data.length + _nextData.length 
+  int _column; // current column index
+  int _state = 0; 
 
-  boolean _newLineFlag = false;
+  // newline flag is set after reading \r charcter so that \r\n is treated as a single newline
+  // while \r by itself is added to the field's value (e.g. for binary data)
+  boolean _newLineFlag = false; 
   // final Map<String, IObjectParser> _parsers;
   final static int NEWLINE_STATE = 1000;
 
-  boolean _dontParseFlag;
-  boolean _resetParsers = false;
+  boolean _dontParseFlag; // set if skipping partial record
+  boolean _resetParsers = false; // set if the parsers states should be reset before parsing next field 
 
-  final String[] _columnNames;
-  final String[] _columns;
+  final String[] _columnNames; // array with parsed column names (or null if no column names were parsed)
+  final String[] _columns; // array with attribute names of the csv record corresponding to columns in csv data
 
-  final FieldValueParser[] _columnParsers;
+  final FieldValueParser[] _columnParsers; 
   Field[] _fields;
 
   /**
@@ -157,6 +161,8 @@ public final class CSVParser {
     initialize();
   }
 
+  // depending on the setup, we may need to parse column names or skip the first (partial) 
+  // record
   private void initialize() throws CSVParseException, NoSuchFieldException,
       SecurityException, IllegalArgumentException, IllegalAccessException,
       IOException {
@@ -195,6 +201,10 @@ public final class CSVParser {
 
   }
 
+  /**
+   * Add additional data to the parser. Previous state is preserved. 
+   * @param d
+   */
   public void addData(byte[] d) {
     if (data() == null)
       _data[_dataIdx] = d;
@@ -223,9 +233,8 @@ public final class CSVParser {
     _length = ((_data[0] != null) ? _data[0].length : 0)
         + ((_data[1] != null) ? _data[1].length : 0);
   }
-
-  // private byte _b;
-
+  
+  // increase the current byte pointer if possible and return if succeeded
   private boolean nextByte() throws IOException {
     // System.out.println("index = " + _index + ", length = " + _length +
     // " ,_data.length = " + _data.length);      
@@ -239,7 +248,8 @@ public final class CSVParser {
   // set the attribute value and reset given parser
   protected void endField() throws IllegalArgumentException,
       IllegalAccessException, CSVParseException {
-    if (!_dontParseFlag) {
+    if (!_dontParseFlag) { 
+      // don't parse flag means we're just skipping partial record -> do not try to parse the data
       if (_column == _columnParsers.length) {
         if (_setup._ignoreAdditionalColumns)
           return;
@@ -327,7 +337,7 @@ public final class CSVParser {
   protected boolean addChar(char c) throws CSVParseException,
       IllegalArgumentException, IllegalAccessException {
     switch (_state) {
-    case 0:
+    case 0: // the beginning of a record or field or only whitespaces have been read so far
       if (c == _setup._separator) {
         if (!_setup._collapseSpaceSeparators)
           endField();
@@ -364,14 +374,14 @@ public final class CSVParser {
           case typeInt:
           case typeFloat:
           case typeDouble:
-            _from = _index;
+            _from = _index; // in case of number values, skip any spaces in the beginning 
             break;
           }
         }
         _to = _index;
       }
       break;
-    case 1:
+    case 1: // non-space character has been read before
       if ((c == _setup._separator) || (c == '\n')) {
         endField();
         if (c == '\n') {
@@ -383,17 +393,17 @@ public final class CSVParser {
         _to = _index;
       }
       break;
-    case 2:
+    case 2: // quoted state! ignore anything but " is treated as data
       if (c == '"')
         _state = 3;
       else
         _to = _index;
       break;
-    case 3:
+    case 3: // either end of a quoted region or quote inside quoted region (quotes can be escaped by another ", so "" is treated as ")
       if (c == '"') {
         _to = _index;
-        _state = 2;
-      } else {
+        _state = 2; // double quote, add " ot the data and return to quoted state
+      } else { // end of the quoted region, should just be end of the field/record with possible spaces
         if ((c == _setup._separator) || (c == '\n')) {
           endField();
           if (c == '\n') {
@@ -411,7 +421,7 @@ public final class CSVParser {
         }
       }
       break;
-    case 4:
+    case 4: // spaces appended to the end of a field, nothing else allowed here
       if ((c == _setup._separator) || (c == '\n')) {
         endField();
         if (c == '\n') {
@@ -509,6 +519,17 @@ public final class CSVParser {
     return _columnNames;
   }
 
+  /**
+   * Reset the state of the parser to initial state and it's data to the passed data.
+   * 
+   * @param data
+   * @throws NoSuchFieldException
+   * @throws SecurityException
+   * @throws IllegalArgumentException
+   * @throws IllegalAccessException
+   * @throws CSVParseException
+   * @throws IOException
+   */
   public void reset(byte[] data) throws NoSuchFieldException,
       SecurityException, IllegalArgumentException, IllegalAccessException,
       CSVParseException, IOException {
@@ -527,6 +548,10 @@ public final class CSVParser {
     initialize();
   }
 
+  /**
+   * Close the parser so that no other data are parsed.
+   * (unless reset() is called)
+   */
   public void close() {
     _closed = true;
   }

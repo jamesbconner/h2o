@@ -44,7 +44,7 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
   T _rec;
   String[] _columns;
 
-  abstract class ADataProvider {
+  public abstract static class ADataProvider {
 
     abstract boolean hasMoreData();
 
@@ -184,24 +184,35 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     }
   }
 
-  class StreamDataProvider extends ADataProvider {
+  public static class StreamDataProvider extends ADataProvider {
 
     byte[][] _data;
     InputStream _is;
-
+    
+    long _dataRead;
+    long _dataLimit = Long.MAX_VALUE;
     int _currentChunkId;
 
-    StreamDataProvider(int chunkSize, InputStream is) {
+    public StreamDataProvider(int chunkSize, InputStream is, long offset, long length) throws IOException {
+      _data = new byte[][] { new byte[chunkSize], new byte[chunkSize] };
+      _is = is;
+      _is.skip(offset);
+      _dataLimit = length;
+    }
+    public StreamDataProvider(int chunkSize, InputStream is) {
       _data = new byte[][] { new byte[chunkSize], new byte[chunkSize] };
       _is = is;
     }
 
     @Override
     byte[] nextData(int len) {
+      len = Math.min(len,(int)(_dataLimit - _dataRead));
+      if(len == 0) return null;
       byte[] data = (len >= _data[_currentChunkId & 1].length) ? _data[_currentChunkId & 1]
           : new byte[len];
       try {
         int read = _is.read(data);
+        _dataRead += read;
         if (read < data.length) {
           data = (read == -1) ? null : Arrays.copyOf(data, read);
         }
@@ -226,7 +237,7 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     @Override
     boolean hasMoreData() {
       try {
-        return (_is != null) && (_is.available() > 0);
+        return (_is != null) && (_is.available() > 0) && (_dataRead != _dataLimit);
       } catch (IOException e) {
         e.printStackTrace();
         return false;
@@ -272,7 +283,6 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     } catch (CSVEscapedBoundaryException e) {
       throw e;
     } catch (Exception e1) {
-      e1.printStackTrace();
       _parser.close();
       return false;
     }
@@ -337,6 +347,16 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
       IllegalArgumentException, IllegalAccessException, CSVParseException,
       IOException {
     _dataProvider = new StreamDataProvider(1 << water.ValueArray.LOG_CHK, is);
+    _rec = csvRecord;
+    setup._parseColumnNames = setup._parseColumnNames;
+    _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
+  }
+  
+  public ValueCSVRecords(ADataProvider dataProvider, T csvRecord, String[] columns,
+      CSVParserSetup setup) throws NoSuchFieldException, SecurityException,
+      IllegalArgumentException, IllegalAccessException, CSVParseException,
+      IOException {
+    _dataProvider = dataProvider;
     _rec = csvRecord;
     setup._parseColumnNames = setup._parseColumnNames;
     _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
