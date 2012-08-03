@@ -29,60 +29,34 @@ import analytics.Statistic;
 public class PokerAdapter extends DataAdapter {
 
   int[][] data;
-  int currentRow;
   HashSet<Integer> _classes;
 
-  public int numRows() {
-    return data.length;
-  }
-
-  public int numColumns() {
-    return data[0].length - 1;
-  }
-
-  public boolean isInt(int index) {
-    return true;
-  }
-
-  public int toInt(int index) {
-    return data[currentRow][index];
-  }
-
-  public double toDouble(int index) {
-    return data[currentRow][index];
-  }
-
-  public int numClasses() {
-    // return _classes.size(); fix this to be generic
-    return 10;
-  }
-
-  public int dataClass() {
-    return data[currentRow][data[currentRow].length - 1];
-  }
+  public int numRows()            { return data.length; }
+  public int numColumns()         { return data[0].length - 1;  }
+  public boolean isInt(int index) { return true;  }
+  public int toInt(int index)     { return data[cur][index];  }
+  public double toDouble(int index){return data[cur][index];  }
+  public int numClasses()         { return 10;  }
+  public int dataClass()          { return data[cur][10];  }
 
   public PokerAdapter(Value v) throws NoSuchFieldException, SecurityException,
-  IllegalArgumentException, IllegalAccessException, CSVParseException,
-  IOException {
+  IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
     this(v,0,v.chunks()+1);
   }
   
   public PokerAdapter(Value v, int chunkFrom, int chunkTo) throws NoSuchFieldException, SecurityException,
-      IllegalArgumentException, IllegalAccessException, CSVParseException,
-      IOException {
+      IllegalArgumentException, IllegalAccessException, CSVParseException,  IOException {
     int[] r = new int[11];
     ArrayList<int[]> parsedRecords = new ArrayList<int[]>();
     CSVParserSetup setup = new CSVParserSetup();
-    setup._parseColumnNames = false;
-    
+    setup._parseColumnNames = false;    
     if (v != null) {
       ValueCSVRecords<int[]> p1 = new ValueCSVRecords<int[]>(v.chunk_get(chunkFrom), chunkTo - chunkFrom, r, null, setup);
       for (int[] x : p1)
         parsedRecords.add(x.clone());
       data = new int[parsedRecords.size()][];
       data = parsedRecords.toArray(data);
-    } else
-      throw new Error("no such key in K/V store");
+    } else throw new Error("no such key in K/V store");
   }
 
   public PokerAdapter(File inputFile) throws NoSuchFieldException,
@@ -100,7 +74,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 100 * 1000;
+ static int TREES = 1 * 1000;
 
   /**
    * for testing...
@@ -109,35 +83,24 @@ public class PokerAdapter extends DataAdapter {
    * @throws Exception
    */
   public static void main(String[] args) throws Exception {
-    for (String path : args) {
+    if(args.length==0)args = new String[] { "smalldata/poker/poker100" };
+    for( String path : args ){
       System.out.print("parsing " + path + "...");
       File f = new File(path);
-      if (!f.exists()) {
+      if( !f.exists() ){
         System.out.println("file not found!");
         continue;
       }
       PokerAdapter data = new PokerAdapter(f);
       System.out.println("done");
-      System.out.println("there are " + data.numRows() + " rows and "
-          + data.numColumns() + " columns");
-      for (int i = 0; i < data.numRows(); ++i) {
-        data.seekToRow(i);
-        for (int j = 0; j < data.numColumns(); ++j) {
-          System.out.print(data.toInt(j));
-          System.out.print(", ");
-        }
-        System.out.println(data.dataClass());
-
-      RF rf = new RF(data ,TREES);
+      System.out.println("there are " + data.numRows() + " rows and "  + data.numColumns() + " columns");
+      RF rf = new RF(data, TREES);
       rf.compute();
-    System.out.print("Done. Computing accuracy.");
-    System.out.println(rf);
-    System.out.println(rf.tree(0).toString());
-
-      }
+      System.out.print("Done. Computing accuracy.");
+      System.out.println(rf);
+      System.out.println(rf.tree(0).toString());
     }
   }
-
   public Statistic createStatistic() { return new AverageStatistic(this); }
   public int numFeatures() { return 7; } // this should be roughly 2/3 of numCol
 
