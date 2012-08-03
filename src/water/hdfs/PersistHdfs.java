@@ -32,8 +32,8 @@ public class PersistHdfs extends Persistence {
            0);                   // No more status bits needed
   
   static {
-    _conf = new Configuration();
     if( H2O.OPT_ARGS.hdfs_config!=null ) {
+      _conf = new Configuration();
       File p = new File(H2O.OPT_ARGS.hdfs_config);
       if (!p.exists())
         Log.die("[hdfs] Unable to open hdfs configuration file "+p.getAbsolutePath());
@@ -43,8 +43,11 @@ public class PersistHdfs extends Persistence {
         System.err.println("[hdfs] connection server "+H2O.OPT_ARGS.hdfs+" from commandline ignored");
     } else {
       if( H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty() ) {
+        _conf = new Configuration();
         _conf.set("fs.default.name",H2O.OPT_ARGS.hdfs);
         System.out.println("[hdfs] fs.default.name = "+H2O.OPT_ARGS.hdfs);
+      } else {
+        _conf = null;
       }
     }
     ROOT = H2O.OPT_ARGS.hdfs_root==null ? DEFAULT_ROOT : H2O.OPT_ARGS.hdfs_root;
