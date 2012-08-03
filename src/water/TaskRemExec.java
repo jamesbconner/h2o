@@ -12,13 +12,23 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
 
   final RemoteTask _dt;              // Task to send & execute remotely
   final Key _args;
-  
+
+  // With a Key+Value, do a Put on the Key & block for it - forcing the Value
+  // to be available when remote execution starts.
   public TaskRemExec( H2ONode target, RemoteTask dt, Key args, Value val ) {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
     DKV.put(args,val);          // Publish the keyset for remote execution
     DKV.write_barrier();        // Block until all prior writes have completed
+    resend();                   // Initial send after final fields set
+  }
+
+  // This version assumes a prior remote Value is already coherent
+  public TaskRemExec( H2ONode target, RemoteTask dt, Key args ) {
+    super( target,UDP.udp.rexec );
+    _dt = dt;
+    _args = args;
     resend();                   // Initial send after final fields set
   }
 

@@ -45,7 +45,7 @@ public abstract class DKV {
   }
 
   // Do a PUT, and on success trigger replication.
-  static private Value DputIfMatch( Key key, Value val, Value old ) {
+  static protected Value DputIfMatch( Key key, Value val, Value old ) {
     // Check for trivial success: no need to invalidate remotes if the new
     // value equals the old.
     if( old == val ) return old; // Trivial success?

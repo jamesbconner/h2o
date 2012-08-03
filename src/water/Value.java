@@ -220,6 +220,14 @@ public class Value {
       mem[i] = sbytes[i];
     }
   }
+  // Memory came from elsewhere
+  public Value(Key k, byte[] bits ) {
+    MemoryManager.USED.addAndGet(bits.length); // Mark memory as used
+    _mem = bits;
+    _max = bits.length;
+    _key = k;
+    _persistenceInfo = PersistIce.INIT; // default persistence and mode
+  }
 
   // Returns true if the entire value is resident in memory.
   final boolean is_mem_local() { return _mem != null && _mem.length == _max; }
