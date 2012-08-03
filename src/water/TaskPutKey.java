@@ -20,6 +20,12 @@ public class TaskPutKey extends DFutureTask<Object> {
   final Key _key; // The LOCAL Key; presumably a bare Key no Value, and NOT interned
   final Value _val; // Value to be pushed
 
+  // Big sends are slow, especially on loaded networks.  We can timeout and
+  // attempt retry before even sending once.  Track the TCP send logic - it
+  // only can survive a single send (dups look like new writes), and it's a
+  // large transfer - so dups are bad for performance also.
+  boolean _tcp_done;            // Only send TCP once, even if it is slow
+
   // Asking the remote for the Value matching this specific Key.  Return the
   // first len bytes of that key.  If len==Integer.MAX_VALUE the intent is to
   // cache the entire key locally.
@@ -68,6 +74,7 @@ public class TaskPutKey extends DFutureTask<Object> {
       // the TaskPutKey logic to order writes... e.g. lest a large value is
       // mid-write, when the REMOVE comes along and "passes" it in the wires.
       synchronized(_target) {       // Only open 1 TCP channel to that H2O at a time!
+      if( _tcp_done ) return off;
       Socket sock = null;
       try {
         sock = new Socket( _target._key._inet, _target._key.tcp_port() );
@@ -84,6 +91,7 @@ public class TaskPutKey extends DFutureTask<Object> {
         int ack = is.read(); // Read 1 byte of ack
         if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
         sock.close();
+        _tcp_done = true;
         return off;
       } catch( IOException e ) {
         try { if( sock != null ) sock.close(); }

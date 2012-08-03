@@ -210,7 +210,7 @@ public class Test {
 
   // ---
   // Run an atomic function.
-  /*@org.junit.Test*/ public static void test6() {
+  /*@org.junit.Test*/ public void test6() {
     System.out.println("test6");
     h2o_cloud_of_size(3);
 
@@ -223,25 +223,34 @@ public class Test {
     Value v1 = new Value(key,16);
     // Remote-put operation
     DKV.put(key,v1);
+    DKV.write_barrier();
 
     // Atomically run this function on a clone of the bits from the existing
     // Key and install the result as the new Value.  This function may run
     // multiple times if there are collisions.
-    final int delta1=(target.hashCode()%3)+1;
-    final int delta2=delta1*2;
-    new Atomic(key) {
-      @Override public void atomic( byte[] bits ) {
-        long l1 = UDP.get8(bits,0);
-        long l2 = UDP.get8(bits,8);
-        l1 += delta1;
-        l2 += delta2;
-        UDP.set8(bits,0,l1);
-        UDP.set8(bits,8,l2);
-      }
-    }.run();
+    Atomic q = new Atomic2();
+    q.run(key);
+    q.complete();               // Block till it completes
+    Value val2 = DKV.get(key);
+    assertNotSame(v1,val2);
+    byte[] bits2 = val2.get();
+    assertEquals(2,UDP.get8(bits2,0));
+    assertEquals(2,UDP.get8(bits2,8));
     System.exit(-1);
   }
 
+  public static class Atomic2 extends Atomic {
+    @Override public byte[] atomic( byte[] bits1 ) {
+      long l1 = UDP.get8(bits1,0);
+      long l2 = UDP.get8(bits1,8);
+      l1 += 2;
+      l2 += 2;
+      byte[] bits2 = new byte[16];
+      UDP.set8(bits2,0,l1);
+      UDP.set8(bits2,8,l2);
+      return bits2;
+    }
+  }
 
   // ---
   // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
@@ -290,7 +299,7 @@ public class Test {
         try { Thread.sleep(10); }        // sleep 10msec & test again
         catch( InterruptedException ie ) {}
       }
-      System.out.println("  Nested JVM joined cloud");
+      System.out.println("  Nested JVM joined cloud of size: "+H2O.CLOUD.size());
       if( H2O.CLOUD.size() == num+1 ) return;
       throw new Error("JVMs are dying on me");
     } catch( IOException e ) {

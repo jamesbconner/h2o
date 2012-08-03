@@ -79,6 +79,14 @@ public class TaskGetKey extends DFutureTask<Value> {
       // Get a local Key
       Key key = Key.read(buf,off);
       Value val = H2O.get(key); // Get the local Value, if any
+      byte[] vbuf = null;
+      if( val != null ) {                    // Got something?
+        if( len > val._max ) len = val._max; // Limit return bytes to _max
+        if( val._max <0 ) len = 0; // this is important for sentinels
+        vbuf = val.get();          // Force into memory
+        if( vbuf == null )         // Fails to load if value is mid-delete
+          val = null;              // So act as-if it is a miss already
+      }
 
       // Smack the result into a UDP packet
       // Missed Key sends back a length==-3
@@ -95,13 +103,12 @@ public class TaskGetKey extends DFutureTask<Value> {
         } else {                 // Shipping from non-home?
           assert home == h2o;    // Assert home is asking for the key
         }
-        if( len > val._max ) len = val._max; // Limit return bytes to _max
-        if (val._max <0) len = 0; // this is important for sentinels
+
         if( off+val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
-          off = val.write(buf,off,len); // Just jam into reply packet
+          off = val.write(buf,off,len,vbuf); // Just jam into reply packet
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,key,val,len,get_task(buf)) )
+          if( !tcp_send(h2o,key,val,len,get_task(buf),vbuf) )
             return; // If the TCP failed... then so do we; no result; caller will retry
           off = val.write(buf,off,-2/*tha Big Value cookie*/); // Just jam into reply packet
         }
@@ -112,7 +119,7 @@ public class TaskGetKey extends DFutureTask<Value> {
     }
 
     // TCP large K/V send from the remote to the target
-    boolean tcp_send( H2ONode h2o, Key key, Value val, int len, int tnum ) {
+    boolean tcp_send( H2ONode h2o, Key key, Value val, int len, int tnum, byte[] vbuf ) {
       synchronized(h2o) {       // Only open 1 TCP channel to that H2O at a time!
       Socket sock = null;
       try {
@@ -124,7 +131,7 @@ public class TaskGetKey extends DFutureTask<Value> {
         dos.writeInt(tnum);
         key.write(dos);
         // Start the (large) write
-        val.write(dos,len);
+        val.write(dos,len,vbuf);
         dos.flush(); // Flush before trying to get the ack
         InputStream is = sock.getInputStream();
         int ack = is.read(); // Read 1 byte of ack

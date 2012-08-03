@@ -78,7 +78,8 @@ public abstract class DKV {
   // Used to order successive writes.
   static public void write_barrier() {
     for( DFutureTask dt : DFutureTask.TASKS.values() )
-      dt.get();
+      if( dt instanceof TaskPutKey )
+        dt.get();
   }
 
   // User-Weak-Get a Key from the distributed cloud.
@@ -107,6 +108,15 @@ public abstract class DKV {
       // If we missed in the cache AND we are the home node, then there is 
       // no V for this K.
       if( home == H2O.SELF ) return null;
+
+      // Pending write to same key from this node?  Take that write instead.
+      // Moral equivalent of "peeking into the cpu store buffer".  Can happen,
+      // e.g., because a prior 'put' of a null (i.e. a remove) is still mid-
+      // send to the remote, so the local get has missed above, but a remote
+      // get still might 'win' because the remote 'remove' is still in-progress.
+      for( DFutureTask dt : DFutureTask.TASKS.values() )
+        if( dt._target == home && dt instanceof TaskPutKey && ((TaskPutKey)dt)._key.equals(key) )
+          return ((TaskPutKey)dt)._val;
 
       TaskGetKey tgk = TaskGetKey.make( home, key, len );
       Value res = tgk.get();    // Block for it

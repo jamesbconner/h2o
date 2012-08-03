@@ -88,8 +88,9 @@ public class Value {
   // The FAST path get-byte-array - final method for speed
   public final byte[] get( int len ) {
     if( len > _max ) len = _max;
-    if( _mem != null && len <= _mem.length ) return _mem;
-    if( _max == 0 ) return _mem;
+    byte[] mem = _mem;          // Read once!
+    if( mem != null && len <= mem.length ) return mem;
+    if( _max == 0 ) return mem;
     assert (_key!=null) && _key.desired()>0 && is_persisted();  // Should already be on disk!
     return CAS_mem_if_larger(load_persist(len));
   }
@@ -270,14 +271,16 @@ public class Value {
 
   // Write up to len bytes to the packet
   final int write( byte[] buf, int off, int len ) {
+    return write(buf,off,len,(len > 0) ? get(len):null);
+  }
+  final int write( byte[] buf, int off, int len, byte[] vbuf ) {
     assert (len <= _max) || (_max<0);
     buf[off++] = type();        // Value type
     buf[off++] = _persistenceInfo;
     off += UDP.set4(buf,off,len);
     off += UDP.set4(buf,off,_max);
     if(len > 0 ) {              // Deleted keys have -1 len/max
-      get(len);                 // Force in-memory from disk
-      System.arraycopy(_mem,0,buf,off,len);
+      System.arraycopy(vbuf,0,buf,off,len);
       off += len;
     }
     assert off < MultiCast.MTU;
@@ -286,15 +289,16 @@ public class Value {
 
   // Write up to len bytes of Value to the Stream
   final void write( DataOutputStream dos, int len ) throws IOException {
+    write(dos,len,(len > 0) ? get(len):null);
+  }
+  final void write( DataOutputStream dos, int len, byte[] vbuf ) throws IOException {
     if( len > _max ) len = _max;
     dos.writeByte(type());      // Value type
     dos.writeByte(_persistenceInfo);      // Value type
     dos.writeInt(len);
     dos.writeInt(_max);
-    if( len > 0 ) {             // Deleted keys have -1 len/max
-      get(len);                 // Force in-memory from disk
-      dos.write(_mem,0,len);    // Sub-class specific data
-    }
+    if( len > 0 )                // Deleted keys have -1 len/max
+      dos.write(vbuf,0,len); // Sub-class specific data
   }
 
   static Value construct(int max, int len, Key key, byte p, byte type) {
@@ -363,13 +367,13 @@ public class Value {
     // Sub-class preliminaries
     if( getString_impl(len,sb) ) return sb.toString();
     // Ensure at least 'len' bytes are memory-local
-    get(len);
+    byte[] mem = get(len);
     sb.append("[");
-    if( _mem == null ) return sb.append(_max).append(_max==0?"]":"] ioerror").toString();
-    sb.append(_mem.length).append("/").append(_max).append("]=");
+    if( mem == null ) return sb.append(_max).append(_max==0?"]":"] ioerror").toString();
+    sb.append(mem.length).append("/").append(_max).append("]=");
     // Check for 'string-like' bytes in the 1st len bytes
     for( int i=0; i<len; i++ ) {
-      byte b = _mem[i];
+      byte b = mem[i];
       sb.append(b < 32 ? '.' : (char)b);
     }
     if( len < _max ) sb.append("...");

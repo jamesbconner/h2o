@@ -23,7 +23,7 @@ public class ValueArray extends Value {
 
   private void initialize(long sz, byte[] uid) {
     UUID uuid = UUID.randomUUID();
-    _mem[0] = 0;
+    _mem[0] = Key.ARRAYLET_CHUNK;
     _mem[1] = 0;
     UDP.set8(_mem, 2,sz);
     if (uid==null) {
@@ -62,6 +62,7 @@ public class ValueArray extends Value {
 
   // Make a system chunk-key from an offset into the main array
   public Key make_chunkkey( long off ) {
+    assert ((off >> LOG_CHK)<<LOG_CHK) == off;
     byte[] kb = get().clone();  // Make a copy of the main Value array
     UDP.set8(kb,2,off);         // Blast down the offset.
     return Key.make(kb,(byte)_key.desired()); // Presto!  A unique arraylet key!
@@ -176,11 +177,10 @@ public class ValueArray extends Value {
       long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
       int sz2 = (int)szl;       // Truncate
       assert sz2 == szl;        // No int/long truncation
-      
+
       Key ckey = ary.make_chunkkey(off);
       Value val = new Value(ckey,sz2);
       dis.readFully(val._mem);
-      // Twiddle the key name for this chunk
       
       DKV.put(ckey,val);         // Insert in distributed store
 
