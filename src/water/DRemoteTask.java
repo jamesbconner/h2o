@@ -4,6 +4,7 @@ import java.io.DataOutputStream;
 import java.lang.Cloneable;
 import jsr166y.*;
 
+// *DISTRIBUTED* RemoteTask
 // Execute a set of Keys on the home for each Key.
 // Limited to doing a map/reduce style.
 

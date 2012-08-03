@@ -9,6 +9,13 @@ import jsr166y.*;
 // serialization (line-wire format).  On some remote target they are
 // executed in the context of a Fork/Join worker thread.
 
+// After much fun design work I figured on a fast solution.  Down The Road, we
+// could improve this class so it mostly turns into a trivial packet
+// send/receive of a token + args - with the receiever not doing much beyond
+// doing an array lookup containing instances of the anonymous inner classes -
+// and then dispatching the atomic-call on them.  This requires Cloud-wide
+// agreement on what token maps to what instances.
+
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 // @version 1.0
 public abstract class RemoteTask extends RecursiveTask {
