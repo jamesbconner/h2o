@@ -13,6 +13,9 @@ import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
 import analytics.DataAdapter;
 import analytics.Statistic;
+import analytics.AverageStatistic;
+import analytics.RF;
+import analytics.Statistic;
 
 /**
  * Simple adaptor for Poker dataset.
@@ -51,7 +54,8 @@ public class PokerAdapter extends DataAdapter {
   }
 
   public int numClasses() {
-    return _classes.size();
+    // return _classes.size(); fix this to be generic
+    return 10;
   }
 
   public int dataClass() {
@@ -73,7 +77,7 @@ public class PokerAdapter extends DataAdapter {
     setup._parseColumnNames = false;
     
     if (v != null) {
-      ValueCSVRecords<int[]> p1 = new ValueCSVRecords<int[]>(v,chunkFrom, chunkTo, r, null, setup);
+      ValueCSVRecords<int[]> p1 = new ValueCSVRecords<int[]>(v.chunk_get(chunkFrom), chunkTo - chunkFrom, r, null, setup);
       for (int[] x : p1)
         parsedRecords.add(x.clone());
       data = new int[parsedRecords.size()][];
@@ -96,6 +100,8 @@ public class PokerAdapter extends DataAdapter {
     data = new int[parsedRecords.size()][];
     data = parsedRecords.toArray(data);
   }
+
+ static int TREES = 100 * 1000;
 
   /**
    * for testing...
@@ -122,17 +128,18 @@ public class PokerAdapter extends DataAdapter {
           System.out.print(", ");
         }
         System.out.println(data.dataClass());
+
+      RF rf = new RF(data ,TREES);
+      rf.compute();
+    System.out.print("Done. Computing accuracy.");
+    System.out.println(rf);
+    System.out.println(rf.tree(0).toString());
+
       }
     }
   }
 
-  @Override
-  public Statistic createStatistic() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
+  public Statistic createStatistic() { return new AverageStatistic(this); }
+  public int numFeatures() { return 10; }
 
-  @Override
-  public int numFeatures() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
 }

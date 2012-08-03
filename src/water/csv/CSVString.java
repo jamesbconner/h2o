@@ -1,5 +1,7 @@
 package water.csv;
 
+import java.util.Arrays;
+
 public class CSVString implements CharSequence, Comparable<String> {
   int _offset = -1;
   int _len = -1;
@@ -43,7 +45,9 @@ public class CSVString implements CharSequence, Comparable<String> {
   }
 
   
-
+  public boolean equals(CSVString s){
+    return (s._len == _len) && equals(s.toString());
+  }
   public boolean equals(String s){
     return (s.length() == _len)?(compareTo(s) == 0):false;
   }
