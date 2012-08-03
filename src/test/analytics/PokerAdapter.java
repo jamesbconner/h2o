@@ -83,7 +83,7 @@ public class PokerAdapter extends DataAdapter {
    * @throws Exception
    */
   public static void main(String[] args) throws Exception {
-    if(args.length==0)args = new String[] { "smalldata/poker/poker100" };
+    if(args.length==0)args = new String[] { "smalldata/poker/poker-hand-testing.data" };
     for( String path : args ){
       System.out.print("parsing " + path + "...");
       File f = new File(path);
