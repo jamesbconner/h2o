@@ -1,12 +1,21 @@
 package analytics;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.text.DecimalFormat;
 
 /**
  *
  * @author peta
  */
-public class RF implements Classifier {
+public class RF { // implements Classifier {
+  private static final long serialVersionUID = 3449080587112104147L;
   private DecisionTree[] trees_;
   final RFBuilder builder_;
   final DataAdapter data_;
@@ -33,13 +42,29 @@ public class RF implements Classifier {
     time_ = (t2-t1);
   }
   public double outOfBagError() { return builder_.outOfBagError(); }
-
-  public int numTrees() {
-    return trees_.length;
+  public int numTrees() { return trees_.length; }
+  public DecisionTree tree(int n) { return trees_[n];  }
+  public byte[] trees() throws IOException {  return serialize(trees_);  }  
+  public void combine(byte[] ts) throws IOException, ClassNotFoundException {
+    DecisionTree[] other = (DecisionTree[]) deserialize(ts);
+    DecisionTree[] merged = new DecisionTree[other.length+trees_.length];
+    for(int i=0,j=0;i<trees_.length;i++,j++) merged[j]=trees_[i];
+    for(int i=0,j=trees_.length;i<other.length;i++,j++) merged[j]=other[i];
+    trees_ = merged;
+  }  
+  static byte[] serialize(Object q) throws IOException {
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    ObjectOutput out = new ObjectOutputStream(bos);
+    out.writeObject(q);
+    byte[] buf = bos.toByteArray();    
+    out.close();
+    bos.close();
+    return buf;
   }
-  
-  public DecisionTree tree(int n) {
-    return trees_[n];
+
+  private Object deserialize(byte[] mem) throws IOException, ClassNotFoundException {
+    OIS ois = new OIS(new ByteArrayInputStream(mem), this.getClass().getClassLoader());
+    return ois.readObject();   
   }
   
   static final DecimalFormat df = new  DecimalFormat ("0.###");
@@ -52,4 +77,16 @@ public class RF implements Classifier {
         + "#nodes="+ DecisionTree.nodeCount + "\n"
         + "OOB err = " + outOfBagError() + "\n";// + "Single tree errors: " + errors;
   }
+}
+
+
+
+//an input stream used for deserialization with its custom class loader.
+class OIS extends ObjectInputStream {
+private final ClassLoader loader;
+public Class resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
+ try{  return loader.loadClass(desc.getName()); }catch( Exception e ){ System.err.println(e.toString()); }
+ return super.resolveClass(desc);
+}
+public OIS(InputStream in, ClassLoader cl) throws IOException {  super(in); loader = cl; }
 }

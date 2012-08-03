@@ -93,7 +93,8 @@ public class AverageStatistic extends Statistic {
   }
 
   public static class AClassifier implements Classifier {
-    
+    private static final long serialVersionUID = 7018366806046580325L;
+
     private final byte[] columns_;
     
     // For each final category there is a columns size vector of doubles 
