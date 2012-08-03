@@ -76,15 +76,11 @@ public abstract class Atomic extends RemoteTask {
       Value res = DKV.DputIfMatch(key,val2,val1);
 
       if( res == val1 ) {       // Success?
-        // Atomically updated!  Toss out old value
-        System.out.println("updated");
-        val1.free_mem();
-        System.out.println("updated "+UDP.get8(val2.get(),0));
+        val1.free_mem();        // Atomically updated!  Toss out old value
         return;
       }
       // Else it failed
       val2.free_mem();          // Toss out NEW value
-      System.out.println("failed, retrying");
       // and retry
     }
   }

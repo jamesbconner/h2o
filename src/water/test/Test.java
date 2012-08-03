@@ -209,8 +209,8 @@ public class Test {
   }
 
   // ---
-  // Run an atomic function.
-  /*@org.junit.Test*/ public void test6() {
+  // Run an atomic function remotely, one time only
+  @org.junit.Test public void test6() {
     System.out.println("test6");
     h2o_cloud_of_size(3);
 
@@ -219,7 +219,7 @@ public class Test {
     H2ONode target = cloud._memary[0];
     if( target == H2O.SELF ) target = cloud._memary[1];
     Key key = Key.make("test6_remote",(byte)1,Key.DFJ_INTERNAL_USER,target);
-    // It's a plain empty by array - but too big for atomic update on purpose
+    // It's a plain empty byte array - but too big for atomic update on purpose
     Value v1 = new Value(key,16);
     // Remote-put operation
     DKV.put(key,v1);
@@ -231,12 +231,12 @@ public class Test {
     Atomic q = new Atomic2();
     q.run(key);
     q.complete();               // Block till it completes
-    Value val2 = DKV.get(key);
-    assertNotSame(v1,val2);
-    byte[] bits2 = val2.get();
-    assertEquals(2,UDP.get8(bits2,0));
-    assertEquals(2,UDP.get8(bits2,8));
-    System.exit(-1);
+    Value val3 = DKV.get(key);
+    assertNotSame(v1,val3);
+    byte[] bits3 = val3.get();
+    assertEquals(2,UDP.get8(bits3,0));
+    assertEquals(2,UDP.get8(bits3,8));
+    DKV.remove(key);            // Cleanup after test
   }
 
   public static class Atomic2 extends Atomic {
@@ -257,9 +257,9 @@ public class Test {
   static public void h2o_cloud_of_size( int cnt ) {
     int num = H2O.CLOUD.size();
     while( num < cnt ) {
-      launch_dev_jvm(num);
-      //try { Thread.sleep(10); }        // sleep 10msec & test again
-      //catch( InterruptedException ie ) {}
+      //launch_dev_jvm(num);
+      try { Thread.sleep(10); }        // sleep 10msec & test again
+      catch( InterruptedException ie ) {}
       num = H2O.CLOUD.size();
     }
   }

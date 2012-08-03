@@ -147,8 +147,18 @@ public class TaskPutKey extends DFutureTask<Object> {
       // Clear his replica-bits so we do not invalidate him.
       key. clr_mem_replica(sender);
       key.clr_disk_replica(sender);
-      // Home-node side PUT (which may require invalidates)
-      DKV.put(key,val);
+      if( key.home() ) {        // Home-side put?
+        // Home-node side PUT (which may require invalidates)
+        DKV.put(key,val);
+      } else {                  // Remote put: only invalidate is allowed
+        assert val == null;     // Invalidate only
+        // Similar to DKV.put, except no further invalidates nor forwarding to home
+        // Just wipe the local value out.
+        Value old = H2O.get(key);
+        while( H2O.putIfMatch(key,null,old) != old )
+          old = H2O.get(key);   // Repeat until we invalidate something
+        if( old != null ) old.free_mem();
+      }
       // Now we assume the sender is still valid in ram.
       if( val != null ) key.set_mem_replica(sender);
       // There's a weird race where another thread is writing also, and we set

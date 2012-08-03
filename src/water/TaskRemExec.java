@@ -12,6 +12,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
 
   final RemoteTask _dt;              // Task to send & execute remotely
   final Key _args;
+  final boolean _did_put;
 
   // With a Key+Value, do a Put on the Key & block for it - forcing the Value
   // to be available when remote execution starts.
@@ -19,6 +20,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
+    _did_put = true;
     DKV.put(args,val);          // Publish the keyset for remote execution
     DKV.write_barrier();        // Block until all prior writes have completed
     resend();                   // Initial send after final fields set
@@ -29,6 +31,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
+    _did_put = false;
     resend();                   // Initial send after final fields set
   }
 
@@ -107,7 +110,6 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       // Now compute on it!
       dt.rexec(args);
 
-      DKV.remove(args); // Cleanup the arg-passing
       // Send it back; UDP-sized results only please, for now
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       if( dt.wire_len()+off >= MultiCast.MTU ) {
@@ -136,6 +138,8 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
 
   // Unpack the answer
   protected RemoteTask unpack( DatagramPacket p ) {
+    // Cleanup after thyself
+    if( _did_put ) DKV.remove(_args);
     // First SZ_TASK bytes have UDP type# and port# and task#.
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
