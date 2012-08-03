@@ -1,5 +1,7 @@
 package test.analytics;
 
+import java.io.IOException;
+
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
 import analytics.RF;
@@ -191,7 +193,7 @@ public class IrisAdapter extends DataAdapter {
   public int numClasses() { return 3; }
   public int dataClass() { return data[cur].class_; }
   
-  static int TREES = 100 * 1000;
+  static int TREES = 1 * 1000;
   public static void main(String[] a) {     
     if(a.length>0) TREES = Integer.parseInt(a[0]);
     RF rf = new RF(new IrisAdapter(),TREES);
@@ -199,6 +201,15 @@ public class IrisAdapter extends DataAdapter {
     System.out.print("Done. Computing accuracy.");
     System.out.println(rf);
     System.out.println(rf.tree(0).toString());
+    try{
+      rf.combine(rf.trees());
+    }catch( IOException e ){
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }catch( ClassNotFoundException e ){
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
   }
   
   public Statistic createStatistic() { return new AverageStatistic(this); }

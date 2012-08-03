@@ -11,9 +11,8 @@ import water.Value;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
-import analytics.DataAdapter;
-import analytics.Statistic;
 import analytics.AverageStatistic;
+import analytics.DataAdapter;
 import analytics.RF;
 import analytics.Statistic;
 
@@ -140,6 +139,6 @@ public class PokerAdapter extends DataAdapter {
   }
 
   public Statistic createStatistic() { return new AverageStatistic(this); }
-  public int numFeatures() { return 10; }
+  public int numFeatures() { return 7; } // this should be roughly 2/3 of numCol
 
 }

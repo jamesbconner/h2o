@@ -9,7 +9,8 @@ package analytics;
  * @author peta
  */
 public class ColumnBinaryClassifier implements Classifier {
-
+  private static final long serialVersionUID = -7687493058829444692L;
+  
   public final int column;
   public final int value;
   
