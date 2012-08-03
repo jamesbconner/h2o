@@ -205,9 +205,10 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     }
 
     @Override
-    byte[] nextData(int len) {
-      len = Math.min(len,(int)(_dataLimit - _dataRead));
-      if(len == 0) return null;
+    byte[] nextData(int len) {      
+      long n = (_dataLimit - _dataRead);      
+      len = Math.min(len,(n > Integer.MAX_VALUE)?Integer.MAX_VALUE:(int)n);
+      if(len == 0) return null;      
       byte[] data = (len >= _data[_currentChunkId & 1].length) ? _data[_currentChunkId & 1]
           : new byte[len];
       try {
