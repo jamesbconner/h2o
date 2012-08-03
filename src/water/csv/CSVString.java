@@ -1,6 +1,5 @@
 package water.csv;
 
-import java.util.Arrays;
 
 public class CSVString implements CharSequence, Comparable<String> {
   int _offset = -1;
@@ -66,17 +65,14 @@ public class CSVString implements CharSequence, Comparable<String> {
     return new String(_parser.data(),_offset,len1) + new String(_parser.nextData(),0,len2);
   }
 
-  @Override
   public int compareTo(String arg0) {
     return compare(arg0.getBytes());
   }
 
-  @Override
   public int length() {
     return _len;
   }
 
-  @Override
   public CharSequence subSequence(int off, int end) {
     return new CSVString(off, end - off, _parser);
   }

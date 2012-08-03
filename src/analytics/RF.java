@@ -3,11 +3,9 @@ package analytics;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
-import java.io.ObjectStreamClass;
 import java.text.DecimalFormat;
 
 /**
@@ -63,8 +61,7 @@ public class RF { // implements Classifier {
   }
 
   private Object deserialize(byte[] mem) throws IOException, ClassNotFoundException {
-    OIS ois = new OIS(new ByteArrayInputStream(mem), this.getClass().getClassLoader());
-    return ois.readObject();   
+    return new ObjectInputStream(new ByteArrayInputStream(mem)).readObject();   
   }
   
   static final DecimalFormat df = new  DecimalFormat ("0.###");
@@ -79,14 +76,3 @@ public class RF { // implements Classifier {
   }
 }
 
-
-
-//an input stream used for deserialization with its custom class loader.
-class OIS extends ObjectInputStream {
-private final ClassLoader loader;
-public Class resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
- try{  return loader.loadClass(desc.getName()); }catch( Exception e ){ System.err.println(e.toString()); }
- return super.resolveClass(desc);
-}
-public OIS(InputStream in, ClassLoader cl) throws IOException {  super(in); loader = cl; }
-}
