@@ -8,7 +8,16 @@ import water.RemoteTask;
 import water.UDP;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.DProcessCSVTask;
+import water.csv.ValueCSVRecords;
 
+/**
+ * Example of using distributed processing of csv data.
+ * 
+ * Executeds distributing csv parse and computation of average values of the poker dataset.
+ *  
+ * @author tomas
+ *
+ */
 public class PokerAvg extends DProcessCSVTask<int[]>{
   
   /**
@@ -47,13 +56,16 @@ public class PokerAvg extends DProcessCSVTask<int[]>{
       result[i] = d * (double)_values[i];
     return result;
   }
-  @Override
-  protected void processRecord(int [] csvRecord) {    
-    for(int i = 0; i < csvRecord.length;++i){
-      _values[i] += csvRecord[i];      
+  
+  protected void processRecords(ValueCSVRecords<int[]> records){
+    for(int [] rec:records){
+      for(int i = 0; i < rec.length; ++i){
+        _values[i] += rec[i];
+      }
+      ++_N;
     }
-    ++_N;    
   }
+    
 
   @Override
   public void reduce(RemoteTask drt) {

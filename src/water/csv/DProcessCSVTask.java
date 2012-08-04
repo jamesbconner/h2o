@@ -9,7 +9,8 @@ import water.csv.CSVParser.CSVParserSetup;
 /**
  * Base class for distributed CSV parsing.
  * 
- * Just override processRecord(csvRecord) and reduce().
+ * Just override processRecord(csvRecord) and reduce() 
+ * and  (in case you have any state stored in a pointer) clone().
  * 
  * @author tomas
  * 
@@ -27,10 +28,10 @@ public abstract class DProcessCSVTask<T> extends DRemoteTask {
   
   protected final String[] _columns;
  
-  abstract protected void processRecord(T csvRecord);  
+  abstract protected void processRecords(ValueCSVRecords<T> records);  
   
-  public DProcessCSVTask(T csvRecord, String[] columns, CSVParserSetup setup)
-      throws NoSuchFieldException, SecurityException {
+  
+  public DProcessCSVTask(T csvRecord, String[] columns, CSVParserSetup setup) {
     _csvRecord = csvRecord;
     _setup = setup;
     _columns = columns;    
@@ -39,16 +40,13 @@ public abstract class DProcessCSVTask<T> extends DRemoteTask {
   
   @Override
   public void map(Key key) {    
-    int index = ValueArray.getChunkIndex(key);
+    int index = ValueArray.getChunkIndex(key); // fixme - make sure we have an arraylet
     Key nextKey = ValueArray.getChunk(key, index+1);
     if (DKV.get(nextKey) == null)
       nextKey = null;
     try {
-      ValueCSVRecords<T> records = new ValueCSVRecords<T>(key, 1,
-          _csvRecord, _columns, _setup);      
-      for (T r : records) {
-        processRecord(r);
-      }
+      processRecords(new ValueCSVRecords<T>(key, 1,
+          _csvRecord, _columns, _setup));        
     } catch (Exception e) {
       e.printStackTrace();
       throw new Error("unexpected exception");
