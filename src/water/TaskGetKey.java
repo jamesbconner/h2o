@@ -108,7 +108,7 @@ public class TaskGetKey extends DFutureTask<Value> {
           off = val.write(buf,off,len,vbuf); // Just jam into reply packet
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,key,val,len,get_task(buf),vbuf) )
+          if( !tcp_send(h2o,UDP.udp.getkey,get_task(buf),key,val,vbuf) )
             return; // If the TCP failed... then so do we; no result; caller will retry
           off = val.write(buf,off,-2/*tha Big Value cookie*/); // Just jam into reply packet
         }
@@ -116,38 +116,6 @@ public class TaskGetKey extends DFutureTask<Value> {
 
       // Send it back
       reply(p,off,h2o);
-    }
-
-    // TCP large K/V send from the remote to the target
-    boolean tcp_send( H2ONode h2o, Key key, Value val, int len, int tnum, byte[] vbuf ) {
-      synchronized(h2o) {       // Only open 1 TCP channel to that H2O at a time!
-      Socket sock = null;
-      try {
-        sock = new Socket( h2o._key._inet, h2o._key.tcp_port() );
-        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
-        // Write out the initial operation & key
-        dos.writeByte(UDP.udp.getkey.ordinal());
-        dos.writeShort(H2O.UDP_PORT);
-        dos.writeInt(tnum);
-        key.write(dos);
-        // Start the (large) write
-        val.write(dos,len,vbuf);
-        dos.flush(); // Flush before trying to get the ack
-        InputStream is = sock.getInputStream();
-        int ack = is.read(); // Read 1 byte of ack
-        if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
-        sock.close();
-        return true;
-      } catch( IOException e ) {
-        try { if( sock != null ) sock.close(); }
-        catch( IOException e2 ) { /*no msg for error on closing broken socket */}
-        // Be silent for SocketException; we get this if the remote dies and we
-        // basically expect them.
-        if( !(e instanceof SocketException) ) // We get these if the remote dies mid-write
-          System.err.println("tcp socket failed "+e);
-        return false;
-      }
-      }
     }
 
     // TCP large K/V RECIEVE on the target from the remote.  Note that 'this'

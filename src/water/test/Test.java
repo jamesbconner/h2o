@@ -257,9 +257,9 @@ public class Test {
   static public void h2o_cloud_of_size( int cnt ) {
     int num = H2O.CLOUD.size();
     while( num < cnt ) {
-      //launch_dev_jvm(num);
-      try { Thread.sleep(10); }        // sleep 10msec & test again
-      catch( InterruptedException ie ) {}
+      launch_dev_jvm(num);
+      //try { Thread.sleep(10); }        // sleep 10msec & test again
+      //catch( InterruptedException ie ) {}
       num = H2O.CLOUD.size();
     }
   }

@@ -1,4 +1,7 @@
 package water;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.DatagramPacket;
 
 /**
@@ -57,13 +60,11 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     // Then the args key
     off = _args.write(buf,off);
     // Then the instance data.
-    if( _dt.wire_len()+off >= MultiCast.MTU ) {
-      // Big object, switch to TCP style comms.  Or really, serialize the
-      // object to the K/V store & send the key over - with the key home being
-      // on the target machine.
-      throw new Error("sending a big object?");
-    } else {
+    if( _dt.wire_len()+off <= MultiCast.MTU ) {
       off = _dt.write(buf,off);
+    } else {
+      // Big object, switch to TCP style comms.
+      throw new Error("unimplemented: initial send of a large DRemoteTask?");
     }
     return off;
   }
@@ -96,32 +97,54 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       // Make a remote instance of this dude
       RemoteTask dt = RemoteTask.make(classloader_key,clazz);
       // Fill in any fields
-      if( dt != null ) {
-        if( dt.wire_len()+off >= MultiCast.MTU ) {
-          // Big object, switch to TCP style comms.  Or really, serialize the
-          // object to the K/V store & send the key over - with the key home
-          // being on the target machine.
-          throw new Error("receiving a big object?");
-        } else {
-          dt.read(buf,off);
-        }
+      if( dt.wire_len()+off <= MultiCast.MTU ) {
+        dt.read(buf,off);
+      } else {
+        // Big object, switch to TCP style comms.
+        throw new Error("unimplemented: initial receive of a large DRemoteTask?");
       }
 
       // Now compute on it!
       dt.rexec(args);
 
-      // Send it back; UDP-sized results only please, for now
+      // Send it back
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
-      if( dt.wire_len()+off >= MultiCast.MTU ) {
-        // Big object, switch to TCP style comms.  Or really, serialize the
-        // object to the K/V store & send the key over - with the key home being
-        // on the target machine.
-        throw new Error("sending a big object?");
+      if( dt.wire_len()+off <= MultiCast.MTU ) {
+        buf[off++] = 0;         // Result coming via UDP
+        off = dt.write(buf,off); // Result
       } else {
-        off = dt.write(buf,off);
+        buf[off++] = 1;         // Result coming via UDP
+        // Push the large result back *now* (no async pause) via TCP
+        if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),dt) )
+          return; // If the TCP failed... then so do we; no result; caller will retry
       }
 
       reply(p,off,h2o);
+    }
+
+    // TCP large DRemoteTask RECEIVE of results.  Note that 'this' is NOT the
+    // TaskRemExec object that is hoping to get the received object, nor is the
+    // current thread the TRE thread blocking for the object.  The current
+    // thread is the TCP reader thread.
+    void tcp_read_call( DataInputStream dis, H2ONode h2o ) throws IOException {
+      // Read all the parts
+      int tnum = dis.readInt();
+
+      // Get the TGK we're waiting on
+      TaskRemExec tre = (TaskRemExec)TASKS.get(tnum);
+      // Race with canceling a large Value fetch: Task is already dead.  Do not
+      // bother reading from the TCP socket, just bail out & close socket.
+      if( tre == null ) return;
+
+      // Big Read of Big Results
+      tre._dt.read(dis);
+      // Here we have the result, and we're on the correct Node but wrong
+      // Thread.  If we just return, the TCP reader thread will toss back a TCP
+      // ack to the remote, the remote will UDP ACK the TaskRemExec back, and
+      // back on the current Node but in the correct Thread, we'd wake up and
+      // realize we received a large result.  In theory we could call
+      // 'tre.response()' right now, enabling this Node without the UDP packet
+      // hop-hop... optimize me Some Day.
     }
 
     // Pretty-print bytes 1-15; byte 0 is the udp_type enum
@@ -143,14 +166,12 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     // First SZ_TASK bytes have UDP type# and port# and task#.
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
-
-    if( _dt.wire_len()+off >= MultiCast.MTU ) {
-      // Big object, switch to TCP style comms.  Or really, serialize the
-      // object to the K/V store & send the key over - with the key home being
-      // on the target machine.
-      throw new Error("sending a big object?");
+    // Read object off the wires
+    if( buf[off++] == 0 ) {     // Result is coming via TCP or UDP?
+      _dt.read(buf,off);        // UDP result
     } else {
-      _dt.read(buf,off);
+      // Big object, switch to TCP style comms.  Should have already done a
+      // DRemoteTask read from the TCP receiver thread... so no need to read here.
     }
     return _dt;
   }

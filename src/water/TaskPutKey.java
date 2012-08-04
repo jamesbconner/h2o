@@ -20,12 +20,6 @@ public class TaskPutKey extends DFutureTask<Object> {
   final Key _key; // The LOCAL Key; presumably a bare Key no Value, and NOT interned
   final Value _val; // Value to be pushed
 
-  // Big sends are slow, especially on loaded networks.  We can timeout and
-  // attempt retry before even sending once.  Track the TCP send logic - it
-  // only can survive a single send (dups look like new writes), and it's a
-  // large transfer - so dups are bad for performance also.
-  boolean _tcp_done;            // Only send TCP once, even if it is slow
-
   // Asking the remote for the Value matching this specific Key.  Return the
   // first len bytes of that key.  If len==Integer.MAX_VALUE the intent is to
   // cache the entire key locally.
@@ -65,45 +59,15 @@ public class TaskPutKey extends DFutureTask<Object> {
     if( off+_key.wire_len()+_val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
       off = _key.write(buf,off);
       off = _val.write(buf,off,len);
-      return off;
     } else {
-
       // Big Object goes via TCP!  Note that this is synchronous right now: we
       // block in the TCP write call until we're done.  Since TCP is reliable
-      // we dont need a UDP packet for cmd/ack - but we're using the rest of
+      // we do not need a UDP packet for cmd/ack - but we're using the rest of
       // the TaskPutKey logic to order writes... e.g. lest a large value is
       // mid-write, when the REMOVE comes along and "passes" it in the wires.
-      synchronized(_target) {       // Only open 1 TCP channel to that H2O at a time!
-      if( _tcp_done ) return off;
-      Socket sock = null;
-      try {
-        sock = new Socket( _target._key._inet, _target._key.tcp_port() );
-        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
-        // Write out the initial operation & key
-        dos.writeByte(UDP.udp.putkey.ordinal());
-        dos.writeShort(H2O.UDP_PORT);
-        dos.writeInt(_tasknum);
-        _key.write(dos);
-        // Start the (large) write
-        _val.write(dos,len);
-        dos.flush(); // Flush before trying to get the ack
-        InputStream is = sock.getInputStream();
-        int ack = is.read(); // Read 1 byte of ack
-        if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
-        sock.close();
-        _tcp_done = true;
-        return off;
-      } catch( IOException e ) {
-        try { if( sock != null ) sock.close(); }
-        catch( IOException e2 ) { /*no msg for error on closing broken socket */}
-        // Be silent for SocketException; we get this if the remote dies and we
-        // basically expect them.
-        if( !(e instanceof SocketException) ) // We get these if the remote dies mid-write
-          System.err.println("tcp socket failed "+e);
-        return off;
-      }
-      }
+      tcp_send(_key,_val,_val.get());
     }
+    return off;
   }
 
   // Handle the remote-side incoming UDP packet.  This is called on the REMOTE
