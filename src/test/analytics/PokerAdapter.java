@@ -74,7 +74,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 1 * 10;
+ static int TREES = 1 * 100;
 
   /**
    * for testing...
@@ -98,7 +98,6 @@ public class PokerAdapter extends DataAdapter {
       rf.compute();
       System.out.print("Done. Computing accuracy.");
       System.out.println(rf);
-      System.out.println(rf.tree(0).toString());
     }
   }
   public Statistic createStatistic() { return new AverageStatistic(this); }
