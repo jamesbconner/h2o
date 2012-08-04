@@ -208,6 +208,8 @@ public class RFBuilder {
           if (count == 0)
             continue;
           int node = partition_.getNode(t, tree.rowIndex_);
+//          System.out.println("Getting "+tree.rowIndex_+" to "+node);
+//          System.out.println("old: "+node);
           if( node != -1 ){ // the row is still not classified completely
             data_.seekToRow(r);
             node = tree.getNodeNumber(node);
@@ -216,18 +218,21 @@ public class RFBuilder {
               for( int cnt = 0; cnt < count; cnt++ )
                 n.statistic_.addDataPoint(data_);
             }
+ //           System.out.println(node);
+ //           System.out.println("Setting "+tree.rowIndex_+" to "+node);
             partition_.setNode(t, tree.rowIndex_, node);
-            tree.rowIndex_++;
           }
+          tree.rowIndex_++;
         }
         tree.createNextLevel();
+        //System.out.println("Next level expecting nodes: " + ((tree.nodes_ == null) ? "null" : tree.nodes_.length));
         // the tree has been done, we may upgrade it to next level
         if( tree.nodes_ != null ) done = false;
       }
       if( done ) break;
     //  System.out.println("OOBE = "+outOfBagError());
     }
-    System.out.println("");
+    //System.out.println("");
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);

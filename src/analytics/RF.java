@@ -53,6 +53,7 @@ public class RF { // implements Classifier {
     for(int i=0,j=trees_.length;i<other.length;i++,j++) merged[j]=other[i];
     trees_ = merged;
   }  
+  
   static byte[] serialize(Object q) throws IOException {
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
     ObjectOutput out = new ObjectOutputStream(bos);

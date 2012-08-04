@@ -11,6 +11,7 @@ import java.util.Random;
  * @author peta
  */
 public class Utils {
+  
   /** Returns the index of the largest value in the array. In case of a tie, an
    * the index is selected randomly.   */
   public static int maxIndex(int[] from, Random rand) {
@@ -59,6 +60,47 @@ public class Utils {
     sb.append(what[0]);
     for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
     return sb.toString();
+  }
+  
+  public static double lnF(double what) {
+    if (what < 1e-06)
+      return 0;
+    else
+      return what * Math.log(what);
+  }
+  
+  public static double entropyOverColumns(double[][] m) {
+    double result = 0;
+    double total = 0;
+    for (int col = 0; col < m[0].length; ++col) {
+      double sum = 0;
+      for (int row = 0; row < m.length; ++row)
+        sum += m[row][col];
+      result -= lnF(sum);
+      total += sum;
+    }
+    if (total == 0)
+      return 0;
+    else
+      return (result + lnF(total)) / (total * Math.log(2));
+  }
+  
+  public static double entropyCondOverRows(double[][] m) {
+    double result = 0;
+    double total = 0;
+    for (double[] d : m) {
+      double sum = 0;
+      for (double dd : d) {
+        sum += dd;
+        result += lnF(dd);
+      }
+      result -= lnF(sum);
+      total += sum;
+    }
+    if (total == 0)
+      return 0;
+    else
+      return -result / (total *Math.log(2));
   }
   
 }
