@@ -9,11 +9,26 @@ import java.util.Collections;
 import java.util.Comparator;
 
 /** Performs the split on numerical values. 
+ * 
+ * Uses the entropy to determine a splitpoint for each column on each node to
+ * minimize the entropy. While the algorithm is essentially a multi-pass, it is
+ * all created in the single pass technology of the RF we have. The classic pass
+ * only analyzes the distribution for the node.
+ * 
+ * When done, the build classifier of the node revisits those rows that were
+ * used for the node, sorts them for each column and then looks at each possible
+ * split point to determine the best one. 
+ * 
+ * The best split point across selected columns on the node will be used and
+ * the two parent nodes generated. 
  *
  * @author peta
  */
 public class NumericSplitterStatistic extends Statistic {
  
+  /** Simple class that holds information about a split point.
+   * 
+   */
   static class SplitInfo {
     final int column;
     final double splitValue;
@@ -30,7 +45,11 @@ public class NumericSplitterStatistic extends Statistic {
     }
   }
   
-  
+  /** A column statistic class. Performs the statistic computation on each
+   * column. Holds the distribution of the values using weights. This class is
+   * called from the main statistic for each column the statistic cares about.
+   * 
+   */
   class ColumnStatistic {
     public final byte index;
     double[][] dists;
@@ -53,6 +72,11 @@ public class NumericSplitterStatistic extends Statistic {
     }
 
     
+    /** A trivial data comparator to perform the sorting of the input rows. 
+     * 
+     * Sorting is integral to the algorithm and getting it away will likely be
+     * very hard. 
+     */
     class DataComparator implements Comparator<Integer> {
 
       @Override public int compare(Integer o1, Integer o2) {
@@ -66,6 +90,14 @@ public class NumericSplitterStatistic extends Statistic {
       
     }
     
+    /** Calculates the best split on given column and returns its information.
+     * 
+     * In order to do this it must sort the rows for the given node and then
+     * walk again over them in order (that is out of their natural order) to
+     * determine the best splitpoint.
+     * 
+     * @return 
+     */
     SplitInfo calculateBestSplit() {
       double f = fitness(dists);
       // first sort rows_ according to given column
@@ -92,13 +124,10 @@ public class NumericSplitterStatistic extends Statistic {
     }
   }
   
-  
-  
-  /** Add the data point to all column statistics
+  /** Adds the data point to all column statistics
    * 
    * @param adapter 
    */
-  
   @Override public void addDataPoint(DataAdapter adapter) {
     for (ColumnStatistic s: columns_)
       s.addDataPoint(adapter);
@@ -106,6 +135,12 @@ public class NumericSplitterStatistic extends Statistic {
     rows_.add(adapter.rowIndex());
   }
 
+  /** Creates the classifier. If the node has seen only single data class, a
+   * const classifier is used. otherwise all columns are queried to find the
+   * best splitting point which is then transformed to a classifier. 
+   * 
+   * @return 
+   */
   @Override public Classifier createClassifier() {
     //System.out.println(rows_.size());
     if (rows_.size()==0)
@@ -118,10 +153,8 @@ public class NumericSplitterStatistic extends Statistic {
           i = j;
         else 
           i = -2;
-    if (i > -1) {
-        //System.out.println("const: "+i);
-        return new Classifier.Const(i);
-    }
+    if (i > -1)
+      return new Classifier.Const(i);
     // for each statistic, sort the rows, find the best split
     SplitInfo best = null;
     for (ColumnStatistic s: columns_) {
@@ -129,27 +162,22 @@ public class NumericSplitterStatistic extends Statistic {
       if (x.betterThan(best))
         best = x;
     }
-    //System.out.println("col: "+best.column+", split: "+best.splitValue+", fitness: "+best.fitness);
-/*    if (rows_.size()==4) {
-      for (ColumnStatistic s: columns_)
-        System.out.println(">" + s.index);
-      for (Integer ii: rows_) {
-        data.seekToRow(ii);
-        System.out.println("cur: "+data.rowIndex()+" col 1: "+data.toDouble(1)+" class: "+data.dataClass());
-        
-      }
-    } */  
     return new SplitClassifier(best); 
   }
 
+  // all rows that belong to the node
   private final ArrayList<Integer> rows_ = new ArrayList();
   
+  // data adapter
   private final DataAdapter data;
-  
   
   // list of columns for which the averages are computed
   private final ColumnStatistic[] columns_;
 
+  /** Creates the statistic for given data adapter. 
+   * 
+   * @param data 
+   */
   public NumericSplitterStatistic(DataAdapter data) {
     columns_ = new ColumnStatistic[data.numFeatures()];
     A: for(int i=0;i<data.numFeatures();) {
@@ -161,6 +189,10 @@ public class NumericSplitterStatistic extends Statistic {
   }
   
 
+  /** Split classifier. Determines between the left or right subtree depending
+   * on the given column and splitting value. 
+   * 
+   */
   static class SplitClassifier implements Classifier {
 
     public final int column;
@@ -185,6 +217,5 @@ public class NumericSplitterStatistic extends Statistic {
    }
     
   }
-  
   
 }
