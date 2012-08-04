@@ -286,20 +286,20 @@ class Sample {
   /* Per-tree count of how many time the row occurs in the sample */
   final byte[][] occurrences_;
   /* Per-tree node id of where the row falls */
-  final byte[][] nodes_;
+  final int[][] nodes_;
   int bagSizePercent = 70;
   int rows_;
 
   public Sample(DataAdapter data, int trees, Random r) {
     rows_ = data.numRows();
     occurrences_ = new byte[trees][rows_];
-    nodes_ = new byte[trees][]; //[rows_];
+    nodes_ = new int[trees][]; //[rows_];
     for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
   }
 
   public int occurrences(int tree, int row) { return occurrences_[tree][row]; }
   public int getNode(int tree, int row) { return nodes_[tree][row];  }
-  public void setNode(int tree, int row, int val) { nodes_[tree][row] = (byte) val;  }
+  public void setNode(int tree, int row, int val) {  nodes_[tree][row] =  val;  }
   static double sum(double[] d) {
     double r = 0.0; for( int i = 0; i < d.length; i++ ) r += d[i]; return r;
   }
@@ -364,7 +364,7 @@ class Sample {
       if (b == 0) 
         empty++;
     // we can remember only the nonempty row nodes (occurrence >= 1)
-    nodes_[tree] = new byte[rows_-empty];
+    nodes_[tree] = new int[rows_-empty];
   }
   void p(String s) { System.out.println(s); }
 }

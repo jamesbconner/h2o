@@ -74,7 +74,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 1 * 1000;
+ static int TREES = 1 * 10;
 
   /**
    * for testing...
