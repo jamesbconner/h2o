@@ -1,6 +1,5 @@
 package test.analytics;
 
-import analytics.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -12,6 +11,10 @@ import water.Value;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
+import analytics.DataAdapter;
+import analytics.NumericSplitterStatistic;
+import analytics.RF;
+import analytics.Statistic;
 
 /**
  * Simple adaptor for Poker dataset.
@@ -71,7 +74,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 1 * 1;
+ static int TREES = 1 * 100;
 
   /**
    * for testing...

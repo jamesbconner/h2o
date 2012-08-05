@@ -4,7 +4,11 @@
  */
 package analytics;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Performs the split on numerical values. 
  * 
@@ -87,7 +91,7 @@ public class NumericSplitterStatistic extends Statistic {
      */
     class DataComparator implements Comparator<Integer> {
      
-      @Override public int compare(Integer o1, Integer o2) {
+      public int compare(Integer o1, Integer o2) {
         data.seekToRow(o1);
         double v1 = data.toDouble(index);
         data.seekToRow(o2);
@@ -239,11 +243,11 @@ public class NumericSplitterStatistic extends Statistic {
       splitValue = i.splitValue;
     }
     
-    @Override public int classify(DataAdapter data) {
+    public int classify(DataAdapter data) {
       return data.toDouble(column) <= splitValue ? 0 : 1;
     }
 
-    @Override public int numClasses() {
+    public int numClasses() {
       return 2;
     }
 

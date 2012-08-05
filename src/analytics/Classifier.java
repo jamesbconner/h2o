@@ -32,7 +32,7 @@ public interface Classifier extends Serializable {
 
     final double probs[];
 
-    @Override
+   
     public int classify(DataAdapter data) {
       double x = new java.util.Random().nextDouble();
       for (int i = 0; i< probs.length; ++i) {
@@ -42,7 +42,6 @@ public interface Classifier extends Serializable {
       return probs.length-1;
     }
 
-    @Override
     public int numClasses() {
       return probs.length;
     }
