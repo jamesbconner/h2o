@@ -136,7 +136,7 @@ public class RFBuilder {
 
       nodes_ = new ProtoNode[numNodes];
       for( int i = 0; i < numNodes; ++i )
-        nodes_[i] =  new ProtoNode(data_.createStatistic());;
+        nodes_[i] =  new ProtoNode(data_.createStatistic());
     }
 
     
@@ -208,6 +208,8 @@ public class RFBuilder {
           if (count == 0)
             continue;
           int node = partition_.getNode(t, tree.rowIndex_);
+//          System.out.println("Getting "+tree.rowIndex_+" to "+node);
+//          System.out.println("old: "+node);
           if( node != -1 ){ // the row is still not classified completely
             data_.seekToRow(r);
             node = tree.getNodeNumber(node);
@@ -216,18 +218,21 @@ public class RFBuilder {
               for( int cnt = 0; cnt < count; cnt++ )
                 n.statistic_.addDataPoint(data_);
             }
+ //           System.out.println(node);
+ //           System.out.println("Setting "+tree.rowIndex_+" to "+node);
             partition_.setNode(t, tree.rowIndex_, node);
-            tree.rowIndex_++;
           }
+          tree.rowIndex_++;
         }
         tree.createNextLevel();
+        //System.out.println("Next level expecting nodes: " + ((tree.nodes_ == null) ? "null" : tree.nodes_.length));
         // the tree has been done, we may upgrade it to next level
         if( tree.nodes_ != null ) done = false;
       }
       if( done ) break;
     //  System.out.println("OOBE = "+outOfBagError());
     }
-    System.out.println("");
+    //System.out.println("");
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);
@@ -286,20 +291,20 @@ class Sample {
   /* Per-tree count of how many time the row occurs in the sample */
   final byte[][] occurrences_;
   /* Per-tree node id of where the row falls */
-  final byte[][] nodes_;
+  final int[][] nodes_;
   int bagSizePercent = 70;
   int rows_;
 
   public Sample(DataAdapter data, int trees, Random r) {
     rows_ = data.numRows();
     occurrences_ = new byte[trees][rows_];
-    nodes_ = new byte[trees][]; //[rows_];
+    nodes_ = new int[trees][]; //[rows_];
     for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
   }
 
   public int occurrences(int tree, int row) { return occurrences_[tree][row]; }
   public int getNode(int tree, int row) { return nodes_[tree][row];  }
-  public void setNode(int tree, int row, int val) { nodes_[tree][row] = (byte) val;  }
+  public void setNode(int tree, int row, int val) {  nodes_[tree][row] =  val;  }
   static double sum(double[] d) {
     double r = 0.0; for( int i = 0; i < d.length; i++ ) r += d[i]; return r;
   }
@@ -364,7 +369,7 @@ class Sample {
       if (b == 0) 
         empty++;
     // we can remember only the nonempty row nodes (occurrence >= 1)
-    nodes_[tree] = new byte[rows_-empty];
+    nodes_[tree] = new int[rows_-empty];
   }
   void p(String s) { System.out.println(s); }
 }

@@ -1,11 +1,8 @@
 package test.analytics;
 
+import analytics.*;
 import java.io.IOException;
 
-import analytics.AverageStatistic;
-import analytics.DataAdapter;
-import analytics.RF;
-import analytics.Statistic;
 
 
 public class IrisAdapter extends DataAdapter {
@@ -212,6 +209,9 @@ public class IrisAdapter extends DataAdapter {
     }
   }
   
-  public Statistic createStatistic() { return new AverageStatistic(this); }
+  public Statistic createStatistic() {
+    return new NumericSplitterStatistic(this);
+    //return new AverageStatistic(this);
+  }
   public int numFeatures() { return 3; }
 }

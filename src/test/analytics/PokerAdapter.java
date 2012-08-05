@@ -11,8 +11,8 @@ import water.Value;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
-import analytics.AverageStatistic;
 import analytics.DataAdapter;
+import analytics.NumericSplitterStatistic;
 import analytics.RF;
 import analytics.Statistic;
 
@@ -74,7 +74,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 1 * 1000;
+ static int TREES = 1 * 100;
 
   /**
    * for testing...
@@ -98,10 +98,12 @@ public class PokerAdapter extends DataAdapter {
       rf.compute();
       System.out.print("Done. Computing accuracy.");
       System.out.println(rf);
-      System.out.println(rf.tree(0).toString());
     }
   }
-  public Statistic createStatistic() { return new AverageStatistic(this); }
+  public Statistic createStatistic() {
+    return new NumericSplitterStatistic(this);
+    //return new AverageStatistic(this);
+  }
   public int numFeatures() { return 7; } // this should be roughly 2/3 of numCol
 
 }

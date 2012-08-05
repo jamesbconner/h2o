@@ -17,9 +17,15 @@ public abstract class DataAdapter {
   protected final int seed_;
   protected final Random random_;
   
-  public DataAdapter(int seed){ random_= new Random(seed_=seed); }
-  public DataAdapter() { this(new Random().nextInt()); }
+  public DataAdapter(int seed){ random_= new Random(seed_ = seed); } // 678); }//seed); } 
+  public DataAdapter() {
+    this(new Random().nextInt());
+//    System.out.println(seed_);
+  }
   
+  public int rowIndex() {
+    return cur;
+  }
   
   /** Move the cursor to the index-th row. */
   public void seekToRow(int index) { cur = index; }
