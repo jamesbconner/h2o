@@ -4,9 +4,7 @@
  */
 package analytics;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.*;
 
 /** Performs the split on numerical values. 
  * 
@@ -51,12 +49,22 @@ public class NumericSplitterStatistic extends Statistic {
    * 
    */
   class ColumnStatistic {
-    public final byte index;
+    byte index;
     double[][] dists;
+    boolean seenSingleValue_ = false;
     
     ColumnStatistic(int index, int numCategories) {
       this.index = (byte)index;
       dists = new double[2][numCategories];
+    }
+    
+    void resetColumn(int newColumn) {
+      index = (byte) newColumn;
+      //System.out.println("Reset to column "+index);
+      seenSingleValue_ = false;
+      double[] d = dists[1];
+      dists[1] = dists[0];
+      dists[0] = dists[1];
     }
     
     void addDataPoint(DataAdapter row) {
@@ -78,7 +86,7 @@ public class NumericSplitterStatistic extends Statistic {
      * very hard. 
      */
     class DataComparator implements Comparator<Integer> {
-
+     
       @Override public int compare(Integer o1, Integer o2) {
         data.seekToRow(o1);
         double v1 = data.toDouble(index);
@@ -102,7 +110,13 @@ public class NumericSplitterStatistic extends Statistic {
       double f = fitness(dists);
       // first sort rows_ according to given column
       Collections.sort(rows_,new DataComparator());
+      data.seekToRow(rows_.get(rows_.size()-1));
+      double last = data.toDouble(index);
       data.seekToRow(rows_.get(0));
+      if (last == data.toDouble(index)) {
+        seenSingleValue_ = true;
+        return null;
+      }
       // now try all the possible splits
       double currSplit = data.toDouble(index);
       double bestFit = -Double.MAX_VALUE;
@@ -144,7 +158,7 @@ public class NumericSplitterStatistic extends Statistic {
   @Override public Classifier createClassifier() {
     //System.out.println(rows_.size());
     if (rows_.size()==0)
-      throw new Error("We have size 0 node");
+      return null;
     // check if we have only one class
     int i = -1;
     for (int j = 0; j<columns_[0].dists[1].length;++j)
@@ -159,8 +173,29 @@ public class NumericSplitterStatistic extends Statistic {
     SplitInfo best = null;
     for (ColumnStatistic s: columns_) {
       SplitInfo x = s.calculateBestSplit();
+      if (x==null)
+        continue;
       if (x.betterThan(best))
         best = x;
+    }
+    // the best we have is indecissive, we must try the other columns too
+    if (best == null) {
+      Set<Integer> m = new HashSet();
+      for (int ii = 0; ii< data.numColumns(); ++ii) 
+        m.add(ii);
+      for (ColumnStatistic s: columns_)
+        m.remove(new Integer(s.index));
+      ColumnStatistic stat = columns_[0];
+      for (Object ii : m.toArray()) {
+        //System.out.println(ii);
+        stat.resetColumn((Integer)ii);
+        best = stat.calculateBestSplit();
+        if (best!=null)
+          break;
+      }
+      if (best==null) {
+        return new Classifier.Random(stat.dists[0]);
+      } 
     }
     return new SplitClassifier(best); 
   }

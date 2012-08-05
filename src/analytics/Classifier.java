@@ -28,6 +28,36 @@ public interface Classifier extends Serializable {
     public int numClasses() { return 1; }    
   }
   
+  public static class Random implements Classifier {
+
+    final double probs[];
+
+    @Override
+    public int classify(DataAdapter data) {
+      double x = new java.util.Random().nextDouble();
+      for (int i = 0; i< probs.length; ++i) {
+        x = x - probs[i];
+        if (x<0) return i;
+      }
+      return probs.length-1;
+    }
+
+    @Override
+    public int numClasses() {
+      return probs.length;
+    }
+
+    public Random(double[] dist) {
+      probs = new double[dist.length];
+      double s = 0;
+      for (double d: dist)
+        s+= d;
+      for (int i = 0; i< probs.length; ++i)
+        probs[i] = dist[i]/s;
+    }
+    
+  }
+  
   public static class Operations {
     
     /** Returns the standard error of the given classifier on the given dataset.

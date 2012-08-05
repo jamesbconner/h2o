@@ -136,7 +136,7 @@ public class RFBuilder {
 
       nodes_ = new ProtoNode[numNodes];
       for( int i = 0; i < numNodes; ++i )
-        nodes_[i] =  new ProtoNode(data_.createStatistic());;
+        nodes_[i] =  new ProtoNode(data_.createStatistic());
     }
 
     
