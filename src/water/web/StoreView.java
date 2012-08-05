@@ -16,12 +16,12 @@ public class StoreView extends H2OPage {
   public static final int KEYS_PER_PAGE = 25;
 
   public StoreView() {
-    _refresh = 5;
+    // No thanks on the refresh, it's hard to use.
+    //_refresh = 5;
   }
   
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
-//    response.clear();
     // get the offset index
     int offset = 0;
     try {
@@ -29,68 +29,43 @@ public class StoreView extends H2OPage {
     } catch( NumberFormatException e ) { /* pass */ }
     // write the response
     H2O cloud = H2O.CLOUD;         // Current eldest Cloud
-    Object[] keys = H2O.keySet().toArray();
-    int lastIndex = keys.length;
-    // get only the prefixed ones
-    String prefix = args.getProperty("Prefix","");
-    if (!prefix.isEmpty()) {
-      int i = 0;
-      for (int j = 0; j< keys.length; ++j) {
-        if (((Key)keys[j]).toString().startsWith(prefix)) {
-          if (i!=j) {
-            Object s = keys[i];
-            keys[i] = keys[j];
-            keys[j] = s;
-          }
-          ++i;
-        }          
-      }
-      lastIndex = i;
-    }
-    
-    
-    // get the code values first
-    int i = 0;
-    for (int j = 0; j<lastIndex; ++j) {
-      if (((Key)keys[j]).user_allowed()) {
-//      if (H2O.get((Key)keys[j]) instanceof ValueCode) {
-        if (i!=j) {
-          Object s = keys[i];
-          keys[i] = keys[j];
-          keys[j] = s;
-          ++i;
-        }          
-      }
-    }
-    // sort the code values
-    Arrays.sort(keys,0,i);
-    int keysize = lastIndex;
-    formatPagination(offset,keysize,prefix.isEmpty() ? prefix : "?Prefix="+prefix, response);
-    offset *= KEYS_PER_PAGE;
-    i = 0;
-    for( Object o : keys ) {
-      if (i>=lastIndex) break;
-      Key key = (Key)o;
-      // skip keys at the beginning 
-      if (offset>0) {
-        --offset;
+    Key[] keys = new Key[1024];    // Limit size of what we'll display on this page
+    int len = 0;
+    String filter = args.getProperty("Filter");
+    String html_filter = (filter==null? "" : "?Filter="+filter);
+
+    // Gather some keys that pass all filters
+    for( Key key : H2O.keySet() ) {
+      if( filter != null &&     // Have a filter?
+          key.toString().indexOf(filter) == -1 )
+        continue;               // Ignore this filtered-out key
+      if( !key.user_allowed() ) // Also filter out for user-keys
         continue;
-      }
-      Value val = H2O.get(key);
-      if( val == null) {  // Internel sentinal
-        keysize--;              // Dont count these keys
-        continue; 
-      }
-      formatKeyRow(cloud,key,val,response);
-      if( ++i >= KEYS_PER_PAGE ) break;     // Stop at some reasonable limit
+      if( H2O.get(key) == null ) continue; // Ignore misses
+      keys[len++] = key;        // Capture the key
+      if( len == keys.length ) break; // List is full; stop
     }
-    response.replace("noOfKeys",keysize);
+
+    // sort the keys, for pretty display & reliable ordering
+    Arrays.sort(keys,0,len);
+    // Pagination, if the list is long
+    formatPagination(offset,len, html_filter, response);
+    offset *= KEYS_PER_PAGE;
+
+    for( int i=offset; i<offset+KEYS_PER_PAGE; i++ ) {
+      if( i >= len ) break;
+      Value val = H2O.get(keys[i]);
+      formatKeyRow(cloud,keys[i],val,response);
+    }
+
+    response.replace("noOfKeys",len);
     response.replace("cloud_name",H2O.CLOUD.NAME);
     response.replace("node_name",H2O.SELF.toString());
-    if (!prefix.isEmpty()) 
-      response.replace("pvalue","value='"+prefix+"'");
+    if( filter!=null )
+      response.replace("pvalue","value='"+filter+"'");
     return response.toString();
   }
+
   private void formatPagination(int offset, int size, String prefix, RString response) {
     if (size<=KEYS_PER_PAGE)
       return;
@@ -134,6 +109,7 @@ public class StoreView extends H2OPage {
     // Dump out the current replication info: Mem/Disk/Replication_desired
     String vs = val.getString(100); // First, get the string which might force mem loading
     vs = vs.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
+    vs = vs.replace("\n","<br>");
     int r = key.desired();
     int repl = key.replica(cloud);
     if( repl < r ) { // If we should be replicating, then report what replication we know of
@@ -164,7 +140,7 @@ public class StoreView extends H2OPage {
     + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
     + "</div>"
     + "<form class='well form-inline' action='StoreView'>"
-    + "  <input type='text' class='input-small span10' placeholder='filter prefix' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
+    + "  <input type='text' class='input-small span10' placeholder='filter prefix' name='Filter' id='Filter' %pvalue maxlength='512'>"
     + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"
     + "</form>"
     + "<p>Displaying %noOfKeys keys"

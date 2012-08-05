@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class MemoryManager {
 
   // Max memory available to the Java heap
-  static long MAXMEM = 0;
+  static long MAXMEM = Runtime.getRuntime().maxMemory();
   // Estimate of memory in-use by Value objects
   static final AtomicLong USED = new AtomicLong(0);
   // Estimated bytes lost per K/V pair

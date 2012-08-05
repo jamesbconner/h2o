@@ -58,7 +58,8 @@ public class PersistHdfs extends Persistence {
         _root = new Path(ROOT);
         _fs.mkdirs(_root);
         System.out.println("[hdfs] loading persistent keys...");
-        loadPersistentKeysFromFolder(_root,"");
+        int num = loadPersistentKeysFromFolder(_root,"");
+        System.out.println("[hdfs] loaded "+num+" keys");
       } catch( IOException e ) {
         // pass
         System.out.println(e.getMessage());
@@ -68,13 +69,14 @@ public class PersistHdfs extends Persistence {
   }
   
   
-  private static void loadPersistentKeysFromFolder(Path folder, String prefix) {
+  private static int loadPersistentKeysFromFolder(Path folder, String prefix) {
+    int num=0;
     try {
       for( FileStatus f : _fs.listStatus(folder) ) {
         Path p = f.getPath();
         if( f.isDir() ) {
           // recursively also add files from the directories below
-          loadPersistentKeysFromFolder(p, prefix + Path.SEPARATOR + p.getName());
+          num += loadPersistentKeysFromFolder(p, prefix + Path.SEPARATOR + p.getName());
         } else {
           // it is a file, therefore a value for us
           assert (_fs.isFile(p));
@@ -82,16 +84,18 @@ public class PersistHdfs extends Persistence {
           if( k == null )
             continue;
           long size = _fs.getFileStatus(p).getLen();
-          Value val = (size < ValueArray.chunk_size())
+          Value val = (size < 2*ValueArray.chunk_size())
             ? new Value((int)size,0,k,0)
             : new ValueArray(k,size);
           val._persistenceInfo = ON_DISK;
           H2O.putIfAbsent_raw(k, val);
+          num++;
         }
       }
     } catch( IOException e ) {
       System.err.println("[hdfs] Unable to list the folder " + folder.toString());
     }
+    return num;
   }
   
   // file implementation -------------------------------------------------------
@@ -99,34 +103,35 @@ public class PersistHdfs extends Persistence {
   // Decodes the given file on a prefixed path to a key. 
   // TODO As of now does not support filenames (including prefix) larger than
   // 512 bytes.
+  static private final String KEY_PREFIX="hdfs:/";
+  static private final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
   private static Key decodeFile(Path p, String prefix) {
-    if( !prefix.isEmpty() ) {
-      prefix = prefix.substring(1) + Path.SEPARATOR + p.getName(); // get rid of the leading '/'
-    } else {
-      prefix = p.getName();
-    }
-    assert (prefix.length() <= 512);
+    String kname = KEY_PREFIX+prefix+Path.SEPARATOR+p.getName();
+    assert (kname.length() <= 512);
     // all HDFS keys are HDFS-kind keys
-    return Key.make(prefix.getBytes());
+    return Key.make(kname.getBytes());
   }
   
   // Returns the path for given key. 
   // TODO Something should be done about keys whose value is larger than 512
   // bytes, for now, they are not supported.
   static Path getPathForKey(Key k) {
-    return new Path(_root, new String(k._kb).replace(":","%37"));
+    final int len = KEY_PREFIX_LENGTH+1; // Strip key prefix & leading slash
+    String s = new String(k._kb,len,k._kb.length-len);
+    return new Path(_root, s);
   }
   
   
-  public byte[] file_load(Value v, int len) {
-    assert is_goal(v) == true && is(v)==true; // State is: store-done
+  public synchronized byte[] file_load(Value v, int len) {
+    if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
     if( v instanceof ValueArray )
       throw new Error("unimplemented: loading from arraylets");
     try {
       FSDataInputStream s = null;
       try {
-        s = _fs.open(getPathForKey(v._key));
-        byte[] b = new byte[len];
+        Path p = getPathForKey(v._key);
+        s = _fs.open(p);
+        byte[] b = MemoryManager.allocateMemory(len);
         int br = s.read(0,b, 0, len);
         assert (br == len);
         return b;

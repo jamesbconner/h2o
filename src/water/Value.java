@@ -371,10 +371,14 @@ public class Value {
     sb.append("[");
     if( mem == null ) return sb.append(_max).append(_max==0?"]":"] ioerror").toString();
     sb.append(mem.length).append("/").append(_max).append("]=");
-    // Check for 'string-like' bytes in the 1st len bytes
     for( int i=0; i<len; i++ ) {
       byte b = mem[i];
-      sb.append(b < 32 ? '.' : (char)b);
+      if( b=='\r' ) {           // CR?
+        if( i+1<len && mem[i+1]=='\n' )
+          i++;                  // Skip a trailing LF from a CR-LF pair
+        b = '\n';               // Swap CR and CR-LF for plain LF
+      }
+      if( b >= 32 || b == '\n' ) sb.append((char)b); // Standard ascii, let flow thru
     }
     if( len < _max ) sb.append("...");
     return sb.toString();

@@ -93,7 +93,9 @@ public abstract class DKV {
         // See if we have enough data cached locally
         if( len > val._max ) len = val._max;
         if( len == 0 ) return val;
-        if( len <= val.get(len).length ) // We get something?
+        byte[] bits = val.get(len);
+        if( bits==null ) return null; // This indicates an IO error: unable to load data
+        if( len <= bits.length ) // We get something?
           return val;             // Done!
         // Got something, but not enough: need to read more
       }
