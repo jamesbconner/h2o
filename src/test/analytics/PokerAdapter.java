@@ -32,6 +32,8 @@ public class PokerAdapter extends DataAdapter {
   public double toDouble(int index){return data[cur][index];  }
   public int numClasses()         { return 10;  }
   public int dataClass()          { return data[cur][10];  }
+  public int bagSizePercent()     { return 30; } // usually 70%, but for a big data set....
+  public int numFeatures()        { return 7; } // this should be roughly 2/3 of numCol
 
   public PokerAdapter(Value v) throws NoSuchFieldException, SecurityException,
   IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
@@ -68,7 +70,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 3 * 1;
+ static int TREES = 2 * 100;
 
   /**
    * for testing...
@@ -99,6 +101,5 @@ public class PokerAdapter extends DataAdapter {
   //  return new NumericStat(this);
     //return new AverageStatistic(this);
   }
-  public int numFeatures() { return 7; } // this should be roughly 2/3 of numCol
 
 }

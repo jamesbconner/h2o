@@ -290,11 +290,12 @@ class Sample {
   final byte[][] occurrences_;
   /* Per-tree node id of where the row falls */
   final int[][] nodes_;
-  int bagSizePercent = 70;
+  int bagSizePercent;
   int rows_;
 
   public Sample(DataAdapter data, int trees, Random r) {
     rows_ = data.numRows();
+    bagSizePercent = data.bagSizePercent();
     occurrences_ = new byte[trees][rows_];
     nodes_ = new int[trees][]; //[rows_];
     for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
