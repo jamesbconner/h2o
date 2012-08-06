@@ -6,6 +6,8 @@ import analytics.DecisionTree.INode;
 import analytics.DecisionTree.LeafNode;
 import analytics.DecisionTree.Node;
 import analytics.DecisionTree.SentinelNode;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Class capable of building random forests.
@@ -26,7 +28,7 @@ public class RFBuilder {
    * Describes the node that is under construction. The node has a list of all
    * statistics that must be computed for the node.
    */
-  public class ProtoNode {
+  public static class ProtoNode {
 
     protected  Statistic statistic_; // the statistic to be computed
 
@@ -64,7 +66,7 @@ public class RFBuilder {
    * finished parts of the decision tree and the level that is currently under
    * construction.
    */
-  public class ProtoTree {
+  public static class ProtoTree {
 
     INode[] lastNodes_ = null;
     int[] lastOffsets_ = null;
@@ -76,6 +78,8 @@ public class RFBuilder {
     // random seed used to generate the random, therefore we can always reset it
     final long seed;
     
+    final DataAdapter data_;
+    
     int rowIndex_ = 0;
 
     /**
@@ -83,7 +87,8 @@ public class RFBuilder {
      * 
      * Initializes the seed from the parent
      */
-    public ProtoTree() {
+    public ProtoTree(DataAdapter data) {
+      data_ = data;
       this.seed = data_.random_.nextLong();
       buildNodes(1);
     }
@@ -196,43 +201,78 @@ public class RFBuilder {
     }
   }
 
+  /** A simple runnable for parallel execution. Computes n trees. 
+   * 
+   */
+  class BuilderProcess implements Runnable {
+
+    public final int treeStart;
+    public final int numTrees;
+    public final DataAdapter localData; 
+    
+    
+    public BuilderProcess(int treeStart, int numTrees, DataAdapter data) {
+      this.treeStart = treeStart;
+      this.numTrees = Math.min(numTrees, trees.length-treeStart);
+      this.localData = data.view();
+    }
+    
+    @Override public void run() {
+      if (numTrees == 0)
+        return;
+      for( int i = treeStart; i < treeStart+numTrees; ++i )
+        trees[i] = new ProtoTree(localData);
+      while (true) {
+        boolean done = true;
+        System.out.print(".");
+        for (int t = treeStart; t<treeStart+numTrees; ++t) {
+           ProtoTree tree = trees[t];
+           for (int r = 0; r < localData.numRows(); ++r) {
+             int occurs = partition_.occurrences(t, r);
+             if (occurs == 0)  continue;
+             int node = partition_.getNode(t, tree.rowIndex_);
+             if( node != -1 ){ // the row is still not classified completely
+               localData.seekToRow(r);
+               node = tree.getNodeNumber(node);
+               if( node != -1 ){
+                 ProtoNode n = tree.nodes_[node];
+                 for( int cnt = 0; cnt < occurs; cnt++ ) n.statistic_.addRow(localData);
+               }
+               partition_.setNode(t, tree.rowIndex_, node);
+             }
+             tree.rowIndex_++;
+           }
+           tree.createNextLevel();
+           // the tree has been done, we may upgrade it to next level
+           if( tree.nodes_ != null ) done = false;
+         }
+        if (done) break;
+       }
+    }
+  }
+  
+  
+  
+  
   /**
    * Computes n random decision trees and returns them as a random forest.
    */
   DecisionTree[] compute(int numTrees) {
+    int cores =  Runtime.getRuntime().availableProcessors();
+    int tpc = numTrees / cores;
+    if (tpc == 0)
+      tpc = numTrees; 
     partition_ = new Sample(data_, numTrees, data_.random_);
     trees = new ProtoTree[numTrees];
-    for( int i = 0; i < numTrees; ++i )
-      trees[i] = new ProtoTree();
-    int xx = 0;
-    while( true ){
-      xx++;
-      boolean done = true;
-      System.out.print(".");
-      for( int t = 0; t < numTrees; ++t ){
-        ProtoTree tree = trees[t];
-
-        for( int r = 0; r < data_.numRows(); ++r ){
-          int occurs = partition_.occurrences(t, r);
-          if (occurs == 0)  continue;
-          int node = partition_.getNode(t, tree.rowIndex_);
-          if( node != -1 ){ // the row is still not classified completely
-            data_.seekToRow(r);
-            node = tree.getNodeNumber(node);
-            if( node != -1 ){
-              ProtoNode n = tree.nodes_[node];
-              for( int cnt = 0; cnt < occurs; cnt++ ) n.statistic_.addRow(data_);
-            }
-            partition_.setNode(t, tree.rowIndex_, node);
-          }
-          tree.rowIndex_++;
-        }
-        tree.createNextLevel();
-        // the tree has been done, we may upgrade it to next level
-        if( tree.nodes_ != null ) done = false;
-      }
-      if( done ) break;
+    // launch the threads
+    Thread[] workers = new Thread[cores];
+    for (int i = 0; i<cores; ++i) {
+      workers[i] = new Thread(new BuilderProcess(i*tpc,tpc,data_));
+      workers[i].start();
     }
+    for (Thread t: workers)
+      try { t.join(); } catch( InterruptedException ex ) { }
+    // cleanup 
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);
@@ -249,6 +289,48 @@ public class RFBuilder {
    */  
   public double outOfBagError() { return outOfBagError(trees); }
   
+  /** OutOfBag computation on a subset of rows for parallel execution. 
+   * 
+   */
+  class OOBProcess extends Thread {
+    int startRow;
+    int numRows;
+    final DataAdapter localData;
+    final ProtoTree[] ts;
+    
+    double err = 0;
+    double oobc = 0;
+    
+    @Override public void run() {
+      if (numRows == 0)
+        return;
+      int[] votes = new int[localData.numClasses()];
+      for (int r = startRow; r < startRow+numRows; ++r) {
+        localData.seekToRow(r);
+        for (int i = 0; i< votes.length; ++i)
+          votes[i] = 0;
+        int voteCount = 0;
+        for (int t = 0; t < ts.length; ++t) {
+          if (partition_.occurrences(t, r) > 0) continue; // don't use training data
+          votes[ts[t].root_.classifyRecursive(localData)] += 1;
+          voteCount += 1;
+        }
+        if (voteCount==0) continue; // don't count training data
+        oobc += localData.weight();
+        if (Utils.maxIndex(votes, localData.random_) != localData.dataClass())  err += localData.weight();
+      }
+    }
+    
+    public OOBProcess(int rowStart, int numRows, DataAdapter data, ProtoTree[] ts) {
+      this.startRow = rowStart;
+      this.localData = data.view();
+      this.numRows = Math.min(numRows, localData.numRows()-rowStart);
+      this.ts = ts;
+    }
+    
+  }
+  
+  
   /** Computes the out of bag error for the built random forest. 
    * 
    * Out classifiers are only integer and non-numeric in the final output so we
@@ -258,22 +340,27 @@ public class RFBuilder {
    * @return The out-of-bag error for the constructed tree.
    */  
   public double outOfBagError(ProtoTree[] ts) {
+    long t1 = System.currentTimeMillis();
     assert (partition_ != null && ts != null); // make sure we have already computed
     double err = 0, oobc = 0;
-    
-    for (int r = 0; r < data_.numRows(); ++r) {
-      data_.seekToRow(r);
-      int[] votes = new int[data_.numClasses()];
-      int voteCount = 0;
-      for (int t = 0; t < ts.length; ++t) {
-        if (partition_.occurrences(t, r) > 0) continue; // don't use training data
-        votes[ts[t].root_.classifyRecursive(data_)] += 1;
-        voteCount += 1;
-      }
-      if (voteCount==0) continue; // don't count training data
-      oobc += data_.weight();
-      if (Utils.maxIndex(votes, data_.random_) != data_.dataClass())  err += data_.weight();
+
+    int cores =  Runtime.getRuntime().availableProcessors();
+    int rpc = data_.numRows() / cores;
+    if (rpc == 0)
+      rpc = data_.numRows(); 
+    // launch the threads
+    OOBProcess[] workers = new OOBProcess[cores];
+    for (int i = 0; i<cores; ++i) {
+      workers[i] = new OOBProcess(i*rpc,rpc,data_,ts);
+      workers[i].start();
     }
+    for (OOBProcess t: workers) {
+      try { t.join(); } catch( InterruptedException ex ) { }
+      err += t.err;
+      oobc += t.oobc;
+    }
+    t1 = System.currentTimeMillis() - t1;
+    System.out.println("OOB took "+t1+" ms");
     return err / oobc;
   }
   

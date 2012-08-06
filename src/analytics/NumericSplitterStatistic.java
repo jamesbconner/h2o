@@ -107,7 +107,7 @@ public class NumericSplitterStatistic extends Statistic {
    * vote for the class.
    */
   @Override public Classifier createClassifier() {
-    if (rowsSize_==0)  throw new Error();
+    if (rowsSize_==0) throw new Error();
     else {     // check if we have only one class
       int cls = 0, cnt = 0;  double[] vs = columns_[0].dists[1];
       for (int i = 0; i<vs.length;++i) if (vs[i]!=0) { cnt++; cls = i;}
@@ -165,6 +165,7 @@ public class NumericSplitterStatistic extends Statistic {
     
     SplitClassifier(SplitInfo i) { column = i.column; value = i.value; }    
     public int classify(DataAdapter data) { return data.toDouble(column)<=value? 0:1; }
+    
     public int numClasses()  { return 2; }
     public String toString() { return "col="+column+", val="+value; }
   }

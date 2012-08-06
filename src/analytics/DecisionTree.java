@@ -85,9 +85,28 @@ public class DecisionTree implements Classifier {
      * @return 
      */
     public int classifyRecursive(DataAdapter row) {
-      int cls = classifier.classify(row);
-      return (subnodes[cls] == null) ? defaultCategory : subnodes[cls].classifyRecursive(row);
+//      int cls = classifier.classify(row);
+//      return (subnodes[cls] == null) ? defaultCategory : subnodes[cls].classifyRecursive(row);
+      double[] data = new double[row.numColumns()];
+      for (int i = 0; i < data.length; ++i)
+        data[i] = row.toDouble(i);
+      INode node = this;
+      while (node!=null) {
+        if (node instanceof LeafNode)
+          return ((LeafNode)node).class_;
+        Node innerNode = (Node)node;
+        Classifier cls = innerNode.classifier;
+        if (cls instanceof NumericSplitterStatistic.SplitClassifier) {
+          NumericSplitterStatistic.SplitClassifier c = (NumericSplitterStatistic.SplitClassifier)cls;
+          node = innerNode.subnodes[ data[c.column] <= c.value ? 0 : 1];  
+        } else {
+          node = innerNode.subnodes[cls.classify(row)];
+        }
+      }
+      return -1;    
     }
+    
+    
     
     /** Classifies the row only on the classifier internal to the node. This
      * determines which subtree to use.  */
@@ -129,7 +148,8 @@ public class DecisionTree implements Classifier {
       System.out.println(this.toString());
       root_.classifyRecursive(row); 
     }
-    return root_.classifyRecursive(row);  }
+    return root_.classifyRecursive(row);
+  } 
   
   /** Returns the number of classes to which the tree classifies.  */
   public int numClasses() { throw new Error("NOT IMPLEMENTED");  }

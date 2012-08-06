@@ -35,6 +35,17 @@ public class PokerAdapter extends DataAdapter {
   public int bagSizePercent()     { return 30; } // usually 70%, but for a big data set....
   public int numFeatures()        { return 7; } // this should be roughly 2/3 of numCol
 
+  
+  protected PokerAdapter(PokerAdapter from) {
+    super();
+    data = from.data;
+    cur = from.cur;
+  }
+  
+  @Override public PokerAdapter view() {
+    return new PokerAdapter(this);
+  }
+  
   public PokerAdapter(Value v) throws NoSuchFieldException, SecurityException,
   IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
     this(v,0,v.chunks()+1);
@@ -70,7 +81,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 2 * 100;
+ static int TREES = 1 * 1;
 
   /**
    * for testing...

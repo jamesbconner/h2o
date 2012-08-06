@@ -13,6 +13,7 @@ public interface Classifier extends Serializable {
   /** Returns the class of the current row data row. */
   int classify(DataAdapter data); 
   
+  
   /** Returns the number of classes for this classifier. */
   int numClasses();
   
