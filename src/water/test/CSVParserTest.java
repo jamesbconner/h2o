@@ -30,6 +30,7 @@ import water.UKV;
 import water.Value;
 import water.ValueArray;
 import water.csv.CSVParser.CSVEscapedBoundaryException;
+import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
@@ -384,10 +385,57 @@ public class CSVParserTest {
     }
     return result;
   }
-
+  @Test
+public void testUnknownData(){
+    Key k = Key.make("Iris.data");
+    if(DKV.get(k) == null){
+      DKV.put(k, new Value(k,"5.1,3.5,1.4,0.2,Iris-setosa\n4.9,3.0,1.4,0.2,Iris-setosa\n4.7,3.2,1.3,0.2,Iris-setosa"));
+    }
+    CSVParserSetup setup = new CSVParserSetup();
+    setup._partialRecordPolicy = CSVParserSetup.PartialRecordPolicy.fillWithDefaults;
+    setup._ignoreAdditionalColumns = true;
+    setup._parseColumnNames = false;
+    float [] rec1 = new float[3];
+    float [] rec2 = new float[10];
+    
+    float [][] expData = new float[3][];
+    expData[0] = new float[]{5.1f,3.5f,1.4f,0.2f, Float.NaN};
+    expData[1] = new float[]{4.9f,3.0f,1.4f,0.2f, Float.NaN};
+    expData[2] = new float[]{4.7f,3.2f,1.3f,0.2f, Float.NaN};
+    
+    try {
+      ValueCSVRecords<float[]> records1 = new ValueCSVRecords<float[]>(k,1,rec1,null,setup);
+      ValueCSVRecords<float[]> records2 = new ValueCSVRecords<float[]>(k,1,rec2,null,setup);
+      for(int i = 0; i < 3; ++i){
+        records1.next();
+        records2.next();
+        for(int j = 0; j < 5; ++j){
+          if(Float.isNaN(expData[i][j])){
+            if(j < rec1.length) Assert.assertTrue(Float.isNaN(rec1[j]));
+            if(j < rec2.length && !Float.isNaN(rec2[j]))
+              System.out.println(i + ":" + j + ":" + rec2[j]);
+            if(j < rec2.length) Assert.assertTrue(Float.isNaN(rec2[j]));            
+          } else {
+            if((j < rec1.length) && (rec1[j] != expData[i][j]))
+              System.out.println(rec1[j] + " != " + expData[i][j]);
+            if(j < rec1.length) Assert.assertTrue(rec1[j] == expData[i][j]);
+            if(j < rec2.length) Assert.assertTrue(rec2[j] == expData[i][j]);
+          }          
+        }
+        for(int j = expData[i].length; j < Math.max(rec1.length, rec2.length); ++j){
+          if(j < rec1.length) Assert.assertTrue(Float.isNaN(rec1[j]));
+          if(j < rec2.length) Assert.assertTrue(Float.isNaN(rec2[j]));
+        }        
+      }
+      Assert.assertFalse(records1.hasNext());
+      Assert.assertFalse(records2.hasNext());
+    } catch (Exception e) {
+      throw new Error(e);
+    }     
+  }
+  
   @Test
   public void testParsingbigDataCSV(){
-    Assert.assertTrue(false);
     Key k = Key.make("bigdata_csv");
     Value v = DKV.get(k);
     Assert.assertNotNull(v);
@@ -396,14 +444,7 @@ public class CSVParserTest {
     TimeSeriesRecord r3 = new TimeSeriesRecord();
     final int expectedNRecords = 14102837;
     int recCounter = 0;
-    try {
-      
-      
-      
-    } catch (Exception e2) {
-      e2.printStackTrace();
-      Assert.assertTrue(false);
-    }
+    
     
     File f = new File("c:\\Users\\tomas\\big_data.csv");
     Assert.assertTrue(f.exists());    

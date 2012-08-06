@@ -130,6 +130,8 @@ public class DRFBuilder extends DRemoteTask {
     if (_rf == null)
       return;
     try {
+      assert _rf.trees() != null;
+      dos.writeInt(_rf.trees().length);
       dos.write(_rf.trees());
     } catch (IOException e) {
       throw new Error(e);
@@ -143,13 +145,11 @@ public class DRFBuilder extends DRemoteTask {
 
   @SuppressWarnings("unused")
   @Override
-  protected void read(DataInputStream dis) {
-    if (true)
-      throw new Error("unimpolemented");
+  protected void read(DataInputStream dis) {    
     try {
-      byte[] data = new byte[dis.available()];
-      assert dis.read(data) == data.length;
-      _rf.combine(data);
+      int len = dis.readInt();      
+      _serializedRf = new byte[len];
+      dis.readFully(_serializedRf);             
     } catch (Exception e) {
       throw new Error(e);
     }

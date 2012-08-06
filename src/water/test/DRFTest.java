@@ -15,7 +15,7 @@ import water.UDP;
 import water.Value;
 
 public class DRFTest {
-  
+  String filename = "C:\\datasets\\poker-hand-testing.data";
   @BeforeClass
   public static void setUpClass() throws Exception {
     if(H2O.CLOUD == null)
@@ -23,13 +23,21 @@ public class DRFTest {
   }
   
   @Test
-  public void testPokerDataSet(){
-    String filename = "C:\\datasets\\poker-hand-testing.data";
+  public void testPokerDataSet(){    
     byte [] filenameBytes = filename.getBytes();
     Key [] keys = new Key[3];
     int kIdx = 0;
     int offset = 0;
     int chunkLen = 10*1024*1024;
+    
+    int num = H2O.CLOUD.size();
+    while( num < 3 ) {      
+      try { Thread.sleep(10); }        // sleep 10msec & test again
+      catch( InterruptedException ie ) {}
+      num = H2O.CLOUD.size();
+    }
+    
+    
     for(H2ONode node:H2O.CLOUD._memary){
       if(kIdx == 3)break;
       keys[kIdx] = Key.make("RFTest" + kIdx,(byte)1,Key.DFJ_INTERNAL_USER, H2O.CLOUD._memary[kIdx]);      

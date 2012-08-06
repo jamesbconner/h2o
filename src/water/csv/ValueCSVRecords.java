@@ -16,6 +16,7 @@ import water.ValueArray;
 import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
+import water.csv.CSVParser.CSVParserSetup.PartialRecordPolicy;
 
 /**
  * Wrapper around CSVParser implementing iterator interface.
@@ -101,8 +102,39 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
       if (_val != null)
         _dataRead = (int) _val.length();
     }
-
   }
+  
+  final class ByteArrayDataProvider extends ADataProvider {
+    byte [] _data;
+    boolean _read = false;;
+    
+    ByteArrayDataProvider(byte [] data) {
+      _data = data;
+    }
+
+    @Override
+    boolean hasMoreData() {
+      return (_data != null) && !_read;
+    }
+
+    @Override
+    byte[] nextData(int len) {
+      byte [] res = _read?null:_data;
+      _read = true;
+      return res;
+    }
+
+    @Override
+    void reset() {
+      _read = false;
+    }
+
+    @Override
+    void close() {
+      _read = true;
+    }
+  }
+
 
   final class KV_DataProvider extends ADataProvider {
     Key _currentKey;
@@ -277,6 +309,8 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
   boolean _fresh = true;
   
   public boolean hasNext() {
+    if(_parser == null)
+      return false;
     if (_next)
       return true;
     try {
@@ -312,16 +346,26 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
           _parser.addData(_dataProvider.nextData(Integer.MAX_VALUE));
           _next = _parser.next();
         }
+        if (!_next && (_parser._column > 0)){
+          // we must have reached a record end by now, otherwise the record is
+          // either unfinished or it is longer than one the size of one chunk
+          // which is illegal as well
+         _parser.addData("\n".getBytes());       
+         _next = _parser.next();
+         _parser.close();
+       }
       } catch (Exception e) {
         _next = false;
-        e.printStackTrace();
-      }
-      if (!_next && (_parser._column > 0))
-        // we must have reached a record end by now, otherwise the record is
-        // either unfinished or it is longer than one the size of one chunk
-        // which is illegal as well
-        throw new Error("unfinished record");
+        throw new Error(e);
+      }            
     }
+    if(!_next && _parser._column > 0){
+      try {
+        return _parser.endRecord();
+      } catch (Exception e) {
+        throw new Error(e);
+      } 
+    }      
     return _next;
   }
 
@@ -378,14 +422,24 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
       // csvRecord, columns, setup);
       setup._parseColumnNames = setup._parseColumnNames && (index == 0);
       setup._skipFirstRecord = (index > 0);
-      _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns,
+      if(_dataProvider.hasMoreData())
+        _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns,
           setup);
-
-    
-
     } else {
       assert nChunks == 1;
-      throw new Error("unimplemented");
+      index = 0;
+      Value v = DKV.get(k);
+      if(v != null){
+        _dataProvider = new ByteArrayDataProvider(v.get());
+        _rec = csvRecord;
+        setup._parseColumnNames = setup._parseColumnNames;
+        // _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE),
+        // csvRecord, columns, setup);
+        setup._parseColumnNames = setup._parseColumnNames && (index == 0);
+        setup._skipFirstRecord = (index > 0);
+        _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns,
+            setup);
+      }
     }
   }
 

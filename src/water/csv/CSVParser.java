@@ -30,8 +30,6 @@ public final class CSVParser {
   boolean _closed; // set if no more data should be returned
   int _index = -1; // index of the current byte
   int _from = 0; // pointer of to the start of the field which is currently being processed
-  int _recordStart; // for debugging purposes, marks beginning of the current
-                    // record
   int _to; // pointer of to the end of the field which is currently being processed
 
   // data is kept in a circular buffer so we can be using 2 buffers at the same time 
@@ -246,13 +244,14 @@ public final class CSVParser {
   }
 
   // set the attribute value and reset given parser
-  protected void endField() throws IllegalArgumentException,
+  protected boolean endField() throws IllegalArgumentException,
       IllegalAccessException, CSVParseException {
+    boolean res = true;
     if (!_dontParseFlag) { 
       // don't parse flag means we're just skipping partial record -> do not try to parse the data
-      if (_column == _columnParsers.length) {
+      if (_column >= _columnParsers.length) {
         if (_setup._ignoreAdditionalColumns)
-          return;
+          return true;
         throw new CSVParseException("Too many columns");
       }
       // parse the data
@@ -278,7 +277,7 @@ public final class CSVParser {
         }
         case typeDouble: {
           double v = _columnParsers[_column].getDoubleVal(_from, _to - _from
-              + 1);
+              + 1);         
           if (_record.getClass().isArray())
             Array.setDouble(_record, _column, v);
           else
@@ -303,40 +302,49 @@ public final class CSVParser {
         }
           break;
         default:
-          throw new IllegalStateException(); // should not get here
+          assert false; //houdl not get here
         }
-      }
+        res = _columnParsers[_column]._parseOk;
+      }      
       ++_column;
     }
     _from = _index + 1;
     _state = 0;
     _newLineFlag = false;
+    return res;
   }
 
   // called after newline, in case of incomplete record, set all the remaining
   // values to their default values
-  protected void endRecord() throws IllegalArgumentException,
+  protected boolean endRecord() throws IllegalArgumentException,
       IllegalAccessException, CSVParseException {
-    _recordStart = _index + 1;
-    if (_dontParseFlag)
-      return;
+    boolean result = true;    
+    
     // set all unset fields to default values
-    if (_column != _columnParsers.length) {
-      if (_setup._toleratePartialRecords) {
+    if (!_dontParseFlag && _column != _columnParsers.length) {
+      switch(_setup._partialRecordPolicy){
+      case throwException:
+        throw new CSVParseException("Partial record with " + _column + " columns");
+      case dropRecord:
+        result= false;
+        break;
+      case fillWithDefaults:
         for (int i = _column; i != _columnParsers.length; ++i)
-          endField();
-      } else {
-        throw new CSVParseException("Partial record with " + _column
-            + " columns");
+          endField();     
+        break;
       }
     }
     _column = 0;
     _resetParsers = true;
+    _state = 0;
+    _from = _index+1;
+    return result;
   }
 
   protected boolean addChar(char c) throws CSVParseException,
       IllegalArgumentException, IllegalAccessException {
     switch (_state) {
+   
     case 0: // the beginning of a record or field or only whitespaces have been read so far
       if (c == _setup._separator) {
         if (!_setup._collapseSpaceSeparators)
@@ -352,9 +360,8 @@ public final class CSVParser {
         // which should be ignored
         if (!_setup._collapseSpaceSeparators
             || _column != _columnParsers.length)
-          endField();
-        endRecord();
-        return true;
+          endField();        
+        return endRecord();
       } else if (Character.isWhitespace(c)) {
         if (_setup._trimSpaces)
           ++_from; // skip spaces at the beginning of a value
@@ -369,7 +376,7 @@ public final class CSVParser {
         _state = 1;
         if (_setup._trimSpaces || _setup._collapseSpaceSeparators)
           _from = _index;
-        else if (_columnParsers[_column] != null) {
+        else if (_column < _columnParsers.length &&  _columnParsers[_column] != null) {
           switch (_columnParsers[_column]._type) {
           case typeInt:
           case typeFloat:
@@ -384,9 +391,8 @@ public final class CSVParser {
     case 1: // non-space character has been read before
       if ((c == _setup._separator) || (c == '\n')) {
         endField();
-        if (c == '\n') {
-          endRecord();
-          return true;
+        if (c == '\n') {          
+          return endRecord();
         }
       } else if (!Character.isWhitespace(c) || !_setup._trimSpaces) {
         // skip spaces at the beginning of a value
@@ -406,15 +412,14 @@ public final class CSVParser {
       } else { // end of the quoted region, should just be end of the field/record with possible spaces
         if ((c == _setup._separator) || (c == '\n')) {
           endField();
-          if (c == '\n') {
-            endRecord();
-            return true;
+          if (c == '\n') {            
+            return endRecord();
           }
         } else if (Character.isWhitespace(c)) {
           _state = 4;
         } else {
-          CSVString parsedString = new CSVString(_recordStart, _index
-              - _recordStart, this);
+          CSVString parsedString = new CSVString(_from, _index
+              - _from, this);
           // CSVString parsedString = new CSVString(_index - 64, 128, this);
           throw new CSVParseException("unexpected character '" + c
               + "', parsed string = '" + parsedString.toString() + "'");
@@ -424,9 +429,8 @@ public final class CSVParser {
     case 4: // spaces appended to the end of a field, nothing else allowed here
       if ((c == _setup._separator) || (c == '\n')) {
         endField();
-        if (c == '\n') {
-          endRecord();
-          return true;
+        if (c == '\n') {          
+          return endRecord();
         }
       } else if (!Character.isWhitespace(c)) {
         throw new CSVParseException("unexpected character '" + c + "'");
@@ -468,6 +472,7 @@ public final class CSVParser {
       }
       _resetParsers = false;
     }
+    
     while (nextByte()) {
       char c;
       c = (char) getByte(_index);
@@ -599,7 +604,13 @@ public final class CSVParser {
       _csvString = new CSVString(other._csvString._offset,
           other._csvString._len, CSVParser.this);
     }
-
+    
+    private boolean _parseOk = true;
+    
+    //return true if the last value was parsed correctly (otherwise default value was returned)
+    public boolean parseOk(){
+      return _parseOk;      
+    }
     // trims leading and trailing spaces and than parses the string into
     // FloatingDecimal. result is stored in _floatingDecimal var (so that 1
     // FloatingDecimal instance can be shared across the columns
@@ -609,7 +620,8 @@ public final class CSVParser {
     //
     // exponent is computed based on the part of the string before '.' + the
     // explicit exponent expression (parsed as an integer) if present
-    private final void parseFloat(int from, int len) {
+    private final void parseFloat(int from, int len) {   
+      _parseOk = true;
       int state = 0;
       final int N = from + len;
       _floatingDecimal.isNegative = false;
@@ -637,6 +649,10 @@ public final class CSVParser {
             state = 1;
             break;
           default:
+            if(!Character.isDigit(ch)){
+              _parseOk = false;
+              return;
+            }
             state = 2;
             _floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
             ++_floatingDecimal.decExponent;
@@ -660,8 +676,15 @@ public final class CSVParser {
             state = 5; // trim the trailing spaces
             break;
           default:
-            if (_floatingDecimal.nDigits == _floatingDecimal.digits.length)
-              throw new NumberFormatException("too many digits");
+            if(!Character.isDigit(ch)){
+              _parseOk = false;
+              return;
+            }
+            // too many digits
+            if (_floatingDecimal.nDigits == _floatingDecimal.digits.length){
+              _parseOk = false; // too many digits 
+              return;
+            }              
             _floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
             ++_floatingDecimal.decExponent;
           }
@@ -680,17 +703,23 @@ public final class CSVParser {
             state = 4;
             break;
           default:
+            if(!Character.isDigit(ch)){
+              _parseOk = false;
+              return;
+            }
             while (zeroCounter > 0) {
               _floatingDecimal.digits[_floatingDecimal.nDigits++] = '0';
               --zeroCounter;
             }
-            if (_floatingDecimal.nDigits == _floatingDecimal.digits.length)
-              throw new NumberFormatException("too many digits");
+            if (_floatingDecimal.nDigits == _floatingDecimal.digits.length){
+              _parseOk = false;
+              return;
+            }
             _floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
           }
           break;
         case 4: // parse int and add it to the exponent
-          _floatingDecimal.decExponent += parseInt(i, N - i);
+          _floatingDecimal.decExponent += parseInt(i, N - i, 10);
           return;
         case 5: // should be trailing spaces...ignore them but throw exception
                 // if anything else
@@ -699,37 +728,31 @@ public final class CSVParser {
           case '\t':
             break;
           default:
-            throw new NumberFormatException("Unexpected char (" + (i - from)
-                + ") '" + ch + "'");
+            _parseOk = false;
+            return;
           }
           break;
         }
       }
       if (_floatingDecimal.nDigits == 0)
-        throw new NumberFormatException();
+        _parseOk = false;
     }
 
     final double getDoubleVal(int from, int len) {
-      try {
-        parseFloat(from, len);
-      } catch (NumberFormatException e) {
-        return _setup._defaultDouble;
-      }
-      // System.out.println("parsed " + new CSVString(from,len,CSVParser.this) +
-      // " into " + _floatingDecimal.toJavaFormatString());
-      return _floatingDecimal.doubleValue();
+      parseFloat(from, len);        
+      return _parseOk?_floatingDecimal.doubleValue():_setup._defaultDouble;
     }
 
     final float getFloatVal(int from, int len) {
-      try {
-        parseFloat(from, len);
-      } catch (NumberFormatException e) {
-        return _setup._defaultFloat;
-      }
-      return _floatingDecimal.floatValue();
+      parseFloat(from, len);
+      return _parseOk?_floatingDecimal.floatValue():_setup._defaultFloat;
     }
 
     final int parseInt(int offset, int len) {
+      return parseInt(offset, len, _radix);
+    }
+    final int parseInt(int offset, int len, int radix) {
+      _parseOk = true;
       int sign = 1;
       int res = 0;
       int state = 0;
@@ -750,17 +773,26 @@ public final class CSVParser {
         case 1:
           if (Character.isWhitespace(ch))
             state = 2;
-          else
-            res = _radix * res + getDigit(ch);
+          else {
+            int d = getDigit(ch);
+            if(d >= radix){
+              _parseOk = false;
+              return _setup._defaultInt;
+            }              
+            res = radix * res + getDigit(ch);
+          }
           break;
+          
         case 2:
-          if (!Character.isWhitespace(ch))
-            throw new NumberFormatException();
+          if (!Character.isWhitespace(ch)){
+            _parseOk = false;
+            return _setup._defaultInt;
+          }
         }
       }
       return sign * res;
     }
-
+    
     private final int getDigit(char c) {
       int i = Integer.MAX_VALUE;
       if (Character.isLetterOrDigit(c)) {
@@ -769,7 +801,7 @@ public final class CSVParser {
         } else {
           i = Character.isUpperCase(c) ? (10 + c - 'A') : (10 + c - 'a');
         }
-      }
+      } 
       return i;
     }
 
@@ -802,6 +834,7 @@ public final class CSVParser {
     public void reset() {
       _csvString._offset = -1;
       _csvString._len = -1;
+      _parseOk = true;
     }
   }
 
@@ -814,9 +847,14 @@ public final class CSVParser {
    * 
    */
   public static class CSVParserSetup {
-    public final double _defaultDouble = Double.NaN;
-    public final float _defaultFloat = Float.NaN;
-    public final int _defaultInt = Integer.MAX_VALUE;
+    public enum PartialRecordPolicy {throwException, dropRecord, fillWithDefaults};
+    
+    public PartialRecordPolicy _partialRecordPolicy = PartialRecordPolicy.dropRecord;
+    
+    public double _defaultDouble = Double.NaN;
+    public float _defaultFloat = Float.NaN;
+    public int _defaultInt = Integer.MAX_VALUE;
+            
     // column separator, can be any character that fits into one byte
     public final byte _separator;
     // set this to true if the first line of the data contains column names,
@@ -836,7 +874,7 @@ public final class CSVParser {
     public boolean _skipFirstRecord;
     // if false, lines with more columns than expected will trigger a CSVParse
     // exception
-    public final boolean _ignoreAdditionalColumns = false;
+    public boolean _ignoreAdditionalColumns = false;
 
     public CSVParserSetup() {
       _separator = (byte) ',';
@@ -863,6 +901,8 @@ public final class CSVParser {
       _collapseSpaceSeparators = other._collapseSpaceSeparators;
       _toleratePartialRecords = other._toleratePartialRecords;
       _skipFirstRecord = other._skipFirstRecord;
+      _partialRecordPolicy = other._partialRecordPolicy;
+      _ignoreAdditionalColumns = other._ignoreAdditionalColumns;
     }
   }
 }
