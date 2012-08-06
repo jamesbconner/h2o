@@ -6,8 +6,6 @@ import analytics.DecisionTree.INode;
 import analytics.DecisionTree.LeafNode;
 import analytics.DecisionTree.Node;
 import analytics.DecisionTree.SentinelNode;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Class capable of building random forests.
@@ -217,7 +215,7 @@ public class RFBuilder {
       this.localData = data.view();
     }
     
-    @Override public void run() {
+    public void run() {
       if (numTrees == 0)
         return;
       for( int i = treeStart; i < treeStart+numTrees; ++i )
