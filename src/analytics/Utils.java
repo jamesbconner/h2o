@@ -63,10 +63,7 @@ public class Utils {
   }
   
   public static double lnF(double what) {
-    if (what < 1e-06)
-      return 0;
-    else
-      return what * Math.log(what);
+    return (what < 1e-06) ? 0 : what * Math.log(what);
   }
   
   public static double entropyOverColumns(double[][] m) {
@@ -79,10 +76,7 @@ public class Utils {
       result -= lnF(sum);
       total += sum;
     }
-    if (total == 0)
-      return 0;
-    else
-      return (result + lnF(total)) / (total * Math.log(2));
+    return (total == 0) ? 0 : (result + lnF(total)) / (total * Math.log(2));
   }
   
   public static double entropyCondOverRows(double[][] m) {
@@ -97,10 +91,7 @@ public class Utils {
       result -= lnF(sum);
       total += sum;
     }
-    if (total == 0)
-      return 0;
-    else
-      return -result / (total *Math.log(2));
+    return (total == 0) ? 0 : -result / (total *Math.log(2));
   }
   
 }

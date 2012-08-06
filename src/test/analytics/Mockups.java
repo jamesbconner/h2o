@@ -28,7 +28,7 @@ class DummyStatistic extends Statistic {
   }
 
   @Override
-  public void addDataPoint(DataAdapter adapter) {
+  public void addRow(DataAdapter adapter) {
   }
 
   @Override
@@ -45,9 +45,7 @@ class DummyStatistic extends Statistic {
 
 
 class DummyDataSet extends DataAdapter {
-
- 
-  public void seekToRow(int index) {
+  public DataAdapter seekToRow(int index) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 

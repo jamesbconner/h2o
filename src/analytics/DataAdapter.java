@@ -9,26 +9,20 @@ import java.util.Random;
  * @author peta
  */
 
-// TODO if we ever use the adapters on adapters, this *SHOULD* again be an
-// interface, or at least an abstract class as it used to be. 
 public abstract class DataAdapter {
   
   protected int cur = -1; // cursor in the dataset
   protected final int seed_;
   protected final Random random_;
   
-  public DataAdapter(int seed){ random_= new Random(seed_ = seed); } // 678); }//seed); } 
-  public DataAdapter() {
-    this(new Random().nextInt());
-//    System.out.println(seed_);
-  }
+  public DataAdapter(int seed){ random_= new Random(seed_ = seed); }
+  public DataAdapter() { this(new Random().nextInt());  }
   
-  public int rowIndex() {
-    return cur;
-  }
+  /** Return the current row index. */
+  public int row() { return cur; }
   
   /** Move the cursor to the index-th row. */
-  public void seekToRow(int index) { cur = index; }
+  public DataAdapter seekToRow(int index) { cur = index; return this; }
   
   /** Returns the number of rows in the dataset.    */
   public abstract int numRows();    
@@ -71,13 +65,7 @@ public abstract class DataAdapter {
    *  through the data in parallel.>> */
   public DataAdapter view() { return this; }
   
-  /** Returns a weighted and out-of-bag sample from the given data. 
-   * 
-   * @param data
-   * @param bagSizePercent
-   * @param r
-   * @return 
-   */
+  /** Returns a weighted and out-of-bag sample from the given data.  */
   public static DataAdapter weightedOutOfBagSampling(DataAdapter data, int bagSizePercent, Random r) {
     if(true) throw new Error("Jan thinks we are not using this method yet :-)");
     byte[] occurrences = new byte[data.numRows()];
@@ -126,17 +114,13 @@ public abstract class DataAdapter {
       sampleSize--;
     }
     return new IntWeightedWrapper(data, occurrences);
-  } 
-  
+  }  
 }
-
-
 
 class AdapterWrapper extends DataAdapter {
   protected final DataAdapter data_;
-
   AdapterWrapper(DataAdapter data) { data_ = data;  }
-  @Override public void seekToRow(int index) { data_.seekToRow(index);  }  
+  @Override public DataAdapter seekToRow(int index) { data_.seekToRow(index); return this; }  
   @Override public int numRows() { return data_.numRows(); }
   @Override public int numColumns() { return data_.numColumns();  }
   @Override public boolean isInt(int index) { return data_.isInt(index); }
@@ -188,11 +172,12 @@ class OutOfBagSampler extends AdapterWrapper {
     // get       
   }
   
-  @Override public void seekToRow(int index) {
+  @Override public DataAdapter seekToRow(int index) {
     if (data_.cur != index-1)  reset();
     while (data_.cur != index) {
       data_.seekToRow(data_.cur+1);
       computeRowOccurence();
     }
+    return this;
   }  
 }

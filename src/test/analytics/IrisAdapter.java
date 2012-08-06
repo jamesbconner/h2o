@@ -1,7 +1,11 @@
 package test.analytics;
 
-import analytics.*;
 import java.io.IOException;
+
+import analytics.DataAdapter;
+import analytics.NumericSplitterStatistic;
+import analytics.RF;
+import analytics.Statistic;
 
 
 
@@ -190,14 +194,17 @@ public class IrisAdapter extends DataAdapter {
   public int numClasses() { return 3; }
   public int dataClass() { return data[cur].class_; }
   
-  static int TREES = 1 * 1000;
+  IrisAdapter() {super(111); }
+  
+  static int TREES = 1 * 1;
   public static void main(String[] a) {     
     if(a.length>0) TREES = Integer.parseInt(a[0]);
     RF rf = new RF(new IrisAdapter(),TREES);
     rf.compute();
     System.out.print("Done. Computing accuracy.");
     System.out.println(rf);
-    System.out.println(rf.tree(0).toString());
+ //   System.out.println(rf.tree(0).toString());
+    System.exit(0);
     try{
       rf.combine(rf.trees());
     }catch( IOException e ){
@@ -211,6 +218,7 @@ public class IrisAdapter extends DataAdapter {
   
   public Statistic createStatistic() {
     return new NumericSplitterStatistic(this);
+    //return new NumericStat(this);
     //return new AverageStatistic(this);
   }
   public int numFeatures() { return 3; }

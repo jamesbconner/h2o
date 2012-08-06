@@ -5,7 +5,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 
 import water.Value;
 import water.csv.CSVParser.CSVParseException;
@@ -18,18 +17,13 @@ import analytics.Statistic;
 
 /**
  * Simple adaptor for Poker dataset.
- * 
  * Can be invoked with Value (arraylet root) and arraylet indexes or with File (for convenience when testing)
  * If creating with arraylet range, note that the last index should point to two places after the last processed chunk
- *  
- * 
  * @author tomas
- *
  */
 public class PokerAdapter extends DataAdapter {
 
   int[][] data;
-  HashSet<Integer> _classes;
 
   public int numRows()            { return data.length; }
   public int numColumns()         { return data[0].length - 1;  }
@@ -74,7 +68,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 1 * 100;
+ static int TREES = 3 * 1;
 
   /**
    * for testing...
@@ -101,7 +95,8 @@ public class PokerAdapter extends DataAdapter {
     }
   }
   public Statistic createStatistic() {
-    return new NumericSplitterStatistic(this);
+  return new NumericSplitterStatistic(this);
+  //  return new NumericStat(this);
     //return new AverageStatistic(this);
   }
   public int numFeatures() { return 7; } // this should be roughly 2/3 of numCol

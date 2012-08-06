@@ -1,21 +1,10 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package analytics;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Arrays;
 
-/** Performs the split on numerical values. 
- * 
- * Uses the entropy to determine a splitpoint for each column on each node to
- * minimize the entropy. While the algorithm is essentially a multi-pass, it is
- * all created in the single pass technology of the RF we have. The classic pass
- * only analyzes the distribution for the node.
+/** Split on numerical values using entropy to find the best split. 
+ *  While the algorithm is multi-pass, it is all created in the single pass 
+ *  of the RF we have. The classic pass only analyzes the distribution for the node.
  * 
  * When done, the build classifier of the node revisits those rows that were
  * used for the node, sorts them for each column and then looks at each possible
@@ -28,233 +17,198 @@ import java.util.Set;
  */
 public class NumericSplitterStatistic extends Statistic {
  
-  /** Simple class that holds information about a split point.
-   * 
-   */
+  private int[] rows_; // the node's rows
+  private int rowsSize_;
+  private final DataAdapter data;  // data
+  private final ColumnStatistic[] columns_;  //columns for which the averages are computed
+
+  
+  /** Hold information about a split. */
   static class SplitInfo {
-    final int column;
-    final double splitValue;
-    final double fitness;
-    
+    final int column; final double value, fitness;    
     SplitInfo(int column, double splitValue, double fitness) {
-      this.column = column;
-      this.splitValue = splitValue;
-      this.fitness = fitness;
-    }
-    
-    boolean betterThan(SplitInfo other) {
-      return (other==null) || (fitness > other.fitness);
-    }
+      this.column = column;  this.value = splitValue; this.fitness = fitness;
+    }    
+    boolean betterThan(SplitInfo other) { return other==null || fitness > other.fitness;  }
   }
   
-  /** A column statistic class. Performs the statistic computation on each
-   * column. Holds the distribution of the values using weights. This class is
-   * called from the main statistic for each column the statistic cares about.
-   * 
-   */
+  /** Computer  the statistic on each column; holds the distribution of the values 
+   * using weights. This class is called from the main statistic for each column 
+   * the statistic cares about. */
   class ColumnStatistic {
-    byte index;
-    double[][] dists;
-    boolean seenSingleValue_ = false;
+    byte column; // column
+    double[][] dists; // 2 x numClasses
     
-    ColumnStatistic(int index, int numCategories) {
-      this.index = (byte)index;
-      dists = new double[2][numCategories];
+    ColumnStatistic(int index, int numClasses) {
+      this.column = (byte)index;
+      dists = new double[2][numClasses];
     }
     
-    void resetColumn(int newColumn) {
-      index = (byte) newColumn;
-      //System.out.println("Reset to column "+index);
-      seenSingleValue_ = false;
-      double[] d = dists[1];
-      dists[1] = dists[0];
-      dists[0] = dists[1];
-    }
-    
-    void addDataPoint(DataAdapter row) {
-      dists[1][row.dataClass()] += row.weight();
-    }
-    
-    private double fitness(double[][] m) {
-      return Utils.entropyOverColumns(m);
-    }
-    
-    private double fitnessGain(double[][] m, double old) {
-      return old - Utils.entropyCondOverRows(m);
-    }
-
-    
-    /** A trivial data comparator to perform the sorting of the input rows. 
-     * 
-     * Sorting is integral to the algorithm and getting it away will likely be
-     * very hard. 
-     */
-    class DataComparator implements Comparator<Integer> {
-     
-      public int compare(Integer o1, Integer o2) {
-        data.seekToRow(o1);
-        double v1 = data.toDouble(index);
-        data.seekToRow(o2);
-        double v2 = data.toDouble(index);
-        v1 = v1-v2;
-        return v1== 0 ? 0 : (v1>0) ? 1 : -1 ;
-      }
-      
-    }
+    void addDataPoint(DataAdapter row) { dists[1][row.dataClass()] += row.weight(); }    
     
     /** Calculates the best split on given column and returns its information.
      * 
      * In order to do this it must sort the rows for the given node and then
      * walk again over them in order (that is out of their natural order) to
      * determine the best splitpoint.
-     * 
-     * @return 
      */
-    SplitInfo calculateBestSplit() {
-      double f = fitness(dists);
-      // first sort rows_ according to given column
-      Collections.sort(rows_,new DataComparator());
-      data.seekToRow(rows_.get(rows_.size()-1));
-      double last = data.toDouble(index);
-      data.seekToRow(rows_.get(0));
-      if (last == data.toDouble(index)) {
-        seenSingleValue_ = true;
-        return null;
-      }
+    SplitInfo bestSplit() {
+      double fit = Utils.entropyOverColumns(dists); //compute fitnesss with no prediction
+      sort1(rows_,0,rowsSize_,column); // sort rows_ according to given column      
+      double last = data.seekToRow(rows_[rowsSize_-1]).toDouble(column);
+      double currSplit =  data.seekToRow(rows_[0]).toDouble(column);
+      if (last == currSplit) return null;
       // now try all the possible splits
-      double currSplit = data.toDouble(index);
       double bestFit = -Double.MAX_VALUE;
-      double splitValue = 0;
-      for (int i : rows_) {
-        data.seekToRow(i);
-        if (data.toDouble(index) > currSplit) {
-          double fit = fitnessGain(dists,f);
-          if (fit > bestFit) {
-            bestFit = fit;
-            splitValue = (data.toDouble(index) + currSplit) / 2;
+      double split = 0;
+      for (int i =0; i< rowsSize_; i++) {
+        double s = data.seekToRow(rows_[i]).toDouble(column);
+        if (s > currSplit) {
+          double newFit = fit - Utils.entropyCondOverRows(dists); // fitness gain
+          if (newFit > bestFit) {
+            bestFit = newFit;
+            split = (s + currSplit) / 2;
           }
         }
-        currSplit = data.toDouble(index);
+        currSplit = s;
         dists[0][data.dataClass()] += data.weight();
         dists[1][data.dataClass()] -= data.weight();
       }
-      return new SplitInfo(index,splitValue,bestFit);
+      return new SplitInfo(column,split,bestFit);
     }
+    
   }
   
   /** Adds the data point to all column statistics
    * 
-   * @param adapter 
+   * @param data 
    */
-  @Override public void addDataPoint(DataAdapter adapter) {
+  @Override public void addRow(DataAdapter data) {
     for (ColumnStatistic s: columns_)
-      s.addDataPoint(adapter);
+      s.addDataPoint(data);
     // add the row to the list of rows valid for this node. 
-    rows_.add(adapter.rowIndex());
+    grow();
+    rows_[rowsSize_++] = data.row();
   }
-
+  private final void grow() { 
+    if (rowsSize_==rows_.length) {
+      int sz = rowsSize_ * 2;      
+      rows_ = Arrays.copyOf(rows_, sz > data.numRows()? data.numRows() : sz);
+    }
+  }
   /** Creates the classifier. If the node has seen only single data class, a
-   * const classifier is used. otherwise all columns are queried to find the
-   * best splitting point which is then transformed to a classifier. 
-   * 
-   * @return 
+   * const classifier is used. Otherwise all columns are queried to find the
+   * best split. If the chosen selected columns is not able to differentiate
+   * between the observations, a Const node will be returned with a majority
+   * vote for the class.
    */
   @Override public Classifier createClassifier() {
-    //System.out.println(rows_.size());
-    if (rows_.size()==0)
-      return null;
-    // check if we have only one class
-    int i = -1;
-    for (int j = 0; j<columns_[0].dists[1].length;++j)
-      if (columns_[0].dists[1][j]!=0)
-        if (i == -1)
-          i = j;
-        else 
-          i = -2;
-    if (i > -1)
-      return new Classifier.Const(i);
-    // for each statistic, sort the rows, find the best split
+    if (rowsSize_==0)  throw new Error();
+    else {     // check if we have only one class
+      int cls = 0, cnt = 0;  double[] vs = columns_[0].dists[1];
+      for (int i = 0; i<vs.length;++i) if (vs[i]!=0) { cnt++; cls = i;}
+      if (cnt==1) return new Classifier.Const(cls);   
+    }
     SplitInfo best = null;
     for (ColumnStatistic s: columns_) {
-      SplitInfo x = s.calculateBestSplit();
-      if (x==null)
-        continue;
-      if (x.betterThan(best))
-        best = x;
+      SplitInfo x = s.bestSplit();
+      if (x!=null && x.betterThan(best)) best = x;
     }
-    // the best we have is indecissive, we must try the other columns too
-    if (best == null) {
-      Set<Integer> m = new HashSet();
-      for (int ii = 0; ii< data.numColumns(); ++ii) 
-        m.add(ii);
-      for (ColumnStatistic s: columns_)
-        m.remove(new Integer(s.index));
-      ColumnStatistic stat = columns_[0];
-      for (Object ii : m.toArray()) {
-        //System.out.println(ii);
-        stat.resetColumn((Integer)ii);
-        best = stat.calculateBestSplit();
-        if (best!=null)
-          break;
-      }
-      if (best==null) {
-        return new Classifier.Random(stat.dists[0]);
-      } 
+    //for all chosen columns, all observations have the same values and 
+    //no split was selected. In this case we give up and create a Const node. 
+    if (best==null) {
+      double max = 0; int index= 0; double[] vs = columns_[0].dists[1];
+      for (int j = 0; j<vs.length;++j) if (vs[j]>max) {index=j; max=vs[j];}
+      return new Classifier.Const(index);            
     }
     return new SplitClassifier(best); 
   }
 
-  // all rows that belong to the node
-  private final ArrayList<Integer> rows_ = new ArrayList();
-  
-  // data adapter
-  private final DataAdapter data;
-  
-  // list of columns for which the averages are computed
-  private final ColumnStatistic[] columns_;
 
-  /** Creates the statistic for given data adapter. 
-   * 
-   * @param data 
-   */
   public NumericSplitterStatistic(DataAdapter data) {
+    rows_ = new int[100];
     columns_ = new ColumnStatistic[data.numFeatures()];
+    this.data = data;
+    pickColumns();
+  }
+
+  private void pickColumns() {
     A: for(int i=0;i<data.numFeatures();) {
-      columns_[i]=new ColumnStatistic(data.random_.nextInt(data.numColumns()),data.numClasses());
-      for(int j=0;j<i;j++) if (columns_[i].index==columns_[j].index) continue A;  
+      columns_[i]=new ColumnStatistic(data.random_.nextInt(data.numColumns()), data.numClasses());
+      for(int j=0;j<i;j++) if (columns_[i].column==columns_[j].column) continue A;  
       i++;
     }
-    this.data = data;
   }
-  
 
   /** Split classifier. Determines between the left or right subtree depending
    * on the given column and splitting value. 
-   * 
    */
-  static class SplitClassifier implements Classifier {
-
+  static final class SplitClassifier implements Classifier {
+    private static final long serialVersionUID = 6496848674571619538L;
     public final int column;
-    public final double splitValue;
-    
+    public final double value;    
     
     SplitClassifier(SplitInfo i) {
       column = i.column;
-      splitValue = i.splitValue;
-    }
-    
-    public int classify(DataAdapter data) {
-      return data.toDouble(column) <= splitValue ? 0 : 1;
-    }
-
-    public int numClasses() {
-      return 2;
-    }
-
-    public String toString() {
-     return "column "+column+" value "+splitValue;
-   }
-    
+      value = i.value;
+    }    
+    public int classify(DataAdapter data) { return data.toDouble(column)<=value? 0:1; }
+    public int numClasses()  {  return 2; }
+    public String toString() { return "col="+column+", val="+value; }
   }
   
+ private double get(int i, byte column) { data.seekToRow(i); return data.toDouble(column); }  
+  //OJDK6
+  public void sort(int[] a,byte column) {sort1(a, 0, a.length,column);}
+  private void sort1(int x[], int off, int len,byte column) {
+    if (len < 7) {
+        for (int i=off; i<len+off; i++)
+            for (int j=i; j>off && get(x[j-1],column)>get(x[j],column); j--)  swap(x, j, j-1);
+        return;
+    }
+    // Choose a partition element, v
+    int m = off + (len >> 1);       // Small arrays, middle element
+    if (len > 7) {
+        int l = off;
+        int n = off + len - 1;
+        if (len > 40) {        // Big arrays, pseudomedian of 9
+            int s = len/8;
+            l = med3(x, l,     l+s, l+2*s,column);
+            m = med3(x, m-s,   m,   m+s,column);
+            n = med3(x, n-2*s, n-s, n,column);
+        }
+        m = med3(x, l, m, n,column); // Mid-size, med of 3
+    }
+    double v = get(x[m],column);
+    // Establish Invariant: v* (<v)* (>v)* v*
+    int a = off, b = a, c = off + len - 1, d = c;
+    while(true) {
+        while (b <= c && get(x[b],column) <= v) {
+            if (get(x[b],column) == v) swap(x, a++, b);
+            b++;
+        }
+        while (c >= b && get(x[c],column) >= v) {
+            if (get(x[c],column) == v) swap(x, c, d--);
+            c--;
+        }
+        if (b > c) break;
+        swap(x, b++, c--);
+    }
+    // Swap partition elements back to middle
+    int s, n = off + len;
+    s = Math.min(a-off, b-a  );  vecswap(x, off, b-s, s);
+    s = Math.min(d-c,   n-d-1);  vecswap(x, b,   n-s, s);
+    // Recursively sort non-partition-elements
+    if ((s = b-a) > 1)     sort1(x, off, s,column);
+    if ((s = d-c) > 1)     sort1(x, n-s, s,column);
+}
+  private  int med3(int x[], int a, int b, int c,byte column) {
+      return (get(x[a],column) < get(x[b],column) ?
+      (get(x[b],column) < get(x[c],column) ? b : get(x[a],column) < get(x[c],column) ? c : a) :
+      (get(x[b],column) > get(x[c],column) ? b : get(x[a],column) > get(x[c],column) ? c : a));
+  }
+  private  void swap(int x[], int a, int b) { int t=x[a];x[a]=x[b];x[b]=t; }
+  private  void vecswap(int x[], int a, int b, int n) {
+      for (int i=0; i<n; i++, a++, b++)  swap(x, a, b);
+  }
 }

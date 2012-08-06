@@ -204,35 +204,26 @@ public class RFBuilder {
         ProtoTree tree = trees[t];
 
         for( int r = 0; r < data_.numRows(); ++r ){
-          int count = partition_.occurrences(t, r);
-          if (count == 0)
-            continue;
+          int occurs = partition_.occurrences(t, r);
+          if (occurs == 0)  continue;
           int node = partition_.getNode(t, tree.rowIndex_);
-//          System.out.println("Getting "+tree.rowIndex_+" to "+node);
-//          System.out.println("old: "+node);
           if( node != -1 ){ // the row is still not classified completely
             data_.seekToRow(r);
             node = tree.getNodeNumber(node);
             if( node != -1 ){
               ProtoNode n = tree.nodes_[node];
-              for( int cnt = 0; cnt < count; cnt++ )
-                n.statistic_.addDataPoint(data_);
+              for( int cnt = 0; cnt < occurs; cnt++ ) n.statistic_.addRow(data_);
             }
- //           System.out.println(node);
- //           System.out.println("Setting "+tree.rowIndex_+" to "+node);
             partition_.setNode(t, tree.rowIndex_, node);
           }
           tree.rowIndex_++;
         }
         tree.createNextLevel();
-        //System.out.println("Next level expecting nodes: " + ((tree.nodes_ == null) ? "null" : tree.nodes_.length));
         // the tree has been done, we may upgrade it to next level
         if( tree.nodes_ != null ) done = false;
       }
       if( done ) break;
-    //  System.out.println("OOBE = "+outOfBagError());
     }
-    //System.out.println("");
     DecisionTree[] rf = new DecisionTree[trees.length];
     for( int i = 0; i < rf.length; ++i )
       rf[i] = new DecisionTree(trees[i].root_);
@@ -247,9 +238,7 @@ public class RFBuilder {
    * 
    * @return The out-of-bag error for the constructed tree.
    */  
-  public double outOfBagError() {
-    return outOfBagError(trees);
-  }
+  public double outOfBagError() { return outOfBagError(trees); }
   
   /** Computes the out of bag error for the built random forest. 
    * 

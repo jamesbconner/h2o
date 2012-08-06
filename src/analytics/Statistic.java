@@ -11,17 +11,13 @@ package analytics;
 public abstract class Statistic {
   
   /** Adds the given row to the statistic measure.   */
-  public abstract void addDataPoint(DataAdapter adapter);
+  public abstract void addRow(DataAdapter adapter);
   
   /** Returns the default category for the node. Returns -1 if the current
    * statistic is not capable of computing the default category.  */
-  public int defaultCategory() {
-    return -1; // this statistic cannot determine the defaultCategory for the node
-  }
+  public int defaultCategory() {  return -1; } 
   
   /** Produces the classifier from the statistic. If the statistic has seen only
    * rows of one type, the ConstClassifier should be returned.    */ 
-  public abstract Classifier createClassifier();
-  
-  
+  public abstract Classifier createClassifier();  
 }

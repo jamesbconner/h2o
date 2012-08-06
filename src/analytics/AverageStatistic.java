@@ -15,19 +15,12 @@ package analytics;
  * @author peta
  */
 public class AverageStatistic extends Statistic {
-
-  // list of columns for which the averages are computed
-  private final byte[] columns_;
-  
+  private final byte[] columns_; // column indices of columns under consideration  
   private final double[][] sums_;
   private final double[] weights_;
   
   /** Creates the average statistic for given columns and number of input
-   * data categories. 
-   * 
-   * @param columns Array of columns the statistic should compute. 
-   * @param numClasses Number of final categories for the input data. 
-   */
+   * data categories.   */
   public AverageStatistic(DataAdapter data) {
     
     columns_ = new byte[data.numFeatures()];
@@ -47,7 +40,7 @@ public class AverageStatistic extends Statistic {
    * @param data Where the statistic data are stored.
    * @param offset Offset where the statistic data starts. 
    */
-  public void addDataPoint(DataAdapter row) {
+  public void addRow(DataAdapter row) {
     int idx = row.dataClass();
     weights_[idx] += row.weight();
     for (int i = 0; i<columns_.length; ++i)
@@ -93,7 +86,7 @@ public class AverageStatistic extends Statistic {
   }
 
   public static class AClassifier implements Classifier {
-    private static final long serialVersionUID = 7018366806046580325L;
+     private static final long serialVersionUID = 7018366806046580325L;
 
     private final byte[] columns_;
     
