@@ -38,10 +38,12 @@ public class NumericSplitterStatistic extends Statistic {
   class ColumnStatistic {
     byte column; // column
     double[][] dists; // 2 x numClasses
+    double[][] bestDists; // distribution for the temporary node
     
     ColumnStatistic(int index, int numClasses) {
       this.column = (byte)index;
       dists = new double[2][numClasses];
+      bestDists = new double[2][numClasses];
     }
     
     void addDataPoint(DataAdapter row) { dists[1][row.dataClass()] += row.weight(); }    
@@ -68,6 +70,8 @@ public class NumericSplitterStatistic extends Statistic {
           if (newFit > bestFit) {
             bestFit = newFit;
             split = (s + currSplit) / 2;
+            for (int ii = 0; ii < 2; ++ii) for (int iii = 0; iii < bestDists.length; ++iii)
+              bestDists[ii][iii] = dists[ii][iii];
           }
         }
         currSplit = s;
@@ -122,6 +126,17 @@ public class NumericSplitterStatistic extends Statistic {
       return new Classifier.Const(index);            
     }
     return new SplitClassifier(best); 
+  }
+  
+  /** Returns the temporary classifier that can be used for the node if not all
+   * its children are created.
+   * 
+   * Uses the random classifier over the distribution on the given node.
+   * 
+   * @return 
+   */
+  public Classifier createTemporaryClassifier(int subnode) {
+    return new Classifier.Random(columns_[0].bestDists[subnode]);
   }
 
 

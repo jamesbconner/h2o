@@ -35,6 +35,27 @@ public class DecisionTree implements Classifier {
     public int classifyRecursive(DataAdapter _) { return class_; }
   }
 
+  public static class SentinelNode implements INode {
+
+    private final Classifier cls;
+    
+    public int classifyRecursive(DataAdapter row) {
+      return cls.classify(row);
+    }
+
+    public int classify(DataAdapter row) {
+      return cls.classify(row);
+    }
+
+    public int numClasses() {
+      return cls.numClasses();
+    }
+    
+    SentinelNode(Classifier c) {
+      cls = c;
+    }
+  }
+  
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. 
    */

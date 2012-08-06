@@ -5,6 +5,7 @@ import java.util.Random;
 import analytics.DecisionTree.INode;
 import analytics.DecisionTree.LeafNode;
 import analytics.DecisionTree.Node;
+import analytics.DecisionTree.SentinelNode;
 
 /**
  * Class capable of building random forests.
@@ -41,11 +42,17 @@ public class RFBuilder {
     INode createNode() {
       int defaultCategory = statistic_.defaultCategory();
       Classifier nc = statistic_.createClassifier();
-      statistic_=null; // Jan -- is this enough to allow GC?
+//      statistic_=null; // Jan -- is this enough to allow GC?
       if (nc == null)
         return null;
-      return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
-          : new Node(nc,defaultCategory);
+      if (nc instanceof Classifier.Const) 
+        return new LeafNode(nc.classify(null));
+      Node n = new Node(nc,defaultCategory);
+      for (int i = 0; i < n.subnodes.length; ++i)
+        n.subnodes[i] = new SentinelNode(statistic_.createTemporaryClassifier(i));
+      return n;
+//      return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
+//          : new Node(nc,defaultCategory);
     }
 
   }
@@ -197,7 +204,9 @@ public class RFBuilder {
     trees = new ProtoTree[numTrees];
     for( int i = 0; i < numTrees; ++i )
       trees[i] = new ProtoTree();
+    int xx = 0;
     while( true ){
+      xx++;
       boolean done = true;
       System.out.print(".");
       for( int t = 0; t < numTrees; ++t ){

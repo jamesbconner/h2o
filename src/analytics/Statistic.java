@@ -20,4 +20,9 @@ public abstract class Statistic {
   /** Produces the classifier from the statistic. If the statistic has seen only
    * rows of one type, the ConstClassifier should be returned.    */ 
   public abstract Classifier createClassifier();  
+
+  public Classifier createTemporaryClassifier(int subnode) {
+    return null;
+  }
+
 }
