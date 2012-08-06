@@ -53,7 +53,7 @@ public class NumericSplitterStatistic extends Statistic {
      * determine the best splitpoint.
      */
     SplitInfo bestSplit() {
-      double fit = Utils.entropyOverColumns(dists); //compute fitnesss with no prediction
+      double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       sort1(rows_,0,rowsSize_,column); // sort rows_ according to given column      
       double last = data.seekToRow(rows_[rowsSize_-1]).toDouble(column);
       double currSplit =  data.seekToRow(rows_[0]).toDouble(column);
