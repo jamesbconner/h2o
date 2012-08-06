@@ -148,12 +148,9 @@ public class NumericSplitterStatistic extends Statistic {
     public final int column;
     public final double value;    
     
-    SplitClassifier(SplitInfo i) {
-      column = i.column;
-      value = i.value;
-    }    
+    SplitClassifier(SplitInfo i) { column = i.column; value = i.value; }    
     public int classify(DataAdapter data) { return data.toDouble(column)<=value? 0:1; }
-    public int numClasses()  {  return 2; }
+    public int numClasses()  { return 2; }
     public String toString() { return "col="+column+", val="+value; }
   }
   

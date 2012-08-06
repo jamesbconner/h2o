@@ -114,7 +114,10 @@ public abstract class DataAdapter {
       sampleSize--;
     }
     return new IntWeightedWrapper(data, occurrences);
-  }  
+  }
+
+  public int bagSizePercent() { return 70; }
+
 }
 
 class AdapterWrapper extends DataAdapter {

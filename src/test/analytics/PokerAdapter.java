@@ -32,6 +32,7 @@ public class PokerAdapter extends DataAdapter {
   public double toDouble(int index){return data[cur][index];  }
   public int numClasses()         { return 10;  }
   public int dataClass()          { return data[cur][10];  }
+  public int bagSizePercent()     { return 30; }
 
   public PokerAdapter(Value v) throws NoSuchFieldException, SecurityException,
   IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
@@ -68,7 +69,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 3 * 1;
+ static int TREES = 1 * 100;
 
   /**
    * for testing...
