@@ -6,13 +6,13 @@
   <property name="build.lib" value="${basedir}/lib"/>
   <property name="build.src.test" value="${basedir}/test"/>
   <property name="build.dir" value="${basedir}/build"/>
-  <property name="jar.dir" value="${basedir}/build/jar"/>
+  <property name="jar.dir" value="${basedir}/build/"/>
   <property name="build.dir.lib" value="${build.dir}/lib"/>
   <property name="build.classes" value="${build.dir}/classes"/>
   <property name="build.testclasses" value="${build.dir}/test-classes"/>
   <property name="ice.dir" value="${user.dir}/ice"/>
   <property name="test.name" value="water.test.TNightly"/>
-  <property name="0xbase" value="${build.dir}/hexbase.jar"/>
+  <property name="0xbase" value="${build.dir}/h2o.jar"/>
   
   <path id="build.classpath">
        <pathelement location="${build.lib}/hyperic-sigar-1.6.4/sigar-bin/lib/sigar.jar" />
@@ -46,19 +46,19 @@
       </javac>
   </target>
 
- <!-- build 0xbase_impl.jar first -->  
- <!-- 0xbase_impl.jar doesnot have init, and supplemental jars -->  
- <!-- 0xbase_impl.jar sits in jar -->
+ <!-- build hexbase_impl.jar first -->  
+ <!-- hexbase_impl.jar doesnot have init, and supplemental jars -->  
+ <!-- hexbase_impl.jar sits in jar -->
   <target name="prejar" description="prepare for one jar" depends="compile">
-    <jar jarfile="${jar.dir}/hexbase_impl.jar" manifest="${basedir}/manifest.txt" basedir="${build.classes}" includes="*/**/*.class" excludes="init/*"  />
-    <copy todir="${jar.dir}/init">
+    <jar jarfile="${build.lib}/hexbase_impl.jar" manifest="${basedir}/manifest.txt" basedir="${build.classes}" includes="*/**/*.class" excludes="init/*"  />
+    <copy todir="${build.lib}/init">
 	 <fileset dir="${build.classes}/init"/>
     </copy>
   </target>
 
  <!-- make one single hexbase.jar -->
   <target name="jar" description="hexbase.jar target" depends="compile, prejar">
-    <jar jarfile="${jar.dir}/hexbase.jar" manifest="${basedir}/manifest.txt" basedir="${jar.dir}"/>
+    <jar jarfile="${jar.dir}/h2o.jar" manifest="${basedir}/manifest.txt" basedir="${build.lib}" excludes="h2o.jar"/>
   </target>
 
   <target name="run" description="run the cloud" depends="compile,jar">
@@ -137,9 +137,10 @@
 	
   <target name="clean" description="get rid of any build artifacts">
   	<delete dir="${build.dir}" />
+  	<delete dir="${jar.dir}" />
   	<delete dir="${build.classes}" />
-        <delete dir="${jar.dir}/init"/>
-        <delete file="${jar.dir}/0xbase_impl.jar"/>
+        <delete dir="${build.lib}/init"/>
+        <delete file="${build.lib}/hexbase_impl.jar"/>
   	<delete dir="doc"/>
   </target>
 	
