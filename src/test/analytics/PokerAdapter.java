@@ -32,7 +32,7 @@ public class PokerAdapter extends DataAdapter {
   public double toDouble(int index){return data[cur][index];  }
   public int numClasses()         { return 10;  }
   public int dataClass()          { return data[cur][10];  }
-  public int bagSizePercent()     { return 20; } // usually 70%, but for a big data set....
+  public int bagSizePercent()     { return 30; } // usually 70%, but for a big data set....
   public int numFeatures()        { return 7; } // this should be roughly 2/3 of numCol
 
   public PokerAdapter(Value v) throws NoSuchFieldException, SecurityException,
