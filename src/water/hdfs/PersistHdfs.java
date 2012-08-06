@@ -27,8 +27,7 @@ public class PersistHdfs extends Persistence {
   // The _persistenceInfo byte given K/V's already on disk when JVM starts.
   private static final byte ON_DISK =
     (byte)(1/*type.HDFS.ordinal()*/ | // Persisted by the HDFS mechanism
-           8 |                   // Goal: persist object to disk
-           16 |                  // Goal is met
+           Persistence.ON_DISK | // Goal: persist object to disk & Goal is met
            0);                   // No more status bits needed
   
   static {
@@ -129,10 +128,17 @@ public class PersistHdfs extends Persistence {
     try {
       FSDataInputStream s = null;
       try {
-        Path p = getPathForKey(v._key);
-        s = _fs.open(p);
         byte[] b = MemoryManager.allocateMemory(len);
-        int br = s.read(0,b, 0, len);
+        long off = 0;
+        Key k = v._key;
+        // Convert an arraylet chunk into a long-offset from the base file.
+        if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
+          off = ValueArray.getOffset(k); // The offset
+          k = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
+        }
+        Path p = getPathForKey(k);
+        s = _fs.open(p);
+        int br = s.read(off, b, 0, len);
         assert (br == len);
         return b;
       } finally {
@@ -144,12 +150,13 @@ public class PersistHdfs extends Persistence {
     } 
   }
 
-  public void file_store(Value v) {
+  public synchronized void file_store(Value v) {
     // Only the home node does persistence.
     if( !v._key.home() ) return;
     // Never store arraylets on HDFS, instead we'll store the entire array.
     assert !(v instanceof ValueArray);
 
+    if( is_goal(v) == true ) return; // Some other thread is already trying to store
     assert is_goal(v) == false && is(v)==true; // State was: file-not-present
     set_info(v, 8);                            // Not-atomically set state to "store not-done"
     clr_info(v,16);

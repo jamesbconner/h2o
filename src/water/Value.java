@@ -388,11 +388,9 @@ public class Value {
    * @return 
    */
   public InputStream openStream() {
-    if (chunks()==1) {
-      return new ByteArrayInputStream(get());
-    } else {
-      return new ArrayletInputStream(this);
-    }    
+    return (chunks() <= 1)
+      ? new ByteArrayInputStream(get())
+      : new ArrayletInputStream(this);
   }
   
   public long length() { return _max<0?0:_max; }
@@ -400,9 +398,8 @@ public class Value {
 
 
 class ArrayletInputStream extends InputStream {
-
   // arraylet value
-  private Value _arraylet;
+  private final ValueArray _arraylet;
   // memory for the current chunk
   private byte[] _mem;
   // index of the current chunk
@@ -411,49 +408,41 @@ class ArrayletInputStream extends InputStream {
   private int _offset;
   
   public ArrayletInputStream(Value v) {
-    assert (v.chunks()>1);
-    _arraylet = v;
-    _mem = null;
-    _chunkIndex = -1;
-    _offset = 0;
+    _arraylet = (ValueArray)v;
+    _mem = DKV.get(_arraylet.chunk_get(_chunkIndex++)).get();
   }
   
   @Override public int available() {
-    checkAndSetChunk();
-    return _mem == null ? -1 : _mem.length-_offset;
-  }
-
-  
-  private void checkAndSetChunk() {
-    if (((_mem == null) || (_offset>=_mem.length)) && (_chunkIndex < _arraylet.chunks()-1)) {
-      ++_chunkIndex;
-      _mem = DKV.get(_arraylet.chunk_get(_chunkIndex)).get();
-      _offset = 0;
-    }
+    return _mem.length-_offset;
   }
   
   @Override public void close() {
-    // just get rid of the memory
-    _mem = null;
+    _chunkIndex = _arraylet.chunks();
+    _mem = new byte[0];
+    _offset = _mem.length;
   }
   
   @Override public int read() throws IOException {
-    checkAndSetChunk();
-    if (_mem == null)
-      return -1;
-    return _mem[_offset++];
+    if( available() == 0 ) {    // None available?
+      if( _chunkIndex >= _arraylet.chunks() ) return -1;
+      // Load next chunk
+      _mem = DKV.get(_arraylet.chunk_get(_chunkIndex++)).get();
+      _offset = 0;
+    }
+    return _mem[_offset++] & 0xFF;
   }
   
-  @Override public int read(byte[] b, int off,int len) throws IOException {
+  @Override public int read(byte[] b, int off, int len) throws IOException {
     int rc = 0;
-    while (len>0) {
-      checkAndSetChunk();
-      if (_mem == null)
-        break;
-      int cs = Math.min(_mem.length-_offset,len);
+    while( len>0 ) {
+      int cs = Math.min(available(),len);
       System.arraycopy(_mem,_offset,b,off,cs);
-      rc += cs;
+      rc  += cs;
       len -= cs;
+      if( len<=0 ) break;
+      if( _chunkIndex >= _arraylet.chunks() ) break;
+      _mem = DKV.get(_arraylet.chunk_get(_chunkIndex++)).get();
+      _offset = 0;
     }
     return rc == 0 ? -1 : rc;
   }

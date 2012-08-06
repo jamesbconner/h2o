@@ -243,11 +243,17 @@ public final class Key implements Comparable {
     sb.append("(");
     sb.append(_kb.length);
     sb.append(")");
-    for (byte b : _kb) {
-      String s = Integer.toHexString((int)b & 0xff);
-      if (s.length()==1)
-        sb.append("0");
-      sb.append(s);
+    if( _kb[0]==ARRAYLET_CHUNK ) {
+      sb.append(Long.toHexString(UDP.get8(_kb,2)));
+      sb.append('_');
+      sb.append(new String(_kb,2+8,_kb.length-(2+8)));
+    } else {
+      for (byte b : _kb) {
+        String s = Integer.toHexString((int)b & 0xff);
+        if (s.length()==1)
+          sb.append("0");
+        sb.append(s);
+      }
     }
     return sb.toString();
   }
@@ -350,6 +356,7 @@ public final class Key implements Comparable {
     _mem_replicas = 0;          // Needs to be atomic!!
     if( cache_has_overflowed(d) ) 
       throw new Error("unimplemented: bulk invalidate for key="+this);
+    if( d == 0 ) return;
     TaskPutKey[] tpks = new TaskPutKey[8]; // Collect all the pending invalidates
     int i=0;
     while( d != 0 ) {

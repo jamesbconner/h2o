@@ -37,6 +37,8 @@ public abstract class Persistence {
       (is     (v) ? "ed"   : "ing"  );
   }
 
+  static public final int ON_DISK = 8 | 16;
+
   // Asks  if persistence goal is to either persist (or to remove).
   // True  if the last call was to start(),
   // False if the last call was to remove().

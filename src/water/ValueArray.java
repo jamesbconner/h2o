@@ -4,7 +4,7 @@ import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.UUID;
+import java.util.Arrays;
 
 /**
  * Large Arrays & Arraylets
@@ -21,30 +21,16 @@ public class ValueArray extends Value {
 
   public static final int LOG_CHK = 20; // Chunks are 1<<20, or 1Meg
 
-  private void initialize(long sz, byte[] uid) {
-    UUID uuid = UUID.randomUUID();
-    _mem[0] = Key.ARRAYLET_CHUNK;
-    _mem[1] = 0;
-    UDP.set8(_mem, 2,sz);
-    if (uid==null) {
-      UDP.set8(_mem, 10,uuid.getLeastSignificantBits());
-      UDP.set8(_mem, 18,uuid. getMostSignificantBits());
-    } else {
-      System.arraycopy(uid, 0, _mem, 10, uid.length);
-    }
-  }
-  public UUID get_uuid() {
-    return new UUID( UDP.get8(_mem,18), UDP.get8(_mem,10));
-  }
-  
   public ValueArray( Key key, long sz ) {
     // The _mem bits:
     //  0- 1 - 0,0; 0==> system key, 0==> no IP home forcing
     //  2- 9 - long size
-    // 10-17 - UUID low
-    // 18-25 - UUID high
-    super(key,2+8+16);
-    initialize(sz,null);
+    // 10+   - a repeat of the original key
+    super(key,2+8+key._kb.length);
+    _mem[0] = Key.ARRAYLET_CHUNK;
+    _mem[1] = 0;
+    UDP.set8(_mem,2,sz);
+    System.arraycopy(key._kb,0,_mem,2+8,key._kb.length);
   }
   
   public ValueArray( int max, int len, Key key, int mode ) {
@@ -60,12 +46,25 @@ public class ValueArray extends Value {
     return true;
   }
 
-  // Make a system chunk-key from an offset into the main array
+  // Make a system chunk-key from an offset into the main array.
+  // Lazily manifest data chunks on demand.
   public Key make_chunkkey( long off ) {
     assert ((off >> LOG_CHK)<<LOG_CHK) == off;
     byte[] kb = get().clone();  // Make a copy of the main Value array
     UDP.set8(kb,2,off);         // Blast down the offset.
-    return Key.make(kb,(byte)_key.desired()); // Presto!  A unique arraylet key!
+    Key k = Key.make(kb,(byte)_key.desired()); // Presto!  A unique arraylet key!
+    Value val = DKV.get(k,0);   // Does the key exist?
+    if( val == null ) {         // No k/v?
+      long len = length();      // Ok, lazily create this key
+      long csz = chunk_size();
+      int sz = (int)((len-off >= 2*csz) ? csz : len-off);
+      val = new Value(sz,0,k,_persistenceInfo);
+      //Persistence.set_info(val,_persistenceInfo|Persistence.ON_DISK);
+      // One-shot key/value create.  If it fails, then somebody else beat me
+      // too it...  which really means I don't care if this works or fails.
+      DKV.DputIfMatch(k,val,null);
+    }
+    return k;
   }
 
   // Number of chunks in this array
@@ -166,8 +165,6 @@ public class ValueArray extends Value {
     }
 
     // Must be a large file; break it up!
-    // Main Value: contains a UUID to avoid collions with other big arrays
-    // mapping to the same key.
     ValueArray ary = new ValueArray(key,sz);
 
     // Begin to read & build chunks.
@@ -192,21 +189,20 @@ public class ValueArray extends Value {
     UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }
-  
-  /**
-   * Get the index of this chunks ASSUMING it is an arraylet chunk.
-   * If not, the number returned does not make sense.  
-   * 
-   * Assumes you pass in an arraylet chunk key - must be a system key.
-   * 
-   * @param k - key of arraylet chunk 
-   * @return - index (offset) of arraylet chunk
-   */
+
+  // Get the offset from a random arraylet sub-key
+  public static long getOffset(Key k) {
+    assert k._kb[0] == Key.ARRAYLET_CHUNK;
+    return UDP.get8(k._kb, 2);
+  }
+  // Get the chunk-index from a random arraylet sub-key
   public static int getChunkIndex(Key k) {
-    if(k._kb[0] != 0 || k._kb[1] != 0) // arraylet chunks are system keys 
-      throw new IllegalArgumentException("can only work an an arraylet chunk (must be a system key)");
-    long n = UDP.get8(k._kb, 2);
-    return (int) (n >> ValueArray.LOG_CHK);
+    return (int) (getOffset(k) >> ValueArray.LOG_CHK);
+  }
+  // Get the root array Key from a random arraylet sub-key
+  public static byte[] getArrayKeyBytes( Key k ) {
+    assert k._kb[0] == Key.ARRAYLET_CHUNK;
+    return Arrays.copyOfRange(k._kb,2+8,k._kb.length);
   }
 
   /**
@@ -220,8 +216,7 @@ public class ValueArray extends Value {
    * @return - Key of the chunk with offset == index
    */
   public static Key getChunk(Key k, int index) {
-    if(k._kb[0] != 0 || k._kb[1] != 0) // arraylet chunks are system keys 
-      throw new IllegalArgumentException("can only work an an arraylet chunk (must be a system key)");
+    assert k._kb[0] == Key.ARRAYLET_CHUNK;
     byte[] arr = k._kb.clone();
     long n = ((long) index) << ValueArray.LOG_CHK;
     UDP.set8(arr, 2, n);

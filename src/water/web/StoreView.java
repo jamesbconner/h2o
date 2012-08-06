@@ -1,8 +1,7 @@
 package water.web;
-
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
-
 import water.H2O;
 import water.Key;
 import water.Value;
@@ -106,31 +105,18 @@ public class StoreView extends H2OPage {
     //if (val instanceof ValueCode) {
     //  row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
     //}
-    // Dump out the current replication info: Mem/Disk/Replication_desired
-    String vs = val.getString(100); // First, get the string which might force mem loading
+
+    // Now the first 100 bytes of Value as a String
+    byte[] b = new byte[100];   // Amount to read
+    try {
+      val.openStream().read(b);   // Read, which might force loading.
+    } catch( IOException e ) {}
+    String vs = new String(b);
     vs = vs.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
     vs = vs.replace("\n","<br>");
-    int r = key.desired();
-    int repl = key.replica(cloud);
-    if( repl < r ) { // If we should be replicating, then report what replication we know of
-      int d = key.count_disk_replicas();
-      if( val.is_persisted() ) d++; // One more for self
-      if( d < r )
-        row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
-      row.replace("r1",d);
-      row.replace("r2",r);
-    } else {                // Else not tracking replications, so cannot report
-      row.replace("r1","");
-      row.replace("r2","");
-    }
-    row.replace("home",cloud._memary[key.home(cloud)]);
-    // Dump out the 2nd replica
-    int idx2 = cloud.D(key,1);
-    if( idx2 != -1 )
-      row.replace("home2",cloud._memary[idx2]);
-    row.replace("replica",(repl==255?"":("r"+repl)));
-    // Now the first 100 bytes of Value as a String
+    if( val.length() > 100 ) vs += "...";
     row.replace("value",vs);
+    row.replace("size",val.length());
     row.replace("ktr",urlEncode(ks));
     row.append();
   }
@@ -147,15 +133,12 @@ public class StoreView extends H2OPage {
     + "<p>%navup</p>"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col style=\"text-align:center\"/><col/></colgroup>\n"
-    + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Value</thead>\n"
+    + "<thead><th>Key<th>Size<th>Value</thead>\n"
     + "<tbody>"
     + "%tableRow{"
     + "  <tr>"
     + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</td>"
-    + "    <td style='%replicationStyle'>%r1/%r2</td>"
-    + "    <td>%home</td>"
-    + "    <td>%home2</td>"
-    + "    <td>%replica</td>"
+    + "    <td>%size</td>"
     + "    <td>%value</td>"
     + "  </tr>\n"
     + "}"

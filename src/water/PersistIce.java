@@ -35,9 +35,8 @@ public class PersistIce extends Persistence {
   // The _persistenceInfo byte given K/V's already on disk when JVM starts.
   private static final byte ON_DISK =
     (byte)(0/*type.ICE.ordinal()*/ | // Persisted by the ICE mechanism (local disk)
-           8 |                  // Goal: persist object to disk
-           16 |                 // Goal is met
-           0);                  // No more status bits needed
+           Persistence.ON_DISK | // Goal: persist object to disk & Goal is met
+           0);                   // No more status bits needed
 
   // Load into the K/V store all the files found on the local disk
   static {
@@ -169,7 +168,7 @@ public class PersistIce extends Persistence {
     if( v._key._kb[0] != Key.ARRAYLET_CHUNK )
       return "not_an_arraylet";
     // Reverse arraylet key generation
-    return v.arraylet_uuid().toString();
+    return new String(ValueArray.getArrayKeyBytes(v._key));
   }
   
   private synchronized byte[] file_load(Value v, int len) {
@@ -226,7 +225,7 @@ public class PersistIce extends Persistence {
     f.delete();
 
     if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
-      f = new File(iceRoot,((ValueArray)v).get_uuid().toString());
+      f = new File(iceRoot,getDirectoryForKey(v));
       f.delete();
     }
 
