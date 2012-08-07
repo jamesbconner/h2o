@@ -39,7 +39,7 @@ public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
   public abstract int getI(int col, int idx);
   public abstract double getD(int col, int idx);
   public abstract Data sampleWithReplacement(float bagSize);
-
+  public float weight() { return 1; } 
 
   public static abstract class Wrap  extends Data {
     protected Data d_;
@@ -200,15 +200,98 @@ class DataImpl extends Data {
     public Data sampleWithReplacement(float bagSize) {
       assert bagSize > 0 && bagSize <= 1.0;
       
-      return new Sample(this); // NOT WORKING... :-)
+      return new Sample(this,-1,random_,(int)bagSize); // NOT WORKING... :-)
     }
     
     static class Sample extends Data.Wrap {
       boolean[] occurrences;
-      public Sample(Data d) {
-        super(d);
+     
+      /* Per-tree count of how many time the row occurs in the sample */
+      final byte[][] occurrences_;
+      /* Per-tree node id of where the row falls */
+      final int[][] nodes_;
+      int bagSizePercent;
+      int rows_;
+
+      public Sample(Data data, int trees, Random r, int bagSizePercent) {
+        
+        super(data);
+        rows_ = data.rows();
+        bagSizePercent = bagSizePercent;
+        occurrences_ = new byte[trees][rows_];
+        nodes_ = new int[trees][]; //[rows_];
+        for( int i = 0; i < trees; i++ ) weightedSampling(data, r, i);
+      }
+
+      public int occurrences(int tree, int row) { return occurrences_[tree][row]; }
+      public int getNode(int tree, int row) { return nodes_[tree][row];  }
+      public void setNode(int tree, int row, int val) {  nodes_[tree][row] =  val;  }
+      static double sum(double[] d) {
+        double r = 0.0; for( int i = 0; i < d.length; i++ ) r += d[i]; return r;
+      }
+      static void normalize(double[] doubles, double sum) {
+        assert ! Double.isNaN(sum) && sum != 0;
+        for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
+      }
+
+      static class WP { double [] weights, probabilities;  }
+      static WP wp = new WP();
+      /// TODO: if the weights change we have to recompute...
+      static private WP wp(int rows_, Data adapt, Random random) {
+        if(wp.weights!=null) return wp;
+        wp.weights = new double[rows_];
+        for( int i = 0; i < wp.weights.length; i++ ){
+          adapt.seek(i);
+          wp.weights[i] = adapt.weight();
+        }
+        wp.probabilities = new double[rows_];
+        double sumProbs = 0, sumOfWeights = sum(wp.weights);
+        for( int i = 0; i < rows_; i++ ){
+          sumProbs += random.nextDouble();
+          wp.probabilities[i] = sumProbs;
+        }
+        normalize(wp.probabilities, sumProbs / sumOfWeights);
+        wp.probabilities[rows_ - 1] = sumOfWeights;
+        return wp;
       }
       
+
+      void weightedSampling(Data adapt, Random random, int tree) {
+        WP wp = wp(rows_,adapt,random);
+        double[] weights = wp.weights, probabilities = wp.probabilities;
+        int k = 0, l = 0, sumProbs = 0;
+        while( k < rows_ && l < rows_ ){
+          assert weights[l] > 0;
+          sumProbs += weights[l];
+          while( k < rows_ && probabilities[k] <= sumProbs ){
+            occurrences_[tree][l]++;
+            k++;        
+          }
+          l++;
+        }
+        int sampleSize = 0;
+        for( int i = 0; i < rows_; i++ )
+          sampleSize += (int) occurrences_[tree][i];
+        int bagSize = rows_ * bagSizePercent / 100;
+        assert (bagSize > 0 && sampleSize > 0);
+        while( bagSize < sampleSize ){
+          int offset = random.nextInt(rows_);
+          while( true ){
+            if( occurrences_[tree][offset] != 0 ){
+              occurrences_[tree][offset]--;
+              break;
+            }
+            offset = (offset + 1) % rows_;
+          }
+          sampleSize--;
+        } 
+        int empty = 0;
+        for (byte b : occurrences_[tree])
+          if (b == 0) 
+            empty++;
+        // we can remember only the nonempty row nodes (occurrence >= 1)
+        nodes_[tree] = new int[rows_-empty];
+      } 
     }
     
     public void addRow(double[] v) {
@@ -279,7 +362,7 @@ abstract class Col {
   int DEFAULT = 10;
   int GROWTH = 2;
   int sz_;
-  double min_, max_, tot_; 
+  double min_=Double.MAX_VALUE, max_=-1, tot_; 
   int prec_;
   abstract void add(double v);
   abstract void add(int v);
