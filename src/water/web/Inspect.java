@@ -38,13 +38,19 @@ public class Inspect extends H2OPage {
 
     RString response = new RString(html);
 
+    formatKeyRow(key,val,response);
+
     // Dump out the Key
     String ks = key.toString();
     response.replace("keyHref",urlEncode(new String(key._kb)));
     response.replace("key",ks);
     response.replace("ktr",urlEncode(ks));
 
-    formatKeyRow(key,val,response);
+    // Big files, give the option to chomp it all
+    if( val.chunks() > 1 ) {
+      String s = html_basic_stats.replace("%keyHref",urlEncode(new String(key._kb)));
+      response.replace("basic",s);
+    }
 
     return response.toString();
   }
@@ -151,5 +157,8 @@ public class Inspect extends H2OPage {
     + "}\n"
     + "</tbody>\n"
     + "</table>\n"
-    ;
+    + "%basic";
+
+  final static String html_basic_stats =
+    "<a href='/BasicStats?Key=%keyHref'>Compute Basic Stats</a>\n";
 }
