@@ -81,7 +81,7 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
- static int TREES = 1 * 20;
+ static int TREES = 1 * 2;
 
   /**
    * for testing...
@@ -102,7 +102,9 @@ public class PokerAdapter extends DataAdapter {
       System.out.println("done");
       System.out.println("there are " + data.numRows() + " rows and "  + data.numColumns() + " columns");
       RF rf = new RF(data, TREES);
+      NumericSplitterStatistic.openForGainBuffering("gains.txt");
       rf.compute();
+      NumericSplitterStatistic.closeGainReporting();
       System.out.print("Done. Computing accuracy.");
       System.out.println(rf);
     }

@@ -1,6 +1,11 @@
 package analytics;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Split on numerical values using entropy to find the best split. 
  *  While the algorithm is multi-pass, it is all created in the single pass 
@@ -17,10 +22,14 @@ import java.util.Arrays;
  */
 public class NumericSplitterStatistic extends Statistic {
  
+  /** Enables reporting of the gain function. */
+  public static final boolean ENABLE_GAIN_REPORTING = true;
+  
   private int[] rows_; // the node's rows
   private int rowsSize_;
   private final DataAdapter data;  // data
   private final ColumnStatistic[] columns_;  //columns for which the averages are computed
+  
 
   
   /** Hold information about a split. */
@@ -31,6 +40,23 @@ public class NumericSplitterStatistic extends Statistic {
     }    
     boolean betterThan(SplitInfo other) { return other==null || fitness > other.fitness;  }
   }
+
+  static BufferedWriter gains=null;
+
+  public static void openForGainBuffering(String filename) {
+    if (ENABLE_GAIN_REPORTING)
+      try { 
+        gains = new BufferedWriter(new FileWriter(filename));
+      } catch( IOException ex ) {
+        System.err.println("Cannot create or append the gains file "+filename);
+      }
+  }
+  
+  public static void closeGainReporting() {
+    if (ENABLE_GAIN_REPORTING)
+      if (gains!=null)
+        try { gains.close(); } catch (IOException e) { }
+  }
   
   /** Computer  the statistic on each column; holds the distribution of the values 
    * using weights. This class is called from the main statistic for each column 
@@ -39,7 +65,7 @@ public class NumericSplitterStatistic extends Statistic {
     byte column; // column
     double[][] dists; // 2 x numClasses
     double[][] bestDists; // distribution for the temporary node
-    
+  
     ColumnStatistic(int index, int numClasses) {
       this.column = (byte)index;
       dists = new double[2][numClasses];
@@ -55,6 +81,9 @@ public class NumericSplitterStatistic extends Statistic {
      * determine the best splitpoint.
      */
     SplitInfo bestSplit() {
+      double[] fits = null;
+      if (ENABLE_GAIN_REPORTING)
+        fits = new double[rowsSize_];
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       sort1(rows_,0,rowsSize_,column); // sort rows_ according to given column      
       double last = data.seekToRow(rows_[rowsSize_-1]).toDouble(column);
@@ -63,10 +92,18 @@ public class NumericSplitterStatistic extends Statistic {
       // now try all the possible splits
       double bestFit = -Double.MAX_VALUE;
       double split = 0;
+      double gain = 0;
+      int gi = 0;
       for (int i =0; i< rowsSize_; i++) {
         double s = data.seekToRow(rows_[i]).toDouble(column);
         if (s > currSplit) {
-          double newFit = fit - Utils.entropyCondOverRows(dists); // fitness gain
+          gain = Utils.entropyCondOverRows(dists); // fitness gain
+          if (ENABLE_GAIN_REPORTING) {
+            fits[gi] = gain;
+            ++gi;
+          }
+          
+          double newFit = fit - gain; // fitness gain
           if (newFit > bestFit) {
             bestFit = newFit;
             split = (s + currSplit) / 2;
@@ -78,6 +115,23 @@ public class NumericSplitterStatistic extends Statistic {
         dists[0][data.dataClass()] += data.weight();
         dists[1][data.dataClass()] -= data.weight();
       }
+      if (ENABLE_GAIN_REPORTING) 
+        try {
+          if (gains!=null) synchronized (gains) {
+            gains.write(String.valueOf(fits.length));
+            gains.write(" "+gi);
+            gains.write(" "+fit);
+            for (double d: fits) {
+              --gi;
+              if (gi<=0)
+                break;
+              gains.write(" "+d);
+            }
+            gains.write("\n");
+          }
+        } catch (IOException ex) {
+          // pass
+        }
       return new SplitInfo(column,split,bestFit);
     }
     
