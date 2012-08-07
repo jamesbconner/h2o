@@ -33,14 +33,6 @@ public class Poker {
     poker.freeze();
   }
 
-
-
-  /**
-   * for testing...
-   * 
-   * @param args list of filenames to be processed
-   * @throws Exception
-   */
   public static void main(String[] args) throws Exception {
     if(args.length==0)args = new String[] { "smalldata/poker/poker-hand-testing.data" };
     for( String path : args ){
@@ -51,7 +43,7 @@ public class Poker {
         continue;
       }
       Poker p = new Poker(f);
-      System.out.println(p.poker.shrinkWrap().select(0, 100));
+      System.out.println(p.poker.shrinkWrap().select(0, 100).sampleWithReplacement(0.5));
     }
   }
 

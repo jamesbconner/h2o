@@ -10,7 +10,8 @@ public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
   
   private static long SEED_;
   public static Random RANDOM = new Random(42);
-  
+  static final DecimalFormat df = new  DecimalFormat ("0.##");
+
   public static Data make(String name, Object[] columns, String classNm) { return new DataImpl(name,columns,classNm); }
   public static void setSeed(long seed) { SEED_ = seed; RANDOM=new Random(SEED_); } 
   
@@ -36,10 +37,44 @@ public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
   public abstract Data select(int from, int to);
   public abstract void addRow(double[] v);
   public abstract void getRow(double[] v); 
-  public abstract int getI(int col, int idx);
-  public abstract double getD(int col, int idx);
-  public abstract Data sampleWithReplacement(float bagSize);
+  protected abstract int getI(int col, int idx);
+  protected abstract double getD(int col, int idx);
+  public abstract int getI(int col);
+  public abstract double getD(int col);
+  public abstract Data sampleWithReplacement(double bagSize);
   public float weight() { return 1; } 
+  public abstract String colName(int c);
+  public abstract double colMin(int c);
+  public abstract double colMax(int c);
+  public abstract double colTot(int c);
+  public abstract double colPre(int c);
+  public String toString() {
+    String res = "Data "+ name()+"\n";
+    if (columns()>0) { res+= rows()+" rows, "+ columns() + " cols, "+ classes() +" classes\n"; }
+    String[][] s = new String[columns()][4];
+    for(int i=0;i<columns();i++){
+      s[i][0] = "col("+colName(i)+")";
+      s[i][1] = "["+df.format(colMin(i)) +","+df.format(colMax(i))+"]" ;
+      s[i][2] = " avg=" + df.format(colTot(i)/(double)rows());
+      s[i][3] = " precision=" + colPre(i); 
+    }
+    int[] l = new int[4];
+    for(int j=0;j<4;j++) {
+      for(int k=0;k<columns();k++) {
+        l[j] = Math.max(l[j], s[k][j].length());
+      }
+    }
+    for(int k=0;k<columns();k++) {
+      for(int j=0;j<4;j++) { 
+        res+= s[k][j];
+        int pad = l[j] - s[k][j].length();
+        for(int m=0;m<=pad;m++) res+=" ";
+      }
+      res+="\n";
+    }   
+    return res;
+  }
+  
 
   public static abstract class Wrap  extends Data {
     protected Data d_;
@@ -62,9 +97,15 @@ public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
     public  Data select(int from, int to) { return d_.select(from, to);}
     public  void addRow(double[] v){  d_.addRow(v);   }
     public  void getRow(double[] v) {  d_.getRow(v); }
-    public  int getI(int col, int idx) { return d_.getI(col, idx); }
-    public  double getD(int col, int idx) { return d_.getD(col, idx); }
-    public  Data sampleWithReplacement(float bagSize) { 
+    public  int getI(int col) { return d_.getI(col); }
+    public  double getD(int col) { return d_.getD(col); }
+
+    public  String colName(int c)  { return d_.colName(c); }
+    public  double colMin(int c) { return d_.colMin(c); }
+    public  double colMax(int c) { return d_.colMax(c); }
+    public  double colTot(int c) { return d_.colTot(c); }
+    public  double colPre(int c) { return d_.colPre(c); }
+    public  Data sampleWithReplacement(double bagSize) { 
       Data dd =  d_.sampleWithReplacement(bagSize);
       return dd;
     }
@@ -191,66 +232,102 @@ class DataImpl extends Data {
     public Integer next() { return next_++; }
     public void remove() { throw new Error("Unsported"); }
     public Data seek(int idx) { assert c_.length>0 && idx > c_[0].sz_;  next_ = idx; return this; }
-    
+    public  String colName(int c)  { return c_[c].name_; }
+    public  double colMin(int c)  { return c_[c].min_; }    
+    public  double colMax(int c)  { return c_[c].max_; }
+    public  double colTot(int c)  { return c_[c].tot_; }
+    public  double colPre(int c)  { return c_[c].prec_; }
+
     public Data select(int from, int to) { 
       DataImpl d = new DataImpl(this, from,to); d.name_+="->select("+from+","+to+")";      
       return d;
     }
     
-    public Data sampleWithReplacement(float bagSize) {
+    public Data sampleWithReplacement(double bagSize) {
       assert bagSize > 0 && bagSize <= 1.0;
       
-      return new Sample(this,(int)bagSize); // NOT WORKING... :-)
+      return new Sample(this,bagSize); // NOT WORKING... :-)
     }
     
     static class Sample extends Data.Wrap {
      
       /* Per-tree count of how many time the row occurs in the sample */
       final byte[] occurrences_;
-      int bagSizePercent;
-      int rows_;
-
-      public Sample(DataImpl data, int bagSizePercent) {
-        
+      double bagSize_; // proportion of originals
+      int size_; // size of the sample
+      int next_;  // where we are in the actual data
+      int rep_;  // since an observation can occur multiple times
+      int offset_; // logical offset
+      public Sample(DataImpl data, double bagSize) {        
         super(data);
-        rows_ = data.rows();
-        bagSizePercent = bagSizePercent;
-        occurrences_ = new byte[rows_];
+        this.bagSize_ = bagSize;
+        occurrences_ = new byte[data.rows()];
         weightedSampling(data);
+        while(occurrences_[next_++]==0);
       }
 
+      void advance() {
+        offset_++;
+        if (occurrences_[next_] != 0) {
+          if (occurrences_[next_] == ++rep_) {
+            rep_=0;next_++;
+            while(occurrences_[next_]== 0) next_++;
+          }
+        } else {
+          rep_=0;next_++;
+          while(occurrences_[next_]== 0) next_++;
+        }
+      }
+      public  Data seek(int idx) { 
+        int steps = idx - offset_;
+        if (steps>0) {
+          while(steps-->0) advance();
+        } else if (steps<0) {
+          rep_=0; next_=0; offset_=0;
+          while(idx-->0) advance();
+        }
+        return this;
+      }
+      
+      
       public int occurrences(int row) { return occurrences_[row]; }      
 
       private void weightedSampling(DataImpl d) {
-        WP wp = d.wp(rows_);
+        int sz = d.rows();
+        WP wp = d.wp(sz);
         double[] weights = wp.weights, probabilities = wp.probabilities;
         int k = 0, l = 0, sumProbs = 0;
-        while( k < rows_ && l < rows_ ){
+        while( k < sz && l < sz ){
           assert weights[l] > 0;
           sumProbs += weights[l];
-          while( k < rows_ && probabilities[k] <= sumProbs ){
-            occurrences_[l]++;
-            k++;        
-          }
+          while( k < sz && probabilities[k] <= sumProbs ){ occurrences_[l]++; k++; }
           l++;
         }
         int sampleSize = 0;
-        for( int i = 0; i < rows_; i++ )
-          sampleSize += (int) occurrences_[i];
-        int bagSize = rows_ * bagSizePercent / 100;
-        assert (bagSize > 0 && sampleSize > 0);
-        while( bagSize < sampleSize ){
-          int offset = d.random_.nextInt(rows_);
+        for( int i = 0; i < sz; i++ ) sampleSize += (int) occurrences_[i];
+        size_ = (int) (sz * bagSize_);
+        assert (size_ > 0 && sampleSize > 0);
+        while( size_ < sampleSize ){
+          int offset = d.random_.nextInt(sz);
           while( true ){
             if( occurrences_[offset] != 0 ){
               occurrences_[offset]--;
               break;
             }
-            offset = (offset + 1) % rows_;
+            offset = (offset + 1) % sz;
           }
           sampleSize--;
         } 
       } 
+      public  int rows() { return size_; }
+      public  boolean hasNext() { return offset_ < size_; }
+      public  Integer next() { advance(); return offset_; }
+      protected  int getI(int col, int idx) { throw new Error("unimpl"); }
+      protected  double getD(int col, int idx) { throw new Error("unimpl"); } 
+      public  int getI(int col) { return d_.getI(col, next_); }
+      public  double getD(int col) { return d_.getD(col, next_); }    
+      public  Data select(int from, int to) { throw new Error("not implemented yet"); }
+
     }
 
     static private class WP { double [] weights, probabilities;  }
@@ -287,34 +364,12 @@ class DataImpl extends Data {
       assert v.length==c_.length;
       for(int i=0;i<v.length;i++) v[i] = c_[i].getD(next_);
     }
-    public int getI(int col, int idx) { return c_[col].getI(idx); }
-    public double getD(int col, int idx) { return c_[col].getD(idx); }
+    protected int getI(int col, int idx) { return c_[col].getI(idx); }
+    protected double getD(int col, int idx) { return c_[col].getD(idx); }
+    public int getI(int col) { return c_[col].getI(next_); }
+    public double getD(int col) { return c_[col].getD(next_); }
     public String toString() {
-      String res = "Data "+ name_+"\n";
-      if (c_.length>0) { res+= c_[0].sz_+" rows, " + c_.length + " cols, "+ classes() +" classes\n"; }
-      String[][] s = new String[c_.length][4];
-      int i=0;
-      for(Col c: c_)  {
-        s[i][0] = "col("+c.name_+")";
-        s[i][1] = "["+df.format(c.min_) +","+df.format(c.max_)+"]" ;
-        s[i][2] = " avg=" + df.format(c.tot_/(double)c.sz_);
-        s[i][3] = " precision=" + c.prec_; 
-        i++;
-      }
-      int[] l = new int[4];
-      for(int j=0;j<4;j++) {
-        for(int k=0;k<c_.length;k++) {
-          l[j] = Math.max(l[j], s[k][j].length());
-        }
-      }
-      for(int k=0;k<c_.length;k++) {
-        for(int j=0;j<4;j++) { 
-          res+= s[k][j];
-          int pad = l[j] - s[k][j].length();
-          for(int m=0;m<=pad;m++) res+=" ";
-        }
-        res+="\n";
-      }
+      String res = super.toString();
       res +="========\n";
       res +="class histogram\n";
       int[] dist = c_[classIdx_].distribution();
