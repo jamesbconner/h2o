@@ -30,12 +30,23 @@ public class PokerAdapter extends DataAdapter {
   public boolean isInt(int index) { return true;  }
   public int toInt(int index)     { return data[cur][index];  }
   public double toDouble(int index){return data[cur][index];  }
-  public int numClasses()         { return 10;  }
-  public int dataClass()          { return data[cur][10];  }
-  public int bagSizePercent()     { return 30; } // usually 70%, but for a big data set....
-  public int numFeatures()        { return 7; } // this should be roughly 2/3 of numCol
-
+  public int numClasses()         { return 2;//10; 
+  }
+  public int dataClass()          { return data[cur][10]==2?1:0; 
+      //data[cur][10];  }
+  }
+  public int bagSizePercent()     { return 70; } // usually 70%, but for a big data set....
+  public int numFeatures()        { return 6; } // this should be roughly 2/3 of numCol
+  static int TREES = 4 * 10;
   
+  
+  public String summary() {
+    int[] dist = new int[numClasses()];
+    for(int i=0;i<numRows();i++) dist[data[i][10]==2?1:0]++;
+    String res = "rows=" + numRows() +", columns="+numColumns()+"\n class distribution:";
+    for(int i : dist) res+=" "+i;
+    return res;
+  }
   protected PokerAdapter(PokerAdapter from) {
     super();
     data = from.data;
@@ -81,7 +92,11 @@ public class PokerAdapter extends DataAdapter {
     data = parsedRecords.toArray(data);
   }
 
+<<<<<<< HEAD
  static int TREES = 1 * 2;
+=======
+
+>>>>>>> housekeeping
 
   /**
    * for testing...
@@ -99,7 +114,8 @@ public class PokerAdapter extends DataAdapter {
         continue;
       }
       PokerAdapter data = new PokerAdapter(f);
-      System.out.println("done");
+      
+      System.out.println("done.\n"+data.summary());
       System.out.println("there are " + data.numRows() + " rows and "  + data.numColumns() + " columns");
       RF rf = new RF(data, TREES);
       NumericSplitterStatistic.openForGainBuffering("gains.txt");

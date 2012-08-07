@@ -26,8 +26,7 @@ public class DecisionTree implements Classifier {
   /** Leaf node that for any row returns its the data class it belongs to. */
   public static class LeafNode implements INode {
     private static final long serialVersionUID = -2231341082792288314L;
-    // which data category to return. 
-    public final int class_;
+    public final int class_;    // predicted class
     public LeafNode(int dataClass)     { this.class_ = dataClass; nodeCount++; }
     public int numClasses()            { return 1; }
     public String toString()           { return "(leaf "+class_+")"; }
@@ -36,29 +35,16 @@ public class DecisionTree implements Classifier {
   }
 
   public static class SentinelNode implements INode {
-
     private final Classifier cls;
-    
-    public int classifyRecursive(DataAdapter row) {
-      return cls.classify(row);
-    }
+    SentinelNode(Classifier c) {  cls = c;  }    
+    public int classifyRecursive(DataAdapter row) { return cls.classify(row); }
+    public int classify(DataAdapter row) {   return cls.classify(row);  }
+    public int numClasses() { return cls.numClasses();  }
 
-    public int classify(DataAdapter row) {
-      return cls.classify(row);
-    }
-
-    public int numClasses() {
-      return cls.numClasses();
-    }
-    
-    SentinelNode(Classifier c) {
-      cls = c;
-    }
   }
   
   /** Inner node of the decision tree. Contains a list of subnodes and the
-   * classifier to be used to decide which subtree to explore further. 
-   */
+   * classifier to be used to decide which subtree to explore further. */
   static class Node implements INode {
     private static final long serialVersionUID = 7538428587319062732L;
     // classifier that determines which subtree to use
@@ -85,8 +71,6 @@ public class DecisionTree implements Classifier {
      * @return 
      */
     public int classifyRecursive(DataAdapter row) {
-//      int cls = classifier.classify(row);
-//      return (subnodes[cls] == null) ? defaultCategory : subnodes[cls].classifyRecursive(row);
       double[] data = new double[row.numColumns()];
       for (int i = 0; i < data.length; ++i)
         data[i] = row.toDouble(i);
@@ -105,8 +89,7 @@ public class DecisionTree implements Classifier {
       }
       return -1;    
     }
-    
-    
+
     
     /** Classifies the row only on the classifier internal to the node. This
      * determines which subtree to use.  */
