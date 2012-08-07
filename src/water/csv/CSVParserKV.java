@@ -74,7 +74,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         return (char)res2[chunkOffset - res.length];
       }      
     }
-
+    int columns(){return _column;}
     @Override
     public int length() {
       return _length;
@@ -165,6 +165,8 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   int _nextChunkIdx;
   long _currentOffset;
   int _length;
+  
+  
 
   CSVString [] _columnNames;
   
@@ -172,7 +174,17 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   
   int _ival;
 
-
+  public static int getNColumns(Key k){
+    int [] rec = new int[1];
+    CSVParserKV<int[]> p = new CSVParserKV<int[]>(k,1,rec,null);
+    int ncolumns = -1;
+    for(int i = 0; i < 10; ++i){
+      if(!p.hasNext())break;
+      p.next();
+      if(p._column > ncolumns) ncolumns = p._column;
+    }
+    return ncolumns;
+  } 
   
   @SuppressWarnings("unchecked")
   void initialize(String [] columns){
@@ -484,8 +496,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       }
     }       
     _recordStart = _dataPtr + 1;
-    _fieldStart = _dataPtr + 1;
-    _column = 0;
+    _fieldStart = _dataPtr + 1;    
     _skipRecord = false;
     return res;
   }
