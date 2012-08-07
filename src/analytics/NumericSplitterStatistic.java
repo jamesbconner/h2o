@@ -82,7 +82,7 @@ public class NumericSplitterStatistic extends Statistic {
      */
     SplitInfo bestSplit() {
       double[] fits = null;
-      if (ENABLE_GAIN_REPORTING)
+      if ((ENABLE_GAIN_REPORTING) && (gains!=null))
         fits = new double[rowsSize_];
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       sort1(rows_,0,rowsSize_,column); // sort rows_ according to given column      
@@ -98,7 +98,7 @@ public class NumericSplitterStatistic extends Statistic {
         double s = data.seekToRow(rows_[i]).toDouble(column);
         if (s > currSplit) {
           gain = Utils.entropyCondOverRows(dists); // fitness gain
-          if (ENABLE_GAIN_REPORTING) {
+          if ((ENABLE_GAIN_REPORTING) && (gains!=null)) {
             fits[gi] = gain;
             ++gi;
           }
@@ -115,9 +115,9 @@ public class NumericSplitterStatistic extends Statistic {
         dists[0][data.dataClass()] += data.weight();
         dists[1][data.dataClass()] -= data.weight();
       }
-      if (ENABLE_GAIN_REPORTING) 
+      if ((ENABLE_GAIN_REPORTING) && (gains!=null))
         try {
-          if (gains!=null) synchronized (gains) {
+          synchronized (gains) {
             gains.write(String.valueOf(fits.length));
             gains.write(" "+gi);
             gains.write(" "+fit);
