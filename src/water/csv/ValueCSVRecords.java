@@ -309,10 +309,10 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
   boolean _fresh = true;
   
   public boolean hasNext() {
-    if(_parser == null)
-      return false;
     if (_next)
       return true;
+    if(_parser == null)
+      return false;
     try {
       _next = _parser.next();
     } catch (CSVEscapedBoundaryException e) {
@@ -328,7 +328,7 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
                                          // only up to the first record of data
           _parser.addData(_dataProvider.nextData(1024)); // first try with small
                                                          // piece
-          if (_next = _parser.next()) {
+          if( (_next = _parser.next())==true ) {
             _dataProvider.close(); // we hit the end of a record
             _parser.close();
             return true;
@@ -361,7 +361,7 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     }
     if(!_next && _parser._column > 0){
       try {
-        return _parser.endRecord();
+        return (_next = _parser.endRecord());
       } catch (Exception e) {
         throw new Error(e);
       } 
@@ -393,7 +393,6 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
       IOException {
     _dataProvider = new StreamDataProvider(1 << water.ValueArray.LOG_CHK, is);
     _rec = csvRecord;
-    setup._parseColumnNames = setup._parseColumnNames;
     _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
   }
   
@@ -403,7 +402,6 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
       IOException {
     _dataProvider = dataProvider;
     _rec = csvRecord;
-    setup._parseColumnNames = setup._parseColumnNames;
     _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
   }
 
@@ -411,35 +409,25 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
       CSVParserSetup setup) throws NoSuchFieldException, SecurityException,
       IllegalArgumentException, IllegalAccessException, CSVParseException,
       IOException {
-    int index;
-    if ((k._kb[0] == 0) && (k._kb[1] == 0)) { // system key - assume arraylet
-                                              // chunk
-      index = ValueArray.getChunkIndex(k);
+    _rec = csvRecord;
+    Value v = DKV.get(k);
+    if( v instanceof ValueArray )
+      k = ((ValueArray)v).make_chunkkey(0); // Move from array to 1st chunk in array
+
+    if( k._kb[0] == Key.ARRAYLET_CHUNK ) { // Arraylet?
+      int index = ValueArray.getChunkIndex(k);
       _dataProvider = new KV_DataProvider(k, nChunks);
-      _rec = csvRecord;
-      setup._parseColumnNames = setup._parseColumnNames;
-      // _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE),
-      // csvRecord, columns, setup);
       setup._parseColumnNames = setup._parseColumnNames && (index == 0);
       setup._skipFirstRecord = (index > 0);
       if(_dataProvider.hasMoreData())
-        _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns,
-          setup);
+        _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
     } else {
       assert nChunks == 1;
-      index = 0;
-      Value v = DKV.get(k);
-      if(v != null){
-        _dataProvider = new ByteArrayDataProvider(v.get());
-        _rec = csvRecord;
-        setup._parseColumnNames = setup._parseColumnNames;
-        // _parser = new CSVParser(_dataProvider.nextData(Integer.MAX_VALUE),
-        // csvRecord, columns, setup);
-        setup._parseColumnNames = setup._parseColumnNames && (index == 0);
-        setup._skipFirstRecord = (index > 0);
-        _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns,
-            setup);
-      }
+      int index = 0;
+      _dataProvider = new ByteArrayDataProvider(v.get());
+      setup._parseColumnNames = setup._parseColumnNames && (index == 0);
+      setup._skipFirstRecord = (index > 0);
+      _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
     }
   }
 

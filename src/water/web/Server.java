@@ -103,6 +103,7 @@ public class Server extends NanoHTTPD {
     registerPage(new ImportFolder(),"ImportFolder");
     registerPage(new ImportQuery(),"ImportQuery");
     registerPage(new ImportUrl(),"ImportUrl");
+    registerPage(new Inspect(),"Inspect");
     //registerPage(new PutExec(),"PutExec");
     //registerPage(new PutExecQuery(),"PutExecQuery");
     registerPage(new PutFile(),"PutFile");

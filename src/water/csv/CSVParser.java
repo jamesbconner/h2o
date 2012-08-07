@@ -169,8 +169,7 @@ public final class CSVParser {
       CSVParserSetup s = new CSVParserSetup(_setup);
       s._parseColumnNames = false;
       s._skipFirstRecord = false;
-      CSVParser p;
-      p = new CSVParser(data(), _columnNames, null, s);
+      CSVParser p = new CSVParser(data(), _columnNames, null, s);
       if (!p.next()) {
         throw new CSVParseException(
             "unexpected exception while parsing header (column names) of the csv file");
