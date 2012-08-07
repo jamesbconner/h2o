@@ -6,8 +6,6 @@ import analytics.DecisionTree.INode;
 import analytics.DecisionTree.LeafNode;
 import analytics.DecisionTree.Node;
 import analytics.DecisionTree.SentinelNode;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Class capable of building random forests.
@@ -217,7 +215,7 @@ public class RFBuilder {
       this.localData = data.view();
     }
     
-    @Override public void run() {
+    public void run() {
       if (numTrees == 0)
         return;
       for( int i = treeStart; i < treeStart+numTrees; ++i )
@@ -262,12 +260,20 @@ public class RFBuilder {
     int tpc = numTrees / cores;
     if (tpc == 0)
       tpc = numTrees; 
+    int rem = numTrees - tpc*cores;
+    int offset = 0;
     partition_ = new Sample(data_, numTrees, data_.random_);
     trees = new ProtoTree[numTrees];
     // launch the threads
     Thread[] workers = new Thread[cores];
     for (int i = 0; i<cores; ++i) {
-      workers[i] = new Thread(new BuilderProcess(i*tpc,tpc,data_));
+      int size = tpc;
+      if (rem>0) {
+        size += 1;
+        --rem;
+      }
+      workers[i] = new Thread(new BuilderProcess(offset,size,data_));
+      offset += size;
       workers[i].start();
     }
     for (Thread t: workers)
@@ -350,8 +356,16 @@ public class RFBuilder {
       rpc = data_.numRows(); 
     // launch the threads
     OOBProcess[] workers = new OOBProcess[cores];
+    int rem = data_.numRows() - rpc * cores;
+    int offset = 0;
     for (int i = 0; i<cores; ++i) {
-      workers[i] = new OOBProcess(i*rpc,rpc,data_,ts);
+      int size = rpc;
+      if (rem>0) {
+        size += 1;
+        --rem;
+      }
+      workers[i] = new OOBProcess(offset,size,data_,ts);
+      offset += size;
       workers[i].start();
     }
     for (OOBProcess t: workers) {
