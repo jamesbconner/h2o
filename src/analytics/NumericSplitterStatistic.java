@@ -98,12 +98,12 @@ public class NumericSplitterStatistic extends Statistic {
         double s = data.seekToRow(rows_[i]).toDouble(column);
         if (s > currSplit) {
           gain = Utils.entropyCondOverRows(dists); // fitness gain
+          double newFit = fit - gain; // fitness gain
           if ((ENABLE_GAIN_REPORTING) && (gains!=null)) {
-            fits[gi] = gain;
+            fits[gi] = newFit;
             ++gi;
           }
           
-          double newFit = fit - gain; // fitness gain
           if (newFit > bestFit) {
             bestFit = newFit;
             split = (s + currSplit) / 2;
