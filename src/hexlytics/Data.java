@@ -5,7 +5,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Random;
-
+/**
+ * The classes that mediate access to data. In the long run, we want these to support 
+ * distributed data and lazy computation. We are mostly looking at getting the interface
+ * right.
+ * @author jan
+ */
 public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
   
   private static long SEED_;
@@ -289,6 +294,7 @@ class DataImpl extends Data {
         return this;
       }
       
+      public String name() { return d_.name() + "->sampled(" + bagSize_+")"; }
       
       public int occurrences(int row) { return occurrences_[row]; }      
 
