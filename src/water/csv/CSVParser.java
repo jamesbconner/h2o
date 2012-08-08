@@ -251,7 +251,7 @@ public final class CSVParser {
       if (_column >= _columnParsers.length) {
         if (_setup._ignoreAdditionalColumns)
           return true;
-        throw new CSVParseException("Too many columns");
+        throw new CSVParseException("Too many columns " + _column);
       }
       // parse the data
       if (_columnParsers[_column] != null) {
@@ -855,7 +855,7 @@ public final class CSVParser {
     public int _defaultInt = Integer.MAX_VALUE;
             
     // column separator, can be any character that fits into one byte
-    public final byte _separator;
+    public byte _separator;
     // set this to true if the first line of the data contains column names,
     // applies only to chunk 0
     public boolean _parseColumnNames;
@@ -864,7 +864,7 @@ public final class CSVParser {
     public final boolean _trimSpaces;
     // if set and the separator is a whitespace character, multiple spaces will
     // be treated as a single separator
-    public final boolean _collapseSpaceSeparators;
+    public boolean _collapseSpaceSeparators;
     // if false, records with fewer than expected number of columns will
     // trigger a CSVParse exception
     public final boolean _toleratePartialRecords;
