@@ -58,7 +58,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       }      
     }
 
-    @Override
     public char charAt(int i) {
       int chunkIdx = i + (int)(_offset >> ValueArray.LOG_CHK);
       int chunkOffset = (int)(_offset & ((1 << ValueArray.LOG_CHK) -1));
@@ -75,12 +74,11 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       }      
     }
     int columns(){return _column;}
-    @Override
+
     public int length() {
       return _length;
     }
 
-    @Override
     public CharSequence subSequence(int start, int end) {
       return new CSVString(_offset + start, end - start);
     }
@@ -113,7 +111,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       return (_length - bytes.length);
     }
     
-    @Override
+
     public int compareTo(String o) {
       return compareTo(o.getBytes());
     }    
@@ -590,7 +588,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     }
     return _dataPtr;
   }
-  @Override
+
   public boolean hasNext() {
     if (_next)
       return true;    
@@ -673,7 +671,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     return (_next = true);
   }
 
-  @Override
   public T next() {
     if (!hasNext())
       throw new NoSuchElementException();
@@ -682,12 +679,11 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     return _csvRecord;
   }
 
-  @Override
   public void remove() {
     throw new UnsupportedOperationException();
   }
 
-  @Override
+  
   public Iterator<T> iterator() {
     if (!_fresh && _data != null) {
       if ((_key != null) && (_key._kb[0] == Key.ARRAYLET_CHUNK)
