@@ -1,4 +1,4 @@
-package analytics;
+package hexlytics;
 
 /** A decision tree implementation. 
  * 
@@ -16,7 +16,7 @@ public class DecisionTree implements Classifier {
    * node's internal classifier.   */
   static public interface INode extends Classifier {    
     /** Classifies the row recursively by the correct subtree.  */
-    int classifyRecursive(DataAdapter row);    
+    int classifyRecursive(Data row);    
     /** Converts the node to string representation.  */
     String toString();
   }
@@ -30,15 +30,15 @@ public class DecisionTree implements Classifier {
     public LeafNode(int dataClass)     { this.class_ = dataClass; nodeCount++; }
     public int numClasses()            { return 1; }
     public String toString()           { return "(leaf "+class_+")"; }
-    public int classify(DataAdapter _) { return class_; }
-    public int classifyRecursive(DataAdapter _) { return class_; }
+    public int classify(Data _) { return class_; }
+    public int classifyRecursive(Data _) { return class_; }
   }
 
   public static class SentinelNode implements INode {
     private final Classifier cls;
     SentinelNode(Classifier c) {  cls = c;  }    
-    public int classifyRecursive(DataAdapter row) { return cls.classify(row); }
-    public int classify(DataAdapter row) {   return cls.classify(row);  }
+    public int classifyRecursive(Data row) { return cls.classify(row); }
+    public int classify(Data row) {   return cls.classify(row);  }
     public int numClasses() { return cls.numClasses();  }
 
   }
@@ -70,18 +70,18 @@ public class DecisionTree implements Classifier {
      * @param row
      * @return 
      */
-    public int classifyRecursive(DataAdapter row) {
-      double[] data = new double[row.numColumns()];
+    public int classifyRecursive(Data row) {
+      double[] data = new double[row.columns()];
       for (int i = 0; i < data.length; ++i)
-        data[i] = row.toDouble(i);
+        data[i] = row.getD(i);
       INode node = this;
       while (node!=null) {
         if (node instanceof LeafNode)
           return ((LeafNode)node).class_;
         Node innerNode = (Node)node;
         Classifier cls = innerNode.classifier;
-        if (cls instanceof NumericSplitterStatistic.SplitClassifier) {
-          NumericSplitterStatistic.SplitClassifier c = (NumericSplitterStatistic.SplitClassifier)cls;
+        if (cls instanceof Numeric.SplitClassifier) {
+          Numeric.SplitClassifier c = (Numeric.SplitClassifier)cls;
           node = innerNode.subnodes[ data[c.column] <= c.value ? 0 : 1];  
         } else {
           node = innerNode.subnodes[cls.classify(row)];
@@ -93,7 +93,7 @@ public class DecisionTree implements Classifier {
     
     /** Classifies the row only on the classifier internal to the node. This
      * determines which subtree to use.  */
-    public int classify(DataAdapter row) { return classifier.classify(row); }
+    public int classify(Data row) { return classifier.classify(row); }
     
     /** Returns to how many categories/subtrees the node itself classifies. 
      * 
@@ -126,7 +126,7 @@ public class DecisionTree implements Classifier {
   
   /** Classifies the given row on the tree. Returns the classification of the
    * row as determined by the tree.  */
-  public int classify(DataAdapter row) { 
+  public int classify(Data row) { 
     if (root_.classifyRecursive(row) == -1) {
       System.out.println(this.toString());
       root_.classifyRecursive(row); 

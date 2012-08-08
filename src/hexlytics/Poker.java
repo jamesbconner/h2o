@@ -43,7 +43,14 @@ public class Poker {
         continue;
       }
       Poker p = new Poker(f);
-      System.out.println(p.poker.shrinkWrap().select(0, 100).sampleWithReplacement(0.5));
+      Data d = p.poker.shrinkWrap().select(0, 100);
+      System.out.println(d);
+      System.out.println(d.head(10));
+      
+      
+      d = d.sampleWithReplacement(0.5).sampleWithReplacement(0.5);
+      System.out.println(d);
+      System.out.println(d.head(10));
     }
   }
 
