@@ -294,7 +294,7 @@ public class ValueArray extends Value {
     public double _min, _max; // Min/Max per column; requires a 1st pass to discover
     public int _off;          // Offset of column data within row
     public byte _size; // Size is 1,2,4 or 8 bytes, or -4,-8 for float/double data
-    
+
     public Column() {
       _base = 0.0;
       _scale = 1.0;
