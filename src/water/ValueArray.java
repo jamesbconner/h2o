@@ -57,17 +57,6 @@ public class ValueArray extends Value {
     UDP.set8(kb,2,off);         // Blast down the offset.
     System.arraycopy(_key._kb,0,kb,2+8,_key._kb.length);
     Key k = Key.make(kb,(byte)_key.desired()); // Presto!  A unique arraylet key!
-    Value val = DKV.get(k,0);   // Does the key exist?
-    if( val == null ) {         // No k/v?
-      long len = length();      // Ok, lazily create this key
-      long csz = chunk_size();
-      int sz = (int)((len-off >= 2*csz) ? csz : len-off);
-      val = new Value(sz,0,k,_persistenceInfo);
-      //Persistence.set_info(val,_persistenceInfo|Persistence.ON_DISK);
-      // One-shot key/value create.  If it fails, then somebody else beat me
-      // too it...  which really means I don't care if this works or fails.
-      DKV.DputIfMatch(k,val,null);
-    }
     return k;
   }
 

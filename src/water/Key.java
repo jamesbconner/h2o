@@ -41,7 +41,7 @@ public final class Key implements Comparable {
 
   public static final byte ARRAYLET_CHUNK = 0;
 
-  public static final byte DEV_JAR = 1;
+  public static final byte KEY_OF_KEYS = 1;
   
   public static final byte HDFS_INTERNAL_BLOCK = 10;
   

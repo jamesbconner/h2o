@@ -63,6 +63,8 @@ public abstract class DataAdapter {
    *  but can have another cursor.  <<Unused right now, but will
    *  come in handy if we ever want to have multiple threads going
    *  through the data in parallel.>> */
+  // I would say this should be abstract to avoid problems when people forget
+  // to implement it
   public DataAdapter view() { return this; }
   
   /** Returns a weighted and out-of-bag sample from the given data.  */
