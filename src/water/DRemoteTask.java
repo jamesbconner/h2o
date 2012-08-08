@@ -2,6 +2,7 @@ package water;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.lang.Cloneable;
+import java.util.UUID;
 import jsr166y.*;
 
 // *DISTRIBUTED* RemoteTask
@@ -71,7 +72,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   final public Object fork_by_cpus() {
     
     // Split out the keys into disjointly-homed sets of keys.
-    // Find the split point.
+    // Find the split point.  First find the range of home-indices.
     H2O cloud = H2O.CLOUD;
     int lo=cloud._memary.length, hi=-1;
     for( Key k : _keys ) {
@@ -98,7 +99,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     
     // Classic fork/join, but on CPUs.
     // Split into 2 arrays of keys
-    int size_remote_keys = 4;
+    int size_remote_keys = 4;   // 4 bytes for count of keys
     int num_local_keys = 0;
     Key remote_key = null;
     for( Key k : _keys ) {
@@ -111,9 +112,12 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
         num_local_keys++;   // Local
       }
     }
+    assert remote_key != null;
+    H2ONode target = cloud._memary[remote_key.home(cloud)];
+
     // Create storage for the 2 splits
     Key local_keys[] = new Key[num_local_keys];
-    Key remote_args = Key.make(); // Random key
+    Key remote_args = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
     Value rem_keys = new Value(remote_args,size_remote_keys);
     // Now fill in the two splits
     byte[] keybytes = rem_keys.mem();
@@ -131,7 +135,6 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     }
     
     // Now fork remotely.
-    H2ONode target = cloud._memary[remote_key.home(cloud)];
     TaskRemExec tre = new TaskRemExec(target,copy_self()/*result object*/,remote_args,rem_keys);
     
     // Setup for local recursion.
@@ -156,12 +159,24 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
       throw new Error("Missing args");
     }
     Key[] keys = null;
-    if( val.type() == Value.ARRAYLET ) {
+    if( val.type() == Value.ARRAYLET ) { // Arraylet: expand into the chunk keys
       ValueArray ary = (ValueArray)val;
       keys = new Key[(int)ary.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = ary.chunk_get(i);
-    } else {
+
+    } else if( args._kb[0] == Key.KEY_OF_KEYS ) { // Key-of-keys: break out into array of keys
+      // Parse all the keys out
+      byte[] buf = val.get();
+      int off = 0;
+      int klen = UDP.get4(buf,off); off += 4;
+      keys = new Key[klen];
+      for( int i=0; i<klen; i++ ) {
+        Key k = keys[i] = Key.read(buf,off);
+        off += k.wire_len();
+      }
+
+    } else {                    // Handy wrap single key into a array-of-1 key
       keys = new Key[]{args};
     }
 

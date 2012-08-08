@@ -37,7 +37,7 @@ public abstract class UKV {
     assert key.user_allowed();
     Value val = DKV.get(key,32); // Get the existing Value, if any
     if( val == null ) return;    // Trivial delete
-    if( val.type() == 'A' ) {    // See if this is an Array
+    if( val.type() == Value.ARRAYLET ) { // See if this is an Array
       ValueArray ary = (ValueArray)val;
       final long chunks = ary.chunks();
       // Delete all chunks
