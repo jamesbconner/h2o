@@ -24,7 +24,7 @@ public class AlphaDSetAdapter extends DataAdapter {
   void addRow(float[] data, int clazz) {
     chunk.setI(clazz, maxRow, 0);
     for (int i = 0; i < 500; i++)
-      chunk.setF(data[i + 1], maxRow, i);
+      chunk.setF(data[i], maxRow, i+1);
     maxRow++;
   }
 
@@ -66,6 +66,9 @@ public class AlphaDSetAdapter extends DataAdapter {
   }
 
   public AlphaDSetAdapter(File data, File labels) {
+    chunk.addIntCol();
+    for (int i = 0; i < 500; i++)
+      chunk.addFloatCol();
     try {
       FileInputStream dataIn = new FileInputStream(data);
       float[] rec = new float[500];
@@ -74,6 +77,7 @@ public class AlphaDSetAdapter extends DataAdapter {
       setup._parseColumnNames = false;
       setup._skipFirstRecord = false;
       setup._separator = (byte) ' ';
+      setup._collapseSpaceSeparators = true;
 
       ValueCSVRecords<float[]> dataRecords = new ValueCSVRecords<float[]>(
           new ValueCSVRecords.StreamDataProvider(1 << ValueArray.LOG_CHK, dataIn,
@@ -82,9 +86,12 @@ public class AlphaDSetAdapter extends DataAdapter {
       ValueCSVRecords<int[]> labelRecords = new ValueCSVRecords<int[]>(
           new ValueCSVRecords.StreamDataProvider(1 << ValueArray.LOG_CHK, labelsIn,
               0, Long.MAX_VALUE), label, null, setup);
+      int rowIdx = 0;
       while(dataRecords.hasNext() && labelRecords.hasNext()){
         dataRecords.next();
         labelRecords.next();
+        if((++rowIdx % 1000) == 0)
+          System.out.println("row " + rowIdx);
         addRow(rec, label[0]);
       }      
     } catch (Exception e) {
