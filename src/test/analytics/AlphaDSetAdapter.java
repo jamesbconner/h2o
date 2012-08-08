@@ -8,12 +8,40 @@ import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
 import analytics.AverageStatistic;
 import analytics.DataAdapter;
+import analytics.RF;
 import analytics.Statistic;
 
 public class AlphaDSetAdapter extends DataAdapter {
 
+  public static void main(String[] argv) {
+    
+    
+    File dataF = new File("/home/peta/devel/0xdata/alpha_train.dat");
+    File labelsF = new File("/home/peta/devel/0xdata/alpha_train.lab");
+//    File dataF = new File("E:\\datasets\\alpha_train.dat");
+//    File labelsF = new File("E:\\datasets\\alpha_train.lab");
+    AlphaDSetAdapter adapter = new AlphaDSetAdapter(dataF, labelsF);
+    System.out.println("Adapter created...");
+    RF rf = new RF(adapter,100);
+    System.out.println("Random forest created");
+    rf.compute();
+  }
+  
+  
   DataChunk chunk = new DataChunk();
   int maxRow;
+  
+  protected AlphaDSetAdapter(AlphaDSetAdapter from) {
+    super();
+    chunk = from.chunk;
+    maxRow = from.maxRow;
+    cur = from.cur;
+  }
+  
+  @Override public AlphaDSetAdapter view() {
+    return new AlphaDSetAdapter(this);
+  }
+ 
 
   AlphaDSetAdapter() {
     chunk.addIntCol();
@@ -53,12 +81,14 @@ public class AlphaDSetAdapter extends DataAdapter {
     return 2;
   }
 
+  // Data class must be consecutive integer from 0 to N as specified by the
+  // DataAdapter
   public int dataClass() {
-    return chunk.getI(cur, 0);
+    return chunk.getI(cur, 0) == 1 ? 1 : 0;
   }
 
   public int numFeatures() {
-    return 500;
+    return 500; // Peta - then we are not having RF at all, are we? 
   }
 
   public Statistic createStatistic() {
@@ -88,6 +118,8 @@ public class AlphaDSetAdapter extends DataAdapter {
               0, Long.MAX_VALUE), label, null, setup);
       int rowIdx = 0;
       while(dataRecords.hasNext() && labelRecords.hasNext()){
+        if (rowIdx==1000)
+          break;
         dataRecords.next();
         labelRecords.next();
         if((++rowIdx % 1000) == 0)

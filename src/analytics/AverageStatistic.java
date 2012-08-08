@@ -15,7 +15,7 @@ package analytics;
  * @author peta
  */
 public class AverageStatistic extends Statistic {
-  private final byte[] columns_; // column indices of columns under consideration  
+  private final short[] columns_; // column indices of columns under consideration  
   private final double[][] sums_;
   private final double[] weights_;
   
@@ -23,9 +23,9 @@ public class AverageStatistic extends Statistic {
    * data categories.   */
   public AverageStatistic(DataAdapter data) {
     
-    columns_ = new byte[data.numFeatures()];
+    columns_ = new short[data.numFeatures()];
     A: for(int i=0;i<data.numFeatures();) {
-      columns_[i]=(byte)data.random_.nextInt(data.numColumns());
+      columns_[i]=(short)data.random_.nextInt(data.numColumns());
       for(int j=0;j<i;j++) if (columns_[i]==columns_[j]) continue A;  
       i++;
     }
@@ -88,12 +88,12 @@ public class AverageStatistic extends Statistic {
   public static class AClassifier implements Classifier {
      private static final long serialVersionUID = 7018366806046580325L;
 
-    private final byte[] columns_;
+    private final short[] columns_;
     
     // For each final category there is a columns size vector of doubles 
     private final double[][] averages_;
     
-    public AClassifier(byte[] columns, double[][] averages) {
+    public AClassifier(short[] columns, double[][] averages) {
       columns_ = columns;
       averages_ = averages;
     }

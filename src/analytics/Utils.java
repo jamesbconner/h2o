@@ -31,6 +31,25 @@ public class Utils {
   }
   
   
+  public static double giniOnArray(double[] arr) {
+    double result = 1;
+    double total = 0;
+    for (double i : arr)
+      total += i;
+    if (total == 0)
+      return 0;
+    for (double i : arr) 
+      result -= (i/total) * (i/total);
+    return result;
+  }
+  
+  public static double sum(double[] d) {
+    double result = 0;
+    for (double dd: d)
+      result += dd;
+    return result;
+  }
+  
   
   public static void normalize(double[] doubles, double sum) {
     assert ! Double.isNaN(sum) && sum != 0;
@@ -38,6 +57,14 @@ public class Utils {
   }  
   
   public static String join(int[] what, String with) {
+    if (what==null)  return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append(what[0]);
+    for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
+    return sb.toString();
+  }
+
+  public static String join(short[] what, String with) {
     if (what==null)  return "";
     StringBuilder sb = new StringBuilder();
     sb.append(what[0]);
