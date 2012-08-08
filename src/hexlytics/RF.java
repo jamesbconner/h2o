@@ -8,34 +8,26 @@ import hexlytics.DecisionTree.SentinelNode;
 import java.text.DecimalFormat;
 import java.util.Random;
 
-
-
 /**
  *
  * @author peta
  */
 public class RF { 
   private DecisionTree[] trees_;
-  final Data data_;
+  Data data_;
   final int numTrees_;
   long time_;
-  public ProtoTree[] trees;
+  ProtoTree[] trees;
   Partition partition_;
   private static String statistic_ = "Numeric"; // Default choice
-
   
-  public RF(Data data, int numtrees) { 
-    data_=data; numTrees_=numtrees; 
-  }
+  public RF(Data data, int numtrees) {  data_=data; numTrees_=numtrees; }
   
   public int classify(Data data) {
-    int[] counts = new int[numClasses()];
-    for (DecisionTree tree: trees_)
-      counts[tree.classify(data)] += 1;
+    int[] counts = new int[data_.classes()];
+    for (DecisionTree tree: trees_) counts[tree.classify(data)] += 1;
     return Utils.maxIndex(counts, data_.random_);
   }
-
-  public int numClasses() { return trees_[0].numClasses(); }
   
   public void compute() { 
     long t1 = System.currentTimeMillis();
@@ -43,20 +35,17 @@ public class RF {
     long t2 = System.currentTimeMillis();
     time_ = (t2-t1);
   }
-  public int numTrees() { return trees_.length; }
-  public DecisionTree tree(int n) { return trees_[n];  }
 
-  static final DecimalFormat df = new  DecimalFormat ("0.###");
  
   public String toString() {
+    DecimalFormat df = new  DecimalFormat ("0.###");
     String errors="";
-    for (int i = 0; i<numTrees(); ++i) 
-       errors +=" " +  df.format(Classifier.Operations.error(tree(i),data_));
+    for (int i = 0; i<trees_.length; ++i) 
+       errors +=" " +  df.format(Classifier.Operations.error(trees_[i],data_));
     return "RF:  " + trees_.length + " trees, seed="+ data_.SEED_ +", compute(ms)="+time_+"\n"
         + "#nodes="+ DecisionTree.nodeCount + "\n"
         + "OOB err = " + outOfBagError() + "\n";// + "Single tree errors: " + errors;
   }
-
   
   // node under construction ---------------------------------------------------
 
@@ -65,12 +54,9 @@ public class RF {
    * statistics that must be computed for the node.
    */
   public static class ProtoNode {
-
     protected  Statistic statistic_; // the statistic to be computed
-
-    ProtoNode(Statistic s) { 
-       statistic_ = s; 
-    }
+    
+    ProtoNode(Statistic s) { statistic_ = s; }
 
     /**
      * Returns the normal node that should be created from the node under
@@ -80,19 +66,14 @@ public class RF {
     DecisionTree.INode createNode() {
       int defaultCategory = statistic_.defaultCategory();
       Classifier nc = statistic_.createClassifier();
-//      statistic_=null; // Jan -- is this enough to allow GC?
-      if (nc == null)
-        return null;
+      if (nc == null)  return null;
       if (nc instanceof Classifier.Const) 
         return new LeafNode(nc.classify(null));
       Node n = new Node(nc,defaultCategory);
       for (int i = 0; i < n.subnodes.length; ++i)
         n.subnodes[i] = new SentinelNode(statistic_.createTemporaryClassifier(i));
       return n;
-//      return nc instanceof Classifier.Const ? new LeafNode(nc.classify(null))
-//          : new Node(nc,defaultCategory);
     }
-
   }
 
   // tree under construction ---------------------------------------------------
@@ -109,24 +90,14 @@ public class RF {
     ProtoNode[] nodes_ = null;
     int level_ = 0;
     public INode root_ = null;
-    // random generator unique to the tree.
     Random rnd = null;
-    // random seed used to generate the random, therefore we can always reset it
     final long seed;
-    
     final Data data_;
-    
     int rowIndex_ = 0;
 
-    /**
-     * Creates the tree under construction.
-     * 
-     * Initializes the seed from the parent
-     */
+    /** Creates the tree under construction.  */
     public ProtoTree(Data data) {
-      data_ = data;
-      this.seed = data_.random_.nextLong();
-      buildNodes(1);
+      data_ = data; seed = data_.random_.nextLong(); buildNodes(1);
     }
 
     protected final int updateFromLevel0() {
@@ -146,17 +117,17 @@ public class RF {
       // list of new level nodes
       INode[] levelNodes = new INode[nodes_.length];
       lastOffsets_ = new int[nodes_.length];
-      int nodeIndex = 0; // to which node we are adding
-      int subnodeIndex = 0; // which subtree are we setting
+      int nodeIdx = 0; // to which node we are adding
+      int subnodeIdx = 0; // which subtree are we setting
       for( int i = 0; i < nodes_.length; ++i ){
         // make sure that nodeIndex and subnodeIndex are set properly
         while( true ){
-          if(( lastNodes_[nodeIndex] == null) || (lastNodes_[nodeIndex].numClasses() <= subnodeIndex )){
-            ++nodeIndex; // move to next node
-            subnodeIndex = 0; // reset subnode index
-          }else if( lastNodes_[nodeIndex].numClasses() == 1 ){
-            ++nodeIndex;
-            assert (subnodeIndex == 0);
+          if(( lastNodes_[nodeIdx] == null) || (lastNodes_[nodeIdx].numClasses() <= subnodeIdx )){
+            ++nodeIdx; // move to next node
+            subnodeIdx = 0; // reset subnode index
+          }else if( lastNodes_[nodeIdx].numClasses() == 1 ){
+            ++nodeIdx;
+            assert (subnodeIdx == 0);
           }else{
             break;
           }
@@ -168,8 +139,8 @@ public class RF {
         // if not a leaf node, add the number of children to nodes to be constructed
         if(( n!=null) && (n.numClasses() > 1 )) newNodes += n.numClasses();
         // store the node to its proper position and increment the subnode index
-        ((Node) lastNodes_[nodeIndex]).setSubtree(subnodeIndex, n);
-        ++subnodeIndex;
+        ((Node) lastNodes_[nodeIdx]).setSubtree(subnodeIdx, n);
+        ++subnodeIdx;
       }
       // change the lastLevelNodes to the levelNodes computed
       lastNodes_ = levelNodes;
@@ -181,12 +152,10 @@ public class RF {
     protected final void buildNodes(int numNodes) {
       // if there are no new nodes to build, set current nodes to null
       if( numNodes == 0 ) { nodes_ = null; return; }
-
       nodes_ = new ProtoNode[numNodes];
       for( int i = 0; i < numNodes; ++i )
         nodes_[i] =  new ProtoNode(Statistic.make(statistic_,data_));
     }
-
     
     /**
      * Moves the decision tree to next level. This means that all current level
@@ -237,9 +206,7 @@ public class RF {
     }
   }
 
-  /** A simple runnable for parallel execution. Computes n trees. 
-   * 
-   */
+  /** A simple runnable for parallel execution. Computes n trees. */
   class BuilderProcess implements Runnable {
 
     public final int treeStart;
@@ -301,6 +268,7 @@ public class RF {
     int rem = numTrees - tpc*cores;
     int offset = 0;
     partition_ = new Partition(data_, numTrees); 
+    
     //TODO SAMPLE////////////////////////////////////////////////////////////////////// 
     trees = new ProtoTree[numTrees];
     // launch the threads
@@ -434,7 +402,6 @@ class Partition {
     rows_ = data.rows();
     nodes_ = new int[trees][]; //[rows_];
   }
-
   public int getNode(int tree, int row) { return nodes_[tree][row];  }
   public void setNode(int tree, int row, int val) {  nodes_[tree][row] =  val;  }
 
