@@ -296,8 +296,6 @@ class DataImpl extends Data {
       
       public String name() { return d_.name() + "->sampled(" + bagSize_+")"; }
       
-      public int occurrences(int row) { return occurrences_[row]; }      
-
       private void weightedSampling(DataImpl d) {
         int sz = d.rows();
         WP wp = d.wp(sz);
@@ -325,23 +323,22 @@ class DataImpl extends Data {
           sampleSize--;
         } 
       } 
-      public  int rows() { return size_; }
+      public  int rows()        { return size_; }
       public  boolean hasNext() { return offset_ < size_; }
-      public  Integer next() { advance(); return offset_; }
-      protected  int getI(int col, int idx) { throw new Error("unimpl"); }
+      public  Integer next()    { advance(); return offset_; }
+      protected  int getI(int col, int idx)    { throw new Error("unimpl"); }
       protected  double getD(int col, int idx) { throw new Error("unimpl"); } 
       public  int getI(int col) { return d_.getI(col, next_); }
-      public  double getD(int col) { return d_.getD(col, next_); }    
-      public  Data select(int from, int to) { throw new Error("not implemented yet"); }
+      public  double getD(int col)             { return d_.getD(col, next_); }    
+      public  Data select(int from, int to)    { throw new Error("not implemented yet"); }
 
     }
 
     static private class WP { double [] weights, probabilities;  }
     final WP wp_ = new WP();
-    static private double sum(double[] d) { double r=0.0; for(int i=0; i<d.length; i++) r += d[i]; return r;  }
+    static private double sum(double[] d) { double r=0.0; for(int i=0;i<d.length;i++) r+= d[i]; return r; }
     static private void normalize(double[] doubles, double sum) {
-      assert ! Double.isNaN(sum) && sum != 0;
-      for( int i = 0; i < doubles.length; i++ )  doubles[i] /= sum;
+      assert ! Double.isNaN(sum) && sum != 0; for( int i=0; i<doubles.length; i++)  doubles[i]/=sum;
     }
     /// TODO: if the weights change we have to recompute...
     WP wp(int rows_) {
@@ -433,7 +430,8 @@ abstract class Col {
 
   public String toString() {
     String res = "col("+name_+")";
-    res+= "  ["+DataImpl.df.format(min_) +","+DataImpl.df.format(max_)+"], avg=" + DataImpl.df.format(tot_/(double)sz_) + " precision=" + prec_; 
+    res+= "  ["+DataImpl.df.format(min_) +","+DataImpl.df.format(max_)+"], avg=";
+    res+= DataImpl.df.format(tot_/(double)sz_) + " precision=" + prec_; 
     return res;
   }
   static class I extends Col{
