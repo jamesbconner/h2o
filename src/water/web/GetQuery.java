@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Properties;
@@ -22,8 +18,4 @@ public class GetQuery extends H2OPage {
   @Override protected String serve_impl(Properties args) {
     return html;
   }
-  
-  
-  
-  
 }

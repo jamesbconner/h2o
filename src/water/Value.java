@@ -184,10 +184,10 @@ public class Value {
   // ---
   // Larger values are chunked into arraylets.  This is the number of chunks:
   // by default the Value is its own single chunk.
-  public int chunks() { return 1; }
-  public long chunk_offset( int chunknum ) { return chunknum << ValueArray.LOG_CHK; }
-  public Key chunk_get( int chunknum ) {
-    if( chunknum != 0 ) throw new ArrayIndexOutOfBoundsException(chunknum);
+  public long chunks() { return 1; }
+  public long chunk_offset( long chunknum ) { return chunknum << ValueArray.LOG_CHK; }
+  public Key chunk_get( long chunknum ) {
+    if( chunknum != 0 ) throw new ArrayIndexOutOfBoundsException(Long.toString(chunknum));
     return _key;                // Self-key
   }
   // Reverse the magic key to an offset
@@ -403,7 +403,7 @@ class ArrayletInputStream extends InputStream {
   // memory for the current chunk
   private byte[] _mem;
   // index of the current chunk
-  private int _chunkIndex;
+  private long _chunkIndex;
   // offset in the memory of the current chunk
   private int _offset;
   

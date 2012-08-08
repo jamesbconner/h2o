@@ -465,7 +465,7 @@ public void testUnknownData(){
         
         System.out.println("Processing chunk # "  + i);
         try {
-          ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v.chunk_get(0), v.chunks(),r, new String [] {"date","value"}, setup);          
+          ValueCSVRecords<TimeSeriesRecord> p1 = new ValueCSVRecords<TimeSeriesRecord>(v.chunk_get(0), (int)v.chunks(),r, new String [] {"date","value"}, setup);          
           InputStream is = f.exists()?new FileInputStream(f):null;
           ValueCSVRecords<TimeSeriesRecord> p2 = (is != null)?new ValueCSVRecords<TimeSeriesRecord>(is,r2, new String [] {"date","value"}, new CSVParserSetup()):null;
                     

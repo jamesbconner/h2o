@@ -1,11 +1,7 @@
 package water.web;
 import java.io.IOException;
-//import java.util.Arrays;
 import java.util.Properties;
-//import water.H2O;
-import water.Key;
-import water.DKV;
-import water.Value;
+import water.*;
 import water.csv.ValueCSVRecords;
 import water.csv.CSVParser.*;
 
@@ -29,7 +25,7 @@ public class Inspect extends H2OPage {
       return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
     }
     if (!key.user_allowed())
-      return H2OPage.wrap(H2OPage.error("Not a user key: "+ key.toString()));    
+      return H2OPage.wrap(H2OPage.error("Not a user key: "+ key_s));
     // Distributed get
     Value val = DKV.get(key);
 
@@ -46,10 +42,17 @@ public class Inspect extends H2OPage {
     response.replace("key",ks);
     response.replace("ktr",urlEncode(ks));
 
-    // Big files, give the option to chomp it all
-    if( val.chunks() > 1 ) {
-      String s = html_basic_stats.replace("%keyHref",urlEncode(new String(key._kb)));
-      response.replace("basic",s);
+    // ASCII file?  Give option to do a binary parse
+    if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
+      String s = html_parse.replace("%keyHref",urlEncode(key_s));
+      String p_key = key_s;
+      int idx = key_s.lastIndexOf('.');
+      if( idx != -1 )
+        p_key = key_s.substring(0,idx);
+      p_key += ".dat";
+      if( p_key.equals(key_s) ) p_key += "2";
+      s = s.replace("%parsekey",urlEncode(p_key));
+      response.replace("parse",s);
     }
 
     return response.toString();
@@ -157,8 +160,8 @@ public class Inspect extends H2OPage {
     + "}\n"
     + "</tbody>\n"
     + "</table>\n"
-    + "%basic";
+    + "%parse";
 
-  final static String html_basic_stats =
-    "<a href='/BasicStats?Key=%keyHref'>Compute Basic Stats</a>\n";
+  final static String html_parse =
+    "<a href='/Parse?Key=%keyHref&Key2=%parsekey'>Basic Text-File Parse into %parsekey</a>\n";
 }

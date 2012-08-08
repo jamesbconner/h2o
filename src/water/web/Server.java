@@ -106,6 +106,7 @@ public class Server extends NanoHTTPD {
     registerPage(new Inspect(),"Inspect");
     //registerPage(new PutExec(),"PutExec");
     //registerPage(new PutExecQuery(),"PutExecQuery");
+    registerPage(new Parse(),"Parse"); // Function to parse ascii dataset into binary
     registerPage(new PutFile(),"PutFile");
     registerPage(new PutQuery(),"Put");
     registerPage(new PutValue(),"PutValue");

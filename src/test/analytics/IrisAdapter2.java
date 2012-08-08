@@ -123,7 +123,7 @@ public class IrisAdapter2 extends DataAdapter {
   public IrisAdapter2(Value v) throws NoSuchFieldException, SecurityException,
       IllegalArgumentException, IllegalAccessException, CSVParseException,
       IOException {
-    this(v, 0, v.chunks() + 1);
+    this(v, 0, (int)(v.chunks() + 1));
   }
 
   public IrisAdapter2(Value v, int fromChunk, int toChunk)
@@ -136,7 +136,7 @@ public class IrisAdapter2 extends DataAdapter {
     int id = 0;
     if (v != null) {
       ValueCSVRecords<CSVRecord> p1 = new ValueCSVRecords<CSVRecord>(v.chunk_get(0),
-          v.chunks(), r, new String[] { "sl", "sw", "pl", "pw",
+          (int)v.chunks(), r, new String[] { "sl", "sw", "pl", "pw",
               "class_" }, setup);
       for (CSVRecord x : p1) {
         parsedRecords.add(new F(id++, x));

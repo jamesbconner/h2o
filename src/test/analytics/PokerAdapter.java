@@ -48,7 +48,7 @@ public class PokerAdapter extends DataAdapter {
   
   public PokerAdapter(Value v) throws NoSuchFieldException, SecurityException,
   IllegalArgumentException, IllegalAccessException, CSVParseException, IOException {
-    this(v,0,v.chunks()+1);
+    this(v,0,(int)(v.chunks()+1));
   }
   
   public PokerAdapter(Value v, int chunkFrom, int chunkTo) throws NoSuchFieldException, SecurityException,
