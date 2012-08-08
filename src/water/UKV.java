@@ -26,8 +26,8 @@ public abstract class UKV {
     // bigger or smaller than the old Value.
     if( res != null && res.type() == 'A' ) {
       ValueArray ary = (ValueArray)res;
-      final int chunks = ary.chunks();
-      for( int i=0; i<chunks; i++ ) // Delete all the chunks
+      final long chunks = ary.chunks();
+      for( long i=0; i<chunks; i++ ) // Delete all the chunks
         DKV.remove(ary.chunk_get(i));
     }
     if( res != null ) res.free_mem();
@@ -39,9 +39,9 @@ public abstract class UKV {
     if( val == null ) return;    // Trivial delete
     if( val.type() == 'A' ) {    // See if this is an Array
       ValueArray ary = (ValueArray)val;
-      final int chunks = ary.chunks();
+      final long chunks = ary.chunks();
       // Delete all chunks
-      for( int i=0; i<chunks; i++ ) // Delete all the chunks
+      for( long i=0; i<chunks; i++ ) // Delete all the chunks
         DKV.remove(ary.chunk_get(i));
     }
     DKV.remove(key);
