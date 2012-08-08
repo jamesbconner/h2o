@@ -30,9 +30,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
   enum DataType {
     typeNull, typeInt, typeFloat, typeDouble, typeString
-  };
-
-  
+  };  
   
   public final class CSVString implements CharSequence, Comparable<String>{
     long _offset;
@@ -41,38 +39,66 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     public CSVString() {}
     public CSVString(long offset, int length) {_offset = offset; _length = length;}
     
-    public String toString(){
-      int chunkIdx = (int)(_offset >> ValueArray.LOG_CHK);
-      int chunkOffset = (int)(_offset & ((1 << ValueArray.LOG_CHK) -1));
+//    private int chunkIdx(){
+//      int idx = (int)(_offset >> ValueArray.LOG_CHK);
+//      if((idx == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
+//        return idx - 1; // the last chunk can be larger!
+//      }
+//      return idx;
+//    }
+    
+    private int[] chunkIdxAndOffset(){
+      int [] res = new int[2];
+      res[1] = (int)(_offset & ((1 << ValueArray.LOG_CHK) -1));
+      res[0] = (int)(_offset >> ValueArray.LOG_CHK);
+      if((res[0] == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
+        res[0] -= 1;
+        res[1] += 1 << ValueArray.LOG_CHK;
+      }
+      return res;
+    }
+    
+    
+    private byte [] data(int chunkIdx, int len){      
+      int currentChunkIdx = (int)(_currentOffset >> ValueArray.LOG_CHK);
+      if(chunkIdx == currentChunkIdx){
+        return _data;
+      }
+      if(chunkIdx == _nextChunkIdx)                
+        return _nextData;                 
+      // we do not have the chunk loaded anymore...find it and load it
       Key k = ValueArray.getChunk(_key,chunkIdx);
-      Value v = DKV.get(k);
-      byte [] res = v.get(chunkOffset + _length);
+      Value v = DKV.get(k);      
+      return v.get(len);      
+    }
+            
+    public String toString(){  
+      int [] arr = chunkIdxAndOffset();
+      int chunkIdx = arr[0];
+      int chunkOffset = arr[1];
+      byte [] res = data(chunkIdx,chunkOffset + _length);
+      if(res == null)
+        System.out.println("*");
       if(res.length >= (chunkOffset + _length)){
         return new String(res,chunkOffset,_length);
-      } else { // we need another chunk
-        k = ValueArray.getChunk(_key,chunkIdx+1);
-        v = DKV.get(k);
+      } else { // we need another chunk        
         int len = chunkOffset + _length - res.length;
-        byte [] res2 = v.get(len);
+        byte [] res2 =  data(chunkIdx+1,len);
         return new String(res,chunkOffset, res.length - chunkOffset) + new String(res2,0,len);
       }      
     }
 
     public char charAt(int i) {
-      int chunkIdx = i + (int)(_offset >> ValueArray.LOG_CHK);
-      int chunkOffset = (int)(_offset & ((1 << ValueArray.LOG_CHK) -1));
-      Key k = ValueArray.getChunk(_key,chunkIdx);
-      Value v = DKV.get(k);
-      byte [] res = v.get(chunkOffset);
-      if(res.length > (chunkOffset)){
-        return (char)res[chunkOffset];
-      } else { // we need another chunk
-        k = ValueArray.getChunk(_key,chunkIdx+1);
-        v = DKV.get(k);
-        byte [] res2 = v.get(chunkOffset-res.length+1);
-        return (char)res2[chunkOffset - res.length];
-      }      
+      int [] arr = chunkIdxAndOffset();
+      int chunkIdx = arr[0];
+      int chunkOffset = arr[1] + i;
+      byte [] d = data(chunkIdx,chunkOffset+1);
+      if(chunkOffset < d.length) return (char)d[chunkOffset];
+      chunkOffset -= d.length;
+      d = data(chunkIdx+1,chunkOffset+1);
+      return (char)d[chunkOffset];
     }
+    
     int columns(){return _column;}
 
     public int length() {
@@ -83,32 +109,31 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       return new CSVString(_offset + start, end - start);
     }
 
-    public int compareTo(byte [] bytes){      
-      int chunkIdx = (int)(_offset >> ValueArray.LOG_CHK);
-      int chunkOffset = (int)(_offset & ((1 << ValueArray.LOG_CHK) -1));
-      Key k = ValueArray.getChunk(_key,chunkIdx);
-      Value v = DKV.get(k);
-      byte [] data = v.get(chunkOffset);
-      int len = Math.min(_length, bytes.length);
+    public int compareTo(byte [] bytes){   
+      int [] arr = chunkIdxAndOffset();
+      int chunkIdx = arr[0];
+      int chunkOffset = arr[1];
+      byte [] data = data(chunkIdx,chunkOffset + _length);
       
+      int mylen = Math.min(_length, data.length - chunkOffset);
+      int N = Math.min(mylen,bytes.length);
       int res = 0;
-      if(data.length > (chunkOffset + len)){        
-        for(int i = 0; i < len; ++i){
-          if((res = (data[i] - bytes[chunkOffset + i])) != 0) return res;
-        }                
-      } else { // we need another chunk
-        for(int i = chunkOffset; i < data.length; ++i){
-          if((res = (data[i] - bytes[i])) != 0) return res;
-        }
-        int off = data.length - chunkOffset;         
-        k = ValueArray.getChunk(_key,chunkIdx+1);
-        v = DKV.get(k);
-        byte [] data2 = v.get(len-off);
-        for(int i = 0; i < (len-off); ++i){
-          if((res = (data2[i] - bytes[off+i])) != 0) return res;
-        }
-      }      
-      return (_length - bytes.length);
+      int i = 0;
+      for(; i < N; ++i){
+        if((res = (data[i+chunkOffset] - bytes[i])) != 0) return res;
+      }
+      if(mylen == _length) { // do we cross boundary?
+        return _length - bytes.length;
+      }
+      int firstChunkLen = data.length;
+      // compare the rest of the string
+      mylen = _length - mylen;
+      data = data(chunkIdx+1,mylen);
+      N = Math.min(mylen,bytes.length);
+      for(; i < N; ++i){
+        if((res = (data[i+chunkOffset-firstChunkLen] - bytes[i])) != 0) return res;
+      }
+      return _length - bytes.length;      
     }
     
 
@@ -156,22 +181,51 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   // parsing state
   boolean _skipRecord;
   int _fieldStart;
+  int _fieldEnd;
   int _recordStart;
   int _state;
   int _column;
 
   int _nextChunkIdx;
   long _currentOffset;
+  long _nextOffset;
   int _length;
   
   
 
-  CSVString [] _columnNames;
+  String [] _columnNames;
   
   FloatingDecimal _floatingDecimal = new FloatingDecimal(false, 0, new char[64], 0, false);
   
   int _ival;
 
+  public String [] columnNames(){
+    return _columnNames;
+  }
+  
+  public static String [] getColumnNames(Key k){
+    Value v = DKV.get(k);
+    byte [] data = v.get(1024*128);
+    if(v instanceof ValueArray){
+      k = v.chunk_get(0);
+      Value v2 = DKV.get(k);
+      data = v2.get(1024*128);
+    }
+    return getColumnNames(data);
+  } 
+  
+  public static String [] getColumnNames(byte [] data) {
+    CSVParserKV.CSVString [] names = new CSVParserKV.CSVString [getNColumns(data)];
+    CSVParserKV<CSVParserKV.CSVString []> p = new CSVParserKV<CSVParserKV.CSVString []>(data,names,null);
+    if(!p.hasNext()) return null; 
+    p.next();
+    String [] res = new String[p._column]; 
+    for(int i = 0; i < names.length; ++i){
+      res[i] = names[i].toString();
+    }    
+    return res;
+  }
+  
   public static int getNColumns(Key k){
     Value v = DKV.get(k);
     byte [] data = v.get(1024*128);
@@ -255,11 +309,15 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       _strFields = strFields.toArray(_strFields);
     }        
     if(_setup.parseColumnNames){
-      _columnNames = new CSVParserKV.CSVString[_columnTypes.length];
+      CSVParserKV.CSVString[] columnNames = new CSVParserKV.CSVString[_columnTypes.length];
       _setup.parseColumnNames = false;
       _setup.skipFirstRecord = false;
-      CSVParserKV<CSVString[]> p = new CSVParserKV<CSVString[]>(_data,_columnNames,null,_setup);      
+      CSVParserKV<CSVString[]> p = new CSVParserKV<CSVString[]>(_data,columnNames,null,_setup);      
       p.next();
+      _columnNames = new String[_columnTypes.length];
+      for(int i = 0; i < _columnNames.length; ++i){
+        _columnNames[i] = columnNames[i].toString();
+      }
       _setup.parseColumnNames = true;
       _dataPtr = p._dataPtr;
     } 
@@ -494,8 +552,14 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     if (res && _column < _columnTypes.length) {
       switch (_setup.partialRecordPolicy) {
       case FILL_PARTIAL_RECORDS_WITH_DEFAULTS:
-        for (int i = _column; i < _columnTypes.length; ++i)
-          endField(_dataPtr,_dataPtr);       
+        int col = _column;
+        _fieldStart = _dataPtr;
+        _fieldEnd = _dataPtr-1;
+        // fill in the default values for the remaining columns
+        for (int i = _column; i < _columnTypes.length; ++i){
+          endField();
+        }
+        _column = col; //preserve the number of columns we actually did parse
         break;
       case DROP_PARTIAL_RECORDS:
         res = false;
@@ -514,25 +578,25 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     return res;
   }
 
-  private void endField(int from, int to) throws IllegalArgumentException, IllegalAccessException{    
+  private void endField() throws IllegalArgumentException, IllegalAccessException{    
     if(!_skipRecord && (_column < _columnTypes.length)){
       switch(_columnTypes[_column]){
       case typeInt:
-        int ival = (parseInt(from,to,10))?_ival:_setup.defaultInt;
+        int ival = (parseInt(_fieldStart,_fieldEnd,10))?_ival:_setup.defaultInt;
         if(_isArray) 
           Array.setInt(_csvRecord, _column, ival); 
         else 
           _fields[_column].setInt(_csvRecord, ival);
         break;
       case typeFloat:
-        float fval = (parseFloat(from,to))?_floatingDecimal.floatValue():_setup.defaultFloat;
+        float fval = (parseFloat(_fieldStart,_fieldEnd))?_floatingDecimal.floatValue():_setup.defaultFloat;
         if(_isArray) 
           Array.setFloat(_csvRecord, _column, fval); 
         else 
           _fields[_column].setFloat(_csvRecord, fval);
         break;
       case typeDouble:
-        double dval = (parseFloat(from,to))?_floatingDecimal.doubleValue():_setup.defaultDouble;
+        double dval = (parseFloat(_fieldStart,_fieldEnd))?_floatingDecimal.doubleValue():_setup.defaultDouble;
         if(_isArray) 
           Array.setDouble(_csvRecord, _column, dval); 
         else 
@@ -541,10 +605,11 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       case typeString:
       {
         int stringIdx = 0;
+        
         for(int i = 0; i < _column; ++i) 
           if(_columnTypes[i] == DataType.typeString) ++stringIdx;
         _strFields[stringIdx]._offset = _currentOffset + _fieldStart;
-        _strFields[stringIdx]._length = to - from; 
+        _strFields[stringIdx]._length = _fieldEnd - _fieldStart + 1; 
       }
         break;
       }                 
@@ -565,13 +630,14 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       return false;
     _dataPtr -= _data.length;
     _data = _nextData;
+    _currentOffset = _nextOffset;
     //System.out.println("processing chunk " + _nextChunkIdx);
     ++_nextChunkIdx;
     Key k = ValueArray.getChunk(_key, _nextChunkIdx);
     Value v = DKV.get(k);
     if (v != null){
       _nextData = (_nextChunkIdx == _maxChunkIdx) ? v.get(1024) : v.get();
-      _currentOffset = ValueArray.getOffset(k);
+      _nextOffset = ValueArray.getOffset(k);
     } else _nextData = null;
     _length = _data.length + ((_nextData == null) ? 0 : _nextData.length);
     return true;
@@ -625,17 +691,22 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
             break;
           case '"':
             _state = STATE_QUOTED;
+            _fieldStart = _dataPtr+1;
             break;
           default:
-            if (isSeparator(c))              
-                endField(_fieldStart,_dataPtr);            
+            _fieldEnd = _dataPtr;
+            if (isSeparator(c)){
+                endField();         
+            }
             else if(!Character.isWhitespace(c))
-              _state = STATE_NONQUOTEDFIELD;
+              _state = STATE_NONQUOTEDFIELD;            
           }
           break;
         case STATE_QUOTED:
-          if (c == '"')
+          if (c == '"'){
             _state = STATE_ENDQUOTE;
+            _fieldEnd = _dataPtr-1;
+          }
           break;
         case STATE_ENDQUOTE:
           if (c == '"') {
@@ -644,11 +715,11 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           } else
             _state = STATE_AFTER_QUOTED; // fall through
         case STATE_AFTER_QUOTED:
-          if (c == '\n') {                        
-            endField(_fieldStart, getFieldEnd());
+          if (c == '\n') {     
+            endField();
             recordFinished = endRecord();
           } else if ((c == _setup.separator) || (Character.isWhitespace(c) && _setup.whiteSpaceSeparator)) {
-            endField(_fieldStart,_dataPtr);         
+            endField();         
           } else 
             if((c != '\r') && !Character.isWhitespace(c)) throw new Error("illegal character after quoted field: '" + c + "'");
           break;
@@ -657,11 +728,13 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
             throw new Error(
                 "field quoted after non-whitespace characters have been read");
           if (c == '\n') {
-            endField(_fieldStart, getFieldEnd());
+            _fieldEnd = getFieldEnd(); // check for previous \r            
+            endField();
             recordFinished = endRecord();
           } else if (isSeparator(c)) {
-            endField(_fieldStart,_dataPtr);
-          } 
+            endField();
+          } else
+            _fieldEnd = _dataPtr;
         }
         ++_dataPtr;
       }
