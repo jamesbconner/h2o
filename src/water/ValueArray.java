@@ -288,14 +288,23 @@ public class ValueArray extends Value {
   static private final int META_COL_SIZE = PAD0_COL_OFF+3;
 
   // internal convience class for building structured ValueArrays
-  static class Column {
-    String _name;
-    double _base, _scale;       // Actual value is (stored_value*scale+base)
-    double _min, _max;          // Min/Max per column; requires a 1st pass to discover
-    int _off;                   // Offset of column data within row
-    byte _size;                 // Size -1,2,4 or 8 bytes, or -4,-8 for float/double data
+  static public class Column {
+    public String _name;
+    public double _base, _scale; // Actual value is (stored_value*scale+base)
+    public double _min, _max; // Min/Max per column; requires a 1st pass to discover
+    public int _off;          // Offset of column data within row
+    public byte _size; // Size is 1,2,4 or 8 bytes, or -4,-8 for float/double data
+    
+    public Column() {
+      _base = 0.0;
+      _scale = 1.0;
+      _min = Double.MAX_VALUE;
+      _max = Double.MIN_VALUE;
+    }
 
-    int write( byte[] buf, int off ) {
+    static public int wire_len() { return META_COL_SIZE; }
+
+    public int write( byte[] buf, int off ) {
       UDP.set8(buf,off+ BASE_COL_OFF,_base);
       UDP.set8(buf,off+SCALE_COL_OFF,_scale);
       UDP.set8(buf,off+  MAX_COL_OFF,_max);
@@ -305,6 +314,17 @@ public class ValueArray extends Value {
                buf[off+ SIZE_COL_OFF]=_size;
       //                PAD0_COL_OFF is never filled in
       return off+META_COL_SIZE;
+    }
+
+    static public Column read( byte[] buf, int off ) {
+      Column col = new Column();
+      col._base  = UDP.get8(buf,off+ BASE_COL_OFF);
+      col._scale = UDP.get8(buf,off+SCALE_COL_OFF);
+      col._max   = UDP.get8(buf,off+  MAX_COL_OFF);
+      col._min   = UDP.get8(buf,off+  MIN_COL_OFF);
+      col._off   = UDP.get2(buf,off+  OFF_COL_OFF);
+      col._size  =          buf[off+ SIZE_COL_OFF];
+      return col;
     }
   }
 
