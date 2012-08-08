@@ -1,5 +1,7 @@
 package hexlytics;
 
+import hexlytics.Data.Int;
+
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +13,9 @@ import java.util.Random;
  * right.
  * @author jan
  */
-public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
+public abstract class Data  implements Iterable<Int>, Iterator<Int> {
+  public static class Int { int _; private Int(int v_) { _=v_; } }
+  public final Int next = new Int(0);
   
   private static long SEED_;
   public static Random RANDOM = new Random(42);
@@ -34,9 +38,9 @@ public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
   public abstract String name();
   public abstract int classOf();
   public abstract int classes();
-  public  Iterator<Integer> iterator() { return this; }
+  public  Iterator<Int> iterator() { return this; }
   public abstract boolean hasNext();
-  public abstract Integer next();
+  public abstract Int next();
   public  void remove() { throw new Error("Unsported"); }
   public abstract Data seek(int idx);
   public abstract Data select(int from, int to);
@@ -97,7 +101,7 @@ public abstract class Data  implements Iterable<Integer>, Iterator<Integer> {
     public  int classOf() { return d_.classOf(); }
     public  int classes() { return d_.classes(); }
     public  boolean hasNext() { return d_.hasNext(); }
-    public  Integer next() { return d_.next(); }
+    public  Int next() {  next._=d_.next()._; return next; }
     public  Data seek(int idx) { return d_.seek(idx);}
     public  Data select(int from, int to) { return d_.select(from, to);}
     public  void addRow(double[] v){  d_.addRow(v);   }
@@ -122,7 +126,6 @@ class DataImpl extends Data {
     
     private Col[] c_;
     private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
-    private int next_;
     private String name_="";
     private int classIdx_;
     private boolean frozen_;
@@ -225,18 +228,18 @@ class DataImpl extends Data {
     }
     public int columns() { return c_.length; }
     public int rows() { return c_.length == 0 ? 0 : c_[0].sz_; }
-    public int classOf() { return c_[classIdx_].getI(next_); }
+    public int classOf() { return c_[classIdx_].getI(next._); }
     public int classes() {         
         if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
         if (numClasses_==-1)
             numClasses_= c_[classIdx_].distribution().length;
         return numClasses_;
     }
-    public Iterator<Integer> iterator() { return this; }
-    public boolean hasNext() { return c_.length>0 && next_ > c_[0].sz_; } 
-    public Integer next() { return next_++; }
+    public Iterator<Int> iterator() { return this; }
+    public boolean hasNext() { return c_.length>0 && next._ > c_[0].sz_; } 
+    public Int next() { next._++; return next; }
     public void remove() { throw new Error("Unsported"); }
-    public Data seek(int idx) { assert c_.length>0 && idx > c_[0].sz_;  next_ = idx; return this; }
+    public Data seek(int idx) { assert c_.length>0 && idx > c_[0].sz_;  next._ = idx; return this; }
     public  String colName(int c)  { return c_[c].name_; }
     public  double colMin(int c)  { return c_[c].min_; }    
     public  double colMax(int c)  { return c_[c].max_; }
@@ -254,82 +257,56 @@ class DataImpl extends Data {
       return new Sample(this,bagSize); // NOT WORKING... :-)
     }
     
+    //////////////////////////////////////////////////////////////////////////////////////////////////
     static class Sample extends Data.Wrap {
-     
-      /* Per-tree count of how many time the row occurs in the sample */
-      final byte[] occurrences_;
+          
+      int[] permutation_; // index of original rows
       double bagSize_; // proportion of originals
       int size_; // size of the sample
-      int next_;  // where we are in the actual data
-      int rep_;  // since an observation can occur multiple times
-      int offset_; // logical offset
+      int seed_; // the seed used for sampling
+      
       public Sample(DataImpl data, double bagSize) {        
         super(data);
-        this.bagSize_ = bagSize;
-        occurrences_ = new byte[data.rows()];
-        weightedSampling(data);
-        while(occurrences_[next_++]==0);
+        bagSize_ = bagSize;
+        size_ =(int)( data.rows() * bagSize_); 
+        permutation_ = new int[size_];
+        random_.setSeed(seed_=random_.nextInt()); // record the seed if we ever want to replay this tree 
+        weightedSampling(data);        
       }
 
-      void advance() {
-        offset_++;
-        if (occurrences_[next_] != 0) {
-          if (occurrences_[next_] == ++rep_) {
-            rep_=0;next_++;
-            while(occurrences_[next_]== 0) next_++;
-          }
-        } else {
-          rep_=0;next_++;
-          while(occurrences_[next_]== 0) next_++;
-        }
-      }
-      public  Data seek(int idx) { 
-        int steps = idx - offset_;
-        if (steps>0) {
-          while(steps-->0) advance();
-        } else if (steps<0) {
-          rep_=0; next_=0; offset_=0;
-          while(idx-->0) advance();
-        }
-        return this;
-      }
+      public  Data seek(int idx) { next._ = idx; return this; }  
       
-      public String name() { return d_.name() + "->sampled(" + bagSize_+")"; }
+      public String name() { return d_.name() + "->sampled(" + bagSize_+","+seed_+")"; }
       
       private void weightedSampling(DataImpl d) {
         int sz = d.rows();
         WP wp = d.wp(sz);
+        byte[] occurrences_ = new byte[sz];
         double[] weights = wp.weights, probabilities = wp.probabilities;
         int k = 0, l = 0, sumProbs = 0;
         while( k < sz && l < sz ){
           assert weights[l] > 0;
           sumProbs += weights[l];
-          while( k < sz && probabilities[k] <= sumProbs ){ occurrences_[l]++; k++; }
+          while( k < sz && probabilities[k] <= sumProbs ){  occurrences_[l]++; k++; }
           l++;
         }
-        int sampleSize = 0;
-        for( int i = 0; i < sz; i++ ) sampleSize += (int) occurrences_[i];
-        size_ = (int) (sz * bagSize_);
-        assert (size_ > 0 && sampleSize > 0);
-        while( size_ < sampleSize ){
-          int offset = d.random_.nextInt(sz);
+        for(int i=0;i<permutation_.length;i++) {
+          int offset = random_.nextInt(sz);
           while( true ){
-            if( occurrences_[offset] != 0 ){
-              occurrences_[offset]--;
-              break;
-            }
+            if( occurrences_[offset] != 0 ){occurrences_[offset]--; break; }
             offset = (offset + 1) % sz;
           }
-          sampleSize--;
-        } 
+          permutation_[i] = offset;
+          
+        }
       } 
       public  int rows()        { return size_; }
-      public  boolean hasNext() { return offset_ < size_; }
-      public  Integer next()    { advance(); return offset_; }
+      public  boolean hasNext() { return next._ < size_; }
+      public  Int next()    { next._++; return next; }
       protected  int getI(int col, int idx)    { throw new Error("unimpl"); }
       protected  double getD(int col, int idx) { throw new Error("unimpl"); } 
-      public  int getI(int col) { return d_.getI(col, next_); }
-      public  double getD(int col)             { return d_.getD(col, next_); }    
+      public  int getI(int col) { return d_.getI(col, next._); }
+      public  double getD(int col)             { return d_.getD(col, next._); }    
       public  Data select(int from, int to)    { throw new Error("not implemented yet"); }
 
     }
@@ -365,12 +342,12 @@ class DataImpl extends Data {
     }
     public void getRow(double[] v) { 
       assert v.length==c_.length;
-      for(int i=0;i<v.length;i++) v[i] = c_[i].getD(next_);
+      for(int i=0;i<v.length;i++) v[i] = c_[i].getD(next._);
     }
     protected int getI(int col, int idx) { return c_[col].getI(idx); }
     protected double getD(int col, int idx) { return c_[col].getD(idx); }
-    public int getI(int col) { return c_[col].getI(next_); }
-    public double getD(int col) { return c_[col].getD(next_); }
+    public int getI(int col) { return c_[col].getI(next._); }
+    public double getD(int col) { return c_[col].getD(next._); }
     public String toString() {
       String res = super.toString();
       res +="========\n";
