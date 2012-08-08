@@ -179,21 +179,19 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
   }
   
   public class View extends Wrap {
-    View(Data d) { super(d); throw new Error("Unsopported!"); }
-    @Override
-    public void getRow(int col, double[] v) {
-      // TODO Auto-generated method stub      
-    }
-    @Override
-    protected int getI(int col, int idx) {
-      // TODO Auto-generated method stub
-      return 0;
-    }
-    @Override
-    protected double getD(int col, int idx) {
-      // TODO Auto-generated method stub
-      return 0;
-    }    
+    View(Data d) { super(d); }
+    public  int classOf()          { return d_.classOf(); }
+    public  boolean hasNext()      { return next._< d_.rows(); }
+    public  Int next()             {  next._++; return next; }
+    public  Data seek(int idx)     { next._=idx;return this; }
+    public  void addRow(double[] v){  d_.addRow(v);   }
+    public  void getRow(double[] v){  d_.getRow(v); }
+    public  int getI(int col)      { return d_.getI(next._,col); }
+    public  double getD(int col)   { return d_.getD(next._,col); }
+    public String toString()       { return d_.toString(); }
+    public void getRow(int col, double[] v) { d_.getRow(col,v); }
+    protected int getI(int col, int idx) { return d_.getI(col,idx); }
+    protected double getD(int col, int idx) { return d_.getD(col,idx); }
   }
 }
 

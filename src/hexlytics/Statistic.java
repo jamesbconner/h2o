@@ -47,8 +47,6 @@ class Numeric extends Statistic {
   private final Data data;  // data
   private final ColumnStatistic[] columns_;  //columns for which the averages are computed
   
-
-  
   /** Hold information about a split. */
   static class SplitInfo {
     final int column; final double value, fitness;    
