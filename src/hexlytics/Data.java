@@ -181,8 +181,8 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
     public  int    colPre(int c)   { return d_.colPre(c); }    
     public String[] columnNames()  { return d_.columnNames(); }
     public String classColumnName(){ return d_.classColumnName(); }
-    public String toString() { //d_= d_.materialize();
-      return d_.toString(); }
+   // public String toString() { //d_= d_.materialize();
+    // d_.toString(); }
   }
   
   public class View extends Wrap {
@@ -632,9 +632,21 @@ class Sample extends Data.Wrap {
     weightedSampling(data);        
   }
 
+  public Data complement() {
+    int[] orig = new int[data_.rows()];
+    for(int i=0;i<permutation_.length;i++) orig[permutation_[i]]=-1;
+    int sz=0;
+    for(int i=0;i<orig.length;i++) if(orig[i]!=-1) sz++;    
+    Subset s = new Subset(data_,sz);
+    for(int i=0;i<orig.length;i++) if(orig[i]!=-1) s.add(i);     
+    return s;
+  }
+  
   public  Data seek(int idx) { next._ = idx; return this; }  
   
   public String name() { return d_.name() + "->sampled(" + bagSize_+","+seed_+")"; }
+  
+  public Data materialize() { return this; } // NO OP for now; fixme
   
   private void weightedSampling(Data d) {
     int sz = d.rows();
@@ -660,7 +672,6 @@ class Sample extends Data.Wrap {
     for(int i=0;i<occurrences_.length;i++) if (occurrences_[i]==0) data_.add(i);
   }
   
-  public  Data complement()                { return data_; }
   public  int rows()                       { return size_; }
   public  boolean hasNext()                { return next._ < size_-1; }
   public  Int next()                       { next._++; return next; }

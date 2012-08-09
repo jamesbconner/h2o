@@ -1,13 +1,13 @@
 package hexlytics;
 
 import hexlytics.Data.Int;
-import analytics.Utils;
 
 /**
  *
  * @author peta
  */
 public class RF { 
+  static double BAGSIZE = 0.70;
   private INode tree_;
   Data data_;
   long time_;
@@ -80,43 +80,16 @@ public class RF {
    public void set(int direction, INode n) { if (direction==0) l_=n; else throw new Error("Unsupported"); }
  }
   
-  
-  double BAGSIZE = 0.70;
-   
 
-  /** OutOfBag computation on a subset of rows for parallel execution. 
-   * 
-   */
-  class OOBProcess extends Thread {
-
-    double err = 0;
-    double oobc = 0;
-    
-    
-
-    public void run(INode[] trees, Data d) {
-
-      int[] votes = new int[d.classes()];
-      double[] v = new double[d.columns()];
-      d.seek(0);
-      for(Int it : d) {      
-        d.getRow(v);
-        for (int i = 0; i< votes.length; ++i) votes[i] = 0;
-        int cnt = 0;
-        for (INode t : trees) {
-          votes[t.classify(v)]++;
-          cnt++;
-        }
-        if (cnt==0) continue; // don't count training data
-        oobc += d.weight();
-        if (Utils.maxIndex(votes, d.random_) != d.classOf())  err += d.weight();
-      }
-    }
-    
+  public void classify(Data d, int[][] score) {
+    d.seek(0);
+    double[] v = new double[d.columns()];
+    for(Int it: d) {
+      d.getRow(v);
+      int c = tree_.classify(v);
+      score[it._][c]++;
+    }    
   }
-  
- 
-  
 }
 
 

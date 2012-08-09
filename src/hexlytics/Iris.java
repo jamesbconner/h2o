@@ -17,8 +17,14 @@ public class Iris {
     Data d = new Iris().iris.shrinkWrap();
     System.out.println(d);
     System.out.println("Computing trees...");
-    RF rf = new RF(d);
+    Data train = d.sampleWithReplacement(.7);
+    Data valid = train.complement();
+    RF rf = new RF(train);
     rf.compute();
+    System.out.println("Train\n"+train);
+    System.out.println("Valid\n"+valid);
+    int[][] score = new int[valid.rows()][valid.classes()];
+    rf.classify(valid, score);
     System.out.println("Done...");
     
     
