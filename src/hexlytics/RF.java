@@ -37,7 +37,7 @@ public class RF {
     if (numClasses==1) {
       n.set(direction, new LeafNode(c.classOf()));
     } else {
-      Node nd = new Node(c.column(),c.value(),c.classOf());
+      Node nd = new Node(c.column(),c.value());
       n.set(direction, nd);
       Data ld = d.filter(c,0);
       compute(ld,nd,0);
@@ -48,16 +48,16 @@ public class RF {
   
 
   static abstract class INode  {    
-    int class_ = -1;    // A category reported by the inner node
     int navigate(double[]_) { return -1; }
-    int classOf() { return class_; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
-    public int classify(double[] v) { return class_; }
+    abstract int classify(double[] v);
  }
  
  /** Leaf node that for any row returns its the data class it belongs to. */
  static class LeafNode extends INode {    
-   LeafNode(int c)  { class_ = c; }
+    int class_ = -1;    // A category reported by the inner node
+    LeafNode(int c)  { class_ = c; }
+    public int classify(double[] v) { return class_; }
  }
 
  
@@ -67,14 +67,14 @@ public class RF {
    final int column_;
    final double value_;
    INode l_, r_;
-   public Node(int column, double value, int cl) { column_=column; value_=value; class_ = cl;  }
+   public Node(int column, double value) { column_=column; value_=value;  }
    public int navigate(double[] v)  { return v[column_]<=value_?0:1; }
    public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
  }
   
  static class Root extends Node {
-   Root() { super(-1,0,-1); }
+   Root() { super(-1,0); }
    public int navigate(double[]_) { return 0; }
    public int classify(double[] v) { return l_.classify(v); }
    public void set(int direction, INode n) { if (direction==0) l_=n; else throw new Error("Unsupported"); }

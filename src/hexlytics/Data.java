@@ -39,7 +39,7 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
   public abstract int classOf();
   public abstract int classOf(int idx);
   public abstract int classes();
-  public  Iterator<Int> iterator() { return this; }
+  public  Iterator<Int> iterator() { next._ = -1; return this; }
   public abstract boolean hasNext();
   public abstract Int next();
   public  void remove() { throw new Error("Unsported"); }
@@ -514,7 +514,7 @@ class Subset extends Data.Wrap {
   public  Data seek(int idx)               { next._ = idx; return this; }  
   public String name()                     { return d_.name() + "->subset"; }
   public  int rows()                       { return size_; }
-  public  boolean hasNext()                { return next._ < size_; }
+  public  boolean hasNext()                { return next._ < size_-1; }
   public  Int next()                       { next._++; return next; }
   protected  int getI(int col, int idx)    { return d_.getI(col,permutation_[idx]); }
   protected  double getD(int col, int idx) { return d_.getD(col,permutation_[idx]); }
@@ -536,15 +536,17 @@ class Filter extends Subset {
     double[] v = new double[d.columns()];
     for(Int it : d) {
       d.getRow(v);
-      if (c.navigate(v)==direction) count++;
-      else permutation_[it._] = -1; 
+      if (c.navigate(v)==direction)
+        count++;
+      else
+        permutation_[it._] = -1; 
     }
     int[] tmp = new int[count];
     int off=0;
     for(int i=0;i<permutation_.length;i++)
       if (permutation_[i]!=-1) tmp[off++]=i;
     permutation_ = tmp;
-    size_= permutation_.length;
+    size_= tmp.length;;
   }
 }
 

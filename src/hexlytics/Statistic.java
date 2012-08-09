@@ -98,10 +98,14 @@ class Numeric extends Statistic {
     Split best = null;
     for (Column c: columns_) {
       Split s = c.split();
-      if (s.betterThan(best)) best = s;
+      if (s!=null)
+        if (s.betterThan(best)) best = s;
     }
     //for all chosen columns, all observations have the same values and 
     //no split was selected. In this case we give up and create a Const node. 
+    
+    // PETA how about looking at the other columns? 
+    
     if (best==null) {
       double max = 0; int index= 0;   vs = columns_[0].dists[1];
       for (int j = 0; j<vs.length;++j) if (vs[j]>max) {index=j; max=vs[j];}
@@ -123,7 +127,7 @@ class Numeric extends Statistic {
     for(Int it: data)
       for (Column c : columns_) {
 //        System.out.println(data.classOf());
-        data.classOf();
+//        data.classOf();
         c.add(data.classOf(),data.weight());
       }
   }
