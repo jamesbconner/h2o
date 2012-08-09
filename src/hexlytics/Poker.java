@@ -42,15 +42,19 @@ public class Poker {
         System.out.println("file not found!");
         continue;
       }
-      Poker p = new Poker(f);
-      Data d = p.poker.shrinkWrap().select(0, 100);
+      Poker p = new Poker(f);         
+      Data d = p.poker.shrinkWrap(); d.freeze();
       System.out.println(d);
-      System.out.println(d.head(10));
-      
-      
-      d = d.sampleWithReplacement(0.5).sampleWithReplacement(0.5).sort(0);
-      System.out.println(d);
-      System.out.println(d.head(10));
+      System.out.println("Computing trees...");
+      Data train = d.sampleWithReplacement(.6);
+      Data valid = train.complement();
+      int[][] score = new int[valid.rows()][valid.classes()];
+      for(int i=0;i<1000;i++) {
+        RF rf = new RF(train);
+        rf.compute();
+        rf.classify(valid, score);
+        System.out.println("error = "+RF.score(valid, score));
+      } 
     }
   }
 

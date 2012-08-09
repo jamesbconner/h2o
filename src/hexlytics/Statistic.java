@@ -125,10 +125,7 @@ class Numeric extends Statistic {
     v_=new double[data.columns()];
     data.seek(0);
     for(Int it: data)
-      for (Column c : columns_) {
-//        System.out.println(data.classOf());
-//        data.classOf();
+      for (Column c : columns_) 
         c.add(data.classOf(),data.weight());
-      }
   }
  }

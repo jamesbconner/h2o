@@ -7,7 +7,6 @@ import hexlytics.Data.Int;
  * @author peta
  */
 public class RF { 
-  static double BAGSIZE = 0.70;
   private INode tree_;
   Data data_;
   long time_;
@@ -15,16 +14,15 @@ public class RF {
   boolean verbose = true;
   
   public RF(Data data) {  
-    data_=data.shrinkWrap(); data_.freeze(); 
-    if(verbose) System.out.println("Input data \n"+data_+"\n");
+    data_=data; 
+    if(verbose) System.out.println("Input data \n"+data_.materialize()+"\n");
   }
     
 
   public void compute() { 
     long t = System.currentTimeMillis(); 
-    Data sample =  data_.sampleWithReplacement(BAGSIZE);
     tree_ = new Root();
-    compute(sample,tree_,0);    
+    compute(data_,tree_,0);    
     time_ = System.currentTimeMillis()-t;
   }
   
@@ -32,8 +30,7 @@ public class RF {
   void compute(Data d, INode n, int direction) {
     Statistic s = Statistic.make(statistic_, d);  
     Classifier c = s.classifier();
-    int numClasses = c.numClasses();
-    
+    int numClasses = c.numClasses();     
     if (numClasses==1) {
       n.set(direction, new LeafNode(c.classOf()));
     } else {
@@ -89,6 +86,18 @@ public class RF {
       int c = tree_.classify(v);
       score[it._][c]++;
     }    
+  }
+  
+  public static double score(Data d, int[][]score) {
+    d.seek(0);
+    int right=0, wrong =0;
+    for(Int it: d) {
+      int c = d.classOf();
+      int[]votes = score[it._];
+      for(int i=0;i<d.classes();i++) 
+        if(i==c) right+=votes[i]; else wrong+=votes[i];    
+    }
+    return wrong/(double)right;
   }
 }
 

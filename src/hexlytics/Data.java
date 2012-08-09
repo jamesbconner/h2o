@@ -319,8 +319,8 @@ class DataImpl extends Data {
     public int classOf(int idx) { return c_[classIdx_].getI(idx); }
     public int classes() {         
         if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
-        if (numClasses_==-1)
-            numClasses_= c_[classIdx_].distribution().length;
+        if (numClasses_==-1) 
+            numClasses_= (int)c_[classIdx_].max_+1;           // c_[classIdx_].distribution().length;
         return numClasses_;
     }
     public Iterator<Int> iterator() { return this; }
@@ -621,10 +621,9 @@ class Sample extends Data.Wrap {
   double bagSize_; // proportion of originals
   int size_; // size of the sample
   int seed_; // the seed used for sampling
-  Subset data_;
   
   public Sample(Data data, double bagSize) {        
-    super(data);
+     super(data);
     bagSize_ = bagSize;
     size_ =(int)( data.rows() * bagSize_); 
     permutation_ = new int[size_];
@@ -633,11 +632,11 @@ class Sample extends Data.Wrap {
   }
 
   public Data complement() {
-    int[] orig = new int[data_.rows()];
+    int[] orig = new int[d_.rows()];
     for(int i=0;i<permutation_.length;i++) orig[permutation_[i]]=-1;
     int sz=0;
     for(int i=0;i<orig.length;i++) if(orig[i]!=-1) sz++;    
-    Subset s = new Subset(data_,sz);
+    Subset s = new Subset(d_,sz);
     for(int i=0;i<orig.length;i++) if(orig[i]!=-1) s.add(i);     
     return s;
   }
@@ -645,9 +644,7 @@ class Sample extends Data.Wrap {
   public  Data seek(int idx) { next._ = idx; return this; }  
   
   public String name() { return d_.name() + "->sampled(" + bagSize_+","+seed_+")"; }
-  
-  public Data materialize() { return this; } // NO OP for now; fixme
-  
+    
   private void weightedSampling(Data d) {
     int sz = d.rows();
     WP wp = d.wp(sz);
@@ -668,8 +665,6 @@ class Sample extends Data.Wrap {
       }
       permutation_[i] = offset;      
     }
-    data_ = new Subset(this, occurrences_.length);
-    for(int i=0;i<occurrences_.length;i++) if (occurrences_[i]==0) data_.add(i);
   }
   
   public  int rows()                       { return size_; }
