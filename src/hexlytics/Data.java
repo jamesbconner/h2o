@@ -37,6 +37,7 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
   public abstract int rows();
   public abstract String name();
   public abstract int classOf();
+  public abstract int classOf(int idx);
   public abstract int classes();
   public  Iterator<Int> iterator() { return this; }
   public abstract boolean hasNext();
@@ -163,6 +164,7 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
     public  int rows()             { return d_.rows(); }
     public  String name()          { return d_.name(); }
     public  int classOf()          { return d_.classOf(); }
+    public  int classOf(int idx)          { return d_.classOf(idx); }
     public  int classes()          { return d_.classes(); }
     public  boolean hasNext()      { return d_.hasNext(); }
     public  Int next()             {  next._=d_.next()._; return next; }
@@ -314,6 +316,7 @@ class DataImpl extends Data {
     public int columns() { return c_.length; }
     public int rows() { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf() { return c_[classIdx_].getI(next._); }
+    public int classOf(int idx) { return c_[classIdx_].getI(idx); }
     public int classes() {         
         if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
         if (numClasses_==-1)
@@ -519,7 +522,9 @@ class Subset extends Data.Wrap {
   public  double getD(int col)             { return d_.getD(col,permutation_[next._]); }    
   public  Data select(int from, int to)    { throw new Error("not implemented yet"); }
   public  void getRow(double[] v)          {  d_.getRow(permutation_[next._], v); } 
-  public  void getRow(int c,double[] v)    {  d_.getRow(permutation_[c], v); } 
+  public  void getRow(int c,double[] v)    {  d_.getRow(permutation_[c], v); }
+  public int classOf()                     { return d_.classOf(permutation_[next._]); }
+  public int classOf(int idx) { return d_.classOf(permutation_[idx]); }
 }
 
 class Filter extends Subset {
@@ -605,6 +610,9 @@ class Shuffle extends Subset {
   }
 }
 
+
+// PETA: Why not inherit from Subset? 
+
 class Sample extends Data.Wrap {
       
   int[] permutation_; // index of original rows
@@ -652,7 +660,7 @@ class Sample extends Data.Wrap {
   
   public  Data complement()                { return data_; }
   public  int rows()                       { return size_; }
-  public  boolean hasNext()                { return next._ < size_; }
+  public  boolean hasNext()                { return next._ < size_-1; }
   public  Int next()                       { next._++; return next; }
   protected  int getI(int col, int idx)    { return d_.getI(col,permutation_[idx]); }
   protected  double getD(int col, int idx) { return d_.getD(col,permutation_[idx]); }
@@ -661,6 +669,8 @@ class Sample extends Data.Wrap {
   public  Data select(int from, int to)    { throw new Error("not implemented yet"); }
   public  void getRow(double[] v)          {  d_.getRow(next._, v); } 
   public  void getRow(int c,double[] v)    {  d_.getRow(permutation_[c], v); } 
+  public int classOf() { return d_.classOf(permutation_[next._]); }
+  public int classOf(int idx) { return d_.classOf(permutation_[idx]); }
 }
 
 

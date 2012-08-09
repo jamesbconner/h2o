@@ -16,8 +16,11 @@ public class Iris {
   public static void main(String[] a) {     
     Data d = new Iris().iris.shrinkWrap();
     System.out.println(d);
+    System.out.println("Computing trees...");
     RF rf = new RF(d);
     rf.compute();
+    System.out.println("Done...");
+    
     
   }
   

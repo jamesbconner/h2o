@@ -87,8 +87,13 @@ class Numeric extends Statistic {
    */
   @Override public Classifier classifier() {
     // check if we have only one class
-    int cls = 0, cnt = 0;  double[] vs = columns_[0].dists[1];
-    for (int i = 0; i<vs.length;++i) if (vs[i]!=0) { cnt++; cls = i;}
+    int cls = 0, cnt = 0;
+    double[] vs = columns_[0].dists[1];
+    for (int i = 0; i<vs.length;++i)
+      if (vs[i]!=0) {
+        cnt++; 
+        cls = i;
+      }
     if (cnt==1) return new Classifier.Const(cls);   
     Split best = null;
     for (Column c: columns_) {
@@ -116,7 +121,10 @@ class Numeric extends Statistic {
     v_=new double[data.columns()];
     data.seek(0);
     for(Int it: data)
-      for (Column c : columns_) 
+      for (Column c : columns_) {
+        System.out.println(data.classOf());
+        data.classOf();
         c.add(data.classOf(),data.weight());
+      }
   }
  }
