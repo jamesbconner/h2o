@@ -48,7 +48,7 @@ public class Poker {
       System.out.println(d.head(10));
       
       
-      d = d.sampleWithReplacement(0.5).sampleWithReplacement(0.5);
+      d = d.sampleWithReplacement(0.5).sampleWithReplacement(0.5).sort(0);
       System.out.println(d);
       System.out.println(d.head(10));
     }

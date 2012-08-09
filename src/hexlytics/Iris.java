@@ -14,7 +14,11 @@ public class Iris {
   }
 
   public static void main(String[] a) {     
-    System.out.println(new Iris().iris.shrinkWrap().toString());
+    Data d = new Iris().iris.shrinkWrap();
+    System.out.println(d);
+    RF rf = new RF(d);
+    rf.compute();
+    
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 

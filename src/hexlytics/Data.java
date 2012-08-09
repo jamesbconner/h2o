@@ -62,11 +62,15 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
   public abstract String   classColumnName();
   
   public Data view() { return new View(this); }
+  public Data complement() { throw new Error("Unsupported"); }
   
   public Data sampleWithReplacement(double bagSize) {
     assert bagSize > 0 && bagSize <= 1.0;     
     return new Sample(this,bagSize); 
   }
+  
+  public Data sort(int column) { return new Shuffle(this.materialize(),column); }
+  public Data filter(Classifier c, int direction) { return new Filter(this,c,direction); }
   
   public Data materialize() {
     if (this instanceof DataImpl) return this;
@@ -175,7 +179,8 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
     public  int    colPre(int c)   { return d_.colPre(c); }    
     public String[] columnNames()  { return d_.columnNames(); }
     public String classColumnName(){ return d_.classColumnName(); }
-    public String toString() { d_= d_.materialize(); return d_.toString(); }
+    public String toString() { //d_= d_.materialize();
+      return d_.toString(); }
   }
   
   public class View extends Wrap {
@@ -491,12 +496,122 @@ abstract class Col {
   }
 }
 
+class Subset extends Data.Wrap {
+      
+  int[] permutation_; // index of original rows
+  int size_; // size of the sample
+  
+  public Subset(Data data, int size) {        
+    super(data);  size_ =size; permutation_ = new int[size_];
+  }
+  
+  void add(int i) { permutation_[next._++] = i; }
+
+  public void freeze() { if (next._ != size_) throw new Error("wrong size"); }
+  public  Data seek(int idx)               { next._ = idx; return this; }  
+  public String name()                     { return d_.name() + "->subset"; }
+  public  int rows()                       { return size_; }
+  public  boolean hasNext()                { return next._ < size_; }
+  public  Int next()                       { next._++; return next; }
+  protected  int getI(int col, int idx)    { return d_.getI(col,permutation_[idx]); }
+  protected  double getD(int col, int idx) { return d_.getD(col,permutation_[idx]); }
+  public  int getI(int col)                { return d_.getI(col,permutation_[next._]); }
+  public  double getD(int col)             { return d_.getD(col,permutation_[next._]); }    
+  public  Data select(int from, int to)    { throw new Error("not implemented yet"); }
+  public  void getRow(double[] v)          {  d_.getRow(permutation_[next._], v); } 
+  public  void getRow(int c,double[] v)    {  d_.getRow(permutation_[c], v); } 
+}
+
+class Filter extends Subset {
+
+  Filter(Data d, Classifier c, int direction) {
+    super(d,d.rows());    
+    int count=0;
+    d.seek(0);
+    double[] v = new double[d.columns()];
+    for(Int it : d) {
+      d.getRow(v);
+      if (c.navigate(v)==direction) count++;
+      else permutation_[it._] = -1; 
+    }
+    int[] tmp = new int[count];
+    int off=0;
+    for(int i=0;i<permutation_.length;i++)
+      if (permutation_[i]!=-1) tmp[off++]=i;
+    permutation_ = tmp;
+    size_= permutation_.length;
+  }
+}
+
+class Shuffle extends Subset {
+  Shuffle(Data d, int column){
+    super(d, d.rows());
+    for(int i=0;i<permutation_.length;i++) permutation_[i]=i;
+    sort(permutation_,0,permutation_.length,column);
+  }
+  
+  double get(int i, int c) { return d_.getD(c,i); }  
+  //OJDK6
+  private void sort(int x[], int off, int len,int column) {
+    if (len < 7) {
+        for (int i=off; i<len+off; i++)
+            for (int j=i; j>off && get(x[j-1],column)>get(x[j],column); j--)  swap(x, j, j-1);
+        return;
+    }
+    // Choose a partition element, v
+    int m = off + (len >> 1);       // Small arrays, middle element
+    if (len > 7) {
+        int l = off;
+        int n = off + len - 1;
+        if (len > 40) {        // Big arrays, pseudomedian of 9
+            int s = len/8;
+            l = med3(x, l,     l+s, l+2*s,column);
+            m = med3(x, m-s,   m,   m+s,column);
+            n = med3(x, n-2*s, n-s, n,column);
+        }
+        m = med3(x, l, m, n,column); // Mid-size, med of 3
+    }
+    double v = get(x[m],column);
+    // Establish Invariant: v* (<v)* (>v)* v*
+    int a = off, b = a, c = off + len - 1, d = c;
+    while(true) {
+        while (b <= c && get(x[b],column) <= v) {
+            if (get(x[b],column) == v) swap(x, a++, b);
+            b++;
+        }
+        while (c >= b && get(x[c],column) >= v) {
+            if (get(x[c],column) == v) swap(x, c, d--);
+            c--;
+        }
+        if (b > c) break;
+        swap(x, b++, c--);
+    }
+    // Swap partition elements back to middle
+    int s, n = off + len;
+    s = Math.min(a-off, b-a  );  vecswap(x, off, b-s, s);
+    s = Math.min(d-c,   n-d-1);  vecswap(x, b,   n-s, s);
+    // Recursively sort non-partition-elements
+    if ((s = b-a) > 1)  sort(x, off, s,column);
+    if ((s = d-c) > 1)  sort(x, n-s, s,column);
+}
+  private  int med3(int x[], int a, int b, int c,int column) {
+      return (get(x[a],column) < get(x[b],column) ?
+      (get(x[b],column) < get(x[c],column) ? b : get(x[a],column) < get(x[c],column) ? c : a) :
+      (get(x[b],column) > get(x[c],column) ? b : get(x[a],column) > get(x[c],column) ? c : a));
+  }
+  private  void swap(int x[], int a, int b) { int t=x[a];x[a]=x[b];x[b]=t; }
+  private  void vecswap(int x[], int a, int b, int n) {
+      for (int i=0; i<n; i++, a++, b++)  swap(x, a, b);
+  }
+}
+
 class Sample extends Data.Wrap {
       
   int[] permutation_; // index of original rows
   double bagSize_; // proportion of originals
   int size_; // size of the sample
   int seed_; // the seed used for sampling
+  Subset data_;
   
   public Sample(Data data, double bagSize) {        
     super(data);
@@ -529,10 +644,13 @@ class Sample extends Data.Wrap {
         if( occurrences_[offset] != 0 ){occurrences_[offset]--; break; }
         offset = (offset + 1) % sz;
       }
-      permutation_[i] = offset;
-      
+      permutation_[i] = offset;      
     }
-  } 
+    data_ = new Subset(this, occurrences_.length);
+    for(int i=0;i<occurrences_.length;i++) if (occurrences_[i]==0) data_.add(i);
+  }
+  
+  public  Data complement()                { return data_; }
   public  int rows()                       { return size_; }
   public  boolean hasNext()                { return next._ < size_; }
   public  Int next()                       { next._++; return next; }
