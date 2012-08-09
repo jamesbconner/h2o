@@ -122,7 +122,7 @@ class Numeric extends Statistic {
     data.seek(0);
     for(Int it: data)
       for (Column c : columns_) {
-        System.out.println(data.classOf());
+//        System.out.println(data.classOf());
         data.classOf();
         c.add(data.classOf(),data.weight());
       }
