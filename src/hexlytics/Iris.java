@@ -14,20 +14,18 @@ public class Iris {
   }
 
   public static void main(String[] a) {     
-    Data d = new Iris().iris.shrinkWrap();
+    Data d = new Iris().iris.shrinkWrap(); d.freeze();
     System.out.println(d);
     System.out.println("Computing trees...");
-    Data train = d.sampleWithReplacement(.7);
+    Data train = d.sampleWithReplacement(.6);
     Data valid = train.complement();
-    RF rf = new RF(train);
-    rf.compute();
-    System.out.println("Train\n"+train);
-    System.out.println("Valid\n"+valid);
     int[][] score = new int[valid.rows()][valid.classes()];
-    rf.classify(valid, score);
-    System.out.println("Done...");
-    
-    
+    for(int i=0;i<1000;i++) {
+      RF rf = new RF(train);
+      rf.compute();
+      rf.classify(valid, score);
+      System.out.println("error = "+RF.score(valid, score));
+    } 
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 
@@ -189,7 +187,6 @@ public class Iris {
       new F(147, 6.3, 2.5, 5.0, 1.9, "virginica"),
       new F(148, 6.5, 3.0, 5.2, 2.0, "virginica"),
       new F(149, 6.2, 3.4, 5.4, 2.3, "virginica"),
-      new F(150, 5.9, 3.0, 5.1, 1.8, "virginica") };
-
+      new F(150, 5.9, 3.0, 5.1, 1.8, "virginica")};
 }
 
