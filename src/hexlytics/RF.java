@@ -27,11 +27,16 @@ public class RF {
   void compute(Data d, INode n, int direction) {
     int classOf = -1;
     for(Row r : d) 
-       if (classOf==-1) classOf = r.classOf; 
-       else if (classOf != r.classOf) { classOf = -1; break; }
-    if (classOf!=-1)  
+       if (classOf==-1)
+         classOf = r.classOf; 
+       else
+         if (classOf != r.classOf) {
+           classOf = -1;
+           break;
+         }
+    if (classOf!=-1) { 
       n.set(direction, new LeafNode(classOf));    
-    else {
+    } else {
       Statistic s = Statistic.make(statistic_, d);  
       Split best = s.best();
       if (best == null){

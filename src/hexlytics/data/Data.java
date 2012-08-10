@@ -23,14 +23,43 @@ public  class Data  implements Iterable<Row> {
   public static Data make(DataAdapter da) { return new Data(da); }    
 
   Data(DataAdapter da) { data_ = da; name_=data_.name(); }
- 
-  public class Row {  public double[] v = new double[columns()]; public int classOf; public int index; }
+
+  /** Returns the original index to the data. Should be redefined in subclasses that
+   * change or shuffle the indices.
+   * 
+   * @param idx Index for this data
+   * @return Original index of the row (the index on DataAdapter). 
+   */
+  protected int originalIndex(int idx) {
+    return idx;
+  }
+  
+  
+  public class Row {  
+    public double[] v = new double[columns()];
+    public int classOf;
+    public int index;
+    
+    public String toString() {
+      StringBuilder sb = new StringBuilder();
+      sb.append(index);
+      sb.append(" ["+classOf+"]:");
+      for (double d: v) 
+        sb.append(" "+d);
+      return sb.toString();
+    }
+  }
  
   public class RowIter implements Iterator<Row> {
     final Row r = new Row();
-    int pos;
+    int pos = 0;
     public boolean hasNext() { return pos<rows(); }
-    public Row next() { data_.getRow(pos, r.v); r.classOf=data_.classOf(pos); r.index=pos++; return r; }
+    public Row next() {
+      data_.getRow(pos, r.v);
+      r.classOf=data_.classOf(pos);
+      r.index=pos++;
+      return r;
+    }
     public void remove() { throw new Error("Unsported"); }
   }
  
@@ -144,12 +173,14 @@ public  class Data  implements Iterable<Row> {
     for(Row row : this) {
       if (row.v[c.column]<c.value) {
         tmp[row.index] = true; l++;
-      }else { r++; }
+      } else {
+        r++;
+      }
     }
     int[] li = new int[l], ri = new int[r];
     l=0;r=0;
     for(int i=0;i<tmp.length;i++) 
-      if (tmp[i]) li[l++] = i;  else ri[r++]=i;
+      if (tmp[i]) li[l++] = originalIndex(i);  else ri[r++]=originalIndex(i);
     result[0]= new Subset(this,li);
     result[1]= new Subset(this,ri);
   }
@@ -157,18 +188,29 @@ public  class Data  implements Iterable<Row> {
 
 class Subset extends Data {     
   int[] permutation_; // index of original rows  
+
+  protected int originalIndex(int idx) {
+    return permutation_[idx];
+  }
   
   Subset(Data d, int size) {        
     super(d.data_);  permutation_ = new int[size]; name_ =d.name_+"->subset"; 
     if (permutation_.length==0) throw new Error("creating zero sized subset is not supported");
   }
   Subset(Data d, int[] perm) {        
-    super(d.data_);  permutation_ = perm; name_ =d.name_+"->subset";
-    if (permutation_.length==0) throw new Error("creating zero sized subset is not supported");
+    super(d.data_);
+    permutation_ = perm; name_ =d.name_+"->subset";
+    if (permutation_.length==0)
+      throw new Error("creating zero sized subset is not supported");
   }
  
   public class IterS extends RowIter {
-    public Row next() { data_.getRow(permutation_[pos], r.v); r.classOf=data_.classOf(permutation_[pos]); r.index=pos++; return r; }
+    public Row next() {
+      data_.getRow(permutation_[pos], r.v);
+      r.classOf=data_.classOf(permutation_[pos]);
+      r.index=pos++;
+      return r;
+    }
   }
   
   public  RowIter iterator()            { return new IterS(); }   
@@ -190,7 +232,14 @@ class Subset extends Data {
 class Shuffle extends Subset {
   Shuffle(Data d, int column){
     super(d, d.rows());
-    for(int i=0;i<permutation_.length;i++) permutation_[i]=i;
+    if (d instanceof Subset) {
+      Subset sd = (Subset)d;
+      System.arraycopy(sd.permutation_, 0, permutation_, 0, permutation_.length);
+    } else {
+      for (int i = 0; i< d.rows(); ++i)
+        permutation_[i] = d.originalIndex(i);
+    }
+    //for(int i=0;i<permutation_.length;i++) permutation_[i]=i;
     sort(permutation_,0,permutation_.length,column);
   }
   

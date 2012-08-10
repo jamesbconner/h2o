@@ -21,6 +21,10 @@ public class Statistic {
       this.column = column;  this.value = splitValue; this.fitness = fitness;
     }    
     boolean betterThan(Split other) { return other==null || fitness > other.fitness;  }
+    
+    public String toString() {
+      return "Column: "+column+", value: "+value;
+    }
   }
 
  
