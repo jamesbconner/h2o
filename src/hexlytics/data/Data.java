@@ -15,14 +15,17 @@ import java.util.Random;
  */
 public  class Data  implements Iterable<Row> {
   
-  static long SEED_;
   static final DecimalFormat df = new  DecimalFormat ("0.##");
   public static Random RANDOM = new Random(42);
-  public static void setSeed(long seed) { SEED_ = seed; RANDOM=new Random(SEED_); } 
  
   public static Data make(DataAdapter da) { return new Data(da); }    
 
   Data(DataAdapter da) { data_ = da; name_=data_.name(); }
+  
+  /** Returns the random generator associated with the used adapter. */
+  public Random random() {
+    return data_.random_;
+  }
 
   /** Returns the original index to the data. Should be redefined in subclasses that
    * change or shuffle the indices.
@@ -65,7 +68,6 @@ public  class Data  implements Iterable<Row> {
  
   final DataAdapter data_;   
   String name_;
-  public final Random random_ = new Random(RANDOM.nextLong());
   
   public  Iterator<Row> iterator(){ return new RowIter(); } 
   public  int features()          { return data_.features(); }
@@ -158,7 +160,7 @@ public  class Data  implements Iterable<Row> {
     wp_.probabilities = new double[rows_];
     double sumProbs = 0, sumOfWeights = sum(wp_.weights);
     for( int i = 0; i < rows_; i++ ){
-      sumProbs += random_.nextDouble();
+      sumProbs += data_.random_.nextDouble();
       wp_.probabilities[i] = sumProbs;
     }
     normalize(wp_.probabilities, sumProbs / sumOfWeights);
@@ -300,11 +302,14 @@ class Shuffle extends Subset {
 
 class Sample extends Subset {
   
+  public final long seed;
+  
   public Sample(Data data, double bagSize) {        
     super(data,(int)( data.rows() * bagSize));
-    int seed =random_.nextInt();
-    random_.setSeed(seed); // record the seed if we ever want to replay this tree 
-    weightedSampling(data);
+    // create a new temporary random with the given seed, so that it can be
+    // replayed if necessary
+    seed =data_.random_.nextLong();
+    weightedSampling(data,new Random(seed));
     name_ = data.name() + "->sampled(" + bagSize+","+seed+")"; 
   }
 
@@ -319,7 +324,7 @@ class Sample extends Subset {
     return s;
   }
     
-  private void weightedSampling(Data d) {
+  private void weightedSampling(Data d,Random r) {
     int sz = d.rows();
     WP wp = d.wp(sz);
     byte[] occurrences_ = new byte[sz];
@@ -332,7 +337,7 @@ class Sample extends Subset {
       l++;
     }
     for(int i=0;i<permutation_.length;i++) {
-      int offset = random_.nextInt(sz);
+      int offset = r.nextInt(sz);
       while( true ){
         if( occurrences_[offset] != 0 ){occurrences_[offset]--; break; }
         offset = (offset + 1) % sz;

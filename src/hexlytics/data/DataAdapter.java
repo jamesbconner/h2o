@@ -3,6 +3,7 @@ package hexlytics.data;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Random;
 
 
 public class DataAdapter  {
@@ -16,8 +17,21 @@ public class DataAdapter  {
     private String[] columnNames_;
     private String classColumnName_;
     
-    public DataAdapter(String name, Object[] columns, String classNm) { this(columns,classNm); name_=name; } 
-    public DataAdapter(Object[] columns, String classNm){
+    public final long seed;
+    public final Random random_;
+    
+    private static long getRandomSeed() {
+      return new Random().nextLong();    
+    }
+    public DataAdapter(String name, Object[] columns, String classNm) {
+      this(name,columns,classNm,getRandomSeed());
+    }
+    public DataAdapter(Object[] columns, String classNm) {
+      this(columns,classNm,getRandomSeed());
+    }
+    
+    public DataAdapter(String name, Object[] columns, String classNm,long seed) { this(columns,classNm,seed); name_=name; } 
+    public DataAdapter(Object[] columns, String classNm,long seed){
       c_ = new Col[columns.length]; 
       columnNames_ = new String[columns.length];
       classColumnName_ = classNm;
@@ -25,9 +39,13 @@ public class DataAdapter  {
         String s=o.toString();  columnNames_[i] = s; c_[i]=new Col.D(s); c2i_.put(s,i++); 
        }
       classIdx_ = c2i_.get(classNm);
+      this.seed = seed;
+      random_ = new Random(seed);
     }
     
     private DataAdapter(DataAdapter d_) {
+      this.seed = d_.seed;
+      random_ = new Random(seed);
       name_ = d_.name_; columnNames_ = d_.columnNames_; classColumnName_= d_.classColumnName_;      
       frozen_=true;
       numClasses_=d_.numClasses_;

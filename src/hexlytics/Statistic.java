@@ -76,7 +76,7 @@ public class Statistic {
     columns_ = new Column[data.features()];
     this.data = data;    
     A: for(int i=0;i<data.features();) {
-      columns_[i]=new Column(data.random_.nextInt(data.columns())); // TODO: Fix to avoid throwing away columns
+      columns_[i]=new Column(data.random().nextInt(data.columns())); // TODO: Fix to avoid throwing away columns
       for(int j=0;j<i;j++) if (columns_[i].column==columns_[j].column) continue A;  
       i++;
     }
