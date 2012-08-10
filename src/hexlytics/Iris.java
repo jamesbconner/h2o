@@ -1,26 +1,34 @@
 package hexlytics;
 
+import hexlytics.data.Data;
+import hexlytics.data.DataAdapter;
+
+
 public class Iris {
   
-  Data iris;
+  Data iris_;
   
   Iris() {
-    iris =  Data.make("Iris", 
+    DataAdapter iris =  new DataAdapter("Iris", 
         new String[]{"Sepal.Length","Sepal.Width","Petal.Length","Petal.Width","Species"}, 
         "Species");
     double[] v =new double[5];
     for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris.addRow(v); }
-    iris.freeze();
+    iris.freeze(); 
+    iris=iris.shrinkWrap();
+    iris_ = Data.make(iris);
   }
 
   public static void main(String[] a) {     
-    Data d = new Iris().iris.shrinkWrap(); d.freeze();
-    System.out.println(d);
+    Data d = new Iris().iris_;
+    System.out.println(d+"\n"+d.head(4));
     System.out.println("Computing trees...");
     Data train = d.sampleWithReplacement(.6);
+    System.out.println("train\n"+train+"\n"+train.head(4));
     Data valid = train.complement();
+    System.out.println("valid\n"+valid+"\n"+valid.head(4));
     int[][] score = new int[valid.rows()][valid.classes()];
-    for(int i=0;i<1000;i++) {
+    for(int i=0;i<10;i++) {
       RF rf = new RF(train);
       rf.compute();
       rf.classify(valid, score);

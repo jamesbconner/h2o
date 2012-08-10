@@ -1,6 +1,8 @@
 package hexlytics;
 
-import hexlytics.Data.Int;
+import hexlytics.data.Data;
+import hexlytics.data.Data.Row;
+
 
 /**
  *
@@ -15,7 +17,7 @@ public class RF {
   
   public RF(Data data) {  
     data_=data; 
-    if(verbose) System.out.println("Input data \n"+data_.materialize()+"\n");
+    if(verbose) System.out.println("Input data \n"+data_+"\n");
   }
     
 
@@ -36,10 +38,10 @@ public class RF {
     } else {
       Node nd = new Node(c.column(),c.value());
       n.set(direction, nd);
-      Data ld = d.filter(c,0);
-      compute(ld,nd,0);
-      Data rd = d.filter(c,1);
-      compute(rd,nd,1);
+      Data[] res = new Data[2];
+      d.filter(c,res);
+      compute(res[0],nd,0);
+      compute(res[1],nd,1);
     }
   }
   
@@ -68,6 +70,7 @@ public class RF {
    public int navigate(double[] v)  { return v[column_]<=value_?0:1; }
    public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+   public String toString() { return "col="+column_+" val="+value_; }
  }
   
  static class Root extends Node {
@@ -79,23 +82,18 @@ public class RF {
   
 
   public void classify(Data d, int[][] score) {
-    d.seek(0);
-    double[] v = new double[d.columns()];
-    for(Int it: d) {
-      d.getRow(v);
-      int c = tree_.classify(v);
-      score[it._][c]++;
-    }    
+    for (Row r : d){
+      int c = tree_.classify(r.v);
+      score[r.index][c]++;
+    }
   }
   
   public static double score(Data d, int[][]score) {
-    d.seek(0);
     int right=0, wrong =0;
-    for(Int it: d) {
-      int c = d.classOf();
-      int[]votes = score[it._];
+    for (Row r : d) {
+      int[]votes = score[r.index];
       for(int i=0;i<d.classes();i++) 
-        if(i==c) right+=votes[i]; else wrong+=votes[i];    
+        if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    
     }
     return wrong/(double)right;
   }

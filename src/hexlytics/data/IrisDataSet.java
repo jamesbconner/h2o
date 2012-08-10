@@ -2,7 +2,8 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package hexlytics;
+package hexlytics.data;
+
 
 /** Iris data set. For speed uses the trick that we return the full array
  * including the category, but the numColumns does not say the category can be

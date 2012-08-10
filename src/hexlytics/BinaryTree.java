@@ -1,5 +1,6 @@
 package hexlytics;
 
+
 /** A decision tree implementation. 
  * 
  * The tree has leaf nodes and inner nodes. Inner nodes have their own
@@ -9,7 +10,6 @@ package hexlytics;
  * @author peta
  */
 public class BinaryTree  {
-  private static final long serialVersionUID = -3955680395008977160L;
 
    static abstract class INode  {    
      int class_ = -1;    // A category reported by the inner node
@@ -31,21 +31,6 @@ public class BinaryTree  {
     INode l_, r_;
     public Node(int column, double value, int cl) { column_=column; value_=value; class_ = cl;  }
     public int navigate(double[] v)  { return v[column_]<=value_?0:1; }    
-  }
-  
-  /** Classifies the row on the proper subtree recursively. 
-   * Returns the default category of the row if its subnodes are not created.  */
-  public int classify(Data d) {
-    double[] v = new double[d.columns()];
-    d.getRow(v);
-    INode node = root_;
-    while (true) {
-      switch (node.navigate(v)) {
-      case -1 : return node.classOf();
-      case 0: node = ((Node)node).l_; break;
-      case 1: node = ((Node)node).r_;
-      }
-    }
   }
 
   // Root of the tree

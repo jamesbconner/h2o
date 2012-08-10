@@ -24,7 +24,7 @@ public  class Data  implements Iterable<Row> {
  
  Data(DataAdapter da) { data_ = da; name_=data_.name(); }
  
- public class Row {  double[] v = new double[columns()]; int classOf; int index; }
+ public class Row {  public double[] v = new double[columns()]; public int classOf; public int index; }
  
  public class RowIter implements Iterator<Row> {
     final Row r = new Row();
@@ -36,7 +36,7 @@ public  class Data  implements Iterable<Row> {
  
   final DataAdapter data_;   
   String name_;
-  final Random random_ = new Random(RANDOM.nextLong());
+  public final Random random_ = new Random(RANDOM.nextLong());
   
   public  Iterator<Row> iterator() { return new RowIter(); }
  
@@ -47,8 +47,8 @@ public  class Data  implements Iterable<Row> {
   public  int classOf(int idx)   { return data_.classOf(idx); }
   public  int classes()          { return data_.classes(); }
   public  void getRow(int col,double[] v) { data_.getRow(col, v); } 
-  protected int getI(int col, int idx) { return data_.getI(col,idx); }
-  protected double getD(int col, int idx) { return data_.getD(col,idx); }
+  public int getI(int col, int idx) { return data_.getI(col,idx); }
+  public double getD(int col, int idx) { return data_.getD(col,idx); }
   public float weight(int idx) { return 1; } 
   public String colName(int c) { return data_.colName(c); } 
   public double colMin(int c) { return data_.colMin(c); }
@@ -127,7 +127,7 @@ public  class Data  implements Iterable<Row> {
   }
  
   
-  void filter(Classifier c, Data[] result) {
+  public void filter(Classifier c, Data[] result) {
     int l=0, r=0;
     boolean[] tmp = new boolean[rows()];
     for(Row row : this) {
@@ -160,8 +160,8 @@ class Subset extends Data {
   
   public  RowIter iterator() { return new IterS(); }   
   public  int rows()                       { return permutation_.length; }
-  protected  int getI(int col, int idx)    { return data_.getI(col,permutation_[idx]); }
-  protected  double getD(int col, int idx) { return data_.getD(col,permutation_[idx]); }
+  public  int getI(int col, int idx)    { return data_.getI(col,permutation_[idx]); }
+  public  double getD(int col, int idx) { return data_.getD(col,permutation_[idx]); }
   public  void getRow(int c,double[] v)    {  data_.getRow(permutation_[c], v); }
   public int classOf(int idx) { return data_.classOf(permutation_[idx]); }
 }

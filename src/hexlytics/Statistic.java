@@ -1,7 +1,9 @@
 package hexlytics;
 
+import hexlytics.data.Data;
+import hexlytics.data.Data.Row;
 
-import hexlytics.Data.Int;
+
 
 /** A statistic that is capable of storing itself into the long[] arrays
  * conveniently. These long arrays are used for fast and memory efficient
@@ -60,8 +62,8 @@ class Numeric extends Statistic {
       // now try all the possible splits
       double bestFit = -Double.MAX_VALUE;
       double split = 0, gain = 0;
-      for (int i =0; i< sd.rows(); i++) {
-        double s = sd.getD(column,i);
+      for (Row r : sd){
+        double s = r.v[column];
         if (s > currSplit) {
           gain = Utils.entropyCondOverRows(dists); // fitness gain
           double newFit = fit - gain; // fitness gain
@@ -71,8 +73,8 @@ class Numeric extends Statistic {
           }
         }
         currSplit = s;
-        dists[0][data.classOf()] += data.weight();
-        dists[1][data.classOf()] -= data.weight();
+        dists[0][r.classOf] += data.weight(r.index);
+        dists[1][r.classOf] -= data.weight(r.index);
       }     
       return new Split(column,split,bestFit);
     }    
@@ -122,10 +124,8 @@ class Numeric extends Statistic {
       for(int j=0;j<i;j++) if (columns_[i].column==columns_[j].column) continue A;  
       i++;
     }
-    v_=new double[data.columns()];
-    data.seek(0);
-    for(Int it: data)
+    for (Row r : data) 
       for (Column c : columns_) 
-        c.add(data.classOf(),data.weight());
+        c.add(r.classOf,data.weight(r.index));
   }
  }

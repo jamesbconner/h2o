@@ -1,6 +1,9 @@
 package hexlytics;
 
 
+import hexlytics.data.Data;
+import hexlytics.data.DataAdapter;
+
 import java.io.File;
 import java.io.FileInputStream;
 
@@ -8,12 +11,10 @@ import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
 
 public class Poker {
-  Data poker;
+  Data poker_;
   
-  Poker() { poker =  Data.make("poker", new String[]{"0","1","2","3","4","5","6","7","8","9"}, "9");  }
-
   public Poker(File inputFile) throws Exception {
-    this();
+    DataAdapter poker = new DataAdapter("poker", new String[]{"0","1","2","3","4","5","6","7","8","9"}, "9");  
     int[] r = new int[11];
      CSVParserSetup setup = new CSVParserSetup();
     setup._parseColumnNames = false;
@@ -25,6 +26,7 @@ public class Poker {
       poker.addRow(v);
     }
     poker.freeze();
+    poker_ = Data.make(poker.shrinkWrap());
   }
 
   public static void main(String[] args) throws Exception {
@@ -37,7 +39,7 @@ public class Poker {
         continue;
       }
       Poker p = new Poker(f);         
-      Data d = p.poker.shrinkWrap(); d.freeze();
+      Data d = p.poker_;
       System.out.println(d);
       System.out.println("Computing trees...");
       Data train = d.sampleWithReplacement(.6);

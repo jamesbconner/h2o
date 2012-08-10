@@ -6,7 +6,7 @@ import java.util.HashMap;
 
 
 
-class DataAdapter  {
+public class DataAdapter  {
     
     private Col[] c_;
     private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
@@ -80,9 +80,8 @@ class DataAdapter  {
               c_[i++] = nc;
             }
           } else {
-            // blindly go to float.
-            Col.F cf = new Col.F(cd);
-            for(int j=0;j<cd.sz_;j++) cf.v_[j] = (float) cd.v_[j];
+            Col.D cf = new Col.D(cd);
+            for(int j=0;j<cd.sz_;j++) cf.v_[j] = cd.v_[j];
             c_[i++] = cf;
           }
         } else if (c instanceof Col.F){
