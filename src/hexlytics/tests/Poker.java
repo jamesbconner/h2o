@@ -2,6 +2,7 @@ package hexlytics.tests;
 
 
 import hexlytics.RandomTree;
+import hexlytics.Utils;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -47,7 +48,7 @@ public class Poker {
         RandomTree rf = new RandomTree(train);
         rf.compute();
         rf.classify(valid, score);
-        System.out.println("error = "+RandomTree.score(valid, score));
+        System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
       } 
     }
   }

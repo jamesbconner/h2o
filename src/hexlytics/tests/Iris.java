@@ -2,6 +2,7 @@ package hexlytics.tests;
 
 import hexlytics.RandomForest;
 import hexlytics.RandomTree;
+import hexlytics.Utils;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -34,7 +35,7 @@ public class Iris {
       RandomTree rf = new RandomTree(train);
       rf.compute();
       rf.classify(valid, score);
-      System.out.println("error = "+RandomTree.score(valid, score) +" "+ rf.tree());
+      System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
     } 
     RandomForest rf = new RandomForest(0.6);
     rf.addTrees(d, 100000,2);

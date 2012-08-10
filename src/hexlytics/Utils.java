@@ -97,6 +97,8 @@ public class Utils {
   
   public static String p2d(double d) { return df.format(d); }
   static final DecimalFormat df = new  DecimalFormat ("0.##");
+  public static String p5d(double d) { return df5.format(d); }
+  static final DecimalFormat df5 = new  DecimalFormat ("0.#####");
 
   /** Splits the given work into N workers as equally as possible. Returns an
    * array of integers, each per thread that says how much the thread will do.
