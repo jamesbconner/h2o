@@ -24,15 +24,15 @@ public class Iris {
     System.out.println(d+"\n"+d.head(4));
     System.out.println("Computing trees...");
     Data train = d.sampleWithReplacement(.6);
-    System.out.println("train\n"+train+"\n"+train.head(4));
+    System.out.println("train\n"+train+"\n");
     Data valid = train.complement();
-    System.out.println("valid\n"+valid+"\n"+valid.head(4));
+    System.out.println("valid\n"+valid+"\n");
     int[][] score = new int[valid.rows()][valid.classes()];
-    for(int i=0;i<10;i++) {
+    for(int i=0;i<100;i++) {
       RF rf = new RF(train);
       rf.compute();
       rf.classify(valid, score);
-      System.out.println("error = "+RF.score(valid, score));
+      System.out.println("error = "+RF.score(valid, score) +" "+ rf.tree_);
     } 
   }
   

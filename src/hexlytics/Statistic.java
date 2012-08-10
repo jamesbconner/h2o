@@ -3,8 +3,6 @@ package hexlytics;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
-
-
 /** A statistic that is capable of storing itself into the long[] arrays
  * conveniently. These long arrays are used for fast and memory efficient
  * retrieval of the statistic data by the distributed tree builder. 
@@ -67,15 +65,13 @@ class Numeric extends Statistic {
         if (s > currSplit) {
           gain = Utils.entropyCondOverRows(dists); // fitness gain
           double newFit = fit - gain; // fitness gain
-          if (newFit > bestFit) {
-            bestFit = newFit;
-            split = (s + currSplit) / 2;
+          if (newFit > bestFit) { bestFit = newFit; split = (s + currSplit) / 2;
           }
         }
         currSplit = s;
         dists[0][r.classOf] += data.weight(r.index);
         dists[1][r.classOf] -= data.weight(r.index);
-      }     
+      }  
       return new Split(column,split,bestFit);
     }    
   }
@@ -87,28 +83,11 @@ class Numeric extends Statistic {
    * between the observations, a Const node will be returned with a majority
    * vote for the class.
    */
-  @Override public Classifier classifier() {
-    // check if we have only one class
-    int cls = 0, cnt = 0;
-    double[] vs = columns_[0].dists[1];
-    for (int i = 0; i<vs.length;++i)
-      if (vs[i]!=0) { cnt++; cls = i; }
-    if (cnt==1) return new Classifier.Const(cls);   
+  @Override public Classifier classifier() {  
     Split best = null;
     for (Column c: columns_) {
       Split s = c.split();
-      if (s!=null)
-        if (s.betterThan(best)) best = s;
-    }
-    //for all chosen columns, all observations have the same values and 
-    //no split was selected. In this case we give up and create a Const node. 
-    
-    // PETA how about looking at the other columns? 
-    
-    if (best==null) {
-      double max = 0; int index= 0;   vs = columns_[0].dists[1];
-      for (int j = 0; j<vs.length;++j) if (vs[j]>max) {index=j; max=vs[j];}
-      return new Classifier.Const(index);            
+      if (s.betterThan(best)) best = s;
     }
     return new Classifier.Binary(best.column,best.value); 
   }

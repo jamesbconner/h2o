@@ -9,17 +9,12 @@ import hexlytics.data.Data.Row;
  * @author peta
  */
 public class RF { 
-  private INode tree_;
+  INode tree_;
   Data data_;
   long time_;
   private static String statistic_ = "Numeric"; // Default choice
-  boolean verbose = false;
   
-  public RF(Data data) {  
-    data_=data; 
-    if(verbose) System.out.println("Input data \n"+data_+"\n");
-  }
-    
+  public RF(Data data) { data_=data;  }    
 
   public void compute() { 
     long t = System.currentTimeMillis(); 
@@ -28,14 +23,21 @@ public class RF {
     time_ = System.currentTimeMillis()-t;
   }
   
+  static int S;
   
   void compute(Data d, INode n, int direction) {
-    Statistic s = Statistic.make(statistic_, d);  
-    Classifier c = s.classifier();
-    int numClasses = c.numClasses();     
-    if (numClasses==1) {
-      n.set(direction, new LeafNode(c.classOf()));
-    } else {
+    int classOf = -1;
+    for(Row r : d) 
+       if (classOf==-1) classOf = r.classOf; 
+       else if (classOf != r.classOf) { classOf = -1; break; }
+    if (classOf!=-1)  
+      n.set(direction, new LeafNode(classOf));    
+    else {
+      int ss = S++;
+      if (ss==13)
+        ss++;
+      Statistic s = Statistic.make(statistic_, d);  
+      Classifier c = s.classifier();
       Node nd = new Node(c.column(),c.value());
       n.set(direction, nd);
       Data[] res = new Data[2];
@@ -55,8 +57,9 @@ public class RF {
  /** Leaf node that for any row returns its the data class it belongs to. */
  static class LeafNode extends INode {    
     int class_ = -1;    // A category reported by the inner node
-    LeafNode(int c)  { class_ = c; }
+    LeafNode(int c)                 { class_ = c; }
     public int classify(double[] v) { return class_; }
+    public String toString()        { return "["+class_+"]"; }
  }
 
  
@@ -67,25 +70,23 @@ public class RF {
    final double value_;
    INode l_, r_;
    public Node(int column, double value) { column_=column; value_=value;  }
-   public int navigate(double[] v)  { return v[column_]<=value_?0:1; }
+   public int navigate(double[] v) { return v[column_]<=value_?0:1; }
    public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-   public String toString() { return "col="+column_+" val="+value_; }
+   public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
  }
   
  static class Root extends Node {
    Root() { super(-1,0); }
-   public int navigate(double[]_) { return 0; }
+   public int navigate(double[]_)  { return 0; }
    public int classify(double[] v) { return l_.classify(v); }
    public void set(int direction, INode n) { if (direction==0) l_=n; else throw new Error("Unsupported"); }
+   public String toString()        { return l_.toString(); }
  }
   
 
   public void classify(Data d, int[][] score) {
-    for (Row r : d){
-      int c = tree_.classify(r.v);
-      score[r.index][c]++;
-    }
+    for (Row r : d) score[r.index][tree_.classify(r.v)]++;
   }
   
   public static double score(Data d, int[][]score) {

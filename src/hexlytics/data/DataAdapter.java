@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 
-
 public class DataAdapter  {
     
     Col[] c_;
@@ -88,17 +87,16 @@ public class DataAdapter  {
        if (v==0 || v >= columns()-1) throw new Error("Should pick 2/3 of columns");    
        return v;
     }
-    public int columns() { return c_.length; }
-    public int rows() { return c_.length == 0 ? 0 : c_[0].sz_; }
+    public int columns()        { return c_.length; }
+    public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return c_[classIdx_].getI(idx); }
     public int classes() {         
         if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
-        if (numClasses_==-1) 
-            numClasses_= (int)c_[classIdx_].max_+1;           // c_[classIdx_].distribution().length;
+        if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
         return numClasses_;
     }
 
-    public  String colName(int c)  { return c_[c].name_; }
+    public  String colName(int c) { return c_[c].name_; }
     public  double colMin(int c)  { return c_[c].min_; }    
     public  double colMax(int c)  { return c_[c].max_; }
     public  double colTot(int c)  { return c_[c].tot_; }

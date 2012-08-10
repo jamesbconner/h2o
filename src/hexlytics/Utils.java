@@ -4,6 +4,7 @@
  */
 package hexlytics;
 
+import java.text.DecimalFormat;
 import java.util.Random;
 
 /**
@@ -94,4 +95,7 @@ public class Utils {
     return (total == 0) ? 0 : -result / (total *Math.log(2));
   }
   
+  public static String p2d(double d) { return df.format(d); }
+  static final DecimalFormat df = new  DecimalFormat ("0.##");
+
 }

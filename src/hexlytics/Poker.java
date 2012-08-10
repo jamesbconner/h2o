@@ -34,10 +34,7 @@ public class Poker {
     for( String path : args ){
       System.out.print("parsing " + path + "...");
       File f = new File(path);
-      if( !f.exists() ){
-        System.out.println("file not found!");
-        continue;
-      }
+      if( !f.exists() ){ System.out.println("file not found!");  continue; }
       Poker p = new Poker(f);         
       Data d = p.poker_;
       System.out.println(d);

@@ -14,20 +14,19 @@ import java.util.Random;
  * @author jan
  */
 public  class Data  implements Iterable<Row> {
+  
   static long SEED_;
   static final DecimalFormat df = new  DecimalFormat ("0.##");
   public static Random RANDOM = new Random(42);
   public static void setSeed(long seed) { SEED_ = seed; RANDOM=new Random(SEED_); } 
  
- public static Data make(DataAdapter da) { 
-   return new Data(da);      
- }    
+  public static Data make(DataAdapter da) { return new Data(da); }    
+
+  Data(DataAdapter da) { data_ = da; name_=data_.name(); }
  
- Data(DataAdapter da) { data_ = da; name_=data_.name(); }
+  public class Row {  public double[] v = new double[columns()]; public int classOf; public int index; }
  
- public class Row {  public double[] v = new double[columns()]; public int classOf; public int index; }
- 
- public class RowIter implements Iterator<Row> {
+  public class RowIter implements Iterator<Row> {
     final Row r = new Row();
     int pos;
     public boolean hasNext() { return pos<rows(); }
@@ -39,34 +38,30 @@ public  class Data  implements Iterable<Row> {
   String name_;
   public final Random random_ = new Random(RANDOM.nextLong());
   
-  public  Iterator<Row> iterator() { return new RowIter(); }
- 
-  public  int features()         { return data_.features(); }
-  public  int columns()          { return data_.columns(); }
-  public  int rows()             { return data_.rows(); }
-  public  String name()          { return name_; }
-  public  int classOf(int idx)   { return data_.classOf(idx); }
-  public  int classes()          { return data_.classes(); }
+  public  Iterator<Row> iterator(){ return new RowIter(); } 
+  public  int features()          { return data_.features(); }
+  public  int columns()           { return data_.columns(); }
+  public  int rows()              { return data_.rows(); }
+  public  String name()           { return name_; }
+  public  int classOf(int idx)    { return data_.classOf(idx); }
+  public  int classes()           { return data_.classes(); }
   public  void getRow(int col,double[] v) { data_.getRow(col, v); } 
   public int getI(int col, int idx) { return data_.getI(col,idx); }
   public double getD(int col, int idx) { return data_.getD(col,idx); }
-  public float weight(int idx) { return 1; } 
-  public String colName(int c) { return data_.colName(c); } 
-  public double colMin(int c) { return data_.colMin(c); }
-  public double colMax(int c) { return data_.colMax(c); }
-  public double colTot(int c) { return data_.colTot(c); }
-  public int colPre(int c) { return data_.colPre(c); }  
-  public  String[] columnNames() { return data_.columnNames(); }
-  public  String classColumnName() { return data_.classColumnName(); } 
-  public Data complement() { throw new Error("Unsupported"); }
-  
+  public float weight(int idx)    { return 1; } 
+  public String colName(int c)    { return data_.colName(c); } 
+  public double colMin(int c)     { return data_.colMin(c); }
+  public double colMax(int c)     { return data_.colMax(c); }
+  public double colTot(int c)     { return data_.colTot(c); }
+  public int colPre(int c)        { return data_.colPre(c); }  
+  public  String[] columnNames()  { return data_.columnNames(); }
+  public  String classColumnName(){ return data_.classColumnName(); } 
+  public Data complement()        { throw new Error("Unsupported"); }
   public Data sampleWithReplacement(double bagSize) {
     assert bagSize > 0 && bagSize <= 1.0;     
     return new Sample(this,bagSize); 
-  }
-  
+  } 
   public Data sort(int column) { return new Shuffle(this, column); }
- 
 
   public String toString() {
     String res = "Data "+ name()+"\n";
@@ -84,14 +79,12 @@ public  class Data  implements Iterable<Row> {
         l[j] = Math.max(l[j], s[k][j].length());
     for(int k=0;k<columns();k++) {
       for(int j=0;j<4;j++) { 
-        res+= s[k][j];
-        int pad = l[j] - s[k][j].length();
+        res+= s[k][j]; int pad = l[j] - s[k][j].length();
         for(int m=0;m<=pad;m++) res+=" ";
       }
       res+="\n";
     }   
-    res +="========\n";
-    res +="class histogram\n";
+    res +="========\n";  res +="class histogram\n";
     int[] dist = data_.c_[data_.classIdx_].distribution();
     int[] sorted = Arrays.copyOf(dist, dist.length);
     Arrays.sort(sorted);
@@ -101,23 +94,20 @@ public  class Data  implements Iterable<Row> {
       prop[j]= (int) (10.0 * ( (float)dist[j]/max )); 
     for(int m=10;m>=0;m--) {
       for(int j=0;j<prop.length;j++){
-        if (prop[j]>= m) res += "**  ";
-        else res+="    ";
+        if (prop[j]>= m) res += "**  "; else res+="    ";
       }
       res+="\n";
     }
     res+="[";
     for(int j=0;j<dist.length;j++) res+=dist[j]+((j==dist.length-1)?"":",");     
-    res+="]\n";
-    res+=head(5);
+    res+="]\n"; res+=head(5);
     return res;
   }
+  
   public String head(int i) {
     String res ="";
     for(Row r : this) {
-      res += "[";
-      for(double d : r.v) res += d+",";
-      res += "]\n";
+      res += "["; for(double d : r.v) res += d+","; res += "]\n";
       if (i--==0) break;
     }
     return res;
@@ -169,27 +159,28 @@ class Subset extends Data {
   int[] permutation_; // index of original rows  
   
   Subset(Data d, int size) {        
-    super(d.data_);  permutation_ = new int[size]; name_ =d.name_+"->subset";
+    super(d.data_);  permutation_ = new int[size]; name_ =d.name_+"->subset"; 
+    if (permutation_.length==0) throw new Error("creating zero sized subset is not supported");
   }
   Subset(Data d, int[] perm) {        
     super(d.data_);  permutation_ = perm; name_ =d.name_+"->subset";
+    if (permutation_.length==0) throw new Error("creating zero sized subset is not supported");
   }
-  
+ 
   public class IterS extends RowIter {
-    public Row next() { data_.getRow(permutation_[pos], r.v); r.classOf=data_.classOf(pos); r.index=pos++; return r; }
+    public Row next() { data_.getRow(permutation_[pos], r.v); r.classOf=data_.classOf(permutation_[pos]); r.index=pos++; return r; }
   }
   
-  public  RowIter iterator() { return new IterS(); }   
-  public  int rows()                       { return permutation_.length; }
+  public  RowIter iterator()            { return new IterS(); }   
+  public  int rows()                    { return permutation_.length; }
   public  int getI(int col, int idx)    { return data_.getI(col,permutation_[idx]); }
   public  double getD(int col, int idx) { return data_.getD(col,permutation_[idx]); }
-  public  void getRow(int c,double[] v)    {  data_.getRow(permutation_[c], v); }
-  public int classOf(int idx) { return data_.classOf(permutation_[idx]); }
+  public  void getRow(int c,double[] v) {  data_.getRow(permutation_[c], v); }
+  public int classOf(int idx)           { return data_.classOf(permutation_[idx]); }
   
   public String toString() {
     DataAdapter a = new DataAdapter(name(),columnNames(),classColumnName());
-    for(Row r : this) 
-      a.addRow(r.v);
+    for(Row r : this) a.addRow(r.v);
     a.freeze();
     return new Data(a).toString();
   }
@@ -299,8 +290,7 @@ class Sample extends Subset {
       }
       permutation_[i] = offset;      
     }
-  }
-  
+  }  
 }
 
 
