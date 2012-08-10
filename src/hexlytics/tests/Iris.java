@@ -40,6 +40,7 @@ public class Iris {
     RandomForest rf = new RandomForest(0.6);
     rf.addTrees(d, 100000,2);
     System.out.println("We now have "+rf.numTrees()+" trees in the forest");
+    System.out.println("Score on full set: "+rf.score(d));
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 

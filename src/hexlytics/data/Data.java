@@ -51,6 +51,11 @@ public  class Data  implements Iterable<Row> {
         sb.append(" "+d);
       return sb.toString();
     }
+
+    /** Returns the number of classes a row can have. */
+    public int numClasses() {
+      return classes();
+    }
   }
  
   public class RowIter implements Iterator<Row> {

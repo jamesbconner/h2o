@@ -90,6 +90,10 @@ public class RandomTree {
    public String toString()        { return l_.toString(); }
  }
   
+ 
+  public int classify(Row r) {
+    return tree_.classify(r.v);
+  } 
 
   public void classify(Data d, int[][] score) {
     for (Row r : d) score[r.index][tree_.classify(r.v)]++;
