@@ -9,13 +9,13 @@ import hexlytics.data.Data.Row;
  *
  * @author peta
  */
-public class RF { 
+public class RandomTree { 
   INode tree_;
   Data data_;
   long time_;
   private static String statistic_ = "Numeric"; // Default choice
   
-  public RF(Data data) { data_=data;  }    
+  public RandomTree(Data data) { data_=data;  }    
 
   public void compute() { 
     long t = System.currentTimeMillis(); 

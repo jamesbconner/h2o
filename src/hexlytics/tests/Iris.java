@@ -1,6 +1,7 @@
 package hexlytics.tests;
 
-import hexlytics.RF;
+import hexlytics.RandomForest;
+import hexlytics.RandomTree;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -30,11 +31,14 @@ public class Iris {
     System.out.println("valid\n"+valid+"\n");
     int[][] score = new int[valid.rows()][valid.classes()];
     for(int i=0;i<100;i++) {
-      RF rf = new RF(train);
+      RandomTree rf = new RandomTree(train);
       rf.compute();
       rf.classify(valid, score);
-      System.out.println("error = "+RF.score(valid, score) +" "+ rf.tree());
+      System.out.println("error = "+RandomTree.score(valid, score) +" "+ rf.tree());
     } 
+    RandomForest rf = new RandomForest(0.6);
+    rf.addTrees(d, 100000,2);
+    System.out.println("We now have "+rf.numTrees()+" trees in the forest");
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 

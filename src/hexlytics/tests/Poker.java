@@ -1,7 +1,7 @@
 package hexlytics.tests;
 
 
-import hexlytics.RF;
+import hexlytics.RandomTree;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -44,10 +44,10 @@ public class Poker {
       Data valid = train.complement();
       int[][] score = new int[valid.rows()][valid.classes()];
       for(int i=0;i<1000;i++) {
-        RF rf = new RF(train);
+        RandomTree rf = new RandomTree(train);
         rf.compute();
         rf.classify(valid, score);
-        System.out.println("error = "+RF.score(valid, score));
+        System.out.println("error = "+RandomTree.score(valid, score));
       } 
     }
   }
