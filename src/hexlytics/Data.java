@@ -1,5 +1,6 @@
 package hexlytics;
 
+
 import hexlytics.Data.Int;
 
 import java.text.DecimalFormat;
@@ -70,7 +71,8 @@ public abstract class Data  implements Iterable<Int>, Iterator<Int> {
     return new Sample(this,bagSize); 
   }
   
-  public Data sort(int column) { return new Shuffle(this.materialize(),column); }
+  public Data sort(int column) { return new Shuffle(this,// .materialize(),
+      column); }
   public Data filter(Classifier c, int direction) { return new Filter(this,c,direction); }
   
   public Data materialize() {

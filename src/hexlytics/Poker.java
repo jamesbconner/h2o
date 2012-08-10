@@ -8,15 +8,9 @@ import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
 
 public class Poker {
-
   Data poker;
   
-  Poker() {
-    poker =  Data.make("poker", new String[]{"0","1","2","3","4","5","6","7","8","9"}, "9");
-  }
-  public int bagSizePercent()     { return 70; } // usually 70%, but for a big data set....
-
-  
+  Poker() { poker =  Data.make("poker", new String[]{"0","1","2","3","4","5","6","7","8","9"}, "9");  }
 
   public Poker(File inputFile) throws Exception {
     this();
@@ -57,5 +51,4 @@ public class Poker {
       } 
     }
   }
-
 }

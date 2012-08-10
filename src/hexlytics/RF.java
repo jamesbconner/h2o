@@ -11,7 +11,7 @@ public class RF {
   Data data_;
   long time_;
   private static String statistic_ = "Numeric"; // Default choice
-  boolean verbose = true;
+  boolean verbose = false;
   
   public RF(Data data) {  
     data_=data; 
