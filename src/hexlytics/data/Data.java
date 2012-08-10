@@ -4,6 +4,7 @@ import hexlytics.Classifier;
 import hexlytics.data.Data.Row;
 
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Random;
 /**
@@ -89,6 +90,26 @@ public  class Data  implements Iterable<Row> {
       }
       res+="\n";
     }   
+    res +="========\n";
+    res +="class histogram\n";
+    int[] dist = data_.c_[data_.classIdx_].distribution();
+    int[] sorted = Arrays.copyOf(dist, dist.length);
+    Arrays.sort(sorted);
+    int max = sorted[sorted.length-1];
+    int[] prop = new int[dist.length];
+    for(int j=0;j<prop.length;j++)
+      prop[j]= (int) (10.0 * ( (float)dist[j]/max )); 
+    for(int m=10;m>=0;m--) {
+      for(int j=0;j<prop.length;j++){
+        if (prop[j]>= m) res += "**  ";
+        else res+="    ";
+      }
+      res+="\n";
+    }
+    res+="[";
+    for(int j=0;j<dist.length;j++) res+=dist[j]+((j==dist.length-1)?"":",");     
+    res+="]\n";
+    res+=head(5);
     return res;
   }
   public String head(int i) {
@@ -164,6 +185,14 @@ class Subset extends Data {
   public  double getD(int col, int idx) { return data_.getD(col,permutation_[idx]); }
   public  void getRow(int c,double[] v)    {  data_.getRow(permutation_[c], v); }
   public int classOf(int idx) { return data_.classOf(permutation_[idx]); }
+  
+  public String toString() {
+    DataAdapter a = new DataAdapter(name(),columnNames(),classColumnName());
+    for(Row r : this) 
+      a.addRow(r.v);
+    a.freeze();
+    return new Data(a).toString();
+  }
 }
 
 

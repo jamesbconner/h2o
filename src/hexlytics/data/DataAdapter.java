@@ -8,10 +8,10 @@ import java.util.HashMap;
 
 public class DataAdapter  {
     
-    private Col[] c_;
+    Col[] c_;
     private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
     private String name_="";
-    private int classIdx_;
+    int classIdx_;
     private boolean frozen_;
     private int numClasses_=-1;
     private String[] columnNames_;
@@ -26,32 +26,6 @@ public class DataAdapter  {
         String s=o.toString();  columnNames_[i] = s; c_[i]=new Col.D(s); c2i_.put(s,i++); 
        }
       classIdx_ = c2i_.get(classNm);
-    }
-   
-
-    DataAdapter(DataAdapter d_,int from, int to) {
-      name_ = d_.name_; columnNames_ = d_.columnNames_; classColumnName_= d_.classColumnName_;      
-      frozen_=true;
-      numClasses_=d_.numClasses_;
-      classIdx_ = d_.classIdx_;
-      c_ = new Col[d_.c_.length];
-      c2i_ = d_.c2i_;
-      int i = 0;
-      for(Col c :d_.c_){
-        if (c instanceof Col.D) {
-          Col.D cd = (Col.D) c;
-          c_[i++] = new Col.D(cd, from, to);                          
-        } else  if (c instanceof Col.F) {
-          Col.F cd = (Col.F) c;
-          c_[i++] = new Col.F(cd, from, to);                          
-        } else  if (c instanceof Col.B) {
-          Col.B cd = (Col.B) c;
-          c_[i++] = new Col.B(cd, from, to);                          
-        } else  if (c instanceof Col.I) {
-          Col.I cd = (Col.I) c;
-          c_[i++] = new Col.I(cd, from, to);                          
-        } 
-      }
     }
     
     private DataAdapter(DataAdapter d_) {
@@ -142,30 +116,6 @@ public class DataAdapter  {
     protected int getI(int col, int idx) { return c_[col].getI(idx); }
     protected double getD(int col, int idx) { return c_[col].getD(idx); }
 
-    public String toString() {
-      String res = super.toString();
-      res +="========\n";
-      res +="class histogram\n";
-      int[] dist = c_[classIdx_].distribution();
-      int[] sorted = Arrays.copyOf(dist, dist.length);
-      Arrays.sort(sorted);
-      int max = sorted[sorted.length-1];
-      int[] prop = new int[dist.length];
-      for(int j=0;j<prop.length;j++)
-        prop[j]= (int) (10.0 * ( (float)dist[j]/max )); 
-      for(int m=10;m>=0;m--) {
-        for(int j=0;j<prop.length;j++){
-          if (prop[j]>= m) res += "**  ";
-          else res+="    ";
-        }
-        res+="\n";
-      }
-      res+="[";
-      for(int j=0;j<dist.length;j++) res+=dist[j]+((j==dist.length-1)?"":",");     
-      res+="]\n";
-      return res;
-    }
-    
 
     static final DecimalFormat df = new  DecimalFormat ("0.##");
 }

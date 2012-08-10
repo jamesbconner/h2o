@@ -92,10 +92,7 @@ class Numeric extends Statistic {
     int cls = 0, cnt = 0;
     double[] vs = columns_[0].dists[1];
     for (int i = 0; i<vs.length;++i)
-      if (vs[i]!=0) {
-        cnt++; 
-        cls = i;
-      }
+      if (vs[i]!=0) { cnt++; cls = i; }
     if (cnt==1) return new Classifier.Const(cls);   
     Split best = null;
     for (Column c: columns_) {

@@ -23,8 +23,7 @@ public class BinaryTree  {
   }
 
   
-  /** Inner node of the decision tree. Contains a list of subnodes and the
-   * classifier to be used to decide which subtree to explore further. */
+  /** Inner node of the decision tree. */
   static class Node extends INode {
     final int column_;
     final double value_;
