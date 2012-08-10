@@ -1,6 +1,7 @@
-package hexlytics;
+package hexlytics.tests;
 
 
+import hexlytics.RF;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 

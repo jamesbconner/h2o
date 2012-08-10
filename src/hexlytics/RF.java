@@ -1,5 +1,6 @@
 package hexlytics;
 
+import hexlytics.Statistic.Split;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
@@ -23,8 +24,6 @@ public class RF {
     time_ = System.currentTimeMillis()-t;
   }
   
-  static int S;
-  
   void compute(Data d, INode n, int direction) {
     int classOf = -1;
     for(Row r : d) 
@@ -33,21 +32,23 @@ public class RF {
     if (classOf!=-1)  
       n.set(direction, new LeafNode(classOf));    
     else {
-      int ss = S++;
-      if (ss==13)
-        ss++;
       Statistic s = Statistic.make(statistic_, d);  
-      Classifier c = s.classifier();
-      Node nd = new Node(c.column(),c.value());
-      n.set(direction, nd);
-      Data[] res = new Data[2];
-      d.filter(c,res);
-      compute(res[0],nd,0);
-      compute(res[1],nd,1);
+      Split best = s.best();
+      if (best == null){
+        n.set(direction, new LeafNode(s.classOf()));            
+      }else{
+        Node nd = new Node(best.column,best.value);
+        n.set(direction, nd);
+        Data[] res = new Data[2];
+        d.filter(best,res);
+        compute(res[0],nd,0);
+        compute(res[1],nd,1);
+      }
     }
   }
   
-
+  public INode tree() { return tree_; }
+  
   static abstract class INode  {    
     int navigate(double[]_) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }

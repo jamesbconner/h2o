@@ -1,5 +1,6 @@
-package hexlytics;
+package hexlytics.tests;
 
+import hexlytics.RF;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -32,7 +33,7 @@ public class Iris {
       RF rf = new RF(train);
       rf.compute();
       rf.classify(valid, score);
-      System.out.println("error = "+RF.score(valid, score) +" "+ rf.tree_);
+      System.out.println("error = "+RF.score(valid, score) +" "+ rf.tree());
     } 
   }
   

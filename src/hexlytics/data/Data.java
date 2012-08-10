@@ -1,6 +1,6 @@
 package hexlytics.data;
 
-import hexlytics.Classifier;
+import hexlytics.Statistic.Split;
 import hexlytics.data.Data.Row;
 
 import java.text.DecimalFormat;
@@ -138,11 +138,11 @@ public  class Data  implements Iterable<Row> {
   }
  
   
-  public void filter(Classifier c, Data[] result) {
+  public void filter(Split c, Data[] result) {
     int l=0, r=0;
     boolean[] tmp = new boolean[rows()];
     for(Row row : this) {
-      if (c.navigate(row.v)==0) {
+      if (row.v[c.column]==0) {
         tmp[row.index] = true; l++;
       }else { r++; }
     }

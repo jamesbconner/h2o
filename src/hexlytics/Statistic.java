@@ -3,34 +3,20 @@ package hexlytics;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
-/** A statistic that is capable of storing itself into the long[] arrays
- * conveniently. These long arrays are used for fast and memory efficient
- * retrieval of the statistic data by the distributed tree builder. 
- * 
- * TODO This is not thread safe yet! Locks should be implemented. 
- *
- * @author peta
- */
-public abstract class Statistic {
-   
-  /** Produces the classifier from the statistic. If the statistic has seen only
-   * rows of one type, the ConstClassifier should be returned.    */ 
-  public abstract Classifier classifier();  
 
+public class Statistic {
+ 
   public static Statistic make(String name, Data d) {
-    if (name.equals("Numeric")) return new Numeric(d);
+    if (name.equals("Numeric")) return new Statistic(d);
     else throw new Error("Unsupported stat " + name);
   }
-}
-
-class Numeric extends Statistic {
   
   private final Data data;  // data
   private final Column[] columns_;  //columns for which the averages are computed
   double[] v_;
   /** Hold information about a split. */
-  static class Split {
-    final int column; final double value, fitness;    
+  public static class Split {
+    public final int column; public final double value, fitness;    
     Split(int column, double splitValue, double fitness) {
       this.column = column;  this.value = splitValue; this.fitness = fitness;
     }    
@@ -77,22 +63,12 @@ class Numeric extends Statistic {
   }
   
 
-  /** Creates the classifier. If the node has seen only single data class, a
-   * const classifier is used. Otherwise all columns are queried to find the
-   * best split. If the chosen selected columns is not able to differentiate
-   * between the observations, a Const node will be returned with a majority
-   * vote for the class.
-   */
-  @Override public Classifier classifier() {  
-    Split best = null;
-    for (Column c: columns_) {
-      Split s = c.split();
-      if (s.betterThan(best)) best = s;
-    }
-    return new Classifier.Binary(best.column,best.value); 
-  }
-
-  public Numeric(Data data) {
+  private Split best;
+  public Split best() { return best; }
+  int classOf;
+  public int classOf() { return classOf; }
+  
+  public Statistic(Data data) {
     columns_ = new Column[data.features()];
     this.data = data;    
     A: for(int i=0;i<data.features();) {
@@ -103,5 +79,21 @@ class Numeric extends Statistic {
     for (Row r : data) 
       for (Column c : columns_) 
         c.add(r.classOf,data.weight(r.index));
+    
+    for (Column c: columns_) {
+      Split s = c.split();
+      if (s!=null && s.betterThan(best)) best = s;
+    }
+    
+    if (best == null) {
+      int[] votes = new int[data.classes()];
+      for(Row r: data)
+        votes[r.classOf]++;
+      int classOf = -1; int max = 0;
+      for(int i=0;i<votes.length;i++) {
+        if (votes[i]>max) { max=votes[i]; classOf = i;}
+      }
+    }
+    
   }
  }

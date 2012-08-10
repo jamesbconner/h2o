@@ -2,7 +2,8 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package hexlytics.data;
+package hexlytics.tests;
+
 
 
 /** Iris data set. For speed uses the trick that we return the full array
