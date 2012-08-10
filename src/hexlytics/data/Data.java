@@ -142,7 +142,7 @@ public  class Data  implements Iterable<Row> {
     int l=0, r=0;
     boolean[] tmp = new boolean[rows()];
     for(Row row : this) {
-      if (row.v[c.column]==0) {
+      if (row.v[c.column]<c.value) {
         tmp[row.index] = true; l++;
       }else { r++; }
     }

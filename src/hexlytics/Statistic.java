@@ -65,7 +65,7 @@ public class Statistic {
 
   private Split best;
   public Split best() { return best; }
-  int classOf;
+  int classOf = -1;
   public int classOf() { return classOf; }
   
   public Statistic(Data data) {
@@ -87,13 +87,10 @@ public class Statistic {
     
     if (best == null) {
       int[] votes = new int[data.classes()];
-      for(Row r: data)
-        votes[r.classOf]++;
-      int classOf = -1; int max = 0;
-      for(int i=0;i<votes.length;i++) {
+      for(Row r: data) votes[r.classOf]++;
+      int max = 0;
+      for(int i=0;i<votes.length;i++) 
         if (votes[i]>max) { max=votes[i]; classOf = i;}
-      }
     }
-    
   }
  }
