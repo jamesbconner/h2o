@@ -41,7 +41,7 @@ public abstract class UKV {
       ValueArray ary = (ValueArray)val;
       final long chunks = ary.chunks();
       // Delete all chunks
-      for( long i=0; i<chunks; i++ ) // Delete all the chunks
+      for( long i=0; i<=chunks; i++ ) // Delete all the chunks
         DKV.remove(ary.chunk_get(i));
     }
     DKV.remove(key);
