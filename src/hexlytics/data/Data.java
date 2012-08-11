@@ -33,7 +33,7 @@ public  class Data  implements Iterable<Row> {
    * @param idx Index for this data
    * @return Original index of the row (the index on DataAdapter). 
    */
-  protected int originalIndex(int idx) {
+  public int originalIndex(int idx) {
     return idx;
   }
   
@@ -196,7 +196,7 @@ public  class Data  implements Iterable<Row> {
 class Subset extends Data {     
   int[] permutation_; // index of original rows  
 
-  protected int originalIndex(int idx) {
+  public int originalIndex(int idx) {
     return permutation_[idx];
   }
   

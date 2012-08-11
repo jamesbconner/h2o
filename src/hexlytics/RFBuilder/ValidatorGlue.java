@@ -12,7 +12,7 @@ import hexlytics.RandomTree;
  */
 public interface ValidatorGlue {
   
-  void onTreeValidated(RandomTree tree, int rows, int errors, int[] votes);
+  void onTreeValidated(RandomTree tree, int rows, int[] errorRows);
   
   void onValidatorTerminated();
   

@@ -1,9 +1,6 @@
 package hexlytics.tests;
 
-import hexlytics.RFBuilder.Builder;
-import hexlytics.RFBuilder.BuilderGlue;
-import hexlytics.RFBuilder.Validator;
-import hexlytics.RFBuilder.ValidatorGlue;
+import hexlytics.RFBuilder.*;
 import hexlytics.RandomForest;
 import hexlytics.RandomTree;
 import hexlytics.Utils;
@@ -50,16 +47,18 @@ public class Iris {
     //System.out.println("Score on full set: "+rf.score(d));
   }
   
-  static class TestGlue implements BuilderGlue, ValidatorGlue {
+  static class TestGlue implements BuilderGlue, ValidatorGlue, AggregatorGlue {
     
     int trees = 0;
     
     Builder b;
     Validator v;
+    Aggregator a;
     
     public TestGlue(Data d) {
       b = new Builder(d,0.6,this);
       v = new Validator(d,this);
+      a = new Aggregator(d,this);
       v.start(1);
       b.start(1);
       System.out.println("All done in main.");
@@ -78,9 +77,13 @@ public class Iris {
       System.out.println("validator terminated...");
     }
 
-    @Override public void onTreeValidated(RandomTree tree, int rows, int errors, int[] votes) {
+    @Override public void onTreeValidated(RandomTree tree, int rows, int[] errorRows) {
+      a.aggregateTree(tree, errorRows);
+    }
+
+    @Override public void onChange() {
       trees += 1;
-      System.out.println("Tree "+trees+": "+(double)errors/rows+" -- "+tree.tree());
+      System.out.println("We have "+trees+" trees and error "+a.error());
       if (trees == 100) {
         b.terminate();
         v.terminate();

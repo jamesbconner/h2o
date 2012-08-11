@@ -62,6 +62,7 @@ public class Validator implements Runnable {
     synchronized (this) {
       ++runningThreads_;
     }
+    int[] errorRows = new int[data_.rows()];
     // get the tree and validate it on given data
     while (true) {
       RandomTree tree;
@@ -71,13 +72,13 @@ public class Validator implements Runnable {
           break;
         // we have a correct tree, validate it on data
         int errors = 0;
-        int[] votes = new int[data_.rows()];
         for (Row r : data_) {
-          votes[r.index] = tree.classify(r);
-          if (votes[r.index]!=r.classOf)
-            ++errors;
+          if (tree.classify(r)!=r.classOf)
+            errorRows[errors++] = data_.originalIndex(r.index);  
         }
-        glue_.onTreeValidated(tree, data_.rows(), errors, votes);
+        int[] eRows = new int[errors];
+        System.arraycopy(errorRows,0,eRows,0,errors);
+        glue_.onTreeValidated(tree, data_.rows(), eRows);
       } catch( InterruptedException ex ) {
         // pass
       }
