@@ -1,9 +1,7 @@
 package hexlytics.tests;
 
 import hexlytics.RFBuilder.*;
-import hexlytics.RandomForest;
 import hexlytics.RandomTree;
-import hexlytics.Utils;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -65,15 +63,15 @@ public class Iris {
     }
     
     
-    @Override public void onTreeReady(RandomTree tree) {
+    public void onTreeReady(RandomTree tree) {
       v.validateTree(tree);
     }
 
-    @Override public void onBuilderTerminated() {
+    public void onBuilderTerminated() {
       System.out.println("builder terminated...");
     }
 
-    @Override public void onValidatorTerminated() {
+    public void onValidatorTerminated() {
       System.out.println("validator terminated...");
     }
 

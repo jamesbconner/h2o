@@ -55,7 +55,7 @@ public class Builder implements Runnable {
   /** Starts computing the trees. This method should not be called from outside,
    * use the method start() instead.
    */
-  @Override public void run() {
+   public void run() {
     // increase the number of workers
     synchronized (this) {
       ++runningThreads_;

@@ -6,7 +6,6 @@ import hexlytics.data.Data.Row;
 import java.util.Random;
 
 /**
- *
  * @author peta
  */
 public class RandomForest {

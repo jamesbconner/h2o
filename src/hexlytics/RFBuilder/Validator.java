@@ -7,6 +7,7 @@ package hexlytics.RFBuilder;
 import hexlytics.RandomTree;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
+
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -57,7 +58,7 @@ public class Validator implements Runnable {
   }
     
   /** Get trees one by one and validate them on given data. */
-  @Override public void run() {
+  public void run() {
     // increase the number of workers
     synchronized (this) {
       ++runningThreads_;
