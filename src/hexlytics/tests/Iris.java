@@ -1,5 +1,7 @@
 package hexlytics.tests;
 
+import hexlytics.RFBuilder.Builder;
+import hexlytics.RFBuilder.BuilderGlue;
 import hexlytics.RandomForest;
 import hexlytics.RandomTree;
 import hexlytics.Utils;
@@ -24,7 +26,7 @@ public class Iris {
 
   public static void main(String[] a) {     
     Data d = new Iris().iris_;
-    System.out.println(d+"\n"+d.head(4));
+/*    System.out.println(d+"\n"+d.head(4));
     System.out.println("Computing trees...");
     Data train = d.sampleWithReplacement(.6);
     System.out.println("train\n"+train+"\n");
@@ -36,11 +38,34 @@ public class Iris {
       rf.compute(train);
       rf.classify(valid, score);
       System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
-    } 
+    } */ 
+    TestGlue tg = new TestGlue();
+    Builder b = new Builder(d,0.6,tg);
+    b.start(2);
+    System.out.println("all done in main.");
+    
+    
     //RandomForest rf = new RandomForest(0.6);
     //rf.addTrees(d, 100000,2);
     //System.out.println("We now have "+rf.numTrees()+" trees in the forest");
     //System.out.println("Score on full set: "+rf.score(d));
+  }
+  
+  static class TestGlue extends BuilderGlue {
+    
+    int trees = 0;
+    
+    @Override public void onTreeReady(RandomTree tree) {
+      trees += 1;
+      System.out.println(tree.tree());
+      if (trees >= 100)
+        terminate();
+    }
+
+    @Override public void onTerminated() {
+      System.out.println("terminated...");
+    }
+    
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 

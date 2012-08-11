@@ -15,7 +15,6 @@ public abstract class BuilderGlue {
   /** Builder object we talk to, set by the builder. */
   Builder builder_ = null;
   
-  
   /** Called by the builder when new tree is computed. */
   public abstract void onTreeReady(RandomTree tree);
   
