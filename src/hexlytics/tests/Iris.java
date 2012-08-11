@@ -1,15 +1,10 @@
 package hexlytics.tests;
 
-<<<<<<< HEAD
+import hexlytics.RandomTree;
 import hexlytics.RFBuilder.Builder;
 import hexlytics.RFBuilder.BuilderGlue;
 import hexlytics.RFBuilder.Validator;
 import hexlytics.RFBuilder.ValidatorGlue;
-import hexlytics.RandomForest;
-=======
->>>>>>> override override
-import hexlytics.RandomTree;
-import hexlytics.Utils;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -69,19 +64,19 @@ public class Iris {
     }
     
     
-    @Override public void onTreeReady(RandomTree tree) {
+    public void onTreeReady(RandomTree tree) {
       v.validateTree(tree);
     }
 
-    @Override public void onBuilderTerminated() {
+    public void onBuilderTerminated() {
       System.out.println("builder terminated...");
     }
 
-    @Override public void onValidatorTerminated() {
+    public void onValidatorTerminated() {
       System.out.println("validator terminated...");
     }
 
-    @Override public void onTreeValidated(RandomTree tree, int rows, int errors, int[] votes) {
+    public void onTreeValidated(RandomTree tree, int rows, int errors, int[] votes) {
       trees += 1;
       System.out.println("Tree "+trees+": "+(double)errors/rows+" -- "+tree.tree());
       if (trees == 100) {
