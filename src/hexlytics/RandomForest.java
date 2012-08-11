@@ -1,11 +1,8 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package hexlytics;
 
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
+
 import java.util.Random;
 
 /**
