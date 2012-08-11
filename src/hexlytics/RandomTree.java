@@ -10,21 +10,56 @@ import hexlytics.data.Data.Row;
  * @author peta
  */
 public class RandomTree { 
-  INode tree_;
+  INode tree_ = null;
   //Data data_;
-  long time_;
+  long time_ = 0;
   private static String statistic_ = "Numeric"; // Default choice
+  int serializedSize_ = 0;
   
   //public RandomTree(Data data) { data_=data;  }    
 
   public void compute(Data data) { 
     long t = System.currentTimeMillis(); 
-    tree_ = new Root();
-    compute(data,tree_,0);    
+    //tree_ = new Root();
+    //compute(data,tree_,0);    
+    tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
   }
   
-  void compute(Data d, INode n, int direction) {
+  /** for given data creates a node and returns it. */
+  protected INode compute_(Data d) {
+    int classOf = -1;
+    for(Row r : d) 
+       if (classOf==-1)
+         classOf = r.classOf; 
+       else
+         if (classOf != r.classOf) {
+           classOf = -1;
+           break;
+         }
+    if (classOf!=-1) { 
+      serializedSize_ += 4;
+      return new LeafNode(classOf);
+    } else {
+      Statistic s = Statistic.make(statistic_, d);  
+      Split best = s.best();
+      if (best == null) {
+        serializedSize_ += 4;
+        return new LeafNode(s.classOf());
+        //n.set(direction, new LeafNode(s.classOf()));            
+      } else {
+        Node nd = new Node(best.column,best.value);
+        Data[] res = new Data[2];
+        d.filter(best,res);
+        nd.set(0,compute_(res[0]));
+        nd.set(1,compute_(res[1]));
+        serializedSize_ += 12;
+        return nd;
+      }
+    }
+  }
+  
+/*  void compute(Data d, INode n, int direction) {
     int classOf = -1;
     for(Row r : d) 
        if (classOf==-1)
@@ -50,7 +85,7 @@ public class RandomTree {
         compute(res[1],nd,1);
       }
     }
-  }
+  } */
   
   public INode tree() { return tree_; }
   
@@ -82,14 +117,13 @@ public class RandomTree {
    public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
  }
   
- static class Root extends Node {
+ /*static class Root extends Node {
    Root() { super(-1,0); }
    public int navigate(double[]_)  { return 0; }
    public int classify(double[] v) { return l_.classify(v); }
    public void set(int direction, INode n) { if (direction==0) l_=n; else throw new Error("Unsupported"); }
    public String toString()        { return l_.toString(); }
- }
-  
+ } */
  
   public int classify(Row r) {
     return tree_.classify(r.v);
@@ -107,6 +141,11 @@ public class RandomTree {
         if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    
     }
     return wrong/(double)right;
+  }
+  
+  /** Returns the size required for the tree to serialize. In bytes. */
+  public int serializedSize() {
+    return serializedSize_;
   }
 }
 
