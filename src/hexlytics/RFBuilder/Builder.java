@@ -52,6 +52,7 @@ public class Builder implements Runnable {
     terminate_ = true;
   }
   
+<<<<<<< HEAD
   /** Starts computing the trees. This method should not be called from outside,
    * use the method start() instead.
    */
@@ -61,6 +62,11 @@ public class Builder implements Runnable {
       ++runningThreads_;
     }
     // compute the trees one at a time, each one with newly sampled data
+=======
+  
+  
+   public void run() {
+>>>>>>> override override
     while (terminate_ == false) {
       Data d = data_.sampleWithReplacement(bagSize_);
       RandomTree tree = new RandomTree(d);

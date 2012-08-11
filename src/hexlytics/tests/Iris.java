@@ -1,10 +1,13 @@
 package hexlytics.tests;
 
+<<<<<<< HEAD
 import hexlytics.RFBuilder.Builder;
 import hexlytics.RFBuilder.BuilderGlue;
 import hexlytics.RFBuilder.Validator;
 import hexlytics.RFBuilder.ValidatorGlue;
 import hexlytics.RandomForest;
+=======
+>>>>>>> override override
 import hexlytics.RandomTree;
 import hexlytics.Utils;
 import hexlytics.data.Data;
