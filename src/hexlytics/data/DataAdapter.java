@@ -105,7 +105,9 @@ public class DataAdapter  {
        if (v==0 || v >= columns()-1) throw new Error("Should pick 2/3 of columns");    
        return v;
     }
-    public int columns()        { return c_.length; }
+    // return columns -1 so that we don't include the class when choosing column on which to make a split 
+    // fixme: assumes that the class is alway the last column!
+    public int columns()        { return c_.length -1;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return c_[classIdx_].getI(idx); }
     public int classes() {         
