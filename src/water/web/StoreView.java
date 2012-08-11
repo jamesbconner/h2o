@@ -6,9 +6,8 @@ import water.H2O;
 import water.Key;
 import water.Value;
 import water.ValueArray;
-import water.csv.CSVParserKV;
-import water.csv.ValueCSVRecords;
 import water.csv.CSVParser.*;
+import water.csv.CSVParserKV;
 
 /**
  *
