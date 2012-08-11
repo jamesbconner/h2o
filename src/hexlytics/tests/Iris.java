@@ -35,11 +35,6 @@ public class Iris {
       RandomTree rf = new RandomTree();
       rf.compute(train);
       rf.classify(valid, score);
-      byte[] b = new byte[rf.serializedSize()];
-      rf.serialize(b,0);
-      RandomTree rtt = new RandomTree(b,0);
-      System.out.println("Orginial: "+rf.tree());
-      System.out.println("Copy:     "+rtt.tree());
       System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
     } 
     //RandomForest rf = new RandomForest(0.6);

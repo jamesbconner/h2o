@@ -50,7 +50,7 @@ public class RandomTree {
            break;
          }
     if (classOf!=-1) { 
-      serializedSize_ += LeafNode.SERIALIZED_SIZE;;  
+      serializedSize_ += LeafNode.SERIALIZED_SIZE; 
       return new LeafNode(classOf);
     } else {
       Statistic s = Statistic.make(statistic_, d);  
