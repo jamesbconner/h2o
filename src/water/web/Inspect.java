@@ -206,17 +206,20 @@ public class Inspect extends H2OPage {
     // Compression/math function: Ax+B
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ ) {
-      sb.append("<td>(X");
-      int base = ary.col_base(i);
-      if( base != 0 ) {
-        if( base > 0 ) sb.append('+');
-        sb.append(base);
-      }
-      sb.append(")");
+      sb.append("<td>");
       int sz = ary.col_size(i);
-      if( sz == 1 || sz == 2 ) {
-        int s = ary.col_scale(i);
-        if( s != 1.0 ) sb.append("/").append(s);
+      if( sz != 0 ) {
+        sb.append("(X");
+        int base = ary.col_base(i);
+        if( base != 0 ) {
+          if( base > 0 ) sb.append('+');
+          sb.append(base);
+        }
+        sb.append(")");
+        if( sz == 1 || sz == 2 ) {
+          int s = ary.col_scale(i);
+          if( s != 1.0 ) sb.append("/").append(s);
+        }
       }
       sb.append("</td>");
     }
@@ -226,11 +229,14 @@ public class Inspect extends H2OPage {
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ ) {
       sb.append("<td>");
-      double min = ary.col_min(i);
-      if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
-      sb.append(" - ");
-      double max = ary.col_max(i);
-      if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+      int sz = ary.col_size(i);
+      if( sz != 0 ) {
+        double min = ary.col_min(i);
+        if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
+        sb.append(" - ");
+        double max = ary.col_max(i);
+        if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+      }
       sb.append("</td>");
     }
     response.replace("min_max_row",sb);
@@ -261,12 +267,15 @@ public class Inspect extends H2OPage {
     sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
     for( int i=0; i<num_col; i++ ) {
       sb.append("<td>");
-      if( r == -1 ) sb.append("...");
-      else {
-        if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
-          sb.append(ary.data (r,i)); // int/long
-        else 
-          sb.append(ary.datad(r,i)); // float/double
+      int sz = ary.col_size(i);
+      if( sz != 0 ) {
+        if( r == -1 ) sb.append("...");
+        else {
+          if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
+            sb.append(ary.data (r,i)); // int/long
+          else 
+            sb.append(ary.datad(r,i)); // float/double
+        }
       }
       sb.append("</td>");
     }

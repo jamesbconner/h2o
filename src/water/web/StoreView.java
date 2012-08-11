@@ -140,11 +140,14 @@ public class StoreView extends H2OPage {
       row.replace("cols",cols);
       for( int i=0; i<Math.min(cols,5); i++ ) {
         sb = new StringBuilder();
-        double min = ary.col_min(i);
-        if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
-        sb.append(" / - / ");
-        double max = ary.col_max(i);
-        if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+        int sz = ary.col_size(i);
+        if( sz != 0 ) {
+          double min = ary.col_min(i);
+          if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
+          sb.append(" / - / ");
+          double max = ary.col_max(i);
+          if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+        }
         row.replace("col"+i,sb);
       }
       row.append();

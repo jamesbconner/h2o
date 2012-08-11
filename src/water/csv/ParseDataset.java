@@ -88,12 +88,16 @@ public final class ParseDataset {
 
     for( int i=0; i<num_cols; i++ ) {
       ValueArray.Column c= dp1._cols[i];
-      if( c._size==31 ) {       // All fails; this is a plain double
-        c._size = -8;           // Flag as a plain double
+      if( c._min == Double.MAX_VALUE ) { // Column was only NaNs?  Skip column...
+        c._size = 0;                     // Size is zero... funny funny column
+        continue;
+      }
+      if( (c._size&31)==31 ) { // All fails; this is a plain double
+        c._size = -8;          // Flag as a plain double
         continue;
       } 
-      if( c._size == 15){     // All the int-versions fail, but fits in a float
-        c._size = -4;           // Flag as a float
+      if( (c._size&31)==15 ) { // All the int-versions fail, but fits in a float
+        c._size = -4;          // Flag as a float
         continue;
       } 
       // Else attempt something integer; try to squeeze into a short or byte.
@@ -134,6 +138,13 @@ public final class ParseDataset {
     }
   }
 
+  // True if the array is all NaNs
+  private final static boolean allNaNs( double ds[] ) {
+    for( double d : ds )
+      if( !Double.isNaN(d) )
+        return false;
+    return true;
+  }
 
   // ----
   // Distributed parsing
@@ -200,11 +211,14 @@ public final class ParseDataset {
       // The parser
       CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,data,null);
       int num_rows = 0;
+
+      // Parse row-by-row until the whole file is parsed
       for( double[] ds : csv ) {
+        if( allNaNs(ds) ) continue; // Row is dead, skip it entirely
+        // Row has some valid data, parse away
         num_rows++;
         for( int i=0; i<_num_cols; i++ ) {
           double d = ds[i];
-          if( Double.isNaN(d) ) continue;
           if( d < _cols[i]._min ) _cols[i]._min = d;
           if( d > _cols[i]._max ) _cols[i]._max = d;
           // I pass a flag in the _size field if any value is NOT an integer.
@@ -213,8 +227,10 @@ public final class ParseDataset {
           if( (double)((int)(d* 100)) != (d* 100) ) _cols[i]._size |= 4; // not 2 digits: 5.24
           if( (double)((int)(d*1000)) != (d*1000) ) _cols[i]._size |= 8; // not 3 digits: 5.239
           if( (double)((float)d)      !=  d       ) _cols[i]._size |=16; // not float   : 5.23912f
+          if( Double.isNaN(d) )                     _cols[i]._size |=32; // Broken data on row
         }
       }
+
       _num_rows = num_rows;
       // Also pass along the rows-per-chunk
       int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
@@ -297,6 +313,7 @@ public final class ParseDataset {
       // Fill the rows
       int off = 0;
       for( double[] ds : csv ) {
+        if( allNaNs(ds) ) continue; // Row is dead, skip it entirely
         int old = off;
         for( int i=0; i<ds.length; i++ ) {
           double d = ds[i];
