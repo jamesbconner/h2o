@@ -107,9 +107,6 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
         // Fill in remote values
         dt.read(buf,off);
 
-        // Now compute on it!
-        dt.rexec(args);
-
         remexec(dt,args,p,h2o);
       } else {               // Else all the work is being done in the TCP thread
         // No "reply" here: the TCP thread will ship a reply.
