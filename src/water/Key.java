@@ -381,7 +381,7 @@ public final class Key implements Comparable {
   // --------------------------------------------------------------------------
   // Read/Write keys in UDP packets
   // Wire-line length of Key.  2 bytes of length, then length bytes
-  int wire_len() {
+  public int wire_len() {
     return
       1+ // for replication factor
       2+ // for len
@@ -389,7 +389,7 @@ public final class Key implements Comparable {
   }
   
   // Write the key length & bytes into a UDP packet
-  int write( byte[] buf, int off ) {
+  public int write( byte[] buf, int off ) {
     buf[off++] = (byte)desired();
     off += UDP.set2(buf,off,_kb.length);
     System.arraycopy(_kb,0,buf,off,_kb.length);
@@ -400,7 +400,7 @@ public final class Key implements Comparable {
   }
   
   // Read the key length & kind & bytes from a UDP packet.  Build a bare key.
-  static Key read( byte[] buf, int off ) {
+  static public Key read( byte[] buf, int off ) {
     byte rf = buf[off++];
     int len = UDP.get2(buf,off);  off += 2;
     return make( buf, off, len, rf);

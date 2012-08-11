@@ -412,7 +412,7 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     _rec = csvRecord;
     Value v = DKV.get(k);
     if( v instanceof ValueArray )
-      k = ((ValueArray)v).make_chunkkey(0); // Move from array to 1st chunk in array
+      k = ValueArray.make_chunkkey(k,0); // Move from array to 1st chunk in array
 
     if( k._kb[0] == Key.ARRAYLET_CHUNK ) { // Arraylet?
       int index = ValueArray.getChunkIndex(k);

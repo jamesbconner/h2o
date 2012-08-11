@@ -33,24 +33,29 @@ public abstract class Atomic extends RemoteTask {
   // atomically).  The original bits are supposed to be read-only.
   abstract public byte[] atomic( byte[] bits );
 
-  // By default, nothing sent over with the function (except the target Key)
-  protected int wire_len() { return 0; }
+  // By default, nothing sent over with the function (except the target Key).
+  protected int  wire_len() { return 0; }
   protected int  write( byte[] buf, int off ) { return off; }
-  protected void write( DataOutputStream dos ) { throw new Error("unimplemented"); }
+  protected void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
   protected void read( byte[] buf, int off ) { }
-  protected void read( DataInputStream dis ) { throw new Error("unimplemented"); }
+  protected void read( DataInputStream dis ) throws IOException { throw new Error("unimplemented"); }
   // Must define for the abstract class, but not needed:
   public Object compute() { throw new Error("Do Not Call This"); }
 
   // Start the remote atomic action on Key
   public void run( Key key ) {
     H2O cloud = H2O.CLOUD;
-    H2ONode target = cloud._memary[key.home(cloud)]; // Key's home
-    _tre = new TaskRemExec(target,this,key);
+    if( key.home() ) {          // Local already?
+      rexec(key);               // Run it locally, right now!
+    } else {
+      H2ONode target = cloud._memary[key.home(cloud)]; // Key's home
+      _tre = new TaskRemExec(target,this,key);
+    }
   }
   // Block until the remote action completes
   public final void complete() {
-    _tre.get();
+    if( _tre != null )
+      _tre.get();
   }
 
 
@@ -59,30 +64,38 @@ public abstract class Atomic extends RemoteTask {
     assert key.home();          // Key is at Home!
     while( true ) {
       Value val1 = DKV.get(key);
-      byte[] bits1 = val1.get();
+      byte[] bits1 = (val1 == null) ? null : val1.get();
 
       byte[] dummy = null;
-      assert (dummy = bits1.clone()) != null; // Assign *inside* an array
+      if( bits1 != null ) {
+        assert (dummy = bits1.clone()) != null; // Assign *inside* an array
+      }
 
       // Run users' function.  This is supposed to read-only from bits1 and
       // return new bits2 to atomically install.
       byte[] bits2 = atomic(bits1);
 
-      assert Arrays.equals(dummy,bits1);
-      assert bits1 != bits2;    // No returning the same array either.
+      if( bits1 != null ) {
+        assert Arrays.equals(dummy,bits1);
+        assert bits1 != bits2;    // No returning the same array either.
+      }
       Value val2 = new Value(key,bits2);
 
       // Attempt atomic update
       Value res = DKV.DputIfMatch(key,val2,val1);
 
       if( res == val1 ) {       // Success?
-        val1.free_mem();        // Atomically updated!  Toss out old value
+        if( val1 != null )
+          val1.free_mem();      // Atomically updated!  Toss out old value
         return;
       }
       // Else it failed
-      val2.free_mem();          // Toss out NEW value
+      if( val2 != null )
+        val2.free_mem();        // Toss out NEW value
       // and retry
     }
   }
-}
 
+  // By default, return no result from the Atomic operation
+  protected boolean void_result() { return true; }
+}

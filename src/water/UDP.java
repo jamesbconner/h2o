@@ -142,7 +142,8 @@ public abstract class UDP {
       sum |= ((long)(0xff&buf[off+i]))<<(i<<3);
     return sum;
   }
-  public static int set8( byte[] buf, int off, double d ) { return set8(buf,off,Double.doubleToRawLongBits(d)); }
+  public static int set4f( byte[] buf, int off, float f ) { return set4(buf,off,Float.floatToRawIntBits(f)); }
+  public static int set8d( byte[] buf, int off, double d ) { return set8(buf,off,Double.doubleToRawLongBits(d)); }
   public static double get8d( byte[] buf, int off ) { return Double.longBitsToDouble(get8(buf,off)); }
   public static float  get4f( byte[] buf, int off ) { return Float . intBitsToFloat (get4(buf,off)); }
 }

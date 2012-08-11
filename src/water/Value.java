@@ -185,7 +185,7 @@ public class Value {
   // Larger values are chunked into arraylets.  This is the number of chunks:
   // by default the Value is its own single chunk.
   public long chunks() { return 1; }
-  public long chunk_offset( long chunknum ) { return chunknum << ValueArray.LOG_CHK; }
+  static public long chunk_offset( long chunknum ) { return chunknum << ValueArray.LOG_CHK; }
   public Key chunk_get( long chunknum ) {
     if( chunknum != 0 ) throw new ArrayIndexOutOfBoundsException(Long.toString(chunknum));
     return _key;                // Self-key

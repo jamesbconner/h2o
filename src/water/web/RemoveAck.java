@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Properties;
@@ -24,7 +20,6 @@ public class RemoveAck extends H2OPage {
     if (!key.user_allowed())
       return error("Not a user key: "+ key.toString());    
     RString response = new RString(html);
-//    response.clear();
     response.replace("key",key.toString());
     response.replace("keyHref",urlEncode(new String(key._kb)));
     return response.toString();

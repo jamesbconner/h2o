@@ -2,7 +2,7 @@ package water.web;
 
 import java.util.Properties;
 import water.Key;
-import water.DKV;
+import water.UKV;
 
 /**
  *
@@ -19,7 +19,7 @@ public class Remove extends H2OPage {
       return H2OPage.error("Not a valid key: "+ keys);
     }
     // Distributed remove
-    DKV.remove(key);
+    UKV.remove(key);
     // HTML file save of Value
     return H2OPage.success("Removed key <strong>"+keys+"</strong>");
   }

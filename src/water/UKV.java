@@ -54,7 +54,7 @@ public abstract class UKV {
     //if( val instanceof ValueCode )
     //  throw new Error("unimplemented: users should get a polite error if they attempt to fetch a ValueCode");
     if( val instanceof ValueArray ) {
-      Value vchunk0 = DKV.get(((ValueArray)val).make_chunkkey(0),len);
+      Value vchunk0 = DKV.get(ValueArray.make_chunkkey(key,0),len);
       if( len >= vchunk0._max )
         throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk");
       return vchunk0;           // Else just get the prefix asked for
@@ -71,7 +71,7 @@ public abstract class UKV {
   
   // Appends the given set of bytes to the arraylet
   private static void appendArraylet(ValueArray alet, byte[] b) {
-    Value lastChunk = DKV.get(alet.make_chunkkey(alet.length() - alet.length() % ValueArray.chunk_size()));
+    Value lastChunk = DKV.get(alet.make_chunkkey(alet._key,alet.length() - alet.length() % ValueArray.chunk_size()));
     int offset = 0;
     int remaining = b.length;
     // first update the last chunk 
@@ -86,7 +86,7 @@ public abstract class UKV {
         break;
       size = Math.min(remaining, (int) ValueArray.chunk_size());
       long coffset = UDP.get8(lastChunk._key._kb, 2) + ValueArray.chunk_size();
-      lastChunk = new Value(alet.make_chunkkey(coffset), size);
+      lastChunk = new Value(alet.make_chunkkey(alet._key,coffset), size);
       System.arraycopy(b, offset, lastChunk.mem(), 0, size);
       DKV.put(lastChunk._key, lastChunk);
     }
@@ -124,9 +124,9 @@ public abstract class UKV {
           return;
         } else {
           // we cannot append properly - create an arraylet
-          ValueArray alet = new ValueArray(k, old._max);
-          Value v = new Value(alet.make_chunkkey(0), old._max);
+          Value v = new Value(ValueArray.make_chunkkey(k,0), old._max);
           System.arraycopy(old.get(), 0, v.mem(), 0, v._max);
+          ValueArray alet = new ValueArray(k, old._max);
           DKV.put(alet._key, alet);
           DKV.put(v._key, v);
         }

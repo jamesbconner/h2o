@@ -151,7 +151,7 @@ public class CSVParserTest {
   public void testLineEnding(){
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024);
-    Key k1 = var.make_chunkkey(0);
+    Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"double\",float,\"int\", CSVString \r\n .123 , .123, 123 ,\r\r\n");
     try{
       DKV.put(k1,v1);
@@ -189,7 +189,7 @@ public class CSVParserTest {
   public void testIgnoredColumn(){
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024);
-    Key k1 = var.make_chunkkey(0);
+    Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"test1\", haha,\"test2\"\n12345,xxx,.12345\n1.2345e13,xxx,-12345\n-1.3e-3,xxx,123\n");
     try{
       DKV.put(k1,v1);
@@ -214,8 +214,8 @@ public class CSVParserTest {
   public void testCSVString() {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 1024*1024*3);
-    Key k1 = var.make_chunkkey(var.chunk_offset(1));
-    Key k2 = var.make_chunkkey(var.chunk_offset(2));
+    Key k1 = ValueArray.make_chunkkey(k,var.chunk_offset(1));
+    Key k2 = ValueArray.make_chunkkey(k,var.chunk_offset(2));
 
     Value v1 = new Value(k1,"..\nhaha");
     Value v2 = new Value(k2,"gaga,\n");
@@ -240,7 +240,7 @@ public class CSVParserTest {
   public void testDataTypes() {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024);
-    Key k1 = var.make_chunkkey(0);
+    Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"double\",float,\"int\",CSVString \n .123 , .123, 123, \"123\"\n");
     try{
       DKV.put(k1,v1);
@@ -265,7 +265,7 @@ public class CSVParserTest {
   public void testSeparator() {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024);
-    Key k1 = var.make_chunkkey(0);
+    Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"test1\"  \"test2\" \n 12345 .12345 \n             1.2345e13    -12345\n -1.3e-3 123  \n");
 
     try{
@@ -293,7 +293,7 @@ public class CSVParserTest {
   public void testCorrectNumberParsing() {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024);
-    Key k1 = var.make_chunkkey(0);
+    Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"test1\", \"test2\"\n12345,.12345\n1.2345e13,-12345\n-1.3e-3,123\n");
     try{
       DKV.put(k1,v1);
@@ -318,9 +318,9 @@ public class CSVParserTest {
   public void testCorrectBoundaryProcessing() {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 1024*1024*3);
-    Key k1 = var.make_chunkkey(var.chunk_offset(0));
-    Key k2 = var.make_chunkkey(var.chunk_offset(1));
-    Key k3 = var.make_chunkkey(var.chunk_offset(2));
+    Key k1 = ValueArray.make_chunkkey(k,var.chunk_offset(0));
+    Key k2 = ValueArray.make_chunkkey(k,var.chunk_offset(1));
+    Key k3 = ValueArray.make_chunkkey(k,var.chunk_offset(2));
     Value v1 = new Value(k1,"\"test1\", \"test2\"\n1.23456e3, 1.");
     Value v2 = new Value(k2,"23456e3\n1.23456e3,1.2");
     Value v3 = new Value(k3,"3456e3\n,1.23456e3\n");

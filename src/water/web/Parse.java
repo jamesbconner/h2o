@@ -11,9 +11,16 @@ public class Parse extends H2OPage {
     Key key1 = Key.make(skey1);
     Key key2 = Key.make(skey2);
 
-    Value dataset = DKV.get(key1);  // Get the source dataset
-    ParseDataset.parse(key2,dataset);
-
-    return "Parsed into "+key2;
+    String s = "<a href='/Inspect?Key="+urlEncode(key2.toString())+"'>"+key2+"</a>";
+    if( DKV.get(key2) == null ) { // Key not parsed?  Parse it
+      long start = System.currentTimeMillis();
+      Value dataset = DKV.get(key1);  // Get the source dataset root key
+      ParseDataset.parse(key2,dataset);
+      long now = System.currentTimeMillis();
+      s = "Parsed into "+s+" in "+(now-start)+" msec";
+    } else {
+      s = "Already parsed into "+s;
+    }
+    return s;
   }
 }

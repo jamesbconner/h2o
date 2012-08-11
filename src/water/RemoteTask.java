@@ -1,6 +1,7 @@
 package water;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Constructor;
 import jsr166y.*;
@@ -23,9 +24,9 @@ public abstract class RemoteTask extends RecursiveTask {
   // Reads & writes user-guts to a line-wire format on a correctly typed object
   abstract protected int wire_len();
   abstract protected int  write( byte[] buf, int off );
-  abstract protected void write( DataOutputStream dos );
+  abstract protected void write( DataOutputStream dos ) throws IOException;
   abstract protected void read( byte[] buf, int off );
-  abstract protected void read( DataInputStream dis );
+  abstract protected void read( DataInputStream dis ) throws IOException;
 
   // The Fork-Join hook.  We want users to override this for local computation
   abstract public Object compute();
@@ -36,6 +37,12 @@ public abstract class RemoteTask extends RecursiveTask {
   void rexec( Key args ) {
     compute();                  // Call 'compute' - probably not want the users' want!
   }
+
+  // By default, return the full user result.  But some jobs are "fire and
+  // forget" and we do not want any result - this is a shortcut so the user
+  // does not have to make the wire_len read/write fields be lopsided (i.e.
+  // send-only, since by default they are send/recieve).
+  protected boolean void_result() { return false; }
 
   // Make a RemoteTask
   static final RemoteTask make( Key classloader, String clazz) {

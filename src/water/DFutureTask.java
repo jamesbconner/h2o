@@ -241,6 +241,14 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
               ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
             else
               ((Value)arg).write(dos,Integer.MAX_VALUE);
+          } else if( arg instanceof String ) {
+            byte[] b = ((String)arg).getBytes();
+            dos.writeShort(b.length);
+            dos.write(b);
+          } else if( arg instanceof Byte ) {
+            dos.writeByte((Byte)arg);
+          } else {
+            throw new Error("unimplemented");
           }
         }
 

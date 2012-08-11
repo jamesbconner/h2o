@@ -32,6 +32,10 @@ public class Inspect extends H2OPage {
     if( val == null )
       return H2OPage.wrap(H2OPage.error("Key not found: "+ key_s));
 
+    if( val instanceof ValueArray &&
+        ((ValueArray)val).num_cols() > 0 )
+      return structured_array(key,(ValueArray)val);
+
     RString response = new RString(html);
 
     formatKeyRow(key,val,response);
@@ -44,14 +48,22 @@ public class Inspect extends H2OPage {
 
     // ASCII file?  Give option to do a binary parse
     if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
-      String s = html_parse.replace("%keyHref",urlEncode(key_s));
       String p_key = key_s;
       int idx = key_s.lastIndexOf('.');
       if( idx != -1 )
         p_key = key_s.substring(0,idx);
       p_key += ".dat";
       if( p_key.equals(key_s) ) p_key += "2";
-      s = s.replace("%parsekey",urlEncode(p_key));
+      String s;
+      if( DKV.get(Key.make(p_key)) == null ) {
+        s = html_parse.replace("%keyHref",urlEncode(key_s));
+        s = s.replace("%parsekey",urlEncode(p_key));
+        s = s.replace("%pfunc","Parse");
+      } else {
+        s = html_parse.replace("%keyHref",urlEncode(p_key));
+        s = s.replace("%parsekey","");
+        s = s.replace("%pfunc","Inspect");
+      }
       response.replace("parse",s);
     }
 
@@ -163,5 +175,129 @@ public class Inspect extends H2OPage {
     + "%parse";
 
   final static String html_parse =
-    "<a href='/Parse?Key=%keyHref&Key2=%parsekey'>Basic Text-File Parse into %parsekey</a>\n";
+    "<a href='/%pfunc?Key=%keyHref&Key2=%parsekey'>Basic Text-File Parse into %parsekey</a>\n";
+
+  // ---------------------
+  // Structured Array / Dataset display
+
+  String structured_array( Key key, ValueArray ary ) {
+    RString response = new RString(html_ary);
+    // Pretty-print the key
+    String ks = key.toString();
+    response.replace("keyHref",urlEncode(new String(key._kb)));
+    response.replace("key",ks);
+    response.replace("ktr",urlEncode(ks));
+    response.replace("size",ary.length());
+    response.replace("rows",ary.num_rows());
+    response.replace("rowsize",ary.row_size());
+    Key pkey = ary.prior_key();
+    response.replace("priorkey",pkey);
+    response.replace("priorkeyHref",urlEncode(new String(pkey._kb)));
+    response.replace("xform",ary.xform());
+
+    // Header row
+    StringBuilder sb = new StringBuilder();
+    int num_col = ary.num_cols();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<th>"+i);
+    response.replace("head_row",sb);
+
+    // Data layout scheme
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<td> +").append(ary.col_off(i)).append("</td>");
+    response.replace("offset_row",sb);
+    
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<td>").append(Math.abs(ary.col_size(i))).append("b</td>");
+    response.replace("size_row",sb);
+
+    // Compression/math function: Ax+B
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ ) {
+      sb.append("<td>(X");
+      int base = ary.col_base(i);
+      if( base != 0 ) {
+        if( base > 0 ) sb.append('+');
+        sb.append(base);
+      }
+      sb.append(")");
+      int sz = ary.col_size(i);
+      if( sz == 1 || sz == 2 ) {
+        int s = ary.col_scale(i);
+        if( s != 1.0 ) sb.append("/").append(s);
+      }
+      sb.append("</td>");
+    }
+    response.replace("math_row",sb);
+
+    // Min & max
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ ) {
+      sb.append("<td>");
+      double min = ary.col_min(i);
+      if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
+      sb.append(" - ");
+      double max = ary.col_max(i);
+      if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+      sb.append("</td>");
+    }
+    response.replace("min_max_row",sb);
+
+    // If we have more than 7 rows, display the first & last 3 rows, else
+    // display all the rows.
+    long num_rows = ary.num_rows();
+    if( num_rows > 7 ) {
+      display_row(ary,0,response);
+      display_row(ary,1,response);
+      display_row(ary,2,response);
+      display_row(ary,-1,response); // Placeholder view
+      display_row(ary,num_rows-3,response);
+      display_row(ary,num_rows-2,response);
+      display_row(ary,num_rows-1,response);
+    } else {
+      for( int i=0; i<num_rows; i++ )
+        display_row(ary,i,response);
+    }
+
+    return response.toString();
+  }
+
+  static private void display_row(ValueArray ary, long r, RString response) {
+    RString row = response.restartGroup("tableRow");
+    int num_col = ary.num_cols();
+    StringBuilder sb = new StringBuilder();
+    sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
+    for( int i=0; i<num_col; i++ ) {
+      sb.append("<td>");
+      if( r == -1 ) sb.append("...");
+      else {
+        if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
+          sb.append(ary.data (r,i)); // int/long
+        else 
+          sb.append(ary.datad(r,i)); // float/double
+      }
+      sb.append("</td>");
+    }
+    row.replace("data_row",sb);
+    row.append();
+  }
+
+  final static String html_ary =
+      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+    + "<p>Generated from <a href=/Inspect?Key=%priorkeyHref>%priorkey</a> by '%xform'<p>"
+    + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
+    + "<table class='table table-striped table-bordered table-condensed'>"
+    + "<thead><tr><th>Column %head_row</tr></thead>\n"
+    + "<tbody>\n"
+    + "  <tr><td>Record offset</td>%offset_row</tr>\n"
+    + "  <tr><td>Column bytes</td>%size_row</tr>\n"
+    + "  <tr><td>Internal scaling</td>%math_row</tr>\n"
+    + "  <tr><td>Min/Max</td>%min_max_row</tr>\n"
+    + "%tableRow{\n"
+    + "  <tr>%data_row</tr>\n"
+    + "}\n"
+    + "</tbody>\n"
+    + "</table>\n";
 }
