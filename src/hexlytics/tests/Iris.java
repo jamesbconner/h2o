@@ -2,6 +2,8 @@ package hexlytics.tests;
 
 import hexlytics.RFBuilder.Builder;
 import hexlytics.RFBuilder.BuilderGlue;
+import hexlytics.RFBuilder.Validator;
+import hexlytics.RFBuilder.ValidatorGlue;
 import hexlytics.RandomForest;
 import hexlytics.RandomTree;
 import hexlytics.Utils;
@@ -39,10 +41,7 @@ public class Iris {
       rf.classify(valid, score);
       System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
     } */ 
-    TestGlue tg = new TestGlue();
-    Builder b = new Builder(d,0.6,tg);
-    b.start(2);
-    System.out.println("all done in main.");
+    TestGlue tg = new TestGlue(d);
     
     
     //RandomForest rf = new RandomForest(0.6);
@@ -51,19 +50,41 @@ public class Iris {
     //System.out.println("Score on full set: "+rf.score(d));
   }
   
-  static class TestGlue extends BuilderGlue {
+  static class TestGlue implements BuilderGlue, ValidatorGlue {
     
     int trees = 0;
     
+    Builder b;
+    Validator v;
+    
+    public TestGlue(Data d) {
+      b = new Builder(d,0.6,this);
+      v = new Validator(d,this);
+      v.start(1);
+      b.start(1);
+      System.out.println("All done in main.");
+    }
+    
+    
     @Override public void onTreeReady(RandomTree tree) {
-      trees += 1;
-      System.out.println(tree.tree());
-      if (trees >= 100)
-        terminate();
+      v.validateTree(tree);
     }
 
-    @Override public void onTerminated() {
-      System.out.println("terminated...");
+    @Override public void onBuilderTerminated() {
+      System.out.println("builder terminated...");
+    }
+
+    @Override public void onValidatorTerminated() {
+      System.out.println("validator terminated...");
+    }
+
+    @Override public void onTreeValidated(RandomTree tree, int rows, int errors, int[] votes) {
+      trees += 1;
+      System.out.println("Tree "+trees+": "+(double)errors/rows+" -- "+tree.tree());
+      if (trees == 100) {
+        b.terminate();
+        v.terminate();
+      }
     }
     
   }

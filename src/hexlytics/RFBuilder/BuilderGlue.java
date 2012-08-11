@@ -10,22 +10,12 @@ import hexlytics.RandomTree;
  *
  * @author peta
  */
-public abstract class BuilderGlue {
+public interface BuilderGlue {
 
-  /** Builder object we talk to, set by the builder. */
-  Builder builder_ = null;
-  
   /** Called by the builder when new tree is computed. */
-  public abstract void onTreeReady(RandomTree tree);
+  void onTreeReady(RandomTree tree);
   
   /** Called by the builder when it terminates. */
-  public abstract void onTerminated();
-  
-  /** Terminates the builder, after its next tree (or trees for each thread one
-   * are created). That is terminates the builder in fastest safe way possible
-   */
-  public void terminate() {
-    builder_.terminate_ = true;
-  }
+  void onBuilderTerminated();
   
 }

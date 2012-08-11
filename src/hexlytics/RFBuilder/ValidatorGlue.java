@@ -4,10 +4,16 @@
  */
 package hexlytics.RFBuilder;
 
+import hexlytics.RandomTree;
+
 /**
  *
  * @author peta
  */
-public class ValidatorGlue {
+public interface ValidatorGlue {
+  
+  void onTreeValidated(RandomTree tree, int rows, int errors, int[] votes);
+  
+  void onValidatorTerminated();
   
 }

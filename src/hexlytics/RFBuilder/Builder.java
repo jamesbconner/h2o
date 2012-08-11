@@ -30,7 +30,6 @@ public class Builder implements Runnable {
     data_ = data;
     bagSize_ = bagSize;
     glue_ = glue;
-    glue_.builder_ = this;
   }
 
   /** Starts the builder in current thread. */
@@ -45,6 +44,12 @@ public class Builder implements Runnable {
       threads_[i] = new Thread(this);
       threads_[i].start();
     }
+  }
+  /** Terminates the builder, after its next tree (or trees for each thread one
+   * are created). That is terminates the builder in fastest safe way possible
+   */
+  public void terminate() {
+    terminate_ = true;
   }
   
   /** Starts computing the trees. This method should not be called from outside,
@@ -68,7 +73,7 @@ public class Builder implements Runnable {
       isLast = (--runningThreads_ == 0);
     }
     if (isLast)
-      glue_.onTerminated();
+      glue_.onBuilderTerminated();
   }
   
 }
