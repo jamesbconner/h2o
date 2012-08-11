@@ -634,7 +634,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           if (_columnTypes[i] == DataType.typeString)
             ++stringIdx;
         _strFields[stringIdx]._offset = _currentOffset + _fieldStart;
-        _strFields[stringIdx]._length = _fieldEnd - _fieldStart + 1;
+        _strFields[stringIdx]._length = _fieldEnd - _fieldStart;
       }
         break;
       }
@@ -730,7 +730,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         case STATE_QUOTED:
           if (c == '"') {
             _state = STATE_ENDQUOTE;
-            _fieldEnd = _dataPtr - 1;
+            _fieldEnd = _dataPtr;
           }
           break;
         case STATE_ENDQUOTE:
