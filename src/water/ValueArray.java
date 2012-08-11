@@ -45,18 +45,39 @@ public class ValueArray extends Value {
   }
 
   // Make a system chunk-key from an offset into the main array.
-  // Lazily manifest data chunks on demand.
-  public static Key make_chunkkey( Key arylet, long off ) {
+  // No auto-create-on-demand for arraylet sub-parts
+  public static Key make_chunkkey( Key key, long off ) {
     assert ((off >> LOG_CHK)<<LOG_CHK) == off;
     // The key layout is:
     //  0 - Key.ARRAYLET_CHUNK
     //  0 - No IP forcing
     //  12345678 - offset
     //  key name
-    byte[] kb = new byte[2+8+arylet._kb.length];
+    byte[] kb = new byte[2+8+key._kb.length];
     UDP.set8(kb,2,off);         // Blast down the offset.
-    System.arraycopy(arylet._kb,0,kb,2+8,arylet._kb.length);
-    Key k = Key.make(kb,(byte)arylet.desired()); // Presto!  A unique arraylet key!
+    System.arraycopy(key._kb,0,kb,2+8,key._kb.length);
+    Key k = Key.make(kb,(byte)key.desired()); // Presto!  A unique arraylet key!
+    return k;
+  }
+
+  // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray
+  public Key make_chunkkey( long off ) {
+    Key k = make_chunkkey(_key,off);
+    // Array chunk sub-keys are lazily made for large arrays kept on disk, e.g.
+    // for giant HDFS files that exceed all of RAM in size (and maybe are
+    // larger than one whole disk in size).  When handing out such a key here,
+    // see if the key exists already mapped to a Value, and if not - map it now.
+    Value v = DKV.get(k,0);     // Want no bytes of it, just want to know it exists
+    if( v == null ) {           // Not found?
+      long rem = length()-off;  // Remaining size
+      //long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
+      int sz = (int)((chunks(rem) > 1) ? chunk_size() : rem);
+      v = new Value(sz,0,k,_persistenceInfo);
+      // A one-shot fire-and-forget put.  Do not overwrite somebody else's
+      // racing put... but this otherwise makes a K/V mapping magically appear
+      // when the Key is first created.
+      DKV.DputIfMatch(k,v,null);
+    }
     return k;
   }
 
@@ -82,7 +103,7 @@ public class ValueArray extends Value {
   @Override public Key chunk_get( long chunknum ) {
     if( chunknum < 0 || chunknum > chunks() )
       throw new ArrayIndexOutOfBoundsException(Long.toString(chunknum));
-    return make_chunkkey(_key,chunk_offset(chunknum));
+    return make_chunkkey(chunk_offset(chunknum));
   }
 
   public static long chunk_size() {
@@ -181,6 +202,7 @@ public class ValueArray extends Value {
     // Must be a large file; break it up!
 
     // Begin to read & build chunks.
+    ValueArray ary = new ValueArray(key,sz);
     long off = 0;
     for( int i=0; i<chunks; i++ ) {
       // All-the-rest for the last chunk, or 1Meg for other chunks
@@ -188,7 +210,7 @@ public class ValueArray extends Value {
       int sz2 = (int)szl;       // Truncate
       assert sz2 == szl;        // No int/long truncation
 
-      Key ckey = make_chunkkey(key,off);
+      Key ckey = ary.make_chunkkey(off);
       Value val = new Value(ckey,sz2);
       dis.readFully(val._mem);
       
@@ -199,7 +221,6 @@ public class ValueArray extends Value {
     assert off == sz;           // Got them all
 
     // Now insert the main Key
-    ValueArray ary = new ValueArray(key,sz);
     UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }
@@ -276,8 +297,8 @@ public class ValueArray extends Value {
     public byte _size; // Size is 1,2,4 or 8 bytes, or -4,-8 for float/double data
 
     public Column() {
-      _min = Double.MAX_VALUE;
-      _max = Double.MIN_VALUE;
+      _min =  Double.MAX_VALUE;
+      _max = -Double.MAX_VALUE;
       _scale = 1;
       _base = 0;
     }

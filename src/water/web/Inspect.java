@@ -57,7 +57,7 @@ public class Inspect extends H2OPage {
       String s;
       if( DKV.get(Key.make(p_key)) == null ) {
         s = html_parse.replace("%keyHref",urlEncode(key_s));
-        s = s.replace("%parsekey",urlEncode(p_key));
+        s = s.replace("%parsekey",p_key);
         s = s.replace("%pfunc","Parse");
       } else {
         s = html_parse.replace("%keyHref",urlEncode(p_key));
