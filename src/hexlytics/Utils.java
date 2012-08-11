@@ -4,6 +4,7 @@
  */
 package hexlytics;
 
+import java.text.DecimalFormat;
 import java.util.Random;
 
 /**
@@ -93,5 +94,32 @@ public class Utils {
     }
     return (total == 0) ? 0 : -result / (total *Math.log(2));
   }
+  
+  public static String p2d(double d) { return df.format(d); }
+  static final DecimalFormat df = new  DecimalFormat ("0.##");
+  public static String p5d(double d) { return df5.format(d); }
+  static final DecimalFormat df5 = new  DecimalFormat ("0.#####");
+
+  /** Splits the given work into N workers as equally as possible. Returns an
+   * array of integers, each per thread that says how much the thread will do.
+   * 
+   * @param howMuch
+   * @param between
+   * @return 
+   */
+  public static int[] splitEquallyBetween(int howMuch, int between) {
+    int[] result = new int[between];
+    int perOne = howMuch/between;
+    int remaining = howMuch - (perOne * between);
+    for (int i = 0; i<between; ++i) {
+      result[i] = perOne;
+      if (remaining>0) {
+        result[i] += 1;
+        --remaining;
+      }
+    }
+    return result;  
+  } 
+
   
 }

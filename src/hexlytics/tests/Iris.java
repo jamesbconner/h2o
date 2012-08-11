@@ -1,20 +1,46 @@
-package hexlytics;
+package hexlytics.tests;
+
+import hexlytics.RandomForest;
+import hexlytics.RandomTree;
+import hexlytics.Utils;
+import hexlytics.data.Data;
+import hexlytics.data.DataAdapter;
+
 
 public class Iris {
   
-  Data iris;
+  Data iris_;
   
   Iris() {
-    iris =  Data.make("Iris", 
+    DataAdapter iris =  new DataAdapter("Iris", 
         new String[]{"Sepal.Length","Sepal.Width","Petal.Length","Petal.Width","Species"}, 
         "Species");
     double[] v =new double[5];
     for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris.addRow(v); }
-    iris.freeze();
+    iris.freeze(); 
+    iris=iris.shrinkWrap();
+    iris_ = Data.make(iris);
   }
 
   public static void main(String[] a) {     
-    System.out.println(new Iris().iris.shrinkWrap().toString());
+    Data d = new Iris().iris_;
+    System.out.println(d+"\n"+d.head(4));
+    System.out.println("Computing trees...");
+    Data train = d.sampleWithReplacement(.6);
+    System.out.println("train\n"+train+"\n");
+    Data valid = train.complement();
+    System.out.println("valid\n"+valid+"\n");
+    int[][] score = new int[valid.rows()][valid.classes()];
+    for(int i=0;i<100;i++) {
+      RandomTree rf = new RandomTree(train);
+      rf.compute();
+      rf.classify(valid, score);
+      System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
+    } 
+    RandomForest rf = new RandomForest(0.6);
+    rf.addTrees(d, 100000,2);
+    System.out.println("We now have "+rf.numTrees()+" trees in the forest");
+    System.out.println("Score on full set: "+rf.score(d));
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 
@@ -176,7 +202,6 @@ public class Iris {
       new F(147, 6.3, 2.5, 5.0, 1.9, "virginica"),
       new F(148, 6.5, 3.0, 5.2, 2.0, "virginica"),
       new F(149, 6.2, 3.4, 5.4, 2.3, "virginica"),
-      new F(150, 5.9, 3.0, 5.1, 1.8, "virginica") };
-
+      new F(150, 5.9, 3.0, 5.1, 1.8, "virginica")};
 }
 

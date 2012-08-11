@@ -35,9 +35,8 @@ public abstract class MultiCast {
       DPack.setAddress(ip);
       DPack.setPort(port);
       DPack.setData(buf,off,len);
-      sock.send(DPack);
       TimeLine.record_send(DPack);
-      
+      sock.send(DPack);            
     } catch( Exception e ) {
       // On any error from anybody, close all sockets & re-open
       System.err.println("UDP send on "+DPack.getAddress()+":"+DPack.getPort()+" got error "+e);
