@@ -11,16 +11,16 @@ import hexlytics.data.Data.Row;
  */
 public class RandomTree { 
   INode tree_;
-  Data data_;
+  //Data data_;
   long time_;
   private static String statistic_ = "Numeric"; // Default choice
   
-  public RandomTree(Data data) { data_=data;  }    
+  //public RandomTree(Data data) { data_=data;  }    
 
-  public void compute() { 
+  public void compute(Data data) { 
     long t = System.currentTimeMillis(); 
     tree_ = new Root();
-    compute(data_,tree_,0);    
+    compute(data,tree_,0);    
     time_ = System.currentTimeMillis()-t;
   }
   

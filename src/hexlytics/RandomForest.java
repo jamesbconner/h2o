@@ -73,6 +73,14 @@ public class RandomForest {
     t1 = System.currentTimeMillis() - t1;
     System.out.println(numTrees+" built in "+t1);
   }
+
+  /** Adds trees from given forest to this forest. */
+  public void addTrees(RandomForest from) {
+    treesUnderConstruction_ = new RandomTree[trees_.length+from.trees_.length];
+    System.arraycopy(trees_,0,treesUnderConstruction_,0,trees_.length);
+    System.arraycopy(from.trees_,0,treesUnderConstruction_,trees_.length,from.trees_.length);
+    trees_ = treesUnderConstruction_;
+  }
   
   /** Classifies a single row using the forrest. */
   public int classify(Row r) {
@@ -106,8 +114,8 @@ public class RandomForest {
     public void run() {
       //System.out.println("Building "+numTrees+" trees from tree "+firstTree);
       for (int i = firstTree; i<firstTree+numTrees; ++i) {
-        treesUnderConstruction_[i] = new RandomTree(data);
-        treesUnderConstruction_[i].compute();
+        treesUnderConstruction_[i] = new RandomTree();
+        treesUnderConstruction_[i].compute(data);
       }
     }
   }

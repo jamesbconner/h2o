@@ -45,8 +45,8 @@ public class Poker {
       Data valid = train.complement();
       int[][] score = new int[valid.rows()][valid.classes()];
       for(int i=0;i<1000;i++) {
-        RandomTree rf = new RandomTree(train);
-        rf.compute();
+        RandomTree rf = new RandomTree();
+        rf.compute(train);
         rf.classify(valid, score);
         System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
       } 
