@@ -75,11 +75,11 @@ public class Iris {
       System.out.println("validator terminated...");
     }
 
-    @Override public void onTreeValidated(RandomTree tree, int rows, int[] errorRows) {
+    public void onTreeValidated(RandomTree tree, int rows, int[] errorRows) {
       a.aggregateTree(tree, errorRows);
     }
 
-    @Override public void onChange() {
+    public void onChange() {
       trees += 1;
       System.out.println("We have "+trees+" trees and error "+a.error());
       if (trees == 100) {
