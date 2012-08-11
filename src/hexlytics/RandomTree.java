@@ -11,7 +11,6 @@ import hexlytics.data.Data.Row;
  */
 public class RandomTree { 
   INode tree_ = null;
-  //Data data_;
   long time_ = 0;
   private static String statistic_ = "Numeric"; // Default choice
   int serializedSize_ = 0;
@@ -72,34 +71,6 @@ public class RandomTree {
     }
   }
   
-/*  void compute(Data d, INode n, int direction) {
-    int classOf = -1;
-    for(Row r : d) 
-       if (classOf==-1)
-         classOf = r.classOf; 
-       else
-         if (classOf != r.classOf) {
-           classOf = -1;
-           break;
-         }
-    if (classOf!=-1) { 
-      n.set(direction, new LeafNode(classOf));    
-    } else {
-      Statistic s = Statistic.make(statistic_, d);  
-      Split best = s.best();
-      if (best == null){
-        n.set(direction, new LeafNode(s.classOf()));            
-      }else{
-        Node nd = new Node(best.column,best.value);
-        n.set(direction, nd);
-        Data[] res = new Data[2];
-        d.filter(best,res);
-        compute(res[0],nd,0);
-        compute(res[1],nd,1);
-      }
-    }
-  } */
-  
   public INode tree() { return tree_; }
   
   static abstract class INode  {    
@@ -138,14 +109,6 @@ public class RandomTree {
    public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
  }
   
- /*static class Root extends Node {
-   Root() { super(-1,0); }
-   public int navigate(double[]_)  { return 0; }
-   public int classify(double[] v) { return l_.classify(v); }
-   public void set(int direction, INode n) { if (direction==0) l_=n; else throw new Error("Unsupported"); }
-   public String toString()        { return l_.toString(); }
- } */
- 
   public int classify(Row r) {
     return tree_.classify(r.v);
   } 
