@@ -76,7 +76,6 @@ public final class ParseDataset {
     dp2.rexec(dataset._key);     // Parse whole dataset!
 
     long now2 = System.currentTimeMillis();
-    System.out.println("Pass 2 in "+(now2-start2)+" msec" );
 
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, PersistIce.INIT, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
@@ -426,13 +425,14 @@ public final class ParseDataset {
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
     int i=0;
-    while( b[i++] != '\n' ) ;   // Skip a line
-    // Start counting columns on the 2nd line
+    while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++;   // Skip a line
+    if( i==b.length ) return 0;  // No columns?
+    // start counting columns on the 2nd line
     int cols = 0;
     int mode = 0;
     while( true ) {
       char c = (char)b[i++];
-      if( c=='\n' ) {
+      if( c=='\n' || c== '\r' ) {
         break;
       } if( Character.isWhitespace(c) ) {
         if( mode == 1 ) mode = 2;

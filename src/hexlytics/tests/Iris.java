@@ -1,8 +1,7 @@
 package hexlytics.tests;
 
-import hexlytics.RandomForest;
+import hexlytics.RFBuilder.*;
 import hexlytics.RandomTree;
-import hexlytics.Utils;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -24,7 +23,7 @@ public class Iris {
 
   public static void main(String[] a) {     
     Data d = new Iris().iris_;
-    System.out.println(d+"\n"+d.head(4));
+/*    System.out.println(d+"\n"+d.head(4));
     System.out.println("Computing trees...");
     Data train = d.sampleWithReplacement(.6);
     System.out.println("train\n"+train+"\n");
@@ -32,15 +31,63 @@ public class Iris {
     System.out.println("valid\n"+valid+"\n");
     int[][] score = new int[valid.rows()][valid.classes()];
     for(int i=0;i<100;i++) {
-      RandomTree rf = new RandomTree(train);
-      rf.compute();
+      RandomTree rf = new RandomTree();
+      rf.compute(train);
       rf.classify(valid, score);
       System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
-    } 
-    RandomForest rf = new RandomForest(0.6);
-    rf.addTrees(d, 100000,2);
-    System.out.println("We now have "+rf.numTrees()+" trees in the forest");
-    System.out.println("Score on full set: "+rf.score(d));
+    } */ 
+    TestGlue tg = new TestGlue(d);
+    
+    
+    //RandomForest rf = new RandomForest(0.6);
+    //rf.addTrees(d, 100000,2);
+    //System.out.println("We now have "+rf.numTrees()+" trees in the forest");
+    //System.out.println("Score on full set: "+rf.score(d));
+  }
+  
+  static class TestGlue implements BuilderGlue, ValidatorGlue, AggregatorGlue {
+    
+    int trees = 0;
+    
+    Builder b;
+    Validator v;
+    Aggregator a;
+    
+    public TestGlue(Data d) {
+      b = new Builder(d,0.6,this);
+      v = new Validator(d,this);
+      a = new Aggregator(d,this);
+      v.start(1);
+      b.start(1);
+      System.out.println("All done in main.");
+    }
+    
+    
+    public void onTreeReady(RandomTree tree) {
+      v.validateTree(tree);
+    }
+
+    public void onBuilderTerminated() {
+      System.out.println("builder terminated...");
+    }
+
+    public void onValidatorTerminated() {
+      System.out.println("validator terminated...");
+    }
+
+    public void onTreeValidated(RandomTree tree, int rows, int[] errorRows) {
+      a.aggregateTree(tree, errorRows);
+    }
+
+    public void onChange() {
+      trees += 1;
+      System.out.println("We have "+trees+" trees and error "+a.error());
+      if (trees == 100) {
+        b.terminate();
+        v.terminate();
+      }
+    }
+    
   }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 

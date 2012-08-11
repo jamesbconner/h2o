@@ -237,10 +237,12 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
           else if( arg instanceof RemoteTask ) ((RemoteTask)arg).write(dos);
           else if( arg instanceof Value ) {
             // For Values, support a pre-loaded byte[]
-            if( i < args.length-1 && args[i+1] instanceof byte[] )
+            if( i < args.length-1 && args[i+1] instanceof byte[] ) {
               ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
-            else
+              i++;
+            } else {
               ((Value)arg).write(dos,Integer.MAX_VALUE);
+            }
           } else if( arg instanceof String ) {
             byte[] b = ((String)arg).getBytes();
             dos.writeShort(b.length);
@@ -248,7 +250,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
           } else if( arg instanceof Byte ) {
             dos.writeByte((Byte)arg);
           } else {
-            throw new Error("unimplemented");
+            throw new Error("unimplemented passing a "+(arg.getClass()));
           }
         }
 

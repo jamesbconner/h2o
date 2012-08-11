@@ -121,5 +121,29 @@ public class Utils {
     return result;  
   } 
 
+   public static int set4( byte[] buf, int off, int x ) {
+    for( int i=0; i<4; i++ )
+      buf[i+off] = (byte)(x>>(i<<3));
+    return 4;
+  }
+  public static int get4( byte[] buf, int off ) {
+    int sum=0;
+    for( int i=0; i<4; i++ )
+      sum |= (0xff&buf[off+i])<<(i<<3);
+    return sum;
+  }
+
+  public static int set8d( byte[] buf, int off, double d ) {
+    long x = Double.doubleToLongBits(d);
+    for( int i=0; i<8; i++ )
+      buf[i+off] = (byte)(x>>(i<<3));
+    return 8;
+  }
+  public static double get8d( byte[] buf, int off ) {
+    long sum=0;
+    for( int i=0; i<8; i++ )
+      sum |= ((long)(0xff&buf[off+i]))<<(i<<3);
+    return Double.longBitsToDouble(sum);
+  }
   
 }

@@ -2,8 +2,8 @@ package water.web;
 import java.io.IOException;
 import java.util.Properties;
 import water.*;
-import water.csv.ValueCSVRecords;
 import water.csv.CSVParser.*;
+import water.csv.CSVParserKV;
 
 /**
  *
@@ -97,11 +97,10 @@ public class Inspect extends H2OPage {
     // Do an initial parse of the 1st meg of the dataset
     try {
       float[] fs = new float[100]; // First few columns only
-      CSVParserSetup setup = new CSVParserSetup();
-      setup._parseColumnNames = false;
-      setup._partialRecordPolicy = CSVParserSetup.PartialRecordPolicy.fillWithDefaults;
-      setup._ignoreAdditionalColumns = true;
-      ValueCSVRecords<float[]> csv = new ValueCSVRecords(key,1,fs,null,setup);
+      CSVParserKV.ParserSetup setup = new CSVParserKV.ParserSetup();
+      setup.whiteSpaceSeparator = true;
+      setup.collapseWhiteSpaceSeparators = true;
+      CSVParserKV<float[]> csv = new CSVParserKV<float[]>(key,1,fs,null, setup);
       float sums[] = new float[fs.length];
       float mins[] = new float[fs.length];
       float maxs[] = new float[fs.length];
@@ -132,19 +131,10 @@ public class Inspect extends H2OPage {
           row.replace("col"+i,s);
         }
       }
-    } catch( NoSuchFieldException nsfe ) {
-      System.out.println("NoSuchFieldEx thrown");
     } catch( SecurityException se ) {
       System.out.println("SecurityException thrown");
     } catch( IllegalArgumentException iae ) {
       System.out.println("IllegalArgumentException thrown");
-    } catch( IllegalAccessException iae ) {
-      System.out.println("IllegalAccessException thrown");
-    } catch( CSVParseException cpe ) {
-      System.out.println("CSVParseException thrown");
-      cpe.printStackTrace();
-    } catch( IOException ie ) {
-      System.out.println("IOException thrown");
     }
 
     row.append();

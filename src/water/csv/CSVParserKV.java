@@ -15,11 +15,11 @@ import water.Value;
 import water.ValueArray;
 
 /**
- * Simplified version of CSVParser.
- * Parses either stream of arraylets or just a byte array.
+ * Simplified version of CSVParser. Parses either stream of arraylets or just a
+ * byte array.
  * 
  * @author tomas
- *
+ * 
  * @param <T>
  */
 public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
@@ -30,76 +30,85 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
   enum DataType {
     typeNull, typeInt, typeFloat, typeDouble, typeString
-  };  
-  
-  public final class CSVString implements CharSequence, Comparable<String>{
+  };
+
+  public final class CSVString implements CharSequence, Comparable<String> {
     long _offset;
     int _length;
-        
-    public CSVString() {}
-    public CSVString(long offset, int length) {_offset = offset; _length = length;}
-    
-//    private int chunkIdx(){
-//      int idx = (int)(_offset >> ValueArray.LOG_CHK);
-//      if((idx == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
-//        return idx - 1; // the last chunk can be larger!
-//      }
-//      return idx;
-//    }
-    
-    private int[] chunkIdxAndOffset(){
-      int [] res = new int[2];
-      res[1] = (int)(_offset & ((1 << ValueArray.LOG_CHK) -1));
-      res[0] = (int)(_offset >> ValueArray.LOG_CHK);
-      if((res[0] == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
+
+    public CSVString() {
+    }
+
+    public CSVString(long offset, int length) {
+      _offset = offset;
+      _length = length;
+    }
+
+    // private int chunkIdx(){
+    // int idx = (int)(_offset >> ValueArray.LOG_CHK);
+    // if((idx == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
+    // return idx - 1; // the last chunk can be larger!
+    // }
+    // return idx;
+    // }
+
+    private int[] chunkIdxAndOffset() {
+      int[] res = new int[2];
+      res[1] = (int) (_offset & ((1 << ValueArray.LOG_CHK) - 1));
+      res[0] = (int) (_offset >> ValueArray.LOG_CHK);
+      if ((res[0] == _nextChunkIdx)
+          && (_data.length > (1 << ValueArray.LOG_CHK))) {
         res[0] -= 1;
         res[1] += 1 << ValueArray.LOG_CHK;
       }
       return res;
     }
-    
-    
-    private byte [] data(int chunkIdx, int len){      
-      int currentChunkIdx = (int)(_currentOffset >> ValueArray.LOG_CHK);
-      if(chunkIdx == currentChunkIdx){
+
+    private byte[] data(int chunkIdx, int len) {
+      int currentChunkIdx = (int) (_currentOffset >> ValueArray.LOG_CHK);
+      if (chunkIdx == currentChunkIdx) {
         return _data;
       }
-      if(chunkIdx == _nextChunkIdx)                
-        return _nextData;                 
+      if (chunkIdx == _nextChunkIdx)
+        return _nextData;
       // we do not have the chunk loaded anymore...find it and load it
-      Key k = ValueArray.getChunk(_key,chunkIdx);
-      Value v = DKV.get(k);      
-      return v.get(len);      
+      Key k = ValueArray.getChunk(_key, chunkIdx);
+      Value v = DKV.get(k);
+      return v.get(len);
     }
-            
-    public String toString(){  
-      int [] arr = chunkIdxAndOffset();
+
+    public String toString() {
+      int[] arr = chunkIdxAndOffset();
       int chunkIdx = arr[0];
       int chunkOffset = arr[1];
-      byte [] res = data(chunkIdx,chunkOffset + _length);
-      if(res == null)
+      byte[] res = data(chunkIdx, chunkOffset + _length);
+      if (res == null)
         System.out.println("*");
-      if(res.length >= (chunkOffset + _length)){
-        return new String(res,chunkOffset,_length);
-      } else { // we need another chunk        
+      if (res.length >= (chunkOffset + _length)) {
+        return new String(res, chunkOffset, _length);
+      } else { // we need another chunk
         int len = chunkOffset + _length - res.length;
-        byte [] res2 =  data(chunkIdx+1,len);
-        return new String(res,chunkOffset, res.length - chunkOffset) + new String(res2,0,len);
-      }      
+        byte[] res2 = data(chunkIdx + 1, len);
+        return new String(res, chunkOffset, res.length - chunkOffset)
+            + new String(res2, 0, len);
+      }
     }
 
     public char charAt(int i) {
-      int [] arr = chunkIdxAndOffset();
+      int[] arr = chunkIdxAndOffset();
       int chunkIdx = arr[0];
       int chunkOffset = arr[1] + i;
-      byte [] d = data(chunkIdx,chunkOffset+1);
-      if(chunkOffset < d.length) return (char)d[chunkOffset];
+      byte[] d = data(chunkIdx, chunkOffset + 1);
+      if (chunkOffset < d.length)
+        return (char) d[chunkOffset];
       chunkOffset -= d.length;
-      d = data(chunkIdx+1,chunkOffset+1);
-      return (char)d[chunkOffset];
+      d = data(chunkIdx + 1, chunkOffset + 1);
+      return (char) d[chunkOffset];
     }
-    
-    int columns(){return _column;}
+
+    int columns() {
+      return _column;
+    }
 
     public int length() {
       return _length;
@@ -109,44 +118,46 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       return new CSVString(_offset + start, end - start);
     }
 
-    public int compareTo(byte [] bytes){   
-      int [] arr = chunkIdxAndOffset();
+    public int compareTo(byte[] bytes) {
+      int[] arr = chunkIdxAndOffset();
       int chunkIdx = arr[0];
       int chunkOffset = arr[1];
-      byte [] data = data(chunkIdx,chunkOffset + _length);
-      
+      byte[] data = data(chunkIdx, chunkOffset + _length);
+
       int mylen = Math.min(_length, data.length - chunkOffset);
-      int N = Math.min(mylen,bytes.length);
+      int N = Math.min(mylen, bytes.length);
       int res = 0;
       int i = 0;
-      for(; i < N; ++i){
-        if((res = (data[i+chunkOffset] - bytes[i])) != 0) return res;
+      for (; i < N; ++i) {
+        if ((res = (data[i + chunkOffset] - bytes[i])) != 0)
+          return res;
       }
-      if(mylen == _length) { // do we cross boundary?
+      if (mylen == _length) { // do we cross boundary?
         return _length - bytes.length;
       }
       int firstChunkLen = data.length;
       // compare the rest of the string
       mylen = _length - mylen;
-      data = data(chunkIdx+1,mylen);
-      N = Math.min(mylen,bytes.length);
-      for(; i < N; ++i){
-        if((res = (data[i+chunkOffset-firstChunkLen] - bytes[i])) != 0) return res;
+      data = data(chunkIdx + 1, mylen);
+      N = Math.min(mylen, bytes.length);
+      for (; i < N; ++i) {
+        if ((res = (data[i + chunkOffset - firstChunkLen] - bytes[i])) != 0)
+          return res;
       }
-      return _length - bytes.length;      
+      return _length - bytes.length;
     }
-    
 
     public int compareTo(String o) {
       return compareTo(o.getBytes());
-    }    
-    public boolean equals(String s){
+    }
+
+    public boolean equals(String s) {
       return (_length == s.length()) && (compareTo(s) == 0);
     }
   }
 
   public static class ParserSetup {
-    public boolean skipFirstRecord = true; // applies ononly 
+    public boolean skipFirstRecord = true; // applies ononly
     public boolean parseColumnNames = false;
     public boolean whiteSpaceSeparator = false;
     public boolean collapseWhiteSpaceSeparators = true;
@@ -157,22 +168,23 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     public float defaultFloat = Float.NaN;
     public double defaultDouble = Double.NaN;
   }
-  
+
   final ParserSetup _setup;
 
-  // input values variables 
+  // input values variables
   final Key _key; // key to start parsing from
   final int _minChunkIdx; // idx of the first chunk
-  final int _maxChunkIdx; // idx of the last chunk + 1 (the first record will still be parsed if chunk exists
+  final int _maxChunkIdx; // idx of the last chunk + 1 (the first record will
+                          // still be parsed if chunk exists
 
-  final T _csvRecord; 
-  Field [] _fields;
-  
-  CSVString [] _strFields;
-  
+  final T _csvRecord;
+  Field[] _fields;
+
+  CSVString[] _strFields;
+
   final boolean _isArray;
   boolean _next;
-  DataType [] _columnTypes;
+  DataType[] _columnTypes;
   boolean _fresh = true;
   byte[] _data;
   byte[] _nextData;
@@ -190,97 +202,99 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   long _currentOffset;
   long _nextOffset;
   int _length;
-  
-  
 
-  String [] _columnNames;
-  
-  FloatingDecimal _floatingDecimal = new FloatingDecimal(false, 0, new char[64], 0, false);
-  
+  String[] _columnNames;
+
+  FloatingDecimal _floatingDecimal = new FloatingDecimal(false, 0,
+      new char[64], 0, false);
+
   int _ival;
 
-  public String [] columnNames(){
+  public String[] columnNames() {
     return _columnNames;
   }
-  
-  public static String [] getColumnNames(Key k){
+
+  public static String[] getColumnNames(Key k) {
     Value v = DKV.get(k);
-    byte [] data = v.get(1024*128);
-    if(v instanceof ValueArray){
+    byte[] data = v.get(1024 * 128);
+    if (v instanceof ValueArray) {
       k = v.chunk_get(0);
       Value v2 = DKV.get(k);
-      data = v2.get(1024*128);
+      data = v2.get(1024 * 128);
     }
     return getColumnNames(data);
-  } 
-  
-  public static String [] getColumnNames(byte [] data) {
-    CSVParserKV.CSVString [] names = new CSVParserKV.CSVString [getNColumns(data)];
-    CSVParserKV<CSVParserKV.CSVString []> p = new CSVParserKV<CSVParserKV.CSVString []>(data,names,null);
-    if(!p.hasNext()) return null; 
+  }
+
+  public static String[] getColumnNames(byte[] data) {
+    CSVParserKV.CSVString[] names = new CSVParserKV.CSVString[getNColumns(data)];
+    CSVParserKV<CSVParserKV.CSVString[]> p = new CSVParserKV<CSVParserKV.CSVString[]>(
+        data, names, null);
+    if (!p.hasNext())
+      return null;
     p.next();
-    String [] res = new String[p._column]; 
-    for(int i = 0; i < names.length; ++i){
+    String[] res = new String[p._column];
+    for (int i = 0; i < names.length; ++i) {
       res[i] = names[i].toString();
-    }    
+    }
     return res;
   }
-  
-  public static int getNColumns(Key k){
+
+  public static int getNColumns(Key k) {
     Value v = DKV.get(k);
-    byte [] data = v.get(1024*128);
-    if(v instanceof ValueArray){
+    byte[] data = v.get(1024 * 128);
+    if (v instanceof ValueArray) {
       k = v.chunk_get(0);
       Value v2 = DKV.get(k);
-      data = v2.get(1024*128);
+      data = v2.get(1024 * 128);
     }
     return getNColumns(data);
   }
-  
-  public static int getNColumns(byte [] data){
-    int [] rec = new int[1];
-    CSVParserKV<int[]> p = new CSVParserKV<int[]>(data,rec,null);
+
+  public static int getNColumns(byte[] data) {
+    int[] rec = new int[1];
+    CSVParserKV<int[]> p = new CSVParserKV<int[]>(data, rec, null);
     int ncolumns = -1;
-    for(int i = 0; i < 10; ++i){
-      if(!p.hasNext())break;
+    for (int i = 0; i < 10; ++i) {
+      if (!p.hasNext())
+        break;
       p.next();
-      if(p._column > ncolumns) ncolumns = p._column;
+      if (p._column > ncolumns)
+        ncolumns = p._column;
     }
     return ncolumns;
   }
-  
-  
+
   @SuppressWarnings("unchecked")
-  void initialize(String [] columns){
-   
+  void initialize(String[] columns) {
+
     if (_isArray) {
       _columnTypes = new DataType[Array.getLength(_csvRecord)];
-      
+
       if (_csvRecord.getClass().getComponentType().equals(Integer.TYPE)) {
         Arrays.fill(_columnTypes, DataType.typeInt);
       } else if (_csvRecord.getClass().getComponentType().equals(Double.TYPE)) {
         Arrays.fill(_columnTypes, DataType.typeDouble);
       } else if (_csvRecord.getClass().getComponentType().equals(Float.TYPE)) {
         Arrays.fill(_columnTypes, DataType.typeFloat);
-      } else if (CSVString.class
-          .equals(_csvRecord.getClass().getComponentType())) {
+      } else if (CSVString.class.equals(_csvRecord.getClass()
+          .getComponentType())) {
         Arrays.fill(_columnTypes, DataType.typeString);
         _strFields = new CSVParserKV.CSVString[_columnTypes.length];
-        for(int i = 0; i < _strFields.length; ++i){
+        for (int i = 0; i < _strFields.length; ++i) {
           _strFields[i] = new CSVString();
-          Array.set(_csvRecord,i,_strFields[i]);
+          Array.set(_csvRecord, i, _strFields[i]);
         }
       } else {
         throw new UnsupportedOperationException();
       }
     } else if (_csvRecord.getClass().isInstance(Collection.class)) {
       throw new UnsupportedOperationException();
-    } else {      
+    } else {
       _fields = new Field[columns.length];
       _columnTypes = new DataType[columns.length];
       int i = 0;
       ArrayList<CSVParserKV.CSVString> strFields = new ArrayList<CSVParserKV.CSVString>();
-      try{
+      try {
         for (String colName : columns) {
           if (colName != null) {
             _fields[i] = _csvRecord.getClass().getDeclaredField(colName);
@@ -288,14 +302,14 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
             if (Integer.TYPE.equals(t)) {
               _columnTypes[i] = DataType.typeInt;
             } else if (Double.TYPE.equals(t)) {
-              _columnTypes[i]  = DataType.typeDouble;
+              _columnTypes[i] = DataType.typeDouble;
             } else if (Float.TYPE.equals(t)) {
-              _columnTypes[i]  = DataType.typeFloat;
+              _columnTypes[i] = DataType.typeFloat;
             } else if (CSVString.class.equals(t)) {
-              _columnTypes[i]  = DataType.typeString;
+              _columnTypes[i] = DataType.typeString;
               CSVString str = new CSVString();
               _fields[i].set(_csvRecord, str);
-              strFields.add(str);            
+              strFields.add(str);
             } else { // no parser available for this type
               throw new UnsupportedOperationException();
             }
@@ -304,87 +318,93 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           }
           ++i;
         }
-      }catch(Exception e){throw new Error(e);}
+      } catch (Exception e) {
+        throw new Error(e);
+      }
       _strFields = new CSVParserKV.CSVString[strFields.size()];
       _strFields = strFields.toArray(_strFields);
-    }        
-    if(_setup.parseColumnNames){
+    }
+    if (_setup.parseColumnNames) {
       CSVParserKV.CSVString[] columnNames = new CSVParserKV.CSVString[_columnTypes.length];
       _setup.parseColumnNames = false;
       _setup.skipFirstRecord = false;
-      CSVParserKV<CSVString[]> p = new CSVParserKV<CSVString[]>(_data,columnNames,null,_setup);      
+      CSVParserKV<CSVString[]> p = new CSVParserKV<CSVString[]>(_data,
+          columnNames, null, _setup);
       p.next();
       _columnNames = new String[_columnTypes.length];
-      for(int i = 0; i < _columnNames.length; ++i){
+      for (int i = 0; i < _columnNames.length; ++i) {
         _columnNames[i] = columnNames[i].toString();
       }
       _setup.parseColumnNames = true;
       _dataPtr = p._dataPtr;
-    } 
-     _skipRecord = _setup.skipFirstRecord && (_nextChunkIdx > 1);
+    }
+    _skipRecord = _setup.skipFirstRecord && (_nextChunkIdx > 1);
   }
-  
-  public CSVParserKV(Key k, int nchunks, T csvRecord, String [] columns) {
-    this(k,nchunks,csvRecord, columns, new ParserSetup());
+
+  public CSVParserKV(Key k, int nchunks, T csvRecord, String[] columns) {
+    this(k, nchunks, csvRecord, columns, new ParserSetup());
   }
-  
-  public CSVParserKV(Key k, int nchunks, T csvRecord, String [] columns, ParserSetup setup) {
+
+  public CSVParserKV(Key k, int nchunks, T csvRecord, String[] columns,
+      ParserSetup setup) {
     // first set the data
-    Value v = DKV.get(k);    
-    if(v != null) {
-      if(v instanceof ValueArray){
-        _key = ((ValueArray)v).chunk_get(0);        
+    Value v = DKV.get(k);
+    if (v != null) {
+      if (v instanceof ValueArray) {
+        _key = ((ValueArray) v).chunk_get(0);
         v = DKV.get(_key);
       } else
-        _key = k;      
+        _key = k;
       _data = v.get();
       _length = _data.length;
-      if(_key._kb[0] == Key.ARRAYLET_CHUNK){
+      if (_key._kb[0] == Key.ARRAYLET_CHUNK) {
         _currentOffset = ValueArray.getOffset(_key);
         _minChunkIdx = ValueArray.getChunkIndex(_key);
         _maxChunkIdx = _minChunkIdx + nchunks;
-        _nextChunkIdx = _minChunkIdx+1;
+        _nextChunkIdx = _minChunkIdx + 1;
         Key nextChunk = ValueArray.getChunk(_key, _nextChunkIdx);
         v = DKV.get(nextChunk);
-        if(v != null){
-          _nextData = (_nextChunkIdx < _maxChunkIdx)?v.get():v.get(1024); 
+        if (v != null) {
+          _nextData = (_nextChunkIdx < _maxChunkIdx) ? v.get() : v.get(1024);
           _length += _nextData.length;
         }
       } else {
-        _minChunkIdx = 0; 
+        _minChunkIdx = 0;
         _maxChunkIdx = 0;
         _nextChunkIdx = 0;
-      }      
+      }
     } else {
-      _minChunkIdx = 0; 
+      _minChunkIdx = 0;
       _maxChunkIdx = 0;
       _key = null;
     }
     _setup = setup;
-    _setup.parseColumnNames = _setup.parseColumnNames && (_minChunkIdx == 0); 
-    _csvRecord = csvRecord;
-    _isArray = _csvRecord.getClass().isArray(); 
-    initialize(columns);        
-  }
-  
-  public CSVParserKV(byte [] data, T csvRecord, String [] columns) {
-    this(data,csvRecord, columns, new ParserSetup());
-  }
-  
-  public CSVParserKV(byte [] data, T csvRecord, String [] columns, ParserSetup setup) {
-    // first set the data
-    _data = data;
-    _minChunkIdx = 0; 
-    _maxChunkIdx = 1;
-    _key = null;    
-    _setup = setup;
-    _setup.parseColumnNames = _setup.parseColumnNames && (_minChunkIdx == 0); 
+    _setup.parseColumnNames = _setup.parseColumnNames && (_minChunkIdx == 0);
     _csvRecord = csvRecord;
     _isArray = _csvRecord.getClass().isArray();
-    if(_data != null)_length = _data.length;
-    initialize(columns);        
+    initialize(columns);
   }
-  
+
+  public CSVParserKV(byte[] data, T csvRecord, String[] columns) {
+    this(data, csvRecord, columns, new ParserSetup());
+  }
+
+  public CSVParserKV(byte[] data, T csvRecord, String[] columns,
+      ParserSetup setup) {
+    // first set the data
+    _data = data;
+    _minChunkIdx = 0;
+    _maxChunkIdx = 1;
+    _key = null;
+    _setup = setup;
+    _setup.parseColumnNames = _setup.parseColumnNames && (_minChunkIdx == 0);
+    _csvRecord = csvRecord;
+    _isArray = _csvRecord.getClass().isArray();
+    if (_data != null)
+      _length = _data.length;
+    initialize(columns);
+  }
+
   private final int getDigit(char c) {
     int i = Integer.MAX_VALUE;
     if (Character.isLetterOrDigit(c)) {
@@ -393,18 +413,17 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       } else {
         i = Character.isUpperCase(c) ? (10 + c - 'A') : (10 + c - 'a');
       }
-    } 
+    }
     return i;
   }
-  
-    
+
   protected boolean parseInt(int from, int to, int radix) {
     int sign = 1;
     int res = 0;
     int state = 0;
-    
+
     for (int i = from; i < to; ++i) {
-      byte b = (i < _data.length)?_data[i]:_nextData[i-_data.length];
+      byte b = (i < _data.length) ? _data[i] : _nextData[i - _data.length];
       char ch = (char) b;
       switch (state) {
       case 0:
@@ -420,30 +439,29 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           state = 2;
         else {
           int d = getDigit(ch);
-          if(d >= radix)
+          if (d >= radix)
             return false;
           res = radix * res + getDigit(ch);
         }
-        break;        
+        break;
       case 2:
         if (!Character.isWhitespace(ch))
-          return false;        
+          return false;
       }
     }
     _ival = sign * res;
     return true;
   }
-  
 
   protected boolean parseFloat(int from, int to) {
     int state = 0;
-    
+
     _floatingDecimal.isNegative = false;
     _floatingDecimal.nDigits = 0;
     _floatingDecimal.decExponent = 0;
     int zeroCounter = 0;
     for (int i = from; i < to; ++i) {
-      byte b = (i < _data.length)?_data[i]:_nextData[i-_data.length];
+      byte b = (i < _data.length) ? _data[i] : _nextData[i - _data.length];
       char ch = (char) b;
       switch (state) {
       case 0:
@@ -454,16 +472,16 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         case '-':
           _floatingDecimal.isNegative = !_floatingDecimal.isNegative;
           break;
-       
+
         case '0':
           _floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
           ++_floatingDecimal.decExponent;
           state = 1;
           break;
         default:
-          if(Character.isWhitespace(ch))
+          if (Character.isWhitespace(ch))
             continue; // trim the leading spaces
-          if(!Character.isDigit(ch)){
+          if (!Character.isDigit(ch)) {
             return false;
           }
           state = 2;
@@ -489,20 +507,20 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           state = 5; // trim the trailing spaces
           break;
         default:
-          if(!Character.isDigit(ch)){
+          if (!Character.isDigit(ch)) {
             return false;
           }
           // too many digits
-          if (_floatingDecimal.nDigits == _floatingDecimal.digits.length){
+          if (_floatingDecimal.nDigits == _floatingDecimal.digits.length) {
             return false;
-          }              
+          }
           _floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
           ++_floatingDecimal.decExponent;
         }
         break;
       case 3: // after decimal point
         switch (ch) {
-     
+
         case '0':
           ++zeroCounter;
           break;
@@ -511,25 +529,26 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           state = 4;
           break;
         default:
-          if(Character.isWhitespace(ch)){
+          if (Character.isWhitespace(ch)) {
             state = 5;
             break;
           }
-          if(!Character.isDigit(ch)){
+          if (!Character.isDigit(ch)) {
             return false;
           }
           while (zeroCounter > 0) {
             _floatingDecimal.digits[_floatingDecimal.nDigits++] = '0';
             --zeroCounter;
           }
-          if (_floatingDecimal.nDigits == _floatingDecimal.digits.length){
+          if (_floatingDecimal.nDigits == _floatingDecimal.digits.length) {
             return false;
           }
           _floatingDecimal.digits[_floatingDecimal.nDigits++] = ch;
         }
         break;
       case 4: // parse int and add it to the exponent
-        if(parseInt(i, to, 10)) _floatingDecimal.decExponent += _ival;
+        if (parseInt(i, to, 10))
+          _floatingDecimal.decExponent += _ival;
         return (_floatingDecimal.nDigits > 0);
       case 5: // should be trailing spaces...ignore them but throw exception
               // if anything else
@@ -543,23 +562,23 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         break;
       }
     }
-    return (_floatingDecimal.nDigits > 0);      
+    return (_floatingDecimal.nDigits > 0);
   }
 
-
-  private boolean endRecord() throws IllegalArgumentException, IllegalAccessException {
+  private boolean endRecord() throws IllegalArgumentException,
+      IllegalAccessException {
     boolean res = !_skipRecord;
     if (res && _column < _columnTypes.length) {
       switch (_setup.partialRecordPolicy) {
       case FILL_PARTIAL_RECORDS_WITH_DEFAULTS:
         int col = _column;
         _fieldStart = _dataPtr;
-        _fieldEnd = _dataPtr-1;
+        _fieldEnd = _dataPtr - 1;
         // fill in the default values for the remaining columns
-        for (int i = _column; i < _columnTypes.length; ++i){
+        for (int i = _column; i < _columnTypes.length; ++i) {
           endField();
         }
-        _column = col; //preserve the number of columns we actually did parse
+        _column = col; // preserve the number of columns we actually did parse
         break;
       case DROP_PARTIAL_RECORDS:
         res = false;
@@ -569,54 +588,60 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       default:
         throw new Error("illegal _partialRecordPolicy value");
       }
-    }       
+    }
     _recordStart = _dataPtr + 1;
-    _fieldStart = _dataPtr + 1;    
+    _fieldStart = _dataPtr + 1;
     _skipRecord = false;
-    if(!res) //if we ignore this record, we have to reset the column, otherwise next record would come out as all defaults
-      _column = 0;  // however, if res is true, we want to keep current column number so that we know how many columns did we parse
+    if (!res) // if we ignore this record, we have to reset the column,
+              // otherwise next record would come out as all defaults
+      _column = 0; // however, if res is true, we want to keep current column
+                   // number so that we know how many columns did we parse
     return res;
   }
 
-  private void endField() throws IllegalArgumentException, IllegalAccessException{    
-    if(!_skipRecord && (_column < _columnTypes.length)){
-      switch(_columnTypes[_column]){
+  private void endField() throws IllegalArgumentException,
+      IllegalAccessException {
+    if (!_skipRecord && (_column < _columnTypes.length)) {
+      switch (_columnTypes[_column]) {
       case typeInt:
-        int ival = (parseInt(_fieldStart,_fieldEnd,10))?_ival:_setup.defaultInt;
-        if(_isArray) 
-          Array.setInt(_csvRecord, _column, ival); 
-        else 
+        int ival = (parseInt(_fieldStart, _fieldEnd, 10)) ? _ival
+            : _setup.defaultInt;
+        if (_isArray)
+          Array.setInt(_csvRecord, _column, ival);
+        else
           _fields[_column].setInt(_csvRecord, ival);
         break;
       case typeFloat:
-        float fval = (parseFloat(_fieldStart,_fieldEnd))?_floatingDecimal.floatValue():_setup.defaultFloat;
-        if(_isArray) 
-          Array.setFloat(_csvRecord, _column, fval); 
-        else 
+        float fval = (parseFloat(_fieldStart, _fieldEnd)) ? _floatingDecimal
+            .floatValue() : _setup.defaultFloat;
+        if (_isArray)
+          Array.setFloat(_csvRecord, _column, fval);
+        else
           _fields[_column].setFloat(_csvRecord, fval);
         break;
       case typeDouble:
-        double dval = (parseFloat(_fieldStart,_fieldEnd))?_floatingDecimal.doubleValue():_setup.defaultDouble;
-        if(_isArray) 
-          Array.setDouble(_csvRecord, _column, dval); 
-        else 
+        double dval = (parseFloat(_fieldStart, _fieldEnd)) ? _floatingDecimal
+            .doubleValue() : _setup.defaultDouble;
+        if (_isArray)
+          Array.setDouble(_csvRecord, _column, dval);
+        else
           _fields[_column].setDouble(_csvRecord, dval);
-        break;        
-      case typeString:
-      {
+        break;
+      case typeString: {
         int stringIdx = 0;
-        
-        for(int i = 0; i < _column; ++i) 
-          if(_columnTypes[i] == DataType.typeString) ++stringIdx;
+
+        for (int i = 0; i < _column; ++i)
+          if (_columnTypes[i] == DataType.typeString)
+            ++stringIdx;
         _strFields[stringIdx]._offset = _currentOffset + _fieldStart;
-        _strFields[stringIdx]._length = _fieldEnd - _fieldStart + 1; 
+        _strFields[stringIdx]._length = _fieldEnd - _fieldStart;
       }
         break;
-      }                 
-    }    
+      }
+    }
     ++_column;
-    _fieldStart = _dataPtr+1;
-    _state = STATE_INITIAL;    
+    _fieldStart = _dataPtr + 1;
+    _state = STATE_INITIAL;
   }
 
   private static final int STATE_INITIAL = 104;
@@ -624,6 +649,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   private static final int STATE_ENDQUOTE = 106;
   private static final int STATE_AFTER_QUOTED = 107;
   private static final int STATE_NONQUOTEDFIELD = 108;
+  private static final int STATE_ENDLINE = 109;
 
   private boolean nextData() {
     if (_nextData == null || _nextChunkIdx == _maxChunkIdx)
@@ -631,34 +657,29 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     _dataPtr -= _data.length;
     _data = _nextData;
     _currentOffset = _nextOffset;
-    //System.out.println("processing chunk " + _nextChunkIdx);
+    // System.out.println("processing chunk " + _nextChunkIdx);
     ++_nextChunkIdx;
     Key k = ValueArray.getChunk(_key, _nextChunkIdx);
     Value v = DKV.get(k);
-    if (v != null){
+    if (v != null) {
       _nextData = (_nextChunkIdx == _maxChunkIdx) ? v.get(1024) : v.get();
       _nextOffset = ValueArray.getOffset(k);
-    } else _nextData = null;
+    } else
+      _nextData = null;
     _length = _data.length + ((_nextData == null) ? 0 : _nextData.length);
     return true;
   }
-  
-  final public boolean isSeparator(char c){
-    return (c == _setup.separator) || (_setup.whiteSpaceSeparator && Character.isWhitespace(c)); 
-  } 
 
-  private final int getFieldEnd(){
-    if((_dataPtr > 0) && ('\n' == (char)((_dataPtr < _data.length)?_data[_dataPtr]:_nextData[_dataPtr-_data.length]))){
-      char pC = (char)(((_dataPtr -1) < _data.length)?_data[_dataPtr-1]:_nextData[_dataPtr - _data.length - 1]);
-      if(pC == '\r') return _dataPtr -1;
-    }
-    return _dataPtr;
+  final public boolean isSeparator(char c) {
+    return (c == _setup.separator)
+        || (_setup.whiteSpaceSeparator && Character.isWhitespace(c));
   }
 
   public boolean hasNext() {
     if (_next)
-      return true;    
-    if(_data == null) return false;
+      return true;
+    if (_data == null)
+      return false;
     if (_dataPtr >= _data.length && !nextData())
       return false;
     _state = STATE_INITIAL;
@@ -666,10 +687,11 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     _fieldStart = _dataPtr;
     _recordStart = _dataPtr;
     boolean recordFinished = false;
-    try{
+    try {
       // try to parse
       while (!recordFinished) {
-        if (_dataPtr == _length && _nextData != null && _nextData.length == 1024) {
+        if (_dataPtr == _length && _nextData != null
+            && _nextData.length == 1024) {
           // deal with the improbable case of record crossing boundary by more
           // than 1024 bits
           Key k = ValueArray.getChunk(_key, _nextChunkIdx);
@@ -686,26 +708,29 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         switch (_state) {
         case STATE_INITIAL: // start of a field or only whitespace read
           switch (c) {
+          case '\r':
+            _state = STATE_ENDLINE;
+            _fieldEnd = _dataPtr;
+            break;
           case '\n':
             recordFinished = endRecord();
             break;
           case '"':
             _state = STATE_QUOTED;
-            _fieldStart = _dataPtr+1;
+            _fieldStart = _dataPtr + 1;
             break;
           default:
             _fieldEnd = _dataPtr;
-            if (isSeparator(c)){
-                endField();         
-            }
-            else if(!Character.isWhitespace(c))
-              _state = STATE_NONQUOTEDFIELD;            
+            if (isSeparator(c)) {
+              endField();
+            } else if (!Character.isWhitespace(c))
+              _state = STATE_NONQUOTEDFIELD;
           }
           break;
         case STATE_QUOTED:
-          if (c == '"'){
+          if (c == '"') {
             _state = STATE_ENDQUOTE;
-            _fieldEnd = _dataPtr-1;
+            _fieldEnd = _dataPtr;
           }
           break;
         case STATE_ENDQUOTE:
@@ -715,31 +740,47 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           } else
             _state = STATE_AFTER_QUOTED; // fall through
         case STATE_AFTER_QUOTED:
-          if (c == '\n') {     
+          if (c == '\r') {
+            _state = STATE_ENDLINE;
+          } else if (c == '\n') {
             endField();
             recordFinished = endRecord();
-          } else if ((c == _setup.separator) || (Character.isWhitespace(c) && _setup.whiteSpaceSeparator)) {
-            endField();         
-          } else 
-            if((c != '\r') && !Character.isWhitespace(c)) throw new Error("illegal character after quoted field: '" + c + "'");
+          } else if ((c == _setup.separator)
+              || (Character.isWhitespace(c) && _setup.whiteSpaceSeparator)) {
+            endField();
+          } else if (!Character.isWhitespace(c)){
+            
+            _state = STATE_NONQUOTEDFIELD; // probably malformed csv!
+          }          
           break;
         case STATE_NONQUOTEDFIELD:
           if (c == '"')
             throw new Error(
                 "field quoted after non-whitespace characters have been read");
-          if (c == '\n') {
-            _fieldEnd = getFieldEnd(); // check for previous \r            
+          if (c == '\r') {
+            _state = STATE_ENDLINE;
+            _fieldEnd = _dataPtr;
+          } else if (c == '\n') {
+            _fieldEnd = _dataPtr;
             endField();
             recordFinished = endRecord();
           } else if (isSeparator(c)) {
             _fieldEnd = _dataPtr;
             endField();
-          } else
-            _fieldEnd = _dataPtr;
+          }
+          break;
+        case STATE_ENDLINE:
+          endField();
+          recordFinished = endRecord();
+          if (c != '\n')
+            continue; // do not advance pointer in this case!
+          break;
+        default:
+          assert false;
         }
         ++_dataPtr;
       }
-    }catch (Exception e){
+    } catch (Exception e) {
       throw new Error(e);
     }
     return (_next = true);
@@ -757,7 +798,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     throw new UnsupportedOperationException();
   }
 
-  
   public Iterator<T> iterator() {
     if (!_fresh && _data != null) {
       if ((_key != null) && (_key._kb[0] == Key.ARRAYLET_CHUNK)

@@ -174,13 +174,10 @@ public class PersistIce extends Persistence {
   private synchronized byte[] file_load(Value v, int len) {
     if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
     try {
-      InputStream s = new FileInputStream(encodeKeyToFile(v));
+      DataInputStream s = new DataInputStream(new FileInputStream(encodeKeyToFile(v)));
       try {
         byte[] b = MemoryManager.allocateMemory(len);
-        int br = s.read(b, 0, len);
-        assert (br == len);
-        // the load was successful, check that it is still needed and update
-        assert b != null;
+        s.readFully(b, 0, len);
         return b;
       } finally {
         s.close();
