@@ -732,6 +732,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
             endField();
             recordFinished = endRecord();
           } else if (isSeparator(c)) {
+            _fieldEnd = _dataPtr;
             endField();
           } else
             _fieldEnd = _dataPtr;
