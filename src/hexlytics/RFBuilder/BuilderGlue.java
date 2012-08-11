@@ -25,8 +25,8 @@ public abstract class BuilderGlue {
   /** Terminates the builder, after its next tree (or trees for each thread one
    * are created). That is terminates the builder in fastest safe way possible
    */
-  public void terminate(boolean discardLastTrees) {
-    
+  public void terminate() {
+    builder_.terminate_ = true;
   }
   
 }
