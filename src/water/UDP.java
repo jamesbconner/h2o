@@ -107,13 +107,11 @@ public abstract class UDP {
 
   // Generic set/get
   public static int set2( byte[] buf, int off, int x ) {
-    assert off >= SZ_PORT;      // All packets have a control byte & port#
     for( int i=0; i<2; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 2;
   }
   public static int get2( byte[] buf, int off ) {
-    assert off >= SZ_PORT;      // All packets have a control byte & port#
     int sum=0;
     for( int i=0; i<2; i++ )
       sum |= (0xff&buf[off+i])<<(i<<3);

@@ -28,7 +28,7 @@ public abstract class UKV {
       ValueArray ary = (ValueArray)res;
       final long chunks = ary.chunks();
       for( long i=0; i<chunks; i++ ) // Delete all the chunks
-        DKV.remove(ary.chunk_get(i));
+        DKV.remove(ValueArray.make_chunkkey(ary._key,ValueArray.chunk_offset(i)));
     }
     if( res != null ) res.free_mem();
   }
@@ -42,7 +42,7 @@ public abstract class UKV {
       final long chunks = ary.chunks();
       // Delete all chunks
       for( long i=0; i<=chunks; i++ ) // Delete all the chunks
-        DKV.remove(ary.chunk_get(i));
+        DKV.remove(ValueArray.make_chunkkey(key,ValueArray.chunk_offset(i)));
     }
     DKV.remove(key);
   }
