@@ -427,6 +427,8 @@ public final class ParseDataset {
     int i=0;
     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++;   // Skip a line
     if( i==b.length ) return 0;  // No columns?
+    if( b[i] == '\r' || b[i+1]=='\n' ) i++;
+    if( b[i] == '\n' ) i++;
     // start counting columns on the 2nd line
     int cols = 0;
     int mode = 0;
