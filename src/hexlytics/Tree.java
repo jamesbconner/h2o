@@ -164,6 +164,8 @@ public class Tree {
       throw new Error("Unrecognized node type "+from[offset]+" in deserialized tree");
     }
   }
+  
+  public String toString() { return tree_.toString(); } 
 }
 
 

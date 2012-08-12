@@ -37,7 +37,6 @@ public class RandomForest {
     });
     for(Thread b : bees) b.start();
     for(Thread b : bees)  try{ b.join(); }catch( InterruptedException e ){ }
-    glue_.onBuilderTerminated();
   }
   
   

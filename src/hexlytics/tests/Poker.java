@@ -1,9 +1,7 @@
 package hexlytics.tests;
 
 
-import hexlytics.RandomForest;
-import hexlytics.Tree;
-import hexlytics.Utils;
+import hexlytics.RFBuilder.Director;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -35,23 +33,11 @@ public class Poker {
 
   public static void main(String[] args) throws Exception {
     if(args.length==0)args = new String[] { "smalldata/poker/poker-hand-testing.data" };
-    for( String path : args ){
-      System.out.print("parsing " + path + "...");
-      File f = new File(path);
-      if( !f.exists() ){ System.out.println("file not found!");  continue; }
-      Poker p = new Poker(f);         
-      Data d = p.poker_;
-      System.out.println(d);
-      System.out.println("Computing trees...");
-      Data train = d.sampleWithReplacement(.6);
-      Data valid = train.complement();
-      RandomForest validRf = new RandomForest(valid,null,1000);
-      for(int i=0;i<1000;i++) {
-        Tree rf = new Tree();
-        rf.compute(train);
-        System.out.println(i+" | err= "+Utils.p5d(validRf.validate(rf))
-            +" "+ rf.tree().toString().substring(0, 100));
-      } 
-    }
+    File f = new File(args[0]);
+    Poker p = new Poker(f);         
+    Data d = p.poker_;
+    Data t = d.sampleWithReplacement(.6);
+    Data v = t.complement();
+    Director dir = Director.createLocal(t,v,10);
   }
 }
