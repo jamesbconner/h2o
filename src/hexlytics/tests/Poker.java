@@ -2,6 +2,7 @@ package hexlytics.tests;
 
 
 import hexlytics.RFBuilder.Director;
+import hexlytics.RFBuilder.LocalBuilder;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -38,6 +39,6 @@ public class Poker {
     Data d = p.poker_;
     Data t = d.sampleWithReplacement(.6);
     Data v = t.complement();
-    Director dir = Director.createLocal(t,v,10);
+    Director dir = new LocalBuilder(t,v,10);
   }
 }

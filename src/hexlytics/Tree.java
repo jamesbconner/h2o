@@ -67,37 +67,36 @@ public class Tree {
     int navigate(double[]_) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
     abstract int classify(double[] v);
- }
+  }
  
- /** Leaf node that for any row returns its the data class it belongs to. */
- static class LeafNode extends INode {   
-   /** Type identifier of the node in the serialization */
-   public static final byte NODE_TYPE = 0;
-   /** Size of the serialized node. byte type and int class. */
-   public static final int SERIALIZED_SIZE = 5;
-   int class_ = -1;    // A category reported by the inner node
-   LeafNode(int c)                 { class_ = c; }
-   public int classify(double[] v) { return class_; }
-   public String toString()        { return "["+class_+"]"; }
- }
+  /** Leaf node that for any row returns its the data class it belongs to. */
+  static class LeafNode extends INode {   
+    /** Type identifier of the node in the serialization */
+    public static final byte NODE_TYPE = 0;
+    /** Size of the serialized node. byte type and int class. */
+    public static final int SERIALIZED_SIZE = 5;
+    int class_ = -1;    // A category reported by the inner node
+    LeafNode(int c)                 { class_ = c; }
+    public int classify(double[] v) { return class_; }
+    public String toString()        { return "["+class_+"]"; }
+  }
 
- 
- /** Inner node of the decision tree. Contains a list of subnodes and the
-  * classifier to be used to decide which subtree to explore further. */
- static class Node extends INode {
-   /** Type identifier of the node in the serialization */
-   public static final byte NODE_TYPE = 1;
-   /** Size of the serialized node. Byte tupe, int column and double value. */
-   public static final int SERIALIZED_SIZE = 13;
-   final int column_;
-   final double value_;
-   INode l_, r_;
-   public Node(int column, double value) { column_=column; value_=value;  }
-   public int navigate(double[] v) { return v[column_]<=value_?0:1; }
-   public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
-   public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-   public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
- }
+  /** Inner node of the decision tree. Contains a list of subnodes and the
+   * classifier to be used to decide which subtree to explore further. */
+  static class Node extends INode {
+    /** Type identifier of the node in the serialization */
+    public static final byte NODE_TYPE = 1;
+    /** Size of the serialized node. Byte tupe, int column and double value. */
+    public static final int SERIALIZED_SIZE = 13;
+    final int column_;
+    final double value_;
+    INode l_, r_;
+    public Node(int column, double value) { column_=column; value_=value;  }
+    public int navigate(double[] v) { return v[column_]<=value_?0:1; }
+    public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
+    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+    public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
+  }
   
   public int classify(Row r) {
     return tree_.classify(r.v);

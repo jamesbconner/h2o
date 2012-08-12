@@ -8,12 +8,12 @@ import hexlytics.data.Data;
  *
  * @author peta
  */
-public class Validator {
+public class TreeValidator {
   
   final Director glue_;
   RandomForest rf_;
   
-  public Validator(Data data, Director glue) {
+  public TreeValidator(Data data, Director glue) {
     glue_ = glue;
     rf_= new RandomForest(data,glue_,Integer.MAX_VALUE);
   }

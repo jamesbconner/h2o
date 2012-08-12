@@ -55,7 +55,7 @@ public class AlphaDSet {
       Data d = dset._dset;
       Data train = d.sampleWithReplacement(.6);
       Data valid = train.complement();
-      Director dir = Director.createLocal(train, valid, 1000);
+      Director dir = new LocalBuilder(train, valid, 1000);
     }
   }
 }

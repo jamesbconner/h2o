@@ -17,7 +17,7 @@ import java.util.ArrayList;
  *
  * @author peta
  */
-public class Aggregator {
+public class TreeAggregator {
 
   // All rows in the data set, and number of error predictions for each of the
   // rows
@@ -26,7 +26,7 @@ public class Aggregator {
   final ArrayList<Tree> trees_ = new ArrayList();  // All trees 
   final Director glue_;  // The glue object to signal update
   
-  public Aggregator(Director glue) {
+  public TreeAggregator(Director glue) {
     rowErrors = null; // new int[data.rows()];
     glue_ = glue;
   }
