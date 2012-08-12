@@ -48,7 +48,8 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
   public void onValidatorTerminated() { throw uoe(); }
   public void report(String what) { throw uoe(); }
 
-
+  public String nodeName() { return Integer.toString(_myNodeId); }
+  
   // DRemoteTask implementation ------------------------------------------------
   
   public void map(Key key) {

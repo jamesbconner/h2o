@@ -1,14 +1,18 @@
 package hexlytics.RFBuilder;
 
+import hexlytics.RandomForest;
 import hexlytics.Tree;
+import hexlytics.Utils;
 import hexlytics.data.Data;
-import hexlytics.data.Data.Row;
 
-/**
- *
+
+/** Is capable of validating a given tree against given data. 
+ * 
+ * Similar to the TreeBuilder can run in multiple threads, but does not have to 
+ * 
  * @author peta
  */
-/*public class TreeValidator {
+public class TreeValidator {
   
   final Director glue_;
   RandomForest rf_;
@@ -18,73 +22,14 @@ import hexlytics.data.Data.Row;
     rf_= new RandomForest(data,glue_,Integer.MAX_VALUE);
   }
   
-  public double validateTree(Tree tree) { return rf_.validate(tree); }
-      
-} */
-
-
-/** Is capable of validating a given tree against given data. 
- * 
- * Similar to the TreeBuilder can run in multiple threads, but does not have to 
- * 
- * @author peta
- */
-class TreeValidator {
-  private class Score {
-    public int[][] badVotes;
-    public int size;
-    public Score(int rows) {
-      badVotes = new int[2][rows]; // row number and vote
-    }
-
-    public void reset() { size = 0; }
-    
-    public void record(int row, int vote) {
-      badVotes[0][size] = row;
-      badVotes[1][size] = vote;
-      ++size;
-    }
-    
-    public int[] getBadRows() {
-      if (size==0)
-        return null;
-      int[] result = new int[size];
-      System.arraycopy(badVotes[0],0,result,0,result.length);
-      return result;
-    }
-    
-    public int[] getBadVotes() {
-      if (size==0)
-        return null;
-      int[] result = new int[size];
-      System.arraycopy(badVotes[1],0,result,0,result.length);
-      return result;
-    }
+  public void validate(Tree tree) { 
+    double res = rf_.validate(tree); 
+    String ts = tree.toString();    
+    if(ts.length()>=100) ts = ts.substring(0,100) + "...";
+    glue_.report(glue_.nodeName()+" "+rf_.trees().size()+" | err="+ Utils.p5d(res)+" Tree="+ts);
   }
+
+  /** We are done. Finish any validation and send you date to the aggregator. */
+  public void terminate() { }
   
-  private ThreadLocal<Score> score_ = new ThreadLocal();
-
-  private final Data data_;
-  private final Director glue_;
-  
-  public TreeValidator(Data data, Director glue) {
-    data_ = data;
-    glue_ = glue;
-  }
-   
-  public double validate(Tree tree) {
-    if (score_.get() == null)
-      score_.set(new Score(data_.rows()));
-    Score score = score_.get();
-    score.reset();
-    for (Row r: data_) {
-      int result = tree.classify(r);
-      if (result!=r.classOf())
-        score.record(r.index,result);
-    }
-    int[] badRows = score.getBadRows();
-    int[] badVotes = score.getBadVotes();
-    glue_.onTreeValidated(tree,data_.rows(),badRows,badVotes);
-    return (double)score.size / data_.rows();
-  }
 }

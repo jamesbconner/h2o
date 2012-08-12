@@ -2,20 +2,21 @@ package hexlytics.RFBuilder;
 
 import hexlytics.Tree;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 
-/** Aggregates the results from different validators as well as all the
- * trees so that they can be returned as a random forest. 
- * 
- * Is very simple and crude, single threaded at the moment so that we do not
- * have to deal with the concurrency. Also there is a way to keep a running
- * error rate without recomputing, but again, we'd have to look for concurrency
- * a lot in that case. 
- * 
- * @author peta
+/** Aggregates results from the validators and builders. The aggregate results can then
+ * be reported to the user.
+ *  @author peta
  */
-
 class TreeAggregator {
+
+  public void onReport(String s) { System.out.println(s); }
+  
+  /** We are done... print the error rate...*/
+  public void terminate() { } 
+  
+  
+  /**A chunk holds the data returned by one validator node. */
   private static class Chunk {
     int[][] rows;
     
@@ -40,7 +41,7 @@ class TreeAggregator {
   private int totalRows_ = 0;
   private final int numClasses_;
   private final Chunk[] chunks_;
-  private final HashSet<Tree> trees_ = new HashSet();
+  private final ArrayList<Tree> trees_ = new ArrayList(); // no need to be a set, since there is no real EQ method on trees
   private final Director glue_;
   
   

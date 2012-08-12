@@ -3,12 +3,8 @@ package hexlytics.RFBuilder;
 import hexlytics.RandomForest;
 import hexlytics.data.Data;
 
-/** Tree builder is very simple class now that only builds the trees and returns
- * them to the glue object.
- * 
- * It is always single threaded in essence, but multiple threads can run the
- * same builder. This means it should be much easier to add it to the FJ tasks,
- * etc. you just use it with new thread object. 
+/** Tree builder builds trees and returns to the director. The underlying build
+ * is done multi threaded by the RandomForest class.
  * 
  * @author peta
  */

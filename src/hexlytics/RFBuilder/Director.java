@@ -1,8 +1,6 @@
 package hexlytics.RFBuilder;
 
 import hexlytics.Tree;
-import hexlytics.Utils;
-import hexlytics.data.Data;
 
 /** This needs to be an interface so that we can inherit from the distributed
  * task.
@@ -26,6 +24,8 @@ public interface Director {
   
   void report(String what);
   
+  ///  
+  String nodeName();
 }
 
 

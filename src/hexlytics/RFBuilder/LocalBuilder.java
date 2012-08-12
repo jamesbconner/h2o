@@ -5,7 +5,6 @@
 package hexlytics.RFBuilder;
 
 import hexlytics.Tree;
-import hexlytics.Utils;
 import hexlytics.data.Data;
 
 /**
@@ -20,29 +19,23 @@ public class LocalBuilder implements Director {
   int treeIndex = 0;
 
   
-  public void report(String s) { pln(s);  }
-  
-  protected void p(String s){ System.out.print(s); }
-  protected void pln(String s){ System.out.println(s); }
+  public void report(String s) { aggregator_.onReport(s);  }  
+  protected void p(String s){ aggregator_.onReport(s); }
     
   public LocalBuilder(Data t, Data v, int numTrees) {            
-    pln("Training data:\n"+ t);
-    pln("Validation data:\n"+ v);
+    aggregator_ = new TreeAggregator(1,v.classes(),this);
+    p("Training data:\n"+ t+"\nValidation data:\n"+ v);
     builder_ = new TreeBuilder(t,this,numTrees);
     validator_ = new TreeValidator(v,this);
-    aggregator_ = new TreeAggregator(1,v.classes(),this);
-    pln("===Computing===");
+    p("===Computing===");
     builder_.run();
-    System.out.println("Error: "+ Utils.p5d(aggregator_.getError()) + " for " + numTrees
-        + " trees, built on " + t.rows() + " observations and validated on "+ v.rows() + " observations.");
+    validator_.terminate();
+    aggregator_.terminate();
   }
   
   public void onTreeBuilt(Tree tree) { 
     ++treeIndex;
-    double err = validator_.validate(tree);  
-    String ts = tree.toString();
-    if(ts.length()>=100) ts = ts.substring(0,100);
-    pln(treeIndex + " | err=" + Utils.p5d(err) + " " + ts);
+    validator_.validate(tree);  
   }
 
   public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
@@ -54,5 +47,7 @@ public class LocalBuilder implements Director {
   public void onBuilderTerminated() { }
 
   public void onValidatorTerminated() { }
+  
+  public String nodeName() { return ""; } 
 
 }
