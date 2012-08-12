@@ -6,34 +6,23 @@ import hexlytics.data.Data.Row;
 
 
 /**
- *
  * @author peta
  */
-public class RandomTree { 
+public class Tree { 
   INode tree_ = null;
   long time_ = 0;
   private static String statistic_ = "Numeric"; // Default choice
   int serializedSize_ = 0;
   
-  public RandomTree() {
-  }
-  
-  /** Creates the tree and immediately computes it. */
-  public RandomTree(Data data) {
-    compute(data);
-  }
+  public Tree() {}
   
   /** Creates the tree from serialized data. */
-  public RandomTree(byte[] from, int offset) {
+  public Tree(byte[] from, int offset) {
     tree_ = deserializeNode(from, offset+4).result;
   }
   
-  //public RandomTree(Data data) { data_=data;  }    
-
   public final void compute(Data data) { 
     long t = System.currentTimeMillis(); 
-    //tree_ = new Root();
-    //compute(data,tree_,0);    
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
   }

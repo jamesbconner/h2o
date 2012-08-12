@@ -4,7 +4,7 @@
  */
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 
 /**
  *
@@ -13,7 +13,7 @@ import hexlytics.RandomTree;
 public interface BuilderGlue {
 
   /** Called by the builder when new tree is computed. */
-  void onTreeReady(RandomTree tree);
+  void onTreeReady(Tree tree);
   
   /** Called by the builder when it terminates. */
   void onBuilderTerminated();

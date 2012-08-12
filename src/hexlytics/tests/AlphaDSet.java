@@ -1,6 +1,6 @@
 package hexlytics.tests;
 
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 import hexlytics.Utils;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
@@ -8,8 +8,8 @@ import hexlytics.data.DataAdapter;
 import java.io.File;
 import java.io.FileInputStream;
 
-import water.csv.ValueCSVRecords;
 import water.csv.CSVParser.CSVParserSetup;
+import water.csv.ValueCSVRecords;
 
 public class AlphaDSet {
   Data _dset;
@@ -60,11 +60,11 @@ public class AlphaDSet {
       Data valid = train.complement();
       int[][] score = new int[valid.rows()][valid.classes()];
       for (int i = 0; i < 1000; i++) {
-        RandomTree rf = new RandomTree();
+        Tree rf = new Tree();
         rf.compute(train);
         rf.classify(valid, score);
         System.out.println(i + " | err= "
-            + Utils.p5d(RandomTree.score(valid, score)) + " " + rf.tree());
+            + Utils.p5d(Tree.score(valid, score)) + " " + rf.tree());
       }
     }
   }

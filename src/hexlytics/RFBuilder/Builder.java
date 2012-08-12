@@ -4,7 +4,7 @@
  */
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 import hexlytics.data.Data;
 
 /** Class that is capable of building the random forest trees.
@@ -20,12 +20,10 @@ public class Builder implements Runnable {
   final Data data_;
   final double bagSize_;
   Thread[] threads_ = null;
-  int runningThreads_ = 0;
-  
+  int runningThreads_ = 0;  
   volatile boolean terminate_ = false;
   
-  /** Creates the builder object with given arguments and associated glue object.
-   */
+  /** Creates the builder object with given arguments and associated glue object. */
   public Builder(Data data, double bagSize, BuilderGlue glue) {
     data_ = data;
     bagSize_ = bagSize;
@@ -56,24 +54,18 @@ public class Builder implements Runnable {
    * use the method start() instead.
    */
    public void run() {
-    // increase the number of workers
-    synchronized (this) {
-      ++runningThreads_;
-    }
+    synchronized (this) {  ++runningThreads_;  }    
     // compute the trees one at a time, each one with newly sampled data
     while (terminate_ == false) {
       Data d = data_.sampleWithReplacement(bagSize_);
-      RandomTree tree = new RandomTree(d);
+      Tree tree = new Tree();
+      tree.compute(d);
       glue_.onTreeReady(tree);
     }
-    // only the last builder to terminate should call the terminated event on
-    // the glue object
-    boolean isLast;
-    synchronized (this) {
-      isLast = (--runningThreads_ == 0);
+    // the last builder to terminate should call the terminated event 
+    synchronized (this) {       
+      if (--runningThreads_==0)  glue_.onBuilderTerminated();
     }
-    if (isLast)
-      glue_.onBuilderTerminated();
   }
   
 }

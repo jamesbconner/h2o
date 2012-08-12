@@ -1,10 +1,14 @@
 package hexlytics.tests;
 
-import hexlytics.RFBuilder.*;
-import hexlytics.RandomTree;
+import hexlytics.Tree;
+import hexlytics.RFBuilder.Aggregator;
+import hexlytics.RFBuilder.AggregatorGlue;
+import hexlytics.RFBuilder.Builder;
+import hexlytics.RFBuilder.BuilderGlue;
+import hexlytics.RFBuilder.Validator;
+import hexlytics.RFBuilder.ValidatorGlue;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
-
 
 public class Iris {
   
@@ -22,27 +26,8 @@ public class Iris {
   }
 
   public static void main(String[] a) {     
-    Data d = new Iris().iris_;
-/*    System.out.println(d+"\n"+d.head(4));
-    System.out.println("Computing trees...");
-    Data train = d.sampleWithReplacement(.6);
-    System.out.println("train\n"+train+"\n");
-    Data valid = train.complement();
-    System.out.println("valid\n"+valid+"\n");
-    int[][] score = new int[valid.rows()][valid.classes()];
-    for(int i=0;i<100;i++) {
-      RandomTree rf = new RandomTree();
-      rf.compute(train);
-      rf.classify(valid, score);
-      System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
-    } */ 
+    Data d = new Iris().iris_;   
     TestGlue tg = new TestGlue(d);
-    
-    
-    //RandomForest rf = new RandomForest(0.6);
-    //rf.addTrees(d, 100000,2);
-    //System.out.println("We now have "+rf.numTrees()+" trees in the forest");
-    //System.out.println("Score on full set: "+rf.score(d));
   }
   
   static class TestGlue implements BuilderGlue, ValidatorGlue, AggregatorGlue {
@@ -63,7 +48,7 @@ public class Iris {
     }
     
     
-    public void onTreeReady(RandomTree tree) {
+    public void onTreeReady(Tree tree) {
       v.validateTree(tree);
     }
 
@@ -75,7 +60,7 @@ public class Iris {
       System.out.println("validator terminated...");
     }
 
-    public void onTreeValidated(RandomTree tree, int rows, int[] errorRows) {
+    public void onTreeValidated(Tree tree, int rows, int[] errorRows) {
       a.aggregateTree(tree, errorRows);
     }
 
