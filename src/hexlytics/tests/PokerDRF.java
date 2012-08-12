@@ -37,13 +37,12 @@ public class PokerDRF extends DRemoteTask {
 
   PokerValidator _val;
 
-  boolean _validatorRunning;
+ 
 
   String _nodePrefix = null;
   
 
-  boolean _done;
-
+  
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
   double _finalError;
@@ -61,10 +60,12 @@ public class PokerDRF extends DRemoteTask {
     _compKeys = new Key[H2O.CLOUD._memary.length];
     _resultKeys = new Key[H2O.CLOUD._memary.length];
     int kIdx = 0;
+    _nTreesPerBuilder = nTreesPerNode;
     for (H2ONode node : H2O.CLOUD._memary) {
       _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1, Key.DFJ_INTERNAL_USER,
           H2O.CLOUD._memary[kIdx]);
       _resultKeys[kIdx] = Key.make(keyPrefix + kIdx + "_error");
+      if(DKV.get(_resultKeys[kIdx]) != null) DKV.remove(_resultKeys[kIdx]);
       Value v = new Value(_compKeys[kIdx], 1024);
       byte[] mem = v.mem();
       UDP.set4(mem, 0, kIdx);
@@ -79,14 +80,15 @@ public class PokerDRF extends DRemoteTask {
       DKV.put(_compKeys[kIdx], v);
       ++kIdx;
       _rootKey = k;
+      
     }
   }
 
   class ProgressMonitor implements Runnable {
     int _nTreesComputed;
+    boolean _done;
 
     double _currentError;
-
     
     int[] _nProcessedTrees;
     long[][] _errorHistory; // errors per node and # processed trees
@@ -95,15 +97,18 @@ public class PokerDRF extends DRemoteTask {
 
     ProgressMonitor(Key[] resultKeys) {
       _resultKeys = resultKeys;
-      _errorHistory = new long[resultKeys.length][_totalTrees];
+      _errorHistory = new long[resultKeys.length][_nTreesPerBuilder];
+      _nProcessedTrees = new int[resultKeys.length];
     }
 
     public void run() {
+      System.out.println("ProgressMonitor running...");
       while (_nTreesComputed < _totalTrees) {
         boolean changed = false;
         for (int i = 0; i < _resultKeys.length; ++i) {
           Key k = _resultKeys[i];
           Value v = DKV.get(k);
+          if(v == null)continue;
           byte[] mem = v.get(20);
           int ntrees = UDP.get4(mem, 0);
           if (ntrees > _nProcessedTrees[i]) {
@@ -111,7 +116,7 @@ public class PokerDRF extends DRemoteTask {
                                           // records
               _nRecords += UDP.get8(mem, 4);
             changed = (_nProcessedTrees[i] == _nTreesComputed);
-            _errorHistory[i][ntrees] = UDP.get8(mem, 12);
+            _errorHistory[i][ntrees-1] = UDP.get8(mem, 12);
             _nProcessedTrees[i] = ntrees;
           }
           DKV.remove(k);
@@ -126,7 +131,7 @@ public class PokerDRF extends DRemoteTask {
             long nErrors = 0;
 
             for (int i = 0; i < _resultKeys.length; ++i) {
-              nErrors = _errorHistory[i][n];
+              nErrors = _errorHistory[i][n-1];
             }
             _currentError = (double) nErrors / (double) _nRecords;
             _nTreesComputed = n;
@@ -155,8 +160,8 @@ public class PokerDRF extends DRemoteTask {
     Thread t = new Thread(_progress);
     t.start();
     rexec(_compKeys);
-    synchronized (this) {
-      while (!_done)
+    synchronized (_progress) {
+      while (!_progress._done)
         try {
           this.wait();
         } catch (InterruptedException e) {
@@ -174,6 +179,7 @@ public class PokerDRF extends DRemoteTask {
     Data _data;
 
     Key[] _nextTreeKeys;
+    boolean _running;
     
     public PokerValidator(Data data) {
       _data = data;
@@ -212,7 +218,7 @@ public class PokerDRF extends DRemoteTask {
       UDP.set8(mem, 4, _data.rows());
       DKV.put(k, v);
       synchronized (this) {
-        _validatorRunning = true;
+        _running = true;
       }
       // first compute the votes of each tree
       int treesValidated = 0;
@@ -262,7 +268,7 @@ public class PokerDRF extends DRemoteTask {
       }
       _classVoteCounts = null;
       synchronized (this) {
-        _validatorRunning = false;
+        _running = false;
         this.notify();
       }
       System.out.println("Validation at node " + _myNodeId + " done");
@@ -343,15 +349,14 @@ public class PokerDRF extends DRemoteTask {
       DKV.put(key, val); // publish the tree to the validators
     }
     // wait for the validator to finish
-    synchronized (this) {
-      while (_validatorRunning) {
+    synchronized (_val) {
+      while (_val._running) {
         try {
           _val.wait();
         } catch (InterruptedException e) {
         }
       }
-    }
-    _done = true;
+    }   
   }
 
   @Override
