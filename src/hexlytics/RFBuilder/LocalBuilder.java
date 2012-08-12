@@ -30,7 +30,8 @@ public class LocalBuilder implements Director {
     p("===Computing===");
     builder_.run();
     validator_.terminate();
-    aggregator_.terminate();
+    aggregator_.terminate();    
+
   }
   
   public void onTreeBuilt(Tree tree) { 

@@ -21,7 +21,7 @@ public class Iris {
     Data d = new Iris().iris_;
     Data t = d.sampleWithReplacement(.6);
     Data v = t.complement();
-    new LocalBuilder(t,v,100);
+    new LocalBuilder(t,v,10);
   }
   
 

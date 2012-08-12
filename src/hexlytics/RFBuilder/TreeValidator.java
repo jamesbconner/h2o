@@ -22,14 +22,18 @@ public class TreeValidator {
     rf_= new RandomForest(data,glue_,Integer.MAX_VALUE);
   }
   
+  double err;
+  
   public void validate(Tree tree) { 
-    double res = rf_.validate(tree); 
+    err = rf_.validate(tree); 
     String ts = tree.toString();    
     if(ts.length()>=100) ts = ts.substring(0,100) + "...";
-    glue_.report(glue_.nodeName()+" "+rf_.trees().size()+" | err="+ Utils.p5d(res)+" Tree="+ts);
+    glue_.report(glue_.nodeName()+" "+rf_.trees().size()+" | err="+ Utils.p5d(err)+" Tree="+ts);
   }
 
   /** We are done. Finish any validation and send you date to the aggregator. */
-  public void terminate() { }
+  public void terminate() {
+    glue_.report("Err=" + err);
+  }
   
 }
