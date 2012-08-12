@@ -33,7 +33,8 @@ public class LocalBuilder implements Director {
     aggregator_ = new TreeAggregator(1,v.classes(),this);
     pln("===Computing===");
     builder_.run();
-    System.out.println("DONE ALL: total error: "+aggregator_.getError());
+    System.out.println("Error: "+ Utils.p5d(aggregator_.getError()) + " for " + numTrees
+        + " trees, built on " + t.rows() + " observations and validated on "+ v.rows() + " observations.");
   }
   
   public void onTreeBuilt(Tree tree) { 
@@ -48,18 +49,10 @@ public class LocalBuilder implements Director {
     aggregator_.aggregate(0,tree,rows,badRows,badVotes);
   }
   
-  public void onAggregatorChange() {
+  public void onAggregatorChange() { }
 
-  }
-  
-  
-  public void onBuilderTerminated() {
-    System.out.println("builder terminated...");
-  }
+  public void onBuilderTerminated() { }
 
-  
-  public void onValidatorTerminated() {
-    System.out.println("validator terminated...");
-  }
+  public void onValidatorTerminated() { }
 
 }
