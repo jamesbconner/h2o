@@ -1,8 +1,8 @@
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.data.Data;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -51,7 +51,7 @@ public class TreeBuilder implements Runnable {
   }
   
   
-  @Override
+  
   public void run() {
     // increase the number of threads we have 
     threads_.incrementAndGet();
