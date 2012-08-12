@@ -12,7 +12,7 @@ import hexlytics.data.Data;
 public interface Director {
 
   /** Called by the builder when new tree is computed. */
-  void onTreeReady(Tree tree);
+  void onTreeBuilt(Tree tree);
   
   /** Called by the builder when it terminates. */
   void onBuilderTerminated();
@@ -20,7 +20,7 @@ public interface Director {
   /** Called by the aggregator when it has new results.  */
   void onChange();  
 
-  void onTreeValidated(Tree tree, int rows, int[] errorRows);
+  void onTreeValidated(Tree tree, int[] badRows, int[] badVotes);
   
   void onValidatorTerminated();
   

@@ -21,7 +21,7 @@ public class RandomForest {
   
   public RandomForest(Data d, Director g, int trees) { data_ = d; glue_ = g; numTrees_ = trees; }  
 
-  public synchronized void add(Tree t) { if(!done()){ glue_.onTreeReady(t); trees_.add(t); } }
+  public synchronized void add(Tree t) { if(!done()){ glue_.onTreeBuilt(t); trees_.add(t); } }
   public synchronized void addAll(ArrayList<Tree> ts) { trees_.addAll(ts); }
   public synchronized ArrayList<Tree> trees() { return trees_; }
   synchronized boolean done() { return trees_.size() >= numTrees_; }

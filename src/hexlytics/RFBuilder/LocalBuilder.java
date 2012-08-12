@@ -17,6 +17,7 @@ public class LocalBuilder implements Director {
   TreeBuilder builder_;
   TreeValidator validator_;
   TreeAggregator aggregator_;
+  int treeIndex = 0;
 
   @Override
   public void report(String s) { pln(s);  }
@@ -24,32 +25,34 @@ public class LocalBuilder implements Director {
   protected void p(String s){ System.out.print(s); }
   protected void pln(String s){ System.out.println(s); }
     
-    public LocalBuilder(Data t, Data v, int numTrees) {            
-      pln("Training data:\n"+ t);
-      pln("Validation data:\n"+ v);
-      builder_ = new TreeBuilder(t,this,numTrees);
-      validator_ = new TreeValidator(v,this);
-      aggregator_ = new TreeAggregator(this);
-      pln("===Computing===");
-      builder_.build();
-    }
-    
-    
-    public void onTreeReady(Tree tree) { 
-      double err = validator_.validateTree(tree);  
-      String ts = tree.toString();
-      if(ts.length()>=100) ts = ts.substring(0,100);
-      pln(validator_.rf_.trees_.size() + " | err=" + Utils.p5d(err) + " " + ts);
-    }
+  public LocalBuilder(Data t, Data v, int numTrees) {            
+    pln("Training data:\n"+ t);
+    pln("Validation data:\n"+ v);
+    builder_ = new TreeBuilder(t,this,numTrees);
+    validator_ = new TreeValidator(v,this);
+    aggregator_ = new TreeAggregator(this,v.rows());
+    pln("===Computing===");
+    builder_.run();
+    System.out.println("DONE ALL: total error: "+aggregator_.error());
+  }
   
-    public void onTreeValidated(Tree tree, int rows, int[] errorRows) {
-      aggregator_.aggregateTree(tree, errorRows);
-    }
+  
+  public void onTreeBuilt(Tree tree) { 
+    ++treeIndex;
+    double err = validator_.validate(tree);  
+    String ts = tree.toString();
+    if(ts.length()>=100) ts = ts.substring(0,100);
+    pln(treeIndex + " | err=" + Utils.p5d(err) + " " + ts);
+  }
 
-    public void onChange() {
-
-    }
-
+  public void onTreeValidated(Tree tree, int[] badRows, int[] badVotes) {
+    aggregator_.aggregateTree(tree, badRows);
+  }
+  
+  @Override 
+  public void onChange() {
+  }
+  
   @Override
   public void onBuilderTerminated() {
     System.out.println("builder terminated...");

@@ -26,8 +26,8 @@ public class TreeAggregator {
   final ArrayList<Tree> trees_ = new ArrayList();  // All trees 
   final Director glue_;  // The glue object to signal update
   
-  public TreeAggregator(Director glue) {
-    rowErrors = null; // new int[data.rows()];
+  public TreeAggregator(Director glue, int totalRows) {
+    rowErrors = new int[totalRows];
     glue_ = glue;
   }
   
@@ -53,3 +53,6 @@ public class TreeAggregator {
   }
  
 }
+
+
+
