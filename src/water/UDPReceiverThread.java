@@ -159,18 +159,21 @@ public class UDPReceiverThread extends Thread {
       // we just want to send the dup reply back.
       DatagramPacket old = h2o.putIfAbsent(pack);
       if( old != null ) {       // We've seen this packet before?
-        if( UDP.get_ctrl(old.getData()) == ACK ) {
+        byte[] obuf = old.getData();
+        if( UDP.get_ctrl(obuf) == ACK ) {
           int dum = H2O.VOLATILE; // Dummy volatile read between 1st byte & rest of packet
           // This is an old re-send of the same thing we've answered to
           // before.  Send back the same old answer ACK.
+          UDP.clr_port(obuf);   // Wipe out the port assert; the port is flip/flopping here
           h2o.send(old,old.getLength());
+          UDP.clr_port(obuf);   // Wipe out the port assert; the port is flip/flopping here
         } else {
           // This packet has not been ACK'd yet.  Hence it's still a
           // work-in-progress locally.  We have no answer yet to reply with
           // but we do not want to re-offer the packet for repeated work.
           // Just ignore the packet.
-          free_pack(pack);
         }
+        free_pack(pack);
       } else {                  // Else not a repeat-packet
         // Announce new packet to workers
         H2O.FJP.execute(new FJPacket(pack,h2o));

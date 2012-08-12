@@ -85,14 +85,16 @@ public class Value {
     }
   }
 
-  // The FAST path get-byte-array - final method for speed
+  // The FAST path get-byte-array - final method for speed.
+  // NEVER returns null.
   public final byte[] get( int len ) {
     if( len > _max ) len = _max;
     byte[] mem = _mem;          // Read once!
     if( mem != null && len <= mem.length ) return mem;
-    if( _max == 0 ) return mem;
-    assert (_key!=null) && _key.desired()>0 && is_persisted();  // Should already be on disk!
-    return CAS_mem_if_larger(load_persist(len));
+    if( mem != null && _max == 0 ) return mem;
+    assert (_key!=null) && is_persisted();  // Should already be on disk!
+    byte[] newmem = (_max==0 ? new byte[0] : load_persist(len));
+    return CAS_mem_if_larger(newmem);                // CAS in the larger read
   }
   
   public final byte[] get() { return get(Integer.MAX_VALUE); }
@@ -172,7 +174,9 @@ public class Value {
   // Start this Value persisting.  Ok to call repeatedly, or if the value is
   // already persisted.  Depending on how busy the disk is, and how big the
   // Value is, it might be a long time before the value is persisted.
-  void start_persist() {                Persistence.p(this).store(this); }
+  void start_persist() {
+    if( _max ==0 || (_mem != null && _max == _mem.length) )
+                                        Persistence.p(this).store(this); }
   // Remove any trace of this value from the persistence layer.  Called right
   // after the Value is itself deleted.  Depending on how busy the disk is, and
   // how big the Value is, it might be a long time before the disk space is
@@ -319,8 +323,8 @@ public class Value {
     int len = UDP.get4(buf,off); off += 4;
     int max = UDP.get4(buf,off); off += 4;
     Value val = construct(max,len,key,p,type);
-    byte [] mem = val.mem();
-    System.arraycopy(buf,off,mem,0,len);
+    if( len > 0 )
+      System.arraycopy(buf,off,val.mem(),0,len);
     return val;
   }
   static Value read( DataInputStream dis, Key key ) throws IOException {

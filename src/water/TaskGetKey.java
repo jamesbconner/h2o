@@ -83,7 +83,7 @@ public class TaskGetKey extends DFutureTask<Value> {
       if( val != null ) {                    // Got something?
         if( len > val._max ) len = val._max; // Limit return bytes to _max
         if( val._max <0 ) len = 0; // this is important for sentinels
-        vbuf = val.get();          // Force into memory
+        vbuf = val.get(len);       // Force into memory
         if( vbuf == null )         // Fails to load if value is mid-delete
           val = null;              // So act as-if it is a miss already
       }

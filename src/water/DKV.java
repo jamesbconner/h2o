@@ -94,9 +94,8 @@ public abstract class DKV {
         if( len > val._max ) len = val._max;
         if( len == 0 ) return val;
         byte[] bits = val.get(len);
-        if( bits==null ) return null; // This indicates an IO error: unable to load data
-        if( len <= bits.length ) // We get something?
-          return val;             // Done!
+        if( bits != null && len <= bits.length ) // We get something?  We get enough?
+          return val;                            // Done!
         // Got something, but not enough: need to read more
       }
 
@@ -108,7 +107,7 @@ public abstract class DKV {
       H2ONode home = cloud._memary[home_idx];
       
       // If we missed in the cache AND we are the home node, then there is 
-      // no V for this K.
+      // no V for this K (or we have a disk failure).
       if( home == H2O.SELF ) return null;
 
       // Pending write to same key from this node?  Take that write instead.

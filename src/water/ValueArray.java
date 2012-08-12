@@ -1,6 +1,7 @@
 package water;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +27,7 @@ public class ValueArray extends Value {
 
   // The unstructured-data array
   public ValueArray( Key key, long sz ) {
-    super(key,NUM_COLS_OFF+2);
+    super(key,COLUMN0_OFF);
     // The unstructured-data array has zero everywhere, except the length
     UDP.set8(_mem,LENGTH_OFF,sz);
   }
@@ -185,10 +186,10 @@ public class ValueArray extends Value {
   // Read a (possibly VERY large file) and put it in the K/V store and return a
   // Value for it.  Files larger than 2Meg are broken into arraylets of 1Meg each.
   static public Key read_put_file(String keyname, FileInputStream fis, byte rf) throws IOException {
-    long sz = fis.getChannel().size();
-    DataInputStream dis = new DataInputStream(fis);
+    final long sz = fis.getChannel().size();
+    final DataInputStream dis = new DataInputStream(fis);
     // Main Key
-    Key key = Key.make(keyname,rf);
+    final Key key = Key.make(keyname,rf);
     // Files of modest size, from 0 to <2Megs we represent as a single Value.
     // Larger files are broken up in 1Meg chunks
     long chunks = chunks(sz);   // Divide by 1Meg into chunks, rounding up
@@ -202,7 +203,6 @@ public class ValueArray extends Value {
     // Must be a large file; break it up!
 
     // Begin to read & build chunks.
-    ValueArray ary = new ValueArray(key,sz);
     long off = 0;
     for( int i=0; i<chunks; i++ ) {
       // All-the-rest for the last chunk, or 1Meg for other chunks
@@ -210,7 +210,7 @@ public class ValueArray extends Value {
       int sz2 = (int)szl;       // Truncate
       assert sz2 == szl;        // No int/long truncation
 
-      Key ckey = ary.make_chunkkey(off);
+      Key ckey = make_chunkkey(key,off);
       Value val = new Value(ckey,sz2);
       dis.readFully(val._mem);
       
@@ -221,6 +221,7 @@ public class ValueArray extends Value {
     assert off == sz;           // Got them all
 
     // Now insert the main Key
+    ValueArray ary = new ValueArray(key,sz);
     UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }
@@ -316,6 +317,15 @@ public class ValueArray extends Value {
       return off+META_COL_SIZE;
     }
 
+    public void write( DataOutputStream dos ) throws IOException {
+      dos.writeDouble(_max);
+      dos.writeDouble(_min);
+      dos.writeInt(_scale);
+      dos.writeInt(_base);
+      dos.writeShort(_off);
+      dos.writeByte(_size);
+    }
+
     static public Column read( byte[] buf, int off ) {
       Column col = new Column();
       col._max      = UDP.get8d(buf,off+  MAX_COL_OFF);
@@ -324,6 +334,17 @@ public class ValueArray extends Value {
       col._base     = UDP.get4 (buf,off+ BASE_COL_OFF);
       col._off=(short)UDP.get2 (buf,off+  OFF_COL_OFF);
       col._size     =           buf[off+ SIZE_COL_OFF];
+      return col;
+    }
+
+    static public Column read( DataInputStream dis ) throws IOException {
+      Column col = new Column();
+      col._max  = dis.readDouble();
+      col._min  = dis.readDouble();
+      col._scale= dis.readInt();
+      col._base = dis.readInt();
+      col._off  = dis.readShort();
+      col._size = dis.readByte();
       return col;
     }
   }

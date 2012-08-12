@@ -67,7 +67,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       off = _dt.write(buf,off);
     } else {                    // Big object, switch to TCP style comms.
       buf[off++] = 1;           // Sending via TCP
-      tcp_send(_target,_type,_tasknum,new Byte((byte)1/*setup remote call*/),
+      tcp_send(_target,_type,_tasknum,new Byte((byte)5/*setup remote call*/),
                sclazz,/*jarkey,*/_args,_dt);
     }
     return off;
@@ -127,12 +127,12 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       if( !dt.void_result() ) {
         if( dt.wire_len()+off <= MultiCast.MTU ) {
-          buf[off++] = 0;         // Result coming via UDP
+          buf[off++] = 2;         // Result coming via UDP
           off = dt.write(buf,off); // Result
         } else {
-          buf[off++] = 1;         // Result coming via TCP
+          buf[off++] = 3;         // Result coming via TCP
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),new Byte((byte)2/*response from remote*/),dt) )
+          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),new Byte((byte)6/*response from remote*/),dt) )
             return; // If the TCP failed... then so do we; no result; caller will retry
         }
       }
@@ -147,9 +147,9 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       // Read all the parts
       int tnum = dis.readInt();
       int flag = dis.readByte(); // 1==setup, 2==response
-      assert flag==1 || flag==2;
+      assert flag==5 || flag==6;
 
-      if( flag==1 ) {           // Incoming TCP-style remote exec request?
+      if( flag==5 ) {           // Incoming TCP-style remote exec request?
         // Read clazz string
         int len = dis.readShort();
         byte[] bits = new byte[len];
@@ -166,6 +166,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
         final DatagramPacket p = UDPReceiverThread.get_pack(); // Get a fresh empty packet
         final byte[] buf = p.getData();
         UDP.set_ctrl(buf,UDP.udp.rexec.ordinal());
+        UDP.clr_port(buf);
         UDP.set_task(buf,tnum);
         // Here I want to execute on this, but not block for completion in the
         // TCP reader thread.  
@@ -200,9 +201,15 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       int port    = get_port(buf);
       int tasknum = get_task(buf);
       int off     = UDP.SZ_TASK; // Skip udp byte and port and task#
-      byte rf     = buf[off++];            //  8
-      int klen    = get2(buf,off); off+=2; // 10
-      return "task# "+tasknum+" key["+klen+"]="+new String(buf,10,6);
+      byte flag   = buf[off++];  // Flag for udp/tcp
+      if( flag == 0 || flag == 2 ) {
+        off += 3;               // 3 byets of zero classloader
+        byte rf     = buf[off++];
+        int klen    = get2(buf,off); off+=2;
+        return "task# "+tasknum+" "+flag+" key["+klen+"]="+(char)buf[off]+(char)buf[off+1];
+      } else {
+        return "task# "+tasknum+" "+flag+" TCP "+((flag==1)?"pack":"reply");
+      }
     }
   }
 
@@ -215,7 +222,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
     // Read object off the wires
-    if( buf[off++] == 0 ) {     // Result is coming via TCP or UDP?
+    if( buf[off++] == 2 ) {     // Result is coming via TCP or UDP?
       _dt.read(buf,off);        // UDP result
     } else {
       // Big object, switch to TCP style comms.  Should have already done a

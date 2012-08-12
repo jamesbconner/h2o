@@ -18,7 +18,7 @@ public final class ParseDataset {
 
     // Guess on the number of columns, build a column array.
     int num_cols = guess_num_cols(dataset);
-    //System.out.println("Found "+num_cols1+" columns");
+    //System.out.println("Found "+num_cols+" columns");
     //int num_cols = CSVParserKV.getNColumns(dataset._key);
 
     DParse1 dp1 = new DParse1();
@@ -172,8 +172,17 @@ public final class ParseDataset {
         UDP.set4(buf,(off+=4)-4,x);
       return off;
     }
-    public void write( DataOutputStream dos ) { 
-      throw new Error("unimplemented"); 
+    public void write( DataOutputStream dos ) throws IOException {
+      dos.writeInt(_num_cols);
+      dos.writeInt(_num_rows);
+      if( _num_rows == 0 ) return; // No columns?
+      assert _cols.length == _num_cols;
+      for( ValueArray.Column col : _cols )
+        col.write(dos);         // Yes columns; write them all
+      // Now the rows-per-chunk array
+      dos.writeInt(_rows_chk.length);
+      for( int x : _rows_chk )
+        dos.writeInt(x);
     }
     public void read( byte[] buf, int off ) { 
       _num_cols = UDP.get4(buf,off);  off += 4; 
@@ -189,8 +198,18 @@ public final class ParseDataset {
       for( int i=0; i<rlen; i++ )
         _rows_chk[i] = UDP.get4(buf,(off+=4)-4);
     }
-    public void read( DataInputStream dis ) { 
-      new Error("unimplemented"); 
+    public void read( DataInputStream dis ) throws IOException {
+      _num_cols = dis.readInt();
+      _num_rows = dis.readInt();
+      if( _num_rows == 0 ) return; // No rows, so no cols
+      assert _cols == null;
+      _cols = new ValueArray.Column[_num_cols];
+      for( int i=0; i<_num_cols; i++ )
+        _cols[i] = ValueArray.Column.read(dis);
+      int rlen = dis.readInt();
+      _rows_chk = new int[rlen];
+      for( int i=0; i<rlen; i++ )
+        _rows_chk[i] = dis.readInt();
     }
   }
 

@@ -171,62 +171,73 @@ public class PersistIce extends Persistence {
     return new String(ValueArray.getArrayKeyBytes(v._key));
   }
   
-  private synchronized byte[] file_load(Value v, int len) {
-    if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
-    try {
-      DataInputStream s = new DataInputStream(new FileInputStream(encodeKeyToFile(v)));
+  private byte[] file_load(Value v, int len) {
+    synchronized(v) {                                        // Test under lock
+      if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
+    }
+    // Allocate outside of lock
+    byte[] b = MemoryManager.allocateMemory(len);
+    synchronized(v) {           // File i/o under lock
+      if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
       try {
-        byte[] b = MemoryManager.allocateMemory(len);
-        s.readFully(b, 0, len);
-        return b;
-      } finally {
-        s.close();
+        DataInputStream s = new DataInputStream(new FileInputStream(encodeKeyToFile(v)));
+        try {
+          s.readFully(b, 0, len);
+          return b;
+        } finally {
+          s.close();
+        }
+      } catch( IOException e ) {  // Broken disk / short-file???
+        //System.err.println(e.toString()+" for "+v._key+" and len="+len);
+        return null;
       }
-    } catch( IOException e ) {
-      System.err.println(e.toString());
-      return null;
     }
   }
   
-  private synchronized void file_store(Value v) {
-    if( is_goal(v) == true ) return; // Some other thread is already trying to store
-    assert is_goal(v) == false && is(v)==true; // State was: file-not-present
-    set_info(v, 8);                            // Not-atomically set state to "store not-done"
-    clr_info(v,16);
-    assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
-    try {
-      new File(iceRoot,getDirectoryForKey(v)).mkdirs();
-      // Nuke any prior file.
-      OutputStream s = new FileOutputStream(encodeKeyToFile(v));
+  private void file_store(Value v) {
+    synchronized(v) {                  // Lock Value
+      if( is_goal(v) == true ) return; // Some other thread is already trying to store
+      assert is_goal(v) == false && is(v)==true; // State was: file-not-present
+      set_info(v, 8);                            // Not-atomically set state to "store not-done"
+      clr_info(v,16);
+      assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
       try {
-        byte[] m = v.mem(); // we are not single threaded anymore 
-        if( m!=null )
-          s.write(m);
-      } finally {
-        s.close();
-        set_info(v,16);         // Set state to "store done"
-        assert is_goal(v) == true && is(v)==true; // State is: store-done
+        new File(iceRoot,getDirectoryForKey(v)).mkdirs();
+        // Nuke any prior file.
+        OutputStream s = new FileOutputStream(encodeKeyToFile(v));
+        try {
+          byte[] m = v.mem(); // we are not single threaded anymore 
+          assert (m == null || m.length == v._max); // Assert not saving partial files
+          if( m!=null )
+            s.write(m);
+        } finally {
+          s.close();
+          set_info(v,16);         // Set state to "store done"
+          assert is_goal(v) == true && is(v)==true; // State is: store-done
+        }
+      } catch( IOException e ) {
+        // Ignore IO errors, except that we never set state to "store done"
       }
-    } catch( IOException e ) {
-      // Ignore IO errors, except that we never set state to "store done"
     }
   }
   
-  private synchronized void file_delete(Value v) {
-    if( is_goal(v) == false ) return;         // Some other thread is already trying to remove
-    assert is_goal(v) == true && is(v)==true; // State was: store-done
-    clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
-    clr_info(v,16);
-    assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
-    File f = encodeKeyToFile(v);
-    f.delete();
-
-    if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
-      f = new File(iceRoot,getDirectoryForKey(v));
+  private void file_delete(Value v) {
+    synchronized(v) {                  // Lock Value
+      if( is_goal(v) == false ) return;         // Some other thread is already trying to remove
+      assert is_goal(v) == true && is(v)==true; // State was: store-done
+      clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
+      clr_info(v,16);
+      assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
+      File f = encodeKeyToFile(v);
       f.delete();
+      
+      if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
+        f = new File(iceRoot,getDirectoryForKey(v));
+        f.delete();
+      }
+      
+      set_info(v,16);
+      assert is_goal(v) == false && is(v)==true; // State is: remove-done
     }
-
-    set_info(v,16);
-    assert is_goal(v) == false && is(v)==true; // State is: remove-done
   }
 }

@@ -46,23 +46,24 @@ public abstract class MemoryManager {
 
   // Memory margin: how much "slop" we'd like to keep in the Java heap
   // expressed as USED+B < MAXMEM*A/256
-  static final int A = 64;         // 64/256 = 1/4ths of heap
+  static final int  A = 128;           // 128/256 = 1/2ths of heap
   static final long B = 10*(1L << 20); // 10Meg
   // Compute: USED+B < MAXMEM*A/256
   private static boolean can_allocate( long size ) { 
+    return true;
     // Estimate in-use size
-    long mem_used = 
-      USED.get()+               // Current bytes burned by Values
-      size+                     // Plus this new allocation
-      H2O.SELF.get_keys()*PER_KEY+            // Plus some per-key overhead
-      H2O.SELF.get_thread_count()*PER_THREAD+ // Plus some per-thread overhead
-      B;                                      // Plus some per-JVM overhead
-    long cutoff = (MAXMEM*A)>>8; // Cutoff: fraction of memory we can live with
-    return mem_used < cutoff;
+    //long mem_used = 
+    //  USED.get()+               // Current bytes burned by Values
+    //  size+                     // Plus this new allocation
+    //  H2O.SELF.get_keys()*PER_KEY+            // Plus some per-key overhead
+    //  H2O.SELF.get_thread_count()*PER_THREAD+ // Plus some per-thread overhead
+    //  B;                                      // Plus some per-JVM overhead
+    //long cutoff = (MAXMEM*A)>>8; // Cutoff: fraction of memory we can live with
+    //return mem_used < cutoff;
   }
 
   // This is a simple iterator explicitly over the guts of a NonBlockingHashMap
-  // - it understands the internal structures and expooses a simple & fast API.
+  // - it understands the internal structures and exposes a simple & fast API.
   private final static class SimpleValueIterator {
     final Object [] _arr;
     final int _length;
@@ -155,6 +156,7 @@ public abstract class MemoryManager {
         continue;               // Nope...
       byte[] mem = v.mem();
       if( mem == null ) continue; // Already freed
+      System.out.println("Free'ing memory on key "+v._key+" because can_allocate has said No to "+size+" bytes");
       v.CAS_mem(mem,null);        // One-shot free attempt
     }
   }
