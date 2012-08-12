@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package hexlytics.RFBuilder;
 
 import hexlytics.Tree;
@@ -18,9 +14,6 @@ import water.RemoteTask;
 import water.Value;
 
 /** This is the distributed builder of the random forest that works in hexbase.
- * 
- *
- *
  * @author peta
  */
 public class HexBaseBuilder extends DRemoteTask implements Director {
@@ -47,26 +40,14 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
     DKV.put(key, val); // publish the tree to the validators
   }
 
+  UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
  
-  public void onBuilderTerminated() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
+  public void onBuilderTerminated() { throw uoe(); }
+  public void onAggregatorChange() {throw uoe(); }
+  public void onTreeValidated(Tree tree, int rows,int[] badRows, int[] badVotes) { throw uoe(); }  
+  public void onValidatorTerminated() { throw uoe(); }
+  public void report(String what) { throw uoe(); }
 
-  public void onAggregatorChange() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  public void onTreeValidated(Tree tree, int rows,int[] badRows, int[] badVotes) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  public void onValidatorTerminated() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  public void report(String what) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
 
   // DRemoteTask implementation ------------------------------------------------
   
@@ -77,37 +58,17 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
     
     // start the builder in our thread
     builder_ = new TreeBuilder(data,this,100);
-    builder_.run();
-    
-    
+    builder_.run(); 
   }
 
-  public void reduce(RemoteTask drt) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  protected int wire_len() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
- 
-  protected int write(byte[] buf, int off) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
+  public void reduce(RemoteTask drt) {throw uoe(); }
+  protected int wire_len() { throw uoe(); }
+  protected int write(byte[] buf, int off) { throw uoe(); }
   @Override
-  protected void write(DataOutputStream dos) throws IOException {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
+  protected void write(DataOutputStream dos) throws IOException { throw uoe(); }
   @Override
-  protected void read(byte[] buf, int off) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
+  protected void read(byte[] buf, int off) { throw uoe(); }
   @Override
-  protected void read(DataInputStream dis) throws IOException {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-  
+  protected void read(DataInputStream dis) throws IOException { throw uoe(); }
+
 }

@@ -87,7 +87,4 @@ class TreeValidator {
     glue_.onTreeValidated(tree,data_.rows(),badRows,badVotes);
     return (double)score.size / data_.rows();
   }
-  
-  
-  
 }
