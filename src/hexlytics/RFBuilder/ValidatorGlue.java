@@ -4,7 +4,7 @@
  */
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 
 /**
  *
@@ -12,7 +12,7 @@ import hexlytics.RandomTree;
  */
 public interface ValidatorGlue {
   
-  void onTreeValidated(RandomTree tree, int rows, int[] errorRows);
+  void onTreeValidated(Tree tree, int rows, int[] errorRows);
   
   void onValidatorTerminated();
   

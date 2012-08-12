@@ -1,10 +1,6 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
@@ -18,10 +14,9 @@ public class Validator implements Runnable {
   
   final Data data_;
   final ValidatorGlue glue_;
-  final LinkedBlockingQueue<RandomTree> trees_ = new LinkedBlockingQueue();
+  final LinkedBlockingQueue<Tree> trees_ = new LinkedBlockingQueue();
   
-  private final static RandomTree TERMINATE = new RandomTree();
-  
+  private final static Tree TERMINATE = new Tree();  
   
   private volatile boolean terminate_ = false;
   private int runningThreads_ = 0;
@@ -33,7 +28,7 @@ public class Validator implements Runnable {
   }
   
   /** Adds the given tree to the queue of trees to be validated. */
-  public void validateTree(RandomTree tree) {
+  public void validateTree(Tree tree) {
     trees_.offer(tree);
   }
   
@@ -66,7 +61,7 @@ public class Validator implements Runnable {
     int[] errorRows = new int[data_.rows()];
     // get the tree and validate it on given data
     while (true) {
-      RandomTree tree;
+      Tree tree;
       try {
         tree = trees_.take();
         if ((tree == TERMINATE) || (terminate_ == true))

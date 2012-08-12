@@ -5,8 +5,9 @@
 package hexlytics.RFBuilder;
 
 import hexlytics.RandomForest;
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 import hexlytics.data.Data;
+
 import java.util.HashSet;
 
 /** Aggregates the results from different validators as well as all the
@@ -25,13 +26,10 @@ public class Aggregator {
 
   // All rows in the data set, and number of error predictions for each of the
   // rows
-  final int[] rowErrors;
+  final int[] rowErrors; 
   
-  // All trees 
-  final HashSet<RandomTree> trees_ = new HashSet();
-  
-  // The glue object to signal update
-  final AggregatorGlue glue_;
+  final HashSet<Tree> trees_ = new HashSet();  // All trees 
+  final AggregatorGlue glue_;  // The glue object to signal update
   
   public Aggregator(Data data, AggregatorGlue glue) {
     rowErrors = new int[data.rows()];
@@ -39,8 +37,7 @@ public class Aggregator {
   }
   
   /** Aggregates the information gained from the given tree. */
-  public void aggregateTree(RandomTree tree, int[] errorRows) {
-    //System.out.println("Added tree, errors "+errorRows.length);
+  public void aggregateTree(Tree tree, int[] errorRows) {
     trees_.add(tree);
     for (int i: errorRows)
       ++rowErrors[i];
@@ -63,8 +60,7 @@ public class Aggregator {
   /** Returns the forest created by all the trees aggregated so far. */
   public RandomForest createForest() {
     RandomForest result = new RandomForest();
-    result.addTrees((RandomTree[])trees_.toArray());
+    result.addTrees((Tree[])trees_.toArray());
     return result;
-  }
-  
+  }  
 }
