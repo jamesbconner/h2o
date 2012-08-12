@@ -5,7 +5,6 @@
 package hexlytics.RFBuilder;
 
 import hexlytics.Tree;
-import hexlytics.data.Data;
 
 import java.util.ArrayList;
 
@@ -28,10 +27,10 @@ public class Aggregator {
   final int[] rowErrors; 
   
   final ArrayList<Tree> trees_ = new ArrayList();  // All trees 
-  final AggregatorGlue glue_;  // The glue object to signal update
+  final Director glue_;  // The glue object to signal update
   
-  public Aggregator(Data data, AggregatorGlue glue) {
-    rowErrors = new int[data.rows()];
+  public Aggregator(Director glue) {
+    rowErrors = null; // new int[data.rows()];
     glue_ = glue;
   }
   

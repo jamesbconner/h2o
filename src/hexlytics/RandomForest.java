@@ -1,6 +1,6 @@
 package hexlytics;
 
-import hexlytics.RFBuilder.BuilderGlue;
+import hexlytics.RFBuilder.Director;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
@@ -16,10 +16,10 @@ public class RandomForest {
   private static Random rnd = new Random();  
   public ArrayList<Tree> trees_ = new ArrayList<Tree>();
   int numTrees_;
-  BuilderGlue glue_;
+  Director glue_;
   private Data data_;
   
-  public RandomForest(Data d, BuilderGlue g, int trees) { data_ = d; glue_ = g; numTrees_ = trees; }  
+  public RandomForest(Data d, Director g, int trees) { data_ = d; glue_ = g; numTrees_ = trees; }  
 
   public synchronized void add(Tree t) { if(!done()){ glue_.onTreeReady(t); trees_.add(t); } }
   public synchronized void addAll(ArrayList<Tree> ts) { trees_.addAll(ts); }
@@ -49,8 +49,6 @@ public class RandomForest {
     return Utils.maxIndex(votes,rnd);
   }
   
-  
-
   private int[][] scores_;
   
   public double validate(Tree t) { 
@@ -58,6 +56,7 @@ public class RandomForest {
     trees_.add(t);
     int right=0, wrong =0;
     for (Row r : data_) {
+      scores_[r.index][t.tree_.classify(r.v)]++;            
       int[]votes = scores_[r.index];
       for(int i=0;i<data_.classes();i++) 
         if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    

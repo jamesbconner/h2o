@@ -1,6 +1,7 @@
 package hexlytics.tests;
 
 
+import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.Utils;
 import hexlytics.data.Data;
@@ -44,12 +45,12 @@ public class Poker {
       System.out.println("Computing trees...");
       Data train = d.sampleWithReplacement(.6);
       Data valid = train.complement();
-      int[][] score = new int[valid.rows()][valid.classes()];
+      RandomForest validRf = new RandomForest(valid,null,1000);
       for(int i=0;i<1000;i++) {
         Tree rf = new Tree();
         rf.compute(train);
-        rf.classify(valid, score);
-        System.out.println(i+" | err= "+Utils.p5d(Tree.score(valid, score)) +" "+ rf.tree());
+        System.out.println(i+" | err= "+Utils.p5d(validRf.validate(rf))
+            +" "+ rf.tree().toString().substring(0, 100));
       } 
     }
   }

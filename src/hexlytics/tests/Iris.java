@@ -1,12 +1,6 @@
 package hexlytics.tests;
 
-import hexlytics.RandomForest;
-import hexlytics.Tree;
-import hexlytics.RFBuilder.Aggregator;
-import hexlytics.RFBuilder.AggregatorGlue;
-import hexlytics.RFBuilder.BuilderGlue;
-import hexlytics.RFBuilder.Validator;
-import hexlytics.RFBuilder.ValidatorGlue;
+import hexlytics.RFBuilder.Director;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -26,54 +20,13 @@ public class Iris {
   }
 
   public static void main(String[] a) {     
-    Data d = new Iris().iris_;   
-    TestGlue tg = new TestGlue(d);
+    Data d = new Iris().iris_;
+    Data t = d.sampleWithReplacement(.6);
+    Data v = t.complement();
+    Director dir = Director.createLocal(t,v,10);
   }
   
-  static class TestGlue implements BuilderGlue, ValidatorGlue, AggregatorGlue {
-    
-    int trees = 0;
-    
-    RandomForest b;
-    Validator v;
-    Aggregator a;
-    
-    public TestGlue(Data d) {
-      b = new RandomForest(d,this,1);
-      v = new Validator(d,this);
-      a = new Aggregator(d,this);
-      v.start(1);
-      b.build();
-      System.out.println("All done in main.");
-    }
-    
-    
-    public void onTreeReady(Tree tree) {
-      v.validateTree(tree);
-    }
 
-    public void onBuilderTerminated() {
-      System.out.println("builder terminated...");
-    }
-
-    public void onValidatorTerminated() {
-      System.out.println("validator terminated...");
-    }
-
-    public void onTreeValidated(Tree tree, int rows, int[] errorRows) {
-      a.aggregateTree(tree, errorRows);
-    }
-
-    public void onChange() {
-      trees += 1;
-      System.out.println("We have "+trees+" trees and error "+a.error());
-      if (trees == 100) {
-        b.terminate();
-        v.terminate();
-      }
-    }
-    
-  }
   
   class F {  int id; double sl, sw, pl, pw;   int class_; 
     F(int id_, double sl_, double sw_, double pl_, double pw_, String class_) {

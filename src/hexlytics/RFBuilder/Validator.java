@@ -14,7 +14,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Validator implements Runnable {
   
   final Data data_;
-  final BuilderGlue glue_;
+  final Director glue_;
   RandomForest rf_;
   final LinkedBlockingQueue<Tree> trees_ = new LinkedBlockingQueue();
   
@@ -23,7 +23,7 @@ public class Validator implements Runnable {
   private int runningThreads_ = 0;
   private Thread[] threads_ = null;
   
-  public Validator(Data data, BuilderGlue glue) {
+  public Validator(Data data, Director glue) {
     data_ = data;
     glue_ = glue;
     rf_= new RandomForest(data_,glue_,Integer.MAX_VALUE);

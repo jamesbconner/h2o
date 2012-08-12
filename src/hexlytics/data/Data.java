@@ -119,7 +119,7 @@ public  class Data  implements Iterable<Row> {
         for(int m=0;m<=pad;m++) res+=" ";
       }
       res+="\n";
-    }   
+    }      
     res +="========\n";  res +="class histogram\n";
     int[] dist = data_.c_[data_.classIdx_].distribution();
     int[] sorted = Arrays.copyOf(dist, dist.length);

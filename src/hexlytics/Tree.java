@@ -63,7 +63,7 @@ public class Tree {
   
   public INode tree() { return tree_; }
   
-  static abstract class INode  {    
+  public static abstract class INode  {    
     int navigate(double[]_) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
     abstract int classify(double[] v);
@@ -103,19 +103,6 @@ public class Tree {
     return tree_.classify(r.v);
   } 
 
-  public void classify(Data d, int[][] score) {
-    for (Row r : d) score[r.index][tree_.classify(r.v)]++;
-  }
-  
-  public static double score(Data d, int[][]score) {
-    int right=0, wrong =0;
-    for (Row r : d) {
-      int[]votes = score[r.index];
-      for(int i=0;i<d.classes();i++) 
-        if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    
-    }
-    return wrong/(double)right;
-  }
   
   /** Returns the size required for the tree to serialize. In bytes. */
   public int serializedSize() {
