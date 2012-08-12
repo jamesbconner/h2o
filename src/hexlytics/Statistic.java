@@ -59,8 +59,8 @@ public class Statistic {
           }
         }
         currSplit = s;
-        dists[0][r.classOf] += data.weight(r.index);
-        dists[1][r.classOf] -= data.weight(r.index);
+        dists[0][r.classOf()] += data.weight(r.index);
+        dists[1][r.classOf()] -= data.weight(r.index);
       }  
       return new Split(column,split,bestFit);
     }    
@@ -82,7 +82,7 @@ public class Statistic {
     }
     for (Row r : data) 
       for (Column c : columns_) 
-        c.add(r.classOf,data.weight(r.index));
+        c.add(r.classOf(),data.weight(r.index));
     
     for (Column c: columns_) {
       Split s = c.split();
@@ -91,7 +91,7 @@ public class Statistic {
     
     if (best == null) {
       int[] votes = new int[data.classes()];
-      for(Row r: data) votes[r.classOf]++;
+      for(Row r: data) votes[r.classOf()]++;
       int max = 0;
       for(int i=0;i<votes.length;i++) 
         if (votes[i]>max) { max=votes[i]; classOf = i;}

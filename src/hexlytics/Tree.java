@@ -6,36 +6,26 @@ import hexlytics.data.Data.Row;
 
 
 /**
- *
  * @author peta
  */
-public class RandomTree { 
+public class Tree { 
   INode tree_ = null;
   long time_ = 0;
   private static String statistic_ = "Numeric"; // Default choice
   int serializedSize_ = 0;
   
-  public RandomTree() {
-  }
-  
-  /** Creates the tree and immediately computes it. */
-  public RandomTree(Data data) {
-    compute(data);
-  }
+  public Tree() {}
   
   /** Creates the tree from serialized data. */
-  public RandomTree(byte[] from, int offset) {
+  public Tree(byte[] from, int offset) {
     tree_ = deserializeNode(from, offset+4).result;
   }
   
-  //public RandomTree(Data data) { data_=data;  }    
-
-  public final void compute(Data data) { 
+  public final Tree compute(Data data) { 
     long t = System.currentTimeMillis(); 
-    //tree_ = new Root();
-    //compute(data,tree_,0);    
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
+    return this;
   }
   
   /** for given data creates a node and returns it. */
@@ -43,9 +33,9 @@ public class RandomTree {
     int classOf = -1;
     for(Row r : d) 
        if (classOf==-1)
-         classOf = r.classOf; 
+         classOf = r.classOf(); 
        else
-         if (classOf != r.classOf) {
+         if (classOf != r.classOf()) {
            classOf = -1;
            break;
          }
@@ -73,59 +63,45 @@ public class RandomTree {
   
   public INode tree() { return tree_; }
   
-  static abstract class INode  {    
+  public static abstract class INode  {    
     int navigate(double[]_) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
     abstract int classify(double[] v);
- }
+  }
  
- /** Leaf node that for any row returns its the data class it belongs to. */
- static class LeafNode extends INode {   
-   /** Type identifier of the node in the serialization */
-   public static final byte NODE_TYPE = 0;
-   /** Size of the serialized node. byte type and int class. */
-   public static final int SERIALIZED_SIZE = 5;
-   int class_ = -1;    // A category reported by the inner node
-   LeafNode(int c)                 { class_ = c; }
-   public int classify(double[] v) { return class_; }
-   public String toString()        { return "["+class_+"]"; }
- }
+  /** Leaf node that for any row returns its the data class it belongs to. */
+  static class LeafNode extends INode {   
+    /** Type identifier of the node in the serialization */
+    public static final byte NODE_TYPE = 0;
+    /** Size of the serialized node. byte type and int class. */
+    public static final int SERIALIZED_SIZE = 5;
+    int class_ = -1;    // A category reported by the inner node
+    LeafNode(int c)                 { class_ = c; }
+    public int classify(double[] v) { return class_; }
+    public String toString()        { return "["+class_+"]"; }
+  }
 
- 
- /** Inner node of the decision tree. Contains a list of subnodes and the
-  * classifier to be used to decide which subtree to explore further. */
- static class Node extends INode {
-   /** Type identifier of the node in the serialization */
-   public static final byte NODE_TYPE = 1;
-   /** Size of the serialized node. Byte tupe, int column and double value. */
-   public static final int SERIALIZED_SIZE = 13;
-   final int column_;
-   final double value_;
-   INode l_, r_;
-   public Node(int column, double value) { column_=column; value_=value;  }
-   public int navigate(double[] v) { return v[column_]<=value_?0:1; }
-   public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
-   public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-   public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
- }
+  /** Inner node of the decision tree. Contains a list of subnodes and the
+   * classifier to be used to decide which subtree to explore further. */
+  static class Node extends INode {
+    /** Type identifier of the node in the serialization */
+    public static final byte NODE_TYPE = 1;
+    /** Size of the serialized node. Byte tupe, int column and double value. */
+    public static final int SERIALIZED_SIZE = 13;
+    final int column_;
+    final double value_;
+    INode l_, r_;
+    public Node(int column, double value) { column_=column; value_=value;  }
+    public int navigate(double[] v) { return v[column_]<=value_?0:1; }
+    public int classify(double[] v) { return navigate(v)==0? l_.classify(v) : r_.classify(v); }
+    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+    public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
+  }
   
   public int classify(Row r) {
     return tree_.classify(r.v);
   } 
 
-  public void classify(Data d, int[][] score) {
-    for (Row r : d) score[r.index][tree_.classify(r.v)]++;
-  }
-  
-  public static double score(Data d, int[][]score) {
-    int right=0, wrong =0;
-    for (Row r : d) {
-      int[]votes = score[r.index];
-      for(int i=0;i<d.classes();i++) 
-        if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    
-    }
-    return wrong/(double)right;
-  }
   
   /** Returns the size required for the tree to serialize. In bytes. */
   public int serializedSize() {
@@ -187,6 +163,8 @@ public class RandomTree {
       throw new Error("Unrecognized node type "+from[offset]+" in deserialized tree");
     }
   }
+  
+  public String toString() { return tree_.toString(); } 
 }
 
 

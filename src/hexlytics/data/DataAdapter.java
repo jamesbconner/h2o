@@ -20,8 +20,11 @@ public class DataAdapter  {
     public final long seed;
     public final Random random_;
     
+    private static int SEED = 42;
+    private static Random RAND = new Random(SEED);    
+    
     private static long getRandomSeed() {
-      return new Random().nextLong();    
+      return RAND.nextLong();    
     }
     public DataAdapter(String name, Object[] columns, String classNm) {
       this(name,columns,classNm,getRandomSeed());
@@ -39,6 +42,7 @@ public class DataAdapter  {
         String s=o.toString();  columnNames_[i] = s; c_[i]=new Col.D(s); c2i_.put(s,i++); 
        }
       classIdx_ = c2i_.get(classNm);
+      if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
       this.seed = seed;
       random_ = new Random(seed);
     }
@@ -105,9 +109,7 @@ public class DataAdapter  {
        if (v==0 || v >= columns()-1) throw new Error("Should pick 2/3 of columns");    
        return v;
     }
-    // return columns -1 so that we don't include the class when choosing column on which to make a split 
-    // fixme: assumes that the class is alway the last column!
-    public int columns()        { return c_.length -1;} 
+    public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return c_[classIdx_].getI(idx); }
     public int classes() {         

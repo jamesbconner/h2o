@@ -1,8 +1,8 @@
 package hexlytics.tests;
 
 
-import hexlytics.RandomTree;
-import hexlytics.Utils;
+import hexlytics.RFBuilder.Director;
+import hexlytics.RFBuilder.LocalBuilder;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -16,15 +16,16 @@ public class Poker {
   Data poker_;
   
   public Poker(File inputFile) throws Exception {
-    DataAdapter poker = new DataAdapter("poker", new String[]{"0","1","2","3","4","5","6","7","8","9"}, "9");  
-    int[] r = new int[11];
-     CSVParserSetup setup = new CSVParserSetup();
+    String[] names = new String[]{"0","1","2","3","4","5","6","7","8","9","10"};
+    DataAdapter poker = new DataAdapter("poker", names, "10");  
+    int[] r = new int[names.length];
+    CSVParserSetup setup = new CSVParserSetup();
     setup._parseColumnNames = false;
     ValueCSVRecords<int[]> p1 = 
         new ValueCSVRecords<int[]>(new FileInputStream(inputFile), r, null, setup);
-    double[] v = new double[10];
+    double[] v = new double[names.length];
     for (int[] x : p1) {
-      for(int i=0;i<10;i++)  v[i]=x[i];
+      for(int i=0;i<names.length;i++)  v[i]=x[i];
       poker.addRow(v);
     }
     poker.freeze();
@@ -33,23 +34,11 @@ public class Poker {
 
   public static void main(String[] args) throws Exception {
     if(args.length==0)args = new String[] { "smalldata/poker/poker-hand-testing.data" };
-    for( String path : args ){
-      System.out.print("parsing " + path + "...");
-      File f = new File(path);
-      if( !f.exists() ){ System.out.println("file not found!");  continue; }
-      Poker p = new Poker(f);         
-      Data d = p.poker_;
-      System.out.println(d);
-      System.out.println("Computing trees...");
-      Data train = d.sampleWithReplacement(.6);
-      Data valid = train.complement();
-      int[][] score = new int[valid.rows()][valid.classes()];
-      for(int i=0;i<1000;i++) {
-        RandomTree rf = new RandomTree();
-        rf.compute(train);
-        rf.classify(valid, score);
-        System.out.println(i+" | err= "+Utils.p5d(RandomTree.score(valid, score)) +" "+ rf.tree());
-      } 
-    }
+    File f = new File(args[0]);
+    Poker p = new Poker(f);         
+    Data d = p.poker_;
+    Data t = d.sampleWithReplacement(.6);
+    Data v = t.complement();
+    Director dir = new LocalBuilder(t,v,10);
   }
 }

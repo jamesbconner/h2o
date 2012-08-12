@@ -1,125 +1,65 @@
 package hexlytics;
 
+import hexlytics.RFBuilder.Director;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
-import java.util.Random;
+import java.util.ArrayList;
 
 /**
  * @author peta
  */
 public class RandomForest {
   
-  private static Random rnd = new Random();
+  private static final int numThreads = 1;
+  public ArrayList<Tree> trees_ = new ArrayList<Tree>();
+  int numTrees_;
+  Director glue_;
+  private Data data_;
   
-  private RandomTree[] trees_;
-  private RandomTree[] treesUnderConstruction_;
-  
-  /** Creates new random forest with no trees. */
-  public RandomForest() {
-    trees_ = new RandomTree[0]; // so that we do not have the null guy
-  }
-  
-  /** Creates the a random forest that is the same as already existing one. 
-   * 
-   * @param from 
-   */
-  public RandomForest(RandomForest from) {
-    trees_ = new RandomTree[from.trees_.length];
-    System.arraycopy(from.trees_, 0, trees_, 0, trees_.length);
-  }
+  public RandomForest(Data d, Director g, int trees) { data_ = d; glue_ = g; numTrees_ = trees; }  
 
-  /** Returns the number of the trees in the forest. */
-  public int numTrees() {
-    return trees_.length;
+  public synchronized void add(Tree t) { if(!done()){ glue_.onTreeBuilt(t); trees_.add(t); } }
+  public synchronized void addAll(ArrayList<Tree> ts) { trees_.addAll(ts); }
+  public synchronized ArrayList<Tree> trees() { return trees_; }
+  synchronized boolean done() { return trees_.size() >= numTrees_; }
+  public void terminate() { numTrees_ =0; }
+    
+  public void build() {
+    ArrayList<Thread> bees = new ArrayList<Thread>();
+    for(int i=0;i<numThreads;i++) 
+      bees.add(new Thread() {       
+        public void run() {
+          while(!done()) add(new Tree().compute(data_));
+        }
+    });
+    for(Thread b : bees) b.start();
+    for(Thread b : bees)  try{ b.join(); }catch( InterruptedException e ){ }
   }
   
-  /* Computes N new trees and adds them to the forest. */
-  public void addTrees(Data data, int numTrees, double bagSize) {
-    long t1 = System.currentTimeMillis();
-    treesUnderConstruction_ = new RandomTree[trees_.length+numTrees];
-    new TreeBuilder(data,trees_.length,numTrees, bagSize).run();
-    System.arraycopy(trees_,0,treesUnderConstruction_,0,trees_.length);
-    trees_ = treesUnderConstruction_;
-    treesUnderConstruction_ = null;
-    t1 = System.currentTimeMillis() - t1;
-    System.out.println(numTrees+" built in "+t1);
-  }
   
-  /** Adds the given */
-  public void addTrees(Data data, int numTrees, int threads, double bagSize) {
-    long t1 = System.currentTimeMillis();
-    treesUnderConstruction_ = new RandomTree[trees_.length+numTrees];
-    int[] tpt = Utils.splitEquallyBetween(numTrees,threads);
-    TreeBuilder[] builders = new TreeBuilder[tpt.length];
-    int offset = trees_.length;
-    for (int i = 0; i< builders.length; ++i) {
-      builders[i] = new TreeBuilder(data,offset,tpt[i],bagSize);
-      offset += tpt[i];
-      builders[i].start();
-    }
-    for (TreeBuilder builder : builders) 
-      try { builder.join(); } catch (InterruptedException e) { }
-    System.arraycopy(trees_,0,treesUnderConstruction_,0,trees_.length);
-    trees_ = treesUnderConstruction_;
-    treesUnderConstruction_ = null;
-    t1 = System.currentTimeMillis() - t1;
-    System.out.println(numTrees+" built in "+t1);
-  }
-
-  /** Adds the given array of trees to the forest. */
-  public void addTrees(RandomTree[] trees) {
-    treesUnderConstruction_ = new RandomTree[trees_.length+trees.length];
-    System.arraycopy(trees_,0,treesUnderConstruction_,0,trees_.length);
-    System.arraycopy(trees,0,treesUnderConstruction_,trees_.length,trees.length);
-    trees_ = treesUnderConstruction_;
-  }
-
-  /** Adds trees from given forest to this forest. */
-  public void addTrees(RandomForest from) {
-    treesUnderConstruction_ = new RandomTree[trees_.length+from.trees_.length];
-    System.arraycopy(trees_,0,treesUnderConstruction_,0,trees_.length);
-    System.arraycopy(from.trees_,0,treesUnderConstruction_,trees_.length,from.trees_.length);
-    trees_ = treesUnderConstruction_;
-  }
-  
-  /** Classifies a single row using the forrest. */
+  /** Classifies a single row using the forest. */
   public int classify(Row r) {
     int[] votes = new int[r.numClasses()];
-    for (RandomTree tree: trees_)
+    for (Tree tree: trees_)
       votes[tree.classify(r)] += 1;
-    return Utils.maxIndex(votes,rnd);
+    return Utils.maxIndex(votes,data_.random());
   }
   
-  /** Simply returns the miss ratio. */
-  public double score(Data d) {
-    int misses = 0;
-    for (Row r: d)
-      if (classify(r) != r.classOf)
-        ++misses;
-    return misses/((double)d.rows());
+  private int[][] scores_;
+  
+  public double validate(Tree t) { 
+    if (scores_==null) scores_ = new int[data_.rows()][data_.classes()];
+    trees_.add(t);
+    int right=0, wrong =0;
+    for (Row r : data_) {
+      scores_[r.index][t.tree_.classify(r.v)]++;            
+      int[]votes = scores_[r.index];
+      for(int i=0;i<data_.classes();i++) 
+        if(i==r.classOf()) right+=votes[i]; else wrong+=votes[i];    
+    }
+    return wrong/(double)right;
   }
 
-  /** Thread that can build trees. */
-  private class TreeBuilder extends Thread {
-    public final Data data;
-    public final int firstTree;
-    public final int numTrees;
-    public final double bagSize;
-    
-    public TreeBuilder(Data data, int firstTree, int numTrees, double bagSize) {
-      this.data = data.sampleWithReplacement(bagSize);
-      this.firstTree = firstTree;
-      this.numTrees = numTrees;
-      this.bagSize = bagSize;
-    }
-    
-    public void run() {
-      //System.out.println("Building "+numTrees+" trees from tree "+firstTree);
-      for (int i = firstTree; i<firstTree+numTrees; ++i) {
-        treesUnderConstruction_[i] = new RandomTree();
-        treesUnderConstruction_[i].compute(data);
-      }
-    }
-  }
+  
 }

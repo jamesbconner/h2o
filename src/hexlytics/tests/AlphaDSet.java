@@ -1,15 +1,15 @@
 package hexlytics.tests;
 
-import hexlytics.RandomTree;
-import hexlytics.Utils;
+import hexlytics.RFBuilder.Director;
+import hexlytics.RFBuilder.LocalBuilder;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
 import java.io.File;
 import java.io.FileInputStream;
 
-import water.csv.ValueCSVRecords;
 import water.csv.CSVParser.CSVParserSetup;
+import water.csv.ValueCSVRecords;
 
 public class AlphaDSet {
   Data _dset;
@@ -54,18 +54,9 @@ public class AlphaDSet {
       }
       AlphaDSet dset = new AlphaDSet(data, labels);
       Data d = dset._dset;
-      System.out.println(d);
-      System.out.println("Computing trees...");
       Data train = d.sampleWithReplacement(.6);
       Data valid = train.complement();
-      int[][] score = new int[valid.rows()][valid.classes()];
-      for (int i = 0; i < 1000; i++) {
-        RandomTree rf = new RandomTree();
-        rf.compute(train);
-        rf.classify(valid, score);
-        System.out.println(i + " | err= "
-            + Utils.p5d(RandomTree.score(valid, score)) + " " + rf.tree());
-      }
+      Director dir = new LocalBuilder(train, valid, 1000);
     }
   }
 }
