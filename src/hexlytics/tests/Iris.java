@@ -1,6 +1,7 @@
 package hexlytics.tests;
 
 import hexlytics.RFBuilder.Director;
+import hexlytics.RFBuilder.LocalBuilder;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
