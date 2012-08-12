@@ -5,15 +5,13 @@ import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
 import java.util.ArrayList;
-import java.util.Random;
 
 /**
  * @author peta
  */
 public class RandomForest {
   
-  private static final int numThreads = 4;
-  private static Random rnd = new Random();  
+  private static final int numThreads = 1;
   public ArrayList<Tree> trees_ = new ArrayList<Tree>();
   int numTrees_;
   Director glue_;
@@ -45,7 +43,7 @@ public class RandomForest {
     int[] votes = new int[r.numClasses()];
     for (Tree tree: trees_)
       votes[tree.classify(r)] += 1;
-    return Utils.maxIndex(votes,rnd);
+    return Utils.maxIndex(votes,data_.random());
   }
   
   private int[][] scores_;
