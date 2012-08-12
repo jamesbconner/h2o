@@ -40,6 +40,7 @@ public class RandomForest {
     glue_.onBuilderTerminated();
   }
   
+  
   /** Classifies a single row using the forest. */
   public int classify(Row r) {
     int[] votes = new int[r.numClasses()];
@@ -48,13 +49,21 @@ public class RandomForest {
     return Utils.maxIndex(votes,rnd);
   }
   
-  /** Simply returns the miss ratio. */
-  public double score(Data d) {
-    int misses = 0;
-    for (Row r: d)
-      if (classify(r) != r.classOf)
-        ++misses;
-    return misses/((double)d.rows());
+  
+
+  private int[][] scores_;
+  
+  public double validate(Tree t) { 
+    if (scores_==null) scores_ = new int[data_.rows()][data_.classes()];
+    trees_.add(t);
+    int right=0, wrong =0;
+    for (Row r : data_) {
+      int[]votes = scores_[r.index];
+      for(int i=0;i<data_.classes();i++) 
+        if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    
+    }
+    return wrong/(double)right;
   }
 
+  
 }

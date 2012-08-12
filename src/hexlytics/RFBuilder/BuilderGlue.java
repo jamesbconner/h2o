@@ -10,7 +10,7 @@ import hexlytics.Tree;
  *
  * @author peta
  */
-public interface BuilderGlue {
+public interface BuilderGlue  extends ValidatorGlue {
 
   /** Called by the builder when new tree is computed. */
   void onTreeReady(Tree tree);
