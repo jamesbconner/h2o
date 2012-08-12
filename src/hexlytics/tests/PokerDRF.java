@@ -203,7 +203,7 @@ public class PokerDRF extends DRemoteTask {
         for (int j = 0; j < _classVoteCounts[i].length; ++j)
           if (_classVoteCounts[i][j] > nvotes)
             answer = j;
-        if (r.classOf != answer)
+        if (r.classOf() != answer)
           ++_error;
         ++i;
       }

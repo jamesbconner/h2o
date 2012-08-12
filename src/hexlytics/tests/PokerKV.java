@@ -3,6 +3,7 @@ package hexlytics.tests;
 import hexlytics.Tree;
 import hexlytics.Utils;
 import hexlytics.data.Data;
+import hexlytics.data.Data.Row;
 import hexlytics.data.DataAdapter;
 import init.init;
 
@@ -75,10 +76,24 @@ public class PokerKV {
       for (int i = 0; i < 1000; i++) {
         Tree rf = new Tree();
         rf.compute(train);
-        rf.classify(valid, score);
+        for (Row row: valid)
+          score[row.index][rf.classify(row)] += 1;
         System.out.println(i + " | err= "
-            + Utils.p5d(Tree.score(valid, score)) + " " + rf.tree());
+            + Utils.p5d(score(valid, score)) + " " + rf.tree());
       }
     }
+  }
+
+  // Peta: we do not do score in the tree anymore, I've resurrected it here,
+  // it is likely to go away completely
+  // TODO
+  private double score(Data d, int[][] score) {
+    int right=0, wrong =0;
+    for (Row r : d) {
+      int[]votes = score[r.index];
+      for(int i=0;i<d.classes();i++) 
+        if(i==r.classOf()) right+=votes[i]; else wrong+=votes[i];    
+    }
+    return wrong/(double)right;      
   }
 }
