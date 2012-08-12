@@ -19,7 +19,7 @@ public class LocalBuilder implements Director {
   TreeAggregator aggregator_;
   int treeIndex = 0;
 
-  @Override
+  
   public void report(String s) { pln(s);  }
   
   protected void p(String s){ System.out.print(s); }
@@ -44,20 +44,20 @@ public class LocalBuilder implements Director {
     pln(treeIndex + " | err=" + Utils.p5d(err) + " " + ts);
   }
 
-  @Override public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
+  public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
     aggregator_.aggregate(0,tree,rows,badRows,badVotes);
   }
   
-  @Override 
   public void onAggregatorChange() {
+
   }
   
-  @Override
+  
   public void onBuilderTerminated() {
     System.out.println("builder terminated...");
   }
 
-  @Override
+  
   public void onValidatorTerminated() {
     System.out.println("validator terminated...");
   }

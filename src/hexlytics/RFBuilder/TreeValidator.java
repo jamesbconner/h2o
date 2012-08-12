@@ -1,6 +1,5 @@
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
@@ -64,7 +63,7 @@ class TreeValidator {
     }
   }
   
-  private ThreadLocal<Score> score_ = new ThreadLocal<>();
+  private ThreadLocal<Score> score_ = new ThreadLocal();
 
   private final Data data_;
   private final Director glue_;

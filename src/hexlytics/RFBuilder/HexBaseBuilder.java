@@ -6,10 +6,16 @@ package hexlytics.RFBuilder;
 
 import hexlytics.Tree;
 import hexlytics.data.Data;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import water.*;
+
+import water.DKV;
+import water.DRemoteTask;
+import water.Key;
+import water.RemoteTask;
+import water.Value;
 
 /** This is the distributed builder of the random forest that works in hexbase.
  * 
@@ -30,7 +36,6 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
   
   /** When a tree is ready, stores it to a special KV pair so that it is
    * visible to the validators. */
-  @Override
   public void onTreeBuilt(Tree tree) {
     int treeIndex;
     synchronized (this) {
@@ -42,34 +47,29 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
     DKV.put(key, val); // publish the tree to the validators
   }
 
-  @Override
+ 
   public void onBuilderTerminated() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  @Override
   public void onAggregatorChange() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  @Override
   public void onTreeValidated(Tree tree, int rows,int[] badRows, int[] badVotes) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  @Override
   public void onValidatorTerminated() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  @Override
   public void report(String what) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
   // DRemoteTask implementation ------------------------------------------------
   
-  @Override
   public void map(Key key) {
     Data data = null;
     // start the validator
@@ -82,17 +82,15 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
     
   }
 
-  @Override
   public void reduce(RemoteTask drt) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  @Override
   protected int wire_len() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  @Override
+ 
   protected int write(byte[] buf, int off) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
