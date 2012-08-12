@@ -36,9 +36,8 @@ class TreeValidator {
     public Score(int rows) {
       badVotes = new int[2][rows]; // row number and vote
     }
-    public void reset() {
-      size = 0;
-    }
+
+    public void reset() { size = 0; }
     
     public void record(int row, int vote) {
       badVotes[0][size] = row;
