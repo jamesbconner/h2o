@@ -1,5 +1,6 @@
 package hexlytics.RFBuilder;
 
+import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
@@ -13,7 +14,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Validator implements Runnable {
   
   final Data data_;
-  final ValidatorGlue glue_;
+  final BuilderGlue glue_;
+  RandomForest rf_;
   final LinkedBlockingQueue<Tree> trees_ = new LinkedBlockingQueue();
   
   private final static Tree TERMINATE = new Tree();    
@@ -21,14 +23,15 @@ public class Validator implements Runnable {
   private int runningThreads_ = 0;
   private Thread[] threads_ = null;
   
-  public Validator(Data data, ValidatorGlue glue) {
+  public Validator(Data data, BuilderGlue glue) {
     data_ = data;
     glue_ = glue;
+    rf_= new RandomForest(data_,glue_,Integer.MAX_VALUE);
   }
   
   /** Adds the given tree to the queue of trees to be validated. */
-  public void validateTree(Tree tree) {
-    trees_.offer(tree);
+  public double validateTree(Tree tree) {
+    return rf_.validate(tree);
   }
   
   public void start() {
