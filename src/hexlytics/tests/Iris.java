@@ -21,7 +21,7 @@ public class Iris {
     Data d = new Iris().iris_;
     Data t = d.sampleWithReplacement(.6);
     Data v = t.complement();
-    Director dir = Director.createLocal(t,v,10);
+    Director dir = Director.createLocal(t,v,100);
   }
   
 

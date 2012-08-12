@@ -41,7 +41,7 @@ class Local extends Director {
     public Local(Data t, Data v, int numTrees) {            
       pln("Training data:\n"+ t);
       pln("Validation data:\n"+ v);
-      builder_ = new Builder(t,this,1);
+      builder_ = new Builder(t,this,numTrees);
       validator_ = new Validator(v,this);
       aggregator_ = new Aggregator(this);
       pln("===Computing===");
