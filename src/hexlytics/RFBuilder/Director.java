@@ -18,9 +18,9 @@ public interface Director {
   void onBuilderTerminated();
 
   /** Called by the aggregator when it has new results.  */
-  void onChange();  
+  void onAggregatorChange();  
 
-  void onTreeValidated(Tree tree, int[] badRows, int[] badVotes);
+  void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes);
   
   void onValidatorTerminated();
   

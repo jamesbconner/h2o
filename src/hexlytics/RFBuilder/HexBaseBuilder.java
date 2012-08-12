@@ -48,12 +48,12 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
   }
 
   @Override
-  public void onChange() {
+  public void onAggregatorChange() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
-  public void onTreeValidated(Tree tree, int[] badRows, int[] badVotes) {
+  public void onTreeValidated(Tree tree, int rows,int[] badRows, int[] badVotes) {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 

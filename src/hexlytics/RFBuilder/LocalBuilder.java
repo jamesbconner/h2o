@@ -30,12 +30,11 @@ public class LocalBuilder implements Director {
     pln("Validation data:\n"+ v);
     builder_ = new TreeBuilder(t,this,numTrees);
     validator_ = new TreeValidator(v,this);
-    aggregator_ = new TreeAggregator(this,v.rows());
+    aggregator_ = new TreeAggregator(1,v.classes(),this);
     pln("===Computing===");
     builder_.run();
-    System.out.println("DONE ALL: total error: "+aggregator_.error());
+    System.out.println("DONE ALL: total error: "+aggregator_.getError());
   }
-  
   
   public void onTreeBuilt(Tree tree) { 
     ++treeIndex;
@@ -45,12 +44,12 @@ public class LocalBuilder implements Director {
     pln(treeIndex + " | err=" + Utils.p5d(err) + " " + ts);
   }
 
-  public void onTreeValidated(Tree tree, int[] badRows, int[] badVotes) {
-    aggregator_.aggregateTree(tree, badRows);
+  @Override public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
+    aggregator_.aggregate(0,tree,rows,badRows,badVotes);
   }
   
   @Override 
-  public void onChange() {
+  public void onAggregatorChange() {
   }
   
   @Override

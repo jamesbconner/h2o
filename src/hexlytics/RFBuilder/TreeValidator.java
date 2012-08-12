@@ -43,7 +43,7 @@ class TreeValidator {
     
     public void record(int row, int vote) {
       badVotes[0][size] = row;
-      badVotes[0][size] = vote;
+      badVotes[1][size] = vote;
       ++size;
     }
     
@@ -82,11 +82,11 @@ class TreeValidator {
     for (Row r: data_) {
       int result = tree.classify(r);
       if (result!=r.classOf())
-        score.record(data_.originalIndex(r.index),result);
+        score.record(r.index,result);
     }
     int[] badRows = score.getBadRows();
     int[] badVotes = score.getBadVotes();
-    glue_.onTreeValidated(tree,badRows,badVotes);
+    glue_.onTreeValidated(tree,data_.rows(),badRows,badVotes);
     return (double)score.size / data_.rows();
   }
   
