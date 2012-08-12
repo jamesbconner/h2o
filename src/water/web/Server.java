@@ -110,6 +110,8 @@ public class Server extends NanoHTTPD {
     registerPage(new PutFile(),"PutFile");
     registerPage(new PutQuery(),"Put");
     registerPage(new PutValue(),"PutValue");
+    registerPage(new RandomForest(),"RandomForest");
+    registerPage(new RandomForest(),"RF");
     registerPage(new Remote(),"Remote");
     registerPage(new Remove(),"Remove");
     registerPage(new RemoveAck(),"RemoveAck");
