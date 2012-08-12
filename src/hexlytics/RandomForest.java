@@ -59,7 +59,7 @@ public class RandomForest {
       scores_[r.index][t.tree_.classify(r.v)]++;            
       int[]votes = scores_[r.index];
       for(int i=0;i<data_.classes();i++) 
-        if(i==r.classOf) right+=votes[i]; else wrong+=votes[i];    
+        if(i==r.classOf()) right+=votes[i]; else wrong+=votes[i];    
     }
     return wrong/(double)right;
   }

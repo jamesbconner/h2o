@@ -39,23 +39,21 @@ public  class Data  implements Iterable<Row> {
   
   
   public class Row {  
-    public double[] v = new double[columns()];
-    public int classOf;
+    public double[] v = new double[columns()+1];
     public int index;
     
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(index);
-      sb.append(" ["+classOf+"]:");
+      sb.append(" ["+classOf()+"]:");
       for (double d: v) 
         sb.append(" "+d);
       return sb.toString();
     }
 
     /** Returns the number of classes a row can have. */
-    public int numClasses() {
-      return classes();
-    }
+    public int numClasses() { return classes(); }
+    public int classOf() { return (int)v[v.length-1]; }
   }
  
   public class RowIter implements Iterator<Row> {
@@ -64,7 +62,6 @@ public  class Data  implements Iterable<Row> {
     public boolean hasNext() { return pos<rows(); }
     public Row next() {
       data_.getRow(pos, r.v);
-      r.classOf=data_.classOf(pos);
       r.index=pos++;
       return r;
     }
@@ -76,7 +73,7 @@ public  class Data  implements Iterable<Row> {
   
   public  Iterator<Row> iterator(){ return new RowIter(); } 
   public  int features()          { return data_.features(); }
-  public  int columns()           { return data_.columns(); }
+  public  int columns()           { return data_.columns() -1 ; } // -1 to remove class column
   public  int rows()              { return data_.rows(); }
   public  String name()           { return name_; }
   public  int classOf(int idx)    { return data_.classOf(idx); }
@@ -214,7 +211,6 @@ class Subset extends Data {
   public class IterS extends RowIter {
     public Row next() {
       data_.getRow(permutation_[pos], r.v);
-      r.classOf=data_.classOf(permutation_[pos]);
       r.index=pos++;
       return r;
     }
@@ -246,7 +242,6 @@ class Shuffle extends Subset {
       for (int i = 0; i< d.rows(); ++i)
         permutation_[i] = d.originalIndex(i);
     }
-    //for(int i=0;i<permutation_.length;i++) permutation_[i]=i;
     sort(permutation_,0,permutation_.length,column);
   }
   

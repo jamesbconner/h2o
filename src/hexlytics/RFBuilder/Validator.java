@@ -71,7 +71,7 @@ public class Validator implements Runnable {
         // we have a correct tree, validate it on data
         int errors = 0;
         for (Row r : data_) {
-          if (tree.classify(r)!=r.classOf)
+          if (tree.classify(r)!=r.classOf())
             errorRows[errors++] = data_.originalIndex(r.index);  
         }
         int[] eRows = new int[errors];

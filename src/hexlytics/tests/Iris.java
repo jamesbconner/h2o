@@ -9,13 +9,11 @@ public class Iris {
   Data iris_;
   
   Iris() {
-    DataAdapter iris =  new DataAdapter("Iris", 
-        new String[]{"Sepal.Length","Sepal.Width","Petal.Length","Petal.Width","Species"}, 
-        "Species");
-    double[] v =new double[5];
+    String[] names =  new String[]{"Sepal.Length","Sepal.Width","Petal.Length","Petal.Width","Species"};
+    DataAdapter iris =  new DataAdapter("Iris", names,"Species");
+    double[] v =new double[names.length];
     for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris.addRow(v); }
-    iris.freeze(); 
-    iris=iris.shrinkWrap();
+    iris.freeze();  iris=iris.shrinkWrap();
     iris_ = Data.make(iris);
   }
 

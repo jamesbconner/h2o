@@ -33,9 +33,9 @@ public class Tree {
     int classOf = -1;
     for(Row r : d) 
        if (classOf==-1)
-         classOf = r.classOf; 
+         classOf = r.classOf(); 
        else
-         if (classOf != r.classOf) {
+         if (classOf != r.classOf()) {
            classOf = -1;
            break;
          }
