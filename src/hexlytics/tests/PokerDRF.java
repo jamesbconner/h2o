@@ -8,7 +8,6 @@ import hexlytics.data.DataAdapter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 import water.DKV;
@@ -23,163 +22,188 @@ import water.ValueArray;
 import water.csv.CSVParserKV;
 
 /**
- * Distributed RF implementation for poker Data set. 
+ * Distributed RF implementation for poker Data set.
  * 
  * @author tomas
  * 
  */
 public class PokerDRF extends DRemoteTask {
 
+  private static final long serialVersionUID = 1976547559782826435L;
   int _myNodeId;
   int _totalTrees;
   int _nTreesPerBuilder;
-    
+
   PokerValidator _val;
-  
+
   boolean _validatorRunning;
 
   String _nodePrefix = null;
   Key[] _nextTreeKeys;
 
   boolean _done;
-   
+
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
-  double _finalError; 
-  
-  public PokerDRF (){}
-  
+  double _finalError;
+
+  public PokerDRF() {
+  }
+
   Key _rootKey;
-  
+
+  ProgressMonitor _progress;
+
   public PokerDRF(Key k, int nTreesPerNode, String keyPrefix) {
-    Key [] keys = new Key[H2O.CLOUD._memary.length];
+    Key[] keys = new Key[H2O.CLOUD._memary.length];
     int kIdx = 0;
-    for(H2ONode node:H2O.CLOUD._memary){      
-      keys[kIdx] = Key.make("PokerRF" + kIdx,(byte)1,Key.DFJ_INTERNAL_USER, H2O.CLOUD._memary[kIdx]);      
-      Value v = new Value(keys[kIdx],1024);
-      byte [] mem = v.mem();
+    for (H2ONode node : H2O.CLOUD._memary) {
+      keys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1, Key.DFJ_INTERNAL_USER,
+          H2O.CLOUD._memary[kIdx]);
+      Value v = new Value(keys[kIdx], 1024);
+      byte[] mem = v.mem();
       UDP.set4(mem, 0, kIdx);
       UDP.set4(mem, 4, keys.length);
       UDP.set4(mem, 8, nTreesPerNode);
       UDP.set4(mem, 12, k._kb.length);
       System.arraycopy(k._kb, 0, mem, 16, k._kb.length);
-      byte [] keyPrefixBytes = keyPrefix.getBytes();
+      byte[] keyPrefixBytes = keyPrefix.getBytes();
       UDP.set4(mem, 16 + k._kb.length, keyPrefixBytes.length);
-      System.arraycopy(keyPrefixBytes, 0, mem, 16 + k._kb.length + 4, keyPrefixBytes.length);      
+      System.arraycopy(keyPrefixBytes, 0, mem, 16 + k._kb.length + 4,
+          keyPrefixBytes.length);
       DKV.put(keys[kIdx], v);
       ++kIdx;
       _rootKey = k;
-    }        
+    }
   }
-  
+
   class ProgressMonitor implements Runnable {
     int _nTreesComputed;
-    
+
     double _currentError;
-    
-    Key [] _resultKeys;
-    long [] _valRecordsPerNode;
-    ArrayList<ArrayList<long[]>>  _errors;
-    ProgressMonitor(Key [] resultKeys){
+
+    Key[] _resultKeys;
+    int[] _nProcessedTrees;
+    long[][] _errorHistory; // errors per node and # processed trees
+    long[] _valRecordsPerNode;
+    long _nRecords;
+
+    ProgressMonitor(Key[] resultKeys) {
       _resultKeys = resultKeys;
-      _errors = new ArrayList<ArrayList<long[]>>();
-      for(int i = 0; i < resultKeys.length; ++i)
-        _errors.add(new ArrayList<long[]>());
+      _errorHistory = new long[resultKeys.length][_totalTrees];
     }
-    
-    
+
     public void run() {
-      while(true){
+      while (_nTreesComputed < _totalTrees) {
         boolean changed = false;
-        for(int i = 0; i < _resultKeys.length; ++i){
+        for (int i = 0; i < _resultKeys.length; ++i) {
           Key k = _resultKeys[i];
           Value v = DKV.get(k);
-          if(v == null) continue;
-          int ntrees = (int)v.length()/20;
-          if(_errors.get(i).size() < ntrees) { // did the node process any more trees since last time?
-            long [] newErr = new long[2];
-            byte [] mem = v.get(20);
-            assert UDP.get4(mem, 0) == ntrees;
-            newErr[0] = UDP.get8(mem, 4);
-            newErr[1] = UDP.get8(mem, 12);
-            changed = (_errors.get(i).size() == _nTreesComputed);
-            _errors.get(i).add(newErr);            
+          byte[] mem = v.get(20);
+          int ntrees = UDP.get4(mem, 0);
+          if (ntrees > _nProcessedTrees[i]) {
+            if (_nProcessedTrees[i] == 0) // update the number of validation
+                                          // records
+              _nRecords += UDP.get8(mem, 4);
+            changed = (_nProcessedTrees[i] == _nTreesComputed);
+            _errorHistory[i][ntrees] = UDP.get8(mem, 12);
+            _nProcessedTrees[i] = ntrees;
           }
-          DKV.remove(k);          
+          DKV.remove(k);
         }
-        if(changed){
-          int n = Integer.MAX_VALUE;        
-          for(int i = 0; i < _resultKeys.length; ++i){
-            if(_errors.get(i).size() < n) n = _errors.get(i).size(); 
-          }      
-          if(n > _nTreesComputed){
+        if (changed) {
+          int n = Integer.MAX_VALUE;
+          for (int i = 0; i < _nProcessedTrees.length; ++i) {
+            if (n > _nProcessedTrees[i])
+              n = _nProcessedTrees[i];
+          }
+          if (n > _nTreesComputed) {
             long nErrors = 0;
-            long nRecords = 0;
-            for(int i = 0; i < _resultKeys.length; ++i){
-              long [] x = _errors.get(i).get(n);
-              nErrors += x[1];
-              nErrors += x[1];
+
+            for (int i = 0; i < _resultKeys.length; ++i) {
+              nErrors = _errorHistory[i][n];
             }
+            _currentError = (double) nErrors / (double) _nRecords;
+            _nTreesComputed = n;
           }
         }
-        
+
         try {
-          Thread.sleep(10*1000);
-        } catch (InterruptedException e) {          
+          Thread.sleep(10 * 1000);
+        } catch (InterruptedException e) {
         }
-      }      
+      }
+      synchronized (this) {
+        _done = true;
+        this.notify();
+      }
     }
-    
   }
-  
-  public void doRun(){
-    if(_rootKey == null) return;
+
+  public void doRun() {
+    if (_rootKey == null)
+      return;
     Value v = DKV.get(_rootKey);
-    if(v == null) return;
-    Key [] keys;
-    if(v instanceof ValueArray){
-      keys = new Key[(int)v.chunks()];
-      for(long i = 0; i < keys.length; ++i){
-        keys[(int)i] = v.chunk_get(i);
-      }      
+    if (v == null)
+      return;
+    Key[] keys;
+    if (v instanceof ValueArray) {
+      keys = new Key[(int) v.chunks()];
+      for (long i = 0; i < keys.length; ++i) {
+        keys[(int) i] = v.chunk_get(i);
+      }
     } else {
-      keys = new Key[]{_rootKey};
+      keys = new Key[] { _rootKey };
     }
     long startTime = System.currentTimeMillis();
     rexec(keys);
-    _finalError = (double)_error / (double)_nrecords;
+    synchronized (this) {
+      while (!_done)
+        try {
+          this.wait();
+        } catch (InterruptedException e) {
+        }
+    }
     long runTime = System.currentTimeMillis() - startTime;
-    System.out.println("DRF computed in " + (runTime / 1000) + " seconds with error = " + _finalError);
+    System.out.println("DRF computed in " + (runTime / 1000)
+        + " seconds with error = " + _progress._currentError);
   }
-  
+
   public class PokerValidator implements Runnable {
     int _nProcessedTrees;
-    int[] _nProcessedTreesPerNode;    
-    int[][] _classVoteCounts;    
-    Data _data;       
-    
+    int[] _nProcessedTreesPerNode;
+    int[][] _classVoteCounts;
+    Data _data;
+
     public PokerValidator(Data data) {
       _data = data;
+      _classVoteCounts = new int[_data.rows()][_data.classes()];
     }
 
-    void computeError(){
+    void computeError() {
       // compute the classification and errors
       int i = 0;
       _error = 0;
       for (Row r : _data) {
         int answer = 0;
         int nvotes = 0;
-        for (int j = 0; j < _classVoteCounts[i].length; ++j) 
-          if (_classVoteCounts[i][j] > nvotes) answer = j;        
+        for (int j = 0; j < _classVoteCounts[i].length; ++j)
+          if (_classVoteCounts[i][j] > nvotes)
+            answer = j;
         if (r.classOf != answer)
           ++_error;
         ++i;
       }
     }
-    
-    /** Get trees one by one and validate them on given data. */   
+
+    /** Get trees one by one and validate them on given data. */
     public void run() {
       Key k = Key.make(_nodePrefix + _myNodeId + "_error");
+      Value v = new Value(k, 12);
+      byte[] mem = v.mem();
+      UDP.set4(mem, 0, 0);
+      UDP.set8(mem, 4, _data.rows());
+      DKV.put(k, v);
       synchronized (this) {
         _validatorRunning = true;
       }
@@ -191,17 +215,20 @@ public class PokerDRF extends DRemoteTask {
           for (int i = 0; i < _nextTreeKeys.length; ++i) {
             if (_nextTreeKeys[i] == null)
               continue;
-            Value v = DKV.get(_nextTreeKeys[i]);
+            v = DKV.get(_nextTreeKeys[i]);
             if (v == null)
               continue;
             tree = new Tree(v.get(), 0);
-            if(!_nextTreeKeys[i].home())v.free_mem(); // don't accumulate trees belonging to others!
+
+            if (!_nextTreeKeys[i].home())
+              v.free_mem(); // don't accumulate trees belonging to others!
+            if (!_nextTreeKeys[i].home())
+              v.free_mem(); // don't accumulate trees belonging to others!
             _nextTreeKeys[i] = (++_nProcessedTreesPerNode[i] == _nTreesPerBuilder) ? null
                 : Key.make(_nodePrefix + i + "_" + _nProcessedTreesPerNode[i]);
             break;
           }
           if (tree != null) {
-            // we have a correct tree, validate it on data            
             int rCounter = 0;
             for (Row r : _data)
               ++_classVoteCounts[rCounter++][tree.classify(r)];
@@ -213,19 +240,18 @@ public class PokerDRF extends DRemoteTask {
         }
         computeError();
         // publish my error
-        Value v = DKV.get(k);
-        
-        Value newV = new Value(k,treesValidated*8+4+8);
-        
-        byte [] newMem = newV.mem();
-        UDP.set4(newMem,0,treesValidated);
-        UDP.set8(newMem,4,_nrecords);                
-        UDP.set8(newMem,12,_error);
-        if(v != null) System.arraycopy(v.get(), 12, newMem, 20, (treesValidated-1)*8);
+        v = DKV.get(k);
+
+        Value newV = new Value(k, treesValidated * 8 + 4 + 8);
+
+        byte[] newMem = newV.mem();
+        UDP.set4(newMem, 0, treesValidated);
+        UDP.set8(newMem, 4, _nrecords);
+        UDP.set8(newMem, 12, _error);
+        if (v != null)
+          System.arraycopy(v.get(), 12, newMem, 20, (treesValidated - 1) * 8);
         DKV.put(k, newV);
-      }          
-      // publish my current error      
-      
+      }
       _classVoteCounts = null;
       synchronized (this) {
         _validatorRunning = false;
@@ -268,7 +294,8 @@ public class PokerDRF extends DRemoteTask {
         if (!chunk.home())
           continue; // only compute our own keys
         val = DKV.get(chunk);
-        if(val == null)continue;
+        if (val == null)
+          continue;
         p1 = new CSVParserKV<int[]>(chunk, 1, r, null);
       } else {
         p1 = new CSVParserKV<int[]>(dataRootValue.get(), r, null);
@@ -283,19 +310,19 @@ public class PokerDRF extends DRemoteTask {
           ++_nrecords;
         }
       }
-      if(val != null)val.free_mem(); // remove the csv src from mem      
+      if (val != null)
+        val.free_mem(); // remove the csv src from mem
     }
 
     builderData.freeze();
     validatorData.freeze();
-    
+
     Data bD = Data.make(builderData.shrinkWrap());
     _val = new PokerValidator(Data.make(validatorData.shrinkWrap()));
     builderData = null;
     validatorData = null;
     _val.run();
 
-    
     // now build the trees
     for (int i = 0; i < _nTreesPerBuilder; i++) {
       Tree rf = new Tree();
@@ -319,51 +346,51 @@ public class PokerDRF extends DRemoteTask {
 
   @Override
   public void reduce(RemoteTask drt) {
-//    PokerDRF other = (PokerDRF)drt;
-//    _error += other._error;
-//    _nrecords += other._nrecords;
+    // PokerDRF other = (PokerDRF)drt;
+    // _error += other._error;
+    // _nrecords += other._nrecords;
   }
 
   @Override
   protected int wire_len() {
     return 0;
- //   return _done?16:0;    
+    // return _done?16:0;
   }
 
   @Override
   protected int write(byte[] buf, int off) {
-//    buf[off++] = (byte)(_done?1:0);
-//    if(_done){
-//      UDP.set8(buf, off, _nrecords);
-//      UDP.set8(buf, off+16, _error);
-//      return off+32;
-//    }
+    // buf[off++] = (byte)(_done?1:0);
+    // if(_done){
+    // UDP.set8(buf, off, _nrecords);
+    // UDP.set8(buf, off+16, _error);
+    // return off+32;
+    // }
     return off;
   }
 
   @Override
   protected void write(DataOutputStream dos) throws IOException {
-//    dos.write((byte)(_done?1:0));
-//    if(_done){
-//      dos.writeLong(_nrecords);
-//      dos.writeLong(_error);      
-//    }
+    // dos.write((byte)(_done?1:0));
+    // if(_done){
+    // dos.writeLong(_nrecords);
+    // dos.writeLong(_error);
+    // }
   }
 
   @Override
   protected void read(byte[] buf, int off) {
-//    if(buf[off++] == 1){
-//     _nrecords = UDP.get8(buf, off);
-//     _error = UDP.get8(buf, off+16);
-//    }
+    // if(buf[off++] == 1){
+    // _nrecords = UDP.get8(buf, off);
+    // _error = UDP.get8(buf, off+16);
+    // }
   }
 
   @Override
   protected void read(DataInputStream dis) throws IOException {
-//    if(dis.read() == 1){
-//      _nrecords = dis.readLong();
-//      _error = dis.readLong();
-//    }
+    // if(dis.read() == 1){
+    // _nrecords = dis.readLong();
+    // _error = dis.readLong();
+    // }
   }
 
 }
