@@ -33,13 +33,14 @@ public class PokerDRF extends DRemoteTask {
   int _myNodeId;
   int _totalTrees;
   int _nTreesPerBuilder;
+  int _nNodes;
 
   PokerValidator _val;
 
   boolean _validatorRunning;
 
   String _nodePrefix = null;
-  Key[] _nextTreeKeys;
+  
 
   boolean _done;
 
@@ -51,19 +52,23 @@ public class PokerDRF extends DRemoteTask {
   }
 
   Key _rootKey;
-
+  Key [] _compKeys;
+  Key[] _resultKeys;
+  
   ProgressMonitor _progress;
 
   public PokerDRF(Key k, int nTreesPerNode, String keyPrefix) {
-    Key[] keys = new Key[H2O.CLOUD._memary.length];
+    _compKeys = new Key[H2O.CLOUD._memary.length];
+    _resultKeys = new Key[H2O.CLOUD._memary.length];
     int kIdx = 0;
     for (H2ONode node : H2O.CLOUD._memary) {
-      keys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1, Key.DFJ_INTERNAL_USER,
+      _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1, Key.DFJ_INTERNAL_USER,
           H2O.CLOUD._memary[kIdx]);
-      Value v = new Value(keys[kIdx], 1024);
+      _resultKeys[kIdx] = Key.make(keyPrefix + kIdx + "_error");
+      Value v = new Value(_compKeys[kIdx], 1024);
       byte[] mem = v.mem();
       UDP.set4(mem, 0, kIdx);
-      UDP.set4(mem, 4, keys.length);
+      UDP.set4(mem, 4, _compKeys.length);
       UDP.set4(mem, 8, nTreesPerNode);
       UDP.set4(mem, 12, k._kb.length);
       System.arraycopy(k._kb, 0, mem, 16, k._kb.length);
@@ -71,7 +76,7 @@ public class PokerDRF extends DRemoteTask {
       UDP.set4(mem, 16 + k._kb.length, keyPrefixBytes.length);
       System.arraycopy(keyPrefixBytes, 0, mem, 16 + k._kb.length + 4,
           keyPrefixBytes.length);
-      DKV.put(keys[kIdx], v);
+      DKV.put(_compKeys[kIdx], v);
       ++kIdx;
       _rootKey = k;
     }
@@ -82,7 +87,7 @@ public class PokerDRF extends DRemoteTask {
 
     double _currentError;
 
-    Key[] _resultKeys;
+    
     int[] _nProcessedTrees;
     long[][] _errorHistory; // errors per node and # processed trees
     long[] _valRecordsPerNode;
@@ -125,6 +130,7 @@ public class PokerDRF extends DRemoteTask {
             }
             _currentError = (double) nErrors / (double) _nRecords;
             _nTreesComputed = n;
+            System.out.println("Progress: " + n + " trees computed, error = " + _currentError);            
           }
         }
 
@@ -142,21 +148,13 @@ public class PokerDRF extends DRemoteTask {
 
   public void doRun() {
     if (_rootKey == null)
-      return;
-    Value v = DKV.get(_rootKey);
-    if (v == null)
-      return;
-    Key[] keys;
-    if (v instanceof ValueArray) {
-      keys = new Key[(int) v.chunks()];
-      for (long i = 0; i < keys.length; ++i) {
-        keys[(int) i] = v.chunk_get(i);
-      }
-    } else {
-      keys = new Key[] { _rootKey };
-    }
+      return;    
     long startTime = System.currentTimeMillis();
-    rexec(keys);
+    
+    _progress = new ProgressMonitor(_resultKeys);
+    Thread t = new Thread(_progress);
+    t.start();
+    rexec(_compKeys);
     synchronized (this) {
       while (!_done)
         try {
@@ -175,9 +173,18 @@ public class PokerDRF extends DRemoteTask {
     int[][] _classVoteCounts;
     Data _data;
 
+    Key[] _nextTreeKeys;
+    
     public PokerValidator(Data data) {
       _data = data;
       _classVoteCounts = new int[_data.rows()][_data.classes()];
+      _nextTreeKeys = new Key[_nNodes];
+      _nProcessedTreesPerNode = new int[_nNodes];
+      
+      for(int i = 0; i < _nNodes; ++i){
+        _nProcessedTreesPerNode[i] = 0;        
+        _nextTreeKeys[i] = Key.make(_nodePrefix + i + "_0");
+      }
     }
 
     void computeError() {
@@ -233,6 +240,7 @@ public class PokerDRF extends DRemoteTask {
             for (Row r : _data)
               ++_classVoteCounts[rCounter++][tree.classify(r)];
             ++treesValidated;
+            System.out.println(treesValidated + " trees validated");
           } else {
             Thread.sleep(1000);
           }
@@ -247,8 +255,8 @@ public class PokerDRF extends DRemoteTask {
         byte[] newMem = newV.mem();
         UDP.set4(newMem, 0, treesValidated);
         UDP.set8(newMem, 4, _nrecords);
-        UDP.set8(newMem, 12, _error);
-        if (v != null)
+        if(treesValidated > 0)UDP.set8(newMem, 12, _error);
+        if (v != null && treesValidated > 0)
           System.arraycopy(v.get(), 12, newMem, 20, (treesValidated - 1) * 8);
         DKV.put(k, newV);
       }
@@ -257,6 +265,7 @@ public class PokerDRF extends DRemoteTask {
         _validatorRunning = false;
         this.notify();
       }
+      System.out.println("Validation at node " + _myNodeId + " done");
     }
   }
 
@@ -272,11 +281,11 @@ public class PokerDRF extends DRemoteTask {
       return; // nothing to do...
     byte[] inputData = inputVal.get();
     _myNodeId = UDP.get4(inputData, 0);
-    int nNodes = UDP.get4(inputData, 4);
+    _nNodes = UDP.get4(inputData, 4);
     _nTreesPerBuilder = UDP.get4(inputData, 8);
-    _totalTrees = nNodes * _nTreesPerBuilder;
+    _totalTrees = _nNodes * _nTreesPerBuilder;
     int keyLen = UDP.get4(inputData, 12);
-    byte[] kb = Arrays.copyOfRange(inputData, 16, keyLen);
+    byte[] kb = Arrays.copyOfRange(inputData, 16, 16 + keyLen);
     Key dataRootKey = Key.make(kb);
     Value dataRootValue = DKV.get(dataRootKey);
     if (dataRootValue == null)
@@ -301,7 +310,7 @@ public class PokerDRF extends DRemoteTask {
         p1 = new CSVParserKV<int[]>(dataRootValue.get(), r, null);
       }
       for (int[] x : p1) {
-        for (int j = 0; j < 11; i++)
+        for (int j = 0; j < 11; j++)
           v[j] = x[j];
         if (++recCounter % 3 != 0)
           builderData.addRow(v);
@@ -321,7 +330,8 @@ public class PokerDRF extends DRemoteTask {
     _val = new PokerValidator(Data.make(validatorData.shrinkWrap()));
     builderData = null;
     validatorData = null;
-    _val.run();
+    Thread t = new Thread(_val);
+    t.start();
 
     // now build the trees
     for (int i = 0; i < _nTreesPerBuilder; i++) {
@@ -336,7 +346,7 @@ public class PokerDRF extends DRemoteTask {
     synchronized (this) {
       while (_validatorRunning) {
         try {
-          this.wait();
+          _val.wait();
         } catch (InterruptedException e) {
         }
       }
