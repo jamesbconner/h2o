@@ -4,7 +4,7 @@
  */
 package hexlytics.RFBuilder;
 
-import hexlytics.Tree;
+import hexlytics.RandomForest;
 import hexlytics.data.Data;
 
 /** Class that is capable of building the random forest trees.
@@ -16,56 +16,26 @@ import hexlytics.data.Data;
  */
 public class Builder implements Runnable {
   
+  final RandomForest rf_;
   final BuilderGlue glue_;
-  final Data data_;
-  final double bagSize_;
-  Thread[] threads_ = null;
-  int runningThreads_ = 0;  
   volatile boolean terminate_ = false;
   
   /** Creates the builder object with given arguments and associated glue object. */
-  public Builder(Data data, double bagSize, BuilderGlue glue) {
-    data_ = data;
-    bagSize_ = bagSize;
+  public Builder(Data data, BuilderGlue glue, int trees) {
+    rf_ = new RandomForest(data, trees);
     glue_ = glue;
   }
 
-  /** Starts the builder in current thread. */
-  public void start() {
-    run();
-  }
   
-  /** Starts the builder in N new threads. */
-  public void start(int threads) {
-    threads_ = new Thread[threads];
-    for (int i = 0; i<threads; ++i) {
-      threads_[i] = new Thread(this);
-      threads_[i].start();
-    }
-  }
   /** Terminates the builder, after its next tree (or trees for each thread one
    * are created). That is terminates the builder in fastest safe way possible
    */
-  public void terminate() {
-    terminate_ = true;
-  }
+  public void terminate() { rf_.terminate(); }
   
-  /** Starts computing the trees. This method should not be called from outside,
-   * use the method start() instead.
-   */
    public void run() {
-    synchronized (this) {  ++runningThreads_;  }    
-    // compute the trees one at a time, each one with newly sampled data
-    while (terminate_ == false) {
-      Data d = data_.sampleWithReplacement(bagSize_);
-      Tree tree = new Tree();
-      tree.compute(d);
-      glue_.onTreeReady(tree);
-    }
-    // the last builder to terminate should call the terminated event 
-    synchronized (this) {       
-      if (--runningThreads_==0)  glue_.onBuilderTerminated();
-    }
+     rf_.build();
+///     glue_.onTreeReady(tree);
+       glue_.onBuilderTerminated();
   }
   
 }

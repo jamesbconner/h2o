@@ -8,7 +8,7 @@ import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.data.Data;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 
 /** Aggregates the results from different validators as well as all the
  * trees so that they can be returned as a random forest. 
@@ -28,7 +28,7 @@ public class Aggregator {
   // rows
   final int[] rowErrors; 
   
-  final HashSet<Tree> trees_ = new HashSet();  // All trees 
+  final ArrayList<Tree> trees_ = new ArrayList();  // All trees 
   final AggregatorGlue glue_;  // The glue object to signal update
   
   public Aggregator(Data data, AggregatorGlue glue) {
@@ -59,8 +59,8 @@ public class Aggregator {
   
   /** Returns the forest created by all the trees aggregated so far. */
   public RandomForest createForest() {
-    RandomForest result = new RandomForest();
-    result.addTrees((Tree[])trees_.toArray());
+    RandomForest result = new RandomForest(null,0);
+    result.addAll(trees_);
     return result;
   }  
 }

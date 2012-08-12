@@ -21,10 +21,11 @@ public class Tree {
     tree_ = deserializeNode(from, offset+4).result;
   }
   
-  public final void compute(Data data) { 
+  public final Tree compute(Data data) { 
     long t = System.currentTimeMillis(); 
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
+    return this;
   }
   
   /** for given data creates a node and returns it. */

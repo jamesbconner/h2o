@@ -39,11 +39,11 @@ public class Iris {
     Aggregator a;
     
     public TestGlue(Data d) {
-      b = new Builder(d,0.6,this);
+      b = new Builder(d,this,1);
       v = new Validator(d,this);
       a = new Aggregator(d,this);
       v.start(1);
-      b.start(1);
+      b.run();
       System.out.println("All done in main.");
     }
     
