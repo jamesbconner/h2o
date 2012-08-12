@@ -1,9 +1,9 @@
 package hexlytics.tests;
 
+import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.RFBuilder.Aggregator;
 import hexlytics.RFBuilder.AggregatorGlue;
-import hexlytics.RFBuilder.Builder;
 import hexlytics.RFBuilder.BuilderGlue;
 import hexlytics.RFBuilder.Validator;
 import hexlytics.RFBuilder.ValidatorGlue;
@@ -34,16 +34,16 @@ public class Iris {
     
     int trees = 0;
     
-    Builder b;
+    RandomForest b;
     Validator v;
     Aggregator a;
     
     public TestGlue(Data d) {
-      b = new Builder(d,this,1);
+      b = new RandomForest(d,this,1);
       v = new Validator(d,this);
       a = new Aggregator(d,this);
       v.start(1);
-      b.run();
+      b.build();
       System.out.println("All done in main.");
     }
     

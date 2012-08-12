@@ -4,7 +4,6 @@
  */
 package hexlytics.RFBuilder;
 
-import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.data.Data;
 
@@ -56,11 +55,5 @@ public class Aggregator {
     }
     return (double)errors/rowErrors.length;
   }
-  
-  /** Returns the forest created by all the trees aggregated so far. */
-  public RandomForest createForest() {
-    RandomForest result = new RandomForest(null,0);
-    result.addAll(trees_);
-    return result;
-  }  
+ 
 }

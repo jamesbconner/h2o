@@ -1,5 +1,6 @@
 package hexlytics;
 
+import hexlytics.RFBuilder.BuilderGlue;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 
@@ -14,16 +15,17 @@ public class RandomForest {
   private static final int numThreads = 4;
   private static Random rnd = new Random();  
   public ArrayList<Tree> trees_ = new ArrayList<Tree>();
-  int numberOfTrees_;
+  int numTrees_;
+  BuilderGlue glue_;
   private Data data_;
   
-  public RandomForest(Data d, int trees) { data_ = d; numberOfTrees_ = trees; }  
+  public RandomForest(Data d, BuilderGlue g, int trees) { data_ = d; glue_ = g; numTrees_ = trees; }  
 
-  public synchronized void add(Tree t) { if(!done()) trees_.add(t); }
+  public synchronized void add(Tree t) { if(!done()){ glue_.onTreeReady(t); trees_.add(t); } }
   public synchronized void addAll(ArrayList<Tree> ts) { trees_.addAll(ts); }
   public synchronized ArrayList<Tree> trees() { return trees_; }
-  synchronized boolean done() { return trees_.size() >= numberOfTrees_; }
-  public void terminate() { numberOfTrees_ =0; }
+  synchronized boolean done() { return trees_.size() >= numTrees_; }
+  public void terminate() { numTrees_ =0; }
     
   public void build() {
     ArrayList<Thread> bees = new ArrayList<Thread>();
@@ -35,9 +37,10 @@ public class RandomForest {
     });
     for(Thread b : bees) b.start();
     for(Thread b : bees)  try{ b.join(); }catch( InterruptedException e ){ }
+    glue_.onBuilderTerminated();
   }
   
-  /** Classifies a single row using the forrest. */
+  /** Classifies a single row using the forest. */
   public int classify(Row r) {
     int[] votes = new int[r.numClasses()];
     for (Tree tree: trees_)
