@@ -1,6 +1,6 @@
 package hexlytics.tests;
 
-import hexlytics.RandomTree;
+import hexlytics.Tree;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 import hexlytics.data.DataAdapter;
@@ -87,7 +87,7 @@ public class PokerDRF extends DRemoteTask {
         _errors.add(new ArrayList<long[]>());
     }
     
-    @Override
+    
     public void run() {
       while(true){
         boolean changed = false;
@@ -187,14 +187,14 @@ public class PokerDRF extends DRemoteTask {
       int treesValidated = 0;
       while (treesValidated < _totalTrees) {
         try {
-          RandomTree tree = null;
+          Tree tree = null;
           for (int i = 0; i < _nextTreeKeys.length; ++i) {
             if (_nextTreeKeys[i] == null)
               continue;
             Value v = DKV.get(_nextTreeKeys[i]);
             if (v == null)
               continue;
-            tree = new RandomTree(v.get(), 0);
+            tree = new Tree(v.get(), 0);
             if(!_nextTreeKeys[i].home())v.free_mem(); // don't accumulate trees belonging to others!
             _nextTreeKeys[i] = (++_nProcessedTreesPerNode[i] == _nTreesPerBuilder) ? null
                 : Key.make(_nodePrefix + i + "_" + _nProcessedTreesPerNode[i]);
@@ -298,7 +298,7 @@ public class PokerDRF extends DRemoteTask {
     
     // now build the trees
     for (int i = 0; i < _nTreesPerBuilder; i++) {
-      RandomTree rf = new RandomTree();
+      Tree rf = new Tree();
       rf.compute(bD);
       Key key = Key.make(_nodePrefix + _myNodeId + "_" + i);
       Value val = new Value(key, rf.serializedSize());

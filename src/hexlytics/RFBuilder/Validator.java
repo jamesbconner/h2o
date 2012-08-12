@@ -16,8 +16,7 @@ public class Validator implements Runnable {
   final ValidatorGlue glue_;
   final LinkedBlockingQueue<Tree> trees_ = new LinkedBlockingQueue();
   
-  private final static Tree TERMINATE = new Tree();  
-  
+  private final static Tree TERMINATE = new Tree();    
   private volatile boolean terminate_ = false;
   private int runningThreads_ = 0;
   private Thread[] threads_ = null;
