@@ -41,10 +41,10 @@ public class PokerDRF extends DRemoteTask {
 
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
-  double _finalError;
+  
 
-  public static String webrun(Key k){
-    PokerDRF pkr = new PokerDRF(k, 5, "DRF" + Math.random() + "_" + k.toString());
+  public static String webrun(Key k, int n){
+    PokerDRF pkr = new PokerDRF(k, (n/H2O.CLOUD._memary.length), "DRF" + Math.random() + "_" + k.toString());
     long t = System.currentTimeMillis();
     pkr.doRun();    
     return "DRF finished in " + (System.currentTimeMillis() - t)/1000 + "s, " + pkr.ntreesComputed() + " trees computed with error = " + pkr.error(); 
@@ -159,7 +159,7 @@ public class PokerDRF extends DRemoteTask {
   }
 
   public int ntreesComputed(){
-    return _progress._nTreesComputed;
+    return _progress._nTreesComputed / _nNodes;
   }
   
   public double error(){    
@@ -325,8 +325,9 @@ public class PokerDRF extends DRemoteTask {
 
     long recCounter = 0;
     double[] v = new double[11];
-
+    System.out.print("Parsing the data:");    
     for (long i = 0; i < dataRootValue.chunks(); ++i) {
+      
       CSVParserKV<int[]> p1 = null;
       Value val = null;
       if (dataRootValue instanceof ValueArray) {
@@ -336,6 +337,7 @@ public class PokerDRF extends DRemoteTask {
         val = DKV.get(chunk);
         if (val == null)
           continue;
+        System.out.print (" " + i);
         p1 = new CSVParserKV<int[]>(chunk, 1, r, null);
       } else {
         p1 = new CSVParserKV<int[]>(dataRootValue.get(), r, null);
@@ -357,6 +359,7 @@ public class PokerDRF extends DRemoteTask {
     builderData.freeze();
     validatorData.freeze();
 
+    System.out.println("\nShrinking the data:");
     Data bD = Data.make(builderData.shrinkWrap());
     _val = new PokerValidator(Data.make(validatorData.shrinkWrap()));
     builderData = null;
@@ -366,6 +369,7 @@ public class PokerDRF extends DRemoteTask {
 
     // now build the trees
     for (int i = 0; i < _nTreesPerBuilder; i++) {
+      System.out.println("Computing tree # " + (i + 1));      
       Tree rf = new Tree();
       rf.compute(bD);
       Key key = Key.make(_nodePrefix + _myNodeId + "_" + i);
