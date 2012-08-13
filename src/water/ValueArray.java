@@ -98,7 +98,11 @@ public class ValueArray extends Value {
   // Number of chunks in this array
   // Divide by 1Meg into chunks.  The last chunk is between 1 and 2 megs
   static private long chunks(long sz) { return sz>>LOG_CHK; }
-  @Override public long chunks() { return chunks(length()); }
+  @Override public long chunks() { 
+    long num = chunks(length()); // Rounds down: last chunk can be large
+    if( num==0 && length() > 0 ) num = 1; // Always at least one, tho
+    return num;
+  }
 
   // Get a Key for the chunk; fetching the Value for this Key gets this chunk
   @Override public Key chunk_get( long chunknum ) {
@@ -410,6 +414,27 @@ public class ValueArray extends Value {
     }
     // Apply scale & base for the smaller numbers
     return (res+col_base(colnum))/col_scale(colnum);
+  }
+
+  // This is a version where all the loop-invariants are hoisted already.
+  public double datad(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size, int col_base, int col_scale, int colnum) {
+    assert row_size() == row_size;
+    assert col_off  (colnum)==col_off  ;
+    assert col_base (colnum)==col_base ;
+    assert col_scale(colnum)==col_scale;
+    assert col_size (colnum)==col_size ;
+    int off = (row_in_chunk * row_size) + col_off;
+    double res=0;
+    switch( col_size ) {
+    case  1:         res =    0xff&  bits[off]; break;
+    case  2:         res = UDP.get2 (bits,off); break;
+    case  4:return (double)UDP.get4 (bits,off);
+    case  8:return (double)UDP.get8 (bits,off); // No scale/offset for long   data
+    case -4:return (double)UDP.get4f(bits,off); // No scale/offset for float  data
+    case -8:return         UDP.get8d(bits,off); // No scale/offset for double data
+    }
+    // Apply scale & base for the smaller numbers
+    return (res+col_base)/col_scale;
   }
 
   // Value extracted, then scaled & based - the integer version.

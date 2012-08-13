@@ -159,7 +159,7 @@ public final class ParseDataset {
       return 4+4+(_num_rows==0?0:(_cols.length*ValueArray.Column.wire_len() + 4+_rows_chk.length*4));
     }
 
-    public int write( byte[] buf, int off ) { 
+    public int write( byte[] buf, int off ) {
       UDP.set4(buf,(off+=4)-4,_num_cols);
       UDP.set4(buf,(off+=4)-4,_num_rows);
       if( _num_rows == 0 ) return off; // No columns?
@@ -393,7 +393,7 @@ public final class ParseDataset {
       int src_off = row0*row_size; // Offset in buf to write from
       long row1 = start_row+row0;  // First row to write to
       long chk1 = row1/rpc;        // First chunk to write to
-      if( chk1 == dst_chks )       // Last chunk?
+      if( chk1 > 0 && chk1 == dst_chks ) // Last chunk?
         chk1--;                 // It's actually the prior chunk, made bigger
       // Get the key for that chunk.  Note that this key may not yet exist.
       Key key1 = ValueArray.make_chunkkey(_result,ValueArray.chunk_offset(chk1));
