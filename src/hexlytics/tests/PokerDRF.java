@@ -65,6 +65,7 @@ public class PokerDRF extends DRemoteTask {
     int kIdx = 0;
     _nTreesPerBuilder = nTreesPerNode;
     _totalTrees = nTreesPerNode * H2O.CLOUD._memary.length;
+    _nNodes = H2O.CLOUD._memary.length;
     for (H2ONode node : H2O.CLOUD._memary) {
       _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1,
           Key.DFJ_INTERNAL_USER, H2O.CLOUD._memary[kIdx]);
@@ -107,7 +108,7 @@ public class PokerDRF extends DRemoteTask {
 
     public void run() {
       System.out.println("ProgressMonitor running...");
-      while (_nTreesComputed < _nTreesPerBuilder) {
+      while (_nTreesComputed < _totalTrees * _nNodes) {
         try {
           Thread.sleep(1000);
         } catch (InterruptedException e) {
@@ -133,20 +134,17 @@ public class PokerDRF extends DRemoteTask {
           v.free_mem();
           DKV.remove(k);
         }
-        if (changed) {
-          int n = Integer.MAX_VALUE;
-          for (int i = 0; i < _nProcessedTrees.length; ++i)
-            if(_nProcessedTrees[i] < n) n = _nProcessedTrees[i];
+        if (changed) {                      
           long nErrors = 0;
-
+          _nTreesComputed = 0;
           for (int i = 0; i < _resultKeys.length; ++i) {
-            nErrors = _errorHistory[i][n - 1];
+            
+            if(_nProcessedTrees[i] == 0) continue;
+            nErrors += _errorHistory[i][_nProcessedTrees[i]-1];
+            _nTreesComputed += _nProcessedTrees[i];
           }
-          _currentError = (double) nErrors / (double) _nRecords;
-          _nTreesComputed = n;
-          System.out.println("Global Progress: " + n
-              + " trees computed, error = " + _currentError);
-          System.out.println("Progress Per Node: ");
+          _currentError = (double) nErrors / (double) _nRecords;          
+          System.out.println("Global Progress: error = " + _currentError + ", trees validated: ");          
           for (int i = 0; i < _resultKeys.length; ++i) {
             System.out.println("\tNode" + i + ": " + _nProcessedTrees[i]
                 + " trees procesed");
@@ -251,7 +249,9 @@ public class PokerDRF extends DRemoteTask {
             v = DKV.get(_nextTreeKeys[i]);
             if (v == null)
               continue;
-            tree = new Tree(v.get(), 0);
+            byte [] m = v.get();
+            if(m == null) continue;
+            tree = new Tree(m, 0);
             // System.out.println("validating " + _nextTreeKeys[i].toString());
             if (!_nextTreeKeys[i].home())
               v.free_mem(); // don't accumulate trees belonging to others!
@@ -267,35 +267,35 @@ public class PokerDRF extends DRemoteTask {
             for (Row r : _data)
               ++_classVoteCounts[rCounter++][tree.classify(r)];
             ++treesValidated;
-            // System.out.println(treesValidated + " trees validated");
+            System.out.println(treesValidated +  " trees validated.");
+            _error = computeError();
+            // System.out.println(_error + " rows misclassified");
+            // publish my error
+            v = DKV.get(k);
+            Value newV = new Value(k, treesValidated * 8 + 4 + 8);
+            byte[] newMem = newV.mem();
+            UDP.set4(newMem, 0, treesValidated);
+            UDP.set8(newMem, 4, _nrecords);
+            if (treesValidated > 0)
+              UDP.set8(newMem, 12, _error);
+            if (v != null && treesValidated > 0){
+              byte [] m = v.get();
+              if(m != null) System.arraycopy(v.get(), 12, newMem, 20, (treesValidated - 1) * 8);
+            }
+            DKV.put(k, newV);            
           } else {
             Thread.sleep(1000);
-            continue;
           }
         } catch (InterruptedException ex) {
         }
-        _error = computeError();
-        // System.out.println(_error + " rows misclassified");
-        // publish my error
-        v = DKV.get(k);
-
-        Value newV = new Value(k, treesValidated * 8 + 4 + 8);
-
-        byte[] newMem = newV.mem();
-        UDP.set4(newMem, 0, treesValidated);
-        UDP.set8(newMem, 4, _nrecords);
-        if (treesValidated > 0)
-          UDP.set8(newMem, 12, _error);
-        if (v != null && treesValidated > 0)
-          System.arraycopy(v.get(), 12, newMem, 20, (treesValidated - 1) * 8);
-        DKV.put(k, newV);
+      
       }
       _classVoteCounts = null;
       synchronized (this) {
         _running = false;
         this.notify();
       }
-      // System.out.println("Validation at node " + _myNodeId + " done");
+      System.out.println("Validation at node " + _myNodeId + " done");
     }
   }
 
