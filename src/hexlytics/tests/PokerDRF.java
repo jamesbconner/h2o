@@ -37,23 +37,26 @@ public class PokerDRF extends DRemoteTask {
 
   PokerValidator _val;
 
- 
-
   String _nodePrefix = null;
-  
 
-  
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
   double _finalError;
 
+  public static String webrun(Key k){
+    PokerDRF pkr = new PokerDRF(k, 5, "DRF" + Math.random() + "_" + k.toString());
+    long t = System.currentTimeMillis();
+    pkr.doRun();    
+    return "DRF finished in " + (System.currentTimeMillis() - t)/1000 + "s, " + pkr.ntreesComputed() + " trees computed with error = " + pkr.error(); 
+  }
+  
   public PokerDRF() {
   }
 
   Key _rootKey;
-  Key [] _compKeys;
+  Key[] _compKeys;
   Key[] _resultKeys;
-  
+
   ProgressMonitor _progress;
 
   public PokerDRF(Key k, int nTreesPerNode, String keyPrefix) {
@@ -61,11 +64,13 @@ public class PokerDRF extends DRemoteTask {
     _resultKeys = new Key[H2O.CLOUD._memary.length];
     int kIdx = 0;
     _nTreesPerBuilder = nTreesPerNode;
+    _totalTrees = nTreesPerNode * H2O.CLOUD._memary.length;
     for (H2ONode node : H2O.CLOUD._memary) {
-      _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1, Key.DFJ_INTERNAL_USER,
-          H2O.CLOUD._memary[kIdx]);
+      _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1,
+          Key.DFJ_INTERNAL_USER, H2O.CLOUD._memary[kIdx]);
       _resultKeys[kIdx] = Key.make(keyPrefix + kIdx + "_error");
-      if(DKV.get(_resultKeys[kIdx]) != null) DKV.remove(_resultKeys[kIdx]);
+      if (DKV.get(_resultKeys[kIdx]) != null)
+        DKV.remove(_resultKeys[kIdx]);
       Value v = new Value(_compKeys[kIdx], 1024);
       byte[] mem = v.mem();
       UDP.set4(mem, 0, kIdx);
@@ -80,7 +85,6 @@ public class PokerDRF extends DRemoteTask {
       DKV.put(_compKeys[kIdx], v);
       ++kIdx;
       _rootKey = k;
-      
     }
   }
 
@@ -89,7 +93,7 @@ public class PokerDRF extends DRemoteTask {
     boolean _done;
 
     double _currentError;
-    
+
     int[] _nProcessedTrees;
     long[][] _errorHistory; // errors per node and # processed trees
     long[] _valRecordsPerNode;
@@ -97,51 +101,56 @@ public class PokerDRF extends DRemoteTask {
 
     ProgressMonitor(Key[] resultKeys) {
       _resultKeys = resultKeys;
-      _errorHistory = new long[resultKeys.length][_nTreesPerBuilder];
+      _errorHistory = new long[resultKeys.length][_totalTrees];
       _nProcessedTrees = new int[resultKeys.length];
     }
 
     public void run() {
       System.out.println("ProgressMonitor running...");
-      while (_nTreesComputed < _totalTrees) {
+      while (_nTreesComputed < _nTreesPerBuilder) {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+        }
         boolean changed = false;
         for (int i = 0; i < _resultKeys.length; ++i) {
           Key k = _resultKeys[i];
           Value v = DKV.get(k);
-          if(v == null)continue;
+          if (v == null)
+            continue;
           byte[] mem = v.get(20);
+          if (mem == null)
+            continue;
           int ntrees = UDP.get4(mem, 0);
           if (ntrees > _nProcessedTrees[i]) {
             if (_nProcessedTrees[i] == 0) // update the number of validation
                                           // records
               _nRecords += UDP.get8(mem, 4);
-            changed = (_nProcessedTrees[i] == _nTreesComputed);
-            _errorHistory[i][ntrees-1] = UDP.get8(mem, 12);
+            changed = true;
+            _errorHistory[i][ntrees - 1] = UDP.get8(mem, 12);
             _nProcessedTrees[i] = ntrees;
           }
+          v.free_mem();
           DKV.remove(k);
         }
         if (changed) {
           int n = Integer.MAX_VALUE;
-          for (int i = 0; i < _nProcessedTrees.length; ++i) {
-            if (n > _nProcessedTrees[i])
-              n = _nProcessedTrees[i];
-          }
-          if (n > _nTreesComputed) {
-            long nErrors = 0;
+          for (int i = 0; i < _nProcessedTrees.length; ++i)
+            if(_nProcessedTrees[i] < n) n = _nProcessedTrees[i];
+          long nErrors = 0;
 
-            for (int i = 0; i < _resultKeys.length; ++i) {
-              nErrors = _errorHistory[i][n-1];
-            }
-            _currentError = (double) nErrors / (double) _nRecords;
-            _nTreesComputed = n;
-            System.out.println("Progress: " + n + " trees computed, error = " + _currentError);            
+          for (int i = 0; i < _resultKeys.length; ++i) {
+            nErrors = _errorHistory[i][n - 1];
           }
-        }
-
-        try {
-          Thread.sleep(10 * 1000);
-        } catch (InterruptedException e) {
+          _currentError = (double) nErrors / (double) _nRecords;
+          _nTreesComputed = n;
+          System.out.println("Global Progress: " + n
+              + " trees computed, error = " + _currentError);
+          System.out.println("Progress Per Node: ");
+          for (int i = 0; i < _resultKeys.length; ++i) {
+            System.out.println("\tNode" + i + ": " + _nProcessedTrees[i]
+                + " trees procesed");
+          }
         }
       }
       synchronized (this) {
@@ -151,11 +160,19 @@ public class PokerDRF extends DRemoteTask {
     }
   }
 
+  public int ntreesComputed(){
+    return _progress._nTreesComputed;
+  }
+  
+  public double error(){    
+    return _progress._currentError;
+  }
+  
   public void doRun() {
     if (_rootKey == null)
-      return;    
+      return;
     long startTime = System.currentTimeMillis();
-    
+
     _progress = new ProgressMonitor(_resultKeys);
     Thread t = new Thread(_progress);
     t.start();
@@ -163,7 +180,7 @@ public class PokerDRF extends DRemoteTask {
     synchronized (_progress) {
       while (!_progress._done)
         try {
-          this.wait();
+          _progress.wait();
         } catch (InterruptedException e) {
         }
     }
@@ -180,33 +197,36 @@ public class PokerDRF extends DRemoteTask {
 
     Key[] _nextTreeKeys;
     boolean _running;
-    
+
     public PokerValidator(Data data) {
       _data = data;
-      _classVoteCounts = new int[_data.rows()][_data.classes()];
+      _classVoteCounts = new int[_data.rows()][10];
       _nextTreeKeys = new Key[_nNodes];
       _nProcessedTreesPerNode = new int[_nNodes];
-      
-      for(int i = 0; i < _nNodes; ++i){
-        _nProcessedTreesPerNode[i] = 0;        
+
+      for (int i = 0; i < _nNodes; ++i) {
+        _nProcessedTreesPerNode[i] = 0;
         _nextTreeKeys[i] = Key.make(_nodePrefix + i + "_0");
       }
     }
 
-    void computeError() {
+    long computeError() {
       // compute the classification and errors
       int i = 0;
-      _error = 0;
+      long error = 0;
       for (Row r : _data) {
         int answer = 0;
         int nvotes = 0;
         for (int j = 0; j < _classVoteCounts[i].length; ++j)
-          if (_classVoteCounts[i][j] > nvotes)
+          if (_classVoteCounts[i][j] > nvotes) {
+            nvotes = _classVoteCounts[i][j];
             answer = j;
+          }
         if (r.classOf() != answer)
-          ++_error;
+          ++error;
         ++i;
       }
+      return error;
     }
 
     /** Get trees one by one and validate them on given data. */
@@ -232,7 +252,7 @@ public class PokerDRF extends DRemoteTask {
             if (v == null)
               continue;
             tree = new Tree(v.get(), 0);
-
+            // System.out.println("validating " + _nextTreeKeys[i].toString());
             if (!_nextTreeKeys[i].home())
               v.free_mem(); // don't accumulate trees belonging to others!
             if (!_nextTreeKeys[i].home())
@@ -241,18 +261,21 @@ public class PokerDRF extends DRemoteTask {
                 : Key.make(_nodePrefix + i + "_" + _nProcessedTreesPerNode[i]);
             break;
           }
+
           if (tree != null) {
             int rCounter = 0;
             for (Row r : _data)
               ++_classVoteCounts[rCounter++][tree.classify(r)];
             ++treesValidated;
-            System.out.println(treesValidated + " trees validated");
+            // System.out.println(treesValidated + " trees validated");
           } else {
             Thread.sleep(1000);
+            continue;
           }
         } catch (InterruptedException ex) {
         }
-        computeError();
+        _error = computeError();
+        // System.out.println(_error + " rows misclassified");
         // publish my error
         v = DKV.get(k);
 
@@ -261,7 +284,8 @@ public class PokerDRF extends DRemoteTask {
         byte[] newMem = newV.mem();
         UDP.set4(newMem, 0, treesValidated);
         UDP.set8(newMem, 4, _nrecords);
-        if(treesValidated > 0)UDP.set8(newMem, 12, _error);
+        if (treesValidated > 0)
+          UDP.set8(newMem, 12, _error);
         if (v != null && treesValidated > 0)
           System.arraycopy(v.get(), 12, newMem, 20, (treesValidated - 1) * 8);
         DKV.put(k, newV);
@@ -271,7 +295,7 @@ public class PokerDRF extends DRemoteTask {
         _running = false;
         this.notify();
       }
-      System.out.println("Validation at node " + _myNodeId + " done");
+      // System.out.println("Validation at node " + _myNodeId + " done");
     }
   }
 
@@ -298,6 +322,7 @@ public class PokerDRF extends DRemoteTask {
       return;
     int nodePrefixLen = UDP.get4(inputData, 16 + keyLen);
     _nodePrefix = new String(inputData, 20 + keyLen, nodePrefixLen);
+
     long recCounter = 0;
     double[] v = new double[11];
 
@@ -356,7 +381,7 @@ public class PokerDRF extends DRemoteTask {
         } catch (InterruptedException e) {
         }
       }
-    }   
+    }
   }
 
   @Override
