@@ -42,14 +42,20 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
   // Pack classloader/class & the instance data into the outgoing UDP packet
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    int off = UDP.SZ_TASK;            // Skip udp byte and port and task#
-    // Class loader first.  3 bytes of null for system loader.
     Class clazz = _dt.getClass();  // The exact classname to execute
-    // Class name now
     String sclazz = clazz.getName();  // The exact classname to execute
     // Then the instance data.
-    if( _dt.wire_len()+off <= MultiCast.MTU ) {
+    int off = UDP.SZ_TASK             // Skip udp byte and port and task#
+      + 1 // udp/tcp flag
+      + 3 // jarkey
+      + 2 // string len
+      + sclazz.length()
+      + _args.wire_len()
+      + _dt.wire_len();
+    if( off <= MultiCast.MTU ) {
+      off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = 0;           // Sending via UDP
+      // Class loader first.  3 bytes of null for system loader.
       ClassLoader cl = clazz.getClassLoader();
       if( cl != null && false/*cl instanceof JarLoader*/ ) {
         throw new Error("unimplemented");
@@ -66,9 +72,9 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       off = _args.write(buf,off);
       off = _dt.write(buf,off);
     } else {                    // Big object, switch to TCP style comms.
+      off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = 1;           // Sending via TCP
-      tcp_send(_target,_type,_tasknum,new Byte((byte)5/*setup remote call*/),
-               sclazz,/*jarkey,*/_args,_dt);
+      tcp_send_pack(new Byte((byte)5/*setup remote call*/),sclazz,/*jarkey,*/_args,_dt);
     }
     return off;
   }
@@ -109,9 +115,9 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
 
         remexec(dt,args,p,h2o);
       } else {               // Else all the work is being done in the TCP thread
-        // No "reply" here: the TCP thread will ship a reply.
-        // But we are done with this packet.
-        UDPReceiverThread.free_pack(p);
+        // No "reply" here: the TCP thread will ship a reply.  Also, the packet
+        // is not-yet-dead: its the eventual reply packet, and it is recorded
+        // in the H2ONode task list.
       }
 
     }
@@ -126,7 +132,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       if( !dt.void_result() ) {
-        if( dt.wire_len()+off <= MultiCast.MTU ) {
+        if( dt.wire_len()+off+1 <= MultiCast.MTU ) {
           buf[off++] = 2;         // Result coming via UDP
           off = dt.write(buf,off); // Result
         } else {
@@ -161,13 +167,21 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
         final RemoteTask dt = RemoteTask.make(classloader_key,clazz);
         // Fill in remote values
         dt.read(dis);
-        // Need a packet because the finish-up code expects one.
-        // Act "as if" called from the UDP packet code.
-        final DatagramPacket p = UDPReceiverThread.get_pack(); // Get a fresh empty packet
-        final byte[] buf = p.getData();
+
+        // Need the UDP packet because the finish-up code expects one.  Act "as
+        // if" called from the UDP packet code, by making the exact UDP packet
+        // we will be recieving (eventually).  The presence of this packet is used
+        // to stop dup-actions on dup-sends.
+        DatagramPacket p1 = UDPReceiverThread.get_pack(); // Get a fresh empty packet
+        final byte[] buf = p1.getData();
         UDP.set_ctrl(buf,UDP.udp.rexec.ordinal());
         UDP.clr_port(buf);
         UDP.set_task(buf,tnum);
+        buf[UDP.SZ_TASK] = 1;   // Just the "send by TCP" flag
+        DatagramPacket p2 = h2o.putIfAbsent(p1);          // UDP race to insert pack
+        if( p2 != null ) UDPReceiverThread.free_pack(p1); // UDP raced ahead of us?
+        final DatagramPacket p = p2==null ? p1 : p2;
+
         // Here I want to execute on this, but not block for completion in the
         // TCP reader thread.  
         RecursiveTask rt = new RecursiveTask() {

@@ -66,19 +66,11 @@ public abstract class Atomic extends RemoteTask {
       Value val1 = DKV.get(key);
       byte[] bits1 = (val1 == null) ? null : val1.get();
 
-      byte[] dummy = null;
-      if( bits1 != null ) {
-        assert (dummy = bits1.clone()) != null; // Assign *inside* an array
-      }
-
       // Run users' function.  This is supposed to read-only from bits1 and
       // return new bits2 to atomically install.
       byte[] bits2 = atomic(bits1);
+      assert bits1 == null || bits1 != bits2; // No returning the same array
 
-      if( bits1 != null ) {
-        assert Arrays.equals(dummy,bits1);
-        assert bits1 != bits2;    // No returning the same array either.
-      }
       Value val2 = new Value(key,bits2);
 
       // Attempt atomic update

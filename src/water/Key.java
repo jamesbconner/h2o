@@ -407,14 +407,14 @@ public final class Key implements Comparable {
   }
   
   // Write the Key to the Stream
-  void write( DataOutputStream dos ) throws IOException {
+  public void write( DataOutputStream dos ) throws IOException {
     dos.writeByte(desired());
     dos.writeShort(_kb.length);
     dos.write(_kb,0,_kb.length);
   }
 
   // Read the Key, and some bytes of Value from Stream
-  static Key read( DataInputStream dis ) throws IOException {
+  public static Key read( DataInputStream dis ) throws IOException {
     byte rf = dis.readByte();
     int klen = dis.readShort();
     byte[] kb = new byte[klen];

@@ -311,6 +311,14 @@ public final class ParseDataset {
       _result = Key.read(buf,off);
       assert _result != null;
     }
+    public void write( DataOutputStream dos ) throws IOException {
+      super.write(dos);
+      _result.write(dos);
+    }
+    public void read( DataInputStream dis ) throws IOException {
+      super.read(dis);
+      _result = Key.read(dis);
+    }
 
     // Parse just this chunk, compress into new format.
     public void map( Key key ) {
@@ -318,11 +326,11 @@ public final class ParseDataset {
       assert _num_rows != 0;
       int row_size = _num_rows; // Cheat: row_size instead of num_rows
       // Get chunk index
-      int cidx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
+      long cidx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
       // Get the starting row of the source chunk
-      long start_row = _rows_chk[cidx];
+      long start_row = _rows_chk[(int)cidx];
       // Get number of rows in this source chunk
-      int num_rows = (int)(_rows_chk[cidx+1]-start_row);
+      int num_rows = (int)(_rows_chk[(int)cidx+1]-start_row);
       // Get a place to hold the data
       byte[] buf = new byte[num_rows*row_size];
       // A place to hold each column datum

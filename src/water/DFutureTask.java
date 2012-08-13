@@ -277,13 +277,13 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // only can survive a single send (dups look like new writes), and it's a
   // large transfer - so dups are bad for performance also.
   boolean _tcp_done = false;    // Only send TCP once, even if it is slow
-  boolean tcp_send( Key key, Value val, byte[] vbuf ) {
+  boolean tcp_send_pack( Object ... args ) {
     synchronized(this) {        // One-shot only, allow a TCP send
       if( _tcp_done ) return true;
       _tcp_done = true;
     }
     // NOT under lock, do the TCP send
-    return tcp_send(_target,_type,_tasknum,key,val,vbuf);
+    return tcp_send(_target,_type,_tasknum,args);
   }
 
   // ---

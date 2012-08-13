@@ -65,7 +65,7 @@ public class TaskPutKey extends DFutureTask<Object> {
       // we do not need a UDP packet for cmd/ack - but we're using the rest of
       // the TaskPutKey logic to order writes... e.g. lest a large value is
       // mid-write, when the REMOVE comes along and "passes" it in the wires.
-      tcp_send(_key,_val,_val.get());
+      tcp_send_pack(_key,_val,_val.get());
     }
     return off;
   }
