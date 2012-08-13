@@ -754,9 +754,10 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           }          
           break;
         case STATE_NONQUOTEDFIELD:
-          if (c == '"')
-            throw new Error(
-                "field quoted after non-whitespace characters have been read");
+          // should not happen but just ignore it
+//          if (c == '"')
+//            throw new Error(
+//                "field quoted after non-whitespace characters have been read");
           if (c == '\r') {
             _state = STATE_ENDLINE;
             _fieldEnd = _dataPtr;
