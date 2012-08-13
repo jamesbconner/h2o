@@ -7,6 +7,9 @@ import hexlytics.data.DataAdapter;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -151,6 +154,7 @@ public class PokerDRF extends DRemoteTask {
           }
         }
       }
+      
       synchronized (this) {
         _done = true;
         this.notify();
@@ -253,10 +257,7 @@ public class PokerDRF extends DRemoteTask {
             if(m == null) continue;
             tree = new Tree(m, 0);
             // System.out.println("validating " + _nextTreeKeys[i].toString());
-            if (!_nextTreeKeys[i].home())
-              v.free_mem(); // don't accumulate trees belonging to others!
-            if (!_nextTreeKeys[i].home())
-              v.free_mem(); // don't accumulate trees belonging to others!
+           v.free_mem(); // don't accumulate the trees in memory!           
             _nextTreeKeys[i] = (++_nProcessedTreesPerNode[i] == _nTreesPerBuilder) ? null
                 : Key.make(_nodePrefix + i + "_" + _nProcessedTreesPerNode[i]);
             break;
@@ -282,7 +283,19 @@ public class PokerDRF extends DRemoteTask {
               byte [] m = v.get();
               if(m != null) System.arraycopy(v.get(), 12, newMem, 20, (treesValidated - 1) * 8);
             }
-            DKV.put(k, newV);            
+            DKV.put(k, newV);
+            // if we're the master node, print the tree
+            if(_myNodeId == 0){
+              File f = new File(_nodePrefix + ".rf");
+                try {
+                  if(!f.exists())f.createNewFile();
+                  FileWriter out = new FileWriter(f,true);
+                  out.append(tree.toString()+"\n");
+                  out.close();
+                } catch (IOException e) {
+                  System.err.println("File output failed " + e);
+                }
+            }
           } else {
             Thread.sleep(1000);
           }
