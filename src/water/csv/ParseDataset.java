@@ -391,8 +391,10 @@ public final class ParseDataset {
       assert buf.length == num_rows*row_size;
 
       int src_off = row0*row_size; // Offset in buf to write from
-      long row1 = start_row+row0; // First row to write to
-      long chk1 = row1/rpc;       // First chunk to write to
+      long row1 = start_row+row0;  // First row to write to
+      long chk1 = row1/rpc;        // First chunk to write to
+      if( chk1 == dst_chks )       // Last chunk?
+        chk1--;                 // It's actually the prior chunk, made bigger
       // Get the key for that chunk.  Note that this key may not yet exist.
       Key key1 = ValueArray.make_chunkkey(_result,ValueArray.chunk_offset(chk1));
       // Get the starting row# for this chunk

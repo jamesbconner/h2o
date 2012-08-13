@@ -47,7 +47,7 @@ public class Cloud extends H2OPage {
 
       int fjq_depth = h2o.get_fjqueue_depth();
       if(fjq_depth > HeartBeatThread.QUEUEDEPTH) 
-        row.replace("queueStyle","background-color:#F70A0A;");
+        row.replace("queueStyle","background-color:green;");
       row.replace("fjqueue_depth" , fjq_depth);
       row.replace("node_type" ,            h2o.get_node_type());
 
