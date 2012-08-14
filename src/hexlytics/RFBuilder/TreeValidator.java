@@ -15,7 +15,7 @@ import hexlytics.data.Data;
 public class TreeValidator {
   
   final Director glue_;
-  RandomForest rf_;
+  public RandomForest rf_;
   
   public TreeValidator(Data data, Director glue) {
     glue_ = glue;
@@ -34,6 +34,7 @@ public class TreeValidator {
   /** We are done. Finish any validation and send you date to the aggregator. */
   public void terminate() {
     glue_.report("Err=" + err);
+    glue_.error(rf_.errors()); 
   }
   
 }

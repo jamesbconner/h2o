@@ -72,4 +72,10 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
   @Override
   protected void read(DataInputStream dis) throws IOException { throw uoe(); }
 
+  @Override
+  public void error(long error) {
+    // TODO Auto-generated method stub
+    
+  }
+
 }

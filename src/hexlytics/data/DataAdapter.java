@@ -14,6 +14,7 @@ public class DataAdapter  {
     int classIdx_;
     private boolean frozen_;
     private int numClasses_=-1;
+    private int numClassesParam_=-1;
     private String[] columnNames_;
     private String classColumnName_;
     
@@ -21,8 +22,8 @@ public class DataAdapter  {
     public final Random random_;
     
     private static int SEED = 42;
-    private static Random RAND = new Random(SEED);    
-    
+    private static Random RAND = new Random(SEED);
+            
     private static long getRandomSeed() {
       return RAND.nextLong();    
     }
@@ -33,6 +34,7 @@ public class DataAdapter  {
       this(columns,classNm,getRandomSeed());
     }
     
+    public DataAdapter(String name, Object[] columns, String classNm, int numClasses) { this(columns,classNm); name_=name; numClassesParam_ = numClasses;}
     public DataAdapter(String name, Object[] columns, String classNm,long seed) { this(columns,classNm,seed); name_=name; } 
     public DataAdapter(Object[] columns, String classNm,long seed){
       c_ = new Col[columns.length]; 
@@ -50,7 +52,8 @@ public class DataAdapter  {
     private DataAdapter(DataAdapter d_) {
       this.seed = d_.seed;
       random_ = new Random(seed);
-      name_ = d_.name_; columnNames_ = d_.columnNames_; classColumnName_= d_.classColumnName_;      
+      name_ = d_.name_; columnNames_ = d_.columnNames_; classColumnName_= d_.classColumnName_;
+      numClassesParam_ = d_.numClassesParam_;
       frozen_=true;
       numClasses_=d_.numClasses_;
       classIdx_ = d_.classIdx_;
@@ -112,7 +115,9 @@ public class DataAdapter  {
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return c_[classIdx_].getI(idx); }
-    public int classes() {         
+    
+    public int classes() {   
+      if(numClassesParam_ > -1)return numClassesParam_;
         if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
         if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
         return numClasses_;

@@ -24,6 +24,8 @@ public interface Director {
   
   void report(String what);
   
+  void error(long error);
+  
   ///  
   String nodeName();
 }

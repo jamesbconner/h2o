@@ -49,6 +49,11 @@ public class LocalBuilder implements Director {
 
   public void onValidatorTerminated() { }
   
-  public String nodeName() { return ""; } 
+  public String nodeName() { return ""; }
+  @Override
+  public void error(long error) {
+    // TODO Auto-generated method stub
+    
+  } 
 
 }

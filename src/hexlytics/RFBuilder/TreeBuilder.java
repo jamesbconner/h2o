@@ -19,4 +19,6 @@ public class TreeBuilder implements Runnable {
     }      
     public void run(){ rf_.build(); dir_.onBuilderTerminated(); }
     public void terminate() { rf_.terminate();} 
+    
+    public int size() {return rf_.trees_.size();}
 }

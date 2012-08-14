@@ -1,5 +1,7 @@
 package hexlytics;
 
+import java.io.Serializable;
+
 import hexlytics.Statistic.Split;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
@@ -8,7 +10,8 @@ import hexlytics.data.Data.Row;
 /**
  * @author peta
  */
-public class Tree { 
+public class Tree implements Serializable {  
+  private static final long serialVersionUID = 7669063054915148060L;
   INode tree_ = null;
   long time_ = 0;
   private static String statistic_ = "Numeric"; // Default choice
@@ -63,14 +66,16 @@ public class Tree {
   
   public INode tree() { return tree_; }
   
-  public static abstract class INode  {    
+  public static abstract class INode  implements Serializable {    
+    private static final long serialVersionUID = 4707665968083310297L;
     int navigate(double[]_) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
     abstract int classify(double[] v);
   }
  
   /** Leaf node that for any row returns its the data class it belongs to. */
-  static class LeafNode extends INode {   
+  static class LeafNode extends INode {     
+    private static final long serialVersionUID = -4781620729751890945L;
     /** Type identifier of the node in the serialization */
     public static final byte NODE_TYPE = 0;
     /** Size of the serialized node. byte type and int class. */
@@ -83,7 +88,8 @@ public class Tree {
 
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
-  static class Node extends INode {
+  static class Node extends INode {   
+    private static final long serialVersionUID = -967861474179047605L;
     /** Type identifier of the node in the serialization */
     public static final byte NODE_TYPE = 1;
     /** Size of the serialized node. Byte tupe, int column and double value. */
