@@ -6,7 +6,6 @@ import hexlytics.RFBuilder.Message;
 import hexlytics.RFBuilder.TreeBuilder;
 import hexlytics.RFBuilder.TreeValidator;
 import hexlytics.data.Data;
-import hexlytics.data.Data.Row;
 import hexlytics.data.DataAdapter;
 
 import java.io.DataInputStream;
@@ -150,14 +149,6 @@ public class PokerDRF extends DRemoteTask implements Director {
         + " seconds with error = " + _progress._currentError);
   }
 
-  public static Tree getTreeFromKV(Key k) {
-    Value v = DKV.get(k);
-    if (v == null)
-      return null;
-    byte[] m = v.get();
-    v.free_mem();
-    return (m == null) ? null : new Tree(m, 0);
-  }
 
   public class PokerValidator implements Runnable {
     int _nProcessedTrees;
@@ -182,24 +173,6 @@ public class PokerDRF extends DRemoteTask implements Director {
       }
     }
 
-    long computeError() {
-      // compute the classification and errors
-      int i = 0;
-      long error = 0;
-      for (Row r : _data) {
-        int answer = 0;
-        int nvotes = 0;
-        for (int j = 0; j < _classVoteCounts[i].length; ++j)
-          if (_classVoteCounts[i][j] > nvotes) {
-            nvotes = _classVoteCounts[i][j];
-            answer = j;
-          }
-        if (r.classOf() != answer)
-          ++error;
-        ++i;
-      }
-      return error;
-    }
 
     /** Get trees one by one and validate them on given data. */
     public void run() {      
@@ -304,95 +277,44 @@ public class PokerDRF extends DRemoteTask implements Director {
 
   @Override
   public void reduce(RemoteTask drt) {
-    // PokerDRF other = (PokerDRF)drt;
-    // _error += other._error;
-    // _nrecords += other._nrecords;
   }
 
   @Override
   protected int wire_len() {
     return 0;
-    // return _done?16:0;
   }
 
   @Override
   protected int write(byte[] buf, int off) {
-    // buf[off++] = (byte)(_done?1:0);
-    // if(_done){
-    // UDP.set8(buf, off, _nrecords);
-    // UDP.set8(buf, off+16, _error);
-    // return off+32;
-    // }
     return off;
   }
 
   @Override
-  protected void write(DataOutputStream dos) throws IOException {
-    // dos.write((byte)(_done?1:0));
-    // if(_done){
-    // dos.writeLong(_nrecords);
-    // dos.writeLong(_error);
-    // }
-  }
+  protected void write(DataOutputStream dos) throws IOException {  }
 
   @Override
-  protected void read(byte[] buf, int off) {
-    // if(buf[off++] == 1){
-    // _nrecords = UDP.get8(buf, off);
-    // _error = UDP.get8(buf, off+16);
-    // }
-  }
+  protected void read(byte[] buf, int off) {  }
 
-  
-  protected void read(DataInputStream dis) throws IOException {
-    // if(dis.read() == 1){
-    // _nrecords = dis.readLong();
-    // _error = dis.readLong();
-    // }
-  }
-
+  protected void read(DataInputStream dis) throws IOException {  }
   
   public void onTreeBuilt(Tree tree) {
     new Message.Tree(_treeBldr.size(), tree).send();    
   }
-
   
-  public void onBuilderTerminated() {
-
-  }
-
+  public void onBuilderTerminated() {  }
   
-  public void onAggregatorChange() {
-    // TODO Auto-generated method stub
-
-  }
-
+  public void onAggregatorChange() {  }
   
-  public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
-    // TODO Auto-generated method stub
-
-  }
-
+  public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {  }
   
-  public void onValidatorTerminated() {
-    // TODO Auto-generated method stub
-
-  }
-
+  public void onValidatorTerminated() {  }
  
   public void report(String what) {
     Message m = new Message.Text(what);
     m.send();    
   }
 
-  public String nodeName() {
-    return _nodePrefix + _myNodeId;
-  }
-
+  public String nodeName() { return _nodePrefix + _myNodeId; }
   
-  public void error(long error) {
-    // TODO Auto-generated method stub
-
-  }
-
+  public void error(long error) {}
 }
