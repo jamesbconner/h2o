@@ -4,11 +4,13 @@ import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.RFBuilder.Director;
 import hexlytics.RFBuilder.Message;
+import hexlytics.RFBuilder.Message.Init;
 import hexlytics.RFBuilder.TreeBuilder;
 import hexlytics.RFBuilder.TreeValidator;
 import hexlytics.data.Data;
 import hexlytics.data.Data.Row;
 import hexlytics.data.DataAdapter;
+import init.init;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -37,15 +39,17 @@ import water.csv.CSVParserKV;
 public class PokerDRF extends DRemoteTask implements Director {
 
   private static final long serialVersionUID = 1976547559782826435L;
-  int _myNodeId;
-  int _totalTrees;
-  int _nTreesPerBuilder;
-  int _nNodes;
+     
   TreeBuilder _treeBldr;
-
   PokerValidator _val;
-
-  public static String _nodePrefix = null;
+  Key [] _compKeys;
+  int _totalTrees;
+  
+  public static String nodePrefix(int nodeIdx){
+    return "PkrNd[" + nodeIdx + "]_" + _nodePrefix; 
+  }
+  private static String _nodePrefix = null;
+  int _nodeId;
 
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
@@ -68,39 +72,21 @@ public class PokerDRF extends DRemoteTask implements Director {
   public PokerDRF() {
   }
 
-  Key _rootKey;
-  Key[] _compKeys;
-  Key[] _resultKeys;
-
+  
   ProgressMonitor _progress;
 
   public PokerDRF(Key k, int nTreesPerNode, String keyPrefix) {
-    _compKeys = new Key[H2O.CLOUD._memary.length];
-    _resultKeys = new Key[H2O.CLOUD._memary.length];
-    int kIdx = 0;
-    _nTreesPerBuilder = nTreesPerNode;
+    
     _totalTrees = nTreesPerNode * H2O.CLOUD._memary.length;
     _nNodes = H2O.CLOUD._memary.length;
+    
+    int kIdx = 0;
     for (H2ONode node : H2O.CLOUD._memary) {
       _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1,
           Key.DFJ_INTERNAL_USER, H2O.CLOUD._memary[kIdx]);
-      _resultKeys[kIdx] = Key.make(keyPrefix + kIdx + "_error");
-      if (DKV.get(_resultKeys[kIdx]) != null)
-        DKV.remove(_resultKeys[kIdx]);
-      Value v = new Value(_compKeys[kIdx], 1024);
-      byte[] mem = v.mem();
-      UDP.set4(mem, 0, kIdx);
-      UDP.set4(mem, 4, _compKeys.length);
-      UDP.set4(mem, 8, nTreesPerNode);
-      UDP.set4(mem, 12, k._kb.length);
-      System.arraycopy(k._kb, 0, mem, 16, k._kb.length);
-      byte[] keyPrefixBytes = keyPrefix.getBytes();
-      UDP.set4(mem, 16 + k._kb.length, keyPrefixBytes.length);
-      System.arraycopy(keyPrefixBytes, 0, mem, 16 + k._kb.length + 4,
-          keyPrefixBytes.length);
-      DKV.put(_compKeys[kIdx], v);
-      ++kIdx;
-      _rootKey = k;
+      Message.Init initMsg = new Message.Init(keyPrefix, _compKeys[kIdx],nTreesPerNode);
+      initMsg.send();            
+      ++kIdx;      
     }
   }
 
@@ -110,15 +96,11 @@ public class PokerDRF extends DRemoteTask implements Director {
 
     double _currentError;
 
-    int[] _nProcessedTrees;
-    long[][] _errorHistory; // errors per node and # processed trees
-    long[] _valRecordsPerNode;
+    
     long _nRecords;
 
-    ProgressMonitor(Key[] resultKeys) {
-      _resultKeys = resultKeys;
-      _errorHistory = new long[resultKeys.length][_totalTrees];
-      _nProcessedTrees = new int[resultKeys.length];
+    ProgressMonitor() {
+      
     }
 
     public void run() {
@@ -139,11 +121,10 @@ public class PokerDRF extends DRemoteTask implements Director {
   }
 
   public void doRun() {
-    if (_rootKey == null)
-      return;
+    
     long startTime = System.currentTimeMillis();
 
-    _progress = new ProgressMonitor(_resultKeys);
+    _progress = new ProgressMonitor();
     Thread t = new Thread(_progress);
     t.start();
     rexec(_compKeys);
@@ -181,7 +162,7 @@ public class PokerDRF extends DRemoteTask implements Director {
       _validator = new TreeValidator(data, PokerDRF.this);
       for (int i = 0; i < _nNodes; ++i) {
         _nProcessedTreesPerNode[i] = 0;
-        _nextTreeKeys[i] = Key.make(_nodePrefix + i + "_0");
+        _nextTreeKeys[i] = Key.make(nodePrefix(i) + "_0");
       }
     }
 
@@ -224,35 +205,26 @@ public class PokerDRF extends DRemoteTask implements Director {
   }
 
   @Override
-  public void map(Key k) {
-    
+  public void map(Key k) {    
     DataAdapter builderData = new DataAdapter("poker", new String[] { "0", "1",
         "2", "3", "4", "5", "6", "7", "8", "9", "10" }, "10",10);
     DataAdapter validatorData = new DataAdapter("poker", new String[] { "0",
         "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, "10",10);
+    Message.Init initMsg = Message.Init.read(k);
     int[] r = new int[11];
-    Value inputVal = DKV.get(k);
-    if (inputVal == null)
-      return; // nothing to do...
-    byte[] inputData = inputVal.get();
-    _myNodeId = UDP.get4(inputData, 0);
-    _nNodes = UDP.get4(inputData, 4);
-    _nTreesPerBuilder = UDP.get4(inputData, 8);
-    _totalTrees = _nNodes * _nTreesPerBuilder;
-    int keyLen = UDP.get4(inputData, 12);
-    byte[] kb = Arrays.copyOfRange(inputData, 16, 16 + keyLen);
-    Key dataRootKey = Key.make(kb);
-    Value dataRootValue = DKV.get(dataRootKey);
+    
+    _nodePrefix = initMsg._nodePrefix;
+    _nodeId = H2O.CLOUD.nidx(H2O.CLOUD.SELF);
+    _totalTrees = initMsg._totalTrees;
+    
+    Value dataRootValue = DKV.get(initMsg._k);
     if (dataRootValue == null)
       return;
-    int nodePrefixLen = UDP.get4(inputData, 16 + keyLen);
-    _nodePrefix = new String(inputData, 20 + keyLen, nodePrefixLen);
-    
-    long recCounter = 0;
+            
     double[] v = new double[11];
     System.out.print("Parsing the data:");
+    int recCounter = 0;
     for (long i = 0; i < dataRootValue.chunks(); ++i) {
-
       CSVParserKV<int[]> p1 = null;
       Value val = null;
       if (dataRootValue instanceof ValueArray) {
@@ -291,7 +263,7 @@ public class PokerDRF extends DRemoteTask implements Director {
     validatorData = null;
     Thread t = new Thread(_val);
     t.start();    
-    _treeBldr = new TreeBuilder(bD, this, _nTreesPerBuilder);
+    _treeBldr = new TreeBuilder(bD, this, initMsg._nTrees);
     _treeBldr.run();
 
     // wait for the validator to finish
@@ -390,7 +362,7 @@ public class PokerDRF extends DRemoteTask implements Director {
 
   @Override
   public String nodeName() {
-    return _nodePrefix + _myNodeId;
+    return "Node" + _nodeId;
   }
 
   @Override
