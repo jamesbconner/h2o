@@ -91,13 +91,13 @@ public abstract class LinearRegression {
       off += UDP.set8d(buf,off,_beta1);
       off += UDP.set8d(buf,off,_rss  );
       off += UDP.set8d(buf,off,_ssr  );
-      off += _arykey.wire_len();
+      off += _arykey.write(buf,off);
       return off;
     }
     public void read( byte[] buf, int off ) { 
-      _pass = UDP.get4 (buf,(off+=2)-2);
-      _colA = UDP.get4 (buf,(off+=2)-2);
-      _colB = UDP.get4 (buf,(off+=2)-2);
+      _pass = UDP.get4 (buf,(off+=4)-4);
+      _colA = UDP.get4 (buf,(off+=4)-4);
+      _colB = UDP.get4 (buf,(off+=4)-4);
       _sumX = UDP.get8d(buf,(off+=8)-8);
       _sumY = UDP.get8d(buf,(off+=8)-8);
       _sumX2= UDP.get8d(buf,(off+=8)-8);
