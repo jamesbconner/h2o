@@ -39,7 +39,7 @@ public abstract class Message implements Serializable {
   public void send() {
     try {
       System.out.println("Sending " + toString());
-      Key k = Key.make(PokerDRF._nodePrefix + nodeId_
+      Key k = Key.make(PokerDRF.nodePrefix(nodeId_)
           + this.getClass().toString());
       Value newV = new Value(k, serialize());
       DKV.put(k, newV);
@@ -47,36 +47,21 @@ public abstract class Message implements Serializable {
       throw new Error(e);
     }
   }
+  
+  
 
-  private static Value readNext(String msgClassName, Value[] previousValues) {
+  private static Message readNext(Class<? extends Message> msgClass, Value[] previousValues) {
     for (H2ONode node : H2O.CLOUD._memary) {
       int idx = H2O.CLOUD.nidx(node);
-      Key k = Key.make(PokerDRF._nodePrefix + idx + msgClassName);
+      Key k = Key.make(PokerDRF.nodePrefix(idx) + "_" + msgClass.getSimpleName());
       Value v = DKV.get(k);
-      if (v == null)
-        return null;
-      if (v != previousValues[H2O.CLOUD.nidx(node)]) {
-        byte[] mem = v.get();
-        if (mem != null) {
-          previousValues[idx] = v;
-          return v;
-        } else
-          System.err.println("got null value for key " + k);
-      }
+      
+      if (v != null && v != previousValues[H2O.CLOUD.nidx(node)])
+        return (Message) deserialize(v.get());
     }
     return null;
   }
 
-  public static Message readNext(Class c, Value [] previousValues) {    
-    Value v = Message.readNext(c.toString(), previousValues);
-    if (v == null)
-      return null;
-    byte[] m = v.get();
-    v.free_mem();
-    // DKV.remove(k); can cause exception now
-    return (Message)deserialize(m);
-  }
-  
   
   private static Message deserialize(byte[] mem) {
     try {
@@ -91,15 +76,62 @@ public abstract class Message implements Serializable {
     return Integer.toString(nodeId_);
   }
 
-  public static class Command extends Message {
-
+  public static class Command extends Message {   
+    private static final long serialVersionUID = 8779523369085751962L;
   }
 
-  public static class ValidationError extends Message {
+  public static class Init extends Message {   
+    private static final long serialVersionUID = -374123216419814767L;
+    public final String _nodePrefix;
+    public final byte [] _kb; // input data
+    public final int _nTrees;
+    public final int _totalTrees;
+    transient Key _initMsgKey;
+
+    public Init(String nodePrefix, Key initMSgKey, Key dataKey, int nTrees, int totalTrees) {
+      super();
+      _nodePrefix = nodePrefix;
+      _kb = dataKey._kb;
+      _nTrees = nTrees;
+      _totalTrees = totalTrees;
+      _initMsgKey = initMSgKey;
+    }
+
+    private static Value[] _previousValues = null;
+
+    public static Init readNext() {
+      if (_previousValues == null)
+        _previousValues = new Value[H2O.CLOUD.size()];
+      return (Init) readNext(Init.class, _previousValues);
+    }
+
+    public static Init read(Key k) {
+      Value v = DKV.get(k);      
+      return (v != null)?(Init) deserialize(v.get()):null;
+    }
+    
+    public void send() {
+      try {        
+        Value newV = new Value(_initMsgKey, serialize());
+        DKV.put(_initMsgKey, newV);
+      } catch (IOException e) {
+        throw new Error(e);
+      }
+    }
+    
+    public String toString() {
+      return super.toString() + ":Init, NodePrefix=" + _nodePrefix
+          + ", nTrees=" + _nTrees;
+    }
+  }
+
+  public static class ValidationError extends Message { 
+    private static final long serialVersionUID = -8042422701584129050L;
     public long val_;
   }
 
   public static class Text extends Message {
+    private static final long serialVersionUID = 8925306484581264590L;
     public String val_;
 
     public Text(String val) {
@@ -110,8 +142,8 @@ public abstract class Message implements Serializable {
 
     public static Text readNext() {
       if (_previousValues == null)
-        _previousValues = new Value[H2O.CLOUD.size()];      
-      return (Text) readNext(Text.class,_previousValues);
+        _previousValues = new Value[H2O.CLOUD.size()];
+      return (Text) readNext(Text.class, _previousValues);
     }
 
     public String toString() {
@@ -119,12 +151,13 @@ public abstract class Message implements Serializable {
     }
   }
 
-  public static class Tree extends Message {
+  public static class Tree extends Message {   
+    private static final long serialVersionUID = 598521071395186038L;
     public int treeId_;
     public hexlytics.Tree tree_;
 
     void printToFile() {
-      File f = new File(PokerDRF._nodePrefix + ".rf");
+      File f = new File(PokerDRF.nodePrefix(0) + ".rf");
       try {
         if (!f.exists())
           f.createNewFile();
@@ -145,10 +178,10 @@ public abstract class Message implements Serializable {
 
     public static Tree readNext() {
       if (_previousValues == null)
-        _previousValues = new Value[H2O.CLOUD.size()];      
-      return (Tree)readNext(Tree.class, _previousValues);
+        _previousValues = new Value[H2O.CLOUD.size()];
+      return (Tree) readNext(Tree.class, _previousValues);
     }
-    
+
     public String toString() {
       return super.toString() + " tree(" + treeId_ + ") " + tree_.toString();
     }
