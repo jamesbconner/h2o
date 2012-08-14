@@ -7,11 +7,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import water.DKV;
 import water.DRemoteTask;
 import water.Key;
 import water.RemoteTask;
-import water.Value;
 
 /** This is the distributed builder of the random forest that works in hexbase.
  * @author peta
@@ -35,9 +33,10 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
       treeIndex = treeIndex_++;
     }
     Key key = Key.make(_nodePrefix + _myNodeId + "_" + treeIndex);
-    Value val = new Value(key, tree.serializedSize());
-    tree.serialize(val.mem(), 0);
-    DKV.put(key, val); // publish the tree to the validators
+  if(true) new Error("Oops... in the process of moving to message");
+//    Value val = new Value(key, tree.serializedSize());
+    // tree.serialize(val.mem(), 0);
+//    DKV.put(key, val); // publish the tree to the validators
   }
 
   UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
@@ -72,7 +71,6 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
   @Override
   protected void read(DataInputStream dis) throws IOException { throw uoe(); }
 
-  @Override
   public void error(long error) {
     // TODO Auto-generated method stub
     
