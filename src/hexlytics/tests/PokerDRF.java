@@ -1,6 +1,5 @@
 package hexlytics.tests;
 
-import hexlytics.RandomForest;
 import hexlytics.Tree;
 import hexlytics.RFBuilder.Director;
 import hexlytics.RFBuilder.Message;
@@ -12,8 +11,6 @@ import hexlytics.data.DataAdapter;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -346,7 +343,7 @@ public class PokerDRF extends DRemoteTask implements Director {
     // }
   }
 
-  @Override
+  
   protected void read(DataInputStream dis) throws IOException {
     // if(dis.read() == 1){
     // _nrecords = dis.readLong();
@@ -354,46 +351,45 @@ public class PokerDRF extends DRemoteTask implements Director {
     // }
   }
 
-  @Override
+  
   public void onTreeBuilt(Tree tree) {
     new Message.Tree(_treeBldr.size(), tree).send();    
   }
 
-  @Override
+  
   public void onBuilderTerminated() {
 
   }
 
-  @Override
+  
   public void onAggregatorChange() {
     // TODO Auto-generated method stub
 
   }
 
-  @Override
+  
   public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
     // TODO Auto-generated method stub
 
   }
 
-  @Override
+  
   public void onValidatorTerminated() {
     // TODO Auto-generated method stub
 
   }
 
-  @Override
+ 
   public void report(String what) {
     Message m = new Message.Text(what);
     m.send();    
   }
 
-  @Override
   public String nodeName() {
     return _nodePrefix + _myNodeId;
   }
 
-  @Override
+  
   public void error(long error) {
     // TODO Auto-generated method stub
 
