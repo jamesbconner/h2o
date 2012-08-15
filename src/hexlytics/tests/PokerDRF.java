@@ -37,17 +37,14 @@ public class PokerDRF extends DRemoteTask implements Director {
   final static int _nNodes = H2O.CLOUD._memary.length;
 
   TreeBuilder _treeBldr;
-  PokerValidator _val;
   final Key[] _compKeys = new Key[_nNodes];
   int _totalTrees;
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
-  ProgressMonitor _progress;
 
   public static String nodePrefix(int nodeIdx) {
     return "P" + _nodePrefix + "N" + nodeIdx + "_";
   }
-
 
   public static String webrun(Key k, int n) {
     PokerDRF pkr = new PokerDRF(k, n, "[" + (int) (1000000 * Math.random()) + "]_");
@@ -75,26 +72,24 @@ public class PokerDRF extends DRemoteTask implements Director {
     }
   }
 
-  class ProgressMonitor implements Runnable {
+  class ProgressMonitor extends Thread {
     volatile boolean _done;
 
     public void run() {
       while (!_done) {
-        System.out.println(Message.Text.readNext());  sleep();
+        System.out.println(Message.Text.readNext());  PokerDRF.sleep();
       }
     }
   }
 
   public void doRun() {
     long startTime = System.currentTimeMillis();
-    _progress = new ProgressMonitor();
-    Thread t = new Thread(_progress);
-    t.start();
+    ProgressMonitor progress = new ProgressMonitor();
+    progress.start();
     rexec(_compKeys);
-    _progress._done = true;
+    progress._done = true;
     // read the errors
-    long errors = 0;
-    long nrecords = 0;
+    long errors = 0, nrecords = 0;
     for (int i = 0; i < _nNodes; ++i) {
       ValidationError err = ValidationError.readFrom(i);
       if (err == null)
@@ -107,37 +102,23 @@ public class PokerDRF extends DRemoteTask implements Director {
     _nrecords = nrecords;
     _error = errors;
     System.out.println("DRF computed. " + nrecords + " records processed in "
-        + ellapsed(startTime) + " seconds, error = " + (double) errors
-        / (double) nrecords);
-
+        + ellapsed(startTime) + " seconds, error = " + errors/(double) nrecords);
   }
 
-  public class PokerValidator implements Runnable {
+  public class PokerValidator extends Thread {
     Data _data;
-    TreeValidator _validator;
-    volatile boolean _done;
 
-    public PokerValidator(Data data) {
-      _data = data;
-      _validator = new TreeValidator(data, PokerDRF.this);
-    }
+    public PokerValidator(Data data) {  _data = data; }
 
     /** Get trees one by one and validate them on given data. */
     public void run() {
-      // first compute the votes of each tree
-      while (_validator.rf_.trees().size() < _totalTrees) {
+      TreeValidator validator = new TreeValidator(_data, PokerDRF.this);
+      while (validator.rf_.trees().size() < _totalTrees) {
         Message.Tree msg = Message.Tree.readNext();
-        if (msg == null) {
-          sleep();
-          continue;
-        }
-        _validator.validate(msg.tree_);
+        if (msg == null) { PokerDRF.sleep();  continue; }
+        validator.validate(msg.tree_);
       }
-      _validator.terminate();
-      synchronized (this) {
-        _done = true;
-        this.notify();
-      }
+      validator.terminate();
     }
   }
 
@@ -182,59 +163,16 @@ public class PokerDRF extends DRemoteTask implements Director {
     validatorData.freeze();
     report("Read "+_nrecords+" rows.\nShrinking the data");
     Data bD = Data.make(builderData.shrinkWrap());
-    _val = new PokerValidator(Data.make(validatorData.shrinkWrap()));
-    builderData = null;
-    validatorData = null;
-    Thread t = new Thread(_val);
-    t.start();
+    Thread val = new PokerValidator(Data.make(validatorData.shrinkWrap()));
+    val.start();    
     _treeBldr = new TreeBuilder(bD, this, initMsg._nTrees);
     _treeBldr.run();
-
     // wait for the validator to finish
-    synchronized (_val) {
-      while (!_val._done) {
-        try {
-          _val.wait();
-        } catch (InterruptedException e) {
-        }
-      }
-    }
-  }
-
-  @Override
-  public void reduce(RemoteTask drt) {
-  }
-
-  @Override
-  protected int wire_len() {
-    return 0;
-  }
-
-  @Override
-  protected int write(byte[] buf, int off) {
-    return off;
-  }
-
-  @Override
-  protected void write(DataOutputStream dos) throws IOException {
-  }
-
-  @Override
-  protected void read(byte[] buf, int off) {
-  }
-
-  protected void read(DataInputStream dis) throws IOException {
+    try{ val.join(); }catch( InterruptedException _){ }
   }
 
   public void onTreeBuilt(Tree tree) {
     new Message.Tree(_treeBldr.size(), tree).send();
-  }
-
-  public void onBuilderTerminated() {
-  }
-
-   
-  public void onValidatorTerminated() {
   }
 
   public void report(String what) {
@@ -245,8 +183,15 @@ public class PokerDRF extends DRemoteTask implements Director {
     return "Node" + _nodeId;
   }
 
- 
   public void error(long error) {    
     new Message.ValidationError(error, _nrecords).send();    
   }
+
+  UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
+  public void reduce(RemoteTask drt) {throw uoe(); }
+  protected int wire_len() { throw uoe(); }
+  protected int write(byte[] buf, int off) { throw uoe(); }
+  @Override protected void write(DataOutputStream dos) throws IOException { throw uoe(); }
+  @Override protected void read(byte[] buf, int off) { throw uoe(); }
+  @Override protected void read(DataInputStream dis) throws IOException { throw uoe(); }
 }

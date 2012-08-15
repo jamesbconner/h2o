@@ -17,7 +17,7 @@ public class TreeBuilder implements Runnable {
        rf_ = new RandomForest(data, dir_ = dir, numTrees);
        dir_.report("Training data\n"+ data.toString());
     }      
-    public void run(){ rf_.build(); dir_.onBuilderTerminated(); }
+    public void run(){ rf_.build();  }
     public void terminate() { rf_.terminate();} 
     
     public int size() {return rf_.trees_.size();}
