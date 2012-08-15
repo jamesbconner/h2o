@@ -188,10 +188,10 @@ public class PokerDRF extends DRemoteTask implements Director {
   }
 
   UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
-  public void reduce(RemoteTask drt) {throw uoe(); }
-  protected int wire_len() { throw uoe(); }
-  protected int write(byte[] buf, int off) { throw uoe(); }
-  @Override protected void write(DataOutputStream dos) throws IOException { throw uoe(); }
-  @Override protected void read(byte[] buf, int off) { throw uoe(); }
-  @Override protected void read(DataInputStream dis) throws IOException { throw uoe(); }
+  public void reduce(RemoteTask drt) {/*throw uoe();*/ }
+  protected int wire_len() { /*throw uoe();*/ return 0; }
+  protected int write(byte[] buf, int off) { /*throw uoe();*/ return off; }
+  @Override protected void write(DataOutputStream dos) throws IOException { /*throw uoe();*/ }
+  @Override protected void read(byte[] buf, int off) { /*throw uoe();*/ }
+  @Override protected void read(DataInputStream dis) throws IOException { /*throw uoe();*/ }
 }
