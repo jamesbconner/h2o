@@ -17,11 +17,7 @@ public class RandomForest {
   Director glue_;
   private Data data_;
 
-  public RandomForest(Data d, Director g, int trees) {
-    data_ = d;
-    glue_ = g;
-    numTrees_ = trees;
-  }
+  public RandomForest(Data d, Director g, int trees) { data_ = d; glue_ = g; numTrees_ = trees;  }
 
   public synchronized void add(Tree t) {
     if (!done()) {
@@ -51,17 +47,11 @@ public class RandomForest {
     for (int i = 0; i < numThreads; i++)
       bees.add(new Thread() {
         public void run() {
-          while (!done())
-            add(new Tree().compute(data_));
+          while (!done())  add(new Tree().compute(data_));
         }
       });
-    for (Thread b : bees)
-      b.start();
-    for (Thread b : bees)
-      try {
-        b.join();
-      } catch (InterruptedException e) {
-      }
+    for (Thread b : bees) b.start();
+    for (Thread b : bees)  try { b.join();} catch (InterruptedException e) { }
   }
 
   /** Classifies a single row using the forest. */
