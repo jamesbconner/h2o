@@ -37,14 +37,14 @@ public final class TimelineSnapshot implements
     _events = new Event[snapshot.length];
 
     // DEBUG: print out the evetn stack as we got it
-    // System.out.println("# of nodes: " + _events.length);
-    // for (int j = 0; j < TimeLine.length(); ++j) {
-    // System.out.print("row# " + j + ":");
-    // for (int i = 0; i < _events.length; ++i) {
-    // System.out.print("  ||  " + new Event(i, j));
-    // }
-    // System.out.println("  ||");
-    // }
+//    System.out.println("# of nodes: " + _events.length);
+//    for (int j = 0; j < TimeLine.length(); ++j) {
+//      System.out.print("row# " + j + ":");
+//      for (int i = 0; i < _events.length; ++i) {
+//        System.out.print("  ||  " + new Event(i, j));
+//      }
+//      System.out.println("  ||");
+//    }
 
     for (int i = 0; i < _events.length; ++i) {
       // For a new Snapshot, most of initial entries are all zeros. Skip them
@@ -57,13 +57,16 @@ public final class TimelineSnapshot implements
           _events[i] = null;
       }
       if (_events[i] != null)
-        processEvent(i);
+        processEvent(_events[i]);
       assert (_events[i] == null) || (_events[i]._arr[1] < 1024);
     }
 
     // now build the graph (i.e. go through all the events once)
 
     for (Event e : this) {
+
+      // this is intentionally empty, graph is built as the events are iterated
+      // through
     }
 
     _processed = true;
@@ -289,15 +292,16 @@ public final class TimelineSnapshot implements
     Event nextEvent() {
       return nextEvent(TimeLine.length());
     }
+
     /**
      * Used to determine ordering of events not bound by any dependency.
      * 
-     * Events compared according to following rules:
-     *   Receives go before sends.
-     *   For two sends, pick the one with receives with smallest timestamp (ms)
-     *   otherwise pick the one with smallest timestamp (ms) 
+     * Events compared according to following rules: Receives go before sends.
+     * For two sends, pick the one with receives with smallest timestamp (ms)
+     * otherwise pick the one with smallest timestamp (ms)
      * 
-     * @param other other Event to compare
+     * @param other
+     *          other Event to compare
      * @return
      */
     public final int compareTo(Event other) {
@@ -346,24 +350,27 @@ public final class TimelineSnapshot implements
   private boolean isSenderRecvPair(Event senderCnd, Event recvCnd) {
     if (senderCnd.isSend() && recvCnd.isRecv() && senderCnd.match(recvCnd)) {
       ArrayList<Event> recvs = _sends.get(senderCnd);
-      for (Event e : recvs) {
-        if (e.nodeId() == recvCnd.nodeId())
-          return false;
+      if (recvs.isEmpty() || senderCnd.addrPack().isMulticastAddress()) {
+        for (Event e : recvs) {
+          if (e.nodeId() == recvCnd.nodeId())
+            return false;
+        }
+        return true;
       }
-      return true;
     }
     return false;
   }
 
   /**
-   * Process new event. For sender, check if there are any blocked receives waiting for this send.
-   * For receiver, try to find matching sender, otherwise block.
+   * Process new event. For sender, check if there are any blocked receives
+   * waiting for this send. For receiver, try to find matching sender, otherwise
+   * block.
    * 
    * @param idx
    */
-  void processEvent(int idx) {
+  void processEvent(Event e) {
     assert !_processed;
-    Event e = _events[idx];
+    // Event e = _events[idx];
     if (e.isSend()) {
       _sends.put(e, new ArrayList<TimelineSnapshot.Event>());
       for (Event otherE : _events) {
@@ -390,7 +397,7 @@ public final class TimelineSnapshot implements
             + ", ip = " + e.addrPack().toString());
         return;
       }
-      if (senderIdx != idx) { // obviously if sender is self we can not block
+      if (senderIdx != e.nodeId()) {
         Event senderCnd = _events[senderIdx];
         if (senderCnd != null) {
           if (isSenderRecvPair(senderCnd, e)) {
@@ -407,7 +414,7 @@ public final class TimelineSnapshot implements
             }
           }
         }
-        e._blocked = true;
+        e._blocked = true;// (senderIdx != e.nodeId());                                                     
       }
     }
     assert (e == null) || (e._arr[1] < 1024);
@@ -440,18 +447,21 @@ public final class TimelineSnapshot implements
     return _edges.get(e);
   }
 
-  
   /**
-   * Get the next event of the timeline according to the ordering.
-   * Ordering is performed in this method. 
-   * Basically there are n ordered stream of events with possible dependenencies caused by send/rcv relation.
+   * Get the next event of the timeline according to the ordering. Ordering is
+   * performed in this method. Basically there are n ordered stream of events
+   * with possible dependenencies caused by send/rcv relation.
    * 
-   * Sends are always eligible to be scheduled. Receives are eligible only if their matching send was already issued.
-   * In situation when current events of all streams are blocked (should not happen!) the oldest one is unblocked and issued.
+   * Sends are always eligible to be scheduled. Receives are eligible only if
+   * their matching send was already issued. In situation when current events of
+   * all streams are blocked (should not happen!) the oldest one is unblocked
+   * and issued.
    * 
-   * Out of all eligible events, the smallest one (according to Event.compareTo) is picked.
+   * Out of all eligible events, the smallest one (according to Event.compareTo)
+   * is picked.
    */
-  @Override public TimelineSnapshot.Event next() {
+  @Override
+  public TimelineSnapshot.Event next() {
     if (!hasNext())
       throw new NoSuchElementException();
     int selectedIdx = -1;
@@ -495,8 +505,15 @@ public final class TimelineSnapshot implements
     Event res = _events[selectedIdx];
     _events[selectedIdx] = _events[selectedIdx].nextEvent();
     if (_events[selectedIdx] != null && !_processed)
-      processEvent(selectedIdx);
-    // System.out.println("selected send? " + selectedEvent.isSend());
+      processEvent(_events[selectedIdx]);
+    // DEBUG
+//    if (_processed)
+//      if (res.isRecv())
+//        System.out.println("# " + res + " PAIRED WITH "
+//            + (_edges.containsKey(res) ? _edges.get(res) : "*** NONE ****"));
+//      else
+//        System.out.println("# " + res + " receivers: "
+//            + _sends.get(res).toString());
     return res;
   }
 

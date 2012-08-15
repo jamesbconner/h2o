@@ -59,7 +59,7 @@ public class PokerDRF extends DRemoteTask implements Director {
     long t = System.currentTimeMillis();
     pkr.doRun();
     return "DRF computed. " + pkr._nrecords
-        + " records processed in " + (System.currentTimeMillis() - t / 1000) + " seconds, error = "
+        + " records processed in " + ((System.currentTimeMillis() - t) / 1000) + " seconds, error = "
         + (double) pkr._error / (double) pkr._nrecords;
     
   }
