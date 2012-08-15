@@ -27,20 +27,19 @@ import water.csv.CSVParserKV;
  * Distributed RF implementation for poker Data set.
  * 
  * @author tomas
- * 
  */
 public class PokerDRF extends DRemoteTask implements Director {
 
   private static final long serialVersionUID = 1976547559782826435L;
 
   private static String _nodePrefix = null;
-  public static int _nodeId;
+  public static final int _nodeId = H2O.CLOUD.nidx(H2O.SELF);;
+  final static int _nNodes = H2O.CLOUD._memary.length;
 
   TreeBuilder _treeBldr;
   PokerValidator _val;
-  Key[] _compKeys;
+  final Key[] _compKeys = new Key[_nNodes];
   int _totalTrees;
-  int _nNodes;
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
   ProgressMonitor _progress;
@@ -51,69 +50,39 @@ public class PokerDRF extends DRemoteTask implements Director {
 
 
   public static String webrun(Key k, int n) {
-    PokerDRF pkr = new PokerDRF(k, n, "[" + (int) (1000000 * Math.random())
-        + "]_");
+    PokerDRF pkr = new PokerDRF(k, n, "[" + (int) (1000000 * Math.random()) + "]_");
     long t = System.currentTimeMillis();
     pkr.doRun();
-    return "DRF computed. " + pkr._nrecords
-        + " records processed in " + ((System.currentTimeMillis() - t) / 1000) + " seconds, error = "
-        + (double) pkr._error / (double) pkr._nrecords;
+    return "DRF computed. " + pkr._nrecords + " records processed in " + ellapsed(t) + 
+        " seconds, error = " + (double) pkr._error / (double) pkr._nrecords;
     
   }
 
-  static void sleep() {
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-    }
-  }
+  static void sleep() { try {  Thread.sleep(1000); } catch (InterruptedException e) { } }  
+  static long ellapsed(long t) { return ((System.currentTimeMillis() - t) / 1000); }
 
-  public PokerDRF() {
-  }
-
+  public PokerDRF() { }
  
   public PokerDRF(Key k, int ntrees, String keyPrefix) {
     _totalTrees = ntrees;
-    _nNodes = H2O.CLOUD._memary.length;
     int nTreesPerNode = _totalTrees / _nNodes;
     int kIdx = 0;
-    _compKeys = new Key[H2O.CLOUD._memary.length];
     for (H2ONode node : H2O.CLOUD._memary) {
       // home each key to designated computation node
-      _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1,
-          Key.DFJ_INTERNAL_USER, node);
+      _compKeys[kIdx] = Key.make("PokerRF" + kIdx, (byte) 1, Key.DFJ_INTERNAL_USER, node);
       // store the keys driving (distributing) the application
-      Message.Init initMsg = new Message.Init(keyPrefix, _compKeys[kIdx], k,
-          nTreesPerNode, ntrees);
-      initMsg.send();
-      ++kIdx;
+     new Message.Init(keyPrefix, _compKeys[kIdx++], k, nTreesPerNode, ntrees).send();
     }
   }
 
   class ProgressMonitor implements Runnable {
-    int _nTreesComputed;
     volatile boolean _done;
-    double _currentError;
-    long _nRecords;
-
-    ProgressMonitor() {   }
 
     public void run() {
       while (!_done) {
-        sleep();
-        Message.Text t = Message.Text.readNext();
-        if (t != null)
-          System.out.println(t);
+        System.out.println(Message.Text.readNext());  sleep();
       }
     }
-  }
-
-  public int ntreesComputed() {
-    return _progress._nTreesComputed / _nNodes;
-  }
-
-  public double error() {
-    return _progress._currentError;
   }
 
   public void doRun() {
@@ -135,11 +104,10 @@ public class PokerDRF extends DRemoteTask implements Director {
         nrecords += err.nrecords_;
       }
     }
-    long runTime = System.currentTimeMillis() - startTime;
     _nrecords = nrecords;
     _error = errors;
     System.out.println("DRF computed. " + nrecords + " records processed in "
-        + (runTime / 1000) + " seconds, error = " + (double) errors
+        + ellapsed(startTime) + " seconds, error = " + (double) errors
         / (double) nrecords);
 
   }
@@ -175,38 +143,32 @@ public class PokerDRF extends DRemoteTask implements Director {
 
   @Override
   public void map(Key k) {
-    DataAdapter builderData = new DataAdapter("poker", new String[] { "0", "1",
-        "2", "3", "4", "5", "6", "7", "8", "9", "10" }, "10", 10);
-    DataAdapter validatorData = new DataAdapter("poker", new String[] { "0",
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, "10", 10);
+    String[] cols =  new String[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
+    DataAdapter builderData = new DataAdapter("poker",cols, "10", 10);
+    DataAdapter validatorData = new DataAdapter("poker", cols, "10", 10);
     Message.Init initMsg = Message.Init.read(k);
     int[] r = new int[11];
     _nodePrefix = initMsg._nodePrefix;
-    _nodeId = H2O.CLOUD.nidx(H2O.CLOUD.SELF);
     _totalTrees = initMsg._totalTrees;
 
     Value dataRootValue = DKV.get(Key.make(initMsg._kb));
     double[] v = new double[11];
-    report("Parsing the data");
+    report("Parsing...");
     int recCounter = 0;
     for (long i = 0; i < dataRootValue.chunks(); ++i) {
       CSVParserKV<int[]> p1 = null;
       Value val = null;
       if (dataRootValue instanceof ValueArray) {
         Key chunk = dataRootValue.chunk_get(i);
-        if (!chunk.home())
-          continue; // only compute our own keys
+        if (!chunk.home()) continue; // only compute our own keys
         val = DKV.get(chunk);
-        if (val == null)
-          continue;
-        System.out.print(" " + i);
+        if (val == null) continue;
         p1 = new CSVParserKV<int[]>(chunk, 1, r, null);
       } else {
         p1 = new CSVParserKV<int[]>(dataRootValue.get(), r, null);
       }
       for (int[] x : p1) {
-        for (int j = 0; j < 11; j++)
-          v[j] = x[j];
+        for (int j = 0; j < 11; j++) v[j] = x[j];
         ++_nrecords;
         if (++recCounter % 3 != 0)
           builderData.addRow(v);
@@ -214,13 +176,11 @@ public class PokerDRF extends DRemoteTask implements Director {
           validatorData.addRow(v);          
         }
       }
-      if (val != null)
-        val.free_mem(); // remove the csv src from mem
+      if (val != null) val.free_mem(); // remove the csv src from mem
     }
     builderData.freeze();
     validatorData.freeze();
-    report("done parsing, " + _nrecords + " read.");
-    report("Shrinking the data");
+    report("Read "+_nrecords+" rows.\nShrinking the data");
     Data bD = Data.make(builderData.shrinkWrap());
     _val = new PokerValidator(Data.make(validatorData.shrinkWrap()));
     builderData = null;
