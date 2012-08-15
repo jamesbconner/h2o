@@ -67,7 +67,6 @@ class TreeAggregator {
     for (int i = 0; i< badRows.length; ++i) {
       chunk.storeVote(badRows[i], badVotes[i]);
     }
-    glue_.onAggregatorChange();
   }
   
   public double getError() {

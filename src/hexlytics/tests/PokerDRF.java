@@ -3,18 +3,15 @@ package hexlytics.tests;
 import hexlytics.Tree;
 import hexlytics.RFBuilder.Director;
 import hexlytics.RFBuilder.Message;
-import hexlytics.RFBuilder.Message.Init;
 import hexlytics.RFBuilder.Message.ValidationError;
 import hexlytics.RFBuilder.TreeBuilder;
 import hexlytics.RFBuilder.TreeValidator;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
-import init.init;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
 import water.DKV;
 import water.DRemoteTask;
@@ -22,7 +19,6 @@ import water.H2O;
 import water.H2ONode;
 import water.Key;
 import water.RemoteTask;
-import water.UDP;
 import water.Value;
 import water.ValueArray;
 import water.csv.CSVParserKV;
@@ -37,21 +33,22 @@ public class PokerDRF extends DRemoteTask implements Director {
 
   private static final long serialVersionUID = 1976547559782826435L;
 
+  private static String _nodePrefix = null;
+  public static int _nodeId;
+
   TreeBuilder _treeBldr;
   PokerValidator _val;
   Key[] _compKeys;
   int _totalTrees;
   int _nNodes;
-
-  public static String nodePrefix(int nodeIdx) {
-    return "PkrDRF" + _nodePrefix + "Nd" + nodeIdx + "_";
-  }
-
-  private static String _nodePrefix = null;
-  public static int _nodeId;
-
   long _error; // total number of misclassified records (from validation data)
   long _nrecords; // number of validation records
+  ProgressMonitor _progress;
+
+  public static String nodePrefix(int nodeIdx) {
+    return "P" + _nodePrefix + "N" + nodeIdx + "_";
+  }
+
 
   public static String webrun(Key k, int n) {
     PokerDRF pkr = new PokerDRF(k, n, "[" + (int) (1000000 * Math.random())
@@ -74,8 +71,7 @@ public class PokerDRF extends DRemoteTask implements Director {
   public PokerDRF() {
   }
 
-  ProgressMonitor _progress;
-
+ 
   public PokerDRF(Key k, int ntrees, String keyPrefix) {
     _totalTrees = ntrees;
     _nNodes = H2O.CLOUD._memary.length;
@@ -100,9 +96,7 @@ public class PokerDRF extends DRemoteTask implements Director {
     double _currentError;
     long _nRecords;
 
-    ProgressMonitor() {
-
-    }
+    ProgressMonitor() {   }
 
     public void run() {
       while (!_done) {
@@ -279,26 +273,19 @@ public class PokerDRF extends DRemoteTask implements Director {
   public void onBuilderTerminated() {
   }
 
-  public void onAggregatorChange() {
-  }
-
-  public void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes) {
-  }
-
+   
   public void onValidatorTerminated() {
   }
 
   public void report(String what) {
-    Message m = new Message.Text(what);
-    m.send();
+    new Message.Text(what).send();
   }
 
-  @Override
   public String nodeName() {
     return "Node" + _nodeId;
   }
 
-  @Override
+ 
   public void error(long error) {    
     new Message.ValidationError(error, _nrecords).send();    
   }

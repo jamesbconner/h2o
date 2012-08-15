@@ -14,11 +14,6 @@ public interface Director {
   
   /** Called by the builder when it terminates. */
   void onBuilderTerminated();
-
-  /** Called by the aggregator when it has new results.  */
-  void onAggregatorChange();  
-
-  void onTreeValidated(Tree tree, int rows, int[] badRows, int[] badVotes);
   
   void onValidatorTerminated();
   
