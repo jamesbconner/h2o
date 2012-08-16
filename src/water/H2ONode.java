@@ -282,6 +282,26 @@ public class H2ONode implements Comparable {
     fjqueue_depth(2),           // Number of elements in FJ work queue
     node_type(1),               // Node type - used by HDFS to distinguish
                                 // between data and name nodes
+    total_in_conn(4),           // Total number of IN connections
+    total_out_conn(4),          // Total number of OUT connections
+    tcp_in_conn(4),             // Total number of TCP IN connections
+    tcp_out_conn(4),            // Total number of TCP OUT connections
+    udp_in_conn(4),             // Total number of UDP IN "connections" (i.e, opened server UDP socket)
+    udp_out_conn(4),            // Total number of UDP OUT "connections" (i.e, opened client UDP socket)
+    total_packets_recv(8),      // Total packets received
+    total_packets_sent(8),      // Total packets sent
+    total_bytes_recv(8),        // Total bytes received
+    total_bytes_sent(8),        // Total bytes sent    
+    total_bytes_recv_rate(4),   // Incoming traffic rate
+    total_bytes_sent_rate(4),   // Outgoing traffic rate
+    tcp_packets_recv(8),        // TCP segments received
+    tcp_packets_sent(8),        // TCP segments sent
+    tcp_bytes_recv(8),          // TCP bytes received
+    tcp_bytes_sent(8),          // TCP bytes sent
+    udp_packets_recv(8),        // UDP packets received
+    udp_packets_sent(8),        // UDP packets sent
+    udp_bytes_recv(8),          // UDP packets received
+    udp_bytes_sent(8),          // UDP packets sent
     ;
     final int x;
     size(int x) { this.x=x; }
@@ -306,7 +326,29 @@ public class H2ONode implements Comparable {
     thread_count(cpu_load_15.x+size.cpu_load_15.x),
     fjqueue_depth(thread_count.x+size.thread_count.x),
     node_type(fjqueue_depth.x+size.fjqueue_depth.x),
-    max     (node_type.x+size.node_type.x);    
+    // Network statistics
+    total_in_conn   (node_type.x+size.node_type.x),
+    total_out_conn  (total_in_conn.x+size.total_in_conn.x),
+    tcp_in_conn     (total_out_conn.x+size.total_out_conn.x),
+    tcp_out_conn    (tcp_in_conn.x+size.tcp_in_conn.x),
+    udp_in_conn     (tcp_out_conn.x+size.tcp_out_conn.x),
+    udp_out_conn    (udp_in_conn.x+size.udp_in_conn.x),
+    total_packets_recv (udp_out_conn.x+size.udp_out_conn.x),
+    total_packets_sent (total_packets_recv.x+size.total_packets_recv.x),
+    total_bytes_recv(total_packets_sent.x+size.total_packets_sent.x),
+    total_bytes_sent(total_bytes_recv.x+size.total_bytes_recv.x),
+    total_bytes_recv_rate(total_bytes_sent.x+size.total_bytes_sent.x),
+    total_bytes_sent_rate(total_bytes_recv_rate.x+size.total_bytes_recv_rate.x),
+    tcp_packets_recv(total_bytes_sent_rate.x+size.total_bytes_sent_rate.x),
+    tcp_packets_sent(tcp_packets_recv.x+size.tcp_packets_recv.x),
+    tcp_bytes_recv  (tcp_packets_sent.x+size.tcp_packets_sent.x),   
+    tcp_bytes_sent  (tcp_bytes_recv.x+size.tcp_bytes_recv.x),
+    udp_packets_recv(tcp_bytes_sent.x+size.tcp_bytes_sent.x),
+    udp_packets_sent(udp_packets_recv.x+size.udp_packets_recv.x),
+    udp_bytes_recv  (udp_packets_sent.x+size.udp_packets_sent.x),
+    udp_bytes_sent  (udp_bytes_recv.x+size.udp_bytes_recv.x),
+        
+    max             (udp_bytes_sent.x+size.udp_bytes_sent.x);    
     final int x;
     offset(int x) { this.x=x; }
   }
@@ -338,6 +380,27 @@ public class H2ONode implements Comparable {
   public void set_thread_count(int n) { set_buf(offset.thread_count.x,size.thread_count.x,n); }
   public void set_fjqueue_depth(int qd) { set_buf(offset.fjqueue_depth.x,size.fjqueue_depth.x,qd); }
   public void set_node_type(byte nt) { set_buf(offset.node_type.x,size.node_type.x,nt); }
+  public void set_total_in_conn(int n)  { set_buf(offset.total_in_conn.x, size.total_in_conn.x, n); }
+  public void set_total_out_conn(int n) { set_buf(offset.total_out_conn.x, size.total_out_conn.x, n); }
+  public void set_tcp_in_conn(int n)    { set_buf(offset.tcp_in_conn.x, size.tcp_in_conn.x, n); }
+  public void set_tcp_out_conn(int n)   { set_buf(offset.tcp_out_conn.x, size.tcp_out_conn.x, n); }
+  public void set_udp_in_conn(int n)    { set_buf(offset.udp_in_conn.x, size.udp_in_conn.x, n); }
+  public void set_udp_out_conn(int n)   { set_buf(offset.udp_out_conn.x, size.udp_out_conn.x, n); }
+  public void set_total_packets_recv(long n){ set_buf(offset.total_packets_recv.x, size.total_packets_recv.x, n); }
+  public void set_total_packets_sent(long n){ set_buf(offset.total_packets_sent.x, size.total_packets_sent.x, n); }
+  public void set_total_bytes_recv(long n){ set_buf(offset.total_bytes_recv.x, size.total_bytes_recv.x, n); }
+  public void set_total_bytes_sent(long n){ set_buf(offset.total_bytes_sent.x, size.total_bytes_sent.x, n); }
+  public void set_total_bytes_recv_rate(int n) { set_buf(offset.total_bytes_recv_rate.x, size.total_bytes_recv_rate.x, n); }
+  public void set_total_bytes_sent_rate(int n) { set_buf(offset.total_bytes_sent_rate.x, size.total_bytes_sent_rate.x, n); }
+  public void set_tcp_packets_recv(long n){ set_buf(offset.tcp_packets_recv.x, size.tcp_packets_recv.x, n); }
+  public void set_tcp_packets_sent(long n){ set_buf(offset.tcp_packets_sent.x, size.tcp_packets_sent.x, n); }
+  public void set_tcp_bytes_recv(long n){ set_buf(offset.tcp_bytes_recv.x, size.tcp_bytes_recv.x, n); }
+  public void set_tcp_bytes_sent(long n){ set_buf(offset.tcp_bytes_sent.x, size.tcp_bytes_sent.x, n); }
+  public void set_udp_packets_recv(long n) { set_buf(offset.udp_packets_recv.x, size.udp_packets_recv.x, n); }
+  public void set_udp_packets_sent(long n) { set_buf(offset.udp_packets_sent.x, size.udp_packets_sent.x, n); }
+  public void set_udp_bytes_recv(long n) { set_buf(offset.udp_bytes_recv.x, size.udp_bytes_recv.x, n); }
+  public void set_udp_bytes_sent(long n) { set_buf(offset.udp_bytes_sent.x, size.udp_bytes_sent.x, n); }
+
   public int  get_num_cpus () {return (int)get_buf(offset.num_cpus.x,size.num_cpus.x  ); }
   public long get_free_mem () {return      get_buf(offset.free_mem.x,size.free_mem.x  )<<10; }
   public long get_tot_mem  () {return      get_buf(offset.tot_mem .x,size.tot_mem .x  )<<10; }
@@ -371,6 +434,26 @@ public class H2ONode implements Comparable {
   }
   public int get_thread_count() { return (int)get_buf(offset.thread_count.x, size.thread_count.x); }
   public int get_fjqueue_depth() { return (int)get_buf(offset.fjqueue_depth.x, size.fjqueue_depth.x); }
+  public int get_total_in_conn()    { return (int)get_buf(offset.total_in_conn.x, size.total_in_conn.x); }
+  public int get_total_out_conn()   { return (int)get_buf(offset.total_out_conn.x, size.total_out_conn.x); }
+  public int get_tcp_in_conn()      { return (int)get_buf(offset.tcp_in_conn.x, size.tcp_in_conn.x); }
+  public int get_tcp_out_conn()     { return (int)get_buf(offset.tcp_out_conn.x, size.tcp_out_conn.x); }
+  public int get_udp_in_conn()      { return (int)get_buf(offset.udp_in_conn.x, size.udp_in_conn.x); }
+  public int get_udp_out_conn()     { return (int)get_buf(offset.udp_out_conn.x, size.udp_out_conn.x); }
+  public long get_total_packets_recv() { return get_buf(offset.total_packets_recv.x, size.total_packets_recv.x); }
+  public long get_total_packets_sent() { return get_buf(offset.total_packets_sent.x, size.total_packets_sent.x); }
+  public long get_total_bytes_recv() { return get_buf(offset.total_bytes_recv.x, size.total_bytes_recv.x); }
+  public long get_total_bytes_sent() { return get_buf(offset.total_bytes_sent.x, size.total_bytes_sent.x); }
+  public int  get_total_bytes_recv_rate() { return (int) get_buf(offset.total_bytes_recv_rate.x, size.total_bytes_recv_rate.x); }
+  public int  get_total_bytes_sent_rate() { return (int) get_buf(offset.total_bytes_sent_rate.x, size.total_bytes_sent_rate.x); }
+  public long get_tcp_packets_recv() { return get_buf(offset.tcp_packets_recv.x, size.tcp_packets_recv.x); }
+  public long get_tcp_packets_sent() { return get_buf(offset.tcp_packets_sent.x, size.tcp_packets_sent.x); }
+  public long get_tcp_bytes_recv()  { return get_buf(offset.tcp_bytes_recv.x, size.tcp_bytes_recv.x); }
+  public long get_tcp_bytes_sent()  { return get_buf(offset.tcp_bytes_sent.x, size.tcp_bytes_sent.x); }  
+  public long get_udp_packets_recv(){ return get_buf(offset.udp_packets_recv.x, size.udp_packets_recv.x); }
+  public long get_udp_packets_sent(){ return get_buf(offset.udp_packets_sent.x, size.udp_packets_sent.x); }
+  public long get_udp_bytes_recv(){ return get_buf(offset.udp_bytes_recv.x, size.udp_bytes_recv.x); }
+  public long get_udp_bytes_sent(){ return get_buf(offset.udp_bytes_sent.x, size.udp_bytes_sent.x); }
   
   public static final byte HDFS_NAMENODE = 'N';
   
