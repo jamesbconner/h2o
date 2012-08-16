@@ -249,6 +249,7 @@ public final class ParseDataset {
           if( Double.isNaN(d) )                     _cols[i]._size |=32; // Broken data on row
         }
       }
+      assert num_rows > 0;   // Parsing no rows generally means a broken parser
 
       _num_rows = num_rows;
       // Also pass along the rows-per-chunk

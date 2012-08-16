@@ -17,9 +17,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
   // Some useful fields for *local* execution.  These fields are never passed
   // over the wire, and so do not need to be in the users' read/write methods.
-  Key[] _keys;                  // Keys to work on
-  int _lo, _hi;                 // Range of keys to work on
-  DRemoteTask _left, _rite;     // In-progress execution tree
+  private Key[] _keys;           // Keys to work on
+  private int _lo, _hi;          // Range of keys to work on
+  private DRemoteTask _left, _rite; // In-progress execution tree
 
   // Run some useful function over this *local* key, and record the results in
   // the 'this' DRemoteTask.

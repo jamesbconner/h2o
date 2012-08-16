@@ -159,7 +159,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   public static class ParserSetup {
     public boolean skipFirstRecord = true; // applies ononly
     public boolean parseColumnNames = false;
-    public boolean whiteSpaceSeparator = false;
+    public boolean whiteSpaceSeparator = true;
     public boolean collapseWhiteSpaceSeparators = true;
     public boolean ignoreEmptyRecords = true;
     public int partialRecordPolicy = FILL_PARTIAL_RECORDS_WITH_DEFAULTS;
