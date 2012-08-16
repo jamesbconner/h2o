@@ -34,6 +34,7 @@ public class HeartBeatThread extends Thread {
   // with the membership Heartbeat, they will start a round of Paxos group
   // discovery.
   public void run() {
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
     Sigar sigar = new Sigar();      
      
     while( true ) {
@@ -53,7 +54,9 @@ public class HeartBeatThread extends Thread {
       me.set_keys    (H2O.STORE.size());
       me.set_valsz   (MemoryManager.USED.get());
       me.set_thread_count(Thread.currentThread().getThreadGroup().activeCount());
-      me.set_fjqueue_depth(H2O.FJP.getQueuedSubmissionCount());
+      me.set_fjqueue_hi(H2O.FJP_HI  .getQueuedSubmissionCount());
+      me.set_fjqueue_lo(H2O.FJP_NORM.getQueuedSubmissionCount());
+      me.set_tcps_active(TCPReceiverThread.TCPS_IN_PROGRESS.get());
       // get the usable and total disk storage for the partition where the
       // persistent KV pairs are stored 
       if (PersistIce.ROOT==null) {

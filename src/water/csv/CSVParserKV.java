@@ -162,7 +162,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     public boolean whiteSpaceSeparator = true;
     public boolean collapseWhiteSpaceSeparators = true;
     public boolean ignoreEmptyRecords = true;
-    public int partialRecordPolicy = FILL_PARTIAL_RECORDS_WITH_DEFAULTS;
+    public int partialRecordPolicy = DROP_PARTIAL_RECORDS;
     public char separator = ',';
     public int defaultInt = Integer.MAX_VALUE;
     public float defaultFloat = Float.NaN;

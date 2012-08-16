@@ -136,10 +136,12 @@ public abstract class MemoryManager {
     int i = 0;                  // Iterator index
     while( true ) {
       long oldVal = USED.get();
-      if( can_allocate(size) && // Can allocate: will not overrun margin
-          USED.compareAndSet(oldVal, oldVal+size) ) {
-        byte[] mem = tryAllocateMemory2(size);
-        if( mem != null ) return mem;
+      if( can_allocate(size) ) { // Can allocate: will not overrun margin
+        if( USED.compareAndSet(oldVal, oldVal+size) ) {
+          byte[] mem = tryAllocateMemory2(size);
+          if( mem != null ) return mem;
+        } else
+          continue;             // Retry the CAS
       }
       // Get an iterator over the entire local H2O store.
       // Start from the last iteration point.

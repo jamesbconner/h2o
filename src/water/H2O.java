@@ -227,13 +227,11 @@ public final class H2O {
 
 
   // --------------------------------------------------------------------------
-  // The main Fork/Join worker pool
-  public static final ForkJoinPool FJP
-    = new ForkJoinPool(Runtime.getRuntime().availableProcessors(),
-                       ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-                       null, // handler for catching uncaught exceptions
-                       false // stack-mode by default
-                       );
+  // The main Fork/Join worker pool(s).
+  // Hi-priority work is things that block other things, eg. TaskGetKey
+  public static final ForkJoinPool FJP_HI   = new ForkJoinPool();
+  // Normal-priority work is generally directly-requested user ops.
+  public static final ForkJoinPool FJP_NORM = new ForkJoinPool();
 
   // --------------------------------------------------------------------------
   public static OptArgs OPT_ARGS;

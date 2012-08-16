@@ -75,6 +75,7 @@ public class TaskPutKey extends DFutureTask<Object> {
   public static class RemoteHandler extends UDP {
     // Received a request to put a key
     void call(DatagramPacket p, H2ONode sender) {
+      Thread.currentThread().setPriority(Thread.MAX_PRIORITY-2);
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
@@ -148,7 +149,7 @@ public class TaskPutKey extends DFutureTask<Object> {
 
   // Unpack the answer: there is none!  There is a bulkier version which
   // returns the old value.
-  protected Value unpack( DatagramPacket p ) {
-    return null;
+  protected Object unpack( DatagramPacket p ) {
+    return _key;
   }
 }

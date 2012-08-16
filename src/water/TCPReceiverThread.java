@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The Thread that looks for TCP Cloud requests.
@@ -15,12 +16,16 @@ import java.net.Socket;
 
 public class TCPReceiverThread extends Thread {
 
+  // How many threads would like to do TCP right now?
+  public static final AtomicInteger TCPS_IN_PROGRESS = new AtomicInteger(0);
+
   // The Run Method.
 
   // Started by main() on a single thread, this code manages reading TCP requests
   public void run() {
     ServerSocket sock = null, errsock = null;
     boolean saw_error = false;
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
 
     // Loop forever accepting Cloud Management requests
     while( true ) {

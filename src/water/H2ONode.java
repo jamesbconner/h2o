@@ -279,7 +279,9 @@ public class H2ONode implements Comparable {
     cpu_load_5(2),              // CPU load over last 5 minutes
     cpu_load_15(2),             // CPU load over last 15 minutes
     thread_count(2),            // Number of threads (not all are runnable)
-    fjqueue_depth(2),           // Number of elements in FJ work queue
+    fjqueue_hi(2),              // Number of elements in FJ work queue
+    fjqueue_lo(2),              // Number of elements in FJ work queue
+    tcps_active(2),             // Threads trying do a TCP send
     node_type(1),               // Node type - used by HDFS to distinguish
                                 // between data and name nodes
     ;
@@ -304,8 +306,10 @@ public class H2ONode implements Comparable {
     cpu_load_5(cpu_load_1.x+size.cpu_load_1.x),
     cpu_load_15(cpu_load_5.x+size.cpu_load_5.x),
     thread_count(cpu_load_15.x+size.cpu_load_15.x),
-    fjqueue_depth(thread_count.x+size.thread_count.x),
-    node_type(fjqueue_depth.x+size.fjqueue_depth.x),
+    fjqueue_hi(thread_count.x+size.thread_count.x),
+    fjqueue_lo(fjqueue_hi.x+size.fjqueue_hi.x),
+    tcps_active(fjqueue_lo.x+size.fjqueue_lo.x),
+    node_type(tcps_active.x+size.tcps_active.x),
     max     (node_type.x+size.node_type.x);    
     final int x;
     offset(int x) { this.x=x; }
@@ -335,9 +339,11 @@ public class H2ONode implements Comparable {
     set_buf(offset.cpu_load_15.x, size.cpu_load_15.x,
             fifteenMinutes >= 0 ? ((long)(1000*fifteenMinutes)) & 0xFFFF : 0xFFFF);
   }
-  public void set_thread_count(int n) { set_buf(offset.thread_count.x,size.thread_count.x,n); }
-  public void set_fjqueue_depth(int qd) { set_buf(offset.fjqueue_depth.x,size.fjqueue_depth.x,qd); }
-  public void set_node_type(byte nt) { set_buf(offset.node_type.x,size.node_type.x,nt); }
+  public void set_thread_count(int n){ set_buf(offset.thread_count.x,size.thread_count.x,n ); }
+  public void set_fjqueue_hi(int qd) { set_buf(offset.fjqueue_hi  .x,size.fjqueue_hi  .x,qd); }
+  public void set_fjqueue_lo(int qd) { set_buf(offset.fjqueue_lo  .x,size.fjqueue_lo  .x,qd); }
+  public void set_tcps_active(int t) { set_buf(offset.tcps_active .x,size.tcps_active .x,t ); }
+  public void set_node_type(byte nt) { set_buf(offset.node_type   .x,size.node_type   .x,nt); }
   public int  get_num_cpus () {return (int)get_buf(offset.num_cpus.x,size.num_cpus.x  ); }
   public long get_free_mem () {return      get_buf(offset.free_mem.x,size.free_mem.x  )<<10; }
   public long get_tot_mem  () {return      get_buf(offset.tot_mem .x,size.tot_mem .x  )<<10; }
@@ -370,7 +376,9 @@ public class H2ONode implements Comparable {
       return -1.0;
   }
   public int get_thread_count() { return (int)get_buf(offset.thread_count.x, size.thread_count.x); }
-  public int get_fjqueue_depth() { return (int)get_buf(offset.fjqueue_depth.x, size.fjqueue_depth.x); }
+  public int get_fjqueue_lo() { return (int)get_buf(offset.fjqueue_lo.x, size.fjqueue_lo.x); }
+  public int get_fjqueue_hi() { return (int)get_buf(offset.fjqueue_hi.x, size.fjqueue_hi.x); }
+  public int get_tcps_active() { return (int)get_buf(offset.tcps_active.x, size.tcps_active.x); }
   
   public static final byte HDFS_NAMENODE = 'N';
   

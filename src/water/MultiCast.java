@@ -36,7 +36,8 @@ public abstract class MultiCast {
       DPack.setPort(port);
       DPack.setData(buf,off,len);
       TimeLine.record_send(DPack);
-      sock.send(DPack);            
+      sock.send(DPack);
+      assert UDP.get_port(buf) == H2O.UDP_PORT; // Detect racey packet-port-hacking
     } catch( Exception e ) {
       // On any error from anybody, close all sockets & re-open
       System.err.println("UDP send on "+DPack.getAddress()+":"+DPack.getPort()+" got error "+e);

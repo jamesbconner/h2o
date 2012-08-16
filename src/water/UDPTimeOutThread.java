@@ -18,6 +18,7 @@ public class UDPTimeOutThread extends Thread {
 
   // Started by main() on a single thread, handle timing-out UDP packets
   public void run() {
+    Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
     while( true ) {
       try {
         DFutureTask t = PENDING.take();

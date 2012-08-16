@@ -2,6 +2,7 @@ package water;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
+import jsr166y.ForkJoinPool;
 
 /**
  * Do Something with an incoming UDP packet
@@ -47,6 +48,7 @@ public abstract class UDP {
     final boolean _paxos;     // Ignore (or not) packets from outside the Cloud
     udp( boolean paxos, UDP udp ) { _paxos = paxos; _udp = udp; }
     static public udp[] UDPS = values();
+    ForkJoinPool pool() { return this==rexec ? H2O.FJP_NORM : H2O.FJP_HI; }
   };
 
   abstract void call(DatagramPacket pack, H2ONode h2o);

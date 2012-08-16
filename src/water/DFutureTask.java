@@ -120,7 +120,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     if( _res != null ) return _res; // Fast-path shortcut
     // Use FJP ManagedBlock for this blocking-wait - so the FJP can spawn
     // another thread if needed.
-    try { H2O.FJP.managedBlock(this); } catch( InterruptedException e ) { }
+    try { _type.pool().managedBlock(this); } catch( InterruptedException e ) { }
     assert isDone();
     return _res;
   }
@@ -179,6 +179,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // Called on the REMOTE Node; finish up & send a single reply packet.
   static void reply(DatagramPacket p, int len, H2ONode h2o) {
     byte[] buf = p.getData();
+    UDP.set_port(buf,H2O.UDP_PORT); // Always acks set reply port
     H2O.VOLATILE = 0;           // Dummy volatile write
     // This is a response to a remote task-type.  The response task# is in bytes
     // 3-7.  One-shot set the response to be a standard 'ack'.  Forever-more,
@@ -219,56 +220,57 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // TCP large K/V send from the remote to the target.
 
   static boolean tcp_send( H2ONode h2o, UDP.udp udp_type, int tasknum, Object... args ) {
-    synchronized(h2o) {   // Only open 1 TCP channel to that H2O at a time!
-      Socket sock = null;
-      try {
-        sock = new Socket( h2o._key._inet, h2o._key.tcp_port() );
-        DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
-        // Write out the initial operation & key
-        dos.writeByte(udp_type.ordinal());
-        dos.writeShort(H2O.UDP_PORT);
-        dos.writeInt(tasknum);
+    int x = TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
+    Socket sock = null;
+    try {
+      sock = new Socket( h2o._key._inet, h2o._key.tcp_port() );
+      DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
+      // Write out the initial operation & key
+      dos.writeByte(udp_type.ordinal());
+      dos.writeShort(H2O.UDP_PORT);
+      dos.writeInt(tasknum);
 
-        // Write all passed args.  Probably should an array of LineWire
-        // interfaces so I do not need this evil instanceof-tree.
-        for( int i=0; i<args.length; i++ ) {
-          Object arg = args[i];
-          if( arg instanceof Key ) ((Key)arg).write(dos);
-          else if( arg instanceof RemoteTask ) ((RemoteTask)arg).write(dos);
-          else if( arg instanceof Value ) {
-            // For Values, support a pre-loaded byte[]
-            if( i < args.length-1 && args[i+1] instanceof byte[] ) {
-              ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
-              i++;
-            } else {
-              ((Value)arg).write(dos,Integer.MAX_VALUE);
-            }
-          } else if( arg instanceof String ) {
-            byte[] b = ((String)arg).getBytes();
-            dos.writeShort(b.length);
-            dos.write(b);
-          } else if( arg instanceof Byte ) {
-            dos.writeByte((Byte)arg);
+      // Write all passed args.  Probably should an array of LineWire
+      // interfaces so I do not need this evil instanceof-tree.
+      for( int i=0; i<args.length; i++ ) {
+        Object arg = args[i];
+        if( arg instanceof Key ) ((Key)arg).write(dos);
+        else if( arg instanceof RemoteTask ) ((RemoteTask)arg).write(dos);
+        else if( arg instanceof Value ) {
+          // For Values, support a pre-loaded byte[]
+          if( i < args.length-1 && args[i+1] instanceof byte[] ) {
+            ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
+            i++;
           } else {
-            throw new Error("unimplemented passing a "+(arg.getClass()));
+            ((Value)arg).write(dos,Integer.MAX_VALUE);
           }
+        } else if( arg instanceof String ) {
+          byte[] b = ((String)arg).getBytes();
+          dos.writeShort(b.length);
+          dos.write(b);
+        } else if( arg instanceof Byte ) {
+          dos.writeByte((Byte)arg);
+        } else {
+          throw new Error("unimplemented passing a "+(arg.getClass()));
         }
-
-        dos.flush(); // Flush before trying to get the ack
-        InputStream is = sock.getInputStream();
-        int ack = is.read(); // Read 1 byte of ack
-        if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
-        sock.close();
-        return true;
-      } catch( IOException e ) {
-        try { if( sock != null ) sock.close(); }
-        catch( IOException e2 ) { /*no msg for error on closing broken socket */}
-        // Be silent for SocketException; we get this if the remote dies and we
-        // basically expect them.
-        if( !(e instanceof SocketException) ) // We get these if the remote dies mid-write
-          System.err.println("tcp socket failed "+e);
-        return false;
       }
+
+      dos.flush(); // Flush before trying to get the ack
+      InputStream is = sock.getInputStream();
+      int ack = is.read(); // Read 1 byte of ack
+      if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
+      sock.close();
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
+      return true;
+    } catch( IOException e ) {
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
+      try { if( sock != null ) sock.close(); }
+      catch( IOException e2 ) { /*no msg for error on closing broken socket */}
+      // Be silent for SocketException; we get this if the remote dies and we
+      // basically expect them.
+      if( !(e instanceof SocketException) ) // We get these if the remote dies mid-write
+        System.err.println("tcp socket failed "+e);
+      return false;
     }
   }
 
@@ -276,18 +278,18 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // attempt retry before even sending once.  Track the TCP send logic - it
   // only can survive a single send (dups look like new writes), and it's a
   // large transfer - so dups are bad for performance also.
-  boolean _tcp_done = false;    // Only send TCP once, even if it is slow
+  boolean _tcp_started = false; // Only send TCP once, even if it is slow
   boolean tcp_send_pack( Object ... args ) {
     synchronized(this) {        // One-shot only, allow a TCP send
-      if( _tcp_done ) return true;
-      _tcp_done = true;
+      if( _tcp_started ) return true;
+      _tcp_started = true;
     }
     // NOT under lock, do the TCP send
     return tcp_send(_target,_type,_tasknum,args);
   }
 
   // ---
-  static final long RETRY_MS = 50; // Initial UDP packet retry in msec
+  static final long RETRY_MS = 200; // Initial UDP packet retry in msec
   // How long until we should do the "timeout" action?
   public long getDelay( TimeUnit unit ) {
     long now_ms = System.currentTimeMillis();

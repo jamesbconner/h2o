@@ -101,6 +101,7 @@ public class Inspect extends H2OPage {
       CSVParserKV.ParserSetup setup = new CSVParserKV.ParserSetup();
       setup.whiteSpaceSeparator = true;
       setup.collapseWhiteSpaceSeparators = true;
+      setup.partialRecordPolicy = CSVParserKV.FILL_PARTIAL_RECORDS_WITH_DEFAULTS;
       CSVParserKV<float[]> csv = new CSVParserKV<float[]>(key,1,fs,null, setup);
       float sums[] = new float[fs.length];
       float mins[] = new float[fs.length];

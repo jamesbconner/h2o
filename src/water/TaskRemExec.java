@@ -124,6 +124,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
     // Do the remote execution in a F/J thread & send a reply packet
     static void remexec( RemoteTask dt, Key args, DatagramPacket p, H2ONode h2o ) {
+      Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
       // Now compute on it!
       dt.invoke(args);
 
@@ -145,7 +146,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       reply(p,off,h2o);
     }
 
-    // TCP large DRemoteTask RECEIVE of results.  Note that 'this' is NOT thed
+    // TCP large DRemoteTask RECEIVE of results.  Note that 'this' is NOT the
     // TaskRemExec object that is hoping to get the received object, nor is the
     // current thread the TRE thread blocking for the object.  The current
     // thread is the TCP reader thread.
@@ -184,10 +185,10 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
         // Here I want to execute on this, but not block for completion in the
         // TCP reader thread.  
-        RecursiveTask rt = new RecursiveTask() {
-            public Object compute() { remexec(dt,args,p,h2o); return null; }
+        CountedCompleter cc = new CountedCompleter() {
+            public void compute() { remexec(dt,args,p,h2o); tryComplete(); }
           };
-        H2O.FJP.execute(rt);
+        H2O.FJP_NORM.execute(cc);
         // All done for the TCP thread!  Work continues in the FJ thread...
 
       } else {                  // Incoming TCP-style remote exec answer?

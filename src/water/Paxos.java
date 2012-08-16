@@ -121,7 +121,7 @@ public abstract class Paxos {
       // Check if node timed out 
       long msec = now - h2o._last_heard_from;
       // Check receive queue depth to see if the node needs to be removed
-      int recvq = h2o.get_fjqueue_depth();
+      int recvq = h2o.get_fjqueue_hi();
       if( msec > HeartBeatThread.TIMEOUT ) {
         assert h2o != H2O.SELF; // Not timing-out self???
         print_debug("kill: Removing laggard ",h2o);

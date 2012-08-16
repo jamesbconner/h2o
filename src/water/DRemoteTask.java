@@ -124,8 +124,12 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     _keys = locals.toArray(new Key[locals.size()]); // Keys, including local keys (if any)
     _lo = 0;                    // Init the range of local keys
     _hi = _keys.length;
+    if( _keys.length == 0 ) {   // Shortcut for no local work
+      tryComplete();            // Indicate the local task is done
+      return f;                 // But return the set of remote tasks
+    }
 
-    H2O.FJP.submit(this); // F/J non-blocking invoke
+    H2O.FJP_NORM.submit(this); // F/J non-blocking invoke
     // Return a cookie to block on
     return f;
   }
@@ -152,8 +156,15 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   private final TaskRemExec remote_compute( ArrayList<Key> keys ) {
     if( keys.size() == 0 ) return null;
     H2O cloud = H2O.CLOUD;
-    H2ONode target = cloud._memary[keys.get(0).home(cloud)];
-    Key arg = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
+    Key arg = keys.get(0);
+    H2ONode target = cloud._memary[arg.home(cloud)];
+    // Optimization: if sending just 1 key, and it is not a form which the
+    // remote-side will expand, then send just the key, instead of a
+    // key-of-keys containing 1 key.
+    if( keys.size() ==1 && arg._kb[0] != Key.KEY_OF_KEYS && !arg.user_allowed() )
+      return new TaskRemExec(target,make_child(),arg);
+
+    arg = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
     byte[] bits = new byte[8*keys.size()];
     int off = 4;                // Space for count of keys
     for( Key k : keys ) {       // Flatten to a byte array of keys

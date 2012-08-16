@@ -23,6 +23,7 @@ public class MultiReceiverThread extends Thread {
   // ---
   // Started by main() on a single thread, this code manages reading UDP packets 
   public void run() {
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
     // No multicast?  Then do not bother with listening for them
     if( !H2O.MULTICAST_ENABLED ) return;
 
@@ -106,7 +107,7 @@ public class MultiReceiverThread extends Thread {
       // current membership check required for Paxos packets
       if( UDP.udp.UDPS[first_byte]._paxos ||
           (is_member && first_byte <= ACK) ) {
-        H2O.FJP.execute(new FJPacket(pack,h2o));
+        H2O.FJP_HI.execute(new FJPacket(pack,h2o));
         continue;
       }
 
@@ -147,7 +148,9 @@ public class MultiReceiverThread extends Thread {
         }
       } else {                  // Else not a repeat-packet
         // Announce new packet to workers
-        H2O.FJP.execute(new FJPacket(pack,h2o));
+        // "rexec" goes to "normal" priority queue.
+        // gets/puts go to "high" priority queue.
+        UDP.udp.UDPS[first_byte].pool().execute(new FJPacket(pack,h2o));
       }
     }
   }

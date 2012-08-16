@@ -70,6 +70,7 @@ public class TaskGetKey extends DFutureTask<Value> {
   public static class RemoteHandler extends UDP {
     // Received a request for N keys.  Build & return the answer.
     void call(DatagramPacket p, H2ONode h2o) {
+      Thread.currentThread().setPriority(Thread.MAX_PRIORITY-2);
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert

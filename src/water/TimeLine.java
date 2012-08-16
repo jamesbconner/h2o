@@ -163,6 +163,7 @@ public class TimeLine extends UDP {
       return; // No I/O needed for my own snapshot
     }
     try {
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
       Socket sock = new Socket( p.getAddress(), target._key.tcp_port() );
       DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
       // Write out the initial operation
@@ -178,9 +179,11 @@ public class TimeLine extends UDP {
       int ack = is.read();      // Read 1 byte of ack
       if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
       sock.close();
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
     } catch( IOException e ) {  // Failure?
       // Silently ignore failure, and the poor target does not get his dump.  I
       // am probably REALLY REALLY sick, which is why the dump is being asked for.
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
     }
   }
 

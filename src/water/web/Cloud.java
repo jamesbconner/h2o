@@ -45,10 +45,16 @@ public class Cloud extends H2OPage {
       row.replace("cpu_load_5" ,pos_neg(cpu_load[1]));
       row.replace("cpu_load_15",pos_neg(cpu_load[2]));
 
-      int fjq_depth = h2o.get_fjqueue_depth();
-      if(fjq_depth > HeartBeatThread.QUEUEDEPTH) 
+      int fjq_hi = h2o.get_fjqueue_hi();
+      if(fjq_hi > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyle","background-color:green;");
-      row.replace("fjqueue_depth" , fjq_depth);
+      row.replace("fjqueue_hi" , fjq_hi);
+      int fjq_lo = h2o.get_fjqueue_lo();
+      if(fjq_lo > HeartBeatThread.QUEUEDEPTH)
+        row.replace("queueStyle","background-color:green;");
+      row.replace("fjqueue_lo" , fjq_lo);
+      int tcps = h2o.get_tcps_active();
+      row.replace("tcps_active" , tcps);
       row.replace("node_type" ,            h2o.get_node_type());
 
       row.append();      
@@ -71,7 +77,7 @@ public class Cloud extends H2OPage {
     + "</div>"
     + "<p>The Local Cloud has %size members"
     + "<table class='table table-striped table-bordered table-condensed'>"
-    + "<thead class=''><th>Local Nodes<th>CPUs<th>Local Keys<th>Mem Cached<th>FreeMem<th>TotalMem<th>MaxMem<th>FreeDisk<th>MaxDisk<th>CPU Utilization<th>Threads<th>CPU Load (1min)<th>CPU Load (5min)<th>CPU Load (15min)<th>FJ Task Depth<th>Type</thead>"
+    + "<thead class=''><th>Local Nodes<th>CPUs<th>Local Keys<th>Mem Cached<th>FreeMem<th>TotalMem<th>MaxMem<th>FreeDisk<th>MaxDisk<th>CPU Utilization<th>Threads<th>CPU Load (1min)<th>CPU Load (5min)<th>CPU Load (15min)<th>FJ Tasks HI<th>FJ Tasks Norm<th>TCPs Active<th>Type</thead>"
     + "<tbody>"
     + "%tableRow{"
     + "  <tr>"
@@ -89,7 +95,9 @@ public class Cloud extends H2OPage {
     + "    <td>%cpu_load_1</td>"
     + "    <td>%cpu_load_5</td>"
     + "    <td>%cpu_load_15</td>"
-    + "    <td style='%queueStyle'>%fjqueue_depth</td>"
+    + "    <td style='%queueStyle'>%fjqueue_hi</td>"
+    + "    <td style='%queueStyle'>%fjqueue_lo</td>"
+    + "    <td>%tcps_active</td>"
     + "    <td>%node_type</td>"
     + "  </tr>"
     + "}"

@@ -61,6 +61,7 @@ public class UDPReceiverThread extends Thread {
   // ---
   // Started by main() on a single thread, this code manages reading UDP packets 
   public void run() {
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
     DatagramSocket sock = null, errsock = null;
     boolean saw_error = false;
     final int ACK = UDP.udp.ack.ordinal();
@@ -132,7 +133,7 @@ public class UDPReceiverThread extends Thread {
       // current membership check required for Paxos packets
       if( UDP.udp.UDPS[first_byte]._paxos ||
           (is_member && first_byte <= ACK) ) {
-        H2O.FJP.execute(new FJPacket(pack,h2o));
+        H2O.FJP_HI.execute(new FJPacket(pack,h2o));
         continue;
       }
 
@@ -164,9 +165,7 @@ public class UDPReceiverThread extends Thread {
           int dum = H2O.VOLATILE; // Dummy volatile read between 1st byte & rest of packet
           // This is an old re-send of the same thing we've answered to
           // before.  Send back the same old answer ACK.
-          UDP.clr_port(obuf);   // Wipe out the port assert; the port is flip/flopping here
           h2o.send(old,old.getLength());
-          UDP.clr_port(obuf);   // Wipe out the port assert; the port is flip/flopping here
         } else {
           // This packet has not been ACK'd yet.  Hence it's still a
           // work-in-progress locally.  We have no answer yet to reply with
@@ -175,10 +174,11 @@ public class UDPReceiverThread extends Thread {
         }
         free_pack(pack);
       } else {                  // Else not a repeat-packet
-        // Announce new packet to workers
-        H2O.FJP.execute(new FJPacket(pack,h2o));
+        // Announce new packet to workers.
+        // "rexec" goes to "normal" priority queue.
+        // gets/puts go to "high" priority queue.
+        UDP.udp.UDPS[first_byte].pool().execute(new FJPacket(pack,h2o));
       }
     }
   }
-
 }
