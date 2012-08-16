@@ -86,7 +86,7 @@ public class PokerDRF extends DRemoteTask implements Director {
     long startTime = System.currentTimeMillis();
     ProgressMonitor progress = new ProgressMonitor();
     progress.start();
-    rexec(_compKeys);
+    invoke(_compKeys);
     progress._done = true;
     // read the errors
     long errors = 0, nrecords = 0;
