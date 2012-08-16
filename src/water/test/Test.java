@@ -84,8 +84,8 @@ public class Test {
       DKV.put(k,val);
     }
     RemoteBitSet rbs = new RemoteBitSet();
-    rbs.rexec(keys);
-    assertEquals(-1,rbs._x);
+    rbs.invoke(keys);
+    assertEquals((int)((1L<<keys.length)-1),rbs._x);
   }
 
   // Remote Bit Set: OR together the result of a single bit-mask where the
@@ -99,12 +99,13 @@ public class Test {
     public void read( DataInputStream dis ) { new Error("unimplemented"); }
     // Set a single bit-mask based on the shift which is passed in the Value
     public void map( Key key ) {
+      assert _x == 0;                  // Never mapped into before
       Value val = DKV.get(key);        // Get the Value for the Key
       _x = 1<<(UDP.get4(val.get(),0)); // Get the shift amount, shift & set
       DKV.remove(key);                 // Remove Key when done
     }
     // OR together all results
-    public void reduce( RemoteTask rbs ) {
+    public void reduce( DRemoteTask rbs ) {
       _x |= ((RemoteBitSet)rbs)._x;
     }
   }
@@ -162,7 +163,7 @@ public class Test {
     if( h2okey == null ) fail("null h2okey");
 
     ByteHisto bh = new ByteHisto();
-    bh.rexec(h2okey);
+    bh.invoke(h2okey);
     int sum=0;
     for( int i=0; i<bh._x.length; i++ )
       sum += bh._x[i];
@@ -183,10 +184,11 @@ public class Test {
         _x[bits[i]&0xFF]++;
     }
     // ADD together all results
-    public void reduce( RemoteTask rbs ) {
-      int old=_x[255];
+    public void reduce( DRemoteTask rbs ) {
+      ByteHisto bh = (ByteHisto)rbs;
+      if( _x == null ) { _x = bh._x; return; }
       for( int i=0; i<_x.length; i++ )
-        _x[i] += ((ByteHisto)rbs)._x[i];
+        _x[i] += bh._x[i];
     }
 
     public int wire_len() { return 1+((_x==null)?0:4*_x.length); }
@@ -229,8 +231,7 @@ public class Test {
     // Key and install the result as the new Value.  This function may run
     // multiple times if there are collisions.
     Atomic q = new Atomic2();
-    q.run(key);
-    q.complete();               // Block till it completes
+    q.invoke(key);              // Run remotely; block till done
     Value val3 = DKV.get(key);
     assertNotSame(v1,val3);
     byte[] bits3 = val3.get();

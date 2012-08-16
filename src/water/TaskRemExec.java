@@ -12,15 +12,15 @@ import jsr166y.*;
  * @version 1.0
  */
 
-public class TaskRemExec extends DFutureTask<RemoteTask> {
+public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
-  final RemoteTask _dt;              // Task to send & execute remotely
+  final T _dt;                  // Task to send & execute remotely
   final Key _args;
   final boolean _did_put;
 
   // With a Key+Value, do a Put on the Key & block for it - forcing the Value
   // to be available when remote execution starts.
-  public TaskRemExec( H2ONode target, RemoteTask dt, Key args, Value val ) {
+  public TaskRemExec( H2ONode target, T dt, Key args, Value val ) {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
@@ -31,7 +31,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
   }
 
   // This version assumes a prior remote Value is already coherent
-  public TaskRemExec( H2ONode target, RemoteTask dt, Key args ) {
+  public TaskRemExec( H2ONode target, T dt, Key args ) {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
@@ -125,7 +125,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
     // Do the remote execution in a F/J thread & send a reply packet
     static void remexec( RemoteTask dt, Key args, DatagramPacket p, H2ONode h2o ) {
       // Now compute on it!
-      dt.rexec(args);
+      dt.invoke(args);
 
       byte[] buf = p.getData();
 
@@ -228,7 +228,7 @@ public class TaskRemExec extends DFutureTask<RemoteTask> {
   }
 
   // Unpack the answer
-  protected RemoteTask unpack( DatagramPacket p ) {
+  protected T unpack( DatagramPacket p ) {
     // Cleanup after thyself
     if( _did_put ) DKV.remove(_args);
     if( _dt.void_result() ) return _dt;

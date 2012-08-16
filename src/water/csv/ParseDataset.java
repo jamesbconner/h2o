@@ -27,7 +27,7 @@ public final class ParseDataset {
 
     long start = System.currentTimeMillis();
 
-    dp1.rexec(dataset._key);     // Parse whole dataset!
+    dp1.invoke(dataset._key);   // Parse whole dataset!
 
     long now = System.currentTimeMillis();
 
@@ -73,7 +73,7 @@ public final class ParseDataset {
 
     long start2 = System.currentTimeMillis();
 
-    dp2.rexec(dataset._key);     // Parse whole dataset!
+    dp2.invoke(dataset._key);   // Parse whole dataset!
 
     long now2 = System.currentTimeMillis();
 
@@ -258,7 +258,7 @@ public final class ParseDataset {
     }
 
     // Combine results
-    public void reduce( RemoteTask rt ) {
+    public void reduce( DRemoteTask rt ) {
       DParse1 dp = (DParse1)rt;
       _num_rows += dp._num_rows;
       if( _cols == null ) {     // No local work?
@@ -373,7 +373,7 @@ public final class ParseDataset {
       _num_rows = 0;            // No data to return
     }
 
-    public void reduce( RemoteTask rt ) {
+    public void reduce( DRemoteTask rt ) {
       _num_cols = 0;            // No data to return
       _num_rows = 0;            // No data to return
       _cols = null;             // No data to return
@@ -417,8 +417,8 @@ public final class ParseDataset {
       au._src_off = src_off;
       au._dst_off = dst_off;
       au._len = len;
-      au.run(key1);             // Start atomic update
-      au.complete();            // No need to complete now?
+      Future f = au.fork(key1); // Start atomic update
+      f.get();                  // No need to complete now?
       return rowz;              // Rows written out
     }
 

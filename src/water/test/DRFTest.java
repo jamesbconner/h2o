@@ -54,7 +54,7 @@ public class DRFTest {
     }     
     DRFBuilder builder = new DRFBuilder();
     for(Key k:keys)System.out.println(k);
-    builder.rexec(keys);
+    builder.invoke(keys);
     System.out.println(builder.getRf());
   }
 }

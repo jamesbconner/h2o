@@ -1,8 +1,10 @@
 package water;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.*;
 import java.lang.Cloneable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import jsr166y.*;
 
 // *DISTRIBUTED* RemoteTask
@@ -17,176 +19,182 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   // over the wire, and so do not need to be in the users' read/write methods.
   Key[] _keys;                  // Keys to work on
   int _lo, _hi;                 // Range of keys to work on
+  DRemoteTask _left, _rite;     // In-progress execution tree
 
   // Run some useful function over this *local* key, and record the results in
   // the 'this' DRemoteTask.
   abstract public void map( Key key );
   // Combine results from 'drt' into 'this' DRemoteTask
-  abstract public void reduce( RemoteTask drt );
+  abstract public void reduce( DRemoteTask drt );
 
   void ps(String msg) {
     Class clz = getClass();
     System.err.println(msg+clz+" keys["+_keys.length+"] _lo="+_lo+" _hi="+_hi);
   }
 
-  // Make a copy of thyself
-  DRemoteTask copy_self() {
-    try { return (DRemoteTask)this.clone(); }
-    catch( CloneNotSupportedException e ) { throw new Error(e); }
+  // Make a copy of thyself, but set the (otherwise final) completer field.
+  private final DRemoteTask copy_self( DRemoteTask completer ) {
+    try {
+      DRemoteTask dt = (DRemoteTask)this.clone();
+      dt.setCompleter(completer); // Set completer, what used to be a final field
+      dt._left = dt._rite = null;
+      dt.setPendingCount(0);      // Volatile write for completer field; reset pending count also
+      return dt;
+    } catch( CloneNotSupportedException e ) { throw new Error(e); }
   }
+  private final DRemoteTask make_child() { return copy_self(this); }
 
   // Do all the keys in the list associated with this Node.  Roll up the
   // results into *this* DRemoteTask.
-  public Object compute() {
-    if( _keys.length==0 ) return null;
-    if( _lo == -1 )
-      return fork_by_cpus();
-
-    if( _lo == _hi ) return null; // No data
-
-    // Single key?
-    if( _lo == _hi-1 ) {        // Single key?
-      map(_keys[_lo]);          // Get it, run it locally
-      return null;              // No return in any case
+  public final void compute() {
+    if( _hi-_lo >= 2 ) { // Multi-key case: just divide-and-conquer down to 1 key
+      final int mid = (_lo+_hi)>>>1; // Mid-point
+      _left = make_child();          // Clone by any other name
+      _rite = make_child();          // Clone by any other name
+      _left._hi = mid;               // Reset mid-point
+      _rite._lo = mid;               // Also set self mid-point
+      setPendingCount(2);       // Two more pending forks
+      _left.fork();             // Runs in another thread/FJ instance
+      _rite.fork();             // Runs in another thread/FJ instance
+      // This task is not complete, because we do not know when the forks complete.
+      // So we do not call tryComplete() now.
+    } else {
+      if( _hi > _lo )           // Single key?
+        map(_keys[_lo]);        // Get it, run it locally
     }
-
-    // Multi-key case: just divide-and-conquer down to 1 key
-    final int mid = (_lo+_hi)>>1;   // Mid-point
-    // Clone & fork
-    DRemoteTask d1 = copy_self();
-    d1._hi = mid;
-    d1.fork();            // Runs in another thread/FJ instance
-    // Also set self mid-points, then execute recursively
-    this._lo = mid;
-    compute();                  // Execute self on smaller half
-    // Wait for the other 1/2 of results
-    d1.join();
-    // Reduce the two into self
-    reduce(d1);                 // Users' reduction code
-    return null;
+    tryComplete();            // And this task is complete
   }
 
-  // Split out the keys into disjointly-homed sets of keys.
-  // Send the set that excludes self to some remote key home.
-  // Recursivly work on the set that includes self.
-  final public Object fork_by_cpus() {
-    
+  @Override public final void onCompletion( CountedCompleter caller ) {
+    // Reduce results into 'this' so they collapse going up the execution tree.
+    // NULL out child-references so we dont accidentilly keep large subtrees
+    // alive: each one may be holding large partial results.
+    if( _left != null ) reduce(_left); _left = null;
+    if( _rite != null ) reduce(_rite); _rite = null;
+  }
+
+  // Top-level remote execution hook.  The Key is an ArrayLet or an array of
+  // Keys; start F/J'ing on individual keys.  Blocks.
+  public void invoke( Key args ) {
+    invoke(flatten_keys(args)); // Convert to array-of-keys and invoke
+  }
+
+  public void invoke( Key[] args ) {
+    fork(args).get();        // Block until the job is done
+  }
+
+  // Top-level remote execution hook.  The Key is an ArrayLet or an array of
+  // Keys; start F/J'ing on individual keys.  Non-blocking.
+  public Future fork( Key args ) {
+    return fork(flatten_keys(args));
+  }
+
+  // Top-level remote-execution hook.  Non-blocking.  Fires off jobs to remote
+  // machines based on Keys.
+  public Future fork( Key[] keys ) {
     // Split out the keys into disjointly-homed sets of keys.
     // Find the split point.  First find the range of home-indices.
     H2O cloud = H2O.CLOUD;
     int lo=cloud._memary.length, hi=-1;
-    for( Key k : _keys ) {
+    for( Key k : keys ) {
       int i = k.home(cloud);
       if( i<lo ) lo=i;
       if( i>hi ) hi=i;        // lo <= home(keys) <= hi
     }
 
-    // Are all keys local to self?
-    // Then start local computations.
-    int self_idx = cloud.nidx(H2O.SELF);
-    if( lo == hi && self_idx == lo ) { // All local keys?
-      _lo = 0;                         // Init the range of local keys
-      _hi = _keys.length;
-      return compute();         // Recursively compute - but locally now!
-    }
-
-    // We have multiply homed keys?  Split via fork/join
-    int mid = (lo+(hi+1))>>1; // Mid-point
-    // If no keys are local, arrange the split to just ship all keys to
-    // somebody who IS local.
-    if( self_idx < lo || self_idx > hi )
-      mid = self_idx+1;
-    
     // Classic fork/join, but on CPUs.
-    // Split into 2 arrays of keys
-    int size_remote_keys = 4;   // 4 bytes for count of keys
-    int num_local_keys = 0;
-    Key remote_key = null;
-    for( Key k : _keys ) {
-      // the Key is on the same side of the split as 'self' then it is run
-      // locally, else it will be run remotely.
-      if( (self_idx < mid) ^ (k.home(cloud) < mid) ) {
-        size_remote_keys += k.wire_len(); // Remote
-        remote_key = k;                   // Some remote key
-      } else {
-        num_local_keys++;   // Local
-      }
+    // Split into 3 arrays of keys: lo keys, hi keys and self keys
+    final ArrayList<Key> locals = new ArrayList();
+    final ArrayList<Key> lokeys = new ArrayList();
+    final ArrayList<Key> hikeys = new ArrayList();
+    int self_idx = cloud.nidx(H2O.SELF);
+    int mid = (lo+hi)>>>1;    // Mid-point
+    for( Key k : keys ) {
+      int idx = k.home(cloud);
+      if( idx == self_idx ) locals.add(k);
+      else if( idx < mid )  lokeys.add(k);
+      else                  hikeys.add(k);
     }
-    assert remote_key != null;
-    H2ONode target = cloud._memary[remote_key.home(cloud)];
 
-    // Create storage for the 2 splits
-    Key local_keys[] = new Key[num_local_keys];
-    Key remote_args = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
-    Value rem_keys = new Value(remote_args,size_remote_keys);
-    // Now fill in the two splits
-    byte[] keybytes = rem_keys.mem();
-    int off = 0;
-    off += UDP.set4(keybytes,off,_keys.length - num_local_keys);
-    int j = 0;
-    for( Key k : _keys ) {
-      // the Key is on the same side of the split as 'self' then it is run
-      // locally, else it will be run remotely.
-      if( (self_idx < mid) ^ (k.home(cloud) < mid) ) {
-        off = k.write(keybytes,off);
-      } else {
-        local_keys[j++] = k;
-      }
-    }
-    
-    // Now fork remotely.
-    TaskRemExec tre = new TaskRemExec(target,copy_self()/*result object*/,remote_args,rem_keys);
-    
-    // Setup for local recursion.
-    _keys = local_keys;       // Keys, including local keys (if any)
-    
-    // Locally compute on the 1/2-sized set of keys into self.
-    compute();
-    
-    RemoteTask drt = tre.get(); // Get the remote result
-    
-    reduce(drt);              // Combine results into self
-    
-    return null;              // Done!
+    // Launch off 2 tasks for the other sets of keys, and get a place-holder
+    // for results to block on.
+    Future f = new Future(this, remote_compute(lokeys), remote_compute(hikeys));
+
+    // Setup for local recursion: just use the local keys.
+    _keys = locals.toArray(new Key[locals.size()]); // Keys, including local keys (if any)
+    _lo = 0;                    // Init the range of local keys
+    _hi = _keys.length;
+
+    H2O.FJP.submit(this); // F/J non-blocking invoke
+    // Return a cookie to block on
+    return f;
   }
 
-  // Top-level remote execution hook.  The Key is an ArrayLet or an array of
-  // Keys; start F/J'ing on individual keys.  
-  public void rexec( Key args ) {
-    Value val = DKV.get(args);
-    if( val == null ) {
-      System.err.println("Missing args in rexec call: possibly the caller did not fence out a DKV.put(args) before calling rexec(,,args,).");
-      throw new Error("Missing args");
+  // Junk class only used to allow blocking all results, both local & remote
+  public static class Future {
+    private final DRemoteTask _drt;
+    private final TaskRemExec<DRemoteTask> _lo, _hi;
+    Future(DRemoteTask drt, TaskRemExec<DRemoteTask> lo, TaskRemExec<DRemoteTask> hi ) {
+      _drt = drt;  _lo = lo;  _hi = hi;
     }
-    Key[] keys = null;
-    if( val.type() == Value.ARRAYLET ) { // Arraylet: expand into the chunk keys
-      ValueArray ary = (ValueArray)val;
-      keys = new Key[(int)ary.chunks()];
-      for( int i=0; i<keys.length; i++ )
-        keys[i] = ary.chunk_get(i);
+    // Block until completed, without having to catch exceptions
+    public DRemoteTask get() {
+      try { _drt.get(); }   // block until complete
+      catch( InterruptedException ex ) { throw new Error(ex); }
+      catch(   ExecutionException ex ) { throw new Error(ex); }
+      // Block for remote exec & reduce results into _drt
+      if( _lo != null ) _drt.reduce(_lo.get());
+      if( _hi != null ) _drt.reduce(_hi.get());
+      return _drt;
+    }
+  };
 
-    } else if( args._kb[0] == Key.KEY_OF_KEYS ) { // Key-of-keys: break out into array of keys
+  private final TaskRemExec remote_compute( ArrayList<Key> keys ) {
+    if( keys.size() == 0 ) return null;
+    H2O cloud = H2O.CLOUD;
+    H2ONode target = cloud._memary[keys.get(0).home(cloud)];
+    Key arg = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
+    byte[] bits = new byte[8*keys.size()];
+    int off = 4;                // Space for count of keys
+    for( Key k : keys ) {       // Flatten to a byte array of keys
+      while( k.wire_len() + off > bits.length )
+        bits = Arrays.copyOf(bits,bits.length<<1);
+      off = k.write(bits,off);
+    }
+    UDP.set4(bits,0,keys.size()); // Key count in the 1st 4 btyes
+    Value vkeys = new Value(arg,Arrays.copyOf(bits,off));
+    // Fork remotely and do not block for it
+    return new TaskRemExec(target,make_child(),arg,vkeys);
+  }
+
+  private final Key[] flatten_keys( Key args ) {
+    Value val = DKV.get(args);
+    if( args._kb[0] == Key.KEY_OF_KEYS ) { // Key-of-keys: break out into array of keys
+      if( val == null ) {
+        System.err.println("Missing args in fork call: possibly the caller did not fence out a DKV.put(args) before calling "+(getClass().toString())+".fork(,,args,).");
+        throw new Error("Missing args");
+      }
       // Parse all the keys out
       byte[] buf = val.get();
       int off = 0;
       int klen = UDP.get4(buf,off); off += 4;
-      keys = new Key[klen];
+      Key[] keys = new Key[klen];
       for( int i=0; i<klen; i++ ) {
         Key k = keys[i] = Key.read(buf,off);
         off += k.wire_len();
       }
-
-    } else {                    // Handy wrap single key into a array-of-1 key
-      keys = new Key[]{args};
+      return keys;
     }
 
-    rexec(keys);
-  }
-
-  // Handy constructor to fire off on an array of keys
-  public void rexec( Key[] args ) {
-    _keys = args;
-    _lo = _hi = -1;   // Flag that we are still splitting remotely/globally
-    H2O.FJP.invoke(this);  // Classic fork/join computation style.  Compute result into self.
+    // Arraylet: expand into the chunk keys
+    if( val != null && val.type() == Value.ARRAYLET ) {
+      ValueArray ary = (ValueArray)val;
+      Key[] keys = new Key[(int)ary.chunks()];
+      for( int i=0; i<keys.length; i++ )
+        keys[i] = ary.chunk_get(i);
+      return keys;
+    }
+    // Handy wrap single key into a array-of-1 key
+    return new Key[]{args};
   }
 }

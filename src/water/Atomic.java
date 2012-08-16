@@ -9,7 +9,7 @@ import java.util.Arrays;
  * @version 1.0
  */
 
-public abstract class Atomic extends RemoteTask {
+public abstract class Atomic extends DRemoteTask {
 
   // Example use for atomic update of any Key:
   //  new Atomic(key_to_be_atomically_updated) {
@@ -22,11 +22,6 @@ public abstract class Atomic extends RemoteTask {
   //    }
   //  }
 
-  // For Now: pass ClassName in the wire packet, plus the target Key,
-
-  TaskRemExec _tre; // Controls remote execution; used to allow blocking until the action completes
-
-
   // User's function to be run atomically.  The Key's Value is fetched from the
   // home STORE, and the bits are passed in.  The returned bits are atomically
   // installed as the new Value (the function is retried until it runs
@@ -36,31 +31,12 @@ public abstract class Atomic extends RemoteTask {
   // By default, nothing sent over with the function (except the target Key).
   protected int  wire_len() { return 0; }
   protected int  write( byte[] buf, int off ) { return off; }
-  protected void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
+  protected void write( DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
   protected void read( byte[] buf, int off ) { }
-  protected void read( DataInputStream dis ) throws IOException { throw new Error("unimplemented"); }
-  // Must define for the abstract class, but not needed:
-  public Object compute() { throw new Error("Do Not Call This"); }
-
-  // Start the remote atomic action on Key
-  public void run( Key key ) {
-    H2O cloud = H2O.CLOUD;
-    if( key.home() ) {          // Local already?
-      rexec(key);               // Run it locally, right now!
-    } else {
-      H2ONode target = cloud._memary[key.home(cloud)]; // Key's home
-      _tre = new TaskRemExec(target,this,key);
-    }
-  }
-  // Block until the remote action completes
-  public final void complete() {
-    if( _tre != null )
-      _tre.get();
-  }
-
+  protected void read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
 
   // The (remote) workhorse:
-  protected final void rexec( Key key ) {
+  @Override public final void map( Key key ) {
     assert key.home();          // Key is at Home!
     while( true ) {
       Value val1 = DKV.get(key);
@@ -87,6 +63,8 @@ public abstract class Atomic extends RemoteTask {
       // and retry
     }
   }
+
+  @Override public final void reduce( DRemoteTask rt ) { }
 
   // By default, return no result from the Atomic operation
   protected boolean void_result() { return true; }

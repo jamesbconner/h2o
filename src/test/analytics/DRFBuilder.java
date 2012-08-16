@@ -87,7 +87,7 @@ public class DRFBuilder extends DRemoteTask {
   }
 
   @Override
-  public void reduce(RemoteTask drt) {
+  public void reduce(DRemoteTask drt) {
     System.out.println("running reduce on " + H2O.SELF);
     DRFBuilder other = (DRFBuilder) drt;
     try {

@@ -2,8 +2,8 @@ package water;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import jsr166y.*;
 
 // Objects which are passed & remotely executed.  They have an efficient
@@ -19,7 +19,7 @@ import jsr166y.*;
 
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 // @version 1.0
-public abstract class RemoteTask extends RecursiveTask {
+public abstract class RemoteTask extends CountedCompleter {
   // User overrides these methods to send his results back and forth.
   // Reads & writes user-guts to a line-wire format on a correctly typed object
   abstract protected int wire_len();
@@ -28,14 +28,14 @@ public abstract class RemoteTask extends RecursiveTask {
   abstract protected void read( byte[] buf, int off );
   abstract protected void read( DataInputStream dis ) throws IOException;
 
-  // The Fork-Join hook.  We want users to override this for local computation
-  abstract public Object compute();
+  // Top-level remote execution hook.  The Key is an ArrayLet or an array of
+  // Keys; start F/J'ing on individual keys.  Blocks.
+  abstract public void invoke( Key args );
 
-  // Top-level remote execution hook.  Users should override this, but by
-  // default it only calls the local compute.  Probably user really wants to do
-  // something with this args Key.
-  void rexec( Key args ) {
-    compute();                  // Call 'compute' - probably not want the users' want!
+  // Oops, uncaught exception
+  public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
+    ex.printStackTrace();
+    return true;
   }
 
   // By default, return the full user result.  But some jobs are "fire and
@@ -44,7 +44,7 @@ public abstract class RemoteTask extends RecursiveTask {
   // send-only, since by default they are send/recieve).
   protected boolean void_result() { return false; }
 
-  // Make a RemoteTask
+  // Make a RemoteTask from a wire-line format.  NO parent_task is possible.
   static final RemoteTask make( Key classloader, String clazz) {
     // Make a local instance and call map on it
     Exception e=null;

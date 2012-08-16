@@ -142,7 +142,7 @@ public class PokerDRF extends DRemoteTask implements Director {
     _progress = new ProgressMonitor(_resultKeys);
     Thread t = new Thread(_progress);
     t.start();
-    rexec(_compKeys);
+    invoke(_compKeys);
     _progress._done = true;    
     long runTime = System.currentTimeMillis() - startTime;
     System.out.println("DRF computed in " + (runTime / 1000)
@@ -276,7 +276,7 @@ public class PokerDRF extends DRemoteTask implements Director {
   }
 
   @Override
-  public void reduce(RemoteTask drt) {
+  public void reduce(DRemoteTask drt) {
   }
 
   @Override

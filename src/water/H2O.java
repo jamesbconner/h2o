@@ -229,7 +229,7 @@ public final class H2O {
   // --------------------------------------------------------------------------
   // The main Fork/Join worker pool
   public static final ForkJoinPool FJP
-    = new ForkJoinPool(4/*Runtime.getRuntime().availableProcessors()*/,
+    = new ForkJoinPool(Runtime.getRuntime().availableProcessors(),
                        ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                        null, // handler for catching uncaught exceptions
                        false // stack-mode by default
@@ -415,6 +415,7 @@ public final class H2O {
         String strLine = null;
         while ((strLine = br.readLine()) != null)   {
           final String[] ss = strLine.split("[\\s:]");
+          if( ss.length!=2 ) continue;
           final InetAddress inet = InetAddress.getByName(ss[0]);
           if( !(inet instanceof Inet4Address) )
             Log.die("Only IP4 addresses allowed.");

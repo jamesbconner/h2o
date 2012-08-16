@@ -21,7 +21,7 @@ public abstract class LinearRegression {
     // Pass 1: compute sums & sums-of-squares
     lr._pass = 1;
     long start = System.currentTimeMillis();
-    lr.rexec(ary._key);
+    lr.invoke(ary._key);
     long pass1 = System.currentTimeMillis();
     sb.append("<p>Pass 1 in ").append(pass1-start).append("msec");
 
@@ -31,7 +31,7 @@ public abstract class LinearRegression {
     lr._Xbar = lr._sumX / n;
     lr._Ybar = lr._sumY / n;
     lr.reinitialize();
-    lr.rexec(ary._key);
+    lr.invoke(ary._key);
     long pass2 = System.currentTimeMillis();
     sb.append("<P>Pass 2 in ").append(pass2-pass1).append("msec");
 
@@ -44,7 +44,7 @@ public abstract class LinearRegression {
     // Pass 3: analyze results
     lr._pass = 3;
     lr.reinitialize();
-    lr.rexec(ary._key);
+    lr.invoke(ary._key);
     long pass3 = System.currentTimeMillis();
     sb.append("<p>Pass 3 in ").append(pass3-pass2).append("msec");
 
@@ -189,7 +189,7 @@ public abstract class LinearRegression {
       }
     }
 
-    public void reduce( RemoteTask rt ) {
+    public void reduce( DRemoteTask rt ) {
       LR_Task  lr = (LR_Task)rt;
       switch( _pass ) {
       case 1:

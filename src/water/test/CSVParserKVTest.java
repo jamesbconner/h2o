@@ -264,7 +264,7 @@ public class CSVParserKVTest {
     kkk.toArray(keys);
     try {
       PokerAvg avg = new PokerAvg();      
-      avg.rexec(keys);
+      avg.invoke(keys);
       System.out.println();
       System.out.println("Processed " + avg.N() + " records");
       System.out.print("Results: ");

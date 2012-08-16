@@ -4,7 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import water.RemoteTask;
+import water.DRemoteTask;
 import water.UDP;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.DProcessCSVTask;
@@ -68,7 +68,7 @@ public class PokerAvg extends DProcessCSVTask<int[]>{
     
 
   @Override
-  public void reduce(RemoteTask drt) {
+  public void reduce(DRemoteTask drt) {
     PokerAvg other = (PokerAvg)drt;
     for(int i = 0; i < _values.length;++i)
       _values[i] += other._values[i];
