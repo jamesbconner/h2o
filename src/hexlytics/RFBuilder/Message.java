@@ -174,7 +174,8 @@ public abstract class Message implements Serializable {
     public static synchronized Text readNext() {
       if (_nextRecvIdxs == null)
         _nextRecvIdxs = new int[H2O.CLOUD.size()];
-      return (Text) readNext(Text.class, _nextRecvIdxs);
+      throw new Error("next line does not compile");
+      //return (Text) readNext(Text.class, _nextRecvIdxs);
     }
 
     public String toString() {
@@ -216,7 +217,8 @@ public abstract class Message implements Serializable {
     public static synchronized Tree readNext() {
       if (_nextRecvIdxs == null)
         _nextRecvIdxs = new int[H2O.CLOUD.size()];
-      return (Tree) readNext(Tree.class, _nextRecvIdxs);
+      throw new Error("next line does not compile");
+      //return (Tree) readNext(Tree.class, _nextRecvIdxs);
     }
 
     public String toString() {

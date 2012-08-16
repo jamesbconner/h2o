@@ -56,7 +56,7 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
   }
 
   UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
-  public void reduce(RemoteTask drt) {throw uoe(); }
+  public void reduce(DRemoteTask drt) {throw uoe(); }
   protected int wire_len() { throw uoe(); }
   protected int write(byte[] buf, int off) { throw uoe(); }
   @Override
