@@ -35,7 +35,6 @@ Extensions
 
 Community & Marketing
 ----------------------
-- Our community, positioning and web to the end customer will look like an elegant Scale Analytics Company.
 - We will make our simplified vision of Mining BigData public & immediate along the way to our product readiness.
      (& foster a clean image with pictures and bios of every contributor within the company & it's advisors.)
 
@@ -50,5 +49,7 @@ Jan Vitek
 Petr Maj
 Kevin Normoyle
 Tomas Nykodym
+Matt Fowles
+Michal Malohlava
 Lauren Brems
 ```
