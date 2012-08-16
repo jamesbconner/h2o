@@ -43,12 +43,6 @@ public class LocalBuilder implements Director {
     aggregator_.aggregate(0,tree,rows,badRows,badVotes);
   }
   
-  public void onAggregatorChange() { }
-
-  public void onBuilderTerminated() { }
-
-  public void onValidatorTerminated() { }
-  
   public String nodeName() { return ""; }
   
   public void error(long error) {

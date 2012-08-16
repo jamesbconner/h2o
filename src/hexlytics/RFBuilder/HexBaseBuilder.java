@@ -39,12 +39,6 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
 //    DKV.put(key, val); // publish the tree to the validators
   }
 
-  UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
- 
-  public void onBuilderTerminated() { throw uoe(); }
-  public void onAggregatorChange() {throw uoe(); }
-  public void onTreeValidated(Tree tree, int rows,int[] badRows, int[] badVotes) { throw uoe(); }  
-  public void onValidatorTerminated() { throw uoe(); }
   public void report(String what) { throw uoe(); }
 
   public String nodeName() { return Integer.toString(_myNodeId); }
@@ -61,6 +55,7 @@ public class HexBaseBuilder extends DRemoteTask implements Director {
     builder_.run(); 
   }
 
+  UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
   public void reduce(RemoteTask drt) {throw uoe(); }
   protected int wire_len() { throw uoe(); }
   protected int write(byte[] buf, int off) { throw uoe(); }
