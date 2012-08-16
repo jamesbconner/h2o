@@ -77,7 +77,7 @@ public class Cloud extends H2OPage {
     + "</div>"
     + "<p>The Local Cloud has %size members"
     + "<table class='table table-striped table-bordered table-condensed'>"
-    + "<thead class=''><th>Local Nodes<th>CPUs<th>Local Keys<th>Mem Cached<th>FreeMem<th>TotalMem<th>MaxMem<th>FreeDisk<th>MaxDisk<th>CPU Utilization<th>Threads<th>CPU Load (1min)<th>CPU Load (5min)<th>CPU Load (15min)<th>FJ Tasks HI<th>FJ Tasks Norm<th>TCPs Active<th>Type</thead>"
+    + "<thead class=''><tr><th>Local Nodes</th><th>CPUs</th><th>Local Keys</th><th>Mem Cached</th><th>FreeMem</th><th>TotalMem</th><th>MaxMem</th><th>FreeDisk</th><th>MaxDisk</th><th>CPU Utilization</th><th>Threads</th><th>CPU Load (1min)</th><th>CPU Load (5min)</th><th>CPU Load (15min)</th><th>FJ Tasks HI</th><th>FJ Tasks Norm</th><th>TCPs Active</th><th>Type</th></tr></thead>"
     + "<tbody>"
     + "%tableRow{"
     + "  <tr>"

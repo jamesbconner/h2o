@@ -123,6 +123,7 @@ public class Server extends NanoHTTPD {
     registerPage(new Append(),"Append");
     registerPage(new AppendQuery(),"AppendQuery");
     registerPage(new KeysView(),"KeysView");
+    registerPage(new Network(), "Network");
   }
 
 
