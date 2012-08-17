@@ -17,7 +17,7 @@ import org.hyperic.sigar.Udp;
  * @version 1.0
  */
 public class HeartBeatThread extends Thread {
-  
+
   // Time between heartbeats.  Strictly several iterations less than the
   // timeout.
   static final int SLEEP = 1000;
@@ -41,8 +41,8 @@ public class HeartBeatThread extends Thread {
   // discovery.
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-    Sigar sigar = new Sigar();      
-     
+    Sigar sigar = new Sigar();
+
     while( true ) {
       // Once per second, for the entire cloud a Node will multi-cast publish
       // itself, so other unrelated Clouds discover each other and form up.
@@ -64,7 +64,7 @@ public class HeartBeatThread extends Thread {
       me.set_fjqueue_lo(H2O.FJP_NORM.getQueuedSubmissionCount());
       me.set_tcps_active(TCPReceiverThread.TCPS_IN_PROGRESS.get());
       // get the usable and total disk storage for the partition where the
-      // persistent KV pairs are stored 
+      // persistent KV pairs are stored
       if (PersistIce.ROOT==null) {
         me.set_free_disk(0); // not applicable
         me.set_max_disk(0); // not applicable
@@ -73,24 +73,24 @@ public class HeartBeatThread extends Thread {
         me.set_free_disk(f.getUsableSpace());
         me.set_max_disk(f.getTotalSpace());
       }
-      
-      // get cpu utilization from sigar if available     
-      try {          
-        me.set_cpu_util(1.0 - sigar.getCpuPerc().getIdle());                          
-      } catch (SigarException ex) {          
-        me.set_cpu_util(-1.0);                  
+
+      // get cpu utilization from sigar if available
+      try {
+        me.set_cpu_util(1.0 - sigar.getCpuPerc().getIdle());
+      } catch (SigarException ex) {
+        me.set_cpu_util(-1.0);
       }
-      
+
       // get cpu load from sigar if available
-      try {          
-        double [] cpu_load = sigar.getLoadAverage();                          
+      try {
+        double [] cpu_load = sigar.getLoadAverage();
         me.set_cpu_load(cpu_load[0],cpu_load[1],cpu_load[2]);
-      } catch (SigarException ex) {          
+      } catch (SigarException ex) {
         me.set_cpu_load(-1.0,-1.0,-1.0);
       }
       // Get network statistics from sigar
       fillNetworkStatistics(sigar, me);
-      
+
       // Announce what Cloud we think we are in.
       // Publish our health as well.
       H2O cloud = H2O.CLOUD;
@@ -112,7 +112,7 @@ public class HeartBeatThread extends Thread {
       }
     }
   }
-  
+
   // Last value of received bytes on the interface.
   long _last_rx_bytes = -1;
   // Last value of transmitted bytes on the interface.
@@ -123,7 +123,7 @@ public class HeartBeatThread extends Thread {
   long _sum_tx_bytes;
   // Time of last collection.
   long _last_stat_collection_time;
-  
+
   // Prepare network statistics with help of Sigar.
   private void fillNetworkStatistics(final Sigar sigar, final H2ONode me) {
     // Setup number of IN and OUT connections.
@@ -148,49 +148,49 @@ public class HeartBeatThread extends Thread {
     // Total transmitted bytes are computed for network interface which the node
     // utilizes for connecting to the cloud.
     try {
-        // Get interface to which the node IP address is bound to.
-        // It is not fully correct since IP can be bound to multiple networks.
-        // However, the method NetworkInterface.getByInetAddress returns one of the interfaces.
-        // Another possibility is to compute traffic over all interfaces.
-        final String netIfaceName = NetworkInterface.getByInetAddress(me._key._inet).getName();
-        // Get interface statistics.
-        final NetInterfaceStat netInterfaceStat = sigar.getNetInterfaceStat(netIfaceName);
-        
-        final long _rx_bytes = netInterfaceStat.getRxBytes();
-        final long _tx_bytes = netInterfaceStat.getTxBytes();
-        final long _delta_rx_bytes = _last_rx_bytes < 0 ? 0 : _rx_bytes - _last_rx_bytes;
-        final long _delta_tx_bytes = _last_tx_bytes < 0 ? 0 : _tx_bytes - _last_tx_bytes;
-        
-        _last_rx_bytes = _rx_bytes;
-        _last_tx_bytes = _tx_bytes;
-        _sum_rx_bytes += _delta_rx_bytes;
-        _sum_tx_bytes += _delta_tx_bytes;
-             
-        // Compute traffic rate -- the rate is computed 
-        // Based on user preferences, this rate can be replaced by averaged traffic rate. 
-        final long _now = System.currentTimeMillis();
-        final long _rx_bytes_rate = 1000 * _delta_rx_bytes / (_now - _last_stat_collection_time);
-        final long _tx_bytes_rate = 1000 * _delta_tx_bytes / (_now - _last_stat_collection_time);
-        _last_stat_collection_time = _now;        
-        
-        // Setup overall traffic statistics.
-        // TODO: decide if it is better to show total number of packets/bytes reported by Sigar
-        // or compute their sum manually. 
-        me.set_total_packets_recv(netInterfaceStat.getRxPackets());
-        me.set_total_packets_sent(netInterfaceStat.getTxPackets());
-        me.set_total_bytes_recv(_rx_bytes);
-        me.set_total_bytes_sent(_tx_bytes);        
-        me.set_total_bytes_recv_rate((int) _rx_bytes_rate);
-        me.set_total_bytes_sent_rate((int) _tx_bytes_rate);
-                
+      // Get interface to which the node IP address is bound to.
+      // It is not fully correct since IP can be bound to multiple networks.
+      // However, the method NetworkInterface.getByInetAddress returns one of the interfaces.
+      // Another possibility is to compute traffic over all interfaces.
+      final String netIfaceName = NetworkInterface.getByInetAddress(me._key._inet).getName();
+      // Get interface statistics.
+      final NetInterfaceStat netInterfaceStat = sigar.getNetInterfaceStat(netIfaceName);
+
+      final long _rx_bytes = netInterfaceStat.getRxBytes();
+      final long _tx_bytes = netInterfaceStat.getTxBytes();
+      final long _delta_rx_bytes = _last_rx_bytes < 0 ? 0 : _rx_bytes - _last_rx_bytes;
+      final long _delta_tx_bytes = _last_tx_bytes < 0 ? 0 : _tx_bytes - _last_tx_bytes;
+
+      _last_rx_bytes = _rx_bytes;
+      _last_tx_bytes = _tx_bytes;
+      _sum_rx_bytes += _delta_rx_bytes;
+      _sum_tx_bytes += _delta_tx_bytes;
+
+      // Compute traffic rate -- the rate is computed
+      // Based on user preferences, this rate can be replaced by averaged traffic rate.
+      final long _now = System.currentTimeMillis();
+      final long _rx_bytes_rate = 1000 * _delta_rx_bytes / (_now - _last_stat_collection_time);
+      final long _tx_bytes_rate = 1000 * _delta_tx_bytes / (_now - _last_stat_collection_time);
+      _last_stat_collection_time = _now;
+
+      // Setup overall traffic statistics.
+      // TODO: decide if it is better to show total number of packets/bytes reported by Sigar
+      // or compute their sum manually.
+      me.set_total_packets_recv(netInterfaceStat.getRxPackets());
+      me.set_total_packets_sent(netInterfaceStat.getTxPackets());
+      me.set_total_bytes_recv(_rx_bytes);
+      me.set_total_bytes_sent(_tx_bytes);
+      me.set_total_bytes_recv_rate((int) _rx_bytes_rate);
+      me.set_total_bytes_sent_rate((int) _tx_bytes_rate);
+
     } catch (Exception e) {
-        me.set_total_packets_recv(-1);
-        me.set_total_packets_sent(-1);
-        me.set_total_bytes_recv(-1);
-        me.set_total_bytes_sent(-1);
-        me.set_total_bytes_recv_rate(-1);
-        me.set_total_bytes_recv_rate(-1);
-    }    
+      me.set_total_packets_recv(-1);
+      me.set_total_packets_sent(-1);
+      me.set_total_bytes_recv(-1);
+      me.set_total_bytes_sent(-1);
+      me.set_total_bytes_recv_rate(-1);
+      me.set_total_bytes_recv_rate(-1);
+    }
 
     // Setup TCP statistics.
     try {
@@ -206,18 +206,18 @@ public class HeartBeatThread extends Thread {
       me.set_tcp_bytes_sent(-1);
     }
 
-    // Setup UDP statistics.    
+    // Setup UDP statistics.
     try {
-        final Udp udpStats = sigar.getUdp();
-        me.set_udp_packets_recv(udpStats.getInPackets());
-        me.set_udp_packets_sent(udpStats.getOutPackets());
-        me.set_udp_bytes_recv(-1);
-        me.set_udp_bytes_sent(-1);
+      final Udp udpStats = sigar.getUdp();
+      me.set_udp_packets_recv(udpStats.getInPackets());
+      me.set_udp_packets_sent(udpStats.getOutPackets());
+      me.set_udp_bytes_recv(-1);
+      me.set_udp_bytes_sent(-1);
     } catch (SigarException e) {
-        me.set_udp_packets_recv(-1);
-        me.set_udp_packets_sent(-1);
-        me.set_udp_bytes_recv(-1);
-        me.set_udp_bytes_sent(-1);
+      me.set_udp_packets_recv(-1);
+      me.set_udp_packets_sent(-1);
+      me.set_udp_bytes_recv(-1);
+      me.set_udp_bytes_sent(-1);
     }
   }
 }

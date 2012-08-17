@@ -480,7 +480,7 @@ public class H2ONode implements Comparable {
     return sum;
   }
   private void set_buf(int off, int size, long n) {
-    assert size==8 || ((n>>>(size<<3))==0); // 'n' fits in 'size' bytes
+    assert size==8 || ((n>>>(size<<3))==0) || ((n>>(size<<3))==-1); // 'n' fits in 'size' bytes
     for( int i=0; i<size; i++ )
       _health_buf[off+i] = (byte)(n>>>(i<<3));
   }
