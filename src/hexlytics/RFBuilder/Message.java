@@ -62,7 +62,7 @@ public abstract class Message implements Serializable {
     }
   }
 
-  private static Message readNext(Class<? extends Message> msgClass,
+  public static Message readNext(Class<? extends Message> msgClass,
       int[] msgIdxs) {
     for (H2ONode node : H2O.CLOUD._memary) {
       int idx = H2O.CLOUD.nidx(node);
@@ -174,8 +174,8 @@ public abstract class Message implements Serializable {
     public static synchronized Text readNext() {
       if (_nextRecvIdxs == null)
         _nextRecvIdxs = new int[H2O.CLOUD.size()];
-      throw new Error("next line does not compile");
-      //return (Text) readNext(Text.class, _nextRecvIdxs);
+      //throw new Error("next line does not compile");
+      return (Text) readNext(Text.class, _nextRecvIdxs);
     }
 
     public String toString() {
@@ -217,8 +217,8 @@ public abstract class Message implements Serializable {
     public static synchronized Tree readNext() {
       if (_nextRecvIdxs == null)
         _nextRecvIdxs = new int[H2O.CLOUD.size()];
-      throw new Error("next line does not compile");
-      //return (Tree) readNext(Tree.class, _nextRecvIdxs);
+      //throw new Error("next line does not compile");
+      return (Tree) readNext(Tree.class, _nextRecvIdxs);
     }
 
     public String toString() {
