@@ -14,13 +14,105 @@ import java.util.Random;
  * @author jan
  */
 public  class Data  implements Iterable<Row> {
+
+  /** The cache for the sorted columns. 
+   */
+  static class SortedColumnsCache {
+    
+    // indices
+    int[][] sortedIndices_;
+    // sizes of the output arrays that must be created
+    int[] outputSizes_;
+    
+    public SortedColumnsCache(DataAdapter data) {
+      sortedIndices_ = new int[data.columns()][];
+      outputSizes_ = new int[data.columns()];
+    }
+    
+    public SortedColumnsCache(SortedColumnsCache old) {
+      sortedIndices_ = new int[old.sortedIndices_.length][];
+      outputSizes_ = new int[old.outputSizes_.length];
+      System.arraycopy(old.sortedIndices_,0,sortedIndices_,0,sortedIndices_.length);
+      System.arraycopy(old.outputSizes_,0,outputSizes_,0,outputSizes_.length);
+    }
+    
+    public int storedOutputSize(int colIndex) {
+      return outputSizes_[colIndex];
+    } 
+    
+    public void setSortedByColumn(int colIndex, int[] rows,DataAdapter data) {
+      if ((sortedIndices_[colIndex]==null) || (sortedIndices_[colIndex].length<rows.length))
+        sortedIndices_[colIndex] = new int[data.rows()];
+      // this is not needed as we will always ask only for valid rows since all
+      // asking objects are only subsets
+//      for (int i = 0; i < columnIndices_[colIndex].length;++i)
+//        columnIndices_[colIndex][i] = -1;
+      System.out.print(" column "+colIndex+": ");
+      for (int i = 0; i<rows.length;++i) {
+        sortedIndices_[colIndex][rows[i]]=i;
+        System.out.print(rows[i]+", ");
+      }
+      System.out.println("");
+      outputSizes_[colIndex] = rows.length;
+    }
+    
+    
+    private final boolean shouldSort(int colIndex, int rowSize, DataAdapter data) {
+      if (outputSizes_[colIndex]<rowSize)
+        return true;
+      return (rowSize*Math.log(rowSize)) < (outputSizes_[colIndex]+rowSize);
+    }
+    
+    public int[] getSortedByColumn(int colIndex, int[] rows, DataAdapter data) {
+      if (shouldSort(colIndex,rows.length,data))
+        return null;
+      // do the non sort - for each row we have read its 
+      int[] temp = new int[outputSizes_[colIndex]];
+      for (int i: rows) {
+        int j = sortedIndices_[colIndex][i]; // deal with copied rows
+        while (temp[j]!=0) {
+          if (temp[j] != i+1)
+            System.out.println("Error");
+          --j;
+          if (j==-1)
+            System.out.println("error");
+        }
+        temp[j] = i+1; // to get rid of 0
+      }
+//      System.out.print("TEMP: ");
+//      for (int i: temp) 
+//        System.out.print(i+", ");
+//      System.out.println("");
+      // and do the compaction
+      int[] result = new int[rows.length];
+      int idx = 0;
+      for (int i: temp) {
+        if (i==0)
+          continue;
+        result[idx] = i-1;
+        ++idx;
+      }
+      return result;
+    }
+  }
+  
+  SortedColumnsCache sortedCache_ = null;
   
   static final DecimalFormat df = new  DecimalFormat ("0.##");
   public static Random RANDOM = new Random(42);
  
   public static Data make(DataAdapter da) { return new Data(da); }    
 
-  Data(DataAdapter da) { data_ = da; name_=data_.name(); }
+  Data(Data d) {
+    this(d.data_);
+    sortedCache_ = d.sortedCache_;
+  }
+  
+  Data(DataAdapter da) {
+    data_ = da;
+    name_=data_.name();
+    sortedCache_ = new SortedColumnsCache(da);
+  }
   
   /** Returns the random generator associated with the used adapter. */
   public Random random() {
@@ -197,12 +289,13 @@ class Subset extends Data {
     return permutation_[idx];
   }
   
-  Subset(Data d, int size) {        
-    super(d.data_);  permutation_ = new int[size]; name_ =d.name_+"->subset"; 
+  Subset(Data d, int size) {   
+    
+    super(d);  permutation_ = new int[size]; name_ =d.name_+"->subset"; 
     if (permutation_.length==0) throw new Error("creating zero sized subset is not supported");
   }
   Subset(Data d, int[] perm) {        
-    super(d.data_);
+    super(d);
     permutation_ = perm; name_ =d.name_+"->subset";
     if (permutation_.length==0)
       throw new Error("creating zero sized subset is not supported");
@@ -229,11 +322,13 @@ class Subset extends Data {
     a.freeze();
     return new Data(a).toString();
   }
+  
 }
 
 
 class Shuffle extends Subset {
-  Shuffle(Data d, int column){
+  
+  Shuffle(Data d, int column) {
     super(d, d.rows());
     if (d instanceof Subset) {
       Subset sd = (Subset)d;
@@ -243,6 +338,29 @@ class Shuffle extends Subset {
         permutation_[i] = d.originalIndex(i);
     }
     sort(permutation_,0,permutation_.length,column);
+    /*
+    int p[] = sortedCache_.getSortedByColumn(column, permutation_, data_);
+    if (p == null) {
+      System.out.println("Sorting by column "+column+" is faster.");
+      sort(permutation_,0,permutation_.length,column);
+      if (sortedCache_.storedOutputSize(column) > permutation_.length) {
+        System.out.println("  stored size "+sortedCache_.storedOutputSize(column)+" larger than "+permutation_.length+", copying...");
+        sortedCache_ = new SortedColumnsCache(sortedCache_);
+      }
+      System.out.println("  storing "+permutation_.length+" rows sorted");
+      sortedCache_.setSortedByColumn(column, permutation_, data_);
+    } else {
+      System.out.println("Using cache for column "+column+" is faster...");
+      System.out.print("   ");
+      for (int i : permutation_)
+        System.out.print(i+", ");
+      System.out.println("");
+      System.out.print("   ");
+      for (int i : p)
+        System.out.print(i+", ");
+      System.out.println("");
+      permutation_ = p;
+    } */
   }
   
   double get(int i, int c) { return data_.getD(c,i); }  
