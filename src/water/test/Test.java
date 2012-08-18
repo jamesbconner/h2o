@@ -1,12 +1,33 @@
 package water.test;
 
-import java.io.*;
-import java.util.*;
-import org.junit.*;
-import org.junit.runner.*;
-import org.junit.runner.notification.*;
-import static org.junit.Assert.*;
-import water.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.util.Arrays;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+
+import water.Atomic;
+import water.DKV;
+import water.DRemoteTask;
+import water.H2O;
+import water.H2ONode;
+import water.Key;
+import water.UDP;
+import water.UKV;
+import water.Value;
+import water.ValueArray;
 
 public class Test {
   // Request that tests be "clean" on the K/V store, and restore it to the same
@@ -15,6 +36,10 @@ public class Test {
 
   // A no-arg constructor for JUnit alone
   public Test() { }
+  
+  @BeforeClass static public void startLocalNode() {
+    H2O.startLocalNode();
+  }
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
@@ -90,6 +115,7 @@ public class Test {
 
   // Remote Bit Set: OR together the result of a single bit-mask where the
   // shift-amount is passed in in the Key.
+  @SuppressWarnings("serial")
   public static class RemoteBitSet extends DRemoteTask {
     int _x;
     public int wire_len() { return 4; }
@@ -173,6 +199,7 @@ public class Test {
   }
 
   // Byte-wise histogram
+  @SuppressWarnings("serial")
   public static class ByteHisto extends DRemoteTask {
     int _x[];
     // Count occurances of bytes
@@ -240,6 +267,7 @@ public class Test {
     DKV.remove(key);            // Cleanup after test
   }
 
+  @SuppressWarnings("serial")
   public static class Atomic2 extends Atomic {
     @Override public byte[] atomic( byte[] bits1 ) {
       long l1 = UDP.get8(bits1,0);
@@ -289,16 +317,51 @@ public class Test {
 
   public static Process[] TEST_JVMS = new Process[10];
   public static final Runtime RUNTIME=Runtime.getRuntime();
+  
+  private static void drainStream(PrintStream out, InputStream in) throws IOException {
+    byte[] errorBytes = new byte[in.available()];
+    in.read(errorBytes);
+    out.print(new String(errorBytes));
+  }
 
   public static void launch_dev_jvm(int num) {
-    String[] args = new String[]{"java","-classpath",System.getProperty("java.class.path"),"-ea","init.init","-test=none","-Xmx512m","-name",H2O.NAME,"-port",Integer.toString(H2O.WEB_PORT+3*num),"-ip",H2O.SELF._key._inet.getHostAddress()};
+    String[] args = new String[]{
+        "java",
+        "-classpath", System.getProperty("java.class.path"),
+        "-Xmx512m",
+        "-ea",
+        "init.init",
+        "-test=none",
+        "-name", H2O.NAME,
+        "-port", Integer.toString(H2O.WEB_PORT+3*num),
+        "-ip", H2O.SELF._key._inet.getHostAddress()
+    };
     try {
       System.out.println("  Launching nested JVM on port "+(H2O.WEB_PORT+3*num));
-      Process P = RUNTIME.exec(args);
+      final Process P = RUNTIME.exec(args);
+      RUNTIME.addShutdownHook(new Thread(new Runnable() {
+        @Override
+        public void run() {
+          P.destroy();
+        }
+      }));
+      
       TEST_JVMS[num] = P;
-      while( H2O.CLOUD.size() == num ) { // Takes a while for the new JVM to be recognized
-        try { Thread.sleep(10); }        // sleep 10msec & test again
-        catch( InterruptedException ie ) {}
+      while( H2O.CLOUD.size() == num ) {
+        // Takes a while for the new JVM to be recognized
+        try { Thread.sleep(10); } catch( InterruptedException ie ) { }
+        try {
+          int exitCode = P.exitValue();
+          System.err.printf("Sub process died with error code %d\n", exitCode);
+          System.err.println("Sub process error stream");
+          drainStream(System.err, P.getErrorStream());
+          System.err.println("Sub process output stream");
+          drainStream(System.err, P.getInputStream());
+          throw new Error("JVM died unexpectedly");
+        } catch( IllegalThreadStateException e ) {
+          drainStream(System.err, P.getErrorStream());
+          drainStream(System.err, P.getInputStream());
+        }
       }
       System.out.println("  Nested JVM joined cloud of size: "+H2O.CLOUD.size());
       if( H2O.CLOUD.size() == num+1 ) return;

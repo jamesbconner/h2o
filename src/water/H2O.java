@@ -1,12 +1,27 @@
 package water;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
 import jsr166y.ForkJoinPool;
-import org.junit.runner.*;
-import org.junit.runner.notification.*;
+
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
+
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 import water.test.Test;
@@ -155,7 +170,7 @@ public final class H2O {
 
   // --------------------------------------------------------------------------
   // The (local) set of Key/Value mappings.
-  static final NonBlockingHashMap<Key,Value> STORE = new NonBlockingHashMap();
+  static final NonBlockingHashMap<Key,Value> STORE = new NonBlockingHashMap<Key, Value>();
 
   // Dummy shared volatile for ordering games
   static public volatile int VOLATILE;
@@ -191,15 +206,23 @@ public final class H2O {
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
-    Key q=null;
-    if( res != null ) { if( q==null ) q = res._key; else assert q == res._key; }
-    if( old != null ) { if( q==null ) q = old._key; else assert q == old._key; }
+    Key q = null;
+    q = set_value_to_key(q, res);
+    q = set_value_to_key(q, old);
     if( res != old )            // Failed?
       return res;               // Return the failure cause
-    if( val != null ) { if( q==null ) q = val._key; else assert q == val._key; }
+    q = set_value_to_key(q, val);
     if( old != null ) old.remove_persist(); // Start removing the old guy
     if( val != null ) val. start_persist(); // Start  storing the new guy
     return res;                             // Return success
+  }
+  
+  private static Key set_value_to_key(Key k, Value r) {
+    if( r != null ) {
+      if( k == null ) return r._key;
+      assert k == r._key;
+    }
+    return k;
   }
 
   // Raw put; no marking the memory as out-of-sync with disk.  Used to import
@@ -234,7 +257,7 @@ public final class H2O {
   public static final ForkJoinPool FJP_NORM = new ForkJoinPool();
 
   // --------------------------------------------------------------------------
-  public static OptArgs OPT_ARGS;
+  public static OptArgs OPT_ARGS = new OptArgs();
   public static class OptArgs extends Arguments.Opt {
     public String name;               // set_cloud_name_and_mcast()
     public String nodes;              // set_cloud_name_and_mcast()
@@ -253,10 +276,8 @@ public final class H2O {
   public static void main( String[] args ) {
     // Parse args
     Arguments arguments = new Arguments(args);
-    OptArgs oa = new OptArgs();
-    arguments.extract(oa);
+    arguments.extract(OPT_ARGS);
     ARGS = arguments.toStringArray();
-    OPT_ARGS = oa;
 
     // Redirect System.out/.err to the Log system
     Log.hook_sys_out_err();
@@ -278,7 +299,7 @@ public final class H2O {
    * @param args Command line arguments
    * @return Unprocessed command line arguments for further processing.
    */
-  private static void startLocalNode() {
+  public static void startLocalNode() {
     set_cloud_name_and_mcast();
     SELF = H2ONode.self();
 
@@ -383,7 +404,7 @@ public final class H2O {
         Log.die("Some of the required ports "+(OPT_ARGS.port+0)+
                 ", "+(OPT_ARGS.port+1)+
                 ", and "+(OPT_ARGS.port+2)+
-                "are not available, change -port PORT and try again.");
+                " are not available, change -port PORT and try again.");
       WEB_PORT++;               // Try the next available port(s)
       UDP_PORT++;
       TCP_PORT++;
