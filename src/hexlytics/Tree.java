@@ -18,8 +18,16 @@ public class Tree implements Serializable {
   
   public Tree() {}
   
-  public final Tree compute(Data data) { 
+  public final Tree compute(Data data) {
+//    System.out.println("Computing tree: ");
+//    System.out.println("  Rows:  "+data.rows());
+//    for (int i = 0; i< data.columns(); ++i) 
+//      System.out.println("  Cache col "+i+": "+(data.getSortedByColumn(i) == null ? "null" : data.getSortedByColumn(i).length));
     long t = System.currentTimeMillis(); 
+    /* precache
+    for (int i = 0; i < data.columns(); ++i)
+      data.sort(i);
+    System.out.println("Precaching done..."); */
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
     return this;
