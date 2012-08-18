@@ -53,13 +53,17 @@ public abstract class Atomic extends DRemoteTask {
       Value res = DKV.DputIfMatch(key,val2,val1);
 
       if( res == val1 ) {       // Success?
-        if( val1 != null )
+        if( val1 != null ) {
+          val1.remove_persist();
           val1.free_mem();      // Atomically updated!  Toss out old value
+        }
         return;
       }
       // Else it failed
-      if( val2 != null )
+      if( val2 != null ) {
+        val2.remove_persist();
         val2.free_mem();        // Toss out NEW value
+      }
       // and retry
     }
   }

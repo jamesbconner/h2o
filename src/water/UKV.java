@@ -28,7 +28,7 @@ public abstract class UKV {
       ValueArray ary = (ValueArray)res;
       final long chunks = ary.chunks();
       for( long i=0; i<chunks; i++ ) // Delete all the chunks
-        DKV.remove(ValueArray.make_chunkkey(ary._key,ValueArray.chunk_offset(i)));
+        DKV.remove(ary.chunk_get(i));
     }
     if( res != null ) res.free_mem();
   }
@@ -42,7 +42,7 @@ public abstract class UKV {
       final long chunks = ary.chunks();
       // Delete all chunks
       for( long i=0; i<=chunks; i++ ) // Delete all the chunks
-        DKV.remove(ValueArray.make_chunkkey(key,ValueArray.chunk_offset(i)));
+        DKV.remove(ary.chunk_get(i));
     }
     DKV.remove(key);
   }
@@ -51,8 +51,16 @@ public abstract class UKV {
   static public Value get( Key key, int len ) {
     assert key.user_allowed();
     Value val = DKV.get(key,len);
-    //if( val instanceof ValueCode )
-    //  throw new Error("unimplemented: users should get a polite error if they attempt to fetch a ValueCode");
+    // Lazily manifest array chunks, if the parent arraylet exists
+    if( val == null ) {
+      val = ValueArray.manifest_from_key(key);
+      if( val != null ) {       // Success!
+        // Insert the manifested value, as-if it existed all along
+        Value res = DKV.DputIfMatch(key,val,null);
+        if( res != null ) val = res; // This happens racily, so take any prior result
+      }
+    }
+
     if( val instanceof ValueArray ) {
       Value vchunk0 = DKV.get(ValueArray.make_chunkkey(key,0),len);
       if( len >= vchunk0._max )

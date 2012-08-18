@@ -2,10 +2,7 @@ package water.web;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
-import water.H2O;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.csv.CSVParser.*;
 import water.csv.CSVParserKV;
 
@@ -132,26 +129,28 @@ public class StoreView extends H2OPage {
     row.replace("ktr",urlEncode(ks));
 
     // See if this is a structured ValueArray.  Report results from a total parse.
-    if( val instanceof ValueArray &&
-        ((ValueArray)val).num_cols() > 0 ) {
-      ValueArray ary = (ValueArray)val;
-      row.replace("rows",ary.num_rows());
-      int cols = ary.num_cols();
-      row.replace("cols",cols);
-      for( int i=0; i<Math.min(cols,5); i++ ) {
-        sb = new StringBuilder();
-        int sz = ary.col_size(i);
-        if( sz != 0 ) {
-          double min = ary.col_min(i);
-          if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
-          sb.append(" / - / ");
-          double max = ary.col_max(i);
-          if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+    if( val instanceof ValueArray ) {
+      val = DKV.get(key);       // Get the whole ValueArray
+      if( ((ValueArray)val).num_cols() > 0 ) {
+        ValueArray ary = (ValueArray)val;
+        row.replace("rows",ary.num_rows());
+        int cols = ary.num_cols();
+        row.replace("cols",cols);
+        for( int i=0; i<Math.min(cols,5); i++ ) {
+          sb = new StringBuilder();
+          int sz = ary.col_size(i);
+          if( sz != 0 ) {
+            double min = ary.col_min(i);
+            if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
+            sb.append(" / - / ");
+            double max = ary.col_max(i);
+            if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+          }
+          row.replace("col"+i,sb);
         }
-        row.replace("col"+i,sb);
+        row.append();
+        return;
       }
-      row.append();
-      return;
     }
 
     // ---

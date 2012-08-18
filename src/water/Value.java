@@ -54,17 +54,24 @@ public class Value {
   private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
   private static final long _mem_offset;
   static {                      // <clinit>
-    Field f = null;
+    Field f1=null, f2=null;
     try { 
-      f = Value.class.getDeclaredField("_mem"); 
+      f1 = Value.class.getDeclaredField("_mem");
+      f2 = Value.class.getDeclaredField("_persistenceInfo");
     } catch( java.lang.NoSuchFieldException e ) { System.err.println("Can't happen");
     } 
-    _mem_offset = _unsafe.objectFieldOffset(f);
+    _mem_offset = _unsafe.objectFieldOffset(f1);
+    _pInfo_offset = _unsafe.objectFieldOffset(f2);
   }
 
   // Classic Compare-And-Swap of mem field
   final boolean CAS_mem( byte[] old, byte[] nnn ) {
     if( old == nnn ) return true;
+    assert                      // Assert: only shrink data if it is also persisted
+      (nnn !=null &&            // New-not-null AND
+       ((old == null) ||        // Old-was-null or New is bigger than Old
+        (old != null && old.length <= nnn.length))) || // Or..
+      is_persisted();           // Persisted, so we can reload from disk
     if(_unsafe.compareAndSwapObject(this, _mem_offset, old, nnn )) {
       MemoryManager.freeMemory(old);
       return true;
@@ -154,13 +161,11 @@ public class Value {
   // backend index that can be translated to the persistence backend singleton
   // and the persistence state, which determines the state of the persistence
   // of the value.
-  public byte _persistenceInfo;
+  public volatile int _persistenceInfo;
+  private static final long _pInfo_offset;
   final boolean CAS_persist( int old, int nnn ) {
-    // TODO: MAKE ME ATOMIC PLEASE
-    int tmp = _persistenceInfo&0xFF;
-    if( tmp!=old ) return false;
-    _persistenceInfo = (byte)nnn;
-    return true;
+    if( old == nnn ) return true;
+    return _unsafe.compareAndSwapInt(this, _pInfo_offset, old, nnn );
   }
 
   // Asks  if persistence goal is to either persist (or to remove).
@@ -280,7 +285,7 @@ public class Value {
   final int write( byte[] buf, int off, int len, byte[] vbuf ) {
     assert (len <= _max) || (_max<0);
     buf[off++] = type();        // Value type
-    buf[off++] = _persistenceInfo;
+    buf[off++] = (byte)_persistenceInfo;
     off += UDP.set4(buf,off,len);
     off += UDP.set4(buf,off,_max);
     if(len > 0 ) {              // Deleted keys have -1 len/max
@@ -315,11 +320,11 @@ public class Value {
     }
   }
   
-  // Read 4+4+len+vc value bytes from the the UDP packet and into a new Value.
+  // Read 1+1+4+4+len+vc value bytes from the the UDP packet and into a new Value.
   static Value read( byte[] buf, int off, Key key ) {
     byte type = buf[off++];
     if( type==0 ) return null;  // Deleted sentinel
-    byte p = Persistence.initial(buf[off++]);
+    byte p = Persistence.init_mem(buf[off++]);
     int len = UDP.get4(buf,off); off += 4;
     int max = UDP.get4(buf,off); off += 4;
     Value val = construct(max,len,key,p,type);
@@ -329,7 +334,7 @@ public class Value {
   }
   static Value read( DataInputStream dis, Key key ) throws IOException {
     byte type = dis.readByte();
-    byte p = Persistence.initial(dis.readByte());
+    byte p = Persistence.init_mem(dis.readByte());
     int len = dis.readInt();
     int max = dis.readInt();
     Value val = construct(max,len,key,p,type);
@@ -391,9 +396,9 @@ public class Value {
   /** Returns a stream that can read the value. 
    * @return 
    */
-  public InputStream openStream() {
+  public InputStream openStream() throws IOException {
     return (chunks() <= 1)
-      ? new ByteArrayInputStream(get())
+      ? new ByteArrayInputStream(DKV.get(_key).get())
       : new ArrayletInputStream(this);
   }
   
@@ -410,10 +415,10 @@ class ArrayletInputStream extends InputStream {
   private long _chunkIndex;
   // offset in the memory of the current chunk
   private int _offset;
-  
-  public ArrayletInputStream(Value v) {
+
+  public ArrayletInputStream(Value v) throws IOException {
     _arraylet = (ValueArray)v;
-    _mem = DKV.get(_arraylet.chunk_get(_chunkIndex++)).get();
+    _mem = _arraylet.get(_chunkIndex++).get();
   }
   
   @Override public int available() {
@@ -430,7 +435,7 @@ class ArrayletInputStream extends InputStream {
     if( available() == 0 ) {    // None available?
       if( _chunkIndex >= _arraylet.chunks() ) return -1;
       // Load next chunk
-      _mem = DKV.get(_arraylet.chunk_get(_chunkIndex++)).get();
+      _mem = _arraylet.get(_chunkIndex++).get();
       _offset = 0;
     }
     return _mem[_offset++] & 0xFF;
@@ -445,10 +450,9 @@ class ArrayletInputStream extends InputStream {
       len -= cs;
       if( len<=0 ) break;
       if( _chunkIndex >= _arraylet.chunks() ) break;
-      _mem = DKV.get(_arraylet.chunk_get(_chunkIndex++)).get();
+      _mem = _arraylet.get(_chunkIndex++).get();
       _offset = 0;
     }
     return rc == 0 ? -1 : rc;
   }
-  
 }

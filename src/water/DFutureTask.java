@@ -69,17 +69,14 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // Hit the Timeout.  Mostly just auto-resend packet.  Can be overridden if
   // subclass has a better clue about timeouts.
   protected void resend() {
-    // Keep a global record, for awhile
-    TASKS.put(_tasknum,this);
-    // We could be racing timeouts-vs-replies.  Blow off timeout if we have an answer.
-    if( isDone() ) return;
-    // We could be repeated versions of the same *identical* Future; this
-    // will happen if the Future is slow and is getting enqueued multiple times
-    // by the retries.  Kill off dups.
-    if( UDPTimeOutThread.PENDING.contains(this) )
-      return;
     synchronized(this) {
-      if( isDone() ) return;
+      // Keep a global record, for awhile
+      TASKS.put(_tasknum,this);
+      // We could be racing timeouts-vs-replies.  Blow off timeout if we have an answer.
+      if( isDone() ) {
+        TASKS.remove(_tasknum);
+        return;
+      }
       // Default strategy: re-fire the packet and re-start the timeout.  We're
       // not counting failures or 'nuttin.  Just keep hammering the target until
       // we get an answer.
@@ -90,6 +87,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       _retry<<=1;
       // Put self on the "TBD" list of tasks awaiting Timeout.
       // So: dont really 'forget' but remember me in a little bit.
+      assert !UDPTimeOutThread.PENDING.contains(this);
       UDPTimeOutThread.PENDING.add(this);
     }
   }

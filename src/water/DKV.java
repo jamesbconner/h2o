@@ -46,17 +46,17 @@ public abstract class DKV {
 
   // Do a PUT, and on success trigger replication.
   static protected Value DputIfMatch( Key key, Value val, Value old ) {
-    // Check for trivial success: no need to invalidate remotes if the new
-    // value equals the old.
-    if( old == val ) return old; // Trivial success?
-    if( old != null && val != null && val.true_ifequals(old) )
-      return old;               // Less trivial success, but no disk i/o
-    // Almost surely old is unequals val.  Time for a true update.
-
     // local update first, since this is a weak update
     Value res = H2O.putIfMatch(key,val,old);
     if( res != old )            // Failed?
       return res;               // Return fail value
+    assert old==null || !old.is_goal_persist(); // Goal: to delete
+
+    // Check for trivial success: no need to invalidate remotes if the new
+    // value equals the old.
+    if( old == val ) return old; // Trivial success?
+    if( old != null && val != null && val.true_ifequals(old) )
+      return old;               // Less trivial success, but no network i/o
 
     // The 'D' part of DputIfMatch: do Distribution.
     // If PUT is on non-HOME, replicate/push to HOME
@@ -93,10 +93,9 @@ public abstract class DKV {
         // See if we have enough data cached locally
         if( len > val._max ) len = val._max;
         if( len == 0 ) return val;
-        byte[] bits = val.get(len);
-        if( bits != null && len <= bits.length ) // We get something?  We get enough?
-          return val;                            // Done!
-        // Got something, but not enough: need to read more
+        if( val._mem != null && len <= val._mem.length ) return val;
+        if( val.is_persisted() ) return val; // Got it on local disk?  Then we must have it all
+        // Got something, but not enough and not on local disk: need to read more
       }
 
       // While in theory we could read from any replica, we always need to

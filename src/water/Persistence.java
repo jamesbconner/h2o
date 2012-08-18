@@ -25,11 +25,12 @@ public abstract class Persistence {
     static public type[] TYPES = values();
   };
 
-  static byte info(Value v) { return v._persistenceInfo; }
+  static byte info(Value v) { return (byte)v._persistenceInfo; }
   static type ptype(Value v) { return type.TYPES[info(v)&0x7]; }
   static Persistence p(Value v) { return ptype(v)._persist; }
   static public String name(Value v) { return ptype(v).toString(); }
-  static public byte initial(byte p) { return type.TYPES[p&0x7]._persist.initial(); }
+  static public byte init_disk(byte p) { return (byte)((p&7) | ON_DISK); }
+  static public byte init_mem (byte p) { return (byte)((p&7) | IN_MEM ); }
 
   static public String stateString( Value v ) {
     return
@@ -37,7 +38,8 @@ public abstract class Persistence {
       (is     (v) ? "ed"   : "ing"  );
   }
 
-  static public final int ON_DISK = 8 | 16;
+  static public final int ON_DISK = 8 | 16; //     On disk; goal     met
+  static public final int IN_MEM  = 8 |  0; //     On disk; goal not met
 
   // Asks  if persistence goal is to either persist (or to remove).
   // True  if the last call was to start(),
@@ -84,6 +86,4 @@ public abstract class Persistence {
   public abstract void delete( Value v );
   // Load more of this Value from the persistence layer
   public abstract byte[] load( Value v, int len);
-  // Return the default initial byte
-  public abstract byte initial();
 }

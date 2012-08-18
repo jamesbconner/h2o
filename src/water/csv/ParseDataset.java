@@ -419,7 +419,8 @@ public final class ParseDataset {
       au._dst_off = dst_off;
       au._len = len;
       Future f = au.fork(key1); // Start atomic update
-      f.get();                  // No need to complete now?
+      // Do not wait on completion now; the atomic-update is fire-and-forget.
+      //f.get();                  // No need to complete now?
       return rowz;              // Rows written out
     }
 

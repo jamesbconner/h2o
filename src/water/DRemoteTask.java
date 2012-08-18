@@ -182,7 +182,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     Value val = DKV.get(args);
     if( args._kb[0] == Key.KEY_OF_KEYS ) { // Key-of-keys: break out into array of keys
       if( val == null ) {
-        System.err.println("Missing args in fork call: possibly the caller did not fence out a DKV.put(args) before calling "+(getClass().toString())+".fork(,,args,).");
+        System.err.println("Missing args in fork call: possibly the caller did not fence out a DKV.put(args) before calling "+(getClass().toString())+".fork(,,args,) with key "+args);
         throw new Error("Missing args");
       }
       // Parse all the keys out

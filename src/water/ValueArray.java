@@ -36,7 +36,7 @@ public class ValueArray extends Value {
     super(max,len,key,mode);
   }
   
-  @Override public long length() { return UDP.get8(get(),LENGTH_OFF); }
+  @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
 
   @Override public byte type() { return ARRAYLET; }
 
@@ -60,26 +60,27 @@ public class ValueArray extends Value {
     Key k = Key.make(kb,(byte)key.desired()); // Presto!  A unique arraylet key!
     return k;
   }
+  public Key make_chunkkey( long off ) { return make_chunkkey(_key,off); }
 
   // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray
-  public Key make_chunkkey( long off ) {
-    Key k = make_chunkkey(_key,off);
-    // Array chunk sub-keys are lazily made for large arrays kept on disk, e.g.
-    // for giant HDFS files that exceed all of RAM in size (and maybe are
-    // larger than one whole disk in size).  When handing out such a key here,
-    // see if the key exists already mapped to a Value, and if not - map it now.
-    Value v = DKV.get(k,0);     // Want no bytes of it, just want to know it exists
-    if( v == null ) {           // Not found?
-      long rem = length()-off;  // Remaining size
-      //long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
-      int sz = (int)((chunks(rem) > 1) ? chunk_size() : rem);
-      v = new Value(sz,0,k,_persistenceInfo);
-      // A one-shot fire-and-forget put.  Do not overwrite somebody else's
-      // racing put... but this otherwise makes a K/V mapping magically appear
-      // when the Key is first created.
-      DKV.DputIfMatch(k,v,null);
-    }
-    return k;
+  public static Value manifest_from_key( Key key ) {
+    if( key._kb[0] != Key.ARRAYLET_CHUNK ) return null; // Not an arraylet chunk
+    if( !key.home() ) return null; // Only do this on the home node
+    Key arykey = Key.make(getArrayKeyBytes(key));
+    System.out.println("manifesting from base ary "+arykey+" to make "+key);
+    Value v1 = DKV.get(arykey);
+    if( v1 == null ) return null; // Nope; not there
+    if( !(v1 instanceof ValueArray) ) return null; // Or not a ValueArray
+    ValueArray ary = (ValueArray)v1;
+    long off = getOffset(key);   // The offset trying to be made
+    long rem = ary.length()-off; // Remaining size
+    //long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
+    int sz = (int)((chunks(rem) > 1) ? chunk_size() : rem);
+    Value v2 = new Value(sz,0,key,ary._persistenceInfo);
+    byte[] test = v2.get(0);    // Confirm file exists
+    if( test==null ) return null;
+    System.out.println("manifesting "+key);
+    return v2;
   }
 
   // Get the chunk with the given index.
@@ -114,7 +115,6 @@ public class ValueArray extends Value {
   public static long chunk_size() {
     return 1L << LOG_CHK;
   }
-  
 
   // Get the offset from a random arraylet sub-key
   public static long getOffset(Key k) {
@@ -129,6 +129,13 @@ public class ValueArray extends Value {
   public static byte[] getArrayKeyBytes( Key k ) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
     return Arrays.copyOfRange(k._kb,2+8,k._kb.length);
+  }
+
+  // Get a chunk - expected to exist
+  Value get( long idx ) throws IOException {
+    Value v = DKV.get(chunk_get(idx));
+    if( v != null ) return v;
+    throw new IOException("Missing chunk "+idx+", broken "+H2O.OPT_ARGS.ice_root+"?");
   }
 
   static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
@@ -438,15 +445,13 @@ public class ValueArray extends Value {
   }
 
   // Value extracted, then scaled & based - the integer version.
-  public long data(long rownum, int colnum) {
+  public long data(long rownum, int colnum) throws IOException {
     int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
     long chknum = chunk_for_row(rownum,rpc);
     int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
     int off = row_in_chunk * row_size();
-    Key k = chunk_get(chknum);  // Get the chunk key
-    Value val = DKV.get(k);     // Get the chunk
     // Get the whole row.  Note that in structured arrays, no row splits a chunk.
-    byte[] bits = val.get(off+row_size());
+    byte[] bits = get(chknum).get(off+row_size());
     int col_off = off+col_off(colnum);
     long res=0;
     switch( col_size(colnum) ) {
@@ -498,8 +503,6 @@ public class ValueArray extends Value {
       // Then the name bytes itself
       name.getBytes(0,name.length(),mem,off); off += name.length();
     }
-
     return ary;
   }
-
 }

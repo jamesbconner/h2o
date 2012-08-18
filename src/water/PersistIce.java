@@ -16,7 +16,8 @@ public class PersistIce extends Persistence {
   @Override public void store(Value v) { file_store(v);  }
   @Override public void delete(Value v) { file_delete(v); }
   @Override public byte[] load(Value v, int len) { return file_load(v,len); }
-  @Override public byte initial() { return INIT; }
+
+  public static byte INIT = IN_MEM+0;
 
   // initialization routines ---------------------------------------------------
 
@@ -24,19 +25,6 @@ public class PersistIce extends Persistence {
   public static final String DEFAULT_ROOT = "/tmp";
   private static final String ICE_DIR = "ice";
   private static final File iceRoot;
-
-  // The _persistenceInfo byte for new K/V's not yet on disk
-  public static final byte INIT =
-    (byte)(0/*type.ICE.ordinal()*/ | // Persisted by the ICE mechanism (local disk)
-           0 |                  // Goal: no object on disk
-           16 |                 // Goal is met
-           0);                  // No more status bits needed
-
-  // The _persistenceInfo byte given K/V's already on disk when JVM starts.
-  private static final byte ON_DISK =
-    (byte)(0/*type.ICE.ordinal()*/ | // Persisted by the ICE mechanism (local disk)
-           Persistence.ON_DISK | // Goal: persist object to disk & Goal is met
-           0);                   // No more status bits needed
 
   // Load into the K/V store all the files found on the local disk
   static {
@@ -55,7 +43,7 @@ public class PersistIce extends Persistence {
         initializeFilesFromFolder(f); // Recursively keep loading K/V pairs
       } else {
         Key k = decodeKey(f);
-        Value ice = Value.construct((int)f.length(),0,k,ON_DISK,decodeType(f));
+        Value ice = Value.construct((int)f.length(),0,k,(byte)(ON_DISK+0),decodeType(f));
         H2O.putIfAbsent_raw(k,ice);
       }
     }
@@ -172,7 +160,7 @@ public class PersistIce extends Persistence {
   }
   
   private byte[] file_load(Value v, int len) {
-    synchronized(v) {                                        // Test under lock
+    synchronized(v) {           // Test under lock
       if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
     }
     // Allocate outside of lock
@@ -224,7 +212,6 @@ public class PersistIce extends Persistence {
   private void file_delete(Value v) {
     synchronized(v) {                  // Lock Value
       if( is_goal(v) == false ) return;         // Some other thread is already trying to remove
-      assert is_goal(v) == true && is(v)==true; // State was: store-done
       clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
       clr_info(v,16);
       assert is_goal(v) == false && is(v)==false; // State is: remove-not-done

@@ -53,9 +53,9 @@ public class Cloud extends H2OPage {
       if(fjq_lo > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyle","background-color:green;");
       row.replace("fjqueue_lo" , fjq_lo);
-      int tcps = h2o.get_tcps_active();
-      row.replace("tcps_active" , tcps);
-      row.replace("node_type" ,            h2o.get_node_type());
+      row.replace("rpcs" ,                h2o.get_rpcs());
+      row.replace("tcps_active" ,         h2o.get_tcps_active());
+      row.replace("node_type" ,           h2o.get_node_type());
 
       row.append();      
     }
@@ -77,7 +77,7 @@ public class Cloud extends H2OPage {
     + "</div>"
     + "<p>The Local Cloud has %size members"
     + "<table class='table table-striped table-bordered table-condensed'>"
-    + "<thead class=''><tr><th>Local Nodes</th><th>CPUs</th><th>Local Keys</th><th>Mem Cached</th><th>FreeMem</th><th>TotalMem</th><th>MaxMem</th><th>FreeDisk</th><th>MaxDisk</th><th>CPU Utilization</th><th>Threads</th><th>CPU Load (1min)</th><th>CPU Load (5min)</th><th>CPU Load (15min)</th><th>FJ Tasks HI</th><th>FJ Tasks Norm</th><th>TCPs Active</th><th>Type</th></tr></thead>"
+    + "<thead class=''><tr><th>Local Nodes</th><th>CPUs</th><th>Local Keys</th><th>Mem Cached</th><th>FreeMem</th><th>TotalMem</th><th>MaxMem</th><th>FreeDisk</th><th>MaxDisk</th><th>CPU Utilization</th><th>Threads</th><th>CPU Load (1min)</th><th>CPU Load (5min)</th><th>CPU Load (15min)</th><th>RPCs</th><th>FJ Tasks HI</th><th>FJ Tasks Norm</th><th>TCPs Active</th><th>Type</th></tr></thead>"
     + "<tbody>"
     + "%tableRow{"
     + "  <tr>"
@@ -95,6 +95,7 @@ public class Cloud extends H2OPage {
     + "    <td>%cpu_load_1</td>"
     + "    <td>%cpu_load_5</td>"
     + "    <td>%cpu_load_15</td>"
+    + "    <td>%rpcs</td>"
     + "    <td style='%queueStyle'>%fjqueue_hi</td>"
     + "    <td style='%queueStyle'>%fjqueue_lo</td>"
     + "    <td>%tcps_active</td>"

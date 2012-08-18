@@ -1,5 +1,5 @@
 package water.web;
-
+import java.io.IOException;
 import java.util.Properties;
 import water.DKV;
 import water.Key;
@@ -29,9 +29,13 @@ public class Get extends Page {
     if( val == null )
       return H2OPage.wrap(H2OPage.error("Key not found: "+ key_s));
     // HTML file save of Value
-    Response res = server.new Response(NanoHTTPD.HTTP_OK,NanoHTTPD.MIME_DEFAULT_BINARY,val.openStream());
-    res.addHeader( "Content-Length", Long.toString(val.length()));
-    return res;
+    try {
+      Response res = server.new Response(NanoHTTPD.HTTP_OK,NanoHTTPD.MIME_DEFAULT_BINARY,val.openStream());
+      res.addHeader( "Content-Length", Long.toString(val.length()));
+      return res;
+    } catch( IOException ex ) {
+      return H2OPage.wrap(H2OPage.error(ex.toString()));
+    }
   }
   
   @Override public String[] requiredArguments() {

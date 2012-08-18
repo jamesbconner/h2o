@@ -183,11 +183,9 @@ public final class H2O {
 
   public static final Value putIfMatch( Key key, Value val, Value old ) {
     assert val==null || val._key == key; // Keys matched
-    if( old == val ) return old; // Trivial success?
-    if( old != null && val != null ) { // Have an old value?
-      if( val.true_ifequals(old) ) return old;
-      key = val._key = old._key; // Use prior key in val
-    }
+    if( old == val ) return old;         // Trivial success?
+    if( old != null && val != null )     // Have an old value?
+      key = val._key = old._key;         // Use prior key in val
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
@@ -199,7 +197,7 @@ public final class H2O {
     if( val != null ) { if( q==null ) q = val._key; else assert q == val._key; }
     if( old != null ) old.remove_persist(); // Start removing the old guy
     if( val != null ) val. start_persist(); // Start  storing the new guy
-    return res;                             // Return success
+    return old;                             // Return success
   }
 
   // Raw put; no marking the memory as out-of-sync with disk.  Used to import
@@ -212,10 +210,8 @@ public final class H2O {
   }
 
   // Get the value from the store, if the value is a placeholder for a locally
-  // stored value, replace it with a proper value and continue.  This WILL
-  // return "deleted" Values.
+  // stored value, replace it with a proper value and continue.
   public static Value get( Key key ) {
-    // No funny placeholders right now
     return STORE.get(key);
   }
 
