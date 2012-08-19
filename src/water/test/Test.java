@@ -37,9 +37,9 @@ public class Test {
   // A no-arg constructor for JUnit alone
   public Test() { }
   
-  @BeforeClass static public void startLocalNode() {
-    H2O.startLocalNode();
-  }
+  //@BeforeClass static public void startLocalNode() {
+  //  //H2O.startLocalNode();
+  //}
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
