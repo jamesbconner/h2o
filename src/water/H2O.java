@@ -273,7 +273,10 @@ public final class H2O {
   }
 
   // Start up an H2O Node and join any local Cloud
+  public static boolean IS_SYSTEM_RUNNING = false;
   public static void main( String[] args ) {
+    if (IS_SYSTEM_RUNNING) return;
+    IS_SYSTEM_RUNNING = true;
     // Parse args
     Arguments arguments = new Arguments(args);
     arguments.extract(OPT_ARGS);
@@ -288,7 +291,6 @@ public final class H2O {
     startNetworkServices();  // start server services
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
-
   }
 
 
@@ -299,7 +301,7 @@ public final class H2O {
    * @param args Command line arguments
    * @return Unprocessed command line arguments for further processing.
    */
-  public static void startLocalNode() {
+  private static void startLocalNode() {
     set_cloud_name_and_mcast();
     SELF = H2ONode.self();
 

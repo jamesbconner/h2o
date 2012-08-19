@@ -139,7 +139,6 @@ public class H2ONode implements Comparable {
         }
       }
     } catch( SocketException e ) { 
-    } catch( IOException e ) {
     }
 
     InetAddress local = null;   // My final choice

@@ -37,9 +37,9 @@ public class Test {
   // A no-arg constructor for JUnit alone
   public Test() { }
   
-  //@BeforeClass static public void startLocalNode() {
-  //  //H2O.startLocalNode();
-  //}
+  @BeforeClass static public void startLocalNode() {
+    H2O.main(new String[] {});
+  }
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
@@ -168,21 +168,16 @@ public class Test {
   // ---
   // Map in h2o.jar - a multi-megabyte file - into Arraylets.
   // Run a distributed byte histogram.
-  @org.junit.Test public void test5() {
+  @org.junit.Test public void test5() throws Exception {
     System.out.println("test5");
     h2o_cloud_of_size(3);
-    String fname = "h2o.jar";
     Key h2okey = null;
+    File file = new File("h2o.jar");
+    if( !file.exists() ) file = new File("build/h2o.jar");
     FileInputStream fis = null;
     try {
-      fis = new FileInputStream(fname);
-      h2okey = ValueArray.read_put_file(fname,fis,(byte)0);
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-      return;
-    } catch (IOException e) {
-      e.printStackTrace();
-      fail(e.toString());
+      fis = new FileInputStream(file);
+      h2okey = ValueArray.read_put_file(file.getPath(), fis, (byte)0);
     } finally {
       try { if( fis != null ) fis.close(); } catch( IOException e ) { }
     }
@@ -193,7 +188,7 @@ public class Test {
     int sum=0;
     for( int i=0; i<bh._x.length; i++ )
       sum += bh._x[i];
-    assertEquals(new File(fname).length(),sum);
+    assertEquals(file.length(),sum);
 
     UKV.remove(h2okey);
   }
