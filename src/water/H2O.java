@@ -1,12 +1,10 @@
 package water;
-
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import jsr166y.ForkJoinPool;
-import org.junit.runner.*;
-import org.junit.runner.notification.*;
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 import water.test.Test;
@@ -155,7 +153,7 @@ public final class H2O {
 
   // --------------------------------------------------------------------------
   // The (local) set of Key/Value mappings.
-  static final NonBlockingHashMap<Key,Value> STORE = new NonBlockingHashMap();
+  static final NonBlockingHashMap<Key,Value> STORE = new NonBlockingHashMap<Key, Value>();
 
   // Dummy shared volatile for ordering games
   static public volatile int VOLATILE;
@@ -183,21 +181,27 @@ public final class H2O {
 
   public static final Value putIfMatch( Key key, Value val, Value old ) {
     assert val==null || val._key == key; // Keys matched
-    if( old == val ) return old;         // Trivial success?
     if( old != null && val != null )     // Have an old value?
       key = val._key = old._key;         // Use prior key in val
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
-    Key q=null;
-    if( res != null ) { if( q==null ) q = res._key; else assert q == res._key; }
-    if( old != null ) { if( q==null ) q = old._key; else assert q == old._key; }
+    Key k = null;
+    assert (k=chk_equals_key(k,res))==k;
+    assert (k=chk_equals_key(k,old))==k;
     if( res != old )            // Failed?
       return res;               // Return the failure cause
-    if( val != null ) { if( q==null ) q = val._key; else assert q == val._key; }
+    assert (k=chk_equals_key(k,val))==k;
     if( old != null ) old.remove_persist(); // Start removing the old guy
     if( val != null ) val. start_persist(); // Start  storing the new guy
     return old;                             // Return success
+  }
+  // assert that all of val, old & res that are not-null all agree on key.
+  private static final Key chk_equals_key( Key k, Value v ) {
+    if( v == null ) return k;
+    if( k == null ) return v._key;
+    assert k == v._key;
+    return k;
   }
 
   // Raw put; no marking the memory as out-of-sync with disk.  Used to import
@@ -209,10 +213,11 @@ public final class H2O {
     return res;
   }
 
-  // Get the value from the store, if the value is a placeholder for a locally
-  // stored value, replace it with a proper value and continue.
+  // Get the value from the store
   public static Value get( Key key ) {
-    return STORE.get(key);
+    Value v = STORE.get(key);
+    if( v != null ) v.touch();
+    return v;
   }
 
   public static Value raw_get( Key key ) { return STORE.get(key); }
@@ -230,7 +235,7 @@ public final class H2O {
   public static final ForkJoinPool FJP_NORM = new ForkJoinPool();
 
   // --------------------------------------------------------------------------
-  public static OptArgs OPT_ARGS;
+  public static OptArgs OPT_ARGS = new OptArgs();
   public static class OptArgs extends Arguments.Opt {
     public String name;               // set_cloud_name_and_mcast()
     public String nodes;              // set_cloud_name_and_mcast()
@@ -244,15 +249,20 @@ public final class H2O {
     public String hdfs_datanode;      // Datanode root
     public String test;               // JUnit test classes
   }
+  public static boolean IS_SYSTEM_RUNNING = false;
 
   // Start up an H2O Node and join any local Cloud
   public static void main( String[] args ) {
+
+    // To support launching from JUnit, JUnit expects to call main() repeatedly.
+    // We need exactly 1 call to main to startup all the local services.
+    if (IS_SYSTEM_RUNNING) return;
+    IS_SYSTEM_RUNNING = true;
+
     // Parse args
     Arguments arguments = new Arguments(args);
-    OptArgs oa = new OptArgs();
-    arguments.extract(oa);
+    arguments.extract(OPT_ARGS);
     ARGS = arguments.toStringArray();
-    OPT_ARGS = oa;
 
     // Redirect System.out/.err to the Log system
     Log.hook_sys_out_err();
@@ -263,7 +273,6 @@ public final class H2O {
     startNetworkServices();  // start server services
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
-
   }
 
 
@@ -379,7 +388,7 @@ public final class H2O {
         Log.die("Some of the required ports "+(OPT_ARGS.port+0)+
                 ", "+(OPT_ARGS.port+1)+
                 ", and "+(OPT_ARGS.port+2)+
-                "are not available, change -port PORT and try again.");
+                " are not available, change -port PORT and try again.");
       WEB_PORT++;               // Try the next available port(s)
       UDP_PORT++;
       TCP_PORT++;

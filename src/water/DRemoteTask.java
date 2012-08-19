@@ -49,25 +49,23 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   public final void compute() {
     if( _hi-_lo >= 2 ) { // Multi-key case: just divide-and-conquer down to 1 key
       final int mid = (_lo+_hi)>>>1; // Mid-point
-      _left = make_child();          // Clone by any other name
-      _rite = make_child();          // Clone by any other name
-      _left._hi = mid;               // Reset mid-point
-      _rite._lo = mid;               // Also set self mid-point
+      _left = make_child();     // Clone by any other name
+      _rite = make_child();     // Clone by any other name
+      _left._hi = mid;          // Reset mid-point
+      _rite._lo = mid;          // Also set self mid-point
       setPendingCount(2);       // Two more pending forks
       _left.fork();             // Runs in another thread/FJ instance
       _rite.fork();             // Runs in another thread/FJ instance
-      // This task is not complete, because we do not know when the forks complete.
-      // So we do not call tryComplete() now.
     } else {
       if( _hi > _lo )           // Single key?
         map(_keys[_lo]);        // Get it, run it locally
     }
-    tryComplete();            // And this task is complete
+    tryComplete();              // And this task is complete
   }
 
   @Override public final void onCompletion( CountedCompleter caller ) {
     // Reduce results into 'this' so they collapse going up the execution tree.
-    // NULL out child-references so we dont accidentilly keep large subtrees
+    // NULL out child-references so we don't accidentilly keep large subtrees
     // alive: each one may be holding large partial results.
     if( _left != null ) reduce(_left); _left = null;
     if( _rite != null ) reduce(_rite); _rite = null;
