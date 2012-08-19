@@ -1,33 +1,10 @@
 package water.test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.util.Arrays;
-
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-
-import water.Atomic;
-import water.DKV;
-import water.DRemoteTask;
-import water.H2O;
-import water.H2ONode;
-import water.Key;
-import water.UDP;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
+import static org.junit.Assert.*;
+import water.*;
 
 public class Test {
   // Request that tests be "clean" on the K/V store, and restore it to the same
@@ -37,10 +14,6 @@ public class Test {
   // A no-arg constructor for JUnit alone
   public Test() { }
   
-  @BeforeClass static public void startLocalNode() {
-    H2O.main(new String[] {});
-  }
-
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
   // value for it, get the value for it, delete it.
@@ -173,7 +146,9 @@ public class Test {
     h2o_cloud_of_size(3);
     Key h2okey = null;
     File file = new File("h2o.jar");
-    if( !file.exists() ) file = new File("build/h2o.jar");
+    // do not create if this file does not exist, because that will confuse the build
+    // process and the created file fails to test anything anyways.
+    //if( !file.exists() ) file = new File("build/h2o.jar");
     FileInputStream fis = null;
     try {
       fis = new FileInputStream(file);
@@ -288,6 +263,9 @@ public class Test {
     }
   }
 
+  @BeforeClass static public void startLocalNode() {
+    H2O.main(new String[] {});
+  }
   @BeforeClass public static void record_initial_keycnt() {
     System.out.println("Running tests in Test.class");
     _initial_keycnt = H2O.store_size();

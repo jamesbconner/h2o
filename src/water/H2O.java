@@ -1,27 +1,10 @@
 package water;
-
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
+import java.io.*;
+import java.net.*;
+import java.util.*;
 import jsr166y.ForkJoinPool;
-
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
-
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 import water.test.Test;
@@ -198,7 +181,6 @@ public final class H2O {
 
   public static final Value putIfMatch( Key key, Value val, Value old ) {
     assert val==null || val._key == key; // Keys matched
-    if( old == val ) return old; // Trivial success?
     if( old != null && val != null ) { // Have an old value?
       if( val.true_ifequals(old) ) return old;
       key = val._key = old._key; // Use prior key in val
@@ -206,22 +188,21 @@ public final class H2O {
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
-    Key q = null;
-    q = set_value_to_key(q, res);
-    q = set_value_to_key(q, old);
+    Key k = null;
+    assert (k=chk_equals_key(k,res))==k;
+    assert (k=chk_equals_key(k,old))==k;
     if( res != old )            // Failed?
       return res;               // Return the failure cause
-    q = set_value_to_key(q, val);
+    assert (k=chk_equals_key(k,val))==k;
     if( old != null ) old.remove_persist(); // Start removing the old guy
     if( val != null ) val. start_persist(); // Start  storing the new guy
     return res;                             // Return success
   }
-  
-  private static Key set_value_to_key(Key k, Value r) {
-    if( r != null ) {
-      if( k == null ) return r._key;
-      assert k == r._key;
-    }
+  // assert that all of val, old & res that are not-null all agree on key.
+  private static final Key chk_equals_key( Key k, Value v ) {
+    if( v == null ) return k;
+    if( k == null ) return v._key;
+    assert k == v._key;
     return k;
   }
 
@@ -234,12 +215,11 @@ public final class H2O {
     return res;
   }
 
-  // Get the value from the store, if the value is a placeholder for a locally
-  // stored value, replace it with a proper value and continue.  This WILL
-  // return "deleted" Values.
+  // Get the value from the store
   public static Value get( Key key ) {
-    // No funny placeholders right now
-    return STORE.get(key);
+    Value v = STORE.get(key);
+    if( v != null ) v.touch();
+    return v;
   }
 
   public static Value raw_get( Key key ) { return STORE.get(key); }
@@ -271,12 +251,16 @@ public final class H2O {
     public String hdfs_datanode;      // Datanode root
     public String test;               // JUnit test classes
   }
+  public static boolean IS_SYSTEM_RUNNING = false;
 
   // Start up an H2O Node and join any local Cloud
-  public static boolean IS_SYSTEM_RUNNING = false;
   public static void main( String[] args ) {
+
+    // To support launching from JUnit, JUnit expects to call main() repeatedly.
+    // We need exactly 1 call to main to startup all the local services.
     if (IS_SYSTEM_RUNNING) return;
     IS_SYSTEM_RUNNING = true;
+
     // Parse args
     Arguments arguments = new Arguments(args);
     arguments.extract(OPT_ARGS);
