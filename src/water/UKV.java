@@ -37,7 +37,7 @@ public abstract class UKV {
     assert key.user_allowed();
     Value val = DKV.get(key,32); // Get the existing Value, if any
     if( val == null ) return;    // Trivial delete
-    if( val.type() == Value.ARRAYLET ) { // See if this is an Array
+    if( val instanceof ValueArray ) { // See if this is an Array
       ValueArray ary = (ValueArray)val;
       final long chunks = ary.chunks();
       // Delete all chunks
@@ -76,7 +76,6 @@ public abstract class UKV {
   static public void remove(String s) { remove(Key.make(s)); }
   
   
-  
   // Appends the given set of bytes to the arraylet
   private static void appendArraylet(ValueArray alet, byte[] b) {
     Value lastChunk = DKV.get(alet.make_chunkkey(alet._key,alet.length() - alet.length() % ValueArray.chunk_size()));
@@ -99,7 +98,7 @@ public abstract class UKV {
       DKV.put(lastChunk._key, lastChunk);
     }
     // and finally update the arraylet size. 
-    ValueArray newalet = new ValueArray(alet._key, alet.length() + b.length);
+    ValueArray newalet = new ValueArray(alet._key, alet.length() + b.length,Value.ICE);
     // change the UUID so that it is the same
     System.arraycopy(alet.get(), 10, newalet.mem(), 10, alet._max - 10);
     DKV.put(newalet._key, newalet);
@@ -134,7 +133,7 @@ public abstract class UKV {
           // we cannot append properly - create an arraylet
           Value v = new Value(ValueArray.make_chunkkey(k,0), old._max);
           System.arraycopy(old.get(), 0, v.mem(), 0, v._max);
-          ValueArray alet = new ValueArray(k, old._max);
+          ValueArray alet = new ValueArray(k, old._max,Value.ICE);
           DKV.put(alet._key, alet);
           DKV.put(v._key, v);
         }

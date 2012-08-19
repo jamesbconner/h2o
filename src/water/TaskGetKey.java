@@ -171,7 +171,7 @@ public class TaskGetKey extends DFutureTask<Value> {
 
       Value val = (len == /*Big Value cookie*/-2) ? _tcp_val : Value.read(buf,off,_key);
       // Need to officially put_if_later, in case of racing other updates
-      Value old = H2O.STORE.get(_key);
+      Value old = H2O.get(_key);
       H2O.putIfMatch(_key,val,old);
       // If we succeeded, return Value.  If we failed, it means a racing write
       // superceded our write... but we can still return our write.  It is "as

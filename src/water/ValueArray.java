@@ -26,19 +26,19 @@ public class ValueArray extends Value {
   // Which is described further below, for structured ValueArrays.
 
   // The unstructured-data array
-  public ValueArray( Key key, long sz ) {
-    super(key,COLUMN0_OFF);
+  public ValueArray( Key key, long sz, byte mode ) {
+    super(COLUMN0_OFF,COLUMN0_OFF,key,mode);
     // The unstructured-data array has zero everywhere, except the length
     UDP.set8(_mem,LENGTH_OFF,sz);
   }
   
-  public ValueArray( int max, int len, Key key, int mode ) {
+  public ValueArray( int max, int len, Key key, byte mode ) {
     super(max,len,key,mode);
   }
   
   @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
 
-  @Override public byte type() { return ARRAYLET; }
+  @Override public byte type() { return ARRAY; }
 
   @Override protected boolean getString_impl( int len, StringBuilder sb ) {
     sb.append("[array] size=").append(length());
@@ -76,7 +76,7 @@ public class ValueArray extends Value {
     long rem = ary.length()-off; // Remaining size
     //long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
     int sz = (int)((chunks(rem) > 1) ? chunk_size() : rem);
-    Value v2 = new Value(sz,0,key,ary._persistenceInfo);
+    Value v2 = new Value(sz,0,key,ary._persist);
     byte[] test = v2.get(0);    // Confirm file exists
     if( test==null ) return null;
     System.out.println("manifesting "+key);
@@ -187,7 +187,7 @@ public class ValueArray extends Value {
         if (sz!=chunk_size())
           break;
       }
-      ValueArray ary = new ValueArray(key,offset);
+      ValueArray ary = new ValueArray(key,offset,ICE);
       DKV.put(key,ary);
     }
     bis.close();
@@ -232,7 +232,7 @@ public class ValueArray extends Value {
     assert off == sz;           // Got them all
 
     // Now insert the main Key
-    ValueArray ary = new ValueArray(key,sz);
+    ValueArray ary = new ValueArray(key,sz,ICE);
     UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }

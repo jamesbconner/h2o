@@ -78,7 +78,7 @@ public final class ParseDataset {
     long now2 = System.currentTimeMillis();
 
     // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, PersistIce.INIT, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
     UKV.put(result,ary);
   }
 

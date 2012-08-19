@@ -35,7 +35,7 @@ public class Hdfs {
       // get all files inder jar folder 
       if (!loader.addInternalJarFolder("hadoop/"+version+"/",true))
         Log.die("[hdfs] Unable to initialize hadoop version "+version+" please use different version.");
-      new PersistHdfs();        // Touch & thus start HDFS
+      String dummy = PersistHdfs.ROOT; // Touch & thus start HDFS
       return true;
     }
     return false;

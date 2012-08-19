@@ -47,23 +47,10 @@ public abstract class Atomic extends DRemoteTask {
       byte[] bits2 = atomic(bits1);
       assert bits1 == null || bits1 != bits2; // No returning the same array
 
-      Value val2 = new Value(key,bits2);
-
       // Attempt atomic update
+      Value val2 = new Value(key,bits2);
       Value res = DKV.DputIfMatch(key,val2,val1);
-
-      if( res == val1 ) {       // Success?
-        if( val1 != null ) {
-          val1.remove_persist();
-          val1.free_mem();      // Atomically updated!  Toss out old value
-        }
-        return;
-      }
-      // Else it failed
-      if( val2 != null ) {
-        val2.remove_persist();
-        val2.free_mem();        // Toss out NEW value
-      }
+      if( res == val1 ) return; // Success?
       // and retry
     }
   }

@@ -15,15 +15,12 @@ public abstract class DKV {
   // update.  i.e., The User has initiated a change against the K/V store.
   // This is a WEAK update: it is not strongly ordered with other updates
   static public void put( Key key, Value val ) {
-    Value local;
     assert val==null || val.is_same_key(key);
     while( true ) {
-      local = H2O.get(key);
-      Value res = DputIfMatch(key,val,local);
-      if( res == local ) break;
+      Value local = H2O.get(key);
+      if( DputIfMatch(key,val,local) == local )
+        return;
     }
-    if( local != null )         // Was there a local old?
-      local.free_mem();         // Free the memory
   }
 
   // This put is a top-level user-update, and not a reflected or retried
@@ -50,11 +47,10 @@ public abstract class DKV {
     Value res = H2O.putIfMatch(key,val,old);
     if( res != old )            // Failed?
       return res;               // Return fail value
-    assert old==null || !old.is_goal_persist(); // Goal: to delete
 
     // Check for trivial success: no need to invalidate remotes if the new
     // value equals the old.
-    if( old == val ) return old; // Trivial success?
+    if( old != null && old == val ) return old; // Trivial success?
     if( old != null && val != null && val.true_ifequals(old) )
       return old;               // Less trivial success, but no network i/o
 

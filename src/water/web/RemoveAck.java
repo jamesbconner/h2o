@@ -31,19 +31,13 @@ public class RemoveAck extends H2OPage {
   
   
   static final String html =
-            "<div class='alert alert-error'>Are you sure you want to delete key <strong>%key</strong>?<br/>"
-          + "There is no way back!"
-          + "</div>"
-          + "<div style='text-align:center'>"
-          + "<a href='StoreView'><button class='btn btn-primary'>No, back to node</button></a>"
-          + "&nbsp;&nbsp;&nbsp;"
-          + "<a href='Remove?Key=%keyHref'><button class='btn btn-danger'>Yes!</button></a>"
-          + "</div>"
-          ;
-  
-//  static final RString response = new RString(html);
-  
-          
-          
-  
+    "<div class='alert alert-error'>Are you sure you want to delete key <strong>%key</strong>?<br/>"
+    + "There is no way back!"
+    + "</div>"
+    + "<div style='text-align:center'>"
+    + "<a href='StoreView'><button class='btn btn-primary'>No, back to node</button></a>"
+    + "&nbsp;&nbsp;&nbsp;"
+    + "<a href='Remove?Key=%keyHref'><button class='btn btn-danger'>Yes!</button></a>"
+    + "</div>"
+    ;
 }

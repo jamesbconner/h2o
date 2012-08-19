@@ -192,9 +192,9 @@ public final class H2O {
     if( res != old )            // Failed?
       return res;               // Return the failure cause
     assert (k=chk_equals_key(k,val))==k;
-    if( old != null ) old.remove_persist(); // Start removing the old guy
-    if( val != null ) val. start_persist(); // Start  storing the new guy
-    return old;                             // Return success
+    if( old != null && old != val ) old.remove_persist(); // Remove the old guy
+    if( val != null ) kick_store_cleaner(); // Start storing the new guy
+    return old;                 // Return success
   }
   // assert that all of val, old & res that are not-null all agree on key.
   private static final Key chk_equals_key( Key k, Value v ) {
@@ -329,6 +329,11 @@ public final class H2O {
     // Nodes.  There should be only 1 of these, and it never shuts down.
     new TCPReceiverThread().start();
 
+    // Start the Persistent meta-data cleaner thread, which updates the K/V
+    // mappings periodically to disk.  There should be only 1 of these, and it
+    // never shuts down.
+    new Cleaner().start();
+
     water.web.Server.start();
   }
 
@@ -450,5 +455,46 @@ public final class H2O {
 
   static void initializePersistence() {
     if( OPT_ARGS.hdfs!=null ) Hdfs.initialize();
+  }
+
+
+  // Cleaner ---------------------------------------------------------------
+
+  static boolean _dirty;
+
+  static void kick_store_cleaner() {
+    synchronized(STORE) {
+      _dirty = true;
+      STORE.notifyAll();
+    }
+  }
+  // Periodically write user keys to disk
+  public static class Cleaner extends Thread {
+    public void run() {
+      while( true ) {
+        synchronized(STORE) {
+          while( _dirty == false )
+            try { STORE.wait(); } catch( InterruptedException ie ) { }
+          _dirty = false;   // Clear the flag, about to clean
+        }                   // Release lock
+        // Sleep another second to batch-up writes
+        try { Thread.sleep(1000); } catch( InterruptedException e ) { }
+        for( Key key : keySet() ) {
+          Value val = raw_get(key); // fetch value withOUT loading it from disk
+          if( val == null ) continue;
+          if( !key.user_allowed() && // System keys need further filtering
+              key._kb[0]==Key.ARRAYLET_CHUNK ) { // Arraylet?
+            // If this is a chunk of a user-defined array, then save it
+            Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
+            if( !arykey.user_allowed() ) continue; // System array?
+            Value v1 = DKV.get(arykey);
+            if( v1 == null || !(v1 instanceof ValueArray) )
+              continue; // Nope; not a valid user arraylet
+          }
+          // Store user-keys, or arraylets from user-keys
+          val.store_persist();
+        }
+      }
+    }
   }
 }

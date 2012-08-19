@@ -11,13 +11,7 @@ import java.io.*;
 // key.
 //
 // @author peta, cliffc
-public class PersistIce extends Persistence {
-
-  @Override public void store(Value v) { file_store(v);  }
-  @Override public void delete(Value v) { file_delete(v); }
-  @Override public byte[] load(Value v, int len) { return file_load(v,len); }
-
-  public static byte INIT = IN_MEM+0;
+public abstract class PersistIce {
 
   // initialization routines ---------------------------------------------------
 
@@ -43,12 +37,12 @@ public class PersistIce extends Persistence {
         initializeFilesFromFolder(f); // Recursively keep loading K/V pairs
       } else {
         Key k = decodeKey(f);
-        Value ice = Value.construct((int)f.length(),0,k,(byte)(ON_DISK+0),decodeType(f));
+        Value ice = Value.construct((int)f.length(),0,k,Value.ICE,decodeType(f));
+        ice.setdsk();
         H2O.putIfAbsent_raw(k,ice);
       }
     }
   }
-
 
   // file implementation -------------------------------------------------------
 
@@ -158,73 +152,60 @@ public class PersistIce extends Persistence {
     // Reverse arraylet key generation
     return new String(ValueArray.getArrayKeyBytes(v._key));
   }
-  
-  private byte[] file_load(Value v, int len) {
-    synchronized(v) {           // Test under lock
-      if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
-    }
-    // Allocate outside of lock
-    byte[] b = MemoryManager.allocateMemory(len);
-    synchronized(v) {           // File i/o under lock
-      if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
-      try {
-        DataInputStream s = new DataInputStream(new FileInputStream(encodeKeyToFile(v)));
-        try {
-          s.readFully(b, 0, len);
-          return b;
-        } finally {
-          s.close();
-        }
-      } catch( IOException e ) {  // Broken disk / short-file???
-        //System.err.println(e.toString()+" for "+v._key+" and len="+len);
-        return null;
-      }
-    }
-  }
-  
-  private void file_store(Value v) {
-    synchronized(v) {                  // Lock Value
-      if( is_goal(v) == true ) return; // Some other thread is already trying to store
-      assert is_goal(v) == false && is(v)==true; // State was: file-not-present
-      set_info(v, 8);                            // Not-atomically set state to "store not-done"
-      clr_info(v,16);
-      assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
-      try {
-        new File(iceRoot,getDirectoryForKey(v)).mkdirs();
-        // Nuke any prior file.
-        OutputStream s = new FileOutputStream(encodeKeyToFile(v));
-        try {
-          byte[] m = v.mem(); // we are not single threaded anymore 
-          assert (m == null || m.length == v._max); // Assert not saving partial files
-          if( m!=null )
-            s.write(m);
-        } finally {
-          s.close();
-          set_info(v,16);         // Set state to "store done"
-          assert is_goal(v) == true && is(v)==true; // State is: store-done
-        }
-      } catch( IOException e ) {
-        // Ignore IO errors, except that we never set state to "store done"
-      }
-    }
-  }
-  
-  private void file_delete(Value v) {
-    synchronized(v) {                  // Lock Value
-      if( is_goal(v) == false ) return;         // Some other thread is already trying to remove
-      clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
-      clr_info(v,16);
-      assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
+
+  // Read up to 'len' bytes of Value.  Value should already be persisted to
+  // disk.  'len' should be sane: 0 <= len <= v._max (both ends are asserted
+  // for, although it's hard to see the asserts).  A racing delete can trigger
+  // a failure where we get a null return, but no crash (although one could
+  // argue that a racing load&delete is a bug no matter what).
+  static byte[] file_load(Value v, int len) {
+    byte[] b = new byte[len];
+    try {
       File f = encodeKeyToFile(v);
-      f.delete();
-      
-      if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
-        f = new File(iceRoot,getDirectoryForKey(v));
-        f.delete();
+      assert f.length() == v._max;
+      DataInputStream s = new DataInputStream(new FileInputStream(f));
+      try {
+        s.readFully(b, 0, len);
+        assert v.is_persisted();
+        return b;
+      } finally {
+        s.close();
       }
-      
-      set_info(v,16);
-      assert is_goal(v) == false && is(v)==true; // State is: remove-done
+    } catch( IOException e ) {  // Broken disk / short-file???
+      //System.err.println(e.toString()+" for "+v._key+" and len="+len);
+      return null;
+    }
+  }
+
+  // Store Value v to disk.
+  static void file_store(Value v) {
+    // A perhaps useless cutout: the upper layers should test this first.
+    if( v.is_persisted() ) return;
+    try {
+      new File(iceRoot,getDirectoryForKey(v)).mkdirs();
+      // Nuke any prior file.
+      OutputStream s = new FileOutputStream(encodeKeyToFile(v));
+      try {
+        byte[] m = v._mem; // we are not single threaded anymore 
+        assert (m == null || m.length == v._max); // Assert not saving partial files
+        if( m!=null )
+          s.write(m);
+        v.setdsk();             // Set as write-complete to disk
+      } finally {
+        s.close();
+      }
+    } catch( IOException e ) {
+    }
+  }
+  
+  static void file_delete(Value v) {
+    assert v._mem == null;      // Upper layers already cleared out
+    assert !v.is_persisted();   // Upper layers already cleared out
+    File f = encodeKeyToFile(v);
+    f.delete();
+    if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
+      f = new File(iceRoot,getDirectoryForKey(v));
+      f.delete();
     }
   }
 }

@@ -9,11 +9,7 @@ import water.*;
 // Persistence backend for HDFS
 //
 // @author peta, cliffc
-public class PersistHdfs extends Persistence {
-
-  @Override public void store(Value v) { file_store(v);  }
-  @Override public void delete(Value v) { file_delete(v); }
-  @Override public byte[] load(Value v, int len) { return file_load(v,len); }
+public abstract class PersistHdfs {
 
   // initialization routines ---------------------------------------------------
 
@@ -22,12 +18,6 @@ public class PersistHdfs extends Persistence {
   private final static Configuration _conf;
   private static FileSystem _fs;
   private static Path _root;
-  
-  // The _persistenceInfo byte given K/V's already on disk when JVM starts.
-  private static final byte ON_DISK =
-    (byte)(1/*type.HDFS.ordinal()*/ | // Persisted by the HDFS mechanism
-           Persistence.ON_DISK | // Goal: persist object to disk & Goal is met
-           0);                   // No more status bits needed
   
   static {
     if( H2O.OPT_ARGS.hdfs_config!=null ) {
@@ -83,9 +73,9 @@ public class PersistHdfs extends Persistence {
             continue;
           long size = _fs.getFileStatus(p).getLen();
           Value val = (size < 2*ValueArray.chunk_size())
-            ? new Value((int)size,0,k,0)
-            : new ValueArray(k,size);
-          val._persistenceInfo = ON_DISK;
+            ? new Value((int)size,0,k,Value.HDFS)
+            : new ValueArray(k,size,Value.HDFS);
+          val.setdsk();
           H2O.putIfAbsent_raw(k, val);
           num++;
         }
@@ -120,14 +110,13 @@ public class PersistHdfs extends Persistence {
   }
   
   
-  public synchronized byte[] file_load(Value v, int len) {
-    if( is_goal(v) == false || is(v)==false ) return null; // Trying to load mid-delete
+  static public byte[] file_load(Value v, int len) {
     if( v instanceof ValueArray )
       throw new Error("unimplemented: loading from arraylets");
+    byte[] b = new byte[len];
     try {
       FSDataInputStream s = null;
       try {
-        byte[] b = MemoryManager.allocateMemory(len);
         long off = 0;
         Key k = v._key;
         // Convert an arraylet chunk into a long-offset from the base file.
@@ -139,61 +128,50 @@ public class PersistHdfs extends Persistence {
         s = _fs.open(p);
         int br = s.read(off, b, 0, len);
         assert (br == len);
+        assert v.is_persisted();
         return b;
       } finally {
         if( s != null )
           s.close();
       }
-    } catch( IOException e ) {
+    } catch( IOException e ) {  // Broken disk / short-file???
       return null;
     } 
   }
 
-  public synchronized void file_store(Value v) {
-    // Only the home node does persistence.
+  static public void file_store(Value v) {
+    // Only the home node does persistence on HDFS
     if( !v._key.home() ) return;
     // Never store arraylets on HDFS, instead we'll store the entire array.
     assert !(v instanceof ValueArray);
-
-    if( is_goal(v) == true ) return; // Some other thread is already trying to store
-    assert is_goal(v) == false && is(v)==true; // State was: file-not-present
-    set_info(v, 8);                            // Not-atomically set state to "store not-done"
-    clr_info(v,16);
-    assert is_goal(v) == true && is(v)==false; // State is: storing-not-done
-    
+    // A perhaps useless cutout: the upper layers should test this first.
+    if( v.is_persisted() ) return;
     try {
       Path p = getPathForKey(v._key);
       _fs.mkdirs(p.getParent());
       FSDataOutputStream s = _fs.create(p);
       try {
         byte[] m = v.mem();
+        assert (m == null || m.length == v._max); // Assert not saving partial files 
         if (m!=null) 
           s.write(m);
+        v.setdsk();             // Set as write-complete to disk
       } finally {
         s.close();
-        set_info(v,16);       // Set state to "store done"
-        assert is_goal(v) == true && is(v)==true; // State is: store-done
       }
     } catch( IOException e ) {
-      // Ignore IO errors, except that we never set state to "store done"
     }
   }
-
-  public void file_delete(Value v) {
+  
+  static public void file_delete(Value v) {
     // Only the home node does persistence.
     if( !v._key.home() ) return;
     // Never store arraylets on HDFS, instead we'll store the entire array.
     assert !(v instanceof ValueArray);
-    assert is_goal(v) == true && is(v)==true; // State was: store-done
-    clr_info(v, 8);                           // Not-atomically set state to "remove not-done"
-    clr_info(v,16);
-    assert is_goal(v) == false && is(v)==false; // State is: remove-not-done
-
+    assert v.mem() == null;     // Upper layers already cleared out
+    assert !v.is_persisted();   // Upper layers already cleared out
     Path p = getPathForKey(v._key);
     try { _fs.delete(p, false); } // Try to delete, ignoring errors
     catch( IOException e ) { }
-    set_info(v,16);
-    assert is_goal(v) == false && is(v)==true; // State is: remove-done
   }
-
 }

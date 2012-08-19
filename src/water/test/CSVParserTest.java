@@ -1,40 +1,23 @@
 package water.test;
-
 import init.init;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
-
 import junit.framework.Assert;
-
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
-
 import test.analytics.PokerAvg;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
-
 
 
 public class CSVParserTest {
@@ -150,7 +133,7 @@ public class CSVParserTest {
   @Test
   public void testLineEnding(){
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 3*1024*1024);
+    ValueArray var = new ValueArray(k, 3*1024*1024,Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"double\",float,\"int\", CSVString \r\n .123 , .123, 123 ,\r\r\n");
     try{
@@ -188,7 +171,7 @@ public class CSVParserTest {
   @Test
   public void testIgnoredColumn(){
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 3*1024*1024);
+    ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"test1\", haha,\"test2\"\n12345,xxx,.12345\n1.2345e13,xxx,-12345\n-1.3e-3,xxx,123\n");
     try{
@@ -213,7 +196,7 @@ public class CSVParserTest {
   @Test
   public void testCSVString() {
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 1024*1024*3);
+    ValueArray var = new ValueArray(k, 1024*1024*3, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,var.chunk_offset(1));
     Key k2 = ValueArray.make_chunkkey(k,var.chunk_offset(2));
 
@@ -239,7 +222,7 @@ public class CSVParserTest {
   @Test
   public void testDataTypes() {
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 3*1024*1024);
+    ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"double\",float,\"int\",CSVString \n .123 , .123, 123, \"123\"\n");
     try{
@@ -264,7 +247,7 @@ public class CSVParserTest {
   @Test
   public void testSeparator() {
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 3*1024*1024);
+    ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"test1\"  \"test2\" \n 12345 .12345 \n             1.2345e13    -12345\n -1.3e-3 123  \n");
 
@@ -292,7 +275,7 @@ public class CSVParserTest {
   @Test
   public void testCorrectNumberParsing() {
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 3*1024*1024);
+    ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
     Value v1 = new Value(k1,"\"test1\", \"test2\"\n12345,.12345\n1.2345e13,-12345\n-1.3e-3,123\n");
     try{
@@ -317,7 +300,7 @@ public class CSVParserTest {
   @Test
   public void testCorrectBoundaryProcessing() {
     Key k = Key.make("csvTest");
-    ValueArray var = new ValueArray(k, 1024*1024*3);
+    ValueArray var = new ValueArray(k, 1024*1024*3, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,var.chunk_offset(0));
     Key k2 = ValueArray.make_chunkkey(k,var.chunk_offset(1));
     Key k3 = ValueArray.make_chunkkey(k,var.chunk_offset(2));

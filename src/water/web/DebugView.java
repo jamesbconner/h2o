@@ -102,8 +102,10 @@ public class DebugView extends H2OPage {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
-    row.replace("keyHref",urlEncode(new String(key._kb)));
-    row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
+    row.replace("key",key.user_allowed() ? ks : "<code>"+ks+"</code>");
+    String kurl = urlEncode(new String(key._kb));
+    row.replace("keyHref1",kurl);
+    row.replace("keyHref2",kurl);
     // Dump out the current replication info: Mem/Disk/Replication_desired
     int r = key.desired();
     int repl = key.replica(cloud);
@@ -128,9 +130,7 @@ public class DebugView extends H2OPage {
     row.replace("max",val._max);
     row.replace("in_mem",val.mem()==null ? "null" : val.mem().length);
     // Now the first 100 bytes of Value as a String
-    row.replace("ktr",urlEncode(ks));
-    row.replace("persist",val.name_persist());
-    row.replace("pstate",Persistence.stateString(val));
+    row.replace("persist", val.is_persisted() ? val.name_persist() : "mem");
     row.append();
   }
 
@@ -146,11 +146,11 @@ public class DebugView extends H2OPage {
           + "<p>%navup</p>"
           + "<table class='table table-striped table-bordered table-condensed'>"
           + "<colgroup><col/><col/><col style=\"text-align:center\"/><col/></colgroup>\n"
-          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Class<th>Max<th>In Mem<th>Persistence<th>State</thead>\n"
+          + "<thead><th>Key<th>D/R<th>1st<th>2nd<th>replica#<th>Class<th>Max<th>In Mem<th>Persist</thead>\n"
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"
-          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a></td>"
+          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref1'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref2'>%key</a></td>"
           + "    <td style='%replicationStyle'>%r1/%r2</td>"
           + "    <td>%home</td>"
           + "    <td>%home2</td>"
@@ -159,7 +159,6 @@ public class DebugView extends H2OPage {
           + "    <td>%max</td>"
           + "    <td>%in_mem</td>"
           + "    <td>%persist</td>"
-          + "    <td>%pstate</td>"
           + "  </tr>\n"
           + "}"
           + "</tbody>"

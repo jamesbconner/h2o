@@ -50,7 +50,7 @@ public class TaskPutKey extends DFutureTask<Object> {
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
-    if( _val == null || !_val.is_goal_persist() ) { // This is a send of a deleted value
+    if( _val == null ) {        // This is a send of a deleted value
       off = _key.write(buf,off);
       buf[off++] = 0;           // Deleted sentinel
       return off;
@@ -122,7 +122,6 @@ public class TaskPutKey extends DFutureTask<Object> {
         Value old = H2O.get(key);
         while( H2O.putIfMatch(key,null,old) != old )
           old = H2O.get(key);   // Repeat until we invalidate something
-        if( old != null ) old.free_mem();
       }
       // Now we assume the sender is still valid in ram.
       if( val != null ) key.set_mem_replica(sender);

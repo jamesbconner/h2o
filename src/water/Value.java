@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.UUID;
 import sun.misc.Unsafe;
+import water.hdfs.PersistHdfs;
 import water.nbhm.UtilUnsafe;
 
 /**
@@ -24,6 +25,32 @@ public class Value {
   // this local Node.
   public final int _max; // Max length of Value bytes
 
+  // ---
+  // Backend persistence info.  3 bits are reserved for 8 different flavors of
+  // backend storage.  1 bit for whether or not the latest _mem field is
+  // entirely persisted on the backend storage, or not.  Note that with only 1
+  // bit here there is an unclosable datarace: one thread could be trying to
+  // change _mem (e.g. to null for deletion) while another is trying to write
+  // the existing _mem to disk (for persistence).  This datarace only happens
+  // if we have racing deletes of an existing key, along with racing persist
+  // attempts.  There are other races that are stopped higher up the stack: we
+  // do not attempt to write to disk, unless we have *all* of a Value, so
+  // extending _mem (from a remote read) should not conflict with writing _mem
+  // to disk.
+  //
+  // The low 3 bits are final.
+  // The on/off disk bit is strictly cleared by the higher layers (e.g. Value.java)
+  // and strictly set by the persistence layers (e.g. PersistIce.java).
+  public byte _persist;         // 3 bits of backend flavor; 1 bit of disk/notdisk
+  public final static byte ICE = 1<<0; // backend flavors
+  public final static byte HDFS= 2<<0;
+  public final static byte S3  = 3<<0;
+  public final static byte BACKEND_MASK = (8-1);
+  public final static byte NOTdsk = 0<<3; // latest _mem is persisted or not
+  public final static byte ON_dsk = 1<<3;
+  final public void clrdsk() { _persist &= ~ON_dsk; } // note: not atomic
+  final public void setdsk() { _persist |=  ON_dsk; } // note: not atomic
+  final public boolean is_persisted() { return (_persist&ON_dsk)!=0; }
 
   // ---
   // A byte[] of this Value when cached in DRAM, or NULL if not cached.  Length
@@ -40,53 +67,31 @@ public class Value {
   protected volatile byte[] _mem;
   public final byte[] mem() { return _mem; }
 
-  public final byte [] allocateMem(int size) {
-    byte [] oldMem = _mem;         
-    if( (oldMem == null) || (oldMem.length < size)) {
-      byte [] newMem = MemoryManager.allocateMemory(size);
-      return CAS_mem_if_larger(newMem);
-    } else {
-      return oldMem;
-    }     
-  }
-  
   // --- Bits to allow atomic update of the Value mem field
   private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
   private static final long _mem_offset;
   static {                      // <clinit>
-    Field f1=null, f2=null;
+    Field f1=null;
     try { 
       f1 = Value.class.getDeclaredField("_mem");
-      f2 = Value.class.getDeclaredField("_persistenceInfo");
     } catch( java.lang.NoSuchFieldException e ) { System.err.println("Can't happen");
     } 
     _mem_offset = _unsafe.objectFieldOffset(f1);
-    _pInfo_offset = _unsafe.objectFieldOffset(f2);
   }
 
   // Classic Compare-And-Swap of mem field
   final boolean CAS_mem( byte[] old, byte[] nnn ) {
     if( old == nnn ) return true;
-    assert                      // Assert: only shrink data if it is also persisted
-      (nnn !=null &&            // New-not-null AND
-       ((old == null) ||        // Old-was-null or New is bigger than Old
-        (old != null && old.length <= nnn.length))) || // Or..
-      is_persisted();           // Persisted, so we can reload from disk
-    if(_unsafe.compareAndSwapObject(this, _mem_offset, old, nnn )) {
-      MemoryManager.freeMemory(old);
-      return true;
-    } else
-      return false;
+    return _unsafe.compareAndSwapObject(this, _mem_offset, old, nnn );
   }
   // Convenience for tracking in-use memory
   final public void free_mem( ) { CAS_mem(_mem,null); }
+  // CAS in a larger byte[], returning the current one when done.
   final byte[] CAS_mem_if_larger( byte[] nnn ) {
     while( true ) {
       byte[] b = _mem;          // Read it again
-      if( b != null && (nnn==null || b.length >= nnn.length) ) {
-        if( nnn != null ) MemoryManager.freeMemory(nnn); // Free 'nnn' and keep '_mem'
+      if( b != null && (nnn==null || b.length >= nnn.length) )
         return b;
-      }
       if( CAS_mem(b,nnn) )
         return nnn;
     }
@@ -94,20 +99,19 @@ public class Value {
 
   // The FAST path get-byte-array - final method for speed.
   // NEVER returns null.
+  public final byte[] get() { return get(Integer.MAX_VALUE); }
   public final byte[] get( int len ) {
     if( len > _max ) len = _max;
     byte[] mem = _mem;          // Read once!
     if( mem != null && len <= mem.length ) return mem;
     if( mem != null && _max == 0 ) return mem;
-    assert (_key!=null) && is_persisted();  // Should already be on disk!
     byte[] newmem = (_max==0 ? new byte[0] : load_persist(len));
     return CAS_mem_if_larger(newmem);                // CAS in the larger read
   }
-  
-  public final byte[] get() { return get(Integer.MAX_VALUE); }
-  
+
+
   // ---
-  // time of last access to this value 
+  // Time of last access to this value.
   long _lastAccessedTime = System.currentTimeMillis();
   public final void touch() {_lastAccessedTime = System.currentTimeMillis();}
 
@@ -127,26 +131,14 @@ public class Value {
   // Abstract interface for value subtypes
   // ---------------------------------------------------------------------------
   // A 1-byte ASCII char type-field for Values.  This byte must be unique
-  // across Value subclasses and is used to de-serialize Values
-  /* because I do not know where else to put them, I am putting all types of the
-   * values as a list here. 
-   * 
-   * I - ICE stored value (Level DB)
-   * F - local file stored value  (old ice)
-   * A - Arraylet
-   * 3 - Amazon S3 value.
-   * H - Hadoop backed file (Phase I - existing hadoop installation)
-   * h - hadoop backed arraylet 
-   * C - code on ICE
-   * B - HDFS block
-   * N - HDFS iNode
-   * * - Internal value (no persistence at all)
-   */
-  public static final byte ICE = (byte)'I';
-  public static final byte ARRAYLET = (byte)'A';
-  public static final byte CODE = (byte)'C';
+  // across Value subclasses and is used to de-serialize Values.
+  //
+  // V - Normal Value.
+  // A - Array Head; types as a ValueArray.
+  public static final byte VALUE = (byte)'V';
+  public static final byte ARRAY = (byte)'A';
   
-  public byte type() { return ICE;  }
+  public byte type() { return VALUE; }
 
   protected boolean getString_impl( int len, StringBuilder sb ) {
     sb.append(name_persist());
@@ -155,40 +147,44 @@ public class Value {
   }
 
   // ---
-  // Value persistency information.
-  //
-  // Each value has its persistence info which packs both the persistence
-  // backend index that can be translated to the persistence backend singleton
-  // and the persistence state, which determines the state of the persistence
-  // of the value.
-  public volatile int _persistenceInfo;
-  private static final long _pInfo_offset;
-  final boolean CAS_persist( int old, int nnn ) {
-    if( old == nnn ) return true;
-    return _unsafe.compareAndSwapInt(this, _pInfo_offset, old, nnn );
+  // Interface for using the persistence layer(s).
+  // Store complete Values to disk
+  void store_persist() { 
+    if( is_persisted() ) return;
+    switch( _persist&BACKEND_MASK ) {
+    case ICE : PersistIce .file_store(this); break;
+    case HDFS: PersistHdfs.file_store(this); break;
+    default  : throw new Error("unimplemented");
+    }
   }
-
-  // Asks  if persistence goal is to either persist (or to remove).
-  // True  if the last call was to start(),
-  // False if the last call was to remove().
-  boolean is_goal_persist() {    return Persistence.p(this).is_goal(this); }
-  // Asks if persistence is completed (of either storing or deletion)
-  public boolean is_persisted() {return Persistence.p(this).is(this); }
-  // Pretty name
-  public String name_persist() { return Persistence.p(this).name(this); }
-  // Start this Value persisting.  Ok to call repeatedly, or if the value is
-  // already persisted.  Depending on how busy the disk is, and how big the
-  // Value is, it might be a long time before the value is persisted.
-  void start_persist() {
-    if( _max ==0 || (_mem != null && _max == _mem.length) )
-                                        Persistence.p(this).store(this); }
-  // Remove any trace of this value from the persistence layer.  Called right
-  // after the Value is itself deleted.  Depending on how busy the disk is, and
-  // how big the Value is, it might be a long time before the disk space is
-  // returned.
-  void remove_persist() {               Persistence.p(this).delete(this); }
-  // Load more of this Value from the persistence layer
-  byte[] load_persist(int len) { return Persistence.p(this).load(this,len); }
+  // Remove dead Values from disk
+  void remove_persist() {
+    free_mem();                 // Eagerly yank memory
+    if( !is_persisted() ) return; // Never hit disk?
+    clrdsk();                   // Not persisted now
+    switch( _persist&BACKEND_MASK ) {
+    case ICE : PersistIce .file_delete(this); break;
+    case HDFS: PersistHdfs.file_delete(this); break;
+    default  : throw new Error("unimplemented");
+    }
+  }
+  // Load some or all of completely persisted Values
+  byte[] load_persist(int len) { 
+    assert is_persisted();
+    switch( _persist&BACKEND_MASK ) {
+    case ICE : return PersistIce .file_load(this,len);
+    case HDFS: return PersistHdfs.file_load(this,len);
+    default  : throw new Error("unimplemented");
+    }
+  }
+  public String name_persist() {
+    switch( _persist&BACKEND_MASK ) {
+    case ICE : return "ICE";
+    case HDFS: return "HDFS";
+    case S3  : return "S3";
+    default  : throw new Error("unimplemented");
+    }
+  }
 
   // ---
   // Larger values are chunked into arraylets.  This is the number of chunks:
@@ -210,37 +206,28 @@ public class Value {
   
   // --------------------------------------------------------------------------
   // Set just the initial fields
-  public Value(int max, int length, Key k, int mode) {
-    if( length > 0 )
-      _mem = MemoryManager.allocateMemory(length);
+  public Value(int max, int length, Key k, byte be ) {
+    _mem = new byte[length];
     _max = max;
     _key = k;
-    _persistenceInfo = (byte)mode; // default persistence and mode
+    _persist = (byte)(be&BACKEND_MASK);
   }
   
   public Value(Key key, int max) {
-    this(max,max,key,PersistIce.INIT);
+    this(max,max,key,ICE);
   }
 
   public Value( Key key, String s ) { 
-    this(key,s.getBytes().length);
-    byte [] sbytes = s.getBytes();
-    byte [] mem = mem();
-    for(int i = 0; i < sbytes.length; ++i){
-      mem[i] = sbytes[i];
-    }
+    this(key,s.length());
+    System.arraycopy(s.getBytes(),0,_mem,0,_mem.length);
   }
   // Memory came from elsewhere
   public Value(Key k, byte[] bits ) {
-    MemoryManager.USED.addAndGet(bits.length); // Mark memory as used
     _mem = bits;
     _max = bits.length;
     _key = k;
-    _persistenceInfo = PersistIce.INIT; // default persistence and mode
+    _persist = ICE;
   }
-
-  // Returns true if the entire value is resident in memory.
-  final boolean is_mem_local() { return _mem != null && _mem.length == _max; }
 
   // Check that these are the same values... but one might be a prefix _mem of
   // the other.  This is not an absolute test: the Values might differ even if
@@ -285,7 +272,7 @@ public class Value {
   final int write( byte[] buf, int off, int len, byte[] vbuf ) {
     assert (len <= _max) || (_max<0);
     buf[off++] = type();        // Value type
-    buf[off++] = (byte)_persistenceInfo;
+    buf[off++] = _persist;
     off += UDP.set4(buf,off,len);
     off += UDP.set4(buf,off,_max);
     if(len > 0 ) {              // Deleted keys have -1 len/max
@@ -303,7 +290,7 @@ public class Value {
   final void write( DataOutputStream dos, int len, byte[] vbuf ) throws IOException {
     if( len > _max ) len = _max;
     dos.writeByte(type());      // Value type
-    dos.writeByte(_persistenceInfo);      // Value type
+    dos.writeByte(_persist);    // Value type
     dos.writeInt(len);
     dos.writeInt(_max);
     if( len > 0 )                // Deleted keys have -1 len/max
@@ -312,9 +299,8 @@ public class Value {
 
   static Value construct(int max, int len, Key key, byte p, byte type) {
     switch (type) {
-    case 'A': return new ValueArray(max,len,key,p);
-    //case 'C': return new ValueCode (max,len,key,p);
-    case 'I': return new Value     (max,len,key,p);
+    case ARRAY: return new ValueArray(max,len,key,p);
+    case VALUE: return new Value     (max,len,key,p);
     default:
       throw new Error("Unable to construct value of type "+(char)(type)+"(0x"+Integer.toHexString(0xff & type)+" (key "+key.toString()+")");
     }
@@ -324,7 +310,7 @@ public class Value {
   static Value read( byte[] buf, int off, Key key ) {
     byte type = buf[off++];
     if( type==0 ) return null;  // Deleted sentinel
-    byte p = Persistence.init_mem(buf[off++]);
+    byte p  = buf[off++];
     int len = UDP.get4(buf,off); off += 4;
     int max = UDP.get4(buf,off); off += 4;
     Value val = construct(max,len,key,p,type);
@@ -334,31 +320,13 @@ public class Value {
   }
   static Value read( DataInputStream dis, Key key ) throws IOException {
     byte type = dis.readByte();
-    byte p = Persistence.init_mem(dis.readByte());
+    byte p  = dis.readByte();
     int len = dis.readInt();
     int max = dis.readInt();
     Value val = construct(max,len,key,p,type);
     if( len > 0 )
       dis.readFully(val.mem());
     return val;
-  }
-
-  // This can only *extend* a Value, and is used when we have partially cached
-  // Value and are caching more of it.
-  Value extend( Value val ) {
-    throw new Error("unimplemented extend");
-    //assert _max==val._max;
-    //if( !is_goal_persist() ) return this; // deleted-key is already loaded
-    //byte[] mem = _mem;
-    //while( true ) {
-    //  int oldlen = mem==null ? 0 : mem.length;
-    //  assert equal_buf_chk(val._mem,0,mem,0,Math.min(val._mem.length,oldlen));
-    //  if( val._mem.length <= oldlen ) return this; // Already loaded elsewhere
-    //  // Attempt atomic update of _mem
-    //  if( CAS_mem(mem,val._mem) )
-    //    return this;
-    //  mem = _mem;
-    //}
   }
 
   static boolean equal_buf_chk( byte[] b1, int off1, byte[] b2, int off2, int len ) {

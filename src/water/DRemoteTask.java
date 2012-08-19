@@ -196,7 +196,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     }
 
     // Arraylet: expand into the chunk keys
-    if( val != null && val.type() == Value.ARRAYLET ) {
+    if( val instanceof ValueArray ) {
       ValueArray ary = (ValueArray)val;
       Key[] keys = new Key[(int)ary.chunks()];
       for( int i=0; i<keys.length; i++ )
