@@ -40,22 +40,40 @@ public  class Data  implements Iterable<Row> {
       return outputSizes_[colIndex];
     } 
     
-    public void setSortedByColumn(int colIndex, int[] rows,DataAdapter data) {
-      if ((sortedIndices_[colIndex]==null) || (sortedIndices_[colIndex].length<rows.length))
-        sortedIndices_[colIndex] = new int[data.rows()];
-      // this is not needed as we will always ask only for valid rows since all
-      // asking objects are only subsets
-//      for (int i = 0; i < columnIndices_[colIndex].length;++i)
-//        columnIndices_[colIndex][i] = -1;
-      System.out.print(" column "+colIndex+": ");
-      for (int i = 0; i<rows.length;++i) {
-        sortedIndices_[colIndex][rows[i]]=i;
-        System.out.print(rows[i]+", ");
+    public void setSortedByColumn(int colIndex, int[] rows, DataAdapter data) {
+      // copy to the temporary as we might change it
+      int[] temp = new int[rows.length];
+//      System.arraycopy(rows,0,temp,0,temp.length);
+//      System.out.print("Before sort: ");
+//      for (int i : temp)
+//        System.out.print(i+", ");
+//      System.out.println("");
+      int[] lastOccurrences = sortedIndices_[colIndex] == null ? new int[data.rows()] : sortedIndices_[colIndex];
+      for (int i = 0; i < lastOccurrences.length; ++i)
+        lastOccurrences[i] = -1;
+      for (int i = 0; i < temp.length; ++i) {
+        if (lastOccurrences[temp[i]]==-1) {
+          // we haven't seen the row yet, just store it
+          lastOccurrences[temp[i]] = i;
+        } else {
+          int row = temp[i];
+          // we have already seen the row, copy it to a position right after
+          // the last seen value
+          for (int j = lastOccurrences[temp[i]]+1 ; j <= i ; ++j) {
+            lastOccurrences[temp[j]] += 1;
+            temp[j] = temp[j-1];
+          }
+          temp[lastOccurrences[row]] += 1;
+        }
       }
-      System.out.println("");
-      outputSizes_[colIndex] = rows.length;
+      // now in temp we have sorted row indices and in lastOccurrences we have
+      // the positions of the rows we need. 
+      sortedIndices_[colIndex] = lastOccurrences;
+//      System.out.print("After sort:  ");
+//      for (int i : temp)
+//        System.out.print(i+", ");
+//      System.out.println("");
     }
-    
     
     private final boolean shouldSort(int colIndex, int rowSize, DataAdapter data) {
       if (outputSizes_[colIndex]<rowSize)
@@ -70,9 +88,9 @@ public  class Data  implements Iterable<Row> {
       int[] temp = new int[outputSizes_[colIndex]];
       for (int i: rows) {
         int j = sortedIndices_[colIndex][i]; // deal with copied rows
+        if (j==-1)
+          System.out.println("Unknown index "+i+" in column "+colIndex);
         while (temp[j]!=0) {
-          if (temp[j] != i+1)
-            System.out.println("Error");
           --j;
           if (j==-1)
             System.out.println("error");
@@ -128,7 +146,6 @@ public  class Data  implements Iterable<Row> {
   public int originalIndex(int idx) {
     return idx;
   }
-  
   
   public class Row {  
     public double[] v = new double[columns()+1];
@@ -337,30 +354,31 @@ class Shuffle extends Subset {
       for (int i = 0; i< d.rows(); ++i)
         permutation_[i] = d.originalIndex(i);
     }
-    sort(permutation_,0,permutation_.length,column);
-    /*
+// old code & comments kept for the time baing for debugging purposes    
+//    sort(permutation_,0,permutation_.length,column);
+   
     int p[] = sortedCache_.getSortedByColumn(column, permutation_, data_);
     if (p == null) {
-      System.out.println("Sorting by column "+column+" is faster.");
+//      System.out.println("Sorting by column "+column+" is faster.");
       sort(permutation_,0,permutation_.length,column);
       if (sortedCache_.storedOutputSize(column) > permutation_.length) {
-        System.out.println("  stored size "+sortedCache_.storedOutputSize(column)+" larger than "+permutation_.length+", copying...");
+//        System.out.println("  stored size "+sortedCache_.storedOutputSize(column)+" larger than "+permutation_.length+", copying...");
         sortedCache_ = new SortedColumnsCache(sortedCache_);
       }
-      System.out.println("  storing "+permutation_.length+" rows sorted");
+//      System.out.println("  storing "+permutation_.length+" rows sorted");
       sortedCache_.setSortedByColumn(column, permutation_, data_);
     } else {
-      System.out.println("Using cache for column "+column+" is faster...");
-      System.out.print("   ");
-      for (int i : permutation_)
-        System.out.print(i+", ");
-      System.out.println("");
-      System.out.print("   ");
-      for (int i : p)
-        System.out.print(i+", ");
-      System.out.println("");
+//      System.out.println("Using cache for column "+column+" is faster...");
+//      System.out.print("   ");
+//      for (int i : permutation_)
+//        System.out.print(i+", ");
+//      System.out.println("");
+//      System.out.print("   ");
+//      for (int i : p)
+//        System.out.print(i+", ");
+//      System.out.println("");
       permutation_ = p;
-    } */
+    }
   }
   
   double get(int i, int c) { return data_.getD(c,i); }  
