@@ -110,8 +110,10 @@ public abstract class PersistIce {
   }
   
   private static File encodeKeyToFile(Value v) {
+    return encodeKeyToFile(v._key,v.type());
+  }
+  private static File encodeKeyToFile(Key k, byte type) {
     // check if we are system key
-    Key k = v._key;
     StringBuilder sb = null;
     if (k._kb[0]<32) {
       sb = new StringBuilder(k._kb.length/2+4);
@@ -141,16 +143,21 @@ public abstract class PersistIce {
     }
     // append the value type and replication factor
     sb.append('.');
-    sb.append((char)v.type());
+    sb.append((char)type);
     sb.append(k.desired());
-    return new File(iceRoot,getDirectoryForKey(v)+File.separator+sb.toString());
+    return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
   }
   
-  private static String getDirectoryForKey(Value v) {
-    if( v._key._kb[0] != Key.ARRAYLET_CHUNK )
+  private static String getDirectoryForKey(Key key) {
+    if( key._kb[0] != Key.ARRAYLET_CHUNK )
       return "not_an_arraylet";
     // Reverse arraylet key generation
-    return new String(ValueArray.getArrayKeyBytes(v._key));
+    byte[] b = ValueArray.getArrayKeyBytes(key);
+    int j=0;                    // Strip out ':' in directory names
+    for( int i=0; i<b.length; i++ )
+      if( b[i] != ':' )
+        b[j++] = b[i];
+    return new String(b,0,j);
   }
 
   // Read up to 'len' bytes of Value.  Value should already be persisted to
@@ -172,7 +179,6 @@ public abstract class PersistIce {
         s.close();
       }
     } catch( IOException e ) {  // Broken disk / short-file???
-      //System.err.println(e.toString()+" for "+v._key+" and len="+len);
       return null;
     }
   }
@@ -182,7 +188,7 @@ public abstract class PersistIce {
     // A perhaps useless cutout: the upper layers should test this first.
     if( v.is_persisted() ) return;
     try {
-      new File(iceRoot,getDirectoryForKey(v)).mkdirs();
+      new File(iceRoot,getDirectoryForKey(v._key)).mkdirs();
       // Nuke any prior file.
       OutputStream s = new FileOutputStream(encodeKeyToFile(v));
       try {
@@ -204,8 +210,18 @@ public abstract class PersistIce {
     File f = encodeKeyToFile(v);
     f.delete();
     if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
-      f = new File(iceRoot,getDirectoryForKey(v));
+      f = new File(iceRoot,getDirectoryForKey(v._key));
       f.delete();
     }
+  }
+
+  static Value lazy_array_chunk( Key key ) {
+    assert key._kb[0] == Key.ARRAYLET_CHUNK;
+    assert key.home();          // Only do this on the home node
+    File f = encodeKeyToFile(key,Value.ICE);
+    if( !f.isFile() ) return null;
+    Value val = new Value((int)f.length(),0,key,Value.ICE);
+    val.setdsk();               // But its already on disk.
+    return val;
   }
 }

@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import water.DKV;
+import water.UKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
@@ -73,7 +73,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         return _nextData;
       // we do not have the chunk loaded anymore...find it and load it
       Key k = ValueArray.getChunk(_key, chunkIdx);
-      Value v = DKV.get(k);
+      Value v = UKV.get(k);
       return v.get(len);
     }
 
@@ -215,13 +215,8 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   }
 
   public static String[] getColumnNames(Key k) {
-    Value v = DKV.get(k);
+    Value v = UKV.get(k);
     byte[] data = v.get(1024 * 128);
-    if (v instanceof ValueArray) {
-      k = v.chunk_get(0);
-      Value v2 = DKV.get(k);
-      data = v2.get(1024 * 128);
-    }
     return getColumnNames(data);
   }
 
@@ -240,13 +235,8 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   }
 
   public static int getNColumns(Key k) {
-    Value v = DKV.get(k);
+    Value v = UKV.get(k);
     byte[] data = v.get(1024 * 128);
-    if (v instanceof ValueArray) {
-      k = v.chunk_get(0);
-      Value v2 = DKV.get(k);
-      data = v2.get(1024 * 128);
-    }
     return getNColumns(data);
   }
 
@@ -345,16 +335,12 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     this(k, nchunks, csvRecord, columns, new ParserSetup());
   }
 
-  public CSVParserKV(Key k, int nchunks, T csvRecord, String[] columns,
-      ParserSetup setup) {
-    // first set the data
-    Value v = DKV.get(k);
+  public CSVParserKV(Key k, int nchunks, T csvRecord, String[] columns, ParserSetup setup) {
+    // first set the data.
+    // If this is a Key for a ValueArray, we will be returned chunk0.
+    Value v = UKV.get(k,(int)ValueArray.chunk_size());
     if (v != null) {
-      if (v instanceof ValueArray) {
-        _key = ((ValueArray) v).chunk_get(0);
-        v = DKV.get(_key);
-      } else
-        _key = k;
+      _key = v._key;
       _data = v.get();
       _length = _data.length;
       if (_key._kb[0] == Key.ARRAYLET_CHUNK) {
@@ -363,7 +349,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         _maxChunkIdx = _minChunkIdx + nchunks;
         _nextChunkIdx = _minChunkIdx + 1;
         Key nextChunk = ValueArray.getChunk(_key, _nextChunkIdx);
-        v = DKV.get(nextChunk);
+        v = UKV.get(nextChunk);
         if (v != null) {
           _nextData = (_nextChunkIdx < _maxChunkIdx) ? v.get() : v.get(1024);
           _length += _nextData.length;
@@ -660,7 +646,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     // System.out.println("processing chunk " + _nextChunkIdx);
     ++_nextChunkIdx;
     Key k = ValueArray.getChunk(_key, _nextChunkIdx);
-    Value v = DKV.get(k);
+    Value v = UKV.get(k);
     if (v != null) {
       _nextData = (_nextChunkIdx == _maxChunkIdx) ? v.get(1024) : v.get();
       _nextOffset = ValueArray.getOffset(k);
@@ -695,7 +681,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           // deal with the improbable case of record crossing boundary by more
           // than 1024 bits
           Key k = ValueArray.getChunk(_key, _nextChunkIdx);
-          Value v = DKV.get(k);
+          Value v = UKV.get(k);
           if (v != null) {
             _nextData = v.get();
             _length = _data.length + _nextData.length;
@@ -804,13 +790,13 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       if ((_key != null) && (_key._kb[0] == Key.ARRAYLET_CHUNK)
           && (_nextChunkIdx > (_minChunkIdx + 1))) { // do we need to re-read
                                                      // beginning of the data?
-        Value v = DKV.get(_key);
+        Value v = UKV.get(_key);
         if (v == null)
           throw new Error("value disapeared?");
         _data = v.get();
         _nextChunkIdx = _minChunkIdx + 1;
         Key k = ValueArray.getChunk(_key, _nextChunkIdx);
-        v = DKV.get(k);
+        v = UKV.get(k);
         if (v != null)
           _nextData = v.get(); // nextData can not be the last chunk in this
                                // case, already checked by the branch

@@ -32,8 +32,8 @@ public abstract class PersistHdfs {
     } else {
       if( H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty() ) {
         _conf = new Configuration();
-        _conf.set("fs.default.name",H2O.OPT_ARGS.hdfs);
-        System.out.println("[hdfs] fs.default.name = "+H2O.OPT_ARGS.hdfs);
+        _conf.set("fs.defaultFS",H2O.OPT_ARGS.hdfs);
+        System.out.println("[hdfs] fs.defaultFS = "+H2O.OPT_ARGS.hdfs);
       } else {
         _conf = null;
       }
@@ -173,5 +173,23 @@ public abstract class PersistHdfs {
     Path p = getPathForKey(v._key);
     try { _fs.delete(p, false); } // Try to delete, ignoring errors
     catch( IOException e ) { }
+  }
+
+  public static Value lazy_array_chunk( Key key ) {
+    assert key._kb[0] == Key.ARRAYLET_CHUNK;
+    assert key.home();          // Only do this on the home node
+    try {
+      Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
+      long off = ValueArray.getOffset(key); // The offset
+      Path p = getPathForKey(arykey);
+      long size = _fs.getFileStatus(p).getLen();
+      long rem = size-off;
+      int sz = (ValueArray.chunks(rem) > 1) ? (int)ValueArray.chunk_size() : (int)rem;
+      Value val = new Value(sz,0,key,Value.HDFS);
+      val.setdsk();               // But its already on disk.
+      return val;
+    } catch( IOException e ) {  // Broken disk / short-file???
+      return null;
+    } 
   }
 }

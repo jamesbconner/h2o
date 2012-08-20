@@ -216,6 +216,14 @@ public final class H2O {
   // Get the value from the store
   public static Value get( Key key ) {
     Value v = STORE.get(key);
+    // Lazily manifest array chunks, if the backing file exists.
+    if( v == null ) {
+      v = Value.lazy_array_chunk(key);
+      if( v == null ) return null;
+      // Insert the manifested value, as-if it existed all along
+      Value res = putIfMatch(key,v,null);
+      if( res != null ) v = res; // This happens racily, so take any prior result
+    }
     if( v != null ) v.touch();
     return v;
   }

@@ -39,6 +39,7 @@ function clean() {
     rm -fr ${CLASSES}
     rm -fr ${JAR_ROOT}/init
     rm -fr ${JAR_ROOT}/hexbase_impl.jar
+    rm -fr ${OUTDIR}
     mkdir ${OUTDIR}
     mkdir ${CLASSES}
 }

@@ -49,21 +49,14 @@ public abstract class UKV {
 
   // User-Weak-Get a Key from the distributed cloud.
   static public Value get( Key key, int len ) {
-    assert key.user_allowed();
     Value val = DKV.get(key,len);
-    // Lazily manifest array chunks, if the parent arraylet exists
-    if( val == null ) {
-      val = ValueArray.manifest_from_key(key);
-      if( val != null ) {       // Success!
-        // Insert the manifested value, as-if it existed all along
-        Value res = DKV.DputIfMatch(key,val,null);
-        if( res != null ) val = res; // This happens racily, so take any prior result
-      }
-    }
-
     if( val instanceof ValueArray ) {
-      Value vchunk0 = DKV.get(ValueArray.make_chunkkey(key,0),len);
-      if( len >= vchunk0._max )
+      Key k2 = ValueArray.make_chunkkey(key,0);
+      Value vchunk0 = UKV.get(k2,len);
+      if( vchunk0 == null ) {
+        System.out.println("missed looking for key "+k2+" from "+key);
+      }
+      if( len > vchunk0._max )
         throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk");
       return vchunk0;           // Else just get the prefix asked for
     }

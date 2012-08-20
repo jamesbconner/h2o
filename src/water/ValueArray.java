@@ -62,27 +62,6 @@ public class ValueArray extends Value {
   }
   public Key make_chunkkey( long off ) { return make_chunkkey(_key,off); }
 
-  // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray
-  public static Value manifest_from_key( Key key ) {
-    if( key._kb[0] != Key.ARRAYLET_CHUNK ) return null; // Not an arraylet chunk
-    if( !key.home() ) return null; // Only do this on the home node
-    Key arykey = Key.make(getArrayKeyBytes(key));
-    System.out.println("manifesting from base ary "+arykey+" to make "+key);
-    Value v1 = DKV.get(arykey);
-    if( v1 == null ) return null; // Nope; not there
-    if( !(v1 instanceof ValueArray) ) return null; // Or not a ValueArray
-    ValueArray ary = (ValueArray)v1;
-    long off = getOffset(key);   // The offset trying to be made
-    long rem = ary.length()-off; // Remaining size
-    //long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
-    int sz = (int)((chunks(rem) > 1) ? chunk_size() : rem);
-    Value v2 = new Value(sz,0,key,ary._persist);
-    byte[] test = v2.get(0);    // Confirm file exists
-    if( test==null ) return null;
-    System.out.println("manifesting "+key);
-    return v2;
-  }
-
   // Get the chunk with the given index.
   // The returned key is *not* guaranteed to exist in K/V store.
   // @param k - key of arraylet chunk
@@ -98,7 +77,7 @@ public class ValueArray extends Value {
 
   // Number of chunks in this array
   // Divide by 1Meg into chunks.  The last chunk is between 1 and 2 megs
-  static private long chunks(long sz) { return sz>>LOG_CHK; }
+  static public long chunks(long sz) { return sz>>LOG_CHK; }
   @Override public long chunks() { 
     long num = chunks(length()); // Rounds down: last chunk can be large
     if( num==0 && length() > 0 ) num = 1; // Always at least one, tho

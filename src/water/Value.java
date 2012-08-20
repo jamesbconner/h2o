@@ -186,6 +186,24 @@ public class Value {
     }
   }
 
+
+  // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray.
+  // Probably should be moved into HDFS-land, except that the same logic applies
+  // to all stores providing large-file access by default including S3.
+  public static Value lazy_array_chunk( Key key ) {
+    if( key._kb[0] != Key.ARRAYLET_CHUNK ) return null; // Not an arraylet chunk
+    if( !key.home() ) return null; // Only do this on the home node
+    Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
+    Value v1 = DKV.get(arykey);
+    if( v1 == null ) return null; // Nope; not there
+    if( !(v1 instanceof ValueArray) ) return null; // Or not a ValueArray
+    switch( v1._persist&BACKEND_MASK ) {
+    case ICE : return PersistIce .lazy_array_chunk(key);
+    case HDFS: return PersistHdfs.lazy_array_chunk(key);
+    default  : throw new Error("unimplemented");
+    }
+  }
+
   // ---
   // Larger values are chunked into arraylets.  This is the number of chunks:
   // by default the Value is its own single chunk.
