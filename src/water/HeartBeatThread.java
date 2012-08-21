@@ -7,7 +7,7 @@ import org.hyperic.sigar.NetStat;
 import org.hyperic.sigar.Sigar;
 import org.hyperic.sigar.SigarException;
 import org.hyperic.sigar.Tcp;
-import org.hyperic.sigar.Udp;
+//import org.hyperic.sigar.Udp;
 
 /**
  * Starts a thread publishing multicast HeartBeats to the local subnet: the
@@ -134,8 +134,8 @@ public class HeartBeatThread extends Thread {
       me.set_total_out_conn(netStats.getAllOutboundTotal());
       me.set_tcp_in_conn(netStats.getTcpInboundTotal());
       me.set_tcp_out_conn(netStats.getTcpOutboundTotal());
-      me.set_udp_in_conn(netStats.getUdpInboundTotal());
-      me.set_udp_out_conn(netStats.getUdpOutboundTotal());
+      //me.set_udp_in_conn(netStats.getUdpInboundTotal());
+      //me.set_udp_out_conn(netStats.getUdpOutboundTotal());
     } catch (SigarException e) {
       me.set_total_in_conn(-1);
       me.set_total_out_conn(-1);
@@ -208,17 +208,17 @@ public class HeartBeatThread extends Thread {
     }
 
     // Setup UDP statistics.
-    try {
-      final Udp udpStats = sigar.getUdp();
-      me.set_udp_packets_recv(udpStats.getInPackets());
-      me.set_udp_packets_sent(udpStats.getOutPackets());
-      me.set_udp_bytes_recv(-1);
-      me.set_udp_bytes_sent(-1);
-    } catch (SigarException e) {
+//    try {
+//      final Udp udpStats = sigar.getUdp();
+//      me.set_udp_packets_recv(udpStats.getInPackets());
+//      me.set_udp_packets_sent(udpStats.getOutPackets());
+//      me.set_udp_bytes_recv(-1);
+//      me.set_udp_bytes_sent(-1);
+//    } catch (SigarException e) {
       me.set_udp_packets_recv(-1);
       me.set_udp_packets_sent(-1);
       me.set_udp_bytes_recv(-1);
       me.set_udp_bytes_sent(-1);
-    }
+//    }
   }
 }
