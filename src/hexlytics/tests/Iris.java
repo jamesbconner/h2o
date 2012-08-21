@@ -25,7 +25,7 @@ public class Iris {
   }
   
 
-  
+ 
   class F {  int id; double sl, sw, pl, pw;   int class_; 
     F(int id_, double sl_, double sw_, double pl_, double pw_, String class_) {
       id = id_;  sl = sl_;   sw = sw_;  pl = pl_;  pw = pw_; 

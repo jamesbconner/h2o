@@ -10,7 +10,6 @@
 	<classpathentry kind="lib" path="lib/apache/httpcore-4.1.jar"/>
 	<classpathentry kind="lib" path="lib/hadoop/1.0.0/hadoop-core-1.0.0.jar"/>
 	<classpathentry kind="lib" path="lib/junit/junit-4.11.jar"/>
-	<classpathentry kind="lib" path="lib/sigar/log4j.jar"/>
 	<classpathentry kind="lib" path="lib/sigar/sigar.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>
