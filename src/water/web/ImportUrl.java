@@ -14,21 +14,6 @@ import water.ValueArray;
  */
 public class ImportUrl extends H2OPage {
   @Override protected String serve_impl(Properties args) {
-/*     try {
-        URL oracle = new URL(args.getProperty("Url"));
-        BufferedReader in = new BufferedReader(
-        new InputStreamReader(oracle.openStream()));
-
-        String inputLine;
-        while ((inputLine = in.readLine()) != null)
-            System.out.println(inputLine);
-        in.close();    
-        
-     } catch (Exception e) {
-     }  */
-    
-    
-    
     URL url;
     try {
       url = new URL(args.getProperty("Url"));
@@ -62,6 +47,4 @@ public class ImportUrl extends H2OPage {
   @Override public String[] requiredArguments() {
     return new String[] { "Url" };
   }
-  
-  
 }

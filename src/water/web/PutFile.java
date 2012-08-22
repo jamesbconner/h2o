@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.io.File;
@@ -35,8 +31,8 @@ public class PutFile extends H2OPage {
     try {
       FileInputStream fis = new FileInputStream(fname);
       try {
-       // long start = System.currentTimeMillis();
-       // System.err.println("uploading...");
+        // long start = System.currentTimeMillis();
+        // System.err.println("uploading...");
         // Read the entire file, and put into the Store
         Key key = ValueArray.read_put_file(key_s,fis,rf);
         // Report Key string to user
@@ -54,7 +50,6 @@ public class PutFile extends H2OPage {
       return error("Unable to transfer the file. Maybe the file is too big for the network to transfer. Check your network settings.");
       //return e.toString();
     }
-    
   }
   
   @Override protected String serve_impl(Properties args) {
@@ -69,28 +64,23 @@ public class PutFile extends H2OPage {
     if (result instanceof String)
       return (String)result; // error
     RString response = new RString(html);
-//    response.clear();
     response.replace("key",key_s);
     response.replace("rf",rf);
     response.replace("vsize",new File(fname).length());
     return response.toString();
   }
-  
-  
+
+
   @Override public String[] requiredArguments() {
     return new String[] { "File" };
   }
-  
-  public static final String html = 
-            "<div class='alert alert-success'>"
-          + "Key <strong>%key</strong> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
-          + "</div>"
-          + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
-          + "<a href='Put'><button class='btn'>Put again</button></a>"
-          + "</p>"
-          ;
-  
-//  public static final RString response = new RString(html);
 
-  
+  public static final String html =
+    "<div class='alert alert-success'>"
+    + "Key <strong>%key</strong> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
+    + "</div>"
+    + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
+    + "<a href='Put'><button class='btn'>Put again</button></a>"
+    + "</p>"
+    ;
 }

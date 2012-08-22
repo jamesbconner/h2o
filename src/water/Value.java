@@ -42,9 +42,10 @@ public class Value {
   // The on/off disk bit is strictly cleared by the higher layers (e.g. Value.java)
   // and strictly set by the persistence layers (e.g. PersistIce.java).
   public byte _persist;         // 3 bits of backend flavor; 1 bit of disk/notdisk
-  public final static byte ICE = 1<<0; // backend flavors
-  public final static byte HDFS= 2<<0;
-  public final static byte S3  = 3<<0;
+  public final static byte ICE = 1<<0; // ICE: distributed local disks
+  public final static byte HDFS= 2<<0; // HDFS: backed by hadoop cluster
+  public final static byte S3  = 3<<0; // Amazon S3
+  public final static byte NFS = 4<<0; // NFS: Standard file system
   public final static byte BACKEND_MASK = (8-1);
   public final static byte NOTdsk = 0<<3; // latest _mem is persisted or not
   public final static byte ON_dsk = 1<<3;
@@ -154,6 +155,7 @@ public class Value {
     switch( _persist&BACKEND_MASK ) {
     case ICE : PersistIce .file_store(this); break;
     case HDFS: PersistHdfs.file_store(this); break;
+    case NFS : PersistNFS .file_store(this); break;
     default  : throw new Error("unimplemented");
     }
   }
@@ -165,6 +167,7 @@ public class Value {
     switch( _persist&BACKEND_MASK ) {
     case ICE : PersistIce .file_delete(this); break;
     case HDFS: PersistHdfs.file_delete(this); break;
+    case NFS : PersistNFS .file_delete(this); break;
     default  : throw new Error("unimplemented");
     }
   }
@@ -174,6 +177,7 @@ public class Value {
     switch( _persist&BACKEND_MASK ) {
     case ICE : return PersistIce .file_load(this,len);
     case HDFS: return PersistHdfs.file_load(this,len);
+    case NFS : return PersistNFS .file_load(this,len);
     default  : throw new Error("unimplemented");
     }
   }
@@ -182,6 +186,7 @@ public class Value {
     case ICE : return "ICE";
     case HDFS: return "HDFS";
     case S3  : return "S3";
+    case NFS : return "NFS";
     default  : throw new Error("unimplemented");
     }
   }
@@ -200,6 +205,7 @@ public class Value {
     switch( v1._persist&BACKEND_MASK ) {
     case ICE : return PersistIce .lazy_array_chunk(key);
     case HDFS: return PersistHdfs.lazy_array_chunk(key);
+    case NFS : return PersistNFS .lazy_array_chunk(key);
     default  : throw new Error("unimplemented");
     }
   }
@@ -228,7 +234,11 @@ public class Value {
     _mem = new byte[length];
     _max = max;
     _key = k;
-    _persist = (byte)(be&BACKEND_MASK);
+    // For the ICE backend, assume new values are not-yet-written.
+    // For HDFS & NFS backends, assume we from global data and preserve the
+    // passed-in persist bits
+    byte p = (byte)(be&BACKEND_MASK);
+    _persist = (p==ICE) ? p : be;
   }
   
   public Value(Key key, int max) {

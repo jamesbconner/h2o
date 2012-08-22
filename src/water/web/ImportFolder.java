@@ -1,15 +1,10 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
-import water.Key;
-import water.ValueArray;
+import water.*;
 
 /**
  *
@@ -17,63 +12,46 @@ import water.ValueArray;
  */
 public class ImportFolder extends H2OPage {
   
-  static int imported = 0;
-  
-  
-  void importFile(File f, String name, byte rf, RString response) {
+  int importFile(File f, byte rf, int num, RString response) {
+    if( f.isDirectory() ) {
+      for( File f2 : f.listFiles() )
+        num = importFile(f2,rf,num,response);
+      return num;
+    }
+
     RString row = response.restartGroup("entry");
-    try {
-      FileInputStream fis = new FileInputStream(f);
-      Object res = ValueArray.read_put_file(name, fis , rf);
-      row.replace("contents",success("File "+f.getAbsolutePath()+" imported as key <strong>"+name+"</strong>"));      
-      imported += 1;
-    } catch (IOException e) {
-      row.replace("contents",error("Unable to import file <strong>"+f.getAbsolutePath()+"</strong>:")+"<pre>"+e.toString()+"</pre>");
-    }          
+    Key k = PersistNFS.decodeFile(f);
+    String fname = f.getName();
+    long size = f.length();
+    Value val = (size < 2*ValueArray.chunk_size())
+      ? new Value((int)size,0,k,Value.NFS)
+      : new ValueArray(k,size,Value.NFS);
+    val.setdsk();
+    UKV.put(k,val);
+    row.replace("contents",success("File "+fname+" imported as key <strong>"+k+"</strong>"));
     row.append();
-    
+    return num+1;
   }
-  
-  void importFilesFromFolder(File folder, String prefix, byte rf, RString response) {
-    
-    if (!folder.exists()) {
-      RString row = response.restartGroup("entry");
-      row.replace("contents", error("Unable to import files from folder <strong>"+folder.getAbsolutePath()+"</strong>. Path not found."));
-      row.append();
-      return;
-    }
-    for (File f: folder.listFiles()) {
-      String name = prefix+File.separator+f.getName();
-      if (f.isDirectory()) {
-        importFilesFromFolder(f,name,rf,response);
-      } else {
-        importFile(f,name,rf,response);
-      }
-    }
-  }
-  
   
   @Override protected String serve_impl(Properties args) {
     String folder = args.getProperty("Folder");
-    String prefix = args.getProperty("Prefix",folder);
-    if (prefix.isEmpty())
-      prefix = folder;
     int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
     if ((rf<0) || (rf>127))
       return error("Replication factor must be from 0 to 127.");
     boolean recursive = args.getProperty("R","off").equals("on");
     
+    int num = 0;
     RString response = new RString(html);
-//    response.clear();
-    imported = 0;
-
-    File root = new File(folder);   
-    if (root.isDirectory())
-      importFilesFromFolder(root,prefix,(byte)rf,response);
-    else
-      importFile(root,prefix+File.separator+root.getName(),(byte)rf,response);
-    
-    response.replace("num",imported);
+    try {
+      File root = new File(folder).getCanonicalFile();
+      if( !root.exists() ) throw new IOException(root+" not found");
+      num = importFile(root,(byte)rf,0,response);
+    } catch (IOException e) {
+      RString row = response.restartGroup("entry");
+      row.replace("contents",error("Unable to import file <strong>"+folder+"</strong>:")+"<pre>"+e.toString()+"</pre>");
+      row.append();
+    }
+    response.replace("num",num);
     return response.toString();
   }
   
@@ -82,10 +60,7 @@ public class ImportFolder extends H2OPage {
   }
   
   private static final String html =
-            "<p>Imported %num files in total:"
-          + "%entry{ %contents }"
-          ;
-  
-//  private static final RString response = new RString(html);
-  
+    "<p>Imported %num files in total:"
+    + "%entry{ %contents }"
+    ;
 }
