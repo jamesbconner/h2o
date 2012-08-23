@@ -34,7 +34,7 @@ import javax.management.NotificationEmitter;
  */
 public abstract class MemoryManager {
 
-  static volatile int CACHED = 0;
+  static volatile long CACHED = 0;
   static long MAXMEM = 0;
   // Number of threads blocked waiting for memory
   private static int NUM_BLOCKED = 0;
@@ -57,12 +57,11 @@ public abstract class MemoryManager {
    * 
    */
   private static class MemCleaner implements
-      javax.management.NotificationListener, Runnable {    
+      javax.management.NotificationListener, Runnable {
     MemoryMXBean _allMemBean = ManagementFactory.getMemoryMXBean(); // general
 
     int _sCounter = 0; // contains count of successive "old" values
     int _uCounter = 0; // contains count of successive "young" values
-        
 
     // current amount of memory to be freed
     // (set by gc callback, cleaner method decreases it as it frees memory)
@@ -72,7 +71,7 @@ public abstract class MemoryManager {
     long _maxTime = 4000;
     long _previousT = _maxTime;
     // prefered size of the cache, cleaner will gradually
-    // remove old cached values when above this threshold    
+    // remove old cached values when above this threshold
     final long _memHi;
     final long _memOpt;
     final long _memLo;
@@ -82,38 +81,28 @@ public abstract class MemoryManager {
     final long _memCritical;
 
     // if true non persisted old values will be persisted and freed
-    boolean _doPersist = true;    
+    boolean _doPersist = true;
 
     MemCleaner() {
       MemoryManager.MAXMEM = Runtime.getRuntime().maxMemory();
-      _memCritical = (MemoryManager.MAXMEM - (MemoryManager.MAXMEM >> 2) - (MemoryManager.MAXMEM >> 3));      
+      _memCritical = MemoryManager.MAXMEM - (MemoryManager.MAXMEM >> 2);
       _memHi = _memCritical;
-      _memLo = MemoryManager.MAXMEM >> 3;
+      _memLo = MemoryManager.MAXMEM >> 2;
       _memOpt = _memLo + ((_memHi - _memLo) >> 1);
-      
+
       int c = 0;
       for (MemoryPoolMXBean m : ManagementFactory.getMemoryPoolMXBeans()) {
         if (m.getType() != MemoryType.HEAP) // only interested in HEAP
           continue;
-
-        if (m.isCollectionUsageThresholdSupported()) {
-          // start cleaning cache when heap occupies _memHi or more
-          if (m.isUsageThresholdSupported()) {
-            // this should be true only for the Old pool at the moment
-            // in any case, we monitor only pools which support usage threshold
-            m.setUsageThreshold((MemoryManager.MAXMEM >> 2));
-            ++c;
-            long threshold = Math.min(MemoryManager.MAXMEM >> 2, m.getUsage()
-                .getMax());
-            m.setCollectionUsageThreshold(threshold);
-            // register the callback
-            NotificationEmitter emitter = (NotificationEmitter) _allMemBean;
-            emitter.addNotificationListener(this, null, m);
-          }
+        if (m.isCollectionUsageThresholdSupported()
+            && m.isUsageThresholdSupported()) {
+          // should be Old pool, get called when memory is critical          
+          m.setCollectionUsageThreshold(_memLo);
+          NotificationEmitter emitter = (NotificationEmitter) _allMemBean;
+          emitter.addNotificationListener(this, null, m);
+          ++c;
         }
-      }
-      // there should currently only be one pool supporting usage threshold
-      // which we monitor
+      }      
       assert c == 1;
     }
 
@@ -131,35 +120,24 @@ public abstract class MemoryManager {
      * 
      */
     public void handleNotification(Notification notification, Object handback) {
-      String notifType = notification.getType();    
+      String notifType = notification.getType();
       if (notifType
           .equals(MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED)) {
         // overall heap usage
-        long heapUsage = _allMemBean.getHeapMemoryUsage().getUsed();        
-                        
+        long heapUsage = _allMemBean.getHeapMemoryUsage().getUsed();
+
         if (heapUsage > _memCritical) { // memory level critical
-          System.out.println("MEMORY LEVEL CRITICAL, stopping allocations");          
-          _memToFree.set(Math.max(_memToFree.get(),CACHED - _memLo));       
-          System.out.println("setting mem2Free to " + (_memToFree.get() >> 20) + "M in the callback");
+          System.out.println("MEMORY LEVEL CRITICAL, stopping allocations");
+          _memToFree.set(Math.max(_memToFree.get(), CACHED - _memLo));
+          System.out.println("setting mem2Free to " + (_memToFree.get() >> 20)
+              + "M in the callback");
           canAllocate = false; // stop new allocations until we free enough mem
-        } else if(!canAllocate) {
+        } else if (!canAllocate) {
           System.out.println("ALLOWING ALLOCATIONS from the callback");
-          canAllocate = true;          
+          canAllocate = true;
         }
       }
-    }
-//        } else if (mbean.isUsageThresholdSupported()
-//            && mbean.isUsageThresholdExceeded()) {
-//          minToFree = ((mbean.getUsage().getUsed() - mbean.getUsageThreshold()) >> 1);          
-//          canAllocate = true;
-//        }
-     // }
-//      if (minToFree > 0)
-//        synchronized (this) {
-//          _memToFree.set(minToFree);
-//          notify();
-//        }
-//    }
+    }    
 
     // test if value should be remove and update _maxTime estimate
     private boolean removeValue(long currentTime, Value v) {
@@ -179,9 +157,9 @@ public abstract class MemoryManager {
           _sCounter = 0;
         }
         if (!v.is_persisted() && _doPersist)
-          v.store_persist();                
+          v.store_persist();
         return v.is_persisted();
-      } else {        
+      } else {
         _sCounter = 0;
         // if we hit 10 young elements in a row, decrease expected age
         if (++_uCounter == 10) {
@@ -207,10 +185,10 @@ public abstract class MemoryManager {
     @Override
     public void run() {
       long lastMem2Free = 0;
-      while (true) {        
+      while (true) {
         SimpleValueIterator STORE_ITER = new SimpleValueIterator(
             H2O.STORE.kvs(), (int) (Math.random() * H2O.store_size()));
-        long cacheSz = 0;        
+        long cacheSz = 0;
         int N = H2O.STORE.kvs().length;
         long currentTime = System.currentTimeMillis();
         for (int i = 0; i < N; ++i) {
@@ -224,30 +202,32 @@ public abstract class MemoryManager {
             // and if we have the need to fre more mem
             // the first test *should* always be performed as it also estimates
             // _maxTime
-            if (removeValue(currentTime, v) && (_memToFree.get() > 0)) {              
+            if (removeValue(currentTime, v) && (_memToFree.get() > 0)) {
               v.free_mem();
               long m2free = _memToFree.addAndGet(-m.length);
-              if (!canAllocate && (m2free < ((_memHi - _memLo) >> 1))){     
-                System.out.println("MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS from the cleaner");
+              if (!canAllocate && (m2free < ((_memHi - _memLo) >> 1))) {
+                System.out
+                    .println("MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS from the cleaner");
                 canAllocate = true;
               }
             } else {
               cacheSz += m.length;
             }
           }
-        }            
-        CACHED = (int) cacheSz;        
-        if(CACHED < _memLo){ // we cleaned too much           
+        }
+        CACHED = cacheSz;
+        if (CACHED < _memLo) { // we cleaned too much
           _memToFree.set(0);
-        } else if (CACHED > _memHi){ // we cleaned too little
+        } else if (CACHED > _memHi) { // we cleaned too little
           _memToFree.set((CACHED - _memHi) + ((_memHi - _memOpt) >> 1));
         } else { // optimal range
           _memToFree.set((CACHED - _memOpt) >> 1);
-        }        
-        if (!canAllocate && CACHED < _memLo) {          
+        }
+        if (!canAllocate && CACHED < _memLo) {
           // memory was critical and there is nothing more to be freed, return
           // to normal anyways
-          System.out.println("allowing mem allocations from the cleaner as there is not enough stuff cached");
+          System.out
+              .println("allowing mem allocations from the cleaner as there is not enough stuff cached");
           canAllocate = true;
           synchronized (MemoryManager.class) {
             if (NUM_BLOCKED > 0)
@@ -256,7 +236,8 @@ public abstract class MemoryManager {
         }
         // nothing to remove (or there are no cached values), so do not loop
         // needlesly
-        if((CACHED < _memLo) || (_memToFree.get() <= 0)) sleep(1000);        
+        if ((CACHED < _memLo) || (_memToFree.get() <= 0))
+          sleep(1000);
       }
     }
   }
