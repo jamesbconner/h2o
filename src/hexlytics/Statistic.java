@@ -43,7 +43,7 @@ public class Statistic {
      * determine the best splitpoint.   */
     Split split() {
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
-      Data sd = data.sortByColumn(column);
+      Data sd =  data.sortByColumn(column);
       double last = sd.getRow(sd.rows()-1).v[column];
       double currSplit =  sd.getRow(0).v[column];
       if (last == currSplit) return null;

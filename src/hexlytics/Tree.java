@@ -23,11 +23,11 @@ public class Tree implements Serializable {
 //    System.out.println("  Rows:  "+data.rows());
 //    for (int i = 0; i< data.columns(); ++i) 
 //      System.out.println("  Cache col "+i+": "+(data.getSortedByColumn(i) == null ? "null" : data.getSortedByColumn(i).length));
+//    for (int i = 0; i < data.columns(); ++i)
+//      data.sortByColumn(i);
+//    System.out.println("Precaching done...");
     long t = System.currentTimeMillis(); 
     /* precache - not necessary anymore, kept as comments for debugging purposes for the time being*/
-//    for (int i = 0; i < data.columns(); ++i)
-//      System.out.println(data.sortByColumn(i).rowIndicesToString());
-    //System.out.println("Precaching done...");
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
     System.out.println("Time: "+time_);

@@ -108,16 +108,19 @@ public class Data implements Iterable<Row> {
   protected Data(DataAdapter da) {
     data_ = da;
     weightAdjustments_ = null;
+    sortedCache_ = new SortedColumnsCache(da);
   }
   
   protected Data(Data data) {
     data_ = data.data_;
     weightAdjustments_ = data.weightAdjustments_;
+    sortedCache_ = data.sortedCache_;
   }
   
   protected Data(DataAdapter da, int[] weightAdjustments) {
     data_ =da;
     weightAdjustments_ = weightAdjustments;
+    sortedCache_ = new SortedColumnsCache(da);
   }
   
   /** Returns new Data object that stores all adapter's rows unchanged.
@@ -237,11 +240,137 @@ public class Data implements Iterable<Row> {
   }
   
   // sorting -------------------------------------------------------------------
+
+  /** The cache for the sorted columns. 
+   */
+  static class SortedColumnsCache {
+    
+    // indices
+    int[][] sortedIndices_;
+    // sizes of the output arrays that must be created
+    int[] outputSizes_;
+    
+    public SortedColumnsCache(DataAdapter data) {
+      sortedIndices_ = new int[data.columns()][];
+      outputSizes_ = new int[data.columns()];
+    }
+    
+    public SortedColumnsCache(SortedColumnsCache old) {
+      sortedIndices_ = new int[old.sortedIndices_.length][];
+      outputSizes_ = new int[old.outputSizes_.length];
+      System.arraycopy(old.sortedIndices_,0,sortedIndices_,0,sortedIndices_.length);
+      System.arraycopy(old.outputSizes_,0,outputSizes_,0,outputSizes_.length);
+    }
+    
+    public int storedOutputSize(int colIndex) {
+      return outputSizes_[colIndex];
+    } 
+    
+    public void setSortedByColumn(int colIndex, int[] rows, DataAdapter data) {
+      outputSizes_[colIndex] = rows.length;
+      int[] lastOccurrences = new int[data.rows()]; //sortedIndices_[colIndex] == null ? new int[data.rows()] : sortedIndices_[colIndex];
+      for (int i = 0; i < lastOccurrences.length; ++i)
+        lastOccurrences[i] = -1;
+      for (int i = 0; i < rows.length; ++i) {
+        if (lastOccurrences[rows[i]]!=-1)
+          System.out.println("Duplicate row "+rows[i]);
+        lastOccurrences[rows[i]] = i;
+      }
+      sortedIndices_[colIndex] = lastOccurrences;
+      
+//      // copy to the temporary as we might change it
+//      int[] temp = new int[rows.length];
+//      System.arraycopy(rows,0,temp,0,temp.length);
+////      System.out.print("Before sort: ");
+////      for (int i : temp)
+////        System.out.print(i+", ");
+////      System.out.println("");
+//      int[] lastOccurrences = sortedIndices_[colIndex] == null ? new int[data.rows()] : sortedIndices_[colIndex];
+//      for (int i = 0; i < lastOccurrences.length; ++i)
+//        lastOccurrences[i] = -1;
+//      for (int i = 0; i < temp.length; ++i) {
+//        if (lastOccurrences[temp[i]]==-1) {
+//          // we haven't seen the row yet, just store it
+//          lastOccurrences[temp[i]] = i;
+//          if (temp[i]==214972)
+//            System.out.println(lastOccurrences[temp[i]]);
+//        } else {
+//          int row = temp[i];
+//          // we have already seen the row, copy it to a position right after
+//          // the last seen value
+//          for (int j = lastOccurrences[row]+1 ; j <= i ; ++j) {
+//            lastOccurrences[temp[j]] += 1;
+//            temp[j] = temp[j-1];
+//            if (temp[j]==214972)
+//              System.out.println(lastOccurrences[temp[j]]);
+//          }
+//          if (lastOccurrences[row] >= temp.length)
+//            System.out.println("error" + lastOccurrences[row]+" i="+i+" row="+row);
+//          temp[lastOccurrences[row]] += 1;
+//        }
+//      }
+//      // now in temp we have sorted row indices and in lastOccurrences we have
+//      // the positions of the rows we need. 
+//      sortedIndices_[colIndex] = lastOccurrences;
+////      System.out.print("After sort:  ");
+////      for (int i : temp)
+////        System.out.print(i+", ");
+////      System.out.println("");
+    }
+    
+    private final boolean shouldSort(int colIndex, int rowSize, DataAdapter data) {
+      if (outputSizes_[colIndex]<rowSize)
+        return true;
+      return (rowSize*Math.log(rowSize)) < (outputSizes_[colIndex]+rowSize);
+    }
+    
+    public int[] getSortedByColumn(int colIndex, int[] rows, DataAdapter data) {
+      if (shouldSort(colIndex,rows.length,data))
+        return null;
+      // do the non sort - for each row we have read its 
+      int[] temp = new int[outputSizes_[colIndex]];
+      for (int i: rows) {
+        int j = sortedIndices_[colIndex][i]; // deal with copied rows
+        if (j==-1)
+          System.out.println("Unknown index "+i+" in column "+colIndex);
+        if (temp[j] != 0) 
+          System.out.println("Error here!");
+        temp[j] = i+1; // to get rid of 0
+      }
+//      System.out.print("TEMP: ");
+//      for (int i: temp) 
+//        System.out.print(i+", ");
+//      System.out.println("");
+      // and do the compaction
+      int[] result = new int[rows.length];
+      int idx = 0;
+      for (int i: temp) {
+        if (i==0)
+          continue;
+        result[idx] = i-1;
+        ++idx;
+      }
+      return result;
+    }
+  }
+  
+  SortedColumnsCache sortedCache_ = null;
+  
+  
   
   /** Returns the data sorted by the given column index. This function always
    * creates a new Data object. 
    */
   public Data sortByColumn(int colIdx) {
+    Subset s = new Subset(this,getPermutation());
+    s.sortPermutationByColumn(colIdx);
+    return s;
+  }
+
+  /** Sorts the data in place if possible. If not possible returns new data
+   * object. 
+   */
+  public Data sortByColumnInPlace(int colIdx) {
     Subset s = new Subset(this,getPermutation());
     s.sortPermutationByColumn(colIdx);
     return s;
@@ -325,7 +454,7 @@ public class Data implements Iterable<Row> {
 
 class Subset extends Data {
   
-  protected final int[] permutation_;
+  protected int[] permutation_;
   
   /** Returns the original DataAdapter's row index of given row. */
   @Override protected int getPermutation(int rowIndex) {
@@ -356,9 +485,41 @@ class Subset extends Data {
   }
   
   // sorting implementation ----------------------------------------------------
-  
+
   public void sortPermutationByColumn(int colIdx) {
+    if (rows()<5000) {
+      sort(permutation_,0,permutation_.length,colIdx);
+      return;
+    }
+    //sort(permutation_,0,permutation_.length,colIdx);
+    int p[] = sortedCache_.getSortedByColumn(colIdx, permutation_, data_);
+    if (p == null) {
+//      System.out.println("Sorting by column "+colIdx+" is faster");
+      sort(permutation_,0,permutation_.length,colIdx);
+//      if (sortedCache_.storedOutputSize(colIdx) > permutation_.length) {
+//        System.out.println("  stored size "+sortedCache_.storedOutputSize(column)+" larger than "+permutation_.length+", copying...");
+        sortedCache_ = new SortedColumnsCache(sortedCache_);
+//      } else {
+//      System.out.println("  storing "+permutation_.length+" rows sorted");
+        sortedCache_.setSortedByColumn(colIdx, permutation_, data_);
+//      }
+    } else {
+//      System.out.println("Using cache for column "+colIdx+" is faster...");
+//      System.out.print("   ");
+//      for (int i : permutation_)
+//        System.out.print(i+", ");
+//      System.out.println("");
+//      System.out.print("   ");
+//      for (int i : p)
+//        System.out.print(i+", ");
+//      System.out.println("");
+      permutation_ = p;
+    }
+  }
+
+  public Data sortByColumnInPlace(int colIdx) {
     sort(permutation_,0,permutation_.length,colIdx);
+    return this;
   }
   
   double get(int i, int c) { return data_.getD(c,i); }  
