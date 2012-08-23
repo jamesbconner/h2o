@@ -58,7 +58,7 @@ public class HeartBeatThread extends Thread {
       me.set_max_mem (           maxmem);
       me.set_tot_mem (run.totalMemory());
       me.set_keys    (H2O.STORE.size());
-      me.set_valsz   (MemoryManager.USED.get());
+      me.set_valsz   (MemoryManager.USED);
       me.set_thread_count(Thread.currentThread().getThreadGroup().activeCount());
       me.set_rpcs    (DFutureTask.TASKS.size());
       me.set_fjqueue_hi(H2O.FJP_HI  .getQueuedSubmissionCount());
