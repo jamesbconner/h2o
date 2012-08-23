@@ -58,10 +58,12 @@ public class RandomForest {
     if (scores_ == null)  scores_ = new int[data_.rows()][data_.classes()];
     trees_.add(t);    
     errors_ = 0;
+    int i = 0;
     for (Row r : data_) {
-      scores_[r.index][t.tree_.classify(r.v)]++;
-      int[] votes = scores_[r.index];            
+      scores_[i][t.tree_.classify(r.v)]++;
+      int[] votes = scores_[i];            
       if (r.classOf() != Utils.maxIndex(votes, data_.random()))  ++errors_;
+      ++i;
     }
     return errors_ / (double) data_.rows();
   }
