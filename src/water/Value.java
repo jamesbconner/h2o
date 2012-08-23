@@ -231,7 +231,7 @@ public class Value {
   // --------------------------------------------------------------------------
   // Set just the initial fields
   public Value(int max, int length, Key k, byte be ) {
-    _mem = new byte[length];
+    _mem = MemoryManager.allocateMemory(length);
     _max = max;
     _key = k;
     // For the ICE backend, assume new values are not-yet-written.

@@ -166,7 +166,7 @@ public abstract class PersistIce {
   // a failure where we get a null return, but no crash (although one could
   // argue that a racing load&delete is a bug no matter what).
   static byte[] file_load(Value v, int len) {
-    byte[] b = new byte[len];
+    byte[] b = MemoryManager.allocateMemory(len);
     try {
       File f = encodeKeyToFile(v);
       assert f.length() == v._max;

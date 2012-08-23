@@ -1,183 +1,319 @@
 package water;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryNotificationInfo;
+import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.MemoryType;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.Notification;
+import javax.management.NotificationEmitter;
+
 /**
- * Manages memory assigned to key/value pairs.  All byte arrays used in
+ * Manages memory assigned to key/value pairs. All byte arrays used in
  * keys/values should be allocated through this class - otherwise we risking
- * running out of java memory, and throw unexpected OutOfMemory errors.  The
+ * running out of java memory, and throw unexpected OutOfMemory errors. The
  * theory here is that *most* allocated bytes are allocated in large chunks by
- * allocating new Values - with large backing arrays.  If we intercept these
- * allocation points, we cover most Java allocations.  If such an allocation
+ * allocating new Values - with large backing arrays. If we intercept these
+ * allocation points, we cover most Java allocations. If such an allocation
  * might trigger an OOM error we first free up some other memory.
  * 
- * When allocating memory, MemoryManager makes sure current the k+v memory
- * footprint is below given threshold.  Otherwise, it tries to steal memory of
- * outdated value or "free" (delete values from memory - gc run required to
- * actually free the memory) enough space so that the memory can be allocated.
- * If there is not enough memory available, it blocks/ return null depending on
- * the used interface.
+ * MemoryManager monitors used memory by hooking gc and monitoring the amount of
+ * free memory after gc run. It adjusts the size of the cache according to
+ * current situation so that the overall heap size stays within give boundaries.
+ * Generally when heap usage becomes too high (more than 1/2 of the heap), it
+ * starts cleaning values from K/V store. It will also persist some of the
+ * non-persisted values during the process. If the memory usage becomes critical
+ * (3/4 of the heap) new (managed) allocations will be block until either enough
+ * memory is freed or there is more memory to free (in which case OOM is likely
+ * to follow soon).
  * 
- * There's lots of room for improvement here.  For instance, its easy to leak
- * the memory of freed Values (i.e., the memory is really freed, but the USED
- * field does not track it - so the system believes it has less memory
- * available to it).  This could be fixed by periodically reading all the
- * active Values and setting USED accordingly.  We do not track length of keys,
- * nor any internally memory other than thread stacks.
- *
- * Memory 
  * @author tomas
  * @author cliffc
  */
 public abstract class MemoryManager {
 
-  // Max memory available to the Java heap
-  static long MAXMEM = Runtime.getRuntime().maxMemory();
-  // Estimate of memory in-use by Value objects
-  static final AtomicLong USED = new AtomicLong(0);
-  // Estimated bytes lost per K/V pair
-  static final long PER_KEY = 100;
-  // Estimated bytes lost per thread, 1Meg
-  static final long PER_THREAD = 1L<<10;
-  // Iterator over the H2O store
-  private static SimpleValueIterator STORE_ITER = new SimpleValueIterator(H2O.STORE.kvs());
+  static int USED = 0;
+  static long MAXMEM = 0;
   // Number of threads blocked waiting for memory
   private static int NUM_BLOCKED = 0;
 
-  // Memory margin: how much "slop" we'd like to keep in the Java heap
-  // expressed as USED+B < MAXMEM*A/256
-  static final int  A = 128;           // 128/256 = 1/2ths of heap
-  static final long B = 10*(1L << 20); // 10Meg
-  // Compute: USED+B < MAXMEM*A/256
-  private static boolean can_allocate( long size ) { 
-    return true;
-    // Estimate in-use size
-    //long mem_used = 
-    //  USED.get()+               // Current bytes burned by Values
-    //  size+                     // Plus this new allocation
-    //  H2O.SELF.get_keys()*PER_KEY+            // Plus some per-key overhead
-    //  H2O.SELF.get_thread_count()*PER_THREAD+ // Plus some per-thread overhead
-    //  B;                                      // Plus some per-JVM overhead
-    //long cutoff = (MAXMEM*A)>>8; // Cutoff: fraction of memory we can live with
-    //return mem_used < cutoff;
+  // block new allocations if false
+  private static boolean canAllocate = true;
+
+  /**
+   * MemCleaner is the class responsible for memory cleaning. It monitors
+   * current memory situation via gc hook/ It is notified after every full-gc
+   * run.
+   * 
+   * Cleaning is performed in a separate thread, so that the hook routine is
+   * quick and does not spann across multiple gc runs. The gc-hook monitors the
+   * amount of memory after gc run and sets the amount of memory to be cleaned.
+   * It may also tell the MemoryManager to block further allocations by setting
+   * MemoryManager.canAllocate variable to false.
+   * 
+   * @author tomas
+   * 
+   */
+  private static class MemCleaner implements
+      javax.management.NotificationListener, Runnable {    
+    MemoryMXBean _allMemBean = ManagementFactory.getMemoryMXBean(); // general
+
+    int _sCounter = 0; // contains count of successive "old" values
+    int _uCounter = 0; // contains count of successive "young" values
+    long _cacheSz = 0;
+    long _notPersistedSz = 0;    
+
+    // current amount of memory to be freed
+    // (set by gc callback, cleaner method decreases it as it frees memory)
+    AtomicLong _memToFree = new AtomicLong(0);
+    // expected recent use time, values not used in this interval will be
+    // removed when low memory
+    long _maxTime = 4000;
+    long _previousT = _maxTime;
+    // prefered size of the cache, cleaner will gradually
+    // remove old cached values when above this threshold
+    final long _memHi;
+    // if overall heap memory goes over this limit,
+    // stop allocating new value sand remove as much as
+    // possible from the cache
+    final long _memCritical;
+
+    // if true non persisted old values will be persisted and freed
+    boolean _doPersist = true;
+
+    void persistAndFree(Value v) {
+      byte[] b = v.mem();
+      if (b != null) {
+        v.store_persist();
+        v.free_mem();
+        _memToFree.addAndGet(-b.length);
+      }
+    }
+
+    MemCleaner() {
+      MemoryManager.MAXMEM = Runtime.getRuntime().maxMemory();
+
+      _memHi = (MemoryManager.MAXMEM >> 2); // prefered cache size is 1/4 of the
+                                            // heap
+      _memCritical = (MemoryManager.MAXMEM - (MemoryManager.MAXMEM >> 2) - (MemoryManager.MAXMEM >> 3));
+      int c = 0;
+      for (MemoryPoolMXBean m : ManagementFactory.getMemoryPoolMXBeans()) {
+        if (m.getType() != MemoryType.HEAP) // only interested in HEAP
+          continue;
+
+        if (m.isCollectionUsageThresholdSupported()) {
+          // start cleaning cache when heap occupies _memHi or more
+          if (m.isUsageThresholdSupported()) {
+            // this should be true only for the Old pool at the moment
+            // in any case, we monitor only pools which support usage threshold
+            m.setUsageThreshold((MemoryManager.MAXMEM >> 2));
+            ++c;
+            long threshold = Math.min(MemoryManager.MAXMEM >> 2, m.getUsage()
+                .getMax());
+            m.setCollectionUsageThreshold(threshold);
+            // register the callback
+            NotificationEmitter emitter = (NotificationEmitter) _allMemBean;
+            emitter.addNotificationListener(this, null, m);
+          }
+        }
+      }
+      // there should currently only be one pool supporting usage threshold
+      // which we monitor
+      assert c == 1;
+    }
+
+    static void sleep(long t) {
+      try {
+        Thread.sleep(t);
+      } catch (InterruptedException e) {
+      }
+    }
+
+    /**
+     * Callback routine called by JVM after full gc run. Has two functions: 1)
+     * sets the amount of memory to be cleaned from the cache 2) sets the
+     * canAllocate flag to false if memory level is critical
+     * 
+     */
+    public void handleNotification(Notification notification, Object handback) {
+      String notifType = notification.getType();
+      MemoryPoolMXBean mbean = (MemoryPoolMXBean) handback;
+      long minToFree = 0;
+      if (notifType.equals(MemoryNotificationInfo.MEMORY_THRESHOLD_EXCEEDED)) {
+        minToFree = ((mbean.getUsage().getUsed() - mbean.getUsageThreshold()) >> 1);
+      } else if (notifType
+          .equals(MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED)) {
+        // overall heap usage
+        long usedMem = _allMemBean.getHeapMemoryUsage().getUsed();
+        if (usedMem > _memCritical) { // memory level critical
+          minToFree = (usedMem - _memHi); // free all above limit
+          canAllocate = false; // stop new allocations until we free enough mem
+        } else if (mbean.isUsageThresholdSupported()
+            && mbean.isUsageThresholdExceeded()) {
+          minToFree = ((mbean.getUsage().getUsed() - mbean.getUsageThreshold()) >> 1);          
+          canAllocate = true;
+        }
+      }
+      if (minToFree > 0)
+        synchronized (this) {
+          _memToFree.set(minToFree);
+          notify();
+        }
+    }
+
+    // test if value should be remove and update _maxTime estimate
+    private boolean removeValue(long currentTime, Value v) {
+      long deltaT = currentTime - v._lastAccessedTime;
+      if (deltaT > _maxTime) {
+        _uCounter = 0;
+        // if we hit 10 old elements in a row, increase expected age
+        if (++_sCounter == 10) {
+          if (_previousT > _maxTime) {
+            long x = _maxTime;
+            _maxTime += ((_previousT - _maxTime) >> 1);
+            _previousT = x;
+          } else {
+            _previousT = _maxTime;
+            _maxTime = (_maxTime << 1) - (_maxTime >> 1);
+          }
+          _sCounter = 0;
+        }
+        if (!v.is_persisted() && _doPersist)
+          v.store_persist();                
+        return v.is_persisted();
+      } else {        
+        _sCounter = 0;
+        // if we hit 10 young elements in a row, decrease expected age
+        if (++_uCounter == 10) {
+          if (_previousT < _maxTime) {
+            long x = _maxTime;
+            _maxTime -= ((_maxTime - _previousT) >> 1);
+            _previousT = x;
+          } else {
+            _previousT = _maxTime;
+            _maxTime = (_maxTime >> 1) + (_maxTime >> 2);
+          }
+          _uCounter = 0;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * Memory cleaning routine. Runs in separate thread so that the callback can
+     * get called with every full-gc run.
+     * 
+     */
+    @Override
+    public void run() {
+      while (true) {
+        long previousT = _maxTime;
+        SimpleValueIterator STORE_ITER = new SimpleValueIterator(
+            H2O.STORE.kvs(), (int) (Math.random() * H2O.store_size()));
+        _cacheSz = 0;
+        _notPersistedSz = 0;
+        int N = H2O.STORE.kvs().length;
+        long currentTime = System.currentTimeMillis();
+        for (int i = 0; i < N; ++i) {
+          Object o = STORE_ITER.next();
+          if (!(o instanceof Value)) // Ignore tombstone, etc
+            continue;
+          Value v = (Value) o;
+          byte m[] = v.mem();
+          if ((m != null) && (m.length > 0)) {
+            // test if we should remove the value (it must old and persisted)
+            // and if we have the need to fre more mem
+            // the first test *should* always be performed as it also estimates
+            // _maxTime
+            if (removeValue(currentTime, v) && (_memToFree.get() > 0)) {
+              v.free_mem();
+              if (_memToFree.addAndGet(-m.length) < (_memCritical - _memHi)){                
+                canAllocate = true;
+              }
+            } else {
+              _cacheSz += m.length;
+            }
+          }
+        }
+        USED = (int) _cacheSz;        
+        if (!canAllocate && _notPersistedSz == 0 && _cacheSz == 0) {          
+          // memory was critical and there is nothing more to be freed, return
+          // to normal anyways
+          canAllocate = true;
+          synchronized (MemoryManager.class) {
+            if (NUM_BLOCKED > 0)
+              MemoryManager.class.notifyAll();
+          }
+        }
+        // nothing to remove (or there are no cached values), so do not loop
+        // needlesly
+        if(_cacheSz == 0 && _notPersistedSz == 0) sleep(100);
+        synchronized (this) {
+          if (_memToFree.get() <= 0) {
+            try {
+              wait();
+            } catch (Exception e) {
+            }
+          }
+        }
+      }
+    }
+  }
+
+  static MemCleaner _cleaner;
+
+  static {
+    _cleaner = new MemCleaner();
+    new Thread(_cleaner).start();
   }
 
   // This is a simple iterator explicitly over the guts of a NonBlockingHashMap
   // - it understands the internal structures and exposes a simple & fast API.
   private final static class SimpleValueIterator {
-    final Object [] _arr;
+    final Object[] _arr;
     final int _length;
     int _index;
-    
-    SimpleValueIterator(Object [] kvs) { this(kvs,-1); }
-    SimpleValueIterator(Object [] kvs, int index) {
+
+    SimpleValueIterator(Object[] kvs, int index) {
       _arr = kvs;
       _index = index;
       _length = (kvs.length - 2) >> 1;
-      assert (_length & (_length-1))==0; // Assert length is a power of 2
+      assert (_length & (_length - 1)) == 0; // Assert length is a power of 2
     }
-    
+
     Object next() {
-      _index = (_index+1) & (_length-1);
+      _index = (_index + 1) & (_length - 1);
       return _arr[(_index << 1) + 3];
     }
-    
+
     @Override
     protected SimpleValueIterator clone() {
       Object[] kvs = H2O.STORE.kvs(); // Current STORE backing array
       // If we are still iterating over the same STORE backing array then
       // return the old index (so we proceed from where we last stopped) else
       // restart the iteration at the start of the new array.
-      return new SimpleValueIterator(kvs, _arr==kvs ? _index : 0);
+      return new SimpleValueIterator(kvs, _arr == kvs ? _index : 0);
     }
-  }
-
-  // Eagerly free things as values persist, if we have blocked requests
-  public static void notifyValuePersisted(Value v) {
-    if( NUM_BLOCKED > 0 )
-      v.CAS_mem(v.mem(),null);  // This is a 1-shot throw-away CAS
-  }
-
-  // Mark memory as freed; if there are queued-waiting threads then awaken
-  // them, so they may try again.
-  public static void freeMemory(byte [] mem) {
-    if( mem == null ) return;   // Nothing freed
-    assert USED.get() >= mem.length;
-    USED.addAndGet(-mem.length); // Mark memory as freed
-    if( NUM_BLOCKED > 0 &&       // wake up sleeping threads if any
-        // But only if we have freed ourselves back to the margin-level
-        can_allocate(0) )
-      synchronized(MemoryManager.class) {
-        MemoryManager.class.notify();
-      }            
   }
 
   // allocates memory, will block until there is enough available memory
   public static byte[] allocateMemory(int size) {
-    while( true ) {
-      // Attempt to allocate
-      byte [] mem = tryAllocateMemory(size);
-      if( mem != null ) return mem; // Successful!
-
+    if (size < 256)
+      return new byte[size];
+    while (!canAllocate) {
       // Failed: block until we think we can allocate
-      synchronized(MemoryManager.class) {
+      synchronized (MemoryManager.class) {
         NUM_BLOCKED++;
-        try { MemoryManager.class.wait(1000); }
-        catch( InterruptedException ex ) { }
+        try {
+          MemoryManager.class.wait(1000);
+        } catch (InterruptedException ex) {
+        }
         --NUM_BLOCKED;
       }
-    } // while(true)
-  }
-
-  // Try to allocate memory, return null if there is not enough free memory
-  public static byte[] tryAllocateMemory(int size) {
-    final int numkeys = H2O.STORE.size(); // Part of the memory footprint estimate
-    SimpleValueIterator myIter = null;
-    int i = 0;                  // Iterator index
-    while( true ) {
-      long oldVal = USED.get();
-      if( can_allocate(size) ) { // Can allocate: will not overrun margin
-        if( USED.compareAndSet(oldVal, oldVal+size) ) {
-          byte[] mem = tryAllocateMemory2(size);
-          if( mem != null ) return mem;
-        } else
-          continue;             // Retry the CAS
-      }
-      // Get an iterator over the entire local H2O store.
-      // Start from the last iteration point.
-      if( myIter == null ) myIter = STORE_ITER.clone();
-      // If we have walked the entire H2O store at least once without finding
-      // enough memory to free - then give it up.
-      if( i++ >= myIter._length )
-        return null;
-      Object o = myIter.next();
-      if( !(o instanceof Value)) // Ignore tombstone, etc
-        continue;
-      Value v = (Value)o;
-      if( !v.is_persisted() )   // Is on disk?
-        continue;               // Nope...
-      byte[] mem = v.mem();
-      if( mem == null ) continue; // Already freed
-      System.out.println("Free'ing memory on key "+v._key+" because can_allocate has said No to "+size+" bytes");
-      v.CAS_mem(mem,null);        // One-shot free attempt
     }
+    return new byte[size];
   }
 
-  public static final byte[] tryAllocateMemory2(int size) {
-    try {
-      return new byte[size];
-    } catch (OutOfMemoryError e) { // should not happen but just in case...
-      System.err.println("OutOfMemoryError in tryAllocateMemory!!!");
-      return null;
-    }
-  }
-
-  public static String dbgStatus() {
-    final Runtime run = Runtime.getRuntime();
-    return
-      "MAXMEM= " + (MAXMEM >> 20) + "M, "+
-      "USED= " + (USED.get() >> 20) +"M, "+
-      "NUM_BLOCKED= " + NUM_BLOCKED +", "+
-      "freeMem= "+(run.freeMemory()>>20)+"M.";
-  }
 }

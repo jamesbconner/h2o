@@ -113,7 +113,7 @@ public abstract class PersistHdfs {
   static public byte[] file_load(Value v, int len) {
     if( v instanceof ValueArray )
       throw new Error("unimplemented: loading from arraylets");
-    byte[] b = new byte[len];
+    byte[] b =  MemoryManager.allocateMemory(len);
     try {
       FSDataInputStream s = null;
       try {

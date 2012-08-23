@@ -33,7 +33,7 @@ public abstract class PersistNFS {
   // argue that a racing load&delete is a bug no matter what).
   static byte[] file_load(Value v, int len) {
     assert( !(v instanceof ValueArray) );
-    byte[] b = new byte[len];
+    byte[] b = MemoryManager.allocateMemory(len);
     try {
       FileInputStream s = null;
       try {
