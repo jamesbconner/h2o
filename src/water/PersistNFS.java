@@ -94,7 +94,6 @@ public abstract class PersistNFS {
 
   static Value lazy_array_chunk( Key key ) {
     assert key._kb[0] == Key.ARRAYLET_CHUNK;
-    assert key.home();          // Only do this on the home node
     Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
     long off = ValueArray.getOffset(key); // The offset
     long size = getFileForKey(arykey).length();
