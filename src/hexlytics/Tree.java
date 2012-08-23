@@ -23,24 +23,30 @@ public class Tree implements Serializable {
 //    System.out.println("  Rows:  "+data.rows());
 //    for (int i = 0; i< data.columns(); ++i) 
 //      System.out.println("  Cache col "+i+": "+(data.getSortedByColumn(i) == null ? "null" : data.getSortedByColumn(i).length));
+//    for (int i = 0; i < data.columns(); ++i)
+//      data.sortByColumn(i);
+//    System.out.println("Precaching done...");
     long t = System.currentTimeMillis(); 
     /* precache - not necessary anymore, kept as comments for debugging purposes for the time being*/
-//    for (int i = 0; i < data.columns(); ++i)
-//      data.sort(i);
-//    System.out.println("Precaching done...");
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
+    System.out.println("Time: "+time_);
     return this;
   }
   
   /** for given data creates a node and returns it. */
   protected final INode compute_(Data d) {
     int classOf = -1;
-    for(Row r : d) 
-       if (classOf==-1) classOf = r.classOf(); 
-       else if (classOf != r.classOf()) {  classOf = -1; break; }
-
-    if (classOf!=-1)  return new LeafNode(classOf);
+    for(Row r : d) {
+       if (classOf==-1) {
+         classOf = r.classOf(); 
+       } else if (classOf != r.classOf()) {
+         classOf = -1;
+         break;
+       }
+    }
+    if (classOf!=-1)
+      return new LeafNode(classOf);
     else {
       Statistic s = Statistic.make(statistic_, d);  
       Split best = s.best();

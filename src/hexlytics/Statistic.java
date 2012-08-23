@@ -43,9 +43,9 @@ public class Statistic {
      * determine the best splitpoint.   */
     Split split() {
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
-      Data sd = data.sort(column);
-      double last = sd.getD(column,sd.rows()-1);
-      double currSplit =  sd.getD(column,0);
+      Data sd =  data.sortByColumn(column);
+      double last = sd.getRow(sd.rows()-1).v[column];
+      double currSplit =  sd.getRow(0).v[column];
       if (last == currSplit) return null;
       // now try all the possible splits
       double bestFit = -Double.MAX_VALUE;
@@ -59,8 +59,8 @@ public class Statistic {
           }
         }
         currSplit = s;
-        dists[0][r.classOf()] += data.weight(r.index);
-        dists[1][r.classOf()] -= data.weight(r.index);
+        dists[0][r.classOf()] += r.weight;
+        dists[1][r.classOf()] -= r.weight;
       }  
       return new Split(column,split,bestFit);
     }    
@@ -82,7 +82,7 @@ public class Statistic {
     }
     for (Row r : data) 
       for (Column c : columns_) 
-        c.add(r.classOf(),data.weight(r.index));
+        c.add(r.classOf(),r.weight);
     
     for (Column c: columns_) {
       Split s = c.split();
