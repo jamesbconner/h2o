@@ -442,8 +442,8 @@ public class H2ONode implements Comparable {
   }
   public int get_thread_count() { return (int)get_buf(offset.thread_count.x, size.thread_count.x); }
   public int get_rpcs()       { return (int)get_buf(offset.rpcs.x, size.rpcs.x); }
-  public int get_fjqueue_lo() { return (int)get_buf(offset.fjqueue_lo.x, size.fjqueue_lo.x); }
   public int get_fjqueue_hi() { return (int)get_buf(offset.fjqueue_hi.x, size.fjqueue_hi.x); }
+  public int get_fjqueue_lo() { return (int)get_buf(offset.fjqueue_lo.x, size.fjqueue_lo.x); }
   public int get_tcps_active() { return (int)get_buf(offset.tcps_active.x, size.tcps_active.x); }
   public int get_total_in_conn()    { return (int)get_buf(offset.total_in_conn.x, size.total_in_conn.x); }
   public int get_total_out_conn()   { return (int)get_buf(offset.total_out_conn.x, size.total_out_conn.x); }

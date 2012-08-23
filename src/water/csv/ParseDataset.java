@@ -63,6 +63,10 @@ public final class ParseDataset {
     }
     rs2[rs.length] = off;
 
+    // Now make the structured ValueArray & insert the main key
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
+    UKV.put(result,ary);
+
     // Setup for pass-2, where we do the actual data conversion.
     DParse2 dp2 = new DParse2();
     dp2._num_cols = num_cols;
@@ -77,9 +81,7 @@ public final class ParseDataset {
 
     long now2 = System.currentTimeMillis();
 
-    // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
-    UKV.put(result,ary);
+    // Done building the result ValueArray!
   }
 
   // ----

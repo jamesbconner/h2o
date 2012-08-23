@@ -190,7 +190,9 @@ public class ValueArray extends Value {
       return key;
     }
 
-    // Must be a large file; break it up!
+    // Must be a large file; break it up!  Main key first
+    ValueArray ary = new ValueArray(key,sz,ICE);
+    UKV.put(key,ary);         // Insert in distributed store
 
     // Begin to read & build chunks.
     long off = 0;
@@ -210,9 +212,6 @@ public class ValueArray extends Value {
     }
     assert off == sz;           // Got them all
 
-    // Now insert the main Key
-    ValueArray ary = new ValueArray(key,sz,ICE);
-    UKV.put(key,ary);         // Insert in distributed store    
     return key;
   }
 

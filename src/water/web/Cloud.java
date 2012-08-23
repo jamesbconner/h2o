@@ -47,11 +47,11 @@ public class Cloud extends H2OPage {
 
       int fjq_hi = h2o.get_fjqueue_hi();
       if(fjq_hi > HeartBeatThread.QUEUEDEPTH)
-        row.replace("queueStyle","background-color:green;");
+        row.replace("queueStyleHi","background-color:green;");
       row.replace("fjqueue_hi" , fjq_hi);
       int fjq_lo = h2o.get_fjqueue_lo();
       if(fjq_lo > HeartBeatThread.QUEUEDEPTH)
-        row.replace("queueStyle","background-color:green;");
+        row.replace("queueStyleLo","background-color:green;");
       row.replace("fjqueue_lo" , fjq_lo);
       row.replace("rpcs" ,                h2o.get_rpcs());
       row.replace("tcps_active" ,         h2o.get_tcps_active());
@@ -96,8 +96,8 @@ public class Cloud extends H2OPage {
     + "    <td>%cpu_load_5</td>"
     + "    <td>%cpu_load_15</td>"
     + "    <td>%rpcs</td>"
-    + "    <td style='%queueStyle'>%fjqueue_hi</td>"
-    + "    <td style='%queueStyle'>%fjqueue_lo</td>"
+    + "    <td style='%queueStyleHi'>%fjqueue_hi</td>"
+    + "    <td style='%queueStyleLo'>%fjqueue_lo</td>"
     + "    <td>%tcps_active</td>"
     + "    <td>%node_type</td>"
     + "  </tr>"

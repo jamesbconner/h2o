@@ -53,11 +53,10 @@ public abstract class UKV {
     if( val instanceof ValueArray ) {
       Key k2 = ValueArray.make_chunkkey(key,0);
       Value vchunk0 = UKV.get(k2,len);
-      if( vchunk0 == null ) {
+      if( vchunk0 == null )
         System.out.println("missed looking for key "+k2+" from "+key);
-      }
       if( len > vchunk0._max )
-        throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk");
+        throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk when fetching "+key+" and "+len+" bytes, found "+k2+" of len "+vchunk0._max);
       return vchunk0;           // Else just get the prefix asked for
     }
     return val;
