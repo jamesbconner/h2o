@@ -236,34 +236,35 @@ public class ValueArray extends Value {
 
   // Layout of structured ValueArrays
   static private final int LENGTH_OFF  =0;              // Total byte length
-  static private final int NUM_COLS_OFF=LENGTH_OFF  +8; // number of columns; 0 for unstructured data
-  static private final int PRIORKEY_OFF=NUM_COLS_OFF+2; // prior key string offset
-  static private final int XFORM_OFF   =PRIORKEY_OFF+2; // prior xforms string offset
-  static private final int ROW_SIZE_OFF=XFORM_OFF   +2; // Size of each row (sum of column widths)
-  static private final int NUM_ROWS_OFF=ROW_SIZE_OFF+2; // Number of rows; length=#rows*size(row)
-  static private final int COLUMN0_OFF =NUM_ROWS_OFF+8; // Start of column 0 metadata
+  static private final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
+  static private final int PRIORKEY_OFF=NUM_ROWS_OFF+8; // prior key string offset
+  static private final int XFORM_OFF   =PRIORKEY_OFF+4; // prior xforms string offset
+  static private final int ROW_SIZE_OFF=XFORM_OFF   +4; // Size of each row (sum of column widths)
+  static private final int NUM_COLS_OFF=ROW_SIZE_OFF+2; // number of columns; 0 for unstructured data
+  static private final int PAD_OFF     =NUM_COLS_OFF+2; // pad to multiple of 8
+  static private final int COLUMN0_OFF =PAD_OFF     +4; // Start of column 0 metadata
 
   // Most datasets are obtained by transformations on a prior set.
   // The prior set, or null if none
   public Key prior_key() {
-    int off = UDP.get2(get(),PRIORKEY_OFF);
+    int off = UDP.get4(get(),PRIORKEY_OFF);
     if( off==0 ) return null;
     return Key.read(_mem,off);
   }
   // The transformation leading to this key, from the prior key
   public String xform() {
-    int off = UDP.get2(get(),XFORM_OFF);
+    int off = UDP.get4(get(),XFORM_OFF);
     if( off==0 ) return null;
     int len = UDP.get2(_mem,off);
     return new String(_mem,off+2,len);
   }
 
   // Number of columns in this dataset.  0 for not-structured data.
-  public int  num_cols() { return UDP.get2(get(),NUM_COLS_OFF); }
+  public int  num_cols() { return UDP.get2(get(),NUM_COLS_OFF)&0xFFFF; }
   // Number of rows    in this dataset.  0 for not-structured data.
   public long num_rows() { return UDP.get8(get(),NUM_ROWS_OFF); }
   // Size of each row (sum of column widths) in bytes
-  public int  row_size() { return UDP.get2(get(),ROW_SIZE_OFF); }
+  public int  row_size() { return UDP.get2(get(),ROW_SIZE_OFF)&0xFFFF; }
 
 
   // Additional column layout; repeat per column
@@ -271,11 +272,11 @@ public class ValueArray extends Value {
   static private final int   MIN_COL_OFF =  MAX_COL_OFF+8; // min in column
   static private final int SCALE_COL_OFF =  MIN_COL_OFF+8; // scale for all; often 1
   static private final int  BASE_COL_OFF =SCALE_COL_OFF+4; // base-offset for all; often 0
-  static private final int   OFF_COL_OFF = BASE_COL_OFF+4; // offset to column data within row
-  static private final int  NAME_COL_OFF =  OFF_COL_OFF+2; // name offset in the array header
-  static private final int  SIZE_COL_OFF = NAME_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
+  static private final int  NAME_COL_OFF = BASE_COL_OFF+4; // name offset in the array header
+  static private final int   OFF_COL_OFF = NAME_COL_OFF+4; // offset to column data within row
+  static private final int  SIZE_COL_OFF =  OFF_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
   static private final int  PAD0_COL_OFF = SIZE_COL_OFF+1;
-  static private final int META_COL_SIZE = PAD0_COL_OFF+3;
+  static private final int META_COL_SIZE = PAD0_COL_OFF+1;
 
   // internal convience class for building structured ValueArrays
   static public class Column {
@@ -347,12 +348,12 @@ public class ValueArray extends Value {
 
   // Column name (may be the empty string, but not null)
   String col_name(int cnum) {
-    int off = UDP.get2(_mem,col(cnum)+NAME_COL_OFF);
+    int off = UDP.get4(_mem,col(cnum)+NAME_COL_OFF);
     return new String(_mem,off+2,UDP.get2(_mem,off));
   }
 
   // Offset (within a row) of this column start
-  public int col_off(int cnum) { return UDP.get2(_mem,col(cnum)+OFF_COL_OFF); }
+  public int col_off(int cnum) { return UDP.get2(_mem,col(cnum)+OFF_COL_OFF)&0xFFFF; }
   
   // Size in bytes of this column, either 1,2,4 or 8 (integer) or -4 or -8 (float/double)
   public int col_size(int cnum) { return _mem[col(cnum)+SIZE_COL_OFF]; }
@@ -466,17 +467,17 @@ public class ValueArray extends Value {
     // Offset for data past the columns
     int off = cols.length*META_COL_SIZE + COLUMN0_OFF;
     // Prior key
-    UDP.set2(mem,PRIORKEY_OFF,off);
+    UDP.set4(mem,PRIORKEY_OFF,off);
     off = priorkey.write(mem,off);
     // XForm string, with leading 2 bytes of length
-    UDP.set2(mem,XFORM_OFF,off);
+    UDP.set4(mem,XFORM_OFF,off);
     UDP.set2(mem,off,xform.length()); off += 2;
     xform.getBytes(0,xform.length(),mem,off); off += xform.length();
     // Now the column names
     i=0;
     for( Column column : cols ) {
       String name = column._name;
-      UDP.set2(mem,ary.col(i++)+NAME_COL_OFF,off); // First the offset to the name
+      UDP.set4(mem,ary.col(i++)+NAME_COL_OFF,off); // First the offset to the name
       UDP.set2(mem,off,name.length()); off += 2; // Then the name length
       // Then the name bytes itself
       name.getBytes(0,name.length(),mem,off); off += name.length();

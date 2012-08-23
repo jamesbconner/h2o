@@ -139,7 +139,7 @@ public class DebugView extends H2OPage {
           + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
           + "</div>"
           + "<form class='well form-inline' action='DebugView'>"
-          + "  <input type='text' class='input-small span10' placeholder='filter prefix' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
+          + "  <input type='text' class='input-small span10' placeholder='filter' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
           + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"
           + "</form>"
           + "<p>The Local Store has %noOfKeys keys"

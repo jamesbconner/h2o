@@ -206,7 +206,7 @@ public class StoreView extends H2OPage {
     + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
     + "</div>"
     + "<form class='well form-inline' action='StoreView'>"
-    + "  <input type='text' class='input-small span10' placeholder='filter prefix' name='Filter' id='Filter' %pvalue maxlength='512'>"
+    + "  <input type='text' class='input-small span10' placeholder='filter' name='Filter' id='Filter' %pvalue maxlength='512'>"
     + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"
     + "</form>"
     + "<p>Displaying %noOfKeys keys"

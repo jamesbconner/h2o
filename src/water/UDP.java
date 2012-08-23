@@ -109,6 +109,7 @@ public abstract class UDP {
 
   // Generic set/get
   public static int set2( byte[] buf, int off, int x ) {
+    assert -32768 <= x && x <= 65535;
     for( int i=0; i<2; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
     return 2;
