@@ -90,7 +90,7 @@ public class HeartBeatThread extends Thread {
         me.set_cpu_load(-1.0,-1.0,-1.0);
       }
       // Get network statistics from sigar
-      //fillNetworkStatistics(sigar, me);
+      fillNetworkStatistics(sigar, me);
 
       // Announce what Cloud we think we are in.
       // Publish our health as well.
