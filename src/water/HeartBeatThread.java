@@ -24,7 +24,7 @@ public class HeartBeatThread extends Thread {
 
   // Timeout in msec before we decide to not include a Node in the next round
   // of Paxos Cloud Membership voting.
-  static final int TIMEOUT = 5000;
+  static final int TIMEOUT = 60000;
 
   // Timeout in msec before we decide a Node is suspect, and call for a vote
   // to remove him.  This must be strictly greater than the TIMEOUT.
@@ -90,7 +90,7 @@ public class HeartBeatThread extends Thread {
         me.set_cpu_load(-1.0,-1.0,-1.0);
       }
       // Get network statistics from sigar
-      //fillNetworkStatistics(sigar, me);
+      fillNetworkStatistics(sigar, me);
 
       // Announce what Cloud we think we are in.
       // Publish our health as well.
