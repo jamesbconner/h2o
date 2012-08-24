@@ -15,7 +15,6 @@ public class Cloud extends H2OPage {
     _refresh = 5;
   }
   
-  
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
     response.replace("cloud_name",H2O.CLOUD.NAME);
@@ -36,7 +35,6 @@ public class Cloud extends H2OPage {
       row.replace("val_size" ,toMegabytes(h2o.get_valsz    ()));
       row.replace("free_disk",toMegabytes(h2o.get_free_disk()));
       row.replace("max_disk" ,toMegabytes(h2o.get_max_disk ()));
-      row.replace("thr_cnt" , h2o.get_thread_count());
 
       row.replace("cpu_util" ,pos_neg(h2o.get_cpu_util()));
 
@@ -46,12 +44,16 @@ public class Cloud extends H2OPage {
       row.replace("cpu_load_15",pos_neg(cpu_load[2]));
 
       int fjq_hi = h2o.get_fjqueue_hi();
+      int fjt_hi = h2o.get_fjthrds_hi();
       if(fjq_hi > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyleHi","background-color:green;");
+      row.replace("fjthrds_hi" , fjt_hi);
       row.replace("fjqueue_hi" , fjq_hi);
       int fjq_lo = h2o.get_fjqueue_lo();
+      int fjt_lo = h2o.get_fjthrds_lo();
       if(fjq_lo > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyleLo","background-color:green;");
+      row.replace("fjthrds_lo" , fjt_lo);
       row.replace("fjqueue_lo" , fjq_lo);
       row.replace("rpcs" ,                h2o.get_rpcs());
       row.replace("tcps_active" ,         h2o.get_tcps_active());
@@ -74,11 +76,36 @@ public class Cloud extends H2OPage {
   private final String html =
     "<div class='alert alert-success'>"
     + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
-    + "</div>"
-    + "<p>The Local Cloud has %size members"
-    + "<table class='table table-striped table-bordered table-condensed'>"
-    + "<thead class=''><tr><th>Local Nodes</th><th>CPUs</th><th>Local Keys</th><th>Mem Cached</th><th>FreeMem</th><th>TotalMem</th><th>MaxMem</th><th>FreeDisk</th><th>MaxDisk</th><th>CPU Utilization</th><th>Threads</th><th>CPU Load (1min)</th><th>CPU Load (5min)</th><th>CPU Load (15min)</th><th>RPCs</th><th>FJ Tasks HI</th><th>FJ Tasks Norm</th><th>TCPs Active</th><th>Type</th></tr></thead>"
-    + "<tbody>"
+    + "</div>\n"
+    + "<p>The Local Cloud has %size members\n"
+    + "<table class='table table-striped table-bordered table-condensed'>\n"
+    + "<thead class=''><tr>\n"
+    +     "<th rowspan=\"2\">Local Nodes</th>\n"
+    +     "<th rowspan=\"2\">CPUs</th>\n"
+    +     "<th rowspan=\"2\">Local Keys</th>\n"
+    +     "<th colspan=\"4\" style='text-align:center'>Memory</th>\n"
+    +     "<th colspan=\"2\" style='text-align:center'>Disk</th>\n"
+    +     "<th colspan=\"4\" style='text-align:center'>CPU Load</th>\n"
+    +     "<th colspan=\"3\" style='text-align:center'>Threads / Tasks</th>\n"
+    +     "<th rowspan=\"2\">TCPs Active</th>\n"
+    +     "<th rowspan=\"2\">Type</th>\n"
+    + "</tr>\n"
+    + "<tr>\n"
+    +     "<th>Cached</th>\n"  // memory
+    +     "<th>Free</th>\n"
+    +     "<th>Total</th>\n"
+    +     "<th>Max</th>\n"
+    +     "<th>Free</th>\n"    // disk
+    +     "<th>Max</th>\n"
+    +     "<th>Util</th>\n"    // CPU
+    +     "<th>1min</th>\n"
+    +     "<th>5min</th>\n"
+    +     "<th>15min</th>\n"
+    +     "<th>RPCs</th>\n"    // Threads
+    +     "<th>HI</th>\n"
+    +     "<th>Norm</th>\n"
+    + "</tr></thead>\n"
+    + "<tbody>\n"
     + "%tableRow{"
     + "  <tr>"
     + "    <td><a href='Remote?Node=%host'>%node</a></td>"
@@ -91,16 +118,15 @@ public class Cloud extends H2OPage {
     + "    <td>%free_disk</td>"
     + "    <td>%max_disk</td>"
     + "    <td>%cpu_util</td>"
-    + "    <td>%thr_cnt</td>"
     + "    <td>%cpu_load_1</td>"
     + "    <td>%cpu_load_5</td>"
     + "    <td>%cpu_load_15</td>"
     + "    <td>%rpcs</td>"
-    + "    <td style='%queueStyleHi'>%fjqueue_hi</td>"
-    + "    <td style='%queueStyleLo'>%fjqueue_lo</td>"
+    + "    <td style='%queueStyleHi'>%fjthrds_hi / %fjqueue_hi</td>"
+    + "    <td style='%queueStyleLo'>%fjthrds_lo / %fjqueue_lo</td>"
     + "    <td>%tcps_active</td>"
     + "    <td>%node_type</td>"
-    + "  </tr>"
+    + "  </tr>\n"
     + "}"
     + "</tbody>"
     + "</table>\n"

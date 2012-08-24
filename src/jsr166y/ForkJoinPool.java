@@ -1119,7 +1119,7 @@ public class ForkJoinPool extends AbstractExecutorService {
      * are continually re-created.
      */
     private static final long SHRINK_RATE =
-        4L * 1000L * 1000L * 1000L; // 4 seconds
+      1L * 1000L * 1000L * 1000L; // 1 seconds
 
     /**
      * The timeout value for attempted shrinkage, includes

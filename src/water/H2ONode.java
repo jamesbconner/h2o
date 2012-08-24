@@ -277,8 +277,9 @@ public class H2ONode implements Comparable {
     cpu_load_1(2),              // CPU load over last 1 minute
     cpu_load_5(2),              // CPU load over last 5 minutes
     cpu_load_15(2),             // CPU load over last 15 minutes
-    thread_count(2),            // Number of threads (not all are runnable)
     rpcs(2),                    // Outstanding DFutureTasks
+    fjthrds_hi(2),              // Number of threads (not all are runnable)
+    fjthrds_lo(2),              // Number of threads (not all are runnable)
     fjqueue_hi(2),              // Number of elements in FJ work queue
     fjqueue_lo(2),              // Number of elements in FJ work queue
     tcps_active(2),             // Threads trying do a TCP send
@@ -325,9 +326,10 @@ public class H2ONode implements Comparable {
     cpu_load_1(cpu_util.x+size.cpu_util.x),
     cpu_load_5(cpu_load_1.x+size.cpu_load_1.x),
     cpu_load_15(cpu_load_5.x+size.cpu_load_5.x),
-    thread_count(cpu_load_15.x+size.cpu_load_15.x),
-    rpcs    (thread_count.x+size.thread_count.x),
-    fjqueue_hi(rpcs.x+size.rpcs.x),
+    rpcs       (cpu_load_15.x+size.cpu_load_15.x),
+    fjthrds_hi(rpcs      .x+size.rpcs      .x),
+    fjthrds_lo(fjthrds_hi.x+size.fjthrds_hi.x),
+    fjqueue_hi(fjthrds_lo.x+size.fjthrds_lo.x),
     fjqueue_lo(fjqueue_hi.x+size.fjqueue_hi.x),
     tcps_active(fjqueue_lo.x+size.fjqueue_lo.x),
     node_type(tcps_active.x+size.tcps_active.x),
@@ -382,8 +384,9 @@ public class H2ONode implements Comparable {
     set_buf(offset.cpu_load_15.x, size.cpu_load_15.x,
             fifteenMinutes >= 0 ? ((long)(1000*fifteenMinutes)) & 0xFFFF : 0xFFFF);
   }
-  public void set_thread_count(int n){ set_buf(offset.thread_count.x,size.thread_count.x,n ); }
   public void set_rpcs(int n)        { set_buf(offset.rpcs        .x,size.rpcs        .x,n ); }
+  public void set_fjthrds_hi(int qd) { set_buf(offset.fjthrds_hi  .x,size.fjthrds_hi  .x,qd); }
+  public void set_fjthrds_lo(int qd) { set_buf(offset.fjthrds_lo  .x,size.fjthrds_lo  .x,qd); }
   public void set_fjqueue_hi(int qd) { set_buf(offset.fjqueue_hi  .x,size.fjqueue_hi  .x,qd); }
   public void set_fjqueue_lo(int qd) { set_buf(offset.fjqueue_lo  .x,size.fjqueue_lo  .x,qd); }
   public void set_tcps_active(int t) { set_buf(offset.tcps_active .x,size.tcps_active .x,t ); }
@@ -440,8 +443,9 @@ public class H2ONode implements Comparable {
     else
       return -1.0;
   }
-  public int get_thread_count() { return (int)get_buf(offset.thread_count.x, size.thread_count.x); }
   public int get_rpcs()       { return (int)get_buf(offset.rpcs.x, size.rpcs.x); }
+  public int get_fjthrds_hi() { return (int)get_buf(offset.fjthrds_hi.x, size.fjthrds_hi.x); }
+  public int get_fjthrds_lo() { return (int)get_buf(offset.fjthrds_lo.x, size.fjthrds_lo.x); }
   public int get_fjqueue_hi() { return (int)get_buf(offset.fjqueue_hi.x, size.fjqueue_hi.x); }
   public int get_fjqueue_lo() { return (int)get_buf(offset.fjqueue_lo.x, size.fjqueue_lo.x); }
   public int get_tcps_active() { return (int)get_buf(offset.tcps_active.x, size.tcps_active.x); }

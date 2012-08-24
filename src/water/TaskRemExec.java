@@ -124,7 +124,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
     // Do the remote execution in a F/J thread & send a reply packet
     static void remexec( RemoteTask dt, Key args, DatagramPacket p, H2ONode h2o ) {
-      Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
+      assert Thread.currentThread().getPriority() == Thread.MIN_PRIORITY;
       // Now compute on it!
       dt.invoke(args);
 

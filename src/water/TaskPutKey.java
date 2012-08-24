@@ -75,7 +75,7 @@ public class TaskPutKey extends DFutureTask<Object> {
   public static class RemoteHandler extends UDP {
     // Received a request to put a key
     void call(DatagramPacket p, H2ONode sender) {
-      Thread.currentThread().setPriority(Thread.MAX_PRIORITY-2);
+      assert Thread.currentThread().getPriority() == Thread.MAX_PRIORITY-2;
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert

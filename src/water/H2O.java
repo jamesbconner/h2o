@@ -3,6 +3,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import jsr166y.ForkJoinPool;
+import jsr166y.ForkJoinWorkerThread;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import water.hdfs.Hdfs;
@@ -237,10 +238,34 @@ public final class H2O {
 
   // --------------------------------------------------------------------------
   // The main Fork/Join worker pool(s).
-  // Hi-priority work is things that block other things, eg. TaskGetKey
-  public static final ForkJoinPool FJP_HI   = new ForkJoinPool();
+  static class FJWThr extends ForkJoinWorkerThread {
+    FJWThr(ForkJoinPool pool, int priority) {
+      super(pool);
+      setPriority(priority);
+    }
+  }
+  static class FJWThrFact implements ForkJoinPool.ForkJoinWorkerThreadFactory {
+    final int _priority;
+    FJWThrFact( int priority ) { _priority = priority; }
+    public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
+      // The "Normal" or "Low" priority work queues get capped at 99 threads
+      // blocked on I/O.  I/O work *should* be done by HI priority threads on
+      // other nodes - so hopefully this will not lead to deadlock.  Capping
+      // all thread pools definitely does lead to deadlock.
+      return (_priority > Thread.MIN_PRIORITY || pool.getPoolSize() < 100)
+        ? new FJWThr(pool,_priority) : null;
+    }
+  }
+  // Hi-priority work is things that block other things, eg. TaskGetKey, and
+  // typically does I/O.
+  public static final ForkJoinPool FJP_HI =
+    new ForkJoinPool(Runtime.getRuntime().availableProcessors(),
+                     new FJWThrFact(Thread.MAX_PRIORITY-2), null, false);
+
   // Normal-priority work is generally directly-requested user ops.
-  public static final ForkJoinPool FJP_NORM = new ForkJoinPool();
+  public static final ForkJoinPool FJP_NORM =
+    new ForkJoinPool(Runtime.getRuntime().availableProcessors(),
+                     new FJWThrFact(Thread.MIN_PRIORITY), null, false);
 
   // --------------------------------------------------------------------------
   public static OptArgs OPT_ARGS = new OptArgs();

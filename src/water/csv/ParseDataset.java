@@ -415,7 +415,6 @@ public final class ParseDataset {
       assert src_off+len <= buf.length;
 
       // Remotely, atomically, merge this buffer into the remote key
-   // Remotely, atomically, merge this buffer into the remote key
       AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);      
       Future f = au.fork(key1); // Start atomic update
       // Do not wait on completion now; the atomic-update is fire-and-forget.
@@ -451,7 +450,7 @@ public final class ParseDataset {
         _key = Key.read(dis);        
       }
       @Override public byte[] atomic( byte[] bits1 ) {        
-        byte [] mem = DKV.get(_key).get();
+        byte[] mem = DKV.get(_key).get();
         byte[] bits2 = (bits1 == null)
           ?  new byte[_dst_off + mem.length] // Initial array of correct size
           : Arrays.copyOf(bits1,Math.max(_dst_off+mem.length,bits1.length));
@@ -459,7 +458,7 @@ public final class ParseDataset {
         return bits2;
       }
       
-      @Override public void onSuccess(){
+      @Override public void onSuccess() {
         DKV.remove(_key);
       }
     }

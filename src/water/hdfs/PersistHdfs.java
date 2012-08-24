@@ -111,8 +111,6 @@ public abstract class PersistHdfs {
   
   
   static public byte[] file_load(Value v, int len) {
-    if( v instanceof ValueArray )
-      throw new Error("unimplemented: loading from arraylets");
     byte[] b =  MemoryManager.allocateMemory(len);
     try {
       FSDataInputStream s = null;
@@ -143,10 +141,10 @@ public abstract class PersistHdfs {
   static public void file_store(Value v) {
     // Only the home node does persistence on HDFS
     if( !v._key.home() ) return;
-    // Never store arraylets on HDFS, instead we'll store the entire array.
-    assert !(v instanceof ValueArray);
     // A perhaps useless cutout: the upper layers should test this first.
     if( v.is_persisted() ) return;
+    // Never store arraylets on HDFS, instead we'll store the entire array.
+    assert !(v instanceof ValueArray);
     try {
       Path p = getPathForKey(v._key);
       _fs.mkdirs(p.getParent());

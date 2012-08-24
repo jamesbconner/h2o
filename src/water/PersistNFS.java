@@ -32,7 +32,6 @@ public abstract class PersistNFS {
   // a failure where we get a null return, but no crash (although one could
   // argue that a racing load&delete is a bug no matter what).
   static byte[] file_load(Value v, int len) {
-    assert( !(v instanceof ValueArray) );
     byte[] b = MemoryManager.allocateMemory(len);
     try {
       FileInputStream s = null;
@@ -61,13 +60,10 @@ public abstract class PersistNFS {
   static void file_store(Value v) {
     // Only the home node does persistence on NFS
     if( !v._key.home() ) return;
-    // Never store arraylets on HDFS, instead we'll store the entire array.
-    if( v instanceof ValueArray ) {
-      System.out.println("NFS write of "+v._key+" and p="+v.is_persisted());
-    }
-    assert !(v instanceof ValueArray);
     // A perhaps useless cutout: the upper layers should test this first.
     if( v.is_persisted() ) return;
+    // Never store arraylets on NFS, instead we'll store the entire array.
+    assert !(v instanceof ValueArray);
     try {
       File f = getFileForKey(v._key);
       f.mkdirs();
