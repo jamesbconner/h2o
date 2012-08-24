@@ -13,22 +13,41 @@ public class Data implements Iterable<Row> {
   // Iterator implementation ---------------------------------------------------
   
   public class Row {  
-    public double[] v = new double[columns()+1];
+    private double[] v_ = new double[columns()+1];
     public int index;
     public double weight;
+    private boolean loaded_ = false;
     
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(index);
       sb.append(" ["+classOf()+"]:");
-      for (double d: v) 
+      for (double d: v()) 
         sb.append(" "+d);
       return sb.toString();
+    }
+    
+    public double[] v() {
+      if (!loaded_) {
+        data_.getRow(index,v_);
+        loaded_ = true;
+      }
+      return v_;
     }
 
     /** Returns the number of classes a row can have. */
     public int numClasses() { return classes(); }
-    public int classOf() { return (int)v[v.length-1]; }
+    public int classOf() {
+      return loaded_ ? (int)v_[v_.length-1] : data_.classOf(index);
+    }
+    
+    public int getI(int colIndex) {
+      return data_.getI(colIndex, index);
+    }
+    
+    public double getD(int colIndex) {
+      return data_.getD(colIndex,index);
+    }
   }
  
   public class RowIter implements Iterator<Row> {
@@ -52,8 +71,10 @@ public class Data implements Iterable<Row> {
    * current view. Note that the index is indexed in current data object's view
    */
   protected void fillRow(Row r, int rowIndex) {
+    r.loaded_ = false;
     r.index = getPermutation(rowIndex);
-    data_.getRow(r.index,r.v);
+    //data_.getRow(r.index,r.v_);
+    //r.loaded_ = true;
     // TODO Change when datasets support weights
     r.weight = /*data_.weight() * */ getOriginalWeightAdjustments(r.index);
   }
@@ -136,7 +157,8 @@ public class Data implements Iterable<Row> {
     boolean[] tmp = new boolean[rows()];
     int i = 0;
     for(Row row : this) {
-      if (row.v[c.column]<c.value) {
+      if (row.getD(c.column) < c.value) {
+//      if (row.v[c.column]<c.value) {
         tmp[i] = true; l++;
       } else {
         r++;
@@ -487,7 +509,9 @@ class Subset extends Data {
   // sorting implementation ----------------------------------------------------
 
   public void sortPermutationByColumn(int colIdx) {
-    if (rows()<5000) {
+    sort(permutation_,0,permutation_.length,colIdx);
+    return;
+/*    if (rows()<5000) {
       sort(permutation_,0,permutation_.length,colIdx);
       return;
     }
@@ -514,7 +538,7 @@ class Subset extends Data {
 //        System.out.print(i+", ");
 //      System.out.println("");
       permutation_ = p;
-    }
+    } */
   }
 
   public Data sortByColumnInPlace(int colIdx) {

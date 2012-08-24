@@ -97,7 +97,7 @@ public class Tree implements Serializable {
     public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
   }
   
-  public int classify(Row r) { return tree_.classify(r.v); } 
+  public int classify(Row r) { return tree_.classify(r.v()); } 
 
   public String toString() { return tree_.toString(); } 
 }

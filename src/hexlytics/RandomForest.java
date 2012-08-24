@@ -60,7 +60,7 @@ public class RandomForest {
     errors_ = 0;
     int i = 0;
     for (Row r : data_) {
-      scores_[i][t.tree_.classify(r.v)]++;
+      scores_[i][t.tree_.classify(r.v())]++;
       int[] votes = scores_[i];            
       if (r.classOf() != Utils.maxIndex(votes, data_.random()))  ++errors_;
       ++i;
