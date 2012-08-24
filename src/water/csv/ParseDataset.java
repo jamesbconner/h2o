@@ -415,11 +415,8 @@ public final class ParseDataset {
       assert src_off+len <= buf.length;
 
       // Remotely, atomically, merge this buffer into the remote key
-      AtomicUnion au = new AtomicUnion();
-      au._buf = buf;
-      au._src_off = src_off;
-      au._dst_off = dst_off;
-      au._len = len;
+   // Remotely, atomically, merge this buffer into the remote key
+      AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);      
       Future f = au.fork(key1); // Start atomic update
       // Do not wait on completion now; the atomic-update is fire-and-forget.
       //f.get();                  // No need to complete now?
@@ -427,46 +424,47 @@ public final class ParseDataset {
     }
 
     public static class AtomicUnion extends Atomic {
-      byte[] _buf;
-      int _src_off;
+      Key _key;            
       int _dst_off;
-      int _len;
-      protected int wire_len() { return 4+4+_len; }
+      
+      public AtomicUnion() {}
+      public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
+        _dst_off = dstOff;
+        _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
+        DKV.put(_key, new Value(_key, Arrays.copyOfRange(buf, srcOff, srcOff+len)));
+      }
+      protected int wire_len() { return 4+_key._kb.length; }
       protected int  write( byte[] buf, int off ) {
         off += UDP.set4(buf,off,_dst_off);
-        off += UDP.set4(buf,off,_len);
-        System.arraycopy(_buf,_src_off,buf,off,_len);
-        return off+_len;
+        return _key.write(buf, off);        
       }
       protected void write( DataOutputStream dos ) throws IOException { 
         dos.writeInt(_dst_off);
-        dos.writeInt(_len);
-        dos.write(_buf,_src_off,_len);
+        _key.write(dos);
       }
       protected void read( byte[] buf, int off ) {
-        _src_off = 0;
-        _dst_off = UDP.get4(buf,(off+=4)-4);
-        _len     = UDP.get4(buf,(off+=4)-4);
-        _buf = new byte[_len];
-        System.arraycopy(buf,off,_buf,0,_len);
+        _dst_off = UDP.get4(buf,(off+=4)-4);        
+        _key = Key.read(buf, off);                
       }
       protected void read( DataInputStream dis ) throws IOException { 
-        _src_off = 0;
         _dst_off = dis.readInt();
-        _len = dis.readInt();
-        _buf = new byte[_len];
-        dis.readFully(_buf);
+        _key = Key.read(dis);        
       }
-      @Override public byte[] atomic( byte[] bits1 ) {
+      @Override public byte[] atomic( byte[] bits1 ) {        
+        byte [] mem = DKV.get(_key).get();
         byte[] bits2 = (bits1 == null)
-          ?  new byte[_dst_off+_len] // Initial array of correct size
-          : Arrays.copyOf(bits1,Math.max(_dst_off+_len,bits1.length));
-        System.arraycopy(_buf,_src_off,bits2,_dst_off,_len);
+          ?  new byte[_dst_off + mem.length] // Initial array of correct size
+          : Arrays.copyOf(bits1,Math.max(_dst_off+mem.length,bits1.length));
+        System.arraycopy(mem,0,bits2,_dst_off,mem.length);
         return bits2;
+      }
+      
+      @Override public void onSuccess(){
+        DKV.remove(_key);
       }
     }
   }
-
+  
   // ---
   // Alternative column guesser
   private static int guess_num_cols( Value dataset ) {

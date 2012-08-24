@@ -87,7 +87,7 @@ public abstract class MemoryManager {
       MemoryManager.MAXMEM = Runtime.getRuntime().maxMemory();
       _memCritical = MemoryManager.MAXMEM - (MemoryManager.MAXMEM >> 2);
       _memHi = _memCritical;
-      _memLo = MemoryManager.MAXMEM >> 2;
+      _memLo = MemoryManager.MAXMEM >> 3;
       _memOpt = _memLo + ((_memHi - _memLo) >> 1);
 
       int c = 0;

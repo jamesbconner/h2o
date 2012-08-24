@@ -27,14 +27,15 @@ public abstract class Atomic extends DRemoteTask {
   // installed as the new Value (the function is retried until it runs
   // atomically).  The original bits are supposed to be read-only.
   abstract public byte[] atomic( byte[] bits );
-
+  // override this if you need to perform some action after the update succeeds (eg cleanup)
+  public void onSuccess(){}
   // By default, nothing sent over with the function (except the target Key).
   protected int  wire_len() { return 0; }
   protected int  write( byte[] buf, int off ) { return off; }
   protected void write( DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
   protected void read( byte[] buf, int off ) { }
   protected void read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
-
+ 
   // The (remote) workhorse:
   @Override public final void map( Key key ) {
     assert key.home();          // Key is at Home!
@@ -50,7 +51,10 @@ public abstract class Atomic extends DRemoteTask {
       // Attempt atomic update
       Value val2 = new Value(key,bits2);
       Value res = DKV.DputIfMatch(key,val2,val1);
-      if( res == val1 ) return; // Success?
+      if( res == val1 ) {
+        onSuccess();
+        return; // Success?
+      }      
       // and retry
     }
   }
