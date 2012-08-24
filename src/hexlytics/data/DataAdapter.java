@@ -74,28 +74,28 @@ public class DataAdapter  {
               c_[i] = nc;            
             } else {
               Col.D nc = new Col.D(cd);
-              for(int j=0;j<cd.sz_;j++) nc.v_[j] = cd.v_[j];
+              System.arraycopy(cd.v_, 0, nc.v_, 0, cd.sz_);
               c_[i++] = nc;
             }
           } else {
             Col.D cf = new Col.D(cd);
-            for(int j=0;j<cd.sz_;j++) cf.v_[j] = cd.v_[j];
+            System.arraycopy(cd.v_, 0, cf.v_, 0, cd.sz_);
             c_[i++] = cf;
           }
         } else if (c instanceof Col.F){
           Col.F cd = (Col.F)c; 
           Col.F cf = new Col.F(cd);
-          for(int j=0;j<cd.v_.length;j++) cf.v_[j] = cd.v_[j];
+          System.arraycopy(cd.v_, 0, cf.v_, 0, cd.v_.length);
           c_[i++] = cf;
         } else if (c instanceof Col.B){
           Col.B cd = (Col.B)c; 
           Col.B cf = new Col.B(cd);
-          for(int j=0;j<cd.v_.length;j++) cf.v_[j] =  cd.v_[j];
+          System.arraycopy(cd.v_, 0, cf.v_, 0, cd.v_.length);
           c_[i++] = cf;
         }else if (c instanceof Col.I){
           Col.I cd = (Col.I)c; 
           Col.I cf = new Col.I(cd);
-          for(int j=0;j<cd.v_.length;j++) cf.v_[j] = cd.v_[j];
+          System.arraycopy(cd.v_, 0, cf.v_, 0, cd.v_.length);
           c_[i++] = cf;
         }
       }
