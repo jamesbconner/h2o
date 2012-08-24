@@ -44,14 +44,14 @@ public class Statistic {
     Split split() {
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       Data sd =  data.sortByColumn(column);
-      double last = sd.getRow(sd.rows()-1).v[column];
-      double currSplit =  sd.getRow(0).v[column];
+      double last = sd.getRow(sd.rows()-1).getD(column); // v[column];
+      double currSplit =  sd.getRow(0).getD(column); //v[column];
       if (last == currSplit) return null;
       // now try all the possible splits
       double bestFit = -Double.MAX_VALUE;
       double split = 0, gain = 0;
       for (Row r : sd){
-        double s = r.v[column];
+        double s = r.getD(column); // v[column];
         if (s > currSplit) {
           gain = Utils.entropyCondOverRows(dists); // fitness gain
           double newFit = fit - gain; // fitness gain
@@ -65,8 +65,6 @@ public class Statistic {
       return new Split(column,split,bestFit);
     }    
   }
-  
-
   private Split best;
   public Split best() { return best; }
   int classOf = -1;

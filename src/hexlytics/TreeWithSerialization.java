@@ -105,7 +105,7 @@ public class TreeWithSerialization implements Serializable {
   }
   
   public int classify(Row r) {
-    return tree_.classify(r.v);
+    return tree_.classify(r.v());
   } 
 
   
