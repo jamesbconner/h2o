@@ -135,7 +135,6 @@ public abstract class PersistHdfs {
           s.close();
       }
     } catch( IOException e ) {  // Broken disk / short-file???
-      System.out.println("hdfs file_load throws error "+e+" for key "+v._key);
       return null;
     } 
   }
@@ -178,6 +177,7 @@ public abstract class PersistHdfs {
 
   public static Value lazy_array_chunk( Key key ) {
     assert key._kb[0] == Key.ARRAYLET_CHUNK;
+    assert key.home();          // Only do this on the home node
     try {
       Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
       long off = ValueArray.getOffset(key); // The offset

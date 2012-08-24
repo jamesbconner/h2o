@@ -197,13 +197,13 @@ public class Value {
   // to all stores providing large-file access by default including S3.
   public static Value lazy_array_chunk( Key key ) {
     if( key._kb[0] != Key.ARRAYLET_CHUNK ) return null; // Not an arraylet chunk
+    if( !key.home() ) return null; // Only do this on the home node
     Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
     Value v1 = DKV.get(arykey);
-    if( v1 == null ) return null;                  // Nope; not there
+    if( v1 == null ) return null; // Nope; not there
     if( !(v1 instanceof ValueArray) ) return null; // Or not a ValueArray
     switch( v1._persist&BACKEND_MASK ) {
-    case ICE : if( !key.home() ) return null; // Only do this on the home node for ICE
-               return PersistIce .lazy_array_chunk(key);
+    case ICE : return PersistIce .lazy_array_chunk(key);
     case HDFS: return PersistHdfs.lazy_array_chunk(key);
     case NFS : return PersistNFS .lazy_array_chunk(key);
     default  : throw new Error("unimplemented");
