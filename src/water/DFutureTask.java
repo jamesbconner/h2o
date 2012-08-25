@@ -290,13 +290,12 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   static final long RETRY_MS = 200; // Initial UDP packet retry in msec
   // How long until we should do the "timeout" action?
   public long getDelay( TimeUnit unit ) {
-    long now_ms = System.currentTimeMillis();
-    long age_ms = now_ms - _started;
-    return unit.convert( _retry - age_ms, TimeUnit.MILLISECONDS );
+    long delay = (_started+_retry)-System.currentTimeMillis();
+    return unit.convert( delay, TimeUnit.MILLISECONDS );
   }
   // Needed for the DelayQueue API
   public final int compareTo( Delayed t ) {
     DFutureTask dt = (DFutureTask)t;
-    return (int)((dt._started+dt._retry) - (_started+_retry));
+    return (int)((_started+_retry) - (dt._started+dt._retry));
   }
 }

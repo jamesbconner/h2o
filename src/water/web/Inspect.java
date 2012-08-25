@@ -18,7 +18,7 @@ public class Inspect extends H2OPage {
   
   @Override protected String serve_impl(Properties args) {
     String key_s = args.getProperty("Key");
-    if( key_s == null ) return H2OPage.wrap(H2OPage.error("Missing Key argument"));
+    if( key_s == null ) return wrap(error("Missing Key argument"));
     Key key = null;
     try { 
       key = Key.make(key_s);      // Get a Key from a raw byte array, if any

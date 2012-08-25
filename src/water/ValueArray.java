@@ -247,16 +247,18 @@ public class ValueArray extends Value {
   // Most datasets are obtained by transformations on a prior set.
   // The prior set, or null if none
   public Key prior_key() {
-    int off = UDP.get4(get(),PRIORKEY_OFF);
+    byte[] mem = get();
+    int off = UDP.get4(mem,PRIORKEY_OFF);
     if( off==0 ) return null;
-    return Key.read(_mem,off);
+    return Key.read(mem,off);
   }
   // The transformation leading to this key, from the prior key
   public String xform() {
-    int off = UDP.get4(get(),XFORM_OFF);
+    byte[] mem = get();
+    int off = UDP.get4(mem,XFORM_OFF);
     if( off==0 ) return null;
-    int len = UDP.get2(_mem,off);
-    return new String(_mem,off+2,len);
+    int len = UDP.get2(mem,off);
+    return new String(mem,off+2,len);
   }
 
   // Number of columns in this dataset.  0 for not-structured data.
@@ -348,21 +350,22 @@ public class ValueArray extends Value {
 
   // Column name (may be the empty string, but not null)
   String col_name(int cnum) {
-    int off = UDP.get4(_mem,col(cnum)+NAME_COL_OFF);
-    return new String(_mem,off+2,UDP.get2(_mem,off));
+    byte[] mem = get();
+    int off = UDP.get4(mem,col(cnum)+NAME_COL_OFF);
+    return new String(mem,off+2,UDP.get2(mem,off));
   }
 
   // Offset (within a row) of this column start
-  public int col_off(int cnum) { return UDP.get2(_mem,col(cnum)+OFF_COL_OFF)&0xFFFF; }
+  public int col_off(int cnum) { return UDP.get2(get(),col(cnum)+OFF_COL_OFF)&0xFFFF; }
   
   // Size in bytes of this column, either 1,2,4 or 8 (integer) or -4 or -8 (float/double)
-  public int col_size(int cnum) { return _mem[col(cnum)+SIZE_COL_OFF]; }
+  public int col_size(int cnum) { return get()[col(cnum)+SIZE_COL_OFF]; }
 
   // Max/min/base/scale value seen in column
-  public double col_max  (int cnum) { return UDP.get8d(_mem,col(cnum)+  MAX_COL_OFF); }
-  public double col_min  (int cnum) { return UDP.get8d(_mem,col(cnum)+  MIN_COL_OFF); }
-  public int    col_scale(int cnum) { return UDP.get4 (_mem,col(cnum)+SCALE_COL_OFF); }
-  public int    col_base (int cnum) { return UDP.get4 (_mem,col(cnum)+ BASE_COL_OFF); }
+  public double col_max  (int cnum) { return UDP.get8d(get(),col(cnum)+  MAX_COL_OFF); }
+  public double col_min  (int cnum) { return UDP.get8d(get(),col(cnum)+  MIN_COL_OFF); }
+  public int    col_scale(int cnum) { return UDP.get4 (get(),col(cnum)+SCALE_COL_OFF); }
+  public int    col_base (int cnum) { return UDP.get4 (get(),col(cnum)+ BASE_COL_OFF); }
 
   // Row# when offset from chunk start
   private final int row_in_chunk(long row, int rpc, long chknum) {

@@ -261,21 +261,24 @@ public class Value {
   // the other.  This is not an absolute test: the Values might differ even if
   // this reports 'true'.  However, if it reports 'false' then the Values
   // definitely different.  Does no disk i/o.
-  boolean false_ifunequals( Value val ) {
+  boolean false_ifunequals( Value val ) { return false_ifunequals(val,_mem,val._mem);  }
+  boolean false_ifunequals( Value val, byte[] mem1, byte[] mem2 ) {
     if( _max != val._max ) return false;
     if( _key != val._key && !_key.equals(val._key) ) return false;
     // If we have any cached bits, they need to be equal.
-    if( _mem!=null && val._mem!=null &&
-        !equal_buf_chk(val._mem,0,_mem,0,Math.min(val._mem.length,_mem.length)) )
+    if( mem1!=null && mem2!=null &&
+        !equal_buf_chk(mem2,0,mem1,0,Math.min(mem2.length,mem1.length)) )
       return false;
     return true;
   }
   // If this reports 'true' then the Values are definitely Equals.
   // If this reports 'false' then the Values might still be equals.
   boolean true_ifequals( Value val ) {
-    if( !false_ifunequals(val) ) return false; // Definitely Not Equals
-    if( val._mem != null && val._mem.length == _max && 
-            _mem != null &&     _mem.length == _max )
+    byte[] mem1 = _mem;
+    byte[] mem2 = val._mem;
+    if( !false_ifunequals(val,mem1,mem2) ) return false; // Definitely Not Equals
+    if( mem2 != null && mem2.length == _max &&
+        mem1 != null && mem1.length == _max )
       return true;              // Definitely Equals
     return false;               // Possibly equals but reporting not-equals
   }

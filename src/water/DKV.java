@@ -89,7 +89,8 @@ public abstract class DKV {
         // See if we have enough data cached locally
         if( len > val._max ) len = val._max;
         if( len == 0 ) return val;
-        if( val._mem != null && len <= val._mem.length ) return val;
+        byte[] mem = val._mem;
+        if( mem != null && len <= mem.length ) return val;
         if( val.is_persisted() ) return val; // Got it on local disk?  Then we must have it all
         // Got something, but not enough and not on local disk: need to read more
       }
