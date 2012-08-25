@@ -77,7 +77,9 @@ public class PokerDRF extends DRemoteTask implements Director {
 
     public void run() {
       while (!_done) {
-        System.out.println(Message.Text.readNext());  PokerDRF.sleep();
+        Message.Text t = Message.Text.readNext();
+        if(t != null) System.out.println(t);  
+        PokerDRF.sleep();
       }
     }
   }

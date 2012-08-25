@@ -6,6 +6,11 @@ import hexlytics.data.Data.Row;
 
 public class Statistic {
  
+  public static Statistic make(String name, Data d,SplitCache cache) {
+    if (name.equals("Numeric")) return new Statistic(d,cache);
+    else throw new Error("Unsupported stat " + name);
+  }
+
   public static Statistic make(String name, Data d) {
     if (name.equals("Numeric")) return new Statistic(d);
     else throw new Error("Unsupported stat " + name);
@@ -41,12 +46,16 @@ public class Statistic {
      * In order to do this it must sort the rows for the given node and then
      * walk again over them in order (that is out of their natural order) to
      * determine the best splitpoint.   */
-    Split split() {
+    Split split(SplitCache cache) {
+      Split result = cache.getSplit(column);
+      if (result!=null)
+        return result;
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       Data sd =  data.sortByColumn(column);
       double last = sd.getRow(sd.rows()-1).getD(column); // v[column];
       double currSplit =  sd.getRow(0).getD(column); //v[column];
-      if (last == currSplit) return null;
+      if (last == currSplit)
+        return null;
       // now try all the possible splits
       double bestFit = -Double.MAX_VALUE;
       double split = 0, gain = 0;
@@ -61,8 +70,40 @@ public class Statistic {
         currSplit = s;
         dists[0][r.classOf()] += r.weight;
         dists[1][r.classOf()] -= r.weight;
-      }  
-      return new Split(column,split,bestFit);
+      } 
+      result = new Split(column,split,bestFit); 
+      cache.storeSplit(result);
+      //System.out.println("Computed colum "+result.column+" fitness "+result.fitness+" value "+result.value);
+      return result;
+    }    
+
+    /** Calculates the best split on given column and returns its information.
+     * In order to do this it must sort the rows for the given node and then
+     * walk again over them in order (that is out of their natural order) to
+     * determine the best splitpoint.   */
+    Split split() {
+      double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
+      Data sd =  data.sortByColumn(column);
+      double last = sd.getRow(sd.rows()-1).getD(column); // v[column];
+      double currSplit =  sd.getRow(0).getD(column); //v[column];
+      if (last == currSplit)
+        return null;
+      // now try all the possible splits
+      double bestFit = -Double.MAX_VALUE;
+      double split = 0, gain = 0;
+      for (Row r : sd){
+        double s = r.getD(column); // v[column];
+        if (s > currSplit) {
+          gain = Utils.entropyCondOverRows(dists); // fitness gain
+          double newFit = fit - gain; // fitness gain
+          if (newFit > bestFit) { bestFit = newFit; split = (s + currSplit) / 2;
+          }
+        }
+        currSplit = s;
+        dists[0][r.classOf()] += r.weight;
+        dists[1][r.classOf()] -= r.weight;
+      } 
+      return new Split(column,split,bestFit); 
     }    
   }
   private Split best;
@@ -84,7 +125,40 @@ public class Statistic {
     
     for (Column c: columns_) {
       Split s = c.split();
-      if (s!=null && s.betterThan(best)) best = s;
+      if (s!=null && s.betterThan(best)) {
+        best = s;
+        //System.out.println("new best "+s.column+" fitness " + s.fitness + " value "+ s.value);
+      }
+    }
+    
+    if (best == null) {
+      int[] votes = new int[data.classes()];
+      for(Row r: data) votes[r.classOf()]++;
+      int max = 0;
+      for(int i=0;i<votes.length;i++) 
+        if (votes[i]>max) { max=votes[i]; classOf = i;}
+    }
+  }  
+  
+  public Statistic(Data data, SplitCache cache) {
+    columns_ = new Column[data.features()];
+    this.data = data;    
+    A: for(int i=0;i<data.features();) {
+      columns_[i]=new Column(data.random().nextInt(data.columns())); // TODO: Fix to avoid throwing away columns
+      for(int j=0;j<i;j++) if (columns_[i].column==columns_[j].column) continue A;  
+      i++;
+    }
+    if (!cache.areColumnsKnown(columns_))
+      for (Row r : data) 
+        for (Column c : columns_) 
+          c.add(r.classOf(),r.weight);
+    
+    for (Column c: columns_) {
+      Split s = c.split(cache);
+      if (s!=null && s.betterThan(best)) {
+        best = s;
+        //System.out.println("new best "+s.column+" fitness " + s.fitness + " value "+ s.value);
+      }
     }
     
     if (best == null) {

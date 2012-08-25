@@ -75,7 +75,7 @@ public class PokerKV {
       int[][] score = new int[valid.rows()][valid.classes()];
       for (int i = 0; i < 1000; i++) {
         Tree rf = new Tree();
-        rf.compute(train);
+        rf.compute(train,null);
         for (Row row: valid)
           score[row.index][rf.classify(row)] += 1;
         System.out.println(i + " | err= "

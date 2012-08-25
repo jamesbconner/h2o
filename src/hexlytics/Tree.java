@@ -18,7 +18,7 @@ public class Tree implements Serializable {
   
   public Tree() {}
   
-  public final Tree compute(Data data) {
+  public final Tree compute(Data data,SplitCache cache) {
 //    System.out.println("Computing tree: ");
 //    System.out.println("  Rows:  "+data.rows());
 //    for (int i = 0; i< data.columns(); ++i) 
@@ -28,12 +28,50 @@ public class Tree implements Serializable {
 //    System.out.println("Precaching done...");
     long t = System.currentTimeMillis(); 
     /* precache - not necessary anymore, kept as comments for debugging purposes for the time being*/
+    //tree_ = compute_(data,cache);
     tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
     System.out.println("Time: "+time_);
     return this;
   }
   
+  /** for given data creates a node and returns it. */
+  protected final INode compute_(Data d, SplitCache cache) {
+    if (cache.classOf()!=-1) {
+      return new LeafNode(cache.classOf());
+    }
+    int classOf = -1;
+    for(Row r : d) {
+       if (classOf==-1) {
+         classOf = r.classOf(); 
+       } else if (classOf != r.classOf()) {
+         classOf = -1;
+         break;
+       }
+    }
+    if (classOf!=-1) {
+      cache.setClassOf(classOf);
+      return new LeafNode(classOf);
+    }
+    else {
+      Statistic s = Statistic.make(statistic_, d,cache);  
+      Split best = s.best();
+      if (best == null) return new LeafNode(s.classOf());
+      else {
+        Node nd = new Node(best.column,best.value);
+        Data[] res = new Data[2];
+        d.filter(best,res);
+        if (cache.depth>2) {
+          nd.set(0,compute_(res[0]));
+          nd.set(1,compute_(res[1]));
+        } else {
+          nd.set(0,compute_(res[0],cache.child(best.column,0)));
+          nd.set(1,compute_(res[1],cache.child(best.column,1)));
+        }
+        return nd;
+      }
+    }
+  }
   /** for given data creates a node and returns it. */
   protected final INode compute_(Data d) {
     int classOf = -1;
