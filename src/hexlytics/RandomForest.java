@@ -33,11 +33,13 @@ public class RandomForest {
   public void terminate() {  numTrees_ = 0; }
 
   public void build() {
+    // TODO make sure we are multithreded compatible 
+    final SplitCache cache = new SplitCache(data_.columns(),2);
     ArrayList<Thread> bees = new ArrayList<Thread>();
     for (int i = 0; i < numThreads; i++)
       bees.add(new Thread() {
         public void run() {
-          while (!done())  add(new Tree().compute(data_));
+          while (!done())  add(new Tree().compute(data_,cache));
         }
       });
     for (Thread b : bees) b.start();
