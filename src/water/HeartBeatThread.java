@@ -52,7 +52,7 @@ public class HeartBeatThread extends Thread {
       // Update the interesting health self-info for publication also
       final Runtime run = Runtime.getRuntime();
       final H2ONode me  = H2O.SELF;
-      final long maxmem = MemoryManager.MAXMEM = run.maxMemory();
+      final long maxmem = run.maxMemory();
       me.set_num_cpus(run.availableProcessors());
       me.set_free_mem(run. freeMemory());
       me.set_max_mem (           maxmem);

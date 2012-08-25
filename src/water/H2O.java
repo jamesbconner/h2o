@@ -504,29 +504,49 @@ public final class H2O {
   // Periodically write user keys to disk
   public static class Cleaner extends Thread {
     public void run() {
-      while( true ) {
-        synchronized(STORE) {
-          while( _dirty == false )
-            try { STORE.wait(); } catch( InterruptedException ie ) { }
-          _dirty = false;   // Clear the flag, about to clean
-        }                   // Release lock
+      while (true) {
+        synchronized (STORE) {
+          while (_dirty == false && (MemoryManager.mem2Free >> 20) <= 0)
+            try {
+              STORE.wait();
+            } catch (InterruptedException ie) {
+            }
+          _dirty = false; // Clear the flag, about to clean
+        } // Release lock
         // Sleep another second to batch-up writes
-        try { Thread.sleep(1000); } catch( InterruptedException e ) { }
-        for( Key key : keySet() ) {
+        try {
+          if ((MemoryManager.mem2Free >> 20) <= 0)
+            Thread.sleep(1000);          
+        } catch (InterruptedException e) {
+        }
+        int idx = 0;
+        long cacheSz = 0; // current size of cached memory
+        long currentTime = System.currentTimeMillis();
+        for (Key key : keySet()) {
           Value val = raw_get(key); // fetch value withOUT loading it from disk
-          if( val == null ) continue;
-          if( !key.user_allowed() && // System keys need further filtering
-              key._kb[0]==Key.ARRAYLET_CHUNK ) { // Arraylet?
+          if (val == null)
+            continue;
+          byte[] m = val._mem;
+          if (m != null)
+            cacheSz += m.length;
+          // if memory is critical, persist and free any key
+          if (!MemoryManager.memCritical() && !key.user_allowed() && // System keys need further filtering
+              key._kb[0] == Key.ARRAYLET_CHUNK) { // Arraylet?
             // If this is a chunk of a user-defined array, then save it
             Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
-            if( !arykey.user_allowed() ) continue; // System array?
+            if (!arykey.user_allowed())
+              continue; // System array?
             Value v1 = DKV.get(arykey);
-            if( v1 == null || !(v1 instanceof ValueArray) )
+            if (v1 == null || !(v1 instanceof ValueArray))
               continue; // Nope; not a valid user arraylet
           }
           // Store user-keys, or arraylets from user-keys
           val.store_persist();
+          if (m != null && MemoryManager.removeValue(currentTime, val))
+            cacheSz -= m.length;
         }
+        // update the cache sz
+        MemoryManager.setCacheSz(cacheSz);
       }
     }
   }
