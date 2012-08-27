@@ -1,10 +1,5 @@
 package water;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import jsr166y.*;
+import jsr166y.CountedCompleter;
 
 // Objects which are passed & remotely executed.  They have an efficient
 // serialization (line-wire format).  On some remote target they are
@@ -36,38 +31,4 @@ public abstract class RemoteTask extends CountedCompleter {
   // does not have to make the wire_len read/write fields be lopsided (i.e.
   // send-only, since by default they are send/recieve).
   protected boolean void_result() { return false; }
-
-  // Make a RemoteTask from a wire-line format.  NO parent_task is possible.
-  static final RemoteTask make( Key classloader, String clazz) {
-    // Make a local instance and call map on it
-    Exception e=null;
-    try {
-      // If this is a null classloader Key, then this is an internal function -
-      // no need to pass or load an external jar file.
-      Class<?> klz;
-      if( classloader == null ) {
-        klz = Class.forName(clazz);
-      } else {
-        throw new Error("Unable to find class: " + clazz);
-        //Value v = DKV.get(classloader);
-        //ValueCode val = (ValueCode)v;
-        //ClassLoader h2o_ldr = val.getLoader();
-        //klz = h2o_ldr.loadClass(clazz);
-      }
-      return (RemoteTask)klz.newInstance();
-      //System.out.println("remote task class="+klz);
-      //Constructor<RemoteTask> cdt = klz.getConstructor();
-      //RemoteTask dt = cdt.newInstance();
-      //return dt;
-    } 
-    catch( ClassNotFoundException    e0 ) { e=e0; }
-    catch( IllegalAccessException    e0 ) { e=e0; }
-    catch( InstantiationException    e0 ) { e=e0; }
-    catch( NullPointerException      e0 ) { e=e0; }
-    catch( UnsupportedClassVersionError e0 ) { e=new Exception(e0); }
-    e.printStackTrace();
-    System.err.println("puking "+e);
-    return null;
-  }
-    
 }
