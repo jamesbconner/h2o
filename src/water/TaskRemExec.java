@@ -1,9 +1,11 @@
 package water;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
-import jsr166y.*;
+
+import jsr166y.CountedCompleter;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 /**
  * A remote execution request
@@ -11,20 +13,53 @@ import jsr166y.*;
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
-
 public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
+  private static final Byte REMOTE_RESPONSE = new Byte((byte) 6);
 
   final T _dt;                  // Task to send & execute remotely
+  final RemoteTaskSerializer _serializer; // object to manage serialization
   final Key _args;
   final boolean _did_put;
+  
+  private static RemoteTaskSerializer makeSerializer(Key classloader, String clazz) {
+    Exception e=null;
+    try {
+      Class<?> klz;
+      if( classloader == null ) {
+        klz = Class.forName(clazz);
+      } else {
+        throw new Error("Unable to find class: " + clazz);
+      }
+      
+      return makeSerializer(klz);
+    } 
+    catch( ClassNotFoundException    e0 ) { e=e0; }
+    catch( NullPointerException      e0 ) { e=e0; }
+    catch( UnsupportedClassVersionError e0 ) { e=new Exception(e0); }
+    e.printStackTrace();
+    System.err.println("puking "+e);
+    return null;
+  }
+  
+  private static RemoteTaskSerializer makeSerializer(Class<?> clazz) {
+    RTSerializer serializerAnnotation = clazz.getAnnotation(RTSerializer.class);
+    if (serializerAnnotation == null) {
+      throw new Error("RemoteTask lacks a RTSerializer: " + clazz.getName());
+    }
+    Class<? extends RemoteTaskSerializer> serializerClazz = serializerAnnotation.value();
+    try {
+      return serializerClazz.newInstance();
+    } catch( InstantiationException e ) {
+      throw new RuntimeException(e);
+    } catch( IllegalAccessException e ) {
+      throw new RuntimeException(e);
+    }
+  }
 
   // With a Key+Value, do a Put on the Key & block for it - forcing the Value
   // to be available when remote execution starts.
   public TaskRemExec( H2ONode target, T dt, Key args, Value val ) {
-    super( target,UDP.udp.rexec );
-    _dt = dt;
-    _args = args;
-    _did_put = true;
+    this( target, dt, args, true );
     DKV.put(args,val);          // Publish the keyset for remote execution
     DKV.write_barrier();        // Block until all prior writes have completed
     resend();                   // Initial send after final fields set
@@ -32,18 +67,25 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
   // This version assumes a prior remote Value is already coherent
   public TaskRemExec( H2ONode target, T dt, Key args ) {
+    this( target, dt, args, false );
+    resend();                   // Initial send after final fields set
+  }
+  
+  @SuppressWarnings("unchecked")
+  private TaskRemExec(H2ONode target, T dt, Key args, boolean did_put) {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
-    _did_put = false;
-    resend();                   // Initial send after final fields set
+    _did_put = did_put;
+    _serializer = makeSerializer(_dt.getClass());
   }
 
   // Pack classloader/class & the instance data into the outgoing UDP packet
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    Class clazz = _dt.getClass();  // The exact classname to execute
+    Class<? extends RemoteTask> clazz = _dt.getClass(); 
     String sclazz = clazz.getName();  // The exact classname to execute
+    
     // Then the instance data.
     int off = UDP.SZ_TASK             // Skip udp byte and port and task#
       + 1 // udp/tcp flag
@@ -51,26 +93,21 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       + 2 // string len
       + sclazz.length()
       + _args.wire_len()
-      + _dt.wire_len();
+      + _serializer.wire_len(_dt);
     if( off <= MultiCast.MTU ) {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = 0;           // Sending via UDP
       // Class loader first.  3 bytes of null for system loader.
-      ClassLoader cl = clazz.getClassLoader();
-      if( cl != null && false/*cl instanceof JarLoader*/ ) {
-        throw new Error("unimplemented");
-        //off = cl._jarkey.write(buf,off); // Write the Key for the ValueCode jar file
-      } else {
-        buf[off++] = 0; // zero RF
-        off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
-      }
+      buf[off++] = 0; // zero RF
+      off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
+      
       // Class name now
       off += UDP.set2(buf,off,sclazz.length());  // String length
       sclazz.getBytes(0,sclazz.length(),buf,off); // Dump the string also
       off += sclazz.length();
       // Then the args key
       off = _args.write(buf,off);
-      off = _dt.write(buf,off);
+      off = _serializer.write(_dt, buf,off);
     } else {                    // Big object, switch to TCP style comms.
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = 1;           // Sending via TCP
@@ -108,12 +145,11 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         off += args.wire_len();
 
         // Make a remote instance of this dude
-        RemoteTask dt = RemoteTask.make(classloader_key,clazz);
+        RemoteTaskSerializer ser = makeSerializer(classloader_key, clazz);
         
         // Fill in remote values
-        dt.read(buf,off);
-
-        remexec(dt,args,p,h2o);
+        RemoteTask dt = ser.read(buf, off);
+        remexec(ser, dt, args, p, h2o);
       } else {               // Else all the work is being done in the TCP thread
         // No "reply" here: the TCP thread will ship a reply.  Also, the packet
         // is not-yet-dead: its the eventual reply packet, and it is recorded
@@ -123,7 +159,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     }
 
     // Do the remote execution in a F/J thread & send a reply packet
-    static void remexec( RemoteTask dt, Key args, DatagramPacket p, H2ONode h2o ) {
+    static void remexec( RemoteTaskSerializer ser, RemoteTask dt,
+        Key args, DatagramPacket p, H2ONode h2o ) {
       assert Thread.currentThread().getPriority() == Thread.MIN_PRIORITY;
       // Now compute on it!
       dt.invoke(args);
@@ -133,13 +170,13 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       if( !dt.void_result() ) {
-        if( dt.wire_len()+off+1 <= MultiCast.MTU ) {
+        if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
           buf[off++] = 2;         // Result coming via UDP
-          off = dt.write(buf,off); // Result
+          off = ser.write(dt, buf,off); // Result
         } else {
           buf[off++] = 3;         // Result coming via TCP
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),new Byte((byte)6/*response from remote*/),dt) )
+          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),REMOTE_RESPONSE,dt) )
             return; // If the TCP failed... then so do we; no result; caller will retry
         }
       }
@@ -164,10 +201,10 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         String clazz = new String(bits);
         Key classloader_key = null; // jarkey someday
         final Key args = Key.read(dis);
+        
         // Make a remote instance of this dude
-        final RemoteTask dt = RemoteTask.make(classloader_key,clazz);
-        // Fill in remote values
-        dt.read(dis);
+        final RemoteTaskSerializer ser = makeSerializer(classloader_key, clazz);
+        final RemoteTask dt = ser.read(dis);
 
         // Need the UDP packet because the finish-up code expects one.  Act "as
         // if" called from the UDP packet code, by making the exact UDP packet
@@ -185,12 +222,13 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
         // Here I want to execute on this, but not block for completion in the
         // TCP reader thread.  
-        CountedCompleter cc = new CountedCompleter() {
-            public void compute() { remexec(dt,args,p,h2o); tryComplete(); }
-          };
-        H2O.FJP_NORM.execute(cc);
+        H2O.FJP_NORM.execute(new CountedCompleter() {
+            public void compute() {
+              remexec(ser, dt, args, p, h2o);
+              tryComplete();
+            }
+        });
         // All done for the TCP thread!  Work continues in the FJ thread...
-
       } else {                  // Incoming TCP-style remote exec answer?
         // Get the TGK we're waiting on
         TaskRemExec tre = (TaskRemExec)TASKS.get(tnum);

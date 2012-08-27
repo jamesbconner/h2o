@@ -20,13 +20,6 @@ import jsr166y.*;
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 // @version 1.0
 public abstract class RemoteTask extends CountedCompleter {
-  // User overrides these methods to send his results back and forth.
-  // Reads & writes user-guts to a line-wire format on a correctly typed object
-  abstract protected int wire_len();
-  abstract protected int  write( byte[] buf, int off );
-  abstract protected void write( DataOutputStream dos ) throws IOException;
-  abstract protected void read( byte[] buf, int off );
-  abstract protected void read( DataInputStream dis ) throws IOException;
 
   // Top-level remote execution hook.  The Key is an ArrayLet or an array of
   // Keys; start F/J'ing on individual keys.  Blocks.
@@ -51,11 +44,11 @@ public abstract class RemoteTask extends CountedCompleter {
     try {
       // If this is a null classloader Key, then this is an internal function -
       // no need to pass or load an external jar file.
-      Class klz;
+      Class<?> klz;
       if( classloader == null ) {
         klz = Class.forName(clazz);
       } else {
-        throw new Error("unimplemented");
+        throw new Error("Unable to find class: " + clazz);
         //Value v = DKV.get(classloader);
         //ValueCode val = (ValueCode)v;
         //ClassLoader h2o_ldr = val.getLoader();
