@@ -1,14 +1,11 @@
 package water;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.DatagramPacket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import jsr166y.ForkJoinPool;
 
 /**
@@ -41,7 +38,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   long _retry;                  // When we should attempt a retry
 
   // The set of current, pending tasks.  Basically a map from task# to DFutureTask.
-  static public ConcurrentHashMap<Integer,DFutureTask> TASKS = new ConcurrentHashMap<Integer,DFutureTask>();
+  static public ConcurrentHashMap<Integer,DFutureTask<?>> TASKS = new ConcurrentHashMap<Integer,DFutureTask<?>>();
 
   // Make a remotely executed FutureTask.  Must name the remote target as well
   // as the remote function.  This function is expected to be subclassed.
@@ -118,7 +115,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     if( _res != null ) return _res; // Fast-path shortcut
     // Use FJP ManagedBlock for this blocking-wait - so the FJP can spawn
     // another thread if needed.
-    try { _type.pool().managedBlock(this); } catch( InterruptedException e ) { }
+    try { ForkJoinPool.managedBlock(this); } catch( InterruptedException e ) { }
     assert isDone();
     return _res;
   }
@@ -218,7 +215,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // TCP large K/V send from the remote to the target.
 
   static boolean tcp_send( H2ONode h2o, UDP.udp udp_type, int tasknum, Object... args ) {
-    int x = TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
+    TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
     Socket sock = null;
     try {
       sock = new Socket( h2o._key._inet, h2o._key.tcp_port() );
@@ -295,7 +292,8 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   }
   // Needed for the DelayQueue API
   public final int compareTo( Delayed t ) {
-    DFutureTask dt = (DFutureTask)t;
-    return (int)((_started+_retry) - (dt._started+dt._retry));
+    DFutureTask<?> dt = (DFutureTask<?>)t;
+    long nextTime = _started+_retry, dtNextTime = dt._started+dt._retry;
+    return nextTime == dtNextTime ? 0 : (nextTime > dtNextTime ? 1 : -1);
   }
 }
