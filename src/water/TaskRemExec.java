@@ -14,7 +14,12 @@ import water.serialization.RemoteTaskSerializer;
  * @version 1.0
  */
 public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
-  private static final Byte REMOTE_RESPONSE = new Byte((byte) 6);
+  private static final byte SERVER_UDP_SEND = 0;
+  private static final byte SERVER_TCP_SEND = 1;
+  private static final byte CLIENT_UDP_SEND = 2;
+  private static final byte CLIENT_TCP_SEND = 3;
+  private static final byte TCP_INCOMING_REXEC = 5;
+  private static final byte TCP_OUTGOING_REXEC = 6;
 
   final T _dt;                  // Task to send & execute remotely
   final RemoteTaskSerializer _serializer; // object to manage serialization
@@ -96,7 +101,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       + _serializer.wire_len(_dt);
     if( off <= MultiCast.MTU ) {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
-      buf[off++] = 0;           // Sending via UDP
+      buf[off++] = SERVER_UDP_SEND;
       // Class loader first.  3 bytes of null for system loader.
       buf[off++] = 0; // zero RF
       off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
@@ -110,7 +115,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       off = _serializer.write(_dt, buf,off);
     } else {                    // Big object, switch to TCP style comms.
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
-      buf[off++] = 1;           // Sending via TCP
+      buf[off++] = SERVER_TCP_SEND;
       tcp_send_pack(new Byte((byte)5/*setup remote call*/),sclazz,/*jarkey,*/_args,_dt);
     }
     return off;
@@ -171,12 +176,12 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       if( !dt.void_result() ) {
         if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
-          buf[off++] = 2;         // Result coming via UDP
+          buf[off++] = CLIENT_UDP_SEND; // Result coming via UDP
           off = ser.write(dt, buf,off); // Result
         } else {
-          buf[off++] = 3;         // Result coming via TCP
+          buf[off++] = CLIENT_TCP_SEND;
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),REMOTE_RESPONSE,dt) )
+          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),TCP_OUTGOING_REXEC,dt) )
             return; // If the TCP failed... then so do we; no result; caller will retry
         }
       }
@@ -191,9 +196,9 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Read all the parts
       int tnum = dis.readInt();
       int flag = dis.readByte(); // 1==setup, 2==response
-      assert flag==5 || flag==6;
+      assert flag==TCP_INCOMING_REXEC || flag==TCP_OUTGOING_REXEC;
 
-      if( flag==5 ) {           // Incoming TCP-style remote exec request?
+      if( flag==TCP_INCOMING_REXEC ) {
         // Read clazz string
         int len = dis.readShort();
         byte[] bits = new byte[len];
@@ -229,7 +234,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
             }
         });
         // All done for the TCP thread!  Work continues in the FJ thread...
-      } else {                  // Incoming TCP-style remote exec answer?
+      } else {
+        assert flag == TCP_OUTGOING_REXEC;
         // Get the TGK we're waiting on
         TaskRemExec tre = (TaskRemExec)TASKS.get(tnum);
         // Race with canceling a large Value fetch: Task is already dead.  Do not
@@ -276,7 +282,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
     // Read object off the wires
     if( buf[off++] == 2 ) {     // Result is coming via TCP or UDP?
-      _dt.read(buf,off);        // UDP result
+      return (T) _serializer.read(buf, off);
     } else {
       // Big object, switch to TCP style comms.  Should have already done a
       // DRemoteTask read from the TCP receiver thread... so no need to read here.
