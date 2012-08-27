@@ -145,10 +145,12 @@ public class Test {
     System.out.println("test5");
     h2o_cloud_of_size(3);
     Key h2okey = null;
+    
+    // When run from eclipse, the working directory is different.
+    // Try pointing at another likely place
     File file = new File("h2o.jar");
-    // do not create if this file does not exist, because that will confuse the build
-    // process and the created file fails to test anything anyways.
-    //if( !file.exists() ) file = new File("build/h2o.jar");
+    if( !file.exists() ) file = new File("build/h2o.jar");
+    
     FileInputStream fis = null;
     try {
       fis = new FileInputStream(file);
