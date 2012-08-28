@@ -2,10 +2,13 @@ package water;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
+
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
+
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 import water.test.Test;
@@ -451,8 +454,9 @@ public final class H2O {
     CLOUD_MULTICAST_PORT = (port>>>16);
 
     if( !MULTICAST_ENABLED ) {
+      BufferedReader br = null;
       try {
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(NODES_FILE)));
+        br = new BufferedReader(new InputStreamReader(new FileInputStream(NODES_FILE)));
         String strLine = null;
         while ((strLine = br.readLine()) != null)   {
           final String[] ss = strLine.split("[\\s:]");
@@ -468,6 +472,7 @@ public final class H2O {
           }
         }
       } catch( Exception e ) {  Log.die(e.toString()); }
+      finally { if (br != null) try { br.close(); } catch( IOException e ) { } }
     }
   }
 
@@ -519,7 +524,6 @@ public final class H2O {
             Thread.sleep(1000);          
         } catch (InterruptedException e) {
         }
-        int idx = 0;
         long cacheSz = 0; // current size of cached memory
         long currentTime = System.currentTimeMillis();
         for (Key key : keySet()) {
