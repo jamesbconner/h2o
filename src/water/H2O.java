@@ -512,11 +512,11 @@ public final class H2O {
         synchronized (STORE) {
           while( _dirty == false && (MemoryManager.mem2Free >> 20) <= 0 )
             try { STORE.wait(); } catch (InterruptedException ie) { }
+          _dirty = false;       // Clear the flag, about to clean
         } // Release lock
         // If not out of memory, sleep another second to batch-up writes
         if( (MemoryManager.mem2Free >> 20) <= 0 )
           try { Thread.sleep(2000); } catch (InterruptedException e) { }
-        _dirty = false;         // Clear the flag, about to clean
         long cacheSz = 0;       // Current size of cached memory
         final long currentTime = System.currentTimeMillis();
         for( Key key : keySet() ) {
@@ -555,7 +555,6 @@ public final class H2O {
         }
         // update the cache sz
         MemoryManager.setCacheSz(cacheSz);
-        System.out.println("STORE swept, cache="+cacheSz);
       }
     }
   }
