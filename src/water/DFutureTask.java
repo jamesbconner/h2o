@@ -6,6 +6,8 @@ import java.net.SocketException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import water.serialization.RemoteTaskSerializationManager;
+
 import jsr166y.ForkJoinPool;
 
 /**
@@ -229,9 +231,12 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       // interfaces so I do not need this evil instanceof-tree.
       for( int i=0; i<args.length; i++ ) {
         Object arg = args[i];
-        if( arg instanceof Key ) ((Key)arg).write(dos);
-        else if( arg instanceof RemoteTask ) ((RemoteTask)arg).write(dos);
-        else if( arg instanceof Value ) {
+        if( arg instanceof Key ) {
+          ((Key)arg).write(dos);
+        } else if( arg instanceof RemoteTask ) {
+          RemoteTask t = (RemoteTask)arg;
+          RemoteTaskSerializationManager.get(t.getClass()).write(t, dos);
+        } else if( arg instanceof Value ) {
           // For Values, support a pre-loaded byte[]
           if( i < args.length-1 && args[i+1] instanceof byte[] ) {
             ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
