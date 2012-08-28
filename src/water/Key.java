@@ -161,12 +161,21 @@ public final class Key implements Comparable {
   private Key(byte[] kb) {
     if( kb.length > KEY_LENGTH ) throw new IllegalArgumentException();
     _kb = kb;
-    // Quicky hash: http://en.wikipedia.org/wiki/Jenkins_hash_function
+    // For arraylets, arrange that the first 64Megs/Keys worth spread nicely,
+    // but that the next 64Meg (and each 64 after that) target the same node,
+    // so that HDFS blocks hit only 1 node in the typical spread.
+    int i=0;                    // Include these header bytes or not
+    int chk = 0;                // Chunk number, for chunks beyond 64Meg
+    if( kb.length >= 10 && kb[0] == ARRAYLET_CHUNK && kb[1] == 0 ) {
+      long off = UDP.get8(kb,2);
+      if( (off >> 20) >= 64 ) { // Is offset >= 64Meg?
+        i += 2+8;               // Skip the length bytes; they are now not part of hash
+        chk = (int)(off >>> (6+20)); // Divide by 64Meg; comes up with a "block number"
+      }
+    }
     int hash = 0;
-    hash += (hash << 10);
-    hash ^= (hash >> 6);
-    // then the key bytes
-    for( int i=0; i<kb.length; i++ ) {
+    // Quicky hash: http://en.wikipedia.org/wiki/Jenkins_hash_function
+    for( ; i<kb.length; i++ ) {
       hash += kb[i];
       hash += (hash << 10);
       hash ^= (hash >> 6);
@@ -174,7 +183,7 @@ public final class Key implements Comparable {
     hash += (hash << 3);
     hash ^= (hash >> 11);
     hash += (hash << 15);
-    _hash = hash;
+    _hash = hash+chk;           // Add sequential block numbering
   }
 
   // Make new Keys.  Optimistically attempt interning, but no guarantee.

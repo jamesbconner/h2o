@@ -217,7 +217,9 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   static boolean tcp_send( H2ONode h2o, UDP.udp udp_type, int tasknum, Object... args ) {
     TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
     Socket sock = null;
+    final int old_prior = Thread.currentThread().getPriority();
     try {
+      Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
       sock = new Socket( h2o._key._inet, h2o._key.tcp_port() );
       DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
       // Write out the initial operation & key
@@ -256,9 +258,11 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
       sock.close();
       TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
+      Thread.currentThread().setPriority(old_prior);
       return true;
     } catch( IOException e ) {
       TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
+      Thread.currentThread().setPriority(old_prior);
       try { if( sock != null ) sock.close(); }
       catch( IOException e2 ) { /*no msg for error on closing broken socket */}
       // Be silent for SocketException; we get this if the remote dies and we
