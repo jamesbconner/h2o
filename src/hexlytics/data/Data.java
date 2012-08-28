@@ -85,7 +85,7 @@ public class Data implements Iterable<Row> {
     return result;
   }
   
-  // DataAdapter wrappers ------------------------------------------------------
+  // CustomDataAdapter wrappers ------------------------------------------------------
 
   /** Returns the number of rows that is accessible by this Data object. 
    */
@@ -117,12 +117,17 @@ public class Data implements Iterable<Row> {
     return getWeightAdjustment(rowIndex); 
   }
   
-  public Random random()          { return data_.random_; }
+  public Random random()          { return data_.random; }
   public String colName(int c)    { return data_.colName(c); } 
-  public double colMin(int c)     { return data_.colMin(c); }
-  public double colMax(int c)     { return data_.colMax(c); }
-  public double colTot(int c)     { return data_.colTot(c); }
-  public int colPre(int c)        { return data_.colPre(c); }  
+  /* I do not think these should be part of the DataAdapter interface. I am only
+   * commenting them for now so that it draws attention. 
+   * 
+   * TODO PETA
+   */
+//  public double colMin(int c)     { return data_.colMin(c); }
+//  public double colMax(int c)     { return data_.colMax(c); }
+//  public double colTot(int c)     { return data_.colTot(c); }
+//  public int colPre(int c)        { return data_.colPre(c); }  
   public  String[] columnNames()  { return data_.columnNames(); }
   public  String classColumnName(){ return data_.classColumnName(); } 
   
@@ -151,9 +156,10 @@ public class Data implements Iterable<Row> {
     String[][] s = new String[columns()][4];
     for(int i=0;i<columns();i++){
       s[i][0] = "col("+colName(i)+")";
-      s[i][1] = "["+df.format(colMin(i)) +","+df.format(colMax(i))+"]" ;
-      s[i][2] = " avg=" + df.format(colTot(i)/(double)rows());
-      s[i][3] = " precision=" + colPre(i); 
+      // TODO PETA
+      s[i][1] = ""; // "["+df.format(colMin(i)) +","+df.format(colMax(i))+"]" ;
+      s[i][2] = ""; // avg=" + df.format(colTot(i)/(double)rows());
+      s[i][3] = ""; // precision=" + colPre(i); 
     }
     int[] l = new int[4];
     for(int j=0;j<4;j++) 
@@ -167,6 +173,7 @@ public class Data implements Iterable<Row> {
       res+="\n";
     }      
     res +="========\n";  res +="class histogram\n";
+    /* TODO PETA
     int[] dist = data_.c_[data_.classIdx_].distribution();
     int[] sorted = Arrays.copyOf(dist, dist.length);
     Arrays.sort(sorted);
@@ -179,10 +186,11 @@ public class Data implements Iterable<Row> {
         if (prop[j]>= m) res += "**  "; else res+="    ";
       }
       res+="\n";
-    }
+    } 
     res+="[";
     for(int j=0;j<dist.length;j++) res+=dist[j]+((j==dist.length-1)?"":",");     
     res+="]\n"; res+=head(5);
+    */
     return res;
   }
   
@@ -199,7 +207,7 @@ public class Data implements Iterable<Row> {
   
   // Constructors --------------------------------------------------------------
   
-  protected Data(DataAdapter da) {
+  protected Data(CustomDataAdapter da) {
     data_ = da;
     weightAdjustments_ = null;
     name_=da.name();
@@ -211,7 +219,7 @@ public class Data implements Iterable<Row> {
     name_ = data.name()+"->copy";
   }
   
-  protected Data(DataAdapter da, int[] weightAdjustments) {
+  protected Data(CustomDataAdapter da, int[] weightAdjustments) {
     data_ =da;
     weightAdjustments_ = weightAdjustments;
     name_ = da.name()+"->weighted";
@@ -219,7 +227,7 @@ public class Data implements Iterable<Row> {
   
   /** Returns new Data object that stores all adapter's rows unchanged.
    */
-  public static Data make(DataAdapter da) {
+  public static Data make(CustomDataAdapter da) {
     return new Data(da);
   }
 
@@ -264,7 +272,7 @@ public class Data implements Iterable<Row> {
     // get the weights and probabilities
     wp();
     // get the random generator to initialize the sampling
-    Random r = new Random(data_.random_.nextLong());
+    Random r = new Random(data_.random.nextLong());
     // now sample
     byte[] occurrences_ = new byte[sz];
     int k = 0, l = 0, sumProbs = 0;
@@ -326,7 +334,7 @@ public class Data implements Iterable<Row> {
     wp_.probabilities = new double[rows()];
     double sumProbs = 0, sumOfWeights = sum(wp_.weights);
     for( int i = 0; i < wp_.probabilities.length; i++ ){
-      sumProbs += data_.random_.nextDouble();
+      sumProbs += data_.random.nextDouble();
       wp_.probabilities[i] = sumProbs;
     }
     normalize(wp_.probabilities, sumProbs / sumOfWeights);
@@ -372,7 +380,7 @@ public class Data implements Iterable<Row> {
   // Implementation ------------------------------------------------------------
   
   
-  protected final DataAdapter data_;
+  protected final CustomDataAdapter data_;
 
   protected final int[] weightAdjustments_;
   
@@ -400,7 +408,7 @@ public class Data implements Iterable<Row> {
     return result;
   }
 
-  /** Returns the original index of the row in the DataAdapter object for row
+  /** Returns the original index of the row in the CustomDataAdapter object for row
    * indexed in the given Data object. 
    */
   protected int getPermutation(int rowIndex) {
@@ -434,7 +442,7 @@ class Subset extends Data {
   
   protected int[] permutation_;
   
-  /** Returns the original DataAdapter's row index of given row. */
+  /** Returns the original CustomDataAdapter's row index of given row. */
   @Override protected int getPermutation(int rowIndex) {
     return permutation_[rowIndex];
   }
@@ -450,7 +458,7 @@ class Subset extends Data {
   }
   
   /** Creates new subset of the given data adapter. The permutation is an array
-   * of original row indices of the DataAdapter object that will be used. 
+   * of original row indices of the CustomDataAdapter object that will be used. 
    */
   public Subset(Data data, int[] permutation) {
     super(data);
@@ -458,7 +466,7 @@ class Subset extends Data {
     name_ =data.name_+"->subset"; 
   }
   
-  public Subset(DataAdapter data, int[] permutation, int[] weightAdjustments) {
+  public Subset(CustomDataAdapter data, int[] permutation, int[] weightAdjustments) {
     super(data, weightAdjustments);
     permutation_ = permutation;
     name_ =data.name()+"->weighted subset"; 
@@ -551,7 +559,7 @@ class Subset extends Data {
 //    // sizes of the output arrays that must be created
 //    int[] outputSizes_;
 //    
-//    public SortedColumnsCache(DataAdapter data) {
+//    public SortedColumnsCache(CustomDataAdapter data) {
 //      sortedIndices_ = new int[data.columns()][];
 //      outputSizes_ = new int[data.columns()];
 //    }
@@ -567,7 +575,7 @@ class Subset extends Data {
 //      return outputSizes_[colIndex];
 //    } 
 //    
-//    public void setSortedByColumn(int colIndex, int[] rows, DataAdapter data) {
+//    public void setSortedByColumn(int colIndex, int[] rows, CustomDataAdapter data) {
 //      // copy to the temporary as we might change it
 //      int[] temp = new int[rows.length];
 //      System.arraycopy(rows,0,temp,0,temp.length);
@@ -608,13 +616,13 @@ class Subset extends Data {
 ////      System.out.println("");
 //    }
 //    
-//    private final boolean shouldSort(int colIndex, int rowSize, DataAdapter data) {
+//    private final boolean shouldSort(int colIndex, int rowSize, CustomDataAdapter data) {
 //      if (outputSizes_[colIndex]<rowSize)
 //        return true;
 //      return (rowSize*Math.log(rowSize)) < (outputSizes_[colIndex]+rowSize);
 //    }
 //    
-//    public int[] getSortedByColumn(int colIndex, int[] rows, DataAdapter data) {
+//    public int[] getSortedByColumn(int colIndex, int[] rows, CustomDataAdapter data) {
 //      if (shouldSort(colIndex,rows.length,data))
 //        return null;
 //      // do the non sort - for each row we have read its 
@@ -652,14 +660,14 @@ class Subset extends Data {
 //  static final DecimalFormat df = new  DecimalFormat ("0.##");
 //  public static Random RANDOM = new Random(42);
 // 
-//  public static Data make(DataAdapter da) { return new Data(da); }    
+//  public static Data make(CustomDataAdapter da) { return new Data(da); }    
 //
 //  Data(Data d) {
 //    this(d.data_);
 //    sortedCache_ = d.sortedCache_;
 //  }
 //  
-//  Data(DataAdapter da) {
+//  Data(CustomDataAdapter da) {
 //    data_ = da;
 //    name_=data_.name();
 //    sortedCache_ = new SortedColumnsCache(da);
@@ -674,7 +682,7 @@ class Subset extends Data {
 //   * change or shuffle the indices.
 //   * 
 //   * @param idx Index for this data
-//   * @return Original index of the row (the index on DataAdapter). 
+//   * @return Original index of the row (the index on CustomDataAdapter). 
 //   */
 //  public int originalIndex(int idx) {
 //    return idx;
@@ -710,7 +718,7 @@ class Subset extends Data {
 //    public void remove() { throw new Error("Unsported"); }
 //  }
 // 
-//  final DataAdapter data_;   
+//  final CustomDataAdapter data_;   
 //  String name_;
 //  
 //  public  Iterator<Row> iterator(){ return new RowIter(); } 
@@ -867,7 +875,7 @@ class Subset extends Data {
 //  public int classOf(int idx)           { return data_.classOf(permutation_[idx]); }
 //  
 //  public String toString() {
-//    DataAdapter a = new DataAdapter(name(),columnNames(),classColumnName());
+//    CustomDataAdapter a = new CustomDataAdapter(name(),columnNames(),classColumnName());
 //    for(Row r : this) a.addRow(r.v);
 //    a.freeze();
 //    return new Data(a).toString();

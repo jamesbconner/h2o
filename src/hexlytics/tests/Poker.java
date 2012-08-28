@@ -39,6 +39,6 @@ public class Poker {
     Data d = p.poker_;
     Data t = d.sampleWithReplacement(.6);
     Data v = t.complement();
-    Director dir = new LocalBuilder(t,v,1);
+    Director dir = new LocalBuilder(t,v,10);
   }
 }

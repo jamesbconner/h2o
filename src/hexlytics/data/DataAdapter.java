@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Random;
 
 
-public class DataAdapter  {
+public class DataAdapter extends CustomDataAdapter  {
     
     Col[] c_;
     private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
@@ -17,9 +17,6 @@ public class DataAdapter  {
     private int numClassesParam_=-1;
     private String[] columnNames_;
     private String classColumnName_;
-    
-    public final long seed;
-    public final Random random_;
     
     private static int SEED = 42;
     private static Random RAND = new Random(SEED);
@@ -37,6 +34,7 @@ public class DataAdapter  {
     public DataAdapter(String name, Object[] columns, String classNm, int numClasses) { this(columns,classNm); name_=name; numClassesParam_ = numClasses;}
     public DataAdapter(String name, Object[] columns, String classNm,long seed) { this(columns,classNm,seed); name_=name; } 
     public DataAdapter(Object[] columns, String classNm,long seed){
+      super(seed);
       c_ = new Col[columns.length]; 
       columnNames_ = new String[columns.length];
       classColumnName_ = classNm;
@@ -45,13 +43,10 @@ public class DataAdapter  {
        }
       classIdx_ = c2i_.get(classNm);
       if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
-      this.seed = seed;
-      random_ = new Random(seed);
     }
     
     private DataAdapter(DataAdapter d_) {
-      this.seed = d_.seed;
-      random_ = new Random(seed);
+      super(d_);
       name_ = d_.name_; columnNames_ = d_.columnNames_; classColumnName_= d_.classColumnName_;
       numClassesParam_ = d_.numClassesParam_;
       frozen_=true;
@@ -104,43 +99,45 @@ public class DataAdapter  {
     public void add(String c,  double v) { c_[ c2i_.get(c).intValue()].add(v); }
     public void add(String c,  int v) { c_[ c2i_.get(c).intValue()].add(v); }
  
-    public String name() { return name_; }
     public DataAdapter shrinkWrap() { DataAdapter d = new DataAdapter(this); d.name_ += "->shrinked"; return d;  }
     public void freeze() { frozen_=true; }
-    public int features() { 
-       int v =(int)(2.0*columns()/3.0);
-       if (v==0 || v >= columns()-1) throw new Error("Should pick 2/3 of columns");    
-       return v;
-    }
-    public int columns()        { return c_.length;} 
-    public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
-    public int classOf(int idx) { return c_[classIdx_].getI(idx); }
-    
-    public int classes() {   
-      if(numClassesParam_ > -1)return numClassesParam_;
-        if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
-        if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
-        return numClasses_;
-    }
 
-    public  String colName(int c) { return c_[c].name_; }
     public  double colMin(int c)  { return c_[c].min_; }    
     public  double colMax(int c)  { return c_[c].max_; }
     public  double colTot(int c)  { return c_[c].tot_; }
     public  int    colPre(int c)  { return c_[c].prec_; }    
-    public String[] columnNames() { return columnNames_; }
-    public String   classColumnName() { return classColumnName_; }
    
     public void addRow(double[] v) {
       if (frozen_) throw new Error("Frozen data set update");
       for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
     }
-    public void getRow(int c, double[] v) { 
+
+    @Override public String name() { return name_; }
+    @Override public  String colName(int c) { return c_[c].name_; }
+    @Override public int columns()        { return c_.length;} 
+    @Override public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
+    @Override public int classOf(int idx) { return c_[classIdx_].getI(idx); }
+    
+    @Override public int classes() {   
+      if(numClassesParam_ > -1)return numClassesParam_;
+        if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
+        if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
+        return numClasses_;
+    }
+    @Override public String[] columnNames() { return columnNames_; }
+    @Override public String   classColumnName() { return classColumnName_; }
+    @Override public int getI(int col, int idx) { return c_[col].getI(idx); }
+    @Override public double getD(int col, int idx) { return c_[col].getD(idx); }
+    @Override public int features() { 
+       int v =(int)(2.0*columns()/3.0);
+       if (v==0 || v >= columns()-1) throw new Error("Should pick 2/3 of columns");    
+       return v;
+    }
+
+    @Override public void getRow(int c, double[] v) { 
       for(int i=0;i<v.length;i++) v[i] = c_[i].getD(c);
     }
-    protected int getI(int col, int idx) { return c_[col].getI(idx); }
-    protected double getD(int col, int idx) { return c_[col].getD(idx); }
-
+    
 
     static final DecimalFormat df = new  DecimalFormat ("0.##");
 }
