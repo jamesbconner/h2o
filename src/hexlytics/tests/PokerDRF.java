@@ -1,11 +1,8 @@
 package hexlytics.tests;
 
 import hexlytics.Tree;
-import hexlytics.RFBuilder.Director;
-import hexlytics.RFBuilder.Message;
+import hexlytics.RFBuilder.*;
 import hexlytics.RFBuilder.Message.ValidationError;
-import hexlytics.RFBuilder.TreeBuilder;
-import hexlytics.RFBuilder.TreeValidator;
 import hexlytics.data.Data;
 import hexlytics.data.DataAdapter;
 
@@ -13,22 +10,25 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import water.DKV;
-import water.DRemoteTask;
-import water.H2O;
-import water.H2ONode;
-import water.Key;
-import water.RemoteTask;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.csv.CSVParserKV;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 /**
  * Distributed RF implementation for poker Data set.
  * 
  * @author tomas
  */
+@RTSerializer(PokerDRF.Serializer.class)
 public class PokerDRF extends DRemoteTask implements Director {
+  public static class Serializer extends RemoteTaskSerializer<PokerDRF> {
+    @Override public int wire_len(PokerDRF task) { throw new RuntimeException("TODO Auto-generated method stub"); }
+    @Override public int write(PokerDRF task, byte[] buf, int off) { throw new RuntimeException("TODO Auto-generated method stub"); }
+    @Override public void write(PokerDRF task, DataOutputStream dos) throws IOException { throw new RuntimeException("TODO Auto-generated method stub"); }
+    @Override public PokerDRF read(byte[] buf, int off) { throw new RuntimeException("TODO Auto-generated method stub"); }
+    @Override public PokerDRF read(DataInputStream dis) throws IOException { throw new RuntimeException("TODO Auto-generated method stub"); }
+  }
 
   private static final long serialVersionUID = 1976547559782826435L;
 
@@ -189,11 +189,6 @@ public class PokerDRF extends DRemoteTask implements Director {
     new Message.ValidationError(error, _nrecords).send();    
   }
 
-  UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
-  public void reduce(DRemoteTask drt) {/*throw uoe();*/ }
-  protected int wire_len() { /*throw uoe();*/ return 0; }
-  protected int write(byte[] buf, int off) { /*throw uoe();*/ return off; }
-  @Override protected void write(DataOutputStream dos) throws IOException { /*throw uoe();*/ }
-  @Override protected void read(byte[] buf, int off) { /*throw uoe();*/ }
-  @Override protected void read(DataInputStream dis) throws IOException { /*throw uoe();*/ }
+  static UnsupportedOperationException uoe() { return new UnsupportedOperationException("Not supported yet."); }
+  public void reduce(DRemoteTask drt) { throw uoe(); }
 }

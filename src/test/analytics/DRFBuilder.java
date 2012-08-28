@@ -1,23 +1,13 @@
 package test.analytics;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.Arrays;
 
-import water.DKV;
-import water.DRemoteTask;
-import water.H2O;
-import water.Key;
-import water.RemoteTask;
-import water.UDP;
-import water.Value;
-import water.ValueArray;
-import water.csv.CSVParser.CSVParseException;
+import water.*;
 import water.csv.CSVParser.CSVParserSetup;
 import water.csv.ValueCSVRecords;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 import analytics.RF;
 
 /**
@@ -27,25 +17,69 @@ import analytics.RF;
  * poker dataset.
  * 
  * @author tomas
- * 
  */
-public class DRFBuilder extends DRemoteTask {
+@RTSerializer(DRFBuilder.Serializer.class)
+public class DRFBuilder extends DRemoteTask implements Cloneable {
+  public static class Serializer extends RemoteTaskSerializer<DRFBuilder> {
+    @Override
+    public int wire_len(DRFBuilder b) {
+      try {
+        return (b._rf == null) ? 0 : b._rf.trees().length;
+      } catch (IOException e) {
+        throw new Error(e);
+      }
+    }
 
-  /**
-   * 
-   */
+    @Override
+    public int write(DRFBuilder b, byte[] buf, int off) {
+      if (b._rf == null) return off;
+      try {
+        System.arraycopy(b._rf.trees(), 0, buf, off, b._rf.trees().length);
+        return off + b._rf.trees().length;
+      } catch (IOException e) {
+        throw new Error(e);
+      }
+    }
+
+    @Override
+    public void write(DRFBuilder b, DataOutputStream dos) {
+      if (b._rf == null)
+        return;
+      try {
+        assert b._rf.trees() != null;
+        dos.writeInt(b._rf.trees().length);
+        dos.write(b._rf.trees());
+      } catch (IOException e) {
+        throw new Error(e);
+      }
+    }
+
+    @Override
+    public DRFBuilder read(byte[] buf, int off) {
+      DRFBuilder b = new DRFBuilder();
+      b._serializedRf = Arrays.copyOfRange(buf, off, buf.length);
+      return b;
+    }
+
+    @Override
+    public DRFBuilder read(DataInputStream dis) throws IOException {    
+        DRFBuilder b = new DRFBuilder();
+        int len = dis.readInt();      
+        b._serializedRf = new byte[len];
+        dis.readFully(b._serializedRf);             
+        return b;
+    }
+  }
+
   private static final long serialVersionUID = 2113818373535413958L;
-
-  int[] _csvRecord = new int[11];
-
   static CSVParserSetup _setup;
-
   static {
     _setup = new CSVParserSetup();
     _setup._parseColumnNames = false;
     _setup._skipFirstRecord = true;
   }
 
+  int[] _csvRecord = new int[11];
   RF _rf;
   
   public RF getRf() {return _rf;}
@@ -105,65 +139,9 @@ public class DRFBuilder extends DRemoteTask {
   }
 
   @Override
-  protected int wire_len() {
-    try {
-      return (_rf == null) ? 0 : _rf.trees().length;
-    } catch (IOException e) {
-      throw new Error(e);
-    }
-  }
-
-  @Override
-  protected int write(byte[] buf, int off) {
-    if (_rf == null)
-      return off;
-    try {
-      System.arraycopy(_rf.trees(), 0, buf, off, _rf.trees().length);
-      return off + _rf.trees().length;
-    } catch (IOException e) {
-      throw new Error(e);
-    }
-  }
-
-  @Override
-  protected void write(DataOutputStream dos) {
-    if (_rf == null)
-      return;
-    try {
-      assert _rf.trees() != null;
-      dos.writeInt(_rf.trees().length);
-      dos.write(_rf.trees());
-    } catch (IOException e) {
-      throw new Error(e);
-    }
-  }
-
-  @Override
-  protected void read(byte[] buf, int off) {
-    _serializedRf = Arrays.copyOfRange(buf, off, buf.length);
-  }
-
-  @SuppressWarnings("unused")
-  @Override
-  protected void read(DataInputStream dis) {    
-    try {
-      int len = dis.readInt();      
-      _serializedRf = new byte[len];
-      dis.readFully(_serializedRf);             
-    } catch (Exception e) {
-      throw new Error(e);
-    }
-  }
-
-  @Override
-  public Object clone() {
-    try {
-      Object o = super.clone();
-      DRFBuilder other = (DRFBuilder) o;
-      _csvRecord = other._csvRecord.clone();
-      return other;
-    } catch (Exception e) {
-      throw new Error(e);
-    }
+  public DRFBuilder clone() throws CloneNotSupportedException {
+    DRFBuilder other = (DRFBuilder) super.clone();
+    _csvRecord = other._csvRecord.clone();
+    return other;
   }
 }
