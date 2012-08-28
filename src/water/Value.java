@@ -41,7 +41,7 @@ public class Value {
   // The low 3 bits are final.
   // The on/off disk bit is strictly cleared by the higher layers (e.g. Value.java)
   // and strictly set by the persistence layers (e.g. PersistIce.java).
-  public byte _persist;         // 3 bits of backend flavor; 1 bit of disk/notdisk
+  public volatile byte _persist; // 3 bits of backend flavor; 1 bit of disk/notdisk
   public final static byte ICE = 1<<0; // ICE: distributed local disks
   public final static byte HDFS= 2<<0; // HDFS: backed by hadoop cluster
   public final static byte S3  = 3<<0; // Amazon S3
@@ -99,7 +99,7 @@ public class Value {
   }
 
   // The FAST path get-byte-array - final method for speed.
-  // NEVER returns null.
+  // Returns a NULL if the Value is deleted already.
   public final byte[] get() { return get(Integer.MAX_VALUE); }
   public final byte[] get( int len ) {
     if( len > _max ) len = _max;
@@ -107,7 +107,7 @@ public class Value {
     if( mem != null && len <= mem.length ) return mem;
     if( mem != null && _max == 0 ) return mem;
     byte[] newmem = (_max==0 ? new byte[0] : load_persist(len));
-    return CAS_mem_if_larger(newmem);                // CAS in the larger read
+    return CAS_mem_if_larger(newmem); // CAS in the larger read
   }
 
 

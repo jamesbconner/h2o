@@ -415,10 +415,10 @@ public final class ParseDataset {
       assert src_off+len <= buf.length;
 
       // Remotely, atomically, merge this buffer into the remote key
-      AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);      
-      Future f = au.fork(key1); // Start atomic update
+      AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);
+      au.fork(key1);            // Start atomic update
       // Do not wait on completion now; the atomic-update is fire-and-forget.
-      //f.get();                  // No need to complete now?
+      //au.get();               // No need to complete now?
       return rowz;              // Rows written out
     }
 

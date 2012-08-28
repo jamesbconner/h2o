@@ -193,7 +193,11 @@ public final class H2O {
     if( res != old )            // Failed?
       return res;               // Return the failure cause
     assert (k=chk_equals_key(k,val))==k;
-    if( old != null && old != val ) old.remove_persist(); // Remove the old guy
+    // Persistence-tickle.
+    // If the K/V mapping is going away, remove the old guy.
+    // If the K/V mapping is changing, let the store cleaner just overwrite.
+    // If the K/V mapping is new, let the store cleaner just create
+    if( old != null && val == null ) old.remove_persist(); // Remove the old guy
     if( val != null ) kick_store_cleaner(); // Start storing the new guy
     return old;                 // Return success
   }
@@ -431,7 +435,7 @@ public final class H2O {
       UDP_PORT++;
       TCP_PORT++;
     }
-    System.out.println("HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);
+    System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
     if (OPT_ARGS.nodes != null) {
@@ -506,47 +510,52 @@ public final class H2O {
     public void run() {
       while (true) {
         synchronized (STORE) {
-          while (_dirty == false && (MemoryManager.mem2Free >> 20) <= 0)
-            try {
-              STORE.wait();
-            } catch (InterruptedException ie) {
-            }
-          _dirty = false; // Clear the flag, about to clean
+          while( _dirty == false && (MemoryManager.mem2Free >> 20) <= 0 )
+            try { STORE.wait(); } catch (InterruptedException ie) { }
         } // Release lock
-        // Sleep another second to batch-up writes
-        try {
-          if ((MemoryManager.mem2Free >> 20) <= 0)
-            Thread.sleep(1000);          
-        } catch (InterruptedException e) {
-        }
-        int idx = 0;
-        long cacheSz = 0; // current size of cached memory
-        long currentTime = System.currentTimeMillis();
-        for (Key key : keySet()) {
+        // If not out of memory, sleep another second to batch-up writes
+        if( (MemoryManager.mem2Free >> 20) <= 0 )
+          try { Thread.sleep(2000); } catch (InterruptedException e) { }
+        _dirty = false;         // Clear the flag, about to clean
+        long cacheSz = 0;       // Current size of cached memory
+        final long currentTime = System.currentTimeMillis();
+        for( Key key : keySet() ) {
           Value val = raw_get(key); // fetch value withOUT loading it from disk
-          if (val == null)
-            continue;
+          if( val == null )  continue;
           byte[] m = val._mem;
-          if (m != null)
-            cacheSz += m.length;
-          // if memory is critical, persist and free any key
-          if (!MemoryManager.memCritical() && !key.user_allowed() && // System keys need further filtering
-              key._kb[0] == Key.ARRAYLET_CHUNK) { // Arraylet?
+          if( m != null )
+            cacheSz += m.length; // Accumulate total amount of cached keys
+          // System keys that are not just backing arraylets of user keys are
+          // not persisted - we figure they have a very short lifetime.
+          if( (!key.user_allowed() || // System keys need further filtering
+               MemoryManager.memCritical()) &&     // if memory is critical, persist and free system keys also.
+              key._kb[0] == Key.ARRAYLET_CHUNK ) { // Arraylet?
             // If this is a chunk of a user-defined array, then save it
             Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
-            if (!arykey.user_allowed())
-              continue; // System array?
+            if( !arykey.user_allowed() )
+              continue; // System array chunk?
             Value v1 = DKV.get(arykey);
-            if (v1 == null || !(v1 instanceof ValueArray))
+            if( v1 == null || !(v1 instanceof ValueArray) )
               continue; // Nope; not a valid user arraylet
           }
+          // ValueArrays covering large files in global filesystems such as NFS
+          // or HDFS are only made on import (right now), and not reconstructed
+          // by inspection of the Key or filesystem.... so we cannot toss them
+          // out because they will not be reconstructed merely by loading the
+          // Value.
+          if( val instanceof ValueArray &&
+              (val._persist & Value.BACKEND_MASK)!=Value.ICE )
+            continue;
+
           // Store user-keys, or arraylets from user-keys
           val.store_persist();
-          if (m != null && MemoryManager.removeValue(currentTime, val))
+
+          if( m != null && MemoryManager.removeValue(currentTime, val) )
             cacheSz -= m.length;
         }
         // update the cache sz
         MemoryManager.setCacheSz(cacheSz);
+        System.out.println("STORE swept, cache="+cacheSz);
       }
     }
   }

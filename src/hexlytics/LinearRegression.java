@@ -116,6 +116,7 @@ public abstract class LinearRegression {
     public void read ( DataInputStream  dis ) throws IOException { throw new Error("do not call"); }
 
     public void map( Key key ) {
+      assert key.home();
       // Get the root ValueArray for the metadata
       ValueArray ary = (ValueArray)DKV.get(_arykey);
       // Get the raw bits to work on

@@ -108,6 +108,10 @@ public final class Key implements Comparable {
   public int replica( H2O cloud ) { return replica(cloud_info(cloud)); }
   public int desired(           ) { return desired(_cache); }
   public boolean home()           { return H2O.CLOUD._memary[home(H2O.CLOUD)]==H2O.SELF; }
+  public H2ONode home_node( ) {
+    H2O cloud = H2O.CLOUD;
+    return cloud._memary[home(cloud)];
+  }
   
   // Update the cache, but only to strictly newer Clouds
   private boolean set_cache( long cache ) {

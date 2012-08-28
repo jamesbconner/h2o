@@ -55,7 +55,7 @@ public abstract class MemoryManager {
   static volatile long mem2Free;
 
 //block new allocations if false
-  static boolean canAllocate = true;
+  static volatile boolean canAllocate = true;
 
   private static int _sCounter = 0; // contains count of successive "old" values
   private static int _uCounter = 0; // contains count of successive "young"
@@ -115,7 +115,7 @@ public abstract class MemoryManager {
           v.free_mem();
           mem2Free -= m.length;
           if (!canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1))) {
-            System.out.println("MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS");
+            System.out.println("[h20] MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS");
             synchronized (MemoryManager.class) {
               if (!canAllocate) {
                 canAllocate = true;
@@ -189,7 +189,7 @@ public abstract class MemoryManager {
         long heapUsage = _allMemBean.getHeapMemoryUsage().getUsed();
         long clean = 0;
         if (heapUsage > MEM_CRITICAL) { // memory level critical
-          System.out.println("MEMORY LEVEL CRITICAL, stopping allocations");
+          System.out.println("[h20] MEMORY LEVEL CRITICAL, stopping allocations");
           clean = (heapUsage - MEM_CRITICAL) + ((MEM_CRITICAL - MEM_HI) >> 1);
           canAllocate = false; // stop new allocations until we free enough mem
         } else if (heapUsage > MEM_HI) {
@@ -197,11 +197,8 @@ public abstract class MemoryManager {
         }
         if (clean > mem2Free) {
           mem2Free = clean;
-          System.out.println("heap usage too high, free " + (mem2Free >> 20)
-              + "M");
-          synchronized (H2O.STORE) {
-            H2O.STORE.notifyAll(); // make sure cleaner thread is running
-          }
+          System.out.println("[h20] heap usage too high, free " + (mem2Free >> 20) + "M");
+          H2O.kick_store_cleaner(); // make sure cleaner thread is running
         }
       }
     }
@@ -217,8 +214,8 @@ public abstract class MemoryManager {
     CACHE_HI = MEM_MAX >> 1; // start offloading to disk when cache above 1/2 of
                              // the heap
     CACHE_LO = MEM_MAX >> 3; // keep at least 1/8 of the heap for cache
-    System.out.println("MAX MEM = " + (MEM_MAX >> 20) + "M, MEM_CRITICAL = "
-        + (MEM_CRITICAL >> 20) + "M, MEM_HI = " + (MEM_HI >> 20) + "M");
+    //System.out.println("[h20] MAX MEM = " + (MEM_MAX >> 20) + "M, MEM_CRITICAL = "
+    //    + (MEM_CRITICAL >> 20) + "M, MEM_HI = " + (MEM_HI >> 20) + "M");
     _heapMonitor = new HeapUsageMonitor();
   }
 

@@ -169,17 +169,19 @@ public abstract class PersistIce {
     byte[] b = MemoryManager.allocateMemory(len);
     try {
       File f = encodeKeyToFile(v);
-      assert f.length() == v._max;
+      if( f.length() < v._max ) { // Should be fully on disk... or
+        assert !v.is_persisted(); // or it's a racey delete of a spilled value
+        return null;              // No value
+      }
       DataInputStream s = new DataInputStream(new FileInputStream(f));
       try {
         s.readFully(b, 0, len);
-        assert v.is_persisted();
         return b;
       } finally {
         s.close();
       }
     } catch( IOException e ) {  // Broken disk / short-file???
-      return null;
+      return null;              // Also: EOFException for deleted files
     }
   }
 
