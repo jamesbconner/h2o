@@ -74,10 +74,13 @@ public final class H2O {
   }
  
   // A Set version of the static configuration InetAddress.
-  static ArrayList<H2ONode> NODES = new ArrayList<H2ONode>();
-  // Multicast is on by default
+  static ArrayList<H2ONode> STATIC_CONF_NODES = new ArrayList<H2ONode>();
+  // Multicast is on by default (implies that static configuration is disabled)
   static boolean MULTICAST_ENABLED = true;
+  // File name with static configuration.
   static String NODES_FILE = null;
+  // Static configuration is disabled by default.
+  static boolean STATIC_CONF_ENABLED = false;
 
   // Reverse cloud index to a cloud; limit of 256 old clouds.
   static private final H2O[] CLOUDS = new H2O[256];
@@ -319,6 +322,9 @@ public final class H2O {
   private static void startLocalNode() {
     set_cloud_name_and_mcast();
     SELF = H2ONode.self();
+    // Do not forget to put SELF into the static configuration (to simulate proper multicast behavior)
+    if (STATIC_CONF_ENABLED && !STATIC_CONF_NODES.contains(SELF))
+      STATIC_CONF_NODES.add(SELF);    
 
     // Create the starter Cloud with 1 member
     HashSet<H2ONode> starter = new HashSet<H2ONode>();
@@ -381,7 +387,7 @@ public final class H2O {
     System.out.println("The Cloud '"+NAME+"' is Up ("+version+") on " + SELF+
                        (MULTICAST_ENABLED
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
-                        : ", configuration based on -nodes "+NODES_FILE));
+                        : ", static configuration based on -nodes "+NODES_FILE));
 
     // Start running tests
     String doTest=OPT_ARGS.test;   // Tests enabled?
@@ -437,6 +443,7 @@ public final class H2O {
     if (OPT_ARGS.nodes != null) {
       NODES_FILE = OPT_ARGS.nodes;
       MULTICAST_ENABLED = false;
+      STATIC_CONF_ENABLED = true;
     }
       
     // Multi-cast ports are in the range E1.00.00.00 to EF.FF.FF.FF
@@ -450,11 +457,22 @@ public final class H2O {
     } catch( UnknownHostException e ) { throw new Error(e); }
     CLOUD_MULTICAST_PORT = (port>>>16);
 
-    if( !MULTICAST_ENABLED ) {
+    /*
+     * Static configuration has the following format:
+     *   IPv4:UDP_PORT
+     *   
+     * For example:
+     *   # this is a comment
+     *   10.10.65.105:54322 
+     */
+    if( STATIC_CONF_ENABLED ) {
+      BufferedReader br = null;
       try {
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(NODES_FILE)));
+        br = new BufferedReader(new InputStreamReader(new FileInputStream(NODES_FILE)));
         String strLine = null;
         while ((strLine = br.readLine()) != null)   {
+          // be user friendly and skip comments
+          if (strLine.startsWith("#")) continue;
           final String[] ss = strLine.split("[\\s:]");
           if( ss.length!=2 ) continue;
           final InetAddress inet = InetAddress.getByName(ss[0]);
@@ -462,12 +480,13 @@ public final class H2O {
             Log.die("Only IP4 addresses allowed.");
           try {
             final int port2 = Integer.decode(ss[1]);
-            NODES.add(H2ONode.intern(inet,port2));
+            STATIC_CONF_NODES.add(H2ONode.intern(inet,port2));
           } catch( NumberFormatException nfe ) {
             Log.die("Invalid port #: "+ss[1]);
           }
         }
       } catch( Exception e ) {  Log.die(e.toString()); }
+        finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
     }
   }
 

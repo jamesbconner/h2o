@@ -62,8 +62,9 @@ public abstract class MultiCast {
       return send(H2O.CLOUD_MULTICAST_GROUP,H2O.CLOUD_MULTICAST_PORT,buf,off,len);
     } else {
       // Hideous O(n) algorithm for broadcast
-      for( H2ONode h2o : H2O.NODES )
+      for( H2ONode h2o : H2O.STATIC_CONF_NODES ) {
         send(h2o._key._inet,h2o._key._port,buf,off,len);
+      }
     }
     return 0;
   }

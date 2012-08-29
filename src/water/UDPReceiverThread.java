@@ -72,7 +72,7 @@ public class UDPReceiverThread extends Thread {
     while( true ) {
       // Get a free datagram packet
       DatagramPacket pack = get_pack();
-
+      
       try { 
         // ---
         // Cleanup from any prior socket failures.  Rare unless we're really sick.
@@ -107,14 +107,21 @@ public class UDPReceiverThread extends Thread {
       // Get the Cloud we are operating under for this packet
       H2O cloud = H2O.CLOUD;
       // Get the H2ONode (many people use it).
-      
       H2ONode h2o = H2ONode.intern(pack.getAddress(),UDP.get_port(pbuf));
       // Record the last time we heard from any given Node
       h2o._last_heard_from = System.currentTimeMillis();
 
       // Check cloud membership; stale ex-members are "fail-stop" - we mostly
-      // ignore packets from them.
+      // ignore packets from them (except paxos packets).
       boolean is_member = cloud._memset.contains(h2o);
+      
+      // Check cloud membership respecting static configuration. 
+      // Only packets from the expected nodes are permitted.
+      if (H2O.STATIC_CONF_ENABLED && !H2O.STATIC_CONF_NODES.contains(h2o)) {
+        // ignore the packet
+        free_pack(pack);
+        continue;
+      }
 
       // Snapshots are handled *IN THIS THREAD*, to prevent more UDP packets
       // from being handled during the dump.
