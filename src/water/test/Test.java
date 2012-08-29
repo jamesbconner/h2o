@@ -1,10 +1,16 @@
 package water.test;
+import static org.junit.Assert.*;
+
 import java.io.*;
 import java.util.Arrays;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import static org.junit.Assert.*;
+
+import test.analytics.PokerAvg;
 import water.*;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 public class Test {
   // Request that tests be "clean" on the K/V store, and restore it to the same
@@ -89,14 +95,25 @@ public class Test {
   // Remote Bit Set: OR together the result of a single bit-mask where the
   // shift-amount is passed in in the Key.
   @SuppressWarnings("serial")
+  @RTSerializer(RemoteBitSet.Serializer.class)
   public static class RemoteBitSet extends DRemoteTask {
-    int _x;
-    public int wire_len() { return 4; }
-    public int write( byte[] buf, int off ) { UDP.set4(buf,off,_x); return off+4; }
-    public void write( DataOutputStream dos ) { throw new Error("unimplemented"); }
-    public void read( byte[] buf, int off ) { _x = UDP.get4(buf,off);  off += 4; }
-    public void read( DataInputStream dis ) { new Error("unimplemented"); }
+    public static class Serializer extends RemoteTaskSerializer<RemoteBitSet> {
+      @Override public int wire_len( RemoteBitSet r ) { return 4; }
+      @Override public void write( RemoteBitSet r, DataOutputStream dos ) { throw new Error("unimplemented"); }
+      @Override public RemoteBitSet read( DataInputStream dis ) { throw new Error("unimplemented"); }
+      @Override public int write( RemoteBitSet r, byte[] buf, int off ) {
+        UDP.set4(buf,off,r._x);
+        return off+4;
+      }
+      @Override public RemoteBitSet read( byte[] buf, int off ) {
+        RemoteBitSet r = new RemoteBitSet();
+        r._x = UDP.get4(buf,off);
+        return r;
+      }
+    }
+    
     // Set a single bit-mask based on the shift which is passed in the Value
+    int _x;
     public void map( Key key ) {
       assert _x == 0;                  // Never mapped into before
       Value val = DKV.get(key);        // Get the Value for the Key
