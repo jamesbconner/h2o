@@ -29,7 +29,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
   // With a Key+Value, do a Put on the Key & block for it - forcing the Value
   // to be available when remote execution starts.
   public TaskRemExec( H2ONode target, T dt, Key args, Value val ) {
-    this( target, dt, args, true );
+    this( target, dt, args, true, UDP.udp.rexec );
     DKV.put(args,val);          // Publish the keyset for remote execution
     DKV.write_barrier();        // Block until all prior writes have completed
     resend();                   // Initial send after final fields set
@@ -37,13 +37,18 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
   // This version assumes a prior remote Value is already coherent
   public TaskRemExec( H2ONode target, T dt, Key args ) {
-    this( target, dt, args, false );
+    this( target, dt, args, false, UDP.udp.rexec );
+    resend();                   // Initial send after final fields set
+  }
+
+  public TaskRemExec(H2ONode target, T dt, Key key, UDP.udp type) {
+    this(target, dt, key, false, type);
     resend();                   // Initial send after final fields set
   }
   
   @SuppressWarnings("unchecked")
-  private TaskRemExec(H2ONode target, T dt, Key args, boolean did_put) {
-    super( target,UDP.udp.rexec );
+  private TaskRemExec(H2ONode target, T dt, Key args, boolean did_put, UDP.udp type) {
+    super( target, type );
     _dt = dt;
     _args = args;
     _did_put = did_put;
@@ -240,7 +245,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
   }
 
   // Unpack the answer
-  @SuppressWarnings("unchecked")
   protected T unpack( DatagramPacket p ) {
     // Cleanup after thyself
     if( _did_put ) DKV.remove(_args);
@@ -250,7 +254,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     // Read object off the wires
     int cmd = buf[off++];
     if( cmd == CLIENT_UDP_SEND ) {
-      _dt = (T) _serializer.read(buf, off);
+      _dt = _serializer.read(buf, off);
     } else {
       assert cmd == CLIENT_TCP_SEND;
       // Big object, switch to TCP style comms.  Should have already done a
