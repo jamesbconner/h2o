@@ -115,14 +115,6 @@ public class UDPReceiverThread extends Thread {
       // ignore packets from them (except paxos packets).
       boolean is_member = cloud._memset.contains(h2o);
       
-      // Check cloud membership respecting static configuration. 
-      // Only packets from the expected nodes are permitted.
-      if (H2O.STATIC_CONF_ENABLED && !H2O.STATIC_CONF_NODES.contains(h2o)) {
-        // ignore the packet
-        free_pack(pack);
-        continue;
-      }
-
       // Snapshots are handled *IN THIS THREAD*, to prevent more UDP packets
       // from being handled during the dump.
       if( is_member && first_byte == UDP.udp.timeline.ordinal() ) {

@@ -78,8 +78,8 @@ public final class H2O {
   // Multicast is on by default (implies that static configuration is disabled)
   static boolean MULTICAST_ENABLED = true;
   // File name with static configuration.
-  static String NODES_FILE = null;
-  // Static configuration is disabled by default.
+  static String FLAT_FILE = null;
+  // Static configuration is disabled by default (if enabled, multicast has to be disabled).
   static boolean STATIC_CONF_ENABLED = false;
 
   // Reverse cloud index to a cloud; limit of 256 old clouds.
@@ -278,7 +278,7 @@ public final class H2O {
   public static OptArgs OPT_ARGS = new OptArgs();
   public static class OptArgs extends Arguments.Opt {
     public String name;               // set_cloud_name_and_mcast()
-    public String nodes;              // set_cloud_name_and_mcast()
+    public String flatfile;           // set_cloud_name_and_mcast()
     public int port;                  // set_cloud_name_and_mcast()
     public String ip;                 // Named IP4/IP6 address instead of the default
     public String ice_root;           // ice root directory
@@ -391,7 +391,7 @@ public final class H2O {
     System.out.println("The Cloud '"+NAME+"' is Up ("+version+") on " + SELF+
                        (MULTICAST_ENABLED
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
-                        : ", static configuration based on -nodes "+NODES_FILE));
+                        : ", static configuration based on -flatfile "+FLAT_FILE));
 
     // Start running tests
     String doTest=OPT_ARGS.test;   // Tests enabled?
@@ -422,7 +422,7 @@ public final class H2O {
   }
 
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
-  // and "-nodes <filename>".  Ignore the rest.  Set multi-cast port as a hash
+  // and "-flatfile <filename>".  Ignore the rest.  Set multi-cast port as a hash
   // function of the name.  Parse node ip addresses from the filename.
   static void set_cloud_name_and_mcast( ) {
     // Assign initial ports
@@ -444,8 +444,8 @@ public final class H2O {
     System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
-    if (OPT_ARGS.nodes != null) {
-      NODES_FILE = OPT_ARGS.nodes;
+    if (OPT_ARGS.flatfile != null) {
+      FLAT_FILE = OPT_ARGS.flatfile;
       MULTICAST_ENABLED = false;
       STATIC_CONF_ENABLED = true;
     }
@@ -472,7 +472,7 @@ public final class H2O {
     if( STATIC_CONF_ENABLED ) {
       BufferedReader br = null;
       try {
-        br = new BufferedReader(new InputStreamReader(new FileInputStream(NODES_FILE)));
+        br = new BufferedReader(new InputStreamReader(new FileInputStream(FLAT_FILE)));
         String strLine = null;
         while ((strLine = br.readLine()) != null)   {
           // be user friendly and skip comments
