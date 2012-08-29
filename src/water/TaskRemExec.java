@@ -68,8 +68,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = SERVER_UDP_SEND;
       // Class loader first.  3 bytes of null for system loader.
-      buf[off++] = 0; // zero RF
-      off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
+        buf[off++] = 0; // zero RF
+        off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
       
       // Class name now
       off += UDP.set2(buf,off,sclazz.length());  // String length
@@ -134,7 +134,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     // Do the remote execution in a F/J thread & send a reply packet
     static void remexec( RemoteTaskSerializer<RemoteTask> ser, RemoteTask dt,
         Key args, DatagramPacket p, H2ONode h2o ) {
-      assert Thread.currentThread().getPriority() == Thread.MIN_PRIORITY;
       // Now compute on it!
       dt.invoke(args);
 
@@ -142,7 +141,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
-      if( !dt.void_result() ) {
         if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
           buf[off++] = CLIENT_UDP_SEND; // Result coming via UDP
           off = ser.write(dt, buf,off); // Result
@@ -152,7 +150,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
           if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),TCP_OUTGOING_REXEC,dt) )
             return; // If the TCP failed... then so do we; no result; caller will retry
         }
-      }
       reply(p,off,h2o);
     }
 
@@ -185,7 +182,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         // to stop dup-actions on dup-sends.
         DatagramPacket p1 = UDPReceiverThread.get_pack(); // Get a fresh empty packet
         final byte[] buf = p1.getData();
-        UDP.set_ctrl(buf,UDP.udp.rexec.ordinal());
+        UDP.udp udp = (dt instanceof Atomic) ? UDP.udp.atomic : UDP.udp.rexec;
+        UDP.set_ctrl(buf,udp.ordinal());
         UDP.clr_port(buf);
         UDP.set_task(buf,tnum);
         buf[UDP.SZ_TASK] = 1;   // Just the "send by TCP" flag
@@ -195,7 +193,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
         // Here I want to execute on this, but not block for completion in the
         // TCP reader thread.  
-        H2O.FJP_NORM.execute(new CountedCompleter() {
+        udp.pool().execute(new CountedCompleter() {
             public void compute() {
               remexec(ser, dt, args, p, h2o);
               tryComplete();
@@ -246,7 +244,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
   protected T unpack( DatagramPacket p ) {
     // Cleanup after thyself
     if( _did_put ) DKV.remove(_args);
-    if( _dt.void_result() ) return _dt;
     // First SZ_TASK bytes have UDP type# and port# and task#.
     byte[] buf = p.getData();
     int off = UDP.SZ_TASK;      // Skip udp byte and port and task#

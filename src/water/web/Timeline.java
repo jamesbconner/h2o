@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.net.InetAddress;
@@ -147,9 +143,6 @@ public class Timeline extends H2OPage {
     return response.toString();
   }
 
- 
-
-   
   final static String html =
            "<div class='alert alert-success'>Snapshot taken: <strong>%now</strong> by <strong>%self</strong></div>"
           + "<p>Showing %noOfRows events\n"
@@ -167,8 +160,4 @@ public class Timeline extends H2OPage {
           + "}"
           + "</table>"
           ;
-  
-//  final static RString response = new RString(html);
-  
-  
 }

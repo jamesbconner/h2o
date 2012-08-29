@@ -42,12 +42,14 @@ public abstract class UDP {
       getkeys(false,new TaskGetKeys.RemoteHandler()), // Get a collection of Keys
       getkey (false,new TaskGetKey .RemoteHandler()), // Get a Value for 1 Key
       putkey (false,new TaskPutKey .RemoteHandler()), // Put a Value for 1 Key
-      rexec  (false,new TaskRemExec.RemoteHandler()); // Remote execution request
+      rexec  (false,new TaskRemExec.RemoteHandler()), // Remote execution request
+      atomic (false,new TaskRemExec.RemoteHandler()); // Remote transaction request
 
     final UDP _udp;           // The Callable S.A.M. instance
     final boolean _paxos;     // Ignore (or not) packets from outside the Cloud
     udp( boolean paxos, UDP udp ) { _paxos = paxos; _udp = udp; }
     static public udp[] UDPS = values();
+    // Default: most tasks go to the hi-priority queue
     ForkJoinPool pool() { return this==rexec ? H2O.FJP_NORM : H2O.FJP_HI; }
   };
 

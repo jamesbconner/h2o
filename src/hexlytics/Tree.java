@@ -28,8 +28,8 @@ public class Tree implements Serializable {
 //    System.out.println("Precaching done...");
     long t = System.currentTimeMillis(); 
     /* precache - not necessary anymore, kept as comments for debugging purposes for the time being*/
-    //tree_ = compute_(data,cache);
-    tree_ = compute_(data);
+    tree_ = compute_(data,cache);
+    //tree_ = compute_(data);
     time_ = System.currentTimeMillis()-t;
     System.out.println("Time: "+time_);
     return this;
@@ -61,7 +61,7 @@ public class Tree implements Serializable {
         Node nd = new Node(best.column,best.value);
         Data[] res = new Data[2];
         d.filter(best,res);
-        if (cache.depth>2) {
+        if (cache.depth>4) {
           nd.set(0,compute_(res[0]));
           nd.set(1,compute_(res[1]));
         } else {
