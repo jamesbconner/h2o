@@ -136,6 +136,7 @@ public class Data implements Iterable<Row> {
       } else {
         stats[1].add(row); ri[r++] = permute(i);
       }
+      i++;
     }
     result[0]= new Subset(this,li,l);
     result[1]= new Subset(this,ri,r);
