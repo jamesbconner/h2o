@@ -1,7 +1,6 @@
 package water.web;
 import java.util.Properties;
-import water.*;
-import water.csv.ParseDataset;
+import water.ValueArray;
 
 public class LinearRegression extends H2OPage {
   @Override protected String serve_impl(Properties args) {

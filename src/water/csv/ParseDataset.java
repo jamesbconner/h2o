@@ -19,10 +19,13 @@ public final class ParseDataset {
     // Guess on the number of columns, build a column array.
     int num_cols = guess_num_cols(dataset);
     //System.out.println("Found "+num_cols+" columns");
+    byte commas = 0;
+    if( num_cols < 0 ) { commas = 1; num_cols = -num_cols; }
     //int num_cols = CSVParserKV.getNColumns(dataset._key);
 
     DParse1 dp1 = new DParse1();
     dp1._num_cols = num_cols;
+    dp1._commas   = commas;
     dp1._num_rows = 0;          // No rows yet
 
     long start = System.currentTimeMillis();
@@ -70,6 +73,7 @@ public final class ParseDataset {
     // Setup for pass-2, where we do the actual data conversion.
     DParse2 dp2 = new DParse2();
     dp2._num_cols = num_cols;
+    dp2._commas   = commas;
     dp2._num_rows = row_size; // Cheat: pass in rowsize instead of the num_rows (and its non-zero)
     dp2._cols     = dp1._cols;
     dp2._rows_chk = rs2;        // Rolled-up row numbers
@@ -153,17 +157,19 @@ public final class ParseDataset {
   public static abstract class DParse extends DRemoteTask {
     int _num_cols;              // Input
     int _num_rows;              // Output
+    byte _commas;               // Input, comma-separator
     ValueArray.Column _cols[];  // Column summary data
     int _rows_chk[];            // Rows-per-chunk
     public int wire_len() {
       assert _num_rows==0 || _cols != null;
       assert _num_rows==0 || _rows_chk != null;
-      return 4+4+(_num_rows==0?0:(_cols.length*ValueArray.Column.wire_len() + 4+_rows_chk.length*4));
+      return 4+4+1+(_num_rows==0?0:(_cols.length*ValueArray.Column.wire_len() + 4+_rows_chk.length*4));
     }
 
     public int write( byte[] buf, int off ) {
       UDP.set4(buf,(off+=4)-4,_num_cols);
       UDP.set4(buf,(off+=4)-4,_num_rows);
+      buf[off++] = _commas;
       if( _num_rows == 0 ) return off; // No columns?
       assert _cols.length == _num_cols;
       for( ValueArray.Column col : _cols )
@@ -177,6 +183,7 @@ public final class ParseDataset {
     public void write( DataOutputStream dos ) throws IOException {
       dos.writeInt(_num_cols);
       dos.writeInt(_num_rows);
+      dos.writeByte(_commas);
       if( _num_rows == 0 ) return; // No columns?
       assert _cols.length == _num_cols;
       for( ValueArray.Column col : _cols )
@@ -189,6 +196,7 @@ public final class ParseDataset {
     public void read( byte[] buf, int off ) { 
       _num_cols = UDP.get4(buf,off);  off += 4; 
       _num_rows = UDP.get4(buf,off);  off += 4; 
+      _commas   = buf[off++];
       if( _num_rows == 0 ) return; // No rows, so no cols
       assert _cols == null;
       _cols = new ValueArray.Column[_num_cols];
@@ -203,6 +211,7 @@ public final class ParseDataset {
     public void read( DataInputStream dis ) throws IOException {
       _num_cols = dis.readInt();
       _num_rows = dis.readInt();
+      _commas   = dis.readByte();
       if( _num_rows == 0 ) return; // No rows, so no cols
       assert _cols == null;
       _cols = new ValueArray.Column[_num_cols];
@@ -231,6 +240,8 @@ public final class ParseDataset {
       double[] data = new double[_num_cols];
       // The parser
       CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,data,null);
+      if( _commas != 0 )
+        csv._setup.whiteSpaceSeparator = false;
       int num_rows = 0;
 
       // Parse row-by-row until the whole file is parsed
@@ -465,7 +476,8 @@ public final class ParseDataset {
   }
   
   // ---
-  // Alternative column guesser
+  // Alternative column guesser.  Returns # of columns discovered, and flips
+  // the sign of the result if it sees any commas.
   private static int guess_num_cols( Value dataset ) {
     // Best-guess on count of columns.  Skip 1st line.  Count column delimiters
     // in the next line.
@@ -477,24 +489,35 @@ public final class ParseDataset {
     if( b[i] == '\r' || b[i+1]=='\n' ) i++;
     if( b[i] == '\n' ) i++;
     // start counting columns on the 2nd line
+    final int line_start = i;
     int cols = 0;
     int mode = 0;
+    boolean commas = false;     // Assume white-space only columns
     while( true ) {
       char c = (char)b[i++];
       if( c=='\n' || c== '\r' ) {
         break;
-      } if( Character.isWhitespace(c) ) {
+      } if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
         if( mode == 1 ) mode = 2;
-      } else if( c == ',' ) {
+      } else if( c == ',' ) {   // Found a comma?
+        if( commas == false ) { // Not in comma-seperator mode?
+          // Reset the entire line parse & try again, this time with comma
+          // separators enabled.
+          commas=true;          // Saw a comma
+          i = line_start;       // Reset to line start
+          cols = mode = 0;      // Reset parsing mode
+          continue;             // Try again
+        }
         if( mode == 0 ) cols++;
         mode = 0;
       } else if( c == '"' ) {
         throw new Error("string skipping not implemented");
-      } else {
+      } else {                  // Else its just column data
         if( mode != 1 ) cols++;
         mode = 1;
       }
     }
-    return cols;
+    return commas ? -cols : cols;
   }
+
 }
