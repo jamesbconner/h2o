@@ -3,6 +3,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.util.HashSet;
 
 /**
  * MultiCast Writing Helper class.
@@ -61,9 +62,31 @@ public abstract class MultiCast {
     if( H2O.MULTICAST_ENABLED ) {
       return send(H2O.CLOUD_MULTICAST_GROUP,H2O.CLOUD_MULTICAST_PORT,buf,off,len);
     } else {
+      // The multicast simulation is little bit tricky. To achieve union of all 
+      // specified nodes' flatfiles (via option -flatfile), the simulated multicast 
+      // has to send packets not only to nodes listed in the node's flatfile (H2O.STATIC_CONF_NODES),
+      // but also to all cloud members (they do not need to be specified in THIS node's flatfile but
+      // can be part of cloud due to another node's flatfile).
+      // Furthermore, the packet have to be send also to Paxos proposed members to achieve correct functionality 
+      // of Paxos. Typical situation is when this node receives a Paxos heartbeat packet from a node which is not listed in the node's 
+      // flatfile -- it means that this node is listed in another node's flatfile (and wants to create a cloud). Hence, to allow cloud 
+      // creation, this node has to reply.
+      //
+      // Typical example is:
+      //    node A: flatfile (B)
+      //    node B: flatfile (C), i.e., A -> (B), B-> (C), C -> (A)
+      //    node C: flatfile (A)
+      //    Cloud configuration: (A, B, C)
+      //      
+   
       // Hideous O(n) algorithm for broadcast
-      for( H2ONode h2o : H2O.NODES )
+      HashSet<H2ONode> nodes = new HashSet<H2ONode>();
+      nodes.addAll(H2O.STATIC_CONF_NODES);
+      nodes.addAll(H2O.CLOUD._memset);
+      nodes.addAll(Paxos.PROPOSED_MEMBERS);      
+      for( H2ONode h2o : nodes ) {        
         send(h2o._key._inet,h2o._key._port,buf,off,len);
+      }      
     }
     return 0;
   }
