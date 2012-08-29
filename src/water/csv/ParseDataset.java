@@ -351,6 +351,8 @@ public final class ParseDataset {
       double[] data = new double[_cols.length];
       // The parser
       CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,data,null);
+      if( _commas != 0 )
+        csv._setup.whiteSpaceSeparator = false;
       // Fill the rows
       int off = 0;
       for( double[] ds : csv ) {
