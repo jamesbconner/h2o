@@ -79,7 +79,7 @@ public abstract class MultiCast {
       //    Cloud configuration: (A, B, C)
       //      
    
-      // Hideous O(n) algorithm for broadcast
+      // Hideous O(n) algorithm for broadcast - avoid the memory allocation in this method (since it is heavily used)
       HashSet<H2ONode> nodes = new HashSet<H2ONode>();
       nodes.addAll(H2O.STATIC_CONF_NODES);
       nodes.addAll(H2O.CLOUD._memset);
