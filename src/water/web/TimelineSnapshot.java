@@ -205,6 +205,7 @@ public final class TimelineSnapshot implements
           return false;
       case ack:
       case ackack:
+      case atomic:
       case getkey:
       case getkeys:
       case putkey:

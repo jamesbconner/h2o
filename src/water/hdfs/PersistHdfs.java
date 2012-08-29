@@ -24,34 +24,29 @@ public abstract class PersistHdfs {
       _conf = new Configuration();
       File p = new File(H2O.OPT_ARGS.hdfs_config);
       if (!p.exists())
-        Log.die("[hdfs] Unable to open hdfs configuration file "+p.getAbsolutePath());
+        Log.die("[h2o,hdfs] Unable to open hdfs configuration file "+p.getAbsolutePath());
       _conf.addResource(p.getAbsolutePath());
-      System.out.println("[hdfs] resource "+p.getAbsolutePath()+" added to the hadoop configuration");
-      if (!H2O.OPT_ARGS.hdfs.isEmpty())
-        System.err.println("[hdfs] connection server "+H2O.OPT_ARGS.hdfs+" from commandline ignored");
+      System.out.println("[h2o,hdfs] resource "+p.getAbsolutePath()+" added to the hadoop configuration");
     } else {
       if( H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty() ) {
         _conf = new Configuration();
         _conf.set("fs.defaultFS",H2O.OPT_ARGS.hdfs);
-        System.out.println("[hdfs] fs.defaultFS = "+H2O.OPT_ARGS.hdfs);
       } else {
         _conf = null;
       }
     }
     ROOT = H2O.OPT_ARGS.hdfs_root==null ? DEFAULT_ROOT : H2O.OPT_ARGS.hdfs_root;
     if( H2O.OPT_ARGS.hdfs_config!=null || (H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty()) ) {
-      System.out.println("[hdfs] hdfs root for H2O set to " + ROOT);
       try {
         _fs = FileSystem.get(_conf);
         _root = new Path(ROOT);
         _fs.mkdirs(_root);
-        System.out.println("[hdfs] loading persistent keys...");
         int num = loadPersistentKeysFromFolder(_root,"");
-        System.out.println("[hdfs] loaded "+num+" keys");
+        System.out.println("[h2o,hdfs] "+H2O.OPT_ARGS.hdfs+ROOT+" loaded "+num+" keys");
       } catch( IOException e ) {
         // pass
         System.out.println(e.getMessage());
-        Log.die("[hdfs] Unable to initialize persistency store home at " + ROOT);
+        Log.die("[h2o,hdfs] Unable to initialize persistency store home at " + ROOT);
       }
     }
   }

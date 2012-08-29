@@ -50,16 +50,16 @@ public abstract class MemoryManager {
   // Number of threads blocked waiting for memory
   private static int NUM_BLOCKED = 0;
 
+  private static Object _lock = new Object();
   
-// amount of memory to be cleaned by the cleaner thread
+  // amount of memory to be cleaned by the cleaner thread
   static volatile long mem2Free;
 
-//block new allocations if false
-  static boolean canAllocate = true;
+  // block new allocations if false
+  static volatile boolean canAllocate = true;
 
   private static int _sCounter = 0; // contains count of successive "old" values
-  private static int _uCounter = 0; // contains count of successive "young"
-                                    // values
+  private static int _uCounter = 0; // contains count of successive "young" values
 
   // current amount of memory to be freed
   // (set by gc callback, cleaner method decreases it as it frees memory)
@@ -68,13 +68,6 @@ public abstract class MemoryManager {
   // removed when low memory
   static long _maxTime = 4000;
   private static long _previousT = _maxTime;
-
-  // if overall heap memory goes over this limit,
-  // stop allocating new value sand remove as much as
-  // possible from the cache
-
-  // if true non persisted old values will be persisted and freed
-  static boolean _doPersist = true;
 
   public static boolean memCritical() {
     return !canAllocate;
@@ -115,13 +108,13 @@ public abstract class MemoryManager {
           v.free_mem();
           mem2Free -= m.length;
           if (!canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1))) {
-            System.out.println("MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS");
-            synchronized (MemoryManager.class) {
+            synchronized(_lock) {
               if (!canAllocate) {
+                System.out.println("[h20] MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS");
                 canAllocate = true;
                 if (NUM_BLOCKED > 0) {
                   NUM_BLOCKED = 0;
-                  MemoryManager.class.notifyAll();
+                  _lock.notifyAll();
                 }
               }
             }
@@ -189,7 +182,7 @@ public abstract class MemoryManager {
         long heapUsage = _allMemBean.getHeapMemoryUsage().getUsed();
         long clean = 0;
         if (heapUsage > MEM_CRITICAL) { // memory level critical
-          System.out.println("MEMORY LEVEL CRITICAL, stopping allocations");
+          System.out.println("[h20] MEMORY LEVEL CRITICAL, stopping allocations");
           clean = (heapUsage - MEM_CRITICAL) + ((MEM_CRITICAL - MEM_HI) >> 1);
           canAllocate = false; // stop new allocations until we free enough mem
         } else if (heapUsage > MEM_HI) {
@@ -197,11 +190,8 @@ public abstract class MemoryManager {
         }
         if (clean > mem2Free) {
           mem2Free = clean;
-          System.out.println("heap usage too high, free " + (mem2Free >> 20)
-              + "M");
-          synchronized (H2O.STORE) {
-            H2O.STORE.notifyAll(); // make sure cleaner thread is running
-          }
+          //System.out.println("[h20] heap usage too high, freeing " + (mem2Free >> 20) + "M");
+          H2O.kick_store_cleaner(); // make sure cleaner thread is running
         }
       }
     }
@@ -217,8 +207,8 @@ public abstract class MemoryManager {
     CACHE_HI = MEM_MAX >> 1; // start offloading to disk when cache above 1/2 of
                              // the heap
     CACHE_LO = MEM_MAX >> 3; // keep at least 1/8 of the heap for cache
-    System.out.println("MAX MEM = " + (MEM_MAX >> 20) + "M, MEM_CRITICAL = "
-        + (MEM_CRITICAL >> 20) + "M, MEM_HI = " + (MEM_HI >> 20) + "M");
+    //System.out.println("[h20] MAX MEM = " + (MEM_MAX >> 20) + "M, MEM_CRITICAL = "
+    //    + (MEM_CRITICAL >> 20) + "M, MEM_HI = " + (MEM_HI >> 20) + "M");
     _heapMonitor = new HeapUsageMonitor();
   }
 
@@ -228,10 +218,10 @@ public abstract class MemoryManager {
       return new byte[size];
     while (!canAllocate) {
       // Failed: block until we think we can allocate
-      synchronized (MemoryManager.class) {
+      synchronized(_lock) {
         NUM_BLOCKED++;
         try {
-          MemoryManager.class.wait(1000);
+          _lock.wait(1000);
         } catch (InterruptedException ex) {
         }
         --NUM_BLOCKED;

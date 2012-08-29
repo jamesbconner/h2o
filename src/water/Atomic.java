@@ -9,7 +9,9 @@ import java.util.Arrays;
  * @version 1.0
  */
 
-public abstract class Atomic extends DRemoteTask {
+public abstract class Atomic extends RemoteTask {
+  Key _key;                     // Transaction key
+  TaskRemExec _tre;             // The remote-execution cookie
 
   // Example use for atomic update of any Key:
   //  new Atomic(key_to_be_atomically_updated) {
@@ -21,6 +23,8 @@ public abstract class Atomic extends DRemoteTask {
   //      return bits2;
   //    }
   //  }
+
+  public Atomic() {}
 
   // User's function to be run atomically.  The Key's Value is fetched from the
   // home STORE, and the bits are passed in.  The returned bits are atomically
@@ -35,13 +39,34 @@ public abstract class Atomic extends DRemoteTask {
   protected void write( DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
   protected void read( byte[] buf, int off ) { }
   protected void read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
- 
+
+  // Block until it completes, if run remotely
+  @Override public final void invoke( Key key ) {
+    fork(key);
+    if( _tre != null ) _tre.get();
+  }
+
+  // Fork off
+  public final void fork( Key key ) {
+    _key = key;
+    if( key.home() ) {          // Key is home?
+      compute();                // Also, run it blocking/now
+    } else {                    // Else run it remotely
+      _tre = new TaskRemExec(key.home_node(),this,key,UDP.udp.atomic);
+    }
+  }
+
   // The (remote) workhorse:
-  @Override public final void map( Key key ) {
-    assert key.home();          // Key is at Home!
+  @Override public final void compute( ) {
+    assert _key.home();         // Key is at Home!
     while( true ) {
-      Value val1 = DKV.get(key);
-      byte[] bits1 = (val1 == null) ? null : val1.get();
+      Value val1 = DKV.get(_key);
+      byte[] bits1 = null;
+      if( val1 != null ) {      // Got a mapping?
+        bits1 = val1.get();     // Get the bits
+        if( bits1 == null )     // Assume XTN failure & try again
+          continue;             // No bits?  deleted value already?
+      }
 
       // Run users' function.  This is supposed to read-only from bits1 and
       // return new bits2 to atomically install.
@@ -49,8 +74,8 @@ public abstract class Atomic extends DRemoteTask {
       assert bits1 == null || bits1 != bits2; // No returning the same array
 
       // Attempt atomic update
-      Value val2 = new Value(key,bits2);
-      Value res = DKV.DputIfMatch(key,val2,val1);
+      Value val2 = new Value(_key,bits2);
+      Value res = DKV.DputIfMatch(_key,val2,val1);
       if( res == val1 ) {
         onSuccess();
         return; // Success?
@@ -58,8 +83,6 @@ public abstract class Atomic extends DRemoteTask {
       // and retry
     }
   }
-
-  @Override public final void reduce( DRemoteTask rt ) { }
 
   // By default, return no result from the Atomic operation
   protected boolean void_result() { return true; }
