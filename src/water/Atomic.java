@@ -1,6 +1,10 @@
 package water;
-import java.io.*;
-import java.util.Arrays;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 /**
  * Atomic update of a Key
@@ -9,8 +13,8 @@ import java.util.Arrays;
  * @version 1.0
  */
 
+@SuppressWarnings("serial")
 public abstract class Atomic extends DRemoteTask {
-
   // Example use for atomic update of any Key:
   //  new Atomic(key_to_be_atomically_updated) {
   //    public void atomic( byte[] bits_for_key ) {
@@ -29,12 +33,6 @@ public abstract class Atomic extends DRemoteTask {
   abstract public byte[] atomic( byte[] bits );
   // override this if you need to perform some action after the update succeeds (eg cleanup)
   public void onSuccess(){}
-  // By default, nothing sent over with the function (except the target Key).
-  protected int  wire_len() { return 0; }
-  protected int  write( byte[] buf, int off ) { return off; }
-  protected void write( DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
-  protected void read( byte[] buf, int off ) { }
-  protected void read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
  
   // The (remote) workhorse:
   @Override public final void map( Key key ) {

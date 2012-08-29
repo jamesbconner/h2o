@@ -1,7 +1,12 @@
 package water.csv;
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
+
 import water.*;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 // Helper class to parse an entire ValueArray data, and produce a structured
 // ValueArray result.
@@ -422,7 +427,32 @@ public final class ParseDataset {
       return rowz;              // Rows written out
     }
 
+    @RTSerializer(AtomicUnion.Serializer.class)
     public static class AtomicUnion extends Atomic {
+    public static class Serializer extends RemoteTaskSerializer<AtomicUnion> {
+      // By default, nothing sent over with the function (except the target Key).
+      @Override public int  wire_len(AtomicUnion a) { return 4+a._key._kb.length; }
+      @Override public int  write( AtomicUnion a, byte[] buf, int off ) {
+        off += UDP.set4(buf,off,a._dst_off);
+        return a._key.write(buf, off);        
+      }
+      @Override public void write( AtomicUnion a, DataOutputStream dos ) throws IOException {
+        dos.writeInt(a._dst_off);
+        a._key.write(dos);
+      }
+      @Override public AtomicUnion read( byte[] buf, int off ) {
+        AtomicUnion a = new AtomicUnion();
+        a._dst_off = UDP.get4(buf,(off+=4)-4);        
+        a._key = Key.read(buf, off);                
+        return a;
+      }
+      @Override public AtomicUnion read( DataInputStream dis ) throws IOException {
+        AtomicUnion a = new AtomicUnion();
+        a._dst_off = dis.readInt();
+        a._key = Key.read(dis);        
+        return a;
+      }
+    }
       Key _key;            
       int _dst_off;
       
@@ -432,23 +462,7 @@ public final class ParseDataset {
         _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
         DKV.put(_key, new Value(_key, Arrays.copyOfRange(buf, srcOff, srcOff+len)));
       }
-      protected int wire_len() { return 4+_key._kb.length; }
-      protected int  write( byte[] buf, int off ) {
-        off += UDP.set4(buf,off,_dst_off);
-        return _key.write(buf, off);        
-      }
-      protected void write( DataOutputStream dos ) throws IOException { 
-        dos.writeInt(_dst_off);
-        _key.write(dos);
-      }
-      protected void read( byte[] buf, int off ) {
-        _dst_off = UDP.get4(buf,(off+=4)-4);        
-        _key = Key.read(buf, off);                
-      }
-      protected void read( DataInputStream dis ) throws IOException { 
-        _dst_off = dis.readInt();
-        _key = Key.read(dis);        
-      }
+      
       @Override public byte[] atomic( byte[] bits1 ) {        
         byte[] mem = DKV.get(_key).get();
         byte[] bits2 = (bits1 == null)

@@ -22,7 +22,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
   private static final byte TCP_OUTGOING_REXEC = 6;
 
   volatile T _dt;                         // Task to send & execute remotely
-  final RemoteTaskSerializer _serializer; // object to manage serialization
+  final RemoteTaskSerializer<T> _serializer; // object to manage serialization
   final Key _args;
   final boolean _did_put;
 
@@ -41,12 +41,13 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     resend();                   // Initial send after final fields set
   }
   
+  @SuppressWarnings("unchecked")
   private TaskRemExec(H2ONode target, T dt, Key args, boolean did_put) {
     super( target,UDP.udp.rexec );
     _dt = dt;
     _args = args;
     _did_put = did_put;
-    _serializer = RemoteTaskSerializationManager.get(_dt.getClass());
+    _serializer = (RemoteTaskSerializer<T>) RemoteTaskSerializationManager.get(_dt.getClass());
   }
 
   // Pack classloader/class & the instance data into the outgoing UDP packet
@@ -115,7 +116,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         off += args.wire_len();
 
         // Make a remote instance of this dude
-        RemoteTaskSerializer ser = RemoteTaskSerializationManager.get(clazz);
+        RemoteTaskSerializer<RemoteTask> ser = RemoteTaskSerializationManager.get(clazz);
         
         // Fill in remote values
         RemoteTask dt = ser.read(buf, off);
@@ -131,7 +132,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     }
 
     // Do the remote execution in a F/J thread & send a reply packet
-    static void remexec( RemoteTaskSerializer ser, RemoteTask dt,
+    static void remexec( RemoteTaskSerializer<RemoteTask> ser, RemoteTask dt,
         Key args, DatagramPacket p, H2ONode h2o ) {
       assert Thread.currentThread().getPriority() == Thread.MIN_PRIORITY;
       // Now compute on it!

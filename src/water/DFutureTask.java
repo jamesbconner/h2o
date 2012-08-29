@@ -7,6 +7,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import water.serialization.RemoteTaskSerializationManager;
+import water.serialization.RemoteTaskSerializer;
 
 import jsr166y.ForkJoinPool;
 
@@ -235,7 +236,8 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
           ((Key)arg).write(dos);
         } else if( arg instanceof RemoteTask ) {
           RemoteTask t = (RemoteTask)arg;
-          RemoteTaskSerializationManager.get(t.getClass()).write(t, dos);
+          RemoteTaskSerializer<RemoteTask> remoteTaskSerializer = RemoteTaskSerializationManager.get(t.getClass());
+          remoteTaskSerializer.write(t, dos);
         } else if( arg instanceof Value ) {
           // For Values, support a pre-loaded byte[]
           if( i < args.length-1 && args[i+1] instanceof byte[] ) {
