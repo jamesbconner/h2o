@@ -189,13 +189,10 @@ public class Inspect extends H2OPage {
 
     // Header row
     StringBuilder sb = new StringBuilder();
-    int num_col = ary.num_cols();
-    for( int i=0; i<num_col; i++ ) {
-      sb.append("<th>");
-      String s = ary.col_name(i);
-      if( s == null ) sb.append(i);
-      else sb.append(s);
-    }
+    final int num_col = ary.num_cols();
+    String[] names = ary.col_names();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<th>").append(names[i]);
     response.replace("head_row",sb);
 
     // Data layout scheme

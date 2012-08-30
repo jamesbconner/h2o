@@ -49,8 +49,8 @@ public class Statistic {
     return cnt==1;
   }
   
-  /** Computer  the statistic on each column; holds the distribution of the values 
-   * using weights. This class is called from the main statistic for each column 
+  /** Compute the statistics on each column; holds the distribution of the values
+   * using weights. This class is called from the main statistic for each column
    * the statistic cares about. */
   class Column {
     int [] cnt = new int[100];
@@ -61,7 +61,9 @@ public class Statistic {
     Column(int c) { column = c;  }    
 
     void add(int class_,int o) {
-      dists[1][class_]++;  val[o][class_]++;  cnt[o]++;
+      dists[1][class_]++;
+      val  [o][class_]++;
+      cnt  [o]++;
       if (first==-1 || first>o) first=o;
       if (last<o) last=o;
    }        

@@ -12,10 +12,12 @@ public class Tree implements Serializable {
   private static final long serialVersionUID = 7669063054915148060L;
   INode tree_;
   long time_ ;
+  C[] _Cs;
   public Tree() {}
   
   /** for given data creates a node and returns it. */
   final INode compute_(Data d, Statistic s) {
+    _Cs = d.data_.c_;
     if (s.singleClass()) return new LeafNode(s.classOf());
     Split best = s.best(d);
     if (best == null) return new LeafNode(s.classOf());
@@ -32,6 +34,7 @@ public class Tree implements Serializable {
     }
   }
   public final Tree compute(Data data) {
+    _Cs = data.data_.c_;
     long t = System.currentTimeMillis(); 
     Statistic s = new Statistic(data.columns(),data.features(),data.classes(),data.random());
     for (Row r : data) s.add(r);
@@ -64,7 +67,7 @@ public class Tree implements Serializable {
 
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
-  static class Node extends INode {   
+  class Node extends INode {   
     private static final long serialVersionUID = -967861474179047605L;
     final int column_;
     final double value_;
@@ -73,7 +76,14 @@ public class Tree implements Serializable {
     public int navigate(Row r) { return r.getS(column_)<=value_?0:1; }
     public int classify(Row r) { return navigate(r)==0? l_.classify(r) : r_.classify(r); }
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-    public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
+    public String toString() {
+      short idx = (short)value_; // Convert split-point of the form X.5 to a (short)X
+      C c = _Cs[column_];
+      double dlo = c._v2o[idx+0];
+      double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
+      double dmid = (dlo+dhi)/2.0;
+      return c.name_ +"<" + Utils.p2d(dmid) + " ("+l_+","+r_+")";
+    }
     public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
     public int leaves()       { return l_.leaves() + r_.leaves(); }
   }

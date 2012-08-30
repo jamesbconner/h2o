@@ -354,12 +354,23 @@ public class ValueArray extends Value {
     throw new ArrayIndexOutOfBoundsException(cnum);
   }
 
-  // Column name (may be the empty string, but not null)
+  // Column name (may be null)
   public String col_name(int cnum) {
     byte[] mem = get();
     int off = UDP.get4(mem,col(cnum)+NAME_COL_OFF);
     int len = UDP.get2(mem,off);
     return len > 0 ? new String(mem,off+2,len) : null;
+  }
+  // All the column names.  Unlike the above version, this one replaces null
+  // strings with a column number and never returns null names
+  public String[] col_names() {
+    final int num_cols = num_cols();
+    String[] names = new String[num_cols];
+    for( int i=0; i<num_cols; i++ ) {
+      String s = col_name(i);
+      names[i] = (s==null)?Integer.toString(i):s;
+    }
+    return names;
   }
 
   // Offset (within a row) of this column start
@@ -394,23 +405,16 @@ public class ValueArray extends Value {
     int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
     long chknum = chunk_for_row(rownum,rpc);
     int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
-    int off = row_in_chunk * row_size();
     Key k = chunk_get(chknum);  // Get the chunk key
     Value val = DKV.get(k);     // Get the chunk
     // Get the whole row.  Note that in structured arrays, no row splits a chunk.
-    byte[] bits = val.get(off+row_size());
-    int col_off = off+col_off(colnum);
-    double res=0;
-    switch( col_size(colnum) ) {
-    case  1:         res =    0xff&  bits[col_off]; break;
-    case  2:         res = UDP.get2 (bits,col_off); break;
-    case  4:return (double)UDP.get4 (bits,col_off);
-    case  8:return (double)UDP.get8 (bits,col_off); // No scale/offset for long   data
-    case -4:return (double)UDP.get4f(bits,col_off); // No scale/offset for float  data
-    case -8:return         UDP.get8d(bits,col_off); // No scale/offset for double data
-    }
-    // Apply scale & base for the smaller numbers
-    return (res+col_base(colnum))/col_scale(colnum);
+    byte[] bits = val.get((row_in_chunk+1)*row_size());
+    return datad(bits,row_in_chunk,row_size(),colnum);
+  }
+
+  // This is a version where the colnum data is not yet pulled out.
+  public double datad(byte[] bits, int row_in_chunk, int row_size, int colnum) {
+    return datad(bits,row_in_chunk,row_size,col_off(colnum),col_size(colnum), col_base(colnum), col_scale(colnum), colnum);
   }
 
   // This is a version where all the loop-invariants are hoisted already.

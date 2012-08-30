@@ -91,6 +91,7 @@ class C {
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
   HashMap<Double,Short> o2v_;
+  double[] _v2o;                // Reverse (short) indices to original doubles
   
   public String toString() {
     String res = "col("+name_+")";
@@ -122,10 +123,13 @@ class C {
     // we forget the frequencies for now and return a map from value to offset
     HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
     Double[] ks = res.keySet().toArray(new Double[res.size()]);
+    _v2o = new double[ks.length];
     Arrays.sort(ks);      
     short off = 0;
-    for (Double d : ks)  res2.put(d,  off++); 
+    for( Double d : ks)  {
+      _v2o[off] = d;
+      res2.put(d, off++);
+    }
     return res2;
   }
-
 }
