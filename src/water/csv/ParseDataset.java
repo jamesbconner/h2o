@@ -66,6 +66,12 @@ public final class ParseDataset {
     }
     rs2[rs.length] = off;
 
+    // Column names, if any
+    String[] names = guess_col_names(dataset, num_cols, commas);
+    if( names != null )
+      for( int i=0; i<num_cols; i++ )
+        dp1._cols[i]._name = names[i];
+
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
     UKV.put(result,ary);
@@ -101,11 +107,11 @@ public final class ParseDataset {
       if( (c._size&31)==31 ) { // All fails; this is a plain double
         c._size = -8;          // Flag as a plain double
         continue;
-      } 
+      }
       if( (c._size&31)==15 ) { // All the int-versions fail, but fits in a float
         c._size = -4;          // Flag as a float
         continue;
-      } 
+      }
       // Else attempt something integer; try to squeeze into a short or byte.
       // First, scale to integers.
       if( (c._size & 8)==0 ) { c._scale = 1000; }
@@ -130,15 +136,15 @@ public final class ParseDataset {
       }
       int span = (int)spanl;
 
-      // See if we fit in an unbiased byte
-      if( 0 <= min && max <= 255 ) { c._size = 1; continue; }
-      // See if we fit in a *biased* byte
-      if( span <= 255 ) { c._size = 1; c._base = (int)min; continue; }
+      // See if we fit in an unbiased byte, skipping 255 for missing values
+      if( 0 <= min && max <= 254 ) { c._size = 1; continue; }
+      // See if we fit in a  *biased* byte, skipping 255 for missing values
+      if( span <= 254 ) { c._size = 1; c._base = (int)min; continue; }
 
-      // See if we fit in an unbiased short
-      if( 0 <= min && max <= 65535 ) { c._size = 2; continue; }
-      // See if we fit in a *biased* short
-      if( span <= 65535 ) { c._size = 2; c._base = (int)min; continue; }
+      // See if we fit in an unbiased short, skipping 65535 for missing values
+      if( 0 <= min && max <= 65534 ) { c._size = 2; continue; }
+      // See if we fit in a  *biased* short, skipping 65535 for missing values
+      if( span <= 65534 ) { c._size = 2; c._base = (int)min; continue; }
       // Must be an int, no bias needed.
       c._size = (byte)((c._scale == 1) ? 4 : -4); // Either int or float
     }
@@ -251,6 +257,12 @@ public final class ParseDataset {
         num_rows++;
         for( int i=0; i<_num_cols; i++ ) {
           double d = ds[i];
+          if( Double.isNaN(d) ) { // Broken data on row
+            _cols[i]._size |=32;  // Flag as seen broken data
+            _cols[i]._badat++;
+            if( _cols[i]._badat==0 ) _cols[i]._badat = (char)65535; // Increment; pin at max short
+            continue;             // But do not muck up column stats
+          }
           if( d < _cols[i]._min ) _cols[i]._min = d;
           if( d > _cols[i]._max ) _cols[i]._max = d;
           // I pass a flag in the _size field if any value is NOT an integer.
@@ -259,7 +271,6 @@ public final class ParseDataset {
           if( (double)((int)(d* 100)) != (d* 100) ) _cols[i]._size |= 4; // not 2 digits: 5.24
           if( (double)((int)(d*1000)) != (d*1000) ) _cols[i]._size |= 8; // not 3 digits: 5.239
           if( (double)((float)d)      !=  d       ) _cols[i]._size |=16; // not float   : 5.23912f
-          if( Double.isNaN(d) )                     _cols[i]._size |=32; // Broken data on row
         }
       }
       assert num_rows > 0;   // Parsing no rows generally means a broken parser
@@ -284,6 +295,8 @@ public final class ParseDataset {
           if( d._min < c._min ) c._min = d._min; // min of mins
           if( d._max > c._max ) c._max = d._max; // max of maxes
           c._size |=  d._size;                   // accumulate size fail bits
+          int bad = c._badat+d._badat;
+          c._badat = (bad > 65535) ? 65535 : (char)bad; // Bad rows, capped
         }
       }
       // Also roll-up the rows-per-chunk info.
@@ -361,13 +374,24 @@ public final class ParseDataset {
         for( int i=0; i<ds.length; i++ ) {
           double d = ds[i];
           ValueArray.Column col = _cols[i];
-          switch( col._size ) {
-          case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
-          case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
-          case  4: UDP.set4 (buf,(off+=4)-4, ( int)d); break;
-          case  8: UDP.set8 (buf,(off+=8)-8, (long)d); break;
-          case -4: UDP.set4f(buf,(off+=4)-4,(float)d); break;
-          case -8: UDP.set8d(buf,(off+=8)-8,       d); break;
+          if( !Double.isNaN(d) ) { // Broken data on row?
+            switch( col._size ) {
+            case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
+            case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
+            case  4: UDP.set4 (buf,(off+=4)-4, ( int)d); break;
+            case  8: UDP.set8 (buf,(off+=8)-8, (long)d); break;
+            case -4: UDP.set4f(buf,(off+=4)-4,(float)d); break;
+            case -8: UDP.set8d(buf,(off+=8)-8,       d); break;
+            }
+          } else {
+            switch( col._size ) {
+            case  1: buf[off++] = (byte)-1; break;
+            case  2: UDP.set2 (buf,(off+=2)-2,              -1 ); break;
+            case  4: UDP.set4 (buf,(off+=4)-4,Integer.MIN_VALUE); break;
+            case  8: UDP.set8 (buf,(off+=8)-8,   Long.MIN_VALUE); break;
+            case -4: UDP.set4f(buf,(off+=4)-4,        Float.NaN); break;
+            case -8: UDP.set8d(buf,(off+=8)-8,       Double.NaN); break;
+            }
           }
         }
         off = old+row_size;     // Skip the padding during fill
@@ -522,4 +546,47 @@ public final class ParseDataset {
     return commas ? -cols : cols;
   }
 
+  // ---
+
+  // Alternative column title guesser.  Returns an array of Strings, or
+  // null if none.
+  private static String[] guess_col_names( Value dataset, int num_cols, byte commas ) {
+    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
+    byte[] b = v0.get();                      // Bytes for 1st chunk
+    String [] names = new String[num_cols];
+    int cols=0;
+    int idx=-1;
+    int num = 0;
+    for( int i=0; i<b.length; i++ ) {
+      char c = (char)b[i];
+      if( c=='\n' || c== '\r' ) {
+        if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
+          num++;                // Not a number, so take it as a column name
+        break;
+      }
+      // Found a column separator?
+      if( (commas==0 && Character.isWhitespace(c)) || c == ',' ) {
+        if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
+          num++;                // Not a number, so take it as a column name
+        idx = -1;               // Reset start-of-column
+      } else if( c == '"' ) {
+        throw new Error("string skipping not implemented");
+      } else {                  // Else its just column data
+        if( idx == -1 ) {       // Not starting a name?
+          cols++;               // Starting a name now
+          idx = i;
+        }
+      }
+    }
+    // Claim some column names if the minority look like numbers
+    return (num > (num_cols>>2)) ? names : null;
+  }
+
+  private static String NaN( byte[] b, int idx, int i ) {
+    if( idx == -1 ) return "";
+    String s = new String(b,idx,i-idx).trim();
+    try { Double.parseDouble(s); return ""; } catch( NumberFormatException e ) { }
+    try { Long  .parseLong  (s); return ""; } catch( NumberFormatException e ) { }
+    return s;
+  }
 }
