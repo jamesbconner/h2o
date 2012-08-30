@@ -1,4 +1,4 @@
-package water.test;
+package test;
 import java.io.*;
 import java.util.Arrays;
 import org.junit.AfterClass;
@@ -6,13 +6,13 @@ import org.junit.BeforeClass;
 import static org.junit.Assert.*;
 import water.*;
 
-public class Test {
+public class KVTest {
   // Request that tests be "clean" on the K/V store, and restore it to the same
   // count of keys after all tests run.
   static int _initial_keycnt;
 
   // A no-arg constructor for JUnit alone
-  public Test() { }
+  public KVTest() { }
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
@@ -144,22 +144,8 @@ public class Test {
   @org.junit.Test public void test5() throws Exception {
     System.out.println("test5");
     h2o_cloud_of_size(3);
-    Key h2okey = null;
-    
-    // When run from eclipse, the working directory is different.
-    // Try pointing at another likely place
-    File file = new File("h2o.jar");
-    if( !file.exists() ) file = new File("build/h2o.jar");
-    
-    FileInputStream fis = null;
-    try {
-      fis = new FileInputStream(file);
-      h2okey = ValueArray.read_put_file(file.getPath(), fis, (byte)0);
-    } finally {
-      try { if( fis != null ) fis.close(); } catch( IOException e ) { }
-    }
-    if( h2okey == null ) fail("null h2okey");
-
+    File file = find_test_file("h2o.jar");
+    Key h2okey = load_test_file(file);
     ByteHisto bh = new ByteHisto();
     bh.invoke(h2okey);
     int sum=0;
@@ -267,8 +253,6 @@ public class Test {
 
   @BeforeClass static public void startLocalNode() {
     H2O.main(new String[] {});
-  }
-  @BeforeClass public static void record_initial_keycnt() {
     System.out.println("Running tests in Test.class");
     _initial_keycnt = H2O.store_size();
   }
@@ -344,5 +328,30 @@ public class Test {
     } catch( IOException e ) {
       System.err.println("Failed to launch nested JVM with:"+Arrays.toString(args));
     }
+  }
+
+  // Load a file, return a Key for it.
+  public static File find_test_file( String fname ) {
+    // When run from eclipse, the working directory is different.
+    // Try pointing at another likely place
+    File file = new File(fname);
+    if( !file.exists() ) file = new File("build/"+fname);
+    if( !file.exists() ) file = new File("../"+fname);
+    return file;
+  }
+  public static Key load_test_file( String fname ) { 
+    return load_test_file(find_test_file(fname)); 
+  }
+  public static Key load_test_file( File file ) {
+    Key key = null;
+    FileInputStream fis = null;
+    try {
+      fis = new FileInputStream(file);
+      key = ValueArray.read_put_file(file.getPath(), fis, (byte)0);
+    } catch( IOException e ) {
+      try { if( fis != null ) fis.close(); } catch( IOException e2 ) { }
+    }
+    if( key == null ) fail("failed load to "+file.getName());
+    return key;
   }
 }

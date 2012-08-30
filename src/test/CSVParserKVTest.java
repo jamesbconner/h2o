@@ -1,4 +1,4 @@
-package water.test;
+package test;
 
 import init.init;
 
@@ -14,7 +14,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import test.analytics.PokerAvg;
 import water.DKV;
 import water.H2O;
 import water.Key;
@@ -23,9 +22,6 @@ import water.csv.CSVParser.CSVParseException;
 import water.csv.CSVParserKV;
 import water.csv.CSVString;
 import water.csv.ValueCSVRecords;
-
-
-
 
 
 public class CSVParserKVTest {
@@ -40,11 +36,9 @@ public class CSVParserKVTest {
     public CSVString date;
   }
   
-  @BeforeClass
-  public static void setUpClass() throws Exception {
-    if(H2O.CLOUD == null)
-      init.main(new String [] {"-ip", "192.168.56.1", "-test", "none"});
-    Thread.sleep(1000);
+  @BeforeClass static public void startLocalNode() {
+    H2O.main(new String[] {});
+    System.out.println("Running tests in "+CSVParserKVTest.class);
   }
 
   @AfterClass
@@ -53,41 +47,19 @@ public class CSVParserKVTest {
   }  
   
   @Test
-  public void testBasicCSVParse(){
-//    byte [] data = "1.0,2.0,.,0.3e1,0.04e2,50.0e-1\n 100.0e-3 , -2.0,. , 3.0, 4.0  ,  5.0\n".getBytes();
-//    float [] rec1 = new float[6];
-//    float [] rec2 = new float[3];
-//    float [] rec3 = new float[10];
-//    CSVParserKV<float[]> p1 = new CSVParserKV<float[]>(data,rec1,null);
-//    CSVParserKV<float[]> p2 = new CSVParserKV<float[]>(data,rec2,null);
-//    CSVParserKV<float[]> p3 = new CSVParserKV<float[]>(data,rec3,null);
-//    for(int i = 0; i < 2; ++i){
-//      p1.next();
-//      p2.next();
-//      p3.next();      
-//    }
-  }
-  
-  
-  // does not handle escaped stuff
-  ArrayList<String> nextCSVLine(BufferedReader r) {
-    ArrayList<String> result = new ArrayList<String>();
-    //read comma separated file line by line
-    try {
-      String strLine = null;
-      if((strLine = r.readLine()) != null) {
-        //break comma separated line using ","
-        StringTokenizer st = new StringTokenizer(strLine, ",");
-        while(st.hasMoreTokens()) {
-          //display csv values
-          result.add(st.nextToken());
-        }
-        //reset token number
-      }
-    } catch(Exception e){
-      e.printStackTrace();
+  public void testBasicCSVParse() {
+    byte [] data = "1.0,2.0,.,0.3e1,0.04e2,50.0e-1\n 100.0e-3 , -2.0,. , 3.0, 4.0  ,  5.0\n".getBytes();
+    float [] rec1 = new float[6];
+    float [] rec2 = new float[3];
+    float [] rec3 = new float[6];
+    CSVParserKV<float[]> p1 = new CSVParserKV<float[]>(data,rec1,null);
+    CSVParserKV<float[]> p2 = new CSVParserKV<float[]>(data,rec2,null);
+    CSVParserKV<float[]> p3 = new CSVParserKV<float[]>(data,rec3,null);
+    for( int i = 0; i < 2; ++i ) {
+      p1.next();
+      p2.next();
+      p3.next();
     }
-    return result;
   }
   
   @Test
@@ -95,14 +67,19 @@ public class CSVParserKVTest {
     TimeSeriesRecord r = new TimeSeriesRecord();
     CSVParserKV.ParserSetup setup = new CSVParserKV.ParserSetup();
     setup.parseColumnNames = true;
- //   int n = CSVParserKV.getNColumns(Key.make("bigdata_csv"));        
- //   Assert.assertEquals(n,2);
-    int n = CSVParserKV.getNColumns(Key.make("poker_small.data"));
+    Key key = KVTest.load_test_file("smalldata/poker/poker10");
+    int n = CSVParserKV.getNColumns(key);
     Assert.assertEquals(n,11);
     int [] rec = new int[n];
-    CSVParserKV<int[]> p = new CSVParserKV<int[]>(Key.make("poker_small.data"),1,rec,null);
-    for(int [] x:p)
-      System.out.println(Arrays.toString(x));
+    CSVParserKV<int[]> p = new CSVParserKV<int[]>(key,1,rec,null);
+    int x[] = new int[]{1,1,1,2,1,3,1,4,1,5,8}; // straight-flush A,2,3,4,5
+    Assert.assertTrue(Arrays.equals(x,p.next()));
+    x[10]=5;                    // For the rest, the final class column is 5: a flush
+    int q=6;                    // A,2,3,4,6..K
+    for(int [] y:p) {           // Parse the rest
+      x[9]=q++;                 // just flipping the final card
+      Assert.assertTrue(Arrays.equals(x,y));
+    }
   }  
   
   @Test
@@ -158,8 +135,29 @@ public class CSVParserKVTest {
   }
   
   
-  @Test
-  public void testParsingbigDataCSV(){
+//  // does not handle escaped stuff
+//  ArrayList<String> nextCSVLine(BufferedReader r) {
+//    ArrayList<String> result = new ArrayList<String>();
+//    //read comma separated file line by line
+//    try {
+//      String strLine = null;
+//      if((strLine = r.readLine()) != null) {
+//        //break comma separated line using ","
+//        StringTokenizer st = new StringTokenizer(strLine, ",");
+//        while(st.hasMoreTokens()) {
+//          //display csv values
+//          result.add(st.nextToken());
+//        }
+//        //reset token number
+//      }
+//    } catch(Exception e){
+//      e.printStackTrace();
+//    }
+//    return result;
+//  }
+//  
+//  @Test
+//  public void testParsingbigDataCSV(){
 //    Key k = Key.make("bigdata_csv");
 //    Value v = DKV.get(k);
 //    Assert.assertNotNull(v);
@@ -245,39 +243,5 @@ public class CSVParserKVTest {
 //        }
 //      }    
 //    }
-  }
-
-  
-  
-  
-  @Test
-  public void testParsingPokerCSV(){
-    Key k = Key.make("poker.data");
-    Value v = DKV.get(k);
-    ArrayList<Key> kkk = new ArrayList<Key>();    
-    for(int i = 0; i < v.chunks(); ++i){
-      Key kk = v.chunk_get(i);
-      if(DKV.get(kk) != null)
-        kkk.add(kk);    
-    }
-    Key [] keys = new Key[kkk.size()];
-    kkk.toArray(keys);
-    try {
-      PokerAvg avg = new PokerAvg();      
-      avg.invoke(keys);
-      System.out.println();
-      System.out.println("Processed " + avg.N() + " records");
-      System.out.print("Results: ");
-      double [] vals = avg.getAvg();      
-      for(int i = 0; i < vals.length; ++i)
-        System.out.print(" " + vals[i]);
-      System.out.println();
-    } catch (Exception e) {
-      e.printStackTrace();
-      Assert.assertTrue(false);
-    }
-  } 
+//  }
 }
-
-
-

@@ -1,4 +1,4 @@
-package water.test;
+package test;
 import init.init;
 import java.io.*;
 import java.util.ArrayList;
@@ -11,7 +11,6 @@ import org.junit.Test;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
-import test.analytics.PokerAvg;
 import water.*;
 import water.csv.CSVParser.CSVEscapedBoundaryException;
 import water.csv.CSVParser.CSVParseException;
@@ -520,61 +519,4 @@ public void testUnknownData(){
     }
   }
   
-  @Test
-  public void testParsingPokerCSV(){
-    Key k = Key.make("poker.data");
-    Value v = DKV.get(k);
-    ArrayList<Key> kkk = new ArrayList<Key>();    
-    for(int i = 0; i < v.chunks(); ++i){
-      Key kk = v.chunk_get(i);
-      if(DKV.get(kk) != null)
-        kkk.add(kk);    
-    }
-    Key [] keys = new Key[kkk.size()];
-    kkk.toArray(keys);
-    try {
-      PokerAvg avg = new PokerAvg();      
-      avg.invoke(keys);
-      System.out.println();
-      System.out.println("Processed " + avg.N() + " records");
-      System.out.print("Results: ");
-      double [] vals = avg.getAvg();      
-      for(int i = 0; i < vals.length; ++i)
-        System.out.print(" " + vals[i]);
-      System.out.println();
-    } catch (Exception e) {
-      e.printStackTrace();
-      Assert.assertTrue(false);
-    }
-  } 
 }
-
-//System.out.print("Test CSVString sequence...");
-//if(testCSVString())
-//System.out.println("ok");
-//else
-//System.out.println("failed");
-//System.out.print("Test line ending parsing...");
-//if(testLineEnding())
-//System.out.println("ok");
-//else
-//System.out.println("failed");
-//System.out.print("Test correct number parsing...");
-//if(testCorrectNumberParsing())
-//System.out.println("ok");
-//else
-//System.out.println("failed");
-//
-//System.out.print("Test space separator...");
-//if(testSeparator())
-//System.out.println("ok");
-//else
-//System.out.println("failed");
-//
-//System.out.print("Test correct boundary processing");
-//if(testCorrectBoundaryProcessing())
-//System.out.println("ok");
-//else
-//System.out.println("failed");
-//}
-
