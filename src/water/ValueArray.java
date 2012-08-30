@@ -465,14 +465,27 @@ public class ValueArray extends Value {
     // Get the whole row.  Note that in structured arrays, no row splits a chunk.
     byte[] bits = get(chknum).get(off+row_size());
     int col_off = off+col_off(colnum);
-    long res=0;
     switch( col_size(colnum) ) {
-    case  1:  return bits[col_off] != -1;
+    case  1:  return           bits[col_off] != -1;
     case  2:  return UDP.get2 (bits,col_off) != 65535;
     case  4:  return UDP.get4 (bits,col_off) != Integer.MIN_VALUE;
     case  8:  return UDP.get8 (bits,col_off) !=    Long.MIN_VALUE;
     case -4:  return ! Float.isNaN(UDP.get4f(bits,col_off));
     case -8:  return !Double.isNaN(UDP.get8d(bits,col_off));
+    }
+    return false;
+  }
+  // Test if the value is valid, or was missing in the orginal dataset
+  // This is a version where all the loop-invariants are hoisted already.
+  public boolean valid(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size ) {
+    int off = (row_in_chunk * row_size) + col_off;
+    switch( col_size ) {
+    case  1:  return           bits[off] != -1;
+    case  2:  return UDP.get2 (bits,off) != 65535;
+    case  4:  return UDP.get4 (bits,off) != Integer.MIN_VALUE;
+    case  8:  return UDP.get8 (bits,off) !=    Long.MIN_VALUE;
+    case -4:  return ! Float.isNaN(UDP.get4f(bits,off));
+    case -8:  return !Double.isNaN(UDP.get8d(bits,off));
     }
     return false;
   }
