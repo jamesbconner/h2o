@@ -107,6 +107,10 @@ public class Server extends NanoHTTPD {
     registerPage(new LinearRegression(),"LinearRegression");
     registerPage(new LinearRegression(),"LR");
     registerPage(new NodeShuffle(),"NodeShuffle");
+    registerPage(new Covariance(),"COV");
+    registerPage(new Covariance(),"cov");
+    registerPage(new Covariance(),"cor");
+    registerPage(new Covariance(),"var");
     registerPage(new Covariance(),"Covariance");
     //registerPage(new PutExec(),"PutExec");
     //registerPage(new PutExecQuery(),"PutExecQuery");
