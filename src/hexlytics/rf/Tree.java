@@ -37,17 +37,17 @@ public class Tree implements Serializable {
     for (Row r : data) s.add(r);
     tree_ = compute_(data,s);
     time_ = System.currentTimeMillis()-t;
-    System.out.println("Time: "+time_ + " "+ this);
+    System.out.println("Time: "+time_ + " Tree depth =  "+ tree_.depth()+ " leaves= "+ tree_.leaves() + " || "+  this);
     return this;
   }  
-  
-  public INode tree() { return tree_; }
-  
+    
   public static abstract class INode  implements Serializable {    
     private static final long serialVersionUID = 4707665968083310297L;
     int navigate(Row r) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
     abstract int classify(Row r);
+    public int depth()         { return 0; }
+    public int leaves()        { return 1; }
   }
  
   /** Leaf node that for any row returns its the data class it belongs to. */
@@ -74,6 +74,8 @@ public class Tree implements Serializable {
     public int classify(Row r) { return navigate(r)==0? l_.classify(r) : r_.classify(r); }
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
     public String toString() { return column_ +"@" + Utils.p2d(value_) + " ("+l_+","+r_+")"; } 
+    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
+    public int leaves()       { return l_.leaves() + r_.leaves(); }
   }
  
   public int classify(Row r) { return tree_.classify(r); } 

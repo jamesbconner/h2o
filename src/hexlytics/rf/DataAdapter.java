@@ -39,18 +39,22 @@ public class DataAdapter  {
  
     public String name() { return name_; }
     public void shrinkWrap() { 
-     data_ = new short[ c_.length * rows()];
+      short[][] vss = new short[c_.length][];
      for(int i=0;i<c_.length;i++) {
        C c = c_[i];
-       short[] vs = c.shrink();
+       vss[i] = c.shrink();
+     }      
+     data_ = new short[ c_.length * rows()];
+     for(int i=0;i<c_.length;i++) {
+       short[] vs = vss[i];
        for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
      }      
     }
+    
+    static public  int FEATURES = -1;
     public void freeze() { frozen_=true; }
     public int features() { 
-       int v =(int)(2.0*columns()/3.0);
-       if (v==0 || v >= columns()-1) throw new Error("Should pick 2/3 of columns");    
-       return v;
+       return  FEATURES==-1 ? (int) Math.sqrt(c_.length) : FEATURES;
     }
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
@@ -81,8 +85,8 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  int DEFAULT = 10;
-  int GROWTH = 2;
+  int DEFAULT = 100000;
+  double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
@@ -95,7 +99,7 @@ class C {
     return res;
   }
   C(String s) { name_ = s; v_ = new double[DEFAULT]; }
-  void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, v_.length*GROWTH); } 
+  void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
   void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
   double getD(int i) { return v_[i]; }
   
@@ -103,6 +107,8 @@ class C {
     o2v_ = hashCol();
     short[] res = new short[sz_];
     for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
+    o2v_ = null;
+    v_= null;
     return res;
   }
   
