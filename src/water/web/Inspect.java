@@ -190,8 +190,12 @@ public class Inspect extends H2OPage {
     // Header row
     StringBuilder sb = new StringBuilder();
     int num_col = ary.num_cols();
-    for( int i=0; i<num_col; i++ )
-      sb.append("<th>"+i);
+    for( int i=0; i<num_col; i++ ) {
+      sb.append("<th>");
+      String s = ary.col_name(i);
+      if( s == null ) sb.append(i);
+      else sb.append(s);
+    }
     response.replace("head_row",sb);
 
     // Data layout scheme
@@ -243,6 +247,27 @@ public class Inspect extends H2OPage {
     }
     response.replace("min_max_row",sb);
 
+    // Missing data
+    boolean found=false;
+    for( int i=0; i<num_col; i++ )
+      if( ary.col_badat(i) != 0 ) {
+        found=true;
+        break;
+      }
+    if( found ) {
+      RString row = response.restartGroup("tableRow");
+      sb = new StringBuilder();
+      sb.append("<td>Rows missing data</td>");
+      for( int i=0; i<num_col; i++ ) {
+        sb.append("<td>");
+        int sz = ary.col_badat(i);
+        sb.append(sz != 0 ? sz : "");
+        sb.append("</td>");
+      }
+      row.replace("data_row",sb);
+      row.append();
+    }
+
     // If we have more than 7 rows, display the first & last 3 rows, else
     // display all the rows.
     long num_rows = ary.num_rows();
@@ -274,7 +299,9 @@ public class Inspect extends H2OPage {
         if( sz != 0 ) {
           if( r == -1 ) sb.append("...");
           else {
-            if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
+            if( !ary.valid(r,i) )
+              /*nothing*/;
+            else if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
               sb.append(ary.data (r,i)); // int/long
             else 
               sb.append(ary.datad(r,i)); // float/double

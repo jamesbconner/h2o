@@ -272,11 +272,12 @@ public class ValueArray extends Value {
   // Additional column layout; repeat per column
   static private final int   MAX_COL_OFF =0;               // max in column
   static private final int   MIN_COL_OFF =  MAX_COL_OFF+8; // min in column
-  static private final int SCALE_COL_OFF =  MIN_COL_OFF+8; // scale for all; often 1
-  static private final int  BASE_COL_OFF =SCALE_COL_OFF+4; // base-offset for all; often 0
+  static private final int  BASE_COL_OFF =  MIN_COL_OFF+8; // base-offset for all; often 0
   static private final int  NAME_COL_OFF = BASE_COL_OFF+4; // name offset in the array header
   static private final int   OFF_COL_OFF = NAME_COL_OFF+4; // offset to column data within row
-  static private final int  SIZE_COL_OFF =  OFF_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
+  static private final int SCALE_COL_OFF =  OFF_COL_OFF+2; // scale for all; often 1
+  static private final int BADAT_COL_OFF =SCALE_COL_OFF+2; // number of bad rows, capped at 65535
+  static private final int  SIZE_COL_OFF =BADAT_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
   static private final int  PAD0_COL_OFF = SIZE_COL_OFF+1;
   static private final int META_COL_SIZE = PAD0_COL_OFF+1;
 
@@ -284,9 +285,10 @@ public class ValueArray extends Value {
   static public class Column {
     public String _name;
     public double _min, _max; // Min/Max per column; requires a 1st pass to discover
-    public int _scale; // Actual value is (((double)(stored_value+base))/scale); 1,10,100,1000
     public int _base;  // Base
     public short _off; // Offset of column data within row
+    public short _scale; // Actual value is (((double)(stored_value+base))/scale); 1,10,100,1000
+    public char  _badat; // Number of bad rows, capped at 65535
     public byte _size; // Size is 1,2,4 or 8 bytes, or -4,-8 for float/double data
 
     public Column() {
@@ -301,10 +303,11 @@ public class ValueArray extends Value {
     public int write( byte[] buf, int off ) {
       UDP.set8d(buf,off+  MAX_COL_OFF,_max);
       UDP.set8d(buf,off+  MIN_COL_OFF,_min);
-      UDP.set4 (buf,off+SCALE_COL_OFF,_scale);
       UDP.set4 (buf,off+ BASE_COL_OFF,_base);
+      //                 NAME_COL_OFF is filled in later
       UDP.set2 (buf,off+  OFF_COL_OFF,_off);
-      //                NAME_COL_OFF is filled in later
+      UDP.set2 (buf,off+SCALE_COL_OFF,_scale);
+      UDP.set2 (buf,off+BADAT_COL_OFF,_badat);
                 buf[off+ SIZE_COL_OFF]=_size;
       return off+META_COL_SIZE;
     }
@@ -312,20 +315,22 @@ public class ValueArray extends Value {
     public void write( DataOutputStream dos ) throws IOException {
       dos.writeDouble(_max);
       dos.writeDouble(_min);
-      dos.writeInt(_scale);
       dos.writeInt(_base);
       dos.writeShort(_off);
+      dos.writeShort(_scale);
+      dos.writeShort(_badat);
       dos.writeByte(_size);
     }
 
     static public Column read( byte[] buf, int off ) {
       Column col = new Column();
-      col._max      = UDP.get8d(buf,off+  MAX_COL_OFF);
-      col._min      = UDP.get8d(buf,off+  MIN_COL_OFF);
-      col._scale    = UDP.get4 (buf,off+SCALE_COL_OFF);
-      col._base     = UDP.get4 (buf,off+ BASE_COL_OFF);
-      col._off=(short)UDP.get2 (buf,off+  OFF_COL_OFF);
-      col._size     =           buf[off+ SIZE_COL_OFF];
+      col._max  =       UDP.get8d(buf,off+  MAX_COL_OFF);
+      col._min  =       UDP.get8d(buf,off+  MIN_COL_OFF);
+      col._base =       UDP.get4 (buf,off+ BASE_COL_OFF);
+      col._off  =(short)UDP.get2 (buf,off+  OFF_COL_OFF);
+      col._scale=(short)UDP.get2 (buf,off+SCALE_COL_OFF);
+      col._badat= (char)UDP.get2 (buf,off+BADAT_COL_OFF);
+      col._size =       buf[off+ SIZE_COL_OFF];
       return col;
     }
 
@@ -333,9 +338,10 @@ public class ValueArray extends Value {
       Column col = new Column();
       col._max  = dis.readDouble();
       col._min  = dis.readDouble();
-      col._scale= dis.readInt();
       col._base = dis.readInt();
       col._off  = dis.readShort();
+      col._scale= dis.readShort();
+      col._badat= dis.readChar();
       col._size = dis.readByte();
       return col;
     }
@@ -349,10 +355,11 @@ public class ValueArray extends Value {
   }
 
   // Column name (may be the empty string, but not null)
-  String col_name(int cnum) {
+  public String col_name(int cnum) {
     byte[] mem = get();
     int off = UDP.get4(mem,col(cnum)+NAME_COL_OFF);
-    return new String(mem,off+2,UDP.get2(mem,off));
+    int len = UDP.get2(mem,off);
+    return len > 0 ? new String(mem,off+2,len) : null;
   }
 
   // Offset (within a row) of this column start
@@ -364,8 +371,9 @@ public class ValueArray extends Value {
   // Max/min/base/scale value seen in column
   public double col_max  (int cnum) { return UDP.get8d(get(),col(cnum)+  MAX_COL_OFF); }
   public double col_min  (int cnum) { return UDP.get8d(get(),col(cnum)+  MIN_COL_OFF); }
-  public int    col_scale(int cnum) { return UDP.get4 (get(),col(cnum)+SCALE_COL_OFF); }
   public int    col_base (int cnum) { return UDP.get4 (get(),col(cnum)+ BASE_COL_OFF); }
+  public int    col_scale(int cnum) { return UDP.get2 (get(),col(cnum)+SCALE_COL_OFF); }
+  public int    col_badat(int cnum) { return UDP.get2 (get(),col(cnum)+BADAT_COL_OFF)&0xFFFF; }
 
   // Row# when offset from chunk start
   private final int row_in_chunk(long row, int rpc, long chknum) {
@@ -447,6 +455,41 @@ public class ValueArray extends Value {
     // Apply scale & base for the smaller numbers
     return (long)(((double)(res+col_base(colnum)))/col_scale(colnum));
   }
+
+  // Test if the value is valid, or was missing in the orginal dataset
+  public boolean valid(long rownum, int colnum) throws IOException {
+    int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
+    long chknum = chunk_for_row(rownum,rpc);
+    int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
+    int off = row_in_chunk * row_size();
+    // Get the whole row.  Note that in structured arrays, no row splits a chunk.
+    byte[] bits = get(chknum).get(off+row_size());
+    int col_off = off+col_off(colnum);
+    switch( col_size(colnum) ) {
+    case  1:  return           bits[col_off] != -1;
+    case  2:  return UDP.get2 (bits,col_off) != 65535;
+    case  4:  return UDP.get4 (bits,col_off) != Integer.MIN_VALUE;
+    case  8:  return UDP.get8 (bits,col_off) !=    Long.MIN_VALUE;
+    case -4:  return ! Float.isNaN(UDP.get4f(bits,col_off));
+    case -8:  return !Double.isNaN(UDP.get8d(bits,col_off));
+    }
+    return false;
+  }
+  // Test if the value is valid, or was missing in the orginal dataset
+  // This is a version where all the loop-invariants are hoisted already.
+  public boolean valid(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size ) {
+    int off = (row_in_chunk * row_size) + col_off;
+    switch( col_size ) {
+    case  1:  return           bits[off] != -1;
+    case  2:  return UDP.get2 (bits,off) != 65535;
+    case  4:  return UDP.get4 (bits,off) != Integer.MIN_VALUE;
+    case  8:  return UDP.get8 (bits,off) !=    Long.MIN_VALUE;
+    case -4:  return ! Float.isNaN(UDP.get4f(bits,off));
+    case -8:  return !Double.isNaN(UDP.get8d(bits,off));
+    }
+    return false;
+  }
+
 
   static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
