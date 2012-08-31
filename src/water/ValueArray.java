@@ -240,7 +240,7 @@ public class ValueArray extends Value {
   static private final int PRIORKEY_OFF=NUM_ROWS_OFF+8; // prior key string offset
   static private final int XFORM_OFF   =PRIORKEY_OFF+4; // prior xforms string offset
   static private final int ROW_SIZE_OFF=XFORM_OFF   +4; // Size of each row (sum of column widths)
-  static private final int NUM_COLS_OFF=ROW_SIZE_OFF+2; // number of columns; 0 for unstructured data
+  static private final int NUM_COLS_OFF=ROW_SIZE_OFF+4; // number of columns; 0 for unstructured data
   static private final int PAD_OFF     =NUM_COLS_OFF+4; // pad to multiple of 8
   static private final int COLUMN0_OFF =PAD_OFF     +4; // Start of column 0 metadata
 
@@ -266,7 +266,7 @@ public class ValueArray extends Value {
   // Number of rows    in this dataset.  0 for not-structured data.
   public long num_rows() { return UDP.get8(get(),NUM_ROWS_OFF); }
   // Size of each row (sum of column widths) in bytes
-  public int  row_size() { return UDP.get2(get(),ROW_SIZE_OFF)&0xFFFF; }
+  public int  row_size() { return UDP.get4(get(),ROW_SIZE_OFF); }
 
 
   // Additional column layout; repeat per column
@@ -509,7 +509,7 @@ public class ValueArray extends Value {
     // Fill it.
     UDP.set8(mem,LENGTH_OFF,(num_rows*row_size));
     UDP.set4(mem,NUM_COLS_OFF,cols.length);
-    UDP.set2(mem,ROW_SIZE_OFF,row_size);
+    UDP.set4(mem,ROW_SIZE_OFF,row_size);
     UDP.set8(mem,NUM_ROWS_OFF,num_rows);
     int i=0;
     for( Column column : cols ) // Fill the columns

@@ -46,7 +46,7 @@ public class SVMLightParserKV extends CSVParserKV<double[]> {
     if (!_skipRecord) {
       switch (_state) {
       case STATE_INITIAL:
-        Arrays.fill(_csvRecord, _setup.defaultFloat);
+        Arrays.fill(_csvRecord, _setup.defaultDouble);
         _state = STATE_COLNUM;
         super.endField();
         break;

@@ -739,6 +739,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         case STATE_AFTER_QUOTED:
           if (c == '\r') {
             _state = STATE_ENDLINE;
+            endField();
           } else if (c == '\n') {
             endField();
             recordFinished = endRecord();
@@ -754,9 +755,10 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
           // if (c == '"')
           // throw new Error(
           // "field quoted after non-whitespace characters have been read");
-          if (c == '\r') {
+          if (c == '\r') {            
             _state = STATE_ENDLINE;
             _fieldEnd = _dataPtr;
+            endField();
           } else if (c == '\n') {
             _fieldEnd = _dataPtr;
             endField();
@@ -766,8 +768,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
             endField();
           }
           break;
-        case STATE_ENDLINE:
-          endField();
+        case STATE_ENDLINE:          
           recordFinished = endRecord();
           if (c != '\n')
             continue; // do not advance pointer in this case!
