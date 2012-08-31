@@ -85,7 +85,7 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  int DEFAULT = 100000;
+  int DEFAULT = 100;
   double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 

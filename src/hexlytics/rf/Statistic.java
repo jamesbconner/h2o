@@ -45,7 +45,11 @@ public class Statistic {
 
   public boolean singleClass() {
     int cnt = 0;
-    for(double d : dists) if (d >0 ) cnt++;
+    for(double d : dists)
+      if (d >0 ) {
+        cnt++;
+        if( cnt > 1 ) return false;
+      }
     return cnt==1;
   }
   
@@ -53,8 +57,8 @@ public class Statistic {
    * using weights. This class is called from the main statistic for each column
    * the statistic cares about. */
   class Column {
-    int [] cnt = new int[100];
-    int[][] val = new int[100][classes_];
+    int[]   cnt = new int[6000];
+    int[][] val = new int[6000][classes_];
     int first=-1, last=-1;
     int column; // column
     double[][] dists = new double[2][classes_]; // 2 x numClasses    
