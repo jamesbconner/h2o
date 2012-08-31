@@ -160,7 +160,7 @@ public final class ParseDataset {
 
   // ----
   // Distributed parsing
-  public static abstract class DParse extends DRemoteTask {
+  public static abstract class DParse extends MRTask {
     int _num_cols;              // Input
     int _num_rows;              // Output
     byte _commas;               // Input, comma-separator

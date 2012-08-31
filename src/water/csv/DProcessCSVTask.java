@@ -1,8 +1,8 @@
 package water.csv;
 
 import water.DKV;
-import water.DRemoteTask;
 import water.Key;
+import water.MRTask;
 import water.ValueArray;
 import water.csv.CSVParser.CSVParserSetup;
 
@@ -16,7 +16,7 @@ import water.csv.CSVParser.CSVParserSetup;
  * 
  * @param <T>
  */
-public abstract class DProcessCSVTask<T> extends DRemoteTask {
+public abstract class DProcessCSVTask<T> extends MRTask {
 
   private static final long serialVersionUID = -2869007295927691240L;
 
