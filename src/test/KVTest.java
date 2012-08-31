@@ -89,7 +89,7 @@ public class KVTest {
   // Remote Bit Set: OR together the result of a single bit-mask where the
   // shift-amount is passed in in the Key.
   @SuppressWarnings("serial")
-  public static class RemoteBitSet extends DRemoteTask {
+  public static class RemoteBitSet extends MRTask {
     int _x;
     public int wire_len() { return 4; }
     public int write( byte[] buf, int off ) { UDP.set4(buf,off,_x); return off+4; }
@@ -158,7 +158,7 @@ public class KVTest {
 
   // Byte-wise histogram
   @SuppressWarnings("serial")
-  public static class ByteHisto extends DRemoteTask {
+  public static class ByteHisto extends MRTask {
     int _x[];
     // Count occurances of bytes
     public void map( Key key ) {

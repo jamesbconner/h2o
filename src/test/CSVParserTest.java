@@ -12,11 +12,11 @@ import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import water.*;
-import water.csv.CSVParser.CSVEscapedBoundaryException;
-import water.csv.CSVParser.CSVParseException;
-import water.csv.CSVParser.CSVParserSetup;
-import water.csv.CSVString;
-import water.csv.ValueCSVRecords;
+import water.parser.CSVParser.CSVEscapedBoundaryException;
+import water.parser.CSVParser.CSVParseException;
+import water.parser.CSVParser.CSVParserSetup;
+import water.parser.CSVString;
+import water.parser.ValueCSVRecords;
 
 
 public class CSVParserTest {

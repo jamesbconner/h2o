@@ -39,6 +39,7 @@ public class DataAdapter  {
  
     public String name() { return name_; }
     public void shrinkWrap() { 
+      freeze();
       short[][] vss = new short[c_.length][];
      for(int i=0;i<c_.length;i++) {
        C c = c_[i];
@@ -85,7 +86,7 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  int DEFAULT = 100000;
+  int DEFAULT = 100;
   double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
@@ -108,7 +109,6 @@ class C {
     o2v_ = hashCol();
     short[] res = new short[sz_];
     for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
-    o2v_ = null;
     v_= null;
     return res;
   }

@@ -18,10 +18,10 @@ import water.DKV;
 import water.H2O;
 import water.Key;
 import water.Value;
-import water.csv.CSVParser.CSVParseException;
-import water.csv.CSVParserKV;
-import water.csv.CSVString;
-import water.csv.ValueCSVRecords;
+import water.parser.CSVParser.CSVParseException;
+import water.parser.CSVParserKV;
+import water.parser.CSVString;
+import water.parser.ValueCSVRecords;
 
 
 public class CSVParserKVTest {

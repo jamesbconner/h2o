@@ -1,4 +1,4 @@
-package hexlytics.rf;
+  package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
@@ -71,7 +71,8 @@ public class Data implements Iterable<Row> {
   public  String[] columnNames()  { return data_.columnNames(); }
   public  String classColumnName(){ return data_.classColumnName(); } 
   public String name() { return name_; }   
-
+  public int last(int column) { return data_.c_[column].o2v_.size(); }
+  
   public String toString() {
     String res = "Data "+ name()+"\n";
     if (columns()>0) { res+= rows()+" rows, "+ columns() + " cols, "+ classes() +" classes\n"; }
