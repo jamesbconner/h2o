@@ -17,13 +17,15 @@ public class Poker {
     int[] r = new int[names.length];
     CSVParserSetup setup = new CSVParserSetup();
     setup._parseColumnNames = false;
-    ValueCSVRecords<int[]> p1 = 
-        new ValueCSVRecords<int[]>(new FileInputStream(inputFile), r, null, setup);
+    ValueCSVRecords<int[]> p1 = null;
+  for (int k =0 ; k < 8; k++){
+    p1=  new ValueCSVRecords<int[]>(new FileInputStream(inputFile), r, null, setup);
     double[] v = new double[names.length];
     for (int[] x : p1) {
       for(int i=0;i<names.length;i++)  v[i]=x[i];
       poker.addRow(v);
     }
+  }
     poker.freeze();
     poker.shrinkWrap();
     _dapt = Data.make(poker);

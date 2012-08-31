@@ -19,14 +19,13 @@ public class Tree implements Serializable {
   final INode compute_(Data d, Statistic s) {
     _Cs = d.data_.c_;
     if (s.singleClass()) return new LeafNode(s.classOf());
-    Split best = s.best(d);
+    Split best = s.best();
     if (best == null) return new LeafNode(s.classOf());
     else {
       Node nd = new Node(best.column,best.value);
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[]{
-          new Statistic(d.columns(),d.features(),d.classes(),d.random()),
-          new Statistic(d.columns(),d.features(),d.classes(),d.random())};
+          new Statistic(d,s), new Statistic(d,s)};
       d.filter(best,res,stats);
       nd.set(0,compute_(res[0],stats[0]));
       nd.set(1,compute_(res[1],stats[1]));
@@ -36,7 +35,7 @@ public class Tree implements Serializable {
   public final Tree compute(Data data) {
     _Cs = data.data_.c_;
     long t = System.currentTimeMillis(); 
-    Statistic s = new Statistic(data.columns(),data.features(),data.classes(),data.random());
+    Statistic s = new Statistic(data, null);
     for (Row r : data) s.add(r);
     tree_ = compute_(data,s);
     time_ = System.currentTimeMillis()-t;
