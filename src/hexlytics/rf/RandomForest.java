@@ -84,6 +84,7 @@ public class RandomForest {
     return " "+p+s;
   }
   public String confusionMatrix() {
+    int error = 0;
     final int K = data_.classes()+1; 
     for (Row r : data_){
       int realClass = r.classOf();
@@ -94,26 +95,34 @@ public class RandomForest {
       }
       int predClass = Utils.maxIndexInt(predictedClasses, data_.random());
       _confusion[realClass][predClass]++;
-      //_confusion[predClass][realClass]++;     
+      if (predClass != realClass) error++;
     }
-    
-    String [][] cms = new String[K][K];
+    double[] e2c = new double[data_.classes()];
+    for(int i=0;i<data_.classes();i++) {
+      int err = -_confusion[i][i];;
+      for(int j=0;j<data_.classes();j++) err+=_confusion[i][j];
+      e2c[i]= Math.round((err/(double)(err+_confusion[i][i]) ) * 100) / (double) 100  ;
+    }
+    String [][] cms = new String[K][K+1];
   //  String [] cn = data_.data_.columnNames();
     cms[0][0] = "";
     for (int i=1;i<K;i++) cms[0][i] = ""+ (i-1); //cn[i-1];
+    cms[0][K]= "err/class";
     for (int j=1;j<K;j++) cms[j][0] = ""+ (j-1); //cn[j-1];
+    for (int j=1;j<K;j++) cms[j][K] = ""+ e2c[j-1];
     for (int i=1;i<K;i++) 
       for (int j=1;j<K;j++) cms[j][i] = ""+_confusion[j-1][i-1];
     int maxlen = 0;
     for (int i=0;i<K;i++) 
-      for (int j=0;j<K;j++) maxlen = Math.max(maxlen, cms[i][j].length());
+      for (int j=0;j<K+1;j++) maxlen = Math.max(maxlen, cms[i][j].length());
     for (int i=0;i<K;i++) 
-      for (int j=0;j<K;j++) cms[i][j] = pad(cms[i][j],maxlen);
+      for (int j=0;j<K+1;j++) cms[i][j] = pad(cms[i][j],maxlen);
     String s = "";
     for (int i=0;i<K;i++) {
-      for (int j=0;j<K;j++) s += cms[i][j];
+      for (int j=0;j<K+1;j++) s += cms[i][j];
       s+="\n";
     }
+    //s+= error/(double)data_.rows();
     return s;      
   }
   
