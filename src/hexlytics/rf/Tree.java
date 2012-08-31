@@ -5,18 +5,15 @@ import hexlytics.rf.Statistic.Split;
 
 import java.io.Serializable;
 
-/**
- * @author peta
- */
 public class Tree implements Serializable {  
   private static final long serialVersionUID = 7669063054915148060L;
   INode tree_;
   long time_ ;
   C[] _Cs;
-  public Tree() {}
   
-  /** for given data creates a node and returns it. */
-  final INode compute_(Data d, Statistic s) {
+  public Tree() {}
+
+  final INode compute(Data d, Statistic s, Job[] jobs) {
     _Cs = d.data_.c_;
     if (s.singleClass()) return new LeafNode(s.classOf());
     Split best = s.best();
@@ -27,24 +24,14 @@ public class Tree implements Serializable {
       Statistic[] stats = new Statistic[]{
           new Statistic(d,s), new Statistic(d,s)};
       d.filter(best,res,stats);
-      nd.set(0,compute_(res[0],stats[0]));
-      nd.set(1,compute_(res[1],stats[1]));
+      jobs[0] = new Job(this, nd, 0,res[0],stats[0]);
+      jobs[1] = new Job(this, nd, 1,res[1],stats[1]);
       return nd;
     }
   }
-  public final Tree compute(Data data) {
-    _Cs = data.data_.c_;
-    long t = System.currentTimeMillis(); 
-    Statistic s = new Statistic(data, null);
-    for (Row r : data) s.add(r);
-    tree_ = compute_(data,s);
-    time_ = System.currentTimeMillis()-t;
-    System.out.println("Time: "+time_ + " Tree depth =  "+ tree_.depth()+ " leaves= "+ tree_.leaves() + " || "+  this);
-    return this;
-  }  
+
     
   public static abstract class INode  implements Serializable {    
-    private static final long serialVersionUID = 4707665968083310297L;
     int navigate(Row r) { return -1; }
     void set(int direction, INode n) { throw new Error("Unsupported"); }
     abstract int classify(Row r);
@@ -54,10 +41,6 @@ public class Tree implements Serializable {
  
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {     
-    private static final long serialVersionUID = -4781620729751890945L;
-    /** Type identifier of the node in the serialization */
-    public static final byte NODE_TYPE = 0;
-    /** Size of the serialized node. byte type and int class. */
     int class_ = -1;    // A category reported by the inner node
     LeafNode(int c)            { class_ = c; }
     public int classify(Row r) { return class_; }
@@ -67,7 +50,6 @@ public class Tree implements Serializable {
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
   class Node extends INode {   
-    private static final long serialVersionUID = -967861474179047605L;
     final int column_;
     final double value_;
     INode l_, r_;

@@ -18,7 +18,7 @@ public class Poker {
     CSVParserSetup setup = new CSVParserSetup();
     setup._parseColumnNames = false;
     ValueCSVRecords<int[]> p1 = null;
-  for (int k =0 ; k < 8; k++){
+  for (int k =0 ; k < 2; k++){
     p1=  new ValueCSVRecords<int[]>(new FileInputStream(inputFile), r, null, setup);
     double[] v = new double[names.length];
     for (int[] x : p1) {
