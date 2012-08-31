@@ -108,7 +108,6 @@ class C {
     o2v_ = hashCol();
     short[] res = new short[sz_];
     for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
-    o2v_ = null;
     v_= null;
     return res;
   }

@@ -6,7 +6,8 @@ import java.util.Random;
 
 
 public class Statistic {
- 
+  final Data data_;
+  final Statistic parent_;
   final Column[] columns_;  //columns for which the averages are computed
   private Split best;
   int classOf = -1;
@@ -24,11 +25,26 @@ public class Statistic {
     public String toString() {  return column+"@"+value;   }
   }
 
-  public Split best(Data d_) {  
+
+  public Statistic(Data d, Statistic s) {
+    data_ = d; parent_ = s;
+    columns_ = new Column[data_.columns()];
+    int i = data_.features();
+    classes_= data_.classes();
+    dists = new double[classes_];
+    while (i-- > 0) { 
+      int off = data_.random().nextInt(data_.columns());
+      if (columns_[off]!=null) continue;
+      columns_[off] = new Column(off);
+    }
+  }
+  
+  
+  public Split best() {  
     if (best!=null) return best;
     for (Column c: columns_) {
       if (c==null) continue;
-      Split s = c.split(d_);
+      Split s = c.split();
       if (s!=null && s.betterThan(best))  best = s;
     }
     return best;
@@ -38,7 +54,6 @@ public class Statistic {
       int max =0;
       for(int i=0;i<dists.length;i++) if (dists[i]>max) { max=(int)dists[i]; classOf = i;}
     }
-    //if(classOf==-1)throw new Error();
     return classOf; 
   }
 
@@ -46,10 +61,7 @@ public class Statistic {
   public boolean singleClass() {
     int cnt = 0;
     for(double d : dists)
-      if (d >0 ) {
-        cnt++;
-        if( cnt > 1 ) return false;
-      }
+      if (d > 0 && ++cnt > 1 ) return false;
     return cnt==1;
   }
   
@@ -57,12 +69,18 @@ public class Statistic {
    * using weights. This class is called from the main statistic for each column
    * the statistic cares about. */
   class Column {
-    int[]   cnt = new int[6000];
-    int[][] val = new int[6000][classes_];
+    final int[]   cnt;
+    final int[][] val;
     int first=-1, last=-1;
-    int column; // column
-    double[][] dists = new double[2][classes_]; // 2 x numClasses    
-    Column(int c) { column = c;  }    
+    final int column; // column
+    final double[][] dists = new double[2][classes_]; // 2 x numClasses    
+
+    Column(int c) { 
+      column = c; 
+      int lst = Statistic.this.last(column,Statistic.this) + 1;
+      cnt = new int[lst];
+      val = new int[lst][classes_];
+    }    
 
     void add(int class_,int o) {
       dists[1][class_]++;
@@ -72,7 +90,7 @@ public class Statistic {
       if (last<o) last=o;
    }        
      
-    Split split(Data d_) {
+    Split split() {
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       if (first==last) return null;
       // now try all the possible splits
@@ -92,19 +110,12 @@ public class Statistic {
     } 
   }
 
-  public Statistic(int columns, int features, int classes, Random rand) {
-    columns_ = new Column[columns];
-    int i = features;
-    classes_= classes;
-    dists = new double[classes_];
-    while (i > 0) { 
-      int off =rand.nextInt(columns);
-      if (columns_[off]!=null) continue;
-      columns_[off] = new Column(off);
-      i--;
-    }
-  }
 
+  private int last(int col, Statistic start) {     
+    if (this!= start && columns_[col]!=null) return columns_[col].last;
+    if (parent_!=null) return parent_.last(col, start);
+    return data_.last(col);
+  }
   public void add(Row r) {
     dists[r.classOf()] ++;
     for (Column c : columns_) 
