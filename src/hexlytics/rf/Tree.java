@@ -13,9 +13,15 @@ public class Tree implements Serializable {
   
   public static final int MAX_TREE_DEPTH = 20;
   
+  public static final double MIN_ERROR_RATE = 0.15;
+  
   public Tree() {}
 
   final INode compute(int depth, Data d, Statistic s, Job[] jobs) {
+    if (s.classOfError() < MIN_ERROR_RATE)
+      return new LeafNode(depth,s.classOf());
+    
+    
     if (depth == MAX_TREE_DEPTH) { // terminate the branch prematurely
       return new LeafNode(depth,s.classOf());
     }

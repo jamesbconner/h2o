@@ -146,4 +146,11 @@ public class Utils {
     return Double.longBitsToDouble(sum);
   }
   
+  public static double sum(double[] from) {
+    double result = 0;
+    for (double d: from)
+      result += d;
+    return result;
+  }
+  
 }

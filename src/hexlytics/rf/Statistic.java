@@ -56,6 +56,14 @@ public class Statistic {
     }
     return classOf; 
   }
+  
+  public double classOfError() {
+    if (classOf == -1)
+      classOf();
+    double total = Utils.sum(dists);
+    double others = total - dists[classOf];
+    return others / total;
+  }
 
 
   public boolean singleClass() {
