@@ -84,7 +84,7 @@ class Job {
   }
   void run() { 
     Job[] jobs = new Job[2];
-    INode newnode =  _tree.compute(_data, _stat, jobs);
+    INode newnode =  _tree.compute(_node == null ? 0 : _node.nodeDepth_+1,_data, _stat, jobs);
     if (_node==null)  _tree.tree_ = newnode;
     else _node.set(_direction,newnode);
     RFTask task = (RFTask) Thread.currentThread();

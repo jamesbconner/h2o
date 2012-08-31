@@ -11,15 +11,20 @@ public class Tree implements Serializable {
   long time_ ;
   C[] _Cs;
   
+  public static final int MAX_TREE_DEPTH = 20;
+  
   public Tree() {}
 
-  final INode compute(Data d, Statistic s, Job[] jobs) {
+  final INode compute(int depth, Data d, Statistic s, Job[] jobs) {
+    if (depth == MAX_TREE_DEPTH) { // terminate the branch prematurely
+      return new LeafNode(depth,s.classOf());
+    }
     _Cs = d.data_.c_;
-    if (s.singleClass()) return new LeafNode(s.classOf());
+    if (s.singleClass()) return new LeafNode(depth, s.classOf());
     Split best = s.best();
-    if (best == null) return new LeafNode(s.classOf());
+    if (best == null) return new LeafNode(depth, s.classOf());
     else {
-      Node nd = new Node(best.column,best.value);
+      Node nd = new Node(depth, best.column,best.value);
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[]{
           new Statistic(d,s), new Statistic(d,s)};
@@ -37,12 +42,19 @@ public class Tree implements Serializable {
     abstract int classify(Row r);
     public int depth()         { return 0; }
     public int leaves()        { return 1; }
+    public final int nodeDepth_;
+    protected INode(int depth) {
+      nodeDepth_ = depth;
+    }
   }
  
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {     
     int class_ = -1;    // A category reported by the inner node
-    LeafNode(int c)            { class_ = c; }
+    LeafNode(int depth,int c) {
+      super(depth);
+      class_ = c;
+    }
     public int classify(Row r) { return class_; }
     public String toString()   { return "["+class_+"]"; }
   }
@@ -53,7 +65,11 @@ public class Tree implements Serializable {
     final int column_;
     final double value_;
     INode l_, r_;
-    public Node(int column, double value) { column_=column; value_=value;  }
+    public Node(int depth,int column, double value) {
+      super(depth);
+      column_=column;
+      value_=value;
+    }
     public int navigate(Row r) { return r.getS(column_)<=value_?0:1; }
     public int classify(Row r) { return navigate(r)==0? l_.classify(r) : r_.classify(r); }
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
