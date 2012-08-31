@@ -21,8 +21,9 @@ public class TreeValidator {
   public void validate(Tree tree) { 
     err = rf_.validate(tree); 
     String ts = tree.toString();    
-    if(ts.length()>=100) ts = ts.substring(0,100) + "...";
-    glue_.report(glue_.nodeName()+" "+rf_.trees().size()+" | err="+ Utils.p5d(err)+" Tree="+ts);
+   if(ts.length()>=100) ts = ts.substring(0,100) + "...";    
+   String s = glue_.nodeName()+" "+rf_.trees_.size()+" Time: "+tree.time_+" Tree depth = "+tree.tree_.depth()+" leaves= "+ tree.tree_.leaves();
+    glue_.report(s+" | err="+ Utils.p5d(err)+" Tree="+ts);
   }
 
   /** We are done. Finish any validation and send you date to the aggregator. */

@@ -1,7 +1,10 @@
 package water.web;
 import java.util.Properties;
-import water.*;
-import water.csv.ParseDataset;
+
+import water.DKV;
+import water.Key;
+import water.Value;
+import water.parser.ParseDataset;
 
 public class Parse extends H2OPage {
   @Override protected String serve_impl(Properties args) {

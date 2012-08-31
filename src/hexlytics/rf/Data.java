@@ -1,4 +1,4 @@
-package hexlytics.rf;
+  package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
@@ -71,7 +71,8 @@ public class Data implements Iterable<Row> {
   public  String[] columnNames()  { return data_.columnNames(); }
   public  String classColumnName(){ return data_.classColumnName(); } 
   public String name() { return name_; }   
-
+  public int last(int column) { return data_.c_[column].o2v_.size(); }
+  
   public String toString() {
     String res = "Data "+ name()+"\n";
     if (columns()>0) { res+= rows()+" rows, "+ columns() + " cols, "+ classes() +" classes\n"; }
@@ -83,11 +84,11 @@ public class Data implements Iterable<Row> {
       s[i][3] = "";//" precision=" + colPre(i); 
     }
     int[] l = new int[4];
-    for(int j=0;j<4;j++) 
+    for(int j=0;j<4;j++)
       for(int k=0;k<columns();k++) 
         l[j] = Math.max(l[j], s[k][j].length());
     for(int k=0;k<columns();k++) {
-      for(int j=0;j<4;j++) { 
+      for(int j=0;j<4;j++) {
         res+= s[k][j]; int pad = l[j] - s[k][j].length();
         for(int m=0;m<=pad;m++) res+=" ";
       }
@@ -172,7 +173,12 @@ class Subset extends Data {
   
   /** Returns the number of rows. */
   @Override public int rows() { return sz_; }
-  
+
+  // Totals, mins & maxs are not recomputed on the subsets.
+  @Override public double colMin(int c)     { return data_.colMin(c); }
+  @Override public double colMax(int c)     { return data_.colMax(c); }
+  @Override public double colTot(int c)     { return Double.NaN; }
+ 
   /** Creates new subset of the given data adapter. The permutation is an array
    * of original row indices of the DataAdapter object that will be used. 
    */

@@ -15,17 +15,9 @@ public class ServletUtil {
 
   // Pull out two parameters and check for errors on the key
   public static String serveTwoParams(Properties args, RunnableTask task) {
-    Object res = check_key(args,"Key");
+    Object res = check_array(args,"Key");
     if( res instanceof String ) return (String)res;
-    Key key = (Key)res;
-    // Distributed get
-    Value val = DKV.get(key);
-    if( val == null )
-      return H2OPage.wrap(H2OPage.error("Key not found: "+ key));
-    if( !(val instanceof ValueArray) ||
-        ((ValueArray)val).num_cols() == 0 )
-      return H2OPage.wrap(H2OPage.error("Key not a structured (parsed) array"));
-    ValueArray ary = (ValueArray)val;
+    ValueArray ary = (ValueArray)res;
 
     int colA = H2OPage.getAsNumber(args,"colA",0);
     int colB = H2OPage.getAsNumber(args,"colB",1);
@@ -38,6 +30,22 @@ public class ServletUtil {
     return task.run(ary,colA,colB);
   }
 
+  // Returns a structured ValueArray or an error String
+  public static Object check_array(Properties args, String s) {
+    Object o = check_key(args,s);
+    if( o instanceof String ) return (String)o;
+    Key key = (Key)o;
+    // Distributed get
+    Value val = DKV.get(key);
+    if( val == null )
+      return H2OPage.wrap(H2OPage.error("Key not found: "+ key));
+    if( !(val instanceof ValueArray) ||
+        ((ValueArray)val).num_cols() == 0 )
+      return H2OPage.wrap(H2OPage.error("Key not a structured (parsed) array"));
+    return val;
+  }
+
+  // Returns a Key or an error String
   public static Object check_key(Properties args, String s) {
     String skey = args.getProperty(s);
     if( skey == null ) return H2OPage.wrap(H2OPage.error("Missing argument key: "+ s));
