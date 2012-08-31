@@ -272,8 +272,8 @@ public final class ParseDataset {
       for( double[] ds : csv ) {
         if( allNaNs(ds) ) continue; // Row is dead, skip it entirely
         // Row has some valid data, parse away
-        if(ds.length > _num_cols){
-          Column [] newCols = new Column[ds.length];
+        if(ds.length > _num_cols){ // can happen only for svmlight format, enlarge the column array
+          Column [] newCols = new Column[ds.length]; 
           System.arraycopy(_cols, 0, newCols, 0, _cols.length);
           for(int i = _cols.length; i < newCols.length; ++i)
             newCols[i] = new Column();
@@ -283,7 +283,7 @@ public final class ParseDataset {
         num_rows++;
         for( int i=0; i<ds.length; i++ ) {
           double d = ds[i];
-          if( Double.isNaN(d) ) { // Broken data on row
+          if(Double.isNaN(d)) { // Broken data on row
             _cols[i]._size |=32;  // Flag as seen broken data
             _cols[i]._badat++;
             if( _cols[i]._badat==0 ) _cols[i]._badat = (char)65535; // Increment; pin at max short
@@ -544,6 +544,10 @@ public final class ParseDataset {
     }
   }
   
+  // guess the number of columns for svmlight file
+  // basically walks through the data and test last column index on each line
+  // and takes max value of those as a result
+  // if the file is large, this method is not reliable unless applied on all the data
   private static int guess_num_cols_svmlight(byte [] b){
     int lastColon = -1;
     int lastCheckedColon = -1;
@@ -553,13 +557,14 @@ public final class ParseDataset {
       if(b[i] == '#') comment = true;
       if(b[i] == ':' && !comment)lastColon = i;
       if(b[i] == '\r' || b[i] == '\n'){
-        if(lastColon != lastCheckedColon){// check last colnumber
+     // check last column number on the line, column ids are strictly increasing so we need only to check the last one 
+        if(lastColon != lastCheckedColon){
           int j = lastColon -1;
-          while(j >=0 && Character.isDigit(b[j])) --j;
-          String s = new String(b,j+1,lastColon-j-1);
-          n = Math.max(Integer.valueOf(new String(b,j+1,lastColon-j-1)), n);          
+          while(j >=0 && Character.isDigit(b[j])) --j; // find the boundaries of the integer in front if the ':'
+          n = Math.max(Integer.valueOf(new String(b,j+1,lastColon-j-1)), n);
+          lastCheckedColon = lastColon;
         }                
-        if(b[i+1] == '\n') ++i;
+        if(((i+1) < b.length)  && (b[i+1] == '\n')) ++i;
         comment = false;
       }
     }
@@ -570,11 +575,12 @@ public final class ParseDataset {
   static final int CSV_TYPE_COMMASEP = 102;
   static final int CSV_TYPE_SPACESEP = 103; 
   // ---
-  // Alternative column guesser.  Returns # of columns discovered, and flips
-  // the sign of the result if it sees any commas.
+  // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
+  // the number of columns for svm light is not reliable as it only relies on info from the first chunk
   private static int[] guess_parser_setup(Value dataset) {
-    // Best-guess on count of columns.  Skip 1st line.  Count column delimiters
-    // in the next line.    
+    // Best-guess on count of columns and separator.  Skip the 1st line.  
+    // Count column delimiters in the next line. If there are commas, assume file is comma separated.
+    // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk    
     int i=0;
@@ -607,8 +613,8 @@ public final class ParseDataset {
         mode = 0;
       } else if( c == '"' ) {
         throw new Error("string skipping not implemented");
-      } else if(c == ':' && (++colonCounter == 5)){
-        
+      } else if(c == ':' && (++colonCounter == 3)){
+        // if there are at least 3 ':' on the line, the file is probably svmlight format
         return new int[]{CSV_TYPE_SVMLIGHT,guess_num_cols_svmlight(b)};
       } else {                  // Else its just column data
         if( mode != 1 ) cols++;

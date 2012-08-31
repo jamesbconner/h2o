@@ -4,8 +4,16 @@ import java.util.Arrays;
 
 import water.Key;
 
+/**
+ * Wrapper around CSVPArserKV parsing SVMLIght format.
+ * 
+ * Parses values only to expanded array of doubles.
+ * 
+ * @author tomas
+ *
+ */
 public class SVMLightParserKV extends CSVParserKV<double[]> {
-  static ParserSetup setup() {
+  static ParserSetup setup() { // set the parser to consider both whitespace and ':' as separators    
     ParserSetup s = new ParserSetup();
     s.separator = ':';
     s.whiteSpaceSeparator = true;
@@ -31,7 +39,7 @@ public class SVMLightParserKV extends CSVParserKV<double[]> {
   private static final int STATE_COMMENT = 4;
   private static final int STATE_IGNORE = 5;
 
-  @Override
+  @Override // Override the endField to set column idx when needed
   protected void endField() throws IllegalArgumentException,
       IllegalAccessException {
     // is it comment?
