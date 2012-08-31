@@ -1,7 +1,8 @@
 package water.web;
-import hexlytics.rf.Poker;
 import java.util.Properties;
-import water.*;
+
+import water.H2O;
+import water.ValueArray;
 
 public class RandomForest extends H2OPage {
   @Override protected String serve_impl(Properties args) {
@@ -9,9 +10,11 @@ public class RandomForest extends H2OPage {
     if( o instanceof String ) return (String)o;
     ValueArray ary = (ValueArray)o;
     int ntrees = getAsNumber(args,"ntrees", 5*H2O.CLOUD._memary.length);
-
+    int depth = getAsNumber(args,"depth", 30);
+    int threads = getAsNumber(args,"threads", 4);
+    
     String res = "some results go here";
-    try { Poker.web_main(ary,ntrees); }
+    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,threads); }
     catch( Exception e ) { res = e.toString(); }
     RString response = new RString(html);
     response.replace("key",ary._key);

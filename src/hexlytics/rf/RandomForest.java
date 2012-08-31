@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import water.DKV;
+import water.ValueArray;
+
 /**
  * @author peta
  */
@@ -51,6 +54,28 @@ public class RandomForest {
     for (Thread b : RFTask._)  try { b.join();} catch (InterruptedException e) { }
     tree.time_ = System.currentTimeMillis()-t;
     add(tree);
+  }
+  
+  // Dataset launched from web interface
+  public static void web_main( ValueArray ary, int ntrees, int depth, int threads) {
+    final int rowsize = ary.row_size();
+    final int num_cols = ary.num_cols();
+    String[] names = ary.col_names();
+    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, 
+                                       names[num_cols-1]); // Assume class is the last column
+    double[] ds = new double[num_cols];
+    final long num_chks = ary.chunks();
+    for( long i=0; i<num_chks; i++ ) { // By chunks
+      byte[] bits = DKV.get(ary.chunk_get(i)).get();
+      final int num_rows = bits.length/rowsize;
+      for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
+        for( int k=0; k<num_cols; k++ )
+          ds[k] = ary.datad(bits,j,rowsize,k);
+        dapt.addRow(ds);
+      }
+    }
+    dapt.shrinkWrap();
+    RandomForest.build(dapt, .666, -1, ntrees, depth, -1,threads);
   }
   
   /** Classifies a single row using the forest. */
