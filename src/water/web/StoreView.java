@@ -2,9 +2,13 @@ package water.web;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
-import water.*;
-import water.csv.CSVParser.*;
-import water.csv.CSVParserKV;
+
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.Value;
+import water.ValueArray;
+import water.parser.CSVParserKV;
 
 /**
  *

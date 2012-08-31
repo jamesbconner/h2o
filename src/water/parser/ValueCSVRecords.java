@@ -1,4 +1,4 @@
-package water.csv;
+package water.parser;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,10 +13,10 @@ import water.DKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
-import water.csv.CSVParser.CSVEscapedBoundaryException;
-import water.csv.CSVParser.CSVParseException;
-import water.csv.CSVParser.CSVParserSetup;
-import water.csv.CSVParser.CSVParserSetup.PartialRecordPolicy;
+import water.parser.CSVParser.CSVEscapedBoundaryException;
+import water.parser.CSVParser.CSVParseException;
+import water.parser.CSVParser.CSVParserSetup;
+import water.parser.CSVParser.CSVParserSetup.PartialRecordPolicy;
 
 /**
  * Wrapper around CSVParser implementing iterator interface.

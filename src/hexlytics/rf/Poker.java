@@ -2,11 +2,11 @@ package hexlytics.rf;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.Arrays;
+
 import water.DKV;
 import water.ValueArray;
-import water.csv.CSVParser.CSVParserSetup;
-import water.csv.ValueCSVRecords;
+import water.parser.CSVParser.CSVParserSetup;
+import water.parser.ValueCSVRecords;
 
 public class Poker {
   Data _dapt;

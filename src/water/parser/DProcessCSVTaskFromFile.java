@@ -1,4 +1,4 @@
-package water.csv;
+package water.parser;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -8,7 +8,7 @@ import water.Key;
 import water.UDP;
 import water.Value;
 import water.ValueArray;
-import water.csv.CSVParser.CSVParserSetup;
+import water.parser.CSVParser.CSVParserSetup;
 
 public abstract class DProcessCSVTaskFromFile<T> extends DProcessCSVTask<T> {
     

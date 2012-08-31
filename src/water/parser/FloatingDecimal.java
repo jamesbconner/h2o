@@ -23,7 +23,7 @@
    * questions.
    */
   
-package water.csv;
+package water.parser;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import sun.misc.DoubleConsts;

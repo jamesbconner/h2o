@@ -1,4 +1,4 @@
-package water.csv;
+package water.parser;
 
 
 public class CSVString implements CharSequence, Comparable<String> {

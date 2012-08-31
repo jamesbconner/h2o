@@ -1,7 +1,7 @@
 package water.web;
 import java.util.Properties;
-import water.*;
-import water.csv.ParseDataset;
+
+import water.ValueArray;
 
 /**
  * The servlet for launching a covariance computation

@@ -1,4 +1,4 @@
-package water.csv;
+package water.parser;
 
 import java.io.IOException;
 import java.lang.reflect.Array;

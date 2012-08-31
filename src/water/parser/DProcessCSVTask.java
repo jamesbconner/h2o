@@ -1,10 +1,10 @@
-package water.csv;
+package water.parser;
 
 import water.DKV;
 import water.Key;
 import water.MRTask;
 import water.ValueArray;
-import water.csv.CSVParser.CSVParserSetup;
+import water.parser.CSVParser.CSVParserSetup;
 
 /**
  * Base class for distributed CSV parsing.
