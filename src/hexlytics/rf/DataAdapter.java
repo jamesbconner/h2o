@@ -39,6 +39,7 @@ public class DataAdapter  {
  
     public String name() { return name_; }
     public void shrinkWrap() { 
+      freeze();
       short[][] vss = new short[c_.length][];
      for(int i=0;i<c_.length;i++) {
        C c = c_[i];
