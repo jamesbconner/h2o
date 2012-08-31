@@ -20,7 +20,12 @@ public class Inspect extends H2OPage {
   }
   
   @Override protected String serve_impl(Properties args) {
+    String columFrom = args.getProperty("ColMin");
+    String columTo = args.getProperty("ColMax");
+    int columnMax = (columFrom == null)?0:Integer.valueOf(columFrom);
+    int columnMin = (columTo == null)?0:Integer.valueOf(columFrom);
     String key_s = args.getProperty("Key");
+    
     if( key_s == null ) return wrap(error("Missing Key argument"));
     Key key = null;
     try { 
@@ -192,7 +197,7 @@ public class Inspect extends H2OPage {
 
     // Header row
     StringBuilder sb = new StringBuilder();
-    final int num_col = ary.num_cols();
+    final int num_col = Math.min(21,ary.num_cols());
     String[] names = ary.col_names();
     for( int i=0; i<num_col; i++ )
       sb.append("<th>").append(names[i]);
@@ -290,7 +295,7 @@ public class Inspect extends H2OPage {
   static private void display_row(ValueArray ary, long r, RString response) {
     RString row = response.restartGroup("tableRow");
     try {
-      int num_col = ary.num_cols();
+      int num_col = Math.min(ary.num_cols(),21);
       StringBuilder sb = new StringBuilder();
       sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
       for( int i=0; i<num_col; i++ ) {
