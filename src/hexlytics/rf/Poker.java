@@ -34,9 +34,9 @@ public class Poker {
     RandomForest.build(p._dapt, 
         .6, //sampling
         -1,  //# features
-        10, //# trees
-        -1, //depth
-        -1, //minerror rate
+        25, //# trees
+        30, //depth
+        -1, //min error rate
         4); // threads
   }
 

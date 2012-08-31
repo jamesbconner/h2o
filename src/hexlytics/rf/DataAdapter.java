@@ -55,7 +55,7 @@ public class DataAdapter  {
     static public  int FEATURES = -1;
     public void freeze() { frozen_=true; }
     public int features() { 
-       return  FEATURES==-1 ? (int) Math.sqrt(c_.length) : FEATURES;
+       return  FEATURES==-1 ? FEATURES = (int)Math.sqrt(c_.length) : FEATURES;
     }
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }

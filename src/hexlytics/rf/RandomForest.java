@@ -14,9 +14,7 @@ public class RandomForest {
 
   public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads) {
     if (maxTreeDepth != -1) Tree.MAX_TREE_DEPTH = maxTreeDepth;  
-    if (minErrorRate != -1) Tree.MIN_ERROR_RATE = minErrorRate;
-
-    
+    if (minErrorRate != -1) Tree.MIN_ERROR_RATE = minErrorRate;    
     Data d = Data.make(dapt);
     Data t = d.sampleWithReplacement(sampleRatio);
     Data v = t.complement();
@@ -63,18 +61,60 @@ public class RandomForest {
   }
   private int[][] scores_;
   private long errors_ = -1;
-  
+  private int[][] _confusion;
   public synchronized double validate(Tree t) {
     if (scores_ == null)  scores_ = new int[data_.rows()][data_.classes()];
+    if (_confusion == null) _confusion = new int[data_.classes()][data_.classes()];
     trees_.add(t);    
     errors_ = 0; int i = 0;
-    for (Row r : data_) { 
-      scores_[i][t.tree_.classify(r)]++;
+    for (Row r : data_) {
+      int k = t.tree_.classify(r);
+      scores_[i][k]++;
       int[] votes = scores_[i];            
       if (r.classOf() != Utils.maxIndex(votes, data_.random()))  ++errors_;
       ++i;
     }
     return errors_ / (double) data_.rows();
+  }
+  
+  
+  private String pad(String s, int l) {
+    String p="";
+    for (int i=0;i < l - s.length(); i++) p+= " ";
+    return " "+p+s;
+  }
+  public String confusionMatrix() {
+    final int K = data_.classes()+1; 
+    for (Row r : data_){
+      int realClass = r.classOf();
+      int[] predictedClasses = new int[data_.classes()];
+      for (Tree t: trees_) {
+        int k = t.tree_.classify(r);
+        predictedClasses[k]++;
+      }
+      int predClass = Utils.maxIndexInt(predictedClasses, data_.random());
+      _confusion[realClass][predClass]++;
+      //_confusion[predClass][realClass]++;     
+    }
+    
+    String [][] cms = new String[K][K];
+  //  String [] cn = data_.data_.columnNames();
+    cms[0][0] = "";
+    for (int i=1;i<K;i++) cms[0][i] = ""+ (i-1); //cn[i-1];
+    for (int j=1;j<K;j++) cms[j][0] = ""+ (j-1); //cn[j-1];
+    for (int i=1;i<K;i++) 
+      for (int j=1;j<K;j++) cms[j][i] = ""+_confusion[j-1][i-1];
+    int maxlen = 0;
+    for (int i=0;i<K;i++) 
+      for (int j=0;j<K;j++) maxlen = Math.max(maxlen, cms[i][j].length());
+    for (int i=0;i<K;i++) 
+      for (int j=0;j<K;j++) cms[i][j] = pad(cms[i][j],maxlen);
+    String s = "";
+    for (int i=0;i<K;i++) {
+      for (int j=0;j<K;j++) s += cms[i][j];
+      s+="\n";
+    }
+    return s;      
   }
   
   public final synchronized long errors() { if(errors_==-1) throw new Error("unitialized errors"); else return errors_; }

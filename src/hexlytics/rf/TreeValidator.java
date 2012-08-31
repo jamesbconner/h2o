@@ -28,8 +28,13 @@ public class TreeValidator {
 
   /** We are done. Finish any validation and send you date to the aggregator. */
   public void terminate() {
-    glue_.report("Err=" + err);
-    glue_.error(rf_.errors()); 
+    String s = 
+        "              Type of random forest: classification\n" +
+        "                    Number of trees: "+ rf_.trees_.size() +"\n"+
+        "No of variables tried at each split: " + DataAdapter.FEATURES+"\n"+
+        "             Estimate of error rate: " + Math.round(err *10000)/100 + "%\n"+ 
+        "                   Confusion matrix:\n" + rf_.confusionMatrix();
+    glue_.report(s);
   }
   
 }
