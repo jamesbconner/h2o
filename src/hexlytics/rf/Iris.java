@@ -9,20 +9,11 @@ public class Iris {
     iris_ =  new DataAdapter("Iris", names,"Species");
     double[] v =new double[names.length];
     for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
-    for(F f: data){ v[0]=f.sl;v[1]=f.sw;v[2]=f.pl;v[3]=f.pw;v[4]=f.class_; iris_.addRow(v); }
     iris_.shrinkWrap();
   }
 
   public static void main(String[] a) {     
-    RandomForest.build(new Iris().iris_, .6, 3, 10, -1);
+    RandomForest.build(new Iris().iris_, .6, 2, 500, -1, 1);
   }
   
 
