@@ -2,7 +2,6 @@
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Tree.INode;
-import hexlytics.rf.Tree.Node;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -13,12 +12,13 @@ import java.util.Queue;
  */
 public class RandomForest {
 
-  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxDepth) {
+  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxDepth, int threads) {
     Data d = Data.make(dapt);
     Data t = d.sampleWithReplacement(sampleRatio);
     Data v = t.complement();
     DataAdapter.FEATURES = features;
-    Director dir = new LocalBuilder(t,v,trees);
+    numThreads = threads;
+    new LocalBuilder(t,v,trees);
   }
   
   private static int numThreads = -1;
@@ -29,11 +29,7 @@ public class RandomForest {
 
   public RandomForest(Data d, Director g, int trees) { data_ = d; glue_ = g; numTrees_ = trees;  }
 
-  private synchronized void add(Tree t) {
-    if (done()) return;
-    glue_.onTreeBuilt(t);  trees_.add(t);
-  }
-
+  private synchronized void add(Tree t) { if (done()) return; glue_.onTreeBuilt(t); trees_.add(t); }
   public synchronized void addAll(ArrayList<Tree> ts) { trees_.addAll(ts); }
   public synchronized ArrayList<Tree> trees() { return trees_; }
   synchronized boolean done() { return trees_.size() >= numTrees_; }
@@ -52,7 +48,6 @@ public class RandomForest {
     for (Thread b : RFTask._) b.start();
     for (Thread b : RFTask._)  try { b.join();} catch (InterruptedException e) { }
     tree.time_ = System.currentTimeMillis()-t;
-    System.out.println("Time: "+tree.time_ + " Tree depth =  "+ tree.tree_.depth()+ " leaves= "+ tree.tree_.leaves() + " || "+  tree.toString().substring(0, 120) + "...");
     add(tree);
   }
   
@@ -69,7 +64,7 @@ public class RandomForest {
     if (scores_ == null)  scores_ = new int[data_.rows()][data_.classes()];
     trees_.add(t);    
     errors_ = 0; int i = 0;
-    for (Row r : data_) {  // FIXME... we are using training data for valiation??? That's wrong...
+    for (Row r : data_) { 
       scores_[i][t.tree_.classify(r)]++;
       int[] votes = scores_[i];            
       if (r.classOf() != Utils.maxIndex(votes, data_.random()))  ++errors_;
@@ -115,7 +110,9 @@ class RFTask extends Thread {
     boolean done = true;
     for (RFTask r : _) done &= r.idle;
     if (done) return true;
-    try { sleep(100); } catch (Exception _){ }
+    try {
+      sleep(100);
+      } catch (Exception _){ }
     idle = false;
     return false;
   }
