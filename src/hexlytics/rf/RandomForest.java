@@ -12,7 +12,11 @@ import java.util.Queue;
  */
 public class RandomForest {
 
-  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxDepth, int threads) {
+  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads) {
+    if (maxTreeDepth != -1) Tree.MAX_TREE_DEPTH = maxTreeDepth;  
+    if (minErrorRate != -1) Tree.MIN_ERROR_RATE = minErrorRate;
+
+    
     Data d = Data.make(dapt);
     Data t = d.sampleWithReplacement(sampleRatio);
     Data v = t.complement();
@@ -40,7 +44,7 @@ public class RandomForest {
     long t = System.currentTimeMillis();     
     if (numThreads == -1) numThreads =  Runtime.getRuntime().availableProcessors();
     RFTask._ = new RFTask[numThreads];
-    for(int i=0;i<numThreads;i++) RFTask._[i] = new RFTask();
+    for(int i=0;i<numThreads;i++) RFTask._[i] = new RFTask(data_);
     Statistic s = new Statistic(data_, null);
     for (Row r : data_) s.add(r);
     Tree tree = new Tree();
@@ -95,6 +99,9 @@ class Job {
 
 class RFTask extends Thread {
   static RFTask[] _;  
+  static Data _data;
+  static Data data() { return _data; }
+  RFTask(Data d){ _data=d; }
   Queue<Job> _q = new LinkedList<Job>(); 
   boolean idle = false;  
   public void run() {

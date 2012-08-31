@@ -31,7 +31,13 @@ public class Poker {
     if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
     File f = new File(args[0]);
     Poker p = new Poker(f);
-    RandomForest.build(p._dapt, .6, 3, 1, -1, 4);
+    RandomForest.build(p._dapt, 
+        .6, //sampling
+        -1,  //# features
+        10, //# trees
+        -1, //depth
+        -1, //minerror rate
+        4); // threads
   }
 
   // Dataset launched from web interface
@@ -53,6 +59,6 @@ public class Poker {
       }
     }
     dapt.shrinkWrap();
-    RandomForest.build(dapt, .666, 3, ntrees, -1, -1);
+    RandomForest.build(dapt, .666, 3, ntrees, -1, -1, -1);
   }
 }

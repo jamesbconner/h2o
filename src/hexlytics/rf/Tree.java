@@ -6,26 +6,19 @@ import hexlytics.rf.Statistic.Split;
 import java.io.Serializable;
 
 public class Tree implements Serializable {  
+  public static  int MAX_TREE_DEPTH = 20;  
+  public static  double MIN_ERROR_RATE = 0.15;
   private static final long serialVersionUID = 7669063054915148060L;
+
   INode tree_;
   long time_ ;
-  C[] _Cs;
-  
-  public static final int MAX_TREE_DEPTH = 20;
-  
-  public static final double MIN_ERROR_RATE = 0.15;
   
   public Tree() {}
 
   final INode compute(int depth, Data d, Statistic s, Job[] jobs) {
-    if (s.classOfError() < MIN_ERROR_RATE)
+    // terminate the branch prematurely
+    if (s.classOfError() < MIN_ERROR_RATE || depth == MAX_TREE_DEPTH)  
       return new LeafNode(depth,s.classOf());
-    
-    
-    if (depth == MAX_TREE_DEPTH) { // terminate the branch prematurely
-      return new LeafNode(depth,s.classOf());
-    }
-    _Cs = d.data_.c_;
     if (s.singleClass()) return new LeafNode(depth, s.classOf());
     Split best = s.best();
     if (best == null) return new LeafNode(depth, s.classOf());
@@ -79,18 +72,18 @@ public class Tree implements Serializable {
     public int navigate(Row r) { return r.getS(column_)<=value_?0:1; }
     public int classify(Row r) { return navigate(r)==0? l_.classify(r) : r_.classify(r); }
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
+    public int leaves()       { return l_.leaves() + r_.leaves(); }
     public String toString() {
       short idx = (short)value_; // Convert split-point of the form X.5 to a (short)X
-      C c = _Cs[column_];
+      C c = RFTask.data().data_.c_[column_];
       double dlo = c._v2o[idx+0];
       double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
       double dmid = (dlo+dhi)/2.0;
       return c.name_ +"<" + Utils.p2d(dmid) + " ("+l_+","+r_+")";
     }
-    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
-    public int leaves()       { return l_.leaves() + r_.leaves(); }
-  }
+   }
  
   public int classify(Row r) { return tree_.classify(r); } 
-  public String toString() { return tree_.toString(); } 
+  public String toString()   { return tree_.toString(); } 
 }

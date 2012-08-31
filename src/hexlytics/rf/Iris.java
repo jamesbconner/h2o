@@ -13,7 +13,7 @@ public class Iris {
   }
 
   public static void main(String[] a) {     
-    RandomForest.build(new Iris().iris_, .6, 2, 500, -1, 1);
+    RandomForest.build(new Iris().iris_, .6, 2, 500, -1, -1, 1);
   }
   
 
