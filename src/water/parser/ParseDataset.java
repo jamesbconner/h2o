@@ -3,6 +3,8 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 
+import org.hyperic.sigar.Mem;
+
 import water.*;
 import water.ValueArray.Column;
 
@@ -399,13 +401,12 @@ public final class ParseDataset {
       // Get number of rows in this source chunk
       int num_rows = (int)(_rows_chk[(int)cidx+1]-start_row);
       // Get a place to hold the data
-      byte[] buf = new byte[num_rows*row_size];
-      // A place to hold each column datum
-      double[] data = new double[_cols.length];
+      byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
+      // A place to hold each column datum      
       // The parser
       CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT?
           new SVMLightParserKV(key, 1):
-          new CSVParserKV<double[]>(key,1,data,null);
+          new CSVParserKV<double[]>(key,1,new double[_cols.length],null);
       if( _csvType == CSV_TYPE_COMMASEP )
         csv._setup.whiteSpaceSeparator = false;      
       // Fill the rows
@@ -509,7 +510,7 @@ public final class ParseDataset {
       public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
         _dst_off = dstOff;
         _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
-        DKV.put(_key, new Value(_key, Arrays.copyOfRange(buf, srcOff, srcOff+len)));
+        DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
       }
       protected int wire_len() { return 4+_key._kb.length; }
       protected int  write( byte[] buf, int off ) {
