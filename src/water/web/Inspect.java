@@ -20,10 +20,6 @@ public class Inspect extends H2OPage {
   }
   
   @Override protected String serve_impl(Properties args) {
-    String columFrom = args.getProperty("ColMin");
-    String columTo = args.getProperty("ColMax");
-    int columnMax = (columFrom == null)?0:Integer.valueOf(columFrom);
-    int columnMin = (columTo == null)?0:Integer.valueOf(columFrom);
     String key_s = args.getProperty("Key");
     
     if( key_s == null ) return wrap(error("Missing Key argument"));
