@@ -12,10 +12,14 @@ public class Tree implements Serializable {
   private static final long serialVersionUID = 7669063054915148060L;
   INode tree_;
   long time_ ;
+  
+  public static final int MAX_TREE_DEPTH = 10;
+  
   public Tree() {}
   
   /** for given data creates a node and returns it. */
-  final INode compute_(Data d, Statistic s) {
+  final INode compute_(Data d, Statistic s, int depth) {
+    if (depth )
     if (s.singleClass()) return new LeafNode(s.classOf());
     Split best = s.best(d);
     if (best == null) return new LeafNode(s.classOf());
@@ -26,8 +30,8 @@ public class Tree implements Serializable {
           new Statistic(d.columns(),d.features(),d.classes(),d.random()),
           new Statistic(d.columns(),d.features(),d.classes(),d.random())};
       d.filter(best,res,stats);
-      nd.set(0,compute_(res[0],stats[0]));
-      nd.set(1,compute_(res[1],stats[1]));
+      nd.set(0,compute_(res[0],stats[0],depth+1));
+      nd.set(1,compute_(res[1],stats[1],depth+1));
       return nd;
     }
   }
@@ -35,7 +39,7 @@ public class Tree implements Serializable {
     long t = System.currentTimeMillis(); 
     Statistic s = new Statistic(data.columns(),data.features(),data.classes(),data.random());
     for (Row r : data) s.add(r);
-    tree_ = compute_(data,s);
+    tree_ = compute_(data,s,1);
     time_ = System.currentTimeMillis()-t;
     System.out.println("Time: "+time_ + " Tree depth =  "+ tree_.depth()+ " leaves= "+ tree_.leaves() + " || "+  this);
     return this;
