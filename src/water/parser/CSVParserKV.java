@@ -184,7 +184,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
   final boolean _isArray;
   boolean _next;
-  int _nColumns;
+  int _maxColumn; //max encountered column, if it si higher than our number of columns we skipped some data
 
   DataType[] _columnTypes;
   boolean _fresh = true;
@@ -635,6 +635,8 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       case typeNull:
         break;
       }
+    } else if(!_skipRecord && _column >= n && _column > _maxColumn){
+      _maxColumn = _column;
     }
     ++_column;
     _fieldStart = _dataPtr + 1;
@@ -815,4 +817,12 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     }
     return this;
   }
+  
+  public int ncolumns() {
+    return _isArray?Array.getLength(_csvRecord):_columnTypes.length;
+  }
+  
+  public int maxColumn() {
+    return _maxColumn;
+  }  
 }
