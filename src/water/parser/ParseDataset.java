@@ -278,7 +278,7 @@ public final class ParseDataset {
           for(int i = _cols.length; i < newCols.length; ++i)
             newCols[i] = new Column();
           _cols = newCols;
-          _num_cols = ds.length;
+          _num_cols = csv.ncolumns();
         }
         num_rows++;
         for( int i=0; i<ds.length; i++ ) {
@@ -306,8 +306,9 @@ public final class ParseDataset {
       int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
       _rows_chk = new int[idx+1];
       _rows_chk[idx] = num_rows;
-      if(_cols == null){
-        throw new Error();
+      if(_num_cols != _cols.length){
+        System.out.println("reducing number of columns from " + _cols.length + " to " + _num_cols);
+        _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
       }
     }
 
@@ -322,7 +323,7 @@ public final class ParseDataset {
       if( _cols == null ) {     // No local work?
         _cols = dp._cols;
       } else {
-        if(_cols.length < _num_cols){
+        if(_cols.length <= _num_cols){
           Column [] newCols = new Column[_num_cols];
           System.arraycopy(_cols, 0, newCols, 0, _cols.length);
           for(int i = _cols.length; i < _num_cols; ++i){
@@ -405,7 +406,7 @@ public final class ParseDataset {
       // A place to hold each column datum      
       // The parser
       CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT?
-          new SVMLightParserKV(key, 1):
+          new SVMLightParserKV(key, 1,_cols.length):
           new CSVParserKV<double[]>(key,1,new double[_cols.length],null);
       if( _csvType == CSV_TYPE_COMMASEP )
         csv._setup.whiteSpaceSeparator = false;      
@@ -414,7 +415,7 @@ public final class ParseDataset {
       for( double[] ds : csv ) {
         if( allNaNs(ds) ) continue; // Row is dead, skip it entirely
         int old = off;
-        for( int i=0; i<ds.length; i++ ) {
+        for( int i=0; i<_cols.length; i++ ) {
           double d = ds[i];
           ValueArray.Column col = _cols[i];
           if( !Double.isNaN(d) ) { // Broken data on row?
@@ -568,7 +569,7 @@ public final class ParseDataset {
         comment = false;
       }
     }
-    return n;
+    return Math.min(n,SVMLightParserKV.MAX_COLUMNS);
   }
   
   static final int CSV_TYPE_SVMLIGHT = 101;

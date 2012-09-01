@@ -13,6 +13,7 @@ import water.Key;
  *
  */
 public class SVMLightParserKV extends CSVParserKV<double[]> {
+  public static final int MAX_COLUMNS = Integer.MAX_VALUE;
   static ParserSetup setup() { // set the parser to consider both whitespace and ':' as separators    
     ParserSetup s = new ParserSetup();
     s.separator = ':';
@@ -33,6 +34,8 @@ public class SVMLightParserKV extends CSVParserKV<double[]> {
 
   int _state = STATE_INITIAL;
 
+  int _ncolumns;
+  int _maxColumn;
   private static final int STATE_INITIAL = 1;
   private static final int STATE_COLNUM = 2;
   private static final int STATE_VALUE = 3;
@@ -54,12 +57,14 @@ public class SVMLightParserKV extends CSVParserKV<double[]> {
         if (parseInt(_fieldStart, _fieldEnd, 10)) {
           if (_ival < _column)
             throw new Error("feature numbers must be strictly increasing!");
-          if (_ival >= _csvRecord.length) {
-            double[] newVal = new double[(_ival + 1) + (_ival >> 1)];
+          if (_ival >= _csvRecord.length && _ival < MAX_COLUMNS) {
+            _ncolumns = _ival+1;
+            double[] newVal = new double[Math.min((_ival + 1) + (_ival >> 1),MAX_COLUMNS)];
             Arrays.fill(newVal, _setup.defaultDouble);
             System.arraycopy(_csvRecord, 0, newVal, 0, _csvRecord.length);
             _csvRecord = newVal;
-          }
+          } else if(_ival >= MAX_COLUMNS && _ival > _maxColumn)
+            _maxColumn = _ival;
           _state = STATE_VALUE;
           _skipRecord = true;
           super.endField();
@@ -114,5 +119,9 @@ public class SVMLightParserKV extends CSVParserKV<double[]> {
     _column = ncols();
     _state = STATE_INITIAL;
     return super.endRecord();
+  }
+  
+  @Override public int ncolumns() {
+    return _ncolumns;
   }
 }
