@@ -25,18 +25,27 @@
   </path>
 
    <target name="init">
+	  <tstamp>
+      		<format property="build.start" pattern="hh.mm.ss aa d-MMMM-yyyy"/>
+    	  </tstamp>
+      	  <echo message="[${build.start}] start build"/>
 	  <mkdir dir="${build.dir}"/>
 	  <mkdir dir="${build.dir.lib}"/>
 	  <mkdir dir="${build.classes}"/>
 	  <mkdir dir="${jar.dir}"/>
 	  <mkdir dir="${jar.dir}/lib"/>
   	  <mkdir dir="${build.testclasses}"/>
+	
    </target>
 	
   <target name="main" depends="compile, jar" description="Main target">
       <echo>
           Building the product jar file.
       </echo>
+	 <tstamp>
+      		<format property="build.end" pattern="hh.mm.ss aa d-MMMM-yyyy"/>
+    	  </tstamp>
+      	  <echo message="[${build.end}] end build "/>
   </target>
 
 <!-- compile everything -->
@@ -57,8 +66,12 @@
   </target>
 
  <!-- make one single hexbase.jar -->
-  <target name="jar" description="hexbase.jar target" depends="compile, prejar">
+  <target name="jar" description="h2o.jar target" depends="compile, prejar">
+    <tstamp>
+      <format property="jar.time" pattern="hh.mm.ss-d-MMMM-yyyy"/>
+    </tstamp>
     <jar jarfile="${jar.dir}/h2o.jar" manifest="${basedir}/manifest.txt" basedir="${build.lib}" excludes="h2o.jar"/>
+    <copy file="${jar.dir}/h2o.jar" tofile="${jar.dir}/h2o-${jar.time}.jar" verbose="true"/>
   </target>
 
   <target name="run" description="run the cloud" depends="compile,jar">
