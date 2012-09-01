@@ -3,8 +3,6 @@ package hexlytics.rf;
 import java.io.File;
 import java.io.FileInputStream;
 
-import water.DKV;
-import water.ValueArray;
 import water.parser.CSVParser.CSVParserSetup;
 import water.parser.ValueCSVRecords;
 
@@ -34,31 +32,11 @@ public class Poker {
     RandomForest.build(p._dapt, 
         .6, //sampling
         -1,  //# features
-        25, //# trees
-        30, //depth
+        100, //# trees
+        40, //depth
         -1, //min error rate
         4); // threads
   }
 
-  // Dataset launched from web interface
-  public static void web_main( ValueArray ary, int ntrees) {
-    final int rowsize = ary.row_size();
-    final int num_cols = ary.num_cols();
-    String[] names = ary.col_names();
-    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, 
-                                       names[num_cols-1]); // Assume class is the last column
-    double[] ds = new double[num_cols];
-    final long num_chks = ary.chunks();
-    for( long i=0; i<num_chks; i++ ) { // By chunks
-      byte[] bits = DKV.get(ary.chunk_get(i)).get();
-      final int num_rows = bits.length/rowsize;
-      for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
-        for( int k=0; k<num_cols; k++ )
-          ds[k] = ary.datad(bits,j,rowsize,k);
-        dapt.addRow(ds);
-      }
-    }
-    dapt.shrinkWrap();
-    RandomForest.build(dapt, .666, 3, ntrees, -1, -1, -1);
-  }
+
 }
