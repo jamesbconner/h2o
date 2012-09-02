@@ -11,8 +11,6 @@ import org.junit.runner.notification.Failure;
 
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
-import water.test.Test;
-
 
 /**
  * Start point for creating or joining an <code>H2O</code> Cloud.
@@ -77,10 +75,13 @@ public final class H2O {
   }
  
   // A Set version of the static configuration InetAddress.
-  static ArrayList<H2ONode> NODES = new ArrayList<H2ONode>();
-  // Multicast is on by default
+  static ArrayList<H2ONode> STATIC_CONF_NODES = new ArrayList<H2ONode>();
+  // Multicast is on by default (implies that static configuration is disabled)
   static boolean MULTICAST_ENABLED = true;
-  static String NODES_FILE = null;
+  // File name with static configuration.
+  static String FLAT_FILE = null;
+  // Static configuration is disabled by default (if enabled, multicast has to be disabled).
+  static boolean STATIC_CONF_ENABLED = false;
 
   // Reverse cloud index to a cloud; limit of 256 old clouds.
   static private final H2O[] CLOUDS = new H2O[256];
@@ -278,7 +279,7 @@ public final class H2O {
   public static OptArgs OPT_ARGS = new OptArgs();
   public static class OptArgs extends Arguments.Opt {
     public String name;               // set_cloud_name_and_mcast()
-    public String nodes;              // set_cloud_name_and_mcast()
+    public String flatfile;           // set_cloud_name_and_mcast()
     public int port;                  // set_cloud_name_and_mcast()
     public String ip;                 // Named IP4/IP6 address instead of the default
     public String ice_root;           // ice root directory
@@ -326,6 +327,9 @@ public final class H2O {
   private static void startLocalNode() {
     set_cloud_name_and_mcast();
     SELF = H2ONode.self();
+    // Do not forget to put SELF into the static configuration (to simulate proper multicast behavior)
+    if (STATIC_CONF_ENABLED && !STATIC_CONF_NODES.contains(SELF))
+      STATIC_CONF_NODES.add(SELF);    
 
     // Create the starter Cloud with 1 member
     HashSet<H2ONode> starter = new HashSet<H2ONode>();
@@ -388,7 +392,7 @@ public final class H2O {
     System.out.println("The Cloud '"+NAME+"' is Up ("+version+") on " + SELF+
                        (MULTICAST_ENABLED
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
-                        : ", configuration based on -nodes "+NODES_FILE));
+                        : ", static configuration based on -flatfile "+FLAT_FILE));
 
     // Start running tests
     String doTest=OPT_ARGS.test;   // Tests enabled?
@@ -396,7 +400,8 @@ public final class H2O {
       assert (doTest="-test")!=null; // Always run basic tests if asserts are enabled
     }
     if( doTest != null && !doTest.equals("none") ) {
-      Result r = org.junit.runner.JUnitCore.runClasses(Test.class);
+      Result r = org.junit.runner.JUnitCore.runClasses(test.KVTest.class);
+      //Result r = org.junit.runner.JUnitCore.runClasses(test.CSVParserKVTest.class);
       List<Failure> lf = r.getFailures();
       if( lf.size() > 0 ) {
         System.err.println("--- JUNIT FAILURES ---");
@@ -419,7 +424,7 @@ public final class H2O {
   }
 
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
-  // and "-nodes <filename>".  Ignore the rest.  Set multi-cast port as a hash
+  // and "-flatfile <filename>".  Ignore the rest.  Set multi-cast port as a hash
   // function of the name.  Parse node ip addresses from the filename.
   static void set_cloud_name_and_mcast( ) {
     // Assign initial ports
@@ -441,9 +446,10 @@ public final class H2O {
     System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
-    if (OPT_ARGS.nodes != null) {
-      NODES_FILE = OPT_ARGS.nodes;
+    if (OPT_ARGS.flatfile != null) {
+      FLAT_FILE = OPT_ARGS.flatfile;
       MULTICAST_ENABLED = false;
+      STATIC_CONF_ENABLED = true;
     }
       
     // Multi-cast ports are in the range E1.00.00.00 to EF.FF.FF.FF
@@ -457,12 +463,22 @@ public final class H2O {
     } catch( UnknownHostException e ) { throw new Error(e); }
     CLOUD_MULTICAST_PORT = (port>>>16);
 
-    if( !MULTICAST_ENABLED ) {
+    /*
+     * Static configuration has the following format:
+     *   IPv4:UDP_PORT
+     *   
+     * For example:
+     *   # this is a comment
+     *   10.10.65.105:54322 
+     */
+    if( STATIC_CONF_ENABLED ) {
       BufferedReader br = null;
       try {
-        br = new BufferedReader(new InputStreamReader(new FileInputStream(NODES_FILE)));
+        br = new BufferedReader(new InputStreamReader(new FileInputStream(FLAT_FILE)));
         String strLine = null;
         while ((strLine = br.readLine()) != null)   {
+          // be user friendly and skip comments
+          if (strLine.startsWith("#")) continue;
           final String[] ss = strLine.split("[\\s:]");
           if( ss.length!=2 ) continue;
           final InetAddress inet = InetAddress.getByName(ss[0]);
@@ -470,13 +486,13 @@ public final class H2O {
             Log.die("Only IP4 addresses allowed.");
           try {
             final int port2 = Integer.decode(ss[1]);
-            NODES.add(H2ONode.intern(inet,port2));
+            STATIC_CONF_NODES.add(H2ONode.intern(inet,port2));
           } catch( NumberFormatException nfe ) {
             Log.die("Invalid port #: "+ss[1]);
           }
         }
       } catch( Exception e ) {  Log.die(e.toString()); }
-      finally { if (br != null) try { br.close(); } catch( IOException e ) { } }
+        finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
     }
   }
 
@@ -517,7 +533,7 @@ public final class H2O {
         synchronized (STORE) {
           while( _dirty == false && (MemoryManager.mem2Free >> 20) <= 0 )
             try { STORE.wait(); } catch (InterruptedException ie) { }
-          _dirty = false; // Clear the flag, about to clean
+          _dirty = false;       // Clear the flag, about to clean
         } // Release lock
         // If not out of memory, sleep another second to batch-up writes
         if( (MemoryManager.mem2Free >> 20) <= 0 )

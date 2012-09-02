@@ -55,13 +55,13 @@ public abstract class UKV {
       Value vchunk0 = UKV.get(k2,len);
       if( vchunk0 == null )
         System.out.println("missed looking for key "+k2+" from "+key);
-      if( len > vchunk0._max )
+      if( len > vchunk0._max && len > ValueArray.chunk_size())
         throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk when fetching "+key+" and "+len+" bytes, found "+k2+" of len "+vchunk0._max);
       return vchunk0;           // Else just get the prefix asked for
     }
     return val;
   }
-  static public Value get( Key key ) { return get(key,Integer.MAX_VALUE); }
+  static public Value get( Key key ) { return get(key,(int)ValueArray.chunk_size()); }
   
   static public void put(String s, Value v) { put(Key.make(s), v); }
   static public Value get(String s) { return get(Key.make(s)); }

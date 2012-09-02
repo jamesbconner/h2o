@@ -26,7 +26,7 @@ public abstract class LinearRegression {
     sb.append("<p>Pass 1 in ").append(pass1-start).append("msec");
 
     // Pass 2: Compute squared errors
-    long n = ary.num_rows();
+    long n = lr._rows;
     lr._pass = 2;
     lr._Xbar = lr._sumX / n;
     lr._Ybar = lr._sumY / n;
@@ -66,19 +66,21 @@ public abstract class LinearRegression {
     return sb.toString();
   }
 
-  public static class LR_Task extends DRemoteTask {
+  public static class LR_Task extends MRTask {
     Key _arykey;                // Main ValueArray key
     int _pass;                  // Pass 1, 2 or 3.
     int _colA, _colB;           // Which columns to work on
+    long _rows;                 // Rows used
     double _sumX,_sumY,_sumX2;
     double _Xbar, _Ybar, _XXbar, _YYbar, _XYbar;
     double _beta0, _beta1;
     double _rss, _ssr;
-    public int wire_len() { return 4+4+4+12*8+_arykey.wire_len(); }
+    public int wire_len() { return 3*4+13*8+_arykey.wire_len(); }
     public int write( byte[] buf, int off ) {
       off += UDP.set4 (buf,off,_pass);
       off += UDP.set4 (buf,off,_colA);
       off += UDP.set4 (buf,off,_colB);
+      off += UDP.set8 (buf,off,_rows);
       off += UDP.set8d(buf,off,_sumX);
       off += UDP.set8d(buf,off,_sumY);
       off += UDP.set8d(buf,off,_sumX2);
@@ -98,6 +100,7 @@ public abstract class LinearRegression {
       _pass = UDP.get4 (buf,(off+=4)-4);
       _colA = UDP.get4 (buf,(off+=4)-4);
       _colB = UDP.get4 (buf,(off+=4)-4);
+      _rows = UDP.get8 (buf,(off+=8)-8);
       _sumX = UDP.get8d(buf,(off+=8)-8);
       _sumY = UDP.get8d(buf,(off+=8)-8);
       _sumX2= UDP.get8d(buf,(off+=8)-8);
@@ -132,6 +135,8 @@ public abstract class LinearRegression {
       int colB_base = ary.col_base (_colB);
       int colA_scale= ary.col_scale(_colA);
       int colB_scale= ary.col_scale(_colB);
+      boolean good = (ary.col_badat(_colA) == 0 && ary.col_badat(_colB) == 0);
+      int bad = 0;
       // Loop over the data
       switch( _pass ) {
       case 1:                   // Pass 1
@@ -143,12 +148,21 @@ public abstract class LinearRegression {
         //   sumy  += y[i];
         // }
         for( int i=0; i<rows; i++ ) {
+          // Doing loop-unswitching here will move all this expensive code out
+          // in the case where all the rows are known-good at the start.
+          if( !good &&          // Guard more expensive tests
+              (!ary.valid(bits,i,rowsize,colA_off,colA_size) ||
+               !ary.valid(bits,i,rowsize,colB_off,colB_size)) ) {
+            bad++;
+            continue;
+          }
           double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
           double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
           _sumX += X;
           _sumY += Y;
           _sumX2+= X*X;
         }
+        _rows = rows-bad;
         break;
 
       case 2:                   // Pass 2
@@ -161,6 +175,10 @@ public abstract class LinearRegression {
         //   xybar += (x[i] - xbar) * (y[i] - ybar);
         // }
         for( int i=0; i<rows; i++ ) {
+          if( !good &&
+              (!ary.valid(bits,i,rowsize,colA_off,colA_size) ||
+               !ary.valid(bits,i,rowsize,colB_off,colB_size)) )
+            continue;
           double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
           double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
           double Xa = (X-_Xbar);
@@ -180,6 +198,10 @@ public abstract class LinearRegression {
         //  ssr += (fit - ybar) * (fit - ybar);
         //}
         for( int i=0; i<rows; i++ ) {
+          if( !good &&
+              (!ary.valid(bits,i,rowsize,colA_off,colA_size) ||
+               !ary.valid(bits,i,rowsize,colB_off,colB_size)) )
+            continue;
           double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
           double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
           double fit = _beta1*X + _beta0;
@@ -197,6 +219,7 @@ public abstract class LinearRegression {
         _sumX += lr._sumX ;
         _sumY += lr._sumY ;
         _sumX2+= lr._sumX2;
+        _rows += lr._rows ;
         break;
       case 2:
         _XXbar += lr._XXbar;
