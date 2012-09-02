@@ -33,6 +33,23 @@ public class Tree implements Serializable {
       return nd;
     }
   }
+  
+  /** Computes the tree using the gini statistic. 
+   * 
+   */
+  final INode computeGini(int depth, Data d, GiniStatistic s, GiniJob[] jobs) {
+    s.computeSplit();
+    if (s.singleClass() >= 0)
+      return new LeafNode(depth, s.singleClass());
+    GiniNode nd = new GiniNode(depth,s.bestColumn(), s.bestColumnSplit());
+    Data[] res = new Data[2];
+    GiniStatistic[] stats = new GiniStatistic[]{
+        new GiniStatistic(d,s), new GiniStatistic(d,s)};
+    d.filter(nd.column, nd.split, res, stats);
+    jobs[0] = new GiniJob(this,nd,0,res[0],stats[0]);
+    jobs[1] = new GiniJob(this,nd,1,res[1],stats[1]);
+    return nd;
+  }
 
     
   public static abstract class INode  implements Serializable {    
@@ -58,6 +75,25 @@ public class Tree implements Serializable {
     public String toString()   { return "["+class_+"]"; }
   }
 
+  class GiniNode extends INode {
+    final int column;
+    final int split;
+    INode l_, r_;
+
+    @Override int classify(Row r) {
+      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
+    }
+    
+    public GiniNode(int depth, int column, int split) {
+      super(depth);
+      this.column = column;
+      this.split = split;
+    }
+
+    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+  }
+  
+  
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
   class Node extends INode {   

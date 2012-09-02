@@ -27,6 +27,14 @@ public class Data implements Iterable<Row> {
     public int classOf() { return  data_.classOf(index); }
     public double getD(int col) { return data_.getD(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
+    /** To support weights if we ever do in the future. */
+    public final double weight() { return 1; }
+    /** Support for binning information on the columns. This must be expanded in
+     * the future. 
+     */
+    public final int getColumnClass(int colIndex) {
+      return getS(colIndex);
+    }
   }
  
   public class RowIter implements Iterator<Row> {
@@ -58,6 +66,11 @@ public class Data implements Iterable<Row> {
   /** Returns the row with given index. */
   public Row getRow(int rowIndex) { return fillRow(new Row(),rowIndex); }  
 
+  
+  public int columnClasses(int colIndex) {
+    return 10;
+  }
+  
   /** Returns the number of rows that is accessible by this Data object. */
   public int rows()        { return data_.rows(); }  
   public  int features()   { return data_.features(); }
@@ -143,6 +156,21 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this,ri,r);
   }
   
+  public void filter(int column, int split, Data[] result, GiniStatistic[] stats) {
+    int l=0, r=0;
+    int[] li = new int[rows()], ri=new int[rows()];
+    int i = 0;
+    for(Row row : this) {
+      if (row.getColumnClass(column) <= split) {
+        stats[0].add(row); li[l++] = permute(i);
+      } else {
+        stats[1].add(row); ri[r++] = permute(i);
+      }
+      i++;
+    }
+    result[0]= new Subset(this,li,l);
+    result[1]= new Subset(this,ri,r);
+  }
 
   public Data sampleWithReplacement(double bagSizePct) {        
     int[] sample = new int[(int)(rows() * bagSizePct)];    
