@@ -61,6 +61,7 @@ public abstract class H2OPage extends Page {
     + "              <li><a href=\"/Timeline\">Timeline</a></li>"
     + "              <li><a href=\"/ImportQuery\">Import</a></li>"
     + "              <li><a href=\"/DebugView\">Debug View</a></li>"
+    + "              <li><a href=\"/ProgressView\">Progress View</a></li>"
     + "              <li><a href=\"/Network\">Network</a></li>"
     + "              <li><a href=\"/Shutdown\">Shutdown All</a></li>"
     + "            </ul>"
