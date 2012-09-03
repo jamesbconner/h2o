@@ -8,8 +8,6 @@ import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
-import water.test.Test;
-
 
 /**
  * Start point for creating or joining an <code>H2O</code> Cloud.
@@ -399,7 +397,8 @@ public final class H2O {
       assert (doTest="-test")!=null; // Always run basic tests if asserts are enabled
     }
     if( doTest != null && !doTest.equals("none") ) {
-      Result r = org.junit.runner.JUnitCore.runClasses(Test.class);
+      Result r = org.junit.runner.JUnitCore.runClasses(test.KVTest.class);
+      //Result r = org.junit.runner.JUnitCore.runClasses(test.CSVParserKVTest.class);
       List<Failure> lf = r.getFailures();
       if( lf.size() > 0 ) {
         System.err.println("--- JUNIT FAILURES ---");

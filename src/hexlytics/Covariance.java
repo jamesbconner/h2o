@@ -60,7 +60,7 @@ public abstract class Covariance {
     return sb.toString();
   }
 
-  public static class COV_Task extends DRemoteTask {
+  public static class COV_Task extends MRTask {
     Key _arykey;                // Main ValueArray key
     int _pass;                  // Pass 1, or 2.
     int _colA, _colB;           // Which columns to work on

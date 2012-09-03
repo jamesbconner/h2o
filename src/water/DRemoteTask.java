@@ -1,6 +1,7 @@
 package water;
 import java.io.*;
 import java.lang.Cloneable;
+import java.lang.Thread;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
@@ -17,58 +18,24 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
   // Some useful fields for *local* execution.  These fields are never passed
   // over the wire, and so do not need to be in the users' read/write methods.
-  private Key[] _keys;           // Keys to work on
-  private int _lo, _hi;          // Range of keys to work on
-  private DRemoteTask _left, _rite; // In-progress execution tree
+  protected Key[] _keys;        // Keys to work on
 
-  // Run some useful function over this *local* key, and record the results in
-  // the 'this' DRemoteTask.
-  abstract public void map( Key key );
   // Combine results from 'drt' into 'this' DRemoteTask
   abstract public void reduce( DRemoteTask drt );
 
-  void ps(String msg) {
-    Class clz = getClass();
-    System.err.println(msg+clz+" keys["+_keys.length+"] _lo="+_lo+" _hi="+_hi);
-  }
+  // Super-class init on the 1st remote instance of this object.  Caller may
+  // choose to clone/fork new instances, but then is reponsible for setting up
+  // those instances.
+  void init() { }
 
   // Make a copy of thyself, but set the (otherwise final) completer field.
-  private final DRemoteTask copy_self( DRemoteTask completer ) {
+  protected final DRemoteTask clone2() {
     try {
       DRemoteTask dt = (DRemoteTask)this.clone();
-      dt.setCompleter(completer); // Set completer, what used to be a final field
-      dt._left = dt._rite = null;
-      dt.setPendingCount(0);      // Volatile write for completer field; reset pending count also
+      dt.setCompleter(this);    // Set completer, what used to be a final field
+      dt.setPendingCount(0); // Volatile write for completer field; reset pending count also
       return dt;
     } catch( CloneNotSupportedException e ) { throw new Error(e); }
-  }
-  private final DRemoteTask make_child() { return copy_self(this); }
-
-  // Do all the keys in the list associated with this Node.  Roll up the
-  // results into *this* DRemoteTask.
-  public final void compute() {
-    if( _hi-_lo >= 2 ) { // Multi-key case: just divide-and-conquer down to 1 key
-      final int mid = (_lo+_hi)>>>1; // Mid-point
-      _left = make_child();     // Clone by any other name
-      _rite = make_child();     // Clone by any other name
-      _left._hi = mid;          // Reset mid-point
-      _rite._lo = mid;          // Also set self mid-point
-      setPendingCount(2);       // Two more pending forks
-      _left.fork();             // Runs in another thread/FJ instance
-      _rite.fork();             // Runs in another thread/FJ instance
-    } else {
-      if( _hi > _lo )           // Single key?
-        map(_keys[_lo]);        // Get it, run it locally
-    }
-    tryComplete();              // And this task is complete
-  }
-
-  @Override public final void onCompletion( CountedCompleter caller ) {
-    // Reduce results into 'this' so they collapse going up the execution tree.
-    // NULL out child-references so we don't accidentilly keep large subtrees
-    // alive: each one may be holding large partial results.
-    if( _left != null ) reduce(_left); _left = null;
-    if( _rite != null ) reduce(_rite); _rite = null;
   }
 
   // Top-level remote execution hook.  The Key is an ArrayLet or an array of
@@ -116,38 +83,35 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
     // Launch off 2 tasks for the other sets of keys, and get a place-holder
     // for results to block on.
-    Future f = new Future(this, remote_compute(lokeys), remote_compute(hikeys));
+    Future f = new Future(remote_compute(lokeys), remote_compute(hikeys));
 
     // Setup for local recursion: just use the local keys.
     _keys = locals.toArray(new Key[locals.size()]); // Keys, including local keys (if any)
-    _lo = 0;                    // Init the range of local keys
-    _hi = _keys.length;
     if( _keys.length == 0 ) {   // Shortcut for no local work
       tryComplete();            // Indicate the local task is done
       return f;                 // But return the set of remote tasks
     }
 
-    H2O.FJP_NORM.submit(this); // F/J non-blocking invoke
-    // Return a cookie to block on
+    // Run locally
+    init();                     // One-time top-level init
+    H2O.FJP_NORM.invoke(this);  // F/J blocking invoke
+
+    // Return a cookie to block on for the remote work
     return f;
   }
 
   // Junk class only used to allow blocking all results, both local & remote
-  public static class Future {
-    private final DRemoteTask _drt;
+  public class Future {
     private final TaskRemExec<DRemoteTask> _lo, _hi;
-    Future(DRemoteTask drt, TaskRemExec<DRemoteTask> lo, TaskRemExec<DRemoteTask> hi ) {
-      _drt = drt;  _lo = lo;  _hi = hi;
+    Future(TaskRemExec<DRemoteTask> lo, TaskRemExec<DRemoteTask> hi ) {
+      _lo = lo;  _hi = hi;
     }
     // Block until completed, without having to catch exceptions
     public DRemoteTask get() {
-      try { _drt.get(); }   // block until complete
-      catch( InterruptedException ex ) { throw new Error(ex); }
-      catch(   ExecutionException ex ) { throw new Error(ex); }
       // Block for remote exec & reduce results into _drt
-      if( _lo != null ) _drt.reduce(_lo.get());
-      if( _hi != null ) _drt.reduce(_hi.get());
-      return _drt;
+      if( _lo != null ) reduce(_lo.get());
+      if( _hi != null ) reduce(_hi.get());
+      return DRemoteTask.this;
     }
   };
 
@@ -160,7 +124,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     // remote-side will expand, then send just the key, instead of a
     // key-of-keys containing 1 key.
     if( keys.size() ==1 && arg._kb[0] != Key.KEY_OF_KEYS && !arg.user_allowed() )
-      return new TaskRemExec(target,make_child(),arg);
+      return new TaskRemExec(target,clone2(),arg);
 
     arg = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
     byte[] bits = new byte[8*keys.size()];
@@ -173,7 +137,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     UDP.set4(bits,0,keys.size()); // Key count in the 1st 4 btyes
     Value vkeys = new Value(arg,Arrays.copyOf(bits,off));
     // Fork remotely and do not block for it
-    return new TaskRemExec(target,make_child(),arg,vkeys);
+    return new TaskRemExec(target,clone2(),arg,vkeys);
   }
 
   private final Key[] flatten_keys( Key args ) {

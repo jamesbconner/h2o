@@ -5,6 +5,7 @@ import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryNotificationInfo;
 import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryType;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.Notification;
@@ -214,20 +215,36 @@ public abstract class MemoryManager {
 
   // allocates memory, will block until there is enough available memory
   public static byte[] allocateMemory(int size) {
-    if (size < 256)
-      return new byte[size];
-    while (!canAllocate) {
-      // Failed: block until we think we can allocate
-      synchronized(_lock) {
-        NUM_BLOCKED++;
-        try {
-          _lock.wait(1000);
-        } catch (InterruptedException ex) {
+    if (size > 256)      
+      while (!canAllocate) {
+        // Failed: block until we think we can allocate
+        synchronized(_lock) {
+          NUM_BLOCKED++;
+          try {
+            _lock.wait(1000);
+          } catch (InterruptedException ex) {
+          }
+          --NUM_BLOCKED;
         }
-        --NUM_BLOCKED;
       }
-    }
     return new byte[size];
   }
+  
+//allocates memory, will block until there is enough available memory
+ public static byte[] arrayCopyOfRange(byte [] original, int from, int to ) {   
+   if ((to - from) > 256)    
+     while (!canAllocate) {
+       // Failed: block until we think we can allocate
+       synchronized(_lock) {
+         NUM_BLOCKED++;
+         try {
+           _lock.wait(1000);
+         } catch (InterruptedException ex) {
+         }
+         --NUM_BLOCKED;
+       }
+     }
+   return Arrays.copyOfRange(original, from, to);
+ }
 
 }

@@ -39,6 +39,7 @@ public class DataAdapter  {
  
     public String name() { return name_; }
     public void shrinkWrap() { 
+      freeze();
       short[][] vss = new short[c_.length][];
      for(int i=0;i<c_.length;i++) {
        C c = c_[i];
@@ -54,7 +55,7 @@ public class DataAdapter  {
     static public  int FEATURES = -1;
     public void freeze() { frozen_=true; }
     public int features() { 
-       return  FEATURES==-1 ? (int) Math.sqrt(c_.length) : FEATURES;
+       return  FEATURES==-1 ? FEATURES = (int)Math.sqrt(c_.length) : FEATURES;
     }
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
@@ -85,12 +86,13 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  int DEFAULT = 100000;
+  int DEFAULT = 100;
   double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
   HashMap<Double,Short> o2v_;
+  double[] _v2o;                // Reverse (short) indices to original doubles
   
   public String toString() {
     String res = "col("+name_+")";
@@ -107,7 +109,6 @@ class C {
     o2v_ = hashCol();
     short[] res = new short[sz_];
     for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
-    o2v_ = null;
     v_= null;
     return res;
   }
@@ -122,10 +123,13 @@ class C {
     // we forget the frequencies for now and return a map from value to offset
     HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
     Double[] ks = res.keySet().toArray(new Double[res.size()]);
+    _v2o = new double[ks.length];
     Arrays.sort(ks);      
     short off = 0;
-    for (Double d : ks)  res2.put(d,  off++); 
+    for( Double d : ks)  {
+      _v2o[off] = d;
+      res2.put(d, off++);
+    }
     return res2;
   }
-
 }

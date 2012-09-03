@@ -66,7 +66,7 @@ public abstract class LinearRegression {
     return sb.toString();
   }
 
-  public static class LR_Task extends DRemoteTask {
+  public static class LR_Task extends MRTask {
     Key _arykey;                // Main ValueArray key
     int _pass;                  // Pass 1, 2 or 3.
     int _colA, _colB;           // Which columns to work on

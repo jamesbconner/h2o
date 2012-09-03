@@ -30,6 +30,12 @@ public class Utils {
       else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
     return result;
   }
+  public static int maxIndexInt(int[] from, Random rand) {
+    int result = 0;
+    for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
+      else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
+    return result;
+  }
   
   
   
@@ -144,6 +150,13 @@ public class Utils {
     for( int i=0; i<8; i++ )
       sum |= ((long)(0xff&buf[off+i]))<<(i<<3);
     return Double.longBitsToDouble(sum);
+  }
+  
+  public static double sum(double[] from) {
+    double result = 0;
+    for (double d: from)
+      result += d;
+    return result;
   }
   
 }

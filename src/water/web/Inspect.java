@@ -1,9 +1,12 @@
 package water.web;
 import java.io.IOException;
 import java.util.Properties;
-import water.*;
-import water.csv.CSVParser.*;
-import water.csv.CSVParserKV;
+
+import water.DKV;
+import water.Key;
+import water.Value;
+import water.ValueArray;
+import water.parser.CSVParserKV;
 
 /**
  *
@@ -18,6 +21,7 @@ public class Inspect extends H2OPage {
   
   @Override protected String serve_impl(Properties args) {
     String key_s = args.getProperty("Key");
+    
     if( key_s == null ) return wrap(error("Missing Key argument"));
     Key key = null;
     try { 
@@ -182,6 +186,7 @@ public class Inspect extends H2OPage {
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
+    response.replace("ncolumns",ary.num_cols());
     Key pkey = ary.prior_key();
     response.replace("priorkey",pkey);
     response.replace("priorkeyHref",urlEncode(new String(pkey._kb)));
@@ -189,13 +194,10 @@ public class Inspect extends H2OPage {
 
     // Header row
     StringBuilder sb = new StringBuilder();
-    int num_col = ary.num_cols();
-    for( int i=0; i<num_col; i++ ) {
-      sb.append("<th>");
-      String s = ary.col_name(i);
-      if( s == null ) sb.append(i);
-      else sb.append(s);
-    }
+    final int num_col = Math.min(21,ary.num_cols());
+    String[] names = ary.col_names();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<th>").append(names[i]);
     response.replace("head_row",sb);
 
     // Data layout scheme
@@ -290,7 +292,7 @@ public class Inspect extends H2OPage {
   static private void display_row(ValueArray ary, long r, RString response) {
     RString row = response.restartGroup("tableRow");
     try {
-      int num_col = ary.num_cols();
+      int num_col = Math.min(ary.num_cols(),21);
       StringBuilder sb = new StringBuilder();
       sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
       for( int i=0; i<num_col; i++ ) {
@@ -299,7 +301,7 @@ public class Inspect extends H2OPage {
         if( sz != 0 ) {
           if( r == -1 ) sb.append("...");
           else {
-            if( !ary.valid(r,i) )
+            if(false /*!ary.valid(r,i) */)
               /*nothing*/;
             else if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
               sb.append(ary.data (r,i)); // int/long
@@ -321,6 +323,7 @@ public class Inspect extends H2OPage {
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
     + "<p>Generated from <a href=/Inspect?Key=%priorkeyHref>%priorkey</a> by '%xform'<p>"
     + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
+    + "Parsed %ncolumns columns<br>"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<thead><tr><th>Column %head_row</tr></thead>\n"
     + "<tbody>\n"
