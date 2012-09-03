@@ -46,16 +46,18 @@ class GiniStatistic {
     if (singleClass_ >=0 )
       return;
     bestColumn_ = null;
-    double bestFitness = -1;
     for (Column c: columns_) {
       if (c == null)
         continue;
       double f = c.calculateBinarySplitFitness();
-      if (f > bestFitness) {
-        bestFitness = f;
+      if ((bestColumn_==null) || (f > bestColumn_.fitness_)) {
         bestColumn_ = c;
       }
     }
+    //if (bestColumn_ == null)
+      //System.out.println("we have a problem...");
+    //else 
+      //System.out.println("Column "+bestColumn_.column+" split value "+bestColumn_.split_+" fitness "+bestColumn_.fitness_);
   }
   
   public int singleClass() {
@@ -86,7 +88,7 @@ class GiniStatistic {
     public final int column;
     
     double fitness_;
-    int split_ = 0;
+    int split_;
     
     public Column(int column, int numClasses, int dataClasses) {
       this.column = column;
@@ -115,7 +117,9 @@ class GiniStatistic {
      * @return 
      */
     public double calculateBinarySplitFitness() {
+      //System.out.println("  column "+column);
       fitness_ = -1;
+      split_ = 0;
       // get the totals for all column classes
       double[] second = new double[dist_[0].length];
       double sumsecond = 0;
@@ -136,11 +140,15 @@ class GiniStatistic {
           first[i] += d[i];
           second[i] -= d[i];
         }
-        double f = calculateGini(first) * (sumfirst / sumtotal);
-        f += calculateGini(second) * (sumsecond / sumtotal);
-        if (f > fitness_) {
-          fitness_ = f;
-          split_ = j;
+        if ((sumfirst != 0) && (sumsecond!=0)) {
+          double f = 0;
+          f += calculateGini(first) * (sumfirst / sumtotal);
+          f += calculateGini(second) * (sumsecond / sumtotal);
+          //System.out.println("    split: "+j+", fitness: "+f+" (first: "+sumfirst+", second: "+sumsecond+")");
+          if (f > fitness_) {
+            fitness_ = f;
+            split_ = j;
+          }
         }
         ++j;
       }

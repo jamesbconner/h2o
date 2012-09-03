@@ -67,6 +67,15 @@ public class DataAdapter  {
         if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
         return numClasses_;
     }
+    // By default binning is not supported
+    public int columnClasses(int colIndex) {
+      return -1;
+    }
+    
+    // by default binning is not supported
+    public int getColumnClass(int rowIndex, int colIndex) {
+      return -1;
+    }
 
     public  String colName(int c) { return c_[c].name_; }
     public  double colMin(int c)  { return c_[c].min_; }    

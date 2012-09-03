@@ -27,13 +27,13 @@ public class Data implements Iterable<Row> {
     public int classOf() { return  data_.classOf(index); }
     public double getD(int col) { return data_.getD(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
+    
     /** To support weights if we ever do in the future. */
     public final double weight() { return 1; }
-    /** Support for binning information on the columns. This must be expanded in
-     * the future. 
-     */
+    
+    /** Support for binning information on the columns.  */
     public final int getColumnClass(int colIndex) {
-      return getS(colIndex);
+      return data_.getColumnClass(index,colIndex);
     }
   }
  
@@ -68,7 +68,7 @@ public class Data implements Iterable<Row> {
 
   
   public int columnClasses(int colIndex) {
-    return 10;
+    return data_.columnClasses(colIndex);
   }
   
   /** Returns the number of rows that is accessible by this Data object. */

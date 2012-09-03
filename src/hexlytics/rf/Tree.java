@@ -41,11 +41,16 @@ public class Tree implements Serializable {
     s.computeSplit();
     if (s.singleClass() >= 0)
       return new LeafNode(depth, s.singleClass());
+    if (s.bestColumn_.fitness_ < 0)
+      return new LeafNode(depth, 0);
     GiniNode nd = new GiniNode(depth,s.bestColumn(), s.bestColumnSplit());
     Data[] res = new Data[2];
     GiniStatistic[] stats = new GiniStatistic[]{
         new GiniStatistic(d,s), new GiniStatistic(d,s)};
     d.filter(nd.column, nd.split, res, stats);
+    //System.out.println(res[0].rows()+" - "+res[1].rows());
+    if ((res[0].rows() == 0) || (res[1].rows()==0))
+      System.out.println("a problem we have");
     jobs[0] = new GiniJob(this,nd,0,res[0],stats[0]);
     jobs[1] = new GiniJob(this,nd,1,res[1],stats[1]);
     return nd;

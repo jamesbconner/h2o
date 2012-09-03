@@ -14,8 +14,12 @@ import water.ValueArray;
  * @author peta
  */
 public class RandomForest {
+    public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads) {
+      build(dapt,sampleRatio,features,trees,maxTreeDepth,minErrorRate,threads,false);
+    }
 
-  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads) {
+
+  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads,boolean gini) {
     if (maxTreeDepth != -1) Tree.MAX_TREE_DEPTH = maxTreeDepth;  
     if (minErrorRate != -1) Tree.MIN_ERROR_RATE = minErrorRate;    
     Data d = Data.make(dapt);
@@ -23,7 +27,7 @@ public class RandomForest {
     Data v = t.complement();
     DataAdapter.FEATURES = features;
     numThreads = threads;
-    new LocalBuilder(t,v,trees);
+    new LocalBuilder(t,v,trees,gini);
   }
   
   private static int numThreads = -1;
@@ -40,6 +44,7 @@ public class RandomForest {
   synchronized boolean done() { return trees_.size() >= numTrees_; }
   public void terminate() {  numTrees_ = 0; }
   public void build() {  while (!done()) build0();  }
+  public void buildGini() { while (!done()) buildGini0(); }
   
   private void build0() {
     long t = System.currentTimeMillis();     
@@ -52,6 +57,21 @@ public class RandomForest {
     RFTask._[0].put(new Job(tree, null, 0, data_, s));
     for (Thread b : RFTask._) b.start();
     for (Thread b : RFTask._)  try { b.join();} catch (InterruptedException e) { }
+    tree.time_ = System.currentTimeMillis()-t;
+    add(tree);
+  }
+  
+  private void buildGini0() {
+    long t = System.currentTimeMillis();     
+    if (numThreads == -1) numThreads =  Runtime.getRuntime().availableProcessors();
+    RFGiniTask._ = new RFGiniTask[numThreads];
+    for(int i=0;i<numThreads;i++) RFGiniTask._[i] = new RFGiniTask(data_);
+    GiniStatistic s = new GiniStatistic(data_, null);
+    for (Row r : data_) s.add(r);
+    Tree tree = new Tree();
+    RFGiniTask._[0].put(new GiniJob(tree, null, 0, data_, s));
+    for (Thread b : RFGiniTask._) b.start();
+    for (Thread b : RFGiniTask._)  try { b.join();} catch (InterruptedException e) { }
     tree.time_ = System.currentTimeMillis()-t;
     add(tree);
   }
