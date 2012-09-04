@@ -168,96 +168,102 @@ public final class ParseDataset {
   }
 
   // ----
-  // Distributed parsing
+  // Distributed parsing.
+
+  // Just the common fields being moved over the wire during parse compaction.
   public static abstract class DParse extends MRTask {
     int _num_cols;              // Input
     int _num_rows;              // Output
-    byte _csvType;               // Input, comma-separator
+    byte _csvType;              // Input, comma-separator
     ValueArray.Column _cols[];  // Column summary data
     int _rows_chk[];            // Rows-per-chunk
-    public int wire_len() {
-      assert _num_rows==0 || _cols != null;
-      assert _num_rows==0 || _rows_chk != null;
-      return 4+4+1+(_num_rows==0?0:(_cols.length*ValueArray.Column.wire_len() + 4+_rows_chk.length*4));
+  }
+
+  // Hand-rolled serializer for the above common fields.
+  // Some Day Real Soon auto-gen me.
+  public static abstract class DParseSerializer<T extends DParse> extends RemoteTaskSerializer<T> {
+    public int wire_len(T dp) {
+      assert dp._num_rows==0 || dp._cols != null;
+      assert dp._num_rows==0 || dp._rows_chk != null;
+      return 4+4+1+(dp._num_rows==0?0:(dp._cols.length*ValueArray.Column.wire_len() + 4+dp._rows_chk.length*4));
     }
 
-    boolean _read = false;
-    boolean _map = false;
-    public int write( byte[] buf, int off ) {
-      UDP.set4(buf,(off+=4)-4,_num_cols);
-      UDP.set4(buf,(off+=4)-4,_num_rows);
-      buf[off++] = _csvType;
-      if( _num_rows == 0 ) return off; // No columns?
-      assert _cols.length == _num_cols;
-      for( ValueArray.Column col : _cols )
+    public int write( T dp, byte[] buf, int off ) {
+      UDP.set4(buf,(off+=4)-4,dp._num_cols);
+      UDP.set4(buf,(off+=4)-4,dp._num_rows);
+      buf[off++] = dp._csvType;
+      if( dp._num_rows == 0 ) return off; // No columns?
+      assert dp._cols.length == dp._num_cols;
+      for( ValueArray.Column col : dp._cols )
         off = col.write(buf,off); // Yes columns; write them all
       // Now the rows-per-chunk array
-      UDP.set4(buf,(off+=4)-4,_rows_chk.length);
-      for( int x : _rows_chk )
+      UDP.set4(buf,(off+=4)-4,dp._rows_chk.length);
+      for( int x : dp._rows_chk )
         UDP.set4(buf,(off+=4)-4,x);
       return off;
     }
-    public void write( DataOutputStream dos ) throws IOException {
-      dos.writeInt(_num_cols);
-      dos.writeInt(_num_rows);
-      dos.writeByte(_csvType);
-      if( _num_rows == 0 ) return; // No columns?
-      assert _cols.length == _num_cols;
-      for( ValueArray.Column col : _cols )
+    public void write( T dp, DataOutputStream dos ) throws IOException {
+      dos.writeInt(dp._num_cols);
+      dos.writeInt(dp._num_rows);
+      dos.writeByte(dp._csvType);
+      if( dp._num_rows == 0 ) return; // No columns?
+      assert dp._cols.length == dp._num_cols;
+      for( ValueArray.Column col : dp._cols )
         col.write(dos);         // Yes columns; write them all
       // Now the rows-per-chunk array
-      dos.writeInt(_rows_chk.length);
-      for( int x : _rows_chk )
+      dos.writeInt(dp._rows_chk.length);
+      for( int x : dp._rows_chk )
         dos.writeInt(x);
     }
-    public void read( byte[] buf, int off ) { 
-      _read = true;
-      _num_cols = UDP.get4(buf,off);  off += 4; 
-      _num_rows = UDP.get4(buf,off);  off += 4; 
-      _csvType   = buf[off++];
-      if( _num_rows == 0 ) return; // No rows, so no cols
-      assert _cols == null;
-      _cols = new ValueArray.Column[_num_cols];
+
+    public abstract T read( byte[] buf, int off );
+    public T read( T dp, byte[] buf, int off ) {
+      dp._num_cols = UDP.get4(buf,off);  off += 4;
+      dp._num_rows = UDP.get4(buf,off);  off += 4;
+      dp._csvType   = buf[off++];
+      if( dp._num_rows == 0 ) return dp; // No rows, so no cols
+      assert dp._cols == null;
+      dp._cols = new ValueArray.Column[dp._num_cols];
       final int l = ValueArray.Column.wire_len();
-      for( int i=0; i<_num_cols; i++ )
-        _cols[i] = ValueArray.Column.read(buf,(off+=l)-l);
+      for( int i=0; i<dp._num_cols; i++ )
+        dp._cols[i] = ValueArray.Column.read(buf,(off+=l)-l);
       int rlen = UDP.get4(buf,off);  off += 4;
-      _rows_chk = new int[rlen];
+      dp._rows_chk = new int[rlen];
       for( int i=0; i<rlen; i++ )
-        _rows_chk[i] = UDP.get4(buf,(off+=4)-4);
-      if(_cols == null){
-        throw new Error();
-      }
+        dp._rows_chk[i] = UDP.get4(buf,(off+=4)-4);
+      return dp;
     }
-    public void read( DataInputStream dis ) throws IOException {
-      _read = true;
-      _num_cols = dis.readInt();
-      _num_rows = dis.readInt();
-      _csvType  = dis.readByte();
-      if( _num_rows == 0 ) return; // No rows, so no cols
-      assert _cols == null;
-      _cols = new ValueArray.Column[_num_cols];
-      for( int i=0; i<_num_cols; i++ )
-        _cols[i] = ValueArray.Column.read(dis);
+    public abstract T read( DataInputStream dis ) throws IOException;
+    public T read( T dp, DataInputStream dis ) throws IOException {
+      dp._num_cols = dis.readInt();
+      dp._num_rows = dis.readInt();
+      dp._csvType  = dis.readByte();
+      if( dp._num_rows == 0 ) return dp; // No rows, so no cols
+      assert dp._cols == null;
+      dp._cols = new ValueArray.Column[dp._num_cols];
+      for( int i=0; i<dp._num_cols; i++ )
+        dp._cols[i] = ValueArray.Column.read(dis);
       int rlen = dis.readInt();
-      _rows_chk = new int[rlen];
+      dp._rows_chk = new int[rlen];
       for( int i=0; i<rlen; i++ )
-        _rows_chk[i] = dis.readInt();
-      if(_cols == null){
-        throw new Error();
-      }
+        dp._rows_chk[i] = dis.readInt();
+      return dp;
     }
   }
 
   // ----
   // Distributed parsing, Pass 1
   // Find min/max, digits per column.  Find number of rows per chunk.
+  @RTSerializer(DParse1.Serializer.class)
   public static class DParse1 extends DParse {
+    public static class Serializer extends DParseSerializer<DParse1> {
+      public DParse1 read( byte[] buf, int off ) { return read(new DParse1(), buf, off ); }
+      public DParse1 read( DataInputStream dis ) throws IOException { return read(new DParse1(), dis ); }
+    }
 
     // Parse just this chunk: gather min & max
     public void map( Key key ) {
       assert _cols == null;
-      _map = true;
       // A place to hold the column summaries
       _cols = new ValueArray.Column[_num_cols];
       for( int i=0; i<_num_cols; i++ )
@@ -265,9 +271,9 @@ public final class ParseDataset {
       // A place to hold each column datum
       double[] data = new double[_num_cols];
       // The parser
-      CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT?
-        new SVMLightParserKV(key, 1):
-        new CSVParserKV<double[]>(key,1,data,null);
+      CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT
+        ? new SVMLightParserKV     (key,1)
+        : new CSVParserKV<double[]>(key,1,data,null);
       if( _csvType == CSV_TYPE_COMMASEP )
         csv._setup.whiteSpaceSeparator = false;
       int num_rows = 0;
@@ -367,31 +373,38 @@ public final class ParseDataset {
   // ----
   // Distributed parsing, Pass 2
   // Parse the data, and jam it into compressed fixed-sized row data
+  @RTSerializer(DParse2.Serializer.class)
   public static class DParse2 extends DParse {
     Key _result;                // The result Key
 
-    // Pass along the result Key
-    public int wire_len() {
-      return super.wire_len()+_result.wire_len();
-    }
-    public int write( byte[] buf, int off ) { 
-      off = super.write(buf,off);
-      off += _result.write(buf,off);
-      return off;
-    }
-    public void read( byte[] buf, int off ) { 
-      super.read(buf,off);
-      off += super.wire_len();
-      _result = Key.read(buf,off);
-      assert _result != null;
-    }
-    public void write( DataOutputStream dos ) throws IOException {
-      super.write(dos);
-      _result.write(dos);
-    }
-    public void read( DataInputStream dis ) throws IOException {
-      super.read(dis);
-      _result = Key.read(dis);
+    public static class Serializer extends DParseSerializer<DParse2> {
+      // Pass along the result Key
+      public int wire_len(DParse2 dp) {
+        return super.wire_len(dp)+dp._result.wire_len();
+      }
+      public int write( DParse2 dp, byte[] buf, int off ) {
+        off = super.write(dp,buf,off);
+        off += dp._result.write(buf,off);
+        return off;
+      }
+      public DParse2 read( byte[] buf, int off ) {
+        DParse2 dp = new DParse2();
+        super.read(dp,buf,off);
+        off += super.wire_len(dp);
+        dp._result = Key.read(buf,off);
+        assert dp._result != null;
+        return dp;
+      }
+      public void write( DParse2 dp, DataOutputStream dos ) throws IOException {
+        super.write(dp,dos);
+        dp._result.write(dos);
+      }
+      public DParse2 read( DataInputStream dis ) throws IOException {
+        DParse2 dp = new DParse2();
+        super.read(dp,dis);
+        dp._result = Key.read(dis);
+        return dp;
+      }
     }
 
     // Parse just this chunk, compress into new format.
