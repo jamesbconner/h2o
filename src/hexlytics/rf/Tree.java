@@ -101,6 +101,10 @@ public class Tree implements Serializable {
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
     public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
     public int leaves()       { return l_.leaves() + r_.leaves(); }
+    public String toString() {
+      C c = RFGiniTask.data().data_.c_[column];
+      return c.name_ +"<" + split + " ("+l_+","+r_+")";
+    }
     
     
   }
