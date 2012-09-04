@@ -77,7 +77,8 @@ public class RandomForest {
   }
   
   // Dataset launched from web interface
-  public static void web_main( ValueArray ary, int ntrees, int depth, int threads) {
+  public static void web_main( ValueArray ary, int ntrees, int depth,
+      int threads, boolean useGini) {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
@@ -95,7 +96,7 @@ public class RandomForest {
       }
     }
     dapt.shrinkWrap();
-    RandomForest.build(dapt, .666, -1, ntrees, depth, -1,threads);
+    RandomForest.build(dapt, .666, -1, ntrees, depth, -1, threads, useGini);
   }
   
   /** Classifies a single row using the forest. */

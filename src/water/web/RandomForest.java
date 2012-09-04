@@ -14,7 +14,7 @@ public class RandomForest extends H2OPage {
     int threads = getAsNumber(args,"threads", 4);
     
     String res = "some results go here";
-    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,threads); }
+    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,threads, false); }
     catch( Exception e ) { res = e.toString(); }
     RString response = new RString(html);
     response.replace("key",ary._key);

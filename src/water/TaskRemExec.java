@@ -73,8 +73,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = SERVER_UDP_SEND;
       // Class loader first.  3 bytes of null for system loader.
-        buf[off++] = 0; // zero RF
-        off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
+      buf[off++] = 0; // zero RF
+      off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
       
       // Class name now
       off += UDP.set2(buf,off,sclazz.length());  // String length
@@ -138,7 +138,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
     // Do the remote execution in a F/J thread & send a reply packet
     static void remexec( RemoteTaskSerializer<RemoteTask> ser, RemoteTask dt,
-        Key args, DatagramPacket p, H2ONode h2o ) {
+                         Key args, DatagramPacket p, H2ONode h2o ) {
       // Now compute on it!
       dt.invoke(args);
 
@@ -146,15 +146,15 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
-        if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
-          buf[off++] = CLIENT_UDP_SEND; // Result coming via UDP
-          off = ser.write(dt, buf,off); // Result
-        } else {
-          buf[off++] = CLIENT_TCP_SEND;
-          // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),TCP_OUTGOING_REXEC,dt) )
-            return; // If the TCP failed... then so do we; no result; caller will retry
-        }
+      if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
+        buf[off++] = CLIENT_UDP_SEND; // Result coming via UDP
+        off = ser.write(dt, buf,off); // Result
+      } else {
+        buf[off++] = CLIENT_TCP_SEND;
+        // Push the large result back *now* (no async pause) via TCP
+        if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),TCP_OUTGOING_REXEC,dt) )
+          return; // If the TCP failed... then so do we; no result; caller will retry
+      }
       reply(p,off,h2o);
     }
 
@@ -203,7 +203,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
               remexec(ser, dt, args, p, h2o);
               tryComplete();
             }
-        });
+          });
         // All done for the TCP thread!  Work continues in the FJ thread...
       } else {
         assert flag == TCP_OUTGOING_REXEC;

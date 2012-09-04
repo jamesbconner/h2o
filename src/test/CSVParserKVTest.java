@@ -1,6 +1,5 @@
 package test;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 import org.junit.Assert;
@@ -9,8 +8,7 @@ import org.junit.Test;
 
 import water.H2O;
 import water.Key;
-import water.parser.CSVParser.CSVParseException;
-import water.parser.*;
+import water.parser.CSVParserKV;
 
 
 public class CSVParserKVTest {
@@ -18,11 +16,6 @@ public class CSVParserKVTest {
   public static class TimeSeriesRecord {
     public double value;
     public CSVParserKV<?>.CSVString date;
-  }
-  
-  public static class TimeSeriesRecordOld {
-    public double value;
-    public CSVString date;
   }
   
   @BeforeClass static public void startLocalNode() {
@@ -80,45 +73,4 @@ public class CSVParserKVTest {
     }                           
     Assert.assertEquals(14102837, counter);    
   }  
-      
-  @Test
-  public void testSpeedOfParsingbigDataCSV_OldParser() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException{    
-    TimeSeriesRecordOld r = new TimeSeriesRecordOld();
-    ValueCSVRecords<TimeSeriesRecordOld> p = new ValueCSVRecords<TimeSeriesRecordOld>(Key.make("bigdata_csv"),Integer.MAX_VALUE,r,new String [] {"date","value"});
-    int counter = 0;
-    for(TimeSeriesRecordOld x:p){
-      Assert.assertNotNull(x);
-      ++counter;      
-    }                           
-    Assert.assertEquals(counter,14102837);    
-    
-  }
-  
-  @Test
-  public void testParsingBigDataCSV() throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, CSVParseException, IOException{
-    System.out.println(Arrays.toString(CSVParserKV.getColumnNames(Key.make("bigdata_csv"))));
-    TimeSeriesRecord r = new TimeSeriesRecord();
-    CSVParserKV.ParserSetup setup = new CSVParserKV.ParserSetup();
-    setup.parseColumnNames = true;
-    CSVParserKV<TimeSeriesRecord> p = new CSVParserKV<TimeSeriesRecord>(Key.make("bigdata_csv"),Integer.MAX_VALUE,r,new String [] {"date","value"}, setup);
-    System.out.println(Arrays.toString(p.columnNames()));
-    int counter = 0;
-    TimeSeriesRecordOld rOld = new TimeSeriesRecordOld();
-    ValueCSVRecords<TimeSeriesRecordOld> pOld = new ValueCSVRecords<TimeSeriesRecordOld>(Key.make("bigdata_csv"),Integer.MAX_VALUE,rOld,new String [] {"date","value"});
-        
-    for(TimeSeriesRecord x:p){
-      ++counter;
-      pOld.next();
-      Assert.assertTrue((rOld.value == x.value) || (Double.isNaN(rOld.value) && Double.isNaN(x.value)));      
-      if(!rOld.date.toString().equals(x.date.toString())){
-        System.out.println(counter + ": " + rOld.date.toString() + " != " + x.date.toString());
-      }
-      Assert.assertTrue(rOld.date.toString().equals(x.date.toString()));
-      Assert.assertTrue(x.date.equals(rOld.date.toString()));
-      Assert.assertTrue(x.date.compareTo(rOld.date.toString()) == 0);      
-    }                           
-    Assert.assertEquals(counter,14102837);    
-  }
-  
-  
 }

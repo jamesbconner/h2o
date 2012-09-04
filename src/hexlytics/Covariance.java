@@ -1,6 +1,11 @@
 package hexlytics;
 import java.io.*;
+
+import com.sun.org.apache.xml.internal.serialize.Serializer;
+
 import water.*;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 /**
  * Calculate the covariance and correlation of two variables
@@ -60,46 +65,51 @@ public abstract class Covariance {
     return sb.toString();
   }
 
+  @RTSerializer(COV_Task.Serializer.class)
   public static class COV_Task extends MRTask {
     Key _arykey;                // Main ValueArray key
     int _pass;                  // Pass 1, or 2.
     int _colA, _colB;           // Which columns to work on
     double _sumX,_sumY;
     double _Xbar, _Ybar, _XXbar, _YYbar, _XYbar;
-    public int wire_len() { return 4+4+4+12*8+_arykey.wire_len(); }
-    public int write( byte[] buf, int off ) {
-      off += UDP.set4 (buf,off,_pass);
-      off += UDP.set4 (buf,off,_colA);
-      off += UDP.set4 (buf,off,_colB);
-      off += UDP.set8d(buf,off,_sumX);
-      off += UDP.set8d(buf,off,_sumY);
+    public static class Serializer extends RemoteTaskSerializer<COV_Task> {
+      @Override public int wire_len(COV_Task t) { return 4+4+4+12*8+t._arykey.wire_len(); }
+      @Override public int write( COV_Task t, byte[] buf, int off ) {
+        off += UDP.set4 (buf,off,t._pass);
+        off += UDP.set4 (buf,off,t._colA);
+        off += UDP.set4 (buf,off,t._colB);
+        off += UDP.set8d(buf,off,t._sumX);
+        off += UDP.set8d(buf,off,t._sumY);
 
-      off += UDP.set8d(buf,off,_Xbar);
-      off += UDP.set8d(buf,off,_Ybar);
-      off += UDP.set8d(buf,off,_XXbar);
-      off += UDP.set8d(buf,off,_YYbar);
-      off += UDP.set8d(buf,off,_XYbar);
+        off += UDP.set8d(buf,off,t._Xbar);
+        off += UDP.set8d(buf,off,t._Ybar);
+        off += UDP.set8d(buf,off,t._XXbar);
+        off += UDP.set8d(buf,off,t._YYbar);
+        off += UDP.set8d(buf,off,t._XYbar);
 
-      off += _arykey.write(buf,off);
-      return off;
+        off += t._arykey.write(buf,off);
+        return off;
+      }
+      @Override public COV_Task read( byte[] buf, int off ) { 
+        COV_Task t = new COV_Task();
+        t._pass = UDP.get4 (buf,(off+=4)-4);
+        t._colA = UDP.get4 (buf,(off+=4)-4);
+        t._colB = UDP.get4 (buf,(off+=4)-4);
+        t._sumX = UDP.get8d(buf,(off+=8)-8);
+        t._sumY = UDP.get8d(buf,(off+=8)-8);
+
+        t._Xbar = UDP.get8d(buf,(off+=8)-8);
+        t._Ybar = UDP.get8d(buf,(off+=8)-8);
+        t._XXbar= UDP.get8d(buf,(off+=8)-8);
+        t._YYbar= UDP.get8d(buf,(off+=8)-8);
+        t._XYbar= UDP.get8d(buf,(off+=8)-8);
+
+        t._arykey  = Key.read(buf,off);
+        return t;
+      }
+      @Override public void write( COV_Task t, DataOutputStream dos ) { throw new Error("do not call"); }
+      @Override public COV_Task read ( DataInputStream  dis ) { throw new Error("do not call"); }
     }
-    public void read( byte[] buf, int off ) { 
-      _pass = UDP.get4 (buf,(off+=4)-4);
-      _colA = UDP.get4 (buf,(off+=4)-4);
-      _colB = UDP.get4 (buf,(off+=4)-4);
-      _sumX = UDP.get8d(buf,(off+=8)-8);
-      _sumY = UDP.get8d(buf,(off+=8)-8);
-      
-      _Xbar = UDP.get8d(buf,(off+=8)-8);
-      _Ybar = UDP.get8d(buf,(off+=8)-8);
-      _XXbar= UDP.get8d(buf,(off+=8)-8);
-      _YYbar= UDP.get8d(buf,(off+=8)-8);
-      _XYbar= UDP.get8d(buf,(off+=8)-8);
-
-      _arykey  = Key.read(buf,off);
-    }
-    public void write( DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
-    public void read ( DataInputStream  dis ) throws IOException { throw new Error("do not call"); }
 
     public void map( Key key ) {
       // Get the root ValueArray for the metadata
