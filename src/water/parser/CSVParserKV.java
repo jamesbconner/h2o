@@ -200,8 +200,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
   String[] _columnNames;
 
-  FloatingDecimal _floatingDecimal = new FloatingDecimal(false, 0,
-      new char[64], 0, false);
+  FloatingDecimalWrapper _floatingDecimal = new FloatingDecimalWrapper();
 
   int _ival;
 
