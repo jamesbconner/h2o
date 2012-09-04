@@ -1,13 +1,13 @@
 package test;
 import static org.junit.Assert.*;
 
+import hexlytics.LinearRegression;
 import java.io.*;
 import java.util.Arrays;
-
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-
 import water.*;
+import water.parser.ParseDataset;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
 
@@ -269,6 +269,30 @@ public class KVTest {
       return bits2;
     }
   }
+
+  // ---
+  // Test parsing "cars.csv" and running LinearRegression
+  @org.junit.Test public void test7() {
+    System.out.println("test7");
+    Key fkey = load_test_file("smalldata/cars.csv");
+    Key okey = Key.make("cars.hex");
+    ParseDataset.parse(okey,DKV.get(fkey));
+    UKV.remove(fkey);
+    ValueArray va = (ValueArray)DKV.get(okey);
+    // Because ParseDataset does not properly block (yet) insert a tiny stall here.
+    try { Thread.sleep(100); } catch( InterruptedException ie ) {}
+    // Compute LinearRegression between columns 2 & 3
+    String[] res = LinearRegression.run(va,2,3).split("<p>");
+    assertEquals("Linear Regression of cars.hex between 2 and 3",res[0]);
+    //assertEquals("Pass 1 in 10msec",res[1]);
+    //assertEquals("Pass 2 in 6msec",res[2]);
+    assertEquals("y = 58.326241377521995 * x + -124.57816399564385",res[3]);
+    //assertEquals("Pass 3 in 6msec",res[4]);
+    assertEquals("R^2                 = 0.9058985668996267",res[5]);
+    assertEquals("std error of beta_1 = 0.9352584499359637",res[6]);
+    UKV.remove(okey);
+  }
+
 
   // ---
   // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs

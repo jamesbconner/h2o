@@ -35,7 +35,7 @@ public abstract class LinearRegression {
     lr.reinitialize();
     lr.invoke(ary._key);
     long pass2 = System.currentTimeMillis();
-    sb.append("<P>Pass 2 in ").append(pass2-pass1).append("msec");
+    sb.append("<p>Pass 2 in ").append(pass2-pass1).append("msec");
 
     // Compute the regression
     lr._beta1 = lr._XYbar / lr._XXbar;
