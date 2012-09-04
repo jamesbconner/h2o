@@ -15,8 +15,8 @@ class GiniStatistic {
   final Data data_;
   final GiniStatistic parent_;
   final Column[] columns_;
-  int classOf = -1;
-  final double[] dist;
+  int classOf_ = -1;
+  double[] dist;
   
   public GiniStatistic(Data d, GiniStatistic s) {
     data_ = d; parent_ = s;
@@ -49,6 +49,9 @@ class GiniStatistic {
     for (Column c: columns_) {
       if (c == null)
         continue;
+      if (dist == null)
+        dist = c.getDistribution();
+        
       double f = c.calculateBinarySplitFitness();
       if ((bestColumn_==null) || (f > bestColumn_.fitness_)) {
         bestColumn_ = c;
@@ -63,6 +66,23 @@ class GiniStatistic {
   public int singleClass() {
     return singleClass_;
   }
+  
+  public int classOf() {
+    if (classOf_==-1) {
+      int max =0;
+      for(int i=0;i<dist.length;i++) if (dist[i]>max) { max=(int)dist[i]; classOf_ = i;}
+    }
+    return classOf_; 
+  }
+  
+  public double classOfError() {
+    if (classOf_ == -1)
+      classOf();
+    double total = Utils.sum(dist);
+    double others = total - dist[classOf_];
+    return others / total;
+  }
+  
   
   public int bestColumn() {
     return bestColumn_.column;
@@ -111,6 +131,15 @@ class GiniStatistic {
       return fitness_;
     }
     
+    
+    public double[] getDistribution() {
+      double[] result = new double[dist_[0].length];
+      for (double[] d: dist_)
+        for (int i = 0; i < result.length; ++i)
+          result[i] += d[i];
+      return result;
+    }
+
     /** Calculates the double split fitness, which is most similar to the 
      * numeric statistic predictor.
      * 

@@ -39,10 +39,13 @@ public class Tree implements Serializable {
    */
   final INode computeGini(int depth, Data d, GiniStatistic s, GiniJob[] jobs) {
     s.computeSplit();
+    // terminate the branch prematurely
+    if ((s.classOfError() < MIN_ERROR_RATE) || (depth >= MAX_TREE_DEPTH))
+      return new LeafNode(depth,s.classOf());
     if (s.singleClass() >= 0)
       return new LeafNode(depth, s.singleClass());
     if (s.bestColumn_.fitness_ < 0)
-      return new LeafNode(depth, 0);
+      return new LeafNode(depth, s.classOf());
     GiniNode nd = new GiniNode(depth,s.bestColumn(), s.bestColumnSplit());
     Data[] res = new Data[2];
     GiniStatistic[] stats = new GiniStatistic[]{
@@ -96,6 +99,10 @@ public class Tree implements Serializable {
     }
 
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
+    public int leaves()       { return l_.leaves() + r_.leaves(); }
+    
+    
   }
   
   

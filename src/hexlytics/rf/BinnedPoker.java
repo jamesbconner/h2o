@@ -44,7 +44,7 @@ public class BinnedPoker {
         10, //# trees
         40, //depth
         -1, //min error rate
-        1, // threads */
+        4, // threads */
         true); // gini 
   }
 
