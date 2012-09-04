@@ -48,8 +48,7 @@ public abstract class DProcessCSVTask<T> extends MRTask {
       processRecords(new ValueCSVRecords<T>(key, 1,
           _csvRecord, _columns, _setup));        
     } catch (Exception e) {
-      e.printStackTrace();
-      throw new Error("unexpected exception");
+      throw new Error("unexpected exception", e);
     }
     _mapFinished = true;
   }
