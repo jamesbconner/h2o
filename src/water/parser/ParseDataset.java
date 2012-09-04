@@ -1,11 +1,15 @@
 package water.parser;
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 
 import org.hyperic.sigar.Mem;
 
 import water.*;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 import water.ValueArray.Column;
 
 // Helper class to parse an entire ValueArray data, and produce a structured
@@ -112,11 +116,11 @@ public final class ParseDataset {
       if( (c._size&31)==31 ) { // All fails; this is a plain double
         c._size = -8;          // Flag as a plain double
         continue;
-      }
+      } 
       if( (c._size&31)==15 ) { // All the int-versions fail, but fits in a float
         c._size = -4;          // Flag as a float
         continue;
-      }
+      } 
       // Else attempt something integer; try to squeeze into a short or byte.
       // First, scale to integers.
       if( (c._size & 8)==0 ) { c._scale = 1000; }
@@ -206,7 +210,7 @@ public final class ParseDataset {
       for( int x : _rows_chk )
         dos.writeInt(x);
     }
-    public void read( byte[] buf, int off ) {
+    public void read( byte[] buf, int off ) { 
       _read = true;
       _num_cols = UDP.get4(buf,off);  off += 4; 
       _num_rows = UDP.get4(buf,off);  off += 4; 
@@ -309,7 +313,7 @@ public final class ParseDataset {
       if(_num_cols != _cols.length){
         System.out.println("reducing number of columns from " + _cols.length + " to " + _num_cols);
         _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
-      }
+    }
     }
 
     // Combine results
@@ -403,7 +407,7 @@ public final class ParseDataset {
       int num_rows = (int)(_rows_chk[(int)cidx+1]-start_row);
       // Get a place to hold the data
       byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
-      // A place to hold each column datum      
+      // A place to hold each column datum
       // The parser
       CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT?
           new SVMLightParserKV(key, 1,_cols.length):
@@ -419,14 +423,14 @@ public final class ParseDataset {
           double d = ds[i];
           ValueArray.Column col = _cols[i];
           if( !Double.isNaN(d) ) { // Broken data on row?
-            switch( col._size ) {
-            case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
-            case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
-            case  4: UDP.set4 (buf,(off+=4)-4, ( int)d); break;
-            case  8: UDP.set8 (buf,(off+=8)-8, (long)d); break;
-            case -4: UDP.set4f(buf,(off+=4)-4,(float)d); break;
-            case -8: UDP.set8d(buf,(off+=8)-8,       d); break;
-            }
+          switch( col._size ) {
+          case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
+          case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
+          case  4: UDP.set4 (buf,(off+=4)-4, ( int)d); break;
+          case  8: UDP.set8 (buf,(off+=8)-8, (long)d); break;
+          case -4: UDP.set4f(buf,(off+=4)-4,(float)d); break;
+          case -8: UDP.set8d(buf,(off+=8)-8,       d); break;
+          }
           } else {
             switch( col._size ) {
             case  1: buf[off++] = (byte)-1; break;
@@ -436,7 +440,7 @@ public final class ParseDataset {
             case -4: UDP.set4f(buf,(off+=4)-4,        Float.NaN); break;
             case -8: UDP.set8d(buf,(off+=8)-8,       Double.NaN); break;
             }
-          }
+        }
         }
         off = old+row_size;     // Skip the padding during fill
       }
@@ -503,7 +507,32 @@ public final class ParseDataset {
       return rowz;              // Rows written out
     }
 
+    @RTSerializer(AtomicUnion.Serializer.class)
     public static class AtomicUnion extends Atomic {
+    public static class Serializer extends RemoteTaskSerializer<AtomicUnion> {
+      // By default, nothing sent over with the function (except the target Key).
+      @Override public int  wire_len(AtomicUnion a) { return 4+a._key._kb.length; }
+      @Override public int  write( AtomicUnion a, byte[] buf, int off ) {
+        off += UDP.set4(buf,off,a._dst_off);
+        return a._key.write(buf, off);        
+      }
+      @Override public void write( AtomicUnion a, DataOutputStream dos ) throws IOException {
+        dos.writeInt(a._dst_off);
+        a._key.write(dos);
+      }
+      @Override public AtomicUnion read( byte[] buf, int off ) {
+        AtomicUnion a = new AtomicUnion();
+        a._dst_off = UDP.get4(buf,(off+=4)-4);        
+        a._key = Key.read(buf, off);                
+        return a;
+      }
+      @Override public AtomicUnion read( DataInputStream dis ) throws IOException {
+        AtomicUnion a = new AtomicUnion();
+        a._dst_off = dis.readInt();
+        a._key = Key.read(dis);        
+        return a;
+      }
+    }
       Key _key;            
       int _dst_off;
       
@@ -513,23 +542,7 @@ public final class ParseDataset {
         _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
         DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
       }
-      protected int wire_len() { return 4+_key._kb.length; }
-      protected int  write( byte[] buf, int off ) {
-        off += UDP.set4(buf,off,_dst_off);
-        return _key.write(buf, off);        
-      }
-      protected void write( DataOutputStream dos ) throws IOException { 
-        dos.writeInt(_dst_off);
-        _key.write(dos);
-      }
-      protected void read( byte[] buf, int off ) {
-        _dst_off = UDP.get4(buf,(off+=4)-4);        
-        _key = Key.read(buf, off);                
-      }
-      protected void read( DataInputStream dis ) throws IOException { 
-        _dst_off = dis.readInt();
-        _key = Key.read(dis);        
-      }
+      
       @Override public byte[] atomic( byte[] bits1 ) {        
         byte[] mem = DKV.get(_key).get();
         byte[] bits2 = (bits1 == null)
@@ -583,7 +596,7 @@ public final class ParseDataset {
     // Count column delimiters in the next line. If there are commas, assume file is comma separated.
     // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
-    byte[] b = v0.get();                      // Bytes for 1st chunk    
+    byte[] b = v0.get();                      // Bytes for 1st chunk
     int i=0;
     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++;   // Skip a line
     if( i==b.length ) return new int[]{0,0};  // No columns?

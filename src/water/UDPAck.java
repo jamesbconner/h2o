@@ -12,7 +12,7 @@ public class UDPAck extends UDP {
   // Received an ACK for a remote Task.  Ping the task.
   void call(DatagramPacket pack, H2ONode h2o) {
     int tasknum = get_task(pack.getData());
-    DFutureTask t = DFutureTask.TASKS.get(tasknum);
+    DFutureTask<?> t = DFutureTask.TASKS.get(tasknum);
     if( t == null )    // Never heard of this task?  Just blow it off.
       return;
     // Do the 2nd half of this task
