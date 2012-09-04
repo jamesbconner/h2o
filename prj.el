@@ -8,7 +8,7 @@
  '(jde-run-option-application-args (quote ("-name" "Cliff" "-test=none")))
  '(jde-debugger (quote ("JDEbug")))
  '(jde-compile-option-source (quote ("1.6")))
- '(jde-compile-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes" "./lib/sigar/sigar.jar" "./lib/hadoop/1.0.0/hadoop-core-1.0.0.jar" "./lib/apache/commons-logging-1.1.1.jar" "./lib/junit/junit-4.11.jar")))
+ '(jde-compile-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes" "./lib/sigar/sigar.jar" "./lib/hadoop/1.0.0/hadoop-core-1.0.0.jar" "./lib/apache/commons-logging-1.1.1.jar" "./lib/junit/junit-4.11.jar" "./lib/apache/guava-12.0.1.jar")))
  '(jde-db-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes")))
  '(jde-run-option-enable-assertions "Everywhere")
  '(jde-compile-option-sourcepath (quote ("./src")))
