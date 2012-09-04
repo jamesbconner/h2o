@@ -44,14 +44,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       _length = length;
     }
 
-    // private int chunkIdx(){
-    // int idx = (int)(_offset >> ValueArray.LOG_CHK);
-    // if((idx == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
-    // return idx - 1; // the last chunk can be larger!
-    // }
-    // return idx;
-    // }
-
     private int[] chunkIdxAndOffset() {
       int[] res = new int[2];
       res[1] = (int) (_offset & ((1 << ValueArray.LOG_CHK) - 1));
