@@ -1,22 +1,14 @@
 package water.parser;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.parser.CSVParser.CSVEscapedBoundaryException;
 import water.parser.CSVParser.CSVParseException;
 import water.parser.CSVParser.CSVParserSetup;
-import water.parser.CSVParser.CSVParserSetup.PartialRecordPolicy;
 
 /**
  * Wrapper around CSVParser implementing iterator interface.
@@ -396,15 +388,6 @@ public class ValueCSVRecords<T> implements Iterable<T>, Iterator<T> {
     _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
   }
   
-  public ValueCSVRecords(ADataProvider dataProvider, T csvRecord, String[] columns,
-      CSVParserSetup setup) throws NoSuchFieldException, SecurityException,
-      IllegalArgumentException, IllegalAccessException, CSVParseException,
-      IOException {
-    _dataProvider = dataProvider;
-    _rec = csvRecord;
-    _parser = new CSVParser(_dataProvider.nextData(), csvRecord, columns, setup);
-  }
-
   public ValueCSVRecords(Key k, int nChunks, T csvRecord, String[] columns,
       CSVParserSetup setup) throws NoSuchFieldException, SecurityException,
       IllegalArgumentException, IllegalAccessException, CSVParseException,
