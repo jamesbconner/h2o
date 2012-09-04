@@ -281,7 +281,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         for (String colName : columns) {
           if (colName != null) {
             _fields[i] = _csvRecord.getClass().getDeclaredField(colName);
-            Type t = _fields[i].getGenericType();
+            Type t = _fields[i].getType();
             if (Integer.TYPE.equals(t)) {
               _columnTypes[i] = DataType.typeInt;
             } else if (Double.TYPE.equals(t)) {
