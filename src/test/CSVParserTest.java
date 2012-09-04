@@ -11,6 +11,11 @@ import water.parser.*;
 
 
 public class CSVParserTest {
+  @BeforeClass
+  public static void setUpClass() throws Exception {
+      H2O.main(new String[] {});
+  }
+
   public static class Record {
     public String prefix = "";
     public int _totalSamples;
@@ -35,16 +40,6 @@ public class CSVParserTest {
       return "{str1->" + str1.toString() + ", str2->" + str1.toString() + "}";
     }
 
-  }
-
-  @BeforeClass
-  public static void setUpClass() throws Exception {
-      H2O.main(new String[] {});
-  }
-
-  @AfterClass
-  public static void tearDownClass() throws Exception {
-    //Code executed after the last test method
   }
 
   public static class TestRecord2 {
