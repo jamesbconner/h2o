@@ -1,6 +1,8 @@
 package hexlytics;
 import java.io.*;
 import water.*;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 /**
  * @author cliffc@0xdata.com
@@ -66,6 +68,7 @@ public abstract class LinearRegression {
     return sb.toString();
   }
 
+  @RTSerializer(LR_Task.Serializer.class)
   public static class LR_Task extends MRTask {
     Key _arykey;                // Main ValueArray key
     int _pass;                  // Pass 1, 2 or 3.
@@ -75,48 +78,52 @@ public abstract class LinearRegression {
     double _Xbar, _Ybar, _XXbar, _YYbar, _XYbar;
     double _beta0, _beta1;
     double _rss, _ssr;
-    public int wire_len() { return 3*4+13*8+_arykey.wire_len(); }
-    public int write( byte[] buf, int off ) {
-      off += UDP.set4 (buf,off,_pass);
-      off += UDP.set4 (buf,off,_colA);
-      off += UDP.set4 (buf,off,_colB);
-      off += UDP.set8 (buf,off,_rows);
-      off += UDP.set8d(buf,off,_sumX);
-      off += UDP.set8d(buf,off,_sumY);
-      off += UDP.set8d(buf,off,_sumX2);
-      off += UDP.set8d(buf,off,_Xbar);
-      off += UDP.set8d(buf,off,_Ybar);
-      off += UDP.set8d(buf,off,_XXbar);
-      off += UDP.set8d(buf,off,_YYbar);
-      off += UDP.set8d(buf,off,_XYbar);
-      off += UDP.set8d(buf,off,_beta0);
-      off += UDP.set8d(buf,off,_beta1);
-      off += UDP.set8d(buf,off,_rss  );
-      off += UDP.set8d(buf,off,_ssr  );
-      off += _arykey.write(buf,off);
-      return off;
+    public static class Serializer extends RemoteTaskSerializer<LR_Task> {
+      @Override public int wire_len(LR_Task t) { return 3*4+13*8+t._arykey.wire_len(); }
+      @Override public int write( LR_Task t, byte[] buf, int off ) {
+        off += UDP.set4 (buf,off,t._pass);
+        off += UDP.set4 (buf,off,t._colA);
+        off += UDP.set4 (buf,off,t._colB);
+        off += UDP.set8 (buf,off,t._rows);
+        off += UDP.set8d(buf,off,t._sumX);
+        off += UDP.set8d(buf,off,t._sumY);
+        off += UDP.set8d(buf,off,t._sumX2);
+        off += UDP.set8d(buf,off,t._Xbar);
+        off += UDP.set8d(buf,off,t._Ybar);
+        off += UDP.set8d(buf,off,t._XXbar);
+        off += UDP.set8d(buf,off,t._YYbar);
+        off += UDP.set8d(buf,off,t._XYbar);
+        off += UDP.set8d(buf,off,t._beta0);
+        off += UDP.set8d(buf,off,t._beta1);
+        off += UDP.set8d(buf,off,t._rss  );
+        off += UDP.set8d(buf,off,t._ssr  );
+        off += t._arykey.write(buf,off);
+        return off;
+      }
+      @Override public LR_Task read( byte[] buf, int off ) { 
+        LR_Task t = new LR_Task();
+        t._pass = UDP.get4 (buf,(off+=4)-4);
+        t._colA = UDP.get4 (buf,(off+=4)-4);
+        t._colB = UDP.get4 (buf,(off+=4)-4);
+        t._rows = UDP.get8 (buf,(off+=8)-8);
+        t._sumX = UDP.get8d(buf,(off+=8)-8);
+        t._sumY = UDP.get8d(buf,(off+=8)-8);
+        t._sumX2= UDP.get8d(buf,(off+=8)-8);
+        t._Xbar = UDP.get8d(buf,(off+=8)-8);
+        t._Ybar = UDP.get8d(buf,(off+=8)-8);
+        t._XXbar= UDP.get8d(buf,(off+=8)-8);
+        t._YYbar= UDP.get8d(buf,(off+=8)-8);
+        t._XYbar= UDP.get8d(buf,(off+=8)-8);
+        t._beta0= UDP.get8d(buf,(off+=8)-8);
+        t._beta1= UDP.get8d(buf,(off+=8)-8);
+        t._rss  = UDP.get8d(buf,(off+=8)-8);
+        t._ssr  = UDP.get8d(buf,(off+=8)-8);
+        t._arykey  = Key.read(buf,off);
+        return t;
+      }
+      @Override public void write( LR_Task t, DataOutputStream dos ) { throw new Error("do not call"); }
+      @Override public LR_Task read ( DataInputStream  dis ) { throw new Error("do not call"); }
     }
-    public void read( byte[] buf, int off ) { 
-      _pass = UDP.get4 (buf,(off+=4)-4);
-      _colA = UDP.get4 (buf,(off+=4)-4);
-      _colB = UDP.get4 (buf,(off+=4)-4);
-      _rows = UDP.get8 (buf,(off+=8)-8);
-      _sumX = UDP.get8d(buf,(off+=8)-8);
-      _sumY = UDP.get8d(buf,(off+=8)-8);
-      _sumX2= UDP.get8d(buf,(off+=8)-8);
-      _Xbar = UDP.get8d(buf,(off+=8)-8);
-      _Ybar = UDP.get8d(buf,(off+=8)-8);
-      _XXbar= UDP.get8d(buf,(off+=8)-8);
-      _YYbar= UDP.get8d(buf,(off+=8)-8);
-      _XYbar= UDP.get8d(buf,(off+=8)-8);
-      _beta0= UDP.get8d(buf,(off+=8)-8);
-      _beta1= UDP.get8d(buf,(off+=8)-8);
-      _rss  = UDP.get8d(buf,(off+=8)-8);
-      _ssr  = UDP.get8d(buf,(off+=8)-8);
-      _arykey  = Key.read(buf,off);
-    }
-    public void write( DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
-    public void read ( DataInputStream  dis ) throws IOException { throw new Error("do not call"); }
 
     public void map( Key key ) {
       assert key.home();
