@@ -1,22 +1,13 @@
 package test;
-import init.init;
 import java.io.*;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.StringTokenizer;
-import junit.framework.Assert;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.JUnitCore;
-import org.junit.runner.Result;
-import org.junit.runner.notification.Failure;
+
+import org.junit.*;
+
 import water.*;
 import water.parser.CSVParser.CSVEscapedBoundaryException;
-import water.parser.CSVParser.CSVParseException;
 import water.parser.CSVParser.CSVParserSetup;
-import water.parser.CSVString;
-import water.parser.ValueCSVRecords;
+import water.parser.*;
 
 
 public class CSVParserTest {
@@ -48,8 +39,7 @@ public class CSVParserTest {
 
   @BeforeClass
   public static void setUpClass() throws Exception {
-    if(H2O.CLOUD == null)
-      init.main(new String [] {"-ip", "192.168.56.1", "-test", "none"});
+      H2O.main(new String[] {});
   }
 
   @AfterClass
@@ -130,7 +120,7 @@ public class CSVParserTest {
 
 
   @Test
-  public void testLineEnding(){
+  public void testLineEnding() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024,Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
@@ -141,168 +131,168 @@ public class CSVParserTest {
       TestRecord3 [] rExp = {new TestRecord3(.123,.123f,123)};
       ValueCSVRecords<TestRecord3> p1 = new ValueCSVRecords<TestRecord3>(var.chunk_get(0), 1,r1, new String [] {"d","f","i","s"});
       String [] expectedColumnNames = {"double","float","int"," CSVString "};
-      Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
+      Assert.assertArrayEquals(expectedColumnNames, p1.columnNames());
       int i = 0;
       for(TestRecord3 r:p1){
         Assert.assertEquals(r,rExp[i++]);
         Assert.assertTrue(r.s.equals("\r"));
       }
       Assert.assertEquals(i,1);
-    } catch(Exception e){
-      e.printStackTrace();
     } finally {
       DKV.remove(k1);
     }
   }
 
-  public byte[] randomBytes(int bytelen){
-    byte [] bytes = new byte[bytelen];
-    for(int i = 0; i < bytelen; ++i){
-      bytes[i] = (byte)(256*Math.random());
-    }
-    return bytes;
-  }
-
-  int randInt(int N){
-    return (int)(N*Math.random());
-  }
-  
-  @Test
-  public void testIgnoredColumn(){
+  @Test public void testIgnoredColumn() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
-    Value v1 = new Value(k1,"\"test1\", haha,\"test2\"\n12345,xxx,.12345\n1.2345e13,xxx,-12345\n-1.3e-3,xxx,123\n");
+    Value v1 = new Value(k1,
+        "\"test1\", haha,\"test2\"\n" +
+        "12345,xxx,.12345\n" +
+        "1.2345e13,xxx,-12345\n" +
+        "-1.3e-3,xxx,123\n");
+    TestRecord2 [] rExp = {
+        new TestRecord2(12345,.12345),
+        new TestRecord2(1.2345e13,-12345),
+        new TestRecord2(-1.3e-3,123)
+    };
     try{
       DKV.put(k1,v1);
       TestRecord2 r1 = new TestRecord2();
-      TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
       String [] expectedColumnNames = {"test1", " haha","test2"};
       ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0), 1, r1, new String [] {"x",null,"y"});
-      assert(Arrays.equals(expectedColumnNames, p1.columnNames()));
+      Assert.assertArrayEquals(expectedColumnNames, p1.columnNames());
       int i = 0;
       for(TestRecord2 r:p1){
-        Assert.assertEquals(r,rExp[i++]);
+        Assert.assertEquals(rExp[i++], r);
       }
-      Assert.assertEquals(i,3);
-    } catch(Exception e){
-      e.printStackTrace();
-      Assert.assertTrue(false);
+      Assert.assertEquals(3, i);
     } finally {
       DKV.remove(k1);
     }
   }
+  
   @Test
-  public void testCSVString() {
+  public void testCSVString() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 1024*1024*3, Value.ICE);
-    Key k1 = ValueArray.make_chunkkey(k,var.chunk_offset(1));
-    Key k2 = ValueArray.make_chunkkey(k,var.chunk_offset(2));
+    Key k1 = ValueArray.make_chunkkey(k,Value.chunk_offset(1));
+    Key k2 = ValueArray.make_chunkkey(k,Value.chunk_offset(2));
 
     Value v1 = new Value(k1,"..\nhaha");
     Value v2 = new Value(k2,"gaga,\n");
-    try{
+    try {
       DKV.put(k1,v1);
       DKV.put(k2,v2);
       TestRecord1 r = new TestRecord1();
       ValueCSVRecords<TestRecord1> p1 = new ValueCSVRecords<TestRecord1>(var.chunk_get(1),1, r, new String [] {"str1","str2"});
-      for(TestRecord1 x:p1){
-        Assert.assertTrue(x.str1.equals("hahagaga"));
+      for(TestRecord1 x:p1) {
+        Assert.assertEquals("hahagaga", x.str1.toString());
       }
-    } catch (Exception e) {
-      e.printStackTrace();
-      Assert.assertTrue(false);
-    }finally{
+    } finally {
       DKV.remove(k1);
       DKV.remove(k2);
     }
   }
 
   @Test
-  public void testDataTypes() {
+  public void testDataTypes() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
-    Value v1 = new Value(k1,"\"double\",float,\"int\",CSVString \n .123 , .123, 123, \"123\"\n");
+    Value v1 = new Value(k1,
+        "\"double\",float,\"int\",CSVString \n" +
+        " .123 , .123, 123, \"123\"\n");
+    TestRecord3 [] rExp = {
+        new TestRecord3(.123,.123f,123)
+    };
     try{
       DKV.put(k1,v1);
       TestRecord3 r1 = new TestRecord3();
-      TestRecord3 [] rExp = {new TestRecord3(.123,.123f,123)};
       ValueCSVRecords<TestRecord3> p1 = new ValueCSVRecords<TestRecord3>(var.chunk_get(0),1, r1, new String [] {"d","f","i","s"});
       String [] expectedColumnNames = {"double","float","int","CSVString "};
-      Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
+      Assert.assertArrayEquals(expectedColumnNames, p1.columnNames());
       int i = 0;
       for(TestRecord3 r:p1){
-        Assert.assertEquals(r, rExp[i++]);
+        Assert.assertEquals(rExp[i++], r);
       }
-      Assert.assertEquals(i,1);
-    } catch(Exception e){
-      e.printStackTrace();
+      Assert.assertEquals(1, i);
     } finally {
       DKV.remove(k1);
     }
   }
 
   @Test
-  public void testSeparator() {
+  public void testSeparator() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
-    Value v1 = new Value(k1,"\"test1\"  \"test2\" \n 12345 .12345 \n             1.2345e13    -12345\n -1.3e-3 123  \n");
+    Value v1 = new Value(k1,
+        "\"test1\"  \"test2\" \n" +
+        " 12345 .12345 \n" +
+        "             1.2345e13    -12345\n" +
+        " -1.3e-3 123  \n");
+    TestRecord2 [] rExp = {
+        new TestRecord2(12345,.12345),
+        new TestRecord2(1.2345e13,-12345),
+        new TestRecord2(-1.3e-3,123)
+    };
 
     try{
       DKV.put(k1,v1);
       TestRecord2 r1 = new TestRecord2();
-      TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
       CSVParserSetup s = new CSVParserSetup((byte)' ',true);
       ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0), 1, r1, new String [] {"x","y"}, s);
       String [] expectedColumnNames = {"test1","test2"};
-      Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
+      Assert.assertArrayEquals(expectedColumnNames, p1.columnNames());
       int i = 0;
       for(TestRecord2 r:p1){
-        Assert.assertEquals(r, rExp[i++]);
+        Assert.assertEquals(rExp[i++], r);
       }
-      Assert.assertEquals(i,3);
-    } catch(Exception e){
-      e.printStackTrace();
-      Assert.assertTrue(false);
+      Assert.assertEquals(3, i);
     } finally {
       DKV.remove(k1);
     }
   }
 
   @Test
-  public void testCorrectNumberParsing() {
+  public void testCorrectNumberParsing() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 3*1024*1024, Value.ICE);
     Key k1 = ValueArray.make_chunkkey(k,0);
-    Value v1 = new Value(k1,"\"test1\", \"test2\"\n12345,.12345\n1.2345e13,-12345\n-1.3e-3,123\n");
+    Value v1 = new Value(k1,
+        "\"test1\", \"test2\"\n" +
+        "12345,.12345\n" +
+        "1.2345e13,-12345\n" +
+        "-1.3e-3,123\n");
+    TestRecord2 [] rExp = {
+        new TestRecord2(12345,.12345),
+        new TestRecord2(1.2345e13,-12345),
+        new TestRecord2(-1.3e-3,123)
+    };
     try{
       DKV.put(k1,v1);
       TestRecord2 r1 = new TestRecord2();
-      TestRecord2 [] rExp = {new TestRecord2(12345,.12345),new TestRecord2(1.2345e13,-12345),new TestRecord2(-1.3e-3,123)};
       String [] expectedColumnNames = {"test1","test2"};
       ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0),1, r1, new String [] {"x","y"});
       assert(Arrays.equals(expectedColumnNames, p1.columnNames()));
       int i = 0;
       for(TestRecord2 r:p1){
-        Assert.assertEquals(r,rExp[i++]);
+        Assert.assertEquals(rExp[i++], r);
       }
-      Assert.assertEquals(i,3);
-    } catch(Exception e){
-      e.printStackTrace();
-      Assert.assertTrue(false);
+      Assert.assertEquals(3, i);
     } finally {
       DKV.remove(k1);
     }
   }
   @Test
-  public void testCorrectBoundaryProcessing() {
+  public void testCorrectBoundaryProcessing() throws Exception {
     Key k = Key.make("csvTest");
     ValueArray var = new ValueArray(k, 1024*1024*3, Value.ICE);
-    Key k1 = ValueArray.make_chunkkey(k,var.chunk_offset(0));
-    Key k2 = ValueArray.make_chunkkey(k,var.chunk_offset(1));
-    Key k3 = ValueArray.make_chunkkey(k,var.chunk_offset(2));
+    Key k1 = ValueArray.make_chunkkey(k,Value.chunk_offset(0));
+    Key k2 = ValueArray.make_chunkkey(k,Value.chunk_offset(1));
+    Key k3 = ValueArray.make_chunkkey(k,Value.chunk_offset(2));
     Value v1 = new Value(k1,"\"test1\", \"test2\"\n1.23456e3, 1.");
     Value v2 = new Value(k2,"23456e3\n1.23456e3,1.2");
     Value v3 = new Value(k3,"3456e3\n,1.23456e3\n");
@@ -320,25 +310,19 @@ public class CSVParserTest {
       ValueCSVRecords<TestRecord2> p1 = new ValueCSVRecords<TestRecord2>(var.chunk_get(0), 1,r1, new String [] {"x","y"});
       ValueCSVRecords<TestRecord2> p2 = new ValueCSVRecords<TestRecord2>(var.chunk_get(1),1,r2, new String [] {"x","y"});
       String [] expectedColumnNames = {"test1","test2"};
-      String [] colNames = p1.columnNames();      
       
-      Assert.assertTrue(Arrays.equals(expectedColumnNames, p1.columnNames()));
+      Assert.assertArrayEquals(expectedColumnNames, p1.columnNames());
       int i = 0;
       for(TestRecord2 r:p1){
+        Assert.assertEquals(expectedR, r);
         ++i;
-        Assert.assertEquals(r, expectedR);
       }
-      Assert.assertEquals(i,1);
       i = 0;
       for(TestRecord2 r:p2){
         ++i;
-        Assert.assertEquals(r,expectedR);
+        Assert.assertEquals(expectedR, r);
       }
-      Assert.assertEquals(i,1);
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-      Assert.assertTrue(false);
+      Assert.assertEquals(1, i);
     } finally {
       DKV.remove(k1);
       DKV.remove(k2);
@@ -348,30 +332,20 @@ public class CSVParserTest {
   }
 
   // does not handle escaped stuff
-  ArrayList<String> nextCSVLine(BufferedReader r) {
-    ArrayList<String> result = new ArrayList<String>();
-    //read comma separated file line by line
-    try {
-      String strLine = null;
-      if((strLine = r.readLine()) != null) {
-        //break comma separated line using ","
-        StringTokenizer st = new StringTokenizer(strLine, ",");
-        while(st.hasMoreTokens()) {
-          //display csv values
-          result.add(st.nextToken());
-        }
-        //reset token number
-      }
-    } catch(Exception e){
-      e.printStackTrace();
-    }
-    return result;
+  String[] nextCSVLine(BufferedReader r) throws Exception {
+    String strLine = r.readLine();
+    if (strLine == null) return null;
+    return strLine.split(",");
   }
+  
   @Test
-public void testUnknownData(){
+  public void testUnknownData() throws Exception {
     Key k = Key.make("Iris.data");
-    if(DKV.get(k) == null){
-      DKV.put(k, new Value(k,"5.1,3.5,1.4,0.2,Iris-setosa\n4.9,3.0,1.4,0.2,Iris-setosa\n4.7,3.2,1.3,0.2,Iris-setosa"));
+    if(DKV.get(k) == null) {
+      DKV.put(k, new Value(k,
+          "5.1,3.5,1.4,0.2,Iris-setosa\n" +
+          "4.9,3.0,1.4,0.2,Iris-setosa\n" +
+          "4.7,3.2,1.3,0.2,Iris-setosa"));
     }
     CSVParserSetup setup = new CSVParserSetup();
     setup._partialRecordPolicy = CSVParserSetup.PartialRecordPolicy.fillWithDefaults;
@@ -379,45 +353,41 @@ public void testUnknownData(){
     setup._parseColumnNames = false;
     float [] rec1 = new float[3];
     float [] rec2 = new float[10];
-    
-    float [][] expData = new float[3][];
-    expData[0] = new float[]{5.1f,3.5f,1.4f,0.2f, Float.NaN};
-    expData[1] = new float[]{4.9f,3.0f,1.4f,0.2f, Float.NaN};
-    expData[2] = new float[]{4.7f,3.2f,1.3f,0.2f, Float.NaN};
-    
-    try {
-      ValueCSVRecords<float[]> records1 = new ValueCSVRecords<float[]>(k,1,rec1,null,setup);
-      ValueCSVRecords<float[]> records2 = new ValueCSVRecords<float[]>(k,1,rec2,null,setup);
-      for(int i = 0; i < 3; ++i){
-        records1.next();
-        records2.next();
-        for(int j = 0; j < 5; ++j){
-          if(Float.isNaN(expData[i][j])){
-            if(j < rec1.length) Assert.assertTrue(Float.isNaN(rec1[j]));
-            if(j < rec2.length && !Float.isNaN(rec2[j]))
-              System.out.println(i + ":" + j + ":" + rec2[j]);
-            if(j < rec2.length) Assert.assertTrue(Float.isNaN(rec2[j]));            
-          } else {
-            if((j < rec1.length) && (rec1[j] != expData[i][j]))
-              System.out.println(rec1[j] + " != " + expData[i][j]);
-            if(j < rec1.length) Assert.assertTrue(rec1[j] == expData[i][j]);
-            if(j < rec2.length) Assert.assertTrue(rec2[j] == expData[i][j]);
-          }          
-        }
-        for(int j = expData[i].length; j < Math.max(rec1.length, rec2.length); ++j){
+    float [][] expData = new float[][] {
+        {5.1f,3.5f,1.4f,0.2f, Float.NaN},
+        {4.9f,3.0f,1.4f,0.2f, Float.NaN},
+        {4.7f,3.2f,1.3f,0.2f, Float.NaN},
+    };
+
+    ValueCSVRecords<float[]> records1 = new ValueCSVRecords<float[]>(k,1,rec1,null,setup);
+    ValueCSVRecords<float[]> records2 = new ValueCSVRecords<float[]>(k,1,rec2,null,setup);
+    for(int i = 0; i < 3; ++i){
+      records1.next();
+      records2.next();
+      for(int j = 0; j < 5; ++j){
+        if(Float.isNaN(expData[i][j])){
           if(j < rec1.length) Assert.assertTrue(Float.isNaN(rec1[j]));
-          if(j < rec2.length) Assert.assertTrue(Float.isNaN(rec2[j]));
-        }        
+          if(j < rec2.length && !Float.isNaN(rec2[j]))
+            System.out.println(i + ":" + j + ":" + rec2[j]);
+          if(j < rec2.length) Assert.assertTrue(Float.isNaN(rec2[j]));            
+        } else {
+          if((j < rec1.length) && (rec1[j] != expData[i][j]))
+            System.out.println(rec1[j] + " != " + expData[i][j]);
+          if(j < rec1.length) Assert.assertEquals(expData[i][j], rec1[j], 0.0001);
+          if(j < rec2.length) Assert.assertEquals(expData[i][j], rec2[j], 0.0001);
+        }          
       }
-      Assert.assertFalse(records1.hasNext());
-      Assert.assertFalse(records2.hasNext());
-    } catch (Exception e) {
-      throw new Error(e);
-    }     
+      for(int j = expData[i].length; j < Math.max(rec1.length, rec2.length); ++j){
+        if(j < rec1.length) Assert.assertTrue(Float.isNaN(rec1[j]));
+        if(j < rec2.length) Assert.assertTrue(Float.isNaN(rec2[j]));
+      }        
+    }
+    Assert.assertFalse(records1.hasNext());
+    Assert.assertFalse(records2.hasNext());
   }
   
   @Test
-  public void testParsingbigDataCSV(){
+  public void testParsingbigDataCSV() throws Exception {
     Key k = Key.make("bigdata_csv");
     Value v = DKV.get(k);
     Assert.assertNotNull(v);
@@ -430,17 +400,8 @@ public void testUnknownData(){
     
     File f = new File("c:\\Users\\tomas\\big_data.csv");
     Assert.assertTrue(f.exists());    
-    BufferedReader reader = null;
-    try {
-      reader = new BufferedReader(new FileReader(f));
-      reader.readLine();
-    } catch (FileNotFoundException e1) {
-      Assert.assertTrue(false);
-    } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-      Assert.assertTrue(false);
-    }   
+    BufferedReader reader = new BufferedReader(new FileReader(f));
+    reader.readLine();
     CSVParserSetup setup = new CSVParserSetup();
     if(v != null){
       for(int i = 0; i < 1/*v.chunks()*/; ++i){
@@ -461,32 +422,26 @@ public void testUnknownData(){
               }
               Assert.assertTrue(p1.hasNext());
               r = p1.next();
-              Assert.assertTrue((p2 == null)|| p2.hasNext());
+              Assert.assertTrue(p2.hasNext());
               r2 = p2.next();
-              if(!r.equals(r2) || ! r.equals(r3)){
-                System.out.println("mismatch at record " + recCounter + ": " + r + " <==> " + r2 + " <==>" + r3);
-              }
-              Assert.assertTrue(r.equals(r2));
-              Assert.assertTrue(r.equals(r3));
-              ArrayList<String> str = nextCSVLine(reader);
-              Assert.assertEquals(str.size(), 2);
-              if(!x.date.equals(str.get(0))){
-                System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'");
-              }
-              if(!x.date.equals(r2.date.toString())){
-                System.out.println("'"  + x.date.toString() + "' <==> '" + str.get(0) + "'" + "' <==> '" + r2.date.toString() + "'");
-              }
-              Assert.assertTrue(x.date.equals(str.get(0)));
-              Assert.assertTrue(x.date.equals(r2.date.toString()));
-              if(str.get(1).trim().equals(".")){
-                Assert.assertEquals(x.value, setup._defaultDouble);
-                Assert.assertEquals(r2.value, setup._defaultDouble);
+              Assert.assertEquals(r, r2);
+              Assert.assertEquals(r, r3);
+              
+              String[] str = nextCSVLine(reader);
+              Assert.assertEquals(str.length, 2);
+              String d = str[0];
+              String trim = str[1].trim();
+              Assert.assertEquals(x.date, d);
+              Assert.assertEquals(x.date, r2.date);
+              if(trim.equals(".")) {
+                Assert.assertEquals(x.value, setup._defaultDouble, 0.0001);
+                Assert.assertEquals(r2.value, setup._defaultDouble, 0.0001);
                 continue;
-              } else if(x.value != Double.valueOf((str.get(1).trim()))){
-                System.out.println(x.value + " != " + Double.valueOf(str.get(1).trim()));
+              } else {
+                double value = Double.valueOf(trim);
+                Assert.assertEquals(x.value, value, 0.0001);
+                Assert.assertEquals(r2.value,value, 0.0001);
               }
-              Assert.assertEquals(x.value,Double.valueOf((str.get(1).trim())));
-              Assert.assertEquals(r2.value,Double.valueOf((str.get(1).trim())));  
             }                                                                                                
           }
           System.out.println("parsed " + recCounter + " records");
@@ -495,28 +450,8 @@ public void testUnknownData(){
         } catch(CSVEscapedBoundaryException e){
           System.out.println("escaped boundary at chunk " + i + ", skipping the next one");
           return;
-        } catch (Exception e) {
-          System.err.println("error after processing " + recCounter + " records");
-          e.printStackTrace();
-          Assert.assertTrue(false);
         }
       }
-     
     }
   }
-
-
-
-
-  public void doRun(){
-    Result result = JUnitCore.runClasses(CSVParserTest.class);
-    System.out.println("Test result: " + (result.wasSuccessful()?"OK":"FAILED"));
-    System.out.println("\t" + result.getRunCount() + " test run  in " + ((double)result.getRunTime()/1000.0) + "s");
-    System.out.println("Failures:");
-    for (Failure failure : result.getFailures()) {
-      System.out.println("\t" + failure.toString());
-      System.out.println("\t\t" + failure.getDescription() + failure.getTrace());
-    }
-  }
-  
 }
