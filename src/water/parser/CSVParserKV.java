@@ -17,10 +17,6 @@ import water.ValueArray;
 /**
  * Simplified version of CSVParser. Parses either stream of arraylets or just a
  * byte array.
- * 
- * @author tomas
- * 
- * @param <T>
  */
 public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
@@ -208,46 +204,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     return _columnNames;
   }
 
-  public static String[] getColumnNames(Key k) {
-    Value v = UKV.get(k);
-    byte[] data = v.get(1024 * 128);
-    return getColumnNames(data);
-  }
-
-  public static String[] getColumnNames(byte[] data) {
-    CSVParserKV.CSVString[] names = new CSVParserKV.CSVString[getNColumns(data)];
-    CSVParserKV<CSVParserKV.CSVString[]> p = new CSVParserKV<CSVParserKV.CSVString[]>(
-        data, names, null);
-    if (!p.hasNext())
-      return null;
-    p.next();
-    String[] res = new String[p._column];
-    for (int i = 0; i < names.length; ++i) {
-      res[i] = names[i].toString();
-    }
-    return res;
-  }
-
-  public static int getNColumns(Key k) {
-    Value v = UKV.get(k);
-    byte[] data = v.get(1024 * 128);
-    return getNColumns(data);
-  }
-
-  public static int getNColumns(byte[] data) {
-    int[] rec = new int[1];
-    CSVParserKV<int[]> p = new CSVParserKV<int[]>(data, rec, null);
-    int ncolumns = -1;
-    for (int i = 0; i < 10; ++i) {
-      if (!p.hasNext())
-        break;
-      p.next();
-      if (p._column > ncolumns)
-        ncolumns = p._column;
-    }
-    return ncolumns;
-  }
-
   @SuppressWarnings("unchecked")
   void initialize(String[] columns) {
 
@@ -363,10 +319,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     _csvRecord = csvRecord;
     _isArray = _csvRecord.getClass().isArray();
     initialize(columns);
-  }
-
-  public CSVParserKV(byte[] data, T csvRecord, String[] columns) {
-    this(data, csvRecord, columns, new ParserSetup());
   }
 
   public CSVParserKV(byte[] data, T csvRecord, String[] columns,
