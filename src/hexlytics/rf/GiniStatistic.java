@@ -1,12 +1,7 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import java.util.Arrays;
-import sun.security.util.Length;
 
 /** A better working gini statistic that should be faster. Hopefully much faster. 
  *

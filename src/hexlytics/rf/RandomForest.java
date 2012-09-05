@@ -33,10 +33,11 @@ public class RandomForest {
   public synchronized ArrayList<Tree> trees() { return trees_; }
   synchronized boolean done() { return trees_.size() >= numTrees_; }
   public void terminate() {  numTrees_ = 0; }
-  public void build() {  while (!done()) build0();  }
-  public void buildGini() { while (!done()) buildGini0(); }
+  public void build(boolean useGini) {
+    while (!done()) build0(useGini);
+  }
   
-  private void build0() {
+  private void build0(boolean useGini) {
     long t = System.currentTimeMillis();     
     RFTask._ = new RFTask[NUMTHREADS];
     for(int i=0;i<NUMTHREADS;i++) RFTask._[i] = new RFTask(data_);

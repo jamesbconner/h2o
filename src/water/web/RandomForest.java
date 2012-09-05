@@ -9,7 +9,7 @@ public class RandomForest extends H2OPage {
     Object o = ServletUtil.check_array(args,"Key");
     if( o instanceof String ) return (String)o;
     ValueArray ary = (ValueArray)o;
-    int ntrees = getAsNumber(args,"ntrees", 5*H2O.CLOUD._memary.length);
+    int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
     boolean gini = args.getProperty("gini")!=null;
     
