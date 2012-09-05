@@ -56,6 +56,7 @@ public class RandomForest {
     for(int i=0;i<NUMTHREADS;i++)
       RFGiniTask._[i] = new RFGiniTask(data_);
     RFGiniTask task = RFGiniTask._[0];
+    task.stats_[0].reset(data_);
     for (Row r : data_) task.stats_[0].add(r);
     GiniStatistic.Split s = task.stats_[0].split();
     Tree tree = new Tree();
