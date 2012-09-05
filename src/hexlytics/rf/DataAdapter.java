@@ -3,6 +3,7 @@ package hexlytics.rf;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
 
 public class DataAdapter  {
@@ -95,14 +96,13 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  int DEFAULT = 100;
-  double GROWTH = 1.5;
+  private final int DEFAULT = 100;
+  private final double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
   HashMap<Double,Short> o2v_;
-  double[] _v2o;                // Reverse (short) indices to original doubles
-  
+  double[] _v2o;  // Reverse (short) indices to original doubles
 
   C(String s) { name_ = s; v_ = new double[DEFAULT]; }
   C(String s, int rows) { name_ = s; v_ = new double[rows]; }
@@ -127,15 +127,10 @@ class C {
   }
   
   HashMap<Double,Short> hashCol() {
-    HashMap<Double,Integer> res = new HashMap<Double,Integer>(100);
-    for(int i=0; i< sz_; i++){
-      Integer cnt = res.get(v_[i]);
-      if (cnt != null) res.put(v_[i], cnt+1);
-      else res.put(v_[i], 1);
-    }    
-    // we forget the frequencies for now and return a map from value to offset
+    HashSet<Double> res = new HashSet<Double>(10000);
+    for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
     HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
-    Double[] ks = res.keySet().toArray(new Double[res.size()]);
+    Double[] ks = res.toArray(new Double[res.size()]);
     _v2o = new double[ks.length];
     Arrays.sort(ks);      
     short off = 0;
