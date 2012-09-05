@@ -18,6 +18,6 @@ public class BinnedPoker {
     ValueArray va = (ValueArray) DKV.get(parsedKey);
     
     DKV.remove(fileKey); // clean up file to save memory
-    RandomForest.web_main(va, 10, 40, 4, true);
+    RandomForest.web_main(va, 10, 40, true);
   }
 }

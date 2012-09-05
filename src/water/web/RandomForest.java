@@ -11,10 +11,10 @@ public class RandomForest extends H2OPage {
     ValueArray ary = (ValueArray)o;
     int ntrees = getAsNumber(args,"ntrees", 5*H2O.CLOUD._memary.length);
     int depth = getAsNumber(args,"depth", 30);
-    int threads = getAsNumber(args,"threads", 4);
+    boolean gini = args.getProperty("gini")!=null;
     
     String res = "some results go here";
-    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,threads, false); }
+    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,gini); }
     catch( Exception e ) { res = e.toString(); }
     RString response = new RString(html);
     response.replace("key",ary._key);

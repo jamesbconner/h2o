@@ -19,6 +19,6 @@ public abstract class Poker {
     
     // clean up and burn
     DKV.remove(fileKey);
-    RandomForest.web_main(va, 100, 40, 4, false);
+    RandomForest.web_main(va, 100, 40, false);
   }
 }

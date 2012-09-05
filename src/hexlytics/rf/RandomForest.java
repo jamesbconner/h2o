@@ -14,23 +14,22 @@ import water.ValueArray;
  * @author peta
  */
 public class RandomForest {
-    public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads) {
-      build(dapt,sampleRatio,features,trees,maxTreeDepth,minErrorRate,threads,false);
-    }
+  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth, double minErrorRate) {
+    build(dapt,sampleRatio,features,trees,maxTreeDepth,minErrorRate,false);
+  }
 
 
-  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, int threads,boolean gini) {
+  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, boolean gini) {
     if (maxTreeDepth != -1) Tree.MAX_TREE_DEPTH = maxTreeDepth;  
     if (minErrorRate != -1) Tree.MIN_ERROR_RATE = minErrorRate;    
     Data d = Data.make(dapt);
     Data t = d.sampleWithReplacement(sampleRatio);
     Data v = t.complement();
     DataAdapter.FEATURES = features;
-    numThreads = threads;
     new LocalBuilder(t,v,trees,gini);
   }
   
-  private static int numThreads = -1;
+  private static final int NUMTHREADS = Runtime.getRuntime().availableProcessors();
   public ArrayList<Tree> trees_ = new ArrayList<Tree>();
   private int numTrees_;
   private Director glue_;
@@ -48,9 +47,8 @@ public class RandomForest {
   
   private void build0() {
     long t = System.currentTimeMillis();     
-    if (numThreads == -1) numThreads =  Runtime.getRuntime().availableProcessors();
-    RFTask._ = new RFTask[numThreads];
-    for(int i=0;i<numThreads;i++) RFTask._[i] = new RFTask(data_);
+    RFTask._ = new RFTask[NUMTHREADS];
+    for(int i=0;i<NUMTHREADS;i++) RFTask._[i] = new RFTask(data_);
     Statistic s = new Statistic(data_, null);
     for (Row r : data_) s.add(r);
     Tree tree = new Tree();
@@ -63,9 +61,8 @@ public class RandomForest {
   
   private void buildGini0() {
     long t = System.currentTimeMillis();     
-    if (numThreads == -1) numThreads =  Runtime.getRuntime().availableProcessors();
-    RFGiniTask._ = new RFGiniTask[numThreads];
-    for(int i=0;i<numThreads;i++) RFGiniTask._[i] = new RFGiniTask(data_);
+    RFGiniTask._ = new RFGiniTask[NUMTHREADS];
+    for(int i=0;i<NUMTHREADS;i++) RFGiniTask._[i] = new RFGiniTask(data_);
     GiniStatistic s = new GiniStatistic(data_, null);
     for (Row r : data_) s.add(r);
     Tree tree = new Tree();
@@ -77,8 +74,7 @@ public class RandomForest {
   }
   
   // Dataset launched from web interface
-  public static void web_main( ValueArray ary, int ntrees, int depth,
-      int threads, boolean useGini) {
+  public static void web_main( ValueArray ary, int ntrees, int depth, boolean useGini) {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
@@ -96,7 +92,7 @@ public class RandomForest {
       }
     }
     dapt.shrinkWrap();
-    RandomForest.build(dapt, .666, -1, ntrees, depth, -1, threads, useGini);
+    build(dapt, .666, -1, ntrees, depth, -1, useGini);
   }
   
   /** Classifies a single row using the forest. */
