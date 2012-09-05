@@ -55,7 +55,6 @@ public class DRF extends water.DRemoteTask {
     double[] ds = new double[num_cols];
     for( Key key : _keys ) {
       if( key.home() ) {
-        System.out.println("RF'ing on "+key);
         byte[] bits = DKV.get(key).get();
         final int num_rows = bits.length/rowsize;
         for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
@@ -67,7 +66,7 @@ public class DRF extends water.DRemoteTask {
     }
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
-    RandomForest.build(dapt, .666, -1, _ntrees, _depth, -1, _useGini);
+    RandomForest.build(dapt, .666, _ntrees, _depth, -1, _useGini);
     tryComplete();
   }
 

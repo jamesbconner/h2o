@@ -6,28 +6,16 @@ import hexlytics.rf.Tree.LeafNode;
 import java.io.File;
 import java.util.ArrayList;
 
-import test.KVTest;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.ValueArray;
-import water.parser.ParseDataset;
+import test.TestUtil;
+import water.*;
 
-/**
- * @author peta
- */
 public class RandomForest {
-  public static void build(DataAdapter d, double sampleRatio, int features, int trees, int maxTreeDepth, double minErrorRate) {
-    build(d,sampleRatio,features,trees,maxTreeDepth,minErrorRate,false);
-  }
-
-  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, boolean gini) {
+  public static void build(DataAdapter dapt, double sampleRatio, int trees, int maxTreeDepth, double minErrorRate,  boolean gini) {
     if (maxTreeDepth != -1) Tree.MAX_TREE_DEPTH = maxTreeDepth;  
     if (minErrorRate != -1) Tree.MIN_ERROR_RATE = minErrorRate;    
     Data d = Data.make(dapt);
     Data t = d.sampleWithReplacement(sampleRatio);
     Data v = t.complement();
-    DataAdapter.FEATURES = features;
     new LocalBuilder(t,v,trees,gini);
   }
   
@@ -124,18 +112,15 @@ public class RandomForest {
     dapt.shrinkWrap();
     if (useGini)
       ((BinnedDataAdapter)dapt).calculateBinning();
-    build(dapt, .666, -1, ntrees, cutDepth, cutRate, useGini);
+    build(dapt, .666, ntrees, cutDepth, cutRate, useGini);
   }
   
   public static void main(String[] args) throws Exception {
     H2O.main(new String[] {});    
     if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
-    Key fileKey = KVTest.load_test_file(new File(args[0]));    
-    Key parsedKey = Key.make();
-    ParseDataset.parse(parsedKey, DKV.get(fileKey));
-    ValueArray va = (ValueArray) DKV.get(parsedKey);        
+    Key fileKey = TestUtil.load_test_file(new File(args[0]));    
+    ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    //web_main(va, 10, 100, .15, false);
     web_main(va, 10, 100, .15, true);
   }
   

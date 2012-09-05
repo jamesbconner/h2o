@@ -65,9 +65,12 @@ function build_initializer() {
 }
 
 function build_jar() {
+    JAR_TIME=`date "+%H.%M.%S-%m%d%y"`
     local JAR_FILE="${OUTDIR}/h2o.jar"
     echo "creating jar file...${JAR_FILE}"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${JAR_ROOT} .
+    echo "copying jar file...${JAR_FILE} to ${OUTDIR}/h2o-${JAR_TIME}.jar"
+    cp ${JAR_FILE} ${OUTDIR}/h2o-${JAR_TIME}.jar
 }
 
 function build_example() {
@@ -80,7 +83,6 @@ function build_example() {
     "$JAR" cvf ${1}.jar -C . *class
     cd ../..
 }
-
 clean
 build_classes
 build_h2o_jar

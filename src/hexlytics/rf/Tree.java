@@ -3,7 +3,10 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
 
-import java.io.Serializable;
+import java.io.*;
+import java.util.UUID;
+
+import water.*;
 
 public class Tree implements Serializable {  
   public static  int MAX_TREE_DEPTH = -1;  
@@ -92,20 +95,40 @@ public class Tree implements Serializable {
     protected INode(int depth) {
       nodeDepth_ = depth;
     }
+    public abstract void print(TreePrinter treePrinter) throws IOException;
+    abstract void write( DataOutputStream dos ) throws IOException;
+    static INode read( DataInputStream dis, int depth ) throws IOException {
+      int b = dis.readByte();
+      switch( b ) {
+      case '[':  return LeafNode.read(dis,depth); // Leaf selector
+      case '(':  return     Node.read(dis,depth); // Node selector
+      default:
+        throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
+      }
+    }
   }
  
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {     
-    int class_ = -1;    // A category reported by the inner node
+    final int class_;    // A category reported by the inner node
     LeafNode(int depth,int c) {
       super(depth);
       class_ = c;
     }
     public int classify(Row r) { return class_; }
     public String toString()   { return "["+class_+"]"; }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    void write( DataOutputStream dos ) throws IOException {
+      assert Short.MIN_VALUE <= class_ && class_ < Short.MAX_VALUE;
+      dos.writeByte('[');       // Leaf indicator
+      dos.writeShort(class_);
+    }
+    static LeafNode read( DataInputStream dis, int depth ) throws IOException {
+      return new LeafNode(depth,dis.readShort());
+    }
   }
 
-  class GiniNode extends INode {
+  static class GiniNode extends INode {
     final int column;
     final int split;
     INode l_, r_;
@@ -127,14 +150,15 @@ public class Tree implements Serializable {
       C c = RFGiniTask.data().data_.c_[column];
       return c.name_ +"<" + split + " ("+l_+","+r_+")";
     }
-    
-    
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
+    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
   }
   
   
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
-  class Node extends INode {   
+  static class Node extends INode {
     final int column_;
     final double value_;
     INode l_, r_;
@@ -148,16 +172,64 @@ public class Tree implements Serializable {
     public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
     public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
     public int leaves()       { return l_.leaves() + r_.leaves(); }
-    public String toString() {
+    // Computes the original split-value, as a float.  Returns a float to keep
+    // the final size small for giant trees.
+    private final C column() {
+      return RFTask.data().data_.c_[column_]; // Get the column in question
+    }
+    private final float split_value(C c) {
       short idx = (short)value_; // Convert split-point of the form X.5 to a (short)X
-      C c = RFTask.data().data_.c_[column_];
-      double dlo = c._v2o[idx+0];
+      double dlo = c._v2o[idx+0]; // Convert to the original values
       double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
-      double dmid = (dlo+dhi)/2.0;
-      return c.name_ +"<" + Utils.p2d(dmid) + " ("+l_+","+r_+")";
+      double dmid = (dlo+dhi)/2.0; // Compute an original split-value
+      float fmid = (float)dmid;
+      assert (float)dlo < fmid && fmid < (float)dhi; // Assert that the float will properly split
+      return fmid;
+    }
+    public String toString() {
+      C c = column();           // Get the column in question
+      return c.name_ +"<" + Utils.p2d(split_value(c)) + " ("+l_+","+r_+")";
+    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    void write( DataOutputStream dos ) throws IOException {
+      dos.writeByte('(');       // Node indicator
+      assert Short.MIN_VALUE <= column_ && column_ < Short.MAX_VALUE;
+      dos.writeShort(column_);
+      //dos.writeFloat(split_value(column()));
+      dos.writeShort((short)value_);// Pass the short index instead of the actual value
+      l_.write(dos);
+      r_.write(dos);
+    }
+    static Node read( DataInputStream dis, int depth ) throws IOException {
+      int col = dis.readShort();
+      //float f = dis.readFloat();
+      int idx = dis.readShort(); // Read the short index instead of the actual value
+      Node n = new Node(depth,col,((double)idx)+0.5);
+      n.l_ = INode.read(dis,depth+1);
+      n.r_ = INode.read(dis,depth+1);
+      return n;
     }
    }
  
   public int classify(Row r) { return tree_.classify(r); } 
   public String toString()   { return tree_.toString(); } 
+
+  // Write the Tree to a random Key homed here.
+  public Key toKey() {
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    try {
+      tree_.write(new DataOutputStream(bos));
+    } catch( IOException e ) { throw new Error(e); }
+    Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
+    DKV.put(key,new Value(key,bos.toByteArray()));
+    return key;
+  }
+  public static Tree fromKey( Key key ) {
+    byte[] bits = DKV.get(key).get();
+    Tree t = new Tree();
+    try {
+      t.tree_ = INode.read(new DataInputStream(new ByteArrayInputStream(bits)),0);
+    } catch( IOException e ) { throw new Error(e); }
+    return t;
+  }
 }
