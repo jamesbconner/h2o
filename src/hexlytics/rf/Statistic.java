@@ -2,8 +2,6 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 
-import java.util.Random;
-
 
 public class Statistic {
   final Data data_;

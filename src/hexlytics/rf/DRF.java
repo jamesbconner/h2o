@@ -36,7 +36,7 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF read ( DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
-  public static void web_main( ValueArray ary, int ntrees, int depth, boolean useGini) {
+  public static void web_main( ValueArray ary, int ntrees, int depth, double cutRate, boolean useGini) {
     DRF drf = new DRF();
     drf._arykey = ary._key;
     drf._ntrees = ntrees;
@@ -51,14 +51,14 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt = new DataAdapter(ary._key.toString(), names,
-                                       names[num_cols-1]); // Assume class is the last column
+    DataAdapter dapt = null;
     double[] ds = new double[num_cols];
     for( Key key : _keys ) {
       if( key.home() ) {
         System.out.println("RF'ing on "+key);
         byte[] bits = DKV.get(key).get();
         final int num_rows = bits.length/rowsize;
+        dapt = new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows);
         for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
           for( int k=0; k<num_cols; k++ )
             ds[k] = ary.datad(bits,j,rowsize,k);

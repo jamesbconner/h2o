@@ -79,40 +79,38 @@ public class RandomForest {
   }
   
   // Dataset launched from web interface
-  public static void web_main( ValueArray ary, int ntrees, int depth, boolean useGini) {
+  public static void web_main( ValueArray ary, int ntrees, int cutDepth, double cutRate, boolean useGini) {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, 
-                                       names[num_cols-1]); // Assume class is the last column
+    DataAdapter dapt = null;
     double[] ds = new double[num_cols];
     final long num_chks = ary.chunks();
     for( long i=0; i<num_chks; i++ ) { // By chunks
       byte[] bits = DKV.get(ary.chunk_get(i)).get();
-      final int num_rows = bits.length/rowsize;
-      for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
+      final int rows = bits.length/rowsize;
+      dapt = new DataAdapter(ary._key.toString(), names, 
+                              names[num_cols-1], // Assume class is the last column
+                              rows);
+      for( int j=0; j< rows; j++ ) { // For all rows in this chunk
         for( int k=0; k<num_cols; k++ )
           ds[k] = ary.datad(bits,j,rowsize,k);
         dapt.addRow(ds);
       }
     }
     dapt.shrinkWrap();
-    build(dapt, .666, -1, ntrees, depth, -1, useGini);
+    build(dapt, .666, -1, ntrees, cutDepth, cutRate, useGini);
   }
   
   public static void main(String[] args) throws Exception {
-    H2O.main(new String[] {});
-    
+    H2O.main(new String[] {});    
     if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
-    Key fileKey = KVTest.load_test_file(new File(args[0]));
-    
+    Key fileKey = KVTest.load_test_file(new File(args[0]));    
     Key parsedKey = Key.make();
     ParseDataset.parse(parsedKey, DKV.get(fileKey));
-    ValueArray va = (ValueArray) DKV.get(parsedKey);
-    
-    // clean up and burn
-    DKV.remove(fileKey);
-    web_main(va, 100, 40, false);
+    ValueArray va = (ValueArray) DKV.get(parsedKey);        
+    DKV.remove(fileKey); // clean up and burn
+    web_main(va, 100, 100, .0001, false);
   }
   
   

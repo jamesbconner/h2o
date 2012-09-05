@@ -20,16 +20,16 @@ public class DataAdapter  {
     public final Random random_;    
     private static int SEED = 42;
     private static Random RAND = new Random(SEED);
-            
+        
     private static long getRandomSeed() { return RAND.nextLong(); }
     
-    public DataAdapter(String name, Object[] columns, String classNm) {
+    public DataAdapter(String name, Object[] columns, String classNm, int rows) {
       long seed = getRandomSeed(); name_=name; 
        c_ = new C[columns.length]; 
       columnNames_ = new String[columns.length];
       classColumnName_ = classNm;
       int i=0; for(Object o:columns) { 
-        String s=o.toString();  columnNames_[i] = s; c_[i]=new C(s); c2i_.put(s,i++); 
+        String s=o.toString();  columnNames_[i] = s; c_[i]=rows==-1? new C(s) : new C(s,rows); c2i_.put(s,i++); 
        }
       classIdx_ = c2i_.get(classNm);
       if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
@@ -103,17 +103,21 @@ class C {
   HashMap<Double,Short> o2v_;
   double[] _v2o;                // Reverse (short) indices to original doubles
   
+
+  C(String s) { name_ = s; v_ = new double[DEFAULT]; }
+  C(String s, int rows) { name_ = s; v_ = new double[rows]; }
+
+  void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
+  void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
+  double getD(int i) { return v_[i]; }
+
+  
   public String toString() {
     String res = "col("+name_+")";
     res+= "  ["+DataAdapter.df.format(min_) +","+DataAdapter.df.format(max_)+"], avg=";
     res+= DataAdapter.df.format(tot_/(double)sz_) ;
     return res;
   }
-  C(String s) { name_ = s; v_ = new double[DEFAULT]; }
-  void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
-  void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
-  double getD(int i) { return v_[i]; }
-  
   short[] shrink() {
     o2v_ = hashCol();
     short[] res = new short[sz_];
