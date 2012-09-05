@@ -145,10 +145,8 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   }
 
   public static class ParserSetup {
-    public boolean skipFirstRecord = true;
     public boolean whiteSpaceSeparator = true;
     public boolean collapseWhiteSpaceSeparators = true;
-    public boolean ignoreEmptyRecords = true;
     public int partialRecordPolicy = DROP_PARTIAL_RECORDS;
     public char separator = ',';
     public int defaultInt = Integer.MAX_VALUE;
@@ -221,11 +219,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     } else {
       throw new UnsupportedOperationException();
     }
-    _skipRecord = _setup.skipFirstRecord && (_nextChunkIdx > 1);
-  }
-
-  public CSVParserKV(Key k, T csvRecord) {
-    this(k, csvRecord, new ParserSetup());
+    _skipRecord = (_nextChunkIdx > 1);
   }
 
   public CSVParserKV(Key k, T csvRecord, ParserSetup setup) {

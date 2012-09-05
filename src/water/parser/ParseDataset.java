@@ -3,16 +3,14 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.StringTokenizer;
-
-import org.hyperic.sigar.Mem;
-
-import com.google.common.primitives.Chars;
 
 import water.*;
+import water.ValueArray.Column;
+import water.parser.CSVParserKV.ParserSetup;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
-import water.ValueArray.Column;
+
+import com.google.common.primitives.Chars;
 
 // Helper class to parse an entire ValueArray data, and produce a structured
 // ValueArray result.
@@ -266,7 +264,7 @@ public final class ParseDataset {
       double[] data = new double[_num_cols];
       // The parser
       if( _parseType == PARSE_SVMLIGHT ) throw new Error("SVMLIGHT is unimplemented");
-      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,data,null);
+      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,data,new ParserSetup());
       csv._setup.whiteSpaceSeparator = (_parseType == PARSE_SPACESEP);
 
       // Parse row-by-row until the whole file is parsed
@@ -409,7 +407,7 @@ public final class ParseDataset {
       byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
       // A place to hold each column datum
       // The parser
-      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,new double[_cols.length],null);
+      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,new double[_cols.length],new ParserSetup());
       csv._setup.whiteSpaceSeparator = (_parseType == PARSE_SPACESEP);
       // Fill the rows
       int off = 0;
