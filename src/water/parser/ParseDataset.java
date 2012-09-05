@@ -266,7 +266,7 @@ public final class ParseDataset {
       double[] data = new double[_num_cols];
       // The parser
       if( _parseType == PARSE_SVMLIGHT ) throw new Error("SVMLIGHT is unimplemented");
-      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,data,null);
+      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,data,null);
       csv._setup.whiteSpaceSeparator = (_parseType == PARSE_SPACESEP);
 
       // Parse row-by-row until the whole file is parsed
@@ -409,7 +409,7 @@ public final class ParseDataset {
       byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
       // A place to hold each column datum
       // The parser
-      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,new double[_cols.length],null);
+      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,new double[_cols.length],null);
       csv._setup.whiteSpaceSeparator = (_parseType == PARSE_SPACESEP);
       // Fill the rows
       int off = 0;

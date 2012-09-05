@@ -106,7 +106,7 @@ public class Inspect extends H2OPage {
       setup.whiteSpaceSeparator = true;
       setup.collapseWhiteSpaceSeparators = true;
       setup.partialRecordPolicy = CSVParserKV.FILL_PARTIAL_RECORDS_WITH_DEFAULTS;
-      CSVParserKV<float[]> csv = new CSVParserKV<float[]>(key,1,fs,null, setup);
+      CSVParserKV<float[]> csv = new CSVParserKV<float[]>(key,fs,setup);
       float sums[] = new float[fs.length];
       float mins[] = new float[fs.length];
       float maxs[] = new float[fs.length];

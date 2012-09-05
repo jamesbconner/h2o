@@ -146,7 +146,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
   public static class ParserSetup {
     public boolean skipFirstRecord = true;
-    public boolean parseColumnNames = false;
     public boolean whiteSpaceSeparator = true;
     public boolean collapseWhiteSpaceSeparators = true;
     public boolean ignoreEmptyRecords = true;
@@ -166,11 +165,9 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
                           // still be parsed if chunk exists
 
   T _csvRecord;
-  Field[] _fields;
 
   CSVString[] _strFields;
 
-  final boolean _isArray;
   boolean _next;
   int _maxColumn; //max encountered column, if it si higher than our number of columns we skipped some data
 
@@ -205,87 +202,33 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   }
 
   @SuppressWarnings("unchecked")
-  void initialize(String[] columns) {
-
-    if (_isArray) {
-      _columnTypes = new DataType[1];
-      if (_csvRecord.getClass().getComponentType().equals(Integer.TYPE)) {
-        _columnTypes[0] = DataType.typeInt;
-      } else if (_csvRecord.getClass().getComponentType().equals(Double.TYPE)) {
-        _columnTypes[0] = DataType.typeDouble;
-      } else if (_csvRecord.getClass().getComponentType().equals(Float.TYPE)) {
-        _columnTypes[0] = DataType.typeFloat;
-      } else if (CSVString.class.equals(_csvRecord.getClass()
-          .getComponentType())) {
-        _columnTypes[0] = DataType.typeString;
-        _strFields = new CSVParserKV.CSVString[Array.getLength(_csvRecord)];
-        for (int i = 0; i < _strFields.length; ++i) {
-          _strFields[i] = new CSVString();
-          Array.set(_csvRecord, i, _strFields[i]);
-        }
-      } else {
-        throw new UnsupportedOperationException();
+  void initialize() {
+    _columnTypes = new DataType[1];
+    if (_csvRecord.getClass().getComponentType().equals(Integer.TYPE)) {
+      _columnTypes[0] = DataType.typeInt;
+    } else if (_csvRecord.getClass().getComponentType().equals(Double.TYPE)) {
+      _columnTypes[0] = DataType.typeDouble;
+    } else if (_csvRecord.getClass().getComponentType().equals(Float.TYPE)) {
+      _columnTypes[0] = DataType.typeFloat;
+    } else if (CSVString.class.equals(_csvRecord.getClass()
+        .getComponentType())) {
+      _columnTypes[0] = DataType.typeString;
+      _strFields = new CSVParserKV.CSVString[Array.getLength(_csvRecord)];
+      for (int i = 0; i < _strFields.length; ++i) {
+        _strFields[i] = new CSVString();
+        Array.set(_csvRecord, i, _strFields[i]);
       }
-    } else if (_csvRecord.getClass().isInstance(Collection.class)) {
-      throw new UnsupportedOperationException();
     } else {
-      _fields = new Field[columns.length];
-      _columnTypes = new DataType[columns.length];
-      int i = 0;
-      ArrayList<CSVParserKV.CSVString> strFields = new ArrayList<CSVParserKV.CSVString>();
-      try {
-        for (String colName : columns) {
-          if (colName != null) {
-            _fields[i] = _csvRecord.getClass().getDeclaredField(colName);
-            Type t = _fields[i].getType();
-            if (Integer.TYPE.equals(t)) {
-              _columnTypes[i] = DataType.typeInt;
-            } else if (Double.TYPE.equals(t)) {
-              _columnTypes[i] = DataType.typeDouble;
-            } else if (Float.TYPE.equals(t)) {
-              _columnTypes[i] = DataType.typeFloat;
-            } else if (CSVString.class.equals(t)) {
-              _columnTypes[i] = DataType.typeString;
-              CSVString str = new CSVString();
-              _fields[i].set(_csvRecord, str);
-              strFields.add(str);
-            } else { // no parser available for this type
-              throw new UnsupportedOperationException();
-            }
-          } else {
-            _columnTypes[i] = DataType.typeNull;
-          }
-          ++i;
-        }
-      } catch (Exception e) {
-        throw new Error(e);
-      }
-      _strFields = new CSVParserKV.CSVString[strFields.size()];
-      _strFields = strFields.toArray(_strFields);
-    }
-    if (_setup.parseColumnNames) {
-      CSVParserKV.CSVString[] columnNames = new CSVParserKV.CSVString[_columnTypes.length];
-      _setup.parseColumnNames = false;
-      _setup.skipFirstRecord = false;
-      CSVParserKV<CSVString[]> p = new CSVParserKV<CSVString[]>(_data,
-          columnNames, null, _setup);
-      p.next();
-      _columnNames = new String[_columnTypes.length];
-      for (int i = 0; i < _columnNames.length; ++i) {
-        _columnNames[i] = columnNames[i].toString();
-      }
-      _setup.parseColumnNames = true;
-      _dataPtr = p._dataPtr;
+      throw new UnsupportedOperationException();
     }
     _skipRecord = _setup.skipFirstRecord && (_nextChunkIdx > 1);
   }
 
-  public CSVParserKV(Key k, int nchunks, T csvRecord, String[] columns) {
-    this(k, nchunks, csvRecord, columns, new ParserSetup());
+  public CSVParserKV(Key k, T csvRecord) {
+    this(k, csvRecord, new ParserSetup());
   }
 
-  public CSVParserKV(Key k, int nchunks, T csvRecord, String[] columns,
-      ParserSetup setup) {
+  public CSVParserKV(Key k, T csvRecord, ParserSetup setup) {
     // first set the data.
     // If this is a Key for a ValueArray, we will be returned chunk0.
     Value v = UKV.get(k, (int) ValueArray.chunk_size());
@@ -296,7 +239,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       if (_key._kb[0] == Key.ARRAYLET_CHUNK) {
         _currentOffset = ValueArray.getOffset(_key);
         _minChunkIdx = ValueArray.getChunkIndex(_key);
-        _maxChunkIdx = _minChunkIdx + nchunks;
+        _maxChunkIdx = _minChunkIdx + 1;
         _nextChunkIdx = _minChunkIdx + 1;
         Key nextChunk = ValueArray.getChunk(_key, _nextChunkIdx);
         v = UKV.get(nextChunk);
@@ -315,26 +258,8 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       _key = null;
     }
     _setup = setup;
-    _setup.parseColumnNames = _setup.parseColumnNames && (_minChunkIdx == 0);
     _csvRecord = csvRecord;
-    _isArray = _csvRecord.getClass().isArray();
-    initialize(columns);
-  }
-
-  public CSVParserKV(byte[] data, T csvRecord, String[] columns,
-      ParserSetup setup) {
-    // first set the data
-    _data = data;
-    _minChunkIdx = 0;
-    _maxChunkIdx = 1;
-    _key = null;
-    _setup = setup;
-    _setup.parseColumnNames = _setup.parseColumnNames && (_minChunkIdx == 0);
-    _csvRecord = csvRecord;
-    _isArray = _csvRecord.getClass().isArray();
-    if (_data != null)
-      _length = _data.length;
-    initialize(columns);
+    initialize();
   }
 
   private final int getDigit(char c) {
@@ -498,11 +423,11 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   }
 
   protected final int ncols() {
-    return (_isArray) ? Array.getLength(_csvRecord) : _columnTypes.length;
+    return Array.getLength(_csvRecord);
   }
 
   protected final DataType columnType() {
-    return _isArray ? _columnTypes[0] : _columnTypes[_column];
+    return _columnTypes[0];
   }
 
   protected boolean endRecord() throws IllegalArgumentException,
@@ -547,28 +472,16 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
     if (!_skipRecord && (_column < n)) {
       switch (columnType()) {
       case typeInt:
-        int ival = (parseInt(_fieldStart, _fieldEnd, 10)) ? _ival
-            : _setup.defaultInt;
-        if (_isArray)
-          Array.setInt(_csvRecord, _column, ival);
-        else
-          _fields[_column].setInt(_csvRecord, ival);
+        int ival = (parseInt(_fieldStart, _fieldEnd, 10)) ? _ival : _setup.defaultInt;
+        Array.setInt(_csvRecord, _column, ival);
         break;
       case typeFloat:
-        float fval = (parseFloat(_fieldStart, _fieldEnd)) ? _floatingDecimal
-            .floatValue() : _setup.defaultFloat;
-        if (_isArray)
-          Array.setFloat(_csvRecord, _column, fval);
-        else
-          _fields[_column].setFloat(_csvRecord, fval);
+        float fval = (parseFloat(_fieldStart, _fieldEnd)) ? _floatingDecimal.floatValue() : _setup.defaultFloat;
+        Array.setFloat(_csvRecord, _column, fval);
         break;
       case typeDouble:
-        double dval = (parseFloat(_fieldStart, _fieldEnd)) ? _floatingDecimal
-            .doubleValue() : _setup.defaultDouble;
-        if (_isArray)
-          Array.setDouble(_csvRecord, _column, dval);
-        else
-          _fields[_column].setDouble(_csvRecord, dval);
+        double dval = (parseFloat(_fieldStart, _fieldEnd)) ? _floatingDecimal.doubleValue() : _setup.defaultDouble;
+        Array.setDouble(_csvRecord, _column, dval);
         break;
       case typeString: {        
         _strFields[_stringIdx]._offset = _currentOffset + _fieldStart;
@@ -762,7 +675,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
   }
   
   public int ncolumns() {
-    return _isArray?Array.getLength(_csvRecord):_columnTypes.length;
+    return Array.getLength(_csvRecord);
   }
   
   public int maxColumn() {
