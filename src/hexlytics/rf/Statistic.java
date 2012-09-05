@@ -35,11 +35,16 @@ public class Statistic {
     int total = data_.columns();
     columns_ = new Column[features];
     int i = 0;
-    for(; i < features; ++i) columns_[i] = new Column(i, s.last(i), classes_);
+    for(; i < features; ++i) columns_[i] = newColumn(i);
     for(; i < total; ++i) {
       int o = d.random().nextInt(i);
-      if( o < features ) columns_[o] = new Column(i, s.last(i), classes_);
+      if( o < features ) columns_[o] = newColumn(i);
     }
+  }
+  
+  private Column newColumn(int i) {
+    int lst = parent_ == null ? data_.last(i) : parent_.last(i);
+    return new Column(i, lst+1, classes_);
   }
   
   
@@ -123,9 +128,9 @@ public class Statistic {
 
   private int last(int col) {
     for( Column c : columns_ ) {
-      if (c.column == col) return c.last;
+      if( c.column == col ) return c.last;
     }
-    if (parent_ !=null) return parent_.last(col);
+    if( parent_ != null ) return parent_.last(col);
     return data_.last(col);
   }
 
