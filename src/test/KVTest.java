@@ -160,8 +160,8 @@ public class KVTest {
   @org.junit.Test public void test5() throws Exception {
     System.out.println("test5");
     h2o_cloud_of_size(3);
-    File file = find_test_file("h2o.jar");
-    Key h2okey = load_test_file(file);
+    File file = TestUtil.find_test_file("h2o.jar");
+    Key h2okey = TestUtil.load_test_file(file);
     ByteHisto bh = new ByteHisto();
     bh.invoke(h2okey);
     int sum=0;
@@ -274,7 +274,7 @@ public class KVTest {
   // Test parsing "cars.csv" and running LinearRegression
   @org.junit.Test public void test7() {
     System.out.println("test7");
-    Key fkey = load_test_file("smalldata/cars.csv");
+    Key fkey = TestUtil.load_test_file("smalldata/cars.csv");
     Key okey = Key.make("cars.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
@@ -383,30 +383,5 @@ public class KVTest {
     } catch( IOException e ) {
       System.err.println("Failed to launch nested JVM with:"+Arrays.toString(args));
     }
-  }
-
-  // Load a file, return a Key for it.
-  public static File find_test_file( String fname ) {
-    // When run from eclipse, the working directory is different.
-    // Try pointing at another likely place
-    File file = new File(fname);
-    if( !file.exists() ) file = new File("build/"+fname);
-    if( !file.exists() ) file = new File("../"+fname);
-    return file;
-  }
-  public static Key load_test_file( String fname ) { 
-    return load_test_file(find_test_file(fname)); 
-  }
-  public static Key load_test_file( File file ) {
-    Key key = null;
-    FileInputStream fis = null;
-    try {
-      fis = new FileInputStream(file);
-      key = ValueArray.read_put_file(file.getPath(), fis, (byte)0);
-    } catch( IOException e ) {
-      try { if( fis != null ) fis.close(); } catch( IOException e2 ) { }
-    }
-    if( key == null ) fail("failed load to "+file.getName());
-    return key;
   }
 }

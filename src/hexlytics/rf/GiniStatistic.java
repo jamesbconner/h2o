@@ -5,195 +5,198 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
+import java.util.Arrays;
+import sun.security.util.Length;
 
-/** Gini Statistic. 
- * 
- * The gini statistic works on the notion that each column has only N 
+/** A better working gini statistic that should be faster. Hopefully much faster. 
+ *
  * @author peta
  */
-class GiniStatistic {
-  final Data data_;
-  final GiniStatistic parent_;
-  final Column[] columns_;
-  int classOf_ = -1;
-  double[] dist;
-  
-  public GiniStatistic(Data d, GiniStatistic s) {
-    data_ = d; parent_ = s;
-    columns_ = new Column[data_.columns()];
-    int i = data_.features();
-    dist = new double[d.classes()];
-    while (i-- > 0) { 
-      int off = data_.random().nextInt(data_.columns());
-      if (columns_[off]!=null) continue;
-      columns_[off] = new Column(off, data_.columnClasses(off), data_.classes());
+public class GiniStatistic {
+  /** Split descriptor for a particular column. 
+   * 
+   * Holds the column name and the split point, which is the last column class
+   * that will go to the left tree. If the column index is -1 then the split
+   * value indicates the return value of the node.
+   */
+  public static class Split {
+    public final int column;
+    public final int split;
+    public final double fitness;
+    public Split(int column, int split, double fitness) {
+      this.column = column;
+      this.split = split;
+      this.fitness = fitness;
+    }
+    public static Split constant(int result) {
+      return new Split(-1, result, -1);
+    }
+    
+    public static Split impossible(int result) {
+      return new Split(-2, result, -1);
+    }
+    
+    public final boolean isLeafNode() {
+      return column < 0;
+    }
+    
+    public final boolean isConstant() {
+      return column == -1;
+    }
+    
+    public final boolean betterThan(Split other) {
+      return fitness > other.fitness;
     }
   }
   
-  Column bestColumn_;
   
-  int singleClass_ = -1;
+  /// Column distributions for the given statistic
+  private final double[][][] columnDists_;
+  /// Columns that are currently used.
+  private final int[] columns_;
   
-  public void computeSplit() {
-    for (int i = 0; i < dist.length; ++i)
-      if (dist[i]!=0)
-        if (singleClass_ < 0) {
-          singleClass_ = i;
+  
+  
+  private final int[] tempCols_;
+  
+  public GiniStatistic(Data data) {
+    // first create the column distributions
+    columnDists_ = new double[data.columns()][][];
+    for (int i = 0; i < columnDists_.length; ++i)
+      columnDists_[i] = new double[data.columnClasses(i)][data.classes()];
+    // create the columns themselves
+    columns_ = new int[data.features()];
+    // create the temporary column array to choose cols from
+    tempCols_ = new int[data.columns()];
+  }
+  
+  /** Resets the statistic so that it can be used to compute new node. 
+   * 
+   */
+  public void reset(Data data) {
+    // first get the columns for current split
+    Arrays.fill(tempCols_,0);
+    int i = 0;
+    while (i < columns_.length) {
+      int off = data.random().nextInt(tempCols_.length);
+      if (tempCols_[off] == -1)
+        continue;
+      tempCols_[off] = -1;
+      columns_[i] = off;
+      ++i;
+    }
+    // reset the column distributions for those
+    for (int j : columns_) 
+      for (double[] d: columnDists_[j])
+        Arrays.fill(d,0.0);
+    // and now the statistic is ready
+  }
+  
+  /** Adds the given row to the statistic. 
+   * 
+   * @param row 
+   */
+  public void add(Row row) {
+    for (int i : columns_)
+      columnDists_[i][row.getColumnClass(i)][row.classOf()] += row.weight();
+  }
+  
+  
+  private double gini(double[] dd, double sum) {
+    double result = 1;
+    for (double d : dd)
+      result -= (d/sum) * (d/sum);
+    return result;
+  }
+  
+  /** Returns the best split for given column. 
+   * 
+   * @param colIndex
+   * @return 
+   */
+  private Split columnSplit(int colIndex) {
+    double[] leftDist = new double[columnDists_[colIndex][0].length];
+    double[] rightDist = new double[leftDist.length];
+    double leftWeight = 0;
+    double rightWeight = 0;
+    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
+      for (int i = 0; i < rightDist.length; ++i) {
+        rightWeight += columnDists_[colIndex][j][i];
+        rightDist[i] = columnDists_[colIndex][j][i]; 
+      }
+    }
+    double totWeight = rightWeight;
+    // now check if we have only a single class
+    int singleClass = -1;
+    for (int i = 0; i < rightDist.length; ++i)
+      if (rightDist[i] != 0)
+        if (singleClass == -1) {
+          singleClass = i;
         } else {
-          singleClass_ = -2;
+          singleClass = -1;
           break;
         }
-    if (singleClass_ >=0 )
-      return;
-    bestColumn_ = null;
-    for (Column c: columns_) {
-      if (c == null)
+    if (singleClass != -1) 
+      return Split.constant(singleClass);
+    // we are not a single class, calculate the best split for the column
+    int bestSplit = -1;
+    double bestFitness = -1;
+    for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
+      // first copy the i-th guys from right to left
+      for (int j = 0; j < leftDist.length; ++j) {
+        double t = columnDists_[colIndex][i][j];
+        leftWeight += t;
+        rightWeight -= t;
+        leftDist[j] += t;
+        rightDist[j] -= t;
+      }
+      // now make sure we have something to split 
+      if ((leftWeight == 0) || (rightWeight == 0))
         continue;
-      if (dist == null)
-        dist = c.getDistribution();
-        
-      double f = c.calculateBinarySplitFitness();
-      if ((bestColumn_==null) || (f > bestColumn_.fitness_)) {
-        bestColumn_ = c;
+      double f = gini(leftDist,leftWeight) / totWeight + gini(rightDist,rightWeight) / totWeight;
+      if (f>bestFitness) {
+        bestSplit = i;
+        bestFitness = f;
       }
-    }
-    //if (bestColumn_ == null)
-      //System.out.println("we have a problem...");
-    //else 
-      //System.out.println("Column "+bestColumn_.column+" split value "+bestColumn_.split_+" fitness "+bestColumn_.fitness_);
-  }
-  
-  public int singleClass() {
-    return singleClass_;
-  }
-  
-  public int classOf() {
-    if (classOf_==-1) {
-      int max =0;
-      for(int i=0;i<dist.length;i++) if (dist[i]>max) { max=(int)dist[i]; classOf_ = i;}
-    }
-    return classOf_; 
-  }
-  
-  public double classOfError() {
-    if (classOf_ == -1)
-      classOf();
-    double total = Utils.sum(dist);
-    double others = total - dist[classOf_];
-    return others / total;
-  }
-  
-  
-  public int bestColumn() {
-    return bestColumn_.column;
-  }
-  
-  public int bestColumnSplit() {
-    return bestColumn_.split_;
-  }
-  
-  public void add(Row row) {
-    dist[row.classOf()] += row.weight();
-    for (Column c: columns_)
-      if (c!=null)
-        c.add(row);
-  }
-  
-  
-  // Column class --------------------------------------------------------------
-  
-  static class Column {
-    final double[][] dist_;
-    
-    public final int column;
-    
-    double fitness_;
-    int split_;
-    
-    public Column(int column, int numClasses, int dataClasses) {
-      this.column = column;
-      dist_ = new double[numClasses][dataClasses];
-    }
-    
-    public void add(Row row) {
-      dist_[row.getColumnClass(column)][row.classOf()] += row.weight();
-    }
-    
-    /** This calculates the simple fitness when we use the n-way split on the
-     * node.
-     * @return 
-     */
-    public double calculateNWayFitness() {
-      fitness_ = 0;
-      for (double[] d: dist_)
-        fitness_ += calculateGini(d);
-      fitness_ = fitness_ / dist_.length;
-      return fitness_;
-    }
-    
-    
-    public double[] getDistribution() {
-      double[] result = new double[dist_[0].length];
-      for (double[] d: dist_)
-        for (int i = 0; i < result.length; ++i)
-          result[i] += d[i];
-      return result;
-    }
-
-    /** Calculates the double split fitness, which is most similar to the 
-     * numeric statistic predictor.
-     * 
-     * @return 
-     */
-    public double calculateBinarySplitFitness() {
-      //System.out.println("  column "+column);
-      fitness_ = -1;
-      split_ = 0;
-      // get the totals for all column classes
-      double[] second = new double[dist_[0].length];
-      double sumsecond = 0;
-      for (double[] d: dist_)
-        for (int i = 0; i < second.length; ++i) {
-          second[i] += d[i];
-          sumsecond += d[i];
-        }
-      // find the best one
-      double sumtotal = sumsecond;
-      double[] first = new double[second.length];
-      double sumfirst = 0;
-      int j = 0;
-      for (double[] d : dist_) {
-        for (int i = 0; i < d.length; ++i) {
-          sumfirst += d[i];
-          sumsecond -= d[i];
-          first[i] += d[i];
-          second[i] -= d[i];
-        }
-        if ((sumfirst != 0) && (sumsecond!=0)) {
-          double f = 0;
-          f += calculateGini(first) * (sumfirst / sumtotal);
-          f += calculateGini(second) * (sumsecond / sumtotal);
-          //System.out.println("    split: "+j+", fitness: "+f+" (first: "+sumfirst+", second: "+sumsecond+")");
-          if (f > fitness_) {
-            fitness_ = f;
-            split_ = j;
-          }
-        }
-        ++j;
+    }    
+    // if we have no split, then get the most common element and return it as
+    // a constant split
+    if (bestSplit == -1) {
+      // put everything to the left guy
+      for (int j = 0; j < leftDist.length; ++j) {
+        double t = columnDists_[colIndex][columnDists_[colIndex].length-1][j];
+        leftWeight += t;
+        leftDist[j] += t;
       }
-      return fitness_;
+      int best = 0;
+      for (int i = 1; i < leftDist.length; ++i) 
+        if (leftDist[i] > leftDist[best])
+          best = i;
+      return Split.impossible(best);
     }
-
-    protected static double calculateGini(double[] dist) {
-      double sum = Utils.sum(dist);
-      double result = 1;
-      for (double d: dist)
-        result -= (d/sum) * (d/sum);
-      return result;
-    }
+    return new Split(colIndex,bestSplit,bestFitness);
   }
+  
+  /** Calculates the best split and returns it. 
+   * 
+   * @return 
+   */
+  public Split split() {
+    Split bestSplit = columnSplit(columns_[0]);
+    if (bestSplit.isConstant())
+      return bestSplit;
+    for (int j = 1; j < columns_.length; ++j) {
+      Split s = columnSplit(columns_[j]);
+      if (s.betterThan(bestSplit))
+        bestSplit = s;
+    }
+    return bestSplit;
+  }
+  
+  
+  
+  
+  
+  
   
 }
-
-
-

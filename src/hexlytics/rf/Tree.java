@@ -2,12 +2,11 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
+
 import java.io.*;
 import java.util.UUID;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Value;
+
+import water.*;
 
 public class Tree implements Serializable {  
   public static  int MAX_TREE_DEPTH = -1;  
@@ -41,25 +40,26 @@ public class Tree implements Serializable {
   /** Computes the tree using the gini statistic. 
    * 
    */
-  final INode computeGini(int depth, Data d, GiniStatistic s, GiniJob[] jobs) {
-    s.computeSplit();
-    // terminate the branch prematurely
-    if ((s.classOfError() < MIN_ERROR_RATE) || (depth >= MAX_TREE_DEPTH))
-      return new LeafNode(depth,s.classOf());
-    if (s.singleClass() >= 0)
-      return new LeafNode(depth, s.singleClass());
-    if (s.bestColumn_.fitness_ < 0)
-      return new LeafNode(depth, s.classOf());
-    GiniNode nd = new GiniNode(depth,s.bestColumn(), s.bestColumnSplit());
+  
+  final INode computeGini(int depth, Data d, GiniStatistic.Split split, GiniJob[] jobs,GiniStatistic[] stats) {
+    // reset the statistics
+    stats[0].reset(d);
+    stats[1].reset(d);
+    // create the node 
+    GiniNode nd = new GiniNode(depth, split.column, split.split);
+    // filter the data to the new statistics
     Data[] res = new Data[2];
-    GiniStatistic[] stats = new GiniStatistic[]{
-        new GiniStatistic(d,s), new GiniStatistic(d,s)};
-    d.filter(nd.column, nd.split, res, stats);
-    //System.out.println(res[0].rows()+" - "+res[1].rows());
-    if ((res[0].rows() == 0) || (res[1].rows()==0))
-      System.out.println("a problem we have");
-    jobs[0] = new GiniJob(this,nd,0,res[0],stats[0]);
-    jobs[1] = new GiniJob(this,nd,1,res[1],stats[1]);
+    d.filter(nd.column,nd.split,res,stats);
+    GiniStatistic.Split ls = stats[0].split();
+    GiniStatistic.Split rs = stats[1].split();
+    if (ls.isLeafNode())
+      nd.l_ = new LeafNode(depth+1,ls.split);
+    else
+      jobs[0] = new GiniJob(this,nd,0,res[0],ls);
+    if (rs.isLeafNode())
+      nd.r_ = new LeafNode(depth+1,rs.split);
+    else
+      jobs[1] = new GiniJob(this,nd,1,res[1],rs);
     return nd;
   }
 
@@ -74,6 +74,7 @@ public class Tree implements Serializable {
     protected INode(int depth) {
       nodeDepth_ = depth;
     }
+    public abstract void print(TreePrinter treePrinter) throws IOException;
     abstract void write( DataOutputStream dos ) throws IOException;
     static INode read( DataInputStream dis, int depth ) throws IOException {
       int b = dis.readByte();
@@ -87,7 +88,7 @@ public class Tree implements Serializable {
   }
  
   /** Leaf node that for any row returns its the data class it belongs to. */
-  static class LeafNode extends INode {
+  static class LeafNode extends INode {     
     final int class_;    // A category reported by the inner node
     LeafNode(int depth,int c) {
       super(depth);
@@ -95,6 +96,7 @@ public class Tree implements Serializable {
     }
     public int classify(Row r) { return class_; }
     public String toString()   { return "["+class_+"]"; }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException {
       assert Short.MIN_VALUE <= class_ && class_ < Short.MAX_VALUE;
       dos.writeByte('[');       // Leaf indicator
@@ -127,12 +129,9 @@ public class Tree implements Serializable {
       C c = RFGiniTask.data().data_.c_[column];
       return c.name_ +"<" + split + " ("+l_+","+r_+")";
     }
-    void write( DataOutputStream dos ) throws IOException {
-      throw new Error("unimplemented");
-    }
-    static Node read( DataInputStream dis, int depth ) {
-      throw new Error("unimplemented");
-    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
+    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
   }
   
   
@@ -170,6 +169,7 @@ public class Tree implements Serializable {
       C c = column();           // Get the column in question
       return c.name_ +"<" + Utils.p2d(split_value(c)) + " ("+l_+","+r_+")";
     }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException {
       dos.writeByte('(');       // Node indicator
       assert Short.MIN_VALUE <= column_ && column_ < Short.MAX_VALUE;
@@ -188,7 +188,7 @@ public class Tree implements Serializable {
       n.r_ = INode.read(dis,depth+1);
       return n;
     }
-  }
+   }
  
   public int classify(Row r) { return tree_.classify(r); } 
   public String toString()   { return tree_.toString(); } 

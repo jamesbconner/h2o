@@ -44,7 +44,7 @@ public class CSVParserKVTest {
   public void testNColumns(){    
     CSVParserKV.ParserSetup setup = new CSVParserKV.ParserSetup();
     setup.parseColumnNames = true;
-    Key key = KVTest.load_test_file("smalldata/poker/poker10");
+    Key key = TestUtil.load_test_file("smalldata/poker/poker10");
     int n = CSVParserKV.getNColumns(key);
     Assert.assertEquals(11, n);
     int [] rec = new int[n];
