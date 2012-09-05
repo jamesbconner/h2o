@@ -6,8 +6,8 @@ import hexlytics.rf.Statistic.Split;
 import java.io.Serializable;
 
 public class Tree implements Serializable {  
-  public static  int MAX_TREE_DEPTH = 20;  
-  public static  double MIN_ERROR_RATE = 0.15;
+  public static  int MAX_TREE_DEPTH = -1;  
+  public static  double MIN_ERROR_RATE = -1.0;
   private static final long serialVersionUID = 7669063054915148060L;
 
   INode tree_;
@@ -17,7 +17,7 @@ public class Tree implements Serializable {
 
   final INode compute(int depth, Data d, Statistic s, Job[] jobs) {
     // terminate the branch prematurely
-    if (s.classOfError() < MIN_ERROR_RATE || depth == MAX_TREE_DEPTH)  
+    if (s.error() < MIN_ERROR_RATE || depth == MAX_TREE_DEPTH)  
       return new LeafNode(depth,s.classOf());
     if (s.singleClass()) return new LeafNode(depth, s.classOf());
     Split best = s.best();

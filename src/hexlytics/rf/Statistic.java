@@ -62,7 +62,7 @@ public class Statistic {
     return classOf; 
   }
   
-  public double classOfError() {
+  public double error() {
     if (classOf == -1)
       classOf();
     double total = Utils.sum(dists);

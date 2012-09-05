@@ -105,7 +105,7 @@ public class RandomForest {
     ParseDataset.parse(parsedKey, DKV.get(fileKey));
     ValueArray va = (ValueArray) DKV.get(parsedKey);        
     DKV.remove(fileKey); // clean up and burn
-    web_main(va, 100, 100, .0001, false);
+    web_main(va, 100, 100, .15, false);
   }
   
   
