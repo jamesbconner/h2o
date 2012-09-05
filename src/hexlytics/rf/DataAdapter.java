@@ -42,22 +42,17 @@ public class DataAdapter  {
     public void shrinkWrap() { 
       freeze();
       short[][] vss = new short[c_.length][];
-     for(int i=0;i<c_.length;i++) {
-       C c = c_[i];
-       vss[i] = c.shrink();
-     }      
-     data_ = new short[ c_.length * rows()];
-     for(int i=0;i<c_.length;i++) {
-       short[] vs = vss[i];
-       for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
-     }      
+      for(int i=0;i<c_.length;i++) vss[i] = c_[i].shrink();
+      data_ = new short[ c_.length * rows()];
+      for(int i=0;i<c_.length;i++) {
+        short[] vs = vss[i];
+        for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
+      }      
     }
     
     static public  int FEATURES = -1;
     public void freeze() { frozen_=true; }
-    public int features() { 
-       return  FEATURES==-1 ? FEATURES = (int)Math.sqrt(c_.length) : FEATURES;
-    }
+    public int features() { return FEATURES==-1 ? FEATURES = (int)Math.sqrt(c_.length) : FEATURES; }
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
@@ -107,7 +102,7 @@ class C {
   C(String s) { name_ = s; v_ = new double[DEFAULT]; }
   C(String s, int rows) { name_ = s; v_ = new double[rows]; }
 
-  void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
+  private void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
   void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
   double getD(int i) { return v_[i]; }
 
