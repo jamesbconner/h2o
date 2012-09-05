@@ -7,6 +7,8 @@ import java.util.StringTokenizer;
 
 import org.hyperic.sigar.Mem;
 
+import com.google.common.primitives.Chars;
+
 import water.*;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
@@ -18,6 +20,9 @@ import water.ValueArray.Column;
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 
 public final class ParseDataset {
+  static final int PARSE_SVMLIGHT = 101;
+  static final int PARSE_COMMASEP = 102;
+  static final int PARSE_SPACESEP = 103; 
 
   // Parse the dataset as a CSV-style thingy and produce a structured dataset
   // result.  This does a distributed parallel parse.
@@ -28,20 +33,14 @@ public final class ParseDataset {
     // Guess on the number of columns, build a column array.
     int [] typeArr = guess_parser_setup(dataset);
     int num_cols = typeArr[1];
-    //System.out.println("Found "+num_cols+" columns");
-        
-    //int num_cols = CSVParserKV.getNColumns(dataset._key);
 
     DParse1 dp1 = new DParse1();
-    dp1._num_cols = num_cols;
-    dp1._csvType  = (byte)typeArr[0];
-    dp1._num_rows = 0;          // No rows yet
-
-    long start = System.currentTimeMillis();
-
+    dp1._num_cols  = num_cols;
+    dp1._parseType = (byte)typeArr[0];
+    dp1._num_rows  = 0; // No rows yet
+    
     dp1.invoke(dataset._key);   // Parse whole dataset!
 
-    long now = System.currentTimeMillis();
     num_cols = dp1._num_cols;
     // Now figure out how best to represent the data.
     compute_column_size(dp1);
@@ -52,7 +51,7 @@ public final class ParseDataset {
     int max_col_size=0;
     for( int i=0; i<num_cols; i++ ) {
       ValueArray.Column c= dp1._cols[i];
-      c._name = "";             // No column names for now
+      c._name = ""; // No column names for now
       int sz = Math.abs(c._size);
       // Dumb-ass in-order columns.  Later we should sort bigger columns first
       // to preserve 4 & 8-byte alignment for larger values
@@ -60,7 +59,6 @@ public final class ParseDataset {
       col_off += sz;
       row_size += sz;
       if( sz > max_col_size ) max_col_size = sz;
-      //System.out.println("col "+i+" min="+c._min+" max="+c._max+" size="+c._size+" base="+c._base+" scale="+c._scale);
     }
     // Pad out the row to the max-aligned field
     row_size = (row_size+max_col_size-1)&~(max_col_size-1);
@@ -87,18 +85,14 @@ public final class ParseDataset {
 
     // Setup for pass-2, where we do the actual data conversion.
     DParse2 dp2 = new DParse2();
-    dp2._num_cols = num_cols;
-    dp2._csvType  = (byte)typeArr[0];
-    dp2._num_rows = row_size; // Cheat: pass in rowsize instead of the num_rows (and its non-zero)
-    dp2._cols     = dp1._cols;
-    dp2._rows_chk = rs2;        // Rolled-up row numbers
-    dp2._result   = result;
-
-    long start2 = System.currentTimeMillis();
+    dp2._num_cols  = num_cols;
+    dp2._parseType = (byte)typeArr[0];
+    dp2._num_rows  = row_size; // Cheat: pass in rowsize instead of the num_rows (and its non-zero)
+    dp2._cols      = dp1._cols;
+    dp2._rows_chk  = rs2;        // Rolled-up row numbers
+    dp2._result    = result;
 
     dp2.invoke(dataset._key);   // Parse whole dataset!
-
-    long now2 = System.currentTimeMillis();
 
     // Done building the result ValueArray!
   }
@@ -174,7 +168,7 @@ public final class ParseDataset {
   public static abstract class DParse extends MRTask {
     int _num_cols;              // Input
     int _num_rows;              // Output
-    byte _csvType;              // Input, comma-separator
+    byte _parseType;            // Input, comma-separator
     ValueArray.Column _cols[];  // Column summary data
     int _rows_chk[];            // Rows-per-chunk
   }
@@ -191,7 +185,7 @@ public final class ParseDataset {
     public int write( T dp, byte[] buf, int off ) {
       UDP.set4(buf,(off+=4)-4,dp._num_cols);
       UDP.set4(buf,(off+=4)-4,dp._num_rows);
-      buf[off++] = dp._csvType;
+      buf[off++] = dp._parseType;
       if( dp._num_rows == 0 ) return off; // No columns?
       assert dp._cols.length == dp._num_cols;
       for( ValueArray.Column col : dp._cols )
@@ -205,7 +199,7 @@ public final class ParseDataset {
     public void write( T dp, DataOutputStream dos ) throws IOException {
       dos.writeInt(dp._num_cols);
       dos.writeInt(dp._num_rows);
-      dos.writeByte(dp._csvType);
+      dos.writeByte(dp._parseType);
       if( dp._num_rows == 0 ) return; // No columns?
       assert dp._cols.length == dp._num_cols;
       for( ValueArray.Column col : dp._cols )
@@ -218,9 +212,9 @@ public final class ParseDataset {
 
     public abstract T read( byte[] buf, int off );
     public T read( T dp, byte[] buf, int off ) {
-      dp._num_cols = UDP.get4(buf,off);  off += 4;
-      dp._num_rows = UDP.get4(buf,off);  off += 4;
-      dp._csvType   = buf[off++];
+      dp._num_cols  = UDP.get4(buf,off);  off += 4;
+      dp._num_rows  = UDP.get4(buf,off);  off += 4;
+      dp._parseType = buf[off++];
       if( dp._num_rows == 0 ) return dp; // No rows, so no cols
       assert dp._cols == null;
       dp._cols = new ValueArray.Column[dp._num_cols];
@@ -235,9 +229,9 @@ public final class ParseDataset {
     }
     public abstract T read( DataInputStream dis ) throws IOException;
     public T read( T dp, DataInputStream dis ) throws IOException {
-      dp._num_cols = dis.readInt();
-      dp._num_rows = dis.readInt();
-      dp._csvType  = dis.readByte();
+      dp._num_cols  = dis.readInt();
+      dp._num_rows  = dis.readInt();
+      dp._parseType = dis.readByte();
       if( dp._num_rows == 0 ) return dp; // No rows, so no cols
       assert dp._cols == null;
       dp._cols = new ValueArray.Column[dp._num_cols];
@@ -271,14 +265,12 @@ public final class ParseDataset {
       // A place to hold each column datum
       double[] data = new double[_num_cols];
       // The parser
-      CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT
-        ? new SVMLightParserKV     (key,1)
-        : new CSVParserKV<double[]>(key,1,data,null);
-      if( _csvType == CSV_TYPE_COMMASEP )
-        csv._setup.whiteSpaceSeparator = false;
-      int num_rows = 0;
+      if( _parseType == PARSE_SVMLIGHT ) throw new Error("SVMLIGHT is unimplemented");
+      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,data,null);
+      csv._setup.whiteSpaceSeparator = (_parseType == PARSE_SPACESEP);
 
       // Parse row-by-row until the whole file is parsed
+      int num_rows = 0;
       for( double[] ds : csv ) {
         if( allNaNs(ds) ) continue; // Row is dead, skip it entirely
         // Row has some valid data, parse away
@@ -295,8 +287,7 @@ public final class ParseDataset {
           double d = ds[i];
           if(Double.isNaN(d)) { // Broken data on row
             _cols[i]._size |=32;  // Flag as seen broken data
-            _cols[i]._badat++;
-            if( _cols[i]._badat==0 ) _cols[i]._badat = (char)65535; // Increment; pin at max short
+            _cols[i]._badat = Chars.saturatedCast(_cols[i]._badat + 1);
             continue;             // But do not muck up column stats
           }
           if( d < _cols[i]._min ) _cols[i]._min = d;
@@ -309,25 +300,22 @@ public final class ParseDataset {
           if( (double)((float)d)      !=  d       ) _cols[i]._size |=16; // not float   : 5.23912f
         }
       }
+      
       assert num_rows > 0;   // Parsing no rows generally means a broken parser
-
       _num_rows = num_rows;
       // Also pass along the rows-per-chunk
       int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
       _rows_chk = new int[idx+1];
       _rows_chk[idx] = num_rows;
       if(_num_cols != _cols.length){
-        System.out.println("reducing number of columns from " + _cols.length + " to " + _num_cols);
         _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
-    }
+      }
     }
 
     // Combine results
     public void reduce( DRemoteTask rt ) {
-      
       DParse1 dp = (DParse1)rt;
       _num_rows += dp._num_rows;
-      
       _num_cols = Math.max(_num_cols, dp._num_cols);
       
       if( _cols == null ) {     // No local work?
@@ -347,8 +335,7 @@ public final class ParseDataset {
           if( d._min < c._min ) c._min = d._min; // min of mins
           if( d._max > c._max ) c._max = d._max; // max of maxes
           c._size |=  d._size;                   // accumulate size fail bits
-          int bad = c._badat+d._badat;
-          c._badat = (bad > 65535) ? 65535 : (char)bad; // Bad rows, capped
+          c._badat = Chars.saturatedCast(c._badat+d._badat);
         }
       }
       
@@ -422,11 +409,8 @@ public final class ParseDataset {
       byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
       // A place to hold each column datum
       // The parser
-      CSVParserKV<double[]> csv = _csvType == CSV_TYPE_SVMLIGHT?
-          new SVMLightParserKV(key, 1,_cols.length):
-          new CSVParserKV<double[]>(key,1,new double[_cols.length],null);
-      if( _csvType == CSV_TYPE_COMMASEP )
-        csv._setup.whiteSpaceSeparator = false;      
+      CSVParserKV<double[]> csv = new CSVParserKV<double[]>(key,1,new double[_cols.length],null);
+      csv._setup.whiteSpaceSeparator = (_parseType == PARSE_SPACESEP);
       // Fill the rows
       int off = 0;
       for( double[] ds : csv ) {
@@ -571,36 +555,6 @@ public final class ParseDataset {
     }
   }
   
-  // guess the number of columns for svmlight file
-  // basically walks through the data and test last column index on each line
-  // and takes max value of those as a result
-  // if the file is large, this method is not reliable unless applied on all the data
-  private static int guess_num_cols_svmlight(byte [] b){
-    int lastColon = -1;
-    int lastCheckedColon = -1;
-    boolean comment = false;
-    int n = -1;
-    for(int i = 0; i < b.length; ++i){
-      if(b[i] == '#') comment = true;
-      if(b[i] == ':' && !comment)lastColon = i;
-      if(b[i] == '\r' || b[i] == '\n'){
-     // check last column number on the line, column ids are strictly increasing so we need only to check the last one 
-        if(lastColon != lastCheckedColon){
-          int j = lastColon -1;
-          while(j >=0 && Character.isDigit(b[j])) --j; // find the boundaries of the integer in front if the ':'
-          n = Math.max(Integer.valueOf(new String(b,j+1,lastColon-j-1)), n);
-          lastCheckedColon = lastColon;
-        }                
-        if(((i+1) < b.length)  && (b[i+1] == '\n')) ++i;
-        comment = false;
-      }
-    }
-    return Math.min(n,SVMLightParserKV.MAX_COLUMNS);
-  }
-  
-  static final int CSV_TYPE_SVMLIGHT = 101;
-  static final int CSV_TYPE_COMMASEP = 102;
-  static final int CSV_TYPE_SPACESEP = 103; 
   // ---
   // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
   // the number of columns for svm light is not reliable as it only relies on info from the first chunk
@@ -642,13 +596,13 @@ public final class ParseDataset {
         throw new Error("string skipping not implemented");
       } else if(c == ':' && (++colonCounter == 3)){
         // if there are at least 3 ':' on the line, the file is probably svmlight format
-        return new int[]{CSV_TYPE_SVMLIGHT,guess_num_cols_svmlight(b)};
+        throw new Error("SVMLIGHT format is currently unsupported");
       } else {                  // Else its just column data
         if( mode != 1 ) cols++;
         mode = 1;
       }
     }
-    return new int[]{commas?CSV_TYPE_COMMASEP:CSV_TYPE_SPACESEP,cols};
+    return new int[]{commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols};
   }
 
   // ---
@@ -656,7 +610,6 @@ public final class ParseDataset {
   // Alternative column title guesser.  Returns an array of Strings, or
   // null if none.
   private static String[] guess_col_names( Value dataset, int num_cols, byte csvType ) {
-    if(csvType == CSV_TYPE_SVMLIGHT) return null;
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
     String [] names = new String[num_cols];
@@ -671,7 +624,8 @@ public final class ParseDataset {
         break;
       }
       // Found a column separator?
-      if( (csvType==CSV_TYPE_SPACESEP && Character.isWhitespace(c)) || csvType==CSV_TYPE_COMMASEP &&  c == ',' ) {
+      if(    (csvType==PARSE_SPACESEP && Character.isWhitespace(c))
+          || (csvType==PARSE_COMMASEP && c == ',') ) {
         if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
           num++;                // Not a number, so take it as a column name
         idx = -1;               // Reset start-of-column
