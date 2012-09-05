@@ -439,5 +439,4 @@ public final class Key implements Comparable {
     assert (o instanceof Key);
     return this.toString().compareTo(o.toString());
   }
-  
 }

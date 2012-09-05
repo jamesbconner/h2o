@@ -55,7 +55,6 @@ public class DRF extends water.DRemoteTask {
     double[] ds = new double[num_cols];
     for( Key key : _keys ) {
       if( key.home() ) {
-        System.out.println("RF'ing on "+key);
         byte[] bits = DKV.get(key).get();
         final int num_rows = bits.length/rowsize;
         for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk

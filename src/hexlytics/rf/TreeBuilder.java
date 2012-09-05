@@ -13,10 +13,8 @@ public class TreeBuilder implements Runnable {
     private final Director dir_;
     private final RandomForest rf_;
     
-    public TreeBuilder(Data data, Director dir, int numTrees) { 
-      gini_ = false;
-      rf_ = new RandomForest(data, dir_ = dir, numTrees);
-      dir_.report("Training data\n"+ data.toString());
+    public TreeBuilder(Data data, Director dir, int numTrees) {
+      this(data,dir,numTrees,false);
     }      
 
     public TreeBuilder(Data data, Director dir, int numTrees, boolean gini) { 
