@@ -2,17 +2,11 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
+
 import java.io.*;
 import java.util.UUID;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Value;
 
-import java.io.Serializable;
-
-import java.io.IOException;
-import java.io.Serializable;
+import water.*;
 
 public class Tree implements Serializable {  
   public static  int MAX_TREE_DEPTH = -1;  
@@ -79,6 +73,7 @@ public class Tree implements Serializable {
     protected INode(int depth) {
       nodeDepth_ = depth;
     }
+    public abstract void print(TreePrinter treePrinter) throws IOException;
     abstract void write( DataOutputStream dos ) throws IOException;
     static INode read( DataInputStream dis, int depth ) throws IOException {
       int b = dis.readByte();
@@ -87,8 +82,7 @@ public class Tree implements Serializable {
       case '(':  return     Node.read(dis,depth); // Node selector
       default:
         throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
-    public abstract void print(TreePrinter treePrinter) throws IOException;
-  }
+      }
     }
   }
  
@@ -101,12 +95,12 @@ public class Tree implements Serializable {
     }
     public int classify(Row r) { return class_; }
     public String toString()   { return "["+class_+"]"; }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException {
       assert Short.MIN_VALUE <= class_ && class_ < Short.MAX_VALUE;
       dos.writeByte('[');       // Leaf indicator
       dos.writeShort(class_);
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-  }
+    }
     static LeafNode read( DataInputStream dis, int depth ) throws IOException {
       return new LeafNode(depth,dis.readShort());
     }
@@ -134,15 +128,9 @@ public class Tree implements Serializable {
       C c = RFGiniTask.data().data_.c_[column];
       return c.name_ +"<" + split + " ("+l_+","+r_+")";
     }
-    
-    
-    void write( DataOutputStream dos ) throws IOException {
-      throw new Error("unimplemented");
-    }
-    static Node read( DataInputStream dis, int depth ) {
-      throw new Error("unimplemented");
-    }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
+    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
   }
   
   
@@ -180,6 +168,7 @@ public class Tree implements Serializable {
       C c = column();           // Get the column in question
       return c.name_ +"<" + Utils.p2d(split_value(c)) + " ("+l_+","+r_+")";
     }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException {
       dos.writeByte('(');       // Node indicator
       assert Short.MIN_VALUE <= column_ && column_ < Short.MAX_VALUE;
@@ -198,7 +187,6 @@ public class Tree implements Serializable {
       n.r_ = INode.read(dis,depth+1);
       return n;
     }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
    }
  
   public int classify(Row r) { return tree_.classify(r); } 
