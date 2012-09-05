@@ -9,6 +9,11 @@ import water.H2O;
 import water.Key;
 import water.Value;
 
+import java.io.Serializable;
+
+import java.io.IOException;
+import java.io.Serializable;
+
 public class Tree implements Serializable {  
   public static  int MAX_TREE_DEPTH = -1;  
   public static  double MIN_ERROR_RATE = -1.0;
@@ -82,12 +87,13 @@ public class Tree implements Serializable {
       case '(':  return     Node.read(dis,depth); // Node selector
       default:
         throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
-      }
+    public abstract void print(TreePrinter treePrinter) throws IOException;
+  }
     }
   }
  
   /** Leaf node that for any row returns its the data class it belongs to. */
-  static class LeafNode extends INode {
+  static class LeafNode extends INode {     
     final int class_;    // A category reported by the inner node
     LeafNode(int depth,int c) {
       super(depth);
@@ -99,7 +105,8 @@ public class Tree implements Serializable {
       assert Short.MIN_VALUE <= class_ && class_ < Short.MAX_VALUE;
       dos.writeByte('[');       // Leaf indicator
       dos.writeShort(class_);
-    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+  }
     static LeafNode read( DataInputStream dis, int depth ) throws IOException {
       return new LeafNode(depth,dis.readShort());
     }
@@ -127,12 +134,15 @@ public class Tree implements Serializable {
       C c = RFGiniTask.data().data_.c_[column];
       return c.name_ +"<" + split + " ("+l_+","+r_+")";
     }
+    
+    
     void write( DataOutputStream dos ) throws IOException {
       throw new Error("unimplemented");
     }
     static Node read( DataInputStream dis, int depth ) {
       throw new Error("unimplemented");
     }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
   }
   
   
@@ -188,7 +198,8 @@ public class Tree implements Serializable {
       n.r_ = INode.read(dis,depth+1);
       return n;
     }
-  }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+   }
  
   public int classify(Row r) { return tree_.classify(r); } 
   public String toString()   { return tree_.toString(); } 

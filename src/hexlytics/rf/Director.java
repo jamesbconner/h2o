@@ -16,7 +16,6 @@ public interface Director {
   
   void error(long error);
   
-  ///  
   String nodeName();
 }
 

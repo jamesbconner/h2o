@@ -7,34 +7,38 @@ package hexlytics.rf;
  * @author peta
  */
 public class TreeValidator {
-  
-  final Director glue_;
-  public RandomForest rf_;
+  private final Director _director;
+  private final Data _data;
+  public final RandomForest _rf;
+  private double err;
   
   public TreeValidator(Data data, Director glue) {
-    glue_ = glue;
-    rf_= new RandomForest(data,glue_,Integer.MAX_VALUE);
+    _director = glue;
+    _data = data;
+    _rf = new RandomForest(data, glue, Integer.MAX_VALUE);
   }
   
-  double err;
   
   public void validate(Tree tree) { 
-    err = rf_.validate(tree); 
+    err = _rf.validate(tree); 
     String ts = tree.toString();    
-   if(ts.length()>=100) ts = ts.substring(0,100) + "...";    
-   String s = glue_.nodeName()+" "+rf_.trees_.size()+" Time: "+tree.time_+" Tree depth = "+tree.tree_.depth()+" leaves= "+ tree.tree_.leaves();
-    glue_.report(s+" | err="+ Utils.p5d(err)+" Tree="+ts);
+    if(ts.length()>=100) ts = ts.substring(0,100) + "...";    
+    String s = _director.nodeName()+
+        " "+_rf.trees_.size()+
+        " Time: "+tree.time_+
+        " Tree depth = "+tree.tree_.depth()+
+        " leaves= "+ tree.tree_.leaves();
+    _director.report(s+" | err="+ Utils.p5d(err)+" Tree="+ts);
   }
 
-  /** We are done. Finish any validation and send you date to the aggregator. */
   public void terminate() {
     String s = 
         "              Type of random forest: classification\n" +
-        "                    Number of trees: "+ rf_.trees_.size() +"\n"+
-        "No of variables tried at each split: " + DataAdapter.FEATURES+"\n"+
+        "                    Number of trees: "+ _rf.trees_.size() +"\n"+
+        "No of variables tried at each split: " + _data.features() +"\n"+
         "             Estimate of error rate: " + Math.round(err *10000)/100 + "%\n"+ 
-        "                   Confusion matrix:\n" + rf_.confusionMatrix();
-    glue_.report(s);
+        "                   Confusion matrix:\n" + _rf.confusionMatrix();
+    _director.report(s);
   }
   
 }
