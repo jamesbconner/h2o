@@ -14,7 +14,7 @@ public class RandomForest extends H2OPage {
     boolean gini = args.getProperty("gini")!=null;
     
     String res = "some results go here";
-    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,gini); }
+    try { hexlytics.rf.DRF.web_main(ary,ntrees,depth,gini); }
     catch( Exception e ) { res = e.toString(); }
     RString response = new RString(html);
     response.replace("key",ary._key);
