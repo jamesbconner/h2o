@@ -10,8 +10,14 @@ NODE4=192.168.1.154
 
 CLOUD_NAME=$USER
 HD_USER=hduser
+
+
 # compile
-ant clean; ant
+function build() {
+ # build 
+ ./build.sh
+ #ant clean; ant
+}
 
 
 ###
@@ -30,17 +36,30 @@ ant clean; ant
 
 #copy distro
 
-scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE0}:/home/$HD_USER/${USER}
-scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE1}:/home/$HD_USER/${USER}
-scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE2}:/home/$HD_USER/${USER}
-scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE3}:/home/$HD_USER/${USER}
-scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE4}:/home/$HD_USER/${USER}
+function dist(){
+REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5}
+  do
+   #ssh -t ${HD_USER}@${NODE} 'mkdir ${REMOTE_WDIR}'
+   echo scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE0}:${REMOTE_WDIR}
+   scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE0}:${REMOTE_WDIR}
+  done
+}
 
-#localhost
-xterm -e java -jar build/h2o.jar -name $USER &
-#
-xterm -e ssh -t ${HD_USER}@$NODE0 'rm -fr ice;java -Xmx8g -jar /home/${HD_USER}/${USER}/h2o.jar -name $USER --ice_root=ice' &
-xterm -e ssh -t ${HD_USER}@$NODE1 'rm -fr ice;java -Xmx8g -jar /home/${HD_USER}/${USER}/h2o.jar -name $USER --ice_root=ice' &
-xterm -e ssh -t ${HD_USER}@$NODE2 'rm -fr ice;java -Xmx8g -jar /home/${HD_USER}/${USER}/h2o.jar -name $USER --ice_root=ice' &
-xterm -e ssh -t ${HD_USER}@$NODE3 'rm -fr ice;java -Xmx8g -jar /home/${HD_USER}/${USER}/h2o.jar -name $USER --ice_root=ice' &
-xterm -e ssh -t ${HD_USER}@$NODE4 'rm -fr ice;java -Xmx8g -jar /home/${HD_USER}/${USER}/h2o.jar -name $USER --ice_root=ice' &
+function echo_launch(){
+ REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
+ H2O_REMOTE_CMD="'cd ${REMOTE_WDIR}; rm -fr ice_${CLOUD_NAME};java -Xmx8g -jar ${REMOTE_WDIR}/h2o.jar -name $CLOUD_NAME --ice_root=ice_${CLOUD_NAME}' &"
+ echo $H2O_REMOTE_CMD;
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5}
+  do
+   echo xterm -e ssh -t ${HD_USER}@${NODE} ${H2O_REMOTE_CMD} >> _run.sh
+  done
+}
+
+# run
+build
+dist
+# delete prior run script
+rm ./_run.sh
+echo_launch
+sh ./_run.sh
