@@ -12,7 +12,7 @@ import sun.security.util.Length;
  *
  * @author peta
  */
-public class Gini2 {
+public class GiniStatistic {
   /** Split descriptor for a particular column. 
    * 
    * Holds the column name and the split point, which is the last column class
@@ -59,7 +59,7 @@ public class Gini2 {
   
   private final int[] tempCols_;
   
-  public Gini2(Data data) {
+  public GiniStatistic(Data data) {
     // first create the column distributions
     columnDists_ = new double[data.columns()][][];
     for (int i = 0; i < columnDists_.length; ++i)

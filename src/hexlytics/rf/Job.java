@@ -22,29 +22,10 @@ class Job {
   }
 }
 
-
-
-/*class GiniJob {
-  final INode _node; final int _direction; final Data _data;
-  final GiniStatistic _stat; final Tree _tree;
-  GiniJob(Tree t, INode n, int i, Data d, GiniStatistic s) {
-    _tree=t; _node=n; _direction=i; _data=d; _stat=s;
-  }
-  void run() {
-    GiniJob[] jobs = new GiniJob[2];
-    INode newnode =  _tree.computeGini(_node == null ? 0 : _node.nodeDepth_+1,_data, _stat, jobs);
-    if (_node==null)  _tree.tree_ = newnode;
-    else _node.set(_direction,newnode);
-    RFGiniTask task = (RFGiniTask) Thread.currentThread();
-    if (jobs[0]==null) return;
-    task.put(jobs[0]); task.put(jobs[1]);
-  }
- } */
-
 class GiniJob {
   final INode _node; final int _direction; final Data _data;
-  final Gini2.Split _split; final Tree _tree;
-  GiniJob(Tree t, INode n, int i, Data d, Gini2.Split s) {
+  final GiniStatistic.Split _split; final Tree _tree;
+  GiniJob(Tree t, INode n, int i, Data d, GiniStatistic.Split s) {
     _tree=t; _node=n; _direction=i; _data=d; _split=s;
   }
   void run() {
@@ -64,7 +45,7 @@ class GiniJob {
 
  class RFGiniTask extends Thread {
    
-  final Gini2[] stats_;
+  final GiniStatistic[] stats_;
    
   static RFGiniTask[] _;
   static Data _data;
@@ -72,9 +53,9 @@ class GiniJob {
   
   RFGiniTask(Data d) {
     _data=d;
-    stats_ = new Gini2[2];
-    stats_[0] = new Gini2(d);
-    stats_[1] = new Gini2(d);
+    stats_ = new GiniStatistic[2];
+    stats_[0] = new GiniStatistic(d);
+    stats_[1] = new GiniStatistic(d);
   }
   
   Queue<GiniJob> _q = new LinkedList();

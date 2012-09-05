@@ -2,12 +2,13 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Tree.LeafNode;
-
 import java.io.File;
 import java.util.ArrayList;
-
 import test.TestUtil;
-import water.*;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.ValueArray;
 
 public class RandomForest {
   public static void build(DataAdapter dapt, double sampleRatio, int trees, int maxTreeDepth, double minErrorRate,  boolean gini) {
@@ -49,20 +50,6 @@ public class RandomForest {
     add(tree);
   }
   
-/*  private void buildGini0() {
-    long t = System.currentTimeMillis();     
-    RFGiniTask._ = new RFGiniTask[NUMTHREADS];
-    for(int i=0;i<NUMTHREADS;i++) RFGiniTask._[i] = new RFGiniTask(data_);
-    GiniStatistic s = new GiniStatistic(data_, null);
-    for (Row r : data_) s.add(r);
-    Tree tree = new Tree();
-    RFGiniTask._[0].put(new GiniJob(tree, null, 0, data_, s));
-    for (Thread b : RFGiniTask._) b.start();
-    for (Thread b : RFGiniTask._)  try { b.join();} catch (InterruptedException e) { }
-    tree.time_ = System.currentTimeMillis()-t;
-    add(tree);
-  } */
-  
   private void buildGini0() {
     long t = System.currentTimeMillis();     
     RFGiniTask._ = new RFGiniTask[NUMTHREADS];
@@ -70,7 +57,7 @@ public class RandomForest {
       RFGiniTask._[i] = new RFGiniTask(data_);
     RFGiniTask task = RFGiniTask._[0];
     for (Row r : data_) task.stats_[0].add(r);
-    Gini2.Split s = task.stats_[0].split();
+    GiniStatistic.Split s = task.stats_[0].split();
     Tree tree = new Tree();
     if (s.isLeafNode()) {
       tree.tree_ = new LeafNode(0,s.split);

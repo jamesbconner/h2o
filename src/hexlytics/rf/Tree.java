@@ -40,29 +40,8 @@ public class Tree implements Serializable {
   /** Computes the tree using the gini statistic. 
    * 
    */
-/*  final INode computeGini(int depth, Data d, GiniStatistic s, GiniJob[] jobs) {
-    s.computeSplit();
-    // terminate the branch prematurely
-    if ((s.classOfError() < MIN_ERROR_RATE) || (depth >= MAX_TREE_DEPTH))
-      return new LeafNode(depth,s.classOf());
-    if (s.singleClass() >= 0)
-      return new LeafNode(depth, s.singleClass());
-    if (s.bestColumn_.fitness_ < 0)
-      return new LeafNode(depth, s.classOf());
-    GiniNode nd = new GiniNode(depth,s.bestColumn(), s.bestColumnSplit());
-    Data[] res = new Data[2];
-    GiniStatistic[] stats = new GiniStatistic[]{
-        new GiniStatistic(d,s), new GiniStatistic(d,s)};
-    d.filter(nd.column, nd.split, res, stats);
-    //System.out.println(res[0].rows()+" - "+res[1].rows());
-    if ((res[0].rows() == 0) || (res[1].rows()==0))
-      System.out.println("a problem we have");
-    jobs[0] = new GiniJob(this,nd,0,res[0],stats[0]);
-    jobs[1] = new GiniJob(this,nd,1,res[1],stats[1]);
-    return nd;
-  } */
   
-  final INode computeGini(int depth, Data d, Gini2.Split split, GiniJob[] jobs,Gini2[] stats) {
+  final INode computeGini(int depth, Data d, GiniStatistic.Split split, GiniJob[] jobs,GiniStatistic[] stats) {
     // reset the statistics
     stats[0].reset(d);
     stats[1].reset(d);
@@ -71,8 +50,8 @@ public class Tree implements Serializable {
     // filter the data to the new statistics
     Data[] res = new Data[2];
     d.filter(nd.column,nd.split,res,stats);
-    Gini2.Split ls = stats[0].split();
-    Gini2.Split rs = stats[1].split();
+    GiniStatistic.Split ls = stats[0].split();
+    GiniStatistic.Split rs = stats[1].split();
     if (ls.isLeafNode())
       nd.l_ = new LeafNode(depth+1,ls.split);
     else
