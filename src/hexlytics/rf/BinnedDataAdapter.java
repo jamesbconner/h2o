@@ -78,6 +78,7 @@ public class BinnedDataAdapter extends DataAdapter {
 
   // by default binning is not supported
   @Override public int getColumnClass(int rowIndex, int colIndex) {
+    //return getS(rowIndex,colIndex);
     return binInfo_[colIndex].translation_.get(getS(rowIndex,colIndex));
   }
   

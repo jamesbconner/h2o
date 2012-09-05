@@ -37,7 +37,7 @@ public class Tree implements Serializable {
   /** Computes the tree using the gini statistic. 
    * 
    */
-  final INode computeGini(int depth, Data d, GiniStatistic s, GiniJob[] jobs) {
+/*  final INode computeGini(int depth, Data d, GiniStatistic s, GiniJob[] jobs) {
     s.computeSplit();
     // terminate the branch prematurely
     if ((s.classOfError() < MIN_ERROR_RATE) || (depth >= MAX_TREE_DEPTH))
@@ -56,6 +56,28 @@ public class Tree implements Serializable {
       System.out.println("a problem we have");
     jobs[0] = new GiniJob(this,nd,0,res[0],stats[0]);
     jobs[1] = new GiniJob(this,nd,1,res[1],stats[1]);
+    return nd;
+  } */
+  
+  final INode computeGini(int depth, Data d, Gini2.Split split, GiniJob[] jobs,Gini2[] stats) {
+    // reset the statistics
+    stats[0].reset(d);
+    stats[1].reset(d);
+    // create the node 
+    GiniNode nd = new GiniNode(depth, split.column, split.split);
+    // filter the data to the new statistics
+    Data[] res = new Data[2];
+    d.filter(nd.column,nd.split,res,stats);
+    Gini2.Split ls = stats[0].split();
+    Gini2.Split rs = stats[1].split();
+    if (ls.isLeafNode())
+      nd.l_ = new LeafNode(depth+1,ls.split);
+    else
+      jobs[0] = new GiniJob(this,nd,0,res[0],ls);
+    if (rs.isLeafNode())
+      nd.r_ = new LeafNode(depth+1,rs.split);
+    else
+      jobs[1] = new GiniJob(this,nd,1,res[1],rs);
     return nd;
   }
 
