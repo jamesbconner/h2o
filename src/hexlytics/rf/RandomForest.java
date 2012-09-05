@@ -3,12 +3,17 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Tree.INode;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import test.KVTest;
 import water.DKV;
+import water.H2O;
+import water.Key;
 import water.ValueArray;
+import water.parser.ParseDataset;
 
 /**
  * @author peta
@@ -94,6 +99,22 @@ public class RandomForest {
     dapt.shrinkWrap();
     build(dapt, .666, -1, ntrees, depth, -1, useGini);
   }
+  
+  public static void main(String[] args) throws Exception {
+    H2O.main(new String[] {});
+    
+    if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
+    Key fileKey = KVTest.load_test_file(new File(args[0]));
+    
+    Key parsedKey = Key.make();
+    ParseDataset.parse(parsedKey, DKV.get(fileKey));
+    ValueArray va = (ValueArray) DKV.get(parsedKey);
+    
+    // clean up and burn
+    DKV.remove(fileKey);
+    web_main(va, 100, 40, false);
+  }
+  
   
   /** Classifies a single row using the forest. */
   public int classify(Row r) {
