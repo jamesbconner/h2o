@@ -1,5 +1,8 @@
 package test;
 
+import hexlytics.rf.LocalBuilder;
+import hexlytics.rf.RandomForest;
+
 import java.io.File;
 
 import org.junit.BeforeClass;
@@ -15,6 +18,7 @@ public class RFTreeTest {
     Key fileKey = TestUtil.load_test_file(new File("smalldata/poker/poker-hand-testing.data"));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    //web_main(va, 10, 100, .15, true);
+//    LocalBuilder builder = RandomForest.web_main(va, 10, 100, .15, true);
+//    builder.
   }
 }

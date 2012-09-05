@@ -1,5 +1,9 @@
 package hexlytics.rf;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+
 /** Is capable of validating a given tree against given data. 
  * 
  * Similar to the TreeBuilder can run in multiple threads, but does not have to 
@@ -39,6 +43,14 @@ public class TreeValidator {
         "             Estimate of error rate: " + Math.round(err *10000)/100 + "%\n"+ 
         "                   Confusion matrix:\n" + _rf.confusionMatrix();
     _director.report(s);
+    try {
+      PrintWriter pw = new PrintWriter(new File("/tmp/foo.dot"));
+      TreePrinter tp = new TreePrinter(pw);
+      tp.printForest(_rf);
+      pw.close();
+    } catch( IOException e ) {
+      throw new RuntimeException(e);
+    }
   }
   
 }

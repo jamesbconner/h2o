@@ -5,6 +5,7 @@ import hexlytics.rf.Tree.LeafNode;
 import hexlytics.rf.Tree.Node;
 
 import java.io.IOException;
+import java.text.MessageFormat;
 
 
 public class TreePrinter {
@@ -14,48 +15,56 @@ public class TreePrinter {
     _dest = dest;
   }
   
-  public void print(Tree t) throws IOException {
-    _dest.append("graph {");
+  public void printForest(RandomForest rf) throws IOException {
+    _dest.append("digraph {\n");
+    for (Tree t : rf.trees_) {
+      t.tree_.print(this);
+    }
+    _dest.append("}");
+  }
+  
+  public void printTree(Tree t) throws IOException {
+    _dest.append("digraph {\n");
     t.tree_.print(this);
     _dest.append("}");
   }
   
-  public void printNode(GiniNode t) throws IOException {
+  void printNode(GiniNode t) throws IOException {
     int obj = System.identityHashCode(t);
     
-    _dest.append(String.format("%d [label=\"%s\\n%s\"];",
+    _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Gini Node",
-        String.format("data[%d] <= %d", t.column, t.split)));
+        MessageFormat.format("data[{0}] <= {1}", t.column, t.split)));
     
     t.l_.print(this);
     t.r_.print(this);
     
     int lhs = System.identityHashCode(t.l_);
     int rhs = System.identityHashCode(t.r_);
-    _dest.append(String.format("%d -> %d", obj, lhs));
-    _dest.append(String.format("%d -> %d", obj, rhs));
+    _dest.append(String.format("%d -> %d;\n", obj, lhs));
+    _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }
 
-  public void printNode(LeafNode t) throws IOException {
+  void printNode(LeafNode t) throws IOException {
     int obj = System.identityHashCode(t);
-    _dest.append(String.format("%d [label=\"%s\\n%s\"];",
+    _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Leaf Node",
-        String.format("Class %d", t.class_)));
+        MessageFormat.format("Class {0}", t.class_)));
   }
   
-  public void printNode(Node t) throws IOException {
+  void printNode(Node t) throws IOException {
     int obj = System.identityHashCode(t);
     
-    _dest.append(String.format("%d [label=\"%s\\n%s\"];",
+    _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
-        String.format("data[%d] <= %d", t.column_, t.value_)));
+        MessageFormat.format("data[{0}] <= {1}", t.column_, t.value_)));
     
     t.l_.print(this);
     t.r_.print(this);
     
     int lhs = System.identityHashCode(t.l_);
     int rhs = System.identityHashCode(t.r_);
-    _dest.append(String.format("%d -> %d", obj, lhs));
-    _dest.append(String.format("%d -> %d", obj, rhs));
+    _dest.append(String.format("%d -> %d;\n", obj, lhs));
+    _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }
 }
