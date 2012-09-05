@@ -51,14 +51,13 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt = null;
+    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], ary.row_size());
     double[] ds = new double[num_cols];
     for( Key key : _keys ) {
       if( key.home() ) {
         System.out.println("RF'ing on "+key);
         byte[] bits = DKV.get(key).get();
         final int num_rows = bits.length/rowsize;
-        dapt = new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows);
         for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
           for( int k=0; k<num_cols; k++ )
             ds[k] = ary.datad(bits,j,rowsize,k);

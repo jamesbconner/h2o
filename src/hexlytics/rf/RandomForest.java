@@ -1,12 +1,9 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
-import hexlytics.rf.Tree.INode;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.Queue;
 
 import test.KVTest;
 import water.DKV;
@@ -19,10 +16,9 @@ import water.parser.ParseDataset;
  * @author peta
  */
 public class RandomForest {
-  public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth, double minErrorRate) {
-    build(dapt,sampleRatio,features,trees,maxTreeDepth,minErrorRate,false);
+  public static void build(DataAdapter d, double sampleRatio, int features, int trees, int maxTreeDepth, double minErrorRate) {
+    build(d,sampleRatio,features,trees,maxTreeDepth,minErrorRate,false);
   }
-
 
   public static void build(DataAdapter dapt, double sampleRatio, int features, int trees, int maxTreeDepth,  double minErrorRate, boolean gini) {
     if (maxTreeDepth != -1) Tree.MAX_TREE_DEPTH = maxTreeDepth;  
@@ -83,15 +79,14 @@ public class RandomForest {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt = null;
+    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, 
+        names[num_cols-1], // Assume class is the last column
+        ary.row_size());
     double[] ds = new double[num_cols];
     final long num_chks = ary.chunks();
     for( long i=0; i<num_chks; i++ ) { // By chunks
       byte[] bits = DKV.get(ary.chunk_get(i)).get();
       final int rows = bits.length/rowsize;
-      dapt = new DataAdapter(ary._key.toString(), names, 
-                              names[num_cols-1], // Assume class is the last column
-                              rows);
       for( int j=0; j< rows; j++ ) { // For all rows in this chunk
         for( int k=0; k<num_cols; k++ )
           ds[k] = ary.datad(bits,j,rowsize,k);
