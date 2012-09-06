@@ -156,15 +156,15 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this,ri,r);
   }
   
-  public void filter(int column, int split, Data[] result, GiniStatistic/*Statistic*/[] stats) {
+  public void filter(int column, int split, Data[] result, GiniStatistic left, GiniStatistic right) {
     int l=0, r=0;
     int[] li = new int[rows()], ri=new int[rows()];
     int i = 0;
     for(Row row : this) {
       if (row.getColumnClass(column) <= split) {
-        stats[0].add(row); li[l++] = permute(i);
+        left.add(row); li[l++] = permute(i);
       } else {
-        stats[1].add(row); ri[r++] = permute(i);
+        right.add(row); ri[r++] = permute(i);
       }
       i++;
     }

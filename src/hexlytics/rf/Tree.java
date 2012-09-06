@@ -8,22 +8,31 @@ import jsr166y.*;
 import water.*;
 
 public class Tree extends CountedCompleter {
+  
+  public enum StatType {
+    numeric,
+    gini
+  }
+  
   final Data _data;
   final int _max_depth;
   final double _min_error_rate;
   INode tree_;
+  final StatType statistic_;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate ) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
     _data = data;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
+    statistic_ = stat;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
   public Tree( ) {
     _data = null;
     _max_depth = 0;
     _min_error_rate = -1.0;
+    statistic_ = StatType.numeric;
   }
 
   // Oops, uncaught exception
@@ -64,7 +73,64 @@ public class Tree extends CountedCompleter {
       return nd;
     }
   }
-
+  
+  private static class FJGiniBuild extends RecursiveTask<INode> {
+    static ThreadLocal<GiniStatistic> leftStat_ = new ThreadLocal();
+    static ThreadLocal<GiniStatistic> rightStat_ = new ThreadLocal();
+    final GiniStatistic.Split split_;
+    final Data data_;
+    final int depth_;
+    
+    FJGiniBuild(GiniStatistic.Split split, Data data, int depth) {
+      this.split_ = split;
+      this.data_ = data;
+      this.depth_ = depth;
+    }
+    
+    @Override public INode compute() {
+      // first get the statistics
+      GiniStatistic left = leftStat_.get();
+      if (left == null) {
+        left = new GiniStatistic(data_);
+        leftStat_.set(left);
+      } else {
+        left.reset(data_);
+      }
+      GiniStatistic right = rightStat_.get();
+      if (right == null) {
+        right = new GiniStatistic(data_);
+        rightStat_.set(right);
+      } else {
+        right.reset(data_);
+      }
+      // create the data, node and filter the data 
+      Data[] res = new Data[2];
+      GiniNode nd = new GiniNode(depth_,split_.column, split_.split);
+      data_.filter(nd.column, nd.split,res,left,right);
+      // get the splits
+      GiniStatistic.Split ls = left.split();
+      GiniStatistic.Split rs = right.split();
+      // create leaf nodes if any
+      if (ls.isLeafNode())
+        nd.l_ = new LeafNode(depth_+1,ls.split);
+      if (rs.isLeafNode())
+        nd.r_ = new LeafNode(depth_+1,ls.split);
+      // calculate the missing subnodes as new FJ tasks, join if necessary
+      if ((nd.l_ == null) && (nd.r_ == null)) {
+        ForkJoinTask<INode> fj0 = new FJGiniBuild(ls,res[0],depth_+1).fork();
+        nd.r_ = new FJGiniBuild(rs,res[1],depth_+1).compute();
+        nd.l_ = fj0.join();
+      } else if (nd.l_ == null) {
+        nd.l_ = new FJGiniBuild(ls,res[0],depth_+1).compute();
+      } else if (nd.r_ == null) {
+        nd.r_ = new FJGiniBuild(rs,res[1],depth_+1).compute();
+      }
+      // and return the node
+      return nd;
+    }
+    
+  }
+  
   public static abstract class INode {
     public final int _depth;    // Depth in tree
     protected INode(int depth) { _depth = depth; }
@@ -79,6 +145,7 @@ public class Tree extends CountedCompleter {
       switch( b ) {
       case '[':  return LeafNode.read(dis,depth); // Leaf selector
       case '(':  return     Node.read(dis,depth); // Node selector
+      case 'G':  return GiniNode.read(dis,depth); // Node selector
       default:
         throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
       }
@@ -163,6 +230,53 @@ public class Tree extends CountedCompleter {
     }
    }
 
+  /** Gini classifier node. 
+   * 
+   */
+  static class GiniNode extends INode {
+    final int column;
+    final int split;
+    INode l_, r_;
+
+    @Override int classify(Row r) {
+      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
+    }
+    
+    public GiniNode(int depth, int column, int split) {
+      super(depth);
+      this.column = column;
+      this.split = split;
+    }
+
+    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
+    public int leaves()       { return l_.leaves() + r_.leaves(); }
+    public String toString() {
+      return "G "+column +"<" + split + " ("+l_+","+r_+")";
+    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    
+    void write( DataOutputStream dos ) throws IOException {
+      dos.writeByte('G');       // Node indicator
+      assert Short.MIN_VALUE <= column && column < Short.MAX_VALUE;
+      dos.writeShort(column);
+      //dos.writeFloat(split_value(column()));
+      dos.writeShort((short)split);// Pass the short index instead of the actual value
+      l_.write(dos);
+      r_.write(dos);
+    }
+    static GiniNode read( DataInputStream dis, int depth ) throws IOException {
+      int col = dis.readShort();
+      //float f = dis.readFloat();
+      int idx = dis.readShort(); // Read the short index instead of the actual value
+      GiniNode n = new GiniNode(depth,col,idx);
+      n.l_ = INode.read(dis,depth+1);
+      n.r_ = INode.read(dis,depth+1);
+      return n;
+    }
+  }
+  
+  
   public int classify(Row r) { return tree_.classify(r); }
   public String toString()   { return tree_.toString(); }
 

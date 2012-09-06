@@ -17,7 +17,7 @@ public class RandomForest {
   final Data _validate;         // The data to validate on.  NULL if validating on other data.
 
   // Build N trees via the Random Forest algorithm.
-  public RandomForest( DataAdapter dapt, double sampleRatio, int ntrees, int maxTreeDepth, double minErrorRate, boolean gini ) {
+  public RandomForest( DataAdapter dapt, double sampleRatio, int ntrees, int maxTreeDepth, double minErrorRate, Tree.StatType stat ) {
     Data d = Data.make(dapt);
     // Training data.  For now: all of it.
     // TODO: if the training data fits in this Node, then we need to do sampling.
@@ -26,7 +26,7 @@ public class RandomForest {
     _validate = null;
     _trees = new Tree[ntrees];
     for( int i=0; i<ntrees; i++ )
-      H2O.FJP_NORM.execute(_trees[i] = new Tree(d,maxTreeDepth,minErrorRate));
+      H2O.FJP_NORM.execute(_trees[i] = new Tree(d,maxTreeDepth,minErrorRate,stat));
     // Block until all trees are built
     try {
       for( int i=0; i<ntrees; i++ )
@@ -37,26 +37,26 @@ public class RandomForest {
     }
   }
 
-//  private void buildGini0() {
-//    long t = System.currentTimeMillis();
-//    RFGiniTask._ = new RFGiniTask[NUMTHREADS];
-//    for(int i=0;i<NUMTHREADS;i++)
-//      RFGiniTask._[i] = new RFGiniTask(data_);
-//    RFGiniTask task = RFGiniTask._[0];
-//    task.stats_[0].reset(data_);
-//    for (Row r : data_) task.stats_[0].add(r);
-//    GiniStatistic.Split s = task.stats_[0].split();
-//    Tree tree = new Tree();
-//    if (s.isLeafNode()) {
-//      tree.tree_ = new LeafNode(0,s.split);
-//    } else {
-//      RFGiniTask._[0].put(new GiniJob(tree, null, 0, data_, s));
-//      for (Thread b : RFGiniTask._) b.start();
-//      for (Thread b : RFGiniTask._)  try { b.join();} catch (InterruptedException e) { }
-//    }
-//    tree.time_ = System.currentTimeMillis()-t;
-//    add(tree);
-//  }
+  /*private void buildGini0() {
+    long t = System.currentTimeMillis();
+    RFGiniTask._ = new RFGiniTask[NUMTHREADS];
+    for(int i=0;i<NUMTHREADS;i++)
+      RFGiniTask._[i] = new RFGiniTask(data_);
+    RFGiniTask task = RFGiniTask._[0];
+    task.stats_[0].reset(data_);
+    for (Row r : data_) task.stats_[0].add(r);
+    GiniStatistic.Split s = task.stats_[0].split();
+    Tree tree = new Tree();
+    if (s.isLeafNode()) {
+      tree.tree_ = new LeafNode(0,s.split);
+    } else {
+      RFGiniTask._[0].put(new GiniJob(tree, null, 0, data_, s));
+      for (Thread b : RFGiniTask._) b.start();
+      for (Thread b : RFGiniTask._)  try { b.join();} catch (InterruptedException e) { }
+    }
+    tree.time_ = System.currentTimeMillis()-t;
+    add(tree);
+  } */
 
   public static void main(String[] args) throws Exception {
     H2O.main(new String[] {});
@@ -64,7 +64,9 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    DRF.web_main(va, 10, 100, .15, false);
+    DRF.web_main(va, 1, 100, .15, true);
+    System.out.println("done");
+    System.exit(-1); // I hope this sysexit is ok:)
   }
 
 
