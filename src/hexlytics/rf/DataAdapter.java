@@ -30,8 +30,8 @@ public class DataAdapter  {
       columnNames_ = new String[columns.length];
       classColumnName_ = classNm;
       int i=0; for(Object o:columns) { 
-        String s=o.toString();  columnNames_[i] = s; c_[i]=rows==-1? new C(s) : new C(s,rows); c2i_.put(s,i++); 
-       }
+        String s=o.toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i++); 
+      }
       classIdx_ = c2i_.get(classNm);
       if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
       this.seed = seed;
@@ -90,21 +90,16 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  private final int DEFAULT = 100;
-  private final double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
   HashMap<Double,Short> o2v_;
   double[] _v2o;  // Reverse (short) indices to original doubles
 
-  C(String s) { name_ = s; v_ = new double[DEFAULT]; }
   C(String s, int rows) { name_ = s; v_ = new double[rows]; }
 
-  private void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
-  void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
+  void add(double x){ min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
   double getD(int i) { return v_[i]; }
-
   
   public String toString() {
     String res = "col("+name_+")";

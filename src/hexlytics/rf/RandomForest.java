@@ -80,8 +80,8 @@ public class RandomForest {
     DataAdapter dapt;
     if (useGini) {
       dapt = new BinnedDataAdapter(ary._key.toString(), names, 
-        names[num_cols-1] // Assume class is the last column
-        );
+        names[num_cols-1], // Assume class is the last column
+        ary.row_size());
     } else {
       dapt = new DataAdapter(ary._key.toString(), names, 
         names[num_cols-1], // Assume class is the last column

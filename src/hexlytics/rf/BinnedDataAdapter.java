@@ -67,8 +67,8 @@ public class BinnedDataAdapter extends DataAdapter {
   }
   
   
-  public BinnedDataAdapter(String name, Object[] columns, String classNm) {
-    super(name,columns,classNm, -1);
+  public BinnedDataAdapter(String name, Object[] columns, String classNm, int rows) {
+    super(name,columns,classNm, rows);
   }
 
   // By default binning is not supported
