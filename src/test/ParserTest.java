@@ -105,4 +105,45 @@ public class ParserTest {
     }
     Assert.assertEquals(5, keys.length);
   }
+
+  @Test public void testChunkBoundariesMixedLineEndings() {
+    String[] data = new String[] {
+        "1,2", ",3\n",
+        "2,3,", "4\n",
+        "3,4,5\r\n",
+        "4,5,6", "\r\n",
+        "5", ",6,", "7\r\n",
+        "6,7,8\r\n" +
+        "7,8,9\r\n" +
+        "8,9", ",10\r\n" +
+        "9,10,11\n" +
+        "10,11,12",
+        "\n11,12,13", "\n"
+    };
+    double[][] exp = new double[][] {
+        d(1,  2,  3),
+        d(2,  3,  4),
+        d(3,  4,  5),
+        d(4,  5,  6),
+        d(5,  6,  7),
+        d(6,  7,  8),
+        d(7,  8,  9),
+        d(8,  9,  10),
+        d(9,  10, 11),
+        d(10, 11, 12),
+        d(11, 12, 13),
+    };
+
+    Key[] keys = k(data);
+
+    int i = 0;
+    SeparatedValueParser p;
+    for( Key k : keys ) {
+      p = new SeparatedValueParser(k, ',', 3);
+      for( double[] r : p ) {
+        Assert.assertArrayEquals(exp[i++], r, 0.0001);
+      }
+    }
+    Assert.assertEquals(exp.length, i);
+  }
 }
