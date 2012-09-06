@@ -16,7 +16,7 @@ public class GiniStatistic {
   
   public static final Type type = Type.split;
   
-  public static final double MIN_ERROR_RATE = 0.3;
+  public static final double MIN_ERROR_RATE = 0.0;
   
   /** Split descriptor for a particular column. 
    * 
@@ -47,6 +47,10 @@ public class GiniStatistic {
     
     public final boolean isConstant() {
       return column == -1;
+    }
+    
+    public final boolean isImpossible() {
+      return column == -2;
     }
     
     public final boolean betterThan(Split other) {
@@ -197,6 +201,11 @@ public class GiniStatistic {
     int maxIndex = Utils.maxIndex(rightDist);
     if ((rightDist[maxIndex]/rightWeight) >= 1-MIN_ERROR_RATE)
       return Split.constant(maxIndex);
+//    System.out.println(maxIndex+" -- "+rightWeight);
+//    System.out.println("    "+gini(rightDist,rightWeight));
+//    System.out.print("      ");
+//    for (double d: rightDist) System.out.print(" "+d);
+//    System.out.println("");
     double totWeight = rightWeight;
     // now check if we have only a single class
     int singleClass = singleClass(rightDist);

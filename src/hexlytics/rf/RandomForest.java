@@ -113,7 +113,7 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));    
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    web_main(va, 100, 100, .15, true);
+    web_main(va, 10, 100, .15, true);
   }
   
   
