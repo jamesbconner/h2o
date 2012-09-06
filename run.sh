@@ -10,8 +10,12 @@ NODE4=192.168.1.154
 
 CLOUD_NAME=$USER
 HD_USER=hduser
-
-
+#is_hdfs()
+HDFS_CONF="-hdfs hdfs://192.168.1.151 -hdfs_version cdh4 -hdfs_root /datasets"
+#delete_ice
+ICE_DIR_NAME=ice_${CLOUD_NAME}
+DELETE_ICE="rm -fr $ICE_DIR_NAME"
+JAR_TIME=`date "+%H.%M.%S-%m%d%y"`
 # compile
 function build() {
  # build 
@@ -41,14 +45,19 @@ REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
  for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5}
   do
    #ssh -t ${HD_USER}@${NODE} 'mkdir ${REMOTE_WDIR}'
-   echo scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE0}:${REMOTE_WDIR}
-   scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE0}:${REMOTE_WDIR}
+   echo scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE}:${REMOTE_WDIR}/h2o-${JAR_TIME}.jar
+   scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE}:${REMOTE_WDIR}/h2o-${JAR_TIME}.jar
   done
 }
-
+function shutdown(){
+ DEFAULT_PORT=54321
+ SHUTDOWN_CMD="curl http://${NODE0}:${DEFAULT_PORT}/Shutdown"
+ echo $SHUTDOWN_CMD
+ $SHUTDOWN_CMD
+}
 function echo_launch(){
  REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
- H2O_REMOTE_CMD="'cd ${REMOTE_WDIR}; rm -fr ice_${CLOUD_NAME};java -Xmx8g -jar ${REMOTE_WDIR}/h2o.jar -name $CLOUD_NAME --ice_root=ice_${CLOUD_NAME}' &"
+ H2O_REMOTE_CMD="'cd ${REMOTE_WDIR}; ${DELETE_ICE};java -Xmx8g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME}' &"
  echo $H2O_REMOTE_CMD;
  for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5}
   do
@@ -57,8 +66,9 @@ function echo_launch(){
 }
 
 # run
-build
+#build
 dist
+shutdown
 # delete prior run script
 rm ./_run.sh
 echo_launch
