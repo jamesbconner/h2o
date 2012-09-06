@@ -86,7 +86,8 @@ public class Data implements Iterable<Row> {
   public String name() { return name_; }   
   public int last(int column) { return data_.c_[column].o2v_.size(); }
   
-  private boolean silent = true;
+  private final boolean silent = true;
+  
   public String toString() {
     String res = "Data "+ name()+"\n";
     if (columns()>0) { res+= rows()+" rows, "+ columns() + " cols, "+ classes() +" classes\n"; }

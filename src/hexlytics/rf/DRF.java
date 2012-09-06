@@ -76,9 +76,8 @@ public class DRF extends water.DRemoteTask {
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
     RandomForest rf = new RandomForest(dapt, .666, _ntrees, _depth, -1, _useGini);
-    for( Tree tree : rf._trees ) {
-      System.out.println("Tree "+tree);
-    }
+    for( Tree tree : rf._trees ) 
+      System.out.println("Tree "+ tree.toString().substring(0, 120) +"...");
     tryComplete();
   }
 

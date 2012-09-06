@@ -9,10 +9,7 @@ import java.util.Arrays;
  */
 public class GiniStatistic {
   
-  public enum Type {
-    split,
-    exclusion
-  }
+  public enum Type { split, exclusion }
   
   public static final Type type = Type.split;
   
@@ -161,8 +158,7 @@ public class GiniStatistic {
     int bestExcluded = -1;
     double bestFitness = -1;
     for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
-      // first get the i-th column out of the others and put the last excluded
-      // back
+      // first get the i-th column out of the others and put the last excluded back
       othersWeight += excludedWeight;
       excludedWeight = 0;
       for (int j = 0; j < others.length; ++j) {
@@ -196,16 +192,10 @@ public class GiniStatistic {
     double[] rightDist = new double[leftDist.length];
     double leftWeight = 0;
     double rightWeight = aggregateColumn(colIndex, rightDist);
-    // check if we are below the error rate proposed and if so, return the
-    // leafnode split instead
+    // check if we are below the error rate proposed and if so, return the leafnode split instead
     int maxIndex = Utils.maxIndex(rightDist);
     if ((rightDist[maxIndex]/rightWeight) >= 1-MIN_ERROR_RATE)
       return Split.constant(maxIndex);
-//    System.out.println(maxIndex+" -- "+rightWeight);
-//    System.out.println("    "+gini(rightDist,rightWeight));
-//    System.out.print("      ");
-//    for (double d: rightDist) System.out.print(" "+d);
-//    System.out.println("");
     double totWeight = rightWeight;
     // now check if we have only a single class
     int singleClass = singleClass(rightDist);
@@ -214,7 +204,6 @@ public class GiniStatistic {
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = -1;
-    //System.out.println("Column "+colIndex);
     for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
       // first copy the i-th guys from right to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -228,15 +217,6 @@ public class GiniStatistic {
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
       double f = gini(leftDist,leftWeight) * (leftWeight / totWeight) + gini(rightDist,rightWeight) * (rightWeight / totWeight);
-//      System.out.println("  "+f+" -- "+leftWeight+" - "+rightWeight);
-//      System.out.println("    "+gini(leftDist,leftWeight));
-//      System.out.print("      ");
-//      for (double d: leftDist) System.out.print(" "+d);
-//      System.out.println("");
-//      System.out.println("    "+gini(rightDist,rightWeight));
-//      System.out.print("      ");
-//      for (double d: rightDist) System.out.print(" "+d);
-//      System.out.println("");
       if (f>bestFitness) {
         bestSplit = i;
         bestFitness = f;
@@ -290,11 +270,4 @@ public class GiniStatistic {
     }
     return bestSplit;
   }
-  
-  
-  
-  
-  
-  
-  
 }
