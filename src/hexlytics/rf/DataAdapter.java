@@ -98,7 +98,13 @@ class C {
 
   C(String s, int rows) { name_ = s; v_ = new double[rows]; }
 
-  void add(double x){ min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
+  void add(double x) {
+    min_=Math.min(x,min_);
+    max_=Math.max(x,max_);
+    tot_+=x;
+    v_[sz_++]=x;
+  }
+  
   double getD(int i) { return v_[i]; }
   
   public String toString() {

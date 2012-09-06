@@ -45,11 +45,20 @@ public class Tree implements Serializable {
     // reset the statistics
     stats[0].reset(d);
     stats[1].reset(d);
-    // create the node 
-    GiniNode nd = new GiniNode(depth, split.column, split.split);
-    // filter the data to the new statistics
+    // create the node and filter the data
     Data[] res = new Data[2];
-    d.filter(nd.column,nd.split,res,stats);
+    GiniNode nd = null;
+    switch (GiniStatistic.type) {
+      case split:
+        nd = new GiniNode(depth, split.column, split.split);
+        d.filter(nd.column,nd.split,res,stats);
+        break;
+      case exclusion:
+        nd = new ExclusionGiniNode(depth,split.column, split.split);
+        d.filterExclusion(nd.column,nd.split,res,stats);
+        break;
+    }
+    // filter the data to the new statistics
     GiniStatistic.Split ls = stats[0].split();
     GiniStatistic.Split rs = stats[1].split();
     if (ls.isLeafNode())
@@ -134,6 +143,26 @@ public class Tree implements Serializable {
     static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
   }
   
+  static class ExclusionGiniNode extends GiniNode {
+
+    @Override int classify(Row r) {
+      return r.getColumnClass(column) == split ? l_.classify(r) : r_.classify(r);
+    }
+    
+    public ExclusionGiniNode(int depth, int column, int split) {
+      super(depth,column,split);
+    }
+
+    public String toString() {
+      C c = RFGiniTask.data().data_.c_[column];
+      return c.name_ +"==" + split + " ("+l_+","+r_+")";
+    }
+
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
+    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
+    
+  }
   
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
