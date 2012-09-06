@@ -64,12 +64,12 @@ public class DataAdapter  {
     }
     // By default binning is not supported
     public int columnClasses(int colIndex) {
-      return -1;
+      return c_[colIndex].smax_;
     }
     
     // by default binning is not supported
     public int getColumnClass(int rowIndex, int colIndex) {
-      return -1;
+      return getS(rowIndex, colIndex);
     }
 
     public  String colName(int c) { return c_[c].name_; }
@@ -95,6 +95,8 @@ class C {
   double[] v_;
   HashMap<Double,Short> o2v_;
   double[] _v2o;  // Reverse (short) indices to original doubles
+  short smin_ = -1;
+  short smax_ = -1;
 
   C(String s, int rows) { name_ = s; v_ = new double[rows]; }
 
@@ -114,6 +116,7 @@ class C {
     return res;
   }
   short[] shrink() {
+    smin_ = 0;
     o2v_ = hashCol();
     short[] res = new short[sz_];
     for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
@@ -128,10 +131,10 @@ class C {
     Double[] ks = res.toArray(new Double[res.size()]);
     _v2o = new double[ks.length];
     Arrays.sort(ks);      
-    short off = 0;
+    smax_ = 0;
     for( Double d : ks)  {
-      _v2o[off] = d;
-      res2.put(d, off++);
+      _v2o[smax_] = d;
+      res2.put(d, smax_++);
     }
     return res2;
   }

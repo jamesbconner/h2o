@@ -136,7 +136,7 @@ public class Tree implements Serializable {
     public int leaves()       { return l_.leaves() + r_.leaves(); }
     public String toString() {
       C c = RFGiniTask.data().data_.c_[column];
-      return c.name_ +"<" + split + " ("+l_+","+r_+")";
+      return "G "+c.name_ +"<" + split + " ("+l_+","+r_+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
