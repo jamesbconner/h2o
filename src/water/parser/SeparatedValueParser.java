@@ -8,32 +8,34 @@ import com.google.common.base.Objects;
 
 public class SeparatedValueParser implements Iterable<double[]>, Iterator<double[]> {
   private final Key _key;
-  private final Value _startVal;
-  private final char _separator;
+  private final int _startChunk;
 
   private Value _curVal;
   private int _curChunk;
   private byte[] _curData;
   private int _offset;
 
-  private final DecimalParser _decimal = new DecimalParser();
+  private final char _separator;
+  private final DecimalParser _decimal;
   private final double[] _fieldVals;
 
   public SeparatedValueParser(Key k, char seperator, int numColumnsGuess) {
+    _decimal = new DecimalParser();
+    _fieldVals = new double[numColumnsGuess];
     _separator = seperator;
-    _startVal = UKV.get(k);
-    assert _startVal != null;
-    _key = _startVal._key;
+
+    _key = k;
+    _curVal = UKV.get(k);
+    assert _curVal != null;
 
     if( _key._kb[0] == Key.ARRAYLET_CHUNK ) {
-      _curChunk = ValueArray.getChunkIndex(_key);
+      _startChunk = _curChunk = ValueArray.getChunkIndex(_key);
     } else {
-      _curChunk = -1;
+      _startChunk = _curChunk = -1;
     }
 
-    _curVal = _startVal;
     _offset = 0;
-    _curData = _startVal.get();
+    _curData = _curVal.get();
     if( _curChunk > 0 ) {
       while( hasNextByte() ) {
         byte b = getByte();
@@ -43,7 +45,6 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
     }
     skipNewlines();
 
-    _fieldVals = new double[numColumnsGuess];
   }
 
   // we are splitting this method, to clue in hotspot that the fast path
@@ -63,7 +64,10 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
     _curChunk += 1;
     Key k = ValueArray.getChunk(_key, _curChunk);
     _curVal = UKV.get(k);
-    if (_curVal == null) return false;
+    if (_curVal == null) {
+      _curChunk = -1;
+      return false;
+    }
     _offset = 0;
     _curData = _curVal.get(1024);
     return _offset < _curData.length;
@@ -111,7 +115,9 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
 
   @Override
   public boolean hasNext() {
-    return _curVal == _startVal && hasNextByte();
+    return hasNextByte() && (
+        _curChunk == _startChunk ||  // we have not finished the chunk
+        (_curChunk == _startChunk + 1 && _offset == 0)); // we have not started the next
   }
 
   @Override
