@@ -80,16 +80,9 @@ public class RandomForest {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt;
-    //if (useGini) {
-    //  dapt = new BinnedDataAdapter(ary._key.toString(), names, 
-    //    names[num_cols-1], // Assume class is the last column
-    //    (int)ary.num_rows());
-    //} else {
-      dapt = new DataAdapter(ary._key.toString(), names, 
-        names[num_cols-1], // Assume class is the last column
-        (int)ary.num_rows());
-    //}
+    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, 
+      names[num_cols-1], // Assume class is the last column
+      (int)ary.num_rows());
     double[] ds = new double[num_cols];
     final long num_chks = ary.chunks();
     for( long i=0; i<num_chks; i++ ) { // By chunks
@@ -102,8 +95,6 @@ public class RandomForest {
       }
     }
     dapt.shrinkWrap();
-    //if (useGini)
-    //  ((BinnedDataAdapter)dapt).calculateBinning();
     build(dapt, .666, ntrees, cutDepth, cutRate, useGini);
   }
   
