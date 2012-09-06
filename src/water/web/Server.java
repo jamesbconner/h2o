@@ -79,6 +79,8 @@ public class Server extends NanoHTTPD {
       return http404(uri);
     if (result instanceof Response)
       return (Response)result;
+    if (result instanceof InputStream) 
+      return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, (InputStream) result);
     return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, result.toString());
   }
   
@@ -131,6 +133,9 @@ public class Server extends NanoHTTPD {
     registerPage(new AppendQuery(),"AppendQuery");
     registerPage(new KeysView(),"KeysView");
     registerPage(new Network(), "Network");
+    registerPage(new ProgressReport(), "ProgressReport");
+    registerPage(new ProgressReport(), "PR");
+    registerPage(new ProgressView(), "ProgressView");    
   }
 
 

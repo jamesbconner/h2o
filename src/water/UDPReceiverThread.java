@@ -1,6 +1,5 @@
 package water;
 import java.net.DatagramPacket;
-import java.net.InetAddress;
 import java.net.DatagramSocket;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -133,6 +132,13 @@ public class UDPReceiverThread extends Thread {
       if( UDP.udp.UDPS[first_byte]._paxos ||
           (is_member && first_byte <= ACK) ) {
         H2O.FJP_HI.execute(new FJPacket(pack,h2o));
+        continue;
+      }
+      
+      // Log packets handle separately.
+      if( is_member && first_byte == UDP.udp.log.ordinal() ) {
+        // TODO: use FJP_HI or FJP_NORM
+        UDP.udp.log.pool().execute(new FJPacket(pack,h2o));
         continue;
       }
 

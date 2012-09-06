@@ -1,8 +1,9 @@
 package water;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.lang.ThreadLocal;
 import java.util.Stack;
+
+import water.LogHub.LogKind;
 
 /**
  * Class for managing System.out & System.err.  All normal output is pumped
@@ -35,7 +36,7 @@ public final class Log extends PrintStream {
   static final ThreadLocal<Stack<ByteArrayOutputStream>> BOS =
     new ThreadLocal<Stack<ByteArrayOutputStream>>() {
     protected Stack<ByteArrayOutputStream> initialValue() {
-      return new Stack();
+      return new Stack<ByteArrayOutputStream>();
     }
   };
 
@@ -43,12 +44,24 @@ public final class Log extends PrintStream {
 
   private Log( boolean is_out ) { super( is_out ? H2O.OUT : H2O.ERR ); _is_out = is_out;  }
   public static void hook_sys_out_err() {
-    System.setOut(new Log(true ));
-    System.setErr(new Log(false));
+    System.setOut(new LogWrapper(new Log(true), LogKind.LOCAL_STDOUT));
+    System.setErr(new LogWrapper(new Log(false), LogKind.LOCAL_STDERR));
+  }
+  
+  // append node/thread info to each line sent to output
+  @Override
+  public void println(String x) {
+    StringBuilder sb = new StringBuilder("[");
+    sb.append(H2O.SELF); sb.append(']');
+    sb.append('['); sb.append(Thread.currentThread().getName()); sb.append("]: ");
+    sb.append(x);
+    
+    super.println(sb);    
   }
 
   // Redirect writes through the thread-local variables
   public void write(byte buf[], int off, int len) {
+    // write to original output
     (_is_out ? OUT : ERR).get().write(buf,off,len);
   }
 
@@ -82,5 +95,4 @@ public final class Log extends PrintStream {
     }
     return bos_old;
   }
-
 }
