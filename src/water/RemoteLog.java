@@ -35,7 +35,7 @@ public class RemoteLog extends UDP implements LogSubscriber {
     // receive request to start publishing stdout/stderr
     case 1:      
       subscribedNodes.add(target);
-      LogHub.subscribe(null, this);
+      LogHub.subscribe(this);
       break;
     
     // receive request to stop producing stdout/stderr  
@@ -134,4 +134,6 @@ public class RemoteLog extends UDP implements LogSubscriber {
   }
   @Override public boolean isLocal() { return false; }
   @Override public boolean isAlive() { return true; }
+  @Override public boolean accept(final LogEvent e) { return e.kind == LogKind.LOCAL_STDOUT || e.kind == LogKind.LOCAL_STDERR; } // accept only local events
 }
+

@@ -7,10 +7,15 @@ import java.util.Arrays;
 
 import water.LogHub.LogEvent;
 import water.LogHub.LogSubscriber;
+import water.web.ProgressReport;
 
 /**
+ * Local log subscriber which consumes all kinds of log events (local, remote) a publishes
+ * them as an input stream. Typically the input stream is then published via HTTP REST API - see {@link ProgressReport}
  * 
  * @author michal
+ * 
+ * @see ProgressReport
  *
  */
 public class LocalLogSubscriber implements LogSubscriber {
@@ -34,6 +39,7 @@ public class LocalLogSubscriber implements LogSubscriber {
  
   @Override public boolean isLocal() { return true; }    
   @Override public boolean isAlive() { return isAlive; }
+  @Override public boolean accept(final LogEvent e) { return true; } // Accept all events!
   
   public InputStream getInputStream() {
     // NOTE: this is NANOHttp-specific solution. If the connection is broken, NANOHttp silently finish response
@@ -121,6 +127,7 @@ public class LocalLogSubscriber implements LogSubscriber {
       }
       
       void write(LogEvent logEvent) throws IOException {
+        write('['); write(logEvent.kind.label.getBytes()); write(']');
         write('['); write(logEvent.node.toString().getBytes()); write(']');
         write('['); write(logEvent.threadName.getBytes()); write("]: ".getBytes()); 
         write(logEvent.data, 0, logEvent.data.length);

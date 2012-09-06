@@ -45,7 +45,7 @@ public final class Log extends PrintStream {
   private Log( boolean is_out ) { super( is_out ? H2O.OUT : H2O.ERR ); _is_out = is_out;  }
   public static void hook_sys_out_err() {
     System.setOut(new LogWrapper(new Log(true), LogKind.LOCAL_STDOUT));
-    System.setErr(new Log(false));
+    System.setErr(new LogWrapper(new Log(false), LogKind.LOCAL_STDERR));
   }
   
   // append node/thread info to each line sent to output

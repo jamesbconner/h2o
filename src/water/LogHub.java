@@ -27,20 +27,24 @@ import water.web.ProgressReport;
  * for sending their stdout/stderr. The remote subscriber {@link RemoteLog} sends all events via UDP to all registered
  * nodes.</p> 
  * 
- * <p>NOTE: currently only stdout is processed by {@link LogWrapper} - see {@link Log#hook_sys_out_err()}</p>
- * 
  * @author michal
  *
  */
 public class LogHub extends Thread {
   
+  // Log event kind.
   enum LogKind {
-    LOCAL_STDOUT,
-    LOCAL_STDERR,
-    REMOTE_STDOUT,
-    REMOTE_STDERR
+    LOCAL_STDOUT  ("out"),
+    LOCAL_STDERR  ("err"),
+    REMOTE_STDOUT ("out"),
+    REMOTE_STDERR ("err");
+    
+    String label;
+    
+    private LogKind(String label) { this.label = label; }
   }
   
+  // Log event holder class.
   public static final class LogEvent {
     byte[] data;
     String threadName;
@@ -62,8 +66,10 @@ public class LogHub extends Thread {
           while (it.hasNext()) {
             LogSubscriber s = it.next();
             // check if the reader is alive
-            if (s.isAlive()) {        
-              s.write(e);
+            if (s.isAlive()) {
+              if (s.accept(e)) {
+                s.write(e);
+              }
             } else {      
               // subscriber is dead => remove it and unsubscribe
               it.remove();
@@ -93,11 +99,12 @@ public class LogHub extends Thread {
   
   protected void write(final LogEvent logEvent) {
     // Offer does not block, however in this case it losses data. 
-    if (!eventsBuffer.offer(logEvent)) // if eventsBuffer is full => the event is dropped but it needs to be freed. 
+    if (!eventsBuffer.offer(logEvent)) {// if eventsBuffer is full => the event is dropped but it needs to be freed. 
       LogHub.free_event(logEvent);
+    }
   }   
   
-  protected void subscribeListener(final Object topic, final LogSubscriber s) {
+  protected void subscribeListener(final LogSubscriber s) {
     //System.err.println("Subscribing: " + s);
     synchronized( this ) { if (!subscribers.contains(s)) subscribers.add(s);  }
     // if the subscriber is local => ask other nodes to send their stdout/stderr
@@ -121,8 +128,8 @@ public class LogHub extends Thread {
     INSTANCE.write(e);                
   }
     
-  public static void subscribe(final Object topic, final LogSubscriber s) {
-    INSTANCE.subscribeListener(topic, s);
+  public static void subscribe(final LogSubscriber s) {
+    INSTANCE.subscribeListener(s);
   }
   
   public static void unsubscribe(final LogSubscriber s) {        
@@ -141,6 +148,9 @@ public class LogHub extends Thread {
     
     /** Check if the subscriber is alive */
     boolean isAlive();
+    
+    /** Check if the subscriber accept the log event. */
+    boolean accept(LogEvent event);
   }  
   
   /** Simple slab allocator for LogEvent type 

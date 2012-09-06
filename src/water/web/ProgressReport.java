@@ -21,7 +21,7 @@ public class ProgressReport extends Page {
    
     // Register a new local subscriber. 
     LocalLogSubscriber lls = new LocalLogSubscriber();    
-    LogHub.subscribe(null, lls);
+    LogHub.subscribe(lls);
     
     // Return response with input stream providing access to a stream containing stdout/stderr.
     InputStream is = lls.getInputStream();        
