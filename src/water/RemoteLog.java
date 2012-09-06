@@ -20,31 +20,20 @@ import water.LogHub.LogSubscriber;
  */
 public class RemoteLog extends UDP implements LogSubscriber {
   
-  // All subscribed nodes.
+  // All subscribed nodes for this node.
   public static final HashSet<H2ONode> subscribedNodes = new HashSet<H2ONode>(); 
   
   @Override
   void call(DatagramPacket pack, H2ONode target) {
-    // ignore this node packets
+    // Ignore this node packets.
     if (target == H2O.SELF)
       return;    
-    
+    // Get log command. 
     byte cmd = pack.getData()[CMD_OFF];    
     switch (cmd) {
     
     // receive request to start publishing stdout/stderr
-    case 1: 
-      new Thread() {
-        public void run() {
-          int c = 0;
-          while (c++ < 50) { 
-            System.out.println("*** REMOTE HI #" + c); try {
-            Thread.sleep(2000);
-          } catch( InterruptedException e ) {           
-            throw new RuntimeException(e);            
-          } }
-        };
-      }.start();
+    case 1:      
       subscribedNodes.add(target);
       LogHub.subscribe(null, this);
       break;

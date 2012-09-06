@@ -1,8 +1,4 @@
 package water;
-import java.io.*;
-import java.net.*;
-import java.util.*;
-
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -322,7 +318,7 @@ public final class H2O {
     arguments.extract(OPT_ARGS);
     ARGS = arguments.toStringArray();
 
-    // Redirect System.out/.err to the Log system
+    // Redirect System.out/.err to the Log system and collect them in LogHub
     LogHub.prepare_log_hub();
     Log.hook_sys_out_err();    
 

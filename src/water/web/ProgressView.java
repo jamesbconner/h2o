@@ -8,6 +8,11 @@ import java.util.Properties;
 /**
  * Progress view showing node(s) output (stdout/stderr).
  * 
+ * <p>It uses {@link ProgressReport} REST API to show current stdout/stderr.</p>
+ * 
+ * <p>NOTE: The page uses Javascript to get stream of data, however, it is not optimal solution, since 
+ * whole response is buffered. See note below.</p>
+ * 
  * @author michal
  *
  */

@@ -6,6 +6,9 @@ import java.io.PrintStream;
 import water.LogHub.LogKind;
 
 /**
+ * Log wrapper encapsulates stdout/stderr streams (see {@link Log#hook_sys_out_err()}) 
+ * and split the streams into events (event correspond to a line). The events are sent 
+ * to {@link LogHub} which resends them to its subscribers.
  * 
  * @author michal
  *
@@ -47,8 +50,7 @@ public class LogWrapper extends PrintStream {
       baos.write(buf, off, len);
     }
 
-    // redirect to logger
-    // TODO: enable this redirection
-    // super.write(buf, off, len);
+    // Redirect to logger.   
+    super.write(buf, off, len);
   }
 }

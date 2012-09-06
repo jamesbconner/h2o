@@ -77,11 +77,10 @@ public class LogHub extends Thread {
     } catch (InterruptedException ie) { /* swallow the ie */ }
   }
   
-  public static void prepare_log_hub() {
-    // Start the LogHub thread
+  // Start the LogHub thread
+  public static void prepare_log_hub() {    
     INSTANCE.start();    
-  }
-  
+  }  
   
   static final LogHub INSTANCE = new LogHub();    
   private LogHub() {}
