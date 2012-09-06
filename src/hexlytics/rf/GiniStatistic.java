@@ -123,7 +123,7 @@ public class GiniStatistic {
     for (int j = 0; j < columnDists_[colIndex].length; ++j) {
       for (int i = 0; i < dist.length; ++i) {
         sum += columnDists_[colIndex][j][i];
-        dist[i] = columnDists_[colIndex][j][i]; 
+        dist[i] += columnDists_[colIndex][j][i]; 
       }
     }
     return sum;
@@ -205,6 +205,7 @@ public class GiniStatistic {
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = -1;
+    //System.out.println("Column "+colIndex);
     for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
       // first copy the i-th guys from right to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -218,6 +219,15 @@ public class GiniStatistic {
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
       double f = gini(leftDist,leftWeight) * (leftWeight / totWeight) + gini(rightDist,rightWeight) * (rightWeight / totWeight);
+//      System.out.println("  "+f+" -- "+leftWeight+" - "+rightWeight);
+//      System.out.println("    "+gini(leftDist,leftWeight));
+//      System.out.print("      ");
+//      for (double d: leftDist) System.out.print(" "+d);
+//      System.out.println("");
+//      System.out.println("    "+gini(rightDist,rightWeight));
+//      System.out.print("      ");
+//      for (double d: rightDist) System.out.print(" "+d);
+//      System.out.println("");
       if (f>bestFitness) {
         bestSplit = i;
         bestFitness = f;
@@ -239,6 +249,7 @@ public class GiniStatistic {
           best = i;
       return Split.impossible(best); */
     }
+    System.exit(-1);
     return new Split(colIndex,bestSplit,bestFitness);
   }
   
