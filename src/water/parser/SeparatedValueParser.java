@@ -2,6 +2,8 @@ package water.parser;
 
 import java.util.Iterator;
 
+import com.google.common.base.Objects;
+
 import water.*;
 
 public class SeparatedValueParser implements Iterable<double[]>, Iterator<double[]> {
@@ -88,7 +90,7 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
   // We are going to parse this, but not simplify it into `asdf"asdf`
   // we will make the simplifying parse of " starts and stops escaping
   private byte scanToNextSeparator() {
-    boolean escaped = true;
+    boolean escaped = false;
     while( hasNextByte() ) {
       byte b = getNextByte();
       if( b == '"' ) {
@@ -100,7 +102,7 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
     }
     return '\n';
   }
-  
+
   private boolean isNewline(byte b)  { return b == '\r' || b == '\n'; }
   private boolean isSeparator(byte b) { return b == _separator || isNewline(b); }
 
@@ -119,21 +121,23 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
     int field = 0;
     byte b = skipNewlines();
     if( !isNewline(b) ) {
+      _decimal.reset();
+      _decimal.addCharacter(b);
       do {
         if( field < _fieldVals.length ) {
-          _decimal.reset();
-          _fieldVals[field] = Double.NaN;
           _fieldStarts[field] = _offset;
           b = scanToNextSeparator();
           _fieldEnds[field] = _offset-1;
           _fieldVals[field] = _decimal.doubleValue();
         } else {
           b = scanToNextSeparator();
+          _fieldVals[field] = Double.NaN;
         }
         ++field;
         if( isNewline(b) ) {
           break;
         }
+        _decimal.reset();
       } while( hasNextByte() );
     }
     while( field < _fieldVals.length ) {
@@ -145,6 +149,13 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
     return _fieldVals;
   }
 
+  public String toString() {
+    return Objects.toStringHelper(this)
+        .add("curChunk", _curChunk)
+        .add("_offset", _offset) + "\n" +
+        new String(_curData, _offset, Math.min(100, _curData.length - _offset));
+  }
+  
 
   @Override public void remove() { throw new UnsupportedOperationException(); }
 }
