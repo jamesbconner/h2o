@@ -43,11 +43,43 @@ public class Tree extends CountedCompleter {
 
   // Actually build the tree
   public void compute() {
+    switch (statistic_) {
+      case numeric:
+        computeNumeric();
+        break;
+      case gini:
+        computeGini();
+        break;
+      default:
+        throw new Error("Unrecognized statistic type");
+    }
+  }
+    
+  void computeNumeric() {
     // All rows in the top-level split
     Statistic s = new Statistic(_data,null);
     for (Row r : _data) s.add(r);
     tree_ = new FJBuild(s,_data,0).compute();
     //    ... next up: send tree to a distributed validator; record validation counts & confusion matrix per-tree; record global counts; puke incremental results to 1 place
+    tryComplete();
+  }
+  
+  void computeGini() {
+    // first get the statistic so that it can be reused
+    GiniStatistic left = FJGiniBuild.leftStat_.get();
+    if (left == null) {
+      left = new GiniStatistic(_data);
+      FJGiniBuild.leftStat_.set(left);
+    } else {
+      left.reset(_data);
+    }
+    // calculate the split
+    for (Row r : _data) left.add(r);
+    GiniStatistic.Split spl = left.split();
+    if (spl.isLeafNode())
+      tree_ = new LeafNode(0,spl.split);
+    else
+      tree_ = new FJGiniBuild(spl,_data,0).compute();
     tryComplete();
   }
 

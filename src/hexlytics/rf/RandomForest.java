@@ -64,7 +64,7 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    DRF.web_main(va, 1, 100, .15, true);
+    DRF.web_main(va, 10, 100, .15, true);
     System.out.println("done");
     System.exit(-1); // I hope this sysexit is ok:)
   }
