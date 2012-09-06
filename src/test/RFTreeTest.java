@@ -1,6 +1,5 @@
 package test;
 
-import hexlytics.rf.LocalBuilder;
 import hexlytics.rf.RandomForest;
 
 import java.io.File;
