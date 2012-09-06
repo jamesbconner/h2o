@@ -1,6 +1,7 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
+import hexlytics.rf.Statistic.Column;
 
 
 public class Statistic {
@@ -31,20 +32,21 @@ public class Statistic {
     
     int features = data_.features();
     int total = data_.columns();
-    columns_ = new Column[features];
+    int[] columnsToUse = new int[features];
     int i = 0;
-    for(; i < features; ++i) columns_[i] = newColumn(i);
+    for(; i < features; ++i) columnsToUse[i] = i;
     for(; i < total; ++i) {
       int o = d.random().nextInt(i);
-      if( o < features ) columns_[o] = newColumn(i);
+      if( o < features ) columnsToUse[o] = i;
+    }
+    
+    columns_ = new Column[features];
+    for (i = 0; i < features; ++i) {
+      int col = columnsToUse[i];
+      int last = parent_ == null ? data_.last(col) : parent_.last(col);
+      columns_[i] = new Column(col, last+1, classes_);
     }
   }
-  
-  private Column newColumn(int i) {
-    int lst = parent_ == null ? data_.last(i) : parent_.last(i);
-    return new Column(i, lst+1, classes_);
-  }
-  
   
   public Split best() {  
     if (best!=null) return best;

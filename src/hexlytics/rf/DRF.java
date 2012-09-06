@@ -51,13 +51,22 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], -1);
+
+    // One pass over all chunks to compute max rows
+    int num_rows = 0;
+    for( Key key : _keys )
+      if( key.home() )
+        // An NPE here means the cloud is changing...
+        num_rows += DKV.get(key)._max/rowsize;
+    // The data adapter...
+    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows);
     double[] ds = new double[num_cols];
+    // Now load the DataAdapter with all the rows
     for( Key key : _keys ) {
       if( key.home() ) {
-        byte[] bits = DKV.get(key).get(); // An NPE here means the cloud is changing...
-        final int num_rows = bits.length/rowsize;
-        for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
+        byte[] bits = DKV.get(key).get();
+        final int rows = bits.length/rowsize;
+        for( int j=0; j<rows; j++ ) { // For all rows in this chunk
           for( int k=0; k<num_cols; k++ )
             ds[k] = ary.datad(bits,j,rowsize,k);
           dapt.addRow(ds);

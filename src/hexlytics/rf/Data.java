@@ -172,6 +172,22 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this,ri,r);
   }
 
+  public void filterExclusion(int column, int split, Data[] result, GiniStatistic/*Statistic*/[] stats) {
+    int l=0, r=0;
+    int[] li = new int[rows()], ri=new int[rows()];
+    int i = 0;
+    for(Row row : this) {
+      if (row.getColumnClass(column) == split) {
+        stats[0].add(row); li[l++] = permute(i);
+      } else {
+        stats[1].add(row); ri[r++] = permute(i);
+      }
+      i++;
+    }
+    result[0]= new Subset(this,li,l);
+    result[1]= new Subset(this,ri,r);
+  }
+
   public Data sampleWithReplacement(double bagSizePct) {        
     int[] sample = new int[(int)(rows() * bagSizePct)];    
     Random r = new Random(data_.random_.nextLong());

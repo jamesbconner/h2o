@@ -58,45 +58,13 @@ public class RandomForest {
 //    add(tree);
 //  }
 
-//  // Dataset launched from web interface
-//  public static void web_main( ValueArray ary, int ntrees, int cutDepth, double cutRate, boolean useGini) {
-//    final int rowsize = ary.row_size();
-//    final int num_cols = ary.num_cols();
-//    String[] names = ary.col_names();
-//    DataAdapter dapt;
-//    if (useGini) {
-//      dapt = new BinnedDataAdapter(ary._key.toString(), names,
-//        names[num_cols-1] // Assume class is the last column
-//        );
-//    } else {
-//      dapt = new DataAdapter(ary._key.toString(), names,
-//        names[num_cols-1], // Assume class is the last column
-//        ary.row_size());
-//    }
-//    double[] ds = new double[num_cols];
-//    final long num_chks = ary.chunks();
-//    for( long i=0; i<num_chks; i++ ) { // By chunks
-//      byte[] bits = DKV.get(ary.chunk_get(i)).get();
-//      final int rows = bits.length/rowsize;
-//      for( int j=0; j< rows; j++ ) { // For all rows in this chunk
-//        for( int k=0; k<num_cols; k++ )
-//          ds[k] = ary.datad(bits,j,rowsize,k);
-//        dapt.addRow(ds);
-//      }
-//    }
-//    dapt.shrinkWrap();
-//    if (useGini)
-//      ((BinnedDataAdapter)dapt).calculateBinning();
-//    build(dapt, .666, ntrees, cutDepth, cutRate, useGini);
-//  }
-
   public static void main(String[] args) throws Exception {
     H2O.main(new String[] {});
     if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    DRF.web_main(va, 10, 100, .15, true);
+    DRF.web_main(va, 10, 100, .15, false);
   }
 
 

@@ -30,8 +30,8 @@ public class DataAdapter  {
       columnNames_ = new String[columns.length];
       classColumnName_ = classNm;
       int i=0; for(Object o:columns) { 
-        String s=o.toString();  columnNames_[i] = s; c_[i]=rows==-1? new C(s) : new C(s,rows); c2i_.put(s,i++); 
-       }
+        String s=o.toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i++); 
+      }
       classIdx_ = c2i_.get(classNm);
       if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
       this.seed = seed;
@@ -64,12 +64,12 @@ public class DataAdapter  {
     }
     // By default binning is not supported
     public int columnClasses(int colIndex) {
-      return -1;
+      return c_[colIndex].smax_;
     }
     
     // by default binning is not supported
     public int getColumnClass(int rowIndex, int colIndex) {
-      return -1;
+      return getS(rowIndex, colIndex);
     }
 
     public  String colName(int c) { return c_[c].name_; }
@@ -90,21 +90,24 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  private final int DEFAULT = 100;
-  private final double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
   HashMap<Double,Short> o2v_;
   double[] _v2o;  // Reverse (short) indices to original doubles
+  short smin_ = -1;
+  short smax_ = -1;
 
-  C(String s) { name_ = s; v_ = new double[DEFAULT]; }
   C(String s, int rows) { name_ = s; v_ = new double[rows]; }
 
-  private void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
-  void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
+  void add(double x) {
+    min_=Math.min(x,min_);
+    max_=Math.max(x,max_);
+    tot_+=x;
+    v_[sz_++]=x;
+  }
+  
   double getD(int i) { return v_[i]; }
-
   
   public String toString() {
     String res = "col("+name_+")";
@@ -113,6 +116,7 @@ class C {
     return res;
   }
   short[] shrink() {
+    smin_ = 0;
     o2v_ = hashCol();
     short[] res = new short[sz_];
     for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
@@ -121,16 +125,16 @@ class C {
   }
   
   HashMap<Double,Short> hashCol() {
-    HashSet<Double> res = new HashSet<Double>(10000);
+    HashSet<Double> res = new HashSet<Double>();
     for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
     HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
     Double[] ks = res.toArray(new Double[res.size()]);
     _v2o = new double[ks.length];
     Arrays.sort(ks);      
-    short off = 0;
+    smax_ = 0;
     for( Double d : ks)  {
-      _v2o[off] = d;
-      res2.put(d, off++);
+      _v2o[smax_] = d;
+      res2.put(d, smax_++);
     }
     return res2;
   }

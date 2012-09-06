@@ -8,6 +8,16 @@ import java.util.Arrays;
  * @author peta
  */
 public class GiniStatistic {
+  
+  public enum Type {
+    split,
+    exclusion
+  }
+  
+  public static final Type type = Type.split;
+  
+  public static final double MIN_ERROR_RATE = 0.0;
+  
   /** Split descriptor for a particular column. 
    * 
    * Holds the column name and the split point, which is the last column class
@@ -37,6 +47,10 @@ public class GiniStatistic {
     
     public final boolean isConstant() {
       return column == -1;
+    }
+    
+    public final boolean isImpossible() {
+      return column == -2;
     }
     
     public final boolean betterThan(Split other) {
@@ -104,6 +118,74 @@ public class GiniStatistic {
     return result;
   }
   
+  /** Aggregates the given column's distribution to the provided array and 
+   * returns the sum of weights of that array. 
+   * 
+   */
+  private final double aggregateColumn(int colIndex, double[] dist) {
+    double sum = 0;
+    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
+      for (int i = 0; i < dist.length; ++i) {
+        sum += columnDists_[colIndex][j][i];
+        dist[i] += columnDists_[colIndex][j][i]; 
+      }
+    }
+    return sum;
+  }
+  
+  private final int singleClass(double[] dist) {
+    int result = -1;
+    for (int i = 0; i < dist.length; ++i)
+      if (dist[i] != 0)
+        if (result == dist[i]) {
+          // pass
+        } else if (result == -1) {
+          result = i;
+        } else {
+          result = -1;
+          break;
+        }
+    return result;
+  }
+
+  private Split columnExclusion(int colIndex) {
+    double[] excluded = new double[columnDists_[colIndex][0].length];
+    double[] others = new double[excluded.length];
+    double excludedWeight = 0;
+    double othersWeight = aggregateColumn(colIndex,others);
+    double totWeight = othersWeight;
+    // check if we are single class
+    int sc = singleClass(others);
+    if (sc != -1)
+      return Split.constant(sc);
+    int bestExcluded = -1;
+    double bestFitness = -1;
+    for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
+      // first get the i-th column out of the others and put the last excluded
+      // back
+      othersWeight += excludedWeight;
+      excludedWeight = 0;
+      for (int j = 0; j < others.length; ++j) {
+        double t = columnDists_[colIndex][i][j];
+        others[j] += excluded[j] - t;
+        excluded[j] = t;
+        excludedWeight += t;
+      }
+      othersWeight -= excludedWeight;
+      if (excludedWeight == 0)
+        continue;
+      if (othersWeight == 0)
+        return Split.impossible(Utils.maxIndex(excluded));
+      double f = gini(excluded,excludedWeight) * (excludedWeight / totWeight) + gini(others,othersWeight) * (othersWeight / totWeight);
+      if (f>bestFitness) {
+        bestExcluded = i;
+        bestFitness = f;
+      }
+    }
+    assert (bestExcluded != -1);
+    return new Split(colIndex, bestExcluded, bestFitness);
+  }
+  
   /** Returns the best split for given column. 
    * 
    * @param colIndex
@@ -113,29 +195,26 @@ public class GiniStatistic {
     double[] leftDist = new double[columnDists_[colIndex][0].length];
     double[] rightDist = new double[leftDist.length];
     double leftWeight = 0;
-    double rightWeight = 0;
-    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
-      for (int i = 0; i < rightDist.length; ++i) {
-        rightWeight += columnDists_[colIndex][j][i];
-        rightDist[i] = columnDists_[colIndex][j][i]; 
-      }
-    }
+    double rightWeight = aggregateColumn(colIndex, rightDist);
+    // check if we are below the error rate proposed and if so, return the
+    // leafnode split instead
+    int maxIndex = Utils.maxIndex(rightDist);
+    if ((rightDist[maxIndex]/rightWeight) >= 1-MIN_ERROR_RATE)
+      return Split.constant(maxIndex);
+//    System.out.println(maxIndex+" -- "+rightWeight);
+//    System.out.println("    "+gini(rightDist,rightWeight));
+//    System.out.print("      ");
+//    for (double d: rightDist) System.out.print(" "+d);
+//    System.out.println("");
     double totWeight = rightWeight;
     // now check if we have only a single class
-    int singleClass = -1;
-    for (int i = 0; i < rightDist.length; ++i)
-      if (rightDist[i] != 0)
-        if (singleClass == -1) {
-          singleClass = i;
-        } else {
-          singleClass = -1;
-          break;
-        }
+    int singleClass = singleClass(rightDist);
     if (singleClass != -1) 
       return Split.constant(singleClass);
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = -1;
+    //System.out.println("Column "+colIndex);
     for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
       // first copy the i-th guys from right to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -148,7 +227,16 @@ public class GiniStatistic {
       // now make sure we have something to split 
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
-      double f = gini(leftDist,leftWeight) / totWeight + gini(rightDist,rightWeight) / totWeight;
+      double f = gini(leftDist,leftWeight) * (leftWeight / totWeight) + gini(rightDist,rightWeight) * (rightWeight / totWeight);
+//      System.out.println("  "+f+" -- "+leftWeight+" - "+rightWeight);
+//      System.out.println("    "+gini(leftDist,leftWeight));
+//      System.out.print("      ");
+//      for (double d: leftDist) System.out.print(" "+d);
+//      System.out.println("");
+//      System.out.println("    "+gini(rightDist,rightWeight));
+//      System.out.print("      ");
+//      for (double d: rightDist) System.out.print(" "+d);
+//      System.out.println("");
       if (f>bestFitness) {
         bestSplit = i;
         bestFitness = f;
@@ -158,7 +246,8 @@ public class GiniStatistic {
     // a constant split
     if (bestSplit == -1) {
       // put everything to the left guy
-      for (int j = 0; j < leftDist.length; ++j) {
+      return Split.impossible(maxIndex);
+/*      for (int j = 0; j < leftDist.length; ++j) {
         double t = columnDists_[colIndex][columnDists_[colIndex].length-1][j];
         leftWeight += t;
         leftDist[j] += t;
@@ -167,8 +256,9 @@ public class GiniStatistic {
       for (int i = 1; i < leftDist.length; ++i) 
         if (leftDist[i] > leftDist[best])
           best = i;
-      return Split.impossible(best);
+      return Split.impossible(best); */
     }
+    //System.exit(-1);
     return new Split(colIndex,bestSplit,bestFitness);
   }
   
@@ -177,13 +267,26 @@ public class GiniStatistic {
    * @return 
    */
   public Split split() {
-    Split bestSplit = columnSplit(columns_[0]);
-    if (bestSplit.isConstant())
-      return bestSplit;
-    for (int j = 1; j < columns_.length; ++j) {
-      Split s = columnSplit(columns_[j]);
-      if (s.betterThan(bestSplit))
-        bestSplit = s;
+    Split bestSplit = null;
+    switch (type) {
+      case split:
+        bestSplit = columnSplit(columns_[0]);
+        if (!bestSplit.isConstant())
+          for (int j = 1; j < columns_.length; ++j) {
+            Split s = columnSplit(columns_[j]);
+            if (s.betterThan(bestSplit))
+            bestSplit = s;
+          }
+        break;
+      case exclusion:
+        bestSplit = columnExclusion(columns_[0]);
+        if (!bestSplit.isConstant())
+          for (int j = 1; j < columns_.length; ++j) {
+            Split s = columnExclusion(columns_[j]);
+            if (s.betterThan(bestSplit))
+            bestSplit = s;
+          }
+        break;
     }
     return bestSplit;
   }

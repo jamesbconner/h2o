@@ -30,6 +30,15 @@ public class Utils {
       else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
     return result;
   }
+
+  public static int maxIndex(double[] from) {
+    int result = 0;
+    for (int i = 1; i<from.length; ++i)
+      if (from[i]>from[result])
+        result = i;
+    return result;
+  }
+  
   public static int maxIndexInt(int[] from, Random rand) {
     int result = 0;
     for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
