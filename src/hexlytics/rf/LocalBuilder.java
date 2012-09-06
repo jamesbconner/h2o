@@ -14,10 +14,10 @@ public class LocalBuilder implements Director {
   public void report(String s) { aggregator_.onReport(s);  }  
   protected void p(String s){ aggregator_.onReport(s); }
     
-  public LocalBuilder(Data t, Data v, int numTrees) {            
+  public LocalBuilder(Data t, Data v, int numTrees, boolean gini) {            
     aggregator_ = new TreeAggregator(1,v.classes(),this);
     p("Training data:\n"+ t+"\nValidation data:\n"+ v);
-    builder_ = new TreeBuilder(t,this,numTrees);
+    builder_ = new TreeBuilder(t,this,numTrees,gini);
     validator_ = new TreeValidator(v,this);
     p("===Computing===");
     builder_.run();

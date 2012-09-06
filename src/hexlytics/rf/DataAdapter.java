@@ -3,6 +3,7 @@ package hexlytics.rf;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Random;
 
 public class DataAdapter  {
@@ -20,17 +21,17 @@ public class DataAdapter  {
     public final Random random_;    
     private static int SEED = 42;
     private static Random RAND = new Random(SEED);
-            
+        
     private static long getRandomSeed() { return RAND.nextLong(); }
     
-    public DataAdapter(String name, Object[] columns, String classNm) {
+    public DataAdapter(String name, Object[] columns, String classNm, int rows) {
       long seed = getRandomSeed(); name_=name; 
        c_ = new C[columns.length]; 
       columnNames_ = new String[columns.length];
       classColumnName_ = classNm;
       int i=0; for(Object o:columns) { 
-        String s=o.toString();  columnNames_[i] = s; c_[i]=new C(s); c2i_.put(s,i++); 
-       }
+        String s=o.toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i++); 
+      }
       classIdx_ = c2i_.get(classNm);
       if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
       this.seed = seed;
@@ -41,22 +42,16 @@ public class DataAdapter  {
     public void shrinkWrap() { 
       freeze();
       short[][] vss = new short[c_.length][];
-     for(int i=0;i<c_.length;i++) {
-       C c = c_[i];
-       vss[i] = c.shrink();
-     }      
-     data_ = new short[ c_.length * rows()];
-     for(int i=0;i<c_.length;i++) {
-       short[] vs = vss[i];
-       for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
-     }      
+      for(int i=0;i<c_.length;i++) vss[i] = c_[i].shrink();
+      data_ = new short[ c_.length * rows()];
+      for(int i=0;i<c_.length;i++) {
+        short[] vs = vss[i];
+        for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
+      }      
     }
     
-    static public  int FEATURES = -1;
     public void freeze() { frozen_=true; }
-    public int features() { 
-       return  FEATURES==-1 ? FEATURES = (int)Math.sqrt(c_.length) : FEATURES;
-    }
+    public int features() { return (int)Math.sqrt(c_.length); }
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
@@ -66,6 +61,15 @@ public class DataAdapter  {
         if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
         if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
         return numClasses_;
+    }
+    // By default binning is not supported
+    public int columnClasses(int colIndex) {
+      return -1;
+    }
+    
+    // by default binning is not supported
+    public int getColumnClass(int rowIndex, int colIndex) {
+      return -1;
     }
 
     public  String colName(int c) { return c_[c].name_; }
@@ -86,13 +90,16 @@ public class DataAdapter  {
 
 class C {
   String name_;
-  int DEFAULT = 100;
-  double GROWTH = 1.5;
   int sz_;
   double min_=Double.MAX_VALUE, max_=-1, tot_; 
   double[] v_;
   HashMap<Double,Short> o2v_;
-  double[] _v2o;                // Reverse (short) indices to original doubles
+  double[] _v2o;  // Reverse (short) indices to original doubles
+
+  C(String s, int rows) { name_ = s; v_ = new double[rows]; }
+
+  void add(double x){ min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
+  double getD(int i) { return v_[i]; }
   
   public String toString() {
     String res = "col("+name_+")";
@@ -100,11 +107,6 @@ class C {
     res+= DataAdapter.df.format(tot_/(double)sz_) ;
     return res;
   }
-  C(String s) { name_ = s; v_ = new double[DEFAULT]; }
-  void grow() { if (sz_==v_.length) v_=Arrays.copyOf(v_, (int)(v_.length*GROWTH)); } 
-  void add(double x){ grow(); min_=Math.min(x,min_); max_=Math.max(x,max_); tot_+=x; v_[sz_++]=x; }
-  double getD(int i) { return v_[i]; }
-  
   short[] shrink() {
     o2v_ = hashCol();
     short[] res = new short[sz_];
@@ -114,15 +116,10 @@ class C {
   }
   
   HashMap<Double,Short> hashCol() {
-    HashMap<Double,Integer> res = new HashMap<Double,Integer>(100);
-    for(int i=0; i< sz_; i++){
-      Integer cnt = res.get(v_[i]);
-      if (cnt != null) res.put(v_[i], cnt+1);
-      else res.put(v_[i], 1);
-    }    
-    // we forget the frequencies for now and return a map from value to offset
+    HashSet<Double> res = new HashSet<Double>(10000);
+    for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
     HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
-    Double[] ks = res.keySet().toArray(new Double[res.size()]);
+    Double[] ks = res.toArray(new Double[res.size()]);
     _v2o = new double[ks.length];
     Arrays.sort(ks);      
     short off = 0;

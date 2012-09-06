@@ -2,10 +2,13 @@ package water;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
+
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
+
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 
@@ -541,8 +544,11 @@ public final class H2O {
           Value val = raw_get(key); // fetch value withOUT loading it from disk
           if( val == null )  continue;
           byte[] m = val._mem;
-          if( m != null )
+          if( m != null ) {
             cacheSz += m.length; // Accumulate total amount of cached keys
+            if( m.length < val._max )
+              continue;         // Do not persist partial keys
+          }
           // System keys that are not just backing arraylets of user keys are
           // not persisted - we figure they have a very short lifetime.
           if( (!key.user_allowed() || // System keys need further filtering

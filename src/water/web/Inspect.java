@@ -194,7 +194,7 @@ public class Inspect extends H2OPage {
 
     // Header row
     StringBuilder sb = new StringBuilder();
-    final int num_col = Math.min(21,ary.num_cols());
+    final int num_col = Math.min(100,ary.num_cols());
     String[] names = ary.col_names();
     for( int i=0; i<num_col; i++ )
       sb.append("<th>").append(names[i]);
@@ -274,25 +274,24 @@ public class Inspect extends H2OPage {
     // display all the rows.
     long num_rows = ary.num_rows();
     if( num_rows > 7 ) {
-      display_row(ary,0,response);
-      display_row(ary,1,response);
-      display_row(ary,2,response);
-      display_row(ary,-1,response); // Placeholder view
-      display_row(ary,num_rows-3,response);
-      display_row(ary,num_rows-2,response);
-      display_row(ary,num_rows-1,response);
+      display_row(ary,0,response,num_col);
+      display_row(ary,1,response,num_col);
+      display_row(ary,2,response,num_col);
+      display_row(ary,-1,response,num_col); // Placeholder view
+      display_row(ary,num_rows-3,response,num_col);
+      display_row(ary,num_rows-2,response,num_col);
+      display_row(ary,num_rows-1,response,num_col);
     } else {
       for( int i=0; i<num_rows; i++ )
-        display_row(ary,i,response);
+        display_row(ary,i,response,num_col);
     }
 
     return response.toString();
   }
 
-  static private void display_row(ValueArray ary, long r, RString response) {
+  static private void display_row(ValueArray ary, long r, RString response, int num_col) {
     RString row = response.restartGroup("tableRow");
     try {
-      int num_col = Math.min(ary.num_cols(),21);
       StringBuilder sb = new StringBuilder();
       sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
       for( int i=0; i<num_col; i++ ) {

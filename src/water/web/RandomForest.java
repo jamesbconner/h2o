@@ -9,12 +9,12 @@ public class RandomForest extends H2OPage {
     Object o = ServletUtil.check_array(args,"Key");
     if( o instanceof String ) return (String)o;
     ValueArray ary = (ValueArray)o;
-    int ntrees = getAsNumber(args,"ntrees", 5*H2O.CLOUD._memary.length);
+    int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
-    int threads = getAsNumber(args,"threads", 4);
+    boolean gini = args.getProperty("gini")!=null;
     
     String res = "some results go here";
-    try { hexlytics.rf.RandomForest.web_main(ary,ntrees,depth,threads); }
+    try { hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,gini); }
     catch( Exception e ) { res = e.toString(); }
     RString response = new RString(html);
     response.replace("key",ary._key);

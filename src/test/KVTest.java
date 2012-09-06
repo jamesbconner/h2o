@@ -1,10 +1,15 @@
 package test;
+import static org.junit.Assert.*;
+
+import hexlytics.LinearRegression;
 import java.io.*;
 import java.util.Arrays;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import static org.junit.Assert.*;
 import water.*;
+import water.parser.ParseDataset;
+import water.serialization.RTSerializer;
+import water.serialization.RemoteTaskSerializer;
 
 public class KVTest {
   // Request that tests be "clean" on the K/V store, and restore it to the same
@@ -89,14 +94,25 @@ public class KVTest {
   // Remote Bit Set: OR together the result of a single bit-mask where the
   // shift-amount is passed in in the Key.
   @SuppressWarnings("serial")
+  @RTSerializer(RemoteBitSet.Serializer.class)
   public static class RemoteBitSet extends MRTask {
-    int _x;
-    public int wire_len() { return 4; }
-    public int write( byte[] buf, int off ) { UDP.set4(buf,off,_x); return off+4; }
-    public void write( DataOutputStream dos ) { throw new Error("unimplemented"); }
-    public void read( byte[] buf, int off ) { _x = UDP.get4(buf,off);  off += 4; }
-    public void read( DataInputStream dis ) { new Error("unimplemented"); }
+    public static class Serializer extends RemoteTaskSerializer<RemoteBitSet> {
+      @Override public int wire_len( RemoteBitSet r ) { return 4; }
+      @Override public void write( RemoteBitSet r, DataOutputStream dos ) { throw new Error("unimplemented"); }
+      @Override public RemoteBitSet read( DataInputStream dis ) { throw new Error("unimplemented"); }
+      @Override public int write( RemoteBitSet r, byte[] buf, int off ) {
+        UDP.set4(buf,off,r._x);
+        return off+4;
+      }
+      @Override public RemoteBitSet read( byte[] buf, int off ) {
+        RemoteBitSet r = new RemoteBitSet();
+        r._x = UDP.get4(buf,off);
+        return r;
+      }
+    }
+    
     // Set a single bit-mask based on the shift which is passed in the Value
+    int _x;
     public void map( Key key ) {
       assert _x == 0;                  // Never mapped into before
       Value val = DKV.get(key);        // Get the Value for the Key
@@ -144,8 +160,8 @@ public class KVTest {
   @org.junit.Test public void test5() throws Exception {
     System.out.println("test5");
     h2o_cloud_of_size(3);
-    File file = find_test_file("h2o.jar");
-    Key h2okey = load_test_file(file);
+    File file = TestUtil.find_test_file("h2o.jar");
+    Key h2okey = TestUtil.load_test_file(file);
     ByteHisto bh = new ByteHisto();
     bh.invoke(h2okey);
     int sum=0;
@@ -158,6 +174,7 @@ public class KVTest {
 
   // Byte-wise histogram
   @SuppressWarnings("serial")
+  @RTSerializer(ByteHisto.Serializer.class)
   public static class ByteHisto extends MRTask {
     int _x[];
     // Count occurances of bytes
@@ -176,23 +193,27 @@ public class KVTest {
         _x[i] += bh._x[i];
     }
 
-    public int wire_len() { return 1+((_x==null)?0:4*_x.length); }
-    public int write( byte[] buf, int off ) {
-      buf[off++] = (byte)((_x==null) ? 0 : 1);
-      if( _x==null ) return off;
-      for( int i=0; i<_x.length; i++ )
-        off += UDP.set4(buf,off,_x[i]);
+    public static class Serializer extends RemoteTaskSerializer<ByteHisto> {
+      @Override public void write( ByteHisto h, DataOutputStream dos ) { throw new Error("unimplemented"); }
+      @Override public ByteHisto read( DataInputStream dis ) { throw new Error("unimplemented"); }
+      @Override public int wire_len(ByteHisto h) { return 1+((h._x==null)?0:4*h._x.length); }
+      @Override public int write( ByteHisto h, byte[] buf, int off ) {
+        buf[off++] = (byte)((h._x==null) ? 0 : 1);
+        if( h._x==null ) return off;
+        for( int i=0; i<h._x.length; i++ )
+          off += UDP.set4(buf,off,h._x[i]);
       return off;
     }
-    public void write( DataOutputStream dos ) { throw new Error("unimplemented"); }
-    public void read( byte[] buf, int off ) {
+      @Override public ByteHisto read( byte[] buf, int off ) {
+        ByteHisto h = new ByteHisto();
       int flag = buf[off++];
-      if( flag == 0 ) return;
-      _x = new int[256];
-      for( int i=0; i<_x.length; i++ )
-        _x[i] = UDP.get4(buf,(off+=4)-4);
+        if( flag == 0 ) return h;
+        h._x = new int[256];
+        for( int i=0; i<h._x.length; i++ )
+          h._x[i] = UDP.get4(buf,(off+=4)-4);
+        return h;
     }
-    public void read( DataInputStream dis ) { new Error("unimplemented"); }
+    }
   }
 
   // ---
@@ -226,7 +247,17 @@ public class KVTest {
   }
 
   @SuppressWarnings("serial")
+  @RTSerializer(Atomic2.Serializer.class)
   public static class Atomic2 extends Atomic {
+    public static class Serializer extends RemoteTaskSerializer<Atomic2> {
+      // By default, nothing sent over with the function (except the target Key).
+      @Override public int  wire_len(Atomic2 a) { return 0; }
+      @Override public int  write( Atomic2 a, byte[] buf, int off ) { return off; }
+      @Override public void write( Atomic2 a, DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
+      @Override public Atomic2 read( byte[] buf, int off ) { return new Atomic2(); }
+      @Override public Atomic2 read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
+    }
+    
     @Override public byte[] atomic( byte[] bits1 ) {
       long l1 = UDP.get8(bits1,0);
       long l2 = UDP.get8(bits1,8);
@@ -238,6 +269,30 @@ public class KVTest {
       return bits2;
     }
   }
+
+  // ---
+  // Test parsing "cars.csv" and running LinearRegression
+  @org.junit.Test public void test7() {
+    System.out.println("test7");
+    Key fkey = TestUtil.load_test_file("smalldata/cars.csv");
+    Key okey = Key.make("cars.hex");
+    ParseDataset.parse(okey,DKV.get(fkey));
+    UKV.remove(fkey);
+    ValueArray va = (ValueArray)DKV.get(okey);
+    // Because ParseDataset does not properly block (yet) insert a tiny stall here.
+    try { Thread.sleep(100); } catch( InterruptedException ie ) {}
+    // Compute LinearRegression between columns 2 & 3
+    String[] res = LinearRegression.run(va,2,3).split("<p>");
+    assertEquals("Linear Regression of cars.hex between 2 and 3",res[0]);
+    //assertEquals("Pass 1 in 10msec",res[1]);
+    //assertEquals("Pass 2 in 6msec",res[2]);
+    assertEquals("y = 58.326241377521995 * x + -124.57816399564385",res[3]);
+    //assertEquals("Pass 3 in 6msec",res[4]);
+    assertEquals("R^2                 = 0.9058985668996267",res[5]);
+    assertEquals("std error of beta_1 = 0.9352584499359637",res[6]);
+    UKV.remove(okey);
+  }
+
 
   // ---
   // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
@@ -328,30 +383,5 @@ public class KVTest {
     } catch( IOException e ) {
       System.err.println("Failed to launch nested JVM with:"+Arrays.toString(args));
     }
-  }
-
-  // Load a file, return a Key for it.
-  public static File find_test_file( String fname ) {
-    // When run from eclipse, the working directory is different.
-    // Try pointing at another likely place
-    File file = new File(fname);
-    if( !file.exists() ) file = new File("build/"+fname);
-    if( !file.exists() ) file = new File("../"+fname);
-    return file;
-  }
-  public static Key load_test_file( String fname ) { 
-    return load_test_file(find_test_file(fname)); 
-  }
-  public static Key load_test_file( File file ) {
-    Key key = null;
-    FileInputStream fis = null;
-    try {
-      fis = new FileInputStream(file);
-      key = ValueArray.read_put_file(file.getPath(), fis, (byte)0);
-    } catch( IOException e ) {
-      try { if( fis != null ) fis.close(); } catch( IOException e2 ) { }
-    }
-    if( key == null ) fail("failed load to "+file.getName());
-    return key;
   }
 }

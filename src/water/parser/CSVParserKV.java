@@ -44,14 +44,6 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
       _length = length;
     }
 
-    // private int chunkIdx(){
-    // int idx = (int)(_offset >> ValueArray.LOG_CHK);
-    // if((idx == _nextChunkIdx) && (_data.length > (1 << ValueArray.LOG_CHK))){
-    // return idx - 1; // the last chunk can be larger!
-    // }
-    // return idx;
-    // }
-
     private int[] chunkIdxAndOffset() {
       int[] res = new int[2];
       res[1] = (int) (_offset & ((1 << ValueArray.LOG_CHK) - 1));
@@ -208,8 +200,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
 
   String[] _columnNames;
 
-  FloatingDecimal _floatingDecimal = new FloatingDecimal(false, 0,
-      new char[64], 0, false);
+  FloatingDecimalWrapper _floatingDecimal = new FloatingDecimalWrapper();
 
   int _ival;
 
@@ -290,7 +281,7 @@ public class CSVParserKV<T> implements Iterable<T>, Iterator<T> {
         for (String colName : columns) {
           if (colName != null) {
             _fields[i] = _csvRecord.getClass().getDeclaredField(colName);
-            Type t = _fields[i].getGenericType();
+            Type t = _fields[i].getType();
             if (Integer.TYPE.equals(t)) {
               _columnTypes[i] = DataType.typeInt;
             } else if (Double.TYPE.equals(t)) {

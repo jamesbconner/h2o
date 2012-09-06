@@ -111,7 +111,7 @@ public abstract class DKV {
       // e.g., because a prior 'put' of a null (i.e. a remove) is still mid-
       // send to the remote, so the local get has missed above, but a remote
       // get still might 'win' because the remote 'remove' is still in-progress.
-      for( DFutureTask dt : DFutureTask.TASKS.values() )
+      for( DFutureTask<?> dt : DFutureTask.TASKS.values() )
         if( dt._target == home && dt instanceof TaskPutKey && ((TaskPutKey)dt)._key.equals(key) )
           return ((TaskPutKey)dt)._val;
 
