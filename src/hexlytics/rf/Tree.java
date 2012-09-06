@@ -15,6 +15,7 @@ public class Tree extends CountedCompleter {
   }
   
   final Data _data;
+  final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;
   final double _min_error_rate;
   INode tree_;
@@ -23,13 +24,15 @@ public class Tree extends CountedCompleter {
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
     _data = data;
+    _data_id = data.data_._data_id;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
     statistic_ = stat;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
-  public Tree( ) {
+  public Tree( int data_id ) {
     _data = null;
+    _data_id = data_id;
     _max_depth = 0;
     _min_error_rate = -1.0;
     statistic_ = StatType.numeric;
@@ -60,7 +63,6 @@ public class Tree extends CountedCompleter {
     Statistic s = new Statistic(_data,null);
     for (Row r : _data) s.add(r);
     tree_ = new FJBuild(s,_data,0).compute();
-    //    ... next up: send tree to a distributed validator; record validation counts & confusion matrix per-tree; record global counts; puke incremental results to 1 place
     tryComplete();
   }
   
@@ -316,7 +318,9 @@ public class Tree extends CountedCompleter {
   public Key toKey() {
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
     try {
-      tree_.write(new DataOutputStream(bos));
+      DataOutputStream dos = new DataOutputStream(bos);
+      dos.writeInt(_data_id);
+      tree_.write(dos);
     } catch( IOException e ) { throw new Error(e); }
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bos.toByteArray()));
@@ -324,11 +328,12 @@ public class Tree extends CountedCompleter {
   }
   public static Tree fromKey( Key key ) {
     byte[] bits = DKV.get(key).get();
-    Tree t = new Tree();
     try {
-      t.tree_ = INode.read(new DataInputStream(new ByteArrayInputStream(bits)),0);
+      DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bits));
+      Tree t = new Tree(dis.readInt());
+      t.tree_ = INode.read(dis,0);
+      return t;
     } catch( IOException e ) { throw new Error(e); }
-    return t;
   }
 
 //  /** Computes the tree using the gini statistic.

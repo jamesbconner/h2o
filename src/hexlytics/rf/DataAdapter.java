@@ -7,37 +7,39 @@ import java.util.HashSet;
 import java.util.Random;
 
 public class DataAdapter  {
-    short[] data_;
-    C[] c_;
-    private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
-    private String name_="";
-    int classIdx_;
-    private boolean frozen_;
-    private int numClasses_=-1;
-    private int numClassesParam_=-1;
-    private String[] columnNames_;
-    private String classColumnName_;    
-    public final long seed;
-    public final Random random_;    
-    private static int SEED = 42;
-    private static Random RAND = new Random(SEED);
-        
-    private static long getRandomSeed() { return RAND.nextLong(); }
-    
-    public DataAdapter(String name, Object[] columns, String classNm, int rows) {
-      long seed = getRandomSeed(); name_=name; 
-       c_ = new C[columns.length]; 
-      columnNames_ = new String[columns.length];
-      classColumnName_ = classNm;
-      int i=0; for(Object o:columns) { 
-        String s=o.toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i++); 
-      }
-      classIdx_ = c2i_.get(classNm);
-      if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
-      this.seed = seed;
-      random_ = new Random(seed);
+  short[] data_;
+  C[] c_;
+  private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
+  private String name_="";
+  int classIdx_;
+  final int _data_id;           // Unique cookie identifying this dataset
+  private boolean frozen_;
+  private int numClasses_=-1;
+  private int numClassesParam_=-1;
+  private String[] columnNames_;
+  private String classColumnName_;
+  public final long seed;
+  public final Random random_;
+  private static int SEED = 42;
+  private static Random RAND = new Random(SEED);
+
+  private static long getRandomSeed() { return RAND.nextLong(); }
+
+  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id) {
+    long seed = getRandomSeed(); name_=name;
+    c_ = new C[columns.length];
+    columnNames_ = new String[columns.length];
+    classColumnName_ = classNm;
+    int i=0; for(Object o:columns) {
+      String s=o.toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i++);
     }
- 
+    classIdx_ = c2i_.get(classNm);
+    _data_id = data_id;
+    if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
+    this.seed = seed;
+    random_ = new Random(seed);
+  }
+
     public String name() { return name_; }
     public void shrinkWrap() { 
       freeze();

@@ -1,15 +1,10 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
-
 import java.io.File;
 import java.util.concurrent.ExecutionException;
-
 import test.TestUtil;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.ValueArray;
+import water.*;
 
 public class RandomForest {
   final Tree[] _trees;          // The trees that got built
@@ -17,7 +12,7 @@ public class RandomForest {
   final Data _validate;         // The data to validate on.  NULL if validating on other data.
 
   // Build N trees via the Random Forest algorithm.
-  public RandomForest( DataAdapter dapt, double sampleRatio, int ntrees, int maxTreeDepth, double minErrorRate, Tree.StatType stat ) {
+  public RandomForest( DRF drf, DataAdapter dapt, double sampleRatio, int ntrees, int maxTreeDepth, double minErrorRate, Tree.StatType stat ) {
     Data d = Data.make(dapt);
     // Training data.  For now: all of it.
     // TODO: if the training data fits in this Node, then we need to do sampling.
@@ -29,8 +24,11 @@ public class RandomForest {
       H2O.FJP_NORM.execute(_trees[i] = new Tree(d,maxTreeDepth,minErrorRate,stat));
     // Block until all trees are built
     try {
-      for( int i=0; i<ntrees; i++ )
-        _trees[i].get();
+      for( int i=0; i<ntrees; i++ ) {
+        _trees[i].get();        // Block for a tree
+        // Atomic-append to the list of trees
+        new Append(_trees[i].toKey()).fork(drf._treeskey);
+      }
     } catch( InterruptedException e ) {
       // Interrupted after partial build?
     } catch( ExecutionException e ) {

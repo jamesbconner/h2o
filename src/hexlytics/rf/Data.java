@@ -1,4 +1,4 @@
-  package hexlytics.rf;
+package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
