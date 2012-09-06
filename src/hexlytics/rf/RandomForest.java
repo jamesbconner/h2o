@@ -81,11 +81,11 @@ public class RandomForest {
     if (useGini) {
       dapt = new BinnedDataAdapter(ary._key.toString(), names, 
         names[num_cols-1], // Assume class is the last column
-        ary.row_size());
+        (int)ary.num_rows());
     } else {
       dapt = new DataAdapter(ary._key.toString(), names, 
         names[num_cols-1], // Assume class is the last column
-        ary.row_size());
+        (int)ary.num_rows());
     }
     double[] ds = new double[num_cols];
     final long num_chks = ary.chunks();
@@ -110,7 +110,7 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));    
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    web_main(va, 10, 100, .15, true);
+    web_main(va, 10, 100, .15, false);
   }
   
   
