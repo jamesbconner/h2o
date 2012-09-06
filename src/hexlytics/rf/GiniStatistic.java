@@ -16,6 +16,8 @@ public class GiniStatistic {
   
   public static final Type type = Type.split;
   
+  public static final double MIN_ERROR_RATE = 0.1;
+  
   /** Split descriptor for a particular column. 
    * 
    * Holds the column name and the split point, which is the last column class
@@ -190,6 +192,11 @@ public class GiniStatistic {
     double[] rightDist = new double[leftDist.length];
     double leftWeight = 0;
     double rightWeight = aggregateColumn(colIndex, rightDist);
+    // check if we are below the error rate proposed and if so, return the
+    // leafnode split instead
+    int maxIndex = Utils.maxIndex(rightDist);
+    if ((rightDist[maxIndex]/rightWeight) >= 1-MIN_ERROR_RATE)
+      return Split.constant(maxIndex);
     double totWeight = rightWeight;
     // now check if we have only a single class
     int singleClass = singleClass(rightDist);
@@ -220,7 +227,8 @@ public class GiniStatistic {
     // a constant split
     if (bestSplit == -1) {
       // put everything to the left guy
-      for (int j = 0; j < leftDist.length; ++j) {
+      return Split.impossible(maxIndex);
+/*      for (int j = 0; j < leftDist.length; ++j) {
         double t = columnDists_[colIndex][columnDists_[colIndex].length-1][j];
         leftWeight += t;
         leftDist[j] += t;
@@ -229,7 +237,7 @@ public class GiniStatistic {
       for (int i = 1; i < leftDist.length; ++i) 
         if (leftDist[i] > leftDist[best])
           best = i;
-      return Split.impossible(best);
+      return Split.impossible(best); */
     }
     return new Split(colIndex,bestSplit,bestFitness);
   }
