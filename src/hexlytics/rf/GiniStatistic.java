@@ -16,7 +16,7 @@ public class GiniStatistic {
   
   public static final Type type = Type.split;
   
-  public static final double MIN_ERROR_RATE = 0.1;
+  public static final double MIN_ERROR_RATE = 0.3;
   
   /** Split descriptor for a particular column. 
    * 
@@ -249,7 +249,7 @@ public class GiniStatistic {
           best = i;
       return Split.impossible(best); */
     }
-    System.exit(-1);
+    //System.exit(-1);
     return new Split(colIndex,bestSplit,bestFitness);
   }
   
