@@ -14,7 +14,7 @@ public class GiniStatistic {
     exclusion
   }
   
-  public static final Type type = Type.exclusion;
+  public static final Type type = Type.split;
   
   /** Split descriptor for a particular column. 
    * 
@@ -239,13 +239,26 @@ public class GiniStatistic {
    * @return 
    */
   public Split split() {
-    Split bestSplit = columnSplit(columns_[0]);
-    if (bestSplit.isConstant())
-      return bestSplit;
-    for (int j = 1; j < columns_.length; ++j) {
-      Split s = columnSplit(columns_[j]);
-      if (s.betterThan(bestSplit))
-        bestSplit = s;
+    Split bestSplit = null;
+    switch (type) {
+      case split:
+        bestSplit = columnSplit(columns_[0]);
+        if (!bestSplit.isConstant())
+          for (int j = 1; j < columns_.length; ++j) {
+            Split s = columnSplit(columns_[j]);
+            if (s.betterThan(bestSplit))
+            bestSplit = s;
+          }
+        break;
+      case exclusion:
+        bestSplit = columnExclusion(columns_[0]);
+        if (!bestSplit.isConstant())
+          for (int j = 1; j < columns_.length; ++j) {
+            Split s = columnExclusion(columns_[j]);
+            if (s.betterThan(bestSplit))
+            bestSplit = s;
+          }
+        break;
     }
     return bestSplit;
   }
