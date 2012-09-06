@@ -86,9 +86,11 @@ public class Data implements Iterable<Row> {
   public String name() { return name_; }   
   public int last(int column) { return data_.c_[column].o2v_.size(); }
   
+  private boolean silent = true;
   public String toString() {
     String res = "Data "+ name()+"\n";
     if (columns()>0) { res+= rows()+" rows, "+ columns() + " cols, "+ classes() +" classes\n"; }
+    if (silent) return res;
     String[][] s = new String[columns()][4];
     for(int i=0;i<columns();i++){
       s[i][0] = "col("+colName(i)+")";
@@ -107,6 +109,7 @@ public class Data implements Iterable<Row> {
       }
       res+="\n";
     }      
+    
    /* res +="========\n";  res +="class histogram\n";
     int[] dist =null;// data_.c_[data_.classIdx_].distribution();
     int[] sorted = Arrays.copyOf(dist, dist.length);
@@ -124,7 +127,8 @@ public class Data implements Iterable<Row> {
     res+="[";
     for(int j=0;j<dist.length;j++) res+=dist[j]+((j==dist.length-1)?"":",");     
     res+="]\n";
-    */res+=head(5);
+    */
+    res+=head(5);
     
     return res;
   }
