@@ -2,11 +2,7 @@ package water.web;
 import java.io.IOException;
 import java.util.Properties;
 
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
-import water.parser.CSVParserKV;
+import water.*;
 
 /**
  *
@@ -99,52 +95,9 @@ public class Inspect extends H2OPage {
     row.replace("value",sb);
     row.replace("size",val.length());
 
-    // Do an initial parse of the 1st meg of the dataset
-    try {
-      float[] fs = new float[100]; // First few columns only
-      CSVParserKV.ParserSetup setup = new CSVParserKV.ParserSetup();
-      setup.whiteSpaceSeparator = true;
-      setup.collapseWhiteSpaceSeparators = true;
-      setup.partialRecordPolicy = CSVParserKV.FILL_PARTIAL_RECORDS_WITH_DEFAULTS;
-      CSVParserKV<float[]> csv = new CSVParserKV<float[]>(key,fs,setup);
-      float sums[] = new float[fs.length];
-      float mins[] = new float[fs.length];
-      float maxs[] = new float[fs.length];
-      for( int i=0; i<fs.length; i++ ) {
-        mins[i] = Float.MAX_VALUE;
-        maxs[i] = Float.MIN_VALUE;
-      }
-      int rows = 0;
-      int cols = 0;
-      for( float[] fs2 : csv ) {
-        rows++;
-        for( int i=0; i<fs2.length; i++ ) {
-          if( Float.isNaN(fs2[i]) )
-            break;
-          // Skipping any 1st record, try to count columns in the 2nd record
-          if( (rows == 2) && i+1>cols ) cols = i+1;
-          sums[i] += fs2[i];
-          if( fs2[i] < mins[i] ) mins[i] = fs2[i];
-          if( fs2[i] > maxs[i] ) maxs[i] = fs2[i];
-        }
-      }
-      // Inject into the HTML
-      if( cols > 0 && rows > 0 ) {
-        row.replace("rows",rows);
-        row.replace("cols",cols);
-        for( int i=0; i<Math.min(cols,5); i++ ) {
-          String s = String.format("%4.1f / %4.1f / %4.1f",mins[i],sums[i]/rows,maxs[i]);
-          row.replace("col"+i,s);
-        }
-      }
-    } catch( SecurityException se ) {
-      System.out.println("SecurityException thrown");
-    } catch( IllegalArgumentException iae ) {
-      System.out.println("IllegalArgumentException thrown");
-    }
-
-    row.append();
+    WebUtil.createBestEffortSummary(key, row);
   }
+
 
   final static String html =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
@@ -300,9 +253,7 @@ public class Inspect extends H2OPage {
         if( sz != 0 ) {
           if( r == -1 ) sb.append("...");
           else {
-            if(false /*!ary.valid(r,i) */)
-              /*nothing*/;
-            else if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
+            if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
               sb.append(ary.data (r,i)); // int/long
             else 
               sb.append(ary.datad(r,i)); // float/double
