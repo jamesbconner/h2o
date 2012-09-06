@@ -2,6 +2,7 @@ package water;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
+
 import jsr166y.ForkJoinPool;
 
 /**
@@ -43,7 +44,10 @@ public abstract class UDP {
       getkey (false,new TaskGetKey .RemoteHandler()), // Get a Value for 1 Key
       putkey (false,new TaskPutKey .RemoteHandler()), // Put a Value for 1 Key
       rexec  (false,new TaskRemExec.RemoteHandler()), // Remote execution request
-      atomic (false,new TaskRemExec.RemoteHandler()); // Remote transaction request
+      atomic (false,new TaskRemExec.RemoteHandler()), // Remote transaction request
+    
+      // This packet serves to obtain stdout/stderr/results from remote nodes 
+      log    (false, new RemoteLog()); //
 
     final UDP _udp;           // The Callable S.A.M. instance
     final boolean _paxos;     // Ignore (or not) packets from outside the Cloud

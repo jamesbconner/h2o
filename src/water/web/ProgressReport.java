@@ -3,10 +3,11 @@
  */
 package water.web;
 
+import java.io.InputStream;
 import java.util.Properties;
 
-import water.Log;
-import water.Log.LogListener;
+import water.LocalLogSubscriber;
+import water.LogHub;
 import water.NanoHTTPD;
 import water.NanoHTTPD.Response;
 
@@ -16,18 +17,11 @@ import water.NanoHTTPD.Response;
  */
 public class ProgressReport extends Page {
   
-  private static final String NO_OUTPUT = "<no output>";
-  
-  // TODO optional parameter to get stdout or stderr
-
   @Override
   public Object serve(Server server, Properties args) {
     
-    
-    LogListener l = null;
-    if (System.out instanceof Log) {
-      l = ((Log) System.out).registerListener();
-    }
+    LocalLogSubscriber lls = new LocalLogSubscriber();    
+    LogHub.subscribe(null, lls);        
     
     System.out.println("ProgressReport.serve(): " + Thread.currentThread().getName());
         
@@ -49,8 +43,9 @@ public class ProgressReport extends Page {
     });
     t.start();
     
-    Response res = server.new Response(NanoHTTPD.HTTP_OK, "text/plain", l.getInputStream());
-//    res.addHeader("Connection", "keep-alive");
+    InputStream is = lls.getInputStream();        
+    Response res = server.new Response(NanoHTTPD.HTTP_OK, "text/plain", is);
+    // res.addHeader("Connection", "keep-alive");
     res.addHeader("Access-Control-Allow-Origin", "*");
     return res;
   }

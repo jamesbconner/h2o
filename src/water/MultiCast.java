@@ -95,4 +95,16 @@ public abstract class MultiCast {
     assert H2O.SELF != h2o;   // Hey!  Pointless to send to self!!!
     return send(h2o._key._inet,h2o._key._port,buf,0,len);
   }
+  
+  static int singlecast( H2ONode[] nodes, byte[] buf) {
+    return singlecast(nodes, buf, buf.length);
+  }
+  
+  static int singlecast( H2ONode[] nodes, byte[] buf, int len) {
+    for (H2ONode node : nodes) {
+      send(node._key._inet,node._key._port,buf,0,len);      
+    }
+    
+    return 0;
+  }
 }

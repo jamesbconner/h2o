@@ -3,6 +3,23 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
 
@@ -306,7 +323,8 @@ public final class H2O {
     ARGS = arguments.toStringArray();
 
     // Redirect System.out/.err to the Log system
-    Log.hook_sys_out_err();
+    LogHub.prepare_log_hub();
+    Log.hook_sys_out_err();    
 
     startLocalNode();     // start the local node
     // Load up from disk and initialize the persistence layer
