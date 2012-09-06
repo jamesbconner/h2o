@@ -2,78 +2,76 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
-
 import java.io.*;
 import java.util.UUID;
-
+import jsr166y.*;
 import water.*;
 
-public class Tree implements Serializable {  
-  public static  int MAX_TREE_DEPTH = -1;  
-  public static  double MIN_ERROR_RATE = -1.0;
-  private static final long serialVersionUID = 7669063054915148060L;
-
+public class Tree extends CountedCompleter {
+  final Data _data;
+  final int _max_depth;
+  final double _min_error_rate;
   INode tree_;
-  long time_ ;
-  
-  public Tree() {}
 
-  final INode compute(int depth, Data d, Statistic s, Job[] jobs) {
-    // terminate the branch prematurely
-    if (s.error() < MIN_ERROR_RATE || depth == MAX_TREE_DEPTH)  
-      return new LeafNode(depth,s.classOf());
-    if (s.singleClass()) return new LeafNode(depth, s.classOf());
-    Split best = s.best();
-    if (best == null) return new LeafNode(depth, s.classOf());
-    else {
-      Node nd = new Node(depth, best.column,best.value);
+  // Constructor used to define the specs when building the tree from the top
+  public Tree( Data data, int max_depth, double min_error_rate ) {
+    _data = data;
+    _max_depth = max_depth;
+    _min_error_rate = min_error_rate;
+  }
+  // Constructor used to inhaling/de-serializing a pre-built tree.
+  public Tree( ) {
+    _data = null;
+    _max_depth = 0;
+    _min_error_rate = -1.0;
+  }
+
+  // Oops, uncaught exception
+  public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
+    ex.printStackTrace();
+    return true;
+  }
+
+  // Actually build the tree
+  public void compute() {
+    // All rows in the top-level split
+    Statistic s = new Statistic(_data,null);
+    for (Row r : _data) s.add(r);
+    tree_ = new FJBuild(s,_data,0).compute();
+    //    ... next up: send tree to a distributed validator; record validation counts & confusion matrix per-tree; record global counts; puke incremental results to 1 place
+    tryComplete();
+  }
+
+  private class FJBuild extends RecursiveTask<INode> {
+    final Statistic _s;         // All the rows that this split munged over
+    final Data _data;           // The resulting 1/2-sized dataset from the above split
+    final int _d;
+    FJBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
+    public INode compute() {
+      // terminate the branch prematurely
+      if( _d >= _max_depth || _s.error() < _min_error_rate )
+        return new LeafNode(_d,_s.classOf());
+      if (_s.singleClass()) return new LeafNode(_d, _s.classOf());
+      Split best = _s.best();
+      if (best == null) return new LeafNode(_d, _s.classOf());
+      Node nd = new Node(_d, best.column,best.value,_data.data_);
       Data[] res = new Data[2];
-      Statistic[] stats = new Statistic[]{
-          new Statistic(d,s), new Statistic(d,s)};
-      d.filter(best,res,stats);
-      jobs[0] = new Job(this, nd, 0,res[0],stats[0]);
-      jobs[1] = new Job(this, nd, 1,res[1],stats[1]);
+      Statistic[] stats = new Statistic[] { new Statistic(_data,_s), new Statistic(_data,_s)};
+      _data.filter(best,res,stats);
+      ForkJoinTask<INode> fj0 = new FJBuild(stats[0],res[0],_d+1).fork();
+      nd.r_ =                   new FJBuild(stats[1],res[1],_d+1).compute();
+      nd.l_ = fj0.join();
       return nd;
     }
   }
-  
-  /** Computes the tree using the gini statistic. 
-   * 
-   */
-  
-  final INode computeGini(int depth, Data d, GiniStatistic.Split split, GiniJob[] jobs,GiniStatistic[] stats) {
-    // reset the statistics
-    stats[0].reset(d);
-    stats[1].reset(d);
-    // create the node 
-    GiniNode nd = new GiniNode(depth, split.column, split.split);
-    // filter the data to the new statistics
-    Data[] res = new Data[2];
-    d.filter(nd.column,nd.split,res,stats);
-    GiniStatistic.Split ls = stats[0].split();
-    GiniStatistic.Split rs = stats[1].split();
-    if (ls.isLeafNode())
-      nd.l_ = new LeafNode(depth+1,ls.split);
-    else
-      jobs[0] = new GiniJob(this,nd,0,res[0],ls);
-    if (rs.isLeafNode())
-      nd.r_ = new LeafNode(depth+1,rs.split);
-    else
-      jobs[1] = new GiniJob(this,nd,1,res[1],rs);
-    return nd;
-  }
 
-    
-  public static abstract class INode  implements Serializable {    
-    int navigate(Row r) { return -1; }
-    void set(int direction, INode n) { throw new Error("Unsupported"); }
+  public static abstract class INode {
+    public final int _depth;    // Depth in tree
+    protected INode(int depth) { _depth = depth; }
     abstract int classify(Row r);
     public int depth()         { return 0; }
     public int leaves()        { return 1; }
-    public final int nodeDepth_;
-    protected INode(int depth) {
-      nodeDepth_ = depth;
-    }
+
     public abstract void print(TreePrinter treePrinter) throws IOException;
     abstract void write( DataOutputStream dos ) throws IOException;
     static INode read( DataInputStream dis, int depth ) throws IOException {
@@ -86,9 +84,9 @@ public class Tree implements Serializable {
       }
     }
   }
- 
+
   /** Leaf node that for any row returns its the data class it belongs to. */
-  static class LeafNode extends INode {     
+  static class LeafNode extends INode {
     final int class_;    // A category reported by the inner node
     LeafNode(int depth,int c) {
       super(depth);
@@ -107,54 +105,29 @@ public class Tree implements Serializable {
     }
   }
 
-  static class GiniNode extends INode {
-    final int column;
-    final int split;
-    INode l_, r_;
-
-    @Override int classify(Row r) {
-      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
-    }
-    
-    public GiniNode(int depth, int column, int split) {
-      super(depth);
-      this.column = column;
-      this.split = split;
-    }
-
-    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
-    public int leaves()       { return l_.leaves() + r_.leaves(); }
-    public String toString() {
-      C c = RFGiniTask.data().data_.c_[column];
-      return c.name_ +"<" + split + " ("+l_+","+r_+")";
-    }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
-    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
-  }
-  
-  
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
   static class Node extends INode {
+    final DataAdapter _dapt;
     final int column_;
     final double value_;
     INode l_, r_;
-    public Node(int depth,int column, double value) {
+    public Node(int depth,int column, double value, DataAdapter dapt) {
       super(depth);
-      column_=column;
-      value_=value;
+      column_= column;
+      value_ = value;
+      _dapt  = dapt;
     }
-    public int navigate(Row r) { return r.getS(column_)<=value_?0:1; }
-    public int classify(Row r) { return navigate(r)==0? l_.classify(r) : r_.classify(r); }
-    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+    public int classify(Row row) {
+      return (row.getS(column_)<=value_ ? l_ : r_).classify(row);
+    }
+
     public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
     public int leaves()       { return l_.leaves() + r_.leaves(); }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
     private final C column() {
-      return RFTask.data().data_.c_[column_]; // Get the column in question
+      return _dapt.c_[column_]; // Get the column in question
     }
     private final float split_value(C c) {
       short idx = (short)value_; // Convert split-point of the form X.5 to a (short)X
@@ -183,15 +156,15 @@ public class Tree implements Serializable {
       int col = dis.readShort();
       //float f = dis.readFloat();
       int idx = dis.readShort(); // Read the short index instead of the actual value
-      Node n = new Node(depth,col,((double)idx)+0.5);
+      Node n = new Node(depth,col,((double)idx)+0.5,null);
       n.l_ = INode.read(dis,depth+1);
       n.r_ = INode.read(dis,depth+1);
       return n;
     }
    }
- 
-  public int classify(Row r) { return tree_.classify(r); } 
-  public String toString()   { return tree_.toString(); } 
+
+  public int classify(Row r) { return tree_.classify(r); }
+  public String toString()   { return tree_.toString(); }
 
   // Write the Tree to a random Key homed here.
   public Key toKey() {
@@ -211,4 +184,56 @@ public class Tree implements Serializable {
     } catch( IOException e ) { throw new Error(e); }
     return t;
   }
+
+  /** Computes the tree using the gini statistic.
+   *
+   */
+//  final INode computeGini(int depth, Data d, GiniStatistic.Split split, GiniJob[] jobs,GiniStatistic[] stats) {
+//    // reset the statistics
+//    stats[0].reset(d);
+//    stats[1].reset(d);
+//    // create the node
+//    GiniNode nd = new GiniNode(depth, split.column, split.split);
+//    // filter the data to the new statistics
+//    Data[] res = new Data[2];
+//    d.filter(nd.column,nd.split,res,stats);
+//    GiniStatistic.Split ls = stats[0].split();
+//    GiniStatistic.Split rs = stats[1].split();
+//    if (ls.isLeafNode())
+//      nd.l_ = new LeafNode(depth+1,ls.split);
+//    else
+//      jobs[0] = new GiniJob(this,nd,0,res[0],ls);
+//    if (rs.isLeafNode())
+//      nd.r_ = new LeafNode(depth+1,rs.split);
+//    else
+//      jobs[1] = new GiniJob(this,nd,1,res[1],rs);
+//    return nd;
+//  }
+//
+//  static class GiniNode extends INode {
+//    final int column;
+//    final int split;
+//    INode l_, r_;
+//
+//    @Override int classify(Row r) {
+//      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
+//    }
+//
+//    public GiniNode(int depth, int column, int split) {
+//      super(depth);
+//      this.column = column;
+//      this.split = split;
+//    }
+//
+//    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
+//    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
+//    public int leaves()       { return l_.leaves() + r_.leaves(); }
+//    public String toString() {
+//      C c = RFGiniTask.data().data_.c_[column];
+//      return c.name_ +"<" + split + " ("+l_+","+r_+")";
+//    }
+//    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+//    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
+//    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
+//  }
 }

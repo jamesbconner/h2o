@@ -51,11 +51,11 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     String[] names = ary.col_names();
-    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], ary.row_size());
+    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], -1);
     double[] ds = new double[num_cols];
     for( Key key : _keys ) {
       if( key.home() ) {
-        byte[] bits = DKV.get(key).get();
+        byte[] bits = DKV.get(key).get(); // An NPE here means the cloud is changing...
         final int num_rows = bits.length/rowsize;
         for( int j=0; j<num_rows; j++ ) { // For all rows in this chunk
           for( int k=0; k<num_cols; k++ )
@@ -66,7 +66,10 @@ public class DRF extends water.DRemoteTask {
     }
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
-    RandomForest.build(dapt, .666, _ntrees, _depth, -1, _useGini);
+    RandomForest rf = new RandomForest(dapt, .666, _ntrees, _depth, -1, _useGini);
+    for( Tree tree : rf._trees ) {
+      System.out.println("Tree "+tree);
+    }
     tryComplete();
   }
 
