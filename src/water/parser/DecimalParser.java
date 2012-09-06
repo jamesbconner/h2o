@@ -21,23 +21,23 @@ public class DecimalParser {
         f.setAccessible(true);
       } catch (NoSuchFieldException nfe) { f = null; }
       COUNT = f;
-      
+
       try {
         f = CLAZZ.getDeclaredField("value");
         f.setAccessible(true);
       } catch (NoSuchFieldException nfe) { f = null; }
       VALUE = f;
-      
+
     } catch (Exception e) { throw Throwables.propagate(e); }
   }
-  
+
   // We do a poor man's parsing of valid number/not valid number
   // to fail fast for things that really won't parse
   private static final int ERROR    = -1;
   private static final int LEADING  = 0;
   private static final int BODY     = 1;
   private static final int TRAILING = 2;
-  
+
   private final String _str;
   private int _len;
   private int _state;
@@ -61,12 +61,12 @@ public class DecimalParser {
       }
     } catch( Exception e ) { throw Throwables.propagate(e); }
   }
-  
+
   public void reset() {
     _len = 0;
     _state = LEADING;
   }
-  
+
   public void addCharacter(byte b) {
     char ch = (char) b;
     switch( _state ) {
@@ -101,9 +101,9 @@ public class DecimalParser {
       _state = ERROR;
     }
   }
-  
+
   public double doubleValue() {
-    if( _state == ERROR ) return Double.NaN;
+    if( _state == ERROR || _len == 0) return Double.NaN;
     try {
       if( COUNT != null ) {
         COUNT.setInt(_str, _len);

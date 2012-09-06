@@ -2,47 +2,50 @@ package water.parser;
 
 import java.util.Iterator;
 
-import com.google.common.base.Objects;
-
 import water.*;
+
+import com.google.common.base.Objects;
 
 public class SeparatedValueParser implements Iterable<double[]>, Iterator<double[]> {
   private final Key _key;
   private final Value _startVal;
   private final char _separator;
-  
+
   private Value _curVal;
   private int _curChunk;
   private byte[] _curData;
   private int _offset;
-  
+
   private final DecimalParser _decimal = new DecimalParser();
   private final double[] _fieldVals;
-  private final int[] _fieldStarts;
-  private final int[] _fieldEnds;
 
   public SeparatedValueParser(Key k, char seperator, int numColumnsGuess) {
     _separator = seperator;
     _startVal = UKV.get(k);
     assert _startVal != null;
     _key = _startVal._key;
-    
+
     if( _key._kb[0] == Key.ARRAYLET_CHUNK ) {
       _curChunk = ValueArray.getChunkIndex(_key);
     } else {
       _curChunk = -1;
     }
-    
+
     _curVal = _startVal;
     _offset = 0;
     _curData = _startVal.get();
-    if( _curChunk > 0 ) scanToNextRow();
-    
+    if( _curChunk > 0 ) {
+      while( hasNextByte() ) {
+        byte b = getByte();
+        if( isNewline(b) ) break;
+        ++_offset;
+      }
+    }
+    skipNewlines();
+
     _fieldVals = new double[numColumnsGuess];
-    _fieldStarts = new int[numColumnsGuess];
-    _fieldEnds = new int[numColumnsGuess];
   }
-  
+
   // we are splitting this method, to clue in hotspot that the fast path
   // should be inlined
   private boolean hasNextByte() {
@@ -51,12 +54,12 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
   }
   private boolean hasNextByteInSeparateChunk() {
     if( _curChunk < 0 ) return false;
-    
+
     if( _offset < _curVal._max ) {
       _curData = _curVal.get(2*_curData.length);
       return true;
     }
-    
+
     _curChunk += 1;
     Key k = ValueArray.getChunk(_key, _curChunk);
     _curVal = UKV.get(k);
@@ -65,40 +68,35 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
     _curData = _curVal.get(1024);
     return _offset < _curData.length;
   }
-  
-  private byte getNextByte() {
+
+  private byte getByte() {
     assert hasNextByte();
-    return _curData[_offset++];
+    return _curData[_offset];
   }
-  
-  private byte skipNewlines() {
+
+  private void skipNewlines() {
     while( hasNextByte() ) {
-      byte b = getNextByte();
-      if( !isNewline(b) ) return b;
-    }
-    return '\n';
-  }
-  
-  private void scanToNextRow() {
-    while( hasNextByte() ) {
-      byte b = getNextByte();
-      if( isNewline(b) ) break;
+      byte b = getByte();
+      if( !isNewline(b) ) return;
+      ++_offset;
     }
   }
-  
+
   // According to the CSV spec, `"asdf""asdf"` is a legal quoted field
   // We are going to parse this, but not simplify it into `asdf"asdf`
   // we will make the simplifying parse of " starts and stops escaping
-  private byte scanToNextSeparator() {
+  private byte scanPastNextSeparator() {
     boolean escaped = false;
     while( hasNextByte() ) {
-      byte b = getNextByte();
+      byte b = getByte();
       if( b == '"' ) {
         escaped = !escaped;
       } else if( !escaped && isSeparator(b) ) {
+        ++_offset;
         return b;
       }
       _decimal.addCharacter(b);
+      ++_offset;
     }
     return '\n';
   }
@@ -110,42 +108,33 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
   public Iterator<double[]> iterator() {
     return this;
   }
-  
+
   @Override
   public boolean hasNext() {
     return _curVal == _startVal && hasNextByte();
   }
-  
+
   @Override
   public double[] next() {
+    assert !isNewline(getByte());
+
+    byte b;
     int field = 0;
-    byte b = skipNewlines();
-    if( !isNewline(b) ) {
-      _decimal.reset();
-      _decimal.addCharacter(b);
-      do {
-        if( field < _fieldVals.length ) {
-          _fieldStarts[field] = _offset;
-          b = scanToNextSeparator();
-          _fieldEnds[field] = _offset-1;
-          _fieldVals[field] = _decimal.doubleValue();
-        } else {
-          b = scanToNextSeparator();
-          _fieldVals[field] = Double.NaN;
-        }
-        ++field;
-        if( isNewline(b) ) {
-          break;
-        }
+    while( hasNextByte() ) {
+      if( field < _fieldVals.length ) {
         _decimal.reset();
-      } while( hasNextByte() );
-    }
-    while( field < _fieldVals.length ) {
-      _fieldVals[field] = Double.NaN;
-      _fieldStarts[field] = _offset;
-      _fieldEnds[field] = _offset;
+        b = scanPastNextSeparator();
+        _fieldVals[field] = _decimal.doubleValue();
+      } else {
+        b = scanPastNextSeparator();
+      }
       ++field;
+      if( isNewline(b) ) {
+        break;
+      }
     }
+    for(; field < _fieldVals.length; ++field) _fieldVals[field] = Double.NaN;
+    skipNewlines();
     return _fieldVals;
   }
 
@@ -155,7 +144,7 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
         .add("_offset", _offset) + "\n" +
         new String(_curData, _offset, Math.min(100, _curData.length - _offset));
   }
-  
+
 
   @Override public void remove() { throw new UnsupportedOperationException(); }
 }

@@ -10,37 +10,42 @@ public class ParserTest {
     H2O.main(new String[] {});
   }
 
-  @AfterClass public static void tearDownCloud() {
-//    UDPRebooted.global_kill();
-  }
-
-  private static class S {
-    final String input;
-    final double[][] output;
-
-    public S(String i, double[][] o) {
-      input = i;
-      output = o;
-    }
-  }
+  private double[] d(double... ds) { return ds; }
+  private final double NaN = Double.NaN;
 
   @Test public void testBasic() {
-    S[] tests = new S[] {
-        new S("1,2,3", new double[][] {
-            { 1.0, 2.0, 3.0 },
-        }),
+    Object[][] t = new Object[][] {
+        { "1,2,3",          d(1.0, 2.0, 3.0), },
+        { "4,5,6",          d(4.0, 5.0, 6.0), },
+        { "4,5.2,",         d(4.0, 5.2, NaN), },
+        { ",,",             d(NaN, NaN, NaN), },
+        { "asdf,qwer,1",    d(NaN, NaN, 1.0), },
+        { "1.1",            d(1.1, NaN, NaN), },
+        { "1.1,2.1,3.4",    d(1.1, 2.1, 3.4), },
     };
+    int i = 0;
+    SeparatedValueParser p;
 
-    for( S t : tests ) {
-      Key k = Key.make();
-      Value v = new Value(k, t.input);
-      DKV.put(k, v);
+    StringBuilder sb = new StringBuilder();
+    for( i = 0; i < t.length; ++i ) sb.append(t[i][0]).append("\n");
 
-      SeparatedValueParser p = new SeparatedValueParser(k, ',', t.output[0].length);
-      int i = 0;
-      for (double[] r : p) {
-        Assert.assertArrayEquals(t.output[i++], r, 0.0001);
-      }
+    Key k = Key.make();
+    DKV.put(k, new Value(k, sb.toString()));
+
+    p = new SeparatedValueParser(k, ',', 3);
+    i = 0;
+    for( double[] r : p ) {
+      Assert.assertArrayEquals((double[]) t[i++][1], r, 0.0001);
+    }
+
+    sb = new StringBuilder();
+    for( i = 0; i < t.length; ++i ) sb.append(t[i][0]).append("\r\n");
+    DKV.put(k, new Value(k, sb.toString()));
+
+    p = new SeparatedValueParser(k, ',', 3);
+    i = 0;
+    for( double[] r : p ) {
+      Assert.assertArrayEquals((double[]) t[i++][1], r, 0.0001);
     }
   }
 }
