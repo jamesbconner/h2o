@@ -31,11 +31,11 @@ public class ValueArray extends Value {
     // The unstructured-data array has zero everywhere, except the length
     UDP.set8(_mem,LENGTH_OFF,sz);
   }
-  
+
   public ValueArray( int max, int len, Key key, byte mode ) {
     super(max,len,key,mode);
   }
-  
+
   @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
 
   @Override public byte type() { return ARRAY; }
@@ -65,7 +65,7 @@ public class ValueArray extends Value {
   // Get the chunk with the given index.
   // The returned key is *not* guaranteed to exist in K/V store.
   // @param k - key of arraylet chunk
-  // @param index - offset of the requested chunk
+  // @param index - the requested chunk number
   // @return - Key of the chunk with offset == index
   public static Key getChunk(Key k, int index) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
@@ -78,7 +78,7 @@ public class ValueArray extends Value {
   // Number of chunks in this array
   // Divide by 1Meg into chunks.  The last chunk is between 1 and 2 megs
   static public long chunks(long sz) { return sz>>LOG_CHK; }
-  @Override public long chunks() { 
+  @Override public long chunks() {
     long num = chunks(length()); // Rounds down: last chunk can be large
     if( num==0 && length() > 0 ) num = 1; // Always at least one, tho
     return num;
@@ -122,10 +122,10 @@ public class ValueArray extends Value {
     Key key = Key.make(keyname,rf);
     return read_put_stream(key,is);
   }
-  
+
   // Reads the given stream and creates a value for it, or a list of chunks and
-  // an arraylet if the value is too big. 
-  // Maybe this should be somehow merged with read_put_file ? 
+  // an arraylet if the value is too big.
+  // Maybe this should be somehow merged with read_put_file ?
   static public Key read_put_stream(Key key, InputStream is) throws IOException {
     BufferedInputStream bis = new BufferedInputStream(is,(int)chunk_size()*2);
 
@@ -171,7 +171,7 @@ public class ValueArray extends Value {
     }
     bis.close();
     return key;
-  }  
+  }
 
   // Read a (possibly VERY large file) and put it in the K/V store and return a
   // Value for it.  Files larger than 2Meg are broken into arraylets of 1Meg each.
@@ -184,7 +184,7 @@ public class ValueArray extends Value {
     // Larger files are broken up in 1Meg chunks
     long chunks = chunks(sz);   // Divide by 1Meg into chunks, rounding up
     if( chunks < 2 ) {          // Not enough chunks, so use a single Value
-      Value val = new Value(key,(int)sz);      
+      Value val = new Value(key,(int)sz);
       dis.readFully(val._mem);
       UKV.put(key,val);         // Insert in distributed store
       return key;
@@ -205,7 +205,7 @@ public class ValueArray extends Value {
       Key ckey = make_chunkkey(key,off);
       Value val = new Value(ckey,sz2);
       dis.readFully(val._mem);
-      
+
       DKV.put(ckey,val);         // Insert in distributed store
 
       off += szl;               // Advance the cursor
@@ -375,7 +375,7 @@ public class ValueArray extends Value {
 
   // Offset (within a row) of this column start
   public int col_off(int cnum) { return UDP.get2(get(),col(cnum)+OFF_COL_OFF)&0xFFFF; }
-  
+
   // Size in bytes of this column, either 1,2,4 or 8 (integer) or -4 or -8 (float/double)
   public int col_size(int cnum) { return get()[col(cnum)+SIZE_COL_OFF]; }
 

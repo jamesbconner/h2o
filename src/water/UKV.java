@@ -7,7 +7,7 @@ import java.io.IOException;
  * User-View Key/Value Store
  *
  * This class handles user-view keys, and hides ArrayLets from the end user.
- * 
+ *
  *
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
@@ -32,8 +32,8 @@ public abstract class UKV {
     }
     if( res != null ) res.free_mem();
   }
-  
-  static public void remove( Key key ) {  
+
+  static public void remove( Key key ) {
     assert key.user_allowed();
     Value val = DKV.get(key,32); // Get the existing Value, if any
     if( val == null ) return;    // Trivial delete
@@ -53,8 +53,7 @@ public abstract class UKV {
     if( val instanceof ValueArray ) {
       Key k2 = ValueArray.make_chunkkey(key,0);
       Value vchunk0 = UKV.get(k2,len);
-      if( vchunk0 == null )
-        System.out.println("missed looking for key "+k2+" from "+key);
+      assert vchunk0 != null : "missed looking for key "+k2+" from "+key;
       if( len > vchunk0._max && len > ValueArray.chunk_size())
         throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk when fetching "+key+" and "+len+" bytes, found "+k2+" of len "+vchunk0._max);
       return vchunk0;           // Else just get the prefix asked for
@@ -62,18 +61,18 @@ public abstract class UKV {
     return val;
   }
   static public Value get( Key key ) { return get(key,(int)ValueArray.chunk_size()); }
-  
+
   static public void put(String s, Value v) { put(Key.make(s), v); }
   static public Value get(String s) { return get(Key.make(s)); }
   static public void remove(String s) { remove(Key.make(s)); }
-  
-  
+
+
   // Appends the given set of bytes to the arraylet
   private static void appendArraylet(ValueArray alet, byte[] b) {
     Value lastChunk = DKV.get(alet.make_chunkkey(alet._key,alet.length() - alet.length() % ValueArray.chunk_size()));
     int offset = 0;
     int remaining = b.length;
-    // first update the last chunk 
+    // first update the last chunk
     int size = (int) Math.min(ValueArray.chunk_size() - lastChunk._max, b.length);
     if( size != 0 )
       DKV.append(lastChunk._key, b, offset, size);
@@ -89,7 +88,7 @@ public abstract class UKV {
       System.arraycopy(b, offset, lastChunk.mem(), 0, size);
       DKV.put(lastChunk._key, lastChunk);
     }
-    // and finally update the arraylet size. 
+    // and finally update the arraylet size.
     ValueArray newalet = new ValueArray(alet._key, alet.length() + b.length,Value.ICE);
     // change the UUID so that it is the same
     System.arraycopy(alet.get(), 10, newalet.mem(), 10, alet._max - 10);
@@ -113,7 +112,7 @@ public abstract class UKV {
       }
       // There already is a value:
     } else {
-      // if it is an ICE value, and we can append, do the append 
+      // if it is an ICE value, and we can append, do the append
       if( old.type() == Value.ICE ) {
         if( old._max + b.length <= ValueArray.chunk_size() ) {
           // we can append safely within the arraylet boundary, only append to
@@ -136,5 +135,5 @@ public abstract class UKV {
       appendArraylet((ValueArray) DKV.get(k), b);
     }
   }
-  
+
 }
