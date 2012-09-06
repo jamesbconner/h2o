@@ -79,7 +79,7 @@ public abstract class MultiCast {
       //    Cloud configuration: (A, B, C)
       //      
    
-      // Hideous O(n) algorithm for broadcast
+      // Hideous O(n) algorithm for broadcast - avoid the memory allocation in this method (since it is heavily used)
       HashSet<H2ONode> nodes = new HashSet<H2ONode>();
       nodes.addAll(H2O.STATIC_CONF_NODES);
       nodes.addAll(H2O.CLOUD._memset);
@@ -94,5 +94,17 @@ public abstract class MultiCast {
   static int singlecast( H2ONode h2o, byte[] buf, int len ) {
     assert H2O.SELF != h2o;   // Hey!  Pointless to send to self!!!
     return send(h2o._key._inet,h2o._key._port,buf,0,len);
+  }
+  
+  static int singlecast( H2ONode[] nodes, byte[] buf) {
+    return singlecast(nodes, buf, buf.length);
+  }
+  
+  static int singlecast( H2ONode[] nodes, byte[] buf, int len) {
+    for (H2ONode node : nodes) {
+      send(node._key._inet,node._key._port,buf,0,len);      
+    }
+    
+    return 0;
   }
 }
