@@ -8,6 +8,14 @@ import java.util.Arrays;
  * @author peta
  */
 public class GiniStatistic {
+  
+  public enum Type {
+    split,
+    exclusion
+  }
+  
+  public static final Type type = Type.exclusion;
+  
   /** Split descriptor for a particular column. 
    * 
    * Holds the column name and the split point, which is the last column class
@@ -104,6 +112,40 @@ public class GiniStatistic {
     return result;
   }
   
+  /** Aggregates the given column's distribution to the provided array and 
+   * returns the sum of weights of that array. 
+   * 
+   */
+  private double aggregateColumn(int colIndex, double[] dist) {
+    double sum = 0;
+    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
+      for (int i = 0; i < dist.length; ++i) {
+        sum += columnDists_[colIndex][j][i];
+        dist[i] = columnDists_[colIndex][j][i]; 
+      }
+    }
+    return sum;
+  }
+  
+  private int singleClass(double[] dist) {
+    int result = -1;
+    for (int i = 0; i < dist.length; ++i)
+      if (dist[i] != 0)
+        if (result == dist[i]) {
+          // pass
+        } else if (result == -1) {
+          result = i;
+        } else {
+          result = -1;
+          break;
+        }
+    return result;
+  }
+
+  private Split columnExclusion(int colIndex) {
+    return null;
+  }
+  
   /** Returns the best split for given column. 
    * 
    * @param colIndex
@@ -113,24 +155,10 @@ public class GiniStatistic {
     double[] leftDist = new double[columnDists_[colIndex][0].length];
     double[] rightDist = new double[leftDist.length];
     double leftWeight = 0;
-    double rightWeight = 0;
-    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
-      for (int i = 0; i < rightDist.length; ++i) {
-        rightWeight += columnDists_[colIndex][j][i];
-        rightDist[i] = columnDists_[colIndex][j][i]; 
-      }
-    }
+    double rightWeight = aggregateColumn(colIndex, rightDist);
     double totWeight = rightWeight;
     // now check if we have only a single class
-    int singleClass = -1;
-    for (int i = 0; i < rightDist.length; ++i)
-      if (rightDist[i] != 0)
-        if (singleClass == -1) {
-          singleClass = i;
-        } else {
-          singleClass = -1;
-          break;
-        }
+    int singleClass = singleClass(rightDist);
     if (singleClass != -1) 
       return Split.constant(singleClass);
     // we are not a single class, calculate the best split for the column
