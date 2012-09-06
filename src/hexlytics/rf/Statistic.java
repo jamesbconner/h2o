@@ -1,7 +1,6 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
-import hexlytics.rf.Statistic.Column;
 
 
 public class Statistic {

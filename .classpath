@@ -10,7 +10,11 @@
 	<classpathentry kind="lib" path="lib/apache/httpcore-4.1.jar"/>
 	<classpathentry kind="lib" path="lib/hadoop/1.0.0/hadoop-core-1.0.0.jar"/>
 	<classpathentry kind="lib" path="lib/junit/junit-4.11.jar"/>
-	<classpathentry kind="lib" path="lib/sigar/sigar.jar"/>
+	<classpathentry kind="lib" path="lib/sigar/sigar.jar">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="hexbase/lib/binlib"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="lib" path="lib/apache/guava-12.0.1.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>

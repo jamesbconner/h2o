@@ -1,15 +1,15 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
-import hexlytics.rf.Tree.LeafNode;
+
 import java.io.File;
-import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
+
 import test.TestUtil;
 import water.DKV;
 import water.H2O;
 import water.Key;
 import water.ValueArray;
-import java.util.concurrent.ExecutionException;
 
 public class RandomForest {
   final Tree[] _trees;          // The trees that got built
