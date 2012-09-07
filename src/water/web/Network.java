@@ -10,7 +10,6 @@ import water.H2ONode;
  * The page contains network statistics for each running node (JVM).
  *
  * @author Michal Malohlava
- *
  */
 public class Network extends H2OPage {
 
@@ -22,7 +21,7 @@ public class Network extends H2OPage {
   protected String serve_impl(Properties args) {
     RString response = new RString(HTML_TEMPLATE);
 
-    response.replace("cloud_name", H2O.CLOUD.NAME);
+    response.replace("cloud_name", H2O.NAME);
     response.replace("node_name", H2O.SELF.toString());
 
     final H2O cloud = H2O.CLOUD;
