@@ -50,7 +50,7 @@
 
 <!-- compile everything -->
   <target name="compile" depends="init" description="Compilation target">
-      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true"       >
+      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true" target="1.6">
         <classpath refid="build.classpath"/>
       </javac>
   </target>
