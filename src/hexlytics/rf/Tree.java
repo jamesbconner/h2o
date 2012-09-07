@@ -2,10 +2,21 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
-import java.io.*;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.UUID;
-import jsr166y.*;
-import water.*;
+
+import jsr166y.CountedCompleter;
+import jsr166y.ForkJoinTask;
+import jsr166y.RecursiveTask;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.Value;
 
 public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
@@ -162,6 +173,7 @@ public class Tree extends CountedCompleter {
   }
 
   private class FJEntropyBuild extends RecursiveTask<INode> {
+    static final boolean THREADED = false;  
     final Statistic _s;         // All the rows that this split munged over
     final Data _data;           // The resulting 1/2-sized dataset from the above split
     final int _d;
@@ -177,9 +189,20 @@ public class Tree extends CountedCompleter {
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[] { new Statistic(_data,_s), new Statistic(_data,_s)};
       _data.filter(best,res,stats);
+<<<<<<< HEAD
       ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
       nd._r =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
       nd._l = fj0.join();
+=======
+      if (THREADED) {
+        ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
+        nd.r_ =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
+        nd.l_ = fj0.join();
+      } else {
+        nd.l_ = new FJEntropyBuild(stats[0],res[0],_d+1).compute();
+        nd.r_ = new FJEntropyBuild(stats[1],res[1],_d+1).compute();          
+      }
+>>>>>>> A new entropy metric...
       return nd;
     }
   }
@@ -298,8 +321,13 @@ public class Tree extends CountedCompleter {
       return _dapt.c_[_column]; // Get the column in question
     }
     private final float split_value(C c) {
+<<<<<<< HEAD
       short idx = (short)_value; // Convert split-point of the form X.5 to a (short)X
       double dlo = c._v2o[idx+0]; // Convert to the original values
+=======
+      short idx = (short)value_; // Convert split-point of the form X.5 to a (short)X
+      double dlo =                 c._v2o[idx+0]; // Convert to the original values
+>>>>>>> A new entropy metric...
       double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
       double dmid = (dlo+dhi)/2.0; // Compute an original split-value
       float fmid = (float)dmid;

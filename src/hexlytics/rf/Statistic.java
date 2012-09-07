@@ -64,12 +64,13 @@ public class Statistic {
       int max =0;
       for(int i=0;i<dists.length;i++) if (dists[i]>max) { max=(int)dists[i]; classOf = i;}
     }
+    if (classOf == -1)
+      classOf =-1;
     return classOf; 
   }
   
   public double error() {
-    if (classOf == -1)
-      classOf();
+    if (classOf == -1)  classOf();
     double total = Utils.sum(dists);
     double others = total - dists[classOf];
     return others / total;
@@ -86,18 +87,18 @@ public class Statistic {
   /** Compute the statistics on each column; holds the distribution of the values
    * using weights. This class is called from the main statistic for each column
    * the statistic cares about. */
-  static class Column {
+  class Column {
     final int column; // column
     final int[]   cnt;
     final int[][] val;
-    final double[][] dists;
+    final int[][] dists;
     int first=-1, last=-1;
 
     Column(int c, int lst, int classes) {
       column = c; 
       cnt = new int[lst];
       val = new int[lst][classes];
-      dists = new double[2][classes]; // 2 x numClasses
+      dists = new int[2][classes]; // 2 x numClasses
     }    
 
     void add(int class_,int o) {
@@ -108,7 +109,7 @@ public class Statistic {
       if (last<o) last=o;
    }        
      
-    Split split() {
+    Split split_ORIGNAL() {
       if (first==last) return null;
       double fit = Utils.entropyOverColumns(dists); //compute fitness with no prediction
       // now try all the possible splits
@@ -127,12 +128,53 @@ public class Statistic {
       }
       return new Split(column,split,bestFit); 
     } 
-  }
-
-  private int last(int col) {
-    for( Column c : columns_ ) {
-      if( c.column == col ) return c.last;
+  
+    double entropy(int[] v) {
+      double tot = 0;
+      for(int e: v) tot+= e;
+      double res = 0.0;
+      for(int e: v)  if(e!=0) res -=  (e / tot) * Math.log( e / tot ) / Math.log(2);
+      return res;
     }
+    int sum(int []v) { int res = 0;  for(int e : v) res+=e; return res; }
+    final static double TOLERANCE = 0.001;
+    boolean isClose(double l, double r) { if (l==0 || r==0) return false; double d = l - r; return d > -TOLERANCE && d < TOLERANCE; }
+    
+    Split split() {
+      Split o = split_ORIGNAL();
+      Split n = split_NEW();
+     // System.out.println(o+ " <<>> "+ n);
+      return n;
+    }
+    Split split_NEW() {
+      if (first==last) return null;
+      int[] parent   = new int[data_.classes()];
+      for(int i = first; i < last; i++) {
+        if( cnt[i] == 0 ) continue;
+        for( int j = 0; j < parent.length; j++ )  parent[j]  += val[i][j];
+      }
+      double eparent = entropy(parent);
+      int totparent  = sum(parent);
+      int[]  left    = new int[data_.classes()];
+      int[] right    = Arrays.copyOf(parent, parent.length);
+      double maxReduction = 10.0, bestSplit = -1;
+      for(int i = first; i < last; i++){ // splits are between values
+        if( cnt[i] == 0 ) continue;
+        for( int j = 0; j < left.length; j++ ) { left[j]  += val[i][j]; right[j] -= val[i][j]; }           
+        double eleft = entropy(left);    int totleft = sum(left);
+        double eright = entropy(right);  int totright = sum(right);
+        double ereduction = eparent - (eleft * totleft + eright * totright) / (double) totparent;
+        if ( ereduction < maxReduction ) { bestSplit = i;  maxReduction = ereduction; }
+        else if (false && isClose(ereduction,maxReduction) && data_.random().nextBoolean()) {
+          bestSplit = i;  maxReduction = ereduction;
+        }
+      }
+      return new Split(column,bestSplit + 0.5,maxReduction); 
+    }
+  }
+ 
+  private int last(int col) {
+    for( Column c : columns_ )  if( c.column == col ) return c.last;
     if( parent_ != null ) return parent_.last(col);
     return data_.last(col);
   }
