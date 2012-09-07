@@ -4,6 +4,8 @@ import java.util.Properties;
 import water.H2O;
 import water.Key;
 import water.ValueArray;
+import hexlytics.rf.Tree.StatType;
+import hexlytics.rf.Tree;
 
 // @author cliffc
 public class RandomForest extends H2OPage {
@@ -13,11 +15,13 @@ public class RandomForest extends H2OPage {
     ValueArray ary = (ValueArray)o;
     int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
-    boolean gini = args.getProperty("gini")!=null;
-
+    // default gini is on.
+    // gini=1 is entropy; gini=0 is turned off
+    int gini = getAsNumber(args, "gini", 2);
+    StatType statType = StatType.fromId(gini);
     Key treeskey;
     try {
-      treeskey = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,gini);
+      treeskey = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType);
     } catch( Exception e ) {
       return wrap(error(e.toString()));
     }
