@@ -16,7 +16,7 @@ public class Parse extends H2OPage {
     Key key1 = Key.make(skey1);
     Key key2 = Key.make(skey2);
 
-    String s = "<a href='/Inspect?Key="+urlEncode(key2.toString())+"'>"+key2+"</a>";
+    String s = "<a href='/Inspect?Key="+encode(key2._kb)+"'>"+key2+"</a>";
     if( DKV.get(key2) == null ) { // Key not parsed?  Parse it
       long start = System.currentTimeMillis();
       Value dataset = DKV.get(key1);  // Get the source dataset root key

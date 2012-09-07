@@ -18,7 +18,7 @@ public class KeysView extends H2OPage {
   public KeysView() {
     _refresh = 5;
   }
-  
+
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
     // get the offset index
@@ -42,12 +42,12 @@ public class KeysView extends H2OPage {
             keys[j] = s;
           }
           ++i;
-        }          
+        }
       }
       lastIndex = i;
     }
-    
-    
+
+
     // get the code values first
     int i = 0;
     for (int j = 0; j<lastIndex; ++j) {
@@ -58,7 +58,7 @@ public class KeysView extends H2OPage {
           keys[i] = keys[j];
           keys[j] = s;
           ++i;
-        }          
+        }
       }
     }
     // sort the code values
@@ -70,7 +70,7 @@ public class KeysView extends H2OPage {
     for( Object o : keys ) {
       if (i>=lastIndex) break;
       Key key = (Key)o;
-      // skip keys at the beginning 
+      // skip keys at the beginning
       if (offset>0) {
         --offset;
         continue;
@@ -78,7 +78,7 @@ public class KeysView extends H2OPage {
       Value val = H2O.get(key);
       if( val == null ) { // Racing delete nuked key?
         keysize--;              // Dont count these keys
-        continue; 
+        continue;
       }
       formatKeyRow(cloud,key,response);
       if( ++i >= KEYS_PER_PAGE ) break;     // Stop at some reasonable limit
@@ -86,7 +86,7 @@ public class KeysView extends H2OPage {
     response.replace("noOfKeys",keysize);
     response.replace("cloud_name",H2O.CLOUD.NAME);
     response.replace("node_name",H2O.SELF.toString());
-    if (!prefix.isEmpty()) 
+    if (!prefix.isEmpty())
       response.replace("pvalue","value='"+prefix+"'");
     return response.toString();
   }
@@ -108,7 +108,7 @@ public class KeysView extends H2OPage {
         break;
       if (i==offset)
         sb.append("<li class='active'><a href=''>"+i+"</li>");
-      else 
+      else
         sb.append("<li><a href='?o="+i+prefix+"'>"+i+"</li>");
       ++j;
     }
@@ -120,12 +120,12 @@ public class KeysView extends H2OPage {
     String nav = sb.toString();
     response.replace("navup",nav);
   }
-  
+
   private void formatKeyRow(H2O cloud, Key key, RString response) {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
-    row.replace("keyHref",urlEncode(new String(key._kb)));
+    row.replace("keyHref",encode(key._kb));
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
     int d = key.count_disk_replicas();
     int r = key.desired();
@@ -170,5 +170,5 @@ public class KeysView extends H2OPage {
           + "</tbody>"
           + "</table>\n"
           ;
-  
+
 }

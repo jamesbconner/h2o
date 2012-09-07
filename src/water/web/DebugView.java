@@ -1,20 +1,17 @@
 package water.web;
 
+import java.util.Arrays;
 import java.util.Properties;
 import water.*;
 
-/**
- *
- * @author peta
- */
 public class DebugView extends H2OPage {
-  
+
   public static final int KEYS_PER_PAGE = 25;
 
   public DebugView() {
     _refresh = 5;
   }
-  
+
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
     // get the offset index
@@ -38,7 +35,7 @@ public class DebugView extends H2OPage {
             keys[j] = s;
           }
           ++i;
-        }          
+        }
       }
       lastIndex = i;
     }
@@ -48,22 +45,22 @@ public class DebugView extends H2OPage {
     for( Object o : keys ) {
       if (i>=lastIndex) break;
       Key key = (Key)o;
-      // skip keys at the beginning 
+      // skip keys at the beginning
       if (offset>0) {
         --offset;
         continue;
       }
       Value val = H2O.raw_get(key);
       if( val == null) {  // Internal sentinel
-        continue; 
+        continue;
       }
       formatKeyRow(cloud,key,val,response);
       if( ++i >= KEYS_PER_PAGE ) break;     // Stop at some reasonable limit
     }
     response.replace("noOfKeys",lastIndex);
-    response.replace("cloud_name",H2O.CLOUD.NAME);
+    response.replace("cloud_name",H2O.NAME);
     response.replace("node_name",H2O.SELF.toString());
-    if (!prefix.isEmpty()) 
+    if (!prefix.isEmpty())
       response.replace("pvalue","value='"+prefix+"'");
     return response.toString();
   }
@@ -85,7 +82,7 @@ public class DebugView extends H2OPage {
         break;
       if (i==offset)
         sb.append("<li class='active'><a href=''>"+i+"</li>");
-      else 
+      else
         sb.append("<li><a href='?o="+i+"'>"+i+"</li>");
       ++j;
     }
@@ -97,13 +94,13 @@ public class DebugView extends H2OPage {
     String nav = sb.toString();
     response.replace("navup",nav);
   }
-  
+
   private void formatKeyRow(H2O cloud, Key key, Value val, RString response) {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
     row.replace("key",key.user_allowed() ? ks : "<code>"+ks+"</code>");
-    String kurl = urlEncode(new String(key._kb));
+    String kurl = encode(key._kb);
     row.replace("keyHref1",kurl);
     row.replace("keyHref2",kurl);
     // Dump out the current replication info: Mem/Disk/Replication_desired
@@ -150,7 +147,7 @@ public class DebugView extends H2OPage {
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"
-          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref1'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref2'>%key</a></td>"
+          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref1'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Inspect?Key=%keyHref2'>%key</a></td>"
           + "    <td style='%replicationStyle'>%r1/%r2</td>"
           + "    <td>%home</td>"
           + "    <td>%home2</td>"

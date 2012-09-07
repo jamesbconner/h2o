@@ -10,14 +10,14 @@ import water.*;
  * @author peta
  */
 public class StoreView extends H2OPage {
-  
+
   public static final int KEYS_PER_PAGE = 25;
 
   public StoreView() {
     // No thanks on the refresh, it's hard to use.
     //_refresh = 5;
   }
-  
+
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
     // get the offset index
@@ -82,7 +82,7 @@ public class StoreView extends H2OPage {
         break;
       if (i==offset)
         sb.append("<li class='active'><a href=''>"+i+"</li>");
-      else 
+      else
         sb.append("<li><a href='?o="+i+prefix+"'>"+i+"</li>");
       ++j;
     }
@@ -94,12 +94,12 @@ public class StoreView extends H2OPage {
     String nav = sb.toString();
     response.replace("navup",nav);
   }
-  
+
   private void formatKeyRow(H2O cloud, Key key, Value val, RString response) {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
-    row.replace("keyHref",urlEncode(new String(key._kb)));
+    row.replace("keyHref",encode(key._kb));
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
     //if (val instanceof ValueCode) {
     //  row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
@@ -125,7 +125,7 @@ public class StoreView extends H2OPage {
     if( val.length() > len ) sb.append("...");
     row.replace("value",sb);
     row.replace("size",val.length());
-    row.replace("ktr",urlEncode(ks));
+    row.replace("ktr",encode(key._kb));
 
     // See if this is a structured ValueArray.  Report results from a total parse.
     if( val instanceof ValueArray ) {

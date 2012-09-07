@@ -9,27 +9,27 @@ import water.*;
  * @author cliffc@
  */
 public class Inspect extends H2OPage {
-  
+
   public Inspect() {
     // No thanks on the refresh, it's hard to use.
     //_refresh = 5;
   }
-  
+
   @Override protected String serve_impl(Properties args) {
-    String key_s = args.getProperty("Key");
-    
-    if( key_s == null ) return wrap(error("Missing Key argument"));
+    String keyProp = args.getProperty("Key");
+    if( keyProp == null ) return wrap(error("Missing Key argument"));
+
+    byte[] key_b = decode(keyProp);
+    String key_s = new String(key_b);
+
     Key key = null;
-    try { 
-      key = Key.make(key_s);      // Get a Key from a raw byte array, if any
+    try {
+      key = Key.make(key_b);      // Get a Key from a raw byte array, if any
     } catch( IllegalArgumentException e ) {
       return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
     }
-    if (!key.user_allowed())
-      return H2OPage.wrap(H2OPage.error("Not a user key: "+ key_s));
     // Distributed get
     Value val = DKV.get(key);
-
     if( val == null )
       return H2OPage.wrap(H2OPage.error("Key not found: "+ key_s));
 
@@ -43,9 +43,9 @@ public class Inspect extends H2OPage {
 
     // Dump out the Key
     String ks = key.toString();
-    response.replace("keyHref",urlEncode(new String(key._kb)));
+    response.replace("keyHref",encode(key._kb));
     response.replace("key",ks);
-    response.replace("ktr",urlEncode(ks));
+    response.replace("ktr",encode(key._kb));
 
     // ASCII file?  Give option to do a binary parse
     if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
@@ -57,11 +57,11 @@ public class Inspect extends H2OPage {
       if( p_key.equals(key_s) ) p_key += "2";
       String s;
       if( DKV.get(Key.make(p_key)) == null ) {
-        s = html_parse.replace("%keyHref",urlEncode(key_s));
+        s = html_parse.replace("%keyHref",encode(key_b));
         s = s.replace("%parsekey",p_key);
         s = s.replace("%pfunc","Parse");
       } else {
-        s = html_parse.replace("%keyHref",urlEncode(p_key));
+        s = html_parse.replace("%keyHref",encode(key_b));
         s = s.replace("%parsekey","");
         s = s.replace("%pfunc","Inspect");
       }
@@ -133,16 +133,16 @@ public class Inspect extends H2OPage {
     RString response = new RString(html_ary);
     // Pretty-print the key
     String ks = key.toString();
-    response.replace("keyHref",urlEncode(new String(key._kb)));
+    response.replace("keyHref",encode(key._kb));
     response.replace("key",ks);
-    response.replace("ktr",urlEncode(ks));
+    response.replace("ktr",encode(key._kb));
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
     response.replace("ncolumns",ary.num_cols());
     Key pkey = ary.prior_key();
     response.replace("priorkey",pkey);
-    response.replace("priorkeyHref",urlEncode(new String(pkey._kb)));
+    response.replace("priorkeyHref",encode(pkey._kb));
     response.replace("xform",ary.xform());
 
     // Header row
@@ -158,7 +158,7 @@ public class Inspect extends H2OPage {
     for( int i=0; i<num_col; i++ )
       sb.append("<td> +").append(ary.col_off(i)).append("</td>");
     response.replace("offset_row",sb);
-    
+
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
       sb.append("<td>").append(Math.abs(ary.col_size(i))).append("b</td>");
@@ -255,7 +255,7 @@ public class Inspect extends H2OPage {
           else {
             if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
               sb.append(ary.data (r,i)); // int/long
-            else 
+            else
               sb.append(ary.datad(r,i)); // float/double
           }
         }

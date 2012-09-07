@@ -1,23 +1,20 @@
 package water.web;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.Properties;
 
 /** H2O branded web page.
- * 
+ *
  * We might in theory not need this and it can be all pushed to Page, but this
- * is just for the sake of generality. 
+ * is just for the sake of generality.
  *
  * @author peta
  */
 public abstract class H2OPage extends Page {
 
   protected int _refresh = 0;
-  
+
   protected abstract String serve_impl(Properties args);
-  
+
   private static final String html =
       "<!DOCTYPE html>"
     + "<html lang=\"en\">"
@@ -75,9 +72,9 @@ public abstract class H2OPage extends Page {
     + "  </body>"
     + "</html>"
     ;
-        
-//  private static RString response = new RString(html); 
-  
+
+//  private static RString response = new RString(html);
+
   @Override public String serve(Server server, Properties args) {
     RString response = new RString(html);
 //    response.clear();
@@ -89,16 +86,16 @@ public abstract class H2OPage extends Page {
     response.replace("contents",result);
     return response.toString();
   }
-  
-  
-  private static final String html_notice = 
+
+
+  private static final String html_notice =
             "<div class='alert %atype'>"
           + "%notice"
           + "</div>"
           ;
-  
+
 //  private static final RString notice = new RString(html_notice);
-  
+
   public static String error(String text) {
     RString notice = new RString(html_notice);
 //    notice.clear();
@@ -114,32 +111,54 @@ public abstract class H2OPage extends Page {
     notice.replace("notice",text);
     return notice.toString();
   }
-  
-  public static String urlEncode(String what) {
-    try {
-      return URLEncoder.encode(what,"UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      // pass
-      return null;
+
+  private static final char[] HEX = "0123456789abcdef".toCharArray();
+
+  public static String encode(byte[] what) {
+    int len = what.length;
+    while( --len >= 0 ) {
+      char a = (char) what[len];
+      if( a == '-' ) continue;
+      if( a == '.' ) continue;
+      if( 'a' <= a && a <= 'z' ) continue;
+      if( 'A' <= a && a <= 'Z' ) continue;
+      if( '0' <= a && a <= '9' ) continue;
+      break;
     }
-  }
-  
-  public static String urlDecode(String what) {
-    try {
-      return URLDecoder.decode(what,"UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      // pass
-      return null;
+    StringBuilder sb = new StringBuilder();
+    for( int i = 0; i <= len; ++i ) {
+      byte a = what[i];
+      sb.append(HEX[(a >> 4) & 0x0F]);
+      sb.append(HEX[(a >> 0) & 0x0F]);
     }
+    sb.append("____");
+    for( int i = len + 1; i < what.length; ++i ) sb.append((char)what[i]);
+    return sb.toString();
   }
-  
+
+  public static byte[] decode(String what) {
+    int len = what.indexOf("____");
+    String tail = what.substring(len + 4);
+    int r = 0;
+    byte[] res = new byte[len/2 + tail.length()];
+    for( int i = 0; i < len; i+=2 ) {
+      char h = what.charAt(i);
+      char l = what.charAt(i+1);
+      h -= Character.isDigit(h) ? '0' : ('a' - 10);
+      l -= Character.isDigit(l) ? '0' : ('a' - 10);
+      res[r++] = (byte)(h << 4 | l);
+    }
+    System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
+    return res;
+  }
+
   public static String wrap(String what) {
     RString response = new RString(html);
 //    response.clear();
     response.replace("contents",what);
     return response.toString();
   }
-  
+
   public static int getAsNumber(Properties args, String arg, int def) {
     int result = def;
     try {
@@ -151,5 +170,5 @@ public abstract class H2OPage extends Page {
     }
     return result;
   }
-  
+
 }
