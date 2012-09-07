@@ -11,8 +11,37 @@ public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
 
   public enum StatType {
-    entropy,
-    gini
+    oldEntropy(0),
+    entropy(1),
+    gini(2);
+    public final int id;
+    private StatType(int id) {
+      this.id=id;
+    }
+    public static StatType fromId(int sid) {
+      switch(sid) {
+        case 0:
+          return oldEntropy;
+        case 1:
+          return entropy;
+        case 2:
+          return gini;
+        default:
+          throw new Error("Invalid tree statistic "+sid);
+      }
+    }
+    public String toString() {
+      switch (this) {
+        case oldEntropy:
+          return "oldEntropy";
+        case entropy:
+          return "entropy";
+        case gini:
+          return "gini";
+        default:
+          return "unknown - id "+id;
+      }
+    }
   }
 
   final Data _data;
@@ -37,7 +66,7 @@ public class Tree extends CountedCompleter {
     _data_id = data_id;
     _max_depth = 0;
     _min_error_rate = -1.0;
-    statistic_ = StatType.entropy;
+    statistic_ = StatType.oldEntropy;
   }
 
   /** Determines the error rate of a single tree. */
@@ -76,9 +105,15 @@ public class Tree extends CountedCompleter {
     createStatistics();
     _timeToBuild = System.currentTimeMillis();
     switch (statistic_) {
-    case entropy: computeNumeric();  break;
-    case gini:    compute2();     break;
-    default:      throw new Error("Unrecognized statistic type");
+      case oldEntropy:
+        computeNumeric();
+        break;
+      case entropy:
+      case gini:
+        compute2();
+        break;
+      default:
+        throw new Error("Unrecognized statistic type");
     }
     _timeToBuild = System.currentTimeMillis() - _timeToBuild;
     String st = toString();
@@ -98,11 +133,14 @@ public class Tree extends CountedCompleter {
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
-      //switch (statistic_) {
-      //  case gini:
+      switch (statistic_) {
+        case gini:
+          result = new GiniStatistic(data);
+          break;
+        case entropy:
           result = new EntropyStatistic(data);
-      //    break;
-      //}
+          break;
+      }
       stats_[index].set(result);
     }
     result.reset(data);
