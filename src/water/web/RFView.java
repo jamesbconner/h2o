@@ -15,7 +15,7 @@ public class RFView extends H2OPage {
     int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
     String orig = args.getProperty("origKey");
-    Key korig = orig==null?null:Key.make(decode(orig));
+    Key korig = orig==null?null:decode(orig);
 
     // Get the Tree keys
     byte[] bits = val.get();
@@ -35,7 +35,7 @@ public class RFView extends H2OPage {
     int limkeys = Math.min(nkeys,100);
     for( int i=0; i<limkeys; i++ ) {
       RString row = response.restartGroup("tableRow");
-      row.replace("treekey_u",encode(treekeys[i]._kb));
+      row.replace("treekey_u",encode(treekeys[i]));
       row.replace("treekey_s",treekeys[i]);
       row.append();
     }

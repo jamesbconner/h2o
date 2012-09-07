@@ -9,7 +9,7 @@ import water.web.H2OPage;
 
 /**
  * Utility holding common code for checking errors on servlet request pages
- * 
+ *
  * @author alex@0xdata.com
  */
 public class ServletUtil {
@@ -52,7 +52,7 @@ public class ServletUtil {
     if( skey == null ) return H2OPage.wrap(H2OPage.error("Missing argument key: "+ s));
     // Parse the Key & validate it
     try {
-      Key key = Key.make(H2OPage.decode(skey)); // Get a Key from a raw byte array, if any
+      Key key = H2OPage.decode(skey); // Get a Key from a raw byte array, if any
       //if( !key.user_allowed() )
       //  return H2OPage.wrap(H2OPage.error("Not a user key: "+ skey));
       return key;
@@ -60,7 +60,7 @@ public class ServletUtil {
       return H2OPage.wrap(H2OPage.error("Not a valid key: "+ skey));
     }
   }
-  
+
   // Task to pass the static task execution function
   public static abstract class RunnableTask {
     public abstract String run(ValueArray ary, int colA, int colB);

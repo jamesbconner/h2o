@@ -13,7 +13,7 @@ public class Parse extends H2OPage {
     if( skey1 == null || skey2 == null )
       return wrap(error("Missing Key or Key2"));
 
-    Key key1 = Key.make(decode(skey1));
+    Key key1 = decode(skey1);
     Key key2 = Key.make(skey2);
 
     String s = "<a href='/Inspect?Key="+encode(key2)+"'>"+key2+"</a>";
