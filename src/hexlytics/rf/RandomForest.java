@@ -54,13 +54,9 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-<<<<<<< HEAD
-    DRF.web_main(va, 10, 100, .15, true);
-=======
     Key r = DRF.web_main(va, 10, 100, .15, true);    
    // r.
 //    UDPRebooted.global_kill(); ... trying to kill the cloud here...
->>>>>>> Comment
   }
 
 
