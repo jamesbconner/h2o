@@ -84,35 +84,13 @@ public class RandomForest {
     return errors_ / (double) _data.rows();
   }
   
-  /** Determines the accuracy of the forest. 
-   * 
-   * TODO This is totally distributed unsafe and is only to be used in the
-   * meantime to allow some validation easily. 
-   */
-  public double accuracy() {
-    Random r = new Random();
-    int errors = 0;
-    int votes[] = new int [_data.classes()];
-    for (Row row: _data) {
-      Arrays.fill(votes,0);
-      for (Tree tree: _trees) {
-        if (tree._tree == null)
-          continue;
-        ++votes[tree.classify(row)];
-      }
-      if (Utils.maxIndex(votes,r) != row.classOf())
-        ++errors;
-    }
-    return 1 - (double)errors / _data.rows(); 
-  }
-
-
   private String pad(String s, int l) {
     String p="";
     for (int i=0;i < l - s.length(); i++) p+= " ";
     return " "+p+s;
   }
   public String confusionMatrix() {
+    if (_confusion == null) _confusion = new int[_data.classes()][_data.classes()];
     int error = 0;
     final int K = _data.classes()+1;
     for (Row r : _data){
@@ -203,7 +181,7 @@ public class RandomForest {
     System.out.println("");
     System.out.println(" Data rows:          "+_data.rows());
     System.out.println(" Overall error:      "+ensembleError);
-    //System.out.println(confusionMatrix());  
+    System.out.println(confusionMatrix());  
     
     //System.exit(0);
   }
