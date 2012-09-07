@@ -3,9 +3,7 @@ package water.web;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -200,6 +198,7 @@ public final class TimelineSnapshot implements
       case heartbeat:
       case rebooted:
       case timeline:
+      case log:
         // compare only first 3 bytes here (udp type and port)
         if ((myl0 & 0xFFFFFFl) != (otherl0 & myl0 & 0xFFFFFFl))
           return false;
