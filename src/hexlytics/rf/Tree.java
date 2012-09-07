@@ -20,7 +20,8 @@ public class Tree extends CountedCompleter {
   final double _min_error_rate;
   INode _tree;
   final StatType statistic_;
-
+  long _timeToBuild; // Time needed to build the tree 
+  
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
     _data = data;
@@ -38,6 +39,22 @@ public class Tree extends CountedCompleter {
     statistic_ = StatType.numeric;
   }
 
+  /** Determines the error rate of a single tree.
+   * 
+   * @param data
+   * @return 
+   */
+  public double validate(Data data) {
+    double errors = 0;
+    double total = 0;
+    for (Row row: data) {
+      total += row.weight();
+      if (row.classOf() != classify(row))
+        errors += row.weight();
+    }
+    return errors/total;
+  }
+
   // Oops, uncaught exception
   public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
     ex.printStackTrace();
@@ -46,11 +63,13 @@ public class Tree extends CountedCompleter {
 
   // Actually build the tree
   public void compute() {
+    _timeToBuild = System.currentTimeMillis();
     switch (statistic_) {
     case numeric: computeNumeric();  break;
     case gini:    computeGini();     break;
     default:      throw new Error("Unrecognized statistic type");
     }
+    _timeToBuild = System.currentTimeMillis() - _timeToBuild;
     String st = toString();
     System.out.println("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
     tryComplete();
