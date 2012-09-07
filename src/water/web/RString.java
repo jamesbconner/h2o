@@ -7,6 +7,8 @@ package water.web;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import water.Key;
+
 import com.google.common.collect.ArrayListMultimap;
 
 /**
@@ -269,6 +271,10 @@ class RString {
     for( Placeholder p : _placeholders.values() ) {
       p.start.removeTill(p.end);
     }
+  }
+
+  public void replace(String what, Key with) {
+    replace(what, H2OPage.encode(with));
   }
 
   // Replaces the given placeholder with an object. On a single placeholder,

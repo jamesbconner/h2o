@@ -27,10 +27,10 @@ public class RandomForest extends H2OPage {
     }
     RString response = new RString(html);
     response.replace("h2o",H2O.SELF.urlEncode());
-    response.replace("treeskey",encode(treeskey));
+    response.replace("treeskey",treeskey);
     response.replace("ntrees",ntrees*H2O.CLOUD.size());
     response.replace("depth",depth);
-    response.replace("origKey",encode(ary._key));
+    response.replace("origKey",ary._key);
     return response.toString();
   }
   final static String html =

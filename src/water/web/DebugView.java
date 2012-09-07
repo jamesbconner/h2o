@@ -100,9 +100,7 @@ public class DebugView extends H2OPage {
     // Dump out the Key
     String ks = key.toString();
     row.replace("key",key.user_allowed() ? ks : "<code>"+ks+"</code>");
-    String kurl = encode(key);
-    row.replace("keyHref1",kurl);
-    row.replace("keyHref2",kurl);
+    row.replace("keyHref",key);
     // Dump out the current replication info: Mem/Disk/Replication_desired
     int r = key.desired();
     int repl = key.replica(cloud);
@@ -147,7 +145,7 @@ public class DebugView extends H2OPage {
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"
-          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref1'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Inspect?Key=%keyHref2'>%key</a></td>"
+          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a></td>"
           + "    <td style='%replicationStyle'>%r1/%r2</td>"
           + "    <td>%home</td>"
           + "    <td>%home2</td>"

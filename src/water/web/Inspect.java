@@ -40,9 +40,8 @@ public class Inspect extends H2OPage {
 
     // Dump out the Key
     String ks = key.toString();
-    response.replace("keyHref",encode(key));
+    response.replace("keyHref",key);
     response.replace("key",ks);
-    response.replace("ktr",encode(key));
 
     // ASCII file?  Give option to do a binary parse
     if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
@@ -97,7 +96,7 @@ public class Inspect extends H2OPage {
 
 
   final static String html =
-      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col/><col/><col colspan=5 align=center/></colgroup>\n"
     + "<thead><tr><th>    <th>    <th>    <th align=center colspan=5>Min / Average / Max <th>   </tr>\n"
@@ -130,16 +129,15 @@ public class Inspect extends H2OPage {
     RString response = new RString(html_ary);
     // Pretty-print the key
     String ks = key.toString();
-    response.replace("keyHref",encode(key));
+    response.replace("keyHref",key);
     response.replace("key",ks);
-    response.replace("ktr",encode(key));
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
     response.replace("ncolumns",ary.num_cols());
     Key pkey = ary.prior_key();
     response.replace("priorkey",pkey);
-    response.replace("priorkeyHref",encode(pkey));
+    response.replace("priorkeyHref",pkey);
     response.replace("xform",ary.xform());
 
     // Header row
@@ -267,7 +265,7 @@ public class Inspect extends H2OPage {
   }
 
   final static String html_ary =
-      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
     + "<p>Generated from <a href=/Inspect?Key=%priorkeyHref>%priorkey</a> by '%xform'<p>"
     + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
     + "Parsed %ncolumns columns<br>"

@@ -125,7 +125,7 @@ public class KeysView extends H2OPage {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
-    row.replace("keyHref",encode(key));
+    row.replace("keyHref",key);
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
     int d = key.count_disk_replicas();
     int r = key.desired();

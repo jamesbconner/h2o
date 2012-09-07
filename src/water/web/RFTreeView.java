@@ -38,7 +38,7 @@ public class RFTreeView extends H2OPage {
 
     RString response = new RString(html());
     int nodeCount = tree._tree.nodes();
-    response.replace("key", encode(key));
+    response.replace("key", key);
     response.replace("nodeCount", nodeCount);
     response.replace("leafCount", tree._tree.leaves());
     response.replace("depth",     tree._tree.depth());
