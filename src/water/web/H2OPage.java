@@ -2,6 +2,8 @@ package water.web;
 
 import java.util.Properties;
 
+import water.Key;
+
 /** H2O branded web page.
  *
  * We might in theory not need this and it can be all pushed to Page, but this
@@ -114,7 +116,8 @@ public abstract class H2OPage extends Page {
 
   private static final char[] HEX = "0123456789abcdef".toCharArray();
 
-  public static String encode(byte[] what) {
+  public static String encode(Key k) {
+    byte[] what = k._kb;
     int len = what.length;
     while( --len >= 0 ) {
       char a = (char) what[len];
@@ -136,7 +139,7 @@ public abstract class H2OPage extends Page {
     return sb.toString();
   }
 
-  public static byte[] decode(String what) {
+  public static Key decode(String what) {
     int len = what.indexOf("____");
     String tail = what.substring(len + 4);
     int r = 0;
@@ -149,7 +152,7 @@ public abstract class H2OPage extends Page {
       res[r++] = (byte)(h << 4 | l);
     }
     System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
-    return res;
+    return Key.make(res);
   }
 
   public static String wrap(String what) {

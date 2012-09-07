@@ -16,15 +16,12 @@ public class Inspect extends H2OPage {
   }
 
   @Override protected String serve_impl(Properties args) {
-    String keyProp = args.getProperty("Key");
-    if( keyProp == null ) return wrap(error("Missing Key argument"));
-
-    byte[] key_b = decode(keyProp);
-    String key_s = new String(key_b);
+    String key_s = args.getProperty("Key");
+    if( key_s == null ) return wrap(error("Missing Key argument"));
 
     Key key = null;
     try {
-      key = Key.make(key_b);      // Get a Key from a raw byte array, if any
+      key = decode(key_s);
     } catch( IllegalArgumentException e ) {
       return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
     }
@@ -43,9 +40,9 @@ public class Inspect extends H2OPage {
 
     // Dump out the Key
     String ks = key.toString();
-    response.replace("keyHref",encode(key._kb));
+    response.replace("keyHref",encode(key));
     response.replace("key",ks);
-    response.replace("ktr",encode(key._kb));
+    response.replace("ktr",encode(key));
 
     // ASCII file?  Give option to do a binary parse
     if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
@@ -57,11 +54,11 @@ public class Inspect extends H2OPage {
       if( p_key.equals(key_s) ) p_key += "2";
       String s;
       if( DKV.get(Key.make(p_key)) == null ) {
-        s = html_parse.replace("%keyHref",encode(key_b));
+        s = html_parse.replace("%keyHref",encode(key));
         s = s.replace("%parsekey",p_key);
         s = s.replace("%pfunc","Parse");
       } else {
-        s = html_parse.replace("%keyHref",encode(key_b));
+        s = html_parse.replace("%keyHref",encode(key));
         s = s.replace("%parsekey","");
         s = s.replace("%pfunc","Inspect");
       }
@@ -133,16 +130,16 @@ public class Inspect extends H2OPage {
     RString response = new RString(html_ary);
     // Pretty-print the key
     String ks = key.toString();
-    response.replace("keyHref",encode(key._kb));
+    response.replace("keyHref",encode(key));
     response.replace("key",ks);
-    response.replace("ktr",encode(key._kb));
+    response.replace("ktr",encode(key));
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
     response.replace("ncolumns",ary.num_cols());
     Key pkey = ary.prior_key();
     response.replace("priorkey",pkey);
-    response.replace("priorkeyHref",encode(pkey._kb));
+    response.replace("priorkeyHref",encode(pkey));
     response.replace("xform",ary.xform());
 
     // Header row

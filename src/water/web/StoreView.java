@@ -99,7 +99,7 @@ public class StoreView extends H2OPage {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
-    row.replace("keyHref",encode(key._kb));
+    row.replace("keyHref",encode(key));
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
     //if (val instanceof ValueCode) {
     //  row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
@@ -125,7 +125,7 @@ public class StoreView extends H2OPage {
     if( val.length() > len ) sb.append("...");
     row.replace("value",sb);
     row.replace("size",val.length());
-    row.replace("ktr",encode(key._kb));
+    row.replace("ktr",encode(key));
 
     // See if this is a structured ValueArray.  Report results from a total parse.
     if( val instanceof ValueArray ) {

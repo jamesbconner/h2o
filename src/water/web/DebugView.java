@@ -100,7 +100,7 @@ public class DebugView extends H2OPage {
     // Dump out the Key
     String ks = key.toString();
     row.replace("key",key.user_allowed() ? ks : "<code>"+ks+"</code>");
-    String kurl = encode(key._kb);
+    String kurl = encode(key);
     row.replace("keyHref1",kurl);
     row.replace("keyHref2",kurl);
     // Dump out the current replication info: Mem/Disk/Replication_desired
