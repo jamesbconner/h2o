@@ -82,6 +82,11 @@ public abstract class BaseStatistic {
     }
     return sum;
   }
+
+  protected void showColumnDist(int colIndex) {
+    for (double[] d : columnDists_[colIndex])
+        System.out.print(" "+Utils.sum(d));
+  }
   
   protected final int singleClass(double[] dist) {
     int result = -1;
@@ -148,7 +153,6 @@ public abstract class BaseStatistic {
    * @return 
    */
   public Split split() {
-    //System.out.println("---");
     Split bestSplit = columnSplit(columns_[0]);
     if (!bestSplit.isConstant())
       for (int j = 1; j < columns_.length; ++j) {

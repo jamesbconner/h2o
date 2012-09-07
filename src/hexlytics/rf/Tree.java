@@ -100,7 +100,7 @@ public class Tree extends CountedCompleter {
     if (result==null) {
       //switch (statistic_) {
       //  case gini:
-          result = new GiniStatistic(data);
+          result = new EntropyStatistic(data);
       //    break;
       //}
       stats_[index].set(result);
@@ -310,12 +310,12 @@ public class Tree extends CountedCompleter {
     public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
     public int leaves()       { return l_.leaves() + r_.leaves(); }
     public String toString() {
-      return "G "+column +"<=" + split + " ("+l_+","+r_+")";
+      return "S "+column +"<=" + split + " ("+l_+","+r_+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
 
     void write( DataOutputStream dos ) throws IOException {
-      dos.writeByte('G');       // Node indicator
+      dos.writeByte('S');       // Node indicator
       assert Short.MIN_VALUE <= column && column < Short.MAX_VALUE;
       dos.writeShort(column);
       //dos.writeFloat(split_value(column()));
