@@ -52,8 +52,8 @@ public class ServletUtil {
     // Parse the Key & validate it
     try {
       Key key = Key.make(skey); // Get a Key from a raw byte array, if any
-      if( !key.user_allowed() )
-        return H2OPage.wrap(H2OPage.error("Not a user key: "+ skey));
+      //if( !key.user_allowed() )
+      //  return H2OPage.wrap(H2OPage.error("Not a user key: "+ skey));
       return key;
     } catch( IllegalArgumentException e ) {
       return H2OPage.wrap(H2OPage.error("Not a valid key: "+ skey));

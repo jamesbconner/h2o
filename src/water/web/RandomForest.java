@@ -1,9 +1,11 @@
 package water.web;
-import java.util.Properties;
 
+import java.util.Properties;
 import water.H2O;
+import water.Key;
 import water.ValueArray;
 
+// @author cliffc
 public class RandomForest extends H2OPage {
   @Override protected String serve_impl(Properties args) {
     Object o = ServletUtil.check_array(args,"Key");
@@ -12,15 +14,21 @@ public class RandomForest extends H2OPage {
     int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
     boolean gini = args.getProperty("gini")!=null;
-    
-    String res = "some results go here";
-    try { hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,gini); }
-    catch( Exception e ) { res = e.toString(); }
+
+    Key treeskey;
+    try {
+      treeskey = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,gini);
+    } catch( Exception e ) {
+      return wrap(error(e.toString()));
+    }
     RString response = new RString(html);
-    response.replace("key",ary._key);
-    response.replace("res",res);
+    response.replace("h2o",H2O.SELF.urlEncode());
+    response.replace("treeskey",treeskey);
+    response.replace("ntrees",ntrees);
+    response.replace("depth",depth);
+    response.replace("origKey",ary._key);
     return response.toString();
   }
   final static String html =
-    "\n<p>Random Forest of %key results:\n<p>%res\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%treeskey&ntrees=%ntrees&depth=%depth&origKey=%key\">\n";
 }

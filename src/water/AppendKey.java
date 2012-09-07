@@ -14,39 +14,40 @@ import water.serialization.RemoteTaskSerializer;
  * @version 1.0
  */
 
-@RTSerializer(Append.Serializer.class)
-public class Append extends Atomic {
+@RTSerializer(AppendKey.Serializer.class)
+public class AppendKey extends Atomic {
   byte[] _bits;
-  public Append( byte[] bits ) { _bits=bits; }
-  public Append( Key key ) {    // Append a key
-    this( new byte[key.wire_len()] );
+  private AppendKey( byte[] bits ) { _bits = bits; }
+  public AppendKey( Key key ) {    // Append a key
+    _bits = new byte[key.wire_len()];
     key.write(_bits,0);
   }
-  public static class Serializer extends RemoteTaskSerializer<Append> {
-    @Override public int wire_len(Append a) { return 4+a._bits.length; }
-    @Override public int write( Append a, byte[] buf, int off ) {
+  public static class Serializer extends RemoteTaskSerializer<AppendKey> {
+    @Override public int wire_len(AppendKey a) { return 4+a._bits.length; }
+    @Override public int write( AppendKey a, byte[] buf, int off ) {
       off += UDP.set4(buf,off,a._bits.length);
       System.arraycopy(a._bits,0,buf,off,a._bits.length);  off += a._bits.length;
       return off;
     }
-    @Override public void write( Append a, DataOutputStream dos ) throws IOException { dos.write(a._bits); }
-    @Override public Append read( byte[] buf, int off ) {
+    @Override public void write( AppendKey a, DataOutputStream dos ) throws IOException { dos.write(a._bits); }
+    @Override public AppendKey read( byte[] buf, int off ) {
       byte[] bits = new byte[UDP.get4(buf,(off+=4)-4)];
       System.arraycopy(buf,off,bits,0,bits.length);
-      return new Append(bits);
+      return new AppendKey(bits);
     }
-    @Override public Append read( DataInputStream dis ) throws IOException {
+    @Override public AppendKey read( DataInputStream dis ) throws IOException {
       byte[] bits = new byte[dis.readInt()];
       dis.readFully(bits);
-      return new Append(bits);
+      return new AppendKey(bits);
     }
   }
 
   // Just append the bits
   @Override public byte[] atomic( byte[] bits1 ) {
-    if( bits1 == null ) return _bits;
+    if( bits1 == null ) bits1 = new byte[4]; // Include the key count of zero
     byte[] bits2 = Arrays.copyOf(bits1,bits1.length+_bits.length);
     System.arraycopy(_bits,0,bits2,bits1.length,_bits.length);
+    UDP.set4(bits2,0,UDP.get4(bits1,0)+1); // Increment key count
     return bits2;
   }
 }

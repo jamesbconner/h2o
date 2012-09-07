@@ -27,7 +27,7 @@ public class RandomForest {
       for( int i=0; i<ntrees; i++ ) {
         _trees[i].get();        // Block for a tree
         // Atomic-append to the list of trees
-        new Append(_trees[i].toKey()).fork(drf._treeskey);
+        new AppendKey(_trees[i].toKey()).fork(drf._treeskey);
       }
     } catch( InterruptedException e ) {
       // Interrupted after partial build?

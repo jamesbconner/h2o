@@ -97,31 +97,39 @@ public class Server extends NanoHTTPD {
     // initialize pages
     registerPage(new Cloud(),"");
     //registerPage(new Compile(),"Compile");
-    registerPage(new DebugView(),"DebugView");
     //registerPage(new Exec(),"Exec");
     //registerPage(new ExecQuery(),"ExecQuery");
+    //registerPage(new PutExec(),"PutExec");
+    //registerPage(new PutExecQuery(),"PutExecQuery");
+    registerPage(new Append(),"Append");
+    registerPage(new AppendQuery(),"AppendQuery");
+    registerPage(new Covariance(),"COV");
+    registerPage(new Covariance(),"Covariance");
+    registerPage(new Covariance(),"cor");
+    registerPage(new Covariance(),"cov");
+    registerPage(new Covariance(),"var");
+    registerPage(new DebugView(),"DebugView");
     registerPage(new Get(),"Get");
     registerPage(new GetQuery(),"GetQuery");
     registerPage(new ImportFolder(),"ImportFolder");
     registerPage(new ImportQuery(),"ImportQuery");
     registerPage(new ImportUrl(),"ImportUrl");
     registerPage(new Inspect(),"Inspect");
-    registerPage(new LinearRegression(),"LinearRegression");
+    registerPage(new KeysView(),"KeysView");
     registerPage(new LinearRegression(),"LR");
+    registerPage(new LinearRegression(),"LinearRegression");
+    registerPage(new Network(), "Network");
     registerPage(new NodeShuffle(),"NodeShuffle");
-    registerPage(new Covariance(),"COV");
-    registerPage(new Covariance(),"cov");
-    registerPage(new Covariance(),"cor");
-    registerPage(new Covariance(),"var");
-    registerPage(new Covariance(),"Covariance");
-    //registerPage(new PutExec(),"PutExec");
-    //registerPage(new PutExecQuery(),"PutExecQuery");
     registerPage(new Parse(),"Parse"); // Function to parse ascii dataset into binary
+    registerPage(new ProgressReport(), "PR");
+    registerPage(new ProgressReport(), "ProgressReport");
+    registerPage(new ProgressView(), "ProgressView");
     registerPage(new PutFile(),"PutFile");
     registerPage(new PutQuery(),"Put");
     registerPage(new PutValue(),"PutValue");
-    registerPage(new RandomForest(),"RandomForest");
+    registerPage(new RFView(),"RFView"); // View random-forest output
     registerPage(new RandomForest(),"RF");
+    registerPage(new RandomForest(),"RandomForest");
     registerPage(new Remote(),"Remote");
     registerPage(new Remove(),"Remove");
     registerPage(new RemoveAck(),"RemoveAck");
@@ -129,13 +137,6 @@ public class Server extends NanoHTTPD {
     registerPage(new StoreView(),"StoreView");
     registerPage(new Test(),"Test");
     registerPage(new Timeline(),"Timeline");
-    registerPage(new Append(),"Append");
-    registerPage(new AppendQuery(),"AppendQuery");
-    registerPage(new KeysView(),"KeysView");
-    registerPage(new Network(), "Network");
-    registerPage(new ProgressReport(), "ProgressReport");
-    registerPage(new ProgressReport(), "PR");
-    registerPage(new ProgressView(), "ProgressView");    
   }
 
 

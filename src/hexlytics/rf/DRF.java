@@ -39,7 +39,7 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, boolean useGini) {
+  public static Key web_main( ValueArray ary, int ntrees, int depth, double cutRate, boolean useGini) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -49,7 +49,7 @@ public class DRF extends water.DRemoteTask {
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     DKV.put(drf._treeskey, new Value(drf._treeskey,4/*4 bytes for the key-count, which is zero*/));
     drf.fork(ary._key);
-    return drf;
+    return drf._treeskey;
   }
 
   // Local RF computation.
@@ -87,8 +87,10 @@ public class DRF extends water.DRemoteTask {
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
     RandomForest rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _useGini ? Tree.StatType.gini : Tree.StatType.numeric);
-    for( Tree tree : rf._trees ) 
-      System.out.println("Tree :"+tree._data_id+" d="+tree.tree_.depth()+" leaves="+tree.tree_.leaves()+"  "+ tree.toString().substring(0, 120) +"...");
+    for( Tree tree : rf._trees ) {
+      String st = tree.toString();
+      System.out.println("Tree :"+tree._data_id+" d="+tree.tree_.depth()+" leaves="+tree.tree_.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
+    }
     tryComplete();
   }
 

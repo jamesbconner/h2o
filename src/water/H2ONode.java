@@ -39,7 +39,8 @@ public class H2ONode implements Comparable {
       H2Okey key = (H2Okey)o;
       return _port==key._port && _inet.equals(key._inet);
     }
-    public String toString() { return _inet.toString()+":"+_port; }
+    public String toString() { return _inet.toString()+":"+ _port   ; }
+    public String urlEncode(){ return _inet.toString()+":"+(_port-1); }
     static int wire_len() { return 4/*IP4 only*/+2/*port#*/; }
     int write( byte[] buf, int off ) {
       byte[] ip = _inet.getAddress();
@@ -195,7 +196,8 @@ public class H2ONode implements Comparable {
 
 
   // Happy printable string
-  public String toString() { return _key.toString(); }
+  public String toString() { return _key.toString (); }
+  public String urlEncode(){ return _key.urlEncode(); }
   
   // index of this node in the current cloud... can change at the next cloud.
   public int index() { return H2O.CLOUD.nidx(this); }
