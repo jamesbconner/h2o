@@ -163,7 +163,7 @@ public class Tree extends CountedCompleter {
       if (ls.isLeafNode())
         nd.l_ = new LeafNode(depth_+1,ls.split);
       if (rs.isLeafNode())
-        nd.r_ = new LeafNode(depth_+1,ls.split);
+        nd.r_ = new LeafNode(depth_+1,rs.split);
       // calculate the missing subnodes as new FJ tasks, join if necessary
       if ((nd.l_ == null) && (nd.r_ == null)) {
         ForkJoinTask<INode> fj0 = new FJGiniBuild(ls,res[0],depth_+1).fork();

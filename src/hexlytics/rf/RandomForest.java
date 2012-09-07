@@ -54,7 +54,7 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    DRF.web_main(va, 10, 100, .15, false);
+    DRF.web_main(va, 10, 100, .15, true);
   }
 
 
@@ -201,6 +201,7 @@ public class RandomForest {
     System.out.println(" Tree leaves:        "+tl);
     System.out.println(" Tree error rate:    "+ta);
     System.out.println("");
+    System.out.println(" Data rows:          "+_data.rows());
     System.out.println(" Overall error:      "+ensembleError);
     //System.out.println(confusionMatrix());  
     
