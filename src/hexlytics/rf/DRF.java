@@ -15,6 +15,9 @@ public class DRF extends water.DRemoteTask {
   boolean _useGini;             // Use Gini (true) vs Entropy (false) for splits
   Key _arykey;                  // The ValueArray being RF'd
   Key _treeskey;                // Key of Tree-Keys built so-far
+  
+  // Random forest to be used.
+  RandomForest _rf;
 
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
@@ -51,7 +54,6 @@ public class DRF extends water.DRemoteTask {
     drf.fork(ary._key);
     return drf._treeskey;
   }
-
   // Local RF computation.
   public final void compute() {
     ValueArray ary = (ValueArray)DKV.get(_arykey);
@@ -86,7 +88,7 @@ public class DRF extends water.DRemoteTask {
     }
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
-    RandomForest rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _useGini ? Tree.StatType.gini : Tree.StatType.numeric);
+    this._rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _useGini ? Tree.StatType.gini : Tree.StatType.numeric);
     tryComplete();
   }
 
@@ -94,4 +96,9 @@ public class DRF extends water.DRemoteTask {
   public void reduce( DRemoteTask drt ) {
     DRF drf = (DRF)drt;
   }
+  
+  
+  
+  
+  
 }
