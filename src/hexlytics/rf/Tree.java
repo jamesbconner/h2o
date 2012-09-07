@@ -107,9 +107,8 @@ public class Tree extends CountedCompleter {
       //    break;
       //}
       stats_[index].set(result);
-    } else {
-      result.reset(data);
     }
+    result.reset(data);
     return result;
   }
   
@@ -314,7 +313,7 @@ public class Tree extends CountedCompleter {
     public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
     public int leaves()       { return l_.leaves() + r_.leaves(); }
     public String toString() {
-      return "G "+column +"<" + split + " ("+l_+","+r_+")";
+      return "G "+column +"<=" + split + " ("+l_+","+r_+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     

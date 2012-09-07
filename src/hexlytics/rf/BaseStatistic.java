@@ -12,6 +12,10 @@ import java.util.Arrays;
  * @author peta
  */
 public abstract class BaseStatistic {
+
+  // PETA TODO This should not be here!!!!
+  public static final double MIN_ERROR_RATE = 0.0;
+  
   
   /** Returns the best split for a given column
    * 
@@ -64,6 +68,35 @@ public abstract class BaseStatistic {
   /// Columns that are currently used.
   protected final int[] columns_;
   
+  /** Aggregates the given column's distribution to the provided array and 
+   * returns the sum of weights of that array. 
+   * 
+   */
+  protected final double aggregateColumn(int colIndex, double[] dist) {
+    double sum = 0;
+    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
+      for (int i = 0; i < dist.length; ++i) {
+        sum += columnDists_[colIndex][j][i];
+        dist[i] += columnDists_[colIndex][j][i]; 
+      }
+    }
+    return sum;
+  }
+  
+  protected final int singleClass(double[] dist) {
+    int result = -1;
+    for (int i = 0; i < dist.length; ++i)
+      if (dist[i] != 0)
+        if (result == dist[i]) {
+          // pass
+        } else if (result == -1) {
+          result = i;
+        } else {
+          result = -1;
+          break;
+        }
+    return result;
+  }
   
   
   private final int[] tempCols_;
@@ -115,6 +148,7 @@ public abstract class BaseStatistic {
    * @return 
    */
   public Split split() {
+    //System.out.println("---");
     Split bestSplit = columnSplit(columns_[0]);
     if (!bestSplit.isConstant())
       for (int j = 1; j < columns_.length; ++j) {
