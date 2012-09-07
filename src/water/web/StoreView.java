@@ -152,7 +152,7 @@ public class StoreView extends H2OPage {
       }
     }
 
-    WebUtil.createBestEffortSummary(key, row);
+    ServletUtil.createBestEffortSummary(key, row);
   }
 
   final static String html =

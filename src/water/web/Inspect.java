@@ -92,7 +92,7 @@ public class Inspect extends H2OPage {
     row.replace("value",sb);
     row.replace("size",val.length());
 
-    WebUtil.createBestEffortSummary(key, row);
+    ServletUtil.createBestEffortSummary(key, row);
   }
 
 

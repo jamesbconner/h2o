@@ -4,7 +4,6 @@ import hexlytics.rf.Tree;
 import hexlytics.rf.TreePrinter;
 
 import java.io.File;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.Properties;
 
