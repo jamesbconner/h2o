@@ -9,20 +9,20 @@ import water.*;
 
 public class Tree extends CountedCompleter {
   static ThreadLocal<BaseStatistic>[] stats_;
-  
+
   public enum StatType {
     entropy,
     gini
   }
-  
+
   final Data _data;
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;
   final double _min_error_rate;
   INode _tree;
   final StatType statistic_;
-  long _timeToBuild; // Time needed to build the tree 
-  
+  long _timeToBuild; // Time needed to build the tree
+
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
     _data = data;
@@ -40,11 +40,7 @@ public class Tree extends CountedCompleter {
     statistic_ = StatType.entropy;
   }
 
-  /** Determines the error rate of a single tree.
-   * 
-   * @param data
-   * @return 
-   */
+  /** Determines the error rate of a single tree. */
   public double validate(Data data) {
     double errors = 0;
     double total = 0;
@@ -62,18 +58,19 @@ public class Tree extends CountedCompleter {
     return true;
   }
 
+  @SuppressWarnings("unchecked")
   private void createStatistics() {
     // Change this to a different amount of statistics, for each possible subnode
     // one, 2 for binary trees
     stats_ = new ThreadLocal[2];
     for (int i = 0; i < stats_.length; ++i)
-      stats_[i] = new ThreadLocal<>();
+      stats_[i] = new ThreadLocal<BaseStatistic>();
   }
-  
+
   private void freeStatistics() {
     stats_ = null; // so that they can be GCed
   }
-  
+
   // Actually build the tree
   public void compute() {
     createStatistics();
@@ -89,15 +86,15 @@ public class Tree extends CountedCompleter {
     tryComplete();
     freeStatistics();
   }
-    
+
   void computeNumeric() {
     // All rows in the top-level split
     Statistic s = new Statistic(_data,null);
     for (Row r : _data) s.add(r);
     _tree = new FJEntropyBuild(s,_data,0).compute();
   }
-  
-  // TODO this has to change a lot, only a temp working version 
+
+  // TODO this has to change a lot, only a temp working version
   static private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
@@ -111,8 +108,8 @@ public class Tree extends CountedCompleter {
     result.reset(data);
     return result;
   }
-  
-  
+
+
   void compute2() {
     // first get the statistic so that it can be reused
     BaseStatistic left = getOrCreateStatistic(0,_data);
@@ -148,23 +145,23 @@ public class Tree extends CountedCompleter {
       return nd;
     }
   }
-  
+
   private static class FJBuild extends RecursiveTask<INode> {
     final BaseStatistic.Split split_;
     final Data data_;
     final int depth_;
-    
+
     FJBuild(BaseStatistic.Split split, Data data, int depth) {
       this.split_ = split;
       this.data_ = data;
       this.depth_ = depth;
     }
-    
+
     @Override public INode compute() {
       // first get the statistics
       BaseStatistic left = Tree.getOrCreateStatistic(0,data_);
       BaseStatistic right = Tree.getOrCreateStatistic(1,data_);
-      // create the data, node and filter the data 
+      // create the data, node and filter the data
       Data[] res = new Data[2];
       SplitNode nd = new SplitNode(depth_,split_.column, split_.split);
       data_.filter(nd.column, nd.split,res,left,right);
@@ -189,9 +186,9 @@ public class Tree extends CountedCompleter {
       // and return the node
       return nd;
     }
-    
+
   }
-  
+
   public static abstract class INode {
     public final int _depth;    // Depth in tree
     protected INode(int depth) { _depth = depth; }
@@ -291,8 +288,8 @@ public class Tree extends CountedCompleter {
     }
    }
 
-  /** Gini classifier node. 
-   * 
+  /** Gini classifier node.
+   *
    */
   static class SplitNode extends INode {
     final int column;
@@ -302,7 +299,7 @@ public class Tree extends CountedCompleter {
     @Override int classify(Row r) {
       return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
     }
-    
+
     public SplitNode(int depth, int column, int split) {
       super(depth);
       this.column = column;
@@ -316,7 +313,7 @@ public class Tree extends CountedCompleter {
       return "G "+column +"<=" + split + " ("+l_+","+r_+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    
+
     void write( DataOutputStream dos ) throws IOException {
       dos.writeByte('G');       // Node indicator
       assert Short.MIN_VALUE <= column && column < Short.MAX_VALUE;
@@ -336,8 +333,8 @@ public class Tree extends CountedCompleter {
       return n;
     }
   }
-  
-  
+
+
   public int classify(Row r) { return _tree.classify(r); }
   public String toString()   { return _tree.toString(); }
 
@@ -405,7 +402,7 @@ public class Tree extends CountedCompleter {
 //    @Override int classify(Row r) {
 //      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
 //    }
-//    
+//
 //    public GiniNode(int depth, int column, int split) {
 //      super(depth);
 //      this.column = column;
@@ -423,13 +420,13 @@ public class Tree extends CountedCompleter {
 //    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
 //    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
 //  }
-//  
+//
 //  static class ExclusionGiniNode extends GiniNode {
 //
 //    @Override int classify(Row r) {
 //      return r.getColumnClass(column) == split ? l_.classify(r) : r_.classify(r);
 //    }
-//    
+//
 //    public ExclusionGiniNode(int depth, int column, int split) {
 //      super(depth,column,split);
 //    }
@@ -442,6 +439,6 @@ public class Tree extends CountedCompleter {
 //    public void print(TreePrinter p) throws IOException { p.printNode(this); }
 //    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
 //    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
-//    
+//
 //  }
 }
