@@ -1,8 +1,8 @@
 package hexlytics.rf;
 
-import hexlytics.rf.Tree.GiniNode;
 import hexlytics.rf.Tree.LeafNode;
 import hexlytics.rf.Tree.Node;
+import hexlytics.rf.Tree.SplitNode;
 import java.io.IOException;
 import java.text.MessageFormat;
 
@@ -67,7 +67,7 @@ public class TreePrinter {
     _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }
 
-  void printNode(GiniNode t) throws IOException {
+  void printNode(SplitNode t) throws IOException {
     int obj = System.identityHashCode(t);
 
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",

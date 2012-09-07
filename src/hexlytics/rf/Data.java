@@ -161,7 +161,7 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this,ri,r);
   }
   
-  public void filter(int column, int split, Data[] result, GiniStatistic left, GiniStatistic right) {
+  public void filter(int column, int split, Data[] result, BaseStatistic left, BaseStatistic right) {
     int l=0, r=0;
     int[] li = new int[rows()], ri=new int[rows()];
     int i = 0;

@@ -88,7 +88,7 @@ public class DRF extends water.DRemoteTask {
     }
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
-    this._rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _useGini ? Tree.StatType.gini : Tree.StatType.numeric);
+    this._rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _useGini ? Tree.StatType.gini : Tree.StatType.entropy);
     tryComplete();
   }
 

@@ -8,9 +8,10 @@ import jsr166y.*;
 import water.*;
 
 public class Tree extends CountedCompleter {
+  static ThreadLocal<BaseStatistic>[] stats_;
   
   public enum StatType {
-    numeric,
+    entropy,
     gini
   }
   
@@ -36,7 +37,7 @@ public class Tree extends CountedCompleter {
     _data_id = data_id;
     _max_depth = 0;
     _min_error_rate = -1.0;
-    statistic_ = StatType.numeric;
+    statistic_ = StatType.entropy;
   }
 
   /** Determines the error rate of a single tree.
@@ -61,50 +62,76 @@ public class Tree extends CountedCompleter {
     return true;
   }
 
+  private void createStatistics() {
+    // Change this to a different amount of statistics, for each possible subnode
+    // one, 2 for binary trees
+    stats_ = new ThreadLocal[2];
+    for (int i = 0; i < stats_.length; ++i)
+      stats_[i] = new ThreadLocal<>();
+  }
+  
+  private void freeStatistics() {
+    stats_ = null; // so that they can be GCed
+  }
+  
   // Actually build the tree
   public void compute() {
+    createStatistics();
     _timeToBuild = System.currentTimeMillis();
     switch (statistic_) {
-    case numeric: computeNumeric();  break;
-    case gini:    computeGini();     break;
+    case entropy: computeNumeric();  break;
+    case gini:    compute2();     break;
     default:      throw new Error("Unrecognized statistic type");
     }
     _timeToBuild = System.currentTimeMillis() - _timeToBuild;
     String st = toString();
     System.out.println("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
     tryComplete();
+    freeStatistics();
   }
     
   void computeNumeric() {
     // All rows in the top-level split
     Statistic s = new Statistic(_data,null);
     for (Row r : _data) s.add(r);
-    _tree = new FJBuild(s,_data,0).compute();
+    _tree = new FJEntropyBuild(s,_data,0).compute();
   }
   
-  void computeGini() {
-    // first get the statistic so that it can be reused
-    GiniStatistic left = FJGiniBuild.leftStat_.get();
-    if (left == null) {
-      left = new GiniStatistic(_data);
-      FJGiniBuild.leftStat_.set(left);
+  // TODO this has to change a lot, only a temp working version 
+  static private BaseStatistic getOrCreateStatistic(int index, Data data) {
+    BaseStatistic result = stats_[index].get();
+    if (result==null) {
+      //switch (statistic_) {
+      //  case gini:
+          result = new GiniStatistic(data);
+      //    break;
+      //}
+      stats_[index].set(result);
     } else {
-      left.reset(_data);
+      result.reset(data);
     }
+    return result;
+  }
+  
+  
+  void compute2() {
+    // first get the statistic so that it can be reused
+    BaseStatistic left = getOrCreateStatistic(0,_data);
     // calculate the split
-    for (Row r : _data) left.add(r);
-    GiniStatistic.Split spl = left.split();
+    for (Row r : _data)
+      left.add(r);
+    BaseStatistic.Split spl = left.split();
     if (spl.isLeafNode())
       _tree = new LeafNode(0,spl.split);
     else
-      _tree = new FJGiniBuild(spl,_data,0).compute();
+      _tree = new FJBuild(spl,_data,0).compute();
   }
 
-  private class FJBuild extends RecursiveTask<INode> {
+  private class FJEntropyBuild extends RecursiveTask<INode> {
     final Statistic _s;         // All the rows that this split munged over
     final Data _data;           // The resulting 1/2-sized dataset from the above split
     final int _d;
-    FJBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
+    FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
     public INode compute() {
       // terminate the branch prematurely
       if( _d >= _max_depth || _s.error() < _min_error_rate )
@@ -116,21 +143,19 @@ public class Tree extends CountedCompleter {
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[] { new Statistic(_data,_s), new Statistic(_data,_s)};
       _data.filter(best,res,stats);
-      ForkJoinTask<INode> fj0 = new FJBuild(stats[0],res[0],_d+1).fork();
-      nd.r_ =                   new FJBuild(stats[1],res[1],_d+1).compute();
+      ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
+      nd.r_ =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
       nd.l_ = fj0.join();
       return nd;
     }
   }
   
-  private static class FJGiniBuild extends RecursiveTask<INode> {
-    static ThreadLocal<GiniStatistic> leftStat_ = new ThreadLocal();
-    static ThreadLocal<GiniStatistic> rightStat_ = new ThreadLocal();
-    final GiniStatistic.Split split_;
+  private static class FJBuild extends RecursiveTask<INode> {
+    final BaseStatistic.Split split_;
     final Data data_;
     final int depth_;
     
-    FJGiniBuild(GiniStatistic.Split split, Data data, int depth) {
+    FJBuild(BaseStatistic.Split split, Data data, int depth) {
       this.split_ = split;
       this.data_ = data;
       this.depth_ = depth;
@@ -138,27 +163,15 @@ public class Tree extends CountedCompleter {
     
     @Override public INode compute() {
       // first get the statistics
-      GiniStatistic left = leftStat_.get();
-      if (left == null) {
-        left = new GiniStatistic(data_);
-        leftStat_.set(left);
-      } else {
-        left.reset(data_);
-      }
-      GiniStatistic right = rightStat_.get();
-      if (right == null) {
-        right = new GiniStatistic(data_);
-        rightStat_.set(right);
-      } else {
-        right.reset(data_);
-      }
+      BaseStatistic left = Tree.getOrCreateStatistic(0,data_);
+      BaseStatistic right = Tree.getOrCreateStatistic(1,data_);
       // create the data, node and filter the data 
       Data[] res = new Data[2];
-      GiniNode nd = new GiniNode(depth_,split_.column, split_.split);
+      SplitNode nd = new SplitNode(depth_,split_.column, split_.split);
       data_.filter(nd.column, nd.split,res,left,right);
       // get the splits
-      GiniStatistic.Split ls = left.split();
-      GiniStatistic.Split rs = right.split();
+      BaseStatistic.Split ls = left.split();
+      BaseStatistic.Split rs = right.split();
       // create leaf nodes if any
       if (ls.isLeafNode())
         nd.l_ = new LeafNode(depth_+1,ls.split);
@@ -166,13 +179,13 @@ public class Tree extends CountedCompleter {
         nd.r_ = new LeafNode(depth_+1,rs.split);
       // calculate the missing subnodes as new FJ tasks, join if necessary
       if ((nd.l_ == null) && (nd.r_ == null)) {
-        ForkJoinTask<INode> fj0 = new FJGiniBuild(ls,res[0],depth_+1).fork();
-        nd.r_ = new FJGiniBuild(rs,res[1],depth_+1).compute();
+        ForkJoinTask<INode> fj0 = new FJBuild(ls,res[0],depth_+1).fork();
+        nd.r_ = new FJBuild(rs,res[1],depth_+1).compute();
         nd.l_ = fj0.join();
       } else if (nd.l_ == null) {
-        nd.l_ = new FJGiniBuild(ls,res[0],depth_+1).compute();
+        nd.l_ = new FJBuild(ls,res[0],depth_+1).compute();
       } else if (nd.r_ == null) {
-        nd.r_ = new FJGiniBuild(rs,res[1],depth_+1).compute();
+        nd.r_ = new FJBuild(rs,res[1],depth_+1).compute();
       }
       // and return the node
       return nd;
@@ -194,7 +207,7 @@ public class Tree extends CountedCompleter {
       switch( b ) {
       case '[':  return LeafNode.read(dis,depth); // Leaf selector
       case '(':  return     Node.read(dis,depth); // Node selector
-      case 'G':  return GiniNode.read(dis,depth); // Node selector
+      case 'S':  return SplitNode.read(dis,depth); // Node selector
       default:
         throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
       }
@@ -282,7 +295,7 @@ public class Tree extends CountedCompleter {
   /** Gini classifier node. 
    * 
    */
-  static class GiniNode extends INode {
+  static class SplitNode extends INode {
     final int column;
     final int split;
     INode l_, r_;
@@ -291,7 +304,7 @@ public class Tree extends CountedCompleter {
       return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
     }
     
-    public GiniNode(int depth, int column, int split) {
+    public SplitNode(int depth, int column, int split) {
       super(depth);
       this.column = column;
       this.split = split;
@@ -314,11 +327,11 @@ public class Tree extends CountedCompleter {
       l_.write(dos);
       r_.write(dos);
     }
-    static GiniNode read( DataInputStream dis, int depth ) throws IOException {
+    static SplitNode read( DataInputStream dis, int depth ) throws IOException {
       int col = dis.readShort();
       //float f = dis.readFloat();
       int idx = dis.readShort(); // Read the short index instead of the actual value
-      GiniNode n = new GiniNode(depth,col,idx);
+      SplitNode n = new SplitNode(depth,col,idx);
       n.l_ = INode.read(dis,depth+1);
       n.r_ = INode.read(dis,depth+1);
       return n;

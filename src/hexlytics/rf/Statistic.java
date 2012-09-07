@@ -3,6 +3,20 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 
 
+/** This is an entropy statistic calculation. 
+ * 
+ * @author peta
+ */
+class EntropyStatistic {
+  
+  
+  
+  
+  
+}
+
+
+
 public class Statistic {
   final Data data_;
   final Statistic parent_;
