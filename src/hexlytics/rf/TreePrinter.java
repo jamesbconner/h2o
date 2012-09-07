@@ -56,13 +56,13 @@ public class TreePrinter {
 
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
-        MessageFormat.format("data[{0}] <= {1}", t.column_, t.value_)));
+        MessageFormat.format("data[{0}] <= {1}", t._column, t._value)));
 
-    t.l_.print(this);
-    t.r_.print(this);
+    t._l.print(this);
+    t._r.print(this);
 
-    int lhs = System.identityHashCode(t.l_);
-    int rhs = System.identityHashCode(t.r_);
+    int lhs = System.identityHashCode(t._l);
+    int rhs = System.identityHashCode(t._r);
     _dest.append(String.format("%d -> %d;\n", obj, lhs));
     _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }
@@ -72,13 +72,13 @@ public class TreePrinter {
 
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
-        MessageFormat.format("data[{0}] <= {1} (gini)", t.column, t.split)));
+        MessageFormat.format("data[{0}] <= {1} (gini)", t._column, t._split)));
 
-    t.l_.print(this);
-    t.r_.print(this);
+    t._l.print(this);
+    t._r.print(this);
 
-    int lhs = System.identityHashCode(t.l_);
-    int rhs = System.identityHashCode(t.r_);
+    int lhs = System.identityHashCode(t._l);
+    int rhs = System.identityHashCode(t._r);
     _dest.append(String.format("%d -> %d;\n", obj, lhs));
     _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }

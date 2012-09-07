@@ -48,7 +48,7 @@ public class Tree extends CountedCompleter {
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;
   final double _min_error_rate;
-  INode _tree;
+  public INode _tree;
   final StatType statistic_;
   long _timeToBuild; // Time needed to build the tree
 
@@ -156,7 +156,7 @@ public class Tree extends CountedCompleter {
       left.add(r);
     BaseStatistic.Split spl = left.split();
     if (spl.isLeafNode())
-      _tree = new LeafNode(0,spl.split);
+      _tree = new LeafNode(spl.split);
     else
       _tree = new FJBuild(spl,_data,0).compute();
   }
@@ -169,17 +169,17 @@ public class Tree extends CountedCompleter {
     public INode compute() {
       // terminate the branch prematurely
       if( _d >= _max_depth || _s.error() < _min_error_rate )
-        return new LeafNode(_d,_s.classOf());
-      if (_s.singleClass()) return new LeafNode(_d, _s.classOf());
+        return new LeafNode(_s.classOf());
+      if (_s.singleClass()) return new LeafNode(_s.classOf());
       Split best = _s.best();
-      if (best == null) return new LeafNode(_d, _s.classOf());
-      Node nd = new Node(_d, best.column,best.value,_data.data_);
+      if (best == null) return new LeafNode(_s.classOf());
+      Node nd = new Node(best.column,best.value,_data.data_);
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[] { new Statistic(_data,_s), new Statistic(_data,_s)};
       _data.filter(best,res,stats);
       ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
-      nd.r_ =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
-      nd.l_ = fj0.join();
+      nd._r =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
+      nd._l = fj0.join();
       return nd;
     }
   }
@@ -201,25 +201,25 @@ public class Tree extends CountedCompleter {
       BaseStatistic right = getOrCreateStatistic(1,data_);
       // create the data, node and filter the data
       Data[] res = new Data[2];
-      SplitNode nd = new SplitNode(depth_,split_.column, split_.split);
-      data_.filter(nd.column, nd.split,res,left,right);
+      SplitNode nd = new SplitNode(split_.column, split_.split);
+      data_.filter(nd._column, nd._split,res,left,right);
       // get the splits
       BaseStatistic.Split ls = left.split();
       BaseStatistic.Split rs = right.split();
       // create leaf nodes if any
       if (ls.isLeafNode())
-        nd.l_ = new LeafNode(depth_+1,ls.split);
+        nd._l = new LeafNode(ls.split);
       if (rs.isLeafNode())
-        nd.r_ = new LeafNode(depth_+1,rs.split);
+        nd._r = new LeafNode(rs.split);
       // calculate the missing subnodes as new FJ tasks, join if necessary
-      if ((nd.l_ == null) && (nd.r_ == null)) {
+      if ((nd._l == null) && (nd._r == null)) {
         ForkJoinTask<INode> fj0 = new FJBuild(ls,res[0],depth_+1).fork();
-        nd.r_ = new FJBuild(rs,res[1],depth_+1).compute();
-        nd.l_ = fj0.join();
-      } else if (nd.l_ == null) {
-        nd.l_ = new FJBuild(ls,res[0],depth_+1).compute();
-      } else if (nd.r_ == null) {
-        nd.r_ = new FJBuild(rs,res[1],depth_+1).compute();
+        nd._r = new FJBuild(rs,res[1],depth_+1).compute();
+        nd._l = fj0.join();
+      } else if (nd._l == null) {
+        nd._l = new FJBuild(ls,res[0],depth_+1).compute();
+      } else if (nd._r == null) {
+        nd._r = new FJBuild(rs,res[1],depth_+1).compute();
       }
       // and return the node
       return nd;
@@ -228,20 +228,20 @@ public class Tree extends CountedCompleter {
   }
 
   public static abstract class INode {
-    public final int _depth;    // Depth in tree
-    protected INode(int depth) { _depth = depth; }
+    protected INode() { }
     abstract int classify(Row r);
-    public int depth()         { return 0; }
-    public int leaves()        { return 1; }
+    public abstract int depth();
+    public abstract int leaves();
+    public abstract int nodes();
 
     public abstract void print(TreePrinter treePrinter) throws IOException;
     abstract void write( DataOutputStream dos ) throws IOException;
-    static INode read( DataInputStream dis, int depth ) throws IOException {
+    static INode read( DataInputStream dis ) throws IOException {
       int b = dis.readByte();
       switch( b ) {
-      case '[':  return LeafNode.read(dis,depth); // Leaf selector
-      case '(':  return     Node.read(dis,depth); // Node selector
-      case 'S':  return SplitNode.read(dis,depth); // Node selector
+      case '[': return  LeafNode.read(dis); // Leaf selector
+      case '(': return      Node.read(dis); // Node selector
+      case 'S': return SplitNode.read(dis); // Node selector
       default:
         throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
       }
@@ -251,10 +251,13 @@ public class Tree extends CountedCompleter {
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {
     final int class_;    // A category reported by the inner node
-    LeafNode(int depth,int c) {
-      super(depth);
+    LeafNode(int c) {
       class_ = c;
     }
+    @Override public int depth()  { return 0; }
+    @Override public int leaves() { return 1; }
+    @Override public int nodes()  { return 1; }
+
     public int classify(Row r) { return class_; }
     public String toString()   { return "["+class_+"]"; }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
@@ -263,8 +266,8 @@ public class Tree extends CountedCompleter {
       dos.writeByte('[');       // Leaf indicator
       dos.writeShort(class_);
     }
-    static LeafNode read( DataInputStream dis, int depth ) throws IOException {
-      return new LeafNode(depth,dis.readShort());
+    static LeafNode read( DataInputStream dis ) throws IOException {
+      return new LeafNode(dis.readShort());
     }
   }
 
@@ -272,28 +275,30 @@ public class Tree extends CountedCompleter {
    * classifier to be used to decide which subtree to explore further. */
   static class Node extends INode {
     final DataAdapter _dapt;
-    final int column_;
-    final double value_;
-    INode l_, r_;
-    public Node(int depth,int column, double value, DataAdapter dapt) {
-      super(depth);
-      column_= column;
-      value_ = value;
+    final int _column;
+    final double _value;
+    INode _l, _r;
+    public Node(int column, double value, DataAdapter dapt) {
+      _column= column;
+      _value = value;
       _dapt  = dapt;
     }
     public int classify(Row row) {
-      return (row.getS(column_)<=value_ ? l_ : r_).classify(row);
+      return (row.getS(_column)<=_value ? _l : _r).classify(row);
     }
 
-    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
-    public int leaves()       { return l_.leaves() + r_.leaves(); }
+    @Override public int depth()  { return 1 + Math.max(_l.depth(), _r.depth()); }
+    @Override public int leaves() { return _l.leaves() + _r.leaves(); }
+    @Override public int nodes()  { return 1 + _l.nodes() + _r.nodes(); }
+
+
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
     private final C column() {
-      return _dapt.c_[column_]; // Get the column in question
+      return _dapt.c_[_column]; // Get the column in question
     }
     private final float split_value(C c) {
-      short idx = (short)value_; // Convert split-point of the form X.5 to a (short)X
+      short idx = (short)_value; // Convert split-point of the form X.5 to a (short)X
       double dlo = c._v2o[idx+0]; // Convert to the original values
       double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
       double dmid = (dlo+dhi)/2.0; // Compute an original split-value
@@ -303,71 +308,67 @@ public class Tree extends CountedCompleter {
     }
     public String toString() {
       C c = column();           // Get the column in question
-      return c.name_ +"<" + Utils.p2d(split_value(c)) + " ("+l_+","+r_+")";
+      return c.name_ +"<" + Utils.p2d(split_value(c)) + " ("+_l+","+_r+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException {
+      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
       dos.writeByte('(');       // Node indicator
-      assert Short.MIN_VALUE <= column_ && column_ < Short.MAX_VALUE;
-      dos.writeShort(column_);
-      //dos.writeFloat(split_value(column()));
-      dos.writeShort((short)value_);// Pass the short index instead of the actual value
-      l_.write(dos);
-      r_.write(dos);
+      dos.writeShort(_column);
+      dos.writeShort((short)_value);// Pass the short index instead of the actual value
+      _l.write(dos);
+      _r.write(dos);
     }
-    static Node read( DataInputStream dis, int depth ) throws IOException {
+    static Node read( DataInputStream dis ) throws IOException {
       int col = dis.readShort();
-      //float f = dis.readFloat();
       int idx = dis.readShort(); // Read the short index instead of the actual value
-      Node n = new Node(depth,col,((double)idx)+0.5,null);
-      n.l_ = INode.read(dis,depth+1);
-      n.r_ = INode.read(dis,depth+1);
+      Node n = new Node(col,((double)idx)+0.5,null);
+      n._l = INode.read(dis);
+      n._r = INode.read(dis);
       return n;
     }
    }
 
   /** Gini classifier node.
-   *
    */
   static class SplitNode extends INode {
-    final int column;
-    final int split;
-    INode l_, r_;
+    final int _column;
+    final int _split;
+    INode _l, _r;
 
     @Override int classify(Row r) {
-      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
+      return r.getColumnClass(_column) <= _split ? _l.classify(r) : _r.classify(r);
     }
 
-    public SplitNode(int depth, int column, int split) {
-      super(depth);
-      this.column = column;
-      this.split = split;
+    public SplitNode(int column, int split) {
+      this._column = column;
+      this._split = split;
     }
 
-    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
-    public int leaves()       { return l_.leaves() + r_.leaves(); }
+    public void set(int direction, INode n) { if (direction==0) _l=n; else _r=n; }
+    @Override public int depth()  { return 1 + Math.max(_l.depth(), _r.depth()); }
+    @Override public int leaves() { return _l.leaves() + _r.leaves(); }
+    @Override public int nodes()  { return 1 + _l.nodes() + _r.nodes(); }
+
     public String toString() {
-      return "S "+column +"<=" + split + " ("+l_+","+r_+")";
+      return "S "+_column +"<=" + _split + " ("+_l+","+_r+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
 
     void write( DataOutputStream dos ) throws IOException {
+      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
       dos.writeByte('S');       // Node indicator
-      assert Short.MIN_VALUE <= column && column < Short.MAX_VALUE;
-      dos.writeShort(column);
-      //dos.writeFloat(split_value(column()));
-      dos.writeShort((short)split);// Pass the short index instead of the actual value
-      l_.write(dos);
-      r_.write(dos);
+      dos.writeShort(_column);
+      dos.writeShort((short)_split);// Pass the short index instead of the actual value
+      _l.write(dos);
+      _r.write(dos);
     }
-    static SplitNode read( DataInputStream dis, int depth ) throws IOException {
+    static SplitNode read( DataInputStream dis ) throws IOException {
       int col = dis.readShort();
-      //float f = dis.readFloat();
       int idx = dis.readShort(); // Read the short index instead of the actual value
-      SplitNode n = new SplitNode(depth,col,idx);
-      n.l_ = INode.read(dis,depth+1);
-      n.r_ = INode.read(dis,depth+1);
+      SplitNode n = new SplitNode(col,idx);
+      n._l = INode.read(dis);
+      n._r = INode.read(dis);
       return n;
     }
   }
@@ -393,90 +394,8 @@ public class Tree extends CountedCompleter {
     try {
       DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bits));
       Tree t = new Tree(dis.readInt());
-      t._tree = INode.read(dis,0);
+      t._tree = INode.read(dis);
       return t;
     } catch( IOException e ) { throw new Error(e); }
   }
-
-//  /** Computes the tree using the gini statistic.
-//   *
-//   */
-//  final INode computeGini(int depth, Data d, GiniStatistic.Split split, GiniJob[] jobs,GiniStatistic[] stats) {
-//    // reset the statistics
-//    stats[0].reset(d);
-//    stats[1].reset(d);
-//    // create the node and filter the data
-//    Data[] res = new Data[2];
-//    GiniNode nd = null;
-//    switch (GiniStatistic.type) {
-//      case split:
-//        nd = new GiniNode(depth, split.column, split.split);
-//        d.filter(nd.column,nd.split,res,stats);
-//        break;
-//      case exclusion:
-//        nd = new ExclusionGiniNode(depth,split.column, split.split);
-//        d.filterExclusion(nd.column,nd.split,res,stats);
-//        break;
-//    }
-//    // filter the data to the new statistics
-//    GiniStatistic.Split ls = stats[0].split();
-//    GiniStatistic.Split rs = stats[1].split();
-//    if (ls.isLeafNode())
-//      nd.l_ = new LeafNode(depth+1,ls.split);
-//    else
-//      jobs[0] = new GiniJob(this,nd,0,res[0],ls);
-//    if (rs.isLeafNode())
-//      nd.r_ = new LeafNode(depth+1,rs.split);
-//    else
-//      jobs[1] = new GiniJob(this,nd,1,res[1],rs);
-//    return nd;
-//  }
-//
-//  static class GiniNode extends INode {
-//    final int column;
-//    final int split;
-//    INode l_, r_;
-//
-//    @Override int classify(Row r) {
-//      return r.getColumnClass(column) <= split ? l_.classify(r) : r_.classify(r);
-//    }
-//
-//    public GiniNode(int depth, int column, int split) {
-//      super(depth);
-//      this.column = column;
-//      this.split = split;
-//    }
-//
-//    public void set(int direction, INode n) { if (direction==0) l_=n; else r_=n; }
-//    public int depth()        { return Math.max(l_.depth(), r_.depth()) + 1; }
-//    public int leaves()       { return l_.leaves() + r_.leaves(); }
-//    public String toString() {
-//      C c = RFGiniTask.data().data_.c_[column];
-//      return "G "+c.name_ +"<" + split + " ("+l_+","+r_+")";
-//    }
-//    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-//    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
-//    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
-//  }
-//
-//  static class ExclusionGiniNode extends GiniNode {
-//
-//    @Override int classify(Row r) {
-//      return r.getColumnClass(column) == split ? l_.classify(r) : r_.classify(r);
-//    }
-//
-//    public ExclusionGiniNode(int depth, int column, int split) {
-//      super(depth,column,split);
-//    }
-//
-//    public String toString() {
-//      C c = RFGiniTask.data().data_.c_[column];
-//      return c.name_ +"==" + split + " ("+l_+","+r_+")";
-//    }
-//
-//    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-//    void write( DataOutputStream dos ) throws IOException { throw new Error("unimplemented"); }
-//    static Node read( DataInputStream dis, int depth ) { throw new Error("unimplemented"); }
-//
-//  }
 }

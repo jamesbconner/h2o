@@ -46,7 +46,7 @@ public class RFView extends H2OPage {
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<tbody>\n"
     + "%tableRow{\n"
-    + "  <tr><td><a href='/Inspect?Key=%treekey_u'>%treekey_s</a></tr>\n"
+    + "  <tr><td><a href='/RFTreeView?Key=%treekey_u'>%treekey_s</a></tr>\n"
     + "}\n"
     + "</tbody>\n"
     + "</table>\n"
