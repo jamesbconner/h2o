@@ -67,7 +67,7 @@ public class Tree extends CountedCompleter {
     // one, 2 for binary trees
     stats_ = new ThreadLocal[2];
     for (int i = 0; i < stats_.length; ++i)
-      stats_[i] = new ThreadLocal<>();
+      stats_[i] = new ThreadLocal();
   }
   
   private void freeStatistics() {
