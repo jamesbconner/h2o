@@ -95,7 +95,7 @@ public final class H2O {
   static String FLAT_FILE = null;
   // Static configuration is disabled by default (if enabled, multicast has to be disabled).
   static boolean STATIC_CONF_ENABLED = false;
-
+  
   // Reverse cloud index to a cloud; limit of 256 old clouds.
   static private final H2O[] CLOUDS = new H2O[256];
 
@@ -302,6 +302,7 @@ public final class H2O {
     public String hdfs_config;        // configuration file of the HDFS
     public String hdfs_datanode;      // Datanode root
     public String test;               // JUnit test classes
+    public String nosigar;            // Disable Sigar-based statistics
   }
   public static boolean IS_SYSTEM_RUNNING = false;
 
