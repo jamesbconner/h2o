@@ -5,6 +5,7 @@ import water.DKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
+import water.web.H2OPage;
 
 /**
  * Utility holding common code for checking errors on servlet request pages
@@ -51,7 +52,7 @@ public class ServletUtil {
     if( skey == null ) return H2OPage.wrap(H2OPage.error("Missing argument key: "+ s));
     // Parse the Key & validate it
     try {
-      Key key = Key.make(skey); // Get a Key from a raw byte array, if any
+      Key key = Key.make(H2OPage.decode(skey)); // Get a Key from a raw byte array, if any
       //if( !key.user_allowed() )
       //  return H2OPage.wrap(H2OPage.error("Not a user key: "+ skey));
       return key;

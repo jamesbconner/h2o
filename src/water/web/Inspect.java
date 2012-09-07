@@ -53,7 +53,7 @@ public class Inspect extends H2OPage {
       int idx = key_s.lastIndexOf('.');
       if( idx != -1 )
         p_key = key_s.substring(0,idx);
-      p_key += ".dat";
+      p_key += ".hex";
       if( p_key.equals(key_s) ) p_key += "2";
       String s;
       if( DKV.get(Key.make(p_key)) == null ) {

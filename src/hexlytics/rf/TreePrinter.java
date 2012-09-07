@@ -17,14 +17,14 @@ public class TreePrinter {
   public void printForest(RandomForest rf) throws IOException {
     _dest.append("digraph {\n");
     for (Tree t : rf._trees) {
-      t.tree_.print(this);
+      t._tree.print(this);
     }
     _dest.append("}");
   }
 
   public void printTree(Tree t) throws IOException {
     _dest.append("digraph {\n");
-    t.tree_.print(this);
+    t._tree.print(this);
     _dest.append("}");
   }
 

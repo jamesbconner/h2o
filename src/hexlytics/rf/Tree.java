@@ -18,7 +18,7 @@ public class Tree extends CountedCompleter {
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;
   final double _min_error_rate;
-  INode tree_;
+  INode _tree;
   final StatType statistic_;
 
   // Constructor used to define the specs when building the tree from the top
@@ -47,23 +47,20 @@ public class Tree extends CountedCompleter {
   // Actually build the tree
   public void compute() {
     switch (statistic_) {
-      case numeric:
-        computeNumeric();
-        break;
-      case gini:
-        computeGini();
-        break;
-      default:
-        throw new Error("Unrecognized statistic type");
+    case numeric: computeNumeric();  break;
+    case gini:    computeGini();     break;
+    default:      throw new Error("Unrecognized statistic type");
     }
+    String st = toString();
+    System.out.println("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
+    tryComplete();
   }
     
   void computeNumeric() {
     // All rows in the top-level split
     Statistic s = new Statistic(_data,null);
     for (Row r : _data) s.add(r);
-    tree_ = new FJBuild(s,_data,0).compute();
-    tryComplete();
+    _tree = new FJBuild(s,_data,0).compute();
   }
   
   void computeGini() {
@@ -79,10 +76,9 @@ public class Tree extends CountedCompleter {
     for (Row r : _data) left.add(r);
     GiniStatistic.Split spl = left.split();
     if (spl.isLeafNode())
-      tree_ = new LeafNode(0,spl.split);
+      _tree = new LeafNode(0,spl.split);
     else
-      tree_ = new FJGiniBuild(spl,_data,0).compute();
-    tryComplete();
+      _tree = new FJGiniBuild(spl,_data,0).compute();
   }
 
   private class FJBuild extends RecursiveTask<INode> {
@@ -311,8 +307,8 @@ public class Tree extends CountedCompleter {
   }
   
   
-  public int classify(Row r) { return tree_.classify(r); }
-  public String toString()   { return tree_.toString(); }
+  public int classify(Row r) { return _tree.classify(r); }
+  public String toString()   { return _tree.toString(); }
 
   // Write the Tree to a random Key homed here.
   public Key toKey() {
@@ -320,7 +316,7 @@ public class Tree extends CountedCompleter {
     try {
       DataOutputStream dos = new DataOutputStream(bos);
       dos.writeInt(_data_id);
-      tree_.write(dos);
+      _tree.write(dos);
     } catch( IOException e ) { throw new Error(e); }
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bos.toByteArray()));
@@ -331,7 +327,7 @@ public class Tree extends CountedCompleter {
     try {
       DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bits));
       Tree t = new Tree(dis.readInt());
-      t.tree_ = INode.read(dis,0);
+      t._tree = INode.read(dis,0);
       return t;
     } catch( IOException e ) { throw new Error(e); }
   }

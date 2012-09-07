@@ -23,12 +23,12 @@ public class RandomForest extends H2OPage {
     }
     RString response = new RString(html);
     response.replace("h2o",H2O.SELF.urlEncode());
-    response.replace("treeskey",treeskey);
-    response.replace("ntrees",ntrees);
+    response.replace("treeskey",encode(treeskey._kb));
+    response.replace("ntrees",ntrees*H2O.CLOUD.size());
     response.replace("depth",depth);
-    response.replace("origKey",ary._key);
+    response.replace("origKey",encode(ary._key._kb));
     return response.toString();
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%treeskey&ntrees=%ntrees&depth=%depth&origKey=%key\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%treeskey&ntrees=%ntrees&depth=%depth&origKey=%origKey\">\n";
 }

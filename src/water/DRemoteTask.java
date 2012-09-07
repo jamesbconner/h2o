@@ -92,9 +92,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
       return f;                 // But return the set of remote tasks
     }
 
-    // Run locally
+    // Launch locally, but is non-blocking
     init();                     // One-time top-level init
-    H2O.FJP_NORM.invoke(this);  // F/J blocking invoke
+    H2O.FJP_NORM.submit(this);  // F/J blocking invoke
 
     // Return a cookie to block on for the remote work
     return f;
@@ -108,6 +108,11 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     }
     // Block until completed, without having to catch exceptions
     public DRemoteTask get() {
+      try {
+        DRemoteTask.this.get(); // Block until the self-task is done
+      } catch( InterruptedException ie ) {
+      } catch( ExecutionException ee ) {
+      }
       // Block for remote exec & reduce results into _drt
       if( _lo != null ) reduce(_lo.get());
       if( _hi != null ) reduce(_hi.get());

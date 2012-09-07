@@ -11,17 +11,12 @@ import water.UKV;
 public class Remove extends H2OPage {
   
   @Override public String serve_impl(Properties args) {
-    String keys = args.getProperty("Key");
-    Key key = null;
-    try { 
-      key = Key.make(keys);      // Get a Key from a raw byte array, if any
-    } catch( IllegalArgumentException e ) {
-      return H2OPage.error("Not a valid key: "+ keys);
-    }
+    Object o = ServletUtil.check_key(args,"Key");
+    if( o instanceof String ) return (String)o;
     // Distributed remove
-    UKV.remove(key);
+    UKV.remove((Key)o);
     // HTML file save of Value
-    return H2OPage.success("Removed key <strong>"+keys+"</strong>");
+    return H2OPage.success("Removed key <strong>"+((Key)o).toString()+"</strong>");
   }
 
   @Override public String[] requiredArguments() {

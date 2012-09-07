@@ -82,7 +82,7 @@ public class RandomForest {
     if (_confusion == null) _confusion = new int[_data.classes()][_data.classes()];
     errors_ = 0; int i = 0;
     for (Row r : _data) {
-      int k = t.tree_.classify(r);
+      int k = t._tree.classify(r);
       scores_[i][k]++;
       int[] votes = scores_[i];
       if (r.classOf() != Utils.maxIndex(votes, _data.random()))  ++errors_;
@@ -104,7 +104,7 @@ public class RandomForest {
       int realClass = r.classOf();
       int[] predictedClasses = new int[_data.classes()];
       for (Tree t: _trees) {
-        int k = t.tree_.classify(r);
+        int k = t._tree.classify(r);
         predictedClasses[k]++;
       }
       int predClass = Utils.maxIndexInt(predictedClasses, _data.random());

@@ -34,7 +34,6 @@ public abstract class UKV {
   }
 
   static public void remove( Key key ) {
-    assert key.user_allowed();
     Value val = DKV.get(key,32); // Get the existing Value, if any
     if( val == null ) return;    // Trivial delete
     if( val instanceof ValueArray ) { // See if this is an Array

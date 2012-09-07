@@ -10,15 +10,9 @@ import water.Key;
 public class RemoveAck extends H2OPage {
 
   @Override protected String serve_impl(Properties args) {
-    String keys = args.getProperty("Key");
-    Key key = null;
-    try {
-      key = Key.make(keys);      // Get a Key from a raw byte array, if any
-    } catch( IllegalArgumentException e ) {
-      return H2OPage.error("Not a valid key: "+ keys);
-    }
-    if (!key.user_allowed())
-      return error("Not a user key: "+ key.toString());
+    Object o = ServletUtil.check_key(args,"Key");
+    if( o instanceof String ) return (String)o;
+    Key key = (Key)o;
     RString response = new RString(html);
     response.replace("key",key.toString());
     response.replace("keyHref",encode(key._kb));
