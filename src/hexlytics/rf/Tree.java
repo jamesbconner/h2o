@@ -8,7 +8,7 @@ import jsr166y.*;
 import water.*;
 
 public class Tree extends CountedCompleter {
-  static ThreadLocal<BaseStatistic>[] stats_;
+  ThreadLocal<BaseStatistic>[] stats_;
 
   public enum StatType {
     entropy,
@@ -95,7 +95,7 @@ public class Tree extends CountedCompleter {
   }
 
   // TODO this has to change a lot, only a temp working version
-  static private BaseStatistic getOrCreateStatistic(int index, Data data) {
+  private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
       //switch (statistic_) {
@@ -146,7 +146,7 @@ public class Tree extends CountedCompleter {
     }
   }
 
-  private static class FJBuild extends RecursiveTask<INode> {
+  private class FJBuild extends RecursiveTask<INode> {
     final BaseStatistic.Split split_;
     final Data data_;
     final int depth_;
@@ -159,8 +159,8 @@ public class Tree extends CountedCompleter {
 
     @Override public INode compute() {
       // first get the statistics
-      BaseStatistic left = Tree.getOrCreateStatistic(0,data_);
-      BaseStatistic right = Tree.getOrCreateStatistic(1,data_);
+      BaseStatistic left = getOrCreateStatistic(0,data_);
+      BaseStatistic right = getOrCreateStatistic(1,data_);
       // create the data, node and filter the data
       Data[] res = new Data[2];
       SplitNode nd = new SplitNode(depth_,split_.column, split_.split);
