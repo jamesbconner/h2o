@@ -1,11 +1,13 @@
 package test;
 import hexlytics.rf.DRF;
-import hexlytics.rf.Tree;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import water.*;
+import hexlytics.rf.Tree.StatType;
 
 import java.io.File;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+
+import water.*;
 
 public class RandomForestTest {
 
@@ -15,7 +17,7 @@ public class RandomForestTest {
 
   public RandomForestTest(){
   }
-  
+
   @org.junit.Test public void testSmallData() {
   System.out.println("Running RandomForest on small data sets");
   String[] datafiles = new String[] { "smalldata/poker/poker100","smalldata/iris/iris2.csv"};
@@ -25,9 +27,9 @@ public class RandomForestTest {
     ValueArray va = TestUtil.parse_test_key(fileKey);
     try { Thread.sleep(100); }        // sleep 100msec, to let parse finish & test again
     catch( InterruptedException ie ) {}
-    Key entropyR = DRF.web_main(va, 10, 100, .15, Tree.StatType.oldEntropy);
-    Key    giniR = DRF.web_main(va, 10, 100, .15, Tree.StatType.gini);
-		UKV.remove(fileKey); // clean up and burn
+    Key entropyR = DRF.web_main(va, 10, 100, .15, StatType.ENTROPY);
+    Key    giniR = DRF.web_main(va, 10, 100, .15, StatType.GINI);
+    UKV.remove(fileKey); // clean up and burn
     UKV.remove(entropyR);
     UKV.remove(giniR);
 	}

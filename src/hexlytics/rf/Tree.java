@@ -3,26 +3,19 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.UUID;
 
 import jsr166y.CountedCompleter;
 import jsr166y.ForkJoinTask;
 import jsr166y.RecursiveTask;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Value;
+import water.*;
 
 public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
-  
-  final static public String ENTROPY ="entropy", NEWENTR = "newentropy", GINI = "gini";
-  final String _type;
+  static public enum StatType { ENTROPY, NEW_ENTROPY, GINI };
+
+  final StatType _type;
   final Data _data;
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;
@@ -31,12 +24,12 @@ public class Tree extends CountedCompleter {
   long _timeToBuild; // Time needed to build the tree
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, String stat ) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
     _data = data;
     _data_id = data.data_._data_id;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
-    _type = stat.equals(NEWENTR)? NEWENTR : ( stat.equals(GINI) ? GINI : ENTROPY);
+    _type = stat;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
   public Tree( int data_id ) {
@@ -44,7 +37,7 @@ public class Tree extends CountedCompleter {
     _data_id = data_id;
     _max_depth = 0;
     _min_error_rate = -1.0;
-    _type = ENTROPY;
+    _type = StatType.ENTROPY;
   }
 
   /** Determines the error rate of a single tree. */
@@ -70,12 +63,12 @@ public class Tree extends CountedCompleter {
   }
 
   private void freeStatistics() { stats_ = null; } // so that they can be GCed
-  
+
   // Actually build the tree
   public void compute() {
     createStatistics();
     _timeToBuild = System.currentTimeMillis();
-    if (_type == ENTROPY) computeNumeric();  else  compute2();  
+    if (_type == StatType.ENTROPY) computeNumeric(); else compute2();
     _timeToBuild = System.currentTimeMillis() - _timeToBuild;
     String st = toString();
     System.out.println("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
@@ -93,7 +86,7 @@ public class Tree extends CountedCompleter {
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
-     result =  (_type == GINI) ? new GiniStatistic(data) : new EntropyStatistic(data); 
+     result = (_type == StatType.GINI) ? new GiniStatistic(data) : new EntropyStatistic(data);
      stats_[index].set(result);
     }
     result.reset(data);
@@ -114,11 +107,11 @@ public class Tree extends CountedCompleter {
   private class FJEntropyBuild extends RecursiveTask<INode> {
 
     static final boolean THREADED = true;  // Single threaded ?
-    
+
     final Statistic _s;         // All the rows that this split munged over
     final Data _data;           // The resulting 1/2-sized dataset from the above split
     final int _d;               // depth
-    
+
     FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
     public INode compute() {
       // terminate the branch prematurely
@@ -137,7 +130,7 @@ public class Tree extends CountedCompleter {
         nd._l = fj0.join();
       } else {
         nd._l = new FJEntropyBuild(stats[0],res[0],_d+1).compute();
-        nd._r = new FJEntropyBuild(stats[1],res[1],_d+1).compute();          
+        nd._r = new FJEntropyBuild(stats[1],res[1],_d+1).compute();
       }
       return nd;
     }
