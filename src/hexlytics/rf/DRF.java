@@ -96,11 +96,9 @@ public class DRF extends water.DRemoteTask {
     Data v = SAMPLE ? t.complement() : null;
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" stat="+_stat);
     this._rf = new RandomForest(this, t, _ntrees, _depth, -1, _stat);
-    this._vrf = SAMPLE ? new RandomForest(v,_ntrees) : null;
+    DRF._vrf = SAMPLE ? new RandomForest(v,_ntrees) : null;
     tryComplete();
   }
 
-  // Reducing RF's from all over in a log-tree roll-up
-  public void reduce( DRemoteTask drt ) { DRF drf = (DRF) drt; }
-
+  public void reduce( DRemoteTask drt ) { }
 }
