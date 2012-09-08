@@ -2,7 +2,6 @@ package water.web;
 
 import hexlytics.rf.GraphvizTreePrinter;
 import hexlytics.rf.Tree;
-import hexlytics.rf.TreePrinter;
 
 import java.io.File;
 import java.io.PrintWriter;
@@ -44,16 +43,23 @@ public class RFTreeView extends H2OPage {
     response.replace("leafCount", tree._tree.leaves());
     response.replace("depth",     tree._tree.depth());
 
-    String graph = "";
-    if( DOT_PATH != null && nodeCount < 1000 ) graph = dotRender(va, tree);
+    String graph;
+    if( DOT_PATH == null ) {
+      graph = "Install <a href=\"http://www.graphviz.org/\">graphviz</a> to " +
+      		"see visualizations of small trees<p>";
+    } else if( nodeCount < 1000 ) {
+      graph = dotRender(va, tree);
+    } else {
+      graph = "Tree is too large to graph.<p>";
+    }
     return response.toString() + graph;
   }
 
   private String dotRender(ValueArray va, Tree t) {
     try {
-      RString img = new RString("<img src=\"data:image/jpg;base64,%rawImage\" width='80%%' ></img>");
+      RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
 
-      Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tjpg", });
+      Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
       new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
