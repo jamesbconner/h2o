@@ -312,8 +312,7 @@ public class NanoHTTPD
 			try
 			{
 				InputStream is = new BufferedInputStream(mySocket.getInputStream());
-				if ( is == null) return;
-        is.mark(8192);
+				is.mark(8192);
 
 				// Read the first 8192 bytes.
 				// The full header should fit in here.
@@ -377,7 +376,7 @@ public class NanoHTTPD
 
 				// Now read all the body and write it to f
 				//buf = new byte[512];
-        
+
 /*				while ( rlen >= 0 && size > 0 )
 				{
 					rlen = is.read(buf, 0, 512);
@@ -386,7 +385,7 @@ public class NanoHTTPD
 						f.write(buf, 0, rlen);
 				} */
 
-        
+
 				// Get the raw body as a byte []
 				//byte [] fbuf = f.toByteArray();
 
@@ -418,7 +417,7 @@ public class NanoHTTPD
 						String boundary = st.nextToken();
 
             decodeMultipartDataInMemory(boundary,is,parms,files);
-            
+
 //						decodeMultipartData(boundary, fbuf, in, parms, files);
 					}
 					else
@@ -540,8 +539,8 @@ public class NanoHTTPD
         line = line.substring(0,line.length()-1);
       return line;
     }
-    
-    
+
+
     private int readBufOrLine(InputStream in, byte[] mem) throws IOException {
       byte[] bb = new byte[1];
       int sz = 0;
@@ -634,7 +633,7 @@ public class NanoHTTPD
               FileOutputStream s = new FileOutputStream(tmp);
               byte[] buf = new byte[10240];
               byte[] pending = new byte[] { '\r', '\n' };
-              int p = 0; 
+              int p = 0;
               long sze = 0;
               while (true) {
                 int sz = readBufOrLine(in, buf);
@@ -665,7 +664,7 @@ public class NanoHTTPD
       } catch (IOException e) {
 				sendError( HTTP_INTERNALERROR, "SERVER INTERNAL ERROR: IOException: " + e.getMessage());
       }
-    } 
+    }
 
 		/**
 		 * Retrieves the content of a sent file and saves it
@@ -1114,7 +1113,7 @@ public class NanoHTTPD
 	private static int theBufferSize = 16 * 1024;
 
 	// Change this if you want to log to somewhere else than stdout
-	protected static final PrintStream myOut = System.out; 
+	protected static final PrintStream myOut = System.out;
 
 	/**
 	 * GMT date formatter
