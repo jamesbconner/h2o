@@ -43,28 +43,28 @@ public class RFTreeView extends H2OPage {
     response.replace("nodeCount", nodeCount);
     response.replace("leafCount", tree._tree.leaves());
     response.replace("depth",     tree._tree.depth());
-    if( DOT_PATH != null && nodeCount < 1000 ) dotRender(response, va, tree);
-    return response.toString();
+
+    String graph = "";
+    if( DOT_PATH != null && nodeCount < 1000 ) graph = dotRender(va, tree);
+    return response.toString() + graph;
   }
 
-  private void dotRender(RString response, ValueArray va, Tree t) {
+  private String dotRender(ValueArray va, Tree t) {
     try {
+      RString img = new RString("<img src=\"data:image/jpg;base64,%rawImage\" width='80%%' ></img>");
+
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tjpg", });
       new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 
-      RString graph = response.restartGroup("graphImg");
-      graph.replace("rawImage", new String(Base64.encodeBase64(data), "UTF-8"));
-      graph.append();
+      img.replace("rawImage", new String(Base64.encodeBase64(data), "UTF-8"));
+      return img.toString();
     } catch( Exception e ) {
       StringBuilder sb = new StringBuilder();
       sb.append("Error Generating Dot file:\n");
       e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
-
-      RString graph = response.restartGroup("graphDot");
-      graph.replace("graphviz", sb.toString());
-      graph.append();
+      return sb.toString();
     }
   }
 
@@ -73,8 +73,6 @@ public class RFTreeView extends H2OPage {
     return
         "\nTree View of %key\n<p>" +
         "%depth depth with %nodeCount nodes and %leafCount leaves.<p>" +
-        "%graphDot{<pre><code>%graphviz</code></pre>}" +
-        "%graphImg{<img src=\"data:image/jpg;base64,%rawImage\" width='80%%' ></img>}" +
     "";
   }
 }
