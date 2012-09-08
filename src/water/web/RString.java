@@ -4,8 +4,12 @@
  */
 package water.web;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.NoSuchElementException;
+
+import water.Key;
+
+import com.google.common.collect.ArrayListMultimap;
 
 /**
  * List that has labels to it (something like copyable iterators) and some very
@@ -116,7 +120,7 @@ class LabelledStringList {
       other._prev = _prev;
     }
   }
-  // first item 
+  // first item
   private Item _begin;
   // length in characters of the total stored string
   private int _length;
@@ -129,7 +133,7 @@ class LabelledStringList {
     _noOfElements = 0;
   }
 
-  // Returns a label to the first item 
+  // Returns a label to the first item
   public Label begin() {
     return new Label(null);
   }
@@ -187,7 +191,8 @@ class RString {
     }
   }
   // Placeholders
-  HashMap<String, Placeholder> _placeholders;
+  ArrayListMultimap<String, Placeholder> _placeholders;
+
   // Parts of the final string (replacements and originals together).
   LabelledStringList _parts;
   // Parent placeholder if the RString is a replacement group.
@@ -212,7 +217,7 @@ class RString {
   // replacements in the future are very quick (hashmap lookup in fact).
   public RString(final String from) {
     _parts = new LabelledStringList();
-    _placeholders = new HashMap();
+    _placeholders = ArrayListMultimap.create();
     LabelledStringList.Label cur = _parts.begin();
     int start = 0;
     int end = 0;
@@ -268,17 +273,25 @@ class RString {
     }
   }
 
-  // Replaces the given placeholder with an object. On a single placeholder, 
+  public void replace(String what, Key with) {
+    replace(what, H2OPage.encode(with));
+  }
+
+  // Replaces the given placeholder with an object. On a single placeholder,
   // multiple replaces can be called in which case they are appended one after
   // another in order.
   public void replace(String what, Object with) {
-    _placeholders.get(what).end.insertAndAdvance(with.toString());
+    for (Placeholder p : _placeholders.get(what))
+      p.end.insertAndAdvance(with.toString());
   }
 
   // Returns a replacement group of the given name and clears it so that it
-  // can be filled again. 
+  // can be filled again.
   public RString restartGroup(String what) {
-    Placeholder result = _placeholders.get(what);
+    List<Placeholder> all = _placeholders.get(what);
+    assert all.size() == 1;
+
+    Placeholder result = all.get(0);
     if( result.group == null ) {
       throw new NoSuchElementException("Element " + what + " is not a group.");
     }

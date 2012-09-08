@@ -2,27 +2,14 @@ package water.web;
 
 import init.Loader;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Properties;
 
-import water.Log;
 import water.H2O;
 import water.NanoHTTPD;
 
-/** This is a simple web server.
- * 
- * It is here so that I do not clash with the commits of others and they do not
- * clash with me.
-
-* @author peta
- */
+/** This is a simple web server. */
 public class Server extends NanoHTTPD {
 
   // initialization ------------------------------------------------------------
@@ -45,18 +32,8 @@ public class Server extends NanoHTTPD {
         }
       }).start();
   }
-  
+
   // uri serve -----------------------------------------------------------------
-  
-  /** Serves the client. 
-   * 
-   * @param uri
-   * @param method
-   * @param header
-   * @param parms
-   * @param files
-   * @return 
-   */ 
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
     if (uri.isEmpty())
       uri = "/";
@@ -79,16 +56,16 @@ public class Server extends NanoHTTPD {
       return http404(uri);
     if (result instanceof Response)
       return (Response)result;
-    if (result instanceof InputStream) 
+    if (result instanceof InputStream)
       return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, (InputStream) result);
     return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, result.toString());
   }
-  
+
   public static Page getPage(String uri) {
     return _pages.get(uri);
   }
 
-  
+
   // constructor ---------------------------------------------------------------
 
   private Server( int port ) throws IOException {
@@ -96,11 +73,6 @@ public class Server extends NanoHTTPD {
     super(port,null);
     // initialize pages
     registerPage(new Cloud(),"");
-    //registerPage(new Compile(),"Compile");
-    //registerPage(new Exec(),"Exec");
-    //registerPage(new ExecQuery(),"ExecQuery");
-    //registerPage(new PutExec(),"PutExec");
-    //registerPage(new PutExecQuery(),"PutExecQuery");
     registerPage(new Append(),"Append");
     registerPage(new AppendQuery(),"AppendQuery");
     registerPage(new Covariance(),"COV");
@@ -128,6 +100,7 @@ public class Server extends NanoHTTPD {
     registerPage(new PutQuery(),"Put");
     registerPage(new PutValue(),"PutValue");
     registerPage(new RFView(),"RFView"); // View random-forest output
+    registerPage(new RFTreeView(),"RFTreeView");
     registerPage(new RandomForest(),"RF");
     registerPage(new RandomForest(),"RandomForest");
     registerPage(new Remote(),"Remote");
@@ -141,10 +114,10 @@ public class Server extends NanoHTTPD {
 
 
   // Resource loading ----------------------------------------------------------
-  
+
   // a shortcut to the loader
   private Loader _loader = Loader.instance();
-  
+
   // cache of all loaded resources
   private HashMap<String,byte[]> _cache = new HashMap();
 
@@ -161,7 +134,7 @@ public class Server extends NanoHTTPD {
         buffer.write(data, 0, n);
       }
       buffer.flush();
-      return buffer.toByteArray();    
+      return buffer.toByteArray();
     } catch (IOException e) {
       return null;
     } finally {
@@ -172,14 +145,14 @@ public class Server extends NanoHTTPD {
       }
     }
   }
-  
+
   // Returns the response containing the given uri with the appropriate mime
   // type.
   private Response getResource(String uri) {
     byte[] bytes = _cache.get(uri);
     if (bytes == null) {
       if (_loader.runningFromJar()) {
-        InputStream is = _loader.getResourceAsStream("resources"+uri);  
+        InputStream is = _loader.getResourceAsStream("resources"+uri);
         bytes = readStreamToBytes(is);
       } else { // to allow us to read things not only from the loader
         try {
@@ -200,23 +173,23 @@ public class Server extends NanoHTTPD {
       mime = "text/html";
     return new Response(NanoHTTPD.HTTP_OK,mime,new ByteArrayInputStream(bytes));
   }
-  
+
   // Pages ---------------------------------------------------------------------
-  
+
   private static HashMap<String,Page> _pages = new HashMap();
-  
-  
+
+
   public static void registerPage(Page page, String name) {
     //if (_pages.containsKey(name))
     //  Log.say("[webserver] Page "+name+" already exists. Hiding old page object.");
     _pages.put(name,page);
     //Log.debug("[webserver] Page "+name+" registered.");
   }
-  
+
   // others --------------------------------------------------------------------
-  
+
   private Response http404(String uri) {
     return new Response(NanoHTTPD.HTTP_NOTFOUND,NanoHTTPD.MIME_PLAINTEXT,"Location "+uri+" not found.");
   }
-  
+
 }

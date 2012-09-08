@@ -120,7 +120,7 @@ public class Utils {
     return (what < 1e-06) ? 0 : what * Math.log(what);
   }
   
-  public static double entropyOverColumns(double[][] m) {
+  public static double entropyOverColumns(int[][] m) {
     double result = 0;
     double total = 0;
     for (int col = 0; col < m[0].length; ++col) {
@@ -133,12 +133,12 @@ public class Utils {
     return (total == 0) ? 0 : (result + lnF(total)) / (total * Math.log(2));
   }
   
-  public static double entropyCondOverRows(double[][] m) {
+  public static double entropyCondOverRows(int[][] m) {
     double result = 0;
     double total = 0;
-    for (double[] d : m) {
+    for (int[] d : m) {
       double sum = 0;
-      for (double dd : d) {
+      for (int dd : d) {
         sum += dd;
         result += lnF(dd);
       }

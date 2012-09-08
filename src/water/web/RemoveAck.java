@@ -15,7 +15,7 @@ public class RemoveAck extends H2OPage {
     Key key = (Key)o;
     RString response = new RString(html);
     response.replace("key",key.toString());
-    response.replace("keyHref",encode(key));
+    response.replace("keyHref",key);
     return response.toString();
   }
 

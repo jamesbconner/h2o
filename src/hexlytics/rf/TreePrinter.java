@@ -3,15 +3,22 @@ package hexlytics.rf;
 import hexlytics.rf.Tree.LeafNode;
 import hexlytics.rf.Tree.Node;
 import hexlytics.rf.Tree.SplitNode;
-import java.io.IOException;
+
+import java.io.*;
 import java.text.MessageFormat;
 
 
 public class TreePrinter {
   private final Appendable _dest;
+  private final String[] _columnNames;
 
-  public TreePrinter(Appendable dest) {
+  public TreePrinter(OutputStream dest, String[] columns) {
+    this(new OutputStreamWriter(dest), columns);
+  }
+
+  public TreePrinter(Appendable dest, String[] columns) {
     _dest = dest;
+    _columnNames = columns;
   }
 
   public void printForest(RandomForest rf) throws IOException {
@@ -20,30 +27,16 @@ public class TreePrinter {
       t._tree.print(this);
     }
     _dest.append("}");
+    if( _dest instanceof Flushable ) ((Flushable) _dest).flush();
   }
 
   public void printTree(Tree t) throws IOException {
     _dest.append("digraph {\n");
     t._tree.print(this);
     _dest.append("}");
+    if( _dest instanceof Flushable ) ((Flushable) _dest).flush();
   }
 
-//  void printNode(GiniNode t) throws IOException {
-//    int obj = System.identityHashCode(t);
-//
-//    _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
-//        obj, "Gini Node",
-//        MessageFormat.format("data[{0}] <= {1}", t.column, t.split)));
-//
-//    t.l_.print(this);
-//    t.r_.print(this);
-//
-//    int lhs = System.identityHashCode(t.l_);
-//    int rhs = System.identityHashCode(t.r_);
-//    _dest.append(String.format("%d -> %d;\n", obj, lhs));
-//    _dest.append(String.format("%d -> %d;\n", obj, rhs));
-//  }
-//
   void printNode(LeafNode t) throws IOException {
     int obj = System.identityHashCode(t);
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
@@ -56,13 +49,14 @@ public class TreePrinter {
 
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
-        MessageFormat.format("data[{0}] <= {1}", t.column_, t.value_)));
+        MessageFormat.format("data[{0}] <= {1}",
+            _columnNames[t._column], t._value)));
 
-    t.l_.print(this);
-    t.r_.print(this);
+    t._l.print(this);
+    t._r.print(this);
 
-    int lhs = System.identityHashCode(t.l_);
-    int rhs = System.identityHashCode(t.r_);
+    int lhs = System.identityHashCode(t._l);
+    int rhs = System.identityHashCode(t._r);
     _dest.append(String.format("%d -> %d;\n", obj, lhs));
     _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }
@@ -72,13 +66,14 @@ public class TreePrinter {
 
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
-        MessageFormat.format("data[{0}] <= {1} (gini)", t.column, t.split)));
+        MessageFormat.format("data[{0}] <= {1} (gini)",
+            _columnNames[t._column], t._split)));
 
-    t.l_.print(this);
-    t.r_.print(this);
+    t._l.print(this);
+    t._r.print(this);
 
-    int lhs = System.identityHashCode(t.l_);
-    int rhs = System.identityHashCode(t.r_);
+    int lhs = System.identityHashCode(t._l);
+    int rhs = System.identityHashCode(t._r);
     _dest.append(String.format("%d -> %d;\n", obj, lhs));
     _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }

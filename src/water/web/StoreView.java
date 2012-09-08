@@ -99,7 +99,7 @@ public class StoreView extends H2OPage {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
     String ks = key.toString();
-    row.replace("keyHref",encode(key));
+    row.replace("keyHref",key);
     row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
     //if (val instanceof ValueCode) {
     //  row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
@@ -152,7 +152,7 @@ public class StoreView extends H2OPage {
       }
     }
 
-    WebUtil.createBestEffortSummary(key, row);
+    ServletUtil.createBestEffortSummary(key, row);
   }
 
   final static String html =
