@@ -52,6 +52,10 @@
   <target name="compile" depends="init" description="Compilation target">
       <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true" target="1.6" source="1.6">
         <compilerarg value="-XDignore.symbol.file" />
+        <compilerarg value="-Xlint:all" />
+        <compilerarg value="-Xlint:-serial" />
+        <compilerarg value="-Xlint:-rawtypes" />
+        <compilerarg value="-Xlint:-unchecked" />
         <classpath refid="build.classpath"/>
       </javac>
   </target>
