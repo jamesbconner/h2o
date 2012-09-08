@@ -1,17 +1,9 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Arrays;
 import java.util.Properties;
 import water.*;
 
-/**
- *
- * @author peta
- */
 public class KeysView extends H2OPage {
   public static final int KEYS_PER_PAGE = 25;
 
@@ -52,7 +44,6 @@ public class KeysView extends H2OPage {
     int i = 0;
     for (int j = 0; j<lastIndex; ++j) {
       if (((Key)keys[j]).user_allowed()) {
-//      if (H2O.get((Key)keys[j]) instanceof ValueCode) {
         if (i!=j) {
           Object s = keys[i];
           keys[i] = keys[j];
@@ -84,7 +75,7 @@ public class KeysView extends H2OPage {
       if( ++i >= KEYS_PER_PAGE ) break;     // Stop at some reasonable limit
     }
     response.replace("noOfKeys",keysize);
-    response.replace("cloud_name",H2O.CLOUD.NAME);
+    response.replace("cloud_name",H2O.NAME);
     response.replace("node_name",H2O.SELF.toString());
     if (!prefix.isEmpty())
       response.replace("pvalue","value='"+prefix+"'");
