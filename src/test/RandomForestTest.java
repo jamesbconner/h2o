@@ -1,11 +1,9 @@
 package test;
 import hexlytics.rf.DRF;
 import hexlytics.rf.Tree;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import water.H2O;
-import water.Key;
-import water.UKV;
-import water.ValueArray;
+import water.*;
 
 import java.io.File;
 
@@ -29,9 +27,15 @@ public class RandomForestTest {
     catch( InterruptedException ie ) {}
     Key entropyR = DRF.web_main(va, 10, 100, .15, Tree.StatType.oldEntropy);
     Key    giniR = DRF.web_main(va, 10, 100, .15, Tree.StatType.gini);
-    UKV.remove(fileKey); // clean up and burn
+		UKV.remove(fileKey); // clean up and burn
     UKV.remove(entropyR);
     UKV.remove(giniR);
-    }
+	}
   }
+	@AfterClass
+	public static void shutdown(){
+		System.out.println("Shutting down 3 2 1..");
+		UDPRebooted.global_kill();
+		//System.exit(0);
+	}
 }

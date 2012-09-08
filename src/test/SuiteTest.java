@@ -21,7 +21,7 @@ import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
-@SuiteClasses({KVTest.class, RandomForestTest.class})
+@SuiteClasses({KVTest.class})
 
 /**
  * Created by IntelliJ IDEA.

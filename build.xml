@@ -10,7 +10,7 @@
   <property name="build.dir.lib" value="${build.dir}/lib"/>
   <property name="build.classes" value="${build.dir}/classes"/>
   <property name="build.testclasses" value="${build.dir}/test-classes"/>
-  <property name="ice.dir" value="${user.dir}/ice"/>
+  <property name="ice.dir" value="/tmp/ice*"/>
   <property name="test.name" value="water.test.TNightly"/>
   <property name="0xbase" value="${build.dir}/h2o.jar"/>
   
@@ -98,31 +98,34 @@
   <!-- run this for running examples --> 
 
  <!-- CAUTION: Nightly test clears ICE dir -->
-  <target name="nightly" description="nightly tests" depends="clean">
+  <target name="nightly" description="nightly tests" depends="clean,compile,jar">
     <echo>CAUTION: Nightly test clearing ice.dir=${ice.dir}</echo>
     <delete dir="${ice.dir}" failonerror="false"/>
-    <antcall target="test"/>
+   <!-- RUN standalone, likeso
+	java -Djava.library.path=build/binlib -cp .:lib/apache/guava-12.0.1.jar:build/classes:build/hexbase_impl.jar:build/sigar/sigar.jar:/usr/share/java/junit.jar org.junit.runner.JUnitCore test.SuiteTest
+   -->
+    <antcall target="RandomForestTest"/>
+  </target>
+  <target name="RandomForestTest" description="tests">
+    <java fork="true" failonerror="false" classname="org.junit.runner.JUnitCore" args="test.RandomForestTest">
+       <classpath refid="build.classpath"/>
+       <jvmarg value="-Xmx2g"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+       <jvmarg value="-Djava.library.path=${basedir}/lib/binlib"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+    </java>
+
   </target>
 
  <!-- default: run nightly tests -->
  <!-- Pass test name in commandline likeso, -Dtest.name=water.test.T4b  -->
   <target name="test" description="tests" depends="compile,jar">
-    <java fork="true" failonerror="true" jar="${0xbase}" args="-test ${test.name}">
+    <java fork="true" failonerror="false" jar="${0xbase}" args="-test ${test.name}">
        <jvmarg value="-ea"/>
        <jvmarg value="-Xmx2g"/>
        <jvmarg value="-XX:+PrintCommandLineFlags"/>
     </java>
   </target>
-
-  <target name="RF" description="tests" depends="compile,jar">
-    <echo>Running default/standalone RandomForest</echo>
-    <java fork="true" failonerror="true" classname="hexlytics.rf.RandomForest">
-       <classpath refid="build.classpath"/>
-       <jvmarg value="-ea"/>
-       <jvmarg value="-XX:+PrintCommandLineFlags"/>
-    </java>
-  </target>
-	
   <target name="clean" description="get rid of any build artifacts">
   	<delete dir="${build.dir}" />
   	<delete dir="${jar.dir}" />
