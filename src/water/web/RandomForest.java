@@ -1,6 +1,6 @@
 package water.web;
 
-import hexlytics.rf.Tree.StatType;
+import hexlytics.rf.Tree;
 
 import java.util.Properties;
 
@@ -18,7 +18,7 @@ public class RandomForest extends H2OPage {
     int depth = getAsNumber(args,"depth", 30);
     // default gini is on.
     int gini = getAsNumber(args, "gini", 1);
-    StatType statType = StatType.fromId(gini);
+    String statType = gini == 1 ? Tree.GINI : Tree.ENTROPY;
     Key treeskey;
     try {
       treeskey = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType);

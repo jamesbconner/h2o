@@ -23,32 +23,27 @@ public class RandomForest {
   final int _ntrees;   // The target number of trees to make       
   final Data _data;    
   
-  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, 
-      double minErrorRate, Tree.StatType stat) {
+  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, double minErrorRate, String stat) {
     this(drf,d,ntrees,maxTreeDepth,minErrorRate,stat,true); // block by default
   }
 
-  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, 
-      double minErrorRate, Tree.StatType stat, boolean block ) {
+  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, double minErrorRate, String stat, boolean block ) {
     this(d, ntrees);
     for( int i=0; i<_ntrees; i++ ) {
       _trees.add(new Tree(_data,maxTreeDepth,minErrorRate,stat));
       H2O.FJP_NORM.execute(_trees.get(i));
     }
     if (block) blockForTrees(drf);  // Block until all trees are built
-    testReport();
   }
   
   public RandomForest( Data d , int ntrees ) { _data = d; _ntrees = ntrees;  }
   
   public final void blockForTrees(DRF drf) {
-    try {
-      for( Tree t : _trees) {
+    try { for( Tree t : _trees) {
         t.get();   // Block for a tree
         new AppendKey(t.toKey()).fork(drf._treeskey);  // Atomic-append to the list of trees
-      }
-    } catch( InterruptedException e ) { // Interrupted after partial build?
-    } catch( ExecutionException e ) { }
+    }} catch( InterruptedException e ) { // Interrupted after partial build?
+    }  catch( ExecutionException e ) { }
   }
 
   
@@ -72,7 +67,7 @@ public class RandomForest {
     DKV.remove(fileKey); // clean up and burn
     int ntrees = 10;   
     DRF.SAMPLE = true;
-    Key key = DRF.web_main(va, ntrees, 100, .15, Tree.StatType.oldEntropy);    
+    Key key = DRF.web_main(va, ntrees, 100, .15, "entropy");    
     
     while (get(key).length != ntrees) Thread.sleep(100);
     Key[] keys = get(key);
@@ -176,7 +171,6 @@ public class RandomForest {
     }
     return error/total;
   }
-  
   
   public final void testReport() {
     MinMaxAvg tbt = new MinMaxAvg();
