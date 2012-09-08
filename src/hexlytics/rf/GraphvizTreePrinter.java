@@ -9,13 +9,15 @@ import java.text.MessageFormat;
 
 
 public class GraphvizTreePrinter extends TreePrinter {
+  private final Appendable _dest;
 
   public GraphvizTreePrinter(OutputStream dest, String[] columns) {
-    super(new OutputStreamWriter(dest), columns);
+    this(new OutputStreamWriter(dest), columns);
   }
 
   public GraphvizTreePrinter(Appendable dest, String[] columns) {
-    super(dest, columns);
+    super(columns);
+    _dest = dest;
   }
 
   public void printForest(RandomForest rf) throws IOException {

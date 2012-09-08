@@ -1,5 +1,6 @@
 package water.web;
 
+import hexlytics.rf.CodeTreePrinter;
 import hexlytics.rf.GraphvizTreePrinter;
 import hexlytics.rf.Tree;
 
@@ -52,13 +53,31 @@ public class RFTreeView extends H2OPage {
     } else {
       graph = "Tree is too large to graph.<p>";
     }
-    return response.toString() + graph;
+    String code;
+    if( nodeCount < 10000 ) {
+      code = codeRender(va, tree);
+    } else {
+      code = "Tree is too large to print pseudo code.<p>";
+    }
+    return response.toString() + graph + code;
+  }
+
+  private String codeRender(ValueArray va, Tree t) {
+    try {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<pre><code>");
+      new CodeTreePrinter(sb, va.col_names()).printTree(t);
+      sb.append("</code></pre>");
+      return sb.toString();
+    } catch( Exception e ) {
+      return errorRender(e);
+    }
+
   }
 
   private String dotRender(ValueArray va, Tree t) {
     try {
       RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
-
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
       new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
       exec.getOutputStream().close();
@@ -67,11 +86,15 @@ public class RFTreeView extends H2OPage {
       img.replace("rawImage", new String(Base64.encodeBase64(data), "UTF-8"));
       return img.toString();
     } catch( Exception e ) {
-      StringBuilder sb = new StringBuilder();
-      sb.append("Error Generating Dot file:\n");
-      e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
-      return sb.toString();
+      return errorRender(e);
     }
+  }
+
+  private String errorRender(Exception e) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Error Generating Dot file:\n");
+    e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
+    return sb.toString();
   }
 
   //use a function instead of a constant so that a debugger can live swap it

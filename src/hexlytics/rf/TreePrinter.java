@@ -5,20 +5,12 @@ import hexlytics.rf.Tree.Node;
 import hexlytics.rf.Tree.SplitNode;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 
 
 public abstract class TreePrinter {
-  protected final Appendable _dest;
   protected final String[] _columnNames;
 
-  public TreePrinter(OutputStream dest, String[] columns) {
-    this(new OutputStreamWriter(dest), columns);
-  }
-
-  public TreePrinter(Appendable dest, String[] columns) {
-    _dest = dest;
+  public TreePrinter(String[] columns) {
     _columnNames = columns;
   }
 
