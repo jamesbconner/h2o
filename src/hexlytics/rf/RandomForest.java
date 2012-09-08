@@ -13,6 +13,9 @@ import water.AppendKey;
 import water.DKV;
 import water.H2O;
 import water.Key;
+import water.UDP;
+import water.UDPRebooted;
+import water.Value;
 import water.ValueArray;
 
 public class RandomForest {
@@ -20,14 +23,14 @@ public class RandomForest {
   final int _ntrees;   // The target number of trees to make       
   final Data _data;    
   
-  public RandomForest( DRF drf, DataAdapter dapt, double sampleRatio, int ntrees, int maxTreeDepth, 
+  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, 
       double minErrorRate, Tree.StatType stat) {
-    this(drf,dapt,sampleRatio,ntrees,maxTreeDepth,minErrorRate,stat,true); // block by default
+    this(drf,d,ntrees,maxTreeDepth,minErrorRate,stat,true); // block by default
   }
 
-  public RandomForest( DRF drf, DataAdapter dapt, double sampleRatio, int ntrees, int maxTreeDepth, 
+  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, 
       double minErrorRate, Tree.StatType stat, boolean block ) {
-    this(dapt, ntrees);
+    this(d, ntrees);
     for( int i=0; i<_ntrees; i++ ) {
       _trees.add(new Tree(_data,maxTreeDepth,minErrorRate,stat));
       H2O.FJP_NORM.execute(_trees.get(i));
@@ -36,7 +39,7 @@ public class RandomForest {
     testReport();
   }
   
-  public RandomForest( DataAdapter d , int ntrees ) { _data = Data.make(d); _ntrees = ntrees;  }
+  public RandomForest( Data d , int ntrees ) { _data = d; _ntrees = ntrees;  }
   
   public final void blockForTrees(DRF drf) {
     try {
@@ -48,18 +51,37 @@ public class RandomForest {
     } catch( ExecutionException e ) { }
   }
 
+  
+  public static Key[] get(Key key) {
+    Value val = DKV.get(key);
+    if( val == null )  return new Key[0];
+    byte[] bits = val.get();
+    int off = 0;
+    int nkeys = UDP.get4(bits,(off+=4)-4);
+    Key treekeys[] = new Key[nkeys];
+    for( int i=0; i<nkeys; i++ )
+      off += (treekeys[i] = Key.read(bits,off)).wire_len();
+    return treekeys;
+  }
+  
   public static void main(String[] args) throws Exception {
     H2O.main(new String[] {});
     if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    Key key = DRF.web_main(va, 10, 100, .15, Tree.StatType.oldEntropy);    
+    int ntrees = 10;   
+    DRF.SAMPLE = true;
+    Key key = DRF.web_main(va, ntrees, 100, .15, Tree.StatType.oldEntropy);    
     
-    
-    
-   // r.
-//    UDPRebooted.global_kill(); ... trying to kill the cloud here...
+    while (get(key).length != ntrees) Thread.sleep(100);
+    Key[] keys = get(key);
+    Tree[] trees = new Tree[keys.length];
+    RandomForest vrf = DRF._vrf;
+    for(int i=0;i<trees.length;i++) 
+      vrf.validate( trees[i] = Tree.fromKey(keys[i]) );
+    vrf.testReport();
+    UDPRebooted.global_kill();
   }
 
 

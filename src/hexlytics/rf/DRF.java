@@ -10,15 +10,17 @@ import water.serialization.RemoteTaskSerializer;
  */
 @RTSerializer(DRF.Serializer.class)
 public class DRF extends water.DRemoteTask {
+  
+  static boolean SAMPLE;        // should we sample and leave some data for validation?
+  static RandomForest _vrf;     // is SAMPLE is true, holds the validation RF; (single node)
+  
   int _ntrees;                  // Number of trees PER NODE
   int _depth;                   // Tree-depth limiter
-  Tree.StatType _stat;             // Use Gini (true) vs Entropy (false) for splits
+  Tree.StatType _stat;          // Use Gini (true) vs Entropy (false) for splits
   Key _arykey;                  // The ValueArray being RF'd
   Key _treeskey;                // Key of Tree-Keys built so-far
+  RandomForest _rf;             // Random forest to be used.
   
-  // Random forest to be used.
-  RandomForest _rf;
-
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
     @Override public int write( DRF t, byte[] buf, int off ) {
@@ -73,6 +75,9 @@ public class DRF extends water.DRemoteTask {
       }
     // The data adapter...
     DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique);
+    Data d = Data.make(dapt);
+    Data t = SAMPLE ? d.sampleWithReplacement(.666) : d;
+    Data v = SAMPLE ? t.complement() : null;
     double[] ds = new double[num_cols];
     // Now load the DataAdapter with all the rows
     for( Key key : _keys ) {
@@ -88,13 +93,12 @@ public class DRF extends water.DRemoteTask {
     }
     dapt.shrinkWrap();
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" stat="+_stat);
-    this._rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _stat);
+    this._rf = new RandomForest(this, t, _ntrees, _depth, -1, _stat);
+    this._vrf = SAMPLE ? new RandomForest(v,_ntrees) : null;
     tryComplete();
   }
 
   // Reducing RF's from all over in a log-tree roll-up
-  public void reduce( DRemoteTask drt ) {
-    DRF drf = (DRF)drt;
-  }
+  public void reduce( DRemoteTask drt ) { DRF drf = (DRF) drt; }
   
 }
