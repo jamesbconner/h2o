@@ -1,5 +1,6 @@
 package water.web;
 
+import hexlytics.rf.GraphvizTreePrinter;
 import hexlytics.rf.Tree;
 import hexlytics.rf.TreePrinter;
 
@@ -49,7 +50,7 @@ public class RFTreeView extends H2OPage {
   private void dotRender(RString response, ValueArray va, Tree t) {
     try {
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tjpg", });
-      new TreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
+      new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 
