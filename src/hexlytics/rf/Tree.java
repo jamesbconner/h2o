@@ -159,7 +159,7 @@ public class Tree extends CountedCompleter {
     FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
     public INode compute() {
       // terminate the branch prematurely
-      if( _d >= _max_depth || _s.error() < _min_error_rate )
+      if( _d >= _max_depth )// FIXME...  || _s.error() < _min_error_rate )
         return new LeafNode(_s.classOf());
       if (_s.singleClass()) return new LeafNode(_s.classOf());
       Split best = _s.best();

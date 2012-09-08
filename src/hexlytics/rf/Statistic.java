@@ -142,7 +142,7 @@ public class Statistic {
     
     Split split() {
       Split o = split_ORIGNAL();
-      Split n = split_NEW();
+     // Split n = split_NEW();
      // System.out.println(o+ " <<>> "+ n);
       return o;
     }
