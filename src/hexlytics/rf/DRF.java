@@ -97,8 +97,4 @@ public class DRF extends water.DRemoteTask {
     DRF drf = (DRF)drt;
   }
   
-  
-  
-  
-  
 }

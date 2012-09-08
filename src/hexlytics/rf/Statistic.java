@@ -144,7 +144,7 @@ public class Statistic {
       Split o = split_ORIGNAL();
       Split n = split_NEW();
      // System.out.println(o+ " <<>> "+ n);
-      return n;
+      return o;
     }
     Split split_NEW() {
       if (first==last) return null;

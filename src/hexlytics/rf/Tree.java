@@ -20,37 +20,26 @@ import water.Value;
 
 public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
-
   public enum StatType {
     oldEntropy(0),
     entropy(1),
     gini(2);
     public final int id;
-    private StatType(int id) {
-      this.id=id;
-    }
+    private StatType(int id) { this.id=id; }
     public static StatType fromId(int sid) {
       switch(sid) {
-        case 0:
-          return oldEntropy;
-        case 1:
-          return entropy;
-        case 2:
-          return gini;
-        default:
-          throw new Error("Invalid tree statistic "+sid);
+        case 0:  return oldEntropy;
+        case 1:  return entropy;
+        case 2:  return gini;
+        default: throw new Error("Invalid tree statistic "+sid);
       }
     }
     public String toString() {
       switch (this) {
-        case oldEntropy:
-          return "oldEntropy";
-        case entropy:
-          return "entropy";
-        case gini:
-          return "gini";
-        default:
-          return "unknown - id "+id;
+        case oldEntropy:  return "oldEntropy";
+        case entropy:     return "entropy";
+        case gini:        return "gini";
+        default:         return "unknown - id "+id;
       }
     }
   }
@@ -82,12 +71,10 @@ public class Tree extends CountedCompleter {
 
   /** Determines the error rate of a single tree. */
   public double validate(Data data) {
-    double errors = 0;
-    double total = 0;
+    double errors = 0, total = 0;
     for (Row row: data) {
       total += row.weight();
-      if (row.classOf() != classify(row))
-        errors += row.weight();
+      if (row.classOf() != classify(row)) errors += row.weight();
     }
     return errors/total;
   }
@@ -98,13 +85,12 @@ public class Tree extends CountedCompleter {
     return true;
   }
 
-  @SuppressWarnings("unchecked")
   private void createStatistics() {
     // Change this to a different amount of statistics, for each possible subnode
     // one, 2 for binary trees
     stats_ = new ThreadLocal[2];
     for (int i = 0; i < stats_.length; ++i)
-      stats_[i] = new ThreadLocal();
+      stats_[i] = new ThreadLocal<BaseStatistic>();
   }
 
   private void freeStatistics() {
@@ -145,12 +131,8 @@ public class Tree extends CountedCompleter {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
       switch (statistic_) {
-        case gini:
-          result = new GiniStatistic(data);
-          break;
-        case entropy:
-          result = new EntropyStatistic(data);
-          break;
+        case gini:    result = new GiniStatistic(data); break;
+        case entropy: result = new EntropyStatistic(data); break;
       }
       stats_[index].set(result);
     }
@@ -163,13 +145,10 @@ public class Tree extends CountedCompleter {
     // first get the statistic so that it can be reused
     BaseStatistic left = getOrCreateStatistic(0,_data);
     // calculate the split
-    for (Row r : _data)
-      left.add(r);
+    for (Row r : _data)  left.add(r);
     BaseStatistic.Split spl = left.split();
-    if (spl.isLeafNode())
-      _tree = new LeafNode(spl.split);
-    else
-      _tree = new FJBuild(spl,_data,0).compute();
+    if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
+    else  _tree = new FJBuild(spl,_data,0).compute();
   }
 
   private class FJEntropyBuild extends RecursiveTask<INode> {
