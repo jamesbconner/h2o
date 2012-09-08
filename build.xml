@@ -50,7 +50,8 @@
 
 <!-- compile everything -->
   <target name="compile" depends="init" description="Compilation target">
-      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true" target="1.6">
+      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true" target="1.6" source="1.6">
+        <compilerarg value="-XDignore.symbol.file" />
         <classpath refid="build.classpath"/>
       </javac>
   </target>
