@@ -22,6 +22,7 @@ import jsr166y.ForkJoinWorkerThread;
 import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 
+import test.SuiteTest;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 
@@ -415,7 +416,7 @@ public final class H2O {
       assert (doTest="-test")!=null; // Always run basic tests if asserts are enabled
     }
     if( doTest != null && !doTest.equals("none") ) {
-      Result r = org.junit.runner.JUnitCore.runClasses(test.KVTest.class);
+      Result r = org.junit.runner.JUnitCore.runClasses(test.SuiteTest.class);
       //Result r = org.junit.runner.JUnitCore.runClasses(test.CSVParserKVTest.class);
       List<Failure> lf = r.getFailures();
       if( lf.size() > 0 ) {

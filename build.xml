@@ -95,54 +95,29 @@
     </javac>
   </target>
 
-  <!-- compile examples in-situ, write their jars same place -->
-  <property name="build.src.examples" value="${basedir}/examples/src"/>
-  <property name="build.examples.classes" value="${basedir}/examples/classes"/>
-  <property name="build.examples.jars" value="${basedir}/examples/src"/>
-
   <!-- run this for running examples --> 
-  <target name="examples" depends="compile-examples"/> 
-
-  <target name="clean-examples">
-    <delete dir="${build.examples.classes}"/>
-    <delete file="${build.examples.jars}/DLR.jar"/>
-    <delete file="${build.examples.jars}/0xbase_WordCount1.jar"/>
-    <delete file="${build.examples.jars}/HelloWorld.jar"/>
-    <delete file="${build.examples.jars}/LR.jar"/>
-    <delete file="${build.examples.jars}/Average.jar"/>
-  </target>
-  <target name="compile-examples" depends="compile">
-    <mkdir dir="${build.examples.classes}"/>
-    <javac includeantruntime="false" srcdir="${build.src.examples}" destdir="${build.examples.classes}">
-      <classpath refid="build.classpath"/>
-    </javac>
-    <jar jarfile="${build.examples.jars}/DLR.jar">
-	<fileset dir="${build.examples.classes}" includes="DLR*class"/>
-	<fileset dir="${build.examples.classes}" includes="Pair.class"/>
-    </jar>
-    <jar jarfile="${build.examples.jars}/LR.jar">
-	<fileset dir="${build.examples.classes}" includes="LR*class"/>
-    </jar>
-    <jar jarfile="${build.examples.jars}/Average.jar">
-	<fileset dir="${build.examples.classes}" includes="Average*class"/>
-    </jar>
-  </target>
 
  <!-- CAUTION: Nightly test clears ICE dir -->
   <target name="nightly" description="nightly tests" depends="clean">
     <echo>CAUTION: Nightly test clearing ice.dir=${ice.dir}</echo>
     <delete dir="${ice.dir}" failonerror="false"/>
     <antcall target="test"/>
-    <antcall target="examples"/>
   </target>
 
  <!-- default: run nightly tests -->
  <!-- Pass test name in commandline likeso, -Dtest.name=water.test.T4b  -->
   <target name="test" description="tests" depends="compile,jar">
-    <echo>Using default ${test.name}, pass testname likeso:</echo>
-    <echo> ant test -Dtest.name=water.test.T1 </echo>
-
     <java fork="true" failonerror="true" jar="${0xbase}" args="-test ${test.name}">
+       <jvmarg value="-ea"/>
+       <jvmarg value="-Xmx2g"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+    </java>
+  </target>
+
+  <target name="RF" description="tests" depends="compile,jar">
+    <echo>Running default/standalone RandomForest</echo>
+    <java fork="true" failonerror="true" classname="hexlytics.rf.RandomForest">
+       <classpath refid="build.classpath"/>
        <jvmarg value="-ea"/>
        <jvmarg value="-XX:+PrintCommandLineFlags"/>
     </java>
