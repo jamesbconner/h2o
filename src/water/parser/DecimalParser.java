@@ -67,6 +67,7 @@ public class DecimalParser {
     _state = LEADING;
   }
 
+  @SuppressWarnings("fallthrough")
   public void addCharacter(byte b) {
     char ch = (char) b;
     switch( _state ) {
@@ -78,21 +79,15 @@ public class DecimalParser {
     case LEADING:
       if( Character.isWhitespace(ch) ) return;
       _state = BODY;
-    case BODY:
+    case BODY: // fall-through
       if( Character.isWhitespace(ch) ) {
         _state = TRAILING;
         break;
       }
       if( Character.isDigit(ch) ) break;
       switch( ch ) {
-      case '.':
-      case 'e':
-      case 'E':
-      case '-':
-        break;
-      default:
-        _state = ERROR;
-        return;
+      case '.': case 'e': case 'E': case '-': break;
+      default: _state = ERROR; return;
       }
     }
     if( _len < _digits.length ) {
