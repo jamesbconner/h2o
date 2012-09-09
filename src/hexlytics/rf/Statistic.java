@@ -125,18 +125,18 @@ public class Statistic {
       double tot = 0;
       for(int e: v) tot+= e;
       double res = 0.0;
-      for(int e: v)  if(e!=0) res -=  (e / tot) * Math.log( e / tot ) / Math.log(2);
+      for(int e: v)  if(e!=0) res -=  (e / tot) * Math.log10( e / tot ) ;
       return res;
     }
     int sum(int []v) { int res = 0;  for(int e : v) res+=e; return res; }
     final static double TOLERANCE = 0.001;
-    boolean isClose(double l, double r) { if (l==0 || r==0) return false; double d = l - r; return d > -TOLERANCE && d < TOLERANCE; }
+    boolean isClose(double l, double r) { double d = l - r; return d > -TOLERANCE && d < TOLERANCE; }
     
     Split split() {
       Split o = split_ORIGNAL();
       Split n = split_NEW();
      // System.out.println(o+ " <<>> "+ n);
-      return o;
+      return n;
     }
     Split split_NEW() {
       if (first==last) return null;

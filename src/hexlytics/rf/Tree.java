@@ -73,7 +73,7 @@ public class Tree extends CountedCompleter {
     if (_type == StatType.ENTROPY) computeNumeric(); else compute2();
     _timeToBuild = System.currentTimeMillis() - _timeToBuild;
     String st = toString();
-    System.out.println("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
+    System.out.println("Tree ("+_data_id+") d="+_tree.depth()+" l="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
     tryComplete();
     freeStatistics();
   }
@@ -194,9 +194,7 @@ public class Tree extends CountedCompleter {
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {
     final int class_;    // A category reported by the inner node
-    LeafNode(int c) {
-      class_ = c;
-    }
+    LeafNode(int c) { class_ = c;  }
     @Override public int depth()  { return 0; }
     @Override public int leaves() { return 1; }
     @Override public int nodes()  { return 1; }
@@ -226,9 +224,7 @@ public class Tree extends CountedCompleter {
       _value = value;
       _dapt  = dapt;
     }
-    public int classify(Row row) {
-      return (row.getS(_column)<=_value ? _l : _r).classify(row);
-    }
+    public int classify(Row row) { return (row.getS(_column)<=_value ? _l : _r).classify(row);  }
 
     @Override public int depth()  { return 1 + Math.max(_l.depth(), _r.depth()); }
     @Override public int leaves() { return _l.leaves() + _r.leaves(); }
@@ -237,9 +233,7 @@ public class Tree extends CountedCompleter {
 
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    private final C column() {
-      return _dapt.c_[_column]; // Get the column in question
-    }
+    private final C column() {  return _dapt.c_[_column]; } // Get the column in question
     private final float split_value(C c) {
       short idx = (short)_value; // Convert split-point of the form X.5 to a (short)X
       double dlo = c._v2o[idx+0]; // Convert to the original values
@@ -315,8 +309,6 @@ public class Tree extends CountedCompleter {
       return n;
     }
   }
-
-
   public int classify(Row r) { return _tree.classify(r); }
   public String toString()   { return _tree.toString(); }
 

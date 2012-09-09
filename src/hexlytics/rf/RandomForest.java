@@ -51,12 +51,12 @@ public class RandomForest {
   }
   
   public static class OptArgs extends Arguments.Opt {
-	String inputFile = "smalldata/poker/poker-hand-testing.data";
+	String file = "smalldata/poker/poker-hand-testing.data";
 	String h2oArgs = "";
-	String ntrees = "10";
-	String depth = "100";
-	String cutRate = ".15";
-	String statType = "gini";
+	int ntrees = 10;
+	int depth = -1;
+	double cutRate = 0.15;
+	String statType = "entropy";
   }
   
   static final OptArgs OPT_ARGS = new OptArgs();
@@ -85,10 +85,11 @@ public class RandomForest {
 	String [] h2oArgs = OPT_ARGS.h2oArgs.split("[ \t]+");
 	System.out.println("H2O args = " + Arrays.toString(h2oArgs));
 	H2O.main(h2oArgs);
-    Key fileKey = TestUtil.load_test_file(OPT_ARGS.inputFile);
+	System.out.println(OPT_ARGS.file);
+    Key fileKey = TestUtil.load_test_file(OPT_ARGS.file);
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    int ntrees = 500;
+    int ntrees = OPT_ARGS.ntrees;
     DRF.SAMPLE = true;
     Key key = DRF.web_main(va, ntrees, 100, .15, StatType.ENTROPY);
 
