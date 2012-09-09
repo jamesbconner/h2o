@@ -203,6 +203,7 @@ public final class TimelineSnapshot implements
         // compare only first 3 bytes here (udp type and port)
         if ((myl0 & 0xFFFFFFl) != (otherl0 & myl0 & 0xFFFFFFl))
           return false;
+        break;
       case ack:
       case ackack:
       case atomic:
@@ -210,7 +211,7 @@ public final class TimelineSnapshot implements
       case getkeys:
       case putkey:
       case rexec:
-        // compare 3 ctrl bytes + 4 bytes taks #
+        // compare 3 ctrl bytes + 4 bytes task #
         if ((myl0 & 0xFFFFFFFFFFFFFFl) != (otherl0 & 0xFFFFFFFFFFFFFFl))
           return false;
         break;
