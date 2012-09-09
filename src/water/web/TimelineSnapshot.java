@@ -15,7 +15,7 @@ import water.UDP;
  * Wrapper around timeline snapshot. Implements iterator interface (events are
  * ordered according to send/rcv dependencues accross the nodes and trivial time
  * dependencies inside node)
- * 
+ *
  * @author tomas
  */
 public final class TimelineSnapshot implements
@@ -60,12 +60,7 @@ public final class TimelineSnapshot implements
     }
 
     // now build the graph (i.e. go through all the events once)
-
-    for (Event e : this) {
-
-      // this is intentionally empty, graph is built as the events are iterated
-      // through
-    }
+    for (@SuppressWarnings("unused") Event e : this) ;
 
     _processed = true;
     for (int i = 0; i < _events.length; ++i) {
@@ -175,10 +170,10 @@ public final class TimelineSnapshot implements
 
     /**
      * Check if two events form valid sender/receiver pair.
-     * 
+     *
      * Two events are valid sender/receiver pair iff the ports, adresses and
      * payload match.
-     * 
+     *
      * @param other
      * @return true iff the two events form valid sender/receiver pair
      */
@@ -202,6 +197,7 @@ public final class TimelineSnapshot implements
         // compare only first 3 bytes here (udp type and port)
         if ((myl0 & 0xFFFFFFl) != (otherl0 & myl0 & 0xFFFFFFl))
           return false;
+        break;
       case ack:
       case ackack:
       case atomic:
@@ -209,7 +205,7 @@ public final class TimelineSnapshot implements
       case getkeys:
       case putkey:
       case rexec:
-        // compare 3 ctrl bytes + 4 bytes taks #
+        // compare 3 ctrl bytes + 4 bytes task #
         if ((myl0 & 0xFFFFFFFFFFFFFFl) != (otherl0 & 0xFFFFFFFFFFFFFFl))
           return false;
         break;
@@ -295,11 +291,11 @@ public final class TimelineSnapshot implements
 
     /**
      * Used to determine ordering of events not bound by any dependency.
-     * 
+     *
      * Events compared according to following rules: Receives go before sends.
      * For two sends, pick the one with receives with smallest timestamp (ms)
      * otherwise pick the one with smallest timestamp (ms)
-     * 
+     *
      * @param other
      *          other Event to compare
      * @return
@@ -340,9 +336,9 @@ public final class TimelineSnapshot implements
 
   /**
    * Check whether two events can be put together in sender/recv relationship.
-   * 
+   *
    * Events must match, also each sender can have only one receiver per node.
-   * 
+   *
    * @param senderCnd
    * @param recvCnd
    * @return
@@ -365,7 +361,7 @@ public final class TimelineSnapshot implements
    * Process new event. For sender, check if there are any blocked receives
    * waiting for this send. For receiver, try to find matching sender, otherwise
    * block.
-   * 
+   *
    * @param idx
    */
   void processEvent(Event e) {
@@ -414,7 +410,7 @@ public final class TimelineSnapshot implements
             }
           }
         }
-        e._blocked = true;// (senderIdx != e.nodeId());                                                     
+        e._blocked = true;// (senderIdx != e.nodeId());
       }
     }
     assert (e == null) || (e._arr[1] < 1024);
@@ -451,12 +447,12 @@ public final class TimelineSnapshot implements
    * Get the next event of the timeline according to the ordering. Ordering is
    * performed in this method. Basically there are n ordered stream of events
    * with possible dependenencies caused by send/rcv relation.
-   * 
+   *
    * Sends are always eligible to be scheduled. Receives are eligible only if
    * their matching send was already issued. In situation when current events of
    * all streams are blocked (should not happen!) the oldest one is unblocked
    * and issued.
-   * 
+   *
    * Out of all eligible events, the smallest one (according to Event.compareTo)
    * is picked.
    */

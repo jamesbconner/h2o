@@ -17,8 +17,8 @@ public class RandomForest extends H2OPage {
     int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
     // default gini is on.
-    int gini = getAsNumber(args, "gini", 1);
-    StatType statType = StatType.fromId(gini);
+    int gini = getAsNumber(args, "gini", StatType.GINI.ordinal());
+    StatType statType = StatType.values()[gini];
     Key treeskey;
     try {
       treeskey = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType);

@@ -45,7 +45,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     this(target, dt, key, false, type);
     resend();                   // Initial send after final fields set
   }
-  
+
   @SuppressWarnings("unchecked")
   private TaskRemExec(H2ONode target, T dt, Key args, boolean did_put, UDP.udp type) {
     super( target, type );
@@ -56,11 +56,12 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
   }
 
   // Pack classloader/class & the instance data into the outgoing UDP packet
+  @SuppressWarnings("deprecation")
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
-    Class<? extends RemoteTask> clazz = _dt.getClass(); 
+    Class<? extends RemoteTask> clazz = _dt.getClass();
     String sclazz = clazz.getName();  // The exact classname to execute
-    
+
     // Then the instance data.
     int off = UDP.SZ_TASK             // Skip udp byte and port and task#
       + 1 // udp/tcp flag
@@ -75,7 +76,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Class loader first.  3 bytes of null for system loader.
       buf[off++] = 0; // zero RF
       off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
-      
+
       // Class name now
       off += UDP.set2(buf,off,sclazz.length());  // String length
       sclazz.getBytes(0,sclazz.length(),buf,off); // Dump the string also
@@ -122,7 +123,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
 
         // Make a remote instance of this dude
         RemoteTaskSerializer<RemoteTask> ser = RemoteTaskSerializationManager.get(clazz);
-        
+
         // Fill in remote values
         RemoteTask dt = ser.read(buf, off);
         remexec(ser, dt, args, p, h2o);
@@ -176,7 +177,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         dis.readFully(bits);
         String clazz = new String(bits);
         final Key args = Key.read(dis);
-        
+
         // Make a remote instance of this dude
         final RemoteTaskSerializer ser = RemoteTaskSerializationManager.get(clazz);
         final RemoteTask dt = ser.read(dis);
@@ -197,7 +198,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         final DatagramPacket p = p2==null ? p1 : p2;
 
         // Here I want to execute on this, but not block for completion in the
-        // TCP reader thread.  
+        // TCP reader thread.
         udp.pool().execute(new CountedCompleter() {
             public void compute() {
               remexec(ser, dt, args, p, h2o);
@@ -212,7 +213,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         // Race with canceling a large Value fetch: Task is already dead.  Do not
         // bother reading from the TCP socket, just bail out & close socket.
         if( tre == null ) return;
-        
+
         // Big Read of Big Results
         tre._dt = tre._serializer.read(dis);
         // Here we have the result, and we're on the correct Node but wrong

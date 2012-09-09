@@ -75,11 +75,8 @@ public abstract class H2OPage extends Page {
     + "</html>"
     ;
 
-//  private static RString response = new RString(html);
-
   @Override public String serve(Server server, Properties args) {
     RString response = new RString(html);
-//    response.clear();
     String result = serve_impl(args);
     if (result == null)
       return result;
@@ -96,11 +93,8 @@ public abstract class H2OPage extends Page {
           + "</div>"
           ;
 
-//  private static final RString notice = new RString(html_notice);
-
   public static String error(String text) {
     RString notice = new RString(html_notice);
-//    notice.clear();
     notice.replace("atype","alert-error");
     notice.replace("notice",text);
     return notice.toString();
@@ -108,7 +102,6 @@ public abstract class H2OPage extends Page {
 
   public static String success(String text) {
     RString notice = new RString(html_notice);
-//    notice.clear();
     notice.replace("atype","alert-success");
     notice.replace("notice",text);
     return notice.toString();
@@ -157,7 +150,6 @@ public abstract class H2OPage extends Page {
 
   public static String wrap(String what) {
     RString response = new RString(html);
-//    response.clear();
     response.replace("contents",what);
     return response.toString();
   }
@@ -173,5 +165,4 @@ public abstract class H2OPage extends Page {
     }
     return result;
   }
-
 }

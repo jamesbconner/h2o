@@ -3,10 +3,6 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import java.util.Arrays;
 
-
-
-
-
 public class Statistic {
   final Data data_;
   final Statistic parent_;
@@ -17,7 +13,6 @@ public class Statistic {
   final double[] dists ;     
   
   /** Hold information about a split. */
-
   public static class Split {
     public final int column; public final double value, fitness;    
     Split(int column_, double splitValue, double fitness) {
@@ -142,7 +137,7 @@ public class Statistic {
     
     Split split() {
       Split o = split_ORIGNAL();
-     // Split n = split_NEW();
+      Split n = split_NEW();
      // System.out.println(o+ " <<>> "+ n);
       return o;
     }

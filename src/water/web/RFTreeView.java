@@ -1,7 +1,8 @@
 package water.web;
 
+import hexlytics.rf.CodeTreePrinter;
+import hexlytics.rf.GraphvizTreePrinter;
 import hexlytics.rf.Tree;
-import hexlytics.rf.TreePrinter;
 
 import java.io.File;
 import java.io.PrintWriter;
@@ -42,29 +43,58 @@ public class RFTreeView extends H2OPage {
     response.replace("nodeCount", nodeCount);
     response.replace("leafCount", tree._tree.leaves());
     response.replace("depth",     tree._tree.depth());
-    if( DOT_PATH != null && nodeCount < 1000 ) dotRender(response, va, tree);
-    return response.toString();
+
+    String graph;
+    if( DOT_PATH == null ) {
+      graph = "Install <a href=\"http://www.graphviz.org/\">graphviz</a> to " +
+      		"see visualizations of small trees<p>";
+    } else if( nodeCount < 1000 ) {
+      graph = dotRender(va, tree);
+    } else {
+      graph = "Tree is too large to graph.<p>";
+    }
+    String code;
+    if( nodeCount < 10000 ) {
+      code = codeRender(va, tree);
+    } else {
+      code = "Tree is too large to print pseudo code.<p>";
+    }
+    return response.toString() + graph + code;
   }
 
-  private void dotRender(RString response, ValueArray va, Tree t) {
+  private String codeRender(ValueArray va, Tree t) {
     try {
-      Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tjpg", });
-      new TreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
+      StringBuilder sb = new StringBuilder();
+      sb.append("<pre><code>");
+      new CodeTreePrinter(sb, va.col_names()).printTree(t);
+      sb.append("</code></pre>");
+      return sb.toString();
+    } catch( Exception e ) {
+      return errorRender(e);
+    }
+
+  }
+
+  private String dotRender(ValueArray va, Tree t) {
+    try {
+      RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
+      Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
+      new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 
-      RString graph = response.restartGroup("graphImg");
-      graph.replace("rawImage", new String(Base64.encodeBase64(data), "UTF-8"));
-      graph.append();
+      img.replace("rawImage", new String(Base64.encodeBase64(data), "UTF-8"));
+      return img.toString();
     } catch( Exception e ) {
-      StringBuilder sb = new StringBuilder();
-      sb.append("Error Generating Dot file:\n");
-      e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
-
-      RString graph = response.restartGroup("graphDot");
-      graph.replace("graphviz", sb.toString());
-      graph.append();
+      return errorRender(e);
     }
+  }
+
+  private String errorRender(Exception e) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Error Generating Dot file:\n");
+    e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
+    return sb.toString();
   }
 
   //use a function instead of a constant so that a debugger can live swap it
@@ -72,8 +102,6 @@ public class RFTreeView extends H2OPage {
     return
         "\nTree View of %key\n<p>" +
         "%depth depth with %nodeCount nodes and %leafCount leaves.<p>" +
-        "%graphDot{<pre><code>%graphviz</code></pre>}" +
-        "%graphImg{<img src=\"data:image/jpg;base64,%rawImage\" width='80%%' ></img>}" +
     "";
   }
 }

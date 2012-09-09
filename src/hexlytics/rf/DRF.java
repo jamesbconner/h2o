@@ -1,5 +1,7 @@
 package hexlytics.rf;
 
+import hexlytics.rf.Tree.StatType;
+
 import java.io.*;
 import water.*;
 import water.serialization.RTSerializer;
@@ -10,23 +12,23 @@ import water.serialization.RemoteTaskSerializer;
  */
 @RTSerializer(DRF.Serializer.class)
 public class DRF extends water.DRemoteTask {
-  
+
   static boolean SAMPLE;        // should we sample and leave some data for validation?
   static RandomForest _vrf;     // is SAMPLE is true, holds the validation RF; (single node)
-  
+
   int _ntrees;                  // Number of trees PER NODE
   int _depth;                   // Tree-depth limiter
-  Tree.StatType _stat;          // Use Gini (true) vs Entropy (false) for splits
+  StatType _stat;               // Use Gini or Entropy for splits
   Key _arykey;                  // The ValueArray being RF'd
   Key _treeskey;                // Key of Tree-Keys built so-far
   RandomForest _rf;             // Random forest to be used.
-  
+
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
     @Override public int write( DRF t, byte[] buf, int off ) {
       off += UDP.set4(buf,off,t._ntrees);
       off += UDP.set4(buf,off,t._depth);
-      buf[off++] = (byte)(t._stat.id);
+      buf[off++] = (byte)(t._stat.ordinal());
       off = t.  _arykey.write(buf,off);
       off = t._treeskey.write(buf,off);
       return off;
@@ -35,7 +37,7 @@ public class DRF extends water.DRemoteTask {
       DRF t = new DRF();
       t._ntrees= UDP.get4(buf,(off+=4)-4);
       t._depth = UDP.get4(buf,(off+=4)-4);
-      t._stat = Tree.StatType.fromId(buf[off++]);
+      t._stat = StatType.values()[buf[off++]];
       t.  _arykey = Key.read(buf,off);  off += t.  _arykey.wire_len();
       t._treeskey = Key.read(buf,off);  off += t._treeskey.wire_len();
       return t;
@@ -44,7 +46,7 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
-  public static Key web_main( ValueArray ary, int ntrees, int depth, double cutRate, Tree.StatType stat) {
+  public static Key web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -75,9 +77,6 @@ public class DRF extends water.DRemoteTask {
       }
     // The data adapter...
     DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique);
-    Data d = Data.make(dapt);
-    Data t = SAMPLE ? d.sampleWithReplacement(.666) : d;
-    Data v = SAMPLE ? t.complement() : null;
     double[] ds = new double[num_cols];
     // Now load the DataAdapter with all the rows
     for( Key key : _keys ) {
@@ -92,13 +91,14 @@ public class DRF extends water.DRemoteTask {
       }
     }
     dapt.shrinkWrap();
+    Data d = Data.make(dapt);
+    Data t = SAMPLE ? d.sampleWithReplacement(.666) : d;
+    Data v = SAMPLE ? t.complement() : null;
     System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" stat="+_stat);
     this._rf = new RandomForest(this, t, _ntrees, _depth, -1, _stat);
-    this._vrf = SAMPLE ? new RandomForest(v,_ntrees) : null;
+    DRF._vrf = SAMPLE ? new RandomForest(v,_ntrees) : null;
     tryComplete();
   }
 
-  // Reducing RF's from all over in a log-tree roll-up
-  public void reduce( DRemoteTask drt ) { DRF drf = (DRF) drt; }
-  
+  public void reduce( DRemoteTask drt ) { }
 }

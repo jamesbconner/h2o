@@ -68,7 +68,7 @@ public abstract class UKV {
 
   // Appends the given set of bytes to the arraylet
   private static void appendArraylet(ValueArray alet, byte[] b) {
-    Value lastChunk = DKV.get(alet.make_chunkkey(alet._key,alet.length() - alet.length() % ValueArray.chunk_size()));
+    Value lastChunk = DKV.get(ValueArray.make_chunkkey(alet._key,alet.length() - alet.length() % ValueArray.chunk_size()));
     int offset = 0;
     int remaining = b.length;
     // first update the last chunk
@@ -83,7 +83,7 @@ public abstract class UKV {
         break;
       size = Math.min(remaining, (int) ValueArray.chunk_size());
       long coffset = UDP.get8(lastChunk._key._kb, 2) + ValueArray.chunk_size();
-      lastChunk = new Value(alet.make_chunkkey(alet._key,coffset), size);
+      lastChunk = new Value(ValueArray.make_chunkkey(alet._key,coffset), size);
       System.arraycopy(b, offset, lastChunk.mem(), 0, size);
       DKV.put(lastChunk._key, lastChunk);
     }

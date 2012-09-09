@@ -1,21 +1,40 @@
 package test;
-import static org.junit.Assert.*;
-
 import hexlytics.LinearRegression;
-import java.io.*;
-import java.util.Arrays;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Test;
 import water.*;
 import water.parser.ParseDataset;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
+
+import static org.junit.Assert.*;
+
 public class KVTest {
   // Request that tests be "clean" on the K/V store, and restore it to the same
   // count of keys after all tests run.
   static int _initial_keycnt;
+	int NUM_JVMS = 3;
 
+	@BeforeClass public static void prepare(){
+		 _initial_keycnt = H2O.store_size();
+	}
+
+  // ---
+  // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
+  static public void h2o_cloud_of_size( int cnt ) {
+    int num = H2O.CLOUD.size();
+    while( num < cnt ) {
+			SuiteTest.launch_dev_jvm(num);
+      try { Thread.sleep(10); }        // sleep 10msec & test again
+      catch( InterruptedException ie ) {}
+      num = H2O.CLOUD.size();
+    }
+  }
   // A no-arg constructor for JUnit alone
   public KVTest() { }
 
@@ -40,7 +59,7 @@ public class KVTest {
   // Repeat test0, but with at least 3 JVMs in the Cloud
   @org.junit.Test public void test1() {
     System.out.println("test1");
-    h2o_cloud_of_size(3);
+    h2o_cloud_of_size(NUM_JVMS);
     test0();
   }
 
@@ -272,8 +291,8 @@ public class KVTest {
 
   // ---
   // Test parsing "cars.csv" and running LinearRegression
-  @org.junit.Test public void test7() {
-    System.out.println("test7");
+  @Test public void test7() {
+    System.out.println("test7: Running LinearRegression on cars.csv	");
     Key fkey = TestUtil.load_test_file("smalldata/cars.csv");
     Key okey = Key.make("cars.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
@@ -282,7 +301,9 @@ public class KVTest {
     // Because ParseDataset does not properly block (yet) insert a tiny stall here.
     try { Thread.sleep(100); } catch( InterruptedException ie ) {}
     // Compute LinearRegression between columns 2 & 3
-    String[] res = LinearRegression.run(va,2,3).split("<p>");
+		String LR_result = LinearRegression.run(va,2,3);
+		System.out.println(LR_result);
+    String[] res = LR_result.split("<p>");
     assertEquals("Linear Regression of cars.hex between 2 and 3",res[0]);
     //assertEquals("Pass 1 in 10msec",res[1]);
     //assertEquals("Pass 2 in 6msec",res[2]);
@@ -291,97 +312,15 @@ public class KVTest {
     assertEquals("R^2                 = 0.9058985668996267",res[5]);
     assertEquals("std error of beta_1 = 0.9352584499359637",res[6]);
     UKV.remove(okey);
+	  System.out.println("Done test7: Running LinearRegression on cars.csv	");
   }
 
-
-  // ---
-  // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
-  static public void h2o_cloud_of_size( int cnt ) {
-    int num = H2O.CLOUD.size();
-    while( num < cnt ) {
-      launch_dev_jvm(num);
-      //try { Thread.sleep(10); }        // sleep 10msec & test again
-      //catch( InterruptedException ie ) {}
-      num = H2O.CLOUD.size();
-    }
-  }
-
-  @BeforeClass static public void startLocalNode() {
-    H2O.main(new String[] {});
-    System.out.println("Running tests in Test.class");
-    _initial_keycnt = H2O.store_size();
-  }
-
-  // Kill excess JVMs once all testing is done
-  @AfterClass public static void kill_test_jvms() {
-    DKV.write_barrier();
-    for( int i=0; i<TEST_JVMS.length; i++ ) {
-      if( TEST_JVMS[i] != null ) {
-        System.out.println("  Killing nested JVM on port "+(H2O.WEB_PORT+3*i));
-        TEST_JVMS[i].destroy();
-        TEST_JVMS[i] = null;
-      }
-    }
-
+	// check for any leaked keys
+	@Test public void lastTest(){
     int leaked_keys = H2O.store_size() - _initial_keycnt;
     if( leaked_keys > 0 )
       System.err.println("Tests leaked "+leaked_keys+" keys");
     System.out.println("Done testing Test.class");
   }
 
-  public static Process[] TEST_JVMS = new Process[10];
-  public static final Runtime RUNTIME=Runtime.getRuntime();
-  
-  private static void drainStream(PrintStream out, InputStream in) throws IOException {
-    byte[] errorBytes = new byte[in.available()];
-    in.read(errorBytes);
-    out.print(new String(errorBytes));
-  }
-
-  public static void launch_dev_jvm(int num) {
-    String[] args = new String[]{
-        "java",
-        "-classpath", System.getProperty("java.class.path"),
-        "-Xmx512m",
-        "-ea",
-        "init.init",
-        "-test=none",
-        "-name", H2O.NAME,
-        "-port", Integer.toString(H2O.WEB_PORT+3*num),
-        "-ip", H2O.SELF._key._inet.getHostAddress()
-    };
-    try {
-      System.out.println("  Launching nested JVM on port "+(H2O.WEB_PORT+3*num));
-      final Process P = RUNTIME.exec(args);
-      RUNTIME.addShutdownHook(new Thread(new Runnable() {
-        @Override
-        public void run() {
-          P.destroy();
-        }
-      }));
-      
-      TEST_JVMS[num] = P;
-      while( H2O.CLOUD.size() == num ) {
-        // Takes a while for the new JVM to be recognized
-        try { Thread.sleep(10); } catch( InterruptedException ie ) { }
-        try {
-          int exitCode = P.exitValue();
-          System.err.printf("Sub process died with error code %d\n", exitCode);
-          System.err.println("Sub process error stream");
-          drainStream(System.err, P.getErrorStream());
-          System.err.println("Sub process output stream");
-          drainStream(System.err, P.getInputStream());
-          throw new Error("JVM died unexpectedly");
-        } catch( IllegalThreadStateException e ) {
-          drainStream(System.err, P.getErrorStream());
-          drainStream(System.err, P.getInputStream());
-        }
-      }
-      System.out.println("  Nested JVM joined cloud of size: "+H2O.CLOUD.size());
-      if( H2O.CLOUD.size() == num+1 ) return;
-      throw new Error("JVMs are dying on me");
-    } catch( IOException e ) {
-      System.err.println("Failed to launch nested JVM with:"+Arrays.toString(args));
-    }
-  }
 }

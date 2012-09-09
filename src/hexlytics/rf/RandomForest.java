@@ -1,6 +1,7 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
+import hexlytics.rf.Tree.StatType;
 import hexlytics.rf.Utils.MinMaxAvg;
 
 import java.io.File;
@@ -9,49 +10,37 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
 import test.TestUtil;
-import water.AppendKey;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.UDP;
-import water.UDPRebooted;
-import water.Value;
-import water.ValueArray;
+import water.*;
 
 public class RandomForest {
   final ArrayList<Tree> _trees = new ArrayList<Tree>();  // The trees that got built
-  final int _ntrees;   // The target number of trees to make       
-  final Data _data;    
-  
-  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, 
-      double minErrorRate, Tree.StatType stat) {
+  final int _ntrees;   // The target number of trees to make
+  final Data _data;
+
+  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
     this(drf,d,ntrees,maxTreeDepth,minErrorRate,stat,true); // block by default
   }
 
-  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, 
-      double minErrorRate, Tree.StatType stat, boolean block ) {
+  public RandomForest( DRF drf, Data d, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean block ) {
     this(d, ntrees);
     for( int i=0; i<_ntrees; i++ ) {
       _trees.add(new Tree(_data,maxTreeDepth,minErrorRate,stat));
       H2O.FJP_NORM.execute(_trees.get(i));
     }
     if (block) blockForTrees(drf);  // Block until all trees are built
-    testReport();
-  }
-  
-  public RandomForest( Data d , int ntrees ) { _data = d; _ntrees = ntrees;  }
-  
-  public final void blockForTrees(DRF drf) {
-    try {
-      for( Tree t : _trees) {
-        t.get();   // Block for a tree
-        new AppendKey(t.toKey()).fork(drf._treeskey);  // Atomic-append to the list of trees
-      }
-    } catch( InterruptedException e ) { // Interrupted after partial build?
-    } catch( ExecutionException e ) { }
   }
 
-  
+  public RandomForest( Data d , int ntrees ) { _data = d; _ntrees = ntrees;  }
+
+  public final void blockForTrees(DRF drf) {
+    try { for( Tree t : _trees) {
+        t.get();   // Block for a tree
+        new AppendKey(t.toKey()).fork(drf._treeskey);  // Atomic-append to the list of trees
+    }} catch( InterruptedException e ) { // Interrupted after partial build?
+    }  catch( ExecutionException e ) { }
+  }
+
+
   public static Key[] get(Key key) {
     Value val = DKV.get(key);
     if( val == null )  return new Key[0];
@@ -63,22 +52,22 @@ public class RandomForest {
       off += (treekeys[i] = Key.read(bits,off)).wire_len();
     return treekeys;
   }
-  
+
   public static void main(String[] args) throws Exception {
     H2O.main(new String[] {});
     if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    int ntrees = 10;   
+    int ntrees = 10;
     DRF.SAMPLE = true;
-    Key key = DRF.web_main(va, ntrees, 100, .15, Tree.StatType.oldEntropy);    
-    
+    Key key = DRF.web_main(va, ntrees, 100, .15, StatType.ENTROPY);
+
     while (get(key).length != ntrees) Thread.sleep(100);
     Key[] keys = get(key);
     Tree[] trees = new Tree[keys.length];
     RandomForest vrf = DRF._vrf;
-    for(int i=0;i<trees.length;i++) 
+    for(int i=0;i<trees.length;i++)
       vrf.validate( trees[i] = Tree.fromKey(keys[i]) );
     vrf.testReport();
     UDPRebooted.global_kill();
@@ -92,11 +81,11 @@ public class RandomForest {
         votes[tree.classify(r)] += 1;
     return Utils.maxIndex(votes, _data.random());
   }
-  
+
   private int[][] scores_;
   private long errors_ = -1;
   private int[][] _confusion;
-  
+
   public synchronized double validate(Tree t) {
     if (scores_ == null)  scores_ = new int[_data.rows()][_data.classes()];
     if (_confusion == null) _confusion = new int[_data.classes()][_data.classes()];
@@ -110,7 +99,7 @@ public class RandomForest {
     }
     return errors_ / (double) _data.rows();
   }
-  
+
   private String pad(String s, int l) {
     String p="";
     for (int i=0;i < l - s.length(); i++) p+= " ";
@@ -161,7 +150,7 @@ public class RandomForest {
   }
 
   public final synchronized long errors() { if(errors_==-1) throw new Error("unitialized errors"); else return errors_; }
-  
+
   protected final double validate(int ntrees, Data data) {
     double error = 0;
     double total = 0;
@@ -176,8 +165,7 @@ public class RandomForest {
     }
     return error/total;
   }
-  
-  
+
   public final void testReport() {
     MinMaxAvg tbt = new MinMaxAvg();
     MinMaxAvg td = new MinMaxAvg();
@@ -193,7 +181,7 @@ public class RandomForest {
       tl.add(t._tree.leaves());
       ta.add(t.validate(_data));
     }
-    
+
     System.out.println("\n----- Random Forest finished -----\n");
     System.out.println(" Tree time to build: "+tbt);
     System.out.println(" Tree depth:         "+td);
@@ -202,7 +190,7 @@ public class RandomForest {
     System.out.println("");
     System.out.println(" Data rows:          "+_data.rows());
     System.out.println(" Overall error:      "+ensembleError);
-    System.out.println(confusionMatrix());  
-    
+    System.out.println(confusionMatrix());
+
   }
 }
