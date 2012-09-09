@@ -1,7 +1,5 @@
 package hexlytics.rf;
 
-import hexlytics.rf.Data.Row;
-import java.util.Arrays;
 
 
 /** A better working gini statistic that should be faster. Hopefully much faster. 
@@ -10,8 +8,8 @@ import java.util.Arrays;
  */
 public class GiniStatistic extends BaseStatistic {
 
-  public GiniStatistic(Data data) {
-    super(data);
+  public GiniStatistic(Data data, int features) {
+    super(data, features);
   }
   
   private double gini(double[] dd, double sum) {

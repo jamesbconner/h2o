@@ -22,14 +22,16 @@ public class Tree extends CountedCompleter {
   final double _min_error_rate;
   public INode _tree;
   long _timeToBuild; // Time needed to build the tree
+  int _features;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features ) {
     _data = data;
     _data_id = data.data_._data_id;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
     _type = stat;
+    _features = features;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
   public Tree( int data_id ) {
@@ -77,7 +79,7 @@ public class Tree extends CountedCompleter {
   }
 
   void computeNumeric() { // All rows in the top-level split
-    Statistic s = new Statistic(_data,null);
+    Statistic s = new Statistic(_data,null,_features);
     for (Row r : _data) s.add(r);
     _tree = new FJEntropyBuild(s,_data,0).compute();
   }
@@ -86,7 +88,7 @@ public class Tree extends CountedCompleter {
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
-     result = (_type == StatType.GINI) ? new GiniStatistic(data) : new EntropyStatistic(data);
+     result = (_type == StatType.GINI) ? new GiniStatistic(data,_features) : new EntropyStatistic(data,_features);
      stats_[index].set(result);
     }
     result.reset(data);
@@ -122,7 +124,7 @@ public class Tree extends CountedCompleter {
       if (best == null) return new LeafNode(_s.classOf());
       Node nd = new Node(best.column,best.value,_data.data_);
       Data[] res = new Data[2];
-      Statistic[] stats = new Statistic[] { new Statistic(_data,_s), new Statistic(_data,_s)};
+      Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
       _data.filter(best,res,stats);
       if (THREADED) {
         ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();

@@ -11,6 +11,7 @@ public class Statistic {
   int classOf = -1;
   final int classes_;
   final double[] dists ;     
+  final int _features;
   
   /** Hold information about a split. */
   public static class Split {
@@ -23,12 +24,11 @@ public class Statistic {
   }
 
 
-  public Statistic(Data d, Statistic s) {
+  public Statistic(Data d, Statistic s, int features) {
     data_ = d; parent_ = s;
     classes_= data_.classes();
     dists = new double[classes_];
-    
-    int features = data_.features();
+    _features = features;
     int total = data_.columns();
     int[] columnsToUse = new int[features];
     int i = 0;
@@ -59,8 +59,6 @@ public class Statistic {
       int max =0;
       for(int i=0;i<dists.length;i++) if (dists[i]>max) { max=(int)dists[i]; classOf = i;}
     }
-    if (classOf == -1)
-      classOf =-1;
     return classOf; 
   }
   
@@ -74,8 +72,7 @@ public class Statistic {
 
   public boolean singleClass() {
     int cnt = 0;
-    for(double d : dists)
-      if (d > 0 && ++cnt > 1 ) return false;
+    for(double d : dists) if (d > 0 && ++cnt > 1 ) return false;
     return cnt==1;
   }
   
@@ -160,7 +157,7 @@ public class Statistic {
         double eright = entropy(right);  int totright = sum(right);
         double ereduction = eparent - (eleft * totleft + eright * totright) / (double) totparent;
         if ( ereduction < maxReduction ) { bestSplit = i;  maxReduction = ereduction; }
-        else if (false && isClose(ereduction,maxReduction) && data_.random().nextBoolean()) {
+        else if (isClose(ereduction,maxReduction) && data_.random().nextBoolean()) {
           bestSplit = i;  maxReduction = ereduction;
         }
       }

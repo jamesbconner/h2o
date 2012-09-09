@@ -105,14 +105,16 @@ public abstract class BaseStatistic {
   
   
   private final int[] tempCols_;
+  private final int _features;
   
-  public BaseStatistic(Data data) {
+  public BaseStatistic(Data data, int features) {
+    _features = features;
     // first create the column distributions
     columnDists_ = new double[data.columns()][][];
     for (int i = 0; i < columnDists_.length; ++i)
       columnDists_[i] = new double[data.columnClasses(i)][data.classes()];
     // create the columns themselves
-    columns_ = new int[data.features()];
+    columns_ = new int[_features];
     // create the temporary column array to choose cols from
     tempCols_ = new int[data.columns()];
   }
