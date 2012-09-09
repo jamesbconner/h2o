@@ -157,7 +157,6 @@ public abstract class H2OPage extends Page {
 
   public static String wrap(String what) {
     RString response = new RString(html);
-//    response.clear();
     response.replace("contents",what);
     return response.toString();
   }

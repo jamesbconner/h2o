@@ -139,8 +139,8 @@ public class ValueArray extends Value {
     }
     if (sz<buffer.length) {
       // it is a single simple value
-      Value val = new Value(key,(int)sz);
-      System.arraycopy(buffer,0,val._mem,0,(int)sz);
+      Value val = new Value(key,sz);
+      System.arraycopy(buffer,0,val._mem,0,sz);
       UKV.put(key,val);
     } else {
       long offset = 0;
@@ -159,8 +159,8 @@ public class ValueArray extends Value {
         }
         sz = bis.read(buffer,0,(int)chunk_size());
         ck = make_chunkkey(key,offset);
-        val = new Value(ck,(int)sz);
-        System.arraycopy(buffer,0,val._mem,0,(int)sz);
+        val = new Value(ck,sz);
+        System.arraycopy(buffer,0,val._mem,0,sz);
         DKV.put(ck,val);
         offset += sz;
         if (sz!=chunk_size())
@@ -494,7 +494,7 @@ public class ValueArray extends Value {
     return false;
   }
 
-
+  @SuppressWarnings("deprecation")
   static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;

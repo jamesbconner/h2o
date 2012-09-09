@@ -10,7 +10,7 @@
   <property name="build.dir.lib" value="${build.dir}/lib"/>
   <property name="build.classes" value="${build.dir}/classes"/>
   <property name="build.testclasses" value="${build.dir}/test-classes"/>
-  <property name="ice.dir" value="${user.dir}/ice"/>
+  <property name="ice.dir" value="/tmp/ice*"/>
   <property name="test.name" value="water.test.TNightly"/>
   <property name="0xbase" value="${build.dir}/h2o.jar"/>
   
@@ -50,7 +50,12 @@
 
 <!-- compile everything -->
   <target name="compile" depends="init" description="Compilation target">
-      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true"       >
+      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true" target="1.6" source="1.6">
+        <compilerarg value="-XDignore.symbol.file" />
+        <compilerarg value="-Xlint:all" />
+        <compilerarg value="-Xlint:-serial" />
+        <compilerarg value="-Xlint:-rawtypes" />
+        <compilerarg value="-Xlint:-unchecked" />
         <classpath refid="build.classpath"/>
       </javac>
   </target>
@@ -95,59 +100,37 @@
     </javac>
   </target>
 
-  <!-- compile examples in-situ, write their jars same place -->
-  <property name="build.src.examples" value="${basedir}/examples/src"/>
-  <property name="build.examples.classes" value="${basedir}/examples/classes"/>
-  <property name="build.examples.jars" value="${basedir}/examples/src"/>
-
   <!-- run this for running examples --> 
-  <target name="examples" depends="compile-examples"/> 
-
-  <target name="clean-examples">
-    <delete dir="${build.examples.classes}"/>
-    <delete file="${build.examples.jars}/DLR.jar"/>
-    <delete file="${build.examples.jars}/0xbase_WordCount1.jar"/>
-    <delete file="${build.examples.jars}/HelloWorld.jar"/>
-    <delete file="${build.examples.jars}/LR.jar"/>
-    <delete file="${build.examples.jars}/Average.jar"/>
-  </target>
-  <target name="compile-examples" depends="compile">
-    <mkdir dir="${build.examples.classes}"/>
-    <javac includeantruntime="false" srcdir="${build.src.examples}" destdir="${build.examples.classes}">
-      <classpath refid="build.classpath"/>
-    </javac>
-    <jar jarfile="${build.examples.jars}/DLR.jar">
-	<fileset dir="${build.examples.classes}" includes="DLR*class"/>
-	<fileset dir="${build.examples.classes}" includes="Pair.class"/>
-    </jar>
-    <jar jarfile="${build.examples.jars}/LR.jar">
-	<fileset dir="${build.examples.classes}" includes="LR*class"/>
-    </jar>
-    <jar jarfile="${build.examples.jars}/Average.jar">
-	<fileset dir="${build.examples.classes}" includes="Average*class"/>
-    </jar>
-  </target>
 
  <!-- CAUTION: Nightly test clears ICE dir -->
-  <target name="nightly" description="nightly tests" depends="clean">
+  <target name="nightly" description="nightly tests" depends="clean,compile,jar">
     <echo>CAUTION: Nightly test clearing ice.dir=${ice.dir}</echo>
     <delete dir="${ice.dir}" failonerror="false"/>
-    <antcall target="test"/>
-    <antcall target="examples"/>
+   <!-- RUN standalone, likeso
+	java -Djava.library.path=build/binlib -cp .:lib/apache/guava-12.0.1.jar:build/classes:build/hexbase_impl.jar:build/sigar/sigar.jar:/usr/share/java/junit.jar org.junit.runner.JUnitCore test.SuiteTest
+   -->
+    <antcall target="RandomForestTest"/>
+  </target>
+  <target name="RandomForestTest" description="tests">
+    <java fork="true" failonerror="false" classname="org.junit.runner.JUnitCore" args="test.RandomForestTest">
+       <classpath refid="build.classpath"/>
+       <jvmarg value="-Xmx2g"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+       <jvmarg value="-Djava.library.path=${basedir}/lib/binlib"/>
+       <jvmarg value="-XX:+PrintCommandLineFlags"/>
+    </java>
+
   </target>
 
  <!-- default: run nightly tests -->
  <!-- Pass test name in commandline likeso, -Dtest.name=water.test.T4b  -->
   <target name="test" description="tests" depends="compile,jar">
-    <echo>Using default ${test.name}, pass testname likeso:</echo>
-    <echo> ant test -Dtest.name=water.test.T1 </echo>
-
-    <java fork="true" failonerror="true" jar="${0xbase}" args="-test ${test.name}">
+    <java fork="true" failonerror="false" jar="${0xbase}" args="-test ${test.name}">
        <jvmarg value="-ea"/>
+       <jvmarg value="-Xmx2g"/>
        <jvmarg value="-XX:+PrintCommandLineFlags"/>
     </java>
   </target>
-	
   <target name="clean" description="get rid of any build artifacts">
   	<delete dir="${build.dir}" />
   	<delete dir="${jar.dir}" />

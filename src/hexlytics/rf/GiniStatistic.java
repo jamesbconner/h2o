@@ -10,10 +10,6 @@ import java.util.Arrays;
  */
 public class GiniStatistic extends BaseStatistic {
 
-  // PETA TODO This should not be here!!!!
-  public static final double MIN_ERROR_RATE = 0.0;
-  
-  
   public GiniStatistic(Data data) {
     super(data);
   }
@@ -22,36 +18,6 @@ public class GiniStatistic extends BaseStatistic {
     double result = 1;
     for (double d : dd)
       result -= (d/sum) * (d/sum);
-    return result;
-  }
-  
-  /** Aggregates the given column's distribution to the provided array and 
-   * returns the sum of weights of that array. 
-   * 
-   */
-  private final double aggregateColumn(int colIndex, double[] dist) {
-    double sum = 0;
-    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
-      for (int i = 0; i < dist.length; ++i) {
-        sum += columnDists_[colIndex][j][i];
-        dist[i] += columnDists_[colIndex][j][i]; 
-      }
-    }
-    return sum;
-  }
-  
-  private final int singleClass(double[] dist) {
-    int result = -1;
-    for (int i = 0; i < dist.length; ++i)
-      if (dist[i] != 0)
-        if (result == dist[i]) {
-          // pass
-        } else if (result == -1) {
-          result = i;
-        } else {
-          result = -1;
-          break;
-        }
     return result;
   }
 
@@ -150,6 +116,7 @@ public class GiniStatistic extends BaseStatistic {
       return Split.impossible(best); */
     }
     //System.exit(-1);
+    //System.out.println(colIndex + " - " + bestSplit);
     return new Split(colIndex,bestSplit,bestFitness);
   }
   

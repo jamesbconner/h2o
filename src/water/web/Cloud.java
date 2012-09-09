@@ -5,19 +5,15 @@ import water.H2O;
 import water.H2ONode;
 import water.HeartBeatThread;
 
-/**
- *
- * @author peta
- */
 public class Cloud extends H2OPage {
 
   public Cloud() {
     _refresh = 5;
   }
-  
+
   @Override protected String serve_impl(Properties args) {
     RString response = new RString(html);
-    response.replace("cloud_name",H2O.CLOUD.NAME);
+    response.replace("cloud_name",H2O.NAME);
     response.replace("node_name",H2O.SELF.toString());
     final H2O cloud = H2O.CLOUD;
     for( H2ONode h2o : cloud._memary ) {
@@ -59,7 +55,7 @@ public class Cloud extends H2OPage {
       row.replace("tcps_active" ,         h2o.get_tcps_active());
       row.replace("node_type" ,           h2o.get_node_type());
 
-      row.append();      
+      row.append();
     }
     response.replace("size",cloud._memary.length);
     return response.toString();
