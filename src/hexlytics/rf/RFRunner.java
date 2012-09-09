@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 import org.omg.CORBA._PolicyStub;
 
 import test.TestUtil;
-import test.TestRF.BootMsgParser;
 import water.Arguments;
 
 /**
