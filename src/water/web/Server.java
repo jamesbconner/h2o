@@ -6,6 +6,8 @@ import java.io.*;
 import java.util.HashMap;
 import java.util.Properties;
 
+import com.google.gson.JsonElement;
+
 import water.H2O;
 import water.NanoHTTPD;
 
@@ -35,30 +37,36 @@ public class Server extends NanoHTTPD {
 
   // uri serve -----------------------------------------------------------------
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
-    if (uri.isEmpty())
-      uri = "/";
+    if (uri.isEmpty()) uri = "/";
+
     Page page = _pages.get(uri.substring(1));
+    boolean json = uri.endsWith(".json");
+    if (json && page == null) page = _pages.get(uri.substring(1, uri.length()-5));
+
+    String mime = json ? MIME_JSON : MIME_HTML;
+
     // if we cannot handle it, then it might be a resource
-    if (page==null)
-      return getResource(uri);
+    if (page==null) return getResource(uri);
+
     // unify GET and POST arguments
     parms.putAll(files);
     // check that required arguments are present
     String[] reqArgs = page.requiredArguments();
     if (reqArgs!=null) {
       for (String s : reqArgs) {
-        if (!parms.containsKey(s) || parms.getProperty(s).isEmpty())
-          return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, H2OPage.wrap(H2OPage.error("Not all required parameters were supplied to page <strong>"+uri+"</strong><br/>Argument <strong>"+s+"</strong> is missing.")));
+        if (!parms.containsKey(s) || parms.getProperty(s).isEmpty()) {
+          if (json) return new Response(HTTP_BADREQUEST, mime, "{}");
+          return new Response(HTTP_OK, mime,
+              H2OPage.wrap(H2OPage.error("Not all required parameters were supplied to page <strong>"+uri+"</strong><br/>Argument <strong>"+s+"</strong> is missing.")));
+        }
       }
     }
-    Object result = page.serve(this,parms);
-    if (result == null)
-      return http404(uri);
-    if (result instanceof Response)
-      return (Response)result;
+    Object result = json ? page.serverJson(this,parms) : page.serve(this,parms);
+    if (result == null) return http404(uri);
+    if (result instanceof Response) return (Response)result;
     if (result instanceof InputStream)
-      return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, (InputStream) result);
-    return new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, result.toString());
+      return new Response(NanoHTTPD.HTTP_OK, mime, (InputStream) result);
+    return new Response(NanoHTTPD.HTTP_OK, mime, result.toString());
   }
 
   public static Page getPage(String uri) {
@@ -66,13 +74,12 @@ public class Server extends NanoHTTPD {
   }
 
 
-  // constructor ---------------------------------------------------------------
-
   private Server( int port ) throws IOException {
     // No file system arg
     super(port,null);
     // initialize pages
     registerPage(new Cloud(),"");
+    registerPage(new Cloud(),"Cloud");
     registerPage(new Append(),"Append");
     registerPage(new AppendQuery(),"AppendQuery");
     registerPage(new Covariance(),"COV");

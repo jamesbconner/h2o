@@ -1,6 +1,10 @@
 package water.web;
 
 import java.util.Properties;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
 import water.H2O;
 import water.H2ONode;
 import water.HeartBeatThread;
@@ -9,6 +13,16 @@ public class Cloud extends H2OPage {
 
   public Cloud() {
     _refresh = 5;
+  }
+
+  @Override
+  public JsonElement serverJson(Server server, Properties parms) {
+    JsonObject res = new JsonObject();
+    final H2O cloud = H2O.CLOUD;
+    res.addProperty("cloud_name", H2O.NAME);
+    res.addProperty("node_name", H2O.SELF.toString());
+    res.addProperty("cloud_size",cloud._memary.length);
+    return res;
   }
 
   @Override protected String serve_impl(Properties args) {

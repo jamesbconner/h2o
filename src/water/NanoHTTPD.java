@@ -187,6 +187,7 @@ public class NanoHTTPD
   public static final String
   MIME_PLAINTEXT = "text/plain",
   MIME_HTML = "text/html",
+  MIME_JSON = "application/json",
   MIME_DEFAULT_BINARY = "application/octet-stream",
   MIME_XML = "text/xml";
 
@@ -198,22 +199,16 @@ public class NanoHTTPD
    * Starts a HTTP server to given port.<p>
    * Throws an IOException if the socket is already in use
    */
-  public NanoHTTPD( int port, File wwwroot ) throws IOException
-  {
+  public NanoHTTPD( int port, File wwwroot ) throws IOException {
     myTcpPort = port;
     this.myRootDir = wwwroot;
     myServerSocket = new ServerSocket( myTcpPort );
-    myThread = new Thread( new Runnable()
-    {
-      public void run()
-      {
-        try
-        {
+    myThread = new Thread( new Runnable() {
+      public void run() {
+        try {
           while( true )
             new HTTPSession( myServerSocket.accept());
-        }
-        catch ( IOException ioe )
-        {}
+        } catch ( IOException ioe ) { }
       }
     });
     myThread.setDaemon( true );
@@ -223,23 +218,19 @@ public class NanoHTTPD
   /**
    * Stops the server.
    */
-  public void stop()
-  {
-    try
-    {
+  public void stop() {
+    try {
       myServerSocket.close();
       myThread.join();
-    }
-    catch ( IOException ioe ) {}
-    catch ( InterruptedException e ) {}
+    } catch ( IOException ioe ) {
+    } catch ( InterruptedException e ) { }
   }
 
 
   /**
    * Starts as a standalone file server and waits for Enter.
    */
-  public static void main( String[] args )
-  {
+  public static void main( String[] args ) {
     myOut.println( "NanoHTTPD 1.25 (C) 2001,2005-2011 Jarno Elonen and (C) 2010 Konstantinos Togias\n" +
         "(Command line options: [-p port] [-d root-dir] [--licence])\n" );
 
@@ -259,12 +250,9 @@ public class NanoHTTPD
         break;
       }
 
-    try
-    {
+    try {
       new NanoHTTPD( port, wwwroot );
-    }
-    catch( IOException ioe )
-    {
+    } catch( IOException ioe ) {
       System.err.println( "Couldn't start server:\n" + ioe );
       System.exit( -1 );
     }
@@ -279,20 +267,16 @@ public class NanoHTTPD
    * Handles one session, i.e. parses the HTTP request
    * and returns the response.
    */
-  private class HTTPSession implements Runnable
-  {
-    public HTTPSession( Socket s )
-    {
+  private class HTTPSession implements Runnable {
+    public HTTPSession( Socket s ) {
       mySocket = s;
       Thread t = new Thread( this );
       t.setDaemon( true );
       t.start();
     }
 
-    public void run()
-    {
-      try
-      {
+    public void run() {
+      try {
         InputStream is = new BufferedInputStream(mySocket.getInputStream());
         is.mark(8192);
 
@@ -319,8 +303,7 @@ public class NanoHTTPD
 
         long size = 0x7FFFFFFFFFFFFFFFl;
         String contentLength = header.getProperty("content-length");
-        if (contentLength != null)
-        {
+        if (contentLength != null) {
           try { size = Integer.parseInt(contentLength); }
           catch (NumberFormatException ex) {}
         }
@@ -329,8 +312,7 @@ public class NanoHTTPD
         // It must be the last byte of the first two sequential new lines.
         int splitbyte = 0;
         boolean sbfound = false;
-        while (splitbyte < rlen)
-        {
+        while (splitbyte < rlen) {
           if (buf[splitbyte] == '\r' && buf[++splitbyte] == '\n' && buf[++splitbyte] == '\r' && buf[++splitbyte] == '\n') {
             sbfound = true;
             break;
@@ -340,10 +322,6 @@ public class NanoHTTPD
         splitbyte++;
         is.reset();
         is.skip(splitbyte);
-
-        // Write the part of body already read to ByteArrayOutputStream f
-        //				ByteArrayOutputStream f = new ByteArrayOutputStream();
-        //				if (splitbyte < rlen) f.write(buf, splitbyte, rlen-splitbyte);
 
         // While Firefox sends on the first read all the data fitting
         // our buffer, Chrome and Opera sends only the headers even if
@@ -355,24 +333,6 @@ public class NanoHTTPD
           size -= rlen - splitbyte +1;
         else if (!sbfound || size == 0x7FFFFFFFFFFFFFFFl)
           size = 0;
-
-        // Now read all the body and write it to f
-        //buf = new byte[512];
-
-        /*				while ( rlen >= 0 && size > 0 )
-				{
-					rlen = is.read(buf, 0, 512);
-					size -= rlen;
-					if (rlen > 0)
-						f.write(buf, 0, rlen);
-				} */
-
-
-        // Get the raw body as a byte []
-        //byte [] fbuf = f.toByteArray();
-
-        // Create a BufferedReader for easily reading it as string.
-        //ByteArrayInputStream bin = new ByteArrayInputStream(fbuf);
 
         // If the method is POST, there may be parameters
         // in data section, too, read it:
@@ -399,11 +359,7 @@ public class NanoHTTPD
             String boundary = st.nextToken();
 
             decodeMultipartDataInMemory(boundary,is,parms,files);
-
-            //						decodeMultipartData(boundary, fbuf, in, parms, files);
-          }
-          else
-          {
+          } else {
             // Handle application/x-www-form-urlencoded
             String postLine = "";
             char pbuf[] = new char[512];
@@ -418,9 +374,6 @@ public class NanoHTTPD
           }
         }
 
-        //				if ( method.equalsIgnoreCase( "PUT" ))
-        //					files.put("content", saveTmpFile( fbuf, 0, f.size()));
-
         // Ok, now do the serve()
         Response r = serve( uri, method, header, parms, files );
         if ( r == null )
@@ -430,17 +383,11 @@ public class NanoHTTPD
 
         in.close();
         is.close();
-      }
-      catch ( IOException ioe )
-      {
-        try
-        {
+      } catch ( IOException ioe ) {
+        try {
           sendError( HTTP_INTERNALERROR, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
-        }
-        catch ( Throwable t ) {}
-      }
-      catch ( InterruptedException ie )
-      {
+        } catch ( Throwable t ) {}
+      } catch ( InterruptedException ie ) {
         // Thrown by sendError, ignore and exit the thread.
       }
     }
