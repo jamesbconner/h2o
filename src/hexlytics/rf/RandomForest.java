@@ -49,8 +49,18 @@ public class RandomForest {
     }} catch( InterruptedException e ) { // Interrupted after partial build?
     }  catch( ExecutionException e ) { }
   }
-
-
+  
+  public static class OptArgs extends Arguments.Opt {
+	String inputFile = "smalldata/poker/poker-hand-testing.data";
+	String h2oArgs = "";
+	String ntrees = "10";
+	String depth = "100";
+	String cutRate = ".15";
+	String statType = "gini";
+  }
+  
+  static final OptArgs OPT_ARGS = new OptArgs();
+  
   public static Key[] get(Key key) {
     Value val = DKV.get(key);
     if( val == null )  return new Key[0];
@@ -67,9 +77,15 @@ public class RandomForest {
 
   
   public static void main(String[] args) throws Exception {
-    H2O.main(new String[] {});
-    if(args.length==0) args = new String[] { "smalldata/poker/poker-hand-testing.data" };
-    Key fileKey = TestUtil.load_test_file(new File(args[0]));
+	Arguments arguments = new Arguments(args);
+	arguments.extract(OPT_ARGS);
+	if(OPT_ARGS.h2oArgs.startsWith("\"") && OPT_ARGS.h2oArgs.endsWith("\""))
+		OPT_ARGS.h2oArgs = OPT_ARGS.h2oArgs.substring(1, OPT_ARGS.h2oArgs.length()-1); 
+	OPT_ARGS.h2oArgs = OPT_ARGS.h2oArgs.trim();
+	String [] h2oArgs = OPT_ARGS.h2oArgs.split("[ \t]+");
+	System.out.println("H2O args = " + Arrays.toString(h2oArgs));
+	H2O.main(h2oArgs);
+    Key fileKey = TestUtil.load_test_file(OPT_ARGS.inputFile);
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
     int ntrees = 500;
