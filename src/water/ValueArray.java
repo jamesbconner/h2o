@@ -129,6 +129,7 @@ public class ValueArray extends Value {
   static public Key read_put_stream(Key key, InputStream is) throws IOException {
     BufferedInputStream bis = new BufferedInputStream(is,(int)chunk_size()*2);
 
+    // try to read 2-chunks into the buffer
     byte[] buffer = new byte[(int)chunk_size()*2];
     int sz = 0;
     while (sz!=buffer.length) {
@@ -137,35 +138,45 @@ public class ValueArray extends Value {
         break;
       sz += i;
     }
-    if (sz<buffer.length) {
+    if (sz<buffer.length) { // buffer is 2-chunks
       // it is a single simple value
       Value val = new Value(key,sz);
       System.arraycopy(buffer,0,val._mem,0,sz);
       UKV.put(key,val);
-    } else {
+    } else { // sz == buffer.length => there is enough data to write two 1MG chunks
+      assert sz == buffer.length;      
       long offset = 0;
-      Key ck = make_chunkkey(key,offset);
-      Value val = new Value(ck,(int)chunk_size());
-      System.arraycopy(buffer,0,val._mem,0,(int)chunk_size());
-      DKV.put(ck,val);
-      offset += sz;
-      while (sz!=0) {
+      Key ck = null; Value val = null;      
+      
+      while (true) {        
+        if (sz < buffer.length) { // almost 2 chunks are in the buffer => write them all
+          ck = make_chunkkey(key,offset);
+          val = new Value(ck,sz);
+          System.arraycopy(buffer,0,val._mem,0,sz);
+          DKV.put(ck,val);
+          offset += sz;
+          break; // it was the last chunk => there are no more data in input stream;
+        } else { // Write two chunks into the buffer
+          byte chunkCtr = 0;
+          while (chunkCtr < 2) {            
+            ck = make_chunkkey(key,offset);
+            val = new Value(ck,(int)chunk_size());
+            System.arraycopy(buffer,chunkCtr*(int)chunk_size(),val._mem,0,(int)chunk_size());
+            DKV.put(ck,val);
+            chunkCtr++;
+            offset += chunk_size();
+          }
+        }
+        
+        // try to read another two chunks
         sz = 0;
-        while (sz!=chunk_size()) {
-          int i = bis.read(buffer,sz,(int)chunk_size()-sz);
+        while (sz!=buffer.length) {
+          int i = bis.read(buffer,sz,buffer.length-sz);
           if (i==-1)
             break;
           sz += i;
         }
-        sz = bis.read(buffer,0,(int)chunk_size());
-        ck = make_chunkkey(key,offset);
-        val = new Value(ck,sz);
-        System.arraycopy(buffer,0,val._mem,0,sz);
-        DKV.put(ck,val);
-        offset += sz;
-        if (sz!=chunk_size())
-          break;
-      }
+      }      
       ValueArray ary = new ValueArray(key,offset,ICE);
       DKV.put(key,ary);
     }
