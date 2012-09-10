@@ -1,17 +1,30 @@
-import asyncproc as async
-import urllib2 as url
+from poster.encode import multipart_encode
+from poster.streaminghttp import register_openers
+import urllib2
 import time, os, json
+import asyncproc
+
+register_openers()
 
 class H2O:
     def __url(self, loc):
         return 'http://%s:%d/%s' % (self.addr, self.port, loc)
 
     def __get(self, loc):
-        req = url.Request(self.__url(loc))
-        return url.urlopen(req).read()
+        req = urllib2.Request(self.__url(loc))
+        return urllib2.urlopen(req).read()
+
+    def __read(self, req):
+        return json.loads(urllib2.urlopen(req).read())
 
     def get_cloud(self):
-        return json.loads(self.__get('Cloud.json'))
+        req = urllib2.Request(self.__url('Cloud.json'))
+        return self.__read(req)
+
+    def put_file(self, f):
+        datagen, headers = multipart_encode({"File": open(f, 'rb')})
+        req = urllib2.Request(self.__url('PutFile.json'), datagen, headers)
+        return self.__read(req)
 
     def stabilize(self, msg, timeout, func):
         start = time.clock()
@@ -26,9 +39,9 @@ class H2O:
         try:
             self.get_cloud()
             return True
-        except url.HTTPError:
+        except urllib2.HTTPError:
             raise
-        except url.URLError, e:
+        except urllib2.URLError, e:
             if e.reason[0] == 61:
                 return False
             raise
@@ -36,7 +49,7 @@ class H2O:
     def __init__(self, port):
         self.port = port;
         self.addr = 'localhost'
-        self.proc = async.Process(["java", "-ea", "-jar", "../build/h2o.jar", "--port=%d"%port])
+        self.proc = asyncproc.Process(["java", "-ea", "-jar", "../build/h2o.jar", "--port=%d"%port])
 
         try:
             self.stabilize('h2o started', 2, self.__is_alive)
