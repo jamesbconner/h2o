@@ -23,3 +23,6 @@ class H2O:
                     continue
                 self.proc.terminate()
                 raise
+
+    def read(self):
+        self.proc.read()
