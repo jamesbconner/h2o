@@ -10,7 +10,7 @@ import water.*;
  */
 public class PutValue extends H2OPage {
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     String key_s = args.getProperty("Key",UUID.randomUUID().toString());
     if (key_s.isEmpty())
       key_s = UUID.randomUUID().toString();

@@ -9,7 +9,7 @@ import water.Key;
  */
 public class RemoveAck extends H2OPage {
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     Object o = ServletUtil.check_key(args,"Key");
     if( o instanceof String ) return (String)o;
     Key key = (Key)o;

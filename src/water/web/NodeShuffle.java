@@ -3,7 +3,7 @@ import java.util.Properties;
 import water.*;
 
 public class NodeShuffle extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     // Check the input for being a valid ValueArray
     Object res1 = ServletUtil.check_key(args,"Key");
     if( res1 instanceof String ) return (String)res1;

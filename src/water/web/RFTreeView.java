@@ -25,7 +25,7 @@ public class RFTreeView extends H2OPage {
     DOT_PATH = f.exists() ? f.getAbsolutePath() : null;
   }
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     Object o = ServletUtil.check_key(args,"Key");
     if( o instanceof String ) return (String)o;
     Key key = (Key)o;

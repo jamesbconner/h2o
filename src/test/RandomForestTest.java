@@ -27,11 +27,11 @@ public class RandomForestTest {
     ValueArray va = TestUtil.parse_test_key(fileKey);
     try { Thread.sleep(100); }        // sleep 100msec, to let parse finish & test again
     catch( InterruptedException ie ) {}
-    Key entropyR = DRF.web_main(va, 10, 100, .15, StatType.ENTROPY);
-    Key    giniR = DRF.web_main(va, 10, 100, .15, StatType.GINI);
-    UKV.remove(fileKey); // clean up and burn
-    UKV.remove(entropyR);
-    UKV.remove(giniR);
+//    DRF entropyR = DRF.web_main(va, 10, 100, .15, StatType.ENTROPY);
+//    Key    giniR = DRF.web_main(va, 10, 100, .15, StatType.GINI);
+//    UKV.remove(fileKey); // clean up and burn
+//    UKV.remove(entropyR);
+//    UKV.remove(giniR);
 	}
   }
 	@AfterClass

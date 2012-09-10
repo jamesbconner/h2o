@@ -10,7 +10,7 @@ import water.UKV;
  */
 public class Remove extends H2OPage {
   
-  @Override public String serve_impl(Properties args) {
+  @Override public String serveImpl(Server server, Properties args) {
     Object o = ServletUtil.check_key(args,"Key");
     if( o instanceof String ) return (String)o;
     // Distributed remove

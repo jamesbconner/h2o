@@ -3,7 +3,7 @@ import java.util.Properties;
 import water.ValueArray;
 
 public class LinearRegression extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     return ServletUtil.serveTwoParams(args, new ServletUtil.RunnableTask() {
       @Override
       public String run(ValueArray ary, int colA, int colB) {

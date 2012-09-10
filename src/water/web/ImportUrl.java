@@ -13,7 +13,7 @@ import water.ValueArray;
  * @author peta
  */
 public class ImportUrl extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     URL url;
     try {
       url = new URL(args.getProperty("Url"));

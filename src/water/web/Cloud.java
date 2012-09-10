@@ -2,7 +2,6 @@ package water.web;
 
 import java.util.Properties;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import water.H2O;
@@ -16,7 +15,7 @@ public class Cloud extends H2OPage {
   }
 
   @Override
-  public JsonElement serverJson(Server server, Properties parms) {
+  public JsonObject serverJson(Server server, Properties parms) {
     JsonObject res = new JsonObject();
     final H2O cloud = H2O.CLOUD;
     res.addProperty("cloud_name", H2O.NAME);
@@ -25,7 +24,7 @@ public class Cloud extends H2OPage {
     return res;
   }
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     RString response = new RString(html);
     response.replace("cloud_name",H2O.NAME);
     response.replace("node_name",H2O.SELF.toString());

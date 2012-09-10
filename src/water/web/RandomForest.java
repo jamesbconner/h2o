@@ -11,7 +11,7 @@ import water.ValueArray;
 
 // @author cliffc
 public class RandomForest extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     Object o = ServletUtil.check_array(args,"Key");
     if( o instanceof String ) return (String)o;
     ValueArray ary = (ValueArray)o;

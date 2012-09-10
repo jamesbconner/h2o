@@ -7,7 +7,7 @@ import water.Value;
 import water.parser.ParseDataset;
 
 public class Parse extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     String skey1 = args.getProperty("Key");
     String skey2 = args.getProperty("Key2");
     if( skey1 == null || skey2 == null )

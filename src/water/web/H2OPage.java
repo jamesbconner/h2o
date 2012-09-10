@@ -15,7 +15,7 @@ public abstract class H2OPage extends Page {
 
   protected int _refresh = 0;
 
-  protected abstract String serve_impl(Properties args);
+  protected abstract String serveImpl(Server server, Properties args) throws PageError;
 
   private static final String html =
       "<!DOCTYPE html>"
@@ -77,12 +77,14 @@ public abstract class H2OPage extends Page {
 
   @Override public String serve(Server server, Properties args) {
     RString response = new RString(html);
-    String result = serve_impl(args);
-    if (result == null)
-      return result;
-    if (_refresh!=0)
-      response.replace("refresh","<META HTTP-EQUIV='refresh' CONTENT='"+_refresh+"'>");
-    response.replace("contents",result);
+    try {
+      String result = serveImpl(server, args);
+      if (result == null) return result;
+      if (_refresh!=0) response.replace("refresh","<META HTTP-EQUIV='refresh' CONTENT='"+_refresh+"'>");
+      response.replace("contents",result);
+    } catch (PageError e) {
+      response.replace("contents", e._msg);
+    }
     return response.toString();
   }
 

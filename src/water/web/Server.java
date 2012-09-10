@@ -10,6 +10,7 @@ import com.google.gson.JsonElement;
 
 import water.H2O;
 import water.NanoHTTPD;
+import water.web.Page.PageError;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -61,7 +62,12 @@ public class Server extends NanoHTTPD {
         }
       }
     }
-    Object result = json ? page.serverJson(this,parms) : page.serve(this,parms);
+    Object result;
+    try {
+      result = json ? page.serverJson(this,parms) : page.serve(this,parms);
+    } catch( PageError e ) {
+      result = e._msg;
+    }
     if (result == null) return http404(uri);
     if (result instanceof Response) return (Response)result;
     if (result instanceof InputStream)
