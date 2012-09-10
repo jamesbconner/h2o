@@ -25,7 +25,7 @@ public class DataAdapter  {
 
   private static long getRandomSeed() { return RAND.nextLong(); }
 
-  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id) {
+  public DataAdapter(String name, Object[] columns,  String classNm, int rows, int data_id) {
     long seed = getRandomSeed(); name_=name;
     c_ = new C[columns.length];
     columnNames_ = new String[columns.length];
@@ -81,7 +81,7 @@ public class DataAdapter  {
     public String   classColumnName() { return classColumnName_; }
     public void addRow(double[] v) {
       if (frozen_) throw new Error("Frozen data set update");
-      for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
+      for(int i=0;i<v.length;i++)  c_[i].add((float)v[i]);
     } 
     short getS(int row, int col) { return data_[row * c_.length + col]; }
     void setS(int row, int col, short val) { data_[row * c_.length + col]= val; }    
@@ -91,17 +91,18 @@ public class DataAdapter  {
 
 class C {
   String name_;
+  boolean ignore;
   int sz_;
-  double min_=Double.MAX_VALUE, max_=-1, tot_; 
-  double[] v_;
-  HashMap<Double,Short> o2v_;
-  double[] _v2o;  // Reverse (short) indices to original doubles
+  float min_=Float.MAX_VALUE, max_=-1, tot_; 
+  float[] v_;
+  HashMap<Float,Short> o2v_;
+  float[] _v2o;  // Reverse (short) indices to original doubles
   short smin_ = -1;
   short smax_ = -1;
 
-  C(String s, int rows) { name_ = s; v_ = new double[rows]; }
+  C(String s, int rows) { name_ = s; v_ = new float[rows]; }
 
-  void add(double x) {
+  void add(float x) {
     min_=Math.min(x,min_);
     max_=Math.max(x,max_);
     tot_+=x;
@@ -109,6 +110,7 @@ class C {
   }
   
   double getD(int i) { return v_[i]; }
+  void ignore() { ignore = true; }
   
   public String toString() {
     String res = "col("+name_+")";
@@ -125,15 +127,15 @@ class C {
     return res;
   }
   
-  HashMap<Double,Short> hashCol() {
-    HashSet<Double> res = new HashSet<Double>();
+  HashMap<Float,Short> hashCol() {
+    HashSet<Float> res = new HashSet<Float>();
     for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
-    HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
-    Double[] ks = res.toArray(new Double[res.size()]);
-    _v2o = new double[ks.length];
+    HashMap<Float,Short> res2 = new HashMap<Float,Short>(res.size());
+    Float[] ks = res.toArray(new Float[res.size()]);
+    _v2o = new float[ks.length];
     Arrays.sort(ks);      
     smax_ = 0;
-    for( Double d : ks)  {
+    for( Float d : ks)  {
       _v2o[smax_] = d;
       res2.put(d, smax_++);
     }
