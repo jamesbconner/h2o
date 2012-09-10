@@ -7,48 +7,27 @@ package hexlytics.rf;
 import java.text.DecimalFormat;
 import java.util.Random;
 
-/**
- *
- * @author peta
- */
 public class Utils {
   
-  public static class MinMaxAvg {
+  public static class Counter {
     double min_ = Double.MAX_VALUE;
     double max_ = Double.MIN_VALUE;
     int count_;
     double total_;
-
     public void add(double what) {
       total_ += what;
-      if (what < min_)
-        min_ = what;
-      if (what > max_)
-        max_ = what;
+      min_ = Math.min(what,min_);
+      max_ = Math.max(what,max_);
       ++count_;
     }
-    
-    public double min() {
-      return min_;
-    }
-    
-    public double max() {
-      return max_;
-    }
-    
-    public double avg() {
-      return total_/count_;
-    }
-    
-    public int count() {
-      return count_;
-    }
-    
+    public double min() { return min_; }   
+    public double max() { return max_; }    
+    public double avg() { return total_/count_; }   
+    public int count()  { return count_; }    
     @Override public String toString() {
       return avg()+" ("+min_+" ... "+max_+")";
     }
   }
-  
   
   
   /** Returns the index of the largest value in the array. In case of a tie, an

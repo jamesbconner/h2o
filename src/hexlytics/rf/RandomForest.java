@@ -2,7 +2,7 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Tree.StatType;
-import hexlytics.rf.Utils.MinMaxAvg;
+import hexlytics.rf.Utils.Counter;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -98,7 +98,7 @@ public class RandomForest {
     RandomForest vrf = DRF._vrf;
     for(int i=0;i<trees.length;i++)
       vrf._trees.add( trees[i] = Tree.fromKey(keys[i]) );
-    vrf.testReport();
+    vrf.report();
     UDPRebooted.global_kill();
   }
 
@@ -174,32 +174,22 @@ public class RandomForest {
   }
 
 
-  public final void testReport() {
+  public final void report() {
     validate();
-    MinMaxAvg tbt = new MinMaxAvg();
-    MinMaxAvg td = new MinMaxAvg();
-    MinMaxAvg tl = new MinMaxAvg();
-    MinMaxAvg ta = new MinMaxAvg();
-    String s = "";
-    for (Tree t : _trees) {
-      tbt.add(t._timeToBuild);
-      td.add(t._tree.depth());
-      tl.add(t._tree.leaves());
-      ta.add(t.validate(_data));
-    }
+    Counter tbt = new Counter(), td = new Counter(), tl = new Counter();
+    for (Tree t : _trees) { 
+     // tbt.add(t._timeToBuild);
+      td.add(t._tree.depth()); tl.add(t._tree.leaves()); }    
     double err = errors()/(double) _data.rows();
-
-    s+= "              Type of random forest: classification\n" +
+    String s = 
+        "              Type of random forest: classification\n" +
         "                    Number of trees: "+ _trees.size() +"\n"+
         "No of variables tried at each split: " + features() +"\n"+
         "             Estimate of error rate: " + Math.round(err *10000)/100 + "%  ("+err+")\n"+        
-        "                   Confusion matrix:\n" + confusionMatrix();
-    
+        "                   Confusion matrix:\n" + confusionMatrix()+ "\n"+ //"     Avg tree build time (min, max): "+tbt;
+        "          Avg tree depth (min, max): " + td +"\n" +
+        "         Avg tree leaves (min, max): " + tl +"\n" +
+        "                Validated on (rows): " + _data.rows() ;
     System.out.println(s);
-    System.out.println(" Tree time to build: "+tbt);
-    System.out.println(" Tree depth:         "+td);
-    System.out.println(" Tree leaves:        "+tl);
-    System.out.println(" Data rows:          "+_data.rows());
-
   }
 }
