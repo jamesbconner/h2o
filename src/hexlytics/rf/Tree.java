@@ -22,14 +22,16 @@ public class Tree extends CountedCompleter {
   final double _min_error_rate;
   public INode _tree;
   long _timeToBuild; // Time needed to build the tree
+  int _features;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat ) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features ) {
     _data = data;
     _data_id = data.data_._data_id;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
     _type = stat;
+    _features = features;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
   public Tree( int data_id ) {
@@ -71,13 +73,13 @@ public class Tree extends CountedCompleter {
     if (_type == StatType.ENTROPY) computeNumeric(); else compute2();
     _timeToBuild = System.currentTimeMillis() - _timeToBuild;
     String st = toString();
-    System.out.println("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
+    System.out.println("Tree ("+_data_id+") d="+_tree.depth()+" l="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
     tryComplete();
     freeStatistics();
   }
 
   void computeNumeric() { // All rows in the top-level split
-    Statistic s = new Statistic(_data,null);
+    Statistic s = new Statistic(_data,null,_features);
     for (Row r : _data) s.add(r);
     _tree = new FJEntropyBuild(s,_data,0).compute();
   }
@@ -86,7 +88,7 @@ public class Tree extends CountedCompleter {
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
-     result = (_type == StatType.GINI) ? new GiniStatistic(data) : new EntropyStatistic(data);
+     result = (_type == StatType.GINI) ? new GiniStatistic(data,_features) : new EntropyStatistic(data,_features);
      stats_[index].set(result);
     }
     result.reset(data);
@@ -106,7 +108,7 @@ public class Tree extends CountedCompleter {
 
   private class FJEntropyBuild extends RecursiveTask<INode> {
 
-    static final boolean THREADED = true;  // Single threaded ?
+    static final boolean THREADED = true;  // multi-threaded ?
 
     final Statistic _s;         // All the rows that this split munged over
     final Data _data;           // The resulting 1/2-sized dataset from the above split
@@ -115,14 +117,14 @@ public class Tree extends CountedCompleter {
     FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
     public INode compute() {
       // terminate the branch prematurely
-      if( _d >= _max_depth )// FIXME...  || _s.error() < _min_error_rate )
+      if(_max_depth > 0 &&  _d >= _max_depth )// FIXME...  || _s.error() < _min_error_rate )
         return new LeafNode(_s.classOf());
       if (_s.singleClass()) return new LeafNode(_s.classOf());
       Split best = _s.best();
       if (best == null) return new LeafNode(_s.classOf());
       Node nd = new Node(best.column,best.value,_data.data_);
       Data[] res = new Data[2];
-      Statistic[] stats = new Statistic[] { new Statistic(_data,_s), new Statistic(_data,_s)};
+      Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
       _data.filter(best,res,stats);
       if (THREADED) {
         ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
@@ -192,9 +194,7 @@ public class Tree extends CountedCompleter {
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {
     final int class_;    // A category reported by the inner node
-    LeafNode(int c) {
-      class_ = c;
-    }
+    LeafNode(int c) { class_ = c;  }
     @Override public int depth()  { return 0; }
     @Override public int leaves() { return 1; }
     @Override public int nodes()  { return 1; }
@@ -224,9 +224,7 @@ public class Tree extends CountedCompleter {
       _value = value;
       _dapt  = dapt;
     }
-    public int classify(Row row) {
-      return (row.getS(_column)<=_value ? _l : _r).classify(row);
-    }
+    public int classify(Row row) { return (row.getS(_column)<=_value ? _l : _r).classify(row);  }
 
     @Override public int depth()  { return 1 + Math.max(_l.depth(), _r.depth()); }
     @Override public int leaves() { return _l.leaves() + _r.leaves(); }
@@ -235,9 +233,7 @@ public class Tree extends CountedCompleter {
 
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    private final C column() {
-      return _dapt.c_[_column]; // Get the column in question
-    }
+    private final C column() {  return _dapt.c_[_column]; } // Get the column in question
     private final float split_value(C c) {
       short idx = (short)_value; // Convert split-point of the form X.5 to a (short)X
       double dlo = c._v2o[idx+0]; // Convert to the original values
@@ -313,8 +309,6 @@ public class Tree extends CountedCompleter {
       return n;
     }
   }
-
-
   public int classify(Row r) { return _tree.classify(r); }
   public String toString()   { return _tree.toString(); }
 

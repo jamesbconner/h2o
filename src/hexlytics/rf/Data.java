@@ -73,7 +73,6 @@ public class Data implements Iterable<Row> {
   
   /** Returns the number of rows that is accessible by this Data object. */
   public int rows()        { return data_.rows(); }  
-  public  int features()   { return data_.features(); }
   public  int columns()    { return data_.columns() -1 ; } // -1 to remove class column
   public  int classes()    { return data_.classes(); } 
   public Random random()          { return data_.random_; }

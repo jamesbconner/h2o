@@ -10,8 +10,8 @@ class EntropyStatistic extends BaseStatistic {
   double[][] dists_;
   double weight_;
   
-  public EntropyStatistic(Data data) {
-    super(data);
+  public EntropyStatistic(Data data, int features) {
+    super(data, features);
     dists_ = new double[2][data.classes()];
   }
  
