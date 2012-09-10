@@ -3,8 +3,21 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
-import water.*;
+import water.Atomic;
+import water.DKV;
+import water.DRemoteTask;
+import water.H2O;
+import water.Key;
+import water.MRTask;
+import water.MemoryManager;
+import water.UDP;
+import water.UKV;
+import water.Value;
+import water.ValueArray;
 import water.ValueArray.Column;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
@@ -17,23 +30,43 @@ import com.google.common.primitives.Chars;
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 
 public final class ParseDataset {
+  // Configuration kind for parser
   static final int PARSE_SVMLIGHT = 101;
   static final int PARSE_COMMASEP = 102;
-  static final int PARSE_SPACESEP = 103; 
-
-  // Parse the dataset as a CSV-style thingy and produce a structured dataset
-  // result.  This does a distributed parallel parse.
+  static final int PARSE_SPACESEP = 103;
+  
+  // Compression types.
+  static final int COMPRESSION_NONE = 0;
+  static final int COMPRESSION_ZIP  = 1;
+  
+  // Index to array returned by method guesss_parser_setup()
+  static final int PARSER_IDX = 0;
+  static final int COLNUM_IDX = 1;
+  
+  // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
+  // result.  
   public static void parse( Key result, Value dataset ) {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
+    
+    int compression = guess_compression_method(dataset);
+    switch (compression) {
+    case COMPRESSION_NONE: parseUncompressed(result, dataset); break;
+    case COMPRESSION_ZIP : parseZipped(result, dataset); break;
+    default              : throw new Error("Uknown compression of dataset!");
+    }
+  }
 
+ // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
+ // result.  This does a distributed parallel parse.
+  public static void parseUncompressed( Key result, Value dataset ) {
     // Guess on the number of columns, build a column array.
     int [] typeArr = guess_parser_setup(dataset);
-    int num_cols = typeArr[1];
+    int num_cols = typeArr[COLNUM_IDX];
 
     DParse1 dp1 = new DParse1();
     dp1._num_cols  = num_cols;
-    dp1._parseType = (byte)typeArr[0];
+    dp1._parseType = (byte)typeArr[PARSER_IDX];
     dp1._num_rows  = 0; // No rows yet
     
     dp1.invoke(dataset._key);   // Parse whole dataset!
@@ -92,6 +125,34 @@ public final class ParseDataset {
     dp2.invoke(dataset._key);   // Parse whole dataset!
 
     // Done building the result ValueArray!
+  }
+  
+  // Unpack zipped CSV-style structure and call method parseUncompressed(...)
+  // The method exepct a dataset which contains a ZIP file encapsulating one file.
+  public static void parseZipped( Key result, Value dataset ) {
+    // Dataset contains zipped CSV    
+    ZipInputStream zis = null;
+    Key key = null;
+    try { 
+      // Create Zip input stream and uncompress the data into a new key <ORIGINAL-KEY-NAME>_UNZIPPED
+      zis = new ZipInputStream(dataset.openStream());
+      // Get the *FIRST* entry
+      ZipEntry ze = zis.getNextEntry();
+      // There is at least one entry in zip file and it is not a directory.
+      if (ze != null && !ze.isDirectory()) { 
+        key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", zis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //
+      } /* else it is possible to dive into a directory but in this case I would prefere to return error since the ZIP file has not expected format */
+    } catch (IOException e) {
+      throw new Error(e);      
+    } finally { if (zis != null) try { zis.close(); } catch( IOException e ) { /* Ignore the exception */ } };
+    
+    if (key!= null) {
+      Value uncompressedDataset = DKV.get(key);
+      parse(result, uncompressedDataset);
+      return ;
+    }
+    
+    throw new Error("Cannot uncompressed compressed dataset!");
   }
 
   // ----
@@ -548,6 +609,18 @@ public final class ParseDataset {
         DKV.remove(_key);
       }
     }
+  }
+  
+  // Guess 
+  private static int guess_compression_method(Value dataset) {
+    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
+    byte[] b = v0.get();                      // Bytes for 1st chunk
+        
+    // Look for ZIP magic
+    if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
+      return COMPRESSION_ZIP;
+    
+    return COMPRESSION_NONE;    
   }
   
   // ---

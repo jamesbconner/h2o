@@ -135,7 +135,7 @@ public class UDPReceiverThread extends Thread {
         continue;
       }
       
-      // Log packets handle separately.
+      // Log packets (only from members) are handled separately.
       if( is_member && first_byte == UDP.udp.log.ordinal() ) {
         // TODO: use FJP_HI or FJP_NORM
         UDP.udp.log.pool().execute(new FJPacket(pack,h2o));

@@ -39,6 +39,8 @@ public class LogHub extends Thread {
     REMOTE_STDOUT ("out"),
     REMOTE_STDERR ("err");
     
+    public static LogKind[] KINDS = values();
+    
     String label;
     
     private LogKind(String label) { this.label = label; }

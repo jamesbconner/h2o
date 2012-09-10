@@ -26,6 +26,9 @@ public class LocalLogSubscriber implements LogSubscriber {
   
   private SubscriberPipe pipe = new SubscriberPipe();
   
+  public LocalLogSubscriber() { this(false); }
+  public LocalLogSubscriber(boolean encodeHtml) { pipe.sink.encodeHtml = encodeHtml; }
+  
   @Override public void write(LogEvent event) {
     //System.err.println("Event received by local subscriber: " + event);
     try {
@@ -118,12 +121,20 @@ public class LocalLogSubscriber implements LogSubscriber {
     protected int available() {
       return (countToBeRead > 0 ? countToBeRead : 1); // prevent against inputstream close
     }
-    
-    
-    
+        
     public class Sink extends OutputStream {
+      
+      boolean encodeHtml = false;
+            
       @Override public void write(int b) throws IOException {
-        SubscriberPipe.this.write(b);
+        if (encodeHtml && HtmlCharacters.needsTranslation((char) b)) {
+          HtmlCharacters htmlC = HtmlCharacters.valueOf((char) b);
+          for(int i = 0; i < htmlC.htmlEntity.length; i++) {
+            SubscriberPipe.this.write(htmlC.htmlEntity[i]);
+          }
+        } else {
+          SubscriberPipe.this.write(b);                    
+        }        
       }
       
       void write(LogEvent logEvent) throws IOException {
@@ -145,5 +156,27 @@ public class LocalLogSubscriber implements LogSubscriber {
         return SubscriberPipe.this.available();
       }      
     }
+  }
+  
+  /**
+   * Enum which allows for translating characters to HTML entities.
+   */
+  enum HtmlCharacters {
+    AMP   ('&', new char[] {'&', 'a', 'm', 'p', ';'}), 
+    QUOT  ('"', new char[] {'&', 'q', 'u', 'o', 't', ';'}),
+    LT    ('<', new char[] {'&', 'l', 't', ';'}),
+    GT    ('>', new char[] {'&', 'g', 't', ';'});
+    
+    char character;
+    char[] htmlEntity;
+    
+    static HtmlCharacters valueOf(char c) {      
+      for(HtmlCharacters hc : values()) {
+        if (hc.character == c) return hc;                        
+      }      
+      return null;
+    }
+    static boolean needsTranslation(char c) { if (c == '&' || c == '"' || c == '<' || c == '>') return true; else return false; }
+    private HtmlCharacters(char character, char[] htmlEntity) { this.character = character; this.htmlEntity = htmlEntity; }    
   }
 }

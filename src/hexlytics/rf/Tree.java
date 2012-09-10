@@ -65,14 +65,13 @@ public class Tree extends CountedCompleter {
   }
 
   private void freeStatistics() { stats_ = null; } // so that they can be GCed
-
+static int KK;
   // Actually build the tree
   public void compute() {
+    System.out.println(KK++);
     createStatistics();
-    _timeToBuild = System.currentTimeMillis();
     if (_type == StatType.ENTROPY) computeNumeric(); else compute2();
-    _timeToBuild = System.currentTimeMillis() - _timeToBuild;
-    String st = toString();
+    String st = "";//toString();
     System.out.println("Tree ("+_data_id+") d="+_tree.depth()+" l="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
     tryComplete();
     freeStatistics();
@@ -108,7 +107,7 @@ public class Tree extends CountedCompleter {
 
   private class FJEntropyBuild extends RecursiveTask<INode> {
 
-    static final boolean THREADED = true;  // multi-threaded ?
+    static final boolean THREADED = false;  // multi-threaded ?
 
     final Statistic _s;         // All the rows that this split munged over
     final Data _data;           // The resulting 1/2-sized dataset from the above split

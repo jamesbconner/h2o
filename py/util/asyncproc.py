@@ -27,10 +27,17 @@ import errno
 import signal
 import threading
 import subprocess
+import shutil
 
 
 __all__ = [ 'Process', 'with_timeout', 'Timeout' ]
 
+
+LOG_DIR = 'sandbox'
+def clean_sandbox():
+    if os.path.exists(LOG_DIR):
+        shutil.rmtree(LOG_DIR)
+    os.mkdir(LOG_DIR)
 
 class Timeout(Exception):
     """Exception raised by with_timeout() when the operation takes too long.
@@ -126,17 +133,21 @@ class Process(object):
             kwparams.setdefault('stdout', subprocess.PIPE)
         if len(params) <= 5:
             kwparams.setdefault('stderr', subprocess.PIPE)
-        self.__log_dir = 'sandbox'
         self.__pending_input = []
         self.__collected_outdata = []
         self.__collected_errdata = []
         self.__exitstatus = None
         self.__lock = threading.Lock()
         self.__inputsem = threading.Semaphore(0)
-        # Flag telling feeder threads to quit
+        # Flag telling feeder threads to qt
         self.__quit = False
 
         self.__process = subprocess.Popen(*params, **kwparams)
+        with open(LOG_DIR + '/commands.log', 'a') as f:
+            f.write(" ".join(params[0]))
+            f.write("    # PID %d" % self.pid())
+            f.write("\n");
+
 
         if self.__process.stdin:
             self.__stdin_thread = threading.Thread(
@@ -254,9 +265,7 @@ class Process(object):
         return self.wait()
 
     def __log_file(self, name):
-        if self.__log_dir:
-            return open('%s/%d.%s' % (self.__log_dir, self.pid(), name), 'w')
-        return None
+        return open('%s/%d.%s' % (LOG_DIR, self.pid(), name), 'w')
 
     def __reader(self, name, collector, source):
         """Read data from source until EOF, adding it to collector.

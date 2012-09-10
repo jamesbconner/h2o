@@ -35,7 +35,8 @@ public class RandomForest {
     this(d, ntrees, false);
     for( int i=0; i<_ntrees; i++ ) {
       _trees.add(new Tree(_data,maxTreeDepth,minErrorRate,stat,features()));
-      H2O.FJP_NORM.execute(_trees.get(i));
+     // H2O.FJP_NORM.execute(_trees.get(i));
+      H2O.FJP_NORM.invoke(_trees.get(i));
     }
     if (block) blockForTrees(drf);  // Block until all trees are built
   }
@@ -177,9 +178,7 @@ public class RandomForest {
   public final void report() {
     validate();
     Counter tbt = new Counter(), td = new Counter(), tl = new Counter();
-    for (Tree t : _trees) { 
-     // tbt.add(t._timeToBuild);
-      td.add(t._tree.depth()); tl.add(t._tree.leaves()); }    
+    for (Tree t : _trees) { td.add(t._tree.depth()); tl.add(t._tree.leaves()); }    
     double err = errors()/(double) _data.rows();
     String s = 
         "              Type of random forest: classification\n" +
