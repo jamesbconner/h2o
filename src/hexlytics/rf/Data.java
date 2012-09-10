@@ -249,7 +249,7 @@ class Subset extends Data {
     sz_ = sz;
     parent_=data;
     permutation_ = permutation;
-    name_ =data.name_+"->subset"; 
+    //name_ =data.name_+"->subset"; 
   }
   
   public Data complement() {

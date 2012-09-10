@@ -3,13 +3,20 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.UUID;
 
 import jsr166y.CountedCompleter;
 import jsr166y.ForkJoinTask;
 import jsr166y.RecursiveTask;
-import water.*;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.Value;
 
 public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
@@ -65,10 +72,9 @@ public class Tree extends CountedCompleter {
   }
 
   private void freeStatistics() { stats_ = null; } // so that they can be GCed
-static int KK;
+
   // Actually build the tree
   public void compute() {
-    System.out.println(KK++);
     createStatistics();
     if (_type == StatType.ENTROPY) computeNumeric(); else compute2();
     String st = "";//toString();
