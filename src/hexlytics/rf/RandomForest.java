@@ -55,11 +55,11 @@ public class RandomForest {
 	String h2oArgs = "";
 	int ntrees = 10;
 	int depth = -1;
-	double cutRate = 0.15;
+	double cutRate = 0;
 	String statType = "entropy";
   }
   
-  static final OptArgs OPT_ARGS = new OptArgs();
+  static final OptArgs ARGS = new OptArgs();
   
   public static Key[] get(Key key) {
     Value val = DKV.get(key);
@@ -78,20 +78,20 @@ public class RandomForest {
   
   public static void main(String[] args) throws Exception {
 	Arguments arguments = new Arguments(args);
-	arguments.extract(OPT_ARGS);
-	if(OPT_ARGS.h2oArgs.startsWith("\"") && OPT_ARGS.h2oArgs.endsWith("\""))
-		OPT_ARGS.h2oArgs = OPT_ARGS.h2oArgs.substring(1, OPT_ARGS.h2oArgs.length()-1); 
-	OPT_ARGS.h2oArgs = OPT_ARGS.h2oArgs.trim();
-	String [] h2oArgs = OPT_ARGS.h2oArgs.split("[ \t]+");
+	arguments.extract(ARGS);
+	if(ARGS.h2oArgs.startsWith("\"") && ARGS.h2oArgs.endsWith("\""))
+		ARGS.h2oArgs = ARGS.h2oArgs.substring(1, ARGS.h2oArgs.length()-1); 
+	ARGS.h2oArgs = ARGS.h2oArgs.trim();
+	String [] h2oArgs = ARGS.h2oArgs.split("[ \t]+");
 	System.out.println("H2O args = " + Arrays.toString(h2oArgs));
 	H2O.main(h2oArgs);
-	System.out.println(OPT_ARGS.file);
-    Key fileKey = TestUtil.load_test_file(OPT_ARGS.file);
+	System.out.println(ARGS.file);
+    Key fileKey = TestUtil.load_test_file(ARGS.file);
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    int ntrees = OPT_ARGS.ntrees;
+    int ntrees = ARGS.ntrees;
     DRF.SAMPLE = true;
-    Key key = DRF.web_main(va, ntrees, 100, .15, StatType.ENTROPY);
+    Key key = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate,  ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY);
     while (get(key).length != ntrees) Thread.sleep(100);
     Key[] keys = get(key);
     Tree[] trees = new Tree[keys.length];
