@@ -92,7 +92,6 @@ public class RandomForest {
     int ntrees = OPT_ARGS.ntrees;
     DRF.SAMPLE = true;
     Key key = DRF.web_main(va, ntrees, 100, .15, StatType.ENTROPY);
-
     while (get(key).length != ntrees) Thread.sleep(100);
     Key[] keys = get(key);
     Tree[] trees = new Tree[keys.length];

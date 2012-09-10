@@ -108,7 +108,7 @@ public class Tree extends CountedCompleter {
 
   private class FJEntropyBuild extends RecursiveTask<INode> {
 
-    static final boolean THREADED = true;  // Single threaded ?
+    static final boolean THREADED = true;  // multi-threaded ?
 
     final Statistic _s;         // All the rows that this split munged over
     final Data _data;           // The resulting 1/2-sized dataset from the above split

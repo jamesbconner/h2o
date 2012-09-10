@@ -120,34 +120,6 @@ public class Utils {
     return (what < 1e-06) ? 0 : what * Math.log(what);
   }
   
-  public static double entropyOverColumns(int[][] m) {
-    double result = 0;
-    double total = 0;
-    for (int col = 0; col < m[0].length; ++col) {
-      double sum = 0;
-      for (int row = 0; row < m.length; ++row)
-        sum += m[row][col];
-      result -= lnF(sum);
-      total += sum;
-    }
-    return (total == 0) ? 0 : (result + lnF(total)) / (total * Math.log(2));
-  }
-  
-  public static double entropyCondOverRows(int[][] m) {
-    double result = 0;
-    double total = 0;
-    for (int[] d : m) {
-      double sum = 0;
-      for (int dd : d) {
-        sum += dd;
-        result += lnF(dd);
-      }
-      result -= lnF(sum);
-      total += sum;
-    }
-    return (total == 0) ? 0 : -result / (total *Math.log(2));
-  }
-  
   public static String p2d(double d) { return df.format(d); }
   static final DecimalFormat df = new  DecimalFormat ("0.##");
   public static String p5d(double d) { return df5.format(d); }
