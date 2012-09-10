@@ -122,7 +122,7 @@ public class Tree extends CountedCompleter {
       if (_s.singleClass()) return new LeafNode(_s.classOf());
       Split best = _s.best();
       if (best == null) return new LeafNode(_s.classOf());
-      Node nd = new Node(best.column,best.value,_data.data_);
+      Node nd = new Node(best.column,best.value,_data);
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
       _data.filter(best,res,stats);
@@ -215,14 +215,14 @@ public class Tree extends CountedCompleter {
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
   static class Node extends INode {
-    final DataAdapter _dapt;
+    final Data _data;
     final int _column;
     final double _value;
     INode _l, _r;
-    public Node(int column, double value, DataAdapter dapt) {
+    public Node(int column, double value, Data data) {
       _column= column;
       _value = value;
-      _dapt  = dapt;
+      _data  = data;
     }
     public int classify(Row row) { return (row.getS(_column)<=_value ? _l : _r).classify(row);  }
 
@@ -230,22 +230,11 @@ public class Tree extends CountedCompleter {
     @Override public int leaves() { return _l.leaves() + _r.leaves(); }
     @Override public int nodes()  { return 1 + _l.nodes() + _r.nodes(); }
 
+    // Computes the original split-value, as a float.
+    private final float split_value() { return  _data.unmap(_column,(float) _value); } 
 
-    // Computes the original split-value, as a float.  Returns a float to keep
-    // the final size small for giant trees.
-    private final C column() {  return _dapt.c_[_column]; } // Get the column in question
-    private final float split_value(C c) {
-      short idx = (short)_value; // Convert split-point of the form X.5 to a (short)X
-      double dlo = c._v2o[idx+0]; // Convert to the original values
-      double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
-      double dmid = (dlo+dhi)/2.0; // Compute an original split-value
-      float fmid = (float)dmid;
-      assert (float)dlo < fmid && fmid < (float)dhi; // Assert that the float will properly split
-      return fmid;
-    }
     public String toString() {
-      C c = column();           // Get the column in question
-      return c.name_ +"<" + Utils.p2d(split_value(c)) + " ("+_l+","+_r+")";
+      return _data.columnNames()[_column] +"<" + Utils.p2d(split_value()) + " ("+_l+","+_r+")";
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( DataOutputStream dos ) throws IOException {

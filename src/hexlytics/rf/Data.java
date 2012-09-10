@@ -67,10 +67,24 @@ public class Data implements Iterable<Row> {
   public Row getRow(int rowIndex) { return fillRow(new Row(),rowIndex); }  
 
   
-  public int columnClasses(int colIndex) {
-    return data_.columnClasses(colIndex);
+  public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
+
+  /** Given a value in enum format, returns a value in the original range. */
+  public float unmap(int col, float v){
+    short idx = (short)v; // Convert split-point of the form X.5 to a (short)X    
+    C c = data_.c_[col];
+    if (v == idx) {  // this value isn't a split
+      return c._v2o[idx+0];        
+    } else {
+      double dlo = c._v2o[idx+0]; // Convert to the original values
+      double dhi = (idx < c.sz_) ? c._v2o[idx+1] : dlo+1.0;
+      double dmid = (dlo+dhi)/2.0; // Compute an original split-value
+      float fmid = (float)dmid;
+      assert (float)dlo < fmid && fmid < (float)dhi; // Assert that the float will properly split
+      return fmid;
+    }
   }
-  
+    
   /** Returns the number of rows that is accessible by this Data object. */
   public int rows()        { return data_.rows(); }  
   public  int columns()    { return data_.columns() -1 ; } // -1 to remove class column
