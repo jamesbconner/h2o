@@ -5,13 +5,13 @@ import java.util.Arrays;
 
 public class Statistic {
   final Data data_;
-  final Statistic parent_;
   final Column[] columns_;  //columns for which the averages are computed
   private Split best;
   int classOf = -1;
   final int classes_;
   final double[] dists ;     
   final int _features;
+  final int[] lasts;
   
   /** Hold information about a split. */
   public static class Split {
@@ -25,26 +25,24 @@ public class Statistic {
 
 
   public Statistic(Data d, Statistic s, int features) {
-    data_ = d; parent_ = s;
+    data_ = d; 
     classes_= data_.classes();
     dists = new double[classes_];
     _features = features;
-    int total = data_.columns();
     int[] columnsToUse = new int[features];
     int i = 0;
     for(; i < features; ++i) columnsToUse[i] = i;
-    for(; i < total; ++i) {
+    for(; i < data_.columns(); ++i) {
       int o = d.random().nextInt(i);
       if( o < features ) columnsToUse[o] = i;
     }
-    
+    lasts = new int[data_.columns()];
     columns_ = new Column[features];
-    for (i = 0; i < features; ++i) {
-      int col = columnsToUse[i];
-      int last = parent_ == null ? data_.last(col) : parent_.last(col);
-      columns_[i] = new Column(col, last+1, classes_);
-    }
-  }
+    for (i=0;i< data_.columns();i++) 
+      lasts[i]= s==null? data_.last(i) : s.last(i);
+    for (i = 0; i < features; ++i) 
+      columns_[i] = new Column( columnsToUse[i], last(columnsToUse[i])+1, classes_);
+   }
   
   public Split best() {  
     if (best!=null) return best;
@@ -61,14 +59,6 @@ public class Statistic {
     }
     return classOf; 
   }
-  
-  public double error() {
-    if (classOf == -1)  classOf();
-    double total = Utils.sum(dists);
-    double others = total - dists[classOf];
-    return others / total;
-  }
-
 
   public boolean singleClass() {
     int cnt = 0;
@@ -123,16 +113,12 @@ public class Statistic {
       return new Split(column,bestSplit + 0.5,maxReduction); 
     }
   }
- 
-  private int last(int col) {
-    for( Column c : columns_ )  if( c.column == col ) return c.last;
-    if( parent_ != null ) return parent_.last(col);
-    return data_.last(col);
-  }
 
   public void add(Row r) {
     dists[r.classOf()]++;
     for( Column c : columns_ ) c.add(r.classOf(), r.getS(c.column));
   }
+  
+  public int last(int i) { return lasts[i]; }
  }
   

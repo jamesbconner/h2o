@@ -7,21 +7,12 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import java.util.Arrays;
 
-/**
- *
- * @author peta
- */
 public abstract class BaseStatistic {
 
   // PETA TODO This should not be here!!!!
   public static final double MIN_ERROR_RATE = 0.0;
   
-  
-  /** Returns the best split for a given column
-   * 
-   * @param colIndex
-   * @return 
-   */
+  /** Returns the best split for a given column   */
   protected abstract Split columnSplit(int colIndex);
   
   /** Split descriptor for a particular column. 
@@ -39,39 +30,19 @@ public abstract class BaseStatistic {
       this.split = split;
       this.fitness = fitness;
     }
-    public static Split constant(int result) {
-      return new Split(-1, result, -1);
-    }
-    
-    public static Split impossible(int result) {
-      return new Split(-2, result, -1);
-    }
-    
-    public final boolean isLeafNode() {
-      return column < 0;
-    }
-    
-    public final boolean isConstant() {
-      return column == -1;
-    }
-    
-    public final boolean isImpossible() {
-      return column == -2;
-    }
-    
-    public final boolean betterThan(Split other) {
-      return fitness > other.fitness;
-    }
+    public static Split constant(int result) {  return new Split(-1, result, -1); }
+    public static Split impossible(int result) { return new Split(-2, result, -1);  }  
+    public final boolean isLeafNode() { return column < 0; }    
+    public final boolean isConstant() { return column == -1; }    
+    public final boolean isImpossible() { return column == -2;  } 
+    public final boolean betterThan(Split other) { return fitness > other.fitness; }
   }
-  /// Column distributions for the given statistic
-  protected final double[][][] columnDists_;
-  /// Columns that are currently used.
-  protected final int[] columns_;
+
+  protected final double[][][] columnDists_;  /// Column distributions for the given statistic
+  protected final int[] columns_;// Columns that are currently used.
   
   /** Aggregates the given column's distribution to the provided array and 
-   * returns the sum of weights of that array. 
-   * 
-   */
+   * returns the sum of weights of that array.  */
   protected final double aggregateColumn(int colIndex, double[] dist) {
     double sum = 0;
     for (int j = 0; j < columnDists_[colIndex].length; ++j) {
@@ -103,7 +74,6 @@ public abstract class BaseStatistic {
     return result;
   }
   
-  
   private final int[] tempCols_;
   private final int _features;
   
@@ -120,7 +90,6 @@ public abstract class BaseStatistic {
   }
   
   /** Resets the statistic so that it can be used to compute new node. 
-   * 
    */
   public void reset(Data data) {
     // first get the columns for current split
@@ -141,19 +110,13 @@ public abstract class BaseStatistic {
     // and now the statistic is ready
   }
   
-  /** Adds the given row to the statistic. 
-   * 
-   * @param row 
-   */
+  /** Adds the given row to the statistic.    */
   public void add(Row row) {
     for (int i : columns_)
       columnDists_[i][row.getColumnClass(i)][row.classOf()] += row.weight();
   }
   
-  /** Calculates the best split and returns it. 
-   * 
-   * @return 
-   */
+  /** Calculates the best split and returns it.  */
   public Split split() {
     Split bestSplit = columnSplit(columns_[0]);
     if (!bestSplit.isConstant())
@@ -164,6 +127,5 @@ public abstract class BaseStatistic {
       }
     return bestSplit;
   }
-  
 }
 

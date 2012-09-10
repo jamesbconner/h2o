@@ -1,21 +1,12 @@
 package hexlytics.rf;
 
-
-
-/** A better working gini statistic that should be faster. Hopefully much faster. 
- *
- * @author peta
- */
 public class GiniStatistic extends BaseStatistic {
 
-  public GiniStatistic(Data data, int features) {
-    super(data, features);
-  }
+  public GiniStatistic(Data data, int features) { super(data, features); }
   
   private double gini(double[] dd, double sum) {
     double result = 1;
-    for (double d : dd)
-      result -= (d/sum) * (d/sum);
+    for (double d : dd)  result -= (d/sum) * (d/sum);
     return result;
   }
 
@@ -57,11 +48,7 @@ public class GiniStatistic extends BaseStatistic {
     return new Split(colIndex, bestExcluded, bestFitness);
   } */
   
-  /** Returns the best split for given column. 
-   * 
-   * @param colIndex
-   * @return 
-   */
+  /** Returns the best split for given column. */
   @Override protected Split columnSplit(int colIndex) {
     double[] leftDist = new double[columnDists_[colIndex][0].length];
     double[] rightDist = new double[leftDist.length];
