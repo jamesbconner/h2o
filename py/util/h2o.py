@@ -27,6 +27,10 @@ class H2O:
         return self.__check(requests.get(self.__url('RF.json'),
             params={"Key": key}))
 
+    def random_forest_view(self, params):
+        return self.__check(requests.get(self.__url('RFView.json'),
+            params=params))
+
     def stabilize(self, msg, timeout, func):
         start = time.clock()
         while time.clock() - start < timeout:
