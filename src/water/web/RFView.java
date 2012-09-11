@@ -12,6 +12,10 @@ import water.Key;
 
 public class RFView extends H2OPage {
 
+  @Override public String[] requiredArguments() {
+    return new String[] { "Key" };
+  }
+
   @Override public JsonObject serverJson(Server s, Properties p) throws PageError {
     final int depth = getAsNumber(p,"depth", 30);
     Key key = ServletUtil.check_key(p,"Key");
