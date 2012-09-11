@@ -65,7 +65,7 @@ public class GiniStatistic extends BaseStatistic {
       return Split.constant(singleClass);
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
-    double bestFitness = -1;
+    double bestFitness = 2;
     for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
       // first copy the i-th guys from right to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -79,7 +79,7 @@ public class GiniStatistic extends BaseStatistic {
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
       double f = gini(leftDist,leftWeight) * (leftWeight / totWeight) + gini(rightDist,rightWeight) * (rightWeight / totWeight);
-      if (f>bestFitness) {
+      if (f<bestFitness) {
         bestSplit = i;
         bestFitness = f;
       }
@@ -102,7 +102,7 @@ public class GiniStatistic extends BaseStatistic {
     }
     //System.exit(-1);
     //System.out.println(colIndex + " - " + bestSplit);
-    return new Split(colIndex,bestSplit,bestFitness);
+    return new Split(colIndex,bestSplit,1-bestFitness);
   }
   
 }
