@@ -112,8 +112,8 @@ public class Tree extends CountedCompleter {
 
     static final boolean THREADED = false;  // multi-threaded ?
 
-    final Statistic _s;         // All the rows that this split munged over
-    final Data _data;           // The resulting 1/2-sized dataset from the above split
+    Statistic _s;         // All the rows that this split munged over
+    Data _data;           // The resulting 1/2-sized dataset from the above split
     final int _d;               // depth
 
     FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
@@ -128,6 +128,7 @@ public class Tree extends CountedCompleter {
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
       _data.filter(best,res,stats);
+      _data = null; _s = null;
       if (THREADED) {
         ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
         nd._r =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
