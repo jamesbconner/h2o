@@ -9,14 +9,17 @@ public class Get extends Page {
 
   @Override public Object serve(Server server, Properties args) {
     try {
-      Key key = ServletUtil.check_key(args, "Key");
+      String skey = args.getProperty("Key");
+      Key key = Key.make(skey);
       if (!key.user_allowed()) throw new PageError("Not a user key: " + key);
       // Distributed get
       Value val = DKV.get(key);
       if( val == null ) throw new PageError("Key not found: " + key);
       // HTML file save of Value
       Response res = server.new Response(NanoHTTPD.HTTP_OK,NanoHTTPD.MIME_DEFAULT_BINARY,val.openStream());
-      res.addHeader( "Content-Length", Long.toString(val.length()));
+      res.addHeader("Content-Length", Long.toString(val.length()));
+      res.addHeader("Content-Disposition", "attachment; filename="+skey);
+
       return res;
     } catch( IOException ex ) {
       return H2OPage.wrap(H2OPage.error(ex.toString()));
