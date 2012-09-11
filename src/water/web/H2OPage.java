@@ -56,7 +56,6 @@ public abstract class H2OPage extends Page {
     + "              <li><a href=\"/StoreView\">Node</a></li>"
     + "              <li><a href=\"/GetQuery\">Get</a></li>"
     + "              <li><a href=\"/Put\">Put</a></li>"
-    + "              <li><a href=\"/AppendQuery\">Append</a></li>"
     + "              <li><a href=\"/Timeline\">Timeline</a></li>"
     + "              <li><a href=\"/ImportQuery\">Import</a></li>"
     + "              <li><a href=\"/DebugView\">Debug View</a></li>"
