@@ -5,21 +5,49 @@ import hexlytics.rf.Tree;
 
 import java.util.Properties;
 
+import com.google.gson.JsonObject;
+
 import water.DKV;
 import water.Key;
 
 public class RFView extends H2OPage {
+
+  @Override public JsonObject serverJson(Server s, Properties p) throws PageError {
+    final int depth = getAsNumber(p,"depth", 30);
+    Key key = ServletUtil.check_key(p,"Key");
+    Confusion confusion = Confusion.fromKey(key);
+    confusion.refresh(); // Refresh it, in case new Trees have appeared
+
+    Key treekeys[] = confusion._treeskey.flatten();
+    // Compute a few stats over trees
+    final int ntrees = treekeys.length;
+    int tdepth=0;
+    int tleavs=0;
+    for( int i=0; i<ntrees; i++ ) {
+      long dl = Tree.depth_leaves(DKV.get(treekeys[i]).get());
+      tdepth += (int)(dl>>>32);
+      tleavs += (dl&0xFFFFFFFFL);
+    }
+
+    JsonObject res = new JsonObject();
+    res.addProperty("origKey",encode(confusion._ary._key));
+    res.addProperty("got",ntrees);
+    res.addProperty("valid",confusion._ntrees);
+    res.addProperty("maxtrees",confusion._maxtrees);
+    res.addProperty("maxdepth",depth);
+    res.addProperty( "depth",(double)tdepth/ntrees);
+    res.addProperty("leaves",(double)tleavs/ntrees);
+    return res;
+  }
+
   @Override protected String serveImpl(Server s, Properties args) throws PageError {
     final int depth = getAsNumber(args,"depth", 30);
     RString response = new RString(html());
 
     // Get the Confusion Matrix from the Confusion Key
-    Object o = ServletUtil.check_key(args,"Key");
-    if( o instanceof String ) return (String)o;
-    Key key = (Key)o;
+    Key key = ServletUtil.check_key(args,"Key");
     Confusion confusion = Confusion.fromKey(key);
-    // Refresh it, in case new Trees have appeared
-    confusion.refresh();
+    confusion.refresh(); // Refresh it, in case new Trees have appeared
 
     // Display the confusion-matrix table here
     // First the title line
