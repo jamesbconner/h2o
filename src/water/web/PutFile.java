@@ -39,7 +39,7 @@ public class PutFile extends H2OPage {
 
     Key k = uploadFile(fname, key, rf);
     JsonObject res = new JsonObject();
-    res.addProperty("key", encode(k));
+    addProperty(res, "key", k);
     res.addProperty("rf", rf);
     res.addProperty("vsize", new File(fname).length());
     return res;
@@ -48,7 +48,7 @@ public class PutFile extends H2OPage {
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
     JsonObject json = serverJson(server, args);
 
-    RString response = new RString(html);
+    RString response = new RString(html());
     response.replace(json);
     return response.toString();
   }
@@ -57,12 +57,13 @@ public class PutFile extends H2OPage {
     return new String[] { "File" };
   }
 
-  public static final String html =
-    "<div class='alert alert-success'>"
-    + "Key <strong>%key</strong> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
+  private String html() {
+    return "<div class='alert alert-success'>"
+    + "Key <a href='Inspect?Key=%keyHref'>%key</a> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
     + "</div>"
     + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
     + "<a href='Put'><button class='btn'>Put again</button></a>"
     + "</p>"
     ;
+  }
 }

@@ -102,13 +102,7 @@ public class StoreView extends H2OPage {
 
   private void formatKeyRow(H2O cloud, Key key, Value val, RString response) {
     RString row = response.restartGroup("tableRow");
-    // Dump out the Key
-    String ks = key.toString();
-    row.replace("keyHref",key);
-    row.replace("key",key.user_allowed() ? ks : "<code>"+key.toString()+"</code>");
-    //if (val instanceof ValueCode) {
-    //  row.replace("execbtn","&nbsp;&nbsp;<a href='ExecQuery?Key="+urlEncode(key.toString())+"'><button class='btn btn-primary btn-mini'>Execute</button></a>");
-    //}
+    row.replace("key",key);
 
     // Now the first 100 bytes of Value as a String
     byte[] b = new byte[100];   // Amount to read
@@ -130,15 +124,15 @@ public class StoreView extends H2OPage {
     if( val.length() > len ) sb.append("...");
     row.replace("value",sb);
     row.replace("size",val.length());
-    String keyStr = encode(key);
-    row.replace("ktr",keyStr);
-    
-    if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){ 
-      row.replace("storeHdfs", "<a href='Store2HDFS?Key=" + keyStr + "'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+
+    if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
+      RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+      hdfs.replace("key", key);
+      row.replace("storeHdfs", hdfs.toString());
     } else {
       row.replace("storeHdfs", "");
-    } 
-    
+    }
+
     // See if this is a structured ValueArray.  Report results from a total parse.
     if( val instanceof ValueArray ) {
       val = DKV.get(key);       // Get the whole ValueArray
@@ -184,8 +178,8 @@ public class StoreView extends H2OPage {
     + "<tbody>\n"
     + "%tableRow{\n"
     + "  <tr>"
-    + "    <td>" 
-    + "      <a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>"
+    + "    <td>"
+    + "      <a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>"
     + "      %storeHdfs"
     + "      &nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a>%execbtn"
     + "    </td>"

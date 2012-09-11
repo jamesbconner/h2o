@@ -1,8 +1,10 @@
 package water.web;
 
-import java.util.Arrays;
 import java.util.Properties;
-import water.*;
+
+import water.H2O;
+import water.Key;
+import water.Value;
 
 public class DebugView extends H2OPage {
 
@@ -97,9 +99,8 @@ public class DebugView extends H2OPage {
   private void formatKeyRow(H2O cloud, Key key, Value val, RString response) {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
-    String ks = key.toString();
-    row.replace("key",key.user_allowed() ? ks : "<code>"+ks+"</code>");
-    row.replace("keyHref",key);
+    row.replace("key",key);
+
     // Dump out the current replication info: Mem/Disk/Replication_desired
     int r = key.desired();
     int repl = key.replica(cloud);
@@ -144,7 +145,9 @@ public class DebugView extends H2OPage {
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"
-          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a></td>"
+          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'>"
+          + "<button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;"
+          + "<a href='/Inspect?Key=%keyHref'>%key</a></td>"
           + "    <td style='%replicationStyle'>%r1/%r2</td>"
           + "    <td>%home</td>"
           + "    <td>%home2</td>"

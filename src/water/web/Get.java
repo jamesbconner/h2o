@@ -12,13 +12,16 @@ public class Get extends Page {
       String skey = args.getProperty("Key");
       Key key = Key.make(skey);
       if (!key.user_allowed()) throw new PageError("Not a user key: " + key);
-      // Distributed get
       Value val = DKV.get(key);
+      if( val == null ) {
+        key = H2OPage.decode(skey);
+        val = DKV.get(key);
+      }
       if( val == null ) throw new PageError("Key not found: " + key);
       // HTML file save of Value
       Response res = server.new Response(NanoHTTPD.HTTP_OK,NanoHTTPD.MIME_DEFAULT_BINARY,val.openStream());
       res.addHeader("Content-Length", Long.toString(val.length()));
-      res.addHeader("Content-Disposition", "attachment; filename="+skey);
+      res.addHeader("Content-Disposition", "attachment; filename="+key.toString());
 
       return res;
     } catch( IOException ex ) {

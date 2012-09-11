@@ -34,7 +34,7 @@ public class RFView extends H2OPage {
     }
 
     JsonObject res = new JsonObject();
-    res.addProperty("origKey",encode(confusion._ary._key));
+    addProperty(res, "origKey", confusion._ary._key);
     res.addProperty("got",ntrees);
     res.addProperty("valid",confusion._ntrees);
     res.addProperty("maxtrees",confusion._maxtrees);
@@ -124,8 +124,7 @@ public class RFView extends H2OPage {
     int limkeys = Math.min(ntrees,100);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("TtableRow");
-      trow.replace("treekey_u",encode(treekeys[i]));
-      trow.replace("treekey_s",treekeys[i]);
+      trow.replace("treeKey", treekeys[i]);
       trow.append();
     }
 
@@ -149,7 +148,7 @@ public class RFView extends H2OPage {
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<tbody>\n"
       + "%TtableRow{\n"
-      + "  <tr><td><a href='/Inspect?Key=%treekey_u'>%treekey_s</a></tr>\n"
+      + "  <tr><td><a href='/Inspect?Key=%treeKeyHref'>%treeKey</a></tr>\n"
       + "}\n"
       + "</tbody>\n"
       + "</table>\n"

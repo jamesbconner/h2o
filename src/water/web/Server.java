@@ -98,7 +98,6 @@ public class Server extends NanoHTTPD {
     registerPage(new ImportQuery(),"ImportQuery");
     registerPage(new ImportUrl(),"ImportUrl");
     registerPage(new Inspect(),"Inspect");
-    registerPage(new KeysView(),"KeysView");
     registerPage(new LinearRegression(),"LR");
     registerPage(new LinearRegression(),"LinearRegression");
     registerPage(new Network(), "Network");
