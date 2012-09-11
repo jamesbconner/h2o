@@ -3,6 +3,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -36,8 +37,9 @@ public final class ParseDataset {
   static final int PARSE_SPACESEP = 103;
   
   // Compression types.
-  static final int COMPRESSION_NONE = 0;
-  static final int COMPRESSION_ZIP  = 1;
+  static final int COMPRESSION_NONE  = 0;
+  static final int COMPRESSION_ZIP   = 1;
+  static final int COMPRESSION_GZIP  = 2;
   
   // Index to array returned by method guesss_parser_setup()
   static final int PARSER_IDX = 0;
@@ -52,7 +54,8 @@ public final class ParseDataset {
     int compression = guess_compression_method(dataset);
     switch (compression) {
     case COMPRESSION_NONE: parseUncompressed(result, dataset); break;
-    case COMPRESSION_ZIP : parseZipped(result, dataset); break;
+    case COMPRESSION_ZIP : parseZipped(result, dataset);       break;
+    case COMPRESSION_GZIP: parseGZipped(result, dataset);      break;
     default              : throw new Error("Uknown compression of dataset!");
     }
   }
@@ -152,7 +155,26 @@ public final class ParseDataset {
       return ;
     }
     
-    throw new Error("Cannot uncompressed compressed dataset!");
+    throw new Error("Cannot uncompressed ZIP-compressed dataset!");
+  }
+  
+  public static void parseGZipped( Key result, Value dataset ) {
+    GZIPInputStream gzis = null;
+    Key key = null;
+    try {
+      gzis = new GZIPInputStream(dataset.openStream());
+      key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //            
+    } catch (IOException e) {
+      throw new Error(e);
+    } finally { if (gzis != null) try { gzis.close(); } catch( IOException e ) { /* Ignore the exception */ } };
+    
+    if (key!= null) {
+      Value uncompressedDataset = DKV.get(key);
+      parse(result, uncompressedDataset);
+      return ;
+    }
+    
+    throw new Error("Cannot uncompressed GZIP-compressed dataset!");    
   }
 
   // ----
@@ -619,6 +641,8 @@ public final class ParseDataset {
     // Look for ZIP magic
     if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
       return COMPRESSION_ZIP;
+    if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
+      return COMPRESSION_GZIP;
     
     return COMPRESSION_NONE;    
   }

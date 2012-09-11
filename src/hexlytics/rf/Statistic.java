@@ -11,7 +11,7 @@ public class Statistic {
   final int classes_;
   final float[] dists ;     
   final int _features;
-  final int[] lasts;
+  final short[] lasts;
   
   /** Hold information about a split. */
   public static class Split {
@@ -36,10 +36,10 @@ public class Statistic {
       int o = d.random().nextInt(i);
       if( o < features ) columnsToUse[o] = i;
     }
-    lasts = new int[data_.columns()];
+    lasts = new short[data_.columns()];
     columns_ = new Column[features];
     for (i=0;i< data_.columns();i++) 
-      lasts[i]= s==null? data_.last(i) : s.last(i);
+      lasts[i]= (short) ( s==null? data_.last(i) : s.last(i) );
     for (i = 0; i < features; ++i) 
       columns_[i] = new Column( columnsToUse[i], last(columnsToUse[i])+1, classes_);
    }
@@ -122,6 +122,6 @@ public class Statistic {
     for( Column c : columns_ ) c.add(r.classOf(), r.getS(c.column));
   }
   
-  public int last(int i) { return lasts[i]; }
+  public short last(int i) { return lasts[i]; }
  }
   

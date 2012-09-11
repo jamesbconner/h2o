@@ -4,13 +4,19 @@ import hexlytics.rf.Data.Row;
 import hexlytics.rf.Tree.StatType;
 import hexlytics.rf.Utils.Counter;
 
-import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
 import test.TestUtil;
-import water.*;
+import water.AppendKey;
+import water.Arguments;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.UDP;
+import water.UDPRebooted;
+import water.Value;
+import water.ValueArray;
 
 /**
  * A RandomForest can be used for growing or validation. The former starts with a known target number of trees,
@@ -21,6 +27,9 @@ public class RandomForest {
   final Tree[] _trees;          // The trees that got built
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
+  private int[][] scores_;
+  private long errors_ = -1;
+  private int[][] _confusion;  
 
   public RandomForest( DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean singlethreaded ) {
 
@@ -47,11 +56,6 @@ public class RandomForest {
     } catch( ExecutionException e ) {
     }
   }
-
-  private int[][] scores_;
-  private long errors_ = -1;
-  private int[][] _confusion;  
-
 
   public static class OptArgs extends Arguments.Opt {
 	String file = "smalldata/poker/poker-hand-testing.data";
@@ -96,12 +100,13 @@ public class RandomForest {
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate,  ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY, true/*singlethreaded*/);
     Key[] keys = drf._treeskey.flatten(); 
     assert keys.length == ntrees; // Since used blocking invoke, all Trees are available
-    if( drf._validation != null ) {
+   
+   // if( drf._validation != null ) {
       RandomForest vrf = new RandomForest(drf, drf._validation, ntrees, -1, 0.0, drf._stat,true/*blocking*/);
       for(int i=0;i<keys.length;i++) // Fill in the trees into the validating RF
         vrf._trees[i] = Tree.fromKey(keys[i],drf._validation.data_);
       vrf.report();
-    }
+   // }
     UDPRebooted.global_kill();
   }
 
@@ -109,8 +114,7 @@ public class RandomForest {
   /** Classifies a single row using the forest. */
   public int classify(Row r) {
     int[] votes = new int[r.numClasses()];
-    for (Tree tree : _trees)
-        votes[tree.classify(r)] += 1;
+    for (Tree tree : _trees) votes[tree.classify(r)] += 1;
     return Utils.maxIndex(votes, _data.random());
   }
 
@@ -118,7 +122,6 @@ public class RandomForest {
   
   /** Incrementally validate new trees in the forest. */
   private void validate() {
-    //if (!_validation) throw new Error("Can't validate on training data.");
     if (scores_ == null)  scores_ = new int[_data.rows()][_data.classes()];
     if (_confusion == null) _confusion = new int[_data.classes()][_data.classes()];    
     errors_ = 0; int i = 0;
@@ -151,8 +154,6 @@ public class RandomForest {
     return " "+p+s;
   }
   private String confusionMatrix() {
-    if (_confusion == null) validate();
-    int error = 0;
     final int K = _data.classes()+1;
     double[] e2c = new double[_data.classes()];
     for(int i=0;i<_data.classes();i++) {
@@ -161,7 +162,6 @@ public class RandomForest {
       e2c[i]= Math.round((err/(double)(err+_confusion[i][i]) ) * 100) / (double) 100  ;
     }
     String [][] cms = new String[K][K+1];
-  //  String [] cn = _data._data.columnNames();
     cms[0][0] = "";
     for (int i=1;i<K;i++) cms[0][i] = ""+ (i-1); //cn[i-1];
     cms[0][K]= "err/class";
@@ -184,7 +184,8 @@ public class RandomForest {
 
 
   public final void report() {
-    Counter tbt = new Counter(), td = new Counter(), tl = new Counter();
+    validate();
+    Counter td = new Counter(), tl = new Counter();
     for (Tree t : _trees) { td.add(t._tree.depth()); tl.add(t._tree.leaves()); }    
     double err = errors()/(double) _data.rows();
     String s = 
@@ -192,7 +193,7 @@ public class RandomForest {
         "                    Number of trees: "+ _trees.length +"\n"+
         "No of variables tried at each split: " + features() +"\n"+
         "             Estimate of error rate: " + Math.round(err *10000)/100 + "%  ("+err+")\n"+        
-        "                   Confusion matrix:\n" + confusionMatrix()+ "\n"+ //"     Avg tree build time (min, max): "+tbt;
+        "                   Confusion matrix:\n" + confusionMatrix()+ "\n"+ 
         "          Avg tree depth (min, max): " + td +"\n" +
         "         Avg tree leaves (min, max): " + tl +"\n" +
         "                Validated on (rows): " + _data.rows() ;
