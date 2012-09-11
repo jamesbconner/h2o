@@ -11,9 +11,7 @@ import java.util.NoSuchElementException;
 import water.Key;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
 
 /**
  * List that has labels to it (something like copyable iterators) and some very
@@ -282,6 +280,13 @@ class RString {
       JsonElement v = obj.getValue();
       if( v.isJsonPrimitive() && ((JsonPrimitive)v).isString() ) {
         replace(obj.getKey(), v.getAsString());
+      } else if( v.isJsonArray() ) {
+        for( JsonElement e : (JsonArray)v ) {
+          assert e instanceof JsonObject;
+          RString sub = restartGroup(obj.getKey());
+          sub.replace((JsonObject) e);
+          sub.append();
+        }
       } else {
         replace(obj.getKey(), v);
       }

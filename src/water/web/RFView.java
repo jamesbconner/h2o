@@ -1,13 +1,13 @@
 package water.web;
 
-import java.util.Properties;
-
-import water.*;
-import water.web.Page.PageError;
 import hexlytics.rf.Confusion;
 import hexlytics.rf.Tree;
 
-// @author cliffc
+import java.util.Properties;
+
+import water.DKV;
+import water.Key;
+
 public class RFView extends H2OPage {
   @Override protected String serveImpl(Server s, Properties args) throws PageError {
     final int depth = getAsNumber(args,"depth", 30);
@@ -67,7 +67,6 @@ public class RFView extends H2OPage {
     sb.append(String.format("<td>%5.3f = %d / %d",(double)terrs/ttots,terrs,ttots));
     row.replace("crow",sb.toString());
     row.append();
-
 
     // Get the Tree keys
     Key treekeys[] = confusion._treeskey.flatten();
