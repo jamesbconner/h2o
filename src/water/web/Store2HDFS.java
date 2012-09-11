@@ -8,6 +8,7 @@ import water.Key;
 import water.UDP;
 import water.Value;
 import water.hdfs.TaskStore2HDFS;
+import water.web.Page.PageError;
 
 /**
  *
@@ -15,11 +16,8 @@ import water.hdfs.TaskStore2HDFS;
  */
 public class Store2HDFS extends H2OPage {
   
-  @Override public String serve_impl(Properties args) {
-    Object o = ServletUtil.check_key(args,"Key");
-    if( o instanceof String ) return (String)o;
-    // Distributed remove
-    Key k = (Key)o;
+  @Override public String serveImpl(Server s, Properties args) throws PageError {
+    Key k = ServletUtil.check_key(args,"Key");
     Value v = DKV.get(k);    
     Key pK = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);    
     Value progress = new Value(pK,8);
@@ -38,7 +36,7 @@ public class Store2HDFS extends H2OPage {
     } 
     // remove progress info
     DKV.remove(pK);
-    return H2OPage.success("Successfully stored key <strong>"+((Key)o).toString()+"</strong> on HDFS");
+    return H2OPage.success("Successfully stored key <strong>"+k.toString()+"</strong> on HDFS");
   }
 
   @Override public String[] requiredArguments() {

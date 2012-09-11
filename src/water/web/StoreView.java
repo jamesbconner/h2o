@@ -3,7 +3,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
 
-import water.*;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.Value;
+import water.ValueArray;
+import water.hdfs.PersistHdfs;
 
 /**
  *
