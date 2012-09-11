@@ -1,5 +1,5 @@
 import requests
-import time, os, json
+import time, os, json, signal
 import asyncproc
 
 class H2O:
@@ -71,6 +71,9 @@ class H2O:
 
     def read(self):
         return self.proc.read()
+
+    def stack_dump(self):
+        self.proc.kill(signal.SIGQUIT)
     
     def wait(self):
         return self.proc.wait(os.WNOHANG)
