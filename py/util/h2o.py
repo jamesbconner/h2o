@@ -7,6 +7,7 @@ class H2O:
         return 'http://%s:%d/%s' % (self.addr, self.port, loc)
 
     def __check(self, r):
+        asyncproc.log_command('Sent ' + r.url)
         if not r:
             import inspect
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
@@ -36,6 +37,7 @@ class H2O:
         while time.clock() - start < timeout:
             if func(self):
                 break
+            time.sleep(0.1)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
 
