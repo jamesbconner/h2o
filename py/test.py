@@ -36,7 +36,8 @@ class Basic(unittest.TestCase):
         rfv = {}
         rfv['Key'] = rf['treeskey']
         rfv['origKey'] = rf['origKey']
-        n.random_forest_view(rfv)
+        n.stabilize('random forest finishing', 20,
+            lambda n: n.random_forest_view(rfv)['got'] == 5)
 
 
 if __name__ == '__main__':
