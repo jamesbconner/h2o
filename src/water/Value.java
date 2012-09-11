@@ -402,6 +402,27 @@ public class Value {
   }
   
   public long length() { return _max<0?0:_max; }
+  
+  
+  public boolean onHDFS(){
+    return (_persist & BACKEND_MASK) == HDFS;
+  }
+  // atomicaly set the backend to hdfs and persist state to not persisted
+  // and than remove the old stored value (if any)
+  // 
+  public void switch2HdfsBackend(boolean persisted){
+    byte oldPersist = _persist;    
+    if(persisted)_persist = HDFS|ON_dsk; else _persist = HDFS; 
+    if((oldPersist & ON_dsk) > 0)
+      switch( oldPersist&BACKEND_MASK ) {
+      case ICE : PersistIce .file_delete(this); break;
+      case HDFS: assert(false); PersistHdfs.file_delete(this); break;
+      case NFS : PersistNFS .file_delete(this); break;
+      default  : throw new Error("unimplemented");
+      }
+    _key.invalidate_remote_caches();
+  }
+  
 }
 
 
@@ -454,4 +475,5 @@ class ArrayletInputStream extends InputStream {
     }
     return rc == 0 ? -1 : rc;
   }
+ 
 }

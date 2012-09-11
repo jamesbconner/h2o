@@ -117,6 +117,7 @@ public class Server extends NanoHTTPD {
     registerPage(new StoreView(),"StoreView");
     registerPage(new Test(),"Test");
     registerPage(new Timeline(),"Timeline");
+    registerPage(new Store2HDFS(),"Store2HDFS");
   }
 
 

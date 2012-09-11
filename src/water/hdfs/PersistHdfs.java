@@ -51,6 +51,9 @@ public abstract class PersistHdfs {
     }
   }
   
+  public static void refreshHDFSKeys(){
+    loadPersistentKeysFromFolder(_root, "");
+  }
   
   private static int loadPersistentKeysFromFolder(Path folder, String prefix) {
     int num=0;
@@ -88,6 +91,12 @@ public abstract class PersistHdfs {
   // 512 bytes.
   static private final String KEY_PREFIX="hdfs:/";
   static private final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
+    
+  private static String path2KeyStr(Path p){
+    if(p.getParent().depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR + p.getName();
+    return path2KeyStr(p.getParent()) + Path.SEPARATOR + p.getName();
+  } 
+  
   private static Key decodeFile(Path p, String prefix) {
     String kname = KEY_PREFIX+prefix+Path.SEPARATOR+p.getName();
     assert (kname.length() <= 512);
@@ -99,9 +108,13 @@ public abstract class PersistHdfs {
   // TODO Something should be done about keys whose value is larger than 512
   // bytes, for now, they are not supported.
   static Path getPathForKey(Key k) {
-    final int len = KEY_PREFIX_LENGTH+1; // Strip key prefix & leading slash
-    String s = new String(k._kb,len,k._kb.length-len);
+    final int len = KEY_PREFIX_LENGTH + 1; // Strip key prefix & leading slash
+    String s = new String(k._kb,len, k._kb.length-len);    
     return new Path(_root, s);
+  }
+  
+  private static Key getKeyforPath(Path p){
+    return Key.make(path2KeyStr(p));
   }
   
   
@@ -132,6 +145,50 @@ public abstract class PersistHdfs {
       return null;
     } 
   }
+  
+//for moving ValueArrays to HDFS
+ static void storeChunk(Value v, String path) {
+   assert !(v instanceof ValueArray);
+   try {
+     Path p = new Path(_root, path);
+     FSDataOutputStream s;
+     if( (v._key._kb[0] != Key.ARRAYLET_CHUNK)
+         || (ValueArray.getChunkIndex(v._key) == 0) ) {
+       // the first chunk -> make sure path exists and
+       // create/overwrite the file
+       _fs.mkdirs(p.getParent());
+       s = _fs.create(p);
+     } else
+       s = _fs.append(p);
+     try {
+       // we're moving file to hdfs, possibly from other source, make sure it
+       // is loaded first
+       byte[] m = v.get();
+       if( m != null )
+         s.write(m);
+     } finally {
+       s.close();
+     }
+   } catch( IOException e ) {
+     e.printStackTrace();
+   }    
+ }
+ 
+
+ static void addNewVal2KVStore(String path){
+   Path p = new Path(_root,path);
+   Key k = getKeyforPath(p);
+   try{
+     if(!_fs.isFile(p))throw new Error("No such file on hdfs! " + path);
+     long size = _fs.getFileStatus(p).getLen();
+     Value val = (size < 2 * ValueArray.chunk_size()) ? new Value(
+         (int) size, 0, k, Value.HDFS) : new ValueArray(k, size,
+         Value.HDFS);
+     val.setdsk();
+     H2O.putIfAbsent_raw(k, val);
+   }catch(IOException e){throw new Error(e);}
+ }
+
 
   static public void file_store(Value v) {
     // Only the home node does persistence on HDFS
@@ -159,7 +216,9 @@ public abstract class PersistHdfs {
   
   static public void file_delete(Value v) {
     // Only the home node does persistence.
+    if(v._key._kb[0] == Key.ARRAYLET_CHUNK) return;
     if( !v._key.home() ) return;
+    
     // Never store arraylets on HDFS, instead we'll store the entire array.
     assert !(v instanceof ValueArray);
     assert v.mem() == null;     // Upper layers already cleared out

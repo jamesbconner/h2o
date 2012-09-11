@@ -67,7 +67,7 @@ public class ValueArray extends Value {
   // @param k - key of arraylet chunk
   // @param index - the requested chunk number
   // @return - Key of the chunk with offset == index
-  public static Key getChunk(Key k, int index) {
+  public static Key getChunk(Key k, long index) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
     byte[] arr = k._kb.clone();
     long n = ((long) index) << ValueArray.LOG_CHK;

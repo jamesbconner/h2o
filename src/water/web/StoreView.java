@@ -31,7 +31,7 @@ public class StoreView extends H2OPage {
     int len = 0;
     String filter = args.getProperty("Filter");
     String html_filter = (filter==null? "" : "?Filter="+filter);
-
+    PersistHdfs.refreshHDFSKeys();
     // Gather some keys that pass all filters
     for( Key key : H2O.keySet() ) {
       if( filter != null &&     // Have a filter?
@@ -125,8 +125,15 @@ public class StoreView extends H2OPage {
     if( val.length() > len ) sb.append("...");
     row.replace("value",sb);
     row.replace("size",val.length());
-    row.replace("ktr",encode(key));
-
+    String keyStr = encode(key);
+    row.replace("ktr",keyStr);
+    
+    if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){ 
+      row.replace("storeHdfs", "<a href='Store2HDFS?Key=" + keyStr + "'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+    } else {
+      row.replace("storeHdfs", "");
+    } 
+    
     // See if this is a structured ValueArray.  Report results from a total parse.
     if( val instanceof ValueArray ) {
       val = DKV.get(key);       // Get the whole ValueArray
@@ -172,7 +179,11 @@ public class StoreView extends H2OPage {
     + "<tbody>\n"
     + "%tableRow{\n"
     + "  <tr>"
-    + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a>%execbtn</td>"
+    + "    <td>" 
+    + "      <a style='%delBtnStyle' href='RemoveAck?Key=%ktr'><button class='btn btn-danger btn-mini'>X</button></a>"
+    + "      %storeHdfs"
+    + "      &nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a>%execbtn"
+    + "    </td>"
     + "    <td>%size</td>"
     + "    <td>%rows</td>"
     + "    <td>%cols</td>"

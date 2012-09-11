@@ -8,10 +8,10 @@ import com.google.common.base.Objects;
 
 public class SeparatedValueParser implements Iterable<double[]>, Iterator<double[]> {
   private final Key _key;
-  private final int _startChunk;
+  private final long _startChunk;
 
   private Value _curVal;
-  private int _curChunk;
+  private long _curChunk;
   private byte[] _curData;
   private int _offset;
 
