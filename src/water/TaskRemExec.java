@@ -256,7 +256,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     if( cmd == CLIENT_UDP_SEND ) {
       _dt = _serializer.read(buf, off);
     } else {
-      assert cmd == CLIENT_TCP_SEND;
+      assert cmd == CLIENT_TCP_SEND : "found cmd "+cmd;
       // Big object, switch to TCP style comms.  Should have already done a
       // DRemoteTask read from the TCP receiver thread... so no need to read here.
     }

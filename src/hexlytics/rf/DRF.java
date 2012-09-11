@@ -12,16 +12,16 @@ import water.serialization.RemoteTaskSerializer;
 public class DRF extends water.DRemoteTask {
   int _ntrees;                  // Number of trees PER NODE
   int _depth;                   // Tree-depth limiter
-  boolean _useGini;             // Use Gini (true) vs Entropy (false) for splits
+  Tree.StatType _stat;          // Use Gini (true) vs Entropy (false) for splits
   Key _arykey;                  // The ValueArray being RF'd
-  Key _treeskey;                // Key of Tree-Keys built so-far
+  public Key _treeskey;         // Key of Tree-Keys built so-far
 
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
     @Override public int write( DRF t, byte[] buf, int off ) {
       off += UDP.set4(buf,off,t._ntrees);
       off += UDP.set4(buf,off,t._depth);
-      buf[off++] = (byte)(t._useGini ? 1:0);
+      buf[off++] = (byte)t._stat.ordinal();
       off = t.  _arykey.write(buf,off);
       off = t._treeskey.write(buf,off);
       return off;
@@ -30,7 +30,7 @@ public class DRF extends water.DRemoteTask {
       DRF t = new DRF();
       t._ntrees= UDP.get4(buf,(off+=4)-4);
       t._depth = UDP.get4(buf,(off+=4)-4);
-      t._useGini = buf[off++]==1 ? true : false;
+      t._stat  = Tree.StatType.values()[buf[off++]];
       t.  _arykey = Key.read(buf,off);  off += t.  _arykey.wire_len();
       t._treeskey = Key.read(buf,off);  off += t._treeskey.wire_len();
       return t;
@@ -39,17 +39,17 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
-  public static Key web_main( ValueArray ary, int ntrees, int depth, double cutRate, boolean useGini) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, Tree.StatType stat) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
     drf._depth = depth;
-    drf._useGini = useGini;
+    drf._stat = stat;
     drf._arykey = ary._key;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     DKV.put(drf._treeskey, new Value(drf._treeskey,4/*4 bytes for the key-count, which is zero*/));
     drf.fork(ary._key);
-    return drf._treeskey;
+    return drf;
   }
 
   // Local RF computation.
@@ -57,6 +57,8 @@ public class DRF extends water.DRemoteTask {
     ValueArray ary = (ValueArray)DKV.get(_arykey);
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
+    final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
+    assert 0 <= classes && classes < 255;
     String[] names = ary.col_names();
 
     // One pass over all chunks to compute max rows
@@ -70,7 +72,7 @@ public class DRF extends water.DRemoteTask {
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique);
+    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, classes);
     double[] ds = new double[num_cols];
     // Now load the DataAdapter with all the rows
     for( Key key : _keys ) {
@@ -78,15 +80,18 @@ public class DRF extends water.DRemoteTask {
         byte[] bits = DKV.get(key).get();
         final int rows = bits.length/rowsize;
         for( int j=0; j<rows; j++ ) { // For all rows in this chunk
-          for( int k=0; k<num_cols; k++ )
+          ds[num_cols-1] = Double.NaN; // Row-has-invalid-data flag
+          for( int k=0; k<num_cols; k++ ) {
+            if( !ary.valid(bits,j,rowsize,k) ) break; // oops, bad data on row
             ds[k] = ary.datad(bits,j,rowsize,k);
-          dapt.addRow(ds);
+          }
+          if( !Double.isNaN(ds[num_cols-1]) ) // Insert only good rows
+            dapt.addRow(ds);                  // Insert row
         }
       }
     }
     dapt.shrinkWrap();
-    System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" gini="+_useGini);
-    RandomForest rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _useGini ? Tree.StatType.gini : Tree.StatType.numeric);
+    RandomForest rf = new RandomForest(this,dapt, .666, _ntrees, _depth, -1, _stat);
     tryComplete();
   }
 

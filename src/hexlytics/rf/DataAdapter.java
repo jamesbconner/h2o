@@ -15,7 +15,6 @@ public class DataAdapter  {
   final int _data_id;           // Unique cookie identifying this dataset
   private boolean frozen_;
   private int numClasses_=-1;
-  private int numClassesParam_=-1;
   private String[] columnNames_;
   private String classColumnName_;
   public final long seed;
@@ -25,15 +24,20 @@ public class DataAdapter  {
 
   private static long getRandomSeed() { return RAND.nextLong(); }
 
-  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id) {
+  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int numClasses) {
     long seed = getRandomSeed(); name_=name;
     c_ = new C[columns.length];
     columnNames_ = new String[columns.length];
+    // Note that the number of classes is not generally known in a distributed
+    // fashion, as any single JVM does not see all the data - so it needs to be
+    // passed in here.
+    numClasses_ = numClasses;
     classColumnName_ = classNm;
-    int i=0; for(Object o:columns) {
-      String s=o.toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i++);
+    for( int i=0; i<columns.length; i++ ) {
+      String s=columns[i].toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i);
     }
     classIdx_ = c2i_.get(classNm);
+    assert 0 <= classIdx_ && classIdx_ < 100;
     _data_id = data_id;
     if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
     this.seed = seed;
@@ -44,7 +48,9 @@ public class DataAdapter  {
     public void shrinkWrap() { 
       freeze();
       short[][] vss = new short[c_.length][];
-      for(int i=0;i<c_.length;i++) vss[i] = c_[i].shrink();
+      for( int i=0; i<c_.length-1; i++ )
+        vss[i] = c_[i].shrink(false); // Short-Encode the raw data
+      vss[c_.length-1] = c_[c_.length-1].shrink(true); // Do not encode the classes
       data_ = new short[ c_.length * rows()];
       for(int i=0;i<c_.length;i++) {
         short[] vs = vss[i];
@@ -59,10 +65,12 @@ public class DataAdapter  {
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
     
     public int classes() {   
-      if(numClassesParam_ > -1)return numClassesParam_;
-        if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
-        if (numClasses_==-1) numClasses_= (int)c_[classIdx_].max_+1;
-        return numClasses_;
+      if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
+      if (numClasses_==-1) {
+        C c = c_[classIdx_];
+        numClasses_= (int)(c.max_-c.min_)+1;
+      }
+      return numClasses_;
     }
     // By default binning is not supported
     public int columnClasses(int colIndex) {
@@ -93,7 +101,7 @@ public class DataAdapter  {
 class C {
   String name_;
   int sz_;
-  double min_=Double.MAX_VALUE, max_=-1, tot_; 
+  double min_=Double.MAX_VALUE, max_=Double.MIN_VALUE, tot_;
   double[] v_;
   HashMap<Double,Short> o2v_;
   double[] _v2o;  // Reverse (short) indices to original doubles
@@ -117,11 +125,18 @@ class C {
     res+= DataAdapter.df.format(tot_/(double)sz_) ;
     return res;
   }
-  short[] shrink() {
+
+  // For all columns except the classes - encode all doubles as unique shorts.
+  // For the last column holding the classes - encode it as 0-(numclasses-1).
+  // Sometimes the last column allows a zero class (e.g. iris, poke) and sometimes
+  // it's one-based (e.g. covtype).
+  short[] shrink( boolean noEncoding ) {
     smin_ = 0;
     o2v_ = hashCol();
     short[] res = new short[sz_];
-    for(int j=0;j<sz_;j++) res[j] = o2v_.get(v_[j]).shortValue();
+    int min = (int)min_;
+    for(int j=0;j<sz_;j++)
+      res[j] = noEncoding ? (short)((int)v_[j]-min) : o2v_.get(v_[j]).shortValue();
     v_= null;
     return res;
   }

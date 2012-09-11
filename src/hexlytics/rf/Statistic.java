@@ -56,10 +56,13 @@ public class Statistic {
     return best;
   }
   public int classOf() {
-    if (classOf==-1) {
-      int max =0;
-      for(int i=0;i<dists.length;i++) if (dists[i]>max) { max=(int)dists[i]; classOf = i;}
-    }
+    if( classOf != -1 ) return classOf;
+    double max = 0;
+    for( int i=0; i<dists.length; i++)
+      if( dists[i]>max )
+        max=dists[classOf=i];
+    assert classOf != -1 : "classOf no dists > 0? "+dists.length;
+    assert 0 <= classOf && classOf < 100 : "classOf reports "+classOf+"/"+classes_;
     return classOf; 
   }
   

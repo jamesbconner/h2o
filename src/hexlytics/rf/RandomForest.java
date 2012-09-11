@@ -20,14 +20,18 @@ public class RandomForest {
     //_validate = _data.complement();
     _validate = null;
     _trees = new Tree[ntrees];
+    long start = System.currentTimeMillis();
+    // Submit all trees for work
     for( int i=0; i<ntrees; i++ )
-      H2O.FJP_NORM.execute(_trees[i] = new Tree(d,maxTreeDepth,minErrorRate,stat));
+      H2O.FJP_NORM.submit(_trees[i] = new Tree(d,maxTreeDepth,minErrorRate,stat));
     // Block until all trees are built
     try {
       for( int i=0; i<ntrees; i++ ) {
         _trees[i].get();        // Block for a tree
         // Atomic-append to the list of trees
         new AppendKey(_trees[i].toKey()).fork(drf._treeskey);
+        long now = System.currentTimeMillis();
+        System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
       }
     } catch( InterruptedException e ) {
       // Interrupted after partial build?
@@ -62,7 +66,7 @@ public class RandomForest {
     Key fileKey = TestUtil.load_test_file(new File(args[0]));
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
-    DRF.web_main(va, 10, 100, .15, true);
+    DRF.web_main(va, 10, 100, .15, Tree.StatType.numeric);
     System.out.println("done");
     System.exit(-1); // I hope this sysexit is ok:)
   }

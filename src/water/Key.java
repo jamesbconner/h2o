@@ -231,6 +231,10 @@ public final class Key implements Comparable {
     return make(nkb,rf);
   }
 
+  // Expand a KEY_OF_KEYS into an array of keys
+  public Key[] flatten() {  return DKV.get(this).flatten();  }
+
+
   // User keys must be all ASCII, but we only check the 1st byte
   public boolean user_allowed() {
     return (_kb[0]&0xFF) >= 32;

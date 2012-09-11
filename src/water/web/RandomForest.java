@@ -1,5 +1,8 @@
 package water.web;
 
+import hexlytics.rf.Confusion;
+import hexlytics.rf.DRF;
+import hexlytics.rf.Tree;
 import java.util.Properties;
 import water.H2O;
 import water.Key;
@@ -13,22 +16,21 @@ public class RandomForest extends H2OPage {
     ValueArray ary = (ValueArray)o;
     int ntrees = getAsNumber(args,"ntrees", 5);
     int depth = getAsNumber(args,"depth", 30);
-    boolean gini = args.getProperty("gini")!=null;
+    String gini = args.getProperty("gini");
+    Tree.StatType stat = "gini".equals(gini) ? Tree.StatType.gini : Tree.StatType.numeric;
 
-    Key treeskey;
-    try {
-      treeskey = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,gini);
-    } catch( Exception e ) {
-      return wrap(error(e.toString()));
-    }
+    // Start the distributed Random Forest
+    DRF drf = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,stat);
+    // Start up the incremental confusion matrix
+    Confusion confusion = new Confusion( drf._treeskey, ary, ntrees*H2O.CLOUD.size());
+    Key confkey = confusion.toKey();
+
     RString response = new RString(html);
     response.replace("h2o",H2O.SELF.urlEncode());
-    response.replace("treeskey",encode(treeskey._kb));
-    response.replace("ntrees",ntrees*H2O.CLOUD.size());
+    response.replace("confkey",encode(confkey._kb));
     response.replace("depth",depth);
-    response.replace("origKey",encode(ary._key._kb));
     return response.toString();
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%treeskey&ntrees=%ntrees&depth=%depth&origKey=%origKey\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%confkey&depth=%depth\">\n";
 }
