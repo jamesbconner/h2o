@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.net.InetAddress;
@@ -14,14 +10,11 @@ import water.H2ONode;
 import water.Key;
 import water.TaskGetKeys;
 import water.Value;
+import water.web.Page.PageError;
 
-/**
- *
- * @author peta
- */
 public class Remote extends H2OPage {
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) throws PageError {
     RString response = new RString(html);
     // Figure out the remote Node's IP address.  We know the URI
     // string starts with '/Node=', but the rest of it should be an
@@ -41,13 +34,13 @@ public class Remote extends H2OPage {
     if( h2o == null || !cloud._memset.contains(h2o) )
       return error("Unknown Node "+addr);
     if( h2o == H2O.SELF ) // Service self-node locally
-      return ((H2OPage)Server.getPage("StoreView")).serve_impl(new Properties());
+      return ((H2OPage)Server.getPage("StoreView")).serveImpl(server, new Properties());
 
     // Ask the remote H2ONode for 'len' keys from *his* local store, after
     // skipping 'off' keys.  This is NOT ALL his keys, thats too much.  Some
     // Day this should open a Stream of keys.  No guarantees on order.
     Key[] keys = new TaskGetKeys(h2o,0,25).get();
-    if( keys == null ) 
+    if( keys == null )
       return error("Unknown Node "+addr);
 
     // Build a click-able table of K/V pairs
@@ -64,7 +57,7 @@ public class Remote extends H2OPage {
     response.replace("noOfKeys",alt);
     return response.toString();
   }
-  
+
   final static String html =
       "<div class='alert alert-success'>Displaying keys at node <strong>%ip</strong></div>"
     + "<p>The Remote Store returned <strong>%noOfKeys</strong> keys</page>"
@@ -77,12 +70,8 @@ public class Remote extends H2OPage {
     + "  </tr>"
     + "}"
     ;
-  
-//  final static RString response = new RString(html);
-  
+
   @Override public String[] requiredArguments() {
     return new String[] { "Node" };
   }
-  
-  
 }

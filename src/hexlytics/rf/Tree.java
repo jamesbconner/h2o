@@ -2,10 +2,8 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
-
-import java.io.*;
+import java.io.IOException;
 import java.util.UUID;
-
 import jsr166y.CountedCompleter;
 import jsr166y.ForkJoinTask;
 import jsr166y.RecursiveTask;
@@ -14,35 +12,34 @@ import water.*;
 public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
   static public enum StatType { ENTROPY, NEW_ENTROPY, GINI };
-
-  final StatType _type;
-  final Data _data;
+  final StatType _type;         // Flavor of split logic
+  final Data _data;             // Data source
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
-  final int _max_depth;
-  final double _min_error_rate;
-  public INode _tree;
-  long _timeToBuild; // Time needed to build the tree
-  int _features;
+  final int _max_depth;         // Tree-depth cutoff
+  final int _features;          // Number of features to use
+  final double _min_error_rate; // Error rate below which a split isn't worth it
+  INode _tree;                  // Root of decision tree
 
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features ) {
+    _type = stat;
     _data = data;
     _data_id = data.data_._data_id;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
-    _type = stat;
     _features = features;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
   public Tree( int data_id ) {
+    _type = StatType.ENTROPY;// Junk stat; not sensible except during building
     _data = null;
     _data_id = data_id;
     _max_depth = 0;
     _min_error_rate = -1.0;
-    _type = StatType.ENTROPY;
+    _features = 0;
   }
 
-  /** Determines the error rate of a single tree. */
+  /** Determines the error rate of a single tree on the local data only. */
   public double validate(Data data) {
     double errors = 0, total = 0;
     for (Row row: data) {
@@ -65,23 +62,6 @@ public class Tree extends CountedCompleter {
   }
 
   private void freeStatistics() { stats_ = null; } // so that they can be GCed
-static int KK;
-  // Actually build the tree
-  public void compute() {
-    System.out.println(KK++);
-    createStatistics();
-    if (_type == StatType.ENTROPY) computeNumeric(); else compute2();
-    String st = "";//toString();
-    System.out.println("Tree ("+_data_id+") d="+_tree.depth()+" l="+_tree.leaves()+"  "+ ((st.length() < 120) ? st : (st.substring(0, 120)+"...")));
-    tryComplete();
-    freeStatistics();
-  }
-
-  void computeNumeric() { // All rows in the top-level split
-    Statistic s = new Statistic(_data,null,_features);
-    for (Row r : _data) s.add(r);
-    _tree = new FJEntropyBuild(s,_data,0).compute();
-  }
 
   // TODO this has to change a lot, only a temp working version
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
@@ -95,11 +75,34 @@ static int KK;
   }
 
 
-  void compute2() {
+  // Actually build the tree
+  public void compute() {
+    createStatistics();
+    switch( _type ) {
+    case ENTROPY: computeNumeric();  break;
+    case GINI:    computeGini();     break;
+    default:      throw new Error("Unrecognized statistic type");
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append("Tree :").append(_data_id).append(" d=").append(_tree.depth());
+    sb.append(" leaves=").append(_tree.leaves()).append("  ");
+    sb = _tree.toString(sb,150);
+    System.out.println(sb.toString());
+    freeStatistics();
+    tryComplete();
+  }
+
+  void computeNumeric() { // All rows in the top-level split
+    Statistic s = new Statistic(_data,null,_features);
+    for (Row r : _data) s.add(r);
+    _tree = new FJEntropyBuild(s,_data,0).compute();
+  }
+
+  void computeGini() {
     // first get the statistic so that it can be reused
     BaseStatistic left = getOrCreateStatistic(0,_data);
     // calculate the split
-    for (Row r : _data)  left.add(r);
+    for (Row r : _data) left.add(r);
     BaseStatistic.Split spl = left.split();
     if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
     else  _tree = new FJBuild(spl,_data,0).compute();
@@ -116,12 +119,12 @@ static int KK;
     FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
     public INode compute() {
       // terminate the branch prematurely
-      if(_max_depth > 0 &&  _d >= _max_depth )// FIXME...  || _s.error() < _min_error_rate )
+      if( _d >= _max_depth ) // FIXME...  || _s.error() < _min_error_rate )
         return new LeafNode(_s.classOf());
       if (_s.singleClass()) return new LeafNode(_s.classOf());
       Split best = _s.best();
       if (best == null) return new LeafNode(_s.classOf());
-      Node nd = new Node(best.column,best.value,_data);
+      Node nd = new Node(best.column,best.value,_data.data_);
       Data[] res = new Data[2];
       Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
       _data.filter(best,res,stats);
@@ -152,7 +155,7 @@ static int KK;
       BaseStatistic left = getOrCreateStatistic(0,data_);       // first get the statistics
       BaseStatistic right = getOrCreateStatistic(1,data_);
       Data[] res = new Data[2];       // create the data, node and filter the data
-      SplitNode nd = new SplitNode(split_.column, split_.split);
+      SplitNode nd = new SplitNode(split_.column, split_.split, data_.data_);
       data_.filter(nd._column, nd._split,res,left,right);
       BaseStatistic.Split ls = left.split();      // get the splits
       BaseStatistic.Split rs = right.split();
@@ -170,22 +173,21 @@ static int KK;
   }
 
   public static abstract class INode {
-    protected INode() { }
     abstract int classify(Row r);
-    public abstract int depth();
-    public abstract int leaves();
-    public abstract int nodes();
+    abstract int depth();       // Depth of deepest leaf
+    abstract int leaves();      // Number of leaves
+    abstract StringBuilder toString( StringBuilder sb, int len );
 
     public abstract void print(TreePrinter treePrinter) throws IOException;
-    abstract void write( DataOutputStream dos ) throws IOException;
-    static INode read( DataInputStream dis ) throws IOException {
-      int b = dis.readByte();
-      switch( b ) {
-      case '[': return  LeafNode.read(dis); // Leaf selector
-      case '(': return      Node.read(dis); // Node selector
-      case 'S': return SplitNode.read(dis); // Node selector
+    abstract void write( Stream bs );
+    abstract int size( Stream bs ); // Size in serialized form
+    static  INode read ( Stream bs, DataAdapter dapt ) {
+      switch( bs.get1() ) {
+      case '[':  return  LeafNode.read(bs); // Leaf selector
+      case '(':  return      Node.read(bs,dapt); // Node selector
+      case 'S':  return SplitNode.read(bs,dapt); // Node selector
       default:
-        throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(char)b+"' instead");
+        throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(0xFF&bs._buf[bs._off-1])+"' instead");
       }
     }
   }
@@ -193,132 +195,234 @@ static int KK;
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {
     final int class_;    // A category reported by the inner node
-    LeafNode(int c) { class_ = c;  }
+    LeafNode(int c) {
+      assert 0 <= c && c < 100; // sanity check
+      class_ = c;               // Class from 0 to _N-1
+    }
     @Override public int depth()  { return 0; }
     @Override public int leaves() { return 1; }
-    @Override public int nodes()  { return 1; }
-
     public int classify(Row r) { return class_; }
-    public String toString()   { return "["+class_+"]"; }
+    public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(class_).append(']'); }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    void write( DataOutputStream dos ) throws IOException {
-      assert Short.MIN_VALUE <= class_ && class_ < Short.MAX_VALUE;
-      dos.writeByte('[');       // Leaf indicator
-      dos.writeShort(class_);
+    void write( Stream bs ) {
+      assert 0 <= class_ && class_ < 100;
+      bs.set1('[');             // Leaf indicator
+      bs.set1(class_);
     }
-    static LeafNode read( DataInputStream dis ) throws IOException {
-      return new LeafNode(dis.readShort());
-    }
+    static final int SIZE=2;
+    int size( Stream bs ) { return SIZE; } // 2 bytes in serialized form
+    static LeafNode read( Stream bs ) { return new LeafNode(bs.get1()&0xFF);  }
   }
 
   /** Inner node of the decision tree. Contains a list of subnodes and the
    * classifier to be used to decide which subtree to explore further. */
   static class Node extends INode {
-    final Data _data;
-    final int _column;
-    final double _value;
     INode _l, _r;
-    public Node(int column, double value, Data data) {
+    final DataAdapter _dapt;
+    final int _column;
+    final float _value;
+    int _depth, _leaves, _size;
+    public Node(int column, float value, DataAdapter dapt) {
       _column= column;
       _value = value;
-      _data  = data;
+      _dapt  = dapt;
     }
     public int classify(Row row) { return (row.getS(_column)<=_value ? _l : _r).classify(row);  }
-
-    @Override public int depth()  { return 1 + Math.max(_l.depth(), _r.depth()); }
-    @Override public int leaves() { return _l.leaves() + _r.leaves(); }
-    @Override public int nodes()  { return 1 + _l.nodes() + _r.nodes(); }
-
-    // Computes the original split-value, as a float.
-    private final float split_value() { return  _data.unmap(_column,(float) _value); } 
-
-    public String toString() {
-      return _data.columnNames()[_column] +"<" + Utils.p2d(split_value()) + " ("+_l+","+_r+")";
+    public int depth() {
+      if( _depth != 0 ) return _depth;
+      return (_depth = Math.max(_l.depth(), _r.depth()) + 1);
+    }
+    public int leaves() {
+      if( _leaves != 0 ) return _leaves;
+      return (_leaves=_l.leaves() + _r.leaves());
+    }
+    // Computes the original split-value, as a float.  Returns a float to keep
+    // the final size small for giant trees.
+    private final float split_value() { return  _dapt.unmap(_column, _value); } 
+    private final C column() {
+      return _dapt.c_[_column]; // Get the column in question
+    }
+    public StringBuilder toString( StringBuilder sb, int n ) {
+      C c = column();           // Get the column in question
+      sb.append(c.name_).append('<').append(Utils.p2d(split_value())).append(" (");
+      if( sb.length() > n ) return sb;
+      _l.toString(sb,n);
+      if( sb.length() > n ) return sb;
+      _r.toString(sb.append(','),n);
+      if( sb.length() > n ) return sb;
+      return sb.append(')');
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    void write( DataOutputStream dos ) throws IOException {
+    void write( Stream bs ) {
+      bs.set1('(');             // Node indicator
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
-      dos.writeByte('(');       // Node indicator
-      dos.writeShort(_column);
-      dos.writeShort((short)_value);// Pass the short index instead of the actual value
-      _l.write(dos);
-      _r.write(dos);
+      bs.set2(_column);
+      bs.set4f(split_value());
+      int skip = _l.size(bs); // Drop down the amount to skip over the left column
+      if( skip <= 254 ) bs.set1(skip);
+      else { bs.set1(0); bs.set3(skip); }
+      _l.write(bs);
+      _r.write(bs);
     }
-    static Node read( DataInputStream dis ) throws IOException {
-      int col = dis.readShort();
-      int idx = dis.readShort(); // Read the short index instead of the actual value
-      Node n = new Node(col,((double)idx)+0.5,null);
-      n._l = INode.read(dis);
-      n._r = INode.read(dis);
+    public int size( Stream bs ) {
+      if( _size != 0 ) return _size;
+      // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
+      return _size=(1+2+4+(( _l.size(bs) <= 254 ) ? 1 : 4)+_l.size(bs)+_r.size(bs));
+    }
+    static Node read( Stream bs, DataAdapter dapt ) {
+      int col = bs.get2();
+      float f = bs.get4f();
+      int idx = dapt.c_[col].o2v_.get(f); // Reverse float to short index; should not fail!!!
+      Node n = new Node(col,((float)idx)+0.5f,dapt);
+      int skip = bs.get1();   // Skip (over left subtree) is either 1 byte or 4
+      if( skip == 0 ) bs._off += 3; // Leading zero means there are 3 more bytes of skip
+      n._l = INode.read(bs,dapt);
+      n._r = INode.read(bs,dapt);
       return n;
     }
-   }
+  }
 
   /** Gini classifier node.
    */
   static class SplitNode extends INode {
+    final DataAdapter _dapt;
     final int _column;
     final int _split;
     INode _l, _r;
+    int _depth, _leaves, _size;
+
+    public SplitNode(int column, int split, DataAdapter dapt) {
+      _dapt = dapt;
+      _column = column;
+      _split = split;
+    }
 
     @Override int classify(Row r) {
       return r.getColumnClass(_column) <= _split ? _l.classify(r) : _r.classify(r);
     }
-
-    public SplitNode(int column, int split) {
-      this._column = column;
-      this._split = split;
+    public int depth() {
+      if( _depth != 0 ) return _depth;
+      return (_depth = Math.max(_l.depth(), _r.depth()) + 1);
     }
-
-    public void set(int direction, INode n) { if (direction==0) _l=n; else _r=n; }
-    @Override public int depth()  { return 1 + Math.max(_l.depth(), _r.depth()); }
-    @Override public int leaves() { return _l.leaves() + _r.leaves(); }
-    @Override public int nodes()  { return 1 + _l.nodes() + _r.nodes(); }
-
+    public int leaves() {
+      if( _leaves != 0 ) return _leaves;
+      return (_leaves=_l.leaves() + _r.leaves());
+    }
+    // Computes the original split-value, as a float.  Returns a float to keep
+    // the final size small for giant trees.
+    private final float split_value() { return  _dapt.unmap(_column,_split); } 
+    private final C column() {
+      return _dapt.c_[_column]; // Get the column in question
+    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
     public String toString() {
       return "S "+_column +"<=" + _split + " ("+_l+","+_r+")";
     }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-
-    void write( DataOutputStream dos ) throws IOException {
-      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
-      dos.writeByte('S');       // Node indicator
-      dos.writeShort(_column);
-      dos.writeShort((short)_split);// Pass the short index instead of the actual value
-      _l.write(dos);
-      _r.write(dos);
+    public StringBuilder toString( StringBuilder sb, int n ) {
+      C c = column();           // Get the column in question
+      sb.append(c.name_).append('<').append(Utils.p2d(split_value())).append(" (");
+      if( sb.length() > n ) return sb;
+      sb = _l.toString(sb,n).append(',');
+      if( sb.length() > n ) return sb;
+      sb = _r.toString(sb,n).append(')');
+      return sb;
     }
-    static SplitNode read( DataInputStream dis ) throws IOException {
-      int col = dis.readShort();
-      int idx = dis.readShort(); // Read the short index instead of the actual value
-      SplitNode n = new SplitNode(col,idx);
-      n._l = INode.read(dis);
-      n._r = INode.read(dis);
+    
+    void write( Stream bs ) {
+      bs.set1('S');             // Node indicator
+      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
+      bs.set2(_column);
+      bs.set4f(split_value());
+      int skip = _l.size(bs); // Drop down the amount to skip over the left column
+      if( skip <= 254 ) bs.set1(skip); else bs.set4(skip);
+      _l.write(bs);
+      _r.write(bs);
+    }
+    public int size( Stream bs ) {
+      if( _size != 0 ) return _size;
+      // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
+      return _size=(1+2+4+(( _l.size(bs) <= 254 ) ? 1 : 4)+_l.size(bs)+_r.size(bs));
+    }
+    static SplitNode read( Stream bs, DataAdapter dapt ) {
+      int col = bs.get2();
+      float f = bs.get4f();
+      int idx = dapt.c_[col].o2v_.get(f); // Reverse float to short index; should not fail!!!
+      SplitNode n = new SplitNode(col,idx,dapt);
+      int skip = bs.get1();     // Skip (over left subtree) is either 1 byte or 4
+      if( skip == 0 ) bs._off += 3; // Leading zero means there are 3 more bytes of skip
+      n._l = INode.read(bs,dapt);
+      n._r = INode.read(bs,dapt);
       return n;
     }
   }
   public int classify(Row r) { return _tree.classify(r); }
   public String toString()   { return _tree.toString(); }
+  public int leaves() { return _tree.leaves(); }
+  public int depth() { return _tree.depth(); }
 
   // Write the Tree to a random Key homed here.
   public Key toKey() {
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    try {
-      DataOutputStream dos = new DataOutputStream(bos);
-      dos.writeInt(_data_id);
-      _tree.write(dos);
-    } catch( IOException e ) { throw new Error(e); }
+    Stream bs = new Stream();
+    bs.set4(_data_id);
+    _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
-    DKV.put(key,new Value(key,bos.toByteArray()));
+    DKV.put(key,new Value(key,bs.trim()));
     return key;
   }
-  public static Tree fromKey( Key key ) {
-    byte[] bits = DKV.get(key).get();
-    try {
-      DataInputStream dis = new DataInputStream(new ByteArrayInputStream(bits));
-      Tree t = new Tree(dis.readInt());
-      t._tree = INode.read(dis);
-      return t;
-    } catch( IOException e ) { throw new Error(e); }
+
+  public static Tree fromKey( Key key, DataAdapter dapt ) {
+    Stream bs = new Stream(DKV.get(key).get());
+    Tree t = new Tree(bs.get4());
+    t._tree = INode.read(bs,dapt);
+    return t;
+  }
+
+  // Classify this serialized tree - withOUT inflating it to a full tree.
+  // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
+  // Returns classes from 0 to N-1
+  public static int classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize ) {
+    Stream ts = new Stream(tbits);
+    int data_id = ts.get4();    // Skip tree-id
+    while( ts.get1() != '[' ) { // While not a leaf indicator
+      int o = ts._off-1;
+      assert tbits[o] == '(' || tbits[o] == 'G';
+      int col = ts.get2();      // Column number
+      float fcmp = ts.get4f();  // Float to compare against
+      float fdat = (float)ary.datad(databits,row,rowsize,col);
+      int skip = (ts.get1()&0xFF);
+      if( skip == 0 ) skip = ts.get3();
+      if( fdat > fcmp )         // Picking right subtree?
+        ts._off += skip;        // Skip left subtree
+    }
+    return ts.get1()&0xFF;      // Return the leaf's class
+  }
+
+  // Rather expensively, walk the entire tree counting leaves & max depth
+  private static long d_l( Stream ts ) {
+    if( ts.get1() == '[' ) return 1; // 1 leaf, 0 depth
+    int o = ts._off-1;
+    assert ts._buf[o] == '(' || ts._buf[o] == 'G';
+    ts._off += 2+4;             // Skip col & float
+    int skip = (ts.get1()&0xFF);
+    if( skip == 0 ) skip = ts.get3();
+
+    int roff = ts._off+skip;
+    long dl1 = d_l(ts);          // Left side
+    long d1  = dl1>>>32;
+    long l1  = dl1&0xFFFFFFFFL;
+
+    ts._off = roff;
+    long dl2 = d_l(ts);          // Right side
+    long d2  = dl2>>>32;
+    long l2  = dl2&0xFFFFFFFFL;
+
+    return ((Math.max(d1,d2)+1)<<32) | (l1+l2);
+  }
+
+  // Return (depth<<32)|(leaves), in 1 pass.
+  public static long depth_leaves( byte[] tbits ) {
+    Stream ts = new Stream(tbits);
+    int data_id = ts.get4();    // Skip tree-id
+    return d_l(ts);
   }
 }

@@ -28,6 +28,14 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], 3, 'inconsistent cloud size')
 
+    def testRF(self):
+        n = self.nodes[0]
+        put = n.put_file('../smalldata/iris/iris2.csv')
+        parse = n.parse(put['key'])
+        rf = n.random_forest(parse['Key'])
+        n.stabilize('random forest finishing', 20,
+            lambda n: n.random_forest_view(rf['confKey'])['got'] == 5)
+
 
 if __name__ == '__main__':
     unittest.main()

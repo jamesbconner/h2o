@@ -1,57 +1,27 @@
 package water.web;
 
+import java.util.Properties;
+import water.*;
 import hexlytics.rf.Confusion;
 import hexlytics.rf.Tree;
 
-import java.util.Properties;
-
-import com.google.gson.JsonObject;
-
-import water.DKV;
-import water.Key;
-
+// @author cliffc
 public class RFView extends H2OPage {
-
-  @Override public String[] requiredArguments() {
-    return new String[] { "Key" };
-  }
-
-  @Override public JsonObject serverJson(Server s, Properties p) throws PageError {
-    final int depth = getAsNumber(p,"depth", 30);
-    Key key = ServletUtil.check_key(p,"Key");
-    Confusion confusion = Confusion.fromKey(key);
-    confusion.refresh(); // Refresh it, in case new Trees have appeared
-
-    Key treekeys[] = confusion._treeskey.flatten();
-    // Compute a few stats over trees
-    final int ntrees = treekeys.length;
-    int tdepth=0;
-    int tleavs=0;
-    for( int i=0; i<ntrees; i++ ) {
-      long dl = Tree.depth_leaves(DKV.get(treekeys[i]).get());
-      tdepth += (int)(dl>>>32);
-      tleavs += (dl&0xFFFFFFFFL);
-    }
-
-    JsonObject res = new JsonObject();
-    res.addProperty("origKey",encode(confusion._ary._key));
-    res.addProperty("got",ntrees);
-    res.addProperty("valid",confusion._ntrees);
-    res.addProperty("maxtrees",confusion._maxtrees);
-    res.addProperty("maxdepth",depth);
-    res.addProperty( "depth",(double)tdepth/ntrees);
-    res.addProperty("leaves",(double)tleavs/ntrees);
-    return res;
-  }
-
-  @Override protected String serveImpl(Server s, Properties args) throws PageError {
+<<<<<<< HEAD
+  @Override protected String serve_impl(Properties args) {
     final int depth = getAsNumber(args,"depth", 30);
     RString response = new RString(html());
 
     // Get the Confusion Matrix from the Confusion Key
-    Key key = ServletUtil.check_key(args,"Key");
+=======
+  @Override protected String serveImpl(Server server, Properties args) {
+>>>>>>> Push the webserver into a more RESTful place
+    Object o = ServletUtil.check_key(args,"Key");
+    if( o instanceof String ) return (String)o;
+    Key key = (Key)o;
     Confusion confusion = Confusion.fromKey(key);
-    confusion.refresh(); // Refresh it, in case new Trees have appeared
+    // Refresh it, in case new Trees have appeared
+    confusion.refresh();
 
     // Display the confusion-matrix table here
     // First the title line
@@ -99,6 +69,7 @@ public class RFView extends H2OPage {
     sb.append(String.format("<td>%5.3f = %d / %d",(double)terrs/ttots,terrs,ttots));
     row.replace("crow",sb.toString());
     row.append();
+
 
     // Get the Tree keys
     Key treekeys[] = confusion._treeskey.flatten();

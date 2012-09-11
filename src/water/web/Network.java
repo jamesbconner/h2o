@@ -18,7 +18,7 @@ public class Network extends H2OPage {
   }
 
   @Override
-  protected String serve_impl(Properties args) {
+  protected String serveImpl(Server server, Properties args) {
     RString response = new RString(HTML_TEMPLATE);
 
     response.replace("cloud_name", H2O.NAME);

@@ -12,7 +12,7 @@ public class DebugView extends H2OPage {
     _refresh = 5;
   }
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     RString response = new RString(html);
     // get the offset index
     int offset = 0;

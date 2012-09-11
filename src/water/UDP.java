@@ -126,6 +126,26 @@ public abstract class UDP {
       sum |= (0xff&buf[off+i])<<(i<<3);
     return sum;
   }
+  public static int add2( byte[] buf, int off, int addend ) {
+    int sum = (0xff&buf[off  ])   ;
+    sum    += (0xff&buf[off+1])<<8;
+    sum += addend;
+    buf[off  ] = (byte) sum;
+    buf[off+1] = (byte)(sum>>8);
+    return sum;
+  }
+  public static int set3( byte[] buf, int off, int x ) {
+    assert (-1<<24) <= x && x < (1<<24);
+    for( int i=0; i<3; i++ )
+      buf[i+off] = (byte)(x>>(i<<3));
+    return 3;
+  }
+  public static int get3( byte[] buf, int off ) {
+    int sum=0;
+    for( int i=0; i<3; i++ )
+      sum |= (0xff&buf[off+i])<<(i<<3);
+    return sum;
+  }
   public static int set4( byte[] buf, int off, int x ) {
     for( int i=0; i<4; i++ )
       buf[i+off] = (byte)(x>>(i<<3));
@@ -154,4 +174,3 @@ public abstract class UDP {
   public static double get8d( byte[] buf, int off ) { return Double.longBitsToDouble(get8(buf,off)); }
   public static float  get4f( byte[] buf, int off ) { return Float . intBitsToFloat (get4(buf,off)); }
 }
-

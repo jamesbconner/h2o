@@ -22,7 +22,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   // Super-class init on the 1st remote instance of this object.  Caller may
   // choose to clone/fork new instances, but then is reponsible for setting up
   // those instances.
-  void init() { }
+  public void init() { }
 
   // Make a copy of thyself, but set the (otherwise final) completer field.
   protected final DRemoteTask clone2() {
@@ -148,16 +148,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
         System.err.println("Missing args in fork call: possibly the caller did not fence out a DKV.put(args) before calling "+(getClass().toString())+".fork(,,args,) with key "+args);
         throw new Error("Missing args");
       }
-      // Parse all the keys out
-      byte[] buf = val.get();
-      int off = 0;
-      int klen = UDP.get4(buf,off); off += 4;
-      Key[] keys = new Key[klen];
-      for( int i=0; i<klen; i++ ) {
-        Key k = keys[i] = Key.read(buf,off);
-        off += k.wire_len();
-      }
-      return keys;
+      return val.flatten();     // Parse all the keys out
     }
 
     // Arraylet: expand into the chunk keys

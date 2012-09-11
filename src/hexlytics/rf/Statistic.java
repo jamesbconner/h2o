@@ -9,14 +9,14 @@ public class Statistic {
   private Split best;
   int classOf = -1;
   final int classes_;
-  final double[] dists ;     
+  final float[] dists ;     
   final int _features;
   final int[] lasts;
   
   /** Hold information about a split. */
   public static class Split {
-    public final int column; public final double value, fitness;    
-    Split(int column_, double splitValue, double fitness) {
+    public final int column; public final float value, fitness;    
+    Split(int column_, float splitValue, float fitness) {
       column = column_;  value = splitValue; this.fitness = fitness;
     }    
     boolean betterThan(Split other) { return other==null || fitness > other.fitness;  }    
@@ -27,7 +27,7 @@ public class Statistic {
   public Statistic(Data d, Statistic s, int features) {
     data_ = d; 
     classes_= data_.classes();
-    dists = new double[classes_];
+    dists = new float[classes_];
     _features = features;
     int[] columnsToUse = new int[features];
     int i = 0;
@@ -53,16 +53,19 @@ public class Statistic {
     return best;
   }
   public int classOf() {
-    if (classOf==-1) {
-      int max =0;
-      for(int i=0;i<dists.length;i++) if (dists[i]>max) { max=(int)dists[i]; classOf = i;}
-    }
+    if( classOf != -1 ) return classOf;
+    float max = 0;
+    for( int i=0; i<dists.length; i++)
+      if( dists[i]>max )
+        max=dists[classOf=i];
+    assert classOf != -1 : "classOf no dists > 0? "+dists.length;
+    assert 0 <= classOf && classOf < 100 : "classOf reports "+classOf+"/"+classes_;
     return classOf; 
   }
 
   public boolean singleClass() {
     int cnt = 0;
-    for(double d : dists) if (d > 0 && ++cnt > 1 ) return false;
+    for(float d : dists) if (d > 0 && ++cnt > 1 ) return false;
     return cnt==1;
   }
   
@@ -110,7 +113,7 @@ public class Statistic {
         double ereduction =   1 -  ( (eleft * totleft + eright * totright) /  totparent );
         if ( ereduction > maxReduction ) { bestSplit = i;  maxReduction = ereduction; }       
       }
-      return new Split(column,bestSplit + 0.5,maxReduction); 
+      return new Split(column,(float)(bestSplit + 0.5),(float)maxReduction); 
     }
   }
 

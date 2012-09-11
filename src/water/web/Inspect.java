@@ -15,7 +15,7 @@ public class Inspect extends H2OPage {
     //_refresh = 5;
   }
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     String key_s = args.getProperty("Key");
     if( key_s == null ) return wrap(error("Missing Key argument"));
 

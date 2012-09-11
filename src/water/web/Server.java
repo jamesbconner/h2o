@@ -10,6 +10,7 @@ import com.google.gson.JsonElement;
 
 import water.H2O;
 import water.NanoHTTPD;
+import water.web.Page.PageError;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -61,7 +62,12 @@ public class Server extends NanoHTTPD {
         }
       }
     }
-    Object result = json ? page.serverJson(this,parms) : page.serve(this,parms);
+    Object result;
+    try {
+      result = json ? page.serverJson(this,parms) : page.serve(this,parms);
+    } catch( PageError e ) {
+      result = e._msg;
+    }
     if (result == null) return http404(uri);
     if (result instanceof Response) return (Response)result;
     if (result instanceof InputStream)
@@ -99,7 +105,7 @@ public class Server extends NanoHTTPD {
     registerPage(new LinearRegression(),"LinearRegression");
     registerPage(new Network(), "Network");
     registerPage(new NodeShuffle(),"NodeShuffle");
-    registerPage(new Parse(),"Parse"); // Function to parse ascii dataset into binary
+    registerPage(new Parse(),"Parse");
     registerPage(new ProgressReport(), "PR");
     registerPage(new ProgressReport(), "ProgressReport");
     registerPage(new ProgressView(), "ProgressView");
@@ -108,8 +114,8 @@ public class Server extends NanoHTTPD {
     registerPage(new PutValue(),"PutValue");
     registerPage(new RFView(),"RFView"); // View random-forest output
     registerPage(new RFTreeView(),"RFTreeView");
-    registerPage(new RandomForest(),"RF");
-    registerPage(new RandomForest(),"RandomForest");
+    registerPage(new RandomForestPage(),"RF");
+    registerPage(new RandomForestPage(),"RandomForest");
     registerPage(new Remote(),"Remote");
     registerPage(new Remove(),"Remove");
     registerPage(new RemoveAck(),"RemoveAck");

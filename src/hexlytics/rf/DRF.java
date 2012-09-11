@@ -13,15 +13,13 @@ import water.serialization.RemoteTaskSerializer;
 @RTSerializer(DRF.Serializer.class)
 public class DRF extends water.DRemoteTask {
 
-  static boolean SAMPLE;        // should we sample and leave some data for validation?
-  static RandomForest _vrf;     // is SAMPLE is true, holds the validation RF; (single node)
-
   int _ntrees;                  // Number of trees PER NODE
   int _depth;                   // Tree-depth limiter
   StatType _stat;               // Use Gini or Entropy for splits
   Key _arykey;                  // The ValueArray being RF'd
-  Key _treeskey;                // Key of Tree-Keys built so-far
-  RandomForest _rf;             // Random forest to be used.
+  public Key _treeskey;         // Key of Tree-Keys built so-far
+  Data _validation;             // Data subset to validate with locally, or NULL
+  boolean _singlethreaded;      // Disable parallel execution
 
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
@@ -37,7 +35,7 @@ public class DRF extends water.DRemoteTask {
       DRF t = new DRF();
       t._ntrees= UDP.get4(buf,(off+=4)-4);
       t._depth = UDP.get4(buf,(off+=4)-4);
-      t._stat = StatType.values()[buf[off++]];
+      t._stat  = StatType.values()[buf[off++]];
       t.  _arykey = Key.read(buf,off);  off += t.  _arykey.wire_len();
       t._treeskey = Key.read(buf,off);  off += t._treeskey.wire_len();
       return t;
@@ -46,7 +44,7 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
-  public static Key web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, boolean singlethreaded) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -54,15 +52,19 @@ public class DRF extends water.DRemoteTask {
     drf._stat = stat;
     drf._arykey = ary._key;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
+    drf._singlethreaded = singlethreaded;
     DKV.put(drf._treeskey, new Value(drf._treeskey,4/*4 bytes for the key-count, which is zero*/));
-    drf.fork(ary._key);
-    return drf._treeskey;
+    if( singlethreaded ) drf.invoke(ary._key);
+    else                 drf.fork  (ary._key);
+    return drf;
   }
   // Local RF computation.
   public final void compute() {
     ValueArray ary = (ValueArray)DKV.get(_arykey);
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
+    final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
+    assert 0 <= classes && classes < 255;
     String[] names = ary.col_names();
 
     // One pass over all chunks to compute max rows
@@ -76,27 +78,34 @@ public class DRF extends water.DRemoteTask {
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique);
-    double[] ds = new double[num_cols];
+    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, classes);
+    float[] ds = new float[num_cols];
     // Now load the DataAdapter with all the rows
     for( Key key : _keys ) {
       if( key.home() ) {
         byte[] bits = DKV.get(key).get();
         final int rows = bits.length/rowsize;
         for( int j=0; j<rows; j++ ) { // For all rows in this chunk
-          for( int k=0; k<num_cols; k++ )
-            ds[k] = ary.datad(bits,j,rowsize,k);
-          dapt.addRow(ds);
+          ds[num_cols-1] = Float.NaN; // Row-has-invalid-data flag
+          for( int k=0; k<num_cols; k++ ) {
+            if( !ary.valid(bits,j,rowsize,k) ) break; // oops, bad data on row
+            ds[k] = (float)ary.datad(bits,j,rowsize,k);
+          }
+          if( !Float.isNaN(ds[num_cols-1]) ) // Insert only good rows
+            dapt.addRow(ds);                 // Insert row
         }
       }
     }
     dapt.shrinkWrap();
+
+    // If we have too little data to validate distributed, then
+    // split the data now with sampling and train on one set & validate on the other.
+    final boolean sample = _keys.length < 2; // Sample if we only have 1 key, hence no distribution 
     Data d = Data.make(dapt);
-    Data t = SAMPLE ? d.sampleWithReplacement(.666) : d;
-    Data v = SAMPLE ? t.complement() : null;
-    System.out.println("Invoking RF ntrees="+_ntrees+" depth="+_depth+" stat="+_stat);
-    this._rf = new RandomForest(this, t, _ntrees, _depth, -1, _stat);
-    DRF._vrf = SAMPLE ? new RandomForest(v,_ntrees,true) : null;
+    Data t = sample ? d.sampleWithReplacement(.666) : d;
+    _validation = sample ? t.complement() : null;
+    // Make a single RandomForest to that does all the tree-construction work.
+    RandomForest rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
     tryComplete();
   }
 

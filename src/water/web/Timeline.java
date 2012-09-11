@@ -17,7 +17,7 @@ import water.UDP;
  */
 public class Timeline extends H2OPage {
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     long ctm = System.currentTimeMillis();
 
     // Take a system-wide snapshot

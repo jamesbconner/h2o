@@ -9,3 +9,4 @@ po.*
 *.hprof
 *.pyc
 **/sandbox/**
+bin/
