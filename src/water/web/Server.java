@@ -114,8 +114,8 @@ public class Server extends NanoHTTPD {
     registerPage(new PutValue(),"PutValue");
     registerPage(new RFView(),"RFView"); // View random-forest output
     registerPage(new RFTreeView(),"RFTreeView");
-    registerPage(new RandomForest(),"RF");
-    registerPage(new RandomForest(),"RandomForest");
+    registerPage(new RandomForestPage(),"RF");
+    registerPage(new RandomForestPage(),"RandomForest");
     registerPage(new Remote(),"Remote");
     registerPage(new Remove(),"Remove");
     registerPage(new RemoveAck(),"RemoveAck");
