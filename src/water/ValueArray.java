@@ -144,11 +144,11 @@ public class ValueArray extends Value {
       System.arraycopy(buffer,0,val._mem,0,sz);
       UKV.put(key,val);
     } else { // sz == buffer.length => there is enough data to write two 1MG chunks
-      assert sz == buffer.length;      
+      assert sz == buffer.length;
       long offset = 0;
-      Key ck = null; Value val = null;      
-      
-      while (true) {        
+      Key ck = null; Value val = null;
+
+      while (true) {
         if (sz < buffer.length) { // almost 2 chunks are in the buffer => write them all
           ck = make_chunkkey(key,offset);
           val = new Value(ck,sz);
@@ -158,7 +158,7 @@ public class ValueArray extends Value {
           break; // it was the last chunk => there are no more data in input stream;
         } else { // Write two chunks into the buffer
           byte chunkCtr = 0;
-          while (chunkCtr < 2) {            
+          while (chunkCtr < 2) {
             ck = make_chunkkey(key,offset);
             val = new Value(ck,(int)chunk_size());
             System.arraycopy(buffer,chunkCtr*(int)chunk_size(),val._mem,0,(int)chunk_size());
@@ -167,7 +167,7 @@ public class ValueArray extends Value {
             offset += chunk_size();
           }
         }
-        
+
         // try to read another two chunks
         sz = 0;
         while (sz!=buffer.length) {
@@ -176,7 +176,7 @@ public class ValueArray extends Value {
             break;
           sz += i;
         }
-      }      
+      }
       ValueArray ary = new ValueArray(key,offset,ICE);
       DKV.put(key,ary);
     }
@@ -440,9 +440,9 @@ public class ValueArray extends Value {
     switch( col_size ) {
     case  1:         res =    0xff&  bits[off]; break;
     case  2:         res = UDP.get2 (bits,off); break;
-    case  4:return (double)UDP.get4 (bits,off);
-    case  8:return (double)UDP.get8 (bits,off); // No scale/offset for long   data
-    case -4:return (double)UDP.get4f(bits,off); // No scale/offset for float  data
+    case  4:return         UDP.get4 (bits,off);
+    case  8:return         UDP.get8 (bits,off); // No scale/offset for long   data
+    case -4:return         UDP.get4f(bits,off); // No scale/offset for float  data
     case -8:return         UDP.get8d(bits,off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
@@ -480,7 +480,7 @@ public class ValueArray extends Value {
     case -8:return (long)UDP.get8d(bits,off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
-    return (long)(((double)(res+col_base(colnum)))/col_scale(colnum));
+    return (long)((res+col_base(colnum))/col_scale(colnum));
   }
 
 

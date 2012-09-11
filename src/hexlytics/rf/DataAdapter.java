@@ -46,10 +46,10 @@ public class DataAdapter  {
 
   /** Given a value in enum format, returns a value in the original range. */
   public float unmap(int col, float v){
-    short idx = (short)v; // Convert split-point of the form X.5 to a (short)X    
+    short idx = (short)v; // Convert split-point of the form X.5 to a (short)X
     C c = c_[col];
     if (v == idx) {  // this value isn't a split
-      return c._v2o[idx+0];        
+      return c._v2o[idx+0];
     } else {
       float flo = c._v2o[idx+0]; // Convert to the original values
       float fhi = (idx < c.sz_) ? c._v2o[idx+1] : flo+1.0f;
@@ -58,9 +58,9 @@ public class DataAdapter  {
       return fmid;
     }
   }
-    
+
     public String name() { return name_; }
-    public void shrinkWrap() { 
+    public void shrinkWrap() {
       freeze();
       short[][] vss = new short[c_.length][];
       for( int i=0; i<c_.length-1; i++ )
@@ -70,15 +70,15 @@ public class DataAdapter  {
       for(int i=0;i<c_.length;i++) {
         short[] vs = vss[i];
         for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
-      }      
+      }
     }
-    
+
     public void freeze() { frozen_=true; }
-    public int columns()        { return c_.length;} 
+    public int columns()        { return c_.length;}
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
-    
-    public int classes() {   
+
+    public int classes() {
       if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
       if (numClasses_==-1) {
         C c = c_[classIdx_];
@@ -90,24 +90,24 @@ public class DataAdapter  {
     public int columnClasses(int colIndex) {
       return c_[colIndex].smax_;
     }
-    
+
     // by default binning is not supported
     public int getColumnClass(int rowIndex, int colIndex) {
       return getS(rowIndex, colIndex);
     }
 
     public  String colName(int c) { return c_[c].name_; }
-    public  float  colMin(int c)  { return c_[c].min_; }    
+    public  float  colMin(int c)  { return c_[c].min_; }
     public  float  colMax(int c)  { return c_[c].max_; }
     public  float  colTot(int c)  { return c_[c].tot_; }
     public String[] columnNames() { return columnNames_; }
     public String   classColumnName() { return classColumnName_; }
     public void addRow(float[] v) {
       if (frozen_) throw new Error("Frozen data set update");
-      for(int i=0;i<v.length;i++)  c_[i].add((float)v[i]);
-    } 
+      for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
+    }
     short getS(int row, int col) { return data_[row * c_.length + col]; }
-    void setS(int row, int col, short val) { data_[row * c_.length + col]= val; }    
+    void setS(int row, int col, short val) { data_[row * c_.length + col]= val; }
     protected float getF(int col, int idx) { return c_[col].getF(idx); }
     static final DecimalFormat df = new  DecimalFormat ("0.##");
 }
@@ -131,10 +131,10 @@ class C {
     tot_+=x;
     v_[sz_++]=x;
   }
-  
+
   float getF(int i) { return v_[i]; }
   void ignore() { ignore = true; }
-  
+
   public String toString() {
     String res = "col("+name_+")";
     res+= "  ["+DataAdapter.df.format(min_) +","+DataAdapter.df.format(max_)+"], avg=";
@@ -156,14 +156,14 @@ class C {
     v_= null;
     return res;
   }
-  
+
   HashMap<Float,Short> hashCol() {
     HashSet<Float> res = new HashSet<Float>();
     for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
     HashMap<Float,Short> res2 = new HashMap<Float,Short>(res.size());
     Float[] ks = res.toArray(new Float[res.size()]);
     _v2o = new float[ks.length];
-    Arrays.sort(ks);      
+    Arrays.sort(ks);
     smax_ = 0;
     for( Float d : ks)  {
       _v2o[smax_] = d;
