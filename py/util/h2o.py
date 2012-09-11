@@ -1,5 +1,5 @@
 import requests
-import time, os, json
+import time, os, json, signal
 import asyncproc
 
 class H2O:
@@ -66,11 +66,16 @@ class H2O:
             self.proc.terminate()
             raise
 
+        while self.wait() is None:
+            if self.read().find('HTTP listening') != -1: break
         if self.wait() is not None:
-            raise Exception('Failed to launch with exit code: ' + self.proc.wait())
+            raise Exception('Failed to launch with exit code: %d' % self.proc.wait())
 
     def read(self):
         return self.proc.read()
+
+    def stack_dump(self):
+        self.proc.kill(signal.SIGQUIT)
     
     def wait(self):
         return self.proc.wait(os.WNOHANG)
