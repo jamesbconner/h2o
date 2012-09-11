@@ -237,6 +237,9 @@ public abstract class PersistHdfs {
       long size = _fs.getFileStatus(p).getLen();
       long rem = size-off;
       int sz = (ValueArray.chunks(rem) > 1) ? (int)ValueArray.chunk_size() : (int)rem;
+
+      // the last chunk can be fat, so it got packed into the earlier chunk
+      if( rem < ValueArray.chunk_size() && off > 0 ) return null;
       Value val = new Value(sz,0,key,Value.HDFS);
       val.setdsk();               // But its already on disk.
       return val;

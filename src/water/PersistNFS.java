@@ -2,7 +2,7 @@ package water;
 
 import java.io.*;
 
-// Persistence backend for the local file system.  
+// Persistence backend for the local file system.
 // Just for loading or storing files.
 //
 // @author cliffc
@@ -18,8 +18,8 @@ public abstract class PersistNFS {
     // all NFS keys are NFS-kind keys
     return Key.make(kname.getBytes());
   }
-  
-  // Returns the file for given key. 
+
+  // Returns the file for given key.
   private static File getFileForKey(Key k) {
     final int len = KEY_PREFIX_LENGTH+1; // Strip key prefix & leading slash
     String s = new String(k._kb,len,k._kb.length-len);
@@ -53,7 +53,7 @@ public abstract class PersistNFS {
       }
     } catch( IOException e ) {  // Broken disk / short-file???
       return null;
-    } 
+    }
   }
 
   // Store Value v to disk.
@@ -70,7 +70,7 @@ public abstract class PersistNFS {
       FileOutputStream s = new FileOutputStream(f);
       try {
         byte[] m = v.mem();
-        assert (m == null || m.length == v._max); // Assert not saving partial files 
+        assert (m == null || m.length == v._max); // Assert not saving partial files
         if( m!=null )
           s.write(m);
         v.setdsk();             // Set as write-complete to disk
@@ -80,7 +80,7 @@ public abstract class PersistNFS {
     } catch( IOException e ) {
     }
   }
-  
+
   static void file_delete(Value v) {
     assert v._mem == null;      // Upper layers already cleared out
     assert !v.is_persisted();   // Upper layers already cleared out
@@ -94,6 +94,9 @@ public abstract class PersistNFS {
     long off = ValueArray.getOffset(key); // The offset
     long size = getFileForKey(arykey).length();
     long rem = size-off;
+
+    // the last chunk can be fat, so it got packed into the earlier chunk
+    if( rem < ValueArray.chunk_size() && off > 0 ) return null;
     int sz = (ValueArray.chunks(rem) > 1) ? (int)ValueArray.chunk_size() : (int)rem;
     Value val = new Value(sz,0,key,Value.NFS);
     val.setdsk();             // But its already on disk.
