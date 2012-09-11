@@ -3,12 +3,13 @@ package water.web;
 import java.util.Properties;
 
 import water.*;
+import water.web.Page.PageError;
 import hexlytics.rf.Confusion;
 import hexlytics.rf.Tree;
 
 // @author cliffc
 public class RFView extends H2OPage {
-  @Override protected String serveImpl(Server s, Properties args) {
+  @Override protected String serveImpl(Server s, Properties args) throws PageError {
     final int depth = getAsNumber(args,"depth", 30);
     RString response = new RString(html());
 
