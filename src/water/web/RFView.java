@@ -124,8 +124,9 @@ public class RFView extends H2OPage {
     int limkeys = Math.min(ntrees,100);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("TtableRow");
-      trow.replace("treekey_u",encode(treekeys[i]));
-      trow.replace("treekey_s",treekeys[i]);
+      trow.replace("treekey_u",treekeys[i]);
+      trow.replace("treekey_s",treekeys[i].toString());
+      trow.replace("torigKey",confusion._ary._key);
       trow.append();
     }
 
@@ -149,7 +150,7 @@ public class RFView extends H2OPage {
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<tbody>\n"
       + "%TtableRow{\n"
-      + "  <tr><td><a href='/Inspect?Key=%treekey_u'>%treekey_s</a></tr>\n"
+      + "  <tr><td><a href='/RFTreeView?Key=%treekey_u&origKey=%torigKey'>%treekey_s</a></tr>\n"
       + "}\n"
       + "</tbody>\n"
       + "</table>\n"
