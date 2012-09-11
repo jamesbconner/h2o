@@ -13,6 +13,7 @@ import water.Key;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 /**
  * List that has labels to it (something like copyable iterators) and some very
@@ -278,7 +279,12 @@ class RString {
 
   public void replace(JsonObject json) {
     for(Entry<String, JsonElement> obj : json.entrySet()) {
-      replace(obj.getKey(), obj.getValue());
+      JsonElement v = obj.getValue();
+      if( v.isJsonPrimitive() && ((JsonPrimitive)v).isString() ) {
+        replace(obj.getKey(), v.getAsString());
+      } else {
+        replace(obj.getKey(), v);
+      }
     }
   }
 

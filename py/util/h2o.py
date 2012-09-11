@@ -1,30 +1,27 @@
-from poster.encode import multipart_encode
-from poster.streaminghttp import register_openers
-import urllib2
+import requests
 import time, os, json
 import asyncproc
-
-register_openers()
 
 class H2O:
     def __url(self, loc):
         return 'http://%s:%d/%s' % (self.addr, self.port, loc)
 
-    def __get(self, loc):
-        req = urllib2.Request(self.__url(loc))
-        return urllib2.urlopen(req).read()
-
-    def __read(self, req):
-        return json.loads(urllib2.urlopen(req).read())
+    def __check(self, r):
+        if not r:
+            import inspect
+            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
+        return r.json
 
     def get_cloud(self):
-        req = urllib2.Request(self.__url('Cloud.json'))
-        return self.__read(req)
+        return self.__check(requests.get(self.__url('Cloud.json')))
 
     def put_file(self, f):
-        datagen, headers = multipart_encode({"File": open(f, 'rb')})
-        req = urllib2.Request(self.__url('PutFile.json'), datagen, headers)
-        return self.__read(req)
+        return self.__check(requests.post(self.__url('PutFile.json'), 
+            files={"File": open(f, 'rb')}))
+
+    def parse(self, key):
+        return self.__check(requests.get(self.__url('Parse.json'),
+            params={"Key": key}))
 
     def stabilize(self, msg, timeout, func):
         start = time.clock()
@@ -39,10 +36,8 @@ class H2O:
         try:
             self.get_cloud()
             return True
-        except urllib2.HTTPError:
-            raise
-        except urllib2.URLError, e:
-            if e.reason[0] == 61:
+        except requests.ConnectionError, e:
+            if e.args[0].errno == 61:
                 return False
             raise
 

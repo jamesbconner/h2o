@@ -105,7 +105,7 @@ public class Server extends NanoHTTPD {
     registerPage(new LinearRegression(),"LinearRegression");
     registerPage(new Network(), "Network");
     registerPage(new NodeShuffle(),"NodeShuffle");
-    registerPage(new Parse(),"Parse"); // Function to parse ascii dataset into binary
+    registerPage(new Parse(),"Parse");
     registerPage(new ProgressReport(), "PR");
     registerPage(new ProgressReport(), "ProgressReport");
     registerPage(new ProgressView(), "ProgressView");
