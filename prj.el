@@ -2,7 +2,7 @@
 (jde-set-variables
  '(jde-javadoc-gen-destination-directory "./doc")
  '(jde-run-working-directory "$HOME/Desktop/hexbase")
- '(jde-run-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes" "./lib/sigar/sigar.jar" "./lib/hadoop/1.0.0/hadoop-core-1.0.0.jar" "./lib/apache/commons-codec-1.3.jar" "./lib/apache/commons-configuration-1.6.jar" "./lib/apache/commons-lang-2.4.jar" "./lib/apache/commons-logging-1.1.1.jar" "./lib/apache/commons-logging-api-1.0.4.jar" "./lib/apache/httpclient-4.1.1.jar" "./lib/apache/httpcore-4.1.jar" "./lib/junit/junit-4.11.jar")))
+ '(jde-run-option-classpath (quote ("$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes" "./lib/sigar/sigar.jar" "./lib/hadoop/1.0.0/hadoop-core-1.0.0.jar" "./lib/apache/commons-codec-1.3.jar" "./lib/apache/commons-configuration-1.6.jar" "./lib/apache/commons-lang-2.4.jar" "./lib/apache/commons-logging-1.1.1.jar" "./lib/apache/commons-logging-api-1.0.4.jar" "./lib/apache/httpclient-4.1.1.jar" "./lib/apache/httpcore-4.1.jar" "./lib/junit/junit-4.11.jar" "./lib/apache/guava-12.0.1.jar" "./lib/gson/gson-2.2.2.jar")))
  '(jde-run-option-debug nil)
  '(jde-compile-option-directory "$HOME/Desktop/Dropbox/Sris and Cliff/H2O/classes")
  '(jde-run-option-application-args (quote ("-name" "Cliff" "-test=none")))

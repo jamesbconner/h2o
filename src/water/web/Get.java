@@ -17,7 +17,7 @@ public class Get extends Page {
     String key_s = args.getProperty("Key");
     Key key = null;
     try { 
-      key = Key.make(key_s);      // Get a Key from a raw byte array, if any
+      key = H2OPage.decode(key_s); // Get a Key from a raw byte array, if any
     } catch( IllegalArgumentException e ) {
       return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
     }

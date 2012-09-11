@@ -15,20 +15,14 @@ public class Inspect extends H2OPage {
     //_refresh = 5;
   }
 
-  @Override protected String serveImpl(Server server, Properties args) {
-    String key_s = args.getProperty("Key");
-    if( key_s == null ) return wrap(error("Missing Key argument"));
+  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+    Key key = ServletUtil.check_key(args,"Key");
+    String ks = key.toString();
 
-    Key key = null;
-    try {
-      key = decode(key_s);
-    } catch( IllegalArgumentException e ) {
-      return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
-    }
     // Distributed get
     Value val = DKV.get(key);
     if( val == null )
-      return H2OPage.wrap(H2OPage.error("Key not found: "+ key_s));
+      return wrap(error("Key not found: "+ ks));
 
     if( val instanceof ValueArray &&
         ((ValueArray)val).num_cols() > 0 )
@@ -39,30 +33,24 @@ public class Inspect extends H2OPage {
     formatKeyRow(key,val,response);
 
     // Dump out the Key
-    String ks = key.toString();
     response.replace("keyHref",key);
     response.replace("key",ks);
 
     // ASCII file?  Give option to do a binary parse
-    if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
-      String p_key = key_s;
-      int idx = key_s.lastIndexOf('.');
-      if( idx != -1 )
-        p_key = key_s.substring(0,idx);
-      p_key += ".hex";
-      if( p_key.equals(key_s) ) p_key += "2";
-      String s;
-      if( DKV.get(Key.make(p_key)) == null ) {
-        s = html_parse.replace("%keyHref",encode(key));
-        s = s.replace("%parsekey",p_key);
-        s = s.replace("%pfunc","Parse");
-      } else {
-        s = html_parse.replace("%keyHref",encode(key));
-        s = s.replace("%parsekey","");
-        s = s.replace("%pfunc","Inspect");
-      }
-      response.replace("parse",s);
-    }
+    String p_keys = ks;
+    int idx = ks.lastIndexOf('.');
+    if( idx != -1 )
+      p_keys = ks.substring(0,idx);
+    p_keys += ".hex";
+    if( p_keys.equals(ks) ) p_keys += "2";
+
+    Key p_key = Key.make(p_keys);
+    boolean missed = DKV.get(p_key) == null;
+    String s = html_parse.replace("%keyHref",encode(missed ? key : p_key));
+    s = s.replace("%parsekey",p_keys);
+    s = s.replace("%parsekey",p_keys);
+    s = s.replace("%pfunc", missed ? "Parse" : "Inspect" );
+    response.replace("parse",s);
 
     return response.toString();
   }
@@ -128,15 +116,14 @@ public class Inspect extends H2OPage {
   String structured_array( Key key, ValueArray ary ) {
     RString response = new RString(html_ary);
     // Pretty-print the key
-    String ks = key.toString();
     response.replace("keyHref",key);
-    response.replace("key",ks);
+    response.replace("key",key.toString());
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
     response.replace("ncolumns",ary.num_cols());
     Key pkey = ary.prior_key();
-    response.replace("priorkey",pkey);
+    response.replace("priorkey",pkey.toString());
     response.replace("priorkeyHref",pkey);
     response.replace("xform",ary.xform());
 
