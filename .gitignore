@@ -7,3 +7,5 @@ ice
 lib/hexbase_impl.jar
 po.*
 *.hprof
+*.pyc
+**/sandbox/**

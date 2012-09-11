@@ -26,6 +26,7 @@ public class init {
       //System.out.println("Extracting dependencies...");
       loader.addInternalJarFolder("sigar" ,true);
       loader.addInternalJarFolder("apache",true);
+      loader.addInternalJarFolder("gson",true);
       // removed hadoop folder - pollutes path with other versions jars.
       loader.addInternalJarFolder("junit" ,true);
     } else {

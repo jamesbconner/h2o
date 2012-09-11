@@ -28,15 +28,15 @@ public class TaskGetKey extends DFutureTask<Value> {
   public static TaskGetKey make( H2ONode target, Key key, int len ) {
     while( true ) {       // Repeat until we get a unique TGK installed per key
       // Do we have an old TaskGetKey, of sufficient size, in-progress?
-      TaskGetKey tgk_old = target.TGKS.get(key);
+      TaskGetKey tgk_old = H2ONode.TGKS.get(key);
       if( tgk_old != null && tgk_old._len >= len && !tgk_old.isDone() )
         return tgk_old;         // Yes - use it!
       // Make a new TGK and attempt to install it
       TaskGetKey tgk = new TaskGetKey(target,key,len);
       if( tgk_old==null ) {
-        if( target.TGKS.putIfAbsent(key,tgk) == null ) { tgk.resend(); return tgk; }
+        if( H2ONode.TGKS.putIfAbsent(key,tgk) == null ) { tgk.resend(); return tgk; }
       } else {
-        if( target.TGKS.replace(key,tgk_old,tgk) ) { tgk.resend(); return tgk; }
+        if( H2ONode.TGKS.replace(key,tgk_old,tgk) ) { tgk.resend(); return tgk; }
       }
       // Oops, colliding parallel TGK installs... try again
       tgk.cancel(true);
@@ -180,7 +180,7 @@ public class TaskGetKey extends DFutureTask<Value> {
     } finally {
       // Cleanup the dup-TaskGetKey-removal.  The next TGK to the same target &
       // key will start a fresh K/V fetch.
-      _target.TGKS.remove(_key);
+      H2ONode.TGKS.remove(_key);
     }
   }
 

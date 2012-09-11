@@ -1,27 +1,10 @@
 package water;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.io.*;
+import java.net.*;
+import java.util.*;
 
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
-
-import org.junit.runner.Result;
-import org.junit.runner.notification.Failure;
-
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 
@@ -36,10 +19,10 @@ public final class H2O {
   static boolean _hdfsActive = false;
 
   static final String version = "v0.3";
-  
+
   // User name for this Cloud
   public static String NAME;
-  
+
   // The default port for finding a Cloud
   static final int DEFAULT_PORT = 54321;
   public static int WEB_PORT;  // The HTML/web interface port - attach your browser here!
@@ -64,7 +47,7 @@ public final class H2O {
   // decide to change Clouds via atomic Cloud update.
   static public volatile H2O CLOUD;
 
-  // --- 
+  // ---
   // A Set version of the members.
   public final HashSet<H2ONode> _memset;
   // A dense array indexing all Cloud members.  Fast reversal from "member#" to
@@ -86,7 +69,7 @@ public final class H2O {
     assert (0 <= old && old <= 255);
     return ((nnn-old)&0xFF) < 64;
   }
- 
+
   // A Set version of the static configuration InetAddress.
   static ArrayList<H2ONode> STATIC_CONF_NODES = new ArrayList<H2ONode>();
   // Multicast is on by default (implies that static configuration is disabled)
@@ -204,12 +187,10 @@ public final class H2O {
 
     // Insert into the K/V store
     Value res = STORE.putIfMatchUnlocked(key,val,old);
-    Key k = null;
-    assert (k=chk_equals_key(k,res))==k;
-    assert (k=chk_equals_key(k,old))==k;
+    assert chk_equals_key(res, old);
     if( res != old )            // Failed?
       return res;               // Return the failure cause
-    assert (k=chk_equals_key(k,val))==k;
+    assert chk_equals_key(res, old, val);
     // Persistence-tickle.
     // If the K/V mapping is going away, remove the old guy.
     // If the K/V mapping is changing, let the store cleaner just overwrite.
@@ -218,12 +199,17 @@ public final class H2O {
     if( val != null ) kick_store_cleaner(); // Start storing the new guy
     return old;                 // Return success
   }
+
   // assert that all of val, old & res that are not-null all agree on key.
-  private static final Key chk_equals_key( Key k, Value v ) {
-    if( v == null ) return k;
-    if( k == null ) return v._key;
-    assert k == v._key;
-    return k;
+  private static final boolean chk_equals_key( Value... vs ) {
+    Key k = null;
+    for( Value v : vs ) {
+      if( v != null ) {
+        assert k == null || k == v._key;
+        k = v._key;
+      }
+    }
+    return true;
   }
 
   // Raw put; no marking the memory as out-of-sync with disk.  Used to import
@@ -301,7 +287,7 @@ public final class H2O {
     public String hdfs_root;          // root of the HDFS installation (for I only)
     public String hdfs_config;        // configuration file of the HDFS
     public String hdfs_datanode;      // Datanode root
-    public String test;               // JUnit test classes
+    public String nosigar;            // Disable Sigar-based statistics
   }
   public static boolean IS_SYSTEM_RUNNING = false;
 
@@ -320,7 +306,7 @@ public final class H2O {
 
     // Redirect System.out/.err to the Log system and collect them in LogHub
     LogHub.prepare_log_hub();
-    Log.hook_sys_out_err();    
+    Log.hook_sys_out_err();
 
     startLocalNode();     // start the local node
     // Load up from disk and initialize the persistence layer
@@ -333,8 +319,8 @@ public final class H2O {
 
   /** Starts the local k-v store.
    * Initializes the local k-v store, local node and the local cloud with itself
-   * as the only member. 
-   * 
+   * as the only member.
+   *
    * @param args Command line arguments
    * @return Unprocessed command line arguments for further processing.
    */
@@ -343,7 +329,7 @@ public final class H2O {
     SELF = H2ONode.self();
     // Do not forget to put SELF into the static configuration (to simulate proper multicast behavior)
     if (STATIC_CONF_ENABLED && !STATIC_CONF_NODES.contains(SELF))
-      STATIC_CONF_NODES.add(SELF);    
+      STATIC_CONF_NODES.add(SELF);
 
     // Create the starter Cloud with 1 member
     HashSet<H2ONode> starter = new HashSet<H2ONode>();
@@ -351,10 +337,10 @@ public final class H2O {
     CLOUD = new H2O(UUID.randomUUID(),starter,1);
   }
 
-  /** Initializes the network services of the local node. 
-   * 
+  /** Initializes the network services of the local node.
+   *
    * Starts the worker threads, receiver threads, heartbeats and all other
-   * network related services. 
+   * network related services.
    */
   private static void startNetworkServices() {
     // We've rebooted the JVM recently.  Tell other Nodes they can ignore task
@@ -396,45 +382,17 @@ public final class H2O {
   }
 
   /** Finalizes the node startup.
-   * 
+   *
    * Displays the startup message and runs the tests (if applicable).
    */
   private static void startupFinalize() {
     // Sleep a bit so all my other threads can 'catch up'
-    try { Thread.sleep(1000); } catch( InterruptedException e ) { } 
-   
+    try { Thread.sleep(1000); } catch( InterruptedException e ) { }
+
     System.out.println("The Cloud '"+NAME+"' is Up ("+version+") on " + SELF+
                        (MULTICAST_ENABLED
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
                         : ", static configuration based on -flatfile "+FLAT_FILE));
-
-    // Start running tests
-    String doTest=OPT_ARGS.test;   // Tests enabled?
-    if( doTest==null ) {           // If nothing on the cmd-line then...
-      assert (doTest="-test")!=null; // Always run basic tests if asserts are enabled
-    }
-    if( doTest != null && !doTest.equals("none") ) {
-      Result r = org.junit.runner.JUnitCore.runClasses(test.KVTest.class);
-      //Result r = org.junit.runner.JUnitCore.runClasses(test.CSVParserKVTest.class);
-      List<Failure> lf = r.getFailures();
-      if( lf.size() > 0 ) {
-        System.err.println("--- JUNIT FAILURES ---");
-        for( Failure f : lf ) { // Report failures
-          System.err.println(f);
-          // Print out exactly 1 line of the stack trace, with the file & line numebr
-          String hdr = f.getTestHeader();
-          int idx = hdr.indexOf('(');
-          String testclass0 = hdr.substring(idx+1);
-          String testclass = testclass0.substring(0,testclass0.length()-1);
-          String[] ts = f.getTrace().split("\n");
-          for( int i=0; i<ts.length; i++ ) {
-            System.err.println(ts[i]);
-            if( ts[i].indexOf(testclass) != -1 )
-              break;
-          }
-        }
-      }
-    }
   }
 
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
@@ -448,7 +406,7 @@ public final class H2O {
 
     // See if we can grab them without bind errors!
     while( !(test_port(WEB_PORT) && test_port(UDP_PORT) && test_port(TCP_PORT)) ) {
-      if( OPT_ARGS.port != 0 ) 
+      if( OPT_ARGS.port != 0 )
         Log.die("Some of the required ports "+(OPT_ARGS.port+0)+
                 ", "+(OPT_ARGS.port+1)+
                 ", and "+(OPT_ARGS.port+2)+
@@ -465,7 +423,7 @@ public final class H2O {
       MULTICAST_ENABLED = false;
       STATIC_CONF_ENABLED = true;
     }
-      
+
     // Multi-cast ports are in the range E1.00.00.00 to EF.FF.FF.FF
     int hash = NAME.hashCode()&0x7fffffff;
     int port = (hash % (0xF0000000-0xE1000000))+0xE1000000;
@@ -480,10 +438,10 @@ public final class H2O {
     /*
      * Static configuration has the following format:
      *   IPv4:UDP_PORT
-     *   
+     *
      * For example:
      *   # this is a comment
-     *   10.10.65.105:54322 
+     *   10.10.65.105:54322
      */
     if( STATIC_CONF_ENABLED ) {
       BufferedReader br = null;
@@ -514,12 +472,12 @@ public final class H2O {
   static boolean test_port( int port ) {
     boolean res = true;
     ServerSocket ss = null;
-    try { 
+    try {
       ss = new ServerSocket(port);
     } catch( IOException se ) {
       res = false;
     } finally {
-      if( ss != null ) 
+      if( ss != null )
         try { ss.close(); } catch( IOException se ) { }
     }
     return res;

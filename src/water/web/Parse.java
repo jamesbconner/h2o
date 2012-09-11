@@ -13,10 +13,10 @@ public class Parse extends H2OPage {
     if( skey1 == null || skey2 == null )
       return wrap(error("Missing Key or Key2"));
 
-    Key key1 = Key.make(decode(skey1));
+    Key key1 = decode(skey1);
     Key key2 = Key.make(skey2);
 
-    String s = "<a href='/Inspect?Key="+encode(key2._kb)+"'>"+key2+"</a>";
+    String s = "<a href='/Inspect?Key="+encode(key2)+"'>"+key2+"</a>";
     if( DKV.get(key2) == null ) { // Key not parsed?  Parse it
       long start = System.currentTimeMillis();
       Value dataset = DKV.get(key1);  // Get the source dataset root key

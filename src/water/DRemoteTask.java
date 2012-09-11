@@ -1,12 +1,8 @@
 package water;
-import java.io.*;
-import java.lang.Cloneable;
-import java.lang.Thread;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import jsr166y.*;
 
 // *DISTRIBUTED* RemoteTask
 // Execute a set of Keys on the home for each Key.
@@ -32,7 +28,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   protected final DRemoteTask clone2() {
     try {
       DRemoteTask dt = (DRemoteTask)this.clone();
-      dt.setCompleter(this);    // Set completer, what used to be a final field
+      dt.setCompleter(this); // Set completer, what used to be a final field
       dt.setPendingCount(0); // Volatile write for completer field; reset pending count also
       return dt;
     } catch( CloneNotSupportedException e ) { throw new Error(e); }
@@ -69,9 +65,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
     // Classic fork/join, but on CPUs.
     // Split into 3 arrays of keys: lo keys, hi keys and self keys
-    final ArrayList<Key> locals = new ArrayList();
-    final ArrayList<Key> lokeys = new ArrayList();
-    final ArrayList<Key> hikeys = new ArrayList();
+    final ArrayList<Key> locals = new ArrayList<Key>();
+    final ArrayList<Key> lokeys = new ArrayList<Key>();
+    final ArrayList<Key> hikeys = new ArrayList<Key>();
     int self_idx = cloud.nidx(H2O.SELF);
     int mid = (lo+hi)>>>1;    // Mid-point
     for( Key k : keys ) {
@@ -94,7 +90,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
     // Launch locally, but is non-blocking
     init();                     // One-time top-level init
-    H2O.FJP_NORM.submit(this);  // F/J blocking invoke
+    H2O.FJP_NORM.submit(this);
 
     // Return a cookie to block on for the remote work
     return f;
@@ -120,7 +116,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     }
   };
 
-  private final TaskRemExec remote_compute( ArrayList<Key> keys ) {
+  private final TaskRemExec<DRemoteTask> remote_compute( ArrayList<Key> keys ) {
     if( keys.size() == 0 ) return null;
     H2O cloud = H2O.CLOUD;
     Key arg = keys.get(0);
@@ -129,7 +125,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     // remote-side will expand, then send just the key, instead of a
     // key-of-keys containing 1 key.
     if( keys.size() ==1 && arg._kb[0] != Key.KEY_OF_KEYS && !arg.user_allowed() )
-      return new TaskRemExec(target,clone2(),arg);
+      return new TaskRemExec<DRemoteTask>(target,clone2(),arg);
 
     arg = Key.make(UUID.randomUUID().toString(),(byte)0,Key.KEY_OF_KEYS,target);
     byte[] bits = new byte[8*keys.size()];
@@ -142,7 +138,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     UDP.set4(bits,0,keys.size()); // Key count in the 1st 4 btyes
     Value vkeys = new Value(arg,Arrays.copyOf(bits,off));
     // Fork remotely and do not block for it
-    return new TaskRemExec(target,clone2(),arg,vkeys);
+    return new TaskRemExec<DRemoteTask>(target,clone2(),arg,vkeys);
   }
 
   private final Key[] flatten_keys( Key args ) {

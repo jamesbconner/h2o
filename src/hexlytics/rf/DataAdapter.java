@@ -44,6 +44,21 @@ public class DataAdapter  {
     random_ = new Random(seed);
   }
 
+  /** Given a value in enum format, returns a value in the original range. */
+  public float unmap(int col, float v){
+    short idx = (short)v; // Convert split-point of the form X.5 to a (short)X    
+    C c = c_[col];
+    if (v == idx) {  // this value isn't a split
+      return c._v2o[idx+0];        
+    } else {
+      float flo = c._v2o[idx+0]; // Convert to the original values
+      float fhi = (idx < c.sz_) ? c._v2o[idx+1] : flo+1.0f;
+      float fmid = (flo+fhi)/2.0f; // Compute an original split-value
+      assert flo < fmid && fmid < fhi; // Assert that the float will properly split
+      return fmid;
+    }
+  }
+    
     public String name() { return name_; }
     public void shrinkWrap() { 
       freeze();
@@ -59,7 +74,6 @@ public class DataAdapter  {
     }
     
     public void freeze() { frozen_=true; }
-    public int features() { return (int)Math.sqrt(c_.length); }
     public int columns()        { return c_.length;} 
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
@@ -83,41 +97,43 @@ public class DataAdapter  {
     }
 
     public  String colName(int c) { return c_[c].name_; }
-    public  double colMin(int c)  { return c_[c].min_; }    
-    public  double colMax(int c)  { return c_[c].max_; }
-    public  double colTot(int c)  { return c_[c].tot_; }
+    public  float  colMin(int c)  { return c_[c].min_; }    
+    public  float  colMax(int c)  { return c_[c].max_; }
+    public  float  colTot(int c)  { return c_[c].tot_; }
     public String[] columnNames() { return columnNames_; }
     public String   classColumnName() { return classColumnName_; }
-    public void addRow(double[] v) {
+    public void addRow(float[] v) {
       if (frozen_) throw new Error("Frozen data set update");
-      for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
+      for(int i=0;i<v.length;i++)  c_[i].add((float)v[i]);
     } 
     short getS(int row, int col) { return data_[row * c_.length + col]; }
     void setS(int row, int col, short val) { data_[row * c_.length + col]= val; }    
-    protected double getD(int col, int idx) { return c_[col].getD(idx); }
+    protected float getF(int col, int idx) { return c_[col].getF(idx); }
     static final DecimalFormat df = new  DecimalFormat ("0.##");
 }
 
 class C {
   String name_;
+  boolean ignore;
   int sz_;
-  double min_=Double.MAX_VALUE, max_=Double.MIN_VALUE, tot_;
-  double[] v_;
-  HashMap<Double,Short> o2v_;
-  double[] _v2o;  // Reverse (short) indices to original doubles
+  float min_=Float.MAX_VALUE, max_=Float.MIN_VALUE, tot_;
+  float[] v_;
+  HashMap<Float,Short> o2v_;
+  float[] _v2o;  // Reverse (short) indices to original floats
   short smin_ = -1;
   short smax_ = -1;
 
-  C(String s, int rows) { name_ = s; v_ = new double[rows]; }
+  C(String s, int rows) { name_ = s; v_ = new float[rows]; }
 
-  void add(double x) {
+  void add(float x) {
     min_=Math.min(x,min_);
     max_=Math.max(x,max_);
     tot_+=x;
     v_[sz_++]=x;
   }
   
-  double getD(int i) { return v_[i]; }
+  float getF(int i) { return v_[i]; }
+  void ignore() { ignore = true; }
   
   public String toString() {
     String res = "col("+name_+")";
@@ -126,7 +142,7 @@ class C {
     return res;
   }
 
-  // For all columns except the classes - encode all doubles as unique shorts.
+  // For all columns except the classes - encode all floats as unique shorts.
   // For the last column holding the classes - encode it as 0-(numclasses-1).
   // Sometimes the last column allows a zero class (e.g. iris, poke) and sometimes
   // it's one-based (e.g. covtype).
@@ -141,15 +157,15 @@ class C {
     return res;
   }
   
-  HashMap<Double,Short> hashCol() {
-    HashSet<Double> res = new HashSet<Double>();
+  HashMap<Float,Short> hashCol() {
+    HashSet<Float> res = new HashSet<Float>();
     for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
-    HashMap<Double,Short> res2 = new HashMap<Double,Short>(res.size());
-    Double[] ks = res.toArray(new Double[res.size()]);
-    _v2o = new double[ks.length];
+    HashMap<Float,Short> res2 = new HashMap<Float,Short>(res.size());
+    Float[] ks = res.toArray(new Float[res.size()]);
+    _v2o = new float[ks.length];
     Arrays.sort(ks);      
     smax_ = 0;
-    for( Double d : ks)  {
+    for( Float d : ks)  {
       _v2o[smax_] = d;
       res2.put(d, smax_++);
     }

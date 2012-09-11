@@ -75,23 +75,27 @@ public class HeartBeatThread extends Thread {
         me.set_free_disk(f.getUsableSpace());
         me.set_max_disk(f.getTotalSpace());
       }
+      
+      // Disable collecting Sigar-based statistics if the command line contains --nosigar 
+      if (H2O.OPT_ARGS.nosigar == null) { // --nosigar is not specified on command line        
 
-      // get cpu utilization from sigar if available
-      try {
-        me.set_cpu_util(1.0 - sigar.getCpuPerc().getIdle());
-      } catch (SigarException ex) {
-        me.set_cpu_util(-1.0);
-      }
-
-      // get cpu load from sigar if available
-      try {
-        double [] cpu_load = sigar.getLoadAverage();
-        me.set_cpu_load(cpu_load[0],cpu_load[1],cpu_load[2]);
-      } catch (SigarException ex) {
-        me.set_cpu_load(-1.0,-1.0,-1.0);
-      }
-      // Get network statistics from sigar
-      fillNetworkStatistics(sigar, me);
+        // get cpu utilization from sigar if available
+        try {
+          me.set_cpu_util(1.0 - sigar.getCpuPerc().getIdle());
+        } catch (SigarException ex) {
+          me.set_cpu_util(-1.0);
+        }
+  
+        // get cpu load from sigar if available
+        try {
+          double [] cpu_load = sigar.getLoadAverage();
+          me.set_cpu_load(cpu_load[0],cpu_load[1],cpu_load[2]);
+        } catch (SigarException ex) {
+          me.set_cpu_load(-1.0,-1.0,-1.0);
+        }
+        // Get network statistics from sigar
+        fillNetworkStatistics(sigar, me);
+      } 
 
       // Announce what Cloud we think we are in.
       // Publish our health as well.

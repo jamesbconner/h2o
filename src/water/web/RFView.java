@@ -9,7 +9,7 @@ import hexlytics.rf.Tree;
 public class RFView extends H2OPage {
   @Override protected String serve_impl(Properties args) {
     final int depth = getAsNumber(args,"depth", 30);
-    RString response = new RString(html);
+    RString response = new RString(html());
 
     // Get the Confusion Matrix from the Confusion Key
     Object o = ServletUtil.check_key(args,"Key");
@@ -91,31 +91,35 @@ public class RFView extends H2OPage {
     int limkeys = Math.min(ntrees,100);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("TtableRow");
-      trow.replace("treekey_u",encode(treekeys[i]._kb));
+      trow.replace("treekey_u",encode(treekeys[i]));
       trow.replace("treekey_s",treekeys[i]);
       trow.append();
     }
 
     return response.toString();
   }
-  final static String html = "\nRandom Forest of %origKey\n<p>"
-    +"Validated %valid trees of %got computed of %maxtrees total trees, depth limit of %maxdepth\n<p>"
-    + "<h2>Confusion Matrix</h2>"
-    + "<table class='table table-striped table-bordered table-condensed'>"
-    + "<thead>%chead</thead>\n"
-    + "<tbody>\n"
-    + "%CtableRow{<tr>%crow</tr>}\n"
-    + "</tbody>\n"
-    + "</table>\n"
-    + "<p><p>\n"
-    + "<h2>Random Decision Trees</h2>"
-    + "Avg depth=%depth, Avg leaves=%leaves<p>\n"
-    + "<table class='table table-striped table-bordered table-condensed'>"
-    + "<tbody>\n"
-    + "%TtableRow{\n"
-    + "  <tr><td><a href='/Inspect?Key=%treekey_u'>%treekey_s</a></tr>\n"
-    + "}\n"
-    + "</tbody>\n"
-    + "</table>\n"
-    ;
+
+  // use a function instead of a constant so that a debugger can live swap it
+  private String html() {
+    return "\nRandom Forest of %origKey\n<p>"
+      +"Validated %valid trees of %got computed of %maxtrees total trees, depth limit of %maxdepth\n<p>"
+      + "<h2>Confusion Matrix</h2>"
+      + "<table class='table table-striped table-bordered table-condensed'>"
+      + "<thead>%chead</thead>\n"
+      + "<tbody>\n"
+      + "%CtableRow{<tr>%crow</tr>}\n"
+      + "</tbody>\n"
+      + "</table>\n"
+      + "<p><p>\n"
+      + "<h2>Random Decision Trees</h2>"
+      + "Avg depth=%depth, Avg leaves=%leaves<p>\n"
+      + "<table class='table table-striped table-bordered table-condensed'>"
+      + "<tbody>\n"
+      + "%TtableRow{\n"
+      + "  <tr><td><a href='/Inspect?Key=%treekey_u'>%treekey_s</a></tr>\n"
+      + "}\n"
+      + "</tbody>\n"
+      + "</table>\n"
+      ;
+  }
 }

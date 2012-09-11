@@ -25,7 +25,7 @@ public class Data implements Iterable<Row> {
     }   
     public int numClasses() { return classes(); }
     public int classOf() { return  data_.classOf(index); }
-    public double getD(int col) { return data_.getD(col,index); }
+    public float getF(int col) { return data_.getF(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
     
     /** To support weights if we ever do in the future. */
@@ -67,13 +67,10 @@ public class Data implements Iterable<Row> {
   public Row getRow(int rowIndex) { return fillRow(new Row(),rowIndex); }  
 
   
-  public int columnClasses(int colIndex) {
-    return data_.columnClasses(colIndex);
-  }
-  
+  public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
+
   /** Returns the number of rows that is accessible by this Data object. */
   public int rows()        { return data_.rows(); }  
-  public  int features()   { return data_.features(); }
   public  int columns()    { return data_.columns() -1 ; } // -1 to remove class column
   public  int classes()    { return data_.classes(); } 
   public Random random()          { return data_.random_; }
@@ -161,7 +158,7 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this,ri,r);
   }
   
-  public void filter(int column, int split, Data[] result, GiniStatistic left, GiniStatistic right) {
+  public void filter(int column, int split, Data[] result, BaseStatistic left, BaseStatistic right) {
     int l=0, r=0;
     int[] li = new int[rows()], ri=new int[rows()];
     int i = 0;
@@ -236,7 +233,7 @@ class Subset extends Data {
     sz_ = sz;
     parent_=data;
     permutation_ = permutation;
-    name_ =data.name_+"->subset"; 
+    //name_ =data.name_+"->subset"; 
   }
   
   public Data complement() {
