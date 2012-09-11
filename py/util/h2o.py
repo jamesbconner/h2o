@@ -66,8 +66,10 @@ class H2O:
             self.proc.terminate()
             raise
 
+        while self.wait() is None:
+            if self.read().find('HTTP listening') != -1: break
         if self.wait() is not None:
-            raise Exception('Failed to launch with exit code: ' + self.proc.wait())
+            raise Exception('Failed to launch with exit code: %d' % self.proc.wait())
 
     def read(self):
         return self.proc.read()
