@@ -230,18 +230,22 @@ public class Inspect extends H2OPage {
       StringBuilder sb = new StringBuilder();
       sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
       for( int i=0; i<num_col; i++ ) {
-        sb.append("<td>");
-        int sz = ary.col_size(i);
-        if( sz != 0 ) {
-          if( r == -1 ) sb.append("...");
-          else {
-            if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
-              sb.append(ary.data (r,i)); // int/long
-            else
-              sb.append(ary.datad(r,i)); // float/double
+        if( r == -1 || ary.valid(r,i) ) {
+          sb.append("<td>");
+          int sz = ary.col_size(i);
+          if( sz != 0 ) {
+            if( r == -1 ) sb.append("...");
+            else {
+              if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
+                sb.append(ary.data (r,i)); // int/long
+              else
+                sb.append(ary.datad(r,i)); // float/double
+            }
           }
+          sb.append("</td>");
+        } else {
+          sb.append("<td style='background-color:IndianRed'>NA</td>");
         }
-        sb.append("</td>");
       }
       row.replace("data_row",sb);
     } catch( IOException e ) {
