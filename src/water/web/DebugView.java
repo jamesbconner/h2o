@@ -21,16 +21,16 @@ public class DebugView extends H2OPage {
     } catch( NumberFormatException e ) { /* pass */ }
     // write the response
     H2O cloud = H2O.CLOUD;         // Current eldest Cloud
-    Object[] keys = H2O.keySet().toArray();
+    Key[] keys = H2O.keySet().toArray(new Key[0]);
     int lastIndex = keys.length;
     // get only the prefixed ones
     String prefix = args.getProperty("Prefix","");
     if (!prefix.isEmpty()) {
       int i = 0;
       for (int j = 0; j< keys.length; ++j) {
-        if (((Key)keys[j]).toString().startsWith(prefix)) {
+        if (keys[j].toString().startsWith(prefix)) {
           if (i!=j) {
-            Object s = keys[i];
+            Key s = keys[i];
             keys[i] = keys[j];
             keys[j] = s;
           }
@@ -42,9 +42,8 @@ public class DebugView extends H2OPage {
     formatPagination(offset,lastIndex,response);
     offset *= KEYS_PER_PAGE;
     int i = 0;
-    for( Object o : keys ) {
+    for( Key key : keys ) {
       if (i>=lastIndex) break;
-      Key key = (Key)o;
       // skip keys at the beginning
       if (offset>0) {
         --offset;
