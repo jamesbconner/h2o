@@ -8,8 +8,8 @@ import java.io.*;
 // @author cliffc
 public abstract class PersistNFS {
 
-  static private final String KEY_PREFIX="nfs:";
-  static private final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
+  static final String KEY_PREFIX="nfs:";
+  public static final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
 
   // file implementation -------------------------------------------------------
   public static Key decodeFile(File f) {

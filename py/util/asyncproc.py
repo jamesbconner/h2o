@@ -28,6 +28,7 @@ import signal
 import threading
 import subprocess
 import shutil
+import datetime
 
 
 __all__ = [ 'Process', 'with_timeout', 'Timeout' ]
@@ -38,6 +39,12 @@ def clean_sandbox():
     if os.path.exists(LOG_DIR):
         shutil.rmtree(LOG_DIR)
     os.mkdir(LOG_DIR)
+
+def log_command(cmd):
+    with open(LOG_DIR + '/commands.log', 'a') as f:
+        f.write(str(datetime.datetime.now()) + ' -- ')
+        f.write(cmd)
+        f.write("\n");
 
 class Timeout(Exception):
     """Exception raised by with_timeout() when the operation takes too long.
@@ -143,11 +150,7 @@ class Process(object):
         self.__quit = False
 
         self.__process = subprocess.Popen(*params, **kwparams)
-        with open(LOG_DIR + '/commands.log', 'a') as f:
-            f.write(" ".join(params[0]))
-            f.write("    # PID %d" % self.pid())
-            f.write("\n");
-
+        log_command(" ".join(params[0]) + ("    # PID %d" % self.pid()))
 
         if self.__process.stdin:
             self.__stdin_thread = threading.Thread(

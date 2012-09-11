@@ -4,23 +4,32 @@ import util.asyncproc as proc
 
 class Basic(unittest.TestCase):
     def addNode(self):
-        h = h2o.H2O(54321 + len(self.nodes)*3)
+        h = h2o.H2O('192.168.1.17', 54321 + len(self.nodes)*3)
         self.nodes.append(h)
 
     def setUp(self):
-        self.nodes = []
-        proc.clean_sandbox()
-        self.addNode()
-        self.addNode()
-        self.addNode()
+        try:
+            self.nodes = []
+            proc.clean_sandbox()
+            self.addNode()
+            self.addNode()
+            self.addNode()
 
-        # give them a few seconds to stabilize
-        self.nodes[0].stabilize('cloud auto detect', 3,
-            lambda n: n.get_cloud()['cloud_size'] == len(self.nodes))
+            # give them a few seconds to stabilize
+            self.nodes[0].stabilize('cloud auto detect', 3,
+                lambda n: n.get_cloud()['cloud_size'] == len(self.nodes))
+        except:
+            for n in self.nodes: n.terminate()
+            raise
 
     def tearDown(self):
+        ex = None
         for n in self.nodes:
-            n.terminate()
+            if n.wait() is None:
+                n.terminate()
+            elif n.wait():
+                ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
+        if ex: raise ex
 
     def testBasic(self):
         self.assertEqual(len(self.nodes), 3)
