@@ -136,7 +136,13 @@ public class RandomForest {
   }
 
   /** The number of misclassifications observed to date. */
-  private long errors() { if(errors_==-1) throw new Error("unitialized"); else return errors_; }
+  private long errors() {
+    if(errors_==-1) {
+      validate();
+      //throw new Error("unitialized");
+    } 
+    return errors_;
+  }
 
   
   private String pad(String s, int l) {
@@ -178,7 +184,6 @@ public class RandomForest {
 
 
   public final void report() {
-    validate();
     Counter tbt = new Counter(), td = new Counter(), tl = new Counter();
     for (Tree t : _trees) { td.add(t._tree.depth()); tl.add(t._tree.leaves()); }    
     double err = errors()/(double) _data.rows();
@@ -193,4 +198,5 @@ public class RandomForest {
         "                Validated on (rows): " + _data.rows() ;
     System.out.println(s);
   }
+  
 }
