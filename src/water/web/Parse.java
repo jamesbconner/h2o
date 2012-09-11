@@ -1,34 +1,52 @@
 package water.web;
 import java.util.Properties;
+import java.util.UUID;
 
 import water.DKV;
 import water.Key;
 import water.Value;
 import water.parser.ParseDataset;
 
+import com.google.gson.JsonObject;
+
 public class Parse extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
-    String skey1 = args.getProperty("Key");
-    String skey2 = args.getProperty("Key2");
-    if( skey1 == null || skey2 == null )
-      return wrap(error("Missing Key or Key2"));
+  @Override public String[] requiredArguments() { return new String[] { "Key" }; }
 
-    Key key1 = decode(skey1);
-    Key key2 = Key.make(skey2);
+  @Override
+  public JsonObject serverJson(Server s, Properties p) throws PageError {
+    String k = p.getProperty("Key");
+    String rk = p.getProperty("Key2",UUID.randomUUID().toString());
 
-    String s = "<a href='/Inspect?Key="+encode(key2)+"'>"+key2+"</a>";
-    if( DKV.get(key2) == null ) { // Key not parsed?  Parse it
+    Key key = decode(k);
+    Key resKey = Key.make(rk);
+
+    JsonObject res = new JsonObject();
+    res.addProperty("Key", encode(resKey));
+    res.addProperty("SKey", resKey.toString());
+
+    if( DKV.get(resKey) == null ) { // Key not parsed?  Parse it
       long start = System.currentTimeMillis();
-      Value dataset = DKV.get(key1);  // Get the source dataset root key
-      if( dataset == null )
-        return wrap(error(key1.toString()+" not found"));
-
-      ParseDataset.parse(key2,dataset);
+      Value dataset = DKV.get(key);  // Get the source dataset root key
+      if( dataset == null ) throw new PageError(key.toString()+" not found");
+      ParseDataset.parse(resKey, dataset);
       long now = System.currentTimeMillis();
-      s = "Parsed into "+s+" in "+(now-start)+" msec";
+      res.addProperty("TimeMS", now - start);
     } else {
-      s = "Already parsed into "+s;
+      res.addProperty("TimeMS", 0);
     }
-    return s;
+    return res;
+
+  }
+
+  @Override protected String serveImpl(Server s, Properties p) throws PageError {
+    JsonObject json = serverJson(s, p);
+
+    if( json.get("TimeMS").getAsInt() > 0 ) {
+      RString res = new RString("Parsed into <a href='/Inspect?Key=%Key'>%SKey</a> in %TimeMS msec");
+      res.replace(json);
+      return res.toString();
+    } else {
+      return "Already parsed into " + json.get("SKey");
+    }
   }
 }

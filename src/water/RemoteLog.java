@@ -20,6 +20,14 @@ import water.LogHub.LogSubscriber;
  */
 public class RemoteLog extends UDP implements LogSubscriber {
   
+  enum LogCommand {
+    DISABLE,
+    ENABLE,
+    LOG;
+    
+    static public LogCommand[] CMDS = values();
+  }
+  
   // All subscribed nodes for this node.
   public static final HashSet<H2ONode> subscribedNodes = new HashSet<H2ONode>(); 
   
@@ -40,6 +48,7 @@ public class RemoteLog extends UDP implements LogSubscriber {
     
     // receive request to stop producing stdout/stderr  
     case 0:
+      System.err.println("STOP");
       subscribedNodes.remove(target);
       // if there is no subscribers => unsubscribe the this log subscriber 
       if (subscribedNodes.isEmpty()) LogHub.unsubscribe(this);
@@ -53,6 +62,15 @@ public class RemoteLog extends UDP implements LogSubscriber {
     }            
     // it is stateless packet, i do not need it anymore => free it
     UDPReceiverThread.free_pack(pack);                
+  }
+  
+  @Override
+  public String print16(byte[] buf) {
+    LogCommand cmd  = LogCommand.CMDS[buf[CMD_OFF]];
+    String result = cmd.name();
+    if (cmd == LogCommand.LOG) 
+      result = result + " from " + LogKind.KINDS[buf[KIND_OFF]].name();    
+    return result;
   }
   
   // Counter how many times function enable_remote_logging was called. 

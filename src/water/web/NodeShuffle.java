@@ -1,28 +1,13 @@
 package water.web;
 import java.util.Properties;
+
 import water.*;
 
 public class NodeShuffle extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
-    // Check the input for being a valid ValueArray
-    Object res1 = ServletUtil.check_key(args,"Key");
-    if( res1 instanceof String ) return (String)res1;
-    Key key1 = (Key)res1;
-    Value val1 = DKV.get(key1);
-    if( val1 == null )
-      return wrap(error("Key not found: "+ key1));
-    if( !(val1 instanceof ValueArray) )
-      return wrap(error("Key not a parsed dataset: "+ key1));
-    ValueArray vary = (ValueArray)val1;
-    if( !(val1 instanceof ValueArray) )
-      return wrap(error("Key not a parsed dataset: "+ key1));
-    if( vary.num_cols() == 0 )
-      return wrap(error("Key not a parsed dataset: "+ key1));
+  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+    ValueArray vary = ServletUtil.check_array(args, "Key");
+    Key key2 = ServletUtil.check_key(args,"Key2");
 
-    // Check that the result is a valid missing key
-    Object res2 = ServletUtil.check_key(args,"Key2");
-    if( res2 instanceof String ) return (String)res2;
-    Key key2 = (Key)res2;
     Value val2 = DKV.get(key2);
     if( val2 != null )
       return wrap(error("Key would be overwritten: "+ key2));

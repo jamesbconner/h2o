@@ -15,7 +15,7 @@ public abstract class MRTask extends DRemoteTask {
   private int _lo, _hi;         // Range of keys to work on
   private MRTask _left, _rite;  // In-progress execution tree
 
-  void init() {
+  public void init() {
     _lo = 0;
     _hi = _keys.length;
   }
@@ -48,7 +48,7 @@ public abstract class MRTask extends DRemoteTask {
 
   @Override public final void onCompletion( CountedCompleter caller ) {
     // Reduce results into 'this' so they collapse going up the execution tree.
-    // NULL out child-references so we don't accidentilly keep large subtrees
+    // NULL out child-references so we don't accidentally keep large subtrees
     // alive: each one may be holding large partial results.
     if( _left != null ) reduce(_left); _left = null;
     if( _rite != null ) reduce(_rite); _rite = null;

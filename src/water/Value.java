@@ -290,6 +290,20 @@ public class Value {
     return Arrays.equals(val.get(),get());
   }
 
+  // Expand a KEY_OF_KEYS into an array of keys
+  public Key[] flatten() {
+    assert _key._kb[0] == Key.KEY_OF_KEYS;
+    byte[] buf = get();
+    int off = 0;
+    int klen = UDP.get4(buf,(off+=4)-4);
+    Key[] keys = new Key[klen];
+    for( int i=0; i<klen; i++ ) {
+      Key k = keys[i] = Key.read(buf,off);
+      off += k.wire_len();
+    }
+    return keys;
+  }
+
   // --------------------------------------------------------------------------
   // Serialized format length 1+1+4+4+len bytes
   final int wire_len(int len) {

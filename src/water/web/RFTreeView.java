@@ -25,24 +25,19 @@ public class RFTreeView extends H2OPage {
     DOT_PATH = f.exists() ? f.getAbsolutePath() : null;
   }
 
-  @Override protected String serve_impl(Properties args) {
-    Object o = ServletUtil.check_key(args,"Key");
-    if( o instanceof String ) return (String)o;
-    Key key = (Key)o;
-
-    Object orig = ServletUtil.check_array(args, "origKey");
-    if( orig instanceof String ) return (String)orig;
-    ValueArray va = (ValueArray)orig;
+  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+    Key key = ServletUtil.check_key(args,"Key");
+    ValueArray va = ServletUtil.check_array(args, "origKey");
 
     if( DKV.get(key) == null ) return wrap(error("Key not found: "+ key));
-    Tree tree = Tree.fromKey(key);
+    Tree tree = Tree.fromKey(key,null);
 
     RString response = new RString(html());
-    int nodeCount = tree._tree.nodes();
+    int nodeCount = tree.leaves()*2-1; // funny math: total nodes is always 2xleaves-1
     response.replace("key", key);
     response.replace("nodeCount", nodeCount);
-    response.replace("leafCount", tree._tree.leaves());
-    response.replace("depth",     tree._tree.depth());
+    response.replace("leafCount", tree.leaves());
+    response.replace("depth",     tree.depth());
 
     String graph;
     if( DOT_PATH == null ) {

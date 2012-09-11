@@ -14,7 +14,7 @@ import water.UKV;
  * @author peta
  */
 public class Append extends H2OPage {
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     RString response = new RString(html);
     String key_s = args.getProperty("Key");
     String append = args.getProperty("Append","");

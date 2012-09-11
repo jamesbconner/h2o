@@ -14,35 +14,66 @@ class EntropyStatistic extends BaseStatistic {
     super(data, features);
     dists_ = new double[2][data.classes()];
   }
- 
-   public static double entropyOverColumns(double[][] m) {
+  
+  private double entropyOverDist(double[] dist, double weight) {
     double result = 0;
-    double total = 0;
-    for (int col = 0; col < m[0].length; ++col) {
-      double sum = 0;
-      for (int row = 0; row < m.length; ++row)
-        sum += m[row][col];
-      result -= Utils.lnF(sum);
-      total += sum;
-    }
-    return (total == 0) ? 0 : (result + Utils.lnF(total)) / (total * Math.log(2));
+    for (double d: dist)
+      if (d!=0) 
+        result -= (d/weight) * Math.log(d/weight);
+    return result;
   }
   
-  public static double entropyCondOverRows(double[][] m) {
-    double result = 0;
-    double total = 0;
-    for (double[] d : m) {
-      double sum = 0;
-      for (double dd : d) {
-        sum += dd;
-        result += Utils.lnF(dd);
+  private void resetDists(int colIndex) {
+    if (columns_[0] == colIndex) {
+      Arrays.fill(dists_[0],0);
+      Arrays.fill(dists_[1],0);
+      weight_ = aggregateColumn(colIndex, dists_[1]);
+    } else {
+      double[] d = dists_[0];
+      dists_[0] = dists_[1];
+      dists_[1] = d;
+    }
+  }
+  
+  @Override protected Split columnSplit(int colIndex) {
+    // reset or reuse the dists
+    resetDists(colIndex);
+    // check if we are single class
+    int maxIndex = Utils.maxIndex(dists_[1]);
+    if (dists_[1][maxIndex]/weight_ >= 1-MIN_ERROR_RATE)
+      return BaseStatistic.Split.constant(maxIndex);
+    // calculate the best split
+    double bestF = -1;
+    int bestSplit = -1;
+    double lw = 0;
+    double rw = weight_;
+//    System.out.println("column "+colIndex);
+    for (int i = 0; i < columnDists_[colIndex].length; ++i) {
+      // move the column from right to left
+      double[] cd = columnDists_[colIndex][i];
+      for (int j = 0; j < cd.length; ++j) {
+        dists_[0][j] += cd[j];
+        dists_[1][j] -= cd[j];
+        lw += cd[j];
+        rw -= cd[j];
       }
-      result -= Utils.lnF(sum);
-      total += sum;
+      if ((lw==0) || (rw==0))
+        continue;
+      double f = 1 - (entropyOverDist(dists_[0],lw)*lw + entropyOverDist(dists_[1],rw)*rw) / weight_;
+//      System.out.println("  "+i+": "+f);
+      if (f > bestF) {
+        bestSplit = i;
+        bestF = f;
+      }
     }
-    return (total == 0) ? 0 : -result / (total *Math.log(2));
+    // check if we have the proper split 
+    if (bestSplit == -1)
+      return BaseStatistic.Split.impossible(maxIndex);
+    else
+      return new BaseStatistic.Split(colIndex,bestSplit,bestF);
   }
   
+  /*
   @Override protected BaseStatistic.Split columnSplit(int colIndex) {
     if (columns_[0] == colIndex) {
       Arrays.fill(dists_[0],0);
@@ -80,7 +111,7 @@ class EntropyStatistic extends BaseStatistic {
       return BaseStatistic.Split.impossible(maxIndex);
     else
       return new BaseStatistic.Split(colIndex,split,bestFit);
-  }
-}
+  } */
+} 
 
 

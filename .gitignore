@@ -8,4 +8,6 @@ lib/hexbase_impl.jar
 po.*
 *.hprof
 *.pyc
-sandbox/*
+**/sandbox/**
+bin/
+**hs_err_pid**

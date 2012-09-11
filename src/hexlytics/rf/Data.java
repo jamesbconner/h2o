@@ -25,7 +25,7 @@ public class Data implements Iterable<Row> {
     }   
     public int numClasses() { return classes(); }
     public int classOf() { return  data_.classOf(index); }
-    public double getD(int col) { return data_.getD(col,index); }
+    public float getF(int col) { return data_.getF(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
     
     /** To support weights if we ever do in the future. */
@@ -46,15 +46,13 @@ public class Data implements Iterable<Row> {
   }
 
   protected final DataAdapter data_;
-  
-  String name_;
-  
+    
   static final DecimalFormat df = new  DecimalFormat ("0.##");
 
   /** Returns new Data object that stores all adapter's rows unchanged.   */
   public static Data make(DataAdapter da) { return new Data(da); }
      
-  protected Data(DataAdapter da) { data_ = da; name_=da.name(); }
+  protected Data(DataAdapter da) { data_ = da; }
         
   public Iterator<Row> iterator() { return new RowIter(); } 
   
@@ -67,10 +65,8 @@ public class Data implements Iterable<Row> {
   public Row getRow(int rowIndex) { return fillRow(new Row(),rowIndex); }  
 
   
-  public int columnClasses(int colIndex) {
-    return data_.columnClasses(colIndex);
-  }
-  
+  public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
+
   /** Returns the number of rows that is accessible by this Data object. */
   public int rows()        { return data_.rows(); }  
   public  int columns()    { return data_.columns() -1 ; } // -1 to remove class column
@@ -82,66 +78,10 @@ public class Data implements Iterable<Row> {
   public double colTot(int c)     { return data_.colTot(c); }
   public  String[] columnNames()  { return data_.columnNames(); }
   public  String classColumnName(){ return data_.classColumnName(); } 
-  public String name() { return name_; }   
+  public String name() { return data_.name(); }   
   public int last(int column) { return data_.c_[column].o2v_.size(); }
   
-  private final boolean silent = true;
-  
-  public String toString() {
-    String res = "Data "+ name()+"\n";
-    if (columns()>0) { res+= rows()+" rows, "+ columns() + " cols, "+ classes() +" classes\n"; }
-    if (silent) return res;
-    String[][] s = new String[columns()][4];
-    for(int i=0;i<columns();i++){
-      s[i][0] = "col("+colName(i)+")";
-      s[i][1] = "["+df.format(colMin(i)) +","+df.format(colMax(i))+"]" ;
-      s[i][2] = " avg=" + df.format(colTot(i)/(double)rows());
-      s[i][3] = "";//" precision=" + colPre(i); 
-    }
-    int[] l = new int[4];
-    for(int j=0;j<4;j++)
-      for(int k=0;k<columns();k++) 
-        l[j] = Math.max(l[j], s[k][j].length());
-    for(int k=0;k<columns();k++) {
-      for(int j=0;j<4;j++) {
-        res+= s[k][j]; int pad = l[j] - s[k][j].length();
-        for(int m=0;m<=pad;m++) res+=" ";
-      }
-      res+="\n";
-    }      
-    
-   /* res +="========\n";  res +="class histogram\n";
-    int[] dist =null;// data_.c_[data_.classIdx_].distribution();
-    int[] sorted = Arrays.copyOf(dist, dist.length);
-    Arrays.sort(sorted);
-    int max = sorted[sorted.length-1];
-    int[] prop = new int[dist.length];
-    for(int j=0;j<prop.length;j++)
-      prop[j]= (int) (10.0 * ( (float)dist[j]/max )); 
-    for(int m=10;m>=0;m--) {
-      for(int j=0;j<prop.length;j++)
-        if (prop[j]>= m) res += "**  "; else res+="    ";
-      res+="\n";
-    }
-    
-    res+="[";
-    for(int j=0;j<dist.length;j++) res+=dist[j]+((j==dist.length-1)?"":",");     
-    res+="]\n";
-    */
-    res+=head(5);
-    
-    return res;
-  }
-  
-  public String head(int j) {
-    String res ="";
-    for(Row r : this) {
-      res += "["; for(int i=0;i<data_.columns();i++) res += r.getS(i)+",";res += "]\n";
-      if (j--==0) break;
-    }
-    return res;
-  }
-  
+
   // subsets -------------------------------------------------------------------
   
   public void filter(Split c, Data[] result, Statistic[] stats) {
@@ -205,8 +145,7 @@ public class Data implements Iterable<Row> {
   
   
   /** Returns the original index of the row in the DataAdapter object for row
-   * indexed in the given Data object. 
-   */
+   * indexed in the given Data object.  */
   protected int permute(int idx) { return idx; }
   
 }
@@ -228,15 +167,8 @@ class Subset extends Data {
   @Override public double colTot(int c)     { return Double.NaN; }
  
   /** Creates new subset of the given data adapter. The permutation is an array
-   * of original row indices of the DataAdapter object that will be used. 
-   */
-  public Subset(Data data, int[] permutation, int sz) {
-    super(data.data_);
-    sz_ = sz;
-    parent_=data;
-    permutation_ = permutation;
-    name_ =data.name_+"->subset"; 
-  }
+   * of original row indices of the DataAdapter object that will be used.  */
+  public Subset(Data data, int[] permutation, int sz) { super(data.data_); sz_=sz; parent_=data; permutation_=permutation; }
   
   public Data complement() {
     Set<Integer> s = new HashSet<Integer>();

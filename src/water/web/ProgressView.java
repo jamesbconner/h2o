@@ -24,10 +24,13 @@ public class ProgressView extends H2OPage {
   static final String html =
       "<script type='text/javascript'>"
       + "$(document).ready(function() {"
-      + "  var xhr = new XMLHttpRequest();"
-      + "  var url = '/PR'; xhr.open('GET', url, true); xhr.send();" 
+      + "  var xhr = null;"
+      + "  if (window.XMLHttpRequest)      { xhr = new XMLHttpRequest(); }"
+      + "  else if (window.ActiveXObject)  { xhr = new ActiveXObject('Microsoft.XMLDOM'); }"
+      + "  var url = '/PR?Type=html'; xhr.open('GET', url, true); xhr.send();" 
       + "  var last_idx = -1;"
       + "  function parseStream() {"
+      + "    if (xhr.responseText == null) return;"
       + "    var curr_idx = xhr.responseText.lastIndexOf('\\n');" 
       + "    if (last_idx == curr_idx) return;"
       + "    var s = xhr.responseText.substring(last_idx, curr_idx); last_idx = curr_idx;"
@@ -45,7 +48,7 @@ public class ProgressView extends H2OPage {
     + "<a id='bottom' href='#' class='btn btn-danger pull-right' onclick=\"$('#output').html('')\">Clear</a>";
 
   @Override
-  protected String serve_impl(Properties args) {
+  protected String serveImpl(Server server, Properties args) {
     return html;
   }
 }

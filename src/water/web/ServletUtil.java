@@ -7,6 +7,7 @@ import water.Value;
 import water.ValueArray;
 import water.parser.SeparatedValueParser;
 import water.web.H2OPage;
+import water.web.Page.PageError;
 
 /**
  * Utility holding common code for checking errors on servlet request pages
@@ -14,10 +15,8 @@ import water.web.H2OPage;
 public class ServletUtil {
 
   // Pull out two parameters and check for errors on the key
-  public static String serveTwoParams(Properties args, RunnableTask task) {
-    Object res = check_array(args,"Key");
-    if( res instanceof String ) return (String)res;
-    ValueArray ary = (ValueArray)res;
+  public static String serveTwoParams(Properties args, RunnableTask task) throws PageError {
+    ValueArray ary = check_array(args,"Key");
 
     int colA = H2OPage.getAsNumber(args,"colA",0);
     int colB = H2OPage.getAsNumber(args,"colB",1);
@@ -31,32 +30,24 @@ public class ServletUtil {
   }
 
   // Returns a structured ValueArray or an error String
-  public static Object check_array(Properties args, String s) {
-    Object o = check_key(args,s);
-    if( o instanceof String ) return (String)o;
-    Key key = (Key)o;
+  public static ValueArray check_array(Properties args, String s) throws PageError {
+    Key key = check_key(args,s);
     // Distributed get
     Value val = DKV.get(key);
-    if( val == null )
-      return H2OPage.wrap(H2OPage.error("Key not found: "+ key));
-    if( !(val instanceof ValueArray) ||
-        ((ValueArray)val).num_cols() == 0 )
-      return H2OPage.wrap(H2OPage.error("Key not a structured (parsed) array"));
-    return val;
+    if( val == null ) throw new PageError("Key not found: "+ key);
+    if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 )
+      throw new PageError("Key not a structured (parsed) array");
+    return (ValueArray) val;
   }
 
   // Returns a Key or an error String
-  public static Object check_key(Properties args, String s) {
+  public static Key check_key(Properties args, String s) throws PageError {
     String skey = args.getProperty(s);
-    if( skey == null ) return H2OPage.wrap(H2OPage.error("Missing argument key: "+ s));
-    // Parse the Key & validate it
+    if( skey == null ) throw new PageError("Missing argument key: "+ s);
     try {
-      Key key = H2OPage.decode(skey); // Get a Key from a raw byte array, if any
-      //if( !key.user_allowed() )
-      //  return H2OPage.wrap(H2OPage.error("Not a user key: "+ skey));
-      return key;
+      return H2OPage.decode(skey);
     } catch( IllegalArgumentException e ) {
-      return H2OPage.wrap(H2OPage.error("Not a valid key: "+ skey));
+      throw new PageError("Not a valid key: "+ skey);
     }
   }
 

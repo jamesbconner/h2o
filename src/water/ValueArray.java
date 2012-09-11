@@ -129,6 +129,7 @@ public class ValueArray extends Value {
   static public Key read_put_stream(Key key, InputStream is) throws IOException {
     BufferedInputStream bis = new BufferedInputStream(is,(int)chunk_size()*2);
 
+    // try to read 2-chunks into the buffer
     byte[] buffer = new byte[(int)chunk_size()*2];
     int sz = 0;
     while (sz!=buffer.length) {
@@ -137,34 +138,44 @@ public class ValueArray extends Value {
         break;
       sz += i;
     }
-    if (sz<buffer.length) {
+    if (sz<buffer.length) { // buffer is 2-chunks
       // it is a single simple value
       Value val = new Value(key,sz);
       System.arraycopy(buffer,0,val._mem,0,sz);
       UKV.put(key,val);
-    } else {
+    } else { // sz == buffer.length => there is enough data to write two 1MG chunks
+      assert sz == buffer.length;
       long offset = 0;
-      Key ck = make_chunkkey(key,offset);
-      Value val = new Value(ck,(int)chunk_size());
-      System.arraycopy(buffer,0,val._mem,0,(int)chunk_size());
-      DKV.put(ck,val);
-      offset += sz;
-      while (sz!=0) {
+      Key ck = null; Value val = null;
+
+      while (true) {
+        if (sz < buffer.length) { // almost 2 chunks are in the buffer => write them all
+          ck = make_chunkkey(key,offset);
+          val = new Value(ck,sz);
+          System.arraycopy(buffer,0,val._mem,0,sz);
+          DKV.put(ck,val);
+          offset += sz;
+          break; // it was the last chunk => there are no more data in input stream;
+        } else { // Write two chunks into the buffer
+          byte chunkCtr = 0;
+          while (chunkCtr < 2) {
+            ck = make_chunkkey(key,offset);
+            val = new Value(ck,(int)chunk_size());
+            System.arraycopy(buffer,chunkCtr*(int)chunk_size(),val._mem,0,(int)chunk_size());
+            DKV.put(ck,val);
+            chunkCtr++;
+            offset += chunk_size();
+          }
+        }
+
+        // try to read another two chunks
         sz = 0;
-        while (sz!=chunk_size()) {
-          int i = bis.read(buffer,sz,(int)chunk_size()-sz);
+        while (sz!=buffer.length) {
+          int i = bis.read(buffer,sz,buffer.length-sz);
           if (i==-1)
             break;
           sz += i;
         }
-        sz = bis.read(buffer,0,(int)chunk_size());
-        ck = make_chunkkey(key,offset);
-        val = new Value(ck,sz);
-        System.arraycopy(buffer,0,val._mem,0,sz);
-        DKV.put(ck,val);
-        offset += sz;
-        if (sz!=chunk_size())
-          break;
       }
       ValueArray ary = new ValueArray(key,offset,ICE);
       DKV.put(key,ary);
@@ -429,9 +440,9 @@ public class ValueArray extends Value {
     switch( col_size ) {
     case  1:         res =    0xff&  bits[off]; break;
     case  2:         res = UDP.get2 (bits,off); break;
-    case  4:return (double)UDP.get4 (bits,off);
-    case  8:return (double)UDP.get8 (bits,off); // No scale/offset for long   data
-    case -4:return (double)UDP.get4f(bits,off); // No scale/offset for float  data
+    case  4:return         UDP.get4 (bits,off);
+    case  8:return         UDP.get8 (bits,off); // No scale/offset for long   data
+    case -4:return         UDP.get4f(bits,off); // No scale/offset for float  data
     case -8:return         UDP.get8d(bits,off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
@@ -446,38 +457,44 @@ public class ValueArray extends Value {
     int off = row_in_chunk * row_size();
     // Get the whole row.  Note that in structured arrays, no row splits a chunk.
     byte[] bits = get(chknum).get(off+row_size());
-    int col_off = off+col_off(colnum);
-    long res=0;
-    switch( col_size(colnum) ) {
-    case  1:       res =    0xff&  bits[col_off]; break;
-    case  2:       res = UDP.get2 (bits,col_off); break;
-    case  4:return       UDP.get4 (bits,col_off);
-    case  8:return       UDP.get8 (bits,col_off); // No scale/offset for long   data
-    case -4:return (long)UDP.get4f(bits,col_off); // No scale/offset for float  data
-    case -8:return (long)UDP.get8d(bits,col_off); // No scale/offset for double data
+    return data(bits,row_in_chunk,row_size(),colnum);
+  }
+  public long data(byte[] bits, int row_in_chunk, int row_size, int colnum) {
+    return data(bits,row_in_chunk,row_size,col_off(colnum),col_size(colnum), col_base(colnum), col_scale(colnum), colnum);
+  }
+  // This is a version where all the loop-invariants are hoisted already.
+  public long data(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size, int col_base, int col_scale, int colnum) {
+    assert row_size() == row_size;
+    assert col_off  (colnum)==col_off  ;
+    assert col_base (colnum)==col_base ;
+    assert col_scale(colnum)==col_scale;
+    assert col_size (colnum)==col_size ;
+    int off = (row_in_chunk * row_size) + col_off;
+    double res=0;
+    switch( col_size ) {
+    case  1:       res =    0xff&  bits[off]; break;
+    case  2:       res = UDP.get2 (bits,off); break;
+    case  4:return       UDP.get4 (bits,off);
+    case  8:return       UDP.get8 (bits,off); // No scale/offset for long   data
+    case -4:return (long)UDP.get4f(bits,off); // No scale/offset for float  data
+    case -8:return (long)UDP.get8d(bits,off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
-    return (long)(((double)(res+col_base(colnum)))/col_scale(colnum));
+    return (long)((res+col_base(colnum))/col_scale(colnum));
   }
+
 
   // Test if the value is valid, or was missing in the orginal dataset
   public boolean valid(long rownum, int colnum) throws IOException {
     int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
     long chknum = chunk_for_row(rownum,rpc);
     int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
-    int off = row_in_chunk * row_size();
     // Get the whole row.  Note that in structured arrays, no row splits a chunk.
-    byte[] bits = get(chknum).get(off+row_size());
-    int col_off = off+col_off(colnum);
-    switch( col_size(colnum) ) {
-    case  1:  return           bits[col_off] != -1;
-    case  2:  return UDP.get2 (bits,col_off) != 65535;
-    case  4:  return UDP.get4 (bits,col_off) != Integer.MIN_VALUE;
-    case  8:  return UDP.get8 (bits,col_off) !=    Long.MIN_VALUE;
-    case -4:  return ! Float.isNaN(UDP.get4f(bits,col_off));
-    case -8:  return !Double.isNaN(UDP.get8d(bits,col_off));
-    }
-    return false;
+    byte[] bits = get(chknum).get();
+    return valid(bits,row_in_chunk,row_size(),colnum);
+  }
+  public boolean valid(byte[] bits, int row_in_chunk, int row_size, int colnum ) {
+    return valid(bits,row_in_chunk,row_size,col_off(colnum),col_size(colnum));
   }
   // Test if the value is valid, or was missing in the orginal dataset
   // This is a version where all the loop-invariants are hoisted already.

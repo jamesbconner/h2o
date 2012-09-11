@@ -29,7 +29,9 @@ public class AppendKey extends Atomic {
       System.arraycopy(a._bits,0,buf,off,a._bits.length);  off += a._bits.length;
       return off;
     }
-    @Override public void write( AppendKey a, DataOutputStream dos ) throws IOException { dos.write(a._bits); }
+    @Override public void write( AppendKey a, DataOutputStream dos ) throws IOException { 
+      dos.write(a._bits);
+    }
     @Override public AppendKey read( byte[] buf, int off ) {
       byte[] bits = new byte[UDP.get4(buf,(off+=4)-4)];
       System.arraycopy(buf,off,bits,0,bits.length);

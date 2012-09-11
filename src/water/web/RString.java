@@ -5,11 +5,13 @@
 package water.web;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 
 import water.Key;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.gson.*;
 
 /**
  * List that has labels to it (something like copyable iterators) and some very
@@ -270,6 +272,24 @@ class RString {
   public void clear() {
     for( Placeholder p : _placeholders.values() ) {
       p.start.removeTill(p.end);
+    }
+  }
+
+  public void replace(JsonObject json) {
+    for(Entry<String, JsonElement> obj : json.entrySet()) {
+      JsonElement v = obj.getValue();
+      if( v.isJsonPrimitive() && ((JsonPrimitive)v).isString() ) {
+        replace(obj.getKey(), v.getAsString());
+      } else if( v.isJsonArray() ) {
+        for( JsonElement e : (JsonArray)v ) {
+          assert e instanceof JsonObject;
+          RString sub = restartGroup(obj.getKey());
+          sub.replace((JsonObject) e);
+          sub.append();
+        }
+      } else {
+        replace(obj.getKey(), v);
+      }
     }
   }
 

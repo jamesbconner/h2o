@@ -15,7 +15,7 @@ public class GetQuery extends H2OPage {
           + "</form> "
           ;
 
-  @Override protected String serve_impl(Properties args) {
+  @Override protected String serveImpl(Server server, Properties args) {
     return html;
   }
 }
