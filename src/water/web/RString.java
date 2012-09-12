@@ -293,8 +293,9 @@ class RString {
     }
   }
 
-  public void replace(String what, Key with) {
-    replace(what, H2OPage.encode(with));
+  public void replace(String what, Key key) {
+    replace(what + "Href", H2OPage.encode(key));
+    replace(what, key.user_allowed() ? key.toString() : "<code>"+key.toString()+"</code>");
   }
 
   // Replaces the given placeholder with an object. On a single placeholder,

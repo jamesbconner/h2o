@@ -35,8 +35,8 @@ public class RandomForestPage extends H2OPage {
     Key confKey = confusion.toKey();
 
     JsonObject res = new JsonObject();
+    addProperty(res, "confKey", confKey);
     res.addProperty("h2o",H2O.SELF.urlEncode());
-    res.addProperty("confKey",encode(confKey));
     res.addProperty("depth",depth);
     return res;
   }
@@ -49,5 +49,5 @@ public class RandomForestPage extends H2OPage {
     return response.toString();
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%confKey&depth=%depth\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%confKeyHref&depth=%depth\">\n";
 }

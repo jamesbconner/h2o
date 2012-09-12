@@ -4,15 +4,15 @@ import java.util.Properties;
 
 import water.*;
 
-/**
- *
- * @author cliffc@
- */
 public class Inspect extends H2OPage {
 
   public Inspect() {
     // No thanks on the refresh, it's hard to use.
     //_refresh = 5;
+  }
+
+  @Override public String[] requiredArguments() {
+    return new String[] { "Key" };
   }
 
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
@@ -32,9 +32,7 @@ public class Inspect extends H2OPage {
 
     formatKeyRow(key,val,response);
 
-    // Dump out the Key
-    response.replace("keyHref",key);
-    response.replace("key",ks);
+    response.replace("key",key);
 
     // ASCII file?  Give option to do a binary parse
     String p_keys = ks;
@@ -46,11 +44,12 @@ public class Inspect extends H2OPage {
 
     Key p_key = Key.make(p_keys);
     boolean missed = DKV.get(p_key) == null;
-    String s = html_parse.replace("%keyHref",encode(missed ? key : p_key));
-    s = s.replace("%parsekey",p_keys);
-    s = s.replace("%parsekey",p_keys);
-    s = s.replace("%pfunc", missed ? "Parse" : "Inspect" );
-    response.replace("parse",s);
+
+    RString r = new RString(html_parse);
+    r.replace("key", missed ? key : p_key);
+    r.replace("parseKey", p_key);
+    r.replace("pfunc", missed ? "Parse" : "Inspect");
+    response.replace("parse", r.toString());
 
     return response.toString();
   }
@@ -108,7 +107,7 @@ public class Inspect extends H2OPage {
     + "%parse";
 
   final static String html_parse =
-    "<a href='/%pfunc?Key=%keyHref&Key2=%parsekey'>Basic Text-File Parse into %parsekey</a>\n";
+    "<a href='/%pfunc?Key=%keyHref&Key2=%parseKeyHref'>Basic Text-File Parse into %parseKey</a>\n";
 
   // ---------------------
   // Structured Array / Dataset display
@@ -116,15 +115,12 @@ public class Inspect extends H2OPage {
   String structured_array( Key key, ValueArray ary ) {
     RString response = new RString(html_ary);
     // Pretty-print the key
-    response.replace("keyHref",key);
-    response.replace("key",key.toString());
+    response.replace("key",key);
+    response.replace("priorKey",ary.prior_key());
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
     response.replace("ncolumns",ary.num_cols());
-    Key pkey = ary.prior_key();
-    response.replace("priorkey",pkey.toString());
-    response.replace("priorkeyHref",pkey);
     response.replace("xform",ary.xform());
 
     // Header row
@@ -257,7 +253,7 @@ public class Inspect extends H2OPage {
 
   final static String html_ary =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
-    + "<p>Generated from <a href=/Inspect?Key=%priorkeyHref>%priorkey</a> by '%xform'<p>"
+    + "<p>Generated from <a href=/Inspect?Key=%priorKeyHref>%priorKey</a> by '%xform'<p>"
     + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
     + "Parsed %ncolumns columns<br>"
     + "<table class='table table-striped table-bordered table-condensed'>"

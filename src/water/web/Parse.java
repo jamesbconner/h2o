@@ -15,14 +15,13 @@ public class Parse extends H2OPage {
   @Override
   public JsonObject serverJson(Server s, Properties p) throws PageError {
     String k = p.getProperty("Key");
-    String rk = p.getProperty("Key2",UUID.randomUUID().toString());
+    String rk = p.getProperty("Key2", UUID.randomUUID().toString());
 
     Key key = decode(k);
-    Key resKey = Key.make(rk);
+    Key resKey = decode(rk);
 
     JsonObject res = new JsonObject();
-    res.addProperty("Key", encode(resKey));
-    res.addProperty("SKey", resKey.toString());
+    addProperty(res, "key", resKey);
 
     if( DKV.get(resKey) == null ) { // Key not parsed?  Parse it
       long start = System.currentTimeMillis();
@@ -41,12 +40,10 @@ public class Parse extends H2OPage {
   @Override protected String serveImpl(Server s, Properties p) throws PageError {
     JsonObject json = serverJson(s, p);
 
-    if( json.get("TimeMS").getAsInt() > 0 ) {
-      RString res = new RString("Parsed into <a href='/Inspect?Key=%Key'>%SKey</a> in %TimeMS msec");
-      res.replace(json);
-      return res.toString();
-    } else {
-      return "Already parsed into " + json.get("SKey");
-    }
+    RString res = json.get("TimeMS").getAsInt() > 0
+        ? new RString("Parsed into <a href='/Inspect?Key=%keyHref'>%key</a> in %TimeMS msec")
+        : new RString("Already parsed into <a href='/Inspect?Key=%keyHref'>%key</a>.");
+    res.replace(json);
+    return res.toString();
   }
 }

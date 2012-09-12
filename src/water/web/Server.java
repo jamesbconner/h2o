@@ -86,8 +86,6 @@ public class Server extends NanoHTTPD {
     // initialize pages
     registerPage(new Cloud(),"");
     registerPage(new Cloud(),"Cloud");
-    registerPage(new Append(),"Append");
-    registerPage(new AppendQuery(),"AppendQuery");
     registerPage(new Covariance(),"COV");
     registerPage(new Covariance(),"Covariance");
     registerPage(new Covariance(),"cor");
@@ -100,7 +98,6 @@ public class Server extends NanoHTTPD {
     registerPage(new ImportQuery(),"ImportQuery");
     registerPage(new ImportUrl(),"ImportUrl");
     registerPage(new Inspect(),"Inspect");
-    registerPage(new KeysView(),"KeysView");
     registerPage(new LinearRegression(),"LR");
     registerPage(new LinearRegression(),"LinearRegression");
     registerPage(new Network(), "Network");

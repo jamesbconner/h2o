@@ -27,6 +27,10 @@ public class RFTreeView extends H2OPage {
     DOT_PATH = f.exists() ? f.getAbsolutePath() : null;
   }
 
+  @Override public String[] requiredArguments() {
+    return new String[] { "Key", "origKey" };
+  }
+
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
     Key key = ServletUtil.check_key(args,"Key");
     ValueArray va = ServletUtil.check_array(args, "origKey");

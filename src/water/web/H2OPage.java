@@ -2,6 +2,8 @@ package water.web;
 
 import java.util.Properties;
 
+import com.google.gson.JsonObject;
+
 import water.Key;
 
 /** H2O branded web page.
@@ -56,7 +58,6 @@ public abstract class H2OPage extends Page {
     + "              <li><a href=\"/StoreView\">Node</a></li>"
     + "              <li><a href=\"/GetQuery\">Get</a></li>"
     + "              <li><a href=\"/Put\">Put</a></li>"
-    + "              <li><a href=\"/AppendQuery\">Append</a></li>"
     + "              <li><a href=\"/Timeline\">Timeline</a></li>"
     + "              <li><a href=\"/ImportQuery\">Import</a></li>"
     + "              <li><a href=\"/DebugView\">Debug View</a></li>"
@@ -148,6 +149,11 @@ public abstract class H2OPage extends Page {
     }
     System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
     return Key.make(res);
+  }
+
+  public static void addProperty(JsonObject json, String k, Key key) {
+    json.addProperty(k, key.toString());
+    json.addProperty(k + "Href", encode(key));
   }
 
   public static String wrap(String what) {

@@ -97,10 +97,10 @@ public class RandomForest {
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
     int ntrees = ARGS.ntrees;
+    DRF.sample=true;
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate,  ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY, true/*singlethreaded*/);
     Key[] keys = drf._treeskey.flatten(); 
     assert keys.length == ntrees; // Since used blocking invoke, all Trees are available
-   
    // if( drf._validation != null ) {
       RandomForest vrf = new RandomForest(drf, drf._validation, ntrees, -1, 0.0, drf._stat,true/*blocking*/);
       for(int i=0;i<keys.length;i++) // Fill in the trees into the validating RF

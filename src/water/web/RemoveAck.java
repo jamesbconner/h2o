@@ -9,8 +9,7 @@ public class RemoveAck extends H2OPage {
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
     Key key = ServletUtil.check_key(args,"Key");
     RString response = new RString(html);
-    response.replace("key",key.toString());
-    response.replace("keyHref",key);
+    response.replace("key",key);
     return response.toString();
   }
 

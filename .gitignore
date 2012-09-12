@@ -1,5 +1,6 @@
 *.class
 *~
+*.swp
 binlib
 build
 h2o_work.xml

@@ -33,8 +33,8 @@ class H2O:
             params={"Key": key}))
 
     def stabilize(self, msg, timeout, func):
-        start = time.clock()
-        while time.clock() - start < timeout:
+        start = time.time()
+        while time.time() - start < timeout:
             if func(self):
                 break
             time.sleep(0.1)
@@ -51,25 +51,27 @@ class H2O:
                 return False
             raise
 
-    def __init__(self, addr, port):
+    def __init__(self, addr, port, spawn=True):
         self.port = port;
         self.addr = addr
-        self.proc = asyncproc.Process(["java", "-ea", "-jar", "../build/h2o.jar",
-                "--port=%d"%self.port,
-                '--ip=%s'%self.addr,
-                '--nosigar',
-        ])
-
-        try:
+        if not spawn:
             self.stabilize('h2o started', 2, self.__is_alive)
-        except:
-            self.proc.terminate()
-            raise
+        else:
+            self.proc = asyncproc.Process(["java", "-ea", "-jar", "../build/h2o.jar",
+                    "--port=%d"%self.port,
+                    '--ip=%s'%self.addr,
+                    '--nosigar',
+            ])
+            try:
+                self.stabilize('h2o started', 2, self.__is_alive)
+            except:
+                self.proc.terminate()
+                raise
 
-        while self.wait() is None:
-            if self.read().find('HTTP listening') != -1: break
-        if self.wait() is not None:
-            raise Exception('Failed to launch with exit code: %d' % self.proc.wait())
+            while self.wait() is None:
+                if self.read().find('HTTP listening') != -1: break
+            if self.wait() is not None:
+                raise Exception('Failed to launch with exit code: %d' % self.proc.wait())
 
     def read(self):
         return self.proc.read()

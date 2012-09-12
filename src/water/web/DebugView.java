@@ -1,8 +1,10 @@
 package water.web;
 
-import java.util.Arrays;
 import java.util.Properties;
-import water.*;
+
+import water.H2O;
+import water.Key;
+import water.Value;
 
 public class DebugView extends H2OPage {
 
@@ -21,16 +23,16 @@ public class DebugView extends H2OPage {
     } catch( NumberFormatException e ) { /* pass */ }
     // write the response
     H2O cloud = H2O.CLOUD;         // Current eldest Cloud
-    Object[] keys = H2O.keySet().toArray();
+    Key[] keys = H2O.keySet().toArray(new Key[0]);
     int lastIndex = keys.length;
     // get only the prefixed ones
     String prefix = args.getProperty("Prefix","");
     if (!prefix.isEmpty()) {
       int i = 0;
       for (int j = 0; j< keys.length; ++j) {
-        if (((Key)keys[j]).toString().startsWith(prefix)) {
+        if (keys[j].toString().startsWith(prefix)) {
           if (i!=j) {
-            Object s = keys[i];
+            Key s = keys[i];
             keys[i] = keys[j];
             keys[j] = s;
           }
@@ -42,9 +44,8 @@ public class DebugView extends H2OPage {
     formatPagination(offset,lastIndex,response);
     offset *= KEYS_PER_PAGE;
     int i = 0;
-    for( Object o : keys ) {
+    for( Key key : keys ) {
       if (i>=lastIndex) break;
-      Key key = (Key)o;
       // skip keys at the beginning
       if (offset>0) {
         --offset;
@@ -98,9 +99,8 @@ public class DebugView extends H2OPage {
   private void formatKeyRow(H2O cloud, Key key, Value val, RString response) {
     RString row = response.restartGroup("tableRow");
     // Dump out the Key
-    String ks = key.toString();
-    row.replace("key",key.user_allowed() ? ks : "<code>"+ks+"</code>");
-    row.replace("keyHref",key);
+    row.replace("key",key);
+
     // Dump out the current replication info: Mem/Disk/Replication_desired
     int r = key.desired();
     int repl = key.replica(cloud);
@@ -145,7 +145,9 @@ public class DebugView extends H2OPage {
           + "<tbody>"
           + "%tableRow{"
           + "  <tr>"
-          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a></td>"
+          + "    <td><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'>"
+          + "<button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;"
+          + "<a href='/Inspect?Key=%keyHref'>%key</a></td>"
           + "    <td style='%replicationStyle'>%r1/%r2</td>"
           + "    <td>%home</td>"
           + "    <td>%home2</td>"
