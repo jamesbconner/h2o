@@ -79,7 +79,7 @@ public class Data implements Iterable<Row> {
   public  String[] columnNames()  { return data_.columnNames(); }
   public  String classColumnName(){ return data_.classColumnName(); } 
   public String name() { return data_.name(); }   
-  public int last(int column) { return data_.c_[column].o2v2.size();}
+  public int last(int column) { return data_.c_[column].o2v_.size();}
      // o2v_.size(); }
   
 
