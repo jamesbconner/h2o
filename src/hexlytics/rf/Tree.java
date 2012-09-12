@@ -320,7 +320,8 @@ public class Tree extends CountedCompleter {
       bs.set2(_column);
       bs.set4f(split_value());
       int skip = _l.size(); // Drop down the amount to skip over the left column
-      if( skip <= 254 ) bs.set1(skip); else bs.set4(skip);
+      if( skip <= 254 ) bs.set1(skip);
+      else { bs.set1(0); bs.set3(skip); }
       _l.write(bs);
       _r.write(bs);
     }
