@@ -82,7 +82,6 @@ public abstract class PersistNFS {
   }
 
   static void file_delete(Value v) {
-    assert v._mem == null;      // Upper layers already cleared out
     assert !v.is_persisted();   // Upper layers already cleared out
     File f = getFileForKey(v._key);
     f.delete();

@@ -55,6 +55,7 @@ public class DRF extends water.DRemoteTask {
     drf._arykey = ary._key;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._singlethreaded = singlethreaded;
+    Tree.THREADED = !singlethreaded;
     DKV.put(drf._treeskey, new Value(drf._treeskey,4/*4 bytes for the key-count, which is zero*/));
     if( singlethreaded ) drf.invoke(ary._key);
     else                 drf.fork  (ary._key);

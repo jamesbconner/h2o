@@ -10,6 +10,10 @@ import jsr166y.RecursiveTask;
 import water.*;
 
 public class Tree extends CountedCompleter {
+
+  static  boolean THREADED = false;  // multi-threaded ?
+
+  
   ThreadLocal<BaseStatistic>[] stats_;
   static public enum StatType { ENTROPY, NEW_ENTROPY, GINI };
   final StatType _type;         // Flavor of split logic
@@ -116,7 +120,6 @@ public class Tree extends CountedCompleter {
 
   private class FJEntropyBuild extends RecursiveTask<INode> {
 
-    static final boolean THREADED = false;  // multi-threaded ?
 
     Statistic _s;         // All the rows that this split munged over
     Data _data;           // The resulting 1/2-sized dataset from the above split
@@ -169,9 +172,15 @@ public class Tree extends CountedCompleter {
       if (ls.isLeafNode())  nd._l = new LeafNode(ls.split);      // create leaf nodes if any
       if (rs.isLeafNode())  nd._r = new LeafNode(rs.split);
       if ((nd._l == null) && (nd._r == null)) {   // calculate the missing subnodes as new FJ tasks, join if necessary
-        ForkJoinTask<INode> fj0 = new FJBuild(ls,res[0],depth_+1).fork();
+        ForkJoinTask<INode> fj0 = null;              
+        if (THREADED) {
+          fj0 = new FJBuild(ls,res[0],depth_+1).fork();
+        } else {
+         nd._l = new FJBuild(ls,res[0],depth_+1).compute();
+        }
         nd._r = new FJBuild(rs,res[1],depth_+1).compute();
-        nd._l = fj0.join();
+        if (THREADED) 
+          nd._l = fj0.join();
       } else if (nd._l == null)   nd._l = new FJBuild(ls,res[0],depth_+1).compute();
       else if (nd._r == null)     nd._r = new FJBuild(rs,res[1],depth_+1).compute();
       return nd;
