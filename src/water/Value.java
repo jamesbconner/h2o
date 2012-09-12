@@ -15,7 +15,7 @@ import water.nbhm.UtilUnsafe;
  * @version 1.0
  */
 public class Value {
-  
+
   // ---
   // Values are wads of bits; known small enough to 'chunk' politely on disk,
   // or fit in a Java heap (larger Values are built via arraylets) but (much)
@@ -73,10 +73,10 @@ public class Value {
   private static final long _mem_offset;
   static {                      // <clinit>
     Field f1=null;
-    try { 
+    try {
       f1 = Value.class.getDeclaredField("_mem");
     } catch( java.lang.NoSuchFieldException e ) { System.err.println("Can't happen");
-    } 
+    }
     _mem_offset = _unsafe.objectFieldOffset(f1);
   }
 
@@ -89,9 +89,10 @@ public class Value {
   final public void free_mem( ) { CAS_mem(_mem,null); }
   // CAS in a larger byte[], returning the current one when done.
   final byte[] CAS_mem_if_larger( byte[] nnn ) {
+    if( nnn == null ) return _mem;
     while( true ) {
       byte[] b = _mem;          // Read it again
-      if( b != null && (nnn==null || b.length >= nnn.length) )
+      if( b != null && b.length >= nnn.length )
         return b;
       if( CAS_mem(b,nnn) )
         return nnn;
@@ -138,7 +139,7 @@ public class Value {
   // A - Array Head; types as a ValueArray.
   public static final byte VALUE = (byte)'V';
   public static final byte ARRAY = (byte)'A';
-  
+
   public byte type() { return VALUE; }
 
   protected boolean getString_impl( int len, StringBuilder sb ) {
@@ -150,7 +151,7 @@ public class Value {
   // ---
   // Interface for using the persistence layer(s).
   // Store complete Values to disk
-  void store_persist() { 
+  void store_persist() {
     if( is_persisted() ) return;
     switch( _persist&BACKEND_MASK ) {
     case ICE : PersistIce .file_store(this); break;
@@ -161,7 +162,8 @@ public class Value {
   }
   // Remove dead Values from disk
   void remove_persist() {
-    free_mem();                 // Eagerly yank memory
+    // do not yank memory, as we could have a racing get hold on to this
+    //  free_mem();
     if( !is_persisted() ) return; // Never hit disk?
     clrdsk();                   // Not persisted now
     switch( _persist&BACKEND_MASK ) {
@@ -172,7 +174,7 @@ public class Value {
     }
   }
   // Load some or all of completely persisted Values
-  byte[] load_persist(int len) { 
+  byte[] load_persist(int len) {
     assert is_persisted();
     switch( _persist&BACKEND_MASK ) {
     case ICE : return PersistIce .file_load(this,len);
@@ -227,7 +229,7 @@ public class Value {
   public UUID arraylet_uuid() {
     return new UUID(UDP.get8(_key._kb,18),UDP.get8(_key._kb,10));
   }
-  
+
   // --------------------------------------------------------------------------
   // Set just the initial fields
   public Value(int max, int length, Key k, byte be ) {
@@ -240,12 +242,12 @@ public class Value {
     byte p = (byte)(be&BACKEND_MASK);
     _persist = (p==ICE) ? p : be;
   }
-  
+
   public Value(Key key, int max) {
     this(max,max,key,ICE);
   }
 
-  public Value( Key key, String s ) { 
+  public Value( Key key, String s ) {
     this(key,s.length());
     System.arraycopy(s.getBytes(),0,_mem,0,_mem.length);
   }
@@ -326,7 +328,7 @@ public class Value {
     }
     assert off < MultiCast.MTU;
     return off;
-  } 
+  }
 
   // Write up to len bytes of Value to the Stream
   final void write( DataOutputStream dos, int len ) throws IOException {
@@ -350,7 +352,7 @@ public class Value {
       throw new Error("Unable to construct value of type "+(char)(type)+"(0x"+Integer.toHexString(0xff & type)+" (key "+key.toString()+")");
     }
   }
-  
+
   // Read 1+1+4+4+len+vc value bytes from the the UDP packet and into a new Value.
   static Value read( byte[] buf, int off, Key key ) {
     byte type = buf[off++];
@@ -405,17 +407,38 @@ public class Value {
     if( len < _max ) sb.append("...");
     return sb.toString();
   }
-  
-  /** Returns a stream that can read the value. 
-   * @return 
+
+  /** Returns a stream that can read the value.
+   * @return
    */
   public InputStream openStream() throws IOException {
     return (chunks() <= 1)
       ? new ByteArrayInputStream(DKV.get(_key).get())
       : new ArrayletInputStream(this);
   }
-  
+
   public long length() { return _max<0?0:_max; }
+
+
+  public boolean onHDFS(){
+    return (_persist & BACKEND_MASK) == HDFS;
+  }
+  // atomicaly set the backend to hdfs and persist state to not persisted
+  // and than remove the old stored value (if any)
+  //
+  public void switch2HdfsBackend(boolean persisted){
+    byte oldPersist = _persist;
+    if(persisted)_persist = HDFS|ON_dsk; else _persist = HDFS;
+    if((oldPersist & ON_dsk) > 0)
+      switch( oldPersist&BACKEND_MASK ) {
+      case ICE : PersistIce .file_delete(this); break;
+      case HDFS: assert(false); PersistHdfs.file_delete(this); break;
+      case NFS : PersistNFS .file_delete(this); break;
+      default  : throw new Error("unimplemented");
+      }
+    _key.invalidate_remote_caches();
+  }
+
 }
 
 
@@ -433,17 +456,17 @@ class ArrayletInputStream extends InputStream {
     _arraylet = (ValueArray)v;
     _mem = _arraylet.get(_chunkIndex++).get();
   }
-  
+
   @Override public int available() {
     return _mem.length-_offset;
   }
-  
+
   @Override public void close() {
     _chunkIndex = _arraylet.chunks();
     _mem = new byte[0];
     _offset = _mem.length;
   }
-  
+
   @Override public int read() throws IOException {
     if( available() == 0 ) {    // None available?
       if( _chunkIndex >= _arraylet.chunks() ) return -1;
@@ -453,7 +476,7 @@ class ArrayletInputStream extends InputStream {
     }
     return _mem[_offset++] & 0xFF;
   }
-  
+
   @Override public int read(byte[] b, int off, int len) throws IOException {
     int rc = 0;
     while( len>0 ) {
@@ -468,4 +491,5 @@ class ArrayletInputStream extends InputStream {
     }
     return rc == 0 ? -1 : rc;
   }
+
 }

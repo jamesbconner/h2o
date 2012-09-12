@@ -48,7 +48,7 @@ public abstract class PersistIce {
 
   // the filename can be either byte encoded if it starts with % followed by
   // a number, or is a normal key name with special characters encoded in
-  // special ways. 
+  // special ways.
   // It is questionable whether we need this because the only keys we have on
   // ice are likely to be arraylet chunks
   private static final Key decodeKey(File f) {
@@ -91,7 +91,7 @@ public abstract class PersistIce {
     // now in kb we have the key name
     return Key.make(kb,decodeReplication(f));
   }
-  
+
   private static byte decodeReplication(File f) {
     String ext = f.getName();
     ext = ext.substring(ext.lastIndexOf('.')+1);
@@ -102,13 +102,13 @@ public abstract class PersistIce {
       return 0; // unreachable
     }
   }
-  
+
   private static byte decodeType(File f) {
     String ext = f.getName();
     ext = ext.substring(ext.lastIndexOf('.')+1);
     return (byte)ext.charAt(0);
   }
-  
+
   private static File encodeKeyToFile(Value v) {
     return encodeKeyToFile(v._key,v.type());
   }
@@ -147,7 +147,7 @@ public abstract class PersistIce {
     sb.append(k.desired());
     return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
   }
-  
+
   private static String getDirectoryForKey(Key key) {
     if( key._kb[0] != Key.ARRAYLET_CHUNK )
       return "not_an_arraylet";
@@ -194,7 +194,7 @@ public abstract class PersistIce {
       // Nuke any prior file.
       OutputStream s = new FileOutputStream(encodeKeyToFile(v));
       try {
-        byte[] m = v._mem; // we are not single threaded anymore 
+        byte[] m = v._mem; // we are not single threaded anymore
         assert (m == null || m.length == v._max); // Assert not saving partial files
         if( m!=null )
           s.write(m);
@@ -205,9 +205,8 @@ public abstract class PersistIce {
     } catch( IOException e ) {
     }
   }
-  
+
   static void file_delete(Value v) {
-    assert v._mem == null;      // Upper layers already cleared out
     assert !v.is_persisted();   // Upper layers already cleared out
     File f = encodeKeyToFile(v);
     f.delete();

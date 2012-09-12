@@ -1,17 +1,13 @@
 package water.web;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
+
 import water.*;
 
-/**
- *
- * @author peta
- */
 public class ImportFolder extends H2OPage {
-  
+
   int importFile(File f, byte rf, int num, RString response) {
     if( f.isDirectory() ) {
       for( File f2 : f.listFiles() )
@@ -32,14 +28,13 @@ public class ImportFolder extends H2OPage {
     row.append();
     return num+1;
   }
-  
+
   @Override protected String serveImpl(Server server, Properties args) {
     String folder = args.getProperty("Folder");
     int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
     if ((rf<0) || (rf>127))
       return error("Replication factor must be from 0 to 127.");
-    boolean recursive = args.getProperty("R","off").equals("on");
-    
+
     int num = 0;
     RString response = new RString(html);
     try {
@@ -54,11 +49,11 @@ public class ImportFolder extends H2OPage {
     response.replace("num",num);
     return response.toString();
   }
-  
+
   @Override public String[] requiredArguments() {
     return new String[] { "Folder" };
   }
-  
+
   private static final String html =
     "<p>Imported %num files in total:"
     + "%entry{ %contents }"

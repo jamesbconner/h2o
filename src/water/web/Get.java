@@ -1,43 +1,36 @@
 package water.web;
 import java.io.IOException;
 import java.util.Properties;
-import water.DKV;
-import water.Key;
-import water.NanoHTTPD.Response;
-import water.NanoHTTPD;
-import water.Value;
 
-/**
- *
- * @author peta
- */
+import water.*;
+import water.NanoHTTPD.Response;
+
 public class Get extends Page {
 
   @Override public Object serve(Server server, Properties args) {
-    String key_s = args.getProperty("Key");
-    Key key = null;
-    try { 
-      key = Key.make(key_s);      // Get a Key from a raw byte array, if any
-    } catch( IllegalArgumentException e ) {
-      return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
-    }
-    if (!key.user_allowed())
-      return H2OPage.wrap(H2OPage.error("Not a user key: "+ key.toString()));    
-    // Distributed get
-    Value val = DKV.get(key);
-
-    if( val == null )
-      return H2OPage.wrap(H2OPage.error("Key not found: "+ key_s));
-    // HTML file save of Value
     try {
+      String skey = args.getProperty("Key");
+      Key key = Key.make(skey);
+      if (!key.user_allowed()) throw new PageError("Not a user key: " + key);
+      Value val = DKV.get(key);
+      if( val == null ) {
+        key = H2OPage.decode(skey);
+        val = DKV.get(key);
+      }
+      if( val == null ) throw new PageError("Key not found: " + key);
+      // HTML file save of Value
       Response res = server.new Response(NanoHTTPD.HTTP_OK,NanoHTTPD.MIME_DEFAULT_BINARY,val.openStream());
-      res.addHeader( "Content-Length", Long.toString(val.length()));
+      res.addHeader("Content-Length", Long.toString(val.length()));
+      res.addHeader("Content-Disposition", "attachment; filename="+key.toString());
+
       return res;
     } catch( IOException ex ) {
       return H2OPage.wrap(H2OPage.error(ex.toString()));
+    } catch( PageError e ) {
+      return H2OPage.wrap(H2OPage.error(e._msg));
     }
   }
-  
+
   @Override public String[] requiredArguments() {
     return new String[] { "Key" };
   }

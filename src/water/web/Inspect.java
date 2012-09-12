@@ -4,10 +4,6 @@ import java.util.Properties;
 
 import water.*;
 
-/**
- *
- * @author cliffc@
- */
 public class Inspect extends H2OPage {
 
   public Inspect() {
@@ -15,20 +11,18 @@ public class Inspect extends H2OPage {
     //_refresh = 5;
   }
 
-  @Override protected String serveImpl(Server server, Properties args) {
-    String key_s = args.getProperty("Key");
-    if( key_s == null ) return wrap(error("Missing Key argument"));
+  @Override public String[] requiredArguments() {
+    return new String[] { "Key" };
+  }
 
-    Key key = null;
-    try {
-      key = decode(key_s);
-    } catch( IllegalArgumentException e ) {
-      return H2OPage.wrap(H2OPage.error("Not a valid key: "+ key_s));
-    }
+  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+    Key key = ServletUtil.check_key(args,"Key");
+    String ks = key.toString();
+
     // Distributed get
     Value val = DKV.get(key);
     if( val == null )
-      return H2OPage.wrap(H2OPage.error("Key not found: "+ key_s));
+      return wrap(error("Key not found: "+ ks));
 
     if( val instanceof ValueArray &&
         ((ValueArray)val).num_cols() > 0 )
@@ -38,31 +32,28 @@ public class Inspect extends H2OPage {
 
     formatKeyRow(key,val,response);
 
-    // Dump out the Key
-    String ks = key.toString();
-    response.replace("keyHref",key);
-    response.replace("key",ks);
+    response.replace("key",key);
 
     // ASCII file?  Give option to do a binary parse
-    if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 ) {
-      String p_key = key_s;
-      int idx = key_s.lastIndexOf('.');
-      if( idx != -1 )
-        p_key = key_s.substring(0,idx);
-      p_key += ".hex";
-      if( p_key.equals(key_s) ) p_key += "2";
-      String s;
-      if( DKV.get(Key.make(p_key)) == null ) {
-        s = html_parse.replace("%keyHref",encode(key));
-        s = s.replace("%parsekey",p_key);
-        s = s.replace("%pfunc","Parse");
-      } else {
-        s = html_parse.replace("%keyHref",encode(key));
-        s = s.replace("%parsekey","");
-        s = s.replace("%pfunc","Inspect");
-      }
-      response.replace("parse",s);
-    }
+    String p_keys = ks;
+    int idx = ks.lastIndexOf('.');
+    if( idx != -1 )
+      p_keys = ks.substring(0,idx);
+    p_keys += ".hex";
+    if(p_keys.startsWith("hdfs://"))
+      p_keys = p_keys.substring(7);
+    else if (p_keys.startsWith("nfs:"))
+      p_keys = p_keys.substring(4);
+    if( p_keys.equals(ks) ) p_keys += "2";
+
+    Key p_key = Key.make(p_keys);
+    boolean missed = DKV.get(p_key) == null;
+
+    RString r = new RString(html_parse);
+    r.replace("key", missed ? key : p_key);
+    r.replace("parseKey", p_key);
+    r.replace("pfunc", missed ? "Parse" : "Inspect");
+    response.replace("parse", r.toString());
 
     return response.toString();
   }
@@ -120,7 +111,7 @@ public class Inspect extends H2OPage {
     + "%parse";
 
   final static String html_parse =
-    "<a href='/%pfunc?Key=%keyHref&Key2=%parsekey'>Basic Text-File Parse into %parsekey</a>\n";
+    "<a href='/%pfunc?Key=%keyHref&Key2=%parseKeyHref'>Basic Text-File Parse into %parseKey</a>\n";
 
   // ---------------------
   // Structured Array / Dataset display
@@ -128,16 +119,12 @@ public class Inspect extends H2OPage {
   String structured_array( Key key, ValueArray ary ) {
     RString response = new RString(html_ary);
     // Pretty-print the key
-    String ks = key.toString();
-    response.replace("keyHref",key);
-    response.replace("key",ks);
+    response.replace("key",key);
+    response.replace("priorKey",ary.prior_key());
     response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
     response.replace("rowsize",ary.row_size());
     response.replace("ncolumns",ary.num_cols());
-    Key pkey = ary.prior_key();
-    response.replace("priorkey",pkey);
-    response.replace("priorkeyHref",pkey);
     response.replace("xform",ary.xform());
 
     // Header row
@@ -243,18 +230,22 @@ public class Inspect extends H2OPage {
       StringBuilder sb = new StringBuilder();
       sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
       for( int i=0; i<num_col; i++ ) {
-        sb.append("<td>");
-        int sz = ary.col_size(i);
-        if( sz != 0 ) {
-          if( r == -1 ) sb.append("...");
-          else {
-            if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
-              sb.append(ary.data (r,i)); // int/long
-            else
-              sb.append(ary.datad(r,i)); // float/double
+        if( r == -1 || ary.valid(r,i) ) {
+          sb.append("<td>");
+          int sz = ary.col_size(i);
+          if( sz != 0 ) {
+            if( r == -1 ) sb.append("...");
+            else {
+              if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
+                sb.append(ary.data (r,i)); // int/long
+              else
+                sb.append(ary.datad(r,i)); // float/double
+            }
           }
+          sb.append("</td>");
+        } else {
+          sb.append("<td style='background-color:IndianRed'>NA</td>");
         }
-        sb.append("</td>");
       }
       row.replace("data_row",sb);
     } catch( IOException e ) {
@@ -266,7 +257,7 @@ public class Inspect extends H2OPage {
 
   final static String html_ary =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
-    + "<p>Generated from <a href=/Inspect?Key=%priorkeyHref>%priorkey</a> by '%xform'<p>"
+    + "<p>Generated from <a href=/Inspect?Key=%priorKeyHref>%priorKey</a> by '%xform'<p>"
     + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
     + "Parsed %ncolumns columns<br>"
     + "<table class='table table-striped table-bordered table-condensed'>"

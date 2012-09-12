@@ -67,7 +67,7 @@ public class ValueArray extends Value {
   // @param k - key of arraylet chunk
   // @param index - the requested chunk number
   // @return - Key of the chunk with offset == index
-  public static Key getChunk(Key k, int index) {
+  public static Key getChunk(Key k, long index) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
     byte[] arr = k._kb.clone();
     long n = ((long) index) << ValueArray.LOG_CHK;
@@ -400,11 +400,11 @@ public class ValueArray extends Value {
   public int    col_badat(int cnum) { return UDP.get2 (get(),col(cnum)+BADAT_COL_OFF)&0xFFFF; }
 
   // Row# when offset from chunk start
-  private final int row_in_chunk(long row, int rpc, long chknum) {
+  public final int row_in_chunk(long row, int rpc, long chknum) {
     long rows = chknum*rpc; // Number of rows so far; row-start in this chunk
     return (int)(row - rows);
   }
-  private final long chunk_for_row( long row, int rpc ) {
+  public final long chunk_for_row( long row, int rpc ) {
     long chknum = row/rpc;
     if( chknum > 0 && chknum == chunks() ) chknum--; // Last chunk is large
     return chknum;

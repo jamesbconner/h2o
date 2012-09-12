@@ -1,5 +1,6 @@
 *.class
 *~
+*.swp
 binlib
 build
 h2o_work.xml
@@ -10,3 +11,4 @@ po.*
 *.pyc
 **/sandbox/**
 bin/
+**hs_err_pid**

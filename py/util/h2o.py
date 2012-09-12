@@ -1,5 +1,5 @@
 import requests
-import time, os, json
+import time, os, json, signal
 import asyncproc
 
 class H2O:
@@ -7,6 +7,7 @@ class H2O:
         return 'http://%s:%d/%s' % (self.addr, self.port, loc)
 
     def __check(self, r):
+        asyncproc.log_command('Sent ' + r.url)
         if not r:
             import inspect
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
@@ -32,10 +33,11 @@ class H2O:
             params={"Key": key}))
 
     def stabilize(self, msg, timeout, func):
-        start = time.clock()
-        while time.clock() - start < timeout:
+        start = time.time()
+        while time.time() - start < timeout:
             if func(self):
                 break
+            time.sleep(0.1)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
 
@@ -45,26 +47,40 @@ class H2O:
             self.get_cloud()
             return True
         except requests.ConnectionError, e:
-            if e.args[0].errno == 61:
+            if e.args[0].errno == 61 or e.args[0].errno == 111:
                 return False
             raise
 
-    def __init__(self, port):
+    def __init__(self, addr, port, spawn=True):
         self.port = port;
-        self.addr = 'localhost'
-        self.proc = asyncproc.Process(["java", "-ea", "-jar", "../build/h2o.jar", "--port=%d"%port])
-
-        try:
+        self.addr = addr
+        if not spawn:
             self.stabilize('h2o started', 2, self.__is_alive)
-        except:
-            self.proc.terminate()
-            raise
+        else:
+            self.proc = asyncproc.Process(["java", "-ea", "-jar", "../build/h2o.jar",
+                    "--port=%d"%self.port,
+                    '--ip=%s'%self.addr,
+                    '--nosigar',
+            ])
+            try:
+                self.stabilize('h2o started', 2, self.__is_alive)
+            except:
+                self.proc.terminate()
+                raise
 
-        if self.proc.wait(os.WNOHANG) is not None:
-            raise Exception('Failed to launch with exit code: ' + self.proc.wait())
+            while self.wait() is None:
+                if self.read().find('HTTP listening') != -1: break
+            if self.wait() is not None:
+                raise Exception('Failed to launch with exit code: %d' % self.proc.wait())
 
     def read(self):
-        self.proc.read()
+        return self.proc.read()
+
+    def stack_dump(self):
+        self.proc.kill(signal.SIGQUIT)
+    
+    def wait(self):
+        return self.proc.wait(os.WNOHANG)
 
     def terminate(self):
-        self.proc.terminate()
+        return self.proc.terminate()

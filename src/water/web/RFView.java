@@ -34,10 +34,11 @@ public class RFView extends H2OPage {
     }
 
     JsonObject res = new JsonObject();
-    res.addProperty("origKey",encode(confusion._ary._key));
+    addProperty(res, "origKey", confusion._ary._key);
     res.addProperty("got",ntrees);
     res.addProperty("valid",confusion._ntrees);
-    res.addProperty("maxtrees",confusion._maxtrees);
+    res.addProperty("computedTrees",confusion._tkeys.length);
+    res.addProperty("maxTrees",confusion._maxtrees);
     res.addProperty("maxdepth",depth);
     res.addProperty( "depth",(double)tdepth/ntrees);
     res.addProperty("leaves",(double)tleavs/ntrees);
@@ -103,7 +104,8 @@ public class RFView extends H2OPage {
     // Get the Tree keys
     Key treekeys[] = confusion._treeskey.flatten();
     final int ntrees = treekeys.length;
-    response.replace("origKey",confusion._ary._key);
+    response.replace("origKeyHref",confusion._ary._key);
+    response.replace("origKey",confusion._ary._key.toString());
     response.replace("got",ntrees);
     response.replace("valid",confusion._ntrees);
     response.replace("maxtrees",confusion._maxtrees);
@@ -124,8 +126,8 @@ public class RFView extends H2OPage {
     int limkeys = Math.min(ntrees,100);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("TtableRow");
-      trow.replace("treekey_u",encode(treekeys[i]));
-      trow.replace("treekey_s",treekeys[i]);
+      trow.replace("treeKey",treekeys[i]);
+      trow.replace("torigKey",confusion._ary._key);
       trow.append();
     }
 
@@ -134,7 +136,7 @@ public class RFView extends H2OPage {
 
   // use a function instead of a constant so that a debugger can live swap it
   private String html() {
-    return "\nRandom Forest of %origKey\n<p>"
+    return "\nRandom Forest of <a href='Inspect?Key=%origKeyHref'>%origKey</a>\n<p>"
       +"Validated %valid trees of %got computed of %maxtrees total trees, depth limit of %maxdepth\n<p>"
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
@@ -149,7 +151,7 @@ public class RFView extends H2OPage {
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<tbody>\n"
       + "%TtableRow{\n"
-      + "  <tr><td><a href='/Inspect?Key=%treekey_u'>%treekey_s</a></tr>\n"
+      + "  <tr><td><a href='/RFTreeView?Key=%treeKeyHref&origKey=%torigKeyHref'>%treeKey</a></tr>\n"
       + "}\n"
       + "</tbody>\n"
       + "</table>\n"

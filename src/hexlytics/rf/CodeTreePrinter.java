@@ -63,4 +63,30 @@ public class CodeTreePrinter extends TreePrinter {
     t._r.print(this);
     _dest.decrementIndent();
   }
+
+  public void walk_serialized_tree( byte[] tbits ) {
+    try {
+      _dest.append("int classify(float fs[]) {\n");
+      _dest.incrementIndent();
+      new Tree.TreeVisitor<IOException>(tbits) {
+        Tree.TreeVisitor leaf(int tclass ) throws IOException {
+          _dest.append(String.format("return %d;\n",tclass));
+          return this;
+        }
+        Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException { 
+          _dest.append(String.format("if( fs[%s] <= %f ) \n",_columnNames[col],fcmp)).incrementIndent();
+          return this;
+        }
+        Tree.TreeVisitor mid (int col, float fcmp ) throws IOException {
+          _dest.decrementIndent().append("else\n").incrementIndent();
+          return this;
+        }
+        Tree.TreeVisitor post(int col, float fcmp ) throws IOException {
+          _dest.decrementIndent();
+          return this;
+        }
+      }.visit();
+      _dest.decrementIndent().append("}").flush();
+    } catch( IOException e ) { throw new Error(e); }
+  }
 }
