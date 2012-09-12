@@ -10,12 +10,10 @@ def addNode():
     global nodes
 
     # Hackery: find the ip address that gets you to Google's DNS
-    # Trickiness because you might have multiple IP addresses (Virtualbox)
-    # Should work on both Unix and Windows, for finding IP, and if multiple IPs
-    # will fail if local proxy though.
-    # Maybe update to just connect to our local DNS? DNS uses port 53
-    # Going to google won't work if you're behind a NAT? (home router?)
-    # so what if you're not at 0xdata? Try it, but just use ifconfig result.
+    # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
+    # Will fail if local proxy? we don't have one.
+    # Watch out to see if there are NAT issues here (home router?)
+    # Could parse ifconfig, but would need something else on windows
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(('8.8.8.8', 0))
     ipaddr = s.getsockname()[0]
