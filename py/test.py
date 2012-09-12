@@ -4,7 +4,7 @@ import util.asyncproc as proc
 
 def addNode():
     global nodes
-    h = h2o.H2O('192.168.1.17', 54321 + len(nodes)*3)
+    h = h2o.H2O('192.168.1.12', 54321 + len(nodes)*3)
     nodes.append(h)
 
 class Basic(unittest.TestCase):
@@ -50,10 +50,10 @@ class Basic(unittest.TestCase):
     def testRF(self):
         n = nodes[0]
         put = n.put_file('../smalldata/iris/iris2.csv')
-        parse = n.parse(put['key'])
-        rf = n.random_forest(parse['Key'])
+        parse = n.parse(put['keyHref'])
+        rf = n.random_forest(parse['keyHref'])
         n.stabilize('random forest finishing', 20,
-            lambda n: n.random_forest_view(rf['confKey'])['got'] == 5)
+            lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == 5)
 
 
 if __name__ == '__main__':
