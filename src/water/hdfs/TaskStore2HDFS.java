@@ -95,6 +95,23 @@ public class TaskStore2HDFS extends RemoteTask {
     default:
       throw new Error("unimplemented");      
     }    
+    // just to be sure
+    if(kb.length >= prefixLen + 7
+        && kb[prefixLen] == 'h' 
+        && kb[prefixLen] == 'd'
+        && kb[prefixLen] == 'f'
+        && kb[prefixLen] == 's'
+        && kb[prefixLen] == ':'
+        && kb[prefixLen] == '/'
+        && kb[prefixLen] == '/')
+        prefixLen += 7;          
+    else if(kb.length >= 4
+        && kb[prefixLen] == 'n' 
+        && kb[prefixLen] == 'f'
+        && kb[prefixLen] == 's'
+        && kb[prefixLen] == ':')
+        prefixLen += 4;
+    
     return new String(kb,prefixLen,kb.length - prefixLen);
   }
   

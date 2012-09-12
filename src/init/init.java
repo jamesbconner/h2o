@@ -1,6 +1,7 @@
 package init;
 
 import java.io.File;
+import java.util.Arrays;
 
 /** Initializer class for H2O.
  * 
@@ -17,7 +18,6 @@ public class init {
   public static void main(String[] args) {
     Loader loader = Loader.instance();
     if (loader.runningFromJar()) {
-      //System.out.println("Extracting implementation jar...");
       loader.addInternalJar("hexbase_impl.jar");
       //System.out.println("Extracting sigar binaries...");
       loader._binlib = loader.extractInternalFolder("binlib");
@@ -36,7 +36,12 @@ public class init {
       //System.out.println(new File("lib/binlib").getAbsolutePath());
     }
     try {
-      Class<?> c = Class.forName("water.H2O",true,loader);
+      String cn = "water.H2O";
+      if (args.length >= 2 && args[0].equals("-mainClass")) {
+        cn = args[1];
+        args = Arrays.copyOfRange(args, 2, args.length);
+      }
+      Class<?> c = Class.forName(cn,true,loader);
       c.getMethod("main",String[].class).invoke(null, (Object)args);
     } catch (Exception e) {
       System.err.println("Unable to run Hexbase:");

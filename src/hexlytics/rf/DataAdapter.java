@@ -119,6 +119,8 @@ class C {
   float min_=Float.MAX_VALUE, max_=Float.MIN_VALUE, tot_;
   float[] v_;
   HashMap<Float,Short> o2v_;
+  H o2v2;
+  
   float[] _v2o;  // Reverse (short) indices to original floats
   short smin_ = -1;
   short smax_ = -1;
@@ -148,11 +150,15 @@ class C {
   // it's one-based (e.g. covtype).
   short[] shrink( boolean noEncoding ) {
     smin_ = 0;
-    o2v_ = hashCol();
+   // o2v_ = hashCol();
+    o2v2 = hashCol2();
     short[] res = new short[sz_];
     int min = (int)min_;
-    for(int j=0;j<sz_;j++)
-      res[j] = noEncoding ? (short)((int)v_[j]-min) : o2v_.get(v_[j]).shortValue();
+    for(int j=0;j<sz_;j++) {
+      res[j] = noEncoding ? (short)((int)v_[j]-min) :  
+       o2v2.get(v_[j]);
+       // o2v_.get(v_[j]).shortValue();
+    }
     v_= null;
     return res;
   }
@@ -166,6 +172,20 @@ class C {
     Arrays.sort(ks);
     smax_ = 0;
     for( Float d : ks)  {
+      _v2o[smax_] = d;
+      res2.put(d, smax_++);
+    }
+    return res2;
+  }
+  H hashCol2() {
+    H res = new H(100);
+    for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.put(v_[i],(short)0);
+    H res2 = new H(res.size());
+    float[] ks = res.keys();
+    _v2o = new float[ks.length];
+    Arrays.sort(ks);
+    smax_ = 0;
+    for( float d : ks)  {
       _v2o[smax_] = d;
       res2.put(d, smax_++);
     }
