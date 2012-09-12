@@ -187,16 +187,9 @@ public class Tree extends CountedCompleter {
 
     public abstract void print(TreePrinter treePrinter) throws IOException;
     abstract void write( Stream bs );
-    abstract int size( Stream bs ); // Size in serialized form
-    static  INode read ( Stream bs, DataAdapter dapt ) {
-      switch( bs.get1() ) {
-      case '[':  return  LeafNode.read(bs); // Leaf selector
-      case '(':  return      Node.read(bs,dapt); // Node selector
-      case 'S':  return SplitNode.read(bs,dapt); // Node selector
-      default:
-        throw new Error("Misformed serialized rf.Tree; expected to find an INode tag but found '"+(0xFF&bs._buf[bs._off-1])+"' instead");
-      }
-    }
+    int _size;                  // Byte-size in serialized form
+    final int size( ) { return _size==0 ? (_size=size_impl()) : _size;  }
+    abstract int size_impl();
   }
 
   /** Leaf node that for any row returns its the data class it belongs to. */
@@ -216,19 +209,17 @@ public class Tree extends CountedCompleter {
       bs.set1('[');             // Leaf indicator
       bs.set1(class_);
     }
-    static final int SIZE=2;
-    int size( Stream bs ) { return SIZE; } // 2 bytes in serialized form
-    static LeafNode read( Stream bs ) { return new LeafNode(bs.get1()&0xFF);  }
+    int size_impl( ) { return 2; } // 2 bytes in serialized form
   }
 
-  /** Inner node of the decision tree. Contains a list of subnodes and the
-   * classifier to be used to decide which subtree to explore further. */
+  // Inner node of the decision tree. Contains a list of subnodes and the
+  // classifier to be used to decide which subtree to explore further.
   static class Node extends INode {
     INode _l, _r;
     final DataAdapter _dapt;
     final int _column;
     final float _value;
-    int _depth, _leaves, _size;
+    int _depth, _leaves;
     public Node(int column, float value, DataAdapter dapt) {
       _column= column;
       _value = value;
@@ -265,27 +256,15 @@ public class Tree extends CountedCompleter {
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
       bs.set2(_column);
       bs.set4f(split_value());
-      int skip = _l.size(bs); // Drop down the amount to skip over the left column
+      int skip = _l.size(); // Drop down the amount to skip over the left column
       if( skip <= 254 ) bs.set1(skip);
       else { bs.set1(0); bs.set3(skip); }
       _l.write(bs);
       _r.write(bs);
     }
-    public int size( Stream bs ) {
-      if( _size != 0 ) return _size;
+    public int size_impl(  ) {
       // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
-      return _size=(1+2+4+(( _l.size(bs) <= 254 ) ? 1 : 4)+_l.size(bs)+_r.size(bs));
-    }
-    static Node read( Stream bs, DataAdapter dapt ) {
-      int col = bs.get2();
-      float f = bs.get4f();
-      int idx = dapt.c_[col].o2v_.get(f); // Reverse float to short index; should not fail!!!
-      Node n = new Node(col,((float)idx)+0.5f,dapt);
-      int skip = bs.get1();   // Skip (over left subtree) is either 1 byte or 4
-      if( skip == 0 ) bs._off += 3; // Leading zero means there are 3 more bytes of skip
-      n._l = INode.read(bs,dapt);
-      n._r = INode.read(bs,dapt);
-      return n;
+      return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
   }
 
@@ -340,26 +319,14 @@ public class Tree extends CountedCompleter {
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
       bs.set2(_column);
       bs.set4f(split_value());
-      int skip = _l.size(bs); // Drop down the amount to skip over the left column
+      int skip = _l.size(); // Drop down the amount to skip over the left column
       if( skip <= 254 ) bs.set1(skip); else bs.set4(skip);
       _l.write(bs);
       _r.write(bs);
     }
-    public int size( Stream bs ) {
-      if( _size != 0 ) return _size;
+    public int size_impl( ) {
       // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
-      return _size=(1+2+4+(( _l.size(bs) <= 254 ) ? 1 : 4)+_l.size(bs)+_r.size(bs));
-    }
-    static SplitNode read( Stream bs, DataAdapter dapt ) {
-      int col = bs.get2();
-      float f = bs.get4f();
-      int idx = dapt.c_[col].o2v_.get(f); // Reverse float to short index; should not fail!!!
-      SplitNode n = new SplitNode(col,idx,dapt);
-      int skip = bs.get1();     // Skip (over left subtree) is either 1 byte or 4
-      if( skip == 0 ) bs._off += 3; // Leading zero means there are 3 more bytes of skip
-      n._l = INode.read(bs,dapt);
-      n._r = INode.read(bs,dapt);
-      return n;
+      return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
   }
   public int classify(Row r) { return _tree.classify(r); }
@@ -375,13 +342,6 @@ public class Tree extends CountedCompleter {
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
     return key;
-  }
-
-  public static Tree fromKey( Key key, DataAdapter dapt ) {
-    Stream bs = new Stream(DKV.get(key).get());
-    Tree t = new Tree(bs.get4());
-    t._tree = INode.read(bs,dapt);
-    return t;
   }
 
   // Classify this serialized tree - withOUT inflating it to a full tree.

@@ -8,6 +8,7 @@ import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
 
 /**
+ * Distributed RandomForest
  * @author cliffc
  */
 @RTSerializer(DRF.Serializer.class)
@@ -20,6 +21,7 @@ public class DRF extends water.DRemoteTask {
   public Key _treeskey;         // Key of Tree-Keys built so-far
   Data _validation;             // Data subset to validate with locally, or NULL
   boolean _singlethreaded;      // Disable parallel execution
+  RandomForest _rf;             // The local RandomForest
 
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
@@ -80,7 +82,7 @@ public class DRF extends water.DRemoteTask {
     // The data adapter...
     DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, classes);
     float[] ds = new float[num_cols];
-    // Now load the DataAdapter with all the rows
+    // Now load the DataAdapter with all the rows on this Node
     for( Key key : _keys ) {
       if( key.home() ) {
         byte[] bits = DKV.get(key).get();
@@ -105,7 +107,7 @@ public class DRF extends water.DRemoteTask {
     Data t = sample ? d.sampleWithReplacement(.666) : d;
     _validation = sample ? t.complement() : null;
     // Make a single RandomForest to that does all the tree-construction work.
-    RandomForest rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
+    _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
     tryComplete();
   }
 

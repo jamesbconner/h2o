@@ -398,11 +398,11 @@ public class ValueArray extends Value {
   public int    col_badat(int cnum) { return UDP.get2 (get(),col(cnum)+BADAT_COL_OFF)&0xFFFF; }
 
   // Row# when offset from chunk start
-  private final int row_in_chunk(long row, int rpc, long chknum) {
+  public final int row_in_chunk(long row, int rpc, long chknum) {
     long rows = chknum*rpc; // Number of rows so far; row-start in this chunk
     return (int)(row - rows);
   }
-  private final long chunk_for_row( long row, int rpc ) {
+  public final long chunk_for_row( long row, int rpc ) {
     long chknum = row/rpc;
     if( chknum > 0 && chknum == chunks() ) chknum--; // Last chunk is large
     return chknum;
