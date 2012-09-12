@@ -404,9 +404,7 @@ public class Tree extends CountedCompleter {
     return ts.get1()&0xFF;      // Return the leaf's class
   }
 
-  // Classify this serialized tree - withOUT inflating it to a full tree.
-  // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
-  // Returns classes from 0 to N-1
+  // Abstract visitor class for serialized trees.
   public static abstract class TreeVisitor<T extends Exception> {
     TreeVisitor<T> leaf( int tclass          ) throws T { return this; }
     TreeVisitor<T>  pre( int col, float fcmp, int off0, int offl, int offr ) throws T { return this; }
