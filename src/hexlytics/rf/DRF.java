@@ -100,7 +100,7 @@ public class DRF extends water.DRemoteTask {
 
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
-    final boolean sample = _keys.length < 2; // Sample if we only have 1 key, hence no distribution 
+    sample = sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution 
     Data d = Data.make(dapt);
     Data t = sample ? d.sampleWithReplacement(.666) : d;
     _validation = sample ? t.complement() : null;
@@ -109,5 +109,7 @@ public class DRF extends water.DRemoteTask {
     tryComplete();
   }
 
+  static boolean sample;
+  
   public void reduce( DRemoteTask drt ) { }
 }
