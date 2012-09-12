@@ -78,6 +78,7 @@ public class RandomForest {
     System.out.println("H2O args = " + Arrays.toString(h2oArgs));
     H2O.main(h2oArgs);
     System.out.println(ARGS.file);
+    Thread.sleep(100);
     Key fileKey = TestUtil.load_test_file(ARGS.file);
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
