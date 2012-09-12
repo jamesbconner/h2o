@@ -56,7 +56,8 @@ public class DRF extends water.DRemoteTask {
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._singlethreaded = singlethreaded;
     Tree.THREADED = !singlethreaded;
-    DKV.put(drf._treeskey, new Value(drf._treeskey,4/*4 bytes for the key-count, which is zero*/));
+    DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
+    DKV.write_barrier();
     if( singlethreaded ) drf.invoke(ary._key);
     else                 drf.fork  (ary._key);
     return drf;
@@ -103,7 +104,7 @@ public class DRF extends water.DRemoteTask {
 
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
-    sample = sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution 
+    sample = sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
     Data d = Data.make(dapt);
     Data t = sample ? d.sampleWithReplacement(.666) : d;
     _validation = sample ? t.complement() : null;
@@ -113,6 +114,6 @@ public class DRF extends water.DRemoteTask {
   }
 
   static boolean sample;
-  
+
   public void reduce( DRemoteTask drt ) { }
 }
