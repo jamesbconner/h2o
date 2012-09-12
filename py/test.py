@@ -7,6 +7,13 @@ def addNode():
     h = h2o.H2O('192.168.1.12', 54321 + len(nodes)*3)
     nodes.append(h)
 
+def runRF(n):
+    put = n.put_file('../smalldata/iris/iris2.csv')
+    parse = n.parse(put['keyHref'])
+    rf = n.random_forest(parse['keyHref'])
+    n.stabilize('random forest finishing', 20,
+        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == 5)
+
 class Basic(unittest.TestCase):
 
     @classmethod
@@ -48,12 +55,16 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], 3, 'inconsistent cloud size')
 
     def testRF(self):
+<<<<<<< HEAD
         n = nodes[0]
         put = n.put_file('../smalldata/iris/iris2.csv')
         parse = n.parse(put['keyHref'])
         rf = n.random_forest(parse['keyHref'])
         n.stabilize('random forest finishing', 20,
             lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == 5)
+=======
+        runRF(nodes[0])
+>>>>>>> Refactor test for easier use in a debugger
 
 if __name__ == '__main__':
     unittest.main()
