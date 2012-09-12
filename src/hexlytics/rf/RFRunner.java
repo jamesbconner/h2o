@@ -27,7 +27,6 @@ import water.Arguments;
 public class RFRunner {
 	static final long MAX_RUNNING_TIME = 30*60000; // max runtime is 30 mins	
 	static final Pattern [] RESULT = new Pattern[] {
-		 Pattern.compile("----- Random Forest finished -----"), 
 		 Pattern.compile("Tree time to build:[ ]*(.*)"),
 		 Pattern.compile("Tree depth:[ ]*(.*)"),
 		 Pattern.compile("Tree leaves:[ ]*(.*)"),
@@ -65,6 +64,7 @@ public class RFRunner {
 				cmd.add("-h2oArgs"); cmd.add(h2oArgs);
 			}
 			if (!rfArgs.isEmpty())	cmd.add(rfArgs);
+			
 			ProcessBuilder bldr = new ProcessBuilder(cmd);
 			bldr.redirectErrorStream(true);
 			_process = bldr.start();
@@ -85,7 +85,7 @@ public class RFRunner {
 		  try {
 		    int state = 0;
 		    while ((_line = _rd.readLine()) != null) {
-		      System.out.println(_line);
+		      System.out.println(">>"+ _line);
 		      Matcher m = RESULT[state].matcher(_line);
 		      if (m.find()) {
 		        if(state > 0)results[state-1] = m.group(1);
