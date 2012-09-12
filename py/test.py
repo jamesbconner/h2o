@@ -55,6 +55,5 @@ class Basic(unittest.TestCase):
         n.stabilize('random forest finishing', 20,
             lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == 5)
 
-
 if __name__ == '__main__':
     unittest.main()
