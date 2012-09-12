@@ -281,20 +281,22 @@ public class ValueArray extends Value {
 
 
   // Additional column layout; repeat per column
-  static private final int   MAX_COL_OFF =0;               // max in column
-  static private final int   MIN_COL_OFF =  MAX_COL_OFF+8; // min in column
-  static private final int  BASE_COL_OFF =  MIN_COL_OFF+8; // base-offset for all; often 0
-  static private final int  NAME_COL_OFF = BASE_COL_OFF+4; // name offset in the array header
-  static private final int   OFF_COL_OFF = NAME_COL_OFF+4; // offset to column data within row
-  static private final int SCALE_COL_OFF =  OFF_COL_OFF+2; // scale for all; often 1
-  static private final int BADAT_COL_OFF =SCALE_COL_OFF+2; // number of bad rows, capped at 65535
-  static private final int  SIZE_COL_OFF =BADAT_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
-  static private final int  PAD0_COL_OFF = SIZE_COL_OFF+1;
-  static private final int META_COL_SIZE = PAD0_COL_OFF+1;
+  static private final int    MAX_COL_OFF =0;               // max in column
+  static private final int    MIN_COL_OFF =  MAX_COL_OFF+8; // min in column
+  static private final int   BASE_COL_OFF =  MIN_COL_OFF+8; // base-offset for all; often 0
+  static private final int   NAME_COL_OFF = BASE_COL_OFF+4; // name offset in the array header
+  static private final int    OFF_COL_OFF = NAME_COL_OFF+4; // offset to column data within row
+  static private final int  SCALE_COL_OFF =  OFF_COL_OFF+2; // scale for all; often 1
+  static private final int  BADAT_COL_OFF =SCALE_COL_OFF+2; // number of bad rows, capped at 65535
+  static private final int   SIZE_COL_OFF =BADAT_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
+  static private final int DOMAIN_COL_OFF = SIZE_COL_OFF+4; // domain offset in the array header 
+  static private final int   PAD0_COL_OFF = SIZE_COL_OFF+1;
+  static private final int  META_COL_SIZE = PAD0_COL_OFF+1;
 
   // internal convience class for building structured ValueArrays
   static public class Column {
     public String _name;
+    public String _domain[]; // Domain of the column - all the strings which represents the column's domain. The order of the strings corresponds to numbering utilized in dataset.
     public double _min, _max; // Min/Max per column; requires a 1st pass to discover
     public int _base;  // Base
     public short _off; // Offset of column data within row
@@ -545,10 +547,22 @@ public class ValueArray extends Value {
     for( Column column : cols ) {
       String name = column._name;
       UDP.set4(mem,ary.col(i++)+NAME_COL_OFF,off); // First the offset to the name
-      UDP.set2(mem,off,name.length()); off += 2; // Then the name length
+      UDP.set2(mem,off,name.length()); off += 2;   // Then the name length
       // Then the name bytes itself
       name.getBytes(0,name.length(),mem,off); off += name.length();
     }
+    // Now the columns meta-data: domains
+    i=0;
+    for (Column column : cols) {      
+      UDP.set4(mem,ary.col(i++)+DOMAIN_COL_OFF,off);     // First write the offset of domain to column header.
+      UDP.set2(mem,off,column._domain.length); off += 2; // Write domain size. 
+      for (String s : column._domain) {                  // Write whole domain as pairs: <size of string><byte of string>
+        byte[] data = s.getBytes();
+        UDP.set2(mem,off,data.length); off += 2;
+        System.arraycopy(data, 0, mem, off, data.length); off += data.length;                
+      }
+    }
+    
     return ary;
   }
 }

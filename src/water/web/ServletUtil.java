@@ -1,12 +1,13 @@
 package water.web;
 
 import java.util.Properties;
+
 import water.DKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
 import water.parser.SeparatedValueParser;
-import water.web.H2OPage;
+import water.parser.SeparatedValueParser.Row;
 import water.web.Page.PageError;
 
 /**
@@ -68,16 +69,16 @@ public class ServletUtil {
     }
     int rows = 0;
     int maxValidColumn = 0;
-    for( double[] vals : csv ) {
+    for( Row r : csv ) {
       ++rows;
       for( int i = 0; i < maxCols; ++i ) {
-        if( Double.isNaN(vals[i]) )
+        if( Double.isNaN(r._fieldVals[i]) )
           break;
         maxValidColumn = Math.max(i, maxValidColumn);
         // Skipping any 1st record, try to count columns in the 2nd record
-        sums[i] += vals[i];
-        mins[i] = Math.min(mins[i], vals[i]);
-        maxs[i] = Math.max(maxs[i], vals[i]);
+        sums[i] += r._fieldVals[i];
+        mins[i] = Math.min(mins[i], r._fieldVals[i]);
+        maxs[i] = Math.max(maxs[i], r._fieldVals[i]);
       }
     }
     // Inject into the HTML
