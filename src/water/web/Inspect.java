@@ -40,6 +40,10 @@ public class Inspect extends H2OPage {
     if( idx != -1 )
       p_keys = ks.substring(0,idx);
     p_keys += ".hex";
+    if(p_keys.startsWith("hdfs://"))
+      p_keys = p_keys.substring(7);
+    else if (p_keys.startsWith("nfs:"))
+      p_keys = p_keys.substring(4);
     if( p_keys.equals(ks) ) p_keys += "2";
 
     Key p_key = Key.make(p_keys);
