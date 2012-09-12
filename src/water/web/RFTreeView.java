@@ -21,6 +21,8 @@ public class RFTreeView extends H2OPage {
   private static final String DOT_PATH;
   static {
     File f = new File("/usr/local/bin/dot");
+    // Pathetic attempt to make something happen on windows (but failed)
+    //File f = new File("C:\\Program Files (x86)\\Graphviz 2.28\\bin\\dot.exe");
     if( !f.exists() ) f = new File("/usr/bin/dot");
     DOT_PATH = f.exists() ? f.getAbsolutePath() : null;
   }
@@ -30,51 +32,54 @@ public class RFTreeView extends H2OPage {
     ValueArray va = ServletUtil.check_array(args, "origKey");
 
     if( DKV.get(key) == null ) return wrap(error("Key not found: "+ key));
-    Tree tree = Tree.fromKey(key,null);
+    byte[] tbits = DKV.get(key).get();
+
+    long dl = Tree.depth_leaves(tbits);
+    int depth = (int)(dl>>>32);
+    int leaves= (int)(dl&0xFFFFFFFFL);
 
     RString response = new RString(html());
-    int nodeCount = tree.leaves()*2-1; // funny math: total nodes is always 2xleaves-1
+    int nodeCount = leaves*2-1; // funny math: total nodes is always 2xleaves-1
     response.replace("key", key);
     response.replace("nodeCount", nodeCount);
-    response.replace("leafCount", tree.leaves());
-    response.replace("depth",     tree.depth());
+    response.replace("leafCount", leaves);
+    response.replace("depth",     depth);
 
     String graph;
     if( DOT_PATH == null ) {
       graph = "Install <a href=\"http://www.graphviz.org/\">graphviz</a> to " +
       		"see visualizations of small trees<p>";
     } else if( nodeCount < 1000 ) {
-      graph = dotRender(va, tree);
+      graph = dotRender(va, tbits);
     } else {
       graph = "Tree is too large to graph.<p>";
     }
     String code;
     if( nodeCount < 10000 ) {
-      code = codeRender(va, tree);
+      code = codeRender(va, tbits);
     } else {
       code = "Tree is too large to print pseudo code.<p>";
     }
     return response.toString() + graph + code;
   }
 
-  private String codeRender(ValueArray va, Tree t) {
+  private String codeRender(ValueArray va, byte[] tbits) {
     try {
       StringBuilder sb = new StringBuilder();
       sb.append("<pre><code>");
-      new CodeTreePrinter(sb, va.col_names()).printTree(t);
+      new CodeTreePrinter(sb, va.col_names()).walk_serialized_tree(tbits);
       sb.append("</code></pre>");
       return sb.toString();
     } catch( Exception e ) {
       return errorRender(e);
     }
-
   }
 
-  private String dotRender(ValueArray va, Tree t) {
+  private String dotRender(ValueArray va, byte[] tbits) {
     try {
       RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
-      new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).printTree(t);
+      new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).walk_serialized_tree(tbits);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 

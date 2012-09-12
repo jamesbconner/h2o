@@ -52,7 +52,7 @@ public abstract class PersistHdfs {
   }
 
   public static void refreshHDFSKeys(){
-    if( _fs != null ) loadPersistentKeysFromFolder(_root, "");
+    if( _fs != null && _root != null ) loadPersistentKeysFromFolder(_root, "");
   }
 
   private static int loadPersistentKeysFromFolder(Path folder, String prefix) {

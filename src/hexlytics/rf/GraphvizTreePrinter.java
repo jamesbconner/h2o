@@ -76,4 +76,25 @@ public class GraphvizTreePrinter extends TreePrinter {
     _dest.append(String.format("%d -> %d;\n", obj, lhs));
     _dest.append(String.format("%d -> %d;\n", obj, rhs));
   }
+
+
+  // Walk and print a serialized tree - we do not get a proper tree structure,
+  // instead the deserializer walks us on the fly.
+  public void walk_serialized_tree( byte[] tbits ) {
+    try {
+      new Tree.TreeVisitor<IOException>(tbits) {
+        Tree.TreeVisitor leaf(int tclass ) throws IOException {
+          _dest.append(String.format("%d [label=\"%s\\nClass %d\"];\n", _ts._off, "Leaf Node",tclass));
+          return this;
+        }
+        Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {
+          _dest.append(String.format("%d [label=\"%s\\ndata[%s] <= %f\"];\n",
+                                     _ts._off, "Node", _columnNames[col], fcmp));
+          _dest.append(String.format("%d -> %d;\n", off0, offl));
+          _dest.append(String.format("%d -> %d;\n", off0, offr));
+          return this;
+        }
+      }.visit();
+    } catch( IOException e ) { throw new Error(e); }
+  }
 }

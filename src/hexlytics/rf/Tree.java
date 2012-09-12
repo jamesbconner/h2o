@@ -392,7 +392,7 @@ public class Tree extends CountedCompleter {
     int data_id = ts.get4();    // Skip tree-id
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
-      assert tbits[o] == '(' || tbits[o] == 'G';
+      assert tbits[o] == '(' || tbits[o] == 'S';
       int col = ts.get2();      // Column number
       float fcmp = ts.get4f();  // Float to compare against
       float fdat = (float)ary.datad(databits,row,rowsize,col);
@@ -404,32 +404,43 @@ public class Tree extends CountedCompleter {
     return ts.get1()&0xFF;      // Return the leaf's class
   }
 
-  // Rather expensively, walk the entire tree counting leaves & max depth
-  private static long d_l( Stream ts ) {
-    if( ts.get1() == '[' ) return 1; // 1 leaf, 0 depth
-    int o = ts._off-1;
-    assert ts._buf[o] == '(' || ts._buf[o] == 'G';
-    ts._off += 2+4;             // Skip col & float
-    int skip = (ts.get1()&0xFF);
-    if( skip == 0 ) skip = ts.get3();
-
-    int roff = ts._off+skip;
-    long dl1 = d_l(ts);          // Left side
-    long d1  = dl1>>>32;
-    long l1  = dl1&0xFFFFFFFFL;
-
-    ts._off = roff;
-    long dl2 = d_l(ts);          // Right side
-    long d2  = dl2>>>32;
-    long l2  = dl2&0xFFFFFFFFL;
-
-    return ((Math.max(d1,d2)+1)<<32) | (l1+l2);
+  // Classify this serialized tree - withOUT inflating it to a full tree.
+  // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
+  // Returns classes from 0 to N-1
+  public static abstract class TreeVisitor<T extends Exception> {
+    TreeVisitor<T> leaf( int tclass          ) throws T { return this; }
+    TreeVisitor<T>  pre( int col, float fcmp, int off0, int offl, int offr ) throws T { return this; }
+    TreeVisitor<T>  mid( int col, float fcmp ) throws T { return this; }
+    TreeVisitor<T> post( int col, float fcmp ) throws T { return this; }
+    long  result( ) { return 0; }
+    protected final Stream _ts;
+    TreeVisitor( byte[] tbits ) {
+      _ts = new Stream(tbits);
+      _ts.get4();               // Skip tree ID
+    }
+    final TreeVisitor<T> visit() throws T {
+      byte b = _ts.get1();
+      if( b == '[' ) return leaf(_ts.get1()&0xFF);
+      assert b == '(' || b == 'S';
+      int off0 = _ts._off;      // Offset to start of *this* node
+      int col = _ts.get2();     // Column number
+      float fcmp = _ts.get4f(); // Float to compare against
+      int skip = (_ts.get1()&0xFF);
+      if( skip == 0 ) skip = _ts.get3();
+      int offl = _ts._off;      // Offset to start of *left* node
+      int offr = _ts._off+skip; // Offset to start of *right* node
+      return pre(col,fcmp,off0,offl,offr).visit().mid(col,fcmp).visit().post(col,fcmp);
+    }
   }
 
   // Return (depth<<32)|(leaves), in 1 pass.
   public static long depth_leaves( byte[] tbits ) {
-    Stream ts = new Stream(tbits);
-    int data_id = ts.get4();    // Skip tree-id
-    return d_l(ts);
+    return new TreeVisitor<RuntimeException>(tbits) {
+      int _maxdepth, _depth, _leaves;
+      TreeVisitor leaf(int tclass ) { _leaves++; if( _depth > _maxdepth ) _maxdepth = _depth; return this; }
+      TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) { _depth++; return this; }
+      TreeVisitor post(int col, float fcmp ) { _depth--; return this; }
+      long result( ) {return ((long)_maxdepth<<32) | (long)_leaves; }
+    }.visit().result();
   }
 }
