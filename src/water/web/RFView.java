@@ -37,7 +37,8 @@ public class RFView extends H2OPage {
     addProperty(res, "origKey", confusion._ary._key);
     res.addProperty("got",ntrees);
     res.addProperty("valid",confusion._ntrees);
-    res.addProperty("maxtrees",confusion._maxtrees);
+    res.addProperty("computedTrees",confusion._tkeys.length);
+    res.addProperty("maxTrees",confusion._maxtrees);
     res.addProperty("maxdepth",depth);
     res.addProperty( "depth",(double)tdepth/ntrees);
     res.addProperty("leaves",(double)tleavs/ntrees);
