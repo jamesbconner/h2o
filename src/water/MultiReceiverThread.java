@@ -18,10 +18,11 @@ import java.util.Arrays;
  */
 
 public class MultiReceiverThread extends Thread {
+  public MultiReceiverThread() { super("Multicast UDP Receiver"); }
 
   // The Run Method.
   // ---
-  // Started by main() on a single thread, this code manages reading UDP packets 
+  // Started by main() on a single thread, this code manages reading UDP packets
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
     // No multicast?  Then do not bother with listening for them
@@ -39,7 +40,7 @@ public class MultiReceiverThread extends Thread {
       // Get a free datagram packet
       DatagramPacket pack = UDPReceiverThread.get_pack();
 
-      try { 
+      try {
         // ---
         // Cleanup from any prior socket failures.  Rare unless we're really sick.
         if( errsock != null && errgroup != null ) { // socket error AND group present
@@ -65,10 +66,10 @@ public class MultiReceiverThread extends Thread {
         // Receive a packet
         sock.receive(pack);
         TimeLine.record_recv(pack);
-        
+
       } catch( Exception e ) {
         // On any error from anybody, close all sockets & re-open
-        System.err.println("Multicast "+H2O.CLOUD_MULTICAST_GROUP+":"+H2O.CLOUD_MULTICAST_PORT+" error "+e); 
+        System.err.println("Multicast "+H2O.CLOUD_MULTICAST_GROUP+":"+H2O.CLOUD_MULTICAST_PORT+" error "+e);
         saw_error = true;
         errsock  = sock ;  sock  = null; // Signal error recovery on the next loop
         errgroup = group;  group = null;

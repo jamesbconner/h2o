@@ -17,6 +17,7 @@ import org.hyperic.sigar.Tcp;
  * @version 1.0
  */
 public class HeartBeatThread extends Thread {
+  public HeartBeatThread() { super("Heartbeat Thread"); }
 
   // Time between heartbeats.  Strictly several iterations less than the
   // timeout.
@@ -75,9 +76,9 @@ public class HeartBeatThread extends Thread {
         me.set_free_disk(f.getUsableSpace());
         me.set_max_disk(f.getTotalSpace());
       }
-      
-      // Disable collecting Sigar-based statistics if the command line contains --nosigar 
-      if (H2O.OPT_ARGS.nosigar == null) { // --nosigar is not specified on command line        
+
+      // Disable collecting Sigar-based statistics if the command line contains --nosigar
+      if (H2O.OPT_ARGS.nosigar == null) { // --nosigar is not specified on command line
 
         // get cpu utilization from sigar if available
         try {
@@ -85,7 +86,7 @@ public class HeartBeatThread extends Thread {
         } catch (SigarException ex) {
           me.set_cpu_util(-1.0);
         }
-  
+
         // get cpu load from sigar if available
         try {
           double [] cpu_load = sigar.getLoadAverage();
@@ -95,7 +96,7 @@ public class HeartBeatThread extends Thread {
         }
         // Get network statistics from sigar
         fillNetworkStatistics(sigar, me);
-      } 
+      }
 
       // Announce what Cloud we think we are in.
       // Publish our health as well.
