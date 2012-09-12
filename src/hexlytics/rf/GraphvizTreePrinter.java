@@ -82,19 +82,22 @@ public class GraphvizTreePrinter extends TreePrinter {
   // instead the deserializer walks us on the fly.
   public void walk_serialized_tree( byte[] tbits ) {
     try {
+      _dest.append("digraph {\n");
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          _dest.append(String.format("%d [label=\"%s\\nClass %d\"];\n", _ts._off, "Leaf Node",tclass));
+          _dest.append(String.format("%d [label=\"%s\\nClass %d\"];\n", _ts._off-2, "Leaf Node",tclass));
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {
           _dest.append(String.format("%d [label=\"%s\\ndata[%s] <= %f\"];\n",
-                                     _ts._off, "Node", _columnNames[col], fcmp));
+                                     off0, "Node", _columnNames[col], fcmp));
           _dest.append(String.format("%d -> %d;\n", off0, offl));
           _dest.append(String.format("%d -> %d;\n", off0, offr));
           return this;
         }
       }.visit();
+      _dest.append("}");
+      if( _dest instanceof Flushable ) ((Flushable) _dest).flush();
     } catch( IOException e ) { throw new Error(e); }
   }
 }

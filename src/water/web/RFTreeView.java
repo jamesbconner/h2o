@@ -21,9 +21,8 @@ public class RFTreeView extends H2OPage {
   private static final String DOT_PATH;
   static {
     File f = new File("/usr/local/bin/dot");
-    // Pathetic attempt to make something happen on windows (but failed)
-    //File f = new File("C:\\Program Files (x86)\\Graphviz 2.28\\bin\\dot.exe");
     if( !f.exists() ) f = new File("/usr/bin/dot");
+    if( !f.exists() ) f = new File("C:\\Program Files (x86)\\Graphviz 2.28\\bin\\dot.exe");
     DOT_PATH = f.exists() ? f.getAbsolutePath() : null;
   }
 

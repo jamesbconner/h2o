@@ -380,7 +380,7 @@ public class Tree extends CountedCompleter {
       byte b = _ts.get1();
       if( b == '[' ) return leaf(_ts.get1()&0xFF);
       assert b == '(' || b == 'S';
-      int off0 = _ts._off;      // Offset to start of *this* node
+      int off0 = _ts._off-1;    // Offset to start of *this* node
       int col = _ts.get2();     // Column number
       float fcmp = _ts.get4f(); // Float to compare against
       int skip = (_ts.get1()&0xFF);
