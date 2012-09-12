@@ -37,7 +37,7 @@ public class init {
     }
     try {
       String cn = "water.H2O";
-      if (args[0].equals("-mainClass")) {
+      if (args.length >= 2 && args[0].equals("-mainClass")) {
         cn = args[1];
         args = Arrays.copyOfRange(args, 2, args.length);
       }

@@ -25,18 +25,39 @@ import water.Arguments;
  * Testing RF. Launches RF (in a new vm) for files specified in args and records results.
  */
 public class RFRunner {
-	static final long MAX_RUNNING_TIME = 30*60000; // max runtime is 30 mins	
+	static final long MAX_RUNNING_TIME = 30*60000; // max runtime is 30 mins
+	
+//	   Number of trees: 10
+//	   >>No of variables tried at each split: 3
+//	   >>             Estimate of error rate: 29%  (0.29168053276973704)
+//	   >>                   Confusion matrix:
+//	   >>                   0         1         2         3         4         5         6         7         8         9 err/class
+//	   >>         0    216262     40901       121        17         8        25         0         0         0         0      0.16
+//	   >>         1     71025    142208      3188       563       296         4         7         1         0         0      0.35
+//	   >>         2      1895     18908      3250       340        30         0        37         0         0         0      0.87
+//	   >>         3       616      7786       504      1966        12         0        40         6         0         0      0.82
+//	   >>         4       158      1574        60        15       171         0         0         0         0         0      0.91
+//	   >>         5       852        83         1         0         0        74         0         0         0         0      0.93
+//	   >>         6         1       368       177       127         0         0        33         3         0         0      0.95
+//	   >>         7         0        35        17        65         1         0         4         1         0         0      0.99
+//	   >>         8         1         2         0         0         2         1         0         0         0         0       1.0
+//	   >>         9         0         1         0         0         0         0         0         0         0         0       1.0
+//	   >>
+//	   >>          Avg tree depth (min, max): 37.4 (35.0 ... 40.0)
+//	   >>         Avg tree leaves (min, max): 209779.3 (203180.0 ... 220731.0)
+//	   >>                Validated on (rows): 513843
+//	
 	static final Pattern [] RESULT = new Pattern[] {
-		 Pattern.compile("Tree time to build:[ ]*(.*)"),
-		 Pattern.compile("Tree depth:[ ]*(.*)"),
-		 Pattern.compile("Tree leaves:[ ]*(.*)"),
-		 Pattern.compile("Tree error rate:[ ]*(.*)"),
-		 Pattern.compile("Data rows:[ ]*([^\n]*)(.*)"),
-		 Pattern.compile("Overall error:[ ]*(.*)"),		 		 
+		 Pattern.compile("Number of trees:[ ]*([0-9]+)"),
+		 Pattern.compile("No of variables tried at each split:[ ]*([0-9]+)"),
+		 Pattern.compile("Estimate of error rate:[ ]*([0-9]+)"),
+		 Pattern.compile("Avg tree depth \\(min, max\\):[ ]*([0-9]+).*"),
+		 Pattern.compile("Avg tree leaves \\(min, max\\):[ ]*([0-9]+).*"),
+		 Pattern.compile("Validated on \\(rows\\):[ ]*([0-9]+).*"),		 		 
 	};
 	static final Pattern EXCEPTION = Pattern.compile("Exception in thread \"(.*\") (.*)");
 	static final String [] TREE_RESULTS = 
-	    new String[] {"time2Build","depth","leaves","error rate", "data rows", "overallError"};
+	    new String[] {"ntrees","nvars","err","avg depth", "avg leaves", "N rows"};
 	
 	/**
 	 * Represents spawned process with H2O running RF.
@@ -88,7 +109,7 @@ public class RFRunner {
 		      System.out.println(">>"+ _line);
 		      Matcher m = RESULT[state].matcher(_line);
 		      if (m.find()) {
-		        if(state > 0)results[state-1] = m.group(1);
+		        results[state] = m.group(1);
 		        if(++state == RESULT.length) break;							
 		      }					
 		      m = EXCEPTION.matcher(_line);
