@@ -55,16 +55,7 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], 3, 'inconsistent cloud size')
 
     def testRF(self):
-<<<<<<< HEAD
-        n = nodes[0]
-        put = n.put_file('../smalldata/iris/iris2.csv')
-        parse = n.parse(put['keyHref'])
-        rf = n.random_forest(parse['keyHref'])
-        n.stabilize('random forest finishing', 20,
-            lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == 5)
-=======
         runRF(nodes[0])
->>>>>>> Refactor test for easier use in a debugger
 
 if __name__ == '__main__':
     unittest.main()
