@@ -100,15 +100,6 @@ public class H extends TFloatShortHash {
     }
 
 
-    /** {@inheritDoc} */
-    public short putIfAbsent( float key, short value ) {
-        int index = insertKey( key );
-        if (index < 0)
-            return _values[-index - 1];
-        return doPut( key, value, index );
-    }
-
-
     private short doPut( float key, short value, int index ) {
         short previous = no_entry_value;
         boolean isNewMapping = true;

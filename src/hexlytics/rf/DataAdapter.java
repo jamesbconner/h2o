@@ -150,14 +150,15 @@ class C {
   // it's one-based (e.g. covtype).
   short[] shrink( boolean noEncoding ) {
     smin_ = 0;
-    o2v_ = hashCol();
-  //  o2v2 = hashCol2();
+   // o2v_ = hashCol();
+    o2v2 = hashCol2();
     short[] res = new short[sz_];
     int min = (int)min_;
-    for(int j=0;j<sz_;j++)
+    for(int j=0;j<sz_;j++) {
       res[j] = noEncoding ? (short)((int)v_[j]-min) :  
-       // o2v2.get(v_[j]);
-        o2v_.get(v_[j]).shortValue();
+       o2v2.get(v_[j]);
+       // o2v_.get(v_[j]).shortValue();
+    }
     v_= null;
     return res;
   }
@@ -188,6 +189,6 @@ class C {
       _v2o[smax_] = d;
       res2.put(d, smax_++);
     }
-    return res;
+    return res2;
   }
 }
