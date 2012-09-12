@@ -59,6 +59,8 @@ public class RandomForest {
 	int depth = -1;
 	double cutRate = 0;
 	String statType = "entropy";
+	int seed = 42;
+	boolean singlethreaded = true;
   }
 
   static final OptArgs ARGS = new OptArgs();
@@ -80,8 +82,10 @@ public class RandomForest {
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
     int ntrees = ARGS.ntrees;
+    DataAdapter.setSeed(ARGS.seed);
     DRF.sample=true;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate,  ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY, true/*singlethreaded*/);
+    StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st,ARGS.singlethreaded);
     Key[] tkeys = drf._treeskey.flatten();
     assert tkeys.length == ntrees; // Since used blocking invoke, all Trees are available
     new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();

@@ -23,7 +23,8 @@ public class DataAdapter  {
   private static Random RAND = new Random(SEED);
 
   private static long getRandomSeed() { return RAND.nextLong(); }
-
+  public static void setSeed(int seed){ RAND = new Random(seed); }
+  
   public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int numClasses) {
     long seed = getRandomSeed(); name_=name;
     c_ = new C[columns.length];
