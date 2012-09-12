@@ -221,7 +221,6 @@ public abstract class PersistHdfs {
 
     // Never store arraylets on HDFS, instead we'll store the entire array.
     assert !(v instanceof ValueArray);
-    assert v.mem() == null;     // Upper layers already cleared out
     assert !v.is_persisted();   // Upper layers already cleared out
     Path p = getPathForKey(v._key);
     try { _fs.delete(p, false); } // Try to delete, ignoring errors
