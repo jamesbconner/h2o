@@ -40,7 +40,7 @@ public class GiniStatistic extends Statistic {
       // now make sure we have something to split 
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
-      double f = gini(leftDist,leftWeight) * (leftWeight / weight_) + gini(rightDist,rightWeight) * (rightWeight / weight_);
+      double f = gini(leftDist,leftWeight) * (leftWeight / weight_) + gini(rightDist,rightWeight) * (rightWeight / (double)weight_);
       if (f<bestFitness) {
         bestSplit = i;
         bestFitness = f;

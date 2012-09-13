@@ -39,15 +39,15 @@ class EntropyStatistic extends Statistic {
         continue;
       for (int e: left)
         if (e != 0)
-          eLeft -= (e/totLeft) * Math.log(e/totLeft);
+          eLeft -= (e/(double)totLeft) * Math.log(e/(double)totLeft);
       for (int e: right)
         totRight += e;
       if (totRight == 0)
         continue;
       for (int e: right)
         if (e != 0)
-          eRight -= (e/totRight) * Math.log(e/totRight);
-      double eReduction = 1 - (eLeft * totLeft + eRight * totRight) / totParent; 
+          eRight -= (e/(double)totRight) * Math.log(e/(double)totRight);
+      double eReduction = 1 - (eLeft * totLeft + eRight * totRight) / (double)totParent; 
       if (eReduction > maxReduction) {
         bestSplit = i;
         maxReduction = eReduction;

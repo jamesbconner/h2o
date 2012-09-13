@@ -1,6 +1,5 @@
 package hexlytics.rf;
 
-import hexlytics.rf.Tree.ExclusionNode;
 import hexlytics.rf.Tree.LeafNode;
 import hexlytics.rf.Tree.Node;
 import hexlytics.rf.Tree.SplitNode;
@@ -65,16 +64,6 @@ public class CodeTreePrinter extends TreePrinter {
     _dest.decrementIndent();
   }
 
-  void printNode(ExclusionNode t) throws IOException {
-    // return r.getColumnClass(_column) <= _split ? _l.classify(r) : _r.classify(r);
-    _dest.append("if (row.getColumnClass(").append(_columnNames[t._column]).append(") == ");
-    _dest.append(Integer.toString(t._split)).append(")\n");
-    _dest.incrementIndent();
-    t._l.print(this);
-    _dest.decrementIndent().append("else\n").incrementIndent();
-    t._r.print(this);
-    _dest.decrementIndent();
-  }
 
   public void walk_serialized_tree( byte[] tbits ) {
     try {
