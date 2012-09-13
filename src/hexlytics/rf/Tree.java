@@ -20,6 +20,7 @@ public class Tree extends CountedCompleter {
     NEW_ENTROPY,
     GINI,
     ENTROPY_EXCLUDED,
+    GINI_EXCLUDED
   };
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
@@ -86,6 +87,9 @@ public class Tree extends CountedCompleter {
         case ENTROPY_EXCLUDED:
           result = new EntropyExclusionStatistic(data, _features);
           break;
+        case GINI_EXCLUDED:
+          result = new GiniExclusionStatistic(data, _features);
+          break;
         default:
           throw new Error("Unknown tree type to build the statistic. ");
       }
@@ -106,6 +110,7 @@ public class Tree extends CountedCompleter {
       case GINI:   
       case NEW_ENTROPY:
       case ENTROPY_EXCLUDED:
+      case GINI_EXCLUDED:
         computeGini();
         break;
       default:
@@ -186,6 +191,7 @@ public class Tree extends CountedCompleter {
       SplitNode nd;
       switch (_type) {
         case ENTROPY_EXCLUDED:
+        case GINI_EXCLUDED:
           nd = new ExclusionNode(split_.column, split_.split,data_.data_);
           data_.filterExclude(nd._column, nd._split, res, left, right);
           break;
