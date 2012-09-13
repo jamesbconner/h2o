@@ -8,6 +8,8 @@ import hexlytics.rf.Data.Row;
 import java.util.Arrays;
 
 public abstract class BaseStatistic {
+  double [] dist_;
+  double weight_;
 
   // PETA TODO This should not be here!!!!
   public static final double MIN_ERROR_RATE = 0.0;
@@ -87,6 +89,8 @@ public abstract class BaseStatistic {
     columns_ = new int[_features];
     // create the temporary column array to choose cols from
     tempCols_ = new int[data.columns()];
+    dist_ = new double[data.classes()];
+    weight_ = 0;
   }
   
   /** Resets the statistic so that it can be used to compute new node. 
@@ -118,13 +122,17 @@ public abstract class BaseStatistic {
   
   /** Calculates the best split and returns it.  */
   public Split split() {
+    Arrays.fill(dist_,0);
+    weight_ = aggregateColumn(columns_[0], dist_);
+    int m = Utils.maxIndex(dist_);
+    if ( dist_[m] == weight_)
+      return Split.constant(m);
     Split bestSplit = columnSplit(columns_[0]);
-    if (!bestSplit.isConstant())
-      for (int j = 1; j < columns_.length; ++j) {
-        Split s = columnSplit(columns_[j]);
-        if (s.betterThan(bestSplit))
+    for (int j = 1; j < columns_.length; ++j) {
+      Split s = columnSplit(columns_[j]);
+      if (s.betterThan(bestSplit))
         bestSplit = s;
-      }
+    }
     return bestSplit;
   }
 }

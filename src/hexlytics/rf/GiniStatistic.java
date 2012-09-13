@@ -89,16 +89,6 @@ public class GiniStatistic extends BaseStatistic {
     if (bestSplit == -1) {
       // put everything to the left guy
       return Split.impossible(maxIndex);
-/*      for (int j = 0; j < leftDist.length; ++j) {
-        double t = columnDists_[colIndex][columnDists_[colIndex].length-1][j];
-        leftWeight += t;
-        leftDist[j] += t;
-      }
-      int best = 0;
-      for (int i = 1; i < leftDist.length; ++i) 
-        if (leftDist[i] > leftDist[best])
-          best = i;
-      return Split.impossible(best); */
     }
     //System.exit(-1);
     //System.out.println(colIndex + " - " + bestSplit);

@@ -59,7 +59,7 @@ public class RandomForest {
 	int ntrees = 10;
 	int depth = -1;
 	double cutRate = 0;
-	String statType = "entropy";
+	String statType = "gini";
 	int seed = 42;
 	boolean singlethreaded;
   }
@@ -86,7 +86,7 @@ public class RandomForest {
     DataAdapter.setSeed(ARGS.seed);
     DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
     DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());    
-    StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
+    StatType st = ARGS.statType.equals("gini") ? StatType.NEW_ENTROPY : StatType.ENTROPY;
     long t1 = System.currentTimeMillis();
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
     Key[] tkeys = null;
