@@ -86,7 +86,7 @@ public class RandomForest {
     DataAdapter.setSeed(ARGS.seed);
     DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
     DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());    
-    StatType st = ARGS.statType.equals("gini") ? StatType.ENTROPY_EXCLUDED : StatType.ENTROPY;
+    StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
     long t1 = System.currentTimeMillis();
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
     Key[] tkeys = null;
