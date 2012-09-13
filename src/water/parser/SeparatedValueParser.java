@@ -128,8 +128,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     if (_columnsDomains != null) {
       assert column < _columnsDomains.length;
       assert key != null && !"".equals(key);       
-      _columnsDomains[column]._domainValues.add(key);
-      
+      _columnsDomains[column].add(key);      
     }    
   }
 

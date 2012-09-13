@@ -211,14 +211,41 @@ public class ParserTest {
         i++;
       }      
     }
-    Assert.assertTrue ( cds[0].isEmpty() );
-    Assert.assertTrue ( cds[1].isEmpty() );
-    Assert.assertFalse( cds[2].isEmpty() );   
-    Assert.assertArrayEquals(expDomain, cds[2]._domainValues.toArray(new String[] {}));
+    Assert.assertTrue ( cds[0].size() == 0 );
+    Assert.assertTrue ( cds[1].size() == 0 );
+    Assert.assertTrue ( cds[2].size() != 0 );   
+    Assert.assertArrayEquals(expDomain, cds[2].toArray());
   }
   
   @Test public void testMultipleNondecimalColumns() {
-    // TODO: what if domain overlaps
+    String data[] = {
+        "foo,    2,one\n",
+        "bar,    4,two\n",
+        "foo,    6,three\n",
+        "bar,    8,one\n",
+        "bar,   10,two\n",
+        "bar,   12,three\n",
+        "foobar,14,one\n",        
+    };
+    double[][] expDouble = new double[][] {
+        d(NaN,  2, NaN), // preserve order
+        d(NaN,  4, NaN),
+        d(NaN,  6, NaN),
+        d(NaN,  8, NaN),
+        d(NaN, 10, NaN),
+        d(NaN, 12, NaN),
+        d(NaN, 14, NaN),        
+    };
+    
+    String[][] expString = new String[][] {
+        s("foo",null, "one"),
+        s("bar",null, "two"),
+        s("foo",null, "three"),
+        s("bar",null, "one"),
+        s("bar",null, "two"),
+        s("bar",null, "three"),
+        s("foobar",null, "one"),
+    };
         
   }
   
