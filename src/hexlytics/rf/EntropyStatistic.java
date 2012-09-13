@@ -35,6 +35,8 @@ class EntropyStatistic extends BaseStatistic {
       }
       for (double e: left)
         totLeft += e;
+      if (totLeft == 0)
+        continue
       for (double e: left)
         if (e != 0)
           eLeft -= (e/totLeft) * Math.log(e/totLeft);
