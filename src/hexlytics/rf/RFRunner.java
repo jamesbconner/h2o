@@ -49,7 +49,7 @@ public class RFRunner {
   // >> Validated on (rows): 513843
   //
 
-  static final int ERROR_RATE_IDX = 2;
+  static final int ERROR_IDX = 2;
   static final Pattern[] RESULT = new Pattern[] {
       Pattern.compile("Number of trees:[ ]*([0-9]+)"),
       Pattern.compile("No of variables tried at each split:[ ]*([0-9]+)"),
@@ -59,10 +59,9 @@ public class RFRunner {
       Pattern.compile("Validated on \\(rows\\):[ ]*([0-9]+).*"),
       Pattern.compile("Random forest finished in:[ ]*(.*)"), };
 
-  static final Pattern EXCEPTION = Pattern
-      .compile("Exception in thread \"(.*\") (.*)");
-  static final String[] TREE_RESULTS = new String[] { "ntrees", "nvars", "err",
-      "avg depth", "avg leaves", "N rows", "RunTime" };
+  static final Pattern EXCEPTION = Pattern.compile("Exception in thread \"(.*\") (.*)");
+  static final String[] RESULTS = new String[] {
+    "ntrees", "nvars", "err", "avg depth", "avg leaves", "N rows", "RunTime" };
 
   /**
    * Represents spawned process with H2O running RF. Hooks stdout and stderr and
@@ -72,37 +71,32 @@ public class RFRunner {
     Process _process;
     BufferedReader _rd;
     volatile String _line;
-    String[] results = new String[TREE_RESULTS.length];
+    String[] results = new String[RESULTS.length];
     String exception;
     PrintStream _stdout = System.out;
 
     /* Creates RFPRocess and spawns new process. */
-    public RFProcess(String h2oJarPath, String vmArgs, String h2oArgs,
-        String rfArgs) throws Exception {
-      List<String> cmd = new ArrayList<String>();
-      cmd.add("java");
+    public RFProcess(String jarPath, String vmArgs, String h2oArgs, String rfArgs) throws Exception {
+      List<String> c = new ArrayList<String>();
+      c.add("java");
       for( String s : vmArgs.split(" ") )
-        if( !s.isEmpty() )
-          cmd.add(s.startsWith("-") ? s : "-" + s);
-      if( vmArgs.contains("jar") )
-        throw new Error("should not contain -jar!");
-      cmd.add("-jar");
-      cmd.add(h2oJarPath);
-      cmd.add("-mainClass");
-      cmd.add("hexlytics.rf.RandomForest");
+        if( !s.isEmpty() ) c.add(s.startsWith("-") ? s : "-" + s);
+      if( vmArgs.contains("jar") ) throw new Error("should not contain -jar!");
+      c.add("-jar");
+      c.add(jarPath);
+      c.add("-mainClass");
+      c.add("hexlytics.rf.RandomForest");
       for( String s : rfArgs.split(" ") )
-        if( !s.isEmpty() )
-          cmd.add(s);
+        if( !s.isEmpty() ) c.add(s);
       if( h2oArgs != null && !h2oArgs.isEmpty() ) {
-        cmd.add("-h2oArgs");
-        cmd.add(h2oArgs);
+        c.add("-h2oArgs");
+        c.add(h2oArgs);
       }
-
-      StringBuilder sbldr = new StringBuilder();
-      for( String s : cmd )
-        sbldr.append(s + " ");
-      System.out.println("Command = '" + sbldr.toString() + "'");
-      ProcessBuilder bldr = new ProcessBuilder(cmd);
+      if( !rfArgs.isEmpty() ) c.add(rfArgs);
+      String s = "";
+      for( String str : c ) s += str + " ";
+      System.out.println("Command = '" + s + "'");
+      ProcessBuilder bldr = new ProcessBuilder(c);
       bldr.redirectErrorStream(true);
       _process = bldr.start();
       _rd = new BufferedReader(new InputStreamReader(_process.getInputStream()));
@@ -111,10 +105,7 @@ public class RFRunner {
     /** Kill the spawned process. And kill the thread. */
     void cleanup() {
       _process.destroy();
-      try {
-        _process.waitFor();
-      } catch( InterruptedException e ) {
-      }
+      try { _process.waitFor(); } catch( InterruptedException e ) { }
     }
 
     /**
@@ -126,15 +117,13 @@ public class RFRunner {
     public void run() {
       try {
         int state = 0;
-
         while( (_line = _rd.readLine()) != null ) {
           _stdout.println(_line);
           Matcher m = RESULT[state].matcher(_line);
           if( m.find() ) {
             results[state] = m.group(1);
             if( ++state == RESULT.length ) {
-              System.out.println("done with error rate = "
-                  + results[ERROR_RATE_IDX] + " and time " + results[state-1]);
+              System.out.println("Error: "+results[ERROR_IDX]+"%");
               break;
             }
           }
@@ -144,26 +133,18 @@ public class RFRunner {
             break;
           }
         }
-      } catch( Exception e ) {
-        throw new Error(e);
-      }
+      } catch( Exception e ) { throw new Error(e); }
     }
   }
 
   static final InetAddress myAddr;
 
   static {
-    try {
-      myAddr = InetAddress.getLocalHost();
-    } catch( UnknownHostException e ) {
-      throw new Error(e);
-    }
+    try { myAddr = InetAddress.getLocalHost();
+    } catch( UnknownHostException e ) { throw new Error(e); }
   }
 
-  /**
-   * look up input file. If the path ends with * all files in the given subtree
-   * will be used.
-   */
+  /** look for input files. If the path ends with '*' all files will be used. */
   public static Collection<File> parseDatasetArg(String str) {
     ArrayList<File> files = new ArrayList<File>();
     StringTokenizer tk = new StringTokenizer(str, ",");
@@ -175,8 +156,7 @@ public class RFRunner {
         if( !f.isDirectory() )
           throw new Error("invalid path '" + path + "*'");
         for( File x : f.listFiles() ) {
-          if( x.isFile()
-              && (x.getName().endsWith(".csv") || x.getName().endsWith(".data")) )
+          if( x.isFile()  && (x.getName().endsWith(".csv") || x.getName().endsWith(".data")) )
             files.add(x);
           else if( x.isDirectory() )
             files.addAll(parseDatasetArg(x.getAbsolutePath() + "*"));
@@ -190,14 +170,11 @@ public class RFRunner {
   public static class OptArgs extends Arguments.Opt {
     public String h2ojar = "build/h2o.jar"; // path to the h2o.jar
     public String dasets = "smalldata/poker/poker-hand-testing.data"; // dataset                                                                                               // to
-                                                                                               // process
     public String h2oArgs = ""; // args for the spawned h2o
     public String jvmArgs = ""; // args for the spawned jvm
     public String rfArgs = ""; // args for RF
-    public String resultDB = "./results.csv"; // path to the file with the
-                                              // results
-    public String nodes = myAddr.getHostAddress(); // list of nodes, currently
-                                                   // ignored
+    public String resultDB = "./results.csv"; // path to the file with the results
+    public String nodes = myAddr.getHostAddress(); // list of nodes, currently ignored
     public int nseeds = 5;
     public String testCfgFile;
   }
@@ -253,33 +230,31 @@ public class RFRunner {
       FileWriter fw = new FileWriter(resultFile, true);
       if( writeColumnNames ) {
         fw.write("Timestamp, JVM args, H2O args, RF args");
-        for( String s : TREE_RESULTS )
-          fw.write(", " + s);
+        for( String s : RESULTS ) fw.write(", " + s);
         fw.write("\n");
       }
-      fw.write(new SimpleDateFormat("yyyy.MM.dd HH:mm").format(new Date(System
-          .currentTimeMillis())) + ",");
+      fw.write(new SimpleDateFormat("yyyy.MM.dd HH:mm").format(new Date(System.currentTimeMillis())) + ",");
       fw.write(jvmArgs + "," + h2oArgs + "," + rfArgs);
-      for( String s : p.results )
-        fw.write("," + s);
+      for( String s : p.results ) fw.write("," + s);
       fw.write("\n");
       fw.close();
     }
   }
 
+  private static int seed() { return  (int) (System.currentTimeMillis() & 0xFFFF); }
+  
   static void runAllTests(File f) throws Exception {
-    String[] threading = new String[] { "-singlethreaded", "" };
-    String[] statTypes = new String[] { "entropy", "ginig" };
+    RFArgs rfa = new RFArgs();
+    boolean[] threading = new boolean[] { true, false };
+    String[] statTypes = new String[] { "entropy", "gini" };
     PrintStream out = new PrintStream(new File("RFRunner.stdout.txt"));
-    for( String t : threading ) {
+    for( boolean t : threading ) {
       for( String st : statTypes ) {
         for( int ntrees = 1; ntrees <= 61; ntrees += 30 ) {
           for( int i = 0; i < ARGS.nseeds; ++i ) {
-            int seed = (int) (System.currentTimeMillis() & 0xFFFF);
-            String rfArgs = "-statType=" + st + " -ntrees=" + ntrees
-                + " -file=" + f.getAbsolutePath() + " -seed=" + seed + " " + t;
-            runTest(ARGS.h2ojar, ARGS.jvmArgs, ARGS.h2oArgs, rfArgs,
-                ARGS.resultDB, out);
+            rfa.statType=st; rfa.ntrees=ntrees; rfa.file=f.getAbsolutePath(); rfa.seed=seed();
+            rfa.singlethreaded=t;
+            runTest(ARGS.h2ojar, ARGS.jvmArgs, ARGS.h2oArgs, rfa.toString(), ARGS.resultDB, out);
           }
         }
       }
@@ -287,10 +262,23 @@ public class RFRunner {
     out.close();
   }
 
+
+  public static class RFArgs extends Arguments.Opt {
+    String file = "smalldata/poker/poker-hand-testing.data";
+    String h2oArgs = "";
+    int ntrees = 10;
+    int depth = -1;
+    double cutRate = 0;
+    String statType = "entropy";
+    int seed = 42;
+    boolean singlethreaded;
+  }
+  
+  
+ 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
     arguments.extract(ARGS);
-
     File flatfile = null;
     if( !ARGS.nodes.equals("all") ) {
       flatfile = new File("flatfile" + Math.round(100000 * Math.random()));
