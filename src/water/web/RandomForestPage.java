@@ -24,7 +24,7 @@ public class RandomForestPage extends H2OPage {
     ValueArray ary = ServletUtil.check_array(p,"Key");
     int ntrees = getAsNumber(p,"ntrees", 5);
     int depth = getAsNumber(p,"depth", 30);
-    int gini = getAsNumber(p, "gini", StatType.ENTROPY.ordinal());
+    int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int singlethreaded =  getAsNumber(p,"singlethreaded", 1);
     StatType statType = StatType.values()[gini];
 
