@@ -34,10 +34,12 @@ public class Data implements Iterable<Row> {
   }
 
   public class RowIter implements Iterator<Row> {
-    final Row r = new Row();
-    int pos = 0;
-    public boolean hasNext() { return pos<rows(); }
-    public Row next() { fillRow(r,pos);  pos++;  return r; }
+    final Row _r = new Row();
+    final int _start, _end;
+    int _pos = 0;
+    public RowIter(int start, int end) { _pos = _start = start; _end = end; }
+    public boolean hasNext() { return _pos < _end; }
+    public Row next() { fillRow(_r, _pos++);  return _r; }
     public void remove() { throw new Error("Unsupported"); }
   }
 
@@ -50,16 +52,12 @@ public class Data implements Iterable<Row> {
 
   protected Data(DataAdapter da) { data_ = da; }
 
-  public Iterator<Row> iterator() { return new RowIter(); }
+  public Iterator<Row> iterator() { return new RowIter(0, rows()); }
 
   /** Fills the given row object with data stored from the index-th row in the
    * current view. Note that the index is indexed in current data object's view
    */
   protected final Row fillRow(Row r, int rowIndex) { r.index = permute(rowIndex); return r; }
-
-  /** Returns the row with given index. */
-  public Row getRow(int rowIndex) { return fillRow(new Row(),rowIndex); }
-
 
   public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
 
@@ -81,36 +79,37 @@ public class Data implements Iterable<Row> {
   // subsets -------------------------------------------------------------------
 
   public void filter(Split c, Data[] result, Statistic[] stats) {
-    int l=0, r=0;
-    int[] li = new int[rows()], ri=new int[rows()];
-    int i = 0;
+    int[] permuted = new int[rows()];
+    int l = 0, r = permuted.length-1;
     for(Row row : this) {
       if (row.getS(c.column) < c.value) {
-        stats[0].add(row); li[l++] = permute(i);
+        stats[0].add(row);
+        permuted[l++] = row.index;
       } else {
-        stats[1].add(row); ri[r++] = permute(i);
+        stats[1].add(row);
+        permuted[r--] = row.index;
       }
-      i++;
     }
-    result[0]= new Subset(this,li,l);
-    result[1]= new Subset(this,ri,r);
+    assert r+1 == l;
+    result[0]= new Subset(this, permuted, 0, l);
+    result[1]= new Subset(this, permuted, l, permuted.length);
   }
 
   public void filter(int column, int split, Data[] result, BaseStatistic left, BaseStatistic right) {
-    int l=0, r=0;
-    int[] li = new int[rows()], ri=new int[rows()];
-    int i = 0;
-    System.out.println("filter="+rows());
+    int[] permuted = new int[rows()];
+    int l = 0, r = permuted.length-1;
     for(Row row : this) {
       if (row.getColumnClass(column) <= split) {
-        left.add(row); li[l++] = permute(i);
+        left.add(row);
+        permuted[l++] = row.index;
       } else {
-        right.add(row); ri[r++] = permute(i);
+        right.add(row);
+        permuted[r--] = row.index;
       }
-      i++;
     }
-    result[0]= new Subset(this,li,l);
-    result[1]= new Subset(this,ri,r);
+    assert r+1 == l;
+    result[0]= new Subset(this, permuted, 0, l);
+    result[1]= new Subset(this, permuted, l, permuted.length);
   }
 
   public Data sampleWithReplacement(double bagSizePct) {
@@ -119,7 +118,7 @@ public class Data implements Iterable<Row> {
     for (int i=0;i<sample.length;i++)
       sample[i] = permute(r.nextInt(rows()));
     Arrays.sort(sample); // make sure we access data in order
-    return new Subset(this,sample,sample.length);
+    return new Subset(this,sample,0,sample.length);
   }
 
   public Data complement() { throw new Error("Only for subsets."); }
@@ -132,15 +131,19 @@ public class Data implements Iterable<Row> {
 }
 
 class Subset extends Data {
-  final protected int[] permutation_;
-  final int sz_;
-  final Data parent_;
+  private final int[] _permutation;
+  private final int _start, _end;
+  private final Data _parent;
 
   /** Returns the original DataAdapter's row index of given row. */
-  @Override protected int permute(int idx) { return permutation_[idx]; }
+  @Override protected int permute(int idx) {
+    assert _start <= idx && idx < _end;
+    return _permutation[idx];
+  }
 
   /** Returns the number of rows. */
-  @Override public int rows() { return sz_; }
+  @Override public int rows() { return _end - _start; }
+  @Override public Iterator<Row> iterator() { return new RowIter(_start, _end); }
 
   // Totals, mins & maxs are not recomputed on the subsets.
   @Override public double colMin(int c)     { return data_.colMin(c); }
@@ -149,15 +152,21 @@ class Subset extends Data {
 
   /** Creates new subset of the given data adapter. The permutation is an array
    * of original row indices of the DataAdapter object that will be used.  */
-  public Subset(Data data, int[] permutation, int sz) { super(data.data_); sz_=sz; parent_=data; permutation_=permutation; }
+  public Subset(Data data, int[] permutation, int start, int end) {
+    super(data.data_);
+    _start       = start;
+    _end         = end;
+    _parent      = data;
+    _permutation = permutation;
+  }
 
   public Data complement() {
     Set<Integer> s = new HashSet<Integer>();
-    for (Row r : parent_) s.add(r.index);
+    for (Row r : _parent) s.add(r.index);
     for (Row r : this) s.remove(r.index);
     int[] p = new int[s.size()];
     int i=0;
     for (Integer v : s) p[i++] = v.intValue();
-    return new Subset(parent_,p,p.length);
+    return new Subset(_parent,p,0,p.length);
   }
 }
