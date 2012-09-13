@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 
 public class TCPReceiverThread extends Thread {
+  public TCPReceiverThread() { super("TCP Receiver"); }
 
   // How many threads would like to do TCP right now?
   public static final AtomicInteger TCPS_IN_PROGRESS = new AtomicInteger(0);
@@ -30,8 +31,8 @@ public class TCPReceiverThread extends Thread {
     // Loop forever accepting Cloud Management requests
     while( true ) {
       Socket client=null;
-      
-      try { 
+
+      try {
         // ---
         // Cleanup from any prior socket failures.  Rare unless we're really sick.
         if( errsock != null ) { // One time attempt a socket close
@@ -68,7 +69,7 @@ public class TCPReceiverThread extends Thread {
 
       } catch( Exception e ) {
         // On any error from anybody, close all sockets & re-open
-        System.err.println("IO error on port "+H2O.TCP_PORT+": "+e); 
+        System.err.println("IO error on port "+H2O.TCP_PORT+": "+e);
         e.printStackTrace();
         saw_error = true;
         errsock  = sock ;  sock  = null; // Signal error recovery on the next loop

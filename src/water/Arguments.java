@@ -40,10 +40,32 @@ import java.util.Arrays;
  */
 public class Arguments {
   
-
-  static public interface Arg {
-    public String usage();
-    public boolean validate();
+  static public abstract class Arg {
+    abstract public String usage();
+    abstract public boolean validate();
+    @Override public String toString() {
+      Field[] fields = getFields(this);
+      String r="";
+      for( Field field : fields ){
+        String name = field.getName();
+        Class cl = field.getType();
+        try{
+          if( cl.isPrimitive() ){
+            if( cl == Boolean.TYPE ){
+              boolean curval = field.getBoolean(this);
+              if( curval ) r += " -"+name;
+            }
+            else if( cl == Integer.TYPE ) r+=" -"+name+"="+field.getInt(this);
+            else if( cl == Float.TYPE )  r+=" -"+name+"="+field.getFloat(this);
+            else if( cl == Double.TYPE )  r+=" -"+name+"="+field.getDouble(this);
+            else if( cl == Long.TYPE )  r+=" -"+name+"="+field.getLong(this);
+            else continue;
+          } else if( cl == String.class )
+            r+=" -"+name+"="+field.get(this);
+        }catch( Exception e ){  System.err.println("Argument failed with "+e); }
+      }
+      return r;      
+    }
   }
 
   static public class MissingArgumentError extends Error {
@@ -60,7 +82,7 @@ public class Arguments {
    * If not found the field is left untouched (the orginal value is not
    * modified).
    */
-  static public class Opt implements Arg {
+  static public class Opt extends Arg {
     public String usage() {  return ""; }
     public boolean validate() {  return true;  }
   }
@@ -72,7 +94,7 @@ public class Arguments {
    * If they all do they will extracted and the corresponding field will be set
    * to the extracted value. If any one of the fields is missing
    */
-  static public class Req implements Arg {
+  static public class Req extends Arg {
     public String usage() { return ""; }
     public boolean validate() { return true; }
   }
@@ -87,6 +109,10 @@ public class Arguments {
    */
   public Arguments(String[] args) { parse(args);  }
 
+
+  /** Create a new CommandLine object with no arguments.   */
+  public Arguments() { parse(new String[0]); }
+  
   /**
    * Returns the number of remaining command line arguments.
    */
@@ -139,14 +165,6 @@ public class Arguments {
     }
   }
 
-  /**
-   * Return the value of the option <code>opt</code>.
-   * 
-   * @param opt
-   *          an option String (without leading '-')
-   * @return the value of the option, empty ("") if the option has been set
-   *         without a value, null if the option has not been.
-   */
   public void extract(Arg arg) throws MissingArgumentError {
     Field[] fields = getFields(arg);
     int count = extract(arg, fields);
@@ -160,8 +178,7 @@ public class Arguments {
    */
   private int extract(Arg arg, Field[] fields) {
     int count = 0;
-    for( int i = 0; i < fields.length; i++ ){
-      Field field = fields[i];
+    for( Field field : fields ){
       String name = field.getName()/*.replace("_","-")*/;
       Class cl = field.getType();
       String opt = getValue(name); // optional value
@@ -191,6 +208,7 @@ public class Arguments {
     return count;
   }
 
+  
   /**
    * Return the value of a binding (e.g. "value" for "-name=value") and the
    * empty string "" for an option ("-name" or "-name="). A null value is

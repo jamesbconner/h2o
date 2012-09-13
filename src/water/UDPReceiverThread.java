@@ -17,6 +17,7 @@ import java.util.Arrays;
  */
 
 public class UDPReceiverThread extends Thread {
+  public UDPReceiverThread() { super("Direct UDP Receiver"); }
 
   // Synchronized LIFO list of free UDP packets.  Sync'd because multiple
   // worker threads will push free packs on the list.  Stack, because of
@@ -58,7 +59,7 @@ public class UDPReceiverThread extends Thread {
 
   // The Run Method.
   // ---
-  // Started by main() on a single thread, this code manages reading UDP packets 
+  // Started by main() on a single thread, this code manages reading UDP packets
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
     DatagramSocket sock = null, errsock = null;
@@ -71,8 +72,8 @@ public class UDPReceiverThread extends Thread {
     while( true ) {
       // Get a free datagram packet
       DatagramPacket pack = get_pack();
-      
-      try { 
+
+      try {
         // ---
         // Cleanup from any prior socket failures.  Rare unless we're really sick.
         if( errsock != null ) { // One time attempt a socket close
@@ -90,10 +91,10 @@ public class UDPReceiverThread extends Thread {
         // Receive a packet
         sock.receive(pack);
         TimeLine.record_recv(pack);
-        
+
       } catch( Exception e ) {
         // On any error from anybody, close all sockets & re-open
-        System.err.println("UDP Receiver error on port "+H2O.UDP_PORT+" error "+e); 
+        System.err.println("UDP Receiver error on port "+H2O.UDP_PORT+" error "+e);
         saw_error = true;
         errsock  = sock ;  sock  = null; // Signal error recovery on the next loop
       }
@@ -113,7 +114,7 @@ public class UDPReceiverThread extends Thread {
       // Check cloud membership; stale ex-members are "fail-stop" - we mostly
       // ignore packets from them (except paxos packets).
       boolean is_member = cloud._memset.contains(h2o);
-      
+
       // Snapshots are handled *IN THIS THREAD*, to prevent more UDP packets
       // from being handled during the dump.
       if( is_member && first_byte == UDP.udp.timeline.ordinal() ) {
@@ -134,7 +135,7 @@ public class UDPReceiverThread extends Thread {
         H2O.FJP_HI.execute(new FJPacket(pack,h2o));
         continue;
       }
-      
+
       // Log packets (only from members) are handled separately.
       if( is_member && first_byte == UDP.udp.log.ordinal() ) {
         // TODO: use FJP_HI or FJP_NORM

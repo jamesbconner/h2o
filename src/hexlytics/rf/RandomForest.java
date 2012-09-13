@@ -54,19 +54,19 @@ public class RandomForest {
 
   public static class OptArgs extends Arguments.Opt {
 	String file = "smalldata/poker/poker-hand-testing.data";
+	String validationFile = null;
 	String h2oArgs = "";
 	int ntrees = 10;
 	int depth = -1;
 	double cutRate = 0;
 	String statType = "entropy";
 	int seed = 42;
-	boolean singlethreaded = true;
+	boolean singlethreaded;
   }
 
   static final OptArgs ARGS = new OptArgs();
 
   public int features() { return _features== -1 ? (int)Math.sqrt(_data.columns()) : _features; }
-
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
@@ -78,17 +78,34 @@ public class RandomForest {
     System.out.println("H2O args = " + Arrays.toString(h2oArgs));
     H2O.main(h2oArgs);
     System.out.println(ARGS.file);
+    Thread.sleep(100);
     Key fileKey = TestUtil.load_test_file(ARGS.file);
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
     int ntrees = ARGS.ntrees;
     DataAdapter.setSeed(ARGS.seed);
-    DRF.sample=true;
+    DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
+    DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());    
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st,ARGS.singlethreaded);
-    Key[] tkeys = drf._treeskey.flatten();
-    assert tkeys.length == ntrees; // Since used blocking invoke, all Trees are available
-    new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();
+    long t1 = System.currentTimeMillis();
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
+    Key[] tkeys = null;
+    while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
+    long t2 = System.currentTimeMillis();
+    assert tkeys.length == ntrees;
+    if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
+      System.out.println("***");
+      DRF.forceNoSample = true;
+      Key valKey = TestUtil.load_test_file(ARGS.validationFile);
+      ValueArray valAry = TestUtil.parse_test_key(valKey);     
+      Key[] keys = new Key[(int)valAry.chunks()];
+      for( int i=0; i<keys.length; i++ )
+        keys[i] = valAry.chunk_get(i);
+      Data valData = Data.make(DRF.extractData(valAry._key, keys));
+      new RFValidator( tkeys, valData, valAry, drf._rf.features() ).report();
+    } else 
+      new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();   
+    System.out.println("Random forest finished in: " + (t2 - t1) + " ms");
     UDPRebooted.global_kill();
   }
 
