@@ -203,14 +203,14 @@ public class NanoHTTPD
     myTcpPort = port;
     this.myRootDir = wwwroot;
     myServerSocket = new ServerSocket( myTcpPort );
-    myThread = new Thread( new Runnable() {
+    myThread = new Thread(new Runnable() {
       public void run() {
         try {
           while( true )
             new HTTPSession( myServerSocket.accept());
         } catch ( IOException ioe ) { }
       }
-    });
+    }, "NanoHTTPD Thread");
     myThread.setDaemon( true );
     myThread.start();
   }

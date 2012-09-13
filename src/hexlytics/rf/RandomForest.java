@@ -60,13 +60,12 @@ public class RandomForest {
 	double cutRate = 0;
 	String statType = "entropy";
 	int seed = 42;
-	boolean singlethreaded = true;
+	boolean singlethreaded;
   }
 
   static final OptArgs ARGS = new OptArgs();
 
   public int features() { return _features== -1 ? (int)Math.sqrt(_data.columns()) : _features; }
-
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
@@ -78,6 +77,7 @@ public class RandomForest {
     System.out.println("H2O args = " + Arrays.toString(h2oArgs));
     H2O.main(h2oArgs);
     System.out.println(ARGS.file);
+    Thread.sleep(100);
     Key fileKey = TestUtil.load_test_file(ARGS.file);
     ValueArray va = TestUtil.parse_test_key(fileKey);
     DKV.remove(fileKey); // clean up and burn
@@ -85,9 +85,13 @@ public class RandomForest {
     DataAdapter.setSeed(ARGS.seed);
     DRF.sample=true;
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st,ARGS.singlethreaded);
-    Key[] tkeys = drf._treeskey.flatten();
-    assert tkeys.length == ntrees; // Since used blocking invoke, all Trees are available
+
+    long t1 = System.currentTimeMillis();
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
+    Key[] tkeys = null;
+    while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
+    System.out.println("Random forest finished in: " + (System.currentTimeMillis() - t1) + " ms");
+    assert tkeys.length == ntrees; 
     new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();
     UDPRebooted.global_kill();
   }

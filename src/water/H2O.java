@@ -500,6 +500,8 @@ public final class H2O {
   }
   // Periodically write user keys to disk
   public static class Cleaner extends Thread {
+    public Cleaner() { super("Memory Cleaner"); }
+
     public void run() {
       while (true) {
         synchronized (STORE) {
