@@ -12,7 +12,6 @@ import java.util.Set;
 
 public class Data implements Iterable<Row> {
 
-
   public final class Row {
     int index;
     public String toString() {
@@ -39,7 +38,7 @@ public class Data implements Iterable<Row> {
     int pos = 0;
     public boolean hasNext() { return pos<rows(); }
     public Row next() { fillRow(r,pos);  pos++;  return r; }
-    public void remove() { throw new Error("Unsported"); }
+    public void remove() { throw new Error("Unsupported"); }
   }
 
   protected final DataAdapter data_;
@@ -77,7 +76,6 @@ public class Data implements Iterable<Row> {
   public  String classColumnName(){ return data_.classColumnName(); }
   public String name() { return data_.name(); }
   public int last(int column) { return data_.c_[column].o2v2.size();}
-     // o2v_.size(); }
 
 
   // subsets -------------------------------------------------------------------
@@ -102,6 +100,7 @@ public class Data implements Iterable<Row> {
     int l=0, r=0;
     int[] li = new int[rows()], ri=new int[rows()];
     int i = 0;
+    System.out.println("filter="+rows());
     for(Row row : this) {
       if (row.getColumnClass(column) <= split) {
         left.add(row); li[l++] = permute(i);
