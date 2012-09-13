@@ -278,7 +278,7 @@ public class Tree extends CountedCompleter {
     }
     public StringBuilder toString( StringBuilder sb, int n ) {
       C c = column();           // Get the column in question
-      sb.append(c.name_).append('<').append(Utils.p2d(split_value())).append(" (");
+      sb.append(c.name_).append("<=").append(Utils.p2d(split_value())).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
       if( sb.length() > n ) return sb;
