@@ -60,13 +60,16 @@ public class RandomForest {
 	double cutRate = 0;
 	String statType = "entropy";
 	int seed = 42;
+<<<<<<< HEAD
 	boolean singlethreaded;
+=======
+	boolean singlethreaded = false;
+>>>>>>> 4599d53d387e8385cd7188e83d8a44c8f45d2a2d
   }
 
   static final OptArgs ARGS = new OptArgs();
 
   public int features() { return _features== -1 ? (int)Math.sqrt(_data.columns()) : _features; }
-
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
@@ -86,11 +89,13 @@ public class RandomForest {
     DataAdapter.setSeed(ARGS.seed);
     DRF.sample=true;
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
+
     long t1 = System.currentTimeMillis();
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st,ARGS.singlethreaded);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
+    Key[] tkeys = null;
+    while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
     System.out.println("Random forest finished in: " + (System.currentTimeMillis() - t1) + " ms");
-    Key[] tkeys = drf._treeskey.flatten();
-    assert tkeys.length == ntrees; // Since used blocking invoke, all Trees are available
+    assert tkeys.length == ntrees; 
     new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();
     UDPRebooted.global_kill();
   }
