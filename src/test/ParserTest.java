@@ -1,9 +1,17 @@
 package test;
 
-import org.junit.*;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
-import water.*;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.Value;
+import water.ValueArray;
+import water.parser.ParseDataset.ColumnDomain;
 import water.parser.SeparatedValueParser;
+import water.parser.SeparatedValueParser.Row;
 
 public class ParserTest {
   @BeforeClass public static void setupCloud() {
@@ -11,6 +19,7 @@ public class ParserTest {
   }
 
   private double[] d(double... ds) { return ds; }
+  private String[] s(String...ss)  { return ss; }
   private final double NaN = Double.NaN;
 
   private Key[] k(String... data) {
@@ -46,8 +55,8 @@ public class ParserTest {
 
     p = new SeparatedValueParser(k, ',', 3);
     i = 0;
-    for( double[] r : p ) {
-      Assert.assertArrayEquals((double[]) t[i++][1], r, 0.0001);
+    for( Row r : p ) {
+      Assert.assertArrayEquals((double[]) t[i++][1], r._fieldVals, 0.0001);
     }
 
     sb = new StringBuilder();
@@ -56,8 +65,8 @@ public class ParserTest {
 
     p = new SeparatedValueParser(k, ',', 3);
     i = 0;
-    for( double[] r : p ) {
-      Assert.assertArrayEquals((double[]) t[i++][1], r, 0.0001);
+    for( Row r : p ) {
+      Assert.assertArrayEquals((double[]) t[i++][1], r._fieldVals, 0.0001);
     }
   }
 
@@ -79,28 +88,28 @@ public class ParserTest {
     SeparatedValueParser p;
 
     p = new SeparatedValueParser(keys[0], ',', 3);
-    for( double[] r : p ) {
-      Assert.assertArrayEquals(exp[i++], r, 0.0001);
+    for( Row r : p ) {
+      Assert.assertArrayEquals(exp[i++], r._fieldVals, 0.0001);
     }
     Assert.assertEquals(1, i);
     p = new SeparatedValueParser(keys[1], ',', 3);
-    for( double[] r : p ) {
-      Assert.assertArrayEquals(exp[i++], r, 0.0001);
+    for( Row r : p ) {
+      Assert.assertArrayEquals(exp[i++], r._fieldVals, 0.0001);
     }
     Assert.assertEquals(2, i);
     p = new SeparatedValueParser(keys[2], ',', 3);
-    for( double[] r : p ) {
+    for( Row r : p ) {
       Assert.fail("Key 2 should have skipped the record: 2,3,4 got " + r);
     }
     Assert.assertEquals(2, i);
     p = new SeparatedValueParser(keys[3], ',', 3);
-    for( double[] r : p ) {
-      Assert.assertArrayEquals(exp[i++], r, 0.0001);
+    for( Row r : p ) {
+      Assert.assertArrayEquals(exp[i++], r._fieldVals, 0.0001);
     }
     Assert.assertEquals(3, i);
     Assert.assertEquals(3, exp.length);
     p = new SeparatedValueParser(keys[4], ',', 3);
-    for( double[] r : p ) {
+    for( Row r : p ) {
       Assert.fail("Key 4 should have skipped the record: 3,4,5 got " + r);
     }
     Assert.assertEquals(5, keys.length);
@@ -150,10 +159,95 @@ public class ParserTest {
     SeparatedValueParser p;
     for( Key k : keys ) {
       p = new SeparatedValueParser(k, ',', 3);
-      for( double[] r : p ) {
-        Assert.assertArrayEquals(exp[i++], r, 0.0001);
+      for( Row r : p ) {
+        Assert.assertArrayEquals(exp[i++], r._fieldVals, 0.0001);
       }
     }
     Assert.assertEquals(exp.length, i);
   }
+  
+  @Test public void testNondecimalColumns() {
+    String data[] = {
+        "1,  2,one\n",
+        "3,  4,two\n",
+        "5,  6,three\n",
+        "7,  8,one\n",
+        "9, 10,two\n",
+        "11,12,three\n",
+        "13,14,one\n",        
+    };
+    double[][] expDouble = new double[][] {
+        d(1,  2, NaN), // preserve order
+        d(3,  4, NaN),
+        d(5,  6, NaN),
+        d(7,  8, NaN),
+        d(9, 10, NaN),
+        d(11,12, NaN),
+        d(13,14, NaN),        
+    };
+    
+    String[][] expString = new String[][] {
+        s(null,null, "one"),
+        s(null,null, "two"),
+        s(null,null, "three"),
+        s(null,null, "one"),
+        s(null,null, "two"),
+        s(null,null, "three"),
+        s(null,null, "one"),
+    };
+    
+    String expDomain[] = s( "one", "two", "three" );  
+    Key[] keys = k(data);
+
+    SeparatedValueParser p;
+    ColumnDomain cds[] = new ColumnDomain[3];
+    for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
+    int i = 0;
+    for( Key k : keys ) {
+      p = new SeparatedValueParser(k, ',', 3, cds);
+      for( Row r : p ) {
+        Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
+        Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+        i++;
+      }      
+    }
+    Assert.assertTrue ( cds[0].size() == 0 );
+    Assert.assertTrue ( cds[1].size() == 0 );
+    Assert.assertTrue ( cds[2].size() != 0 );   
+    Assert.assertArrayEquals(expDomain, cds[2].toArray());
+  }
+  
+  @Test public void testMultipleNondecimalColumns() {
+    String data[] = {
+        "foo,    2,one\n",
+        "bar,    4,two\n",
+        "foo,    6,three\n",
+        "bar,    8,one\n",
+        "bar,   10,two\n",
+        "bar,   12,three\n",
+        "foobar,14,one\n",        
+    };
+    double[][] expDouble = new double[][] {
+        d(NaN,  2, NaN), // preserve order
+        d(NaN,  4, NaN),
+        d(NaN,  6, NaN),
+        d(NaN,  8, NaN),
+        d(NaN, 10, NaN),
+        d(NaN, 12, NaN),
+        d(NaN, 14, NaN),        
+    };
+    
+    String[][] expString = new String[][] {
+        s("foo",null, "one"),
+        s("bar",null, "two"),
+        s("foo",null, "three"),
+        s("bar",null, "one"),
+        s("bar",null, "two"),
+        s("bar",null, "three"),
+        s("foobar",null, "one"),
+    };
+        
+  }
+  
+  
 }

@@ -1,12 +1,17 @@
 package water.parser;
 
+import java.util.Arrays;
 import java.util.Iterator;
 
-import water.*;
+import water.Key;
+import water.UKV;
+import water.Value;
+import water.ValueArray;
+import water.parser.ParseDataset.ColumnDomain;
 
 import com.google.common.base.Objects;
 
-public class SeparatedValueParser implements Iterable<double[]>, Iterator<double[]> {
+public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>, Iterator<SeparatedValueParser.Row> {
   private final Key _key;
   private final long _startChunk;
 
@@ -17,13 +22,23 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
 
   private final char _separator;
   private final DecimalParser _decimal;
-  private final double[] _fieldVals;
-
+  private final TextualParser _textual;
+  private final Row _row;
+    
+  private final ColumnDomain[] _columnsDomains;
+  
   public SeparatedValueParser(Key k, char seperator, int numColumnsGuess) {
+    this(k,seperator,numColumnsGuess,null);
+  }
+  
+  public SeparatedValueParser(Key k, char seperator, int numColumnsGuess, ColumnDomain[] columnsDomains ) {
     _decimal = new DecimalParser();
-    _fieldVals = new double[numColumnsGuess];
+    _textual = new TextualParser();
+    _row     = new Row(numColumnsGuess);    
+    
     _separator = seperator;
-
+    _columnsDomains = columnsDomains;
+    
     _key = k;
     _curVal = UKV.get(k);
     assert _curVal != null;
@@ -99,17 +114,27 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
         ++_offset;
         return b;
       }
-      _decimal.addCharacter(b);
+      parse(b);
       ++_offset;
     }
     return '\n';
   }
 
+  private void    parse(byte b) { _decimal.addCharacter(b); _textual.addCharacter(b); }
+  private void    resetParsers() { _decimal.reset(); _textual.reset(); }
   private boolean isNewline(byte b)  { return b == '\r' || b == '\n'; }
   private boolean isSeparator(byte b) { return b == _separator || isNewline(b); }
+  
+  private void putToDictionary(int column, String key) {
+    if (_columnsDomains != null) {
+      assert column < _columnsDomains.length;
+      assert key != null && !"".equals(key);       
+      _columnsDomains[column].add(key);      
+    }    
+  }
 
   @Override
-  public Iterator<double[]> iterator() {
+  public Iterator<SeparatedValueParser.Row> iterator() {
     return this;
   }
 
@@ -121,16 +146,21 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
   }
 
   @Override
-  public double[] next() {
+  public Row next() {
     assert !isNewline(getByte());
 
     byte b;
     int field = 0;
     while( hasNextByte() ) {
-      if( field < _fieldVals.length ) {
-        _decimal.reset();
+      if( field < _row._fieldVals.length ) {
+        resetParsers();
         b = scanPastNextSeparator();
-        _fieldVals[field] = _decimal.doubleValue();
+        _row._fieldVals[field]       = _decimal.doubleValue();
+        _row._fieldStringVals[field] = null;
+        if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
+          _row._fieldStringVals[field] = _textual.stringValue();
+          putToDictionary(field, _row._fieldStringVals[field]);
+        }        
       } else {
         b = scanPastNextSeparator();
       }
@@ -139,11 +169,12 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
         break;
       }
     }
-    for(; field < _fieldVals.length; ++field) _fieldVals[field] = Double.NaN;
+    for(; field < _row._fieldVals.length; ++field) { _row._fieldVals[field] = Double.NaN; _row._fieldStringVals[field] = null; }
     skipNewlines();
-    return _fieldVals;
+    
+    return _row;
   }
-
+  
   public String toString() {
     return Objects.toStringHelper(this)
         .add("curChunk", _curChunk)
@@ -153,4 +184,22 @@ public class SeparatedValueParser implements Iterable<double[]>, Iterator<double
 
 
   @Override public void remove() { throw new UnsupportedOperationException(); }
+  
+  // Helper class to represent parsed row. 
+  // The driving attribute is _fieldVals which contains all parsed numbers.
+  // In the case that it contains NaN then _fieldStringVals contains parsed field text
+  public static final class Row {
+    public final double[] _fieldVals;
+    public final String[] _fieldStringVals;
+    
+    public Row(int numOfColumns) {
+      _fieldVals       = new double[numOfColumns];
+      _fieldStringVals = new String[numOfColumns];      
+    }
+    
+    @Override
+    public String toString() {
+      return Arrays.toString(_fieldVals) + "\n" + Arrays.toString(_fieldStringVals);
+    }
+  }
 }

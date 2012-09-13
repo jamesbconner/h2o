@@ -2,7 +2,10 @@ package water.web;
 import java.io.IOException;
 import java.util.Properties;
 
-import water.*;
+import water.DKV;
+import water.Key;
+import water.Value;
+import water.ValueArray;
 
 public class Inspect extends H2OPage {
 
@@ -179,6 +182,13 @@ public class Inspect extends H2OPage {
         sb.append(" - ");
         double max = ary.col_max(i);
         if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+        if(ary.col_has_enum_domain(i)) {
+          int dom_size = ary.col_enum_domain_size(i)-1;
+          sb.append(" (0="); sb.append(ary.col_enum_domain_val(i, 0));
+          sb.append(" ,..., "); sb.append(dom_size); sb.append('=');
+          sb.append(ary.col_enum_domain_val(i, dom_size));
+          sb.append(')');
+        }
       }
       sb.append("</td>");
     }
@@ -236,10 +246,15 @@ public class Inspect extends H2OPage {
           if( sz != 0 ) {
             if( r == -1 ) sb.append("...");
             else {
-              if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 )
-                sb.append(ary.data (r,i)); // int/long
-              else
+              if( ary.col_size(i) > 0 && ary.col_scale(i) == 1 ) {
+                long cellVal = ary.data (r,i); 
+                sb.append(cellVal); // int/long
+                if (ary.col_has_enum_domain(i)) {
+                  sb.append(" ("); sb.append(ary.col_enum_domain_val(i, (int) cellVal)); sb.append(')');                  
+                }
+              } else {
                 sb.append(ary.datad(r,i)); // float/double
+              }
             }
           }
           sb.append("</td>");
