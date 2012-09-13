@@ -60,11 +60,7 @@ public class RandomForest {
 	double cutRate = 0;
 	String statType = "entropy";
 	int seed = 42;
-<<<<<<< HEAD
 	boolean singlethreaded;
-=======
-	boolean singlethreaded = false;
->>>>>>> 4599d53d387e8385cd7188e83d8a44c8f45d2a2d
   }
 
   static final OptArgs ARGS = new OptArgs();
