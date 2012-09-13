@@ -1,7 +1,6 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
-import hexlytics.rf.Statistic.Split;
 import java.io.IOException;
 import java.util.UUID;
 import jsr166y.CountedCompleter;
@@ -17,7 +16,6 @@ public class Tree extends CountedCompleter {
   ThreadLocal<BaseStatistic>[] stats_;
   static public enum StatType {
     ENTROPY,
-    NEW_ENTROPY,
     GINI,
     ENTROPY_EXCLUDED,
     GINI_EXCLUDED
@@ -81,7 +79,7 @@ public class Tree extends CountedCompleter {
         case GINI:
           result = new GiniStatistic(data,_features);
           break;
-        case NEW_ENTROPY:
+        case ENTROPY:
           result = new EntropyStatistic(data,_features);
           break;
         case ENTROPY_EXCLUDED:
@@ -103,19 +101,15 @@ public class Tree extends CountedCompleter {
   // Actually build the tree
   public void compute() {
     createStatistics();
-    switch( _type ) {
-      case ENTROPY:
-        computeNumeric();
-        break;
-      case GINI:   
-      case NEW_ENTROPY:
-      case ENTROPY_EXCLUDED:
-      case GINI_EXCLUDED:
-        computeGini();
-        break;
-      default:
-        throw new Error("Unrecognized statistic type");
-    }
+    // build the tree
+    // first get the statistic so that it can be reused
+    BaseStatistic left = getOrCreateStatistic(0,_data);
+    // calculate the split
+    for (Row r : _data) left.add(r);
+    BaseStatistic.Split spl = left.split();
+    if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
+    else  _tree = new FJBuild(spl,_data,0).compute();
+    // report & bookkeeping
     StringBuilder sb = new StringBuilder();
     sb.append("Tree :").append(_data_id).append(" d=").append(_tree.depth());
     sb.append(" leaves=").append(_tree.leaves()).append("  ");
@@ -125,52 +119,7 @@ public class Tree extends CountedCompleter {
     tryComplete();
   }
 
-  void computeNumeric() { // All rows in the top-level split
-    Statistic s = new Statistic(_data,null,_features);
-    for (Row r : _data) s.add(r);
-    _tree = new FJEntropyBuild(s,_data,0).compute();
-  }
-
   void computeGini() {
-    // first get the statistic so that it can be reused
-    BaseStatistic left = getOrCreateStatistic(0,_data);
-    // calculate the split
-    for (Row r : _data) left.add(r);
-    BaseStatistic.Split spl = left.split();
-    if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
-    else  _tree = new FJBuild(spl,_data,0).compute();
-  }
-
-  private class FJEntropyBuild extends RecursiveTask<INode> {
-
-
-    Statistic _s;         // All the rows that this split munged over
-    Data _data;           // The resulting 1/2-sized dataset from the above split
-    final int _d;               // depth
-
-    FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
-    public INode compute() {
-      // terminate the branch prematurely
-      if( (_d >= _max_depth) && (_max_depth!=-1) ) // FIXME...  || _s.error() < _min_error_rate )
-        return new LeafNode(_s.classOf());
-      if (_s.singleClass()) return new LeafNode(_s.classOf());
-      Split best = _s.best();
-      if (best == null) return new LeafNode(_s.classOf());
-      Node nd = new Node(best.column,best.value,_data.data_);
-      Data[] res = new Data[2];
-      Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
-      _data.filter(best,res,stats);
-      _data = null; _s = null;
-      if (THREADED) {
-        ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
-        nd._r =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
-        nd._l = fj0.join();
-      } else {
-        nd._l = new FJEntropyBuild(stats[0],res[0],_d+1).compute();
-        nd._r = new FJEntropyBuild(stats[1],res[1],_d+1).compute();
-      }
-      return nd;
-    }
   }
 
   private class FJBuild extends RecursiveTask<INode> {
