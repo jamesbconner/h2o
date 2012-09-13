@@ -246,9 +246,7 @@ public class Tree extends CountedCompleter {
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
     private final float split_value() { return  _dapt.unmap(_column, _value); } 
-    private final C column() {
-      return _dapt.c_[_column]; // Get the column in question
-    }
+    private final C column() { return _dapt.c_[_column]; } // Get the column in question
     public StringBuilder toString( StringBuilder sb, int n ) {
       C c = column();           // Get the column in question
       sb.append(c.name_).append('<').append(Utils.p2d(split_value())).append(" (");

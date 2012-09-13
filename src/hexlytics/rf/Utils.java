@@ -27,8 +27,7 @@ public class Utils {
     @Override public String toString() {
       return avg()+" ("+min_+" ... "+max_+")";
     }
-  }
-  
+  }  
   
   /** Returns the index of the largest value in the array. In case of a tie, an
    * the index is selected randomly.   */
@@ -39,12 +38,10 @@ public class Utils {
     return result;
   }
 
-
   public static int maxIndex(double[] from) {
     int result = 0;
     for (int i = 1; i<from.length; ++i)
-      if (from[i]>from[result])
-        result = i;
+      if (from[i]>from[result]) result = i;
     return result;
   }
   
@@ -69,34 +66,29 @@ public class Utils {
 
 
    public static int set4( byte[] buf, int off, int x ) {
-    for( int i=0; i<4; i++ )
-      buf[i+off] = (byte)(x>>(i<<3));
+    for( int i=0; i<4; i++ ) buf[i+off] = (byte)(x>>(i<<3));
     return 4;
   }
   public static int get4( byte[] buf, int off ) {
     int sum=0;
-    for( int i=0; i<4; i++ )
-      sum |= (0xff&buf[off+i])<<(i<<3);
+    for( int i=0; i<4; i++ ) sum |= (0xff&buf[off+i])<<(i<<3);
     return sum;
   }
 
   public static int set8d( byte[] buf, int off, double d ) {
     long x = Double.doubleToLongBits(d);
-    for( int i=0; i<8; i++ )
-      buf[i+off] = (byte)(x>>(i<<3));
+    for( int i=0; i<8; i++ ) buf[i+off] = (byte)(x>>(i<<3));
     return 8;
   }
   public static double get8d( byte[] buf, int off ) {
     long sum=0;
-    for( int i=0; i<8; i++ )
-      sum |= ((long)(0xff&buf[off+i]))<<(i<<3);
+    for( int i=0; i<8; i++ ) sum |= ((long)(0xff&buf[off+i]))<<(i<<3);
     return Double.longBitsToDouble(sum);
   }
   
   public static double sum(double[] from) {
     double result = 0;
-    for (double d: from)
-      result += d;
+    for (double d: from) result += d;
     return result;
   }
   
