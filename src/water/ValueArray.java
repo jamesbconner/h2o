@@ -393,7 +393,7 @@ public class ValueArray extends Value {
   public String[] col_enum_domain(int cnum) {
     byte[] mem = get();
     int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off); off += 2;
+    int domainSize = UDP.get2(mem, off); off += 2+1; // skip killed flag
     String[] domain = new String[domainSize];
     for( int i = 0; i < domainSize; i++) {
       int len = UDP.get2(mem, off); off += 2;
@@ -408,7 +408,7 @@ public class ValueArray extends Value {
   public String col_enum_domain_val(int cnum, int ord) {
     byte[] mem = get();
     int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off); off += 2;
+    int domainSize = UDP.get2(mem, off); off += 2+1; // skip killed flag
     if (ord < 0 || ord >= domainSize) throw new ArrayIndexOutOfBoundsException(ord);
     for( int i = 0; i < ord; i++) {
       int len = UDP.get2(mem, off); off += (2+len);      
@@ -420,9 +420,8 @@ public class ValueArray extends Value {
   // Returns true if column's enum domain is not empty
   public boolean col_has_enum_domain(int cnum) {
     byte[] mem = get();
-    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off); off += 2;
-    return domainSize > 0;        
+    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);     
+    return mem[off+2] == 0; // check for killed flag = 0 means the column is not killed        
   }
 
   // Offset (within a row) of this column start
@@ -599,12 +598,6 @@ public class ValueArray extends Value {
     for( Column column : cols ) {      
       UDP.set4(mem,ary.col(i++)+DOMAIN_COL_OFF,off);     // First write the offset of domain to column header.
       off = column._domain.write(mem, off);
-/*      UDP.set2(mem,off,column._domain.length); off += 2; // Write domain size. 
-      for (String s : column._domain) {                  // Write whole domain as pairs: <size of string><byte of string>
-        byte[] data = s.getBytes();
-        UDP.set2(mem,off,data.length); off += 2;
-        System.arraycopy(data, 0, mem, off, data.length); off += data.length;                
-      }*/
     }    
         
     return ary;

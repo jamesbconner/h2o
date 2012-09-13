@@ -295,9 +295,14 @@ public final class ParseDataset {
       _killed       = false;      
     }
     
-    public final int     size()     { return _domainValues.size(); }
-    public final void    kill()     { if (!_killed) { _killed = true; _domainValues.clear();} }
+    public final int     size()     { return _domainValues.size(); }    
     public final boolean isKilled() { return _killed; }
+    public final void    kill()     { 
+      if (!_killed) { 
+        _killed = true; 
+        _domainValues.clear();
+      } 
+    }
     
     public final boolean add(String s) {
       if (_killed) return false; // this column domain is not live anymore (too many unique values)
@@ -311,6 +316,7 @@ public final class ParseDataset {
     public void write( DataOutputStream dos ) throws IOException {
       // write size of domain
       dos.writeShort(_domainValues.size());
+      dos.writeBoolean(_killed);
       // write domain values
       for (String s : _domainValues) {
         dos.writeShort(s.length()); // Note: we do not expect to have domain names longer than > 2^16 characters                
@@ -320,6 +326,7 @@ public final class ParseDataset {
     
     public int write( byte[] buf, int off ) {
       UDP.set2(buf, off, _domainValues.size()); off += 2;
+      buf[off] = (byte)(_killed ? 1 : 0); off += 1;
       for (String s : _domainValues) {
         byte[] stringBytes = s.getBytes();
         UDP.set2(buf, off, stringBytes.length); off += 2;        
@@ -331,6 +338,7 @@ public final class ParseDataset {
     static public ColumnDomain read( DataInputStream dis ) throws IOException {
       ColumnDomain cd = new ColumnDomain();
       int domainSize  = dis.readShort();
+      cd._killed      = dis.readByte() != 0;
       for (int i = 0; i < domainSize; i++) {
         int len     = dis.readShort();
         byte name[] = new byte[len];
@@ -343,6 +351,7 @@ public final class ParseDataset {
     static public ColumnDomain read( byte[] buf, int off ) {
       ColumnDomain cd = new ColumnDomain();
       int domainSize  = UDP.get2(buf, off); off += 2;
+      cd._killed      = buf[off] != 0; off += 1;
       for (int i = 0; i < domainSize; i++) {
         int len     = UDP.get2(buf, off); off += 2;
         cd._domainValues.add(new String(buf, off, len));
@@ -353,7 +362,7 @@ public final class ParseDataset {
     }
     
     public final int wire_len() {      
-      int res = 2;             // 2bytes to store size of domain: 2 bytes      
+      int res = 2+1;             // 2bytes to store size of domain: 2 bytes, 1byte to store _killed flag      
       for (String s : _domainValues)        
         res += 2+s.length() ;  // 2bytes to store string length + string bytes       
       return res;
@@ -400,7 +409,12 @@ public final class ParseDataset {
     public int wire_len(T dp) {
       assert dp._num_rows==0 || dp._cols != null;
       assert dp._num_rows==0 || dp._rows_chk != null;
-      return 4+4+1+(dp._num_rows==0?0:(dp._cols.length*ValueArray.Column.wire_len() + 4+dp._rows_chk.length*4));
+      assert dp._num_rows==0 || dp._cols_domains != null;
+      int colDomSize = 0; 
+      if (dp._cols_domains!=null) { 
+        for (ColumnDomain cd : dp._cols_domains) colDomSize += cd.wire_len();
+      }
+      return 4+4+1+(dp._num_rows==0?0:(dp._cols.length*ValueArray.Column.wire_len() + 4+dp._rows_chk.length*4))+colDomSize;
     }
 
     public int write( T dp, byte[] buf, int off ) {
@@ -455,6 +469,7 @@ public final class ParseDataset {
       dp._rows_chk = new int[rlen];
       for( int i=0; i<rlen; i++ )
         dp._rows_chk[i] = UDP.get4(buf,(off+=4)-4);
+      dp._cols_domains = new ColumnDomain[dp._num_cols];
       for( int i=0; i<dp._num_cols; i++ ) {
         dp._cols_domains[i] = ColumnDomain.read(buf, off);
         off += dp._cols_domains[i].wire_len();
@@ -476,6 +491,7 @@ public final class ParseDataset {
       dp._rows_chk = new int[rlen];
       for( int i=0; i<rlen; i++ )
         dp._rows_chk[i] = dis.readInt();
+      dp._cols_domains = new ColumnDomain[dp._num_cols];
       for( int i=0; i<dp._num_cols; i++ )
         dp._cols_domains[i] = ColumnDomain.read(dis);
       
@@ -687,7 +703,7 @@ public final class ParseDataset {
       // Prepare hashmap for each column domain to get domain item's index quickly
       HashMap<String,Integer> columnIndexes[] = new HashMap[_num_cols];
       for (int i = 0; i < _num_cols; i++) {
-        if (_cols_domains[i].isKilled()) continue;
+        if (_cols_domains[i].size() == 0) continue;
         columnIndexes[i] = new HashMap<String, Integer>();
         int j = 0;
         for (String s : _cols_domains[i]._domainValues) {
@@ -705,7 +721,7 @@ public final class ParseDataset {
           ValueArray.Column col = _cols[i];
           if ( columnIndexes[i] != null) {
             assert Double.isNaN(d);
-            d = columnIndexes[i].get(row._fieldStringVals[i]);                         
+            d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();                         
           }
           // Write to compressed values
           if( !Double.isNaN(d) ) { // Broken data on row?

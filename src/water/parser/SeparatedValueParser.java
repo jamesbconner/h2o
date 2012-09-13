@@ -1,5 +1,6 @@
 package water.parser;
 
+import java.util.Arrays;
 import java.util.Iterator;
 
 import water.Key;
@@ -170,6 +171,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     }
     for(; field < _row._fieldVals.length; ++field) { _row._fieldVals[field] = Double.NaN; _row._fieldStringVals[field] = null; }
     skipNewlines();
+    
     return _row;
   }
   
@@ -193,6 +195,11 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     public Row(int numOfColumns) {
       _fieldVals       = new double[numOfColumns];
       _fieldStringVals = new String[numOfColumns];      
-    }        
+    }
+    
+    @Override
+    public String toString() {
+      return Arrays.toString(_fieldVals) + "\n" + Arrays.toString(_fieldStringVals);
+    }
   }
 }
