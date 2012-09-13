@@ -15,7 +15,12 @@ public class Tree extends CountedCompleter {
 
   
   ThreadLocal<BaseStatistic>[] stats_;
-  static public enum StatType { ENTROPY, NEW_ENTROPY, GINI };
+  static public enum StatType {
+    ENTROPY,
+    NEW_ENTROPY,
+    GINI,
+    ENTROPY_EXCLUDED,
+  };
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
@@ -71,7 +76,19 @@ public class Tree extends CountedCompleter {
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
-     result = (_type == StatType.GINI) ? new GiniStatistic(data,_features) : new EntropyStatistic(data,_features);
+      switch (_type) {
+        case GINI:
+          result = new GiniStatistic(data,_features);
+          break;
+        case NEW_ENTROPY:
+          result = new EntropyStatistic(data,_features);
+          break;
+        case ENTROPY_EXCLUDED:
+          result = new EntropyExclusionStatistic(data, _features);
+          break;
+        default:
+          throw new Error("Unknown tree type to build the statistic. ");
+      }
      stats_[index].set(result);
     }
     result.reset(data);
@@ -88,6 +105,7 @@ public class Tree extends CountedCompleter {
         break;
       case GINI:   
       case NEW_ENTROPY:
+      case ENTROPY_EXCLUDED:
         computeGini();
         break;
       default:
@@ -165,10 +183,21 @@ public class Tree extends CountedCompleter {
       BaseStatistic left = getOrCreateStatistic(0,data_);       // first get the statistics
       BaseStatistic right = getOrCreateStatistic(1,data_);
       Data[] res = new Data[2];       // create the data, node and filter the data
-      SplitNode nd = new SplitNode(split_.column, split_.split, data_.data_);
-      data_.filter(nd._column, nd._split,res,left,right);
+      SplitNode nd;
+      switch (_type) {
+        case ENTROPY_EXCLUDED:
+          nd = new ExclusionNode(split_.column, split_.split,data_.data_);
+          data_.filterExclude(nd._column, nd._split, res, left, right);
+          break;
+        default:
+          nd = new SplitNode(split_.column, split_.split, data_.data_);
+          data_.filter(nd._column, nd._split,res,left,right);
+          break;
+      }
       BaseStatistic.Split ls = left.split();      // get the splits
       BaseStatistic.Split rs = right.split();
+//      System.out.println("excluded: "+left.weight_);
+//      System.out.println("others: "+right.weight_);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls.split);      // create leaf nodes if any
       if (rs.isLeafNode())  nd._r = new LeafNode(rs.split);
       if ((nd._l == null) && (nd._r == null)) {   // calculate the missing subnodes as new FJ tasks, join if necessary
@@ -303,8 +332,8 @@ public class Tree extends CountedCompleter {
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    private final float split_value() { return  _dapt.unmap(_column,_split); } 
-    private final C column() {
+    protected final float split_value() { return  _dapt.unmap(_column,_split); } 
+    protected final C column() {
       return _dapt.c_[_column]; // Get the column in question
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
@@ -337,6 +366,47 @@ public class Tree extends CountedCompleter {
       return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
   }
+  
+  /** Node that classifies one column category to the left and the others to the
+   * right. 
+   */
+  static class ExclusionNode extends SplitNode {
+    public ExclusionNode(int column, int split, DataAdapter dapt) {
+      super(column,split,dapt);
+    }
+    @Override int classify(Row r) {
+      return r.getColumnClass(_column) == _split ? _l.classify(r) : _r.classify(r);
+    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    public String toString() {
+      return "E "+_column +"==" + _split + " ("+_l+","+_r+")";
+    }
+    public StringBuilder toString( StringBuilder sb, int n ) {
+      C c = column();           // Get the column in question
+      sb.append(c.name_).append("==").append(_split).append(" (");
+      if( sb.length() > n ) return sb;
+      sb = _l.toString(sb,n).append(',');
+      if( sb.length() > n ) return sb;
+      sb = _r.toString(sb,n).append(')');
+      return sb;
+    }
+    
+    void write( Stream bs ) {
+      bs.set1('E');             // Node indicator
+      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
+      bs.set2(_column);
+      bs.set4f(split_value());
+      int skip = _l.size(); // Drop down the amount to skip over the left column
+      if( skip <= 254 ) bs.set1(skip);
+      else { bs.set1(0); bs.set3(skip); }
+      _l.write(bs);
+      _r.write(bs);
+    }
+    
+  
+  }
+  
+  
   public int classify(Row r) { return _tree.classify(r); }
   public String toString()   { return _tree.toString(); }
   public int leaves() { return _tree.leaves(); }
@@ -360,14 +430,20 @@ public class Tree extends CountedCompleter {
     int data_id = ts.get4();    // Skip tree-id
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
-      assert tbits[o] == '(' || tbits[o] == 'S';
+      byte b = tbits[o];
+      assert tbits[o] == '(' || tbits[o] == 'S' || tbits[o] == 'E';
       int col = ts.get2();      // Column number
       float fcmp = ts.get4f();  // Float to compare against
       float fdat = (float)ary.datad(databits,row,rowsize,col);
       int skip = (ts.get1()&0xFF);
       if( skip == 0 ) skip = ts.get3();
-      if( fdat > fcmp )         // Picking right subtree?
-        ts._off += skip;        // Skip left subtree
+      if (b == 'E') {
+        if (fdat != fcmp)
+          ts._off += skip;
+      } else {
+        if( fdat > fcmp )         // Picking right subtree?
+          ts._off += skip;        // Skip left subtree
+      }
     }
     return ts.get1()&0xFF;      // Return the leaf's class
   }
@@ -387,7 +463,7 @@ public class Tree extends CountedCompleter {
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();
       if( b == '[' ) return leaf(_ts.get1()&0xFF);
-      assert b == '(' || b == 'S';
+      assert b == '(' || b == 'S' || b =='E';
       int off0 = _ts._off-1;    // Offset to start of *this* node
       int col = _ts.get2();     // Column number
       float fcmp = _ts.get4f(); // Float to compare against
