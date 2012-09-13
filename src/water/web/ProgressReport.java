@@ -20,7 +20,7 @@ public class ProgressReport extends Page {
   public Object serve(Server server, Properties args) {
     boolean needsHtmlEncoding = "html".equals(args.getProperty("Type")) ? true : false;    
     // Register a new local subscriber. 
-    LocalLogSubscriber lls = new LocalLogSubscriber(false);    
+    LocalLogSubscriber lls = new LocalLogSubscriber(needsHtmlEncoding);    
     LogHub.subscribe(lls);
     
     // Return response with input stream providing access to a stream containing stdout/stderr.
