@@ -509,11 +509,17 @@ public final class H2O {
         } // Release lock
         // If not out of memory, sleep another second to batch-up writes
         if( (MemoryManager.mem2Free >> 20) <= 0 )
-          try { Thread.sleep(2000); } catch (InterruptedException e) { }
+          try { Thread.sleep(5000); } catch (InterruptedException e) { }
         long cacheSz = 0;       // Current size of cached memory
         final long currentTime = System.currentTimeMillis();
-        for( Key key : keySet() ) {
-          Value val = raw_get(key); // fetch value withOUT loading it from disk
+        // For faster K/V store walking get the NBHM raw backing array,
+        // and walk it directly.
+        Object[] kvs = STORE.raw_array();
+        // Start the walk at slot 2, because slots 0,1 hold meta-data
+        for( int i=2; i<kvs.length; i += 2 ) {
+          // In the raw backing array, Keys and Values alternate in slots
+          Key   key = (Key  )kvs[i+0];
+          Value val = (Value)kvs[i+1];
           if( val == null )  continue;
           byte[] m = val._mem;
           if( m != null ) {
