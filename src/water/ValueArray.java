@@ -417,6 +417,14 @@ public class ValueArray extends Value {
     return len > 0 ? new String(mem, off, len) : null;
   }
   
+  // Returns size of given column enum domain.
+  public int col_enum_domain_size(int cnum) {
+    byte[] mem = get();
+    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
+    int domainSize = UDP.get2(mem, off);
+    return domainSize;        
+  }
+  
   // Returns true if column's enum domain is not empty
   public boolean col_has_enum_domain(int cnum) {
     byte[] mem = get();

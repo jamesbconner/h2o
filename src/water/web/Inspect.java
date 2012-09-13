@@ -182,6 +182,13 @@ public class Inspect extends H2OPage {
         sb.append(" - ");
         double max = ary.col_max(i);
         if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+        if(ary.col_has_enum_domain(i)) {
+          int dom_size = ary.col_enum_domain_size(i)-1;
+          sb.append(" (0="); sb.append(ary.col_enum_domain_val(i, 0));
+          sb.append(" ,..., "); sb.append(dom_size); sb.append('=');
+          sb.append(ary.col_enum_domain_val(i, dom_size));
+          sb.append(')');
+        }
       }
       sb.append("</td>");
     }
