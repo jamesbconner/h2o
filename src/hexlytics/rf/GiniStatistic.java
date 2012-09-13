@@ -18,44 +18,6 @@ public class GiniStatistic extends BaseStatistic {
     for (double d : dd)  result -= (d/sum) * (d/sum);
     return result;
   }
-
-// PETA TODO not used atm
-/*  private Split columnExclusion(int colIndex) {
-    double[] excluded = new double[columnDists_[colIndex][0].length];
-    double[] others = new double[excluded.length];
-    double excludedWeight = 0;
-    double othersWeight = aggregateColumn(colIndex,others);
-    double totWeight = othersWeight;
-    // check if we are single class
-    int sc = singleClass(others);
-    if (sc != -1)
-      return Split.constant(sc);
-    int bestExcluded = -1;
-    double bestFitness = -1;
-    for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
-      // first get the i-th column out of the others and put the last excluded back
-      othersWeight += excludedWeight;
-      excludedWeight = 0;
-      for (int j = 0; j < others.length; ++j) {
-        double t = columnDists_[colIndex][i][j];
-        others[j] += excluded[j] - t;
-        excluded[j] = t;
-        excludedWeight += t;
-      }
-      othersWeight -= excludedWeight;
-      if (excludedWeight == 0)
-        continue;
-      if (othersWeight == 0)
-        return Split.impossible(Utils.maxIndex(excluded));
-      double f = gini(excluded,excludedWeight) * (excludedWeight / totWeight) + gini(others,othersWeight) * (othersWeight / totWeight);
-      if (f>bestFitness) {
-        bestExcluded = i;
-        bestFitness = f;
-      }
-    }
-    assert (bestExcluded != -1);
-    return new Split(colIndex, bestExcluded, bestFitness);
-  } */
   
   /** Returns the best split for given column. */
   @Override protected Split columnSplit(int colIndex) {
