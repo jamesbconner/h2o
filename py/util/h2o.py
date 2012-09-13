@@ -26,7 +26,6 @@ class H2O:
 
     def random_forest(self, key, ntrees):
         return self.__check(requests.get(self.__url('RF.json'),
-            # FIX! does order matter? does it change things?
             params={
                 "ntrees": ntrees,
                 "Key": key
