@@ -57,7 +57,7 @@ class EntropyStatistic extends Statistic {
     if (bestSplit == -1)
       return Split.impossible(Utils.maxIndex(dist_,d.random()));
     else 
-      return new Split(colIndex,bestSplit,maxReduction);
+      return Split.split(colIndex,bestSplit,maxReduction);
   } 
   
   @Override protected Split columnExclusion(int colIndex, Data d) {

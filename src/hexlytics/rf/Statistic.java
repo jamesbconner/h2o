@@ -25,17 +25,26 @@ public abstract class Statistic {
     public final int column;
     public final int split;
     public final double fitness;
-    public Split(int column, int split, double fitness) {
+    protected Split(int column, int split, double fitness) {
       this.column = column;
       this.split = split;
       this.fitness = fitness;
     }
     public static Split constant(int result) {  return new Split(-1, result, -1); }
     public static Split impossible(int result) { return new Split(-2, result, -1);  }  
+    public static Split split(int column, int split, double fitness) { return new Split(column, split,fitness); }
+    public static Split exclusion(int column, int split, double fitness) { return new ExclusionSplit(column,split,fitness); }
     public final boolean isLeafNode() { return column < 0; }    
     public final boolean isConstant() { return column == -1; }    
     public final boolean isImpossible() { return column == -2;  } 
     public final boolean betterThan(Split other) { return fitness > other.fitness; }
+    public final boolean isExclusion() { return this instanceof ExclusionSplit; }
+  }
+
+  public static class ExclusionSplit extends Split {
+    protected ExclusionSplit(int column, int split, double fitness) {
+      super(column, split,fitness);
+    }
   }
 
   protected final int[][][] columnDists_;  /// Column distributions for the given statistic

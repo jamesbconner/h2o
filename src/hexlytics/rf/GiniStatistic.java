@@ -51,7 +51,7 @@ public class GiniStatistic extends Statistic {
     if (bestSplit == -1)
       return Split.impossible(Utils.maxIndex(dist_,d.random()));
     else 
-      return new Split(colIndex,bestSplit,1-bestFitness);
+      return Split.split(colIndex,bestSplit,1-bestFitness);
   }
   
   /** Returns the best split for given column. */

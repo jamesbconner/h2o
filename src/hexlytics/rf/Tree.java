@@ -306,41 +306,41 @@ public class Tree extends CountedCompleter {
   /** Node that classifies one column category to the left and the others to the
    * right. 
    */
-//  static class ExclusionNode extends SplitNode {
-//    public ExclusionNode(int column, int split, DataAdapter dapt) {
-//      super(column,split,dapt);
-//    }
-//    @Override int classify(Row r) {
-//      return r.getColumnClass(_column) == _split ? _l.classify(r) : _r.classify(r);
-//    }
-//    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-//    public String toString() {
-//      return "E "+_column +"==" + _split + " ("+_l+","+_r+")";
-//    }
-//    public StringBuilder toString( StringBuilder sb, int n ) {
-//      C c = column();           // Get the column in question
-//      sb.append(c.name_).append("==").append(_split).append(" (");
-//      if( sb.length() > n ) return sb;
-//      sb = _l.toString(sb,n).append(',');
-//      if( sb.length() > n ) return sb;
-//      sb = _r.toString(sb,n).append(')');
-//      return sb;
-//    }
-//    
-//    void write( Stream bs ) {
-//      bs.set1('E');             // Node indicator
-//      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
-//      bs.set2(_column);
-//      bs.set4f(split_value());
-//      int skip = _l.size(); // Drop down the amount to skip over the left column
-//      if( skip <= 254 ) bs.set1(skip);
-//      else { bs.set1(0); bs.set3(skip); }
-//      _l.write(bs);
-//      _r.write(bs);
-//    }
-//    
-//  
-//  }
+  static class ExclusionNode extends SplitNode {
+    public ExclusionNode(int column, int split, DataAdapter dapt) {
+      super(column,split,dapt);
+    }
+    @Override int classify(Row r) {
+      return r.getColumnClass(_column) == _split ? _l.classify(r) : _r.classify(r);
+    }
+    public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    public String toString() {
+      return "E "+_column +"==" + _split + " ("+_l+","+_r+")";
+    }
+    public StringBuilder toString( StringBuilder sb, int n ) {
+      C c = column();           // Get the column in question
+      sb.append(c.name_).append("==").append(_split).append(" (");
+      if( sb.length() > n ) return sb;
+      sb = _l.toString(sb,n).append(',');
+      if( sb.length() > n ) return sb;
+      sb = _r.toString(sb,n).append(')');
+      return sb;
+    }
+    
+    void write( Stream bs ) {
+      bs.set1('E');             // Node indicator
+      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
+      bs.set2(_column);
+      bs.set4f(split_value());
+      int skip = _l.size(); // Drop down the amount to skip over the left column
+      if( skip <= 254 ) bs.set1(skip);
+      else { bs.set1(0); bs.set3(skip); }
+      _l.write(bs);
+      _r.write(bs);
+    }
+    
+  
+  }
   
   
   public int classify(Row r) { return _tree.classify(r); }
