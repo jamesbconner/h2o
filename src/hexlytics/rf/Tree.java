@@ -82,12 +82,6 @@ public class Tree extends CountedCompleter {
         case ENTROPY:
           result = new EntropyStatistic(data,_features);
           break;
-        case ENTROPY_EXCLUDED:
-          result = new EntropyExclusionStatistic(data, _features);
-          break;
-        case GINI_EXCLUDED:
-          result = new GiniExclusionStatistic(data, _features);
-          break;
         default:
           throw new Error("Unknown tree type to build the statistic. ");
       }

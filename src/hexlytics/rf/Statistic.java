@@ -100,7 +100,7 @@ public abstract class Statistic {
   /** Adds the given row to the statistic.    */
   public void add(Row row) {
     for (int i : columns_)
-      columnDists_[i][row.getColumnClass(i)][row.classOf()] += row.weight();
+      columnDists_[i][row.getColumnClass(i)][row.classOf()] += 1; 
   }
   
   /** Calculates the best split and returns it.  */
