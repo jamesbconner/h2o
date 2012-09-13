@@ -90,9 +90,10 @@ public class RandomForest {
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
     Key[] tkeys = null;
     while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
-    System.out.println("Random forest finished in: " + (System.currentTimeMillis() - t1) + " ms");
+    long t2 = System.currentTimeMillis();
     assert tkeys.length == ntrees; 
     new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();
+    System.out.println("Random forest finished in: " + (t2 - t1) + " ms");
     UDPRebooted.global_kill();
   }
 

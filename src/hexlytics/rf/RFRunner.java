@@ -2,9 +2,11 @@ package hexlytics.rf;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.Reader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
@@ -95,8 +97,6 @@ public class RFRunner {
         cmd.add("-h2oArgs");
         cmd.add(h2oArgs);
       }
-      if( !rfArgs.isEmpty() )
-        cmd.add(rfArgs);
 
       StringBuilder sbldr = new StringBuilder();
       for( String s : cmd )
@@ -134,7 +134,7 @@ public class RFRunner {
             results[state] = m.group(1);
             if( ++state == RESULT.length ) {
               System.out.println("done with error rate = "
-                  + results[ERROR_RATE_IDX]);
+                  + results[ERROR_RATE_IDX] + " and time " + results[state-1]);
               break;
             }
           }
@@ -189,8 +189,7 @@ public class RFRunner {
 
   public static class OptArgs extends Arguments.Opt {
     public String h2ojar = "build/h2o.jar"; // path to the h2o.jar
-    public String dasets = "smalldata/poker/poker-hand-testing.data,smalldata/iris.iris2.csv"; // dataset
-                                                                                               // to
+    public String dasets = "smalldata/poker/poker-hand-testing.data"; // dataset                                                                                               // to
                                                                                                // process
     public String h2oArgs = ""; // args for the spawned h2o
     public String jvmArgs = ""; // args for the spawned jvm
@@ -205,6 +204,39 @@ public class RFRunner {
 
   public static final OptArgs ARGS = new OptArgs();
 
+  
+  
+  static void runAllDataSizes(File f) throws Exception{
+    String fname = f.getAbsolutePath();
+    String extension = "";
+    int idx = fname.lastIndexOf('.');
+    if(idx != -1){
+      extension = fname.substring(idx);
+      fname = fname.substring(0, idx);
+    }
+    File f2 = new File(fname + "_" + extension);
+    f2.createNewFile();
+    f2.deleteOnExit();
+    StringBuilder bldr = new StringBuilder();
+    Reader r = new FileReader(f);
+    char [] buf = new char[1024*1024];
+    int n = 0;
+    while((n = r.read(buf)) > 0)bldr.append(buf, 0, n);
+    r.close();
+    String content = bldr.toString();
+    bldr = null;
+    File f3;
+    for(int i = 0; i < 50; ++i){      
+      FileWriter fw = new FileWriter(f2,true);
+      fw.write(content);
+      fw.close();      
+      File frenamed = new File(fname + "_" + i + extension); 
+      f2.renameTo(frenamed);
+      f2 = frenamed;
+      runAllTests(f2);      
+    }      
+  }
+  
   static void runTest(String h2oJar, String jvmArgs, String h2oArgs,
       String rfArgs, String resultDB, PrintStream stdout) throws Exception {
     RFProcess p = new RFProcess(h2oJar, jvmArgs, h2oArgs, rfArgs);
@@ -241,7 +273,7 @@ public class RFRunner {
     PrintStream out = new PrintStream(new File("RFRunner.stdout.txt"));
     for( String t : threading ) {
       for( String st : statTypes ) {
-        for( int ntrees = 1; ntrees <= 100; ++ntrees ) {
+        for( int ntrees = 1; ntrees <= 61; ntrees += 30 ) {
           for( int i = 0; i < ARGS.nseeds; ++i ) {
             int seed = (int) (System.currentTimeMillis() & 0xFFFF);
             String rfArgs = "-statType=" + st + " -ntrees=" + ntrees
@@ -270,9 +302,10 @@ public class RFRunner {
       fw.close();
       if( !ARGS.h2oArgs.contains("-flatfile") )
         ARGS.h2oArgs += " -flatfile " + flatfile.getAbsolutePath();
-
     }
     for( File f : parseDatasetArg(ARGS.dasets) )
-      runAllTests(f);
+     runAllDataSizes(f);
   }
 }
+
+
