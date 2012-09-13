@@ -258,6 +258,7 @@ public class RFRunner {
             rfa.statType=st; rfa.ntrees=ntrees; rfa.file=f.getAbsolutePath(); rfa.seed=seed();
             rfa.singlethreaded=t;
             runTest(ARGS.h2ojar, ARGS.jvmArgs, ARGS.h2oArgs, rfa.toString(), ARGS.resultDB, out);
+            Thread.sleep(1000);
           }
         }
       }
