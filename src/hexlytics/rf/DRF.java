@@ -62,9 +62,9 @@ public class DRF extends water.DRemoteTask {
     else                 drf.fork  (ary._key);
     return drf;
   }
-  // Local RF computation.
-  public final void compute() {
-    ValueArray ary = (ValueArray)DKV.get(_arykey);
+  
+  public final static DataAdapter extractData(Key arykey, Key [] keys){
+    ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
@@ -74,7 +74,7 @@ public class DRF extends water.DRemoteTask {
     // One pass over all chunks to compute max rows
     int num_rows = 0;
     int unique = -1;
-    for( Key key : _keys )
+    for( Key key : keys )
       if( key.home() ) {
         // An NPE here means the cloud is changing...
         num_rows += DKV.get(key)._max/rowsize;
@@ -85,7 +85,7 @@ public class DRF extends water.DRemoteTask {
     DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, classes);
     float[] ds = new float[num_cols];
     // Now load the DataAdapter with all the rows on this Node
-    for( Key key : _keys ) {
+    for( Key key : keys ) {
       if( key.home() ) {
         byte[] bits = DKV.get(key).get();
         final int rows = bits.length/rowsize;
@@ -101,10 +101,14 @@ public class DRF extends water.DRemoteTask {
       }
     }
     dapt.shrinkWrap();
-
+    return dapt;
+  }
+  // Local RF computation.
+  public final void compute() {
+    DataAdapter dapt = extractData(_arykey, _keys);
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
-    sample = sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
+    sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
     Data d = Data.make(dapt);
     Data t = sample ? d.sampleWithReplacement(.666) : d;
     _validation = sample ? t.complement() : null;
@@ -114,6 +118,7 @@ public class DRF extends water.DRemoteTask {
   }
 
   static boolean sample;
+  static boolean forceNoSample = false;
 
   public void reduce( DRemoteTask drt ) { }
 }

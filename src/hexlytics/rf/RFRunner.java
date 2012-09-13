@@ -92,7 +92,6 @@ public class RFRunner {
         c.add("-h2oArgs");
         c.add(h2oArgs);
       }
-      if( !rfArgs.isEmpty() ) c.add(rfArgs);
       String s = "";
       for( String str : c ) s += str + " ";
       System.out.println("Command = '" + s + "'");
@@ -143,6 +142,8 @@ public class RFRunner {
     try { myAddr = InetAddress.getLocalHost();
     } catch( UnknownHostException e ) { throw new Error(e); }
   }
+  
+  
 
   /** look for input files. If the path ends with '*' all files will be used. */
   public static Collection<File> parseDatasetArg(String str) {
@@ -169,13 +170,14 @@ public class RFRunner {
 
   public static class OptArgs extends Arguments.Opt {
     public String h2ojar = "build/h2o.jar"; // path to the h2o.jar
-    public String dasets = "smalldata/poker/poker-hand-testing.data"; // dataset                                                                                               // to
+    public String dasets = "smalldata/poker/poker-hand-testing.data"; // dataset      
+    public String validation;
     public String h2oArgs = ""; // args for the spawned h2o
     public String jvmArgs = ""; // args for the spawned jvm
     public String rfArgs = ""; // args for RF
     public String resultDB = "./results.csv"; // path to the file with the results
     public String nodes = myAddr.getHostAddress(); // list of nodes, currently ignored
-    public int nseeds = 5;
+    public int nseeds = 2;
     public String testCfgFile;
   }
 
@@ -210,7 +212,7 @@ public class RFRunner {
       File frenamed = new File(fname + "_" + i + extension); 
       f2.renameTo(frenamed);
       f2 = frenamed;
-      runAllTests(f2);      
+      runAllTests(f2, null);      
     }      
   }
   
@@ -243,8 +245,9 @@ public class RFRunner {
 
   private static int seed() { return  (int) (System.currentTimeMillis() & 0xFFFF); }
   
-  static void runAllTests(File f) throws Exception {
+  static void runAllTests(File f, File validation) throws Exception {
     RFArgs rfa = new RFArgs();
+    if(validation != null)rfa.validationFile = validation.getAbsolutePath();
     boolean[] threading = new boolean[] { true, false };
     String[] statTypes = new String[] { "entropy", "gini" };
     PrintStream out = new PrintStream(new File("RFRunner.stdout.txt"));
@@ -265,18 +268,19 @@ public class RFRunner {
 
   public static class RFArgs extends Arguments.Opt {
     String file = "smalldata/poker/poker-hand-testing.data";
-    String h2oArgs = "";
+    String validationFile = "";
     int ntrees = 10;
     int depth = -1;
     double cutRate = 0;
     String statType = "entropy";
     int seed = 42;
-    boolean singlethreaded;
+    boolean singlethreaded;    
   }
   
   
  
   public static void main(String[] args) throws Exception {
+    runAllTests(new File("smalldata/poker/poker-hand-testing.data"), new File("smalldata/poker/poker-hand-testing.data"));
     Arguments arguments = new Arguments(args);
     arguments.extract(ARGS);
     File flatfile = null;
