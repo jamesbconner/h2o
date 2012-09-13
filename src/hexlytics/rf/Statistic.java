@@ -1,127 +1,122 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import java.util.Arrays;
 
-public class Statistic {
-  final Data data_;
-  final Column[] columns_;  //columns for which the averages are computed
-  private Split best;
-  int classOf = -1;
-  final int classes_;
-  final float[] dists ;     
-  final int _features;
-  final short[] lasts;
+public abstract class Statistic {
+  int [] dist_;
+  int weight_;
   
-  /** Hold information about a split. */
+  /** Returns the best split for a given column   */
+  protected abstract Split columnSplit(int colIndex, Data d);
+  protected abstract Split columnExclusion(int colIndex, Data d);
+  
+  /** Split descriptor for a particular column. 
+   * 
+   * Holds the column name and the split point, which is the last column class
+   * that will go to the left tree. If the column index is -1 then the split
+   * value indicates the return value of the node.
+   */
   public static class Split {
-    public final int column; public final float value, fitness;    
-    Split(int column_, float splitValue, float fitness) {
-      column = column_;  value = splitValue; this.fitness = fitness;
-    }    
-    boolean betterThan(Split other) { return other==null || fitness > other.fitness;  }    
-    public String toString() {  return column+"@"+value;   }
-  }
-
-
-  public Statistic(Data d, Statistic s, int features) {
-    data_ = d; 
-    classes_= data_.classes();
-    dists = new float[classes_];
-    _features = features;
-    int[] columnsToUse = new int[features];
-    int i = 0;
-    for(; i < features; ++i) columnsToUse[i] = i;
-    for(; i < data_.columns(); ++i) {
-      int o = d.random().nextInt(i);
-      if( o < features ) columnsToUse[o] = i;
+    public final int column;
+    public final int split;
+    public final double fitness;
+    public Split(int column, int split, double fitness) {
+      this.column = column;
+      this.split = split;
+      this.fitness = fitness;
     }
-    lasts = new short[data_.columns()];
-    columns_ = new Column[features];
-    for (i=0;i< data_.columns();i++) 
-      lasts[i]= (short) ( s==null? data_.last(i) : s.last(i) );
-    for (i = 0; i < features; ++i) 
-      columns_[i] = new Column( columnsToUse[i], last(columnsToUse[i])+1, classes_);
-   }
+    public static Split constant(int result) {  return new Split(-1, result, -1); }
+    public static Split impossible(int result) { return new Split(-2, result, -1);  }  
+    public final boolean isLeafNode() { return column < 0; }    
+    public final boolean isConstant() { return column == -1; }    
+    public final boolean isImpossible() { return column == -2;  } 
+    public final boolean betterThan(Split other) { return fitness > other.fitness; }
+  }
+
+  protected final int[][][] columnDists_;  /// Column distributions for the given statistic
+  protected final int[] columns_;// Columns that are currently used.
   
-  public Split best() {  
-    if (best!=null) return best;
-    for (Column c: columns_) {
-      Split s = c.split();
-      if (s!=null && s.betterThan(best))  best = s;
-    }
-    return best;
-  }
-  public int classOf() {
-    if( classOf != -1 ) return classOf;
-    float max = 0;
-    for( int i=0; i<dists.length; i++)
-      if( dists[i]>max )
-        max=dists[classOf=i];
-    assert classOf != -1 : "classOf no dists > 0? "+dists.length;
-    assert 0 <= classOf && classOf < 100 : "classOf reports "+classOf+"/"+classes_;
-    return classOf; 
-  }
-
-  public boolean singleClass() {
-    int cnt = 0;
-    for(float d : dists) if (d > 0 && ++cnt > 1 ) return false;
-    return cnt==1;
-  }
-  
-  /** Compute the statistics on each column; holds the distribution of the values
-   * using weights. This class is called from the main statistic for each column
-   * the statistic cares about. */
-  class Column {
-    final int column; // column
-    final int[]   cnt; // enum(rows)
-    final int[]   classes;
-    final int[][] val; // enum(rows) x classes
-    int first=-1, last=-1, rows;
-
-    Column(int c, int lst, int classCnt) {
-      column = c; 
-      cnt = new int[lst];
-      val = new int[lst][classCnt];
-      classes = new int[classCnt];
-    }    
-
-    void add(int class_,int o) {
-      rows++;
-      val  [o][class_]++;
-      cnt  [o]++;
-      classes[class_]++;
-      if (first==-1 || first>o) first=o;
-      if (last<o) last=o;
-   }     
- 
-    /** Textbook entropy computation, except we don't compute the parent (and instead set it to 1). */
-    Split split() {
-      if (first==last) return null;
-      double  totparent  = rows;
-      int[]  left    = new int[data_.classes()];
-      int[] right    = Arrays.copyOf(classes, classes.length);
-      double maxReduction = -1.0, bestSplit = -1;
-      for(int i = first; i < last; i++){ // splits are between values
-        if( cnt[i] == 0 ) continue;
-        double  eleft = 0.0, eright =0,totleft = 0, totright = 0;
-        for( int j = 0; j < left.length; j++ ) {int v=val[i][j]; left[j]+=v; right[j]-=v;}
-        for(int e: left) totleft += e;
-        for(int e: left)  if(e!=0) eleft -=  (e / totleft) * Math.log( e / totleft ) ;           
-        for(int e: right) totright += e;
-        for(int e: right)  if(e!=0) eright -=  (e / totright) * Math.log( e / totright ) ;
-        double ereduction =   1 -  ( (eleft * totleft + eright * totright) /  totparent );
-        if ( ereduction > maxReduction ) { bestSplit = i;  maxReduction = ereduction; }       
+  /** Aggregates the given column's distribution to the provided array and 
+   * returns the sum of weights of that array.  */
+  protected final int aggregateColumn(int colIndex, int[] dist) {
+    int sum = 0;
+    for (int j = 0; j < columnDists_[colIndex].length; ++j) {
+      for (int i = 0; i < dist.length; ++i) {
+        sum += columnDists_[colIndex][j][i];
+        dist[i] += columnDists_[colIndex][j][i]; 
       }
-      return new Split(column,(float)(bestSplit + 0.5),(float)maxReduction); 
     }
+    return sum;
   }
 
-  public void add(Row r) {
-    dists[r.classOf()]++;
-    for( Column c : columns_ ) c.add(r.classOf(), r.getS(c.column));
+  protected void showColumnDist(int colIndex) {
+    for (int[] d : columnDists_[colIndex])
+        System.out.print(" "+Utils.sum(d));
   }
   
-  public short last(int i) { return lasts[i]; }
- }
+  private final int[] tempCols_;
+  private final int _features;
   
+  public Statistic(Data data, int features) {
+    _features = features;
+    // first create the column distributions
+    columnDists_ = new int[data.columns()][][];
+    for (int i = 0; i < columnDists_.length; ++i)
+      columnDists_[i] = new int[data.columnClasses(i)][data.classes()];
+    // create the columns themselves
+    columns_ = new int[_features];
+    // create the temporary column array to choose cols from
+    tempCols_ = new int[data.columns()];
+    dist_ = new int[data.classes()];
+    weight_ = 0;
+  }
+  
+  /** Resets the statistic so that it can be used to compute new node. 
+   */
+  public void reset(Data data) {
+    // first get the columns for current split
+    Arrays.fill(tempCols_,0);
+    int i = 0;
+    while (i < columns_.length) {
+      int off = data.random().nextInt(tempCols_.length);
+      if (tempCols_[off] == -1)
+        continue;
+      tempCols_[off] = -1;
+      columns_[i] = off;
+      ++i;
+    }
+    // reset the column distributions for those
+    for (int j : columns_) 
+      for (int[] d: columnDists_[j])
+        Arrays.fill(d,0);
+    // and now the statistic is ready
+  }
+  
+  /** Adds the given row to the statistic.    */
+  public void add(Row row) {
+    for (int i : columns_)
+      columnDists_[i][row.getColumnClass(i)][row.classOf()] += 1; 
+  }
+  
+  /** Calculates the best split and returns it.  */
+  public Split split(Data d) {
+    Arrays.fill(dist_,0);
+    weight_ = aggregateColumn(columns_[0], dist_);
+    int m = Utils.maxIndex(dist_, d.random());
+    if ( dist_[m] == weight_)
+      return Split.constant(m);
+    Split bestSplit = columnSplit(columns_[0],d);
+    for (int j = 1; j < columns_.length; ++j) {
+      Split s = columnSplit(columns_[j],d);
+      if (s.betterThan(bestSplit))
+        bestSplit = s;
+    }
+    return bestSplit;
+  }
+}
+

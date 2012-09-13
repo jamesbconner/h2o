@@ -1,7 +1,6 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
-import hexlytics.rf.Statistic.Split;
 import java.io.IOException;
 import java.util.UUID;
 import jsr166y.CountedCompleter;
@@ -14,12 +13,10 @@ public class Tree extends CountedCompleter {
   static  boolean THREADED = false;  // multi-threaded ?
 
   
-  ThreadLocal<BaseStatistic>[] stats_;
+  ThreadLocal<Statistic>[] stats_;
   static public enum StatType {
     ENTROPY,
-    NEW_ENTROPY,
-    GINI,
-    ENTROPY_EXCLUDED,
+    GINI
   };
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
@@ -67,24 +64,21 @@ public class Tree extends CountedCompleter {
   private void createStatistics() {
     // Change this to a different amount of statistics, for each possible subnode one, 2 for binary trees
     stats_ = new ThreadLocal[2];
-    for (int i = 0; i < stats_.length; ++i) stats_[i] = new ThreadLocal<BaseStatistic>();
+    for (int i = 0; i < stats_.length; ++i) stats_[i] = new ThreadLocal<Statistic>();
   }
 
   private void freeStatistics() { stats_ = null; } // so that they can be GCed
 
   // TODO this has to change a lot, only a temp working version
-  private BaseStatistic getOrCreateStatistic(int index, Data data) {
-    BaseStatistic result = stats_[index].get();
+  private Statistic getOrCreateStatistic(int index, Data data) {
+    Statistic result = stats_[index].get();
     if (result==null) {
       switch (_type) {
         case GINI:
           result = new GiniStatistic(data,_features);
           break;
-        case NEW_ENTROPY:
+        case ENTROPY:
           result = new EntropyStatistic(data,_features);
-          break;
-        case ENTROPY_EXCLUDED:
-          result = new EntropyExclusionStatistic(data, _features);
           break;
         default:
           throw new Error("Unknown tree type to build the statistic. ");
@@ -99,18 +93,15 @@ public class Tree extends CountedCompleter {
   // Actually build the tree
   public void compute() {
     createStatistics();
-    switch( _type ) {
-      case ENTROPY:
-        computeNumeric();
-        break;
-      case GINI:   
-      case NEW_ENTROPY:
-      case ENTROPY_EXCLUDED:
-        computeGini();
-        break;
-      default:
-        throw new Error("Unrecognized statistic type");
-    }
+    // build the tree
+    // first get the statistic so that it can be reused
+    Statistic left = getOrCreateStatistic(0,_data);
+    // calculate the split
+    for (Row r : _data) left.add(r);
+    Statistic.Split spl = left.split(_data);
+    if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
+    else  _tree = new FJBuild(spl,_data,0).compute();
+    // report & bookkeeping
     StringBuilder sb = new StringBuilder();
     sb.append("Tree :").append(_data_id).append(" d=").append(_tree.depth());
     sb.append(" leaves=").append(_tree.leaves()).append("  ");
@@ -120,82 +111,28 @@ public class Tree extends CountedCompleter {
     tryComplete();
   }
 
-  void computeNumeric() { // All rows in the top-level split
-    Statistic s = new Statistic(_data,null,_features);
-    for (Row r : _data) s.add(r);
-    _tree = new FJEntropyBuild(s,_data,0).compute();
-  }
-
   void computeGini() {
-    // first get the statistic so that it can be reused
-    BaseStatistic left = getOrCreateStatistic(0,_data);
-    // calculate the split
-    for (Row r : _data) left.add(r);
-    BaseStatistic.Split spl = left.split();
-    if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
-    else  _tree = new FJBuild(spl,_data,0).compute();
-  }
-
-  private class FJEntropyBuild extends RecursiveTask<INode> {
-
-
-    Statistic _s;         // All the rows that this split munged over
-    Data _data;           // The resulting 1/2-sized dataset from the above split
-    final int _d;               // depth
-
-    FJEntropyBuild( Statistic s, Data data, int depth ) { _s = s; _data = data; _d = depth; }
-    public INode compute() {
-      // terminate the branch prematurely
-      if( (_d >= _max_depth) && (_max_depth!=-1) ) // FIXME...  || _s.error() < _min_error_rate )
-        return new LeafNode(_s.classOf());
-      if (_s.singleClass()) return new LeafNode(_s.classOf());
-      Split best = _s.best();
-      if (best == null) return new LeafNode(_s.classOf());
-      Node nd = new Node(best.column,best.value,_data.data_);
-      Data[] res = new Data[2];
-      Statistic[] stats = new Statistic[] { new Statistic(_data,_s, _s._features), new Statistic(_data,_s, _s._features)};
-      _data.filter(best,res,stats);
-      _data = null; _s = null;
-      if (THREADED) {
-        ForkJoinTask<INode> fj0 = new FJEntropyBuild(stats[0],res[0],_d+1).fork();
-        nd._r =                   new FJEntropyBuild(stats[1],res[1],_d+1).compute();
-        nd._l = fj0.join();
-      } else {
-        nd._l = new FJEntropyBuild(stats[0],res[0],_d+1).compute();
-        nd._r = new FJEntropyBuild(stats[1],res[1],_d+1).compute();
-      }
-      return nd;
-    }
   }
 
   private class FJBuild extends RecursiveTask<INode> {
-    final BaseStatistic.Split split_;
+    final Statistic.Split split_;
     final Data data_;
     final int depth_;
 
-    FJBuild(BaseStatistic.Split split, Data data, int depth) {
+    FJBuild(Statistic.Split split, Data data, int depth) {
       this.split_ = split;
       this.data_ = data;
       this.depth_ = depth;
     }
 
     @Override public INode compute() {
-      BaseStatistic left = getOrCreateStatistic(0,data_);       // first get the statistics
-      BaseStatistic right = getOrCreateStatistic(1,data_);
+      Statistic left = getOrCreateStatistic(0,data_);       // first get the statistics
+      Statistic right = getOrCreateStatistic(1,data_);
       Data[] res = new Data[2];       // create the data, node and filter the data
-      SplitNode nd;
-      switch (_type) {
-        case ENTROPY_EXCLUDED:
-          nd = new ExclusionNode(split_.column, split_.split,data_.data_);
-          data_.filterExclude(nd._column, nd._split, res, left, right);
-          break;
-        default:
-          nd = new SplitNode(split_.column, split_.split, data_.data_);
-          data_.filter(nd._column, nd._split,res,left,right);
-          break;
-      }
-      BaseStatistic.Split ls = left.split();      // get the splits
-      BaseStatistic.Split rs = right.split();
+      SplitNode nd = new SplitNode(split_.column, split_.split, data_.data_);
+      data_.filter(nd._column, nd._split,res,left,right);
+      Statistic.Split ls = left.split(data_);      // get the splits
+      Statistic.Split rs = right.split(data_);
 //      System.out.println("excluded: "+left.weight_);
 //      System.out.println("others: "+right.weight_);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls.split);      // create leaf nodes if any
