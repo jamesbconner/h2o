@@ -1,8 +1,17 @@
 package hexlytics.rf;
 
-public class GiniStatistic extends BaseStatistic {
+import java.util.Arrays;
 
-  public GiniStatistic(Data data, int features) { super(data, features); }
+public class GiniStatistic extends BaseStatistic {
+  double[] leftDist;
+  double[] rightDist;
+  
+  
+  public GiniStatistic(Data data, int features) { 
+    super(data, features);
+    leftDist = new double[data.classes()];
+    rightDist = new double[data.classes()];
+  }
   
   private double gini(double[] dd, double sum) {
     double result = 1;
@@ -50,19 +59,10 @@ public class GiniStatistic extends BaseStatistic {
   
   /** Returns the best split for given column. */
   @Override protected Split columnSplit(int colIndex) {
-    double[] leftDist = new double[columnDists_[colIndex][0].length];
-    double[] rightDist = new double[leftDist.length];
+    Arrays.fill(leftDist,0);
+    System.arraycopy(dist_, 0, rightDist, 0, dist_.length);
     double leftWeight = 0;
-    double rightWeight = aggregateColumn(colIndex, rightDist);
-    // check if we are below the error rate proposed and if so, return the leafnode split instead
-    int maxIndex = Utils.maxIndex(rightDist);
-    if ((rightDist[maxIndex]/rightWeight) >= 1-MIN_ERROR_RATE)
-      return Split.constant(maxIndex);
-    double totWeight = rightWeight;
-    // now check if we have only a single class
-    int singleClass = singleClass(rightDist);
-    if (singleClass != -1) 
-      return Split.constant(singleClass);
+    double rightWeight = weight_;
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = 2;
@@ -78,7 +78,7 @@ public class GiniStatistic extends BaseStatistic {
       // now make sure we have something to split 
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
-      double f = gini(leftDist,leftWeight) * (leftWeight / totWeight) + gini(rightDist,rightWeight) * (rightWeight / totWeight);
+      double f = gini(leftDist,leftWeight) * (leftWeight / weight_) + gini(rightDist,rightWeight) * (rightWeight / weight_);
       if (f<bestFitness) {
         bestSplit = i;
         bestFitness = f;
@@ -86,13 +86,10 @@ public class GiniStatistic extends BaseStatistic {
     }    
     // if we have no split, then get the most common element and return it as
     // a constant split
-    if (bestSplit == -1) {
-      // put everything to the left guy
-      return Split.impossible(maxIndex);
-    }
-    //System.exit(-1);
-    //System.out.println(colIndex + " - " + bestSplit);
-    return new Split(colIndex,bestSplit,1-bestFitness);
+    if (bestSplit == -1)
+      return Split.impossible(Utils.maxIndex(dist_));
+    else 
+      return new Split(colIndex,bestSplit,1-bestFitness);
   }
   
 }

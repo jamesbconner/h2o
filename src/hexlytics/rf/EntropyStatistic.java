@@ -7,11 +7,13 @@ import java.util.Arrays;
  * @author peta
  */
 class EntropyStatistic extends BaseStatistic {
-  double[][] dists_;
+  double[] left;
+  double[] right;
   
   public EntropyStatistic(Data data, int features) {
     super(data, features);
-    dists_ = new double[2][data.classes()];
+    left = new double[data.classes()];
+    right = new double[data.classes()];
   }
   
 /*  private double entropyOverDist(double[] dist, double weight) {
@@ -36,11 +38,9 @@ class EntropyStatistic extends BaseStatistic {
   
   @Override protected Split columnSplit(int colIndex) {
     // get the weight and left & right distributions, initialize the split info
-    Arrays.fill(dists_[0],0);
-    System.arraycopy(dist_, 0, dists_[1], 0, dist_.length);
+    Arrays.fill(left,0);
+    System.arraycopy(dist_, 0, right, 0, dist_.length);
     double totParent = weight_;
-    double[] left = dists_[0];
-    double[] right = dists_[1];
     double maxReduction = -1;
     int bestSplit = -1;
     for (int i = 0; i < columnDists_[colIndex].length; ++i) {

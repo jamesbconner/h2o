@@ -10,9 +10,6 @@ import java.util.Arrays;
 public abstract class BaseStatistic {
   double [] dist_;
   double weight_;
-
-  // PETA TODO This should not be here!!!!
-  public static final double MIN_ERROR_RATE = 0.0;
   
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit(int colIndex);
@@ -59,21 +56,6 @@ public abstract class BaseStatistic {
   protected void showColumnDist(int colIndex) {
     for (double[] d : columnDists_[colIndex])
         System.out.print(" "+Utils.sum(d));
-  }
-  
-  protected final int singleClass(double[] dist) {
-    int result = -1;
-    for (int i = 0; i < dist.length; ++i)
-      if (dist[i] != 0)
-        if (result == dist[i]) {
-          // pass
-        } else if (result == -1) {
-          result = i;
-        } else {
-          result = -1;
-          break;
-        }
-    return result;
   }
   
   private final int[] tempCols_;
