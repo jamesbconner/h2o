@@ -128,8 +128,14 @@ public class Tree extends CountedCompleter {
       Statistic left = getOrCreateStatistic(0,data_);       // first get the statistics
       Statistic right = getOrCreateStatistic(1,data_);
       Data[] res = new Data[2];       // create the data, node and filter the data
-      SplitNode nd = new SplitNode(split_.column, split_.split, data_.data_);
-      data_.filter(nd._column, nd._split,res,left,right);
+      SplitNode nd;
+      if (split_.isExclusion()) {
+        nd = new ExclusionNode(split_.column, split_.split, data_.data_);
+        data_.filterExclude(nd._column, nd._split,res,left,right);
+      } else {
+        nd = new SplitNode(split_.column, split_.split, data_.data_);
+        data_.filter(nd._column, nd._split,res,left,right);
+      }
       Statistic.Split ls = left.split(data_);      // get the splits
       Statistic.Split rs = right.split(data_);
 //      System.out.println("excluded: "+left.weight_);

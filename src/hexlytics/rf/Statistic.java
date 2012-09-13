@@ -114,14 +114,26 @@ public abstract class Statistic {
   
   /** Calculates the best split and returns it.  */
   public Split split(Data d) {
+    // initialize the distribution array
     Arrays.fill(dist_,0);
     weight_ = aggregateColumn(columns_[0], dist_);
+    // check if we are leaf node
     int m = Utils.maxIndex(dist_, d.random());
     if ( dist_[m] == weight_)
       return Split.constant(m);
+    // try the splits
     Split bestSplit = columnSplit(columns_[0],d);
     for (int j = 1; j < columns_.length; ++j) {
       Split s = columnSplit(columns_[j],d);
+      if (s.betterThan(bestSplit))
+        bestSplit = s;
+    }
+    // if we are a leaf node now, we can't get better by the exclusion 
+    if (bestSplit.isLeafNode())
+      return bestSplit;
+    // try the exclusions now if some of them will be better
+    for (int j = 0; j < columns_.length; ++j) {
+      Split s = columnExclusion(columns_[j],d);
       if (s.betterThan(bestSplit))
         bestSplit = s;
     }

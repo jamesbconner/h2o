@@ -59,7 +59,7 @@ public class RandomForest {
 	int ntrees = 10;
 	int depth = -1;
 	double cutRate = 0;
-	String statType = "gini";
+	String statType = "entropy";
 	int seed = 42;
 	boolean singlethreaded;
   }
