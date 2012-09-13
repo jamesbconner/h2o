@@ -33,12 +33,19 @@ def addNode():
     nodes.append(h)
     print "H2O Node count:", len(nodes)
 
-def runRF(n):
+def runRF(n,trees):
     put = n.put_file('../smalldata/iris/iris2.csv')
+    # FIX! temp hack to avoid races?
+    time.sleep(0.5)
     parse = n.parse(put['keyHref'])
-    rf = n.random_forest(parse['keyHref'])
+    # FIX! temp hack to avoid races?
+    time.sleep(0.5)
+    rf = n.random_forest(parse['keyHref'],trees)
+    # FIX! temp hack to avoid races?
+    time.sleep(0.5)
+    # this expenses the response to match the number of trees you told it to do
     n.stabilize('random forest finishing', 20,
-        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == 5)
+        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees)
 
 class Basic(unittest.TestCase):
 
@@ -81,7 +88,8 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
     def testRF(self):
-        runRF(nodes[0])
+        trees = 6
+        runRF(nodes[0],trees)
 
 if __name__ == '__main__':
     unittest.main()

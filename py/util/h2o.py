@@ -24,9 +24,13 @@ class H2O:
         return self.__check(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
 
-    def random_forest(self, key):
+    def random_forest(self, key, ntrees):
         return self.__check(requests.get(self.__url('RF.json'),
-            params={"Key": key}))
+            # FIX! does order matter? does it change things?
+            params={
+                "ntrees": ntrees,
+                "Key": key
+                }))
 
     def random_forest_view(self, key):
         return self.__check(requests.get(self.__url('RFView.json'),
