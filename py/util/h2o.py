@@ -42,7 +42,7 @@ class H2O:
                 break
             time.sleep(0.1)
         else:
-            raise Exception('Timeout waiting for condition: ' + msg)
+            raise Exception('Timeout waiting for condition: ' + msg);
 
     def __is_alive(self, s2):
         assert self == s2

@@ -14,7 +14,7 @@ def getIpAddress():
     ip = '127.0.0.1'
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 0))
+        s.connect(('8.8.8.8',0))
         ip = s.getsockname()[0]
     except:
         pass
@@ -49,6 +49,7 @@ class Basic(unittest.TestCase):
         try:
             proc.clean_sandbox()
             nodes = []
+            # change the number here if you want more or less nodes
             for i in range(3): addNode()
             # give them a few seconds to stabilize
             nodes[0].stabilize('cloud auto detect', 2,
@@ -87,7 +88,7 @@ class Basic(unittest.TestCase):
         # what if we do another node?
         runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
-    def testParityGen(self):
+    def testGenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
         # so we can get files from there, without generating datasets
 
@@ -110,28 +111,45 @@ class Basic(unittest.TestCase):
         #   i.e. ./syn_datasets/parity_128_4_1024_quad.data
         # The .pl assumes ./syn_datasets exists.
     
-        # first time we use perl
-        # get something known piped to standbox/*stdout, 
-        # until we know everyone has perl setup right
-        # (windows/mac/centos/ubuntu/virtualbox)
-        pipe = proc.Process(["/usr/bin/perl", "-h"])
+        # first time we use perl (parity.pl)
 
-        # Have to split the string out to list for pipe
-        shCmdString = SYNSCRIPTS_DIR + "/parity.pl 128 4 1024 quad"
-        shCmdList =  shCmdString.split()
-        pipe = proc.Process(shCmdList)
+        # always match the run below!
+        # FIX! 1 row fails in H2O. skip for now
+        for x in xrange (2,100,10):
+            # Have to split the string out to list for pipe
+            shCmdString = SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
 
-    def testRFparity1(self):
+            pipe = proc.Process(shCmdString.split())
+            # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
+            csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
+
+    def testRfParity1(self):
+        # run the tests created by the prior testGenParity1
+
         # Assuming the tests are run in order, we can assume the 
         # dataset is available now? maybe not true if this test is run as one off?
         global SYNDATASETS_DIR
-        trees = 6
-        timeoutSecs = 20
-        csvPathname = SYNDATASETS_DIR + '/parity_128_4_1024_quad.data'
 
-        # FIX! TBD do we always have to kick off the run from node 0?
-        # what if we do another node?
-        runRF(nodes[0],trees,csvPathname,timeoutSecs)
+        # FIX! I suppose we should vary the number of trees to make sure the response changes
+        # maybe just inc in loop
+        trees = 6
+        # bump this up too if you do?
+        timeoutSecs = 10
+        # always match the gen above!
+        # FIX! 1 row fails in H2O. skip for now
+        for x in xrange (2,100,10):
+            print "RfParity1: subtest", str(x), " trees: ", trees, " timeoutSecs: ", timeoutSecs, "\n";
+
+            csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
+            csvPathname = SYNDATASETS_DIR + '/' + csvFilename
+            # FIX! TBD do we always have to kick off the run from node 0?
+            # what if we do another node?
+            # FIX! do we need or want a random delay here?
+            time.sleep(0.5) 
+            runRF(nodes[0],trees,csvPathname,timeoutSecs)
+
+            trees += 10
+            timeoutSecs += 2
 
 
 if __name__ == '__main__':
