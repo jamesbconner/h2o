@@ -28,9 +28,6 @@ public class Data implements Iterable<Row> {
     public float getF(int col) { return data_.getF(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
 
-    /** To support weights if we ever do in the future. */
-    public final double weight() { return 1; }
-
     /** Support for binning information on the columns.  */
     public final int getColumnClass(int colIndex) {
       return data_.getColumnClass(index,colIndex);

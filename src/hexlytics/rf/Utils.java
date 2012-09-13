@@ -38,7 +38,7 @@ public class Utils {
     return result;
   }
 
-  public static int maxIndex(double[] from) {
+  public static int maxIndex(int[] from) {
     int result = 0;
     for (int i = 1; i<from.length; ++i)
       if (from[i]>from[result]) result = i;
@@ -86,9 +86,9 @@ public class Utils {
     return Double.longBitsToDouble(sum);
   }
   
-  public static double sum(double[] from) {
-    double result = 0;
-    for (double d: from) result += d;
+  public static int sum(int[] from) {
+    int result = 0;
+    for (int d: from) result += d;
     return result;
   }
   

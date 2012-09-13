@@ -45,12 +45,12 @@ public class Tree extends CountedCompleter {
 
   /** Determines the error rate of a single tree on the local data only. */
   public double validate(Data data) {
-    double errors = 0, total = 0;
+    int errors = 0, total = 0;
     for (Row row: data) {
-      total += row.weight();
-      if (row.classOf() != classify(row)) errors += row.weight();
+      total++;
+      if (row.classOf() != classify(row)) errors++;
     }
-    return errors/total;
+    return ((double)errors)/total;
   }
 
   // Oops, uncaught exception
@@ -71,8 +71,8 @@ public class Tree extends CountedCompleter {
   private BaseStatistic getOrCreateStatistic(int index, Data data) {
     BaseStatistic result = stats_[index].get();
     if (result==null) {
-     result = (_type == StatType.GINI) ? new GiniStatistic(data,_features) : new EntropyStatistic(data,_features);
-     stats_[index].set(result);
+      result = (_type == StatType.GINI) ? new GiniStatistic(data,_features) : new EntropyStatistic(data,_features);
+      stats_[index].set(result);
     }
     result.reset(data);
     return result;

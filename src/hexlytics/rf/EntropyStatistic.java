@@ -7,19 +7,19 @@ import java.util.Arrays;
  * @author peta
  */
 class EntropyStatistic extends BaseStatistic {
-  double[][] dists_;
+  int[][] dists_;
   double weight_;
   
   public EntropyStatistic(Data data, int features) {
     super(data, features);
-    dists_ = new double[2][data.classes()];
+    dists_ = new int[2][data.classes()];
   }
   
-  private double entropyOverDist(double[] dist, double weight) {
+  private double entropyOverDist(int[] dist, double weight) {
     double result = 0;
-    for (double d: dist)
+    for (int d: dist)
       if (d!=0) 
-        result -= (d/weight) * Math.log(d/weight);
+        result -= ((double)d/weight) * Math.log((double)d/weight);
     return result;
   }
   
@@ -29,7 +29,7 @@ class EntropyStatistic extends BaseStatistic {
       Arrays.fill(dists_[1],0);
       weight_ = aggregateColumn(colIndex, dists_[1]);
     } else {
-      double[] d = dists_[0];
+      int[] d = dists_[0];
       dists_[0] = dists_[1];
       dists_[1] = d;
     }
@@ -50,7 +50,7 @@ class EntropyStatistic extends BaseStatistic {
 //    System.out.println("column "+colIndex);
     for (int i = 0; i < columnDists_[colIndex].length; ++i) {
       // move the column from right to left
-      double[] cd = columnDists_[colIndex][i];
+      int[] cd = columnDists_[colIndex][i];
       for (int j = 0; j < cd.length; ++j) {
         dists_[0][j] += cd[j];
         dists_[1][j] -= cd[j];

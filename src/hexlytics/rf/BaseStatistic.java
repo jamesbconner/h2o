@@ -38,28 +38,29 @@ public abstract class BaseStatistic {
     public final boolean betterThan(Split other) { return fitness > other.fitness; }
   }
 
-  protected final double[][][] columnDists_;  /// Column distributions for the given statistic
+  protected final int[][][] columnDists_;  // Column distributions for the given statistic
   protected final int[] columns_;// Columns that are currently used.
   
   /** Aggregates the given column's distribution to the provided array and 
    * returns the sum of weights of that array.  */
-  protected final double aggregateColumn(int colIndex, double[] dist) {
-    double sum = 0;
+  protected final int aggregateColumn(int colIndex, int[] dist) {
+    int sum = 0;
     for (int j = 0; j < columnDists_[colIndex].length; ++j) {
       for (int i = 0; i < dist.length; ++i) {
-        sum += columnDists_[colIndex][j][i];
-        dist[i] += columnDists_[colIndex][j][i]; 
+        int tmp = columnDists_[colIndex][j][i];
+        sum     += tmp;
+        dist[i] += tmp;
       }
     }
     return sum;
   }
 
   protected void showColumnDist(int colIndex) {
-    for (double[] d : columnDists_[colIndex])
+    for (int[] d : columnDists_[colIndex])
         System.out.print(" "+Utils.sum(d));
   }
   
-  protected final int singleClass(double[] dist) {
+  protected final int singleClass(int[] dist) {
     int result = -1;
     for (int i = 0; i < dist.length; ++i)
       if (dist[i] != 0)
@@ -80,9 +81,9 @@ public abstract class BaseStatistic {
   public BaseStatistic(Data data, int features) {
     _features = features;
     // first create the column distributions
-    columnDists_ = new double[data.columns()][][];
+    columnDists_ = new int[data.columns()][][];
     for (int i = 0; i < columnDists_.length; ++i)
-      columnDists_[i] = new double[data.columnClasses(i)][data.classes()];
+      columnDists_[i] = new int[data.columnClasses(i)][data.classes()];
     // create the columns themselves
     columns_ = new int[_features];
     // create the temporary column array to choose cols from
@@ -105,15 +106,15 @@ public abstract class BaseStatistic {
     }
     // reset the column distributions for those
     for (int j : columns_) 
-      for (double[] d: columnDists_[j])
-        Arrays.fill(d,0.0);
+      for (int[] d: columnDists_[j])
+        Arrays.fill(d,0);
     // and now the statistic is ready
   }
   
   /** Adds the given row to the statistic.    */
   public void add(Row row) {
     for (int i : columns_)
-      columnDists_[i][row.getColumnClass(i)][row.classOf()] += row.weight();
+      columnDists_[i][row.getColumnClass(i)][row.classOf()]++;
   }
   
   /** Calculates the best split and returns it.  */
