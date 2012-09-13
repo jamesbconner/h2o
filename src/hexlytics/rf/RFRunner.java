@@ -173,7 +173,7 @@ public class RFRunner {
     public String dasets = "smalldata/poker/poker-hand-testing.data"; // dataset      
     public String validation;
     public String h2oArgs = ""; // args for the spawned h2o
-    public String jvmArgs = ""; // args for the spawned jvm
+    public String jvmArgs = " -Xmx4g"; // args for the spawned jvm
     public String rfArgs = ""; // args for RF
     public String resultDB = "./results.csv"; // path to the file with the results
     public String nodes = myAddr.getHostAddress(); // list of nodes, currently ignored
