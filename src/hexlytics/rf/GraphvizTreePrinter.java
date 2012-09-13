@@ -85,12 +85,12 @@ public class GraphvizTreePrinter extends TreePrinter {
       _dest.append("digraph {\n");
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          _dest.append(String.format("%d [label=\"%s\\nClass %d\"];\n", _ts._off-2, "Leaf Node",tclass));
+          _dest.append(String.format("%d [label=\"Class %d\"];\n", _ts._off-2, tclass));
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {
-          _dest.append(String.format("%d [label=\"%s\\ndata[%s] <= %f\"];\n",
-                                     off0, "Node", _columnNames[col], fcmp));
+          _dest.append(String.format("%d [label=\"data[%s] <= %f\"];\n",
+                                     off0, _columnNames[col], fcmp));
           _dest.append(String.format("%d -> %d;\n", off0, offl));
           _dest.append(String.format("%d -> %d;\n", off0, offr));
           return this;

@@ -1232,6 +1232,7 @@ public class NonBlockingHashMap<TypeK, TypeV>
     public TypeV nextElement() { return next(); }
     public boolean hasMoreElements() { return hasNext(); }
   }
+  public Object[] raw_array() { return new SnapshotV()._sskvs; }
 
   /** Returns an enumeration of the values in this table.
    *  @return an enumeration of the values in this table
