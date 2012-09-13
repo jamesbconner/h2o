@@ -2,6 +2,26 @@ package hexlytics.rf;
 
 import java.util.Arrays;
 
+/** Computes the gini split statistics. 
+ * 
+ * The Gini fitness is calculated as a probability that the element will be
+ * misclassified, which is:
+ * 
+ * 1 - sum (pi^2)
+ * 
+ * This is computed for the left and right subtrees and added together:
+ * 
+ * gini left * weight left + gini right * weight left
+ * --------------------------------------------------
+ *                weight total
+ * 
+ * And subtracted from an ideal worst 1 to simulate the gain from previous node.
+ * The best gain is then selected. Same is done for exclusions, where again
+ * left stands for the rows with column value equal to the split value and
+ * right for all different ones. 
+ * 
+ * @author peta
+ */
 public class GiniStatistic extends Statistic {
   int[] left;
   int[] right;
@@ -40,8 +60,8 @@ public class GiniStatistic extends Statistic {
       // now make sure we have something to split 
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
-      double f = gini(left,leftWeight) * (leftWeight / (double)weight_) + gini(right,rightWeight) * (rightWeight / (double)weight_);
-      if (f<bestFitness) {
+      double f = 1 - gini(left,leftWeight) * (leftWeight / (double)weight_) + gini(right,rightWeight) * (rightWeight / (double)weight_);
+      if (f>bestFitness) {
         bestSplit = i;
         bestFitness = f;
       }
@@ -51,7 +71,7 @@ public class GiniStatistic extends Statistic {
     if (bestSplit == -1)
       return Split.impossible(Utils.maxIndex(dist_,d.random()));
     else 
-      return Split.split(colIndex,bestSplit,1-bestFitness);
+      return Split.split(colIndex,bestSplit,bestFitness);
   }
   
   /** Returns the best split for given column. */
@@ -76,8 +96,8 @@ public class GiniStatistic extends Statistic {
       // now make sure we have something to split 
       if ((leftWeight == 0) || (rightWeight == 0))
         continue;
-      double f = gini(left,leftWeight) * (leftWeight/(double)weight_) + gini(right,rightWeight) * (rightWeight/(double)weight_);
-      if (f<bestFitness) {
+      double f = 1 - gini(left,leftWeight) * (leftWeight/(double)weight_) + gini(right,rightWeight) * (rightWeight/(double)weight_);
+      if (f>bestFitness) {
         bestSplit = i;
         bestFitness = f;
       }
@@ -87,7 +107,7 @@ public class GiniStatistic extends Statistic {
     if (bestSplit == -1)
       return Split.impossible(Utils.maxIndex(dist_,d.random()));
     else 
-      return Split.exclusion(colIndex,bestSplit,1-bestFitness);
+      return Split.exclusion(colIndex,bestSplit,bestFitness);
   }
   
 }

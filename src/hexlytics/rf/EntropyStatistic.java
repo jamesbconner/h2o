@@ -4,6 +4,24 @@ import java.util.Arrays;
 
 /** This is an entropy statistic calculation. 
  * 
+ * The entropy formula is the classic Shannon entropy gain, which is:
+ * 
+ * - sum (pi * log2 (pi))
+ * 
+ * where pi is the probability of i-th class occurring. The entropy is
+ * calculated for the left and right node after the given split and they are
+ * combined together weighted on their probability. 
+ * 
+ * ent left * weight left + ent righht * weight right 
+ * --------------------------------------------------
+ *                  total weight
+ * 
+ * And to get the gain, this is subtracted from potential maximum of 1
+ * simulating the previous node. The biggest gain is selected as the tree split.
+ * 
+ * The same is calculated also for exclusion, where left stands for the rows
+ * where column equals to the split point and right stands for all others. 
+ * 
  * @author peta
  */
 class EntropyStatistic extends Statistic {

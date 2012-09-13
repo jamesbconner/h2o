@@ -7,8 +7,17 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import java.util.Arrays;
 
+/** A general statistic framework. Keeps track of the column distributions and 
+ * analyzes the column splits in the end producing the single split that will
+ * be used for the node. 
+ * 
+ * @author peta
+ */
 public abstract class Statistic {
+  
+  // distribution of the row classes
   int [] dist_;
+  // total weight of all rows processed by the statistic
   int weight_;
   
   /** Returns the best split for a given column   */
@@ -30,10 +39,27 @@ public abstract class Statistic {
       this.split = split;
       this.fitness = fitness;
     }
+    
+    /** A constant split used for true leaf nodes where all rows are of the same class.
+     */
     public static Split constant(int result) {  return new Split(-1, result, -1); }
+    
+    /** An impossible split, which behaves like a constant split. However impossible split
+     * occurs when there are different row classes present, but they all have
+     * the same column value and therefore no split can be made. 
+     */
     public static Split impossible(int result) { return new Split(-2, result, -1);  }  
+    
+    /** Classic split. All lower or equal than split value goes to left, all
+     * greater goes to right. 
+     */ 
     public static Split split(int column, int split, double fitness) { return new Split(column, split,fitness); }
+    
+    /** Exclusion split. All equal to split value goes to left, all different
+     * goes to right. 
+     */
     public static Split exclusion(int column, int split, double fitness) { return new ExclusionSplit(column,split,fitness); }
+
     public final boolean isLeafNode() { return column < 0; }    
     public final boolean isConstant() { return column == -1; }    
     public final boolean isImpossible() { return column == -2;  } 
@@ -41,6 +67,9 @@ public abstract class Statistic {
     public final boolean isExclusion() { return this instanceof ExclusionSplit; }
   }
 
+  /** An exclusion split. All equal to split value go to left node, all others
+   * go to the right one. 
+   */
   public static class ExclusionSplit extends Split {
     protected ExclusionSplit(int column, int split, double fitness) {
       super(column, split,fitness);
@@ -62,13 +91,10 @@ public abstract class Statistic {
     }
     return sum;
   }
-
-  protected void showColumnDist(int colIndex) {
-    for (int[] d : columnDists_[colIndex])
-        System.out.print(" "+Utils.sum(d));
-  }
   
+  // field used to calculate the analyzed columns
   private final int[] tempCols_;
+  // number of features of the dataset associated with the statistic. 
   private final int _features;
   
   public Statistic(Data data, int features) {
@@ -85,7 +111,9 @@ public abstract class Statistic {
     weight_ = 0;
   }
   
-  /** Resets the statistic so that it can be used to compute new node. 
+  /** Resets the statistic so that it can be used to compute new node. Creates
+   * a new subset of columns that will be analyzed and clears their
+   * dirstribution arrays. 
    */
   public void reset(Data data) {
     // first get the columns for current split
@@ -106,13 +134,20 @@ public abstract class Statistic {
     // and now the statistic is ready
   }
   
-  /** Adds the given row to the statistic.    */
+  /** Adds the given row to the statistic. Updates the column distributions for
+   * the analyzed columns. 
+   */
   public void add(Row row) {
     for (int i : columns_)
       columnDists_[i][row.getColumnClass(i)][row.classOf()] += 1; 
   }
   
-  /** Calculates the best split and returns it.  */
+  /** Calculates the best split and returns it. The split can be either a split
+   * which is a node where all rows with given column value smaller or equal to
+   * the split value will go to the left and all greater will go to the right. 
+   * Or it can be an exclusion split, where all rows with column value equal to
+   * split value go to the left and all others go to the right. 
+   */
   public Split split(Data d) {
     // initialize the distribution array
     Arrays.fill(dist_,0);
