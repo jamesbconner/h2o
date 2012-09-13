@@ -7,12 +7,13 @@ package hexlytics.rf;
 import hexlytics.rf.Data.Row;
 import java.util.Arrays;
 
-public abstract class BaseStatistic {
-  double [] dist_;
-  double weight_;
+public abstract class Statistic {
+  int [] dist_;
+  int weight_;
   
   /** Returns the best split for a given column   */
-  protected abstract Split columnSplit(int colIndex);
+  protected abstract Split columnSplit(int colIndex, Data d);
+  protected abstract Split columnExclusion(int colIndex, Data d);
   
   /** Split descriptor for a particular column. 
    * 
@@ -37,13 +38,13 @@ public abstract class BaseStatistic {
     public final boolean betterThan(Split other) { return fitness > other.fitness; }
   }
 
-  protected final double[][][] columnDists_;  /// Column distributions for the given statistic
+  protected final int[][][] columnDists_;  /// Column distributions for the given statistic
   protected final int[] columns_;// Columns that are currently used.
   
   /** Aggregates the given column's distribution to the provided array and 
    * returns the sum of weights of that array.  */
-  protected final double aggregateColumn(int colIndex, double[] dist) {
-    double sum = 0;
+  protected final int aggregateColumn(int colIndex, int[] dist) {
+    int sum = 0;
     for (int j = 0; j < columnDists_[colIndex].length; ++j) {
       for (int i = 0; i < dist.length; ++i) {
         sum += columnDists_[colIndex][j][i];
@@ -54,24 +55,24 @@ public abstract class BaseStatistic {
   }
 
   protected void showColumnDist(int colIndex) {
-    for (double[] d : columnDists_[colIndex])
+    for (int[] d : columnDists_[colIndex])
         System.out.print(" "+Utils.sum(d));
   }
   
   private final int[] tempCols_;
   private final int _features;
   
-  public BaseStatistic(Data data, int features) {
+  public Statistic(Data data, int features) {
     _features = features;
     // first create the column distributions
-    columnDists_ = new double[data.columns()][][];
+    columnDists_ = new int[data.columns()][][];
     for (int i = 0; i < columnDists_.length; ++i)
-      columnDists_[i] = new double[data.columnClasses(i)][data.classes()];
+      columnDists_[i] = new int[data.columnClasses(i)][data.classes()];
     // create the columns themselves
     columns_ = new int[_features];
     // create the temporary column array to choose cols from
     tempCols_ = new int[data.columns()];
-    dist_ = new double[data.classes()];
+    dist_ = new int[data.classes()];
     weight_ = 0;
   }
   
@@ -91,8 +92,8 @@ public abstract class BaseStatistic {
     }
     // reset the column distributions for those
     for (int j : columns_) 
-      for (double[] d: columnDists_[j])
-        Arrays.fill(d,0.0);
+      for (int[] d: columnDists_[j])
+        Arrays.fill(d,0);
     // and now the statistic is ready
   }
   
@@ -103,15 +104,15 @@ public abstract class BaseStatistic {
   }
   
   /** Calculates the best split and returns it.  */
-  public Split split() {
+  public Split split(Data d) {
     Arrays.fill(dist_,0);
     weight_ = aggregateColumn(columns_[0], dist_);
-    int m = Utils.maxIndex(dist_);
+    int m = Utils.maxIndex(dist_, d.random());
     if ( dist_[m] == weight_)
       return Split.constant(m);
-    Split bestSplit = columnSplit(columns_[0]);
+    Split bestSplit = columnSplit(columns_[0],d);
     for (int j = 1; j < columns_.length; ++j) {
-      Split s = columnSplit(columns_[j]);
+      Split s = columnSplit(columns_[j],d);
       if (s.betterThan(bestSplit))
         bestSplit = s;
     }

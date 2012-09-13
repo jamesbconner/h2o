@@ -10,7 +10,7 @@ import java.util.Arrays;
  *
  * @author peta
  */
-public class EntropyExclusionStatistic extends BaseStatistic {
+public class EntropyExclusionStatistic extends Statistic {
   double[] excluded;
   double[] others;
   
@@ -20,7 +20,7 @@ public class EntropyExclusionStatistic extends BaseStatistic {
     others = new double[data.classes()];
   }
   
-  @Override protected Split columnSplit(int colIndex) {
+  @Override protected Split columnSplit(int colIndex, Data d) {
     // get the weight and left & right distributions, initialize the split info
     Arrays.fill(excluded,0);
     System.arraycopy(dist_, 0, others, 0, dist_.length);
@@ -59,7 +59,7 @@ public class EntropyExclusionStatistic extends BaseStatistic {
     }
     // no suitable split can be made, return an impossible const split
     if (bestSplit == -1)
-      return Split.impossible(Utils.maxIndex(dist_));
+      return Split.impossible(Utils.maxIndex(dist_,d.random()));
     else 
       return new Split(colIndex,bestSplit,maxReduction);
   } 

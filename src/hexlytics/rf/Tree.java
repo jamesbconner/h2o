@@ -13,7 +13,7 @@ public class Tree extends CountedCompleter {
   static  boolean THREADED = false;  // multi-threaded ?
 
   
-  ThreadLocal<BaseStatistic>[] stats_;
+  ThreadLocal<Statistic>[] stats_;
   static public enum StatType {
     ENTROPY,
     GINI,
@@ -66,14 +66,14 @@ public class Tree extends CountedCompleter {
   private void createStatistics() {
     // Change this to a different amount of statistics, for each possible subnode one, 2 for binary trees
     stats_ = new ThreadLocal[2];
-    for (int i = 0; i < stats_.length; ++i) stats_[i] = new ThreadLocal<BaseStatistic>();
+    for (int i = 0; i < stats_.length; ++i) stats_[i] = new ThreadLocal<Statistic>();
   }
 
   private void freeStatistics() { stats_ = null; } // so that they can be GCed
 
   // TODO this has to change a lot, only a temp working version
-  private BaseStatistic getOrCreateStatistic(int index, Data data) {
-    BaseStatistic result = stats_[index].get();
+  private Statistic getOrCreateStatistic(int index, Data data) {
+    Statistic result = stats_[index].get();
     if (result==null) {
       switch (_type) {
         case GINI:
@@ -103,10 +103,10 @@ public class Tree extends CountedCompleter {
     createStatistics();
     // build the tree
     // first get the statistic so that it can be reused
-    BaseStatistic left = getOrCreateStatistic(0,_data);
+    Statistic left = getOrCreateStatistic(0,_data);
     // calculate the split
     for (Row r : _data) left.add(r);
-    BaseStatistic.Split spl = left.split();
+    Statistic.Split spl = left.split(_data);
     if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
     else  _tree = new FJBuild(spl,_data,0).compute();
     // report & bookkeeping
@@ -123,19 +123,19 @@ public class Tree extends CountedCompleter {
   }
 
   private class FJBuild extends RecursiveTask<INode> {
-    final BaseStatistic.Split split_;
+    final Statistic.Split split_;
     final Data data_;
     final int depth_;
 
-    FJBuild(BaseStatistic.Split split, Data data, int depth) {
+    FJBuild(Statistic.Split split, Data data, int depth) {
       this.split_ = split;
       this.data_ = data;
       this.depth_ = depth;
     }
 
     @Override public INode compute() {
-      BaseStatistic left = getOrCreateStatistic(0,data_);       // first get the statistics
-      BaseStatistic right = getOrCreateStatistic(1,data_);
+      Statistic left = getOrCreateStatistic(0,data_);       // first get the statistics
+      Statistic right = getOrCreateStatistic(1,data_);
       Data[] res = new Data[2];       // create the data, node and filter the data
       SplitNode nd;
       switch (_type) {
@@ -149,8 +149,8 @@ public class Tree extends CountedCompleter {
           data_.filter(nd._column, nd._split,res,left,right);
           break;
       }
-      BaseStatistic.Split ls = left.split();      // get the splits
-      BaseStatistic.Split rs = right.split();
+      Statistic.Split ls = left.split(data_);      // get the splits
+      Statistic.Split rs = right.split(data_);
 //      System.out.println("excluded: "+left.weight_);
 //      System.out.println("others: "+right.weight_);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls.split);      // create leaf nodes if any

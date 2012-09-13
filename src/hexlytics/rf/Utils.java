@@ -91,5 +91,11 @@ public class Utils {
     for (double d: from) result += d;
     return result;
   }
+
+  public static int sum(int[] from) {
+    int result = 0;
+    for (int d: from) result += d;
+    return result;
+  }
   
 }

@@ -10,7 +10,7 @@ import java.util.Arrays;
  *
  * @author peta
  */
-public class GiniExclusionStatistic extends BaseStatistic {
+public class GiniExclusionStatistic extends Statistic {
   double[] excluded;
   double[] others;
 

@@ -85,7 +85,7 @@ public class Data implements Iterable<Row> {
   // subsets -------------------------------------------------------------------
   
   
-  public void filter(int column, int split, Data[] result, BaseStatistic left, BaseStatistic right) {
+  public void filter(int column, int split, Data[] result, Statistic left, Statistic right) {
     int l=0, r=0;
     int[] li = new int[rows()], ri=new int[rows()];
     int i = 0;
@@ -101,7 +101,7 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this,ri,r);
   }
 
-  public void filterExclude(int column, int split, Data[] result, BaseStatistic excluded, BaseStatistic others) {
+  public void filterExclude(int column, int split, Data[] result, Statistic excluded, Statistic others) {
     int l=0, r=0;
     int[] li = new int[rows()], ri=new int[rows()];
     int i = 0;
