@@ -29,9 +29,7 @@ import threading
 import subprocess
 import shutil
 import datetime
-
-
-__all__ = [ 'Process', 'with_timeout', 'Timeout' ]
+import psutil
 
 
 LOG_DIR = 'sandbox'
@@ -45,69 +43,6 @@ def log_command(cmd):
         f.write(str(datetime.datetime.now()) + ' -- ')
         f.write(cmd)
         f.write("\n");
-
-class Timeout(Exception):
-    """Exception raised by with_timeout() when the operation takes too long.
-    """
-    pass
-
-
-def with_timeout(timeout, func, *args, **kwargs):
-    """Call a function, allowing it only to take a certain amount of time.
-       Parameters:
-        - timeout    The time, in seconds, the function is allowed to spend.
-                        This must be an integer, due to limitations in the
-                        SIGALRM handling.
-        - func       The function to call.
-        - *args      Non-keyword arguments to pass to func.
-        - **kwargs   Keyword arguments to pass to func.
-
-       Upon successful completion, with_timeout() returns the return value
-       from func.  If a timeout occurs, the Timeout exception will be raised.
-
-       If an alarm is pending when with_timeout() is called, with_timeout()
-       tries to restore that alarm as well as possible, and call the SIGALRM
-       signal handler if it would have expired during the execution of func.
-       This may cause that signal handler to be executed later than it would
-       normally do.  In particular, calling with_timeout() from within a
-       with_timeout() call with a shorter timeout, won't interrupt the inner
-       call.  I.e.,
-            with_timeout(5, with_timeout, 60, time.sleep, 120)
-       won't interrupt the time.sleep() call until after 60 seconds.
-    """
-
-    class SigAlarm(Exception):
-        """Internal exception used only within with_timeout().
-        """
-        pass
-
-    def alarm_handler(signum, frame):
-        raise SigAlarm()
-
-    oldalarm = signal.alarm(0)
-    oldhandler = signal.signal(signal.SIGALRM, alarm_handler)
-    try:
-        try:
-            t0 = time.time()
-            signal.alarm(timeout)
-            retval = func(*args, **kwargs)
-        except SigAlarm:
-            raise Timeout("Function call took too long", func, timeout)
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, oldhandler)
-        if oldalarm != 0:
-            t1 = time.time()
-            remaining = oldalarm - int(t1 - t0 + 0.5)
-            if remaining <= 0:
-                # The old alarm has expired.
-                os.kill(os.getpid(), signal.SIGALRM)
-            else:
-                signal.alarm(remaining)
-
-    return retval
-
-
 
 class Process(object):
     """Manager for an asynchronous process.
@@ -177,9 +112,9 @@ class Process(object):
             self.__stderr_thread.setDaemon(True)
             self.__stderr_thread.start()
 
-    def __del__(self, __killer=os.kill, __sigkill=signal.SIGKILL):
+    def __del__(self):
         if self.__exitstatus is None:
-            __killer(self.pid(), __sigkill)
+            psutil.Process(self.pid()).kill()
 
     def pid(self):
         """Return the process id of the process.
@@ -235,37 +170,6 @@ class Process(object):
             if self.__process.stderr:
                 self.__stderr_thread.join()
         return exitstatus
-
-    def terminate(self, graceperiod=1):
-        """Terminate the process, with escalating force as needed.
-           First try gently, but increase the force if it doesn't respond
-           to persuassion.  The levels tried are, in order:
-            - close the standard input of the process, so it gets an EOF.
-            - send SIGTERM to the process.
-            - send SIGKILL to the process.
-           terminate() waits up to GRACEPERIOD seconds (default 1) before
-           escalating the level of force.  As there are three levels, a total
-           of (3-1)*GRACEPERIOD is allowed before the process is SIGKILL:ed.
-           GRACEPERIOD must be an integer, and must be at least 1.
-              If the process was started with stdin not set to PIPE, the
-           first level (closing stdin) is skipped.
-        """
-        if self.__process.stdin:
-            # This is rather meaningless when stdin != PIPE.
-            self.closeinput()
-            try:
-                return with_timeout(graceperiod, self.wait)
-            except Timeout:
-                pass
-
-        self.kill(signal.SIGTERM)
-        try:
-            return with_timeout(graceperiod, self.wait)
-        except Timeout:
-            pass
-
-        self.kill(signal.SIGKILL)
-        return self.wait()
 
     def __log_file(self, name):
         return open('%s/%d.%s' % (LOG_DIR, self.pid(), name), 'w')

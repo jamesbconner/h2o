@@ -30,10 +30,10 @@ public abstract class BaseStatistic {
       this.split = split;
       this.fitness = fitness;
     }
-    public static Split constant(int result) {  return new Split(-1, result, -1); }
-    public static Split impossible(int result) { return new Split(-2, result, -1);  }
-    public final boolean isLeafNode() { return column < 0; }
-    public final boolean isConstant() { return column == -1; }
+    public static Split constant  (int result) { return new Split(-1, result,  1.0); }
+    public static Split impossible(int result) { return new Split(-2, result, -1.0); }
+    public final boolean isLeafNode()   { return column  <  0; }
+    public final boolean isConstant()   { return column == -1; }
     public final boolean isImpossible() { return column == -2;  }
     public final boolean betterThan(Split other) { return fitness > other.fitness; }
   }
@@ -96,13 +96,17 @@ public abstract class BaseStatistic {
 
   /** Calculates the best split and returns it.  */
   public Split split() {
+    // Do the 1st split, which also checks for the single-class case
     Split bestSplit = columnSplit(_features[0]);
-    if (!bestSplit.isConstant())
-      for (int j = 1; j < _features.length; ++j) {
-        Split s = columnSplit(_features[j]);
-        if (s.betterThan(bestSplit))
+    if( bestSplit.isConstant() ) return bestSplit; // Single class?  Then we are done.
+
+    // Work through all the features, looking for the best split
+    for (int j = 1; j < _features.length; ++j) {
+      Split s = columnSplit(_features[j]);
+      assert !s.isConstant();   // Already checked this, should not happen again
+      if( s.betterThan(bestSplit) )
         bestSplit = s;
-      }
+    }
     return bestSplit;
   }
 }

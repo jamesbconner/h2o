@@ -50,7 +50,6 @@ class EntropyStatistic extends BaseStatistic {
     int bestSplit = -1;
     double lw = 0;
     double rw = weight_;
-//    System.out.println("column "+colIndex);
     for (int i = 0; i < columnDists_[colIndex].length; ++i) {
       // move the column from right to left
       int[] cd = columnDists_[colIndex][i];
@@ -63,17 +62,14 @@ class EntropyStatistic extends BaseStatistic {
       if ((lw==0) || (rw==0))
         continue;
       double f = 1 - (entropyOverDist(dists_[0],lw)*lw + entropyOverDist(dists_[1],rw)*rw) / weight_;
-//      System.out.println("  "+i+": "+f);
       if (f > bestF) {
         bestSplit = i;
         bestF = f;
       }
     }
     // check if we have the proper split
-    if (bestSplit == -1)
-      return BaseStatistic.Split.impossible(maxIndex);
-    else
-      return new BaseStatistic.Split(colIndex,bestSplit,bestF);
+    if (bestSplit == -1) return BaseStatistic.Split.impossible(maxIndex);
+    else return new BaseStatistic.Split(colIndex,bestSplit,bestF);
   }
 
   /*

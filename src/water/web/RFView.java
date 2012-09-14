@@ -104,8 +104,7 @@ public class RFView extends H2OPage {
     // Get the Tree keys
     Key treekeys[] = confusion._treeskey.flatten();
     final int ntrees = treekeys.length;
-    response.replace("origKeyHref",confusion._ary._key);
-    response.replace("origKey",confusion._ary._key.toString());
+    response.replace("origKey",confusion._ary._key);
     response.replace("got",ntrees);
     response.replace("valid",confusion._ntrees);
     response.replace("maxtrees",confusion._maxtrees);
