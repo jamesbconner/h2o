@@ -22,10 +22,10 @@ def getIpAddress():
         ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
     return ip
     
-ipAddress = getIpAddress()
+def addNode(nodes):
     portForH2O = 54321
     portsPerNode = 3
-    h = h2o.H2O(ipAddress, portForH2O + len(nodes)*portsPerNode)
+    h = h2o.H2O(getIpAddress(), portForH2O + len(nodes)*portsPerNode)
     nodes.append(h)
 
 def runRF(n,trees,csvPathname,timeoutSecs):
@@ -46,7 +46,7 @@ class Basic(unittest.TestCase):
             proc.clean_sandbox()
             nodes = []
             # change the number here if you want more or less nodes
-            for i in range(3): addNode()
+            for i in range(3): addNode(nodes)
             # give them a few seconds to stabilize
             nodes[0].stabilize('cloud auto detect', 2,
                 lambda n: n.get_cloud()['cloud_size'] == len(nodes))
