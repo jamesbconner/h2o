@@ -6,13 +6,13 @@ import java.util.Arrays;
  * 
  * The entropy formula is the classic Shannon entropy gain, which is:
  * 
- * - sum (pi * log2 (pi))
+ * - \sum(p_i * log2(_pi))
  * 
- * where pi is the probability of i-th class occurring. The entropy is
+ * where p_i is the probability of i-th class occurring. The entropy is
  * calculated for the left and right node after the given split and they are
  * combined together weighted on their probability. 
  * 
- * ent left * weight left + ent righht * weight right 
+ * ent left * weight left + ent right * weight right 
  * --------------------------------------------------
  *                  total weight
  * 
@@ -76,7 +76,7 @@ class EntropyStatistic extends Statistic {
       return Split.impossible(Utils.maxIndex(dist_,d.random()));
     else 
       return Split.split(colIndex,bestSplit,maxReduction);
-  } 
+  }
   
   @Override protected Split columnExclusion(int colIndex, Data d) {
     // get the weight and left & right distributions, initialize the split info
@@ -118,7 +118,7 @@ class EntropyStatistic extends Statistic {
     // no suitable split can be made, return an impossible const split
     if (bestSplit == -1)
       return Split.impossible(Utils.maxIndex(dist_,d.random()));
-    else 
+    else
       return Split.exclusion(colIndex,bestSplit,maxReduction);
   } 
   

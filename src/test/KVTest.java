@@ -221,17 +221,17 @@ public class KVTest {
         if( h._x==null ) return off;
         for( int i=0; i<h._x.length; i++ )
           off += UDP.set4(buf,off,h._x[i]);
-      return off;
-    }
+        return off;
+      }
       @Override public ByteHisto read( byte[] buf, int off ) {
         ByteHisto h = new ByteHisto();
-      int flag = buf[off++];
+        int flag = buf[off++];
         if( flag == 0 ) return h;
         h._x = new int[256];
         for( int i=0; i<h._x.length; i++ )
           h._x[i] = UDP.get4(buf,(off+=4)-4);
         return h;
-    }
+      }
     }
   }
 

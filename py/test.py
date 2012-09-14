@@ -23,9 +23,6 @@ def getIpAddress():
     return ip
     
 ipAddress = getIpAddress()
-
-def addNode():
-    global nodes
     portForH2O = 54321
     portsPerNode = 3
     h = h2o.H2O(ipAddress, portForH2O + len(nodes)*portsPerNode)
@@ -35,7 +32,6 @@ def runRF(n,trees,csvPathname,timeoutSecs):
     put = n.put_file(csvPathname)
     parse = n.parse(put['keyHref'])
     time.sleep(0.5) # FIX! temp hack to avoid races?
-
     rf = n.random_forest(parse['keyHref'],trees)
     # this expects the response to match the number of trees you told it to do
     n.stabilize('random forest finishing', timeoutSecs,

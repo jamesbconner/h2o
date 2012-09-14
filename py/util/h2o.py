@@ -1,6 +1,7 @@
 import requests
 import time, os, json, signal
 import asyncproc
+import psutil
 
 class H2O:
     def __url(self, loc):
@@ -65,10 +66,11 @@ class H2O:
                     '--ip=%s'%self.addr,
                     '--nosigar',
             ])
+            self.psutil = psutil.Process(self.proc.pid())
             try:
                 self.stabilize('h2o started', 2, self.__is_alive)
             except:
-                self.proc.terminate()
+                self.psutil.kill()
                 raise
 
             while self.wait() is None:
@@ -83,7 +85,8 @@ class H2O:
         self.proc.kill(signal.SIGQUIT)
     
     def wait(self):
-        return self.proc.wait(os.WNOHANG)
+        if self.psutil.is_running(): return None
+        return self.psutil.wait()
 
     def terminate(self):
-        return self.proc.terminate()
+        return self.psutil.kill()

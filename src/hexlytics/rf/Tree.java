@@ -1,23 +1,19 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
+
 import java.io.IOException;
 import java.util.UUID;
+
 import jsr166y.CountedCompleter;
-import jsr166y.ForkJoinTask;
 import jsr166y.RecursiveTask;
 import water.*;
 
 public class Tree extends CountedCompleter {
-
   static  boolean THREADED = false;  // multi-threaded ?
 
-  
   ThreadLocal<Statistic>[] stats_;
-  static public enum StatType {
-    ENTROPY,
-    GINI
-  };
+  static public enum StatType { ENTROPY, GINI };
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
   final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
@@ -47,12 +43,12 @@ public class Tree extends CountedCompleter {
 
   /** Determines the error rate of a single tree on the local data only. */
   public double validate(Data data) {
-    double errors = 0, total = 0;
+    int errors = 0, total = 0;
     for (Row row: data) {
-      total += row.weight();
-      if (row.classOf() != classify(row)) errors += row.weight();
+      total++;
+      if (row.classOf() != classify(row)) errors++;
     }
-    return errors/total;
+    return ((double)errors)/total;
   }
 
   // Oops, uncaught exception
@@ -89,7 +85,6 @@ public class Tree extends CountedCompleter {
     return result;
   }
 
-
   // Actually build the tree
   public void compute() {
     createStatistics();
@@ -101,7 +96,7 @@ public class Tree extends CountedCompleter {
     Statistic.Split spl = left.split(_data);
     if (spl.isLeafNode())
       _tree = new LeafNode(spl.split);
-    else  
+    else
       _tree = new FJBuild(spl,_data,0).compute();
     // report & bookkeeping
     StringBuilder sb = new StringBuilder();
@@ -136,27 +131,21 @@ public class Tree extends CountedCompleter {
         nd = new SplitNode(split_.column, split_.split, data_.data_);
         data_.filter(nd._column, nd._split,res,left,right);
       }
+
+      FJBuild fj0 = null, fj1 = null;
       Statistic.Split ls = left.split(data_);      // get the splits
       Statistic.Split rs = right.split(data_);
-//      System.out.println("excluded: "+left.weight_);
-//      System.out.println("others: "+right.weight_);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls.split);      // create leaf nodes if any
+      else                    fj0 = new  FJBuild(ls,res[0],depth_+1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs.split);
-      if ((nd._l == null) && (nd._r == null)) {   // calculate the missing subnodes as new FJ tasks, join if necessary
-        ForkJoinTask<INode> fj0 = null;              
-        if (THREADED) {
-          fj0 = new FJBuild(ls,res[0],depth_+1).fork();
-        } else {
-         nd._l = new FJBuild(ls,res[0],depth_+1).compute();
-        }
-        nd._r = new FJBuild(rs,res[1],depth_+1).compute();
-        if (THREADED) 
-          nd._l = fj0.join();
-      } else if (nd._l == null)   nd._l = new FJBuild(ls,res[0],depth_+1).compute();
-      else if (nd._r == null)     nd._r = new FJBuild(rs,res[1],depth_+1).compute();
+      else                    fj1 = new  FJBuild(rs,res[1],depth_+1);
+
+      // Recursively build the splits, in parallel
+      if( fj0 != null &&        (fj1!=null && THREADED) ) fj0.fork();
+      if( fj1 != null ) nd._r = fj1.compute();
+      if( fj0 != null ) nd._l = (fj1!=null && THREADED) ? fj0.join() : fj0.compute();
       return nd;
     }
-
   }
 
   public static abstract class INode {
@@ -216,7 +205,7 @@ public class Tree extends CountedCompleter {
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    private final float split_value() { return  _dapt.unmap(_column, _value); } 
+    private final float split_value() { return  _dapt.unmap(_column, _value); }
     private final C column() { return _dapt.c_[_column]; } // Get the column in question
     public StringBuilder toString( StringBuilder sb, int n ) {
       C c = column();           // Get the column in question
@@ -246,8 +235,7 @@ public class Tree extends CountedCompleter {
     }
   }
 
-  /** Gini classifier node.
-   */
+  /** Gini classifier node. */
   static class SplitNode extends INode {
     final DataAdapter _dapt;
     final int _column;
@@ -274,7 +262,7 @@ public class Tree extends CountedCompleter {
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    protected final float split_value() { return  _dapt.unmap(_column,_split); } 
+    protected final float split_value() { return  _dapt.unmap(_column,_split); }
     protected final C column() {
       return _dapt.c_[_column]; // Get the column in question
     }
@@ -291,7 +279,7 @@ public class Tree extends CountedCompleter {
       sb = _r.toString(sb,n).append(')');
       return sb;
     }
-    
+
     void write( Stream bs ) {
       bs.set1('S');             // Node indicator
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
@@ -308,9 +296,9 @@ public class Tree extends CountedCompleter {
       return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
   }
-  
+
   /** Node that classifies one column category to the left and the others to the
-   * right. 
+   * right.
    */
   static class ExclusionNode extends SplitNode {
     public ExclusionNode(int column, int split, DataAdapter dapt) {
@@ -332,7 +320,7 @@ public class Tree extends CountedCompleter {
       sb = _r.toString(sb,n).append(')');
       return sb;
     }
-    
+
     void write( Stream bs ) {
       bs.set1('E');             // Node indicator
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
@@ -344,11 +332,8 @@ public class Tree extends CountedCompleter {
       _l.write(bs);
       _r.write(bs);
     }
-    
-  
   }
-  
-  
+
   public int classify(Row r) { return _tree.classify(r); }
   public String toString()   { return _tree.toString(); }
   public int leaves() { return _tree.leaves(); }
@@ -369,7 +354,7 @@ public class Tree extends CountedCompleter {
   // Returns classes from 0 to N-1
   public static int classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize ) {
     Stream ts = new Stream(tbits);
-    int data_id = ts.get4();    // Skip tree-id
+    ts.get4();    // Skip tree-id
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
       byte b = tbits[o];
@@ -424,7 +409,7 @@ public class Tree extends CountedCompleter {
       TreeVisitor leaf(int tclass ) { _leaves++; if( _depth > _maxdepth ) _maxdepth = _depth; return this; }
       TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) { _depth++; return this; }
       TreeVisitor post(int col, float fcmp ) { _depth--; return this; }
-      long result( ) {return ((long)_maxdepth<<32) | (long)_leaves; }
+      long result( ) {return ((long)_maxdepth<<32) | _leaves; }
     }.visit().result();
   }
 }
