@@ -28,12 +28,12 @@ public class TestUtil {
     return load_test_file(find_test_file(fname)); 
   }
 
-  public static Key load_test_file( File file ) {
+  public static Key load_test_file(File file, String keyname){
     Key key = null;
     FileInputStream fis = null;
     try {
       fis = new FileInputStream(file);
-      key = ValueArray.read_put_file(file.getPath(), fis, (byte)0);
+      key = ValueArray.read_put_file(keyname, fis, (byte)0);
     } catch( IOException e ) {
       try { if( fis != null ) fis.close(); } catch( IOException e2 ) { }
     }
@@ -41,9 +41,33 @@ public class TestUtil {
     return key;
   }
   
-  public static ValueArray parse_test_key(Key fileKey) {
-    Key parsedKey = Key.make();
+  public static Key load_test_file( File file ) {
+    return load_test_file(file, file.getPath());
+  }
+  
+  public static ValueArray parse_test_key(Key fileKey, Key parsedKey) {
+    System.out.println("PARSE: " + fileKey + ", " + parsedKey);
     ParseDataset.parse(parsedKey, DKV.get(fileKey));
     return (ValueArray) DKV.get(parsedKey); 
   }
+  public static ValueArray parse_test_key(Key fileKey) {
+    return parse_test_key(fileKey, Key.make());    
+  }
+  
+  public static String replaceExtension(String fname, String newExt){
+    int i = fname.lastIndexOf('.');
+    if(i == -1) return fname + "." + newExt;
+    return fname.substring(0,i) + "." + newExt;
+  }
+  
+  
+  public static String getHexKeyFromFile(File f){
+    return replaceExtension(f.getName(),"hex");
+  }
+  
+  public static String getHexKeyFromRawKey(String str){
+    if(str.startsWith("hdfs://"))str = str.substring(7);
+    return replaceExtension(str,"hex");
+  }
+  
 }

@@ -4,6 +4,7 @@ import hexlytics.rf.Data.Row;
 import hexlytics.rf.Tree.StatType;
 import hexlytics.rf.Utils.Counter;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
@@ -54,6 +55,8 @@ public class RandomForest {
 
   public static class OptArgs extends Arguments.Opt {
 	String file = "smalldata/poker/poker-hand-testing.data";
+	String rawKey;
+	String parsdedKey;
 	String validationFile = null;
 	String h2oArgs = "";
 	int ntrees = 10;
@@ -68,6 +71,7 @@ public class RandomForest {
 
   public int features() { return _features== -1 ? (int)Math.sqrt(_data.columns()) : _features; }
 
+  
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
     arguments.extract(ARGS);
@@ -79,10 +83,26 @@ public class RandomForest {
     H2O.main(h2oArgs);
     System.out.println(ARGS.file);
     Thread.sleep(100);
-    Key fileKey = TestUtil.load_test_file(ARGS.file);
-    ValueArray va = TestUtil.parse_test_key(fileKey);
-    DKV.remove(fileKey); // clean up and burn
+    ValueArray va;
+    // get the input data
+    if(ARGS.parsdedKey != null) // data already parsed
+      va = (ValueArray)DKV.get(Key.make(ARGS.parsdedKey));
+    else if(ARGS.rawKey != null) // data loaded in K/V, not parsed yet
+      va = TestUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(TestUtil.getHexKeyFromRawKey(ARGS.rawKey)));
+    else { // data outside of H2O, load and parse
+      File f = new File(ARGS.file); 
+      System.out.println("[RF] Loading file " + f);
+      Key fk = TestUtil.load_test_file(f);
+      va = TestUtil.parse_test_key(fk,Key.make(TestUtil.getHexKeyFromFile(f)));
+      System.out.println("va = " + ((va != null)?va._key:"null"));
+      DKV.remove(fk);
+    }  
     int ntrees = ARGS.ntrees;
+    if(ntrees == 0) {
+      System.out.println("Nothing to do as ntrees == 0");
+      UDPRebooted.global_kill();
+      return;
+    }
     DataAdapter.setSeed(ARGS.seed);
     DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
     DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());    
