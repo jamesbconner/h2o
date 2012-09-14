@@ -70,7 +70,7 @@ public class ValueArray extends Value {
   public static Key getChunk(Key k, long index) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
     byte[] arr = k._kb.clone();
-    long n = ((long) index) << ValueArray.LOG_CHK;
+    long n = index << ValueArray.LOG_CHK;
     UDP.set8(arr, 2, n);
     return Key.make(arr);
   }

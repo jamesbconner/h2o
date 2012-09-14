@@ -2,29 +2,32 @@ package hexlytics.rf;
 
 import java.util.Arrays;
 
-/** This is an entropy statistic calculation. 
- * 
+/** This is an entropy statistic calculation.
+ *
  * @author peta
  */
 class EntropyStatistic extends BaseStatistic {
   int[][] dists_;
   double weight_;
-  
+
   public EntropyStatistic(Data data, int features) {
     super(data, features);
     dists_ = new int[2][data.classes()];
   }
-  
+
   private double entropyOverDist(int[] dist, double weight) {
     double result = 0;
-    for (int d: dist)
-      if (d!=0) 
-        result -= ((double)d/weight) * Math.log((double)d/weight);
+    for( int d : dist ) {
+      if (d!=0) {
+        double t = d/weight;
+        result -= t * Math.log(t);
+      }
+    }
     return result;
   }
-  
+
   private void resetDists(int colIndex) {
-    if (columns_[0] == colIndex) {
+    if (_features[0] == colIndex) {
       Arrays.fill(dists_[0],0);
       Arrays.fill(dists_[1],0);
       weight_ = aggregateColumn(colIndex, dists_[1]);
@@ -34,7 +37,7 @@ class EntropyStatistic extends BaseStatistic {
       dists_[1] = d;
     }
   }
-  
+
   @Override protected Split columnSplit(int colIndex) {
     // reset or reuse the dists
     resetDists(colIndex);
@@ -66,13 +69,13 @@ class EntropyStatistic extends BaseStatistic {
         bestF = f;
       }
     }
-    // check if we have the proper split 
+    // check if we have the proper split
     if (bestSplit == -1)
       return BaseStatistic.Split.impossible(maxIndex);
     else
       return new BaseStatistic.Split(colIndex,bestSplit,bestF);
   }
-  
+
   /*
   @Override protected BaseStatistic.Split columnSplit(int colIndex) {
     if (columns_[0] == colIndex) {
@@ -112,6 +115,6 @@ class EntropyStatistic extends BaseStatistic {
     else
       return new BaseStatistic.Split(colIndex,split,bestFit);
   } */
-} 
+}
 
 
