@@ -95,26 +95,7 @@ public abstract class BaseStatistic {
   }
 
   /** Calculates the best split and returns it.  */
-  public Split split( Data data ) {
-    // Check if we have only a single class.  Since this requires a complete
-    // pass over all the rows, only do it for a small count of rows.  For
-    // larger row counts, the columnSplit will use the summary data to cutout
-    // the single-class case.
-    if( data.rows() < 1024 ) {  // Only do this check for small count of rows
-      int cls = -1;             // No class
-      for( Row row : data ) {   // For all rows
-        int rcls = row.classOf();
-        if( cls == -1 ) cls = rcls; // Keep any found class
-        else if( cls != rcls ) { cls = -1; break; }
-      }
-      if( cls != -1 )               // Found a single class?
-        return Split.constant(cls); // Done!  No computing the distributions
-    }
-
-    // Build the large distribution to be split
-    reset(data);
-    for( Row row : data ) add(row);
-
+  public Split split() {
     // Do the 1st split, which also checks for the single-class case
     Split bestSplit = columnSplit(_features[0]);
     if( bestSplit.isConstant() ) return bestSplit; // Single class?  Then we are done.

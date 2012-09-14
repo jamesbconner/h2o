@@ -93,7 +93,7 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this, permuted, l, permuted.length);
   }
 
-  public void filter(int column, int split, Data[] result) {
+  public void filter(int column, int split, Data[] result, BaseStatistic ls, BaseStatistic rs) {
     assert getClass() == Data.class;
 
     int[] permuted = new int[rows()];
@@ -104,8 +104,10 @@ public class Data implements Iterable<Row> {
     for( int pos = start(); pos < end; ++pos ) {
       row.index = pos;
       if (row.getColumnClass(column) <= split) {
+        ls.add(row);
         permuted[l++] = pos;
       } else {
+        rs.add(row);
         permuted[r--] = pos;
       }
     }
@@ -164,14 +166,17 @@ class Subset extends Data {
     _permutation = permutation;
   }
 
-  @Override public void filter(int column, int split, Data[] result) {
+  @Override public void filter(int column, int split, Data[] result,
+      BaseStatistic ls, BaseStatistic rs) {
     final Row row = new Row();
     int l = _start, r = _end - 1;
     while (l <= r) {
       int permIdx = row.index = _permutation[l];
       if (row.getColumnClass(column) <= split) {
+        ls.add(row);
         ++l;
       } else {
+        rs.add(row);
         _permutation[l] = _permutation[r];
         _permutation[r--] = permIdx;
       }

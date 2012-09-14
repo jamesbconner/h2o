@@ -2,10 +2,11 @@ package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
 import hexlytics.rf.Statistic.Split;
+
 import java.io.IOException;
 import java.util.UUID;
+
 import jsr166y.CountedCompleter;
-import jsr166y.ForkJoinTask;
 import jsr166y.RecursiveTask;
 import water.*;
 
@@ -13,7 +14,7 @@ public class Tree extends CountedCompleter {
 
   static  boolean THREADED = false;  // multi-threaded ?
 
-  
+
   ThreadLocal<BaseStatistic>[] stats_;
   static public enum StatType { ENTROPY, NEW_ENTROPY, GINI };
   final StatType _type;         // Flavor of split logic
@@ -74,6 +75,7 @@ public class Tree extends CountedCompleter {
       result = (_type == StatType.GINI) ? new GiniStatistic(data,_features) : new EntropyStatistic(data,_features);
       stats_[index].set(result);
     }
+    result.reset(data);
     return result;
   }
 
@@ -138,7 +140,8 @@ public class Tree extends CountedCompleter {
     // first get the statistic so that it can be reused
     BaseStatistic left = getOrCreateStatistic(0,_data);
     // calculate the split
-    BaseStatistic.Split spl = left.split(_data);
+    for( Row r : _data ) left.add(r);
+    BaseStatistic.Split spl = left.split();
     if (spl.isLeafNode())  _tree = new LeafNode(spl.split);
     else  _tree = new FJBuild(spl,_data,0).compute();
   }
@@ -157,9 +160,11 @@ public class Tree extends CountedCompleter {
     @Override public INode compute() {
       Data[] res = new Data[2]; // create the data, node and filter the data
       SplitNode nd = new SplitNode(split_.column, split_.split, data_.data_);
-      data_.filter(nd._column, nd._split,res);
-      BaseStatistic.Split ls = getOrCreateStatistic(0,data_).split(res[0]); // get the splits
-      BaseStatistic.Split rs = getOrCreateStatistic(1,data_).split(res[1]);
+      BaseStatistic leftStat = getOrCreateStatistic(0,data_);
+      BaseStatistic riteStat = getOrCreateStatistic(1,data_);
+      data_.filter(nd._column, nd._split, res, leftStat, riteStat);
+      BaseStatistic.Split ls = leftStat.split();
+      BaseStatistic.Split rs = riteStat.split();
       // Look at the splits
       FJBuild fj0 = null, fj1 = null;
       if (ls.isLeafNode())  nd._l = new LeafNode(ls.split); // create leaf nodes if any
@@ -231,7 +236,7 @@ public class Tree extends CountedCompleter {
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    private final float split_value() { return  _dapt.unmap(_column, _value); } 
+    private final float split_value() { return  _dapt.unmap(_column, _value); }
     private final C column() { return _dapt.c_[_column]; } // Get the column in question
     public StringBuilder toString( StringBuilder sb, int n ) {
       C c = column();           // Get the column in question
@@ -289,7 +294,7 @@ public class Tree extends CountedCompleter {
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    private final float split_value() { return  _dapt.unmap(_column,_split); } 
+    private final float split_value() { return  _dapt.unmap(_column,_split); }
     private final C column() {
       return _dapt.c_[_column]; // Get the column in question
     }
@@ -306,7 +311,7 @@ public class Tree extends CountedCompleter {
       sb = _r.toString(sb,n).append(')');
       return sb;
     }
-    
+
     void write( Stream bs ) {
       bs.set1('S');             // Node indicator
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
