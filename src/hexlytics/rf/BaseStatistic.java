@@ -30,10 +30,10 @@ public abstract class BaseStatistic {
       this.split = split;
       this.fitness = fitness;
     }
-    public static Split constant(int result) {  return new Split(-1, result, -1); }
-    public static Split impossible(int result) { return new Split(-2, result, -1);  }
-    public final boolean isLeafNode() { return column < 0; }
-    public final boolean isConstant() { return column == -1; }
+    public static Split constant  (int result) { return new Split(-1, result,  1.0); }
+    public static Split impossible(int result) { return new Split(-2, result, -1.0); }
+    public final boolean isLeafNode()   { return column  <  0; }
+    public final boolean isConstant()   { return column == -1; }
     public final boolean isImpossible() { return column == -2;  }
     public final boolean betterThan(Split other) { return fitness > other.fitness; }
   }
@@ -95,14 +95,37 @@ public abstract class BaseStatistic {
   }
 
   /** Calculates the best split and returns it.  */
-  public Split split() {
-    Split bestSplit = columnSplit(_features[0]);
-    if (!bestSplit.isConstant())
-      for (int j = 1; j < _features.length; ++j) {
-        Split s = columnSplit(_features[j]);
-        if (s.betterThan(bestSplit))
-        bestSplit = s;
+  public Split split( Data data ) {
+    // Check if we have only a single class.  Since this requires a complete
+    // pass over all the rows, only do it for a small count of rows.  For
+    // larger row counts, the columnSplit will use the summary data to cutout
+    // the single-class case.
+    if( data.rows() < 1024 ) {  // Only do this check for small count of rows
+      int cls = -1;             // No class
+      for( Row row : data ) {   // For all rows
+        int rcls = row.classOf();
+        if( cls == -1 ) cls = rcls; // Keep any found class
+        else if( cls != rcls ) { cls = -1; break; }
       }
+      if( cls != -1 )               // Found a single class?
+        return Split.constant(cls); // Done!  No computing the distributions
+    }
+
+    // Build the large distribution to be split
+    reset(data);
+    for( Row row : data ) add(row);
+
+    // Do the 1st split, which also checks for the single-class case
+    Split bestSplit = columnSplit(_features[0]);
+    if( bestSplit.isConstant() ) return bestSplit; // Single class?  Then we are done.
+
+    // Work through all the features, looking for the best split
+    for (int j = 1; j < _features.length; ++j) {
+      Split s = columnSplit(_features[j]);
+      assert !s.isConstant();   // Already checked this, should not happen again
+      if( s.betterThan(bestSplit) )
+        bestSplit = s;
+    }
     return bestSplit;
   }
 }

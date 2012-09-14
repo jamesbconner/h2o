@@ -19,7 +19,8 @@ public class GiniStatistic extends BaseStatistic {
     int[] rightDist = new int[leftDist.length];
     int leftWeight = 0;
     int rightWeight = aggregateColumn(colIndex, rightDist);
-    // check if we are below the error rate proposed and if so, return the leafnode split instead
+    // check if we are below the error rate proposed and if so, return the leafnode split instead.
+    // Note that this cuts out single-class collections also.
     int maxIndex = Utils.maxIndex(rightDist);
     if (((double)(rightDist[maxIndex])/rightWeight) >= 1.0-MIN_ERROR_RATE)
       return Split.constant(maxIndex);
@@ -27,7 +28,7 @@ public class GiniStatistic extends BaseStatistic {
 
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
-    double bestFitness = 2;
+    double bestFitness = 2.0;   // Fitness to minimize
     for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
       // first copy the i-th guys from right to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -43,7 +44,7 @@ public class GiniStatistic extends BaseStatistic {
       double f =
         gini(leftDist ,leftWeight ) * ((double)leftWeight  / totWeight) +
         gini(rightDist,rightWeight) * ((double)rightWeight / totWeight);
-      if (f<bestFitness) {
+      if( f<bestFitness ) {     // Take split with smallest fitness
         bestSplit = i;
         bestFitness = f;
       }
@@ -53,20 +54,8 @@ public class GiniStatistic extends BaseStatistic {
     if (bestSplit == -1) {
       // put everything to the left guy
       return Split.impossible(maxIndex);
-/*      for (int j = 0; j < leftDist.length; ++j) {
-        double t = columnDists_[colIndex][columnDists_[colIndex].length-1][j];
-        leftWeight += t;
-        leftDist[j] += t;
-      }
-      int best = 0;
-      for (int i = 1; i < leftDist.length; ++i)
-        if (leftDist[i] > leftDist[best])
-          best = i;
-      return Split.impossible(best); */
     }
-    //System.exit(-1);
-    //System.out.println(colIndex + " - " + bestSplit);
-    return new Split(colIndex,bestSplit,1-bestFitness);
+    return new Split(colIndex,bestSplit,1.0-bestFitness);
   }
 
 }
