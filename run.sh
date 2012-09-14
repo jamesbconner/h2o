@@ -7,6 +7,9 @@ NODE1=192.168.1.151
 NODE2=192.168.1.152
 NODE3=192.168.1.153
 NODE4=192.168.1.154
+NODE5=192.168.1.155
+NODE6=192.168.1.156
+NODE7=192.168.1.157
 
 CLOUD_NAME=$USER
 HD_USER=hduser
@@ -14,13 +17,13 @@ HD_USER=hduser
 HDFS_CONF="-hdfs hdfs://192.168.1.151 -hdfs_version cdh4 -hdfs_root /datasets"
 #delete_ice
 ICE_DIR_NAME=ice_${CLOUD_NAME}
-DELETE_ICE="rm -fr $ICE_DIR_NAME"
+DELETE_ICE="rm -fr ${ICE_DIR_NAME}*"
 JAR_TIME=`date "+%H.%M.%S-%m%d%y"`
 # compile
 function build() {
  # build 
  ./build.sh
- #ant clean; ant
+ ant clean; ant
 }
 
 
@@ -42,9 +45,8 @@ function build() {
 
 function dist(){
 REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
- for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5}
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5} ${NODE6} ${NODE7} 
   do
-   #ssh -t ${HD_USER}@${NODE} 'mkdir ${REMOTE_WDIR}'
    echo scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE}:${REMOTE_WDIR}/h2o-${JAR_TIME}.jar
    scp ${H2O_HOME}/build/h2o.jar ${HD_USER}@${NODE}:${REMOTE_WDIR}/h2o-${JAR_TIME}.jar
   done
@@ -55,21 +57,39 @@ function shutdown(){
  echo $SHUTDOWN_CMD
  $SHUTDOWN_CMD
 }
+function echo_prep_launch(){
+ REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
+ for i in 1 2
+ do
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5} ${NODE6} ${NODE7}
+  do
+   PREP_REMOTE_CMD="'killall java; mkdir ${REMOTE_WDIR}_${i}; cd ${REMOTE_WDIR}_${i}; ${DELETE_ICE}; exit;'"
+   echo xterm -e ssh -t ${HD_USER}@${NODE} ${PREP_REMOTE_CMD} >> _run.sh
+  done
+ done
+}
 function echo_launch(){
  REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
- H2O_REMOTE_CMD="'cd ${REMOTE_WDIR}; ${DELETE_ICE};java -Xmx8g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME}' &"
+ #H2O_REMOTE_CMD="'cd ${REMOTE_WDIR}; ${DELETE_ICE};java -Xmx4g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME} --nosigar' &"
  echo $H2O_REMOTE_CMD;
- for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5}
+ for i in 1 2
+ do
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5} ${NODE6} ${NODE7}
   do
+   H2O_REMOTE_CMD="'cd  ${REMOTE_WDIR}_${i};/home/hduser/jdk1.6.0_31/bin/java -Xmx4g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME} ${HDFS_CONF} --nosigar' &"
    echo xterm -e ssh -t ${HD_USER}@${NODE} ${H2O_REMOTE_CMD} >> _run.sh
   done
+   echo "sleep 10" >> _run.sh
+ done
 }
 
 # run
 #build
 dist
 shutdown
+sleep 5
 # delete prior run script
 rm ./_run.sh
+echo_prep_launch
 echo_launch
 sh ./_run.sh
