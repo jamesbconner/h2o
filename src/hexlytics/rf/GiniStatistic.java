@@ -19,7 +19,6 @@ package hexlytics.rf;
  * right for all different ones.
  */
 public class GiniStatistic extends Statistic {
-  private static final double MIN_ERROR_RATE = 0.0;
 
   public GiniStatistic(Data data, int features) { super(data, features); }
 
@@ -32,58 +31,72 @@ public class GiniStatistic extends Statistic {
     return result;
   }
 
-  private int _bestSplit;
-  private double _bestFitness;
-
-  private Split findSplit(int colIndex, Data d) {
-    int[] leftDist = new int[columnDists_[colIndex][0].length];
-    int[] rightDist = new int[leftDist.length];
+  @Override protected Split columnSplit(int colIndex, Data d, int[] dist, int distWeight) {
+    int[] leftDist = new int[d.classes()];
+    int[] riteDist = dist.clone();
     int leftWeight = 0;
-    int rightWeight = aggregateColumn(colIndex, rightDist);
-
-    // check if we are below the error rate proposed and if so,
-    //    return the leaf node split.
-    // Note that this cuts out single-class collections also.
-    int maxIndex = Utils.maxIndex(rightDist);
-    if (((double)(rightDist[maxIndex])/rightWeight) >= 1.0-MIN_ERROR_RATE)
-      return Split.constant(maxIndex);
-    int totWeight = rightWeight;
+    int riteWeight = distWeight;
+    int totWeight = riteWeight;
 
     // we are not a single class, calculate the best split for the column
-    _bestSplit = -1;
-    _bestFitness = 2.0;   // Fitness to minimize
-    for (int i = 0; i < columnDists_[colIndex].length-1; ++i) {
-      // first copy the i-th guys from right to left
+    int bestSplit = -1;
+    double bestFitness = 2.0;   // Fitness to minimize
+    for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
+      // first copy the i-th guys from rite to left
       for (int j = 0; j < leftDist.length; ++j) {
-        int t = columnDists_[colIndex][i][j];
+        int t = _columnDists[colIndex][i][j];
         leftWeight += t;
-        rightWeight -= t;
+        riteWeight -= t;
         leftDist[j] += t;
-        rightDist[j] -= t;
+        riteDist[j] -= t;
       }
       // now make sure we have something to split
-      if( leftWeight == 0 || rightWeight == 0 ) continue;
+      if( leftWeight == 0 || riteWeight == 0 ) continue;
       double f =
-        gini(leftDist ,leftWeight ) * ((double)leftWeight  / totWeight) +
-        gini(rightDist,rightWeight) * ((double)rightWeight / totWeight);
-      if( f<_bestFitness ) { // Take split with smallest fitness
-        _bestSplit = i;
-        _bestFitness = f;
+        gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
+        gini(riteDist,riteWeight) * ((double)riteWeight / totWeight);
+      if( f<bestFitness ) { // Take split with smallest fitness
+        bestSplit = i;
+        bestFitness = f;
       }
     }
-    if( _bestSplit == -1 ) return Split.impossible(Utils.maxIndex(dist_, d.random()));
-    return null;
+    return bestSplit == -1 
+      ? Split.impossible(Utils.maxIndex(dist, d.random()))
+      : Split.split(colIndex, bestSplit, 1.0-bestFitness);
   }
 
-  @Override protected Split columnSplit(int colIndex, Data d) {
-    Split split = findSplit(colIndex, d);
-    if( split != null ) return split;
-    return Split.split(colIndex, _bestSplit, 1.0-_bestFitness);
-  }
+  @Override protected Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight) {
+    int[] leftDist = new int[d.classes()];
+    int[] riteDist = dist.clone();
+    int leftWeight = 0;
+    int riteWeight = distWeight;
+    int  totWeight = riteWeight;
 
-  @Override protected Split columnExclusion(int colIndex, Data d) {
-    Split split = findSplit(colIndex, d);
-    if( split != null ) return split;
-    return Split.exclusion(colIndex, _bestSplit, _bestFitness);
+    // we are not a single class, calculate the best split for the column
+    int bestSplit = -1;
+    double bestFitness = 2.0;   // Fitness to minimize
+    for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
+      // first copy the i-th guys from rite to left
+      for (int j = 0; j < leftDist.length; ++j) {
+        int t = _columnDists[colIndex][i][j];
+        leftWeight += t;
+        riteWeight -= t;
+        riteDist[j] += leftDist[j];
+        leftDist[j]  = t;
+        riteDist[j] -= t;
+      }
+      // now make sure we have something to split
+      if( leftWeight == 0 || riteWeight == 0 ) continue;
+      double f =
+        gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
+        gini(riteDist,riteWeight) * ((double)riteWeight / totWeight);
+      if( f<bestFitness ) { // Take split with smallest fitness
+        bestSplit = i;
+        bestFitness = f;
+      }
+    }
+    return bestSplit == -1 
+      ? Split.impossible(Utils.maxIndex(dist, d.random()))
+      : Split.exclusion(colIndex, bestSplit, bestFitness);
   }
 }

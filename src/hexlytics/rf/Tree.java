@@ -70,16 +70,16 @@ public class Tree extends CountedCompleter {
     Statistic result = stats_[index].get();
     if (result==null) {
       switch (_type) {
-        case GINI:
-          result = new GiniStatistic(data,_features);
-          break;
-        case ENTROPY:
-          result = new EntropyStatistic(data,_features);
-          break;
-        default:
-          throw new Error("Unknown tree type to build the statistic. ");
+      case GINI:
+        result = new GiniStatistic(data,_features);
+        break;
+      case ENTROPY:
+        result = new EntropyStatistic(data,_features);
+        break;
+      default:
+        throw new Error("Unknown tree type to build the statistic. ");
       }
-     stats_[index].set(result);
+      stats_[index].set(result);
     }
     result.reset(data);
     return result;
@@ -95,7 +95,7 @@ public class Tree extends CountedCompleter {
     for (Row r : _data) left.add(r);
     Statistic.Split spl = left.split(_data);
     if (spl.isLeafNode())
-      _tree = new LeafNode(spl.split);
+      _tree = new LeafNode(spl._split);
     else
       _tree = new FJBuild(spl,_data,0).compute();
     // report & bookkeeping
@@ -125,19 +125,19 @@ public class Tree extends CountedCompleter {
       Data[] res = new Data[2];       // create the data, node and filter the data
       SplitNode nd;
       if (split_.isExclusion()) {
-        nd = new ExclusionNode(split_.column, split_.split, data_.data_);
+        nd = new ExclusionNode(split_._column, split_._split, data_.data_);
         data_.filterExclude(nd._column, nd._split,res,left,right);
       } else {
-        nd = new SplitNode(split_.column, split_.split, data_.data_);
+        nd = new SplitNode(split_._column, split_._split, data_.data_);
         data_.filter(nd._column, nd._split,res,left,right);
       }
 
       FJBuild fj0 = null, fj1 = null;
       Statistic.Split ls = left.split(data_);      // get the splits
       Statistic.Split rs = right.split(data_);
-      if (ls.isLeafNode())  nd._l = new LeafNode(ls.split);      // create leaf nodes if any
+      if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
       else                    fj0 = new  FJBuild(ls,res[0],depth_+1);
-      if (rs.isLeafNode())  nd._r = new LeafNode(rs.split);
+      if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
       else                    fj1 = new  FJBuild(rs,res[1],depth_+1);
 
       // Recursively build the splits, in parallel
