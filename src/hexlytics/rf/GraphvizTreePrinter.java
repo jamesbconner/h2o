@@ -110,8 +110,9 @@ public class GraphvizTreePrinter extends TreePrinter {
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {
-          _dest.append(String.format("%d [label=\"%s <= %f\"];\n",
-                                     off0, _columnNames[col], fcmp));
+          byte b = _ts._buf[_ts._off-1];
+          _dest.append(String.format("%d [label=\"%s %s %f\"];\n",
+                                     off0, _columnNames[col], ((b=='E')?"==":"<="), fcmp));
           _dest.append(String.format("%d -> %d;\n", off0, offl));
           _dest.append(String.format("%d -> %d;\n", off0, offr));
           return this;
