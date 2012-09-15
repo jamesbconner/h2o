@@ -24,10 +24,10 @@ def spawn_cmd(name, args):
     outfd,outpath = log_file(name + '.stdout.')
     errfd,errpath = log_file(name + '.stderr.')
     ps = psutil.Popen(args, stdin=None, stdout=outfd, stderr=errfd)
-    outpath = os.path.basename(outpath)
-    errpath = os.path.basename(errpath)
-    log(' '.join(args), comment='PID %d, stdout %s, stderr %s' % (ps.pid, outpath, errpath))
-    return ps
+    comment = 'PID %d, stdout %s, stderr %s' % (
+        ps.pid, os.path.basename(outpath), os.path.basename(errpath))
+    log(' '.join(args), comment=comment)
+    return (ps, outpath, errpath)
 
 class H2O:
     def __url(self, loc):
@@ -93,13 +93,14 @@ class H2O:
             self.stabilize('h2o started', 2, self.__is_alive)
         else:
             self.rc = None
-            self.ps = spawn_cmd('h2o', [
+            spawn = spawn_cmd('h2o', [
                     "java", "-ea", "-jar", "../build/h2o.jar",
                     "--port=%d"%self.port,
                     '--ip=%s'%self.addr,
                     '--nosigar',
                     '--ice_root=%s' % tempfile.mkdtemp(prefix='ice',dir=LOG_DIR)
             ])
+            self.ps = spawn[0]
             try:
                 self.stabilize('h2o started', 2, self.__is_alive)
             except:
@@ -108,7 +109,10 @@ class H2O:
 
             time.sleep(1)
             if self.wait():
-                raise Exception('Failed to launch with exit code: %d' % self.wait())
+                out = file(spawn[1]).read()
+                err = file(spawn[2]).read()
+                raise Exception('Failed to launch with exit code: %d\nstdout:\n%s\n\nstderr:\n%s' % 
+                    (self.wait(), out, err))
 
     def stack_dump(self):
         self.__check_spawn()
