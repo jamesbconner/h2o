@@ -40,7 +40,7 @@ public class GiniStatistic extends Statistic {
 
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
-    double bestFitness = 2.0;   // Fitness to minimize
+    double bestFitness = 0.0;   // Fitness to maximize
     for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
       // first copy the i-th guys from rite to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -66,30 +66,28 @@ public class GiniStatistic extends Statistic {
   }
 
   @Override protected Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight) {
-    int[] leftDist = new int[d.classes()];
-    int[] riteDist = dist.clone();
-    int leftWeight = 0;
-    int riteWeight = distWeight;
-    int  totWeight = riteWeight;
+    int[] inclDist = new int[d.classes()];
+    int[] exclDist = dist.clone();
 
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
-    double bestFitness = 2.0;   // Fitness to minimize
-    for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
+    double bestFitness = 0.0;   // Fitness to maximize
+    for( int i = 0; i < _columnDists[colIndex].length-1; ++i ) {
       // first copy the i-th guys from rite to left
-      for (int j = 0; j < leftDist.length; ++j) {
+      int sumt = 0;
+      for( int j = 0; j < inclDist.length; ++j ) {
         int t = _columnDists[colIndex][i][j];
-        leftWeight += t;
-        riteWeight -= t;
-        riteDist[j] += leftDist[j];
-        leftDist[j]  = t;
-        riteDist[j] -= t;
+        sumt += t;
+        inclDist[j] = t;
+        exclDist[j] = dist[j] - t;
       }
+      int inclW = sumt;
+      int exclW = distWeight - inclW;
       // now make sure we have something to split
-      if( leftWeight == 0 || riteWeight == 0 ) continue;
-      double f = 1.0-
-        (gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
-         gini(riteDist,riteWeight) * ((double)riteWeight / totWeight));
+      if( inclW == 0 || exclW == 0 ) continue;
+      double f = 1.0 -
+        (gini(inclDist,inclW) * ((double)inclW / distWeight) +
+         gini(exclDist,exclW) * ((double)exclW / distWeight));
       if( f>bestFitness ) { // Take split with largest fitness
         bestSplit = i;
         bestFitness = f;
