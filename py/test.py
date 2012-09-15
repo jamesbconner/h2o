@@ -54,14 +54,17 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
-    def testRFiris2(self):
+    def testRF_iris2(self):
         trees = 6
         timeoutSecs = 20
         csvPathname = '../smalldata/iris/iris2.csv'
+        runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
-        # FIX! TBD do we always have to kick off the run from node 0?
-        # what if we do another node?
-        runRF(nodes[0],trees,csvPathname,timeoutSecs)
+    def testRF_poker100(self):
+        trees = 6
+        timeoutSecs = 20
+        csvPathname = '../smalldata/poker/poker100'
+        runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
     def testGenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
