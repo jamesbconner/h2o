@@ -1,8 +1,5 @@
-import os, json, unittest, time
+import os, json, unittest, time, shutil, sys
 import util.h2o as h2o
-import util.asyncproc as proc
-import os
-import shutil
 
 # Hackery: find the ip address that gets you to Google's DNS
 # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
@@ -42,9 +39,9 @@ class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global nodes
+        nodes = []
         try:
-            proc.clean_sandbox()
-            nodes = []
+            h2o.clean_sandbox()
             # change the number here if you want more or less nodes
             for i in range(3): addNode(nodes)
             # give them a few seconds to stabilize
@@ -114,8 +111,7 @@ class Basic(unittest.TestCase):
         for x in xrange (2,100,10):
             # Have to split the string out to list for pipe
             shCmdString = SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
-
-            pipe = proc.Process(shCmdString.split())
+            h2o.spawn_cmd('parity.pl', shCmdString.split())
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
@@ -134,8 +130,8 @@ class Basic(unittest.TestCase):
         # always match the gen above!
         # FIX! 1 row fails in H2O. skip for now
         for x in xrange (2,100,10):
-            print "RfParity1: subtest", str(x), " trees: ", trees, " timeoutSecs: ", timeoutSecs, "\n";
-
+            sys.stdout.write('.')
+            sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
             # FIX! TBD do we always have to kick off the run from node 0?
