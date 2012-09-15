@@ -2,6 +2,25 @@ import time, os, json, signal, tempfile, shutil, datetime
 import requests
 import psutil
 
+# Hackery: find the ip address that gets you to Google's DNS
+# Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
+# Will fail if local proxy? we don't have one.
+# Watch out to see if there are NAT issues here (home router?)
+# Could parse ifconfig, but would need something else on windows
+def getIpAddress():
+    import socket
+    ip = '127.0.0.1'
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8',0))
+        ip = s.getsockname()[0]
+    except:
+        pass
+    if ip.startswith('127'):
+        ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
+    return ip
+    
+
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
@@ -86,9 +105,9 @@ class H2O:
                 return False
             raise
 
-    def __init__(self, addr, port, spawn=True):
+    def __init__(self, addr=None, port=54321, spawn=True):
         self.port = port;
-        self.addr = addr
+        self.addr = addr or getIpAddress()
         if not spawn:
             self.stabilize('h2o started', 2, self.__is_alive)
         else:

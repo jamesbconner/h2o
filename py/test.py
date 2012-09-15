@@ -1,28 +1,10 @@
 import os, json, unittest, time, shutil, sys
 import util.h2o as h2o
 
-# Hackery: find the ip address that gets you to Google's DNS
-# Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
-# Will fail if local proxy? we don't have one.
-# Watch out to see if there are NAT issues here (home router?)
-# Could parse ifconfig, but would need something else on windows
-def getIpAddress():
-    import socket
-    ip = '127.0.0.1'
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8',0))
-        ip = s.getsockname()[0]
-    except:
-        pass
-    if ip.startswith('127'):
-        ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
-    return ip
-    
 def addNode(nodes):
     portForH2O = 54321
     portsPerNode = 3
-    h = h2o.H2O(getIpAddress(), portForH2O + len(nodes)*portsPerNode)
+    h = h2o.H2O(port=(portForH2O + len(nodes)*portsPerNode))
     nodes.append(h)
 
 def runRF(n,trees,csvPathname,timeoutSecs):
