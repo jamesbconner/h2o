@@ -98,6 +98,7 @@ class H2O:
                     "--port=%d"%self.port,
                     '--ip=%s'%self.addr,
                     '--nosigar',
+                    '--ice_root=%s' % tempfile.mkdtemp(prefix='ice',dir=LOG_DIR)
             ])
             try:
                 self.stabilize('h2o started', 2, self.__is_alive)
