@@ -58,7 +58,8 @@ public class Tree extends CountedCompleter {
   }
 
   private void createStatistics() {
-    // Change this to a different amount of statistics, for each possible subnode one, 2 for binary trees
+    // Change this to a different amount of statistics, for each possible
+    // subnode one, 2 for binary trees
     stats_ = new ThreadLocal[2];
     for (int i = 0; i < stats_.length; ++i) stats_[i] = new ThreadLocal<Statistic>();
   }
@@ -68,16 +69,11 @@ public class Tree extends CountedCompleter {
   // TODO this has to change a lot, only a temp working version
   private Statistic getOrCreateStatistic(int index, Data data) {
     Statistic result = stats_[index].get();
-    if (result==null) {
+    if( result==null ) {
       switch (_type) {
-      case GINI:
-        result = new GiniStatistic(data,_features);
-        break;
-      case ENTROPY:
-        result = new EntropyStatistic(data,_features);
-        break;
-      default:
-        throw new Error("Unknown tree type to build the statistic. ");
+      case GINI:    result = new    GiniStatistic(data,_features);  break;
+      case ENTROPY: result = new EntropyStatistic(data,_features);  break;
+      default:      throw new Error("Unknown tree type to build the statistic. ");
       }
       stats_[index].set(result);
     }
@@ -92,12 +88,11 @@ public class Tree extends CountedCompleter {
     // first get the statistic so that it can be reused
     Statistic left = getOrCreateStatistic(0,_data);
     // calculate the split
-    for (Row r : _data) left.add(r);
+    for( Row r : _data ) left.add(r);
     Statistic.Split spl = left.split(_data);
-    if (spl.isLeafNode())
-      _tree = new LeafNode(spl._split);
-    else
-      _tree = new FJBuild(spl,_data,0).compute();
+    _tree = spl.isLeafNode()
+      ? new LeafNode(spl._split)
+      : new FJBuild (spl,_data,0).compute();
     // report & bookkeeping
     StringBuilder sb = new StringBuilder();
     sb.append("Tree :").append(_data_id).append(" d=").append(_tree.depth());
@@ -120,21 +115,21 @@ public class Tree extends CountedCompleter {
     }
 
     @Override public INode compute() {
-      Statistic left = getOrCreateStatistic(0,data_);       // first get the statistics
-      Statistic right = getOrCreateStatistic(1,data_);
-      Data[] res = new Data[2];       // create the data, node and filter the data
+      Statistic left = getOrCreateStatistic(0,data_); // first get the statistics
+      Statistic rite = getOrCreateStatistic(1,data_);
+      Data[] res = new Data[2]; // create the data, node and filter the data
       SplitNode nd;
       if (split_.isExclusion()) {
         nd = new ExclusionNode(split_._column, split_._split, data_.data_);
-        data_.filterExclude(nd._column, nd._split,res,left,right);
+        data_.filterExclude(nd._column, nd._split,res,left,rite);
       } else {
         nd = new SplitNode(split_._column, split_._split, data_.data_);
-        data_.filter(nd._column, nd._split,res,left,right);
+        data_.filter      (nd._column, nd._split,res,left,rite);
       }
 
       FJBuild fj0 = null, fj1 = null;
-      Statistic.Split ls = left.split(data_);      // get the splits
-      Statistic.Split rs = right.split(data_);
+      Statistic.Split ls = left.split(data_); // get the splits
+      Statistic.Split rs = rite.split(data_);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
       else                    fj0 = new  FJBuild(ls,res[0],depth_+1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);

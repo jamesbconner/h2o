@@ -52,17 +52,17 @@ public class GiniStatistic extends Statistic {
       }
       // now make sure we have something to split
       if( leftWeight == 0 || riteWeight == 0 ) continue;
-      double f =
-        gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
-        gini(riteDist,riteWeight) * ((double)riteWeight / totWeight);
-      if( f<bestFitness ) { // Take split with smallest fitness
+      double f = 1.0 -
+        (gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
+         gini(riteDist,riteWeight) * ((double)riteWeight / totWeight));
+      if( f>bestFitness ) { // Take split with largest fitness
         bestSplit = i;
         bestFitness = f;
       }
     }
     return bestSplit == -1 
       ? Split.impossible(Utils.maxIndex(dist, d.random()))
-      : Split.split(colIndex, bestSplit, 1.0-bestFitness);
+      : Split.split(colIndex, bestSplit, bestFitness);
   }
 
   @Override protected Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight) {
@@ -87,10 +87,10 @@ public class GiniStatistic extends Statistic {
       }
       // now make sure we have something to split
       if( leftWeight == 0 || riteWeight == 0 ) continue;
-      double f =
-        gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
-        gini(riteDist,riteWeight) * ((double)riteWeight / totWeight);
-      if( f<bestFitness ) { // Take split with smallest fitness
+      double f = 1.0-
+        (gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
+         gini(riteDist,riteWeight) * ((double)riteWeight / totWeight));
+      if( f>bestFitness ) { // Take split with largest fitness
         bestSplit = i;
         bestFitness = f;
       }

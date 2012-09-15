@@ -60,7 +60,7 @@ class EntropyStatistic extends Statistic {
       for (int e: riteDist)
         if (e != 0)
           eRight -= (e/(double)totRight) * Math.log(e/(double)totRight);
-      double eReduction = 1 - (eLeft * totLeft + eRight * totRight) / (double)distWeight; 
+      double eReduction = 1.0 - (eLeft * totLeft + eRight * totRight) / (double)distWeight; 
       if (eReduction > maxReduction) {
         bestSplit = i;
         maxReduction = eReduction;
@@ -103,7 +103,7 @@ class EntropyStatistic extends Statistic {
       for (double e: riteDist)
         if (e != 0)
           eRight -= (e/(double)totRight) * Math.log(e/totRight);
-      double eReduction = 1 - (eLeft * totLeft + eRight * totRight) / (double)distWeight; 
+      double eReduction = 1.0 - (eLeft * totLeft + eRight * totRight) / (double)distWeight; 
       if (eReduction > maxReduction) {
         bestSplit = i;
         maxReduction = eReduction;
