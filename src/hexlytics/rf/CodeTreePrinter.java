@@ -87,7 +87,8 @@ public class CodeTreePrinter extends TreePrinter {
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException { 
-          _dest.append(String.format("if( fs[%s] <= %f ) \n",_columnNames[col],fcmp)).incrementIndent();
+          byte b = _ts._buf[off0];
+          _dest.append(String.format("if( fs[%s] %s %f ) \n",_columnNames[col],((b=='E')?"==":"<="), fcmp)).incrementIndent();
           return this;
         }
         Tree.TreeVisitor mid (int col, float fcmp ) throws IOException {
