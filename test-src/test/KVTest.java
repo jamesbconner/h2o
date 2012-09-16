@@ -6,6 +6,7 @@ import hexlytics.LinearRegression;
 
 import java.io.*;
 
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -16,18 +17,28 @@ import water.serialization.RemoteTaskSerializer;
 import water.util.KeyUtil;
 
 public class KVTest {
+  private static int _initial_keycnt = 0;
+
   @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { "--nosigar" });
+    H2O.main(new String[] { });
+    long start = System.currentTimeMillis();
+    while (System.currentTimeMillis() - start < 5000) {
+      if (H2O.CLOUD.size() > 2) break;
+      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
+    }
+    assertEquals("Cloud size of 3", 3, H2O.CLOUD.size());
+    _initial_keycnt = H2O.store_size();
   }
 
-  // Request that tests be "clean" on the K/V store, and restore it to the same
-  // count of keys after all tests run.
-  static int _initial_keycnt;
+  @AfterClass public static void checkLeakedKeys() {
+    int leaked_keys = H2O.store_size() - _initial_keycnt;
+    assertEquals("No keys leaked", 0, leaked_keys);
+  }
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
   // value for it, get the value for it, delete it.
-  @Test public void test0() {
+  @Test public void testBasicCRUD() {
     Key k1 = Key.make("key1");
     Value v0 = DKV.get(k1);
     assertNull(v0);
@@ -43,7 +54,7 @@ public class KVTest {
 
   // ---
   // Make 100 keys, verify them all, delete them all.
-  @Test public void test2() {
+  @Test public void test100Keys() {
     Key   keys[] = new Key  [100];
     Value vals[] = new Value[keys.length];
     for( int i=0; i<keys.length; i++ ) {
@@ -69,7 +80,7 @@ public class KVTest {
 
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
-  @Test public void test3() {
+  @Test public void testRemoteBitSet() {
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
     for( int i=0; i<keys.length; i++ ) {
@@ -120,7 +131,7 @@ public class KVTest {
 
   // ---
   // Issue a large Key/Value put/get - testing the TCP path
-  @Test public void test4() {
+  @Test public void testTcpCRUD() {
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -147,7 +158,7 @@ public class KVTest {
   // ---
   // Map in h2o.jar - a multi-megabyte file - into Arraylets.
   // Run a distributed byte histogram.
-  @Test public void test5() throws Exception {
+  @Test public void testMultiMbFile() throws Exception {
     File file = KeyUtil.find_test_file("h2o.jar");
     Key h2okey = KeyUtil.load_test_file(file);
     ByteHisto bh = new ByteHisto();
@@ -206,7 +217,7 @@ public class KVTest {
 
   // ---
   // Run an atomic function remotely, one time only
-  @Test public void test6() {
+  @Test public void testRemoteAtomic() {
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -257,8 +268,7 @@ public class KVTest {
 
   // ---
   // Test parsing "cars.csv" and running LinearRegression
-  @Test public void test7() {
-    System.out.println("test7: Running LinearRegression on cars.csv	");
+  @Test public void testLinearRegression() {
     Key fkey = KeyUtil.load_test_file("smalldata/cars.csv");
     Key okey = Key.make("cars.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
@@ -267,8 +277,7 @@ public class KVTest {
     // Because ParseDataset does not properly block (yet) insert a tiny stall here.
     try { Thread.sleep(100); } catch( InterruptedException ie ) {}
     // Compute LinearRegression between columns 2 & 3
-		String LR_result = LinearRegression.run(va,2,3);
-		System.out.println(LR_result);
+    String LR_result = LinearRegression.run(va,2,3);
     String[] res = LR_result.split("<p>");
     assertEquals("Linear Regression of cars.hex between 2 and 3",res[0]);
     //assertEquals("Pass 1 in 10msec",res[1]);
@@ -278,15 +287,5 @@ public class KVTest {
     assertEquals("R^2                 = 0.9058985668996267",res[5]);
     assertEquals("std error of beta_1 = 0.9352584499359637",res[6]);
     UKV.remove(okey);
-	  System.out.println("Done test7: Running LinearRegression on cars.csv	");
   }
-
-	// check for any leaked keys
-	@Test public void lastTest(){
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    if( leaked_keys > 0 )
-      System.err.println("Tests leaked "+leaked_keys+" keys");
-    System.out.println("Done testing Test.class");
-  }
-
 }

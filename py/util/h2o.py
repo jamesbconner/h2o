@@ -2,25 +2,6 @@ import time, os, json, signal, tempfile, shutil, datetime
 import requests
 import psutil
 
-# Hackery: find the ip address that gets you to Google's DNS
-# Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
-# Will fail if local proxy? we don't have one.
-# Watch out to see if there are NAT issues here (home router?)
-# Could parse ifconfig, but would need something else on windows
-def getIpAddress():
-    import socket
-    ip = '127.0.0.1'
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8',0))
-        ip = s.getsockname()[0]
-    except:
-        pass
-    if ip.startswith('127'):
-        ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
-    return ip
-    
-
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
@@ -39,6 +20,24 @@ def log(cmd, comment=None):
             f.write(comment)
         f.write("\n");
 
+# Hackery: find the ip address that gets you to Google's DNS
+# Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
+# Will fail if local proxy? we don't have one.
+# Watch out to see if there are NAT issues here (home router?)
+# Could parse ifconfig, but would need something else on windows
+def get_ip_address():
+    import socket
+    ip = '127.0.0.1'
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8',0))
+        ip = s.getsockname()[0]
+    except:
+        pass
+    if ip.startswith('127'):
+        ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
+    return ip
+
 def spawn_cmd(name, args):
     outfd,outpath = log_file(name + '.stdout.')
     errfd,errpath = log_file(name + '.stderr.')
@@ -47,6 +46,28 @@ def spawn_cmd(name, args):
         ps.pid, os.path.basename(outpath), os.path.basename(errpath))
     log(' '.join(args), comment=comment)
     return (ps, outpath, errpath)
+
+def tear_down_cloud(nodes):
+    ex = None
+    for n in nodes:
+        if n.wait() is None:
+            n.terminate()
+        elif n.wait():
+            ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
+    if ex: raise ex
+
+def build_cloud(node_count, base_port=54321, ports_per_node=3):
+    nodes = []
+    try:
+        for i in xrange(node_count):
+            n = H2O(port=base_port + i*ports_per_node)
+            nodes.append(n)
+        nodes[0].stabilize('cloud auto detect', 2,
+            lambda n: n.get_cloud()['cloud_size'] == len(nodes))
+    except:
+        for n in nodes: n.terminate()
+        raise
+    return nodes
 
 class H2O:
     def __url(self, loc):
@@ -107,7 +128,7 @@ class H2O:
 
     def __init__(self, addr=None, port=54321, spawn=True):
         self.port = port;
-        self.addr = addr or getIpAddress()
+        self.addr = addr or get_ip_address()
         if not spawn:
             self.stabilize('h2o started', 2, self.__is_alive)
         else:
@@ -137,11 +158,11 @@ class H2O:
         self.__check_spawn()
         self.ps.send_signal(signal.SIGQUIT)
     
-    def wait(self):
+    def wait(self, timeout=0):
         self.__check_spawn()
         if self.rc: return self.rc
         try:
-            self.rc = self.ps.wait(0)
+            self.rc = self.ps.wait(timeout)
             return self.rc
         except psutil.TimeoutExpired:
             return None

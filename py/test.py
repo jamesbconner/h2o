@@ -1,12 +1,6 @@
 import os, json, unittest, time, shutil, sys
 import util.h2o as h2o
 
-def addNode(nodes):
-    portForH2O = 54321
-    portsPerNode = 3
-    h = h2o.H2O(port=(portForH2O + len(nodes)*portsPerNode))
-    nodes.append(h)
-
 def runRF(n,trees,csvPathname,timeoutSecs):
     put = n.put_file(csvPathname)
     parse = n.parse(put['keyHref'])
@@ -17,31 +11,15 @@ def runRF(n,trees,csvPathname,timeoutSecs):
         lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees)
 
 class Basic(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
+        h2o.clean_sandbox()
         global nodes
-        nodes = []
-        try:
-            h2o.clean_sandbox()
-            # change the number here if you want more or less nodes
-            for i in range(3): addNode(nodes)
-            # give them a few seconds to stabilize
-            nodes[0].stabilize('cloud auto detect', 2,
-                lambda n: n.get_cloud()['cloud_size'] == len(nodes))
-        except:
-            for n in nodes: n.terminate()
-            raise
+        nodes = h2o.build_cloud(node_count=3)
 
     @classmethod
     def tearDownClass(cls):
-        ex = None
-        for n in nodes:
-            if n.wait() is None:
-                n.terminate()
-            elif n.wait():
-                ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
-        if ex: raise ex
+        h2o.tear_down_cloud(nodes)
 
     def setUp(self):
         pass
