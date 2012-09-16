@@ -18,7 +18,7 @@ def log(cmd, comment=None):
         if comment:
             f.write('    #')
             f.write(comment)
-        f.write("\n");
+        f.write("\n")
 
 # Hackery: find the ip address that gets you to Google's DNS
 # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
@@ -114,7 +114,7 @@ class H2O:
                 break
             time.sleep(0.1)
         else:
-            raise Exception('Timeout waiting for condition: ' + msg);
+            raise Exception('Timeout waiting for condition: ' + msg)
 
     def __is_alive(self, s2):
         assert self == s2
@@ -127,7 +127,7 @@ class H2O:
             raise
 
     def __init__(self, addr=None, port=54321, spawn=True):
-        self.port = port;
+        self.port = port
         self.addr = addr or get_ip_address()
         if not spawn:
             self.stabilize('h2o started', 2, self.__is_alive)
