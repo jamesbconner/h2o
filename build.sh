@@ -29,6 +29,14 @@ DEPENDENCIES="${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*${SEP}${JAR_ROOT}/jun
 DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"
 JAVAC=`which javac`
+JAVAC_ARGS='-g
+    -source 1.6
+    -target 1.6
+    -XDignore.symbol.file
+    -Xlint:all
+    -Xlint:-serial
+    -Xlint:-rawtypes
+    -Xlint:-unchecked '
 JAR=`which jar`
 CLASSES="${OUTDIR}/classes"
 
@@ -49,12 +57,18 @@ function build_classes() {
     echo "building classes..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
     # javac, followed by horrible awk script to remove junk error messages about 'Unsafe'
-    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java  $TESTSRC/test/*java  2>&1 | awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
+    "$JAVAC" ${JAVAC_ARGS} \
+        -cp "${CLASSPATH}" \
+        -sourcepath "$SRC" \
+        -d "$CLASSES" \
+        $SRC/water/*java \
+        $SRC/water/*/*java \
+        $TESTSRC/test/*java
 }
 
 function build_h2o_jar() {
     local JAR_FILE="${JAR_ROOT}/hexbase_impl.jar"
-    echo "creating jar file...${JAR_FILE}"
+    echo "creating jar file... ${JAR_FILE}"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${CLASSES} .
 }
 
@@ -68,21 +82,14 @@ function build_initializer() {
 function build_jar() {
     JAR_TIME=`date "+%H.%M.%S-%m%d%y"`
     local JAR_FILE="${OUTDIR}/h2o.jar"
-    echo "creating jar file...${JAR_FILE}"
+    echo "creating jar file... ${JAR_FILE}"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${JAR_ROOT} .
-    echo "copying jar file...${JAR_FILE} to ${OUTDIR}/h2o-${JAR_TIME}.jar"
+    echo "copying jar file... ${JAR_FILE} to ${OUTDIR}/h2o-${JAR_TIME}.jar"
     cp ${JAR_FILE} ${OUTDIR}/h2o-${JAR_TIME}.jar
 }
-function test_py(){
- echo "Running junit tests"
- if [ -d "sandbox" ]
- then
-	echo "sandbox directory  exists!"
- else
-	echo "sandbox directory not found! creating"
- 	mkdir sandbox
- fi
- python py/junit.py
+function test_py() {
+    echo "Running junit tests..."
+    python py/junit.py
 }
 clean
 build_classes
