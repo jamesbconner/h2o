@@ -35,13 +35,13 @@ class Basic(unittest.TestCase):
     def testRF_iris2(self):
         trees = 6
         timeoutSecs = 20
-        csvPathname = '../smalldata/iris/iris2.csv'
+        csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
     def testRF_poker100(self):
         trees = 6
         timeoutSecs = 20
-        csvPathname = '../smalldata/poker/poker100'
+        csvPathname = h2o.find_file('smalldata/poker/poker100')
         runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
     def testGenParity1(self):

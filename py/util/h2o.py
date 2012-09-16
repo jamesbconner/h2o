@@ -2,6 +2,11 @@ import time, os, json, signal, tempfile, shutil, datetime
 import requests
 import psutil
 
+def find_file(base):
+    f = base
+    if not os.path.exists(f): f = '../'+base
+    return f
+
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
@@ -134,7 +139,7 @@ class H2O:
         else:
             self.rc = None
             spawn = spawn_cmd('h2o', [
-                    "java", "-ea", "-jar", "../build/h2o.jar",
+                    "java", "-ea", "-jar", find_file('build/h2o.jar'),
                     "--port=%d"%self.port,
                     '--ip=%s'%self.addr,
                     '--nosigar',

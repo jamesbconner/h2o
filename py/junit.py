@@ -14,7 +14,7 @@ class JUnit(unittest.TestCase):
 
     def run_junit(self, javaClass, timeout=None):
         (ps, stdout, stderr) = h2o.spawn_cmd(javaClass, [
-                'java', '-jar', '../build/h2o.jar',
+                'java', '-jar', h2o.find_file('build/h2o.jar'),
                 '-mainClass', 'org.junit.runner.JUnitCore',
                 javaClass
         ])
