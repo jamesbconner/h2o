@@ -1,9 +1,14 @@
 package water;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.UUID;
+
 import sun.misc.Unsafe;
 import water.hdfs.PersistHdfs;
 import water.nbhm.UtilUnsafe;
@@ -457,8 +462,16 @@ class ArrayletInputStream extends InputStream {
     _mem = _arraylet.get(_chunkIndex++).get();
   }
 
-  @Override public int available() {
-    return _mem.length-_offset;
+  @Override public int available() throws IOException {
+    int availableBytes = _mem.length-_offset;
+    // Prevent stream close if we are at the end of actual chunk but there is still chunks to read
+    // and load the next chunk.
+    if (availableBytes == 0 && _chunkIndex < _arraylet.chunks()) {
+      _mem    = _arraylet.get(_chunkIndex++).get();
+      _offset = 0;      
+      availableBytes = _mem.length;
+    }
+    return availableBytes;
   }
 
   @Override public void close() {
@@ -469,25 +482,24 @@ class ArrayletInputStream extends InputStream {
 
   @Override public int read() throws IOException {
     if( available() == 0 ) {    // None available?
-      if( _chunkIndex >= _arraylet.chunks() ) return -1;
-      // Load next chunk
-      _mem = _arraylet.get(_chunkIndex++).get();
-      _offset = 0;
+      return -1;      
     }
     return _mem[_offset++] & 0xFF;
   }
 
   @Override public int read(byte[] b, int off, int len) throws IOException {
-    int rc = 0;
+    int rc = 0;  // number of bytes read
     while( len>0 ) {
       int cs = Math.min(available(),len);
       System.arraycopy(_mem,_offset,b,off,cs);
-      rc  += cs;
-      len -= cs;
-      if( len<=0 ) break;
-      if( _chunkIndex >= _arraylet.chunks() ) break;
-      _mem = _arraylet.get(_chunkIndex++).get();
-      _offset = 0;
+      rc      += cs;
+      len     -= cs;
+      off     += cs;
+      _offset += cs;
+      if ( len<=0 ) break;
+      if ( available() == 0) {
+        if( _chunkIndex >= _arraylet.chunks() ) break;       
+      }
     }
     return rc == 0 ? -1 : rc;
   }
