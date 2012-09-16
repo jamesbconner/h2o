@@ -75,6 +75,13 @@ function build_jar() {
 }
 function test_py(){
  echo "Running junit tests"
+ if [ -d "sandbox" ]
+ then
+	echo "sandbox directory  exists!"
+ else
+	echo "sandbox directory not found! creating"
+ 	mkdir sandbox
+ fi
  python py/junit.py
 }
 clean
