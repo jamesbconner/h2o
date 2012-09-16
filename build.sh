@@ -18,6 +18,7 @@ fi
 # ------------------------------------------------------------------------------
 # This is where the source files (java) are relative to the path of this file
 SRC=src
+TESTSRC=test-src
 # and this is where the jar contents is stored relative to this file again
 JAR_ROOT=lib
 
@@ -48,7 +49,7 @@ function build_classes() {
     echo "building classes..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
     # javac, followed by horrible awk script to remove junk error messages about 'Unsafe'
-    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java  2>&1 | awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
+    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$CLASSES" $SRC/water/*java  $SRC/water/*/*java  $TESTSRC/test/*java  2>&1 | awk '{if( $0 !~ "proprietary" ) {print $0} else {getline;getline;}}'
 }
 
 function build_h2o_jar() {
@@ -73,24 +74,8 @@ function build_jar() {
     cp ${JAR_FILE} ${OUTDIR}/h2o-${JAR_TIME}.jar
 }
 
-function build_example() {
-    echo "creating example ${1}"
-    rm examples/src/*.class
-    rm examples/src/${1}.jar
-    local CPATH="${CLASSES}${SEP}examples/src/${SEP}${OUTDIR}/h2o.jar"
-    "$JAVAC" -source 1.6 -target 1.6 -cp $CPATH examples/src/${1}.java
-    cd examples/src
-    "$JAR" cvf ${1}.jar -C . *class
-    cd ../..
-}
 clean
 build_classes
 build_h2o_jar
 build_initializer
 build_jar
-### examples will move to h2o.analytics pkg
-#build_example "DLR"
-#build_example "LR"
-#build_example "H2O_WordCount1"
-#build_example "HelloWorld"
-#build_example "Average"

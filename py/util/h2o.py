@@ -129,7 +129,7 @@ class H2O:
             self.get_cloud()
             return True
         except requests.ConnectionError, e:
-            if e.args[0].errno == 61 or e.args[0].errno == 111:
+            if e.args[0].errno == 61 or e.args[0].errno == 10061 or e.args[0].errno == 111:
                 return False
             raise
 
