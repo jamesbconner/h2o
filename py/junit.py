@@ -5,16 +5,12 @@ class JUnit(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         h2o.clean_sandbox()
-        global nodes
-        nodes = h2o.build_cloud(node_count=2)
-
-    @classmethod
-    def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
 
     def run_junit(self, javaClass, timeout=None):
         (ps, stdout, stderr) = h2o.spawn_cmd(javaClass, [
-                'java', '-jar', h2o.find_file('build/h2o.jar'),
+                'java', '-ea',
+                '-Dh2o.arg.ice_root='+h2o.tmp_dir('ice.'),
+                '-jar', h2o.find_file('build/h2o.jar'),
                 '-mainClass', 'org.junit.runner.JUnitCore',
                 javaClass
         ])
@@ -29,7 +25,11 @@ class JUnit(unittest.TestCase):
             raise Exception("%s failed.\nstdout:\n%s\n\nstderr:\n%s" % (javaClass, out, err))
 
     def testKVTest(self):
-        self.run_junit('test.KVTest')
+        try:
+            nodes = h2o.build_cloud(node_count=2)
+            self.run_junit('test.KVTest')
+        finally:
+            h2o.tear_down_cloud(nodes)
 
     def testParserTest(self):
         self.run_junit('test.ParserTest')
