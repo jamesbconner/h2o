@@ -126,11 +126,8 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
   private boolean isSeparator(byte b) { return b == _separator || isNewline(b); }
   
   private void putToDictionary(int column, String key) {
-    if (_columnsDomains != null) {
-      assert column < _columnsDomains.length;
-      assert key != null && !"".equals(key);       
+    if( _columnsDomains != null && key != null && !"".equals(key) )
       _columnsDomains[column].add(key);      
-    }    
   }
 
   @Override
