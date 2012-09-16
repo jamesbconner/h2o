@@ -1,4 +1,4 @@
-package test;
+package water.util;
 
 import static org.junit.Assert.fail;
 
@@ -14,7 +14,7 @@ import water.ValueArray;
 import water.parser.ParseDataset;
 
 @Ignore
-public class TestUtil {
+public class KeyUtil {
   public static File find_test_file( String fname ) {
     // When run from eclipse, the working directory is different.
     // Try pointing at another likely place

@@ -1,47 +1,33 @@
 package test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
 import hexlytics.LinearRegression;
+
+import java.io.*;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
+
 import water.*;
 import water.parser.ParseDataset;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
-
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.IOException;
-
-import static org.junit.Assert.*;
+import water.util.KeyUtil;
 
 public class KVTest {
+  @BeforeClass public static void setupCloud() {
+    H2O.main(new String[] { "--nosigar" });
+  }
+
   // Request that tests be "clean" on the K/V store, and restore it to the same
   // count of keys after all tests run.
   static int _initial_keycnt;
-	int NUM_JVMS = 3;
-
-	@BeforeClass public static void prepare(){
-		 _initial_keycnt = H2O.store_size();
-	}
-
-  // ---
-  // Spawn JVMs to make a larger cloud, up to 'cnt' JVMs
-  static public void h2o_cloud_of_size( int cnt ) {
-    int num = H2O.CLOUD.size();
-    while( num < cnt ) {
-			SuiteTest.launch_dev_jvm(num);
-      try { Thread.sleep(10); }        // sleep 10msec & test again
-      catch( InterruptedException ie ) {}
-      num = H2O.CLOUD.size();
-    }
-  }
-  // A no-arg constructor for JUnit alone
-  public KVTest() { }
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
   // value for it, get the value for it, delete it.
-  @org.junit.Test public void test0() {
+  @Test public void test0() {
     Key k1 = Key.make("key1");
     Value v0 = DKV.get(k1);
     assertNull(v0);
@@ -56,18 +42,8 @@ public class KVTest {
   }
 
   // ---
-  // Repeat test0, but with at least 3 JVMs in the Cloud
-  @org.junit.Test public void test1() {
-    System.out.println("test1");
-    h2o_cloud_of_size(NUM_JVMS);
-    test0();
-  }
-
-  // ---
   // Make 100 keys, verify them all, delete them all.
-  @org.junit.Test public void test2() {
-    System.out.println("test2");
-    h2o_cloud_of_size(3);
+  @Test public void test2() {
     Key   keys[] = new Key  [100];
     Value vals[] = new Value[keys.length];
     for( int i=0; i<keys.length; i++ ) {
@@ -93,9 +69,7 @@ public class KVTest {
 
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
-  @org.junit.Test public void test3() {
-    System.out.println("test3");
-    h2o_cloud_of_size(3);
+  @Test public void test3() {
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
     for( int i=0; i<keys.length; i++ ) {
@@ -129,7 +103,7 @@ public class KVTest {
         return r;
       }
     }
-    
+
     // Set a single bit-mask based on the shift which is passed in the Value
     int _x;
     public void map( Key key ) {
@@ -146,10 +120,7 @@ public class KVTest {
 
   // ---
   // Issue a large Key/Value put/get - testing the TCP path
-  @org.junit.Test public void test4() {
-    System.out.println("test4");
-    h2o_cloud_of_size(2);
-
+  @Test public void test4() {
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -176,11 +147,9 @@ public class KVTest {
   // ---
   // Map in h2o.jar - a multi-megabyte file - into Arraylets.
   // Run a distributed byte histogram.
-  @org.junit.Test public void test5() throws Exception {
-    System.out.println("test5");
-    h2o_cloud_of_size(3);
-    File file = TestUtil.find_test_file("h2o.jar");
-    Key h2okey = TestUtil.load_test_file(file);
+  @Test public void test5() throws Exception {
+    File file = KeyUtil.find_test_file("h2o.jar");
+    Key h2okey = KeyUtil.load_test_file(file);
     ByteHisto bh = new ByteHisto();
     bh.invoke(h2okey);
     int sum=0;
@@ -237,10 +206,7 @@ public class KVTest {
 
   // ---
   // Run an atomic function remotely, one time only
-  @org.junit.Test public void test6() {
-    System.out.println("test6");
-    h2o_cloud_of_size(3);
-
+  @Test public void test6() {
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -276,7 +242,7 @@ public class KVTest {
       @Override public Atomic2 read( byte[] buf, int off ) { return new Atomic2(); }
       @Override public Atomic2 read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
     }
-    
+
     @Override public byte[] atomic( byte[] bits1 ) {
       long l1 = UDP.get8(bits1,0);
       long l2 = UDP.get8(bits1,8);
@@ -293,7 +259,7 @@ public class KVTest {
   // Test parsing "cars.csv" and running LinearRegression
   @Test public void test7() {
     System.out.println("test7: Running LinearRegression on cars.csv	");
-    Key fkey = TestUtil.load_test_file("smalldata/cars.csv");
+    Key fkey = KeyUtil.load_test_file("smalldata/cars.csv");
     Key okey = Key.make("cars.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);

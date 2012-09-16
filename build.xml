@@ -1,70 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project default="main" name="0xbase">
-	
-  <property name="basedir" value="."/>
-  <property name="build.src" value="${basedir}/src"/>
-  <property name="build.lib" value="${basedir}/lib"/>
-  <property name="build.src.test" value="${basedir}/test"/>
-  <property name="build.dir" value="${basedir}/build"/>
-  <property name="jar.dir" value="${basedir}/build/"/>
-  <property name="build.dir.lib" value="${build.dir}/lib"/>
-  <property name="build.classes" value="${build.dir}/classes"/>
-  <property name="build.testclasses" value="${build.dir}/test-classes"/>
-  <property name="ice.dir" value="/tmp/ice*"/>
-  <property name="test.name" value="water.test.TNightly"/>
-  <property name="0xbase" value="${build.dir}/h2o.jar"/>
+  <property name="basedir"            value="."/>
+  <property name="build.src"          value="${basedir}/src"/>
+  <property name="build.src.test"     value="${basedir}/test-src"/>
+  <property name="build.lib"          value="${basedir}/lib"/>
+  <property name="build.dir"          value="${basedir}/build"/>
+  <property name="build.classes"      value="${build.dir}/classes"/>
+  <property name="0xbase.jar"         value="${build.dir}/h2o.jar"/>
   
   <path id="build.classpath">
-       <pathelement location="${build.lib}/hyperic-sigar-1.6.4/sigar-bin/lib/sigar.jar" />
-       <fileset dir="${jar.dir}">
-        <include name="**/*.jar"/>
-       </fileset>
-       <fileset dir="${build.lib}">
-        <include name="**/*.jar"/>
-       </fileset>
+    <pathelement location="${build.lib}/hyperic-sigar-1.6.4/sigar-bin/lib/sigar.jar" />
+    <fileset dir="${build.lib}">
+      <include name="**/*.jar"/>
+    </fileset>
   </path>
 
-   <target name="init">
-	  <tstamp>
-      		<format property="build.start" pattern="hh.mm.ss aa d-MMMM-yyyy"/>
-    	  </tstamp>
-      	  <echo message="[${build.start}] start build"/>
-	  <mkdir dir="${build.dir}"/>
-	  <mkdir dir="${build.dir.lib}"/>
-	  <mkdir dir="${build.classes}"/>
-	  <mkdir dir="${jar.dir}"/>
-	  <mkdir dir="${jar.dir}/lib"/>
-  	  <mkdir dir="${build.testclasses}"/>
+  <target name="init">
+    <tstamp>
+      <format property="build.start" pattern="hh.mm.ss aa d-MMMM-yyyy"/>
+    </tstamp>
+    <echo message="[${build.start}] start build"/>
+    <mkdir dir="${build.dir}"/>
+    <mkdir dir="${build.classes}"/>
+  </target>
 	
-   </target>
-	
-  <target name="main" depends="compile, jar" description="Main target">
-      <echo>
-          Building the product jar file.
-      </echo>
-	 <tstamp>
-      		<format property="build.end" pattern="hh.mm.ss aa d-MMMM-yyyy"/>
-    	  </tstamp>
-      	  <echo message="[${build.end}] end build "/>
+  <target name="main" depends="jar" description="Main target">
+    <echo>Building the product jar file.</echo>
+    <tstamp>
+      <format property="build.end" pattern="hh.mm.ss aa d-MMMM-yyyy"/>
+    </tstamp>
+    <echo message="[${build.end}] end build "/>
   </target>
 
-<!-- compile everything -->
+  <!-- compile everything -->
   <target name="compile" depends="init" description="Compilation target">
-      <javac includeantruntime="false" srcdir="${build.src}" destdir="${build.classes}" debug="true" target="1.6" source="1.6">
-        <compilerarg value="-XDignore.symbol.file" />
-        <compilerarg value="-Xlint:all" />
-        <compilerarg value="-Xlint:-serial" />
-        <compilerarg value="-Xlint:-rawtypes" />
-        <compilerarg value="-Xlint:-unchecked" />
-        <classpath refid="build.classpath"/>
-      </javac>
+    <javac
+        includeantruntime="false" debug="true" target="1.6" source="1.6"
+        srcdir="${build.src}" destdir="${build.classes}" >
+      <compilerarg value="-XDignore.symbol.file" />
+      <compilerarg value="-Xlint:all" />
+      <compilerarg value="-Xlint:-serial" />
+      <compilerarg value="-Xlint:-rawtypes" />
+      <compilerarg value="-Xlint:-unchecked" />
+      <classpath refid="build.classpath"/>
+    </javac>
+    <javac
+        includeantruntime="false" debug="true" target="1.6" source="1.6"
+        srcdir="${build.src.test}" destdir="${build.classes}" >
+      <classpath refid="build.classpath"/>
+    </javac>
   </target>
 
  <!-- build hexbase_impl.jar first -->  
  <!-- hexbase_impl.jar doesnot have init, and supplemental jars -->  
  <!-- hexbase_impl.jar sits in jar -->
   <target name="prejar" description="prepare for one jar" depends="compile">
-    <jar jarfile="${build.lib}/hexbase_impl.jar" manifest="${basedir}/manifest.txt" basedir="${build.classes}" includes="*/**/*.class" excludes="init/*"  />
+    <jar
+        jarfile="${build.lib}/hexbase_impl.jar"
+        manifest="${basedir}/manifest.txt"
+        basedir="${build.classes}"
+        includes="*/**/*.class"
+        excludes="init/*"  />
     <copy todir="${build.lib}/init">
 	 <fileset dir="${build.classes}/init"/>
     </copy>
@@ -75,69 +71,27 @@
     <tstamp>
       <format property="jar.time" pattern="hh.mm.ss-d-MMMM-yyyy"/>
     </tstamp>
-    <jar jarfile="${jar.dir}/h2o.jar" manifest="${basedir}/manifest.txt" basedir="${build.lib}" excludes="h2o.jar"/>
-    <copy file="${jar.dir}/h2o.jar" tofile="${jar.dir}/h2o-${jar.time}.jar" verbose="true"/>
+    <jar
+        jarfile="${0xbase.jar}"
+        manifest="${basedir}/manifest.txt"
+        basedir="${build.lib}"
+        excludes="h2o.jar" />
+    <copy file="${build.dir}/h2o.jar" tofile="${build.dir}/h2o-${jar.time}.jar" verbose="true"/>
   </target>
 
-  <target name="run" description="run the cloud" depends="compile,jar">
-    <echo>ant run needs more testing/experimental</echo>
-    <java fork="true" failonerror="true" jar="${0xbase}">
-       <jvmarg value="-ea"/>
-       <jvmarg value="-XX:+PrintCommandLineFlags"/>
-    </java>
-  </target>
-  <target name="runhdfs" description="run the cloud" depends="compile,jar">
-    <java fork="true" failonerror="true" jar="${0xbase}">
-       <arg line=" -hdfs "/>
-       <jvmarg value="-ea"/>
-       <jvmarg value="-XX:+PrintCommandLineFlags"/>
-    </java>
-  </target>
-
-  <target name="compile-tests" depends="compile">
-    <javac includeantruntime="false" srcdir="${build.src.test}" destdir="${build.testclasses}">
-      <classpath refid="test.compile.classpath"/>
-    </javac>
-  </target>
-
-  <!-- run this for running examples --> 
-
- <!-- CAUTION: Nightly test clears ICE dir -->
   <target name="nightly" description="nightly tests" depends="clean,compile,jar">
-    <echo>CAUTION: Nightly test clearing ice.dir=${ice.dir}</echo>
-    <delete dir="${ice.dir}" failonerror="false"/>
-   <!-- RUN standalone, likeso
-	java -Djava.library.path=build/binlib -cp .:lib/apache/guava-12.0.1.jar:build/classes:build/hexbase_impl.jar:build/sigar/sigar.jar:/usr/share/java/junit.jar org.junit.runner.JUnitCore test.SuiteTest
-   -->
-    <antcall target="RandomForestTest"/>
-  </target>
-  <target name="RandomForestTest" description="tests">
-    <java fork="true" failonerror="false" classname="org.junit.runner.JUnitCore" args="test.RandomForestTest">
-       <classpath refid="build.classpath"/>
-       <jvmarg value="-Xmx2g"/>
-       <jvmarg value="-XX:+PrintCommandLineFlags"/>
-       <jvmarg value="-Djava.library.path=${basedir}/lib/binlib"/>
-       <jvmarg value="-XX:+PrintCommandLineFlags"/>
-    </java>
-
+    <antcall target="test"/>
   </target>
 
- <!-- default: run nightly tests -->
- <!-- Pass test name in commandline likeso, -Dtest.name=water.test.T4b  -->
   <target name="test" description="tests" depends="compile,jar">
-    <java fork="true" failonerror="false" jar="${0xbase}" args="-test ${test.name}">
-       <jvmarg value="-ea"/>
-       <jvmarg value="-Xmx2g"/>
-       <jvmarg value="-XX:+PrintCommandLineFlags"/>
-    </java>
+    <echo>IMPLEMENT ME</echo>
   </target>
+
   <target name="clean" description="get rid of any build artifacts">
   	<delete dir="${build.dir}" />
-  	<delete dir="${jar.dir}" />
-  	<delete dir="${build.classes}" />
-        <delete dir="${build.lib}/init"/>
-        <delete file="${build.lib}/hexbase_impl.jar"/>
-  	<delete dir="doc"/>
+    <delete dir="${build.classes}" />
+    <delete dir="${build.classes.test}" />
+    <delete dir="${build.lib}/init"/>
+    <delete file="${build.lib}/hexbase_impl.jar"/>
   </target>
-	
 </project>

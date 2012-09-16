@@ -8,7 +8,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
-import test.TestUtil;
 import water.AppendKey;
 import water.Arguments;
 import water.DKV;
@@ -16,6 +15,7 @@ import water.H2O;
 import water.Key;
 import water.UDPRebooted;
 import water.ValueArray;
+import water.util.KeyUtil;
 
 /**
  * A RandomForest can be used for growing or validation. The former starts with a known target number of trees,
@@ -88,12 +88,12 @@ public class RandomForest {
     if(ARGS.parsdedKey != null) // data already parsed
       va = (ValueArray)DKV.get(Key.make(ARGS.parsdedKey));
     else if(ARGS.rawKey != null) // data loaded in K/V, not parsed yet
-      va = TestUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(TestUtil.getHexKeyFromRawKey(ARGS.rawKey)));
+      va = KeyUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(KeyUtil.getHexKeyFromRawKey(ARGS.rawKey)));
     else { // data outside of H2O, load and parse
       File f = new File(ARGS.file); 
       System.out.println("[RF] Loading file " + f);
-      Key fk = TestUtil.load_test_file(f);
-      va = TestUtil.parse_test_key(fk,Key.make(TestUtil.getHexKeyFromFile(f)));
+      Key fk = KeyUtil.load_test_file(f);
+      va = KeyUtil.parse_test_key(fk,Key.make(KeyUtil.getHexKeyFromFile(f)));
       System.out.println("va = " + ((va != null)?va._key:"null"));
       DKV.remove(fk);
     }  
@@ -116,8 +116,8 @@ public class RandomForest {
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
       System.out.println("***");
       DRF.forceNoSample = true;
-      Key valKey = TestUtil.load_test_file(ARGS.validationFile);
-      ValueArray valAry = TestUtil.parse_test_key(valKey);     
+      Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
+      ValueArray valAry = KeyUtil.parse_test_key(valKey);     
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);

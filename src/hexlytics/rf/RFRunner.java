@@ -18,8 +18,8 @@ import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import test.TestUtil;
 import water.Arguments;
+import water.util.KeyUtil;
 
 /**
  * Testing RF. Launches RF (in a new vm) for files specified in args and records
@@ -161,7 +161,7 @@ public class RFRunner {
       String path = tk.nextToken();
       if( path.endsWith("*") ) {
         path = path.substring(0, path.length() - 1);
-        File f = TestUtil.find_test_file(path);
+        File f = KeyUtil.find_test_file(path);
         if( !f.isDirectory() )
           throw new Error("invalid path '" + path + "*'");
         for( File x : f.listFiles() ) {
@@ -172,7 +172,7 @@ public class RFRunner {
             files.addAll(parseDatasetArg(x.getAbsolutePath() + "*"));
         }
       } else
-        files.add(TestUtil.find_test_file(path));
+        files.add(KeyUtil.find_test_file(path));
     }
     return files;
   }

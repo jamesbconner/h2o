@@ -15,7 +15,7 @@ import water.parser.SeparatedValueParser.Row;
 
 public class ParserTest {
   @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] {"-test=none"});
+    H2O.main(new String[] {});
   }
 
   private double[] d(double... ds) { return ds; }
@@ -165,7 +165,7 @@ public class ParserTest {
     }
     Assert.assertEquals(exp.length, i);
   }
-  
+
   @Test public void testNondecimalColumns() {
     String data[] = {
         "1,  2,one\n",
@@ -174,7 +174,7 @@ public class ParserTest {
         "7,  8,one\n",
         "9, 10,two\n",
         "11,12,three\n",
-        "13,14,one\n",        
+        "13,14,one\n",
     };
     double[][] expDouble = new double[][] {
         d(1,  2, NaN), // preserve order
@@ -183,9 +183,9 @@ public class ParserTest {
         d(7,  8, NaN),
         d(9, 10, NaN),
         d(11,12, NaN),
-        d(13,14, NaN),        
+        d(13,14, NaN),
     };
-    
+
     String[][] expString = new String[][] {
         s(null,null, "one"),
         s(null,null, "two"),
@@ -195,8 +195,8 @@ public class ParserTest {
         s(null,null, "three"),
         s(null,null, "one"),
     };
-    
-    String expDomain[] = s( "one", "two", "three" );  
+
+    String expDomain[] = s( "one", "two", "three" );
     Key[] keys = k(data);
 
     SeparatedValueParser p;
@@ -209,14 +209,14 @@ public class ParserTest {
         Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
         Assert.assertArrayEquals(expString[i], r._fieldStringVals);
         i++;
-      }      
+      }
     }
     Assert.assertTrue ( cds[0].size() == 0 );
     Assert.assertTrue ( cds[1].size() == 0 );
-    Assert.assertTrue ( cds[2].size() != 0 );   
+    Assert.assertTrue ( cds[2].size() != 0 );
     Assert.assertArrayEquals(expDomain, cds[2].toArray());
   }
-  
+
   @Test public void testMultipleNondecimalColumns() {
     String data[] = {
         "foo,    2,one\n",
@@ -225,7 +225,7 @@ public class ParserTest {
         "bar,    8,one\n",
         "bar,   10,two\n",
         "bar,   12,three\n",
-        "foobar,14,one\n",        
+        "foobar,14,one\n",
     };
     double[][] expDouble = new double[][] {
         d(NaN,  2, NaN), // preserve order
@@ -234,9 +234,9 @@ public class ParserTest {
         d(NaN,  8, NaN),
         d(NaN, 10, NaN),
         d(NaN, 12, NaN),
-        d(NaN, 14, NaN),        
+        d(NaN, 14, NaN),
     };
-    
+
     String[][] expString = new String[][] {
         s("foo",null, "one"),
         s("bar",null, "two"),
@@ -246,8 +246,8 @@ public class ParserTest {
         s("bar",null, "three"),
         s("foobar",null, "one"),
     };
-        
+
   }
-  
-  
+
+
 }
