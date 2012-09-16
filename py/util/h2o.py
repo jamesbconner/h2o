@@ -13,8 +13,10 @@ def clean_sandbox():
         shutil.rmtree(LOG_DIR)
     os.mkdir(LOG_DIR)
 
-def log_file(f):
-    return tempfile.mkstemp(prefix=f, suffix='.log', dir=LOG_DIR)
+def tmp_file(prefix='', suffix=''):
+    return tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=LOG_DIR)
+def tmp_dir(prefix='', suffix=''):
+    return tempfile.mkdtemp(prefix=prefix, suffix=suffix, dir=LOG_DIR)
 
 def log(cmd, comment=None):
     with open(LOG_DIR + '/commands.log', 'a') as f:
@@ -44,8 +46,8 @@ def get_ip_address():
     return ip
 
 def spawn_cmd(name, args):
-    outfd,outpath = log_file(name + '.stdout.')
-    errfd,errpath = log_file(name + '.stderr.')
+    outfd,outpath = tmp_file(name + '.stdout.', '.log')
+    errfd,errpath = tmp_file(name + '.stderr.', '.log')
     ps = psutil.Popen(args, stdin=None, stdout=outfd, stderr=errfd)
     comment = 'PID %d, stdout %s, stderr %s' % (
         ps.pid, os.path.basename(outpath), os.path.basename(errpath))
@@ -143,7 +145,7 @@ class H2O:
                     "--port=%d"%self.port,
                     '--ip=%s'%self.addr,
                     '--nosigar',
-                    '--ice_root=%s' % tempfile.mkdtemp(prefix='ice',dir=LOG_DIR)
+                    '--ice_root=%s' % tmp_dir('ice.')
             ])
             self.ps = spawn[0]
             try:

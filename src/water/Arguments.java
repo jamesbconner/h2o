@@ -6,40 +6,40 @@ import java.util.Arrays;
 
 /**
  * Utility for processing command
- * 
+ *
  * Simple command line processing. This class provides functionality for parsing
  * command line arguments that is coded over and over again in main methods. The
  * model is that command line arguments have the form:
- * 
+ *
  * <pre>
  *  option_args* free_form*
  * </pre>
- * 
+ *
  * where each element in option_args is an option starting with a '-' character
  * and each element in free_form is a string. Option arguments have the syntax:
- * 
+ *
  * <pre>
  *  '-'NAME[=VALUE]
  * </pre>
- * 
+ *
  * where NAME is the option identifier and VALUE is the string argument for that
  * option.
  * <p>
  * An example use of the class is as follows:
- * 
+ *
  * <pre>
- *  static void main(String[] args) { 
- *    Arguments cl = new Arguments(); 
- *    cl.parse(args); 
+ *  static void main(String[] args) {
+ *    Arguments cl = new Arguments();
+ *    cl.parse(args);
  *    if (cl.getOption("verbose") != null) ... ;
- *    String file = cl.getArgument(0); 
+ *    String file = cl.getArgument(0);
  *    String path = cl.getOption("classpath");
  * </pre>
- * 
+ *
  * @author Jan Vitek
  */
 public class Arguments {
-  
+
   static public abstract class Arg {
     abstract public String usage();
     abstract public boolean validate();
@@ -64,7 +64,7 @@ public class Arguments {
             r+=" -"+name+"="+field.get(this);
         }catch( Exception e ){  System.err.println("Argument failed with "+e); }
       }
-      return r;      
+      return r;
     }
   }
 
@@ -112,7 +112,7 @@ public class Arguments {
 
   /** Create a new CommandLine object with no arguments.   */
   public Arguments() { parse(new String[0]); }
-  
+
   /**
    * Returns the number of remaining command line arguments.
    */
@@ -125,7 +125,7 @@ public class Arguments {
    * add at the end of the list. Bindings have the following format
    * "-name=value" if value is empty, the binding is treated as an option.
    * Options have the form "-name". All other strings are treated as values.
-   * 
+   *
    * @param str
    *          a string
    */
@@ -142,7 +142,7 @@ public class Arguments {
       int startOffset = (str.startsWith("--"))? 2 : 1;
       String arg = "";
       String opt = "";
-      boolean flag = false;      
+      boolean flag = false;
       int eqPos = str.indexOf("=");
       if( eqPos > 0 ||  (next!=null && !next.startsWith("-"))){
         if( eqPos > 0 ){
@@ -153,7 +153,7 @@ public class Arguments {
           arg = next;
           consumed = 2;
         }
-      }else{       
+      }else{
         flag = true;
         opt = str.substring(startOffset);
       }
@@ -168,7 +168,7 @@ public class Arguments {
   public void extract(Arg arg) throws MissingArgumentError {
     Field[] fields = getFields(arg);
     int count = extract(arg, fields);
-    if( arg instanceof Req && count != fields.length ) 
+    if( arg instanceof Req && count != fields.length )
       throw new MissingArgumentError(arg.usage());
   }
 
@@ -179,7 +179,7 @@ public class Arguments {
   private int extract(Arg arg, Field[] fields) {
     int count = 0;
     for( Field field : fields ){
-      String name = field.getName()/*.replace("_","-")*/;
+      String name = field.getName();
       Class cl = field.getType();
       String opt = getValue(name); // optional value
       try{
@@ -208,12 +208,12 @@ public class Arguments {
     return count;
   }
 
-  
+
   /**
    * Return the value of a binding (e.g. "value" for "-name=value") and the
    * empty string "" for an option ("-name" or "-name="). A null value is
    * returned if no binding or option is found.
-   * 
+   *
    * @param name
    *          string name of the option or binding
    * @return
@@ -223,29 +223,29 @@ public class Arguments {
       Entry e = commandLineArgs[i];
       if( name.equals(e.name) ) return e.val;
     }
-    return null;
+    return System.getProperty("h2o.arg."+name);
   }
 
   /**
    * Parse the command line arguments and extracts options. The current
    * implementation allows the same command line instance to parse several
    * argument lists, the results will be merged.
-   * 
+   *
    * @param s
    *          the array of arguments to be parsed
    */
   private void parse(String[] s) {
     commandLineArgs = new Entry[0];
-    for( int i = 0; i < s.length; ) { 
+    for( int i = 0; i < s.length; ) {
       String next = (i+1<s.length)? s[i+1]: null;
-      i += addArgument(s[i],next); 
+      i += addArgument(s[i],next);
     }
   }
 
   public String toString() {
     String[] s = toStringArray();
     String result = "";
-    for( int i = 0; i < s.length; i++ )  result += s[i]+" ";   
+    for( int i = 0; i < s.length; i++ )  result += s[i]+" ";
     return result;
   }
 
@@ -294,7 +294,7 @@ public class Arguments {
     //true if this is a flag, i.e. ("-name" or "-name=")
     boolean flag;
     // option name, -name=value
-    String name;   
+    String name;
      // position in the argument list
     int position;
     // option value, -name=value
