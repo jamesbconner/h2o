@@ -73,9 +73,13 @@ function build_jar() {
     echo "copying jar file...${JAR_FILE} to ${OUTDIR}/h2o-${JAR_TIME}.jar"
     cp ${JAR_FILE} ${OUTDIR}/h2o-${JAR_TIME}.jar
 }
-
+function test_py(){
+ echo "Running junit tests"
+ python py/junit.py
+}
 clean
 build_classes
 build_h2o_jar
 build_initializer
 build_jar
+test_py
