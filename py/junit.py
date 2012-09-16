@@ -25,6 +25,7 @@ class JUnit(unittest.TestCase):
             raise Exception("%s failed.\nstdout:\n%s\n\nstderr:\n%s" % (javaClass, out, err))
 
     def testKVTest(self):
+        nodes = []
         try:
             nodes = h2o.build_cloud(node_count=2)
             self.run_junit('test.KVTest')
