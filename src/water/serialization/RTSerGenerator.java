@@ -1,18 +1,12 @@
 package water.serialization;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.text.MessageFormat;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.*;
 
 import water.RemoteTask;
 
@@ -22,7 +16,7 @@ import water.RemoteTask;
  */
 public class RTSerGenerator implements Opcodes {
   private static final Type RT_TYPE = Type.getType(RemoteTask.class);
-  private static final Type REMOTE_RUNNABLE_SERIALIZER_TYPE = Type.getType(RemoteTaskSerializer.class);
+  private static final Type RT_SER_TYPE = Type.getType(RemoteTaskSerializer.class);
 
   private static final Set<Class<?>> SUPPORTED_CLASSES = new HashSet<Class<?>>();
   static {
@@ -47,7 +41,7 @@ public class RTSerGenerator implements Opcodes {
   }
 
   /**
-   * The main entry point for everything.  Given a {@link RemoteRunnable} class,
+   * The main entry point for everything.  Given a {@link RemoteTask} class,
    * generate a custom serializer for it.
    */
   public static <T extends RemoteTask> RemoteTaskSerializer<T> genSerializer(Class<T> c) throws Exception {
@@ -57,7 +51,7 @@ public class RTSerGenerator implements Opcodes {
     return (RemoteTaskSerializer<T>) serializerClass.newInstance();
   }
 
-  private final String runnableInternalName;
+  private final String internalName;
   private final Field[] fields;
   private final Constructor<?> ctor;
 
@@ -74,10 +68,9 @@ public class RTSerGenerator implements Opcodes {
           c.getName()));
     }
 
-    this.runnableInternalName = Type.getInternalName(c);
+    this.internalName = Type.getInternalName(c);
     this.ctor = ctors[0];
     this.fields = c.getDeclaredFields();
-
 
     Class<?>[] parameterTypes = ctor.getParameterTypes();
     if (fields.length != parameterTypes.length) {
@@ -106,7 +99,7 @@ public class RTSerGenerator implements Opcodes {
   }
 
   private String getSerializerInternalName() {
-    return runnableInternalName + "Serializer";
+    return internalName + "Serializer";
   }
 
 
@@ -121,7 +114,7 @@ public class RTSerGenerator implements Opcodes {
         getSerializerInternalName(),
         null,
         Type.getInternalName(Object.class),
-        new String[] { REMOTE_RUNNABLE_SERIALIZER_TYPE.getInternalName() });
+        new String[] { RT_SER_TYPE.getInternalName() });
 
     createConstructor(cw);
     createRead(cw);
