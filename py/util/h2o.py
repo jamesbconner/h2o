@@ -54,6 +54,20 @@ def spawn_cmd(name, args):
     log(' '.join(args), comment=comment)
     return (ps, outpath, errpath)
 
+def spawn_cmd_and_wait(name, args, timeout=None):
+    print name, args
+    (ps, stdout, stderr) = spawn_cmd(name, args)
+
+    rc = ps.wait(timeout)
+    out = file(stdout).read()
+    err = file(stderr).read()
+    if rc is None:
+        rc.terminate()
+        raise Exception("%s %s timed out after %d\nstdout:\n%s\n\nstderr:\n%s" %
+                (name, args, timeout or 0, out, err))
+    elif rc != 0:
+        raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
+
 def tear_down_cloud(nodes):
     ex = None
     for n in nodes:
