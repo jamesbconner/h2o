@@ -56,7 +56,7 @@ public class Loader extends URLClassLoader {
     String ownJar = Loader.class.getProtectionDomain().getCodeSource().getLocation().getPath();
     if( ownJar.endsWith(".jar") ) { // do nothing if not run from jar
       try { _ownJar = new ZipFile(URLDecoder.decode(ownJar,"UTF-8"));
-      } catch (IOException e) { }
+      } catch( IOException e ) { }
     }
   }
 
@@ -67,7 +67,7 @@ public class Loader extends URLClassLoader {
   public void addFile(File file) {
     try {
       addURL(file.toURI().toURL());
-    } catch (MalformedURLException e) {
+    } catch( MalformedURLException e ) {
       throw new RuntimeException("Unable to add name "+file.toString()+" to the loader. Cannot form URL.");
     }
   }
