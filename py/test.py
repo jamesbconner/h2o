@@ -9,7 +9,6 @@ def runRF(n,trees,csvPathname,timeoutSecs):
     # this expects the response to match the number of trees you told it to do
     n.stabilize('random forest finishing', timeoutSecs,
         lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees)
-
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -27,24 +26,31 @@ class Basic(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testBasic(self):
+    # NOTE: unittest will run tests in an arbitrary order..not constrained
+    # to order written here.
+
+    # should change the names so this test order matches alphabetical order
+    # by using intermediate "_A_" etc. That should make unittest order match
+    # order here? 
+
+    def test_Basic(self):
         for n in nodes:
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
-    def testRF_iris2(self):
+    def test_RF_iris2(self):
         trees = 6
         timeoutSecs = 20
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
-    def testRF_poker100(self):
+    def test_RF_poker100(self):
         trees = 6
         timeoutSecs = 20
         csvPathname = h2o.find_file('smalldata/poker/poker100')
         runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
-    def testGenParity1(self):
+    def test_GenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
         # so we can get files from there, without generating datasets
 
@@ -66,7 +72,6 @@ class Basic(unittest.TestCase):
         # Creates the filename from the args, in the right place
         #   i.e. ./syn_datasets/parity_128_4_1024_quad.data
         # The .pl assumes ./syn_datasets exists.
-    
         # first time we use perl (parity.pl)
 
         # always match the run below!
@@ -77,13 +82,6 @@ class Basic(unittest.TestCase):
             h2o.spawn_cmd('parity.pl', shCmdString.split())
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
-
-    def testRfParity1(self):
-        # run the tests created by the prior testGenParity1
-
-        # Assuming the tests are run in order, we can assume the 
-        # dataset is available now? maybe not true if this test is run as one off?
-        global SYNDATASETS_DIR
 
         # FIX! I suppose we should vary the number of trees to make sure the response changes
         # maybe just inc in loop
