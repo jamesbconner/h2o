@@ -6,7 +6,7 @@ import java.util.UUID;
 import java.util.Random;
 import water.*;
 import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializationManager;
+import water.serialization.RTSerializationManager;
 import water.serialization.RemoteTaskSerializer;
 
 /**
@@ -198,7 +198,7 @@ public class Confusion extends MRTask {
 
   // Write the Confusion to a random Key
   public Key toKey() {
-    RemoteTaskSerializer sc = RemoteTaskSerializationManager.get(Confusion.class);
+    RemoteTaskSerializer sc = RTSerializationManager.get(Confusion.class);
     byte[] buf = new byte[sc.wire_len(this)];
     sc.write(this,buf,0);
     Key key = Key.make("ConfusionMatrix of "+_arykey);
@@ -206,7 +206,7 @@ public class Confusion extends MRTask {
     return key;
   }
   public static Confusion fromKey( Key key ) {
-    RemoteTaskSerializer sc = (RemoteTaskSerializationManager.get(Confusion.class));
+    RemoteTaskSerializer sc = (RTSerializationManager.get(Confusion.class));
     Confusion c = (Confusion)sc.read(DKV.get(key).get(),0);
     c.shared_init();            // Shared init
     return c;

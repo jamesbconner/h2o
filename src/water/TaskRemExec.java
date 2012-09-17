@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 
 import jsr166y.CountedCompleter;
-import water.serialization.RemoteTaskSerializationManager;
+import water.serialization.RTSerializationManager;
 import water.serialization.RemoteTaskSerializer;
 
 /**
@@ -52,7 +52,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     _dt = dt;
     _args = args;
     _did_put = did_put;
-    _serializer = (RemoteTaskSerializer<T>) RemoteTaskSerializationManager.get(_dt.getClass());
+    _serializer = (RemoteTaskSerializer<T>) RTSerializationManager.get(_dt.getClass());
   }
 
   // Pack classloader/class & the instance data into the outgoing UDP packet
@@ -122,7 +122,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         off += args.wire_len();
 
         // Make a remote instance of this dude
-        RemoteTaskSerializer<RemoteTask> ser = RemoteTaskSerializationManager.get(clazz);
+        RemoteTaskSerializer<RemoteTask> ser = RTSerializationManager.get(clazz);
 
         // Fill in remote values
         RemoteTask dt = ser.read(buf, off);
@@ -179,7 +179,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         final Key args = Key.read(dis);
 
         // Make a remote instance of this dude
-        final RemoteTaskSerializer ser = RemoteTaskSerializationManager.get(clazz);
+        final RemoteTaskSerializer ser = RTSerializationManager.get(clazz);
         final RemoteTask dt = ser.read(dis);
 
         // Need the UDP packet because the finish-up code expects one.  Act "as
