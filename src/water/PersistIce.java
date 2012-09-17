@@ -21,6 +21,7 @@ public abstract class PersistIce {
   private static final File iceRoot;
 
   // Load into the K/V store all the files found on the local disk
+  static void initialize() {}
   static {
     ROOT = (H2O.OPT_ARGS.ice_root==null) ? DEFAULT_ROOT : H2O.OPT_ARGS.ice_root;
     H2O.OPT_ARGS.ice_root = ROOT;

@@ -58,10 +58,11 @@ public final class H2O {
   // A dense integer identifier that rolls over rarely.  Rollover limits the
   // number of simultaneous nested Clouds we are operating on in-parallel.
   // Really capped to 1 byte, under the assumption we won't have 256 nested
-  // Clouds.
+  // Clouds.  Capped at 1 byte so it can be part of an atomically-assigned
+  // 'long' holding info specific to this Cloud.
   public final char _idx;       // no unsigned byte, so unsigned char instead
 
-  // Is nnn larger than old, counting for wrap around?  Gets confused if we
+  // Is nnn larger than old (counting for wrap around)?  Gets confused if we
   // start seeing a mix of more than 128 unique clouds at the same time.  Used
   // to tell the order of Clouds appearing.
   static public boolean larger( int nnn, int old ) {
@@ -484,6 +485,8 @@ public final class H2O {
   }
 
   static void initializePersistence() {
+    PersistIce.initialize();
+    PersistNFS.initialize();
     if( OPT_ARGS.hdfs!=null ) Hdfs.initialize();
   }
 

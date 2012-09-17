@@ -2,6 +2,7 @@ package water.hdfs;
 
 import java.io.File;
 import java.io.IOException;
+import jsr166y.ForkJoinWorkerThread;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import water.*;
@@ -56,6 +57,8 @@ public abstract class PersistHdfs {
   }
 
   private static int loadPersistentKeysFromFolder(Path folder, String prefix) {
+    // This code blocks alot, and does not have FJBlock support coded in
+    assert !(Thread.currentThread() instanceof ForkJoinWorkerThread);
     int num=0;
     try {
       for( FileStatus f : _fs.listStatus(folder) ) {

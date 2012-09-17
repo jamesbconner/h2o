@@ -11,6 +11,8 @@ public abstract class PersistNFS {
   static final String KEY_PREFIX="nfs:";
   public static final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
 
+  static void initialize() {}
+
   // file implementation -------------------------------------------------------
   public static Key decodeFile(File f) {
     String kname = KEY_PREFIX+File.separator+f.toString();
