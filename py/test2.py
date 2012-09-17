@@ -43,8 +43,8 @@ class Basic(unittest.TestCase):
         ## csvPathname = '../smalldata/hhp_107_01_short.data'
 
         # don't want to worry about timeout on RF, so just take the first 100 rows
-        # csvPathname = '/home/kevin/hexbase/smalldata/hhp_9_17_12.predict.data'
-        csvPathname = '/home/kevin/hexbase/smalldata/hhp_9_17_12.predict.100rows.data'
+        # csvPathname = '../smalldata/hhp_9_17_12.predict.data'
+        csvPathname = '../smalldata/hhp_9_17_12.predict.100rows.data'
 
         if not os.path.exists(csvPathname) :
             # check if the gz exists (git will have the .gz)
