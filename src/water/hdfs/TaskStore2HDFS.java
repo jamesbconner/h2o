@@ -73,11 +73,21 @@ public class TaskStore2HDFS extends RemoteTask {
       return new TaskStore2HDFS(from, to, p);
     }       
   }    
-  public TaskStore2HDFS(){}  
-  public TaskStore2HDFS(long indexFrom, long indexTo, Key k){
+  
+  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey, Key progressKey){
     _indexFrom = indexFrom; 
     _indexTo = indexTo;
-    _progressK = k;
+    _progressK = progressKey;
+    Value v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK)?Key.make(ValueArray.getArrayKeyBytes(srcKey)):srcKey);
+    if(v instanceof ValueArray){
+      PersistHdfs.storeChunk(v,getPathFromValue(v));
+    }
+  }
+  
+  private TaskStore2HDFS(long indexFrom, long indexTo, Key progressKey){
+    _indexFrom = indexFrom; 
+    _indexTo = indexTo;
+    _progressK = progressKey;
   }
   
   static private String getPathFromValue(Value v){    
@@ -120,7 +130,7 @@ public class TaskStore2HDFS extends RemoteTask {
     if (k._kb[0] == Key.ARRAYLET_CHUNK) {
       k = Key.make(ValueArray.getArrayKeyBytes(k));
     }
-    DKV.remove(k);
+    UKV.remove(k);
   }
   @Override public final void invoke( Key key ) {
     _key = key;
@@ -135,7 +145,7 @@ public class TaskStore2HDFS extends RemoteTask {
       // first store the data (so that the cleaner does not get into our way)
       if(path == null)path = getPathFromValue(val);
       PersistHdfs.storeChunk(val,path);
-      val.switch2HdfsBackend(true); // switch the value persist backend to hdfs and status to ON DISK
+      //val.switch2HdfsBackend(true); // switch the value persist backend to hdfs and status to ON DISK
       if(++_indexFrom == _indexTo){ // all done, load value to the store
         PersistHdfs.addNewVal2KVStore(path);  
         // remove the old value

@@ -23,7 +23,7 @@ public class Store2HDFS extends H2OPage {
     Value progress = new Value(pK,8);
     DKV.put(pK, progress);
     final long N = v.chunks();
-    TaskStore2HDFS tsk = new TaskStore2HDFS(0,N,pK);
+    TaskStore2HDFS tsk = new TaskStore2HDFS(0,N,k,pK);
     tsk.invoke(k);
     // HTML file save of Value
     long storedCount = 0;

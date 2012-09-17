@@ -56,6 +56,34 @@ public abstract class PersistHdfs {
     if( _fs != null && _root != null ) loadPersistentKeysFromFolder(_root, "");
   }
 
+  
+  public static Value readValueFromFile(Path p, String prefix) throws IOException {
+    Key k = decodeFile(p, prefix);
+    if( k == null )
+      return null;
+    if(!_fs.isFile(p))throw new Error("No such file on hdfs! " + p);
+    long size = _fs.getFileStatus(p).getLen();
+    Value val;
+    if(p.getName().endsWith(".hex")){
+      FSDataInputStream s = _fs.open(p);
+      int sz = s.readShort();
+      if(sz <= 0){
+        System.err.println("Invalid hex file: " + p);
+        return null;
+      }
+      byte [] mem = MemoryManager.allocateMemory(sz);
+      s.readFully(mem);
+      val = new ValueArray(k,mem);
+      val.switch2HdfsBackend(true);
+    } else {
+       val = (size < 2*ValueArray.chunk_size())
+          ? new Value((int)size,0,k,Value.HDFS)
+          : new ValueArray(k,size,Value.HDFS);
+       val.setdsk();
+    }    
+    H2O.putIfAbsent_raw(k, val);
+    return val;
+  }
   private static int loadPersistentKeysFromFolder(Path folder, String prefix) {
     // This code blocks alot, and does not have FJBlock support coded in
     assert !(Thread.currentThread() instanceof ForkJoinWorkerThread);
@@ -68,16 +96,7 @@ public abstract class PersistHdfs {
           num += loadPersistentKeysFromFolder(p, prefix + Path.SEPARATOR + p.getName());
         } else {
           // it is a file, therefore a value for us
-          assert (_fs.isFile(p));
-          Key k = decodeFile(p, prefix);
-          if( k == null )
-            continue;
-          long size = _fs.getFileStatus(p).getLen();
-          Value val = (size < 2*ValueArray.chunk_size())
-            ? new Value((int)size,0,k,Value.HDFS)
-            : new ValueArray(k,size,Value.HDFS);
-          val.setdsk();
-          H2O.putIfAbsent_raw(k, val);
+          readValueFromFile(p, prefix);
           num++;
         }
       }
@@ -94,8 +113,9 @@ public abstract class PersistHdfs {
   // 512 bytes.
   static private final String KEY_PREFIX="hdfs:/";
   static private final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
-
-  private static String path2KeyStr(Path p){
+  
+  public static String path2KeyStr(Path p){
+    if(p.depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR;
     if(p.getParent().depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR + p.getName();
     return path2KeyStr(p.getParent()) + Path.SEPARATOR + p.getName();
   }
@@ -132,6 +152,8 @@ public abstract class PersistHdfs {
         if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
           off = ValueArray.getOffset(k); // The offset
           k = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
+          ValueArray ary = (ValueArray)DKV.get(k);          
+          off += ary.header_size(); // 
         }
         Path p = getPathForKey(k);
         s = _fs.open(p);
@@ -148,19 +170,25 @@ public abstract class PersistHdfs {
       return null;
     }
   }
+  
 
 //for moving ValueArrays to HDFS
  static void storeChunk(Value v, String path) {
-   assert !(v instanceof ValueArray);
+   int padding = 0;
    try {
      Path p = new Path(_root, path);
-     FSDataOutputStream s;
-     if( (v._key._kb[0] != Key.ARRAYLET_CHUNK)
-         || (ValueArray.getChunkIndex(v._key) == 0) ) {
-       // the first chunk -> make sure path exists and
-       // create/overwrite the file
+     FSDataOutputStream s;     
+     if( (v._key._kb[0] != Key.ARRAYLET_CHUNK)) {
        _fs.mkdirs(p.getParent());
-       s = _fs.create(p);
+       s = _fs.create(p);       
+       if(v instanceof ValueArray){ // header, we need to write its lenght bfr writing the body
+         // make a local copy so that we can change persist mode
+         // set persist to hdfs and ON_DSK
+         long sz = v.get().length;
+         padding = (int)(8 - (sz & 7));
+         System.out.println("header size = " + ((short)sz + padding) + "(full = " + sz + ")");
+         s.writeShort((short)sz + padding);
+       }
      } else
        s = _fs.append(p);
      try {
@@ -169,6 +197,9 @@ public abstract class PersistHdfs {
        byte[] m = v.get();
        if( m != null )
          s.write(m);
+       for(int i = 0; i < padding; ++i) {
+         s.writeByte(0);
+       }
      } finally {
        s.close();
      }
@@ -177,18 +208,10 @@ public abstract class PersistHdfs {
    }
  }
 
-
  static void addNewVal2KVStore(String path){
    Path p = new Path(_root,path);
-   Key k = getKeyforPath(p);
    try{
-     if(!_fs.isFile(p))throw new Error("No such file on hdfs! " + path);
-     long size = _fs.getFileStatus(p).getLen();
-     Value val = (size < 2 * ValueArray.chunk_size()) ? new Value(
-         (int) size, 0, k, Value.HDFS) : new ValueArray(k, size,
-         Value.HDFS);
-     val.setdsk();
-     H2O.putIfAbsent_raw(k, val);
+     readValueFromFile(p,path2KeyStr(p.getParent()));     
    }catch(IOException e){throw new Error(e);}
  }
 

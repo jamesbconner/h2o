@@ -38,6 +38,10 @@ public class ValueArray extends Value {
     super(max,len,key,mode);
   }
 
+  public ValueArray(Key k, byte [] mem) {
+    super(k,mem);    
+  }
+  
   @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
 
   @Override public byte type() { return ARRAY; }
@@ -280,6 +284,11 @@ public class ValueArray extends Value {
   public long num_rows() { return UDP.get8(get(),NUM_ROWS_OFF); }
   // Size of each row (sum of column widths) in bytes
   public int  row_size() { return UDP.get4(get(),ROW_SIZE_OFF); }
+  
+  // structured data needs to store header describing the data at the beginning of the file
+  // header contains bytes of the arraylet head
+  // therefore, return the size of _mem if structured, 0 if unstructured 
+  public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0:get().length;}
 
 
   // Additional column layout (meta-data); repeat per column
