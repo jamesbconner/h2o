@@ -34,6 +34,7 @@ JAVAC_ARGS='-g
     -target 1.6
     -XDignore.symbol.file
     -Xlint:all
+    -Xlint:-deprecation
     -Xlint:-serial
     -Xlint:-rawtypes
     -Xlint:-unchecked '
