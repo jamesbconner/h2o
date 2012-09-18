@@ -156,6 +156,7 @@ public abstract class PersistHdfs {
           off = ValueArray.getOffset(k); // The offset
           k = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
           ValueArray ary = (ValueArray)DKV.get(k);          
+          if(ary.row_size() > 0) off -= (off % ary.row_size());
           off += ary.header_size(); //          
         }
         Path p = getPathForKey(k);
@@ -201,11 +202,6 @@ public abstract class PersistHdfs {
        // is loaded first
        byte[] m = v.get();
        if( m != null ) s.write(m);    
-       if(v._key._kb[0] == Key.ARRAYLET_CHUNK && path.endsWith(".hex")){
-         for(int i = m.length; i < (1 << 20); ++i){
-           s.writeByte(0);
-         }
-       }
      } finally {
        s.close();
      }   
