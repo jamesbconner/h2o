@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 
+import water.hdfs.PersistHdfs;
 import water.parser.ParseDataset.ColumnDomain;
 
 /**
@@ -285,10 +286,11 @@ public class ValueArray extends Value {
   // Size of each row (sum of column widths) in bytes
   public int  row_size() { return UDP.get4(get(),ROW_SIZE_OFF); }
   
+  
   // structured data needs to store header describing the data at the beginning of the file
   // header contains bytes of the arraylet head
   // therefore, return the size of _mem if structured, 0 if unstructured 
-  public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0:get().length;}
+  public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0: PersistHdfs.pad8(2 + get().length);}
 
 
   // Additional column layout (meta-data); repeat per column

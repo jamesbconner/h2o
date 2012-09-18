@@ -20,6 +20,9 @@ public abstract class PersistHdfs {
   private static FileSystem _fs;
   private static Path _root;
 
+  public static long pad8(long x){
+    return (x == (x & 7))?x:(x & ~7) + 8;
+  }
   static {
     if( H2O.OPT_ARGS.hdfs_config!=null ) {
       _conf = new Configuration();
@@ -185,9 +188,8 @@ public abstract class PersistHdfs {
          // make a local copy so that we can change persist mode
          // set persist to hdfs and ON_DSK
          long sz = v.get().length;
-         padding = (int)(8 - (sz & 7));
-         System.out.println("header size = " + ((short)sz + padding) + "(full = " + sz + ")");
-         s.writeShort((short)sz + padding);
+         System.out.println("header size = " + ((short)pad8(sz) + padding) + "(full = " + sz + ")");
+         s.writeShort((short)pad8(sz));
        }
      } else
        s = _fs.append(p);
