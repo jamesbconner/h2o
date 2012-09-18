@@ -109,8 +109,23 @@ class H2O:
     def get_cloud(self):
         return self.__check_request(requests.get(self.__url('Cloud.json')))
 
-    def put_file(self, f):
-        return self.__check_request(requests.post(self.__url('PutFile.json'), 
+    # FIX! I can put Value, Key, RF also! I can write 10,000 keys! good for testing?
+    def put_key(self, value, key=None, repl=None):
+        return self.__check_request(
+            requests.post(self.__url('PutFile.json'), 
+                params={"Value": value, "Key": key, "RF": repl}
+                ))
+
+    def put_file(self, f, key=None, repl=None):
+        return self.__check_request(
+            requests.post(self.__url('PutFile.json'), 
+                files={"File": open(f, 'rb')},
+                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
+                ))
+
+    # FIX! placeholder..what does the JSON really want?
+    def get_file(self, f):
+        return self.__check_request(requests.post(self.__url('GetFile.json'), 
             files={"File": open(f, 'rb')}))
 
     def parse(self, key):
