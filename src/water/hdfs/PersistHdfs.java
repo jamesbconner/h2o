@@ -20,7 +20,7 @@ public abstract class PersistHdfs {
   private static FileSystem _fs;
   private static Path _root;
 
-  public static long pad8(long x){
+  public static int pad8(int x){
     return (x == (x & 7))?x:(x & ~7) + 8;
   }
   static {
@@ -30,7 +30,7 @@ public abstract class PersistHdfs {
       if (!p.exists())
         Log.die("[h2o,hdfs] Unable to open hdfs configuration file "+p.getAbsolutePath());
       _conf.addResource(p.getAbsolutePath());
-      System.out.println("[h2o,hdfs] resource "+p.getAbsolutePath()+" added to the hadoop configuration");
+      System.out.println("[h2o,hdfs] resource " + p.getAbsolutePath() + " added to the hadoop configuration");
     } else {
       if( H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty() ) {
         _conf = new Configuration();
@@ -39,14 +39,14 @@ public abstract class PersistHdfs {
         _conf = null;
       }
     }
-    ROOT = H2O.OPT_ARGS.hdfs_root==null ? DEFAULT_ROOT : H2O.OPT_ARGS.hdfs_root;
-    if( H2O.OPT_ARGS.hdfs_config!=null || (H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty()) ) {
+    ROOT = H2O.OPT_ARGS.hdfs_root == null ? DEFAULT_ROOT : H2O.OPT_ARGS.hdfs_root;
+    if( H2O.OPT_ARGS.hdfs_config != null || (H2O.OPT_ARGS.hdfs != null && !H2O.OPT_ARGS.hdfs.isEmpty()) ) {
       try {
         _fs = FileSystem.get(_conf);
         _root = new Path(ROOT);
         _fs.mkdirs(_root);
         int num = loadPersistentKeysFromFolder(_root,"");
-        System.out.println("[h2o,hdfs] "+H2O.OPT_ARGS.hdfs+ROOT+" loaded "+num+" keys");
+        System.out.println("[h2o,hdfs] " + H2O.OPT_ARGS.hdfs+ROOT+" loaded " + num + " keys");
       } catch( IOException e ) {
         // pass
         System.out.println(e.getMessage());
@@ -156,7 +156,7 @@ public abstract class PersistHdfs {
           off = ValueArray.getOffset(k); // The offset
           k = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
           ValueArray ary = (ValueArray)DKV.get(k);          
-          off += ary.header_size(); // 
+          off += ary.header_size(); //          
         }
         Path p = getPathForKey(k);
         s = _fs.open(p);
@@ -175,39 +175,40 @@ public abstract class PersistHdfs {
   }
   
 
+  static void createFile(Value v, String path) throws IOException{
+    Path p = new Path(_root, path);
+    FSDataOutputStream s;     
+    _fs.mkdirs(p.getParent());
+    s = _fs.create(p);
+    try {
+      if((v instanceof ValueArray) && path.endsWith(".hex")){
+        byte [] mem  = v.get();        
+        int padding = pad8(mem.length + 2) - mem.length - 2;
+        s.writeShort((short)(mem.length+padding));
+        s.write(mem);
+        for(int i = 0; i < padding; ++i)s.writeByte(0);
+      } 
+    }finally{
+      s.close();
+    }      
+  }
 //for moving ValueArrays to HDFS
- static void storeChunk(Value v, String path) {
-   int padding = 0;
-   try {
+ static void storeChunk(Value v, String path) throws IOException {
      Path p = new Path(_root, path);
-     FSDataOutputStream s;     
-     if( (v._key._kb[0] != Key.ARRAYLET_CHUNK)) {
-       _fs.mkdirs(p.getParent());
-       s = _fs.create(p);       
-       if(v instanceof ValueArray){ // header, we need to write its lenght bfr writing the body
-         // make a local copy so that we can change persist mode
-         // set persist to hdfs and ON_DSK
-         long sz = v.get().length;
-         System.out.println("header size = " + ((short)pad8(sz) + padding) + "(full = " + sz + ")");
-         s.writeShort((short)pad8(sz));
-       }
-     } else
-       s = _fs.append(p);
+     FSDataOutputStream s = _fs.append(p);          
      try {
        // we're moving file to hdfs, possibly from other source, make sure it
        // is loaded first
        byte[] m = v.get();
-       if( m != null )
-         s.write(m);
-       for(int i = 0; i < padding; ++i) {
-         s.writeByte(0);
+       if( m != null ) s.write(m);    
+       if(v._key._kb[0] == Key.ARRAYLET_CHUNK && path.endsWith(".hex")){
+         for(int i = m.length; i < (1 << 20); ++i){
+           s.writeByte(0);
+         }
        }
      } finally {
        s.close();
-     }
-   } catch( IOException e ) {
-     e.printStackTrace();
-   }
+     }   
  }
 
  static void addNewVal2KVStore(String path){

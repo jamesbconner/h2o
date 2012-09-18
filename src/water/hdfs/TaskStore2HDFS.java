@@ -35,7 +35,8 @@ import water.serialization.RemoteTaskSerializer;
 @RTSerializer(TaskStore2HDFS.Serializer.class)
 public class TaskStore2HDFS extends RemoteTask {  
   Key _key;
-  Key _progressK;
+  Key _progressK;  
+  Value _v;
   long _indexFrom;
   long _indexTo;
   ArrayList<TaskRemExec<TaskStore2HDFS>> _tre = new ArrayList<TaskRemExec<TaskStore2HDFS>>();         
@@ -74,14 +75,11 @@ public class TaskStore2HDFS extends RemoteTask {
     }       
   }    
   
-  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey, Key progressKey){
+  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey, Key progressKey) {
     _indexFrom = indexFrom; 
     _indexTo = indexTo;
     _progressK = progressKey;
-    Value v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK)?Key.make(ValueArray.getArrayKeyBytes(srcKey)):srcKey);
-    if(v instanceof ValueArray){
-      PersistHdfs.storeChunk(v,getPathFromValue(v));
-    }
+    _v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK)?Key.make(ValueArray.getArrayKeyBytes(srcKey)):srcKey);    
   }
   
   private TaskStore2HDFS(long indexFrom, long indexTo, Key progressKey){
@@ -132,9 +130,14 @@ public class TaskStore2HDFS extends RemoteTask {
     }
     UKV.remove(k);
   }
-  @Override public final void invoke( Key key ) {
+  @Override public final void invoke( Key key ) {  
+    if(_v != null && _v instanceof ValueArray){
+      String p = getPathFromValue(_v);
+      // for .hex files we need to store the header with metadata      
+      try{PersistHdfs.createFile(_v,p);}catch(IOException e){throw new Error(e);}      
+    }
     _key = key;
-    compute();
+    compute();    
   }
   
   @Override
@@ -144,7 +147,7 @@ public class TaskStore2HDFS extends RemoteTask {
       Value val = UKV.get(_key);
       // first store the data (so that the cleaner does not get into our way)
       if(path == null)path = getPathFromValue(val);
-      PersistHdfs.storeChunk(val,path);
+      try{PersistHdfs.storeChunk(val,path);} catch(IOException e){throw new Error(e);}
       //val.switch2HdfsBackend(true); // switch the value persist backend to hdfs and status to ON DISK
       if(++_indexFrom == _indexTo){ // all done, load value to the store
         PersistHdfs.addNewVal2KVStore(path);  

@@ -290,7 +290,7 @@ public class ValueArray extends Value {
   // structured data needs to store header describing the data at the beginning of the file
   // header contains bytes of the arraylet head
   // therefore, return the size of _mem if structured, 0 if unstructured 
-  public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0: PersistHdfs.pad8(2 + get().length);}
+  public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0: 2 + get().length;}
 
 
   // Additional column layout (meta-data); repeat per column
