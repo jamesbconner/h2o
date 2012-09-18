@@ -35,7 +35,6 @@ class Basic(unittest.TestCase):
         # normally we .gz for the git, to save space
         # we do take .zip directly. bug fix needed for .gz
 
-
         # 0-32 output class values
         ### csvPathname = '../smalldata/hhp_50.short3.data'
 
