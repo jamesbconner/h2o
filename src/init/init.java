@@ -23,7 +23,6 @@ public class init {
       loader.addInternalJarFolder("apache", true);
       loader.addInternalJarFolder("gson",   true);
       loader.addInternalJarFolder("junit",  true);
-      loader.addInternalJarFolder("asm",    true);
     } else {
       loader._binlib = new File("lib/binlib");
       System.setProperty("org.hyperic.sigar.path","lib/binlib");

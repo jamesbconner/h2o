@@ -110,7 +110,7 @@ public class Loader extends URLClassLoader {
         is.close();
       } catch( FileNotFoundException ex ) {
         // Expected FNF if 2 H2O instances are attempting to unpack in the same directory
-      } catch (IOException ex) {
+      } catch( IOException ex ) {
         System.err.println("Unable to extract file "+name+" because "+ex);
       }
     }
@@ -119,7 +119,7 @@ public class Loader extends URLClassLoader {
 
   /** Extracts single file to the root directory. */
   File extractInternalFile(String name) {
-    if( _ownJar==null ) return null;
+    if( _ownJar == null ) return null;
     File result = extractInternalFiles(name);
     result = new File(result,name);
     assert result.exists() && !result.isDirectory();
@@ -128,7 +128,7 @@ public class Loader extends URLClassLoader {
 
   /** Extracts a folder to the root directory. */
   File extractInternalFolder(String name) {
-    if( _ownJar==null ) return null;
+    if( _ownJar == null ) return null;
     File result = extractInternalFiles(name);
     result = new File(result,name);
     assert result.isDirectory();
@@ -137,7 +137,7 @@ public class Loader extends URLClassLoader {
 
   /** Extracts jar to the root and add it to the classpath. */
   public boolean addInternalJar(String name) {
-    if( _ownJar != null ) return true;
+    if( _ownJar == null ) return true;
     return addExternalJar(extractInternalFile(name));
   }
 
