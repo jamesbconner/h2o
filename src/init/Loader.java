@@ -175,10 +175,10 @@ public class Loader extends URLClassLoader {
   public boolean addExternalJarFolder(File dir, boolean recursive) {
     boolean result = true;
     for( File f : dir.listFiles() ) {
-      if (f.isDirectory()) {
-        if (recursive) result = addExternalJarFolder(f,true) && result;
+      if( f.isDirectory() ) {
+        if( recursive ) result &= addExternalJarFolder(f, true);
       } else {
-        if (f.getName().endsWith(".jar")) result = addExternalJar(f) && result;
+        if( f.getName().endsWith(".jar") ) result &= addExternalJar(f);
       }
     }
     return result;
