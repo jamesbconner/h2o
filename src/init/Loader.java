@@ -136,21 +136,21 @@ public class Loader extends URLClassLoader {
   }
 
   /** Extracts jar to the root and add it to the classpath. */
-  public boolean addInternalJar(String name) {
-    if( _ownJar == null ) return true;
+  public File addInternalJar(String name) {
+    if( _ownJar == null ) return null;
     return addExternalJar(extractInternalFile(name));
   }
 
   /** Adds the given external jar to the classpath. */
-  public boolean addExternalJar(String name) {
+  public File addExternalJar(String name) {
     return addExternalJar(new File(name));
   }
 
   /** Adds the external jar file. */
-  public boolean addExternalJar(File what) {
-    if( !what.exists() ) return false;
+  public File addExternalJar(File what) {
+    if( !what.exists() ) return null;
     addFile(what);
-    return true;
+    return what;
   }
 
   /** Extracts a jar folder to the root and its jars to the classpath. */
@@ -178,7 +178,7 @@ public class Loader extends URLClassLoader {
       if( f.isDirectory() ) {
         if( recursive ) result &= addExternalJarFolder(f, true);
       } else {
-        if( f.getName().endsWith(".jar") ) result &= addExternalJar(f);
+        if( f.getName().endsWith(".jar") ) result &= addExternalJar(f) != null;
       }
     }
     return result;

@@ -13,13 +13,14 @@ import water.RemoteTask;
  */
 public class RTWeaver implements Opcodes {
   private static final String RT_INTERNAL_NAME = Type.getType(RemoteTask.class).getInternalName();
-  static { assert !RemoteTask.class.isInterface(); }
 
-  public byte[] transform(ClassLoader loader, String className, byte[] bytes)
+  public static byte[] transform(ClassLoader loader, String className, byte[] bytes)
           throws IllegalClassFormatException {
     ClassReader reader = new ClassReader(bytes);
     boolean isRunnable = RT_INTERNAL_NAME.equals(reader.getSuperName());
     if( !isRunnable ) return null;
+    System.out.println("Found an RemoteTask to weave!\n\t" + reader.getClassName());
+    if( true ) return null;
 
     ClassWriter write = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
     ClassAdapter adapter = new ClassAdapter(write) {
@@ -49,9 +50,9 @@ public class RTWeaver implements Opcodes {
   }
 
   private static int makePublicAccess(int access) {
-    access &= ~ACC_PRIVATE;
-    access &= ~ACC_PROTECTED;
-    access |= ACC_PUBLIC;
+    access &= ~Opcodes.ACC_PRIVATE;
+    access &= ~Opcodes.ACC_PROTECTED;
+    access |=  Opcodes.ACC_PUBLIC;
     return access;
   }
 }
