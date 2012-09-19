@@ -17,16 +17,11 @@ public class DataAdapter  {
   private int numClasses_=-1;
   private String[] columnNames_;
   private String classColumnName_;
-  public final long seed;
-  public final Random random_;
-  private static int SEED = 42;
-  private static Random RAND = new Random(SEED);
-
-  private static long getRandomSeed() { return RAND.nextLong(); }
-  public static void setSeed(int seed){ RAND = new Random(seed); }
+  public final int _seed;
   
-  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int numClasses) {
-    long seed = getRandomSeed(); name_=name;
+  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
+    _seed = seed+data_id; 
+    name_=name;
     c_ = new C[columns.length];
     columnNames_ = new String[columns.length];
     // Note that the number of classes is not generally known in a distributed
@@ -41,8 +36,6 @@ public class DataAdapter  {
     assert 0 <= classIdx_ && classIdx_ < 100;
     _data_id = data_id;
     if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
-    this.seed = seed;
-    random_ = new Random(seed);
   }
 
   /** Given a value in enum format, returns a value in the original range. */
@@ -74,7 +67,8 @@ public class DataAdapter  {
       }
     }
 
-    public void freeze() { frozen_=true; }
+    public int  seed()          { return _seed; }
+    public void freeze()        { frozen_=true; }
     public int columns()        { return c_.length;}
     public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }

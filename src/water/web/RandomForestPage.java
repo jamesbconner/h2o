@@ -26,10 +26,11 @@ public class RandomForestPage extends H2OPage {
     int depth = getAsNumber(p,"depth", 30);
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int singlethreaded =  getAsNumber(p,"singlethreaded", 1);
+    int seed =  getAsNumber(p,"seed", 42);
     StatType statType = StatType.values()[gini];
 
     // Start the distributed Random Forest
-    DRF drf = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,singlethreaded==0/*non-blocking*/);
+    DRF drf = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
 
     // Start up the incremental confusion matrix
     Confusion confusion = new Confusion( drf._treeskey, ary, ntrees*H2O.CLOUD.size());

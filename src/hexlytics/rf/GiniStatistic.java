@@ -20,7 +20,7 @@ package hexlytics.rf;
  */
 public class GiniStatistic extends Statistic {
 
-  public GiniStatistic(Data data, int features) { super(data, features); }
+  public GiniStatistic(Data data, int features, int seed) { super(data, features, seed); }
 
   private double gini(int[] dd, int sum) {
     double result = 1.0;
@@ -61,7 +61,7 @@ public class GiniStatistic extends Statistic {
       }
     }
     return bestSplit == -1 
-      ? Split.impossible(Utils.maxIndex(dist, d.random()))
+      ? Split.impossible(Utils.maxIndex(dist, random))
       : Split.split(colIndex, bestSplit, bestFitness);
   }
 
@@ -94,7 +94,7 @@ public class GiniStatistic extends Statistic {
       }
     }
     return bestSplit == -1 
-      ? Split.impossible(Utils.maxIndex(dist, d.random()))
+      ? Split.impossible(Utils.maxIndex(dist, random))
       : Split.exclusion(colIndex, bestSplit, bestFitness);
   }
 }

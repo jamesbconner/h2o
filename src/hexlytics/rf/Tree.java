@@ -21,15 +21,17 @@ public class Tree extends CountedCompleter {
   final int _features;          // Number of features to use
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
+  int  _seed;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features ) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed) {
     _type = stat;
     _data = data;
     _data_id = data.data_._data_id;
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
     _features = features;
+    _seed = seed;
   }
   // Constructor used to inhaling/de-serializing a pre-built tree.
   public Tree( int data_id ) {
@@ -71,8 +73,8 @@ public class Tree extends CountedCompleter {
     Statistic result = stats_[index].get();
     if( result==null ) {
       switch (_type) {
-      case GINI:    result = new    GiniStatistic(data,_features);  break;
-      case ENTROPY: result = new EntropyStatistic(data,_features);  break;
+      case GINI:    result = new    GiniStatistic(data,_features, _seed);  break;
+      case ENTROPY: result = new EntropyStatistic(data,_features, _seed);  break;
       default:      throw new Error("Unknown tree type to build the statistic. ");
       }
       stats_[index].set(result);

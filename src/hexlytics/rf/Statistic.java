@@ -1,18 +1,20 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
+
 import java.util.Arrays;
+import java.util.Random;
 
 /** A general statistic framework. Keeps track of the column distributions and
  * analyzes the column splits in the end producing the single split that will
  * be used for the node.
- *
- * @author peta
  */
 public abstract class Statistic {
   protected final int[][][] _columnDists;  // Column distributions for the given statistic
-  protected final int[] _features; // Columns/features that are currently used.
-
+  protected final int[] _features;         // Columns/features that are currently used.
+  private final int seed;                  // random seed
+  protected final Random random;             // pseudo random number generator
+  
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
   protected abstract Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight);
@@ -83,9 +85,9 @@ public abstract class Statistic {
     return sum;
   }
 
-
-
-  public Statistic(Data data, int features) {
+  
+  public Statistic(Data data, int features, int seed) {
+    random = new Random(this.seed = seed);
     // first create the column distributions
     _columnDists = new int[data.columns()][][];
     for (int i = 0; i < _columnDists.length; ++i)
@@ -103,7 +105,7 @@ public abstract class Statistic {
     int i = 0;
     for( ; i<_features.length; i++ ) _features[i] = i;
     for( ; i<data.columns() ; i++ ) {
-      int off = data.random().nextInt(i);
+      int off = random.nextInt(i);
       if( off < _features.length ) _features[off] = i;
     }
     // reset the column distributions for those
@@ -132,7 +134,7 @@ public abstract class Statistic {
     int[] dist = new int[d.classes()];
     int distWeight = aggregateColumn(_features[0], dist);
     // check if we are leaf node
-    int m = Utils.maxIndex(dist, d.random());
+    int m = Utils.maxIndex(dist, random); //FIXME:take care of the case where there are several classes
     if( dist[m] == distWeight )  return Split.constant(m);
 
     // try the splits
@@ -146,7 +148,7 @@ public abstract class Statistic {
     if( bestSplit.isImpossible() )
       return bestSplit;
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
-
+    
     // try the exclusions now if some of them will be better
     for( int j = 0; j < _features.length; ++j) {
       Split s = columnExclusion(_features[j],d,dist,distWeight);

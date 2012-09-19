@@ -6,6 +6,7 @@ import hexlytics.rf.Utils.Counter;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
 import water.AppendKey;
@@ -36,7 +37,7 @@ public class RandomForest {
     try {
       // Submit all trees for work
       for( int i=0; i<ntrees; i++ ) {
-        H2O.FJP_NORM.submit(_trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features()));
+        H2O.FJP_NORM.submit(_trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
         if( singlethreaded ) _trees[i].get();
       }
       // Block until all trees are built
@@ -103,25 +104,23 @@ public class RandomForest {
       UDPRebooted.global_kill();
       return;
     }
-    DataAdapter.setSeed(ARGS.seed);
     DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
     DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());    
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
     long t1 = System.currentTimeMillis();
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.singlethreaded);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded);
     Key[] tkeys = null;
     while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
     long t2 = System.currentTimeMillis();
     assert tkeys.length == ntrees;
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
-      System.out.println("***");
       DRF.forceNoSample = true;
       Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
       ValueArray valAry = KeyUtil.parse_test_key(valKey);     
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Data valData = Data.make(DRF.extractData(valAry._key, keys));
+      Data valData = Data.make(drf.extractData(valAry._key, keys));
       new RFValidator( tkeys, valData, valAry, drf._rf.features() ).report();
     } else 
       new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();   
@@ -161,6 +160,7 @@ public class RandomForest {
       long chk = 0;              // 1meg data chunk#
       byte dbits[] = DKV.get(_raw.make_chunkkey(0)).get();
       int numrows0 = dbits.length/rowsize; // Rows in the 1meg chunk 'chk'
+      Random random = new Random(_data.seed());
       for( Row r : _data ) {
         final long rchk = _raw.chunk_for_row(r.index,rpc);
         if( rchk != chk ) {     // Changing chunks?
@@ -175,7 +175,7 @@ public class RandomForest {
         int[] predClasses = _scores[i];
         for( int j = _lastTreeValidated; j< _tbits.length; j++)
           predClasses[Tree.classify(_tbits[j],_raw,dbits,ridx,rowsize)]++;
-        int predClass = Utils.maxIndex(predClasses, _data.random());
+        int predClass = Utils.maxIndex(predClasses, random);
         if (realClass != predClass)  ++_errors;
         _confusion[realClass][predClass]++;
         ++i;

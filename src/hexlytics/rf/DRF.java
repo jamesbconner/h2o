@@ -22,6 +22,7 @@ public class DRF extends water.DRemoteTask {
   Data _validation;             // Data subset to validate with locally, or NULL
   boolean _singlethreaded;      // Disable parallel execution
   RandomForest _rf;             // The local RandomForest
+  int _seed;
 
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
@@ -46,7 +47,7 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, boolean singlethreaded) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -55,6 +56,7 @@ public class DRF extends water.DRemoteTask {
     drf._arykey = ary._key;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._singlethreaded = singlethreaded;
+    drf._seed = seed;
     Tree.THREADED = !singlethreaded;
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
@@ -63,7 +65,7 @@ public class DRF extends water.DRemoteTask {
     return drf;
   }
   
-  public final static DataAdapter extractData(Key arykey, Key [] keys){
+  public final  DataAdapter extractData(Key arykey, Key [] keys){
     ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
@@ -82,7 +84,7 @@ public class DRF extends water.DRemoteTask {
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, classes);
+    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, _seed, classes);
     float[] ds = new float[num_cols];
     // Now load the DataAdapter with all the rows on this Node
     for( Key key : keys ) {
@@ -111,7 +113,7 @@ public class DRF extends water.DRemoteTask {
     sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
     Data d = Data.make(dapt);
     Data t = sample ? d.sampleWithReplacement(.666) : d;
-    _validation = sample ? t.complement() : null;
+    _validation = sample ? t.complement(d) : null;
     // Make a single RandomForest to that does all the tree-construction work.
     _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
     tryComplete();
