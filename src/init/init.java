@@ -31,13 +31,13 @@ public class init {
         loader.addInternalJarFolder("junit",  true);
         loader.addInternalJarFolder("asm",    true);
 
-        File asmJar = loader.extractInternalFile("asm/asm-all-4.0.jar");
-        URLClassLoader system = (URLClassLoader) ClassLoader.getSystemClassLoader();
-        loadJar(system, asmJar);
+//        File asmJar = loader.extractInternalFile("asm/asm-all-4.0.jar");
+//        URLClassLoader system = (URLClassLoader) ClassLoader.getSystemClassLoader();
+//        loadJar(system, asmJar);
 
         // if this becomes to ghetto, we can repackage lib/tools.jar
-        loader.addExternalJar(System.getProperty("java.home")+"/../lib/tools.jar");
-        loadVmAgent(loader, impl);
+//        loader.addExternalJar(System.getProperty("java.home")+"/../lib/tools.jar");
+//        loadVmAgent(loader, impl);
       } else {
         loader._binlib = new File("lib/binlib");
         System.setProperty("org.hyperic.sigar.path","lib/binlib");
