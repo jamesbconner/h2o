@@ -66,7 +66,6 @@ public class Cloud extends H2OPage {
       row.replace("fjqueue_lo" , fjq_lo);
       row.replace("rpcs" ,                h2o.get_rpcs());
       row.replace("tcps_active" ,         h2o.get_tcps_active());
-      row.replace("node_type" ,           h2o.get_node_type());
 
       row.append();
     }
@@ -97,7 +96,6 @@ public class Cloud extends H2OPage {
     +     "<th colspan=\"4\" style='text-align:center'>CPU Load</th>\n"
     +     "<th colspan=\"3\" style='text-align:center'>Threads / Tasks</th>\n"
     +     "<th rowspan=\"2\">TCPs Active</th>\n"
-    +     "<th rowspan=\"2\">Type</th>\n"
     + "</tr>\n"
     + "<tr>\n"
     +     "<th>Cached</th>\n"  // memory
@@ -134,7 +132,6 @@ public class Cloud extends H2OPage {
     + "    <td style='%queueStyleHi'>%fjthrds_hi / %fjqueue_hi</td>"
     + "    <td style='%queueStyleLo'>%fjthrds_lo / %fjqueue_lo</td>"
     + "    <td>%tcps_active</td>"
-    + "    <td>%node_type</td>"
     + "  </tr>\n"
     + "}"
     + "</tbody>"
