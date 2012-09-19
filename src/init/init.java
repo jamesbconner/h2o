@@ -25,15 +25,16 @@ public class Init {
     try {
       _init = new Init();
       if( _init._h2oJar != null ) {
-        File binlib = _init.extractInternalFolder("binlib");
-        System.setProperty("org.hyperic.sigar.path", binlib.getAbsolutePath());
+        _init.extractInternalFiles();
 
-        _init.addInternalJar("hexbase_impl.jar");
-        _init.addInternalJarFolder("sigar");
-        _init.addInternalJarFolder("apache");
-        _init.addInternalJarFolder("gson");
-        _init.addInternalJarFolder("junit");
-        _init.addInternalJarFolder("asm");
+        File binlib = _init.internalFile("binlib");
+        System.setProperty("org.hyperic.sigar.path", binlib.getAbsolutePath());
+        _init.addInternalJars("hexbase_impl.jar");
+        _init.addInternalJars("sigar");
+        _init.addInternalJars("apache");
+        _init.addInternalJars("gson");
+        _init.addInternalJars("junit");
+        _init.addInternalJars("asm");
 
         // if this becomes to ghetto, we can repackage lib/tools.jar
 //        loader.addExternalJar(System.getProperty("java.home")+"/../lib/tools.jar");
@@ -60,6 +61,7 @@ public class Init {
   private final URLClassLoader _systemLoader;
   private final Method _addUrl;
   private final ZipFile _h2oJar;
+  private final File _parentDir;
   File _binlib;
 
   public Init() throws NoSuchMethodException, SecurityException {
@@ -67,92 +69,50 @@ public class Init {
     _addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
     _addUrl.setAccessible(true);
 
+    File parentDir = null;
     ZipFile jar = null;
     String ownJar = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
     if( ownJar.endsWith(".jar") ) { // do nothing if not run from jar
       try {
         jar = new ZipFile(URLDecoder.decode(ownJar, "UTF-8"));
+        parentDir = new File(jar.getName()).getParentFile();
       } catch( IOException e ) { }
     }
     _h2oJar = jar;
+    _parentDir = parentDir;
   }
 
-  /** Returns the root for the loader, which is the path where the loader's jar
-   * is stored or null if not running from a jar. */
-  public File root() {
-    if( _h2oJar == null ) return null;
-    return new File(_h2oJar.getName()).getParentFile();
+  /** Returns an external File for the internal file name. */
+  public File internalFile(String name) {
+    assert _parentDir != null;
+    return new File(_parentDir, name);
   }
 
-  /** Extracts a jar folder to the root and its jars to the classpath. */
-  public boolean addInternalJarFolder(String name) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
-    return addExternalJarFolder(extractInternalFolder(name));
+  /** Add a jar to the system classloader */
+  public void addInternalJars(String name) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
+    addExternalJars(internalFile(name));
   }
 
-  /** Extracts jar to the root and add it to the classpath.  */
-  public File addInternalJar(String name) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
-    if( _h2oJar == null ) return null;
-    return addExternalJar(extractInternalFile(name));
-  }
-
-  /** Extracts single file to the root directory. */
-  File extractInternalFile(String name) {
-    if( _h2oJar == null ) return null;
-    File result = extractInternalFiles(name);
-    result = new File(result,name);
-    assert result.exists() && !result.isDirectory();
-    return result;
-  }
-
-
-
-  /** Adds all jars in given external folder.
-   *
-   * The jar files are added to the loader's list of resources.
-   *
-   * @param dir The external folder to search for jar files to add.
-   * @return True if all went ok, false if any errors.
-   */
-  public boolean addExternalJarFolder(File dir) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
-    boolean result = true;
-    for( File f : dir.listFiles() ) {
-      if( f.isDirectory() ) {
-        result &= addExternalJarFolder(f);
-      } else {
-        if( f.getName().endsWith(".jar") ) result &= addExternalJar(f) != null;
-      }
+  /** Adds all jars in given directory to the classpath. */
+  public void addExternalJars(File file) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
+    assert file.exists();
+    if( file.isDirectory() ) {
+      for( File f : file.listFiles() ) addExternalJars(f);
+    } else if( file.getName().endsWith(".jar") ) {
+      _addUrl.invoke(_systemLoader, file.toURI().toURL());
     }
-    return result;
-  }
-
-  public File addExternalJar(File what) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
-    if( !what.exists() ) return null;
-    _addUrl.invoke(_systemLoader, what.toURI().toURL());
-    return what;
-  }
-
-  /** Extracts a folder to the root directory. */
-  private File extractInternalFolder(String name) {
-    if( _h2oJar == null ) return null;
-    File result = extractInternalFiles(name);
-    result = new File(result,name);
-    assert result.isDirectory();
-    return result;
   }
 
   /** Extracts the libraries from the jar file to given local path.
    * Returns the path to which they were extracted.
    */
-  private File extractInternalFiles(String prefix) {
-    if( _h2oJar == null ) return null;
+  private void extractInternalFiles() {
+    assert _h2oJar != null;
     Enumeration entries = _h2oJar.entries();
-    File extractionRoot = root();
     while( entries.hasMoreElements() ) {
       ZipEntry e = (ZipEntry) entries.nextElement();
       String name = e.getName();
-      if( !name.startsWith(prefix) ) continue;
-
-      File out = new File(extractionRoot,name);
+      File out = internalFile(name);
       out.getParentFile().mkdirs();
       if( e.isDirectory() ) continue; // mkdirs() will handle these
 
@@ -172,7 +132,6 @@ public class Init {
         System.err.println("Unable to extract file "+name+" because "+ex);
       }
     }
-    return extractionRoot;
   }
 
   private void loadVmAgent(File f) {
