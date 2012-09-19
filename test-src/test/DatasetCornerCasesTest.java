@@ -16,7 +16,7 @@ import water.ValueArray;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
 
-public class RFMarginalCasesTest {
+public class DatasetCornerCasesTest {
   
   @BeforeClass public static void setupCloud() {
     H2O.main(new String[] { });
@@ -40,6 +40,11 @@ public class RFMarginalCasesTest {
     UKV.remove(fkey);
     ValueArray val = (ValueArray) DKV.get(okey);
     
+    // Check parsed dataset
+    assertEquals("Number of chunks == 1", 1, val.chunks());
+    assertEquals("Number of rows   == 1", 1, val.num_rows());
+    assertEquals("Number of cols   == 9", 9, val.num_cols());
+    
     // setup default values for DRF
     int ntrees  = 5;
     int depth   = 30;
@@ -47,19 +52,37 @@ public class RFMarginalCasesTest {
     int singlethreaded =  1;
     int seed =  42;
     StatType statType = StatType.values()[gini];
-
+    
     // Start the distributed Random Forest
     DRF drf = hexlytics.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
     
     // Create incremental confusion matrix
     Confusion confusion = new Confusion( drf._treeskey, val, ntrees*H2O.CLOUD.size());
-    // Just wait
+    // Just wait little bit  
     try { Thread.sleep(2000); } catch( InterruptedException e ) {}
-    confusion.refresh();
+    confusion.refresh();    
     
     assertEquals("Number of classes == 1", 1,  confusion._N);
-    assertEquals("Confusion matrix [0][0] == 1", 1,  confusion._matrix[0][0]);
-        
+            
+    UKV.remove(okey);
+  }
+  
+  /* 
+   * HTWO-87-related bug test
+   * 
+   *  - only one line dataset - guessing parser should recognize it.   
+   */
+  @Test public void testOneLineDataset() {
+    Key fkey = KeyUtil.load_test_file("smalldata/test/HTWO-87-one-line-dataset.csv");
+    Key okey = Key.make("HTWO-87-one-line-dataset.hex");    
+    ParseDataset.parse(okey,DKV.get(fkey));
+    
+    ValueArray val = (ValueArray) DKV.get(okey);
+    assertEquals("Number of chunks == 1", 1, val.chunks());
+    assertEquals("Number of rows   == 1", 1, val.num_rows());
+    assertEquals("Number of cols   == 9", 9, val.num_cols());
+    
+    UKV.remove(fkey);
     UKV.remove(okey);
   }
 }

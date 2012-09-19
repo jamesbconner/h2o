@@ -39,7 +39,7 @@ class JUnit(unittest.TestCase):
         nodes = []
         try:
             nodes = h2o.build_cloud(node_count=2)
-            self.run_junit('test.RFMarginalCasesTest')
+            self.run_junit('test.DatasetCornerCasesTest')
         finally:
             h2o.tear_down_cloud(nodes)
 

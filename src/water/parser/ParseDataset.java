@@ -888,7 +888,9 @@ public final class ParseDataset {
     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++;   // Skip a line
     if( i==b.length ) return new int[]{0,0};  // No columns?
     if( b[i] == '\r' || b[i+1]=='\n' ) i++;
-    if( b[i] == '\n' ) i++;
+    if( b[i] == '\n' ) i++;    
+    // There is only one line ended by newline => consider it as one line dataset 
+    if( i==b.length ) i = 0;    
     // start counting columns on the 2nd line
     final int line_start = i;
     int cols = 0;
