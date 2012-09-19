@@ -7,22 +7,28 @@ import java.util.UUID;
 
 import jsr166y.CountedCompleter;
 import jsr166y.RecursiveTask;
-import water.*;
+import water.DKV;
+import water.H2O;
+import water.Key;
+import water.Stream;
+import water.Value;
+import water.ValueArray;
 
 public class Tree extends CountedCompleter {
   static  boolean THREADED = false;  // multi-threaded ?
 
-  ThreadLocal<Statistic>[] stats_;
   static public enum StatType { ENTROPY, GINI };
+    
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
-  final int _data_id; // Data-subset identifier (so trees built on this subset are not validated on it)
+  final int _data_id;           // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;         // Tree-depth cutoff
   final int _features;          // Number of features to use
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
-  int  _seed;
-
+  final int  _seed;             // Pseudo random seeds
+  ThreadLocal<Statistic>[] stats_  = new ThreadLocal[2];
+  
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed) {
     _type = stat;
@@ -41,6 +47,7 @@ public class Tree extends CountedCompleter {
     _max_depth = 0;
     _min_error_rate = -1.0;
     _features = 0;
+    _seed = 0;
   }
 
   /** Determines the error rate of a single tree on the local data only. */
@@ -59,24 +66,12 @@ public class Tree extends CountedCompleter {
     return true;
   }
 
-  private void createStatistics() {
-    // Change this to a different amount of statistics, for each possible
-    // subnode one, 2 for binary trees
-    stats_ = new ThreadLocal[2];
-    for (int i = 0; i < stats_.length; ++i) stats_[i] = new ThreadLocal<Statistic>();
-  }
-
-  private void freeStatistics() { stats_ = null; } // so that they can be GCed
-
-  // TODO this has to change a lot, only a temp working version
-  private Statistic getOrCreateStatistic(int index, Data data) {
+  private Statistic getStatistic(int index, Data data) {
     Statistic result = stats_[index].get();
     if( result==null ) {
-      switch (_type) {
-      case GINI:    result = new    GiniStatistic(data,_features, _seed);  break;
-      case ENTROPY: result = new EntropyStatistic(data,_features, _seed);  break;
-      default:      throw new Error("Unknown tree type to build the statistic. ");
-      }
+      result  = _type == StatType.GINI ? 
+          new GiniStatistic   (data,_features, _seed) :
+          new EntropyStatistic(data,_features, _seed); 
       stats_[index].set(result);
     }
     result.reset(data);
@@ -85,10 +80,9 @@ public class Tree extends CountedCompleter {
 
   // Actually build the tree
   public void compute() {
-    createStatistics();
-    // build the tree
-    // first get the statistic so that it can be reused
-    Statistic left = getOrCreateStatistic(0,_data);
+    stats_[0] = new ThreadLocal<Statistic>();
+    stats_[1] = new ThreadLocal<Statistic>();
+    Statistic left = getStatistic(0,_data);
     // calculate the split
     for( Row r : _data ) left.add(r);
     Statistic.Split spl = left.split(_data);
@@ -101,7 +95,7 @@ public class Tree extends CountedCompleter {
     sb.append(" leaves=").append(_tree.leaves()).append("  ");
     sb = _tree.toString(sb,150);
     System.out.println(sb.toString());
-    freeStatistics();
+    stats_ = null; // GC
     tryComplete();
   }
 
@@ -111,17 +105,16 @@ public class Tree extends CountedCompleter {
     final int depth_;
 
     FJBuild(Statistic.Split split, Data data, int depth) {
-      this.split_ = split;
-      this.data_ = data;
-      this.depth_ = depth;
+      split_ = split;  data_ = data; depth_ = depth;
     }
 
     @Override public INode compute() {
-      Statistic left = getOrCreateStatistic(0,data_); // first get the statistics
-      Statistic rite = getOrCreateStatistic(1,data_);
+      Statistic left = getStatistic(0,data_); // first get the statistics
+      Statistic rite = getStatistic(1,data_);
       Data[] res = new Data[2]; // create the data, node and filter the data
-      SplitNode nd = split_.isExclusion() ? new ExclusionNode(split_._column, split_._split, data_.data_) :
-        new SplitNode(split_._column, split_._split, data_.data_);
+      SplitNode nd = split_.isExclusion() ? 
+        new ExclusionNode(split_._column, split_._split, data_.data_) :
+        new SplitNode    (split_._column, split_._split, data_.data_);
       data_.filter(nd,res,left,rite);
 
       FJBuild fj0 = null, fj1 = null;
