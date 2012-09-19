@@ -3,7 +3,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
-
 /**
  * Utility for processing command
  *
@@ -61,7 +60,7 @@ public class Arguments {
             else if( cl == Long.TYPE )  r+=" -"+name+"="+field.getLong(this);
             else continue;
           } else if( cl == String.class )
-            r+=" -"+name+"="+field.get(this);
+            if (field.get(this)!=null) r+=" -"+name+"="+field.get(this);
         }catch( Exception e ){  System.err.println("Argument failed with "+e); }
       }
       return r;
