@@ -1,7 +1,5 @@
 package water.serialization;
 
-import init.Loader;
-
 import java.lang.instrument.*;
 import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
@@ -23,7 +21,7 @@ public class RTClassFileTransformer implements ClassFileTransformer {
       Class<?> redefiningClass, ProtectionDomain domain, byte[] bytes)
           throws IllegalClassFormatException {
     try {
-      Class<?> weaver = Class.forName("water.serialization.RTWeaver", true, Loader.instance());
+      Class<?> weaver = Class.forName("water.serialization.RTWeaver");
       Method transform = weaver.getMethod("transform", ClassLoader.class, String.class, byte[].class);
       return (byte[]) transform.invoke(null, loader, className, bytes);
     } catch (Throwable t) {

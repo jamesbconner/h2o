@@ -1,4 +1,4 @@
-Main-Class: init.init
+Main-Class: init.Init
 Premain-Class: weaver.RemoteRunnableClassFileTransformer
 Agent-Class: water.serialization.RTClassFileTransformer
 Can-Redefine-Classes: true

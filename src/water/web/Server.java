@@ -1,16 +1,19 @@
 package water.web;
 
-import init.Loader;
+import init.Init;
 
 import java.io.*;
 import java.util.HashMap;
 import java.util.Properties;
-
-import com.google.gson.JsonElement;
+import java.util.concurrent.ConcurrentMap;
 
 import water.H2O;
 import water.NanoHTTPD;
 import water.web.Page.PageError;
+
+import com.google.common.collect.Maps;
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -126,54 +129,22 @@ public class Server extends NanoHTTPD {
 
   // Resource loading ----------------------------------------------------------
 
-  // a shortcut to the loader
-  private Loader _loader = Loader.instance();
-
   // cache of all loaded resources
-  private HashMap<String,byte[]> _cache = new HashMap();
-
-  // reads the given stream to the memory and returns its contents as a byte
-  // array
-  private byte[] readStreamToBytes(InputStream is) {
-    if (is==null)
-      return null;
-    try {
-      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-      int n;
-      byte[] data = new byte[4096];
-      while ((n = is.read(data, 0, data.length)) != -1) {
-        buffer.write(data, 0, n);
-      }
-      buffer.flush();
-      return buffer.toByteArray();
-    } catch (IOException e) {
-      return null;
-    } finally {
-      try {
-        is.close();
-      } catch (IOException e) {
-        // pass
-      }
-    }
-  }
+  private ConcurrentMap<String,byte[]> _cache = Maps.newConcurrentMap();
 
   // Returns the response containing the given uri with the appropriate mime
   // type.
   private Response getResource(String uri) {
     byte[] bytes = _cache.get(uri);
     if (bytes == null) {
-      if (_loader.runningFromJar()) {
-        InputStream is = _loader.getResourceAsStream("resources"+uri);
-        bytes = readStreamToBytes(is);
-      } else { // to allow us to read things not only from the loader
+      InputStream resource = Init._init.getResource(uri);
+      if (resource != null) {
         try {
-          InputStream is = new FileInputStream(new File("lib/resources"+uri));
-          bytes = readStreamToBytes(is);
-        } catch (FileNotFoundException e) {
-          // pass
-        }
+          bytes = ByteStreams.toByteArray(resource);
+        } catch( IOException e ) { }
+        _cache.put(uri,bytes);
       }
-      _cache.put(uri,bytes);
+      Closeables.closeQuietly(resource);
     }
     if (bytes==null)
       return http404(uri);
