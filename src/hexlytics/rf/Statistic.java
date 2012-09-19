@@ -71,6 +71,7 @@ public abstract class Statistic {
     }
   }
 
+
   /** Aggregates the given column's distribution to the provided array and
    * returns the sum of weights of that array.  */
   protected final int aggregateColumn(int colIndex, int[] dist) {

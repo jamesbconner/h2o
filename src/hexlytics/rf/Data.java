@@ -1,8 +1,13 @@
 package hexlytics.rf;
 
 import hexlytics.rf.Data.Row;
+import hexlytics.rf.Tree.SplitNode;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Random;
+import java.util.Set;
 
 import com.google.common.primitives.Ints;
 
@@ -54,34 +59,15 @@ public class Data implements Iterable<Row> {
     public Row next() { _r.index = permute(_pos++); return _r; }
     public void remove() { throw new Error("Unsupported"); }
   }
-  
-  public void filter(int column, int split, Data[] result, Statistic ls, Statistic rs) {
-    final Row row = new Row();
-    int[] permutation = getPermutationArray();
-    int l = start(), r = end() - 1;
-    while (l <= r) {
-      int permIdx = row.index = permutation[l];
-      if (row.getColumnClass(column) <= split) {
-        ls.add(row);
-        ++l;
-      } else {
-        rs.add(row);
-        permutation[l] = permutation[r];
-        permutation[r--] = permIdx;
-      }
-    }
-    assert r+1 == l;
-    result[0]= new Subset(this, permutation, start(), l);
-    result[1]= new Subset(this, permutation, l,   end());
-  }
+ 
+  public void filter(SplitNode node, Data[] result, Statistic ls, Statistic rs) {
 
-  public void filterExclude(int column, int split, Data[] result, Statistic ls, Statistic rs) {
     final Row row = new Row();
     int[] permutation = getPermutationArray();
     int l = start(), r = end() - 1;
     while (l <= r) {
       int permIdx = row.index = permutation[l];
-      if (row.getColumnClass(column) == split) {
+      if (node.isIn(row)) {
         ls.add(row);
         ++l;
       } else {

@@ -120,14 +120,9 @@ public class Tree extends CountedCompleter {
       Statistic left = getOrCreateStatistic(0,data_); // first get the statistics
       Statistic rite = getOrCreateStatistic(1,data_);
       Data[] res = new Data[2]; // create the data, node and filter the data
-      SplitNode nd;
-      if (split_.isExclusion()) {
-        nd = new ExclusionNode(split_._column, split_._split, data_.data_);
-        data_.filterExclude(nd._column, nd._split,res,left,rite);
-      } else {
-        nd = new SplitNode(split_._column, split_._split, data_.data_);
-        data_.filter      (nd._column, nd._split,res,left,rite);
-      }
+      SplitNode nd = split_.isExclusion() ? new ExclusionNode(split_._column, split_._split, data_.data_) :
+        new SplitNode(split_._column, split_._split, data_.data_);
+      data_.filter(nd,res,left,rite);
 
       FJBuild fj0 = null, fj1 = null;
       Statistic.Split ls = left.split(data_); // get the splits
@@ -292,6 +287,7 @@ public class Tree extends CountedCompleter {
       // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
       return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
+    public boolean isIn(Row row) {  return row.getColumnClass(_column) <= _split; }
   }
 
   /** Node that classifies one column category to the left and the others to the
@@ -329,6 +325,7 @@ public class Tree extends CountedCompleter {
       _l.write(bs);
       _r.write(bs);
     }
+    public boolean isIn(Row row) {  return row.getColumnClass(_column) == _split; }
   }
 
   public int classify(Row r) { return _tree.classify(r); }
