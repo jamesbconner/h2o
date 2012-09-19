@@ -93,12 +93,13 @@ function test_py() {
     echo "Running junit tests..."
     python py/junit.py
 }
+
 clean
-if [ $1 = "clean" ]; then exit 0; fi
+if [ "$1" = "clean" ]; then exit 0; fi
 build_classes
-if [ $1 = "compile" ]; then exit 0; fi
+if [ "$1" = "compile" ]; then exit 0; fi
 build_h2o_jar
 build_initializer
 build_jar
-if [ $1 = "build" ]; then exit 0; fi
+if [ "$1" = "build" ]; then exit 0; fi
 test_py
