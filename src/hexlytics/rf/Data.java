@@ -17,13 +17,12 @@ public class Data implements Iterable<Row> {
     int index;
     public String toString() {
       StringBuilder sb = new StringBuilder();
-      sb.append(index);
-      sb.append(" ["+classOf()+"]:");
+      sb.append(index).append(" ["+classOf()+"]:");
       for( int i = 0; i < data_.columns(); ++i ) sb.append(" "+getS(i));
       return sb.toString();
     }
-    public int numClasses() { return classes(); }
-    public int classOf() { return  data_.classOf(index); }
+    public int numClasses()    { return classes(); }
+    public int classOf()       { return  data_.classOf(index); }
     public float getF(int col) { return data_.getF(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
 

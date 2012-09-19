@@ -224,7 +224,7 @@ public class H extends TFloatShortHash {
    */
   public TFloatShortHash( int initialCapacity ) {
       super( initialCapacity );
-      no_entry_key = ( float ) 0;
+      no_entry_key = 0;
       no_entry_value = ( short ) 0;
   }
 
@@ -264,7 +264,7 @@ public class H extends TFloatShortHash {
    * @return the index of <tt>val</tt> or -1 if it isn't in the set.
    */
   protected int index( float key ) {
-      int hash, probe, index, length;
+      int hash, index, length;
 
       final byte[] states = _states;
       final float[] set = _set;

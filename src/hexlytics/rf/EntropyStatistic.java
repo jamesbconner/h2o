@@ -1,6 +1,5 @@
  package hexlytics.rf;
 
-import java.util.Arrays;
 
 /** This is an entropy statistic calculation. 
  * 
@@ -68,10 +67,8 @@ class EntropyStatistic extends Statistic {
     double maxReduction = -1;
     int bestSplit = -1;
     for (int i = 0; i < _columnDists[colIndex].length; ++i) {
-      double eLeft = 0;
-      int totLeft = 0;
-      int totRight = 0;
-      double eRight = 0;
+      double eLeft = 0, eRight = 0;
+      int totLeft = 0, totRight = 0;
       for (int j = 0; j < leftDist.length; ++j) {
         int v = _columnDists[colIndex][i][j];
         riteDist[j] += leftDist[j];
@@ -96,5 +93,4 @@ class EntropyStatistic extends Statistic {
       ? Split.impossible(Utils.maxIndex(dist,random))
       : Split.exclusion(colIndex,bestSplit,maxReduction);
   } 
-  
 } 
