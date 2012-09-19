@@ -286,6 +286,7 @@ public final class H2O {
     public String hdfs_config;        // configuration file of the HDFS
     public String hdfs_datanode;      // Datanode root
     public String nosigar;            // Disable Sigar-based statistics
+    public String keepice;            // Do not delete ice on startup
   }
   public static boolean IS_SYSTEM_RUNNING = false;
 

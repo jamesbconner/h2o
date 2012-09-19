@@ -28,7 +28,16 @@ public abstract class PersistIce {
     iceRoot = new File(ROOT+File.separator+ICE_DIR+H2O.WEB_PORT);
     // Make the directory as-needed
     iceRoot.mkdirs();
-    initializeFilesFromFolder(iceRoot);
+    // By popular demand, clear out ICE on startup instead of trying to preserve it
+    if( H2O.OPT_ARGS.keepice == null )  cleanIce(iceRoot);
+    else initializeFilesFromFolder(iceRoot);
+  }
+
+  // Clear the ICE directory
+  public static void cleanIce(File dir) {
+    for( File f : dir.listFiles() )
+      if( f.isDirectory() ) cleanIce(f); 
+      else f.delete();
   }
 
   // Initializes Key/Value pairs for files on the local disk.
