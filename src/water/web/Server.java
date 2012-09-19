@@ -1,6 +1,6 @@
 package water.web;
 
-import init.Init;
+import init.Boot;
 
 import java.io.*;
 import java.util.HashMap;
@@ -137,7 +137,7 @@ public class Server extends NanoHTTPD {
   private Response getResource(String uri) {
     byte[] bytes = _cache.get(uri);
     if (bytes == null) {
-      InputStream resource = Init._init.getResource(uri);
+      InputStream resource = Boot._init.getResource(uri);
       if (resource != null) {
         try {
           bytes = ByteStreams.toByteArray(resource);

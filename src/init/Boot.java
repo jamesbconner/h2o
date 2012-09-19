@@ -20,10 +20,10 @@ import java.util.zip.ZipFile;
  * Does nothing if the H2O is not run from a jar archive. (This *is* a feature,
  * at least for the time being so that we can continue using different IDEs).
  */
-public class Init {
+public class Boot {
   public static void main(String[] args) {
     try {
-      _init = new Init();
+      _init = new Boot();
       if( _init._h2oJar != null ) {
         _init.extractInternalFiles();
 
@@ -56,7 +56,7 @@ public class Init {
     }
   }
 
-  public static Init _init;
+  public static Boot _init;
 
   private final URLClassLoader _systemLoader;
   private final Method _addUrl;
@@ -64,7 +64,7 @@ public class Init {
   private final File _parentDir;
   File _binlib;
 
-  public Init() throws NoSuchMethodException, SecurityException {
+  public Boot() throws NoSuchMethodException, SecurityException {
     _systemLoader = (URLClassLoader) ClassLoader.getSystemClassLoader();
     _addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
     _addUrl.setAccessible(true);
