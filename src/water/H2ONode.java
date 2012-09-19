@@ -44,7 +44,7 @@ public class H2ONode implements Comparable {
     static int wire_len() { return 4/*IP4 only*/+2/*port#*/; }
     int write( byte[] buf, int off ) {
       byte[] ip = _inet.getAddress();
-      if( ip.length != 4 ) throw new Error("unimplemented: ipv6 wire line protocol");
+      if( ip.length != 4 ) throw H2O.unimpl(); // ipv6 wire line protocol
       System.arraycopy(ip,0,buf,off,4);
       off += 4;
       buf[off++] = (byte)(_port>>0);
@@ -151,7 +151,7 @@ public class H2ONode implements Comparable {
       try{  arg = InetAddress.getByName(H2O.OPT_ARGS.ip); 
       } catch( UnknownHostException e ){ Log.die(e.toString()); }
       if( !(arg instanceof Inet4Address) ) Log.die("Only IP4 addresses allowed.");
-      for( InetAddress ip : ips ){ // Do a check to make sure the given IP                                  
+      for( InetAddress ip : ips ){ // Do a check to make sure the given IP
         if( ip.equals(arg) ){  // address refers can be found here
           local = arg; // Found it, so its a valid user-specified argument
           break;

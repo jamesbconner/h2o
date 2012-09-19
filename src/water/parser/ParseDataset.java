@@ -521,7 +521,7 @@ public final class ParseDataset {
       for( int i=0; i<_num_cols; i++ )
         _cols_domains[i] = new ColumnDomain();      
       // The parser
-      if( _parseType == PARSE_SVMLIGHT ) throw new Error("SVMLIGHT is unimplemented");
+      if( _parseType == PARSE_SVMLIGHT ) throw H2O.unimpl(); // SVMLIGHT
       SeparatedValueParser csv = new SeparatedValueParser(key, 
           _parseType == PARSE_COMMASEP ? ',' : ' ', _cols.length, _cols_domains);
 

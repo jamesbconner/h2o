@@ -57,13 +57,13 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   // 'Pack' a UDP packet, by default.  Override this if you want to use a more
   // clever encoding.  By default Serialize the 'args' array.
   protected int pack( DatagramPacket pack ) {
-    throw new Error("unimplemented: pack that UDP buffer from _args");
+    throw H2O.unimpl();           // pack that UDP buffer from _args
   }
 
   // 'Unpack' a UDP reply packet.  Override this if you want to use a more
   // clever result.  By default de-serialize a 'V' from the packet
   protected V unpack(DatagramPacket pack) {
-    throw new Error("unimplemented: unpack that UDP buffer into a V");
+    throw H2O.unimpl();           // unpack that UDP buffer into a V
   }
 
   // Hit the Timeout.  Mostly just auto-resend packet.  Can be overridden if
@@ -142,7 +142,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     synchronized(this) {
       while( !isDone() ) {
         // Wait until we get an answer.
-        throw new Error("unimplemented");
+        throw H2O.unimpl();
         //try { wait(); } catch( InterruptedException e ) { }
       }
     }
@@ -255,7 +255,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
         } else if( arg instanceof Byte ) {
           dos.writeByte((Byte)arg);
         } else {
-          throw new Error("unimplemented passing a "+(arg.getClass()));
+          throw H2O.unimpl(); // passing a arg.getClass()
         }
       }
 

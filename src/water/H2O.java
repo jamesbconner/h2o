@@ -18,7 +18,7 @@ public final class H2O {
 
   static boolean _hdfsActive = false;
 
-  static final String version = "v0.3";
+  static final String VERSION = "v0.3";
 
   // User name for this Cloud
   public static String NAME;
@@ -41,6 +41,9 @@ public final class H2O {
 
   public static final PrintStream OUT = System.out;
   public static final PrintStream ERR = System.err;
+
+  // Convenience error
+  public static final RuntimeException unimpl() { return new RuntimeException("unimplemented"); }
 
   // --------------------------------------------------------------------------
   // The Current Cloud.  A list of all the Nodes in the Cloud.  Changes if we
@@ -390,7 +393,7 @@ public final class H2O {
     // Sleep a bit so all my other threads can 'catch up'
     try { Thread.sleep(1000); } catch( InterruptedException e ) { }
 
-    System.out.println("The Cloud '"+NAME+"' is Up ("+version+") on " + SELF+
+    System.out.println("The Cloud '"+NAME+"' is Up ("+VERSION+") on " + SELF+
                        (MULTICAST_ENABLED
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
                         : ", static configuration based on -flatfile "+FLAT_FILE));

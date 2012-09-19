@@ -193,7 +193,7 @@ public class Confusion extends MRTask {
   }
 
   public String toString() {
-    throw new Error("unimplemented");
+    throw H2O.unimpl();
   }
 
   // Write the Confusion to a random Key

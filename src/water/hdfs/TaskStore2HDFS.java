@@ -4,17 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-
-import water.Atomic;
-import water.DKV;
-import water.Key;
-import water.PersistNFS;
-import water.RemoteTask;
-import water.TaskRemExec;
-import water.UDP;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
 
@@ -101,7 +91,7 @@ public class TaskStore2HDFS extends RemoteTask {
     case Value.HDFS:
       throw new Error("attempting to move file from hdfs to hdfs?");
     default:
-      throw new Error("unimplemented");      
+      throw H2O.unimpl();
     }    
     // just to be sure
     if(kb.length >= prefixLen + 7

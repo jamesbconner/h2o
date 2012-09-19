@@ -162,7 +162,7 @@ public class Value {
     case ICE : PersistIce .file_store(this); break;
     case HDFS: PersistHdfs.file_store(this); break;
     case NFS : PersistNFS .file_store(this); break;
-    default  : throw new Error("unimplemented");
+    default  : throw H2O.unimpl();
     }
   }
   // Remove dead Values from disk
@@ -175,7 +175,7 @@ public class Value {
     case ICE : PersistIce .file_delete(this); break;
     case HDFS: PersistHdfs.file_delete(this); break;
     case NFS : PersistNFS .file_delete(this); break;
-    default  : throw new Error("unimplemented");
+    default  : throw H2O.unimpl();
     }
   }
   // Load some or all of completely persisted Values
@@ -185,19 +185,19 @@ public class Value {
     case ICE : return PersistIce .file_load(this,len);
     case HDFS: return PersistHdfs.file_load(this,len);
     case NFS : return PersistNFS .file_load(this,len);
-    default  : throw new Error("unimplemented");
+    default  : throw H2O.unimpl();
     }
   }
+
   public String name_persist() {
     switch( _persist&BACKEND_MASK ) {
     case ICE : return "ICE";
     case HDFS: return "HDFS";
     case S3  : return "S3";
     case NFS : return "NFS";
-    default  : throw new Error("unimplemented");
+    default  : throw H2O.unimpl();
     }
   }
-
 
   // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray.
   // Probably should be moved into HDFS-land, except that the same logic applies
@@ -213,7 +213,7 @@ public class Value {
                return PersistIce .lazy_array_chunk(key);
     case HDFS: return PersistHdfs.lazy_array_chunk(key);
     case NFS : return PersistNFS .lazy_array_chunk(key);
-    default  : throw new Error("unimplemented");
+    default  : throw H2O.unimpl();
     }
   }
 
@@ -439,7 +439,7 @@ public class Value {
       case ICE : PersistIce .file_delete(this); break;
       case HDFS: assert(false); PersistHdfs.file_delete(this); break;
       case NFS : PersistNFS .file_delete(this); break;
-      default  : throw new Error("unimplemented");
+      default  : throw H2O.unimpl();
       }
     _key.invalidate_remote_caches();
   }

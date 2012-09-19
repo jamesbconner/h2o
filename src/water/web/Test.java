@@ -10,7 +10,7 @@ import water.*;
 public class Test extends H2OPage {
  
   public static String run_test(String test) {
-    throw new Error("unimplemented: nice idea but needs to use JUnit");
+    throw H2O.unimpl(); // nice idea but needs to use JUnit
     //try {
     //  Log.buffer_sys_out_err();
     //  DKV.remove(Driver.ERRKEY);

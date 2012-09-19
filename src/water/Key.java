@@ -371,8 +371,8 @@ public final class Key implements Comparable {
     assert home();   // Only home node tracks mem replicas & issue invalidates
     long d = _mem_replicas;
     _mem_replicas = 0;          // Needs to be atomic!!
-    if( cache_has_overflowed(d) ) 
-      throw new Error("unimplemented: bulk invalidate for key="+this);
+    if( cache_has_overflowed(d) )
+      throw H2O.unimpl(); // bulk invalidate for key=this
     if( d == 0 ) return;
     TaskPutKey[] tpks = new TaskPutKey[8]; // Collect all the pending invalidates
     int i=0;

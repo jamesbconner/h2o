@@ -1,12 +1,9 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.hdfs;
 
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
+import water.H2O;
 import water.Key;
 import water.UDP;
 
@@ -55,13 +52,13 @@ public class BlockInfo {
   public BlockInfo(byte[] buffer, int offset) {
     length = readLength(buffer,offset);
     genStamp = readGenStamp(buffer,offset);
-    throw new Error("unimplemented");
+    throw H2O.unimpl();
     //replicas = Key.readReplicaRecord(buffer, offset+16);
     //bid = readBid(buffer,offset);
   }
   
   public void store(byte[] buffer, int offset) {
-    throw new Error("unimplemented");
+    throw H2O.unimpl();
     //byte[] r = (replicas==null) ? Key.makeReplicaRecord(new InetAddress[0]) : Key.makeReplicaRecord(replicas);
     //assert (buffer.length>=offset+72);
     //UDP.set8(buffer,offset,length);

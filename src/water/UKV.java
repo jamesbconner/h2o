@@ -54,7 +54,7 @@ public abstract class UKV {
       Value vchunk0 = UKV.get(k2,len);
       assert vchunk0 != null : "missed looking for key "+k2+" from "+key;
       if( len > vchunk0._max && len > ValueArray.chunk_size())
-        throw new Error("unimplemented: users should get a polite error if they attempt to fetch all of a giant value; users should chunk when fetching "+key+" and "+len+" bytes, found "+k2+" of len "+vchunk0._max);
+        throw H2O.unimpl(); // "users should get a polite error if they attempt to fetch all of a giant value; users should chunk when fetching "+key+" and "+len+" bytes, found "+k2+" of len "+vchunk0._max);
       return vchunk0;           // Else just get the prefix asked for
     }
     return val;
