@@ -67,7 +67,7 @@ public abstract class Paxos {
 
   // ---
   // This is a packet announcing what Cloud this Node thinks is the current
-  // Cloud.  Buf is freed when done.
+  // Cloud.
   static synchronized void do_heartbeat( H2ONode h2o ) {
     // If this packet is for *this* Cloud, just carry on (the heartbeat has
     // already been recorded.
@@ -81,7 +81,7 @@ public abstract class Paxos {
     print_debug("hart: mismatched cloud announcement",h2o);
 
     // If this dude is supposed to be *in* our Cloud then maybe it's a slow or
-    // delayed heartbeat packet, or maybe he's missed the Accepted annoucement.
+    // delayed heartbeat packet, or maybe he's missed the Accepted announcement.
     // In either case, pound the news into his head.
     if( cloud._memset.contains(h2o) ) {
       if( H2O.isIDFromPrevCloud(h2o) ) {
@@ -91,19 +91,18 @@ public abstract class Paxos {
         UDPPaxosAccepted.build_and_multicast(BUF);
         return;
       } else {
-        // Trigger new round of Paxos voting 
+        // Trigger new round of Paxos voting: remove this guy from our cloud
+        // (since he thinks he does not belong), and try again.
         PROPOSED_MEMBERS.remove(h2o);
-        do_change_announcement(cloud);
-        return;
       }
+    } else {
+      // Got a heartbeat from some dude not in the Cloud.  Probably napping
+      // Node woke up and hasn't yet smelled the roses (i.e., isn't aware the
+      // Cloud shifted and kicked him out).  Could be a late heartbeat from
+      // him.  Offer to vote him back in.
+      if( !PROPOSED_MEMBERS.add(h2o) )
+        print_debug("hart: already part of proposal",PROPOSED_MEMBERS);
     }
-
-    // Got a heartbeat from some dude not in the Cloud.  Probably napping Node
-    // woke up and hasn't yet smelled the roses (i.e., isn't aware the Cloud
-    // shifted and kicked him out).  Could be a late heartbeat from him.  Offer
-    // to vote him back in.
-    if( !PROPOSED_MEMBERS.add(h2o) )
-      print_debug("hart: already part of proposal",PROPOSED_MEMBERS);
 
     // Trigger a Paxos proposal because there is somebody new, or somebody old
     do_change_announcement(cloud);
@@ -345,7 +344,7 @@ public abstract class Paxos {
     return print_debug("send: Accepted from leader only",PROPOSED_MEMBERS,buf);
   }
 
-  // Recieved an Accepted packet the Leader after he hit Quorum.
+  // Recieved an Accepted packet from the Leader after he hit Quorum.
   // Setup a new Cloud.  Buf is freed when done.
   static synchronized int do_accepted( byte[] buf, H2ONode h2o ) {
     // Record most recent ping time from sender
