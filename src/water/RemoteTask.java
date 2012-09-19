@@ -25,10 +25,4 @@ public abstract class RemoteTask extends CountedCompleter {
     ex.printStackTrace();
     return true;
   }
-
-  // By default, return the full user result.  But some jobs are "fire and
-  // forget" and we do not want any result - this is a shortcut so the user
-  // does not have to make the wire_len read/write fields be lopsided (i.e.
-  // send-only, since by default they are send/recieve).
-  protected boolean void_result() { return false; }
 }

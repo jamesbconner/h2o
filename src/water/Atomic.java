@@ -81,7 +81,4 @@ public abstract class Atomic extends RemoteTask {
       // and retry
     }
   }
-
-  // By default, return no result from the Atomic operation
-  protected boolean void_result() { return true; }
 }
