@@ -37,7 +37,7 @@ public class RandomForest {
     try {
       // Submit all trees for work
       for( int i=0; i<ntrees; i++ ) {
-        H2O.FJP_NORM.submit(_trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
+        H2O.FJP_NORM.submit(_trees[i] = new Tree((Data)_data.clone(),maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
         if( singlethreaded ) _trees[i].get();
       }
       // Block until all trees are built

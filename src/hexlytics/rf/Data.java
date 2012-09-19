@@ -40,13 +40,12 @@ public class Data implements Iterable<Row> {
 
   protected Data(DataAdapter da) { data_ = da; }
 
-
-  protected int start()            { return 0;                            }
-  protected int end()              { return data_.rows();                 }
-  public int rows()                { return end() - start();              }
-  public int columns()             { return data_.columns() -1 ; } // -1 to remove class column
-  public int classes()             { return data_.classes();              }
-  public int seed()                { return data_.seed();                 }
+  protected int start()          { return 0;                   }
+  protected int end()            { return data_.rows();        }
+  public int rows()              { return end() - start();     }
+  public int columns()           { return data_.columns() -1 ; } // -1 to remove class column
+  public int classes()           { return data_.classes();     }
+  public int seed()              { return data_.seed();        }
   
   public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
 
@@ -54,14 +53,13 @@ public class Data implements Iterable<Row> {
   private class RowIter implements Iterator<Row> {
     final Row _r = new Row();
     int _pos = 0; final int _end;
-    public RowIter(int start, int end) { _pos = start; _end = end; }
-    public boolean hasNext() { return _pos < _end; }
-    public Row next() { _r.index = permute(_pos++); return _r; }
-    public void remove() { throw new Error("Unsupported"); }
+    public RowIter(int start, int end) { _pos = start; _end = end;       }
+    public boolean hasNext()           { return _pos < _end;             }
+    public Row next()                  { _r.index = permute(_pos++); return _r; }
+    public void remove()               { throw new Error("Unsupported"); }
   }
  
   public void filter(SplitNode node, Data[] result, Statistic ls, Statistic rs) {
-
     final Row row = new Row();
     int[] permutation = getPermutationArray();
     int l = start(), r = end() - 1;
@@ -91,6 +89,7 @@ public class Data implements Iterable<Row> {
   }
 
   public Data complement(Data parent) { throw new Error("Only for subsets."); }
+  @Override public    Object clone()  { return this; }
 
   protected int permute(int idx) { return idx; }
   protected int[] getPermutationArray() {
@@ -108,6 +107,7 @@ class Subset extends Data {
   @Override protected int permute(int idx)        { return _permutation[idx]; }
   @Override protected int start()                 { return _start;            }
   @Override protected int end()                   { return _end;              }
+  @Override public    Object clone()              { return new Subset(this,_permutation.clone(),_start,_end); }
   
   /** Creates new subset of the given data adapter. The permutation is an array
    * of original row indices of the DataAdapter object that will be used.  */
