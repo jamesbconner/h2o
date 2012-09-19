@@ -26,7 +26,7 @@ public class MultiReceiverThread extends Thread {
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
     // No multicast?  Then do not bother with listening for them
-    if( !H2O.MULTICAST_ENABLED ) return;
+    if( H2O.STATIC_H2OS != null ) return;
 
     MulticastSocket sock = null, errsock = null;
     InetAddress group = null, errgroup = null;

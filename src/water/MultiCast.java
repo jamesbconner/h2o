@@ -59,18 +59,22 @@ public abstract class MultiCast {
   // Write 'buf' out to the default H2O multicast port as a single packet.
   static int multicast( byte[] buf ) { return multicast(buf,0,buf.length); }
   static int multicast( byte[] buf, int off, int len ) {  
-    if( H2O.MULTICAST_ENABLED ) {
+    if( H2O.STATIC_H2OS == null ) {
       return send(H2O.CLOUD_MULTICAST_GROUP,H2O.CLOUD_MULTICAST_PORT,buf,off,len);
     } else {
-      // The multicast simulation is little bit tricky. To achieve union of all 
-      // specified nodes' flatfiles (via option -flatfile), the simulated multicast 
-      // has to send packets not only to nodes listed in the node's flatfile (H2O.STATIC_CONF_NODES),
-      // but also to all cloud members (they do not need to be specified in THIS node's flatfile but
-      // can be part of cloud due to another node's flatfile).
-      // Furthermore, the packet have to be send also to Paxos proposed members to achieve correct functionality 
-      // of Paxos. Typical situation is when this node receives a Paxos heartbeat packet from a node which is not listed in the node's 
-      // flatfile -- it means that this node is listed in another node's flatfile (and wants to create a cloud). Hence, to allow cloud 
-      // creation, this node has to reply.
+      // The multicast simulation is little bit tricky. To achieve union of all
+      // specified nodes' flatfiles (via option -flatfile), the simulated
+      // multicast has to send packets not only to nodes listed in the node's
+      // flatfile (H2O.STATIC_H2OS), but also to all cloud members (they do not
+      // need to be specified in THIS node's flatfile but can be part of cloud
+      // due to another node's flatfile).
+      //
+      // Furthermore, the packet have to be send also to Paxos proposed members
+      // to achieve correct functionality of Paxos.  Typical situation is when
+      // this node receives a Paxos heartbeat packet from a node which is not
+      // listed in the node's flatfile -- it means that this node is listed in
+      // another node's flatfile (and wants to create a cloud).  Hence, to
+      // allow cloud creation, this node has to reply.
       //
       // Typical example is:
       //    node A: flatfile (B)
@@ -79,9 +83,9 @@ public abstract class MultiCast {
       //    Cloud configuration: (A, B, C)
       //      
    
-      // Hideous O(n) algorithm for broadcast - avoid the memory allocation in this method (since it is heavily used)
-      HashSet<H2ONode> nodes = new HashSet<H2ONode>();
-      nodes.addAll(H2O.STATIC_CONF_NODES);
+      // Hideous O(n) algorithm for broadcast - avoid the memory allocation in
+      // this method (since it is heavily used)
+      HashSet<H2ONode> nodes = (HashSet<H2ONode>)H2O.STATIC_H2OS.clone();
       nodes.addAll(H2O.CLOUD._memset);
       nodes.addAll(Paxos.PROPOSED_MEMBERS);      
       for( H2ONode h2o : nodes ) {        

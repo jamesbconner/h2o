@@ -74,14 +74,8 @@ public final class H2O {
     return ((nnn-old)&0xFF) < 64;
   }
 
-  // A Set version of the static configuration InetAddress.
-  static ArrayList<H2ONode> STATIC_CONF_NODES = new ArrayList<H2ONode>();
-  // Multicast is on by default (implies that static configuration is disabled)
-  static boolean MULTICAST_ENABLED = true;
-  // File name with static configuration.
-  static String FLAT_FILE = null;
-  // Static configuration is disabled by default (if enabled, multicast has to be disabled).
-  static boolean STATIC_CONF_ENABLED = false;
+  // Static list of acceptable Cloud members
+  static HashSet<H2ONode> STATIC_H2OS = null;
 
   // Reverse cloud index to a cloud; limit of 256 old clouds.
   static private final H2O[] CLOUDS = new H2O[256];
@@ -315,6 +309,7 @@ public final class H2O {
     startLocalNode();     // start the local node
     // Load up from disk and initialize the persistence layer
     initializePersistence();
+    // Start network services, including heartbeats & Paxos
     startNetworkServices();  // start server services
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
@@ -330,10 +325,12 @@ public final class H2O {
    */
   private static void startLocalNode() {
     set_cloud_name_and_mcast();
+    // Figure self out; this is surprisingly hard
     SELF = H2ONode.self();
-    // Do not forget to put SELF into the static configuration (to simulate proper multicast behavior)
-    if (STATIC_CONF_ENABLED && !STATIC_CONF_NODES.contains(SELF))
-      STATIC_CONF_NODES.add(SELF);
+    // Do not forget to put SELF into the static configuration (to simulate
+    // proper multicast behavior)
+    if( STATIC_H2OS != null )
+      STATIC_H2OS.add(SELF);
 
     // Create the starter Cloud with 1 member
     HashSet<H2ONode> starter = new HashSet<H2ONode>();
@@ -394,9 +391,9 @@ public final class H2O {
     try { Thread.sleep(1000); } catch( InterruptedException e ) { }
 
     System.out.println("The Cloud '"+NAME+"' is Up ("+VERSION+") on " + SELF+
-                       (MULTICAST_ENABLED
+                       (OPT_ARGS.flatfile==null
                         ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
-                        : ", static configuration based on -flatfile "+FLAT_FILE));
+                        : ", static configuration based on -flatfile "+OPT_ARGS.flatfile));
   }
 
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
@@ -422,11 +419,8 @@ public final class H2O {
     System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
-    if (OPT_ARGS.flatfile != null) {
-      FLAT_FILE = OPT_ARGS.flatfile;
-      MULTICAST_ENABLED = false;
-      STATIC_CONF_ENABLED = true;
-    }
+    // Read a flatfile of allowed nodes
+    STATIC_H2OS = from_file(OPT_ARGS.flatfile);
 
     // Multi-cast ports are in the range E1.00.00.00 to EF.FF.FF.FF
     int hash = NAME.hashCode()&0x7fffffff;
@@ -438,38 +432,39 @@ public final class H2O {
       CLOUD_MULTICAST_GROUP = InetAddress.getByAddress(ip);
     } catch( UnknownHostException e ) { throw new Error(e); }
     CLOUD_MULTICAST_PORT = (port>>>16);
+  }
 
-    /*
-     * Static configuration has the following format:
-     *   IPv4:UDP_PORT
-     *
-     * For example:
-     *   # this is a comment
-     *   10.10.65.105:54322
-     */
-    if( STATIC_CONF_ENABLED ) {
-      BufferedReader br = null;
-      try {
-        br = new BufferedReader(new InputStreamReader(new FileInputStream(FLAT_FILE)));
-        String strLine = null;
-        while ((strLine = br.readLine()) != null)   {
-          // be user friendly and skip comments
-          if (strLine.startsWith("#")) continue;
-          final String[] ss = strLine.split("[\\s:]");
-          if( ss.length!=2 ) continue;
-          final InetAddress inet = InetAddress.getByName(ss[0]);
-          if( !(inet instanceof Inet4Address) )
-            Log.die("Only IP4 addresses allowed.");
-          try {
-            final int port2 = Integer.decode(ss[1]);
-            STATIC_CONF_NODES.add(H2ONode.intern(inet,port2));
-          } catch( NumberFormatException nfe ) {
-            Log.die("Invalid port #: "+ss[1]);
-          }
-        }
-      } catch( Exception e ) {  Log.die(e.toString()); }
-        finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
-    }
+  // Read a set of Nodes from a file.  Example:
+  //   # this is a comment
+  //   10.10.65.105:54322
+  private static HashSet<H2ONode> from_file( String fname ) {
+    if( fname == null ) return null;
+    File f = new File(fname);
+    if( !f.exists() ) return null; // No flat file
+    HashSet<H2ONode> h2os = new HashSet<H2ONode>();
+    BufferedReader br = null;
+    int port=-1;
+    try {
+      br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
+      String strLine = null;
+      while( (strLine = br.readLine()) != null) {
+        // be user friendly and skip comments
+        if (strLine.startsWith("#")) continue;
+        final String[] ss = strLine.split("[/:]");
+        if( ss.length!=3 ) 
+          Log.die("Invalid format, must be name/ip:port, not '"+strLine+"'");
+
+        final InetAddress inet = InetAddress.getByName(ss[1]);
+        if( !(inet instanceof Inet4Address) )
+          Log.die("Only IP4 addresses allowed.");
+        try {
+          port = Integer.decode(ss[2]);
+        } catch( NumberFormatException nfe ) {  Log.die("Invalid port #: "+ss[2]); }
+        h2os.add(H2ONode.intern(inet,port));
+      }
+    } catch( Exception e ) {  Log.die(e.toString()); }
+    finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
+    return h2os;
   }
 
   // Test if this port is available
