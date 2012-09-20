@@ -16,5 +16,5 @@
  '(jde-run-option-hotspot-type (quote server))
  '(jde-compile-option-target (quote ("1.6")))
  '(jde-run-option-heap-size (quote ((512 . "megabytes") (1024 . "megabytes"))))
- '(jde-run-application-class "init.init")
+ '(jde-run-application-class "init.Boot")
  '(jde-compile-option-debug (quote ("all" (t t t)))))
