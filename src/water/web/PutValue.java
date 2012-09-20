@@ -2,49 +2,53 @@ package water.web;
 
 import java.util.Properties;
 import java.util.UUID;
+
 import water.*;
 
-/**
- *
- * @author peta
- */
-public class PutValue extends H2OPage {
+import com.google.gson.JsonObject;
 
-  @Override protected String serveImpl(Server server, Properties args) {
-    String key_s = args.getProperty("Key",UUID.randomUUID().toString());
-    if (key_s.isEmpty())
-      key_s = UUID.randomUUID().toString();
-    String val_s = args.getProperty("Value");
-    int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-    if ((rf<0) || (rf>127))
-      return error("Replication factor must be from 0 to 127.");
-    Key key;
-    try { 
-      key = Key.make(key_s,(byte)rf);      // Get a Key from a raw byte array, if any
-    } catch( IllegalArgumentException e ) {
-      return error("Not a valid key: "+ key_s);
-    }
-    Value val = new Value(key, val_s);
-    // Insert in store
-    DKV.put(key,val);
-    RString response = new RString(html);
-    response.replace("key",key_s);
-    response.replace("rf",rf);
-    response.replace("vsize",val_s.length());
-    return response.toString();
-  }
-  
+public class PutValue extends H2OPage {
   @Override public String[] requiredArguments() {
     return new String[] { "Value" };
   }
-  
-  public static final String html = 
-    "<div class='alert alert-success'>"
-    + "Key <strong>%key</strong> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
-    + "</div>"
-    + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
-    + "<a href='Put'><button class='btn'>Put again</button></a>"
-    + "</p>"
-    ;
- 
+
+  @Override
+  public JsonObject serverJson(Server s, Properties p) throws PageError {
+    String keyS = p.getProperty("Key",UUID.randomUUID().toString());
+    if( keyS.isEmpty() ) keyS = UUID.randomUUID().toString();
+
+    int rf = getAsNumber(p, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+    if( rf<0 || rf>127 ) throw new PageError("Replication factor must be from 0 to 127.");
+
+    Key key;
+    try {
+      key = Key.make(keyS, (byte)rf);
+    } catch( IllegalArgumentException e ) {
+      throw new PageError("Not valid key: " + keyS);
+    }
+
+    String valS = p.getProperty("Value");
+    Value val = new Value(key, valS);
+    DKV.put(key, val);
+
+    JsonObject res = new JsonObject();
+    addProperty(res, "key",   key);
+    res.addProperty( "rf",    rf);
+    res.addProperty( "vsize", valS.length());
+    return res;
+  }
+
+  @Override protected String serveImpl(Server s, Properties p) throws PageError {
+    JsonObject json = serverJson(s, p);
+    RString response = new RString("" +
+        "<div class='alert alert-success'>" +
+        "Key <a href='Inspect?Key=%keyHref'>%key</a> has been put to the " +
+        "store with replication factor %rf, value size <strong>%vsize</strong>." +
+        "</div>" +
+        "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;" +
+        "<a href='Put'><button class='btn'>Put again</button></a>" +
+        "</p>");
+    response.replace(json);
+    return response.toString();
+  }
 }
