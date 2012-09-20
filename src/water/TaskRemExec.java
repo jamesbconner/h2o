@@ -263,4 +263,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     }
     return _dt;
   }
+
+  public T getRemoteTask() { return _dt; }
 }

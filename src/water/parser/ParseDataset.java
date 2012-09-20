@@ -11,17 +11,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
-import water.Atomic;
-import water.DKV;
-import water.DRemoteTask;
-import water.H2O;
-import water.Key;
-import water.MRTask;
-import water.MemoryManager;
-import water.UDP;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.ValueArray.Column;
 import water.parser.SeparatedValueParser.Row;
 import water.serialization.RTSerializer;
@@ -135,6 +125,22 @@ public final class ParseDataset {
     dp2._result    = result;    
 
     dp2.invoke(dataset._key);   // Parse whole dataset!
+
+    // At this point we're left with a bunch of in-flight AtomicUnions for this
+    // parse job.  They were all fired-and-forgotten, but they are not all done
+    // yet.  We basically need a write-barrier here, where we block until all
+    // pending writes are done.  So we're firing off a distributed job with the
+    // main dataset Key again, and making each Node check for pending AU tasks
+    // with this Key, and block until they are done.
+
+    // As an alternative, we could gather the AU's up as we make them, and then
+    // do some sort of bulk 'get' call on them all, blocking until they all
+    // finished.  This has the downside of keeping all these AU's alive, along
+    // with all their data until we "free" each one by down a get().
+
+    // Plan A: distributed write barrier on atomic unions
+    AUBarrier aub = new AUBarrier();
+    aub.invoke(result);
 
     // Done building the result ValueArray!
   }
@@ -860,6 +866,43 @@ public final class ParseDataset {
       }
     }
   }
+
+  // ----
+  // Distributed blocking for all the pending AUs to complete.
+  @RTSerializer(AUBarrier.Serializer.class)
+  public static class AUBarrier extends DRemoteTask {
+    public static class Serializer extends RemoteTaskSerializer<AUBarrier> {
+      // By default, nothing sent over with the function (except the target Key).
+      @Override public int  wire_len(AUBarrier a) { return 0; }
+      @Override public int  write( AUBarrier a, byte[] buf, int off ) { return off; }
+      @Override public void write( AUBarrier a, DataOutputStream dos ) throws IOException { }
+      @Override public AUBarrier read( byte[] buf, int off ) { return new AUBarrier(); }
+      @Override public AUBarrier read( DataInputStream dis ) throws IOException { return new AUBarrier(); }
+    }
+    // Basic strategy is to check all the Nodes in the cloud to see if they
+    // have any pending not-yet-completed AtomicUnions to the correct key.  If
+    // so, block until they complete.
+    public final void compute() {
+      Key abkey = _keys[0];
+      byte[] abb = ValueArray.getArrayKeyBytes(abkey);
+      for( DFutureTask dft : DFutureTask.TASKS.values() ) { // For all active tasks
+        if( dft instanceof TaskRemExec ) {                  // See if it's a TRE
+          TaskRemExec tre = (TaskRemExec)dft;
+          RemoteTask rt = tre.getRemoteTask(); // Get what is pending execution
+          if( rt instanceof DParse2.AtomicUnion ) { // See if its an AtomicUnion
+            DParse2.AtomicUnion au = (DParse2.AtomicUnion)rt;
+            Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key 
+            byte[] aub = ValueArray.getArrayKeyBytes(aukey);
+            if( Arrays.equals(abb,aub) ) // See if it matches OUR key
+              tre.get();        // Block for the AtomicUnion to complete
+          }
+        }
+      }
+      tryComplete();            // All done...
+    }
+    public void reduce( DRemoteTask drt ) { }
+  }
+
   
   // Guess 
   private static int guess_compression_method(Value dataset) {
