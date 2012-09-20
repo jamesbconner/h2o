@@ -88,7 +88,7 @@ def tear_down_cloud(nodes):
             ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
     if ex: raise ex
 
-def stabilize_cloud(node, node_count, timeoutSecs=2):
+def stabilize_cloud(node, node_count, timeoutSecs=3):
     node.stabilize('cloud auto detect', timeoutSecs,
         lambda n: n.get_cloud()['cloud_size'] == node_count)
 
