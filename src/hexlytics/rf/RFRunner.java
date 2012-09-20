@@ -4,13 +4,16 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Reader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
@@ -40,10 +43,14 @@ public class RFRunner {
   static final Pattern MEM_CRICITAL = Pattern.compile("[h20] MEMORY LEVEL CRITICAL, stopping allocations");
   static final String[] RESULTS = new String[] { "ntrees", "nvars", "err", "avg.depth", "avg.leaves", "rows", "time" };
 
+  static final String JAVA         = "java";
+  static final String JAR          = "-jar build/h2o.jar";
+  static final String MAIN         = "-mainClass hexlytics.rf.RandomForest";
   static final String[] stat_types = new String[] { "gini", "entropy" };
   static final int[] ntrees        = new int[] { 1, 50, 100, 300 };
-  static final OptArgs ARGS        = new OptArgs();  
+  static final int[] sizeMultiples = new int[]{ 1, 4, 12, 24, 32, 64};
   static PrintStream stdout        = System.out;
+
   
   static class RFArgs extends Arguments.Opt {
     String file;                // data
@@ -58,10 +65,9 @@ public class RFRunner {
     boolean singlethreaded;     // multi threaded
   }
 
-  private static class OptArgs extends Arguments.Opt {
-    String h2ojar = "build/h2o.jar";                          // path to the h2o.jar
+  static class OptArgs extends Arguments.Opt {
     String files = "smalldata/poker/poker-hand-testing.data"; // dataset
-    String fileConcats = "1,4,8,12,16,24";//,32,64";          // filesize for tests (24 is big enough)
+    int     maxConcat = 16;                                    // how big should we go?
     String rawKeys;
     String parsedKeys;
     String h2oArgs = "";                                      // args for the spawned h2o
@@ -81,16 +87,10 @@ public class RFRunner {
     PrintStream _stdout = System.out;
 
     /* Creates RFPRocess and spawns new process. */
-    RFProcess(String jarPath, String vmArgs, String h2oArgs, String rfArgs) throws Exception {
+    RFProcess(String cmd) throws Exception {
+      System.out.println("'"+cmd+"'");
       List<String> c = new ArrayList<String>();
-      c.add("java");
-      for(String s: vmArgs.split(" ")) if(!s.isEmpty()) c.add(s.startsWith("-") ? s : "-" + s);
-      if( vmArgs.contains("jar") ) throw new Error("should not contain -jar!");
-      c.add("-jar");       c.add(jarPath);
-      c.add("-mainClass"); c.add("hexlytics.rf.RandomForest");
-      for( String s : rfArgs.split(" ") ) if( !s.isEmpty() ) c.add(s);
-      if( h2oArgs != null && !h2oArgs.isEmpty() ) { c.add("-h2oArgs");  c.add(h2oArgs); }
-      String s = ""; for( String str : c )  s += str + " ";  System.out.println("'"+s+"'");
+      c.add(JAVA);  for(String s : cmd.split(" "))  { s = s.trim(); if (s.length()>0) c.add(s); }
       ProcessBuilder bldr = new ProcessBuilder(c);
       bldr.redirectErrorStream(true);
       _process = bldr.start();
@@ -154,41 +154,9 @@ public class RFRunner {
     }
     return files;
   }
-
-  static void runAllDataSizes(File f, int[] multiples, RFArgs rfa) throws Exception {
-    String fname = f.getAbsolutePath();
-    String extension = "";
-    int idx = fname.lastIndexOf('.');
-    if( idx != -1 ) {
-      extension = fname.substring(idx);
-      fname = fname.substring(0, idx);
-    }
-    File f2 = new File(fname + "_" + extension);
-    f2.createNewFile();  f2.deleteOnExit();
-    StringBuilder bldr = new StringBuilder();
-    Reader r = new FileReader(f);
-    char[] buf = new char[1024 * 1024];
-    int n = 0;
-    while( (n = r.read(buf)) > 0 ) bldr.append(buf, 0, n);
-    r.close();
-    String content = bldr.toString();
-    bldr = null;
-    int prevMultiple = 0;
-    for( int m : multiples ) {
-      FileWriter fw = new FileWriter(f2, true);
-      for( int i = prevMultiple; i != m; ++i )  fw.write(content);
-      fw.close();      
-      prevMultiple = m;
-      File frenamed = new File(fname + "_" + m + extension);
-      f2.renameTo(frenamed);
-      f2 = frenamed;
-      rfa.file = frenamed.getAbsolutePath();
-      runTest(ARGS.h2ojar, ARGS.jvmArgs, ARGS.h2oArgs, rfa.toString(), ARGS.resultDB, stdout);
-    }      
-  }
   
-  static boolean runTest(String h2oJar, String jvmArgs, String h2oArgs, String rfArgs, String resultDB, PrintStream stdout) throws Exception {
-    RFProcess p = new RFProcess(h2oJar, jvmArgs, h2oArgs, rfArgs);
+  static boolean runTest(String cmd, String resultDB, PrintStream stdout) throws Exception {
+    RFProcess p = new RFProcess(cmd);
     p._stdout = stdout;
     p.start(); p.join(MAX_RUNNING_TIME); p.cleanup();
     p.join(); // in case we timed out...
@@ -196,14 +164,13 @@ public class RFRunner {
     boolean writeColumnNames = !resultFile.exists();
     FileWriter fw = new FileWriter(resultFile, true);
     if( writeColumnNames ) {
-      fw.write("Timestamp, JVM args, H2O args, RF args");
+      fw.write("Timestamp, Command");
       for( String s : RESULTS )
         fw.write(", " + s);
         fw.write("\n");
     }
-    fw.write(new SimpleDateFormat("yyyy.MM.dd HH:mm").format(new Date(System.currentTimeMillis())) + ",");
-    fw.write(jvmArgs + "," + h2oArgs + "," + rfArgs);
-    if( p.exception != null ) {
+    fw.write(new SimpleDateFormat("yyyy.MM.dd HH:mm").format(new Date(System.currentTimeMillis())) + ","+cmd+",");
+        if( p.exception != null ) {
       System.err.println("Error: " + p.exception);  fw.write("," + p.exception);
     } else for( String s : p.results )  fw.write("," + s);
     fw.write("\n");
@@ -212,60 +179,87 @@ public class RFRunner {
   }
 
   private static int seed() { return (int) (System.currentTimeMillis() & 0xFFFF); }
-
-  static void runTests() throws Exception {
-    PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
-    stdout = out;
-    try {
-    RFArgs rfa = new RFArgs();
-    String[] keyInputs = (ARGS.parsedKeys != null) ? ARGS.parsedKeys.split(",") : null;
-    String[] fileInputs = (ARGS.files != null) ? ARGS.files.split(",") : null;
-      String[] rawKeyInputs = (ARGS.rawKeys != null) ? ARGS.rawKeys.split(",") : null;
-      for( String statType : stat_types ) {
-        for( int n : ntrees ) {
-          rfa.seed += n; // a predictable but slightly different seed each time
-          rfa.singlethreaded = false;
-          rfa.statType = statType;
-          rfa.ntrees = n;
-          if( keyInputs != null )
-            for( String s : keyInputs ) {
-              rfa.parsedKey = s;
-              runTest(ARGS.h2ojar, ARGS.jvmArgs, ARGS.h2oArgs, rfa.toString(), ARGS.resultDB, out);
-              Thread.sleep(1000);
-          }
-          rfa.parsedKey = null;
-          if( rawKeyInputs != null )
-            for( String s : rawKeyInputs ) {
-              rfa.rawKey = s;
-              runTest(ARGS.h2ojar, ARGS.jvmArgs, ARGS.h2oArgs, rfa.toString(), ARGS.resultDB, out);
-              Thread.sleep(1000);
-            }
-          rfa.rawKey = null;
-          if( fileInputs != null )
-            for( String s : fileInputs ) {
-              rfa.file = s;
-              String[] strMultiples = ARGS.fileConcats.split(",");
-              int[] concatCounts = new int[strMultiples.length];
-              int idx = 0;
-              for( String x : strMultiples ) concatCounts[idx++] = Integer.valueOf(x);
-              runAllDataSizes(new File(s), concatCounts, rfa);
-              Thread.sleep(1000);
-            }
-        }
-      }
-    } finally { out.close(); }
+  private static int[] size(int[] multiples, int max){
+    int off =0;
+    while(multiples[off]<max) off++;
+    return Arrays.copyOf(multiples, off+1);
   }
   
+  static String[] makeFiles(String[] files, int[] multiples) {
+    LinkedList<String> ls = new LinkedList(); 
+    for(String f:files) 
+      try { ls.addAll( Arrays.asList(makeFile(f,multiples)) ); } catch (IOException e) { throw new Error(e); }
+    String[] res = new String[ls.size()];
+    ls.toArray(res);
+    return res;
+  }
+  static String[] makeFile(String fn,int[] multiples) throws IOException {
+    File f = new File(fn);
+    String name = f.getName();
+    StringBuilder bldr = new StringBuilder();
+    Reader r = new FileReader(f);
+    char[] buf = new char[1024 * 1024];
+    int n = 0;
+    String[] names = new String[multiples.length];
+    while( (n = r.read(buf)) > 0 ) bldr.append(buf, 0, n);
+    r.close();
+    String content = bldr.toString();
+    bldr = null;
+    int off=0;
+    for( int m : multiples ) {
+      File f2 = new File(names[off++] = "/tmp/"+ name + "."+ m);
+      FileWriter fw = new FileWriter(f2, true);
+      for( int i = 0; i <= m; ++i )  fw.write(content);
+      fw.close();      
+     // f2.deleteOnExit();
+    }      
+    return names;
+  }
+  
+  
+  static void runTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
+    stdout = out;
+    int[] szMultiples = size(sizeMultiples, args.maxConcat);
+    int[] szTrees = ntrees;
+    String[] stats  = stat_types;
+    boolean[] threading = new boolean[]{true,false};
+    int[] seeds = new int[]{ 3, 42, 135};
+    String[] files = makeFiles(args.files.split(","),szMultiples);
+    
+    int experiments = files.length * szTrees.length*stats.length*threading.length*seeds.length;    
+    String[] commands = new String[experiments];
+    int i = 0;
+    for(String f : files)
+      for (boolean thread : threading)
+        for (int sz :szTrees)
+          for(String stat : stats)
+            for(int seed : seeds) {
+              RFArgs rfa = new RFArgs();
+              rfa.seed = seed; rfa.statType = stat; rfa.file = f;
+              rfa.ntrees = sz;  rfa.singlethreaded = thread;   
+              commands[i++] = javaCmd + " " + rfa;
+            }
+    
+    for( String cmd : commands) 
+       runTest(cmd, args.resultDB, out);
+  }
+
+
   public static void main(String[] args) throws Exception {
+    final OptArgs ARGS        = new OptArgs();  
     new Arguments(args).extract(ARGS);
-   /* File flatfile = new File("flatfile" + Math.round(100000 * Math.random()));
-    flatfile.deleteOnExit();
-    FileWriter fw = new FileWriter(flatfile);
-    StringTokenizer tk = new StringTokenizer(ARGS.nodes, ",");
-    while( tk.hasMoreTokens() ) fw.write(tk.nextToken() + "\n");
-    fw.close();
-    if( !ARGS.h2oArgs.contains("-flatfile") ) ARGS.h2oArgs+= " -flatfile "+flatfile.getAbsolutePath();
-    */
-    runTests();
+    PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
+    String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
+    try { runTests(javaCmd, out, ARGS); } finally { out.close(); }
   }
 }
+
+
+/* File flatfile = new File("flatfile" + Math.round(100000 * Math.random()));
+flatfile.deleteOnExit();
+FileWriter fw = new FileWriter(flatfile);
+StringTokenizer tk = new StringTokenizer(ARGS.nodes, ",");
+while( tk.hasMoreTokens() ) fw.write(tk.nextToken() + "\n");
+fw.close();
+if( !ARGS.h2oArgs.contains("-flatfile") ) ARGS.h2oArgs+= " -flatfile "+flatfile.getAbsolutePath();
+*/
