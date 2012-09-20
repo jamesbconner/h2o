@@ -69,7 +69,7 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) {
     // Guess on the number of columns, build a column array.
-    int [] typeArr = guess_parser_setup(dataset);
+    int [] typeArr = guess_parser_setup(dataset,false);
     int num_cols = typeArr[COLNUM_IDX];
 
     DParse1 dp1 = new DParse1();
@@ -878,26 +878,27 @@ public final class ParseDataset {
   // ---
   // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
   // the number of columns for svm light is not reliable as it only relies on info from the first chunk
-  private static int[] guess_parser_setup(Value dataset) {
+  private static int[] guess_parser_setup(Value dataset, boolean parseFirst ) {
     // Best-guess on count of columns and separator.  Skip the 1st line.  
     // Count column delimiters in the next line. If there are commas, assume file is comma separated.
     // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
     int i=0;
-    while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++;   // Skip a line
-    if( i==b.length ) return new int[]{0,0};  // No columns?
-    if( b[i] == '\r' || b[i+1]=='\n' ) i++;
-    if( b[i] == '\n' ) i++;    
-    // There is only one line ended by newline => consider it as one line dataset 
-    if( i==b.length ) i = 0;    
+    // Skip all leading whitespace
+    while( i<b.length && Character.isWhitespace(b[i]) ) i++;
+    if( !parseFirst ) {         // Skip the first line, it might contain labels
+      while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
+    }
+    if( i < b.length && (b[i] == '\r' || b[i+1]=='\n') ) i++;
+    if( i < b.length &&  b[i] == '\n' ) i++;    
     // start counting columns on the 2nd line
     final int line_start = i;
     int cols = 0;
     int mode = 0;
     int colonCounter = 0;
     boolean commas = false;     // Assume white-space only columns
-    while( true ) {
+    while( i < b.length ) {
       char c = (char)b[i++];
       if( c=='\n' || c== '\r' ) {
         break;
@@ -924,6 +925,8 @@ public final class ParseDataset {
         mode = 1;
       }
     }
+    // If no columns, and skipped first row - try again parsing 1st row
+    if( cols == 0 && parseFirst == false ) return guess_parser_setup(dataset,true);
     return new int[]{commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols};
   }
 
