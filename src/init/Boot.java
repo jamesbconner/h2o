@@ -35,11 +35,6 @@ public class Boot {
         _init.addInternalJars("gson");
         _init.addInternalJars("junit");
         _init.addInternalJars("asm");
-
-        // if this becomes to ghetto, we can repackage lib/tools.jar
-        _init.addExternalJars(new File(
-            System.getProperty("java.home")+"/../lib/tools.jar"));
-        _init.loadVmAgent(_init.internalFile("hexbase_impl.jar"));
       } else {
         System.setProperty("org.hyperic.sigar.path","lib/binlib");
       }
