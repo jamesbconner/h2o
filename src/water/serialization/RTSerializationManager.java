@@ -13,15 +13,15 @@ public class RTSerializationManager {
       CacheBuilder.newBuilder().build(new CacheLoader<Class<?>, RemoteTaskSerializer<?>>() {
         @Override
         public RemoteTaskSerializer<?> load(Class<?> cls) throws Exception {
-          if (!RemoteTask.class.isAssignableFrom(cls)) {
+          if( !RemoteTask.class.isAssignableFrom(cls) ) {
             throw new Error(cls.getName() + " is not a subclass of RemoteTask");
           }
           RemoteTaskSerializer<?> serializer = getCustomSerializer(cls);
-          if (serializer != null) return serializer;
+          if( serializer != null ) return serializer;
           return buildSerializer(cls);
         }
       });
-  
+
   @SuppressWarnings("unchecked")
   public static RemoteTaskSerializer<RemoteTask> get(Class<? extends RemoteTask> cls) {
     try {
@@ -30,7 +30,7 @@ public class RTSerializationManager {
       throw new RuntimeException(e);
     }
   }
-  
+
   @SuppressWarnings("unchecked")
   public static RemoteTaskSerializer<RemoteTask> get(String className) {
     try {
@@ -39,19 +39,16 @@ public class RTSerializationManager {
       throw new RuntimeException(e);
     }
   }
-  
+
   private static RemoteTaskSerializer<?> getCustomSerializer(Class<?> clazz)
       throws InstantiationException, IllegalAccessException {
     RTSerializer serializerAnnotation = clazz.getAnnotation(RTSerializer.class);
-    if (serializerAnnotation == null) {
-      throw new Error("RemoteTask lacks a RTSerializer: " + clazz.getName());
-    }
+    if( serializerAnnotation == null ) return null;
     Class<?> serializerClazz = serializerAnnotation.value();
     return (RemoteTaskSerializer<?>) serializerClazz.newInstance();
   }
-  
+
   private static RemoteTaskSerializer<?> buildSerializer(Class<?> cls) {
     throw new RuntimeException("TODO Auto-generated method stub");
   }
-
 }
