@@ -26,10 +26,10 @@ import water.util.KeyUtil;
  * Launch RF in a new vm and records  results.
  */
 public class RFRunner {
-  
+
   static final long MAX_RUNNING_TIME = 20 * 60000; // max runtime is 20 mins
   static final int ERROR_IDX = 2;
-  
+
   static final Pattern[] RESULT = new Pattern[] {
       Pattern.compile("Number of trees:[ ]*([0-9]+)"),
       Pattern.compile("No of variables tried at each split:[ ]*([0-9]+)"),
@@ -51,15 +51,15 @@ public class RFRunner {
   static final int[] sizeMultiples = new int[]{ 1, 4, 12, 24, 32, 64};
   static PrintStream stdout        = System.out;
 
-  
+
   static class RFArgs extends Arguments.Opt {
     String file;                // data
-    String parsedKey;           // 
+    String parsedKey;           //
     String rawKey;              //
     String validationFile;      // validation data
-    int ntrees = 10;            // number of trees 
+    int ntrees = 10;            // number of trees
     int depth = -1;             // max depth of trees
-    double cutRate = 0;         // min purity of a node 
+    double cutRate = 0;         // min purity of a node
     String statType = "entropy";// split type
     int seed = 42;              // seed
     boolean singlethreaded;     // multi threaded
@@ -74,7 +74,7 @@ public class RFRunner {
     String jvmArgs = " -Xmx4g";                               // args for the spawned jvm
     String resultDB = "/tmp/results.csv";                     // output file
   }
-  
+
   /**
    * Represents spawned process with H2O running RF. Hooks stdout and stderr and
    * looks for exceptions (failed run) and results.
@@ -88,7 +88,7 @@ public class RFRunner {
 
     /* Creates RFPRocess and spawns new process. */
     RFProcess(String cmd) throws Exception {
-      System.out.println("'"+cmd+"'");
+      System.out.println("'"+JAVA+" "+cmd+"'");
       List<String> c = new ArrayList<String>();
       c.add(JAVA);  for(String s : cmd.split(" "))  { s = s.trim(); if (s.length()>0) c.add(s); }
       ProcessBuilder bldr = new ProcessBuilder(c);
@@ -133,7 +133,7 @@ public class RFRunner {
       } catch( Exception e ) { throw new Error(e); }
     }
   }
-  
+
   /** look for input files. If the path ends with '*' all files will be used. */
   static Collection<File> parseDatasetArg(String str) {
     ArrayList<File> files = new ArrayList<File>();
@@ -154,7 +154,7 @@ public class RFRunner {
     }
     return files;
   }
-  
+
   static boolean runTest(String cmd, String resultDB, PrintStream stdout) throws Exception {
     RFProcess p = new RFProcess(cmd);
     p._stdout = stdout;
@@ -184,10 +184,10 @@ public class RFRunner {
     while(multiples[off]<max) off++;
     return Arrays.copyOf(multiples, off+1);
   }
-  
+
   static String[] makeFiles(String[] files, int[] multiples) {
-    LinkedList<String> ls = new LinkedList(); 
-    for(String f:files) 
+    LinkedList<String> ls = new LinkedList();
+    for(String f:files)
       try { ls.addAll( Arrays.asList(makeFile(f,multiples)) ); } catch (IOException e) { throw new Error(e); }
     String[] res = new String[ls.size()];
     ls.toArray(res);
@@ -210,13 +210,13 @@ public class RFRunner {
       File f2 = new File(names[off++] = "/tmp/"+ name + "."+ m);
       FileWriter fw = new FileWriter(f2, true);
       for( int i = 0; i <= m; ++i )  fw.write(content);
-      fw.close();      
+      fw.close();
      // f2.deleteOnExit();
-    }      
+    }
     return names;
   }
-  
-  
+
+
   static void runTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
     stdout = out;
     int[] szMultiples = size(sizeMultiples, args.maxConcat);
@@ -225,8 +225,8 @@ public class RFRunner {
     boolean[] threading = new boolean[]{true,false};
     int[] seeds = new int[]{ 3, 42, 135};
     String[] files = makeFiles(args.files.split(","),szMultiples);
-    
-    int experiments = files.length * szTrees.length*stats.length*threading.length*seeds.length;    
+
+    int experiments = files.length * szTrees.length*stats.length*threading.length*seeds.length;
     String[] commands = new String[experiments];
     int i = 0;
     for(String f : files)
@@ -236,17 +236,17 @@ public class RFRunner {
             for(int seed : seeds) {
               RFArgs rfa = new RFArgs();
               rfa.seed = seed; rfa.statType = stat; rfa.file = f;
-              rfa.ntrees = sz;  rfa.singlethreaded = thread;   
+              rfa.ntrees = sz;  rfa.singlethreaded = thread;
               commands[i++] = javaCmd + " " + rfa;
             }
-    
-    for( String cmd : commands) 
+
+    for( String cmd : commands)
        runTest(cmd, args.resultDB, out);
   }
 
 
   public static void main(String[] args) throws Exception {
-    final OptArgs ARGS        = new OptArgs();  
+    final OptArgs ARGS        = new OptArgs();
     new Arguments(args).extract(ARGS);
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
     String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
