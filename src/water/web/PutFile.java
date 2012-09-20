@@ -35,11 +35,12 @@ public class PutFile extends H2OPage {
 
   @Override
   public JsonObject serverJson(Server server, Properties args) throws PageError {
-    String key = args.getProperty("Key",UUID.randomUUID().toString());
+    String key   = args.getProperty("Key",UUID.randomUUID().toString());
+    if( key.isEmpty()) key = UUID.randomUUID().toString(); // additional check for empty Key-field since the Key-field can be returned as a part of form
     String fname = args.getProperty("File");
-    int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-    if( rf < 0 || 127 < rf) throw new PageError("Replication factor must be from 0 to 127.");
-
+    int    rf    = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+    if( rf < 0 || 127 < rf) throw new PageError("Replication factor must be from 0 to 127.");        
+    
     Key k = uploadFile(fname, key, rf);
     JsonObject res = new JsonObject();
     addProperty(res, "key", k);
