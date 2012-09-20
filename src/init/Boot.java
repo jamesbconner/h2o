@@ -60,22 +60,25 @@ public class Boot {
   private final File _parentDir;
   File _binlib;
 
-  public Boot() throws NoSuchMethodException, SecurityException {
+  public Boot() throws NoSuchMethodException, SecurityException, IOException {
     _systemLoader = (URLClassLoader) ClassLoader.getSystemClassLoader();
     _addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
     _addUrl.setAccessible(true);
 
-    File parentDir = null;
+    File dir = null;
     ZipFile jar = null;
     String ownJar = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
     if( ownJar.endsWith(".jar") ) { // do nothing if not run from jar
       try {
         jar = new ZipFile(URLDecoder.decode(ownJar, "UTF-8"));
-        parentDir = new File(jar.getName()).getParentFile();
       } catch( IOException e ) { }
+      dir = File.createTempFile("h2o-temp-", "");
+      if( !dir.delete() ) throw new IOException("Failed to remove tmp file: " + dir.getAbsolutePath());
+      if( !dir.mkdir() )  throw new IOException("Failed to create tmp dir: "  + dir.getAbsolutePath());
+      dir.deleteOnExit();
     }
     _h2oJar = jar;
-    _parentDir = parentDir;
+    _parentDir = dir;
   }
 
   /** Returns an external File for the internal file name. */
