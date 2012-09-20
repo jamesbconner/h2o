@@ -81,7 +81,6 @@ class Basic(unittest.TestCase):
         SYNSCRIPTS_DIR = './syn_scripts'
 
         # always match the run below!
-        # FIX! 1 row fails in H2O. skip for now
         for x in [10000]:
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
