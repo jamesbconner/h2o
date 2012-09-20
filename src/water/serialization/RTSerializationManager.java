@@ -8,7 +8,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
-public class RemoteTaskSerializationManager {
+public class RTSerializationManager {
   private static final LoadingCache<Class<?>, RemoteTaskSerializer<?>> CACHE =
       CacheBuilder.newBuilder().build(new CacheLoader<Class<?>, RemoteTaskSerializer<?>>() {
         @Override

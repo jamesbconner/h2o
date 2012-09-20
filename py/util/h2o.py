@@ -70,6 +70,15 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
+def spawn_h2o(addr=None, port=54321):
+    return spawn_cmd('h2o', [
+            "java", "-ea", "-jar", find_file('build/h2o.jar'),
+            "--port=%d"%port,
+            '--ip=%s'%(addr or get_ip_address()),
+            '--nosigar',
+            '--ice_root=%s' % tmp_dir('ice.')
+            ])
+
 def tear_down_cloud(nodes):
     ex = None
     for n in nodes:
@@ -79,14 +88,17 @@ def tear_down_cloud(nodes):
             ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
     if ex: raise ex
 
+def stabilize_cloud(node, node_count, timeoutSecs=2):
+    node.stabilize('cloud auto detect', timeoutSecs,
+        lambda n: n.get_cloud()['cloud_size'] == node_count)
+
 def build_cloud(node_count, base_port=54321, ports_per_node=3):
     nodes = []
     try:
         for i in xrange(node_count):
             n = H2O(port=base_port + i*ports_per_node)
             nodes.append(n)
-        nodes[0].stabilize('cloud auto detect', 2,
-            lambda n: n.get_cloud()['cloud_size'] == len(nodes))
+        stabilize_cloud(nodes[0], len(nodes))
     except:
         for n in nodes: n.terminate()
         raise
@@ -173,13 +185,7 @@ class H2O:
             self.stabilize('h2o started', 2, self.__is_alive)
         else:
             self.rc = None
-            spawn = spawn_cmd('h2o', [
-                    "java", "-ea", "-jar", find_file('build/h2o.jar'),
-                    "--port=%d"%self.port,
-                    '--ip=%s'%self.addr,
-                    '--nosigar',
-                    '--ice_root=%s' % tmp_dir('ice.')
-            ])
+            spawn = spawn_h2o(addr=self.addr, port=port)
             self.ps = spawn[0]
             try:
                 self.stabilize('h2o started', 4, self.__is_alive)

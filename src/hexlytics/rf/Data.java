@@ -45,7 +45,7 @@ public class Data implements Iterable<Row> {
   public int columns()           { return data_.columns() -1 ; } // -1 to remove class column
   public int classes()           { return data_.classes();     }
   public int seed()              { return data_.seed();        }
-  
+
   public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
@@ -57,7 +57,7 @@ public class Data implements Iterable<Row> {
     public Row next()                  { _r.index = permute(_pos++); return _r; }
     public void remove()               { throw new Error("Unsupported"); }
   }
- 
+
   public void filter(SplitNode node, Data[] result, Statistic ls, Statistic rs) {
     final Row row = new Row();
     int[] permutation = getPermutationArray();
@@ -88,7 +88,7 @@ public class Data implements Iterable<Row> {
   }
 
   public Data complement(Data parent) { throw new Error("Only for subsets."); }
-  @Override public    Object clone()  { return this; }
+  @Override public       Data clone() { return this; }
 
   protected int permute(int idx) { return idx; }
   protected int[] getPermutationArray() {
@@ -106,8 +106,8 @@ class Subset extends Data {
   @Override protected int permute(int idx)        { return _permutation[idx]; }
   @Override protected int start()                 { return _start;            }
   @Override protected int end()                   { return _end;              }
-  @Override public    Object clone()              { return new Subset(this,_permutation.clone(),_start,_end); }
-  
+  @Override public Subset clone()                 { return new Subset(this,_permutation.clone(),_start,_end); }
+
   /** Creates new subset of the given data adapter. The permutation is an array
    * of original row indices of the DataAdapter object that will be used.  */
   public Subset(Data data, int[] permutation, int start, int end) {

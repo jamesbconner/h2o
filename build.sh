@@ -24,7 +24,7 @@ JAR_ROOT=lib
 
 # additional dependencies, relative to this file, but all dependencies should be
 # inside the JAR_ROOT tree so that they are packed to the jar file properly
-DEPENDENCIES="${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*${SEP}${JAR_ROOT}/junit/*${SEP}${JAR_ROOT}/gson/*"
+DEPENDENCIES="${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*${SEP}${JAR_ROOT}/junit/*${SEP}${JAR_ROOT}/gson/*${SEP}${JAR_ROOT}/asm/*"
 
 DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"
@@ -46,6 +46,7 @@ CLASSES="${OUTDIR}/classes"
 # ------------------------------------------------------------------------------
 
 function clean() {
+    echo "cleaning..."
     rm -fr ${CLASSES}
     rm -fr ${JAR_ROOT}/init
     rm -fr ${JAR_ROOT}/hexbase_impl.jar
@@ -76,7 +77,7 @@ function build_h2o_jar() {
 function build_initializer() {
     echo "building initializer..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
-    "$JAVAC" -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$JAR_ROOT" $SRC/init/*java
+    "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$JAR_ROOT" $SRC/init/*java
 
 }
 
@@ -92,9 +93,13 @@ function test_py() {
     echo "Running junit tests..."
     python py/junit.py
 }
+
 clean
+if [ "$1" = "clean" ]; then exit 0; fi
 build_classes
+if [ "$1" = "compile" ]; then exit 0; fi
 build_h2o_jar
 build_initializer
 build_jar
+if [ "$1" = "build" ]; then exit 0; fi
 test_py

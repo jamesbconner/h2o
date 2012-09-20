@@ -14,7 +14,7 @@ import water.serialization.RemoteTaskSerializer;
  */
 
 public abstract class Atomic extends RemoteTask {
-  Key _key;                     // Transaction key
+  public Key _key;              // Transaction key
   TaskRemExec _tre;             // The remote-execution cookie
 
   // Example use for atomic update of any Key:
@@ -74,9 +74,10 @@ public abstract class Atomic extends RemoteTask {
       // Attempt atomic update
       Value val2 = new Value(_key,bits2);
       Value res = DKV.DputIfMatch(_key,val2,val1);
-      if( res == val1 ) {
-        onSuccess();
-        return; // Success?
+      if( res == val1 ) {       // Success?
+        onSuccess();            // Call user's post-XTN function
+        tryComplete();          // Tell F/J this task is done
+        return; 
       }      
       // and retry
     }
