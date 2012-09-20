@@ -13,10 +13,9 @@ import water.serialization.RemoteTaskSerializer;
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
-
 @RTSerializer(AppendKey.Serializer.class)
 public class AppendKey extends Atomic {
-  byte[] _bits;
+  private final byte[] _bits;
   private AppendKey( byte[] bits ) { _bits = bits; }
   public AppendKey( Key key ) {    // Append a key
     _bits = new byte[key.wire_len()];
@@ -30,7 +29,6 @@ public class AppendKey extends Atomic {
       return off;
     }
     @Override public void write( AppendKey a, DataOutputStream dos ) throws IOException {
-      dos.write(a._bits.length);
       dos.write(a._bits);
     }
     @Override public AppendKey read( byte[] buf, int off ) {

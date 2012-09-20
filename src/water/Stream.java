@@ -17,13 +17,15 @@ public class Stream {
   public int _off;
   public Stream() { _buf = new byte[4]; } // Default writable stream
   public Stream( byte[] b ) { _buf = b; } // Default readable stream
-    
-  byte[] grow( int l ) { return (_off+l < _buf.length) ? _buf : grow2(_off+l);  }
-  byte[] grow2( int newl ) {
+  public Stream( byte[] b, int off ) { _buf = b; _off = off; }
+
+  public  byte[] grow ( int l ) { return (_off+l < _buf.length) ? _buf : grow2(_off+l);  }
+  private byte[] grow2( int l ) {
     int l2 = _buf.length;
-    while( l2 < newl ) l2<<=1;
+    while( l2 < l ) l2<<=1;
     return (_buf = Arrays.copyOf(_buf,l2));
   }
+
   public Stream set1 ( int   a) {        grow(1)[_off++] = (byte)a ; return this; }
   public Stream set2 ( int   a) { _off += UDP.set2 (grow(2),_off,a); return this; }
   public Stream set3 ( int   a) { _off += UDP.set3 (grow(3),_off,a); return this; }
@@ -31,6 +33,23 @@ public class Stream {
   public Stream set4f( float a) { _off += UDP.set4f(grow(4),_off,a); return this; }
   public Stream set8 ( long  a) { _off += UDP.set8 (grow(8),_off,a); return this; }
   public Stream set8d(double a) { _off += UDP.set8d(grow(8),_off,a); return this; }
+
+  @SuppressWarnings("deprecation") public Stream setLen2Str(String s) {
+      int len = s.length();
+      grow(2+len);
+      set2(len);
+      s.getBytes(0, len, _buf, _off);
+      _off += len;
+      return this;
+  }
+
+  public Stream setLen2Bytes(byte[] b) {
+      grow(2+b.length);
+      set2(b.length);
+      System.arraycopy(b, 0, _buf, _off, b.length);
+      _off += b.length;
+      return this;
+  }
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
   public byte   get1 () { return           _buf[ _off++]    ; }

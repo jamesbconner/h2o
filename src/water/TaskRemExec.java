@@ -56,7 +56,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
   }
 
   // Pack classloader/class & the instance data into the outgoing UDP packet
-  @SuppressWarnings("deprecation")
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     Class<? extends RemoteTask> clazz = _dt.getClass();
@@ -72,18 +71,15 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       + _serializer.wire_len(_dt);
     if( off <= MultiCast.MTU ) {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
-      buf[off++] = SERVER_UDP_SEND;
-      // Class loader first.  3 bytes of null for system loader.
-      buf[off++] = 0; // zero RF
-      off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
+      Stream stream = new Stream(buf, off);
+      stream.set1(SERVER_UDP_SEND);
+      stream.set1(0); // zero RF
+      stream.set2(0); // 2 bytes of jarkey length
 
-      // Class name now
-      off += UDP.set2(buf,off,sclazz.length());  // String length
-      sclazz.getBytes(0,sclazz.length(),buf,off); // Dump the string also
-      off += sclazz.length();
-      // Then the args key
-      off = _args.write(buf,off);
-      off = _serializer.write(_dt, buf,off);
+      stream.setLen2Str(sclazz);
+      _args.write(stream);
+      _serializer.write(_dt, stream);
+      off = stream._off;
     } else {                    // Big object, switch to TCP style comms.
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = SERVER_TCP_SEND;
@@ -148,8 +144,10 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
-        buf[off++] = CLIENT_UDP_SEND; // Result coming via UDP
-        off = ser.write(dt, buf,off); // Result
+        Stream s = new Stream(buf, UDP.SZ_TASK);
+        s.set1(CLIENT_UDP_SEND); // Result coming via UDP
+        ser.write(dt, s);
+        off = s._off;
       } else {
         buf[off++] = CLIENT_TCP_SEND;
         // Push the large result back *now* (no async pause) via TCP

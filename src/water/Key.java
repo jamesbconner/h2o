@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
  * - Known Disk & memory replicas.
  * - A cache of somewhat expensive to compute stuff related to the current
  *   Cloud, plus a byte of the desired replication factor.
- * 
+ *
  * Keys are expected to be a high-count item, hence the care about size.
  *
  * Keys are *interned* in the local K/V store, a non-blocking hash set and are
@@ -35,28 +35,28 @@ public final class Key implements Comparable {
   public static final int KEY_LENGTH = 512;
   public final byte[] _kb;      // Key bytes, wire-line protocol
   final int _hash;              // Hash on key alone (and not value)
-  
+
   // The user keys must be ASCII, so the values 0..31 are reserved for system
   // keys. When you create a system key, please do add its number to this list
 
   public static final byte ARRAYLET_CHUNK = 0;
 
   public static final byte KEY_OF_KEYS = 1;
-  
+
   public static final byte HDFS_INTERNAL_BLOCK = 10;
-  
+
   public static final byte HDFS_INODE = 11;
-  
+
   public static final byte HDFS_BLOCK_INFO = 12;
-  
+
   public static final byte HDFS_BLOCK_SHADOW = 13;
-  
+
   public static final byte DFJ_INTERNAL_USER = 14;
-  
+
   public static final byte USER_KEY = 32;
-  
-  
-  
+
+
+
   // Known-achieved replication factor.  This is a cache of the first 8 Nodes
   // that have "checked in" with disk completion.  Monotonically increases over
   // time; limit of 8 replicas.  Tossed out on an update.  Implemented as 8 bytes
@@ -112,7 +112,7 @@ public final class Key implements Comparable {
     H2O cloud = H2O.CLOUD;
     return cloud._memary[home(cloud)];
   }
-  
+
   // Update the cache, but only to strictly newer Clouds
   private boolean set_cache( long cache ) {
     while( true ) {                   // Spin till get it
@@ -156,7 +156,7 @@ public final class Key implements Comparable {
   // Default desired replication factor.  Unless specified otherwise, all new
   // k-v pairs start with this replication factor.
   public static final byte DEFAULT_DESIRED_REPLICA_FACTOR = 2;
-  
+
   // Construct a new Key.
   private Key(byte[] kb) {
     if( kb.length > KEY_LENGTH ) throw new IllegalArgumentException();
@@ -210,7 +210,7 @@ public final class Key implements Comparable {
   static public Key make(String s, byte rf, byte systemType, H2ONode... replicas) {
     return make(s.getBytes(),rf,systemType,replicas);
   }
-  
+
 
   // Make a Key which is homed to specific nodes.
   static public Key make(byte[] kb, byte rf, byte systemType, H2ONode... replicas) {
@@ -239,17 +239,17 @@ public final class Key implements Comparable {
   public boolean user_allowed() {
     return (_kb[0]&0xFF) >= 32;
   }
-  
+
   // Returns the type of the key.
   public int type() {
     return ((_kb[0]&0xff)>=32) ? USER_KEY : (_kb[0]&0xff);
   }
 
   /** Converts the key to HTML displayable string.
-   * 
+   *
    * For user keys returns the key itself, for system keys returns their
    * hexadecimal values.
-   * 
+   *
    * @return key as a printable string
    */
   public String toString() {
@@ -360,7 +360,7 @@ public final class Key implements Comparable {
     return s+"}";
   }
 
-  // Returns true if the value is stored on the local disk. 
+  // Returns true if the value is stored on the local disk.
   boolean is_disk_local() { return is_disk_replica( H2O.SELF); }
 
   // Inform all the cached copies of this key, that it has changed.  This is a
@@ -404,7 +404,11 @@ public final class Key implements Comparable {
       2+ // for len
       _kb.length;
   }
-  
+  public void write( Stream s ) {
+    s.set1(desired()); // replication factor
+    s.setLen2Bytes(_kb);
+  }
+
   // Write the key length & bytes into a UDP packet
   public int write( byte[] buf, int off ) {
     buf[off++] = (byte)desired();
@@ -415,14 +419,14 @@ public final class Key implements Comparable {
     // is used to write to any byte []
     return off;
   }
-  
+
   // Read the key length & kind & bytes from a UDP packet.  Build a bare key.
   static public Key read( byte[] buf, int off ) {
     byte rf = buf[off++];
     int len = UDP.get2(buf,off);  off += 2;
     return make( buf, off, len, rf);
   }
-  
+
   // Write the Key to the Stream
   public void write( DataOutputStream dos ) throws IOException {
     dos.writeByte(desired());
