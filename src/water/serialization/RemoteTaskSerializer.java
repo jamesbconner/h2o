@@ -16,7 +16,7 @@ public abstract class RemoteTaskSerializer<T extends RemoteTask> {
   // Reads & writes user-guts to a line-wire format on a correctly typed object
   abstract public int wire_len(T task);
   public void write(T task, Stream s) {
-    assert s._buf.length - s._off > wire_len(task);
+    assert s._buf.length - s._off >= wire_len(task);
     s._off = write(task, s._buf, s._off);
   }
 
