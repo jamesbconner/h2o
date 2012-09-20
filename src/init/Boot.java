@@ -37,7 +37,7 @@ public class Boot {
         _init.addInternalJars("asm");
         _init.addInternalJars("jama");
 
-        // if this becomes to ghetto, we can repackage lib/tools.jar
+        // if this becomes too ghetto, we can repackage lib/tools.jar
         _init.addExternalJars(new File(
             System.getProperty("java.home")+"/../lib/tools.jar"));
         _init.loadVmAgent(_init.internalFile("hexbase_impl.jar"));
