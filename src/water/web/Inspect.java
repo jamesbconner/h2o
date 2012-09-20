@@ -6,6 +6,7 @@ import water.DKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
+import water.H2O;
 
 public class Inspect extends H2OPage {
 
@@ -36,7 +37,15 @@ public class Inspect extends H2OPage {
     formatKeyRow(key,val,response);
 
     response.replace("key",key);
-
+	
+    if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
+      RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+      hdfs.replace("key", key);
+      response.replace("storeHdfs", hdfs.toString());      
+    } else {
+      response.replace("storeHdfs", "");      
+    }
+	
     // ASCII file?  Give option to do a binary parse
     String p_keys = ks;
     int idx = ks.lastIndexOf('.');
@@ -91,6 +100,7 @@ public class Inspect extends H2OPage {
 
   final static String html =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+    + "%storeHdfs"  
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col/><col/><col colspan=5 align=center/></colgroup>\n"
     + "<thead><tr><th>    <th>    <th>    <th align=center colspan=5>Min / Average / Max <th>   </tr>\n"
@@ -121,6 +131,13 @@ public class Inspect extends H2OPage {
 
   String structured_array( Key key, ValueArray ary ) {
     RString response = new RString(html_ary);
+    if(H2O.OPT_ARGS.hdfs != null && !ary.onHDFS()){
+      RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+      hdfs.replace("key", key);
+      response.replace("storeHdfs", hdfs.toString());      
+    } else {
+      response.replace("storeHdfs", "");      
+    }    
     // Pretty-print the key
     response.replace("key",key);
     response.replace("priorKey",ary.prior_key());
@@ -272,6 +289,7 @@ public class Inspect extends H2OPage {
 
   final static String html_ary =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+    + "%storeHdfs"  
     + "<p>Generated from <a href=/Inspect?Key=%priorKeyHref>%priorKey</a> by '%xform'<p>"
     + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
     + "Parsed %ncolumns columns<br>"
