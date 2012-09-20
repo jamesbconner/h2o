@@ -1,5 +1,5 @@
 Main-Class: init.Boot
-Premain-Class: weaver.RemoteRunnableClassFileTransformer
-Agent-Class: water.serialization.RTClassFileTransformer
+Premain-Class: weaver.serialization.RTWeaver
+Agent-Class: water.serialization.RTWeaver
 Can-Redefine-Classes: true
 Can-Retransform-Classes: true

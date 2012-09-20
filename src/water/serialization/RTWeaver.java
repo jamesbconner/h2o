@@ -1,6 +1,7 @@
 package water.serialization;
 
-import java.lang.instrument.IllegalClassFormatException;
+import java.lang.instrument.*;
+import java.security.ProtectionDomain;
 
 import org.objectweb.asm.*;
 
@@ -11,7 +12,26 @@ import water.RemoteTask;
  * public.  This is a necessary pre-condition for generated automated
  * serialization methods.
  */
-public class RTWeaver implements Opcodes {
+public class RTWeaver implements Opcodes, ClassFileTransformer {
+  // we can be loaded in two different ways.  Handle them.
+  public static void premain  (String args, Instrumentation ins) { ins.addTransformer(new RTWeaver(), true); }
+  public static void agentmain(String args, Instrumentation ins) { ins.addTransformer(new RTWeaver(), true); }
+
+  @Override
+  public byte[] transform(ClassLoader loader, String className,
+      Class<?> redefiningClass, ProtectionDomain domain, byte[] bytes)
+          throws IllegalClassFormatException {
+    try {
+      return transform(loader, className, bytes);
+    } catch (Throwable t) {
+      // exceptions in this method get eaten, so we have to be loud
+      t.printStackTrace();
+      throw new RuntimeException(t);
+    }
+  }
+
+
+
   private static final String RT_INTERNAL_NAME = Type.getType(RemoteTask.class).getInternalName();
 
   public static byte[] transform(ClassLoader loader, String className, byte[] bytes)
@@ -19,7 +39,7 @@ public class RTWeaver implements Opcodes {
     ClassReader reader = new ClassReader(bytes);
     boolean isRunnable = RT_INTERNAL_NAME.equals(reader.getSuperName());
     if( !isRunnable ) return null;
-    System.out.println("Found an RemoteTask to weave!\n\t" + reader.getClassName());
+    System.out.println("Found a RemoteTask to weave!\n\t" + reader.getClassName());
     if( true ) return null;
 
     ClassWriter write = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
