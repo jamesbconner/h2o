@@ -1,6 +1,9 @@
 package water.web;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -35,7 +38,7 @@ public class PutFile extends H2OPage {
     String key = args.getProperty("Key",UUID.randomUUID().toString());
     String fname = args.getProperty("File");
     int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-    if( rf < 0 || 172 < rf) throw new PageError("Replication factor must be from 0 to 127.");
+    if( rf < 0 || 127 < rf) throw new PageError("Replication factor must be from 0 to 127.");
 
     Key k = uploadFile(fname, key, rf);
     JsonObject res = new JsonObject();
