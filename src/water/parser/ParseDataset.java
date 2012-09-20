@@ -11,7 +11,20 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
-import water.*;
+import water.Atomic;
+import water.DFutureTask;
+import water.DKV;
+import water.DRemoteTask;
+import water.H2O;
+import water.Key;
+import water.MRTask;
+import water.MemoryManager;
+import water.RemoteTask;
+import water.TaskRemExec;
+import water.UDP;
+import water.UKV;
+import water.Value;
+import water.ValueArray;
 import water.ValueArray.Column;
 import water.parser.SeparatedValueParser.Row;
 import water.serialization.RTSerializer;
@@ -933,8 +946,8 @@ public final class ParseDataset {
     if( !parseFirst ) {         // Skip the first line, it might contain labels
       while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
     }
-    if( i < b.length && (b[i] == '\r' || b[i+1]=='\n') ) i++;
-    if( i < b.length &&  b[i] == '\n' ) i++;    
+    if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
+    if( i   < b.length &&  b[i] == '\n' ) i++;    
     // start counting columns on the 2nd line
     final int line_start = i;
     int cols = 0;
