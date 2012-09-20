@@ -4,7 +4,6 @@ import util.h2o as h2o
 def runRF(n,trees,csvPathname,timeoutSecs):
     put = n.put_file(csvPathname)
     parse = n.parse(put['keyHref'])
-    time.sleep(0.5) # FIX! temp hack to avoid races?
     rf = n.random_forest(parse['keyHref'],trees)
     # this expects the response to match the number of trees you told it to do
     n.stabilize('random forest finishing', timeoutSecs,
@@ -76,9 +75,9 @@ class Basic(unittest.TestCase):
 
         # always match the run below!
         # FIX! 1 row fails in H2O. skip for now
-        for x in xrange (2,100,10):
+        for x in xrange (1,100,10):
             # Have to split the string out to list for pipe
-            shCmdString = SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
+            shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
             h2o.spawn_cmd('parity.pl', shCmdString.split())
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
@@ -87,10 +86,9 @@ class Basic(unittest.TestCase):
         # maybe just inc in loop
         trees = 6
         # bump this up too if you do?
-        timeoutSecs = 10
+        timeoutSecs = 20
         # always match the gen above!
-        # FIX! 1 row fails in H2O. skip for now
-        for x in xrange (2,100,10):
+        for x in xrange (1,100,10):
             sys.stdout.write('.')
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
@@ -98,7 +96,8 @@ class Basic(unittest.TestCase):
             # FIX! TBD do we always have to kick off the run from node 0?
             # what if we do another node?
             # FIX! do we need or want a random delay here?
-            time.sleep(0.5) 
+            # CNC - My antique computer reports files missing without a little delay here.
+            time.sleep(0.1)
             runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
             trees += 10

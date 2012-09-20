@@ -132,7 +132,7 @@ public class Inspect extends H2OPage {
 
     // Header row
     StringBuilder sb = new StringBuilder();
-    final int num_col = Math.min(100,ary.num_cols());
+    final int num_col = Math.min(255,ary.num_cols());
     String[] names = ary.col_names();
     for( int i=0; i<num_col; i++ )
       sb.append("<th>").append(names[i]);

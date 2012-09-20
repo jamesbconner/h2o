@@ -10,7 +10,10 @@ def find_file(base):
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
-        shutil.rmtree(LOG_DIR)
+        # shutil.rmtree fails to delete very long filenames on Windoze
+        #shutil.rmtree(LOG_DIR)
+        # This seems reliable on windows+cygwin
+        os.system("rm -rf "+LOG_DIR);
     os.mkdir(LOG_DIR)
 
 def tmp_file(prefix='', suffix=''):
@@ -55,7 +58,6 @@ def spawn_cmd(name, args):
     return (ps, outpath, errpath)
 
 def spawn_cmd_and_wait(name, args, timeout=None):
-    print name, args
     (ps, stdout, stderr) = spawn_cmd(name, args)
 
     rc = ps.wait(timeout)
@@ -180,7 +182,7 @@ class H2O:
             ])
             self.ps = spawn[0]
             try:
-                self.stabilize('h2o started', 2, self.__is_alive)
+                self.stabilize('h2o started', 4, self.__is_alive)
             except:
                 self.ps.kill()
                 raise

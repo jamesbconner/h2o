@@ -11,9 +11,6 @@ def putFile(n,csvPathname):
     ## print 'keyHref', parseKey['keyHref']
     ## print 'put TimeMS', parseKey['TimeMS']
 
-    # ?? how we we check that the put completed okay?
-    # FIX! temp hack to avoid races? for a RF that follows?
-    time.sleep(0.2) 
     return parseKey
 
 def getFile(n,csvPathname):
@@ -25,9 +22,6 @@ def getFile(n,csvPathname):
     ## print 'keyHref', parseKey['keyHref']
     ## print 'put TimeMS', parseKey['TimeMS']
 
-    # ?? how we we check that the put completed okay?
-    # FIX! temp hack to avoid races? for a RF that follows?
-    time.sleep(0.2) 
     return parseKey
 
 # we pass the key from the put, for knowing what to RF on.
@@ -90,14 +84,10 @@ class Basic(unittest.TestCase):
         # FIX! 1 row fails in H2O. skip for now
         for x in [10000]:
             # Have to split the string out to list for pipe
-            shCmdString = SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
+            shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
             h2o.spawn_cmd('parity.pl', shCmdString.split())
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
-
-        # wait to make sure the last file is done, in case we use the last file right away below
-        # this is error prone because of variation in above?
-        time.sleep(0.5) 
 
         # FIX! I suppose we should vary the number of trees to make sure the response changes
         # maybe just inc in loop
@@ -139,9 +129,6 @@ class Basic(unittest.TestCase):
             ### timeoutSecs += 2
             trial += 1
 
-            # FIX! do we need or want a random delay here?
-            # is this because we're not sure if RF really completed?
-            time.sleep(0.5) 
 
 
 if __name__ == '__main__':
