@@ -15,8 +15,9 @@ import java.util.Arrays;
 public class Stream {
   public byte[] _buf;
   public int _off;
-  public Stream() { _buf = new byte[4]; } // Default writable stream
-  public Stream( byte[] b ) { _buf = b; } // Default readable stream
+  public Stream()                    { _buf = new byte[4];   }
+  public Stream(int len)             { _buf = new byte[len]; }
+  public Stream( byte[] b )          { _buf = b;             }
   public Stream( byte[] b, int off ) { _buf = b; _off = off; }
 
   public  byte[] grow ( int l ) { return (_off+l < _buf.length) ? _buf : grow2(_off+l);  }
