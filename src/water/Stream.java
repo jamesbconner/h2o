@@ -77,6 +77,13 @@ public class Stream {
     return new String(_buf, off, len);
   }
 
-  public byte[] getLen2Bytes() { return Arrays.copyOfRange(_buf, _off, _off += get2()); }
-  public byte[] getLen4Bytes() { return Arrays.copyOfRange(_buf, _off, _off += get4()); }
+  public byte[] getLen2Bytes() {
+    int len = get2();
+    return Arrays.copyOfRange(_buf, _off, _off += len);
+  }
+
+  public byte[] getLen4Bytes() {
+    int len = get4();
+    return Arrays.copyOfRange(_buf, _off, _off += len);
+  }
 }
