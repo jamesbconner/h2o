@@ -35,12 +35,11 @@ public class Stream {
   public Stream set8d(double a) { _off += UDP.set8d(grow(8),_off,a); return this; }
 
   @SuppressWarnings("deprecation") public Stream setLen2Str(String s) {
-      int len = s.length();
-      assert len < 65535;
-      grow(2+len);
-      set2(len);
-      s.getBytes(0, len, _buf, _off);
-      _off += len;
+      assert s.length() < 65535;
+      grow(2+s.length());
+      set2(s.length());
+      s.getBytes(0, s.length(), _buf, _off);
+      _off += s.length();
       return this;
   }
 
@@ -72,9 +71,8 @@ public class Stream {
   public double get8d() { return UDP.get8d(_buf,(_off+=8)-8); }
 
   public String getLen2Str() {
-    int len = get2(), off = _off;
-    _off += len;
-    return new String(_buf, off, len);
+    int len = get2();
+    return new String(_buf, _off, _off += len);
   }
 
   public byte[] getLen2Bytes() {
