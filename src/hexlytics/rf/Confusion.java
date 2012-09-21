@@ -204,7 +204,7 @@ public class Confusion extends MRTask {
 
   public static Confusion fromKey( Key key ) {
     RemoteTaskSerializer sc = (RTSerializationManager.get(Confusion.class));
-    Confusion c = (Confusion)sc.read(DKV.get(key).get(),0);
+    Confusion c = (Confusion)sc.read(new Stream(DKV.get(key).get()));
     c.shared_init();            // Shared init
     return c;
   }

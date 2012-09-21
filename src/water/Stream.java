@@ -11,7 +11,6 @@ import java.util.Arrays;
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
-
 public class Stream {
   public byte[] _buf;
   public int _off;
@@ -37,6 +36,7 @@ public class Stream {
 
   @SuppressWarnings("deprecation") public Stream setLen2Str(String s) {
       int len = s.length();
+      assert len < 65535;
       grow(2+len);
       set2(len);
       s.getBytes(0, len, _buf, _off);
@@ -45,12 +45,22 @@ public class Stream {
   }
 
   public Stream setLen2Bytes(byte[] b) {
+      assert b.length < 65535;
       grow(2+b.length);
       set2(b.length);
       System.arraycopy(b, 0, _buf, _off, b.length);
       _off += b.length;
       return this;
   }
+
+  public Stream setLen4Bytes(byte[] b) {
+      grow(4+b.length);
+      set4(b.length);
+      System.arraycopy(b, 0, _buf, _off, b.length);
+      _off += b.length;
+      return this;
+  }
+
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
   public byte   get1 () { return           _buf[ _off++]    ; }
@@ -60,4 +70,13 @@ public class Stream {
   public float  get4f() { return UDP.get4f(_buf,(_off+=4)-4); }
   public long   get8 () { return UDP.get8 (_buf,(_off+=8)-8); }
   public double get8d() { return UDP.get8d(_buf,(_off+=8)-8); }
+
+  public String getLen2Str() {
+    int len = get2(), off = _off;
+    _off += len;
+    return new String(_buf, off, len);
+  }
+
+  public byte[] getLen2Bytes() { return Arrays.copyOfRange(_buf, _off, _off += get2()); }
+  public byte[] getLen4Bytes() { return Arrays.copyOfRange(_buf, _off, _off += get4()); }
 }

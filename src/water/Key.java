@@ -198,11 +198,11 @@ public final class Key implements Comparable {
     key.cloud_info(cloud);      // Now compute & cache the real data
     return key;
   }
-  static public Key make(byte[] kb) { return make(kb,DEFAULT_DESIRED_REPLICA_FACTOR); }
+  static public  Key make(byte[] kb) { return make(kb,DEFAULT_DESIRED_REPLICA_FACTOR); }
   static private Key make(byte[] kb, int off, int len, byte rf) { return make(Arrays.copyOfRange(kb,off,off+len),rf); }
-  static public Key make(String s) { return make(s.getBytes());}
-  static public Key make(String s, byte rf) { return make(s.getBytes(), rf);}
-  static public Key make() { return make( UUID.randomUUID().toString() ); }
+  static public  Key make(String s) { return make(s.getBytes());}
+  static public  Key make(String s, byte rf) { return make(s.getBytes(), rf);}
+  static public  Key make() { return make( UUID.randomUUID().toString() ); }
 
   // Make a particular system key that is homed to given node and possibly
   // specifies also other 2 replicas. Works for both IPv4 and IPv6 addresses.
@@ -418,6 +418,11 @@ public final class Key implements Comparable {
     //assert off < MultiCast.MTU; <- valid only for UDP packets, but this method
     // is used to write to any byte []
     return off;
+  }
+
+  static public Key read( Stream s ) {
+    byte rf = s.get1();
+    return make(s.getLen2Bytes(), rf);
   }
 
   // Read the key length & kind & bytes from a UDP packet.  Build a bare key.

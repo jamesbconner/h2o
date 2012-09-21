@@ -73,9 +73,6 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       Stream stream = new Stream(buf, off);
       stream.set1(SERVER_UDP_SEND);
-      stream.set1(0); // zero RF
-      stream.set2(0); // 2 bytes of jarkey length
-
       stream.setLen2Str(sclazz);
       _args.write(stream);
       _serializer.write(_dt, stream);
@@ -96,32 +93,16 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
-      int off = UDP.SZ_TASK;          // Skip udp byte and port and task#
-      // Fill in any fields
-      byte cmd = buf[off++];
+
+      Stream s = new Stream(buf, UDP.SZ_TASK); // Skip udp byte and port and task#
+      byte cmd = s.get1();
       if( cmd == SERVER_UDP_SEND) {
-        // Unpack the class loader first
-        Key classloader_key;
-        if( buf[off]==0 && UDP.get2(buf,off+1)==0 ) {
-          classloader_key = null; // System loader
-          off += 3;
-        } else {
-          classloader_key = Key.read(buf,off); // Key for the jar file - really a ClassLoader
-          off += classloader_key.wire_len();
-        }
-        // Now the class string name
-        int len = get2(buf,off);  off += 2; // Class string length
-        String clazz = new String(buf,off,len);
-        off += len;               // Skip string
-        // Then the args key
-        Key args = Key.read(buf,off);
-        off += args.wire_len();
+        String clazz = s.getLen2Str();
+        Key args = Key.read(s);
 
         // Make a remote instance of this dude
         RemoteTaskSerializer<RemoteTask> ser = RTSerializationManager.get(clazz);
-
-        // Fill in remote values
-        RemoteTask dt = ser.read(buf, off);
+        RemoteTask dt = ser.read(s);
         remexec(ser, dt, args, p, h2o);
       } else {
         assert cmd == SERVER_TCP_SEND;
@@ -249,11 +230,11 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     if( _did_put ) DKV.remove(_args);
     // First SZ_TASK bytes have UDP type# and port# and task#.
     byte[] buf = p.getData();
-    int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
+    Stream s = new Stream(buf, UDP.SZ_TASK); // Skip udp byte and port and task#
     // Read object off the wires
-    int cmd = buf[off++];
+    int cmd = s.get1();
     if( cmd == CLIENT_UDP_SEND ) {
-      _dt = _serializer.read(buf, off);
+      _dt = _serializer.read(s);
     } else {
       assert cmd == CLIENT_TCP_SEND : "found cmd "+cmd;
       // Big object, switch to TCP style comms.  Should have already done a
