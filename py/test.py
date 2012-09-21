@@ -74,7 +74,6 @@ class Basic(unittest.TestCase):
         # first time we use perl (parity.pl)
 
         # always match the run below!
-        # FIX! 1 row fails in H2O. skip for now
         for x in xrange (1,100,10):
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"

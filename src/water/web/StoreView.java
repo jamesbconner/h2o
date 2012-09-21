@@ -103,7 +103,10 @@ public class StoreView extends H2OPage {
   private void formatKeyRow(H2O cloud, Key key, Value val, RString response) {
     RString row = response.restartGroup("tableRow");
     row.replace("key",key);
-
+    if(new String(key._kb).startsWith("ConfusionMatrix"))
+      row.replace("inspect","RFView");
+    else
+      row.replace("inspect", "Inspect");
     // Now the first 100 bytes of Value as a String
     byte[] b = new byte[100];   // Amount to read
     int len=0;
@@ -157,7 +160,6 @@ public class StoreView extends H2OPage {
         return;
       }
     }
-
     ServletUtil.createBestEffortSummary(key, row);
   }
 
@@ -181,7 +183,7 @@ public class StoreView extends H2OPage {
     + "    <td>"
     + "      <a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>"
     + "      %storeHdfs"
-    + "      &nbsp;&nbsp;<a href='/Inspect?Key=%keyHref'>%key</a>%execbtn"
+    + "      &nbsp;&nbsp;<a href='/%inspect?Key=%keyHref'>%key</a>%execbtn"
     + "    </td>"
     + "    <td>%size</td>"
     + "    <td>%rows</td>"
