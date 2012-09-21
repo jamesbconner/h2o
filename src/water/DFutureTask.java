@@ -6,6 +6,8 @@ import java.net.SocketException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Assert;
+
 import com.google.common.io.Closeables;
 
 import water.serialization.RTSerializationManager;
@@ -243,12 +245,14 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
           RemoteTaskSerializer<RemoteTask> remoteTaskSerializer = RTSerializationManager.get(t.getClass());
           remoteTaskSerializer.write(t, dos);
         } else if( arg instanceof Value ) {
+          // TODO: watch out for endianness here
+          Value v = (Value) arg;
           // For Values, support a pre-loaded byte[]
           if( i < args.length-1 && args[i+1] instanceof byte[] ) {
-            ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
+            v.write(dos, Integer.MAX_VALUE, (byte[])args[i+1]);
             i++;
           } else {
-            ((Value)arg).write(dos,Integer.MAX_VALUE);
+            v.write(dos, Integer.MAX_VALUE);
           }
         } else if( arg instanceof String ) {
           byte[] b = ((String)arg).getBytes();

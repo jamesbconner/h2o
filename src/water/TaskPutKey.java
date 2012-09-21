@@ -81,16 +81,14 @@ public class TaskPutKey extends DFutureTask<Object> {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
-      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
-      if( p.getLength() > off ) { // Empty TPKs are actual large Values sent via TCP
-        Key key = Key.read(buf,off);
-        off += key.wire_len();
-        Value val = Value.read(buf,off,key);
-        update(key,val,sender);
-        off = UDP.SZ_TASK;              // Skip udp byte and port and task#
+      if( p.getLength() > UDP.SZ_TASK ) { // Empty TPKs are actual large Values sent via TCP
+        Stream s = new Stream(buf, UDP.SZ_TASK);
+        Key key = Key.read(s);
+        Value val = Value.read(s, key);
+        update(key, val, sender);
       }
       // Send it back
-      reply(p,off,sender);
+      reply(p, UDP.SZ_TASK, sender);
     }
 
     // TCP large K/V RECEIVE on the target from the remote.  Note that 'this'

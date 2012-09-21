@@ -350,17 +350,17 @@ public class Value {
   }
 
   // Read 1+1+4+4+len+vc value bytes from the the UDP packet and into a new Value.
-  static Value read( byte[] buf, int off, Key key ) {
-    byte type = buf[off++];
-    if( type==0 ) return null;  // Deleted sentinel
-    byte p  = buf[off++];
-    int len = UDP.get4(buf,off); off += 4;
-    int max = UDP.get4(buf,off); off += 4;
-    Value val = construct(max,len,key,p,type);
-    if( len > 0 )
-      System.arraycopy(buf,off,val.mem(),0,len);
+  static Value read( Stream s, Key key ) {
+    byte type = s.get1();
+    if( type == 0 ) return null;  // Deleted sentinel
+    byte p  = s.get1();
+    int len = s.get4();
+    int max = s.get4();
+    Value val = construct(max, len, key, p, type);
+    if( len > 0 ) s.getBytes(val.mem(), len);
     return val;
   }
+
   static Value read( DataInputStream dis, Key key ) throws IOException {
     byte type = dis.readByte();
     byte p  = dis.readByte();
