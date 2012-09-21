@@ -6,6 +6,8 @@ import java.net.SocketException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.io.Closeables;
+
 import water.serialization.RTSerializationManager;
 import water.serialization.RemoteTaskSerializer;
 
@@ -263,20 +265,17 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       InputStream is = sock.getInputStream();
       int ack = is.read(); // Read 1 byte of ack
       if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
-      sock.close();
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
-      Thread.currentThread().setPriority(old_prior);
       return true;
     } catch( IOException e ) {
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
-      Thread.currentThread().setPriority(old_prior);
-      try { if( sock != null ) sock.close(); }
-      catch( IOException e2 ) { /*no msg for error on closing broken socket */}
       // Be silent for SocketException; we get this if the remote dies and we
       // basically expect them.
       if( !(e instanceof SocketException) ) // We get these if the remote dies mid-write
         System.err.println("tcp socket failed "+e);
       return false;
+    } finally {
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
+      Thread.currentThread().setPriority(old_prior);
+      Closeables.closeQuietly(sock);
     }
   }
 
