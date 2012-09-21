@@ -30,25 +30,31 @@ public class RandomForestPage extends H2OPage {
     StatType statType = StatType.values()[gini];
 
     // Start the distributed Random Forest
-    DRF drf = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
-
-    // Start up the incremental confusion matrix
-    Confusion confusion = new Confusion( drf._treeskey, ary, ntrees*H2O.CLOUD.size());
-    Key confKey = confusion.toKey();
 
     JsonObject res = new JsonObject();
-    addProperty(res, "confKey", confKey);
     res.addProperty("h2o",H2O.SELF.urlEncode());
-    res.addProperty("depth",depth);
+    try {
+      DRF drf = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
+      // Start up the incremental confusion matrix
+      Confusion confusion = new Confusion( drf._treeskey, ary, ntrees*H2O.CLOUD.size());
+      Key confKey = confusion.toKey();
+      addProperty(res, "confKey", confKey);
+      res.addProperty("depth",depth);
+    } catch(DRF.IllegalDataException e) {
+      res.addProperty("error", H2OPage.error("Incorrect input data: " + e.getMessage()));
+    }
     return res;
+
   }
 
   @Override protected String serveImpl(Server s, Properties p) throws PageError {
     JsonObject json = serverJson(s, p);
-
-    RString response = new RString(html);
-    response.replace(json);
-    return response.toString();
+    if(!json.has("error")){
+      RString response = new RString(html);
+      response.replace(json);
+      return response.toString();
+    }
+    return H2OPage.error(json.get("error").toString());
   }
   final static String html =
     "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%confKeyHref&depth=%depth\">\n";
