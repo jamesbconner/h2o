@@ -70,18 +70,7 @@ public class Stream {
   public long   get8 () { return UDP.get8 (_buf,(_off+=8)-8); }
   public double get8d() { return UDP.get8d(_buf,(_off+=8)-8); }
 
-  public String getLen2Str() {
-    int len = get2();
-    return new String(_buf, _off, _off += len);
-  }
-
-  public byte[] getLen2Bytes() {
-    int len = get2();
-    return Arrays.copyOfRange(_buf, _off, _off += len);
-  }
-
-  public byte[] getLen4Bytes() {
-    int len = get4();
-    return Arrays.copyOfRange(_buf, _off, _off += len);
-  }
+  public String getLen2Str()   { int l = get2(); return new String        (_buf, _off, _off += l); }
+  public byte[] getLen2Bytes() { int l = get2(); return Arrays.copyOfRange(_buf, _off, _off += l); }
+  public byte[] getLen4Bytes() { int l = get4(); return Arrays.copyOfRange(_buf, _off, _off += l); }
 }
