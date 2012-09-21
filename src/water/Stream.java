@@ -60,6 +60,12 @@ public class Stream {
       return this;
   }
 
+  public void setBytes(byte[] b, int len) {
+    grow(len);
+    System.arraycopy(b, 0, _buf, _off, len);
+    _off += len;
+  }
+
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
   public byte   get1 () { return           _buf[ _off++]    ; }

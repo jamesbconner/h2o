@@ -317,22 +317,13 @@ public class Value {
     return 1/*value-type*/+1/*persist info*/+4/*len*/+4/*max*/+(len>0?len:0);
   }
 
-  // Write up to len bytes to the packet
-  final int write( byte[] buf, int off, int len ) {
-    return write(buf,off,len,(len > 0) ? get(len):null);
-  }
-  final int write( byte[] buf, int off, int len, byte[] vbuf ) {
-    assert (len <= _max) || (_max<0);
-    buf[off++] = type();        // Value type
-    buf[off++] = _persist;
-    off += UDP.set4(buf,off,len);
-    off += UDP.set4(buf,off,_max);
-    if(len > 0 ) {              // Deleted keys have -1 len/max
-      System.arraycopy(vbuf,0,buf,off,len);
-      off += len;
-    }
-    assert off < MultiCast.MTU;
-    return off;
+  public final void write( Stream s, int len ) { write(s, len, len > 0 ? get(len) : null); }
+  public final void write( Stream s, int len, byte[] vbuf ) {
+    s.set1(type());
+    s.set1(_persist);
+    s.set4(len);
+    s.set4(_max);
+    if( len > 0 ) s.setBytes(vbuf, len);
   }
 
   // Write up to len bytes of Value to the Stream
@@ -468,7 +459,7 @@ class ArrayletInputStream extends InputStream {
     // and load the next chunk.
     if (availableBytes == 0 && _chunkIndex < _arraylet.chunks()) {
       _mem    = _arraylet.get(_chunkIndex++).get();
-      _offset = 0;      
+      _offset = 0;
       availableBytes = _mem.length;
     }
     return availableBytes;
@@ -482,7 +473,7 @@ class ArrayletInputStream extends InputStream {
 
   @Override public int read() throws IOException {
     if( available() == 0 ) {    // None available?
-      return -1;      
+      return -1;
     }
     return _mem[_offset++] & 0xFF;
   }
@@ -498,7 +489,7 @@ class ArrayletInputStream extends InputStream {
       _offset += cs;
       if ( len<=0 ) break;
       if ( available() == 0) {
-        if( _chunkIndex >= _arraylet.chunks() ) break;       
+        if( _chunkIndex >= _arraylet.chunks() ) break;
       }
     }
     return rc == 0 ? -1 : rc;

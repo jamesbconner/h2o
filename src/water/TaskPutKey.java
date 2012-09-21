@@ -58,7 +58,9 @@ public class TaskPutKey extends DFutureTask<Object> {
     int len = _val._max < 0 ? 0 : _val._max;
     if( off+_key.wire_len()+_val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
       off = _key.write(buf,off);
-      off = _val.write(buf,off,len);
+      Stream s = new Stream(buf, off);
+      _val.write(s, len);
+      off = s._off;
     } else {
       // Big Object goes via TCP!  Note that this is synchronous right now: we
       // block in the TCP write call until we're done.  Since TCP is reliable

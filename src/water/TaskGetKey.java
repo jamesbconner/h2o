@@ -105,14 +105,16 @@ public class TaskGetKey extends DFutureTask<Value> {
           assert home == h2o;    // Assert home is asking for the key
         }
 
+        Stream s = new Stream(buf, off);
         if( off+val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
-          off = val.write(buf,off,len,vbuf); // Just jam into reply packet
+          val.write(s, len, vbuf);
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
           if( !tcp_send(h2o,UDP.udp.getkey,get_task(buf),key,val,vbuf) )
             return; // If the TCP failed... then so do we; no result; caller will retry
-          off = val.write(buf,off,-2/*tha Big Value cookie*/); // Just jam into reply packet
+          val.write(s, -2);
         }
+        off = s._off;
       }
 
       // Send it back
