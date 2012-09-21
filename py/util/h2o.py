@@ -71,14 +71,16 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
-def spawn_h2o(addr=None, port=54321):
-    return spawn_cmd('h2o', [
+def spawn_h2o(addr=None, port=54321, nosigar=True):
+    h2o_cmd = [
             "java", "-ea", "-jar", find_file('build/h2o.jar'),
             "--port=%d"%port,
             '--ip=%s'%(addr or get_ip_address()),
-            '--nosigar',
             '--ice_root=%s' % tmp_dir('ice.')
-            ])
+            ]
+    if nosigar is True: 
+        h2o_cmd.append('--nosigar')
+    return spawn_cmd('h2o', h2o_cmd)
 
 def tear_down_cloud(nodes):
     ex = None
