@@ -1,11 +1,14 @@
 import os, json, unittest, time, shutil, sys
 import util.h2o as h2o
 
-def putKey(n,value,key=None,repl=None):
-    put = n.put_key(value,key,repl)
-    parseKey = n.parse(put['keyHref'])
+def putValue(n,value,key=None,repl=None):
+    print 'Before put_value, value:', value
+    put = n.put_value(value,key,repl)
+    print 'After put_value, put:', put
 
-    ### print 'After put, parseKey:', parseKey
+    parseKey = n.parse(put['keyHref'])
+    print 'After putValue keyHref, parseKey:', parseKey
+
     ## print 'key', parseKey['key']
     ## print 'keyHref', parseKey['keyHref']
     ## print 'put TimeMS', parseKey['TimeMS']
@@ -15,12 +18,16 @@ def putKey(n,value,key=None,repl=None):
 # a key gets generated afte a put.
 def putFile(n,csvPathname,key=None,repl=None):
     put = n.put_file(csvPathname,key,repl)
-    parseKey = n.parse(put['keyHref'])
+    print 'After put_file, put:', put
 
-    ### print 'After put, parseKey:', parseKey
+    parseKey = n.parse(put['keyHref'])
+    print 'After put parse: parseKey:', parseKey
+
     ## print 'key', parseKey['key']
     ## print 'keyHref', parseKey['keyHref']
     ## print 'put TimeMS', parseKey['TimeMS']
+    ## print 'vsize', parseKey['vsize']
+    ## print 'rf', parseKey['rf']
 
     return parseKey
 
@@ -126,13 +133,12 @@ class Basic(unittest.TestCase):
             # FIX! put times are inaccurate as they report before the parse is actually finished
             # means we need fixed delay after the parse before we use it's results
             # that's embedded currently in putFile
-            parseKey = putFile(nodes[0],csvPathname)
+            ### parseKey = putFile(nodes[0],csvPathname)
 
-            ## parseKey = putKey(nodes[0],"HiJoe",key=None,repl=None)
+            parseKey = putValue(nodes[0],"HiJoe",key=None,repl=None)
 
             print 'Trial:', trial
             ### print 'put TimeMS:', parseKey['TimeMS']
-
             ### runRFonly(nodes[0],parseKey,trees,depth,timeoutSecs)
 
             # don't change tree count yet

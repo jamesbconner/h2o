@@ -63,8 +63,9 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     rc = ps.wait(timeout)
     out = file(stdout).read()
     err = file(stderr).read()
+
     if rc is None:
-        rc.terminate()
+        n.terminate()
         raise Exception("%s %s timed out after %d\nstdout:\n%s\n\nstderr:\n%s" %
                 (name, args, timeout or 0, out, err))
     elif rc != 0:
@@ -81,6 +82,7 @@ def spawn_h2o(addr=None, port=54321):
 
 def tear_down_cloud(nodes):
     ex = None
+    # FIX! do other nodes die, when I kill one node?
     for n in nodes:
         if n.wait() is None:
             n.terminate()
@@ -99,6 +101,21 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3):
             n = H2O(port=base_port + i*ports_per_node)
             nodes.append(n)
         stabilize_cloud(nodes[0], len(nodes))
+
+        time.sleep(1)
+        print n.get_cloud(), len(nodes)
+        time.sleep(1)
+        print n.get_cloud(), len(nodes)
+        time.sleep(1)
+        print n.get_cloud(), len(nodes)
+        time.sleep(1)
+        print n.get_cloud(), len(nodes)
+        time.sleep(1)
+        print n.get_cloud(), len(nodes)
+        time.sleep(1)
+
+        nodes[0].stabilize('cloud auto detect', 2,
+            lambda n: n.get_cloud()['cloud_size'] == len(nodes))
     except:
         for n in nodes: n.terminate()
         raise
@@ -124,9 +141,9 @@ class H2O:
         return self.__check_request(requests.get(self.__url('Cloud.json')))
 
     # FIX! I can put Value, Key, RF also! I can write 10,000 keys! good for testing?
-    def put_key(self, value, key=None, repl=None):
+    def put_value(self, value, key=None, repl=None):
         return self.__check_request(
-            requests.post(self.__url('PutFile.json'), 
+            requests.post(self.__url('PutValue.json'), 
                 params={"Value": value, "Key": key, "RF": repl}
                 ))
 
@@ -204,6 +221,7 @@ class H2O:
         self.__check_spawn()
         self.ps.send_signal(signal.SIGQUIT)
     
+
     def wait(self, timeout=0):
         self.__check_spawn()
         if self.rc: return self.rc
@@ -213,6 +231,49 @@ class H2O:
         except psutil.TimeoutExpired:
             return None
 
-    def terminate(self):
+    # FIX! might enhance others to be complete around errors, but just adding here for
+    # now while debugging cloud teardown. maybe simplify in future when more is known.
+    # May be lots of cases of unknown cloud state we need to gracefully handle
+    def terminate(self, timeout=2):
         self.__check_spawn()
-        return self.ps.kill()
+
+        # send SIGKILL. in H2O, killing one node, may make the other nodes crash.
+        try:
+            self.rc = self.ps.kill()
+
+        # put in placeholders for all exceptions..just in case..make debug easier? 
+        except psutil.AccessDenied:
+            print "AccessDenied in terminate ps.kill"
+            self.rc = None # ?
+
+        except psutil.NoSuchProcess:
+            print "NoSuchProcess in terminate ps.kill. Maybe this node died because of prior other node terminate?"
+            self.rc = None # ?
+
+        # Check if we get a clean end after we send the kill?
+        # if process is already terminated, but we don't get NoSuchProcess, we get None rc
+        try:
+            self.rc = self.ps.wait(timeout)
+
+        # put in placeholders for all exceptions..just in case..make debug easier? 
+        except psutil.AccessDenied:
+            print "AccessDenied in terminate ps.wait"
+            self.rc = None # ?
+
+        except psutil.NoSuchProcess:
+            print "NoSuchProcess in terminate ps.wait. Maybe node died due to prior other node terminate?"
+            self.rc = 0 # ? expect it to be dead now
+
+        # only on ps.wait
+        except TimeoutExpired:
+            print "TimeoutExpired in terminate ps.wait"
+            self.rc = None # ?
+
+        else:
+            assert ((self.rc==0) | (self.rc==9)),"expecting to see exit code 0 or 9 in terminate: %d" % self.rc
+
+        # FIX! should use these instead of numbers when checking exit codes
+        # windows only deals with kill?
+        # signal.SIGTERM
+        # signal.SIGKILL
+        return self.rc
