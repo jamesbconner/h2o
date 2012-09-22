@@ -165,9 +165,17 @@ class H2O:
         return self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
 
-    def stabilize(self, msg, timeout, func):
+    def stabilize(self, msg, timeoutSecs, func):
+        '''Repeatedly test a function waiting for it to return True.
+
+        Arguments:
+        msg         -- A message for displaying errors to users
+        timeoutSecs -- How long in seconds to keep trying before declaring a failure
+        func        -- A function that will be called with the node as an argument.
+                    -- return True for success or False for continue waiting
+        '''
         start = time.time()
-        while time.time() - start < timeout:
+        while time.time() - start < timeoutSecs:
             if func(self):
                 break
             time.sleep(0.1)
