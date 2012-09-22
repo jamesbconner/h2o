@@ -103,21 +103,6 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3):
             n = H2O(port=base_port + i*ports_per_node)
             nodes.append(n)
         stabilize_cloud(nodes[0], len(nodes))
-
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-
-        nodes[0].stabilize('cloud auto detect', 2,
-            lambda n: n.get_cloud()['cloud_size'] == len(nodes))
     except:
         for n in nodes: n.terminate()
         raise
