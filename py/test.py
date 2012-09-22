@@ -96,7 +96,6 @@ class Basic(unittest.TestCase):
             # what if we do another node?
             # FIX! do we need or want a random delay here?
             # CNC - My antique computer reports files missing without a little delay here.
-            time.sleep(0.1)
             runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
             trees += 10
