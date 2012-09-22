@@ -102,6 +102,9 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3):
         for i in xrange(node_count):
             n = H2O(port=base_port + i*ports_per_node)
             nodes.append(n)
+        # FIX! this is temporary until we understand it more
+        # when can we start talking to H2O? do we have to wait for it's first stdout?
+        time.sleep(1)
         stabilize_cloud(nodes[0], len(nodes))
     except:
         for n in nodes: n.terminate()
