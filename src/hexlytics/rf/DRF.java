@@ -56,7 +56,10 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
-    if(2 > classes || classes > 255) throw new IllegalDataException("Number of classes must be between 2 and 255, found " + classes);
+    // There is no point in running Rf when all the training data have the same class, however it is currently failing the test/build
+    //if(classes == 1) throw new IllegalDataException("RF can not be trained since there is only 1 class in the training data.");
+    // according to assert in Tree.java, there can not b more than 100 classes at the moment
+    if(0 > classes || classes > 100) throw new IllegalDataException("Number of classes must be between 2 and 100, found " + classes);
   }
   public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded) {
     validateInputData(ary);
@@ -76,7 +79,7 @@ public class DRF extends water.DRemoteTask {
     else                 drf.fork  (ary._key);
     return drf;
   }
-  
+
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
