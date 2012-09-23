@@ -96,11 +96,11 @@ def stabilize_cloud(node, node_count, timeoutSecs=3):
     node.stabilize('cloud auto detect', timeoutSecs,
         lambda n: n.get_cloud()['cloud_size'] == node_count)
 
-def build_cloud(node_count, base_port=54321, ports_per_node=3):
+def build_cloud(node_count, base_port=54321, ports_per_node=3,nosigar=True):
     nodes = []
     try:
         for i in xrange(node_count):
-            n = H2O(port=base_port + i*ports_per_node)
+            n = H2O(port=base_port + i*ports_per_node,nosigar=nosigar)
             nodes.append(n)
         stabilize_cloud(nodes[0], len(nodes))
 
@@ -165,6 +165,9 @@ class H2O:
         return self.__check_request(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
 
+    def netstat(self):
+        return self.__check_request(requests.get(self.__url('Network.json')))
+
     # FIX! add depth/ntrees to all calls?
     def random_forest(self, key, ntrees=6, depth=30):
         return self.__check_request(requests.get(self.__url('RF.json'),
@@ -197,14 +200,14 @@ class H2O:
                 return False
             raise
 
-    def __init__(self, addr=None, port=54321, spawn=True):
+    def __init__(self, addr=None, port=54321, spawn=True, nosigar=True):
         self.port = port
         self.addr = addr or get_ip_address()
         if not spawn:
             self.stabilize('h2o started', 2, self.__is_alive)
         else:
             self.rc = None
-            spawn = spawn_h2o(addr=self.addr, port=port)
+            spawn = spawn_h2o(addr=self.addr, port=port, nosigar=nosigar)
             self.ps = spawn[0]
             try:
                 self.stabilize('h2o started', 4, self.__is_alive)
