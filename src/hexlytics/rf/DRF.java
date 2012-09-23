@@ -24,6 +24,11 @@ public class DRF extends water.DRemoteTask {
   RandomForest _rf;             // The local RandomForest
   int _seed;
 
+  public static class IllegalDataException extends Error {
+    public IllegalDataException(String string) {
+      super(string);
+    }
+  }
   public static class Serializer extends RemoteTaskSerializer<DRF> {
     @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
     @Override public int write( DRF t, byte[] buf, int off ) {
@@ -47,7 +52,17 @@ public class DRF extends water.DRemoteTask {
     @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
   }
 
+  private static void validateInputData(ValueArray ary){
+    final int rowsize = ary.row_size();
+    final int num_cols = ary.num_cols();
+    final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
+    // There is no point in running Rf when all the training data have the same class, however it is currently failing the test/build
+    //if(classes == 1) throw new IllegalDataException("RF can not be trained since there is only 1 class in the training data.");
+    // according to assert in Tree.java, there can not b more than 100 classes at the moment
+    if(0 > classes || classes > 100) throw new IllegalDataException("Number of classes must be between 2 and 100, found " + classes);
+  }
   public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded) {
+    validateInputData(ary);
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -64,7 +79,7 @@ public class DRF extends water.DRemoteTask {
     else                 drf.fork  (ary._key);
     return drf;
   }
-  
+
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();

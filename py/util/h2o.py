@@ -1,4 +1,4 @@
-import time, os, json, signal, tempfile, shutil, datetime
+import time, os, json, signal, tempfile, shutil, datetime, inspect
 import requests
 import psutil
 
@@ -102,22 +102,10 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3,nosigar=True):
         for i in xrange(node_count):
             n = H2O(port=base_port + i*ports_per_node,nosigar=nosigar)
             nodes.append(n)
+        # FIX! this is temporary until we understand it more
+        # when can we start talking to H2O? do we have to wait for it's first stdout?
+        time.sleep(1)
         stabilize_cloud(nodes[0], len(nodes))
-
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-        print n.get_cloud(), len(nodes)
-        time.sleep(1)
-
-        nodes[0].stabilize('cloud auto detect', 2,
-            lambda n: n.get_cloud()['cloud_size'] == len(nodes))
     except:
         for n in nodes: n.terminate()
         raise
@@ -130,9 +118,11 @@ class H2O:
     def __check_request(self, r):
         log('Sent ' + r.url)
         if not r:
-            import inspect
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
-        return r.json
+        json = r.json
+        if 'error' in json:
+            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], json['error']))
+        return json
 
     def __check_spawn(self):
         if not self.ps:
@@ -181,9 +171,17 @@ class H2O:
         return self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
 
-    def stabilize(self, msg, timeout, func):
+    def stabilize(self, msg, timeoutSecs, func):
+        '''Repeatedly test a function waiting for it to return True.
+
+        Arguments:
+        msg         -- A message for displaying errors to users
+        timeoutSecs -- How long in seconds to keep trying before declaring a failure
+        func        -- A function that will be called with the node as an argument.
+                    -- return True for success or False for continue waiting
+        '''
         start = time.time()
-        while time.time() - start < timeout:
+        while time.time() - start < timeoutSecs:
             if func(self):
                 break
             time.sleep(0.1)
@@ -215,7 +213,6 @@ class H2O:
                 self.ps.kill()
                 raise
 
-            time.sleep(1)
             if self.wait():
                 out = file(spawn[1]).read()
                 err = file(spawn[2]).read()

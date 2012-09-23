@@ -100,7 +100,7 @@ class Basic(unittest.TestCase):
 
         print "This currently passes in python with 3 node"
         print "fails with one node startup and browser-controlled put"
-        for x in xrange (10000,20000,50):
+        for x in xrange (10000,15000,500):
             sys.stdout.write('.')
             sys.stdout.flush()
 

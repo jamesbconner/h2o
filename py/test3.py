@@ -18,6 +18,8 @@ def putFile(n,csvPathname):
 def runRFonly(n,parseKey,trees,depth,timeoutSecs):
     # FIX! what is rf set to here (on pass/fail?)
     rf = n.random_forest(parseKey['keyHref'],trees,depth)
+    # kbn trial
+    time.sleep(1)
     ### print 'After random_forest, rf:', rf
     ## print 'confKey', rf['confKey']
     ## print 'confKeyHref', rf['confKeyHref']
@@ -36,6 +38,7 @@ class Basic(unittest.TestCase):
         h2o.clean_sandbox()
         global nodes
         nodes = h2o.build_cloud(node_count=3)
+        print "cloud built with 3"
 
     @classmethod
     def tearDownClass(cls):
@@ -57,6 +60,7 @@ class Basic(unittest.TestCase):
         for n in nodes:
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
+        print "test_Basic done"
 
     def test_GenParity1(self):
         global SYNDATASETS_DIR
@@ -73,7 +77,7 @@ class Basic(unittest.TestCase):
         for x in [10000]:
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
-            h2o.spawn_cmd('parity.pl', shCmdString.split())
+            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),4)
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
@@ -88,7 +92,8 @@ class Basic(unittest.TestCase):
         trial = 1
 
         print "This currently hangs/fails after ? trials or so. stdout/stderr all seem good"
-        for x in xrange (10000,20000,50):
+        print "Updated with time delays at kbn comments..just to see it pass..will revisit"
+        for x in xrange (10000,15000,1000):
             sys.stdout.write('.')
             sys.stdout.flush()
 
@@ -101,12 +106,15 @@ class Basic(unittest.TestCase):
             time.sleep(0.1)
             # broke out the put separately so we can iterate a test just on the RF
             parseKey = putFile(nodes[0],csvPathname)
+            # kbn trial
+            time.sleep(1)
+            print "put", trial
 
             print 'Trial:', trial
             ### print 'put TimeMS:', parseKey['TimeMS']
 
             runRFonly(nodes[0],parseKey,trees,depth,timeoutSecs)
-            ### print "Trial", trial, "done"
+            print "Trial", trial, "done"
 
             # don't change tree count yet
             ## trees += 10

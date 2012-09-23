@@ -77,7 +77,9 @@ class Basic(unittest.TestCase):
         for x in xrange (1,100,10):
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
-            h2o.spawn_cmd('parity.pl', shCmdString.split())
+            # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
+            # wait for the last one to be gen'ed here before we start the first below.
+            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),timeout=3)
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
@@ -96,7 +98,6 @@ class Basic(unittest.TestCase):
             # what if we do another node?
             # FIX! do we need or want a random delay here?
             # CNC - My antique computer reports files missing without a little delay here.
-            time.sleep(0.1)
             runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
             trees += 10

@@ -32,7 +32,7 @@ public class DataAdapter  {
       String s=columns[i].toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i);
     }
     classIdx_ = c2i_.get(classNm);
-    assert 0 <= classIdx_ && classIdx_ < 100;
+    assert 0 <= classIdx_ && classIdx_ < 255;
     _data_id = data_id;
     if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
   }
