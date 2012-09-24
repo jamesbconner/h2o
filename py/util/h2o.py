@@ -92,9 +92,12 @@ def tear_down_cloud(nodes):
             ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
     if ex: raise ex
 
-def stabilize_cloud(node, node_count, timeoutSecs=3):
+def stabilize_cloud(node, node_count):
+    timeoutSecs = 3.0
+    retryDelaySecs = 1.0
     node.stabilize('cloud auto detect', timeoutSecs,
-        lambda n: n.get_cloud()['cloud_size'] == node_count)
+        lambda n: n.get_cloud()['cloud_size'] == node_count,
+        retryDelaySecs)
 
 def build_cloud(node_count, base_port=54321, ports_per_node=3):
     nodes = []
@@ -103,7 +106,7 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3):
             n = H2O(port=base_port + i*ports_per_node)
             nodes.append(n)
         # FIX! this is temporary until we understand it more
-        # when can we start talking to H2O? do we have to wait for it's first stdout?
+        # when can we start talking to H2O? wait for it's first stdout?
         time.sleep(1)
         stabilize_cloud(nodes[0], len(nodes))
     except:
@@ -165,23 +168,35 @@ class H2O:
                 }))
 
     def random_forest_view(self, key):
-        return self.__check_request(requests.get(self.__url('RFView.json'),
+        a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
+        return a
 
-    def stabilize(self, msg, timeoutSecs, func):
+    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=1.0):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:
         msg         -- A message for displaying errors to users
-        timeoutSecs -- How long in seconds to keep trying before declaring a failure
+        retryDelaySecs -- How long in seconds to wait before retrying
         func        -- A function that will be called with the node as an argument.
                     -- return True for success or False for continue waiting
+        timeoutSecs -- How long in seconds to keep trying before declaring a failure
         '''
+
         start = time.time()
+        retryCount = 0
         while time.time() - start < timeoutSecs:
             if func(self):
                 break
-            time.sleep(0.1)
+            retryCount += 1
+            ### print "stabilize retry:", retryCount
+            # tests should call with retry delay at maybe 1/2 expected times 
+            # so retrying more than 12 times is an error. easier to debug?
+            if retryCount > 12:
+                raise Exception("stabilize retried too much. Bug or extend retry delay?: %d\n" % (retryCount))
+
+            ### print "sleep:", retryDelaySecs
+            time.sleep(retryDelaySecs)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
 

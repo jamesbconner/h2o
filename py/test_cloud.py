@@ -38,7 +38,7 @@ class Basic(unittest.TestCase):
             # put variable delay here or no?
             # can check a couple of things about cloud if we want..
             # example: {u'cloud_name': u'kevin', u'cloud_size': 1, u'node_name': u'/10.0.2.15:54322'}
-            time.sleep(0.5)
+            time.sleep(1.0)
             c = getCloud()
             print c
             print nodes

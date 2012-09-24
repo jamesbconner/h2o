@@ -5,9 +5,14 @@ def runRF(n,trees,csvPathname,timeoutSecs):
     put = n.put_file(csvPathname)
     parse = n.parse(put['keyHref'])
     rf = n.random_forest(parse['keyHref'],trees)
+    # kbn hack to make test.py pass reliably
+    # time.sleep(1)
     # this expects the response to match the number of trees you told it to do
+    print "retryDelaySecs = 0.05 after RF"
     n.stabilize('random forest finishing', timeoutSecs,
-        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees)
+        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees,
+        retryDelaySecs=0.10)
+
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -31,23 +36,6 @@ class Basic(unittest.TestCase):
     # should change the names so this test order matches alphabetical order
     # by using intermediate "_A_" etc. That should make unittest order match
     # order here? 
-
-    def test_A_Basic(self):
-        for n in nodes:
-            c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
-
-    def test_B_RF_iris2(self):
-        trees = 6
-        timeoutSecs = 10
-        csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
-        runRF(nodes[0], trees, csvPathname, timeoutSecs)
-
-    def test_C_RF_poker100(self):
-        trees = 6
-        timeoutSecs = 10
-        csvPathname = h2o.find_file('smalldata/poker/poker100')
-        runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
     def test_D_GenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
@@ -74,7 +62,7 @@ class Basic(unittest.TestCase):
         # first time we use perl (parity.pl)
 
         # always match the run below!
-        for x in xrange (1,100,10):
+        for x in xrange (50,200,10):
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
             # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
@@ -85,24 +73,26 @@ class Basic(unittest.TestCase):
 
         # FIX! I suppose we should vary the number of trees to make sure the response changes
         # maybe just inc in loop
-        trees = 6
+        trees = 100
         # bump this up too if you do?
-        timeoutSecs = 10
+        timeoutSecs = 5 
         # always match the gen above!
-        for x in xrange (1,100,10):
+        ### for x in xrange (50,200,10):
+        for x in xrange(50,200,10):
             sys.stdout.write('.')
             sys.stdout.flush()
-            csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
+            # csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
+            csvFilename = "parity_128_4_" + "100" + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            print csvPathname, "trees:", trees, "timeoutSecs", timeoutSecs
+            print "\n", csvPathname, "trees:", trees, "timeoutSecs", timeoutSecs
             # FIX! TBD do we always have to kick off the run from node 0?
             # what if we do another node?
             # FIX! do we need or want a random delay here?
             # CNC - My antique computer reports files missing without a little delay here.
             runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
-            trees += 10
-            ### timeoutSecs += 2
+            ### trees += 10
+            ## hitimeoutSecs += 2
 
 
 if __name__ == '__main__':
