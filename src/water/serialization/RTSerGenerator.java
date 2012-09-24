@@ -1,10 +1,10 @@
 package water.serialization;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.lang.reflect.*;
 import java.text.MessageFormat;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import org.objectweb.asm.*;
 import org.objectweb.asm.Type;
@@ -14,6 +14,7 @@ import water.Stream;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
 
 /**
  * Generates custom {@link RemoteTaskSerializer} for particular
@@ -47,12 +48,16 @@ public class RTSerGenerator implements Opcodes {
   private static final Type STREAM;
   private static final Method STREAM_SET_BYTES;
   private static final Method STREAM_GET_BYTES;
+  private static final Method STREAM_SET4;
+  private static final Method STREAM_GET4;
   static {
     try {
       Class<Stream> c = Stream.class;
       STREAM = Type.getType(c);
       STREAM_SET_BYTES   = c.getDeclaredMethod("setLen4Bytes", byte[].class);
       STREAM_GET_BYTES   = c.getDeclaredMethod("getLen4Bytes");
+      STREAM_SET4        = c.getDeclaredMethod("set4", int.class);
+      STREAM_GET4        = c.getDeclaredMethod("get4");
     } catch(Throwable t) {
       throw Throwables.propagate(t);
     }
@@ -84,11 +89,10 @@ public class RTSerGenerator implements Opcodes {
   private static final Set<Class<?>> SUPPORTED_CLASSES = new HashSet<Class<?>>();
   static {
     SUPPORTED_CLASSES.add(byte[].class);
-    //SUPPORTED_CLASSES.add(int.class);
+    SUPPORTED_CLASSES.add(int.class);
     //SUPPORTED_CLASSES.add(String.class);
   }
 
-  private final Class<?> clazz;
   private final String internalName;
   private final Field[] fields;
   private final Constructor<?> ctor;
@@ -99,9 +103,14 @@ public class RTSerGenerator implements Opcodes {
           "{0}: is not a RemoteRunnable",
           c.getName()));
     }
-    this.clazz = c;
     this.internalName = Type.getInternalName(c);
-    this.fields = c.getDeclaredFields();
+
+    ArrayList<Field> fi = Lists.newArrayList(c.getDeclaredFields());
+    Iterator<Field> it = fi.iterator();
+    while( it.hasNext() ) {
+      if( Modifier.isStatic(it.next().getModifiers()) ) it.remove();
+    }
+    this.fields = fi.toArray(new Field[fi.size()]);
 
     Class<?>[] fieldTypes = new Class<?>[fields.length];
     for( int i = 0; i < fields.length; ++i ) {
@@ -123,11 +132,6 @@ public class RTSerGenerator implements Opcodes {
     }
   }
 
-  private String getSerializerInternalName() {
-    return internalName + "Serializer";
-  }
-
-
   /**
    * Create the RemoteRunnableSerializer.  It will have an inner class of an identical
    * but remapped runnable which it uses to instantiate.
@@ -136,7 +140,7 @@ public class RTSerGenerator implements Opcodes {
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
     cw.visit(V1_6, ACC_PUBLIC + ACC_SUPER,
-        getSerializerInternalName(),
+        internalName + "Serializer",
         null,
         SER.getInternalName(),
         new String[] { });
@@ -189,6 +193,10 @@ public class RTSerGenerator implements Opcodes {
         mv.visitInsn(IADD);
         mv.visitInsn(ICONST_4);
         mv.visitInsn(IADD);
+      } else if( int.class.equals(f.getType()) ) {
+        // total += 4
+        mv.visitInsn(ICONST_4);
+        mv.visitInsn(IADD);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
@@ -209,6 +217,12 @@ public class RTSerGenerator implements Opcodes {
         visitField(mv, casted, f);
         visitMethodCall(mv, STREAM, STREAM_SET_BYTES);
         mv.visitInsn(POP);
+      } else if( int.class.equals(f.getType()) ) {
+        // stream.set4(f)
+        mv.visitIntInsn(ALOAD, stream);
+        visitField(mv, casted, f);
+        visitMethodCall(mv, STREAM, STREAM_SET4);
+        mv.visitInsn(POP);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
@@ -227,6 +241,10 @@ public class RTSerGenerator implements Opcodes {
         // stream.getLen4Bytes()
         mv.visitIntInsn(ALOAD, stream);
         visitMethodCall(mv, STREAM, STREAM_GET_BYTES);
+      } else if( int.class.equals(f.getType()) ) {
+        // stream.get4()
+        mv.visitIntInsn(ALOAD, stream);
+        visitMethodCall(mv, STREAM, STREAM_GET4);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
@@ -252,6 +270,11 @@ public class RTSerGenerator implements Opcodes {
         mv.visitIntInsn(ALOAD, stream);
         visitField(mv, casted, f);
         visitMethodCall(mv, DOS, DOS_WRITE);
+      } else if( int.class.equals(f.getType()) ) {
+        // dos.writeInt(f)
+        mv.visitIntInsn(ALOAD, stream);
+        visitField(mv, casted, f);
+        visitMethodCall(mv, DOS, DOS_WRITE_INT);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
@@ -277,7 +300,11 @@ public class RTSerGenerator implements Opcodes {
         mv.visitIntInsn(ALOAD, stream);
         mv.visitInsn(SWAP);
         visitMethodCall(mv, DIS, DIS_READ_FULLY);
-      } else {
+      } else if( int.class.equals(f.getType()) ) {
+        // dos.readInt()
+        mv.visitIntInsn(ALOAD, stream);
+        visitMethodCall(mv, DIS, DIS_READ_INT);
+     } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
     }

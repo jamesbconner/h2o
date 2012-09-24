@@ -90,33 +90,17 @@ public class KVTest {
       UDP.set4(bits,0,i);       // Each value holds a shift-count
       DKV.put(k,val);
     }
-    RemoteBitSet rbs = new RemoteBitSet();
+    RemoteBitSet rbs = new RemoteBitSet(0);
     rbs.invoke(keys);
     assertEquals((int)((1L<<keys.length)-1),rbs._x);
   }
 
   // Remote Bit Set: OR together the result of a single bit-mask where the
   // shift-amount is passed in in the Key.
-  @SuppressWarnings("serial")
-  @RTSerializer(RemoteBitSet.Serializer.class)
   public static class RemoteBitSet extends MRTask {
-    public static class Serializer extends RemoteTaskSerializer<RemoteBitSet> {
-      @Override public int wire_len( RemoteBitSet r ) { return 4; }
-      @Override public void write( RemoteBitSet r, DataOutputStream dos ) { throw new Error("unimplemented"); }
-      @Override public RemoteBitSet read( DataInputStream dis ) { throw new Error("unimplemented"); }
-      @Override public int write( RemoteBitSet r, byte[] buf, int off ) {
-        UDP.set4(buf,off,r._x);
-        return off+4;
-      }
-      @Override public RemoteBitSet read( byte[] buf, int off ) {
-        RemoteBitSet r = new RemoteBitSet();
-        r._x = UDP.get4(buf,off);
-        return r;
-      }
-    }
-
     // Set a single bit-mask based on the shift which is passed in the Value
-    int _x;
+    private int _x;
+    public RemoteBitSet(int x) { _x = x; }
     public void map( Key key ) {
       assert _x == 0;                  // Never mapped into before
       Value val = DKV.get(key);        // Get the Value for the Key
@@ -242,18 +226,7 @@ public class KVTest {
     DKV.remove(key);            // Cleanup after test
   }
 
-  @SuppressWarnings("serial")
-  @RTSerializer(Atomic2.Serializer.class)
   public static class Atomic2 extends Atomic {
-    public static class Serializer extends RemoteTaskSerializer<Atomic2> {
-      // By default, nothing sent over with the function (except the target Key).
-      @Override public int  wire_len(Atomic2 a) { return 0; }
-      @Override public int  write( Atomic2 a, byte[] buf, int off ) { return off; }
-      @Override public void write( Atomic2 a, DataOutputStream dos ) throws IOException { throw new Error("do not call"); }
-      @Override public Atomic2 read( byte[] buf, int off ) { return new Atomic2(); }
-      @Override public Atomic2 read( DataInputStream dis ) throws IOException { throw new Error("do not call"); }
-    }
-
     @Override public byte[] atomic( byte[] bits1 ) {
       long l1 = UDP.get8(bits1,0);
       long l2 = UDP.get8(bits1,8);
