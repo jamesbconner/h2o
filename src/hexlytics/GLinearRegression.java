@@ -4,12 +4,10 @@ import java.io.*;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import javax.vecmath.GMatrix;
-import javax.vecmath.GVector;
-
 import water.*;
 import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
+import Jama.Matrix;
 
 public class GLinearRegression {
 
@@ -98,28 +96,31 @@ public class GLinearRegression {
       _y = yColId;
       _row = new Row();
       _xlen = (constant != 0) ? _xs.length + 1 : _xs.length;
-      _row.x = new GVector(_xlen);
+      _row.x = new Matrix(1,_xlen);
       _constant = constant;
-      if( constant != 0 ) _row.x.setElement(_xs.length, constant);
-      _row.wx = _row.x;
+      if( constant != 0 ) _row.x.set(0,_xs.length, constant);
+      _row.wx = _row.x.transpose();
       _row.y = 0.0;
     }
 
     @Override
     public Row map(int rid) {
-      for( int i = 0; i < _xs.length; ++i )
-        _row.x.setElement(i, getColumn(rid, _xs[i]));
-      _row.y = getColumn(rid, _y);
-      if(_constant != 0){
-        _row.x.setElement(_row.x.getSize()-1,_constant);
-        _row.wx.setElement(_row.wx.getSize()-1,_constant);
+      for( int i = 0; i < _xs.length; ++i ) {
+        double d = getColumn(rid, _xs[i]);
+        _row.x.set(0,i,d);
+        _row.wx.set(i,0,d);
       }
+      if(_constant != 0){ // make sure constants are ok
+        _row.x.set(0,_row.x.getColumnDimension()-1,_constant);
+        _row.wx.set(_row.wx.getRowDimension()-1,0,_constant);
+      }
+      _row.y = getColumn(rid, _y);
       return _row;
     }
 
     @Override
     public int xlen() {
-      return _row.x.getSize();
+      return _row.wx.getRowDimension();
     }
 
     @Override
@@ -163,25 +164,22 @@ public class GLinearRegression {
 
   }
 
-  public static GVector solveGLR(Key aryKey, int [] xColIds, int yColId) {
+  public static Matrix solveGLR(Key aryKey, int [] xColIds, int yColId) {
     return solveGLR(aryKey, new LinearRow2VecMap(xColIds, yColId));
   }
 
-  public static GVector solveGLR(Key aryKey, GLinearRegression.Row2VecMap rmap) {
+  public static Matrix solveGLR(Key aryKey, GLinearRegression.Row2VecMap rmap) {
     GLRTask tsk = new GLRTask(rmap);
     tsk.invoke(aryKey);
-    tsk._xx.invert();
-    GVector betas = (GVector) tsk._xy.clone();
-    betas.mul(tsk._xx, tsk._xy);
-    return betas;
+    return tsk._xx.inverse().times(tsk._xy);
   }
 
   // wrapper around one row of data for use in WLR
   public static class Row {
-    // the x vector
-    public GVector x;
-    // weighted x (or just alias to x, if weights are not used)
-    public GVector wx;
+    // the x (row) vector
+    public Matrix x;
+    // weighted (column) x (or just alias to x, if weights are not used)
+    public Matrix wx;
     // response variable
     public double  y;
 
@@ -192,8 +190,8 @@ public class GLinearRegression {
 
   @RTSerializer(GLRTask.Serializer.class)
   public static class GLRTask extends MRTask {
-    GMatrix    _xx;
-    GVector    _xy;
+    Matrix    _xx;
+    Matrix    _xy;
     VMap       _weights;
     Row2VecMap _rmap;
 
@@ -202,7 +200,7 @@ public class GLinearRegression {
     }
 
     // private constructor to be used in deserialization of results
-    private GLRTask(GMatrix xx, GVector xy) {
+    private GLRTask(Matrix xx, Matrix xy) {
       _xx = xx;
       _xy = xy;
       _rmap = null;
@@ -215,29 +213,25 @@ public class GLinearRegression {
       ValueArray ary = (ValueArray) DKV.get(aryKey);
       byte[] bits = DKV.get(key).get();
       int xlen = _rmap.xlen();
-      GMatrix xx = new GMatrix(xlen,xlen);
-      xx.setScale(0.0);
-      _xy = new GVector(xlen);
-      _xx = (GMatrix) xx.clone();
+      _xy = new Matrix(xlen,1);
+      _xx = new Matrix(xlen,xlen);
       _rmap.setRawData(ary, bits);
-      System.out.println(_xx);
       for( Row r : _rmap ) {
-        xx.mul(r.wx, r.x);
-        _xx.add(xx);
-        r.wx.scale(r.y);
-        _xy.add(r.wx);
+        _xx.plusEquals(r.wx.times(r.x));
+        r.wx.timesEquals(r.y);
+        _xy.plusEquals(r.wx);
       }
       double nInv = 1 / (double) ary.num_rows();
-      _xy.scale(nInv);
-      xx.setScale(nInv);
-      _xx.mul(xx);
+      // multiply  by 1/n (so that the matrix value does not grow too much if the data is BIG)
+      _xy.timesEquals(nInv);
+      _xx.timesEquals(nInv);
     }
 
     @Override
     public void reduce(DRemoteTask drt) {
       GLRTask other = (GLRTask) drt;
-      _xx.add(other._xx);
-      _xy.add(other._xy);
+      _xx.plusEquals(other._xx);
+      _xy.plusEquals(other._xy);
     }
 
 
@@ -249,8 +243,8 @@ public class GLinearRegression {
           // initial stage, data not computed yet, pass down the xs and y
           return 1 + task._rmap.wire_len();
         } else { // already computed data, hand them back
-          return 1 + ((task._xx.getNumCol() * task._xx.getNumRow() + task._xy
-              .getSize()) << 3);
+          return 1 + ((task._xx.getColumnDimension() * task._xx.getRowDimension() + task._xy
+              .getRowDimension()) << 3);
         }
       }
 
@@ -261,20 +255,20 @@ public class GLinearRegression {
           off = task._rmap.write(buf, off);
         } else {
           buf[off++] = 2; // state 2
-          assert task._xx.getNumCol() == task._xx.getNumRow();
-          assert task._xy.getSize() == task._xx.getNumRow();
-          UDP.set4(buf, off, task._xx.getNumRow());
+          assert task._xx.getColumnDimension() == task._xx.getRowDimension();
+          assert task._xy.getRowDimension() == task._xx.getRowDimension();
+          UDP.set4(buf, off, task._xx.getRowDimension());
           off += 4;
-          int M = task._xx.getNumRow();
-          int N = task._xx.getNumCol();
+          int M = task._xx.getRowDimension();
+          int N = task._xx.getColumnDimension();
           for( int i = 0; i < M; ++i ) {
             for( int j = 0; j < N; ++j ) {
-              UDP.set8d(buf, off, task._xx.getElement(i, j));
+              UDP.set8d(buf, off, task._xx.get(i, j));
               off += 8;
             }
           }
           for( int i = 0; i < N; ++i ) {
-            UDP.set8d(buf, off, task._xy.getElement(i));
+            UDP.set8d(buf, off, task._xy.get(i,0));
             off += 8;
           }
         }
@@ -289,16 +283,16 @@ public class GLinearRegression {
         case 2:
           int xlen = UDP.get4(buf, off);
           off += 4;
-          GMatrix xx = new GMatrix(xlen, xlen);
+          Matrix xx = new Matrix(xlen, xlen);
           for( int i = 0; i < xlen; ++i ) {
             for( int j = 0; j < xlen; ++j ) {
-              xx.setElement(i, j, UDP.get8d(buf, off));
+              xx.set(i, j, UDP.get8d(buf, off));
               off += 8;
             }
           }
-          GVector xy = new GVector(xlen);
+          Matrix xy = new Matrix(xlen,1);
           for( int i = 0; i < xlen; ++i ) {
-            xy.setElement(i, UDP.get8(buf, off));
+            xy.set(i,0, UDP.get8(buf, off));
             off += 8;
           }
           return new GLRTask(xx, xy);
