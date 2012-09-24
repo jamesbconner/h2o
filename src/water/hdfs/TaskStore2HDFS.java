@@ -21,19 +21,19 @@ import water.serialization.RemoteTaskSerializer;
 
 /**
  * Distributed task to store key on HDFS.
- * 
+ *
  * If it is a simple value, task is sent to the home of the value and the value
  * is simply stored on hdfs. For arraylets, chunks are stored in order by their
  * home nodes. Each node continues storing chunks until the next to be stored
  * has different home in which case the task is passed to the home node of that
  * chunk.
- * 
+ *
  * Optionally, progress can be monitored by passing a key to a value containing
  * number of chunks stored. If not null, this value will be updated as
  * additional chunks are stored.
- * 
+ *
  * @author tomasnykodym
- * 
+ *
  */
 @RTSerializer(TaskStore2HDFS.Serializer.class)
 public class TaskStore2HDFS extends RemoteTask {
@@ -218,13 +218,9 @@ public class TaskStore2HDFS extends RemoteTask {
     }
   }
 
-  @RTSerializer(AtomicMax.Serializer.class)
   public static class AtomicMax extends Atomic {
-    long _myVal;
-
-    public AtomicMax(long val) {
-      _myVal = val;
-    }
+    private final long _myVal;
+    public AtomicMax(long val) { _myVal = val; }
 
     public static class Serializer extends RemoteTaskSerializer<AtomicMax> {
       // By default, nothing sent over with the function (except the target

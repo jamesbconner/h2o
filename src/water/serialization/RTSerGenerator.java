@@ -52,6 +52,8 @@ public class RTSerGenerator implements Opcodes {
   private static final Method STREAM_GET1;
   private static final Method STREAM_SET4;
   private static final Method STREAM_GET4;
+  private static final Method STREAM_SET8;
+  private static final Method STREAM_GET8;
   static {
     try {
       Class<Stream> c = Stream.class;
@@ -62,6 +64,8 @@ public class RTSerGenerator implements Opcodes {
       STREAM_GET1        = c.getDeclaredMethod("get1");
       STREAM_SET4        = c.getDeclaredMethod("set4", int.class);
       STREAM_GET4        = c.getDeclaredMethod("get4");
+      STREAM_SET8        = c.getDeclaredMethod("set8", int.class);
+      STREAM_GET8        = c.getDeclaredMethod("get8");
     } catch(Throwable t) {
       throw Throwables.propagate(t);
     }
@@ -69,20 +73,24 @@ public class RTSerGenerator implements Opcodes {
 
   private static final Type   DOS;
   private static final Method DOS_WRITE_INT;
+  private static final Method DOS_WRITE_LONG;
   private static final Method DOS_WRITE;
 
   private static final Type   DIS;
   private static final Method DIS_READ_INT;
+  private static final Method DIS_READ_LONG;
   private static final Method DIS_READ_FULLY;
   static {
     try {
       Class<DataOutputStream> dos = DataOutputStream.class;
       DOS            = Type.getType(dos);
+      DOS_WRITE_LONG = dos.getMethod("writeLong", int.class);
       DOS_WRITE_INT  = dos.getMethod("writeInt", int.class);
       DOS_WRITE      = dos.getMethod("write", byte[].class);
 
       Class<DataInputStream> dis = DataInputStream.class;
       DIS            = Type.getType(dis);
+      DIS_READ_LONG  = dis.getMethod("readLong");
       DIS_READ_INT   = dis.getMethod("readInt");
       DIS_READ_FULLY = dis.getMethod("readFully", byte[].class);
     } catch(Throwable t) {
@@ -116,7 +124,7 @@ public class RTSerGenerator implements Opcodes {
     SUPPORTED_CLASSES.add(byte[].class);
     SUPPORTED_CLASSES.add(int.class);
     SUPPORTED_CLASSES.add(int[].class);
-    //SUPPORTED_CLASSES.add(String.class);
+    SUPPORTED_CLASSES.add(long.class);
   }
 
   private final String internalName;
@@ -240,6 +248,10 @@ public class RTSerGenerator implements Opcodes {
         // total += 4
         mv.visitInsn(ICONST_4);
         mv.visitInsn(IADD);
+      } else if( long.class.equals(f.getType()) ) {
+        // total += 8
+        mv.visitIntInsn(BIPUSH, 8);
+        mv.visitInsn(IADD);
       } else if( int[].class.equals(f.getType()) ) {
         visitGetField(mv, casted, f);
         visitHelperCall(mv, HELPER_L_INTS);
@@ -269,6 +281,12 @@ public class RTSerGenerator implements Opcodes {
         mv.visitIntInsn(ALOAD, stream);
         visitGetField(mv, casted, f);
         visitMethodCall(mv, STREAM, STREAM_SET4);
+        mv.visitInsn(POP);
+      } else if( long.class.equals(f.getType()) ) {
+        // stream.set8(f)
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        visitMethodCall(mv, STREAM, STREAM_SET8);
         mv.visitInsn(POP);
       } else if( int[].class.equals(f.getType()) ) {
         mv.visitIntInsn(ALOAD, stream);
@@ -302,6 +320,10 @@ public class RTSerGenerator implements Opcodes {
         // stream.get4()
         mv.visitIntInsn(ALOAD, stream);
         visitMethodCall(mv, STREAM, STREAM_GET4);
+      } else if( long.class.equals(f.getType()) ) {
+        // stream.get8()
+        mv.visitIntInsn(ALOAD, stream);
+        visitMethodCall(mv, STREAM, STREAM_GET8);
       } else if( int[].class.equals(f.getType()) ) {
         mv.visitIntInsn(ALOAD, stream);
         visitHelperCall(mv, HELPER_R_INTS_STREAM);
@@ -338,6 +360,11 @@ public class RTSerGenerator implements Opcodes {
         mv.visitIntInsn(ALOAD, stream);
         visitGetField(mv, casted, f);
         visitMethodCall(mv, DOS, DOS_WRITE_INT);
+      } else if( long.class.equals(f.getType()) ) {
+        // dos.writeLong(f)
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        visitMethodCall(mv, DOS, DOS_WRITE_LONG);
       } else if( int[].class.equals(f.getType()) ) {
         mv.visitIntInsn(ALOAD, stream);
         visitGetField(mv, casted, f);
@@ -377,6 +404,10 @@ public class RTSerGenerator implements Opcodes {
         // dos.readInt()
         mv.visitIntInsn(ALOAD, stream);
         visitMethodCall(mv, DIS, DIS_READ_INT);
+      } else if( long.class.equals(f.getType()) ) {
+        // dos.readLong()
+        mv.visitIntInsn(ALOAD, stream);
+        visitMethodCall(mv, DIS, DIS_READ_LONG);
       } else if( int[].class.equals(f.getType()) ) {
         mv.visitIntInsn(ALOAD, stream);
         visitHelperCall(mv, HELPER_R_INTS_DIS);
