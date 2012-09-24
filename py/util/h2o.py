@@ -92,9 +92,7 @@ def tear_down_cloud(nodes):
             ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
     if ex: raise ex
 
-def stabilize_cloud(node, node_count):
-    timeoutSecs = 3.0
-    retryDelaySecs = 1.0
+def stabilize_cloud(node, node_count, timeoutSecs = 5.0, retryDelaySecs = 0.1):
     node.stabilize('cloud auto detect', timeoutSecs,
         lambda n: n.get_cloud()['cloud_size'] == node_count,
         retryDelaySecs)
@@ -172,7 +170,7 @@ class H2O:
             params={"Key": key}))
         return a
 
-    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=1.0):
+    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=0.2):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:
@@ -184,18 +182,9 @@ class H2O:
         '''
 
         start = time.time()
-        retryCount = 0
         while time.time() - start < timeoutSecs:
             if func(self):
                 break
-            retryCount += 1
-            ### print "stabilize retry:", retryCount
-            # tests should call with retry delay at maybe 1/2 expected times 
-            # so retrying more than 12 times is an error. easier to debug?
-            if retryCount > 12:
-                raise Exception("stabilize retried too much. Bug or extend retry delay?: %d\n" % (retryCount))
-
-            ### print "sleep:", retryDelaySecs
             time.sleep(retryDelaySecs)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
@@ -214,7 +203,7 @@ class H2O:
         self.port = port
         self.addr = addr or get_ip_address()
         if not spawn:
-            self.stabilize('h2o started', 2, self.__is_alive)
+            self.stabilize('h2o started', 4, self.__is_alive)
         else:
             self.rc = None
             spawn = spawn_h2o(addr=self.addr, port=port)
