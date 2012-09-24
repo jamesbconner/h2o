@@ -1,19 +1,13 @@
 package test;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 import hexlytics.LinearRegression;
 
-import java.io.*;
+import java.io.File;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 import water.*;
 import water.parser.ParseDataset;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
 import water.util.KeyUtil;
 
 public class KVTest {
