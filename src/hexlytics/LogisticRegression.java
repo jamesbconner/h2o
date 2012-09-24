@@ -3,8 +3,7 @@ package hexlytics;
 import hexlytics.GLinearRegression.Row;
 
 
-import water.Key;
-import water.UDP;
+import water.*;
 import Jama.Matrix;
 
 public class LogisticRegression {
@@ -74,6 +73,22 @@ public class LogisticRegression {
       }
       return off;
     }
+  }
+  static final String html_head = "<table>";
+
+  public static String web_main(ValueArray ary, int [] xColIds, int yColId){
+    Matrix beta = solve(ary._key,xColIds,yColId);
+    // add in the variable names
+    StringBuilder bldr = new StringBuilder();
+    bldr.append(html_head);
+    bldr.append("<tr><td>Intercept</td>");
+    for(int i = 0; i < xColIds.length; ++i)
+      bldr.append("<td>" + ary.col_name(xColIds[i]) + "</td>");
+    bldr.append("</tr><td>" +  beta.get(xColIds.length, 0));
+    for(int i = 0; i < xColIds.length; ++i)
+      bldr.append("<td>" + beta.get(i,0) + "</td>");
+    bldr.append("</tr></table>");
+    return bldr.toString();
   }
 
   public static Matrix solve(Key aryKey, int [] xColIds, int yColId) {

@@ -36,7 +36,9 @@ public class Server extends NanoHTTPD {
     _pages.put("ImportUrl",new ImportUrl());
     _pages.put("Inspect",new Inspect());
     _pages.put("LR",new LinearRegression());
-    _pages.put("LinearRegression",new LinearRegression());
+    _pages.put("LinearRegression",new LogisticRegression());
+    _pages.put("LGR",new LogisticRegression());
+    _pages.put("LogisticRegression",new LogisticRegression());
     _pages.put("Network",new Network());
     _pages.put("NodeShuffle",new NodeShuffle());
     _pages.put("Parse",new Parse());
