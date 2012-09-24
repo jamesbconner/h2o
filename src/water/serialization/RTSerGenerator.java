@@ -20,27 +20,39 @@ import com.google.common.base.Throwables;
  * {@link RemoteTask}s.
  */
 public class RTSerGenerator implements Opcodes {
-  private static final Type RT_TYPE = Type.getType(RemoteTask.class);
-
-  private static final Type SER_TYPE;
-  private static final Method R_STREAM;
-  private static final Method W_STREAM;
-  private static final Method R_DATA_STREAM;
-  private static final Method W_DATA_STREAM;
-  private static final Method R_BYTES;
-  private static final Method W_BYTES;
-  private static final Method WIRE_LEN;
+  private static final Type   SER;
+  private static final Method SER_R_STREAM;
+  private static final Method SER_W_STREAM;
+  private static final Method SER_R_DATA_STREAM;
+  private static final Method SER_W_DATA_STREAM;
+  private static final Method SER_R_BYTES;
+  private static final Method SER_W_BYTES;
+  private static final Method SER_WIRE_LEN;
   static {
     try {
       Class<RemoteTaskSerializer> c = RemoteTaskSerializer.class;
-      SER_TYPE = Type.getType(c);
-      WIRE_LEN      = c.getDeclaredMethod("wire_len", RemoteTask.class);
-      R_STREAM      = c.getDeclaredMethod("read", Stream.class);
-      R_DATA_STREAM = c.getDeclaredMethod("read", DataInputStream.class);
-      R_BYTES       = c.getDeclaredMethod("read", byte[].class, int.class);
-      W_STREAM      = c.getDeclaredMethod("write", RemoteTask.class, Stream.class);
-      W_DATA_STREAM = c.getDeclaredMethod("write", RemoteTask.class, DataOutputStream.class);
-      W_BYTES       = c.getDeclaredMethod("write", RemoteTask.class, byte[].class, int.class);
+      SER = Type.getType(c);
+      SER_WIRE_LEN      = c.getDeclaredMethod("wire_len", RemoteTask.class);
+      SER_R_STREAM      = c.getDeclaredMethod("read", Stream.class);
+      SER_R_DATA_STREAM = c.getDeclaredMethod("read", DataInputStream.class);
+      SER_R_BYTES       = c.getDeclaredMethod("read", byte[].class, int.class);
+      SER_W_STREAM      = c.getDeclaredMethod("write", RemoteTask.class, Stream.class);
+      SER_W_DATA_STREAM = c.getDeclaredMethod("write", RemoteTask.class, DataOutputStream.class);
+      SER_W_BYTES       = c.getDeclaredMethod("write", RemoteTask.class, byte[].class, int.class);
+    } catch(Throwable t) {
+      throw Throwables.propagate(t);
+    }
+  }
+
+  private static final Type STREAM;
+  private static final Method STREAM_SET_BYTES;
+  private static final Method STREAM_GET_BYTES;
+  static {
+    try {
+      Class<Stream> c = Stream.class;
+      STREAM = Type.getType(c);
+      STREAM_SET_BYTES   = c.getDeclaredMethod("setLen4Bytes", byte[].class);
+      STREAM_GET_BYTES   = c.getDeclaredMethod("getLen4Bytes");
     } catch(Throwable t) {
       throw Throwables.propagate(t);
     }
@@ -103,30 +115,20 @@ public class RTSerGenerator implements Opcodes {
     cw.visit(V1_6, ACC_PUBLIC + ACC_SUPER,
         getSerializerInternalName(),
         null,
-        SER_TYPE.getInternalName(),
+        SER.getInternalName(),
         new String[] { });
 
     createConstructor(cw);
-    createRead(cw);
-    createWrite(cw);
+    createWireLen(cw);
+    createWriteStream(cw);
+    createReadStream(cw);
     createDummies(cw);
     cw.visitEnd();
     return cw.toByteArray();
   }
 
-  private void createConstructor(ClassWriter cw) {
-    MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
-    mv.visitCode();
-    mv.visitVarInsn(ALOAD, 0);
-    mv.visitMethodInsn(INVOKESPECIAL, SER_TYPE.getInternalName(), "<init>", "()V");
-    mv.visitInsn(RETURN);
-    mv.visitMaxs(0, 0);
-    mv.visitEnd();
-  }
-
   public void createDummies(ClassWriter cw) {
-    for( Method m : new Method[] { WIRE_LEN, R_BYTES, W_BYTES, R_DATA_STREAM, W_DATA_STREAM, R_STREAM, W_STREAM }) {
-      System.out.println("Stubbing off: " + m);
+    for( Method m : new Method[] { SER_R_BYTES, SER_W_BYTES, SER_R_DATA_STREAM, SER_W_DATA_STREAM }) {
       MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, m.getName(), Type.getMethodDescriptor(m), null, new String[0]);
       mv.visitCode();
       mv.visitTypeInsn(NEW, Type.getInternalName(RuntimeException.class));
@@ -138,65 +140,109 @@ public class RTSerGenerator implements Opcodes {
     }
   }
 
-  private void createRead(ClassWriter cw) {
-//    MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "read",
-//        Type.getMethodDescriptor(REMOTE_RUNNABLE_TYPE, new Type[] {
-//            DATA_INPUT_TYPE
-//        }), null,
-//        new String[] { IO_EXCEPTION_TYPE.getInternalName() });
-//    mv.visitCode();
-//    mv.visitTypeInsn(NEW, runnableInternalName);
-//    mv.visitInsn(DUP);
-//    for (Field f : fields) {
-//      mv.visitVarInsn(ALOAD, 1);
-//      if (int.class.equals(f.getType())) {
-//        mv.visitMethodInsn(INVOKEINTERFACE,
-//            DATA_INPUT_TYPE.getInternalName(),
-//            "readInt", "()I");
-//      } else if (String.class.equals(f.getType())) {
-//        mv.visitMethodInsn(INVOKEINTERFACE,
-//            DATA_INPUT_TYPE.getInternalName(),
-//            "readUTF", "()Ljava/lang/String;");
-//      } else {
-//        throw new RuntimeException("Unhandled field type: " + f.getType());
-//      }
-//    }
-//    String ctorDesc = Type.getConstructorDescriptor(ctor);
-//    mv.visitMethodInsn(INVOKESPECIAL, runnableInternalName, "<init>", ctorDesc);
-//    mv.visitInsn(ARETURN);
-//    mv.visitMaxs(0, 0);
-//    mv.visitEnd();
+  private void createConstructor(ClassWriter cw) {
+    MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+    mv.visitCode();
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitMethodInsn(INVOKESPECIAL, SER.getInternalName(), "<init>", "()V");
+    mv.visitInsn(RETURN);
+    mv.visitMaxs(0, 0);
+    mv.visitEnd();
   }
 
-  private void createWrite(ClassWriter cw) {
-//    MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "write",
-//        Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] {
-//            REMOTE_RUNNABLE_TYPE, DATA_OUTPUT_TYPE
-//        }), null,
-//        new String[] { IO_EXCEPTION_TYPE.getInternalName() });
-//    mv.visitCode();
-//    mv.visitVarInsn(ALOAD, 1);
-//    mv.visitTypeInsn(CHECKCAST, runnableInternalName);
-//    mv.visitVarInsn(ASTORE, 3);
-//    for (Field f : fields) {
-//      mv.visitVarInsn(ALOAD, 2);
-//      mv.visitVarInsn(ALOAD, 3);
-//      mv.visitFieldInsn(GETFIELD, runnableInternalName, f.getName(),
-//          Type.getDescriptor(f.getType()));
-//      if (int.class.equals(f.getType())) {
-//        mv.visitMethodInsn(INVOKEINTERFACE,
-//            DATA_OUTPUT_TYPE.getInternalName(),
-//            "writeInt", "(I)V");
-//      } else if (String.class.equals(f.getType())) {
-//        mv.visitMethodInsn(INVOKEINTERFACE,
-//            DATA_OUTPUT_TYPE.getInternalName(),
-//            "writeUTF", "(Ljava/lang/String;)V");
-//      } else {
-//        throw new RuntimeException("Unhandled field type: " + f.getType());
-//      }
-//    }
-//    mv.visitInsn(RETURN);
-//    mv.visitMaxs(0, 0);
-//    mv.visitEnd();
+  public void createWireLen(ClassWriter cw) {
+    MethodVisitor mv = visitDeclareMethod(cw, SER_WIRE_LEN);
+    int casted = visitDowncast(mv, SER_WIRE_LEN);
+
+    // spin through fields adding up lengths
+    mv.visitInsn(ICONST_0);
+    for( Field f : fields ) {
+      if( byte[].class.equals(f.getType()) ) {
+        visitField(mv, casted, f);
+        mv.visitInsn(ARRAYLENGTH);
+        mv.visitInsn(IADD);
+        mv.visitInsn(ICONST_4);
+        mv.visitInsn(IADD);
+      } else {
+        throw new Error("Unimplemented field type: " + f.getType());
+      }
+    }
+    // return the cumulative total
+    visitReturn(mv, IRETURN);
+  }
+
+  public void createWriteStream(ClassWriter cw) {
+    MethodVisitor mv = visitDeclareMethod(cw, SER_W_STREAM);
+    int casted = visitDowncast(mv, SER_W_STREAM);
+    int stream = 2;
+
+    // spin through fields writing them out
+    for( Field f : fields ) {
+      if( byte[].class.equals(f.getType()) ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitField(mv, casted, f);
+        visitMethodCall(mv, STREAM, STREAM_SET_BYTES);
+        mv.visitInsn(POP);
+      } else {
+        throw new Error("Unimplemented field type: " + f.getType());
+      }
+    }
+    visitReturn(mv, RETURN);
+  }
+
+  public void createReadStream(ClassWriter cw) {
+    MethodVisitor mv = visitDeclareMethod(cw, SER_R_STREAM);
+    int stream = 1;
+    mv.visitTypeInsn(NEW, internalName);
+    mv.visitInsn(DUP);
+
+    // spin through fields writing them out
+    for( Field f : fields ) {
+      if( byte[].class.equals(f.getType()) ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitMethodCall(mv, STREAM, STREAM_GET_BYTES);
+      } else {
+        throw new Error("Unimplemented field type: " + f.getType());
+      }
+    }
+    mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+    visitReturn(mv, ARETURN);
+  }
+
+  /** Push a field onto the stack: [] -> [Field] */
+  private void visitField(MethodVisitor mv, int varNum, Field f) {
+    mv.visitVarInsn(ALOAD, varNum);
+    mv.visitFieldInsn(GETFIELD, internalName, f.getName(), Type.getDescriptor(f.getType()));
+  }
+
+  /** Start visiting an override for a base class method */
+  private MethodVisitor visitDeclareMethod(ClassWriter cw, Method m) {
+    MethodVisitor mv = cw.visitMethod(ACC_PUBLIC,
+        m.getName(), Type.getMethodDescriptor(m),
+        null, new String[0]);
+    mv.visitCode();
+    return mv;
+  }
+
+  /** visit instructions to in-place downcast the RemoteTask: [] -> [] */
+  private int visitDowncast(MethodVisitor mv, Method m) {
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitTypeInsn(CHECKCAST, internalName);
+    mv.visitVarInsn(ASTORE, 1);
+    return 1;
+  }
+
+  /** visit a virtual method call: [args*] -> [return_val] */
+  private void visitMethodCall(MethodVisitor mv, Type t, Method m) {
+    mv.visitMethodInsn(INVOKEVIRTUAL, t.getInternalName(),
+        m.getName(), Type.getMethodDescriptor(m));
+  }
+
+  /** visit a final return method and close off the MethodVisitor */
+  private void visitReturn(MethodVisitor mv, int ins) {
+    assert ins == IRETURN || ins == LRETURN || ins == RETURN || ins == ARETURN;
+    mv.visitInsn(ins);
+    mv.visitMaxs(0, 0);
+    mv.visitEnd();
   }
 }
