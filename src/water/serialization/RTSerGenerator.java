@@ -59,12 +59,12 @@ public class RTSerGenerator implements Opcodes {
       Class<Stream> c = Stream.class;
       STREAM = Type.getType(c);
       STREAM_SET_BYTES   = c.getDeclaredMethod("setLen4Bytes", byte[].class);
+      STREAM_SET1        = c.getDeclaredMethod("set1",         int.class);
+      STREAM_SET4        = c.getDeclaredMethod("set4",         int.class);
+      STREAM_SET8        = c.getDeclaredMethod("set8",         long.class);
       STREAM_GET_BYTES   = c.getDeclaredMethod("getLen4Bytes");
-      STREAM_SET1        = c.getDeclaredMethod("set1", int.class);
       STREAM_GET1        = c.getDeclaredMethod("get1");
-      STREAM_SET4        = c.getDeclaredMethod("set4", int.class);
       STREAM_GET4        = c.getDeclaredMethod("get4");
-      STREAM_SET8        = c.getDeclaredMethod("set8", int.class);
       STREAM_GET8        = c.getDeclaredMethod("get8");
     } catch(Throwable t) {
       throw Throwables.propagate(t);
@@ -84,9 +84,9 @@ public class RTSerGenerator implements Opcodes {
     try {
       Class<DataOutputStream> dos = DataOutputStream.class;
       DOS            = Type.getType(dos);
-      DOS_WRITE_LONG = dos.getMethod("writeLong", int.class);
-      DOS_WRITE_INT  = dos.getMethod("writeInt", int.class);
-      DOS_WRITE      = dos.getMethod("write", byte[].class);
+      DOS_WRITE_LONG = dos.getMethod("writeLong", long.class);
+      DOS_WRITE_INT  = dos.getMethod("writeInt",  int.class);
+      DOS_WRITE      = dos.getMethod("write",     byte[].class);
 
       Class<DataInputStream> dis = DataInputStream.class;
       DIS            = Type.getType(dis);
