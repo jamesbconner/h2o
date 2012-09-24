@@ -54,11 +54,11 @@ public class AppendKeyTest {
   }
 
   @Test public void testBasic() {
-    doBasic(makeKey("foo", false));
+    doBasic(makeKey("basic", false));
   }
 
   @Test public void testBasicRemote() {
-    doBasic(makeKey("foo", true));
+    doBasic(makeKey("basicRemote", true));
   }
 
   private void doLarge(Key k) {
@@ -75,7 +75,7 @@ public class AppendKeyTest {
 
     byte[] a2 = new byte[MultiCast.MTU * 4];
     r.nextBytes(a2);
-    new AppendKey(a1).invoke(k);
+    new AppendKey(a2).invoke(k);
     v = DKV.get(k);
     b = v.get();
     Assert.assertEquals(2, UDP.get4(b, 0));
@@ -86,10 +86,10 @@ public class AppendKeyTest {
 
 
   @Test public void testLarge() {
-    doLarge(makeKey("foo", false));
+    doLarge(makeKey("large", false));
   }
 
   @Test public void testLargeRemote() {
-    doLarge(makeKey("foo", true));
+    doLarge(makeKey("largeRemote", true));
   }
 }
