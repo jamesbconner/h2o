@@ -58,6 +58,29 @@ public class RTSerGenerator implements Opcodes {
     }
   }
 
+  private static final Type   DOS;
+  private static final Method DOS_WRITE_INT;
+  private static final Method DOS_WRITE;
+
+  private static final Type   DIS;
+  private static final Method DIS_READ_INT;
+  private static final Method DIS_READ_FULLY;
+  static {
+    try {
+      Class<DataOutputStream> dos = DataOutputStream.class;
+      DOS            = Type.getType(dos);
+      DOS_WRITE_INT  = dos.getMethod("writeInt", int.class);
+      DOS_WRITE      = dos.getMethod("write", byte[].class);
+
+      Class<DataInputStream> dis = DataInputStream.class;
+      DIS            = Type.getType(dis);
+      DIS_READ_INT   = dis.getMethod("readInt");
+      DIS_READ_FULLY = dis.getMethod("readFully", byte[].class);
+    } catch(Throwable t) {
+      throw Throwables.propagate(t);
+    }
+  }
+
   private static final Set<Class<?>> SUPPORTED_CLASSES = new HashSet<Class<?>>();
   static {
     SUPPORTED_CLASSES.add(byte[].class);
@@ -122,13 +145,15 @@ public class RTSerGenerator implements Opcodes {
     createWireLen(cw);
     createWriteStream(cw);
     createReadStream(cw);
+    createWriteDataStream(cw);
+    createReadDataStream(cw);
     createDummies(cw);
     cw.visitEnd();
     return cw.toByteArray();
   }
 
   public void createDummies(ClassWriter cw) {
-    for( Method m : new Method[] { SER_R_BYTES, SER_W_BYTES, SER_R_DATA_STREAM, SER_W_DATA_STREAM }) {
+    for( Method m : new Method[] { SER_R_BYTES, SER_W_BYTES }) {
       MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, m.getName(), Type.getMethodDescriptor(m), null, new String[0]);
       mv.visitCode();
       mv.visitTypeInsn(NEW, Type.getInternalName(RuntimeException.class));
@@ -154,10 +179,11 @@ public class RTSerGenerator implements Opcodes {
     MethodVisitor mv = visitDeclareMethod(cw, SER_WIRE_LEN);
     int casted = visitDowncast(mv, SER_WIRE_LEN);
 
-    // spin through fields adding up lengths
+    // total = 0
     mv.visitInsn(ICONST_0);
     for( Field f : fields ) {
       if( byte[].class.equals(f.getType()) ) {
+        // total += array.length + 4;
         visitField(mv, casted, f);
         mv.visitInsn(ARRAYLENGTH);
         mv.visitInsn(IADD);
@@ -176,9 +202,9 @@ public class RTSerGenerator implements Opcodes {
     int casted = visitDowncast(mv, SER_W_STREAM);
     int stream = 2;
 
-    // spin through fields writing them out
     for( Field f : fields ) {
       if( byte[].class.equals(f.getType()) ) {
+        // stream.setLen4Bytes(array)
         mv.visitIntInsn(ALOAD, stream);
         visitField(mv, casted, f);
         visitMethodCall(mv, STREAM, STREAM_SET_BYTES);
@@ -196,11 +222,61 @@ public class RTSerGenerator implements Opcodes {
     mv.visitTypeInsn(NEW, internalName);
     mv.visitInsn(DUP);
 
-    // spin through fields writing them out
     for( Field f : fields ) {
       if( byte[].class.equals(f.getType()) ) {
+        // stream.getLen4Bytes()
         mv.visitIntInsn(ALOAD, stream);
         visitMethodCall(mv, STREAM, STREAM_GET_BYTES);
+      } else {
+        throw new Error("Unimplemented field type: " + f.getType());
+      }
+    }
+    mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+    visitReturn(mv, ARETURN);
+  }
+
+  public void createWriteDataStream(ClassWriter cw) {
+    MethodVisitor mv = visitDeclareMethod(cw, SER_W_DATA_STREAM);
+    int casted = visitDowncast(mv, SER_W_DATA_STREAM);
+    int stream = 2;
+
+    for( Field f : fields ) {
+      if( byte[].class.equals(f.getType()) ) {
+        // dos.writeInt(array.length)
+        mv.visitIntInsn(ALOAD, stream);
+        visitField(mv, casted, f);
+        mv.visitInsn(ARRAYLENGTH);
+        visitMethodCall(mv, DOS, DOS_WRITE_INT);
+
+        // dos.write(array)
+        mv.visitIntInsn(ALOAD, stream);
+        visitField(mv, casted, f);
+        visitMethodCall(mv, DOS, DOS_WRITE);
+      } else {
+        throw new Error("Unimplemented field type: " + f.getType());
+      }
+    }
+    visitReturn(mv, RETURN);
+  }
+
+  public void createReadDataStream(ClassWriter cw) {
+    MethodVisitor mv = visitDeclareMethod(cw, SER_R_DATA_STREAM);
+    int stream = 1;
+    mv.visitTypeInsn(NEW, internalName);
+    mv.visitInsn(DUP);
+
+    for( Field f : fields ) {
+      if( byte[].class.equals(f.getType()) ) {
+        // new byte[dis.readInt()]
+        mv.visitIntInsn(ALOAD, stream);
+        visitMethodCall(mv, DIS, DIS_READ_INT);
+        mv.visitIntInsn(NEWARRAY, T_BYTE);
+
+        // dup array for our ctor, then `dis.readFull(array)`
+        mv.visitInsn(DUP);
+        mv.visitIntInsn(ALOAD, stream);
+        mv.visitInsn(SWAP);
+        visitMethodCall(mv, DIS, DIS_READ_FULLY);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
