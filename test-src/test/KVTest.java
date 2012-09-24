@@ -90,7 +90,7 @@ public class KVTest {
       UDP.set4(bits,0,i);       // Each value holds a shift-count
       DKV.put(k,val);
     }
-    RemoteBitSet rbs = new RemoteBitSet(0);
+    RemoteBitSet rbs = new RemoteBitSet();
     rbs.invoke(keys);
     assertEquals((int)((1L<<keys.length)-1),rbs._x);
   }
@@ -100,7 +100,6 @@ public class KVTest {
   public static class RemoteBitSet extends MRTask {
     // Set a single bit-mask based on the shift which is passed in the Value
     private int _x;
-    public RemoteBitSet(int x) { _x = x; }
     public void map( Key key ) {
       assert _x == 0;                  // Never mapped into before
       Value val = DKV.get(key);        // Get the Value for the Key
@@ -156,11 +155,10 @@ public class KVTest {
   }
 
   // Byte-wise histogram
-  @SuppressWarnings("serial")
-  @RTSerializer(ByteHisto.Serializer.class)
   public static class ByteHisto extends MRTask {
-    int _x[];
-    // Count occurances of bytes
+    int[] _x;
+
+    // Count occurrences of bytes
     public void map( Key key ) {
       _x = new int[256];        // One-time set histogram array
       Value val = DKV.get(key); // Get the Value for the Key
@@ -174,28 +172,6 @@ public class KVTest {
       if( _x == null ) { _x = bh._x; return; }
       for( int i=0; i<_x.length; i++ )
         _x[i] += bh._x[i];
-    }
-
-    public static class Serializer extends RemoteTaskSerializer<ByteHisto> {
-      @Override public void write( ByteHisto h, DataOutputStream dos ) { throw new Error("unimplemented"); }
-      @Override public ByteHisto read( DataInputStream dis ) { throw new Error("unimplemented"); }
-      @Override public int wire_len(ByteHisto h) { return 1+((h._x==null)?0:4*h._x.length); }
-      @Override public int write( ByteHisto h, byte[] buf, int off ) {
-        buf[off++] = (byte)((h._x==null) ? 0 : 1);
-        if( h._x==null ) return off;
-        for( int i=0; i<h._x.length; i++ )
-          off += UDP.set4(buf,off,h._x[i]);
-        return off;
-      }
-      @Override public ByteHisto read( byte[] buf, int off ) {
-        ByteHisto h = new ByteHisto();
-        int flag = buf[off++];
-        if( flag == 0 ) return h;
-        h._x = new int[256];
-        for( int i=0; i<h._x.length; i++ )
-          h._x[i] = UDP.get4(buf,(off+=4)-4);
-        return h;
-      }
     }
   }
 

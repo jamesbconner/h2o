@@ -48,6 +48,8 @@ public class RTSerGenerator implements Opcodes {
   private static final Type STREAM;
   private static final Method STREAM_SET_BYTES;
   private static final Method STREAM_GET_BYTES;
+  private static final Method STREAM_SET1;
+  private static final Method STREAM_GET1;
   private static final Method STREAM_SET4;
   private static final Method STREAM_GET4;
   static {
@@ -56,6 +58,8 @@ public class RTSerGenerator implements Opcodes {
       STREAM = Type.getType(c);
       STREAM_SET_BYTES   = c.getDeclaredMethod("setLen4Bytes", byte[].class);
       STREAM_GET_BYTES   = c.getDeclaredMethod("getLen4Bytes");
+      STREAM_SET1        = c.getDeclaredMethod("set1", int.class);
+      STREAM_GET1        = c.getDeclaredMethod("get1");
       STREAM_SET4        = c.getDeclaredMethod("set4", int.class);
       STREAM_GET4        = c.getDeclaredMethod("get4");
     } catch(Throwable t) {
@@ -86,16 +90,39 @@ public class RTSerGenerator implements Opcodes {
     }
   }
 
+  private static final Type   HELPER;
+  private static final Method HELPER_L_INTS;
+  private static final Method HELPER_W_INTS_STREAM;
+  private static final Method HELPER_R_INTS_STREAM;
+  private static final Method HELPER_W_INTS_DOS;
+  private static final Method HELPER_R_INTS_DIS;
+  static {
+    try {
+      Class<RTSerGenHelpers> h = RTSerGenHelpers.class;
+      HELPER               = Type.getType(h);
+      HELPER_L_INTS        = h.getMethod("lenIntArray",   int[].class);
+      HELPER_R_INTS_STREAM = h.getMethod("readIntArray",  Stream.class);
+      HELPER_R_INTS_DIS    = h.getMethod("readIntArray",  DataInputStream.class);
+      HELPER_W_INTS_STREAM = h.getMethod("writeIntArray", Stream.class,           int[].class);
+      HELPER_W_INTS_DOS    = h.getMethod("writeIntArray", DataOutputStream.class, int[].class);
+    } catch(Throwable t) {
+      throw Throwables.propagate(t);
+    }
+
+  }
+
   private static final Set<Class<?>> SUPPORTED_CLASSES = new HashSet<Class<?>>();
   static {
     SUPPORTED_CLASSES.add(byte[].class);
     SUPPORTED_CLASSES.add(int.class);
+    SUPPORTED_CLASSES.add(int[].class);
     //SUPPORTED_CLASSES.add(String.class);
   }
 
   private final String internalName;
   private final Field[] fields;
   private final Constructor<?> ctor;
+  private final boolean _noArgCtor;
 
   public RTSerGenerator(Class<?> c) throws SecurityException {
     if (!RemoteTask.class.isAssignableFrom(c)) {
@@ -112,6 +139,7 @@ public class RTSerGenerator implements Opcodes {
     }
     this.fields = fi.toArray(new Field[fi.size()]);
 
+    boolean ctorRequiresArgs = false;
     Class<?>[] fieldTypes = new Class<?>[fields.length];
     for( int i = 0; i < fields.length; ++i ) {
       fieldTypes[i] = fields[i].getType();
@@ -122,14 +150,29 @@ public class RTSerGenerator implements Opcodes {
             fields[i].getName(),
             fieldTypes[i]));
       }
+      ctorRequiresArgs |= Modifier.isFinal(fields[i].getModifiers());
     }
+    Constructor<?> ctor = null;
     try {
-      this.ctor = c.getDeclaredConstructor(fieldTypes);
+      ctor = c.getDeclaredConstructor(fieldTypes);
     } catch( NoSuchMethodException e ) {
-      throw new RuntimeException(MessageFormat.format(
-          "{0}: No constructor for field types: {1}",
-          c.getName(), Joiner.on(", ").join(fieldTypes)), e);
+      if(ctorRequiresArgs) {
+        throw new RuntimeException(MessageFormat.format(
+            "{0}: No constructor for field types: {1}",
+            c.getName(), Joiner.on(", ").join(fieldTypes)), e);
+      }
     }
+    if(ctor == null) {
+      try {
+        ctor = c.getDeclaredConstructor();
+      } catch( NoSuchMethodException e ) {
+        throw new RuntimeException(MessageFormat.format(
+            "{0}: No empty constructor or constructor for field types: {1}",
+            c.getName(), Joiner.on(", ").join(fieldTypes)), e);
+      }
+    }
+    this.ctor = ctor;
+    this._noArgCtor = ctor.getParameterTypes().length == 0;
   }
 
   /**
@@ -188,7 +231,7 @@ public class RTSerGenerator implements Opcodes {
     for( Field f : fields ) {
       if( byte[].class.equals(f.getType()) ) {
         // total += array.length + 4;
-        visitField(mv, casted, f);
+        visitGetField(mv, casted, f);
         mv.visitInsn(ARRAYLENGTH);
         mv.visitInsn(IADD);
         mv.visitInsn(ICONST_4);
@@ -196,6 +239,10 @@ public class RTSerGenerator implements Opcodes {
       } else if( int.class.equals(f.getType()) ) {
         // total += 4
         mv.visitInsn(ICONST_4);
+        mv.visitInsn(IADD);
+      } else if( int[].class.equals(f.getType()) ) {
+        visitGetField(mv, casted, f);
+        visitHelperCall(mv, HELPER_L_INTS);
         mv.visitInsn(IADD);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
@@ -214,15 +261,19 @@ public class RTSerGenerator implements Opcodes {
       if( byte[].class.equals(f.getType()) ) {
         // stream.setLen4Bytes(array)
         mv.visitIntInsn(ALOAD, stream);
-        visitField(mv, casted, f);
+        visitGetField(mv, casted, f);
         visitMethodCall(mv, STREAM, STREAM_SET_BYTES);
         mv.visitInsn(POP);
       } else if( int.class.equals(f.getType()) ) {
         // stream.set4(f)
         mv.visitIntInsn(ALOAD, stream);
-        visitField(mv, casted, f);
+        visitGetField(mv, casted, f);
         visitMethodCall(mv, STREAM, STREAM_SET4);
         mv.visitInsn(POP);
+      } else if( int[].class.equals(f.getType()) ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        visitHelperCall(mv, HELPER_W_INTS_STREAM);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
@@ -235,8 +286,14 @@ public class RTSerGenerator implements Opcodes {
     int stream = 1;
     mv.visitTypeInsn(NEW, internalName);
     mv.visitInsn(DUP);
+    if( _noArgCtor ) {
+      mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+      mv.visitVarInsn(ASTORE, 2);
+    }
 
     for( Field f : fields ) {
+      if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
+
       if( byte[].class.equals(f.getType()) ) {
         // stream.getLen4Bytes()
         mv.visitIntInsn(ALOAD, stream);
@@ -245,11 +302,17 @@ public class RTSerGenerator implements Opcodes {
         // stream.get4()
         mv.visitIntInsn(ALOAD, stream);
         visitMethodCall(mv, STREAM, STREAM_GET4);
+      } else if( int[].class.equals(f.getType()) ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitHelperCall(mv, HELPER_R_INTS_STREAM);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
+
+      if( _noArgCtor ) visitSetField(mv, f);
     }
-    mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+    if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
+    else mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
     visitReturn(mv, ARETURN);
   }
 
@@ -262,19 +325,23 @@ public class RTSerGenerator implements Opcodes {
       if( byte[].class.equals(f.getType()) ) {
         // dos.writeInt(array.length)
         mv.visitIntInsn(ALOAD, stream);
-        visitField(mv, casted, f);
+        visitGetField(mv, casted, f);
         mv.visitInsn(ARRAYLENGTH);
         visitMethodCall(mv, DOS, DOS_WRITE_INT);
 
         // dos.write(array)
         mv.visitIntInsn(ALOAD, stream);
-        visitField(mv, casted, f);
+        visitGetField(mv, casted, f);
         visitMethodCall(mv, DOS, DOS_WRITE);
       } else if( int.class.equals(f.getType()) ) {
         // dos.writeInt(f)
         mv.visitIntInsn(ALOAD, stream);
-        visitField(mv, casted, f);
+        visitGetField(mv, casted, f);
         visitMethodCall(mv, DOS, DOS_WRITE_INT);
+      } else if( int[].class.equals(f.getType()) ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        visitHelperCall(mv, HELPER_W_INTS_DOS);
       } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
@@ -287,8 +354,14 @@ public class RTSerGenerator implements Opcodes {
     int stream = 1;
     mv.visitTypeInsn(NEW, internalName);
     mv.visitInsn(DUP);
+    if( _noArgCtor ) {
+      mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+      mv.visitVarInsn(ASTORE, 2);
+    }
 
     for( Field f : fields ) {
+      if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
+
       if( byte[].class.equals(f.getType()) ) {
         // new byte[dis.readInt()]
         mv.visitIntInsn(ALOAD, stream);
@@ -304,18 +377,28 @@ public class RTSerGenerator implements Opcodes {
         // dos.readInt()
         mv.visitIntInsn(ALOAD, stream);
         visitMethodCall(mv, DIS, DIS_READ_INT);
+      } else if( int[].class.equals(f.getType()) ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitHelperCall(mv, HELPER_R_INTS_DIS);
      } else {
         throw new Error("Unimplemented field type: " + f.getType());
       }
+      if( _noArgCtor ) visitSetField(mv, f);
     }
-    mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+    if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
+    else mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
     visitReturn(mv, ARETURN);
   }
 
   /** Push a field onto the stack: [] -> [Field] */
-  private void visitField(MethodVisitor mv, int varNum, Field f) {
+  private void visitGetField(MethodVisitor mv, int varNum, Field f) {
     mv.visitVarInsn(ALOAD, varNum);
     mv.visitFieldInsn(GETFIELD, internalName, f.getName(), Type.getDescriptor(f.getType()));
+  }
+
+  /** set a field from the stack: [obj, field] -> [] */
+  private void visitSetField(MethodVisitor mv, Field f) {
+    mv.visitFieldInsn(PUTFIELD, internalName, f.getName(), Type.getDescriptor(f.getType()));
   }
 
   /** Start visiting an override for a base class method */
@@ -333,6 +416,12 @@ public class RTSerGenerator implements Opcodes {
     mv.visitTypeInsn(CHECKCAST, internalName);
     mv.visitVarInsn(ASTORE, 1);
     return 1;
+  }
+
+  /** visit a virtual method call: [args*] -> [return_val] */
+  private void visitHelperCall(MethodVisitor mv, Method m) {
+    mv.visitMethodInsn(INVOKESTATIC, HELPER.getInternalName(),
+        m.getName(), Type.getMethodDescriptor(m));
   }
 
   /** visit a virtual method call: [args*] -> [return_val] */
