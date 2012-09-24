@@ -16,7 +16,7 @@ import water.serialization.RemoteTaskSerializer;
 //@RTSerializer(AppendKey.Serializer.class)
 public class AppendKey extends Atomic {
   private final byte[] _bits;
-  private AppendKey( byte[] bits ) { _bits = bits; }
+  public AppendKey( byte[] bits ) { _bits = bits; }
   public AppendKey( Key key ) {    // Append a key
     _bits = new byte[key.wire_len()];
     key.write(_bits,0);
