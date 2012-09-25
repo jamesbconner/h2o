@@ -1,6 +1,12 @@
 package hex.rf;
 
+<<<<<<< HEAD:src/hex/rf/GraphvizTreePrinter.java
 import hex.rf.Tree.*;
+=======
+import hexlytics.rf.Tree.ExclusionNode;
+import hexlytics.rf.Tree.LeafNode;
+import hexlytics.rf.Tree.SplitNode;
+>>>>>>> Delete Unused class Node.:src/hexlytics/rf/GraphvizTreePrinter.java
 
 import java.io.*;
 import java.text.MessageFormat;
@@ -41,22 +47,6 @@ public class GraphvizTreePrinter extends TreePrinter {
         MessageFormat.format("Class {0}", t.class_)));
   }
 
-  void printNode(Node t) throws IOException {
-    int obj = System.identityHashCode(t);
-
-    _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
-        obj, "Node",
-        MessageFormat.format("data[{0}] <= {1}",
-            _columnNames[t._column], t._value)));
-
-    t._l.print(this);
-    t._r.print(this);
-
-    int lhs = System.identityHashCode(t._l);
-    int rhs = System.identityHashCode(t._r);
-    _dest.append(String.format("%d -> %d;\n", obj, lhs));
-    _dest.append(String.format("%d -> %d;\n", obj, rhs));
-  }
 
   @Override
   void printNode(SplitNode t) throws IOException {

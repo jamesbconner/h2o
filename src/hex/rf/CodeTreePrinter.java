@@ -1,10 +1,14 @@
 package hex.rf;
 
+<<<<<<< HEAD:src/hex/rf/CodeTreePrinter.java
 import hex.rf.Tree.*;
+=======
+import hexlytics.rf.Tree.ExclusionNode;
+import hexlytics.rf.Tree.LeafNode;
+import hexlytics.rf.Tree.SplitNode;
+>>>>>>> Delete Unused class Node.:src/hexlytics/rf/CodeTreePrinter.java
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
+import java.io.*;
 
 import water.util.IndentingAppender;
 
@@ -40,17 +44,6 @@ public class CodeTreePrinter extends TreePrinter {
     _dest.append("return ").append(Integer.toString(t.class_)).append('\n');
   }
 
-  void printNode(Node t) throws IOException {
-    // return (row.getS(_column)<=_value ? _l : _r).classify(row);
-    _dest.append("if (row.getS(").append(_columnNames[t._column]).append(") <= ");
-    _dest.append(Double.toString(t._value)).append(")\n");
-    _dest.incrementIndent();
-    t._l.print(this);
-    _dest.decrementIndent().append("else\n").incrementIndent();
-    t._r.print(this);
-    _dest.decrementIndent();
-  }
-
   void printNode(SplitNode t) throws IOException {
     // return r.getColumnClass(_column) <= _split ? _l.classify(r) : _r.classify(r);
     _dest.append("if (row.getColumnClass(").append(_columnNames[t._column]).append(") <= ");
@@ -83,7 +76,7 @@ public class CodeTreePrinter extends TreePrinter {
           _dest.append(String.format("return %d;\n",tclass));
           return this;
         }
-        Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException { 
+        Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {
           byte b = _ts._buf[off0];
           _dest.append(String.format("if( fs[%s] %s %f ) \n",_columnNames[col],((b=='E')?"==":"<="), fcmp)).incrementIndent();
           return this;
