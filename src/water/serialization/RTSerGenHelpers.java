@@ -14,6 +14,7 @@ public abstract class RTSerGenHelpers {
   static final Map<Class<?>, String> SUFFIX = Maps.newHashMap();
   static {
     SUFFIX.put(int.class,    "Int");
+    SUFFIX.put(byte.class,   "Byte");
     SUFFIX.put(long.class,   "Long");
     SUFFIX.put(double.class, "Double");
     SUFFIX.put(int[].class,  "IntArray");
@@ -108,6 +109,12 @@ public abstract class RTSerGenHelpers {
     s.readFully(bytes);
     return bytes;
   }
+
+  public static int  lenByte  (                    byte b)                    { return 1;            }
+  public static byte readByte (Stream s                  )                    { return s.get1();     }
+  public static byte readByte (DataInputStream s         ) throws IOException { return s.readByte(); }
+  public static void writeByte(Stream s,           byte b)                    { s.set1(b);           }
+  public static void writeByte(DataOutputStream s, byte b) throws IOException { s.writeByte(b);      }
 
   public static int  lenInt  (                    int i)                      { return 4;           }
   public static int  readInt (Stream s                 )                      { return s.get4();    }

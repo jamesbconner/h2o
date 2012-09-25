@@ -66,7 +66,9 @@ public class RTSerGenerator implements Opcodes {
     ArrayList<Field> fi = Lists.newArrayList(c.getDeclaredFields());
     Iterator<Field> it = fi.iterator();
     while( it.hasNext() ) {
-      if( Modifier.isStatic(it.next().getModifiers()) ) it.remove();
+      Field f = it.next();
+      if( f.isAnnotationPresent(RTLocal.class) ) it.remove();
+      else if( Modifier.isStatic(f.getModifiers()) ) it.remove();
     }
     this._fields = fi.toArray(new Field[fi.size()]);
 
@@ -74,7 +76,9 @@ public class RTSerGenerator implements Opcodes {
     Class<?>[] fieldTypes = new Class<?>[_fields.length];
     for( int i = 0; i < _fields.length; ++i ) {
       fieldTypes[i] = _fields[i].getType();
-      if( !SUPPORTED_CLASSES.contains(fieldTypes[i]) ) {
+      if( fieldTypes[i].getEnumConstants() != null) {
+        // we give enums special handling
+      } else if( !SUPPORTED_CLASSES.contains(fieldTypes[i]) ) {
         throw new RuntimeException(MessageFormat.format(
             "{0}: Field {1} has unsupported type {2}",
             c.getName(),
@@ -151,9 +155,14 @@ public class RTSerGenerator implements Opcodes {
     int casted = visitDowncast(mv, SER_WIRE_LEN);
     mv.visitInsn(ICONST_0);
     for( Field f : _fields ) {
-      visitGetField(mv, casted, f);
-      visitHelperCall(mv, RTSerGenHelpers.len(f.getType()));
-      mv.visitInsn(IADD);
+      if( f.getType().getEnumConstants() != null ) {
+        mv.visitInsn(ICONST_1);
+        mv.visitInsn(IADD);
+      } else {
+        visitGetField(mv, casted, f);
+        visitHelperCall(mv, RTSerGenHelpers.len(f.getType()));
+        mv.visitInsn(IADD);
+      }
     }
     visitReturn(mv, IRETURN);
   }
@@ -164,9 +173,18 @@ public class RTSerGenerator implements Opcodes {
     int stream = 2;
 
     for( Field f : _fields ) {
-      mv.visitIntInsn(ALOAD, stream);
-      visitGetField(mv, casted, f);
-      visitHelperCall(mv, RTSerGenHelpers.write(Stream.class, f.getType()));
+      if( f.getType().getEnumConstants() != null ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(f.getType()),
+            "ordinal", "()I");
+        mv.visitInsn(I2B);
+        visitHelperCall(mv, RTSerGenHelpers.write(Stream.class, byte.class));
+      } else {
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        visitHelperCall(mv, RTSerGenHelpers.write(Stream.class, f.getType()));
+      }
     }
     visitReturn(mv, RETURN);
   }
@@ -184,8 +202,16 @@ public class RTSerGenerator implements Opcodes {
 
     for( Field f : _fields ) {
       if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
-      mv.visitIntInsn(ALOAD, stream);
-      visitHelperCall(mv, RTSerGenHelpers.read(Stream.class, f.getType()));
+      if( f.getType().getEnumConstants() != null ) {
+        String n = Type.getInternalName(f.getType());
+        mv.visitMethodInsn(INVOKESTATIC, n, "values", "()[L"+n+";");
+        mv.visitIntInsn(ALOAD, stream);
+        visitHelperCall(mv, RTSerGenHelpers.read(Stream.class, byte.class));
+        mv.visitInsn(AALOAD);
+      } else {
+        mv.visitIntInsn(ALOAD, stream);
+        visitHelperCall(mv, RTSerGenHelpers.read(Stream.class, f.getType()));
+      }
       if( _noArgCtor ) visitSetField(mv, f);
     }
     if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
@@ -199,9 +225,18 @@ public class RTSerGenerator implements Opcodes {
     int stream = 2;
 
     for( Field f : _fields ) {
-      mv.visitIntInsn(ALOAD, stream);
-      visitGetField(mv, casted, f);
-      visitHelperCall(mv, RTSerGenHelpers.write(DataOutputStream.class, f.getType()));
+      if( f.getType().getEnumConstants() != null ) {
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(f.getType()),
+            "ordinal", "()I");
+        mv.visitInsn(I2B);
+        visitHelperCall(mv, RTSerGenHelpers.write(DataOutputStream.class, byte.class));
+      } else {
+        mv.visitIntInsn(ALOAD, stream);
+        visitGetField(mv, casted, f);
+        visitHelperCall(mv, RTSerGenHelpers.write(DataOutputStream.class, f.getType()));
+      }
     }
     visitReturn(mv, RETURN);
   }
@@ -219,8 +254,16 @@ public class RTSerGenerator implements Opcodes {
 
     for( Field f : _fields ) {
       if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
-      mv.visitIntInsn(ALOAD, stream);
-      visitHelperCall(mv, RTSerGenHelpers.read(DataInputStream.class, f.getType()));
+      if( f.getType().getEnumConstants() != null ) {
+        String n = Type.getInternalName(f.getType());
+        mv.visitMethodInsn(INVOKESTATIC, n, "values", "()[L"+n+";");
+        mv.visitIntInsn(ALOAD, stream);
+        visitHelperCall(mv, RTSerGenHelpers.read(DataInputStream.class, byte.class));
+        mv.visitInsn(AALOAD);
+      } else {
+        mv.visitIntInsn(ALOAD, stream);
+        visitHelperCall(mv, RTSerGenHelpers.read(DataInputStream.class, f.getType()));
+      }
       if( _noArgCtor ) visitSetField(mv, f);
     }
     if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
