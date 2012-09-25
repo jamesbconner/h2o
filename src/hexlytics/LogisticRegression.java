@@ -6,10 +6,20 @@ import hexlytics.GLinearRegression.Row;
 import water.*;
 import Jama.Matrix;
 
+/**
+ * Logistic regression implementation, using iterative least squares method.
+ *
+ * Basically repeatedly calls GLR with custom input transformation until the fixpoint of the function is reached.
+ * To compute the logistic regression using GLR, following operations are performed on the input:
+ *
+ *
+ * @author tomasnykodym
+ *
+ */
 public class LogisticRegression {
   public static class LogitMap extends GLinearRegression.LinearRow2VecMap{
     Matrix _beta;
-
+    public LogitMap(){}
     public LogitMap(int[] xColIds, int yColId) {
       this(xColIds,yColId,new Matrix(xColIds.length+1,1));
     }
@@ -61,7 +71,7 @@ public class LogisticRegression {
       off = super.read(buf, off);
       _beta = (Matrix)_row.wx.clone();
       for(int i = 0; i < _beta.getRowDimension(); ++i){
-        _beta.set(i,1, UDP.get8d(buf, off)); off += 8;
+        _beta.set(i,0, UDP.get8d(buf, off)); off += 8;
       }
       return off;
     }
@@ -69,7 +79,7 @@ public class LogisticRegression {
     public int write(byte[] buf, int off) {
       off = super.write(buf, off);
       for(int i = 0; i < _beta.getRowDimension(); ++i){
-        UDP.set8d(buf, off, _beta.get(i,1)); off += 8;
+        UDP.set8d(buf, off, _beta.get(i,0)); off += 8;
       }
       return off;
     }

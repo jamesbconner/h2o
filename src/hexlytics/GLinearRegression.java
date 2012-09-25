@@ -9,8 +9,37 @@ import water.serialization.RTSerializer;
 import water.serialization.RemoteTaskSerializer;
 import Jama.Matrix;
 
+/**
+ * General Linear Regression (http://en.wikipedia.org/wiki/Linear_regression) implementation
+ * based on least squared minimization.
+ *
+ * Solves problem of finding parameters bs  s.t. sum((bi*xi + b0 - y)^2) = min
+ * (in other words, y is modeled as y' = bi*x + b0 such that the sum of squared errors (y - y')^2 is minized.
+ * Bs are computed by following equation: (sum(x'*x)/n)^-1 * sum(x*y)/n, where:
+ *    x is a (column) vector of input values
+ *    x' is transposed x
+ *    y is response variable
+ *
+ * This algorithm can be customized by providing Row2VecMap object, which turns raw data row into an x vector
+ * and y response variable.  Eg. weights can be applied easily (on x) to do weighted linear regression.
+ *
+ * See logistic regression for an example of customized use of this algorithm.
+ *
+ * @author tomasnykodym
+ *
+ */
 public class GLinearRegression {
 
+  /**
+   * Abstract class used to customize the algorithm. Responsible for turning raw input data rows
+   * into x (variable vector) and y (response variable, scalar).
+   *
+   * Provides interface for serialization/deserialization and iteration over the rows (in a chunk).
+   * To customize, override method map(int rowId) to compute x and y based on the input data.
+   *
+   * @author tomasnykodym
+   *
+   */
   public static abstract class Row2VecMap implements Iterable<Row> {
     ValueArray _ary;
     byte[]     _bits;
@@ -28,7 +57,7 @@ public class GLinearRegression {
         throw new Error(e);
       }
     }
-
+    // helper function to serialize this, puts the classname first, data follow
     public static int serialize(Row2VecMap r, byte[] buf, int off) {
       byte[] cb = r.getClass().getName().getBytes();
       assert ((byte) cb.length) == cb.length;
@@ -38,13 +67,14 @@ public class GLinearRegression {
       return r.write(buf, off);
     }
 
+    // set the chunk we want to iterate over
     public void setRawData(ValueArray ary, byte[] bits) {
       _ary = ary;
       _bits = bits;
       _row_size = ary.row_size();
     }
 
-    public double getColumn(int r, int c) {
+    double getColumn(int r, int c) {
       return _ary.datad(_bits, r, _row_size, c);
     }
 
@@ -80,6 +110,12 @@ public class GLinearRegression {
     public abstract void write(DataOutputStream ostream);
   }
 
+  /**
+   * Basic implementation of Row2VecMap. Selects multiple columns for x, single column for y.
+   * No data transformations.
+   *
+   * @author tomasnykodym
+   */
   public static class LinearRow2VecMap extends Row2VecMap {
     int[] _xs;
     int   _y;
@@ -87,6 +123,7 @@ public class GLinearRegression {
     Row   _row;
     int   _xlen;
 
+    public LinearRow2VecMap(){}
     public LinearRow2VecMap(int[] xColIds, int yColId) {
       this(xColIds, yColId, 1);
     }
@@ -192,7 +229,6 @@ public class GLinearRegression {
   public static class GLRTask extends MRTask {
     Matrix    _xx;
     Matrix    _xy;
-    VMap       _weights;
     Row2VecMap _rmap;
 
     public GLRTask(Row2VecMap rmap) {
@@ -206,6 +242,9 @@ public class GLinearRegression {
       _rmap = null;
     }
 
+    /**
+     * Body of the LR, computes sum(x'*x)/n and sum(x*y)/n for all rows in this chunk.
+     */
     @Override
     public void map(Key key) {
       assert key.home();
@@ -227,6 +266,9 @@ public class GLinearRegression {
       _xx.timesEquals(nInv);
     }
 
+    /**
+     * Add partial results.
+     */
     @Override
     public void reduce(DRemoteTask drt) {
       GLRTask other = (GLRTask) drt;
@@ -252,7 +294,7 @@ public class GLinearRegression {
       public int write(GLRTask task, byte[] buf, int off) {
         if( task._xx == null && task._xy == null ) {
           buf[off++] = 1; // state 1
-          off = task._rmap.write(buf, off);
+          off = Row2VecMap.serialize(task._rmap, buf, off);
         } else {
           buf[off++] = 2; // state 2
           assert task._xx.getColumnDimension() == task._xx.getRowDimension();
