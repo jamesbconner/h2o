@@ -3,7 +3,6 @@ package hexlytics;
 import java.io.*;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
 
 import water.*;
 import water.serialization.RTSerializer;
@@ -187,6 +186,12 @@ public class GLinearRegression {
       }
       _y = UDP.get4(buf, off); off += 4;
       _constant = UDP.get4(buf, off);
+      _row = new Row();
+      _xlen = (_constant != 0) ? _xs.length + 1 : _xs.length;
+      _row.x = new Matrix(1,_xlen);
+      if(_constant != 0 ) _row.x.set(0,_xs.length, _constant);
+      _row.wx = _row.x.transpose();
+      _row.y = 0.0;
       return off + 4;
     }
 

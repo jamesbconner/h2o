@@ -35,6 +35,7 @@ public class Boot {
         _init.addInternalJars("gson");
         _init.addInternalJars("junit");
         _init.addInternalJars("asm");
+        _init.addInternalJars("Jama");
       } else {
         System.setProperty("org.hyperic.sigar.path","lib/binlib");
       }
