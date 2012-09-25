@@ -1,6 +1,6 @@
-package hexlytics;
+package hex;
 
-import hexlytics.GLinearRegression.Row;
+import hex.GLinearRegression.Row;
 
 
 import water.*;

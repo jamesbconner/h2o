@@ -1,7 +1,7 @@
 package water.web;
 
-import hexlytics.rf.Confusion;
-import hexlytics.rf.Tree;
+import hex.rf.Confusion;
+import hex.rf.Tree;
 
 import java.util.Properties;
 

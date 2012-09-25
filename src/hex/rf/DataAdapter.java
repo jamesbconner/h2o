@@ -1,25 +1,24 @@
-package hexlytics.rf;
+package hex.rf;
 
 import java.text.DecimalFormat;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 
-public class DataAdapter  {
-  short[] data_;
-  C[] c_;
+class DataAdapter  {
+  private short[] data_;
+  private C[] c_;
   private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
   private String name_="";
-  int classIdx_;
-  final int _data_id;           // Unique cookie identifying this dataset
+  private int classIdx_;
+  private final int _data_id;           // Unique cookie identifying this dataset
   private boolean frozen_;
   private int numClasses_=-1;
   private String[] columnNames_;
   private String classColumnName_;
-  public final int _seed;
-  
-  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
-    _seed = seed+data_id; 
+  private final int _seed;
+  private int rows;
+
+  DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
+    _seed = seed+data_id;
     name_=name;
     c_ = new C[columns.length];
     columnNames_ = new String[columns.length];
@@ -38,14 +37,14 @@ public class DataAdapter  {
   }
 
   /** Given a value in enum format, returns a value in the original range. */
-  public float unmap(int col, float v){
+  public float unmap(int col, float v){  // FIXME should this be a short???? JAN
     short idx = (short)v; // Convert split-point of the form X.5 to a (short)X
     C c = c_[col];
     if (v == idx) {  // this value isn't a split
       return c._v2o[idx+0];
     } else {
       float flo = c._v2o[idx+0]; // Convert to the original values
-      float fhi = (idx < c.sz_) ? c._v2o[idx+1] : flo+1.0f;
+      float fhi = (idx < rows()) ? c._v2o[idx+1] : flo+1.0f;
       float fmid = (flo+fhi)/2.0f; // Compute an original split-value
       assert flo < fmid && fmid < fhi; // Assert that the float will properly split
       return fmid;
@@ -53,7 +52,19 @@ public class DataAdapter  {
   }
 
     public String name() { return name_; }
+
+    // lame attempt at best effort ... throw away half the data each time 'round
     public void shrinkWrap() {
+      try {
+        _shrinkWrap();
+      } catch (OutOfMemoryError e) {
+        if (rows<=2) throw e;  // Give up
+        rows = rows/2; // try with fewer rows
+        Utils.pln("[RF] Warning: Reduced input size to "+ rows+" rows.");
+        shrinkWrap();
+      }
+    }
+    private short[] _shrinkWrap() {
       freeze();
       short[][] vss = new short[c_.length][];
       for( int i=0; i<c_.length-1; i++ )
@@ -64,13 +75,16 @@ public class DataAdapter  {
         short[] vs = vss[i];
         for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
       }
+      short[] dummy = new short[ c_.length * rows() ];
+      return dummy; // Silly way to check that we have enough memory...
     }
 
     public int  seed()          { return _seed; }
     public void freeze()        { frozen_=true; }
     public int columns()        { return c_.length;}
-    public int rows()           { return c_.length == 0 ? 0 : c_[0].sz_; }
+    public int rows()           { return rows; }
     public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
+    public int dataId()         { return _data_id; }
 
     public int classes() {
       if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
@@ -99,22 +113,19 @@ public class DataAdapter  {
     public void addRow(float[] v) {
       if (frozen_) throw new Error("Frozen data set update");
       for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
+      rows++;
     }
     short getS(int row, int col) { return data_[row * c_.length + col]; }
     void setS(int row, int col, short val) { data_[row * c_.length + col]= val; }
     protected float getF(int col, int idx) { return c_[col].getF(idx); }
     static final DecimalFormat df = new  DecimalFormat ("0.##");
-}
 
-class C {
+ private class C {
   String name_;
   boolean ignore;
-  int sz_;
   float min_=Float.MAX_VALUE, max_=Float.MIN_VALUE, tot_;
   float[] v_;
-  HashMap<Float,Short> o2v_;
-  H o2v2;
-  
+
   float[] _v2o;  // Reverse (short) indices to original floats
   short smin_ = -1;
   short smax_ = -1;
@@ -125,7 +136,7 @@ class C {
     min_=Math.min(x,min_);
     max_=Math.max(x,max_);
     tot_+=x;
-    v_[sz_++]=x;
+    v_[rows()]=x;
   }
 
   float getF(int i) { return v_[i]; }
@@ -134,7 +145,7 @@ class C {
   public String toString() {
     String res = "col("+name_+")";
     res+= "  ["+DataAdapter.df.format(min_) +","+DataAdapter.df.format(max_)+"], avg=";
-    res+= DataAdapter.df.format(tot_/(double)sz_) ;
+    res+= DataAdapter.df.format(tot_/rows()) ;
     return res;
   }
 
@@ -145,35 +156,18 @@ class C {
   short[] shrink( boolean noEncoding ) {
     smin_ = 0;
    // o2v_ = hashCol();
-    o2v2 = hashCol2();
-    short[] res = new short[sz_];
+   H o2v2 = hashCol2();
+    short[] res = new short[rows()];
     int min = (int)min_;
-    for(int j=0;j<sz_;j++) {
-      res[j] = noEncoding ? (short)((int)v_[j]-min) :  
-       o2v2.get(v_[j]);
-       // o2v_.get(v_[j]).shortValue();
-    }
+    for(int j=0;j<rows();j++)
+      res[j] = noEncoding ? (short)((int)v_[j]-min) :  o2v2.get(v_[j]);
     v_= null;
     return res;
   }
 
-  HashMap<Float,Short> hashCol() {
-    HashSet<Float> res = new HashSet<Float>();
-    for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.add(v_[i]);
-    HashMap<Float,Short> res2 = new HashMap<Float,Short>(res.size());
-    Float[] ks = res.toArray(new Float[res.size()]);
-    _v2o = new float[ks.length];
-    Arrays.sort(ks);
-    smax_ = 0;
-    for( Float d : ks)  {
-      _v2o[smax_] = d;
-      res2.put(d, smax_++);
-    }
-    return res2;
-  }
   H hashCol2() {
     H res = new H(100);
-    for(int i=0; i< sz_; i++) if (!res.contains(v_[i])) res.put(v_[i],(short)0);
+    for(int i=0; i< rows(); i++) if (!res.contains(v_[i])) res.put(v_[i],(short)0);
     H res2 = new H(res.size());
     float[] ks = res.keys();
     _v2o = new float[ks.length];
@@ -185,4 +179,5 @@ class C {
     }
     return res2;
   }
+ }
 }

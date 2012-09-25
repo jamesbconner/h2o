@@ -5,6 +5,8 @@ import java.security.ProtectionDomain;
 
 import org.objectweb.asm.*;
 
+import com.google.common.base.Throwables;
+
 import water.RemoteTask;
 
 /**
@@ -26,21 +28,18 @@ public class RTWeaver implements Opcodes, ClassFileTransformer {
     } catch (Throwable t) {
       // exceptions in this method get eaten, so we have to be loud
       t.printStackTrace();
-      throw new RuntimeException(t);
+      throw Throwables.propagate(t);
     }
   }
 
-
-
-  private static final String RT_INTERNAL_NAME = Type.getType(RemoteTask.class).getInternalName();
-
   public static byte[] transform(ClassLoader loader, String className, byte[] bytes)
-          throws IllegalClassFormatException {
+          throws IllegalClassFormatException, ClassNotFoundException {
     ClassReader reader = new ClassReader(bytes);
-    boolean isRunnable = RT_INTERNAL_NAME.equals(reader.getSuperName());
-    if( !isRunnable ) return null;
-    System.out.println("Found a RemoteTask to weave!\n\t" + reader.getClassName());
-    if( true ) return null;
+    String superName = Type.getObjectType(reader.getSuperName()).getClassName();
+    Class<?> superClazz = Class.forName(superName,
+        false, // DO NOT INIT HERE, we are inside a VM agent if we force the init here we can get into weird circularity errors
+        loader);
+    if( !RemoteTask.class.isAssignableFrom(superClazz) ) return null;
 
     ClassWriter write = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
     ClassAdapter adapter = new ClassAdapter(write) {

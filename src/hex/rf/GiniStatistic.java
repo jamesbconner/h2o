@@ -1,4 +1,4 @@
-package hexlytics.rf;
+package hex.rf;
 
 /** Computes the gini split statistics.
  *

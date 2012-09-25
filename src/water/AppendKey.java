@@ -1,11 +1,6 @@
 package water;
 
-import java.io.DataOutputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
 import java.util.Arrays;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
 
 /**
  * Atomic Append of a Key
@@ -13,36 +8,13 @@ import water.serialization.RemoteTaskSerializer;
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
-
-@RTSerializer(AppendKey.Serializer.class)
 public class AppendKey extends Atomic {
-  byte[] _bits;
-  private AppendKey( byte[] bits ) { _bits = bits; }
+  private final byte[] _bits;
+  public AppendKey( byte[] bits ) { _bits = bits; } // required ctor for serialization
+
   public AppendKey( Key key ) {    // Append a key
     _bits = new byte[key.wire_len()];
     key.write(_bits,0);
-  }
-  public static class Serializer extends RemoteTaskSerializer<AppendKey> {
-    @Override public int wire_len(AppendKey a) { return 4+a._bits.length; }
-    @Override public int write( AppendKey a, byte[] buf, int off ) {
-      off += UDP.set4(buf,off,a._bits.length);
-      System.arraycopy(a._bits,0,buf,off,a._bits.length);  off += a._bits.length;
-      return off;
-    }
-    @Override public void write( AppendKey a, DataOutputStream dos ) throws IOException {
-      dos.write(a._bits.length);
-      dos.write(a._bits);
-    }
-    @Override public AppendKey read( byte[] buf, int off ) {
-      byte[] bits = new byte[UDP.get4(buf,(off+=4)-4)];
-      System.arraycopy(buf,off,bits,0,bits.length);
-      return new AppendKey(bits);
-    }
-    @Override public AppendKey read( DataInputStream dis ) throws IOException {
-      byte[] bits = new byte[dis.readInt()];
-      dis.readFully(bits);
-      return new AppendKey(bits);
-    }
   }
 
   // Just append the bits

@@ -1,12 +1,7 @@
 package water;
-import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.DatagramPacket;
-import java.net.Socket;
-import java.net.SocketException;
 
 /**
  * A remote request for a specifc key.  It is not distribution-aware, and just
@@ -105,14 +100,16 @@ public class TaskGetKey extends DFutureTask<Value> {
           assert home == h2o;    // Assert home is asking for the key
         }
 
+        Stream s = new Stream(buf, off);
         if( off+val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
-          off = val.write(buf,off,len,vbuf); // Just jam into reply packet
+          val.write(s, len, vbuf);
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
           if( !tcp_send(h2o,UDP.udp.getkey,get_task(buf),key,val,vbuf) )
             return; // If the TCP failed... then so do we; no result; caller will retry
-          off = val.write(buf,off,-2/*tha Big Value cookie*/); // Just jam into reply packet
+          val.write(s, -2);
         }
+        off = s._off;
       }
 
       // Send it back
@@ -148,6 +145,7 @@ public class TaskGetKey extends DFutureTask<Value> {
     }
 
     // Pretty-print bytes 1-15; byte 0 is the udp_type enum
+    @SuppressWarnings("unused")
     public String print16( byte[] buf ) {
       int udp     = get_ctrl(buf);
       int port    = get_port(buf);
@@ -165,11 +163,16 @@ public class TaskGetKey extends DFutureTask<Value> {
     try {
       // First SZ_TASK bytes have UDP type# and port and task#.
       byte[] buf = p.getData();
-      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
-      int len = UDP.get4(buf,off+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
-      if( len == -3 ) return null;   // Remote-miss
 
-      Value val = (len == /*Big Value cookie*/-2) ? _tcp_val : Value.read(buf,off,_key);
+      int len = UDP.get4(buf,UDP.SZ_TASK+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
+      Value val;
+      if(      len == -3 ) return null;   // Remote-miss
+      else if( len == -2 ) val = _tcp_val;
+      else {
+        Stream s = new Stream(buf, UDP.SZ_TASK);
+        val = Value.read(s, _key);
+      }
+
       // Need to officially put_if_later, in case of racing other updates
       Value old = H2O.get(_key);
       H2O.putIfMatch(_key,val,old);

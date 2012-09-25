@@ -8,7 +8,7 @@ public class LogisticRegression extends H2OPage {
     return ServletUtil.serveTwoParams(args, new ServletUtil.RunnableTask() {
       @Override
       public String run(ValueArray ary, int colA, int colB) {
-       return hexlytics.LogisticRegression.web_main(ary, new int[]{colA}, colB).toString();
+       return hex.LogisticRegression.web_main(ary, new int[]{colA}, colB).toString();
       }
     });
   }

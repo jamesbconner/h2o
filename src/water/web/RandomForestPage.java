@@ -1,8 +1,8 @@
 package water.web;
 
-import hexlytics.rf.Confusion;
-import hexlytics.rf.DRF;
-import hexlytics.rf.Tree.StatType;
+import hex.rf.Confusion;
+import hex.rf.DRF;
+import hex.rf.Tree.StatType;
 
 import java.util.Properties;
 
@@ -34,7 +34,7 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
-      DRF drf = hexlytics.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
+      DRF drf = hex.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
       // Start up the incremental confusion matrix
       Confusion confusion = new Confusion( drf._treeskey, ary, ntrees*H2O.CLOUD.size());
       Key confKey = confusion.toKey();

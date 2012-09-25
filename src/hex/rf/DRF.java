@@ -1,59 +1,33 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Tree.StatType;
-
-import java.io.*;
+import hex.rf.Tree.StatType;
 import water.*;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
+import water.serialization.RTLocal;
 
 /**
  * Distributed RandomForest
  * @author cliffc
  */
-@RTSerializer(DRF.Serializer.class)
 public class DRF extends water.DRemoteTask {
 
-  int _ntrees;                  // Number of trees PER NODE
-  int _depth;                   // Tree-depth limiter
-  StatType _stat;               // Use Gini or Entropy for splits
-  Key _arykey;                  // The ValueArray being RF'd
-  public Key _treeskey;         // Key of Tree-Keys built so-far
-  Data _validation;             // Data subset to validate with locally, or NULL
-  boolean _singlethreaded;      // Disable parallel execution
-  RandomForest _rf;             // The local RandomForest
-  int _seed;
+  int _ntrees;          // Number of trees PER NODE
+  int _depth;           // Tree-depth limiter
+  StatType _stat;       // Use Gini or Entropy for splits
+  Key _arykey;          // The ValueArray being RF'd
+  public Key _treeskey; // Key of Tree-Keys built so-far
+
+  @RTLocal Data _validation;        // Data subset to validate with locally, or NULL
+  @RTLocal boolean _singlethreaded; // Disable parallel execution
+  @RTLocal RandomForest _rf;        // The local RandomForest
+  @RTLocal int _seed;
 
   public static class IllegalDataException extends Error {
     public IllegalDataException(String string) {
       super(string);
     }
   }
-  public static class Serializer extends RemoteTaskSerializer<DRF> {
-    @Override public int wire_len(DRF t) { return 4+4+1+t._arykey.wire_len(); }
-    @Override public int write( DRF t, byte[] buf, int off ) {
-      off += UDP.set4(buf,off,t._ntrees);
-      off += UDP.set4(buf,off,t._depth);
-      buf[off++] = (byte)(t._stat.ordinal());
-      off = t.  _arykey.write(buf,off);
-      off = t._treeskey.write(buf,off);
-      return off;
-    }
-    @Override public DRF read( byte[] buf, int off ) {
-      DRF t = new DRF();
-      t._ntrees= UDP.get4(buf,(off+=4)-4);
-      t._depth = UDP.get4(buf,(off+=4)-4);
-      t._stat  = StatType.values()[buf[off++]];
-      t.  _arykey = Key.read(buf,off);  off += t.  _arykey.wire_len();
-      t._treeskey = Key.read(buf,off);  off += t._treeskey.wire_len();
-      return t;
-    }
-    @Override public void write( DRF t, DataOutputStream dos ) { throw new Error("do not call"); }
-    @Override public DRF  read (        DataInputStream  dis ) { throw new Error("do not call"); }
-  }
 
   private static void validateInputData(ValueArray ary){
-    final int rowsize = ary.row_size();
     final int num_cols = ary.num_cols();
     final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
     // There is no point in running Rf when all the training data have the same class, however it is currently failing the test/build
@@ -123,13 +97,16 @@ public class DRF extends water.DRemoteTask {
   // Local RF computation.
   public final void compute() {
     DataAdapter dapt = extractData(_arykey, _keys);
+    Utils.pln("[RF] Data adapter built");
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
     sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
     Data d = Data.make(dapt);
-    Data t = sample ? d.sampleWithReplacement(.666) : d;
-    _validation = sample ? t.complement(d) : null;
+    short[] complement = sample ? new short[d.rows()] : null;
+    Data t = sample ? d.sampleWithReplacement(.666, complement) : d;
+    _validation = sample ? t.complement(d, complement) : null;
     // Make a single RandomForest to that does all the tree-construction work.
+    Utils.pln("[RF] Building trees");
     _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
     tryComplete();
   }
