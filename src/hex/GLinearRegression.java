@@ -266,7 +266,7 @@ public class GLinearRegression {
     Row2VecMap _rmap;
 
     public GLRTask(Row2VecMap rmap) {
-      _rmap = (Row2VecMap)rmap.clone();
+      _rmap = rmap.clone();
     }
 
 
@@ -290,7 +290,7 @@ public class GLinearRegression {
       _xy = new Matrix(xlen,1);
       _xx = new Matrix(xlen,xlen);
       // _rmap gets shared among threads ->  create thread's private copy
-      Row2VecMap rmap = (Row2VecMap)_rmap.clone();
+      Row2VecMap rmap = _rmap.clone();
       rmap.setRawData(ary, bits);
       for( Row r : rmap ) {
         _xx.plusEquals(r.wx.times(r.x));
