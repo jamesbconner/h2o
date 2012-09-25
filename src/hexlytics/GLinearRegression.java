@@ -3,6 +3,7 @@ package hexlytics;
 import java.io.*;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutionException;
 
 import water.*;
 import water.serialization.RTSerializer;
@@ -40,7 +41,7 @@ public class GLinearRegression {
    * @author tomasnykodym
    *
    */
-  public static abstract class Row2VecMap implements Iterable<Row> {
+  public static abstract class Row2VecMap implements Iterable<Row>, Cloneable {
     ValueArray _ary;
     byte[]     _bits;
     int        _row_size;
@@ -101,6 +102,7 @@ public class GLinearRegression {
         }
       };
     }
+    public abstract Object clone();
     public abstract Row map(int rid);
     public abstract int xlen();
     public abstract int wire_len();
@@ -128,6 +130,14 @@ public class GLinearRegression {
       this(xColIds, yColId, 1);
     }
 
+    public LinearRow2VecMap(LinearRow2VecMap other){
+      _xs = other._xs.clone();
+      _y = other._y;
+      _constant = other._constant;
+      _row = (Row)other._row.clone();
+      _xlen = other._xlen;
+    }
+
     public LinearRow2VecMap(int[] xColIds, int yColId, int constant) {
       _xs = xColIds;
       _y = yColId;
@@ -138,6 +148,10 @@ public class GLinearRegression {
       if( constant != 0 ) _row.x.set(0,_xs.length, constant);
       _row.wx = _row.x.transpose();
       _row.y = 0.0;
+    }
+
+    @Override public Object clone(){
+      return new LinearRow2VecMap(this);
     }
 
     @Override
@@ -208,11 +222,23 @@ public class GLinearRegression {
   public static Matrix solveGLR(Key aryKey, GLinearRegression.Row2VecMap rmap) {
     GLRTask tsk = new GLRTask(rmap);
     tsk.invoke(aryKey);
+    try {
+      tsk.get();
+    } catch( Exception e ) {
+      // TODO Auto-generated catch block
+      throw new RuntimeException(e);
+    }
     return tsk._xx.inverse().times(tsk._xy);
   }
 
   // wrapper around one row of data for use in WLR
   public static class Row {
+    public Row(){}
+    public Row(Row r){
+      x = (Matrix)r.x.clone();
+      wx = (Matrix)r.wx.clone();
+      y = r.y;
+    }
     // the x (row) vector
     public Matrix x;
     // weighted (column) x (or just alias to x, if weights are not used)
@@ -222,6 +248,9 @@ public class GLinearRegression {
 
     public String toString() {
       return "x = " + x + ", wx = " + wx + ", y = " + y;
+    }
+    @Override public Object clone(){
+      return new Row(this);
     }
   }
 
@@ -254,8 +283,10 @@ public class GLinearRegression {
       int xlen = _rmap.xlen();
       _xy = new Matrix(xlen,1);
       _xx = new Matrix(xlen,xlen);
-      _rmap.setRawData(ary, bits);
-      for( Row r : _rmap ) {
+      // _rmap gets shared among threads ->  create thread's private copy
+      Row2VecMap rmap = (Row2VecMap)_rmap.clone();
+      rmap.setRawData(ary, bits);
+      for( Row r : rmap ) {
         _xx.plusEquals(r.wx.times(r.x));
         r.wx.timesEquals(r.y);
         _xy.plusEquals(r.wx);
@@ -272,8 +303,13 @@ public class GLinearRegression {
     @Override
     public void reduce(DRemoteTask drt) {
       GLRTask other = (GLRTask) drt;
-      _xx.plusEquals(other._xx);
-      _xy.plusEquals(other._xy);
+      if(_xx != null || _xy != null) {
+        _xx.plusEquals(other._xx);
+        _xy.plusEquals(other._xy);
+      } else {
+        _xx = other._xx;
+        _xy = other._xy;
+      }
     }
 
 

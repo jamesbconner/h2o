@@ -23,11 +23,19 @@ public class LogisticRegression {
     public LogitMap(int[] xColIds, int yColId) {
       this(xColIds,yColId,new Matrix(xColIds.length+1,1));
     }
+    public LogitMap(LogitMap other){
+      super(other);
+      _beta = (Matrix)other._beta.clone();
+    }
 
     public LogitMap(int[] xColIds, int yColId, Matrix initialGuess) {
       super(xColIds, yColId);
       // make sure weighted x is separate object
       _beta = initialGuess;
+    }
+
+    @Override public Object clone(){
+      return new LogitMap(this);
     }
 
     double gPrime(double p){
@@ -86,6 +94,11 @@ public class LogisticRegression {
   }
   static final String html_head = "<table>";
 
+  static String getColName(int colId, ValueArray ary){
+    String colName = ary.col_name(colId);
+    if(colName == null) colName = "Column " + colId;
+    return colName;
+  }
   public static String web_main(ValueArray ary, int [] xColIds, int yColId){
     Matrix beta = solve(ary._key,xColIds,yColId);
     // add in the variable names
@@ -93,7 +106,7 @@ public class LogisticRegression {
     bldr.append(html_head);
     bldr.append("<tr><td>Intercept</td>");
     for(int i = 0; i < xColIds.length; ++i)
-      bldr.append("<td>" + ary.col_name(xColIds[i]) + "</td>");
+      bldr.append("<td>" + getColName(xColIds[i], ary)  + "</td>");
     bldr.append("</tr><td>" +  beta.get(xColIds.length, 0));
     for(int i = 0; i < xColIds.length; ++i)
       bldr.append("<td>" + beta.get(i,0) + "</td>");
