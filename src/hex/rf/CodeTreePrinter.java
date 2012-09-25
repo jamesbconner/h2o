@@ -1,9 +1,6 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Tree.ExclusionNode;
-import hexlytics.rf.Tree.LeafNode;
-import hexlytics.rf.Tree.Node;
-import hexlytics.rf.Tree.SplitNode;
+import hex.rf.Tree.*;
 
 import java.io.IOException;
 import java.io.OutputStream;

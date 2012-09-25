@@ -1,6 +1,6 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Tree.StatType;
+import hex.rf.Tree.StatType;
 
 import java.io.*;
 import water.*;

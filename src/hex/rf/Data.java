@@ -1,7 +1,7 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Data.Row;
-import hexlytics.rf.Tree.SplitNode;
+import hex.rf.Data.Row;
+import hex.rf.Tree.SplitNode;
 
 import java.util.Arrays;
 import java.util.HashSet;

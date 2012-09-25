@@ -1,4 +1,4 @@
-package hexlytics.rf;
+package hex.rf;
 
 import java.text.DecimalFormat;
 import java.util.Arrays;

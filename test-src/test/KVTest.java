@@ -1,6 +1,6 @@
 package test;
 import static org.junit.Assert.*;
-import hexlytics.LinearRegression;
+import hex.LinearRegression;
 
 import java.io.File;
 

@@ -1,6 +1,6 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Data.Row;
+import hex.rf.Data.Row;
 
 import java.util.Arrays;
 import java.util.Random;

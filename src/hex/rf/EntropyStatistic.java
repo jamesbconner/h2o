@@ -1,4 +1,4 @@
- package hexlytics.rf;
+ package hex.rf;
 
 
 /** This is an entropy statistic calculation. 

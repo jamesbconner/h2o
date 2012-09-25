@@ -1,4 +1,4 @@
-package hexlytics;
+package hex;
 import java.io.*;
 
 import com.sun.org.apache.xml.internal.serialize.Serializer;

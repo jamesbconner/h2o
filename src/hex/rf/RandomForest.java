@@ -1,8 +1,8 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Data.Row;
-import hexlytics.rf.Tree.StatType;
-import hexlytics.rf.Utils.Counter;
+import hex.rf.Data.Row;
+import hex.rf.Tree.StatType;
+import hex.rf.Utils.Counter;
 
 import java.io.File;
 import java.util.Arrays;
