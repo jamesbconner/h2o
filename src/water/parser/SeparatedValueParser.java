@@ -1,5 +1,7 @@
 package water.parser;
 
+import hexlytics.rf.Utils;
+
 import java.util.Arrays;
 import java.util.Iterator;
 
@@ -22,23 +24,25 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
 
   private final char _separator;
   private final DecimalParser _decimal;
+  private final SloppyDecimalParser _sloppy_decimal;
   private final TextualParser _textual;
   private final Row _row;
-    
+
   private final ColumnDomain[] _columnsDomains;
-  
+
   public SeparatedValueParser(Key k, char seperator, int numColumnsGuess) {
     this(k,seperator,numColumnsGuess,null);
   }
-  
+
   public SeparatedValueParser(Key k, char seperator, int numColumnsGuess, ColumnDomain[] columnsDomains ) {
+    _sloppy_decimal = new SloppyDecimalParser();
     _decimal = new DecimalParser();
     _textual = new TextualParser();
-    _row     = new Row(numColumnsGuess);    
-    
+    _row     = new Row(numColumnsGuess);
+
     _separator = seperator;
     _columnsDomains = columnsDomains;
-    
+
     _key = k;
     _curVal = UKV.get(k);
     assert _curVal != null;
@@ -120,14 +124,14 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     return '\n';
   }
 
-  private void    parse(byte b) { _decimal.addCharacter(b); _textual.addCharacter(b); }
-  private void    resetParsers() { _decimal.reset(); _textual.reset(); }
+  private void    parse(byte b) {_sloppy_decimal.addCharacter(b); _decimal.addCharacter(b); _textual.addCharacter(b); }
+  private void    resetParsers() {_sloppy_decimal.reset(); _decimal.reset(); _textual.reset(); }
   private boolean isNewline(byte b)  { return b == '\r' || b == '\n'; }
   private boolean isSeparator(byte b) { return b == _separator || isNewline(b); }
-  
+
   private void putToDictionary(int column, String key) {
     if( _columnsDomains != null && key != null && !"".equals(key) )
-      _columnsDomains[column].add(key);      
+      _columnsDomains[column].add(key);
   }
 
   @Override
@@ -152,12 +156,13 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
       if( field < _row._fieldVals.length ) {
         resetParsers();
         b = scanPastNextSeparator();
-        _row._fieldVals[field]       = _decimal.doubleValue();
+        double v = _sloppy_decimal.doubleValue();
+        _row._fieldVals[field] = Double.isNaN(v) ? _decimal.doubleValue() : v;
         _row._fieldStringVals[field] = null;
         if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
           _row._fieldStringVals[field] = _textual.stringValue();
           putToDictionary(field, _row._fieldStringVals[field]);
-        }        
+        }
       } else {
         b = scanPastNextSeparator();
       }
@@ -168,10 +173,10 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     }
     for(; field < _row._fieldVals.length; ++field) { _row._fieldVals[field] = Double.NaN; _row._fieldStringVals[field] = null; }
     skipNewlines();
-    
+
     return _row;
   }
-  
+
   public String toString() {
     return Objects.toStringHelper(this)
         .add("curChunk", _curChunk)
@@ -181,19 +186,19 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
 
 
   @Override public void remove() { throw new UnsupportedOperationException(); }
-  
-  // Helper class to represent parsed row. 
+
+  // Helper class to represent parsed row.
   // The driving attribute is _fieldVals which contains all parsed numbers.
   // In the case that it contains NaN then _fieldStringVals contains parsed field text
   public static final class Row {
     public final double[] _fieldVals;
     public final String[] _fieldStringVals;
-    
+
     public Row(int numOfColumns) {
       _fieldVals       = new double[numOfColumns];
-      _fieldStringVals = new String[numOfColumns];      
+      _fieldStringVals = new String[numOfColumns];
     }
-    
+
     @Override
     public String toString() {
       return Arrays.toString(_fieldVals) + "\n" + Arrays.toString(_fieldStringVals);
