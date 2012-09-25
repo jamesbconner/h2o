@@ -185,7 +185,8 @@ public class H2ONode implements Comparable {
     // local host.
     if( local == null )
       try {
-        local = InetAddress.getByName("1.0.0.0");
+	// set default ip address to be 127.0.0.1 /localhost
+        local = InetAddress.getByName("127.0.0.1");
       } catch( UnknownHostException e ) { throw new Error(e); } // Rethrow as unchecked (and die)
     return intern(new H2Okey(local,H2O.UDP_PORT));
   }
