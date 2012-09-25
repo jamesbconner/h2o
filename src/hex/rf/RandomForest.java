@@ -38,7 +38,8 @@ public class RandomForest {
       // Submit all trees for work
       for( int i=0; i<ntrees; i++ ) {
         H2O.FJP_NORM.submit(_trees[i] = new Tree(_data.clone(),maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
-        if( singlethreaded ) _trees[i].get();
+        //if( singlethreaded )  // FIXME: Always build trees in a single thread --Jan.
+         _trees[i].get();
       }
       // Block until all trees are built
       for( int i=0; i<ntrees; i++ ) {
@@ -72,7 +73,7 @@ public class RandomForest {
 
   public int features() { return _features== -1 ? (int)Math.sqrt(_data.columns()) : _features; }
 
-  
+
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
     arguments.extract(ARGS);
@@ -91,13 +92,12 @@ public class RandomForest {
     else if(ARGS.rawKey != null) // data loaded in K/V, not parsed yet
       va = KeyUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(KeyUtil.getHexKeyFromRawKey(ARGS.rawKey)));
     else { // data outside of H2O, load and parse
-      File f = new File(ARGS.file); 
+      File f = new File(ARGS.file);
       System.out.println("[RF] Loading file " + f);
       Key fk = KeyUtil.load_test_file(f);
       va = KeyUtil.parse_test_key(fk,Key.make(KeyUtil.getHexKeyFromFile(f)));
-      System.out.println("va = " + ((va != null)?va._key:"null"));
       DKV.remove(fk);
-    }  
+    }
     int ntrees = ARGS.ntrees;
     if(ntrees == 0) {
       System.out.println("Nothing to do as ntrees == 0");
@@ -105,8 +105,9 @@ public class RandomForest {
       return;
     }
     DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
-    DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());    
+    DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
+    Utils.pln("[RF] Starting RF.");
     long t1 = System.currentTimeMillis();
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded);
     Key[] tkeys = null;
@@ -116,14 +117,14 @@ public class RandomForest {
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
       DRF.forceNoSample = true;
       Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
-      ValueArray valAry = KeyUtil.parse_test_key(valKey);     
+      ValueArray valAry = KeyUtil.parse_test_key(valKey);
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
       Data valData = Data.make(drf.extractData(valAry._key, keys));
       new RFValidator( tkeys, valData, valAry, drf._rf.features() ).report();
-    } else 
-      new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();   
+    } else
+      new RFValidator( tkeys, drf._validation, va, drf._rf.features() ).report();
     System.out.println("Random forest finished in: " + (t2 - t1) + " ms");
     UDPRebooted.global_kill();
   }
