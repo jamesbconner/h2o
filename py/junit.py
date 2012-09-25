@@ -43,5 +43,13 @@ class JUnit(unittest.TestCase):
         finally:
             h2o.tear_down_cloud(nodes)
 
+    def testAppendKeyTest(self):
+        nodes = []
+        try:
+            nodes = h2o.build_cloud(node_count=1)
+            self.run_junit('test.AppendKeyTest')
+        finally:
+            h2o.tear_down_cloud(nodes)
+
 if __name__ == '__main__':
     unittest.main()

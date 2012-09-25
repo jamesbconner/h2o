@@ -4,7 +4,6 @@ import util.h2o as h2o
 def runRF(n,trees,csvPathname,timeoutSecs):
     put = n.put_file(csvPathname)
     parse = n.parse(put['keyHref'])
-    time.sleep(0.5) # FIX! temp hack to avoid races?
     rf = n.random_forest(parse['keyHref'],trees)
     # this expects the response to match the number of trees you told it to do
     n.stabilize('random forest finishing', timeoutSecs,
@@ -33,24 +32,24 @@ class Basic(unittest.TestCase):
     # by using intermediate "_A_" etc. That should make unittest order match
     # order here? 
 
-    def test_Basic(self):
+    def test_A_Basic(self):
         for n in nodes:
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
-    def test_RF_iris2(self):
+    def test_B_RF_iris2(self):
         trees = 6
-        timeoutSecs = 20
+        timeoutSecs = 10
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
-    def test_RF_poker100(self):
+    def test_C_RF_poker100(self):
         trees = 6
-        timeoutSecs = 20
+        timeoutSecs = 10
         csvPathname = h2o.find_file('smalldata/poker/poker100')
         runRF(nodes[0], trees, csvPathname, timeoutSecs)
 
-    def test_GenParity1(self):
+    def test_D_GenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
         # so we can get files from there, without generating datasets
 
@@ -75,11 +74,12 @@ class Basic(unittest.TestCase):
         # first time we use perl (parity.pl)
 
         # always match the run below!
-        # FIX! 1 row fails in H2O. skip for now
-        for x in xrange (2,100,10):
+        for x in xrange (1,100,10):
             # Have to split the string out to list for pipe
-            shCmdString = SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
-            h2o.spawn_cmd('parity.pl', shCmdString.split())
+            shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
+            # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
+            # wait for the last one to be gen'ed here before we start the first below.
+            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),timeout=3)
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
@@ -89,20 +89,20 @@ class Basic(unittest.TestCase):
         # bump this up too if you do?
         timeoutSecs = 10
         # always match the gen above!
-        # FIX! 1 row fails in H2O. skip for now
-        for x in xrange (2,100,10):
+        for x in xrange (1,100,10):
             sys.stdout.write('.')
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
+            print csvPathname, "trees:", trees, "timeoutSecs", timeoutSecs
             # FIX! TBD do we always have to kick off the run from node 0?
             # what if we do another node?
             # FIX! do we need or want a random delay here?
-            time.sleep(0.5) 
+            # CNC - My antique computer reports files missing without a little delay here.
             runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
             trees += 10
-            timeoutSecs += 2
+            ### timeoutSecs += 2
 
 
 if __name__ == '__main__':

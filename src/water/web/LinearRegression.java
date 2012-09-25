@@ -8,7 +8,7 @@ public class LinearRegression extends H2OPage {
     return ServletUtil.serveTwoParams(args, new ServletUtil.RunnableTask() {
       @Override
       public String run(ValueArray ary, int colA, int colB) {
-        return hexlytics.LinearRegression.run(ary,colA,colB);
+        return hex.LinearRegression.run(ary,colA,colB);
       }
     });
   }

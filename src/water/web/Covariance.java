@@ -13,7 +13,7 @@ public class Covariance extends H2OPage {
     return ServletUtil.serveTwoParams(args, new ServletUtil.RunnableTask() {
       @Override
       public String run(ValueArray ary, int colA, int colB) {
-        return hexlytics.Covariance.run(ary,colA,colB);
+        return hex.Covariance.run(ary,colA,colB);
       }
     });
   }

@@ -214,17 +214,9 @@ public class HeartBeatThread extends Thread {
     }
 
     // Setup UDP statistics.
-//    try {
-//      final Udp udpStats = sigar.getUdp();
-//      me.set_udp_packets_recv(udpStats.getInPackets());
-//      me.set_udp_packets_sent(udpStats.getOutPackets());
-//      me.set_udp_bytes_recv(-1);
-//      me.set_udp_bytes_sent(-1);
-//    } catch (SigarException e) {
-      me.set_udp_packets_recv(-1);
-      me.set_udp_packets_sent(-1);
-      me.set_udp_bytes_recv(-1);
-      me.set_udp_bytes_sent(-1);
-//    }
+    me.set_udp_packets_recv(-1);
+    me.set_udp_packets_sent(-1);
+    me.set_udp_bytes_recv(-1);
+    me.set_udp_bytes_sent(-1);
   }
 }

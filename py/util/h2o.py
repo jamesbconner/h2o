@@ -1,4 +1,4 @@
-import time, os, json, signal, tempfile, shutil, datetime
+import time, os, json, signal, tempfile, shutil, datetime, inspect
 import requests
 import psutil
 
@@ -10,7 +10,10 @@ def find_file(base):
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
-        shutil.rmtree(LOG_DIR)
+        # shutil.rmtree fails to delete very long filenames on Windoze
+        #shutil.rmtree(LOG_DIR)
+        # This seems reliable on windows+cygwin
+        os.system("rm -rf "+LOG_DIR);
     os.mkdir(LOG_DIR)
 
 def tmp_file(prefix='', suffix=''):
@@ -55,21 +58,33 @@ def spawn_cmd(name, args):
     return (ps, outpath, errpath)
 
 def spawn_cmd_and_wait(name, args, timeout=None):
-    print name, args
     (ps, stdout, stderr) = spawn_cmd(name, args)
 
     rc = ps.wait(timeout)
     out = file(stdout).read()
     err = file(stderr).read()
+
     if rc is None:
-        rc.terminate()
+        n.terminate()
         raise Exception("%s %s timed out after %d\nstdout:\n%s\n\nstderr:\n%s" %
                 (name, args, timeout or 0, out, err))
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
+def spawn_h2o(addr=None, port=54321, nosigar=True):
+    h2o_cmd = [
+            "java", "-ea", "-jar", find_file('build/h2o.jar'),
+            "--port=%d"%port,
+            '--ip=%s'%(addr or get_ip_address()),
+            '--ice_root=%s' % tmp_dir('ice.')
+            ]
+    if nosigar is True: 
+        h2o_cmd.append('--nosigar')
+    return spawn_cmd('h2o', h2o_cmd)
+
 def tear_down_cloud(nodes):
     ex = None
+    # FIX! do other nodes die, when I kill one node?
     for n in nodes:
         if n.wait() is None:
             n.terminate()
@@ -77,14 +92,21 @@ def tear_down_cloud(nodes):
             ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
     if ex: raise ex
 
+def stabilize_cloud(node, node_count, timeoutSecs = 5.0, retryDelaySecs = 0.1):
+    node.stabilize('cloud auto detect', timeoutSecs,
+        lambda n: n.get_cloud()['cloud_size'] == node_count,
+        retryDelaySecs)
+
 def build_cloud(node_count, base_port=54321, ports_per_node=3):
     nodes = []
     try:
         for i in xrange(node_count):
             n = H2O(port=base_port + i*ports_per_node)
             nodes.append(n)
-        nodes[0].stabilize('cloud auto detect', 2,
-            lambda n: n.get_cloud()['cloud_size'] == len(nodes))
+        # FIX! this is temporary until we understand it more
+        # when can we start talking to H2O? wait for it's first stdout?
+        time.sleep(1)
+        stabilize_cloud(nodes[0], len(nodes))
     except:
         for n in nodes: n.terminate()
         raise
@@ -97,9 +119,11 @@ class H2O:
     def __check_request(self, r):
         log('Sent ' + r.url)
         if not r:
-            import inspect
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
-        return r.json
+        json = r.json
+        if 'error' in json:
+            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], json['error']))
+        return json
 
     def __check_spawn(self):
         if not self.ps:
@@ -110,9 +134,9 @@ class H2O:
         return self.__check_request(requests.get(self.__url('Cloud.json')))
 
     # FIX! I can put Value, Key, RF also! I can write 10,000 keys! good for testing?
-    def put_key(self, value, key=None, repl=None):
+    def put_value(self, value, key=None, repl=None):
         return self.__check_request(
-            requests.post(self.__url('PutFile.json'), 
+            requests.post(self.__url('PutValue.json'), 
                 params={"Value": value, "Key": key, "RF": repl}
                 ))
 
@@ -142,15 +166,26 @@ class H2O:
                 }))
 
     def random_forest_view(self, key):
-        return self.__check_request(requests.get(self.__url('RFView.json'),
+        a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
+        return a
 
-    def stabilize(self, msg, timeout, func):
+    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=0.2):
+        '''Repeatedly test a function waiting for it to return True.
+
+        Arguments:
+        msg         -- A message for displaying errors to users
+        retryDelaySecs -- How long in seconds to wait before retrying
+        func        -- A function that will be called with the node as an argument.
+                    -- return True for success or False for continue waiting
+        timeoutSecs -- How long in seconds to keep trying before declaring a failure
+        '''
+
         start = time.time()
-        while time.time() - start < timeout:
+        while time.time() - start < timeoutSecs:
             if func(self):
                 break
-            time.sleep(0.1)
+            time.sleep(retryDelaySecs)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
 
@@ -168,24 +203,17 @@ class H2O:
         self.port = port
         self.addr = addr or get_ip_address()
         if not spawn:
-            self.stabilize('h2o started', 2, self.__is_alive)
+            self.stabilize('h2o started', 4, self.__is_alive)
         else:
             self.rc = None
-            spawn = spawn_cmd('h2o', [
-                    "java", "-ea", "-jar", find_file('build/h2o.jar'),
-                    "--port=%d"%self.port,
-                    '--ip=%s'%self.addr,
-                    '--nosigar',
-                    '--ice_root=%s' % tmp_dir('ice.')
-            ])
+            spawn = spawn_h2o(addr=self.addr, port=port)
             self.ps = spawn[0]
             try:
-                self.stabilize('h2o started', 2, self.__is_alive)
+                self.stabilize('h2o started', 4, self.__is_alive)
             except:
                 self.ps.kill()
                 raise
 
-            time.sleep(1)
             if self.wait():
                 out = file(spawn[1]).read()
                 err = file(spawn[2]).read()
@@ -196,6 +224,7 @@ class H2O:
         self.__check_spawn()
         self.ps.send_signal(signal.SIGQUIT)
     
+
     def wait(self, timeout=0):
         self.__check_spawn()
         if self.rc: return self.rc
@@ -205,6 +234,49 @@ class H2O:
         except psutil.TimeoutExpired:
             return None
 
-    def terminate(self):
+    # FIX! might enhance others to be complete around errors, but just adding here for
+    # now while debugging cloud teardown. maybe simplify in future when more is known.
+    # May be lots of cases of unknown cloud state we need to gracefully handle
+    def terminate(self, timeout=2):
         self.__check_spawn()
-        return self.ps.kill()
+
+        # send SIGKILL. in H2O, killing one node, may make the other nodes crash.
+        try:
+            self.rc = self.ps.kill()
+
+        # put in placeholders for all exceptions..just in case..make debug easier? 
+        except psutil.AccessDenied:
+            print "AccessDenied in terminate ps.kill"
+            self.rc = None # ?
+
+        except psutil.NoSuchProcess:
+            print "NoSuchProcess in terminate ps.kill. Maybe this node died because of prior other node terminate?"
+            self.rc = None # ?
+
+        # Check if we get a clean end after we send the kill?
+        # if process is already terminated, but we don't get NoSuchProcess, we get None rc
+        try:
+            self.rc = self.ps.wait(timeout)
+
+        # put in placeholders for all exceptions..just in case..make debug easier? 
+        except psutil.AccessDenied:
+            print "AccessDenied in terminate ps.wait"
+            self.rc = None # ?
+
+        except psutil.NoSuchProcess:
+            print "NoSuchProcess in terminate ps.wait. Maybe node died due to prior other node terminate?"
+            self.rc = 0 # ? expect it to be dead now
+
+        # only on ps.wait
+        except TimeoutExpired:
+            print "TimeoutExpired in terminate ps.wait"
+            self.rc = None # ?
+
+        else:
+            assert ((self.rc==0) | (self.rc==9)),"expecting to see exit code 0 or 9 in terminate: %d" % self.rc
+
+        # FIX! should use these instead of numbers when checking exit codes
+        # windows only deals with kill?
+        # signal.SIGTERM
+        # signal.SIGKILL
+        return self.rc

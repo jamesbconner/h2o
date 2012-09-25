@@ -11,7 +11,20 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
-import water.*;
+import water.Atomic;
+import water.DFutureTask;
+import water.DKV;
+import water.DRemoteTask;
+import water.H2O;
+import water.Key;
+import water.MRTask;
+import water.MemoryManager;
+import water.RemoteTask;
+import water.TaskRemExec;
+import water.UDP;
+import water.UKV;
+import water.Value;
+import water.ValueArray;
 import water.ValueArray.Column;
 import water.parser.SeparatedValueParser.Row;
 import water.serialization.RTSerializer;
@@ -29,23 +42,23 @@ public final class ParseDataset {
   static final int PARSE_SVMLIGHT = 101;
   static final int PARSE_COMMASEP = 102;
   static final int PARSE_SPACESEP = 103;
-  
+
   // Compression types.
   static final int COMPRESSION_UNKNOWN  = -1;
   static final int COMPRESSION_NONE     = 0;
   static final int COMPRESSION_ZIP      = 1;
   static final int COMPRESSION_GZIP     = 2;
-  
+
   // Index to array returned by method guesss_parser_setup()
   static final int PARSER_IDX = 0;
   static final int COLNUM_IDX = 1;
-  
+
   // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
-  // result.  
+  // result.
   public static void parse( Key result, Value dataset ) {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
-    
+
     int compression = guess_compression_method(dataset);
     switch (compression) {
     case COMPRESSION_NONE: parseUncompressed(result, dataset); break;
@@ -65,13 +78,13 @@ public final class ParseDataset {
     DParse1 dp1 = new DParse1();
     dp1._num_cols  = num_cols;
     dp1._parseType = (byte)typeArr[PARSER_IDX];
-    dp1._num_rows  = 0; // No rows yet     
-    
+    dp1._num_rows  = 0; // No rows yet
+
     dp1.invoke(dataset._key);   // Parse whole dataset!
 
     num_cols = dp1._num_cols;
-    
-    // Filter columns which too big string-based domain (contains too many unique strings) 
+
+    // Filter columns which too big string-based domain (contains too many unique strings)
     filter_columns_domains(dp1);
     // Now figure out how best to represent the data.
     compute_column_size(dp1);
@@ -86,7 +99,7 @@ public final class ParseDataset {
       int sz = Math.abs(c._size);
       // Dumb-ass in-order columns.  Later we should sort bigger columns first
       // to preserve 4 & 8-byte alignment for larger values
-      c._off = (short)col_off; 
+      c._off = (short)col_off;
       col_off += sz;
       row_size += sz;
       if( sz > max_col_size ) max_col_size = sz;
@@ -122,7 +135,7 @@ public final class ParseDataset {
     dp2._cols      = dp1._cols;
     dp2._cols_domains = dp1._cols_domains;
     dp2._rows_chk  = rs2;        // Rolled-up row numbers
-    dp2._result    = result;    
+    dp2._result    = result;
 
     dp2.invoke(dataset._key);   // Parse whole dataset!
 
@@ -144,52 +157,52 @@ public final class ParseDataset {
 
     // Done building the result ValueArray!
   }
-  
+
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
   public static void parseZipped( Key result, Value dataset ) {
-    // Dataset contains zipped CSV    
+    // Dataset contains zipped CSV
     ZipInputStream zis = null;
     Key key = null;
-    try { 
+    try {
       // Create Zip input stream and uncompress the data into a new key <ORIGINAL-KEY-NAME>_UNZIPPED
       zis = new ZipInputStream(dataset.openStream());
       // Get the *FIRST* entry
       ZipEntry ze = zis.getNextEntry();
       // There is at least one entry in zip file and it is not a directory.
-      if (ze != null && !ze.isDirectory()) { 
+      if (ze != null && !ze.isDirectory()) {
         key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", zis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //
       } /* else it is possible to dive into a directory but in this case I would prefere to return error since the ZIP file has not expected format */
     } catch (IOException e) {
-      throw new Error(e);      
+      throw new Error(e);
     } finally { if (zis != null) try { zis.close(); } catch( IOException e ) { /* Ignore the exception */ } };
-    
+
     if (key!= null) {
       Value uncompressedDataset = DKV.get(key);
       parse(result, uncompressedDataset);
       return ;
     }
-    
+
     throw new Error("Cannot uncompressed ZIP-compressed dataset!");
   }
-  
+
   public static void parseGZipped( Key result, Value dataset ) {
     GZIPInputStream gzis = null;
     Key key = null;
     try {
       gzis = new GZIPInputStream(dataset.openStream());
-      key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //            
+      key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //
     } catch (IOException e) {
       throw new Error(e);
     } finally { if (gzis != null) try { gzis.close(); } catch( IOException e ) { /* Ignore the exception */ } };
-    
+
     if (key!= null) {
       Value uncompressedDataset = DKV.get(key);
       parse(result, uncompressedDataset);
       return ;
     }
-    
-    throw new Error("Cannot uncompressed GZIP-compressed dataset!");    
+
+    throw new Error("Cannot uncompressed GZIP-compressed dataset!");
   }
 
   // ----
@@ -205,11 +218,11 @@ public final class ParseDataset {
       if( (c._size&31)==31 ) { // All fails; this is a plain double
         c._size = -8;          // Flag as a plain double
         continue;
-      } 
+      }
       if( (c._size&31)==15 ) { // All the int-versions fail, but fits in a float
         c._size = -4;          // Flag as a float
         continue;
-      } 
+      }
       // Else attempt something integer; try to squeeze into a short or byte.
       // First, scale to integers.
       if( (c._size & 8)==0 ) { c._scale = 1000; }
@@ -244,7 +257,7 @@ public final class ParseDataset {
       // See if we fit in a  *biased* short, skipping 65535 for missing values
       if( span <= 65534 ) { c._size = 2; c._base = (int)min; continue; }
       // Must be an int, no bias needed.
-      c._size = (byte)((c._scale == 1) ? 4 : -4); // Either int or float      
+      c._size = (byte)((c._scale == 1) ? 4 : -4); // Either int or float
     }
   }
 
@@ -255,92 +268,92 @@ public final class ParseDataset {
         return false;
     return true;
   }
-  
-  // Filter too big column enum domains and setup columns 
+
+  // Filter too big column enum domains and setup columns
   // which have enum domain.
   private static void filter_columns_domains( DParse1 dp1) {
     int num_col = dp1._num_cols;
-    
+
     for (int i = 0; i < num_col; i++) {
       ColumnDomain colDom   = dp1._cols_domains[i];
-      ValueArray.Column col = dp1._cols[i]; 
-      
-      if (!colDom.isKilled()) { // Column domain was killed because it contains numbers => it does not need to be considered any more 
+      ValueArray.Column col = dp1._cols[i];
+
+      if (!colDom.isKilled()) { // Column domain was killed because it contains numbers => it does not need to be considered any more
         if (colDom.size() > ColumnDomain.DOMAIN_MAX_VALUES) { // The column's domain contains too many unique strings => drop the domain. Column is already marked as erroneous.
-          colDom.kill();          
+          colDom.kill();
         } else { // column's domain is 'small' enough => setup the column to carry values 0..<domain size>-1
           // setup column sizes
-          col._base  = 0; 
-          col._min   = 0; 
+          col._base  = 0;
+          col._min   = 0;
           col._max   = dp1._cols_domains[i].size() - 1;
-          col._badat = 0; // I can't precisely recognize the wrong column value => all cells contain correct value           
-          col._scale = 1; // Do not scale          
-          col._size  = 0; // Mark integer column                    
+          col._badat = 0; // I can't precisely recognize the wrong column value => all cells contain correct value
+          col._scale = 1; // Do not scale
+          col._size  = 0; // Mark integer column
         }
       }
       // Setup column domain.
       col._domain = colDom;
     }
   }
-  
+
   // Helper class containing column domain and providing its serialization and deserialization.
   // Note: helper class expect the maximum size of the domain as stated in DOMAIN_MAX_BYTE_SIZE - i.e., 2 bytes
   static public class ColumnDomain {
     // Maximum size (in bytes) of column which contains enum (= limited number of string values)
     public static final byte DOMAIN_MAX_BYTE_SIZE = 2;
     public static final int  DOMAIN_MAX_VALUES    = 1 << DOMAIN_MAX_BYTE_SIZE*8;
-   
+
     // Include all domain values in their insert-order.
     LinkedHashSet<String> _domainValues;
-    // 
-    boolean _killed;    
-    
+    //
+    boolean _killed;
+
     public ColumnDomain() {
       // Domain values are stored in the set which preserve insert order.
       _domainValues = new LinkedHashSet<String>();
-      _killed       = false;      
+      _killed       = false;
     }
-    
-    public final int     size()     { return _domainValues.size(); }    
+
+    public final int     size()     { return _domainValues.size(); }
     public final boolean isKilled() { return _killed; }
-    public final void    kill()     { 
-      if (!_killed) { 
-        _killed = true; 
+    public final void    kill()     {
+      if (!_killed) {
+        _killed = true;
         _domainValues.clear();
-      } 
+      }
     }
-    
+
     public final boolean add(String s) {
       if (_killed) return false; // this column domain is not live anymore (too many unique values)
       if (_domainValues.size() == DOMAIN_MAX_VALUES) {
-        kill(); 
+        kill();
         return false;
       }
       return _domainValues.add(s);
     }
-    
+
     public void write( DataOutputStream dos ) throws IOException {
       // write size of domain
       dos.writeShort(_domainValues.size());
       dos.writeBoolean(_killed);
       // write domain values
       for (String s : _domainValues) {
-        dos.writeShort(s.length()); // Note: we do not expect to have domain names longer than > 2^16 characters                
+        dos.writeShort(s.length()); // Note: we do not expect to have domain names longer than > 2^16 characters
         dos.write(s.getBytes());
-      }                  
+      }
     }
-    
+
     public int write( byte[] buf, int off ) {
       UDP.set2(buf, off, _domainValues.size()); off += 2;
       buf[off] = (byte)(_killed ? 1 : 0); off += 1;
       for (String s : _domainValues) {
         byte[] stringBytes = s.getBytes();
-        UDP.set2(buf, off, stringBytes.length); off += 2;        
-        System.arraycopy(stringBytes, 0, buf, off, stringBytes.length); off += stringBytes.length;        
-      }          
+        UDP.set2(buf, off, stringBytes.length); off += 2;
+        System.arraycopy(stringBytes, 0, buf, off, stringBytes.length); off += stringBytes.length;
+      }
       return off;
     }
-    
+
     static public ColumnDomain read( DataInputStream dis ) throws IOException {
       ColumnDomain cd = new ColumnDomain();
       int domainSize  = dis.readShort();
@@ -353,7 +366,7 @@ public final class ParseDataset {
       }
       return cd;
     }
-    
+
     static public ColumnDomain read( byte[] buf, int off ) {
       ColumnDomain cd = new ColumnDomain();
       int domainSize  = UDP.get2(buf, off); off += 2;
@@ -361,38 +374,38 @@ public final class ParseDataset {
       for (int i = 0; i < domainSize; i++) {
         int len     = UDP.get2(buf, off); off += 2;
         cd._domainValues.add(new String(buf, off, len));
-        off += len;        
+        off += len;
       }
-            
+
       return cd;
     }
-    
-    public final int wire_len() {      
-      int res = 2+1;             // 2bytes to store size of domain: 2 bytes, 1byte to store _killed flag      
-      for (String s : _domainValues)        
-        res += 2+s.length() ;  // 2bytes to store string length + string bytes       
+
+    public final int wire_len() {
+      int res = 2+1;             // 2bytes to store size of domain: 2 bytes, 1byte to store _killed flag
+      for (String s : _domainValues)
+        res += 2+s.length() ;  // 2bytes to store string length + string bytes
       return res;
     }
 
-    // Union of two column enum domains. If the union is 
+    // Union of two column enum domains. If the union is
     public final ColumnDomain union(ColumnDomain columnDomain) {
       if (_killed) return this; // killed domains cannot be extended any more
-      if (columnDomain._killed) {          
+      if (columnDomain._killed) {
         kill();
         return this;
-      }      
-      
+      }
+
       for(String s : columnDomain._domainValues)
         if (!_domainValues.contains(s))
           _domainValues.add(s);
 
       // check the size after union - if the domain is to big => kill it
       if (_domainValues.size() > DOMAIN_MAX_VALUES) kill();
-      
-      return this;      
+
+      return this;
     }
-    
-    // For testing    
+
+    // For testing
     public final String[] toArray() { return  _domainValues.toArray(new String[_domainValues.size()]); }
   }
 
@@ -416,8 +429,8 @@ public final class ParseDataset {
       assert dp._num_rows==0 || dp._cols != null;
       assert dp._num_rows==0 || dp._rows_chk != null;
       assert dp._num_rows==0 || dp._cols_domains != null;
-      int colDomSize = 0; 
-      if (dp._cols_domains!=null) { 
+      int colDomSize = 0;
+      if (dp._cols_domains!=null) {
         for (ColumnDomain cd : dp._cols_domains) colDomSize += cd.wire_len();
       }
       return 4+4+1+(dp._num_rows==0?0:(dp._cols.length*ValueArray.Column.wire_len() + 4+dp._rows_chk.length*4))+colDomSize;
@@ -439,7 +452,7 @@ public final class ParseDataset {
       assert dp._cols_domains.length == dp._num_cols;
       for( ColumnDomain coldom : dp._cols_domains )
         off = coldom.write(buf, off);
-             
+
       return off;
     }
     public void write( T dp, DataOutputStream dos ) throws IOException {
@@ -480,7 +493,7 @@ public final class ParseDataset {
         dp._cols_domains[i] = ColumnDomain.read(buf, off);
         off += dp._cols_domains[i].wire_len();
       }
-      
+
       return dp;
     }
     public abstract T read( DataInputStream dis ) throws IOException;
@@ -500,7 +513,7 @@ public final class ParseDataset {
       dp._cols_domains = new ColumnDomain[dp._num_cols];
       for( int i=0; i<dp._num_cols; i++ )
         dp._cols_domains[i] = ColumnDomain.read(dis);
-      
+
       return dp;
     }
   }
@@ -508,7 +521,7 @@ public final class ParseDataset {
   // ----
   // Distributed parsing, Pass 1
   // Find min/max, digits per column.  Find number of rows per chunk.
-  // Collects columns' domains (in case the column contains string values). 
+  // Collects columns' domains (in case the column contains string values).
   @RTSerializer(DParse1.Serializer.class)
   public static class DParse1 extends DParse {
     public static class Serializer extends DParseSerializer<DParse1> {
@@ -523,12 +536,12 @@ public final class ParseDataset {
       _cols = new ValueArray.Column[_num_cols];
       for( int i=0; i<_num_cols; i++ )
         _cols[i] = new ValueArray.Column();
-      _cols_domains =  new ColumnDomain[_num_cols]; 
+      _cols_domains =  new ColumnDomain[_num_cols];
       for( int i=0; i<_num_cols; i++ )
-        _cols_domains[i] = new ColumnDomain();      
+        _cols_domains[i] = new ColumnDomain();
       // The parser
       if( _parseType == PARSE_SVMLIGHT ) throw H2O.unimpl(); // SVMLIGHT
-      SeparatedValueParser csv = new SeparatedValueParser(key, 
+      SeparatedValueParser csv = new SeparatedValueParser(key,
           _parseType == PARSE_COMMASEP ? ',' : ' ', _cols.length, _cols_domains);
 
       // Parse row-by-row until the whole file is parsed
@@ -537,7 +550,7 @@ public final class ParseDataset {
         if( allNaNs(row._fieldVals) ) continue; // Row is dead, skip it entirely
         // Row has some valid data, parse away
         if(row._fieldVals.length > _num_cols){ // can happen only for svmlight format, enlarge the column array
-          Column [] newCols = new Column[row._fieldVals.length]; 
+          Column [] newCols = new Column[row._fieldVals.length];
           System.arraycopy(_cols, 0, newCols, 0, _cols.length);
           for(int i = _cols.length; i < newCols.length; ++i)
             newCols[i] = new Column();
@@ -568,10 +581,10 @@ public final class ParseDataset {
       for(int i = 0; i < _cols_domains.length; i++) {
         ColumnDomain dict = _cols_domains[i];
         if (dict.size() > ParseDataset.ColumnDomain.DOMAIN_MAX_VALUES) { // column domain contains too many unique values => drop the column domain
-          _cols_domains[i].kill(); 
+          _cols_domains[i].kill();
         }
       }
-      
+
       assert num_rows > 0;   // Parsing no rows generally means a broken parser
       _num_rows = num_rows;
       // Also pass along the rows-per-chunk
@@ -588,7 +601,7 @@ public final class ParseDataset {
       DParse1 dp = (DParse1)rt;
       _num_rows += dp._num_rows;
       _num_cols = Math.max(_num_cols, dp._num_cols);
-      
+
       if( _cols == null ) {     // No local work?
         _cols = dp._cols;
       } else {
@@ -609,7 +622,7 @@ public final class ParseDataset {
           c._badat = Chars.saturatedCast(c._badat+d._badat);
         }
       }
-      
+
       // Also roll-up the rows-per-chunk info.
       int r1[] =    _rows_chk;
       int r2[] = dp._rows_chk;
@@ -623,13 +636,13 @@ public final class ParseDataset {
           r1[i] += r2[i];
       }
       _rows_chk = r1;
-      
+
       // Also merge column dictionaries
       ColumnDomain d1[] =    _cols_domains;
       ColumnDomain d2[] = dp._cols_domains;
       if ( d1 == null) {
         d1 = d2;
-      } else {        
+      } else {
         if (d1.length < d2.length) {
           Set<String> newD1[] = new Set[d2.length];
           System.arraycopy(d1, 0, newD1, 0, d1.length);
@@ -640,11 +653,11 @@ public final class ParseDataset {
             d1[i] = d2[i];
           } else if (d2[i] != null) { // Insert domain elements from d2 into d1.
             d1[i] = d1[i].union(d2[i]);
-          }                  
+          }
         }
       }
       _cols_domains = d1;
-      
+
       // clean-up
       dp._cols         = null;
       dp._rows_chk     = null;
@@ -704,7 +717,7 @@ public final class ParseDataset {
       byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
       // A place to hold each column datum
       // The parser
-      SeparatedValueParser csv = new SeparatedValueParser(key, 
+      SeparatedValueParser csv = new SeparatedValueParser(key,
           _parseType == PARSE_COMMASEP ? ',' : ' ', _cols.length);
       // Prepare hashmap for each column domain to get domain item's index quickly
       HashMap<String,Integer> columnIndexes[] = new HashMap[_num_cols];
@@ -713,10 +726,10 @@ public final class ParseDataset {
         columnIndexes[i] = new HashMap<String, Integer>();
         int j = 0;
         for (String s : _cols_domains[i]._domainValues) {
-          columnIndexes[i].put(s,j++);          
+          columnIndexes[i].put(s,j++);
         }
-      }      
-      
+      }
+
       // Fill the rows
       int off = 0;
       for( Row row : csv ) {
@@ -727,7 +740,7 @@ public final class ParseDataset {
           ValueArray.Column col = _cols[i];
           if ( columnIndexes[i] != null) {
             assert Double.isNaN(d);
-            d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();                         
+            d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();
           }
           // Write to compressed values
           if( !Double.isNaN(d) ) { // Broken data on row?
@@ -739,7 +752,7 @@ public final class ParseDataset {
             case -4: UDP.set4f(buf,(off+=4)-4,(float)d); break;
             case -8: UDP.set8d(buf,(off+=8)-8,       d); break;
             }
-          } else {            
+          } else {
             switch( col._size ) {
             case  1: buf[off++] = (byte)-1; break;
             case  2: UDP.set2 (buf,(off+=2)-2,              -1 ); break;
@@ -747,7 +760,7 @@ public final class ParseDataset {
             case  8: UDP.set8 (buf,(off+=8)-8,   Long.MIN_VALUE); break;
             case -4: UDP.set4f(buf,(off+=4)-4,        Float.NaN); break;
             case -8: UDP.set8d(buf,(off+=8)-8,       Double.NaN); break;
-            }            
+            }
           }
         }
         off = old+row_size;     // Skip the padding during fill
@@ -766,7 +779,7 @@ public final class ParseDataset {
       // large chunks according to what fits in the next target chunk.
       int row0 = 0;             // Number of processed rows
       while( (row0 += atomic_update( row0, start_row, row_size, num_rows, buf, rpc, dst_chks )) < num_rows ) ;
-      
+
       _num_rows = 0;            // No data to return
     }
 
@@ -816,43 +829,18 @@ public final class ParseDataset {
       return rowz;              // Rows written out
     }
 
-    @RTSerializer(AtomicUnion.Serializer.class)
     public static class AtomicUnion extends Atomic {
-    public static class Serializer extends RemoteTaskSerializer<AtomicUnion> {
-      // By default, nothing sent over with the function (except the target Key).
-      @Override public int  wire_len(AtomicUnion a) { return 4+a._key._kb.length; }
-      @Override public int  write( AtomicUnion a, byte[] buf, int off ) {
-        off += UDP.set4(buf,off,a._dst_off);
-        return a._key.write(buf, off);        
-      }
-      @Override public void write( AtomicUnion a, DataOutputStream dos ) throws IOException {
-        dos.writeInt(a._dst_off);
-        a._key.write(dos);
-      }
-      @Override public AtomicUnion read( byte[] buf, int off ) {
-        AtomicUnion a = new AtomicUnion();
-        a._dst_off = UDP.get4(buf,(off+=4)-4);        
-        a._key = Key.read(buf, off);                
-        return a;
-      }
-      @Override public AtomicUnion read( DataInputStream dis ) throws IOException {
-        AtomicUnion a = new AtomicUnion();
-        a._dst_off = dis.readInt();
-        a._key = Key.read(dis);        
-        return a;
-      }
-    }
-      Key _key;            
+      Key _key;
       int _dst_off;
-      
+
       public AtomicUnion() {}
       public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
         _dst_off = dstOff;
         _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
         DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
       }
-      
-      @Override public byte[] atomic( byte[] bits1 ) {        
+
+      @Override public byte[] atomic( byte[] bits1 ) {
         byte[] mem = DKV.get(_key).get();
         byte[] bits2 = (bits1 == null)
           ? new byte[_dst_off + mem.length] // Initial array of correct size
@@ -860,7 +848,7 @@ public final class ParseDataset {
         System.arraycopy(mem,0,bits2,_dst_off,mem.length);
         return bits2;
       }
-      
+
       @Override public void onSuccess() {
         DKV.remove(_key);
       }
@@ -869,16 +857,7 @@ public final class ParseDataset {
 
   // ----
   // Distributed blocking for all the pending AUs to complete.
-  @RTSerializer(AUBarrier.Serializer.class)
   public static class AUBarrier extends DRemoteTask {
-    public static class Serializer extends RemoteTaskSerializer<AUBarrier> {
-      // By default, nothing sent over with the function (except the target Key).
-      @Override public int  wire_len(AUBarrier a) { return 0; }
-      @Override public int  write( AUBarrier a, byte[] buf, int off ) { return off; }
-      @Override public void write( AUBarrier a, DataOutputStream dos ) throws IOException { }
-      @Override public AUBarrier read( byte[] buf, int off ) { return new AUBarrier(); }
-      @Override public AUBarrier read( DataInputStream dis ) throws IOException { return new AUBarrier(); }
-    }
     // Basic strategy is to check all the Nodes in the cloud to see if they
     // have any pending not-yet-completed AtomicUnions to the correct key.  If
     // so, block until they complete.
@@ -891,7 +870,7 @@ public final class ParseDataset {
           RemoteTask rt = tre.getRemoteTask(); // Get what is pending execution
           if( rt instanceof DParse2.AtomicUnion ) { // See if its an AtomicUnion
             DParse2.AtomicUnion au = (DParse2.AtomicUnion)rt;
-            Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key 
+            Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key
             byte[] aub = ValueArray.getArrayKeyBytes(aukey);
             if( Arrays.equals(abb,aub) ) // See if it matches OUR key
               tre.get();        // Block for the AtomicUnion to complete
@@ -903,26 +882,26 @@ public final class ParseDataset {
     public void reduce( DRemoteTask drt ) { }
   }
 
-  
-  // Guess 
+
+  // Guess
   private static int guess_compression_method(Value dataset) {
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
-        
+
     // Look for ZIP magic
     if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
       return COMPRESSION_ZIP;
     if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
       return COMPRESSION_GZIP;
-    
-    return COMPRESSION_NONE;    
+
+    return COMPRESSION_NONE;
   }
-  
+
   // ---
   // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
   // the number of columns for svm light is not reliable as it only relies on info from the first chunk
   private static int[] guess_parser_setup(Value dataset, boolean parseFirst ) {
-    // Best-guess on count of columns and separator.  Skip the 1st line.  
+    // Best-guess on count of columns and separator.  Skip the 1st line.
     // Count column delimiters in the next line. If there are commas, assume file is comma separated.
     // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
@@ -933,8 +912,8 @@ public final class ParseDataset {
     if( !parseFirst ) {         // Skip the first line, it might contain labels
       while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
     }
-    if( i < b.length && (b[i] == '\r' || b[i+1]=='\n') ) i++;
-    if( i < b.length &&  b[i] == '\n' ) i++;    
+    if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
+    if( i   < b.length &&  b[i] == '\n' ) i++;
     // start counting columns on the 2nd line
     final int line_start = i;
     int cols = 0;

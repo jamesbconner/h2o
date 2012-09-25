@@ -82,6 +82,28 @@ public class ValueArray extends Value {
     return Key.make(arr);
   }
 
+  /**
+   * Get offset of this file in an underlying backing file.
+   * 
+   * If this is unstructured data, the offset is simply the chunk number * chunk size.
+   * 
+   * For structured (.hex) data, the computation is slightly more complicated: 
+   *  1) Chunks do have different size (closest multiple of rowsize())
+   *  2) there is a header stored in the beginning of the file.  
+   * 
+   * @param k chunk key
+   * @return The offset (in bytes) into the file backing this ValueArray 
+   */
+  public long getChunkFileOffset(Key k){
+    if(row_size() > 0) {
+      long chunkIdx = ValueArray.getChunkIndex(k);
+      long rpc = (1 << 20)/row_size();
+      return  header_size() + chunkIdx * rpc * row_size();                
+    } else {
+      return ValueArray.getOffset(k); 
+    }
+  }
+
   // Number of chunks in this array
   // Divide by 1Meg into chunks.  The last chunk is between 1 and 2 megs
   static public long chunks(long sz) { return sz>>LOG_CHK; }

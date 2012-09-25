@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 
 import jsr166y.CountedCompleter;
-import water.serialization.RemoteTaskSerializationManager;
+import water.serialization.RTSerializationManager;
 import water.serialization.RemoteTaskSerializer;
 
 /**
@@ -52,11 +52,10 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     _dt = dt;
     _args = args;
     _did_put = did_put;
-    _serializer = (RemoteTaskSerializer<T>) RemoteTaskSerializationManager.get(_dt.getClass());
+    _serializer = (RemoteTaskSerializer<T>) RTSerializationManager.get(_dt.getClass());
   }
 
   // Pack classloader/class & the instance data into the outgoing UDP packet
-  @SuppressWarnings("deprecation")
   protected int pack( DatagramPacket p ) {
     byte[] buf = p.getData();
     Class<? extends RemoteTask> clazz = _dt.getClass();
@@ -72,18 +71,12 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       + _serializer.wire_len(_dt);
     if( off <= MultiCast.MTU ) {
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
-      buf[off++] = SERVER_UDP_SEND;
-      // Class loader first.  3 bytes of null for system loader.
-      buf[off++] = 0; // zero RF
-      off += UDP.set2(buf,off,0); // 2 bytes of jarkey length
-
-      // Class name now
-      off += UDP.set2(buf,off,sclazz.length());  // String length
-      sclazz.getBytes(0,sclazz.length(),buf,off); // Dump the string also
-      off += sclazz.length();
-      // Then the args key
-      off = _args.write(buf,off);
-      off = _serializer.write(_dt, buf,off);
+      Stream stream = new Stream(buf, off);
+      stream.set1(SERVER_UDP_SEND);
+      stream.setLen2Str(sclazz);
+      _args.write(stream);
+      _serializer.write(_dt, stream);
+      off = stream._off;
     } else {                    // Big object, switch to TCP style comms.
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = SERVER_TCP_SEND;
@@ -100,32 +93,16 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
-      int off = UDP.SZ_TASK;          // Skip udp byte and port and task#
-      // Fill in any fields
-      byte cmd = buf[off++];
+
+      Stream s = new Stream(buf, UDP.SZ_TASK); // Skip udp byte and port and task#
+      byte cmd = s.get1();
       if( cmd == SERVER_UDP_SEND) {
-        // Unpack the class loader first
-        Key classloader_key;
-        if( buf[off]==0 && UDP.get2(buf,off+1)==0 ) {
-          classloader_key = null; // System loader
-          off += 3;
-        } else {
-          classloader_key = Key.read(buf,off); // Key for the jar file - really a ClassLoader
-          off += classloader_key.wire_len();
-        }
-        // Now the class string name
-        int len = get2(buf,off);  off += 2; // Class string length
-        String clazz = new String(buf,off,len);
-        off += len;               // Skip string
-        // Then the args key
-        Key args = Key.read(buf,off);
-        off += args.wire_len();
+        String clazz = s.getLen2Str();
+        Key args = Key.read(s);
 
         // Make a remote instance of this dude
-        RemoteTaskSerializer<RemoteTask> ser = RemoteTaskSerializationManager.get(clazz);
-
-        // Fill in remote values
-        RemoteTask dt = ser.read(buf, off);
+        RemoteTaskSerializer<RemoteTask> ser = RTSerializationManager.get(clazz);
+        RemoteTask dt = ser.read(s);
         remexec(ser, dt, args, p, h2o);
       } else {
         assert cmd == SERVER_TCP_SEND;
@@ -148,8 +125,10 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
       if( ser.wire_len(dt)+off+1 <= MultiCast.MTU ) {
-        buf[off++] = CLIENT_UDP_SEND; // Result coming via UDP
-        off = ser.write(dt, buf,off); // Result
+        Stream s = new Stream(buf, UDP.SZ_TASK);
+        s.set1(CLIENT_UDP_SEND); // Result coming via UDP
+        ser.write(dt, s);
+        off = s._off;
       } else {
         buf[off++] = CLIENT_TCP_SEND;
         // Push the large result back *now* (no async pause) via TCP
@@ -179,7 +158,7 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
         final Key args = Key.read(dis);
 
         // Make a remote instance of this dude
-        final RemoteTaskSerializer ser = RemoteTaskSerializationManager.get(clazz);
+        final RemoteTaskSerializer ser = RTSerializationManager.get(clazz);
         final RemoteTask dt = ser.read(dis);
 
         // Need the UDP packet because the finish-up code expects one.  Act "as
@@ -251,11 +230,11 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     if( _did_put ) DKV.remove(_args);
     // First SZ_TASK bytes have UDP type# and port# and task#.
     byte[] buf = p.getData();
-    int off = UDP.SZ_TASK;      // Skip udp byte and port and task#
+    Stream s = new Stream(buf, UDP.SZ_TASK); // Skip udp byte and port and task#
     // Read object off the wires
-    int cmd = buf[off++];
+    int cmd = s.get1();
     if( cmd == CLIENT_UDP_SEND ) {
-      _dt = _serializer.read(buf, off);
+      _dt = _serializer.read(s);
     } else {
       assert cmd == CLIENT_TCP_SEND : "found cmd "+cmd;
       // Big object, switch to TCP style comms.  Should have already done a

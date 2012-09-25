@@ -1,13 +1,12 @@
 package water.web;
 
-import init.Loader;
-
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
+import init.Boot;
 import java.io.*;
 import java.util.HashMap;
 import java.util.Properties;
-
-import com.google.gson.JsonElement;
-
+import java.util.concurrent.ConcurrentHashMap;
 import water.H2O;
 import water.NanoHTTPD;
 import water.web.Page.PageError;
@@ -15,7 +14,54 @@ import water.web.Page.PageError;
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
 
+  // cache of all loaded resources
+  private static final ConcurrentHashMap<String,byte[]> _cache = new ConcurrentHashMap();
+  private static final HashMap<String,Page> _pages = new HashMap();
+
   // initialization ------------------------------------------------------------
+  static {
+    // initialize pages
+    _pages.put("",new Cloud());
+    _pages.put("Cloud",new Cloud());
+    _pages.put("COV",new Covariance());
+    _pages.put("Covariance",new Covariance());
+    _pages.put("cor",new Covariance());
+    _pages.put("cov",new Covariance());
+    _pages.put("var",new Covariance());
+    _pages.put("DebugView",new DebugView());
+    _pages.put("Get",new Get());
+    _pages.put("GetQuery",new GetQuery());
+    _pages.put("ImportFolder",new ImportFolder());
+    _pages.put("ImportQuery",new ImportQuery());
+    _pages.put("ImportUrl",new ImportUrl());
+    _pages.put("Inspect",new Inspect());
+    _pages.put("LR",new LinearRegression());
+    _pages.put("LinearRegression",new LogisticRegression());
+    _pages.put("LGR",new LogisticRegression());
+    _pages.put("LogisticRegression",new LogisticRegression());
+    _pages.put("Network",new Network());
+    _pages.put("NodeShuffle",new NodeShuffle());
+    _pages.put("Parse",new Parse());
+    _pages.put("PR",new ProgressReport());
+    _pages.put("ProgressReport",new ProgressReport());
+    _pages.put("ProgressView",new ProgressView());
+    _pages.put("PutFile",new PutFile());
+    _pages.put("Put",new PutQuery());
+    _pages.put("PutValue",new PutValue());
+    _pages.put("RFView",new RFView()); // View random-forest output
+    _pages.put("RFTreeView",new RFTreeView());
+    _pages.put("RF",new RandomForestPage());
+    _pages.put("RandomForest",new RandomForestPage());
+    _pages.put("Remote",new Remote());
+    _pages.put("Remove",new Remove());
+    _pages.put("RemoveAck",new RemoveAck());
+    _pages.put("Shutdown",new Shutdown());
+    _pages.put("StoreView",new StoreView());
+    _pages.put("Test",new Test());
+    _pages.put("Timeline",new Timeline());
+    _pages.put("Store2HDFS",new Store2HDFS());
+  }
+
 
   // Keep spinning until we get to launch the NanoHTTPD
   public static void start() {
@@ -25,7 +71,6 @@ public class Server extends NanoHTTPD {
             try {
               // Try to get the NanoHTTP daemon started
               new Server(H2O.WEB_PORT);
-              //System.out.println("[web] Listening on http:/"+H2O.SELF+":"+H2O.WEB_PORT+"/");
               break;
             } catch ( Exception ioe ) {
               System.err.println("Launching NanoHTTP server got "+ioe);
@@ -79,101 +124,26 @@ public class Server extends NanoHTTPD {
     return _pages.get(uri);
   }
 
-
   private Server( int port ) throws IOException {
-    // No file system arg
     super(port,null);
-    // initialize pages
-    registerPage(new Cloud(),"");
-    registerPage(new Cloud(),"Cloud");
-    registerPage(new Covariance(),"COV");
-    registerPage(new Covariance(),"Covariance");
-    registerPage(new Covariance(),"cor");
-    registerPage(new Covariance(),"cov");
-    registerPage(new Covariance(),"var");
-    registerPage(new DebugView(),"DebugView");
-    registerPage(new Get(),"Get");
-    registerPage(new GetQuery(),"GetQuery");
-    registerPage(new ImportFolder(),"ImportFolder");
-    registerPage(new ImportQuery(),"ImportQuery");
-    registerPage(new ImportUrl(),"ImportUrl");
-    registerPage(new Inspect(),"Inspect");
-    registerPage(new LinearRegression(),"LR");
-    registerPage(new LinearRegression(),"LinearRegression");
-    registerPage(new Network(), "Network");
-    registerPage(new NodeShuffle(),"NodeShuffle");
-    registerPage(new Parse(),"Parse");
-    registerPage(new ProgressReport(), "PR");
-    registerPage(new ProgressReport(), "ProgressReport");
-    registerPage(new ProgressView(), "ProgressView");
-    registerPage(new PutFile(),"PutFile");
-    registerPage(new PutQuery(),"Put");
-    registerPage(new PutValue(),"PutValue");
-    registerPage(new RFView(),"RFView"); // View random-forest output
-    registerPage(new RFTreeView(),"RFTreeView");
-    registerPage(new RandomForestPage(),"RF");
-    registerPage(new RandomForestPage(),"RandomForest");
-    registerPage(new Remote(),"Remote");
-    registerPage(new Remove(),"Remove");
-    registerPage(new RemoveAck(),"RemoveAck");
-    registerPage(new Shutdown(),"Shutdown");
-    registerPage(new StoreView(),"StoreView");
-    registerPage(new Test(),"Test");
-    registerPage(new Timeline(),"Timeline");
-    registerPage(new Store2HDFS(),"Store2HDFS");
   }
-
 
   // Resource loading ----------------------------------------------------------
-
-  // a shortcut to the loader
-  private Loader _loader = Loader.instance();
-
-  // cache of all loaded resources
-  private HashMap<String,byte[]> _cache = new HashMap();
-
-  // reads the given stream to the memory and returns its contents as a byte
-  // array
-  private byte[] readStreamToBytes(InputStream is) {
-    if (is==null)
-      return null;
-    try {
-      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-      int n;
-      byte[] data = new byte[4096];
-      while ((n = is.read(data, 0, data.length)) != -1) {
-        buffer.write(data, 0, n);
-      }
-      buffer.flush();
-      return buffer.toByteArray();
-    } catch (IOException e) {
-      return null;
-    } finally {
-      try {
-        is.close();
-      } catch (IOException e) {
-        // pass
-      }
-    }
-  }
 
   // Returns the response containing the given uri with the appropriate mime
   // type.
   private Response getResource(String uri) {
     byte[] bytes = _cache.get(uri);
-    if (bytes == null) {
-      if (_loader.runningFromJar()) {
-        InputStream is = _loader.getResourceAsStream("resources"+uri);
-        bytes = readStreamToBytes(is);
-      } else { // to allow us to read things not only from the loader
+    if( bytes == null ) {
+      InputStream resource = Boot._init.getResource(uri);
+      if (resource != null) {
         try {
-          InputStream is = new FileInputStream(new File("lib/resources"+uri));
-          bytes = readStreamToBytes(is);
-        } catch (FileNotFoundException e) {
-          // pass
-        }
+          bytes = ByteStreams.toByteArray(resource);
+        } catch( IOException e ) { }
+        byte[] res = _cache.putIfAbsent(uri,bytes);
+        if( res != null ) bytes = res; // Racey update; take what is in the _cache
       }
-      _cache.put(uri,bytes);
+      Closeables.closeQuietly(resource);
     }
     if (bytes==null)
       return http404(uri);
@@ -183,18 +153,6 @@ public class Server extends NanoHTTPD {
     else if (uri.endsWith(".html"))
       mime = "text/html";
     return new Response(NanoHTTPD.HTTP_OK,mime,new ByteArrayInputStream(bytes));
-  }
-
-  // Pages ---------------------------------------------------------------------
-
-  private static HashMap<String,Page> _pages = new HashMap();
-
-
-  public static void registerPage(Page page, String name) {
-    //if (_pages.containsKey(name))
-    //  Log.say("[webserver] Page "+name+" already exists. Hiding old page object.");
-    _pages.put(name,page);
-    //Log.debug("[webserver] Page "+name+" registered.");
   }
 
   // others --------------------------------------------------------------------

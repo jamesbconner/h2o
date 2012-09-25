@@ -292,7 +292,6 @@ public final class H2O {
 
   // Start up an H2O Node and join any local Cloud
   public static void main( String[] args ) {
-
     // To support launching from JUnit, JUnit expects to call main() repeatedly.
     // We need exactly 1 call to main to startup all the local services.
     if (IS_SYSTEM_RUNNING) return;

@@ -139,10 +139,9 @@ public abstract class PersistHdfs {
     return new Path(_root, s);
   }
 
-  private static Key getKeyforPath(Path p){
-    return Key.make(path2KeyStr(p));
+   public static Key getKeyForPath(String p){
+    return Key.make(KEY_PREFIX + Path.SEPARATOR + p);
   }
-
 
   static public byte[] file_load(Value v, int len) {
     byte[] b =  MemoryManager.allocateMemory(len);
@@ -151,24 +150,24 @@ public abstract class PersistHdfs {
       try {
         long off = 0;
         Key k = v._key;
+        Path p;
         // Convert an arraylet chunk into a long-offset from the base file.
         if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
-          off = ValueArray.getOffset(k); // The offset
-          k = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
-          ValueArray ary = (ValueArray)DKV.get(k);          
-          if(ary.row_size() > 0) off -= (off % ary.row_size());
-          off += ary.header_size(); //          
-        }
-        Path p = getPathForKey(k);
+          Key hk = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
+          p = getPathForKey(hk);
+          ValueArray ary = (ValueArray)DKV.get(hk);          
+          off = ary.getChunkFileOffset(k);                              
+        } else
+          p = getPathForKey(k);
         s = _fs.open(p);
         int br = s.read(off, b, 0, len);
         assert (br == len);
         assert v.is_persisted();
-        return b;
       } finally {
         if( s != null )
           s.close();
       }
+      return b;
     } catch( IOException e ) {  // Broken disk / short-file???
       System.out.println("hdfs file_load throws error "+e+" for key "+v._key);
       return null;
@@ -185,8 +184,11 @@ public abstract class PersistHdfs {
       if((v instanceof ValueArray) && path.endsWith(".hex")){
         byte [] mem  = v.get();        
         int padding = pad8(mem.length + 2) - mem.length - 2;
+        // write lenght of the header in bytes
         s.writeShort((short)(mem.length+padding));
+        // write the header data
         s.write(mem);
+        // pad the lenght to multiple of 8
         for(int i = 0; i < padding; ++i)s.writeByte(0);
       } 
     }finally{
@@ -222,6 +224,10 @@ public abstract class PersistHdfs {
     if( v.is_persisted() ) return;
     // Never store arraylets on HDFS, instead we'll store the entire array.
     assert !(v instanceof ValueArray);
+    // individual arraylet chunks can not be on hdfs
+    // (hdfs files can not be written to at specified offset)
+    assert v._key._kb[0] != Key.ARRAYLET_CHUNK; 
+
     try {
       Path p = getPathForKey(v._key);
       _fs.mkdirs(p.getParent());
@@ -256,7 +262,8 @@ public abstract class PersistHdfs {
     assert key._kb[0] == Key.ARRAYLET_CHUNK;
     try {
       Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
-      long off = ValueArray.getOffset(key); // The offset
+      ValueArray ary = (ValueArray)DKV.get(arykey);
+      long off = ary.getChunkFileOffset(key); // The offset
       Path p = getPathForKey(arykey);
       long size = _fs.getFileStatus(p).getLen();
       long rem = size-off;
