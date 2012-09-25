@@ -1,16 +1,13 @@
 package hex.rf;
 
-<<<<<<< HEAD:src/hex/rf/CodeTreePrinter.java
-import hex.rf.Tree.*;
-=======
-import hexlytics.rf.Tree.ExclusionNode;
-import hexlytics.rf.Tree.LeafNode;
-import hexlytics.rf.Tree.SplitNode;
->>>>>>> Delete Unused class Node.:src/hexlytics/rf/CodeTreePrinter.java
+import hex.rf.Tree.ExclusionNode;
+import hex.rf.Tree.LeafNode;
+import hex.rf.Tree.SplitNode;
 
 import java.io.*;
 
 import water.util.IndentingAppender;
+
 
 public class CodeTreePrinter extends TreePrinter {
   private final IndentingAppender _dest;

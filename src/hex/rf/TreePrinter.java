@@ -1,14 +1,11 @@
 package hex.rf;
 
-<<<<<<< HEAD:src/hex/rf/TreePrinter.java
-import hex.rf.Tree.*;
-=======
-import hexlytics.rf.Tree.ExclusionNode;
-import hexlytics.rf.Tree.LeafNode;
-import hexlytics.rf.Tree.SplitNode;
->>>>>>> Delete Unused class Node.:src/hexlytics/rf/TreePrinter.java
+import hex.rf.Tree.ExclusionNode;
+import hex.rf.Tree.LeafNode;
+import hex.rf.Tree.SplitNode;
 
 import java.io.IOException;
+
 
 
 public abstract class TreePrinter {

@@ -1,6 +1,6 @@
 package water.parser;
 
-import hexlytics.rf.Utils;
+import hex.rf.Utils;
 
 import java.util.Arrays;
 import java.util.Iterator;
