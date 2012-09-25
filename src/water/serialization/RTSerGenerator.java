@@ -50,50 +50,50 @@ public class RTSerGenerator implements Opcodes {
     }
   }
 
-  private final String internalName;
-  private final Field[] fields;
-  private final Constructor<?> ctor;
-  private final boolean _noArgCtor;
+  private final String         _internalName;
+  private final Field[]        _fields;
+  private final Constructor<?> _ctor;
+  private final boolean        _noArgCtor;
 
   public RTSerGenerator(Class<?> c) throws SecurityException {
-    if (!RemoteTask.class.isAssignableFrom(c)) {
+    if( !RemoteTask.class.isAssignableFrom(c) ) {
       throw new RuntimeException(MessageFormat.format(
           "{0}: is not a RemoteRunnable",
           c.getName()));
     }
-    this.internalName = Type.getInternalName(c);
+    this._internalName = Type.getInternalName(c);
 
     ArrayList<Field> fi = Lists.newArrayList(c.getDeclaredFields());
     Iterator<Field> it = fi.iterator();
     while( it.hasNext() ) {
       if( Modifier.isStatic(it.next().getModifiers()) ) it.remove();
     }
-    this.fields = fi.toArray(new Field[fi.size()]);
+    this._fields = fi.toArray(new Field[fi.size()]);
 
     boolean ctorRequiresArgs = false;
-    Class<?>[] fieldTypes = new Class<?>[fields.length];
-    for( int i = 0; i < fields.length; ++i ) {
-      fieldTypes[i] = fields[i].getType();
-      if (!SUPPORTED_CLASSES.contains(fieldTypes[i])) {
+    Class<?>[] fieldTypes = new Class<?>[_fields.length];
+    for( int i = 0; i < _fields.length; ++i ) {
+      fieldTypes[i] = _fields[i].getType();
+      if( !SUPPORTED_CLASSES.contains(fieldTypes[i]) ) {
         throw new RuntimeException(MessageFormat.format(
             "{0}: Field {1} has unsupported type {2}",
             c.getName(),
-            fields[i].getName(),
+            _fields[i].getName(),
             fieldTypes[i]));
       }
-      ctorRequiresArgs |= Modifier.isFinal(fields[i].getModifiers());
+      ctorRequiresArgs |= Modifier.isFinal(_fields[i].getModifiers());
     }
     Constructor<?> ctor = null;
     try {
       ctor = c.getDeclaredConstructor(fieldTypes);
     } catch( NoSuchMethodException e ) {
-      if(ctorRequiresArgs) {
+      if( ctorRequiresArgs ) {
         throw new RuntimeException(MessageFormat.format(
             "{0}: No constructor for field types: {1}",
             c.getName(), Joiner.on(", ").join(fieldTypes)), e);
       }
     }
-    if(ctor == null) {
+    if( ctor == null ) {
       try {
         ctor = c.getDeclaredConstructor();
       } catch( NoSuchMethodException e ) {
@@ -102,22 +102,14 @@ public class RTSerGenerator implements Opcodes {
             c.getName(), Joiner.on(", ").join(fieldTypes)), e);
       }
     }
-    this.ctor = ctor;
+    this._ctor = ctor;
     this._noArgCtor = ctor.getParameterTypes().length == 0;
   }
 
-  /**
-   * Create the RemoteRunnableSerializer.  It will have an inner class of an identical
-   * but remapped runnable which it uses to instantiate.
-   */
   public byte[] createSerializer() {
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-
-    cw.visit(V1_6, ACC_PUBLIC + ACC_SUPER,
-        internalName + "Serializer",
-        null,
-        SER.getInternalName(),
-        new String[] { });
+    cw.visit(V1_6, ACC_PUBLIC + ACC_SUPER, _internalName + "Serializer", null,
+        SER.getInternalName(), new String[] { });
 
     createConstructor(cw);
     createWireLen(cw);
@@ -130,6 +122,7 @@ public class RTSerGenerator implements Opcodes {
     return cw.toByteArray();
   }
 
+  /** Stub off unused methods */
   public void createDummies(ClassWriter cw) {
     for( Method m : new Method[] { SER_R_BYTES, SER_W_BYTES }) {
       MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, m.getName(), Type.getMethodDescriptor(m), null, new String[0]);
@@ -157,7 +150,7 @@ public class RTSerGenerator implements Opcodes {
     MethodVisitor mv = visitDeclareMethod(cw, SER_WIRE_LEN);
     int casted = visitDowncast(mv, SER_WIRE_LEN);
     mv.visitInsn(ICONST_0);
-    for( Field f : fields ) {
+    for( Field f : _fields ) {
       visitGetField(mv, casted, f);
       visitHelperCall(mv, RTSerGenHelpers.len(f.getType()));
       mv.visitInsn(IADD);
@@ -170,7 +163,7 @@ public class RTSerGenerator implements Opcodes {
     int casted = visitDowncast(mv, SER_W_STREAM);
     int stream = 2;
 
-    for( Field f : fields ) {
+    for( Field f : _fields ) {
       mv.visitIntInsn(ALOAD, stream);
       visitGetField(mv, casted, f);
       visitHelperCall(mv, RTSerGenHelpers.write(Stream.class, f.getType()));
@@ -181,21 +174,22 @@ public class RTSerGenerator implements Opcodes {
   public void createReadStream(ClassWriter cw) {
     MethodVisitor mv = visitDeclareMethod(cw, SER_R_STREAM);
     int stream = 1;
-    mv.visitTypeInsn(NEW, internalName);
+    int retVar = 2;
+    mv.visitTypeInsn(NEW, _internalName);
     mv.visitInsn(DUP);
     if( _noArgCtor ) {
-      mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
-      mv.visitVarInsn(ASTORE, 2);
+      mv.visitMethodInsn(INVOKESPECIAL, _internalName, "<init>", Type.getConstructorDescriptor(_ctor));
+      mv.visitVarInsn(ASTORE, retVar);
     }
 
-    for( Field f : fields ) {
-      if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
+    for( Field f : _fields ) {
+      if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
       mv.visitIntInsn(ALOAD, stream);
       visitHelperCall(mv, RTSerGenHelpers.read(Stream.class, f.getType()));
       if( _noArgCtor ) visitSetField(mv, f);
     }
-    if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
-    else mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+    if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
+    else mv.visitMethodInsn(INVOKESPECIAL, _internalName, "<init>", Type.getConstructorDescriptor(_ctor));
     visitReturn(mv, ARETURN);
   }
 
@@ -204,7 +198,7 @@ public class RTSerGenerator implements Opcodes {
     int casted = visitDowncast(mv, SER_W_DATA_STREAM);
     int stream = 2;
 
-    for( Field f : fields ) {
+    for( Field f : _fields ) {
       mv.visitIntInsn(ALOAD, stream);
       visitGetField(mv, casted, f);
       visitHelperCall(mv, RTSerGenHelpers.write(DataOutputStream.class, f.getType()));
@@ -215,33 +209,34 @@ public class RTSerGenerator implements Opcodes {
   public void createReadDataStream(ClassWriter cw) {
     MethodVisitor mv = visitDeclareMethod(cw, SER_R_DATA_STREAM);
     int stream = 1;
-    mv.visitTypeInsn(NEW, internalName);
+    int retVar = 2;
+    mv.visitTypeInsn(NEW, _internalName);
     mv.visitInsn(DUP);
     if( _noArgCtor ) {
-      mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
-      mv.visitVarInsn(ASTORE, 2);
+      mv.visitMethodInsn(INVOKESPECIAL, _internalName, "<init>", Type.getConstructorDescriptor(_ctor));
+      mv.visitVarInsn(ASTORE, retVar);
     }
 
-    for( Field f : fields ) {
-      if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
+    for( Field f : _fields ) {
+      if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
       mv.visitIntInsn(ALOAD, stream);
       visitHelperCall(mv, RTSerGenHelpers.read(DataInputStream.class, f.getType()));
       if( _noArgCtor ) visitSetField(mv, f);
     }
-    if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
-    else mv.visitMethodInsn(INVOKESPECIAL, internalName, "<init>", Type.getConstructorDescriptor(ctor));
+    if( _noArgCtor ) mv.visitVarInsn(ALOAD, retVar);
+    else mv.visitMethodInsn(INVOKESPECIAL, _internalName, "<init>", Type.getConstructorDescriptor(_ctor));
     visitReturn(mv, ARETURN);
   }
 
   /** Push a field onto the stack: [] -> [Field] */
   private void visitGetField(MethodVisitor mv, int varNum, Field f) {
     mv.visitVarInsn(ALOAD, varNum);
-    mv.visitFieldInsn(GETFIELD, internalName, f.getName(), Type.getDescriptor(f.getType()));
+    mv.visitFieldInsn(GETFIELD, _internalName, f.getName(), Type.getDescriptor(f.getType()));
   }
 
   /** set a field from the stack: [obj, field] -> [] */
   private void visitSetField(MethodVisitor mv, Field f) {
-    mv.visitFieldInsn(PUTFIELD, internalName, f.getName(), Type.getDescriptor(f.getType()));
+    mv.visitFieldInsn(PUTFIELD, _internalName, f.getName(), Type.getDescriptor(f.getType()));
   }
 
   /** Start visiting an override for a base class method */
@@ -256,7 +251,7 @@ public class RTSerGenerator implements Opcodes {
   /** visit instructions to in-place downcast the RemoteTask: [] -> [] */
   private int visitDowncast(MethodVisitor mv, Method m) {
     mv.visitVarInsn(ALOAD, 1);
-    mv.visitTypeInsn(CHECKCAST, internalName);
+    mv.visitTypeInsn(CHECKCAST, _internalName);
     mv.visitVarInsn(ASTORE, 1);
     return 1;
   }

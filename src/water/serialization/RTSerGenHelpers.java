@@ -106,15 +106,15 @@ public abstract class RTSerGenHelpers {
     return bytes;
   }
 
-  public static int  lenInt(int i)                                          { return 4;           }
-  public static int  readInt(Stream s)                                      { return s.get4();    }
-  public static int  readInt(DataInputStream s) throws IOException          { return s.readInt(); }
-  public static void writeInt(Stream s, int i)                              { s.set4(i);          }
-  public static void writeInt(DataOutputStream s, int i) throws IOException { s.writeInt(i);      }
+  public static int  lenInt  (                    int i)                      { return 4;           }
+  public static int  readInt (Stream s                 )                      { return s.get4();    }
+  public static int  readInt (DataInputStream s        ) throws IOException   { return s.readInt(); }
+  public static void writeInt(Stream s,           int i)                      { s.set4(i);          }
+  public static void writeInt(DataOutputStream s, int i) throws IOException   { s.writeInt(i);      }
 
-  public static long lenLong(long i)                                          { return 8;           }
-  public static long readLong(Stream s)                                       { return s.get8();    }
-  public static long readLong(DataInputStream s) throws IOException           { return s.readLong(); }
-  public static void writeLong(Stream s, long i)                              { s.set8(i);          }
+  public static long lenLong  (                    long i)                    { return 8;           }
+  public static long readLong (Stream s                  )                    { return s.get8();    }
+  public static long readLong (DataInputStream s         ) throws IOException { return s.readLong(); }
+  public static void writeLong(Stream s,           long i)                    { s.set8(i);          }
   public static void writeLong(DataOutputStream s, long i) throws IOException { s.writeLong(i);      }
 }
