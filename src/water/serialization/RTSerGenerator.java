@@ -14,13 +14,16 @@ import water.Stream;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.*;
 
 /**
  * Generates custom {@link RemoteTaskSerializer} for particular
  * {@link RemoteTask}s.
  */
 public class RTSerGenerator implements Opcodes {
+  private static final Type HELPER = Type.getType(RTSerGenHelpers.class);
+  private static final Set<Class<?>> SUPPORTED_CLASSES = Sets.newHashSet();
+
   private static final Type   SER;
   private static final Method SER_R_STREAM;
   private static final Method SER_W_STREAM;
@@ -40,91 +43,11 @@ public class RTSerGenerator implements Opcodes {
       SER_W_STREAM      = c.getDeclaredMethod("write", RemoteTask.class, Stream.class);
       SER_W_DATA_STREAM = c.getDeclaredMethod("write", RemoteTask.class, DataOutputStream.class);
       SER_W_BYTES       = c.getDeclaredMethod("write", RemoteTask.class, byte[].class, int.class);
+
+      SUPPORTED_CLASSES.addAll(RTSerGenHelpers.SUFFIX.keySet());
     } catch(Throwable t) {
       throw Throwables.propagate(t);
     }
-  }
-
-  private static final Type STREAM;
-  private static final Method STREAM_SET_BYTES;
-  private static final Method STREAM_GET_BYTES;
-  private static final Method STREAM_SET1;
-  private static final Method STREAM_GET1;
-  private static final Method STREAM_SET4;
-  private static final Method STREAM_GET4;
-  private static final Method STREAM_SET8;
-  private static final Method STREAM_GET8;
-  static {
-    try {
-      Class<Stream> c = Stream.class;
-      STREAM = Type.getType(c);
-      STREAM_SET_BYTES   = c.getDeclaredMethod("setLen4Bytes", byte[].class);
-      STREAM_SET1        = c.getDeclaredMethod("set1",         int.class);
-      STREAM_SET4        = c.getDeclaredMethod("set4",         int.class);
-      STREAM_SET8        = c.getDeclaredMethod("set8",         long.class);
-      STREAM_GET_BYTES   = c.getDeclaredMethod("getLen4Bytes");
-      STREAM_GET1        = c.getDeclaredMethod("get1");
-      STREAM_GET4        = c.getDeclaredMethod("get4");
-      STREAM_GET8        = c.getDeclaredMethod("get8");
-    } catch(Throwable t) {
-      throw Throwables.propagate(t);
-    }
-  }
-
-  private static final Type   DOS;
-  private static final Method DOS_WRITE_INT;
-  private static final Method DOS_WRITE_LONG;
-  private static final Method DOS_WRITE;
-
-  private static final Type   DIS;
-  private static final Method DIS_READ_INT;
-  private static final Method DIS_READ_LONG;
-  private static final Method DIS_READ_FULLY;
-  static {
-    try {
-      Class<DataOutputStream> dos = DataOutputStream.class;
-      DOS            = Type.getType(dos);
-      DOS_WRITE_LONG = dos.getMethod("writeLong", long.class);
-      DOS_WRITE_INT  = dos.getMethod("writeInt",  int.class);
-      DOS_WRITE      = dos.getMethod("write",     byte[].class);
-
-      Class<DataInputStream> dis = DataInputStream.class;
-      DIS            = Type.getType(dis);
-      DIS_READ_LONG  = dis.getMethod("readLong");
-      DIS_READ_INT   = dis.getMethod("readInt");
-      DIS_READ_FULLY = dis.getMethod("readFully", byte[].class);
-    } catch(Throwable t) {
-      throw Throwables.propagate(t);
-    }
-  }
-
-  private static final Type   HELPER;
-  private static final Method HELPER_L_INTS;
-  private static final Method HELPER_W_INTS_STREAM;
-  private static final Method HELPER_R_INTS_STREAM;
-  private static final Method HELPER_W_INTS_DOS;
-  private static final Method HELPER_R_INTS_DIS;
-  static {
-    try {
-      Class<RTSerGenHelpers> h = RTSerGenHelpers.class;
-      HELPER               = Type.getType(h);
-      HELPER_L_INTS        = h.getMethod("lenIntArray",   int[].class);
-      HELPER_R_INTS_STREAM = h.getMethod("readIntArray",  Stream.class);
-      HELPER_R_INTS_DIS    = h.getMethod("readIntArray",  DataInputStream.class);
-      HELPER_W_INTS_STREAM = h.getMethod("writeIntArray", Stream.class,           int[].class);
-      HELPER_W_INTS_DOS    = h.getMethod("writeIntArray", DataOutputStream.class, int[].class);
-    } catch(Throwable t) {
-      throw Throwables.propagate(t);
-    }
-
-  }
-
-  private static final Set<Class<?>> SUPPORTED_CLASSES = new HashSet<Class<?>>();
-  static {
-    SUPPORTED_CLASSES.add(byte[].class);
-    SUPPORTED_CLASSES.add(int.class);
-    SUPPORTED_CLASSES.add(int[].class);
-    SUPPORTED_CLASSES.add(long.class);
   }
 
   private final String internalName;
@@ -233,34 +156,12 @@ public class RTSerGenerator implements Opcodes {
   public void createWireLen(ClassWriter cw) {
     MethodVisitor mv = visitDeclareMethod(cw, SER_WIRE_LEN);
     int casted = visitDowncast(mv, SER_WIRE_LEN);
-
-    // total = 0
     mv.visitInsn(ICONST_0);
     for( Field f : fields ) {
-      if( byte[].class.equals(f.getType()) ) {
-        // total += array.length + 4;
-        visitGetField(mv, casted, f);
-        mv.visitInsn(ARRAYLENGTH);
-        mv.visitInsn(IADD);
-        mv.visitInsn(ICONST_4);
-        mv.visitInsn(IADD);
-      } else if( int.class.equals(f.getType()) ) {
-        // total += 4
-        mv.visitInsn(ICONST_4);
-        mv.visitInsn(IADD);
-      } else if( long.class.equals(f.getType()) ) {
-        // total += 8
-        mv.visitIntInsn(BIPUSH, 8);
-        mv.visitInsn(IADD);
-      } else if( int[].class.equals(f.getType()) ) {
-        visitGetField(mv, casted, f);
-        visitHelperCall(mv, HELPER_L_INTS);
-        mv.visitInsn(IADD);
-      } else {
-        throw new Error("Unimplemented field type: " + f.getType());
-      }
+      visitGetField(mv, casted, f);
+      visitHelperCall(mv, RTSerGenHelpers.len(f.getType()));
+      mv.visitInsn(IADD);
     }
-    // return the cumulative total
     visitReturn(mv, IRETURN);
   }
 
@@ -270,31 +171,9 @@ public class RTSerGenerator implements Opcodes {
     int stream = 2;
 
     for( Field f : fields ) {
-      if( byte[].class.equals(f.getType()) ) {
-        // stream.setLen4Bytes(array)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitMethodCall(mv, STREAM, STREAM_SET_BYTES);
-        mv.visitInsn(POP);
-      } else if( int.class.equals(f.getType()) ) {
-        // stream.set4(f)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitMethodCall(mv, STREAM, STREAM_SET4);
-        mv.visitInsn(POP);
-      } else if( long.class.equals(f.getType()) ) {
-        // stream.set8(f)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitMethodCall(mv, STREAM, STREAM_SET8);
-        mv.visitInsn(POP);
-      } else if( int[].class.equals(f.getType()) ) {
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitHelperCall(mv, HELPER_W_INTS_STREAM);
-      } else {
-        throw new Error("Unimplemented field type: " + f.getType());
-      }
+      mv.visitIntInsn(ALOAD, stream);
+      visitGetField(mv, casted, f);
+      visitHelperCall(mv, RTSerGenHelpers.write(Stream.class, f.getType()));
     }
     visitReturn(mv, RETURN);
   }
@@ -311,26 +190,8 @@ public class RTSerGenerator implements Opcodes {
 
     for( Field f : fields ) {
       if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
-
-      if( byte[].class.equals(f.getType()) ) {
-        // stream.getLen4Bytes()
-        mv.visitIntInsn(ALOAD, stream);
-        visitMethodCall(mv, STREAM, STREAM_GET_BYTES);
-      } else if( int.class.equals(f.getType()) ) {
-        // stream.get4()
-        mv.visitIntInsn(ALOAD, stream);
-        visitMethodCall(mv, STREAM, STREAM_GET4);
-      } else if( long.class.equals(f.getType()) ) {
-        // stream.get8()
-        mv.visitIntInsn(ALOAD, stream);
-        visitMethodCall(mv, STREAM, STREAM_GET8);
-      } else if( int[].class.equals(f.getType()) ) {
-        mv.visitIntInsn(ALOAD, stream);
-        visitHelperCall(mv, HELPER_R_INTS_STREAM);
-      } else {
-        throw new Error("Unimplemented field type: " + f.getType());
-      }
-
+      mv.visitIntInsn(ALOAD, stream);
+      visitHelperCall(mv, RTSerGenHelpers.read(Stream.class, f.getType()));
       if( _noArgCtor ) visitSetField(mv, f);
     }
     if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
@@ -344,34 +205,9 @@ public class RTSerGenerator implements Opcodes {
     int stream = 2;
 
     for( Field f : fields ) {
-      if( byte[].class.equals(f.getType()) ) {
-        // dos.writeInt(array.length)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        mv.visitInsn(ARRAYLENGTH);
-        visitMethodCall(mv, DOS, DOS_WRITE_INT);
-
-        // dos.write(array)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitMethodCall(mv, DOS, DOS_WRITE);
-      } else if( int.class.equals(f.getType()) ) {
-        // dos.writeInt(f)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitMethodCall(mv, DOS, DOS_WRITE_INT);
-      } else if( long.class.equals(f.getType()) ) {
-        // dos.writeLong(f)
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitMethodCall(mv, DOS, DOS_WRITE_LONG);
-      } else if( int[].class.equals(f.getType()) ) {
-        mv.visitIntInsn(ALOAD, stream);
-        visitGetField(mv, casted, f);
-        visitHelperCall(mv, HELPER_W_INTS_DOS);
-      } else {
-        throw new Error("Unimplemented field type: " + f.getType());
-      }
+      mv.visitIntInsn(ALOAD, stream);
+      visitGetField(mv, casted, f);
+      visitHelperCall(mv, RTSerGenHelpers.write(DataOutputStream.class, f.getType()));
     }
     visitReturn(mv, RETURN);
   }
@@ -388,32 +224,8 @@ public class RTSerGenerator implements Opcodes {
 
     for( Field f : fields ) {
       if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
-
-      if( byte[].class.equals(f.getType()) ) {
-        // new byte[dis.readInt()]
-        mv.visitIntInsn(ALOAD, stream);
-        visitMethodCall(mv, DIS, DIS_READ_INT);
-        mv.visitIntInsn(NEWARRAY, T_BYTE);
-
-        // dup array for our ctor, then `dis.readFull(array)`
-        mv.visitInsn(DUP);
-        mv.visitIntInsn(ALOAD, stream);
-        mv.visitInsn(SWAP);
-        visitMethodCall(mv, DIS, DIS_READ_FULLY);
-      } else if( int.class.equals(f.getType()) ) {
-        // dos.readInt()
-        mv.visitIntInsn(ALOAD, stream);
-        visitMethodCall(mv, DIS, DIS_READ_INT);
-      } else if( long.class.equals(f.getType()) ) {
-        // dos.readLong()
-        mv.visitIntInsn(ALOAD, stream);
-        visitMethodCall(mv, DIS, DIS_READ_LONG);
-      } else if( int[].class.equals(f.getType()) ) {
-        mv.visitIntInsn(ALOAD, stream);
-        visitHelperCall(mv, HELPER_R_INTS_DIS);
-     } else {
-        throw new Error("Unimplemented field type: " + f.getType());
-      }
+      mv.visitIntInsn(ALOAD, stream);
+      visitHelperCall(mv, RTSerGenHelpers.read(DataInputStream.class, f.getType()));
       if( _noArgCtor ) visitSetField(mv, f);
     }
     if( _noArgCtor ) mv.visitVarInsn(ALOAD, 2);
@@ -452,12 +264,6 @@ public class RTSerGenerator implements Opcodes {
   /** visit a virtual method call: [args*] -> [return_val] */
   private void visitHelperCall(MethodVisitor mv, Method m) {
     mv.visitMethodInsn(INVOKESTATIC, HELPER.getInternalName(),
-        m.getName(), Type.getMethodDescriptor(m));
-  }
-
-  /** visit a virtual method call: [args*] -> [return_val] */
-  private void visitMethodCall(MethodVisitor mv, Type t, Method m) {
-    mv.visitMethodInsn(INVOKEVIRTUAL, t.getInternalName(),
         m.getName(), Type.getMethodDescriptor(m));
   }
 
