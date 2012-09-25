@@ -101,7 +101,7 @@ public class GLinearRegression {
         }
       };
     }
-    public abstract Object clone();
+    public abstract Row2VecMap clone();
     public abstract Row map(int rid);
     public abstract int xlen();
     public abstract int wire_len();
@@ -149,7 +149,7 @@ public class GLinearRegression {
       _row.y = 0.0;
     }
 
-    @Override public Object clone(){
+    @Override public LinearRow2VecMap clone(){
       return new LinearRow2VecMap(this);
     }
 
@@ -266,8 +266,9 @@ public class GLinearRegression {
     Row2VecMap _rmap;
 
     public GLRTask(Row2VecMap rmap) {
-      _rmap = rmap;
+      _rmap = (Row2VecMap)rmap.clone();
     }
+
 
     // private constructor to be used in deserialization of results
     private GLRTask(Matrix xx, Matrix xy) {
@@ -375,7 +376,7 @@ public class GLinearRegression {
           }
           Matrix xy = new Matrix(xlen,1);
           for( int i = 0; i < xlen; ++i ) {
-            xy.set(i,0, UDP.get8(buf, off));
+            xy.set(i,0, UDP.get8d(buf, off));
             off += 8;
           }
           return new GLRTask(xx, xy);
