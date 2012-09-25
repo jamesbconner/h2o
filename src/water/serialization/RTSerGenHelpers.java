@@ -15,6 +15,7 @@ public abstract class RTSerGenHelpers {
   static {
     SUFFIX.put(int.class,    "Int");
     SUFFIX.put(long.class,   "Long");
+    SUFFIX.put(double.class, "Double");
     SUFFIX.put(int[].class,  "IntArray");
     SUFFIX.put(byte[].class, "ByteArray");
     SUFFIX.put(Key.class,    "Key");
@@ -114,10 +115,10 @@ public abstract class RTSerGenHelpers {
   public static void writeInt(Stream s,           int i)                      { s.set4(i);          }
   public static void writeInt(DataOutputStream s, int i) throws IOException   { s.writeInt(i);      }
 
-  public static int  lenLong  (                    long i)                    { return 8;           }
-  public static long readLong (Stream s                  )                    { return s.get8();    }
+  public static int  lenLong  (                    long i)                    { return 8;            }
+  public static long readLong (Stream s                  )                    { return s.get8();     }
   public static long readLong (DataInputStream s         ) throws IOException { return s.readLong(); }
-  public static void writeLong(Stream s,           long i)                    { s.set8(i);          }
+  public static void writeLong(Stream s,           long i)                    { s.set8(i);           }
   public static void writeLong(DataOutputStream s, long i) throws IOException { s.writeLong(i);      }
 
   public static int  lenKey  (                    Key k)                    { return k.wire_len(); }
@@ -125,4 +126,10 @@ public abstract class RTSerGenHelpers {
   public static Key  readKey (DataInputStream s        ) throws IOException { return Key.read(s);  }
   public static void writeKey(Stream s,           Key k)                    { k.write(s);          }
   public static void writeKey(DataOutputStream s, Key k) throws IOException { k.write(s);          }
+
+  public static int    lenDouble   (                    double i)                    { return 8;              }
+  public static double readDouble(Stream s                      )                    { return s.get8d();      }
+  public static double readDouble(DataInputStream s             ) throws IOException { return s.readDouble(); }
+  public static void   writeDouble (Stream s,           double i)                    { s.set8d(i);            }
+  public static void   writeDouble (DataOutputStream s, double i) throws IOException { s.writeDouble(i);      }
 }
