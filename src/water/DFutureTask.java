@@ -278,7 +278,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     } finally {
       TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
       Thread.currentThread().setPriority(old_prior);
-      Closeables.closeQuietly(sock);
+      try { if( sock != null ) sock.close(); } catch(IOException e) { }
     }
   }
 
