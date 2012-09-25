@@ -218,6 +218,7 @@ public class TaskStore2HDFS extends RemoteTask {
     }
   }
 
+  @RTSerializer(AtomicMax.Serializer.class)
   public static class AtomicMax extends Atomic {
     private final long _myVal;
     public AtomicMax(long val) { _myVal = val; }

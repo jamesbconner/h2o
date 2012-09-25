@@ -4,6 +4,7 @@ import java.io.*;
 import java.lang.reflect.Method;
 import java.util.Map;
 
+import water.Key;
 import water.Stream;
 
 import com.google.common.base.Throwables;
@@ -16,6 +17,7 @@ public abstract class RTSerGenHelpers {
     SUFFIX.put(long.class,   "Long");
     SUFFIX.put(int[].class,  "IntArray");
     SUFFIX.put(byte[].class, "ByteArray");
+    SUFFIX.put(Key.class,    "Key");
   }
 
   static Method len(Class<?> c) {
@@ -112,9 +114,15 @@ public abstract class RTSerGenHelpers {
   public static void writeInt(Stream s,           int i)                      { s.set4(i);          }
   public static void writeInt(DataOutputStream s, int i) throws IOException   { s.writeInt(i);      }
 
-  public static long lenLong  (                    long i)                    { return 8;           }
+  public static int  lenLong  (                    long i)                    { return 8;           }
   public static long readLong (Stream s                  )                    { return s.get8();    }
   public static long readLong (DataInputStream s         ) throws IOException { return s.readLong(); }
   public static void writeLong(Stream s,           long i)                    { s.set8(i);          }
   public static void writeLong(DataOutputStream s, long i) throws IOException { s.writeLong(i);      }
+
+  public static int  lenKey  (                    Key k)                    { return k.wire_len(); }
+  public static Key  readKey (Stream s                 )                    { return Key.read(s);  }
+  public static Key  readKey (DataInputStream s        ) throws IOException { return Key.read(s);  }
+  public static void writeKey(Stream s,           Key k)                    { k.write(s);          }
+  public static void writeKey(DataOutputStream s, Key k) throws IOException { k.write(s);          }
 }
