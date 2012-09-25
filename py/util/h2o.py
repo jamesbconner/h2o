@@ -97,11 +97,11 @@ def stabilize_cloud(node, node_count, timeoutSecs = 5.0, retryDelaySecs = 0.1):
         lambda n: n.get_cloud()['cloud_size'] == node_count,
         retryDelaySecs)
 
-def build_cloud(node_count, base_port=54321, ports_per_node=3):
+def build_cloud(node_count, base_port=54321, ports_per_node=3,addr=None):
     nodes = []
     try:
         for i in xrange(node_count):
-            n = H2O(port=base_port + i*ports_per_node)
+            n = H2O(addr,port=base_port + i*ports_per_node)
             nodes.append(n)
         # FIX! this is temporary until we understand it more
         # when can we start talking to H2O? wait for it's first stdout?
@@ -131,7 +131,9 @@ class H2O:
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], 'process was not spawned'))
 
     def get_cloud(self):
-        return self.__check_request(requests.get(self.__url('Cloud.json')))
+        a = self.__check_request(requests.get(self.__url('Cloud.json')))
+        print a
+        return a
 
     # FIX! I can put Value, Key, RF also! I can write 10,000 keys! good for testing?
     def put_value(self, value, key=None, repl=None):
@@ -185,6 +187,14 @@ class H2O:
         while time.time() - start < timeoutSecs:
             if func(self):
                 break
+            retryCount += 1
+            print "stabilize retry:", retryCount
+            # tests should call with retry delay at maybe 1/2 expected times 
+            # so retrying more than 12 times is an error. easier to debug?
+            if retryCount > 12:
+                raise Exception("stabilize retried too much. Bug or extend retry delay?: %d\n" % (retryCount))
+
+            print "sleep:", retryDelaySecs
             time.sleep(retryDelaySecs)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
