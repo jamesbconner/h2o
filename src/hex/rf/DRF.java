@@ -97,13 +97,16 @@ public class DRF extends water.DRemoteTask {
   // Local RF computation.
   public final void compute() {
     DataAdapter dapt = extractData(_arykey, _keys);
+    Utils.pln("[RF] Data adapter built");
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
     sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
     Data d = Data.make(dapt);
-    Data t = sample ? d.sampleWithReplacement(.666) : d;
-    _validation = sample ? t.complement(d) : null;
+    short[] complement = sample ? new short[d.rows()] : null;
+    Data t = sample ? d.sampleWithReplacement(.666, complement) : d;
+    _validation = sample ? t.complement(d, complement) : null;
     // Make a single RandomForest to that does all the tree-construction work.
+    Utils.pln("[RF] Building trees");
     _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
     tryComplete();
   }

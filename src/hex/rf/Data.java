@@ -45,7 +45,9 @@ public class Data implements Iterable<Row> {
   public int columns()           { return data_.columns() -1 ; } // -1 to remove class column
   public int classes()           { return data_.classes();     }
   public int seed()              { return data_.seed();        }
-
+  public int dataId()            { return data_.dataId();      }
+  public String colName(int i)   { return data_.columnNames()[i]; }
+  public float unmap(int col, float split) { return data_.unmap(col, split); }
   public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
@@ -78,16 +80,25 @@ public class Data implements Iterable<Row> {
     result[1]= new Subset(this, permutation, l,   end());
   }
 
-  public Data sampleWithReplacement(double bagSizePct) {
-    int[] sample = new int[(int)(rows() * bagSizePct)];
+  public Data sampleWithReplacement(double bagSizePct, short[] complement) {
+    // Make sure that values come in order
+    short[] in = complement;
+    int size = (int)(rows() * bagSizePct);
     Random r = new Random(seed());
-    for( int i = 0; i < sample.length; ++i)
-      sample[i] = permute(r.nextInt(rows()));
-    Arrays.sort(sample); // make sure we access data in order
+    for( int i = 0; i < size; ++i)
+      in[permute(r.nextInt(rows()))]++;
+    int[] sample = new int[size];
+    for( int i = 0, j = 0; i < sample.length;) {
+      while(in[j]==0) j++;
+      for (int k = 0; k < in[j]; k++) {
+         sample[i++] = j;
+      }
+      j++;
+    }
     return new Subset(this, sample, 0, sample.length);
   }
 
-  public Data complement(Data parent) { throw new Error("Only for subsets."); }
+  public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
   @Override public       Data clone() { return this; }
 
   protected int permute(int idx) { return idx; }
@@ -117,11 +128,12 @@ class Subset extends Data {
     _permutation = permutation;
   }
 
-  @Override public Data complement(Data parent) {
-    Set<Integer> s = new HashSet<Integer>();
-    for( Row r : parent ) s.add(r.index);
-    for( Row r : this    ) s.remove(r.index);
-    int[] p = Ints.toArray(s);
+  @Override public Data complement(Data parent, short[] complement) {
+    int size= 0;
+    for(int i=0;i<complement.length; i++) if (complement[i]==0) size++;
+    int[] p = new int[size];
+    int pos = 0;
+    for(int i=0;i<complement.length; i++) if (complement[i]==0) p[pos++] = i;
     return new Subset(this, p, 0, p.length);
   }
 }
