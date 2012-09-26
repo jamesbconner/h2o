@@ -35,19 +35,14 @@ public class RandomForest {
     _trees = new Tree[ntrees];
     long start = System.currentTimeMillis();
     try {
-      // Submit all trees for work
+      // build one tree at a time, and forget it
       for( int i=0; i<ntrees; i++ ) {
         H2O.FJP_NORM.submit(_trees[i] = new Tree(_data.clone(),maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
-        //if( singlethreaded )  // FIXME: Always build trees in a single thread --Jan.
-         _trees[i].get();
-      }
-      // Block until all trees are built
-      for( int i=0; i<ntrees; i++ ) {
         _trees[i].get();        // Block for a tree
-        // Atomic-append to the list of trees
-        new AppendKey(_trees[i].toKey()).fork(drf._treeskey);
+        new AppendKey(_trees[i].toKey()).fork(drf._treeskey);        // Atomic-append to the list of trees
         long now = System.currentTimeMillis();
         System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
+        _trees[i]= null; // Forget it.
       }
     } catch( InterruptedException e ) {
       // Interrupted after partial build?
