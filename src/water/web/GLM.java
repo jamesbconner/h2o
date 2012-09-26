@@ -41,7 +41,14 @@ public class GLM extends H2OPage {
   public int [] parseVariableExpression(String [] colNames, String vexp){
     String [] colExps = vexp.split(",");
     int [] res = new int[colExps.length];
+ __OUTER:
     for(int i = 0; i < res.length; ++i){
+      String colExp = colExps[i].trim();
+      for(int j = 0; j < colNames.length; ++j)
+        if(colNames[j].equals(colExp)){
+          res[i] = j;
+          continue __OUTER;
+        }
       try {res[i] = Integer.valueOf(colExps[i].trim());}catch(NumberFormatException e){throw new InvalidColumnIdException(colExps[i].trim());};
     }
     return res;
@@ -51,10 +58,9 @@ public class GLM extends H2OPage {
     return new String[] { "Key", "X", "Y"};
   }
 
-  static final RString responseTemplate = new RString("<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div><div class=\"container\">Result Coeficients:");
-
   @Override
   public JsonObject serverJson(Server s, Properties p) throws PageError {
+    RString responseTemplate = new RString("<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div><div class=\"container\">Result Coeficients:");
     ValueArray ary = ServletUtil.check_array(p,"Key");
     String [] colNames = ary.col_names();
     int [] yarr = parseVariableExpression(colNames, p.getProperty("Y"));
