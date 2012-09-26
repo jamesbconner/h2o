@@ -87,7 +87,7 @@ class Basic(unittest.TestCase):
         # maybe just inc in loop
         trees = 6
         # bump this up too if you do?
-        timeoutSecs = 10
+        timeoutSecs = 20
         # always match the gen above!
         for x in xrange (1,100,10):
             sys.stdout.write('.')
@@ -98,7 +98,6 @@ class Basic(unittest.TestCase):
             # FIX! TBD do we always have to kick off the run from node 0?
             # what if we do another node?
             # FIX! do we need or want a random delay here?
-            # CNC - My antique computer reports files missing without a little delay here.
             runRF(nodes[0],trees,csvPathname,timeoutSecs)
 
             trees += 10

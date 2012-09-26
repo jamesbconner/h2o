@@ -8,7 +8,7 @@ def runRF(n,trees,csvPathname,timeoutSecs):
     # kbn hack to make test.py pass reliably
     # time.sleep(1)
     # this expects the response to match the number of trees you told it to do
-    print "retryDelaySecs = 0.05 after RF"
+    print "retryDelaySecs = 0.10 after RF"
     n.stabilize('random forest finishing', timeoutSecs,
         lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees,
         retryDelaySecs=0.10)

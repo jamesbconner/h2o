@@ -2,6 +2,13 @@ import time, os, json, signal, tempfile, shutil, datetime, inspect
 import requests
 import psutil
 
+def verboseprint(*args):
+    ### global verbose
+    if 1==0: # change to 1==1 if you want verbose
+        for arg in args: # so you don't have to create a single string
+           print arg,
+        print
+
 def find_file(base):
     f = base
     if not os.path.exists(f): f = '../'+base
@@ -42,10 +49,15 @@ def get_ip_address():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8',0))
         ip = s.getsockname()[0]
+        verboseprint("ip1:", ip)
+
     except:
         pass
+
     if ip.startswith('127'):
         ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
+
+    verboseprint("get_ip_address:", ip) 
     return ip
 
 def spawn_cmd(name, args):
@@ -92,12 +104,12 @@ def tear_down_cloud(nodes):
             ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
     if ex: raise ex
 
-def stabilize_cloud(node, node_count, timeoutSecs = 5.0, retryDelaySecs = 0.1):
+def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
     node.stabilize('cloud auto detect', timeoutSecs,
         lambda n: n.get_cloud()['cloud_size'] == node_count,
         retryDelaySecs)
 
-def build_cloud(node_count, base_port=54321, ports_per_node=3,addr=None):
+def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None):
     nodes = []
     try:
         for i in xrange(node_count):
@@ -132,7 +144,7 @@ class H2O:
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
-        print a
+        verboseprint ("get_cloud:", a)
         return a
 
     # FIX! I can put Value, Key, RF also! I can write 10,000 keys! good for testing?
@@ -170,9 +182,10 @@ class H2O:
     def random_forest_view(self, key):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
+        verboseprint("random_forest_view:", a)
         return a
 
-    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=0.2):
+    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=0.5):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:
@@ -184,17 +197,18 @@ class H2O:
         '''
 
         start = time.time()
+        retryCount = 0
         while time.time() - start < timeoutSecs:
             if func(self):
                 break
             retryCount += 1
-            print "stabilize retry:", retryCount
+            verboseprint("stabilize retry:", retryCount)
             # tests should call with retry delay at maybe 1/2 expected times 
             # so retrying more than 12 times is an error. easier to debug?
             if retryCount > 12:
                 raise Exception("stabilize retried too much. Bug or extend retry delay?: %d\n" % (retryCount))
 
-            print "sleep:", retryDelaySecs
+            verboseprint("sleep:", retryDelaySecs)
             time.sleep(retryDelaySecs)
         else:
             raise Exception('Timeout waiting for condition: ' + msg)
@@ -202,9 +216,11 @@ class H2O:
     def __is_alive(self, s2):
         assert self == s2
         try:
-            self.get_cloud()
+            n = self.get_cloud()
+            verboseprint("__isalive:", n)
             return True
         except requests.ConnectionError, e:
+            verboseprint("__isalive ConnectionError")
             if e.args[0].errno == 61 or e.args[0].errno == 10061 or e.args[0].errno == 111:
                 return False
             raise
@@ -212,6 +228,10 @@ class H2O:
     def __init__(self, addr=None, port=54321, spawn=True):
         self.port = port
         self.addr = addr or get_ip_address()
+        verboseprint("addr:", addr)
+        verboseprint("get_ip_address", get_ip_address())
+        verboseprint("Using ip:", self.addr)
+
         if not spawn:
             self.stabilize('h2o started', 4, self.__is_alive)
         else:

@@ -1,6 +1,7 @@
 import os, json, unittest, time, shutil, sys
 import util.h2o as h2o
 
+
 def putValue(n,value,key=None,repl=None):
     print 'Before put_value, value:', value
     put = n.put_value(value,key,repl)
@@ -61,6 +62,9 @@ def runRFonly(n,parseKey,trees,depth,timeoutSecs):
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        global verbose
+        verbose = True
+
         h2o.clean_sandbox()
         global nodes
         print "Just doing one node in the cloud for this test"
