@@ -84,8 +84,13 @@ def spawn_cmd_and_wait(name, args, timeout=None):
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
 def spawn_h2o(addr=None, port=54321, nosigar=True):
+    # temporary hack changing this line, so can run with jre, not jdk
+    # because we currently need tools.jar
+    # "java", "-ea", "-jar", find_file('build/h2o.jar'),
     h2o_cmd = [
-            "java", "-ea", "-jar", find_file('build/h2o.jar'),
+            "java", 
+            "-javaagent:" + find_file('build/h2o.jar'),
+            "-ea", "-jar", find_file('build/h2o.jar'),
             "--port=%d"%port,
             '--ip=%s'%(addr or get_ip_address()),
             '--ice_root=%s' % tmp_dir('ice.')
