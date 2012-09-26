@@ -220,8 +220,16 @@ public class GLinearRegression {
 
   }
 
+  public static double [] web_main(Key aryKey, int [] xColIds, int yColId){
+    return solveGLR(aryKey,xColIds,yColId).getColumnPackedCopy();
+  }
+
   public static Matrix solveGLR(Key aryKey, int [] xColIds, int yColId) {
     return solveGLR(aryKey, new LinearRow2VecMap(xColIds, yColId));
+  }
+
+  public static class GLRException extends RuntimeException {
+    public GLRException(String msg){super(msg);}
   }
 
   public static Matrix solveGLR(Key aryKey, GLinearRegression.Row2VecMap rmap) {
@@ -233,7 +241,9 @@ public class GLinearRegression {
       // TODO Auto-generated catch block
       throw new RuntimeException(e);
     }
-    return tsk._xx.inverse().times(tsk._xy);
+    Matrix xx;
+    try {xx = tsk._xx.inverse();}catch(RuntimeException e){throw new GLRException("can not perform LSM on this data, obtained matrix is singular!");}
+    return xx.times(tsk._xy);
   }
 
   // wrapper around one row of data for use in WLR
@@ -252,7 +262,7 @@ public class GLinearRegression {
     public double  y;
 
     public String toString() {
-      return "x = " + x + ", wx = " + wx + ", y = " + y;
+      return "x = " + x + ", wx' = " + wx.transpose() + ", y = " + y;
     }
     @Override public Object clone(){
       return new Row(this);
@@ -266,7 +276,7 @@ public class GLinearRegression {
     Row2VecMap _rmap;
 
     public GLRTask(Row2VecMap rmap) {
-      _rmap = (Row2VecMap)rmap.clone();
+      _rmap = rmap.clone();
     }
 
 
@@ -290,7 +300,7 @@ public class GLinearRegression {
       _xy = new Matrix(xlen,1);
       _xx = new Matrix(xlen,xlen);
       // _rmap gets shared among threads ->  create thread's private copy
-      Row2VecMap rmap = (Row2VecMap)_rmap.clone();
+      Row2VecMap rmap = _rmap.clone();
       rmap.setRawData(ary, bits);
       for( Row r : rmap ) {
         _xx.plusEquals(r.wx.times(r.x));

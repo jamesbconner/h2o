@@ -1,9 +1,9 @@
 package hex;
 
+import hex.GLinearRegression.GLRException;
 import hex.GLinearRegression.Row;
-
-
 import water.*;
+import water.web.H2OPage;
 import Jama.Matrix;
 
 /**
@@ -68,7 +68,7 @@ public class LogisticRegression {
       double dgmu = gPrime(mu);
       r.y = gmu + (r.y - mu)*dgmu;
       // compuet the weights (inverse of variance of z)
-            double var = dgmu*dgmu*vary;
+      double var = dgmu*dgmu*vary;
       r.wx.timesEquals(1/var);
       // step 3 performed by GLR
       return r;
@@ -92,26 +92,10 @@ public class LogisticRegression {
       return off;
     }
   }
-  static final String html_head = "<table>";
 
-  static String getColName(int colId, ValueArray ary){
-    String colName = ary.col_name(colId);
-    if(colName == null) colName = "Column " + colId;
-    return colName;
-  }
-  public static String web_main(ValueArray ary, int [] xColIds, int yColId){
-    Matrix beta = solve(ary._key,xColIds,yColId);
-    // add in the variable names
-    StringBuilder bldr = new StringBuilder();
-    bldr.append(html_head);
-    bldr.append("<tr><td>Intercept</td>");
-    for(int i = 0; i < xColIds.length; ++i)
-      bldr.append("<td>" + getColName(xColIds[i], ary)  + "</td>");
-    bldr.append("</tr><td>" +  beta.get(xColIds.length, 0));
-    for(int i = 0; i < xColIds.length; ++i)
-      bldr.append("<td>" + beta.get(i,0) + "</td>");
-    bldr.append("</tr></table>");
-    return bldr.toString();
+
+  public static double [] web_main(Key aryKey, int [] xColIds, int yColId){
+    return solve(aryKey,xColIds,yColId).getColumnPackedCopy();
   }
 
   public static Matrix solve(Key aryKey, int [] xColIds, int yColId) {
@@ -123,9 +107,17 @@ public class LogisticRegression {
     double norm = diff.transpose().times(diff).get(0, 0);
 
     while(norm > 1e-5){
+      //System.out.println("beta = " + newBeta.transpose());
       oldBeta = newBeta;
       newBeta = GLinearRegression.solveGLR(aryKey, new LogitMap(xColIds, yColId,oldBeta));
+      for(int i = 0; i < newBeta.getRowDimension(); ++i){
+        if(Double.isInfinite(newBeta.get(i,0)) || Double.isNaN(newBeta.get(i,0))){
+          System.err.println("[LogisticRegression] got invalid beta during iteration, returning previous value");
+          return oldBeta;
+        }
+      }
       diff = newBeta.minus(oldBeta);
+      //System.out.println("beta = " + newBeta.transpose() + ", diff = "  + diff);
       norm = diff.transpose().times(diff).get(0, 0);
     }
     return newBeta;
