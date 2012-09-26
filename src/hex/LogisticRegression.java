@@ -34,7 +34,7 @@ public class LogisticRegression {
       _beta = initialGuess;
     }
 
-    @Override public Object clone(){
+    @Override public LogitMap clone(){
       return new LogitMap(this);
     }
 

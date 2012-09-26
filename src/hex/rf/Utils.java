@@ -92,4 +92,5 @@ public class Utils {
     return result;
   }
 
+  public static void pln(String s) { System.out.println(s); }
 }
