@@ -7,13 +7,18 @@ class JUnit(unittest.TestCase):
         h2o.clean_sandbox()
 
     def run_junit(self, javaClass, timeout=None):
+        # we don't have the port or ip configuration here 
+        # that util/h2o.py does? Keep this in synch with spawn_h2o there.
+        # also don't have --nosigar here?
         (ps, stdout, stderr) = h2o.spawn_cmd(javaClass, [
-                'java', '-ea',
+                'java', 
                 '-Dh2o.arg.ice_root='+h2o.tmp_dir('ice.'),
-                '-jar', h2o.find_file('build/h2o.jar'),
+                '-javaagent:' + h2o.find_file('build/h2o.jar'),
+                '-ea', '-jar', h2o.find_file('build/h2o.jar'),
                 '-mainClass', 'org.junit.runner.JUnitCore',
                 javaClass
         ])
+
         rc = ps.wait(timeout)
         out = file(stdout).read()
         err = file(stderr).read()
