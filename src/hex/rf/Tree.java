@@ -1,6 +1,6 @@
-package hexlytics.rf;
+package hex.rf;
 
-import hexlytics.rf.Data.Row;
+import hex.rf.Data.Row;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -18,7 +18,7 @@ public class Tree extends CountedCompleter {
   static  boolean THREADED = false;  // multi-threaded ?
 
   static public enum StatType { ENTROPY, GINI };
-    
+
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
   final int _data_id;           // Data-subset identifier (so trees built on this subset are not validated on it)
@@ -28,12 +28,12 @@ public class Tree extends CountedCompleter {
   INode _tree;                  // Root of decision tree
   final int  _seed;             // Pseudo random seeds
   ThreadLocal<Statistic>[] stats_  = new ThreadLocal[2];
-  
+
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed) {
     _type = stat;
     _data = data;
-    _data_id = data.data_._data_id;
+    _data_id = data.dataId();
     _max_depth = max_depth;
     _min_error_rate = min_error_rate;
     _features = features;
@@ -69,9 +69,9 @@ public class Tree extends CountedCompleter {
   private Statistic getStatistic(int index, Data data) {
     Statistic result = stats_[index].get();
     if( result==null ) {
-      result  = _type == StatType.GINI ? 
+      result  = _type == StatType.GINI ?
           new GiniStatistic   (data,_features, _seed) :
-          new EntropyStatistic(data,_features, _seed); 
+          new EntropyStatistic(data,_features, _seed);
       stats_[index].set(result);
     }
     result.reset(data);
@@ -112,9 +112,10 @@ public class Tree extends CountedCompleter {
       Statistic left = getStatistic(0,data_); // first get the statistics
       Statistic rite = getStatistic(1,data_);
       Data[] res = new Data[2]; // create the data, node and filter the data
-      SplitNode nd = split_.isExclusion() ? 
-        new ExclusionNode(split_._column, split_._split, data_.data_) :
-        new SplitNode    (split_._column, split_._split, data_.data_);
+      int c = split_._column, s = split_._split;
+      SplitNode nd = split_.isExclusion() ?
+        new ExclusionNode(c, s, data_.colName(c), data_.unmap(c,s)) :
+        new SplitNode    (c, s, data_.colName(c), data_.unmap(c, s) );
       data_.filter(nd,res,left,rite);
 
       FJBuild fj0 = null, fj1 = null;
@@ -166,72 +167,21 @@ public class Tree extends CountedCompleter {
     int size_impl( ) { return 2; } // 2 bytes in serialized form
   }
 
-  // Inner node of the decision tree. Contains a list of subnodes and the
-  // classifier to be used to decide which subtree to explore further.
-  static class Node extends INode {
-    INode _l, _r;
-    final DataAdapter _dapt;
-    final int _column;
-    final float _value;
-    int _depth, _leaves;
-    public Node(int column, float value, DataAdapter dapt) {
-      _column= column;
-      _value = value;
-      _dapt  = dapt;
-    }
-    public int classify(Row row) { return (row.getS(_column)<=_value ? _l : _r).classify(row);  }
-    public int depth() {
-      if( _depth != 0 ) return _depth;
-      return (_depth = Math.max(_l.depth(), _r.depth()) + 1);
-    }
-    public int leaves() {
-      if( _leaves != 0 ) return _leaves;
-      return (_leaves=_l.leaves() + _r.leaves());
-    }
-    // Computes the original split-value, as a float.  Returns a float to keep
-    // the final size small for giant trees.
-    private final float split_value() { return  _dapt.unmap(_column, _value); }
-    private final C column() { return _dapt.c_[_column]; } // Get the column in question
-    public StringBuilder toString( StringBuilder sb, int n ) {
-      C c = column();           // Get the column in question
-      sb.append(c.name_).append('<').append(Utils.p2d(split_value())).append(" (");
-      if( sb.length() > n ) return sb;
-      _l.toString(sb,n);
-      if( sb.length() > n ) return sb;
-      _r.toString(sb.append(','),n);
-      if( sb.length() > n ) return sb;
-      return sb.append(')');
-    }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    void write( Stream bs ) {
-      bs.set1('(');             // Node indicator
-      assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
-      bs.set2(_column);
-      bs.set4f(split_value());
-      int skip = _l.size(); // Drop down the amount to skip over the left column
-      if( skip <= 254 ) bs.set1(skip);
-      else { bs.set1(0); bs.set3(skip); }
-      _l.write(bs);
-      _r.write(bs);
-    }
-    public int size_impl(  ) {
-      // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
-      return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
-    }
-  }
 
   /** Gini classifier node. */
   static class SplitNode extends INode {
-    final DataAdapter _dapt;
     final int _column;
     final int _split;
     INode _l, _r;
     int _depth, _leaves, _size;
+    String _name;
+    float _originalSplit;
 
-    public SplitNode(int column, int split, DataAdapter dapt) {
-      _dapt = dapt;
+    public SplitNode(int column, int split, String columnName, float originalSplit) {
+      _name = columnName;
       _column = column;
       _split = split;
+      _originalSplit = originalSplit;
     }
 
     @Override int classify(Row r) {
@@ -247,17 +197,13 @@ public class Tree extends CountedCompleter {
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
-    protected final float split_value() { return  _dapt.unmap(_column,_split); }
-    protected final C column() {
-      return _dapt.c_[_column]; // Get the column in question
-    }
+    protected final float split_value() { return _originalSplit; }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     public String toString() {
       return "S "+_column +"<=" + _split + " ("+_l+","+_r+")";
     }
     public StringBuilder toString( StringBuilder sb, int n ) {
-      C c = column();           // Get the column in question
-      sb.append(c.name_).append("<=").append(Utils.p2d(split_value())).append(" (");
+      sb.append(_name).append("<=").append(Utils.p2d(split_value())).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
       if( sb.length() > n ) return sb;
@@ -287,8 +233,8 @@ public class Tree extends CountedCompleter {
    * right.
    */
   static class ExclusionNode extends SplitNode {
-    public ExclusionNode(int column, int split, DataAdapter dapt) {
-      super(column,split,dapt);
+    public ExclusionNode(int column, int split, String colName, float origSplit) {
+      super(column,split,colName,origSplit);
     }
     @Override int classify(Row r) {
       return r.getColumnClass(_column) == _split ? _l.classify(r) : _r.classify(r);
@@ -298,8 +244,7 @@ public class Tree extends CountedCompleter {
       return "E "+_column +"==" + _split + " ("+_l+","+_r+")";
     }
     public StringBuilder toString( StringBuilder sb, int n ) {
-      C c = column();           // Get the column in question
-      sb.append(c.name_).append("==").append(_split).append(" (");
+      sb.append(_name).append("==").append(_split).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
       if( sb.length() > n ) return sb;

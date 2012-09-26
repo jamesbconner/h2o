@@ -1,4 +1,4 @@
-package hexlytics.rf;
+package hex.rf;
 
 import java.io.*;
 import java.util.Arrays;
@@ -101,8 +101,8 @@ public class Confusion extends MRTask {
   private Confusion() {}
 
   public static class Serializer extends RemoteTaskSerializer<Confusion> {
-    @Override public int wire_len(Confusion c) { 
-      return 
+    @Override public int wire_len(Confusion c) {
+      return
         4+                               // _ntrees
         4+                               // _ntrees0
         4+                               // _maxtrees
@@ -129,7 +129,7 @@ public class Confusion extends MRTask {
       off = c._votes   .write(buf,off);
       return off;
     }
-    @Override public Confusion read( byte[] buf, int off ) { 
+    @Override public Confusion read( byte[] buf, int off ) {
       Confusion c = new Confusion();
       c._ntrees  = UDP.get4(buf,(off+=4)-4);
       c._ntrees0 = UDP.get4(buf,(off+=4)-4);
@@ -192,22 +192,19 @@ public class Confusion extends MRTask {
     toKey();
   }
 
-  public String toString() {
-    throw H2O.unimpl();
-  }
-
-  // Write the Confusion to a random Key
+  // Write the Confusion to its key
   public Key toKey() {
     RemoteTaskSerializer sc = RTSerializationManager.get(Confusion.class);
-    byte[] buf = new byte[sc.wire_len(this)];
-    sc.write(this,buf,0);
+    Stream s = new Stream(sc.wire_len(this));
+    sc.write(this, s);
     Key key = Key.make("ConfusionMatrix of "+_arykey);
-    DKV.put(key,new Value(key,buf));
+    DKV.put(key, new Value(key, s._buf));
     return key;
   }
+
   public static Confusion fromKey( Key key ) {
     RemoteTaskSerializer sc = (RTSerializationManager.get(Confusion.class));
-    Confusion c = (Confusion)sc.read(DKV.get(key).get(),0);
+    Confusion c = (Confusion)sc.read(new Stream(DKV.get(key).get()));
     c.shared_init();            // Shared init
     return c;
   }
@@ -239,7 +236,7 @@ public class Confusion extends MRTask {
     for( int i=0; i<rows; i++ ) {
       boolean valid = true;
       for( int k=0; k<num_cols; k++ )
-        if( !_ary.valid(dbits,i,rowsize,k) ) 
+        if( !_ary.valid(dbits,i,rowsize,k) )
           valid = false;
       if( valid == false ) continue; // Skip broken rows
 
@@ -286,14 +283,6 @@ public class Confusion extends MRTask {
     } else {                      // Else need to save partial vote results
       DKV.put(vkey,new Value(vkey,vbits));
     }
-  }
-
-  private final long dumap() {
-    long sum=0;
-    for( int i=0; i<_matrix.length; i++ )
-      for( int j=0; j<_matrix.length; j++ )
-        sum += _matrix[i][j];
-    return sum;
   }
 
   // Reduction just combines the confusion matrices

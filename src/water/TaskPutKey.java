@@ -58,7 +58,9 @@ public class TaskPutKey extends DFutureTask<Object> {
     int len = _val._max < 0 ? 0 : _val._max;
     if( off+_key.wire_len()+_val.wire_len(len) <= MultiCast.MTU ) { // Small Value!
       off = _key.write(buf,off);
-      off = _val.write(buf,off,len);
+      Stream s = new Stream(buf, off);
+      _val.write(s, len);
+      off = s._off;
     } else {
       // Big Object goes via TCP!  Note that this is synchronous right now: we
       // block in the TCP write call until we're done.  Since TCP is reliable
@@ -79,16 +81,14 @@ public class TaskPutKey extends DFutureTask<Object> {
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
-      int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
-      if( p.getLength() > off ) { // Empty TPKs are actual large Values sent via TCP
-        Key key = Key.read(buf,off);
-        off += key.wire_len();
-        Value val = Value.read(buf,off,key);
-        update(key,val,sender);
-        off = UDP.SZ_TASK;              // Skip udp byte and port and task#
+      if( p.getLength() > UDP.SZ_TASK ) { // Empty TPKs are actual large Values sent via TCP
+        Stream s = new Stream(buf, UDP.SZ_TASK);
+        Key key = Key.read(s);
+        Value val = Value.read(s, key);
+        update(key, val, sender);
       }
       // Send it back
-      reply(p,off,sender);
+      reply(p, UDP.SZ_TASK, sender);
     }
 
     // TCP large K/V RECEIVE on the target from the remote.  Note that 'this'

@@ -1,9 +1,9 @@
 package test;
 
 import static junit.framework.Assert.assertEquals;
-import hexlytics.rf.Confusion;
-import hexlytics.rf.DRF;
-import hexlytics.rf.Tree.StatType;
+import hex.rf.Confusion;
+import hex.rf.DRF;
+import hex.rf.Tree.StatType;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -54,7 +54,7 @@ public class DatasetCornerCasesTest {
     StatType statType = StatType.values()[gini];
     
     // Start the distributed Random Forest
-    DRF drf = hexlytics.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
+    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
     
     // Create incremental confusion matrix
     Confusion confusion = new Confusion( drf._treeskey, val, ntrees*H2O.CLOUD.size());

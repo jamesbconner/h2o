@@ -17,7 +17,7 @@ public class NodeShuffle extends H2OPage {
     if( sfun == null ) sfun = "Random";
 
     // Shuffle!
-    String res = hexlytics.NodeShuffle.run(key2,vary,sfun);
+    String res = hex.NodeShuffle.run(key2,vary,sfun);
     return res;
   }
 }

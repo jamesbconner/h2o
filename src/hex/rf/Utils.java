@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package hexlytics.rf;
+package hex.rf;
 
 import java.text.DecimalFormat;
 import java.util.Random;
@@ -92,4 +92,5 @@ public class Utils {
     return result;
   }
 
+  public static void pln(String s) { System.out.println(s); }
 }

@@ -1,8 +1,6 @@
 package water.web;
 
-import hexlytics.rf.CodeTreePrinter;
-import hexlytics.rf.GraphvizTreePrinter;
-import hexlytics.rf.Tree;
+import hex.rf.*;
 
 import java.io.File;
 import java.io.PrintWriter;

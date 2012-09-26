@@ -6,6 +6,10 @@ import java.net.SocketException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Assert;
+
+import com.google.common.io.Closeables;
+
 import water.serialization.RTSerializationManager;
 import water.serialization.RemoteTaskSerializer;
 
@@ -241,12 +245,13 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
           RemoteTaskSerializer<RemoteTask> remoteTaskSerializer = RTSerializationManager.get(t.getClass());
           remoteTaskSerializer.write(t, dos);
         } else if( arg instanceof Value ) {
+          // TODO: watch out for endianness here
+          Value v = (Value) arg;
           // For Values, support a pre-loaded byte[]
           if( i < args.length-1 && args[i+1] instanceof byte[] ) {
-            ((Value)arg).write(dos,Integer.MAX_VALUE,(byte[])args[i+1]);
-            i++;
+            v.write(dos, v._max, (byte[])args[++i]);
           } else {
-            ((Value)arg).write(dos,Integer.MAX_VALUE);
+            v.write(dos, v._max);
           }
         } else if( arg instanceof String ) {
           byte[] b = ((String)arg).getBytes();
@@ -263,20 +268,17 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       InputStream is = sock.getInputStream();
       int ack = is.read(); // Read 1 byte of ack
       if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
-      sock.close();
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
-      Thread.currentThread().setPriority(old_prior);
       return true;
     } catch( IOException e ) {
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
-      Thread.currentThread().setPriority(old_prior);
-      try { if( sock != null ) sock.close(); }
-      catch( IOException e2 ) { /*no msg for error on closing broken socket */}
       // Be silent for SocketException; we get this if the remote dies and we
       // basically expect them.
       if( !(e instanceof SocketException) ) // We get these if the remote dies mid-write
         System.err.println("tcp socket failed "+e);
       return false;
+    } finally {
+      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
+      Thread.currentThread().setPriority(old_prior);
+      try { if( sock != null ) sock.close(); } catch(IOException e) { }
     }
   }
 

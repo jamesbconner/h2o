@@ -1,4 +1,4 @@
-package hexlytics.rf;
+package hex.rf;
 
 import java.io.BufferedReader;
 import java.io.File;
