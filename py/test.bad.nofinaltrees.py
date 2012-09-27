@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import util.h2o as h2o
+import h2o
 
 def runRF(n,trees,csvPathname,timeoutSecs):
     put = n.put_file(csvPathname)

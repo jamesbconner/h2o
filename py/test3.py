@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import util.h2o as h2o
+import h2o
 
 # a key gets generated afte a put.
 def putFile(n,csvPathname):
