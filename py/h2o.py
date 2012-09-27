@@ -269,49 +269,10 @@ class H2O:
         except psutil.TimeoutExpired:
             return None
 
-    # FIX! might enhance others to be complete around errors, but just adding here for
-    # now while debugging cloud teardown. maybe simplify in future when more is known.
-    # May be lots of cases of unknown cloud state we need to gracefully handle
-    def terminate(self, timeout=2):
+    def terminate(self):
         self.__check_spawn()
-
-        # send SIGKILL. in H2O, killing one node, may make the other nodes crash.
-        try:
-            self.rc = self.ps.kill()
-
-        # put in placeholders for all exceptions..just in case..make debug easier? 
-        except psutil.AccessDenied:
-            print "AccessDenied in terminate ps.kill"
-            self.rc = None # ?
-
-        except psutil.NoSuchProcess:
-            print "NoSuchProcess in terminate ps.kill. Maybe this node died because of prior other node terminate?"
-            self.rc = None # ?
-
-        # Check if we get a clean end after we send the kill?
-        # if process is already terminated, but we don't get NoSuchProcess, we get None rc
-        try:
-            self.rc = self.ps.wait(timeout)
-
-        # put in placeholders for all exceptions..just in case..make debug easier? 
-        except psutil.AccessDenied:
-            print "AccessDenied in terminate ps.wait"
-            self.rc = None # ?
-
-        except psutil.NoSuchProcess:
-            print "NoSuchProcess in terminate ps.wait. Maybe node died due to prior other node terminate?"
-            self.rc = 0 # ? expect it to be dead now
-
-        # only on ps.wait
-        except TimeoutExpired:
-            print "TimeoutExpired in terminate ps.wait"
-            self.rc = None # ?
-
-        else:
-            assert ((self.rc==0) | (self.rc==9)),"expecting to see exit code 0 or 9 in terminate: %d" % self.rc
-
-        # FIX! should use these instead of numbers when checking exit codes
-        # windows only deals with kill?
-        # signal.SIGTERM
-        # signal.SIGKILL
-        return self.rc
+        if not self.wait():
+            self.ps.kill()
+        if not self.wait():
+            self.ps.terminate()
+        return self.wait()
