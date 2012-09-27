@@ -262,4 +262,29 @@ public class RTSerGenHelperTest {
       Assert.assertArrayEquals(exp, got, 0.0);
     }
   }
+
+
+  @Test public void testLongArrayArray() throws Exception {
+    long[][][] tests = {
+      { { 0, 1, 2 },
+        { },
+        null,
+        { 6, -1, 19, -49 },
+        { Long.MAX_VALUE, Long.MIN_VALUE}
+      },
+      null,
+      { },
+    };
+    long[][] got;
+
+    for( long[][] exp : tests) {
+      RTSerGenHelpers.writeLongArrayArray(stream(), exp);
+      got = RTSerGenHelpers.readLongArrayArray(stream());
+      Assert.assertArrayEquals(exp, got);
+
+      RTSerGenHelpers.writeLongArrayArray(dos(), exp);
+      got = RTSerGenHelpers.readLongArrayArray(dis());
+      Assert.assertArrayEquals(exp, got);
+    }
+  }
 }

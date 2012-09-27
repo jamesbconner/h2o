@@ -27,6 +27,8 @@ public abstract class RTSerGenHelpers {
     SUFFIX.put(long[].class,   "LongArray");
     SUFFIX.put(float[].class,  "FloatArray");
     SUFFIX.put(double[].class, "DoubleArray");
+
+    SUFFIX.put(long[][].class,   "LongArrayArray");
   }
 
   static Method len(Class<?> c) {
@@ -247,6 +249,42 @@ public abstract class RTSerGenHelpers {
     for(int i = 0; i < len; ++i) doubles[i] = s.readDouble();
     return doubles;
   }
+
+  public static int lenLongArrayArray(long[][] longs) {
+    int len = 4;
+    if( longs != null ) for( long[] l : longs ) len += lenLongArray(l);
+    return len;
+  }
+  public static void writeLongArrayArray(Stream s, long[][] longs) {
+    if(longs == null) s.set4(-1);
+    else {
+      s.set4(longs.length);
+      for( long[] l : longs ) writeLongArray(s, l);
+    }
+  }
+  public static void writeLongArrayArray(DataOutputStream s, long[][] longs) throws IOException {
+    if(longs == null) s.writeInt(-1);
+    else {
+      s.writeInt(longs.length);
+      for( long[] l : longs ) writeLongArray(s, l);
+    }
+  }
+  public static long[][] readLongArrayArray(Stream s) {
+    int len = s.get4();
+    if(len < 0) return null;
+    long[][] longs = new long[len][];
+    for(int i = 0; i < len; ++i) longs[i] = readLongArray(s);
+    return longs;
+  }
+  public static long[][] readLongArrayArray(DataInputStream s) throws IOException {
+    int len = s.readInt();
+    if(len < 0) return null;
+    long[][] longs = new long[len][];
+    for(int i = 0; i < len; ++i) longs[i] = readLongArray(s);
+    return longs;
+  }
+
+
 
   public static int lenKey(Key k) { return 1 + (k == null ? 0 : k.wire_len()); }
   public static Key readKey(Stream s) {
