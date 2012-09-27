@@ -1,5 +1,5 @@
 Main-Class: init.Boot
-Premain-Class: weaver.serialization.RTWeaver
-Agent-Class: water.serialization.RTWeaver
+Premain-Class: init.Boot
+Agent-Class: init.Boot
 Can-Redefine-Classes: true
 Can-Retransform-Classes: true

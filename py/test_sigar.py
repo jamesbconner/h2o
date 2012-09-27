@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import util.h2o as h2o
+import h2o
 
 class StartUp(unittest.TestCase):
     def test_concurrent_startup(self):

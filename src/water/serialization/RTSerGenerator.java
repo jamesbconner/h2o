@@ -22,7 +22,6 @@ import com.google.common.collect.*;
  */
 public class RTSerGenerator implements Opcodes {
   private static final Type HELPER = Type.getType(RTSerGenHelpers.class);
-  private static final Set<Class<?>> SUPPORTED_CLASSES = Sets.newHashSet();
 
   private static final Type   SER;
   private static final Method SER_R_STREAM;
@@ -43,8 +42,6 @@ public class RTSerGenerator implements Opcodes {
       SER_W_STREAM      = c.getDeclaredMethod("write", RemoteTask.class, Stream.class);
       SER_W_DATA_STREAM = c.getDeclaredMethod("write", RemoteTask.class, DataOutputStream.class);
       SER_W_BYTES       = c.getDeclaredMethod("write", RemoteTask.class, byte[].class, int.class);
-
-      SUPPORTED_CLASSES.addAll(RTSerGenHelpers.SUFFIX.keySet());
     } catch(Throwable t) {
       throw Throwables.propagate(t);
     }
@@ -54,6 +51,13 @@ public class RTSerGenerator implements Opcodes {
   private final Field[]        _fields;
   private final Constructor<?> _ctor;
   private final boolean        _noArgCtor;
+
+  private boolean isSupportedClass(Class<?> cls) {
+    if( cls.getEnumConstants()          != null ) return true;
+    if( RTSerGenHelpers.SUFFIX.get(cls) != null ) return true;
+//    if( cls.isArray() ) return isSupportedClass(cls.getComponentType());
+    return false;
+  }
 
   public RTSerGenerator(Class<?> c) throws SecurityException {
     if( !RemoteTask.class.isAssignableFrom(c) ) {
@@ -76,16 +80,14 @@ public class RTSerGenerator implements Opcodes {
     Class<?>[] fieldTypes = new Class<?>[_fields.length];
     for( int i = 0; i < _fields.length; ++i ) {
       fieldTypes[i] = _fields[i].getType();
-      if( fieldTypes[i].getEnumConstants() != null) {
-        // we give enums special handling
-      } else if( !SUPPORTED_CLASSES.contains(fieldTypes[i]) ) {
+      ctorRequiresArgs |= Modifier.isFinal(_fields[i].getModifiers());
+      if( !isSupportedClass(fieldTypes[i]) ) {
         throw new RuntimeException(MessageFormat.format(
             "{0}: Field {1} has unsupported type {2}",
             c.getName(),
             _fields[i].getName(),
             fieldTypes[i]));
       }
-      ctorRequiresArgs |= Modifier.isFinal(_fields[i].getModifiers());
     }
     Constructor<?> ctor = null;
     try {

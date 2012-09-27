@@ -218,40 +218,9 @@ public class TaskStore2HDFS extends RemoteTask {
     }
   }
 
-  @RTSerializer(AtomicMax.Serializer.class)
   public static class AtomicMax extends Atomic {
     private final long _myVal;
     public AtomicMax(long val) { _myVal = val; }
-
-    public static class Serializer extends RemoteTaskSerializer<AtomicMax> {
-      // By default, nothing sent over with the function (except the target
-      // Key).
-      @Override
-      public int wire_len(AtomicMax a) {
-        return 8;
-      }
-
-      @Override
-      public int write(AtomicMax a, byte[] buf, int off) {
-        UDP.set8(buf, off, a._myVal);
-        return off + 8;
-      }
-
-      @Override
-      public void write(AtomicMax a, DataOutputStream dos) throws IOException {
-        dos.writeLong(a._myVal);
-      }
-
-      @Override
-      public AtomicMax read(byte[] buf, int off) {
-        return new AtomicMax(UDP.get8(buf, off));
-      }
-
-      @Override
-      public AtomicMax read(DataInputStream dis) throws IOException {
-        return new AtomicMax(dis.readLong());
-      }
-    }
 
     @Override
     public byte[] atomic(byte[] bits) {

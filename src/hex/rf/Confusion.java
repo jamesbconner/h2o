@@ -1,13 +1,9 @@
 package hex.rf;
 
-import java.io.*;
-import java.util.Arrays;
-import java.util.UUID;
-import java.util.Random;
+import java.util.*;
+
 import water.*;
-import water.serialization.RTSerializer;
-import water.serialization.RTSerializationManager;
-import water.serialization.RemoteTaskSerializer;
+import water.serialization.*;
 
 /**
  * Confusion Matrix.  Incrementally computes a Confusion Matrix for a
@@ -16,8 +12,8 @@ import water.serialization.RemoteTaskSerializer;
  * any), and report a matrix.  Cheap if all trees already computed.
  * @author cliffc
  */
-@RTSerializer(Confusion.Serializer.class)
 public class Confusion extends MRTask {
+
 
   // A KEY_OF_KEYS of Trees, that may incrementally grow over time.
   // 0 <= _ntrees < _ntrees0 <= #keys_in_treeskey <= _maxtrees;
@@ -27,13 +23,13 @@ public class Confusion extends MRTask {
   public int _maxtrees;         // Expected final tree max
 
   // Tree Keys
-  public Key[] _tkeys;          // Array of Tree-Keys
-  public byte[][] _tbits;       // Array of Tree bytes
+  @RTLocal public Key[] _tkeys;          // Array of Tree-Keys
+  @RTLocal public byte[][] _tbits;       // Array of Tree bytes
 
   // Dataset we are building the matrix on.  The classes must be in the last
   // column, and the column count must match the Trees.
   public Key _arykey;           // The dataset key
-  public ValueArray _ary;       // The dataset array
+  @RTLocal public ValueArray _ary;       // The dataset array
   public int _N;                // Number of classes
 
   // The Confusion Matrix - a NxN matrix of [actual] -vs- [predicted] classes,
@@ -50,7 +46,10 @@ public class Confusion extends MRTask {
   // the cost is 2x7 classes or 14 bytes per row on top of 64 bytes per row for
   // the data for an overhead of only 18%.
   public Key _votes;
-  public Key[] _vkeys;
+  @RTLocal public Key[] _vkeys;
+
+  // no-arg constructor for use by the serializers
+  public Confusion() {}
 
   public Confusion( Key treeskey, ValueArray ary, int maxtrees ) {
     _ntrees = 0;                // Processed so far
@@ -96,58 +95,6 @@ public class Confusion extends MRTask {
     DKV.put(_votes, new Value(_votes,Arrays.copyOf(bits,off)));
     // Finish off with the shared init
     shared_init();
-  }
-  // Private no-arg constructor for use by the serializers
-  private Confusion() {}
-
-  public static class Serializer extends RemoteTaskSerializer<Confusion> {
-    @Override public int wire_len(Confusion c) {
-      return
-        4+                               // _ntrees
-        4+                               // _ntrees0
-        4+                               // _maxtrees
-        4+                               // _N
-        1+                               // _matrix flag
-        (c._matrix==null?0:c._N*c._N*8)+ // _matrix
-        c._treeskey.wire_len()+          // _treeskey
-        c._arykey  .wire_len()+          // _arykey
-        c._votes   .wire_len()+          // _votes
-        0;
-    }
-    @Override public int write( Confusion c, byte[] buf, int off ) {
-      off += UDP.set4(buf,off,c._ntrees);
-      off += UDP.set4(buf,off,c._ntrees0);
-      off += UDP.set4(buf,off,c._maxtrees);
-      off += UDP.set4(buf,off,c._N);
-      buf[off++] = (byte)((c._matrix == null)?0:1);
-      if( c._matrix != null )
-        for( int i=0; i<c._N; i++ )
-          for( int j=0; j<c._N; j++ )
-            off += UDP.set8(buf,off,c._matrix[i][j]);
-      off = c._treeskey.write(buf,off);
-      off = c._arykey  .write(buf,off);
-      off = c._votes   .write(buf,off);
-      return off;
-    }
-    @Override public Confusion read( byte[] buf, int off ) {
-      Confusion c = new Confusion();
-      c._ntrees  = UDP.get4(buf,(off+=4)-4);
-      c._ntrees0 = UDP.get4(buf,(off+=4)-4);
-      c._maxtrees= UDP.get4(buf,(off+=4)-4);
-      c._N       = UDP.get4(buf,(off+=4)-4);
-      if( buf[off++] == 1 ) {
-        c._matrix = new long[c._N][c._N];
-        for( int i=0; i<c._N; i++ )
-          for( int j=0; j<c._N; j++ )
-            c._matrix[i][j] = UDP.get8(buf,(off+=8)-8);
-      }
-      c._treeskey= Key.read(buf,off);  off += c._treeskey.wire_len();
-      c._arykey  = Key.read(buf,off);  off += c._arykey  .wire_len();
-      c._votes   = Key.read(buf,off);  off += c._votes   .wire_len();
-      return c;
-    }
-    @Override public void write( Confusion t, DataOutputStream dos ) { throw new Error("do not call"); }
-    @Override public Confusion read ( DataInputStream dis ) { throw new Error("do not call"); }
   }
 
   // Shared init: for new Confusions, for remote Confusions
