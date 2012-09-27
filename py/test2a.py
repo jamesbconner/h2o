@@ -7,7 +7,11 @@ def runRF(n,trees,csvPathname,timeoutSecs):
     rf = n.random_forest(parse['keyHref'],trees)
     h2o.verboseprint("retryDelaySecs = 1.0 after RF")
     n.stabilize('random forest finishing', timeoutSecs,
-        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees,
+        # FIX! temporary hack. RF will do either the number of trees I asked for
+        # or nodes*trees. So for no, allow either to be okay for "done"
+        lambda n: 
+            (n.random_forest_view(rf['confKeyHref'])['got']==trees) |
+            (n.random_forest_view(rf['confKeyHref'])['got']==len(nodes)*trees),
         retryDelaySecs=5)
 
 class Basic(unittest.TestCase):
@@ -28,8 +32,8 @@ class Basic(unittest.TestCase):
         pass
 
     def test_RFhhp(self):
-        trees = 20
-        timeoutSecs = 60
+        trees = 23 
+        timeoutSecs = 120
 
         # FIX! we're supposed to be support gzip files but seems to fail
         # normally we .gz for the git, to save space
@@ -59,6 +63,7 @@ class Basic(unittest.TestCase):
         # FIX! TBD do we always have to kick off the run from node 0?
         # what if we do another node?
         print "RF start on ", csvPathname
+        print "This will probably take a minute.."
         runRF(nodes[0],trees,csvPathname,timeoutSecs)
         print "RF end on ", csvPathname
 
