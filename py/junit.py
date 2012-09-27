@@ -40,6 +40,9 @@ class JUnit(unittest.TestCase):
     def testParserTest(self):
         self.run_junit('test.ParserTest')
 
+    def testRTSerGenHelperTest(self):
+        self.run_junit('test.RTSerGenHelperTest')
+
     def testRFMarginalCasesTest(self):
         nodes = []
         try:
