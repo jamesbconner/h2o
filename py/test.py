@@ -13,6 +13,7 @@ class Basic(unittest.TestCase):
     def setUpClass(cls):
         h2o.clean_sandbox()
         global nodes
+	nodes = 0
         nodes = h2o.build_cloud(node_count=3)
 
     @classmethod
