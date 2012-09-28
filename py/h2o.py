@@ -128,9 +128,9 @@ def tear_down_cloud(node_list=None):
         node_list[:] = []
 
 def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
-    node.stabilize('cloud auto detect', timeoutSecs,
-        lambda n: n.get_cloud()['cloud_size'] == node_count,
-        retryDelaySecs)
+    node.stabilize(lambda n: n.get_cloud()['cloud_size'] == node_count,
+            error=('A cloud of size %d' % node_count),
+            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
 class H2O:
     def __url(self, loc):
@@ -198,45 +198,53 @@ class H2O:
         verboseprint("random_forest_view:", a)
         return a
 
-    def stabilize(self, msg, timeoutSecs, func, retryDelaySecs=0.5):
+    def stabilize(self, test_func, error,
+            timeoutSecs, retryDelaySecs=0.5):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:
-        msg         -- A message for displaying errors to users
-        retryDelaySecs -- How long in seconds to wait before retrying
-        func        -- A function that will be called with the node as an argument.
-                    -- return True for success or False for continue waiting
-        timeoutSecs -- How long in seconds to keep trying before declaring a failure
+        test_func      -- A function that will be run repeatedly
+        error          -- A function that will be run to produce an error message
+                          it will be called with (node, timeTakenSecs, numberOfRetries)
+                    OR
+                       -- A string that will be interpolated with a dictionary of
+                          { 'timeTakenSecs', 'numberOfRetries' }
+        timeoutSecs    -- How long in seconds to keep trying before declaring a failure
+        retryDelaySecs -- How long to wait between retry attempts
         '''
-
         start = time.time()
         retryCount = 0
         while time.time() - start < timeoutSecs:
-            if func(self):
+            if test_func(self):
                 break
-            retryCount += 1
-            verboseprint("stabilize retry:", retryCount)
-            # tests should call with retry delay at maybe 1/2 expected times 
-            # so retrying more than 12 times is an error. easier to debug?
-            if retryCount > 12:
-                raise Exception("stabilize retried too much. Bug or extend retry delay?: %d\n" % (retryCount))
-
-            verboseprint("sleep:", retryDelaySecs)
             time.sleep(retryDelaySecs)
+            retryCount += 1
         else:
-            raise Exception('Timeout waiting for condition: ' + msg)
+            timeTakenSecs = time.time() - start
+            if isinstance(error, type('')):
+                raise Exception('%s failed after %.2 seconds having retried %d times' % (
+                            error, timeTakenSecs, numberOfRetries))
+            else:
+                msg = error(self, timeTakenSecs, retryCount)
+            raise Exception(msg)
 
-    def __is_alive(self, s2):
-        assert self == s2
-        try:
-            n = self.get_cloud()
-            verboseprint("__isalive:", n)
-            return True
-        except requests.ConnectionError, e:
-            verboseprint("__isalive ConnectionError")
-            if e.args[0].errno == 61 or e.args[0].errno == 10061 or e.args[0].errno == 111:
-                return False
-            raise
+    def __wait_for_node_to_accept_connections(self):
+        def test(n):
+            try:
+                n.get_cloud()
+                return True
+            except requests.ConnectionError, e:
+                # Connection refusal is normal. 
+                # It just means the node has not started up yet.
+                if (    e.args[0].errno == 61 or   # mac/linux
+                        e.args[0].errno == 111 or  # mac/linux
+                        e.args[0].errno == 10061): # windows
+                    return False
+                raise
+        self.stabilize(test, 'Cloud accepting connections',
+                timeoutSecs=10, # with cold cache's this can be quite slow
+                retryDelaySecs=0.1) # but normally it is very fast
+
 
     def __init__(self, addr=None, port=54321, spawn=True):
         self.port = port
@@ -246,15 +254,17 @@ class H2O:
         verboseprint("Using ip:", self.addr)
 
         if not spawn:
-            self.stabilize('h2o started', 4, self.__is_alive)
+            self.__wait_for_node_to_accept_connections()
         else:
             self.rc = None
             spawn = spawn_h2o(addr=self.addr, port=port)
             self.ps = spawn[0]
+            self.stdout = spawn[1]
+            self.stderr = spawn[1]
             try:
-                self.stabilize('h2o started', 4, self.__is_alive)
+                self.__wait_for_node_to_accept_connections()
             except:
-                self.ps.kill()
+                if not self.wait(): self.ps.kill()
                 raise
 
             if self.wait():
