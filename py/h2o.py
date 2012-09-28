@@ -152,10 +152,9 @@ class H2O:
         verboseprint ("get_cloud:", a)
         return a
 
-    # FIX! I can put Value, Key, RF also! I can write 10,000 keys! good for testing?
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
-            requests.post(self.__url('PutValue.json'), 
+            requests.get(self.__url('PutValue.json'), 
                 params={"Value": value, "Key": key, "RF": repl}
                 ))
 
