@@ -23,7 +23,7 @@ class JUnit(unittest.TestCase):
         out = file(stdout).read()
         err = file(stderr).read()
         if rc is None:
-            rc.terminate()
+            ps.terminate()
             raise Exception("%s timed out after %d\nstdout:\n%s\n\nstderr:\n%s" %
                     (javaClass, timeout or 0, out, err))
         elif rc != 0:
