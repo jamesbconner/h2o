@@ -224,7 +224,7 @@ class H2O:
         else:
             timeTakenSecs = time.time() - start
             if isinstance(error, type('')):
-                raise Exception('%s failed after %.2 seconds having retried %d times' % (
+                raise Exception('%s failed after %.2f seconds having retried %d times' % (
                             error, timeTakenSecs, numberOfRetries))
             else:
                 msg = error(self, timeTakenSecs, retryCount)
@@ -279,10 +279,12 @@ class H2O:
         self.__check_spawn()
         self.ps.send_signal(signal.SIGQUIT)
     
+    def is_alive(self):
+        return self.wait(0) is None
 
     def wait(self, timeout=0):
         self.__check_spawn()
-        if self.rc: return self.rc
+        if self.rc is not None: return self.rc
         try:
             self.rc = self.ps.wait(timeout)
             return self.rc
@@ -291,8 +293,10 @@ class H2O:
 
     def terminate(self):
         self.__check_spawn()
-        if not self.wait():
-            self.ps.kill()
-        if not self.wait(0.5):
-            self.ps.terminate()
-        return self.wait(0.5)
+        try:
+            if self.is_alive(): self.ps.kill()
+            if self.is_alive(): self.ps.terminate()
+            return self.wait(0.5)
+        except psutil.NoSuchProcess:
+            return -1
+
