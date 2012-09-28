@@ -10,7 +10,7 @@ class StartUp(unittest.TestCase):
                 babies.append(h2o.spawn_h2o(port=54321+3*i,nosigar=False))
             n = h2o.H2O(port=54321, spawn=False)
             h2o.stabilize_cloud(n, num_babies)
-# TODO: access sigar API through json request
+            # TODO: access sigar API through json request
         except:
             err = 'Error starting %d nodes quickly' % num_babies
             for b in babies:

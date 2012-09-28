@@ -1,33 +1,20 @@
 import os, json, unittest, time, shutil, sys
-import h2o
-
-def putFile(n,csvPathname):
-    put = n.put_file(csvPathname)
-    parseKey = n.parse(put['keyHref'])
-    return parseKey
+import h2o, cmd
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.clean_sandbox()
-        global nodes
-        print "1 node. puts files"
-        nodes = h2o.build_cloud(node_count=1)
+        h2o.build_cloud(node_count=1)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def setUp(self):
         pass
 
     def tearDown(self):
         pass
-
-    def test_A_Basic(self):
-        for n in nodes:
-            c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
     def test_B_GenParity1(self):
         global SYNDATASETS_DIR
@@ -50,16 +37,18 @@ class Basic(unittest.TestCase):
 
         timeoutSecs = 10
         trial = 1
-
+        n = h2o.nodes[0]
         for x in xrange (1,30,1):
             sys.stdout.write('.')
             sys.stdout.flush()
 
             csvPathname = "../smalldata/hhp_107_01_short.data"
-            parseKey = putFile(nodes[0],csvPathname)
+            put = n.put_file(csvPathname)
+            parseKey = n.parse(put['keyHref'])
 
             ### print 'Trial:', trial
             trial += 1
 
 if __name__ == '__main__':
+    h2o.clean_sandbox()
     unittest.main()

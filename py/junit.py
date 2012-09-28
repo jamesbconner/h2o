@@ -30,12 +30,11 @@ class JUnit(unittest.TestCase):
             raise Exception("%s failed.\nstdout:\n%s\n\nstderr:\n%s" % (javaClass, out, err))
 
     def testKVTest(self):
-        nodes = []
         try:
-            nodes = h2o.build_cloud(node_count=2)
+            h2o.build_cloud(node_count=2)
             self.run_junit('test.KVTest')
         finally:
-            h2o.tear_down_cloud(nodes)
+            h2o.tear_down_cloud()
 
     def testParserTest(self):
         self.run_junit('test.ParserTest')
@@ -44,20 +43,18 @@ class JUnit(unittest.TestCase):
         self.run_junit('test.RTSerGenHelperTest')
 
     def testRFMarginalCasesTest(self):
-        nodes = []
         try:
-            nodes = h2o.build_cloud(node_count=2)
+            h2o.build_cloud(node_count=2)
             self.run_junit('test.DatasetCornerCasesTest')
         finally:
-            h2o.tear_down_cloud(nodes)
+            h2o.tear_down_cloud()
 
     def testAppendKeyTest(self):
-        nodes = []
         try:
-            nodes = h2o.build_cloud(node_count=1)
+            h2o.build_cloud(node_count=1)
             self.run_junit('test.AppendKeyTest')
         finally:
-            h2o.tear_down_cloud(nodes)
+            h2o.tear_down_cloud()
 
 if __name__ == '__main__':
     unittest.main()

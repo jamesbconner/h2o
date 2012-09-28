@@ -1,28 +1,14 @@
 import os, json, unittest, time, shutil, sys
-import h2o
-
-def runRF(n,trees,csvPathname,timeoutSecs):
-    put = n.put_file(csvPathname)
-    parse = n.parse(put['keyHref'])
-    rf = n.random_forest(parse['keyHref'],trees)
-    # kbn hack to make test.py pass reliably
-    # time.sleep(1)
-    # this expects the response to match the number of trees you told it to do
-    print "retryDelaySecs = 0.10 after RF"
-    n.stabilize('random forest finishing', timeoutSecs,
-        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees,
-        retryDelaySecs=0.10)
+import h2o, cmd
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.clean_sandbox()
-        global nodes
-        nodes = h2o.build_cloud(node_count=3)
+        h2o.build_cloud(node_count=3)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def setUp(self):
         pass
@@ -71,29 +57,17 @@ class Basic(unittest.TestCase):
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
-        # FIX! I suppose we should vary the number of trees to make sure the response changes
-        # maybe just inc in loop
-        trees = 100
         # bump this up too if you do?
-        timeoutSecs = 5 
         # always match the gen above!
         ### for x in xrange (50,200,10):
         for x in xrange(50,200,10):
             sys.stdout.write('.')
             sys.stdout.flush()
-            # csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
             csvFilename = "parity_128_4_" + "100" + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            print "\n", csvPathname, "trees:", trees, "timeoutSecs", timeoutSecs
-            # FIX! TBD do we always have to kick off the run from node 0?
-            # what if we do another node?
-            # FIX! do we need or want a random delay here?
-            # CNC - My antique computer reports files missing without a little delay here.
-            runRF(nodes[0],trees,csvPathname,timeoutSecs)
-
-            ### trees += 10
-            ## hitimeoutSecs += 2
-
+            cmd.runRF(csvPathname=csvPathname, trees=100,
+                    timeoutSecs=5, retryDelaySecs=0.1)
 
 if __name__ == '__main__':
+    h2o.clean_sandbox()
     unittest.main()

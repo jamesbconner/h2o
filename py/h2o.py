@@ -99,35 +99,38 @@ def spawn_h2o(addr=None, port=54321, nosigar=True):
         h2o_cmd.append('--nosigar')
     return spawn_cmd('h2o', h2o_cmd)
 
-def tear_down_cloud(nodes):
+nodes = []
+def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None):
+    node_list = []
+    try:
+        for i in xrange(node_count):
+            n = H2O(addr,port=base_port + i*ports_per_node)
+            node_list.append(n)
+        stabilize_cloud(node_list[0], len(node_list))
+    except:
+        for n in node_list: n.terminate()
+        raise
+    nodes[:] = node_list
+    return node_list
+
+def tear_down_cloud(node_list=None):
+    if not node_list: node_list = nodes
+
     ex = None
-    # FIX! do other nodes die, when I kill one node?
-    for n in nodes:
-        if n.wait() is None:
-            n.terminate()
-        elif n.wait():
-            ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
-    if ex: raise ex
+    try:
+        for n in node_list:
+            if n.wait() is None:
+                n.terminate()
+            elif n.wait():
+                ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
+        if ex: raise ex
+    finally:
+        node_list[:] = []
 
 def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
     node.stabilize('cloud auto detect', timeoutSecs,
         lambda n: n.get_cloud()['cloud_size'] == node_count,
         retryDelaySecs)
-
-def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None):
-    nodes = []
-    try:
-        for i in xrange(node_count):
-            n = H2O(addr,port=base_port + i*ports_per_node)
-            nodes.append(n)
-        # FIX! this is temporary until we understand it more
-        # when can we start talking to H2O? wait for it's first stdout?
-        time.sleep(1)
-        stabilize_cloud(nodes[0], len(nodes))
-    except:
-        for n in nodes: n.terminate()
-        raise
-    return nodes
 
 class H2O:
     def __url(self, loc):
