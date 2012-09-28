@@ -2,10 +2,6 @@ import os, json, unittest, time, shutil, sys
 import h2o
 
 class JUnit(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        h2o.clean_sandbox()
-
     def run_junit(self, javaClass, timeout=None):
         # we don't have the port or ip configuration here 
         # that util/h2o.py does? Keep this in synch with spawn_h2o there.
@@ -57,4 +53,5 @@ class JUnit(unittest.TestCase):
             h2o.tear_down_cloud()
 
 if __name__ == '__main__':
+    h2o.clean_sandbox()
     unittest.main()

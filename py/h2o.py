@@ -6,7 +6,7 @@ def verboseprint(*args):
     ### global verbose
     if 1==0: # change to 1==1 if you want verbose
         for arg in args: # so you don't have to create a single string
-           print arg,
+            print arg,
         print
 
 def find_file(base):
@@ -20,7 +20,7 @@ def clean_sandbox():
         # shutil.rmtree fails to delete very long filenames on Windoze
         #shutil.rmtree(LOG_DIR)
         # This seems reliable on windows+cygwin
-        os.system("rm -rf "+LOG_DIR);
+        os.system("rm -rf "+LOG_DIR)
     os.mkdir(LOG_DIR)
 
 def tmp_file(prefix='', suffix=''):
@@ -50,7 +50,6 @@ def get_ip_address():
         s.connect(('8.8.8.8',0))
         ip = s.getsockname()[0]
         verboseprint("ip1:", ip)
-
     except:
         pass
 
@@ -123,7 +122,7 @@ def tear_down_cloud(node_list=None):
                 n.terminate()
             elif n.wait():
                 ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
-        if ex: raise ex
+        if ex is not None: raise ex
     finally:
         node_list[:] = []
 
@@ -148,7 +147,6 @@ class H2O:
 
     def __check_spawn(self):
         if not self.ps:
-            import inspect
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], 'process was not spawned'))
 
     def get_cloud(self):
@@ -227,7 +225,7 @@ class H2O:
                 raise Exception('%s failed after %.2f seconds having retried %d times' % (
                             error, timeTakenSecs, numberOfRetries))
             else:
-                msg = error(self, timeTakenSecs, retryCount)
+                msg = error(self, timeTakenSecs, numberOfRetries)
             raise Exception(msg)
 
     def __wait_for_node_to_accept_connections(self):
