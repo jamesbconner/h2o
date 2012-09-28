@@ -222,7 +222,7 @@ class H2O:
         else:
             timeTakenSecs = time.time() - start
             if isinstance(error, type('')):
-                raise Exception('%s failed after %.2 seconds having retried %d times' % (
+                raise Exception('%s failed after %.2f seconds having retried %d times' % (
                             error, timeTakenSecs, numberOfRetries))
             else:
                 msg = error(self, timeTakenSecs, retryCount)
