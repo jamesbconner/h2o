@@ -1,29 +1,14 @@
 import os, json, unittest, time, shutil, sys
-import h2o
-
-def runRF(n,trees,csvPathname,timeoutSecs):
-    put = n.put_file(csvPathname)
-    parse = n.parse(put['keyHref'])
-    rf = n.random_forest(parse['keyHref'],trees)
-    h2o.verboseprint("retryDelaySecs = 1.0 after RF")
-    n.stabilize('random forest finishing', timeoutSecs,
-        # FIX! temporary hack. RF will do either the number of trees I asked for
-        # or nodes*trees. So for no, allow either to be okay for "done"
-        lambda n: 
-            (n.random_forest_view(rf['confKeyHref'])['got']==trees) |
-            (n.random_forest_view(rf['confKeyHref'])['got']==len(nodes)*trees),
-        retryDelaySecs=5)
+import h2o, cmd
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.clean_sandbox()
-        global nodes
-        nodes = h2o.build_cloud(node_count=3)
+        h2o.build_cloud(node_count=3)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def setUp(self):
         pass
@@ -32,9 +17,6 @@ class Basic(unittest.TestCase):
         pass
 
     def test_RFhhp(self):
-        trees = 23 
-        timeoutSecs = 120
-
         # FIX! we're supposed to be support gzip files but seems to fail
         # normally we .gz for the git, to save space
         # we do take .zip directly. bug fix needed for .gz
@@ -62,10 +44,12 @@ class Basic(unittest.TestCase):
 
         # FIX! TBD do we always have to kick off the run from node 0?
         # what if we do another node?
-        print "RF start on ", csvPathname
-        print "This will probably take a minute.."
-        runRF(nodes[0],trees,csvPathname,timeoutSecs)
-        print "RF end on ", csvPathname
+        print "RF start on ", csvPathname, "this will probably take a minute.."
+        start = time.time()
+        cmd.runRF(csvPathname=csvPathname, trees=23,
+                timeoutSecs=120, retryDelaySecs=10)
+        print "RF end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
+    h2o.clean_sandbox()
     unittest.main()

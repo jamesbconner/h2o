@@ -1,24 +1,14 @@
 import os, json, unittest, time, shutil, sys
-import h2o
+import h2o, cmd
 
-def runRF(n,trees,csvPathname,timeoutSecs):
-    put = n.put_file(csvPathname)
-    parse = n.parse(put['keyHref'])
-    rf = n.random_forest(parse['keyHref'],trees)
-    # this expects the response to match the number of trees you told it to do
-    n.stabilize('random forest finishing', timeoutSecs,
-        lambda n: n.random_forest_view(rf['confKeyHref'])['got'] == trees)
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.clean_sandbox()
-        global nodes
-	nodes = 0
-        nodes = h2o.build_cloud(node_count=3)
+        h2o.build_cloud(node_count=3)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def setUp(self):
         pass
@@ -34,21 +24,17 @@ class Basic(unittest.TestCase):
     # order here? 
 
     def test_A_Basic(self):
-        for n in nodes:
+        for n in h2o.nodes:
             c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
+            self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_RF_iris2(self):
-        trees = 6
-        timeoutSecs = 10
-        csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
-        runRF(nodes[0], trees, csvPathname, timeoutSecs)
+        cmd.runRF( trees = 6, timeoutSecs = 10,
+                csvPathname = h2o.find_file('smalldata/iris/iris2.csv'))
 
     def test_C_RF_poker100(self):
-        trees = 6
-        timeoutSecs = 10
-        csvPathname = h2o.find_file('smalldata/poker/poker100')
-        runRF(nodes[0], trees, csvPathname, timeoutSecs)
+        cmd.runRF( trees = 6, timeoutSecs = 10,
+                csvPathname = h2o.find_file('smalldata/poker/poker100'))
 
     def test_D_GenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
@@ -84,10 +70,7 @@ class Basic(unittest.TestCase):
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
-        # FIX! I suppose we should vary the number of trees to make sure the response changes
-        # maybe just inc in loop
         trees = 6
-        # bump this up too if you do?
         timeoutSecs = 20
         # always match the gen above!
         for x in xrange (1,100,10):
@@ -95,15 +78,15 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            print csvPathname, "trees:", trees, "timeoutSecs", timeoutSecs
             # FIX! TBD do we always have to kick off the run from node 0?
             # what if we do another node?
             # FIX! do we need or want a random delay here?
-            runRF(nodes[0],trees,csvPathname,timeoutSecs)
-
+            cmd.runRF( trees=trees, timeoutSecs=timeoutSecs,
+                    csvPathname=csvPathname)
             trees += 10
             ### timeoutSecs += 2
 
 
 if __name__ == '__main__':
+    h2o.clean_sandbox()
     unittest.main()

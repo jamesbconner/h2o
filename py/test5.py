@@ -1,24 +1,17 @@
 import os, json, unittest, time, shutil, sys
 import h2o
 
-def putValue(n,value,key=None,repl=None):
-    put = n.put_value(value,key,repl)
-    return put['keyHref']
-
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global verbose
         verbose = True
-
-        h2o.clean_sandbox()
-        global nodes
         print "1 node"
-        nodes = h2o.build_cloud(node_count=1)
+        h2o.build_cloud(node_count=1)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def setUp(self):
         pass
@@ -26,27 +19,16 @@ class Basic(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_Basic(self):
-        for n in nodes:
-            c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
-
     def test1(self):
-        timeoutSecs = 10
-        trial = 1
-
         for x in xrange (1,2000,1):
             if ((x % 100) == 0):
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
-            trialString = "Trial" + str(trial)
-            trialStringXYZ = "Trial" + str(trial) + "XYZ"
-            putKey = putValue(nodes[0],trialString,key=trialStringXYZ,repl=None)
-            ### print "putKey:", putKey
-
-            ### print trialString
-            trial += 1
+            trialString = "Trial" + str(x)
+            trialStringXYZ = "Trial" + str(x) + "XYZ"
+            put = h2o.nodes[0].put_value(trialString, key=trialStringXYZ, repl=None)
 
 if __name__ == '__main__':
+    h2o.clean_sandbox()
     unittest.main()
