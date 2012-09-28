@@ -77,7 +77,7 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     err = file(stderr).read()
 
     if rc is None:
-        n.terminate()
+        ps.terminate()
         raise Exception("%s %s timed out after %d\nstdout:\n%s\n\nstderr:\n%s" %
                 (name, args, timeout or 0, out, err))
     elif rc != 0:
@@ -137,10 +137,11 @@ class H2O:
         log('Sent ' + r.url)
         if not r:
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
-        json = r.json
-        if 'error' in json:
-            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], json['error']))
-        return json
+        # json name used in import
+        rjson = r.json
+        if 'error' in rjson:
+            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
+        return rjson
 
     def __check_spawn(self):
         if not self.ps:
