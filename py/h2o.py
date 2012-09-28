@@ -291,6 +291,6 @@ class H2O:
         self.__check_spawn()
         if not self.wait():
             self.ps.kill()
-        if not self.wait():
+        if not self.wait(0.5):
             self.ps.terminate()
-        return self.wait()
+        return self.wait(0.5)
