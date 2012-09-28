@@ -1,10 +1,12 @@
 import os, json, unittest, time, shutil, sys
-import util.h2o as h2o
+import h2o
+
+
 
 def getCloud():
     for n in nodes:
         c = n.get_cloud()
-        print "get_cloud:", c
+        h2o.verboseprint("get_cloud:", c)
         return(c)
 
 class Basic(unittest.TestCase):
@@ -30,27 +32,19 @@ class Basic(unittest.TestCase):
     def test_Cloud(self):
         global nodes
 
-        for tryNodes in range(2,10):
+        for tryNodes in range(2,11):
             start = time.time()
             nodes = h2o.build_cloud(node_count=tryNodes)
-            print "Build cloud of %d in %d ms" % (tryNodes, (time.time() - start)) 
+            print "Build cloud of %d in %d s" % (tryNodes, (time.time() - start)) 
 
             # put variable delay here or no?
             # can check a couple of things about cloud if we want..
             # example: {u'cloud_name': u'kevin', u'cloud_size': 1, u'node_name': u'/10.0.2.15:54322'}
             time.sleep(1.0)
             c = getCloud()
-            print c
-            print nodes
+            h2o.verboseprint("test_Cloud:", c)
+            h2o.verboseprint ("test_Cloud nodes:", nodes)
             self.assertEqual(c['cloud_size'], len(nodes), 'Check1: inconsistent cloud size')
-
-            # check multiple times?
-            c = getCloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'Check2: inconsistent cloud size')
-
-            # check multiple times?
-            c = getCloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'Check3: inconsistent cloud size')
 
             h2o.tear_down_cloud(nodes)
 

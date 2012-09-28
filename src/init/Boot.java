@@ -1,6 +1,8 @@
 package init;
 
 import java.io.*;
+import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -21,6 +23,10 @@ import java.util.zip.ZipFile;
  * at least for the time being so that we can continue using different IDEs).
  */
 public class Boot {
+  // we can be loaded in two different ways.  Handle them.
+  public static void premain  (String args, Instrumentation ins) { _instrumentation = ins; }
+  public static void agentmain(String args, Instrumentation ins) { _instrumentation = ins; }
+
   public static void main(String[] args) {
     try {
       _init = new Boot();
@@ -37,13 +43,26 @@ public class Boot {
         _init.addInternalJars("asm");
         _init.addInternalJars("jama");
 
-        // if this becomes too ghetto, we can repackage lib/tools.jar
-        _init.addExternalJars(new File(
-            System.getProperty("java.home")+"/../lib/tools.jar"));
-        _init.loadVmAgent(_init.internalFile("hexbase_impl.jar"));
+        if( _instrumentation == null ) {
+          // if this becomes too ghetto, we can repackage lib/tools.jar
+          File tools = new File(System.getProperty("java.home")+"/../lib/tools.jar");
+          if( tools.exists() ) {
+            _init.addExternalJars(tools);
+            _init.loadVmAgent(_init.internalFile("hexbase_impl.jar"));
+          }
+        }
       } else {
-        System.setProperty("org.hyperic.sigar.path","lib/binlib");
+        System.setProperty("org.hyperic.sigar.path", "lib/binlib");
       }
+
+      if( _instrumentation == null ) {
+        throw new Error("Unable to access instrumentation either:\n" +
+            "1) start the vm with -javaagent:h2o.jar\n" +
+            "2) start the vm from a JDK (not a JRE)");
+      }
+
+      _instrumentation.addTransformer((ClassFileTransformer)
+          Class.forName("water.serialization.RTWeaver").newInstance());
 
       String mainClass = "water.H2O";
       if( args.length >= 2 && args[0].equals("-mainClass") ) {
@@ -59,6 +78,7 @@ public class Boot {
   }
 
   public static Boot _init;
+  public static Instrumentation _instrumentation;
 
   private final URLClassLoader _systemLoader;
   private final Method _addUrl;
@@ -100,7 +120,7 @@ public class Boot {
 
   /** Adds all jars in given directory to the classpath. */
   public void addExternalJars(File file) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, MalformedURLException {
-    assert file.exists();
+    assert file.exists() : "Unable to find external file: " + file.getAbsolutePath();
     if( file.isDirectory() ) {
       for( File f : file.listFiles() ) addExternalJars(f);
     } else if( file.getName().endsWith(".jar") ) {

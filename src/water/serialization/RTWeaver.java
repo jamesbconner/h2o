@@ -1,13 +1,14 @@
 package water.serialization;
 
-import java.lang.instrument.*;
+import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 
 import org.objectweb.asm.*;
 
-import com.google.common.base.Throwables;
-
 import water.RemoteTask;
+
+import com.google.common.base.Throwables;
 
 /**
  * A class for rewriting bytecode of {@link RemoteTask} to force members to be
@@ -15,10 +16,6 @@ import water.RemoteTask;
  * serialization methods.
  */
 public class RTWeaver implements Opcodes, ClassFileTransformer {
-  // we can be loaded in two different ways.  Handle them.
-  public static void premain  (String args, Instrumentation ins) { ins.addTransformer(new RTWeaver(), true); }
-  public static void agentmain(String args, Instrumentation ins) { ins.addTransformer(new RTWeaver(), true); }
-
   @Override
   public byte[] transform(ClassLoader loader, String className,
       Class<?> redefiningClass, ProtectionDomain domain, byte[] bytes)
