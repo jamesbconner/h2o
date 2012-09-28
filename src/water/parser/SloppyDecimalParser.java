@@ -14,10 +14,10 @@ public class SloppyDecimalParser {
   private static final int LOWER    = 4;
 
   private int _state = LEADING;
-  private double _value;
+  private double _value, _neg=1;
   private double _pos;
 
-  public void reset() { _state = LEADING;  _value = 0; }
+  public void reset() { _state = LEADING;  _value = 0; _neg = 1;}
 
   @SuppressWarnings("fallthrough")
   public void addCharacter(byte b) {
@@ -29,7 +29,7 @@ public class SloppyDecimalParser {
       _state = ERROR; return;
     case LEADING:
       if( Character.isWhitespace(ch) ) return;
-      if ( ch == '-' ) { _state = NEGATE; return; }
+      if ( ch == '-' ) { _state = NEGATE; _neg = -1; return; }
       _state = BODY;
     case LOWER:
       if( Character.isWhitespace(ch) ) { _state = TRAILING;  return;  }
@@ -55,7 +55,7 @@ public class SloppyDecimalParser {
 
   public double doubleValue() {
     if( _state == ERROR ) return Double.NaN;
-    if( _state == BODY || _state == LOWER|| _state == TRAILING ) return _value;
+    if( _state == BODY || _state == LOWER|| _state == TRAILING ) return _value * _neg;
     else return Double.NaN;
   }
 }
