@@ -213,12 +213,12 @@ class H2O:
         retryDelaySecs -- How long to wait between retry attempts
         '''
         start = time.time()
-        retryCount = 0
+        numberOfRetries = 0
         while time.time() - start < timeoutSecs:
             if test_func(self):
                 break
             time.sleep(retryDelaySecs)
-            retryCount += 1
+            numberOfRetries += 1
         else:
             timeTakenSecs = time.time() - start
             if isinstance(error, type('')):
