@@ -174,6 +174,11 @@ class H2O:
         return self.__check_request(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
 
+    def inspect(self, key):
+        return self.__check_request(requests.get(self.__url('Inspect.json'),
+            params={"Key": key}))
+
+
     # FIX! add depth/ntrees to all calls?
     def random_forest(self, key, ntrees=6, depth=30):
         return self.__check_request(requests.get(self.__url('RF.json'),
