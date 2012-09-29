@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import h2o, cmd
+import h2o, h2o_cmd
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -65,7 +65,7 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + "100" + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            cmd.runRF(csvPathname=csvPathname, trees=100,
+            h2o_cmd.runRF(csvPathname=csvPathname, trees=100,
                     timeoutSecs=5, retryDelaySecs=0.1)
 
 if __name__ == '__main__':

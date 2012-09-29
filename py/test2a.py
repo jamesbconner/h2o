@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import h2o, cmd
+import h2o, h2o_cmd
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -28,7 +28,7 @@ class Basic(unittest.TestCase):
 
         print "RF start on ", csvPathnamegz, "this will probably take a minute.."
         start = time.time()
-        cmd.runRF(csvPathname=csvPathnamegz, trees=23,
+        h2o_cmd.runRF(csvPathname=csvPathnamegz, trees=23,
                 timeoutSecs=120, retryDelaySecs=10)
         print "RF end on ", csvPathnamegz, 'took', time.time() - start, 'seconds'
 

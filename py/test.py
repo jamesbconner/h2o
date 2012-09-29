@@ -1,5 +1,6 @@
 import os, json, unittest, time, shutil, sys
-import h2o, cmd
+import h2o_cmd
+import h2o
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -29,11 +30,11 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_RF_iris2(self):
-        cmd.runRF( trees = 6, timeoutSecs = 10,
+        h2o_cmd.runRF( trees = 6, timeoutSecs = 10,
                 csvPathname = h2o.find_file('smalldata/iris/iris2.csv'))
 
     def test_C_RF_poker100(self):
-        cmd.runRF( trees = 6, timeoutSecs = 10,
+        h2o_cmd.runRF( trees = 6, timeoutSecs = 10,
                 csvPathname = h2o.find_file('smalldata/poker/poker100'))
 
     def test_D_GenParity1(self):
@@ -81,7 +82,7 @@ class Basic(unittest.TestCase):
             # FIX! TBD do we always have to kick off the run from node 0?
             # what if we do another node?
             # FIX! do we need or want a random delay here?
-            cmd.runRF( trees=trees, timeoutSecs=timeoutSecs,
+            h2o_cmd.runRF( trees=trees, timeoutSecs=timeoutSecs,
                     csvPathname=csvPathname)
             trees += 10
             ### timeoutSecs += 2

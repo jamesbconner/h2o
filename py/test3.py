@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import h2o, cmd
+import h2o, h2o_cmd
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -44,7 +44,7 @@ class Basic(unittest.TestCase):
             parseKey = h2o.nodes[0].parse(put['keyHref'])
 
             ### print 'put TimeMS:', parseKey['TimeMS']
-            cmd.runRFOnly(parseKey=parseKey, trees=137, depth=45, timeoutSecs=20)
+            h2o_cmd.runRFOnly(parseKey=parseKey, trees=137, depth=45, timeoutSecs=20)
 
             # don't change tree count yet
             ## trees += 10
