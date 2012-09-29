@@ -20,6 +20,7 @@ public abstract class RTSerGenHelpers {
     SUFFIX.put(float.class,  "Float");
     SUFFIX.put(double.class, "Double");
     SUFFIX.put(Key.class,    "Key");
+    SUFFIX.put(String.class, "String");
 
     SUFFIX.put(byte[].class,   "ByteArray");
     SUFFIX.put(short[].class,  "ShortArray");
@@ -29,6 +30,7 @@ public abstract class RTSerGenHelpers {
     SUFFIX.put(double[].class, "DoubleArray");
 
     SUFFIX.put(long[][].class,   "LongArrayArray");
+    SUFFIX.put(double[][].class,   "DoubleArrayArray");
   }
 
   static Method len(Class<?> c) {
@@ -283,6 +285,39 @@ public abstract class RTSerGenHelpers {
     for(int i = 0; i < len; ++i) longs[i] = readLongArray(s);
     return longs;
   }
+  public static int lenDoubleArrayArray(double[][] doubles) {
+    int len = 4;
+    if( doubles != null ) for( double[] l : doubles ) len += lenDoubleArray(l);
+    return len;
+  }
+  public static void writeDoubleArrayArray(Stream s, double[][] doubles) {
+    if(doubles == null) s.set4(-1);
+    else {
+      s.set4(doubles.length);
+      for( double[] l : doubles ) writeDoubleArray(s, l);
+    }
+  }
+  public static void writeDoubleArrayArray(DataOutputStream s, double[][] doubles) throws IOException {
+    if(doubles == null) s.writeInt(-1);
+    else {
+      s.writeInt(doubles.length);
+      for( double[] l : doubles ) writeDoubleArray(s, l);
+    }
+  }
+  public static double[][] readDoubleArrayArray(Stream s) {
+    int len = s.get4();
+    if(len < 0) return null;
+    double[][] doubles = new double[len][];
+    for(int i = 0; i < len; ++i) doubles[i] = readDoubleArray(s);
+    return doubles;
+  }
+  public static double[][] readDoubleArrayArray(DataInputStream s) throws IOException {
+    int len = s.readInt();
+    if(len < 0) return null;
+    double[][] doubles = new double[len][];
+    for(int i = 0; i < len; ++i) doubles[i] = readDoubleArray(s);
+    return doubles;
+  }
 
 
 
@@ -307,6 +342,25 @@ public abstract class RTSerGenHelpers {
     else {
       s.writeByte(1);
       k.write(s);
+    }
+  }
+
+  public static int lenString(String k) { return 2 + (k == null ? 0 : k.length()); }
+  public static String readString(Stream s) {  return s.getLen2Str();  }
+  public static String readString(DataInputStream s) throws IOException {
+    int len = s.readChar();
+    if( len == 65535 ) return null;
+    byte[] bits = new byte[len];
+    s.readFully(bits);
+    return new String(bits);
+  }
+  public static void writeString(Stream s, String k) { s.setLen2Str(k);  }
+  public static void writeString(DataOutputStream s, String k) throws IOException {
+    if( k == null ) s.writeShort(-1);
+    else {
+      byte[] b = k.getBytes();
+      s.writeShort(b.length);
+      s.write(b);
     }
   }
 

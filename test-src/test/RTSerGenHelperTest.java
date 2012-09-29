@@ -140,6 +140,21 @@ public class RTSerGenHelperTest {
     }
   }
 
+  @Test public void testString() throws Exception {
+    H2O.main(new String[0]);
+    String[] tests = { new String(), "monkey", "ninja", null };
+    String got;
+    for( String exp : tests) {
+      RTSerGenHelpers.writeString(stream(), exp);
+      got = RTSerGenHelpers.readString(stream());
+      Assert.assertEquals(exp, got);
+
+      RTSerGenHelpers.writeString(dos(), exp);
+      got = RTSerGenHelpers.readString(dis());
+      Assert.assertEquals(exp, got);
+    }
+  }
+
   @Test public void testByteArray() throws Exception {
     byte[][] tests = {
         { 0, 1, 2 },
@@ -284,6 +299,30 @@ public class RTSerGenHelperTest {
 
       RTSerGenHelpers.writeLongArrayArray(dos(), exp);
       got = RTSerGenHelpers.readLongArrayArray(dis());
+      Assert.assertArrayEquals(exp, got);
+    }
+  }
+
+  @Test public void testDoubleArrayArray() throws Exception {
+    double[][][] tests = {
+      { { 0.5, 1.5, 2.5 },
+        { },
+        null,
+        { 6.3, -1.3, 19.3, -49.4 },
+        { Double.MAX_VALUE, Double.MIN_VALUE}
+      },
+      null,
+      { },
+    };
+    double[][] got;
+
+    for( double[][] exp : tests) {
+      RTSerGenHelpers.writeDoubleArrayArray(stream(), exp);
+      got = RTSerGenHelpers.readDoubleArrayArray(stream());
+      Assert.assertArrayEquals(exp, got);
+
+      RTSerGenHelpers.writeDoubleArrayArray(dos(), exp);
+      got = RTSerGenHelpers.readDoubleArrayArray(dis());
       Assert.assertArrayEquals(exp, got);
     }
   }

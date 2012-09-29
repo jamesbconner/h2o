@@ -59,34 +59,46 @@ public class ServletUtil {
 
   public static void createBestEffortSummary(Key key, RString row) {
     final int maxCols = 100;
-    SeparatedValueParser csv = new SeparatedValueParser(key, ',', maxCols);
+    // Guess any separator
+    Key key0 = DKV.get(key).chunk_get(0); // Key for 1st chunk
+    byte[] bs = DKV.get(key0).get(); // First chunk
+    char sep = ' ';
+    for( byte b : bs ) {
+      if( b==',' || b=='\t' ) { sep=(char)b; break; }
+      else if( b=='\r' || b=='\n' ) { break; }
+    }
+    SeparatedValueParser csv = new SeparatedValueParser(key, sep, maxCols);
     double sums[] = new double[maxCols];
     double mins[] = new double[maxCols];
     double maxs[] = new double[maxCols];
+    int    rows[] = new int   [maxCols];
     for( int i = 0; i < maxCols; i++ ) {
       mins[i] = Double.MAX_VALUE;
       maxs[i] = Double.MIN_VALUE;
     }
-    int rows = 0;
+    int maxrows = 0;
     int maxValidColumn = 0;
     for( Row r : csv ) {
-      ++rows;
       for( int i = 0; i < maxCols; ++i ) {
-        if( Double.isNaN(r._fieldVals[i]) )
-          break;
-        maxValidColumn = Math.max(i, maxValidColumn);
-        // Skipping any 1st record, try to count columns in the 2nd record
-        sums[i] += r._fieldVals[i];
-        mins[i] = Math.min(mins[i], r._fieldVals[i]);
-        maxs[i] = Math.max(maxs[i], r._fieldVals[i]);
+        double d = r._fieldVals[i];
+        if( !Double.isNaN(d) ) {
+          rows[i]++;
+          sums[i] += d;
+          mins[i] = Math.min(mins[i], d);
+          maxs[i] = Math.max(maxs[i], d);
+          maxrows = Math.max(rows[i],maxrows);
+          maxValidColumn = Math.max(i, maxValidColumn);
+        }
       }
     }
     // Inject into the HTML
-    if( maxValidColumn > 0 && rows > 0 ) {
-      row.replace("rows",rows);
+    if( maxValidColumn > 0 && maxrows > 0 ) {
+      row.replace("rows",maxrows);
       row.replace("cols",maxValidColumn);
       for( int i=0; i<Math.min(maxValidColumn,5); i++ ) {
-        String s = String.format("%4.1f / %4.1f / %4.1f",mins[i],sums[i]/rows,maxs[i]);
+        String s = "";
+        if( mins[i] < Double.MAX_VALUE && maxs[i] > Double.MIN_VALUE && rows[i] > 0 )
+          s = String.format("%4.1f / %4.1f / %4.1f",mins[i],sums[i]/rows[i],maxs[i]);
         row.replace("col"+i,s);
       }
     }
