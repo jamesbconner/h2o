@@ -38,6 +38,13 @@ public class GLSM {
     binomial
   }
 
+  public static double [] web_main(Key aryKey, int [] xColIds, int yColId, String family){
+    int [] cols = new int[xColIds.length+1];
+    System.arraycopy(xColIds, 0, cols, 0,xColIds.length);
+    cols[xColIds.length] = yColId;
+    return solve(aryKey,cols, 1, Family.valueOf(family));
+  }
+
   protected static double [] solve (Key aryKey, LSMTask tsk){
     tsk.invoke(aryKey);
     try {
@@ -47,10 +54,15 @@ public class GLSM {
       throw new RuntimeException(e);
     }
     Matrix xx;
+    // we only computed half of the symmetric matrix, now we need to fill the rest before computing the inverse
+    for(int i = 0; i < tsk._xx.length; ++i){
+      for(int j = i+1; j < tsk._xx.length; ++j){
+        tsk._xx[i][j] = tsk._xx[j][i];
+      }
+    }
     try {xx = new Matrix(tsk._xx).inverse();}catch(RuntimeException e){throw new GLSMException("can not perform LSM on this data, obtained matrix is singular!");}
     return xx.times(new Matrix(tsk._xy,tsk._xy.length)).getColumnPackedCopy();
   }
-
 
   public static double [] solve(Key aryKey, int [] colIds, int c, Family f) {
     switch(f){
@@ -79,11 +91,8 @@ public class GLSM {
   public static class Row {
     public Row(){}
     public Row(int n, int c){
-      if (c != 0){
-        x = new double [n+1];
-        x[n] = c;
-      } else
-        x = new double [n];
+      x = new double [n];
+      x[n-1] = c;
     }
 
     public Row(Row r){
@@ -116,7 +125,7 @@ public class GLSM {
     }
     protected LSMTask(int [] colIds, int xlen, int constant) {
       _colIds = colIds;
-      _xlen = xlen;
+      _xlen = xlen + ((constant != 0)?1:0);
       _constant = constant;
     }
 
@@ -126,6 +135,7 @@ public class GLSM {
       for(int i = 0; i < y; ++i)
         _r.x[i] = ary.datad(bits, rid, row_size, off[i], sz[i], base[i], scale[i], _colIds[i]);
       _r.y = ary.datad(bits, rid, row_size, off[y], sz[y], base[y], scale[y], _colIds[y]);
+      if(_constant != 0){_r.x[_r.x.length-1] = _constant;}
       return _r;
     }
     /**
@@ -155,15 +165,15 @@ public class GLSM {
       for(int rid = 0; rid < nrows; ++rid) {
         Row r = getRow(rid,ary,bits, row_size, off, sz, base, scale);
         for(int i = 0; i < _xlen; ++i){
-          for(int j = 0; j < _xlen; ++j){
+          for(int j = 0; j <= i; ++j){ // matrix is symmetric, we only need to compute 1/2
             _xx[i][j] += r.x[i]*r.x[j];
           }
           _xy[i] += r.x[i]*r.y;
         }
       }
       double nInv = 1 / (double) ary.num_rows();
-      for(int i = 0; i < _xlen; ++i){
-        for(int j = 0; j < _xlen; ++j){
+      for(int i = 0; i < i; ++i){
+        for(int j = 0; j <= i; ++j){
           _xx[i][j] /=  nInv;
         }
         _xy[i] /= nInv;
@@ -180,7 +190,7 @@ public class GLSM {
       LSMTask other = (LSMTask) drt;
       if(_xx != null || _xy != null) {
         for(int i = 0; i < _xx.length; ++i) {
-          for(int j = 0; j < _xx.length; ++j) {
+          for(int j = 0; j <= i; ++j) {
             _xx[i][j] += other._xx[i][j];
           }
           _xy[i] += other._xy[i];
