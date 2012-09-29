@@ -17,38 +17,20 @@ class Basic(unittest.TestCase):
         pass
 
     def test_RFhhp(self):
-        # FIX! we're supposed to be support gzip files but seems to fail
-        # normally we .gz for the git, to save space
-        # we do take .zip directly. bug fix needed for .gz
+        # changed to load the .gz directly
+        # don't ever gunzip, since we want to test H2O's ability to use *.gz
+        # if someone gunzip's it to look at it and the .gz goes away, they'll have to 
+        # fix that problem in their directory (use git checkout <file>)
+        csvPathnamegz = '../smalldata/hhp.cut3.214.data.gz'
 
-        # 0-32 output class values
-        ### csvPathname = '../smalldata/hhp_50.short3.data'
+        if not os.path.exists(csvPathnamegz):
+            raise Exception("Can't find %s.gz" % (csvPathnamegz))
 
-        # 0-15 output class values
-        ## csvPathname = '../smalldata/hhp_107_01_short.data'
-
-        # don't want to worry about timeout on RF, so just take the first 100 rows
-        # csvPathname = '../smalldata/hhp_9_17_12.predict.data'
-        csvPathname = '../smalldata/hhp.cut3.214.data'
-
-        if not os.path.exists(csvPathname) :
-            # check if the gz exists (git will have the .gz)
-            if os.path.exists(csvPathname + '.gz') :
-                # keep the .gz in place
-                h2o.spawn_cmd_and_wait(
-                    'gunzip', 
-                    ['gunzip', csvPathname + '.gz'], 
-                    timeout=4)
-            else:
-                raise Exception("Can't find %s or %s.gz" % (csvPathname, csvPathname))
-
-        # FIX! TBD do we always have to kick off the run from node 0?
-        # what if we do another node?
-        print "RF start on ", csvPathname, "this will probably take a minute.."
+        print "RF start on ", csvPathnamegz, "this will probably take a minute.."
         start = time.time()
-        cmd.runRF(csvPathname=csvPathname, trees=23,
+        cmd.runRF(csvPathname=csvPathnamegz, trees=23,
                 timeoutSecs=120, retryDelaySecs=10)
-        print "RF end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "RF end on ", csvPathnamegz, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
     h2o.clean_sandbox()
