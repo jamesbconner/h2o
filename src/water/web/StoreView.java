@@ -1,8 +1,10 @@
 package water.web;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
-
 import water.DKV;
 import water.H2O;
 import water.Key;
@@ -21,6 +23,43 @@ public class StoreView extends H2OPage {
   public StoreView() {
     // No thanks on the refresh, it's hard to use.
     //_refresh = 5;
+  }
+
+  @Override
+  public JsonObject serverJson(Server server, Properties args) {
+    JsonObject res = new JsonObject();
+    final H2O cloud = H2O.CLOUD;
+
+    // get the offset index
+    int offset = 0;
+    try {
+      offset = Integer.valueOf(args.getProperty("o", "0"));
+    } catch( NumberFormatException e ) { /* pass */ }
+
+    Key[] keys = new Key[1024];    // Limit size of what we'll display on this page
+    int len = 0;
+    String filter = args.getProperty("Filter");
+    String html_filter = (filter==null? "" : "?Filter="+filter);
+    PersistHdfs.refreshHDFSKeys();
+    // Gather some keys that pass all filters
+    for( Key key : H2O.keySet() ) {
+      if( filter != null &&     // Have a filter?
+          key.toString().indexOf(filter) == -1 )
+        continue;               // Ignore this filtered-out key
+      if( !key.user_allowed() ) // Also filter out for user-keys
+        continue;
+      if( H2O.get(key) == null ) continue; // Ignore misses
+      keys[len++] = key;        // Capture the key
+      if( len == keys.length ) break; // List is full; stop
+    }
+
+    // sort the keys, for pretty display & reliable ordering
+    Arrays.sort(keys,0,len);
+    JsonArray jary = new JsonArray();
+    for( int i=0; i<len; i++ )
+      jary.add(new JsonPrimitive(keys[i].toString()));
+    res.add("keys",jary);
+    return res;
   }
 
   @Override protected String serveImpl(Server server, Properties args) {
@@ -114,12 +153,13 @@ public class StoreView extends H2OPage {
       len = val.openStream().read(b); // Read, which might force loading.
     } catch( IOException e ) {}
     StringBuilder sb = new StringBuilder();
+    int newlines=0;
     for( int i=0; i<len; i++ ) {
       byte c = b[i];
       if( c == '&' ) sb.append("&amp;");
       else if( c == '<' ) sb.append("&lt;");
       else if( c == '>' ) sb.append("&gt;");
-      else if( c == '\n' ) sb.append("<br>");
+      else if( c == '\n' ) { sb.append("<br>"); if( newlines++ > 5 ) break; }
       else if( c == ',' && i+1<len && b[i+1]!=' ' )
         sb.append(", ");
       else sb.append((char)c);
