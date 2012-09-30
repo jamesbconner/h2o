@@ -53,14 +53,15 @@ public class GLSM {
       // TODO Auto-generated catch block
       throw new RuntimeException(e);
     }
-    Matrix xx;
+    Matrix xx = new Matrix(tsk._xx.length,tsk._xx.length);
     // we only computed half of the symmetric matrix, now we need to fill the rest before computing the inverse
     for(int i = 0; i < tsk._xx.length; ++i){
-      for(int j = i+1; j < tsk._xx.length; ++j){
-        tsk._xx[i][j] = tsk._xx[j][i];
+      for(int j = 0; j < tsk._xx[i].length; ++j){
+        xx.set(i,j,tsk._xx[i][j]);
+        xx.set(j,i,tsk._xx[i][j]);
       }
     }
-    try {xx = new Matrix(tsk._xx).inverse();}catch(RuntimeException e){throw new GLSMException("can not perform LSM on this data, obtained matrix is singular!");}
+    try {xx = xx.inverse();}catch(RuntimeException e){throw new GLSMException("can not perform LSM on this data, obtained matrix is singular!");}
     return xx.times(new Matrix(tsk._xy,tsk._xy.length)).getColumnPackedCopy();
   }
 
@@ -148,7 +149,8 @@ public class GLSM {
       ValueArray ary = (ValueArray) DKV.get(aryKey);
       byte[] bits = DKV.get(key).get();
       _xy = new double[_xlen];
-      _xx = new double[_xlen][_xlen];
+      _xx = new double[_xlen][];
+      for(int i = 0; i < _xlen; ++i)_xx[i] = new double[i+1];
       int [] off = new int [_colIds.length];
       int [] sz = new int [_colIds.length];
       int [] base = new int [_colIds.length];
