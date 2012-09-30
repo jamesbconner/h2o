@@ -1,11 +1,13 @@
 
 package water.parser;
 
-
+/* A parser for signed decimal values of the form  "-4.5" or "11.23", it does not try to
+ * be a complete parser for Doubles. Anything that strays from the simple format will c
+ * cause it to return Double.NaN.
+ * Profiling suggested that using the Java Double parser is expensive and does result in
+ * quite a lot of allocation. */
 public class SloppyDecimalParser {
 
-  // We do a poor man's parsing of valid number/not valid number
-  // to fail fast for things that really won't parse
   private static final int ERROR    = -1;
   private static final int LEADING  = 0;
   private static final int BODY     = 1;

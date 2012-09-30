@@ -1,4 +1,4 @@
-package hex.rf;
+  package hex.rf;
 
 import java.util.*;
 
@@ -10,27 +10,25 @@ import water.serialization.*;
  * KEY_OF_KEYS of Trees, vs a given input dataset.  The set of Trees can grow
  * over time.  Each request from the Confusion compute on any new trees (if
  * any), and report a matrix.  Cheap if all trees already computed.
- * @author cliffc
  */
 public class Confusion extends MRTask {
 
-
   // A KEY_OF_KEYS of Trees, that may incrementally grow over time.
   // 0 <= _ntrees < _ntrees0 <= #keys_in_treeskey <= _maxtrees;
-  public Key _treeskey;         // KEY_OF_KEYS of Trees; this may grow over time
-  public int _ntrees;           // Trees processed so far
-  public int _ntrees0;          // Trees being processed *this pass*
-  public int _maxtrees;         // Expected final tree max
+  public Key _treeskey;            // KEY_OF_KEYS of Trees; this may grow over time
+  public int _ntrees;              // Trees processed so far
+  public int _ntrees0;             // Trees being processed *this pass*
+  public int _maxtrees;            // Expected final tree max
 
   // Tree Keys
-  @RTLocal public Key[] _tkeys;          // Array of Tree-Keys
-  @RTLocal public byte[][] _tbits;       // Array of Tree bytes
+  @RTLocal public Key[] _tkeys;   // Array of Tree-Keys
+  @RTLocal public byte[][] _tbits;// Array of Tree bytes
 
   // Dataset we are building the matrix on.  The classes must be in the last
   // column, and the column count must match the Trees.
-  public Key _arykey;           // The dataset key
-  @RTLocal public ValueArray _ary;       // The dataset array
-  public int _N;                // Number of classes
+  public Key _arykey;             // The dataset key
+  @RTLocal public ValueArray _ary;// The dataset array
+  public int _N;                  // Number of classes
 
   // The Confusion Matrix - a NxN matrix of [actual] -vs- [predicted] classes,
   // referenced as _matrix[actual][predicted].  Each row in the dataset is
@@ -48,18 +46,23 @@ public class Confusion extends MRTask {
   public Key _votes;
   @RTLocal public Key[] _vkeys;
 
+  // For reproducibility make sure that we can control the randomness in the
+  // computation of the confusion matrix. The default seed when deserializing
+  // is 42.
+  // TODO: Check that a default value is required. --JAN
+  @RTLocal Random _rand = new Random(42);
+
   // no-arg constructor for use by the serializers
   public Confusion() {}
 
-  public Confusion( Key treeskey, ValueArray ary, int maxtrees ) {
-    _ntrees = 0;                // Processed so far
+  public Confusion( Key treeskey, ValueArray ary, int maxtrees, int seed ) {
+    _ntrees = 0;
     _ntrees0 = -1;              // Not set yet; need to count keys in _treeskey
-    _maxtrees = maxtrees;       // Max number desired.
-    // Key of Tree-Keys
+    _maxtrees = maxtrees;
     _treeskey = treeskey;
-
+    _rand = new Random(seed);
     // Do some basic validation on the dataset.
-    // The classes are in the last column.
+    // Actual classes are in the last column.
     _arykey = ary._key;
     int nchunks = (int)ary.chunks();
     int num_cols = ary.num_cols();
@@ -152,7 +155,7 @@ public class Confusion extends MRTask {
   public static Confusion fromKey( Key key ) {
     RemoteTaskSerializer sc = (RTSerializationManager.get(Confusion.class));
     Confusion c = (Confusion)sc.read(new Stream(DKV.get(key).get()));
-    c.shared_init();            // Shared init
+    c.shared_init();
     return c;
   }
 
@@ -174,8 +177,6 @@ public class Confusion extends MRTask {
     else assert votes._max == rows*_N*2;
     byte[] vbits = votes.get();
     int[] ties = null;          // Tie-breaker used only when needed
-    Random rand = null;
-
     // Make an empty confusion matrix for this chunk
     _matrix = new long[_N][_N];
 
@@ -183,8 +184,7 @@ public class Confusion extends MRTask {
     for( int i=0; i<rows; i++ ) {
       boolean valid = true;
       for( int k=0; k<num_cols; k++ )
-        if( !_ary.valid(dbits,i,rowsize,k) )
-          valid = false;
+        if( !_ary.valid(dbits,i,rowsize,k) ) valid = false;
       if( valid == false ) continue; // Skip broken rows
 
       // For all trees on this row, vote!
@@ -212,10 +212,9 @@ public class Confusion extends MRTask {
       // Prevents biasing e.g. towards the lower class numbers.
       if( tie && _ntrees0 == _maxtrees ) {
         if( ties == null ) ties = new int[_N];
-        if( rand == null ) rand = new Random();
         for( int n=0; n<_N; n++ ) // Find max vote / predicted-class-for-row
           ties[n] = UDP.get2(vbits,vidx+(n<<1));
-        predict = Utils.maxIndex(ties,rand);
+        predict = Utils.maxIndex(ties,_rand);
       }
       // Find the current row class
       int cclass = (int)_ary.data(dbits,i,rowsize,ccol) - cmin;
@@ -225,11 +224,8 @@ public class Confusion extends MRTask {
     }
 
     // Save the votes for a rainy day, or clean them up if done
-    if( _ntrees0 == _maxtrees ) { // Done with last tree?
-      DKV.remove(vkey);           // Remove all votes
-    } else {                      // Else need to save partial vote results
-      DKV.put(vkey,new Value(vkey,vbits));
-    }
+    if( _ntrees0 == _maxtrees )   DKV.remove(vkey);
+    else                          DKV.put(vkey,new Value(vkey,vbits));
   }
 
   // Reduction just combines the confusion matrices
@@ -239,10 +235,10 @@ public class Confusion extends MRTask {
     long[][] m2 = C._matrix;
     if( m1 == null ) {          // No local work?
       _matrix = m2;             // Take other work straight-up
-    } else {
-      for( int i=0; i<m1.length; i++ )
-        for( int j=0; j<m1.length; j++ )
-          m1[i][j] += m2[i][j];
+      return;
     }
+    for( int i=0; i<m1.length; i++ )
+      for( int j=0; j<m1.length; j++ )
+        m1[i][j] += m2[i][j];
   }
 }
