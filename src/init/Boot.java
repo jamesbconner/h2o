@@ -43,16 +43,17 @@ public class Boot {
         _init.addInternalJars("asm");
         _init.addInternalJars("jama");
 
-        if( _instrumentation == null ) {
-          // if this becomes too ghetto, we can repackage lib/tools.jar
-          File tools = new File(System.getProperty("java.home")+"/../lib/tools.jar");
-          if( tools.exists() ) {
-            _init.addExternalJars(tools);
-            _init.loadVmAgent(_init.internalFile("hexbase_impl.jar"));
-          }
-        }
       } else {
         System.setProperty("org.hyperic.sigar.path", "lib/binlib");
+      }
+
+      if( _instrumentation == null ) {
+        // if this becomes too ghetto, we can repackage lib/tools.jar
+        File tools = new File(System.getProperty("java.home")+"/../lib/tools.jar");
+        if( tools.exists() ) {
+          _init.addExternalJars(tools);
+          _init.loadVmAgent(_init.internalFile("hexbase_impl.jar"));
+        }
       }
 
       if( _instrumentation == null ) {
@@ -102,6 +103,8 @@ public class Boot {
       if( !dir.delete() ) throw new IOException("Failed to remove tmp file: " + dir.getAbsolutePath());
       if( !dir.mkdir() )  throw new IOException("Failed to create tmp dir: "  + dir.getAbsolutePath());
       dir.deleteOnExit();
+    } else {
+      dir = new File(".");
     }
     _h2oJar = jar;
     _parentDir = dir;

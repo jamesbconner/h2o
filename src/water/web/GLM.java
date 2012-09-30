@@ -76,14 +76,8 @@ public class GLM extends H2OPage {
     double [] coefs = null;
     long t1 = System.currentTimeMillis();
     try {
-      if(method.equals("gaussian")){
         responseTemplate.replace("name","Linear regression");
-        coefs = hex.GLinearRegression.web_main(ary._key, X, Y);
-      } else if(method.equals("binomial")) {
-        responseTemplate.replace("name","Logistic regression");
-        coefs = hex.LogisticRegression.web_main(ary._key, X, Y);
-      } else
-        throw new InvalidInputException("Unknown family '" + method + "'");
+        coefs = hex.GLSM.web_main(ary._key, X, Y, method);
       long deltaT = System.currentTimeMillis()-t1;
       responseTemplate.replace("time", deltaT);
       res.addProperty("time", deltaT);
