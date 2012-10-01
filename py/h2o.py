@@ -180,8 +180,6 @@ class H2O:
         return self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
 
-
-    # FIX! add depth/ntrees to all calls?
     def random_forest(self, key, ntrees=6, depth=30):
         return self.__check_request(requests.get(self.__url('RF.json'),
             params={
@@ -194,6 +192,22 @@ class H2O:
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
         verboseprint("random_forest_view:", a)
+        return a
+
+    def linear_reg(self, key, colA=0, colB=1):
+        a = self.__check_request(requests.get(self.__url('LR.json'),
+            params={
+                "colA": colA,
+                "colB": colB,
+                "Key": key
+                }))
+        verboseprint("linear_reg:", a)
+        return a
+
+    def linear_reg_view(self, key):
+        a = self.__check_request(requests.get(self.__url('LRView.json'),
+            params={"Key": key}))
+        verboseprint("linear_reg_view:", a)
         return a
 
     def stabilize(self, test_func, error,
