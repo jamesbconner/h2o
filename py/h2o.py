@@ -213,6 +213,24 @@ class H2O:
         verboseprint("linear_reg_view:", a)
         return a
 
+    # X and Y can be label strings, column nums, or comma separated combinations
+    def GLM(self, key, X="0", Y="1", family="binomial"):
+        a = self.__check_request(requests.get(self.__url('GLM.json'),
+            params={
+                "family": family,
+                "X": X,
+                "Y": Y,
+                "Key": key
+                }))
+        verboseprint("GLM:", a)
+        return a
+
+    def GLM_view(self, key):
+        a = self.__check_request(requests.get(self.__url('GLMView.json'),
+            params={"Key": key}))
+        verboseprint("GLM_view:", a)
+        return a
+
     def stabilize(self, test_func, error,
             timeoutSecs, retryDelaySecs=0.5):
         '''Repeatedly test a function waiting for it to return True.

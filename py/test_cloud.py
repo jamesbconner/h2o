@@ -3,7 +3,7 @@ import h2o
 
 class Basic(unittest.TestCase):
     def test_Cloud(self):
-        for tryNodes in range(2,11):
+        for tryNodes in range(2,13):
             sys.stdout.write('.')
             sys.stdout.flush()
 
