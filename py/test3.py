@@ -31,7 +31,7 @@ class Basic(unittest.TestCase):
 
         # always match the gen above!
         trial = 1
-        for x in xrange (10000,15000,1000):
+        for x in xrange (1,10,1):
             sys.stdout.write('.')
             sys.stdout.flush()
 
@@ -44,7 +44,8 @@ class Basic(unittest.TestCase):
             parseKey = h2o.nodes[0].parse(put['keyHref'])
 
             ### print 'put TimeMS:', parseKey['TimeMS']
-            cmd.runRFOnly(parseKey=parseKey, trees=137, depth=45, timeoutSecs=20)
+            h2o.verboseprint("Trial", trial)
+            cmd.runRFOnly(parseKey=parseKey, trees=237, depth=45, timeoutSecs=20)
 
             # don't change tree count yet
             ## trees += 10
