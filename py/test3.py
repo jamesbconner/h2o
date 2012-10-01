@@ -45,7 +45,7 @@ class Basic(unittest.TestCase):
 
             ### print 'put TimeMS:', parseKey['TimeMS']
             h2o.verboseprint("Trial", trial)
-            cmd.runRFOnly(parseKey=parseKey, trees=237, depth=45, timeoutSecs=20)
+            cmd.runRFOnly(parseKey=parseKey, trees=237, depth=45, timeoutSecs=30)
 
             # don't change tree count yet
             ## trees += 10
