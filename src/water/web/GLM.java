@@ -1,18 +1,13 @@
 package water.web;
-import hex.GLinearRegression.GLRException;
-import hex.rf.Confusion;
+import hex.GLSM.GLSMException;
 import hex.rf.DRF;
-import hex.rf.Tree.StatType;
 
-import java.util.Arrays;
 import java.util.Properties;
 
-import sun.security.x509.DeltaCRLIndicatorExtension;
+import water.H2O;
+import water.ValueArray;
 
 import com.google.gson.JsonObject;
-
-import water.*;
-import water.web.Page.PageError;
 
 public class GLM extends H2OPage {
 
@@ -100,7 +95,7 @@ public class GLM extends H2OPage {
       return serverJson(server, args).get("response_html").getAsString();
     } catch(InvalidInputException e1){
       return H2OPage.error("Invalid input:" + e1.getMessage());
-    } catch(GLRException e2){
+    } catch(GLSMException e2){
       return H2OPage.error("Unable to run the regression on this data: '" + e2.getMessage() + "'");
     }
   }
