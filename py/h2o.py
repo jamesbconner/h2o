@@ -154,6 +154,9 @@ class H2O:
         verboseprint ("get_cloud:", a)
         return a
 
+    def shutdown_all(self):
+        return self.__check_request(requests.get(self.__url('Shutdown.json')))
+
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
             requests.get(self.__url('PutValue.json'), 

@@ -23,7 +23,7 @@ JAR_TIME=`date "+%H.%M.%S-%m%d%y"`
 function build() {
  # build 
  ./build.sh
- ant clean; ant
+# ant clean; ant
 }
 
 
@@ -59,9 +59,9 @@ function shutdown(){
 }
 function echo_prep_launch(){
  REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
- for i in 1 2
+ for i in 1 
  do
- for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5} ${NODE6} ${NODE7}
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} 
   do
    PREP_REMOTE_CMD="'killall java; mkdir ${REMOTE_WDIR}_${i}; cd ${REMOTE_WDIR}_${i}; ${DELETE_ICE}; exit;'"
    echo xterm -e ssh -t ${HD_USER}@${NODE} ${PREP_REMOTE_CMD} >> _run.sh
@@ -72,19 +72,20 @@ function echo_launch(){
  REMOTE_WDIR=/home/${HD_USER}/${CLOUD_NAME}
  #H2O_REMOTE_CMD="'cd ${REMOTE_WDIR}; ${DELETE_ICE};java -Xmx4g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME} --nosigar' &"
  echo $H2O_REMOTE_CMD;
- for i in 1 2
+ for i in 1 
  do
- for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5} ${NODE6} ${NODE7}
+ #for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} ${NODE4} ${NODE5} ${NODE6} ${NODE7}
+ for NODE in ${NODE0} ${NODE1} ${NODE2} ${NODE3} 
   do
-   H2O_REMOTE_CMD="'cd  ${REMOTE_WDIR}_${i};/home/hduser/jdk1.6.0_31/bin/java -Xmx4g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME} ${HDFS_CONF} --nosigar' &"
-   echo xterm -e ssh -t ${HD_USER}@${NODE} ${H2O_REMOTE_CMD} >> _run.sh
+   H2O_REMOTE_CMD="'cd  ${REMOTE_WDIR}_${i};/home/hduser/jdk1.6.0_31/bin/java -Xmx10g -jar ${REMOTE_WDIR}/h2o-${JAR_TIME}.jar -name $CLOUD_NAME --ice_root=${ICE_DIR_NAME} ${HDFS_CONF} --nosigar;sleep 10' &"
+   echo xterm -title ${NODE} -e ssh -t ${HD_USER}@${NODE} ${H2O_REMOTE_CMD} >> _run.sh
   done
    echo "sleep 10" >> _run.sh
  done
 }
 
 # run
-#build
+build
 dist
 shutdown
 sleep 5
