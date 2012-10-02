@@ -392,7 +392,7 @@ class RemoteH2O(H2O):
         self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = self.ssh.get_transport().open_session()
-        self.channel.get_pty()
+        self.channel.get_pty() # force the process to die without the connection
 
         cmd = ' '.join(self.get_args())
         outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
