@@ -396,9 +396,7 @@ public final class ParseDataset {
         return this;
       }
 
-      for(String s : columnDomain._domainValues)
-        if (!_domainValues.contains(s))
-          _domainValues.add(s);
+      _domainValues.addAll(columnDomain._domainValues);
 
       // check the size after union - if the domain is to big => kill it
       if (_domainValues.size() > DOMAIN_MAX_VALUES) kill();

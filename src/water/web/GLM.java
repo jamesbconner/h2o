@@ -42,7 +42,7 @@ public class GLM extends H2OPage {
     for(int i = 0; i < res.length; ++i){
       String colExp = colExps[i].trim();
       for(int j = 0; j < colNames.length; ++j)
-        if(colNames[j].equals(colExp)){
+        if(colNames[j].equalsIgnoreCase(colExp)){
           res[i] = j;
           continue __OUTER;
         }
@@ -77,7 +77,7 @@ public class GLM extends H2OPage {
     long t1 = System.currentTimeMillis();
     try {
       responseTemplate.replace("name","Linear regression");
-      GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method));
+      GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method.toLowerCase()));
       coefs = g.solve();
       double [] validationCoef = g.test();
       long deltaT = System.currentTimeMillis()-t1;
