@@ -57,5 +57,5 @@ public class RandomForestPage extends H2OPage {
     return H2OPage.error(json.get("error").toString());
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=http:/%h2o/RFView?Key=%confKeyHref&depth=%depth\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?Key=%confKeyHref&depth=%depth\">\n";
 }
