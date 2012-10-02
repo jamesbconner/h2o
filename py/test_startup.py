@@ -8,7 +8,6 @@ def quick_startup(num_babies=3, nosigar=True):
             babies.append(h2o.spawn_h2o(port=54321+3*i,nosigar=nosigar))
         n = h2o.H2O(port=54321, spawn=False)
         h2o.stabilize_cloud(n, num_babies)
-        print n.netstat()
     except:
         err = 'Error starting %d nodes quickly (sigar is %s)' % (num_babies,'disabled' if nosigar else 'enabled')
         for b in babies:
@@ -17,10 +16,7 @@ def quick_startup(num_babies=3, nosigar=True):
         raise Exception(err)
     finally:
         # EAT THE BABIES!
-        kids = [b[0] for b in babies]
-        print kids
-        #h2o.tear_down_cloud(kids)
-        for b in babies: b[0].terminate()
+        for b in babies: b[0].kill()
 
 class StartUp(unittest.TestCase):
     def test_concurrent_startup(self):
@@ -30,8 +26,7 @@ class StartUp(unittest.TestCase):
     # start sending heartbeat packets which contain information taken 
     # from Sigar
     def test_concurrent_startup_with_sigar(self):
-        #time.sleep(1)
-        quick_startup(num_babies=3,nosigar=False)
+       quick_startup(num_babies=3,nosigar=False)
 
 if __name__ == '__main__':
     h2o.clean_sandbox()
