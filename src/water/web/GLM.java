@@ -94,6 +94,8 @@ public class GLM extends H2OPage {
         res.addProperty("Null Deviance",-2*validationCoef[0]);
         bldr.append("<div>" + "Null Deviance: <span style=\"font-weight: normal\">" + -2*validationCoef[0] + "</span></div>");
         bldr.append("<div>" + "Residual Deviance: <span style=\"font-weight: normal\">" + -2*validationCoef[1] + "</span></div>");
+        int k = X.length + 1;
+        bldr.append("<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">" + (-2*validationCoef[1]+ 2*k) + "</span></div>");
         res.addProperty("Residual Deviance",-2*validationCoef[1]);
       }
       bldr.append("</div>");
