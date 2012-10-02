@@ -20,15 +20,6 @@ public class GraphvizTreePrinter extends TreePrinter {
     _dest = dest;
   }
 
-  public void printForest(RandomForest rf) throws IOException {
-    _dest.append("digraph {\n");
-    for (Tree t : rf._trees) {
-      t._tree.print(this);
-    }
-    _dest.append("}");
-    if( _dest instanceof Flushable ) ((Flushable) _dest).flush();
-  }
-
   public void printTree(Tree t) throws IOException {
     _dest.append("digraph {\n");
     t._tree.print(this);
