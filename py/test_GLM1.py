@@ -30,14 +30,6 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
-    def test_B_GLM_iris2(self):
-        timeoutSecs = 2
-        csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
-        X="0,1,2"
-        # last col (4) is not number so don't use
-        Y="3"
-        cmd.runGLM(csvPathname=csvPathname,X=X,Y=Y,timeoutSecs=timeoutSecs)
-
     def test_C_GLM_poker1000(self):
         timeoutSecs = 2
         csvPathname = h2o.find_file('smalldata/poker/poker1000')

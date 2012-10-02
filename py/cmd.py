@@ -6,14 +6,16 @@ def runGLM(node=None,csvPathname=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
     parse = node.parse(put['keyHref'])
-    runGLMOnly(node=node, parseKey=parse, 
-            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+    glm = runGLMOnly(node=node, parseKey=parse,X=X,Y=Y,
+        timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+    return glm
 
 def runGLMOnly(node=None,parseKey=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=0.5):
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
-    # lr = node.linear_reg(parseKey['keyHref'], colA, colB)
-    glm = node.GLM(parseKey['keyHref'], X, Y)
+    # FIX! add something like stabilize in RF to check results, and also retry/timeout
+    glm = node.GLM(parseKey['keyHref'],X=X,Y=Y)
+    return glm
 
 # You can change those on the URL line woth "&colA=77&colB=99"
 # LinReg draws a line from a collection of points.  Only works if you have 2 or more points.
@@ -30,6 +32,7 @@ def runLR(node=None,csvPathname=None,colA=0,colB=1,timeoutSecs=30,retryDelaySecs
 def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySecs=0.5):
     if not parseKey: raise Exception('No file name for LR specified')
     if not node: node = h2o.nodes[0]
+    # FIX! add something like stabilize in RF to check results, and also retry/timeout
     lr = node.linear_reg(parseKey['keyHref'], colA, colB)
 
 ###     # we'll have to add something for LR.json to verify the LR results
