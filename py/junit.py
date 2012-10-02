@@ -1,4 +1,4 @@
-import os, json, unittest, time, shutil, sys
+import os, json, unittest, time, shutil, sys, getpass
 import h2o
 
 class JUnit(unittest.TestCase):
@@ -13,6 +13,7 @@ class JUnit(unittest.TestCase):
             (ps, stdout, stderr) = h2o.spawn_cmd('junit', [
                     'java',
                     '-Dh2o.arg.ice_root='+h2o.tmp_dir('ice.'),
+                    '-Dh2o.arg.name=pytest-'+getpass.getuser(),
                     '-javaagent:' + h2o.find_file('build/h2o.jar'),
                     '-ea', '-jar', h2o.find_file('build/h2o.jar'),
                     '-mainClass', 'org.junit.runner.JUnitCore',

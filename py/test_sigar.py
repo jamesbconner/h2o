@@ -6,7 +6,7 @@ class SigarApi(unittest.TestCase):
     def setUpClass(cls):
         h2o.clean_sandbox()
         global nodes
-        nodes = h2o.build_cloud(node_count=3,nosigar=False)
+        nodes = h2o.build_cloud(node_count=3,sigar=True)
 
     @classmethod
     def tearDownClass(cls):
