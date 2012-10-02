@@ -35,14 +35,14 @@ class Basic(unittest.TestCase):
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         colA=0
         colB=1
-        runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
+        cmd.runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
 
     def test_C_LR_poker1000(self):
         timeoutSecs = 2
         csvPathname = h2o.find_file('smalldata/poker/poker1000')
         colA=0
         colB=1
-        runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
+        cmd.runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
 
     def test_D_GenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
@@ -86,7 +86,7 @@ class Basic(unittest.TestCase):
                 sys.stdout.flush()
                 csvFilename = "parity_128_4_" + str(91) + "_quad.data"  
                 csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-                runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
+                cmd.runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
 
 
 if __name__ == '__main__':
