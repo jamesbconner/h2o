@@ -7,6 +7,8 @@ hosts = [
 ]
 
 
+# pulling this out front, because I want all the nodes
+# to come up quickly and fight with each other
 for h in hosts:
     print 'Uploading jar to', h
     h.upload_file(h2o.find_file('build/h2o.jar'))
