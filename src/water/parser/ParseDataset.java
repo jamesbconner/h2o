@@ -120,8 +120,9 @@ public final class ParseDataset {
     // Column names, if any
     String[] names = guess_col_names(dataset, num_cols, (byte)typeArr[0]);
     if( names != null )
-      for( int i=0; i<num_cols; i++ )
+      for( int i=0; i<num_cols; i++ ) {
         dp1._cols[i]._name = names[i];
+      }
 
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
@@ -917,32 +918,38 @@ public final class ParseDataset {
     int cols = 0;
     int mode = 0;
     int colonCounter = 0;
-    boolean commas = false;     // Assume white-space only columns
+    boolean commas  = false;     // Assume white-space only columns
+    boolean escaped = false;
     while( i < b.length ) {
       char c = (char)b[i++];
-      if( c=='\n' || c== '\r' ) {
-        break;
-      } if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
-        if( mode == 1 ) mode = 2;
-      } else if( c == ',' ) {   // Found a comma?
-        if( commas == false ) { // Not in comma-seperator mode?
-          // Reset the entire line parse & try again, this time with comma
-          // separators enabled.
-          commas=true;          // Saw a comma
-          i = line_start;       // Reset to line start
-          cols = mode = 0;      // Reset parsing mode
-          continue;             // Try again
+      if( c == '"' ) {
+        escaped = !escaped;
+        continue;
+      }
+      if (!escaped) {
+        if( c=='\n' || c== '\r' ) {
+          break;
         }
-        if( mode == 0 ) cols++;
-        mode = 0;
-      } else if( c == '"' ) {
-        throw new Error("string skipping not implemented");
-      } else if(c == ':' && (++colonCounter == 3)){
-        // if there are at least 3 ':' on the line, the file is probably svmlight format
-        throw new Error("SVMLIGHT format is currently unsupported");
-      } else {                  // Else its just column data
-        if( mode != 1 ) cols++;
-        mode = 1;
+        if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
+          if( mode == 1 ) mode = 2;
+        } else if( c == ',' ) {   // Found a comma?
+          if( commas == false ) { // Not in comma-seperator mode?
+            // Reset the entire line parse & try again, this time with comma
+            // separators enabled.
+            commas=true;          // Saw a comma
+            i = line_start;       // Reset to line start
+            cols = mode = 0;      // Reset parsing mode
+            continue;             // Try again
+          }
+          if( mode == 0 ) cols++;
+          mode = 0;
+        } else if(c == ':' && (++colonCounter == 3)){
+          // if there are at least 3 ':' on the line, the file is probably svmlight format
+          throw new Error("SVMLIGHT format is currently unsupported");
+        } else {                  // Else its just column data
+          if( mode != 1 ) cols++;
+          mode = 1;
+        }
       }
     }
     // If no columns, and skipped first row - try again parsing 1st row
@@ -961,25 +968,34 @@ public final class ParseDataset {
     int cols=0;
     int idx=-1;
     int num = 0;
+    boolean escaped = false;
     for( int i=0; i<b.length; i++ ) {
       char c = (char)b[i];
-      if( c=='\n' || c== '\r' ) {
-        if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
-          num++;                // Not a number, so take it as a column name
-        break;
+      if (c=='"') {
+        escaped = !escaped;
+        if ( idx == -1) {
+          cols++;
+          idx=i;
+        }
+        continue;
       }
-      // Found a column separator?
-      if(    (csvType==PARSE_SPACESEP && Character.isWhitespace(c))
-          || (csvType==PARSE_COMMASEP && c == ',') ) {
-        if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
-          num++;                // Not a number, so take it as a column name
-        idx = -1;               // Reset start-of-column
-      } else if( c == '"' ) {
-        throw new Error("string skipping not implemented");
-      } else {                  // Else its just column data
-        if( idx == -1 ) {       // Not starting a name?
-          cols++;               // Starting a name now
-          idx = i;
+      if (!escaped) {
+        if( c=='\n' || c== '\r' ) {
+          if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
+            num++;                // Not a number, so take it as a column name
+          break;
+        }
+        // Found a column separator?
+        if(    (csvType==PARSE_SPACESEP && Character.isWhitespace(c))
+            || (csvType==PARSE_COMMASEP && c == ',') ) {
+          if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
+            num++;                // Not a number, so take it as a column name
+          idx = -1;               // Reset start-of-column
+        } else {                  // Else its just column data
+          if( idx == -1 ) {       // Not starting a name?
+            cols++;               // Starting a name now
+            idx = i;
+          }
         }
       }
     }
