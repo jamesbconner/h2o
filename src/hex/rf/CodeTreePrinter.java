@@ -21,15 +21,6 @@ public class CodeTreePrinter extends TreePrinter {
     _dest = new IndentingAppender(dest);
   }
 
-  public void printForest(RandomForest rf) throws IOException {
-    _dest.append("int classify(Row row) {\n");
-    _dest.incrementIndent();
-    for (Tree t : rf._trees) {
-      t._tree.print(this);
-    }
-    _dest.decrementIndent().append("}").flush();
-  }
-
   public void printTree(Tree t) throws IOException {
     _dest.append("int classify(Row row) {\n");
     _dest.incrementIndent();
@@ -42,7 +33,6 @@ public class CodeTreePrinter extends TreePrinter {
   }
 
   void printNode(SplitNode t) throws IOException {
-    // return r.getColumnClass(_column) <= _split ? _l.classify(r) : _r.classify(r);
     _dest.append("if (row.getColumnClass(").append(_columnNames[t._column]).append(") <= ");
     _dest.append(Integer.toString(t._split)).append(")\n");
     _dest.incrementIndent();

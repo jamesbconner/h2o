@@ -15,7 +15,6 @@ public abstract class TreePrinter {
     _columnNames = columns;
   }
 
-  public abstract void printForest(RandomForest rf) throws IOException;
   public abstract void printTree(Tree t) throws IOException;
   abstract void printNode(LeafNode t) throws IOException;
   abstract void printNode(SplitNode t) throws IOException;

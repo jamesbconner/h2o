@@ -307,8 +307,8 @@ class H2O(object):
 
 class ExternalH2O(H2O):
     '''An H2O instance launched outside the control of python'''
-    def __init__(self, addr=None, port=54321, sigar=True):
-        super(ExternalH2O, self).__init__(addr, port, sigar=sigar)
+    def __init__(self, *args, **keywords):
+        super(ExternalH2O, self).__init__(*args, **keywords)
 
     def get_h2o_jar(self):
         return find_file('build/h2o.jar') # just a likely guess
@@ -334,8 +334,8 @@ class ExternalH2O(H2O):
 
 class LocalH2O(H2O):
     '''An H2O inkstance launched by the python framework on the local machine'''
-    def __init__(self, addr=None, port=54321, sigar=True):
-        super(LocalH2O, self).__init__(addr, port, sigar=sigar)
+    def __init__(self, *args, **keywords):
+        super(LocalH2O, self).__init__(*args, **keywords)
         self.rc = None
         self.ice = tmp_dir('ice.')
 
@@ -373,30 +373,48 @@ class LocalH2O(H2O):
     def stack_dump(self):
         self.ps.send_signal(signal.SIGQUIT)
 
-class RemoteH2O(H2O):
-    def __upload_file(self, f):
+class RemoteHost(object):
+    def upload_file(self, f):
         f = find_file(f)
-        dest = '/tmp/' + os.path.basename(f)
-        log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
-        sftp = self.ssh.open_sftp()
-        sftp.put(f, dest)
-        sftp.close()
-        return dest
+        if f not in self.uploaded:
+            dest = '/tmp/' + os.path.basename(f)
+            log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+            sftp = self.ssh.open_sftp()
+            sftp.put(f, dest)
+            sftp.close()
+            self.uploaded[f] = dest
+        return self.uploaded[f]
 
-    '''An H2O instance launched by the python framework on a remote machine'''
-    def __init__(self, addr=None, port=54321, sigar=True, username=None):
-        super(RemoteH2O, self).__init__(addr, port, sigar=sigar)
+    def __init__(self, addr, username):
         import paramiko
+        self.addr = addr
+        self.username = username
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
         self.ssh.connect(self.addr, username=username)
+        self.uploaded = {}
 
-        self.jar = self.__upload_file(find_file('build/h2o.jar'))
+    def remote_h2o(self, *args, **keywords):
+        return RemoteH2O(self, self.addr, *args, **keywords)
+
+    def open_channel(self):
+        ch = self.ssh.get_transport().open_session()
+        ch.get_pty() # force the process to die without the connection
+        return ch
+
+    def __str__(self):
+        return 'ssh://%s@%s' % (self.username, self.addr)
+
+
+class RemoteH2O(H2O):
+    '''An H2O instance launched by the python framework on a remote machine'''
+    def __init__(self, host, *args, **keywords):
+        super(RemoteH2O, self).__init__(*args, **keywords)
+
+        self.jar = host.upload_file(find_file('build/h2o.jar'))
         self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
-        self.channel = self.ssh.get_transport().open_session()
-        self.channel.get_pty() # force the process to die without the connection
-
+        self.channel = host.open_channel()
         cmd = ' '.join(self.get_args())
         outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
         errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')

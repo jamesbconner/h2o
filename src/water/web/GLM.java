@@ -1,14 +1,15 @@
 package water.web;
 import hex.GLSM;
 import hex.GLSM.GLSMException;
-import hex.rf.DRF;
 
-import java.util.Arrays;
+import java.text.DecimalFormat;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import water.H2O;
 import water.ValueArray;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 public class GLM extends H2OPage {
@@ -38,15 +39,28 @@ public class GLM extends H2OPage {
   public int [] parseVariableExpression(String [] colNames, String vexp){
     String [] colExps = vexp.split(",");
     int [] res = new int[colExps.length];
+    int idx = 0;
  __OUTER:
     for(int i = 0; i < res.length; ++i){
       String colExp = colExps[i].trim();
+      if(colExp.contains(":")){
+        String [] parts = colExp.split(":");
+        if(parts.length != 2)throw new InvalidColumnIdException(colExp);
+        int from = parseVariableExpression(colNames, parts[0])[0];
+        int to = parseVariableExpression(colNames, parts[1])[0];
+        int [] new_res = new int [res.length + to - from + 1];
+        System.arraycopy(res, 0, new_res, 0, idx);
+        for(int j = from; j <= to; ++j){
+          new_res[idx++] = j;
+        }
+        continue __OUTER;
+      }
       for(int j = 0; j < colNames.length; ++j)
         if(colNames[j].equalsIgnoreCase(colExp)){
-          res[i] = j;
+          res[idx++] = j;
           continue __OUTER;
         }
-      try {res[i] = Integer.valueOf(colExps[i].trim());}catch(NumberFormatException e){throw new InvalidColumnIdException(colExps[i].trim());};
+      try {res[idx++] = Integer.valueOf(colExps[i].trim());}catch(NumberFormatException e){throw new InvalidColumnIdException(colExps[i].trim());};
     }
     return res;
   }
@@ -57,7 +71,6 @@ public class GLM extends H2OPage {
 
   @Override
   public JsonObject serverJson(Server s, Properties p) throws PageError {
-    RString responseTemplate = new RString("<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div><div>Coefficients:");
     ValueArray ary = ServletUtil.check_array(p,"Key");
     String [] colNames = ary.col_names();
     int [] yarr = parseVariableExpression(colNames, p.getProperty("Y"));
@@ -71,43 +84,103 @@ public class GLM extends H2OPage {
     for(int x:X)if(0 > x || x >= ary.num_cols())throw new InvalidInputException("invalid X vector, column " + x + " does not exist!");
     String method = p.getProperty("family","gaussian");
     JsonObject res = new JsonObject();
-    responseTemplate.replace("key", ary._key);
+    res.addProperty("key", ary._key.toString());
+    res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
     res.addProperty("h2o",H2O.SELF.urlEncode());
     double [] coefs = null;
     long t1 = System.currentTimeMillis();
     try {
-      responseTemplate.replace("name","Linear regression");
+      if(method.equalsIgnoreCase("gaussian"))
+        res.addProperty("name","Linear regression");
+      else if(method.equalsIgnoreCase("binomial"))
+        res.addProperty("name", "");
       GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method.toLowerCase()));
       coefs = g.solve();
       double [] validationCoef = g.test();
       long deltaT = System.currentTimeMillis()-t1;
-      responseTemplate.replace("time", deltaT);
       res.addProperty("time", deltaT);
-      StringBuilder bldr = new StringBuilder(responseTemplate.toString());
+      res.addProperty("DegreesOfFreedom", g.n() - 1);
+      res.addProperty("ResidualDegreesOfFreedom", g.n() - X.length -1);
+      JsonObject coefficients = new JsonObject();
+
       for(int i = 0; i < coefs.length; ++i){
         String colName = (i == (coefs.length-1))?"Intercept":getColName(columns[i], colNames);
-        bldr.append("<span style=\"margin:5px;font-weight:normal;\">" + colName + " = " + coefs[i] + "</span>");
-        res.addProperty(colName,coefs[i]);
+        coefficients.addProperty(colName, coefs[i]);
       }
-      bldr.append("</div><div>Degrees of freedom: <span style=\"font-weight: normal\">" + g.n() + " total (i.e. Null); " + (g.n() - X.length) + " Residual</span></div>");
+      res.add("coefficients", coefficients);
+
       if(validationCoef != null){
         res.addProperty("Null Deviance",-2*validationCoef[0]);
-        bldr.append("<div>" + "Null Deviance: <span style=\"font-weight: normal\">" + -2*validationCoef[0] + "</span></div>");
-        bldr.append("<div>" + "Residual Deviance: <span style=\"font-weight: normal\">" + -2*validationCoef[1] + "</span></div>");
-        int k = X.length + 1;
-        bldr.append("<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">" + (-2*validationCoef[1]+ 2*k) + "</span></div>");
         res.addProperty("Residual Deviance",-2*validationCoef[1]);
+        int k = X.length + 1;
+        res.addProperty("AIC",2*k -2*validationCoef[1]);
       }
-      bldr.append("</div>");
-      res.addProperty("response_html", bldr.toString());
     }  catch(InvalidInputException e1){
-      res.addProperty("response_html", H2OPage.error("Invalid input:" + e1.getMessage()));
+      res.addProperty("error", "Invalid input:" + e1.getMessage());
     } catch(GLSMException e2){
-      res.addProperty("response_html", H2OPage.error("Unable to run the regression on this data: '" + e2.getMessage() + "'"));
+      res.addProperty("error", "Unable to run the regression on this data: '" + e2.getMessage() + "'");
     }
     return res;
   }
+  static DecimalFormat dformat  = new DecimalFormat("###.###");
+
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
-    return serverJson(server, args).get("response_html").getAsString();
+//    RString responseTemplate = new RString(
+//          "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
+//        + "<div>Coefficients:%coefficientHTML</div>"
+//        + "<p>"
+//        + "<div>Degrees of freedom: <span style=\"font-weight: normal\">%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</span></div>"
+//        + "<div>Null Deviance: <span style=\"font-weight: normal\">%NullDeviance</span></div>"
+//        + "<div>Residual Deviance: <span style=\"font-weight: normal\">%ResidualDeviance</span></div>"
+//        + "<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">%AIC_formated</span></div>");
+    RString responseTemplate = new RString(
+        "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
+      + "<h3>Coefficients</h3>"
+      + "<div>%coefficientHTML</div>"
+      + "<h5>Model SRC</h5>"
+      + "<div><code>%modelSrc</code></div>"
+      + "<table class='table table-striped table-bordered table-condensed'>"
+      + "<br/>"
+      + "<h3>Validation</h3>"
+      + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
+      + "<tr><th>Null Deviance</th><td>%NullDeviance</td></tr>"
+      + "<tr><th>Residual Deviance</th><td>%ResidualDeviance</td></tr>"
+      + "<tr><th>AIC</th><td>%AIC_formated</td></tr>"
+      + "</table>");
+
+
+    JsonObject json = serverJson(server, args);
+    if(json.has("error"))
+      return H2OPage.error(json.get("error").getAsString());
+    responseTemplate.replace(json);
+    StringBuilder bldr = new StringBuilder();
+    StringBuilder codeBldr = new StringBuilder();
+
+    JsonObject x =  (JsonObject)json.get("coefficients");
+    for(Entry<String,JsonElement> e: x.entrySet()){
+      double val = e.getValue().getAsDouble();
+      bldr.append("<span style=\"margin:5px;font-weight:normal;\">" + e.getKey() + " = " + dformat.format(val) + "</span>");
+
+      if(codeBldr.length() > 0)codeBldr.append((val >=0)?" + ":" - ");
+      if(e.getKey().equals("Intercept"))
+        codeBldr.append(dformat.format(Math.abs(val)));
+      else
+        codeBldr.append(dformat.format(Math.abs(val)) + "*x[" + e.getKey() + "]");
+    }
+    String method = args.getProperty("family","gaussian");
+    if(method.equalsIgnoreCase("gaussian")){
+      RString m = new RString("y = %equation");
+      m.replace("equation",codeBldr.toString());
+      responseTemplate.replace("modelSrc", m.toString());
+    } else if(method.equalsIgnoreCase("binomial")){
+      RString m = new RString("y = 1/(1 + Math.exp(-(%equation))");
+      m.replace("equation",codeBldr.toString());
+      responseTemplate.replace("modelSrc", m.toString());
+    }
+    responseTemplate.replace("coefficientHTML",bldr.toString());
+    if(json.has("Null Deviance"))responseTemplate.replace("NullDeviance",dformat.format(json.get("Null Deviance").getAsDouble()));
+    if(json.has("Residual Deviance"))responseTemplate.replace("ResidualDeviance",dformat.format(json.get("Residual Deviance").getAsDouble()));
+    if(json.has("AIC"))responseTemplate.replace("AIC_formated",dformat.format(json.get("AIC").getAsDouble()));
+    return responseTemplate.toString();
   }
 }
