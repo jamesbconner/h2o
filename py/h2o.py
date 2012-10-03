@@ -399,6 +399,9 @@ class RemoteHost(object):
         ch.get_pty() # force the process to die without the connection
         return ch
 
+    def __str__(self):
+        return 'ssh://%s@%s' % (self.username, self.addr)
+
 
 class RemoteH2O(H2O):
     '''An H2O instance launched by the python framework on a remote machine'''
