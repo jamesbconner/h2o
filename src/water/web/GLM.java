@@ -4,7 +4,7 @@ import hex.GLSM.GLSMException;
 
 import java.text.DecimalFormat;
 import java.util.Map.Entry;
-import java.util.Properties;
+import java.util.*;
 
 import water.H2O;
 import water.ValueArray;
@@ -124,6 +124,7 @@ public class GLM extends H2OPage {
   }
   static DecimalFormat dformat  = new DecimalFormat("###.###");
 
+
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
 //    RString responseTemplate = new RString(
 //          "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
@@ -157,15 +158,35 @@ public class GLM extends H2OPage {
     StringBuilder codeBldr = new StringBuilder();
 
     JsonObject x =  (JsonObject)json.get("coefficients");
-    for(Entry<String,JsonElement> e: x.entrySet()){
-      double val = e.getValue().getAsDouble();
-      bldr.append("<span style=\"margin:5px;font-weight:normal;\">" + e.getKey() + " = " + dformat.format(val) + "</span>");
+    if(x.entrySet().size() < 10){
+      for(Entry<String,JsonElement> e: x.entrySet()){
+        double val = e.getValue().getAsDouble();
+        bldr.append("<span style=\"margin:5px;font-weight:normal;\">" + e.getKey() + " = " + dformat.format(val) + "</span>");
+        if(codeBldr.length() > 0)codeBldr.append((val >=0)?" + ":" - ");
+        if(e.getKey().equals("Intercept"))
+          codeBldr.append(dformat.format(Math.abs(val)));
+        else
+          codeBldr.append(dformat.format(Math.abs(val)) + "*x[" + e.getKey() + "]");
+      }
+      responseTemplate.replace("coefficientHTML",bldr.toString());
+    } else {
+      StringBuilder headerbldr = new StringBuilder();
+      headerbldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr>");
+      bldr.append("<tbody><tr>");
+      for(Entry<String,JsonElement> e: x.entrySet()){
+        double val = e.getValue().getAsDouble();
+        headerbldr.append("<th>" + e.getKey() + "</th>");
+        bldr.append("<td>" + dformat.format(val) + "</td>");
+        if(codeBldr.length() > 0)codeBldr.append((val >=0)?" + ":" - ");
+        if(e.getKey().equals("Intercept"))
+          codeBldr.append(dformat.format(Math.abs(val)));
+        else
+          codeBldr.append(dformat.format(Math.abs(val)) + "*x[" + e.getKey() + "]");
+      }
+      headerbldr.append("</tr></thead>");
+      bldr.append("</tr></tbody></table>");
+      responseTemplate.replace("coefficientHTML", headerbldr.toString() + bldr.toString());
 
-      if(codeBldr.length() > 0)codeBldr.append((val >=0)?" + ":" - ");
-      if(e.getKey().equals("Intercept"))
-        codeBldr.append(dformat.format(Math.abs(val)));
-      else
-        codeBldr.append(dformat.format(Math.abs(val)) + "*x[" + e.getKey() + "]");
     }
     String method = args.getProperty("family","gaussian");
     if(method.equalsIgnoreCase("gaussian")){
@@ -177,7 +198,6 @@ public class GLM extends H2OPage {
       m.replace("equation",codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
     }
-    responseTemplate.replace("coefficientHTML",bldr.toString());
     if(json.has("Null Deviance"))responseTemplate.replace("NullDeviance",dformat.format(json.get("Null Deviance").getAsDouble()));
     if(json.has("Residual Deviance"))responseTemplate.replace("ResidualDeviance",dformat.format(json.get("Residual Deviance").getAsDouble()));
     if(json.has("AIC"))responseTemplate.replace("AIC_formated",dformat.format(json.get("AIC").getAsDouble()));

@@ -189,7 +189,6 @@ public class GLSM {
     @Override
     public void reduce(DRemoteTask drt) {
       LSMTask other = (LSMTask) drt;
-      System.out.println(_n + ", " + other._n);
       if( _xx != null || _xy != null ) {
         double R = 1.0 / (_n + other._n);
         double myR = other._n * R;
@@ -324,7 +323,8 @@ public class GLSM {
     @Override
     public void reduce(DRemoteTask drt) {
       BinomialTest other = (BinomialTest) drt;
-      for( int i = 0; i < _results.length; ++i )
+      if(_results == null)_results = other._results;
+      else for( int i = 0; i < _results.length; ++i )
         _results[i] += other._results[i];
     }
 
