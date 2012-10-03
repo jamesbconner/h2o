@@ -24,7 +24,6 @@ import water.util.KeyUtil;
  * Validation and error reporting is not supported when growing a forest.
  */
 public class RandomForest {
-  final Tree[] _trees;          // The trees that got built
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
 
@@ -32,21 +31,21 @@ public class RandomForest {
 
     // Build N trees via the Random Forest algorithm.
     _data = data;
-    _trees = new Tree[ntrees];
     long start = System.currentTimeMillis();
     try {
       // build one tree at a time, and forget it
       for( int i=0; i<ntrees; i++ ) {
-        H2O.FJP_NORM.submit(_trees[i] = new Tree(_data.clone(),maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
-        _trees[i].get();        // Block for a tree
-        new AppendKey(_trees[i].toKey()).fork(drf._treeskey);        // Atomic-append to the list of trees
+        Tree t = null;
+        H2O.FJP_NORM.submit(t = new Tree(_data.clone(),maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
+        t.get();        // Block for a tree
+        new AppendKey(t.toKey()).fork(drf._treeskey);        // Atomic-append to the list of trees
         long now = System.currentTimeMillis();
         System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
-        _trees[i]= null; // Forget it.
       }
     } catch( InterruptedException e ) {
       // Interrupted after partial build?
     } catch( ExecutionException e ) {
+      // FIXME: Should we do something here -- JAN
     }
   }
 
