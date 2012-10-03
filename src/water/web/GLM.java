@@ -168,9 +168,9 @@ public class GLM extends H2OPage {
         codeBldr.append(dformat.format(Math.abs(val)) + "*x[" + e.getKey() + "]");
     }
     String method = args.getProperty("family","gaussian");
-    if(method.equalsIgnoreCase("guassian")){
+    if(method.equalsIgnoreCase("gaussian")){
       RString m = new RString("y = %equation");
-      m.replace("equation",bldr.toString());
+      m.replace("equation",codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
     } else if(method.equalsIgnoreCase("binomial")){
       RString m = new RString("y = 1/(1 + Math.exp(-(%equation))");
