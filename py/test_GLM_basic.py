@@ -3,6 +3,7 @@ import h2o, h2o_cmd as cmd
 
 
 class Basic(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         h2o.clean_sandbox()
@@ -97,5 +98,21 @@ class Basic(unittest.TestCase):
                 print "Intercept:", glm['Intercept']
 
 
+import argparse
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    # can add more here
+    parser.add_argument('--verbose','-v', help="increased output", action="store_true")
+    
+    parser.add_argument('unittest_args', nargs='*')
+    args = parser.parse_args()
+
+    # hmm. is there a better way to resolve the namespace issue?
+    h2o.verbose = args.verbose
+
+    # set sys.argv to the unittest args (leav sys.argv[0] as is)
+    sys.argv[1:] = args.unittest_args
+
+    # print "\nh2o.verbose:", h2o.verbose
     unittest.main()
+
