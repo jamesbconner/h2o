@@ -1,8 +1,5 @@
 import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
-import requests, psutil
-
-global verbose
-verbose = False
+import requests, psutil, argparse, sys, unittest
 
 def __drain(src, dst):
     for l in src:
@@ -17,12 +14,31 @@ def drain(src, dst):
     t.daemon = True
     t.start()
 
-# verbose is global, defined elsewhere.
+def unit_main():
+    clean_sandbox()
+    parse_our_args()
+    unittest.main()
+
+def parse_our_args():
+    global verbose
+    parser = argparse.ArgumentParser()
+    # can add more here
+    parser.add_argument('--verbose','-v', help="increased output", action="store_true")
+    
+    parser.add_argument('unittest_args', nargs='*')
+    args = parser.parse_args()
+    verbose = args.verbose
+
+    # set sys.argv to the unittest args (leav sys.argv[0] as is)
+    # sys.argv[1:] = args.unittest_args
+    sys.argv[1:] = args.unittest_args
+
 def verboseprint(*args):
     if verbose:
         for arg in args: # so you don't have to create a single string
             print arg,
         print
+
 
 def find_file(base):
     f = base
