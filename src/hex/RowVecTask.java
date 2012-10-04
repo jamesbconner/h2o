@@ -13,7 +13,7 @@ public abstract class RowVecTask extends MRTask {
   public RowVecTask(RowVecTask other){_colIds = other._colIds;}
 
   long _seed = System.currentTimeMillis();
-  double _samplingRatio = 1.0;
+  int _samplingFraction = 0;
   boolean _complement;
 
   /**
@@ -28,15 +28,17 @@ public abstract class RowVecTask extends MRTask {
    * @param ratio value in range 0 - 1 giving the ratio of rows to be selected. 0 means no row will be selcted, 1 means all rows will be selected.
    * @param complement - if true, returns exactly the complement of the set defined by the seed and ratio.
    */
-  public void setSampling(long seed, double ratio, boolean complement){
+  public void setSampling(long seed, int fraction, boolean complement){
     _seed = seed;
-    _samplingRatio = ratio;
+    _samplingFraction = fraction;
     _complement = complement;
   }
   @Override
   public void map(Key key) {
-    if(_samplingRatio != 1.0){
+    int c = 0;
+    if(_samplingFraction != 0){
       _rand = new Random(_seed);
+      c = (int)(_rand.nextDouble()*_samplingFraction);
     }
     assert key.home();
     Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
@@ -58,11 +60,10 @@ public abstract class RowVecTask extends MRTask {
     double [] x = new double[_colIds.length];
     init(x.length,nrows);
     for( int rid = 0; rid < nrows; ++rid ) {
-      if(_samplingRatio < 1.0){
-        double r = _rand.nextDouble();
-        if((_complement && (r <= _samplingRatio)) || (!_complement && (r > _samplingRatio))){
+      if(_samplingFraction != 0){
+        if(--c <= 0)c = _samplingFraction;
+        if(((c == _samplingFraction) && !_complement) || ((c != _samplingFraction) && _complement))
           continue;
-        }
       }
       for( int i = 0; i < _colIds.length; ++i )
         x[i] = ary.datad(bits, rid, row_size, off[i], sz[i], base[i],scale[i], _colIds[i]);
