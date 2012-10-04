@@ -284,7 +284,7 @@ public class Tree extends CountedCompleter {
   // Classify this serialized tree - withOUT inflating it to a full tree.
   // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
   // Returns classes from 0 to N-1
-  public static int classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize ) {
+  public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize ) {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
     while( ts.get1() != '[' ) { // While not a leaf indicator
@@ -304,7 +304,7 @@ public class Tree extends CountedCompleter {
           ts._off += skip;        // Skip left subtree
       }
     }
-    return ts.get1()&0xFF;      // Return the leaf's class
+    return (short) ( ts.get1()&0xFF );      // Return the leaf's class
   }
 
   // Abstract visitor class for serialized trees.

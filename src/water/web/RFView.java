@@ -34,7 +34,7 @@ public class RFView extends H2OPage {
     }
 
     JsonObject res = new JsonObject();
-    addProperty(res, "origKey", confusion._ary._key);
+    addProperty(res, "origKey", confusion._data._key);
     res.addProperty("got",ntrees);
     res.addProperty("valid",confusion._ntrees);
     res.addProperty("computedTrees",confusion._tkeys.length);
@@ -56,7 +56,7 @@ public class RFView extends H2OPage {
 
     // Display the confusion-matrix table here
     // First the title line
-    int cmin = (int)confusion._ary.col_min(confusion._ary.num_cols()-1);
+    int cmin = (int)confusion._data.col_min(confusion._data.num_cols()-1);
     StringBuilder sb = new StringBuilder();
     sb.append("<th>Actual \\ Predicted");
     for( int i=0; i<confusion._N; i++ )
@@ -104,7 +104,7 @@ public class RFView extends H2OPage {
     // Get the Tree keys
     Key treekeys[] = confusion._treeskey.flatten();
     final int ntrees = treekeys.length;
-    response.replace("origKey",confusion._ary._key);
+    response.replace("origKey",confusion._data._key);
     response.replace("got",ntrees);
     response.replace("valid",confusion._ntrees);
     response.replace("maxtrees",confusion._maxtrees);
@@ -126,7 +126,7 @@ public class RFView extends H2OPage {
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("TtableRow");
       trow.replace("treeKey",treekeys[i]);
-      trow.replace("torigKey",confusion._ary._key);
+      trow.replace("torigKey",confusion._data._key);
       trow.append();
     }
 
