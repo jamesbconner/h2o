@@ -18,9 +18,10 @@ public class Confusion extends MRTask {
   public int _ntrees0;             // Trees being processed *this pass*
   public int _maxtrees;            // Expected final tree max
 
-  // Tree Keys
-  transient public Key[] _tkeys;    // Array of Tree-Keys
-  transient public byte[][] _trees; // Array of Tree bytes
+  /** Tree Keys */
+  transient public Key[] _tkeys;
+  /** Tree data */
+  transient public byte[][] _trees;
 
   // Dataset we are building the matrix on.  The classes must be in the last
   // column, and the column count must match the Trees.
@@ -45,12 +46,11 @@ public class Confusion extends MRTask {
   public Key _votes;
   transient public Key[] _vkeys;
 
-  // For reproducibility make sure that we can control the randomness in the
-  // computation of the confusion matrix. The default seed when deserializing is 42.
-  // TODO: Check that a default value is required. --JAN
+  /** For reproducibility we can control the randomness in the computation of the
+      confusion matrix. The default seed when deserializing is 42.*/
   transient Random _rand = new Random(42);
 
-  private Model _model;
+  private transient Model _model;
 
   public Confusion() {}  // Constructor for use by the serializers
 
@@ -227,15 +227,12 @@ public class Confusion extends MRTask {
     else                          DKV.put(vkey,new Value(vkey,vbits));
   }
 
-  // Reduction just combines the confusion matrices
+  /** Reduction combines the confusion matrices. */
   public void reduce( DRemoteTask drt ) {
     Confusion C = (Confusion)drt;
     long[][] m1 = _matrix;
     long[][] m2 = C._matrix;
-    if( m1 == null ) {          // No local work?
-      _matrix = m2;             // Take other work straight-up
-      return;
-    }
+    if( m1 == null ) { _matrix = m2; return; } // Take other work straight-up
     for( int i=0; i<m1.length; i++ )
       for( int j=0; j<m1.length; j++ )
         m1[i][j] += m2[i][j];
