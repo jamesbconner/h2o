@@ -27,6 +27,7 @@ public class Stream {
   }
 
   public Stream set1 ( int   a) {        grow(1)[_off++] = (byte)a ; return this; }
+  public Stream setz (boolean a){        grow(1)[_off++] = (byte)(a?1:0); return this; }
   public Stream set2 ( int   a) { _off += UDP.set2 (grow(2),_off,a); return this; }
   public Stream set3 ( int   a) { _off += UDP.set3 (grow(3),_off,a); return this; }
   public Stream set4 ( int   a) { _off += UDP.set4 (grow(4),_off,a); return this; }
@@ -105,6 +106,7 @@ public class Stream {
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
   public byte   get1 () { return           _buf[ _off++]    ; }
+  public boolean getz() { return           _buf[ _off++]!=0 ; }
   public int    get2 () { return UDP.get2 (_buf,(_off+=2)-2); }
   public int    get3 () { return UDP.get3 (_buf,(_off+=3)-3); }
   public int    get4 () { return UDP.get4 (_buf,(_off+=4)-4); }

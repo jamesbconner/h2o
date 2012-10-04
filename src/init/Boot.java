@@ -379,9 +379,9 @@ public class Boot extends ClassLoader {
     "1","1","2","2","4","4" ,"8","8"             // prim[][]
   };
   static private final String[] FLDSZ1 = {
-    "1","1","2","2","4","4f","8","8d","-1","-1", // prims, Key, String
-    "1","1","2","2","4","4f","8","8d","-1","-1", // prim[]
-    "1","1","2","2","4","4f","88","8d8d"         // prim[][]
+    "z","1","2","2","4","4f","8","8d","-1","-1", // prims, Key, String
+    "z","1","2","2","4","4f","8","8d","-1","-1", // prim[]
+    "z","1","2","2","4","4f","88","8d8d"         // prim[][]
   };
   static private final String[] FLDSZ2 = {
     "Boolean","Byte","Char","Short","Int","Float","Long","Double","Key","String",

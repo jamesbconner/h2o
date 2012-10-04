@@ -286,7 +286,6 @@ class H2O(object):
 
     def get_args(self):
         args = [ "java", 
-            "-javaagent:" + self.get_h2o_jar(),
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,

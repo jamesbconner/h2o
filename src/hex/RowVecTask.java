@@ -6,7 +6,7 @@ import water.*;
 
 public abstract class RowVecTask extends MRTask {
   protected int [] _colIds;
-  Random _rand = null;
+  transient Random _rand = null;
   public RowVecTask() {}
   public RowVecTask(int [] colIds){_colIds = colIds;}
   public RowVecTask(RowVecTask other){_colIds = other._colIds;}

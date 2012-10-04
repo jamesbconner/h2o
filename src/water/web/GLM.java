@@ -1,18 +1,13 @@
 package water.web;
-
-import hex.GLSM;
-import hex.GLSM.GLSMException;
-
-import java.text.DecimalFormat;
-import java.util.Map.Entry;
-import java.util.*;
-
-import water.H2O;
-import water.ValueArray;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.sun.org.apache.xml.internal.resolver.readers.XCatalogReader;
+import hex.GLSM.GLSMException;
+import hex.GLSM;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.Map.Entry;
+import water.H2O;
+import water.ValueArray;
 
 public class GLM extends H2OPage {
 
@@ -132,8 +127,7 @@ public class GLM extends H2OPage {
       columns[n] = Y;
       for( int x : columns )
         if( 0 > x || x >= ary.num_cols() ) {
-          res.addProperty("error", "Invalid input: column " + x
-              + " does not exist!");
+          res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
       String method = p.getProperty("family", "gaussian");
@@ -142,12 +136,10 @@ public class GLM extends H2OPage {
       res.addProperty("h2o", H2O.SELF.urlEncode());
       double[] coefs = null;
       long t1 = System.currentTimeMillis();
-      if( method.equalsIgnoreCase("gaussian") ) res.addProperty("name",
-          "Linear regression");
+      if( method.equalsIgnoreCase("gaussian") ) res.addProperty("name","Linear regression");
       else if( method.equalsIgnoreCase("binomial") )
         res.addProperty("name", "");
-      GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method
-          .toLowerCase()));
+      GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method.toLowerCase()));
       coefs = g.solve();
       double[] validationCoef = g.test();
       long deltaT = System.currentTimeMillis() - t1;
@@ -157,8 +149,7 @@ public class GLM extends H2OPage {
       JsonObject coefficients = new JsonObject();
 
       for( int i = 0; i < coefs.length; ++i ) {
-        String colName = (i == (coefs.length - 1)) ? "Intercept" : getColName(
-            columns[i], colNames);
+        String colName = (i == (coefs.length - 1)) ? "Intercept" : getColName(columns[i], colNames);
         coefficients.addProperty(colName, coefs[i]);
       }
       res.add("coefficients", coefficients);
