@@ -29,5 +29,4 @@ class Basic(unittest.TestCase):
         h2o_cmd.runRF(trees=6, timeoutSecs=10, csvPathname=csvPathnamegz)
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()

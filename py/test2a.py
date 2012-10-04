@@ -33,5 +33,4 @@ class Basic(unittest.TestCase):
         print "RF end on ", csvPathnamegz, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()

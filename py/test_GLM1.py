@@ -4,7 +4,6 @@ import h2o, h2o_cmd as cmd
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.clean_sandbox()
         global nodes
         nodes = h2o.build_cloud(node_count=1)
 
@@ -92,4 +91,4 @@ class Basic(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    h2o.unit_main()

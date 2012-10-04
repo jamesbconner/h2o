@@ -10,7 +10,6 @@ def getCloud():
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.clean_sandbox()
 
     @classmethod
     def tearDownClass(cls):
@@ -59,4 +58,4 @@ class Basic(unittest.TestCase):
             # c = getCloud()
 
 if __name__ == '__main__':
-    unittest.main()
+    h2o.unit_main()

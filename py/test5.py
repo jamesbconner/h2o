@@ -30,5 +30,4 @@ class Basic(unittest.TestCase):
             put = h2o.nodes[0].put_value(trialString, key=trialStringXYZ, repl=None)
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()
