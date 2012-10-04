@@ -94,6 +94,10 @@ public class Stream {
     set4(x==null?-1:x.length);
     if( x != null ) for( int i=0; i<x.length; i++ ) set8d(x[i]);
   }
+  public void setAry44(int[][]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) setAry4(x[i]);
+  }
   public void setAry88(long[][]x) {
     set4(x==null?-1:x.length);
     if( x != null ) for( int i=0; i<x.length; i++ ) setAry8(x[i]);
@@ -160,6 +164,12 @@ public class Stream {
     int l = get4();   if( l == -1 ) return null;
     double[] x = new double[l];
     for( int i=0; i<x.length; i++ ) x[i] = get8d();
+    return x;
+  }
+  public int[][] getAry44() {
+    int l = get4();   if( l == -1 ) return null;
+    int[][] x = new int[l][];
+    for( int i=0; i<x.length; i++ ) x[i] = getAry4();
     return x;
   }
   public long[][] getAry88() {

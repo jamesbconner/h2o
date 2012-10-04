@@ -170,6 +170,7 @@ public class GLSM {
     long       _n;       // number of valid rows in this chunk
     double     _ymu;     // mean(y) estimate
 
+    public LSMTask() {}         // Empty constructors for the serializers
     public LSMTask(int[] colIds, int constant) {
       this(colIds, colIds.length - 1, constant);
     }
@@ -291,17 +292,15 @@ public class GLSM {
     double   _origConstant;
     long     _ncases;
 
+    public LogitLSMTask() {}    // Empty constructor for the serializers
     public LogitLSMTask(int[] colIds, int constant, double[] beta) {
       super(colIds, colIds.length - 1, constant);
       _beta = beta;
     }
 
     public LogitLSMTask(int[] colIds, int constant) {
-      this(colIds, constant, new double[colIds.length
-          - ((constant == 0) ? 1 : 0)]);
+      this(colIds, constant, new double[colIds.length- ((constant == 0) ? 1 : 0)]);
     }
-
-
 
     @Override
     public void init(int xlen, int nrows) {

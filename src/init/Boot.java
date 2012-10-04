@@ -334,7 +334,6 @@ public class Boot extends ClassLoader {
               "  %s = water.Key.read(s);\n",
               "  %s = s.getLen2Str();\n",
               "}");
-
     return cc.toClass(this);
   }
 
@@ -368,8 +367,16 @@ public class Boot extends ClassLoader {
     }
     sb.append(trailer);
     String body = sb.toString();
-    //System.out.println(body);  // Uncomment me to see the generated code
-    cc.addMethod(CtNewMethod.make(body,cc));
+
+    try {
+      //System.out.println(body);  // Uncomment me to see the generated code
+      cc.addMethod(CtNewMethod.make(body,cc));
+    } catch( CannotCompileException ce ) {
+      System.out.println("--- Compilation failure while compiler serializers for "+cc.getName());
+      System.out.println(body);
+      System.out.println("------");
+      throw ce;
+    }
   }
 
   // Field size in bytes, from type.  For arrays, it's the element size.
@@ -381,12 +388,12 @@ public class Boot extends ClassLoader {
   static private final String[] FLDSZ1 = {
     "z","1","2","2","4","4f","8","8d","-1","-1", // prims, Key, String
     "z","1","2","2","4","4f","8","8d","-1","-1", // prim[]
-    "z","1","2","2","4","4f","88","8d8d"         // prim[][]
+    "zz","11","22","22","44","4fef","88","8d8d"  // prim[][]
   };
   static private final String[] FLDSZ2 = {
     "Boolean","Byte","Char","Short","Int","Float","Long","Double","Key","String",
     "Boolean","Byte","Char","Short","Int","Float","Long","Double","Key","String",
-    "Boolean","Byte","Char","Short","Int","Float","LongLong","DoubleDouble"
+    "BooleanBoolean","ByteByte","CharChar","ShortShort","IntInt","FloatFloat","LongLong","DoubleDouble"
   };
 
   // Field types:
