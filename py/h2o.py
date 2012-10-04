@@ -88,7 +88,6 @@ def spawn_h2o(addr=None, port=54321, nosigar=True):
     # "java", "-ea", "-jar", find_file('build/h2o.jar'),
     h2o_cmd = [
             "java", 
-            "-javaagent:" + find_file('build/h2o.jar'),
             "-ea", "-jar", find_file('build/h2o.jar'),
             "--port=%d"%port,
             '--ip=%s'%(addr or get_ip_address()),

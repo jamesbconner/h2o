@@ -4,112 +4,55 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-
-import water.Atomic;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.PersistNFS;
-import water.RemoteTask;
-import water.TaskRemExec;
-import water.UDP;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
+import water.*;
 
 /**
  * Distributed task to store key on HDFS.
  *
  * If it is a simple value, task is sent to the home of the value and the value
- * is simply stored on hdfs. For arraylets, chunks are stored in order by their
- * home nodes. Each node continues storing chunks until the next to be stored
- * has different home in which case the task is passed to the home node of that
- * chunk.
+ * is simply stored on hdfs.  For arraylets, chunks are stored in order by
+ * their home nodes.  Each node continues storing chunks until the next to be
+ * stored has different home in which case the task is passed to the home node
+ * of that chunk.
  *
  * Optionally, progress can be monitored by passing a key to a value containing
- * number of chunks stored. If not null, this value will be updated as
+ * number of chunks stored.  If not null, this value will be updated as
  * additional chunks are stored.
  *
  * @author tomasnykodym
  *
  */
-@RTSerializer(TaskStore2HDFS.Serializer.class)
 public class TaskStore2HDFS extends RemoteTask {
   Key _key;
-  Key _progressK;
-  Value _v;
   long _indexFrom;
-  long _indexTo;
-  ArrayList<TaskRemExec<TaskStore2HDFS>> _tre = new ArrayList<TaskRemExec<TaskStore2HDFS>>();
-
-  public static class Serializer extends RemoteTaskSerializer<TaskStore2HDFS> {
-    @Override
-    public int write(TaskStore2HDFS tsk, byte[] buf, int off) {
-      UDP.set8(buf, off, tsk._indexFrom);
-      UDP.set8(buf, off + 8, tsk._indexTo);
-      if( tsk._progressK != null ) {
-        buf[off + 16] = 1;
-        return tsk._progressK.write(buf, off + 17);
-      }
-      buf[off + 16] = 0;
-      return off + 17;
-    }
-
-    @Override
-    public TaskStore2HDFS read(byte[] buf, int off) {
-      return new TaskStore2HDFS(UDP.get8(buf, off), UDP.get8(buf, off + 8),
-          (buf[off + 16] == 1) ? Key.read(buf, off + 17) : null);
-    }
-
-    @Override
-    public int wire_len(TaskStore2HDFS tsk) {
-      return 16 + 1 + ((tsk._progressK != null) ? tsk._progressK.wire_len() : 0);
-    }
-
-    @Override
-    public void write(TaskStore2HDFS task, DataOutputStream dos)
-        throws IOException {
-      dos.writeLong(task._indexFrom);
-      dos.writeLong(task._indexTo);
-      dos.writeBoolean(task._progressK != null);
-      if( task._progressK != null )
-        task._progressK.write(dos);
-    }
-
-    @Override
-    public TaskStore2HDFS read(DataInputStream dis) throws IOException {
-      long from = dis.readLong();
-      long to = dis.readLong();
-      Key p = null;
-      if( dis.readBoolean() ) {
-        p = Key.read(dis);
-      }
-      return new TaskStore2HDFS(from, to, p);
-    }
-  }
+  final long _indexTo;
+  final Key _progressK;
 
   public static Key store2Hdfs(Key srcKey) {
-    Value v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK) ? Key
-        .make(ValueArray.getArrayKeyBytes(srcKey)) : srcKey);
-    Key result = PersistHdfs.getKeyForPath(getPathFromValue(v));
+    Value v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK) ? Key.make(ValueArray.getArrayKeyBytes(srcKey)) : srcKey);
+    String p = getPathFromValue(v);
+    Key result = PersistHdfs.getKeyForPath(p);
     final long N = v.chunks();
-    Key pK = Key
-        .make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
+    // For ValueArrays, make the .hex header
+    if( v != null && v instanceof ValueArray ) {
+      try {         // for .hex files we need to store the header with metadata
+        PersistHdfs.createFile(v, p);
+      } catch( IOException e ) {
+        throw new Error(e);
+      }
+    }
+    // The progress key
+    Key pK = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
     Value progress = new Value(pK, 8);
     DKV.put(pK, progress);
+
     try {
       TaskStore2HDFS tsk = new TaskStore2HDFS(0, N, srcKey, pK);
-      tsk.invoke(srcKey);
+      tsk.invoke((v instanceof ValueArray) ? ValueArray.make_chunkkey(srcKey,0) : srcKey);
       // HTML file save of Value
       long storedCount = 0;
       while( (storedCount = UDP.get8(DKV.get(pK).get(), 0)) < N ) {
-        try {
-          Thread.sleep(100);
-        } catch( InterruptedException e ) {
-          throw new RuntimeException(e);
-        }
+        try { Thread.sleep(100); } catch( InterruptedException e ) { }
       }
     } finally {
       // remove progress info
@@ -119,16 +62,8 @@ public class TaskStore2HDFS extends RemoteTask {
     return result;
   }
 
-  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey,
-      Key progressKey) {
-    _indexFrom = indexFrom;
-    _indexTo = indexTo;
-    _progressK = progressKey;
-    _v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK) ? Key.make(ValueArray
-        .getArrayKeyBytes(srcKey)) : srcKey);
-  }
-
-  private TaskStore2HDFS(long indexFrom, long indexTo, Key progressKey) {
+  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey, Key progressKey) {
+    _key = srcKey;
     _indexFrom = indexFrom;
     _indexTo = indexTo;
     _progressK = progressKey;
@@ -136,8 +71,7 @@ public class TaskStore2HDFS extends RemoteTask {
 
   static private String getPathFromValue(Value v) {
     int prefixLen = 0;
-    byte[] kb = (v._key._kb[0] == Key.ARRAYLET_CHUNK) ? ValueArray
-        .getArrayKeyBytes(v._key) : v._key._kb;
+    byte[] kb = (v._key._kb[0] == Key.ARRAYLET_CHUNK) ? ValueArray.getArrayKeyBytes(v._key) : v._key._kb;
     switch( v._persist & Value.BACKEND_MASK ) {
     case Value.NFS:
       prefixLen = PersistNFS.KEY_PREFIX_LENGTH;
@@ -172,15 +106,6 @@ public class TaskStore2HDFS extends RemoteTask {
 
   @Override
   public final void invoke(Key key) {
-    if( _v != null && _v instanceof ValueArray ) {
-      String p = getPathFromValue(_v);
-      // for .hex files we need to store the header with metadata
-      try {
-        PersistHdfs.createFile(_v, p);
-      } catch( IOException e ) {
-        throw new Error(e);
-      }
-    }
     _key = key;
     compute();
   }

@@ -1,11 +1,7 @@
 package hex;
-
 import java.io.*;
 import java.util.*;
-
 import water.*;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
 import Jama.Matrix;
 
 /**
@@ -47,12 +43,6 @@ public class GLSM {
 
   protected static double [] solve (Key aryKey, LSMTask tsk){
     tsk.invoke(aryKey);
-    try {
-      tsk.get();
-    } catch( Exception e ) {
-      // TODO Auto-generated catch block
-      throw new RuntimeException(e);
-    }
     Matrix xx = new Matrix(tsk._xx.length,tsk._xx.length);
     // we only computed half of the symmetric matrix, now we need to fill the rest before computing the inverse
     for(int i = 0; i < tsk._xx.length; ++i){
@@ -114,13 +104,16 @@ public class GLSM {
   }
 
   public static class LSMTask extends MRTask {
-    double [][]    _xx;
-    double []  _xy;
-    int [] _colIds; // indexes of the columns we're interested in, first n-1 columns are for x vector, the last column is for y
+    double [][] _xx;
+    double [] _xy;
+    // indexes of the columns we're interested in, first n-1 columns are for x
+    // vector, the last column is for y
+    int [] _colIds;
     int _xlen;
     int _constant;
-    private Row _r;
+    transient private Row _r;
 
+    public LSMTask() { }     // Required nullary constructor for serialization!
     public LSMTask(int [] colIds, int constant) {
       this(colIds, colIds.length-1,constant);
     }

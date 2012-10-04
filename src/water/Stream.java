@@ -69,6 +69,39 @@ public class Stream {
     _off += len;
   }
 
+  public void setAry1(byte[]x) {
+    if( x==null ) set4(-1);
+    else setLen4Bytes(x);
+  }
+  public void setAry2(short[]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) set2(x[i]);
+  }
+  public void setAry4(int[]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) set4(x[i]);
+  }
+  public void setAry4f(float[]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) set4f(x[i]);
+  }
+  public void setAry8(long[]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) set8(x[i]);
+  }
+  public void setAry8d(double[]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) set8d(x[i]);
+  }
+  public void setAry88(long[][]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) setAry8(x[i]);
+  }
+  public void setAry8d8d(double[][]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) setAry8d(x[i]);
+  }
+
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
   public byte   get1 () { return           _buf[ _off++]    ; }
@@ -90,5 +123,53 @@ public class Stream {
   public void getBytes(byte[] dst, int len) {
     System.arraycopy(_buf, _off, dst, 0, len);
     _off += len;
+  }
+  public byte[] getAry1() {
+    int l = get4();   if( l == -1 ) return null;
+    byte[] x = new byte[l];
+    getBytes(x,l);
+    return x;
+  }
+  public short[] getAry2() {
+    int l = get4();   if( l == -1 ) return null;
+    short[] x = new short[l];
+    for( int i=0; i<x.length; i++ ) x[i] = (short)get2();
+    return x;
+  }
+  public int[] getAry4() {
+    int l = get4();   if( l == -1 ) return null;
+    int[] x = new int[l];
+    for( int i=0; i<x.length; i++ ) x[i] = get4();
+    return x;
+  }
+  public float[] getAry4f() {
+    int l = get4();   if( l == -1 ) return null;
+    float[] x = new float[l];
+    for( int i=0; i<x.length; i++ ) x[i] = get4f();
+    return x;
+  }
+  public long[] getAry8() {
+    int l = get4();   if( l == -1 ) return null;
+    long[] x = new long[l];
+    for( int i=0; i<x.length; i++ ) x[i] = get8();
+    return x;
+  }
+  public double[] getAry8d() {
+    int l = get4();   if( l == -1 ) return null;
+    double[] x = new double[l];
+    for( int i=0; i<x.length; i++ ) x[i] = get8d();
+    return x;
+  }
+  public long[][] getAry88() {
+    int l = get4();   if( l == -1 ) return null;
+    long[][] x = new long[l][];
+    for( int i=0; i<x.length; i++ ) x[i] = getAry8();
+    return x;
+  }
+  public double[][] getAry8d8d() {
+    int l = get4();   if( l == -1 ) return null;
+    double[][] x = new double[l][];
+    for( int i=0; i<x.length; i++ ) x[i] = getAry8d();
+    return x;
   }
 }

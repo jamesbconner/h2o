@@ -1,9 +1,7 @@
-  package hex.rf;
+package hex.rf;
 
 import java.util.*;
-
 import water.*;
-import water.serialization.*;
 
 /**
  * Confusion Matrix.  Incrementally computes a Confusion Matrix for a
@@ -21,13 +19,13 @@ public class Confusion extends MRTask {
   public int _maxtrees;            // Expected final tree max
 
   // Tree Keys
-  @RTLocal public Key[] _tkeys;   // Array of Tree-Keys
-  @RTLocal public byte[][] _tbits;// Array of Tree bytes
+  transient public Key[] _tkeys;    // Array of Tree-Keys
+  transient public byte[][] _tbits; // Array of Tree bytes
 
   // Dataset we are building the matrix on.  The classes must be in the last
   // column, and the column count must match the Trees.
   public Key _arykey;             // The dataset key
-  @RTLocal public ValueArray _ary;// The dataset array
+  transient public ValueArray _ary;  // The dataset array
   public int _N;                  // Number of classes
 
   // The Confusion Matrix - a NxN matrix of [actual] -vs- [predicted] classes,
@@ -44,13 +42,13 @@ public class Confusion extends MRTask {
   // the cost is 2x7 classes or 14 bytes per row on top of 64 bytes per row for
   // the data for an overhead of only 18%.
   public Key _votes;
-  @RTLocal public Key[] _vkeys;
+  transient public Key[] _vkeys;
 
   // For reproducibility make sure that we can control the randomness in the
   // computation of the confusion matrix. The default seed when deserializing
   // is 42.
   // TODO: Check that a default value is required. --JAN
-  @RTLocal Random _rand = new Random(42);
+  transient Random _rand = new Random(42);
 
   // no-arg constructor for use by the serializers
   public Confusion() {}
@@ -144,17 +142,16 @@ public class Confusion extends MRTask {
 
   // Write the Confusion to its key
   public Key toKey() {
-    RemoteTaskSerializer sc = RTSerializationManager.get(Confusion.class);
-    Stream s = new Stream(sc.wire_len(this));
-    sc.write(this, s);
+    Stream s = new Stream(wire_len());
+    write(s);
     Key key = Key.make("ConfusionMatrix of "+_arykey);
     DKV.put(key, new Value(key, s._buf));
     return key;
   }
 
   public static Confusion fromKey( Key key ) {
-    RemoteTaskSerializer sc = (RTSerializationManager.get(Confusion.class));
-    Confusion c = (Confusion)sc.read(new Stream(DKV.get(key).get()));
+    Confusion c = new Confusion();
+    c.read(new Stream(DKV.get(key).get()));
     c.shared_init();
     return c;
   }

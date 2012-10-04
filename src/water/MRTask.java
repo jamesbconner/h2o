@@ -12,8 +12,8 @@ import jsr166y.*;
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 public abstract class MRTask extends DRemoteTask {
 
-  private int _lo, _hi;         // Range of keys to work on
-  private MRTask _left, _rite;  // In-progress execution tree
+  transient private int _lo, _hi; // Range of keys to work on
+  transient private MRTask _left, _rite; // In-progress execution tree
 
   public void init() {
     _lo = 0;
@@ -26,6 +26,7 @@ public abstract class MRTask extends DRemoteTask {
 
   // Do all the keys in the list associated with this Node.  Roll up the
   // results into *this* MRTask.
+  @Override
   public final void compute() {
     if( _hi-_lo >= 2 ) { // Multi-key case: just divide-and-conquer down to 1 key
       final int mid = (_lo+_hi)>>>1; // Mid-point

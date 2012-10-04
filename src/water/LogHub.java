@@ -1,6 +1,3 @@
-/**
- *
- */
 package water;
 
 import java.io.InputStream;
@@ -15,17 +12,17 @@ import water.web.ProgressReport;
  * Log hub is a central part for collecting stdout/stderr of local and remote nodes.
  * Log hub implements publish-subscribe pattern.
  *
- * <p>Publishers are threads producing stdout
- * and stderr. The streams are collected by {@link LogWrapper} which encapsulates {@link Log}).
- * The {@link LogWrapper} split streams into events which are sent to {@link LogHub} which resends
- * them to subscribed listeners.</p>
- *
+ * <p>Publishers are threads producing stdout and stderr.  The streams are
+ * collected by {@link LogWrapper} which encapsulates {@link Log}).  The
+ * {@link LogWrapper} split streams into events which are sent to {@link LogHub}
+ * which resends them to subscribed listeners.</p>
  *
  * <p>There are two kinds of subscribers - local and remote.
- * The local subscriber {@link LocalLogSubscriber} collects all events and publishes it via {@link InputStream} which is published via
- * REST API (see {@link ProgressReport}). If the local subscriber is registered, all nodes in the cloud are asked
- * for sending their stdout/stderr. The remote subscriber {@link RemoteLog} sends all events via UDP to all registered
- * nodes.</p>
+ * The local subscriber {@link LocalLogSubscriber} collects all events and
+ * publishes it via {@link InputStream} which is published via REST API (see
+ * {@link ProgressReport}). If the local subscriber is registered, all nodes in
+ * the cloud are asked for sending their stdout/stderr. The remote subscriber
+ * {@link RemoteLog} sends all events via UDP to all registered nodes.</p>
  *
  * @author michal
  *

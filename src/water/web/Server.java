@@ -136,7 +136,7 @@ public class Server extends NanoHTTPD {
   private Response getResource(String uri) {
     byte[] bytes = _cache.get(uri);
     if( bytes == null ) {
-      InputStream resource = Boot._init.getResource(uri);
+      InputStream resource = Boot._init.getResource2(uri);
       if (resource != null) {
         try {
           bytes = ByteStreams.toByteArray(resource);

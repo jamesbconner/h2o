@@ -1,7 +1,5 @@
 package water;
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -74,6 +72,104 @@ public class TCPReceiverThread extends Thread {
         saw_error = true;
         errsock  = sock ;  sock  = null; // Signal error recovery on the next loop
       }
+    }
+  }
+
+  // Utility functions to read & write arrays
+  public static byte[] readByteAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    byte[] ary  = new byte[len];
+    dis.readFully(ary);
+    return ary;
+  }
+  public static short[] readShortAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    short[] ary  = new short[len];
+    for( int i=0; i<len; i++ ) ary[i] = dis.readShort();
+    return ary;
+  }
+  public static int[] readIntAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    int[] ary  = new int[len];
+    for( int i=0; i<len; i++ ) ary[i] = dis.readInt();
+    return ary;
+  }
+  public static float[] readFloatAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    float[] ary  = new float[len];
+    for( int i=0; i<len; i++ ) ary[i] = dis.readFloat();
+    return ary;
+  }
+  public static long[] readLongAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    long[] ary  = new long[len];
+    for( int i=0; i<len; i++ ) ary[i] = dis.readLong();
+    return ary;
+  }
+  public static double[] readDoubleAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    double[] ary  = new double[len];
+    for( int i=0; i<len; i++ ) ary[i] = dis.readDouble();
+    return ary;
+  }
+  public static long[][] readLongLongAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    long[][] ary  = new long[len][];
+    for( int i=0; i<len; i++ ) ary[i] = readLongAry(dis);
+    return ary;
+  }
+  public static double[][] readDoubleDoubleAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    double[][] ary  = new double[len][];
+    for( int i=0; i<len; i++ ) ary[i] = readDoubleAry(dis);
+    return ary;
+  }
+  public static String readStr( DataInputStream dis ) throws IOException {
+    int len = dis.readChar(); if( len == 65535 ) return null;
+    byte[] ary  = new byte[len];
+    dis.readFully(ary);
+    return new String(ary);
+  }
+
+
+  public static void writeAry( DataOutputStream dos, byte[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) dos.write(ary,0,ary.length);
+  }
+  public static void writeAry( DataOutputStream dos, short[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) dos.writeShort(ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, int[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) dos.writeInt(ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, float[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) dos.writeFloat(ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, long[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) dos.writeLong(ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, double[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) dos.writeDouble(ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, long[][] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) writeAry(dos,ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, double[][] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) writeAry(dos,ary[i]);
+  }
+  public static void writeStr( DataOutputStream dos, String str ) throws IOException {
+    if( str == null ) dos.writeChar(65535);
+    else {
+      assert str.length() < 65535;
+      dos.writeChar(str.length());
+      dos.writeBytes(str);
     }
   }
 }

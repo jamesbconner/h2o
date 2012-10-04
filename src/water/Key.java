@@ -159,7 +159,7 @@ public final class Key implements Comparable {
 
   // Construct a new Key.
   private Key(byte[] kb) {
-    if( kb.length > KEY_LENGTH ) throw new IllegalArgumentException();
+    if( kb.length > KEY_LENGTH ) throw new IllegalArgumentException("Key length would be "+kb.length);
     _kb = kb;
     // For arraylets, arrange that the first 64Megs/Keys worth spread nicely,
     // but that the next 64Meg (and each 64 after that) target the same node,
@@ -188,6 +188,7 @@ public final class Key implements Comparable {
 
   // Make new Keys.  Optimistically attempt interning, but no guarantee.
   static public Key make(byte[] kb, byte rf) {
+    if( rf == -1 ) throw new IllegalArgumentException();
     Key key = new Key(kb);
     Key key2 = H2O.getk(key);   // Get the interned version, if any
     if( key2 != null )          // There is one!  Return it instead
@@ -422,12 +423,14 @@ public final class Key implements Comparable {
 
   static public Key read( Stream s ) {
     byte rf = s.get1();
+    if( rf == -1 ) return null;
     return make(s.getLen2Bytes(), rf);
   }
 
   // Read the key length & kind & bytes from a UDP packet.  Build a bare key.
   static public Key read( byte[] buf, int off ) {
     byte rf = buf[off++];
+    if( rf == -1 ) return null;
     int len = UDP.get2(buf,off);  off += 2;
     return make( buf, off, len, rf);
   }
@@ -442,6 +445,7 @@ public final class Key implements Comparable {
   // Read the Key, and some bytes of Value from Stream
   public static Key read( DataInputStream dis ) throws IOException {
     byte rf = dis.readByte();
+    if( rf == -1 ) return null;
     int klen = dis.readShort();
     byte[] kb = new byte[klen];
     dis.readFully(kb);

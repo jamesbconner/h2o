@@ -2,35 +2,12 @@ package water.parser;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
+import java.util.*;
+import java.util.zip.*;
 
-import water.Atomic;
-import water.DFutureTask;
-import water.DKV;
-import water.DRemoteTask;
-import water.H2O;
-import water.Key;
-import water.MRTask;
-import water.MemoryManager;
-import water.RemoteTask;
-import water.TaskRemExec;
-import water.UDP;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
-import water.ValueArray.Column;
+import water.*;
 import water.parser.SeparatedValueParser.Row;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
 
-import com.google.common.primitives.Chars;
 
 // Helper class to parse an entire ValueArray data, and produce a structured
 // ValueArray result.
@@ -274,25 +251,25 @@ public final class ParseDataset {
   private static void filter_columns_domains( DParse1 dp1) {
     int num_col = dp1._num_cols;
 
-    for (int i = 0; i < num_col; i++) {
+    for( int i = 0; i < num_col; i++) {
       ColumnDomain colDom   = dp1._cols_domains[i];
       ValueArray.Column col = dp1._cols[i];
-
-      if (!colDom.isKilled()) { // Column domain was killed because it contains numbers => it does not need to be considered any more
-        if (colDom.size() > ColumnDomain.DOMAIN_MAX_VALUES) { // The column's domain contains too many unique strings => drop the domain. Column is already marked as erroneous.
-          colDom.kill();
-        } else { // column's domain is 'small' enough => setup the column to carry values 0..<domain size>-1
-          // setup column sizes
-          col._base  = 0;
-          col._min   = 0;
-          col._max   = dp1._cols_domains[i].size() - 1;
-          col._badat = 0; // I can't precisely recognize the wrong column value => all cells contain correct value
-          col._scale = 1; // Do not scale
-          col._size  = 0; // Mark integer column
-        }
-      }
-      // Setup column domain.
       col._domain = colDom;
+      // The column's domain contains too many unique strings => drop the
+      // domain. Column is already marked as erroneous.
+      if( colDom.size() > ColumnDomain.DOMAIN_MAX_VALUES) colDom.kill();
+      // Column domain was killed because it contains numbers => it does not
+      // need to be considered any more
+      if( !colDom.isKilled() ) {
+        // column's domain is 'small' enough => setup the column to carry values 0..<domain size>-1
+        // setup column sizes
+        col._base  = 0;
+        col._min   = 0;
+        col._max   = dp1._cols_domains[i].size() - 1;
+        col._badat = 0; // I can't precisely recognize the wrong column value => all cells contain correct value
+        col._scale = 1; // Do not scale
+        col._size  = 0; // Mark integer column
+      }
     }
   }
 
@@ -301,7 +278,7 @@ public final class ParseDataset {
   static public class ColumnDomain {
     // Maximum size (in bytes) of column which contains enum (= limited number of string values)
     public static final byte DOMAIN_MAX_BYTE_SIZE = 2;
-    public static final int  DOMAIN_MAX_VALUES    = 1 << DOMAIN_MAX_BYTE_SIZE*8;
+    public static final int  DOMAIN_MAX_VALUES    = (1 << DOMAIN_MAX_BYTE_SIZE*8)-1;
 
     // Include all domain values in their insert-order.
     LinkedHashSet<String> _domainValues;
@@ -334,8 +311,7 @@ public final class ParseDataset {
 
     public void write( DataOutputStream dos ) throws IOException {
       // write size of domain
-      dos.writeShort(_domainValues.size());
-      dos.writeBoolean(_killed);
+      dos.writeShort(_killed ? 65535 : _domainValues.size());
       // write domain values
       for (String s : _domainValues) {
         dos.writeShort(s.length()); // Note: we do not expect to have domain names longer than > 2^16 characters
@@ -343,47 +319,46 @@ public final class ParseDataset {
       }
     }
 
-    public int write( byte[] buf, int off ) {
-      UDP.set2(buf, off, _domainValues.size()); off += 2;
-      buf[off] = (byte)(_killed ? 1 : 0); off += 1;
-      for (String s : _domainValues) {
-        byte[] stringBytes = s.getBytes();
-        UDP.set2(buf, off, stringBytes.length); off += 2;
-        System.arraycopy(stringBytes, 0, buf, off, stringBytes.length); off += stringBytes.length;
-      }
-      return off;
+    public void write( Stream s ) {
+      final int off = s._off;
+      s.set2(_killed ? 65535 : _domainValues.size());
+      for( String sv : _domainValues)
+        s.setLen2Str(sv);
+      assert off+wire_len() == s._off;
     }
 
     static public ColumnDomain read( DataInputStream dis ) throws IOException {
       ColumnDomain cd = new ColumnDomain();
-      int domainSize  = dis.readShort();
-      cd._killed      = dis.readByte() != 0;
-      for (int i = 0; i < domainSize; i++) {
-        int len     = dis.readShort();
-        byte name[] = new byte[len];
-        dis.readFully(name);
-        cd._domainValues.add(new String(name));
+      int domainSize  = dis.readChar();
+      cd._killed = (domainSize==65535);
+      if( !cd._killed ) {
+        for (int i = 0; i < domainSize; i++) {
+          int len     = dis.readShort();
+          byte name[] = new byte[len];
+          dis.readFully(name);
+          cd._domainValues.add(new String(name));
+        }
       }
       return cd;
     }
 
-    static public ColumnDomain read( byte[] buf, int off ) {
+    static public ColumnDomain read( Stream s ) {
+      final int off = s._off;
       ColumnDomain cd = new ColumnDomain();
-      int domainSize  = UDP.get2(buf, off); off += 2;
-      cd._killed      = buf[off] != 0; off += 1;
-      for (int i = 0; i < domainSize; i++) {
-        int len     = UDP.get2(buf, off); off += 2;
-        cd._domainValues.add(new String(buf, off, len));
-        off += len;
+      int domainSize  = s.get2();
+      cd._killed = (domainSize==65535);
+      if( !cd._killed ) {
+        for( int i = 0; i < domainSize; i++)
+          cd._domainValues.add(s.getLen2Str());
       }
-
+      assert off+cd.wire_len() == s._off;
       return cd;
     }
 
     public final int wire_len() {
-      int res = 2+1;             // 2bytes to store size of domain: 2 bytes, 1byte to store _killed flag
+      int res = 2;              // 2bytes to store size of domain: 2 bytes
       for (String s : _domainValues)
-        res += 2+s.length() ;  // 2bytes to store string length + string bytes
+        res += 2+s.length() ;   // 2bytes to store string length + string bytes
       return res;
     }
 
@@ -420,101 +395,81 @@ public final class ParseDataset {
     ValueArray.Column _cols[];     // Column summary data
     int _rows_chk[];               // Rows-per-chunk
     ColumnDomain _cols_domains[];  // Input/Output - columns domains preserving insertion order (LinkedSet).
-  }
 
-  // Hand-rolled serializer for the above common fields.
-  // Some Day Real Soon auto-gen me.
-  public static abstract class DParseSerializer<T extends DParse> extends RemoteTaskSerializer<T> {
-    public int wire_len(T dp) {
-      assert dp._num_rows==0 || dp._cols != null;
-      assert dp._num_rows==0 || dp._rows_chk != null;
-      assert dp._num_rows==0 || dp._cols_domains != null;
+    // Hand-rolled serializer for the above common fields.
+    // Some Day Real Soon auto-gen me.
+    @Override
+    public int wire_len() {
+      assert _num_rows==0 || _cols != null;
+      assert _num_rows==0 || _rows_chk != null;
+      assert _num_rows==0 || _cols_domains != null;
       int colDomSize = 0;
-      if (dp._cols_domains!=null) {
-        for (ColumnDomain cd : dp._cols_domains) colDomSize += cd.wire_len();
-      }
-      return 4+4+1+(dp._num_rows==0?0:(dp._cols.length*ValueArray.Column.wire_len() + 4+dp._rows_chk.length*4))+colDomSize;
+      if( _cols_domains!=null )
+        for( ColumnDomain cd : _cols_domains) colDomSize += cd.wire_len();
+      return 4+4+1+(_num_rows==0?0:(_cols.length*ValueArray.Column.wire_len() + 4+_rows_chk.length*4))+colDomSize;
     }
 
-    public int write( T dp, byte[] buf, int off ) {
-      UDP.set4(buf,(off+=4)-4,dp._num_cols);
-      UDP.set4(buf,(off+=4)-4,dp._num_rows);
-      buf[off++] = dp._parseType;
-      if( dp._num_rows == 0 ) return off; // No columns?
-      assert dp._cols.length == dp._num_cols;
-      for( ValueArray.Column col : dp._cols )
-        off = col.write(buf,off); // Yes columns; write them all
+    @Override
+    public void write( Stream s ) {
+      s.set4(_num_cols);
+      s.set4(_num_rows);
+      s.set1(_parseType);
+      if( _num_rows == 0 ) return; // No columns?
+      assert _cols.length == _num_cols;
+      for( ValueArray.Column col : _cols )
+        col.write(s);           // Yes columns; write them all
       // Now the rows-per-chunk array
-      UDP.set4(buf,(off+=4)-4,dp._rows_chk.length);
-      for( int x : dp._rows_chk )
-        UDP.set4(buf,(off+=4)-4,x);
+      s.setAry4(_rows_chk);
       // Write all column domains.
-      assert dp._cols_domains.length == dp._num_cols;
-      for( ColumnDomain coldom : dp._cols_domains )
-        off = coldom.write(buf, off);
-
-      return off;
+      assert _cols_domains.length == _num_cols;
+      for( ColumnDomain coldom : _cols_domains )
+        coldom.write(s);
     }
-    public void write( T dp, DataOutputStream dos ) throws IOException {
-      dos.writeInt(dp._num_cols);
-      dos.writeInt(dp._num_rows);
-      dos.writeByte(dp._parseType);
-      if( dp._num_rows == 0 ) return; // No columns?
-      assert dp._cols.length == dp._num_cols;
-      for( ValueArray.Column col : dp._cols )
+
+    @Override
+    public void write( DataOutputStream dos ) throws IOException {
+      dos.writeInt(_num_cols);
+      dos.writeInt(_num_rows);
+      dos.writeByte(_parseType);
+      if( _num_rows == 0 ) return; // No columns?
+      assert _cols.length == _num_cols;
+      for( ValueArray.Column col : _cols )
         col.write(dos);         // Yes columns; write them all
       // Now the rows-per-chunk array
-      dos.writeInt(dp._rows_chk.length);
-      for( int x : dp._rows_chk )
-        dos.writeInt(x);
+      TCPReceiverThread.writeAry(dos,_rows_chk);
       // Write all column domains.
-      assert dp._cols_domains.length == dp._num_cols;
-      for( ColumnDomain coldom : dp._cols_domains )
+      assert _cols_domains.length == _num_cols;
+      for( ColumnDomain coldom : _cols_domains )
         coldom.write(dos);
     }
 
-    public abstract T read( byte[] buf, int off );
-    public T read( T dp, byte[] buf, int off ) {
-      dp._num_cols  = UDP.get4(buf,off);  off += 4;
-      dp._num_rows  = UDP.get4(buf,off);  off += 4;
-      dp._parseType = buf[off++];
-      if( dp._num_rows == 0 ) return dp; // No rows, so no cols
-      assert dp._cols == null;
-      dp._cols = new ValueArray.Column[dp._num_cols];
-      final int l = ValueArray.Column.wire_len();
-      for( int i=0; i<dp._num_cols; i++ )
-        dp._cols[i] = ValueArray.Column.read(buf,(off+=l)-l);
-      int rlen = UDP.get4(buf,off);  off += 4;
-      dp._rows_chk = new int[rlen];
-      for( int i=0; i<rlen; i++ )
-        dp._rows_chk[i] = UDP.get4(buf,(off+=4)-4);
-      dp._cols_domains = new ColumnDomain[dp._num_cols];
-      for( int i=0; i<dp._num_cols; i++ ) {
-        dp._cols_domains[i] = ColumnDomain.read(buf, off);
-        off += dp._cols_domains[i].wire_len();
-      }
-
-      return dp;
+    public void read( Stream s ) {
+      _num_cols  = s.get4();
+      _num_rows  = s.get4();
+      _parseType = s.get1();
+      if( _num_rows == 0 ) return; // No rows, so no cols
+      assert _cols == null;
+      _cols = new ValueArray.Column[_num_cols];
+      for( int i=0; i<_num_cols; i++ )
+        _cols[i] = ValueArray.Column.read(s);
+      _rows_chk = s.getAry4();
+      _cols_domains = new ColumnDomain[_num_cols];
+      for( int i=0; i<_num_cols; i++ )
+        _cols_domains[i] = ColumnDomain.read(s);
     }
-    public abstract T read( DataInputStream dis ) throws IOException;
-    public T read( T dp, DataInputStream dis ) throws IOException {
-      dp._num_cols  = dis.readInt();
-      dp._num_rows  = dis.readInt();
-      dp._parseType = dis.readByte();
-      if( dp._num_rows == 0 ) return dp; // No rows, so no cols
-      assert dp._cols == null;
-      dp._cols = new ValueArray.Column[dp._num_cols];
-      for( int i=0; i<dp._num_cols; i++ )
-        dp._cols[i] = ValueArray.Column.read(dis);
-      int rlen = dis.readInt();
-      dp._rows_chk = new int[rlen];
-      for( int i=0; i<rlen; i++ )
-        dp._rows_chk[i] = dis.readInt();
-      dp._cols_domains = new ColumnDomain[dp._num_cols];
-      for( int i=0; i<dp._num_cols; i++ )
-        dp._cols_domains[i] = ColumnDomain.read(dis);
-
-      return dp;
+    public void read( DataInputStream dis ) throws IOException {
+      _num_cols  = dis.readInt();
+      _num_rows  = dis.readInt();
+      _parseType = dis.readByte();
+      if( _num_rows == 0 ) return; // No rows, so no cols
+      assert _cols == null;
+      _cols = new ValueArray.Column[_num_cols];
+      for( int i=0; i<_num_cols; i++ )
+        _cols[i] = ValueArray.Column.read(dis);
+      _rows_chk = TCPReceiverThread.readIntAry(dis);
+      _cols_domains = new ColumnDomain[_num_cols];
+      for( int i=0; i<_num_cols; i++ )
+        _cols_domains[i] = ColumnDomain.read(dis);
     }
   }
 
@@ -522,12 +477,7 @@ public final class ParseDataset {
   // Distributed parsing, Pass 1
   // Find min/max, digits per column.  Find number of rows per chunk.
   // Collects columns' domains (in case the column contains string values).
-  @RTSerializer(DParse1.Serializer.class)
   public static class DParse1 extends DParse {
-    public static class Serializer extends DParseSerializer<DParse1> {
-      public DParse1 read( byte[] buf, int off ) { return read(new DParse1(), buf, off ); }
-      public DParse1 read( DataInputStream dis ) throws IOException { return read(new DParse1(), dis ); }
-    }
 
     // Parse just this chunk: gather min & max
     public void map( Key key ) {
@@ -549,11 +499,11 @@ public final class ParseDataset {
       for( Row row : csv ) {
         if( allNaNs(row._fieldVals) ) continue; // Row is dead, skip it entirely
         // Row has some valid data, parse away
-        if(row._fieldVals.length > _num_cols){ // can happen only for svmlight format, enlarge the column array
-          Column [] newCols = new Column[row._fieldVals.length];
+        if( row._fieldVals.length > _num_cols ){ // can happen only for svmlight format, enlarge the column array
+          ValueArray.Column [] newCols = new ValueArray.Column[row._fieldVals.length];
           System.arraycopy(_cols, 0, newCols, 0, _cols.length);
           for(int i = _cols.length; i < newCols.length; ++i)
-            newCols[i] = new Column();
+            newCols[i] = new ValueArray.Column();
           _cols = newCols;
           _num_cols = row._fieldVals.length;
         }
@@ -562,7 +512,7 @@ public final class ParseDataset {
           double d = row._fieldVals[i];
           if(Double.isNaN(d)) { // Broken data on row
             _cols[i]._size |=32;  // Flag as seen broken data
-            _cols[i]._badat = Chars.saturatedCast(_cols[i]._badat + 1);
+            _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
             continue;             // But do not muck up column stats
           }
           // The column contains a number => mark column domain as dead.
@@ -606,10 +556,10 @@ public final class ParseDataset {
         _cols = dp._cols;
       } else {
         if(_cols.length <= _num_cols){
-          Column [] newCols = new Column[_num_cols];
+          ValueArray.Column [] newCols = new ValueArray.Column[_num_cols];
           System.arraycopy(_cols, 0, newCols, 0, _cols.length);
           for(int i = _cols.length; i < _num_cols; ++i){
-            newCols[i] = new Column();
+            newCols[i] = new ValueArray.Column();
           }
           _cols = newCols;
         }
@@ -619,7 +569,7 @@ public final class ParseDataset {
           if( d._min < c._min ) c._min = d._min; // min of mins
           if( d._max > c._max ) c._max = d._max; // max of maxes
           c._size |=  d._size;                   // accumulate size fail bits
-          c._badat = Chars.saturatedCast(c._badat+d._badat);
+          _cols[i]._badat = (char)Math.min(_cols[i]._badat+d._badat,65535);
         }
       }
 
@@ -668,39 +618,8 @@ public final class ParseDataset {
   // ----
   // Distributed parsing, Pass 2
   // Parse the data, and jam it into compressed fixed-sized row data
-  @RTSerializer(DParse2.Serializer.class)
   public static class DParse2 extends DParse {
     Key _result;                // The result Key
-
-    public static class Serializer extends DParseSerializer<DParse2> {
-      // Pass along the result Key
-      public int wire_len(DParse2 dp) {
-        return super.wire_len(dp)+dp._result.wire_len();
-      }
-      public int write( DParse2 dp, byte[] buf, int off ) {
-        off = super.write(dp,buf,off);
-        off += dp._result.write(buf,off);
-        return off;
-      }
-      public DParse2 read( byte[] buf, int off ) {
-        DParse2 dp = new DParse2();
-        super.read(dp,buf,off);
-        off += super.wire_len(dp);
-        dp._result = Key.read(buf,off);
-        assert dp._result != null;
-        return dp;
-      }
-      public void write( DParse2 dp, DataOutputStream dos ) throws IOException {
-        super.write(dp,dos);
-        dp._result.write(dos);
-      }
-      public DParse2 read( DataInputStream dis ) throws IOException {
-        DParse2 dp = new DParse2();
-        super.read(dp,dis);
-        dp._result = Key.read(dis);
-        return dp;
-      }
-    }
 
     // Parse just this chunk, compress into new format.
     public void map( Key key ) {
@@ -863,11 +782,12 @@ public final class ParseDataset {
     // so, block until they complete.
     public final void compute() {
       Key abkey = _keys[0];
+      if( abkey == null ) { tryComplete(); return; } // No AU's here
       byte[] abb = ValueArray.getArrayKeyBytes(abkey);
       for( DFutureTask dft : DFutureTask.TASKS.values() ) { // For all active tasks
         if( dft instanceof TaskRemExec ) {                  // See if it's a TRE
           TaskRemExec tre = (TaskRemExec)dft;
-          RemoteTask rt = tre.getRemoteTask(); // Get what is pending execution
+          RemoteTask rt = tre._dt; // Get what is pending execution
           if( rt instanceof DParse2.AtomicUnion ) { // See if its an AtomicUnion
             DParse2.AtomicUnion au = (DParse2.AtomicUnion)rt;
             Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key

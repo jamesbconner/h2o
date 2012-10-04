@@ -1,19 +1,13 @@
 package water;
+import com.google.common.io.Closeables;
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.junit.Assert;
-
-import com.google.common.io.Closeables;
-
-import water.serialization.RTSerializationManager;
-import water.serialization.RemoteTaskSerializer;
-
 import jsr166y.ForkJoinPool;
+import org.junit.Assert;
 
 /**
  * A remotely executed FutureTask
@@ -182,6 +176,12 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
   static void reply(DatagramPacket p, int len, H2ONode h2o) {
     byte[] buf = p.getData();
     UDP.set_port(buf,H2O.UDP_PORT); // Always acks set reply port
+    // This packet is being used as a 'placeholder' for a task-in-progress...
+    // which might be in the middle of being UDP-retried.  If we flip the
+    // control-byte to "ack" then the racing retry will send the reply pack
+    // back early... with the current packet length - and not the carefully
+    // constructed length of bytes in the buffer.  Set length now.
+    p.setLength(len);               // Set packet length before flipping to 'ack'
     H2O.VOLATILE = 0;           // Dummy volatile write
     // This is a response to a remote task-type.  The response task# is in bytes
     // 3-7.  One-shot set the response to be a standard 'ack'.  Forever-more,
@@ -242,8 +242,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
           ((Key)arg).write(dos);
         } else if( arg instanceof RemoteTask ) {
           RemoteTask t = (RemoteTask)arg;
-          RemoteTaskSerializer<RemoteTask> remoteTaskSerializer = RTSerializationManager.get(t.getClass());
-          remoteTaskSerializer.write(t, dos);
+          t.write(dos);
         } else if( arg instanceof Value ) {
           // TODO: watch out for endianness here
           Value v = (Value) arg;
@@ -254,9 +253,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
             v.write(dos, v._max);
           }
         } else if( arg instanceof String ) {
-          byte[] b = ((String)arg).getBytes();
-          dos.writeShort(b.length);
-          dos.write(b);
+          TCPReceiverThread.writeStr(dos,(String)arg);
         } else if( arg instanceof Byte ) {
           dos.writeByte((Byte)arg);
         } else {

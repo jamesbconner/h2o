@@ -13,13 +13,12 @@ class JUnit(unittest.TestCase):
             (ps, stdout, stderr) = h2o.spawn_cmd('junit', [
                     'java',
                     '-Dh2o.arg.ice_root='+h2o.tmp_dir('ice.'),
-                    '-javaagent:' + h2o.find_file('build/h2o.jar'),
                     '-ea', '-jar', h2o.find_file('build/h2o.jar'),
                     '-mainClass', 'org.junit.runner.JUnitCore',
                     # The tests
                     'test.KVTest',
                     'test.ParserTest',
-                    'test.RTSerGenHelperTest',
+                    'test.AutoSerialTest',
                     'test.DatasetCornerCasesTest',
                     'test.AppendKeyTest'])
 
