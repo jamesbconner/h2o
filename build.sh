@@ -93,6 +93,7 @@ function build_initializer() {
     "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$JAR_ROOT" $SRC/init/*java
     pushd lib
     jar xf javassist.jar
+    rm -rf META-INF
     popd
 }
 
