@@ -1,6 +1,9 @@
 import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
 import requests, psutil
 
+global verbose
+verbose = False
+
 def __drain(src, dst):
     for l in src:
         if type(dst) == type(0):
@@ -14,9 +17,9 @@ def drain(src, dst):
     t.daemon = True
     t.start()
 
+# verbose is global, defined elsewhere.
 def verboseprint(*args):
-    ### global verbose
-    if 1==0: # change to 1==1 if you want verbose
+    if verbose:
         for arg in args: # so you don't have to create a single string
             print arg,
         print
