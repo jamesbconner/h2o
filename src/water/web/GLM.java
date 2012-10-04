@@ -130,16 +130,16 @@ public class GLM extends H2OPage {
           res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
-      String method = p.getProperty("family", "gaussian");
+      String method = p.getProperty("family", "gaussian").toLowerCase();
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
       res.addProperty("h2o", H2O.SELF.urlEncode());
       double[] coefs = null;
       long t1 = System.currentTimeMillis();
-      if( method.equalsIgnoreCase("gaussian") ) res.addProperty("name","Linear regression");
-      else if( method.equalsIgnoreCase("binomial") )
-        res.addProperty("name", "");
-      GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method.toLowerCase()));
+      if( method.equals("gaussian") ) res.addProperty("name","Linear regression");
+      else if( method.equals("binomial") )
+        res.addProperty("name", "Logistic regression");
+      GLSM g = new GLSM(ary, columns, 1, GLSM.Family.valueOf(method));
       coefs = g.solve();
       double[] validationCoef = g.test();
       long deltaT = System.currentTimeMillis() - t1;
@@ -160,6 +160,20 @@ public class GLM extends H2OPage {
         int k = X.length + 1;
         res.addProperty("AIC", 2 * k - 2 * validationCoef[1]);
       }
+      int xfactor;
+      try{xfactor = Integer.valueOf(p.getProperty("xval","10"));}catch(NumberFormatException e){res.addProperty("error", "invalid cross factor value, expected integer, found " + p.getProperty("xval"));return res;};
+      if(xfactor == 0)return res;
+      res.addProperty("xfactor", xfactor);
+      double threshold;
+      try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
+      res.addProperty("threshold", threshold);
+      double [][] cm = g.xValidate(xfactor, threshold);
+      res.addProperty("trueNegative", dformat.format(cm[0][0]));
+      res.addProperty("truePositive", dformat.format(cm[1][1]));
+      res.addProperty("falseNegative", dformat.format(cm[0][1]));
+      res.addProperty("falsePositive", dformat.format(cm[1][0]));
+      res.addProperty("success", dformat.format(cm[0][0] + cm[1][1]));
+
     } catch( InvalidInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());
     } catch( GLSMException e2 ) {
@@ -186,18 +200,18 @@ public class GLM extends H2OPage {
     // +
     // "<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">%AIC_formated</span></div>");
     RString responseTemplate = new RString(
-        "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
+        "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms].</div>"
             + "<h3>Coefficients</h3>"
             + "<div>%coefficientHTML</div>"
             + "<h5>Model SRC</h5>"
             + "<div><code>%modelSrc</code></div>"
-            + "<table class='table table-striped table-bordered table-condensed'>"
             + "<br/>"
             + "<h3>Validation</h3>"
+            + "<table class='table table-striped table-bordered table-condensed'>"
             + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
             + "<tr><th>Null Deviance</th><td>%NullDeviance</td></tr>"
             + "<tr><th>Residual Deviance</th><td>%ResidualDeviance</td></tr>"
-            + "<tr><th>AIC</th><td>%AIC_formated</td></tr>" + "</table>");
+            + "<tr><th>AIC</th><td>%AIC_formated</td></tr>" + "</table> %xvalidation");
 
     JsonObject json = serverJson(server, args);
     if( json.has("error") )
@@ -242,12 +256,12 @@ public class GLM extends H2OPage {
           headerbldr.toString() + bldr.toString());
 
     }
-    String method = args.getProperty("family", "gaussian");
-    if( method.equalsIgnoreCase("gaussian") ) {
+    String method = args.getProperty("family", "gaussian").toLowerCase();
+    if( method.equals("gaussian") ) {
       RString m = new RString("y = %equation");
       m.replace("equation", codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
-    } else if( method.equalsIgnoreCase("binomial") ) {
+    } else if( method.equals("binomial") ) {
       RString m = new RString("y = 1/(1 + Math.exp(-(%equation))");
       m.replace("equation", codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
@@ -261,6 +275,22 @@ public class GLM extends H2OPage {
     if( json.has("AIC") )
       responseTemplate.replace("AIC_formated",
           dformat.format(json.get("AIC").getAsDouble()));
+    if(json.has("xfactor")){
+      RString xValidationTemplate = new RString(
+           "<h3>%xfactor fold Cross Validation</h3>"
+          +"<div>decision threshold = %threshold</div>"
+          +"<p class=\"text-success\">Classification success rate: %success</p>"
+          +"<table class='table table-striped table-bordered table-condensed'>"
+          + "<tbody>"
+          +"<tr><th>True Positive</th><td>%trueNegative</td></tr>"
+          +"<tr><th>True Negative</th><td>%truePositive</td></tr>"
+          +"<tr><th>False Negative</th><td>%falseNegative</td></tr>"
+          +"<tr><th>False Positive</th><td>%falsePositive</td></tr>"
+          + "</tbody>"
+          + "</table>");
+      xValidationTemplate.replace(json);
+      responseTemplate.replace("xvalidation",xValidationTemplate.toString());
+    }
     return responseTemplate.toString();
   }
 }

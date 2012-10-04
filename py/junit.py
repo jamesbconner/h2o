@@ -36,5 +36,4 @@ class JUnit(unittest.TestCase):
             h2o.tear_down_cloud()
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()
