@@ -146,7 +146,7 @@ public class GLM extends H2OPage {
           "Linear regression");
       else if( method.equalsIgnoreCase("binomial") )
         res.addProperty("name", "Logistic regression");
-      GLSM g = new GLSM(ary._key, columns, 1, GLSM.Family.valueOf(method
+      GLSM g = new GLSM(ary, columns, 1, GLSM.Family.valueOf(method
           .toLowerCase()));
       coefs = g.solve();
       double[] validationCoef = g.test();

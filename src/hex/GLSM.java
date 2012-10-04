@@ -24,15 +24,15 @@ import Jama.Matrix;
  */
 public class GLSM {
 
-  Key      _aryKey;
+  ValueArray _ary;
   int[]    _colIds;
   int      _c;
   Family   _f;
   LSMTask  _tsk;
   double[] _beta;
 
-  public GLSM(Key aryKey, int[] colIds, int c, Family f) {
-    _aryKey = aryKey;
+  public GLSM(ValueArray ary, int[] colIds, int c, Family f) {
+    _ary = ary;
     _colIds = colIds;
     _c = c;
     _f = f;
@@ -53,7 +53,7 @@ public class GLSM {
   }
 
   protected double[] solve2() {
-    _tsk.invoke(_aryKey);
+    _tsk.invoke(_ary._key);
     try {
       _tsk.get();
     } catch( Exception e ) {
@@ -85,6 +85,10 @@ public class GLSM {
       _tsk = new LSMTask(_colIds, _colIds.length - 1, _c);
       return solve2();
     case binomial: {
+      // check we have only values 0,1 as y
+      int y = _colIds[_colIds.length-1];
+      if(_ary.col_max(y) != 1 || _ary.col_min(y) != 0)
+        throw new GLSMException("Logistic regression can only have values from range <0,1> as y column.");
       _tsk = new LogitLSMTask(_colIds, _c);
       double[] oldBeta;
       _beta = solve2();
@@ -130,7 +134,7 @@ public class GLSM {
         // now validate the input
         BinomialXValidateTask xTask= new BinomialXValidateTask(_colIds, _beta, threshold);
         xTask.setSampling(seed, xfactor, true);
-        xTask.invoke(_aryKey);
+        xTask.invoke(_ary._key);
         try {xTask.get();} catch( Exception e ) {throw new RuntimeException(e);}
         confusionMatrix[0][0] += xTask._confMatrix[0][0];
         confusionMatrix[0][1] += xTask._confMatrix[0][1];
@@ -157,7 +161,7 @@ public class GLSM {
     case binomial: {
       BinomialTest tst = new BinomialTest(_colIds, _beta,
           ((LogitLSMTask) _tsk)._ncases / (double) _tsk._n, _c);
-      tst.invoke(_aryKey);
+      tst.invoke(_ary._key);
       try {
         tst.get();
       } catch( Exception e ) {
