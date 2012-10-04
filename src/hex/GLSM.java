@@ -258,6 +258,7 @@ public class GLSM {
      */
     @Override
     public void map(double [] x) {
+      for(double v:x)if(Double.isNaN(v))return;
       double y = x[x.length-1];
       assert 0 <= y && y <= 1;
       _ncases += y;
@@ -335,6 +336,7 @@ public class GLSM {
 
     @Override
     void map(double[] x) {
+      for(double v:x)if(Double.isNaN(v))return;
       double mu = 0;
       double yr = x[x.length - 1];
       assert yr == 0 || yr == 1;
