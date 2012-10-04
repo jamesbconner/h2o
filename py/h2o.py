@@ -170,8 +170,9 @@ def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
 class H2O(object):
-    def __url(self, loc):
-        return 'http://%s:%d/%s' % (self.addr, self.port, loc)
+    def __url(self, loc, port=None):
+        if port is None: port = self.port
+        return 'http://%s:%d/%s' % (self.addr, port, loc)
 
     def __check_request(self, r):
         log('Sent ' + r.url)
@@ -203,6 +204,22 @@ class H2O(object):
                 files={"File": open(f, 'rb')},
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
+
+    def put_fileX(self, f, key=None, repl=None):
+        resp1 =  self.__check_request(
+            requests.get(self.__url('PutFile.json'), 
+                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
+                ))
+        verboseprint("put_file #1 phase: ", resp1)
+
+        resp2 = self.__check_request(
+            requests.put(self.__url('', port=resp1['port']), 
+                files={"File": open(f, 'rb')}
+                ))
+        verboseprint("putf_file #2 phase: ", resp2)
+
+        return resp2
+
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
