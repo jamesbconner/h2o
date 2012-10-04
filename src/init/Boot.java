@@ -164,12 +164,10 @@ public class Boot extends ClassLoader {
   // methods to classes that inherit from RemoteTask.  Notice that this
   // changes the default search order: existing classes first, then my class
   // search, THEN the System or parent loader.
-  public Class loadClass( String name, boolean resolve ) throws ClassNotFoundException {
-    synchronized( getClassLoadingLock(name)) { // Lock Somebody
-      Class z = loadClass2(name,resolve);      // Do all the work in here
-      if( resolve ) resolveClass(z);           // Resolve here instead in the work method
-      return z;
-    }
+  public synchronized Class loadClass( String name, boolean resolve ) throws ClassNotFoundException {
+    Class z = loadClass2(name,resolve);      // Do all the work in here
+    if( resolve ) resolveClass(z);           // Resolve here instead in the work method
+    return z;
   }
 
   // Run the class lookups in my favorite non-default order.
