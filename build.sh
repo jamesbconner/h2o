@@ -41,6 +41,15 @@ JAVAC_ARGS='-g
 JAR=`which jar`
 CLASSES="${OUTDIR}/classes"
 
+# Clean up also /tmp content (/tmp/h2o-temp-*, /tmp/File*tmp)
+# Note: /tmp is specific for Linux.
+WIPE_TMP=false
+
+# Load user-specific properties if they are exist.
+# The properties can override the settings above.
+LOCAL_PROPERTIES_FILE="./build.local.conf"
+[ -f "$LOCAL_PROPERTIES_FILE" ] && source "$LOCAL_PROPERTIES_FILE"
+
 # ------------------------------------------------------------------------------
 # script  
 # ------------------------------------------------------------------------------
@@ -51,6 +60,11 @@ function clean() {
     rm -fr ${JAR_ROOT}/init
     rm -fr ${JAR_ROOT}/hexbase_impl.jar
     rm -fr ${OUTDIR}
+    if [ "$WIPE_TMP" = "true" ]; then
+        echo " - wiping tmp..."
+        rm -fr /tmp/h2o-temp-*
+        rm -fr /tmp/File*tmp
+    fi
     mkdir ${OUTDIR}
     mkdir ${CLASSES}
 }

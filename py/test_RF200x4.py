@@ -1,10 +1,10 @@
 import os, json, unittest, time, shutil, sys
-import h2o, h2o_cmd
+import h2o, cmd
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(node_count=3)
+        h2o.build_cloud(node_count=4)
 
     @classmethod
     def tearDownClass(cls):
@@ -26,10 +26,10 @@ class Basic(unittest.TestCase):
         if not os.path.exists(csvPathnamegz):
             raise Exception("Can't find %s.gz" % (csvPathnamegz))
 
-        print "RF start on ", csvPathnamegz, "this will probably take a minute.."
+        print "RF start on ", csvPathnamegz, "this will probably take 10 minutes.."
         start = time.time()
-        h2o_cmd.runRF(csvPathname=csvPathnamegz, trees=23,
-                timeoutSecs=120, retryDelaySecs=10)
+        cmd.runRF(csvPathname=csvPathnamegz, trees=200,
+                timeoutSecs=400, retryDelaySecs=15)
         print "RF end on ", csvPathnamegz, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':

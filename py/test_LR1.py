@@ -1,14 +1,16 @@
 import os, json, unittest, time, shutil, sys
-import h2o, h2o_cmd
+import h2o, h2o_cmd as cmd
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(node_count=3)
+        h2o.clean_sandbox()
+        global nodes
+        nodes = h2o.build_cloud(node_count=1)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud()
+        h2o.tear_down_cloud(nodes)
 
     def setUp(self):
         pass
@@ -22,6 +24,25 @@ class Basic(unittest.TestCase):
     # should change the names so this test order matches alphabetical order
     # by using intermediate "_A_" etc. That should make unittest order match
     # order here? 
+
+    def test_A_Basic(self):
+        for n in nodes:
+            c = n.get_cloud()
+            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
+
+    def test_B_LR_iris2(self):
+        timeoutSecs = 2
+        csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
+        colA=0
+        colB=1
+        cmd.runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
+
+    def test_C_LR_poker1000(self):
+        timeoutSecs = 2
+        csvPathname = h2o.find_file('smalldata/poker/poker1000')
+        colA=0
+        colB=1
+        cmd.runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
 
     def test_D_GenParity1(self):
         # FIX! TBD Matt suggests that devs be required to git pull "datasets"next to hexbase..
@@ -48,26 +69,25 @@ class Basic(unittest.TestCase):
         # first time we use perl (parity.pl)
 
         # always match the run below!
-        for x in xrange (50,200,10):
+        for x in range(91,92):
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
-            # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
-            # wait for the last one to be gen'ed here before we start the first below.
-            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),timeout=3)
+            print shCmdString
+
+            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split())
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
-        # bump this up too if you do?
         # always match the gen above!
-        ### for x in xrange (50,200,10):
-        for x in xrange(50,200,10):
-            sys.stdout.write('.')
-            sys.stdout.flush()
-            csvFilename = "parity_128_4_" + "100" + "_quad.data"  
-            csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            h2o_cmd.runRF(csvPathname=csvPathname, trees=100,
-                    timeoutSecs=5, retryDelaySecs=0.1)
+        timeoutSecs = 2
+        for colA in xrange (0,9,1):
+            for colB in xrange (colA,9,1):
+                sys.stdout.write('.')
+                sys.stdout.flush()
+                csvFilename = "parity_128_4_" + str(91) + "_quad.data"  
+                csvPathname = SYNDATASETS_DIR + '/' + csvFilename
+                cmd.runLR(nodes[0],csvPathname,colA,colB,timeoutSecs)
+
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
     unittest.main()

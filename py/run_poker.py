@@ -1,19 +1,21 @@
-import h2o
-import test, psutil
+import h2o, cmd
+import psutil
 
+h2o.clean_sandbox()
 babies = []
 try:
-    print 'Spawn 1'
-    babies.append(psutil.Popen(['java', '-ea', '-jar', h2o.find_file('build/h2o.jar'), '--port=54321']))
-    print 'Spawn 2'
-    babies.append(psutil.Popen(['java', '-ea', '-jar', h2o.find_file('build/h2o.jar'), '--port=54324']))
+    for i in xrange(8):
+        babies.append(psutil.Popen(['java', '-ea', '-jar', h2o.find_file('build/h2o.jar'), '--port=%d' % (54321+3*i)]))
     n = h2o.H2O(spawn=False)
+    h2o.nodes += [n] * len(babies)
     print 'Stabilize'
-    h2o.stabilize_cloud(n, 2)
-    print 'RF'
-    test.runRF(n, 10, h2o.find_file('smalldata/poker/poker-hand-testing.data'), 60)
+    h2o.stabilize_cloud(n, len(babies))
+    print 'Random Forest'
+    cmd.runRF(n, h2o.find_file('smalldata/poker/poker-hand-testing.data'),
+            trees=10, timeoutSecs=60)
+    print 'Completed'
 except KeyboardInterrupt:
-    print ''
+    print 'Interrupted'
 finally:
     print 'EAT THE BABIES'
     for b in babies: b.kill()

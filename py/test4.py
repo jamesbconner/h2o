@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import h2o, cmd
+import h2o, h2o_cmd
 
 class Basic(unittest.TestCase):
     @classmethod

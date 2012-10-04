@@ -1,10 +1,25 @@
-import time, os, json, signal, tempfile, shutil, datetime, inspect
-import requests
-import psutil
+import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
+import requests, psutil
 
+global verbose
+verbose = False
+
+def __drain(src, dst):
+    for l in src:
+        if type(dst) == type(0):
+            os.write(dst, l)
+        else:
+            dst.write(l)
+            dst.flush()
+
+def drain(src, dst):
+    t = threading.Thread(target=__drain, args=(src,dst))
+    t.daemon = True
+    t.start()
+
+# verbose is global, defined elsewhere.
 def verboseprint(*args):
-    ### global verbose
-    if 1==0: # change to 1==1 if you want verbose
+    if verbose:
         for arg in args: # so you don't have to create a single string
             print arg,
         print
@@ -83,9 +98,6 @@ def spawn_cmd_and_wait(name, args, timeout=None):
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
 def spawn_h2o(addr=None, port=54321, nosigar=True):
-    # temporary hack changing this line, so can run with jre, not jdk
-    # because we currently need tools.jar
-    # "java", "-ea", "-jar", find_file('build/h2o.jar'),
     h2o_cmd = [
             "java", 
             "-ea", "-jar", find_file('build/h2o.jar'),
@@ -98,12 +110,13 @@ def spawn_h2o(addr=None, port=54321, nosigar=True):
     return spawn_cmd('h2o', h2o_cmd)
 
 nodes = []
-def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None):
+def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None, sigar=True):
     node_list = []
     try:
         for i in xrange(node_count):
-            n = H2O(addr,port=base_port + i*ports_per_node)
+            n = LocalH2O(addr, port=base_port + i*ports_per_node, sigar=sigar)
             node_list.append(n)
+
         stabilize_cloud(node_list[0], len(node_list))
     except:
         for n in node_list: n.terminate()
@@ -113,24 +126,19 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None):
 
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
-
-    ex = None
     try:
         for n in node_list:
-            if n.wait() is None:
-                n.terminate()
-            elif n.wait():
-                ex = Exception('Node terminated with non-zero exit code: %d' % n.wait())
-        if ex is not None: raise ex
+            n.terminate()
     finally:
         node_list[:] = []
 
 def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
+    node.wait_for_node_to_accept_connections()
     node.stabilize(lambda n: n.get_cloud()['cloud_size'] == node_count,
             error=('A cloud of size %d' % node_count),
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
-class H2O:
+class H2O(object):
     def __url(self, loc):
         return 'http://%s:%d/%s' % (self.addr, self.port, loc)
 
@@ -144,14 +152,13 @@ class H2O:
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         return rjson
 
-    def __check_spawn(self):
-        if not self.ps:
-            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], 'process was not spawned'))
-
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
         verboseprint ("get_cloud:", a)
         return a
+
+    def shutdown_all(self):
+        return self.__check_request(requests.get(self.__url('Shutdown.json')))
 
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
@@ -175,12 +182,13 @@ class H2O:
         return self.__check_request(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
 
+    def netstat(self):
+        return self.__check_request(requests.get(self.__url('Network.json')))
+
     def inspect(self, key):
         return self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
 
-
-    # FIX! add depth/ntrees to all calls?
     def random_forest(self, key, ntrees=6, depth=30):
         return self.__check_request(requests.get(self.__url('RF.json'),
             params={
@@ -193,6 +201,40 @@ class H2O:
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={"Key": key}))
         verboseprint("random_forest_view:", a)
+        return a
+
+    def linear_reg(self, key, colA=0, colB=1):
+        a = self.__check_request(requests.get(self.__url('LR.json'),
+            params={
+                "colA": colA,
+                "colB": colB,
+                "Key": key
+                }))
+        verboseprint("linear_reg:", a)
+        return a
+
+    def linear_reg_view(self, key):
+        a = self.__check_request(requests.get(self.__url('LRView.json'),
+            params={"Key": key}))
+        verboseprint("linear_reg_view:", a)
+        return a
+
+    # X and Y can be label strings, column nums, or comma separated combinations
+    def GLM(self, key, X="0", Y="1", family="binomial"):
+        a = self.__check_request(requests.get(self.__url('GLM.json'),
+            params={
+                "family": family,
+                "X": X,
+                "Y": Y,
+                "Key": key
+                }))
+        verboseprint("GLM:", a)
+        return a
+
+    def GLM_view(self, key):
+        a = self.__check_request(requests.get(self.__url('GLMView.json'),
+            params={"Key": key}))
+        verboseprint("GLM_view:", a)
         return a
 
     def stabilize(self, test_func, error,
@@ -225,7 +267,7 @@ class H2O:
                 msg = error(self, timeTakenSecs, numberOfRetries)
             raise Exception(msg)
 
-    def __wait_for_node_to_accept_connections(self):
+    def wait_for_node_to_accept_connections(self):
         def test(n):
             try:
                 n.get_cloud()
@@ -242,52 +284,89 @@ class H2O:
                 timeoutSecs=10, # with cold cache's this can be quite slow
                 retryDelaySecs=0.1) # but normally it is very fast
 
+    def get_args(self):
+        args = [ "java", 
+            "-javaagent:" + self.get_h2o_jar(),
+            "-ea", "-jar", self.get_h2o_jar(),
+            "--port=%d" % self.port,
+            '--ip=%s' % self.addr,
+            '--ice_root=%s' % self.get_ice_dir(),
+            '--name=pytest-%s' % getpass.getuser(),
+            ]
+        if not self.sigar:
+            args.append('--nosigar')
+        return args
 
-    def __init__(self, addr=None, port=54321, spawn=True):
+    def __init__(self, addr=None, port=54321, sigar=False):
         self.port = port
         self.addr = addr or get_ip_address()
-        verboseprint("addr:", addr)
-        verboseprint("get_ip_address", get_ip_address())
-        verboseprint("Using ip:", self.addr)
+        self.sigar = sigar
 
-        if not spawn:
-            self.__wait_for_node_to_accept_connections()
-        else:
-            self.rc = None
-            spawn = spawn_h2o(addr=self.addr, port=port)
-            self.ps = spawn[0]
-            self.stdout = spawn[1]
-            self.stderr = spawn[1]
-            try:
-                self.__wait_for_node_to_accept_connections()
-            except:
-                if not self.wait(): self.ps.kill()
-                raise
+    def __str__(self):
+        return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
 
-            if self.wait():
-                out = file(spawn[1]).read()
-                err = file(spawn[2]).read()
-                raise Exception('Failed to launch with exit code: %d\nstdout:\n%s\n\nstderr:\n%s' % 
-                    (self.wait(), out, err))
+    def get_ice_dir(self):
+        raise Exception('%s must implement %s' % (type(self), inspect.stack()[0][3]))
 
-    def stack_dump(self):
-        self.__check_spawn()
-        self.ps.send_signal(signal.SIGQUIT)
-    
+    def get_h2o_jar(self):
+        raise Exception('%s must implement %s' % (type(self), inspect.stack()[0][3]))
+
     def is_alive(self):
-        return self.wait(0) is None
-
-    def wait(self, timeout=0):
-        self.__check_spawn()
-        if self.rc is not None: return self.rc
-        try:
-            self.rc = self.ps.wait(timeout)
-            return self.rc
-        except psutil.TimeoutExpired:
-            return None
+        raise Exception('%s must implement %s' % (type(self), inspect.stack()[0][3]))
 
     def terminate(self):
-        self.__check_spawn()
+        raise Exception('%s must implement %s' % (type(self), inspect.stack()[0][3]))
+
+class ExternalH2O(H2O):
+    '''An H2O instance launched outside the control of python'''
+    def __init__(self, *args, **keywords):
+        super(ExternalH2O, self).__init__(*args, **keywords)
+
+    def get_h2o_jar(self):
+        return find_file('build/h2o.jar') # just a likely guess
+
+    def get_ice_dir(self):
+        return '/tmp/ice%d' % self.port # just a likely guess
+
+    def is_alive(self):
+        try:
+            self.get_cloud()
+            return True
+        except:
+            return False
+
+    def terminate(self):
+        try:
+            self.shutdown_all()
+        except:
+            pass
+        if self.is_alive():
+            raise 'Unable to terminate externally launched node: %s' % self
+
+
+class LocalH2O(H2O):
+    '''An H2O inkstance launched by the python framework on the local machine'''
+    def __init__(self, *args, **keywords):
+        super(LocalH2O, self).__init__(*args, **keywords)
+        self.rc = None
+        self.ice = tmp_dir('ice.')
+
+        spawn = spawn_cmd('local-h2o', self.get_args())
+        self.ps = spawn[0]
+        self.stdout = spawn[1]
+        self.stderr = spawn[1]
+
+
+    def get_h2o_jar(self):
+        return find_file('build/h2o.jar')
+
+    def get_ice_dir(self):
+        return self.ice
+
+    def is_alive(self):
+        return self.wait(0) is None
+    
+    def terminate(self):
         try:
             if self.is_alive(): self.ps.kill()
             if self.is_alive(): self.ps.terminate()
@@ -295,3 +374,85 @@ class H2O:
         except psutil.NoSuchProcess:
             return -1
 
+    def wait(self, timeout=0):
+        if self.rc is not None: return self.rc
+        try:
+            self.rc = self.ps.wait(timeout)
+            return self.rc
+        except psutil.TimeoutExpired:
+            return None
+
+    def stack_dump(self):
+        self.ps.send_signal(signal.SIGQUIT)
+
+class RemoteHost(object):
+    def upload_file(self, f):
+        f = find_file(f)
+        if f not in self.uploaded:
+            dest = '/tmp/' + os.path.basename(f)
+            log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+            sftp = self.ssh.open_sftp()
+            sftp.put(f, dest)
+            sftp.close()
+            self.uploaded[f] = dest
+        return self.uploaded[f]
+
+    def __init__(self, addr, username):
+        import paramiko
+        self.addr = addr
+        self.username = username
+        self.ssh = paramiko.SSHClient()
+        self.ssh.load_system_host_keys()
+        self.ssh.connect(self.addr, username=username)
+        self.uploaded = {}
+
+    def remote_h2o(self, *args, **keywords):
+        return RemoteH2O(self, self.addr, *args, **keywords)
+
+    def open_channel(self):
+        ch = self.ssh.get_transport().open_session()
+        ch.get_pty() # force the process to die without the connection
+        return ch
+
+    def __str__(self):
+        return 'ssh://%s@%s' % (self.username, self.addr)
+
+
+class RemoteH2O(H2O):
+    '''An H2O instance launched by the python framework on a remote machine'''
+    def __init__(self, host, *args, **keywords):
+        super(RemoteH2O, self).__init__(*args, **keywords)
+
+        self.jar = host.upload_file(find_file('build/h2o.jar'))
+        self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
+
+        self.channel = host.open_channel()
+        cmd = ' '.join(self.get_args())
+        outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
+        errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')
+        self.channel.exec_command(cmd)
+        drain(self.channel.makefile(), outfd)
+        drain(self.channel.makefile_stderr(), errfd)
+
+        comment = 'Remote on %s, stdout %s, stderr %s' % (
+            self.addr, os.path.basename(outpath), os.path.basename(errpath))
+        log(cmd, comment=comment)
+
+    def get_h2o_jar(self):
+        return self.jar
+
+    def get_ice_dir(self):
+        return self.ice
+
+    def is_alive(self):
+        if self.channel.closed: return False
+        if self.channel.exit_status_ready(): return False
+        try:
+            self.get_cloud()
+            return True
+        except:
+            return False
+
+    def terminate(self):
+        self.channel.close()
+    

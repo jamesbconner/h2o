@@ -223,31 +223,52 @@ public class ParserTest {
         "bar,    4,two\n",
         "foo,    6,three\n",
         "bar,    8,one\n",
-        "bar,   10,two\n",
+        "bar,ten,two\n",
         "bar,   12,three\n",
         "foobar,14,one\n",
     };
     double[][] expDouble = new double[][] {
-        d(NaN,  2, NaN), // preserve order
-        d(NaN,  4, NaN),
-        d(NaN,  6, NaN),
-        d(NaN,  8, NaN),
-        d(NaN, 10, NaN),
-        d(NaN, 12, NaN),
-        d(NaN, 14, NaN),
+        d(NaN,   2, NaN), // preserve order
+        d(NaN,   4, NaN),
+        d(NaN,   6, NaN),
+        d(NaN,   8, NaN),
+        d(NaN, NaN, NaN),
+        d(NaN,  12, NaN),
+        d(NaN,  14, NaN),
     };
 
     String[][] expString = new String[][] {
-        s("foo",null, "one"),
-        s("bar",null, "two"),
-        s("foo",null, "three"),
-        s("bar",null, "one"),
-        s("bar",null, "two"),
-        s("bar",null, "three"),
+        s("foo",   null, "one"),
+        s("bar",   null, "two"),
+        s("foo",   null, "three"),
+        s("bar",   null, "one"),
+        s("bar",  "ten", "two"),
+        s("bar",   null, "three"),
         s("foobar",null, "one"),
     };
 
+    String expDomain[][] = new String[][] {
+        s( "foo", "bar", "foobar"),
+        s( "ten"),
+        s( "one", "two", "three" ),
+    };
+
+    Key[] keys = k(data);
+
+    SeparatedValueParser p;
+    ColumnDomain cds[] = new ColumnDomain[3];
+    for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
+    int i = 0;
+    for( Key k : keys ) {
+      p = new SeparatedValueParser(k, ',', 3, cds);
+      for( Row r : p ) {
+        Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
+        Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+        i++;
+      }
+    }
+
+    for (int j = 0; j < 3; j++)
+      Assert.assertArrayEquals(expDomain[j], cds[j].toArray());
   }
-
-
 }

@@ -1,6 +1,9 @@
 package water.web;
 
 import java.util.Properties;
+
+import com.google.gson.JsonObject;
+
 import water.H2O;
 import water.H2ONode;
 
@@ -15,6 +18,46 @@ public class Network extends H2OPage {
 
   public Network() {
     _refresh = 5;
+  }
+
+  @Override
+  public JsonObject serverJson(Server server, Properties parms) throws PageError {
+    JsonObject res = new JsonObject();
+    final H2O cloud = H2O.CLOUD;
+    res.addProperty("cloud_name", H2O.NAME);
+    res.addProperty("node_name", H2O.SELF.toString());
+    res.addProperty("cloud_size",cloud._memary.length);
+
+    // Returns only this node statistics
+    final H2ONode theNode = H2O.SELF;
+    res.addProperty("total_in_conn", toPosNumber(theNode.get_total_in_conn()));
+    res.addProperty("total_out_conn", toPosNumber(theNode.get_total_out_conn()));
+    res.addProperty("tcp_in_conn", toPosNumber(theNode.get_tcp_in_conn()));
+    res.addProperty("tcp_out_conn", toPosNumber(theNode.get_tcp_out_conn()));
+    res.addProperty("udp_in_conn", toPosNumber(theNode.get_udp_in_conn()));
+    res.addProperty("udp_out_conn", toPosNumber(theNode.get_udp_out_conn()));
+
+    // fill total traffic statistics
+    res.addProperty("total_packets_recv", toPosNumber(theNode.get_total_packets_recv()));
+    res.addProperty("total_bytes_recv", toBytes(theNode.get_total_bytes_recv()));
+    res.addProperty("total_bytes_recv_rate", toBytesPerSecond(theNode.get_total_bytes_recv_rate()));
+    res.addProperty("total_packets_sent", toPosNumber(theNode.get_total_packets_sent()));
+    res.addProperty("total_bytes_sent", toBytes(theNode.get_total_bytes_sent()));
+    res.addProperty("total_bytes_sent_rate", toBytesPerSecond(theNode.get_total_bytes_sent_rate()));
+
+    // fill TCP traffic statistics
+    res.addProperty("tcp_packets_recv", toPosNumber(theNode.get_tcp_packets_recv()));
+    res.addProperty("tcp_bytes_recv", toBytes(theNode.get_tcp_bytes_recv()));
+    res.addProperty("tcp_packets_sent", toPosNumber(theNode.get_tcp_packets_sent()));
+    res.addProperty("tcp_bytes_sent", toBytes(theNode.get_tcp_bytes_sent()));
+
+    // fill UDP traffic statistics
+    res.addProperty("udp_packets_recv", toPosNumber(theNode.get_udp_packets_recv()));
+    res.addProperty("udp_bytes_recv", toBytes(theNode.get_udp_bytes_recv()));
+    res.addProperty("udp_packets_sent", toPosNumber(theNode.get_udp_packets_sent()));
+    res.addProperty("udp_bytes_sent", toBytes(theNode.get_udp_bytes_sent()));
+
+    return res;
   }
 
   @Override

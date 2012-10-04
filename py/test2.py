@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import h2o, cmd
+import h2o, h2o_cmd
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -26,7 +26,7 @@ class Basic(unittest.TestCase):
         if not os.path.exists(csvPathnamegz):
             raise Exception("Can't find %s.gz" % (csvPathnamegz))
 
-        cmd.runRF(trees=6, timeoutSecs=10, csvPathname=csvPathnamegz)
+        h2o_cmd.runRF(trees=6, timeoutSecs=10, csvPathname=csvPathnamegz)
 
 if __name__ == '__main__':
     h2o.clean_sandbox()
