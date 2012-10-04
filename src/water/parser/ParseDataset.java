@@ -108,7 +108,7 @@ public final class ParseDataset {
     // Setup for pass-2, where we do the actual data conversion.
     DParse2 dp2 = new DParse2();
     dp2._num_cols  = num_cols;
-    dp2._parseType = (byte)typeArr[0];
+    dp2._parseType = (byte)typeArr[PARSER_IDX];
     dp2._num_rows  = row_size; // Cheat: pass in rowsize instead of the num_rows (and its non-zero)
     dp2._cols      = dp1._cols;
     dp2._cols_domains = dp1._cols_domains;
