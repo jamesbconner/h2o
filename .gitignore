@@ -16,3 +16,4 @@ bin/
 flatfile*
 *stdout.txt
 *_*.data
+*.MF
