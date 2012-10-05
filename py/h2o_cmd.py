@@ -42,8 +42,9 @@ def runRF(node=None, csvPathname=None, trees=5, timeoutSecs=30, retryDelaySecs=2
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
     parse = node.parse(put['keyHref'])
-    runRFOnly(node=node, parseKey=parse, trees=trees,
+    rfView = runRFOnly(node=node, parseKey=parse, trees=trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+    return(rfView)
 
 def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
         timeoutSecs=30, retryDelaySecs=2):
@@ -58,3 +59,4 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
                 (n.random_forest_view(rf['confKeyHref'])['got']==len(h2o.nodes)*trees),
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+    return(node.random_forest_view(rf['confKeyHref']))

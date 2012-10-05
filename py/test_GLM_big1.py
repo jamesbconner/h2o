@@ -34,8 +34,11 @@ class Basic(unittest.TestCase):
 
         Y = "106"
         X = ""
-        # FIX! just a small number for no
-        # for appendX in xrange(107):
+        csvFilename = "hhp_107_01.data"
+        csvPathname = "../smalldata" + '/' + csvFilename
+        put = h2o.nodes[0].put_file(csvPathname)
+        parseKey = h2o.nodes[0].parse(put['keyHref'])
+
         for appendX in xrange(107):
             if (appendX == 9):
                 print "\n9 causes singularity. not used"
@@ -63,17 +66,20 @@ class Basic(unittest.TestCase):
 
                 sys.stdout.write('.')
                 sys.stdout.flush() 
-                csvFilename = "hhp_107_01.data"
-                csvPathname = "../smalldata" + '/' + csvFilename
                 print "\nX:", X
                 print "Y:", Y
 
                 start = time.time()
                 ### FIX! add some expected result checking
-                glm = cmd.runGLM(csvPathname=csvPathname, X=X, Y=Y, timeoutSecs=timeoutSecs)
-                print "glm:", glm
-                # print "AGE:", glm['AGE']
-                print "Intercept:", glm['Intercept']
+                glm = cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
+
+                h2o.verboseprint("\nglm:", glm)
+                print "\nerrRate:", glm['errRate']
+                print "trueNegative:", glm['trueNegative']
+                print "truePositive:", glm['truePositive']
+                print "falseNegative:", glm['falseNegative']
+                print "falsePositive:", glm['falsePositive']
+                print "coefficients:", glm['coefficients']
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 

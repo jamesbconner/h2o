@@ -1,6 +1,10 @@
 package hex.rf;
 
+import hex.rf.Data.Row;
+import hex.rf.Utils.Counter;
+
 import java.util.*;
+
 import water.*;
 
 /**
@@ -17,6 +21,8 @@ public class Confusion extends MRTask {
   public int _ntrees;              // Trees processed so far
   public int _ntrees0;             // Trees being processed *this pass*
   public int _maxtrees;            // Expected final tree max
+
+  public int _features = -1;       // Number of features used to build the forest
 
   /** Tree Keys */
   transient public Key[] _tkeys;
@@ -35,6 +41,8 @@ public class Confusion extends MRTask {
   // voted on by all trees, and the majority vote is the predicted class for
   // the row.  Each row thus gets 1 entry in the matrix.
   public long _matrix[][]; // A _N x _N matrix of classes
+  /** Number of mistaken assignments. */
+  private long _errors;
 
   // An array of tree-votes, 1 16-bit short per class per row.  Each count is
   // what class a single tree voted on this row.  The max class is how the
@@ -48,8 +56,8 @@ public class Confusion extends MRTask {
 
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42.*/
-  transient Random _rand = new Random(42);
-
+  private transient Random _rand = new Random(42);
+  /** Model used for construction of the confusion matrix. */
   private transient Model _model;
 
   public Confusion() {}  // Constructor for use by the serializers
@@ -237,4 +245,62 @@ public class Confusion extends MRTask {
       for( int j=0; j<m1.length; j++ )
         m1[i][j] += m2[i][j];
   }
+
+  /** Compute the confusion matrix on the entire dataset on the current node. */
+  public void mapAll() {
+    for(int i = 0; i < _data.chunks(); i++)  map(_data.chunk_get(i));
+  }
+
+  private String confusionMatrix() {
+    final int K = _N+1;
+    double[] e2c = new double[_N];
+    for(int i=0;i<_N;i++) {
+      long err = -_matrix[i][i];
+      for(int j=0;j<_N;j++) err+=_matrix[i][j];
+      e2c[i]= Math.round((err/(double)(err+_matrix[i][i]) ) * 100) / (double) 100  ;
+    }
+    String [][] cms = new String[K][K+1];
+    cms[0][0] = "";
+    for (int i=1;i<K;i++) cms[0][i] = ""+ (i-1); //cn[i-1];
+    cms[0][K]= "err/class";
+    for (int j=1;j<K;j++) cms[j][0] = ""+ (j-1); //cn[j-1];
+    for (int j=1;j<K;j++) cms[j][K] = ""+ e2c[j-1];
+    for (int i=1;i<K;i++)
+      for (int j=1;j<K;j++) cms[j][i] = ""+_matrix[j-1][i-1];
+    int maxlen = 0;
+    for (int i=0;i<K;i++)
+      for (int j=0;j<K+1;j++) maxlen = Math.max(maxlen, cms[i][j].length());
+    for (int i=0;i<K;i++)
+      for (int j=0;j<K+1;j++) cms[i][j] = pad(cms[i][j],maxlen);
+    String s = "";
+    for (int i=0;i<K;i++) {
+      for (int j=0;j<K+1;j++) s += cms[i][j];
+      s+="\n";
+    }
+    return s;
+  }
+
+  private String pad(String s, int l) {
+    String p=""; for (int i=0;i < l - s.length(); i++) p+= " "; return " "+p+s;
+  }
+
+  public final void report() {
+    mapAll();
+    Counter td = new Counter(), tl = new Counter();
+    for( byte[]tbits : _trees) {
+      long dl = Tree.depth_leaves(tbits);
+      td.add((int)(dl>>32)); tl.add((int)dl); }
+    double err = _errors/(double) _data.row_size();
+    String s =
+      "              Type of random forest: classification\n" +
+      "                    Number of trees: "+ _trees.length +"\n"+
+      "No of variables tried at each split: " + _features +"\n"+
+      "             Estimate of error rate: " + Math.round(err *10000)/100 + "%  ("+err+")\n"+
+      "                   Confusion matrix:\n" + confusionMatrix()+ "\n"+
+      "          Avg tree depth (min, max): " + td +"\n" +
+      "         Avg tree leaves (min, max): " + tl +"\n" +
+      "                Validated on (rows): " + _data.row_size() ;
+    System.out.println(s);
+  }
+
 }

@@ -21,7 +21,7 @@ public class PutFile extends H2OPage {
       fis = new FileInputStream(fname);
       return ValueArray.read_put_file(key, fis, (byte) rf);
     } catch (FileNotFoundException e) {
-      throw new PageError("Unable to transfer the file. Maybe the file is too big for the network to transfer. Check your network settings.");
+      throw new PageError("File not found or unable to transfer the file.  Maybe the file is too big for the network to transfer. Check your network settings.");
     } catch( IllegalArgumentException e ) {
       throw new PageError("Not a valid key: "+ key);
     } catch( IOException e ) {

@@ -6,8 +6,6 @@ import hex.rf.Tree.SplitNode;
 
 import java.io.IOException;
 
-
-
 public abstract class TreePrinter {
   protected final String[] _columnNames;
 
