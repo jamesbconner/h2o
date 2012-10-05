@@ -1,8 +1,7 @@
 package water.web;
 
 import hex.*;
-import hex.GLSM.GLSMException;
-import hex.GLSM.XValAggregateResult;
+import hex.GLSM.*;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -144,7 +143,11 @@ public class GLM extends H2OPage {
           res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
+      double threshold;
+      try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
+
       String method = p.getProperty("family", "gaussian").toLowerCase();
+
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
       res.addProperty("h2o", H2O.SELF.urlEncode());
@@ -156,50 +159,51 @@ public class GLM extends H2OPage {
       GLSM.Family f;
       try{f = GLSM.Family.valueOf(method.toLowerCase());}catch(IllegalArgumentException e){throw new InvalidInputException("unknown family " + method);}
       GLSM g = new GLSM(ary, columns, 1,f);
-      coefs = g.solve();
-      double[] validationCoef = g.test();
+      double[][] r = g.solve();
+      coefs = r[0];
+      double[] validationCoef = r[1];
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("time", deltaT);
       res.addProperty("DegreesOfFreedom", g.n() - 1);
       res.addProperty("ResidualDegreesOfFreedom", g.n() - X.length - 1);
       res.add("coefficients", getCoefficients(columns, colNames, coefs));
-      if( validationCoef != null ) {
-        res.addProperty("Null Deviance", -2 * validationCoef[0]);
-        res.addProperty("Residual Deviance", -2 * validationCoef[1]);
+      if( validationCoef != null && validationCoef[LSMTest.H0] != 0) {
+        res.addProperty("Null Deviance", -2 * validationCoef[LSMTest.H0]);
+        res.addProperty("Residual Deviance", -2 * validationCoef[LSMTest.H]);
         int k = X.length + 1;
         res.addProperty("AIC", 2 * k - 2 * validationCoef[1]);
       }
+      res.addProperty("trainingSetErrorRate",validationCoef[LSMTest.ERRORS]);
+
       int xfactor;
       try{xfactor = Integer.valueOf(p.getProperty("xval","0"));}catch(NumberFormatException e){res.addProperty("error", "invalid cross factor value, expected integer, found " + p.getProperty("xval"));return res;};
       if(xfactor == 0)return res;
       if(xfactor > g.n())xfactor = (int)g.n();
       res.addProperty("xfactor", xfactor);
-      double threshold;
-      try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
       res.addProperty("threshold", threshold);
-      XValAggregateResult r = GLSM.xValidate(ary,f,columns,xfactor, threshold);
-      res.addProperty("trueNegative", dformat.format(r._confusionMatrix[0][0]));
-      res.addProperty("trueNegativeVar", dformat.format(r._confusionMatrixVariance[0][0]));
-      res.addProperty("truePositive", dformat.format(r._confusionMatrix[1][1]));
-      res.addProperty("truePositiveVar", dformat.format(r._confusionMatrixVariance[1][1]));
-      res.addProperty("falseNegative", dformat.format(r._confusionMatrix[0][1]));
-      res.addProperty("falseNegativeVar", dformat.format(r._confusionMatrixVariance[0][1]));
-      res.addProperty("falsePositive", dformat.format(r._confusionMatrix[1][0]));
-      res.addProperty("falsePositiveVar", dformat.format(r._confusionMatrixVariance[1][0]));
-      res.addProperty("errRate", dformat.format(r._err));
-      res.addProperty("errRateVar", dformat.format(r._errVar));
+      XValAggregateResult xr = GLSM.xValidate(ary,f,columns,xfactor, threshold, 1);
+      res.addProperty("trueNegative", dformat.format(xr._confusionMatrix[0][0]));
+      res.addProperty("trueNegativeVar", dformat.format(xr._confusionMatrixVariance[0][0]));
+      res.addProperty("truePositive", dformat.format(xr._confusionMatrix[1][1]));
+      res.addProperty("truePositiveVar", dformat.format(xr._confusionMatrixVariance[1][1]));
+      res.addProperty("falseNegative", dformat.format(xr._confusionMatrix[0][1]));
+      res.addProperty("falseNegativeVar", dformat.format(xr._confusionMatrixVariance[0][1]));
+      res.addProperty("falsePositive", dformat.format(xr._confusionMatrix[1][0]));
+      res.addProperty("falsePositiveVar", dformat.format(xr._confusionMatrixVariance[1][0]));
+      res.addProperty("errRate", dformat.format(xr._err));
+      res.addProperty("errRateVar", dformat.format(xr._errVar));
       JsonArray models = new JsonArray();
-      for(int i = 0; i < r._models.length; ++i) {
+      for(int i = 0; i < xr._models.length; ++i) {
         JsonObject m = new JsonObject();
         JsonArray arr = new JsonArray();
-        for(int j = 0; j < r._models[i]._confMatrix.length;++j){
+        for(int j = 0; j < xr._models[i]._confMatrix.length;++j){
           JsonArray row = new JsonArray();
-          for(int k = 0; k < r._models[i]._confMatrix.length;++k)
-            row.add(new JsonPrimitive(r._models[i]._confMatrix[j][k]));
+          for(int k = 0; k < xr._models[i]._confMatrix.length;++k)
+            row.add(new JsonPrimitive(xr._models[i]._confMatrix[j][k]));
           arr.add(row);
         }
         m.add("cm", arr);
-        m.add("coefs", getCoefficients(columns, colNames, r._models[i]._beta));
+        m.add("coefs", getCoefficients(columns, colNames, xr._models[i]._beta));
         models.add(m);
       }
       res.add("models", models);
@@ -278,7 +282,9 @@ public class GLM extends H2OPage {
             + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
             + "<tr><th>Null Deviance</th><td>%NullDeviance</td></tr>"
             + "<tr><th>Residual Deviance</th><td>%ResidualDeviance</td></tr>"
-            + "<tr><th>AIC</th><td>%AIC_formated</td></tr>" + "</table> %xvalidation");
+            + "<tr><th>AIC</th><td>%AIC_formated</td></tr>"
+            + "<tr><th>Training Error Rate</th><td>%trainingSetErrorRate</td></tr>"
+            + "</table> %xvalidation");
 
     JsonObject json = serverJson(server, args);
     if( json.has("error") )
@@ -303,12 +309,18 @@ public class GLM extends H2OPage {
     if( json.has("Null Deviance") )
       responseTemplate.replace("NullDeviance",
           dformat.format(json.get("Null Deviance").getAsDouble()));
+    else
+      responseTemplate.replace("NullDeviance","n/a");
     if( json.has("Residual Deviance") )
       responseTemplate.replace("ResidualDeviance",
           dformat.format(json.get("Residual Deviance").getAsDouble()));
+    else
+      responseTemplate.replace("ResidualDeviance","n/a");
     if( json.has("AIC") )
       responseTemplate.replace("AIC_formated",
           dformat.format(json.get("AIC").getAsDouble()));
+    else
+      responseTemplate.replace("AIC_formated","n/a");
     if(json.has("xfactor")){
       RString xValidationTemplate = new RString(
            "<h3>%xfactor fold Cross Validation</h3>"
