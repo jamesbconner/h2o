@@ -222,7 +222,11 @@ class H2O(object):
         verboseprint("put_file #2 phase response: ", resp2)
 
         return resp2
-
+    
+    def get_key(self, key):
+        return requests.get(self.__url('Get'),
+            prefetch=False,
+            params={"Key": key})
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
