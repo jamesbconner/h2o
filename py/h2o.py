@@ -32,7 +32,6 @@ def parse_our_args():
     verbose = args.verbose
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
-    # sys.argv[1:] = args.unittest_args
     sys.argv[1:] = args.unittest_args
 
 def verboseprint(*args):
@@ -424,13 +423,21 @@ class RemoteHost(object):
             self.uploaded[f] = dest
         return self.uploaded[f]
 
-    def __init__(self, addr, username):
+    def __init__(self, addr, username, password=None):
         import paramiko
         self.addr = addr
         self.username = username
         self.ssh = paramiko.SSHClient()
+
+        # don't require keys. If no password, assume passwordless setup was done
+        policy = paramiko.AutoAddPolicy()
+        self.ssh.set_missing_host_key_policy(policy)
         self.ssh.load_system_host_keys()
-        self.ssh.connect(self.addr, username=username)
+        if password is None:
+            self.ssh.connect(self.addr, username=username)
+        else:
+            self.ssh.connect(self.addr, username=username, password=password)
+
         self.uploaded = {}
 
     def remote_h2o(self, *args, **keywords):
