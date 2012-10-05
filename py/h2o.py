@@ -423,7 +423,11 @@ class RemoteHost(object):
     def upload_file(self, f):
         f = find_file(f)
         if f not in self.uploaded:
-            dest = '/tmp/' + os.path.basename(f)
+            import md5
+            m = md5.new()
+            m.update(open(f).read())
+            m.update(getpass.getuser())
+            dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
             log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest)
