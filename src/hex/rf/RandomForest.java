@@ -121,7 +121,7 @@ public class RandomForest {
     UDPRebooted.global_kill();
   }
 
-  // ---
+
   static class RFValidator {
     private int _lastTreeValidated;
     private long _errors = -1;
@@ -137,7 +137,6 @@ public class RandomForest {
       _confusion = new int[data.classes()][data.classes()];
       _raw = va;
       _features = features;
-      // Pre-load all the compressed trees
       _tbits = new byte[treekeys.length][];
       for( int i=0; i<treekeys.length; i++ )
         _tbits[i] = DKV.get(treekeys[i]).get();
@@ -180,8 +179,7 @@ public class RandomForest {
     private long errors() {
       if(_errors==-1) validate();
       return _errors;
-  }
-
+    }
 
     private String pad(String s, int l) {
       String p="";
