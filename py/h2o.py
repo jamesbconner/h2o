@@ -51,6 +51,9 @@ def find_file(base):
     if not os.path.exists(f): f = '../'+base
     return f
 
+def get_file_size(f):
+    return os.path.getsize(f)
+
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
@@ -210,13 +213,13 @@ class H2O(object):
             requests.get(self.__url('PutFile.json'), 
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
-        verboseprint("put_file #1 phase: ", resp1)
+        verboseprint("put_file #1 phase response: ", resp1)
 
         resp2 = self.__check_request(
             requests.post(self.__url('', port=resp1['port']), 
                 files={"File": open(f, 'rb')}
                 ))
-        verboseprint("putf_file #2 phase: ", resp2)
+        verboseprint("put_file #2 phase response: ", resp2)
 
         return resp2
 
