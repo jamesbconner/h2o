@@ -75,21 +75,22 @@ public class LogisticRegression {
     }
 
     @Override
-    public int read(byte[] buf, int off) {
-      off = super.read(buf, off);
+    public int wire_len() {
+      return super.wire_len()+_beta.getRowDimension()*8;
+    }
+
+    @Override
+    public void read(Stream s) {
+      super.read(s);
       _beta = (Matrix)_row.wx.clone();
-      for(int i = 0; i < _beta.getRowDimension(); ++i){
-        _beta.set(i,0, UDP.get8d(buf, off)); off += 8;
-      }
-      return off;
+      for(int i = 0; i < _beta.getRowDimension(); ++i)
+        _beta.set(i,0, s.get8d());
     }
     @Override
-    public int write(byte[] buf, int off) {
-      off = super.write(buf, off);
-      for(int i = 0; i < _beta.getRowDimension(); ++i){
-        UDP.set8d(buf, off, _beta.get(i,0)); off += 8;
-      }
-      return off;
+    public void write(Stream s) {
+      super.write(s);
+      for(int i = 0; i < _beta.getRowDimension(); ++i)
+        s.set8d(_beta.get(i,0));
     }
   }
 

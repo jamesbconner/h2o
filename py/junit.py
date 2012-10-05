@@ -14,13 +14,12 @@ class JUnit(unittest.TestCase):
                     'java',
                     '-Dh2o.arg.ice_root='+h2o.tmp_dir('ice.'),
                     '-Dh2o.arg.name=pytest-'+getpass.getuser(),
-                    '-javaagent:' + h2o.find_file('build/h2o.jar'),
                     '-ea', '-jar', h2o.find_file('build/h2o.jar'),
                     '-mainClass', 'org.junit.runner.JUnitCore',
                     # The tests
                     'test.KVTest',
                     'test.ParserTest',
-                    'test.RTSerGenHelperTest',
+                    'test.AutoSerialTest',
                     'test.DatasetCornerCasesTest',
                     'test.AppendKeyTest'])
 

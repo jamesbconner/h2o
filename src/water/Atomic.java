@@ -3,9 +3,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
-
 /**
  * Atomic update of a Key
  *
@@ -15,7 +12,6 @@ import water.serialization.RemoteTaskSerializer;
 
 public abstract class Atomic extends RemoteTask {
   public Key _key;              // Transaction key
-  TaskRemExec _tre;             // The remote-execution cookie
 
   // Example use for atomic update of any Key:
   //  new Atomic(key_to_be_atomically_updated) {
@@ -40,17 +36,18 @@ public abstract class Atomic extends RemoteTask {
  
   // Block until it completes, if run remotely
   @Override public final void invoke( Key key ) {
-    fork(key);
-    if( _tre != null ) _tre.get();
+    TaskRemExec tre = fork(key);
+    if( tre != null ) tre.get();
   }
 
   // Fork off
-  public final void fork( Key key ) {
+  public final TaskRemExec fork( Key key ) {
     _key = key;
     if( key.home() ) {          // Key is home?
       compute();                // Also, run it blocking/now
+      return null;
     } else {                    // Else run it remotely
-      _tre = new TaskRemExec(key.home_node(),this,key,UDP.udp.atomic);
+      return new TaskRemExec(key.home_node(),this,key,UDP.udp.atomic);
     }
   }
 
@@ -76,6 +73,7 @@ public abstract class Atomic extends RemoteTask {
       Value res = DKV.DputIfMatch(_key,val2,val1);
       if( res == val1 ) {       // Success?
         onSuccess();            // Call user's post-XTN function
+        _key = null;            // No need for key no more
         tryComplete();          // Tell F/J this task is done
         return; 
       }      

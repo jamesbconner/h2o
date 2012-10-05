@@ -1,9 +1,6 @@
 package water;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.net.*;
+import java.util.*;
 
 /**
  * The Thread that looks for Multicast UDP Cloud requests.
@@ -60,6 +57,8 @@ public class MultiReceiverThread extends Thread {
         // More common-case setup of a MultiCast socket
         if( sock == null ) {
           sock = new MulticastSocket(H2O.CLOUD_MULTICAST_PORT);
+          if( H2O.CLOUD_MULTICAST_IF != null )
+            sock.setNetworkInterface(H2O.CLOUD_MULTICAST_IF);
           sock.joinGroup(group);
         }
 

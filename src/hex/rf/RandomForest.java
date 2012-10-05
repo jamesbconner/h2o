@@ -44,9 +44,7 @@ public class RandomForest {
       }
     } catch( InterruptedException e ) {
       // Interrupted after partial build?
-    } catch( ExecutionException e ) {
-      // FIXME: Should we do something here -- JAN
-    }
+    } catch( ExecutionException e ) { throw new Error(e); }
   }
 
   public static class OptArgs extends Arguments.Opt {

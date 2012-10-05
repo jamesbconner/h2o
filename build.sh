@@ -24,7 +24,7 @@ JAR_ROOT=lib
 
 # additional dependencies, relative to this file, but all dependencies should be
 # inside the JAR_ROOT tree so that they are packed to the jar file properly
-DEPENDENCIES="${JAR_ROOT}/jama/*${SEP}${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*${SEP}${JAR_ROOT}/junit/*${SEP}${JAR_ROOT}/gson/*${SEP}${JAR_ROOT}/asm/*"
+DEPENDENCIES="${JAR_ROOT}/jama/*${SEP}${JAR_ROOT}/sigar/*${SEP}${JAR_ROOT}/apache/*${SEP}${JAR_ROOT}/junit/*${SEP}${JAR_ROOT}/gson/*${SEP}${JAR_ROOT}/javassist.jar"
 
 DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"
@@ -72,7 +72,6 @@ function clean() {
 function build_classes() {
     echo "building classes..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
-    # javac, followed by horrible awk script to remove junk error messages about 'Unsafe'
     "$JAVAC" ${JAVAC_ARGS} \
         -cp "${CLASSPATH}" \
         -sourcepath "$SRC" \
@@ -92,7 +91,10 @@ function build_initializer() {
     echo "building initializer..."
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
     "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$JAR_ROOT" $SRC/init/*java
-
+    pushd lib
+    jar xf javassist.jar
+    rm -rf META-INF
+    popd
 }
 
 function build_jar() {

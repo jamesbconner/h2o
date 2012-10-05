@@ -40,9 +40,9 @@ public class ValueArray extends Value {
   }
 
   public ValueArray(Key k, byte [] mem) {
-    super(k,mem);    
+    super(k,mem);
   }
-  
+
   @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
 
   @Override public byte type() { return ARRAY; }
@@ -84,23 +84,23 @@ public class ValueArray extends Value {
 
   /**
    * Get offset of this file in an underlying backing file.
-   * 
+   *
    * If this is unstructured data, the offset is simply the chunk number * chunk size.
-   * 
-   * For structured (.hex) data, the computation is slightly more complicated: 
+   *
+   * For structured (.hex) data, the computation is slightly more complicated:
    *  1) Chunks do have different size (closest multiple of rowsize())
-   *  2) there is a header stored in the beginning of the file.  
-   * 
+   *  2) there is a header stored in the beginning of the file.
+   *
    * @param k chunk key
-   * @return The offset (in bytes) into the file backing this ValueArray 
+   * @return The offset (in bytes) into the file backing this ValueArray
    */
   public long getChunkFileOffset(Key k){
     if(row_size() > 0) {
       long chunkIdx = ValueArray.getChunkIndex(k);
       long rpc = (1 << 20)/row_size();
-      return  header_size() + chunkIdx * rpc * row_size();                
+      return  header_size() + chunkIdx * rpc * row_size();
     } else {
-      return ValueArray.getOffset(k); 
+      return ValueArray.getOffset(k);
     }
   }
 
@@ -307,11 +307,11 @@ public class ValueArray extends Value {
   public long num_rows() { return UDP.get8(get(),NUM_ROWS_OFF); }
   // Size of each row (sum of column widths) in bytes
   public int  row_size() { return UDP.get4(get(),ROW_SIZE_OFF); }
-  
-  
+
+
   // structured data needs to store header describing the data at the beginning of the file
   // header contains bytes of the arraylet head
-  // therefore, return the size of _mem if structured, 0 if unstructured 
+  // therefore, return the size of _mem if structured, 0 if unstructured
   public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0: 2 + get().length;}
 
 
@@ -324,14 +324,16 @@ public class ValueArray extends Value {
   static private final int  SCALE_COL_OFF =   OFF_COL_OFF+2; // scale for all; often 1
   static private final int  BADAT_COL_OFF = SCALE_COL_OFF+2; // number of bad rows, capped at 65535
   static private final int   SIZE_COL_OFF = BADAT_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
-  static private final int DOMAIN_COL_OFF =  SIZE_COL_OFF+1; // domain offset in the array header 
+  static private final int DOMAIN_COL_OFF =  SIZE_COL_OFF+1; // domain offset in the array header
   static private final int   PAD0_COL_OFF =DOMAIN_COL_OFF+4; // pad to 8 bytes
   static private final int  META_COL_SIZE =  PAD0_COL_OFF+5;
 
   // internal convience class for building structured ValueArrays
   static public class Column {
     public String       _name;
-    public ColumnDomain _domain;     // Domain of the column - all the strings which represents the column's domain. The order of the strings corresponds to numbering utilized in dataset.
+    // Domain of the column - all the strings which represents the column's domain.
+    // The order of the strings corresponds to numbering utilized in dataset.
+    public ColumnDomain _domain;
     public double       _min, _max;  // Min/Max per column; requires a 1st pass to discover
     public int          _base;       // Base
     public short        _off;        // Offset of column data within row
@@ -348,16 +350,16 @@ public class ValueArray extends Value {
 
     static public int wire_len() { return META_COL_SIZE; }
 
-    public int write( byte[] buf, int off ) {
-      UDP.set8d(buf,off+  MAX_COL_OFF,_max);
-      UDP.set8d(buf,off+  MIN_COL_OFF,_min);
-      UDP.set4 (buf,off+ BASE_COL_OFF,_base);
-      //                 NAME_COL_OFF is filled in later
-      UDP.set2 (buf,off+  OFF_COL_OFF,_off);
-      UDP.set2 (buf,off+SCALE_COL_OFF,_scale);
-      UDP.set2 (buf,off+BADAT_COL_OFF,_badat);
-                buf[off+ SIZE_COL_OFF]=_size;
-      return off+META_COL_SIZE;
+    public void write( Stream s ) {
+      UDP.set8d(s._buf,s._off+  MAX_COL_OFF,_max);
+      UDP.set8d(s._buf,s._off+  MIN_COL_OFF,_min);
+      UDP.set4 (s._buf,s._off+ BASE_COL_OFF,_base);
+      //                       NAME_COL_OFF is filled in later
+      UDP.set2 (s._buf,s._off+  OFF_COL_OFF,_off);
+      UDP.set2 (s._buf,s._off+SCALE_COL_OFF,_scale);
+      UDP.set2 (s._buf,s._off+BADAT_COL_OFF,_badat);
+                s._buf[s._off+ SIZE_COL_OFF]=_size;
+      s._off+=META_COL_SIZE;
     }
 
     public void write( DataOutputStream dos ) throws IOException {
@@ -370,15 +372,16 @@ public class ValueArray extends Value {
       dos.writeByte(_size);
     }
 
-    static public Column read( byte[] buf, int off ) {
+    static public Column read( Stream s ) {
       Column col = new Column();
-      col._max  =       UDP.get8d(buf,off+  MAX_COL_OFF);
-      col._min  =       UDP.get8d(buf,off+  MIN_COL_OFF);
-      col._base =       UDP.get4 (buf,off+ BASE_COL_OFF);
-      col._off  =(short)UDP.get2 (buf,off+  OFF_COL_OFF);
-      col._scale=(short)UDP.get2 (buf,off+SCALE_COL_OFF);
-      col._badat= (char)UDP.get2 (buf,off+BADAT_COL_OFF);
-      col._size =       buf[off+ SIZE_COL_OFF];
+      col._max  =       UDP.get8d(s._buf,s._off+  MAX_COL_OFF);
+      col._min  =       UDP.get8d(s._buf,s._off+  MIN_COL_OFF);
+      col._base =       UDP.get4 (s._buf,s._off+ BASE_COL_OFF);
+      col._off  =(short)UDP.get2 (s._buf,s._off+  OFF_COL_OFF);
+      col._scale=(short)UDP.get2 (s._buf,s._off+SCALE_COL_OFF);
+      col._badat= (char)UDP.get2 (s._buf,s._off+BADAT_COL_OFF);
+      col._size =                 s._buf[s._off+ SIZE_COL_OFF];
+      s._off+=META_COL_SIZE;
       return col;
     }
 
@@ -420,49 +423,42 @@ public class ValueArray extends Value {
     }
     return names;
   }
-  
+
   // Column domain (may be empty).
   // Index in array corresponds to number in table cell.
   public String[] col_enum_domain(int cnum) {
     byte[] mem = get();
-    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off); off += 2+1; // skip killed flag
-    String[] domain = new String[domainSize];
-    for( int i = 0; i < domainSize; i++) {
-      int len = UDP.get2(mem, off); off += 2;
-      domain[i] = len > 0 ? new String(mem, off, len) : null;
-      off += len;
-    }
-    
-    return domain;    
+    Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
+    String[] domain = new String[s.get2()];
+    for( int i = 0; i < domain.length; i++)
+      domain[i] = s.getLen2Str();
+    return domain;
   }
-  
-  // Returns string representation of of given ord in column domain. 
+
+  // Returns string representation of of given ord in column domain.
   public String col_enum_domain_val(int cnum, int ord) {
     byte[] mem = get();
     int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off); off += 2+1; // skip killed flag
+    int domainSize = UDP.get2(mem, off); off += 2;
     if (ord < 0 || ord >= domainSize) throw new ArrayIndexOutOfBoundsException(ord);
-    for( int i = 0; i < ord; i++) {
-      int len = UDP.get2(mem, off); off += (2+len);      
-    }
+    for( int i = 0; i < ord; i++)
+      off += 2+UDP.get2(mem, off);
     int len = UDP.get2(mem, off); off += 2;
     return len > 0 ? new String(mem, off, len) : null;
   }
-  
+
   // Returns size of given column enum domain.
   public int col_enum_domain_size(int cnum) {
     byte[] mem = get();
     int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
     int domainSize = UDP.get2(mem, off);
-    return domainSize;        
+    return domainSize;
   }
-  
+
   // Returns true if column's enum domain is not empty
   public boolean col_has_enum_domain(int cnum) {
-    byte[] mem = get();
-    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);     
-    return mem[off+2] == 0; // check for killed flag = 0 means the column is not killed        
+    int sz = col_enum_domain_size(cnum);
+    return sz!= 65535 && sz != 0 ;
   }
 
   // Offset (within a row) of this column start
@@ -612,35 +608,28 @@ public class ValueArray extends Value {
     UDP.set4(mem,NUM_COLS_OFF,cols.length);
     UDP.set4(mem,ROW_SIZE_OFF,row_size);
     UDP.set8(mem,NUM_ROWS_OFF,num_rows);
-    int i=0;
-    for( Column column : cols ) // Fill the columns
-      column.write(mem,ary.col(i++));
+    Stream s = new Stream(mem,ary.col(0)); // Set to start of columns
+    for( Column column : cols)  // Fill the columns
+      column.write(s);
     // Offset for data past the columns
-    int off = cols.length*META_COL_SIZE + COLUMN0_OFF;
+    s._off = cols.length*META_COL_SIZE + COLUMN0_OFF;
     // Prior key
-    UDP.set4(mem,PRIORKEY_OFF,off);
-    off = priorkey.write(mem,off);
+    UDP.set4(mem,PRIORKEY_OFF,s._off);
+    priorkey.write(s);
     // XForm string, with leading 2 bytes of length
-    UDP.set4(mem,XFORM_OFF,off);
-    UDP.set2(mem,off,xform.length()); off += 2;
-    xform.getBytes(0,xform.length(),mem,off); off += xform.length();
+    UDP.set4(mem,XFORM_OFF,s._off);
+    s.setLen2Str(xform);
     // Now the column names
-    i=0;
-    for( Column column : cols ) {
-      String name = column._name;
-      UDP.set4(mem,ary.col(i++)+NAME_COL_OFF,off); // First the offset to the name
-      UDP.set2(mem,off,name.length()); off += 2;   // Then the name length
-      // Then the name bytes itself
-      name.getBytes(0,name.length(),mem,off); off += name.length();
+    for( int i=0; i<cols.length; i++ ) {
+      UDP.set4(mem,ary.col(i)+NAME_COL_OFF,s._off); // First the offset to the name
+      s.setLen2Str(cols[i]._name);                  // Then the name
     }
     // Now the columns meta-data: domains
-    
-    i=0;
-    for( Column column : cols ) {      
-      UDP.set4(mem,ary.col(i++)+DOMAIN_COL_OFF,off);     // First write the offset of domain to column header.
-      off = column._domain.write(mem, off);
-    }    
-        
+    for( int i=0; i<cols.length; i++ ) {
+      UDP.set4(mem,ary.col(i)+DOMAIN_COL_OFF,s._off); // First write the offset of domain to column header.
+      cols[i]._domain.write(s);                       // Then the domain names
+    }
+
     return ary;
   }
 }

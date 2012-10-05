@@ -141,19 +141,17 @@ public class GLM extends H2OPage {
       columns[n] = Y;
       for( int x : columns )
         if( 0 > x || x >= ary.num_cols() ) {
-          res.addProperty("error", "Invalid input: column " + x
-              + " does not exist!");
+          res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
-      String method = p.getProperty("family", "gaussian");
+      String method = p.getProperty("family", "gaussian").toLowerCase();
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
       res.addProperty("h2o", H2O.SELF.urlEncode());
       double[] coefs = null;
       long t1 = System.currentTimeMillis();
-      if( method.equalsIgnoreCase("gaussian") ) res.addProperty("name",
-          "Linear regression");
-      else if( method.equalsIgnoreCase("binomial") )
+      if( method.equals("gaussian") ) res.addProperty("name","Linear regression");
+      else if( method.equals("binomial") )
         res.addProperty("name", "Logistic regression");
       GLSM.Family f;
       try{f = GLSM.Family.valueOf(method.toLowerCase());}catch(IllegalArgumentException e){throw new InvalidInputException("unknown family " + method);}
@@ -297,7 +295,7 @@ public class GLM extends H2OPage {
       RString m = new RString("y = %equation");
       m.replace("equation", codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
-    } else if( method.equalsIgnoreCase("binomial") ) {
+    } else if( method.equals("binomial") ) {
       RString m = new RString("y = 1/(1 + Math.exp(-(%equation))");
       m.replace("equation", codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());

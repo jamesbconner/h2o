@@ -1,9 +1,7 @@
-  package hex.rf;
+package hex.rf;
 
 import java.util.*;
-
 import water.*;
-import water.serialization.*;
 
 /**
  * Confusion Matrix.  Incrementally computes a Confusion Matrix for a
@@ -20,15 +18,17 @@ public class Confusion extends MRTask {
   public int _ntrees0;             // Trees being processed *this pass*
   public int _maxtrees;            // Expected final tree max
 
-  // Tree Keys
-  @RTLocal public Key[] _tkeys;   // Array of Tree-Keys
-  @RTLocal public byte[][] _tbits;// Array of Tree bytes
+  /** Tree Keys */
+  transient public Key[] _tkeys;
+  /** Tree data */
+  transient public byte[][] _trees;
 
   // Dataset we are building the matrix on.  The classes must be in the last
   // column, and the column count must match the Trees.
-  public Key _arykey;             // The dataset key
-  @RTLocal public ValueArray _ary;// The dataset array
-  public int _N;                  // Number of classes
+  public Key _datakey;              // The dataset key
+  transient public ValueArray _data; // The dataset array
+  public int _N;                    // Number of classes
+
 
   // The Confusion Matrix - a NxN matrix of [actual] -vs- [predicted] classes,
   // referenced as _matrix[actual][predicted].  Each row in the dataset is
@@ -44,32 +44,33 @@ public class Confusion extends MRTask {
   // the cost is 2x7 classes or 14 bytes per row on top of 64 bytes per row for
   // the data for an overhead of only 18%.
   public Key _votes;
-  @RTLocal public Key[] _vkeys;
+  transient public Key[] _vkeys;
 
-  // For reproducibility make sure that we can control the randomness in the
-  // computation of the confusion matrix. The default seed when deserializing
-  // is 42.
-  // TODO: Check that a default value is required. --JAN
-  @RTLocal Random _rand = new Random(42);
+  /** For reproducibility we can control the randomness in the computation of the
+      confusion matrix. The default seed when deserializing is 42.*/
+  transient Random _rand = new Random(42);
 
-  // no-arg constructor for use by the serializers
-  public Confusion() {}
+  private transient Model _model;
 
-  public Confusion( Key treeskey, ValueArray ary, int maxtrees, int seed ) {
+  public Confusion() {}  // Constructor for use by the serializers
+
+
+  public Confusion( Key treeskey, ValueArray data, int maxtrees, int seed ) {
     _ntrees = 0;
     _ntrees0 = -1;              // Not set yet; need to count keys in _treeskey
     _maxtrees = maxtrees;
     _treeskey = treeskey;
     _rand = new Random(seed);
     // Do some basic validation on the dataset.
-    // Actual classes are in the last column.
-    _arykey = ary._key;
-    int nchunks = (int)ary.chunks();
-    int num_cols = ary.num_cols();
-    int min = (int)ary.col_min(num_cols-1); // Typically 0-(n-1) or 1-N
-    int max = (int)ary.col_max(num_cols-1);
+    _datakey = data._key;
+    int nchunks = (int)data.chunks();
+    int num_cols = data.num_cols();
+    int min = (int)data.col_min(num_cols-1); // Typically 0-(n-1) or 1-N
+    int max = (int)data.col_max(num_cols-1);
     _N = max-min+1;             // Range of last column is #classes
     assert _N > 0;
+
+    _model = new Model(_treeskey,(short) _N , data);
 
     // Now the incremental-voting array.  Implemented as a K/V pair per
     // original dataset chunk, with 2xN bytes per V and each K homed to the
@@ -83,7 +84,7 @@ public class Confusion extends MRTask {
     off = UDP.set4(bits,off,nchunks);  // Count of keys
     for( int i = 0; i<nchunks; i++ ) { // Write them out
       // Home of the original dataset chunk
-      H2ONode home = ary.make_chunkkey(((long)i)<<ValueArray.LOG_CHK).home_node();
+      H2ONode home = data.make_chunkkey(((long)i)<<ValueArray.LOG_CHK).home_node();
       // New vote-key homed to the same place
       byte[] kb = new byte[16];
       UUID uuid = UUID.randomUUID();
@@ -96,7 +97,6 @@ public class Confusion extends MRTask {
       off = k.write(bits,off);
     }
     DKV.put(_votes, new Value(_votes,Arrays.copyOf(bits,off)));
-    // Finish off with the shared init
     shared_init();
   }
 
@@ -104,7 +104,7 @@ public class Confusion extends MRTask {
   private void shared_init() {
     // Wire-len passed the dataset key, go ahead and load the dataset's
     // ValueArray - it's Schema-on-Read
-    _ary = (ValueArray)DKV.get(_arykey);
+    _data = (ValueArray)DKV.get(_datakey);
     // Flatten the key-of-X-keys into an array-of-X-keys
     _tkeys = _treeskey.flatten(); // Trees
     _vkeys = _votes.flatten();    // Votes-per-row
@@ -114,63 +114,61 @@ public class Confusion extends MRTask {
 
     // For the trees, further flatten to arrays of tree-bits.
     // But only both with the first ntree0 trees.
-    _tbits = new byte[_ntrees0][];
+    _trees = new byte[_ntrees0][];
     for( int i=0; i<_ntrees0; i++ )
-      _tbits[i] = DKV.get(_tkeys[i]).get();
+      _trees[i] = DKV.get(_tkeys[i]).get();
   }
 
-  // Once-per-remote invocation init.  The standard M/R framework will
-  // endlessly clone the original object "for free" (well, for very low cost),
-  // but the wire-line format does not send over things we can compute locally.
-  // So compute locally, once, some things we want in all cloned instances.
+  /** Once-per-remote invocation init.  The standard M/R framework will
+      endlessly clone the original object "for free" (well, for very low cost),
+      but the wire-line format does not send over things we can compute locally.
+      So compute locally, once, some things we want in all cloned instances. */
   public void init() {
     super.init();
     shared_init();
   }
 
-  // Refresh, in case the number of trees has grown.
-  // During a refresh the _matrix is changing.
+  /** Refresh, in case the number of trees has grown.
+      During a refresh the _matrix is changing. */
   public void refresh() {
     if( _ntrees >= _tkeys.length ) // Did all available trees already?
       return;                      // Then done!
     _matrix = null;                // Erase the old partial results
     _ntrees0 = _tkeys.length;      // Lock down the number of trees being done
     // launch a M/R job to do the math
-    invoke(_arykey);
+    invoke(_datakey);
     // Update the Confusion key to the larger count of voted trees
     _ntrees = _ntrees0;
     toKey();
   }
 
-  // Write the Confusion to its key
+  /** Write the Confusion to its key. */
   public Key toKey() {
-    RemoteTaskSerializer sc = RTSerializationManager.get(Confusion.class);
-    Stream s = new Stream(sc.wire_len(this));
-    sc.write(this, s);
-    Key key = Key.make("ConfusionMatrix of "+_arykey);
+    Stream s = new Stream(wire_len());
+    write(s);
+    Key key = Key.make("ConfusionMatrix of "+_datakey);
     DKV.put(key, new Value(key, s._buf));
     return key;
   }
 
   public static Confusion fromKey( Key key ) {
-    RemoteTaskSerializer sc = (RTSerializationManager.get(Confusion.class));
-    Confusion c = (Confusion)sc.read(new Stream(DKV.get(key).get()));
+    Confusion c = new Confusion();
+    c.read(new Stream(DKV.get(key).get()));
     c.shared_init();
     return c;
   }
 
-  // A classic Map/Reduce style incremental computation of the confusion matrix.
-  public void map( Key key ) {
-    // Get the raw dataset bits to work on
-    byte[] dbits = DKV.get(key).get();
-    final int rowsize = _ary.row_size();
-    final int rows = dbits.length/rowsize;
-    final int num_cols = _ary.num_cols();
-    final int ccol = num_cols-1;              // Column holding the class
-    final int cmin = (int)_ary.col_min(ccol); // Typically 0-(n-1) or 1-N
+  /** A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
+  public void map( Key chunk_key ) {
+    byte[] chunk_bits = DKV.get(chunk_key).get();      // Get the raw dataset bits of the chunk
+    final int rowsize = _data.row_size();
+    final int rows = chunk_bits.length/rowsize;
+    final int num_cols = _data.num_cols();
+    final int ccol = num_cols-1;               // Column holding the class
+    final int cmin = (int)_data.col_min(ccol); // Typically 0-(n-1) or 1-N
 
     // Get the existing votes
-    int nchk = ValueArray.getChunkIndex(key);
+    int nchk = ValueArray.getChunkIndex(chunk_key);
     Key vkey = _vkeys[nchk];
     Value votes = DKV.get(vkey);
     if( votes == null ) votes = new Value(vkey,rows*_N*2);
@@ -181,17 +179,18 @@ public class Confusion extends MRTask {
     _matrix = new long[_N][_N];
 
     // Now for all rows, classify & vote!
+    MAIN_LOOP :
     for( int i=0; i<rows; i++ ) {
-      boolean valid = true;
       for( int k=0; k<num_cols; k++ )
-        if( !_ary.valid(dbits,i,rowsize,k) ) valid = false;
-      if( valid == false ) continue; // Skip broken rows
+        if( !_data.valid(chunk_bits,i,rowsize,k) ) continue MAIN_LOOP; // Skip broken rows
 
       // For all trees on this row, vote!
       int vidx = i*2*_N;        // Vote index
       for( int t=_ntrees; t<_ntrees0; t++ ) {
         // This tree's prediction for row i
-        int predict = Tree.classify(_tbits[t],_ary,dbits,i,rowsize);
+        int predict = Tree.classify(_trees[t],_data,chunk_bits,i,rowsize);
+       // int predict2 = _model.classify(t, chunk_bits, i, rowsize);
+      //  assert predict==predict2;
         assert 0<= predict && predict < _N : ("prediction "+predict+" < "+_N);
         // Bump the row's class-vote
         UDP.add2(vbits,vidx+(predict<<1),1);
@@ -217,7 +216,7 @@ public class Confusion extends MRTask {
         predict = Utils.maxIndex(ties,_rand);
       }
       // Find the current row class
-      int cclass = (int)_ary.data(dbits,i,rowsize,ccol) - cmin;
+      int cclass = (int)_data.data(chunk_bits,i,rowsize,ccol) - cmin;
       assert 0<= cclass && cclass < _N : ("cclass "+cclass+" < "+_N);
       // Bump the confusion matrix
       _matrix[cclass][predict]++;
@@ -228,15 +227,12 @@ public class Confusion extends MRTask {
     else                          DKV.put(vkey,new Value(vkey,vbits));
   }
 
-  // Reduction just combines the confusion matrices
+  /** Reduction combines the confusion matrices. */
   public void reduce( DRemoteTask drt ) {
     Confusion C = (Confusion)drt;
     long[][] m1 = _matrix;
     long[][] m2 = C._matrix;
-    if( m1 == null ) {          // No local work?
-      _matrix = m2;             // Take other work straight-up
-      return;
-    }
+    if( m1 == null ) { _matrix = m2; return; } // Take other work straight-up
     for( int i=0; i<m1.length; i++ )
       for( int j=0; j<m1.length; j++ )
         m1[i][j] += m2[i][j];

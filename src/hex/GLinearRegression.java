@@ -1,13 +1,9 @@
 package hex;
-
+import Jama.Matrix;
 import java.io.*;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import water.*;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
-import Jama.Matrix;
 
 /**
  * General Linear Regression (http://en.wikipedia.org/wiki/Linear_regression) implementation
@@ -45,26 +41,19 @@ public class GLinearRegression {
     byte[]     _bits;
     int        _row_size;
 
-    public static Row2VecMap deserialize(byte[] buff, int off) {
+    public static Row2VecMap deserialize(Stream s) {
       try {
-        Class<? extends Row2VecMap> c = (Class<? extends Row2VecMap>) Class
-            .forName(new String(buff, off + 1, buff[off]));
-        ;
-        Row2VecMap m = c.newInstance();
-        m.read(buff, off + buff[off] + 1);
+        Row2VecMap m = (Row2VecMap)Class.forName(s.getLen2Str()).newInstance();
+        m.read(s);
         return m;
       } catch( Exception e ) {
         throw new Error(e);
       }
     }
     // helper function to serialize this, puts the classname first, data follow
-    public static int serialize(Row2VecMap r, byte[] buf, int off) {
-      byte[] cb = r.getClass().getName().getBytes();
-      assert ((byte) cb.length) == cb.length;
-      buf[off++] = (byte) cb.length;
-      System.arraycopy(cb, 0, buf, off, cb.length);
-      off += cb.length;
-      return r.write(buf, off);
+    public void serialize(Stream s) {
+      s.setLen2Str(getClass().getName());
+      write(s);
     }
 
     // set the chunk we want to iterate over
@@ -79,36 +68,20 @@ public class GLinearRegression {
     }
 
     public Iterator<Row> iterator() {
-      final int nrows = (_bits != null && _row_size != 0) ? _bits.length
-          / _row_size : 0;
+      final int nrows = (_bits != null && _row_size != 0) ? _bits.length / _row_size : 0;
       return new Iterator<Row>() {
         int _id = 0;
-
-        @Override
-        public boolean hasNext() {
-          return _id < nrows;
-        }
-
-        @Override
-        public Row next() {
-          if( hasNext() ) return map(_id++);
-          throw new NoSuchElementException();
-        }
-
-        @Override
-        public void remove() {
-          throw new UnsupportedOperationException();
-        }
+        @Override public boolean hasNext() { return _id < nrows; }
+        @Override public Row next() { if( hasNext() ) return map(_id++); throw new NoSuchElementException(); }
+        @Override public void remove() { throw new UnsupportedOperationException(); }
       };
     }
     public abstract Row2VecMap clone();
     public abstract Row map(int rid);
     public abstract int xlen();
     public abstract int wire_len();
-    public abstract int read(byte[] buff, int off);
-    public abstract void read(DataInputStream istream);
-    public abstract int write(byte[] buff, int off);
-    public abstract void write(DataOutputStream ostream);
+    public abstract void write(Stream s);
+    public abstract void read (Stream s);
   }
 
   /**
@@ -179,45 +152,27 @@ public class GLinearRegression {
     }
 
     @Override
-    public int read(byte[] buf, int off) {
-      _xs = new int [UDP.get4(buf,off)]; off += 4;
-      for(int i = 0; i < _xs.length; ++i){
-        _xs[i] = UDP.get4(buf, off); off += 4;
-      }
-      _y = UDP.get4(buf, off); off += 4;
-      _constant = UDP.get4(buf, off);
+    public void read(Stream s) {
+      _xs = new int [s.get4()];
+      for(int i = 0; i < _xs.length; ++i)
+        _xs[i] = s.get4();
+      _y = s.get4();
+      _constant = s.get4();
       _row = new Row();
       _xlen = (_constant != 0) ? _xs.length + 1 : _xs.length;
       _row.x = new Matrix(1,_xlen);
       if(_constant != 0 ) _row.x.set(0,_xs.length, _constant);
       _row.wx = _row.x.transpose();
       _row.y = 0.0;
-      return off + 4;
     }
 
     @Override
-    public int write(byte[] buf, int off) {
-      UDP.set4(buf, off, _xs.length);
-      off += 4;
-      for( int x : _xs ) {
-        UDP.set4(buf, off, x);
-        off += 4;
-      }
-      UDP.set4(buf, off, _y); off += 4;
-      UDP.set4(buf, off, _constant);
-      return off + 4;
+    public void write(Stream s) {
+      s.set4(_xs.length);
+      for( int x : _xs ) s.set4(x);
+      s.set4(_y);
+      s.set4(_constant);
     }
-
-    @Override
-    public void write(DataOutputStream ostream) {
-      throw new RuntimeException("TODO Auto-generated method stub");
-    }
-
-    @Override
-    public void read(DataInputStream istream) {
-      throw new RuntimeException("TODO Auto-generated method stub");
-    }
-
   }
 
   public static double [] web_main(Key aryKey, int [] xColIds, int yColId){
@@ -242,7 +197,11 @@ public class GLinearRegression {
       throw new RuntimeException(e);
     }
     Matrix xx;
-    try {xx = tsk._xx.inverse();}catch(RuntimeException e){throw new GLRException("can not perform LSM on this data, obtained matrix is singular!");}
+    try {
+      xx = tsk._xx.inverse();
+    } catch(RuntimeException e) {
+      throw new GLRException("can not perform LSM on this data, obtained matrix is singular!");
+    }
     return xx.times(tsk._xy);
   }
 
@@ -269,7 +228,6 @@ public class GLinearRegression {
     }
   }
 
-  @RTSerializer(GLRTask.Serializer.class)
   public static class GLRTask extends MRTask {
     Matrix    _xx;
     Matrix    _xy;
@@ -278,7 +236,6 @@ public class GLinearRegression {
     public GLRTask(Row2VecMap rmap) {
       _rmap = rmap.clone();
     }
-
 
     // private constructor to be used in deserialization of results
     private GLRTask(Matrix xx, Matrix xy) {
@@ -328,82 +285,59 @@ public class GLinearRegression {
       }
     }
 
-
-    public static class Serializer extends RemoteTaskSerializer<GLRTask> {
-
-      @Override
-      public int wire_len(GLRTask task) {
-        if( task._xx == null && task._xy == null ) {
-          // initial stage, data not computed yet, pass down the xs and y
-          return 1 + task._rmap.wire_len();
-        } else { // already computed data, hand them back
-          return 1 + ((task._xx.getColumnDimension() * task._xx.getRowDimension() + task._xy
-              .getRowDimension()) << 3);
-        }
-      }
-
-      @Override
-      public int write(GLRTask task, byte[] buf, int off) {
-        if( task._xx == null && task._xy == null ) {
-          buf[off++] = 1; // state 1
-          off = Row2VecMap.serialize(task._rmap, buf, off);
-        } else {
-          buf[off++] = 2; // state 2
-          assert task._xx.getColumnDimension() == task._xx.getRowDimension();
-          assert task._xy.getRowDimension() == task._xx.getRowDimension();
-          UDP.set4(buf, off, task._xx.getRowDimension());
-          off += 4;
-          int M = task._xx.getRowDimension();
-          int N = task._xx.getColumnDimension();
-          for( int i = 0; i < M; ++i ) {
-            for( int j = 0; j < N; ++j ) {
-              UDP.set8d(buf, off, task._xx.get(i, j));
-              off += 8;
-            }
-          }
-          for( int i = 0; i < N; ++i ) {
-            UDP.set8d(buf, off, task._xy.get(i,0));
-            off += 8;
-          }
-        }
-        return off;
-      }
-
-      @Override
-      public GLRTask read(byte[] buf, int off) {
-        switch( buf[off++] ) {
-        case 1:
-          return new GLRTask(Row2VecMap.deserialize(buf, off));
-        case 2:
-          int xlen = UDP.get4(buf, off);
-          off += 4;
-          Matrix xx = new Matrix(xlen, xlen);
-          for( int i = 0; i < xlen; ++i ) {
-            for( int j = 0; j < xlen; ++j ) {
-              xx.set(i, j, UDP.get8d(buf, off));
-              off += 8;
-            }
-          }
-          Matrix xy = new Matrix(xlen,1);
-          for( int i = 0; i < xlen; ++i ) {
-            xy.set(i,0, UDP.get8d(buf, off));
-            off += 8;
-          }
-          return new GLRTask(xx, xy);
-        default:
-          throw new Error("illegal data");
-        }
-      }
-
-      @Override
-      public void write(GLRTask task, DataOutputStream dos) throws IOException {
-        throw new RuntimeException("TODO Auto-generated method stub");
-      }
-
-      @Override
-      public GLRTask read(DataInputStream dis) throws IOException {
-        throw new RuntimeException("TODO Auto-generated method stub");
+    @Override
+    public int wire_len() {
+      if( _xx == null && _xy == null ) {
+        // initial stage, data not computed yet, pass down the xs and y
+        return 1 + _rmap.wire_len();
+      } else { // already computed data, hand them back
+        return 1 + ((_xx.getColumnDimension() * _xx.getRowDimension() + _xy.getRowDimension()) << 3);
       }
     }
+
+    @Override
+    public void write(Stream s) {
+      if( _xx == null && _xy == null ) {
+        s.set1(1);              // state 1
+        _rmap.serialize(s);
+      } else {
+        s.set1(2);              // state 2
+        assert _xx.getColumnDimension() == _xx.getRowDimension();
+        assert _xy.   getRowDimension() == _xx.getRowDimension();
+        s.set4(_xx.getRowDimension());
+        int M = _xx.getRowDimension();
+        int N = _xx.getColumnDimension();
+        for( int i = 0; i < M; ++i )
+          for( int j = 0; j < N; ++j )
+            s.set8d(_xx.get(i, j));
+        for( int i = 0; i < N; ++i )
+          s.set8d(_xy.get(i,0));
+      }
+    }
+
+    @Override
+    public void read(Stream s) {
+      assert _rmap == null;
+      switch( s.get1() ) {
+      case 1:
+        _rmap = Row2VecMap.deserialize(s);
+        break;
+      case 2:
+        int xlen = s.get4();
+        _xx = new Matrix(xlen, xlen);
+        for( int i = 0; i < xlen; ++i )
+          for( int j = 0; j < xlen; ++j )
+            _xx.set(i, j, s.get8d());
+        _xy = new Matrix(xlen,1);
+        for( int i = 0; i < xlen; ++i )
+          _xy.set(i,0, s.get8d());
+        break;
+      default:
+        throw new Error("illegal data");
+      }
+    }
+    
+    @Override public void write(DataOutputStream dos) { throw H2O.unimpl(); }
+    @Override public void read ( DataInputStream dis) { throw H2O.unimpl(); }
   }
 }

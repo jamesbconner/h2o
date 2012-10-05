@@ -53,12 +53,6 @@ public class GLSM {
 
   protected double[] solve2() {
     _tsk.invoke(_ary._key);
-    try {
-      _tsk.get();
-    } catch( Exception e ) {
-      // TODO Auto-generated catch block
-      throw new RuntimeException(e);
-    }
     Matrix xx = new Matrix(_tsk._xx.length, _tsk._xx.length);
     // we only computed half of the symmetric matrix, now we need to fill the
     // rest before computing the inverse
@@ -71,11 +65,9 @@ public class GLSM {
     try {
       xx = xx.inverse();
     } catch( RuntimeException e ) {
-      throw new GLSMException(
-          "can not perform LSM on this data, obtained matrix is singular!");
+      throw new GLSMException("can not perform LSM on this data, obtained matrix is singular!");
     }
-    return xx.times(new Matrix(_tsk._xy, _tsk._xy.length))
-        .getColumnPackedCopy();
+    return xx.times(new Matrix(_tsk._xy, _tsk._xy.length)).getColumnPackedCopy();
   }
 
   public double[] solve() {
@@ -211,7 +203,7 @@ public class GLSM {
     long       _n;       // number of valid rows in this chunk
     double     _ymu;     // mean(y) estimate
 
-    public LSMTask(){}
+    public LSMTask() {}         // Empty constructors for the serializers
     public LSMTask(int[] colIds, int constant) {
       this(colIds, colIds.length - 1, constant);
     }
@@ -333,18 +325,15 @@ public class GLSM {
     double   _origConstant;
     long     _ncases;
 
-    public LogitLSMTask(){}
+    public LogitLSMTask() {}    // Empty constructor for the serializers
     public LogitLSMTask(int[] colIds, int constant, double[] beta) {
       super(colIds, colIds.length - 1, constant);
       _beta = beta;
     }
 
     public LogitLSMTask(int[] colIds, int constant) {
-      this(colIds, constant, new double[colIds.length
-          - ((constant == 0) ? 1 : 0)]);
+      this(colIds, constant, new double[colIds.length- ((constant == 0) ? 1 : 0)]);
     }
-
-
 
     @Override
     public void init(int xlen, int nrows) {

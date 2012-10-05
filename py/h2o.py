@@ -19,6 +19,8 @@ def unit_main():
     parse_our_args()
     unittest.main()
 
+verbose = False
+
 def parse_our_args():
     global verbose
     parser = argparse.ArgumentParser()
@@ -90,10 +92,16 @@ def get_ip_address():
     verboseprint("get_ip_address:", ip) 
     return ip
 
-def spawn_cmd(name, args):
-    outfd,outpath = tmp_file(name + '.stdout.', '.log')
-    errfd,errpath = tmp_file(name + '.stderr.', '.log')
-    ps = psutil.Popen(args, stdin=None, stdout=outfd, stderr=errfd)
+def spawn_cmd(name, args, capture_output=True):
+    if capture_output:
+        outfd,outpath = tmp_file(name + '.stdout.', '.log')
+        errfd,errpath = tmp_file(name + '.stderr.', '.log')
+        ps = psutil.Popen(args, stdin=None, stdout=outfd, stderr=errfd)
+    else:
+        outpath = '<stdout>'
+        errpath = '<stderr>'
+        ps = psutil.Popen(args)
+
     comment = 'PID %d, stdout %s, stderr %s' % (
         ps.pid, os.path.basename(outpath), os.path.basename(errpath))
     log(' '.join(args), comment=comment)
@@ -113,12 +121,24 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
+def spawn_h2o(addr=None, port=54321, nosigar=True):
+    h2o_cmd = [
+            "java", 
+            "-ea", "-jar", find_file('build/h2o.jar'),
+            "--port=%d"%port,
+            '--ip=%s'%(addr or get_ip_address()),
+            '--ice_root=%s' % tmp_dir('ice.')
+            ]
+    if nosigar is True: 
+        h2o_cmd.append('--nosigar')
+    return spawn_cmd('h2o', h2o_cmd)
+
 nodes = []
-def build_cloud(node_count, base_port=54321, ports_per_node=3, addr=None, sigar=True):
+def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
     node_list = []
     try:
         for i in xrange(node_count):
-            n = LocalH2O(addr, port=base_port + i*ports_per_node, sigar=sigar)
+            n = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
             node_list.append(n)
 
         stabilize_cloud(node_list[0], len(node_list))
@@ -289,8 +309,10 @@ class H2O(object):
                 retryDelaySecs=0.1) # but normally it is very fast
 
     def get_args(self):
-        args = [ "java", 
-            "-javaagent:" + self.get_h2o_jar(),
+        args = [ 'java' ]
+        if self.use_debugger:
+            args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
+        args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
@@ -298,13 +320,15 @@ class H2O(object):
             '--name=pytest-%s' % getpass.getuser(),
             ]
         if not self.sigar:
-            args.append('--nosigar')
+            args += ['--nosigar']
         return args
 
-    def __init__(self, addr=None, port=54321, sigar=False):
+    def __init__(self, addr=None, port=54321, capture_output=True, sigar=False, use_debugger=False):
         self.port = port
         self.addr = addr or get_ip_address()
         self.sigar = sigar
+        self.use_debugger = use_debugger
+        self.capture_output = capture_output
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
@@ -354,12 +378,9 @@ class LocalH2O(H2O):
         super(LocalH2O, self).__init__(*args, **keywords)
         self.rc = None
         self.ice = tmp_dir('ice.')
-
-        spawn = spawn_cmd('local-h2o', self.get_args())
+        spawn = spawn_cmd('local-h2o', self.get_args(),
+                capture_output=self.capture_output)
         self.ps = spawn[0]
-        self.stdout = spawn[1]
-        self.stderr = spawn[1]
-
 
     def get_h2o_jar(self):
         return find_file('build/h2o.jar')
@@ -432,14 +453,19 @@ class RemoteH2O(H2O):
 
         self.channel = host.open_channel()
         cmd = ' '.join(self.get_args())
-        outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
-        errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')
         self.channel.exec_command(cmd)
-        drain(self.channel.makefile(), outfd)
-        drain(self.channel.makefile_stderr(), errfd)
+        if self.capture_output:
+            outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
+            errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')
+            drain(self.channel.makefile(), outfd)
+            drain(self.channel.makefile_stderr(), errfd)
+            comment = 'Remote on %s, stdout %s, stderr %s' % (
+                self.addr, os.path.basename(outpath), os.path.basename(errpath))
+        else:
+            drain(self.channel.makefile(), sys.stdout)
+            drain(self.channel.makefile_stderr(), sys.stderr)
+            comment = 'Remote on %s' % self.addr
 
-        comment = 'Remote on %s, stdout %s, stderr %s' % (
-            self.addr, os.path.basename(outpath), os.path.basename(errpath))
         log(cmd, comment=comment)
 
     def get_h2o_jar(self):

@@ -1,4 +1,7 @@
 package water;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import jsr166y.CountedCompleter;
 
 // Objects which are passed & remotely executed.  They have an efficient
@@ -21,8 +24,39 @@ public abstract class RemoteTask extends CountedCompleter {
   abstract public void invoke( Key args );
 
   // Oops, uncaught exception
+  @Override
   public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
     ex.printStackTrace();
     return true;
   }
+
+  // Make a RemoteTask
+  static final RemoteTask make( String clazz) {
+    // Make a local instance and call map on it
+    Exception e=null;
+    try {
+      return (RemoteTask)Class.forName(clazz).newInstance();
+    }
+    catch( ClassNotFoundException e0 ) { e=e0; }
+    catch( IllegalAccessException e0 ) { e=e0; }
+    catch( InstantiationException e0 ) { e=e0; }
+    catch(   NullPointerException e0 ) { e=e0; }
+    catch( UnsupportedClassVersionError e0 ) { e=new Exception(e0); }
+    e.printStackTrace();
+    System.err.println("puking "+e);
+    return null;
+  }
+
+  // The abstract methods to be filled in by subclasses.  These are automatically
+  // filled in by any subclass of RemoteTask during class-load-time, unless one
+  // is already defined.  These methods are NOT DECLARED ABSTRACT, because javac
+  // thinks they will be called by subclasses relying on the auto-gen.
+  private Error barf() {
+    return new Error(getClass().toString()+" should be automatically overridden in the subclass by the auto-serialization code");
+  }
+  public int wire_len()                                     { throw barf(); }
+  public void write(DataOutputStream os) throws IOException { throw barf(); }
+  public void read ( DataInputStream is) throws IOException { throw barf(); }
+  public void write(          Stream  s)                    { throw barf(); }
+  public void read (          Stream  s)                    { throw barf(); }
 }

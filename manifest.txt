@@ -1,5 +1,2 @@
 Main-Class: init.Boot
-Premain-Class: init.Boot
-Agent-Class: init.Boot
-Can-Redefine-Classes: true
-Can-Retransform-Classes: true
+

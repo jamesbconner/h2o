@@ -44,8 +44,18 @@ public final class Log extends PrintStream {
 
   private Log( boolean is_out ) { super( is_out ? H2O.OUT : H2O.ERR ); _is_out = is_out;  }
   public static void hook_sys_out_err() {
-    System.setOut(new LogWrapper(new Log(true), LogKind.LOCAL_STDOUT));
-    System.setErr(new LogWrapper(new Log(false), LogKind.LOCAL_STDERR));
+    // To avoid a ClassCircularityError with javassist using stdout/stderr and
+    // us hooking it here, we split out the LogWrapper and call it with an
+    // empty string - forcing class loading of that path before we call
+    // System.setout/err.
+    LogWrapper lout = new LogWrapper(new Log(true ), LogKind.LOCAL_STDOUT);
+    lout.print("");
+    try { Thread.sleep(100); } catch( InterruptedException e ) { }
+    //System.setOut(lout);
+    LogWrapper lerr = new LogWrapper(new Log(true ), LogKind.LOCAL_STDOUT);
+    lerr.print("");
+    try { Thread.sleep(100); } catch( InterruptedException e ) { }
+    //System.setErr(lerr);
   }
   
   // append node/thread info to each line sent to output

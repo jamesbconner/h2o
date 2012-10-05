@@ -1,25 +1,24 @@
 package hex.rf;
-
 import hex.rf.Tree.StatType;
 import water.*;
-import water.serialization.RTLocal;
 
 /**
  * Distributed RandomForest
  * @author cliffc
  */
 public class DRF extends water.DRemoteTask {
-
+  // Cloud-wide data
   int _ntrees;          // Number of trees PER NODE
   int _depth;           // Tree-depth limiter
-  StatType _stat;       // Use Gini or Entropy for splits
+  int _stat;            // Use Gini(1) or Entropy(0) for splits
   Key _arykey;          // The ValueArray being RF'd
   public Key _treeskey; // Key of Tree-Keys built so-far
 
-  @RTLocal Data _validation;        // Data subset to validate with locally, or NULL
-  @RTLocal boolean _singlethreaded; // Disable parallel execution
-  @RTLocal RandomForest _rf;        // The local RandomForest
-  @RTLocal int _seed;
+  // Node-local data
+  transient Data _validation;        // Data subset to validate with locally, or NULL
+  transient boolean _singlethreaded; // Disable parallel execution
+  transient RandomForest _rf;        // The local RandomForest
+  transient int _seed;
 
   public static class IllegalDataException extends Error {
     public IllegalDataException(String string) {
@@ -30,18 +29,19 @@ public class DRF extends water.DRemoteTask {
   private static void validateInputData(ValueArray ary){
     final int num_cols = ary.num_cols();
     final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
-    // There is no point in running Rf when all the training data have the same class, however it is currently failing the test/build
-    //if(classes == 1) throw new IllegalDataException("RF can not be trained since there is only 1 class in the training data.");
-    // according to assert in Tree.java, there can not b more than 100 classes at the moment
-    if(0 > classes || classes > 100) throw new IllegalDataException("Number of classes must be between 2 and 100, found " + classes);
+    // There is no point in running Rf when all the training data have the same
+    // class, however it is currently failing the test/build
+    if( !(2 <= classes && classes < 255 ) )
+      throw new IllegalDataException("Number of classes must be between 2 and 254, found " + classes);
   }
+
   public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded) {
     validateInputData(ary);
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
     drf._depth = depth;
-    drf._stat = stat;
+    drf._stat = stat.ordinal();
     drf._arykey = ary._key;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._singlethreaded = singlethreaded;
@@ -107,7 +107,7 @@ public class DRF extends water.DRemoteTask {
     _validation = sample ? t.complement(d, complement) : null;
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building trees");
-    _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, _stat, _singlethreaded);
+    _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, StatType.values()[_stat], _singlethreaded);
     tryComplete();
   }
 

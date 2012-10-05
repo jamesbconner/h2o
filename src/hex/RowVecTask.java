@@ -1,11 +1,8 @@
 package hex;
 
-import java.util.Random;
-
 import water.*;
 
 public abstract class RowVecTask extends MRTask {
-
   protected int [] _colIds;
   public RowVecTask() {}
   public RowVecTask(int [] colIds){_colIds = colIds;}

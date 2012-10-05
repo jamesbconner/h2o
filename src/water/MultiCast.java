@@ -1,13 +1,11 @@
 package water;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
+import java.net.*;
+import java.util.Enumeration;
 import java.util.HashSet;
 
 /**
  * MultiCast Writing Helper class.
- * 
+ *
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
@@ -29,13 +27,16 @@ public abstract class MultiCast {
     try {
       if( sock == null ) {
         sock = new MulticastSocket();
-        // Allow multicast traffic to go across subnets 
+        // Allow multicast traffic to go across subnets
         sock.setTimeToLive(127);
+        if( H2O.CLOUD_MULTICAST_IF != null )
+          sock.setNetworkInterface(H2O.CLOUD_MULTICAST_IF);
       }
       // Setup for a send
       DPack.setAddress(ip);
       DPack.setPort(port);
       DPack.setData(buf,off,len);
+
       TimeLine.record_send(DPack);
       sock.send(DPack);
       assert UDP.get_port(buf) == H2O.UDP_PORT; // Detect racey packet-port-hacking
@@ -58,7 +59,7 @@ public abstract class MultiCast {
 
   // Write 'buf' out to the default H2O multicast port as a single packet.
   static int multicast( byte[] buf ) { return multicast(buf,0,buf.length); }
-  static int multicast( byte[] buf, int off, int len ) {  
+  static int multicast( byte[] buf, int off, int len ) {
     if( H2O.STATIC_H2OS == null ) {
       return send(H2O.CLOUD_MULTICAST_GROUP,H2O.CLOUD_MULTICAST_PORT,buf,off,len);
     } else {
@@ -81,16 +82,16 @@ public abstract class MultiCast {
       //    node B: flatfile (C), i.e., A -> (B), B-> (C), C -> (A)
       //    node C: flatfile (A)
       //    Cloud configuration: (A, B, C)
-      //      
-   
+      //
+
       // Hideous O(n) algorithm for broadcast - avoid the memory allocation in
       // this method (since it is heavily used)
       HashSet<H2ONode> nodes = (HashSet<H2ONode>)H2O.STATIC_H2OS.clone();
       nodes.addAll(H2O.CLOUD._memset);
-      nodes.addAll(Paxos.PROPOSED_MEMBERS);      
-      for( H2ONode h2o : nodes ) {        
+      nodes.addAll(Paxos.PROPOSED_MEMBERS);
+      for( H2ONode h2o : nodes ) {
         send(h2o._key._inet,h2o._key._port,buf,off,len);
-      }      
+      }
     }
     return 0;
   }
@@ -99,16 +100,16 @@ public abstract class MultiCast {
     assert H2O.SELF != h2o;   // Hey!  Pointless to send to self!!!
     return send(h2o._key._inet,h2o._key._port,buf,0,len);
   }
-  
+
   static int singlecast( H2ONode[] nodes, byte[] buf) {
     return singlecast(nodes, buf, buf.length);
   }
-  
+
   static int singlecast( H2ONode[] nodes, byte[] buf, int len) {
     for (H2ONode node : nodes) {
-      send(node._key._inet,node._key._port,buf,0,len);      
+      send(node._key._inet,node._key._port,buf,0,len);
     }
-    
+
     return 0;
   }
 }

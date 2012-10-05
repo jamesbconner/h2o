@@ -1,11 +1,6 @@
 package hex;
 import java.io.*;
-
-import com.sun.org.apache.xml.internal.serialize.Serializer;
-
 import water.*;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
 
 /**
  * Calculate the covariance and correlation of two variables
