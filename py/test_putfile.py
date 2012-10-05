@@ -8,8 +8,8 @@ class Basic(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        #h2o.tear_down_cloud()
-        pass
+        h2o.tear_down_cloud()
+        #pass
 
     def setUp(self):
         pass
@@ -21,11 +21,12 @@ class Basic(unittest.TestCase):
         cvsfile = h2o.find_file('smalldata/poker/poker100')
         node = h2o.nodes[0]
         node.put_fileX(cvsfile)
+# TODO check response and returned size if it match with the size of cvsfile
 
-    def test_B_large_putfile(self):
-        cvsfile = h2o.find_file('/tmp/Rango.avi')
-        node = h2o.nodes[0]
-        node.put_fileX(cvsfile)
+#    def test_B_large_putfile(self):
+#        cvsfile = h2o.find_file('/tmp/Rango.avi')
+#        node = h2o.nodes[0]
+#        node.put_fileX(cvsfile)
 
 
 if __name__ == '__main__':

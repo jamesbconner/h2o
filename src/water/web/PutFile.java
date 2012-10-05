@@ -12,10 +12,14 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.DefaultHttpServerConnection;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.params.BasicHttpParams;
+import org.apache.http.protocol.HTTP;
+import org.apache.http.util.EntityUtils;
 
 import water.*;
 
-import com.google.gson.JsonObject;
+import com.google.gson.*;
+import com.sun.corba.se.impl.copyobject.JavaStreamObjectCopierImpl;
+import com.sun.media.sound.JavaSoundAudioClip;
 
 public class PutFile extends H2OPage {
 
@@ -63,11 +67,12 @@ public class PutFile extends H2OPage {
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
     JsonObject json = serverJson(server, args);
 
-    RString response = new RString(html());
+    RString response = new RString(html()); // FIXME: delete
     response.replace(json);
     return response.toString();
   }
 
+  //FIXME: delete
   private String html() {
     return "<div class='alert alert-success'>"
     + "Key <a href='Inspect?Key=%keyHref'>%key</a> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
@@ -83,58 +88,40 @@ public class PutFile extends H2OPage {
     // Server socket
     ServerSocket ssocket;
     // Key properties
+    String filename;
     String keyname;
     byte   rf;
 
     public UploaderThread(ServerSocket ssocket, String filename, String keyname, byte rf) {
       super("Uploader thread for: " + filename);
-      this.ssocket = ssocket;
-      this.keyname = keyname;
-      this.rf      = rf;
+      this.ssocket  = ssocket;
+      this.filename = filename;
+      this.keyname  = keyname;
+      this.rf       = rf;
     }
 
     @Override
     public void run() {
-      // Connection representation.
-      DefaultHttpServerConnection conn = new DefaultHttpServerConnection();
 
       try {
-        // Wait for 1st connection and handle connection in this thread.
-        conn.bind(ssocket.accept(), new BasicHttpParams()); // TODO: setup here socket properties like SO_TIMEOUT?
-        HttpRequest request           = conn.receiveRequestHeader();
-        Header      contentTypeHeader = request.getFirstHeader("Content-Type");
-        if (contentTypeHeader == null || !contentTypeHeader.getValue().startsWith("multipart/form-data")) { // File is not received
-          // TODO: send error and return
-          return;
-        }
-
-        String boundary = null; // Get file boundary.
-        for(HeaderElement el : contentTypeHeader.getElements()) {
-          NameValuePair nvp = el.getParameterByName("boundary");
-          if (nvp!=null) {
-            boundary = nvp.getValue();
-            break;
+        while(true) {
+          // Wait for 1st connection and handle connection in this thread.
+          DefaultHttpServerConnection conn = new DefaultHttpServerConnection();
+          conn.bind(ssocket.accept(), new BasicHttpParams()); // TODO: setup here socket properties like SO_TIMEOUT?
+          HttpRequest request           = conn.receiveRequestHeader();
+          RequestLine requestLine       = request.getRequestLine();
+          System.err.println("REQUEST: " + request);
+          try {
+            if (requestLine.getMethod().equals("OPTIONS")) {
+              handleOPTIONS(conn, request);
+            } else if (requestLine.getMethod().equals("POST")) {
+              handlePOST(conn, request);
+              break;
+            }
+          } finally { // shutdown connection
+            try { conn.close(); } catch( IOException e ) { }
           }
         }
-        if (boundary == null) { /* TODO: send error and return */ return; }
-
-        // Get http entity.
-        conn.receiveRequestEntity((HttpEntityEnclosingRequest)request);
-        HttpMultipartEntity entity = new HttpMultipartEntity( ((HttpEntityEnclosingRequest)request).getEntity(), boundary.getBytes() );
-
-        // Read directly from stream and create a key
-        Key key = ValueArray.read_put_stream(keyname, entity.getContent(), rf);
-        System.err.println("JAVA: Key = " + key);
-
-        HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_CREATED, "CREATED");
-        JsonObject result = new JsonObject();
-        result.addProperty("size", entity.getContentLength());
-
-        response.setEntity(new StringEntity(result.toString(), NanoHTTPD.MIME_JSON, "UTF-8"));
-        conn.sendResponseHeader(response);
-        conn.sendResponseEntity(response);
-        conn.flush();
-        System.err.println("JAVA: finished");
       } catch (SocketTimeoutException ste) {
         // The client does not connect during the socket timeout => it is not interested in upload.
         ste.printStackTrace();
@@ -142,11 +129,72 @@ public class PutFile extends H2OPage {
         e.printStackTrace();
       } catch (HttpException e) {
       } finally {
-        // shutdown connection
-        try { conn.close(); }                         catch( IOException e ) { }
         // shutdown server
         try { if (ssocket != null) ssocket.close(); } catch( IOException e ) { }
       }
+    }
+
+    protected void handleOPTIONS(HttpServerConnection conn, HttpRequest request) throws HttpException, IOException {
+      HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "OK");
+      response.addHeader("Access-Control-Allow-Origin", "*");
+      response.addHeader("Access-Control-Allow-Methods", "PUT,POST");
+      for (Header header: request.getHeaders("Access-Control-Request-Headers")) {
+        if (header.getValue().contains("x-file-name")) {
+          response.addHeader("Access-Control-Allow-Headers", "x-file-name,x-file-size,x-file-type");
+        }
+      }
+      conn.sendResponseHeader(response);
+      conn.flush();
+    }
+
+    protected void handlePOST(HttpServerConnection conn, HttpRequest request) throws HttpException, IOException {
+      Header contentTypeHeader = request.getFirstHeader("Content-Type");
+      if (contentTypeHeader == null || !contentTypeHeader.getValue().startsWith("multipart/form-data")) { // File is not received
+        // TODO: send error and return
+        return;
+      }
+
+      String boundary = null; // Get file boundary.
+      for(HeaderElement el : contentTypeHeader.getElements()) {
+        NameValuePair nvp = el.getParameterByName("boundary");
+        if (nvp != null) { boundary = nvp.getValue(); break; }
+      }
+      if (boundary == null) { /* TODO: send error and return */ return; }
+
+      // Get http entity.
+      conn.receiveRequestEntity((HttpEntityEnclosingRequest)request);
+      System.err.println(boundary);
+      HttpMultipartEntity entity = new HttpMultipartEntity( ((HttpEntityEnclosingRequest)request).getEntity(), boundary.getBytes() );
+//      HttpEntity entity = ((HttpEntityEnclosingRequest)request).getEntity();
+//      System.err.println(EntityUtils.toString(entity));
+
+      // Read directly from stream and create a key
+      Key key                = ValueArray.read_put_stream(keyname, entity.getContent(), rf);
+ //     EntityUtils.consume(entity);
+      JsonElement jsonResult = getJsonResult(key);
+
+      HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "OK");
+      response.setEntity(new StringEntity(jsonResult.toString(), NanoHTTPD.MIME_JSON, HTTP.DEFAULT_CONTENT_CHARSET));
+      response.addHeader("Access-Control-Allow-Origin", "*");
+      response.addHeader("Content-Type", NanoHTTPD.MIME_JSON);
+      response.addHeader("Content-Length", String.valueOf(jsonResult.toString().length()));
+      conn.sendResponseHeader(response);
+      conn.sendResponseEntity(response);
+      conn.flush();
+    }
+
+    protected JsonElement getJsonResult(Key key) {
+      Value val = DKV.get(key);
+      // The returned JSON object should follow structure of jquery-upload plugin
+      JsonArray jsonResult = new JsonArray();
+      JsonObject jsonFile   = new JsonObject();
+      jsonFile.addProperty("name", filename);
+      jsonFile.addProperty("size", val.length());
+      jsonFile.addProperty("url", "/Get?key=" + encode(key));
+      addProperty(jsonFile, "key", key);
+      jsonResult.add(jsonFile);
+
+      return jsonResult;
     }
   }
 
@@ -187,35 +235,74 @@ public class PutFile extends H2OPage {
     class InputStreamWrapper extends InputStream {
       InputStream wrappedIs;
 
-      public InputStreamWrapper(InputStream is)             { this.wrappedIs = is; }
-      @Override public int available() throws IOException   { return wrappedIs.available(); }
-      @Override public int read() throws IOException        { return wrappedIs.read(); }
-      @Override public long skip(long n) throws IOException { return wrappedIs.skip(n); }
-      @Override public void mark(int readlimit)             { wrappedIs.mark(readlimit); }
-      @Override public void reset() throws IOException      { wrappedIs.reset();   }
-      @Override public boolean markSupported()              { return wrappedIs.markSupported(); }
-      @Override public void close() throws IOException      { wrappedIs.close(); }
-      @Override public int read(byte[] b) throws IOException { return read(b, 0, b.length); }
-      @Override public int read(byte[] b, int off, int len) throws IOException {
-        int readLen = wrappedIs.read(b, off, len);
-        int pos     = findBoundary(b, off, readLen);
-        if (pos != -1)
-          return pos - off;
-        else
-          return readLen;
+      byte[] lookAheadBuf;
+      int    lookAheadLen;
+
+      public InputStreamWrapper(InputStream is) {
+        this.wrappedIs   = is;
+        this.lookAheadBuf = new byte[boundary.length];
+        this.lookAheadLen = 0;
       }
 
-      // find boundary in read buffer (little bit tricky since it does not handle buffer boundaries
-      private int findBoundary(byte[] b, int off, int len) {
+      @Override public void    close()      throws IOException  { wrappedIs.close();                }
+      @Override public int     available()  throws IOException  { return wrappedIs.available();     }
+      @Override public long    skip(long n) throws IOException  { return wrappedIs.skip(n);         }
+      @Override public void    mark(int readlimit)              { wrappedIs.mark(readlimit);        }
+      @Override public void    reset()      throws IOException  { wrappedIs.reset();                }
+      @Override public boolean markSupported()                  { return wrappedIs.markSupported(); }
+
+      @Override public int     read()         throws IOException { throw new UnsupportedOperationException(); }
+      @Override public int     read(byte[] b) throws IOException { return read(b, 0, b.length); }
+      @Override public int     read(byte[] b, int off, int len) throws IOException {
+        int readLen = readInternal(b, off, len); System.err.println("READ: " + readLen);
+        if (readLen != -1) {
+          int pos     = findBoundary(b, off, readLen);
+          if (pos != -1) {
+            System.err.println("BOUNDARY FOUND");
+            while (wrappedIs.read()!=-1) ; // read the rest of stream
+            return pos - off;
+          }
+        }
+        return readLen;
+      }
+
+      private int readInternal(byte b[], int off, int len) throws IOException {
+        if (lookAheadLen > 0) {
+          System.arraycopy(lookAheadBuf, 0, b, off, lookAheadLen);
+          off += lookAheadLen;
+          len -= lookAheadLen;
+        }
+        int readLen  = wrappedIs.read(b, off, len) + lookAheadLen;
+        lookAheadLen = 0;
+        return readLen;
+      }
+
+      // Find boundary in read buffer
+      private int findBoundary(byte[] b, int off, int len) throws IOException {
         int bidx = -1; // start index of boundary
-        int idx  = 0;  // index in boundary[]
+        int idx  = 0;  // actual index in boundary[]
         for(int i = off; i < off+len; i++) {
-          if (boundary[idx] == b[i]) {
-            if (idx == 0) bidx = i;
-            if (++idx == boundary.length) return bidx;
-          } else {
+          if (boundary[idx] != b[i]) { // reset
+            idx  = 0;
             bidx = -1;
           }
+          if (boundary[idx] == b[i]) {
+            if (idx == 0) bidx = i;
+            if (++idx == boundary.length) return bidx; // boundary found
+          }
+        }
+        if (bidx != -1) { // it seems that there is boundary but we did not match all boundary length
+          assert lookAheadLen == 0; // There should not be not read lookahead
+          lookAheadLen = boundary.length - idx;
+          int readLen  = wrappedIs.read(lookAheadBuf, 0, lookAheadLen);
+          if (readLen < boundary.length - idx) { // There is not enough data to match boundary
+            lookAheadLen = readLen;
+            return -1;
+          }
+          for (int i = 0; i < boundary.length - idx; i++) {
+            if (boundary[i+idx] != lookAheadBuf[i]) return -1; // There is not boundary => preserve lookahed buffer
+          }
+          // Boundary found => do not care about lookAheadBuffer since all remaining data are ignored
         }
 
         return bidx;
