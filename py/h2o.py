@@ -244,13 +244,15 @@ class H2O(object):
         return a
 
     # X and Y can be label strings, column nums, or comma separated combinations
-    def GLM(self, key, X="0", Y="1", family="binomial"):
+    # xval gives us cross validation and more info
+    def GLM(self, key, X="0", Y="1", family="binomial", xval=10):
         a = self.__check_request(requests.get(self.__url('GLM.json'),
             params={
                 "family": family,
                 "X": X,
                 "Y": Y,
-                "Key": key
+                "Key": key,
+                "xval": xval
                 }))
         verboseprint("GLM:", a)
         return a
