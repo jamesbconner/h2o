@@ -1,12 +1,9 @@
 package hex;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
+import java.util.Arrays;
 
-import water.*;
-import water.serialization.RTSerializer;
-import water.serialization.RemoteTaskSerializer;
+import water.DRemoteTask;
+import water.ValueArray;
 import Jama.Matrix;
 
 /**
@@ -30,6 +27,8 @@ public class GLSM {
   Family   _f;
   LSMTask  _tsk;
   double[] _beta;
+  double _ridgeCoef;
+
 
   public GLSM(ValueArray ary, int[] colIds, int c, Family f) {
     _ary = ary;
@@ -80,9 +79,13 @@ public class GLSM {
   }
 
   public double[] solve() {
+    return solve(0,0,false);
+  }
+  public double[] solve(int offset, int step, boolean complement) {
     switch( _f ) {
     case gaussian:
       _tsk = new LSMTask(_colIds, _colIds.length - 1, _c);
+      _tsk.setSampling(offset, step, complement);
       return solve2();
     case binomial: {
       // check we have only values 0,1 as y
@@ -90,18 +93,19 @@ public class GLSM {
       if(_ary.col_max(y) != 1 || _ary.col_min(y) != 0)
         throw new GLSMException("Logistic regression can only have values from range <0,1> as y column.");
       _tsk = new LogitLSMTask(_colIds, _c);
+      _tsk.setSampling(offset, step, complement);
       double[] oldBeta;
       _beta = solve2();
       double diff = 0;
       do {
         oldBeta = _beta;
         _tsk = new LogitLSMTask(_colIds, _c, oldBeta);
+        _tsk.setSampling(offset, step, complement);
         _beta = solve2();
         diff = 0;
         for( int i = 0; i < _beta.length; ++i )
           diff += (oldBeta[i] - _beta[i]) * (oldBeta[i] - _beta[i]);
       } while( diff > 1e-5 );
-      // now validate the input
       return _beta;
     }
     default:
@@ -109,49 +113,74 @@ public class GLSM {
     }
   }
 
-  public double[][] xValidate(int xfactor, double threshold) {
-    double [][] confusionMatrix = {{0,0},{0,0}};
-    for( int i = 0; i < xfactor; ++i ) {
-      long seed = System.currentTimeMillis();
-      switch( _f ) {
+
+
+
+  public static class XValResult {
+    public  int _xfactor;
+    public  double [] _beta;
+    public  long [][] _confMatrix;
+    public double _threshold;
+
+    public void combine(XValResult other){
+      if(_xfactor != other._xfactor)throw new Error("combining two incompatible models");
+      if(!Arrays.equals(_beta, other._beta))throw new Error("combining two incompatible models");
+      if(_confMatrix == null)_confMatrix = other._confMatrix;
+      else if(other._confMatrix != null) throw new Error("combining two incompatible models");
+    }
+  }
+
+  public static class XValAggregateResult {
+    public XValResult [] _models;
+    public double [][] _confusionMatrix; // aggregate confusion matrix
+    public double [][] _confusionMatrixVariance; // aggregate conf matrix variance
+    public double _err; // aggregate error rate
+    public double _errVar; // variance aggregate error rate
+  }
+
+
+  public static XValAggregateResult xValidate(ValueArray ary, Family f, int [] colIds, int xfactor, double threshold) {
+    XValAggregateResult res = new XValAggregateResult();
+    res._models = new XValResult[Math.min(20, xfactor)];
+    res._confusionMatrix = new double[][]{{0,0},{0,0}};
+    res._confusionMatrixVariance = new double[][]{{0,0},{0,0}};
+    int t = 1;
+    for( int x = 0; x < xfactor; ++x,++t) {
+      switch(f) {
       case gaussian:
         throw new GLSMException("Cross validation not supported for gaussian family");
       case binomial: {
         if(0 > threshold || threshold > 1)throw new GLSMException("illegal decision threshold! number between 0 and 1 expected, got " + threshold);
-        _tsk = new LogitLSMTask(_colIds, _c);
-        _tsk.setSampling(seed, xfactor, false);
-        double[] oldBeta;
-        _beta = solve2();
-        double diff = 0;
-        do {
-          oldBeta = _beta;
-          _tsk = new LogitLSMTask(_colIds, _c, oldBeta);
-          _beta = solve2();
-          diff = 0;
-          for( int j = 0; j < _beta.length; ++j )
-            diff += (oldBeta[j] - _beta[j]) * (oldBeta[j] - _beta[j]);
-        } while( diff > 1e-5 );
+        GLSM g = new GLSM(ary, colIds, 1, f);
+        double [] beta = g.solve(x, xfactor, false);
         // now validate the input
-        BinomialXValidateTask xTask= new BinomialXValidateTask(_colIds, _beta, threshold);
-        xTask.setSampling(seed, xfactor, true);
-        xTask.invoke(_ary._key);
-        try {xTask.get();} catch( Exception e ) {throw new RuntimeException(e);}
-        confusionMatrix[0][0] += xTask._confMatrix[0][0];
-        confusionMatrix[0][1] += xTask._confMatrix[0][1];
-        confusionMatrix[1][0] += xTask._confMatrix[1][0];
-        confusionMatrix[1][1] += xTask._confMatrix[1][1];
+        BinomialValidationTask xTask= new BinomialValidationTask(colIds, beta, threshold);
+        xTask.setSampling(x, xfactor, true);
+        xTask.invoke(ary._key);
+        assert(xTask._n > 0);
+        double norm = 1.0/xTask._n;
+        // update the aggregate value
+        for(int i = 0; i < res._confusionMatrix.length; ++i)
+          for(int j = 0; j < res._confusionMatrix.length;++j){
+            double inc = xTask._confMatrix[i][j]*norm;
+            // recursive avg formula
+            res._confusionMatrix[i][j] = (t-1.0)/t*res._confusionMatrix[i][j] + 1.0/t*inc;
+            // recursive variance formula
+            double newVar = (inc - res._confusionMatrix[i][j]);
+            res._confusionMatrixVariance[i][j] = (t > 1)?((t-1.0)/t)*res._confusionMatrixVariance[i][j] + (1.0/(t-1))*newVar*newVar:0;
+          }
+        if(x < res._models.length){
+          res._models[x] = xTask.model();
+        }
       }
         break;
       default:
-        throw new GLSMException("Unsupported family: " + _f.toString());
+        throw new GLSMException("Unsupported family: " + f.toString());
       }
     }
-    double d = 1.0/(_tsk._n);
-    confusionMatrix[0][0] *= d;
-    confusionMatrix[0][1] *= d;
-    confusionMatrix[1][0] *= d;
-    confusionMatrix[1][1] *= d;
-    return confusionMatrix;
+    res._err = res._confusionMatrix[0][1] + res._confusionMatrix[1][0];
+    res._errVar = res._confusionMatrixVariance[0][1] * res._confusionMatrixVariance[1][0];
+    return res;
   }
 
   public double[] test() {
@@ -182,6 +211,7 @@ public class GLSM {
     long       _n;       // number of valid rows in this chunk
     double     _ymu;     // mean(y) estimate
 
+    public LSMTask(){}
     public LSMTask(int[] colIds, int constant) {
       this(colIds, colIds.length - 1, constant);
     }
@@ -303,6 +333,7 @@ public class GLSM {
     double   _origConstant;
     long     _ncases;
 
+    public LogitLSMTask(){}
     public LogitLSMTask(int[] colIds, int constant, double[] beta) {
       super(colIds, colIds.length - 1, constant);
       _beta = beta;
@@ -380,24 +411,40 @@ public class GLSM {
     }
   }
 
-  public static class BinomialXValidateTask extends RowVecTask {
-    double [] _beta;
-    double _threshold;
-    int [][] _confMatrix = {{0,0},{0,0}};
+  public static abstract class ValidationTask extends RowVecTask {
+    long _n;
 
-    public BinomialXValidateTask() {
+    public abstract XValResult model();
+
+    public ValidationTask() {
     }
 
-    public BinomialXValidateTask(int[] colIds, double[] beta, double threshold) {
+    public ValidationTask(int[] colIds) {
+      super(colIds);
+    }
+  }
+  public static class BinomialValidationTask extends ValidationTask {
+    double [] _beta;
+    double _threshold;
+    long [][] _confMatrix;
+
+    public BinomialValidationTask(){}
+    public BinomialValidationTask (int [] colIds, double [] beta, double threshold){
       super(colIds);
       _beta = beta;
       _threshold = threshold;
     }
 
     @Override
+    public void init(int xlen, int nrows){
+      _confMatrix = new long[2][2];
+    }
+    public
+    @Override
     void map(double[] x) {
       for( double v : x )
         if( Double.isNaN(v) ) return;
+      ++_n;
       double mu = _beta[_beta.length-1];
       int yr = (int)x[x.length - 1];
       assert yr == 0 || yr == 1;
@@ -409,7 +456,8 @@ public class GLSM {
     }
     @Override
     public void reduce(DRemoteTask drt) {
-      BinomialXValidateTask other = (BinomialXValidateTask)drt;
+      BinomialValidationTask other = (BinomialValidationTask)drt;
+      _n += other._n;
       if(_confMatrix == null)
         _confMatrix = other._confMatrix;
       else {
@@ -418,6 +466,15 @@ public class GLSM {
         _confMatrix[1][0] += other._confMatrix[1][0];
         _confMatrix[1][1] += other._confMatrix[1][1];
       }
+    }
+
+    @Override
+    public XValResult model() {
+      XValResult m = new XValResult();
+      m._xfactor = _step;
+      m._beta = _beta;
+      m._confMatrix = _confMatrix;
+      return m;
     }
   }
 
