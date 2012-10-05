@@ -28,6 +28,7 @@ public class GLSM {
   LSMTask  _tsk;
   double[] _beta;
   double _ridgeCoef;
+  double _threshold = 0.5;
 
 
   public GLSM(ValueArray ary, int[] colIds, int c, Family f) {
@@ -70,15 +71,20 @@ public class GLSM {
     return xx.times(new Matrix(_tsk._xy, _tsk._xy.length)).getColumnPackedCopy();
   }
 
-  public double[] solve() {
+  public double[][] solve() {
     return solve(0,0,false);
   }
-  public double[] solve(int offset, int step, boolean complement) {
+  public double[][] solve(int offset, int step, boolean complement) {
     switch( _f ) {
     case gaussian:
+    {
       _tsk = new LSMTask(_colIds, _colIds.length - 1, _c);
       _tsk.setSampling(offset, step, complement);
-      return solve2();
+      _beta = solve2();
+      LSMTest tst = new LSMTest(_colIds, _beta, _c);
+      tst.invoke(_ary._key);
+      return new double[][]{_beta,tst._results};
+    }
     case binomial: {
       // check we have only values 0,1 as y
       int y = _colIds[_colIds.length-1];
@@ -98,15 +104,15 @@ public class GLSM {
         for( int i = 0; i < _beta.length; ++i )
           diff += (oldBeta[i] - _beta[i]) * (oldBeta[i] - _beta[i]);
       } while( diff > 1e-5 );
-      return _beta;
+      double b0 = ((LogitLSMTask) _tsk)._ncases / (double) _tsk._n;
+      BinomialTest tst = new BinomialTest(_colIds,_beta,b0,_c,_threshold);
+      tst.invoke(_ary._key);
+      return new double[][]{_beta,tst._results};
     }
     default:
       throw new GLSMException("Unsupported family: " + _f.toString());
     }
   }
-
-
-
 
   public static class XValResult {
     public  int _xfactor;
@@ -131,7 +137,7 @@ public class GLSM {
   }
 
 
-  public static XValAggregateResult xValidate(ValueArray ary, Family f, int [] colIds, int xfactor, double threshold) {
+  public static XValAggregateResult xValidate(ValueArray ary, Family f, int [] colIds, int xfactor, double threshold, int constant) {
     XValAggregateResult res = new XValAggregateResult();
     res._models = new XValResult[Math.min(20, xfactor)];
     res._confusionMatrix = new double[][]{{0,0},{0,0}};
@@ -144,9 +150,10 @@ public class GLSM {
       case binomial: {
         if(0 > threshold || threshold > 1)throw new GLSMException("illegal decision threshold! number between 0 and 1 expected, got " + threshold);
         GLSM g = new GLSM(ary, colIds, 1, f);
-        double [] beta = g.solve(x, xfactor, false);
+        double [][] r = g.solve(x, xfactor, false);
+        double [] beta = r[0];
         // now validate the input
-        BinomialValidationTask xTask= new BinomialValidationTask(colIds, beta, threshold);
+        BinomialTest xTask= new BinomialTest(colIds, beta, 0.0, constant, threshold);
         xTask.setSampling(x, xfactor, true);
         xTask.invoke(ary._key);
         assert(xTask._n > 0);
@@ -162,7 +169,11 @@ public class GLSM {
             res._confusionMatrixVariance[i][j] = (t > 1)?((t-1.0)/t)*res._confusionMatrixVariance[i][j] + (1.0/(t-1))*newVar*newVar:0;
           }
         if(x < res._models.length){
-          res._models[x] = xTask.model();
+          res._models[x] = new XValResult();
+          res._models[x]._beta = beta;
+          res._models[x]._confMatrix = xTask._confMatrix;
+          res._models[x]._threshold = threshold;
+          res._models[x]._xfactor = xfactor;
         }
       }
         break;
@@ -175,13 +186,13 @@ public class GLSM {
     return res;
   }
 
-  public double[] test() {
+  public double[] test(double threshold) {
     switch( _f ) {
     case gaussian:
       return null; // unimplemented for now
     case binomial: {
       BinomialTest tst = new BinomialTest(_colIds, _beta,
-          ((LogitLSMTask) _tsk)._ncases / (double) _tsk._n, _c);
+          ((LogitLSMTask) _tsk)._ncases / (double) _tsk._n, _c,threshold);
       tst.invoke(_ary._key);
       try {
         tst.get();
@@ -400,99 +411,35 @@ public class GLSM {
     }
   }
 
-  public static abstract class ValidationTask extends RowVecTask {
-    long _n;
 
-    public abstract XValResult model();
 
-    public ValidationTask() {
-    }
-
-    public ValidationTask(int[] colIds) {
-      super(colIds);
-    }
-  }
-  public static class BinomialValidationTask extends ValidationTask {
-    double [] _beta;
-    double _threshold;
-    long [][] _confMatrix;
-
-    public BinomialValidationTask(){}
-    public BinomialValidationTask (int [] colIds, double [] beta, double threshold){
-      super(colIds);
-      _beta = beta;
-      _threshold = threshold;
-    }
-
-    @Override
-    public void init(int xlen, int nrows){
-      _confMatrix = new long[2][2];
-    }
-    public
-    @Override
-    void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
-      ++_n;
-      double mu = _beta[_beta.length-1];
-      int yr = (int)x[x.length - 1];
-      assert yr == 0 || yr == 1;
-      for( int i = 0; i < (x.length - 1); ++i )
-        mu += x[i] * _beta[i];
-      double p = logitInv(mu);
-      int ym = (p > _threshold)?1:0;
-      _confMatrix[ym][yr] += 1;
-    }
-    @Override
-    public void reduce(DRemoteTask drt) {
-      BinomialValidationTask other = (BinomialValidationTask)drt;
-      _n += other._n;
-      if(_confMatrix == null)
-        _confMatrix = other._confMatrix;
-      else {
-        _confMatrix[0][0] += other._confMatrix[0][0];
-        _confMatrix[0][1] += other._confMatrix[0][1];
-        _confMatrix[1][0] += other._confMatrix[1][0];
-        _confMatrix[1][1] += other._confMatrix[1][1];
-      }
-    }
-
-    @Override
-    public XValResult model() {
-      XValResult m = new XValResult();
-      m._xfactor = _step;
-      m._beta = _beta;
-      m._confMatrix = _confMatrix;
-      return m;
-    }
-  }
-
-  public static class BinomialTest extends RowVecTask {
+  public static class LSMTest extends RowVecTask {
     // INPUTS
-    static final int CONSTANT = 0;
-    static final int B0       = 1;
-    static final int BETA     = 2;
+    public static final int CONSTANT = 0;
+    public static final int BETA     = 1;
     // RESULTS
-    static final int H0       = 0;
-    static final int H        = 1;
+    public static final int ERRORS   = 0;
+    public static final int H0       = 1;
+    public static final int H        = 2;
 
     double[]         _inputParams; // [constant, b0] + beta
     double[]         _results;
+    long _n;
 
-    public BinomialTest() {
+    public LSMTest() {
     }
 
-    public BinomialTest(int[] colIds, double[] beta, double b0, double constant) {
+    public LSMTest(int[] colIds, double[] beta, double constant) {
       super(colIds);
       _inputParams = new double[beta.length + BETA];
-      _inputParams[B0] = b0;
       _inputParams[CONSTANT] = constant;
       System.arraycopy(beta, 0, _inputParams, BETA, beta.length);
     }
 
     @Override
     public void reduce(DRemoteTask drt) {
-      BinomialTest other = (BinomialTest) drt;
+      LSMTest other = (LSMTest) drt;
+      _n += other._n;
       if( _results == null ) _results = other._results;
       else for( int i = 0; i < _results.length; ++i )
         _results[i] += other._results[i];
@@ -500,30 +447,88 @@ public class GLSM {
 
     @Override
     protected void init(int xlen, int nrows) {
-      _results = new double[2];
+      _results = new double[3];
+    }
+
+    protected double getYm(double [] x){
+      double ym = 0;
+      for( int i = 0; i < (x.length - 1); ++i )
+        ym += x[i] * _inputParams[BETA + i];
+      if( _inputParams[CONSTANT] != 0 )
+        ym += _inputParams[CONSTANT] * _inputParams[BETA + x.length - 1];
+      return ym;
     }
 
     @Override
     void map(double[] x) {
       for( double v : x )
         if( Double.isNaN(v) ) return;
-      double mu = 0;
-      double yr = x[x.length - 1];
-      assert yr == 0 || yr == 1;
-      for( int i = 0; i < (x.length - 1); ++i )
-        mu += x[i] * _inputParams[BETA + i];
-      if( _inputParams[CONSTANT] != 0 )
-        mu += _inputParams[CONSTANT] * _inputParams[BETA + x.length - 1];
-      _results[H] += yr * mu - Math.log(1 + Math.exp(mu));
-      _results[H0] += (yr == 1) ? Math.log(_inputParams[B0]) : Math
-          .log(1 - _inputParams[B0]);
-
+      ++_n;
+      double diff = x[x.length - 1] - getYm(x);
+      _results[ERRORS] += (diff)*(diff);
     }
 
     @Override
     protected void cleanup() {
       _inputParams = null; // don't propagate beta back
     }
+
+    public double err(){
+      return (_results != null)?_results[ERRORS]:0;
+    }
   }
 
+
+  public static class BinomialTest extends LSMTest {
+    double _threshold;
+    double _b0;
+    long [][] _confMatrix;
+    public BinomialTest() {
+    }
+
+    public BinomialTest(int[] colIds, double[] beta, double b0, double constant, double threshold) {
+      super(colIds,beta,constant);
+      _threshold = threshold;
+      _b0 = b0;
+    }
+
+    @Override
+    protected void init(int xlen, int nrows) {
+      _confMatrix = new long[2][2];
+      super.init(xlen, nrows);
+    }
+
+    @Override
+    void map(double[] x) {
+      for( double v : x )
+        if( Double.isNaN(v) ) return;
+      ++_n;
+      double yr = x[x.length - 1];
+      assert yr == 0 || yr == 1;
+      double mu = getYm(x);
+      double p = logitInv(mu);
+      int ym = (p > _threshold)?1:0;
+      _confMatrix[ym][(int)yr] += 1;
+      if(_b0 > 0){
+        _results[H] += yr * mu - Math.log(1 + Math.exp(mu));
+        _results[H0] += (yr == 1) ? Math.log(_b0) : Math
+            .log(1 - _b0);
+      }
+    }
+
+    @Override public void cleanup(){
+      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1])/(double)_n;
+    }
+
+    @Override
+    public void reduce(DRemoteTask drt) {
+      super.reduce(drt);
+      BinomialTest other = (BinomialTest) drt;
+      if( _confMatrix == null ) _confMatrix = other._confMatrix;
+      else for( int i = 0; i < _confMatrix.length; ++i )
+        for(int j = 0; j < _confMatrix[i].length; ++j)
+          _confMatrix[i][j] += other._confMatrix[i][j];
+      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1])/(double)_n;
+    }
+  }
 }

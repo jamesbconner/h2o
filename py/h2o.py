@@ -20,16 +20,21 @@ def unit_main():
     unittest.main()
 
 verbose = False
+ipaddr = None
 
 def parse_our_args():
-    global verbose
     parser = argparse.ArgumentParser()
     # can add more here
     parser.add_argument('--verbose','-v', help="increased output", action="store_true")
+    parser.add_argument('--ip', type=str, help="IP address to use")
     
     parser.add_argument('unittest_args', nargs='*')
+
     args = parser.parse_args()
+    global verbose
+    global ipaddr
     verbose = args.verbose
+    ipaddr = args.ip
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     sys.argv[1:] = args.unittest_args
@@ -75,6 +80,9 @@ def log(cmd, comment=None):
 # Watch out to see if there are NAT issues here (home router?)
 # Could parse ifconfig, but would need something else on windows
 def get_ip_address():
+    if ipaddr:
+        return ipaddr
+
     import socket
     ip = '127.0.0.1'
     try:
@@ -415,7 +423,11 @@ class RemoteHost(object):
     def upload_file(self, f):
         f = find_file(f)
         if f not in self.uploaded:
-            dest = '/tmp/' + os.path.basename(f)
+            import md5
+            m = md5.new()
+            m.update(open(f).read())
+            m.update(getpass.getuser())
+            dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
             log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest)

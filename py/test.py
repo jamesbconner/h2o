@@ -63,7 +63,7 @@ class Basic(unittest.TestCase):
         # first time we use perl (parity.pl)
 
         # always match the run below!
-        for x in xrange (1,100,10):
+        for x in xrange (11,100,10):
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
             # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
@@ -75,7 +75,7 @@ class Basic(unittest.TestCase):
         trees = 6
         timeoutSecs = 20
         # always match the gen above!
-        for x in xrange (1,100,10):
+        for x in xrange (11,100,10):
             sys.stdout.write('.')
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
