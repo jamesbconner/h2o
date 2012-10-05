@@ -30,8 +30,9 @@ public final class H2O {
   public static int TCP_PORT;  // TCP port for long/large internal transfers
 
   // The multicast discovery port
-  static InetAddress CLOUD_MULTICAST_GROUP;
-  static int         CLOUD_MULTICAST_PORT ;
+  static NetworkInterface CLOUD_MULTICAST_IF;
+  static InetAddress      CLOUD_MULTICAST_GROUP;
+  static int              CLOUD_MULTICAST_PORT ;
 
   // Myself, as a Node in the Cloud
   public static H2ONode SELF = null;
@@ -324,8 +325,8 @@ public final class H2O {
    * @return Unprocessed command line arguments for further processing.
    */
   private static void startLocalNode() {
-    set_cloud_name_and_mcast();
     // Figure self out; this is surprisingly hard
+    set_cloud_name_and_mcast();
     SELF = H2ONode.self();
     // Do not forget to put SELF into the static configuration (to simulate
     // proper multicast behavior)
@@ -451,7 +452,7 @@ public final class H2O {
         // be user friendly and skip comments
         if (strLine.startsWith("#")) continue;
         final String[] ss = strLine.split("[/:]");
-        if( ss.length!=3 ) 
+        if( ss.length!=3 )
           Log.die("Invalid format, must be name/ip:port, not '"+strLine+"'");
 
         final InetAddress inet = InetAddress.getByName(ss[1]);

@@ -6,11 +6,11 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.google.common.collect.Lists;
 
 import water.nbhm.NonBlockingHashMap;
 import water.nbhm.NonBlockingHashMapLong;
@@ -62,7 +62,7 @@ public class H2ONode implements Comparable {
       return new H2Okey(inet,port);
     }
   }
-  public final H2Okey _key;     // 
+  public final H2Okey _key;
 
   public final int _unique_idx; // Dense integer index, skipping 0.
   public long _last_heard_from; // Time in msec since we last heard from this Node
@@ -139,7 +139,7 @@ public class H2ONode implements Comparable {
           ips.add(ias.nextElement());
         }
       }
-    } catch( SocketException e ) { 
+    } catch( SocketException e ) {
     }
 
     InetAddress local = null;   // My final choice
@@ -148,7 +148,7 @@ public class H2ONode implements Comparable {
     // if there are multiple valid IP addresses.
     InetAddress arg = null;
     if (H2O.OPT_ARGS.ip != null) {
-      try{  arg = InetAddress.getByName(H2O.OPT_ARGS.ip); 
+      try{  arg = InetAddress.getByName(H2O.OPT_ARGS.ip);
       } catch( UnknownHostException e ){ Log.die(e.toString()); }
       if( !(arg instanceof Inet4Address) ) Log.die("Only IP4 addresses allowed.");
       for( InetAddress ip : ips ){ // Do a check to make sure the given IP
@@ -158,36 +158,70 @@ public class H2ONode implements Comparable {
         }
       }
       if( local == null ) Log.die("IP address not found on this machine");
-      else return intern(new H2Okey(local,H2O.UDP_PORT));
-    }
-    // No user-specified IP address.  Attempt auto-discovery.  Roll through
-    // all the network choices on looking for a single Inet4.  Complain about
-    // them ALL if I see multiple valid addresses - the user must pick.
-    InetAddress first = null;   // A first one
-    for( InetAddress ip : ips ) { // Do a check to make sure the given IP address refers can be found here
-      if( ip instanceof Inet4Address &&
-          !ip.isLoopbackAddress() &&
-          !ip.isLinkLocalAddress() ) {
-        if( first == null ) local = first = ip; // Found a 1st valid address
-        else {                  // Else found multiple addresses
-          if( local == first ) {
-            System.err.println("Found multiple valid IP4 addresses - pick one and rerun with the -ip option");
-            System.err.println("  -ip "+first);
-            first = ip;
+    } else {
+        // No user-specified IP address.  Attempt auto-discovery.  Roll through
+        // all the network choices on looking for a single Inet4.  Complain about
+        // them ALL if I see multiple valid addresses - the user must pick.
+        InetAddress first = null;   // A first one
+        for( InetAddress ip : ips ) { // Do a check to make sure the given IP address refers can be found here
+          if( ip instanceof Inet4Address &&
+              !ip.isLoopbackAddress() &&
+              !ip.isLinkLocalAddress() ) {
+            if( first == null ) local = first = ip; // Found a 1st valid address
+            else {                  // Else found multiple addresses
+              if( local == first ) {
+                System.err.println("Found multiple valid IP4 addresses - pick one and rerun with the -ip option");
+                System.err.println("  -ip "+first);
+                first = ip;
+              }
+              System.err.println("  -ip "+ip);
+            }
           }
-          System.err.println("  -ip "+ip);
         }
+        if( local != first ) Log.die("local!=first");
+    }
+
+    // The above fails with no network connection, in that case go for a truly
+    // local host.
+    if( local == null ) {
+      try {
+        // set default ip address to be 127.0.0.1 /localhost
+        local = InetAddress.getByName("127.0.0.1");
+      } catch( UnknownHostException e ) {
+        throw new Error(e);
       }
     }
-    if( local != first ) Log.die("local!=first");
 
-    // The above fails with no network connection, in that case go for a truely
-    // local host.
-    if( local == null )
-      try {
-	// set default ip address to be 127.0.0.1 /localhost
-        local = InetAddress.getByName("127.0.0.1");
-      } catch( UnknownHostException e ) { throw new Error(e); } // Rethrow as unchecked (and die)
+
+    try {
+      // Figure out which interface matches our IP address
+      List<NetworkInterface> matchingIfs = Lists.newArrayList();
+      Enumeration<NetworkInterface> netIfs = NetworkInterface.getNetworkInterfaces();
+      while( netIfs.hasMoreElements() ) {
+        NetworkInterface netIf = netIfs.nextElement();
+        Enumeration<InetAddress> addrs = netIf.getInetAddresses();
+        while( addrs.hasMoreElements() ) {
+          InetAddress addr = addrs.nextElement();
+          if( addr.equals(local) ) {
+            matchingIfs.add(netIf);
+            break;
+          }
+        }
+      }
+      switch( matchingIfs.size() ) {
+      case 0: H2O.CLOUD_MULTICAST_IF = null; break;
+      case 1: H2O.CLOUD_MULTICAST_IF = matchingIfs.get(0); break;
+      default:
+        System.err.print("Found multiple network interfaces for ip address " + local);
+        for( NetworkInterface ni : matchingIfs ) {
+          System.err.println("\t" + ni);
+        }
+        System.err.println("Using " + matchingIfs.get(0) + " for UDP broadcast");
+        H2O.CLOUD_MULTICAST_IF = matchingIfs.get(0);
+      }
+    } catch( SocketException e ) {
+      throw new RuntimeException(e);
+    }
     return intern(new H2Okey(local,H2O.UDP_PORT));
   }
 
@@ -199,7 +233,7 @@ public class H2ONode implements Comparable {
   // Happy printable string
   public String toString() { return _key.toString (); }
   public String urlEncode(){ return _key.urlEncode(); }
-  
+
   // index of this node in the current cloud... can change at the next cloud.
   public int index() { return H2O.CLOUD.nidx(this); }
 
@@ -297,7 +331,7 @@ public class H2ONode implements Comparable {
     total_packets_recv(8),      // Total packets received
     total_packets_sent(8),      // Total packets sent
     total_bytes_recv(8),        // Total bytes received
-    total_bytes_sent(8),        // Total bytes sent    
+    total_bytes_sent(8),        // Total bytes sent
     total_bytes_recv_rate(4),   // Incoming traffic rate
     total_bytes_sent_rate(4),   // Outgoing traffic rate
     tcp_packets_recv(8),        // TCP segments received
@@ -351,18 +385,18 @@ public class H2ONode implements Comparable {
     total_bytes_sent_rate(total_bytes_recv_rate.x+size.total_bytes_recv_rate.x),
     tcp_packets_recv(total_bytes_sent_rate.x+size.total_bytes_sent_rate.x),
     tcp_packets_sent(tcp_packets_recv.x+size.tcp_packets_recv.x),
-    tcp_bytes_recv  (tcp_packets_sent.x+size.tcp_packets_sent.x),   
+    tcp_bytes_recv  (tcp_packets_sent.x+size.tcp_packets_sent.x),
     tcp_bytes_sent  (tcp_bytes_recv.x+size.tcp_bytes_recv.x),
     udp_packets_recv(tcp_bytes_sent.x+size.tcp_bytes_sent.x),
     udp_packets_sent(udp_packets_recv.x+size.udp_packets_recv.x),
     udp_bytes_recv  (udp_packets_sent.x+size.udp_packets_sent.x),
     udp_bytes_sent  (udp_bytes_recv.x+size.udp_bytes_recv.x),
-        
-    max             (udp_bytes_sent.x+size.udp_bytes_sent.x);    
+
+    max             (udp_bytes_sent.x+size.udp_bytes_sent.x);
     final int x;
     offset(int x) { this.x=x; }
   }
-  
+
   // Getters and Setters
   public void set_health( byte[] buf ) {  System.arraycopy(buf,0,_health_buf,0,_health_buf.length);  }
   public void set_num_cpus (int  n) {     set_buf(offset.num_cpus.x,size.num_cpus.x,n); }
@@ -373,13 +407,13 @@ public class H2ONode implements Comparable {
   public void set_valsz    (long n) {     set_buf(offset.valsz   .x,size.valsz   .x,n>>10); }
   public void set_free_disk(long n) {     set_buf(offset.free_disk.x,size.free_disk.x,n >> 20); }
   public void set_max_disk (long n) {     set_buf(offset.max_disk.x,size.max_disk.x,n>>20); }
-  public void set_cpu_util (double d) {     
+  public void set_cpu_util (double d) {
       if(d >= 0)
         set_buf(offset.cpu_util.x, size.cpu_util.x,((long)(1000*d)) & 0xFFFF);
       else
-        set_buf(offset.cpu_util.x, size.cpu_util.x,0xFFFF); 
+        set_buf(offset.cpu_util.x, size.cpu_util.x,0xFFFF);
   }
-  public void set_cpu_load (double oneMinute, double fiveMinutes, double fifteenMinutes) {     
+  public void set_cpu_load (double oneMinute, double fiveMinutes, double fifteenMinutes) {
     set_buf(offset.cpu_load_1 .x, size.cpu_load_1 .x,
             oneMinute      >= 0 ? ((long)(1000*    oneMinute )) & 0xFFFF : 0xFFFF);
     set_buf(offset.cpu_load_5 .x, size.cpu_load_5 .x,
@@ -436,12 +470,12 @@ public class H2ONode implements Comparable {
     }
     if(fifteenM != 0xFFFFL){
         result[2] = ((double)fifteenM)/1000.0;
-    }            
+    }
     return result;
   }
   public double get_cpu_util () {
     long n = get_buf(offset.cpu_util.x,size.cpu_util.x);
-    if(n != 0xFFFFL)  
+    if(n != 0xFFFFL)
       return ((double)n)/1000.0;
     else
       return -1.0;
@@ -467,14 +501,14 @@ public class H2ONode implements Comparable {
   public long get_tcp_packets_recv() { return get_buf(offset.tcp_packets_recv.x, size.tcp_packets_recv.x); }
   public long get_tcp_packets_sent() { return get_buf(offset.tcp_packets_sent.x, size.tcp_packets_sent.x); }
   public long get_tcp_bytes_recv()  { return get_buf(offset.tcp_bytes_recv.x, size.tcp_bytes_recv.x); }
-  public long get_tcp_bytes_sent()  { return get_buf(offset.tcp_bytes_sent.x, size.tcp_bytes_sent.x); }  
+  public long get_tcp_bytes_sent()  { return get_buf(offset.tcp_bytes_sent.x, size.tcp_bytes_sent.x); }
   public long get_udp_packets_recv(){ return get_buf(offset.udp_packets_recv.x, size.udp_packets_recv.x); }
   public long get_udp_packets_sent(){ return get_buf(offset.udp_packets_sent.x, size.udp_packets_sent.x); }
   public long get_udp_bytes_recv(){ return get_buf(offset.udp_bytes_recv.x, size.udp_bytes_recv.x); }
   public long get_udp_bytes_sent(){ return get_buf(offset.udp_bytes_sent.x, size.udp_bytes_sent.x); }
-  
+
   public static final byte HDFS_NAMENODE = 'N';
-  
+
   public byte get_node_type() { return (byte)get_buf(offset.node_type.x, size.node_type.x); }
   public void set_cloud_id ( UUID id ) {
     set_buf(offset.cloud_id.x+0,8,id.getLeastSignificantBits());
