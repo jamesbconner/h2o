@@ -1,11 +1,6 @@
 package water;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,7 +99,9 @@ public class H2ONode implements Comparable {
     h2o = new H2ONode(key,idx);
     H2ONode old = INTERN.putIfAbsent(key,h2o);
     if( old != null ) return old;
-    IDX.add(idx,h2o);
+    synchronized(H2O.class) {
+      IDX.add(idx,h2o);
+    }
     return h2o;
   }
   public static final H2ONode intern( InetAddress ip, int port ) { return intern(new H2Okey(ip,port)); }
