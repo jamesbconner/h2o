@@ -1,6 +1,5 @@
 package hex.rf;
 
-import hex.rf.Data.Row;
 import hex.rf.Utils.Counter;
 
 import java.util.*;
@@ -43,6 +42,8 @@ public class Confusion extends MRTask {
   public long _matrix[][]; // A _N x _N matrix of classes
   /** Number of mistaken assignments. */
   private long _errors;
+  /** Number of rows used for building the matrix. */
+  private long _rows;
 
   // An array of tree-votes, 1 16-bit short per class per row.  Each count is
   // what class a single tree voted on this row.  The max class is how the
@@ -59,6 +60,13 @@ public class Confusion extends MRTask {
   private transient Random _rand = new Random(42);
   /** Model used for construction of the confusion matrix. */
   private transient Model _model;
+
+  /** The indices of the rows used for validation. This is currently mostly used for
+      single node validation (the indices come from the complement of sample). */
+  private  int[] _validation;
+
+  /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
+  private int _rows_per_normal_chunk;
 
   public Confusion() {}  // Constructor for use by the serializers
 
@@ -77,6 +85,7 @@ public class Confusion extends MRTask {
     int max = (int)data.col_max(num_cols-1);
     _N = max-min+1;             // Range of last column is #classes
     assert _N > 0;
+
 
     _model = new Model(_treeskey,(short) _N , data);
 
@@ -110,21 +119,19 @@ public class Confusion extends MRTask {
 
   // Shared init: for new Confusions, for remote Confusions
   private void shared_init() {
-    // Wire-len passed the dataset key, go ahead and load the dataset's
-    // ValueArray - it's Schema-on-Read
-    _data = (ValueArray)DKV.get(_datakey);
-    // Flatten the key-of-X-keys into an array-of-X-keys
-    _tkeys = _treeskey.flatten(); // Trees
+    _data = (ValueArray)DKV.get(_datakey); // load the dataset
+    _tkeys = _treeskey.flatten();     // Flatten the key-of-X-keys into an array-of-X-keys
     _vkeys = _votes.flatten();    // Votes-per-row
     // If we got passed _ntree0, then process that number of trees.
     // Else process all available trees.
     if( _ntrees0 == -1 ) _ntrees0 = _tkeys.length;
-
     // For the trees, further flatten to arrays of tree-bits.
     // But only both with the first ntree0 trees.
     _trees = new byte[_ntrees0][];
     for( int i=0; i<_ntrees0; i++ )
       _trees[i] = DKV.get(_tkeys[i]).get();
+    byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // Lazy: get the 0-th chunk and figure out its size
+    _rows_per_normal_chunk = chunk_bits.length/_data.row_size();
   }
 
   /** Once-per-remote invocation init.  The standard M/R framework will
@@ -166,13 +173,30 @@ public class Confusion extends MRTask {
     return c;
   }
 
+  /** Set the validation set before starting. */
+  public void setValidation(int [] indices) {
+    if (_validation != null) throw new Error("Confusion Matrix already initialized.");
+    _validation = indices;
+  }
+
+  /** index in the validation set. */
+  private int _posInValidation;
+
+  /** Skip rows that are not in the validation set. Assumes the set is sorted in ascending order. */
+  private boolean ignoreRow(int chunk_idx, int row) {
+    if (_validation==null) return false; // no validation set, use all rows.
+    row = chunk_idx * _rows_per_normal_chunk + row; // adjust to get an absolute row number
+    while (_validation.length > _posInValidation && _validation[_posInValidation] < row) _posInValidation++;
+    if (_validation.length == _posInValidation) return true; // gone past the end... ignore
+    return ! (_validation[_posInValidation] == row); // return true if we shoud ignore the row
+  }
+
   /** A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
   public void map( Key chunk_key ) {
+
     byte[] chunk_bits = DKV.get(chunk_key).get();      // Get the raw dataset bits of the chunk
-    final int rowsize = _data.row_size();
-    final int rows = chunk_bits.length/rowsize;
-    final int num_cols = _data.num_cols();
-    final int ccol = num_cols-1;               // Column holding the class
+    final int rows = chunk_bits.length/_data.row_size();
+    final int ccol = _data.num_cols()-1;               // Column holding the class
     final int cmin = (int)_data.col_min(ccol); // Typically 0-(n-1) or 1-N
 
     // Get the existing votes
@@ -185,18 +209,18 @@ public class Confusion extends MRTask {
     int[] ties = null;          // Tie-breaker used only when needed
     // Make an empty confusion matrix for this chunk
     _matrix = new long[_N][_N];
-
     // Now for all rows, classify & vote!
     MAIN_LOOP :
     for( int i=0; i<rows; i++ ) {
-      for( int k=0; k<num_cols; k++ )
-        if( !_data.valid(chunk_bits,i,rowsize,k) ) continue MAIN_LOOP; // Skip broken rows
+      for( int k=0; k<_data.num_cols(); k++ )
+        if( !_data.valid(chunk_bits,i,_data.row_size(),k) ) continue MAIN_LOOP; // Skip broken rows
+      if ( ignoreRow(nchk, i) ) continue MAIN_LOOP;
 
       // For all trees on this row, vote!
       int vidx = i*2*_N;        // Vote index
       for( int t=_ntrees; t<_ntrees0; t++ ) {
         // This tree's prediction for row i
-        int predict = Tree.classify(_trees[t],_data,chunk_bits,i,rowsize);
+        int predict = Tree.classify(_trees[t],_data,chunk_bits,i,_data.row_size());
        // int predict2 = _model.classify(t, chunk_bits, i, rowsize);
       //  assert predict==predict2;
         assert 0<= predict && predict < _N : ("prediction "+predict+" < "+_N);
@@ -224,10 +248,12 @@ public class Confusion extends MRTask {
         predict = Utils.maxIndex(ties,_rand);
       }
       // Find the current row class
-      int cclass = (int)_data.data(chunk_bits,i,rowsize,ccol) - cmin;
+      int cclass = (int)_data.data(chunk_bits,i,_data.row_size(),ccol) - cmin;
       assert 0<= cclass && cclass < _N : ("cclass "+cclass+" < "+_N);
       // Bump the confusion matrix
       _matrix[cclass][predict]++;
+      _rows++;
+      if(predict != cclass) _errors++;
     }
 
     // Save the votes for a rainy day, or clean them up if done
@@ -242,15 +268,17 @@ public class Confusion extends MRTask {
     long[][] m2 = C._matrix;
     if( m1 == null ) { _matrix = m2; return; } // Take other work straight-up
     for( int i=0; i<m1.length; i++ )
-      for( int j=0; j<m1.length; j++ )
-        m1[i][j] += m2[i][j];
+      for( int j=0; j<m1.length; j++ )  m1[i][j] += m2[i][j];
   }
 
   /** Compute the confusion matrix on the entire dataset on the current node. */
   public void mapAll() {
-    for(int i = 0; i < _data.chunks(); i++)  map(_data.chunk_get(i));
+    Confusion tmp = new Confusion();
+    for(int i = 0; i < _data.chunks(); i++) { map(_data.chunk_get(i));  tmp.reduce(this); }
+    _matrix = tmp._matrix;
   }
 
+  /** Text form of the confusion matrix */
   private String confusionMatrix() {
     final int K = _N+1;
     double[] e2c = new double[_N];
@@ -279,18 +307,18 @@ public class Confusion extends MRTask {
     }
     return s;
   }
-
+  /** Pad a string with spaces. */
   private String pad(String s, int l) {
     String p=""; for (int i=0;i < l - s.length(); i++) p+= " "; return " "+p+s;
   }
 
+  /** Output information about this RF. */
   public final void report() {
-    mapAll();
     Counter td = new Counter(), tl = new Counter();
     for( byte[]tbits : _trees) {
       long dl = Tree.depth_leaves(tbits);
       td.add((int)(dl>>32)); tl.add((int)dl); }
-    double err = _errors/(double) _data.row_size();
+    double err = _errors/(double) _rows;
     String s =
       "              Type of random forest: classification\n" +
       "                    Number of trees: "+ _trees.length +"\n"+
@@ -299,8 +327,8 @@ public class Confusion extends MRTask {
       "                   Confusion matrix:\n" + confusionMatrix()+ "\n"+
       "          Avg tree depth (min, max): " + td +"\n" +
       "         Avg tree leaves (min, max): " + tl +"\n" +
-      "                Validated on (rows): " + _data.row_size() ;
-    System.out.println(s);
+      "                Validated on (rows): " + _rows;
+    Utils.pln(s);
   }
 
 }
