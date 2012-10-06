@@ -88,8 +88,8 @@ public class H2ONode implements Comparable {
   // an array-of-H2ONodes, and a limit of 255 unique H2ONodes
   static private final NonBlockingHashMap<H2Okey,H2ONode> INTERN = new NonBlockingHashMap<H2Okey,H2ONode>();
   static private final AtomicInteger UNIQUE = new AtomicInteger(1);
-  static public final ArrayList<H2ONode> IDX = new ArrayList(1);
-  static { IDX.add(null); }
+  static public H2ONode IDX[] = new H2ONode[1];
+
   // Create and/or re-use an H2ONode.  Each gets a unique dense index, and is
   // *interned*: there is only one per InetAddress.
   public static final H2ONode intern( H2Okey key ) {
@@ -100,7 +100,9 @@ public class H2ONode implements Comparable {
     H2ONode old = INTERN.putIfAbsent(key,h2o);
     if( old != null ) return old;
     synchronized(H2O.class) {
-      IDX.add(idx,h2o);
+      if( idx >= IDX.length )
+        IDX = Arrays.copyOf(IDX,IDX.length<<1);
+      IDX[idx] = h2o;
     }
     return h2o;
   }
