@@ -201,14 +201,14 @@ class H2O(object):
                 params={"Value": value, "Key": key, "RF": repl}
                 ))
 
-    def put_file(self, f, key=None, repl=None):
+    def put_file_old(self, f, key=None, repl=None):
         return self.__check_request(
             requests.post(self.__url('PutFile.json'), 
                 files={"File": open(f, 'rb')},
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
 
-    def put_fileX(self, f, key=None, repl=None):
+    def put_file(self, f, key=None, repl=None):
         resp1 =  self.__check_request(
             requests.get(self.__url('PutFile.json'), 
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
@@ -221,7 +221,7 @@ class H2O(object):
                 ))
         verboseprint("put_file #2 phase response: ", resp2)
 
-        return resp2
+        return resp2[0]
     
     def get_key(self, key):
         return requests.get(self.__url('Get'),

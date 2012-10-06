@@ -18,12 +18,12 @@ import org.apache.http.util.EntityUtils;
 import water.*;
 
 import com.google.gson.*;
-import com.sun.corba.se.impl.copyobject.JavaStreamObjectCopierImpl;
-import com.sun.media.sound.JavaSoundAudioClip;
 
 public class PutFile extends H2OPage {
 
-    public static final int ACCEPT_CLIENT_TIMEOUT = 2*60*1000; // = 2mins
+    // Maximal waiting time for client connection.
+    // If the timeout is reached, server socket is closed.
+    public static final int ACCEPT_CLIENT_TIMEOUT = 1*60*1000; // = 1mins
 
     public static int uploadFile(String filename, String key, byte rf) throws PageError {
       // Open a new port to listen by creating a server socket to permit upload.
@@ -35,7 +35,6 @@ public class PutFile extends H2OPage {
         serverSocket.setSoTimeout(ACCEPT_CLIENT_TIMEOUT);
         serverSocket.setReuseAddress(true);
         int port = serverSocket.getLocalPort();
-        System.err.format("JAVA: Opening server socket at port %d\n", port);
         // Launch uploader thread which retrieve a byte stream from client
         // and store it to key.
         // If the client is not connected withing a specifed timeout, the
@@ -64,18 +63,19 @@ public class PutFile extends H2OPage {
     return res;
   }
 
+  // Putfile should not call directly
   @Override protected String serveImpl(Server server, Properties args) throws PageError {
     JsonObject json = serverJson(server, args);
 
     RString response = new RString(html()); // FIXME: delete
     response.replace(json);
+    response.replace("host", H2O.SELF._key._inet.getHostAddress());
     return response.toString();
   }
 
-  //FIXME: delete
   private String html() {
-    return "<div class='alert alert-success'>"
-    + "Key <a href='Inspect?Key=%keyHref'>%key</a> has been put to the store with replication factor %rf, value size <strong>%vsize</strong>."
+    return "<div class='alert alert-warning'>"
+    + "Upload the key to %host port %port via HTTP POST."
     + "</div>"
     + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
     + "<a href='Put'><button class='btn'>Put again</button></a>"
@@ -83,6 +83,7 @@ public class PutFile extends H2OPage {
     ;
   }
 
+  // Thread handling upload of a (possibly large) file.
   private static class UploaderThread extends Thread {
 
     // Server socket
@@ -104,29 +105,36 @@ public class PutFile extends H2OPage {
     public void run() {
 
       try {
+        // Since we do cross-site request we need to handle to requests - 1st OPTIONS, 2nd is POST
         while(true) {
-          // Wait for 1st connection and handle connection in this thread.
+          // Wait for the 1st connection and handle connection in this thread.
           DefaultHttpServerConnection conn = new DefaultHttpServerConnection();
-          conn.bind(ssocket.accept(), new BasicHttpParams()); // TODO: setup here socket properties like SO_TIMEOUT?
+          conn.bind(ssocket.accept(), new BasicHttpParams());
           HttpRequest request           = conn.receiveRequestHeader();
           RequestLine requestLine       = request.getRequestLine();
-          System.err.println("REQUEST: " + request);
+
           try {
+            HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null);
+            boolean      finish   = false;
             if (requestLine.getMethod().equals("OPTIONS")) {
-              handleOPTIONS(conn, request);
+              finish = handleOPTIONS(conn, request, response);
             } else if (requestLine.getMethod().equals("POST")) {
-              handlePOST(conn, request);
-              break;
+              finish = handlePOST(conn, request, response);
             }
+            // Consume entity if necessary.
+            if (request instanceof HttpEntityEnclosingRequest) EntityUtils.consume(((HttpEntityEnclosingRequest) request).getEntity());
+            // Send response.
+            conn.sendResponseHeader(response);
+            conn.sendResponseEntity(response);
+            // If the file was upload successfully then finish
+            if (finish) break;
           } finally { // shutdown connection
             try { conn.close(); } catch( IOException e ) { }
           }
         }
       } catch (SocketTimeoutException ste) {
         // The client does not connect during the socket timeout => it is not interested in upload.
-        ste.printStackTrace();
       } catch (IOException e) {
-        e.printStackTrace();
       } catch (HttpException e) {
       } finally {
         // shutdown server
@@ -134,8 +142,11 @@ public class PutFile extends H2OPage {
       }
     }
 
-    protected void handleOPTIONS(HttpServerConnection conn, HttpRequest request) throws HttpException, IOException {
-      HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "OK");
+    protected boolean handleOPTIONS( final HttpServerConnection conn,
+                                     final HttpRequest request,
+                                     final HttpResponse response) throws HttpException, IOException {
+      response.setStatusCode(HttpStatus.SC_OK);
+      response.setReasonPhrase("OK");
       response.addHeader("Access-Control-Allow-Origin", "*");
       response.addHeader("Access-Control-Allow-Methods", "PUT,POST");
       for (Header header: request.getHeaders("Access-Control-Request-Headers")) {
@@ -143,15 +154,18 @@ public class PutFile extends H2OPage {
           response.addHeader("Access-Control-Allow-Headers", "x-file-name,x-file-size,x-file-type");
         }
       }
-      conn.sendResponseHeader(response);
-      conn.flush();
+
+      return false;
     }
 
-    protected void handlePOST(HttpServerConnection conn, HttpRequest request) throws HttpException, IOException {
+    protected boolean handlePOST( final HttpServerConnection conn,
+                                  final HttpRequest request,
+                                  final HttpResponse response) throws HttpException, IOException {
+      // TODO: support chunked uploads
       Header contentTypeHeader = request.getFirstHeader("Content-Type");
       if (contentTypeHeader == null || !contentTypeHeader.getValue().startsWith("multipart/form-data")) { // File is not received
-        // TODO: send error and return
-        return;
+        sendError(response, HttpStatus.SC_BAD_REQUEST, "Request including multiopar/form-data is expected");
+        return true;
       }
 
       String boundary = null; // Get file boundary.
@@ -159,28 +173,36 @@ public class PutFile extends H2OPage {
         NameValuePair nvp = el.getParameterByName("boundary");
         if (nvp != null) { boundary = nvp.getValue(); break; }
       }
-      if (boundary == null) { /* TODO: send error and return */ return; }
+      if (boundary == null) { sendError(response, HttpStatus.SC_BAD_REQUEST, "Boundary is not included in request"); return true; }
 
       // Get http entity.
       conn.receiveRequestEntity((HttpEntityEnclosingRequest)request);
-      System.err.println(boundary);
-      HttpMultipartEntity entity = new HttpMultipartEntity( ((HttpEntityEnclosingRequest)request).getEntity(), boundary.getBytes() );
-//      HttpEntity entity = ((HttpEntityEnclosingRequest)request).getEntity();
-//      System.err.println(EntityUtils.toString(entity));
+      if (request instanceof HttpEntityEnclosingRequest) {
+        HttpMultipartEntity entity = new HttpMultipartEntity( ((HttpEntityEnclosingRequest)request).getEntity(), boundary.getBytes() );
+        // Skip content header
+        entity.skipHeader();
 
-      // Read directly from stream and create a key
-      Key key                = ValueArray.read_put_stream(keyname, entity.getContent(), rf);
- //     EntityUtils.consume(entity);
-      JsonElement jsonResult = getJsonResult(key);
+        // Read directly from stream and create a key
+        Key key                = ValueArray.read_put_stream(keyname, entity.getContent(), rf);
+        JsonElement jsonResult = getJsonResult(key);
+        String      result     = jsonResult.toString();
 
-      HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "OK");
-      response.setEntity(new StringEntity(jsonResult.toString(), NanoHTTPD.MIME_JSON, HTTP.DEFAULT_CONTENT_CHARSET));
-      response.addHeader("Access-Control-Allow-Origin", "*");
-      response.addHeader("Content-Type", NanoHTTPD.MIME_JSON);
-      response.addHeader("Content-Length", String.valueOf(jsonResult.toString().length()));
-      conn.sendResponseHeader(response);
-      conn.sendResponseEntity(response);
-      conn.flush();
+        response.setStatusCode(HttpStatus.SC_OK);
+        response.setReasonPhrase("OK");
+        response.setEntity(new StringEntity(result, NanoHTTPD.MIME_JSON, HTTP.DEFAULT_CONTENT_CHARSET));
+        response.addHeader("Access-Control-Allow-Origin", "*");
+        response.addHeader("Content-Type", NanoHTTPD.MIME_JSON);
+        response.addHeader("Content-Length", String.valueOf(result.length()));
+
+        return true;
+      } else {
+        sendError(response, HttpStatus.SC_BAD_REQUEST, "Wrong request !?");
+        return true;
+      }
+    }
+
+    protected void sendError(HttpResponse response, int code, String msg) {
+      response.setStatusCode(code); response.setReasonPhrase(msg);
     }
 
     protected JsonElement getJsonResult(Key key) {
@@ -208,6 +230,12 @@ public class PutFile extends H2OPage {
       System.arraycopy(boundary, 0, this.boundary, BOUNDARY_PREFIX.length, boundary.length);
     }
 
+    public void skipHeader() throws IOException {
+      InputStream is = wrappedEntity.getContent();
+      // Skip the content disposition header
+      skipContentDispositionHeader(is);
+    }
+
     private void skipContentDispositionHeader(InputStream is) throws IOException {
       byte mode = 0; // 0 = nothing, 1=\n, 2=\n\n, 11=\r, 12=\r\n, 13=\r\n\r, 14=\r\n\r\n
 
@@ -225,11 +253,8 @@ public class PutFile extends H2OPage {
 
     @Override
     public InputStream getContent() throws IOException {
-      InputStream is = super.getContent();
-      // Skip the content disposition header
-      skipContentDispositionHeader(is);
-
-      return new InputStreamWrapper(wrappedEntity.getContent());
+      InputStream is = wrappedEntity.getContent();
+      return new InputStreamWrapper(is);
     }
 
     class InputStreamWrapper extends InputStream {
@@ -254,11 +279,10 @@ public class PutFile extends H2OPage {
       @Override public int     read()         throws IOException { throw new UnsupportedOperationException(); }
       @Override public int     read(byte[] b) throws IOException { return read(b, 0, b.length); }
       @Override public int     read(byte[] b, int off, int len) throws IOException {
-        int readLen = readInternal(b, off, len); System.err.println("READ: " + readLen);
+        int readLen = readInternal(b, off, len);
         if (readLen != -1) {
           int pos     = findBoundary(b, off, readLen);
           if (pos != -1) {
-            System.err.println("BOUNDARY FOUND");
             while (wrappedIs.read()!=-1) ; // read the rest of stream
             return pos - off;
           }

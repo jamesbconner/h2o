@@ -43,7 +43,6 @@ public class PutQuery extends H2OPage {
                           "jquery.fileupload/js/jquery.iframe-transport.js",
                           "jquery.fileupload/js/jquery.fileupload.js",
                           "jquery.fileupload/js/main.js",
-//                          "jquery.fileupload/js/jquery.fileupload-ui.js",
                           };
   }
   @Override protected String serveImpl(Server server, Properties args) {
