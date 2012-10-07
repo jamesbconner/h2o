@@ -51,6 +51,9 @@ def find_file(base):
     if not os.path.exists(f): f = '../'+base
     return f
 
+def get_file_size(f):
+    return os.path.getsize(f)
+
 LOG_DIR = 'sandbox'
 def clean_sandbox():
     if os.path.exists(LOG_DIR):
@@ -170,8 +173,9 @@ def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
 class H2O(object):
-    def __url(self, loc):
-        return 'http://%s:%d/%s' % (self.addr, self.port, loc)
+    def __url(self, loc, port=None):
+        if port is None: port = self.port
+        return 'http://%s:%d/%s' % (self.addr, port, loc)
 
     def __check_request(self, r):
         log('Sent ' + r.url)
@@ -197,12 +201,32 @@ class H2O(object):
                 params={"Value": value, "Key": key, "RF": repl}
                 ))
 
-    def put_file(self, f, key=None, repl=None):
+    def put_file_old(self, f, key=None, repl=None):
         return self.__check_request(
             requests.post(self.__url('PutFile.json'), 
                 files={"File": open(f, 'rb')},
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
+
+    def put_file(self, f, key=None, repl=None):
+        resp1 =  self.__check_request(
+            requests.get(self.__url('PutFile.json'), 
+                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
+                ))
+        verboseprint("put_file #1 phase response: ", resp1)
+
+        resp2 = self.__check_request(
+            requests.post(self.__url('Upload.json', port=resp1['port']), 
+                files={"File": open(f, 'rb')}
+                ))
+        verboseprint("put_file #2 phase response: ", resp2)
+
+        return resp2[0]
+    
+    def get_key(self, key):
+        return requests.get(self.__url('Get'),
+            prefetch=False,
+            params={"Key": key})
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):

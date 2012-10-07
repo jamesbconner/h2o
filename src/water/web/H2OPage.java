@@ -19,6 +19,9 @@ public abstract class H2OPage extends Page {
 
   protected abstract String serveImpl(Server server, Properties args) throws PageError;
 
+  protected String[] additionalScripts() { return EMPTY; }
+  protected String[] additionalStyles()  { return EMPTY; }
+
   private static final String html =
       "<!DOCTYPE html>"
     + "<html lang=\"en\">"
@@ -38,9 +41,11 @@ public abstract class H2OPage extends Page {
     + "    <!--[if lt IE 9]>"
     + "      <script src=\"http://html5shim.googlecode.com/svn/trunk/html5.js\"></script>"
     + "    <![endif]-->"
+    + "    %styles"
     + "    <!-- Le fav and touch icons -->"
     + "    <link rel=\"shortcut icon\" href=\"favicon.ico\">"
     + "    <script src='bootstrap/js/jquery.js'></script>"
+    + "    %scripts"
     + "  </head>"
     + "  <body>"
     + "    <div class=\"navbar navbar-fixed-top\">"
@@ -82,6 +87,20 @@ public abstract class H2OPage extends Page {
       String result = serveImpl(server, args);
       if (result == null) return result;
       if (_refresh!=0) response.replace("refresh","<META HTTP-EQUIV='refresh' CONTENT='"+_refresh+"'>");
+
+      // Append additional scripts
+      StringBuilder additions = new StringBuilder();
+      for(String script : additionalScripts()) {
+        additions.append("<script src='");additions.append(script);additions.append("'></script>");
+      }
+      response.replace("scripts", additions.toString());
+      // Append additional styles <link href=\"bootstrap/css/bootstrap.css\" rel=\"stylesheet\">"
+      additions.setLength(0);
+      for(String style : additionalStyles()) {
+        additions.append("<link href='");additions.append(style);additions.append("' rel='stylesheet'>");
+      }
+      response.replace("styles", additions.toString());
+
       response.replace("contents",result);
     } catch (PageError e) {
       response.replace("contents", e._msg);
@@ -173,4 +192,6 @@ public abstract class H2OPage extends Page {
     }
     return result;
   }
+
+  protected static final String[] EMPTY = {};
 }
