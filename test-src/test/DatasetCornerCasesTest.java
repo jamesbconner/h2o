@@ -57,7 +57,7 @@ public class DatasetCornerCasesTest {
     try {
       DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
       // Create incremental confusion matrix
-      Confusion confusion = new Confusion( drf._treeskey, val, ntrees*H2O.CLOUD.size(), 42);
+      Confusion confusion = new Confusion( drf._treeskey, val._key,  42);
       // Just wait little bit
       try { Thread.sleep(2000); } catch( InterruptedException e ) {}
       confusion.refresh();

@@ -105,11 +105,11 @@ public class RandomForest {
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Confusion c = new Confusion( drf._treeskey, valAry, drf._ntrees, 42);
+      Confusion c = new Confusion( drf._treeskey, valKey, 42);
       c.mapAll();
       c.report();
     } else {
-      Confusion c = new Confusion( drf._treeskey, (ValueArray)DKV.get(drf._arykey), drf._ntrees, 42);
+      Confusion c = new Confusion( drf._treeskey, drf._arykey, 42);
       c.setValidation(drf._validation.getPermutationArray());
       c.mapAll();
       c.report();

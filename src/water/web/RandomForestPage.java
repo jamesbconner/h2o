@@ -36,7 +36,7 @@ public class RandomForestPage extends H2OPage {
     try {
       DRF drf = hex.rf.DRF.web_main(ary,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
       // Start up the incremental confusion matrix
-      Confusion confusion = new Confusion( drf._treeskey, ary, ntrees*H2O.CLOUD.size(), seed);
+      Confusion confusion = new Confusion( drf._treeskey, ary._key,  seed);
       Key confKey = confusion.toKey();
       addProperty(res, "confKey", confKey);
       res.addProperty("depth",depth);
