@@ -338,7 +338,7 @@ class H2O(object):
                     return False
                 raise
         self.stabilize(test, 'Cloud accepting connections',
-                timeoutSecs=10, # with cold cache's this can be quite slow
+                timeoutSecs=15, # with cold cache's this can be quite slow
                 retryDelaySecs=0.1) # but normally it is very fast
 
     def get_args(self):
