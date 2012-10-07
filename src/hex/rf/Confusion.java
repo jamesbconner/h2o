@@ -18,8 +18,6 @@ public class Confusion extends MRTask {
   public int                  _ntrees;
   /** Number of features used to build the forest. */
   public int                  _features = -1;
-  /** Tree Keys */
-  transient public Key[]      _tkeys;
   /** Dataset we are building the matrix on. The classes must be in the last
       column, and the column count must match the Trees.*/
   public Key                  _datakey;
@@ -40,7 +38,7 @@ public class Confusion extends MRTask {
       confusion matrix. The default seed when deserializing is 42. */
   private transient Random    _rand     = new Random(42);
   /** Model used for construction of the confusion matrix. */
-  private transient Model     _model;
+  public transient Model     _model;
   /** The indices of the rows used for validation. This is currently mostly used
       for single node validation (the indices come from the complement of sample). */
   private int[]               _validation;
