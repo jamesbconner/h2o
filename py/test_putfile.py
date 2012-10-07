@@ -71,5 +71,4 @@ class Basic(unittest.TestCase):
             self.assertEqual(r_chunk,f_chunk)
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()

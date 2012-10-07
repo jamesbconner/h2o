@@ -216,7 +216,7 @@ class H2O(object):
         verboseprint("put_file #1 phase response: ", resp1)
 
         resp2 = self.__check_request(
-            requests.post(self.__url('', port=resp1['port']), 
+            requests.post(self.__url('Upload.json', port=resp1['port']), 
                 files={"File": open(f, 'rb')}
                 ))
         verboseprint("put_file #2 phase response: ", resp2)

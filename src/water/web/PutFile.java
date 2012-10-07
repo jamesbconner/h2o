@@ -147,9 +147,8 @@ public class PutFile extends H2OPage {
                                      final HttpResponse response) throws HttpException, IOException {
       response.setStatusCode(HttpStatus.SC_OK);
       response.setReasonPhrase("OK");
-      response.addHeader("Access-Control-Allow-Origin", "*");
-      response.addHeader("Access-Control-Allow-Methods", "PUT,POST");
-      for (Header header: request.getHeaders("Access-Control-Request-Headers")) {
+      addDefaultHeaders(response);
+      for (Header header: request.getHeaders("Access-Control-Request-Headers")) { // to support chunked uploads
         if (header.getValue().contains("x-file-name")) {
           response.addHeader("Access-Control-Allow-Headers", "x-file-name,x-file-size,x-file-type");
         }
@@ -189,9 +188,9 @@ public class PutFile extends H2OPage {
 
         response.setStatusCode(HttpStatus.SC_OK);
         response.setReasonPhrase("OK");
-        response.setEntity(new StringEntity(result, NanoHTTPD.MIME_JSON, HTTP.DEFAULT_CONTENT_CHARSET));
-        response.addHeader("Access-Control-Allow-Origin", "*");
-        response.addHeader("Content-Type", NanoHTTPD.MIME_JSON);
+        response.setEntity(new StringEntity(result, "application/json", HTTP.DEFAULT_CONTENT_CHARSET));
+        addDefaultHeaders(response);
+        response.addHeader("Content-Type", "application/json");
         response.addHeader("Content-Length", String.valueOf(result.length()));
 
         return true;
@@ -201,18 +200,24 @@ public class PutFile extends H2OPage {
       }
     }
 
-    protected void sendError(HttpResponse response, int code, String msg) {
+    protected void sendError(final HttpResponse response, final int code, final String msg) {
       response.setStatusCode(code); response.setReasonPhrase(msg);
     }
 
-    protected JsonElement getJsonResult(Key key) {
+    protected void addDefaultHeaders(final HttpResponse response) {
+      response.addHeader("Access-Control-Allow-Origin", "*");
+      response.addHeader("Access-Control-Allow-Methods", "OPTIONS,PUT,POST");
+    }
+
+    protected JsonElement getJsonResult(final Key key) {
       Value val = DKV.get(key);
       // The returned JSON object should follow structure of jquery-upload plugin
       JsonArray jsonResult = new JsonArray();
       JsonObject jsonFile   = new JsonObject();
       jsonFile.addProperty("name", filename);
       jsonFile.addProperty("size", val.length());
-      jsonFile.addProperty("url", "/Get?key=" + encode(key));
+      jsonFile.addProperty("url",  "/Get?Key=" + encode(key));
+      jsonFile.addProperty("rf",   rf);
       addProperty(jsonFile, "key", key);
       jsonResult.add(jsonFile);
 

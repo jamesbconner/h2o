@@ -24,14 +24,14 @@ public class PutQuery extends H2OPage {
     + "  </span>"
     + "</form> "
     + "<table class='table' id='UploadTable'>"
-    + "  <tr><td class='span2' id='filename'></td>"
+/*    + "  <tr><td class='span2' id='filename'></td>"
     + "      <td class='span2' id='filesize'></td>"
     + "      <td><input type='text' class='input-small span2' placeholder='key (optional)' name='Key' id='Key' maxlength='512'></td>"
     + "      <td><input type='text' class='input-small span2' placeholder='replication (optional)' name='RF' id='RF' maxlength='512'></td>"
     + "      <td><div id='progress' class='progress progress-striped span6'><div class='bar' style='width: 0%;'></div></div></td>"
     + "      <td><button type='submit' class='btn btn-primary' id='UploadBtn'>Upload</button></td>"
     + "  </tr>"
-    + "</table>"
+*/    + "</table>"
     ;
 
   @Override
