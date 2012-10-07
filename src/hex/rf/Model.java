@@ -6,6 +6,7 @@ import java.util.Random;
 
 import water.*;
 
+/** A model is an ensemble of trees that can be serialized and that can be used to */
 public class Model {
 
   /** Number of trees in the model.*/
@@ -74,6 +75,7 @@ public class Model {
   private Counter tl, td;
   /** Internal computation of depth and number of leaves. */
   private void compute() {
+    if (tl!=null) return;
     td = new Counter(); tl = new Counter();
     for( byte[] tbits : _trees ) {
       long dl = Tree.depth_leaves(tbits);
@@ -82,14 +84,8 @@ public class Model {
     }
   }
 
-  public String leaves() {
-    if (tl==null) compute();
-    return tl.toString();
-  }
+  public String leaves() { compute(); return tl.toString(); }
 
-  public String depth() {
-    if (td==null) compute();
-    return td.toString();
-  }
+  public String depth() { compute(); return td.toString(); }
 
 }

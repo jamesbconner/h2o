@@ -39,6 +39,7 @@ public class RFView extends H2OPage {
     res.addProperty("valid",confusion._ntrees);
     res.addProperty("computedTrees",confusion._tkeys.length);
 //    res.addProperty("maxTrees",confusion._maxtrees);
+    res.addProperty("maxTrees", -1);  //FIXME: remove
     res.addProperty("maxdepth",depth);
     res.addProperty( "depth",(double)tdepth/ntrees);
     res.addProperty("leaves",(double)tleavs/ntrees);
@@ -108,6 +109,8 @@ public class RFView extends H2OPage {
     response.replace("got",ntrees);
     response.replace("valid",confusion._ntrees);
 //    response.replace("maxtrees",confusion._maxtrees);
+    response.replace("maxtrees", -1);  // FIXME: jan  remove
+
     response.replace("maxdepth",depth);
     _refresh = ntrees < confusion._ntrees ? 5 : 0; // Refresh in 5sec if no keys yet
 
