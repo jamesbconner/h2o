@@ -8,6 +8,9 @@ def __drain(src, dst):
         else:
             dst.write(l)
             dst.flush()
+    src.close()
+    if type(dst) == type(0):
+        os.close(dst)
 
 def drain(src, dst):
     t = threading.Thread(target=__drain, args=(src,dst))
@@ -157,8 +160,7 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
 # this can be used for a local IP address, just done thru ssh 
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
-def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3, 
-    hosts=None, **kwargs):
+def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, **kwargs):
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -191,10 +193,18 @@ def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3,
     nodes[:] = node_list
     return node_list
 
-def upload_jar_to_remote_hosts(hosts):
-    for h in hosts:
-        print 'Sending jar to remote', h
-        h.upload_file(find_file('build/h2o.jar'))
+def upload_jar_to_remote_hosts(hosts, slow_connection=False):
+    def prog(sofar, total):
+        p = int(10.0 * sofar / total)
+        sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
+        sys.stdout.flush()
+    if not slow_connection:
+        for h in hosts:
+            h.upload_file('build/h2o.jar', progress=prog)
+    else:
+        f = find_file('build/h2o.jar')
+        hosts[0].upload_file(f, progress=prog)
+        hosts[0].push_file_to_remotes(f, hosts[1:])
 
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
@@ -205,7 +215,7 @@ def tear_down_cloud(node_list=None):
     finally:
         node_list[:] = []
 
-def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
+def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     node.wait_for_node_to_accept_connections()
     node.stabilize(lambda n: n.get_cloud()['cloud_size'] == node_count,
             error=('A cloud of size %d' % node_count),
@@ -228,7 +238,7 @@ class H2O(object):
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
-        verboseprint ("get_cloud:", a)
+        verboseprint("get_cloud:", a)
         return a
 
     def shutdown_all(self):
@@ -492,7 +502,7 @@ class LocalH2O(H2O):
         self.ps.send_signal(signal.SIGQUIT)
 
 class RemoteHost(object):
-    def upload_file(self, f):
+    def upload_file(self, f, progress=None):
         f = find_file(f)
         if f not in self.uploaded:
             import md5
@@ -502,10 +512,33 @@ class RemoteHost(object):
             dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
             log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
             sftp = self.ssh.open_sftp()
-            sftp.put(f, dest)
+            sftp.put(f, dest, callback=progress)
             sftp.close()
             self.uploaded[f] = dest
         return self.uploaded[f]
+
+    def record_file(self, f, dest):
+        '''Record a file as having been uploaded by external means'''
+        self.uploaded[f] = dest
+
+    def push_file_to_remotes(self, f, hosts):
+        dest = self.uploaded[f]
+        for h in hosts:
+            if h == self: continue
+            log('Pushing %s from %s to %s' % (dest, self, h))
+            cmd = 'scp %s %s@%s:%s' % (dest, h.username, h.addr, dest)
+            (stdin, stdout, stderr) = self.ssh.exec_command(cmd)
+            stdin.close()
+
+            sys.stdout.write(stdout.read())
+            sys.stdout.flush()
+            stdout.close()
+
+            sys.stderr.write(stderr.read())
+            sys.stderr.flush()
+            stderr.close()
+
+            h.record_file(f, dest)
 
     def __init__(self, addr, username, password=None):
         import paramiko
@@ -541,7 +574,7 @@ class RemoteH2O(H2O):
     def __init__(self, host, *args, **keywords):
         super(RemoteH2O, self).__init__(*args, **keywords)
 
-        self.jar = host.upload_file(find_file('build/h2o.jar'))
+        self.jar = host.upload_file('build/h2o.jar')
         self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
