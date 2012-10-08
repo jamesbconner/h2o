@@ -334,6 +334,7 @@ class H2O(object):
                 # It just means the node has not started up yet.
                 if (    e.args[0].errno == 61 or   # mac/linux
                         e.args[0].errno == 111 or  # mac/linux
+                        e.args[0].errno == 104 or  # ubuntu
                         e.args[0].errno == 10061): # windows
                     return False
                 raise
