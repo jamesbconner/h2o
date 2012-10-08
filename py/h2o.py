@@ -143,34 +143,23 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
-nodes = []
-def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
-    node_list = []
-    try:
-        for i in xrange(node_count):
-            n = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
-            node_list.append(n)
-        stabilize_cloud(node_list[0], len(node_list))
-    except:
-        for n in node_list: n.terminate()
-        raise
-    nodes[:] = node_list
-    return node_list
-
 # this can be used for a local IP address, just done thru ssh 
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
-def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, **kwargs):
+nodes = []
+def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, **kwargs):
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
         if hosts is None:
+            hostCount = 1
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
                 node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
             timeoutSecs = 10.0 # for stabilize
             retryDelaySecs = 0.25 # for stabilize
         else:
+            hostCount = len(hosts)
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
@@ -184,7 +173,7 @@ def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=No
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
         verboseprint(len(node_list), " Node 0 stabilized in ", time.time()-start, " secs")
         verboseprint("Built cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
-            len(hosts), (time.time() - start))) 
+            hostCount, (time.time() - start))) 
     except:
         for n in node_list: n.terminate()
         raise

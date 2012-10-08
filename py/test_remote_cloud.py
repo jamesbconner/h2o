@@ -20,6 +20,8 @@ class Basic(unittest.TestCase):
             #    h2o.RemoteHost('192.168.0.37',  '0xdiag', '0xdiag')
             hosts = [
                 h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag')
             ]
         elif (1==0):
@@ -59,11 +61,19 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
 
             # node_count is per host.
-            nodes = h2o.build_remote_cloud(node_count, base_port=55321, ports_per_node=3, hosts=hosts)
+            nodes = h2o.build_cloud(node_count, base_port=55321, ports_per_node=3, hosts=hosts)
 
+            # FIX! if node[0] is fast, maybe the other nodes aren't at a point where they won't get
+            # connection errors. Stabilize them too! Can have short timeout here, because they should be 
+            # stable?? or close??
+            for n in nodes:
+                h2o.stabilize_cloud(n, len(nodes), timeoutSecs=3, retryDelaySecs=0.25)
+
+            # now double check ...no stabilize tolerance of connection errors here
             for n in nodes:
                 print "Checking n:", n
                 c = n.get_cloud()
+                self.assertFalse(c['cloud_size'] > len(nodes), 'More nodes than we want. Zombie JVMs to kill?')
                 self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
             print "Tearing down cloud"
