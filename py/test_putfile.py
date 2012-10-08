@@ -4,7 +4,7 @@ import itertools
 
 def file_to_put():
 #TODO handle command line options to allow put arbitratry file
-    return 'smalldata/poker/poker100'
+    return 'smalldata/poker/poker-hand-testing.data'
 
 def chunked_file(file, chunk_size):
     return iter(lambda: file.read(chunk_size), '')
