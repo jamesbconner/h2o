@@ -51,8 +51,13 @@ def find_file(base):
     if not os.path.exists(f): f = '../'+base
     return f
 
+# Return file size.
 def get_file_size(f):
     return os.path.getsize(f)
+
+# Splits file into chunks of given size and returns an iterator over chunks.
+def iter_chunked_file(file, chunk_size=2048):
+    return iter(lambda: file.read(chunk_size), '')
 
 LOG_DIR = 'sandbox'
 def clean_sandbox():
