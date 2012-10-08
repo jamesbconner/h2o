@@ -26,7 +26,7 @@ def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
     parser.add_argument('--verbose','-v', help="increased output", action="store_true")
-    parser.add_argument('--ip', type=str, help="IP address to use")
+    parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
     
     parser.add_argument('unittest_args', nargs='*')
 
@@ -44,6 +44,8 @@ def verboseprint(*args):
         for arg in args: # so you don't have to create a single string
             print arg,
         print
+    # so we can see problems when hung?
+    sys.stdout.flush()
 
 
 def find_file(base):
@@ -84,6 +86,7 @@ def log(cmd, comment=None):
 # Could parse ifconfig, but would need something else on windows
 def get_ip_address():
     if ipaddr:
+        verboseprint("get_ip case 1:", ip)
         return ipaddr
 
     import socket
@@ -92,12 +95,13 @@ def get_ip_address():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8',0))
         ip = s.getsockname()[0]
-        verboseprint("ip1:", ip)
+        verboseprint("get_ip case 2:", ip)
     except:
         pass
 
     if ip.startswith('127'):
         ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
+        verboseprint("get_ip case 3:", ip)
 
     verboseprint("get_ip_address:", ip) 
     return ip
@@ -131,18 +135,6 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
-def spawn_h2o(addr=None, port=54321, nosigar=True):
-    h2o_cmd = [
-            "java", 
-            "-ea", "-jar", find_file('build/h2o.jar'),
-            "--port=%d"%port,
-            '--ip=%s'%(addr or get_ip_address()),
-            '--ice_root=%s' % tmp_dir('ice.')
-            ]
-    if nosigar is True: 
-        h2o_cmd.append('--nosigar')
-    return spawn_cmd('h2o', h2o_cmd)
-
 nodes = []
 def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
     node_list = []
@@ -150,7 +142,6 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
         for i in xrange(node_count):
             n = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
             node_list.append(n)
-
         stabilize_cloud(node_list[0], len(node_list))
     except:
         for n in node_list: n.terminate()
@@ -159,21 +150,34 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
     return node_list
 
 # this can be used for a local IP address, just done thru ssh 
-nodes = []
-def build_remote_cloud(hosts, nodes_per_host=2, base_port=55321, ports_per_node=3, **kwargs):
+# node_count is per host if hosts is specified.
+# If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
+def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3, 
+    hosts=None, **kwargs):
     node_list = []
     try:
-        for h in hosts:
-            for i in xrange(nodes_per_host):
-                print 'Starting node', i, 'via', h
-                node_list.append(h.remote_h2o(port=base_port + i*3))
+        # if no hosts list, use psutil method on local host.
+        if hosts is None:
+            for i in xrange(node_count):
+                verboseprint('psutil starting node', i)
+                node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
+            timeoutSecs = 10.0 # for stabilize
+            retryDelaySecs = 0.25 # for stabilize
+        else:
+            for h in hosts:
+                for i in xrange(node_count):
+                    print 'ssh starting node', i, 'via', h
+                    node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
+            timeoutSecs = 15.0
+            retryDelaySecs = 0.25
 
-        print 'Remote cloud stabilize'
+        verboseprint('Cloud stabilize')
         start = time.time()
-        stabilize_cloud(node_list[0], len(node_list))
-        print len(node_list), " Remote node 0 stabilized in ", time.time()-start, " secs"
-        print "Built remote cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
-            len(hosts), (time.time() - start)) 
+        stabilize_cloud(node_list[0], len(node_list), 
+            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+        verboseprint(len(node_list), " Node 0 stabilized in ", time.time()-start, " secs")
+        verboseprint("Built cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
+            len(hosts), (time.time() - start))) 
     except:
         for n in node_list: n.terminate()
         raise
@@ -325,7 +329,7 @@ class H2O(object):
         return a
 
     def stabilize(self, test_func, error,
-            timeoutSecs, retryDelaySecs=0.5):
+            timeoutSecs=10, retryDelaySecs=0.5):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:
@@ -355,6 +359,7 @@ class H2O(object):
             raise Exception(msg)
 
     def wait_for_node_to_accept_connections(self):
+        verboseprint("wait_for_node_to_accept_connections")
         def test(n):
             try:
                 n.get_cloud()
@@ -362,12 +367,18 @@ class H2O(object):
             except requests.ConnectionError, e:
                 # Connection refusal is normal. 
                 # It just means the node has not started up yet.
-                if (    e.args[0].errno == 61 or   # mac/linux
-                        e.args[0].errno == 111 or  # mac/linux
-                        e.args[0].errno == 104 or  # ubuntu
-                        e.args[0].errno == 10061): # windows
+                conn_err = e.args[0].errno
+                verboseprint("Legal connection error", conn_err, 
+                    "during wait_for_node_to_accept_connections")
+                if (    conn_err == 61 or   # mac/linux
+                        conn_err == 111 or  # mac/linux
+                        conn_err == 104 or  # ubuntu (kbn)
+                        conn_err == 10061): # windows
                     return False
+                # 110 is a timeout: I'm getting sometimes from my ubuntu to centos
+                # if there's a raise, we end up waiting for timeout before seeing it!
                 raise
+
         self.stabilize(test, 'Cloud accepting connections',
                 timeoutSecs=15, # with cold cache's this can be quite slow
                 retryDelaySecs=0.1) # but normally it is very fast
@@ -387,9 +398,10 @@ class H2O(object):
             args += ['--nosigar']
         return args
 
-    def __init__(self, addr=None, port=54321, capture_output=True, sigar=False, use_debugger=False):
+    def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
+        use_debugger=False):
         self.port = port
-        self.addr = addr or get_ip_address()
+        self.addr = use_this_ip_addr or get_ip_address()
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output
@@ -437,7 +449,7 @@ class ExternalH2O(H2O):
 
 
 class LocalH2O(H2O):
-    '''An H2O inkstance launched by the python framework on the local machine'''
+    '''An H2O instance launched by the python framework on the local host using psutil'''
     def __init__(self, *args, **keywords):
         super(LocalH2O, self).__init__(*args, **keywords)
         self.rc = None
@@ -520,7 +532,7 @@ class RemoteHost(object):
 
 
 class RemoteH2O(H2O):
-    '''An H2O instance launched by the python framework on a remote machine'''
+    '''An H2O instance launched by the python framework on a specified host using openssh'''
     def __init__(self, host, *args, **keywords):
         super(RemoteH2O, self).__init__(*args, **keywords)
 

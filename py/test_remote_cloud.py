@@ -6,14 +6,24 @@ class Basic(unittest.TestCase):
     def setUpClass(cls):
         global hosts
         global nodes
-        global nodes_per_host
+        global node_count
 
         # we may have big delays with 2 jvms (os?)
-        # also: what is the agreement on json visible cloud state in each node, vs the paxos algorithm
-        # (timing)
-        nodes_per_host = 1
+        # also: what is the agreement on json visible cloud state in each node vs the paxos algorithm
+        node_count = 1
         hosts = []
-        if (1==0):
+        # FIX! probably will just add args for -matt -kevin -0xdata that select different lists?
+        # or we could have a hosts file that's local that you modify. just as easy to mod this though?
+        if (1==1):
+
+            # ubuntu okay with: sudo adduser --force-badname 0xdiag
+            #    h2o.RemoteHost('192.168.0.37',  '0xdiag', '0xdiag')
+            hosts = [
+                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag')
+            ]
+        elif (1==0):
+
             hosts = [
                 h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
@@ -48,8 +58,8 @@ class Basic(unittest.TestCase):
             sys.stdout.write('.')
             sys.stdout.flush()
 
-            nodes = h2o.build_remote_cloud(hosts, nodes_per_host, 
-                base_port=55321, ports_per_node=3)
+            # node_count is per host.
+            nodes = h2o.build_remote_cloud(node_count, base_port=55321, ports_per_node=3, hosts=hosts)
 
             for n in nodes:
                 print "Checking n:", n
