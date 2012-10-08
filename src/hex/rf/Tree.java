@@ -50,15 +50,6 @@ public class Tree extends CountedCompleter {
     _seed = 0;
   }
 
-  /** Determines the error rate of a single tree on the local data only. */
-  public double validate(Data data) {
-    int errors = 0, total = 0;
-    for (Row row: data) {
-      total++;
-      if (row.classOf() != classify(row)) errors++;
-    }
-    return ((double)errors)/total;
-  }
 
   // Oops, uncaught exception
   public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
@@ -89,12 +80,8 @@ public class Tree extends CountedCompleter {
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
       : new FJBuild (spl,_data,0).compute();
-    // report & bookkeeping
-    StringBuilder sb = new StringBuilder();
-    sb.append("Tree :").append(_data_id).append(" d=").append(_tree.depth());
-    sb.append(" leaves=").append(_tree.leaves()).append("  ");
-    sb = _tree.toString(sb,150);
-    System.out.println(sb.toString());
+    StringBuilder sb = new StringBuilder("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
+    Utils.pln(_tree.toString(sb,150).toString());
     stats_ = null; // GC
     tryComplete();
   }
