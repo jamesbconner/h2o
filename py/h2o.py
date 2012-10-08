@@ -173,7 +173,7 @@ def build_remote_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=No
         else:
             for h in hosts:
                 for i in xrange(node_count):
-                    print 'ssh starting node', i, 'via', h
+                    verboseprint('ssh starting node', i, 'via', h)
                     node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
             timeoutSecs = 15.0
             retryDelaySecs = 0.25
