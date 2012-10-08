@@ -149,7 +149,6 @@ public class Confusion extends MRTask {
       _rows++;
       if( predict != cclass ) _errors++;
     }
-    Utils.pln(_errors+"");
   }
 
   /** Reduction combines the confusion matrices. */
