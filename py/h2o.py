@@ -158,11 +158,41 @@ def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
     nodes[:] = node_list
     return node_list
 
+# this can be used for a local IP address, just done thru ssh 
+nodes = []
+def build_remote_cloud(hosts, nodes_per_host=2, base_port=55321, ports_per_node=3, **kwargs):
+    node_list = []
+    try:
+        for h in hosts:
+            for i in xrange(nodes_per_host):
+                print 'Starting node', i, 'via', h
+                node_list.append(h.remote_h2o(port=base_port + i*3))
+
+        print 'Remote cloud stabilize'
+        start = time.time()
+        stabilize_cloud(node_list[0], len(node_list))
+        print len(node_list), " Remote node 0 stabilized in ", time.time()-start, " secs"
+        print "Built remote cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
+            len(hosts), (time.time() - start)) 
+    except:
+        for n in node_list: n.terminate()
+        raise
+
+    # this is just in case they don't assign the return to the nodes global?
+    nodes[:] = node_list
+    return node_list
+
+def upload_jar_to_remote_hosts(hosts):
+    for h in hosts:
+        print 'Sending jar to remote', h
+        h.upload_file(find_file('build/h2o.jar'))
+
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
     try:
         for n in node_list:
             n.terminate()
+            verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
 
