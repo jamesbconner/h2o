@@ -166,7 +166,7 @@ def build_remote_cloud(hosts, nodes_per_host=2, base_port=55321, ports_per_node=
         for h in hosts:
             for i in xrange(nodes_per_host):
                 print 'Starting node', i, 'via', h
-                node_list.append(h.remote_h2o(port=base_port + i*3))
+                node_list.append(h.remote_h2o(port=base_port + i*3, **kwargs))
 
         print 'Remote cloud stabilize'
         start = time.time()
