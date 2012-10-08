@@ -14,8 +14,6 @@ public class Confusion extends MRTask {
 
   /** Key of keys of trees.*/
   public Key                  _treeskey;
-  /** Trees process so far. */
-  public int                  _ntrees;
   /** Number of features used to build the forest. */
   public int                  _features = -1;
   /** Dataset we are building the matrix on. The classes must be in the last
@@ -142,7 +140,7 @@ public class Confusion extends MRTask {
         if( !_data.valid(chunk_bits, i, _data.row_size(), k) )  continue MAIN_LOOP; // Skip broken rows
       if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
       int[] votes = new int[_N];
-      for( int t = 0; t < _ntrees; t++ )  // This tree's prediction for row i
+      for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
         votes[_model.classify(t, chunk_bits, i, _data.row_size())]++;
       int predict = Utils.maxIndex(votes, _rand);
       int cclass = (int) _data.data(chunk_bits, i, _data.row_size(), ccol) - cmin;
@@ -151,6 +149,7 @@ public class Confusion extends MRTask {
       _rows++;
       if( predict != cclass ) _errors++;
     }
+    Utils.pln(_errors+"");
   }
 
   /** Reduction combines the confusion matrices. */
