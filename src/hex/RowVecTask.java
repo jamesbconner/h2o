@@ -3,10 +3,35 @@ package hex;
 import water.*;
 
 public abstract class RowVecTask extends MRTask {
+
+  public static class Sampling {
+    final int _step;
+    final int _offset;
+    final boolean _complement;
+
+    public Sampling(int offset, int step, boolean complement){
+      _step = step;
+      _complement = complement;
+      _offset = offset;
+    }
+
+    Sampling complement(){
+      return new Sampling(_offset,_step, !_complement);
+    }
+  }
+
   protected int [] _colIds;
   public RowVecTask() {}
-  public RowVecTask(int [] colIds){_colIds = colIds;}
-  public RowVecTask(RowVecTask other){_colIds = other._colIds;}
+  public RowVecTask(int [] colIds){this(colIds,null);}
+  public RowVecTask(int [] colIds, Sampling s){
+    _colIds = colIds;
+    if(s != null){
+      _offset = s._offset;
+      _step = s._step;
+      _complement = s._complement;
+    }
+  }
+  public RowVecTask(RowVecTask other){_colIds = other._colIds; _step = other._step; _offset = other._offset; _complement = other._complement;}
   int _step = 0;
   int _offset = 0;
   boolean _complement;
@@ -23,10 +48,12 @@ public abstract class RowVecTask extends MRTask {
    * @param ratio value in range 0 - 1 giving the ratio of rows to be selected. 0 means no row will be selcted, 1 means all rows will be selected.
    * @param complement - if true, returns exactly the complement of the set defined by the seed and ratio.
    */
-  public void setSampling(int offset, int step, boolean complement){
-    _offset = offset;
-    _step = step;
-    _complement = complement;
+  public void setSampling(Sampling s){
+    if(s != null){
+      _offset = s._offset;
+      _step = s._step;
+      _complement = s._complement;
+    }
   }
   @Override
   public void map(Key key) {

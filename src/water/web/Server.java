@@ -4,6 +4,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import init.Boot;
 import java.io.*;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,8 +19,11 @@ public class Server extends NanoHTTPD {
   private static final ConcurrentHashMap<String,byte[]> _cache = new ConcurrentHashMap();
   private static final HashMap<String,Page> _pages = new HashMap();
 
+  static final SessionManager _sessionManager;
+  
   // initialization ------------------------------------------------------------
   static {
+    _sessionManager = new SessionManager();
     // initialize pages
     _pages.put("",new Cloud());
     _pages.put("Cloud",new Cloud());
@@ -63,6 +67,9 @@ public class Server extends NanoHTTPD {
     _pages.put("Test",new Test());
     _pages.put("Timeline",new Timeline());
     _pages.put("Store2HDFS",new Store2HDFS());
+    _pages.put("loginQuery", new LoginQuery());
+    _pages.put("login", new Login());
+    _pages.put("logoff", new Logoff());
   }
 
 
@@ -83,11 +90,32 @@ public class Server extends NanoHTTPD {
         }
       }).start();
   }
+  
+  /** Returns the sessionID stored in the cookie, or null if no such cookie was
+   * found. 
+   * 
+   * Only a very simple cookie parser. 
+   * @param header
+   * @return 
+   */
+  private String getSessionIDFromCookie(Properties header) {
+    String cks = header.getProperty("cookie","");
+    String[] parts = cks.split(" ");
+    for (String s: parts) {
+      s = s.trim();
+      if (s.startsWith(SessionManager.SESSION_COOKIE+"=")) {
+        s = s.substring(SessionManager.SESSION_COOKIE.length()+1, s.endsWith(";") ? s.length()-1 : s.length());
+        return s;
+      }
+    }
+    return null;
+  }
 
   // uri serve -----------------------------------------------------------------
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
     if (uri.isEmpty()) uri = "/";
 
+    
     Page page = _pages.get(uri.substring(1));
     boolean json = uri.endsWith(".json");
     if (json && page == null) page = _pages.get(uri.substring(1, uri.length()-5));
@@ -97,6 +125,13 @@ public class Server extends NanoHTTPD {
     // if we cannot handle it, then it might be a resource
     if (page==null) return getResource(uri);
 
+    // authenticate and display an error if not authorized to view
+    
+    String sessionID = getSessionIDFromCookie(header);
+    String username = _sessionManager.authenticate(sessionID);
+    if (!page.authenticate(username)) 
+      return http401(uri);
+    
     // unify GET and POST arguments
     parms.putAll(files);
     // check that required arguments are present
@@ -112,7 +147,7 @@ public class Server extends NanoHTTPD {
     }
     Object result;
     try {
-      result = json ? page.serverJson(this,parms) : page.serve(this,parms);
+      result = json ? page.serverJson(this,parms,sessionID) : page.serve(this,parms,sessionID);
     } catch( PageError e ) {
       result = e._msg;
     }
@@ -161,7 +196,15 @@ public class Server extends NanoHTTPD {
   // others --------------------------------------------------------------------
 
   private Response http404(String uri) {
-    return new Response(NanoHTTPD.HTTP_NOTFOUND,NanoHTTPD.MIME_PLAINTEXT,"Location "+uri+" not found.");
+    RString r = new RString(Page.html);
+    r.replace("contents","Location "+uri+" not found.");
+    return new Response(NanoHTTPD.HTTP_NOTFOUND,NanoHTTPD.MIME_HTML,r.toString());
+  }
+  
+  private Response http401(String uri) {
+    RString r = new RString(Page.html);
+    r.replace("contents","You are not authorized to view "+uri+" try to <a href=\"loginQuery\">login</a> first.");
+    return new Response(NanoHTTPD.HTTP_OK,NanoHTTPD.MIME_HTML,r.toString()); // we do not use HTTP authorization for the webpage access
   }
 
 }

@@ -19,7 +19,7 @@ public class Stream {
   public Stream( byte[] b )          { _buf = b;             }
   public Stream( byte[] b, int off ) { _buf = b; _off = off; }
 
-  public  byte[] grow ( int l ) { return (_off+l < _buf.length) ? _buf : grow2(_off+l);  }
+  public  byte[] grow ( int l ) { return (_off+l <= _buf.length) ? _buf : grow2(_off+l);  }
   private byte[] grow2( int l ) {
     int l2 = _buf.length;
     while( l2 < l ) l2<<=1;

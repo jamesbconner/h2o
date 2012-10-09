@@ -15,7 +15,7 @@ import water.hdfs.TaskStore2HDFS;
  */
 public class Store2HDFS extends H2OPage {
   
-  @Override public String serveImpl(Server s, Properties args) throws PageError {
+  @Override public String serveImpl(Server s, Properties args, String sessionID) throws PageError {
     Key srcKey = ServletUtil.check_key(args,"Key");
     
     Key tgtKey = TaskStore2HDFS.store2Hdfs(srcKey);

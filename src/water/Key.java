@@ -340,7 +340,7 @@ public final class Key implements Comparable {
     while( d != 0 ) {
       int idx = (int)(d&0xFF);// Unsigned byte unique index being cached
       // Node being cached
-      H2ONode h2o = H2ONode.IDX.get(idx);
+      H2ONode h2o = H2ONode.IDX[idx];
       // Only report if is in the current Cloud
       if( cloud._memset.contains(h2o) ) repl++;
       d >>= 8;
@@ -355,7 +355,7 @@ public final class Key implements Comparable {
     while( d != 0 ) {
       int idx = (int)(d&0xFF);// Unsigned byte unique index being cached
       d >>= 8;
-      H2ONode h2o = H2ONode.IDX.get(idx);
+      H2ONode h2o = H2ONode.IDX[idx];
       s += h2o + ", ";
     }
     return s+"}";
@@ -380,7 +380,7 @@ public final class Key implements Comparable {
     while( d != 0 ) {
       int idx = (int)(d&0xff);
       d >>= 8;
-      H2ONode h2o = H2ONode.IDX.get(idx);
+      H2ONode h2o = H2ONode.IDX[idx];
       tpks[i++] = invalidate(h2o);
     }
     // Bulk block until all invalidates happen

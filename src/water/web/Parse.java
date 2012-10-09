@@ -13,7 +13,7 @@ public class Parse extends H2OPage {
   @Override public String[] requiredArguments() { return new String[] { "Key" }; }
 
   @Override
-  public JsonObject serverJson(Server s, Properties p) throws PageError {
+  public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     String k = p.getProperty("Key");
     String rk = p.getProperty("Key2", UUID.randomUUID().toString());
 
@@ -37,8 +37,8 @@ public class Parse extends H2OPage {
 
   }
 
-  @Override protected String serveImpl(Server s, Properties p) throws PageError {
-    JsonObject json = serverJson(s, p);
+  @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
+    JsonObject json = serverJson(s, p,sessionID);
 
     RString res = json.get("TimeMS").getAsInt() > 0
         ? new RString("Parsed into <a href='/Inspect?Key=%keyHref'>%key</a> in %TimeMS msec")

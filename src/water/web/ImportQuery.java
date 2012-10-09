@@ -28,7 +28,7 @@ public class ImportQuery extends H2OPage {
     + "</form> "
     ;
 
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     return html;
   }
 }

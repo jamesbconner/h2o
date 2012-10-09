@@ -6,7 +6,7 @@ import water.Key;
 
 public class RemoveAck extends H2OPage {
 
-  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     Key key = ServletUtil.check_key(args,"Key");
     RString response = new RString(html);
     response.replace("key",key);

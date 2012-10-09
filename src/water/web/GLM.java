@@ -1,8 +1,10 @@
 package water.web;
 
 import hex.*;
+import hex.GLSM.BinomialValidation;
+import hex.GLSM.GLM_Model;
+import hex.GLSM.GLM_Validation;
 import hex.GLSM.GLSMException;
-import hex.GLSM.XValAggregateResult;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -91,7 +93,7 @@ public class GLM extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server s, Properties p) throws PageError {
+  public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     JsonObject res = new JsonObject();
     try {
       ValueArray ary = ServletUtil.check_array(p, "Key");
@@ -144,65 +146,90 @@ public class GLM extends H2OPage {
           res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
+      double threshold;
+      try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
+
       String method = p.getProperty("family", "gaussian").toLowerCase();
+
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
       res.addProperty("h2o", H2O.SELF.urlEncode());
-      double[] coefs = null;
       long t1 = System.currentTimeMillis();
       if( method.equals("gaussian") ) res.addProperty("name","Linear regression");
       else if( method.equals("binomial") )
         res.addProperty("name", "Logistic regression");
       GLSM.Family f;
       try{f = GLSM.Family.valueOf(method.toLowerCase());}catch(IllegalArgumentException e){throw new InvalidInputException("unknown family " + method);}
-      GLSM g = new GLSM(ary, columns, 1,f);
-      coefs = g.solve();
-      double[] validationCoef = g.test();
+      GLSM.Norm norm;
+      try{norm = GLSM.Norm.valueOf(p.getProperty("norm", "NONE"));}catch(IllegalArgumentException e){throw new InvalidInputException("unknown norm " + p.getProperty("norm","NONE"));}
+      double lambda = 0.0;
+      double ro = 1.0;
+      if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0"));}
+      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,ro});
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("time", deltaT);
-      res.addProperty("DegreesOfFreedom", g.n() - 1);
-      res.addProperty("ResidualDegreesOfFreedom", g.n() - X.length - 1);
-      res.add("coefficients", getCoefficients(columns, colNames, coefs));
-      if( validationCoef != null ) {
-        res.addProperty("Null Deviance", -2 * validationCoef[0]);
-        res.addProperty("Residual Deviance", -2 * validationCoef[1]);
+      res.addProperty("DegreesOfFreedom", m.n - 1);
+      res.addProperty("ResidualDegreesOfFreedom", m.n - X.length - 1);
+      res.add("coefficients", getCoefficients(columns, colNames, m.beta));
+      GLM_Validation val = m.validateOn(ary, null, columns,new double[]{threshold});
+      if( val.nullDeviance() != 0) {
+        res.addProperty("Null Deviance", val.nullDeviance());
+        res.addProperty("Residual Deviance", val.residualDeviance());
         int k = X.length + 1;
-        res.addProperty("AIC", 2 * k - 2 * validationCoef[1]);
+        res.addProperty("AIC", 2 * k + val.residualDeviance());
       }
+      res.addProperty("trainingSetErrorRate",val.errMean());
+
+      // Cross Validation
       int xfactor;
       try{xfactor = Integer.valueOf(p.getProperty("xval","0"));}catch(NumberFormatException e){res.addProperty("error", "invalid cross factor value, expected integer, found " + p.getProperty("xval"));return res;};
       if(xfactor == 0)return res;
-      if(xfactor > g.n())xfactor = (int)g.n();
+      if(xfactor > m.n)xfactor = (int)m.n;
+      if(xfactor == 1)throw new InvalidInputException("Invalid value of xfactor. Has to be either 0 (no crossvalidation) or > 1.");
       res.addProperty("xfactor", xfactor);
-      double threshold;
-      try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
       res.addProperty("threshold", threshold);
-      XValAggregateResult r = GLSM.xValidate(ary,f,columns,xfactor, threshold);
-      res.addProperty("trueNegative", dformat.format(r._confusionMatrix[0][0]));
-      res.addProperty("trueNegativeVar", dformat.format(r._confusionMatrixVariance[0][0]));
-      res.addProperty("truePositive", dformat.format(r._confusionMatrix[1][1]));
-      res.addProperty("truePositiveVar", dformat.format(r._confusionMatrixVariance[1][1]));
-      res.addProperty("falseNegative", dformat.format(r._confusionMatrix[0][1]));
-      res.addProperty("falseNegativeVar", dformat.format(r._confusionMatrixVariance[0][1]));
-      res.addProperty("falsePositive", dformat.format(r._confusionMatrix[1][0]));
-      res.addProperty("falsePositiveVar", dformat.format(r._confusionMatrixVariance[1][0]));
-      res.addProperty("errRate", dformat.format(r._err));
-      res.addProperty("errRateVar", dformat.format(r._errVar));
-      JsonArray models = new JsonArray();
-      for(int i = 0; i < r._models.length; ++i) {
-        JsonObject m = new JsonObject();
-        JsonArray arr = new JsonArray();
-        for(int j = 0; j < r._models[i]._confMatrix.length;++j){
-          JsonArray row = new JsonArray();
-          for(int k = 0; k < r._models[i]._confMatrix.length;++k)
-            row.add(new JsonPrimitive(r._models[i]._confMatrix[j][k]));
-          arr.add(row);
+      ArrayList<GLM_Validation> vals = GLSM.xValidate(ary,f,columns,xfactor, threshold, 1, norm, new double[]{lambda,ro});
+      val = vals.get(0);
+      if(val instanceof BinomialValidation){
+        BinomialValidation v = (BinomialValidation)val;
+        res.addProperty("trueNegative", dformat.format(v.tnMean()));
+        res.addProperty("trueNegativeVar", dformat.format(v.tnVar()));
+        res.addProperty("truePositive", dformat.format(v.tpMean()));
+        res.addProperty("truePositiveVar", dformat.format(v.tpVar()));
+        res.addProperty("falseNegative", dformat.format(v.fnMean()));
+        res.addProperty("falseNegativeVar", dformat.format(v.fnVar()));
+        res.addProperty("falsePositive", dformat.format(v.fpMean()));
+        res.addProperty("falsePositiveVar", dformat.format(v.fpVar()));
+        // add individual models
+        JsonArray models = new JsonArray();
+        for(int i = 1; i < vals.size(); ++i) {
+          JsonObject im = new JsonObject();
+          JsonArray arr = new JsonArray();
+          v = (BinomialValidation)vals.get(i);
+          for(int j = 0; j < 2;++j){
+            JsonArray row = new JsonArray();
+            for(int k = 0; k < 2;++k)
+              row.add(new JsonPrimitive(v.cm(j,k)));
+            arr.add(row);
+          }
+          im.add("cm", arr);
+          im.add("coefs", getCoefficients(columns, colNames, v.m().beta));
+          models.add(im);
         }
-        m.add("cm", arr);
-        m.add("coefs", getCoefficients(columns, colNames, r._models[i]._beta));
-        models.add(m);
+        res.add("models", models);
+      } else {
+        res.addProperty("trueNegative", "n/a");
+        res.addProperty("trueNegativeVar", "n/a");
+        res.addProperty("truePositive", "n/a");
+        res.addProperty("truePositiveVar", "n/a");
+        res.addProperty("falseNegative", "n/a");
+        res.addProperty("falseNegativeVar", "n/a");
+        res.addProperty("falsePositive", "n/a");
+        res.addProperty("falsePositiveVar", "n/a");
       }
-      res.add("models", models);
+      res.addProperty("errRate", dformat.format(val.errMean()));
+      res.addProperty("errRateVar", dformat.format(val.errVar()));
+
     } catch( InvalidInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());
     } catch( GLSMException e2 ) {
@@ -253,7 +280,7 @@ public class GLM extends H2OPage {
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
   @Override
-  protected String serveImpl(Server server, Properties args) throws PageError {
+  protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     // RString responseTemplate = new RString(
     // "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
     // + "<div>Coefficients:%coefficientHTML</div>"
@@ -278,9 +305,11 @@ public class GLM extends H2OPage {
             + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
             + "<tr><th>Null Deviance</th><td>%NullDeviance</td></tr>"
             + "<tr><th>Residual Deviance</th><td>%ResidualDeviance</td></tr>"
-            + "<tr><th>AIC</th><td>%AIC_formated</td></tr>" + "</table> %xvalidation");
+            + "<tr><th>AIC</th><td>%AIC_formated</td></tr>"
+            + "<tr><th>Training Error Rate</th><td>%trainingSetErrorRate</td></tr>"
+            + "</table> %xvalidation");
 
-    JsonObject json = serverJson(server, args);
+    JsonObject json = serverJson(server, args, sessionID);
     if( json.has("error") )
       return H2OPage.error(json.get("error").getAsString());
     JsonArray models = (JsonArray)json.get("models");
@@ -303,12 +332,18 @@ public class GLM extends H2OPage {
     if( json.has("Null Deviance") )
       responseTemplate.replace("NullDeviance",
           dformat.format(json.get("Null Deviance").getAsDouble()));
+    else
+      responseTemplate.replace("NullDeviance","n/a");
     if( json.has("Residual Deviance") )
       responseTemplate.replace("ResidualDeviance",
           dformat.format(json.get("Residual Deviance").getAsDouble()));
+    else
+      responseTemplate.replace("ResidualDeviance","n/a");
     if( json.has("AIC") )
       responseTemplate.replace("AIC_formated",
           dformat.format(json.get("AIC").getAsDouble()));
+    else
+      responseTemplate.replace("AIC_formated","n/a");
     if(json.has("xfactor")){
       RString xValidationTemplate = new RString(
            "<h3>%xfactor fold Cross Validation</h3>"
@@ -324,24 +359,26 @@ public class GLM extends H2OPage {
           +"</tbody>"
           +"</table>");
       xValidationTemplate.replace(json);
-      bldr =new StringBuilder("<h3>Individual Models</h3>");
-      int modelIdx = 1;
-      for(JsonElement o:models){
-        bldr.append("<h4>Model " + modelIdx++ + "</h4>");
-        JsonObject m = (JsonObject)o;
-        bldr.append("\n<h5>Coefficients:</h5><div>" + getCoefficientsStr(m.get("coefs").getAsJsonObject(), codeBldr) + "</div><h5>Confusion Matrix</h5>");
-        JsonArray arr = m.get("cm").getAsJsonArray();
-        bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
-        int rowidx = 0;
-        for(JsonElement e:arr){
-          bldr.append("<tr><th>Y<sub>model</sub>=" + rowidx++ + "</th>");
-          JsonArray a = e.getAsJsonArray();
-          for(JsonElement elem:a){
-            bldr.append("<td>" + elem.getAsString() + "</td>");
+      if(models != null){
+        bldr =new StringBuilder("<h3>Individual Models</h3>");
+        int modelIdx = 1;
+        for(JsonElement o:models){
+          bldr.append("<h4>Model " + modelIdx++ + "</h4>");
+          JsonObject m = (JsonObject)o;
+          bldr.append("\n<h5>Coefficients:</h5><div>" + getCoefficientsStr(m.get("coefs").getAsJsonObject(), codeBldr) + "</div><h5>Confusion Matrix</h5>");
+          JsonArray arr = m.get("cm").getAsJsonArray();
+          bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
+          int rowidx = 0;
+          for(JsonElement e:arr){
+            bldr.append("<tr><th>Y<sub>model</sub>=" + rowidx++ + "</th>");
+            JsonArray a = e.getAsJsonArray();
+            for(JsonElement elem:a){
+                 bldr.append("<td>" + elem.getAsString() + "</td>");
+            }
+            bldr.append("</tr>\n");
           }
-          bldr.append("</tr>\n");
+          bldr.append("</tbody></table>\n");
         }
-        bldr.append("</tbody></table>\n");
       }
       responseTemplate.replace("xvalidation",xValidationTemplate.toString() + bldr.toString());
     }

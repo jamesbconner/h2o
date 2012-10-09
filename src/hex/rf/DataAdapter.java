@@ -1,7 +1,8 @@
 package hex.rf;
 
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
 
 class DataAdapter  {
   private short[] data_;
@@ -51,20 +52,20 @@ class DataAdapter  {
     }
   }
 
-    public String name() { return name_; }
+  public String name() { return name_; }
 
-    // lame attempt at best effort ... throw away half the data each time 'round
-    public void shrinkWrap() {
-      try {
-        _shrinkWrap();
-      } catch (OutOfMemoryError e) {
-        if (rows<=2) throw e;  // Give up
-        rows = rows/2; // try with fewer rows
-        Utils.pln("[RF] Warning: Reduced input size to "+ rows+" rows.");
-        shrinkWrap();
-      }
+  // lame attempt at best effort ... throw away half the data each time 'round
+  public void shrinkWrap() {
+    try {
+      _shrinkWrap();
+    } catch (OutOfMemoryError e) {
+      if (rows<=2) throw e;  // Give up
+      rows = rows/2; // try with fewer rows
+      Utils.pln("[RF] Warning: Reduced input size to "+ rows+" rows.");
+      shrinkWrap();
     }
-    private short[] _shrinkWrap() {
+  }
+  private short[] _shrinkWrap() {
       freeze();
       short[][] vss = new short[c_.length][];
       for( int i=0; i<c_.length-1; i++ )
@@ -155,8 +156,8 @@ class DataAdapter  {
   // it's one-based (e.g. covtype).
   short[] shrink( boolean noEncoding ) {
     smin_ = 0;
-   // o2v_ = hashCol();
-   H o2v2 = hashCol2();
+   HashMap<Float,Short> o2v2 = hashCol();
+   //H o2v2 = hashCol2();
     short[] res = new short[rows()];
     int min = (int)min_;
     for(int j=0;j<rows();j++)
@@ -165,11 +166,14 @@ class DataAdapter  {
     return res;
   }
 
-  H hashCol2() {
-    H res = new H(100);
-    for(int i=0; i< rows(); i++) if (!res.contains(v_[i])) res.put(v_[i],(short)0);
-    H res2 = new H(res.size());
-    float[] ks = res.keys();
+  HashMap hashCol() {
+    HashMap<Float,Short> res = new HashMap<Float,Short>(100);
+    for(int i=0; i< rows(); i++) if (!res.containsKey(v_[i])) res.put(v_[i],(short)0);
+    HashMap<Float,Short> res2 = new HashMap<Float,Short>(res.size());
+    Object[] oks = res.keySet().toArray();
+    float[] ks = new float[oks.length];
+    int idx=0;
+    for(Object o : oks)  ks[idx++] =((Float)o).floatValue();
     _v2o = new float[ks.length];
     Arrays.sort(ks);
     smax_ = 0;
