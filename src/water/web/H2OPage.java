@@ -36,7 +36,7 @@ public abstract class H2OPage extends Page {
     ;
 
   @Override public String serve(Server server, Properties args, String sessionID) {
-    String username = sessionID != null ? server._sessionManager.authenticate(sessionID) : null;
+    String username = sessionID != null ? Server._sessionManager.authenticate(sessionID) : null;
     RString response = new RString(html);
     response.replace("navbar",navbar);
     if (username != null)

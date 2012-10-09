@@ -27,7 +27,7 @@ public class Login extends Page {
   @Override public Object serve(Server server, Properties args, String sessionID) {
     String inputUsername = args.getProperty("username");
     String inputPassword = args.getProperty("password");
-    String sessID = server._sessionManager.verifyAuthentication(inputUsername, inputPassword);
+    String sessID = Server._sessionManager.verifyAuthentication(inputUsername, inputPassword);
     if (sessID == null) {
       RString r = new RString(Page.html);
       r.replace("contents",unauthorized);
