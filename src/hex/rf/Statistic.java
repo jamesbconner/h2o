@@ -12,7 +12,7 @@ import java.util.Random;
 abstract class Statistic {
   protected final int[][][] _columnDists;  // Column distributions for the given statistic
   protected final int[] _features;         // Columns/features that are currently used.
-  protected final Random random;             // pseudo random number generator
+  protected     Random random;             // pseudo random number generator
 
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
@@ -88,7 +88,8 @@ abstract class Statistic {
    * a new subset of columns that will be analyzed and clears their
    * distribution arrays.
    */
-  void reset(Data data) {
+  void reset(Data data, int seed) {
+    random = new Random(seed);
     // first get the columns for current split via Resevoir Sampling
     int i = 0;
     for( ; i<_features.length; i++ ) _features[i] = i;

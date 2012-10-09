@@ -57,7 +57,7 @@ public class Tree extends CountedCompleter {
     return true;
   }
 
-  private Statistic getStatistic(int index, Data data) {
+  private Statistic getStatistic(int index, Data data, int seed) {
     Statistic result = stats_[index].get();
     if( result==null ) {
       result  = _type == StatType.GINI ?
@@ -65,7 +65,7 @@ public class Tree extends CountedCompleter {
           new EntropyStatistic(data,_features, _seed);
       stats_[index].set(result);
     }
-    result.reset(data);
+    result.reset(data, seed);
     return result;
   }
 
@@ -73,13 +73,13 @@ public class Tree extends CountedCompleter {
   public void compute() {
     stats_[0] = new ThreadLocal<Statistic>();
     stats_[1] = new ThreadLocal<Statistic>();
-    Statistic left = getStatistic(0,_data);
+    Statistic left = getStatistic(0,_data, _seed);
     // calculate the split
     for( Row r : _data ) left.add(r);
     Statistic.Split spl = left.split(_data);
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
-      : new FJBuild (spl,_data,0).compute();
+      : new FJBuild (spl,_data,0, _seed + 1).compute();
     StringBuilder sb = new StringBuilder("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,150).toString());
     stats_ = null; // GC
@@ -89,15 +89,15 @@ public class Tree extends CountedCompleter {
   private class FJBuild extends RecursiveTask<INode> {
     final Statistic.Split split_;
     final Data data_;
-    final int depth_;
+    final int depth_, _seed;
 
-    FJBuild(Statistic.Split split, Data data, int depth) {
-      split_ = split;  data_ = data; depth_ = depth;
+    FJBuild(Statistic.Split split, Data data, int depth, int seed) {
+      split_ = split;  data_ = data; depth_ = depth; _seed = seed;
     }
 
     @Override public INode compute() {
-      Statistic left = getStatistic(0,data_); // first get the statistics
-      Statistic rite = getStatistic(1,data_);
+      Statistic left = getStatistic(0,data_, _seed + 10101); // first get the statistics
+      Statistic rite = getStatistic(1,data_, _seed +  2020);
       Data[] res = new Data[2]; // create the data, node and filter the data
       int c = split_._column, s = split_._split;
       SplitNode nd = split_.isExclusion() ?
@@ -109,9 +109,9 @@ public class Tree extends CountedCompleter {
       Statistic.Split ls = left.split(data_); // get the splits
       Statistic.Split rs = rite.split(data_);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
-      else                    fj0 = new  FJBuild(ls,res[0],depth_+1);
+      else                    fj0 = new  FJBuild(ls,res[0],depth_+1, _seed + 1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
-      else                    fj1 = new  FJBuild(rs,res[1],depth_+1);
+      else                    fj1 = new  FJBuild(rs,res[1],depth_+1, _seed - 1);
 
       // Recursively build the splits, in parallel
       if( fj0 != null &&        (fj1!=null && THREADED) ) fj0.fork();
