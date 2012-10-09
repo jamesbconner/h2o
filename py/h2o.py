@@ -231,6 +231,9 @@ class H2O(object):
         verboseprint("get_cloud:", a)
         return a
 
+    def get_timeline(self):
+        return self.__check_request(requests.get(self.__url('Timeline.json')))
+
     def shutdown_all(self):
         return self.__check_request(requests.get(self.__url('Shutdown.json')))
 
