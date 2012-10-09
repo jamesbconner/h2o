@@ -257,8 +257,8 @@ public class Inspect extends H2OPage {
             if( r == -1 ) sb.append("...");
             else {
               if( ary.col_has_enum_domain(i) ) sb.append(ary.col_enum_domain_val(i, (int)ary.data(r,i)));
-              else if( ary.col_size(i) >= 0 )  sb.append(ary.data (r,i)); // int/long
-              else                             sb.append(ary.datad(r,i)); // float/double
+              else if( ary.col_size(i) >= 0 && ary.col_scale(i)==1 ) sb.append(ary.data(r,i)); // int/long
+              else sb.append(ary.datad(r,i)); // float/double
             }
           }
           sb.append("</td>");
