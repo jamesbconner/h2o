@@ -176,6 +176,7 @@ public class NanoHTTPD
   HTTP_REDIRECT = "301 Moved Permanently",
   HTTP_NOTMODIFIED = "304 Not Modified",
   HTTP_FORBIDDEN = "403 Forbidden",
+  HTTP_UNAUTHORIZED = "401 Unauthorized",
   HTTP_NOTFOUND = "404 Not Found",
   HTTP_BADREQUEST = "400 Bad Request",
   HTTP_INTERNALERROR = "500 Internal Server Error",
@@ -367,6 +368,8 @@ public class NanoHTTPD
             while ( read >= 0 && !postLine.endsWith("\r\n") )
             {
               postLine += String.valueOf(pbuf, 0, read);
+              if (!in.ready()) // avoid hanging here
+                break;
               read = in.read(pbuf);
             }
             postLine = postLine.trim();
