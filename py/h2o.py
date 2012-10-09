@@ -469,6 +469,7 @@ class LocalH2O(H2O):
         return self.ice
 
     def is_alive(self):
+        verboseprint("Doing is_alive check for LocalH2O", self.wait(0))
         return self.wait(0) is None
     
     def terminate(self):
