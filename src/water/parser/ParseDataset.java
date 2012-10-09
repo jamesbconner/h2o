@@ -534,7 +534,9 @@ public final class ParseDataset {
         }
       }
 
-      assert num_rows > 0;   // Parsing no rows generally means a broken parser
+      // Actually: no rows is OK if parsing crappy stuff by accident.
+      // Better to return a no-row-result than asserting out.
+      //assert num_rows > 0;   // Parsing no rows generally means a broken parser
       _num_rows = num_rows;
       // Also pass along the rows-per-chunk
       int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
@@ -715,7 +717,7 @@ public final class ParseDataset {
     // need to update multiple target chunks.  (imagine parallel copying a
     // large source buffer into a chunked target buffer)
     int atomic_update( int row0, long start_row, int row_size, int num_rows, byte[] buf, int rpc, long dst_chks ) {
-      assert 0 <= row0 && row0 < num_rows;
+      assert 0 <= row0 && row0 <= num_rows;
       assert buf.length == num_rows*row_size;
 
       int src_off = row0*row_size; // Offset in buf to write from
