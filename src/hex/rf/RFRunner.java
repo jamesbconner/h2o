@@ -45,7 +45,7 @@ public class RFRunner {
 
   static final String JAVA         = "java";
   static final String JAR          = "-jar build/h2o.jar";
-  static final String MAIN         = "-mainClass hexlytics.rf.RandomForest";
+  static final String MAIN         = "-mainClass hex.rf.RandomForest";
   static final String[] stat_types = new String[] { "gini", "entropy" };
   static final int[] ntrees        = new int[] { 1, 50, 100, 300 };
   static final int[] sizeMultiples = new int[]{ 1, 4, 12, 24, 32, 64};
@@ -253,13 +253,3 @@ public class RFRunner {
     try { runTests(javaCmd, out, ARGS); } finally { out.close(); }
   }
 }
-
-
-/* File flatfile = new File("flatfile" + Math.round(100000 * Math.random()));
-flatfile.deleteOnExit();
-FileWriter fw = new FileWriter(flatfile);
-StringTokenizer tk = new StringTokenizer(ARGS.nodes, ",");
-while( tk.hasMoreTokens() ) fw.write(tk.nextToken() + "\n");
-fw.close();
-if( !ARGS.h2oArgs.contains("-flatfile") ) ARGS.h2oArgs+= " -flatfile "+flatfile.getAbsolutePath();
-*/
