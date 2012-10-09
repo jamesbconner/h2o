@@ -4,11 +4,8 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import water.nbhm.NonBlockingHashMap;
 import water.nbhm.NonBlockingHashMapLong;
-
-import com.google.common.collect.Lists;
 
 /**
  * A <code>Node</code> in an <code>H2O</code> Cloud.
@@ -191,10 +188,9 @@ public class H2ONode implements Comparable {
       }
     }
 
-
     try {
       // Figure out which interface matches our IP address
-      List<NetworkInterface> matchingIfs = Lists.newArrayList();
+      List<NetworkInterface> matchingIfs = new ArrayList();
       Enumeration<NetworkInterface> netIfs = NetworkInterface.getNetworkInterfaces();
       while( netIfs.hasMoreElements() ) {
         NetworkInterface netIf = netIfs.nextElement();
@@ -223,6 +219,15 @@ public class H2ONode implements Comparable {
     }
     return intern(new H2Okey(local,H2O.UDP_PORT));
   }
+
+  // Is cloud member
+  public final boolean is_cloud_member(H2O cloud) {
+    return
+      get_cloud_id_lo() == cloud._id.getLeastSignificantBits() &&
+      get_cloud_id_hi() == cloud._id. getMostSignificantBits() &&
+      cloud._memset.contains(this);
+  }
+
 
   // Thin wrappers to send UDP packets to this H2ONode
   int send( byte[] buf, int len ) { return MultiCast.singlecast(this,buf,len); }

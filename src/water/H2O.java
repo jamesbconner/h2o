@@ -333,6 +333,11 @@ public final class H2O {
     if( STATIC_H2OS != null )
       STATIC_H2OS.add(SELF);
 
+    System.out.println("[h2o] ("+VERSION+") '"+NAME+"' on " + SELF+
+                       (OPT_ARGS.flatfile==null
+                        ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
+                        : ", static configuration based on -flatfile "+OPT_ARGS.flatfile));
+
     // Create the starter Cloud with 1 member
     HashSet<H2ONode> starter = new HashSet<H2ONode>();
     starter.add(SELF);
@@ -390,11 +395,6 @@ public final class H2O {
   private static void startupFinalize() {
     // Sleep a bit so all my other threads can 'catch up'
     try { Thread.sleep(1000); } catch( InterruptedException e ) { }
-
-    System.out.println("The Cloud '"+NAME+"' is Up ("+VERSION+") on " + SELF+
-                       (OPT_ARGS.flatfile==null
-                        ? (", discovery address "+CLOUD_MULTICAST_GROUP+":"+CLOUD_MULTICAST_PORT)
-                        : ", static configuration based on -flatfile "+OPT_ARGS.flatfile));
   }
 
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
@@ -417,6 +417,7 @@ public final class H2O {
       UDP_PORT++;
       TCP_PORT++;
     }
+
     System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
