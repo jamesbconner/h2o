@@ -70,11 +70,15 @@ public abstract class Page {
   /** Returns true, if the page can be viewed by the given user. By default all
    * pages can only be viewed by the H2O user. 
    * 
+   * NOTE temporarily disabled to allow nice debugging. re-enable when you
+   * actually want to use the feature. 
+   * 
    * @param username
    * @return 
    */
   public boolean authenticate(String username) {
-    return "H2O".equals(username);
+    return true; // sessions disabled, everyone is allowed to view everything
+    //return "H2O".equals(username);
   }
 
   public abstract Object serve(Server server, Properties args, String sessionID);
