@@ -16,7 +16,7 @@ import water.NanoHTTPD;
  */
 public class LoginQuery extends Page {
   private static final String contents =
-          "<form class=\"form-horizontal\" method=\"GET\" action=\"login\">"
+          "<form class=\"form-horizontal\" method=\"POST\" encoding=\"multipart/form-data\" action=\"login\">"
           + "  <div class=\"control-group\">"
           + "    <label class=\"control-label\" for=\"username\">Username</label>"
           + "    <div class=\"controls\">"
