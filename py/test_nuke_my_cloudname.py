@@ -16,6 +16,10 @@ class Basic(unittest.TestCase):
         cloudSize = c['cloud_size']
         print "This node thought there was", cloudSize, "nodes in its cloud"
 
+        # FIX! I added shutdown_all to LocalH2O so maybe this is now redundant
+        sd = h2o.nodes[0].shutdown_all()
+
+        # this doesn't send a graceful shutdown? but should be tolerant of missing process?
         h2o.tear_down_cloud()
 
 if __name__ == '__main__':

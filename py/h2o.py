@@ -473,6 +473,18 @@ class LocalH2O(H2O):
         return self.wait(0) is None
     
     def terminate(self):
+        # send a shutdown request first. This matches ExternalH2O
+        # since local is used for a lot of buggy new code, also do the ps kill
+        try:
+            self.shutdown_all()
+        except:
+            pass
+
+        # kbn..we need a delay after shutdown_all above, before this check?
+        time.sleep(1)
+        if self.is_alive():
+            print "\nShutdown didn't work for local node? : %s. Will kill though" % self
+
         try:
             if self.is_alive(): self.ps.kill()
             if self.is_alive(): self.ps.terminate()
