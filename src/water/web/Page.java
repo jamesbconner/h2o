@@ -3,6 +3,7 @@ package water.web;
 import java.util.Properties;
 
 import com.google.gson.JsonObject;
+import water.H2O;
 
 public abstract class Page {
 
@@ -77,8 +78,10 @@ public abstract class Page {
    * @return 
    */
   public boolean authenticate(String username) {
-    return true; // sessions disabled, everyone is allowed to view everything
-    //return "H2O".equals(username);
+    if (H2O.OPT_ARGS.auth == null)    
+      return true; // sessions disabled, everyone is allowed to view everything
+    else
+      return "H2O".equals(username);
   }
 
   public abstract Object serve(Server server, Properties args, String sessionID);
