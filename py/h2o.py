@@ -24,20 +24,25 @@ def unit_main():
 
 verbose = False
 ipaddr = None
+use_hosts = False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
     parser.add_argument('--verbose','-v', help="increased output", action="store_true")
     parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
+    parser.add_argument('--use_hosts', help="import hosts.py and create node_count H2Os on each host in the hosts list")
+    
     
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
     global verbose
     global ipaddr
+    global use_hosts
     verbose = args.verbose
     ipaddr = args.ip
+    use_hosts = args.use_hosts
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     sys.argv[1:] = args.unittest_args
