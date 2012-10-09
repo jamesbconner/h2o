@@ -1,12 +1,9 @@
 package hex.rf;
 
-import hex.rf.Data.Row;
 import hex.rf.Tree.StatType;
-import hex.rf.Utils.Counter;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
 import water.*;

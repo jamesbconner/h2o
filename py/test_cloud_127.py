@@ -16,12 +16,7 @@ class Basic(unittest.TestCase):
     def tearDown(self):
         pass
 
-    # NOTE: unittest will run tests in an arbitrary order..not constrained to order here.
-    # Possible hack: change the names so this test order matches alphabetical order
-    # by using intermediate "_A_" etc. 
-    # That should make unittest order match order here? 
-
-    def test_Cloud(self):
+    def testCloud(self):
         global nodes
 
         for tryNodes in range(2,10):
@@ -29,7 +24,7 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
 
             start = time.time()
-            nodes = h2o.build_cloud(addr="127.0.0.1",node_count=tryNodes)
+            nodes = h2o.build_cloud(use_this_ip_addr="127.0.0.1", node_count=tryNodes)
             print "Build cloud of %d in %d secs" % (tryNodes, (time.time() - start)) 
 
             h2o.verboseprint(nodes)
