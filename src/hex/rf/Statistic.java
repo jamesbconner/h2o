@@ -118,13 +118,13 @@ abstract class Statistic {
    * Or it can be an exclusion split, where all rows with column value equal to
    * split value go to the left and all others go to the right.
    */
-  Split split(Data d) {
+  Split split(Data d,boolean expectLeaf) {
     // initialize the distribution array
     int[] dist = new int[d.classes()];
     int distWeight = aggregateColumn(_features[0], dist);
     // check if we are leaf node
     int m = Utils.maxIndex(dist, random); //FIXME:take care of the case where there are several classes
-    if( dist[m] == distWeight )  return Split.constant(m);
+    if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m);
 
     // try the splits
     Split bestSplit = columnSplit(_features[0],d, dist, distWeight);
