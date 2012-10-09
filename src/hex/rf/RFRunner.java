@@ -253,13 +253,3 @@ public class RFRunner {
     try { runTests(javaCmd, out, ARGS); } finally { out.close(); }
   }
 }
-
-
-/* File flatfile = new File("flatfile" + Math.round(100000 * Math.random()));
-flatfile.deleteOnExit();
-FileWriter fw = new FileWriter(flatfile);
-StringTokenizer tk = new StringTokenizer(ARGS.nodes, ",");
-while( tk.hasMoreTokens() ) fw.write(tk.nextToken() + "\n");
-fw.close();
-if( !ARGS.h2oArgs.contains("-flatfile") ) ARGS.h2oArgs+= " -flatfile "+flatfile.getAbsolutePath();
-*/

@@ -77,7 +77,7 @@ class Basic(unittest.TestCase):
         # always match the gen above!
         # kbn was failing for 46/56 trees (race)
         # reduce to get intermittent failures to lessen, for now
-        for x in xrange (11,50,10):
+        for x in xrange (11,60,10):
             sys.stdout.write('.')
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  

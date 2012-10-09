@@ -64,6 +64,7 @@ public abstract class Paxos {
   static H2ONode LEADER;        // Leader has the lowest IP of any in the set
   static { PROPOSED_MEMBERS.add(LEADER=H2O.SELF);  }
 
+  static boolean _commonKnowledge = false; // Whether or not we have common knowledge
 
   // ---
   // This is a packet announcing what Cloud this Node thinks is the current
@@ -72,10 +73,21 @@ public abstract class Paxos {
     // If this packet is for *this* Cloud, just carry on (the heartbeat has
     // already been recorded.
     H2O cloud = H2O.CLOUD;
-    if( h2o.get_cloud_id_lo() == cloud._id.getLeastSignificantBits() &&
-        h2o.get_cloud_id_hi() == cloud._id. getMostSignificantBits() &&
-        cloud._memset.contains(h2o) )
+    if( h2o.is_cloud_member(cloud) ) {
+      // However, do a 1-time printing when we realize all members of the cloud
+      // are mutally agreed upon a new cloud shape.  This is not the same as a
+      // Paxos vote, which only requires a Quorum.  This happens after everybody
+      // has agreed to the cloud AND published that result to this node.
+      if( !_commonKnowledge ) { // One time per cloud change-up
+        _commonKnowledge = true;
+        for( H2ONode h2o2 : cloud._memary )
+          if( !h2o2.is_cloud_member(cloud) )
+            _commonKnowledge = false;
+        if( _commonKnowledge )
+          System.out.println("[h2o] Paxos Cloud formed: "+PROPOSED_MEMBERS);
+      }
       return;                   // Do nothing!
+    }
 
     // Mismatched cloud
     print_debug("hart: mismatched cloud announcement",h2o);
@@ -218,6 +230,10 @@ public abstract class Paxos {
     // A new larger Proposal number appeared; keep track of it
     PROPOSAL_MAX = proposal_num;
     ACCEPTED = 0; // If I was acting as a Leader, my Proposal just got whacked
+    if( _commonKnowledge ) {
+      _commonKnowledge = false;
+      System.out.println("[h2o] Paxos Cloud voting in progress");
+    }
 
     if( LEADER == leader ) {    // New Proposal from what could be new Leader?
       // Now send a Promise to the Proposer that I will ignore Proposals less
