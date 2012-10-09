@@ -25,7 +25,7 @@ public class Test extends H2OPage {
     //}
   }
   
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     // Source Key: Value should be test class
     String key_s = args.getProperty("Name");
     String res = run_test(key_s);

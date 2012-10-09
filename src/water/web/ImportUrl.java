@@ -12,7 +12,7 @@ import water.Key;
 import water.ValueArray;
 
 public class ImportUrl extends H2OPage {
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     URL url;
     try {
       url = new URL(args.getProperty("Url"));

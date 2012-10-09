@@ -28,7 +28,7 @@ public class RFTreeView extends H2OPage {
     return new String[] { "Key", "origKey" };
   }
 
-  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     Key key = ServletUtil.check_key(args,"Key");
     ValueArray va = ServletUtil.check_array(args, "origKey");
 

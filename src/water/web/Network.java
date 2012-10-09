@@ -21,7 +21,7 @@ public class Network extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server server, Properties parms) throws PageError {
+  public JsonObject serverJson(Server server, Properties parms, String sessionID) throws PageError {
     JsonObject res = new JsonObject();
     final H2O cloud = H2O.CLOUD;
     res.addProperty("cloud_name", H2O.NAME);
@@ -61,7 +61,7 @@ public class Network extends H2OPage {
   }
 
   @Override
-  protected String serveImpl(Server server, Properties args) {
+  protected String serveImpl(Server server, Properties args, String sessionID) {
     RString response = new RString(HTML_TEMPLATE);
 
     response.replace("cloud_name", H2O.NAME);

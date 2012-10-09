@@ -16,7 +16,7 @@ public class RFView extends H2OPage {
     return new String[] { "Key" };
   }
 
-  @Override public JsonObject serverJson(Server s, Properties p) throws PageError {
+  @Override public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     final int depth = getAsNumber(p,"depth", 30);
     Key key = ServletUtil.check_key(p,"Key");
     Confusion confusion = Confusion.fromKey(key);
@@ -46,7 +46,7 @@ public class RFView extends H2OPage {
     return res;
   }
 
-  @Override protected String serveImpl(Server s, Properties args) throws PageError {
+  @Override protected String serveImpl(Server s, Properties args, String sessionID) throws PageError {
     final int depth = getAsNumber(args,"depth", 30);
     RString response = new RString(html());
 
