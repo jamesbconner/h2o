@@ -1,9 +1,12 @@
 package hex.rf;
 
+import hex.rf.Utils.Counter;
+
 import java.util.Random;
 
 import water.*;
 
+/** A model is an ensemble of trees that can be serialized and that can be used to */
 public class Model {
 
   /** Number of trees in the model.*/
@@ -16,6 +19,7 @@ public class Model {
   final private ValueArray _data;
   /** Pseudo random number used as tie breaker. */
   final private Random _rand = new Random(42);  // FIXME: parameterize?
+  final private Key _treeskey;
 
   /** A RandomForest Model
    * @param treeskey  a key of keys of trees
@@ -25,7 +29,7 @@ public class Model {
   public Model( Key treeskey , short classes, ValueArray data ) {
     _classes = classes;
     _data = data;
-    Key _treeskey = treeskey;
+    _treeskey = treeskey;
     Key[] _tkeys = _treeskey.flatten(); // Trees
     _ntrees = _tkeys.length;
     _trees = new byte[_ntrees][];
@@ -60,4 +64,28 @@ public class Model {
     int[] votes = vote(chunk, row, rowsize);
     return (short) Utils.maxIndex(votes, _rand);
   }
+
+  /** Are there new trees? */
+  public boolean refreshNeeded() {
+    return _treeskey.flatten().length > _ntrees;
+  }
+
+  public int size() { return _ntrees; }
+
+  private Counter tl, td;
+  /** Internal computation of depth and number of leaves. */
+  private void compute() {
+    if (tl!=null) return;
+    td = new Counter(); tl = new Counter();
+    for( byte[] tbits : _trees ) {
+      long dl = Tree.depth_leaves(tbits);
+      td.add((int) (dl >> 32));
+      tl.add((int) dl);
+    }
+  }
+
+  public String leaves() { compute(); return tl.toString(); }
+
+  public String depth() { compute(); return td.toString(); }
+
 }

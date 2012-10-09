@@ -1,19 +1,14 @@
 package water;
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.Lists;
-
 import water.nbhm.NonBlockingHashMap;
 import water.nbhm.NonBlockingHashMapLong;
+
+import com.google.common.collect.Lists;
 
 /**
  * A <code>Node</code> in an <code>H2O</code> Cloud.
@@ -93,8 +88,8 @@ public class H2ONode implements Comparable {
   // an array-of-H2ONodes, and a limit of 255 unique H2ONodes
   static private final NonBlockingHashMap<H2Okey,H2ONode> INTERN = new NonBlockingHashMap<H2Okey,H2ONode>();
   static private final AtomicInteger UNIQUE = new AtomicInteger(1);
-  static public final ArrayList<H2ONode> IDX = new ArrayList(1);
-  static { IDX.add(null); }
+  static public H2ONode IDX[] = new H2ONode[1];
+
   // Create and/or re-use an H2ONode.  Each gets a unique dense index, and is
   // *interned*: there is only one per InetAddress.
   public static final H2ONode intern( H2Okey key ) {
@@ -104,7 +99,11 @@ public class H2ONode implements Comparable {
     h2o = new H2ONode(key,idx);
     H2ONode old = INTERN.putIfAbsent(key,h2o);
     if( old != null ) return old;
-    IDX.add(idx,h2o);
+    synchronized(H2O.class) {
+      if( idx >= IDX.length )
+        IDX = Arrays.copyOf(IDX,IDX.length<<1);
+      IDX[idx] = h2o;
+    }
     return h2o;
   }
   public static final H2ONode intern( InetAddress ip, int port ) { return intern(new H2Okey(ip,port)); }
@@ -463,22 +462,19 @@ public class H2ONode implements Comparable {
     long fiveM = get_buf(offset.cpu_load_5.x, size.cpu_load_5.x);
     long fifteenM = get_buf(offset.cpu_load_15.x, size.cpu_load_15.x);
     if(oneM != 0xFFFFL){
-        result[0] = ((double)oneM)/1000.0;
+        result[0] = oneM/1000.0;
     }
     if(fiveM != 0xFFFFL){
-        result[1] = ((double)fiveM)/1000.0;
+        result[1] = fiveM/1000.0;
     }
     if(fifteenM != 0xFFFFL){
-        result[2] = ((double)fifteenM)/1000.0;
+        result[2] = fifteenM/1000.0;
     }
     return result;
   }
   public double get_cpu_util () {
     long n = get_buf(offset.cpu_util.x,size.cpu_util.x);
-    if(n != 0xFFFFL)
-      return ((double)n)/1000.0;
-    else
-      return -1.0;
+    return n != 0xFFFFL ? n/1000.0 : -1.0;
   }
   public int get_rpcs()       { return (int)get_buf(offset.rpcs.x, size.rpcs.x); }
   public int get_fjthrds_hi() { return (int)get_buf(offset.fjthrds_hi.x, size.fjthrds_hi.x); }

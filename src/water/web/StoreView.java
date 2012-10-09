@@ -26,7 +26,7 @@ public class StoreView extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server server, Properties args) {
+  public JsonObject serverJson(Server server, Properties args, String sessionID) {
     JsonObject res = new JsonObject();
     final H2O cloud = H2O.CLOUD;
 
@@ -62,7 +62,7 @@ public class StoreView extends H2OPage {
     return res;
   }
 
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     RString response = new RString(html);
     // get the offset index
     int offset = 0;

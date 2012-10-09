@@ -51,20 +51,20 @@ class DataAdapter  {
     }
   }
 
-    public String name() { return name_; }
+  public String name() { return name_; }
 
-    // lame attempt at best effort ... throw away half the data each time 'round
-    public void shrinkWrap() {
-      try {
-        _shrinkWrap();
-      } catch (OutOfMemoryError e) {
-        if (rows<=2) throw e;  // Give up
-        rows = rows/2; // try with fewer rows
-        Utils.pln("[RF] Warning: Reduced input size to "+ rows+" rows.");
-        shrinkWrap();
-      }
+  // lame attempt at best effort ... throw away half the data each time 'round
+  public void shrinkWrap() {
+    try {
+      _shrinkWrap();
+    } catch (OutOfMemoryError e) {
+      if (rows<=2) throw e;  // Give up
+      rows = rows/2; // try with fewer rows
+      Utils.pln("[RF] Warning: Reduced input size to "+ rows+" rows.");
+      shrinkWrap();
     }
-    private short[] _shrinkWrap() {
+  }
+  private short[] _shrinkWrap() {
       freeze();
       short[][] vss = new short[c_.length][];
       for( int i=0; i<c_.length-1; i++ )

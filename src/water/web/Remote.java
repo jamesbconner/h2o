@@ -14,7 +14,7 @@ import water.web.Page.PageError;
 
 public class Remote extends H2OPage {
 
-  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     RString response = new RString(html);
     // Figure out the remote Node's IP address.  We know the URI
     // string starts with '/Node=', but the rest of it should be an
@@ -34,7 +34,7 @@ public class Remote extends H2OPage {
     if( h2o == null || !cloud._memset.contains(h2o) )
       return error("Unknown Node "+addr);
     if( h2o == H2O.SELF ) // Service self-node locally
-      return ((H2OPage)Server.getPage("StoreView")).serveImpl(server, new Properties());
+      return ((H2OPage)Server.getPage("StoreView")).serveImpl(server, new Properties(),sessionID);
 
     // Ask the remote H2ONode for 'len' keys from *his* local store, after
     // skipping 'off' keys.  This is NOT ALL his keys, thats too much.  Some

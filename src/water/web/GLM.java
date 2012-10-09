@@ -93,7 +93,7 @@ public class GLM extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server s, Properties p) throws PageError {
+  public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     JsonObject res = new JsonObject();
     try {
       ValueArray ary = ServletUtil.check_array(p, "Key");
@@ -280,7 +280,7 @@ public class GLM extends H2OPage {
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
   @Override
-  protected String serveImpl(Server server, Properties args) throws PageError {
+  protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     // RString responseTemplate = new RString(
     // "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
     // + "<div>Coefficients:%coefficientHTML</div>"
@@ -309,7 +309,7 @@ public class GLM extends H2OPage {
             + "<tr><th>Training Error Rate</th><td>%trainingSetErrorRate</td></tr>"
             + "</table> %xvalidation");
 
-    JsonObject json = serverJson(server, args);
+    JsonObject json = serverJson(server, args, sessionID);
     if( json.has("error") )
       return H2OPage.error(json.get("error").getAsString());
     JsonArray models = (JsonArray)json.get("models");

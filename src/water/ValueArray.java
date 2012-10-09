@@ -438,13 +438,12 @@ public class ValueArray extends Value {
   // Returns string representation of of given ord in column domain.
   public String col_enum_domain_val(int cnum, int ord) {
     byte[] mem = get();
-    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off); off += 2;
+    Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
+    int domainSize = s.get2();
     if (ord < 0 || ord >= domainSize) throw new ArrayIndexOutOfBoundsException(ord);
     for( int i = 0; i < ord; i++)
-      off += 2+UDP.get2(mem, off);
-    int len = UDP.get2(mem, off); off += 2;
-    return len > 0 ? new String(mem, off, len) : null;
+      s.getLen2Str();
+    return s.getLen2Str();
   }
 
   // Returns size of given column enum domain.

@@ -17,7 +17,7 @@ import water.NanoHTTPD.Response;
 public class ProgressReport extends Page {
   
   @Override
-  public Object serve(Server server, Properties args) {
+  public Object serve(Server server, Properties args, String sessionID) {
     boolean needsHtmlEncoding = "html".equals(args.getProperty("Type")) ? true : false;    
     // Register a new local subscriber. 
     LocalLogSubscriber lls = new LocalLogSubscriber(needsHtmlEncoding);    

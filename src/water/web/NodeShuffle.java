@@ -4,7 +4,7 @@ import java.util.Properties;
 import water.*;
 
 public class NodeShuffle extends H2OPage {
-  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     ValueArray vary = ServletUtil.check_array(args, "Key");
     Key key2 = ServletUtil.check_key(args,"Key2");
 

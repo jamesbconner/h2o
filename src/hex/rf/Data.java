@@ -90,9 +90,7 @@ public class Data implements Iterable<Row> {
     int[] sample = new int[size];
     for( int i = 0, j = 0; i < sample.length;) {
       while(in[j]==0) j++;
-      for (int k = 0; k < in[j]; k++) {
-         sample[i++] = j;
-      }
+      for (int k = 0; k < in[j]; k++) sample[i++] = j;
       j++;
     }
     return new Subset(this, sample, 0, sample.length);

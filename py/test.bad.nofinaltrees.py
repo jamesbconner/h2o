@@ -69,5 +69,4 @@ class Basic(unittest.TestCase):
                     timeoutSecs=5, retryDelaySecs=0.1)
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()

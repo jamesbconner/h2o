@@ -13,7 +13,7 @@ public class PutValue extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server s, Properties p) throws PageError {
+  public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     String keyS = p.getProperty("Key",UUID.randomUUID().toString());
     if( keyS.isEmpty() ) keyS = UUID.randomUUID().toString();
 
@@ -38,8 +38,8 @@ public class PutValue extends H2OPage {
     return res;
   }
 
-  @Override protected String serveImpl(Server s, Properties p) throws PageError {
-    JsonObject json = serverJson(s, p);
+  @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
+    JsonObject json = serverJson(s, p, sessionID);
     RString response = new RString("" +
         "<div class='alert alert-success'>" +
         "Key <a href='Inspect?Key=%keyHref'>%key</a> has been put to the " +

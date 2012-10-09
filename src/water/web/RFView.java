@@ -16,7 +16,7 @@ public class RFView extends H2OPage {
     return new String[] { "Key" };
   }
 
-  @Override public JsonObject serverJson(Server s, Properties p) throws PageError {
+  @Override public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     final int depth = getAsNumber(p,"depth", 30);
     Key key = ServletUtil.check_key(p,"Key");
     Confusion confusion = Confusion.fromKey(key);
@@ -36,16 +36,17 @@ public class RFView extends H2OPage {
     JsonObject res = new JsonObject();
     addProperty(res, "origKey", confusion._data._key);
     res.addProperty("got",ntrees);
-    res.addProperty("valid",confusion._ntrees);
-    res.addProperty("computedTrees",confusion._tkeys.length);
-    res.addProperty("maxTrees",confusion._maxtrees);
+    res.addProperty("valid",confusion._model.size());
+    res.addProperty("computedTrees",confusion._model.size());
+//    res.addProperty("maxTrees",confusion._maxtrees);
+    res.addProperty("maxTrees", -1);  //FIXME: remove
     res.addProperty("maxdepth",depth);
     res.addProperty( "depth",(double)tdepth/ntrees);
     res.addProperty("leaves",(double)tleavs/ntrees);
     return res;
   }
 
-  @Override protected String serveImpl(Server s, Properties args) throws PageError {
+  @Override protected String serveImpl(Server s, Properties args, String sessionID) throws PageError {
     final int depth = getAsNumber(args,"depth", 30);
     RString response = new RString(html());
 
@@ -106,10 +107,12 @@ public class RFView extends H2OPage {
     final int ntrees = treekeys.length;
     response.replace("origKey",confusion._data._key);
     response.replace("got",ntrees);
-    response.replace("valid",confusion._ntrees);
-    response.replace("maxtrees",confusion._maxtrees);
+    response.replace("valid",confusion._model.size());
+//    response.replace("maxtrees",confusion._maxtrees);
+    response.replace("maxtrees", -1);  // FIXME: jan  remove
+
     response.replace("maxdepth",depth);
-    _refresh = ntrees < confusion._ntrees ? 5 : 0; // Refresh in 5sec if no keys yet
+    _refresh = ntrees < confusion._model.size() ? 5 : 0; // Refresh in 5sec if no keys yet
 
     // Compute a few stats over trees
     int tdepth=0;
