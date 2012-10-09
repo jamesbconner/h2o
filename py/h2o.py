@@ -8,6 +8,9 @@ def __drain(src, dst):
         else:
             dst.write(l)
             dst.flush()
+    src.close()
+    if type(dst) == type(0):
+        os.close(dst)
 
 def drain(src, dst):
     t = threading.Thread(target=__drain, args=(src,dst))
@@ -26,7 +29,7 @@ def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
     parser.add_argument('--verbose','-v', help="increased output", action="store_true")
-    parser.add_argument('--ip', type=str, help="IP address to use")
+    parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
     
     parser.add_argument('unittest_args', nargs='*')
 
@@ -44,6 +47,8 @@ def verboseprint(*args):
         for arg in args: # so you don't have to create a single string
             print arg,
         print
+    # so we can see problems when hung?
+    sys.stdout.flush()
 
 
 def find_file(base):
@@ -51,8 +56,13 @@ def find_file(base):
     if not os.path.exists(f): f = '../'+base
     return f
 
+# Return file size.
 def get_file_size(f):
     return os.path.getsize(f)
+
+# Splits file into chunks of given size and returns an iterator over chunks.
+def iter_chunked_file(file, chunk_size=2048):
+    return iter(lambda: file.read(chunk_size), '')
 
 LOG_DIR = 'sandbox'
 def clean_sandbox():
@@ -84,6 +94,7 @@ def log(cmd, comment=None):
 # Could parse ifconfig, but would need something else on windows
 def get_ip_address():
     if ipaddr:
+        verboseprint("get_ip case 1:", ip)
         return ipaddr
 
     import socket
@@ -92,12 +103,13 @@ def get_ip_address():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8',0))
         ip = s.getsockname()[0]
-        verboseprint("ip1:", ip)
+        verboseprint("get_ip case 2:", ip)
     except:
         pass
 
     if ip.startswith('127'):
         ip = socket.getaddrinfo(socket.gethostname(), None)[0][4][0]
+        verboseprint("get_ip case 3:", ip)
 
     verboseprint("get_ip_address:", ip) 
     return ip
@@ -131,49 +143,37 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
-def spawn_h2o(addr=None, port=54321, nosigar=True):
-    h2o_cmd = [
-            "java", 
-            "-ea", "-jar", find_file('build/h2o.jar'),
-            "--port=%d"%port,
-            '--ip=%s'%(addr or get_ip_address()),
-            '--ice_root=%s' % tmp_dir('ice.')
-            ]
-    if nosigar is True: 
-        h2o_cmd.append('--nosigar')
-    return spawn_cmd('h2o', h2o_cmd)
-
-nodes = []
-def build_cloud(node_count, base_port=54321, ports_per_node=3, **kwargs):
-    node_list = []
-    try:
-        for i in xrange(node_count):
-            n = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
-            node_list.append(n)
-
-        stabilize_cloud(node_list[0], len(node_list))
-    except:
-        for n in node_list: n.terminate()
-        raise
-    nodes[:] = node_list
-    return node_list
-
 # this can be used for a local IP address, just done thru ssh 
+# node_count is per host if hosts is specified.
+# If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
 nodes = []
-def build_remote_cloud(hosts, nodes_per_host=2, base_port=55321, ports_per_node=3, **kwargs):
+def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, **kwargs):
     node_list = []
     try:
-        for h in hosts:
-            for i in xrange(nodes_per_host):
-                print 'Starting node', i, 'via', h
-                node_list.append(h.remote_h2o(port=base_port + i*3))
+        # if no hosts list, use psutil method on local host.
+        if hosts is None:
+            hostCount = 1
+            for i in xrange(node_count):
+                verboseprint('psutil starting node', i)
+                node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
+            timeoutSecs = 10.0 # for stabilize
+            retryDelaySecs = 0.25 # for stabilize
+        else:
+            hostCount = len(hosts)
+            for h in hosts:
+                for i in xrange(node_count):
+                    verboseprint('ssh starting node', i, 'via', h)
+                    node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
+            timeoutSecs = 15.0
+            retryDelaySecs = 0.25
 
-        print 'Remote cloud stabilize'
+        verboseprint('Cloud stabilize')
         start = time.time()
-        stabilize_cloud(node_list[0], len(node_list))
-        print len(node_list), " Remote node 0 stabilized in ", time.time()-start, " secs"
-        print "Built remote cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
-            len(hosts), (time.time() - start)) 
+        stabilize_cloud(node_list[0], len(node_list), 
+            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+        verboseprint(len(node_list), " Node 0 stabilized in ", time.time()-start, " secs")
+        verboseprint("Built cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
+            hostCount, (time.time() - start))) 
     except:
         for n in node_list: n.terminate()
         raise
@@ -182,10 +182,18 @@ def build_remote_cloud(hosts, nodes_per_host=2, base_port=55321, ports_per_node=
     nodes[:] = node_list
     return node_list
 
-def upload_jar_to_remote_hosts(hosts):
-    for h in hosts:
-        print 'Sending jar to remote', h
-        h.upload_file(find_file('build/h2o.jar'))
+def upload_jar_to_remote_hosts(hosts, slow_connection=False):
+    def prog(sofar, total):
+        p = int(10.0 * sofar / total)
+        sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
+        sys.stdout.flush()
+    if not slow_connection:
+        for h in hosts:
+            h.upload_file('build/h2o.jar', progress=prog)
+    else:
+        f = find_file('build/h2o.jar')
+        hosts[0].upload_file(f, progress=prog)
+        hosts[0].push_file_to_remotes(f, hosts[1:])
 
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
@@ -196,7 +204,7 @@ def tear_down_cloud(node_list=None):
     finally:
         node_list[:] = []
 
-def stabilize_cloud(node, node_count, timeoutSecs=10.0, retryDelaySecs=0.25):
+def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     node.wait_for_node_to_accept_connections()
     node.stabilize(lambda n: n.get_cloud()['cloud_size'] == node_count,
             error=('A cloud of size %d' % node_count),
@@ -219,7 +227,7 @@ class H2O(object):
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
-        verboseprint ("get_cloud:", a)
+        verboseprint("get_cloud:", a)
         return a
 
     def shutdown_all(self):
@@ -325,7 +333,7 @@ class H2O(object):
         return a
 
     def stabilize(self, test_func, error,
-            timeoutSecs, retryDelaySecs=0.5):
+            timeoutSecs=10, retryDelaySecs=0.5):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:
@@ -355,6 +363,7 @@ class H2O(object):
             raise Exception(msg)
 
     def wait_for_node_to_accept_connections(self):
+        verboseprint("wait_for_node_to_accept_connections")
         def test(n):
             try:
                 n.get_cloud()
@@ -362,12 +371,18 @@ class H2O(object):
             except requests.ConnectionError, e:
                 # Connection refusal is normal. 
                 # It just means the node has not started up yet.
-                if (    e.args[0].errno == 61 or   # mac/linux
-                        e.args[0].errno == 111 or  # mac/linux
-                        e.args[0].errno == 104 or  # ubuntu
-                        e.args[0].errno == 10061): # windows
+                conn_err = e.args[0].errno
+                verboseprint("Legal connection error", conn_err, 
+                    "during wait_for_node_to_accept_connections")
+                if (    conn_err == 61 or   # mac/linux
+                        conn_err == 111 or  # mac/linux
+                        conn_err == 104 or  # ubuntu (kbn)
+                        conn_err == 10061): # windows
                     return False
+                # 110 is a timeout: I'm getting sometimes from my ubuntu to centos
+                # if there's a raise, we end up waiting for timeout before seeing it!
                 raise
+
         self.stabilize(test, 'Cloud accepting connections',
                 timeoutSecs=15, # with cold cache's this can be quite slow
                 retryDelaySecs=0.1) # but normally it is very fast
@@ -387,9 +402,10 @@ class H2O(object):
             args += ['--nosigar']
         return args
 
-    def __init__(self, addr=None, port=54321, capture_output=True, sigar=False, use_debugger=False):
+    def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
+        use_debugger=False):
         self.port = port
-        self.addr = addr or get_ip_address()
+        self.addr = use_this_ip_addr or get_ip_address()
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output
@@ -437,7 +453,7 @@ class ExternalH2O(H2O):
 
 
 class LocalH2O(H2O):
-    '''An H2O inkstance launched by the python framework on the local machine'''
+    '''An H2O instance launched by the python framework on the local host using psutil'''
     def __init__(self, *args, **keywords):
         super(LocalH2O, self).__init__(*args, **keywords)
         self.rc = None
@@ -453,9 +469,22 @@ class LocalH2O(H2O):
         return self.ice
 
     def is_alive(self):
+        verboseprint("Doing is_alive check for LocalH2O", self.wait(0))
         return self.wait(0) is None
     
     def terminate(self):
+        # send a shutdown request first. This matches ExternalH2O
+        # since local is used for a lot of buggy new code, also do the ps kill
+        try:
+            self.shutdown_all()
+        except:
+            pass
+
+        # kbn..we need a delay after shutdown_all above, before this check?
+        time.sleep(1)
+        if self.is_alive():
+            print "\nShutdown didn't work for local node? : %s. Will kill though" % self
+
         try:
             if self.is_alive(): self.ps.kill()
             if self.is_alive(): self.ps.terminate()
@@ -475,7 +504,7 @@ class LocalH2O(H2O):
         self.ps.send_signal(signal.SIGQUIT)
 
 class RemoteHost(object):
-    def upload_file(self, f):
+    def upload_file(self, f, progress=None):
         f = find_file(f)
         if f not in self.uploaded:
             import md5
@@ -485,10 +514,33 @@ class RemoteHost(object):
             dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
             log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
             sftp = self.ssh.open_sftp()
-            sftp.put(f, dest)
+            sftp.put(f, dest, callback=progress)
             sftp.close()
             self.uploaded[f] = dest
         return self.uploaded[f]
+
+    def record_file(self, f, dest):
+        '''Record a file as having been uploaded by external means'''
+        self.uploaded[f] = dest
+
+    def push_file_to_remotes(self, f, hosts):
+        dest = self.uploaded[f]
+        for h in hosts:
+            if h == self: continue
+            log('Pushing %s from %s to %s' % (dest, self, h))
+            cmd = 'scp %s %s@%s:%s' % (dest, h.username, h.addr, dest)
+            (stdin, stdout, stderr) = self.ssh.exec_command(cmd)
+            stdin.close()
+
+            sys.stdout.write(stdout.read())
+            sys.stdout.flush()
+            stdout.close()
+
+            sys.stderr.write(stderr.read())
+            sys.stderr.flush()
+            stderr.close()
+
+            h.record_file(f, dest)
 
     def __init__(self, addr, username, password=None):
         import paramiko
@@ -520,11 +572,11 @@ class RemoteHost(object):
 
 
 class RemoteH2O(H2O):
-    '''An H2O instance launched by the python framework on a remote machine'''
+    '''An H2O instance launched by the python framework on a specified host using openssh'''
     def __init__(self, host, *args, **keywords):
         super(RemoteH2O, self).__init__(*args, **keywords)
 
-        self.jar = host.upload_file(find_file('build/h2o.jar'))
+        self.jar = host.upload_file('build/h2o.jar')
         self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()

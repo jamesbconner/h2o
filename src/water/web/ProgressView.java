@@ -48,7 +48,7 @@ public class ProgressView extends H2OPage {
     + "<a id='bottom' href='#' class='btn btn-danger pull-right' onclick=\"$('#output').html('')\">Clear</a>";
 
   @Override
-  protected String serveImpl(Server server, Properties args) {
+  protected String serveImpl(Server server, Properties args, String sessionID) {
     return html;
   }
 }

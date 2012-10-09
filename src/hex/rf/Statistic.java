@@ -13,7 +13,7 @@ abstract class Statistic {
   protected final int[][][] _columnDists;  // Column distributions for the given statistic
   protected final int[] _features;         // Columns/features that are currently used.
   protected final Random random;             // pseudo random number generator
-  
+
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
   protected abstract Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight);
@@ -28,7 +28,7 @@ abstract class Statistic {
     final int _column;
     final int _split;
     final double _fitness;
-    
+
     Split(int column, int split, double fitness) {
       _column = column;  _split = split;  _fitness = fitness;
     }
@@ -136,7 +136,7 @@ abstract class Statistic {
     if( bestSplit.isImpossible() )
       return bestSplit;
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
-    
+
     // try the exclusions now if some of them will be better
     for( int j = 0; j < _features.length; ++j) {
       Split s = columnExclusion(_features[j],d,dist,distWeight);

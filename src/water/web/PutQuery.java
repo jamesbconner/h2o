@@ -45,7 +45,7 @@ public class PutQuery extends H2OPage {
                           "jquery.fileupload/js/main.js",
                           };
   }
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     return html;
   }
 }

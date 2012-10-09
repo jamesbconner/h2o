@@ -19,7 +19,7 @@ public class Inspect extends H2OPage {
     return new String[] { "Key" };
   }
 
-  @Override protected String serveImpl(Server server, Properties args) throws PageError {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     Key key = ServletUtil.check_key(args,"Key");
     String ks = key.toString();
 

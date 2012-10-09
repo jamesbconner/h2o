@@ -49,7 +49,7 @@ public class PutFile extends H2OPage {
     }
 
   @Override
-  public JsonObject serverJson(Server server, Properties args) throws PageError {
+  public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {
     // Get parameters: Key, file name, replication factor
     String key   = args.getProperty("Key",UUID.randomUUID().toString());
     if( key.isEmpty()) key = UUID.randomUUID().toString(); // additional check for empty Key-field since the Key-field can be returned as a part of form
@@ -64,8 +64,8 @@ public class PutFile extends H2OPage {
   }
 
   // Putfile should not call directly
-  @Override protected String serveImpl(Server server, Properties args) throws PageError {
-    JsonObject json = serverJson(server, args);
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
+    JsonObject json = serverJson(server, args, sessionID);
 
     RString response = new RString(html()); // FIXME: delete
     response.replace(json);

@@ -15,7 +15,7 @@ public class Cloud extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server server, Properties parms) {
+  public JsonObject serverJson(Server server, Properties parms, String sessionID) {
     JsonObject res = new JsonObject();
     final H2O cloud = H2O.CLOUD;
     res.addProperty("cloud_name", H2O.NAME);
@@ -24,7 +24,7 @@ public class Cloud extends H2OPage {
     return res;
   }
 
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     RString response = new RString(html);
     response.replace("cloud_name",H2O.NAME);
     response.replace("node_name",H2O.SELF.toString());

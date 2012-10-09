@@ -7,7 +7,7 @@ import water.NanoHTTPD.Response;
 
 public class Get extends Page {
 
-  @Override public Object serve(Server server, Properties args) {
+  @Override public Object serve(Server server, Properties args, String sessionID) {
     try {
       String skey = args.getProperty("Key");
       Key key = Key.make(skey);

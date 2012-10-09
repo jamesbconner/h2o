@@ -20,7 +20,7 @@ public class RandomForestPage extends H2OPage {
   }
 
   @Override
-  public JsonObject serverJson(Server s, Properties p) throws PageError {
+  public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(p,"Key");
     int ntrees = getAsNumber(p,"ntrees", 5);
     int depth = getAsNumber(p,"depth", 30);
@@ -47,8 +47,8 @@ public class RandomForestPage extends H2OPage {
 
   }
 
-  @Override protected String serveImpl(Server s, Properties p) throws PageError {
-    JsonObject json = serverJson(s, p);
+  @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
+    JsonObject json = serverJson(s, p, sessionID);
     if(!json.has("error")){
       RString response = new RString(html);
       response.replace(json);

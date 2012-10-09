@@ -29,7 +29,7 @@ public class ImportFolder extends H2OPage {
     return num+1;
   }
 
-  @Override protected String serveImpl(Server server, Properties args) {
+  @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     String folder = args.getProperty("Folder");
     int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
     if ((rf<0) || (rf>127))

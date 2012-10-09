@@ -4,10 +4,7 @@ import itertools
 
 def file_to_put():
 #TODO handle command line options to allow put arbitratry file
-    return 'smalldata/poker/poker100'
-
-def chunked_file(file, chunk_size):
-    return iter(lambda: file.read(chunk_size), '')
+    return 'smalldata/poker/poker-hand-testing.data'
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -67,7 +64,7 @@ class Basic(unittest.TestCase):
             f.close()
 
     def diff(self,r, f):
-        for (r_chunk,f_chunk) in itertools.izip(r.iter_content(1024), chunked_file(f, 1024)):
+        for (r_chunk,f_chunk) in itertools.izip(r.iter_content(1024), h2o.iter_chunked_file(f, 1024)):
             self.assertEqual(r_chunk,f_chunk)
 
 if __name__ == '__main__':
