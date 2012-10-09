@@ -16,8 +16,7 @@ import water.UDP;
 public class TimelinePage extends H2OPage {
 
   @Override
-  public JsonObject serverJson(Server server, Properties parms)
-      throws PageError {
+  public JsonObject serverJson(Server server, Properties parms, String sessionID) throws PageError {
     long ctm = System.currentTimeMillis();
 
     long[][] snapshot = TimeLine.system_snapshot();
