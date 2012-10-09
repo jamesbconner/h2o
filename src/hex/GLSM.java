@@ -68,6 +68,7 @@ public class GLSM {
   protected static double [] solveLSM_L1(double [][] xxAry, double [] xyAry, double lambda, double ro){
     if(lambda == 0) return solveLSM(xxAry, xyAry);
     throw new GLSMException("L1 norm is not implemented yet");
+
   }
 
   protected static double [] solveLSM(double [][] xxAry, double [] xyAry){
@@ -305,10 +306,12 @@ public class GLSM {
       LogitLSMTask tsk = new LogitLSMTask(colIds, s, c);
       //_tsk.setSampling(offset, step, complement);
       tsk.invoke(ary._key);
-      double[] oldBeta;
+      double[] oldBeta = null;
       double [] beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
+      double [] beta_gradient = new double[beta.length];
       double diff = 0;
       do {
+        if(oldBeta != null)for(int i = 0; i < oldBeta.length; ++i)beta_gradient[i] = Math.abs(oldBeta[i] - beta[i]);
         oldBeta = beta;
         tsk = new LogitLSMTask(colIds, s, c, oldBeta);
         tsk.invoke(ary._key);
@@ -317,6 +320,12 @@ public class GLSM {
         for( int i = 0; i < beta.length; ++i )
           diff += (oldBeta[i] - beta[i]) * (oldBeta[i] - beta[i]);
       } while( diff > 1e-5 );
+      for(int i = 0; i < beta.length; ++i)
+        if(Double.isNaN(beta[i])){
+          int maxJ = 0;
+          for(int j =1; j < beta_gradient.length; ++j)if(beta_gradient[j] > beta_gradient[maxJ])maxJ = j;
+          throw new GLSMException("Obtained invalid beta. Try to use regularizationor or remove column " + maxJ);
+        }
       return new BinomialModel(tsk._n, beta, c, tsk._ncases / (double)tsk._n);
     }
     default:
