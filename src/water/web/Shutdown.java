@@ -16,6 +16,7 @@ public class Shutdown extends H2OPage {
 
   @Override public String serveImpl(Server server, Properties args, String sessionID) {
     UDPRebooted.global_kill();
+    System.exit(-1);
     return "Shutting down";
   }
 }
