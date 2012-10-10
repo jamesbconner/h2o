@@ -1,14 +1,9 @@
 package water;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.UUID;
+import java.util.*;
 
 /**
- * Paxos 
- * 
+ * Paxos
+ *
  * Used to define Cloud membership.  See:
  *   http://en.wikipedia.org/wiki/Paxos_%28computer_science%29
  *
@@ -18,7 +13,7 @@ import java.util.UUID;
  * basically a Client request to all Servers to run a subnet-local round of
  * leadership and membership.  If all Servers who hears this request are
  * already in the same Cloud, then no action is required.
-  
+
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
@@ -129,28 +124,25 @@ public abstract class Paxos {
     LEADER = null;              // Recompute LEADER while we are at it
     for( Iterator<H2ONode> i = PROPOSED_MEMBERS.iterator(); i.hasNext(); ) {
       H2ONode h2o = i.next();
-      // Check if node timed out 
+      // Check if node timed out
       long msec = now - h2o._last_heard_from;
-      // Check receive queue depth to see if the node needs to be removed
-      int recvq = h2o.get_fjqueue_hi();
       if( msec > HeartBeatThread.TIMEOUT ) {
         assert h2o != H2O.SELF; // Not timing-out self???
         print_debug("kill: Removing laggard ",h2o);
         i.remove();
       } else {                  // Else find the lowest IP address to be leader
-        if( h2o.compareTo(LEADER) < 0 )
-          LEADER = h2o;
+        if( h2o.compareTo(LEADER) < 0 ) LEADER = h2o;
       }
     }
     return;
-  } 
+  }
 
   // Handle a mis-matched announcement; either a self-heartbeat has noticed a
   // laggard in our current Cloud, or we got a heartbeat from somebody outside
   // the cloud.  The caller must have already synchronized.
   static void do_change_announcement( H2O cloud ) {
 
-    // Remove laggards and recompute leader 
+    // Remove laggards and recompute leader
     remove_laggards();
 
     // At this point, we have changed the current Proposal: either added due to
@@ -178,7 +170,7 @@ public abstract class Paxos {
       // algorithm from scratch.  If we are keeping the leadership but, e.g.
       // adding or removing a local Node then we can go for the Multi-Paxos
       // steady-state response.
-      
+
       // See if we are changing cloud leaders?
       if( cloud._memary[0] == LEADER ) {
         // TODO
@@ -213,7 +205,8 @@ public abstract class Paxos {
     // Is the Proposal New or Old?
     if( proposal_num <= PROPOSAL_MAX ) { // Old Proposal!  We can ignore it...
       // But we want to NACK this guy, by re-popping an Accepted at him
-      UDPPaxosNack.build_and_multicast(BUF);
+      print_debug("do_propoxal: NAK self:" + H2O.SELF + " target:"+leader + " proposal " + proposal_num, leader);
+      UDPPaxosNack.build_and_multicast(BUF, PROPOSAL_MAX);
       return print_debug("do  : nack old proposal, proposed list: ",PROPOSED_MEMBERS);
     }
 
@@ -263,7 +256,7 @@ public abstract class Paxos {
     return 0;
   }
 
-  // Recieved a Nack on a proposal
+  // Received a Nack on a proposal
   static synchronized void do_nack( byte[] buf, final H2ONode h2o ) {
     long proposal_num = promise(buf);
     print_debug("recv: Nack num "+proposal_num+" by ",h2o);
@@ -275,7 +268,7 @@ public abstract class Paxos {
     }
 
     // Nacking the named proposal
-    if( proposal_num >= PROPOSAL_MAX ) {
+    if( proposal_num > PROPOSAL_MAX ) {
       PROPOSAL_MAX = proposal_num;       // At least bump proposal to here
       do_change_announcement(H2O.CLOUD); // Re-vote from the start
     }
@@ -300,7 +293,7 @@ public abstract class Paxos {
     // some old one.  I only need to track the current "largest proposal".
     if( promised_num < PROPOSAL_MAX )
       return print_debug("do  : nothing: promise ("+promised_num+") is too old to care about ("+PROPOSAL_MAX+")",h2o);
- 
+
     // Extract any prior accepted proposals
     long prior_proposal = old_proposal(buf);
     // Extract the prior accepted Value also
@@ -314,17 +307,17 @@ public abstract class Paxos {
     // stale promise for the old round
     if( prior_proposal > 0 && !PROPOSED_MEMBERS.equals(prior_value) )
       return print_debug("do  : nothing, because this is a promise for the wrong thing",prior_value);
- 
+
     // We got at least one acceptance of our proposal!
     ACCEPTED++;
- 
-    // See if we hit the Quorum needed 
+
+    // See if we hit the Quorum needed
     final int quorum = (PROPOSED_MEMBERS.size()>>1)+1;
     if( ACCEPTED < quorum )
       return print_debug("do  : No Quorum yet "+ACCEPTED+"/"+quorum,PROPOSED_MEMBERS);
     if( ACCEPTED > quorum )
       return print_debug("do  : Nothing; Quorum exceeded and already sent AcceptRequest "+ACCEPTED+"/"+quorum,PROPOSED_MEMBERS);
- 
+
     // We hit Quorum.  We can now ask the Acceptors to accept this proposal.
     // Build & multicast an Accept! packet.  It is our own proposal with the 8
     // bytes of Accept number set, and includes the members as the agreed Value
@@ -347,9 +340,9 @@ public abstract class Paxos {
       // We got an out-of-date AcceptRequest which we can ignore.  The Leader
       // should have already started a new proposal round
       return print_debug("do  : ignoring out of date AcceptRequest ",null,buf);
-    
+
     PROPOSAL_MAX = proposal_num;
-    
+
     // At this point, all Acceptors should tell all Learners via Accepted
     // messages about the new agreement.  However, the Leader is also an
     // Acceptor so we'll let him do one broadcast to all Learners.
@@ -392,7 +385,7 @@ public abstract class Paxos {
   }
 
   static long promise( byte[] buf ) {  return UDP.get8(buf,promise_off);  }
-  static void set_promise( byte[] buf,long proposal_num ) {  
+  static void set_promise( byte[] buf,long proposal_num ) {
     UDP.set8(buf,promise_off,proposal_num);
   }
 
