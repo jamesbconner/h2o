@@ -6,7 +6,19 @@ class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global nodes
-        nodes = h2o.build_cloud(node_count=1)
+        node_count = 1
+        if (h2o.use_hosts): 
+            print "will use hosts.py for remote hosts info"
+            # FIX! eventually import this as hosts.py
+            #    h2o.RemoteHost('192.168.0.37', 'diag0x', 'diag0x')
+            hosts = [
+                h2o.RemoteHost('192.168.0.37', 'diag0x', 'diag0x')
+            ]
+            h2o.upload_jar_to_remote_hosts(hosts)
+            nodes = h2o.build_cloud(node_count, base_port=55321, ports_per_node=3, hosts=hosts)
+        else:
+            nodes = h2o.build_cloud(node_count)
+
 
     @classmethod
     def tearDownClass(cls):
@@ -36,8 +48,8 @@ class Basic(unittest.TestCase):
         X = ""
         csvFilename = "hhp_107_01.data"
         csvPathname = "../smalldata" + '/' + csvFilename
-        put = h2o.nodes[0].put_file(csvPathname)
-        parseKey = h2o.nodes[0].parse(put['keyHref'])
+        put = nodes[0].put_file(csvPathname)
+        parseKey = nodes[0].parse(put['keyHref'])
 
         for appendX in xrange(107):
             if (appendX == 9):

@@ -14,7 +14,7 @@ class Basic(unittest.TestCase):
         hosts = []
         # FIX! probably will just add args for -matt -kevin -0xdata that select different lists?
         # or we could have a hosts file that's local that you modify. just as easy to mod this though?
-        if (1==1):
+        if (1==0):
 
             # ubuntu okay with: sudo adduser --force-badname 0xdiag
             #    h2o.RemoteHost('192.168.0.37',  '0xdiag', '0xdiag')
@@ -56,6 +56,7 @@ class Basic(unittest.TestCase):
 
     def test_remote_Cloud(self):
         # FIX! too mfiles open at 240 iterations. file closes?
+        trial = 0
         for i in range(1,100):
             sys.stdout.write('.')
             sys.stdout.flush()
@@ -76,7 +77,8 @@ class Basic(unittest.TestCase):
                 self.assertFalse(c['cloud_size'] > len(nodes), 'More nodes than we want. Zombie JVMs to kill?')
                 self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
 
-            print "Tearing down cloud"
+            trial += 1
+            print "Tearing down cloud, trial", trial
             h2o.tear_down_cloud(nodes)
 
 
