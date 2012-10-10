@@ -123,6 +123,40 @@ public class H2ONode implements Comparable {
   // InetAddress we use to communicate to this Node.
   static H2ONode self() {
     assert H2O.UDP_PORT != 0;
+    InetAddress local = findInetAddressForSelf();
+
+    try {
+      // Figure out which interface matches our IP address
+      List<NetworkInterface> matchingIfs = new ArrayList();
+      Enumeration<NetworkInterface> netIfs = NetworkInterface.getNetworkInterfaces();
+      while( netIfs.hasMoreElements() ) {
+        NetworkInterface netIf = netIfs.nextElement();
+        Enumeration<InetAddress> addrs = netIf.getInetAddresses();
+        while( addrs.hasMoreElements() ) {
+          InetAddress addr = addrs.nextElement();
+          if( addr.equals(local) ) {
+            matchingIfs.add(netIf);
+            break;
+          }
+        }
+      }
+      switch( matchingIfs.size() ) {
+      case 0: H2O.CLOUD_MULTICAST_IF = null; break;
+      case 1: H2O.CLOUD_MULTICAST_IF = matchingIfs.get(0); break;
+      default:
+        System.err.print("Found multiple network interfaces for ip address " + local);
+        for( NetworkInterface ni : matchingIfs ) {
+          System.err.println("\t" + ni);
+        }
+        System.err.println("Using " + matchingIfs.get(0) + " for UDP broadcast");
+        H2O.CLOUD_MULTICAST_IF = matchingIfs.get(0);
+      }
+    } catch( SocketException e ) {
+      throw new RuntimeException(e);
+    }
+    return intern(new H2Okey(local,H2O.UDP_PORT));
+  }
+  static InetAddress findInetAddressForSelf() throws Error {
     // Get a list of all valid IPs on this machine.  Typically 1 on Mac or
     // Windows, but could be many on Linux or if a hypervisor is present.
     ArrayList<InetAddress> ips = new ArrayList<InetAddress>();
@@ -187,37 +221,7 @@ public class H2ONode implements Comparable {
         throw new Error(e);
       }
     }
-
-    try {
-      // Figure out which interface matches our IP address
-      List<NetworkInterface> matchingIfs = new ArrayList();
-      Enumeration<NetworkInterface> netIfs = NetworkInterface.getNetworkInterfaces();
-      while( netIfs.hasMoreElements() ) {
-        NetworkInterface netIf = netIfs.nextElement();
-        Enumeration<InetAddress> addrs = netIf.getInetAddresses();
-        while( addrs.hasMoreElements() ) {
-          InetAddress addr = addrs.nextElement();
-          if( addr.equals(local) ) {
-            matchingIfs.add(netIf);
-            break;
-          }
-        }
-      }
-      switch( matchingIfs.size() ) {
-      case 0: H2O.CLOUD_MULTICAST_IF = null; break;
-      case 1: H2O.CLOUD_MULTICAST_IF = matchingIfs.get(0); break;
-      default:
-        System.err.print("Found multiple network interfaces for ip address " + local);
-        for( NetworkInterface ni : matchingIfs ) {
-          System.err.println("\t" + ni);
-        }
-        System.err.println("Using " + matchingIfs.get(0) + " for UDP broadcast");
-        H2O.CLOUD_MULTICAST_IF = matchingIfs.get(0);
-      }
-    } catch( SocketException e ) {
-      throw new RuntimeException(e);
-    }
-    return intern(new H2Okey(local,H2O.UDP_PORT));
+    return local;
   }
 
   // Is cloud member
