@@ -101,11 +101,8 @@ public final class ParseDataset {
         dp1._cols[i]._name = names[i];
       }
 
-    // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
-    UKV.put(result,ary);
 
-    // Setup for pass-2, where we do the actual data conversion.
+    // Setup for pass-2, where we do the actual data conversion. Also computes variance.
     DParse2 dp2 = new DParse2();
     dp2._num_cols  = num_cols;
     dp2._parseType = (byte)typeArr[PARSER_IDX];
@@ -116,6 +113,11 @@ public final class ParseDataset {
     dp2._result    = result;
 
     dp2.invoke(dataset._key);   // Parse whole dataset!
+    // normalize the variance
+    for(int i = 0; i < dp2._cols.length;++i)dp2._cols[i]._var /= dp2._cols[i]._n;
+    // Now make the structured ValueArray & insert the main key
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp2._cols);
+    UKV.put(result,ary);
 
     // At this point we're left with a bunch of in-flight AtomicUnions for this
     // parse job.  They were all fired-and-forgotten, but they are not all done
@@ -514,10 +516,13 @@ public final class ParseDataset {
             _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
             continue;             // But do not muck up column stats
           }
+          ++_cols[i]._n;
           // The column contains a number => mark column domain as dead.
           _cols_domains[i].kill();
           if( d < _cols[i]._min ) _cols[i]._min = d;
           if( d > _cols[i]._max ) _cols[i]._max = d;
+          _cols[i]._mean += d;
+
           // I pass a flag in the _size field if any value is NOT an integer.
           if( (double)((int)(d     )) != (d     ) ) _cols[i]._size |= 1; // not int:      52
           if( (double)((int)(d*  10)) != (d*  10) ) _cols[i]._size |= 2; // not 1 digit:  5.2
@@ -542,6 +547,9 @@ public final class ParseDataset {
       int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
       _rows_chk = new int[idx+1];
       _rows_chk[idx] = num_rows;
+      for(int i = 0; i < _num_cols; ++i){
+        _cols[i]._mean /= _cols[i]._n;
+      }
       if(_num_cols != _cols.length){
         _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
       }
@@ -569,6 +577,14 @@ public final class ParseDataset {
           ValueArray.Column d = dp._cols[i];
           if( d._min < c._min ) c._min = d._min; // min of mins
           if( d._max > c._max ) c._max = d._max; // max of maxes
+          if(c._n == d._n){
+            c._mean = 0.5*(c._mean + d._mean);
+          } else {
+            double rc = (double)c._n/(c._n + d._n);
+            double rd = (double)d._n/(c._n + d._n);
+            c._mean = rc*c._mean + rd*d._mean;
+          }
+          c._n += d._n;
           c._size |=  d._size;                   // accumulate size fail bits
           _cols[i]._badat = (char)Math.min(_cols[i]._badat+d._badat,65535);
         }
@@ -664,6 +680,7 @@ public final class ParseDataset {
           }
           // Write to compressed values
           if( !Double.isNaN(d) ) { // Broken data on row?
+            col._var += (col._mean - d) * (col._mean - d);
             switch( col._size ) {
             case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
             case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
@@ -691,7 +708,6 @@ public final class ParseDataset {
       int rpc = (int)(ValueArray.chunk_size()/row_size); // Rows per chunk
       long dst_chks = max_row/rpc;
 
-      _cols = null;             // Free for GC purposes before I/O begins
       _rows_chk = null;
       _cols_domains = null;
 
@@ -704,10 +720,11 @@ public final class ParseDataset {
     }
 
     public void reduce( DRemoteTask rt ) {
-      _num_cols = 0;            // No data to return
-      _num_rows = 0;            // No data to return
-      _cols = null;             // No data to return
-      _rows_chk = null;
+      // return the variance
+      DParse2 other = (DParse2)rt;
+      for(int i = 0; i < _cols.length; ++i){
+        _cols[i]._var += other._cols[i]._var;
+      }
     }
 
     // Atomically fold together as many rows as will fit in the next chunk.  I
