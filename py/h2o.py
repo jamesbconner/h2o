@@ -148,7 +148,7 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
 nodes = []
-def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, **kwargs):
+def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cleanup=True, **kwargs):
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -176,7 +176,10 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, **k
         verboseprint("Built cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
             hostCount, (time.time() - start))) 
     except:
-        for n in node_list: n.terminate()
+        if cleanup:
+            for n in node_list: n.terminate()
+        else:
+            nodes[:] = node_list
         raise
 
     # this is just in case they don't assign the return to the nodes global?
@@ -376,13 +379,14 @@ class H2O(object):
                 # Connection refusal is normal. 
                 # It just means the node has not started up yet.
                 conn_err = e.args[0].errno
-                verboseprint("Legal connection error", conn_err, 
-                    "during wait_for_node_to_accept_connections")
                 if (    conn_err == 61 or   # mac/linux
+                        conn_err == 54 or
                         conn_err == 111 or  # mac/linux
                         conn_err == 104 or  # ubuntu (kbn)
                         conn_err == 10061): # windows
                     return False
+                verboseprint("Connection error", conn_err, 
+                    "during wait_for_node_to_accept_connections")
                 # 110 is a timeout: I'm getting sometimes from my ubuntu to centos
                 # if there's a raise, we end up waiting for timeout before seeing it!
                 raise
