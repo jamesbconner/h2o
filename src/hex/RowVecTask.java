@@ -19,11 +19,13 @@ public abstract class RowVecTask extends MRTask {
       return new Sampling(_offset,_step, !_complement);
     }
   }
-
+  protected boolean _skipInvalidLines;
   protected int [] _colIds;
+  long _n;
   public RowVecTask() {}
-  public RowVecTask(int [] colIds){this(colIds,null);}
-  public RowVecTask(int [] colIds, Sampling s){
+  public RowVecTask(int [] colIds, boolean skipInvalidLines){this(colIds,null, skipInvalidLines);}
+  public RowVecTask(int [] colIds, Sampling s, boolean skipInvalidLines){
+    _skipInvalidLines = skipInvalidLines;
     _colIds = colIds;
     if(s != null){
       _offset = s._offset;
@@ -31,7 +33,10 @@ public abstract class RowVecTask extends MRTask {
       _complement = s._complement;
     }
   }
-  public RowVecTask(RowVecTask other){_colIds = other._colIds; _step = other._step; _offset = other._offset; _complement = other._complement;}
+  public RowVecTask(RowVecTask other){
+    _skipInvalidLines = other._skipInvalidLines;
+    _colIds = other._colIds; _step = other._step; _offset = other._offset; _complement = other._complement;
+  }
   int _step = 0;
   int _offset = 0;
   boolean _complement;
@@ -76,14 +81,19 @@ public abstract class RowVecTask extends MRTask {
     double [] x = new double[_colIds.length];
     int c = _offset;
     init(x.length,nrows);
+__OUTER:
     for( int rid = 0; rid < nrows; ++rid ) {
       if(_step != 0){
         if(--c <= 0)c += _step;
         if(((c == _step) && !_complement) || ((c != _step) && _complement))
           continue;
       }
-      for( int i = 0; i < _colIds.length; ++i )
+      for( int i = 0; i < _colIds.length; ++i ) {
+        if(_skipInvalidLines && !ary.valid(bits, rid, row_size, off[i], sz[i]))
+         continue __OUTER;
         x[i] = ary.datad(bits, rid, row_size, off[i], sz[i], base[i],scale[i], _colIds[i]);
+      }
+      ++_n;
       map(x);
     }
     cleanup();

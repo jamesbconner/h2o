@@ -79,7 +79,8 @@ public abstract class Paxos {
           if( !h2o2.is_cloud_member(cloud) )
             _commonKnowledge = false;
         if( _commonKnowledge )
-          System.out.println("[h2o] Paxos Cloud formed: "+cloud._memset);
+          System.out.printf("[h20] Paxos Cloud of size %d formed: %s\n",
+              cloud._memset.size(), cloud._memset.toString());
       }
       return;                   // Do nothing!
     }

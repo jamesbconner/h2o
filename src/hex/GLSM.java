@@ -107,6 +107,9 @@ public class GLSM {
   final static int L1_RHO = 1;
   final static int L1_ALPHA = 2;
 
+  private static double shrinkage(double x, double kappa){
+    return Math.max(0, x - kappa ) - Math.max( 0, -x - kappa );
+  }
   /**
    * Solve ridge regression problem with the givne lambda.
    * Data should be cenetered and have stdvar = 1!
@@ -121,7 +124,8 @@ public class GLSM {
       double [] z = new double[N];
       double [] u = new double[N];
       double [] x = null;
-      S_Operator shrinkage = new S_Operator(nParams[L1_LAMBDA]/nParams[L1_RHO]);
+      double kappa = nParams[L1_LAMBDA]/nParams[L1_RHO];
+
       for(int i = 0; i < 1000; ++i){
         tsk.invoke(aryKey);
         // add rho*(z-u) to A'*y and add rho to diagonal of A'A
@@ -145,15 +149,15 @@ public class GLSM {
           x_norm += x[j]*x[j];
           double x_hat = x[j]*nParams[L1_ALPHA] + (1 - nParams[L1_ALPHA])*z[j];
           double zold = z[j];
-          z[j] = shrinkage.call(x_hat + u[j]);
+          z[j] = shrinkage(x_hat + u[j], kappa);
           z_norm += z[j]*z[j];
           s_norm += (z[j] - zold)*(z[j] - zold);
           r_norm += (x[j] - z[j])*(x[j] - z[j]);
           u[j] += x_hat - z[j];
           u_norm += u[j]*u[j];
         }
+        r_norm = Math.sqrt(r_norm);
         s_norm = nParams[L1_RHO]*Math.sqrt(s_norm);
-        r_norm = nParams[L1_RHO]*Math.sqrt(r_norm);
         eps_pri = ABSTOL + RELTOL*Math.sqrt(Math.max(x_norm,z_norm));
         eps_dual = ABSTOL + nParams[L1_RHO]*RELTOL*Math.sqrt(u_norm);
         if(r_norm < eps_pri && s_norm < eps_dual) break;
@@ -424,7 +428,6 @@ public class GLSM {
     double[]   _xy;      // vector holding sum of x * y
     int _xfactor;
     double     _constant; // constant member
-    long       _n;       // number of valid rows in this chunk
     double     _ymu;     // mean(y) estimate
 
     public LSMTask() {}         // Empty constructors for the serializers
@@ -433,7 +436,7 @@ public class GLSM {
     }
 
     protected LSMTask(int[] colIds, Sampling s, int xlen, int constant) {
-      super(colIds,s);
+      super(colIds,s, true);
       _constant = constant;
     }
 
@@ -454,9 +457,6 @@ public class GLSM {
      */
     @Override
     public void map(double[] x) {
-      for( double d : x )
-        if( Double.isNaN(d) ) return; // skip incomplete rows
-      ++_n;
       double y = x[x.length - 1];
       _ymu += y;
       // compute x*x' and add it to the marix
@@ -578,8 +578,6 @@ public class GLSM {
      */
     @Override
     public void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
       double y = x[x.length - 1];
       assert 0 <= y && y <= 1;
       _ncases += y;
@@ -638,13 +636,12 @@ public class GLSM {
 
     double[]         _inputParams; // [constant, b0] + beta
     double[]         _results;
-    long _n;
 
     public LSMTest() {
     }
 
     public LSMTest(int[] colIds, Sampling s, double[] beta, double constant) {
-      super(colIds,s);
+      super(colIds,s,true);
       _inputParams = new double[beta.length + BETA];
       _inputParams[CONSTANT] = constant;
       System.arraycopy(beta, 0, _inputParams, BETA, beta.length);
@@ -675,9 +672,6 @@ public class GLSM {
 
     @Override
     void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
-      ++_n;
       double diff = x[x.length - 1] - getYm(x);
       _results[ERRORS] += (diff)*(diff);
     }
@@ -725,9 +719,6 @@ public class GLSM {
 
     @Override
     void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
-      ++_n;
       double yr = x[x.length - 1];
       assert yr == 0 || yr == 1;
       double mu = getYm(x);
