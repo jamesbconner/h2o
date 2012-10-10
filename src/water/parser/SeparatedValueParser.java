@@ -1,14 +1,9 @@
 package water.parser;
 
-import hex.rf.Utils;
-
 import java.util.Arrays;
 import java.util.Iterator;
 
-import water.Key;
-import water.UKV;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.parser.ParseDataset.ColumnDomain;
 
 import com.google.common.base.Objects;
@@ -40,7 +35,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     _textual = new TextualParser();
     _row     = new Row(numColumnsGuess);
 
-    _separator = seperator;
+    _separator      = seperator;
     _columnsDomains = columnsDomains;
 
     _key = k;
@@ -108,25 +103,33 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
   // According to the CSV spec, `"asdf""asdf"` is a legal quoted field
   // We are going to parse this, but not simplify it into `asdf"asdf`
   // we will make the simplifying parse of " starts and stops escaping
+  // In the case of ' ' separator all leading ' ' are skipped
+  // and as the separator is considered the first ' ' after number/string.
   private byte scanPastNextSeparator() {
     boolean escaped = false;
+    byte    lastB   = ' ';
     while( hasNextByte() ) {
       byte b = getByte();
       if( b == '"' ) {
         escaped = !escaped;
-      } else if( !escaped && isSeparator(b) ) {
-        ++_offset;
-        return b;
+      } else if( !escaped ) {
+        if (isSeparator(b)) {
+          if (b != ' ' || (lastB != ' ' && lastB!=-1)) { // Specific handling of ' ' as a separator
+            ++_offset;
+            return b;
+          }
+        }
       }
       parse(b);
       ++_offset;
+      lastB = b;
     }
     return '\n';
   }
 
   private void    parse(byte b) {_sloppy_decimal.addCharacter(b); _decimal.addCharacter(b); _textual.addCharacter(b); }
   private void    resetParsers() {_sloppy_decimal.reset(); _decimal.reset(); _textual.reset(); }
-  private boolean isNewline(byte b)  { return b == '\r' || b == '\n'; }
+  private boolean isNewline(byte b)   { return b == '\r' || b == '\n'; }
   private boolean isSeparator(byte b) { return b == _separator || isNewline(b); }
 
   private void putToDictionary(int column, String key) {

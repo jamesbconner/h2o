@@ -2,6 +2,9 @@ package water.web;
 import java.io.IOException;
 import java.util.Properties;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 import water.DKV;
 import water.Key;
 import water.Value;
@@ -17,6 +20,49 @@ public class Inspect extends H2OPage {
 
   @Override public String[] requiredArguments() {
     return new String[] { "Key" };
+  }
+
+  @Override public JsonObject serverJson(Server server, Properties parms, String sessionID) throws PageError {
+
+    Key key = ServletUtil.check_key(parms,"Key");
+    Value val = DKV.get(key);
+    if( val == null )
+      throw new PageError("Key not found: " + key.toString());
+
+    JsonObject result = new JsonObject();
+    addProperty(result, "key", key);
+    if (val instanceof ValueArray) {
+      result.addProperty("type", "ary");
+      ValueArray ary = (ValueArray) val;
+      result.addProperty("rows", ary.num_rows());
+      result.addProperty("cols", ary.num_cols());
+      result.addProperty("rowsize",ary.row_size());
+      result.addProperty("size",ary.length());
+      result.addProperty("priorKey",ary.prior_key().toString());
+      JsonArray columns = new JsonArray();
+      for( int i=0; i<ary.num_cols(); i++ ) {
+        JsonObject col = new JsonObject();
+        col.addProperty("name",  ary.col_name(i));
+        col.addProperty("off",   ary.col_off(i));
+        if (ary.col_has_enum_domain(i)) {
+          col.addProperty("type",  "enum");
+        } else {
+          col.addProperty("type",  ary.col_size(i) > 0 ? "int" : "float");
+        }
+        col.addProperty("size",  Math.abs(ary.col_size(i)));
+        col.addProperty("base",  ary.col_base(i));
+        col.addProperty("scale", ary.col_scale(i));
+        col.addProperty("min",   ary.col_min(i));
+        col.addProperty("max",   ary.col_max(i));
+        col.addProperty("badat", ary.col_badat(i));
+
+        columns.add(col);
+      }
+      result.add("columns", columns);
+    } else {
+      result.addProperty("type", "value");
+    }
+    return result;
   }
 
   @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
@@ -37,15 +83,15 @@ public class Inspect extends H2OPage {
     formatKeyRow(key,val,response);
 
     response.replace("key",key);
-	
+
     if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
       RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
-      response.replace("storeHdfs", hdfs.toString());      
+      response.replace("storeHdfs", hdfs.toString());
     } else {
-      response.replace("storeHdfs", "");      
+      response.replace("storeHdfs", "");
     }
-	
+
     // ASCII file?  Give option to do a binary parse
     String p_keys = ks;
     int idx = ks.lastIndexOf('.');
@@ -100,7 +146,7 @@ public class Inspect extends H2OPage {
 
   final static String html =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
-    + "%storeHdfs"  
+    + "%storeHdfs"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col/><col/><col colspan=5 align=center/></colgroup>\n"
     + "<thead><tr><th>    <th>    <th>    <th align=center colspan=5>Min / Average / Max <th>   </tr>\n"
@@ -134,10 +180,10 @@ public class Inspect extends H2OPage {
     if(H2O.OPT_ARGS.hdfs != null && !ary.onHDFS()){
       RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
-      response.replace("storeHdfs", hdfs.toString());      
+      response.replace("storeHdfs", hdfs.toString());
     } else {
-      response.replace("storeHdfs", "");      
-    }    
+      response.replace("storeHdfs", "");
+    }
     // Pretty-print the key
     response.replace("key",key);
     response.replace("priorKey",ary.prior_key());
@@ -276,7 +322,7 @@ public class Inspect extends H2OPage {
 
   final static String html_ary =
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
-    + "%storeHdfs"  
+    + "%storeHdfs"
     + "<p>Generated from <a href=/Inspect?Key=%priorKeyHref>%priorKey</a> by '%xform'<p>"
     + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
     + "Parsed %ncolumns columns<br>"
