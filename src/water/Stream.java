@@ -109,6 +109,7 @@ public class Stream {
 
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
+  public byte   peek1() { return           _buf[ _off  ]    ; }
   public byte   get1 () { return           _buf[ _off++]    ; }
   public boolean getz() { return           _buf[ _off++]!=0 ; }
   public int    get2 () { return UDP.get2 (_buf,(_off+=2)-2); }

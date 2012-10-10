@@ -34,7 +34,7 @@ public class Tree extends CountedCompleter {
     _type = stat;
     _data = data;
     _data_id = data.dataId();
-    _max_depth = max_depth;
+    _max_depth = max_depth-1;
     _min_error_rate = min_error_rate;
     _features = features;
     _seed = seed;
@@ -76,7 +76,7 @@ public class Tree extends CountedCompleter {
     Statistic left = getStatistic(0,_data, _seed);
     // calculate the split
     for( Row r : _data ) left.add(r);
-    Statistic.Split spl = left.split(_data);
+    Statistic.Split spl = left.split(_data,false);
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
       : new FJBuild (spl,_data,0, _seed + 1).compute();
@@ -104,15 +104,14 @@ public class Tree extends CountedCompleter {
         new ExclusionNode(c, s, data_.colName(c), data_.unmap(c,s)) :
         new SplitNode    (c, s, data_.colName(c), data_.unmap(c, s) );
       data_.filter(nd,res,left,rite);
-
+      
       FJBuild fj0 = null, fj1 = null;
-      Statistic.Split ls = left.split(data_); // get the splits
-      Statistic.Split rs = rite.split(data_);
+      Statistic.Split ls = left.split(data_, depth_ >= _max_depth); // get the splits
+      Statistic.Split rs = rite.split(data_, depth_ >= _max_depth);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
       else                    fj0 = new  FJBuild(ls,res[0],depth_+1, _seed + 1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
       else                    fj1 = new  FJBuild(rs,res[1],depth_+1, _seed - 1);
-
       // Recursively build the splits, in parallel
       if( fj0 != null &&        (fj1!=null && THREADED) ) fj0.fork();
       if( fj1 != null ) nd._r = fj1.compute();
