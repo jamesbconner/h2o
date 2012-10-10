@@ -52,8 +52,10 @@ public class RFView extends H2OPage {
 
     // Get the Confusion Matrix from the Confusion Key
     Key key = ServletUtil.check_key(args,"Key");
+    Key modelKey = ServletUtil.check_key(args,"modelKey");
     Confusion confusion = Confusion.fromKey(key);
     confusion.refresh(); // Refresh it, in case new Trees have appeared
+    confusion.report();
 
     // Display the confusion-matrix table here
     // First the title line
@@ -108,8 +110,6 @@ public class RFView extends H2OPage {
     response.replace("origKey",confusion._data._key);
     response.replace("got",ntrees);
     response.replace("valid",confusion._model.size());
-//    response.replace("maxtrees",confusion._maxtrees);
-    response.replace("maxtrees", -1);  // FIXME: jan  remove
 
     response.replace("maxdepth",depth);
     _refresh = ntrees < confusion._model.size() ? 5 : 0; // Refresh in 5sec if no keys yet
@@ -139,7 +139,7 @@ public class RFView extends H2OPage {
   // use a function instead of a constant so that a debugger can live swap it
   private String html() {
     return "\nRandom Forest of <a href='Inspect?Key=%origKeyHref'>%origKey</a>\n<p>"
-      +"Validated %valid trees of %got computed of %maxtrees total trees, depth limit of %maxdepth\n<p>"
+      +"Validated %valid trees of %got total trees, depth limit of %maxdepth\n<p>"
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"

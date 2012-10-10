@@ -62,7 +62,7 @@ public class Confusion extends MRTask {
     int max = (int) _data.col_max(num_cols - 1);
     _N = max - min + 1; // Range of last column is #classes
     assert _N > 0;
-    _model = new Model(_treeskey, (short) _N, _data);
+    _model = new Model(_treeskey, (short) _N);
     byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // get the 0-th chunk and figure out its size
     _rows_per_normal_chunk = chunk_bits.length / _data.row_size();
   }
@@ -83,7 +83,6 @@ public class Confusion extends MRTask {
    * _matrix is changing.
    */
   public void refresh() {
-    if (! _model.refreshNeeded()) return; // no new trees.
     shared_init(); // Erase the old partial results
     // launch a M/R job to do the math
     invoke(_datakey);
@@ -141,7 +140,7 @@ public class Confusion extends MRTask {
       if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
       int[] votes = new int[_N];
       for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
-        votes[_model.classify(t, chunk_bits, i, _data.row_size())]++;
+        votes[_model.classify(t, chunk_bits, i, _data.row_size(), _data)]++;
       int predict = Utils.maxIndex(votes, _rand);
       int cclass = (int) _data.data(chunk_bits, i, _data.row_size(), ccol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
@@ -170,6 +169,7 @@ public class Confusion extends MRTask {
 
   /** Text form of the confusion matrix */
   private String confusionMatrix() {
+    if( _matrix == null ) return "no trees";
     final int K = _N + 1;
     double[] e2c = new double[_N];
     for( int i = 0; i < _N; i++ ) {

@@ -268,7 +268,7 @@ public class Boot extends ClassLoader {
               "public int wire_len() { return ",
               "super.wire_len()+",
               "%d+",
-              "4+(%s==null?0:(%s.length*%d))+",
+              "water.UDP.wire_len(%s)+",
               "(%s==null?1:%s.wire_len())+",
               "2+(%s==null?0:%s.length())+",
               "0; }");
