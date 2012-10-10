@@ -174,40 +174,47 @@ public class ValueArray extends Value {
       UKV.put(key,val);
     } else { // sz == buffer.length => there is enough data to write two 1MG chunks
       assert sz == buffer.length;
-      long offset = 0;
-      Key ck = null; Value val = null;
+      long totalLen = 0;
+      Key ck        = null;
+      Value val     = null;
+      boolean readFirstChunk = true; // identify read position in buffer [ [chunk_size()] [chunk_size()]
 
+      // Treat buffer as round buffer, write one chunk and try to read new chunk per iteration
       while (true) {
-        if (sz < buffer.length) { // almost 2 chunks are in the buffer => write them all
-          ck = make_chunkkey(key,offset);
+        if (sz < buffer.length) { // almost 2 chunks (but at least one) are in the buffer (and there are no more data) => write them all
+          ck = make_chunkkey(key,totalLen);
           val = new Value(ck,sz);
-          System.arraycopy(buffer,0,val._mem,0,sz);
-          DKV.put(ck,val);
-          offset += sz;
-          break; // it was the last chunk => there are no more data in input stream;
-        } else { // Write two chunks into the buffer
-          byte chunkCtr = 0;
-          while (chunkCtr < 2) {
-            ck = make_chunkkey(key,offset);
-            val = new Value(ck,(int)chunk_size());
-            System.arraycopy(buffer,chunkCtr*(int)chunk_size(),val._mem,0,(int)chunk_size());
-            DKV.put(ck,val);
-            chunkCtr++;
-            offset += chunk_size();
+          if (readFirstChunk) {
+            System.arraycopy(buffer,0,val._mem,0,sz);
+          } else {
+            System.arraycopy(buffer, (int)chunk_size(), val._mem,0, (int)chunk_size() ); // we know there is at least on full chunk
+            System.arraycopy(buffer, 0, val._mem, (int)chunk_size(), sz-(int)chunk_size() );
           }
+          DKV.put(ck,val);
+          totalLen += sz;
+          break; // it was the last chunk => there are no more data in input stream;
+        } else { // Write the first chunk into the buffer
+          ck = make_chunkkey(key,totalLen);
+          val = new Value(ck,(int)chunk_size());
+          System.arraycopy(buffer, (readFirstChunk?0:1)*(int)chunk_size(), val._mem, 0, (int)chunk_size());
+          DKV.put(ck,val);
+          totalLen += chunk_size();
+          sz -= chunk_size();
         }
 
-        // try to read another two chunks
-        sz = 0;
+        // Try to read another chunk
+        int off = (readFirstChunk?0:1)*(int)chunk_size(); // Rewrite the data, which was already stored as Value
         while (sz!=buffer.length) {
-          int i = bis.read(buffer,sz,buffer.length-sz);
+          int i = bis.read(buffer,off,buffer.length-sz);
           if (i==-1)
             break;
-          sz += i;
+          sz += i; off += i;
         }
+        // Switch chunk to read
+        readFirstChunk = !readFirstChunk;
       }
-      ValueArray ary = new ValueArray(key,offset,ICE);
-      DKV.put(key,ary);
+      ValueArray ary = new ValueArray(key,totalLen,ICE);
+      UKV.put(key,ary);
     }
     bis.close();
     return key;
