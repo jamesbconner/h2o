@@ -90,7 +90,7 @@ public class RandomForest {
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
     Utils.pln("[RF] Starting RF.");
     long t1 = System.currentTimeMillis();
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded, null);
     Key[] tkeys = null;
     while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
     long t2 = System.currentTimeMillis();

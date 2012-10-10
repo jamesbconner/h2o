@@ -35,7 +35,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be between 2 and 254, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, Key modelKey) {
     validateInputData(ary);
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
@@ -51,6 +51,16 @@ public class DRF extends water.DRemoteTask {
     DKV.write_barrier();
     if( singlethreaded ) drf.invoke(ary._key);
     else                 drf.fork  (ary._key);
+
+    // Create a model from the trees
+    if( modelKey != null ) {
+      final int num_cols = ary.num_cols();
+      final short classes = (short)((ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1);
+      Model model = new Model(drf._treeskey,classes);
+      // Save it to the cloud
+      UKV.put(modelKey,model);
+    }
+
     return drf;
   }
 

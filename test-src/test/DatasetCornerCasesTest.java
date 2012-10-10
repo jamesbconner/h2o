@@ -55,7 +55,7 @@ public class DatasetCornerCasesTest {
 
     // Start the distributed Random Forest
     try {
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
+      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/, null);
       // Create incremental confusion matrix
       Confusion confusion = new Confusion( drf._treeskey, val._key,  42);
       // Just wait little bit

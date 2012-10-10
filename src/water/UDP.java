@@ -173,4 +173,48 @@ public abstract class UDP {
   public static int set8d( byte[] buf, int off, double d ) { return set8(buf,off,Double.doubleToRawLongBits(d)); }
   public static double get8d( byte[] buf, int off ) { return Double.longBitsToDouble(get8(buf,off)); }
   public static float  get4f( byte[] buf, int off ) { return Float . intBitsToFloat (get4(buf,off)); }
+
+  public static int wire_len(  byte[]x ) { if( x==null ) return 4; return 4+(x.length<<0); }
+  public static int wire_len( short[]x ) { if( x==null ) return 4; return 4+(x.length<<1); }
+  public static int wire_len(  char[]x ) { if( x==null ) return 4; return 4+(x.length<<1); }
+  public static int wire_len(   int[]x ) { if( x==null ) return 4; return 4+(x.length<<2); }
+  public static int wire_len( float[]x ) { if( x==null ) return 4; return 4+(x.length<<2); }
+  public static int wire_len(double[]x ) { if( x==null ) return 4; return 4+(x.length<<3); }
+  public static int wire_len(  long[]x ) { if( x==null ) return 4; return 4+(x.length<<4); }
+
+  public static int wire_len(  byte[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( byte[] b : x ) sum += wire_len(b);
+    return sum;
+  }
+  public static int wire_len( short[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( short[] b : x ) sum += wire_len(b);
+    return sum;
+  }
+  public static int wire_len( char[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( char[] b : x ) sum += wire_len(b);
+    return sum;
+  }
+  public static int wire_len( int[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( int[] b : x ) sum += wire_len(b);
+    return sum;
+  }
+  public static int wire_len( float[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( float[] b : x ) sum += wire_len(b);
+    return sum;
+  }
+  public static int wire_len( double[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( double[] b : x ) sum += wire_len(b);
+    return sum;
+  }
+  public static int wire_len( long[][]x ) { 
+    if( x==null ) return 4;  int sum = 4;
+    for( long[] b : x ) sum += wire_len(b);
+    return sum;
+  }
 }
