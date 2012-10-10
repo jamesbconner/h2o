@@ -308,6 +308,7 @@ public abstract class Paxos {
     if( prior_proposal > 0 && !PROPOSED_MEMBERS.equals(prior_value) )
       return print_debug("do  : nothing, because this is a promise for the wrong thing",prior_value);
 
+    // TODO: filter for dup proposals
     // We got at least one acceptance of our proposal!
     ACCEPTED++;
 
