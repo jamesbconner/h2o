@@ -4,8 +4,6 @@ import h2o
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        global verbose
-        verbose = True
         print "1 node"
         h2o.build_cloud(node_count=1)
 

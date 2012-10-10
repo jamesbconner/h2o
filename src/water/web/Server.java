@@ -33,6 +33,7 @@ public class Server extends NanoHTTPD {
     _pages.put("cov",new Covariance());
     _pages.put("var",new Covariance());
     _pages.put("DebugView",new DebugView());
+    _pages.put("Exec",new ExecWeb());
     _pages.put("Get",new Get());
     _pages.put("GetQuery",new GetQuery());
     _pages.put("ImportFolder",new ImportFolder());
@@ -65,7 +66,7 @@ public class Server extends NanoHTTPD {
     _pages.put("Shutdown",new Shutdown());
     _pages.put("StoreView",new StoreView());
     _pages.put("Test",new Test());
-    _pages.put("Timeline",new Timeline());
+    _pages.put("Timeline",new TimelinePage());
     _pages.put("Store2HDFS",new Store2HDFS());
     _pages.put("loginQuery", new LoginQuery());
     _pages.put("login", new Login());

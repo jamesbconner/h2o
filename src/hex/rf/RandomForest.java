@@ -43,7 +43,7 @@ public class RandomForest {
 	String validationFile = null;
 	String h2oArgs = "";
 	int ntrees = 10;
-	int depth = -1;
+	int depth = Integer.MAX_VALUE;
 	double cutRate = 0;
 	String statType = "entropy";
 	int seed = 42;

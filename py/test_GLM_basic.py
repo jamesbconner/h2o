@@ -71,8 +71,8 @@ class Basic(unittest.TestCase):
         X = ""
         csvFilename = "prostate.csv"
         csvPathname = "../smalldata/logreg" + '/' + csvFilename
-        put = h2o.nodes[0].put_file(csvPathname)
-        parseKey = h2o.nodes[0].parse(put['keyHref'])
+        put = nodes[0].put_file(csvPathname)
+        parseKey = nodes[0].parse(put['keyHref'])
 
         for appendX in xrange(9):
             if (appendX == 0):

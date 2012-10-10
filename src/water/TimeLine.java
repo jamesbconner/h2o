@@ -22,7 +22,7 @@ import water.nbhm.UtilUnsafe;
 public class TimeLine extends UDP {
   private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
 
-  // The TimeLine buffer.  
+  // The TimeLine buffer.
 
   // The TimeLine buffer is full of Events; each event has a timestamp and some
   // event bytes.  The buffer is a classic ring buffer; we toss away older
@@ -30,7 +30,7 @@ public class TimeLine extends UDP {
   // index of the next free slot is kept in the 1st long of the array, and
   // there are MAX_EVENTS (a power of 2) more slots.
 
-  // A TimeLine event is: 
+  // A TimeLine event is:
   // - Milliseconds since JVM boot; 4 bytes
   // - IP4 of send/recv
   // - Sys.Nano, 8 bytes -1 bit
@@ -77,7 +77,7 @@ public class TimeLine extends UDP {
     long deltams = ms-JVM_BOOT_MSEC;
     assert deltams < 0x0FFFFFFFFL; // No daily overflow
     int ip4 = get4(p.getAddress().getAddress(),0);
-    tl[idx*WORDS_PER_EVENT+0+1] = (deltams)<<32 | (((long)ip4)&0x0FFFFFFFFL);
+    tl[idx*WORDS_PER_EVENT+0+1] = (deltams)<<32 | (ip4&0x0FFFFFFFFL);
     tl[idx*WORDS_PER_EVENT+1+1] = (ns&~1)|sr;
     tl[idx*WORDS_PER_EVENT+2+1] = get8(p.getData(),0);
     tl[idx*WORDS_PER_EVENT+3+1] = get8(p.getData(),8);
@@ -93,7 +93,7 @@ public class TimeLine extends UDP {
   private static long x0( long[] tl, int idx ) { return tl[idx(tl,idx)+0]; }
   public static long ms( long[] tl, int idx ) { return (x0(tl,idx)>>>32)+JVM_BOOT_MSEC; }
   private static final byte _inet[] = new byte[4];
-  public static InetAddress inet( long[] tl, int idx ) { 
+  public static InetAddress inet( long[] tl, int idx ) {
     set4(_inet,0,(int)x0(tl,idx));
     try { return InetAddress.getByAddress(_inet); }
     catch( UnknownHostException e ) { }
@@ -155,7 +155,7 @@ public class TimeLine extends UDP {
     long[] a = snapshot();
     if( target == H2O.SELF ) {
       synchronized(TimeLine.class) {
-        for( int i=0; i<CLOUD._memary.length; i++ ) 
+        for( int i=0; i<CLOUD._memary.length; i++ )
           if( CLOUD._memary[i]==H2O.SELF )
             SNAPSHOT[i] = a;
         TimeLine.class.notify();
@@ -170,15 +170,13 @@ public class TimeLine extends UDP {
       dos.writeByte(UDP.udp.timeline.ordinal());
       dos.writeShort(H2O.UDP_PORT); // Our node identifier
       dos.writeInt(a.length);
-      long start = System.currentTimeMillis();
       for( int i=0; i<a.length; i++ )
         dos.writeLong(a[i]);
       dos.flush();
-      long now = System.currentTimeMillis();
       InputStream is = sock.getInputStream();
       int ack = is.read();      // Read 1 byte of ack
-      if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
       sock.close();
+      if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
       TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
     } catch( IOException e ) {  // Failure?
       // Silently ignore failure, and the poor target does not get his dump.  I
@@ -191,24 +189,14 @@ public class TimeLine extends UDP {
   void tcp_read_call( DataInputStream dis, H2ONode h2o ) throws IOException {
     int len = dis.readInt();
     long[] timeline = new long[len];
-    long start = System.currentTimeMillis();
     for( int i=0; i<len; i++ )
       timeline[i] = dis.readLong();
-    long now = System.currentTimeMillis();
     synchronized(TimeLine.class) {
-      for( int i=0; i<CLOUD._memary.length; i++ ) 
+      for( int i=0; i<CLOUD._memary.length; i++ )
         if( CLOUD._memary[i]==h2o )
           SNAPSHOT[i] = timeline;
       TimeLine.class.notify();
     }
-  }
-
-
-  // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-  public String print16( byte[] buf ) {
-    int udp     = get_ctrl(buf);
-    int port    = get_port(buf);
-    return "";
   }
 }
 
