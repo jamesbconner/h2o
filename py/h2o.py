@@ -22,6 +22,10 @@ def unit_main():
     parse_our_args()
     unittest.main()
 
+verbose = False
+ipaddr = None
+use_hosts = False
+
 def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
