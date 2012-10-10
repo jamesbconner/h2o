@@ -59,7 +59,7 @@ public class Inspect extends H2OPage {
         col.addProperty("max",   ary.col_max(i));
         col.addProperty("badat", ary.col_badat(i));
         col.addProperty("mean",  ary.col_mean(i));
-        col.addProperty("var",  ary.col_var(i));
+        col.addProperty("var",  ary.col_sigma(i));
         columns.add(col);
       }
       result.add("columns", columns);
@@ -222,7 +222,7 @@ public class Inspect extends H2OPage {
     response.replace("mean_row",sb);
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(dformat.format(Math.sqrt(ary.col_var(i)))).append("</td>");
+      sb.append("<td>").append(dformat.format(ary.col_sigma(i))).append("</td>");
     response.replace("sigma_row",sb);
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )

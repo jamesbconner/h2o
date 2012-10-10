@@ -113,8 +113,8 @@ public final class ParseDataset {
     dp2._result    = result;
 
     dp2.invoke(dataset._key);   // Parse whole dataset!
-    // normalize the variance
-    for(int i = 0; i < dp2._cols.length;++i)dp2._cols[i]._var /= dp2._cols[i]._n;
+    // normalize the variance and turn it to sigma
+    for(int i = 0; i < dp2._cols.length;++i)dp2._cols[i]._sigma = Math.sqrt(dp2._cols[i]._sigma/dp2._cols[i]._n);
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp2._cols);
     UKV.put(result,ary);
@@ -680,7 +680,7 @@ public final class ParseDataset {
           }
           // Write to compressed values
           if( !Double.isNaN(d) ) { // Broken data on row?
-            col._var += (col._mean - d) * (col._mean - d);
+            col._sigma += (col._mean - d) * (col._mean - d);
             switch( col._size ) {
             case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
             case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
@@ -723,7 +723,7 @@ public final class ParseDataset {
       // return the variance
       DParse2 other = (DParse2)rt;
       for(int i = 0; i < _cols.length; ++i){
-        _cols[i]._var += other._cols[i]._var;
+        _cols[i]._sigma += other._cols[i]._sigma;
       }
     }
 
