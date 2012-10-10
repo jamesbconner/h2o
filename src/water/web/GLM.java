@@ -164,8 +164,9 @@ public class GLM extends H2OPage {
       try{norm = GLSM.Norm.valueOf(p.getProperty("norm", "NONE"));}catch(IllegalArgumentException e){throw new InvalidInputException("unknown norm " + p.getProperty("norm","NONE"));}
       double lambda = 0.0;
       double ro = 1.0;
+      double alpha = 1.0;
       if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0"));}
-      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,ro});
+      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,ro,alpha});
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("time", deltaT);
       res.addProperty("DegreesOfFreedom", m.n - 1);

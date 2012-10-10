@@ -4,8 +4,7 @@ import hex.RowVecTask.Sampling;
 
 import java.util.ArrayList;
 
-import water.DRemoteTask;
-import water.ValueArray;
+import water.*;
 import Jama.Matrix;
 
 /**
@@ -67,6 +66,9 @@ public class GLSM {
 
   protected static double [] solveLSM_L1(double [][] xxAry, double [] xyAry, double lambda, double ro){
     if(lambda == 0) return solveLSM(xxAry, xyAry);
+    for(int i = 0; i < 1000; ++i){
+
+    }
     throw new GLSMException("L1 norm is not implemented yet");
 
   }
@@ -101,18 +103,71 @@ public class GLSM {
     _complement = complement;
   }
 
+  final static int L1_LAMBDA = 0;
+  final static int L1_RHO = 1;
+  final static int L1_ALPHA = 2;
+
   /**
    * Solve ridge regression problem with the givne lambda.
    * Data should be cenetered and have stdvar = 1!
    */
-  protected static double[] solveLSM(double [][] xxAry, double [] xyAry, Norm n, double [] nParams) {
+  protected static double[] solveLSM(Key aryKey, LSMTask tsk, Norm n, double [] nParams) {
     switch(n){
-    case L1:
-      return solveLSM_L1(xxAry, xyAry, nParams[0], nParams[1]);
+    case L1: // solve L1 norm (aka LASSO) using ADMM
+    {
+      final int N = tsk._colIds.length - ((tsk._constant == 0)?1:0);
+      final double ABSTOL = Math.sqrt(N) * 1e-4;
+      final double RELTOL = 1e-2;
+      double [] z = new double[N];
+      double [] u = new double[N];
+      double [] x = null;
+      S_Operator shrinkage = new S_Operator(nParams[L1_LAMBDA]/nParams[L1_RHO]);
+      for(int i = 0; i < 1000; ++i){
+        tsk.invoke(aryKey);
+        // add rho*(z-u) to A'*y and add rho to diagonal of A'A
+        for(int j = 0; j < N; ++j) {
+          tsk._xy[j] += nParams[L1_RHO]*(z[j] - u[j]);
+          tsk._xx[j][j] += nParams[L1_RHO];
+        }
+        // updated x
+        x = solveLSM(tsk._xx, tsk._xy);
+        // vars to be used for stopping criteria
+        double x_norm = 0;
+        double z_norm = 0;
+        double u_norm = 0;
+        // update z and u
+        double r_norm = 0;
+        double s_norm = 0;
+        double eps_pri = 0; // epsilon primal
+        double eps_dual = 0;
+
+        for(int j = 0; j < N; ++j){
+          x_norm += x[j]*x[j];
+          double x_hat = x[j]*nParams[L1_ALPHA] + (1 - nParams[L1_ALPHA])*z[j];
+          double zold = z[j];
+          z[j] = shrinkage.call(x_hat + u[j]);
+          z_norm += z[j]*z[j];
+          s_norm += (z[j] - zold)*(z[j] - zold);
+          r_norm += (x[j] - z[j])*(x[j] - z[j]);
+          u[j] += x_hat - z[j];
+          u_norm += u[j]*u[j];
+        }
+        s_norm = nParams[L1_RHO]*Math.sqrt(s_norm);
+        r_norm = nParams[L1_RHO]*Math.sqrt(r_norm);
+        eps_pri = ABSTOL + RELTOL*Math.sqrt(Math.max(x_norm,z_norm));
+        eps_dual = ABSTOL + nParams[L1_RHO]*RELTOL*Math.sqrt(u_norm);
+        if(r_norm < eps_pri && s_norm < eps_dual) break;
+      }
+      return x;
+    }
     case L2:
-      return solveLSM_L2(xxAry, xyAry, nParams[0]);
+      tsk.invoke(aryKey);
+      if(nParams[0] != 0)
+        for(int i = 0; i < tsk._xx.length; ++i)tsk._xx[i][i] += nParams[0];
+      return solveLSM(tsk._xx, tsk._xy);
     case NONE:
-      return solveLSM(xxAry, xyAry);
+      tsk.invoke(aryKey);
+      return solveLSM(tsk._xx, tsk._xy);
     default:
       throw new GLSMException("Unexpected norm " + n.toString());
     }
@@ -296,7 +351,7 @@ public class GLSM {
     {
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1, c);
       tsk.invoke(ary._key);
-      return new GLM_Model(tsk._n,solveLSM(tsk._xx, tsk._xy,n,nParams));
+      return new GLM_Model(tsk._n,solveLSM(ary._key,tsk,n,nParams));
     }
     case binomial: {
       // check we have only values 0,1 as y
@@ -305,17 +360,15 @@ public class GLSM {
         throw new GLSMException("Logistic regression can only have values from range <0,1> as y column.");
       LogitLSMTask tsk = new LogitLSMTask(colIds, s, c);
       //_tsk.setSampling(offset, step, complement);
-      tsk.invoke(ary._key);
       double[] oldBeta = null;
-      double [] beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
+      double [] beta = solveLSM(ary._key,tsk, n, nParams);
       double [] beta_gradient = new double[beta.length];
       double diff = 0;
       do {
         if(oldBeta != null)for(int i = 0; i < oldBeta.length; ++i)beta_gradient[i] = Math.abs(oldBeta[i] - beta[i]);
         oldBeta = beta;
         tsk = new LogitLSMTask(colIds, s, c, oldBeta);
-        tsk.invoke(ary._key);
-        beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
+        beta = solveLSM(ary._key, tsk, n, nParams);
         diff = 0;
         for( int i = 0; i < beta.length; ++i )
           diff += (oldBeta[i] - beta[i]) * (oldBeta[i] - beta[i]);
@@ -639,6 +692,17 @@ public class GLSM {
     }
   }
 
+  /**
+   * Lasso implementation, based on ADMM algorithm.
+   *
+   *
+   * @author tomasnykodym
+   *
+   */
+  public static class LASSO_Task extends LSMTask {
+
+
+  }
 
   public static class BinomialTest extends LSMTest {
     double _threshold;
@@ -692,4 +756,5 @@ public class GLSM {
       _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1])/(double)_n;
     }
   }
+
 }
