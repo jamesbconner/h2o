@@ -91,6 +91,7 @@ public class RandomForestTest {
         confKey = H2OPage.decode(rfv_res.get("confusionKeyHref").getAsString());
         if( model.size() >= NTREES ) break;
         UKV.remove(confKey);    // Premature incremental Confusion; nuke it
+        try { Thread.sleep(100); } catch( InterruptedException ie ) { }
       }
       // Should be a pre-built confusion
       Confusion C = new Confusion();

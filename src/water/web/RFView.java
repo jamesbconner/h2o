@@ -51,7 +51,8 @@ public class RFView extends H2OPage {
     addProperty(res, "dataKey", ary._key);
     addProperty(res, "modelKey", modelKey);
     addProperty(res, "confusionKey", confusion.keyFor());
-    res.addProperty("ntrees",ntrees);
+    res.addProperty("ntrees",ntrees); // asked-for trees
+    res.addProperty("modelSize",model.size()); // how many we got
     return res;
   }
 
