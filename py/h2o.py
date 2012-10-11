@@ -99,7 +99,7 @@ def log(cmd, comment=None):
 # Could parse ifconfig, but would need something else on windows
 def get_ip_address():
     if ipaddr:
-        verboseprint("get_ip case 1:", ip)
+        verboseprint("get_ip case 1:", ipaddr)
         return ipaddr
 
     import socket
