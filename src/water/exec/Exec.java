@@ -9,7 +9,7 @@ import water.*;
 public class Exec {
   // Execute some generic R string.  Return a
   public static Key exec( String x ) {
-    Expr e = Expr.parse(x);
+    Expression e = new RLikeParser().parse(x);
     Key k = e.eval(Key.make("Result"));
     return k;
   }
