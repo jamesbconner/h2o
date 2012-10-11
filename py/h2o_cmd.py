@@ -55,8 +55,8 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # FIX! temporary hack to allow nodes*trees to be a legal final response also
     node.stabilize(
             lambda n: 
-                (n.random_forest_view(rf['confKeyHref'])['got']==trees) or
-                (n.random_forest_view(rf['confKeyHref'])['got']==len(h2o.nodes)*trees),
+                (n.random_forest_view(rf['confKeyHref'])['numtrees']==trees) or
+                (n.random_forest_view(rf['confKeyHref'])['numtrees']==len(h2o.nodes)*trees),
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
     return(node.random_forest_view(rf['confKeyHref']))
