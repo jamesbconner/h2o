@@ -21,9 +21,9 @@ public class UDPPaxosPromise extends UDP {
   static int singlecast(byte[] buf, H2ONode leader) {
     UDP.set_ctrl(buf, udp.paxos_promise.ordinal()); // Set the UDP type byte
     if( leader == H2O.SELF) {
-      return MultiCast.singlecast(leader, buf, buf.length);
-    } else {
       return Paxos.do_promise(buf, leader);
+    } else {
+      return MultiCast.singlecast(leader, buf, buf.length);
     }
   }
 
