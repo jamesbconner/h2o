@@ -2,6 +2,7 @@ package hex;
 
 import hex.RowVecTask.Sampling;
 
+import java.sql.RowIdLifetime;
 import java.util.ArrayList;
 
 import water.*;
@@ -107,6 +108,9 @@ public class GLSM {
   final static int L1_RHO = 1;
   final static int L1_ALPHA = 2;
 
+  private static double shrinkage(double x, double kappa){
+    return Math.max(0, x - kappa ) - Math.max( 0, -x - kappa );
+  }
   /**
    * Solve ridge regression problem with the givne lambda.
    * Data should be cenetered and have stdvar = 1!
@@ -121,7 +125,8 @@ public class GLSM {
       double [] z = new double[N];
       double [] u = new double[N];
       double [] x = null;
-      S_Operator shrinkage = new S_Operator(nParams[L1_LAMBDA]/nParams[L1_RHO]);
+      double kappa = nParams[L1_LAMBDA]/nParams[L1_RHO];
+
       for(int i = 0; i < 1000; ++i){
         tsk.invoke(aryKey);
         // add rho*(z-u) to A'*y and add rho to diagonal of A'A
@@ -145,15 +150,15 @@ public class GLSM {
           x_norm += x[j]*x[j];
           double x_hat = x[j]*nParams[L1_ALPHA] + (1 - nParams[L1_ALPHA])*z[j];
           double zold = z[j];
-          z[j] = shrinkage.call(x_hat + u[j]);
+          z[j] = shrinkage(x_hat + u[j], kappa);
           z_norm += z[j]*z[j];
           s_norm += (z[j] - zold)*(z[j] - zold);
           r_norm += (x[j] - z[j])*(x[j] - z[j]);
           u[j] += x_hat - z[j];
           u_norm += u[j]*u[j];
         }
+        r_norm = Math.sqrt(r_norm);
         s_norm = nParams[L1_RHO]*Math.sqrt(s_norm);
-        r_norm = nParams[L1_RHO]*Math.sqrt(r_norm);
         eps_pri = ABSTOL + RELTOL*Math.sqrt(Math.max(x_norm,z_norm));
         eps_dual = ABSTOL + nParams[L1_RHO]*RELTOL*Math.sqrt(u_norm);
         if(r_norm < eps_pri && s_norm < eps_dual) break;
@@ -302,16 +307,18 @@ public class GLSM {
   public static class GLM_Model {
     public final double [] beta;
     public final double constant;
+    int [] preprocessing;
 
     public final long n;
 
-    public GLM_Model(long n, double [] beta){
-      this(n,beta,1);
+    public GLM_Model(long n, double [] beta, int [] p){
+      this(n,beta,1,p);
     }
-    public GLM_Model(long n, double [] beta, double constant){
+    public GLM_Model(long n, double [] beta, double constant, int [] p){
       this.n = n;
       this.beta = beta;
       this.constant = constant;
+      preprocessing = p;
     }
     public double apply(double [] x){
       double res = 0.0;
@@ -321,7 +328,7 @@ public class GLSM {
     }
 
    public GLM_Validation validateOn(ValueArray ary, Sampling s, int [] colIds, double [] args){
-     LSMTest tst = new LSMTest(colIds, s,  beta, constant);
+     LSMTest tst = new LSMTest(colIds, s,  beta, constant,preprocessing);
      tst.invoke(ary._key);
      return new GLM_Validation(this, tst.err()/tst._n,tst._n);
    }
@@ -330,35 +337,65 @@ public class GLSM {
 
   public static class BinomialModel extends GLM_Model {
     final double _b0;
-    public BinomialModel(long n, double [] beta, double constant, double b0){
-      super(n,beta,constant);
+    public BinomialModel(long n, double [] beta, double constant, double b0, int [] p){
+      super(n,beta,constant,p);
       _b0 = b0;
     }
     public double apply(double [] x){
       return logitInv(super.apply(x));
     }
     public GLM_Validation validateOn(ValueArray ary, Sampling s, int [] colIds, double [] args){
-      BinomialTest tst = new BinomialTest(colIds, s,  beta, _b0, constant, args[0]);
+      BinomialTest tst = new BinomialTest(colIds, s,  beta, _b0, constant, args[0],preprocessing);
       tst.invoke(ary._key);
       return new BinomialValidation(this, tst._confMatrix, tst._n, tst._results[BinomialTest.H0],tst._results[BinomialTest.H]);
     }
   }
 
+  public enum DataPreprocessing {
+    NONE,
+    NORMALIZE,
+    STANDARDIZE,
+    AUTO
+  };
 
-  public static GLM_Model solve(ValueArray ary, int [] colIds, Sampling s, int c, Family f, Norm n, double [] nParams) {
+  public static GLM_Model solve(ValueArray ary, int [] colIds, Sampling s, int c, Family f, Norm n, double [] nParams, DataPreprocessing preprocessing) {
+    boolean ary_standardized = true;
+    int [] p = null;
+    switch(preprocessing){
+    case AUTO:
+      if(n != Norm.NONE){
+        p = new int[colIds.length];
+        for(int i = 0; i < colIds.length-1;++i)
+          if((ary.col_mean(colIds[i]) != 0 )|| ary.col_sigma(colIds[i]) != 1)p[i] = RowVecTask.STANDARDIZE_DATA;
+      }
+      break;
+    case NORMALIZE:
+      p = new int[colIds.length];
+      for(int i = 0; i < colIds.length-1;++i)p[i] = RowVecTask.NORMALIZE_DATA;
+      break;
+    case STANDARDIZE:
+      p = new int[colIds.length];
+      for(int i = 0; i < colIds.length-1;++i)p[i] = RowVecTask.STANDARDIZE_DATA;
+      break;
+    case NONE:
+      break;
+    default:
+      throw new Error("Invalid data preprocessing flag " + preprocessing);
+    }
+
     switch(f) {
     case gaussian:
     {
-      LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1, c);
+      LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1, c, p);
       tsk.invoke(ary._key);
-      return new GLM_Model(tsk._n,solveLSM(ary._key,tsk,n,nParams));
+      return new GLM_Model(tsk._n,solveLSM(ary._key,tsk,n,nParams),p);
     }
     case binomial: {
       // check we have only values 0,1 as y
       int y = colIds[colIds.length-1];
       if(ary.col_max(y) != 1 || ary.col_min(y) != 0)
         throw new GLSMException("Logistic regression can only have values from range <0,1> as y column.");
-      LogitLSMTask tsk = new LogitLSMTask(colIds, s, c);
+      LogitLSMTask tsk = new LogitLSMTask(colIds, s, c,p);
       //_tsk.setSampling(offset, step, complement);
       double[] oldBeta = null;
       double [] beta = solveLSM(ary._key,tsk, n, nParams);
@@ -367,7 +404,7 @@ public class GLSM {
       do {
         if(oldBeta != null)for(int i = 0; i < oldBeta.length; ++i)beta_gradient[i] = Math.abs(oldBeta[i] - beta[i]);
         oldBeta = beta;
-        tsk = new LogitLSMTask(colIds, s, c, oldBeta);
+        tsk = new LogitLSMTask(colIds, s, c, oldBeta,p);
         beta = solveLSM(ary._key, tsk, n, nParams);
         diff = 0;
         for( int i = 0; i < beta.length; ++i )
@@ -379,7 +416,7 @@ public class GLSM {
           for(int j =1; j < beta_gradient.length; ++j)if(beta_gradient[j] > beta_gradient[maxJ])maxJ = j;
           throw new GLSMException("Obtained invalid beta. Try to use regularizationor or remove column " + maxJ);
         }
-      return new BinomialModel(tsk._n, beta, c, tsk._ncases / (double)tsk._n);
+      return new BinomialModel(tsk._n, beta, c, tsk._ncases / (double)tsk._n,p);
     }
     default:
       throw new GLSMException("Unsupported family: " + f.toString());
@@ -391,7 +428,7 @@ public class GLSM {
     if(xfactor == 1)return individualModels;
     for( int x = 0; x < xfactor; ++x) {
       Sampling s = new Sampling(x,xfactor,false);
-      GLM_Model m = solve(ary, colIds, s, 1,f,n,args);
+      GLM_Model m = solve(ary, colIds, s, 1,f,n,args, DataPreprocessing.AUTO);
       GLM_Validation val = m.validateOn(ary, s.complement(), colIds, new double [] {threshold});
       if(!individualModels.isEmpty())individualModels.get(0).aggregate(val);
       else individualModels.add(val.clone());
@@ -424,16 +461,15 @@ public class GLSM {
     double[]   _xy;      // vector holding sum of x * y
     int _xfactor;
     double     _constant; // constant member
-    long       _n;       // number of valid rows in this chunk
     double     _ymu;     // mean(y) estimate
 
     public LSMTask() {}         // Empty constructors for the serializers
-    public LSMTask(int[] colIds, int constant) {
-      this(colIds, null, colIds.length - 1, constant);
+    public LSMTask(int[] colIds, int constant, int [] p) {
+      this(colIds, null, colIds.length - 1, constant,p);
     }
 
-    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant) {
-      super(colIds,s);
+    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant, int [] p) {
+      super(colIds,s, true,p);
       _constant = constant;
     }
 
@@ -454,9 +490,6 @@ public class GLSM {
      */
     @Override
     public void map(double[] x) {
-      for( double d : x )
-        if( Double.isNaN(d) ) return; // skip incomplete rows
-      ++_n;
       double y = x[x.length - 1];
       _ymu += y;
       // compute x*x' and add it to the marix
@@ -551,13 +584,13 @@ public class GLSM {
     long     _ncases;
 
     public LogitLSMTask() {}    // Empty constructor for the serializers
-    public LogitLSMTask(int[] colIds, Sampling s, int constant, double[] beta) {
-      super(colIds, s, colIds.length - 1, constant);
+    public LogitLSMTask(int[] colIds, Sampling s, int constant, double[] beta, int [] p) {
+      super(colIds, s, colIds.length - 1, constant,p);
       _beta = beta;
     }
 
-    public LogitLSMTask(int[] colIds, Sampling s, int constant) {
-      this(colIds, s, constant, new double[colIds.length- ((constant == 0) ? 1 : 0)]);
+    public LogitLSMTask(int[] colIds, Sampling s, int constant, int [] p) {
+      this(colIds, s, constant, new double[colIds.length- ((constant == 0) ? 1 : 0)],p);
     }
 
     @Override
@@ -578,8 +611,6 @@ public class GLSM {
      */
     @Override
     public void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
       double y = x[x.length - 1];
       assert 0 <= y && y <= 1;
       _ncases += y;
@@ -638,13 +669,12 @@ public class GLSM {
 
     double[]         _inputParams; // [constant, b0] + beta
     double[]         _results;
-    long _n;
 
     public LSMTest() {
     }
 
-    public LSMTest(int[] colIds, Sampling s, double[] beta, double constant) {
-      super(colIds,s);
+    public LSMTest(int[] colIds, Sampling s, double[] beta, double constant, int [] p) {
+      super(colIds,s,true,p);
       _inputParams = new double[beta.length + BETA];
       _inputParams[CONSTANT] = constant;
       System.arraycopy(beta, 0, _inputParams, BETA, beta.length);
@@ -675,9 +705,6 @@ public class GLSM {
 
     @Override
     void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
-      ++_n;
       double diff = x[x.length - 1] - getYm(x);
       _results[ERRORS] += (diff)*(diff);
     }
@@ -711,8 +738,8 @@ public class GLSM {
     public BinomialTest() {
     }
 
-    public BinomialTest(int[] colIds, Sampling s, double[] beta, double b0, double constant, double threshold) {
-      super(colIds, s, beta,constant);
+    public BinomialTest(int[] colIds, Sampling s, double[] beta, double b0, double constant, double threshold, int [] p) {
+      super(colIds, s, beta,constant,p);
       _threshold = threshold;
       _b0 = b0;
     }
@@ -725,9 +752,6 @@ public class GLSM {
 
     @Override
     void map(double[] x) {
-      for( double v : x )
-        if( Double.isNaN(v) ) return;
-      ++_n;
       double yr = x[x.length - 1];
       assert yr == 0 || yr == 1;
       double mu = getYm(x);
