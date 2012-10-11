@@ -38,7 +38,7 @@ class Basic(unittest.TestCase):
     def test_C_hhp_107_01(self):
         timeoutSecs = 2
         
-        print "\nStarting hhp_107_01.data"
+        print "\nStarting hhp_107_01.data.gz"
         # columns start at 0
         # FIX! seemed to hang if I said 107 (non-existent)
         # How are these supposed to be dealt with?
@@ -46,7 +46,7 @@ class Basic(unittest.TestCase):
 
         Y = "106"
         X = ""
-        csvFilename = "hhp_107_01.data"
+        csvFilename = "hhp_107_01.data.gz"
         csvPathname = "../smalldata" + '/' + csvFilename
         put = nodes[0].put_file(csvPathname)
         parseKey = nodes[0].parse(put['keyHref'])

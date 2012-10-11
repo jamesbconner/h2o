@@ -410,13 +410,14 @@ public final class H2O {
     // See if we can grab them without bind errors!
     while( !(test_port(WEB_PORT) && test_port(UDP_PORT) && test_port(TCP_PORT)) ) {
       if( OPT_ARGS.port != 0 )
-        Log.die("Some of the required ports "+(OPT_ARGS.port+0)+
-                ", "+(OPT_ARGS.port+1)+
-                ", and "+(OPT_ARGS.port+2)+
-                " are not available, change -port PORT and try again.");
-      WEB_PORT++;               // Try the next available port(s)
-      UDP_PORT++;
-      TCP_PORT++;
+        Log.die("On " + H2ONode.findInetAddressForSelf() +
+            " some of the required ports " + (OPT_ARGS.port+0) +
+            ", "                           + (OPT_ARGS.port+1) +
+            ", and "                       + (OPT_ARGS.port+2) +
+            " are not available, change -port PORT and try again.");
+
+      // Try the next available port(s)
+      WEB_PORT++; UDP_PORT++; TCP_PORT++;
     }
 
     System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", UDP port: "+UDP_PORT+", TCP port: "+TCP_PORT);

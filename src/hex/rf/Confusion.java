@@ -12,17 +12,17 @@ import water.*;
  */
 public class Confusion extends MRTask {
 
-  /** Key of keys of trees.*/
-  public Key                  _treeskey;
-  /** Number of features used to build the forest. */
-  public int                  _features = -1;
+  /** Key for the model used for construction of the confusion matrix. */
+  public Key _modelKey;
+  /** Model used for construction of the confusion matrix. */
+  transient private Model _model;
   /** Dataset we are building the matrix on. The classes must be in the last
       column, and the column count must match the Trees.*/
   public Key                  _datakey;
   /** The dataset */
   transient public ValueArray _data;
   /** Number of response classes */
-  public int                  _N;
+  transient public int        _N;
   /** The Confusion Matrix - a NxN matrix of [actual] -vs- [predicted] classes,
       referenced as _matrix[actual][predicted]. Each row in the dataset is
       voted on by all trees, and the majority vote is the predicted class for
@@ -34,35 +34,61 @@ public class Confusion extends MRTask {
   private long                _rows;
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42. */
-  private transient Random    _rand     = new Random(42);
-  /** Model used for construction of the confusion matrix. */
-  public transient Model     _model;
+  private transient Random    _rand;
   /** The indices of the rows used for validation. This is currently mostly used
       for single node validation (the indices come from the complement of sample). */
-  private int[]               _validation;
+  transient private int[]     _validation;
   /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
-  private int                 _rows_per_normal_chunk;
+  transient private int       _rows_per_normal_chunk;
 
-  public Confusion() { }// Constructor for use by the serializers
+  /**   Constructor for use by the serializers */
+  public Confusion() { }
 
-  public Confusion(Key treeskey, Key datakey, int seed) {
-    _treeskey = treeskey;
-    _rand = new Random(seed);
+  /** Confusion matrix
+   * @param model the ensemble used to classify
+   * @param datakey the key of the data that will be classified
+   */
+  private Confusion(Model model, Key datakey) {
+    _modelKey = model._key;
     _datakey = datakey;
     shared_init();
   }
 
+  static public Key keyFor(Model model, Key datakey) {
+    return Key.make("ConfusionMatrix of (" + datakey+","+model.name()+")");
+  }
+
+  /**Apply a model to a dataset to produce a Confusion Matrix.  To support
+     incremental & repeated model application, hash the model & data and look
+     for that Key to already exist, returning a prior CM if one is available.*/
+  static public Confusion make(Model model, Key datakey) {
+    Key key = keyFor(model, datakey);
+    Value val = UKV.get(key);
+    if( val != null ) {         // Look for a prior cached result
+      Confusion C = new Confusion();
+      C.read(new Stream(val.get()));
+      C.shared_init();
+      return C;
+    }
+
+    Confusion C = new Confusion(model,datakey);
+    // Compute on it: count votes
+    C.invoke(datakey);
+    // Output to cloud
+    Stream s = new Stream(C.wire_len());
+    C.write(s);
+    DKV.put(key, new Value(key, s._buf));
+    return C;
+  }
+
   /** Shared init: for new Confusions, for remote Confusions*/
   private void shared_init() {
-    _matrix = null;
-    _rows = _errors = 0;
+    _rand   = new Random(42);
     _data = (ValueArray) DKV.get(_datakey); // load the dataset
-    int num_cols = _data.num_cols();
-    int min = (int) _data.col_min(num_cols - 1); // Typically 0-(n-1) or 1-N
-    int max = (int) _data.col_max(num_cols - 1);
-    _N = max - min + 1; // Range of last column is #classes
+    _model = new Model();
+    _model.read(new Stream(UKV.get(_modelKey).get()));
+    _N = _model._classes;
     assert _N > 0;
-    _model = new Model(_treeskey, (short) _N, _data);
     byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // get the 0-th chunk and figure out its size
     _rows_per_normal_chunk = chunk_bits.length / _data.row_size();
   }
@@ -76,34 +102,6 @@ public class Confusion extends MRTask {
   public void init() {
     super.init();
     shared_init();
-  }
-
-  /**
-   * Refresh, in case the number of trees has grown. During a refresh the
-   * _matrix is changing.
-   */
-  public void refresh() {
-    if (! _model.refreshNeeded()) return; // no new trees.
-    shared_init(); // Erase the old partial results
-    // launch a M/R job to do the math
-    invoke(_datakey);
-    toKey();
-  }
-
-  /** Write the Confusion to its key. */
-  public Key toKey() {
-    Stream s = new Stream(wire_len());
-    write(s);
-    Key key = Key.make("ConfusionMatrix of " + _datakey);
-    DKV.put(key, new Value(key, s._buf));
-    return key;
-  }
-
-  public static Confusion fromKey(Key key) {
-    Confusion c = new Confusion();
-    c.read(new Stream(DKV.get(key).get()));
-    c.shared_init();
-    return c;
   }
 
   /** Set the validation set before starting. */
@@ -128,22 +126,25 @@ public class Confusion extends MRTask {
   /**A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
   public void map(Key chunk_key) {
     byte[] chunk_bits = DKV.get(chunk_key).get(); // Get the raw dataset bits
-    final int rows = chunk_bits.length / _data.row_size();
-    final int ccol = _data.num_cols() - 1; // Column holding the class
+    final int rowsize = _data.row_size();
+    final int rows = chunk_bits.length / rowsize;
+    final int ncols= _data.num_cols();
+    final int ccol = ncols - 1; // Column holding the class
     final int cmin = (int) _data.col_min(ccol); // Typically 0-(n-1) or 1-N
     int nchk = ValueArray.getChunkIndex(chunk_key);
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
+    int[] votes = new int[_N];
 
     MAIN_LOOP: // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
-      for( int k = 0; k < _data.num_cols(); k++ )
-        if( !_data.valid(chunk_bits, i, _data.row_size(), k) )  continue MAIN_LOOP; // Skip broken rows
+      for( int k = 0; k < ncols; k++ )
+        if( !_data.valid(chunk_bits, i, rowsize, k) )  continue MAIN_LOOP; // Skip broken rows
       if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
-      int[] votes = new int[_N];
+      for( int j=0; j<_N; j++ ) votes[j] = 0;
       for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
-        votes[_model.classify(t, chunk_bits, i, _data.row_size())]++;
+        votes[_model.classify(t, chunk_bits, i, rowsize, _data)]++;
       int predict = Utils.maxIndex(votes, _rand);
-      int cclass = (int) _data.data(chunk_bits, i, _data.row_size(), ccol) - cmin;
+      int cclass = (int) _data.data(chunk_bits, i, rowsize, ccol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;
       _rows++;
@@ -159,6 +160,8 @@ public class Confusion extends MRTask {
     if( m1 == null ) { _matrix = m2; return; } // Take other work straight-up
     for( int i = 0; i < m1.length; i++ )
       for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
+    _rows += C._rows;
+    _errors += C._errors;
   }
 
   /** Compute the confusion matrix on the entire dataset on the current node. */
@@ -170,6 +173,7 @@ public class Confusion extends MRTask {
 
   /** Text form of the confusion matrix */
   private String confusionMatrix() {
+    if( _matrix == null ) return "no trees";
     final int K = _N + 1;
     double[] e2c = new double[_N];
     for( int i = 0; i < _N; i++ ) {
@@ -209,7 +213,7 @@ public class Confusion extends MRTask {
     String s =
           "              Type of random forest: classification\n"
         + "                    Number of trees: " + _model.size() + "\n"
-        + "No of variables tried at each split: " + _features + "\n"
+        + "No of variables tried at each split: " + _model._features + "\n"
         + "             Estimate of error rate: " + Math.round(err * 10000) / 100 + "%  (" + err + ")\n"
         + "                   Confusion matrix:\n"
         + confusionMatrix() + "\n"

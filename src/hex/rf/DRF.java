@@ -51,6 +51,7 @@ public class DRF extends water.DRemoteTask {
     DKV.write_barrier();
     if( singlethreaded ) drf.invoke(ary._key);
     else                 drf.fork  (ary._key);
+
     return drf;
   }
 

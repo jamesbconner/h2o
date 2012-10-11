@@ -1,19 +1,12 @@
 package water.web;
-
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CharStreams;
 import hex.rf.*;
-
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.Properties;
-
 import org.apache.commons.codec.binary.Base64;
-
-import water.DKV;
-import water.Key;
-import water.ValueArray;
-
-import com.google.common.io.ByteStreams;
-import com.google.common.io.CharStreams;
+import water.*;
 
 public class RFTreeView extends H2OPage {
   private static final String DOT_PATH;
@@ -25,15 +18,21 @@ public class RFTreeView extends H2OPage {
   }
 
   @Override public String[] requiredArguments() {
-    return new String[] { "Key", "origKey" };
+    return new String[] { "modelKey" };
   }
 
   @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
-    Key key = ServletUtil.check_key(args,"Key");
-    ValueArray va = ServletUtil.check_array(args, "origKey");
+    Key modelKey = ServletUtil.check_key(args,"modelKey");
+    final Value modelVal = UKV.get(modelKey);
+    if( modelVal == null ) throw new PageError("Model key is missing");
+    Model model = new Model();
+    model.read(new Stream(modelVal.get()));
 
-    if( DKV.get(key) == null ) return wrap(error("Key not found: "+ key));
-    byte[] tbits = DKV.get(key).get();
+    // Which tree?
+    final int n = getAsNumber(args,"n",0);
+    if( !(0 <= n && n < model.size()) ) return wrap(error("Tree number of out bounds"));
+
+    byte[] tbits = model._trees[n];
 
     long dl = Tree.depth_leaves(tbits);
     int depth = (int)(dl>>>32);
@@ -41,34 +40,39 @@ public class RFTreeView extends H2OPage {
 
     RString response = new RString(html());
     int nodeCount = leaves*2-1; // funny math: total nodes is always 2xleaves-1
-    response.replace("key", key);
+    response.replace("modelKey", modelKey);
+    response.replace("n", n);
     response.replace("nodeCount", nodeCount);
     response.replace("leafCount", leaves);
     response.replace("depth",     depth);
+
+    String[]names = new String[model._features];
+    for( int i = 0; i<names.length; i++ )
+      names[i] = Integer.toString(i);
 
     String graph;
     if( DOT_PATH == null ) {
       graph = "Install <a href=\"http://www.graphviz.org/\">graphviz</a> to " +
       		"see visualizations of small trees<p>";
     } else if( nodeCount < 1000 ) {
-      graph = dotRender(va, tbits);
+      graph = dotRender(names, tbits);
     } else {
       graph = "Tree is too large to graph.<p>";
     }
     String code;
     if( nodeCount < 10000 ) {
-      code = codeRender(va, tbits);
+      code = codeRender(names, tbits);
     } else {
       code = "Tree is too large to print pseudo code.<p>";
     }
     return response.toString() + graph + code;
   }
 
-  private String codeRender(ValueArray va, byte[] tbits) {
+  private String codeRender(String[] col_names, byte[] tbits) {
     try {
       StringBuilder sb = new StringBuilder();
       sb.append("<pre><code>");
-      new CodeTreePrinter(sb, va.col_names()).walk_serialized_tree(tbits);
+      new CodeTreePrinter(sb, col_names).walk_serialized_tree(tbits);
       sb.append("</code></pre>");
       return sb.toString();
     } catch( Exception e ) {
@@ -76,11 +80,11 @@ public class RFTreeView extends H2OPage {
     }
   }
 
-  private String dotRender(ValueArray va, byte[] tbits) {
+  private String dotRender(String[] col_names, byte[] tbits) {
     try {
       RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
-      new GraphvizTreePrinter(exec.getOutputStream(), va.col_names()).walk_serialized_tree(tbits);
+      new GraphvizTreePrinter(exec.getOutputStream(), col_names).walk_serialized_tree(tbits);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 
@@ -101,7 +105,7 @@ public class RFTreeView extends H2OPage {
   //use a function instead of a constant so that a debugger can live swap it
   private String html() {
     return
-        "\nTree View of %key\n<p>" +
+        "\n%modelKey view of Tree %n\n<p>" +
         "%depth depth with %nodeCount nodes and %leafCount leaves.<p>" +
     "";
   }

@@ -1,5 +1,6 @@
 package water.web;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.Properties;
 
 import com.google.gson.JsonArray;
@@ -13,6 +14,12 @@ import water.H2O;
 
 public class Inspect extends H2OPage {
 
+  static DecimalFormat dformat = new DecimalFormat("###.####");
+
+  static String format(double d){
+    if(Double.isNaN(d))return "";
+    return dformat.format(d);
+  }
   public Inspect() {
     // No thanks on the refresh, it's hard to use.
     //_refresh = 5;
@@ -55,7 +62,8 @@ public class Inspect extends H2OPage {
         col.addProperty("min",   ary.col_min(i));
         col.addProperty("max",   ary.col_max(i));
         col.addProperty("badat", ary.col_badat(i));
-
+        col.addProperty("mean",  ary.col_mean(i));
+        col.addProperty("var",  ary.col_sigma(i));
         columns.add(col);
       }
       result.add("columns", columns);
@@ -211,7 +219,18 @@ public class Inspect extends H2OPage {
     for( int i=0; i<num_col; i++ )
       sb.append("<td>").append(Math.abs(ary.col_size(i))).append("b</td>");
     response.replace("size_row",sb);
-
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<td>").append(format(ary.col_mean(i))).append("</td>");
+    response.replace("mean_row",sb);
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<td>").append(format(ary.col_sigma(i))).append("</td>");
+    response.replace("sigma_row",sb);
+    sb = new StringBuilder();
+    for( int i=0; i<num_col; i++ )
+      sb.append("<td>").append(format(ary.col_var(i))).append("</td>");
+    response.replace("var_row",sb);
     // Compression/math function: Ax+B
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ ) {
@@ -333,6 +352,9 @@ public class Inspect extends H2OPage {
     + "  <tr><td>Column bytes</td>%size_row</tr>\n"
     + "  <tr><td>Internal scaling</td>%math_row</tr>\n"
     + "  <tr><td>Min/Max</td>%min_max_row</tr>\n"
+    + "  <tr><td>&mu;</td>%mean_row</tr>\n"
+    + "  <tr><td>&sigma;</td>%sigma_row</tr>\n"
+    + "  <tr><td>Var</td>%var_row</tr>\n"
     + "%tableRow{\n"
     + "  <tr>%data_row</tr>\n"
     + "}\n"

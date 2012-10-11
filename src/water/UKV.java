@@ -65,6 +65,14 @@ public abstract class UKV {
   static public Value get(String s) { return get(Key.make(s)); }
   static public void remove(String s) { remove(Key.make(s)); }
 
+  // Also, allow auto-serialization
+  static public void put( Key key, RemoteTask rt ) {
+    byte[] bits = new byte[rt.wire_len()];
+    rt.write(new Stream(bits));
+    Value val = new Value(key,bits);
+    UKV.put(key,val);
+  }
+
 
   // Appends the given set of bytes to the arraylet
   private static void appendArraylet(ValueArray alet, byte[] b) {

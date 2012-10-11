@@ -37,26 +37,61 @@ def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySec
 
 ###     # we'll have to add something for LR.json to verify the LR results
 
-def runRF(node=None, csvPathname=None, trees=5, timeoutSecs=30, retryDelaySecs=2):
+# there are more RF parameters in **kwargs. see h2o.py
+def runRF(node=None, csvPathname=None, trees=5, timeoutSecs=30, retryDelaySecs=2, **kwargs):
     if not csvPathname: raise Exception('No file name for RF specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
     parse = node.parse(put['keyHref'])
     rfView = runRFOnly(node=node, parseKey=parse, trees=trees,
-            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs, **kwargs)
     return(rfView)
 
-def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
-        timeoutSecs=30, retryDelaySecs=2):
-    if not parseKey: raise Exception('No file name for RF specified')
+# there are more RF parameters in **kwargs. see h2o.py
+def runRFOnly(node=None, parseKey=None, trees=5, depth=30, 
+        timeoutSecs=30, retryDelaySecs=2, **kwargs):
+    if not parseKey: raise Exception('No parsed key for RF specified')
     if not node: node = h2o.nodes[0]
-    rf = node.random_forest(parseKey['keyHref'], trees, depth)
+    #! FIX! what else is in parseKey that we should check?
+    h2o.verboseprint("runRFOnly parseKey:",parseKey)
+    keyHref = parseKey['keyHref']
+    # FIX! CAN
+    rf = node.random_forest(keyHref, trees, depth, **kwargs)
+
+    # rf result json: 
+    # u'ntrees': 6, 
+    # u'dataKey': u'...', 
+    # u'treesKey': u'...', 
+    # u'modelKey': u'model', 
+    # u'dataKeyHref': u'...', 
+    # u'treesKeyHref': u'...', 
+    # u'modelKeyHref': u'____model'
+    # u'h2o': u'/192.168.0.35:54321', 
+
+    # FIX! check all of these somehow?
+    dataKey      = rf['dataKey']
+    modelKey     = rf['modelKey']
+    treesKey     = rf['treesKey']
+
+    # FIX! how come there's no .hex in these already? (there were in Parse.json? result?))
+    dataKeyHref  = rf['dataKeyHref'] + ".hex"
+    modelKeyHref = rf['modelKeyHref']
+    treesKeyHref = rf['treesKeyHref'] + ".hex"
+    # /ip:port of cloud (can't use h2o name)
+    rfCloud = rf['h2o']
+    # not goal # of trees?, or current that RF is out?. trees is the goal?
+    ntrees = rf['ntrees']
+
     # this expects the response to match the number of trees you told it to do
     # FIX! temporary hack to allow nodes*trees to be a legal final response also
+    # FIX! is ntrees the right thing in the rf view result?
+
     node.stabilize(
             lambda n: 
-                (n.random_forest_view(rf['confKeyHref'])['got']==trees) or
-                (n.random_forest_view(rf['confKeyHref'])['got']==len(h2o.nodes)*trees),
+                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntrees']==trees) or
+                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntrees']==len(h2o.nodes)*trees),
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
-    return(node.random_forest_view(rf['confKeyHref']))
+
+    rfView = node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)
+    return(rfView)
