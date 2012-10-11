@@ -258,7 +258,7 @@ abstract class MRVectorBinaryOperator extends MRTask {
     // get the bits to which we will write
     long chunkOffset = ValueArray.getOffset(key);
     long row = chunkOffset / result_.row_size();
-    long chunkRows = result_.chunk_size() / result_.row_size(); // now rows per chunk
+    long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
     chunkRows = Math.min(result_.num_rows() - row, chunkRows); // now how many rows we have
     byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
     // now calculate the results
