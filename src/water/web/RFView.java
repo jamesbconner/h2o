@@ -13,50 +13,19 @@ public class RFView extends H2OPage {
   }
 
   @Override public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
-    //final int depth = getAsNumber(p,"depth", 30);
-    //Key key = ServletUtil.check_key(p,"Key");
-    //Confusion confusion = Confusion.fromKey(key);
-    //confusion.refresh(); // Refresh it, in case new Trees have appeared
-    //
-    //Key treekeys[] = confusion._treeskey.flatten();
-    //// Compute a few stats over trees
-    //final int ntrees = treekeys.length;
-    //int tdepth=0;
-    //int tleavs=0;
-    //for( int i=0; i<ntrees; i++ ) {
-    //  long dl = Tree.depth_leaves(DKV.get(treekeys[i]).get());
-    //  tdepth += (int)(dl>>>32);
-    //  tleavs += (dl&0xFFFFFFFFL);
-    //}
-    //
-    //JsonObject res = new JsonObject();
-    //addProperty(res, "origKey", confusion._data._key);
-    //res.addProperty("got",ntrees);
-    //res.addProperty("valid",confusion._model.size());
-    //res.addProperty("computedTrees",confusion._model.size());
-    //res.addProperty("maxdepth",depth);
-    //res.addProperty( "depth",(double)tdepth/ntrees);
-    //res.addProperty("leaves",(double)tleavs/ntrees);
-    //return res;
-    return null;
-  }
-
-  @Override protected String serveImpl(Server s, Properties args, String sessionID) throws PageError {
-    RString response = new RString(html());
-
     // The dataset is required
-    ValueArray ary = ServletUtil.check_array(args,"dataKey");
+    ValueArray ary = ServletUtil.check_array(p,"dataKey");
 
     // The model is required
-    final Key modelKey = ServletUtil.check_key(args,"modelKey");
+    final Key modelKey = ServletUtil.check_key(p,"modelKey");
     final Value modelVal = UKV.get(modelKey);
     if( modelVal == null ) throw new PageError("Model key is missing");
     Model model = new Model();
     model.read(new Stream(modelVal.get()));
 
     // Ntrees & treeskey are optional.
-    final int ntrees = getAsNumber(args,"ntrees",model.size());
-    String skey = args.getProperty("treesKey");
+    final int ntrees = getAsNumber(p,"ntrees",model.size());
+    String skey = p.getProperty("treesKey");
     Key treeskey = null;
     try {
       treeskey = H2OPage.decode(skey);
@@ -78,26 +47,59 @@ public class RFView extends H2OPage {
     // Blocks here, until classification of all trees against all data is complete.
     Confusion confusion = Confusion.make( model, ary._key );
 
+    JsonObject res = new JsonObject();
+    addProperty(res, "dataKey", ary._key);
+    addProperty(res, "modelKey", modelKey);
+    addProperty(res, "confusionKey", confusion.keyFor());
+    res.addProperty("ntrees",ntrees);
+    return res;
+  }
+
+  @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
+    // Update the Model.
+    // Compute the Confusion.
+    JsonObject json = serverJson(s, p, sessionID);
+    if( json.has("error") )
+      return H2OPage.error(json.get("error").toString());
+    RString response = new RString(html);
+
+    // The dataset is required
+    ValueArray ary = ServletUtil.check_array(p,"dataKey");
+
+    // The model is required
+    final Key modelKey = ServletUtil.check_key(p,"modelKey");
+    final Value modelVal = UKV.get(modelKey);
+    Model model = new Model();
+    model.read(new Stream(modelVal.get()));
+
+    final int N = model._classes;
+
+    // Since the model has already been run on this dataset (in the serverJson
+    // above), and Confusion.make caches - calling it again a quick way to
+    // de-serialize the Confusion from the H2O Store.
+    Confusion confusion = Confusion.make( model, ary._key );
+
+
     // Display the confusion-matrix table here
     // First the title line
     int cmin = (int)ary.col_min(ary.num_cols()-1);
     StringBuilder sb = new StringBuilder();
     sb.append("<th>Actual \\ Predicted");
-    for( int i=0; i<confusion._N; i++ )
+    for( int i=0; i<N; i++ )
       sb.append("<th>").append("class "+(i+cmin));
     sb.append("<th>Error");
     response.replace("chead",sb.toString());
 
     // Now the confusion-matrix body lines
-    long ctots[] = new long[confusion._N]; // column totals
+    long ctots[] = new long[N]; // column totals
     long terrs = 0;
-    for( int i=0; i<confusion._N; i++ ) {
+    for( int i=0; i<N; i++ ) {
       RString row = response.restartGroup("CtableRow");
       sb = new StringBuilder();
       sb.append("<td>").append("class "+(i+cmin));
       long tot=0;
       long err=0;
-      for( int j=0; j<confusion._N; j++ ) {
+      for( int j=0; j<N; j++ ) {
         long v = confusion._matrix==null ? 0 : confusion._matrix[i][j];
         tot += v;               // Line totals
         ctots[j] += v;          // Column totals
@@ -117,7 +119,7 @@ public class RFView extends H2OPage {
     sb = new StringBuilder();
     sb.append("<td>").append("Totals");
     long ttots= 0;
-    for( int i=0; i<confusion._N; i++ ) {
+    for( int i=0; i<N; i++ ) {
       ttots += ctots[i];
       sb.append("<td>").append(ctots[i]);
     }
@@ -128,13 +130,14 @@ public class RFView extends H2OPage {
     // Report on the basic model info
     response.replace("origKey",ary._key);
     response.replace("numtrees",model.size());
+    final int ntrees = json.get("ntrees").getAsInt();
     _refresh = model.size() < ntrees ? 5 : 0; // Refresh in 5sec if not all trees yet
 
     // Compute a few stats over trees
     response.replace( "depth",model.depth());
     response.replace("leaves",model.leaves());
 
-    int limkeys = Math.min(ntrees,100);
+    int limkeys = Math.min(model.size(),100);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("trees");
       trow.replace("modelKey",modelKey);

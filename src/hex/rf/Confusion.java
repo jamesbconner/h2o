@@ -54,6 +54,7 @@ public class Confusion extends MRTask {
     shared_init();
   }
 
+  public Key keyFor() { return keyFor(_model,_datakey); }
   static public Key keyFor(Model model, Key datakey) {
     return Key.make("ConfusionMatrix of (" + datakey+","+model.name()+")");
   }
