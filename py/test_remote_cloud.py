@@ -24,7 +24,7 @@ class Basic(unittest.TestCase):
                 h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag')
             ]
-        elif (1==0):
+        elif (1==1):
 
             hosts = [
                 h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
@@ -62,7 +62,7 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
 
             # node_count is per host.
-            nodes = h2o.build_cloud(node_count, base_port=55321, ports_per_node=3, hosts=hosts)
+            nodes = h2o.build_cloud(node_count, base_port=56321, ports_per_node=3, hosts=hosts)
 
             # FIX! if node[0] is fast, maybe the other nodes aren't at a point where they won't get
             # connection errors. Stabilize them too! Can have short timeout here, because they should be 
@@ -80,6 +80,9 @@ class Basic(unittest.TestCase):
             trial += 1
             print "Tearing down cloud, trial", trial
             h2o.tear_down_cloud(nodes)
+            h2o.clean_sandbox()
+            # kbn. temp hack ..wait for sticky open ports to close? (since we reuse the ports)
+            # time.sleep(4)
 
 
 if __name__ == '__main__':
