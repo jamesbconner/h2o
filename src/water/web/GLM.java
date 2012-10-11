@@ -1,10 +1,8 @@
 package water.web;
 
 import hex.*;
-import hex.GLSM.BinomialValidation;
-import hex.GLSM.GLM_Model;
-import hex.GLSM.GLM_Validation;
-import hex.GLSM.GLSMException;
+import hex.GLSM.DataPreprocessing;
+import hex.GLSM.*;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -168,7 +166,7 @@ public class GLM extends H2OPage {
       double alpha = 1.0;
       try{ alpha = Double.valueOf(p.getProperty("alpha", "1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
       if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
-      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha});
+      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha},GLSM.DataPreprocessing.AUTO);
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("time", deltaT);
       res.addProperty("DegreesOfFreedom", m.n - 1);
@@ -251,7 +249,7 @@ public class GLM extends H2OPage {
         bldr.append("<span style=\"margin:5px;font-weight:normal;\">"
             + e.getKey() + " = " + dformat.format(val) + "</span>");
         if( codeBldr.length() > 0 )
-          codeBldr.append((val >= 0) ? " + " : " - ");
+          codeBldr.append((val >= 0) ? " - " : " + ");
         if( e.getKey().equals("Intercept") ) codeBldr.append(dformat
             .format(Math.abs(val)));
         else codeBldr.append(dformat.format(Math.abs(val)) + "*x[" + e.getKey()
@@ -328,7 +326,7 @@ public class GLM extends H2OPage {
       m.replace("equation", codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
     } else if( method.equals("binomial") ) {
-      RString m = new RString("y = 1/(1 + Math.exp(-(%equation))");
+      RString m = new RString("y = 1/(1 + Math.exp(%equation))");
       m.replace("equation", codeBldr.toString());
       responseTemplate.replace("modelSrc", m.toString());
     }

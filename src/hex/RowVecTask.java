@@ -4,6 +4,10 @@ import water.*;
 
 public abstract class RowVecTask extends MRTask {
 
+  public static final int NO_PREPROCESSING = 0; // x_new = x
+  public static final int NORMALIZE_DATA   = 1; // x_new = (x - x_min)/(x_max - x_min)  /// scales numeric values to 0 - 1 range
+  public static final int STANDARDIZE_DATA = 2; // x_new = (x - x_mu)/x_sigma  /// transforms data to have zero mean and unit variance
+
   public static class Sampling {
     final int _step;
     final int _offset;
@@ -19,13 +23,17 @@ public abstract class RowVecTask extends MRTask {
       return new Sampling(_offset,_step, !_complement);
     }
   }
-  protected boolean _skipInvalidLines;
+  protected int [] _p = null;//NO_PREPROCESSING;
+
+  protected boolean _skipInvalidLines; // if ture, rows with invalid/missing values will be skipped
+
   protected int [] _colIds;
   long _n;
   public RowVecTask() {}
-  public RowVecTask(int [] colIds, boolean skipInvalidLines){this(colIds,null, skipInvalidLines);}
-  public RowVecTask(int [] colIds, Sampling s, boolean skipInvalidLines){
+  public RowVecTask(int [] colIds, boolean skipInvalidLines, int [] p){this(colIds,null, skipInvalidLines,p);}
+  public RowVecTask(int [] colIds, Sampling s, boolean skipInvalidLines, int [] p){
     _skipInvalidLines = skipInvalidLines;
+    _p = p;
     _colIds = colIds;
     if(s != null){
       _offset = s._offset;
@@ -35,6 +43,7 @@ public abstract class RowVecTask extends MRTask {
   }
   public RowVecTask(RowVecTask other){
     _skipInvalidLines = other._skipInvalidLines;
+    _p = other._p;
     _colIds = other._colIds; _step = other._step; _offset = other._offset; _complement = other._complement;
   }
   int _step = 0;
@@ -92,6 +101,19 @@ __OUTER:
         if(_skipInvalidLines && !ary.valid(bits, rid, row_size, off[i], sz[i]))
          continue __OUTER;
         x[i] = ary.datad(bits, rid, row_size, off[i], sz[i], base[i],scale[i], _colIds[i]);
+        if(_p != null)
+          switch(_p[i]){
+          case NORMALIZE_DATA:
+            x[i] = (x[i] - ary.col_min(_colIds[i]))/(ary.col_max(_colIds[i]) - x[i]);
+            break;
+          case STANDARDIZE_DATA:
+            x[i] = (x[i] - ary.col_mean(_colIds[i]))/ary.col_sigma(_colIds[i]);
+            break;
+          case NO_PREPROCESSING:
+            break;
+          default:
+            throw new Error("Illegal preprocessing flag " + _p);
+          }
       }
       ++_n;
       map(x);
