@@ -43,6 +43,11 @@ public abstract class UKV {
       for( long i=0; i<=chunks; i++ ) // Delete all the chunks
         DKV.remove(ary.chunk_get(i));
     }
+
+    if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
+      for( Key k : val.flatten() )      // Then recursively delete
+        remove(k);
+
     DKV.remove(key);
   }
 
