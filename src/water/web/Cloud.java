@@ -1,12 +1,11 @@
 package water.web;
 
-import java.util.Properties;
-
 import com.google.gson.JsonObject;
-
+import java.util.Properties;
 import water.H2O;
 import water.H2ONode;
 import water.HeartBeatThread;
+import water.Paxos;
 
 public class Cloud extends H2OPage {
 
@@ -21,6 +20,7 @@ public class Cloud extends H2OPage {
     res.addProperty("cloud_name", H2O.NAME);
     res.addProperty("node_name", H2O.SELF.toString());
     res.addProperty("cloud_size",cloud._memary.length);
+    res.addProperty("consensus",Paxos._commonKnowledge); // Cloud is globally accepted
     return res;
   }
 
