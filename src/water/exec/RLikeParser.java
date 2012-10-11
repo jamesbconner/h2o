@@ -222,14 +222,14 @@ public class RLikeParser {
   //
   // A simple LL(1) recursive descent guy. With the following grammar:
 
-  public Expression parse(String x) {
+  public Expr parse(String x) {
     return parse(new Stream(x.getBytes()));
   }
   
-  public Expression parse(Stream x) {
+  public Expr parse(Stream x) {
     s_ = x;
     pop(); // load the first token in the stream
-    Expression result = parse_S();
+    Expr result = parse_S();
     pop(Token.Type.ttEOF); // make sure we have parsed everything
     return result;
   }
@@ -241,10 +241,10 @@ public class RLikeParser {
    * 
    * @return 
    */
-  private Expression parse_S() {
+  private Expr parse_S() {
     if (top().type == Token.Type.ttEOF)
       return null;
-    Expression result = parse_T();
+    Expr result = parse_T();
     while ((top().type == Token.Type.ttOpAdd) || (top().type == Token.Type.ttOpSub)) {
       Token.Type type = pop().type;
       result = new BinaryOperator(type,result,parse_T());
@@ -255,8 +255,8 @@ public class RLikeParser {
   /*
    * T -> F { * F | / F }
    */
-  private Expression parse_T() {
-    Expression result = parse_F();
+  private Expr parse_T() {
+    Expr result = parse_F();
     while ((top().type == Token.Type.ttOpMul) || (top().type == Token.Type.ttOpDiv)) {
       Token.Type type = pop().type;
       result = new BinaryOperator(type,result,parse_T());
@@ -268,12 +268,12 @@ public class RLikeParser {
    * F -> number | ( S ) 
    */
   
-  private Expression parse_F() {
+  private Expr parse_F() {
     if (top().type == Token.Type.ttNumber)
       return new FloatLiteral(pop().value);
     if (top().type == Token.Type.ttOpParOpen) {
       pop();
-      Expression e = parse_S();
+      Expr e = parse_S();
       pop(Token.Type.ttOpParClose);
       return e;
     }

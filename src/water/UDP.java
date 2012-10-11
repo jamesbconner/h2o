@@ -180,7 +180,7 @@ public abstract class UDP {
   public static int wire_len(   int[]x ) { if( x==null ) return 4; return 4+(x.length<<2); }
   public static int wire_len( float[]x ) { if( x==null ) return 4; return 4+(x.length<<2); }
   public static int wire_len(double[]x ) { if( x==null ) return 4; return 4+(x.length<<3); }
-  public static int wire_len(  long[]x ) { if( x==null ) return 4; return 4+(x.length<<4); }
+  public static int wire_len(  long[]x ) { if( x==null ) return 4; return 4+(x.length<<3); }
 
   public static int wire_len(  byte[][]x ) { 
     if( x==null ) return 4;  int sum = 4;

@@ -1,6 +1,8 @@
 package water;
 import java.util.*;
 
+import com.google.common.collect.Sets;
+
 /**
  * Paxos
  *
@@ -17,17 +19,7 @@ import java.util.*;
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
-
 public abstract class Paxos {
-
-  // If we receive a Proposal, we need to see if it larger than any we have
-  // received before.  If so, then we need to Promise to honor it.  Also, if we
-  // have Accepted prior Proposals, we need to include that info in any Promise.
-  static long PROPOSAL_MAX;
-
-  // The number of Promises we have received for this max PROPOSAL
-  static int ACCEPTED;
-
   // This is also a convenience class for understanding a complex high-usage
   // UDP packet.  We have one internal packet for holding local-Node state and
   // for sending that state to other Nodes, and we have wrapper functions to
@@ -54,12 +46,15 @@ public abstract class Paxos {
   // - Wire-line version of membership list
   static byte[] BUF = new byte[member_off];
 
-  // Proposed member list in a handy format.
-  static HashSet<H2ONode> PROPOSED_MEMBERS = new HashSet();
-  static H2ONode LEADER;        // Leader has the lowest IP of any in the set
-  static { PROPOSED_MEMBERS.add(LEADER=H2O.SELF);  }
+  static H2ONode LEADER = H2O.SELF;        // Leader has the lowest IP of any in the set
+  static HashSet<H2ONode> PROPOSED_MEMBERS = Sets.newHashSet(LEADER);
+  static HashSet<H2ONode> ACCEPTED = Sets.newHashSet();
 
-  static boolean _commonKnowledge = false; // Whether or not we have common knowledge
+  // If we receive a Proposal, we need to see if it larger than any we have
+  // received before.  If so, then we need to Promise to honor it.  Also, if we
+  // have Accepted prior Proposals, we need to include that info in any Promise.
+  static long PROPOSAL_MAX;
+  public static boolean _commonKnowledge = false; // Whether or not we have common knowledge
 
   // ---
   // This is a packet announcing what Cloud this Node thinks is the current
@@ -182,7 +177,7 @@ public abstract class Paxos {
       // N' so we can propose a new Cloud, where the proposal is bigger than
       // any previously submitted by this Node.  Note that only people who
       // think they should be leaders get to toss out proposals.
-      ACCEPTED = 0; // Reset the Accepted count: we got no takings on this new Proposal
+      ACCEPTED.clear(); // Reset the Accepted count: we got no takings on this new Proposal
       long proposal_num = PROPOSAL_MAX+1;
       Paxos.print_debug("send: Prepare "+proposal_num+" for leadership fight ",PROPOSED_MEMBERS);
       UDPPaxosProposal.build_and_multicast(proposal_num);
@@ -200,14 +195,19 @@ public abstract class Paxos {
   // ---
   // This is a packet announcing a Proposal, which includes an 8-byte Proposal
   // number and the guy who sent it (and thinks he should be leader).
-  static synchronized int do_proposal( final long proposal_num, final H2ONode leader ) {
-    print_debug("recv: Proposal num "+proposal_num+" by ",leader);
+  static synchronized int do_proposal( final long proposal_num, final H2ONode proposer ) {
+    print_debug("recv: Proposal num "+proposal_num+" by ",proposer);
+
+    if( proposal_num == PROPOSAL_MAX && proposer == LEADER ) {
+      return print_debug("do_proposal: ignoring duplicate proposal", proposer);
+    }
 
     // Is the Proposal New or Old?
     if( proposal_num <= PROPOSAL_MAX ) { // Old Proposal!  We can ignore it...
       // But we want to NACK this guy, by re-popping an Accepted at him
-      print_debug("do_propoxal: NAK self:" + H2O.SELF + " target:"+leader + " proposal " + proposal_num, leader);
-      UDPPaxosNack.build_and_multicast(BUF, PROPOSAL_MAX);
+      print_debug("do_propoxal: NAK self:" + H2O.SELF + " target:"+proposer + " proposal " + proposal_num, proposer);
+      long nak_till = Math.max(proposal_num, PROPOSAL_MAX-1); // don't NAK our own suggestion
+      UDPPaxosNack.build_and_multicast(BUF, nak_till);
       return print_debug("do  : nack old proposal, proposed list: ",PROPOSED_MEMBERS);
     }
 
@@ -215,35 +215,27 @@ public abstract class Paxos {
     // state we're holding but we won't be pulling in all HIS Cloud
     // members... we wont find out about them until other people start
     // announcing themselves... so adding this dude here is an optimization.
-    if( PROPOSED_MEMBERS.add(leader) ) {
+    if( PROPOSED_MEMBERS.add(proposer) ) {
       // Since he's new: would he be leader?
-      if( leader.compareTo(LEADER) < 0 )
-        LEADER = leader;
+      if( proposer.compareTo(LEADER) < 0 )
+        LEADER = proposer;
     }
 
     // A new larger Proposal number appeared; keep track of it
     PROPOSAL_MAX = proposal_num;
-    ACCEPTED = 0; // If I was acting as a Leader, my Proposal just got whacked
+    ACCEPTED.clear(); // If I was acting as a Leader, my Proposal just got whacked
     if( _commonKnowledge ) {
       _commonKnowledge = false;
       System.out.println("[h2o] Paxos Cloud voting in progress");
     }
 
-    if( LEADER == leader ) {    // New Proposal from what could be new Leader?
+    if( LEADER == proposer ) {    // New Proposal from what could be new Leader?
       // Now send a Promise to the Proposer that I will ignore Proposals less
       // than PROPOSAL_MAX (8 bytes) and include any prior ACCEPTED Proposal
       // number (8 bytes) and old the Proposal's Value
       assert old_proposal(BUF) < proposal_num; // we have not already promised what is about to be proposed
       set_promise(BUF,proposal_num);
-
-      // See if Promising to Other Leader or to Self Leader
-      if( leader != H2O.SELF ) {
-        print_debug("send: Promise to other leader: "+leader,PROPOSED_MEMBERS,BUF);
-        return singlecast_promise();
-      }
-      // Promising to Self!  Skip the network step, and just accept the Promise.
-      print_debug("do  : Promise to self",PROPOSED_MEMBERS,BUF);
-      return do_promise( BUF, H2O.SELF );
+      return UDPPaxosPromise.singlecast(BUF, proposer);
     }
     // Else proposal from some guy who I do not think should be leader in the
     // New World Order.  If I am not Leader in the New World Order, let Leader
@@ -269,7 +261,7 @@ public abstract class Paxos {
     }
 
     // Nacking the named proposal
-    if( proposal_num > PROPOSAL_MAX ) {
+    if( proposal_num >= PROPOSAL_MAX ) {
       PROPOSAL_MAX = proposal_num;       // At least bump proposal to here
       do_change_announcement(H2O.CLOUD); // Re-vote from the start
     }
@@ -309,15 +301,13 @@ public abstract class Paxos {
     if( prior_proposal > 0 && !PROPOSED_MEMBERS.equals(prior_value) )
       return print_debug("do  : nothing, because this is a promise for the wrong thing",prior_value);
 
-    // TODO: filter for dup proposals
-    // We got at least one acceptance of our proposal!
-    ACCEPTED++;
+    ACCEPTED.add(h2o);
 
     // See if we hit the Quorum needed
     final int quorum = (PROPOSED_MEMBERS.size()>>1)+1;
-    if( ACCEPTED < quorum )
+    if( ACCEPTED.size() < quorum )
       return print_debug("do  : No Quorum yet "+ACCEPTED+"/"+quorum,PROPOSED_MEMBERS);
-    if( ACCEPTED > quorum )
+    if( ACCEPTED.size() > quorum )
       return print_debug("do  : Nothing; Quorum exceeded and already sent AcceptRequest "+ACCEPTED+"/"+quorum,PROPOSED_MEMBERS);
 
     // We hit Quorum.  We can now ask the Acceptors to accept this proposal.
@@ -396,10 +386,6 @@ public abstract class Paxos {
     UDP.set8(buf,old_proposal_off,proposal_num);
   }
 
-  static int singlecast_promise() {
-    UDP.set_ctrl(BUF,UDP.udp.paxos_promise.ordinal()); // Set the UDP type byte
-    return MultiCast.singlecast(LEADER,BUF,BUF.length);
-  }
 
   // Read wire-line protocol membership list from the buf
   static HashSet<H2ONode> read_members( byte[] buf ) {
@@ -428,25 +414,23 @@ public abstract class Paxos {
   }
 
   static int print_debug( String msg, HashSet<H2ONode> members, byte[] buf ) {
-    //print(msg,members," promise:"+promise(buf)+" old:"+old_proposal(buf));
+//    print(msg,members," promise:"+promise(buf)+" old:"+old_proposal(buf));
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, H2ONode h2o ) {
-    //HashSet<H2ONode> x = new HashSet<H2ONode>();
-    //x.add(h2o);
-    //print(msg,x,"");
+//    print(msg, Sets.newHashSet(h2o), "");
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, HashSet<H2ONode> members ) {
-    //print(msg,members,"");
+//    print(msg,members,"");
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, HashSet<H2ONode> members, String msg2 ) {
-    //print(msg,members,msg2);
+//    print(msg,members,msg2);
     return 0;                   // handy flow-coding return
   }
   static int print( String msg, HashSet<H2ONode> members, String msg2 ) {
-    //System.err.println(msg+members+msg2);
+//    System.out.println(msg+members+msg2);
     return 0;                   // handy flow-coding return
   }
 

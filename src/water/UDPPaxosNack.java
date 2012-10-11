@@ -23,6 +23,7 @@ public class UDPPaxosNack extends UDP {
     BUF[0] = (byte)UDP.udp.paxos_nack.ordinal();
     Paxos.set_promise(BUF, proposal);
     MultiCast.multicast(BUF);
+    Paxos.do_nack(BUF, H2O.SELF);
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum

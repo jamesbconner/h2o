@@ -7,13 +7,15 @@ import water.exec.RLikeParser.Token;
 
 
 // -----------------------------------------------
+
+
 /**
  * Eval expressions.  The namespace is the Keys in H2O.
  * Evaluation is like in R.
  *
  * @author cliffc@0xdata.com
  */
-public abstract class Expression {
+public abstract class Expr {
 
   /** Evaulates the expression and returns its result in a new temporary key.
    * 
@@ -34,8 +36,6 @@ public abstract class Expression {
   public abstract Key eval(Key k);
   
 }
-
-
 /*  // Parse some generic R string.  Builds an expression DAG.
   // Classic 1-char-lookahead recursive-descent parser.
   public static Expression parse( String x ) { return parse(new Stream(x.getBytes())); }
@@ -99,7 +99,7 @@ public abstract class Expression {
     return new NumExpr(d);
   } 
  */
-class FloatLiteral extends Expression {
+class FloatLiteral extends Expr {
   public static final ValueArray.Column C = new ValueArray.Column();
   public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
   static {
@@ -128,7 +128,7 @@ class FloatLiteral extends Expression {
   }
 }
 
-class BinaryOperator extends Expression {
+class BinaryOperator extends Expr {
 
   public static final ValueArray.Column C = new ValueArray.Column();
   public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
@@ -142,12 +142,12 @@ class BinaryOperator extends Expression {
   
   
   
-  private final Expression left_;
-  private final Expression right_;
+  private final Expr left_;
+  private final Expr right_;
   private final Token.Type type_;
   
   
-  public BinaryOperator(Token.Type type, Expression left, Expression right) {
+  public BinaryOperator(Token.Type type, Expr left, Expr right) {
     left_ = left;
     right_ = right;
     type_ = type;

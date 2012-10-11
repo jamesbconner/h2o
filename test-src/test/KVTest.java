@@ -16,7 +16,7 @@ public class KVTest {
   @BeforeClass public static void setupCloud() {
     H2O.main(new String[] { });
     long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 5000) {
+    while (System.currentTimeMillis() - start < 10000) {
       if (H2O.CLOUD.size() > 2) break;
       try { Thread.sleep(100); } catch( InterruptedException ie ) {}
     }
@@ -217,8 +217,6 @@ public class KVTest {
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
     ValueArray va = (ValueArray)DKV.get(okey);
-    // Because ParseDataset does not properly block (yet) insert a tiny stall here.
-    try { Thread.sleep(100); } catch( InterruptedException ie ) {}
     // Compute LinearRegression between columns 2 & 3
     String LR_result = LinearRegression.run(va,2,3);
     String[] res = LR_result.split("<p>");
