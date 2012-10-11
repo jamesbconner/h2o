@@ -16,7 +16,7 @@ public class KVTest {
   @BeforeClass public static void setupCloud() {
     H2O.main(new String[] { });
     long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 5000) {
+    while (System.currentTimeMillis() - start < 10000) {
       if (H2O.CLOUD.size() > 2) break;
       try { Thread.sleep(100); } catch( InterruptedException ie ) {}
     }
