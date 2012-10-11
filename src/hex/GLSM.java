@@ -6,6 +6,7 @@ import java.sql.RowIdLifetime;
 import java.util.ArrayList;
 
 import water.*;
+import Jama.CholeskyDecomposition;
 import Jama.Matrix;
 
 /**
@@ -59,20 +60,7 @@ public class GLSM {
 
   Sampling _sampling;
 
-  protected static double [] solveLSM_L2(double [][] xxAry, double [] xyAry, double lambda){
-    if(lambda != 0) for(int i = 0; i < xxAry.length; ++i)
-      xxAry[i][i] += lambda;
-    return solveLSM(xxAry, xyAry);
-  }
 
-  protected static double [] solveLSM_L1(double [][] xxAry, double [] xyAry, double lambda, double ro){
-    if(lambda == 0) return solveLSM(xxAry, xyAry);
-    for(int i = 0; i < 1000; ++i){
-
-    }
-    throw new GLSMException("L1 norm is not implemented yet");
-
-  }
 
   protected static double [] solveLSM(double [][] xxAry, double [] xyAry){
     Matrix xx = new Matrix(xxAry.length, xxAry.length);
@@ -85,12 +73,12 @@ public class GLSM {
       }
     }
     try {
-      xx = xx.inverse();
+      CholeskyDecomposition lu = new CholeskyDecomposition(xx);
+      return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
     } catch( RuntimeException e ) {
       // TODO can be solved by Cholesky decomposition of xx!
       throw new GLSMException("can not perform LSM on this data, obtained matrix is singular!");
     }
-    return xx.times(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
   }
 
   // sampling vars
@@ -104,6 +92,7 @@ public class GLSM {
     _complement = complement;
   }
 
+  final static int L2_LAMBDA = 0;
   final static int L1_LAMBDA = 0;
   final static int L1_RHO = 1;
   final static int L1_ALPHA = 2;
@@ -127,7 +116,7 @@ public class GLSM {
       double [] x = null;
       double kappa = nParams[L1_LAMBDA]/nParams[L1_RHO];
 
-      for(int i = 0; i < 1000; ++i){
+      for(int i = 0; i < 10000; ++i){
         tsk.invoke(aryKey);
         // add rho*(z-u) to A'*y and add rho to diagonal of A'A
         for(int j = 0; j < N; ++j) {
@@ -168,7 +157,7 @@ public class GLSM {
     case L2:
       tsk.invoke(aryKey);
       if(nParams[0] != 0)
-        for(int i = 0; i < tsk._xx.length; ++i)tsk._xx[i][i] += nParams[0];
+        for(int i = 0; i < tsk._xx.length; ++i)tsk._xx[i][i] += nParams[L2_LAMBDA];
       return solveLSM(tsk._xx, tsk._xy);
     case NONE:
       tsk.invoke(aryKey);
