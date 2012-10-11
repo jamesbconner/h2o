@@ -21,12 +21,11 @@ public class UDPPaxosAccept extends UDP {
   static void build_and_multicast( byte[] buf ) {
     set_ctrl(buf,UDP.udp.paxos_accept.ordinal());
     MultiCast.multicast(buf);
+    Paxos.do_accept(buf, H2O.SELF);
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
   public String print16( byte[] buf ) {
-    int udp     = get_ctrl(buf);
-    int port    = get_port(buf);
     int off     = UDP.SZ_PORT;
     long promise= get8(buf,off); off += 8;
     int old_pro = get4(buf,off); off += 4;

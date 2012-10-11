@@ -39,6 +39,7 @@ JAVAC_ARGS='-g
     -Xlint:-rawtypes
     -Xlint:-unchecked '
 JAR=`which jar`
+ZIP=`which zip`
 CLASSES="${OUTDIR}/classes"
 
 # Clean up also /tmp content (/tmp/h2o-temp-*, /tmp/File*tmp)
@@ -92,7 +93,7 @@ function build_initializer() {
     local CLASSPATH="${JAR_ROOT}${SEP}${DEPENDENCIES}${SEP}${JAR_ROOT}/hadoop/${DEFAULT_HADOOP_VERSION}/*"
     "$JAVAC" -g -source 1.6 -target 1.6 -cp "${CLASSPATH}" -sourcepath "$SRC" -d "$JAR_ROOT" $SRC/init/*java
     pushd lib
-    jar xf javassist.jar
+    "$JAR" xf javassist.jar
     rm -rf META-INF
     popd
 }
@@ -102,6 +103,7 @@ function build_jar() {
     local JAR_FILE="${OUTDIR}/h2o.jar"
     echo "creating jar file... ${JAR_FILE}"
     "$JAR" -cfm ${JAR_FILE} manifest.txt -C ${JAR_ROOT} .
+    "$ZIP" -qd ${JAR_FILE} javassist.jar 
     echo "copying jar file... ${JAR_FILE} to ${OUTDIR}/h2o-${JAR_TIME}.jar"
     cp ${JAR_FILE} ${OUTDIR}/h2o-${JAR_TIME}.jar
 }

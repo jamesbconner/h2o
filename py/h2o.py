@@ -99,7 +99,7 @@ def log(cmd, comment=None):
 # Could parse ifconfig, but would need something else on windows
 def get_ip_address():
     if ipaddr:
-        verboseprint("get_ip case 1:", ip)
+        verboseprint("get_ip case 1:", ipaddr)
         return ipaddr
 
     import socket
@@ -211,11 +211,20 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
-
+    
 def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     node.wait_for_node_to_accept_connections()
-    node.stabilize(lambda n: n.get_cloud()['cloud_size'] == node_count,
-            error=('A cloud of size %d' % node_count),
+    # want node saying cloud = expected size, plus thinking everyone agrees with that.
+    def test(n):
+        c = n.get_cloud()
+        cloud_size = c['cloud_size']
+        consensus = c['consensus']
+
+        a = (cloud_size==node_count and consensus)
+        ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
+        return(a)
+
+    node.stabilize(test, error=('A cloud of size %d' % node_count),
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
 class H2O(object):
@@ -335,8 +344,9 @@ class H2O(object):
             # if treesKey: update the model (as required) until all ntrees
             # have appeared based on the available trees.  
             # if no treesKey: display the model as-is.
-            # so, if treeesKey, must provide ntrees also?
-            # seems like there are a number of corner cases (like if you don't specify ntrees, or a wrong value??)
+            # so, if treesKey, must provide ntrees also?
+            # seems like there are a number of corner cases 
+            # (like if you don't specify ntrees, or a wrong value??)
             # like should RF have been started with the same ntrees value always?
             params={
                 "dataKey": dataKeyHref,
@@ -667,4 +677,11 @@ class RemoteH2O(H2O):
 
     def terminate(self):
         self.channel.close()
+        # kbn: it should be dead now? want to make sure we don't have zombies
+        # we should get a connection error. doing a is_alive subset.
+        try:
+            gc_output = self.get_cloud()
+            raise "get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output)
+        except:
+            return True
     
