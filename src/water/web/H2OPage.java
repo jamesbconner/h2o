@@ -113,6 +113,7 @@ public abstract class H2OPage extends Page {
   }
 
   public static Key decode(String what) {
+    if( what==null ) return null;
     int len = what.indexOf("____");
     String tail = what.substring(len + 4);
     int r = 0;

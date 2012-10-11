@@ -90,7 +90,12 @@ public class RandomForest {
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
     Utils.pln("[RF] Starting RF.");
     long t1 = System.currentTimeMillis();
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded, null);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded);
+
+    final int num_cols = va.num_cols();
+    final short classes = (short)((va.col_max(num_cols-1) - va.col_min(num_cols-1))+1);
+    Model model = new Model(null,drf._treeskey,num_cols,classes);
+
     Key[] tkeys = null;
     while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
     long t2 = System.currentTimeMillis();
@@ -102,11 +107,11 @@ public class RandomForest {
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Confusion c = new Confusion( drf._treeskey, valKey, 42);
+      Confusion c = Confusion.make( model, valKey);
       c.mapAll();
       c.report();
     } else {
-      Confusion c = new Confusion( drf._treeskey, drf._arykey, 42);
+      Confusion c = Confusion.make( model, drf._arykey);
       c.setValidation(drf._validation.getPermutationArray());
       c.mapAll();
       c.report();

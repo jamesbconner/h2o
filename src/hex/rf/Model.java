@@ -12,12 +12,16 @@ import water.*;
  */
 public class Model extends RemoteTask {
 
+  /** Key model is stored in the cloud with */
+  public Key _key;
   /** Number of trees in the model. */
-  final private int                  _ntrees;
+  private int      _ntrees;
   /** Compressed tree data. */
-  final private byte[][]             _trees;
+  public byte[][]  _trees;
   /** Number of response classes in the source data. */
-  final private short                _classes;
+  public int       _classes;
+  /** Number of features these trees are built for */
+  public int       _features;
   /** Pseudo random number used as tie breaker. */
   final transient private Random     _rand = new Random(42); // FIXME:
                                                              // parameterize?
@@ -31,8 +35,11 @@ public class Model extends RemoteTask {
    * @param data
    *          the dataset
    */
-  public Model(Key treeskey, short classes) {
+  public Model() { }
+  public Model(Key key, Key treeskey, int features, int classes) {
+    _key = key;
     _classes = classes;
+    _features = features;
     Key[] tkeys = treeskey.flatten(); // Trees
     _ntrees = tkeys.length;
     _trees = new byte[_ntrees][];
@@ -43,6 +50,10 @@ public class Model extends RemoteTask {
   /** The number of trees in this model. */
   public int treeCount() { return _ntrees; }
   public int size() { return _ntrees; }
+
+  public String name() {
+    return _key.toString()+"["+size()+"]";
+  }
 
   /**
    * Classify a row according to one particular tree.
@@ -109,7 +120,7 @@ public class Model extends RemoteTask {
     public double avg() { return total_ / count_; }
     public int count()  { return count_; }
     @Override
-    public String toString() {return avg() + " (" + min_ + " ... " + max_ + ")"; }
+    public String toString() { return count_==0 ? " / / " : min_+" / "+avg()+" / "+max_; }
   }
 
   public void invoke( Key args ) { throw H2O.unimpl(); }
