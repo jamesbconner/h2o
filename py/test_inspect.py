@@ -33,7 +33,6 @@ class Basic(unittest.TestCase):
 
     def test_A_inspect_poker1000(self):
         cvsfile = h2o.find_file("smalldata/poker/poker1000")
-        cvsfile = h2o.find_file("smalldata/mfeat-fac")
         node    = h2o.nodes[0]
         
         res  = self.putfile_and_parse(node, cvsfile)

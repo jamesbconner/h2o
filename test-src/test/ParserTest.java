@@ -198,7 +198,9 @@ public class ParserTest {
         "9| 10|two\n",
         "11|12|three\n",
         "13|14|one\n",
-//        "15|16|\"two\"\n",
+        "15|16|\"two\"\n",
+        "17|18|\" four\"\n",
+        "19|20| three  \n",
     };
     double[][] expDouble = new double[][] {
         d(1,  2, NaN), // preserve order
@@ -208,7 +210,9 @@ public class ParserTest {
         d(9, 10, NaN),
         d(11,12, NaN),
         d(13,14, NaN),
-//        d(15,16, NaN),
+        d(15,16, NaN),
+        d(17,18, NaN),
+        d(19,20, NaN),
     };
 
     String[][] expString = new String[][] {
@@ -219,10 +223,12 @@ public class ParserTest {
         s(null,null, "two"),
         s(null,null, "three"),
         s(null,null, "one"),
-//        s(null,null, "\"two\""),
+        s(null,null, "two"),
+        s(null,null, " four"),
+        s(null,null, "three"),
     };
 
-    String expDomain[] = s( "one", "two", "three" );
+    String expDomain[] = s( "one", "two", "three", " four" );
 
     for (char separator : SEPARATORS) {
       String[] dataset = getDataForSeparator(separator, data);
