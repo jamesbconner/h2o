@@ -414,25 +414,23 @@ public abstract class Paxos {
   }
 
   static int print_debug( String msg, HashSet<H2ONode> members, byte[] buf ) {
-    //print(msg,members," promise:"+promise(buf)+" old:"+old_proposal(buf));
+//    print(msg,members," promise:"+promise(buf)+" old:"+old_proposal(buf));
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, H2ONode h2o ) {
-    //HashSet<H2ONode> x = new HashSet<H2ONode>();
-    //x.add(h2o);
-    //print(msg,x,"");
+//    print(msg, Sets.newHashSet(h2o), "");
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, HashSet<H2ONode> members ) {
-    //print(msg,members,"");
+//    print(msg,members,"");
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, HashSet<H2ONode> members, String msg2 ) {
-    //print(msg,members,msg2);
+//    print(msg,members,msg2);
     return 0;                   // handy flow-coding return
   }
   static int print( String msg, HashSet<H2ONode> members, String msg2 ) {
-    //System.err.println(msg+members+msg2);
+//    System.err.println(msg+members+msg2);
     return 0;                   // handy flow-coding return
   }
 
