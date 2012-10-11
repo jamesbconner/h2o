@@ -1,18 +1,13 @@
 package test;
 
 import static junit.framework.Assert.assertEquals;
-import hex.rf.Confusion;
+import static junit.framework.Assert.assertTrue;
 import hex.rf.DRF;
+import hex.rf.Model;
 import hex.rf.Tree.StatType;
-
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.UKV;
-import water.ValueArray;
+import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
 
@@ -52,16 +47,18 @@ public class DatasetCornerCasesTest {
     int singlethreaded =  1;
     int seed =  42;
     StatType statType = StatType.values()[gini];
+    final int num_cols = val.num_cols();
+    final int classes = (short)((val.col_max(num_cols-1) - val.col_min(num_cols-1))+1);
 
     // Start the distributed Random Forest
     try {
       DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
-      // Create incremental confusion matrix
-      Confusion confusion = new Confusion( drf._treeskey, val._key,  42);
       // Just wait little bit
-      try { Thread.sleep(2000); } catch( InterruptedException e ) {}
-      confusion.refresh();
-      assertEquals("Number of classes == 1", 1,  confusion._N);
+      try { Thread.sleep(500); } catch( InterruptedException e ) {}
+      // Create incremental confusion matrix
+      Model model = new Model(null,drf._treeskey,num_cols,classes);
+      assertEquals("Number of classes == 1", 1,  model._classes);
+      assertTrue("Number of trees > 0 ", model.size()> 0);
     } catch( DRF.IllegalDataException e ) {
       assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be between 2 and 254, found 1",e.toString());
     }

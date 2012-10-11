@@ -94,6 +94,10 @@ public class Stream {
     set4(x==null?-1:x.length);
     if( x != null ) for( int i=0; i<x.length; i++ ) set8d(x[i]);
   }
+  public void setAry11(byte[][]x) {
+    set4(x==null?-1:x.length);
+    if( x != null ) for( int i=0; i<x.length; i++ ) setAry1(x[i]);
+  }
   public void setAry44(int[][]x) {
     set4(x==null?-1:x.length);
     if( x != null ) for( int i=0; i<x.length; i++ ) setAry4(x[i]);
@@ -109,6 +113,10 @@ public class Stream {
 
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
+  public boolean eof() {
+    return _off == _buf.length;
+  }
+  
   public byte   peek1() { return           _buf[ _off  ]    ; }
   public byte   get1 () { return           _buf[ _off++]    ; }
   public boolean getz() { return           _buf[ _off++]!=0 ; }
@@ -165,6 +173,12 @@ public class Stream {
     int l = get4();   if( l == -1 ) return null;
     double[] x = new double[l];
     for( int i=0; i<x.length; i++ ) x[i] = get8d();
+    return x;
+  }
+  public byte[][] getAry11() {
+    int l = get4();   if( l == -1 ) return null;
+    byte[][] x = new byte[l][];
+    for( int i=0; i<x.length; i++ ) x[i] = getAry1();
     return x;
   }
   public int[][] getAry44() {
