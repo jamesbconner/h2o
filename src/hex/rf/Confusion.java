@@ -80,7 +80,8 @@ public class Confusion extends MRTask {
     _data = (ValueArray) DKV.get(_datakey); // load the dataset
     _model = new Model();
     _model.read(new Stream(UKV.get(_modelKey).get()));
-    _N = _model._classes;
+    final int num_cols = _data.num_cols();
+    _N = (short)((_data.col_max(num_cols-1) - _data.col_min(num_cols-1))+1);
     assert _N > 0;
     byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // get the 0-th chunk and figure out its size
     _rows_per_normal_chunk = chunk_bits.length / _data.row_size();
