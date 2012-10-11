@@ -113,6 +113,10 @@ public class Stream {
 
   public byte[] trim() { return Arrays.copyOf(_buf,_off); }
 
+  public boolean eof() {
+    return _off == _buf.length;
+  }
+  
   public byte   peek1() { return           _buf[ _off  ]    ; }
   public byte   get1 () { return           _buf[ _off++]    ; }
   public boolean getz() { return           _buf[ _off++]!=0 ; }

@@ -1,4 +1,5 @@
 package water.exec;
+import java.io.IOException;
 import water.*;
 import water.parser.ParseDataset;
 import java.util.Arrays;
@@ -11,6 +12,21 @@ import java.util.Arrays;
  */
 public abstract class Expr {
 
+  /** Evaulates the expression and returns its result in a new temporary key.
+   * 
+   * TODO the plan is to change this to produce proper random and temporary keys
+   * in a centralized and well documented manner. But for now, I just do the
+   * stupid simple thing.
+   * 
+   * Also this whole API might change with more complex expressions. 
+   * 
+   * @return 
+   */
+  public Key eval() {
+    return eval(Key.make());
+  }
+  
+  
   // Evaluate, in the current context
   public abstract Key eval(Key k);
 
@@ -27,7 +43,17 @@ public abstract class Expr {
 
     char c = (char)x.peek1();
     if( Character.isDigit(c) ) {
-      return parse_num(x);
+      // this is so stupid I am ashamed of myself, but for the time being...
+      Expr e = parse_num(x);
+      if (!x.eof()) {
+        c = (char) x.peek1();
+        if (c == '+') {
+          x.get1();
+          Expr e2 = parse_num(x);
+          e = new OperatorPlus(e, e2);
+        }
+      }
+      return e;
     } else {
       throw new RuntimeException("unable to parse at "+new String(x._buf,x._off,x._buf.length-x._off));
     }
@@ -55,9 +81,14 @@ public abstract class Expr {
         if( x.peek1()=='+' || x.peek1()=='-' ) x.get1();
         continue;
       }
+      x._off--; // rollback
+      break;
     }
-
-    String s = new String(x._buf,off,x._off);
+//    System.out.println(new String(x._buf));
+//    System.out.println(off);
+//    System.out.println(x._off);
+    
+    String s = new String(x._buf,off,x._off-off);
     double d= Double.parseDouble(s);
     return new NumExpr(d);
   }
@@ -93,6 +124,71 @@ class NumExpr extends Expr {
   }
 }
 
+class OperatorPlus extends Expr {
+
+  public static final ValueArray.Column C = new ValueArray.Column();
+  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
+  static {
+    C._name = "";
+    C._scale = 1;
+    C._size = -8;
+    C._domain = new ParseDataset.ColumnDomain();
+    C._domain.kill();
+  }
+  
+  
+  
+  private final Expr left_;
+  private final Expr right_;
+  
+  
+  public OperatorPlus(Expr left, Expr right) {
+    left_ = left;
+    right_ = right;
+    
+  }
+  
+  @Override public Key eval(Key res) {
+    // evaluate the left and right guys to their 
+    Key kl = left_.eval();
+    Key kr = right_.eval();
+    // get the values
+    Value v = DKV.get(kl);
+    assert (v instanceof ValueArray);
+    ValueArray vl = (ValueArray)v;
+    v = DKV.get(kr);
+    assert (v instanceof ValueArray);
+    ValueArray vr = (ValueArray)v;
+    // now check that the arrays are compatible. 
+    // for us it means the number of columns and their sizes are the same, because
+    // we do not yet support a column selector
+    assert (vl.num_cols() == vr.num_cols());
+    assert (vl.num_rows() == vr.num_rows());
+    // now we are happy, it seems we can add the two vectors together
+    
+    // shortcut let me just being stupid
+    assert (vl.num_cols() == 1);
+    assert (vl.num_rows() == 1);
+    
+    double l = vl.datad(0,0);
+    double r = vr.datad(0,0);
+    double result = l + r;
+    
+    Key key2 = ValueArray.make_chunkkey(res,0);
+    byte[] bits = new byte[8];
+    UDP.set8d(bits,0,result);
+    Value val = new Value(key2,bits);
+    DKV.put(key2,val);
+
+    // The metadata
+    C._min = C._max = result;
+    ValueArray ary = ValueArray.make(res,Value.ICE,res,Double.toString(result),1,8,CC);
+    DKV.put(res,ary);
+    return res;
+  }
+}
+
+
 //class PlusExpr extends Expr {
 //  public PlusExpr( Expr l, Expr r ) {
 //    k1 = l.eval();
@@ -102,6 +198,7 @@ class NumExpr extends Expr {
 //      map() {
 //        for( int i=0; i<rows; i++ )
 //
+
 //      }
 //    }
 //  }
