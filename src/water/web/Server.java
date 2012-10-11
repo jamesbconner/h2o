@@ -34,6 +34,7 @@ public class Server extends NanoHTTPD {
     _pages.put("var",new Covariance());
     _pages.put("DebugView",new DebugView());
     _pages.put("Exec",new ExecWeb());
+    _pages.put("ExecQuery",new ExecQuery());
     _pages.put("Get",new Get());
     _pages.put("GetQuery",new GetQuery());
     _pages.put("ImportFolder",new ImportFolder());

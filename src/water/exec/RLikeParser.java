@@ -43,6 +43,7 @@ public class RLikeParser {
       ttOpDiv, // /
       ttOpParOpen, // (
       ttOpParClose, // )
+      ttOpDoubleQuote, // "
       ttEOF,
       ttUnknown,
       ;
@@ -64,6 +65,8 @@ public class RLikeParser {
             return "opening parenthesis";
           case ttOpParClose:
             return "closing parenthesis";
+          case ttOpDoubleQuote:
+            return "\"";
           case ttEOF:
             return "end of input";
           default:
@@ -164,6 +167,9 @@ public class RLikeParser {
       case ')':
         ++s_._off;
         return new Token(Token.Type.ttOpParClose);
+      case '"':
+        ++s_._off;
+        return new Token(Token.Type.ttOpDoubleQuote);
       default:
         if (isCharacter(c)) 
           return parseIdent();
@@ -229,9 +235,17 @@ public class RLikeParser {
   public Expr parse(Stream x) {
     s_ = x;
     pop(); // load the first token in the stream
-    Expr result = parse_S();
-    pop(Token.Type.ttEOF); // make sure we have parsed everything
-    return result;
+    if (top().type == Token.Type.ttOpDoubleQuote) {
+      pop(); 
+      Expr result = parse_S();
+      pop(Token.Type.ttOpDoubleQuote);
+      pop(Token.Type.ttEOF); // make sure we have parsed everything
+      return result;
+    } else {
+      Expr result = parse_S();
+      pop(Token.Type.ttEOF); // make sure we have parsed everything
+      return result;
+    }
   }
   
   
