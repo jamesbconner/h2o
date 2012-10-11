@@ -119,22 +119,25 @@ public class Confusion extends MRTask {
   /**A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
   public void map(Key chunk_key) {
     byte[] chunk_bits = DKV.get(chunk_key).get(); // Get the raw dataset bits
-    final int rows = chunk_bits.length / _data.row_size();
-    final int ccol = _data.num_cols() - 1; // Column holding the class
+    final int rowsize = _data.row_size();
+    final int rows = chunk_bits.length / rowsize;
+    final int ncols= _data.num_cols();
+    final int ccol = ncols - 1; // Column holding the class
     final int cmin = (int) _data.col_min(ccol); // Typically 0-(n-1) or 1-N
     int nchk = ValueArray.getChunkIndex(chunk_key);
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
+    int[] votes = new int[_N];
 
     MAIN_LOOP: // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
-      for( int k = 0; k < _data.num_cols(); k++ )
-        if( !_data.valid(chunk_bits, i, _data.row_size(), k) )  continue MAIN_LOOP; // Skip broken rows
+      for( int k = 0; k < ncols; k++ )
+        if( !_data.valid(chunk_bits, i, rowsize, k) )  continue MAIN_LOOP; // Skip broken rows
       if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
-      int[] votes = new int[_N];
+      for( int j=0; j<_N; j++ ) votes[j] = 0;
       for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
-        votes[_model.classify(t, chunk_bits, i, _data.row_size(), _data)]++;
+        votes[_model.classify(t, chunk_bits, i, rowsize, _data)]++;
       int predict = Utils.maxIndex(votes, _rand);
-      int cclass = (int) _data.data(chunk_bits, i, _data.row_size(), ccol) - cmin;
+      int cclass = (int) _data.data(chunk_bits, i, rowsize, ccol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;
       _rows++;
