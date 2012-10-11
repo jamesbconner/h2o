@@ -59,7 +59,7 @@ public abstract class Page {
     + "  </body>"
     + "</html>";
   
-  protected static class PageError extends Exception {
+  public static class PageError extends Exception {
     public final String _msg;
     public PageError(String msg) { _msg = msg; }
   }
