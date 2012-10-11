@@ -59,7 +59,7 @@ public abstract class Paxos {
   static H2ONode LEADER;        // Leader has the lowest IP of any in the set
   static { PROPOSED_MEMBERS.add(LEADER=H2O.SELF);  }
 
-  static boolean _commonKnowledge = false; // Whether or not we have common knowledge
+  static public boolean _commonKnowledge = false; // Whether or not we have common knowledge
 
   // ---
   // This is a packet announcing what Cloud this Node thinks is the current
