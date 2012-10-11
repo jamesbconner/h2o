@@ -2,7 +2,7 @@ package water;
 import java.net.DatagramPacket;
 
 /**
- * A Paxos packet: a Promise 
+ * A Paxos packet: a Promise
  *
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
@@ -18,10 +18,17 @@ public class UDPPaxosPromise extends UDP {
     UDPReceiverThread.free_pack(pack);
   }
 
+  static int singlecast(byte[] buf, H2ONode leader) {
+    UDP.set_ctrl(buf, udp.paxos_promise.ordinal()); // Set the UDP type byte
+    if( leader == H2O.SELF) {
+      return MultiCast.singlecast(leader, buf, buf.length);
+    } else {
+      return Paxos.do_promise(buf, leader);
+    }
+  }
+
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
   public String print16( byte[] buf ) {
-    int udp     = get_ctrl(buf);
-    int port    = get_port(buf);
     int off     = SZ_PORT;
     long promise= get8(buf,off); off += 8;
     int old_pro = get4(buf,off); off += 4;

@@ -24,12 +24,11 @@ public class UDPPaxosProposal extends UDP {
     set_ctrl(PROPOSAL_BUF,UDP.udp.paxos_proposal.ordinal());
     set8(PROPOSAL_BUF,SZ_PORT,proposal_num);
     MultiCast.multicast(PROPOSAL_BUF);
+    Paxos.do_proposal(proposal_num, H2O.SELF);
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
   public String print16( byte[] buf ) {
-    int udp     = get_ctrl(buf);
-    int port    = get_port(buf);
     int off     = SZ_PORT;
     long promise= get8(buf,off); off += 8;
     int old_pro = get4(buf,off); off += 4;
