@@ -12,8 +12,9 @@ import water.*;
  */
 public class Confusion extends MRTask {
 
-  /** Model used for construction of the confusion matrix. */
+  /** Key for the model used for construction of the confusion matrix. */
   public Key _modelKey;
+  /** Model used for construction of the confusion matrix. */
   transient private Model _model;
   /** Dataset we are building the matrix on. The classes must be in the last
       column, and the column count must match the Trees.*/
@@ -40,20 +41,28 @@ public class Confusion extends MRTask {
   /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
   transient private int       _rows_per_normal_chunk;
 
-  public Confusion() { }// Constructor for use by the serializers
+  /**   Constructor for use by the serializers */
+  public Confusion() { }
 
+  /** Confusion matrix
+   * @param model the ensemble used to classify
+   * @param datakey the key of the data that will be classified
+   */
   private Confusion(Model model, Key datakey) {
     _modelKey = model._key;
     _datakey = datakey;
     shared_init();
   }
 
-  // Apply a model to a dataset to produce a Confusion Matrix.  To support
-  // incremental & repeated model application, hash the model & data and look
-  // for that Key to already exist, returning a prior CM if one is available.
-  static public Confusion make(Model model, Key datakey) {
+  static public Key keyFor(Model model, Key datakey) {
+    return Key.make("ConfusionMatrix of (" + datakey+","+model.name()+")");
+  }
 
-    Key key = Key.make("ConfusionMatrix of (" + datakey+","+model.name()+")");
+  /**Apply a model to a dataset to produce a Confusion Matrix.  To support
+     incremental & repeated model application, hash the model & data and look
+     for that Key to already exist, returning a prior CM if one is available.*/
+  static public Confusion make(Model model, Key datakey) {
+    Key key = keyFor(model, datakey);
     Value val = UKV.get(key);
     if( val != null ) {         // Look for a prior cached result
       Confusion C = new Confusion();
@@ -65,12 +74,10 @@ public class Confusion extends MRTask {
     Confusion C = new Confusion(model,datakey);
     // Compute on it: count votes
     C.invoke(datakey);
-
     // Output to cloud
     Stream s = new Stream(C.wire_len());
     C.write(s);
     DKV.put(key, new Value(key, s._buf));
-    
     return C;
   }
 

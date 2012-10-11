@@ -233,7 +233,7 @@ public class GLM extends H2OPage {
 
     } catch( InvalidInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());
-    } catch( GLSMException e2 ) {
+    } catch( Exception e2 ) {
       res.addProperty("error", "Unable to run the regression on this data: '"
           + e2.getMessage() + "'");
     }

@@ -279,32 +279,74 @@ class H2O(object):
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
-        return self.__check_request(requests.post(self.__url('GetFile.json'), 
+        a = self.__check_request(requests.post(self.__url('GetFile.json'), 
             files={"File": open(f, 'rb')}))
+        verboseprint("get_file result:", a)
+        return a
 
     def parse(self, key):
-        return self.__check_request(requests.get(self.__url('Parse.json'),
+        a = self.__check_request(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
+        verboseprint("parse result:", a)
+        return a
 
     def netstat(self):
         return self.__check_request(requests.get(self.__url('Network.json')))
 
+    # FIX! what about Key2 shows up in browser next step? (parse)
     def inspect(self, key):
-        return self.__check_request(requests.get(self.__url('Inspect.json'),
+        a = self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
+        verboseprint("inspect result:", a)
+        return a
 
-    def random_forest(self, key, ntrees=6, depth=30):
-        return self.__check_request(requests.get(self.__url('RF.json'),
+    def random_forest(self, key, ntrees=6, depth=30, seed=1, gini=0, singlethreaded=0):
+        # FIX! add gini= . is it 0 or 1? Enum is ENTROPY, GINI
+        # dataKey and treesKey are .hex
+        # add seed=
+        # add singlethreaded=
+        # add gini=<ordinalnumber>
+
+        # do I specify modelKey if I want?
+        # FIX! get dataKey, treesKey from result?
+        # modelkey is ____model by default
+        # can get error result too?
+        # I wonder if we can give it those key names if we want.
+        a = self.__check_request(requests.get(self.__url('RF.json'),
             params={
+                "singlethreaded": singlethreaded,
+                "seed": seed,
+                "gini": gini,
                 "depth": depth,
                 "ntrees": ntrees,
                 "Key": key
                 }))
+        verboseprint("random_forest result:", a)
+        return a
 
-    def random_forest_view(self, key):
+    # FIX! add modelKey, dataKey, treesKey to url
+    # Jan: if treesKey is empty, you are trying to use a previously constructed model on a new dataset
+    # if treesKey has a value, you are building a forest and the modelKey is the current, partial, forest.
+
+    def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref, trees):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
-            params={"Key": key}))
-        verboseprint("random_forest_view:", a)
+            # FIX! ntrees is an optional param
+            # treesKey is an optional param
+            # if treesKey: update the model (as required) until all ntrees
+            # have appeared based on the available trees.  
+            # if no treesKey: display the model as-is.
+            # so, if treeesKey, must provide ntrees also?
+            # seems like there are a number of corner cases (like if you don't specify ntrees, or a wrong value??)
+            # like should RF have been started with the same ntrees value always?
+            params={
+                "dataKey": dataKeyHref,
+                "modelKey": modelKeyHref,
+                "treesKey": treesKeyHref,
+                # FIX! is this right for trees goal? 
+                # seems like ntrees is used to mean different things: end goal vs current
+                "ntrees": trees
+                }))
+        verboseprint("random_forest_view result:", a)
         return a
 
     def linear_reg(self, key, colA=0, colB=1):

@@ -149,6 +149,30 @@ class OperatorPlus extends Expr {
   }
   
   @Override public Key eval(Key res) {
+    // get the keys and the values    
+    Key kl = left_.eval();
+    Key kr = right_.eval();
+    ValueArray vl = (ValueArray) DKV.get(kl);
+    ValueArray vr = (ValueArray) DKV.get(kr);
+    // check that the data types are correct
+    assert (vl.num_cols() == vr.num_cols());
+    assert (vl.num_rows() == vr.num_rows());
+    // TODO simplification, we only assume single columns
+    assert (vl.num_cols() == 1);
+    ValueArray result = ValueArray.make(res,Value.ICE,res,"temp result",vl.num_rows(),8,CC);
+    DKV.put(res,result);
+    PlusOperator op = new PlusOperator(kl,kr,res,0,0);
+    op.invoke(res);
+    C._min = op.min_;
+    C._max = op.max_;
+    result = ValueArray.make(res,Value.ICE,res,"temp result",vl.num_rows(),8,CC);
+    DKV.put(res,result); // reinsert with min / max
+    return res;
+  }
+  
+}
+/*  
+  @Override public Key eval(Key res) {
     // evaluate the left and right guys to their 
     Key kl = left_.eval();
     Key kr = right_.eval();
@@ -186,20 +210,93 @@ class OperatorPlus extends Expr {
     DKV.put(res,ary);
     return res;
   }
+ */
+
+
+abstract class MRVectorBinaryOperator extends MRTask {
+  
+  private final Key leftKey_;
+  private final Key rightKey_;
+  private final Key resultKey_;
+  
+  private final int leftCol_;
+  private final int rightCol_;
+  
+  double min_ = Double.MAX_VALUE;
+  double max_ = Double.MIN_VALUE;
+
+  /** Creates the binary operator task for the given keys. 
+   * 
+   * All keys must be created beforehand and they represent the left and right
+   * operands and the result. They are all expected to point to ValueArrays.
+   * 
+   * @param left
+   * @param right
+   * @param result 
+   */
+  public MRVectorBinaryOperator(Key left, Key right, Key result, int leftCol, int rightCol) {
+    leftKey_ = left;
+    rightKey_ = right;
+    resultKey_ = result;
+    leftCol_ = leftCol;
+    rightCol_ = rightCol;
+  } 
+  
+  /** This method actually does the operation on the data itself. 
+   * 
+   * @param left Left operand
+   * @param right Right operand
+   * @return left operator right
+   */
+  public abstract double operator(double left, double right);
+  
+  @Override public void map(Key key) {
+    ValueArray left_ = (ValueArray)DKV.get(leftKey_);
+    ValueArray right_ = (ValueArray)DKV.get(rightKey_);
+    ValueArray result_ = (ValueArray)DKV.get(resultKey_);
+    
+    // get the bits to which we will write
+    long chunkOffset = ValueArray.getOffset(key);
+    long row = chunkOffset / result_.row_size();
+    long chunkRows = result_.chunk_size() / result_.row_size(); // now rows per chunk
+    chunkRows = Math.min(result_.num_rows() - row, chunkRows); // now how many rows we have
+    byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
+    // now calculate the results
+    for (int i = 0; i < chunkRows; ++i) {
+      double left = left_.datad(row+i,leftCol_);
+      double right = right_.datad(row+i,rightCol_);
+      double result = operator(left,right);
+      UDP.set8d(bits,i*8,result);
+      if (result<min_)
+        min_ = result;
+      if (result>max_)
+        max_ = result;
+    }
+    // we have the bytes now, just store the value
+    Value val = new Value(key,bits);
+    DKV.put(key,val);
+    // and we are done...
+  }
+
+  @Override public void reduce(DRemoteTask drt) {
+    // unify the min & max guys
+    MRVectorBinaryOperator other = (MRVectorBinaryOperator) drt;
+    if (other.min_ < min_)
+      min_ = other.min_;
+    if (other.max_ > max_)
+      max_ = other.max_;
+  }
+
 }
 
+class PlusOperator extends MRVectorBinaryOperator {
+  
+  public PlusOperator(Key left, Key right, Key result, int leftCol, int rightCol) {
+    super(left,right,result,leftCol,rightCol);
+  }
 
-//class PlusExpr extends Expr {
-//  public PlusExpr( Expr l, Expr r ) {
-//    k1 = l.eval();
-//    k2 = r.eval();
-//    assert compatible;
-//    MRTask() {
-//      map() {
-//        for( int i=0; i<rows; i++ )
-//
-
-//      }
-//    }
-//  }
-//}
+  @Override public double operator(double left, double right) {
+    return left + right;
+  }
+  
+}

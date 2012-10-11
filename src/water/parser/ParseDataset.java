@@ -908,6 +908,7 @@ public final class ParseDataset {
     int idx=-1;
     int num = 0;
     boolean escaped = false;
+    boolean foundBody = false;
     for( int i=0; i<b.length; i++ ) {
       char c = (char)b[i];
       if (c=='"') {
@@ -925,11 +926,13 @@ public final class ParseDataset {
           break;
         }
         // Found a column separator?
-        if(    (csvType==PARSE_SPACESEP && Character.isWhitespace(c))
+        if(    (csvType==PARSE_SPACESEP && Character.isWhitespace(c) && idx!=-1)
             || (csvType==PARSE_COMMASEP && c == ',') ) {
           if( cols > 0 && (names[cols-1] = NaN(b,idx,i)).length() > 0 )
             num++;                // Not a number, so take it as a column name
           idx = -1;               // Reset start-of-column
+        } else if (csvType==PARSE_SPACESEP && Character.isWhitespace(c)) {
+          // skip multiple whitespaces in space separated mode
         } else {                  // Else its just column data
           if( idx == -1 ) {       // Not starting a name?
             cols++;               // Starting a name now

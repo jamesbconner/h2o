@@ -16,6 +16,10 @@ public class Inspect extends H2OPage {
 
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
+  static String format(double d){
+    if(Double.isNaN(d))return "";
+    return dformat.format(d);
+  }
   public Inspect() {
     // No thanks on the refresh, it's hard to use.
     //_refresh = 5;
@@ -215,18 +219,17 @@ public class Inspect extends H2OPage {
     for( int i=0; i<num_col; i++ )
       sb.append("<td>").append(Math.abs(ary.col_size(i))).append("b</td>");
     response.replace("size_row",sb);
-
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(dformat.format(ary.col_mean(i))).append("</td>");
+      sb.append("<td>").append(format(ary.col_mean(i))).append("</td>");
     response.replace("mean_row",sb);
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(dformat.format(ary.col_sigma(i))).append("</td>");
+      sb.append("<td>").append(format(ary.col_sigma(i))).append("</td>");
     response.replace("sigma_row",sb);
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(dformat.format(ary.col_var(i))).append("</td>");
+      sb.append("<td>").append(format(ary.col_var(i))).append("</td>");
     response.replace("var_row",sb);
     // Compression/math function: Ax+B
     sb = new StringBuilder();

@@ -4,6 +4,7 @@ import hex.RowVecTask.Sampling;
 
 import java.sql.RowIdLifetime;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import water.*;
 import Jama.CholeskyDecomposition;
@@ -24,24 +25,6 @@ import Jama.Matrix;
  */
 public class GLSM {
 
-//  ValueArray _ary;
-//  int[]    _colIds;
-//  int      _c;
-//  Family   _f;
-//  Norm _n;
-//  //LSMTask  _tsk;
-//  double[] _beta;
-//  double _ridgeCoef;
-//  double _threshold = 0.5;
-
-//
-//  public GLSM(ValueArray ary, int[] colIds, int c, Family f) {
-//    _ary = ary;
-//    _colIds = colIds;
-//    _c = c;
-//    _f = f;
-//  }
-
   public static class GLSMException extends RuntimeException {
     public GLSMException(String msg) {
       super(msg);
@@ -51,80 +34,67 @@ public class GLSM {
   public enum Family {
     gaussian, binomial
   }
+
   public enum Norm {
     NONE, // standard regression without any regularization
     L1, // LASSO
     L2; // ridge regression
   }
 
-
   Sampling _sampling;
 
 
+  final static int L2_LAMBDA = 0;
+  final static int L1_LAMBDA = 0;
+  final static int L1_RHO    = 1;
+  final static int L1_ALPHA  = 2;
 
-  protected static double [] solveLSM(double [][] xxAry, double [] xyAry){
+  protected static double[] solveLSM(double[][] xxAry, double[] xyAry, Norm n, double [] nParams) {
     Matrix xx = new Matrix(xxAry.length, xxAry.length);
     // we only computed half of the symmetric matrix, now we need to fill the
     // rest before computing the inverse
+    double d = 0.0;
+    switch(n){
+    case L1:
+      d = nParams[L1_RHO];
+      break;
+    case L2:
+      d = nParams[L2_LAMBDA];
+      break;
+    }
     for( int i = 0; i < xxAry.length; ++i ) {
       for( int j = 0; j < xxAry[i].length; ++j ) {
-        xx.set(i, j, xxAry[i][j]);
-        xx.set(j, i,xxAry[i][j]);
+        if(i == j){
+          xx.set(i, j, xxAry[i][j] + d);
+        } else {
+          xx.set(i, j, xxAry[i][j]);
+          xx.set(j, i, xxAry[i][j]);
+        }
       }
     }
-    try {
-      CholeskyDecomposition lu = new CholeskyDecomposition(xx);
-      return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
-    } catch( RuntimeException e ) {
-      // TODO can be solved by Cholesky decomposition of xx!
-      throw new GLSMException("can not perform LSM on this data, obtained matrix is singular!");
-    }
-  }
-
-  // sampling vars
-  int _offset;
-  int _step;
-  boolean _complement;
-
-  public void setSampling(int offset, int step, boolean complement){
-    _offset = offset;
-    _step = step;
-    _complement = complement;
-  }
-
-  final static int L2_LAMBDA = 0;
-  final static int L1_LAMBDA = 0;
-  final static int L1_RHO = 1;
-  final static int L1_ALPHA = 2;
-
-  private static double shrinkage(double x, double kappa){
-    return Math.max(0, x - kappa ) - Math.max( 0, -x - kappa );
-  }
-  /**
-   * Solve ridge regression problem with the givne lambda.
-   * Data should be cenetered and have stdvar = 1!
-   */
-  protected static double[] solveLSM(Key aryKey, LSMTask tsk, Norm n, double [] nParams) {
+    CholeskyDecomposition lu = new CholeskyDecomposition(xx);
     switch(n){
-    case L1: // solve L1 norm (aka LASSO) using ADMM
+    case NONE:
+    case L2:
+      return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
+    case L1:
     {
-      final int N = tsk._colIds.length - ((tsk._constant == 0)?1:0);
+      final int N = xyAry.length;
       final double ABSTOL = Math.sqrt(N) * 1e-4;
       final double RELTOL = 1e-2;
-      double [] z = new double[N];
-      double [] u = new double[N];
-      double [] x = null;
-      double kappa = nParams[L1_LAMBDA]/nParams[L1_RHO];
-
-      for(int i = 0; i < 10000; ++i){
-        tsk.invoke(aryKey);
+      double[] z = new double[N];
+      double[] u = new double[N];
+      Matrix xm= null;
+      double kappa = nParams[L1_LAMBDA] / nParams[L1_RHO];
+      for( int i = 0; i < 10000; ++i ) {
         // add rho*(z-u) to A'*y and add rho to diagonal of A'A
-        for(int j = 0; j < N; ++j) {
-          tsk._xy[j] += nParams[L1_RHO]*(z[j] - u[j]);
-          tsk._xx[j][j] += nParams[L1_RHO];
+        Matrix xy = new Matrix(xyAry, N);
+        for( int j = 0; j < N; ++j ) {
+          xy.set(j, 0, xy.get(j, 0) + nParams[L1_RHO] * (z[j] - u[j]));
         }
         // updated x
-        x = solveLSM(tsk._xx, tsk._xy);
+        xm = lu.solve(xy);
+
         // vars to be used for stopping criteria
         double x_norm = 0;
         double z_norm = 0;
@@ -135,115 +105,147 @@ public class GLSM {
         double eps_pri = 0; // epsilon primal
         double eps_dual = 0;
 
-        for(int j = 0; j < N; ++j){
-          x_norm += x[j]*x[j];
-          double x_hat = x[j]*nParams[L1_ALPHA] + (1 - nParams[L1_ALPHA])*z[j];
+        for( int j = 0; j < N; ++j ) {
+          double x_hat = xm.get(j,0);
+          x_norm += x_hat * x_hat;
+          x_hat = x_hat * nParams[L1_ALPHA] + (1 - nParams[L1_ALPHA])*z[j];
           double zold = z[j];
           z[j] = shrinkage(x_hat + u[j], kappa);
-          z_norm += z[j]*z[j];
-          s_norm += (z[j] - zold)*(z[j] - zold);
-          r_norm += (x[j] - z[j])*(x[j] - z[j]);
+          z_norm += z[j] * z[j];
+          s_norm += (z[j] - zold) * (z[j] - zold);
+          r_norm += (xm.get(j,0) - z[j]) * (xm.get(j,0) - z[j]);
           u[j] += x_hat - z[j];
-          u_norm += u[j]*u[j];
+          u_norm += u[j] * u[j];
         }
         r_norm = Math.sqrt(r_norm);
-        s_norm = nParams[L1_RHO]*Math.sqrt(s_norm);
-        eps_pri = ABSTOL + RELTOL*Math.sqrt(Math.max(x_norm,z_norm));
-        eps_dual = ABSTOL + nParams[L1_RHO]*RELTOL*Math.sqrt(u_norm);
-        if(r_norm < eps_pri && s_norm < eps_dual) break;
+        s_norm = nParams[L1_RHO] * Math.sqrt(s_norm);
+        eps_pri = ABSTOL + RELTOL * Math.sqrt(Math.max(x_norm, z_norm));
+        eps_dual = ABSTOL + nParams[L1_RHO] * RELTOL * Math.sqrt(u_norm);
+        if( r_norm < eps_pri && s_norm < eps_dual ) break;
       }
-      return x;
+      return xm.getColumnPackedCopy();
     }
-    case L2:
-      tsk.invoke(aryKey);
-      if(nParams[0] != 0)
-        for(int i = 0; i < tsk._xx.length; ++i)tsk._xx[i][i] += nParams[L2_LAMBDA];
-      return solveLSM(tsk._xx, tsk._xy);
-    case NONE:
-      tsk.invoke(aryKey);
-      return solveLSM(tsk._xx, tsk._xy);
     default:
-      throw new GLSMException("Unexpected norm " + n.toString());
+      throw new Error("Unexpected Norm " + n);
     }
   }
 
+  // sampling vars
+  int     _offset;
+  int     _step;
+  boolean _complement;
+
+  public void setSampling(int offset, int step, boolean complement) {
+    _offset = offset;
+    _step = step;
+    _complement = complement;
+  }
+
+
+  private static double shrinkage(double x, double kappa) {
+    return Math.max(0, x - kappa) - Math.max(0, -x - kappa);
+  }
 
   public static class GLM_Validation implements Cloneable {
     GLM_Model _m;
-    long _n;
-    double [] _deviance; // deviance of h0 (Null) and h1
-    double _errMean;
-    double _errVar;
-    int _t;
-    public GLM_Validation(GLM_Model m,double err, long n){
+    long      _n;
+    double[]  _deviance; // deviance of h0 (Null) and h1
+    double    _errMean;
+    double    _errVar;
+    int       _t;
+
+    public GLM_Validation(GLM_Model m, double err, long n) {
       _m = m;
       _n = n;
       _errMean = err;
       _t = 1;
     }
-    public GLM_Validation(GLM_Validation other){
+
+    public GLM_Validation(GLM_Validation other) {
       _m = other._m;
       _n = other._n;
       _t = other._t;
       _errMean = other._errMean;
       _errVar = other._errVar;
       _t = other._t;
-      if(other._deviance != null)_deviance = other._deviance.clone();
+      if( other._deviance != null ) _deviance = other._deviance.clone();
     }
 
-    public void aggregate(GLM_Validation other){
+    public void aggregate(GLM_Validation other) {
       // recursive avg formula
       _n += other._n;
       ++_t;
-      _errMean = (_t-1.0)/_t*_errMean + 1.0/_t*other._errMean;
+      _errMean = (_t - 1.0) / _t * _errMean + 1.0 / _t * other._errMean;
       // recursive variance formula
       double newVar = (other._errMean - _errMean);
-      _errVar = ((_t-1.0)/_t)*_errVar + (1.0/(_t-1))*newVar*newVar;
+      _errVar = ((_t - 1.0) / _t) * _errVar + (1.0 / (_t - 1)) * newVar
+          * newVar;
     }
 
-    public long n(){return _m.n;}
-    public double errMean(){return _errMean;}
-    public double errVar(){return _errVar;}
-    public double  nullDeviance(){return (_deviance != null)?-2*_deviance[0]:0.0;}
-    public double  residualDeviance(){return (_deviance != null)?-2*_deviance[1]:0.0;}
-    public GLM_Model m(){return _m;}
+    public long n() {
+      return _m.n;
+    }
+
+    public double errMean() {
+      return _errMean;
+    }
+
+    public double errVar() {
+      return _errVar;
+    }
+
+    public double nullDeviance() {
+      return (_deviance != null) ? -2 * _deviance[0] : 0.0;
+    }
+
+    public double residualDeviance() {
+      return (_deviance != null) ? -2 * _deviance[1] : 0.0;
+    }
+
+    public GLM_Model m() {
+      return _m;
+    }
 
     @Override
-    public GLM_Validation clone(){
+    public GLM_Validation clone() {
       return new GLM_Validation(this);
     }
   }
 
   public static class BinomialValidation extends GLM_Validation {
-    static long sum(long[][] cm){
+    static long sum(long[][] cm) {
       long res = 0;
-      for(int i = 0; i < cm.length; ++i)
-        for(int j= 0; j < cm[i].length; ++j)
+      for( int i = 0; i < cm.length; ++i )
+        for( int j = 0; j < cm[i].length; ++j )
           res += cm[i][j];
       return res;
     }
-    static long sum_diag(long[][] cm){
+
+    static long sum_diag(long[][] cm) {
       long res = 0;
-      for(int i = 0; i < cm.length; ++i)
-         res += cm[i][i];
+      for( int i = 0; i < cm.length; ++i )
+        res += cm[i][i];
       return res;
     }
-    long [][] _cm;
-    double [][] _cmMean;
-    double [][] _cmVar;
-    public BinomialValidation(GLM_Model m, long [][] cm, long n, double nullDeviance, double residualDeviance) {
-      super(m, (sum(cm)-sum_diag(cm))/(double)sum(cm),n);
-      _deviance = new double[]{nullDeviance,residualDeviance};
+
+    long[][]   _cm;
+    double[][] _cmMean;
+    double[][] _cmVar;
+
+    public BinomialValidation(GLM_Model m, long[][] cm, long n,
+        double nullDeviance, double residualDeviance) {
+      super(m, (sum(cm) - sum_diag(cm)) / (double) sum(cm), n);
+      _deviance = new double[] { nullDeviance, residualDeviance };
       _cm = cm;
-      _cmMean = new double [_cm.length][_cm.length];
-      _cmVar = new double [_cm.length][_cm.length];
-      double dn = 1.0/Math.max(1,_n);
-      for(int i = 0; i < _cmMean.length; ++i)
-        for(int j = 0; j < _cmMean.length; ++j)
-          _cmMean[i][j] = _cm[i][j]*dn;
+      _cmMean = new double[_cm.length][_cm.length];
+      _cmVar = new double[_cm.length][_cm.length];
+      double dn = 1.0 / Math.max(1, _n);
+      for( int i = 0; i < _cmMean.length; ++i )
+        for( int j = 0; j < _cmMean.length; ++j )
+          _cmMean[i][j] = _cm[i][j] * dn;
     }
 
-    public BinomialValidation(BinomialValidation other){
+    public BinomialValidation(BinomialValidation other) {
       super(other);
       _cm = other._cm.clone();
       _cmMean = other._cmMean.clone();
@@ -251,120 +253,145 @@ public class GLSM {
     }
 
     @Override
-    public void aggregate(GLM_Validation g){
+    public void aggregate(GLM_Validation g) {
       super.aggregate(g);
-      BinomialValidation other = (BinomialValidation)g;
-      for(int i = 0; i < _cmMean.length; ++i)
-        for(int j = 0; j < _cmMean.length; ++j){
-          _cmMean[i][j] = (_t-1.0)/_t*_cmMean[i][j] + 1.0/_t*other._cmMean[i][j];
+      BinomialValidation other = (BinomialValidation) g;
+      for( int i = 0; i < _cmMean.length; ++i )
+        for( int j = 0; j < _cmMean.length; ++j ) {
+          _cmMean[i][j] = (_t - 1.0) / _t * _cmMean[i][j] + 1.0 / _t
+              * other._cmMean[i][j];
           double newVar = (other._cmMean[i][j] - _cmMean[i][j]);
-          _cmVar[i][j] = ((_t-1.0)/_t)*_cmVar[i][j] + (1.0/(_t-1))*newVar*newVar;
+          _cmVar[i][j] = ((_t - 1.0) / _t) * _cmVar[i][j] + (1.0 / (_t - 1))
+              * newVar * newVar;
         }
     }
-    public long cm(int i, int j){return _cm[i][j];}
 
-    public double fpMean(){
+    public long cm(int i, int j) {
+      return _cm[i][j];
+    }
+
+    public double fpMean() {
       return _cmMean[1][0];
     }
-    public double fpVar(){
+
+    public double fpVar() {
       return _cmVar[1][0];
     }
-    public double fnMean(){
+
+    public double fnMean() {
       return _cmMean[0][1];
     }
-    public double fnVar(){
+
+    public double fnVar() {
       return _cmVar[0][1];
     }
-    public double tpMean(){
+
+    public double tpMean() {
       return _cmMean[0][0];
     }
-    public double tpVar(){
+
+    public double tpVar() {
       return _cmVar[0][0];
     }
-    public double tnMean(){
+
+    public double tnMean() {
       return _cmMean[1][1];
     }
-    public double tnVar(){
+
+    public double tnVar() {
       return _cmVar[1][1];
     }
+
     @Override
-    public BinomialValidation clone(){
+    public BinomialValidation clone() {
       return new BinomialValidation(this);
     }
   }
 
   public static class GLM_Model {
-    public final double [] beta;
-    public final double constant;
-    int [] preprocessing;
+    public final double[] beta;
+    public final double   constant;
+    int[]                 preprocessing;
 
-    public final long n;
+    public final long     n;
 
-    public GLM_Model(long n, double [] beta, int [] p){
-      this(n,beta,1,p);
+    public GLM_Model(long n, double[] beta, int[] p) {
+      this(n, beta, 1, p);
     }
-    public GLM_Model(long n, double [] beta, double constant, int [] p){
+
+    public GLM_Model(long n, double[] beta, double constant, int[] p) {
       this.n = n;
       this.beta = beta;
       this.constant = constant;
       preprocessing = p;
     }
-    public double apply(double [] x){
+
+    public double apply(double[] x) {
       double res = 0.0;
-      for(int i = 0; i < x.length; ++i)res += beta[i]*x[i];
-      if(constant != 0)res += constant*beta[x.length];
+      for( int i = 0; i < x.length; ++i )
+        res += beta[i] * x[i];
+      if( constant != 0 ) res += constant * beta[x.length];
       return res;
     }
 
-   public GLM_Validation validateOn(ValueArray ary, Sampling s, int [] colIds, double [] args){
-     LSMTest tst = new LSMTest(colIds, s,  beta, constant,preprocessing);
-     tst.invoke(ary._key);
-     return new GLM_Validation(this, tst.err()/tst._n,tst._n);
-   }
+    public GLM_Validation validateOn(ValueArray ary, Sampling s, int[] colIds,
+        double[] args) {
+      LSMTest tst = new LSMTest(colIds, s, beta, constant, preprocessing);
+      tst.invoke(ary._key);
+      return new GLM_Validation(this, tst.err() / tst._n, tst._n);
+    }
 
   }
 
   public static class BinomialModel extends GLM_Model {
     final double _b0;
-    public BinomialModel(long n, double [] beta, double constant, double b0, int [] p){
-      super(n,beta,constant,p);
+
+    public BinomialModel(long n, double[] beta, double constant, double b0,
+        int[] p) {
+      super(n, beta, constant, p);
       _b0 = b0;
     }
-    public double apply(double [] x){
+
+    public double apply(double[] x) {
       return logitInv(super.apply(x));
     }
-    public GLM_Validation validateOn(ValueArray ary, Sampling s, int [] colIds, double [] args){
-      BinomialTest tst = new BinomialTest(colIds, s,  beta, _b0, constant, args[0],preprocessing);
+
+    public GLM_Validation validateOn(ValueArray ary, Sampling s, int[] colIds,
+        double[] args) {
+      BinomialTest tst = new BinomialTest(colIds, s, beta, _b0, constant,
+          args[0], preprocessing);
       tst.invoke(ary._key);
-      return new BinomialValidation(this, tst._confMatrix, tst._n, tst._results[BinomialTest.H0],tst._results[BinomialTest.H]);
+      return new BinomialValidation(this, tst._confMatrix, tst._n,
+          tst._results[BinomialTest.H0], tst._results[BinomialTest.H]);
     }
   }
 
   public enum DataPreprocessing {
-    NONE,
-    NORMALIZE,
-    STANDARDIZE,
-    AUTO
+    NONE, NORMALIZE, STANDARDIZE, AUTO
   };
 
-  public static GLM_Model solve(ValueArray ary, int [] colIds, Sampling s, int c, Family f, Norm n, double [] nParams, DataPreprocessing preprocessing) {
+  public static GLM_Model solve(ValueArray ary, int[] colIds, Sampling s,
+      int c, Family f, Norm n, double[] nParams, DataPreprocessing preprocessing) {
     boolean ary_standardized = true;
-    int [] p = null;
-    switch(preprocessing){
+    int[] p = null;
+    switch( preprocessing ) {
     case AUTO:
-      if(n != Norm.NONE){
+      if( n != Norm.NONE ) {
         p = new int[colIds.length];
-        for(int i = 0; i < colIds.length-1;++i)
-          if((ary.col_mean(colIds[i]) != 0 )|| ary.col_sigma(colIds[i]) != 1)p[i] = RowVecTask.STANDARDIZE_DATA;
+        for( int i = 0; i < colIds.length - 1; ++i )
+          if( (ary.col_mean(colIds[i]) != 0) || ary.col_sigma(colIds[i]) != 1 )
+            p[i] = RowVecTask.STANDARDIZE_DATA;
       }
       break;
     case NORMALIZE:
       p = new int[colIds.length];
-      for(int i = 0; i < colIds.length-1;++i)p[i] = RowVecTask.NORMALIZE_DATA;
+      for( int i = 0; i < colIds.length - 1; ++i )
+        p[i] = RowVecTask.NORMALIZE_DATA;
       break;
     case STANDARDIZE:
       p = new int[colIds.length];
-      for(int i = 0; i < colIds.length-1;++i)p[i] = RowVecTask.STANDARDIZE_DATA;
+      for( int i = 0; i < colIds.length - 1; ++i )
+        p[i] = RowVecTask.STANDARDIZE_DATA;
       break;
     case NONE:
       break;
@@ -372,75 +399,90 @@ public class GLSM {
       throw new Error("Invalid data preprocessing flag " + preprocessing);
     }
 
-    switch(f) {
-    case gaussian:
-    {
+    switch( f ) {
+    case gaussian: {
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1, c, p);
       tsk.invoke(ary._key);
-      return new GLM_Model(tsk._n,solveLSM(ary._key,tsk,n,nParams),p);
+      return new GLM_Model(tsk._n, solveLSM(tsk._xx, tsk._xy, n, nParams), p);
     }
     case binomial: {
       // check we have only values 0,1 as y
-      int y = colIds[colIds.length-1];
-      if(ary.col_max(y) != 1 || ary.col_min(y) != 0)
-        throw new GLSMException("Logistic regression can only have values from range <0,1> as y column.");
-      LogitLSMTask tsk = new LogitLSMTask(colIds, s, c,p);
-      //_tsk.setSampling(offset, step, complement);
+      int y = colIds[colIds.length - 1];
+      if( ary.col_max(y) != 1 || ary.col_min(y) != 0 )
+        throw new GLSMException(
+            "Logistic regression can only have values from range <0,1> as y column.");
+      LogitLSMTask tsk = new LogitLSMTask(colIds, s, c, p);
+      tsk.invoke(ary._key);
       double[] oldBeta = null;
-      double [] beta = solveLSM(ary._key,tsk, n, nParams);
-      double [] beta_gradient = new double[beta.length];
+      double[] beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
+      double[] beta_gradient = new double[beta.length];
       double diff = 0;
       do {
-        if(oldBeta != null)for(int i = 0; i < oldBeta.length; ++i)beta_gradient[i] = Math.abs(oldBeta[i] - beta[i]);
+        if( oldBeta != null ) for( int i = 0; i < oldBeta.length; ++i )
+          beta_gradient[i] = Math.abs(oldBeta[i] - beta[i]);
         oldBeta = beta;
-        tsk = new LogitLSMTask(colIds, s, c, oldBeta,p);
-        beta = solveLSM(ary._key, tsk, n, nParams);
+        tsk = new LogitLSMTask(colIds, s, c, oldBeta, p);
+        tsk.invoke(ary._key);
+        beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
         diff = 0;
         for( int i = 0; i < beta.length; ++i )
           diff += (oldBeta[i] - beta[i]) * (oldBeta[i] - beta[i]);
       } while( diff > 1e-5 );
-      for(int i = 0; i < beta.length; ++i)
-        if(Double.isNaN(beta[i])){
+      for( int i = 0; i < beta.length; ++i )
+        if( Double.isNaN(beta[i]) ) {
           int maxJ = 0;
-          for(int j =1; j < beta_gradient.length; ++j)if(beta_gradient[j] > beta_gradient[maxJ])maxJ = j;
-          throw new GLSMException("Obtained invalid beta. Try to use regularizationor or remove column " + maxJ);
+          for( int j = 1; j < beta_gradient.length - 1; ++j )
+            if( beta_gradient[j] > beta_gradient[maxJ] ) maxJ = j;
+          throw new GLSMException(
+              "Obtained invalid beta. Try to use regularizationor or remove column "
+                  + colIds[maxJ]);
         }
-      return new BinomialModel(tsk._n, beta, c, tsk._ncases / (double)tsk._n,p);
+      return new BinomialModel(tsk._n, beta, c, tsk._ncases / (double) tsk._n,
+          p);
     }
     default:
       throw new GLSMException("Unsupported family: " + f.toString());
     }
   }
 
-  public static ArrayList<GLM_Validation> xValidate(ValueArray ary, Family f, int [] colIds, int xfactor, double threshold, int constant, Norm n, double [] args) {
+  public static ArrayList<GLM_Validation> xValidate(ValueArray ary, Family f,
+      int[] colIds, int xfactor, double threshold, int constant, Norm n,
+      double[] args) {
     ArrayList<GLM_Validation> individualModels = new ArrayList<GLM_Validation>();
-    if(xfactor == 1)return individualModels;
-    for( int x = 0; x < xfactor; ++x) {
-      Sampling s = new Sampling(x,xfactor,false);
-      GLM_Model m = solve(ary, colIds, s, 1,f,n,args, DataPreprocessing.AUTO);
-      GLM_Validation val = m.validateOn(ary, s.complement(), colIds, new double [] {threshold});
-      if(!individualModels.isEmpty())individualModels.get(0).aggregate(val);
+    if( xfactor == 1 ) return individualModels;
+    for( int x = 0; x < xfactor; ++x ) {
+      Sampling s = new Sampling(x, xfactor, false);
+      GLM_Model m = solve(ary, colIds, s, 1, f, n, args, DataPreprocessing.AUTO);
+      GLM_Validation val = m.validateOn(ary, s.complement(), colIds,
+          new double[] { threshold });
+      if( !individualModels.isEmpty() ) individualModels.get(0).aggregate(val);
       else individualModels.add(val.clone());
-      if(individualModels.size() <= 20)individualModels.add(val);
+      if( individualModels.size() <= 20 ) individualModels.add(val);
     }
     return individualModels;
   }
 
   /**
    * Soft Thresholding operator as defined in ADMM paper, section 4.4.3
+   *
    * @author tomasnykodym
    *
    */
   public static class S_Operator {
     double _k;
-    public S_Operator(){this(0.0);}
-    public S_Operator(double k){
+
+    public S_Operator() {
+      this(0.0);
+    }
+
+    public S_Operator(double k) {
       assert k >= 0;
       _k = k;
     }
-    public double call(double x){
-      if(x > _k)return x - _k;
-      if(x < -_k)return x + _k;
+
+    public double call(double x) {
+      if( x > _k ) return x - _k;
+      if( x < -_k ) return x + _k;
       return 0.0;
     }
   }
@@ -448,17 +490,19 @@ public class GLSM {
   public static class LSMTask extends RowVecTask {
     double[][] _xx;      // matrix holding sum of x*x'
     double[]   _xy;      // vector holding sum of x * y
-    int _xfactor;
+    int        _xfactor;
     double     _constant; // constant member
     double     _ymu;     // mean(y) estimate
 
-    public LSMTask() {}         // Empty constructors for the serializers
-    public LSMTask(int[] colIds, int constant, int [] p) {
-      this(colIds, null, colIds.length - 1, constant,p);
+    public LSMTask() {
+    } // Empty constructors for the serializers
+
+    public LSMTask(int[] colIds, int constant, int[] p) {
+      this(colIds, null, colIds.length - 1, constant, p);
     }
 
-    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant, int [] p) {
-      super(colIds,s, true,p);
+    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant, int[] p) {
+      super(colIds, s, true, p);
       _constant = constant;
     }
 
@@ -518,7 +562,6 @@ public class GLSM {
       super.cleanup();
     }
 
-
     /**
      * Add partial results.
      */
@@ -559,6 +602,7 @@ public class GLSM {
   static double logitInv(double x) {
     return 1.0 / (Math.exp(-x) + 1.0);
   }
+
   /**
    * Task computing one round of logistic regression by iterative least square
    * method. Given beta_k, computes beta_(k+1). Works by transforming input
@@ -572,14 +616,18 @@ public class GLSM {
     double   _origConstant;
     long     _ncases;
 
-    public LogitLSMTask() {}    // Empty constructor for the serializers
-    public LogitLSMTask(int[] colIds, Sampling s, int constant, double[] beta, int [] p) {
-      super(colIds, s, colIds.length - 1, constant,p);
+    public LogitLSMTask() {
+    } // Empty constructor for the serializers
+
+    public LogitLSMTask(int[] colIds, Sampling s, int constant, double[] beta,
+        int[] p) {
+      super(colIds, s, colIds.length - 1, constant, p);
       _beta = beta;
     }
 
-    public LogitLSMTask(int[] colIds, Sampling s, int constant, int [] p) {
-      this(colIds, s, constant, new double[colIds.length- ((constant == 0) ? 1 : 0)],p);
+    public LogitLSMTask(int[] colIds, Sampling s, int constant, int[] p) {
+      this(colIds, s, constant, new double[colIds.length
+          - ((constant == 0) ? 1 : 0)], p);
     }
 
     @Override
@@ -645,8 +693,6 @@ public class GLSM {
     }
   }
 
-
-
   public static class LSMTest extends RowVecTask {
     // INPUTS
     public static final int CONSTANT = 0;
@@ -656,14 +702,15 @@ public class GLSM {
     public static final int H0       = 1;
     public static final int H        = 2;
 
-    double[]         _inputParams; // [constant, b0] + beta
-    double[]         _results;
+    double[]                _inputParams; // [constant, b0] + beta
+    double[]                _results;
 
     public LSMTest() {
     }
 
-    public LSMTest(int[] colIds, Sampling s, double[] beta, double constant, int [] p) {
-      super(colIds,s,true,p);
+    public LSMTest(int[] colIds, Sampling s, double[] beta, double constant,
+        int[] p) {
+      super(colIds, s, true, p);
       _inputParams = new double[beta.length + BETA];
       _inputParams[CONSTANT] = constant;
       System.arraycopy(beta, 0, _inputParams, BETA, beta.length);
@@ -683,7 +730,7 @@ public class GLSM {
       _results = new double[3];
     }
 
-    protected double getYm(double [] x){
+    protected double getYm(double[] x) {
       double ym = 0;
       for( int i = 0; i < (x.length - 1); ++i )
         ym += x[i] * _inputParams[BETA + i];
@@ -695,7 +742,7 @@ public class GLSM {
     @Override
     void map(double[] x) {
       double diff = x[x.length - 1] - getYm(x);
-      _results[ERRORS] += (diff)*(diff);
+      _results[ERRORS] += (diff) * (diff);
     }
 
     @Override
@@ -703,8 +750,8 @@ public class GLSM {
       _inputParams = null; // don't propagate beta back
     }
 
-    public double err(){
-      return (_results != null)?_results[ERRORS]:0;
+    public double err() {
+      return (_results != null) ? _results[ERRORS] : 0;
     }
   }
 
@@ -717,18 +764,19 @@ public class GLSM {
    */
   public static class LASSO_Task extends LSMTask {
 
-
   }
 
   public static class BinomialTest extends LSMTest {
-    double _threshold;
-    double _b0;
-    long [][] _confMatrix;
+    double   _threshold;
+    double   _b0;
+    long[][] _confMatrix;
+
     public BinomialTest() {
     }
 
-    public BinomialTest(int[] colIds, Sampling s, double[] beta, double b0, double constant, double threshold, int [] p) {
-      super(colIds, s, beta,constant,p);
+    public BinomialTest(int[] colIds, Sampling s, double[] beta, double b0,
+        double constant, double threshold, int[] p) {
+      super(colIds, s, beta, constant, p);
       _threshold = threshold;
       _b0 = b0;
     }
@@ -745,17 +793,17 @@ public class GLSM {
       assert yr == 0 || yr == 1;
       double mu = getYm(x);
       double p = logitInv(mu);
-      int ym = (p > _threshold)?1:0;
-      _confMatrix[ym][(int)yr] += 1;
-      if(_b0 > 0){
+      int ym = (p > _threshold) ? 1 : 0;
+      _confMatrix[ym][(int) yr] += 1;
+      if( _b0 > 0 ) {
         _results[H] += yr * mu - Math.log(1 + Math.exp(mu));
-        _results[H0] += (yr == 1) ? Math.log(_b0) : Math
-            .log(1 - _b0);
+        _results[H0] += (yr == 1) ? Math.log(_b0) : Math.log(1 - _b0);
       }
     }
 
-    @Override public void cleanup(){
-      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1])/(double)_n;
+    @Override
+    public void cleanup() {
+      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1]) / (double) _n;
     }
 
     @Override
@@ -764,9 +812,9 @@ public class GLSM {
       BinomialTest other = (BinomialTest) drt;
       if( _confMatrix == null ) _confMatrix = other._confMatrix;
       else for( int i = 0; i < _confMatrix.length; ++i )
-        for(int j = 0; j < _confMatrix[i].length; ++j)
+        for( int j = 0; j < _confMatrix[i].length; ++j )
           _confMatrix[i][j] += other._confMatrix[i][j];
-      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1])/(double)_n;
+      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1]) / (double) _n;
     }
   }
 
