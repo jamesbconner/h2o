@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.exec;
 
 import java.util.Arrays;
@@ -9,18 +5,6 @@ import water.Key;
 import water.Stream;
 
 /**
- * 
- * 
- * 
- * 
- * 
- * Grammar:
- * 
- * S  -> T S1
- * S1 -> e
- *       + T S1
- *       - T S1
- * T  -> number 
  *
  * @author peta
  */
@@ -109,15 +93,15 @@ public class RLikeParser {
     return top_;  
   }
   
-  protected Token pop() {
+  protected Token pop() throws ParserException {
     Token x = top_;
     top_ = parseNextToken();
     return x;
   }
 
-  protected Token pop(Token.Type type) {
+  protected Token pop(Token.Type type) throws ParserException {
     if (top().type != type)
-      throw new RuntimeException("Token "+type.toString()+" expected, but "+top().type.toString()+" found.");
+      throw new ParserException(type,top().type);
     return pop();
   }
   
@@ -147,7 +131,7 @@ public class RLikeParser {
     return (c>='0') && (c <='9');
   }
   
-  private Token parseNextToken() {
+  private Token parseNextToken() throws ParserException {
     skipWhitespace();
     if (s_.eof())
       return new Token(Token.Type.ttEOF);
@@ -201,7 +185,7 @@ public class RLikeParser {
     return new Token(new String(s_._buf, start, s_._off - start));
   }
   
-  private Token parseNumber() {
+  private Token parseNumber() throws ParserException {
     int start = s_._off;
     boolean dot = false;
     boolean e = false;
@@ -215,14 +199,14 @@ public class RLikeParser {
       }
       if (c == '.') {
         if (dot != false)
-          throw new RuntimeException("Only one dot can be present in number.");
+          throw new ParserException("Only one dot can be present in number.");
         dot = true;
         ++s_._off;
         continue;
       }
       if ((c == 'e') || (c == 'E')) {
         if (e != false)
-          throw new RuntimeException("Only one exponent can be present in number.");
+          throw new ParserException("Only one exponent can be present in number.");
         e = true;
         ++s_._off;
         continue;
@@ -237,11 +221,11 @@ public class RLikeParser {
   //
   // A simple LL(1) recursive descent guy. With the following grammar:
 
-  public Expr parse(String x) {
+  public Expr parse(String x) throws ParserException {
     return parse(new Stream(x.getBytes()));
   }
   
-  public Expr parse(Stream x) {
+  public Expr parse(Stream x) throws ParserException {
     s_ = x;
     pop(); // load the first token in the stream
     if (top().type == Token.Type.ttOpDoubleQuote) {
@@ -264,7 +248,7 @@ public class RLikeParser {
    * 
    * @return 
    */
-  private Expr parse_S() {
+  private Expr parse_S() throws ParserException {
     if (top().type == Token.Type.ttEOF)
       return null;
     Expr result = parse_T();
@@ -278,7 +262,7 @@ public class RLikeParser {
   /*
    * T -> F { * F | / F }
    */
-  private Expr parse_T() {
+  private Expr parse_T() throws ParserException {
     Expr result = parse_F();
     while ((top().type == Token.Type.ttOpMul) || (top().type == Token.Type.ttOpDiv)) {
       Token.Type type = pop().type;
@@ -291,7 +275,7 @@ public class RLikeParser {
    * F -> number | ident { = S } | ( S ) 
    */
   
-  private Expr parse_F() {
+  private Expr parse_F() throws ParserException {
     switch (top().type) {
       case ttNumber:
         return new FloatLiteral(pop().value);
@@ -312,7 +296,7 @@ public class RLikeParser {
         return e;
       }
       default:
-        throw new RuntimeException("Number or parenthesis expected, but "+top().type.toString()+" found.");
+        throw new ParserException("Number or parenthesis",top().type);
     }
   }
   
