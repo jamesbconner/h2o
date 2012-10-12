@@ -88,9 +88,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     whatIsThis= rf['class']
 
     # this expects the response to match the number of trees you told it to do
-    # FIX! temporary hack to allow nodes*trees to be a legal final response also
-    # FIX! is ntree the right thing in the rf view result?
-
     def test(n):
         return(n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['modelSize']==trees)
 
@@ -101,8 +98,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
 
     rfView = node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)
     modelSize = rfView['modelSize']
-    # u'confusionKey': u'...', 
-    # u'confusionKeyHref': u'____model'
     confusionKey = rfView['confusionKey']
     confusionKeyHref = rfView['confusionKeyHref']
 
