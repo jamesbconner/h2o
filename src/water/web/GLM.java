@@ -148,7 +148,7 @@ public class GLM extends H2OPage {
       try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
 
       String method = p.getProperty("family", "gaussian").toLowerCase();
-
+      boolean nonZerosAsOnes = Boolean.valueOf(p.getProperty("bool","false"));
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
       res.addProperty("h2o", H2O.SELF.urlEncode());
@@ -166,7 +166,7 @@ public class GLM extends H2OPage {
       double alpha = 1.0;
       try{ alpha = Double.valueOf(p.getProperty("alpha", "1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
       if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
-      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha},GLSM.DataPreprocessing.AUTO);
+      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha},GLSM.DataPreprocessing.AUTO,nonZerosAsOnes);
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("time", deltaT);
       res.addProperty("DegreesOfFreedom", m.n - 1);
@@ -189,7 +189,7 @@ public class GLM extends H2OPage {
       if(xfactor == 1)throw new InvalidInputException("Invalid value of xfactor. Has to be either 0 (no crossvalidation) or > 1.");
       res.addProperty("xfactor", xfactor);
       res.addProperty("threshold", threshold);
-      ArrayList<GLM_Validation> vals = GLSM.xValidate(ary,f,columns,xfactor, threshold, 1, norm, new double[]{lambda,rho,alpha});
+      ArrayList<GLM_Validation> vals = GLSM.xValidate(ary,f,columns,xfactor, threshold, 1, norm, new double[]{lambda,rho,alpha},nonZerosAsOnes);
       val = vals.get(0);
       if(val instanceof BinomialValidation){
         BinomialValidation v = (BinomialValidation)val;
