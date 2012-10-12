@@ -14,8 +14,8 @@ public class ExecQuery extends H2OPage {
   static final String html =
     "<p>What do you want to exec?:</p>"
     + "<form class='well form-inline' action='Exec'>"
-    + "  <input type='text' class='input-small span8' placeholder='R like expression' name='Expr' id='Expr'>"
     + "  <button type='submit' class='btn btn-primary'>Exec!</button>"
+    + "  <input type='text' class='input-small span8' placeholder='R like expression' name='Expr' id='Expr'>"
     + "</form> "
     ;
 
