@@ -337,7 +337,7 @@ class H2O(object):
     # Jan: if treesKey is empty, you are trying to use a previously constructed model on a new dataset
     # if treesKey has a value, you are building a forest and the modelKey is the current, partial, forest.
 
-    def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref, trees):
+    def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             # FIX! ntree is an optional param
             # treesKey is an optional param
@@ -354,7 +354,7 @@ class H2O(object):
                 "treesKey": treesKeyHref,
                 # FIX! is this right for trees goal? 
                 # seems like ntree is used to mean different things: end goal vs current
-                "ntree": trees
+                # "ntree": trees
                 }))
         verboseprint("random_forest_view result:", a)
         return a

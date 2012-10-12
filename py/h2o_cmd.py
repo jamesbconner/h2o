@@ -60,6 +60,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
 
     # rf result json: 
     # u'ntree': 6, 
+    # u'class': 4
     # u'dataKey': u'...', 
     # u'treesKey': u'...', 
     # u'modelKey': u'model', 
@@ -74,9 +75,9 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     treesKey     = rf['treesKey']
 
     # FIX! how come there's no .hex in these already? (there were in Parse.json? result?))
-    dataKeyHref  = rf['dataKeyHref'] + ".hex"
+    dataKeyHref  = rf['dataKeyHref']
     modelKeyHref = rf['modelKeyHref']
-    treesKeyHref = rf['treesKeyHref'] + ".hex"
+    treesKeyHref = rf['treesKeyHref']
     # /ip:port of cloud (can't use h2o name)
     rfCloud = rf['h2o']
     # not goal # of trees?, or current that RF is out?. trees is the goal?
@@ -86,10 +87,12 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # FIX! temporary hack to allow nodes*trees to be a legal final response also
     # FIX! is ntree the right thing in the rf view result?
 
+    node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)
+
     node.stabilize(
             lambda n: 
-                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntree']==trees) or
-                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntree']==len(h2o.nodes)*trees),
+                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['ntree']==trees) or
+                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['ntree']==len(h2o.nodes)*trees),
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
