@@ -271,7 +271,7 @@ class H2O(object):
             requests.get(self.__url('PutFile.json'), 
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
-        verboseprint("put_file #1 phase response: ", resp1)
+        verboseprint("\nput_file #1 phase response: ", resp1)
 
         resp2 = self.__check_request(
             requests.post(self.__url('Upload.json', port=resp1['port']), 
@@ -290,13 +290,13 @@ class H2O(object):
     def get_file(self, f):
         a = self.__check_request(requests.post(self.__url('GetFile.json'), 
             files={"File": open(f, 'rb')}))
-        verboseprint("get_file result:", a)
+        verboseprint("\nget_file result:", a)
         return a
 
     def parse(self, key):
         a = self.__check_request(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
-        verboseprint("parse result:", a)
+        verboseprint("\nparse result:", a)
         return a
 
     def netstat(self):
@@ -306,7 +306,7 @@ class H2O(object):
     def inspect(self, key):
         a = self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
-        verboseprint("inspect result:", a)
+        # verboseprint("\ninspect result:", a)
         return a
 
     def random_forest(self, key, ntree=6, depth=30, seed=1, gini=0, singlethreaded=0):
@@ -330,33 +330,21 @@ class H2O(object):
                 "ntree": ntree,
                 "Key": key
                 }))
-        verboseprint("random_forest result:", a)
+        verboseprint("\nrandom_forest result:", a)
         return a
 
-    # FIX! add modelKey, dataKey, treesKey to url
-    # Jan: if treesKey is empty, you are trying to use a previously constructed model on a new dataset
+    # per Jan: if treesKey is empty, you are trying to use a previously constructed model on a new dataset
     # if treesKey has a value, you are building a forest and the modelKey is the current, partial, forest.
-
+    # if treesKey: update the model (as required) until all ntree have appeared based on the available trees.  
+    # if no treesKey: display the model as-is.
     def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
-            # FIX! ntree is an optional param
-            # treesKey is an optional param
-            # if treesKey: update the model (as required) until all ntree
-            # have appeared based on the available trees.  
-            # if no treesKey: display the model as-is.
-            # so, if treesKey, must provide ntree also?
-            # seems like there are a number of corner cases 
-            # (like if you don't specify ntree, or a wrong value??)
-            # like should RF have been started with the same ntree value always?
             params={
                 "dataKey": dataKeyHref,
                 "modelKey": modelKeyHref,
-                "treesKey": treesKeyHref,
-                # FIX! is this right for trees goal? 
-                # seems like ntree is used to mean different things: end goal vs current
-                # "ntree": trees
+                "treesKey": treesKeyHref
                 }))
-        verboseprint("random_forest_view result:", a)
+        verboseprint("\nrandom_forest_view result:", a)
         return a
 
     def linear_reg(self, key, colA=0, colB=1):

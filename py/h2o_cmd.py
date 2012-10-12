@@ -59,7 +59,10 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     rf = node.random_forest(keyHref, trees, depth, **kwargs)
 
     # rf result json: 
+    # this is the number of trees asked for
     # u'ntree': 6, 
+    # this is the number of trees currently in the model (changes till == ntree)
+    # u'modelSize: 6, 
     # u'class': 4
     # u'dataKey': u'...', 
     # u'treesKey': u'...', 
@@ -82,19 +85,32 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     rfCloud = rf['h2o']
     # not goal # of trees?, or current that RF is out?. trees is the goal?
     ntree = rf['ntree']
+    whatIsThis= rf['class']
 
     # this expects the response to match the number of trees you told it to do
     # FIX! temporary hack to allow nodes*trees to be a legal final response also
     # FIX! is ntree the right thing in the rf view result?
 
-    node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)
+    def test(n):
+        return(n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['modelSize']==trees)
 
     node.stabilize(
-            lambda n: 
-                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['ntree']==trees) or
-                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['ntree']==len(h2o.nodes)*trees),
+            test,
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     rfView = node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)
+    modelSize = rfView['modelSize']
+    # u'confusionKey': u'...', 
+    # u'confusionKeyHref': u'____model'
+    confusionKey = rfView['confusionKey']
+    confusionKeyHref = rfView['confusionKeyHref']
+
+    # FIX! how am I supposed to verify results, or get results/
+    # touch all these just to do something
+    cmInspect = node.inspect(confusionKeyHref)
+    treeInspect = node.inspect(treesKeyHref)
+    modelInspect = node.inspect(modelKeyHref)
+    dataInspect = node.inspect(dataKeyHref)
+
     return(rfView)
