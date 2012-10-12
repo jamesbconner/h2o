@@ -10,7 +10,10 @@ public class Exec {
   // Execute some generic R string.  Return a
   public static Key exec( String x ) {
     Expr e = new RLikeParser().parse(x);
-    Key k = e.eval(Key.make("Result"));
+    Key k = Key.make("Result");
+    Expr.Result r = e.eval();
+    Expr.assign(k, r);
+    r.dispose();
     return k;
   }
 }
