@@ -55,7 +55,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     #! FIX! what else is in parseKey that we should check?
     h2o.verboseprint("runRFOnly parseKey:",parseKey)
     keyHref = parseKey['keyHref']
-    # FIX! CAN
     rf = node.random_forest(keyHref, trees, depth, **kwargs)
 
     # rf result json: 
@@ -73,30 +72,34 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # u'h2o': u'/192.168.0.35:54321', 
 
     # FIX! check all of these somehow?
-    dataKey      = rf['dataKey']
-    modelKey     = rf['modelKey']
-    treesKey     = rf['treesKey']
+    dataKey  = rf['dataKey']
+    modelKey = rf['modelKey']
+    treesKey = rf['treesKey']
 
-    # FIX! how come there's no .hex in these already? (there were in Parse.json? result?))
+    # these are all needed for RFview
     dataKeyHref  = rf['dataKeyHref']
     modelKeyHref = rf['modelKeyHref']
     treesKeyHref = rf['treesKeyHref']
+    ntree        = rf['ntree']
+
     # /ip:port of cloud (can't use h2o name)
     rfCloud = rf['h2o']
     # not goal # of trees?, or current that RF is out?. trees is the goal?
-    ntree = rf['ntree']
     whatIsThis= rf['class']
 
-    # this expects the response to match the number of trees you told it to do
+    # expect response to match the number of trees you asked for
+    # FIX! allow nodes*request to be legal for temporary bug workaround
     def test(n):
-        return(n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)['modelSize']==trees)
+        a = n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,ntree)['modelSize']
+        return(a==trees or a==(len(h2o.nodes)*trees))
 
     node.stabilize(
             test,
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
-    rfView = node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref)
+    # kind of wasteful re-read, but maybe good for testing
+    rfView = node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,ntree)
     modelSize = rfView['modelSize']
     confusionKey = rfView['confusionKey']
     confusionKeyHref = rfView['confusionKeyHref']

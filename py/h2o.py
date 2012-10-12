@@ -245,6 +245,7 @@ class H2O(object):
             raise Exception('Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         return rjson
 
+
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
         verboseprint("get_cloud:", a)
@@ -309,7 +310,7 @@ class H2O(object):
     def inspect(self, key):
         a = self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
-        verboseprint("\ninspect result:", dump_json(a))
+        ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
     def random_forest(self, key, ntree=6, depth=30, seed=1, gini=0, singlethreaded=0):
@@ -340,12 +341,16 @@ class H2O(object):
     # if treesKey has a value, you are building a forest and the modelKey is the current, partial, forest.
     # if treesKey: update the model (as required) until all ntree have appeared based on the available trees.  
     # if no treesKey: display the model as-is.
-    def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref):
+    # TEMPORARY: there is no state in H2O right now for linking RF and RFview ntrees
+    # so I have to send the exact same ntrees I sent during RF
+    # basically, undefined behavior if I send anything other than the same thing, so it's required.
+    def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref, ntree):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={
                 "dataKey": dataKeyHref,
                 "modelKey": modelKeyHref,
-                "treesKey": treesKeyHref
+                "treesKey": treesKeyHref,
+                "ntree": ntree
                 }))
         verboseprint("\nrandom_forest_view result:", a)
         return a
