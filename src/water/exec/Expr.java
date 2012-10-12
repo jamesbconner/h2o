@@ -59,13 +59,15 @@ public abstract class Expr {
   }
 
   
-  public abstract Result eval();
+  public abstract Result eval() throws EvaluationException;
   
   
-  public static void assign(final Key to, Result what) {
+  public static void assign(final Key to, Result what) throws EvaluationException {
     if (what.canShallowCopy()) {
       assert (false); // we do not support shallow copy now (TODO)
       ValueArray v = (ValueArray) DKV.get(what._key);
+      if (v == null)
+        throw new EvaluationException("Key "+what._key+" not found");
       byte[] bits = v.get();
       ValueArray r = new ValueArray(to,MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
       DKV.put(to,r);
@@ -100,7 +102,7 @@ class KeyLiteral extends Expr {
     key_ = Key.make(id);
   }
   
-  @Override public Result eval() {
+  @Override public Result eval() throws EvaluationException {
     return Result.permanent(key_);
   }
 }
@@ -116,7 +118,7 @@ class AssignmentOperator extends Expr {
     _rhs = rhs;
   }
   
-  @Override public Result eval() {
+  @Override public Result eval() throws EvaluationException {
     Result rhs = _rhs.eval();
     Expr.assign(_lhs,rhs);
     rhs.dispose();
@@ -137,7 +139,7 @@ class FloatLiteral extends Expr {
   public final double _d;
   public FloatLiteral( double d ) { _d=d; }
 
-  @Override public Result eval() {
+  @Override public Result eval() throws EvaluationException {
     Result res = Result.temporary();
     // The 1 tiny arraylet
     Key key2 = ValueArray.make_chunkkey(res._key,0);
@@ -180,7 +182,7 @@ class BinaryOperator extends Expr {
     
   }
   
-  @Override public Result eval() {
+  @Override public Result eval() throws EvaluationException {
     Result res = Result.temporary();
     // get the keys and the values    
     Result kl = left_.eval();
@@ -209,7 +211,7 @@ class BinaryOperator extends Expr {
         op = new DivOperator(kl._key,kr._key,res._key,0,0);
         break;
       default:
-        throw new RuntimeException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
     }
     op.invoke(res._key);
     C._min = op.min_;

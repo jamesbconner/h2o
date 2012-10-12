@@ -8,7 +8,7 @@ import water.*;
  */
 public class Exec {
   // Execute some generic R string.  Return a
-  public static Key exec( String x ) throws ParserException {
+  public static Key exec( String x ) {
     Key k = Key.make("Result");
     try {
       Expr e = new RLikeParser().parse(x);
@@ -16,6 +16,8 @@ public class Exec {
       Expr.assign(k, r);
       r.dispose();
     } catch (ParserException e) {
+      System.out.println(e.toString());
+    } catch (EvaluationException e) {
       System.out.println(e.toString());
     }
     return k;
