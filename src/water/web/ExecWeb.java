@@ -30,6 +30,6 @@ public class ExecWeb extends H2OPage {
   @Override protected String serveImpl(Server server, Properties args, String sessionId) throws PageError {
     JsonObject json = serverJson(server, args, sessionId);
     args.put("Key",encode(Key.make(json.getAsJsonPrimitive("ResultKey").getAsString())));
-    return new Inspect().serveImpl(server,args,sessionId);
+    return ExecQuery.html + new Inspect().serveImpl(server,args,sessionId);
   }
 }

@@ -32,9 +32,17 @@ public class RandomForestPage extends H2OPage {
       throw new PageError("Not a valid key: "+ skey);
     }
 
-    int classcol = getAsNumber(p,"class",ary.num_cols()-1);
-    if( classcol < 0 || classcol >= ary.num_cols() )
-      throw new PageError("Class out of range");
+    // Pick the column to classify
+    int classcol = ary.num_cols()-1; // Default to the last column
+    String clz = p.getProperty("class");
+    if( clz != null ) {
+      int[] clarr = parseVariableExpression(ary.col_names(), clz);
+      if( clarr.length != 1 )
+        throw new InvalidInputException("Class has to refer to exactly one column!");
+      classcol = clarr[0];
+      if( classcol < 0 || classcol >= ary.num_cols() )
+        throw new InvalidInputException("Class out of range");
+    }
 
     // Start the distributed Random Forest
 

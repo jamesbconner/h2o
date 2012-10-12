@@ -47,31 +47,33 @@ public class RFTreeView extends H2OPage {
     response.replace("depth",     depth);
 
     ValueArray ary = ServletUtil.check_array(args,"dataKey");
+    int clz = getAsNumber(args,"class",ary.num_cols()-1);
     String[]names = ary.col_names();
+    String[]clz_names = ary.col_enum_domain(clz);
 
     String graph;
     if( DOT_PATH == null ) {
       graph = "Install <a href=\"http://www.graphviz.org/\">graphviz</a> to " +
       		"see visualizations of small trees<p>";
     } else if( nodeCount < 1000 ) {
-      graph = dotRender(names, tbits);
+      graph = dotRender(names, clz_names, tbits);
     } else {
       graph = "Tree is too large to graph.<p>";
     }
     String code;
     if( nodeCount < 10000 ) {
-      code = codeRender(names, tbits);
+      code = codeRender(names, clz_names, tbits);
     } else {
       code = "Tree is too large to print pseudo code.<p>";
     }
     return response.toString() + graph + code;
   }
 
-  private String codeRender(String[] col_names, byte[] tbits) {
+  private String codeRender(String[] col_names, String[] clz_names, byte[] tbits) {
     try {
       StringBuilder sb = new StringBuilder();
       sb.append("<pre><code>");
-      new CodeTreePrinter(sb, col_names).walk_serialized_tree(tbits);
+      new CodeTreePrinter(sb, col_names, clz_names).walk_serialized_tree(tbits);
       sb.append("</code></pre>");
       return sb.toString();
     } catch( Exception e ) {
@@ -79,11 +81,11 @@ public class RFTreeView extends H2OPage {
     }
   }
 
-  private String dotRender(String[] col_names, byte[] tbits) {
+  private String dotRender(String[] col_names, String[] clz_names, byte[] tbits) {
     try {
       RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
-      new GraphvizTreePrinter(exec.getOutputStream(), col_names).walk_serialized_tree(tbits);
+      new GraphvizTreePrinter(exec.getOutputStream(), col_names, clz_names).walk_serialized_tree(tbits);
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 

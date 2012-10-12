@@ -123,7 +123,7 @@ public class GLSM {
         eps_dual = ABSTOL + nParams[L1_RHO] * RELTOL * Math.sqrt(u_norm);
         if( r_norm < eps_pri && s_norm < eps_dual ) break;
       }
-      return xm.getColumnPackedCopy();
+      return z;
     }
     default:
       throw new Error("Unexpected Norm " + n);
@@ -345,21 +345,23 @@ public class GLSM {
 
   public static class BinomialModel extends GLM_Model {
     final double _b0;
-
+    boolean _nonZerosAsOne;
     public BinomialModel(long n, double[] beta, double constant, double b0,
-        int[] p) {
+        int[] p, boolean nonZerosAsOne) {
       super(n, beta, constant, p);
       _b0 = b0;
+      _nonZerosAsOne = nonZerosAsOne;
     }
 
     public double apply(double[] x) {
       return logitInv(super.apply(x));
     }
 
+    @Override
     public GLM_Validation validateOn(ValueArray ary, Sampling s, int[] colIds,
         double[] args) {
       BinomialTest tst = new BinomialTest(colIds, s, beta, _b0, constant,
-          args[0], preprocessing);
+          args[0], preprocessing,_nonZerosAsOne);
       tst.invoke(ary._key);
       return new BinomialValidation(this, tst._confMatrix, tst._n,
           tst._results[BinomialTest.H0], tst._results[BinomialTest.H]);
@@ -371,7 +373,7 @@ public class GLSM {
   };
 
   public static GLM_Model solve(ValueArray ary, int[] colIds, Sampling s,
-      int c, Family f, Norm n, double[] nParams, DataPreprocessing preprocessing) {
+      int c, Family f, Norm n, double[] nParams, DataPreprocessing preprocessing, boolean nonzerosAsOnes) {
     boolean ary_standardized = true;
     int[] p = null;
     switch( preprocessing ) {
@@ -408,10 +410,10 @@ public class GLSM {
     case binomial: {
       // check we have only values 0,1 as y
       int y = colIds[colIds.length - 1];
-      if( ary.col_max(y) != 1 || ary.col_min(y) != 0 )
+      if(!nonzerosAsOnes  && (ary.col_max(y) != 1 || ary.col_min(y) != 0))
         throw new GLSMException(
             "Logistic regression can only have values from range <0,1> as y column.");
-      LogitLSMTask tsk = new LogitLSMTask(colIds, s, c, p);
+      LogitLSMTask tsk = new LogitLSMTask(colIds, s, c, p, nonzerosAsOnes);
       tsk.invoke(ary._key);
       double[] oldBeta = null;
       double[] beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
@@ -421,7 +423,7 @@ public class GLSM {
         if( oldBeta != null ) for( int i = 0; i < oldBeta.length; ++i )
           beta_gradient[i] = Math.abs(oldBeta[i] - beta[i]);
         oldBeta = beta;
-        tsk = new LogitLSMTask(colIds, s, c, oldBeta, p);
+        tsk = new LogitLSMTask(colIds, s, c, oldBeta, p, nonzerosAsOnes);
         tsk.invoke(ary._key);
         beta = solveLSM(tsk._xx, tsk._xy, n, nParams);
         diff = 0;
@@ -438,7 +440,7 @@ public class GLSM {
                   + colIds[maxJ]);
         }
       return new BinomialModel(tsk._n, beta, c, tsk._ncases / (double) tsk._n,
-          p);
+          p, nonzerosAsOnes);
     }
     default:
       throw new GLSMException("Unsupported family: " + f.toString());
@@ -447,12 +449,12 @@ public class GLSM {
 
   public static ArrayList<GLM_Validation> xValidate(ValueArray ary, Family f,
       int[] colIds, int xfactor, double threshold, int constant, Norm n,
-      double[] args) {
+      double[] args, boolean nonZerosAsOnes) {
     ArrayList<GLM_Validation> individualModels = new ArrayList<GLM_Validation>();
     if( xfactor == 1 ) return individualModels;
     for( int x = 0; x < xfactor; ++x ) {
       Sampling s = new Sampling(x, xfactor, false);
-      GLM_Model m = solve(ary, colIds, s, 1, f, n, args, DataPreprocessing.AUTO);
+      GLM_Model m = solve(ary, colIds, s, 1, f, n, args, DataPreprocessing.AUTO,nonZerosAsOnes);
       GLM_Validation val = m.validateOn(ary, s.complement(), colIds,
           new double[] { threshold });
       if( !individualModels.isEmpty() ) individualModels.get(0).aggregate(val);
@@ -615,19 +617,21 @@ public class GLSM {
     double[] _beta;
     double   _origConstant;
     long     _ncases;
+    boolean _treatNonzerosAsOne;
 
     public LogitLSMTask() {
     } // Empty constructor for the serializers
 
     public LogitLSMTask(int[] colIds, Sampling s, int constant, double[] beta,
-        int[] p) {
+        int[] p, boolean nonZerosAsOnes) {
       super(colIds, s, colIds.length - 1, constant, p);
       _beta = beta;
+      _treatNonzerosAsOne = nonZerosAsOnes;
     }
 
-    public LogitLSMTask(int[] colIds, Sampling s, int constant, int[] p) {
+    public LogitLSMTask(int[] colIds, Sampling s, int constant, int[] p,boolean nonZerosAsOnes) {
       this(colIds, s, constant, new double[colIds.length
-          - ((constant == 0) ? 1 : 0)], p);
+          - ((constant == 0) ? 1 : 0)], p,nonZerosAsOnes);
     }
 
     @Override
@@ -648,6 +652,7 @@ public class GLSM {
      */
     @Override
     public void map(double[] x) {
+      if(_treatNonzerosAsOne && x[x.length - 1] != 0)x[x.length - 1] = 1;
       double y = x[x.length - 1];
       assert 0 <= y && y <= 1;
       _ncases += y;
@@ -770,15 +775,17 @@ public class GLSM {
     double   _threshold;
     double   _b0;
     long[][] _confMatrix;
+    boolean _nonZerosAsOnes;
 
     public BinomialTest() {
     }
 
     public BinomialTest(int[] colIds, Sampling s, double[] beta, double b0,
-        double constant, double threshold, int[] p) {
+        double constant, double threshold, int[] p, boolean nonZerosAsOnes) {
       super(colIds, s, beta, constant, p);
       _threshold = threshold;
       _b0 = b0;
+      _nonZerosAsOnes = nonZerosAsOnes;
     }
 
     @Override
@@ -790,6 +797,7 @@ public class GLSM {
     @Override
     void map(double[] x) {
       double yr = x[x.length - 1];
+      if(_nonZerosAsOnes && yr != 0)yr=1;
       assert yr == 0 || yr == 1;
       double mu = getYm(x);
       double p = logitInv(mu);
