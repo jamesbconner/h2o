@@ -16,9 +16,10 @@ public class Confusion extends MRTask {
   public Key _modelKey;
   /** Model used for construction of the confusion matrix. */
   transient private Model _model;
-  /** Dataset we are building the matrix on. The classes must be in the last
-      column, and the column count must match the Trees.*/
+  /** Dataset we are building the matrix on.  The column count must match the Trees.*/
   public Key                  _datakey;
+  /** Column holding the class, defaults to last column */
+  int                         _classcol;
   /** The dataset */
   transient public ValueArray _data;
   /** Number of response classes */
@@ -48,22 +49,23 @@ public class Confusion extends MRTask {
    * @param model the ensemble used to classify
    * @param datakey the key of the data that will be classified
    */
-  private Confusion(Model model, Key datakey) {
+  private Confusion(Model model, Key datakey, int classcol ) {
     _modelKey = model._key;
     _datakey = datakey;
+    _classcol = classcol;
     shared_init();
   }
 
-  public Key keyFor() { return keyFor(_model,_datakey); }
-  static public Key keyFor(Model model, Key datakey) {
-    return Key.make("ConfusionMatrix of (" + datakey+","+model.name()+")");
+  public Key keyFor() { return keyFor(_model,_datakey, _classcol); }
+  static public Key keyFor(Model model, Key datakey, int classcol) {
+    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+model.name()+")");
   }
 
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
-  static public Confusion make(Model model, Key datakey) {
-    Key key = keyFor(model, datakey);
+  static public Confusion make(Model model, Key datakey, int classcol) {
+    Key key = keyFor(model, datakey, classcol);
     Value val = UKV.get(key);
     if( val != null ) {         // Look for a prior cached result
       Confusion C = new Confusion();
@@ -72,7 +74,7 @@ public class Confusion extends MRTask {
       return C;
     }
 
-    Confusion C = new Confusion(model,datakey);
+    Confusion C = new Confusion(model,datakey,classcol);
     // Compute on it: count votes
     C.invoke(datakey);
     // Output to cloud
@@ -88,8 +90,7 @@ public class Confusion extends MRTask {
     _data = (ValueArray) DKV.get(_datakey); // load the dataset
     _model = new Model();
     _model.read(new Stream(UKV.get(_modelKey).get()));
-    final int num_cols = _data.num_cols();
-    _N = (short)((_data.col_max(num_cols-1) - _data.col_min(num_cols-1))+1);
+    _N = (int)((_data.col_max(_classcol) - _data.col_min(_classcol))+1);
     assert _N > 0;
     byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // get the 0-th chunk and figure out its size
     _rows_per_normal_chunk = chunk_bits.length / _data.row_size();
@@ -131,8 +132,7 @@ public class Confusion extends MRTask {
     final int rowsize = _data.row_size();
     final int rows = chunk_bits.length / rowsize;
     final int ncols= _data.num_cols();
-    final int ccol = ncols - 1; // Column holding the class
-    final int cmin = (int) _data.col_min(ccol); // Typically 0-(n-1) or 1-N
+    final int cmin = (int) _data.col_min(_classcol); // Typically 0-(n-1) or 1-N
     int nchk = ValueArray.getChunkIndex(chunk_key);
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
     int[] votes = new int[_N];
@@ -146,7 +146,7 @@ public class Confusion extends MRTask {
       for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
         votes[_model.classify(t, chunk_bits, i, rowsize, _data)]++;
       int predict = Utils.maxIndex(votes, _rand);
-      int cclass = (int) _data.data(chunk_bits, i, rowsize, ccol) - cmin;
+      int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;
       _rows++;

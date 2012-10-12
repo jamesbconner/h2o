@@ -23,8 +23,13 @@ public class RFView extends H2OPage {
     Model model = new Model();
     model.read(new Stream(modelVal.get()));
 
-    // Ntrees & treeskey are optional.
-    final int ntrees = getAsNumber(p,"ntrees",model.size());
+    // Class is optional
+    int classcol = getAsNumber(p,"class",ary.num_cols()-1);
+    if( classcol < 0 || classcol >= ary.num_cols() )
+      throw new PageError("Class out of range");
+
+    // Ntree & treeskey are optional.
+    final int ntree = getAsNumber(p,"ntree",model.size());
     String skey = p.getProperty("treesKey");
     Key treeskey = null;
     try {
@@ -33,7 +38,7 @@ public class RFView extends H2OPage {
       throw new PageError("Not a valid key: "+ skey);
     }
 
-    // If we have a treesKey, update the model (as required) until all ntrees
+    // If we have a treesKey, update the model (as required) until all ntree
     // have appeared based on the available trees.  If we don't have a treeskey
     // then just display the model as-is.
     if( treeskey != null ) {
@@ -45,27 +50,28 @@ public class RFView extends H2OPage {
     }
 
     // Blocks here, until classification of all trees against all data is complete.
-    Confusion confusion = Confusion.make( model, ary._key );
+    Confusion confusion = Confusion.make( model, ary._key, classcol );
 
     JsonObject res = new JsonObject();
     addProperty(res, "dataKey", ary._key);
+    res.addProperty("class",classcol);
     addProperty(res, "modelKey", modelKey);
     addProperty(res, "confusionKey", confusion.keyFor());
-    res.addProperty("ntrees",ntrees); // asked-for trees
+    res.addProperty("ntree",ntree); // asked-for trees
     res.addProperty("modelSize",model.size()); // how many we got
     return res;
   }
 
-  @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
+  @Override public String serveImpl(Server s, Properties p, String sessionID) throws PageError {
     // Update the Model.
     // Compute the Confusion.
     JsonObject json = serverJson(s, p, sessionID);
     if( json.has("error") )
       return H2OPage.error(json.get("error").toString());
-    RString response = new RString(html);
 
     // The dataset is required
     ValueArray ary = ServletUtil.check_array(p,"dataKey");
+    final int classcol = json.get("class").getAsInt();
 
     // The model is required
     final Key modelKey = ServletUtil.check_key(p,"modelKey");
@@ -78,12 +84,13 @@ public class RFView extends H2OPage {
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
-    Confusion confusion = Confusion.make( model, ary._key );
+    Confusion confusion = Confusion.make( model, ary._key, classcol );
 
 
     // Display the confusion-matrix table here
     // First the title line
-    int cmin = (int)ary.col_min(ary.num_cols()-1);
+    RString response = new RString(html());
+    int cmin = (int)ary.col_min(classcol);
     StringBuilder sb = new StringBuilder();
     sb.append("<th>Actual \\ Predicted");
     for( int i=0; i<N; i++ )
@@ -131,8 +138,8 @@ public class RFView extends H2OPage {
     // Report on the basic model info
     response.replace("origKey",ary._key);
     response.replace("numtrees",model.size());
-    final int ntrees = json.get("ntrees").getAsInt();
-    _refresh = model.size() < ntrees ? 5 : 0; // Refresh in 5sec if not all trees yet
+    final int ntree = json.get("ntree").getAsInt();
+    _refresh = model.size() < ntree ? 5 : 0; // Refresh in 5sec if not all trees yet
 
     // Compute a few stats over trees
     response.replace( "depth",model.depth());
@@ -143,6 +150,7 @@ public class RFView extends H2OPage {
       RString trow = response.restartGroup("trees");
       trow.replace("modelKey",modelKey);
       trow.replace("n",i);
+      trow.replace("dataKey",ary._key);
       trow.append();
     }
 
@@ -164,7 +172,7 @@ public class RFView extends H2OPage {
       + "min/avg/max depth=%depth, leaves=%leaves<p>\n"
       + "Click to view individual trees:<p>"
       + "%trees{\n"
-      + "  <a href='/RFTreeView?modelKey=%modelKeyHref&n=%n'>%n</a> "
+      + "  <a href='/RFTreeView?modelKey=%modelKeyHref&n=%n&dataKey=%dataKeyHref'>%n</a> "
       + "}\n"
       ;
   }

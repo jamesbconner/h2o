@@ -34,7 +34,6 @@ class DataAdapter  {
     classIdx_ = c2i_.get(classNm);
     assert 0 <= classIdx_ && classIdx_ < 255;
     _data_id = data_id;
-    if (classIdx_ != columns.length-1) throw new Error("The class must be the last column");
   }
 
   /** Given a value in enum format, returns a value in the original range. */

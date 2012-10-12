@@ -11,6 +11,7 @@ public class DRF extends water.DRemoteTask {
   int _ntrees;          // Number of trees PER NODE
   int _depth;           // Tree-depth limiter
   int _stat;            // Use Gini(1) or Entropy(0) for splits
+  int _classcol;        // Column being classified
   Key _arykey;          // The ValueArray being RF'd
   public Key _treeskey; // Key of Tree-Keys built so-far
 
@@ -35,7 +36,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be between 2 and 254, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol) {
     validateInputData(ary);
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
@@ -43,6 +44,7 @@ public class DRF extends water.DRemoteTask {
     drf._depth = depth;
     drf._stat = stat.ordinal();
     drf._arykey = ary._key;
+    drf._classcol = classcol;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._singlethreaded = singlethreaded;
     drf._seed = seed;
@@ -58,8 +60,7 @@ public class DRF extends water.DRemoteTask {
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
-    final int num_cols = ary.num_cols();
-    final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
+    final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
     assert 0 <= classes && classes < 255;
     String[] names = ary.col_names();
 
@@ -74,7 +75,8 @@ public class DRF extends water.DRemoteTask {
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    DataAdapter dapt =  new DataAdapter(ary._key.toString(), names, names[num_cols-1], num_rows, unique, _seed, classes);
+    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, names[_classcol], num_rows, unique, _seed, classes);
+    final int num_cols = ary.num_cols();
     float[] ds = new float[num_cols];
     // Now load the DataAdapter with all the rows on this Node
     for( Key key : keys ) {
@@ -82,7 +84,7 @@ public class DRF extends water.DRemoteTask {
         byte[] bits = DKV.get(key).get();
         final int rows = bits.length/rowsize;
         for( int j=0; j<rows; j++ ) { // For all rows in this chunk
-          ds[num_cols-1] = Float.NaN; // Row-has-invalid-data flag
+          ds[num_cols-1] = Float.NaN; // Row-has-invalid-data flag on last column
           for( int k=0; k<num_cols; k++ ) {
             if( !ary.valid(bits,j,rowsize,k) ) break; // oops, bad data on row
             ds[k] = (float)ary.datad(bits,j,rowsize,k);
@@ -108,7 +110,7 @@ public class DRF extends water.DRemoteTask {
     _validation = sample ? t.complement(d, complement) : null;
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building trees");
-    _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, StatType.values()[_stat], _singlethreaded);
+    _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, StatType.values()[_stat], _singlethreaded );
     tryComplete();
   }
 

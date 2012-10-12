@@ -309,7 +309,7 @@ class H2O(object):
         verboseprint("inspect result:", a)
         return a
 
-    def random_forest(self, key, ntrees=6, depth=30, seed=1, gini=0, singlethreaded=0):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=0, singlethreaded=0):
         # FIX! add gini= . is it 0 or 1? Enum is ENTROPY, GINI
         # dataKey and treesKey are .hex
         # add seed=
@@ -327,7 +327,7 @@ class H2O(object):
                 "seed": seed,
                 "gini": gini,
                 "depth": depth,
-                "ntrees": ntrees,
+                "ntree": ntree,
                 "Key": key
                 }))
         verboseprint("random_forest result:", a)
@@ -339,22 +339,22 @@ class H2O(object):
 
     def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref, trees):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
-            # FIX! ntrees is an optional param
+            # FIX! ntree is an optional param
             # treesKey is an optional param
-            # if treesKey: update the model (as required) until all ntrees
+            # if treesKey: update the model (as required) until all ntree
             # have appeared based on the available trees.  
             # if no treesKey: display the model as-is.
-            # so, if treesKey, must provide ntrees also?
+            # so, if treesKey, must provide ntree also?
             # seems like there are a number of corner cases 
-            # (like if you don't specify ntrees, or a wrong value??)
-            # like should RF have been started with the same ntrees value always?
+            # (like if you don't specify ntree, or a wrong value??)
+            # like should RF have been started with the same ntree value always?
             params={
                 "dataKey": dataKeyHref,
                 "modelKey": modelKeyHref,
                 "treesKey": treesKeyHref,
                 # FIX! is this right for trees goal? 
-                # seems like ntrees is used to mean different things: end goal vs current
-                "ntrees": trees
+                # seems like ntree is used to mean different things: end goal vs current
+                "ntree": trees
                 }))
         verboseprint("random_forest_view result:", a)
         return a

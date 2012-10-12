@@ -48,11 +48,12 @@ public class DatasetCornerCasesTest {
     int seed =  42;
     StatType statType = StatType.values()[gini];
     final int num_cols = val.num_cols();
-    final int classes = (short)((val.col_max(num_cols-1) - val.col_min(num_cols-1))+1);
+    final int classcol = num_cols-1; // For iris: classify the last column
+    final int classes = (short)((val.col_max(classcol) - val.col_min(classcol))+1);
 
     // Start the distributed Random Forest
     try {
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/);
+      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/,classcol);
       // Just wait little bit
       try { Thread.sleep(500); } catch( InterruptedException e ) {}
       // Create incremental confusion matrix

@@ -22,6 +22,7 @@ public class RFTreeView extends H2OPage {
   }
 
   @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
+    ValueArray ary = ServletUtil.check_array(args,"dataKey");
     Key modelKey = ServletUtil.check_key(args,"modelKey");
     final Value modelVal = UKV.get(modelKey);
     if( modelVal == null ) throw new PageError("Model key is missing");
@@ -46,7 +47,7 @@ public class RFTreeView extends H2OPage {
     response.replace("leafCount", leaves);
     response.replace("depth",     depth);
 
-    String[]names = new String[model._features];
+    String[]names = ary.col_names();
     for( int i = 0; i<names.length; i++ )
       names[i] = Integer.toString(i);
 

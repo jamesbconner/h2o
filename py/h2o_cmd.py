@@ -59,7 +59,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     rf = node.random_forest(keyHref, trees, depth, **kwargs)
 
     # rf result json: 
-    # u'ntrees': 6, 
+    # u'ntree': 6, 
     # u'dataKey': u'...', 
     # u'treesKey': u'...', 
     # u'modelKey': u'model', 
@@ -80,16 +80,16 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # /ip:port of cloud (can't use h2o name)
     rfCloud = rf['h2o']
     # not goal # of trees?, or current that RF is out?. trees is the goal?
-    ntrees = rf['ntrees']
+    ntree = rf['ntree']
 
     # this expects the response to match the number of trees you told it to do
     # FIX! temporary hack to allow nodes*trees to be a legal final response also
-    # FIX! is ntrees the right thing in the rf view result?
+    # FIX! is ntree the right thing in the rf view result?
 
     node.stabilize(
             lambda n: 
-                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntrees']==trees) or
-                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntrees']==len(h2o.nodes)*trees),
+                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntree']==trees) or
+                (n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,trees)['ntree']==len(h2o.nodes)*trees),
             'random forest reporting %d trees' % trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
