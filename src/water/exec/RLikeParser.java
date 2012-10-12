@@ -182,6 +182,8 @@ public class RLikeParser {
   private Token parseIdent() {
     int start = s_._off;
     while (true) {
+      if (s_.eof())
+        break;
       char c = (char) s_.peek1();
       if (isCharacter(c) || isDigit(c) || (c=='.')) {
         ++s_._off;
