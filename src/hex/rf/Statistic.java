@@ -91,12 +91,20 @@ abstract class Statistic {
   void reset(Data data, int seed) {
     random = new Random(seed);
     // first get the columns for current split via Resevoir Sampling
+    // Pick from all the columns-1, and if we chose the class column,
+    // replace it with the last column.
     int i = 0;
     for( ; i<_features.length; i++ ) _features[i] = i;
-    for( ; i<data.columns() ; i++ ) {
+    for( ; i<data.columns()-1; i++ ) {
       int off = random.nextInt(i);
       if( off < _features.length ) _features[off] = i;
     }
+    // If we chose the class column, pick the last column instead (which
+    // otherwise did not get a chance to be picked).
+    int classIdx = data.classIdx();
+    for( i=0; i<_features.length; i++ ) 
+      if( _features[i] == classIdx )
+        _features[i] = data.columns()-1;
     // reset the column distributions for those
     for (int j : _features)
       for (int[] d: _columnDists[j])

@@ -9,7 +9,7 @@ class DataAdapter  {
   private C[] c_;
   private HashMap<String, Integer> c2i_ = new HashMap<String,Integer>();
   private String name_="";
-  private int classIdx_;
+  public  int classIdx_;
   private final int _data_id;           // Unique cookie identifying this dataset
   private boolean frozen_;
   private int numClasses_=-1;

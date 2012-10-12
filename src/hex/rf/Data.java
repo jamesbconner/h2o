@@ -42,10 +42,11 @@ public class Data implements Iterable<Row> {
   protected int start()          { return 0;                   }
   protected int end()            { return data_.rows();        }
   public int rows()              { return end() - start();     }
-  public int columns()           { return data_.columns() -1 ; } // -1 to remove class column
+  public int columns()           { return data_.columns();     }
   public int classes()           { return data_.classes();     }
   public int seed()              { return data_.seed();        }
   public int dataId()            { return data_.dataId();      }
+  public int classIdx()          { return data_.classIdx_;     }
   public String colName(int i)   { return data_.columnNames()[i]; }
   public float unmap(int col, float split) { return data_.unmap(col, split); }
   public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
