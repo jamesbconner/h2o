@@ -143,6 +143,8 @@ class BinaryOperator extends Expr {
     C._max = op.max_;
     result = ValueArray.make(res,Value.ICE,res,"temp result",vl.num_rows(),8,CC);
     DKV.put(res,result); // reinsert with min / max
+    DKV.remove(kl);
+    DKV.remove(kr);
     return res;
   }
   
