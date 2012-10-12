@@ -254,8 +254,15 @@ class H2O(object):
     def get_timeline(self):
         return self.__check_request(requests.get(self.__url('Timeline.json')))
 
+    # Shutdown url is like a reset button. Doesn't send a response before it kills stuff
+    # safer if random things are wedged, rather than requiring response
+    # so request library might retry and get exception. allow that.
     def shutdown_all(self):
-        return self.__check_request(requests.get(self.__url('Shutdown.json')))
+        try:
+            self.__check_request(requests.get(self.__url('Shutdown.json')))
+        except:
+            pass
+        return(True)
 
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
@@ -373,14 +380,18 @@ class H2O(object):
 
     # X and Y can be label strings, column nums, or comma separated combinations
     # xval gives us cross validation and more info
-    def GLM(self, key, X="0", Y="1", family="binomial", xval=10):
+    # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
+    # in the dataset. We'll just do that all the time for now.
+    # FIX! add more parameters from the wiki
+    def GLM(self, key, X="0", Y="1", family="binomial", xval=10, bool="true"):
         a = self.__check_request(requests.get(self.__url('GLM.json'),
             params={
                 "family": family,
                 "X": X,
                 "Y": Y,
                 "Key": key,
-                "xval": xval
+                "xval": xval,
+                "bool": bool
                 }))
         verboseprint("GLM:", a)
         return a
@@ -504,10 +515,9 @@ class ExternalH2O(H2O):
             return False
 
     def terminate(self):
-        try:
-            self.shutdown_all()
-        except:
-            pass
+        # try/except for this is inside shutdown_all now
+        self.shutdown_all()
+
         if self.is_alive():
             raise 'Unable to terminate externally launched node: %s' % self
 
@@ -534,13 +544,11 @@ class LocalH2O(H2O):
     
     def terminate(self):
         # send a shutdown request first. This matches ExternalH2O
-        # since local is used for a lot of buggy new code, also do the ps kill
-        try:
-            self.shutdown_all()
-        except:
-            pass
+        # since local is used for a lot of buggy new code, also do the ps kill.
+        # try/except inside shutdown_all now
+        self.shutdown_all()
 
-        # kbn..we need a delay after shutdown_all above, before this check?
+        # we need a delay after shutdown_all above, before this check?
         time.sleep(1)
         if self.is_alive():
             print "\nShutdown didn't work for local node? : %s. Will kill though" % self
