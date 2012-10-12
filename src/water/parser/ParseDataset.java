@@ -61,18 +61,30 @@ public final class ParseDataset {
 
     num_cols = dp1._num_cols;
 
-    // Filter columns which too big string-based domain (contains too many unique strings)
+    // #1: Guess Column names, if any
+    String[] names = null;
+    try { // to be robust here have a fail-safe mode but log the exception
+          // NOTE: we should log such fail-safe situations
+      names = guess_col_names(dataset, num_cols, (byte)typeArr[0]);
+    } catch (Exception e) {
+      System.err.println("[parser] Column names guesser failed.");
+    }
+    for( int i=0; i<num_cols; i++ ) {
+        dp1._cols[i]._name = names != null  ? names[i] : ""; // or String.valueOf(i)
+    }
+
+    // #2: Filter columns which are too big (contains too many unique strings)
+    // and manage domain overlap with column name.
     filter_columns_domains(dp1);
-    // Now figure out how best to represent the data.
+    // #3: Now figure out how best to represent the data.
     compute_column_size(dp1);
 
-    // Compute row size & column offsets
+    // #4: Compute row size & column offsets
     int row_size = 0;
     int col_off = 0;
     int max_col_size=0;
     for( int i=0; i<num_cols; i++ ) {
       ValueArray.Column c= dp1._cols[i];
-      c._name = ""; // No column names for now
       int sz = Math.abs(c._size);
       // Dumb-ass in-order columns.  Later we should sort bigger columns first
       // to preserve 4 & 8-byte alignment for larger values
@@ -84,7 +96,7 @@ public final class ParseDataset {
     // Pad out the row to the max-aligned field
     row_size = (row_size+max_col_size-1)&~(max_col_size-1);
 
-    // Roll-up the rows-per-chunk.  Converts to: starting row# for this chunk.
+    // #5: Roll-up the rows-per-chunk.  Converts to: starting row# for this chunk.
     int rs[] = dp1._rows_chk;
     int rs2[] = new int[rs.length+1]; // One larger to hold final number of rows
     int off = 0;
@@ -93,13 +105,6 @@ public final class ParseDataset {
       off += rs[i];
     }
     rs2[rs.length] = off;
-
-    // Column names, if any
-    String[] names = guess_col_names(dataset, num_cols, (byte)typeArr[0]);
-    if( names != null )
-      for( int i=0; i<num_cols; i++ ) {
-        dp1._cols[i]._name = names[i];
-      }
 
 
     // Setup for pass-2, where we do the actual data conversion. Also computes variance.
@@ -258,6 +263,10 @@ public final class ParseDataset {
       ColumnDomain colDom   = dp1._cols_domains[i];
       ValueArray.Column col = dp1._cols[i];
       col._domain = colDom;
+      // Column domain contains column name => exclude column name from domain.
+      if (colDom._domainValues.contains(col._name)) {
+        colDom._domainValues.remove(col._name);
+      }
       // The column's domain contains too many unique strings => drop the
       // domain. Column is already marked as erroneous.
       if( colDom.size() > ColumnDomain.DOMAIN_MAX_VALUES) colDom.kill();
@@ -268,7 +277,7 @@ public final class ParseDataset {
         // setup column sizes
         col._base  = 0;
         col._min   = 0;
-        col._max   = dp1._cols_domains[i].size() - 1;
+        col._max   = colDom.size() - 1;
         col._badat = 0; // I can't precisely recognize the wrong column value => all cells contain correct value
         col._scale = 1; // Do not scale
         col._size  = 0; // Mark integer column
@@ -908,7 +917,6 @@ public final class ParseDataset {
     int idx=-1;
     int num = 0;
     boolean escaped = false;
-    boolean foundBody = false;
     for( int i=0; i<b.length; i++ ) {
       char c = (char)b[i];
       if (c=='"') {
@@ -932,7 +940,7 @@ public final class ParseDataset {
             num++;                // Not a number, so take it as a column name
           idx = -1;               // Reset start-of-column
         } else if (csvType==PARSE_SPACESEP && Character.isWhitespace(c)) {
-          // skip multiple whitespaces in space separated mode
+          // Skip multiple whitespaces in space separated mode
         } else {                  // Else its just column data
           if( idx == -1 ) {       // Not starting a name?
             cols++;               // Starting a name now

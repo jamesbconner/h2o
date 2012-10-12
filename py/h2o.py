@@ -92,6 +92,9 @@ def log(cmd, comment=None):
             f.write(comment)
         f.write("\n")
 
+def dump_json(j):
+    return json.dumps(j, indent=2)
+
 # Hackery: find the ip address that gets you to Google's DNS
 # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
 # Will fail if local proxy? we don't have one.
@@ -290,13 +293,13 @@ class H2O(object):
     def get_file(self, f):
         a = self.__check_request(requests.post(self.__url('GetFile.json'), 
             files={"File": open(f, 'rb')}))
-        verboseprint("\nget_file result:", a)
+        verboseprint("\nget_file result:", dump_json(a))
         return a
 
     def parse(self, key):
         a = self.__check_request(requests.get(self.__url('Parse.json'),
             params={"Key": key}))
-        verboseprint("\nparse result:", a)
+        verboseprint("\nparse result:",dump_json(a))
         return a
 
     def netstat(self):
@@ -306,7 +309,7 @@ class H2O(object):
     def inspect(self, key):
         a = self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
-        # verboseprint("\ninspect result:", a)
+        verboseprint("\ninspect result:", dump_json(a))
         return a
 
     def random_forest(self, key, ntree=6, depth=30, seed=1, gini=0, singlethreaded=0):

@@ -3,8 +3,7 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Properties;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 
 import water.DKV;
 import water.Key;
@@ -53,6 +52,11 @@ public class Inspect extends H2OPage {
         col.addProperty("off",   ary.col_off(i));
         if (ary.col_has_enum_domain(i)) {
           col.addProperty("type",  "enum");
+          JsonArray enums = new JsonArray();
+          for (String e : ary.col_enum_domain(i)) {
+            enums.add(new JsonPrimitive(e));
+          }
+          col.add("enumdomain", enums);
         } else {
           col.addProperty("type",  ary.col_size(i) > 0 ? "int" : "float");
         }
