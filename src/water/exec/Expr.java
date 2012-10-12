@@ -106,7 +106,6 @@ class KeyLiteral extends Expr {
 }
 
 
-/*
 class AssignmentOperator extends Expr {
 
   private final Key _lhs;
@@ -117,16 +116,13 @@ class AssignmentOperator extends Expr {
     _rhs = rhs;
   }
   
-  
-  @Override public Key eval(Key k) {
-    _rhs.eval(_lhs); // evaluate rhs to lhs:)
-    Value v = DKV.get(_lhs);
-    
+  @Override public Result eval() {
+    Result rhs = _rhs.eval();
+    Expr.assign(_lhs,rhs);
+    rhs.dispose();
+    return Result.permanent(_lhs);
   }
-  
-  
-} */
-
+}
 
 class FloatLiteral extends Expr {
   public static final ValueArray.Column C = new ValueArray.Column();

@@ -5,6 +5,7 @@
 package water.exec;
 
 import java.util.Arrays;
+import water.Key;
 import water.Stream;
 
 /**
@@ -37,6 +38,7 @@ public class RLikeParser {
     public enum Type {
       ttNumber, // any number
       ttIdent, // any identifier
+      ttOpAssign, // assignment
       ttOpAdd, // +
       ttOpSub, // -
       ttOpMul, // *
@@ -53,6 +55,8 @@ public class RLikeParser {
             return "number";
           case ttIdent:
             return "identifier";
+          case ttOpAssign:
+            return "assignment";
           case ttOpAdd:
             return "operator +";
           case ttOpSub:
@@ -149,6 +153,9 @@ public class RLikeParser {
       return new Token(Token.Type.ttEOF);
     char c = (char) s_.peek1();
     switch (c) {
+      case '=':
+        ++s_._off;
+        return new Token(Token.Type.ttOpAssign);
       case '+':
         ++s_._off;
         return new Token(Token.Type.ttOpAdd);
@@ -281,15 +288,23 @@ public class RLikeParser {
   }
   
   /*
-   * F -> number | ident | ( S ) 
+   * F -> number | ident { = S } | ( S ) 
    */
   
   private Expr parse_F() {
     switch (top().type) {
       case ttNumber:
         return new FloatLiteral(pop().value);
-      case ttIdent:
-        return new KeyLiteral(pop().id);
+      case ttIdent: {
+        Token t = pop();
+        if (top().type == Token.Type.ttOpAssign) {
+          pop();
+          Expr rhs = parse_S();
+          return new AssignmentOperator(Key.make(t.id), rhs);
+        } else {
+          return new KeyLiteral(t.id);
+        }
+      }
       case ttOpParOpen: {
         pop();
         Expr e = parse_S();
