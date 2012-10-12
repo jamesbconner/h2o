@@ -151,6 +151,7 @@ public class RFView extends H2OPage {
       trow.replace("modelKey",modelKey);
       trow.replace("n",i);
       trow.replace("dataKey",ary._key);
+      trow.replace("class",classcol);
       trow.append();
     }
 
@@ -172,7 +173,7 @@ public class RFView extends H2OPage {
       + "min/avg/max depth=%depth, leaves=%leaves<p>\n"
       + "Click to view individual trees:<p>"
       + "%trees{\n"
-      + "  <a href='/RFTreeView?modelKey=%modelKeyHref&n=%n&dataKey=%dataKeyHref'>%n</a> "
+      + "  <a href='/RFTreeView?modelKey=%modelKeyHref&n=%n&dataKey=%dataKeyHref&class=%class'>%n</a> "
       + "}\n"
       ;
   }

@@ -12,12 +12,12 @@ import water.util.IndentingAppender;
 public class CodeTreePrinter extends TreePrinter {
   private final IndentingAppender _dest;
 
-  public CodeTreePrinter(OutputStream dest, String[] columns) {
-    this(new OutputStreamWriter(dest), columns);
+  public CodeTreePrinter(OutputStream dest, String[] columns, String[]classNames) {
+    this(new OutputStreamWriter(dest), columns, classNames);
   }
 
-  public CodeTreePrinter(Appendable dest, String[] columns) {
-    super(columns);
+  public CodeTreePrinter(Appendable dest, String[] columns, String[]classNames) {
+    super(columns, classNames);
     _dest = new IndentingAppender(dest);
   }
 
@@ -60,7 +60,10 @@ public class CodeTreePrinter extends TreePrinter {
       _dest.incrementIndent();
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          _dest.append(String.format("return %d;\n",tclass));
+          String x = (tclass < _classNames.length) 
+            ? String.format("return %s;\n",_classNames[tclass])
+            : String.format("return %d;\n",tclass);
+          _dest.append(x);
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {

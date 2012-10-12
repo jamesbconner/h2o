@@ -8,9 +8,11 @@ import java.io.IOException;
 
 public abstract class TreePrinter {
   protected final String[] _columnNames;
+  protected final String[] _classNames;
 
-  public TreePrinter(String[] columns) {
+  public TreePrinter(String[] columns, String[] classNames) {
     _columnNames = columns;
+    _classNames = classNames;
   }
 
   public abstract void printTree(Tree t) throws IOException;
