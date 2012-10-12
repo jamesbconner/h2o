@@ -279,19 +279,24 @@ public class RLikeParser {
   }
   
   /*
-   * F -> number | ( S ) 
+   * F -> number | ident | ( S ) 
    */
   
   private Expr parse_F() {
-    if (top().type == Token.Type.ttNumber)
-      return new FloatLiteral(pop().value);
-    if (top().type == Token.Type.ttOpParOpen) {
-      pop();
-      Expr e = parse_S();
-      pop(Token.Type.ttOpParClose);
-      return e;
+    switch (top().type) {
+      case ttNumber:
+        return new FloatLiteral(pop().value);
+      case ttIdent:
+        return new KeyLiteral(pop().id);
+      case ttOpParOpen: {
+        pop();
+        Expr e = parse_S();
+        pop(Token.Type.ttOpParClose);
+        return e;
+      }
+      default:
+        throw new RuntimeException("Number or parenthesis expected, but "+top().type.toString()+" found.");
     }
-    throw new RuntimeException("Number or parenthesis expected, but "+top().type.toString()+" found.");
   }
   
 }

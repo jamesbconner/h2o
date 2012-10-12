@@ -36,69 +36,23 @@ public abstract class Expr {
   public abstract Key eval(Key k);
   
 }
-/*  // Parse some generic R string.  Builds an expression DAG.
-  // Classic 1-char-lookahead recursive-descent parser.
-  public static Expression parse( String x ) { return parse(new Stream(x.getBytes())); }
-  public static Expression parse( Stream x ) {
-    // Remove outer surrounding double-quotes
-    if( x.peek1() == '"' ) {
-      if( x._buf[x._buf.length-1] != '"' )
-        throw new RuntimeException("unbalanced quotes, unable to parse "+new String(x._buf));
-      x = new Stream(Arrays.copyOfRange(x._buf,1,x._buf.length-1));
-    }
 
-    char c = (char)x.peek1();
-    if( Character.isDigit(c) ) {
-      // this is so stupid I am ashamed of myself, but for the time being...
-      Expression e = parse_num(x);
-      if (!x.eof()) {
-        c = (char) x.peek1();
-        if (c == '+') {
-          x.get1();
-          Expression e2 = parse_num(x);
-          e = new OperatorPlus(e, e2);
-        }
-      }
-      return e;
-    } else {
-      throw new RuntimeException("unable to parse at "+new String(x._buf,x._off,x._buf.length-x._off));
-    }
+class KeyLiteral extends Expr {
+  private final Key key_;
+  public KeyLiteral(String id) {
+    key_ = Key.make(id);
   }
+  
+  public Key eval() {
+    return key_;
+  }
+  
+  public Key eval(Key res) {
+    throw new RuntimeException("Key literal cannot be evaluated to a different key");
+  }
+}
 
-  public static NumExpr parse_num( Stream x ) {
-    int off = x._off;           // Number start
-    // This next stanza just tries to figure out the end of the number.
-    // Probably should be some horrible regex, or a version of NumberFormat for
-    // parsing.
-    int i=0;
-    boolean dot = false;
-    boolean e = false;
-    while( true && x._off < x._buf.length ) {
-      char c = (char)x.get1();
-      if( Character.isDigit(c) ) continue;
-      if( c=='.' ) {
-        if( dot ) break;
-        dot = true;
-        continue;
-      }
-      if( c=='E' || c=='e' ) {
-        if( e ) break;
-        e = dot = true;
-        if( x.peek1()=='+' || x.peek1()=='-' ) x.get1();
-        continue;
-      }
-      x._off--; // rollback
-      break;
-    }
-//    System.out.println(new String(x._buf));
-//    System.out.println(off);
-//    System.out.println(x._off);
-    
-    String s = new String(x._buf,off,x._off-off);
-    double d= Double.parseDouble(s);
-    return new NumExpr(d);
-  } 
- */
+
 class FloatLiteral extends Expr {
   public static final ValueArray.Column C = new ValueArray.Column();
   public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
