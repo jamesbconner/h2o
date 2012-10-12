@@ -183,7 +183,7 @@ public class RLikeParser {
     int start = s_._off;
     while (true) {
       char c = (char) s_.peek1();
-      if (isCharacter(c) || isDigit(c)) {
+      if (isCharacter(c) || isDigit(c) || (c=='.')) {
         ++s_._off;
         continue;
       }
