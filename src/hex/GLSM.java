@@ -123,7 +123,7 @@ public class GLSM {
         eps_dual = ABSTOL + nParams[L1_RHO] * RELTOL * Math.sqrt(u_norm);
         if( r_norm < eps_pri && s_norm < eps_dual ) break;
       }
-      return xm.getColumnPackedCopy();
+      return z;
     }
     default:
       throw new Error("Unexpected Norm " + n);
