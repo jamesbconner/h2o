@@ -6,24 +6,21 @@ import java.util.Arrays;
 import water.exec.RLikeParser.Token;
 
 
-// -----------------------------------------------
+// =============================================================================
+// Expression
+// =============================================================================
 
-
-/**
- * Eval expressions.  The namespace is the Keys in H2O.
- * Evaluation is like in R.
- *
- * @author cliffc@0xdata.com
- */
 public abstract class Expr {
   public static class Result {
     public final Key _key;
     private int _refCount;
     private boolean _copied;
+    private int _colIndex;
     
     private Result(Key k, int refCount) {
       _key = k;
       _refCount = refCount;
+      _colIndex = 0;
     }
     
     public static Result temporary(Key k) {
@@ -56,12 +53,43 @@ public abstract class Expr {
       //return isTemporary() && (_copied == false);
     }
     
+    public int colIndex() {
+      return _colIndex;
+    }
+    
+    public void setColIndex(int index) {
+      _colIndex = index;
+    }
+    
   }
 
   
   public abstract Result eval() throws EvaluationException;
   
+  /** Use this method to get ValueArrays as it is typechecked. 
+   * 
+   * @param k
+   * @return
+   * @throws EvaluationException 
+   */
+  public static ValueArray getValueArray(Key k) throws EvaluationException {
+    Value v = DKV.get(k);
+    if (v == null)
+      throw new EvaluationException("Key "+k.toString()+" not found");
+    if (!(v instanceof ValueArray))
+      throw new EvaluationException("Key "+k.toString()+" does not contain an array, while array is expected.");
+    return (ValueArray) v;
+  }
   
+  
+  /** Assigns (copies) the what argument to the given key. 
+   * 
+   * TODO at the moment, only does deep copy. 
+   * 
+   * @param to
+   * @param what
+   * @throws EvaluationException 
+   */
   public static void assign(final Key to, Result what) throws EvaluationException {
     if (what.canShallowCopy()) {
       assert (false); // we do not support shallow copy now (TODO)
@@ -96,6 +124,10 @@ public abstract class Expr {
   
 }
 
+// =============================================================================
+// KeyLiteral
+// =============================================================================
+
 class KeyLiteral extends Expr {
   private final Key key_;
   public KeyLiteral(String id) {
@@ -107,6 +139,44 @@ class KeyLiteral extends Expr {
   }
 }
 
+// =============================================================================
+// FloatLiteral 
+// =============================================================================
+
+class FloatLiteral extends Expr {
+  public static final ValueArray.Column C = new ValueArray.Column();
+  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
+  static {
+    C._name = "";
+    C._scale = 1;
+    C._size = -8;
+    C._domain = new ParseDataset.ColumnDomain();
+    C._domain.kill();
+  }
+  public final double _d;
+  public FloatLiteral( double d ) { _d=d; }
+
+  @Override public Expr.Result eval() throws EvaluationException {
+    Expr.Result res = Expr.Result.temporary();
+    // The 1 tiny arraylet
+    Key key2 = ValueArray.make_chunkkey(res._key,0);
+    byte[] bits = new byte[8];
+    UDP.set8d(bits,0,_d);
+    Value val = new Value(key2,bits);
+    DKV.put(key2,val);
+
+    // The metadata
+    C._min = C._max = _d;
+    ValueArray ary = ValueArray.make(res._key,Value.ICE,res._key,Double.toString(_d),1,8,CC);
+    DKV.put(res._key,ary);
+    return res;
+  }
+}
+
+
+// =============================================================================
+// AssignmentOperator 
+// =============================================================================
 
 class AssignmentOperator extends Expr {
 
@@ -126,35 +196,60 @@ class AssignmentOperator extends Expr {
   }
 }
 
-class FloatLiteral extends Expr {
-  public static final ValueArray.Column C = new ValueArray.Column();
-  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
-  static {
-    C._name = "";
-    C._scale = 1;
-    C._size = -8;
-    C._domain = new ParseDataset.ColumnDomain();
-    C._domain.kill();
+// =============================================================================
+// ColumnSelector
+// =============================================================================
+
+class ColumnSelector extends Expr {
+  private final Expr _expr;
+  private final int _colIndex;
+  
+  public ColumnSelector(Expr expr, int colIndex) {
+    _expr = expr;
+    _colIndex = colIndex;
   }
-  public final double _d;
-  public FloatLiteral( double d ) { _d=d; }
 
   @Override public Result eval() throws EvaluationException {
-    Result res = Result.temporary();
-    // The 1 tiny arraylet
-    Key key2 = ValueArray.make_chunkkey(res._key,0);
-    byte[] bits = new byte[8];
-    UDP.set8d(bits,0,_d);
-    Value val = new Value(key2,bits);
-    DKV.put(key2,val);
-
-    // The metadata
-    C._min = C._max = _d;
-    ValueArray ary = ValueArray.make(res._key,Value.ICE,res._key,Double.toString(_d),1,8,CC);
-    DKV.put(res._key,ary);
-    return res;
+    Result result = _expr.eval();
+    ValueArray v = getValueArray(result._key);
+    if (v.num_cols() <= _colIndex)
+      throw new EvaluationException("Column "+_colIndex+" not present in expression (has "+v.num_cols()+")");
+    result.setColIndex(_colIndex);
+    return result;
   }
 }
+
+// =============================================================================
+// StringColumnSelector
+// =============================================================================
+
+class StringColumnSelector extends Expr {
+  private final Expr _expr;
+  private final String _colName;
+  
+  public StringColumnSelector(Expr expr, String colName) {
+    _expr = expr;
+    _colName = colName;
+  }
+
+  @Override public Result eval() throws EvaluationException {
+    Result result = _expr.eval();
+    ValueArray v = getValueArray(result._key);
+    for (int i = 0; i < v.num_cols(); ++i) {
+      if (v.col_name(i).equals(_colName)) {
+        result.setColIndex(i);
+        return result;        
+      }
+    }
+    throw new EvaluationException("Column "+_colName+" not present in expression");
+  }
+  
+}
+
+
+// =============================================================================
+// Binary Operator
+// =============================================================================
 
 class BinaryOperator extends Expr {
 
@@ -167,8 +262,6 @@ class BinaryOperator extends Expr {
     C._domain = new ParseDataset.ColumnDomain();
     C._domain.kill();
   }
-  
-  
   
   private final Expr left_;
   private final Expr right_;
@@ -187,13 +280,13 @@ class BinaryOperator extends Expr {
     // get the keys and the values    
     Result kl = left_.eval();
     Result kr = right_.eval();
-    ValueArray vl = (ValueArray) DKV.get(kl._key);
-    ValueArray vr = (ValueArray) DKV.get(kr._key);
-    // check that the data types are correct
-    assert (vl.num_cols() == vr.num_cols());
-    assert (vl.num_rows() == vr.num_rows());
-    // TODO simplification, we only assume single columns
-    assert (vl.num_cols() == 1);
+    ValueArray vl = getValueArray(kl._key);
+    ValueArray vr = getValueArray(kr._key);
+    // now do the typechecking on them
+    if (vl.num_rows() != vr.num_rows())
+      throw new EvaluationException("Left and right arguments do not have matching row sizes");
+    // we do not need to check the columns here - the column selector operator does this for us
+    // one step ahead
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
     DKV.put(res._key,result);
     MRVectorBinaryOperator op;
