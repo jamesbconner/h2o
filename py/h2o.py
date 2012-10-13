@@ -223,7 +223,7 @@ def tear_down_cloud(node_list=None):
         node_list[:] = []
     
 def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
-    node.wait_for_node_to_accept_connections()
+    node.wait_for_node_to_accept_connections(timeoutSecs)
     # want node saying cloud = expected size, plus thinking everyone agrees with that.
     def test(n):
         c = n.get_cloud()
@@ -439,7 +439,7 @@ class H2O(object):
                 msg = error(self, timeTakenSecs, numberOfRetries)
             raise Exception(msg)
 
-    def wait_for_node_to_accept_connections(self):
+    def wait_for_node_to_accept_connections(self,timeoutSecs=15):
         verboseprint("wait_for_node_to_accept_connections")
         def test(n):
             try:
@@ -462,7 +462,7 @@ class H2O(object):
                 raise
 
         self.stabilize(test, 'Cloud accepting connections',
-                timeoutSecs=15, # with cold cache's this can be quite slow
+                timeoutSecs=timeoutSecs, # with cold cache's this can be quite slow
                 retryDelaySecs=0.1) # but normally it is very fast
 
     def get_args(self):
