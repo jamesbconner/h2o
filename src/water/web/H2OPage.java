@@ -1,9 +1,8 @@
 package water.web;
 
-import java.util.Properties;
-
 import com.google.gson.JsonObject;
-
+import java.util.Properties;
+import water.ValueArray;
 import water.Key;
 
 /** H2O branded web page.
@@ -19,6 +18,7 @@ public abstract class H2OPage extends Page {
 
   protected abstract String serveImpl(Server server, Properties args, String sessionID) throws PageError;
 
+  protected static final String[] EMPTY = {};
   protected String[] additionalScripts() { return EMPTY; }
   protected String[] additionalStyles()  { return EMPTY; }
 
@@ -152,5 +152,53 @@ public abstract class H2OPage extends Page {
     return result;
   }
 
-  protected static final String[] EMPTY = {};
+  static String colName(int colId, ValueArray ary   ) { return colName(colId,ary.col_name(colId)); }
+  static String colName(int colId, String[] colNames) { return colName(colId,    colNames[colId]); }
+  static String colName(int colId, String n) { return n==null ? "Column "+colId : n; }
+
+  static class InvalidInputException extends PageError {
+    public InvalidInputException(String msg) {
+      super(msg);
+    }
+  }
+
+  static class InvalidColumnIdException extends InvalidInputException {
+    public InvalidColumnIdException(String exp) {
+      super("Invalid column identifier '" + exp + "'");
+    }
+  }
+
+  public int[] parseVariableExpression(String[] colNames, String vexp) throws PageError {
+    if( vexp.trim().isEmpty() ) return new int[0];
+    String[] colExps = vexp.split(",");
+    int[] res = new int[colExps.length];
+    int idx = 0;
+    __OUTER: for( int i = 0; i < colExps.length; ++i ) {
+      String colExp = colExps[i].trim();
+      if( colExp.contains(":") ) {
+        String[] parts = colExp.split(":");
+        if( parts.length != 2 ) throw new InvalidColumnIdException(colExp);
+        int from = parseVariableExpression(colNames, parts[0])[0];
+        int to   = parseVariableExpression(colNames, parts[1])[0];
+        int[] new_res = new int[res.length + to - from];
+        System.arraycopy(res, 0, new_res, 0, idx);
+        for( int j = from; j <= to; ++j )
+          new_res[idx++] = j;
+        res = new_res;
+        continue __OUTER;
+      }
+      for( int j = 0; j < colNames.length; ++j )
+        if( colNames[j].equalsIgnoreCase(colExp) ) {
+          res[idx++] = j;
+          continue __OUTER;
+        }
+      try {
+        res[idx++] = Integer.valueOf(colExps[i].trim());
+      } catch( NumberFormatException e ) {
+        throw new InvalidColumnIdException(colExps[i].trim());
+      }
+    }
+    return res;
+  }
+
 }

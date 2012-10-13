@@ -453,7 +453,9 @@ public class ValueArray extends Value {
   public String[] col_enum_domain(int cnum) {
     byte[] mem = get();
     Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
-    String[] domain = new String[s.get2()];
+    int domainSize = s.get2();
+    if( domainSize == 65535 ) domainSize=0; // The no-domain-info flag
+    String[] domain = new String[domainSize];
     for( int i = 0; i < domain.length; i++)
       domain[i] = s.getLen2Str();
     return domain;

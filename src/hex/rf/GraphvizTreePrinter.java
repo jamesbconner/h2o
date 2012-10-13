@@ -11,12 +11,12 @@ import java.text.MessageFormat;
 public class GraphvizTreePrinter extends TreePrinter {
   private final Appendable _dest;
 
-  public GraphvizTreePrinter(OutputStream dest, String[] columns) {
-    this(new OutputStreamWriter(dest), columns);
+  public GraphvizTreePrinter(OutputStream dest, String[] columns, String[]classNames) {
+    this(new OutputStreamWriter(dest), columns, classNames);
   }
 
-  public GraphvizTreePrinter(Appendable dest, String[] columns) {
-    super(columns);
+  public GraphvizTreePrinter(Appendable dest, String[] columns, String[]classNames) {
+    super(columns,classNames);
     _dest = dest;
   }
 
@@ -80,7 +80,10 @@ public class GraphvizTreePrinter extends TreePrinter {
       _dest.append("digraph {\n");
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          _dest.append(String.format("%d [label=\"Class %d\"];\n", _ts._off-2, tclass));
+          String x = (tclass < _classNames.length) 
+            ? String.format("%d [label=\"%s\"];\n"      , _ts._off-2, _classNames[tclass])
+            : String.format("%d [label=\"Class %d\"];\n", _ts._off-2, tclass);
+          _dest.append(x);
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {

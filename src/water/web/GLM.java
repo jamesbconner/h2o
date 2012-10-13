@@ -15,64 +15,8 @@ import com.google.gson.*;
 
 public class GLM extends H2OPage {
 
-  static String getColName(int colId, ValueArray ary) {
-    String colName = ary.col_name(colId);
-    if( colName == null ) colName = "Column " + colId;
-    return colName;
-  }
-
   static String getColName(int colId, String[] colNames) {
-    if( colId == colNames.length ) return "Intercept";
-    String colName = colNames[colId];
-    if( colName == null ) colName = "col[" + colId + "]";
-    return colName;
-  }
-
-  static class InvalidInputException extends RuntimeException {
-    public InvalidInputException(String msg) {
-      super(msg);
-    }
-  }
-
-  static class InvalidColumnIdException extends InvalidInputException {
-    public InvalidColumnIdException(String exp) {
-      super("Invalid column identifier '" + exp + "'");
-    }
-  }
-
-  public int[] parseVariableExpression(String[] colNames, String vexp) {
-    if(vexp.trim().isEmpty())return new int[0];
-    String[] colExps = vexp.split(",");
-    int[] res = new int[colExps.length];
-    int idx = 0;
-    __OUTER: for( int i = 0; i < colExps.length; ++i ) {
-      String colExp = colExps[i].trim();
-      if( colExp.contains(":") ) {
-        String[] parts = colExp.split(":");
-        if( parts.length != 2 ) throw new InvalidColumnIdException(colExp);
-        int from = parseVariableExpression(colNames, parts[0])[0];
-        int to = parseVariableExpression(colNames, parts[1])[0];
-        int[] new_res = new int[res.length + to - from];
-        System.arraycopy(res, 0, new_res, 0, idx);
-        for( int j = from; j <= to; ++j ) {
-          new_res[idx++] = j;
-        }
-        res = new_res;
-        continue __OUTER;
-      }
-      for( int j = 0; j < colNames.length; ++j )
-        if( colNames[j].equalsIgnoreCase(colExp) ) {
-          res[idx++] = j;
-          continue __OUTER;
-        }
-      try {
-        res[idx++] = Integer.valueOf(colExps[i].trim());
-      } catch( NumberFormatException e ) {
-        throw new InvalidColumnIdException(colExps[i].trim());
-      }
-      ;
-    }
-    return res;
+    return colId == colNames.length ? "Intercept" : colName(colId,colNames);
   }
 
   @Override
@@ -83,8 +27,7 @@ public class GLM extends H2OPage {
   static JsonObject getCoefficients(int [] columnIds, String [] colNames, double [] beta){
     JsonObject coefficients = new JsonObject();
     for( int i = 0; i < beta.length; ++i ) {
-      String colName = (i == (beta.length - 1)) ? "Intercept" : getColName(
-          columnIds[i], colNames);
+      String colName = (i == (beta.length - 1)) ? "Intercept" : getColName(columnIds[i], colNames);
       coefficients.addProperty(colName, beta[i]);
     }
     return coefficients;
@@ -148,7 +91,7 @@ public class GLM extends H2OPage {
       try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
 
       String method = p.getProperty("family", "gaussian").toLowerCase();
-
+      boolean nonZerosAsOnes = Boolean.valueOf(p.getProperty("bool","false"));
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
       res.addProperty("h2o", H2O.SELF.urlEncode());
@@ -166,7 +109,7 @@ public class GLM extends H2OPage {
       double alpha = 1.0;
       try{ alpha = Double.valueOf(p.getProperty("alpha", "1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
       if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
-      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha},GLSM.DataPreprocessing.AUTO);
+      GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha},GLSM.DataPreprocessing.AUTO,nonZerosAsOnes);
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("time", deltaT);
       res.addProperty("DegreesOfFreedom", m.n - 1);
@@ -189,7 +132,7 @@ public class GLM extends H2OPage {
       if(xfactor == 1)throw new InvalidInputException("Invalid value of xfactor. Has to be either 0 (no crossvalidation) or > 1.");
       res.addProperty("xfactor", xfactor);
       res.addProperty("threshold", threshold);
-      ArrayList<GLM_Validation> vals = GLSM.xValidate(ary,f,columns,xfactor, threshold, 1, norm, new double[]{lambda,rho,alpha});
+      ArrayList<GLM_Validation> vals = GLSM.xValidate(ary,f,columns,xfactor, threshold, 1, norm, new double[]{lambda,rho,alpha},nonZerosAsOnes);
       val = vals.get(0);
       if(val instanceof BinomialValidation){
         BinomialValidation v = (BinomialValidation)val;
