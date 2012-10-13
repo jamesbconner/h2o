@@ -1,10 +1,7 @@
 package water.web;
-import com.google.gson.*;
-import java.util.*;
+import com.google.gson.JsonObject;
+import java.util.Properties;
 import water.Key;
-import water.UKV;
-import water.Value;
-import water.exec.*;
 
 /**
  * The servlet for launching a computation

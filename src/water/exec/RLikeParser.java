@@ -20,27 +20,35 @@ public class RLikeParser {
   
   public static class Token {
     public enum Type {
-      ttNumber, // any number
+      ttFloat, // any floating point number
+      ttInteger, // integer number
       ttIdent, // any identifier
       ttOpAssign, // assignment
+      ttOpDollar, // $
       ttOpAdd, // +
       ttOpSub, // -
       ttOpMul, // *
       ttOpDiv, // /
       ttOpParOpen, // (
       ttOpParClose, // )
+      ttOpBracketOpen, // [
+      ttOpBracketClose, // ]
       ttOpDoubleQuote, // "
       ttEOF,
       ttUnknown,
       ;
       public String toString() {
         switch (this) {
-          case ttNumber:
-            return "number";
+          case ttFloat:
+            return "float";
+          case ttInteger:
+            return "integer";
           case ttIdent:
             return "identifier";
           case ttOpAssign:
             return "assignment";
+          case ttOpDollar:
+            return "membership $";
           case ttOpAdd:
             return "operator +";
           case ttOpSub:
@@ -53,6 +61,10 @@ public class RLikeParser {
             return "opening parenthesis";
           case ttOpParClose:
             return "closing parenthesis";
+          case ttOpBracketOpen:
+            return "opening bracket";
+          case ttOpBracketClose:
+            return "closing bracket";
           case ttOpDoubleQuote:
             return "\"";
           case ttEOF:
@@ -64,23 +76,34 @@ public class RLikeParser {
     }
     public final Type type;
     public final double value;
+    public final int valueInt;
     public final String id;
     
     public Token(Type type) {
       this.type = type;
       value = 0;
+      valueInt = 0;
       id = "";
     }
     
     public Token(double d) {
-      this.type = Type.ttNumber;
+      this.type = Type.ttFloat;
       value = d;
+      valueInt = (int) d;
+      id = "";
+    }
+
+    public Token(int  i) {
+      this.type = Type.ttInteger;
+      value = i;
+      valueInt = i;
       id = "";
     }
     
     public Token(String s) {
       this.type = Type.ttIdent;
       value = 0;
+      valueInt = 0;
       id = s;
     }
   }
@@ -140,6 +163,9 @@ public class RLikeParser {
       case '=':
         ++s_._off;
         return new Token(Token.Type.ttOpAssign);
+      case '$':
+        ++s_._off;
+        return new Token(Token.Type.ttOpDollar);
       case '+':
         ++s_._off;
         return new Token(Token.Type.ttOpAdd);
@@ -158,6 +184,12 @@ public class RLikeParser {
       case ')':
         ++s_._off;
         return new Token(Token.Type.ttOpParClose);
+      case '[':
+        ++s_._off;
+        return new Token(Token.Type.ttOpBracketOpen);
+      case ']':
+        ++s_._off;
+        return new Token(Token.Type.ttOpBracketClose);
       case '"':
         ++s_._off;
         return new Token(Token.Type.ttOpDoubleQuote);
@@ -213,7 +245,10 @@ public class RLikeParser {
       }
       break;
     }
-    return new Token(Double.parseDouble(new String(s_._buf, start, s_._off - start)));
+    if ((dot == false) && (e == false)) 
+      return new Token(Integer.parseInt(new String(s_._buf, start, s_._off - start)));
+    else
+      return new Token(Double.parseDouble(new String(s_._buf, start, s_._off - start)));
   }
   
   // ---------------------------------------------------------------------------
@@ -272,12 +307,16 @@ public class RLikeParser {
   }
   
   /*
-   * F -> number | ident { = S } | ( S ) 
+   * This is silly grammar for now, I need to understand R more to make it 
+   * 
+   * F -> number | ident ( { = S } | $ ident | [ number ] ) | ( S ) 
    */
   
   private Expr parse_F() throws ParserException {
     switch (top().type) {
-      case ttNumber:
+      case ttFloat:
+        return new FloatLiteral(pop().value);
+      case ttInteger:
         return new FloatLiteral(pop().value);
       case ttIdent: {
         Token t = pop();
@@ -285,7 +324,15 @@ public class RLikeParser {
           pop();
           Expr rhs = parse_S();
           return new AssignmentOperator(Key.make(t.id), rhs);
-        } else {
+        } else if (top().type == Token.Type.ttOpDollar) {
+          pop();
+          return new StringColumnSelector(new KeyLiteral(t.id), pop(Token.Type.ttIdent).id);
+        } else if (top().type == Token.Type.ttOpBracketOpen) {
+          pop();
+          int idx = pop(Token.Type.ttInteger).valueInt;
+          pop(Token.Type.ttOpBracketClose);
+          return new ColumnSelector(new KeyLiteral(t.id), idx);
+        } else {  
           return new KeyLiteral(t.id);
         }
       }
