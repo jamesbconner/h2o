@@ -155,7 +155,9 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
 nodes = []
-def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cleanup=True, **kwargs):
+def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, 
+    timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
+
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -164,16 +166,12 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cle
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
                 node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
-            timeoutSecs = 10.0 # for stabilize
-            retryDelaySecs = 0.25 # for stabilize
         else:
             hostCount = len(hosts)
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
                     node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
-            timeoutSecs = 15.0
-            retryDelaySecs = 0.25
 
         verboseprint('Cloud stabilize')
         start = time.time()
@@ -182,6 +180,15 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cle
         verboseprint(len(node_list), " Node 0 stabilized in ", time.time()-start, " secs")
         verboseprint("Built cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
             hostCount, (time.time() - start))) 
+
+        # FIX! using "consensus" in node[0] should mean this is unnecessary?
+        # maybe there's a bug. For now do this. long term: don't want?
+        # For now, only do this for remote case. It's a good check too, for the more stressful
+        # remote cases
+        if hosts is not None:
+            for n in nodes:
+                stabilize_cloud(n, len(nodes), timeoutSecs=3)
+
     except:
         if cleanup:
             for n in node_list: n.terminate()
@@ -631,6 +638,8 @@ class RemoteHost(object):
         return RemoteH2O(self, self.addr, *args, **keywords)
 
     def open_channel(self):
+        # kbn
+        # ch = self.ssh.invoke_shell()
         ch = self.ssh.get_transport().open_session()
         ch.get_pty() # force the process to die without the connection
         return ch
