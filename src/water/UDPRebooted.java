@@ -28,10 +28,10 @@ public class UDPRebooted extends UDP {
   }
 
   // Announce self-node reboot to the world
-  static public void global_kill( ) {
+  static public void global_kill( int x ) {
     byte[] buf = new byte[16];
     buf[0] = (byte)UDP.udp.rebooted.ordinal();
-    buf[SZ_PORT] = 2;    // This is a global-kill announcement
+    buf[SZ_PORT] = (byte)x;     // This is a global-kill announcement
     // Send it 3 times.  Obnoxious, but unlikely to be not heard
     MultiCast.multicast(buf);
     MultiCast.multicast(buf);

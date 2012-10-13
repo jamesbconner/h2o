@@ -82,7 +82,7 @@ public class RandomForest {
     int ntrees = ARGS.ntrees;
     if(ntrees == 0) {
       System.out.println("Nothing to do as ntrees == 0");
-      UDPRebooted.global_kill();
+      UDPRebooted.global_kill(2);
       return;
     }
     DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
@@ -118,7 +118,7 @@ public class RandomForest {
       c.report();
     }
     System.out.println("Random forest finished in: " + (t2 - t1) + " ms");
-    UDPRebooted.global_kill();
+    UDPRebooted.global_kill(2);
   }
 }
 
