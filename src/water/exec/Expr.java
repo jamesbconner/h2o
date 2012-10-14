@@ -11,16 +11,36 @@ import water.exec.RLikeParser.Token;
 // =============================================================================
 
 public abstract class Expr {
+  // TODO these might go someplace else in the future, or get completely rid of
+  public static final ValueArray.Column C = new ValueArray.Column();
+  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
+  static {
+    C._name = "";
+    C._scale = 1;
+    C._size = -8;
+    C._domain = new ParseDataset.ColumnDomain();
+    C._domain.kill();
+  }
+
   public static class Result {
     public final Key _key;
     private int _refCount;
     private boolean _copied;
     private int _colIndex;
+    public final double _const;
     
     private Result(Key k, int refCount) {
       _key = k;
       _refCount = refCount;
       _colIndex = 0;
+      _const = 0;
+    }
+    
+    private Result(double value) {
+      _key = null;
+      _refCount = 1;
+      _colIndex = 0;
+      _const = value;
     }
     
     public static Result temporary(Key k) {
@@ -35,7 +55,14 @@ public abstract class Expr {
       return new Result(k, -1);
     }
     
+    public static Result scalar(double v) {
+      return new Result(v);
+    }
+    
+    
     public void dispose() {
+      if (_key == null)
+        return;
       --_refCount;
       if (_refCount == 0) 
         if (_copied)
@@ -59,6 +86,10 @@ public abstract class Expr {
     
     public void setColIndex(int index) {
       _colIndex = index;
+    }
+    
+    public boolean isConstant() {
+      return _key == null;
     }
     
   }
@@ -91,7 +122,18 @@ public abstract class Expr {
    * @throws EvaluationException 
    */
   public static void assign(final Key to, Result what) throws EvaluationException {
-    if (what.canShallowCopy()) {
+    if (what.isConstant()) { // assigning to a constant creates a vector of size 1 
+      // The 1 tiny arraylet
+      Key key2 = ValueArray.make_chunkkey(to,0);
+      byte[] bits = new byte[8];
+      UDP.set8d(bits,0,what._const);
+      Value val = new Value(key2,bits);
+      DKV.put(key2,val);
+      // The metadata
+      C._min = C._max = what._const;
+      ValueArray ary = ValueArray.make(to,Value.ICE,to,Double.toString(what._const),1,8,CC);
+      DKV.put(to,ary);
+    } else if (what.canShallowCopy()) {
       assert (false); // we do not support shallow copy now (TODO)
       ValueArray v = (ValueArray) DKV.get(what._key);
       if (v == null)
@@ -144,20 +186,12 @@ class KeyLiteral extends Expr {
 // =============================================================================
 
 class FloatLiteral extends Expr {
-  public static final ValueArray.Column C = new ValueArray.Column();
-  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
-  static {
-    C._name = "";
-    C._scale = 1;
-    C._size = -8;
-    C._domain = new ParseDataset.ColumnDomain();
-    C._domain.kill();
-  }
   public final double _d;
   public FloatLiteral( double d ) { _d=d; }
 
   @Override public Expr.Result eval() throws EvaluationException {
-    Expr.Result res = Expr.Result.temporary();
+    return Expr.Result.scalar(_d);
+/*  Expr.Result res = Expr.Result.temporary();
     // The 1 tiny arraylet
     Key key2 = ValueArray.make_chunkkey(res._key,0);
     byte[] bits = new byte[8];
@@ -169,7 +203,7 @@ class FloatLiteral extends Expr {
     C._min = C._max = _d;
     ValueArray ary = ValueArray.make(res._key,Value.ICE,res._key,Double.toString(_d),1,8,CC);
     DKV.put(res._key,ary);
-    return res;
+    return res; */
   }
 }
 
@@ -252,16 +286,6 @@ class StringColumnSelector extends Expr {
 // =============================================================================
 
 class BinaryOperator extends Expr {
-
-  public static final ValueArray.Column C = new ValueArray.Column();
-  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
-  static {
-    C._name = "";
-    C._scale = 1;
-    C._size = -8;
-    C._domain = new ParseDataset.ColumnDomain();
-    C._domain.kill();
-  }
   
   private final Expr left_;
   private final Expr right_;
@@ -274,14 +298,26 @@ class BinaryOperator extends Expr {
     type_ = type;
     
   }
+
+  private Result evalConstConst(Result l, Result r) throws EvaluationException {
+    switch (type_) {
+      case ttOpAdd:
+        return Result.scalar(l._const + r._const);
+      case ttOpSub:
+        return Result.scalar(l._const - r._const);
+      case ttOpMul:
+        return Result.scalar(l._const * r._const);
+      case ttOpDiv:
+        return Result.scalar(l._const / r._const);
+      default:
+        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+    }
+  }
   
-  @Override public Result eval() throws EvaluationException {
+  private Result evalVectVect(Result l, Result r) throws EvaluationException {
     Result res = Result.temporary();
-    // get the keys and the values    
-    Result kl = left_.eval();
-    Result kr = right_.eval();
-    ValueArray vl = getValueArray(kl._key);
-    ValueArray vr = getValueArray(kr._key);
+    ValueArray vl = getValueArray(l._key);
+    ValueArray vr = getValueArray(r._key);
     // now do the typechecking on them
     if (vl.num_rows() != vr.num_rows())
       throw new EvaluationException("Left and right arguments do not have matching row sizes");
@@ -292,16 +328,16 @@ class BinaryOperator extends Expr {
     MRVectorBinaryOperator op;
     switch (type_) {
       case ttOpAdd:
-        op = new AddOperator(kl._key,kr._key,res._key,0,0);
+        op = new AddOperator(l._key,r._key,res._key,0,0);
         break;
       case ttOpSub:
-        op = new SubOperator(kl._key,kr._key,res._key,0,0);
+        op = new SubOperator(l._key,r._key,res._key,0,0);
         break;
       case ttOpMul:
-        op = new MulOperator(kl._key,kr._key,res._key,0,0);
+        op = new MulOperator(l._key,r._key,res._key,0,0);
         break;
       case ttOpDiv:
-        op = new DivOperator(kl._key,kr._key,res._key,0,0);
+        op = new DivOperator(l._key,r._key,res._key,0,0);
         break;
       default:
         throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
@@ -311,9 +347,52 @@ class BinaryOperator extends Expr {
     C._max = op.max_;
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
-    kl.dispose();
-    kr.dispose();
+    l.dispose();
+    r.dispose();
     return res;
+  }
+
+  private Result evalConstVect(final Result l, Result r) throws EvaluationException {
+    MRTask t = new MRTask() {
+
+      public double _min = Double.MAX_VALUE;
+      public double _max = Double.MIN_VALUE;
+      
+      @Override public void map(Key key) {
+        throw new UnsupportedOperationException("Not supported yet.");
+      }
+
+      @Override public void reduce(DRemoteTask drt) {
+        throw new UnsupportedOperationException("Not supported yet.");
+      }
+      
+    } ;
+    
+    throw new EvaluationException("NOT IMPLEMENTED");
+    
+  }
+
+  private Result evalVectConst(Result l, Result r) throws EvaluationException {
+    
+    throw new EvaluationException("NOT IMPLEMENTED");
+  }
+  
+  
+  @Override public Result eval() throws EvaluationException {
+    // get the keys and the values    
+    Result kl = left_.eval();
+    Result kr = right_.eval();
+    if (kl.isConstant()) {
+      if (kr.isConstant())
+        return evalConstConst(kl, kr);
+      else
+        return evalConstVect(kl, kr);
+    } else {
+      if (kr.isConstant())
+        return evalVectConst(kl, kr);
+      else 
+        return evalVectVect(kl, kr);
+    }
   }
   
 }
