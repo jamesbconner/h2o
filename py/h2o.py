@@ -187,7 +187,7 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None,
         # remote cases
         if hosts is not None:
             for n in nodes:
-                stabilize_cloud(n, len(nodes), timeoutSecs=3)
+                stabilize_cloud(n, len(nodes), timeoutSecs=15)
 
     except:
         if cleanup:
