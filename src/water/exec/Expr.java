@@ -328,16 +328,16 @@ class BinaryOperator extends Expr {
     MRVectorBinaryOperator op;
     switch (type_) {
       case ttOpAdd:
-        op = new AddOperator(l._key,r._key,res._key,0,0);
+        op = new AddOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
       case ttOpSub:
-        op = new SubOperator(l._key,r._key,res._key,0,0);
+        op = new SubOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
       case ttOpMul:
-        op = new MulOperator(l._key,r._key,res._key,0,0);
+        op = new MulOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
       case ttOpDiv:
-        op = new DivOperator(l._key,r._key,res._key,0,0);
+        op = new DivOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
       default:
         throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
@@ -353,28 +353,67 @@ class BinaryOperator extends Expr {
   }
 
   private Result evalConstVect(final Result l, Result r) throws EvaluationException {
-    MRTask t = new MRTask() {
-
-      public double _min = Double.MAX_VALUE;
-      public double _max = Double.MIN_VALUE;
-      
-      @Override public void map(Key key) {
-        throw new UnsupportedOperationException("Not supported yet.");
-      }
-
-      @Override public void reduce(DRemoteTask drt) {
-        throw new UnsupportedOperationException("Not supported yet.");
-      }
-      
-    } ;
-    
-    throw new EvaluationException("NOT IMPLEMENTED");
-    
+    Result res = Result.temporary();
+    ValueArray vr = getValueArray(r._key);
+    MRVectorUnaryOperator op;
+    switch (type_) {
+      case ttOpAdd:
+        op = new RightAdd(r._key,res._key,r.colIndex(),l._const);
+        break;
+      case ttOpSub:
+        op = new RightSub(r._key,res._key,r.colIndex(),l._const);
+        break;
+      case ttOpMul:
+        op = new RightMul(r._key,res._key,r.colIndex(),l._const);
+        break;
+      case ttOpDiv:
+        op = new RightDiv(r._key,res._key,r.colIndex(),l._const);
+        break;
+      default:
+        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+    }
+    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vr.num_rows(),8,CC);
+    DKV.put(res._key,result);
+    op.invoke(res._key);
+    C._min = op.min_;
+    C._max = op.max_;
+    result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vr.num_rows(),8,CC);
+    DKV.put(res._key,result); // reinsert with min / max
+    l.dispose();
+    r.dispose();
+    return res;
   }
 
-  private Result evalVectConst(Result l, Result r) throws EvaluationException {
-    
-    throw new EvaluationException("NOT IMPLEMENTED");
+  private Result evalVectConst(Result l, final Result r) throws EvaluationException {
+    Result res = Result.temporary();
+    ValueArray vl = getValueArray(l._key);
+    MRVectorUnaryOperator op;
+    switch (type_) {
+      case ttOpAdd:
+        op = new LeftAdd(l._key,res._key,l.colIndex(),r._const);
+        break;
+      case ttOpSub:
+        op = new LeftSub(l._key,res._key,l.colIndex(),r._const);
+        break;
+      case ttOpMul:
+        op = new LeftMul(l._key,res._key,l.colIndex(),r._const);
+        break;
+      case ttOpDiv:
+        op = new LeftDiv(l._key,res._key,l.colIndex(),r._const);
+        break;
+      default:
+        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+    }
+    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
+    DKV.put(res._key,result);
+    op.invoke(res._key);
+    C._min = op.min_;
+    C._max = op.max_;
+    result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
+    DKV.put(res._key,result); // reinsert with min / max
+    l.dispose();
+    r.dispose();
+    return res;
   }
   
   
