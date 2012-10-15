@@ -59,15 +59,19 @@ public abstract class MRVectorBinaryOperator extends MRTask {
     chunkRows = Math.min(result_.num_rows() - row, chunkRows); // now how many rows we have
     byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
     // now calculate the results
+    long leftRow = row % left_.num_rows();
+    long rightRow = row % right_.num_rows();
     for (int i = 0; i < chunkRows; ++i) {
-      double left = left_.datad(row+i,leftCol_);
-      double right = right_.datad(row+i,rightCol_);
+      double left = left_.datad(leftRow,leftCol_);
+      double right = right_.datad(rightRow,rightCol_);
       double result = operator(left,right);
       UDP.set8d(bits,i*8,result);
       if (result<min_)
         min_ = result;
       if (result>max_)
         max_ = result;
+      leftRow = leftRow+1 % left_.num_rows(); 
+      rightRow = rightRow+1 % right_.num_rows(); 
     }
     // we have the bytes now, just store the value
     Value val = new Value(key,bits);

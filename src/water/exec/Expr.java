@@ -391,12 +391,10 @@ class BinaryOperator extends Expr {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
     ValueArray vr = getValueArray(r._key);
-    // now do the typechecking on them
-    if (vl.num_rows() != vr.num_rows())
-      throw new EvaluationException(_pos, "Left and right arguments do not have matching row sizes");
+    long resultRows = Math.max(vl.num_rows(), vr.num_rows());
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
-    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
+    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",resultRows,8,CC);
     DKV.put(res._key,result);
     MRVectorBinaryOperator op;
     switch (type_) {
