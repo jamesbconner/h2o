@@ -1,6 +1,5 @@
 package water.exec;
 
-import java.util.Arrays;
 import water.Key;
 import water.Stream;
 
@@ -20,27 +19,35 @@ public class RLikeParser {
   
   public static class Token {
     public enum Type {
-      ttNumber, // any number
+      ttFloat, // any floating point number
+      ttInteger, // integer number
       ttIdent, // any identifier
       ttOpAssign, // assignment
+      ttOpDollar, // $
       ttOpAdd, // +
       ttOpSub, // -
       ttOpMul, // *
       ttOpDiv, // /
       ttOpParOpen, // (
       ttOpParClose, // )
+      ttOpBracketOpen, // [
+      ttOpBracketClose, // ]
       ttOpDoubleQuote, // "
       ttEOF,
       ttUnknown,
       ;
       public String toString() {
         switch (this) {
-          case ttNumber:
-            return "number";
+          case ttFloat:
+            return "float";
+          case ttInteger:
+            return "integer";
           case ttIdent:
             return "identifier";
           case ttOpAssign:
             return "assignment";
+          case ttOpDollar:
+            return "membership $";
           case ttOpAdd:
             return "operator +";
           case ttOpSub:
@@ -53,6 +60,10 @@ public class RLikeParser {
             return "opening parenthesis";
           case ttOpParClose:
             return "closing parenthesis";
+          case ttOpBracketOpen:
+            return "opening bracket";
+          case ttOpBracketClose:
+            return "closing bracket";
           case ttOpDoubleQuote:
             return "\"";
           case ttEOF:
@@ -64,23 +75,39 @@ public class RLikeParser {
     }
     public final Type type;
     public final double value;
+    public final int valueInt;
     public final String id;
+    public final int _pos;
     
-    public Token(Type type) {
+    public Token(int pos, Type type) {
+      _pos = pos;
       this.type = type;
       value = 0;
+      valueInt = 0;
       id = "";
     }
     
-    public Token(double d) {
-      this.type = Type.ttNumber;
+    public Token(int pos, double d) {
+      _pos = pos;
+      this.type = Type.ttFloat;
       value = d;
+      valueInt = (int) d;
+      id = "";
+    }
+
+    public Token(int pos, int  i) {
+      _pos = pos;
+      this.type = Type.ttInteger;
+      value = i;
+      valueInt = i;
       id = "";
     }
     
-    public Token(String s) {
+    public Token(int pos, String s) {
+      _pos = pos;
       this.type = Type.ttIdent;
       value = 0;
+      valueInt = 0;
       id = s;
     }
   }
@@ -101,7 +128,7 @@ public class RLikeParser {
 
   protected Token pop(Token.Type type) throws ParserException {
     if (top().type != type)
-      throw new ParserException(type,top().type);
+      throw new ParserException(top()._pos, type,top().type);
     return pop();
   }
   
@@ -133,41 +160,51 @@ public class RLikeParser {
   
   private Token parseNextToken() throws ParserException {
     skipWhitespace();
+    int pos = s_._off;
     if (s_.eof())
-      return new Token(Token.Type.ttEOF);
+      return new Token(pos, Token.Type.ttEOF);
     char c = (char) s_.peek1();
     switch (c) {
       case '=':
         ++s_._off;
-        return new Token(Token.Type.ttOpAssign);
+        return new Token(pos, Token.Type.ttOpAssign);
+      case '$':
+        ++s_._off;
+        return new Token(pos, Token.Type.ttOpDollar);
       case '+':
         ++s_._off;
-        return new Token(Token.Type.ttOpAdd);
+        return new Token(pos, Token.Type.ttOpAdd);
       case '-':
         ++s_._off;
-        return new Token(Token.Type.ttOpSub);
+        return new Token(pos, Token.Type.ttOpSub);
       case '*':
         ++s_._off;
-        return new Token(Token.Type.ttOpMul);
+        return new Token(pos, Token.Type.ttOpMul);
       case '/':
         ++s_._off;
-        return new Token(Token.Type.ttOpDiv);
+        return new Token(pos, Token.Type.ttOpDiv);
       case '(':
         ++s_._off;
-        return new Token(Token.Type.ttOpParOpen);
+        return new Token(pos, Token.Type.ttOpParOpen);
       case ')':
         ++s_._off;
-        return new Token(Token.Type.ttOpParClose);
+        return new Token(pos, Token.Type.ttOpParClose);
+      case '[':
+        ++s_._off;
+        return new Token(pos, Token.Type.ttOpBracketOpen);
+      case ']':
+        ++s_._off;
+        return new Token(pos, Token.Type.ttOpBracketClose);
       case '"':
         ++s_._off;
-        return new Token(Token.Type.ttOpDoubleQuote);
+        return new Token(pos, Token.Type.ttOpDoubleQuote);
       default:
         if (isCharacter(c)) 
           return parseIdent();
         if (isDigit(c))
           return parseNumber();
     }
-    return new Token(Token.Type.ttUnknown);
+    return new Token(pos, Token.Type.ttUnknown);
   }
 
   private Token parseIdent() {
@@ -182,7 +219,7 @@ public class RLikeParser {
       }
       break;
     }
-    return new Token(new String(s_._buf, start, s_._off - start));
+    return new Token(start,new String(s_._buf, start, s_._off - start));
   }
   
   private Token parseNumber() throws ParserException {
@@ -199,21 +236,24 @@ public class RLikeParser {
       }
       if (c == '.') {
         if (dot != false)
-          throw new ParserException("Only one dot can be present in number.");
+          throw new ParserException(s_._off,"Only one dot can be present in number.");
         dot = true;
         ++s_._off;
         continue;
       }
       if ((c == 'e') || (c == 'E')) {
         if (e != false)
-          throw new ParserException("Only one exponent can be present in number.");
+          throw new ParserException(s_._off,"Only one exponent can be present in number.");
         e = true;
         ++s_._off;
         continue;
       }
       break;
     }
-    return new Token(Double.parseDouble(new String(s_._buf, start, s_._off - start)));
+    if ((dot == false) && (e == false)) 
+      return new Token(start, Integer.parseInt(new String(s_._buf, start, s_._off - start)));
+    else
+      return new Token(start, Double.parseDouble(new String(s_._buf, start, s_._off - start)));
   }
   
   // ---------------------------------------------------------------------------
@@ -253,8 +293,8 @@ public class RLikeParser {
       return null;
     Expr result = parse_T();
     while ((top().type == Token.Type.ttOpAdd) || (top().type == Token.Type.ttOpSub)) {
-      Token.Type type = pop().type;
-      result = new BinaryOperator(type,result,parse_T());
+      Token t = pop();
+      result = new BinaryOperator(t._pos,t.type,result,parse_T());
     }
     return result;
   }
@@ -265,28 +305,41 @@ public class RLikeParser {
   private Expr parse_T() throws ParserException {
     Expr result = parse_F();
     while ((top().type == Token.Type.ttOpMul) || (top().type == Token.Type.ttOpDiv)) {
-      Token.Type type = pop().type;
-      result = new BinaryOperator(type,result,parse_T());
+      Token t = pop();
+      result = new BinaryOperator(t._pos,t.type,result,parse_T());
     }
     return result;
   }
   
   /*
-   * F -> number | ident { = S } | ( S ) 
+   * This is silly grammar for now, I need to understand R more to make it 
+   * 
+   * F -> number | ident ( { = S } | $ ident | [ number ] ) | ( S ) 
    */
   
   private Expr parse_F() throws ParserException {
+    int pos = top()._pos;
     switch (top().type) {
-      case ttNumber:
-        return new FloatLiteral(pop().value);
+      case ttFloat:
+        return new FloatLiteral(pos, pop().value);
+      case ttInteger:
+        return new FloatLiteral(pos, pop().value);
       case ttIdent: {
         Token t = pop();
         if (top().type == Token.Type.ttOpAssign) {
-          pop();
+          pos = pop()._pos;
           Expr rhs = parse_S();
-          return new AssignmentOperator(Key.make(t.id), rhs);
-        } else {
-          return new KeyLiteral(t.id);
+          return new AssignmentOperator(pos, Key.make(t.id), rhs);
+        } else if (top().type == Token.Type.ttOpDollar) {
+          pos = pop()._pos;
+          return new StringColumnSelector(pos,new KeyLiteral(t._pos,t.id), pop(Token.Type.ttIdent).id);
+        } else if (top().type == Token.Type.ttOpBracketOpen) {
+          pos = pop()._pos;
+          int idx = pop(Token.Type.ttInteger).valueInt;
+          pop(Token.Type.ttOpBracketClose);
+          return new ColumnSelector(pos,new KeyLiteral(t._pos,t.id), idx);
+        } else {  
+          return new KeyLiteral(t._pos,t.id);
         }
       }
       case ttOpParOpen: {
@@ -296,7 +349,7 @@ public class RLikeParser {
         return e;
       }
       default:
-        throw new ParserException("Number or parenthesis",top().type);
+        throw new ParserException(top()._pos,"Number or parenthesis",top().type);
     }
   }
   

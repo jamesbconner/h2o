@@ -21,6 +21,7 @@ public class Cloud extends H2OPage {
     res.addProperty("node_name", H2O.SELF.toString());
     res.addProperty("cloud_size",cloud._memary.length);
     res.addProperty("consensus",Paxos._commonKnowledge); // Cloud is globally accepted
+    res.addProperty("locked",Paxos._cloud_locked); // Cloud is locked against changes
     return res;
   }
 
@@ -70,6 +71,8 @@ public class Cloud extends H2OPage {
       row.append();
     }
     response.replace("size",cloud._memary.length);
+    response.replace("voting",Paxos._commonKnowledge?"":"Voting in progress");
+    response.replace("locked",Paxos._cloud_locked?"Cloud locked":"");
     return response.toString();
   }
 
@@ -136,5 +139,6 @@ public class Cloud extends H2OPage {
     + "}"
     + "</tbody>"
     + "</table>\n"
+    + "<p>%voting  %locked\n"
     ;
 }

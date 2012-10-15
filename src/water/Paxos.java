@@ -1,8 +1,6 @@
 package water;
 import java.util.*;
 
-import com.google.common.collect.Sets;
-
 /**
  * Paxos
  *
@@ -47,14 +45,20 @@ public abstract class Paxos {
   static byte[] BUF = new byte[member_off];
 
   static H2ONode LEADER = H2O.SELF;        // Leader has the lowest IP of any in the set
-  static HashSet<H2ONode> PROPOSED_MEMBERS = Sets.newHashSet(LEADER);
-  static HashSet<H2ONode> ACCEPTED = Sets.newHashSet();
+  static HashSet<H2ONode> PROPOSED_MEMBERS = new HashSet();
+  static HashSet<H2ONode> ACCEPTED = new HashSet();
+  static { PROPOSED_MEMBERS.add(H2O.SELF);  }
 
   // If we receive a Proposal, we need to see if it larger than any we have
   // received before.  If so, then we need to Promise to honor it.  Also, if we
   // have Accepted prior Proposals, we need to include that info in any Promise.
   static long PROPOSAL_MAX;
-  public static boolean _commonKnowledge = false; // Whether or not we have common knowledge
+
+  // Whether or not we have common knowledge
+  public static volatile boolean _commonKnowledge = false; 
+  // Whether or not we're allowing distributed-writes.  The cloud is not
+  // allowed to change shape once we begin writing.
+  public static volatile boolean _cloud_locked = false; 
 
   // ---
   // This is a packet announcing what Cloud this Node thinks is the current
@@ -69,13 +73,16 @@ public abstract class Paxos {
       // Paxos vote, which only requires a Quorum.  This happens after everybody
       // has agreed to the cloud AND published that result to this node.
       if( !_commonKnowledge ) { // One time per cloud change-up
-        _commonKnowledge = true;
+        boolean ck = true;      // Assume true
         for( H2ONode h2o2 : cloud._memary )
           if( !h2o2.is_cloud_member(cloud) )
-            _commonKnowledge = false;
-        if( _commonKnowledge )
+            ck = false;         // This guy has not heartbeat'd that "he's in"
+        if( ck ) {              // Everybody agrees on the Cloud
+          _commonKnowledge = ck;
+          Paxos.class.notify(); // Also, wake up a worker thread stuck in DKV.put
           System.out.printf("[h20] Paxos Cloud of size %d formed: %s\n",
-              cloud._memset.size(), cloud._memset.toString());
+                            cloud._memset.size(), cloud._memset.toString());
+        }
       }
       return;                   // Do nothing!
     }
@@ -179,6 +186,9 @@ public abstract class Paxos {
       // think they should be leaders get to toss out proposals.
       ACCEPTED.clear(); // Reset the Accepted count: we got no takings on this new Proposal
       long proposal_num = PROPOSAL_MAX+1;
+      UUID uuid = UUID.randomUUID();
+      UDP.set8(BUF,id_lo_off,uuid.getLeastSignificantBits());
+      UDP.set8(BUF,id_hi_off,uuid. getMostSignificantBits());
       Paxos.print_debug("send: Prepare "+proposal_num+" for leadership fight ",PROPOSED_MEMBERS);
       UDPPaxosProposal.build_and_multicast(proposal_num);
     } else {
@@ -198,9 +208,8 @@ public abstract class Paxos {
   static synchronized int do_proposal( final long proposal_num, final H2ONode proposer ) {
     print_debug("recv: Proposal num "+proposal_num+" by ",proposer);
 
-    if( proposal_num == PROPOSAL_MAX && proposer == LEADER ) {
+    if( proposal_num == PROPOSAL_MAX && proposer == LEADER )
       return print_debug("do_proposal: ignoring duplicate proposal", proposer);
-    }
 
     // Is the Proposal New or Old?
     if( proposal_num <= PROPOSAL_MAX ) { // Old Proposal!  We can ignore it...
@@ -224,10 +233,6 @@ public abstract class Paxos {
     // A new larger Proposal number appeared; keep track of it
     PROPOSAL_MAX = proposal_num;
     ACCEPTED.clear(); // If I was acting as a Leader, my Proposal just got whacked
-    if( _commonKnowledge ) {
-      _commonKnowledge = false;
-      System.out.println("[h2o] Paxos Cloud voting in progress");
-    }
 
     if( LEADER == proposer ) {    // New Proposal from what could be new Leader?
       // Now send a Promise to the Proposer that I will ignore Proposals less
@@ -361,8 +366,20 @@ public abstract class Paxos {
       //return 0;
     }
 
-    if( proposal_num == PROPOSAL_MAX && H2O.CLOUD._memset.equals(members) )
+    if( proposal_num == PROPOSAL_MAX && uuid(buf).equals(H2O.CLOUD._id) )
       return print_debug("do  : Nothing: Accepted with same cloud membership list",members,buf);
+
+    // We just got a proposal to change the cloud
+    if( _commonKnowledge ) {    // We thought we knew what was going on?
+      if( _cloud_locked ) {     // Oops - cloud
+        UDPRebooted.global_kill(3);
+        System.err.println("[h2o] Cloud changing after Keys distributed - fatal error.");
+        System.err.println("[h2o] Received kill "+3+" from "+H2O.SELF);
+        System.exit(-1);
+      }
+      _commonKnowledge = false; // No longer sure about things
+      System.out.println("[h2o] Paxos Cloud voting in progress");
+    }
 
     H2O.CLOUD.set_next_Cloud(uuid(buf),members);
     PROPOSAL_MAX=0; // Reset voting; next proposal will be for a whole new cloud
@@ -370,6 +387,20 @@ public abstract class Paxos {
     set_old_proposal(BUF,0);
     return print_debug("do  : Accepted so set new cloud membership list",members,buf);
   }
+
+  // Before we start doing distributed writes... block until the cloud
+  // stablizes.  After we start doing distrubuted writes, it is an error to
+  // change cloud shape - the distributed writes will be in the wrong place.
+  static void lock_cloud() {
+    if( _cloud_locked ) return; // Fast-path cutout
+    synchronized(Paxos.class) {
+      while( !_commonKnowledge ) 
+        try { Paxos.class.wait(); } catch( InterruptedException ie ) { }
+    }
+    _cloud_locked = true;
+  }
+
+
   // Extract a UUID from the proposed value
   static UUID uuid( byte[] buf ) {
     return new UUID( UDP.get8(buf,id_lo_off),
@@ -414,24 +445,25 @@ public abstract class Paxos {
   }
 
   static int print_debug( String msg, HashSet<H2ONode> members, byte[] buf ) {
-//    print(msg,members," promise:"+promise(buf)+" old:"+old_proposal(buf));
+    //print(msg,members," promise:"+promise(buf)+" old:"+old_proposal(buf));
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, H2ONode h2o ) {
-//    print(msg, Sets.newHashSet(h2o), "");
+    //HashSet tmp = new HashSet<H2ONode>();
+    //tmp.add(h2o);
+    //print(msg, tmp, "");
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, HashSet<H2ONode> members ) {
-//    print(msg,members,"");
+    //print(msg,members,"");
     return 0;                   // handy flow-coding return
   }
   static int print_debug( String msg, HashSet<H2ONode> members, String msg2 ) {
-//    print(msg,members,msg2);
+    //print(msg,members,msg2);
     return 0;                   // handy flow-coding return
   }
   static int print( String msg, HashSet<H2ONode> members, String msg2 ) {
-//    System.out.println(msg+members+msg2);
+    //System.out.println(msg+members+msg2);
     return 0;                   // handy flow-coding return
   }
-
 }

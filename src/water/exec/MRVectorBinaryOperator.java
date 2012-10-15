@@ -3,6 +3,9 @@ package water.exec;
 
 import water.*;
 
+// =============================================================================
+// MRVectorBinaryOperator
+// =============================================================================
 /**
  *
  * @author peta
@@ -17,7 +20,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
   private final int rightCol_;
   
   double min_ = Double.MAX_VALUE;
-  double max_ = Double.MIN_VALUE;
+  double max_ = - Double.MAX_VALUE;
 
   /** Creates the binary operator task for the given keys. 
    * 
@@ -83,6 +86,10 @@ public abstract class MRVectorBinaryOperator extends MRTask {
 }
 
 
+// =============================================================================
+// AddOperator
+// =============================================================================
+
 class AddOperator extends water.exec.MRVectorBinaryOperator {
   
   public AddOperator(Key left, Key right, Key result, int leftCol, int rightCol) {
@@ -93,6 +100,10 @@ class AddOperator extends water.exec.MRVectorBinaryOperator {
     return left + right;
   }
 }
+
+// =============================================================================
+// SubOperator
+// =============================================================================
 
 class SubOperator extends water.exec.MRVectorBinaryOperator {
   
@@ -105,6 +116,10 @@ class SubOperator extends water.exec.MRVectorBinaryOperator {
   }
 }
 
+// =============================================================================
+// MulOperator
+// =============================================================================
+
 class MulOperator extends water.exec.MRVectorBinaryOperator {
   
   public MulOperator(Key left, Key right, Key result, int leftCol, int rightCol) {
@@ -115,6 +130,10 @@ class MulOperator extends water.exec.MRVectorBinaryOperator {
     return left * right;
   }
 }
+
+// =============================================================================
+// DivOperator
+// =============================================================================
 
 class DivOperator extends water.exec.MRVectorBinaryOperator {
   

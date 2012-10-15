@@ -124,8 +124,10 @@ public class UDPReceiverThread extends Thread {
       }
 
       // Suicide packet?  Short-n-sweet...
-      if( first_byte == UDP.udp.rebooted.ordinal() && pbuf[UDP.SZ_PORT]==2 )
+      if( first_byte == UDP.udp.rebooted.ordinal() && pbuf[UDP.SZ_PORT]>1 ) {
+        System.err.println("[h2o] Received kill "+pbuf[UDP.SZ_PORT]+" from "+h2o);
         System.exit(-1);
+      }
 
       // Paxos stateless packets & ACKs just fire immediately in a worker
       // thread.  Dups are handled by these packet handlers directly.  No

@@ -155,7 +155,9 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
 nodes = []
-def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cleanup=True, **kwargs):
+def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, 
+    timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
+
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -164,16 +166,12 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cle
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
                 node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
-            timeoutSecs = 10.0 # for stabilize
-            retryDelaySecs = 0.25 # for stabilize
         else:
             hostCount = len(hosts)
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
                     node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
-            timeoutSecs = 15.0
-            retryDelaySecs = 0.25
 
         verboseprint('Cloud stabilize')
         start = time.time()
@@ -182,6 +180,15 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, cle
         verboseprint(len(node_list), " Node 0 stabilized in ", time.time()-start, " secs")
         verboseprint("Built cloud: %d node_list, %d hosts, in %d s" % (len(node_list), 
             hostCount, (time.time() - start))) 
+
+        # FIX! using "consensus" in node[0] should mean this is unnecessary?
+        # maybe there's a bug. For now do this. long term: don't want?
+        # For now, only do this for remote case. It's a good check too, for the more stressful
+        # remote cases
+        if hosts is not None:
+            for n in nodes:
+                stabilize_cloud(n, len(nodes), timeoutSecs=15)
+
     except:
         if cleanup:
             for n in node_list: n.terminate()
@@ -216,7 +223,7 @@ def tear_down_cloud(node_list=None):
         node_list[:] = []
     
 def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
-    node.wait_for_node_to_accept_connections()
+    node.wait_for_node_to_accept_connections(timeoutSecs)
     # want node saying cloud = expected size, plus thinking everyone agrees with that.
     def test(n):
         c = n.get_cloud()
@@ -254,8 +261,15 @@ class H2O(object):
     def get_timeline(self):
         return self.__check_request(requests.get(self.__url('Timeline.json')))
 
+    # Shutdown url is like a reset button. Doesn't send a response before it kills stuff
+    # safer if random things are wedged, rather than requiring response
+    # so request library might retry and get exception. allow that.
     def shutdown_all(self):
-        return self.__check_request(requests.get(self.__url('Shutdown.json')))
+        try:
+            self.__check_request(requests.get(self.__url('Shutdown.json')))
+        except:
+            pass
+        return(True)
 
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
@@ -373,14 +387,18 @@ class H2O(object):
 
     # X and Y can be label strings, column nums, or comma separated combinations
     # xval gives us cross validation and more info
-    def GLM(self, key, X="0", Y="1", family="binomial", xval=10):
+    # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
+    # in the dataset. We'll just do that all the time for now.
+    # FIX! add more parameters from the wiki
+    def GLM(self, key, X="0", Y="1", family="binomial", xval=10, bool="true"):
         a = self.__check_request(requests.get(self.__url('GLM.json'),
             params={
                 "family": family,
                 "X": X,
                 "Y": Y,
                 "Key": key,
-                "xval": xval
+                "xval": xval,
+                "bool": bool
                 }))
         verboseprint("GLM:", a)
         return a
@@ -421,7 +439,7 @@ class H2O(object):
                 msg = error(self, timeTakenSecs, numberOfRetries)
             raise Exception(msg)
 
-    def wait_for_node_to_accept_connections(self):
+    def wait_for_node_to_accept_connections(self,timeoutSecs=15):
         verboseprint("wait_for_node_to_accept_connections")
         def test(n):
             try:
@@ -444,7 +462,7 @@ class H2O(object):
                 raise
 
         self.stabilize(test, 'Cloud accepting connections',
-                timeoutSecs=15, # with cold cache's this can be quite slow
+                timeoutSecs=timeoutSecs, # with cold cache's this can be quite slow
                 retryDelaySecs=0.1) # but normally it is very fast
 
     def get_args(self):
@@ -504,10 +522,9 @@ class ExternalH2O(H2O):
             return False
 
     def terminate(self):
-        try:
-            self.shutdown_all()
-        except:
-            pass
+        # try/except for this is inside shutdown_all now
+        self.shutdown_all()
+
         if self.is_alive():
             raise 'Unable to terminate externally launched node: %s' % self
 
@@ -534,13 +551,11 @@ class LocalH2O(H2O):
     
     def terminate(self):
         # send a shutdown request first. This matches ExternalH2O
-        # since local is used for a lot of buggy new code, also do the ps kill
-        try:
-            self.shutdown_all()
-        except:
-            pass
+        # since local is used for a lot of buggy new code, also do the ps kill.
+        # try/except inside shutdown_all now
+        self.shutdown_all()
 
-        # kbn..we need a delay after shutdown_all above, before this check?
+        # we need a delay after shutdown_all above, before this check?
         time.sleep(1)
         if self.is_alive():
             print "\nShutdown didn't work for local node? : %s. Will kill though" % self
@@ -623,6 +638,8 @@ class RemoteHost(object):
         return RemoteH2O(self, self.addr, *args, **keywords)
 
     def open_channel(self):
+        # kbn
+        # ch = self.ssh.invoke_shell()
         ch = self.ssh.get_transport().open_session()
         ch.get_pty() # force the process to die without the connection
         return ch

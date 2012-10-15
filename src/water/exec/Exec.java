@@ -1,5 +1,5 @@
 package water.exec;
-import water.*;
+import water.Key;
 
 /**
  * Execute a generic R string, in the context of an H2O Cloud
@@ -8,18 +8,12 @@ import water.*;
  */
 public class Exec {
   // Execute some generic R string.  Return a
-  public static Key exec( String x ) {
+  public static Key exec( String x ) throws ParserException, EvaluationException {
     Key k = Key.make("Result");
-    try {
-      Expr e = new RLikeParser().parse(x);
-      Expr.Result r = e.eval();
-      Expr.assign(k, r);
-      r.dispose();
-    } catch (ParserException e) {
-      System.out.println(e.toString());
-    } catch (EvaluationException e) {
-      System.out.println(e.toString());
-    }
+    Expr e = new RLikeParser().parse(x);
+    Expr.Result r = e.eval();
+    Expr.assign(0,k, r);
+    r.dispose();
     return k;
   }
 }
