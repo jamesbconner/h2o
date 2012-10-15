@@ -166,13 +166,6 @@ public class Confusion extends MRTask {
     _errors += C._errors;
   }
 
-  /** Compute the confusion matrix on the entire dataset on the current node. */
-  public void mapAll() {
-    Confusion tmp = new Confusion();
-    for( int i = 0; i < _data.chunks(); i++ ) { map(_data.chunk_get(i)); tmp.reduce(this); }
-    _matrix = tmp._matrix;
-  }
-
   /** Text form of the confusion matrix */
   private String confusionMatrix() {
     if( _matrix == null ) return "no trees";
