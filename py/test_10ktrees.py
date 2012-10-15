@@ -31,8 +31,7 @@ class Basic(unittest.TestCase):
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
         # always match the gen above!
-        trial = 1
-        for x in xrange (1,10,1):
+        for trial in xrange (1,10,1):
             sys.stdout.write('.')
             sys.stdout.flush()
 
@@ -44,14 +43,8 @@ class Basic(unittest.TestCase):
             put = h2o.nodes[0].put_file(csvPathname)
             parseKey = h2o.nodes[0].parse(put['keyHref'])
 
-            ### print 'put TimeMS:', parseKey['TimeMS']
             h2o.verboseprint("Trial", trial)
-            cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=300, retryDelaySecs=3)
-
-            # don't change tree count yet
-            ## trees += 10
-            ### timeoutSecs += 2
-            trial += 1
+            cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=30, retryDelaySecs=3)
 
 if __name__ == '__main__':
     h2o.unit_main()

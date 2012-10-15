@@ -24,7 +24,7 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
 
             start = time.time()
-            nodes = h2o.build_cloud(use_this_ip_addr="127.0.0.1", node_count=tryNodes)
+            nodes = h2o.build_cloud(use_this_ip_addr="127.0.0.1", node_count=tryNodes,timeoutSecs=30)
             print "Build cloud of %d in %d secs" % (tryNodes, (time.time() - start)) 
 
             h2o.verboseprint(nodes)

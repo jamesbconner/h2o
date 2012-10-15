@@ -7,46 +7,55 @@ class Basic(unittest.TestCase):
     def setUpClass(cls):
         global hosts
         global nodes
-        global node_count
+        global nodes_per_host
 
+        # FIX! doesn't clean up old stuff in /tmp. Can overflow. Clean up with ssh commands outside this
+        # every once in a while
+
+        # ssh limited to 10 somehow? did /etc/ssh/sshd_config: MaxSessions 20, MaxAuth 20
+        # maybe sftp?
+        nodes_per_host = 10
         # we may have big delays with 2 jvms (os?)
         # also: what is the agreement on json visible cloud state in each node vs the paxos algorithm
-        node_count = 8
         hosts = []
         # FIX! probably will just add args for -matt -kevin -0xdata that select different lists?
         # or we could have a hosts file that's local that you modify. just as easy to mod this though?
         if (1==0):
 
-            # ubuntu okay with: sudo adduser --force-badname 0xdiag
+            # 0xdiag user. ubuntu okay with: sudo adduser --force-badname 0xdiag
             #    h2o.RemoteHost('192.168.0.37',  '0xdiag', '0xdiag')
             hosts = [
                 h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag')
+                h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag'),
             ]
-        elif (1==0):
+        elif (1==1):
 
             hosts = [
                 h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.153', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.158', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.1.154', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.155', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.156', '0xdiag', '0xdiag'),
+                # no 157
                 h2o.RemoteHost('192.168.1.160', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.161', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag')
+                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.1.20', '0xdiag', '0xdiag'),
             ]
         elif (1==0) :
             hosts = [
-                h2o.RemoteHost('192.168.0.35', 'diag0x', 'diag0x'),
-                h2o.RemoteHost('192.168.0.37', 'diag0x', 'diag0x')
+                h2o.RemoteHost('192.168.0.33', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.0.35', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.0.37', '0xdiag', '0xdiag'),
             ]
         else:
             hosts = [
-                h2o.RemoteHost('192.168.0.37', '0xdiag', '0xdiag')
+                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
+                h2o.RemoteHost('192.168.1.20', '0xdiag', '0xdiag'),
             ]
 
         h2o.upload_jar_to_remote_hosts(hosts)
@@ -67,8 +76,8 @@ class Basic(unittest.TestCase):
             sys.stdout.write('.')
             sys.stdout.flush()
 
-            # node_count is per host.
-            nodes = h2o.build_cloud(node_count, base_port=56321, ports_per_node=3, hosts=hosts,
+            # nodes_per_host is per host.
+            nodes = h2o.build_cloud(nodes_per_host, base_port=56321, ports_per_node=3, hosts=hosts,
                 timeoutSecs=60, retryDelaySecs=1)
 
             # FIX! if node[0] is fast, maybe the other nodes aren't at a point where they won't get
@@ -94,6 +103,8 @@ class Basic(unittest.TestCase):
             time.sleep(1)
 
             print "Tearing down cloud, trial", trial
+            sys.stdout.write('.')
+            sys.stdout.flush()
             h2o.tear_down_cloud(nodes)
             h2o.clean_sandbox()
             # wait to make sure no sticky ports or anything os-related
