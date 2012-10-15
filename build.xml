@@ -84,7 +84,9 @@
   </target>
 
   <target name="test" description="tests" depends="compile,jar">
-    <echo>IMPLEMENT ME</echo>
+  	<exec executable="python">
+	 <arg value="${basedir}/py/test.py"/>
+	</exec>
   </target>
 
   <target name="clean" description="get rid of any build artifacts">
