@@ -16,9 +16,9 @@ public class Exec {
       Expr.assign(0,k, r);
       r.dispose();
     } catch (ParserException e) {
-      System.out.println(e.toString());
+      System.out.println(e.report(x));
     } catch (EvaluationException e) {
-      System.out.println(e.toString());
+      System.out.println(e.report(x));
     }
     return k;
   }

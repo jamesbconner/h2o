@@ -5,10 +5,8 @@ package water.exec;
  *
  * @author peta
  */
-public class EvaluationException extends Exception {
-  public final int _pos;
+public class EvaluationException extends PositionedException {
   public EvaluationException(int pos, String msg) {
-    super(msg);
-    _pos = pos;
+    super(pos, msg);
   }
 }
