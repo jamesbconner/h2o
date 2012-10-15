@@ -1,9 +1,7 @@
 package water.exec;
-import java.io.IOException;
 import water.*;
-import water.parser.ParseDataset;
-import java.util.Arrays;
 import water.exec.RLikeParser.Token;
+import water.parser.ParseDataset;
 
 
 // =============================================================================

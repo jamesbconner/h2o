@@ -1,6 +1,9 @@
 package hex;
 
-import water.*;
+import water.DKV;
+import water.Key;
+import water.MRTask;
+import water.ValueArray;
 
 public abstract class RowVecTask extends MRTask {
 

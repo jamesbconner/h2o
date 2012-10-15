@@ -1,5 +1,5 @@
 package water.exec;
-import water.*;
+import water.Key;
 
 /**
  * Execute a generic R string, in the context of an H2O Cloud
