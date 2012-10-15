@@ -13,7 +13,7 @@ public class Exec {
     try {
       Expr e = new RLikeParser().parse(x);
       Expr.Result r = e.eval();
-      Expr.assign(k, r);
+      Expr.assign(0,k, r);
       r.dispose();
     } catch (ParserException e) {
       System.out.println(e.toString());

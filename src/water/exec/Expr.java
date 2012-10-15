@@ -96,6 +96,14 @@ public abstract class Expr {
 
   
   public abstract Result eval() throws EvaluationException;
+
+  /** Position of the expression in the parsed string.
+   */
+  public final int _pos;
+
+  protected Expr(int pos) {
+    _pos = pos;
+  }
   
   /** Use this method to get ValueArrays as it is typechecked. 
    * 
@@ -103,12 +111,12 @@ public abstract class Expr {
    * @return
    * @throws EvaluationException 
    */
-  public static ValueArray getValueArray(Key k) throws EvaluationException {
+  public ValueArray getValueArray(Key k) throws EvaluationException {
     Value v = DKV.get(k);
     if (v == null)
-      throw new EvaluationException("Key "+k.toString()+" not found");
+      throw new EvaluationException(_pos, "Key "+k.toString()+" not found");
     if (!(v instanceof ValueArray))
-      throw new EvaluationException("Key "+k.toString()+" does not contain an array, while array is expected.");
+      throw new EvaluationException(_pos, "Key "+k.toString()+" does not contain an array, while array is expected.");
     return (ValueArray) v;
   }
   
@@ -121,7 +129,7 @@ public abstract class Expr {
    * @param what
    * @throws EvaluationException 
    */
-  public static void assign(final Key to, Result what) throws EvaluationException {
+  public static void assign(int pos, final Key to, Result what) throws EvaluationException {
     if (what.isConstant()) { // assigning to a constant creates a vector of size 1 
       // The 1 tiny arraylet
       Key key2 = ValueArray.make_chunkkey(to,0);
@@ -137,7 +145,7 @@ public abstract class Expr {
       assert (false); // we do not support shallow copy now (TODO)
       ValueArray v = (ValueArray) DKV.get(what._key);
       if (v == null)
-        throw new EvaluationException("Key "+what._key+" not found");
+        throw new EvaluationException(pos, "Key "+what._key+" not found");
       byte[] bits = v.get();
       ValueArray r = new ValueArray(to,MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
       DKV.put(to,r);
@@ -172,7 +180,8 @@ public abstract class Expr {
 
 class KeyLiteral extends Expr {
   private final Key key_;
-  public KeyLiteral(String id) {
+  public KeyLiteral(int pos, String id) {
+    super(pos);
     key_ = Key.make(id);
   }
   
@@ -187,7 +196,10 @@ class KeyLiteral extends Expr {
 
 class FloatLiteral extends Expr {
   public final double _d;
-  public FloatLiteral( double d ) { _d=d; }
+  public FloatLiteral(int pos, double d ) {
+    super(pos);
+    _d=d;
+  }
 
   @Override public Expr.Result eval() throws EvaluationException {
     return Expr.Result.scalar(_d);
@@ -217,14 +229,15 @@ class AssignmentOperator extends Expr {
   private final Key _lhs;
   private final Expr _rhs;
   
-  public AssignmentOperator(Key lhs, Expr rhs) {
+  public AssignmentOperator(int pos, Key lhs, Expr rhs) {
+    super(pos);
     _lhs = lhs;
     _rhs = rhs;
   }
   
   @Override public Result eval() throws EvaluationException {
     Result rhs = _rhs.eval();
-    Expr.assign(_lhs,rhs);
+    Expr.assign(_pos, _lhs,rhs);
     rhs.dispose();
     return Result.permanent(_lhs);
   }
@@ -238,7 +251,8 @@ class ColumnSelector extends Expr {
   private final Expr _expr;
   private final int _colIndex;
   
-  public ColumnSelector(Expr expr, int colIndex) {
+  public ColumnSelector(int pos, Expr expr, int colIndex) {
+    super(pos);
     _expr = expr;
     _colIndex = colIndex;
   }
@@ -247,7 +261,7 @@ class ColumnSelector extends Expr {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
     if (v.num_cols() <= _colIndex)
-      throw new EvaluationException("Column "+_colIndex+" not present in expression (has "+v.num_cols()+")");
+      throw new EvaluationException(_pos, "Column "+_colIndex+" not present in expression (has "+v.num_cols()+")");
     result.setColIndex(_colIndex);
     return result;
   }
@@ -261,7 +275,8 @@ class StringColumnSelector extends Expr {
   private final Expr _expr;
   private final String _colName;
   
-  public StringColumnSelector(Expr expr, String colName) {
+  public StringColumnSelector(int pos, Expr expr, String colName) {
+    super(pos);
     _expr = expr;
     _colName = colName;
   }
@@ -275,7 +290,7 @@ class StringColumnSelector extends Expr {
         return result;        
       }
     }
-    throw new EvaluationException("Column "+_colName+" not present in expression");
+    throw new EvaluationException(_pos, "Column "+_colName+" not present in expression");
   }
   
 }
@@ -291,7 +306,8 @@ class BinaryOperator extends Expr {
   private final Token.Type type_;
   
   
-  public BinaryOperator(Token.Type type, Expr left, Expr right) {
+  public BinaryOperator(int pos, Token.Type type, Expr left, Expr right) {
+    super(pos);
     left_ = left;
     right_ = right;
     type_ = type;
@@ -309,7 +325,7 @@ class BinaryOperator extends Expr {
       case ttOpDiv:
         return Result.scalar(l._const / r._const);
       default:
-        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
     }
   }
   
@@ -319,7 +335,7 @@ class BinaryOperator extends Expr {
     ValueArray vr = getValueArray(r._key);
     // now do the typechecking on them
     if (vl.num_rows() != vr.num_rows())
-      throw new EvaluationException("Left and right arguments do not have matching row sizes");
+      throw new EvaluationException(_pos, "Left and right arguments do not have matching row sizes");
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
@@ -339,7 +355,7 @@ class BinaryOperator extends Expr {
         op = new DivOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
       default:
-        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
     }
     op.invoke(res._key);
     C._min = op.min_;
@@ -369,7 +385,7 @@ class BinaryOperator extends Expr {
         op = new RightDiv(r._key,res._key,r.colIndex(),l._const);
         break;
       default:
-        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
     }
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vr.num_rows(),8,CC);
     DKV.put(res._key,result);
@@ -401,7 +417,7 @@ class BinaryOperator extends Expr {
         op = new LeftDiv(l._key,res._key,l.colIndex(),r._const);
         break;
       default:
-        throw new EvaluationException("Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
     }
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
     DKV.put(res._key,result);
