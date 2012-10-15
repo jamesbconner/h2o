@@ -335,7 +335,7 @@ public class ValueArray extends Value {
   static private final int   MEAN_COL_OFF =DOMAIN_COL_OFF+4; // column mean
   static private final int  SIGMA_COL_OFF =  MEAN_COL_OFF+8; // column var
   static private final int      N_COL_OFF = SIGMA_COL_OFF+8; // # of column valid values
-  static private final int  PAD0_COL_OFF =      N_COL_OFF+8;
+  static private final int  PAD0_COL_OFF  =     N_COL_OFF+8;
   static private final int  META_COL_SIZE =  PAD0_COL_OFF + (((PAD0_COL_OFF & 7) != 0)?(8 - (PAD0_COL_OFF & 7)):0); // pad to 8 bytes
 
 
@@ -371,9 +371,9 @@ public class ValueArray extends Value {
       UDP.set2 (s._buf,s._off+SCALE_COL_OFF,_scale);
       UDP.set2 (s._buf,s._off+BADAT_COL_OFF,_badat);
                 s._buf[s._off+ SIZE_COL_OFF]=_size;
-      UDP.set8d(s._buf, s._off + MEAN_COL_OFF, _mean);
-      UDP.set8d(s._buf, s._off + SIGMA_COL_OFF, _sigma);
-      UDP.set8(s._buf, s._off + N_COL_OFF, _n);
+      UDP.set8d(s._buf,s._off+ MEAN_COL_OFF,_mean);
+      UDP.set8d(s._buf,s._off+SIGMA_COL_OFF,_sigma);
+      UDP.set8 (s._buf,s._off+    N_COL_OFF,_n);
       s._off+=META_COL_SIZE;
     }
 
@@ -399,9 +399,9 @@ public class ValueArray extends Value {
       col._scale=(short)UDP.get2 (s._buf,s._off+SCALE_COL_OFF);
       col._badat= (char)UDP.get2 (s._buf,s._off+BADAT_COL_OFF);
       col._size =                 s._buf[s._off+ SIZE_COL_OFF];
-      col._mean =       UDP.get8d(s._buf, s._off + MEAN_COL_OFF);
-      col._sigma =        UDP.get8d(s._buf, s._off + SIGMA_COL_OFF);
-      col._n =          UDP.get8(s._buf, s._off + N_COL_OFF);
+      col._mean =       UDP.get8d(s._buf,s._off+ MEAN_COL_OFF);
+      col._sigma=       UDP.get8d(s._buf,s._off+SIGMA_COL_OFF);
+      col._n    =       UDP.get8 (s._buf,s._off+    N_COL_OFF);
       s._off+=META_COL_SIZE;
       return col;
     }
@@ -416,7 +416,7 @@ public class ValueArray extends Value {
       col._badat= dis.readChar();
       col._size = dis.readByte();
       col._mean = dis.readDouble();
-      col._sigma  = dis.readDouble();
+      col._sigma= dis.readDouble();
       col._n    = dis.readLong();
       return col;
     }
@@ -498,8 +498,8 @@ public class ValueArray extends Value {
   public int    col_base (int cnum) { return UDP.get4 (get(),col(cnum)+ BASE_COL_OFF); }
   public int    col_scale(int cnum) { return UDP.get2 (get(),col(cnum)+SCALE_COL_OFF); }
   public int    col_badat(int cnum) { return UDP.get2 (get(),col(cnum)+BADAT_COL_OFF)&0xFFFF; }
-  public double col_mean  (int cnum) { return UDP.get8d(get(),col(cnum)+  MEAN_COL_OFF); }
-  public double col_sigma  (int cnum) { return UDP.get8d(get(),col(cnum)+  SIGMA_COL_OFF); }
+  public double col_mean (int cnum) { return UDP.get8d(get(),col(cnum)+ MEAN_COL_OFF); }
+  public double col_sigma(int cnum) { return UDP.get8d(get(),col(cnum)+SIGMA_COL_OFF); }
   public double col_var  (int cnum) { double s = col_sigma(cnum); return s*s;}
 
   // Row# when offset from chunk start
