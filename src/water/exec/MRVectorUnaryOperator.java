@@ -82,6 +82,22 @@ public abstract class MRVectorUnaryOperator extends MRTask {
 }
 
 // =============================================================================
+// UnaryMinus
+// =============================================================================
+
+class UnaryMinus extends MRVectorUnaryOperator {
+  
+  public UnaryMinus(Key key, Key result, int col) {
+    super(key,result,col);
+  } 
+  
+  @Override public double operator(double opnd) {
+    return - opnd;
+  }
+  
+}
+
+// =============================================================================
 // ParametrizedMRVectorUnaryOperator
 // =============================================================================
 /** An Unary operator that holds an argument. 

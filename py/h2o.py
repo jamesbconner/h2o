@@ -155,25 +155,29 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
 nodes = []
+# FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, 
     timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
 
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
+        totalNodes = 0
         if hosts is None:
             hostCount = 1
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
                 node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
+                totalNodes += 1
         else:
             hostCount = len(hosts)
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
                     node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
+                    totalNodes += 1
 
-        verboseprint('Cloud stabilize')
+        verboseprint("Attempting Cloud stabilize of", totalNodes, "nodes on", hostCount, "hosts")
         start = time.time()
         stabilize_cloud(node_list[0], len(node_list), 
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)

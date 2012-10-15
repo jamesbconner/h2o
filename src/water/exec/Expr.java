@@ -294,6 +294,66 @@ class StringColumnSelector extends Expr {
 }
 
 // =============================================================================
+// UnaryOperator
+// =============================================================================
+
+class UnaryOperator extends Expr {
+  private final Expr opnd_;
+  private final Token.Type type_;
+  
+  public UnaryOperator(int pos, Token.Type type, Expr opnd) {
+    super(pos);
+    type_ = type;
+    opnd_ = opnd;  
+  }
+  
+  private Result evalConst(Result o) throws EvaluationException {
+    switch (type_) {
+      case ttOpSub:
+        return Result.scalar(-o._const);
+      default:
+        throw new EvaluationException(_pos, "Operator "+type_.toString()+" not applicable to given operand.");
+    }    
+  }
+  
+  private Result evalVect(Result o) throws EvaluationException {
+    Result res = Result.temporary();
+    ValueArray opnd = getValueArray(o._key);
+    // we do not need to check the columns here - the column selector operator does this for us
+    // one step ahead
+    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",opnd.num_rows(),8,CC);
+    DKV.put(res._key,result);
+    MRVectorUnaryOperator op;
+    switch (type_) {
+      case ttOpSub:
+        op = new UnaryMinus(o._key,res._key,o.colIndex());
+        break;
+      default:
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
+    }
+    op.invoke(res._key);
+    C._min = op.min_;
+    C._max = op.max_;
+    result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",opnd.num_rows(),8,CC);
+    DKV.put(res._key,result); // reinsert with min / max
+    o.dispose();
+    return res;
+  }
+
+  @Override public Result eval() throws EvaluationException {
+    // get the keys and the values    
+    Result op = opnd_.eval();
+    if (op.isConstant())
+      return evalConst(op);
+    else
+      return evalVect(op);
+  }
+  
+}
+
+
+
+// =============================================================================
 // Binary Operator
 // =============================================================================
 
@@ -331,12 +391,10 @@ class BinaryOperator extends Expr {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
     ValueArray vr = getValueArray(r._key);
-    // now do the typechecking on them
-    if (vl.num_rows() != vr.num_rows())
-      throw new EvaluationException(_pos, "Left and right arguments do not have matching row sizes");
+    long resultRows = Math.max(vl.num_rows(), vr.num_rows());
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
-    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
+    ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",resultRows,8,CC);
     DKV.put(res._key,result);
     MRVectorBinaryOperator op;
     switch (type_) {

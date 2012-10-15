@@ -73,7 +73,7 @@ public abstract class RowVecTask extends MRTask {
     }
   }
 
-  protected ValueArray _ary;
+  protected transient ValueArray _ary;
   @Override
   public void map(Key key) {
     assert key.home();
