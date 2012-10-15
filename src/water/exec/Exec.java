@@ -8,18 +8,12 @@ import water.Key;
  */
 public class Exec {
   // Execute some generic R string.  Return a
-  public static Key exec( String x ) {
+  public static Key exec( String x ) throws ParserException, EvaluationException {
     Key k = Key.make("Result");
-    try {
-      Expr e = new RLikeParser().parse(x);
-      Expr.Result r = e.eval();
-      Expr.assign(0,k, r);
-      r.dispose();
-    } catch (ParserException e) {
-      System.out.println(e.report(x));
-    } catch (EvaluationException e) {
-      System.out.println(e.report(x));
-    }
+    Expr e = new RLikeParser().parse(x);
+    Expr.Result r = e.eval();
+    Expr.assign(0,k, r);
+    r.dispose();
     return k;
   }
 }
