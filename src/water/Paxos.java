@@ -95,10 +95,18 @@ public abstract class Paxos {
     // In either case, pound the news into his head.
     if( cloud._memset.contains(h2o) ) {
       if( H2O.isIDFromPrevCloud(h2o) ) {
+        // In situations of rapid cloud formation, we could have:
+        // A Cloud of {A,B} is voted on.
+        // A Cloud of {A,B,C,D} is voted on by A,C,D forming a quorum.  B is slow.
+        // New members E,F,G appear to A, so A's proposed list is now {A-G}
+        // B, still slow, heartbeats cloud {A,B}
+        // At this point: B is in {A,B}, A is in {A,B,C} which includes B,
+        // but A is busy working on {A-G}.
         print_debug("hart: is member but did not get the news1",cloud._memset);
         print_debug("hart: is member but did not get the news2",read_members(BUF));
-        assert cloud._memset.equals(read_members(BUF));
-        UDPPaxosAccepted.build_and_multicast(BUF);
+        assert cloud._memset.containsAll(read_members(BUF)); // We expect only to add nodes
+        if( PROPOSED_MEMBERS.equals(cloud._memset) ) // But if things are not moving fast...
+          UDPPaxosAccepted.build_and_multicast(BUF); // Then try to update the slow guy
         return;
       } else {
         // Trigger new round of Paxos voting: remove this guy from our cloud
@@ -208,18 +216,6 @@ public abstract class Paxos {
   static synchronized int do_proposal( final long proposal_num, final H2ONode proposer ) {
     print_debug("recv: Proposal num "+proposal_num+" by ",proposer);
 
-    if( proposal_num == PROPOSAL_MAX && proposer == LEADER )
-      return print_debug("do_proposal: ignoring duplicate proposal", proposer);
-
-    // Is the Proposal New or Old?
-    if( proposal_num <= PROPOSAL_MAX ) { // Old Proposal!  We can ignore it...
-      // But we want to NACK this guy, by re-popping an Accepted at him
-      print_debug("do_propoxal: NAK self:" + H2O.SELF + " target:"+proposer + " proposal " + proposal_num, proposer);
-      long nak_till = Math.max(proposal_num, PROPOSAL_MAX-1); // don't NAK our own suggestion
-      UDPPaxosNack.build_and_multicast(BUF, nak_till);
-      return print_debug("do  : nack old proposal, proposed list: ",PROPOSED_MEMBERS);
-    }
-
     // We got a Proposal from somebody.  We can toss this guy in the world-
     // state we're holding but we won't be pulling in all HIS Cloud
     // members... we wont find out about them until other people start
@@ -228,6 +224,19 @@ public abstract class Paxos {
       // Since he's new: would he be leader?
       if( proposer.compareTo(LEADER) < 0 )
         LEADER = proposer;
+    }
+
+    // Is the Proposal New or Old?
+    if( proposal_num < PROPOSAL_MAX ) { // Old Proposal!  We can ignore it...
+      // But we want to NAK this guy
+      UDPPaxosNack.build_and_multicast(BUF, PROPOSAL_MAX-1);
+      return print_debug("do_proposal NAK; self:" + H2O.SELF + " target:"+proposer + " proposal " + proposal_num, proposer);
+    } else if( proposal_num == PROPOSAL_MAX ) { // Dup max proposal numbers?
+      if( proposer == LEADER )                  // Ignore dups from leader
+        return print_debug("do_proposal: ignoring duplicate proposal", proposer);
+      // Ahh, a dup proposal from non-leader.  Must be an old proposal
+      UDPPaxosNack.build_and_multicast(BUF, PROPOSAL_MAX);
+      return print_debug("do_proposal NAK; self:" + H2O.SELF + " target:"+proposer + " proposal " + proposal_num, proposer);
     }
 
     // A new larger Proposal number appeared; keep track of it
