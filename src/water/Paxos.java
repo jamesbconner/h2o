@@ -77,8 +77,10 @@ public abstract class Paxos {
         for( H2ONode h2o2 : cloud._memary )
           if( !h2o2.is_cloud_member(cloud) )
             ck = false;         // This guy has not heartbeat'd that "he's in"
+        if( ck == false && _commonKnowledge == true && _cloud_locked )
+          cloud_kill();         // Cloud-wide kill because things changed after key inserted
+        _commonKnowledge = ck;  // Set or clear "common knowledge"
         if( ck ) {              // Everybody agrees on the Cloud
-          _commonKnowledge = ck;
           Paxos.class.notify(); // Also, wake up a worker thread stuck in DKV.put
           System.out.printf("[h20] Paxos Cloud of size %d formed: %s\n",
                             cloud._memset.size(), cloud._memset.toString());
@@ -371,12 +373,8 @@ public abstract class Paxos {
 
     // We just got a proposal to change the cloud
     if( _commonKnowledge ) {    // We thought we knew what was going on?
-      if( _cloud_locked ) {     // Oops - cloud
-        UDPRebooted.global_kill(3);
-        System.err.println("[h2o] Cloud changing after Keys distributed - fatal error.");
-        System.err.println("[h2o] Received kill "+3+" from "+H2O.SELF);
-        System.exit(-1);
-      }
+      if( _cloud_locked )       // Oops - cloud locked
+        cloud_kill(); // Cloud-wide kill because things changed after key inserted
       _commonKnowledge = false; // No longer sure about things
       System.out.println("[h2o] Paxos Cloud voting in progress");
     }
@@ -400,6 +398,14 @@ public abstract class Paxos {
     _cloud_locked = true;
   }
 
+  // Cloud changed shape after locking (after keys distributed)... all key
+  // lookups would be foo-bar'd, so just kill everything instead.
+  static void cloud_kill() {
+    UDPRebooted.global_kill(3);
+    System.err.println("[h2o] Cloud changing after Keys distributed - fatal error.");
+    System.err.println("[h2o] Received kill "+3+" from "+H2O.SELF);
+    System.exit(-1);
+  }
 
   // Extract a UUID from the proposed value
   static UUID uuid( byte[] buf ) {
