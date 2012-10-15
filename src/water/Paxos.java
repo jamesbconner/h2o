@@ -72,20 +72,18 @@ public abstract class Paxos {
       // are mutally agreed upon a new cloud shape.  This is not the same as a
       // Paxos vote, which only requires a Quorum.  This happens after everybody
       // has agreed to the cloud AND published that result to this node.
-      if( !_commonKnowledge ) { // One time per cloud change-up
-        boolean ck = true;      // Assume true
-        for( H2ONode h2o2 : cloud._memary )
-          if( !h2o2.is_cloud_member(cloud) )
-            ck = false;         // This guy has not heartbeat'd that "he's in"
-        if( ck == false && _commonKnowledge == true && _cloud_locked )
-          cloud_kill();         // Cloud-wide kill because things changed after key inserted
-        _commonKnowledge = ck;  // Set or clear "common knowledge"
-        if( ck ) {              // Everybody agrees on the Cloud
-          Paxos.class.notify(); // Also, wake up a worker thread stuck in DKV.put
-          System.out.printf("[h20] Paxos Cloud of size %d formed: %s\n",
-                            cloud._memset.size(), cloud._memset.toString());
-        }
+      boolean ck = true;        // Assume true
+      for( H2ONode h2o2 : cloud._memary )
+        if( !h2o2.is_cloud_member(cloud) )
+          ck = false;           // This guy has not heartbeat'd that "he's in"
+      if( ck == false && _commonKnowledge == true && _cloud_locked )
+        cloud_kill(); // Cloud-wide kill because things changed after key inserted
+      if( !_commonKnowledge && ck ) { // Everybody just now agrees on the Cloud
+        Paxos.class.notify(); // Also, wake up a worker thread stuck in DKV.put
+        System.out.printf("[h20] Paxos Cloud of size %d formed: %s\n",
+                          cloud._memset.size(), cloud._memset.toString());
       }
+      _commonKnowledge = ck;    // Set or clear "common knowledge"
       return;                   // Do nothing!
     }
 
