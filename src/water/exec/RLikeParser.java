@@ -355,12 +355,14 @@ public class RLikeParser {
   /*
    * This is silly grammar for now, I need to understand R more to make it 
    * 
-   * F -> number | ident (  = S | $ ident | [ number ] ) | ( S ) 
+   * F -> - F | number | ident (  = S | $ ident | [ number ] ) | ( S ) 
    */
   
   private Expr parse_F() throws ParserException {
     int pos = top()._pos;
     switch (top().type) {
+      case ttOpSub:
+        return new UnaryOperator(pos,pop().type,parse_F());
       case ttFloat:
         return new FloatLiteral(pos, pop().value);
       case ttInteger:
