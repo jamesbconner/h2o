@@ -24,4 +24,15 @@ public class PositionedException extends Exception {
     return sb.toString();
   }
 
+  public String reportHTML(String source) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(source);
+    sb.append("<br/>");
+    for (int i = 0; i < _pos; ++i)
+      sb.append("&nbsp;");
+    sb.append("^<br/>");
+    sb.append(this.toString());
+    return sb.toString();
+  }
+
 }

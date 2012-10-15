@@ -2,6 +2,7 @@ package water.web;
 import com.google.gson.JsonObject;
 import java.util.Properties;
 import water.Key;
+import water.exec.PositionedException;
 
 /**
  * The servlet for launching a computation
@@ -14,19 +15,28 @@ public class ExecWeb extends H2OPage {
     // Get parameters: Key, file name, replication factor
     String x = args.getProperty("Expr");
     if( x==null || x.isEmpty() ) throw new PageError("Expression is missing");
-
-    Key k = water.exec.Exec.exec(x);
-
     JsonObject res = new JsonObject();
-    res.addProperty("Expr", x);
-    res.addProperty("ResultKey", k.toString());
+    try {
+      Key k = water.exec.Exec.exec(x);
+      res.addProperty("Expr", x);
+      res.addProperty("ResultKey", k.toString());
+    } catch (PositionedException e) {
+      res.addProperty("Expr", x);
+      res.addProperty("Error", e.reportHTML(x));      
+    }
     return res;
   }
 
   //
   @Override protected String serveImpl(Server server, Properties args, String sessionId) throws PageError {
+    RString query = new RString(ExecQuery.html);
+    query.replace("expr",args.getProperty("Expr"));
     JsonObject json = serverJson(server, args, sessionId);
-    args.put("Key",encode(Key.make(json.getAsJsonPrimitive("ResultKey").getAsString())));
-    return ExecQuery.html + new Inspect().serveImpl(server,args,sessionId);
+    if (json.has("Error")) {
+      return query.toString() + error("<span style='font-family:monospace'>"+json.getAsJsonPrimitive("Error").getAsString()+"</span>");
+    } else {
+      args.put("Key",encode(Key.make(json.getAsJsonPrimitive("ResultKey").getAsString())));
+      return  query.toString() + new Inspect().serveImpl(server,args,sessionId);
+    }
   }
 }

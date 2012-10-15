@@ -11,12 +11,14 @@ public class ExecQuery extends H2OPage {
     "<p>What do you want to exec?:</p>"
     + "<form class='well form-inline' action='Exec'>"
     + "  <button type='submit' class='btn btn-primary'>Exec!</button>"
-    + "  <input type='text' class='input-small span8' placeholder='R like expression' name='Expr' id='Expr'>"
+    + "  <input type='text' class='input-small span8' placeholder='R like expression' value = '%expr' name='Expr' id='Expr'>"
     + "</form> "
     ;
 
   @Override protected String serveImpl(Server server, Properties args, String sessionID) {
-    return html;
+    RString str = new RString(html);
+    str.replace("expr","");
+    return str.toString();
   }
   
 }
