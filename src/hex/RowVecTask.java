@@ -72,23 +72,25 @@ public abstract class RowVecTask extends MRTask {
       _complement = s._complement;
     }
   }
+
+  protected transient ValueArray _ary;
   @Override
   public void map(Key key) {
     assert key.home();
     Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
-    ValueArray ary = (ValueArray) DKV.get(aryKey);
+    _ary = (ValueArray) DKV.get(aryKey);
     byte[] bits = DKV.get(key).get();
     int[] off = new int[_colIds.length];
     int[] sz = new int[_colIds.length];
     int[] base = new int[_colIds.length];
     int[] scale = new int[_colIds.length];
     for( int i = 0; i < _colIds.length; ++i ) {
-      off[i] = ary.col_off(_colIds[i]);
-      sz[i] = ary.col_size(_colIds[i]);
-      base[i] = ary.col_base(_colIds[i]);
-      scale[i] = ary.col_scale(_colIds[i]);
+      off[i] = _ary.col_off(_colIds[i]);
+      sz[i] = _ary.col_size(_colIds[i]);
+      base[i] = _ary.col_base(_colIds[i]);
+      scale[i] = _ary.col_scale(_colIds[i]);
     }
-    int row_size = ary.row_size();
+    int row_size = _ary.row_size();
     int nrows = bits.length / row_size;
     double [] x = new double[_colIds.length];
     int c = _offset;
@@ -101,16 +103,16 @@ __OUTER:
           continue;
       }
       for( int i = 0; i < _colIds.length; ++i ) {
-        if(_skipInvalidLines && !ary.valid(bits, rid, row_size, off[i], sz[i]))
+        if(_skipInvalidLines && !_ary.valid(bits, rid, row_size, off[i], sz[i]))
          continue __OUTER;
-        x[i] = ary.datad(bits, rid, row_size, off[i], sz[i], base[i],scale[i], _colIds[i]);
+        x[i] = _ary.datad(bits, rid, row_size, off[i], sz[i], base[i],scale[i], _colIds[i]);
         if(_p != null)
           switch(_p[i]){
           case NORMALIZE_DATA:
-            x[i] = (x[i] - ary.col_min(_colIds[i]))/(ary.col_max(_colIds[i]) - x[i]);
+            x[i] = (x[i] - _ary.col_min(_colIds[i]))/(_ary.col_max(_colIds[i]) - x[i]);
             break;
           case STANDARDIZE_DATA:
-            x[i] = (x[i] - ary.col_mean(_colIds[i]))/ary.col_sigma(_colIds[i]);
+            x[i] = (x[i] - _ary.col_mean(_colIds[i]))/_ary.col_sigma(_colIds[i]);
             break;
           case NO_PREPROCESSING:
             break;
@@ -122,6 +124,8 @@ __OUTER:
       map(x);
     }
     cleanup();
+    // do not pass this back...
+    _ary = null;
   }
   abstract void map(double [] x);
   protected void init(int xlen, int nrows){}

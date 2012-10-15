@@ -22,7 +22,8 @@ public class RLikeParser {
       ttFloat, // any floating point number
       ttInteger, // integer number
       ttIdent, // any identifier
-      ttOpAssign, // assignment
+      ttOpAssign, // assignment, = or <-
+      ttOpRightAssign, // -> assignment in R
       ttOpDollar, // $
       ttOpAdd, // +
       ttOpSub, // -
@@ -33,6 +34,8 @@ public class RLikeParser {
       ttOpBracketOpen, // [
       ttOpBracketClose, // ]
       ttOpDoubleQuote, // "
+      ttOpLess, // <
+      ttOpGreater, // >
       ttEOF,
       ttUnknown,
       ;
@@ -46,6 +49,8 @@ public class RLikeParser {
             return "identifier";
           case ttOpAssign:
             return "assignment";
+          case ttOpRightAssign:
+            return "assignment to the right";
           case ttOpDollar:
             return "membership $";
           case ttOpAdd:
@@ -56,6 +61,10 @@ public class RLikeParser {
             return "operator *";
           case ttOpDiv:
             return "operator /";
+          case ttOpLess:
+            return "operator <";
+          case ttOpGreater:
+            return "operator >";
           case ttOpParOpen:
             return "opening parenthesis";
           case ttOpParClose:
@@ -176,7 +185,12 @@ public class RLikeParser {
         return new Token(pos, Token.Type.ttOpAdd);
       case '-':
         ++s_._off;
-        return new Token(pos, Token.Type.ttOpSub);
+        if (s_.peek1() == '>') {
+          ++s_._off;
+          return new Token(pos,Token.Type.ttOpRightAssign);
+        } else {
+          return new Token(pos, Token.Type.ttOpSub);
+        }
       case '*':
         ++s_._off;
         return new Token(pos, Token.Type.ttOpMul);
@@ -198,6 +212,17 @@ public class RLikeParser {
       case '"':
         ++s_._off;
         return new Token(pos, Token.Type.ttOpDoubleQuote);
+      case '<':
+        ++s_._off;
+        if (s_.peek1()=='-') {
+          ++s_._off;
+          return new Token(pos,Token.Type.ttOpAssign);
+        } else {
+          return new Token(pos,Token.Type.ttOpLess);
+        }
+      case '>':
+        ++s_._off;
+        return new Token(pos, Token.Type.ttOpGreater);
       default:
         if (isCharacter(c)) 
           return parseIdent();
@@ -284,13 +309,29 @@ public class RLikeParser {
   
   /** Parses the expression in R. 
    * 
-   * S -> e | T { + T | - T }
-   * 
-   * @return 
+   * S -> e | E [ -> ident ]
+   *
    */
   private Expr parse_S() throws ParserException {
     if (top().type == Token.Type.ttEOF)
       return null;
+    Expr result = parse_E();
+    if (top().type == Token.Type.ttOpRightAssign) {
+      int pos = pop()._pos;
+      result = new AssignmentOperator(pos, Key.make(pop().id), result);
+    }
+    return result;
+  }
+  
+  
+  /* 
+   * 
+   * 
+   * E -> T { + T | - T }
+   * 
+   * @return 
+   */
+  private Expr parse_E() throws ParserException {
     Expr result = parse_T();
     while ((top().type == Token.Type.ttOpAdd) || (top().type == Token.Type.ttOpSub)) {
       Token t = pop();
@@ -314,12 +355,14 @@ public class RLikeParser {
   /*
    * This is silly grammar for now, I need to understand R more to make it 
    * 
-   * F -> number | ident ( { = S } | $ ident | [ number ] ) | ( S ) 
+   * F -> - F | number | ident (  = S | $ ident | [ number ] ) | ( S ) 
    */
   
   private Expr parse_F() throws ParserException {
     int pos = top()._pos;
     switch (top().type) {
+      case ttOpSub:
+        return new UnaryOperator(pos,pop().type,parse_F());
       case ttFloat:
         return new FloatLiteral(pos, pop().value);
       case ttInteger:

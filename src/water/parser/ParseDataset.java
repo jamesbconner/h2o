@@ -69,9 +69,8 @@ public final class ParseDataset {
     } catch (Exception e) {
       System.err.println("[parser] Column names guesser failed.");
     }
-    for( int i=0; i<num_cols; i++ ) {
+    for( int i=0; i<num_cols; i++ )
         dp1._cols[i]._name = names != null  ? names[i] : ""; // or String.valueOf(i)
-    }
 
     // #2: Filter columns which are too big (contains too many unique strings)
     // and manage domain overlap with column name.
@@ -106,7 +105,6 @@ public final class ParseDataset {
     }
     rs2[rs.length] = off;
 
-
     // Setup for pass-2, where we do the actual data conversion. Also computes variance.
     DParse2 dp2 = new DParse2();
     dp2._num_cols  = num_cols;
@@ -114,12 +112,15 @@ public final class ParseDataset {
     dp2._num_rows  = row_size; // Cheat: pass in rowsize instead of the num_rows (and its non-zero)
     dp2._cols      = dp1._cols;
     dp2._cols_domains = dp1._cols_domains;
-    dp2._rows_chk  = rs2;        // Rolled-up row numbers
+    dp2._rows_chk  = rs2;       // Rolled-up row numbers
     dp2._result    = result;
 
     dp2.invoke(dataset._key);   // Parse whole dataset!
+
+
     // normalize the variance and turn it to sigma
-    for(int i = 0; i < dp2._cols.length;++i)dp2._cols[i]._sigma = Math.sqrt(dp2._cols[i]._sigma/dp2._cols[i]._n);
+    for( int i = 0; i < dp2._cols.length;++i )
+      dp2._cols[i]._sigma = Math.sqrt(dp2._sumerr[i]/dp2._cols[i]._n);
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp2._cols);
     UKV.put(result,ary);
@@ -556,9 +557,8 @@ public final class ParseDataset {
       int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
       _rows_chk = new int[idx+1];
       _rows_chk[idx] = num_rows;
-      for(int i = 0; i < _num_cols; ++i){
+      for(int i = 0; i < _num_cols; ++i)
         _cols[i]._mean /= _cols[i]._n;
-      }
       if(_num_cols != _cols.length){
         _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
       }
@@ -646,6 +646,7 @@ public final class ParseDataset {
   // Parse the data, and jam it into compressed fixed-sized row data
   public static class DParse2 extends DParse {
     Key _result;                // The result Key
+    double _sumerr[];
 
     // Parse just this chunk, compress into new format.
     public void map( Key key ) {
@@ -661,6 +662,7 @@ public final class ParseDataset {
       // Get a place to hold the data
       byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
       // A place to hold each column datum
+      _sumerr = new double[_num_cols];
       // The parser
       SeparatedValueParser csv = new SeparatedValueParser(key,
           _parseType == PARSE_COMMASEP ? ',' : ' ', _cols.length);
@@ -689,7 +691,7 @@ public final class ParseDataset {
           }
           // Write to compressed values
           if( !Double.isNaN(d) ) { // Broken data on row?
-            col._sigma += (col._mean - d) * (col._mean - d);
+            _sumerr[i] += (col._mean - d) * (col._mean - d);
             switch( col._size ) {
             case  1: buf[off++] = (byte)(d*col._scale-col._base); break;
             case  2: UDP.set2 (buf,(off+=2)-2, (int)(d*col._scale-col._base)); break;
@@ -731,8 +733,11 @@ public final class ParseDataset {
     public void reduce( DRemoteTask rt ) {
       // return the variance
       DParse2 other = (DParse2)rt;
-      for(int i = 0; i < _cols.length; ++i){
-        _cols[i]._sigma += other._cols[i]._sigma;
+      if( _sumerr == null )
+        _sumerr = other._sumerr;
+      else {
+        for(int i = 0; i < _cols.length; ++i)
+          _sumerr[i] += other._sumerr[i];
       }
     }
 

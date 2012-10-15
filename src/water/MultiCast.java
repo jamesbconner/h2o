@@ -28,7 +28,7 @@ public abstract class MultiCast {
       if( sock == null ) {
         sock = new MulticastSocket();
         // Allow multicast traffic to go across subnets
-        sock.setTimeToLive(127);
+        sock.setTimeToLive(2);
         if( H2O.CLOUD_MULTICAST_IF != null )
           sock.setNetworkInterface(H2O.CLOUD_MULTICAST_IF);
       }
