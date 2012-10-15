@@ -84,7 +84,7 @@
   </target>
 
   <target name="test" description="tests" depends="compile,jar">
-  	<exec executable="python">
+  	<exec executable="python" dir="${basedir}/py">
 	 <arg value="${basedir}/py/test.py"/>
 	</exec>
   </target>
