@@ -95,10 +95,15 @@ public class RandomForest {
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded, classcol);
 
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
-    Model model = new Model(null,drf._treeskey,num_cols,classes);
+
 
     Key[] tkeys = null;
     while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
+
+    Key modelKey = Key.make("model");
+    Model model = new Model(modelKey,drf._treeskey,num_cols,classes);
+    UKV.put(modelKey,model);
+
     long t2 = System.currentTimeMillis();
     assert tkeys.length == ntrees;
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
@@ -109,12 +114,10 @@ public class RandomForest {
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
       Confusion c = Confusion.make( model, valKey, classcol);
-      c.mapAll();
       c.report();
     } else {
       Confusion c = Confusion.make( model, drf._arykey, classcol);
       c.setValidation(drf._validation.getPermutationArray());
-      c.mapAll();
       c.report();
     }
     System.out.println("Random forest finished in: " + (t2 - t1) + " ms");
