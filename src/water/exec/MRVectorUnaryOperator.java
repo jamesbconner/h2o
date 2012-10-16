@@ -72,7 +72,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
 
   @Override public void reduce(DRemoteTask drt) {
     // unify the min & max guys
-    water.exec.MRVectorBinaryOperator other = (water.exec.MRVectorBinaryOperator) drt;
+    water.exec.MRVectorUnaryOperator other = (water.exec.MRVectorUnaryOperator) drt;
     if (other.min_ < min_)
       min_ = other.min_;
     if (other.max_ > max_)
