@@ -13,14 +13,14 @@ import water.*;
  */
 public abstract class MRVectorUnaryOperator extends MRTask {
   
-  private final Key key_;
-  private final Key resultKey_;
+  private final Key _key;
+  private final Key _resultKey;
   
-  private final int col_;
+  private final int _col;
   
-  double min_ = Double.MAX_VALUE;
-  double max_ = -Double.MAX_VALUE;
-  double tot_ = 0;
+  double _min = Double.MAX_VALUE;
+  double _max = -Double.MAX_VALUE;
+  double _tot = 0;
 
   /** Creates the binary operator task for the given keys. 
    * 
@@ -32,9 +32,9 @@ public abstract class MRVectorUnaryOperator extends MRTask {
    * @param result 
    */
   public MRVectorUnaryOperator(Key key, Key result, int col) {
-    key_ = key;
-    resultKey_ = result;
-    col_ = col;
+    _key = key;
+    _resultKey = result;
+    _col = col;
   } 
   
   /** This method actually does the operation on the data itself. 
@@ -46,8 +46,8 @@ public abstract class MRVectorUnaryOperator extends MRTask {
   public abstract double operator(double opnd);
   
   @Override public void map(Key key) {
-    ValueArray opnd_ = (ValueArray)DKV.get(key_);
-    ValueArray result_ = (ValueArray)DKV.get(resultKey_);
+    ValueArray opnd_ = (ValueArray)DKV.get(_key);
+    ValueArray result_ = (ValueArray)DKV.get(_resultKey);
     
     // get the bits to which we will write
     long chunkOffset = ValueArray.getOffset(key);
@@ -60,14 +60,14 @@ public abstract class MRVectorUnaryOperator extends MRTask {
     byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
     // now calculate the results
     for (int i = 0; i < chunkRows; ++i) {
-      double opnd = opnd_.datad(row+i,col_);
+      double opnd = opnd_.datad(row+i,_col);
       double result = operator(opnd);
       UDP.set8d(bits,i*8,result);
-      if (result<min_)
-        min_ = result;
-      if (result>max_)
-        max_ = result;
-      tot_ += result;
+      if (result<_min)
+        _min = result;
+      if (result>_max)
+        _max = result;
+      _tot += result;
     }
     // we have the bytes now, just store the value
     Value val = new Value(key,bits);
@@ -78,11 +78,11 @@ public abstract class MRVectorUnaryOperator extends MRTask {
   @Override public void reduce(DRemoteTask drt) {
     // unify the min & max guys
     water.exec.MRVectorUnaryOperator other = (water.exec.MRVectorUnaryOperator) drt;
-    if (other.min_ < min_)
-      min_ = other.min_;
-    if (other.max_ > max_)
-      max_ = other.max_;
-    tot_ += other.tot_;
+    if (other._min < _min)
+      _min = other._min;
+    if (other._max > _max)
+      _max = other._max;
+    _tot += other._tot;
   }
 
 }

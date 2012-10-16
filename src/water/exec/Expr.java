@@ -232,14 +232,14 @@ public abstract class Expr {
 // =============================================================================
 
 class KeyLiteral extends Expr {
-  private final Key key_;
+  private final Key _key;
   public KeyLiteral(int pos, String id) {
     super(pos);
-    key_ = Key.make(id);
+    _key = Key.make(id);
   }
   
   @Override public Result eval() throws EvaluationException {
-    return Result.permanent(key_);
+    return Result.permanent(_key);
   }
 }
 
@@ -342,21 +342,21 @@ class StringColumnSelector extends Expr {
 // =============================================================================
 
 class UnaryOperator extends Expr {
-  private final Expr opnd_;
-  private final Token.Type type_;
+  private final Expr _opnd;
+  private final Token.Type _type;
   
   public UnaryOperator(int pos, Token.Type type, Expr opnd) {
     super(pos);
-    type_ = type;
-    opnd_ = opnd;  
+    _type = type;
+    _opnd = opnd;  
   }
   
   private Result evalConst(Result o) throws EvaluationException {
-    switch (type_) {
+    switch (_type) {
       case ttOpSub:
         return Result.scalar(-o._const);
       default:
-        throw new EvaluationException(_pos, "Operator "+type_.toString()+" not applicable to given operand.");
+        throw new EvaluationException(_pos, "Operator "+_type.toString()+" not applicable to given operand.");
     }    
   }
   
@@ -368,17 +368,17 @@ class UnaryOperator extends Expr {
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",opnd.num_rows(),8,CC);
     DKV.put(res._key,result);
     MRVectorUnaryOperator op;
-    switch (type_) {
+    switch (_type) {
       case ttOpSub:
         op = new UnaryMinus(o._key,res._key,o.colIndex());
         break;
       default:
-        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+_type.toString());
     }
     op.invoke(res._key);
-    C._min = op.min_;
-    C._max = op.max_;
-    C._mean = op.tot_ / opnd.num_rows();
+    C._min = op._min;
+    C._max = op._max;
+    C._mean = op._tot / opnd.num_rows();
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",opnd.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     o.dispose();
@@ -387,7 +387,7 @@ class UnaryOperator extends Expr {
 
   @Override public Result eval() throws EvaluationException {
     // get the keys and the values    
-    Result op = opnd_.eval();
+    Result op = _opnd.eval();
     if (op.isConstant())
       return evalConst(op);
     else
@@ -404,21 +404,21 @@ class UnaryOperator extends Expr {
 
 class BinaryOperator extends Expr {
   
-  private final Expr left_;
-  private final Expr right_;
-  private final Token.Type type_;
+  private final Expr _left;
+  private final Expr _right;
+  private final Token.Type _type;
   
   
   public BinaryOperator(int pos, Token.Type type, Expr left, Expr right) {
     super(pos);
-    left_ = left;
-    right_ = right;
-    type_ = type;
+    _left = left;
+    _right = right;
+    _type = type;
     
   }
 
   private Result evalConstConst(Result l, Result r) throws EvaluationException {
-    switch (type_) {
+    switch (_type) {
       case ttOpAdd:
         return Result.scalar(l._const + r._const);
       case ttOpSub:
@@ -428,7 +428,7 @@ class BinaryOperator extends Expr {
       case ttOpDiv:
         return Result.scalar(l._const / r._const);
       default:
-        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+_type.toString());
     }
   }
   
@@ -442,7 +442,7 @@ class BinaryOperator extends Expr {
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",resultRows,8,CC);
     DKV.put(res._key,result);
     MRVectorBinaryOperator op;
-    switch (type_) {
+    switch (_type) {
       case ttOpAdd:
         op = new AddOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
@@ -456,12 +456,12 @@ class BinaryOperator extends Expr {
         op = new DivOperator(l._key,r._key,res._key,l.colIndex(),r.colIndex());
         break;
       default:
-        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+_type.toString());
     }
     op.invoke(res._key);
-    C._min = op.min_;
-    C._max = op.max_;
-    C._mean = op.tot_ / resultRows;
+    C._min = op._min;
+    C._max = op._max;
+    C._mean = op._tot / resultRows;
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",resultRows,8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();
@@ -473,7 +473,7 @@ class BinaryOperator extends Expr {
     Result res = Result.temporary();
     ValueArray vr = getValueArray(r._key);
     MRVectorUnaryOperator op;
-    switch (type_) {
+    switch (_type) {
       case ttOpAdd:
         op = new RightAdd(r._key,res._key,r.colIndex(),l._const);
         break;
@@ -487,14 +487,14 @@ class BinaryOperator extends Expr {
         op = new RightDiv(r._key,res._key,r.colIndex(),l._const);
         break;
       default:
-        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+_type.toString());
     }
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vr.num_rows(),8,CC);
     DKV.put(res._key,result);
     op.invoke(res._key);
-    C._min = op.min_;
-    C._max = op.max_;
-    C._mean = op.tot_ / vr.num_rows();
+    C._min = op._min;
+    C._max = op._max;
+    C._mean = op._tot / vr.num_rows();
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vr.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();
@@ -506,7 +506,7 @@ class BinaryOperator extends Expr {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
     MRVectorUnaryOperator op;
-    switch (type_) {
+    switch (_type) {
       case ttOpAdd:
         op = new LeftAdd(l._key,res._key,l.colIndex(),r._const);
         break;
@@ -520,14 +520,14 @@ class BinaryOperator extends Expr {
         op = new LeftDiv(l._key,res._key,l.colIndex(),r._const);
         break;
       default:
-        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+type_.toString());
+        throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: "+_type.toString());
     }
     ValueArray result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
     DKV.put(res._key,result);
     op.invoke(res._key);
-    C._min = op.min_;
-    C._max = op.max_;
-    C._mean = op.tot_ / vl.num_rows();
+    C._min = op._min;
+    C._max = op._max;
+    C._mean = op._tot / vl.num_rows();
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();
@@ -538,8 +538,8 @@ class BinaryOperator extends Expr {
   
   @Override public Result eval() throws EvaluationException {
     // get the keys and the values    
-    Result kl = left_.eval();
-    Result kr = right_.eval();
+    Result kl = _left.eval();
+    Result kr = _right.eval();
     if (kl.isConstant()) {
       if (kr.isConstant())
         return evalConstConst(kl, kr);

@@ -12,16 +12,16 @@ import water.*;
  */
 public abstract class MRVectorBinaryOperator extends MRTask {
   
-  private final Key leftKey_;
-  private final Key rightKey_;
-  private final Key resultKey_;
+  private final Key _leftKey;
+  private final Key _rightKe;
+  private final Key _resultKey;
   
-  private final int leftCol_;
-  private final int rightCol_;
+  private final int _leftCol;
+  private final int _rightCol;
   
-  double min_ = Double.MAX_VALUE;
-  double max_ = - Double.MAX_VALUE;
-  double tot_ = 0;
+  double _min = Double.MAX_VALUE;
+  double _max = - Double.MAX_VALUE;
+  double _tot = 0;
 
   /** Creates the binary operator task for the given keys. 
    * 
@@ -33,11 +33,11 @@ public abstract class MRVectorBinaryOperator extends MRTask {
    * @param result 
    */
   public MRVectorBinaryOperator(Key left, Key right, Key result, int leftCol, int rightCol) {
-    leftKey_ = left;
-    rightKey_ = right;
-    resultKey_ = result;
-    leftCol_ = leftCol;
-    rightCol_ = rightCol;
+    _leftKey = left;
+    _rightKe = right;
+    _resultKey = result;
+    _leftCol = leftCol;
+    _rightCol = rightCol;
   } 
   
   /** This method actually does the operation on the data itself. 
@@ -49,9 +49,9 @@ public abstract class MRVectorBinaryOperator extends MRTask {
   public abstract double operator(double left, double right);
   
   @Override public void map(Key key) {
-    ValueArray left_ = (ValueArray)DKV.get(leftKey_);
-    ValueArray right_ = (ValueArray)DKV.get(rightKey_);
-    ValueArray result_ = (ValueArray)DKV.get(resultKey_);
+    ValueArray left_ = (ValueArray)DKV.get(_leftKey);
+    ValueArray right_ = (ValueArray)DKV.get(_rightKe);
+    ValueArray result_ = (ValueArray)DKV.get(_resultKey);
     
     // get the bits to which we will write
     long chunkOffset = ValueArray.getOffset(key);
@@ -66,15 +66,15 @@ public abstract class MRVectorBinaryOperator extends MRTask {
     long leftRow = row % left_.num_rows();
     long rightRow = row % right_.num_rows();
     for (int i = 0; i < chunkRows; ++i) {
-      double left = left_.datad(leftRow,leftCol_);
-      double right = right_.datad(rightRow,rightCol_);
+      double left = left_.datad(leftRow,_leftCol);
+      double right = right_.datad(rightRow,_rightCol);
       double result = operator(left,right);
       UDP.set8d(bits,i*8,result);
-      if (result<min_)
-        min_ = result;
-      if (result>max_)
-        max_ = result;
-      tot_ += result;
+      if (result<_min)
+        _min = result;
+      if (result>_max)
+        _max = result;
+      _tot += result;
       leftRow = leftRow+1 % left_.num_rows(); 
       rightRow = rightRow+1 % right_.num_rows(); 
     }
@@ -87,11 +87,11 @@ public abstract class MRVectorBinaryOperator extends MRTask {
   @Override public void reduce(DRemoteTask drt) {
     // unify the min & max guys
     water.exec.MRVectorBinaryOperator other = (water.exec.MRVectorBinaryOperator) drt;
-    if (other.min_ < min_)
-      min_ = other.min_;
-    if (other.max_ > max_)
-      max_ = other.max_;
-    tot_ += other.tot_;
+    if (other._min < _min)
+      _min = other._min;
+    if (other._max > _max)
+      _max = other._max;
+    _tot += other._tot;
   }
 }
 
