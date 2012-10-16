@@ -111,6 +111,7 @@ public class GLM extends H2OPage {
       if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
       GLM_Model m = GLSM.solve(ary, columns, null, 1, f, norm, new double[]{lambda,rho,alpha},GLSM.DataPreprocessing.AUTO,nonZerosAsOnes);
       long deltaT = System.currentTimeMillis() - t1;
+      res.addProperty("rows",ary.num_rows());
       res.addProperty("time", deltaT);
       res.addProperty("DegreesOfFreedom", m.n - 1);
       res.addProperty("ResidualDegreesOfFreedom", m.n - X.length - 1);
@@ -238,7 +239,7 @@ public class GLM extends H2OPage {
     // +
     // "<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">%AIC_formated</span></div>");
     RString responseTemplate = new RString(
-        "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms].</div>"
+        "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed on <b>%rows rows in %time ms.</b></div>"
             + "<h3>Coefficients</h3>"
             + "<div>%coefficientHTML</div>"
             + "<h5>Model SRC</h5>"
