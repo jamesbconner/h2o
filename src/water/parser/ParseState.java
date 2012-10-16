@@ -380,6 +380,7 @@ public class ParseState {
       rs2[i] = off;
       off += rs[i];
     }
+    rs2[rs.length] = off;
     _rows_chk = rs2;
     return row_size;
   }

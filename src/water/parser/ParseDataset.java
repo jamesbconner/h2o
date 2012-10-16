@@ -66,7 +66,7 @@ public final class ParseDataset {
       break;
     case PARSE_COMMASEP:
     case PARSE_SPACESEP:
-      parseSeparated(result, dataset, (byte) typeArr[PARSER_IDX], typeArr[PARSER_IDX]);
+      parseSeparated(result, dataset, (byte) typeArr[PARSER_IDX], typeArr[COLNUM_IDX]);
       break;
     default: H2O.unimpl();
     }
@@ -580,11 +580,13 @@ public final class ParseDataset {
     byte[] b = v0.get();                      // Bytes for 1st chunk
 
     if( b.length > XLS_MAGIC_OFFSET + XLS_MAGIC.length &&
-        Arrays.equals(XLS_MAGIC, Arrays.copyOfRange(b, XLS_MAGIC_OFFSET, XLS_MAGIC.length))) {
+        Arrays.equals(XLS_MAGIC,
+            Arrays.copyOfRange(b, XLS_MAGIC_OFFSET, XLS_MAGIC_OFFSET + XLS_MAGIC.length))) {
       return new int[] { PARSE_EXCEL, 0 };
     }
     if( b.length > XLSX_MAGIC_OFFSET + XLSX_MAGIC.length &&
-        Arrays.equals(XLSX_MAGIC, Arrays.copyOfRange(b, XLSX_MAGIC_OFFSET, XLSX_MAGIC.length))) {
+        Arrays.equals(XLSX_MAGIC,
+            Arrays.copyOfRange(b, XLSX_MAGIC_OFFSET, XLSX_MAGIC_OFFSET + XLSX_MAGIC.length))) {
       return new int[] { PARSE_EXCEL, 0 };
     }
 
