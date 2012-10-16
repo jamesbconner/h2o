@@ -79,7 +79,7 @@ abstract class Statistic {
     // first create the column distributions
     _columnDists = new int[data.columns()][][];
     for (int i = 0; i < _columnDists.length; ++i)
-      _columnDists[i] = new int[data.columnClasses(i)][data.classes()];
+      _columnDists[i] = new int[data.columnArity(i)+1][data.classes()];
     // create the columns themselves
     _features = new int[features];
   }
@@ -102,7 +102,7 @@ abstract class Statistic {
     // If we chose the class column, pick the last column instead (which
     // otherwise did not get a chance to be picked).
     int classIdx = data.classIdx();
-    for( i=0; i<_features.length; i++ ) 
+    for( i=0; i<_features.length; i++ )
       if( _features[i] == classIdx )
         _features[i] = data.columns()-1;
     // reset the column distributions for those
@@ -117,7 +117,7 @@ abstract class Statistic {
    */
   void add(Row row) {
     for (int i : _features)
-      _columnDists[i][row.getColumnClass(i)][row.classOf()] += 1;
+      _columnDists[i][row.getEncodedColumnValue(i)][row.classOf()] += 1;
   }
 
   /** Calculates the best split and returns it. The split can be either a split
