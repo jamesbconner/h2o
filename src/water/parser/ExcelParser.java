@@ -2,24 +2,25 @@ package water.parser;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 import org.apache.poi.hssf.eventusermodel.*;
 import org.apache.poi.hssf.eventusermodel.dummyrecord.LastCellOfRowDummyRecord;
 import org.apache.poi.hssf.eventusermodel.dummyrecord.MissingCellDummyRecord;
-import org.apache.poi.hssf.model.HSSFFormulaParser;
 import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 
 public class ExcelParser implements HSSFListener {
-  private int _prevRow;
-  private int _prevCol;
-  private int _nextRow;
-  private int _nextCol;
+  private final POIFSFileSystem _fs;
+
+  public String[] _firstRow;
+  private String[] _rowStrs = new String[0];
+  private double[] _rowNums = new double[0];
 
   private FormatTrackingHSSFListener _formatListener;
-  private POIFSFileSystem _fs;
   private SSTRecord _sstRecord;
 
+  private int _nextCol;
   private boolean _outputNextStringRecord;
 
   public ExcelParser(InputStream is) throws IOException {
@@ -39,7 +40,6 @@ public class ExcelParser implements HSSFListener {
 
   @Override
   public void processRecord(Record record) {
-    int curRow = -1;
     int curCol = -1;
     double curNum = Double.NaN;
     String curStr = null;
@@ -55,14 +55,12 @@ public class ExcelParser implements HSSFListener {
     case BlankRecord.sid:
       BlankRecord brec = (BlankRecord) record;
 
-      curRow = brec.getRow();
       curCol = brec.getColumn();
       curStr = "";
       break;
     case BoolErrRecord.sid:
       BoolErrRecord berec = (BoolErrRecord) record;
 
-      curRow = berec.getRow();
       curCol = berec.getColumn();
       curStr = "";
       break;
@@ -70,17 +68,14 @@ public class ExcelParser implements HSSFListener {
     case FormulaRecord.sid:
       FormulaRecord frec = (FormulaRecord) record;
 
-      curRow = frec.getRow();
       curCol = frec.getColumn();
+      curNum = frec.getValue();
 
-      if(Double.isNaN( frec.getValue() )) {
+      if( Double.isNaN(curNum) ) {
         // Formula result is a string
         // This is stored in the next record
         _outputNextStringRecord = true;
-        _nextRow = frec.getRow();
         _nextCol = frec.getColumn();
-      } else {
-        curStr = _formatListener.formatNumberDateCell(frec);
       }
       break;
     case StringRecord.sid:
@@ -88,7 +83,6 @@ public class ExcelParser implements HSSFListener {
         // String for formula
         StringRecord srec = (StringRecord)record;
         curStr = srec.getString();
-        curRow = _nextRow;
         curCol = _nextCol;
         _outputNextStringRecord = false;
       }
@@ -96,18 +90,15 @@ public class ExcelParser implements HSSFListener {
     case LabelRecord.sid:
       LabelRecord lrec = (LabelRecord) record;
 
-      curRow = lrec.getRow();
       curCol = lrec.getColumn();
       curStr = lrec.getValue();
       break;
     case LabelSSTRecord.sid:
       LabelSSTRecord lsrec = (LabelSSTRecord) record;
-
-      curRow = lsrec.getRow();
-      curCol = lsrec.getColumn();
       if(_sstRecord == null) {
         System.err.println("[ExcelParser] Missing SST record");
       } else {
+        curCol = lsrec.getColumn();
         curStr = _sstRecord.getString(lsrec.getSSTIndex()).toString();
       }
       break;
@@ -116,8 +107,6 @@ public class ExcelParser implements HSSFListener {
       break;
     case NumberRecord.sid:
       NumberRecord numrec = (NumberRecord) record;
-
-      curRow = numrec.getRow();
       curCol = numrec.getColumn();
       curNum = numrec.getValue();
       break;
@@ -128,48 +117,35 @@ public class ExcelParser implements HSSFListener {
       break;
     }
 
-    // Handle new row
-    if(curRow != -1 && curRow != _prevRow) {
-        _prevCol = -1;
-    }
-
     // Handle missing column
     if(record instanceof MissingCellDummyRecord) {
         MissingCellDummyRecord mc = (MissingCellDummyRecord)record;
-        curRow = mc.getRow();
         curCol = mc.getColumn();
         curNum = Double.NaN;
     }
 
-    if(curRow > -1) _prevRow = curRow;
-    if(curCol > -1) _prevCol = curCol;
+    if( curCol == -1 ) return;
 
-    // If we got something to print out, do so
-    if(thisStr != null) {
-        if(curCol > 0) {
-            output.print(',');
-        }
-        output.print(thisStr);
+    if( _firstRow == null && curCol > _rowNums.length ) {
+      _rowNums = Arrays.copyOf(_rowNums, curCol+1);
+      _rowStrs = Arrays.copyOf(_rowStrs, curCol+1);
     }
 
+    if( curCol < _rowNums.length ) {
+      _rowNums[curCol] = curNum;
+      if( Double.isNaN(curNum) ) _rowStrs[curCol] = curStr;
+    }
 
     // Handle end of row
     if(record instanceof LastCellOfRowDummyRecord) {
-        // Print out any missing commas if needed
-        if(minColumns > 0) {
-            // Columns are 0 based
-            if(lastColumnNumber == -1) { lastColumnNumber = 0; }
-            for(int i=lastColumnNumber; i<(minColumns); i++) {
-                output.print(',');
-            }
-        }
-
-        // We're onto a new row
-        lastColumnNumber = -1;
-
-        // End the row
-        output.println();
+      if( _firstRow == null ) _firstRow = _rowStrs.clone();
+      handleRow(_rowNums, _rowStrs);
+      Arrays.fill(_rowNums, Double.NaN);
+      Arrays.fill(_rowStrs, null);
     }
   }
 
+  public void handleRow(double[] rowNums, String[] rowStrs) {
+
+  }
 }

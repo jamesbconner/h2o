@@ -202,6 +202,12 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
       _fieldStringVals = new String[numOfColumns];
     }
 
+    public Row(double[] vals, String[] strs) {
+      assert vals.length == strs.length;
+      _fieldVals = vals;
+      _fieldStringVals = strs;
+    }
+
     @Override
     public String toString() {
       return Arrays.toString(_fieldVals) + "\n" + Arrays.toString(_fieldStringVals);

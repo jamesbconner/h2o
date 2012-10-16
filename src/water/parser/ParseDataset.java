@@ -40,18 +40,22 @@ public final class ParseDataset {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
 
-    Compression compression = guessCompressionMethod(dataset);
-    switch (compression) {
-    case NONE: parseUncompressed(result, dataset); break;
-    case ZIP : parseZipped(result, dataset);       break;
-    case GZIP: parseGZipped(result, dataset);      break;
-    default  : throw new Error("Uknown compression of dataset!");
+    try {
+      Compression compression = guessCompressionMethod(dataset);
+      switch (compression) {
+      case NONE: parseUncompressed(result, dataset); break;
+      case ZIP : parseZipped      (result, dataset); break;
+      case GZIP: parseGZipped     (result, dataset); break;
+      default  : throw new Error("Uknown compression of dataset!");
+      }
+    } catch( IOException e ) {
+      throw new Error(e);
     }
   }
 
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
  // result.  This does a distributed parallel parse.
-  public static void parseUncompressed( Key result, Value dataset ) {
+  public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
     int [] typeArr = guessParserSetup(dataset,false);
     switch( typeArr[PARSER_IDX] ) {
@@ -69,8 +73,63 @@ public final class ParseDataset {
 
   }
 
-  public static void parseExcel(Key result, Value dataset) {
+  public static void parseExcel(Key result, Value dataset) throws IOException {
+    final ParseState state = new ParseState();
+    state._num_rows  = 0; // No rows yet
+    state._num_cols  = 0; // No rows yet
 
+    ExcelParser parser = new ExcelParser(dataset.openStream()) {
+      @Override
+      public void handleRow(double[] rowNums, String[] rowStrs) {
+        if( state._num_cols == 0 ) {
+          state._num_cols = rowNums.length;
+          state.prepareForStatsGathering();
+        }
+        if( allNaNs(rowNums) ) return;
+        state.addRowToStats(new Row(rowNums, rowStrs));
+      }
+    };
+
+    parser.process();
+    state.finishStatsGathering(0);
+
+    String[] names = parser._firstRow;
+    int num = 0;
+    for( String n : names ) if( n != null ) ++num;
+    names = num > names.length/2 ? names : null;
+    state.assignColumnNames(names);
+    state.filterColumnsDomains();
+    state.computeColumnSize();
+
+    final int num_cols = state._num_cols;
+    final int num_rows = state._num_rows;
+    final int row_size = state.computeOffsets();
+    final byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
+    final double[] sumerr = new double[num_cols];
+    final HashMap<String,Integer> columnIndexes[] = state.createColumnIndexes();
+    parser = new ExcelParser(dataset.openStream()) {
+      int off = 0;
+      @Override
+      public void handleRow(double[] rowNums, String[] rowStrs) {
+        if( allNaNs(rowNums) ) return;
+        state.addRowToBuffer(buf, off, sumerr, new Row(rowNums, rowStrs), columnIndexes);
+        off += row_size;
+      }
+    };
+    parser.process();
+
+    // normalize the variance and turn it to sigma
+    for( int i = 0; i < state._cols.length;++i )
+      state._cols[i]._sigma = Math.sqrt(sumerr[i]/state._cols[i]._n);
+
+    // Now make the structured ValueArray & insert the main key
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
+        num_rows, row_size, state._cols);
+    final byte[] base = ary.get();
+    byte[] res = MemoryManager.allocateMemory(base.length + buf.length);
+    System.arraycopy(base, 0, res, 0, base.length);
+    System.arraycopy(buf, 0, res, base.length, buf.length);
+    DKV.put(result, new Value(result, res));
   }
 
   public static void parseSeparated(Key result, Value dataset, byte parseType, int num_cols) {
@@ -95,9 +154,7 @@ public final class ParseDataset {
       System.err.println("[parser] Column names guesser failed.");
       e.printStackTrace(System.err);
     }
-
-    for( int i = 0; i < num_cols; i++ )
-      state._cols[i]._name = names != null ? names[i] : "";
+    state.assignColumnNames(names);
 
     // #2: Filter columns which are too big (contains too many unique strings)
     // and manage domain overlap with column name.
@@ -147,7 +204,7 @@ public final class ParseDataset {
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
-  public static void parseZipped( Key result, Value dataset ) {
+  public static void parseZipped( Key result, Value dataset ) throws IOException {
     // Dataset contains zipped CSV
     ZipInputStream zis = null;
     Key key = null;
@@ -162,8 +219,6 @@ public final class ParseDataset {
       }
       // else it is possible to dive into a directory but in this case I would
       // prefer to return error since the ZIP file has not expected format
-    } catch( IOException e ) {
-      throw new Error(e);
     } finally { Closeables.closeQuietly(zis); }
 
     if( key == null ) throw new Error("Cannot uncompressed ZIP-compressed dataset!");
@@ -172,14 +227,12 @@ public final class ParseDataset {
     parse(result, uncompressedDataset);
   }
 
-  public static void parseGZipped( Key result, Value dataset ) {
+  public static void parseGZipped( Key result, Value dataset ) throws IOException {
     GZIPInputStream gzis = null;
     Key key = null;
     try {
       gzis = new GZIPInputStream(dataset.openStream());
       key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-    } catch( IOException e ) {
-      throw new Error(e);
     } finally { Closeables.closeQuietly(gzis); }
 
     if( key == null ) throw new Error("Cannot uncompressed GZIP-compressed dataset!");

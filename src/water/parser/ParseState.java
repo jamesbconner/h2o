@@ -89,6 +89,12 @@ public class ParseState {
       _cols_domains[i] = ColumnDomain.read(dis);
   }
 
+  public void assignColumnNames(String[] names) {
+    assert names == null || names.length == _num_cols;
+    for( int i = 0; i < _num_cols; i++ )
+      _cols[i]._name = names != null ? names[i] : "";
+  }
+
   public void prepareForStatsGathering() {
     assert _cols == null;
     _num_rows = 0;
