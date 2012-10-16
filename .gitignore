@@ -12,7 +12,6 @@ po.*
 sandbox
 bin/
 *hs_err_pid*
-*.csv
 flatfile*
 *stdout.txt
 *_*.data

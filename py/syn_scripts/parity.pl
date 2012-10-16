@@ -111,7 +111,7 @@ sub checkIO {
 
     # doesn't have to be a power of two
     # just protect against long shuffle
-    if ($maxrows<0 || $maxrows>1000000) {
+    if ($maxrows<0 || $maxrows>10000000) {
         die "ERROR: bad maxrows: $maxrows\n"
     }
 

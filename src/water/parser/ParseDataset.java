@@ -119,10 +119,10 @@ public final class ParseDataset {
 
 
     // normalize the variance and turn it to sigma
-    for( int i = 0; i < dp2._cols.length;++i )
-      dp2._cols[i]._sigma = Math.sqrt(dp2._sumerr[i]/dp2._cols[i]._n);
+    for( int i = 0; i < dp1._cols.length; ++i )
+      dp1._cols[i]._sigma = Math.sqrt(dp2._sumerr[i]/dp1._cols[i]._n);
     // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp2._cols);
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
     UKV.put(result,ary);
 
     // At this point we're left with a bunch of in-flight AtomicUnions for this
@@ -719,26 +719,30 @@ public final class ParseDataset {
       int rpc = (int)(ValueArray.chunk_size()/row_size); // Rows per chunk
       long dst_chks = max_row/rpc;
 
+      // Reset these arrays to null, so they are not part of the return result.
       _rows_chk = null;
+      _cols = null;
       _cols_domains = null;
+      _num_rows = 0;            // No data to return
 
       // Now, rather painfully, ship the bits to the target keys.  Ship in
       // large chunks according to what fits in the next target chunk.
       int row0 = 0;             // Number of processed rows
       while( (row0 += atomic_update( row0, start_row, row_size, num_rows, buf, rpc, dst_chks )) < num_rows ) ;
 
-      _num_rows = 0;            // No data to return
     }
 
     public void reduce( DRemoteTask rt ) {
       // return the variance
-      DParse2 other = (DParse2)rt;
+      DParse2 dp2 = (DParse2)rt;
       if( _sumerr == null )
-        _sumerr = other._sumerr;
+        _sumerr = dp2._sumerr;
       else {
-        for(int i = 0; i < _cols.length; ++i)
-          _sumerr[i] += other._sumerr[i];
+        for(int i = 0; i < _sumerr.length; ++i)
+          _sumerr[i] += dp2._sumerr[i];
       }
+      _cols = null;
+      _num_rows = 0;
     }
 
     // Atomically fold together as many rows as will fit in the next chunk.  I

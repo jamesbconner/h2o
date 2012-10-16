@@ -229,13 +229,15 @@ public abstract class Paxos {
     // Is the Proposal New or Old?
     if( proposal_num < PROPOSAL_MAX ) { // Old Proposal!  We can ignore it...
       // But we want to NAK this guy
-      UDPPaxosNack.build_and_multicast(PROPOSAL_MAX-1, proposer);
+      if( proposer != H2O.SELF )
+        UDPPaxosNack.build_and_multicast(PROPOSAL_MAX-1, proposer);
       return print_debug("do_proposal NAK; self:" + H2O.SELF + " target:"+proposer + " proposal " + proposal_num, proposer);
     } else if( proposal_num == PROPOSAL_MAX ) { // Dup max proposal numbers?
       if( proposer == LEADER )                  // Ignore dups from leader
         return print_debug("do_proposal: ignoring duplicate proposal", proposer);
       // Ahh, a dup proposal from non-leader.  Must be an old proposal
-      UDPPaxosNack.build_and_multicast(PROPOSAL_MAX, proposer);
+      if( proposer != H2O.SELF )
+        UDPPaxosNack.build_and_multicast(PROPOSAL_MAX, proposer);
       return print_debug("do_proposal NAK; self:" + H2O.SELF + " target:"+proposer + " proposal " + proposal_num, proposer);
     }
 
