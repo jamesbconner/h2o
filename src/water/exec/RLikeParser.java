@@ -33,7 +33,6 @@ public class RLikeParser {
       ttOpParClose, // )
       ttOpBracketOpen, // [
       ttOpBracketClose, // ]
-      ttOpDoubleQuote, // "
       ttOpLess, // <
       ttOpGreater, // >
       ttEOF,
@@ -73,8 +72,6 @@ public class RLikeParser {
             return "opening bracket";
           case ttOpBracketClose:
             return "closing bracket";
-          case ttOpDoubleQuote:
-            return "\"";
           case ttEOF:
             return "end of input";
           default:
@@ -209,9 +206,6 @@ public class RLikeParser {
       case ']':
         ++s_._off;
         return new Token(pos, Token.Type.ttOpBracketClose);
-      case '"':
-        ++s_._off;
-        return new Token(pos, Token.Type.ttOpDoubleQuote);
       case '<':
         ++s_._off;
         if (s_.peek1()=='-') {
@@ -223,6 +217,8 @@ public class RLikeParser {
       case '>':
         ++s_._off;
         return new Token(pos, Token.Type.ttOpGreater);
+      case '"':
+        return parseIdent();
       default:
         if (isCharacter(c)) 
           return parseIdent();
@@ -232,17 +228,44 @@ public class RLikeParser {
     return new Token(pos, Token.Type.ttUnknown);
   }
 
-  private Token parseIdent() {
+  private Token parseIdent() throws ParserException {
     int start = s_._off;
-    while (true) {
-      if (s_.eof())
-        break;
-      char c = (char) s_.peek1();
-      if (isCharacter(c) || isDigit(c) || (c=='.')) {
-        ++s_._off;
-        continue;
+    if (s_.peek1() == '"') { // escaped string
+      ++s_._off;
+      StringBuilder sb = new StringBuilder();
+      while (true) {
+        if (s_.eof())
+          throw new ParserException(start,"String does not finish before the end of input");
+        if (s_.peek1() == '"') {
+          ++s_._off;
+          break; // end of the string
+        } else if (s_.peek1()=='\\') {
+          ++s_._off;
+          if (s_.eof())
+            throw new ParserException(start,"String does not finish before the end of input");
+          switch (s_.peek1()) {
+            case '"':
+            case '\\':
+            case '\'':
+              break;
+            default:
+              throw new ParserException(start,"Only quotes and backslash can be escaped in strings.");
+          }
+        }
+        sb.append((char)s_.get1());
       }
-      break;
+      return new Token(start,sb.toString());
+    } else {
+      while (true) {
+        if (s_.eof())
+          break;
+        char c = (char) s_.peek1();
+        if (isCharacter(c) || isDigit(c) || (c=='.')) {
+          ++s_._off;
+          continue;
+        }
+        break;
+      }
     }
     return new Token(start,new String(s_._buf, start, s_._off - start));
   }
@@ -293,17 +316,9 @@ public class RLikeParser {
   public Expr parse(Stream x) throws ParserException {
     s_ = x;
     pop(); // load the first token in the stream
-    if (top().type == Token.Type.ttOpDoubleQuote) {
-      pop(); 
-      Expr result = parse_S();
-      pop(Token.Type.ttOpDoubleQuote);
-      pop(Token.Type.ttEOF); // make sure we have parsed everything
-      return result;
-    } else {
-      Expr result = parse_S();
-      pop(Token.Type.ttEOF); // make sure we have parsed everything
-      return result;
-    }
+    Expr result = parse_S();
+    pop(Token.Type.ttEOF); // make sure we have parsed everything
+    return result;
   }
   
   
