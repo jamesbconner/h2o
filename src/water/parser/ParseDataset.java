@@ -365,6 +365,13 @@ public final class ParseDataset {
     ParseState _state;
     public DParse() { _state = new ParseState(); }
 
+    @Override
+    protected DParse clone() throws CloneNotSupportedException {
+      DParse dp = (DParse) super.clone();
+      dp._state = _state.clone();
+      return dp;
+    }
+
     // Hand-rolled serializer for the above common fields.
     // Some Day Real Soon auto-gen me.
     @Override public int wire_len() { return _state.wire_len(); }

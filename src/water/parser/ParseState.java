@@ -7,13 +7,17 @@ import water.*;
 import water.parser.ParseDataset.ColumnDomain;
 import water.parser.SeparatedValueParser.Row;
 
-public class ParseState {
+public class ParseState implements Cloneable {
   public int               _num_cols;       // Input
   public int               _num_rows;       // Output
   public ValueArray.Column _cols[];         // Column summary data
   public int               _rows_chk[];     // Rows-per-chunk
   public ColumnDomain      _cols_domains[]; // Input/Output - columns domains
                                             // preserving insertion order (LinkedSet).
+  @Override
+  protected ParseState clone() throws CloneNotSupportedException {
+    return (ParseState) super.clone();
+  }
 
   // Hand-rolled serializer for the above common fields.
   // Some Day Real Soon auto-gen me.
