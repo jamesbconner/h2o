@@ -14,16 +14,12 @@ public class UDPPaxosNack extends UDP {
     UDPReceiverThread.free_pack(pack);
   }
 
-  // Build an Nack packet.  It has the membership, plus proposal
-  static byte[] BUF = new byte[0];
-  static void build_and_multicast( byte[] buf, long proposal ) {
-    if( buf.length != BUF.length ) BUF = buf.clone();
-    else System.arraycopy(BUF, 0, buf, 0, buf.length);
-
+  // Build an Nack packet.  It only has the proposal to nack
+  static byte[] BUF = new byte[Paxos.old_proposal_off];
+  static void build_and_multicast( long proposal, H2ONode proposer ) {
     BUF[0] = (byte)UDP.udp.paxos_nack.ordinal();
     Paxos.set_promise(BUF, proposal);
-    MultiCast.multicast(BUF);
-    Paxos.do_nack(BUF, H2O.SELF);
+    proposer.send(BUF,BUF.length);
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
