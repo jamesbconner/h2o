@@ -122,9 +122,7 @@ public class RLikeParser {
   
   private Token _top;
   
-  protected Token top() {
-    return _top;  
-  }
+  protected Token top() { return _top; }
   
   protected Token pop() throws ParserException {
     Token x = _top;
@@ -160,9 +158,7 @@ public class RLikeParser {
     return c == '_';
   }
   
-  private boolean isDigit(char c) {
-    return (c>='0') && (c <='9');
-  }
+  private boolean isDigit(char c) { return (c>='0') && (c <='9'); }
   
   private Token parseNextToken() throws ParserException {
     skipWhitespace();
@@ -309,9 +305,7 @@ public class RLikeParser {
   //
   // A simple LL(1) recursive descent guy. With the following grammar:
 
-  public Expr parse(String x) throws ParserException {
-    return parse(new Stream(x.getBytes()));
-  }
+  public Expr parse(String x) throws ParserException { return parse(new Stream(x.getBytes())); }
   
   public Expr parse(Stream x) throws ParserException {
     _s = x;
