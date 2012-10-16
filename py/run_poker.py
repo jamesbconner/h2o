@@ -1,21 +1,18 @@
-import h2o, cmd
+import h2o, h2o_cmd
 import psutil
 
 h2o.clean_sandbox()
-babies = []
+l = None
 try:
-    for i in xrange(8):
-        babies.append(psutil.Popen(['java', '-ea', '-jar', h2o.find_file('build/h2o.jar'), '--port=%d' % (54321+3*i)]))
-    n = h2o.H2O(spawn=False)
-    h2o.nodes += [n] * len(babies)
+    l = h2o.LocalH2O(capture_output=False, use_debugger=True)
     print 'Stabilize'
-    h2o.stabilize_cloud(n, len(babies))
+    h2o.stabilize_cloud(l, 1)
     print 'Random Forest'
-    cmd.runRF(n, h2o.find_file('smalldata/poker/poker-hand-testing.data'),
+    h2o_cmd.runRF(l, h2o.find_file('smalldata/poker/poker-hand-testing.data'),
             trees=10, timeoutSecs=60)
     print 'Completed'
 except KeyboardInterrupt:
     print 'Interrupted'
 finally:
     print 'EAT THE BABIES'
-    for b in babies: b.kill()
+    if l: l.terminate()
