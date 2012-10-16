@@ -20,6 +20,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
   
   double min_ = Double.MAX_VALUE;
   double max_ = -Double.MAX_VALUE;
+  double tot_ = 0;
 
   /** Creates the binary operator task for the given keys. 
    * 
@@ -66,6 +67,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
         min_ = result;
       if (result>max_)
         max_ = result;
+      tot_ += result;
     }
     // we have the bytes now, just store the value
     Value val = new Value(key,bits);
@@ -80,6 +82,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
       min_ = other.min_;
     if (other.max_ > max_)
       max_ = other.max_;
+    tot_ += other.tot_;
   }
 
 }
