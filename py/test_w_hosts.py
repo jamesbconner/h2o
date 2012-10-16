@@ -17,7 +17,7 @@ class Basic(unittest.TestCase):
         global hostsList
 
         # 4 was bad
-        nodesPerHost = 4
+        nodesPerHost = 2
         hostsUsername = '0xdiag'
         hostsPassword = '0xdiag'
 
@@ -68,15 +68,15 @@ class Basic(unittest.TestCase):
     def test_B_RF_iris2(self):
         h2o.touch_cloud()
 
-        timeoutSecs = max(10, 2*(len(hosts) * nodesPerHost))
-        RFview = h2o_cmd.runRF(trees=6, timeoutSecs=10,
-                csvPathname = h2o.find_file('smalldata/iris/iris2.csv'))
+        csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
+        h2o_cmd.runRF(trees=6, timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_C_RF_poker100(self):
         h2o.touch_cloud()
 
-        h2o_cmd.runRF( trees=6, timeoutSecs=10,
-                csvPathname = h2o.find_file('smalldata/poker/poker100'))
+        # RFview consumes cycles. Only retry once a second, to avoid slowing things down
+        csvPathname = h2o.find_file('smalldata/poker/poker100')
+        h2o_cmd.runRF(trees=6, timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_D_GenParity1(self):
         h2o.touch_cloud()
@@ -93,6 +93,7 @@ class Basic(unittest.TestCase):
         SYNSCRIPTS_DIR = './syn_scripts'
 
         # always match the run below!
+        print "Generating some large row count parity datasets in", SYNDATASETS_DIR, "..may be slow"
         for x in xrange (81,200,20):
             # more rows!
             y = 10000 * x
@@ -105,7 +106,6 @@ class Basic(unittest.TestCase):
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
         trees = 6
-        timeoutSecs = 20
         # always match the gen above!
         for x in xrange (81,200,20):
             y = 10000 * x
@@ -116,7 +116,8 @@ class Basic(unittest.TestCase):
             # FIX! TBD do we always have to kick off the run from node 0?
             # random guess about length of time, varying with more hosts/nodes?
             timeoutSecs = 20 + 2*(len(hosts) * nodesPerHost)
-            h2o_cmd.runRF( trees=trees, timeoutSecs=timeoutSecs, csvPathname=csvPathname)
+            # RFview consumes cycles. Only retry once a second, to avoid slowing things down
+            h2o_cmd.runRF(trees=trees, timeoutSecs=timeoutSecs, retryDelaySecs=1, csvPathname=csvPathname)
             trees += 10
 
 if __name__ == '__main__':
