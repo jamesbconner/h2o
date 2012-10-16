@@ -58,8 +58,6 @@ public abstract class MRVectorUnaryOperator extends MRTask {
       chunkRows = result_.num_rows()-row;
     byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
     // now calculate the results
-    System.out.println("Calculating rows from "+row+" to "+(row+chunkRows)+" into chunkOffset " + chunkOffset);
-    System.out.println("  chunk rows: "+chunkRows+" , chunk size: "+bits.length);
     for (int i = 0; i < chunkRows; ++i) {
       double opnd = opnd_.datad(row+i,col_);
       double result = operator(opnd);
