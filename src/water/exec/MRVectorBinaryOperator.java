@@ -21,6 +21,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
   
   double min_ = Double.MAX_VALUE;
   double max_ = - Double.MAX_VALUE;
+  double tot_ = 0;
 
   /** Creates the binary operator task for the given keys. 
    * 
@@ -73,6 +74,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
         min_ = result;
       if (result>max_)
         max_ = result;
+      tot_ += result;
       leftRow = leftRow+1 % left_.num_rows(); 
       rightRow = rightRow+1 % right_.num_rows(); 
     }
@@ -89,6 +91,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
       min_ = other.min_;
     if (other.max_ > max_)
       max_ = other.max_;
+    tot_ += other.tot_;
   }
 }
 
