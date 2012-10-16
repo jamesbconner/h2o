@@ -93,21 +93,21 @@ class Basic(unittest.TestCase):
         SYNSCRIPTS_DIR = './syn_scripts'
 
         # always match the run below!
-        for x in xrange (11,100,10):
+        for x in xrange (81,200,20):
             # more rows!
             y = 10000 * x
             # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(y) + " quad"
             # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
             # wait for the last one to be gen'ed here before we start the first below.
-            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),timeout=15)
+            h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),timeout=30)
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
         trees = 6
         timeoutSecs = 20
         # always match the gen above!
-        for x in xrange (11,100,10):
+        for x in xrange (81,200,20):
             y = 10000 * x
             sys.stdout.write('.')
             sys.stdout.flush()
@@ -116,7 +116,7 @@ class Basic(unittest.TestCase):
             # FIX! TBD do we always have to kick off the run from node 0?
             # random guess about length of time, varying with more hosts/nodes?
             timeoutSecs = 20 + 2*(len(hosts) * nodesPerHost)
-            h2o_cmd.runRF( trees=trees, timeoutSecs=10, csvPathname=csvPathname)
+            h2o_cmd.runRF( trees=trees, timeoutSecs=timeoutSecs, csvPathname=csvPathname)
             trees += 10
 
 if __name__ == '__main__':
