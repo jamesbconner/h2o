@@ -171,7 +171,7 @@ public class Tree extends CountedCompleter {
     }
 
     @Override int classify(Row r) {
-      return r.getColumnClass(_column) <= _split ? _l.classify(r) : _r.classify(r);
+      return r.getEncodedColumnValue(_column) <= _split ? _l.classify(r) : _r.classify(r);
     }
     public int depth() {
       if( _depth != 0 ) return _depth;
@@ -212,7 +212,7 @@ public class Tree extends CountedCompleter {
       // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
       return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
-    public boolean isIn(Row row) {  return row.getColumnClass(_column) <= _split; }
+    public boolean isIn(Row row) {  return row.getEncodedColumnValue(_column) <= _split; }
   }
 
   /** Node that classifies one column category to the left and the others to the
@@ -223,7 +223,7 @@ public class Tree extends CountedCompleter {
       super(column,split,colName,origSplit);
     }
     @Override int classify(Row r) {
-      return r.getColumnClass(_column) == _split ? _l.classify(r) : _r.classify(r);
+      return r.getEncodedColumnValue(_column) == _split ? _l.classify(r) : _r.classify(r);
     }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     public String toString() {
@@ -249,7 +249,7 @@ public class Tree extends CountedCompleter {
       _l.write(bs);
       _r.write(bs);
     }
-    public boolean isIn(Row row) {  return row.getColumnClass(_column) == _split; }
+    public boolean isIn(Row row) {  return row.getEncodedColumnValue(_column) == _split; }
   }
 
   public int classify(Row r) { return _tree.classify(r); }

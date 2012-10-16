@@ -14,7 +14,6 @@ class DataAdapter  {
   private boolean frozen_;
   private int numClasses_=-1;
   private String[] columnNames_;
-  private String classColumnName_;
   private final int _seed;
   private int rows;
 
@@ -27,7 +26,6 @@ class DataAdapter  {
     // fashion, as any single JVM does not see all the data - so it needs to be
     // passed in here.
     numClasses_ = numClasses;
-    classColumnName_ = classNm;
     for( int i=0; i<columns.length; i++ ) {
       String s=columns[i].toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i);
     }
@@ -55,29 +53,17 @@ class DataAdapter  {
 
   // lame attempt at best effort ... throw away half the data each time 'round
   public void shrinkWrap() {
-    try {
-      _shrinkWrap();
-    } catch (OutOfMemoryError e) {
-      if (rows<=2) throw e;  // Give up
-      rows = rows/2; // try with fewer rows
-      Utils.pln("[RF] Warning: Reduced input size to "+ rows+" rows.");
-      shrinkWrap();
+    freeze();
+    short[][] vss = new short[c_.length][];
+    for( int i=0; i<c_.length-1; i++ )
+      vss[i] = c_[i].shrink(false); // Short-Encode the raw data
+    vss[c_.length-1] = c_[c_.length-1].shrink(true); // Do not encode the classes
+    data_ = new short[ c_.length * rows()];
+    for(int i=0;i<c_.length;i++) {
+      short[] vs = vss[i];
+      for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
     }
   }
-  private short[] _shrinkWrap() {
-      freeze();
-      short[][] vss = new short[c_.length][];
-      for( int i=0; i<c_.length-1; i++ )
-        vss[i] = c_[i].shrink(false); // Short-Encode the raw data
-      vss[c_.length-1] = c_[c_.length-1].shrink(true); // Do not encode the classes
-      data_ = new short[ c_.length * rows()];
-      for(int i=0;i<c_.length;i++) {
-        short[] vs = vss[i];
-        for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
-      }
-      short[] dummy = new short[ c_.length * rows() ];
-      return dummy; // Silly way to check that we have enough memory...
-    }
 
     public int  seed()          { return _seed; }
     public void freeze()        { frozen_=true; }
@@ -95,21 +81,16 @@ class DataAdapter  {
       return numClasses_;
     }
     // By default binning is not supported
-    public int columnClasses(int colIndex) {
+    public int columnArity(int colIndex) {
       return c_[colIndex].smax_;
     }
 
     // by default binning is not supported
-    public int getColumnClass(int rowIndex, int colIndex) {
+    public short getEncodedColumnValue(int rowIndex, int colIndex) {
       return getS(rowIndex, colIndex);
     }
 
-    public  String colName(int c) { return c_[c].name_; }
-    public  float  colMin(int c)  { return c_[c].min_; }
-    public  float  colMax(int c)  { return c_[c].max_; }
-    public  float  colTot(int c)  { return c_[c].tot_; }
     public String[] columnNames() { return columnNames_; }
-    public String   classColumnName() { return classColumnName_; }
     public void addRow(float[] v) {
       if (frozen_) throw new Error("Frozen data set update");
       for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
@@ -127,7 +108,6 @@ class DataAdapter  {
   float[] v_;
 
   float[] _v2o;  // Reverse (short) indices to original floats
-  short smin_ = -1;
   short smax_ = -1;
 
   C(String s, int rows) { name_ = s; v_ = new float[rows]; }
@@ -154,9 +134,8 @@ class DataAdapter  {
   // Sometimes the last column allows a zero class (e.g. iris, poke) and sometimes
   // it's one-based (e.g. covtype).
   short[] shrink( boolean noEncoding ) {
-    smin_ = 0;
-   HashMap<Float,Short> o2v2 = hashCol();
-   //H o2v2 = hashCol2();
+    HashMap<Float,Short> o2v2 = noEncoding? null : hashCol();
+    if (noEncoding) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
     short[] res = new short[rows()];
     int min = (int)min_;
     for(int j=0;j<rows();j++)
@@ -165,9 +144,17 @@ class DataAdapter  {
     return res;
   }
 
+  /** Maximum arity for a column (not a hard limit at this point) */
+  static final short BIN_LIMIT = 1024;
+
   HashMap hashCol() {
-    HashMap<Float,Short> res = new HashMap<Float,Short>(100);
-    for(int i=0; i< rows(); i++) if (!res.containsKey(v_[i])) res.put(v_[i],(short)0);
+    HashMap<Float,Integer> res = new HashMap<Float,Integer>(100);
+    for(int i=0; i< rows(); i++) if (!res.containsKey(v_[i])) res.put(v_[i],1);
+                                 else res.put(v_[i],res.get(v_[i])+1);
+
+    int bin_size = res.size() > BIN_LIMIT ? rows() / BIN_LIMIT : 1;
+if (bin_size > 1) Utils.pln(this + " this column's arity was cut from "+ res.size()+ " to " + BIN_LIMIT);
+
     HashMap<Float,Short> res2 = new HashMap<Float,Short>(res.size());
     Object[] oks = res.keySet().toArray();
     float[] ks = new float[oks.length];
@@ -176,9 +163,15 @@ class DataAdapter  {
     _v2o = new float[ks.length];
     Arrays.sort(ks);
     smax_ = 0;
+    int bin_cnt =0;
     for( float d : ks)  {
       _v2o[smax_] = d;
-      res2.put(d, smax_++);
+      res2.put(d, smax_);
+      bin_cnt += res.get(d);
+      if (bin_cnt > bin_size) {
+        smax_++;
+        bin_cnt=0;
+      }
     }
     return res2;
   }
