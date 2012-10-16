@@ -53,6 +53,11 @@ class Basic(unittest.TestCase):
             h2o.verboseprint("Connecting to:", h)
             hosts.append(h2o.RemoteHost(h, hostsUsername, hostsPassword))
         h2o.upload_jar_to_remote_hosts(hosts)
+
+        # nodesPerHost is per host.
+        # timeout wants to be larger for large numbers of hosts * nodesPerHost
+        # use 60 sec min, 2 sec per node.
+        timeoutSecs = max(60, 2*(len(hosts) * nodesPerHost))
         h2o.build_cloud(nodesPerHost,hosts=hosts)
 
         for n in h2o.nodes:
