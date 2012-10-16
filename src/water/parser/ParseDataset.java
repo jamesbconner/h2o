@@ -5,26 +5,30 @@ import java.io.IOException;
 import java.util.*;
 import java.util.zip.*;
 
+import com.google.common.io.Closeables;
+
 import water.*;
 import water.parser.SeparatedValueParser.Row;
 
-
-// Helper class to parse an entire ValueArray data, and produce a structured
-// ValueArray result.
-//
-// @author <a href="mailto:cliffc@0xdata.com"></a>
-
+/**
+ * Helper class to parse an entire ValueArray data, and produce a structured
+ * ValueArray result.
+ *
+ * @author <a href="mailto:cliffc@0xdata.com"></a>
+ */
 public final class ParseDataset {
-  // Configuration kind for parser
-  static final int PARSE_SVMLIGHT = 101;
-  static final int PARSE_COMMASEP = 102;
-  static final int PARSE_SPACESEP = 103;
+  static enum Compression { NONE, ZIP, GZIP }
 
-  // Compression types.
-  static final int COMPRESSION_UNKNOWN  = -1;
-  static final int COMPRESSION_NONE     = 0;
-  static final int COMPRESSION_ZIP      = 1;
-  static final int COMPRESSION_GZIP     = 2;
+  private static final byte[] XLSX_MAGIC = new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00 };
+  private static final byte[] XLS_MAGIC  = new byte[] { 0x09, 0x08, 0x10, 0x00, 0x00, 0x06, 0x05, 0x00 };
+  private static final int XLS_MAGIC_OFFSET  = 512;
+  private static final int XLSX_MAGIC_OFFSET = 0;
+
+  // Configuration kind for parser
+  private static final int PARSE_SVMLIGHT = 101;
+  private static final int PARSE_COMMASEP = 102;
+  private static final int PARSE_SPACESEP = 103;
+  private static final int PARSE_EXCEL    = 104;
 
   // Index to array returned by method guesss_parser_setup()
   static final int PARSER_IDX = 0;
@@ -36,12 +40,12 @@ public final class ParseDataset {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
 
-    int compression = guess_compression_method(dataset);
+    Compression compression = guess_compression_method(dataset);
     switch (compression) {
-    case COMPRESSION_NONE: parseUncompressed(result, dataset); break;
-    case COMPRESSION_ZIP : parseZipped(result, dataset);       break;
-    case COMPRESSION_GZIP: parseGZipped(result, dataset);      break;
-    default              : throw new Error("Uknown compression of dataset!");
+    case NONE: parseUncompressed(result, dataset); break;
+    case ZIP : parseZipped(result, dataset);       break;
+    case GZIP: parseGZipped(result, dataset);      break;
+    default  : throw new Error("Uknown compression of dataset!");
     }
   }
 
@@ -49,12 +53,30 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) {
     // Guess on the number of columns, build a column array.
-    int [] typeArr = guess_parser_setup(dataset,false);
-    int num_cols = typeArr[COLNUM_IDX];
+    int [] typeArr = guessParserSetup(dataset,false);
+    switch( typeArr[PARSER_IDX] ) {
+    case PARSE_SVMLIGHT:
+      throw new Error("Parsing for SVMLIGHT is unimplemented");
+    case PARSE_EXCEL:
+      parseExcel(result, dataset);
+      break;
+    case PARSE_COMMASEP:
+    case PARSE_SPACESEP:
+      parseSeparated(result, dataset, (byte) typeArr[PARSER_IDX], typeArr[PARSER_IDX]);
+      break;
+    default: H2O.unimpl();
+    }
 
+  }
+
+  public static void parseExcel(Key result, Value dataset) {
+
+  }
+
+  public static void parseSeparated(Key result, Value dataset, byte parseType, int num_cols) {
     DParse1 dp1 = new DParse1();
     dp1._num_cols  = num_cols;
-    dp1._parseType = (byte)typeArr[PARSER_IDX];
+    dp1._parseType = parseType;
     dp1._num_rows  = 0; // No rows yet
 
     dp1.invoke(dataset._key);   // Parse whole dataset!
@@ -65,7 +87,7 @@ public final class ParseDataset {
     String[] names = null;
     try { // to be robust here have a fail-safe mode but log the exception
           // NOTE: we should log such fail-safe situations
-      names = guess_col_names(dataset, num_cols, (byte)typeArr[0]);
+      names = guess_col_names(dataset, num_cols, parseType);
     } catch (Exception e) {
       System.err.println("[parser] Column names guesser failed.");
     }
@@ -108,7 +130,7 @@ public final class ParseDataset {
     // Setup for pass-2, where we do the actual data conversion. Also computes variance.
     DParse2 dp2 = new DParse2();
     dp2._num_cols  = num_cols;
-    dp2._parseType = (byte)typeArr[PARSER_IDX];
+    dp2._parseType = parseType;
     dp2._num_rows  = row_size; // Cheat: pass in rowsize instead of the num_rows (and its non-zero)
     dp2._cols      = dp1._cols;
     dp2._cols_domains = dp1._cols_domains;
@@ -140,7 +162,6 @@ public final class ParseDataset {
     // Plan A: distributed write barrier on atomic unions
     AUBarrier aub = new AUBarrier();
     aub.invoke(result);
-
     // Done building the result ValueArray!
   }
 
@@ -157,13 +178,15 @@ public final class ParseDataset {
       ZipEntry ze = zis.getNextEntry();
       // There is at least one entry in zip file and it is not a directory.
       if (ze != null && !ze.isDirectory()) {
-        key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", zis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //
-      } /* else it is possible to dive into a directory but in this case I would prefere to return error since the ZIP file has not expected format */
-    } catch (IOException e) {
+        key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", zis, Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+      }
+      // else it is possible to dive into a directory but in this case I would
+      // prefer to return error since the ZIP file has not expected format
+    } catch( IOException e ) {
       throw new Error(e);
-    } finally { if (zis != null) try { zis.close(); } catch( IOException e ) { /* Ignore the exception */ } };
+    } finally { Closeables.closeQuietly(zis); }
 
-    if (key!= null) {
+    if( key!= null ) {
       Value uncompressedDataset = DKV.get(key);
       parse(result, uncompressedDataset);
       return ;
@@ -177,12 +200,12 @@ public final class ParseDataset {
     Key key = null;
     try {
       gzis = new GZIPInputStream(dataset.openStream());
-      key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR); //
-    } catch (IOException e) {
+      key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+    } catch( IOException e ) {
       throw new Error(e);
-    } finally { if (gzis != null) try { gzis.close(); } catch( IOException e ) { /* Ignore the exception */ } };
+    } finally { Closeables.closeQuietly(gzis); }
 
-    if (key!= null) {
+    if( key!= null ) {
       Value uncompressedDataset = DKV.get(key);
       parse(result, uncompressedDataset);
       return ;
@@ -220,8 +243,8 @@ public final class ParseDataset {
       double dmax = c._max*c._scale;
       long min = (long)dmin;
       long max = (long)dmax;
-      assert (double)min == dmin; // assert no truncation errors
-      assert (double)max == dmax;
+      assert min == dmin; // assert no truncation errors
+      assert max == dmax;
       long spanl = (max-min);
       // Can I bias with a 4-byte int?
       if( min < Integer.MIN_VALUE || Integer.MAX_VALUE <= min ||
@@ -490,9 +513,9 @@ public final class ParseDataset {
   // Collects columns' domains (in case the column contains string values).
   public static class DParse1 extends DParse {
 
-    // Parse just this chunk: gather min & max
-    public void map( Key key ) {
+    public void prepareForChunk() {
       assert _cols == null;
+      _num_rows = 0;
       // A place to hold the column summaries
       _cols = new ValueArray.Column[_num_cols];
       for( int i=0; i<_num_cols; i++ )
@@ -500,68 +523,69 @@ public final class ParseDataset {
       _cols_domains =  new ColumnDomain[_num_cols];
       for( int i=0; i<_num_cols; i++ )
         _cols_domains[i] = new ColumnDomain();
-      // The parser
-      if( _parseType == PARSE_SVMLIGHT ) throw H2O.unimpl(); // SVMLIGHT
+    }
+
+    public void addRow(Row row) {
+      if( allNaNs(row._fieldVals) ) return; // Row is dead, skip it entirely
+
+      // Row has some valid data, parse away
+      if( row._fieldVals.length > _num_cols ){ // can happen only for svmlight format, enlarge the column array
+        ValueArray.Column [] newCols = new ValueArray.Column[row._fieldVals.length];
+        System.arraycopy(_cols, 0, newCols, 0, _cols.length);
+        for(int i = _cols.length; i < newCols.length; ++i)
+          newCols[i] = new ValueArray.Column();
+        _cols = newCols;
+        _num_cols = row._fieldVals.length;
+      }
+
+      ++_num_rows;
+      for( int i = 0; i < row._fieldVals.length; ++i ) {
+        double d = row._fieldVals[i];
+        if(Double.isNaN(d)) { // Broken data on row
+          _cols[i]._size |=32;  // Flag as seen broken data
+          _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
+          continue;             // But do not muck up column stats
+        }
+        ++_cols[i]._n;
+        // The column contains a number => mark column domain as dead.
+        _cols_domains[i].kill();
+        if( d < _cols[i]._min ) _cols[i]._min = d;
+        if( d > _cols[i]._max ) _cols[i]._max = d;
+        _cols[i]._mean += d;
+
+        // I pass a flag in the _size field if any value is NOT an integer.
+        if( ((int)(d     )) != (d     ) ) _cols[i]._size |= 1; // not int:      52
+        if( ((int)(d*  10)) != (d*  10) ) _cols[i]._size |= 2; // not 1 digit:  5.2
+        if( ((int)(d* 100)) != (d* 100) ) _cols[i]._size |= 4; // not 2 digits: 5.24
+        if( ((int)(d*1000)) != (d*1000) ) _cols[i]._size |= 8; // not 3 digits: 5.239
+        if( ((float)d)      !=  d       ) _cols[i]._size |=16; // not float   : 5.23912f
+      }
+    }
+
+    public void finishChunk(int idx) {
+      // Kill column domains which contain too many different values.
+      for( ColumnDomain dict : _cols_domains ) {
+        if (dict.size() > ColumnDomain.DOMAIN_MAX_VALUES) dict.kill();
+      }
+
+      // Also pass along the rows-per-chunk
+      _rows_chk = new int[idx+1];
+      _rows_chk[idx] = _num_rows;
+      for( int i = 0; i < _num_cols; ++i ) _cols[i]._mean /= _cols[i]._n;
+      if( _num_cols != _cols.length )
+        _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
+    }
+
+    // Parse just this chunk: gather min & max
+    public void map( Key key ) {
+      prepareForChunk();
+
       SeparatedValueParser csv = new SeparatedValueParser(key,
           _parseType == PARSE_COMMASEP ? ',' : ' ', _cols.length, _cols_domains);
-
-      // Parse row-by-row until the whole file is parsed
-      int num_rows = 0;
       for( Row row : csv ) {
-        if( allNaNs(row._fieldVals) ) continue; // Row is dead, skip it entirely
-        // Row has some valid data, parse away
-        if( row._fieldVals.length > _num_cols ){ // can happen only for svmlight format, enlarge the column array
-          ValueArray.Column [] newCols = new ValueArray.Column[row._fieldVals.length];
-          System.arraycopy(_cols, 0, newCols, 0, _cols.length);
-          for(int i = _cols.length; i < newCols.length; ++i)
-            newCols[i] = new ValueArray.Column();
-          _cols = newCols;
-          _num_cols = row._fieldVals.length;
-        }
-        num_rows++;
-        for( int i=0; i<row._fieldVals.length; i++ ) {
-          double d = row._fieldVals[i];
-          if(Double.isNaN(d)) { // Broken data on row
-            _cols[i]._size |=32;  // Flag as seen broken data
-            _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
-            continue;             // But do not muck up column stats
-          }
-          ++_cols[i]._n;
-          // The column contains a number => mark column domain as dead.
-          _cols_domains[i].kill();
-          if( d < _cols[i]._min ) _cols[i]._min = d;
-          if( d > _cols[i]._max ) _cols[i]._max = d;
-          _cols[i]._mean += d;
-
-          // I pass a flag in the _size field if any value is NOT an integer.
-          if( (double)((int)(d     )) != (d     ) ) _cols[i]._size |= 1; // not int:      52
-          if( (double)((int)(d*  10)) != (d*  10) ) _cols[i]._size |= 2; // not 1 digit:  5.2
-          if( (double)((int)(d* 100)) != (d* 100) ) _cols[i]._size |= 4; // not 2 digits: 5.24
-          if( (double)((int)(d*1000)) != (d*1000) ) _cols[i]._size |= 8; // not 3 digits: 5.239
-          if( (double)((float)d)      !=  d       ) _cols[i]._size |=16; // not float   : 5.23912f
-        }
+        addRow(row);
       }
-      // Do not consider column domain dictionaries which already contains to many different values.
-      for(int i = 0; i < _cols_domains.length; i++) {
-        ColumnDomain dict = _cols_domains[i];
-        if (dict.size() > ParseDataset.ColumnDomain.DOMAIN_MAX_VALUES) { // column domain contains too many unique values => drop the column domain
-          _cols_domains[i].kill();
-        }
-      }
-
-      // Actually: no rows is OK if parsing crappy stuff by accident.
-      // Better to return a no-row-result than asserting out.
-      //assert num_rows > 0;   // Parsing no rows generally means a broken parser
-      _num_rows = num_rows;
-      // Also pass along the rows-per-chunk
-      int idx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
-      _rows_chk = new int[idx+1];
-      _rows_chk[idx] = num_rows;
-      for(int i = 0; i < _num_cols; ++i)
-        _cols[i]._mean /= _cols[i]._n;
-      if(_num_cols != _cols.length){
-        _cols = Arrays.copyOfRange(_cols, 0, _num_cols);
-      }
+      finishChunk(key.user_allowed() ? 0 : ValueArray.getChunkIndex(key));
     }
 
     // Combine results
@@ -836,28 +860,37 @@ public final class ParseDataset {
 
 
   // Guess
-  private static int guess_compression_method(Value dataset) {
+  private static Compression guess_compression_method(Value dataset) {
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
 
     // Look for ZIP magic
     if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
-      return COMPRESSION_ZIP;
+      return Compression.ZIP;
     if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
-      return COMPRESSION_GZIP;
-
-    return COMPRESSION_NONE;
+      return Compression.GZIP;
+    return Compression.NONE;
   }
 
   // ---
   // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
   // the number of columns for svm light is not reliable as it only relies on info from the first chunk
-  private static int[] guess_parser_setup(Value dataset, boolean parseFirst ) {
+  private static int[] guessParserSetup(Value dataset, boolean parseFirst ) {
     // Best-guess on count of columns and separator.  Skip the 1st line.
     // Count column delimiters in the next line. If there are commas, assume file is comma separated.
     // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
+
+    if( b.length > XLS_MAGIC_OFFSET + XLS_MAGIC.length &&
+        Arrays.equals(XLS_MAGIC, Arrays.copyOfRange(b, XLS_MAGIC_OFFSET, XLS_MAGIC.length))) {
+      return new int[] { PARSE_EXCEL, 0 };
+    }
+    if( b.length > XLSX_MAGIC_OFFSET + XLSX_MAGIC.length &&
+        Arrays.equals(XLSX_MAGIC, Arrays.copyOfRange(b, XLSX_MAGIC_OFFSET, XLSX_MAGIC.length))) {
+      return new int[] { PARSE_EXCEL, 0 };
+    }
+
     int i=0;
     // Skip all leading whitespace
     while( i<b.length && Character.isWhitespace(b[i]) ) i++;
@@ -906,7 +939,7 @@ public final class ParseDataset {
       }
     }
     // If no columns, and skipped first row - try again parsing 1st row
-    if( cols == 0 && parseFirst == false ) return guess_parser_setup(dataset,true);
+    if( cols == 0 && parseFirst == false ) return guessParserSetup(dataset,true);
     return new int[]{commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols};
   }
 
