@@ -51,10 +51,15 @@ public abstract class MRVectorUnaryOperator extends MRTask {
     // get the bits to which we will write
     long chunkOffset = ValueArray.getOffset(key);
     long row = chunkOffset / result_.row_size();
+    // now if we are last chunk, number of rows is all remaining
+    // otherwise it is the chunk_size() / row_size
     long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
-    chunkRows = Math.min(result_.num_rows() - row, chunkRows); // now how many rows we have
+    if (row/chunkRows == result_.chunks()-1)
+      chunkRows = result_.num_rows()-row;
     byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
     // now calculate the results
+    System.out.println("Calculating rows from "+row+" to "+(row+chunkRows)+" into chunkOffset " + chunkOffset);
+    System.out.println("  chunk rows: "+chunkRows+" , chunk size: "+bits.length);
     for (int i = 0; i < chunkRows; ++i) {
       double opnd = opnd_.datad(row+i,col_);
       double result = operator(opnd);

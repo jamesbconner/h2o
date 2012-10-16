@@ -282,6 +282,8 @@ class StringColumnSelector extends Expr {
   @Override public Result eval() throws EvaluationException {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
+    if (v==null) 
+      throw new EvaluationException(_pos,"Key "+result._key.toString()+" not found");
     for (int i = 0; i < v.num_cols(); ++i) {
       if (v.col_name(i).equals(_colName)) {
         result.setColIndex(i);
