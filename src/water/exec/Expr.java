@@ -151,6 +151,8 @@ public abstract class Expr {
       what._copied = true; // TODO do we need to sync this? 
     } else {
       ValueArray v = (ValueArray) DKV.get(what._key);
+      if (v == null)
+        throw new EvaluationException(pos, "Key "+what._key+" not found");
       byte[] bits = v.get();
       ValueArray r = new ValueArray(to,MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
       DKV.put(to,r);
