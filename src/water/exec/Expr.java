@@ -171,6 +171,58 @@ public abstract class Expr {
     }
   }
   
+  /** Calculates the second pass of column metadata for the given key. 
+   * 
+   * Assumes that the min, max and mean are already calculated. gets the sigma
+   * 
+   * @param key 
+   */
+  public static void calculateSigma(final Key key, int col) {
+    SigmaCalc sc = new SigmaCalc(key,col);
+    sc.invoke(key);
+    byte[] bits = DKV.get(key).get();
+    ValueArray va = new ValueArray(key,MemoryManager.arrayCopyOfRange(bits,0,bits.length));
+    va.set_col_sigma(col,sc.sigma());
+    DKV.put(key,va);
+  }
+            
+  static class SigmaCalc extends MRTask {
+      public final Key _key;
+      
+      public final int _col;
+      
+      
+      public double _sigma; // std dev
+      
+      @Override public void map(Key key) {
+        ValueArray va = (ValueArray) DKV.get(_key);
+        double mean = va.col_mean(_col);
+        byte[] bits = DKV.get(key).get();
+        int rowSize = va.row_size();
+        for (int i = 0; i < bits.length/rowSize; ++i) {
+          double x = va.datad(bits, i, rowSize, _col);
+          _sigma += (x - mean) * (x - mean);
+        }
+      }
+
+      @Override public void reduce(DRemoteTask drt) {
+        SigmaCalc other = (SigmaCalc) drt;
+        _sigma += other._sigma;
+      }
+      
+      public SigmaCalc(Key key, int col) { // constructor
+        _key = key;
+        _col = col;
+        _sigma = 0;
+      }
+      
+      public double sigma() {
+        ValueArray va = (ValueArray) DKV.get(_key);
+        return Math.sqrt(_sigma / va.num_rows());
+      }
+    
+  }
+  
 }
 
 // =============================================================================
@@ -205,7 +257,6 @@ class FloatLiteral extends Expr {
   }
 }
 
-
 // =============================================================================
 // AssignmentOperator 
 // =============================================================================
@@ -224,6 +275,7 @@ class AssignmentOperator extends Expr {
   @Override public Result eval() throws EvaluationException {
     Result rhs = _rhs.eval();
     Expr.assign(_pos, _lhs,rhs);
+    calculateSigma(_lhs,0);
     rhs.dispose();
     return Result.permanent(_lhs);
   }
