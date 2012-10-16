@@ -416,7 +416,7 @@ class BinaryOperator extends Expr {
     op.invoke(res._key);
     C._min = op.min_;
     C._max = op.max_;
-    result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
+    result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",resultRows,8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();
     r.dispose();
