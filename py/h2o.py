@@ -331,7 +331,7 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=0, singlethreaded=0):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0):
         # FIX! add gini= . is it 0 or 1? Enum is ENTROPY, GINI
         # dataKey and treesKey are .hex
         # add seed=
