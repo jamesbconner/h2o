@@ -1,6 +1,7 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
 import water.*;
+import java.util.HashSet;
 
 /**
  * Distributed RandomForest
@@ -27,9 +28,8 @@ public class DRF extends water.DRemoteTask {
     }
   }
 
-  private static void validateInputData(ValueArray ary){
-    final int num_cols = ary.num_cols();
-    final int classes = (int)(ary.col_max(num_cols-1) - ary.col_min(num_cols-1))+1;
+  private void validateInputData(ValueArray ary){
+    final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
     // There is no point in running Rf when all the training data have the same
     // class, however it is currently failing the test/build
     if( !(2 <= classes && classes < 255 ) )
@@ -37,7 +37,6 @@ public class DRF extends water.DRemoteTask {
   }
 
   public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol) {
-    validateInputData(ary);
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -49,6 +48,7 @@ public class DRF extends water.DRemoteTask {
     drf._singlethreaded = singlethreaded;
     drf._seed = seed;
     Tree.THREADED = !singlethreaded;
+    drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
     if( singlethreaded ) drf.invoke(ary._key);
@@ -108,9 +108,28 @@ public class DRF extends water.DRemoteTask {
     short[] complement = sample ? new short[d.rows()] : null;
     Data t = sample ? d.sampleWithReplacement(.666, complement) : d;
     _validation = sample ? t.complement(d, complement) : null;
+
+    // Figure the number of trees to make locally, so the total hits ntrees.
+    // Divide equally amongst all the nodes that actually have data.
+    // First: compute how many nodes have data.
+    ValueArray ary = (ValueArray)DKV.get(_arykey);
+    final long num_chunks = ary.chunks();
+    final int num_nodes = H2O.CLOUD.size();
+    HashSet<H2ONode>nodes = new HashSet();
+    for( long i=0; i<num_chunks; i++ ) {
+      nodes.add(ary.chunk_get(i).home_node());
+      if( nodes.size() == num_nodes ) // All of them?
+        break;                        // Done
+    }
+    // Give each Node ntrees/#nodes worth of trees, rounding as needed.
+    int ntrees = _ntrees/nodes.size(); // Rounded down; every Node does at least this many
+    // If your node index is small, you do 1 more tree as needed.
+    if( H2O.CLOUD.nidx(H2O.SELF) < (_ntrees - ntrees*nodes.size()) )
+      ntrees++;
+
     // Make a single RandomForest to that does all the tree-construction work.
-    Utils.pln("[RF] Building trees");
-    _rf = new RandomForest(this, t, _ntrees, _depth, 0.0, StatType.values()[_stat], _singlethreaded );
+    Utils.pln("[RF] Building "+ntrees+" trees");
+    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat], _singlethreaded );
     tryComplete();
   }
 
