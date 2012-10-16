@@ -86,7 +86,6 @@ public class RFView extends H2OPage {
     // de-serialize the Confusion from the H2O Store.
     Confusion confusion = Confusion.make( model, ary._key, classcol );
 
-
     // Display the confusion-matrix table here
     // First the title line
     RString response = new RString(html());
@@ -131,7 +130,9 @@ public class RFView extends H2OPage {
       ttots += ctots[i];
       sb.append("<td>").append(ctots[i]);
     }
-    sb.append(String.format("<td>%5.3f = %d / %d",(double)terrs/ttots,terrs,ttots));
+    sb.append("<td>");
+    if( ttots != 0 )
+      sb.append(String.format("%5.3f = %d / %d",(double)terrs/ttots,terrs,ttots));
     row.replace("crow",sb.toString());
     row.append();
 

@@ -75,8 +75,9 @@ public class Confusion extends MRTask {
     }
 
     Confusion C = new Confusion(model,datakey,classcol);
-    // Compute on it: count votes
-    C.invoke(datakey);
+
+    if( model.size() > 0 )
+      C.invoke(datakey);        // Compute on it: count votes
     // Output to cloud
     Stream s = new Stream(C.wire_len());
     C.write(s);
