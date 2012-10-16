@@ -15,7 +15,7 @@ public class UDPPaxosNack extends UDP {
   }
 
   // Build an Nack packet.  It only has the proposal to nack
-  static byte[] BUF = new byte[Paxos.old_proposal_off];
+  static byte[] BUF = new byte[16];
   static void build_and_multicast( long proposal, H2ONode proposer ) {
     BUF[0] = (byte)UDP.udp.paxos_nack.ordinal();
     Paxos.set_promise(BUF, proposal);

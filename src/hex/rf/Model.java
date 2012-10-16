@@ -118,7 +118,7 @@ public class Model extends RemoteTask {
     public double avg() { return total_ / count_; }
     public int count()  { return count_; }
     @Override
-    public String toString() { return count_==0 ? " / / " : min_+" / "+avg()+" / "+max_; }
+    public String toString() { return count_==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",min_,avg(),max_); }
   }
 
   public void invoke( Key args ) { throw H2O.unimpl(); }

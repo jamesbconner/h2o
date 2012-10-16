@@ -136,7 +136,8 @@ public abstract class Expr {
       Value val = new Value(key2,bits);
       DKV.put(key2,val);
       // The metadata
-      C._min = C._max = what._const;
+      C._min = C._max = C._mean = what._const;
+      C._sigma = 0;
       ValueArray ary = ValueArray.make(to,Value.ICE,to,Double.toString(what._const),1,8,CC);
       DKV.put(to,ary);
     } else if (what.canShallowCopy()) {
@@ -201,19 +202,6 @@ class FloatLiteral extends Expr {
 
   @Override public Expr.Result eval() throws EvaluationException {
     return Expr.Result.scalar(_d);
-/*  Expr.Result res = Expr.Result.temporary();
-    // The 1 tiny arraylet
-    Key key2 = ValueArray.make_chunkkey(res._key,0);
-    byte[] bits = new byte[8];
-    UDP.set8d(bits,0,_d);
-    Value val = new Value(key2,bits);
-    DKV.put(key2,val);
-
-    // The metadata
-    C._min = C._max = _d;
-    ValueArray ary = ValueArray.make(res._key,Value.ICE,res._key,Double.toString(_d),1,8,CC);
-    DKV.put(res._key,ary);
-    return res; */
   }
 }
 
@@ -336,6 +324,7 @@ class UnaryOperator extends Expr {
     op.invoke(res._key);
     C._min = op.min_;
     C._max = op.max_;
+    C._mean = op.tot_ / opnd.num_rows();
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",opnd.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     o.dispose();
@@ -418,6 +407,7 @@ class BinaryOperator extends Expr {
     op.invoke(res._key);
     C._min = op.min_;
     C._max = op.max_;
+    C._mean = op.tot_ / resultRows;
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",resultRows,8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();
@@ -450,6 +440,7 @@ class BinaryOperator extends Expr {
     op.invoke(res._key);
     C._min = op.min_;
     C._max = op.max_;
+    C._mean = op.tot_ / vr.num_rows();
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vr.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();
@@ -482,6 +473,7 @@ class BinaryOperator extends Expr {
     op.invoke(res._key);
     C._min = op.min_;
     C._max = op.max_;
+    C._mean = op.tot_ / vl.num_rows();
     result = ValueArray.make(res._key,Value.ICE,res._key,"temp result",vl.num_rows(),8,CC);
     DKV.put(res._key,result); // reinsert with min / max
     l.dispose();

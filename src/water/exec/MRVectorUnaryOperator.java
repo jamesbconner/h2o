@@ -20,6 +20,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
   
   double min_ = Double.MAX_VALUE;
   double max_ = -Double.MAX_VALUE;
+  double tot_ = 0;
 
   /** Creates the binary operator task for the given keys. 
    * 
@@ -58,8 +59,6 @@ public abstract class MRVectorUnaryOperator extends MRTask {
       chunkRows = result_.num_rows()-row;
     byte[] bits = new byte[(int)chunkRows*8]; // create the byte array
     // now calculate the results
-    System.out.println("Calculating rows from "+row+" to "+(row+chunkRows)+" into chunkOffset " + chunkOffset);
-    System.out.println("  chunk rows: "+chunkRows+" , chunk size: "+bits.length);
     for (int i = 0; i < chunkRows; ++i) {
       double opnd = opnd_.datad(row+i,col_);
       double result = operator(opnd);
@@ -68,6 +67,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
         min_ = result;
       if (result>max_)
         max_ = result;
+      tot_ += result;
     }
     // we have the bytes now, just store the value
     Value val = new Value(key,bits);
@@ -82,6 +82,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
       min_ = other.min_;
     if (other.max_ > max_)
       max_ = other.max_;
+    tot_ += other.tot_;
   }
 
 }
