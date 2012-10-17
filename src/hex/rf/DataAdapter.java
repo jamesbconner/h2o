@@ -17,7 +17,11 @@ class DataAdapter  {
   private final int _seed;
   private int rows;
 
-  DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
+  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
+    this(name,columns,classNm, new String[0],rows,data_id,seed,numClasses);
+  }
+
+  DataAdapter(String name, Object[] columns, String classNm, String[] ignores, int rows, int data_id, int seed, int numClasses) {
     _seed = seed+data_id;
     name_=name;
     c_ = new C[columns.length];
