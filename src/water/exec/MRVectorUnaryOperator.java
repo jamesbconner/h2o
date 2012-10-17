@@ -100,6 +100,18 @@ class UnaryMinus extends MRVectorUnaryOperator {
 }
 
 // =============================================================================
+// DeepColumnAssignment 
+// =============================================================================
+
+class DeepColumnAssignment extends MRVectorUnaryOperator {
+  
+  public DeepColumnAssignment(Key key, Key result, int col) { super(key, result, col); }
+  
+  @Override
+  public double operator(double opnd) { return opnd; }
+}
+
+// =============================================================================
 // ParametrizedMRVectorUnaryOperator
 // =============================================================================
 /**
@@ -244,3 +256,5 @@ class RightDiv extends ParametrizedMRVectorUnaryOperator {
   @Override
   public double operator(double opnd) { return _param / opnd; }
 }
+
+

@@ -32,14 +32,14 @@ public abstract class Expr {
     private Result(Key k, int refCount) {
       _key = k;
       _refCount = refCount;
-      _colIndex = 0;
+      _colIndex = -1;
       _const = 0;
     }
 
     private Result(double value) {
       _key = null;
       _refCount = 1;
-      _colIndex = 0;
+      _colIndex = -1;
       _const = value;
     }
 
@@ -130,6 +130,19 @@ public abstract class Expr {
       ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
       DKV.put(to, r);
       what._copied = true; // TODO do we need to sync this? 
+    } else if (what.colIndex()!=-1) { // copy in place of a single column only
+      ValueArray v = (ValueArray) DKV.get(what._key);
+      if( v == null )
+        throw new EvaluationException(pos, "Key " + what._key + " not found");
+      int col = what.colIndex();
+      C._min = v.col_min(col);
+      C._max = v.col_max(col);
+      C._mean = v.col_mean(col);
+      C._sigma = v.col_sigma(col);
+      ValueArray ary = ValueArray.make(to, Value.ICE, to, to.toString(), v.num_rows(), 8, CC);
+      DKV.put(to,ary);
+      DeepColumnAssignment da = new DeepColumnAssignment(what._key,to, col);
+      da.invoke(to);
     } else {
       ValueArray v = (ValueArray) DKV.get(what._key);
       if( v == null )
@@ -347,6 +360,11 @@ class UnaryOperator extends Expr {
   private Result evalVect(Result o) throws EvaluationException {
     Result res = Result.temporary();
     ValueArray opnd = getValueArray(o._key);
+    if (o.colIndex() == -1) {
+      o.setColIndex(0);
+      if (opnd.num_cols()!=1)
+        throw new EvaluationException(_pos, "Column must be specified for the operand");
+    }
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
     ValueArray result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", opnd.num_rows(), 8, CC);
@@ -416,6 +434,16 @@ class BinaryOperator extends Expr {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
     ValueArray vr = getValueArray(r._key);
+    if (l.colIndex() == -1) {
+      l.setColIndex(0);
+      if (vl.num_cols()!=1)
+        throw new EvaluationException(_pos, "Column must be specified for left operand");
+    }
+    if (r.colIndex() == -1) {
+      r.setColIndex(0);
+      if (vr.num_cols()!=1)
+        throw new EvaluationException(_pos, "Column must be specified for right operand");
+    }
     long resultRows = Math.max(vl.num_rows(), vr.num_rows());
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
@@ -452,6 +480,11 @@ class BinaryOperator extends Expr {
   private Result evalConstVect(final Result l, Result r) throws EvaluationException {
     Result res = Result.temporary();
     ValueArray vr = getValueArray(r._key);
+    if (r.colIndex() == -1) {
+      r.setColIndex(0);
+      if (vr.num_cols()!=1)
+        throw new EvaluationException(_pos, "Column must be specified for right operand");
+    }
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpAdd:
@@ -485,6 +518,11 @@ class BinaryOperator extends Expr {
   private Result evalVectConst(Result l, final Result r) throws EvaluationException {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
+    if (l.colIndex() == -1) {
+      l.setColIndex(0);
+      if (vl.num_cols()!=1)
+        throw new EvaluationException(_pos, "Column must be specified for left operand");
+    }
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpAdd:

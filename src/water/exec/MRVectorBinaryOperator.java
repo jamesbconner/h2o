@@ -52,7 +52,6 @@ public abstract class MRVectorBinaryOperator extends MRTask {
     ValueArray left_ = (ValueArray) DKV.get(_leftKey);
     ValueArray right_ = (ValueArray) DKV.get(_rightKe);
     ValueArray result_ = (ValueArray) DKV.get(_resultKey);
-
     // get the bits to which we will write
     long chunkOffset = ValueArray.getOffset(key);
     long row = chunkOffset / result_.row_size();
