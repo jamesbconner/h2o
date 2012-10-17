@@ -262,6 +262,7 @@ public class ParserTest {
         "bar|ten|two\n",
         "bar|   12|three\n",
         "foobar|14|one\n",
+        "foo||two\n",
     };
     double[][] expDouble = new double[][] {
         d(NaN,   2, NaN), // preserve order
@@ -271,6 +272,7 @@ public class ParserTest {
         d(NaN, NaN, NaN),
         d(NaN,  12, NaN),
         d(NaN,  14, NaN),
+        d(NaN,  NaN, NaN),
     };
 
     String[][] expString = new String[][] {
@@ -281,6 +283,7 @@ public class ParserTest {
         s("bar",  "ten", "two"),
         s("bar",   null, "three"),
         s("foobar",null, "one"),
+        s("foo",   null, "two"),
     };
 
     String expDomain[][] = new String[][] {

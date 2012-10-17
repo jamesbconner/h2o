@@ -962,6 +962,11 @@ public final class ParseDataset {
     return (num > (num_cols>>2)) ? names : null;
   }
 
+  // Not an Enum
+  private static boolean NotanEnum(String s) {
+    return s == null || "".equals(s);
+  }
+
   private static String NaN( byte[] b, int idx, int i ) {
     if( idx == -1 ) return "";
     String s = new String(b,idx,i-idx).trim();
