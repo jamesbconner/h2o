@@ -1,16 +1,17 @@
 package water.parser;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.zip.*;
 
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-
-import com.google.common.io.Closeables;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import water.*;
 import water.parser.SeparatedValueParser.Row;
+
+import com.google.common.io.Closeables;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured
@@ -37,10 +38,17 @@ public final class ParseDataset {
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
 
     try {
-      if( isXlsDocument(dataset) ) {
-        parseExcel(result, dataset);
+      try {
+        // this bails fast, as it checks initial magic bytes
+        parseExcel97(result, dataset);
         return;
-      }
+      } catch( Exception e ) { }
+
+      try {
+        parseExcel2000(result, dataset);
+        return;
+      } catch( Exception e ) { }
+
 
       Compression compression = guessCompressionMethod(dataset);
       switch (compression) {
@@ -71,7 +79,95 @@ public final class ParseDataset {
 
   }
 
-  public static void parseExcel(Key result, Value dataset) throws IOException {
+  public static void parseExcel2000(Key result, Value dataset) throws IOException {
+    final ParseState state = new ParseState();
+    state._num_rows  = 0; // No rows yet
+    state._num_cols  = 0; // No rows yet
+
+    String[] names = null;
+    double[] curNums = null;
+    String[] curStrs = null;
+
+    XSSFWorkbook wb = new XSSFWorkbook(dataset.openStream());
+    for( XSSFSheet sheet : wb ) {
+      for(org.apache.poi.ss.usermodel.Row r : sheet) {
+        if( curNums == null ) {
+          curNums = new double[r.getLastCellNum()+1];
+          curStrs = new String[r.getLastCellNum()+1];
+        }
+        Arrays.fill(curNums, Double.NaN);
+        Arrays.fill(curStrs, null);
+
+        for( int i = 0; i < curNums.length; ++i ) {
+          Cell c = r.getCell(i, org.apache.poi.ss.usermodel.Row.RETURN_BLANK_AS_NULL);
+          if( c != null ) {
+            try {
+              curNums[i] = c.getNumericCellValue();
+            } catch( IllegalStateException e ) {
+              curStrs[i] = c.getStringCellValue();
+            }
+          }
+        }
+
+        if( state._num_cols == 0 ) {
+          names = curStrs.clone();
+          state._num_cols = curNums.length;
+          state.prepareForStatsGathering();
+        }
+        if( allNaNs(curNums) ) continue;
+        state.addRowToStats(new Row(curNums, curStrs));
+      }
+    }
+    state.finishStatsGathering(0);
+
+    int num = 0;
+    if( names != null ) {
+      for( String n : names ) if( n != null ) ++num;
+      names = num > names.length/2 ? names : null;
+      state.assignColumnNames(names);
+    }
+    state.filterColumnsDomains();
+    state.computeColumnSize();
+
+    final int row_size = state.computeOffsets();
+    final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
+    int off = 0;
+    final double[] sumerr = new double[state._num_cols];
+    final HashMap<String,Integer>[] columnIndexes = state.createColumnIndexes();
+    for( XSSFSheet sheet : wb ) {
+      for(org.apache.poi.ss.usermodel.Row r : sheet) {
+        Arrays.fill(curNums, Double.NaN);
+        Arrays.fill(curStrs, null);
+        for( int i = 0; i < curNums.length; ++i ) {
+          Cell c = r.getCell(i, org.apache.poi.ss.usermodel.Row.RETURN_BLANK_AS_NULL);
+          if( c != null ) {
+            try {
+              curNums[i] = c.getNumericCellValue();
+            } catch( IllegalStateException e ) {
+              curStrs[i] = c.getStringCellValue();
+            }
+          }
+        }
+
+        if( allNaNs(curNums) ) continue;
+        state.addRowToBuffer(buf, off, sumerr, new Row(curNums, curStrs), columnIndexes);
+        off += row_size;
+      }
+    }
+    state.normalizeVariance(sumerr);
+
+    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf);
+
+    // Now make the structured ValueArray & insert the main key
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
+        state._num_rows, row_size, state._cols);
+    UKV.put(result,ary);
+    // Plan A: distributed write barrier on atomic unions
+    AUBarrier aub = new AUBarrier();
+    aub.invoke(result);
+  }
+
+  public static void parseExcel97(Key result, Value dataset) throws IOException {
     final ParseState state = new ParseState();
     state._num_rows  = 0; // No rows yet
     state._num_cols  = 0; // No rows yet
