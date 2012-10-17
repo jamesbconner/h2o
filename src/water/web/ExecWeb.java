@@ -19,8 +19,8 @@ public class ExecWeb extends H2OPage {
     try {
       Key k = water.exec.Exec.exec(x);
       res.addProperty("Expr", x);
-      res.addProperty("ResultKey", k.toString());
-    } catch (PositionedException e) {
+      addProperty(res,"ResultKey", k);
+    } catch( PositionedException e ) {
       res.addProperty("Expr", x);
       res.addProperty("Error", e.reportHTML(x));      
     }
@@ -35,7 +35,7 @@ public class ExecWeb extends H2OPage {
     if (json.has("Error")) {
       return query.toString() + error("<span style='font-family:monospace'>"+json.getAsJsonPrimitive("Error").getAsString()+"</span>");
     } else {
-      args.put("Key",encode(Key.make(json.getAsJsonPrimitive("ResultKey").getAsString())));
+      args.put("Key",Key.make(json.get("ResultKeyHref").getAsString()));
       return  query.toString() + new Inspect().serveImpl(server,args,sessionId);
     }
   }
