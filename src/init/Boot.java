@@ -218,8 +218,8 @@ public class Boot extends ClassLoader {
 
   // Returns true if this method pre-exists *in the local class*.
   // Returns false otherwise, which requires a local method to be injected
-  private static boolean hasExisting( String methname, String methsig, CtMethod ccms[] ) throws NotFoundException {
-    for( CtMethod cm : ccms )
+  private static boolean hasExisting( String methname, String methsig, CtBehavior ccms[] ) throws NotFoundException {
+    for( CtBehavior cm : ccms )
       if( cm.getName     ().equals(methname) &&
           cm.getSignature().equals(methsig ) )
         return true;
@@ -332,6 +332,17 @@ public class Boot extends ClassLoader {
               "  %s = water.Key.read(s);\n",
               "  %s = s.getLen2Str();\n",
               "}");
+
+    // Build a null-ary constructor if needed
+    String clzname = cc.getSimpleName();
+    if( !hasExisting(clzname,"()V",cc.getConstructors()) ) {
+      String body = "public "+clzname+"() { }";
+      cc.addConstructor(CtNewConstructor.make(body,cc));
+    }
+
+    // Make the class public
+    cc.setModifiers(javassist.Modifier.setPublic(cc.getModifiers()));
+
     return cc.toClass(this);
   }
 
