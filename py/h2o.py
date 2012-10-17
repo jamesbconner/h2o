@@ -25,6 +25,7 @@ def unit_main():
 verbose = False
 ipaddr = None
 use_hosts = False
+debugger=False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
@@ -32,17 +33,17 @@ def parse_our_args():
     parser.add_argument('--verbose','-v', help="increased output", action="store_true")
     parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
     parser.add_argument('--use_hosts', '-uh', help="create node_count H2Os on each host in the hosts list", action="store_true")
+    parser.add_argument('--debugger', help="Launch java processes with java debug attach mechanisms", action="store_true")
     
     
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global verbose
-    global ipaddr
-    global use_hosts
+    global verbose, ipaddr, use_hosts, debugger
     verbose = args.verbose
     ipaddr = args.ip
     use_hosts = args.use_hosts
+    debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     sys.argv[1:] = args.unittest_args
@@ -499,9 +500,12 @@ class H2O(object):
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=False):
+        use_debugger=None):
+        if use_debugger is None: use_debugger = debugger
+        if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
+
         self.port = port
-        self.addr = use_this_ip_addr or get_ip_address()
+        self.addr = use_this_ip_addr
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output

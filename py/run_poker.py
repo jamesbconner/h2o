@@ -2,9 +2,11 @@ import h2o, h2o_cmd
 import psutil
 
 h2o.clean_sandbox()
+h2o.parse_our_args()
+
 l = None
 try:
-    l = h2o.LocalH2O(capture_output=False, use_debugger=True)
+    l = h2o.LocalH2O(capture_output=False)
     print 'Stabilize'
     h2o.stabilize_cloud(l, 1)
     print 'Random Forest'
