@@ -163,21 +163,37 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None,
 
     node_list = []
     try:
+
+        # we're going to always create the flatfile. 
+        # Used for all remote cases now. (per sri)
+        pff_name = 'pytest_flatfile-%s' %getpass.getuser()
+        pff = open(pff_name, "w+")
+        pff.write("# Created by build_cloud\n")
+        pff.write("# " + str(datetime.datetime.now()) + "\n")
+
         # if no hosts list, use psutil method on local host.
         totalNodes = 0
         if hosts is None:
             hostCount = 1
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
-                node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
+                newNode = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
+                node_list.append(newNode)
                 totalNodes += 1
+                # dont need the name in front
+                # FIX! this format might change?
+                pff.write("/" + newNode.addr + ":" + str(newNode.port) + "\n")
         else:
             hostCount = len(hosts)
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
-                    node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
+                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
+                    node_list.append(newNode)
                     totalNodes += 1
+                    pff.write("/" + newNode.addr + ":" + str(newNode.port) + "\n")
+
+        pff.close()
 
         verboseprint("Attempting Cloud stabilize of", totalNodes, "nodes on", hostCount, "hosts")
         start = time.time()
@@ -483,6 +499,12 @@ class H2O(object):
                 retryDelaySecs=0.1) # but normally it is very fast
 
     def get_args(self):
+        #! FIX! is this used for both local and remote? 
+        # I guess it doesn't matter if we use flatfile for both now
+
+        # FIX! flatfile seems to not help multihost (if multicast issues)
+        # and breaks single host? leave out for now
+        #    '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         args = [ 'java' ]
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']

@@ -16,17 +16,30 @@ class Basic(unittest.TestCase):
         global hostsPassword
         global hostsList
 
+        # UPDATE: all multi-machine testing will pass list of IP and base port addresses to H2O
+        # means we won't realy on h2o self-discovery of cluster
+
         # 4 was bad
-        nodesPerHost = 1
+        nodesPerHost = 2
         hostsUsername = '0xdiag'
         hostsPassword = '0xdiag'
 
-        if (1==1):
+        if (1==0):
             hostsList = [
-                '192.168.1.17',
+                '192.168.0.37',
+                '192.168.0.33',
+                ]
+        elif (1==1):
+            hostsList = [
                 '192.168.1.20',
+                '192.168.1.17',
                 '192.168.1.160',
                 '192.168.1.161',
+                ]
+        elif (1==1):
+            hostsList = [
+                '192.168.1.20',
+                '192.168.1.17',
                 ]
         elif (1==1):
             hostsList = [
@@ -41,6 +54,7 @@ class Basic(unittest.TestCase):
                 '192.168.0.35',
                 '192.168.0.37',
                 ]
+
         #*************************************
         hosts = []
         for h in hostsList:
@@ -97,7 +111,7 @@ class Basic(unittest.TestCase):
         # always match the run below!
         print "\nGenerating some large row count parity datasets in", SYNDATASETS_DIR,
         print "\nmay be a minute.........."
-        for x in xrange (161,200,20):
+        for x in xrange (161,240,20):
             # more rows!
             y = 10000 * x
             # Have to split the string out to list for pipe
@@ -115,7 +129,7 @@ class Basic(unittest.TestCase):
         # Let's try it twice!
         for trials in xrange(1,7):
             trees = 6
-            for x in xrange (161,200,20):
+            for x in xrange (161,240,20):
                 y = 10000 * x
                 print "\nTrial:", trials, ", y:", y
 
@@ -125,6 +139,7 @@ class Basic(unittest.TestCase):
                 # random guess about length of time, varying with more hosts/nodes?
                 timeoutSecs = 20 + 5*(len(hosts) * nodesPerHost)
                 # RFview consumes cycles. Only retry once a second, to avoid slowing things down
+                # this also does the put, which is probably a good thing to try multiple times also
                 h2o_cmd.runRF(trees=trees, modelKey=csvFilename, timeoutSecs=timeoutSecs, 
                     retryDelaySecs=1, csvPathname=csvPathname)
                 sys.stdout.write('.')
