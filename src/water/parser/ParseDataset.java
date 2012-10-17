@@ -101,11 +101,9 @@ public final class ParseDataset {
     state.filterColumnsDomains();
     state.computeColumnSize();
 
-    final int num_cols = state._num_cols;
-    final int num_rows = state._num_rows;
     final int row_size = state.computeOffsets();
-    final byte[] buf = MemoryManager.allocateMemory(num_rows*row_size);
-    final double[] sumerr = new double[num_cols];
+    final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
+    final double[] sumerr = new double[state._num_cols];
     final HashMap<String,Integer> columnIndexes[] = state.createColumnIndexes();
     parser = new ExcelParser(dataset.openStream()) {
       int off = 0;
@@ -118,13 +116,11 @@ public final class ParseDataset {
     };
     parser.process();
 
-    // normalize the variance and turn it to sigma
-    for( int i = 0; i < state._cols.length;++i )
-      state._cols[i]._sigma = Math.sqrt(sumerr[i]/state._cols[i]._n);
+    state.normalizeVariance(sumerr);
 
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
-        num_rows, row_size, state._cols);
+        state._num_rows, row_size, state._cols);
     final byte[] base = ary.get();
     byte[] res = MemoryManager.allocateMemory(base.length + buf.length);
     System.arraycopy(base, 0, res, 0, base.length);
@@ -141,9 +137,6 @@ public final class ParseDataset {
     state._num_rows  = 0; // No rows yet
     dp1.invoke(dataset._key); // Parse whole dataset!
     assert state == dp1._state;
-
-    num_cols = state._num_cols;
-    int num_rows = state._num_rows;
 
     // #1: Guess Column names, if any
     String[] names = null;
@@ -170,15 +163,11 @@ public final class ParseDataset {
     DParseCollectDataPass dp2 = new DParseCollectDataPass();
     dp2._parseType = parseType;
     dp2._row_size = row_size;
-    dp2._state  = state;
+    dp2._state  = state.clone();
     dp2._result = result;
     dp2.invoke(dataset._key);   // Parse whole dataset!
-    assert state == dp2._state;
 
-
-    // normalize the variance and turn it to sigma
-    for( int i = 0; i < state._cols.length; ++i )
-      state._cols[i]._sigma = Math.sqrt(dp2._sumerr[i]/state._cols[i]._n);
+    state.normalizeVariance(dp2._sumerr);
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", state._num_rows, row_size, state._cols);
     UKV.put(result,ary);

@@ -15,8 +15,12 @@ public class ParseState implements Cloneable {
   public ColumnDomain      _cols_domains[]; // Input/Output - columns domains
                                             // preserving insertion order (LinkedSet).
   @Override
-  protected ParseState clone() throws CloneNotSupportedException {
-    return (ParseState) super.clone();
+  protected ParseState clone() {
+    try {
+      return (ParseState) super.clone();
+    } catch( CloneNotSupportedException e ) {
+      throw new RuntimeException(e);
+    }
   }
 
   // Hand-rolled serializer for the above common fields.
@@ -387,5 +391,10 @@ public class ParseState implements Cloneable {
     rs2[rs.length] = off;
     _rows_chk = rs2;
     return row_size;
+  }
+
+  public void normalizeVariance(double[] sumerr) {
+    for( int i = 0; i < _cols.length; ++i )
+      _cols[i]._sigma = Math.sqrt(sumerr[i]/_cols[i]._n);
   }
 }
