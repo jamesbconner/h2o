@@ -345,20 +345,19 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0):
-        # FIX! add gini= . is it 0 or 1? Enum is ENTROPY, GINI
-        # dataKey and treesKey are .hex
-        # add seed=
-        # add singlethreaded=
-        # add gini=<ordinalnumber>
-
-        # do I specify modelKey if I want?
-        # FIX! get dataKey, treesKey from result?
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel"):
         # modelkey is ____model by default
         # can get error result too?
-        # I wonder if we can give it those key names if we want.
+        # FIX! pass a model name here, that is unique for every RF model we due 
+        # during a cloud build..so we can look at it with the browser and not have multiple RF's
+        # overwrite the same model (and lose the data so we can't see it in the browser any more
         a = self.__check_request(requests.get(self.__url('RF.json'),
             params={
+                # FIX! temporary H2O bug..put ____ in front of model name to get it used right
+                # test should get the right one from RF.json output, for use in RFview
+                # passing a modelKey is really so it persists if we're doing multiple RFs
+                # and we want to pass a new model name each time to avoid overwrite
+                "modelKey": "____" + modelKey,
                 "singlethreaded": singlethreaded,
                 "seed": seed,
                 "gini": gini,

@@ -17,7 +17,7 @@ class Basic(unittest.TestCase):
         global hostsList
 
         # 4 was bad
-        nodesPerHost = 2
+        nodesPerHost = 1
         hostsUsername = '0xdiag'
         hostsPassword = '0xdiag'
 
@@ -25,6 +25,8 @@ class Basic(unittest.TestCase):
             hostsList = [
                 '192.168.1.17',
                 '192.168.1.20',
+                '192.168.1.160',
+                '192.168.1.161',
                 ]
         elif (1==1):
             hostsList = [
@@ -50,7 +52,7 @@ class Basic(unittest.TestCase):
         # timeout wants to be larger for large numbers of hosts * nodesPerHost
         # use 60 sec min, 2 sec per node.
         timeoutSecs = max(60, 2*(len(hosts) * nodesPerHost))
-        h2o.build_cloud(nodesPerHost,hosts=hosts,timeoutSecs=timeoutSecs)
+        h2o.build_cloud(nodesPerHost,base_port=55321,hosts=hosts,timeoutSecs=timeoutSecs)
 
     @classmethod
     def tearDownClass(cls):
@@ -69,14 +71,14 @@ class Basic(unittest.TestCase):
         h2o.touch_cloud()
 
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
-        h2o_cmd.runRF(trees=6, timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=6, modelKey="iris2", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_C_RF_poker100(self):
         h2o.touch_cloud()
 
         # RFview consumes cycles. Only retry once a second, to avoid slowing things down
         csvPathname = h2o.find_file('smalldata/poker/poker100')
-        h2o_cmd.runRF(trees=6, timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=6, modelKey="poker100", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_D_GenParity1(self):
         h2o.touch_cloud()
@@ -93,8 +95,9 @@ class Basic(unittest.TestCase):
         SYNSCRIPTS_DIR = './syn_scripts'
 
         # always match the run below!
-        print "Generating some large row count parity datasets in", SYNDATASETS_DIR, "..may be slow"
-        for x in xrange (81,200,20):
+        print "\nGenerating some large row count parity datasets in", SYNDATASETS_DIR,
+        print "\nmay be a minute.........."
+        for x in xrange (161,200,20):
             # more rows!
             y = 10000 * x
             # Have to split the string out to list for pipe
@@ -104,21 +107,30 @@ class Basic(unittest.TestCase):
             h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),timeout=30)
             # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
-
-        trees = 6
-        # always match the gen above!
-        for x in xrange (81,200,20):
-            y = 10000 * x
             sys.stdout.write('.')
             sys.stdout.flush()
-            csvFilename = "parity_128_4_" + str(y) + "_quad.data"  
-            csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            # FIX! TBD do we always have to kick off the run from node 0?
-            # random guess about length of time, varying with more hosts/nodes?
-            timeoutSecs = 20 + 2*(len(hosts) * nodesPerHost)
-            # RFview consumes cycles. Only retry once a second, to avoid slowing things down
-            h2o_cmd.runRF(trees=trees, timeoutSecs=timeoutSecs, retryDelaySecs=1, csvPathname=csvPathname)
-            trees += 10
+        print "\nDatasets generated. Using."
+
+        # always match the gen above!
+        # Let's try it twice!
+        for trials in xrange(1,4):
+            trees = 6
+            for x in xrange (161,200,20):
+                y = 10000 * x
+                print "\nTrial:", trials, ", y:", y
+
+                csvFilename = "parity_128_4_" + str(y) + "_quad.data"  
+                csvPathname = SYNDATASETS_DIR + '/' + csvFilename
+                # FIX! TBD do we always have to kick off the run from node 0?
+                # random guess about length of time, varying with more hosts/nodes?
+                timeoutSecs = 20 + 5*(len(hosts) * nodesPerHost)
+                # RFview consumes cycles. Only retry once a second, to avoid slowing things down
+                h2o_cmd.runRF(trees=trees, modelKey=csvFilename, timeoutSecs=timeoutSecs, 
+                    retryDelaySecs=1, csvPathname=csvPathname)
+                sys.stdout.write('.')
+                sys.stdout.flush()
+
+                trees += 10
 
 if __name__ == '__main__':
     h2o.unit_main()
