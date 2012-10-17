@@ -113,7 +113,7 @@ class Basic(unittest.TestCase):
 
         # always match the gen above!
         # Let's try it twice!
-        for trials in xrange(1,4):
+        for trials in xrange(1,7):
             trees = 6
             for x in xrange (161,200,20):
                 y = 10000 * x
