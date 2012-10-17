@@ -24,8 +24,6 @@ public abstract class Atomic extends RemoteTask {
   //    }
   //  }
 
-  public Atomic() {}
-
   // User's function to be run atomically.  The Key's Value is fetched from the
   // home STORE, and the bits are passed in.  The returned bits are atomically
   // installed as the new Value (the function is retried until it runs
