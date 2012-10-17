@@ -347,7 +347,7 @@ public class Inspect extends H2OPage {
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
     + "%storeHdfs"
     + "<p>Generated from <a href=/Inspect?Key=%priorKeyHref>%priorKey</a> by '%xform'<p>"
-    + "%rowsize Bytes-per-row * %rows Rows = Totalsize %size<br>"
+    + "<b><font size=+1>%rowsize Bytes-per-row * %rows Rows = Totalsize %size</font></b></em><br>"
     + "Parsed %ncolumns columns<br>"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<thead><tr><th>Column %head_row</tr></thead>\n"

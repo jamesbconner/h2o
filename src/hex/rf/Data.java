@@ -26,9 +26,8 @@ public class Data implements Iterable<Row> {
     public float getF(int col) { return data_.getF(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
 
-    /** Support for binning information on the columns.  */
-    public final int getColumnClass(int colIndex) {
-      return data_.getColumnClass(index, colIndex);
+    public final short getEncodedColumnValue(int colIndex) {
+      return data_.getEncodedColumnValue(index, colIndex);
     }
   }
 
@@ -49,7 +48,7 @@ public class Data implements Iterable<Row> {
   public int classIdx()          { return data_.classIdx_;     }
   public String colName(int i)   { return data_.columnNames()[i]; }
   public float unmap(int col, float split) { return data_.unmap(col, split); }
-  public int columnClasses(int colIndex) { return data_.columnClasses(colIndex); }
+  public int columnArity(int colIndex) { return data_.columnArity(colIndex); }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
   private class RowIter implements Iterator<Row> {

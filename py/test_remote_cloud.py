@@ -14,7 +14,7 @@ class Basic(unittest.TestCase):
 
         # ssh limited to 10 somehow? did /etc/ssh/sshd_config: MaxSessions 20, MaxAuth 20
         # maybe sftp?
-        nodes_per_host = 10
+        nodes_per_host = 16
         # we may have big delays with 2 jvms (os?)
         # also: what is the agreement on json visible cloud state in each node vs the paxos algorithm
         hosts = []
@@ -30,7 +30,7 @@ class Basic(unittest.TestCase):
                 h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
                 h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag'),
             ]
-        elif (1==1):
+        elif (1==0):
 
             hosts = [
                 h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
@@ -77,6 +77,10 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
 
             # nodes_per_host is per host.
+            # timeout wants to be larger for large numbers of hosts * nodes_per_host
+            # use 60 sec min, 2 sec per node.
+            timeoutSecs = max(60, 2*(len(hosts) * nodes_per_host))
+            
             nodes = h2o.build_cloud(nodes_per_host, base_port=56321, ports_per_node=3, hosts=hosts,
                 timeoutSecs=60, retryDelaySecs=1)
 
@@ -108,7 +112,16 @@ class Basic(unittest.TestCase):
             h2o.tear_down_cloud(nodes)
             h2o.clean_sandbox()
             # wait to make sure no sticky ports or anything os-related
-            time.sleep(4)
+            # here's a typical error that shows up in the looping trials..
+            # so let's expand the delay if larger number of jvms
+            # don't need so much delay for smaller..all os issues.
+
+            # On /192.168.1.156 some of the required ports 56339, 56340, and 56341 
+            # are not available, change -port PORT and try again.
+
+            # 1 second per node seems good
+            h2o.verboseprint("Waiting", nodes_per_host, "seconds to avoid OS sticky port problem")
+            time.sleep(nodes_per_host)
 
 
 if __name__ == '__main__':

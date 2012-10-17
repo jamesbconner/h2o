@@ -138,6 +138,7 @@ public class GLM extends H2OPage {
         res.add("warnings", warnings);
       }
       long deltaT = System.currentTimeMillis() - t1;
+      res.addProperty("rows",ary.num_rows());
       res.addProperty("time", deltaT);
       res.add("coefficients", getCoefficients(columns, colNames, m.beta));
 

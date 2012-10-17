@@ -6,17 +6,6 @@ import h2o_cmd, h2o
 # can interact with it
 
 class Basic(unittest.TestCase):
-    @classmethod
-    def setupClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        # FIX! I added shutdown_all to LocalH2O so maybe this is now redundant
-        h2o.nodes[0].shutdown_all()
-        # this doesn't send a graceful shutdown? but should be tolerant of missing process?
-        h2o.tear_down_cloud()
-        
 
     def test_Nuke(self):
         h2o.build_cloud(node_count=1)
@@ -27,6 +16,12 @@ class Basic(unittest.TestCase):
         c = h2o.nodes[0].get_cloud()
         cloudSize = c['cloud_size']
         print "This node thought there was", cloudSize, "nodes in its cloud"
+
+        # FIX! I added shutdown_all to LocalH2O so maybe this is now redundant
+        h2o.nodes[0].shutdown_all()
+
+        # this doesn't send a graceful shutdown? but should be tolerant of missing process?
+        h2o.tear_down_cloud()
 
 if __name__ == '__main__':
     h2o.unit_main()

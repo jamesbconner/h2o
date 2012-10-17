@@ -163,8 +163,11 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
         _row._fieldVals[field] = Double.isNaN(v) ? _decimal.doubleValue() : v;
         _row._fieldStringVals[field] = null;
         if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
-          _row._fieldStringVals[field] = _textual.stringValue();
-          putToDictionary(field, _row._fieldStringVals[field]);
+          String sVal = _textual.stringValue();
+          if (!ParseDataset.isNotAnEnumLiteral(sVal)) {
+            _row._fieldStringVals[field] = sVal;
+            putToDictionary(field, _row._fieldStringVals[field]);
+          }
         }
       } else {
         b = scanPastNextSeparator();

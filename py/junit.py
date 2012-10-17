@@ -23,7 +23,9 @@ class JUnit(unittest.TestCase):
                     'test.AutoSerialTest',
                     'test.DatasetCornerCasesTest',
                     'test.AppendKeyTest',
-                    'test.RandomForestTest'])
+                    'test.RandomForestTest',
+                    'test.ExprTest'
+                    ])
 
             rc = ps.wait(None)
             out = file(stdout).read()

@@ -220,10 +220,10 @@ public class KVTest {
     // Compute LinearRegression between columns 2 & 3
     String LR_result = LinearRegression.run(va,2,3);
     String[] res = LR_result.split("<p>");
-    assertEquals("Linear Regression of cars.hex between 2 and 3",res[0]);
+    assertEquals("Linear Regression of cars.hex between columns cylinders and displacement (cc)",res[0]);
     //assertEquals("Pass 1 in 10msec",res[1]);
     //assertEquals("Pass 2 in 6msec",res[2]);
-    assertEquals("y = 58.326241377521995 * x + -124.57816399564385",res[3]);
+    assertEquals("<b>y = 58.326241377521995 * x + -124.57816399564385</b>",res[3]);
     //assertEquals("Pass 3 in 6msec",res[4]);
     assertEquals("R^2                 = 0.9058985668996267",res[5]);
     assertEquals("std error of beta_1 = 0.9352584499359637",res[6]);

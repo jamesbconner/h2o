@@ -9,8 +9,9 @@ public abstract class LinearRegression {
   static public String run( ValueArray ary, int colA, int colB ) {
     StringBuilder sb = new StringBuilder();
 
-    sb.append("Linear Regression of ").append(ary._key).append(" between ").
-      append(colA).append(" and ").append(colB);
+    String[] names = ary.col_names();
+    sb.append("Linear Regression of ").append(ary._key).append(" between columns ").
+      append(names[colA]).append(" and ").append(names[colB]);
 
     LR_Task lr = new LR_Task();
     lr._arykey = ary._key;
@@ -22,7 +23,8 @@ public abstract class LinearRegression {
     long start = System.currentTimeMillis();
     lr.invoke(ary._key);
     long pass1 = System.currentTimeMillis();
-    sb.append("<p>Pass 1 in ").append(pass1-start).append("msec");
+    sb.append("<p>Pass 1 in ").append(pass1-start).append("msec, found <b>").
+      append(lr._rows).append(" rows</b>");
 
     // Pass 2: Compute squared errors
     long n = lr._rows;
@@ -38,7 +40,7 @@ public abstract class LinearRegression {
     lr._beta1 = lr._XYbar / lr._XXbar;
     lr._beta0 = lr._Ybar - lr._beta1 * lr._Xbar;
     // print results
-    sb.append("<p>y = ").append(lr._beta1).append(" * x + ").append(lr._beta0);
+    sb.append("<p><b>y = ").append(lr._beta1).append(" * x + ").append(lr._beta0).append("</b>");
 
     // Pass 3: analyze results
     lr._pass = 3;
