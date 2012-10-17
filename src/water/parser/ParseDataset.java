@@ -117,11 +117,7 @@ public final class ParseDataset {
     parser.process();
     state.normalizeVariance(sumerr);
 
-    long max_row = state._rows_chk[state._rows_chk.length-1];
-    int rpc = (int)(ValueArray.chunk_size()/row_size); // Rows per chunk
-    long dst_chks = max_row/rpc;
-    int row0 = 0;             // Number of processed rows
-    while( (row0 += atomic_update( result, row0, 0, row_size, state._num_rows, buf, rpc, dst_chks )) < state._num_rows ) ;
+    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf);
 
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
@@ -435,21 +431,13 @@ public final class ParseDataset {
         off += _row_size;
       }
 
-      // Compute the last dst chunk (which might be up to 2meg instead of capped at 1meg)
-      long max_row = _state._rows_chk[_state._rows_chk.length-1];
-      int rpc = (int)(ValueArray.chunk_size()/_row_size); // Rows per chunk
-      long dst_chks = max_row/rpc;
+      packRowsIntoValueArrayChunks(_result, start_row, num_rows, _row_size, _state, buf);
 
       // Reset these arrays to null, so they are not part of the return result.
       _state._rows_chk = null;
       _state._cols = null;
       _state._cols_domains = null;
       _state._num_rows = 0;            // No data to return
-
-      // Now, rather painfully, ship the bits to the target keys.  Ship in
-      // large chunks according to what fits in the next target chunk.
-      int row0 = 0;             // Number of processed rows
-      while( (row0 += atomic_update( row0, start_row, _row_size, num_rows, buf, rpc, dst_chks )) < num_rows ) ;
     }
 
     public void reduce( DRemoteTask rt ) {
@@ -464,43 +452,6 @@ public final class ParseDataset {
       _state._cols = null;
       _state._num_rows = 0;
     }
-
-    // Atomically fold together as many rows as will fit in the next chunk.  I
-    // have an array of bits (buf) which is an even count of rows.  I want to
-    // pack them into the target ValueArray, as many as will fit in a next
-    // chunk.  Because the size isn't an even multiple of chunks, I surely will
-    // need to update multiple target chunks.  (imagine parallel copying a
-    // large source buffer into a chunked target buffer)
-    int atomic_update( int row0, long start_row, int row_size, int num_rows, byte[] buf, int rpc, long dst_chks ) {
-      assert 0 <= row0 && row0 <= num_rows;
-      assert buf.length == num_rows*row_size;
-
-      int src_off = row0*row_size; // Offset in buf to write from
-      long row1 = start_row+row0;  // First row to write to
-      long chk1 = row1/rpc;        // First chunk to write to
-      if( chk1 > 0 && chk1 == dst_chks ) // Last chunk?
-        chk1--;                 // It's actually the prior chunk, made bigger
-      // Get the key for that chunk.  Note that this key may not yet exist.
-      Key key1 = ValueArray.make_chunkkey(_result,ValueArray.chunk_offset(chk1));
-      // Get the starting row# for this chunk
-      long row_s = chk1*rpc;
-      // Get the number of rows to skip
-      int rowx = (int)(row1-row_s); // This is the row# we start writing in this chunk
-      int dst_off = rowx*row_size; // Offset in the dest chunk
-      // Rows to write in this chunk
-      int rowy = rpc - rowx;      // Number of rows we could write in a 1meg chunk
-      int rowz = num_rows - row0; // Number of unwritten rows in our source
-      if( chk1 < dst_chks-1 && rowz > rowy ) // Not last chunk (which is large) and more rows
-        rowz = rowy;              // Limit of rows to write
-      int len = rowz*row_size;    // Bytes to write
-
-      assert src_off+len <= buf.length;
-
-      // Remotely, atomically, merge this buffer into the remote key
-      AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);
-      au.fork(key1);            // Start atomic update
-      return rowz;              // Rows written out
-    }
   }
 
   // Atomically fold together as many rows as will fit in the next chunk.  I
@@ -509,36 +460,44 @@ public final class ParseDataset {
   // chunk.  Because the size isn't an even multiple of chunks, I surely will
   // need to update multiple target chunks.  (imagine parallel copying a
   // large source buffer into a chunked target buffer)
-  static int atomic_update( Key result,
-      int row0, long start_row, int row_size, int num_rows,
-      byte[] buf, int rpc, long dst_chks ) {
-    assert 0 <= row0 && row0 <= num_rows;
-    assert buf.length == num_rows*row_size;
+  public static void packRowsIntoValueArrayChunks( Key result, int startRow, int numRows,
+      int rowSize, ParseState state, byte[] buf) {
 
-    int src_off = row0*row_size; // Offset in buf to write from
-    long row1 = start_row+row0;  // First row to write to
-    long chk1 = row1/rpc;        // First chunk to write to
-    if( chk1 > 0 && chk1 == dst_chks ) // Last chunk?
-      chk1--;                 // It's actually the prior chunk, made bigger
-    // Get the key for that chunk.  Note that this key may not yet exist.
-    Key key1 = ValueArray.make_chunkkey(result,ValueArray.chunk_offset(chk1));
-    // Get the starting row# for this chunk
-    long row_s = chk1*rpc;
-    // Get the number of rows to skip
-    int rowx = (int)(row1-row_s); // This is the row# we start writing in this chunk
-    int dst_off = rowx*row_size; // Offset in the dest chunk
-    // Rows to write in this chunk
-    int rowy = rpc - rowx;      // Number of rows we could write in a 1meg chunk
-    int rowz = num_rows - row0; // Number of unwritten rows in our source
-    if( chk1 < dst_chks-1 && rowz > rowy ) // Not last chunk (which is large) and more rows
-      rowz = rowy;              // Limit of rows to write
-    int len = rowz*row_size;    // Bytes to write
+    // Compute the last dst chunk (which might be up to 2meg instead of capped at 1meg)
+    int maxRow = state._rows_chk[state._rows_chk.length-1];
+    int rowsPerChunk = (int)(ValueArray.chunk_size()/rowSize);
+    int maxChunk = maxRow/rowsPerChunk;
 
-    assert src_off+len <= buf.length;
-    // Remotely, atomically, merge this buffer into the remote key
-    AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);
-    au.fork(key1);            // Start atomic update
-    return rowz;              // Rows written out
+    // Now, rather painfully, ship the bits to the target keys.  Ship in
+    // large chunks according to what fits in the next target chunk.
+    int curRow = 0;             // Number of processed rows
+    while( curRow < numRows ) {
+      int rowToWrite = startRow+curRow;  // First row to write to
+      int chunk = rowToWrite/rowsPerChunk;        // First chunk to write to
+      if( chunk > 0 && chunk == maxChunk ) // Last chunk?
+        chunk--;                 // It's actually the prior chunk, made bigger
+      // Get the key for that chunk.  Note that this key may not yet exist.
+      Key key = ValueArray.make_chunkkey(result,ValueArray.chunk_offset(chunk));
+      // Get the starting row# for this chunk
+      int rowsAlreadyWritten = chunk*rowsPerChunk;
+      // Get the number of rows to skip
+      int firstRowInChunk = rowToWrite-rowsAlreadyWritten;
+      int dstOff = firstRowInChunk*rowSize; // Offset in the dest chunk
+      int srcOff = curRow*rowSize; // Offset in buf to read from
+
+      // Rows to write in this chunk
+      int rowy = rowsPerChunk - firstRowInChunk;      // Number of rows we could write in a 1meg chunk
+      int rowz = numRows - curRow; // Number of unwritten rows in our source
+      if( chunk < maxChunk-1 && rowz > rowy ) // Not last chunk (which is large) and more rows
+        rowz = rowy;              // Limit of rows to write
+      int len = rowz*rowSize;    // Bytes to write
+
+      // Remotely, atomically, merge this buffer into the remote key
+      assert srcOff+len <= buf.length;
+      AtomicUnion au = new AtomicUnion(buf, srcOff, dstOff, len);
+      au.fork(key);            // Start atomic update
+      curRow += rowz;              // Rows written out
+    }
   }
 
   public static class AtomicUnion extends Atomic {
