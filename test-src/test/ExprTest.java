@@ -5,6 +5,8 @@ import java.util.Properties;
 import org.junit.*;
 import static org.junit.Assert.*;
 import water.*;
+import water.exec.Exec;
+import water.exec.PositionedException;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
 import water.web.ExecWeb;
@@ -23,6 +25,62 @@ public class ExprTest {
     assertEquals("No keys leaked", 0, leaked_keys);
   }
 
+  protected void testScalarExpression(String expr, double result) {
+    System.out.print("  "+expr);
+    Key key = null;
+    try {
+      key = Exec.exec(expr);
+      ValueArray va = (ValueArray) DKV.get(key);
+      assertEquals(va.num_rows(), 1);
+      assertEquals(va.num_cols(), 1);
+      assertTrue(Math.abs(va.datad(0,0)-result) < 0.001);
+      System.out.println(" OK");
+    } catch (PositionedException e) {
+      assertTrue(false);
+      System.out.println(" FAIL");
+    }
+    if (key != null)
+      UKV.remove(key);
+  }
+  
+  @Test public void testScalarExpressions() {
+    System.out.println("testScalarExpressions");
+    testScalarExpression("5", 5);
+    testScalarExpression("-5", -5);
+    testScalarExpression("5+6", 11);
+    testScalarExpression("5    + 7", 12);
+    testScalarExpression("5+-5", 0); 
+  }
+  
+  @Test public void testOperators() {
+    System.out.println("testOperators");
+    testScalarExpression("1+2",3);
+    testScalarExpression("1-2",-1);
+    testScalarExpression("1*2",2);
+    testScalarExpression("1/2",0.5);
+    testScalarExpression("2-1",1);
+    testScalarExpression("2/1",2);
+  }
+  
+  @Test public void testOperatorPrecedence() {
+    System.out.println("testOperatorPrecedence");
+    testScalarExpression("1+2*3",7);
+    testScalarExpression("1*2+3",5);
+    testScalarExpression("1+2*3+4",11);
+    testScalarExpression("1+2*3+3*3",16);
+    testScalarExpression("1-2/4",0.5);
+    testScalarExpression("1+2-3",0);
+    testScalarExpression("1*2/4",0.5);
+  }
+  
+  @Test public void testParentheses() {
+    System.out.println("testParentheses");
+    testScalarExpression("(1+2)*3",9);
+    testScalarExpression("(1+2)*(3+3)*3",54);
+  }
+  
+  
+  
   // ---
   // Test some basic expressions on "cars.csv"
   @Test public void testBasicCrud() {
