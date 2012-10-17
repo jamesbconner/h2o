@@ -496,6 +496,13 @@ public class ValueArray extends Value {
   public double col_sigma(int cnum) { return UDP.get8d(get(),col(cnum)+SIGMA_COL_OFF); }
   public double col_var  (int cnum) { double s = col_sigma(cnum); return s*s;}
 
+  /** Sets the sigma - note this should *not* be used on already stored values. 
+   */
+  public void set_col_sigma(int cnum,double value) {
+    UDP.set8d(get(),col(cnum)+SIGMA_COL_OFF,value);
+  }
+  
+  
   // Row# when offset from chunk start
   public final int row_in_chunk(long row, int rpc, long chknum) {
     long rows = chknum*rpc; // Number of rows so far; row-start in this chunk

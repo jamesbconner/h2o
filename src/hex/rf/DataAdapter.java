@@ -17,7 +17,11 @@ class DataAdapter  {
   private final int _seed;
   private int rows;
 
-  DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
+  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
+    this(name,columns,classNm, new String[0],rows,data_id,seed,numClasses);
+  }
+
+  DataAdapter(String name, Object[] columns, String classNm, String[] ignores, int rows, int data_id, int seed, int numClasses) {
     _seed = seed+data_id;
     name_=name;
     c_ = new C[columns.length];
@@ -30,7 +34,6 @@ class DataAdapter  {
       String s=columns[i].toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i);
     }
     classIdx_ = c2i_.get(classNm);
-    assert 0 <= classIdx_ && classIdx_ < 255;
     _data_id = data_id;
   }
 
@@ -55,9 +58,8 @@ class DataAdapter  {
   public void shrinkWrap() {
     freeze();
     short[][] vss = new short[c_.length][];
-    for( int i=0; i<c_.length-1; i++ )
-      vss[i] = c_[i].shrink(false); // Short-Encode the raw data
-    vss[c_.length-1] = c_[c_.length-1].shrink(true); // Do not encode the classes
+    for( int i=0; i<c_.length; i++ )
+      vss[i] = c_[i].shrink(i==classIdx_); // Short-Encode the raw data, but not the class
     data_ = new short[ c_.length * rows()];
     for(int i=0;i<c_.length;i++) {
       short[] vs = vss[i];
@@ -134,8 +136,9 @@ class DataAdapter  {
     // Sometimes the last column allows a zero class (e.g. iris, poker) and sometimes
     // it's one-based (e.g. covtype) or -1/+1 (arcene)
     short[] shrink( boolean noEncoding ) {
-      HashMap<Float,Short> o2v2 = noEncoding? null : hashCol();
-      if (noEncoding) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
+      HashMap<Float,Short> o2v2 =//noEncoding? null :
+          hashCol();
+     // if (noEncoding) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
       short[] res = new short[rows()];
       int min = (int)min_;
       for(int j=0;j<rows();j++)

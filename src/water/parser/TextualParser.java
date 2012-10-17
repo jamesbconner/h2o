@@ -64,6 +64,10 @@ public class TextualParser {
     _state = LEADING;
   }
 
+  /**
+   * Returns a string value for given row.
+   * The value is trimmed if required.
+   */
   public String stringValue() {
     int end = _buffer.length()-1;
     if (_trimWS) {
