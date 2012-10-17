@@ -115,17 +115,21 @@ public final class ParseDataset {
       }
     };
     parser.process();
-
     state.normalizeVariance(sumerr);
+
+    long max_row = state._rows_chk[state._rows_chk.length-1];
+    int rpc = (int)(ValueArray.chunk_size()/row_size); // Rows per chunk
+    long dst_chks = max_row/rpc;
+    int row0 = 0;             // Number of processed rows
+    while( (row0 += atomic_update( result, row0, 0, row_size, state._num_rows, buf, rpc, dst_chks )) < state._num_rows ) ;
 
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
         state._num_rows, row_size, state._cols);
-    final byte[] base = ary.get();
-    byte[] res = MemoryManager.allocateMemory(base.length + buf.length);
-    System.arraycopy(base, 0, res, 0, base.length);
-    System.arraycopy(buf, 0, res, base.length, buf.length);
-    DKV.put(result, new Value(result, res));
+    UKV.put(result,ary);
+    // Plan A: distributed write barrier on atomic unions
+    AUBarrier aub = new AUBarrier();
+    aub.invoke(result);
   }
 
   public static void parseSeparated(Key result, Value dataset, byte parseType, int num_cols) {
@@ -495,34 +499,70 @@ public final class ParseDataset {
       // Remotely, atomically, merge this buffer into the remote key
       AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);
       au.fork(key1);            // Start atomic update
-      // Do not wait on completion now; the atomic-update is fire-and-forget.
-      //au.get();               // No need to complete now?
       return rowz;              // Rows written out
     }
+  }
 
-    public static class AtomicUnion extends Atomic {
-      Key _key;
-      int _dst_off;
+  // Atomically fold together as many rows as will fit in the next chunk.  I
+  // have an array of bits (buf) which is an even count of rows.  I want to
+  // pack them into the target ValueArray, as many as will fit in a next
+  // chunk.  Because the size isn't an even multiple of chunks, I surely will
+  // need to update multiple target chunks.  (imagine parallel copying a
+  // large source buffer into a chunked target buffer)
+  static int atomic_update( Key result,
+      int row0, long start_row, int row_size, int num_rows,
+      byte[] buf, int rpc, long dst_chks ) {
+    assert 0 <= row0 && row0 <= num_rows;
+    assert buf.length == num_rows*row_size;
 
-      public AtomicUnion() {}
-      public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
-        _dst_off = dstOff;
-        _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
-        DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
-      }
+    int src_off = row0*row_size; // Offset in buf to write from
+    long row1 = start_row+row0;  // First row to write to
+    long chk1 = row1/rpc;        // First chunk to write to
+    if( chk1 > 0 && chk1 == dst_chks ) // Last chunk?
+      chk1--;                 // It's actually the prior chunk, made bigger
+    // Get the key for that chunk.  Note that this key may not yet exist.
+    Key key1 = ValueArray.make_chunkkey(result,ValueArray.chunk_offset(chk1));
+    // Get the starting row# for this chunk
+    long row_s = chk1*rpc;
+    // Get the number of rows to skip
+    int rowx = (int)(row1-row_s); // This is the row# we start writing in this chunk
+    int dst_off = rowx*row_size; // Offset in the dest chunk
+    // Rows to write in this chunk
+    int rowy = rpc - rowx;      // Number of rows we could write in a 1meg chunk
+    int rowz = num_rows - row0; // Number of unwritten rows in our source
+    if( chk1 < dst_chks-1 && rowz > rowy ) // Not last chunk (which is large) and more rows
+      rowz = rowy;              // Limit of rows to write
+    int len = rowz*row_size;    // Bytes to write
 
-      @Override public byte[] atomic( byte[] bits1 ) {
-        byte[] mem = DKV.get(_key).get();
-        byte[] bits2 = (bits1 == null)
+    assert src_off+len <= buf.length;
+    // Remotely, atomically, merge this buffer into the remote key
+    AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);
+    au.fork(key1);            // Start atomic update
+    return rowz;              // Rows written out
+  }
+
+  public static class AtomicUnion extends Atomic {
+    Key _key;
+    int _dst_off;
+
+    public AtomicUnion() {}
+    public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
+      _dst_off = dstOff;
+      _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
+      DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
+    }
+
+    @Override public byte[] atomic( byte[] bits1 ) {
+      byte[] mem = DKV.get(_key).get();
+      byte[] bits2 = (bits1 == null)
           ? new byte[_dst_off + mem.length] // Initial array of correct size
-          : Arrays.copyOf(bits1,Math.max(_dst_off+mem.length,bits1.length));
-        System.arraycopy(mem,0,bits2,_dst_off,mem.length);
-        return bits2;
-      }
+              : Arrays.copyOf(bits1,Math.max(_dst_off+mem.length,bits1.length));
+          System.arraycopy(mem,0,bits2,_dst_off,mem.length);
+          return bits2;
+    }
 
-      @Override public void onSuccess() {
-        DKV.remove(_key);
-      }
+    @Override public void onSuccess() {
+      DKV.remove(_key);
     }
   }
 
@@ -540,8 +580,8 @@ public final class ParseDataset {
         if( dft instanceof TaskRemExec ) {                  // See if it's a TRE
           TaskRemExec tre = (TaskRemExec)dft;
           RemoteTask rt = tre._dt; // Get what is pending execution
-          if( rt instanceof DParseCollectDataPass.AtomicUnion ) { // See if its an AtomicUnion
-            DParseCollectDataPass.AtomicUnion au = (DParseCollectDataPass.AtomicUnion)rt;
+          if( rt instanceof AtomicUnion ) { // See if its an AtomicUnion
+            AtomicUnion au = (AtomicUnion)rt;
             Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key
             byte[] aub = ValueArray.getArrayKeyBytes(aukey);
             if( Arrays.equals(abb,aub) ) // See if it matches OUR key
