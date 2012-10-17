@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.zip.*;
 
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+
 import com.google.common.io.Closeables;
 
 import water.*;
@@ -19,16 +21,10 @@ import water.parser.SeparatedValueParser.Row;
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
 
-  private static final byte[] XLSX_MAGIC = new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00 };
-  private static final byte[] XLS_MAGIC  = new byte[] { 0x09, 0x08, 0x10, 0x00, 0x00, 0x06, 0x05, 0x00 };
-  private static final int XLS_MAGIC_OFFSET  = 512;
-  private static final int XLSX_MAGIC_OFFSET = 0;
-
   // Configuration kind for parser
   private static final int PARSE_SVMLIGHT = 101;
   private static final int PARSE_COMMASEP = 102;
   private static final int PARSE_SPACESEP = 103;
-  private static final int PARSE_EXCEL    = 104;
 
   // Index to array returned by method guesss_parser_setup()
   static final int PARSER_IDX = 0;
@@ -41,6 +37,11 @@ public final class ParseDataset {
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
 
     try {
+      if( isXlsDocument(dataset) ) {
+        parseExcel(result, dataset);
+        return;
+      }
+
       Compression compression = guessCompressionMethod(dataset);
       switch (compression) {
       case NONE: parseUncompressed(result, dataset); break;
@@ -61,9 +62,6 @@ public final class ParseDataset {
     switch( typeArr[PARSER_IDX] ) {
     case PARSE_SVMLIGHT:
       throw new Error("Parsing for SVMLIGHT is unimplemented");
-    case PARSE_EXCEL:
-      parseExcel(result, dataset);
-      break;
     case PARSE_COMMASEP:
     case PARSE_SPACESEP:
       parseSeparated(result, dataset, (byte) typeArr[PARSER_IDX], typeArr[COLNUM_IDX]);
@@ -567,12 +565,13 @@ public final class ParseDataset {
     return Compression.NONE;
   }
 
-  private static boolean isXlsDocument(byte[] b) {
-    byte[] pos0 = new byte[] { (byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1 };
-    if( Arrays.equals(pos0, Arrays.copyOfRange(b, 0, pos0.length)) ) {
+  private static boolean isXlsDocument(Value dataset) {
+    try {
+      new POIFSFileSystem(dataset.openStream());
       return true;
+    } catch( Exception e ) {
+      return false;
     }
-    return false;
   }
 
   // ---
@@ -584,20 +583,6 @@ public final class ParseDataset {
     // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
-
-    if( isXlsDocument(b) )
-      return new int[] { PARSE_EXCEL, 0 };
-
-    if( b.length > XLS_MAGIC_OFFSET + XLS_MAGIC.length &&
-        Arrays.equals(XLS_MAGIC,
-            Arrays.copyOfRange(b, XLS_MAGIC_OFFSET, XLS_MAGIC_OFFSET + XLS_MAGIC.length))) {
-      return new int[] { PARSE_EXCEL, 0 };
-    }
-    if( b.length > XLSX_MAGIC_OFFSET + XLSX_MAGIC.length &&
-        Arrays.equals(XLSX_MAGIC,
-            Arrays.copyOfRange(b, XLSX_MAGIC_OFFSET, XLSX_MAGIC_OFFSET + XLSX_MAGIC.length))) {
-      return new int[] { PARSE_EXCEL, 0 };
-    }
 
     int i=0;
     // Skip all leading whitespace
