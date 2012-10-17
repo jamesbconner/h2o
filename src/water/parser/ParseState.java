@@ -3,6 +3,8 @@ package water.parser;
 import java.io.*;
 import java.util.*;
 
+import com.google.common.base.Strings;
+
 import water.*;
 import water.parser.ParseDataset.ColumnDomain;
 import water.parser.SeparatedValueParser.Row;
@@ -130,6 +132,9 @@ public class ParseState implements Cloneable {
     for( int i = 0; i < row._fieldVals.length; ++i ) {
       double d = row._fieldVals[i];
       if(Double.isNaN(d)) { // Broken data on row
+        String s = row._fieldStringVals[i];
+        if( !Strings.isNullOrEmpty(s) ) _cols_domains[i].add(s);
+
         _cols[i]._size |=32;  // Flag as seen broken data
         _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
         continue;             // But do not muck up column stats

@@ -380,7 +380,7 @@ public final class ParseDataset {
       _state.prepareForStatsGathering();
       SeparatedValueParser csv = new SeparatedValueParser(key,
           _parseType == PARSE_COMMASEP ? ',' : ' ',
-          _state._cols.length, _state._cols_domains);
+          _state._cols.length);
       for( Row row : csv ) {
         if( !allNaNs(row._fieldVals) ) _state.addRowToStats(row);
       }
@@ -568,6 +568,14 @@ public final class ParseDataset {
     return Compression.NONE;
   }
 
+  private static boolean isXlsDocument(byte[] b) {
+    byte[] pos0 = new byte[] { (byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1 };
+    if( Arrays.equals(pos0, Arrays.copyOfRange(b, 0, pos0.length)) ) {
+      return true;
+    }
+    return false;
+  }
+
   // ---
   // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
   // the number of columns for svm light is not reliable as it only relies on info from the first chunk
@@ -577,6 +585,9 @@ public final class ParseDataset {
     // if there are (several) ':', assume it is in svmlight format.
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
+
+    if( isXlsDocument(b) )
+      return new int[] { PARSE_EXCEL, 0 };
 
     if( b.length > XLS_MAGIC_OFFSET + XLS_MAGIC.length &&
         Arrays.equals(XLS_MAGIC,

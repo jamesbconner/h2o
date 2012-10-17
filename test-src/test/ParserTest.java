@@ -4,6 +4,8 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.base.Strings;
+
 import water.DKV;
 import water.H2O;
 import water.Key;
@@ -237,12 +239,17 @@ public class ParserTest {
       SeparatedValueParser p;
       ColumnDomain cds[] = new ColumnDomain[3];
       for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
+
       int i = 0;
       for( Key k : keys ) {
-        p = new SeparatedValueParser(k, separator, 3, cds);
+        p = new SeparatedValueParser(k, separator, 3);
         for( Row r : p ) {
           Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
           Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+          for( int j = 0; j < 3; j++ ) {
+            String s = r._fieldStringVals[j];
+            if( !Strings.isNullOrEmpty(s) ) cds[j].add(s);
+          }
           i++;
         }
       }
@@ -298,10 +305,14 @@ public class ParserTest {
       for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
       int i = 0;
       for( Key k : keys ) {
-        p = new SeparatedValueParser(k, separator, 3, cds);
+        p = new SeparatedValueParser(k, separator, 3);
         for( Row r : p ) {
           Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
           Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+          for( int j = 0; j < 3; j++ ) {
+            String s = r._fieldStringVals[j];
+            if( !Strings.isNullOrEmpty(s) ) cds[j].add(s);
+          }
           i++;
         }
       }
