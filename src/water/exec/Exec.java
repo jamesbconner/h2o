@@ -13,6 +13,7 @@ public class Exec {
     Expr e = new RLikeParser().parse(x);
     Expr.Result r = e.eval();
     Expr.assign(0,k, r);
+    Expr.calculateSigma(k,0);
     r.dispose();
     return k;
   }

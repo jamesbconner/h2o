@@ -59,6 +59,8 @@ def verboseprint(*args):
 def find_file(base):
     f = base
     if not os.path.exists(f): f = '../'+base
+    if not os.path.exists(f):
+        raise Exception("find_file can't find %s." % (csvPathname))
     return f
 
 # Return file size.
@@ -225,6 +227,18 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
+
+# REQUIRED IN EACH TEST: have to touch something otherwise the ssh channel shuts down
+# and terminates the H2O. We're using RemoteH2O which keeps H2O there only 
+# while ssh channel is live. (good for avoiding orphans out of our test control)
+def touch_cloud(node_list=None):
+    # Only need to use this if we're using hosts? 
+    # So far, we don't need hosts as global ..so don't look at it here
+    # won't break if local host, just don't need to call this.
+    if not node_list: node_list = nodes
+    for n in nodes:
+        # verboseprint("Keeping remote H2O channels alive", n)
+        n.is_alive()
     
 def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     node.wait_for_node_to_accept_connections(timeoutSecs)
@@ -249,11 +263,11 @@ class H2O(object):
     def __check_request(self, r):
         log('Sent ' + r.url)
         if not r:
-            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], str(r)))
+            raise Exception('r Error in %s: %s' % (inspect.stack()[1][3], str(r)))
         # json name used in import
         rjson = r.json
         if 'error' in rjson:
-            raise Exception('Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
+            raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         return rjson
 
 
@@ -684,6 +698,7 @@ class RemoteH2O(H2O):
         return self.ice
 
     def is_alive(self):
+        verboseprint("Doing is_alive check for RemoteH2O")
         if self.channel.closed: return False
         if self.channel.exit_status_ready(): return False
         try:
