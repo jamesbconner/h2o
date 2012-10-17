@@ -687,7 +687,11 @@ public final class ParseDataset {
           ValueArray.Column col = _cols[i];
           if ( columnIndexes[i] != null) {
             assert Double.isNaN(d);
-            d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();
+            if (!isNotAnEnumLiteral(row._fieldStringVals[i])) {
+              d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();
+            } else {
+              d = Double.NaN;
+            }
           }
           // Write to compressed values
           if( !Double.isNaN(d) ) { // Broken data on row?
@@ -960,6 +964,11 @@ public final class ParseDataset {
     }
     // Claim some column names if the minority look like numbers
     return (num > (num_cols>>2)) ? names : null;
+  }
+
+  // Returns true if the value is not string representing an enum literal (i.e., string is null or empty)
+  static boolean isNotAnEnumLiteral(String s) {
+    return s == null || "".equals(s);
   }
 
   private static String NaN( byte[] b, int idx, int i ) {

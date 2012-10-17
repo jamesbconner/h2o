@@ -35,7 +35,7 @@ public class ExecWeb extends H2OPage {
     if (json.has("Error")) {
       return query.toString() + error("<span style='font-family:monospace'>"+json.getAsJsonPrimitive("Error").getAsString()+"</span>");
     } else {
-      args.put("Key",Key.make(json.get("ResultKeyHref").getAsString()));
+      args.put("Key",json.get("ResultKeyHref").getAsString());
       return  query.toString() + new Inspect().serveImpl(server,args,sessionId);
     }
   }
