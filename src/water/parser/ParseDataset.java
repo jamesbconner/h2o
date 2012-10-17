@@ -689,7 +689,7 @@ public final class ParseDataset {
             assert Double.isNaN(d);
             if (!isNotAnEnumLiteral(row._fieldStringVals[i])) {
               d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();
-            } else {
+            } else { // Mark it by NaN and let code below to write the right value
               d = Double.NaN;
             }
           }
@@ -967,7 +967,7 @@ public final class ParseDataset {
   }
 
   // Returns true if the value is not string representing an enum literal (i.e., string is null or empty)
-  static boolean isNotAnEnumLiteral(String s) {
+  static final boolean isNotAnEnumLiteral(String s) {
     return s == null || "".equals(s);
   }
 
