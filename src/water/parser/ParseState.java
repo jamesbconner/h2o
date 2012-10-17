@@ -291,9 +291,8 @@ public class ParseState implements Cloneable {
       ValueArray.Column col = _cols[i];
       col._domain = colDom;
       // Column domain contains column name => exclude column name from domain.
-      if (colDom._domainValues.contains(col._name)) {
-        colDom._domainValues.remove(col._name);
-      }
+      colDom._domainValues.remove(col._name);
+
       // The column's domain contains too many unique strings => drop the
       // domain. Column is already marked as erroneous.
       if( colDom.size() > ParseDataset.ColumnDomain.DOMAIN_MAX_VALUES) colDom.kill();
