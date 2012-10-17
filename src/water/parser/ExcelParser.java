@@ -124,9 +124,17 @@ public class ExcelParser implements HSSFListener {
         curNum = Double.NaN;
     }
 
+    // Handle end of row
+    if(record instanceof LastCellOfRowDummyRecord) {
+      if( _firstRow == null ) _firstRow = _rowStrs.clone();
+      handleRow(_rowNums, _rowStrs);
+      Arrays.fill(_rowNums, Double.NaN);
+      Arrays.fill(_rowStrs, null);
+    }
+
     if( curCol == -1 ) return;
 
-    if( _firstRow == null && curCol > _rowNums.length ) {
+    if( _firstRow == null && curCol >= _rowNums.length ) {
       _rowNums = Arrays.copyOf(_rowNums, curCol+1);
       _rowStrs = Arrays.copyOf(_rowStrs, curCol+1);
     }
@@ -134,14 +142,6 @@ public class ExcelParser implements HSSFListener {
     if( curCol < _rowNums.length ) {
       _rowNums[curCol] = curNum;
       if( Double.isNaN(curNum) ) _rowStrs[curCol] = curStr;
-    }
-
-    // Handle end of row
-    if(record instanceof LastCellOfRowDummyRecord) {
-      if( _firstRow == null ) _firstRow = _rowStrs.clone();
-      handleRow(_rowNums, _rowStrs);
-      Arrays.fill(_rowNums, Double.NaN);
-      Arrays.fill(_rowStrs, null);
     }
   }
 
