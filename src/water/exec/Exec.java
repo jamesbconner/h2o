@@ -12,8 +12,8 @@ public class Exec {
     Key k = Key.make("Result");
     Expr e = new RLikeParser().parse(x);
     Expr.Result r = e.eval();
-    Expr.assign(0,k, r);
-    Expr.calculateSigma(k,0);
+    Helpers.assign(0,k, r);
+    Helpers.calculateSigma(k,0);
     r.dispose();
     return k;
   }
