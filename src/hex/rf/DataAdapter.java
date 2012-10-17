@@ -134,8 +134,9 @@ class DataAdapter  {
     // Sometimes the last column allows a zero class (e.g. iris, poker) and sometimes
     // it's one-based (e.g. covtype) or -1/+1 (arcene)
     short[] shrink( boolean noEncoding ) {
-      HashMap<Float,Short> o2v2 = noEncoding? null : hashCol();
-      if (noEncoding) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
+      HashMap<Float,Short> o2v2 =//noEncoding? null :
+          hashCol();
+     // if (noEncoding) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
       short[] res = new short[rows()];
       int min = (int)min_;
       for(int j=0;j<rows();j++)
