@@ -223,6 +223,36 @@ public class ExprTest {
     UKV.remove(k);
   }
   
+  @Test public void testLargeDataOps() {
+    Key poker = loadAndParseKey("p.hex", "smalldata/poker/poker-hand-testing.data");
+    testVectorExpression("p.hex[1] + p.hex[2]", 2, 15, 13, 15, 12, 7);
+    testVectorExpression("p.hex[1] - p.hex[2]", 0, 9, 5, 7, 10, 3);
+    testVectorExpression("p.hex[1] * p.hex[2]", 1, 36, 36, 44, 11, 10);
+    testVectorExpression("p.hex[1] / p.hex[2]", 1.0, 4.0, 2.25, 2.75, 11.0, 2.5);
+    UKV.remove(poker);
+  }
+  
+  @Test public void testBigLargeExpression() {
+    Key poker = loadAndParseKey("p.hex", "smalldata/poker/poker-hand-testing.data");
+    testVectorExpression("p.hex[1] / p.hex[2] + p.hex[3] * p.hex[1] - p.hex[5] + (2* p.hex[1] - (p.hex[2]+3))", 8, 35, 63.25, 85.75, 116.0, 43.5);
+    UKV.remove(poker);    
+  }
+  
+  @Test public void testDifferentSizeOps() {
+    Key cars = loadAndParseKey("cars.hex", "smalldata/cars.csv");
+    Key poker = loadAndParseKey("p.hex", "smalldata/poker/poker-hand-testing.data");
+    testVectorExpression("cars.hex$year + p.hex[1]", 74, 82, 81, 84, 86, 81);
+    testVectorExpression("cars.hex$year - p.hex[1]", 72, 58, 63, 62, 64, 71);
+    testVectorExpression("cars.hex$year * p.hex[1]", 73, 840, 648, 803, 825, 380);
+    //testVectorExpression("cars.hex$year / p.hex[1]", 73, 70/12, 8, 76/11, 78/11, 15.2); // hard to get the numbers right + not needed no new coverage
+    testVectorExpression("p.hex[1] + cars.hex$year", 74, 82, 81, 84, 86, 81);
+    testVectorExpression("p.hex[1] - cars.hex$year", -72, -58, -63, -62, -64, -71);
+    testVectorExpression("p.hex[1] * cars.hex$year", 73, 840, 648, 803, 825, 380);
+    //testVectorExpression("p.hex[1] / cars.hex$year", 1/73, 12/70, 0.125, 11/76, 11/78, 5/81);
+    UKV.remove(poker);    
+    UKV.remove(cars);    
+  }
+  
   // ---
   // Test some basic expressions on "cars.csv"
   @Test public void testBasicCrud() {
