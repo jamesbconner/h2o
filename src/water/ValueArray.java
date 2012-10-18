@@ -159,7 +159,7 @@ public class ValueArray extends Value {
     BufferedInputStream bis = new BufferedInputStream(is,(int)chunk_size()*2);
 
     // try to read 2-chunks into the buffer
-    byte[] buffer = new byte[(int)chunk_size()*2];
+    byte[] buffer = MemoryManager.allocateMemory((int)chunk_size()*2);
     int sz = 0;
     while (sz!=buffer.length) {
       int i = bis.read(buffer,sz,buffer.length-sz);
