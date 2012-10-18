@@ -90,12 +90,15 @@ abstract class Statistic {
    */
   void reset(Data data, int seed) {
     random = new Random(seed);
-    // first get the columns for current split via Resevoir Sampling
+    // first get the columns for current split via Reservoir Sampling
+    // http://en.wikipedia.org/wiki/Reservoir_sampling
     // Pick from all the columns-1, and if we chose the class column,
     // replace it with the last column.
-    int i = 0;
-    for( ; i<_features.length; i++ ) _features[i] = i;
+    // Columns that have been marked as ignore should not be selected.
+    int i = 0, j = 0;
+    for( ; j<_features.length; i++) if (!data.ignore(i))  _features[j++] = i;
     for( ; i<data.columns()-1; i++ ) {
+      if(data.ignore(i)) continue;
       int off = random.nextInt(i);
       if( off < _features.length ) _features[off] = i;
     }
@@ -103,13 +106,10 @@ abstract class Statistic {
     // otherwise did not get a chance to be picked).
     int classIdx = data.classIdx();
     for( i=0; i<_features.length; i++ )
-      if( _features[i] == classIdx )
-        _features[i] = data.columns()-1;
+      if( _features[i] == classIdx )  _features[i] = data.columns()-1;
     // reset the column distributions for those
-    for (int j : _features)
-      for (int[] d: _columnDists[j])
-        Arrays.fill(d,0);
-    // and now the statistic is ready
+    for (int k : _features)
+      for (int[] d: _columnDists[k]) Arrays.fill(d,0);
   }
 
   /** Adds the given row to the statistic. Updates the column distributions for
