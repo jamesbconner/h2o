@@ -91,9 +91,9 @@ public final class ParseDataset {
     XSSFWorkbook wb = new XSSFWorkbook(dataset.openStream());
     for( XSSFSheet sheet : wb ) {
       for(org.apache.poi.ss.usermodel.Row r : sheet) {
-        if( curNums == null ) {
-          curNums = new double[r.getLastCellNum()+1];
-          curStrs = new String[r.getLastCellNum()+1];
+        if( curNums == null ) { // badly named method, includes the +1
+          curNums = new double[r.getLastCellNum()];
+          curStrs = new String[r.getLastCellNum()];
         }
         Arrays.fill(curNums, Double.NaN);
         Arrays.fill(curStrs, null);
