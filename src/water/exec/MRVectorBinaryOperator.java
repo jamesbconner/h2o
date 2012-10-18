@@ -74,8 +74,8 @@ public abstract class MRVectorBinaryOperator extends MRTask {
       if( result > _max )
         _max = result;
       _tot += result;
-      leftRow = leftRow + 1 % left_.num_rows();
-      rightRow = rightRow + 1 % right_.num_rows();
+      leftRow = (leftRow + 1) % left_.num_rows();
+      rightRow = (rightRow + 1) % right_.num_rows();
     }
     // we have the bytes now, just store the value
     Value val = new Value(key, bits);
