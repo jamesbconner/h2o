@@ -107,7 +107,7 @@ public class ParseState implements Cloneable {
       names = num > names.length/2 ? names : null;
     }
     for( int i = 0; i < _num_cols; i++ )
-      _cols[i]._name = names != null ? names[i] : "";
+      _cols[i]._name = names != null ? Strings.nullToEmpty(names[i]) : "";
   }
 
   public void prepareForStatsGathering() {
