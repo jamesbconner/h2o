@@ -15,6 +15,7 @@ public class DRF extends water.DRemoteTask {
   int _classcol;        // Column being classified
   Key _arykey;          // The ValueArray being RF'd
   public Key _treeskey; // Key of Tree-Keys built so-far
+  int[] _ignores;
 
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
@@ -36,7 +37,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be between 2 and 254, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol, int[] ignores) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -47,6 +48,7 @@ public class DRF extends water.DRemoteTask {
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._singlethreaded = singlethreaded;
     drf._seed = seed;
+    drf._ignores = ignores;
     Tree.THREADED = !singlethreaded;
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
@@ -75,7 +77,7 @@ public class DRF extends water.DRemoteTask {
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, names[_classcol], num_rows, unique, _seed, classes);
+    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, names[_classcol], _ignores, num_rows, unique, _seed, classes);
     final int num_cols = ary.num_cols();
     float[] ds = new float[num_cols];
     // Now load the DataAdapter with all the rows on this Node

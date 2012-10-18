@@ -17,11 +17,16 @@ class DataAdapter  {
   private final int _seed;
   private int rows;
 
-  public DataAdapter(String name, Object[] columns, String classNm, int rows, int data_id, int seed, int numClasses) {
-    this(name,columns,classNm, new String[0],rows,data_id,seed,numClasses);
-  }
-
-  DataAdapter(String name, Object[] columns, String classNm, String[] ignores, int rows, int data_id, int seed, int numClasses) {
+  /** Create a data adapter
+   * @param name  of the dataset
+   * @param columns names of the columns, can be empty in which case we use the column number
+   * @param classNm  name of the column that has the predictor
+   * @param rows number of rows
+   * @param data_id  identifier of the chunk we are working on
+   * @param seed  for pseudo random number generation
+   * @param numClasses number of classes the data can belong to
+   */
+  DataAdapter(String name, Object[] columns, String classNm, int[] ignores, int rows, int data_id, int seed, int numClasses) {
     _seed = seed+data_id;
     name_=name;
     c_ = new C[columns.length];
@@ -31,9 +36,15 @@ class DataAdapter  {
     // passed in here.
     numClasses_ = numClasses;
     for( int i=0; i<columns.length; i++ ) {
-      String s=columns[i].toString();  columnNames_[i] = s; c_[i]= new C(s,rows); c2i_.put(s,i);
+      String s=columns[i].toString();  columnNames_[i] = s; c2i_.put(s,i);
     }
     classIdx_ = c2i_.get(classNm);
+    assert ignores.length < columns.length;
+    for( int i=0; i<columns.length; i++ ) {
+      boolean ignore = false;
+      for(int j=0;j<ignores.length;j++) if(ignores[j]==i) ignore=true;
+      c_[i]= new C(columnNames_[i],rows, i==classIdx_,ignore);
+    }
     _data_id = data_id;
   }
 
@@ -51,19 +62,19 @@ class DataAdapter  {
       return fmid;
     }
   }
-
+  /** Return the name of the data set. */
   public String name() { return name_; }
 
-  // lame attempt at best effort ... throw away half the data each time 'round
+  /** Encode the data in a compact form.*/
   public void shrinkWrap() {
     freeze();
+    // Note: currently we are allocating space for all columns, including the ones we ignore.
+    // Changing this would reduce footprint.
     short[][] vss = new short[c_.length][];
-    for( int i=0; i<c_.length; i++ )
-      vss[i] = c_[i].shrink(i==classIdx_); // Short-Encode the raw data, but not the class
+    for( int i=0; i<c_.length; i++ )   vss[i] = c_[i].shrink();
     data_ = new short[ c_.length * rows()];
     for(int i=0;i<c_.length;i++) {
-      short[] vs = vss[i];
-      for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
+      if (ignore(i)) continue; short[] vs = vss[i]; for(int j=0;j<vs.length;j++) setS(j,i,vs[j]);
     }
   }
 
@@ -71,28 +82,22 @@ class DataAdapter  {
   public void freeze()        { frozen_=true; }
   public int columns()        { return c_.length;}
   public int rows()           { return rows; }
-  public int classOf(int idx) { return getS(idx,classIdx_); }  // (int) c_[classIdx_].v_[idx]; }
+  public int classOf(int idx) { return getS(idx,classIdx_); }
   public int dataId()         { return _data_id; }
+  /** The number of possible prediction classes. */
+  public int classes()        { return numClasses_; }
+  /** True if we should ignore column i. */
+  public boolean ignore(int i)     { return c_[i].ignore(); }
 
-  public int classes() {
-    if (!frozen_) throw new Error("Data set incomplete, freeze when done.");
-    if (numClasses_==-1) {
-      C c = c_[classIdx_];
-      numClasses_= (int)(c.max_-c.min_)+1;
-    }
-    return numClasses_;
-  }
-  // By default binning is not supported
-  public int columnArity(int colIndex) {
-    return c_[colIndex].smax_;
-  }
+  /** Returns the number of bins, i.e. the number of distinct values in the column.  Zero if we are ignoring the column. */
+  public int columnArity(int col) { if (ignore(col)) return 0; else return c_[col].smax_; }
+  /** Return a short that represents the binned value of the original row,column value.  */
+  public short getEncodedColumnValue(int rowIndex, int colIndex) { return getS(rowIndex, colIndex); }
 
-  // by default binning is not supported
-  public short getEncodedColumnValue(int rowIndex, int colIndex) {
-    return getS(rowIndex, colIndex);
-  }
-
+  /** Return the array of all column names including ignored and class. */
   public String[] columnNames() { return columnNames_; }
+
+  /** Add a row to this data set. */
   public void addRow(float[] v) {
     if (frozen_) throw new Error("Frozen data set update");
     for(int i=0;i<v.length;i++)  c_[i].add(v[i]);
@@ -105,14 +110,16 @@ class DataAdapter  {
 
   private class C {
     String name_;
-    boolean ignore;
+    boolean _ignore, _isClass;
     float min_=Float.MAX_VALUE, max_=Float.MIN_VALUE, tot_;
     float[] v_;
 
     float[] _v2o;  // Reverse (short) indices to original floats
     short smax_ = -1;
 
-    C(String s, int rows) { name_ = s; v_ = new float[rows]; }
+    C(String s, int rows, boolean isClass, boolean ignore) {
+      name_ = s; v_ = new float[rows]; _isClass=isClass; _ignore=ignore;
+    }
 
     void add(float x) {
       min_=Math.min(x,min_);
@@ -122,27 +129,30 @@ class DataAdapter  {
     }
 
     float getF(int i) { return v_[i]; }
-    void ignore() { ignore = true; }
+    boolean ignore() { return _ignore; }
+
 
     public String toString() {
       String res = "col("+name_+")";
+      if (ignore()) return res + " ignored!";
       res+= "  ["+DataAdapter.df.format(min_) +","+DataAdapter.df.format(max_)+"], avg=";
       res+= DataAdapter.df.format(tot_/rows()) ;
+      if (_isClass) res+= " CLASS ";
       return res;
     }
 
-    // For all columns except the classes - encode all floats as unique shorts.
-    // For the last column holding the classes - encode it as 0-(numclasses-1).
-    // Sometimes the last column allows a zero class (e.g. iris, poker) and sometimes
-    // it's one-based (e.g. covtype) or -1/+1 (arcene)
-    short[] shrink( boolean noEncoding ) {
-      HashMap<Float,Short> o2v2 =//noEncoding? null :
-          hashCol();
-     // if (noEncoding) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
+    /** For all columns except the classes - encode all floats as unique shorts.
+        For the column holding the classes - encode it as 0-(numclasses-1).
+        Sometimes the class allows a zero class (e.g. iris, poker) and sometimes
+        it's one-based (e.g. covtype) or -1/+1 (arcene).   */
+    short[] shrink() {
+      if (ignore()) return null;
+      HashMap<Float,Short> o2v2 = _isClass ? null : hashCol();
+      if (_isClass) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
       short[] res = new short[rows()];
       int min = (int)min_;
       for(int j=0;j<rows();j++)
-        res[j] = noEncoding ? (short)((int)v_[j]-min) :  o2v2.get(v_[j]);
+        res[j] = _isClass ? (short)((int)v_[j]-min) :  o2v2.get(v_[j]);
       v_= null;
       return res;
     }
