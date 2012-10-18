@@ -117,7 +117,7 @@ public class VABuilder {
   }
   
   public ValueArray create(Key k) {
-    Column[] cols = (Column[]) _cols.toArray(new Column[_cols.size()]);
+    Column[] cols = _cols.toArray(new Column[_cols.size()]);
     int rowSize = 0;
     for (Column c: cols)
       rowSize += Math.abs(c._size);
