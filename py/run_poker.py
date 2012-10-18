@@ -6,9 +6,9 @@ h2o.parse_our_args()
 
 try:
     print 'Building cloud'
-    h2o.build_cloud(2, capture_output=False)
+    h2o.build_cloud(1, capture_output=False)
     print 'Random Forest'
-    h2o_cmd.runRF(None, h2o.find_file('smalldata/poker/poker-hand-testing.data'),
+    h2o_cmd.runRF(None, h2o.find_dataset('iris/iris.xlsx'),
             trees=10, timeoutSecs=60)
     print 'Completed'
 except KeyboardInterrupt:

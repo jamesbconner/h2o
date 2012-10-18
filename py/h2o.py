@@ -56,6 +56,11 @@ def verboseprint(*args):
     # so we can see problems when hung?
     sys.stdout.flush()
 
+def find_dataset(f):
+    (head, tail) = os.path.split(os.path.abspath('datasets'))
+    while not os.path.exists(os.path.join(head, tail)):
+        head = os.path.split(head)[0]
+    return os.path.join(head, tail, f)
 
 def find_file(base):
     f = base

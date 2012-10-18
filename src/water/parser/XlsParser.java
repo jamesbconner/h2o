@@ -10,10 +10,21 @@ import org.apache.poi.hssf.eventusermodel.dummyrecord.MissingCellDummyRecord;
 import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 
-public class ExcelParser implements HSSFListener {
-  private final POIFSFileSystem _fs;
+import water.parser.ParseDataset.ParseHandler;
 
-  public String[] _firstRow;
+public class XlsParser implements HSSFListener {
+  public static class Engine implements ParseDataset.ParseEngine {
+    @Override
+    public void doParse(InputStream is, ParseHandler h) throws IOException {
+      XlsParser p = new XlsParser(is, h);
+      p.process();
+    }
+  }
+
+  private final POIFSFileSystem _fs;
+  private final ParseHandler _handler;
+
+  private String[] _firstRow = null;
   private String[] _rowStrs = new String[0];
   private double[] _rowNums = new double[0];
 
@@ -23,8 +34,9 @@ public class ExcelParser implements HSSFListener {
   private int _nextCol;
   private boolean _outputNextStringRecord;
 
-  public ExcelParser(InputStream is) throws IOException {
+  public XlsParser(InputStream is, ParseHandler handler) throws IOException {
     _fs = new POIFSFileSystem(is);
+    _handler = handler;
   }
 
   public void process() throws IOException {
@@ -36,6 +48,7 @@ public class ExcelParser implements HSSFListener {
     request.addListenerForAllRecords(_formatListener);
 
     factory.processWorkbookEvents(request, _fs);
+    _handler.handleFinished(_firstRow);
 }
 
   @Override
@@ -127,7 +140,7 @@ public class ExcelParser implements HSSFListener {
     // Handle end of row
     if(record instanceof LastCellOfRowDummyRecord) {
       if( _firstRow == null ) _firstRow = _rowStrs.clone();
-      handleRow(_rowNums, _rowStrs);
+      _handler.handleRow(_rowNums, _rowStrs);
       Arrays.fill(_rowNums, Double.NaN);
       Arrays.fill(_rowStrs, null);
     }
@@ -143,9 +156,5 @@ public class ExcelParser implements HSSFListener {
       _rowNums[curCol] = curNum;
       if( Double.isNaN(curNum) ) _rowStrs[curCol] = curStr;
     }
-  }
-
-  public void handleRow(double[] rowNums, String[] rowStrs) {
-
   }
 }

@@ -99,8 +99,13 @@ public class ParseState implements Cloneable {
       _cols_domains[i] = ColumnDomain.read(dis);
   }
 
-  public void assignColumnNames(String[] names) {
+  public void maybeAssignColumnNames(String[] names) {
     assert names == null || names.length == _num_cols;
+    if( names != null ) {
+      int num = 0;
+      for( String n : names ) if( n != null ) ++num;
+      names = num > names.length/2 ? names : null;
+    }
     for( int i = 0; i < _num_cols; i++ )
       _cols[i]._name = names != null ? names[i] : "";
   }

@@ -3,11 +3,6 @@ import java.io.*;
 import java.util.*;
 import java.util.zip.*;
 
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
 import water.*;
 import water.parser.SeparatedValueParser.Row;
 
@@ -21,6 +16,14 @@ import com.google.common.io.Closeables;
  */
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
+
+  static interface ParseHandler {
+    public void handleRow(double[] nums, String[] strs);
+    public void handleFinished(String[] headerRow);
+  }
+  static interface ParseEngine {
+    void doParse(InputStream is, ParseHandler h) throws Exception;
+  }
 
   // Configuration kind for parser
   private static final int PARSE_SVMLIGHT = 101;
@@ -39,18 +42,19 @@ public final class ParseDataset {
 
     try {
       try {
-        // this bails fast, as it checks initial magic bytes
-        parseExcel97(result, dataset);
+        parseWithEngine(result, dataset, new XlsParser.Engine());
         return;
       } catch( Exception e ) { }
-
-      try {
-        parseExcel2000(result, dataset);
-        return;
-      } catch( Exception e ) { }
-
 
       Compression compression = guessCompressionMethod(dataset);
+      if( compression == Compression.ZIP ) {
+        // .xlsx files are actually zip files with xml inside them
+        try {
+          parseWithEngine(result, dataset, new XlsxParser.Engine());
+          return;
+        } catch( Exception e ) { }
+      }
+
       switch (compression) {
       case NONE: parseUncompressed(result, dataset); break;
       case ZIP : parseZipped      (result, dataset); break;
@@ -79,100 +83,12 @@ public final class ParseDataset {
 
   }
 
-  public static void parseExcel2000(Key result, Value dataset) throws IOException {
+  public static void parseWithEngine(Key result, Value dataset, ParseEngine e) throws Exception {
     final ParseState state = new ParseState();
     state._num_rows  = 0; // No rows yet
     state._num_cols  = 0; // No rows yet
 
-    String[] names = null;
-    double[] curNums = null;
-    String[] curStrs = null;
-
-    XSSFWorkbook wb = new XSSFWorkbook(dataset.openStream());
-    for( XSSFSheet sheet : wb ) {
-      for(org.apache.poi.ss.usermodel.Row r : sheet) {
-        if( curNums == null ) { // badly named method, includes the +1
-          curNums = new double[r.getLastCellNum()];
-          curStrs = new String[r.getLastCellNum()];
-        }
-        Arrays.fill(curNums, Double.NaN);
-        Arrays.fill(curStrs, null);
-
-        for( int i = 0; i < curNums.length; ++i ) {
-          Cell c = r.getCell(i, org.apache.poi.ss.usermodel.Row.RETURN_BLANK_AS_NULL);
-          if( c != null ) {
-            try {
-              curNums[i] = c.getNumericCellValue();
-            } catch( IllegalStateException e ) {
-              curStrs[i] = c.getStringCellValue();
-            }
-          }
-        }
-
-        if( state._num_cols == 0 ) {
-          names = curStrs.clone();
-          state._num_cols = curNums.length;
-          state.prepareForStatsGathering();
-        }
-        if( allNaNs(curNums) ) continue;
-        state.addRowToStats(new Row(curNums, curStrs));
-      }
-    }
-    state.finishStatsGathering(0);
-
-    int num = 0;
-    if( names != null ) {
-      for( String n : names ) if( n != null ) ++num;
-      names = num > names.length/2 ? names : null;
-      state.assignColumnNames(names);
-    }
-    state.filterColumnsDomains();
-    state.computeColumnSize();
-
-    final int row_size = state.computeOffsets();
-    final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
-    int off = 0;
-    final double[] sumerr = new double[state._num_cols];
-    final HashMap<String,Integer>[] columnIndexes = state.createColumnIndexes();
-    for( XSSFSheet sheet : wb ) {
-      for(org.apache.poi.ss.usermodel.Row r : sheet) {
-        Arrays.fill(curNums, Double.NaN);
-        Arrays.fill(curStrs, null);
-        for( int i = 0; i < curNums.length; ++i ) {
-          Cell c = r.getCell(i, org.apache.poi.ss.usermodel.Row.RETURN_BLANK_AS_NULL);
-          if( c != null ) {
-            try {
-              curNums[i] = c.getNumericCellValue();
-            } catch( IllegalStateException e ) {
-              curStrs[i] = c.getStringCellValue();
-            }
-          }
-        }
-
-        if( allNaNs(curNums) ) continue;
-        state.addRowToBuffer(buf, off, sumerr, new Row(curNums, curStrs), columnIndexes);
-        off += row_size;
-      }
-    }
-    state.normalizeVariance(sumerr);
-
-    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf);
-
-    // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
-        state._num_rows, row_size, state._cols);
-    UKV.put(result,ary);
-    // Plan A: distributed write barrier on atomic unions
-    AUBarrier aub = new AUBarrier();
-    aub.invoke(result);
-  }
-
-  public static void parseExcel97(Key result, Value dataset) throws IOException {
-    final ParseState state = new ParseState();
-    state._num_rows  = 0; // No rows yet
-    state._num_cols  = 0; // No rows yet
-
-    ExcelParser parser = new ExcelParser(dataset.openStream()) {
+    e.doParse(dataset.openStream(), new ParseHandler() {
       @Override
       public void handleRow(double[] rowNums, String[] rowStrs) {
         if( state._num_cols == 0 ) {
@@ -182,24 +98,21 @@ public final class ParseDataset {
         if( allNaNs(rowNums) ) return;
         state.addRowToStats(new Row(rowNums, rowStrs));
       }
-    };
 
-    parser.process();
-    state.finishStatsGathering(0);
+      @Override
+      public void handleFinished(String[] names) {
+        state.finishStatsGathering(0);
+        state.maybeAssignColumnNames(names);
+      }
+    });
 
-    String[] names = parser._firstRow;
-    int num = 0;
-    for( String n : names ) if( n != null ) ++num;
-    names = num > names.length/2 ? names : null;
-    state.assignColumnNames(names);
     state.filterColumnsDomains();
     state.computeColumnSize();
-
     final int row_size = state.computeOffsets();
     final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
     final double[] sumerr = new double[state._num_cols];
     final HashMap<String,Integer> columnIndexes[] = state.createColumnIndexes();
-    parser = new ExcelParser(dataset.openStream()) {
+    e.doParse(dataset.openStream(), new ParseHandler() {
       int off = 0;
       @Override
       public void handleRow(double[] rowNums, String[] rowStrs) {
@@ -207,12 +120,12 @@ public final class ParseDataset {
         state.addRowToBuffer(buf, off, sumerr, new Row(rowNums, rowStrs), columnIndexes);
         off += row_size;
       }
-    };
-    parser.process();
+
+      @Override public void handleFinished(String[] headerRow) { }
+    });
+
     state.normalizeVariance(sumerr);
-
     packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf);
-
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
         state._num_rows, row_size, state._cols);
@@ -241,16 +154,9 @@ public final class ParseDataset {
       System.err.println("[parser] Column names guesser failed.");
       e.printStackTrace(System.err);
     }
-    state.assignColumnNames(names);
-
-    // #2: Filter columns which are too big (contains too many unique strings)
-    // and manage domain overlap with column name.
+    state.maybeAssignColumnNames(names);
     state.filterColumnsDomains();
-
-    // #3: Now figure out how best to represent the data.
     state.computeColumnSize();
-
-    // #4: Compute row size & column offsets
     int row_size = state.computeOffsets();
 
     // Setup for pass-2, where we do the actual data conversion. Also computes variance.
@@ -647,8 +553,6 @@ public final class ParseDataset {
     public void reduce( DRemoteTask drt ) { }
   }
 
-
-  // Guess
   private static Compression guessCompressionMethod(Value dataset) {
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk
@@ -659,15 +563,6 @@ public final class ParseDataset {
     if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
       return Compression.GZIP;
     return Compression.NONE;
-  }
-
-  private static boolean isXlsDocument(Value dataset) {
-    try {
-      new POIFSFileSystem(dataset.openStream());
-      return true;
-    } catch( Exception e ) {
-      return false;
-    }
   }
 
   // ---
@@ -742,10 +637,6 @@ public final class ParseDataset {
     Iterator<Row> it = csv.iterator();
     if( !it.hasNext() ) return null;
     Row r = it.next();
-
-    String[] names = r._fieldStringVals;
-    int num = 0;
-    for( String n : names ) if( n != null ) ++num;
-    return num > num_cols/2 ? names : null;
+    return r._fieldStringVals;
   }
 }
