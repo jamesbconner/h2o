@@ -136,5 +136,5 @@ class DivOperator extends water.exec.MRVectorBinaryOperator {
   public DivOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
 
   @Override
-  public double operator(double left, double right) { return left * right; }
+  public double operator(double left, double right) { return left / right; }
 }
