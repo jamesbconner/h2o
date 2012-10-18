@@ -405,7 +405,6 @@ public final class ParseDataset {
     // Parse just this chunk, compress into new format.
     public void map( Key key ) {
       assert _state._cols != null;
-      assert _state._num_rows != 0;
 
       // Get chunk index
       int cidx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
