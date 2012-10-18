@@ -69,6 +69,20 @@ public class ExprTest {
     testParseFail(" a $ 5");
   }
   
+  @Test public void testExecFails() {
+    testExecFail("a");
+    testScalarExpression("a=5",5);
+    testExecFail("a$hello");
+    testExecFail("a[2]");
+  }
+  
+  @Test public void testDivByZero() {
+    testScalarExpression("5/0", Double.POSITIVE_INFINITY);
+    testScalarExpression("n = 6",6);
+    testScalarExpression("g = 0",0);
+    testScalarExpression("n/g",Double.POSITIVE_INFINITY);
+    testScalarExpression("n/0",Double.POSITIVE_INFINITY);
+  }
   
   protected Key executeExpression(String expr) {
     DKV.write_barrier();
