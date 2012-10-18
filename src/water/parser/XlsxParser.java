@@ -120,6 +120,7 @@ public class XlsxParser {
           try {
             _rowNums[_curCol] = Double.parseDouble(_lastContents);
           } catch( NumberFormatException e ) {
+            _rowNums[_curCol] = Double.NaN;
             _rowStrs[_curCol] = _lastContents;
           }
         }
