@@ -29,7 +29,7 @@ public class VABuilder {
   
   public VABuilder addDoubleColumn(String name) {
     Column c = new Column();
-    c._name = name;
+    c._name = name == null ? new String() : name;
     c._size = -8;
     c._scale = 1;
     c._min = Double.NaN;
@@ -44,7 +44,7 @@ public class VABuilder {
   
   public VABuilder addDoubleColumn(String name, double min, double max, double mean) {
     Column c = new Column();
-    c._name = name;
+    c._name = name == null ? new String() : name;
     c._size = -8;
     c._scale = 1;
     c._min = min;
@@ -59,7 +59,7 @@ public class VABuilder {
 
   public VABuilder addDoubleColumn(String name, double min, double max, double mean, double sigma) {
     Column c = new Column();
-    c._name = name;
+    c._name = name == null ? new String() : name;
     c._size = -8;
     c._scale = 1;
     c._min = min;
@@ -74,7 +74,7 @@ public class VABuilder {
 
   public VABuilder addColumn(String name, int size, int scale, double min, double max, double mean, double sigma) {
     Column c = new Column();
-    c._name = name;
+    c._name = name == null ? new String() : name;
     c._size = (byte)size;
     c._scale = (short)scale;
     c._min = min;
