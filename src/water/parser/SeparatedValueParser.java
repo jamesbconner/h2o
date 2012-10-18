@@ -6,6 +6,7 @@ import java.util.Iterator;
 import water.*;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 
 public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>, Iterator<SeparatedValueParser.Row> {
   private final Key _key;
@@ -150,7 +151,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
         _row._fieldVals[field] = Double.isNaN(v) ? _decimal.doubleValue() : v;
         _row._fieldStringVals[field] = null;
         if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
-          _row._fieldStringVals[field] = _textual.stringValue();
+          _row._fieldStringVals[field] = Strings.emptyToNull(_textual.stringValue());
         }
       } else {
         b = scanPastNextSeparator();
