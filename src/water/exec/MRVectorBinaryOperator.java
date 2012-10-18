@@ -60,7 +60,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
     long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
     if( row / chunkRows == result_.chunks() - 1 )
       chunkRows = result_.num_rows() - row;
-    byte[] bits = new byte[(int) chunkRows * 8]; // create the byte array
+    byte[] bits = MemoryManager.allocateMemory((int) chunkRows * 8); // create the byte array
     // now calculate the results
     long leftRow = row % left_.num_rows();
     long rightRow = row % right_.num_rows();
