@@ -169,21 +169,37 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None,
 
     node_list = []
     try:
+
+        # we're going to always create the flatfile. 
+        # Used for all remote cases now. (per sri)
+        pff_name = 'pytest_flatfile-%s' %getpass.getuser()
+        pff = open(pff_name, "w+")
+        pff.write("# Created by build_cloud\n")
+        pff.write("# " + str(datetime.datetime.now()) + "\n")
+
         # if no hosts list, use psutil method on local host.
         totalNodes = 0
         if hosts is None:
             hostCount = 1
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
-                node_list.append(LocalH2O(port=base_port + i*ports_per_node, **kwargs))
+                newNode = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
+                node_list.append(newNode)
                 totalNodes += 1
+                # dont need the name in front
+                # FIX! this format might change?
+                pff.write("/" + newNode.addr + ":" + str(newNode.port) + "\n")
         else:
             hostCount = len(hosts)
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
-                    node_list.append(h.remote_h2o(port=base_port + i*ports_per_node, **kwargs))
+                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
+                    node_list.append(newNode)
                     totalNodes += 1
+                    pff.write("/" + newNode.addr + ":" + str(newNode.port) + "\n")
+
+        pff.close()
 
         verboseprint("Attempting Cloud stabilize of", totalNodes, "nodes on", hostCount, "hosts")
         start = time.time()
@@ -351,27 +367,30 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0):
-        # FIX! add gini= . is it 0 or 1? Enum is ENTROPY, GINI
-        # dataKey and treesKey are .hex
-        # add seed=
-        # add singlethreaded=
-        # add gini=<ordinalnumber>
-
-        # do I specify modelKey if I want?
-        # FIX! get dataKey, treesKey from result?
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel",clazz=None):
         # modelkey is ____model by default
         # can get error result too?
-        # I wonder if we can give it those key names if we want.
-        a = self.__check_request(requests.get(self.__url('RF.json'),
-            params={
+        
+        # FIX! pass a model name here, that is unique for every RF model we due 
+        # during a cloud build..so we can look at it with the browser and not have multiple RF's
+        # overwrite the same model (and lose the data so we can't see it in the browser any more
+        rfParams = {
+                # FIX! temporary H2O bug..put ____ in front of model name to get it used right
+                # test should get the right one from RF.json output, for use in RFview
+                # passing a modelKey is really so it persists if we're doing multiple RFs
+                # and we want to pass a new model name each time to avoid overwrite
+                "modelKey": "____" + modelKey,
                 "singlethreaded": singlethreaded,
                 "seed": seed,
                 "gini": gini,
                 "depth": depth,
                 "ntree": ntree,
                 "Key": key
-                }))
+                }
+        if not clazz is None: rfParams['class'] = clazz
+
+        verboseprint("\nrandom_forest parameters:", rfParams)
+        a = self.__check_request(requests.get(self.__url('RF.json'), params=rfParams))
         verboseprint("\nrandom_forest result:", a)
         return a
 
@@ -490,6 +509,12 @@ class H2O(object):
                 retryDelaySecs=0.1) # but normally it is very fast
 
     def get_args(self):
+        #! FIX! is this used for both local and remote? 
+        # I guess it doesn't matter if we use flatfile for both now
+
+        # FIX! flatfile seems to not help multihost (if multicast issues)
+        # and breaks single host? leave out for now
+        #    '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         args = [ 'java' ]
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']

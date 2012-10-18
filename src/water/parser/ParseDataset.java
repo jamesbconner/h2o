@@ -636,7 +636,6 @@ public final class ParseDataset {
         csvType == PARSE_COMMASEP ? ',' : ' ', num_cols);
     Iterator<Row> it = csv.iterator();
     if( !it.hasNext() ) return null;
-    Row r = it.next();
-    return r._fieldStringVals;
+    return it.next()._fieldStringVals;
   }
 }

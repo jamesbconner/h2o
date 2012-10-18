@@ -80,7 +80,7 @@ public abstract class Paxos {
         cloud_kill(); // Cloud-wide kill because things changed after key inserted
       if( !_commonKnowledge && ck ) { // Everybody just now agrees on the Cloud
         Paxos.class.notify(); // Also, wake up a worker thread stuck in DKV.put
-        System.out.printf("[h20] Paxos Cloud of size %d formed: %s\n",
+        System.out.printf("[h2o] Paxos Cloud of size %d formed: %s\n",
                           cloud._memset.size(), cloud._memset.toString());
       }
       _commonKnowledge = ck;    // Set or clear "common knowledge"

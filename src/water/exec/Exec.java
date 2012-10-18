@@ -9,11 +9,15 @@ import water.Key;
 public class Exec {
   // Execute some generic R string.  Return a
   public static Key exec( String x ) throws ParserException, EvaluationException {
-    Key k = Key.make("Result");
+    return exec(x,"Result");
+  }
+  
+  public static Key exec(String x, String to) throws ParserException, EvaluationException {
+    Key k = Key.make(to);
     Expr e = new RLikeParser().parse(x);
     Expr.Result r = e.eval();
-    Expr.assign(0,k, r);
-    Expr.calculateSigma(k,0);
+    Helpers.assign(0,k, r);
+    Helpers.calculateSigma(k,0);
     r.dispose();
     return k;
   }
