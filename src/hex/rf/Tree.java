@@ -100,6 +100,7 @@ public class Tree extends CountedCompleter {
       Statistic rite = getStatistic(1,data_, _seed +  2020);
       Data[] res = new Data[2]; // create the data, node and filter the data
       int c = split_._column, s = split_._split;
+      assert c != data_.classIdx();
       SplitNode nd = split_.isExclusion() ?
         new ExclusionNode(c, s, data_.colName(c), data_.unmap(c,s)) :
         new SplitNode    (c, s, data_.colName(c), data_.unmap(c, s) );
