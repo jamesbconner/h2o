@@ -44,12 +44,16 @@ public class RandomForestPage extends H2OPage {
         throw new InvalidInputException("Class out of range");
     }
 
+    // Pick columns to ignore
+    String igz = p.getProperty("ignore");
+    int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary.col_names(), igz);
+
     // Start the distributed Random Forest
 
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/, classcol);
+      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/, classcol,ignores);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
       Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes);

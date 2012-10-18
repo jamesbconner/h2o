@@ -49,6 +49,7 @@ public class Data implements Iterable<Row> {
   public String colName(int i)   { return data_.columnNames()[i]; }
   public float unmap(int col, float split) { return data_.unmap(col, split); }
   public int columnArity(int colIndex) { return data_.columnArity(colIndex); }
+  public boolean ignore(int col) { return data_.ignore(col);   }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
   private class RowIter implements Iterator<Row> {
