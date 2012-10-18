@@ -244,5 +244,3 @@ class RightDiv extends ParametrizedMRVectorUnaryOperator {
   @Override
   public double operator(double opnd) { return _param / opnd; }
 }
-
-

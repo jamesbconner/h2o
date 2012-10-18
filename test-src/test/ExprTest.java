@@ -43,6 +43,7 @@ public class ExprTest {
     DKV.write_barrier();
     int keys = H2O.store_size();
     try {
+      System.err.println("result"+(new Integer(i).toString())+": "+expr);
       Key key = Exec.exec(expr, "result"+(new Integer(i).toString()));
       UKV.remove(key);
       assertTrue("An exception should have been thrown.",false);
@@ -71,9 +72,12 @@ public class ExprTest {
   
   @Test public void testExecFails() {
     testExecFail("a");
+    testExecFail("a$hello");
+    testExecFail("a[2]");
     testScalarExpression("a=5",5);
     testExecFail("a$hello");
     testExecFail("a[2]");
+    UKV.remove(Key.make("a"));
   }
   
   @Test public void testDivByZero() {
@@ -82,6 +86,8 @@ public class ExprTest {
     testScalarExpression("g = 0",0);
     testScalarExpression("n/g",Double.POSITIVE_INFINITY);
     testScalarExpression("n/0",Double.POSITIVE_INFINITY);
+    UKV.remove(Key.make("n"));
+    UKV.remove(Key.make("g"));
   }
   
   protected Key executeExpression(String expr) {
