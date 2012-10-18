@@ -23,7 +23,8 @@ public class Tree extends CountedCompleter {
   final Data _data;             // Data source
   final int _data_id;           // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;         // Tree-depth cutoff
-  final int _features;          // Number of features to use
+  /** Number of features to use */
+  final int _features;
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
   final int  _seed;             // Pseudo random seeds
@@ -105,7 +106,7 @@ public class Tree extends CountedCompleter {
         new ExclusionNode(c, s, data_.colName(c), data_.unmap(c,s)) :
         new SplitNode    (c, s, data_.colName(c), data_.unmap(c, s) );
       data_.filter(nd,res,left,rite);
-      
+
       FJBuild fj0 = null, fj1 = null;
       Statistic.Split ls = left.split(data_, depth_ >= _max_depth); // get the splits
       Statistic.Split rs = rite.split(data_, depth_ >= _max_depth);

@@ -60,7 +60,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
     long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
     if( row / chunkRows == result_.chunks() - 1 )
       chunkRows = result_.num_rows() - row;
-    byte[] bits = new byte[(int) chunkRows * 8]; // create the byte array
+    byte[] bits = MemoryManager.allocateMemory((int) chunkRows * 8); // create the byte array
     // now calculate the results
     long leftRow = row % left_.num_rows();
     long rightRow = row % right_.num_rows();
@@ -74,8 +74,8 @@ public abstract class MRVectorBinaryOperator extends MRTask {
       if( result > _max )
         _max = result;
       _tot += result;
-      leftRow = leftRow + 1 % left_.num_rows();
-      rightRow = rightRow + 1 % right_.num_rows();
+      leftRow = (leftRow + 1) % left_.num_rows();
+      rightRow = (rightRow + 1) % right_.num_rows();
     }
     // we have the bytes now, just store the value
     Value val = new Value(key, bits);
@@ -136,5 +136,5 @@ class DivOperator extends water.exec.MRVectorBinaryOperator {
   public DivOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
 
   @Override
-  public double operator(double left, double right) { return left * right; }
+  public double operator(double left, double right) { return left / right; }
 }

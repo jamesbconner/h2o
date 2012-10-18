@@ -58,7 +58,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
     long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
     if( row / chunkRows == result_.chunks() - 1 )
       chunkRows = result_.num_rows() - row;
-    byte[] bits = new byte[(int) chunkRows * 8]; // create the byte array
+    byte[] bits = MemoryManager.allocateMemory((int) chunkRows * 8); // create the byte array
     // now calculate the results
     for( int i = 0; i < chunkRows; ++i ) {
       double opnd = opnd_.datad(row + i, _col);
@@ -97,18 +97,6 @@ class UnaryMinus extends MRVectorUnaryOperator {
 
   @Override
   public double operator(double opnd) { return -opnd; }
-}
-
-// =============================================================================
-// DeepColumnAssignment 
-// =============================================================================
-
-class DeepColumnAssignment extends MRVectorUnaryOperator {
-  
-  public DeepColumnAssignment(Key key, Key result, int col) { super(key, result, col); }
-  
-  @Override
-  public double operator(double opnd) { return opnd; }
 }
 
 // =============================================================================

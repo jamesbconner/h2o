@@ -164,7 +164,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
         _row._fieldStringVals[field] = null;
         if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
           String sVal = _textual.stringValue();
-          if (!ParseDataset.isNotAnEnumLiteral(sVal)) {
+          if (!ParseDataset.isNotAnEnumLiteral(sVal)) { // put it into a column domain dictionary only if it is correct enum literal
             _row._fieldStringVals[field] = sVal;
             putToDictionary(field, _row._fieldStringVals[field]);
           }
