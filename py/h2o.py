@@ -345,7 +345,7 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0,clazz=None):
         # FIX! add gini= . is it 0 or 1? Enum is ENTROPY, GINI
         # dataKey and treesKey are .hex
         # add seed=
@@ -357,15 +357,17 @@ class H2O(object):
         # modelkey is ____model by default
         # can get error result too?
         # I wonder if we can give it those key names if we want.
-        a = self.__check_request(requests.get(self.__url('RF.json'),
-            params={
+        rfParams = {
                 "singlethreaded": singlethreaded,
                 "seed": seed,
                 "gini": gini,
                 "depth": depth,
                 "ntree": ntree,
                 "Key": key
-                }))
+                }
+        if not clazz is None: rfParams['class'] = clazz
+        verboseprint("\nrandom_forest parameters:", rfParams)
+        a = self.__check_request(requests.get(self.__url('RF.json'), params=rfParams))
         verboseprint("\nrandom_forest result:", a)
         return a
 
