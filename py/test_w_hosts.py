@@ -20,20 +20,21 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_RF_iris2(self):
-        h2o.touch_cloud()
+        # not needed?
+        # h2o.touch_cloud()
 
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         h2o_cmd.runRF(trees=6, modelKey="iris2", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_C_RF_poker100(self):
-        h2o.touch_cloud()
+        # h2o.touch_cloud()
 
         # RFview consumes cycles. Only retry once a second, to avoid slowing things down
         csvPathname = h2o.find_file('smalldata/poker/poker100')
         h2o_cmd.runRF(trees=6, modelKey="poker100", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_D_GenParity1(self):
-        h2o.touch_cloud()
+        # h2o.touch_cloud()
 
         # Create a directory for the created dataset files. ok if already exists
         global SYNDATASETS_DIR
