@@ -19,6 +19,7 @@ public class TaskPutKey extends DFutureTask<Object> {
 
   final Key _key; // The LOCAL Key; presumably a bare Key no Value, and NOT interned
   final Value _val; // Value to be pushed
+  Value _oldval;    // "Helper" return value for DKV.put; not used here
 
   // Asking the remote for the Value matching this specific Key.  Return the
   // first len bytes of that key.  If len==Integer.MAX_VALUE the intent is to

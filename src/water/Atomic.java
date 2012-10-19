@@ -68,7 +68,7 @@ public abstract class Atomic extends RemoteTask {
 
       // Attempt atomic update
       Value val2 = new Value(_key,bits2);
-      Value res = DKV.DputIfMatch(_key,val2,val1);
+      Value res = (Value)DKV.DputIfMatch(_key,val2,val1);
       if( res == val1 ) {       // Success?
         onSuccess();            // Call user's post-XTN function
         _key = null;            // No need for key no more

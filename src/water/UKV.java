@@ -20,35 +20,53 @@ public abstract class UKV {
   // the SAME key on the SAME node.
   static public void put( Key key, Value val ) {
     assert key.user_allowed();
-    Value res = DKV.put_return_old(key,val);
+    Object o = DKV.put(key,val);
+    Value res = null;
+    TaskPutKey tpk = null;
+    if( o instanceof TaskPutKey ) {
+      tpk = (TaskPutKey)o;
+      res = tpk._oldval;
+    } else {
+      res = (Value)o;
+    }
     // If the old Value was a large array, we need to delete the leftover
     // chunks - they are unrelated to the new Value which might be either
     // bigger or smaller than the old Value.
     if( res != null && res.type() == 'A' ) {
+      DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
+          public void reduce(DRemoteTask dt) {}
+          public void compute() {}
+        };
       ValueArray ary = (ValueArray)res;
       final long chunks = ary.chunks();
       for( long i=0; i<chunks; i++ ) // Delete all the chunks
-        DKV.remove(ary.chunk_get(i));
+        drt.lazy_complete(DKV.remove(ary.chunk_get(i)));
+      drt.block_pending();
     }
     if( res != null ) res.free_mem();
+    if( tpk != null ) tpk.get(); // Block for remote-put to complete
   }
 
   static public void remove( Key key ) {
     Value val = DKV.get(key,32); // Get the existing Value, if any
     if( val == null ) return;    // Trivial delete
+    DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
+        public void reduce(DRemoteTask dt) {}
+        public void compute() {}
+      };
     if( val instanceof ValueArray ) { // See if this is an Array
       ValueArray ary = (ValueArray)val;
       final long chunks = ary.chunks();
       // Delete all chunks
       for( long i=0; i<=chunks; i++ ) // Delete all the chunks
-        DKV.remove(ary.chunk_get(i));
+        drt.lazy_complete(DKV.remove(ary.chunk_get(i)));
     }
 
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
       for( Key k : val.flatten() )      // Then recursively delete
         remove(k);
-
-    DKV.remove(key);
+    drt.lazy_complete(DKV.remove(key));
+    drt.block_pending();
   }
 
   // User-Weak-Get a Key from the distributed cloud.

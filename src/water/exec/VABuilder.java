@@ -1,11 +1,6 @@
-
 package water.exec;
-
 import java.util.ArrayList;
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.ValueArray.Column;
 import water.parser.ParseDataset;
 
@@ -126,7 +121,8 @@ public class VABuilder {
   
   public VABuilder createAndStore(Key k) {
     ValueArray v = create(k);
-    DKV.put(k,v);
+    TaskPutKey tpk = DKV.put(k,v);
+    if( tpk != null ) tpk.get(); // Block for the put
     return this;
   }
 

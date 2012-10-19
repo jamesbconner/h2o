@@ -125,22 +125,6 @@ public final class ParseDataset {
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", dp1._num_rows, row_size, dp1._cols);
     UKV.put(result,ary);
 
-    // At this point we're left with a bunch of in-flight AtomicUnions for this
-    // parse job.  They were all fired-and-forgotten, but they are not all done
-    // yet.  We basically need a write-barrier here, where we block until all
-    // pending writes are done.  So we're firing off a distributed job with the
-    // main dataset Key again, and making each Node check for pending AU tasks
-    // with this Key, and block until they are done.
-
-    // As an alternative, we could gather the AU's up as we make them, and then
-    // do some sort of bulk 'get' call on them all, blocking until they all
-    // finished.  This has the downside of keeping all these AU's alive, along
-    // with all their data until we "free" each one by down a get().
-
-    // Plan A: distributed write barrier on atomic unions
-    AUBarrier aub = new AUBarrier();
-    aub.invoke(result);
-
     // Done building the result ValueArray!
   }
 
@@ -782,9 +766,9 @@ public final class ParseDataset {
 
       // Remotely, atomically, merge this buffer into the remote key
       AtomicUnion au = new AtomicUnion(buf,src_off,dst_off,len);
-      au.fork(key1);            // Start atomic update
-      // Do not wait on completion now; the atomic-update is fire-and-forget.
-      //au.get();               // No need to complete now?
+      lazy_complete(au.fork(key1)); // Start atomic update
+      // Do not wait on completion now; the atomic-update is fire-and-forget here.
+
       return rowz;              // Rows written out
     }
 
@@ -813,35 +797,6 @@ public final class ParseDataset {
       }
     }
   }
-
-  // ----
-  // Distributed blocking for all the pending AUs to complete.
-  public static class AUBarrier extends DRemoteTask {
-    // Basic strategy is to check all the Nodes in the cloud to see if they
-    // have any pending not-yet-completed AtomicUnions to the correct key.  If
-    // so, block until they complete.
-    public final void compute() {
-      Key abkey = _keys[0];
-      if( abkey == null ) { tryComplete(); return; } // No AU's here
-      byte[] abb = ValueArray.getArrayKeyBytes(abkey);
-      for( DFutureTask dft : DFutureTask.TASKS.values() ) { // For all active tasks
-        if( dft instanceof TaskRemExec ) {                  // See if it's a TRE
-          TaskRemExec tre = (TaskRemExec)dft;
-          RemoteTask rt = tre._dt; // Get what is pending execution
-          if( rt instanceof DParse2.AtomicUnion ) { // See if its an AtomicUnion
-            DParse2.AtomicUnion au = (DParse2.AtomicUnion)rt;
-            Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key
-            byte[] aub = ValueArray.getArrayKeyBytes(aukey);
-            if( Arrays.equals(abb,aub) ) // See if it matches OUR key
-              tre.get();        // Block for the AtomicUnion to complete
-          }
-        }
-      }
-      tryComplete();            // All done...
-    }
-    public void reduce( DRemoteTask drt ) { }
-  }
-
 
   // Guess
   private static int guess_compression_method(Value dataset) {
