@@ -537,16 +537,20 @@ public final class H2O {
           }
           // System keys that are not just backing arraylets of user keys are
           // not persisted - we figure they have a very short lifetime.
-          if( (!key.user_allowed() || // System keys need further filtering
-               MemoryManager.memCritical()) &&     // if memory is critical, persist and free system keys also.
-              key._kb[0] == Key.ARRAYLET_CHUNK ) { // Arraylet?
-            // If this is a chunk of a user-defined array, then save it
+          if( !MemoryManager.memCritical() ) { // if memory is critical, persist and free system keys also.
+            if( key._kb[0] != Key.ARRAYLET_CHUNK )  // Not arraylet?
+              continue; // Not enough savings to write it with mem-pressure to force us
+            // If this is a chunk of a system-defined array, then assume it has
+            // short lifetime, and we do not want to spin the disk writing it
+            // unless we're under memory pressure.
             Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
             if( !arykey.user_allowed() )
               continue; // System array chunk?
-            Value v1 = DKV.get(arykey);
-            if( v1 == null || !(v1 instanceof ValueArray) )
-              continue; // Nope; not a valid user arraylet
+          } else {      // Under memory pressure?
+            // Now write to disk everything, except sys non-array chunks - this
+            // are typically both very small and very short lived.
+            if( key._kb[0] != Key.ARRAYLET_CHUNK && !key.user_allowed() )
+              continue;
           }
           // ValueArrays covering large files in global filesystems such as NFS
           // or HDFS are only made on import (right now), and not reconstructed

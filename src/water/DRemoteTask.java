@@ -3,6 +3,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 // *DISTRIBUTED* RemoteTask
 // Execute a set of Keys on the home for each Key.
@@ -15,6 +16,15 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   // Some useful fields for *local* execution.  These fields are never passed
   // over the wire, and so do not need to be in the users' read/write methods.
   transient protected Key[] _keys; // Keys to work on
+  // As a service to sub-tasks, collect pending-but-not-yet-done future tasks,
+  // that need to complete prior to *this* task completing... or if the caller
+  // of this task is knowledgable, pass these pending tasks along to him to
+  // block on before he completes.
+  // I am implementing this as an exposed ArrayList mostly because I need
+  // proper synchronization and the AL API doesn't offer the right level of
+  // sync or constant-time removal.
+  transient Future[] _pending;
+  transient int _pending_cnt;
 
   // Combine results from 'drt' into 'this' DRemoteTask
   abstract public void reduce( DRemoteTask drt );
@@ -46,13 +56,13 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
   // Top-level remote execution hook.  The Key is an ArrayLet or an array of
   // Keys; start F/J'ing on individual keys.  Non-blocking.
-  public Future fork( Key args ) {
+  public DFuture fork( Key args ) {
     return fork(flatten_keys(args));
   }
 
   // Top-level remote-execution hook.  Non-blocking.  Fires off jobs to remote
   // machines based on Keys.
-  public Future fork( Key[] keys ) {
+  public DFuture fork( Key[] keys ) {
     // Split out the keys into disjointly-homed sets of keys.
     // Find the split point.  First find the range of home-indices.
     H2O cloud = H2O.CLOUD;
@@ -79,7 +89,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
     // Launch off 2 tasks for the other sets of keys, and get a place-holder
     // for results to block on.
-    Future f = new Future(remote_compute(lokeys), remote_compute(hikeys));
+    DFuture f = new DFuture(remote_compute(lokeys), remote_compute(hikeys));
 
     // Setup for local recursion: just use the local keys.
     _keys = locals.toArray(new Key[locals.size()]); // Keys, including local keys (if any)
@@ -97,9 +107,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   }
 
   // Junk class only used to allow blocking all results, both local & remote
-  public class Future {
+  public class DFuture {
     private final TaskRemExec<DRemoteTask> _lo, _hi;
-    Future(TaskRemExec<DRemoteTask> lo, TaskRemExec<DRemoteTask> hi ) {
+    DFuture(TaskRemExec<DRemoteTask> lo, TaskRemExec<DRemoteTask> hi ) {
       _lo = lo;  _hi = hi;
     }
     // Block until completed, without having to catch exceptions
@@ -112,6 +122,7 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
       // Block for remote exec & reduce results into _drt
       if( _lo != null ) reduce(_lo.get());
       if( _hi != null ) reduce(_hi.get());
+      block_pending();          // Block for any other pending tasks
       return DRemoteTask.this;
     }
   };
@@ -161,5 +172,49 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     }
     // Handy wrap single key into a array-of-1 key
     return new Key[]{args};
+  }
+
+  // Some Future task which needs to complete before this task completes
+  synchronized public void lazy_complete( Future f ) {
+    if( f == null ) return;
+    if( _pending == null ) _pending = new Future[1];
+    else if( _pending_cnt == _pending.length ) {
+      clean_pending();
+      if( _pending_cnt == _pending.length )
+        _pending = Arrays.copyOf(_pending,_pending_cnt<<1);
+    }
+    _pending[_pending_cnt++] = f;
+  }
+  // Clean out from the list any pending-tasks which are already done
+  synchronized private void clean_pending() {
+    int x = 0;
+    for( int i=0; i<_pending_cnt; i++ )
+      if( _pending[i].isDone() ) { // Done?
+        // Do cheap array compression to remove from list
+        _pending[i--] = _pending[--_pending_cnt];
+        x++;
+      }
+    System.out.print("C"+x+"+"+_pending_cnt+",");
+  }
+
+  // Merge pending-task lists as part of doing a 'reduce' step
+  protected final void reduce_merge_pending( DRemoteTask dt ) {
+    for( int i=0; i<dt._pending_cnt; i++ )
+      lazy_complete(dt._pending[i]);
+    reduce(dt);
+  }
+
+  public final void block_pending() {
+    try {
+      for( int i=0; i<_pending_cnt; i++ ) {
+        long start = System.currentTimeMillis();
+        _pending[i].get();
+        long now = System.currentTimeMillis();
+        System.out.print("B"+(now-start)+",");
+      }
+    } catch( InterruptedException ie ) {
+    } catch( ExecutionException ee ) {
+    }
+    _pending_cnt=0;             // No more pending here
   }
 }

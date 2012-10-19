@@ -125,14 +125,11 @@ public final class ParseDataset {
     });
 
     state.normalizeVariance(sumerr);
-    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf);
+    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf, null);
     // Now make the structured ValueArray & insert the main key
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
         state._num_rows, row_size, state._cols);
     UKV.put(result,ary);
-    // Plan A: distributed write barrier on atomic unions
-    AUBarrier aub = new AUBarrier();
-    aub.invoke(result);
   }
 
   public static void parseSeparated(Key result, Value dataset, byte parseType, int num_cols) {
@@ -172,21 +169,6 @@ public final class ParseDataset {
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", state._num_rows, row_size, state._cols);
     UKV.put(result,ary);
 
-    // At this point we're left with a bunch of in-flight AtomicUnions for this
-    // parse job.  They were all fired-and-forgotten, but they are not all done
-    // yet.  We basically need a write-barrier here, where we block until all
-    // pending writes are done.  So we're firing off a distributed job with the
-    // main dataset Key again, and making each Node check for pending AU tasks
-    // with this Key, and block until they are done.
-
-    // As an alternative, we could gather the AU's up as we make them, and then
-    // do some sort of bulk 'get' call on them all, blocking until they all
-    // finished.  This has the downside of keeping all these AU's alive, along
-    // with all their data until we "free" each one by down a get().
-
-    // Plan A: distributed write barrier on atomic unions
-    AUBarrier aub = new AUBarrier();
-    aub.invoke(result);
     // Done building the result ValueArray!
   }
 
@@ -430,7 +412,7 @@ public final class ParseDataset {
         off += _row_size;
       }
 
-      packRowsIntoValueArrayChunks(_result, start_row, num_rows, _row_size, _state, buf);
+      packRowsIntoValueArrayChunks(_result, start_row, num_rows, _row_size, _state, buf, this);
 
       // Reset these arrays to null, so they are not part of the return result.
       _state._rows_chk = null;
@@ -460,7 +442,7 @@ public final class ParseDataset {
   // need to update multiple target chunks.  (imagine parallel copying a
   // large source buffer into a chunked target buffer)
   public static void packRowsIntoValueArrayChunks( Key result, int startRow, int numRows,
-      int rowSize, ParseState state, byte[] buf) {
+                                                   int rowSize, ParseState state, byte[] buf, DRemoteTask drt) {
 
     // Compute the last dst chunk (which might be up to 2meg instead of capped at 1meg)
     int maxRow = state._rows_chk[state._rows_chk.length-1];
@@ -494,7 +476,9 @@ public final class ParseDataset {
       // Remotely, atomically, merge this buffer into the remote key
       assert srcOff+len <= buf.length;
       AtomicUnion au = new AtomicUnion(buf, srcOff, dstOff, len);
-      au.fork(key);            // Start atomic update
+      DFutureTask autask = au.fork(key);
+      if( drt != null ) drt.lazy_complete(autask); // Start atomic update
+      // Do not wait on completion now; the atomic-update is fire-and-forget here.
       curRow += rowz;              // Rows written out
     }
   }
@@ -524,34 +508,7 @@ public final class ParseDataset {
     }
   }
 
-  // ----
-  // Distributed blocking for all the pending AUs to complete.
-  public static class AUBarrier extends DRemoteTask {
-    // Basic strategy is to check all the Nodes in the cloud to see if they
-    // have any pending not-yet-completed AtomicUnions to the correct key.  If
-    // so, block until they complete.
-    public final void compute() {
-      Key abkey = _keys[0];
-      if( abkey == null ) { tryComplete(); return; } // No AU's here
-      byte[] abb = ValueArray.getArrayKeyBytes(abkey);
-      for( DFutureTask dft : DFutureTask.TASKS.values() ) { // For all active tasks
-        if( dft instanceof TaskRemExec ) {                  // See if it's a TRE
-          TaskRemExec tre = (TaskRemExec)dft;
-          RemoteTask rt = tre._dt; // Get what is pending execution
-          if( rt instanceof AtomicUnion ) { // See if its an AtomicUnion
-            AtomicUnion au = (AtomicUnion)rt;
-            Key aukey = ((Atomic)au)._key; // Get the AtomicUnion's transaction key
-            byte[] aub = ValueArray.getArrayKeyBytes(aukey);
-            if( Arrays.equals(abb,aub) ) // See if it matches OUR key
-              tre.get();        // Block for the AtomicUnion to complete
-          }
-        }
-      }
-      tryComplete();            // All done...
-    }
-    public void reduce( DRemoteTask drt ) { }
-  }
-
+  // Guess
   private static Compression guessCompressionMethod(Value dataset) {
     Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
     byte[] b = v0.get();                      // Bytes for 1st chunk

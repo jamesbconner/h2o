@@ -72,7 +72,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
     }
     // we have the bytes now, just store the value
     Value val = new Value(key, bits);
-    DKV.put(key, val);
+    lazy_complete(DKV.put(key, val));
     // and we are done...
   }
 

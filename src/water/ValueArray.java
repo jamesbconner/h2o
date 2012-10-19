@@ -154,7 +154,7 @@ public class ValueArray extends Value {
     BufferedInputStream bis = new BufferedInputStream(is,(int)chunk_size()*2);
 
     // try to read 2-chunks into the buffer
-    byte[] buffer = new byte[(int)chunk_size()*2];
+    byte[] buffer = MemoryManager.allocateMemory((int)chunk_size()*2);
     int sz = 0;
     while (sz!=buffer.length) {
       int i = bis.read(buffer,sz,buffer.length-sz);
@@ -174,6 +174,11 @@ public class ValueArray extends Value {
       Value val     = null;
       boolean readFirstChunk = true; // identify read position in buffer [ [chunk_size()] [chunk_size()]
 
+      DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
+          public void reduce(DRemoteTask dt) {}
+          public void compute() {}
+        };
+
       // Treat buffer as round buffer, write one chunk and try to read new chunk per iteration
       while (true) {
         if (sz < buffer.length) { // almost 2 chunks (but at least one) are in the buffer (and there are no more data) => write them all
@@ -185,14 +190,14 @@ public class ValueArray extends Value {
             System.arraycopy(buffer, (int)chunk_size(), val._mem,0, (int)chunk_size() ); // we know there is at least on full chunk
             System.arraycopy(buffer, 0, val._mem, (int)chunk_size(), sz-(int)chunk_size() );
           }
-          DKV.put(ck,val);
+          drt.lazy_complete(DKV.put(ck,val));
           totalLen += sz;
           break; // it was the last chunk => there are no more data in input stream;
         } else { // Write the first chunk into the buffer
           ck = make_chunkkey(key,totalLen);
           val = new Value(ck,(int)chunk_size());
           System.arraycopy(buffer, (readFirstChunk?0:1)*(int)chunk_size(), val._mem, 0, (int)chunk_size());
-          DKV.put(ck,val);
+          drt.lazy_complete(DKV.put(ck,val));
           totalLen += chunk_size();
           sz -= chunk_size();
         }
@@ -210,6 +215,7 @@ public class ValueArray extends Value {
       }
       ValueArray ary = new ValueArray(key,totalLen,ICE);
       UKV.put(key,ary);
+      drt.block_pending();      // Block for the DKV.puts to complete
     }
     bis.close();
     return key;
@@ -237,6 +243,10 @@ public class ValueArray extends Value {
     UKV.put(key,ary);         // Insert in distributed store
 
     // Begin to read & build chunks.
+    DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
+        public void reduce(DRemoteTask dt) {}
+        public void compute() {}
+      };
     long off = 0;
     for( int i=0; i<chunks; i++ ) {
       // All-the-rest for the last chunk, or 1Meg for other chunks
@@ -248,12 +258,12 @@ public class ValueArray extends Value {
       Value val = new Value(ckey,sz2);
       dis.readFully(val._mem);
 
-      DKV.put(ckey,val);         // Insert in distributed store
+      drt.lazy_complete(DKV.put(ckey,val)); // Insert in distributed store
 
       off += szl;               // Advance the cursor
     }
     assert off == sz;           // Got them all
-
+    drt.block_pending();        // Block for the DKV.puts to complete
     return key;
   }
 
