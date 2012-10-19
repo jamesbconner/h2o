@@ -11,9 +11,17 @@ import water.DRemoteTask;
 import water.ValueArray;
 
 /**
- * General Linear Model solver.
+ * Distributed General Linear Model solver.
  *
+ * Implemented as Iterative Reweighted LSM fitting problem. Calls DLSM iteratively until solution is found.
  *
+ * Goal is to have distributed version of glm from R with few enhancements (L1 and L2 norm).
+ *
+ * Current Limitations:
+ *   * only gaussian, binomial and poisson family supported at the moment.
+ *   * limitations of underlying DLSM apply here as well
+ *
+ * Implemented by extending LSMTask (by IRLSMTask) to transform response variable and to apply weights in flight).
  *
  * @author tomasnykodym
  *
@@ -38,6 +46,7 @@ public class DGLM {
     Link(double b){defaultBeta = b;}
   }
 
+  // supported families
   public static enum Family {
     gaussian(Link.identity),
     binomial(Link.logit),
@@ -49,12 +58,20 @@ public class DGLM {
     Family(Link l){defaultLink = l;}
   }
 
+  // supported norms (penalty functions)
   public static enum Norm {
     NONE, // standard regression without any regularization
     L1,   // LASSO
     L2;   // ridge regression
   }
 
+  /**
+   * Per family variance computation
+   *
+   * @param family
+   * @param mu
+   * @return
+   */
   public static double variance(Family family, double mu){
     switch(family){
     case gaussian:
@@ -72,10 +89,20 @@ public class DGLM {
   }
 
 
+  // helper function
   static double y_log_y(double y, double mu){
     mu = Math.max(Double.MIN_NORMAL, mu);
     return (y != 0) ? (y * Math.log(y/mu)) : 0;
   }
+
+  /**
+   * Per family deviance computation.
+   *
+   * @param family
+   * @param yr
+   * @param ym
+   * @return
+   */
   public static double deviance(Family family, double yr, double ym){
     switch(family){
     case gaussian:
@@ -95,6 +122,13 @@ public class DGLM {
     }
   }
 
+  /**
+   * Link function computation.
+   *
+   * @param linkFunction
+   * @param x
+   * @return
+   */
   public static double link(Link linkFunction, double x){
    switch(linkFunction){
      case identity:
@@ -111,6 +145,13 @@ public class DGLM {
    }
   }
 
+  /**
+   * Link function inverse computation.
+   *
+   * @param linkFunction
+   * @param x
+   * @return
+   */
   public static double linkInv(Link linkFunction, double x){
     switch(linkFunction){
       case identity:
@@ -126,6 +167,13 @@ public class DGLM {
     }
    }
 
+  /**
+   * Link function derivative computation.
+   *
+   * @param linkFunction
+   * @param x
+   * @return
+   */
   public static double linkDeriv(Link linkFunction, double x){
     switch(linkFunction){
       case identity:
@@ -143,11 +191,21 @@ public class DGLM {
    }
 
 
+  /**
+   * Additional per-family args to glm.
+   * @author tomasnykodym
+   *
+   */
   public static abstract class FamilyArgs{}
 
+  /**
+   *  Args for binomial family
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialArgs extends FamilyArgs {
-    double _threshold = 0.5;
-    double _case = 1.0;
+    double _threshold = 0.5; // decision threshold for classification/validation
+    double _case = 1.0; // value to be mapped to 1 (en eeverything else to 0).
 
     public BinomialArgs(double t, double c){
       _threshold = t;
@@ -155,11 +213,13 @@ public class DGLM {
     }
   }
 
-
-
-
+  /**
+   * Paramters for GLM.
+   * @author tomasnykodym
+   *
+   */
   public static class GLM_Params{
-    double beta_eps = DGLM.DEFAULT_EPS;
+    double beta_eps = DGLM.DEFAULT_EPS; // precision level for beta
     public Family family = Family.gaussian;
     public Link link = Link.identity;
     DataPreprocessing preprocessing;
@@ -183,30 +243,13 @@ public class DGLM {
 
   private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
 
-
-
   Sampling         _sampling;
-
-  final static int L2_LAMBDA = 0;
-  final static int L1_LAMBDA = 0;
-  final static int L1_RHO    = 1;
-  final static int L1_ALPHA  = 2;
-
-
-
-  // sampling vars
-  int     _offset;
-  int     _step;
-  boolean _complement;
-
-  public void setSampling(int offset, int step, boolean complement) {
-    _offset = offset;
-    _step = step;
-    _complement = complement;
-  }
-
-
-
+  /**
+   *  Class for holding of validation info of given glm model.
+   *
+   * @author tomasnykodym
+   *
+   */
   public static class GLM_Validation implements Cloneable {
     GLM_Model _m;
     long      _n;
@@ -277,6 +320,11 @@ public class DGLM {
     }
   }
 
+  /**
+   * Binomial validation adds confusion matrix (which is 2 by 2 in binomial case).
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialValidation extends GLM_Validation {
     static long sum(long[][] cm) {
       long res = 0;
@@ -373,6 +421,12 @@ public class DGLM {
     }
   }
 
+  /**
+   * Holds info about fitted glm model.
+   *
+   * @author tomasnykodym
+   *
+   */
   public static class GLM_Model {
     GLM_Params glmParams;
     LSM_Params lsmParams;
@@ -423,6 +477,11 @@ public class DGLM {
     }
   }
 
+  /**
+   *
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialModel extends GLM_Model {
     double _threshold;
     double _case;
@@ -451,12 +510,23 @@ public class DGLM {
   public static final LSM_Params defaultLSMParams = new LSM_Params();
 
 
-
+/**
+ * Solve glm problem by iterative reqeighted least squqre method.
+ * Repeatedly solves LSM problem with weights given by previous iteration until fixpoint is reached.
+ *
+ * @param ary
+ * @param colIds
+ * @param s
+ * @param glmParams
+ * @param lsmParams
+ * @param fargs
+ * @return
+ */
   public static GLM_Model solve(ValueArray ary, int[] colIds, Sampling s,
       GLM_Params glmParams, LSM_Params lsmParams, FamilyArgs fargs) {
     int[] p = null;
     if(lsmParams == null)lsmParams = defaultLSMParams;
-
+    // set the preprocessing flags
     switch( glmParams.preprocessing ) {
     case AUTO:
       if( lsmParams.n != Norm.NONE ) {
@@ -499,8 +569,6 @@ public class DGLM {
     Arrays.fill(beta, glmParams.link.defaultBeta);
     double diff;
     long N = 0;
-
-    // do preprocessing!
     try{
       do {
         IRLSMTask tsk;
@@ -532,7 +600,18 @@ public class DGLM {
   }
 
 
-
+/**
+ * Compute crossvalidation. Randomly divide dataset into x-factor parts and then run xfactor times, each tim e excluding one part in the training and use it for testing.
+ * Reports avg result of validation + first 20 individual models in case of binomial family.
+ *
+ * @param ary
+ * @param colIds
+ * @param xfactor
+ * @param glmParams
+ * @param lsmParams
+ * @param fargs
+ * @return
+ */
   public static ArrayList<GLM_Validation> xValidate(ValueArray ary, int[] colIds, int xfactor, GLM_Params glmParams, LSM_Params lsmParams, FamilyArgs fargs) {
     ArrayList<GLM_Validation> individualModels = new ArrayList<GLM_Validation>();
     if( xfactor == 1 ) return individualModels;
@@ -551,7 +630,8 @@ public class DGLM {
   /**
    * Task computing one round of logistic regression by iterative least square
    * method. Given beta_k, computes beta_(k+1). Works by transforming input
-   * vector by logit function and passing the transformed input to LSM.
+   * vector by link function and applying weights equal to inverse of variance
+   * and  passing the transformed input to LSM.
    *
    * @author tomasnykodym
    *
@@ -581,12 +661,13 @@ public class DGLM {
     }
 
     /**
-     * Applies the link function (logit in this case) on the input and calls
+     * Applies the link function on the input and calls
      * underlying LSM.
      *
-     * Two steps are performed here: 1) y is replaced by z, which is obtained by
-     * Taylor expansion at the point of last estimate of y (x'*beta) 2) both x
-     * and y are wighted by the square root of inverse of variance of y at this
+     * Two steps are performed here:
+     * 1) y is replaced by z, which is obtained by
+     * Taylor expansion at the point of last estimate of y (x'*beta)
+     * 2) Weight is applied to both x and y. Weight is the square root of inverse of variance of y at this
      * data point according to our model
      *
      */
@@ -606,9 +687,6 @@ public class DGLM {
       // add the constant (constant/Intercept is not included in the x vector,
       // have to add it seprately)
       gmu += _origConstant * _beta[x.length - 1];
-//      _deviance += deviance(f,y,gmu);
-//      double dev = deviance(f,y, _ymu);
-//      _nullDeviance += dev;
       // get the inverse to get esitamte of p(Y=1|X) according to previous model
       double mu = linkInv(l,gmu);
       double dgmu = linkDeriv(l,mu);
@@ -618,23 +696,26 @@ public class DGLM {
                                                // log(0),log(1)
       // Step 2
       double vary = variance(f,mu); // variance of y accrodgin to our model
-      // (binomial distribution)
+
       // compute the weights (inverse of variance of z)
       double var = dgmu * dgmu * vary;
-      // apply the weight, we want each datapoint to have weight of inverse of
+      // Apply the weight. We want each datapoint to have weight of inverse of
       // the variance of y at this point.
-      // since we compute x'x, we take sqrt(w) and apply it to both x and y
-      // (since we also compute X*y)
+      // Since we compute x'x, we take sqrt(w) and apply it to both x and y
+      // (we also compute X*y)
       double w = Math.sqrt(1 / var);
       for( int i = 0; i < x.length; ++i )
         x[i] *= w;
       _constant = _origConstant * w;
-      // compute the deviance according to the previous model
-
       super.map(x);
     }
   }
 
+  /**
+   * Specialization of IRLSM for binomial family. Values 0/1 are enforced.(_case = 1, everything else = 0)
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialTask extends IRLSMTask {
     double _case; // in
     long _caseCount; // out
