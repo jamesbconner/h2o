@@ -1,5 +1,6 @@
 import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
 import requests, psutil, argparse, sys, unittest
+import glob
 
 def __drain(src, dst):
     for l in src:
@@ -58,6 +59,7 @@ def verboseprint(*args):
 
 def find_dataset(f):
     (head, tail) = os.path.split(os.path.abspath('datasets'))
+    verboseprint("find_dataset looking upwards from", head, "for", tail)
     while not os.path.exists(os.path.join(head, tail)):
         head = os.path.split(head)[0]
     return os.path.join(head, tail, f)
@@ -85,6 +87,14 @@ def clean_sandbox():
         # This seems reliable on windows+cygwin
         os.system("rm -rf "+LOG_DIR)
     os.mkdir(LOG_DIR)
+
+def clean_sandbox_stdout_stderr():
+    if os.path.exists(LOG_DIR):
+        files = glob.glob(LOG_DIR + '/*stdout*')
+        files.append = glob.glob(LOG_DIR + '/*stderr*')
+        for f in files:
+            verboseprint("cleaning", f)
+            # os.remove(f)
 
 def tmp_file(prefix='', suffix=''):
     return tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=LOG_DIR)
@@ -291,6 +301,7 @@ class H2O(object):
         # json name used in import
         rjson = r.json
         if 'error' in rjson:
+            print rjson
             raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         return rjson
 
@@ -517,12 +528,17 @@ class H2O(object):
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
         # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
+        # FIX! need to be able to specify name node/path for non-0xdata hdfs
+        # specifying hdfs stuff when not used shouldn't hurt anything
+        #    '-hdfs hdfs://192.168.1.151',
+        #    '-hdfs_version cdh4',
+        #    '-hdfs-root /datasets'
         args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
-            '--name=pytest-%s' % getpass.getuser(),
+            '--name=pytest-%s' % getpass.getuser()
             ]
         if not self.sigar:
             args += ['--nosigar']

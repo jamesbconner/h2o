@@ -66,7 +66,10 @@ class Basic(unittest.TestCase):
         # always match the gen above!
         # Let's try it twice!
         for trials in xrange(1,7):
+            # prime
+            trees = 4057
             trees = 6
+
             for x in xrange (161,240,20):
                 y = 10000 * x
                 print "\nTrial:", trials, ", y:", y
@@ -76,13 +79,21 @@ class Basic(unittest.TestCase):
                 # FIX! TBD do we always have to kick off the run from node 0?
                 # random guess about length of time, varying with more hosts/nodes?
                 timeoutSecs = 20 + 5*(len(h2o.nodes))
+                # for debug (browser)
+                timeoutSecs = 3600
                 # RFview consumes cycles. Only retry once a second, to avoid slowing things down
                 # this also does the put, which is probably a good thing to try multiple times also
-                h2o_cmd.runRF(trees=trees, modelKey=csvFilename, timeoutSecs=timeoutSecs, 
+
+                # change the model name each iteration, so they stay in h2o
+                modelKey = csvFilename + "_" + str(trials)
+                h2o_cmd.runRF(trees=trees, modelKey=modelKey, timeoutSecs=timeoutSecs, 
                     retryDelaySecs=1, csvPathname=csvPathname)
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
+                # partial clean, so we can look at tree builds from this run if hang
+                clean_sandbox_stdout_stderr()
+                
                 trees += 10
 
 if __name__ == '__main__':
