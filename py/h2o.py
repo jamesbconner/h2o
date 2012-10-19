@@ -90,11 +90,14 @@ def clean_sandbox():
 
 def clean_sandbox_stdout_stderr():
     if os.path.exists(LOG_DIR):
-        files = glob.glob(LOG_DIR + '/*stdout*')
-        files.append = glob.glob(LOG_DIR + '/*stderr*')
-        for f in files:
+        files = []
+        # glob.glob returns an iterator
+        for f in glob.glob(LOG_DIR + '/*stdout*'):
             verboseprint("cleaning", f)
-            # os.remove(f)
+            os.remove(f)
+        for f in glob.glob(LOG_DIR + '/*stderr*'):
+            verboseprint("cleaning", f)
+            os.remove(f)
 
 def tmp_file(prefix='', suffix=''):
     return tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=LOG_DIR)

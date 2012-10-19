@@ -4,7 +4,7 @@ import h2o_cmd, h2o, h2o_hosts
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        h2o_hosts.build_cloud_with_hosts(use_hdfs=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -19,13 +19,13 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
-    def test_B_RF_iris2(self):
+    def notest_B_RF_iris2(self):
         # h2o.touch_cloud()
 
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         h2o_cmd.runRF(trees=6, modelKey="iris2", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
-    def test_C_RF_poker100(self):
+    def notest_C_RF_poker100(self):
         # h2o.touch_cloud()
 
         # RFview consumes cycles. Only retry once a second, to avoid slowing things down
@@ -80,7 +80,7 @@ class Basic(unittest.TestCase):
                 # random guess about length of time, varying with more hosts/nodes?
                 timeoutSecs = 20 + 5*(len(h2o.nodes))
                 # for debug (browser)
-                timeoutSecs = 3600
+                ###timeoutSecs = 3600
                 # RFview consumes cycles. Only retry once a second, to avoid slowing things down
                 # this also does the put, which is probably a good thing to try multiple times also
 
@@ -92,9 +92,10 @@ class Basic(unittest.TestCase):
                 sys.stdout.flush()
 
                 # partial clean, so we can look at tree builds from this run if hang
-                clean_sandbox_stdout_stderr()
+                h2o.clean_sandbox_stdout_stderr()
                 
-                trees += 10
+                # UPDATE: check if not incrementing the tree count changes things
+                # trees += 10
 
 if __name__ == '__main__':
     h2o.unit_main()
