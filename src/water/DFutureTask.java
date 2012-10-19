@@ -82,7 +82,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       // Double retry until we exceed existing age.  This is the time to delay
       // until we try again.  Note that we come here immediately on creation,
       // so the first doubling happens before anybody does any waiting.
-      _retry<<=1;
+      _retry += (_retry < 5000 ) ? _retry : 5000;
       // Put self on the "TBD" list of tasks awaiting Timeout.
       // So: dont really 'forget' but remember me in a little bit.
       assert !UDPTimeOutThread.PENDING.contains(this);
