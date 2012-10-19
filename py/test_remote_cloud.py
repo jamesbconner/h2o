@@ -1,77 +1,26 @@
 import os, json, unittest, time, shutil, sys, time
-import h2o_cmd, h2o
+import h2o_cmd, h2o, h2o_hosts
 import time
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        global hosts
-        global nodes
-        global nodes_per_host
-
-        # FIX! doesn't clean up old stuff in /tmp. Can overflow. Clean up with ssh commands outside this
-        # every once in a while
-
-        # ssh limited to 10 somehow? did /etc/ssh/sshd_config: MaxSessions 20, MaxAuth 20
-        # maybe sftp?
-        nodes_per_host = 16
-        # we may have big delays with 2 jvms (os?)
-        # also: what is the agreement on json visible cloud state in each node vs the paxos algorithm
-        hosts = []
-        # FIX! probably will just add args for -matt -kevin -0xdata that select different lists?
-        # or we could have a hosts file that's local that you modify. just as easy to mod this though?
-        if (1==0):
-
-            # 0xdiag user. ubuntu okay with: sudo adduser --force-badname 0xdiag
-            #    h2o.RemoteHost('192.168.0.37',  '0xdiag', '0xdiag')
-            hosts = [
-                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag'),
-            ]
-        elif (1==0):
-
-            hosts = [
-                h2o.RemoteHost('192.168.1.150', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.151', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.152', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.153', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.154', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.155', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.156', '0xdiag', '0xdiag'),
-                # no 157
-                h2o.RemoteHost('192.168.1.160', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.161', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.20', '0xdiag', '0xdiag'),
-            ]
-        elif (1==0) :
-            hosts = [
-                h2o.RemoteHost('192.168.0.33', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.0.35', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.0.37', '0xdiag', '0xdiag'),
-            ]
-        else:
-            hosts = [
-                h2o.RemoteHost('192.168.1.17', '0xdiag', '0xdiag'),
-                h2o.RemoteHost('192.168.1.20', '0xdiag', '0xdiag'),
-            ]
-
-        h2o.upload_jar_to_remote_hosts(hosts)
+        # this cloud build will use the json 
+        # and setup hosts with ip, and username/password, 
+        print "Setup for first cloud"
+        h2o_hosts.build_cloud_with_hosts()
+        print "\nTearing down first cloud"
+        h2o.tear_down_cloud()
+        h2o.clean_sandbox()
 
     @classmethod
     def tearDownClass(cls):
         pass
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_remote_Cloud(self):
         trial = 0
+        # FIX! we should increment this from 1 to N? 
+        nodes_per_host = 8
         for i in range(1,100):
             sys.stdout.write('.')
             sys.stdout.flush()
@@ -79,10 +28,10 @@ class Basic(unittest.TestCase):
             # nodes_per_host is per host.
             # timeout wants to be larger for large numbers of hosts * nodes_per_host
             # use 60 sec min, 2 sec per node.
-            timeoutSecs = max(60, 2*(len(hosts) * nodes_per_host))
+            timeoutSecs = max(60, 2*(len(h2o_hosts.hosts) * nodes_per_host))
             
-            nodes = h2o.build_cloud(nodes_per_host, base_port=56321, ports_per_node=3, hosts=hosts,
-                timeoutSecs=60, retryDelaySecs=1)
+            h2o.build_cloud(nodes_per_host, base_port=56321, ports_per_node=3, 
+                hosts=h2o_hosts.hosts, timeoutSecs=60, retryDelaySecs=1)
 
             # FIX! if node[0] is fast, maybe the other nodes aren't at a point where they won't get
             # connection errors. Stabilize them too! Can have short timeout here, because they should be 
@@ -90,15 +39,15 @@ class Basic(unittest.TestCase):
 
             # FIX! using "consensus" in node[0] should mean this is unnecessary?
             # maybe there's a bug
-            for n in nodes:
-                h2o.stabilize_cloud(n, len(nodes), timeoutSecs=30, retryDelaySecs=1)
+            for n in h2o.nodes:
+                h2o.stabilize_cloud(n, len(h2o.nodes), timeoutSecs=30, retryDelaySecs=1)
 
             # now double check ...no stabilize tolerance of connection errors here
-            for n in nodes:
+            for n in h2o.nodes:
                 print "Checking n:", n
                 c = n.get_cloud()
-                self.assertFalse(c['cloud_size'] > len(nodes), 'More nodes than we want. Zombie JVMs to kill?')
-                self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
+                self.assertFalse(c['cloud_size'] > len(h2o.nodes), 'More nodes than we want. Zombie JVMs to kill?')
+                self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
             trial += 1
             # FIX! is this really needed? does tear_down_cloud do shutdown command and wait?
@@ -109,7 +58,7 @@ class Basic(unittest.TestCase):
             print "Tearing down cloud, trial", trial
             sys.stdout.write('.')
             sys.stdout.flush()
-            h2o.tear_down_cloud(nodes)
+            h2o.tear_down_cloud()
             h2o.clean_sandbox()
             # wait to make sure no sticky ports or anything os-related
             # here's a typical error that shows up in the looping trials..
