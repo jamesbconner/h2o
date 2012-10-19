@@ -182,7 +182,8 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None,
                 totalNodes += 1
                 # dont need the name in front
                 # FIX! this format might change?
-                pff.write("/" + newNode.addr + ":" + str(newNode.port) + "\n")
+                # IS THIS RIGHT? give it the UDP port not the base port
+                pff.write("/" + newNode.addr + ":" + str(newNode.port+1) + "\n")
         else:
             hostCount = len(hosts)
             for h in hosts:
@@ -191,7 +192,8 @@ def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None,
                     newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
                     node_list.append(newNode)
                     totalNodes += 1
-                    pff.write("/" + newNode.addr + ":" + str(newNode.port) + "\n")
+                    # IS THIS RIGHT? give it the UDP port not the base port
+                    pff.write("/" + newNode.addr + ":" + str(newNode.port+1) + "\n")
 
         pff.close()
 
@@ -505,13 +507,10 @@ class H2O(object):
     def get_args(self):
         #! FIX! is this used for both local and remote? 
         # I guess it doesn't matter if we use flatfile for both now
-
-        # FIX! flatfile seems to not help multihost (if multicast issues)
-        # and breaks single host? leave out for now
-        #    '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         args = [ 'java' ]
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
+        # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,

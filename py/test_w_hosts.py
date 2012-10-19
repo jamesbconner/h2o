@@ -1,79 +1,17 @@
 import os, json, unittest, time, shutil, sys
-import h2o_cmd, h2o
+import h2o_cmd, h2o, h2o_hosts
 
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # ssh channel closes if we build_cloud with remote hosts here
-        # hosts and nodes have to be accessible between classes otherwise the ssh channels close
-        global nodes
-        global hosts
-
-        #*************************************
-        # modify here
-        global nodesPerHost
-        global hostsUsername
-        global hostsPassword
-        global hostsList
-
-        # UPDATE: all multi-machine testing will pass list of IP and base port addresses to H2O
-        # means we won't realy on h2o self-discovery of cluster
-
-        # 4 was bad
-        nodesPerHost = 2
-        hostsUsername = '0xdiag'
-        hostsPassword = '0xdiag'
-
-        if (1==0):
-            hostsList = [
-                '192.168.0.37',
-                '192.168.0.33',
-                ]
-        elif (1==1):
-            hostsList = [
-                '192.168.1.20',
-                '192.168.1.17',
-                '192.168.1.160',
-                '192.168.1.161',
-                ]
-        elif (1==1):
-            hostsList = [
-                '192.168.1.20',
-                '192.168.1.17',
-                ]
-        elif (1==1):
-            hostsList = [
-                '192.168.0.33',
-                '192.168.0.37',
-                ]
-        elif (1==1):
-            nodesPerHost = 8
-            hostsUsername = '0xdiag'
-            hostsPassword = '0xdiag'
-            hostsList = [
-                '192.168.0.35',
-                '192.168.0.37',
-                ]
-
-        #*************************************
-        hosts = []
-        for h in hostsList:
-            h2o.verboseprint("Connecting to:", h)
-            hosts.append(h2o.RemoteHost(h, hostsUsername, hostsPassword))
-
-        h2o.upload_jar_to_remote_hosts(hosts)
-
-        # timeout wants to be larger for large numbers of hosts * nodesPerHost
-        # use 60 sec min, 2 sec per node.
-        timeoutSecs = max(60, 2*(len(hosts) * nodesPerHost))
-        h2o.build_cloud(nodesPerHost,base_port=55321,hosts=hosts,timeoutSecs=timeoutSecs)
+        h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
     def test_A_Basic(self):
-        # required in every test
+        # required in every test so ssh channels don't close
         h2o.touch_cloud()
 
         for n in h2o.nodes:
@@ -137,7 +75,7 @@ class Basic(unittest.TestCase):
                 csvPathname = SYNDATASETS_DIR + '/' + csvFilename
                 # FIX! TBD do we always have to kick off the run from node 0?
                 # random guess about length of time, varying with more hosts/nodes?
-                timeoutSecs = 20 + 5*(len(hosts) * nodesPerHost)
+                timeoutSecs = 20 + 5*(len(h2o.nodes))
                 # RFview consumes cycles. Only retry once a second, to avoid slowing things down
                 # this also does the put, which is probably a good thing to try multiple times also
                 h2o_cmd.runRF(trees=trees, modelKey=csvFilename, timeoutSecs=timeoutSecs, 
