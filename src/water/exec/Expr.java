@@ -8,24 +8,15 @@ import water.parser.ParseDataset;
 // Expression
 // =============================================================================
 public abstract class Expr {
-  // TODO these might go someplace else in the future, or get completely rid of
 
-  public static final ValueArray.Column C = new ValueArray.Column();
-  public static final ValueArray.Column[] CC = new ValueArray.Column[]{C};
-
-  static {
-    C._name = "";
-    C._scale = 1;
-    C._size = -8;
-    C._domain = new ParseDataset.ColumnDomain();
-    C._domain.kill();
-  }
-
+  // ---------------------------------------------------------------------------
+  // Result
+  
   public static class Result {
 
     public final Key _key;
     private int _refCount;
-    private boolean _copied;
+    boolean _copied;
     private int _colIndex;
     public final double _const;
 
@@ -98,129 +89,7 @@ public abstract class Expr {
       throw new EvaluationException(_pos, "Key " + k.toString() + " does not contain an array, while array is expected.");
     return (ValueArray) v;
   }
-
-  /**
-   * Assigns (copies) the what argument to the given key.
-   *
-   * TODO at the moment, only does deep copy.
-   *
-   * @param to
-   * @param what
-   * @throws EvaluationException
-   */
-  public static void assign(int pos, final Key to, Result what) throws EvaluationException {
-    if( what.isConstant() ) { // assigning to a constant creates a vector of size 1 
-      // The 1 tiny arraylet
-      Key key2 = ValueArray.make_chunkkey(to, 0);
-      byte[] bits = new byte[8];
-      UDP.set8d(bits, 0, what._const);
-      Value val = new Value(key2, bits);
-      DKV.put(key2, val);
-      // The metadata
-      C._min = C._max = C._mean = what._const;
-      C._sigma = 0;
-      ValueArray ary = ValueArray.make(to, Value.ICE, to, Double.toString(what._const), 1, 8, CC);
-      DKV.put(to, ary);
-    } else if( what.canShallowCopy() ) {
-      assert (false); // we do not support shallow copy now (TODO)
-      ValueArray v = (ValueArray) DKV.get(what._key);
-      if( v == null )
-        throw new EvaluationException(pos, "Key " + what._key + " not found");
-      byte[] bits = v.get();
-      ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
-      DKV.put(to, r);
-      what._copied = true; // TODO do we need to sync this? 
-    } else if (what.colIndex()!=-1) { // copy in place of a single column only
-      ValueArray v = (ValueArray) DKV.get(what._key);
-      if( v == null )
-        throw new EvaluationException(pos, "Key " + what._key + " not found");
-      int col = what.colIndex();
-      C._min = v.col_min(col);
-      C._max = v.col_max(col);
-      C._mean = v.col_mean(col);
-      C._sigma = v.col_sigma(col);
-      ValueArray ary = ValueArray.make(to, Value.ICE, to, to.toString(), v.num_rows(), 8, CC);
-      DKV.put(to,ary);
-      DeepColumnAssignment da = new DeepColumnAssignment(what._key,to, col);
-      da.invoke(to);
-    } else {
-      ValueArray v = (ValueArray) DKV.get(what._key);
-      if( v == null )
-        throw new EvaluationException(pos, "Key " + what._key + " not found");
-      byte[] bits = v.get();
-      ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
-      DKV.put(to, r);
-      MRTask copyTask = new MRTask() {
-
-        @Override
-        public void map(Key key) {
-          byte[] bits = DKV.get(key).get();
-          long offset = ValueArray.getOffset(key);
-          Key k = ValueArray.make_chunkkey(to, offset);
-          Value v = new Value(k, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
-          DKV.put(k, v);
-        }
-
-        @Override
-        public void reduce(DRemoteTask drt) {
-          // pass
-        }
-      };
-      copyTask.invoke(what._key);
-    }
-  }
-
-  /**
-   * Calculates the second pass of column metadata for the given key.
-   *
-   * Assumes that the min, max and mean are already calculated. gets the sigma
-   *
-   * @param key
-   */
-  public static void calculateSigma(final Key key, int col) {
-    SigmaCalc sc = new SigmaCalc(key, col);
-    sc.invoke(key);
-    byte[] bits = DKV.get(key).get();
-    ValueArray va = new ValueArray(key, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
-    va.set_col_sigma(col, sc.sigma());
-    DKV.put(key, va);
-  }
-
-  static class SigmaCalc extends MRTask {
-
-    public final Key _key;
-    public final int _col;
-    public double _sigma; // std dev
-
-    @Override
-    public void map(Key key) {
-      ValueArray va = (ValueArray) DKV.get(_key);
-      double mean = va.col_mean(_col);
-      byte[] bits = DKV.get(key).get();
-      int rowSize = va.row_size();
-      for( int i = 0; i < bits.length / rowSize; ++i ) {
-        double x = va.datad(bits, i, rowSize, _col);
-        _sigma += (x - mean) * (x - mean);
-      }
-    }
-
-    @Override
-    public void reduce(DRemoteTask drt) {
-      SigmaCalc other = (SigmaCalc) drt;
-      _sigma += other._sigma;
-    }
-
-    public SigmaCalc(Key key, int col) { // constructor
-      _key = key;
-      _col = col;
-      _sigma = 0;
-    }
-
-    public double sigma() {
-      ValueArray va = (ValueArray) DKV.get(_key);
-      return Math.sqrt(_sigma / va.num_rows());
-    }
-  }
+  
 }
 
 // =============================================================================
@@ -272,9 +141,12 @@ class AssignmentOperator extends Expr {
   @Override
   public Result eval() throws EvaluationException {
     Result rhs = _rhs.eval();
-    Expr.assign(_pos, _lhs, rhs);
-    calculateSigma(_lhs, 0);
-    rhs.dispose();
+    try {
+      Helpers.assign(_pos, _lhs, rhs);
+      Helpers.calculateSigma(_lhs, 0);
+    } finally {
+      rhs.dispose();
+    }
     return Result.permanent(_lhs);
   }
 }
@@ -297,8 +169,10 @@ class ColumnSelector extends Expr {
   public Result eval() throws EvaluationException {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
-    if( v.num_cols() <= _colIndex )
+    if( v.num_cols() <= _colIndex ) {
+      result.dispose();
       throw new EvaluationException(_pos, "Column " + _colIndex + " not present in expression (has " + v.num_cols() + ")");
+    }
     result.setColIndex(_colIndex);
     return result;
   }
@@ -322,14 +196,17 @@ class StringColumnSelector extends Expr {
   public Result eval() throws EvaluationException {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
-    if( v == null )
+    if( v == null ) {
+      result.dispose();
       throw new EvaluationException(_pos, "Key " + result._key.toString() + " not found");
+    }
     for( int i = 0; i < v.num_cols(); ++i ) {
       if( v.col_name(i).equals(_colName) ) {
         result.setColIndex(i);
         return result;
       }
     }
+    result.dispose();
     throw new EvaluationException(_pos, "Column " + _colName + " not present in expression");
   }
 }
@@ -367,8 +244,7 @@ class UnaryOperator extends Expr {
     }
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
-    ValueArray result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", opnd.num_rows(), 8, CC);
-    DKV.put(res._key, result);
+    VABuilder b = new VABuilder("temp",opnd.num_rows()).addDoubleColumn("0").createAndStore(res._key);
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpSub:
@@ -378,12 +254,7 @@ class UnaryOperator extends Expr {
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
     op.invoke(res._key);
-    C._min = op._min;
-    C._max = op._max;
-    C._mean = op._tot / opnd.num_rows();
-    result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", opnd.num_rows(), 8, CC);
-    DKV.put(res._key, result); // reinsert with min / max
-    o.dispose();
+    b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key).createAndStore(res._key);
     return res;
   }
 
@@ -391,10 +262,14 @@ class UnaryOperator extends Expr {
   public Result eval() throws EvaluationException {
     // get the keys and the values    
     Result op = _opnd.eval();
-    if( op.isConstant() )
-      return evalConst(op);
-    else
-      return evalVect(op);
+    try {
+      if( op.isConstant() )
+        return evalConst(op);
+      else
+        return evalVect(op);
+    } finally {
+      op.dispose();
+    }
   }
 }
 
@@ -447,8 +322,7 @@ class BinaryOperator extends Expr {
     long resultRows = Math.max(vl.num_rows(), vr.num_rows());
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
-    ValueArray result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", resultRows, 8, CC);
-    DKV.put(res._key, result);
+    VABuilder b = new VABuilder("temp",resultRows).addDoubleColumn("0").createAndStore(res._key);
     MRVectorBinaryOperator op;
     switch( _type ) {
       case ttOpAdd:
@@ -467,13 +341,7 @@ class BinaryOperator extends Expr {
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
     op.invoke(res._key);
-    C._min = op._min;
-    C._max = op._max;
-    C._mean = op._tot / resultRows;
-    result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", resultRows, 8, CC);
-    DKV.put(res._key, result); // reinsert with min / max
-    l.dispose();
-    r.dispose();
+    b.setColumnStats(0,op._min, op._max, op._tot / resultRows).createAndStore(res._key);
     return res;
   }
 
@@ -502,16 +370,9 @@ class BinaryOperator extends Expr {
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
-    ValueArray result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", vr.num_rows(), 8, CC);
-    DKV.put(res._key, result);
+    VABuilder b = new VABuilder("temp",vr.num_rows()).addDoubleColumn("0").createAndStore(res._key);
     op.invoke(res._key);
-    C._min = op._min;
-    C._max = op._max;
-    C._mean = op._tot / vr.num_rows();
-    result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", vr.num_rows(), 8, CC);
-    DKV.put(res._key, result); // reinsert with min / max
-    l.dispose();
-    r.dispose();
+    b.setColumnStats(0,op._min, op._max, op._tot / vr.num_rows()).createAndStore(res._key);
     return res;
   }
 
@@ -540,16 +401,9 @@ class BinaryOperator extends Expr {
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
-    ValueArray result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", vl.num_rows(), 8, CC);
-    DKV.put(res._key, result);
+    VABuilder b = new VABuilder("temp", vl.num_rows()).addDoubleColumn("0").createAndStore(res._key);
     op.invoke(res._key);
-    C._min = op._min;
-    C._max = op._max;
-    C._mean = op._tot / vl.num_rows();
-    result = ValueArray.make(res._key, Value.ICE, res._key, "temp result", vl.num_rows(), 8, CC);
-    DKV.put(res._key, result); // reinsert with min / max
-    l.dispose();
-    r.dispose();
+    b.setColumnStats(0,op._min, op._max, op._tot / vl.num_rows()).createAndStore(res._key);
     return res;
   }
 
@@ -558,16 +412,21 @@ class BinaryOperator extends Expr {
     // get the keys and the values    
     Result kl = _left.eval();
     Result kr = _right.eval();
-    if( kl.isConstant() ) {
-      if( kr.isConstant() )
-        return evalConstConst(kl, kr);
-      else
-        return evalConstVect(kl, kr);
-    } else {
-      if( kr.isConstant() )
-        return evalVectConst(kl, kr);
-      else
-        return evalVectVect(kl, kr);
+    try {
+      if( kl.isConstant() ) {
+        if( kr.isConstant() )
+          return evalConstConst(kl, kr);
+        else
+          return evalConstVect(kl, kr);
+      } else {
+        if( kr.isConstant() )
+          return evalVectConst(kl, kr);
+        else
+          return evalVectVect(kl, kr);
+      }
+    } finally {
+      kl.dispose();
+      kr.dispose();
     }
   }
 }

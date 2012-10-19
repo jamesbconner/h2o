@@ -75,6 +75,7 @@ public class Boot extends ClassLoader {
       addInternalJars("gson");
       addInternalJars("junit");
       addInternalJars("jama");
+      addInternalJars("poi");
     } else {
       System.setProperty("org.hyperic.sigar.path", "lib/binlib");
     }
