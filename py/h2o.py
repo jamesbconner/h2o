@@ -25,6 +25,7 @@ def unit_main():
 verbose = False
 ipaddr = None
 use_hosts = False
+debugger=False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
@@ -32,17 +33,17 @@ def parse_our_args():
     parser.add_argument('--verbose','-v', help="increased output", action="store_true")
     parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
     parser.add_argument('--use_hosts', '-uh', help="create node_count H2Os on each host in the hosts list", action="store_true")
+    parser.add_argument('--debugger', help="Launch java processes with java debug attach mechanisms", action="store_true")
     
     
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global verbose
-    global ipaddr
-    global use_hosts
+    global verbose, ipaddr, use_hosts, debugger
     verbose = args.verbose
     ipaddr = args.ip
     use_hosts = args.use_hosts
+    debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     sys.argv[1:] = args.unittest_args
@@ -55,6 +56,11 @@ def verboseprint(*args):
     # so we can see problems when hung?
     sys.stdout.flush()
 
+def find_dataset(f):
+    (head, tail) = os.path.split(os.path.abspath('datasets'))
+    while not os.path.exists(os.path.join(head, tail)):
+        head = os.path.split(head)[0]
+    return os.path.join(head, tail, f)
 
 def find_file(base):
     f = base
@@ -361,14 +367,14 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel"):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel",clazz=None):
         # modelkey is ____model by default
         # can get error result too?
+        
         # FIX! pass a model name here, that is unique for every RF model we due 
         # during a cloud build..so we can look at it with the browser and not have multiple RF's
         # overwrite the same model (and lose the data so we can't see it in the browser any more
-        a = self.__check_request(requests.get(self.__url('RF.json'),
-            params={
+        rfParams = {
                 # FIX! temporary H2O bug..put ____ in front of model name to get it used right
                 # test should get the right one from RF.json output, for use in RFview
                 # passing a modelKey is really so it persists if we're doing multiple RFs
@@ -380,7 +386,11 @@ class H2O(object):
                 "depth": depth,
                 "ntree": ntree,
                 "Key": key
-                }))
+                }
+        if not clazz is None: rfParams['class'] = clazz
+
+        verboseprint("\nrandom_forest parameters:", rfParams)
+        a = self.__check_request(requests.get(self.__url('RF.json'), params=rfParams))
         verboseprint("\nrandom_forest result:", a)
         return a
 
@@ -520,9 +530,12 @@ class H2O(object):
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=False):
+        use_debugger=None):
+        if use_debugger is None: use_debugger = debugger
+        if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
+
         self.port = port
-        self.addr = use_this_ip_addr or get_ip_address()
+        self.addr = use_this_ip_addr
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output

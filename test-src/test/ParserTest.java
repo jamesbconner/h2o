@@ -4,6 +4,8 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.base.Strings;
+
 import water.DKV;
 import water.H2O;
 import water.Key;
@@ -237,12 +239,17 @@ public class ParserTest {
       SeparatedValueParser p;
       ColumnDomain cds[] = new ColumnDomain[3];
       for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
+
       int i = 0;
       for( Key k : keys ) {
-        p = new SeparatedValueParser(k, separator, 3, cds);
+        p = new SeparatedValueParser(k, separator, 3);
         for( Row r : p ) {
           Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
           Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+          for( int j = 0; j < 3; j++ ) {
+            String s = r._fieldStringVals[j];
+            if( !Strings.isNullOrEmpty(s) ) cds[j].add(s);
+          }
           i++;
         }
       }
@@ -262,7 +269,6 @@ public class ParserTest {
         "bar|ten|two\n",
         "bar|   12|three\n",
         "foobar|14|one\n",
-//        "foo||two\n",
     };
     double[][] expDouble = new double[][] {
         d(NaN,   2, NaN), // preserve order
@@ -272,7 +278,6 @@ public class ParserTest {
         d(NaN, NaN, NaN),
         d(NaN,  12, NaN),
         d(NaN,  14, NaN),
-//        d(NaN,  NaN, NaN),
     };
 
     String[][] expString = new String[][] {
@@ -283,7 +288,6 @@ public class ParserTest {
         s("bar",  "ten", "two"),
         s("bar",   null, "three"),
         s("foobar",null, "one"),
-//        s("foo",   null, "two"),
     };
 
     String expDomain[][] = new String[][] {
@@ -301,10 +305,14 @@ public class ParserTest {
       for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
       int i = 0;
       for( Key k : keys ) {
-        p = new SeparatedValueParser(k, separator, 3, cds);
+        p = new SeparatedValueParser(k, separator, 3);
         for( Row r : p ) {
           Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
           Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+          for( int j = 0; j < 3; j++ ) {
+            String s = r._fieldStringVals[j];
+            if( !Strings.isNullOrEmpty(s) ) cds[j].add(s);
+          }
           i++;
         }
       }
@@ -314,6 +322,88 @@ public class ParserTest {
     }
   }
 
+  // Test if the empty column is correctly handled.
+  // NOTE: this test makes sense only for comma separated columns
+  @Test public void testEmptyColumnValues() {
+    String data[] = {
+        ",,\n",
+        "1,,\n",
+        ",2,\n",
+        ",,3\n",
+        "4,5,\n",
+        ",6,7\n",
+        "8,9,10\n",
+        "one,,\n",
+        ",two,\n",
+        ",,three\n",
+        "four,five,\n",
+        ",five,six\n",
+        "one,two,three\n",
+    };
+    double[][] expDouble = new double[][] {
+        d(NaN, NaN, NaN),
+        d(1,   NaN, NaN),
+        d(NaN,   2, NaN),
+        d(NaN, NaN,   3),
+        d(4,     5, NaN),
+        d(NaN,   6,   7),
+        d(8,     9,  10),
+        d(NaN, NaN, NaN),
+        d(NaN, NaN, NaN),
+        d(NaN, NaN, NaN),
+        d(NaN, NaN, NaN),
+        d(NaN, NaN, NaN),
+        d(NaN, NaN, NaN),
+    };
+
+    String[][] expString = new String[][] {
+        s(null,     null,    null),
+        s(null,     null,    null),
+        s(null,     null,    null),
+        s(null,     null,    null),
+        s(null,     null,    null),
+        s(null,     null,    null),
+        s(null,     null,    null),
+        s("one",    null,    null),
+        s(null,    "two",    null),
+        s(null,     null, "three"),
+        s("four", "five",    null),
+        s(null,   "five",   "six"),
+        s("one",   "two", "three"),
+    };
+
+    String expDomain[][] = new String[][] {
+        s( "one",  "four"),
+        s( "two",  "five"),
+        s( "three", "six"),
+    };
+
+    final char separator = ',';
+
+    String[] dataset = getDataForSeparator(separator, data);
+    Key[]    keys = k(dataset);
+
+    SeparatedValueParser p;
+    ColumnDomain cds[] = new ColumnDomain[3];
+    for (int j = 0; j < 3; j++) cds[j] = new ColumnDomain();
+    int i = 0;
+    for( Key k : keys ) {
+      p = new SeparatedValueParser(k, separator, 3);
+      for( Row r : p ) {
+        Assert.assertArrayEquals(expDouble[i], r._fieldVals, 0.0001);
+        Assert.assertArrayEquals(expString[i], r._fieldStringVals);
+        for( int j = 0; j < 3; j++ ) {
+          String s = r._fieldStringVals[j];
+          if( !Strings.isNullOrEmpty(s) ) cds[j].add(s);
+        }
+        i++;
+      }
+    }
+
+    for (int j = 0; j < 3; j++)
+      Assert.assertArrayEquals(expDomain[j], cds[j].toArray());
+
+  }
 
 
   @Test public void testBasicSpaceAsSeparator() {

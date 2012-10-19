@@ -4,9 +4,9 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 import water.*;
-import water.parser.ParseDataset.ColumnDomain;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 
 public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>, Iterator<SeparatedValueParser.Row> {
   private final Key _key;
@@ -23,20 +23,13 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
   private final TextualParser _textual;
   private final Row _row;
 
-  private final ColumnDomain[] _columnsDomains;
-
   public SeparatedValueParser(Key k, char seperator, int numColumnsGuess) {
-    this(k,seperator,numColumnsGuess,null);
-  }
-
-  public SeparatedValueParser(Key k, char seperator, int numColumnsGuess, ColumnDomain[] columnsDomains ) {
     _sloppy_decimal = new SloppyDecimalParser();
     _decimal = new DecimalParser();
     _textual = new TextualParser();
     _row     = new Row(numColumnsGuess);
 
     _separator      = seperator;
-    _columnsDomains = columnsDomains;
 
     _key = k;
     _curVal = UKV.get(k);
@@ -132,11 +125,6 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
   private boolean isNewline(byte b)   { return b == '\r' || b == '\n'; }
   private boolean isSeparator(byte b) { return b == _separator || isNewline(b); }
 
-  private void putToDictionary(int column, String key) {
-    if( _columnsDomains != null && key != null && !"".equals(key) )
-      _columnsDomains[column].add(key);
-  }
-
   @Override
   public Iterator<SeparatedValueParser.Row> iterator() {
     return this;
@@ -163,11 +151,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
         _row._fieldVals[field] = Double.isNaN(v) ? _decimal.doubleValue() : v;
         _row._fieldStringVals[field] = null;
         if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
-          String sVal = _textual.stringValue();
-          if (!ParseDataset.isNotAnEnumLiteral(sVal)) {
-            _row._fieldStringVals[field] = sVal;
-            putToDictionary(field, _row._fieldStringVals[field]);
-          }
+          _row._fieldStringVals[field] = Strings.emptyToNull(_textual.stringValue());
         }
       } else {
         b = scanPastNextSeparator();
@@ -203,6 +187,12 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     public Row(int numOfColumns) {
       _fieldVals       = new double[numOfColumns];
       _fieldStringVals = new String[numOfColumns];
+    }
+
+    public Row(double[] vals, String[] strs) {
+      assert vals.length == strs.length;
+      _fieldVals = vals;
+      _fieldStringVals = strs;
     }
 
     @Override
