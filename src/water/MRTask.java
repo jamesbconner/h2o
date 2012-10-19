@@ -1,11 +1,5 @@
 package water;
-import java.io.*;
-import java.lang.Cloneable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import jsr166y.*;
+import jsr166y.CountedCompleter;
 
 // Map/Reduce - style distributed computation
 
@@ -51,7 +45,7 @@ public abstract class MRTask extends DRemoteTask {
     // Reduce results into 'this' so they collapse going up the execution tree.
     // NULL out child-references so we don't accidentally keep large subtrees
     // alive: each one may be holding large partial results.
-    if( _left != null ) reduce(_left); _left = null;
-    if( _rite != null ) reduce(_rite); _rite = null;
+    if( _left != null ) reduce_merge_pending(_left); _left = null;
+    if( _rite != null ) reduce_merge_pending(_rite); _rite = null;
   }
 }

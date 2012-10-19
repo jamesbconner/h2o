@@ -4,8 +4,7 @@ import static org.junit.Assert.*;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import water.*;
-import water.exec.Exec;
-import water.exec.PositionedException;
+import water.exec.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
 
@@ -25,8 +24,73 @@ public class ExprTest {
   int i = 0;
 
   
+  protected void testParseFail(String expr, int errorPos) {
+    try {
+      RLikeParser parser = new RLikeParser();
+      parser.parse(expr);
+      assertTrue("An exception should have been thrown.",false);
+    } catch (ParserException e) {
+      if (errorPos != -1)
+        assertEquals(errorPos,e._pos);
+    }
+  }
+  
+  protected void testParseFail(String expr) {
+    testParseFail(expr,-1);
+  }
+  
+  protected void testExecFail(String expr, int errorPos) {
+    DKV.write_barrier();
+    int keys = H2O.store_size();
+    try {
+      System.err.println("result"+(new Integer(i).toString())+": "+expr);
+      Key key = Exec.exec(expr, "result"+(new Integer(i).toString()));
+      UKV.remove(key);
+      assertTrue("An exception should have been thrown.",false);
+    } catch (ParserException e) {
+      assertTrue(false);
+    } catch (EvaluationException e) {
+      if (errorPos!=-1)
+        assertEquals(errorPos,e._pos);
+    }
+    DKV.write_barrier();
+    assertEquals("Keys were not properly deleted for expression "+expr,keys,H2O.store_size());
+  }
+  
+  protected void testExecFail(String expr) {
+    testExecFail(expr,-1);
+  }
+  
+  @Test public void testParserFails() {
+    testParseFail("4.5.6");
+    testParseFail("4e4e4");
+    testParseFail("a +* b");
+    testParseFail("(a + b");
+    testParseFail(" \"hello");
+    testParseFail(" a $ 5");
+  }
+  
+  @Test public void testExecFails() {
+    testExecFail("a");
+    testExecFail("a$hello");
+    testExecFail("a[2]");
+    testScalarExpression("a=5",5);
+    testExecFail("a$hello");
+    testExecFail("a[2]");
+    UKV.remove(Key.make("a"));
+  }
+  
+  @Test public void testDivByZero() {
+    testScalarExpression("5/0", Double.POSITIVE_INFINITY);
+    testScalarExpression("n = 6",6);
+    testScalarExpression("g = 0",0);
+    testScalarExpression("n/g",Double.POSITIVE_INFINITY);
+    testScalarExpression("n/0",Double.POSITIVE_INFINITY);
+    UKV.remove(Key.make("n"));
+    UKV.remove(Key.make("g"));
+  }
+  
   protected Key executeExpression(String expr) {
-//    System.out.println("  "+expr);
     DKV.write_barrier();
     try {
       ++i;
@@ -80,7 +144,6 @@ public class ExprTest {
   }
   
   @Test public void testNumberParsing() {
-//    System.out.println("testNumberParsing");
     testScalarExpression("5",5);
     testScalarExpression("5.0",5.0);
     testScalarExpression("5e4",5e4);
@@ -89,7 +152,6 @@ public class ExprTest {
   
   
   @Test public void testScalarExpressions() {
-//    System.out.println("testScalarExpressions");
     testScalarExpression("5", 5);
     testScalarExpression("-5", -5);
     testScalarExpression("5+6", 11);
@@ -98,7 +160,6 @@ public class ExprTest {
   }
   
   @Test public void testOperators() {
-//    System.out.println("testOperators");
     testScalarExpression("1+2",3);
     testScalarExpression("1-2",-1);
     testScalarExpression("1*2",2);
@@ -108,7 +169,6 @@ public class ExprTest {
   }
   
   @Test public void testOperatorPrecedence() {
-//    System.out.println("testOperatorPrecedence");
     testScalarExpression("1+2*3",7);
     testScalarExpression("1*2+3",5);
     testScalarExpression("1+2*3+4",11);
@@ -119,13 +179,11 @@ public class ExprTest {
   }
   
   @Test public void testParentheses() {
-//    System.out.println("testParentheses");
     testScalarExpression("(1+2)*3",9);
     testScalarExpression("(1+2)*(3+3)*3",54);
   }
   
   @Test public void testAssignments() {
-//    System.out.println("testAssignments");
     testScalarExpression("a1 = 5",5);
     testScalarExpression("b1 = 6",6);
     testScalarExpression("a1",5);
@@ -141,7 +199,6 @@ public class ExprTest {
   }
   
   @Test public void testIdentOperators() {
- //   System.out.println("testIdentOperators");
     testScalarExpression("a3 = 8", 8);
     testScalarExpression("b3 = 2", 2);
     testScalarExpression("a3+b3",10);
@@ -162,14 +219,12 @@ public class ExprTest {
   }
  
   @Test public void testQuotedIdents() {
-//    System.out.println("testQuotedIdents");
     testScalarExpression("\"a\\\"b/c\\\\d\" = 5", 5);
     testScalarExpression("\"a\\\"b/c\\\\d\"", 5);
     UKV.remove(Key.make("a\"b/c\\d"));
   }
   
   @Test public void testComplexAssignments() {
-//    System.out.println("testAssignments");
     testScalarExpression("a4 = 5",5);
     testScalarExpression("b4 = 6",6);
     testScalarExpression("c4 = a4 + b4",11);
@@ -181,112 +236,5 @@ public class ExprTest {
     UKV.remove(Key.make("c4"));
     UKV.remove(Key.make("c5"));
   } 
-  
-  @Test public void testFullVectAssignment() {
-//    System.out.println("testFullVectAssignment");
-    Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
-    Key k2 = executeExpression("cars.hex");
-    testDataFrameStructure(k2, 406, 8);    
-    k2 = executeExpression("a5 = cars.hex[2]");
-    testVectorExpression("a5",8,8,8,4,6,6);
-    UKV.remove(k2);
-    UKV.remove(k);
-    UKV.remove(Key.make("a5"));
-  } 
-  
-  @Test public void testSingleVectorAssignment() {
-//    System.out.println("testSingleVectorAssignment");
-    Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
-    UKV.remove(k);
-  }
-  
-  @Test public void testVectorOperators() {
-//    System.out.println("testVectorOperators");
-    Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
-    testVectorExpression("cars.hex[2] + cars.hex$year", 81, 78, 80, 80, 84, 87);
-    testVectorExpression("cars.hex[2] - cars.hex$year", -65, -62, -64, -72, -72, -75);
-    testVectorExpression("cars.hex[2] * cars.hex$year", 584, 560, 576, 304, 468, 486);
-    testVectorExpression("cars.hex$year / cars.hex[2]", 9.125, 8.75, 9.0, 19.0, 13.0, 13.5);
-    UKV.remove(k);
-  }
-  
-  @Test public void testColumnSelectors() {
-//    System.out.println("testColumnSelectors");
-    Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
-    Key k2 = executeExpression("cars.hex[2]");
-    testDataFrameStructure(k2, 406, 1);    
-    testKeyValues(k2, 8, 8, 8, 4, 6, 6);
-    k2 = executeExpression("cars.hex$year");
-    testDataFrameStructure(k2, 406, 1);    
-    testKeyValues(k2, 73, 70, 72, 76, 78, 81);
-    UKV.remove(k2);
-    UKV.remove(k);
-  }
-  
-  @Test public void testLargeDataOps() {
-    Key poker = loadAndParseKey("p.hex", "smalldata/poker/poker-hand-testing.data");
-    testVectorExpression("p.hex[1] + p.hex[2]", 2, 15, 13, 15, 12, 7);
-    testVectorExpression("p.hex[1] - p.hex[2]", 0, 9, 5, 7, 10, 3);
-    testVectorExpression("p.hex[1] * p.hex[2]", 1, 36, 36, 44, 11, 10);
-    testVectorExpression("p.hex[1] / p.hex[2]", 1.0, 4.0, 2.25, 2.75, 11.0, 2.5);
-    UKV.remove(poker);
-  }
-  
-  @Test public void testBigLargeExpression() {
-    Key poker = loadAndParseKey("p.hex", "smalldata/poker/poker-hand-testing.data");
-    testVectorExpression("p.hex[1] / p.hex[2] + p.hex[3] * p.hex[1] - p.hex[5] + (2* p.hex[1] - (p.hex[2]+3))", 8, 35, 63.25, 85.75, 116.0, 43.5);
-    UKV.remove(poker);    
-  }
-  
-  @Test public void testDifferentSizeOps() {
-    Key cars = loadAndParseKey("cars.hex", "smalldata/cars.csv");
-    Key poker = loadAndParseKey("p.hex", "smalldata/poker/poker-hand-testing.data");
-    testVectorExpression("cars.hex$year + p.hex[1]", 74, 82, 81, 84, 86, 81);
-    testVectorExpression("cars.hex$year - p.hex[1]", 72, 58, 63, 62, 64, 71);
-    testVectorExpression("cars.hex$year * p.hex[1]", 73, 840, 648, 803, 825, 380);
-    //testVectorExpression("cars.hex$year / p.hex[1]", 73, 70/12, 8, 76/11, 78/11, 15.2); // hard to get the numbers right + not needed no new coverage
-    testVectorExpression("p.hex[1] + cars.hex$year", 74, 82, 81, 84, 86, 81);
-    testVectorExpression("p.hex[1] - cars.hex$year", -72, -58, -63, -62, -64, -71);
-    testVectorExpression("p.hex[1] * cars.hex$year", 73, 840, 648, 803, 825, 380);
-    //testVectorExpression("p.hex[1] / cars.hex$year", 1/73, 12/70, 0.125, 11/76, 11/78, 5/81);
-    UKV.remove(poker);    
-    UKV.remove(cars);    
-  }
-  
-  // ---
-  // Test some basic expressions on "cars.csv"
-  @Test public void testBasicCrud() {
-    
-    Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
-    testVectorExpression("cars.hex[1] + cars.hex$cylinders", 21,23,25,24,23,36.7);
-    UKV.remove(k);
-            
-/*            
-    Key fkey = KeyUtil.load_test_file("smalldata/cars.csv");
-    Key okey = Key.make("cars.hex");
-    ParseDataset.parse(okey,DKV.get(fkey));
-    UKV.remove(fkey);
-    ValueArray va = (ValueArray)DKV.get(okey);
-    ExecWeb eweb = new ExecWeb();
 
-    Properties p = new Properties();
-    p.setProperty("Expr","cars.hex[1]+cars.hex$cylinders");
-    try { 
-      JsonObject res = eweb.serverJson(null,p,null);
-      Key key = H2OPage.decode(res.get("ResultKeyHref").getAsString());
-      ValueArray ary = (ValueArray)DKV.get(key);
-
-      assertEquals(21.0,ary.datad(  0,0),0.0);
-      assertEquals(23.0,ary.datad(  1,0),0.0);
-      assertEquals(25.0,ary.datad(  2,0),0.0);
-      assertEquals(24.0,ary.datad(403,0),0.0);
-      assertEquals(23.0,ary.datad(404,0),0.0);
-      assertEquals(36.7,ary.datad(405,0),0.0);
-      
-      UKV.remove(okey);
-      UKV.remove(key);
-    } catch( H2OPage.PageError pe ) {
-      pe.printStackTrace();
-    } */ 
-  } 
 }

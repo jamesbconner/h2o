@@ -14,35 +14,27 @@ public abstract class DKV {
   // This put is a top-level user-update, and not a reflected or retried
   // update.  i.e., The User has initiated a change against the K/V store.
   // This is a WEAK update: it is not strongly ordered with other updates
-  static public void put( Key key, Value val ) {
-    assert val==null || val.is_same_key(key);
-    while( true ) {
-      Value local = H2O.get(key);
-      if( DputIfMatch(key,val,local) == local )
-        return;
-    }
-  }
-
-  // This put is a top-level user-update, and not a reflected or retried
-  // update.  i.e., The User has initiated a change against the K/V store.
-  // This is a WEAK update: it is not strongly ordered with other updates.
-  // User is responsible for cleaning a dead old Value.
-  static protected Value put_return_old( Key key, Value val ) {
+  static public TaskPutKey put( Key key, Value val ) {
     assert val==null || val.is_same_key(key);
     while( true ) {
       Value old = H2O.get(key);
-      Value res = DputIfMatch(key,val,old);
-      if( res == old ) return old; // User must cleanup a dead old Value
+      Object res = DputIfMatch(key,val,old);
+      if( res == old ) return null; // PUT worked without a TPK
+      if( res instanceof TaskPutKey ) return (TaskPutKey)res;
     }
   }
 
   // Remove this Key: really writes a new tombstone deleted Value
-  static public void remove( Key key ) {
-    put(key,null);
-  }
+  static public TaskPutKey remove( Key key ) { return put(key,null); }
 
-  // Do a PUT, and on success trigger replication.
-  static protected Value DputIfMatch( Key key, Value val, Value old ) {
+  // Do a PUT, and on success trigger replication.  Some callers need the old
+  // value, and some callers need the TPK so we can block later to ensure the
+  // result is there.  Many callers don't need either value.  So rather than
+  // making a special object to return the pair of values, I've settled for a
+  // "callers pay" model with a more complex return setup.  The return value
+  // is a TPK if one is needed, or the old Value if not.  If a TPK is returned
+  // the old Value is stashed inside of it for the caller to consume.
+  static protected Object DputIfMatch( Key key, Value val, Value old ) {
     // local update first, since this is a weak update
     Value res = H2O.putIfMatch(key,val,old);
     if( res != old )            // Failed?
@@ -65,15 +57,16 @@ public abstract class DKV {
     // If PUT is on     HOME, invalidate remote caches
     if( key.home() ) {          // On     HOME?
       key.invalidate_remote_caches();
+      return old;               // Return success value
     } else {                    // On non-HOME?
       H2O cloud = H2O.CLOUD;
       int home_idx = cloud.D(key,0);
       H2ONode target = cloud._memary[home_idx];
       // Start a write, but do not block for it
-      new TaskPutKey(target,key,val);
+      TaskPutKey tpk = new TaskPutKey(target,key,val);
+      tpk._oldval = old;
+      return tpk;
     }
-
-    return old;                 // Return success value
   }
 
   // Stall until all existing writes have completed.

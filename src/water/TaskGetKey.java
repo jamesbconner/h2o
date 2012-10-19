@@ -186,12 +186,4 @@ public class TaskGetKey extends DFutureTask<Value> {
       H2ONode.TGKS.remove(_key);
     }
   }
-
-  // HashCode & equals, to clear out dup GetKeys - caused by repeated HazKeys
-  public int hashCode() { return _key._hash ^ _target.hashCode() ^ _len; }
-  public boolean equals( Object o ) {
-    if( !(o instanceof TaskGetKey) ) return false;
-    TaskGetKey tgk = (TaskGetKey)o;
-    return _key.equals(tgk._key) && _target==tgk._target && _len == tgk._len;
-  }
 }

@@ -16,8 +16,8 @@ public abstract class MRVectorUnaryOperator extends MRTask {
   private final Key _key;
   private final Key _resultKey;
   private final int _col;
-  double _min = Double.MAX_VALUE;
-  double _max = -Double.MAX_VALUE;
+  double _min = Double.POSITIVE_INFINITY;
+  double _max = Double.NEGATIVE_INFINITY;
   double _tot = 0;
 
   /**
@@ -72,7 +72,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
     }
     // we have the bytes now, just store the value
     Value val = new Value(key, bits);
-    DKV.put(key, val);
+    lazy_complete(DKV.put(key, val));
     // and we are done...
   }
 
@@ -244,5 +244,3 @@ class RightDiv extends ParametrizedMRVectorUnaryOperator {
   @Override
   public double operator(double opnd) { return _param / opnd; }
 }
-
-

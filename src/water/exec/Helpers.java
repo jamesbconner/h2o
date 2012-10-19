@@ -39,6 +39,9 @@ public class Helpers {
     public void map(Key key) {
       ValueArray va = (ValueArray) DKV.get(_key);
       double mean = va.col_mean(_col);
+      Value v = DKV.get(key);
+      if (v == null) 
+        System.err.println(key.toString());
       byte[] bits = DKV.get(key).get();
       int rowSize = va.row_size();
       for( int i = 0; i < bits.length / rowSize; ++i ) {
@@ -84,9 +87,10 @@ public class Helpers {
       byte[] bits = new byte[8];
       UDP.set8d(bits, 0, what._const);
       Value val = new Value(key2, bits);
-      DKV.put(key2, val);
+      TaskPutKey tpk = DKV.put(key2, val);
       // The metadata
       VABuilder b = new VABuilder(to.toString(),1).addDoubleColumn("0",what._const, what._const, what._const,0).createAndStore(to);
+      if( tpk != null ) tpk.get();
     } else if( what.canShallowCopy() ) {
       assert (false); // we do not support shallow copy now (TODO)
       ValueArray v = (ValueArray) DKV.get(what._key);
@@ -110,23 +114,17 @@ public class Helpers {
         throw new EvaluationException(pos, "Key " + what._key + " not found");
       byte[] bits = v.get();
       ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
-      DKV.put(to, r);
       MRTask copyTask = new MRTask() {
-
-        @Override
-        public void map(Key key) {
+        @Override public void map(Key key) {
           byte[] bits = DKV.get(key).get();
           long offset = ValueArray.getOffset(key);
           Key k = ValueArray.make_chunkkey(to, offset);
           Value v = new Value(k, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
-          DKV.put(k, v);
+          lazy_complete(DKV.put(k, v));
         }
-
-        @Override
-        public void reduce(DRemoteTask drt) {
-          // pass
-        }
+        @Override  public void reduce(DRemoteTask drt) { }
       };
+      copyTask.lazy_complete(DKV.put(to, r));
       copyTask.invoke(what._key);
     }
   }
@@ -226,15 +224,12 @@ class DeepSingleColumnAssignment extends MRTask {
     }
     // we have the bytes now, just store the value
     Value val = new Value(key, bits);
-    DKV.put(key, val);
+    lazy_complete(DKV.put(key, val));
     // and we are done...
     
   }
 
-  @Override public void reduce(DRemoteTask drt) {
-    // pass
-  }
-  
+  @Override public void reduce(DRemoteTask drt) { }
   
   
   public DeepSingleColumnAssignment(Key from, Key to, int colIndex) {
@@ -242,6 +237,4 @@ class DeepSingleColumnAssignment extends MRTask {
     _from = from;
     _colIndex = colIndex;
   }
-  
-  
 }

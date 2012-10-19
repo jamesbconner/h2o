@@ -141,9 +141,12 @@ class AssignmentOperator extends Expr {
   @Override
   public Result eval() throws EvaluationException {
     Result rhs = _rhs.eval();
-    Helpers.assign(_pos, _lhs, rhs);
-    Helpers.calculateSigma(_lhs, 0);
-    rhs.dispose();
+    try {
+      Helpers.assign(_pos, _lhs, rhs);
+      Helpers.calculateSigma(_lhs, 0);
+    } finally {
+      rhs.dispose();
+    }
     return Result.permanent(_lhs);
   }
 }
@@ -166,8 +169,10 @@ class ColumnSelector extends Expr {
   public Result eval() throws EvaluationException {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
-    if( v.num_cols() <= _colIndex )
+    if( v.num_cols() <= _colIndex ) {
+      result.dispose();
       throw new EvaluationException(_pos, "Column " + _colIndex + " not present in expression (has " + v.num_cols() + ")");
+    }
     result.setColIndex(_colIndex);
     return result;
   }
@@ -191,14 +196,17 @@ class StringColumnSelector extends Expr {
   public Result eval() throws EvaluationException {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
-    if( v == null )
+    if( v == null ) {
+      result.dispose();
       throw new EvaluationException(_pos, "Key " + result._key.toString() + " not found");
+    }
     for( int i = 0; i < v.num_cols(); ++i ) {
       if( v.col_name(i).equals(_colName) ) {
         result.setColIndex(i);
         return result;
       }
     }
+    result.dispose();
     throw new EvaluationException(_pos, "Column " + _colName + " not present in expression");
   }
 }
@@ -247,7 +255,6 @@ class UnaryOperator extends Expr {
     }
     op.invoke(res._key);
     b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key).createAndStore(res._key);
-    o.dispose();
     return res;
   }
 
@@ -255,10 +262,14 @@ class UnaryOperator extends Expr {
   public Result eval() throws EvaluationException {
     // get the keys and the values    
     Result op = _opnd.eval();
-    if( op.isConstant() )
-      return evalConst(op);
-    else
-      return evalVect(op);
+    try {
+      if( op.isConstant() )
+        return evalConst(op);
+      else
+        return evalVect(op);
+    } finally {
+      op.dispose();
+    }
   }
 }
 
@@ -331,8 +342,6 @@ class BinaryOperator extends Expr {
     }
     op.invoke(res._key);
     b.setColumnStats(0,op._min, op._max, op._tot / resultRows).createAndStore(res._key);
-    l.dispose();
-    r.dispose();
     return res;
   }
 
@@ -364,8 +373,6 @@ class BinaryOperator extends Expr {
     VABuilder b = new VABuilder("temp",vr.num_rows()).addDoubleColumn("0").createAndStore(res._key);
     op.invoke(res._key);
     b.setColumnStats(0,op._min, op._max, op._tot / vr.num_rows()).createAndStore(res._key);
-    l.dispose();
-    r.dispose();
     return res;
   }
 
@@ -397,8 +404,6 @@ class BinaryOperator extends Expr {
     VABuilder b = new VABuilder("temp", vl.num_rows()).addDoubleColumn("0").createAndStore(res._key);
     op.invoke(res._key);
     b.setColumnStats(0,op._min, op._max, op._tot / vl.num_rows()).createAndStore(res._key);
-    l.dispose();
-    r.dispose();
     return res;
   }
 
@@ -407,16 +412,21 @@ class BinaryOperator extends Expr {
     // get the keys and the values    
     Result kl = _left.eval();
     Result kr = _right.eval();
-    if( kl.isConstant() ) {
-      if( kr.isConstant() )
-        return evalConstConst(kl, kr);
-      else
-        return evalConstVect(kl, kr);
-    } else {
-      if( kr.isConstant() )
-        return evalVectConst(kl, kr);
-      else
-        return evalVectVect(kl, kr);
+    try {
+      if( kl.isConstant() ) {
+        if( kr.isConstant() )
+          return evalConstConst(kl, kr);
+        else
+          return evalConstVect(kl, kr);
+      } else {
+        if( kr.isConstant() )
+          return evalVectConst(kl, kr);
+        else
+          return evalVectVect(kl, kr);
+      }
+    } finally {
+      kl.dispose();
+      kr.dispose();
     }
   }
 }
