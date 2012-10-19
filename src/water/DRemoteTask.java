@@ -117,7 +117,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
       try {
         DRemoteTask.this.get(); // Block until the self-task is done
       } catch( InterruptedException ie ) {
+        throw new RuntimeException(ie);
       } catch( ExecutionException ee ) {
+        throw new RuntimeException(ee);
       }
       // Block for remote exec & reduce results into _drt
       if( _lo != null ) reduce(_lo.get());
@@ -187,14 +189,10 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   }
   // Clean out from the list any pending-tasks which are already done
   synchronized private void clean_pending() {
-    int x = 0;
     for( int i=0; i<_pending_cnt; i++ )
-      if( _pending[i].isDone() ) { // Done?
+      if( _pending[i].isDone() ) // Done?
         // Do cheap array compression to remove from list
         _pending[i--] = _pending[--_pending_cnt];
-        x++;
-      }
-    System.out.print("C"+x+"+"+_pending_cnt+",");
   }
 
   // Merge pending-task lists as part of doing a 'reduce' step
@@ -206,14 +204,12 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
 
   public final void block_pending() {
     try {
-      for( int i=0; i<_pending_cnt; i++ ) {
-        long start = System.currentTimeMillis();
+      for( int i=0; i<_pending_cnt; i++ )
         _pending[i].get();
-        long now = System.currentTimeMillis();
-        System.out.print("B"+(now-start)+",");
-      }
     } catch( InterruptedException ie ) {
+      throw new RuntimeException(ie);
     } catch( ExecutionException ee ) {
+      throw new RuntimeException(ee);
     }
     _pending_cnt=0;             // No more pending here
   }

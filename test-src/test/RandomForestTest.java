@@ -65,8 +65,8 @@ public class RandomForestTest {
       Value modelVal = UKV.get(modelKey);
       Model model = new Model();
       model.read(new Stream(modelVal.get()));
-      assertEquals(model.size(),0); // Expect zero trees so-far.
-      assertEquals(model._classes,CLASSES);
+      assertEquals(0,model.size()); // Expect zero trees so-far.
+      assertEquals(CLASSES,model._classes);
 
       // Now build the properties for a RFView page.
       p.setProperty("dataKey",H2OPage.encode(okey));
