@@ -11,8 +11,8 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_A_Basic(self):
-        # required in every test so ssh channels don't close
-        h2o.touch_cloud()
+        # was required in every test so ssh channels don't close. not needed now?
+        # h2o.touch_cloud()
 
         for n in h2o.nodes:
             h2o.verboseprint("cloud check for:", n)            
@@ -20,7 +20,6 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_RF_iris2(self):
-        # not needed?
         # h2o.touch_cloud()
 
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')

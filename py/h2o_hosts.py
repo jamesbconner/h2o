@@ -3,7 +3,7 @@ import getpass, json, h2o
 # UPDATE: all multi-machine testing will pass list of IP and base port addresses to H2O
 # means we won't realy on h2o self-discovery of cluster
 
-def build_cloud_with_hosts():
+def build_cloud_with_hosts(**kwargs):
     # For seeing example of what we want in the json, if we add things
     #   import h2o_config
 
@@ -20,10 +20,13 @@ def build_cloud_with_hosts():
     username = hostDict.setdefault('username','0xdiag')
     # stupid but here for clarity
     password = hostDict.setdefault('password', None)
-    h2o.verboseprint("host config: ", username, password, h2oPerHost, basePort, hostList)
+    sigar = hostDict.setdefault('sigar', False)
+
+    h2o.verboseprint("host config: ", username, password, h2oPerHost, basePort, sigar, hostList)
 
     #*************************************
     global hosts
+    h2o.verboseprint("About to RemoteHost, likely bad ip if hangs")
     hosts = []
     for h in hostList:
         h2o.verboseprint("Connecting to:", h)
@@ -34,4 +37,5 @@ def build_cloud_with_hosts():
     # timeout wants to be larger for large numbers of hosts * h2oPerHost
     # use 60 sec min, 2 sec per node.
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
-    h2o.build_cloud(h2oPerHost,base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs)
+    h2o.build_cloud(h2oPerHost,base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,
+        sigar=sigar, **kwargs)
