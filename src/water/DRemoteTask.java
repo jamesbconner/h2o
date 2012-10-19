@@ -117,7 +117,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
       try {
         DRemoteTask.this.get(); // Block until the self-task is done
       } catch( InterruptedException ie ) {
+        throw new RuntimeException(ie);
       } catch( ExecutionException ee ) {
+        throw new RuntimeException(ee);
       }
       // Block for remote exec & reduce results into _drt
       if( _lo != null ) reduce(_lo.get());
@@ -213,7 +215,9 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
         System.out.print("B"+(now-start)+",");
       }
     } catch( InterruptedException ie ) {
+      throw new RuntimeException(ie);
     } catch( ExecutionException ee ) {
+      throw new RuntimeException(ee);
     }
     _pending_cnt=0;             // No more pending here
   }
