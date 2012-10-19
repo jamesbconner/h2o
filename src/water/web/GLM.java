@@ -348,7 +348,6 @@ public class GLM extends H2OPage {
     if(glmParams.get("link").getAsString().equals("identity")){
       m = new RString("y = %equation");
       m.replace("equation", getFormulaSrc(x, false));
-      responseTemplate.replace("modelSrc", m.toString());
     } else if( glmParams.get("link").getAsString().equals("logit") ) {
       m = new RString("y = 1/(1 + Math.exp(%equation))");
       m.replace("equation", getFormulaSrc(x, true));

@@ -10,7 +10,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_RF_poker_1m_rf(self):
+    def test_arit_rf(self):
         csvPathname = '../smalldata/test/arit.csv'
         h2o_cmd.runRF(trees=10, timeoutSecs=10, csvPathname=csvPathname)
 

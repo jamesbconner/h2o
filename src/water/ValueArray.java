@@ -101,10 +101,11 @@ public class ValueArray extends Value {
   // Number of chunks in this array
   // Divide by 1Meg into chunks.  The last chunk is between 1 and 2 megs
   static public long chunks(long sz) { return sz>>LOG_CHK; }
+
   @Override public long chunks() {
-    long num = chunks(length()); // Rounds down: last chunk can be large
-    if( num==0 && length() > 0 ) num = 1; // Always at least one, tho
-    return num;
+    if(row_size() == 0)return Math.max(1, chunks(length()));
+    int rpc = (int)chunk_size()/row_size();
+    return Math.max(1,num_rows()/rpc);
   }
 
   // Get a Key for the chunk; fetching the Value for this Key gets this chunk
@@ -506,22 +507,21 @@ public class ValueArray extends Value {
   public double col_sigma(int cnum) { return UDP.get8d(get(),col(cnum)+SIGMA_COL_OFF); }
   public double col_var  (int cnum) { double s = col_sigma(cnum); return s*s;}
 
-  /** Sets the sigma - note this should *not* be used on already stored values. 
+  /** Sets the sigma - note this should *not* be used on already stored values.
    */
   public void set_col_sigma(int cnum,double value) {
     UDP.set8d(get(),col(cnum)+SIGMA_COL_OFF,value);
   }
-  
-  
+
+
   // Row# when offset from chunk start
   public final int row_in_chunk(long row, int rpc, long chknum) {
     long rows = chknum*rpc; // Number of rows so far; row-start in this chunk
     return (int)(row - rows);
   }
+
   public final long chunk_for_row( long row, int rpc ) {
-    long chknum = row/rpc;
-    if( chknum > 0 && chknum == chunks() ) chknum--; // Last chunk is large
-    return chknum;
+    return Math.min(row/rpc,chunks()-1);
   }
 
   // Value extracted, then scaled & based - the double version.  Note that this
