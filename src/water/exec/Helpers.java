@@ -39,6 +39,9 @@ public class Helpers {
     public void map(Key key) {
       ValueArray va = (ValueArray) DKV.get(_key);
       double mean = va.col_mean(_col);
+      Value v = DKV.get(key);
+      if (v == null) 
+        System.err.println(key.toString());
       byte[] bits = DKV.get(key).get();
       int rowSize = va.row_size();
       for( int i = 0; i < bits.length / rowSize; ++i ) {

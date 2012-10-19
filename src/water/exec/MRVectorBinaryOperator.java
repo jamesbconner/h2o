@@ -16,8 +16,8 @@ public abstract class MRVectorBinaryOperator extends MRTask {
   private final Key _resultKey;
   private final int _leftCol;
   private final int _rightCol;
-  double _min = Double.MAX_VALUE;
-  double _max = -Double.MAX_VALUE;
+  double _min = Double.POSITIVE_INFINITY;
+  double _max = Double.NEGATIVE_INFINITY;
   double _tot = 0;
 
   /**

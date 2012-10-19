@@ -1,13 +1,7 @@
 package water;
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Arrays;
 
-import water.hdfs.PersistHdfs;
 import water.parser.ParseDataset.ColumnDomain;
 
 /**
@@ -633,7 +627,6 @@ public class ValueArray extends Value {
     return false;
   }
 
-  @SuppressWarnings("deprecation")
   static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;
