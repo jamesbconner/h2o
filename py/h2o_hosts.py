@@ -15,10 +15,12 @@ def build_cloud_with_hosts():
 
     hostList = hostDict.setdefault('ip','192.168.0.161')
     h2oPerHost = hostDict.setdefault('h2o_per_host', 2)
+    # default should avoid colliding with sri's demo cloud ports: 54321
+    basePort = hostDict.setdefault('base_port', 55321)
     username = hostDict.setdefault('username','0xdiag')
     # stupid but here for clarity
     password = hostDict.setdefault('password', None)
-    h2o.verboseprint("host config: ", username, password, h2oPerHost, hostList)
+    h2o.verboseprint("host config: ", username, password, h2oPerHost, basePort, hostList)
 
     #*************************************
     global hosts
@@ -32,4 +34,4 @@ def build_cloud_with_hosts():
     # timeout wants to be larger for large numbers of hosts * h2oPerHost
     # use 60 sec min, 2 sec per node.
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
-    h2o.build_cloud(h2oPerHost,base_port=55321,hosts=hosts,timeoutSecs=timeoutSecs)
+    h2o.build_cloud(h2oPerHost,base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs)

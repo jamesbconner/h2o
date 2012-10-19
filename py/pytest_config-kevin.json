@@ -5,9 +5,11 @@
     "username": "0xdiag", 
     "password": "0xdiag", 
     "h2o_per_host": 2, 
+    "base_port": 53321,
 
     "ip": [
         "192.168.0.37", 
+        "192.168.0.35", 
         "192.168.0.33"
     ],
     "_ip": [
