@@ -530,15 +530,15 @@ class H2O(object):
         # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         # FIX! need to be able to specify name node/path for non-0xdata hdfs
         # specifying hdfs stuff when not used shouldn't hurt anything
+        #    '-hdfs hdfs://192.168.1.151',
+        #    '-hdfs_version cdh4',
+        #    '-hdfs-root /datasets'
         args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
-            '--name=pytest-%s' % getpass.getuser(),
-            '-hdfs hdfs://192.168.1.151',
-            '-hdfs_version cdh4',
-            '-hdfs-root /datasets'
+            '--name=pytest-%s' % getpass.getuser()
             ]
         if not self.sigar:
             args += ['--nosigar']
