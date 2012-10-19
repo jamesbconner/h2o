@@ -380,7 +380,8 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel",clazz=None):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, 
+        modelKey="pymodel",clazz=None):
         # modelkey is ____model by default
         # can get error result too?
         
@@ -530,9 +531,7 @@ class H2O(object):
         # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         # FIX! need to be able to specify name node/path for non-0xdata hdfs
         # specifying hdfs stuff when not used shouldn't hurt anything
-        #    '-hdfs hdfs://192.168.1.151',
-        #    '-hdfs_version cdh4',
-        #    '-hdfs-root /datasets'
+
         args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
@@ -540,12 +539,20 @@ class H2O(object):
             '--ice_root=%s' % self.get_ice_dir(),
             '--name=pytest-%s' % getpass.getuser()
             ]
+
+        if self.use_hdfs:
+            args += [
+                '-hdfs hdfs://192.168.1.151',
+                '-hdfs_version cdh4',
+                '-hdfs-root /datasets'
+            ]
+
         if not self.sigar:
             args += ['--nosigar']
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None):
+        use_debugger=None,use_hdfs=False):
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
 
@@ -554,6 +561,7 @@ class H2O(object):
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output
+        self.use_hdfs = use_hdfs
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
