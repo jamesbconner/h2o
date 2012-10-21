@@ -20,7 +20,7 @@ public class Server extends NanoHTTPD {
   private static final HashMap<String,Page> _pages = new HashMap();
 
   static final SessionManager _sessionManager;
-  
+
   // initialization ------------------------------------------------------------
   static {
     _sessionManager = new SessionManager();
@@ -42,12 +42,9 @@ public class Server extends NanoHTTPD {
     _pages.put("ImportUrl",new ImportUrl());
     _pages.put("Inspect",new Inspect());
     _pages.put("LR",new LinearRegression());
-    _pages.put("LinearRegression",new LogisticRegression());
-    _pages.put("LGR",new LogisticRegression());
     _pages.put("GLM",new GLM());
     _pages.put("glm",new GLM());
     _pages.put("Glm",new GLM());
-    _pages.put("LogisticRegression",new LogisticRegression());
     _pages.put("Network",new Network());
     _pages.put("NodeShuffle",new NodeShuffle());
     _pages.put("Parse",new Parse());
@@ -92,13 +89,13 @@ public class Server extends NanoHTTPD {
         }
       }).start();
   }
-  
+
   /** Returns the sessionID stored in the cookie, or null if no such cookie was
-   * found. 
-   * 
-   * Only a very simple cookie parser. 
+   * found.
+   *
+   * Only a very simple cookie parser.
    * @param header
-   * @return 
+   * @return
    */
   private String getSessionIDFromCookie(Properties header) {
     String cks = header.getProperty("cookie","");
@@ -117,7 +114,7 @@ public class Server extends NanoHTTPD {
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
     if (uri.isEmpty()) uri = "/";
 
-    
+
     Page page = _pages.get(uri.substring(1));
     boolean json = uri.endsWith(".json");
     if (json && page == null) page = _pages.get(uri.substring(1, uri.length()-5));
@@ -128,12 +125,12 @@ public class Server extends NanoHTTPD {
     if (page==null) return getResource(uri);
 
     // authenticate and display an error if not authorized to view
-    
+
     String sessionID = getSessionIDFromCookie(header);
     String username = _sessionManager.authenticate(sessionID);
-    if (!page.authenticate(username)) 
+    if (!page.authenticate(username))
       return http401(uri);
-    
+
     // unify GET and POST arguments
     parms.putAll(files);
     // check that required arguments are present
@@ -202,7 +199,7 @@ public class Server extends NanoHTTPD {
     r.replace("contents","Location "+uri+" not found.");
     return new Response(NanoHTTPD.HTTP_NOTFOUND,NanoHTTPD.MIME_HTML,r.toString());
   }
-  
+
   private Response http401(String uri) {
     RString r = new RString(Page.html);
     r.replace("contents","You are not authorized to view "+uri+" try to <a href=\"loginQuery\">login</a> first.");

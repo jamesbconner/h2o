@@ -1,5 +1,6 @@
 import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
 import requests, psutil, argparse, sys, unittest
+import glob
 
 def __drain(src, dst):
     for l in src:
@@ -58,6 +59,7 @@ def verboseprint(*args):
 
 def find_dataset(f):
     (head, tail) = os.path.split(os.path.abspath('datasets'))
+    verboseprint("find_dataset looking upwards from", head, "for", tail)
     while not os.path.exists(os.path.join(head, tail)):
         head = os.path.split(head)[0]
     return os.path.join(head, tail, f)
@@ -85,6 +87,17 @@ def clean_sandbox():
         # This seems reliable on windows+cygwin
         os.system("rm -rf "+LOG_DIR)
     os.mkdir(LOG_DIR)
+
+def clean_sandbox_stdout_stderr():
+    if os.path.exists(LOG_DIR):
+        files = []
+        # glob.glob returns an iterator
+        for f in glob.glob(LOG_DIR + '/*stdout*'):
+            verboseprint("cleaning", f)
+            os.remove(f)
+        for f in glob.glob(LOG_DIR + '/*stderr*'):
+            verboseprint("cleaning", f)
+            os.remove(f)
 
 def tmp_file(prefix='', suffix=''):
     return tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=LOG_DIR)
@@ -291,6 +304,7 @@ class H2O(object):
         # json name used in import
         rjson = r.json
         if 'error' in rjson:
+            print rjson
             raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         return rjson
 
@@ -369,7 +383,8 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel",clazz=None):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, 
+        modelKey="pymodel",clazz=None):
         # modelkey is ____model by default
         # can get error result too?
         
@@ -517,19 +532,30 @@ class H2O(object):
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
         # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
+        # FIX! need to be able to specify name node/path for non-0xdata hdfs
+        # specifying hdfs stuff when not used shouldn't hurt anything
+
         args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
-            '--name=pytest-%s' % getpass.getuser(),
+            '--name=pytest-%s' % getpass.getuser()
             ]
+
+        if self.use_hdfs:
+            args += [
+                '-hdfs hdfs://192.168.1.151',
+                '-hdfs_version cdh4',
+                '-hdfs-root /datasets'
+            ]
+
         if not self.sigar:
             args += ['--nosigar']
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None):
+        use_debugger=None,use_hdfs=False):
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
 
@@ -538,6 +564,7 @@ class H2O(object):
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output
+        self.use_hdfs = use_hdfs
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)

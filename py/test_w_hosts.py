@@ -4,7 +4,7 @@ import h2o_cmd, h2o, h2o_hosts
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        h2o_hosts.build_cloud_with_hosts(use_hdfs=True)
 
     @classmethod
     def tearDownClass(cls):
@@ -19,13 +19,13 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
-    def test_B_RF_iris2(self):
+    def notest_B_RF_iris2(self):
         # h2o.touch_cloud()
 
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         h2o_cmd.runRF(trees=6, modelKey="iris2", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
-    def test_C_RF_poker100(self):
+    def notest_C_RF_poker100(self):
         # h2o.touch_cloud()
 
         # RFview consumes cycles. Only retry once a second, to avoid slowing things down
@@ -66,7 +66,10 @@ class Basic(unittest.TestCase):
         # always match the gen above!
         # Let's try it twice!
         for trials in xrange(1,7):
+            # prime
+            trees = 4057
             trees = 6
+
             for x in xrange (161,240,20):
                 y = 10000 * x
                 print "\nTrial:", trials, ", y:", y
@@ -76,14 +79,23 @@ class Basic(unittest.TestCase):
                 # FIX! TBD do we always have to kick off the run from node 0?
                 # random guess about length of time, varying with more hosts/nodes?
                 timeoutSecs = 20 + 5*(len(h2o.nodes))
+                # for debug (browser)
+                ###timeoutSecs = 3600
                 # RFview consumes cycles. Only retry once a second, to avoid slowing things down
                 # this also does the put, which is probably a good thing to try multiple times also
-                h2o_cmd.runRF(trees=trees, modelKey=csvFilename, timeoutSecs=timeoutSecs, 
+
+                # change the model name each iteration, so they stay in h2o
+                modelKey = csvFilename + "_" + str(trials)
+                h2o_cmd.runRF(trees=trees, modelKey=modelKey, timeoutSecs=timeoutSecs, 
                     retryDelaySecs=1, csvPathname=csvPathname)
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
-                trees += 10
+                # partial clean, so we can look at tree builds from this run if hang
+                h2o.clean_sandbox_stdout_stderr()
+                
+                # UPDATE: check if not incrementing the tree count changes things
+                # trees += 10
 
 if __name__ == '__main__':
     h2o.unit_main()
