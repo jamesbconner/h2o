@@ -2,10 +2,16 @@ import os, json, unittest, time, shutil, sys, time
 import h2o, h2o_cmd, h2o_hosts
 import itertools
 
-def file_to_put():
+def hdfsFileToPut():
     # kbn fails 10/15/12
-    return 'hdfs://192.168.1.151/datasets/covtype.data'
+    # hmm. we want different name nodes
+    # I suppose can make hdfs_name_node a global, and assemble
+    # the right name?. it gets set by h2o.build_cloud()
+    a = 'hdfs://' + h2o.hdfs_name_node + '/datasets/covtype.data'
+    verboseprint("hdfs URI in hdfsFileToPut:", a)
+    return a
 
+# choices:
 # -rw-r--r--   3 hduser supergroup    41169365 2012-09-14 12:48 /datasets/hhp_9_14_12.data
 # -rw-r--r--   3 hduser supergroup    48381802 2012-09-04 13:08 /datasets/hhp2.os.noisy.0_1.data
 # -rw-r--r--   3 hduser supergroup    48397103 2012-09-04 13:08 /datasets/hhp2.os.noisy.9_4.data
@@ -21,16 +27,9 @@ class Basic(unittest.TestCase):
         h2o.verboseprint("Tearing down cloud")
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     # Try to put a file to each node in the cloud and checked reported size of the saved file 
     def test_A_putfile_to_all_nodes(self):
-        
-        cvsfile  = h2o.find_file(file_to_put())
+        cvsfile = hdfsFileToPut()
         origSize = h2o.get_file_size(cvsfile)
 
         # Putfile to each node and check the returned size
@@ -42,12 +41,12 @@ class Basic(unittest.TestCase):
             returnSize = result['size']
             self.assertEqual(origSize,returnSize)
 
-    # Try to put a file, get file and diff orinal file and returned file.
+    # Try to put a file, get file and diff original file and returned file.
     def test_B_putfile_and_getfile_to_all_nodes(self):
 
         # FIX! if it's hdfs: we won't find it?
-        # cvsfile = h2o.find_file(file_to_put())
-        cvsfile = file_to_put()
+        # cvsfile = h2o.find_file(hdfsFileToPut())
+        cvsfile = hdfsFileToPut()
 
         nodeTry = 0
         for node in h2o.nodes:
@@ -73,5 +72,4 @@ class Basic(unittest.TestCase):
 
 if __name__ == '__main__':
     h2o.unit_main()
-    print "hello2"
 

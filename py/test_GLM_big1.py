@@ -15,7 +15,7 @@ class Basic(unittest.TestCase):
                 h2o.RemoteHost('192.168.0.37', 'diag0x', 'diag0x')
             ]
             h2o.upload_jar_to_remote_hosts(hosts)
-            nodes = h2o.build_cloud(node_count, base_port=55321, ports_per_node=3, hosts=hosts)
+            nodes = h2o.build_cloud(node_count, base_port=55321, hosts=hosts)
         else:
             nodes = h2o.build_cloud(node_count)
 

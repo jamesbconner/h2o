@@ -179,9 +179,27 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
 nodes = []
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
-def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, 
+
+# this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
+# if any. (in build_cloud)
+use_hdfs = False
+hdfs_name_node = "192.168.1.151"
+
+def build_cloud(node_count=2, base_port=54321, hosts=None, 
     timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
 
+    # set the hdfs info that tests will use from kwargs
+    # the philosopy is that kwargs holds stuff that's used for node level building.
+    if "use_hdfs" in kwargs:
+        use_hdfs = kwargs["use_hdfs"]
+        verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
+
+    if "hdfs_name_node" in kwargs:
+        hdfs_name_node = kwargs["hdfs_name_node"]
+        verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
+
+    # hardwire this. don't need it to be an arg
+    ports_per_node = 3
     node_list = []
     try:
 
@@ -550,6 +568,11 @@ class H2O(object):
                 '-hdfs_version cdh4',
                 '-hdfs-root /datasets'
             ]
+
+            # we need a global for hdfs_name_node for tests to build up hdfs URIs.
+            # They're all getting the same value
+            # passed down from build_cloud_with_hosts. so use that one? or if a LocalH2O 
+            # test uses just build_cloud directly. So do it up in build_cloud to handle both.
 
         if self.use_flatfile:
             args += [
