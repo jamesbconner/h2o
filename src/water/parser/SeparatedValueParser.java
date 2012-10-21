@@ -29,7 +29,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     _separator      = seperator;
 
     _key = k;
-    _curVal = UKV.get(k);
+    _curVal = DKV.get(k);
     assert _curVal != null;
 
     if( _key._kb[0] == Key.ARRAYLET_CHUNK ) {

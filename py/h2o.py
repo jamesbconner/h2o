@@ -49,13 +49,15 @@ def parse_our_args():
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     sys.argv[1:] = args.unittest_args
 
-def verboseprint(*args):
+def verboseprint(*args, **kwargs):
     if verbose:
-        for arg in args: # so you don't have to create a single string
-            print arg,
+        for x in args: # so you don't have to create a single string
+            print x,
+        for x in kwargs: # so you don't have to create a single string
+            print x,
         print
-    # so we can see problems when hung?
-    sys.stdout.flush()
+        # so we can see problems when hung?
+        sys.stdout.flush()
 
 def find_dataset(f):
     (head, tail) = os.path.split(os.path.abspath('datasets'))
@@ -411,12 +413,12 @@ class H2O(object):
         verboseprint("\nrandom_forest result:", a)
         return a
 
-    # per Jan: if treesKey is empty, you are trying to use a previously constructed model on a new dataset
-    # if treesKey has a value, you are building a forest and the modelKey is the current, partial, forest.
-    # if treesKey: update the model (as required) until all ntree have appeared based on the available trees.  
+    # per Jan: if treesKey is empty, you are trying to use a prio model on a new dataset
+    # if treesKey has a value, you are building a forest and modelKey is the current, partial, forest.
+    # if treesKey: update the model (as required) until all ntree have appeared.
     # if no treesKey: display the model as-is.
     # TEMPORARY: there is no state in H2O right now for linking RF and RFview ntrees
-    # so I have to send the exact same ntrees I sent during RF
+    # so I have to send the exact same ntree I sent during RF
     # basically, undefined behavior if I send anything other than the same thing, so it's required.
     def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref, ntree):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
@@ -531,7 +533,6 @@ class H2O(object):
         args = [ 'java' ]
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
-        # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
         # FIX! need to be able to specify name node/path for non-0xdata hdfs
         # specifying hdfs stuff when not used shouldn't hurt anything
 
@@ -545,9 +546,14 @@ class H2O(object):
 
         if self.use_hdfs:
             args += [
-                '-hdfs hdfs://192.168.1.151',
+                '-hdfs hdfs://' + self.hdfs_name_node,
                 '-hdfs_version cdh4',
                 '-hdfs-root /datasets'
+            ]
+
+        if self.use_flatfile:
+            args += [
+                '--flatfile=pytest_flatfile-%s' %getpass.getuser()
             ]
 
         if not self.sigar:
@@ -555,7 +561,8 @@ class H2O(object):
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None,use_hdfs=False):
+        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False):
+
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
 
@@ -565,6 +572,8 @@ class H2O(object):
         self.use_debugger = use_debugger
         self.capture_output = capture_output
         self.use_hdfs = use_hdfs
+        self.hdfs_name_node = hdfs_name_node
+        self.use_flatfile = use_flatfile
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
@@ -658,6 +667,7 @@ class LocalH2O(H2O):
 
 class RemoteHost(object):
     def upload_file(self, f, progress=None):
+        # FIX! we won't find it here if it's hdfs://192.168.1.151/ file
         f = find_file(f)
         if f not in self.uploaded:
             import md5

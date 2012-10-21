@@ -5,16 +5,21 @@
 
     "username": "0xdiag", 
     "password": "0xdiag", 
-    "h2o_per_host": 2, 
+
+    "h2o_per_host": 1, 
     "base_port": 53321,
     "sigar": true,
 
-    "_ip": [
+    "hdfs_name_node": "192.168.0.33",
+    "use_hdfs": false,
+
+    "use_flatfile": false,
+
+    "ip": [
         "192.168.0.37", 
-        "192.168.0.35", 
         "192.168.0.33"
     ],
-    "ip": [
+    "_ip": [
         "192.168.1.155", 
         "192.168.1.156", 
         "192.168.1.160", 

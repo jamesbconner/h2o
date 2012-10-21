@@ -1,11 +1,10 @@
-
 package water.parser;
 
-/* A parser for signed decimal values of the form  "-4.5" or "11.23", it does not try to
- * be a complete parser for Doubles. Anything that strays from the simple format will c
- * cause it to return Double.NaN.
- * Profiling suggested that using the Java Double parser is expensive and does result in
- * quite a lot of allocation. */
+/* A parser for signed decimal values of the form "-4.5" or "11.23", it does
+ * not try to be a complete parser for Doubles.  Anything that strays from the
+ * simple format will cause it to return Double.NaN.
+ * Profiling suggested that using the Java Double parser is expensive and does
+ * result in quite a lot of allocation. */
 public class SloppyDecimalParser {
 
   private static final int ERROR    = -1;
@@ -16,48 +15,42 @@ public class SloppyDecimalParser {
   private static final int LOWER    = 4;
 
   private int _state = LEADING;
-  private double _value, _neg=1;
-  private double _pos;
+  private long _value;
+  private boolean _neg;
+  private double _scale = 1.0;
+  private int _digs = 0;        // total digits
 
-  public void reset() { _state = LEADING;  _value = 0; _neg = 1;}
+  public void reset() { _state = LEADING;  _value = 0; _neg = false; _scale = 1.0; _digs = 0;}
 
   @SuppressWarnings("fallthrough")
   public void addCharacter(byte b) {
     char ch = (char) b;
     switch( _state ) {
-    case ERROR: return;
     case TRAILING:
-      if( Character.isWhitespace(ch) ) return;
-      _state = ERROR; return;
+      if( !Character.isWhitespace(ch) ) _state = ERROR;
+    case ERROR: return;
     case LEADING:
       if( Character.isWhitespace(ch) ) return;
-      if ( ch == '-' ) { _state = NEGATE; _neg = -1; return; }
       _state = BODY;
-    case LOWER:
-      if( Character.isWhitespace(ch) ) { _state = TRAILING;  return;  }
-      if( Character.isDigit(ch) ) break;
-      _state = ERROR; return;
-    case NEGATE:
-      if( Character.isWhitespace(ch) ) return;
-      _state = BODY;
+      if( ch == '-' ) { _neg = true; return; }
     case BODY: // fall-through
-      if( Character.isWhitespace(ch) ) { _state = TRAILING;  return;  }
       if( Character.isDigit(ch) ) break;
-      if( ch == '.') { _state = LOWER;  _pos = 1; return; }
-      _state = ERROR; return;
+      _state = Character.isWhitespace(ch) ? TRAILING : (ch == '.' ? LOWER : ERROR);
+      return;
+    case LOWER:
+      if( Character.isDigit(ch) ) { _scale *= .1; break; }
+      _state = Character.isWhitespace(ch) ? TRAILING : ERROR;
+      return;
     }
-    int v = ch - '0';
-    if (_state == BODY) {
-      _value = (_value*10) + v;
-    } else { // STATE == LOWER
-      _pos *= 10;
-      _value +=  v / _pos;
-    }
+    _value = _value*10 + (ch-'0');
+    _digs++;
   }
 
   public double doubleValue() {
-    if( _state == ERROR ) return Double.NaN;
-    if( _state == BODY || _state == LOWER|| _state == TRAILING ) return _value * _neg;
-    else return Double.NaN;
+    if( _state == ERROR || _state == LEADING || _state == NEGATE ) return Double.NaN;
+    if( _neg ) _value = -_value;
+    double d = _value*_scale;
+    if( _digs <= 8 ) d = (float)d; // Knock low-precision decimal values back to float precision
+    return d;
   }
 }
