@@ -45,7 +45,8 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
         hdfsNameNode = hdfs_name_node
 
     h2o.verboseprint("host config: ", username, password, 
-        h2oPerHost, basePort, sigar, useFlatfile, useHdfs, hdfsNameNode, hostList, **kwargs)
+        h2oPerHost, basePort, sigar, useFlatfile, 
+        useHdfs, hdfsNameNode, hostList, **kwargs)
 
     #********************
     global hosts
@@ -61,8 +62,8 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
     # use 60 sec min, 2 sec per node.
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
 
-    h2o.build_cloud(
-        h2oPerHost,base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,sigar=sigar, 
-        use_flatfile=useFlatfile, 
-        use_hdfs=use_hdfs, hdfs_name_node=hdfs_name_node, 
-        **kwargs)
+    h2o.build_cloud(h2oPerHost,
+            base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,sigar=sigar, 
+            use_flatfile=useFlatfile,
+            use_hdfs=useHdfs,hdfs_name_node=hdfsNameNode,
+            **kwargs)

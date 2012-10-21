@@ -177,12 +177,16 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # this can be used for a local IP address, just done thru ssh 
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
+global nodes
 nodes = []
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 
 # this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
 # if any. (in build_cloud)
+global use_hdfs
 use_hdfs = False
+
+global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
@@ -191,10 +195,13 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
     # set the hdfs info that tests will use from kwargs
     # the philosopy is that kwargs holds stuff that's used for node level building.
     if "use_hdfs" in kwargs:
+        global use_hdfs
         use_hdfs = kwargs["use_hdfs"]
         verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
 
+
     if "hdfs_name_node" in kwargs:
+        global hdfs_name_node
         hdfs_name_node = kwargs["hdfs_name_node"]
         verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
@@ -260,6 +267,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         raise
 
     # this is just in case they don't assign the return to the nodes global?
+    global nodes
     nodes[:] = node_list
     return node_list
 
