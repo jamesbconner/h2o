@@ -34,7 +34,6 @@ public class TaskGetKey extends DFutureTask<Value> {
         if( H2ONode.TGKS.replace(key,tgk_old,tgk) ) { tgk.resend(); return tgk; }
       }
       // Oops, colliding parallel TGK installs... try again
-      tgk.cancel(true);
     }
   }
 
@@ -105,8 +104,10 @@ public class TaskGetKey extends DFutureTask<Value> {
           val.write(s, len, vbuf);
         } else {                        // Else large Value.  Push it over.
           // Push the large result back *now* (no async pause) via TCP
-          if( !tcp_send(h2o,UDP.udp.getkey,get_task(buf),key,val,vbuf) )
+          if( !tcp_send(h2o,UDP.udp.getkey,get_task(buf),key,val,vbuf) ) {
+            h2o.remove_task_tracking(get_task(buf)); // Remove all record of trying this get
             return; // If the TCP failed... then so do we; no result; caller will retry
+          }
           val.write(s, -2);
         }
         off = s._off;

@@ -74,7 +74,12 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
     } else {                    // Big object, switch to TCP style comms.
       off = UDP.SZ_TASK;        // Skip udp byte and port and task#
       buf[off++] = SERVER_TCP_SEND;
-      tcp_send_pack(new Byte(TCP_INCOMING_REXEC),sclazz,_args,_dt);
+      while( !tcp_send_pack(new Byte(TCP_INCOMING_REXEC),sclazz,_args,_dt) ) {
+        // If TCP fails, assume it's an overloaded network, and try again
+        // after a bit.
+        _tcp_started = false;   // Allow a retry
+        try { Thread.sleep(100); } catch( InterruptedException e ) { }
+      }
     }
     return off;
   }
@@ -128,8 +133,11 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       } else {
         buf[off++] = CLIENT_TCP_SEND;
         // Push the large result back *now* (no async pause) via TCP
-        if( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),TCP_OUTGOING_REXEC,dt) )
-          return; // If the TCP failed... then so do we; no result; caller will retry
+        while( !tcp_send(h2o,UDP.udp.rexec,get_task(buf),TCP_OUTGOING_REXEC,dt) ) {
+          // If TCP fails, assume it's an overloaded network, and try again
+          // after a bit.
+          try { Thread.sleep(100); } catch( InterruptedException e ) { }
+        }
       }
       assert buf[UDP.SZ_TASK]==CLIENT_UDP_SEND || buf[UDP.SZ_TASK]==CLIENT_TCP_SEND;
       assert off > UDP.SZ_TASK;
