@@ -190,18 +190,17 @@ global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
-    timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
+        timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
+    global nodes, use_hdfs, hdfs_name_node
 
     # set the hdfs info that tests will use from kwargs
     # the philosopy is that kwargs holds stuff that's used for node level building.
     if "use_hdfs" in kwargs:
-        global use_hdfs
         use_hdfs = kwargs["use_hdfs"]
         verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
 
 
     if "hdfs_name_node" in kwargs:
-        global hdfs_name_node
         hdfs_name_node = kwargs["hdfs_name_node"]
         verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
@@ -267,7 +266,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         raise
 
     # this is just in case they don't assign the return to the nodes global?
-    global nodes
     nodes[:] = node_list
     return node_list
 
