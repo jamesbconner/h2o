@@ -7,6 +7,7 @@ import unittest
 import h2o_cmd, h2o, h2o_hosts
 import time
 import webbrowser
+
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -14,8 +15,8 @@ class Basic(unittest.TestCase):
 
         # do what my json says, but with my hdfs. hdfs_name_node from the json
         # I'll set use_hdfs to False here, because H2O won't start if it can't talk to the hdfs
-        h2o_hosts.build_cloud_with_hosts(use_hdfs=False)
-        # h2o_hosts.build_cloud_with_hosts(use_hdfs=True, hdfs_name_node="192.168.0.37")
+        # h2o_hosts.build_cloud_with_hosts(use_hdfs=False)
+        h2o_hosts.build_cloud_with_hosts(use_hdfs=True, hdfs_name_node="192.168.0.37")
 
     @classmethod
     def tearDownClass(cls):
@@ -36,9 +37,8 @@ class Basic(unittest.TestCase):
 
         # hang for an hour, so you can play with the browser
         # FIX!, should be able to do something that waits till browser is quit?
-        time.sleep(600)
+        time.sleep(3600)
 
 if __name__ == '__main__':
 
     h2o.unit_main()
-

@@ -311,6 +311,17 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
         cloud_size = c['cloud_size']
         consensus = c['consensus']
 
+        if (cloud_size > node_count):
+            emsg = (
+                "\n\nERROR: cloud_size: %d reported via json is bigger than we expect: %d" % (cloud_size, node_count) +
+                "\nYou likely have zombie(s) with the same cloud name on the network, that's forming up with you." +
+                "\nLook at the cloud IP's in 'grep Paxos sandbox/*stdout*' for some IP's you don't expect." +
+                "\n\nYou probably don't have to do anything, as the cloud shutdown in this test should"  +
+                "\nhave sent a Shutdown.json to all in that cloud (you'll see a kill -2 in the *stdout*)." +
+                "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's."
+                )
+            raise Exception(emsg)
+
         a = (cloud_size==node_count and consensus)
         ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
         return(a)
@@ -372,7 +383,6 @@ class H2O(object):
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
         verboseprint("\nput_file #1 phase response: ", resp1)
-
         resp2 = self.__check_request(
             requests.post(self.__url('Upload.json', port=resp1['port']), 
                 files={"File": open(f, 'rb')}
@@ -555,6 +565,13 @@ class H2O(object):
         #! FIX! is this used for both local and remote? 
         # I guess it doesn't matter if we use flatfile for both now
         args = [ 'java' ]
+
+        # defaults to 4G
+        if (1>self.java_heap_GB>12):
+            raise Exception('java_heap_GB should be >=1 and <=12 (GB): %s' % (self.java_heap_GB))
+
+        args += [ '-Xmx%dG' % self.java_heap_GB ]
+
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
         # FIX! need to be able to specify name node/path for non-0xdata hdfs
@@ -590,7 +607,8 @@ class H2O(object):
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False):
+        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
+        java_heap_GB=4):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -603,6 +621,8 @@ class H2O(object):
         self.use_hdfs = use_hdfs
         self.hdfs_name_node = hdfs_name_node
         self.use_flatfile = use_flatfile
+
+        self.java_heap_GB = java_heap_GB
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)

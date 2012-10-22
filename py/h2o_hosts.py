@@ -29,6 +29,8 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
     useHdfs = hostDict.setdefault('use_hdfs', False)
     hdfs_name_node = hostDict.setdefault('hdfs_name_node', '192.168.1.151')
 
+    java_heap_GB = hostDict.setdefault('java_heap_GB', 4)
+
     # can override the json with a caller's argument
     # FIX! and we support passing othe kwargs from above? but they don't override
     # json, ...so have to fix here if that's desired
@@ -66,4 +68,5 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
             base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,sigar=sigar, 
             use_flatfile=useFlatfile,
             use_hdfs=useHdfs,hdfs_name_node=hdfsNameNode,
+            java_heap_GB=java_heap_GB,
             **kwargs)
