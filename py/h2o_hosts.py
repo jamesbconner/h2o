@@ -29,7 +29,9 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
     useHdfs = hostDict.setdefault('use_hdfs', False)
     hdfs_name_node = hostDict.setdefault('hdfs_name_node', '192.168.1.151')
 
-    java_heap_GB = hostDict.setdefault('java_heap_GB', 4)
+    # default to none, which means the arg isn't used and java decides for us
+    # useful for small dram systems, and for testing that
+    java_heap_GB = hostDict.setdefault('java_heap_GB', None)
 
     # can override the json with a caller's argument
     # FIX! and we support passing othe kwargs from above? but they don't override

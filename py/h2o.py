@@ -315,10 +315,11 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
             emsg = (
                 "\n\nERROR: cloud_size: %d reported via json is bigger than we expect: %d" % (cloud_size, node_count) +
                 "\nYou likely have zombie(s) with the same cloud name on the network, that's forming up with you." +
-                "\nLook at the cloud IP's in 'grep Paxos sandbox/*stdout*' for some IP's you don't expect." +
+                "\nLook at the cloud IP's in 'grep Paxos sandbox/*stdout*' for some IP's you didn't expect." +
                 "\n\nYou probably don't have to do anything, as the cloud shutdown in this test should"  +
                 "\nhave sent a Shutdown.json to all in that cloud (you'll see a kill -2 in the *stdout*)." +
-                "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's."
+                "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's." +
+                "\nIf you think you really have an intermittent cloud build, report it."
                 )
             raise Exception(emsg)
 
@@ -566,11 +567,11 @@ class H2O(object):
         # I guess it doesn't matter if we use flatfile for both now
         args = [ 'java' ]
 
-        # defaults to 4G
-        if (1>self.java_heap_GB>12):
-            raise Exception('java_heap_GB should be >=1 and <=12 (GB): %s' % (self.java_heap_GB))
-
-        args += [ '-Xmx%dG' % self.java_heap_GB ]
+        # defaults to not specifying
+        if self.java_heap_GB is not None:
+            if (1>self.java_heap_GB>12):
+                raise Exception('java_heap_GB <1 or >12 (GB): %s' % (self.java_heap_GB))
+            args += [ '-Xmx%dG' % self.java_heap_GB ]
 
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
@@ -608,7 +609,7 @@ class H2O(object):
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
         use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
-        java_heap_GB=4):
+        java_heap_GB=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
