@@ -61,7 +61,7 @@ public class DatasetCornerCasesTest {
       assertEquals("Number of classes == 1", 1,  model._classes);
       assertTrue("Number of trees > 0 ", model.size()> 0);
     } catch( DRF.IllegalDataException e ) {
-      assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be between 2 and 254, found 1",e.toString());
+      assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be >= 2 and <= 65534, found 1",e.toString());
     }
     UKV.remove(okey);
   }
