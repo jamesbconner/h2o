@@ -201,15 +201,15 @@ public final class Key implements Comparable {
   }
   static public  Key make(byte[] kb) { return make(kb,DEFAULT_DESIRED_REPLICA_FACTOR); }
   static private Key make(byte[] kb, int off, int len, byte rf) { return make(Arrays.copyOfRange(kb,off,off+len),rf); }
-  static public  Key make(String s) { return make(s.getBytes());}
-  static public  Key make(String s, byte rf) { return make(s.getBytes(), rf);}
+  static public  Key make(String s) { return make(decodeKeyName(s));} 
+  static public  Key make(String s, byte rf) { return make(decodeKeyName(s), rf);}
   static public  Key make() { return make( UUID.randomUUID().toString() ); }
 
   // Make a particular system key that is homed to given node and possibly
   // specifies also other 2 replicas. Works for both IPv4 and IPv6 addresses.
   // If the addresses are not specified, returns a key with no home information.
   static public Key make(String s, byte rf, byte systemType, H2ONode... replicas) {
-    return make(s.getBytes(),rf,systemType,replicas);
+    return make(decodeKeyName(s),rf,systemType,replicas);
   }
 
 
@@ -246,6 +246,10 @@ public final class Key implements Comparable {
     return ((_kb[0]&0xff)>=32) ? USER_KEY : (_kb[0]&0xff);
   }
 
+  
+  public static final char MAGIC_CHAR = '_';
+  private static final char[] HEX = "0123456789abcdef".toCharArray();
+  
   /** Converts the key to HTML displayable string.
    *
    * For user keys returns the key itself, for system keys returns their
@@ -254,29 +258,54 @@ public final class Key implements Comparable {
    * @return key as a printable string
    */
   public String toString() {
-    if( _kb[0]>=32)             // Normal keys
-      return new String(_kb);
-    // System keys
-    StringBuilder sb = new StringBuilder(_kb.length*2+5);
-    sb.append("(");
-    sb.append(_kb.length);
-    sb.append(")");
-    if( _kb[0]==ARRAYLET_CHUNK ) {
-      sb.append(Long.toHexString(UDP.get8(_kb,2)));
-      sb.append('_');
-      sb.append(new String(_kb,2+8,_kb.length-(2+8)));
-    } else {
-      for (byte b : _kb) {
-        String s = Integer.toHexString((int)b & 0xff);
-        if (s.length()==1)
-          sb.append("0");
-        sb.append(s);
-      }
+    int len = _kb.length;
+    while( --len >= 0 ) {
+      char a = (char) _kb[len];
+      if( a == '-' ) continue;
+      if( a == '.' ) continue;
+      if( 'a' <= a && a <= 'z' ) continue;
+      if( 'A' <= a && a <= 'Z' ) continue;
+      if( '0' <= a && a <= '9' ) continue;
+      break;
     }
-    return sb.toString();
+    if (len>=0) {
+      StringBuilder sb = new StringBuilder();
+      sb.append(MAGIC_CHAR);
+      for( int i = 0; i <= len; ++i ) {
+        byte a = _kb[i];
+        sb.append(HEX[(a >> 4) & 0x0F]);
+        sb.append(HEX[(a >> 0) & 0x0F]);
+      }
+      sb.append(MAGIC_CHAR);
+      for( int i = len + 1; i < _kb.length; ++i ) sb.append((char)_kb[i]);
+      return sb.toString();
+    } else {
+      return new String(_kb);
+    }
   }
 
-
+  private static byte[] decodeKeyName(String what) {
+    if( what==null ) return null;
+    if (what.charAt(0) == MAGIC_CHAR) {
+      int len = what.indexOf(MAGIC_CHAR,1);
+      String tail = what.substring(len);
+      byte[] res = new byte[len-2/2 + tail.length()];
+      int r = 0;
+      for( int i = 1; i < len; i+=2 ) {
+        char h = what.charAt(i);
+        char l = what.charAt(i+1);
+        h -= Character.isDigit(h) ? '0' : ('a' - 10);
+        l -= Character.isDigit(l) ? '0' : ('a' - 10);
+        res[r++] = (byte)(h << 4 | l);
+      }
+      System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
+      return res;      
+    } else {
+      return what.getBytes();
+    }
+  }
+  
+  
   public int hashCode() { return _hash; }
   public boolean equals( Object o ) {
     if( this == o ) return true;

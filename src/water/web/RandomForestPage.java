@@ -27,7 +27,7 @@ public class RandomForestPage extends H2OPage {
     Key modelKey = null;
     String skey = p.getProperty("modelKey","____model");
     try {
-      modelKey = H2OPage.decode(skey);
+      modelKey = Key.make(skey);
     } catch( IllegalArgumentException e ) {
       throw new PageError("Not a valid key: "+ skey);
     }

@@ -14,7 +14,7 @@ public class Get extends Page {
       if (!key.user_allowed()) throw new PageError("Not a user key: " + key);
       Value val = DKV.get(key);
       if( val == null ) {
-        key = H2OPage.decode(skey);
+        key = Key.make(skey);
         val = DKV.get(key);
       }
       if( val == null ) throw new PageError("Key not found: " + key);

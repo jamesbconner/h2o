@@ -46,7 +46,7 @@ public class ServletUtil {
     String skey = args.getProperty(s);
     if( skey == null ) throw new PageError("Missing argument key: "+ s);
     try {
-      return H2OPage.decode(skey);
+      return Key.make(skey);
     } catch( IllegalArgumentException e ) {
       throw new PageError("Not a valid key: "+ skey);
     }
