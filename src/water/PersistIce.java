@@ -65,7 +65,8 @@ public abstract class PersistIce {
   private static final Key decodeKey(File f) {
     String key = f.getName();
     key = key.substring(0,key.lastIndexOf('.'));
-    byte[] kb = null;
+    return Key.make(key,decodeReplication(f));
+/*    byte[] kb = null;
     // a normal key - ASCII with special characters encoded after % sign
     if ((key.length()<=2) || (key.charAt(0)!='%') || (key.charAt(1)<'0') || (key.charAt(1)>'9')) {
       byte[] nkb = new byte[key.length()];
@@ -100,7 +101,7 @@ public abstract class PersistIce {
       }
     }
     // now in kb we have the key name
-    return Key.make(kb,decodeReplication(f));
+    return Key.make(kb,decodeReplication(f)); */
   }
 
   private static byte decodeReplication(File f) {
@@ -124,8 +125,8 @@ public abstract class PersistIce {
     return encodeKeyToFile(v._key,v.type());
   }
   private static File encodeKeyToFile(Key k, byte type) {
-    // check if we are system key
     StringBuilder sb = null;
+/*    // check if we are system key
     if (k._kb[0]<32) {
       sb = new StringBuilder(k._kb.length/2+4);
       sb.append('%');
@@ -152,7 +153,8 @@ public abstract class PersistIce {
         }
       }
     }
-    // append the value type and replication factor
+    // append the value type and replication factor */
+    sb.append(k.toString());
     sb.append('.');
     sb.append((char)type);
     sb.append(k.desired());
