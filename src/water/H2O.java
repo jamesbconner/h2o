@@ -525,10 +525,11 @@ public final class H2O {
         // Start the walk at slot 2, because slots 0,1 hold meta-data
         for( int i=2; i<kvs.length; i += 2 ) {
           // In the raw backing array, Keys and Values alternate in slots
-          if( !(kvs[i+0] instanceof Key  ) ) continue; // Ignore tombstones and Primes and null's
-          if( !(kvs[i+1] instanceof Value) ) continue; // Ignore tombstones and Primes and null's
-          Key   key = (Key  )kvs[i+0];
-          Value val = (Value)kvs[i+1];
+          Object ok = kvs[i+0], ov = kvs[i+1];
+          if( !(ok instanceof Key  ) ) continue; // Ignore tombstones and Primes and null's
+          Key   key = (Key  )ok;
+          if( !(ov instanceof Value) ) continue; // Ignore tombstones and Primes and null's
+          Value val = (Value)ov;
           byte[] m = val._mem;
           if( m != null ) {
             cacheSz += m.length; // Accumulate total amount of cached keys

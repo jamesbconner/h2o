@@ -43,7 +43,6 @@ public class ExprTest {
     DKV.write_barrier();
     int keys = H2O.store_size();
     try {
-      System.err.println("result"+(new Integer(i).toString())+": "+expr);
       Key key = Exec.exec(expr, "result"+(new Integer(i).toString()));
       UKV.remove(key);
       assertTrue("An exception should have been thrown.",false);

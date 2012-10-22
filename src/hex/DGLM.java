@@ -1,31 +1,32 @@
 package hex;
 
+import hex.DLSM.LSMTask;
+import hex.DLSM.LSM_Params;
 import hex.RowVecTask.Sampling;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import org.apache.hadoop.mapred.machines_jsp;
-
 import water.DRemoteTask;
 import water.ValueArray;
-import Jama.CholeskyDecomposition;
-import Jama.Matrix;
 
 /**
- * General Linear Regression (http://en.wikipedia.org/wiki/Linear_regression)
- * implementation based on least squared minimization.
+ * Distributed General Linear Model solver.
  *
- * Solves problem of finding parameters bs s.t. sum((bi*xi + b0 - y)^2) = min
- * (in other words, y is modeled as y' = bi*x + b0 such that the sum of squared
- * errors (y - y')^2 is minized. Bs are computed by following equation:
- * (sum(x'*x)/n)^-1 * sum(x*y)/n, where: x is a (column) vector of input values
- * x' is transposed x y is response variable
+ * Implemented as Iterative Reweighted LSM fitting problem. Calls DLSM iteratively until solution is found.
+ *
+ * Goal is to have distributed version of glm from R with few enhancements (L1 and L2 norm).
+ *
+ * Current Limitations:
+ *   * only gaussian, binomial and poisson family supported at the moment.
+ *   * limitations of underlying DLSM apply here as well
+ *
+ * Implemented by extending LSMTask (by IRLSMTask) to transform response variable and to apply weights in flight).
  *
  * @author tomasnykodym
  *
  */
-public class GLSM {
+public class DGLM {
 
   static final double DEFAULT_EPS = 1e-8;
 
@@ -45,6 +46,7 @@ public class GLSM {
     Link(double b){defaultBeta = b;}
   }
 
+  // supported families
   public static enum Family {
     gaussian(Link.identity),
     binomial(Link.logit),
@@ -56,12 +58,20 @@ public class GLSM {
     Family(Link l){defaultLink = l;}
   }
 
+  // supported norms (penalty functions)
   public static enum Norm {
     NONE, // standard regression without any regularization
     L1,   // LASSO
     L2;   // ridge regression
   }
 
+  /**
+   * Per family variance computation
+   *
+   * @param family
+   * @param mu
+   * @return
+   */
   public static double variance(Family family, double mu){
     switch(family){
     case gaussian:
@@ -79,10 +89,20 @@ public class GLSM {
   }
 
 
+  // helper function
   static double y_log_y(double y, double mu){
     mu = Math.max(Double.MIN_NORMAL, mu);
     return (y != 0) ? (y * Math.log(y/mu)) : 0;
   }
+
+  /**
+   * Per family deviance computation.
+   *
+   * @param family
+   * @param yr
+   * @param ym
+   * @return
+   */
   public static double deviance(Family family, double yr, double ym){
     switch(family){
     case gaussian:
@@ -102,6 +122,13 @@ public class GLSM {
     }
   }
 
+  /**
+   * Link function computation.
+   *
+   * @param linkFunction
+   * @param x
+   * @return
+   */
   public static double link(Link linkFunction, double x){
    switch(linkFunction){
      case identity:
@@ -118,6 +145,13 @@ public class GLSM {
    }
   }
 
+  /**
+   * Link function inverse computation.
+   *
+   * @param linkFunction
+   * @param x
+   * @return
+   */
   public static double linkInv(Link linkFunction, double x){
     switch(linkFunction){
       case identity:
@@ -133,6 +167,13 @@ public class GLSM {
     }
    }
 
+  /**
+   * Link function derivative computation.
+   *
+   * @param linkFunction
+   * @param x
+   * @return
+   */
   public static double linkDeriv(Link linkFunction, double x){
     switch(linkFunction){
       case identity:
@@ -150,11 +191,21 @@ public class GLSM {
    }
 
 
+  /**
+   * Additional per-family args to glm.
+   * @author tomasnykodym
+   *
+   */
   public static abstract class FamilyArgs{}
 
+  /**
+   *  Args for binomial family
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialArgs extends FamilyArgs {
-    double _threshold = 0.5;
-    double _case = 1.0;
+    double _threshold = 0.5; // decision threshold for classification/validation
+    double _case = 1.0; // value to be mapped to 1 (en eeverything else to 0).
 
     public BinomialArgs(double t, double c){
       _threshold = t;
@@ -162,26 +213,13 @@ public class GLSM {
     }
   }
 
-
-  public static class LSM_Params{
-    public Norm n = Norm.NONE;
-    public double lambda = 0;
-    public double rho = 0;
-    public double alpha = 0;
-    int constant = 1;
-
-    public LSM_Params(){}
-    public LSM_Params(Norm n, double lambda, double rho, double alpha, int constant){
-      this.n = n;
-      this.lambda = lambda;
-      this.rho = rho;
-      this.alpha = alpha;
-      this.constant = constant;
-    }
-  }
-
+  /**
+   * Paramters for GLM.
+   * @author tomasnykodym
+   *
+   */
   public static class GLM_Params{
-    double beta_eps = GLSM.DEFAULT_EPS;
+    double beta_eps = DGLM.DEFAULT_EPS; // precision level for beta
     public Family family = Family.gaussian;
     public Link link = Link.identity;
     DataPreprocessing preprocessing;
@@ -205,116 +243,13 @@ public class GLSM {
 
   private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
 
-
-
   Sampling         _sampling;
-
-  final static int L2_LAMBDA = 0;
-  final static int L1_LAMBDA = 0;
-  final static int L1_RHO    = 1;
-  final static int L1_ALPHA  = 2;
-
-  protected static double[] solveLSM(double[][] xxAry, double[] xyAry,
-      LSM_Params params) {
-    Matrix xx = new Matrix(xxAry.length, xxAry.length);
-    // we only computed half of the symmetric matrix, now we need to fill the
-    // rest before computing the inverse
-    double d = 0.0;
-    switch( params.n ) {
-    case NONE:
-      break;
-    case L1:
-      d = params.rho;
-      break;
-    case L2:
-      d = params.lambda;
-      break;
-    }
-    for( int i = 0; i < xxAry.length; ++i ) {
-      for( int j = 0; j < xxAry[i].length; ++j ) {
-        if( i == j ) {
-          xx.set(i, j, xxAry[i][j] + d);
-        } else {
-          xx.set(i, j, xxAry[i][j]);
-          xx.set(j, i, xxAry[i][j]);
-        }
-      }
-    }
-    CholeskyDecomposition lu = new CholeskyDecomposition(xx);
-
-    switch( params.n ) {
-    case NONE:
-    case L2:
-      // return xx.inverse().times(new Matrix(xyAry,
-      // xyAry.length)).getColumnPackedCopy();
-      return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
-    case L1: {
-      final int N = xyAry.length;
-      final double ABSTOL = Math.sqrt(N) * 1e-4;
-      final double RELTOL = 1e-2;
-      double[] z = new double[N];
-      double[] u = new double[N];
-      Matrix xm = null;
-      double kappa = params.lambda / params.rho;
-      for( int i = 0; i < 10000; ++i ) {
-        // add rho*(z-u) to A'*y and add rho to diagonal of A'A
-        Matrix xy = new Matrix(xyAry, N);
-        for( int j = 0; j < N; ++j ) {
-          xy.set(j, 0, xy.get(j, 0) + params.rho * (z[j] - u[j]));
-        }
-        // updated x
-        xm = lu.solve(xy);
-
-        // vars to be used for stopping criteria
-        double x_norm = 0;
-        double z_norm = 0;
-        double u_norm = 0;
-        // update z and u
-        double r_norm = 0;
-        double s_norm = 0;
-        double eps_pri = 0; // epsilon primal
-        double eps_dual = 0;
-
-        for( int j = 0; j < N; ++j ) {
-          double x_hat = xm.get(j, 0);
-          x_norm += x_hat * x_hat;
-          x_hat = x_hat * params.alpha + (1 - params.alpha) * z[j];
-          double zold = z[j];
-          z[j] = shrinkage(x_hat + u[j], kappa);
-          z_norm += z[j] * z[j];
-          s_norm += (z[j] - zold) * (z[j] - zold);
-          r_norm += (xm.get(j, 0) - z[j]) * (xm.get(j, 0) - z[j]);
-          u[j] += x_hat - z[j];
-          u_norm += u[j] * u[j];
-        }
-        r_norm = Math.sqrt(r_norm);
-        s_norm = params.rho * Math.sqrt(s_norm);
-        eps_pri = ABSTOL + RELTOL * Math.sqrt(Math.max(x_norm, z_norm));
-        eps_dual = ABSTOL + params.rho * RELTOL * Math.sqrt(u_norm);
-        if( r_norm < eps_pri && s_norm < eps_dual ) break;
-      }
-      return z;
-    }
-    default:
-      throw new Error("Unexpected Norm " + params.n);
-    }
-  }
-
-  // sampling vars
-  int     _offset;
-  int     _step;
-  boolean _complement;
-
-  public void setSampling(int offset, int step, boolean complement) {
-    _offset = offset;
-    _step = step;
-    _complement = complement;
-  }
-
-  private static double shrinkage(double x, double kappa) {
-    return Math.max(0, x - kappa) - Math.max(0, -x - kappa);
-  }
-
+  /**
+   *  Class for holding of validation info of given glm model.
+   *
+   * @author tomasnykodym
+   *
+   */
   public static class GLM_Validation implements Cloneable {
     GLM_Model _m;
     long      _n;
@@ -385,6 +320,11 @@ public class GLSM {
     }
   }
 
+  /**
+   * Binomial validation adds confusion matrix (which is 2 by 2 in binomial case).
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialValidation extends GLM_Validation {
     static long sum(long[][] cm) {
       long res = 0;
@@ -481,6 +421,12 @@ public class GLSM {
     }
   }
 
+  /**
+   * Holds info about fitted glm model.
+   *
+   * @author tomasnykodym
+   *
+   */
   public static class GLM_Model {
     GLM_Params glmParams;
     LSM_Params lsmParams;
@@ -515,9 +461,9 @@ public class GLSM {
     public GLM_Validation validateOn(ValueArray ary, Sampling s) {
       //double ymu = link(glmParams.link,ary.col_mean(colIds[colIds.length-1]));
       double ymu = ary.col_mean(colIds[colIds.length-1]);
-      LSMTest tst = new LSMTest(this,s,ymu);
+      GLMTest tst = new GLMTest(this,s,ymu);
       tst.invoke(ary._key);
-      return new GLM_Validation(this, tst._results[LSMTest.ERRORS]/tst._n, tst._results[LSMTest.H], tst._results[LSMTest.H0],tst._n);
+      return new GLM_Validation(this, tst._results[GLMTest.ERRORS]/tst._n, tst._results[GLMTest.H], tst._results[GLMTest.H0],tst._n);
     }
     public String toString(){
       StringBuilder res = new StringBuilder("GLM Model:\n");
@@ -531,6 +477,11 @@ public class GLSM {
     }
   }
 
+  /**
+   *
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialModel extends GLM_Model {
     double _threshold;
     double _case;
@@ -545,7 +496,7 @@ public class GLSM {
       double ymu = ary.col_mean(colIds[colIds.length-1]);
       BinomialTest tst = new BinomialTest(this,s,ymu);
       tst.invoke(ary._key);
-      return new BinomialValidation(this, tst._confMatrix, tst._n, tst._results[LSMTest.H0], tst._results[LSMTest.H]);
+      return new BinomialValidation(this, tst._confMatrix, tst._n, tst._results[GLMTest.H0], tst._results[GLMTest.H]);
     }
 
   }
@@ -558,42 +509,24 @@ public class GLSM {
 
   public static final LSM_Params defaultLSMParams = new LSM_Params();
 
-  static int [] getDataPreprocessing(ValueArray ary, int [] colIds, DataPreprocessing p, Norm n){
-    int [] res = null;
-    switch(p){
-    case AUTO:
-      if(n != Norm.NONE ) {
-        res = new int[colIds.length];
-        for( int i = 0; i < colIds.length - 1; ++i )
-          if( (ary.col_mean(colIds[i]) != 0) || ary.col_sigma(colIds[i]) != 1 )
-            res[i] = RowVecTask.STANDARDIZE_DATA;
-      }
-      break;
-    case NORMALIZE:
-      res = new int[colIds.length];
-      for( int i = 0; i < colIds.length - 1; ++i )
-        if( (ary.col_min(colIds[i]) != 0) || ary.col_max(colIds[i]) != 1 )
-          res[i] = RowVecTask.NORMALIZE_DATA;
-      break;
-    case STANDARDIZE:
-      res = new int[colIds.length];
-      for( int i = 0; i < colIds.length - 1; ++i )
-        if( (ary.col_mean(colIds[i]) != 0) || ary.col_sigma(colIds[i]) != 1 )
-          res[i] = RowVecTask.STANDARDIZE_DATA;
-      break;
-    case NONE:
-      break;
-    default:
-      throw new Error("Invalid data preprocessing flag " + p);
-    }
-    return res;
-  }
 
+/**
+ * Solve glm problem by iterative reqeighted least squqre method.
+ * Repeatedly solves LSM problem with weights given by previous iteration until fixpoint is reached.
+ *
+ * @param ary
+ * @param colIds
+ * @param s
+ * @param glmParams
+ * @param lsmParams
+ * @param fargs
+ * @return
+ */
   public static GLM_Model solve(ValueArray ary, int[] colIds, Sampling s,
       GLM_Params glmParams, LSM_Params lsmParams, FamilyArgs fargs) {
     int[] p = null;
     if(lsmParams == null)lsmParams = defaultLSMParams;
-
+    // set the preprocessing flags
     switch( glmParams.preprocessing ) {
     case AUTO:
       if( lsmParams.n != Norm.NONE ) {
@@ -626,18 +559,16 @@ public class GLSM {
     m.preprocessing = p;
 
     if(glmParams.family == Family.gaussian){
-      LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  lsmParams.constant, p, ary.col_mean(colIds[colIds.length-1]));
+      LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  lsmParams.constant, p);
       tsk.invoke(ary._key);
       m.n = tsk._n;
-      m.beta = solveLSM(tsk._xx, tsk._xy, lsmParams);
+      m.beta = DLSM.solveLSM(tsk._xx, tsk._xy, lsmParams);
       return m;
     }
     double [] beta = new double [colIds.length];
     Arrays.fill(beta, glmParams.link.defaultBeta);
     double diff;
     long N = 0;
-
-    // do preprocessing!
     try{
       do {
         IRLSMTask tsk;
@@ -647,14 +578,13 @@ public class GLSM {
           tsk = new BinomialTask(colIds, s, lsmParams.constant, beta, p, glmParams.link, ary.col_mean(colIds[colIds.length-1]),bargs);
           break;
         default:
-          tsk = new IRLSMTask(colIds, s, lsmParams.constant, beta, p, glmParams.family, glmParams.link,ary.col_mean(colIds[colIds.length-1]));
+          tsk = new IRLSMTask(colIds, s, lsmParams.constant, beta, p, glmParams.family, glmParams.link);
         }
         diff = 0;
         tsk.invoke(ary._key);
-        m.nullDeviance = tsk._nullDeviance;
-        m.residualDeviance = tsk._deviance;
+
         N = tsk._n;
-        tsk._beta = solveLSM(tsk._xx, tsk._xy, m.lsmParams);
+        tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, m.lsmParams);
         if( beta != null ) for( int i = 0; i < beta.length; ++i )
           diff = Math.max(diff, Math.abs(beta[i] - tsk._beta[i]));
         else diff = Double.MAX_VALUE;
@@ -670,7 +600,18 @@ public class GLSM {
   }
 
 
-
+/**
+ * Compute crossvalidation. Randomly divide dataset into x-factor parts and then run xfactor times, each tim e excluding one part in the training and use it for testing.
+ * Reports avg result of validation + first 20 individual models in case of binomial family.
+ *
+ * @param ary
+ * @param colIds
+ * @param xfactor
+ * @param glmParams
+ * @param lsmParams
+ * @param fargs
+ * @return
+ */
   public static ArrayList<GLM_Validation> xValidate(ValueArray ary, int[] colIds, int xfactor, GLM_Params glmParams, LSM_Params lsmParams, FamilyArgs fargs) {
     ArrayList<GLM_Validation> individualModels = new ArrayList<GLM_Validation>();
     if( xfactor == 1 ) return individualModels;
@@ -687,148 +628,10 @@ public class GLSM {
   }
 
   /**
-   * Soft Thresholding operator as defined in ADMM paper, section 4.4.3
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static class S_Operator {
-    double _k;
-
-    public S_Operator() {
-      this(0.0);
-    }
-
-    public S_Operator(double k) {
-      assert k >= 0;
-      _k = k;
-    }
-
-    public double call(double x) {
-      if( x > _k ) return x - _k;
-      if( x < -_k ) return x + _k;
-      return 0.0;
-    }
-  }
-
-  public static class LSMTask extends RowVecTask {
-    double[][] _xx;      // matrix holding sum of x*x'
-    double[]   _xy;      // vector holding sum of x * y
-    double     _constant; // constant member
-    double     _ymu;     // mean(y) estimate
-    double     _deviance;
-    double _nullDeviance;
-
-    public LSMTask() {
-    } // Empty constructors for the serializers
-
-    public LSMTask(int[] colIds, int constant, int[] p, double ymu) {
-      this(colIds, null, colIds.length - 1, constant, p,ymu);
-    }
-
-    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant, int[] p, double ymu) {
-      super(colIds, s, true, p);
-      _constant = constant;
-      _ymu = ymu;
-    }
-
-    @Override
-    public void init(int xlen, int nrows) {
-      super.init(); // should always be called
-      // the size is xlen (the columns read from the data object) + 1 for the
-      // constant (Intercept)
-      _xy = new double[xlen];
-      _xx = new double[xlen][];
-      for( int i = 0; i < xlen; ++i )
-        _xx[i] = new double[i + 1];
-    }
-
-    /**
-     * Body of the LR, computes sum(x'*x)/n and sum(x*y)/n for all rows in this
-     * chunk. Since (x'*x) is symmetric, only the lower diagonal is computed.
-     */
-    @Override
-    public void map(double[] x) {
-      double y = x[x.length - 1];
-      // compute x*x' and add it to the marix
-      for( int i = 0; i < (x.length - 1); ++i ) {
-        for( int j = 0; j <= i; ++j ) { // matrix is symmetric -> compute only lower diag
-          _xx[i][j] += x[i] * x[j];
-        }
-        _xy[i] += x[i] * y;
-      }
-      // compute the constant (constant is not part of x and has to be computed
-      // sepearetly)
-      for( int j = 0; j < (x.length - 1); ++j )
-        _xx[x.length - 1][j] += _constant * x[j];
-      _xx[x.length - 1][x.length - 1] += _constant * _constant;
-      _xy[x.length - 1] += _constant * y;
-    }
-
-    @Override
-    public void cleanup() {
-      // We divide by _n here, which is the number of rows processed in this
-      // chunk, while
-      // we really want to divide by N (the number of rows in the whole
-      // dataset). The reason for this is
-      // that there might be some missing values (and therefore omitted rows) so
-      // we do not know N
-      // at this point -> we divide by _n here and adjust for it later in
-      // reduce.
-      double nInv = 1.0 / _n;
-      for( int i = 0; i < _xy.length; ++i ) {
-        for( int j = 0; j <= i; ++j ) {
-          _xx[i][j] *= nInv;
-        }
-        _xy[i] *= nInv;
-      }
-      super.cleanup();
-    }
-
-    /**
-     * Add partial results.
-     */
-    @Override
-    public void reduce(DRemoteTask drt) {
-      LSMTask other = (LSMTask) drt;
-      if( _xx != null || _xy != null ) {
-        double R = 1.0 / (_n + other._n);
-        double myR = other._n * R;
-        double r = _n * R;
-        for( int i = 0; i < _xx.length; ++i ) {
-          for( int j = 0; j <= i; ++j ) {
-            _xx[i][j] = (myR * _xx[i][j] + r * other._xx[i][j]);
-          }
-          _xy[i] = (myR * _xy[i] + r * other._xy[i]);
-        }
-      } else {
-        _xx = other._xx;
-        _xy = other._xy;
-      }
-      _n += other._n;
-    }
-  }
-
-  // derivative of logit
-  static double logitPrime(double p) {
-    if( p == 1 || p == 0 ) return MAX_SQRT;
-    return 1 / (p * (1 - p));
-  }
-
-  // logit function
-  static double logit(double x) {
-    return Math.log(x) / Math.log(1 - x);
-  }
-
-  // inverse of logit
-  static double logitInv(double x) {
-    return 1.0 / (Math.exp(-x) + 1.0);
-  }
-
-  /**
    * Task computing one round of logistic regression by iterative least square
    * method. Given beta_k, computes beta_(k+1). Works by transforming input
-   * vector by logit function and passing the transformed input to LSM.
+   * vector by link function and applying weights equal to inverse of variance
+   * and  passing the transformed input to LSM.
    *
    * @author tomasnykodym
    *
@@ -844,8 +647,8 @@ public class GLSM {
     } // Empty constructor for the serializers
 
     public IRLSMTask(int[] colIds, Sampling s, int constant, double[] beta,
-        int[] p, Family f, Link l, double ymu) {
-      super(colIds, s, colIds.length - 1, constant, p,ymu);
+        int[] p, Family f, Link l) {
+      super(colIds, s, colIds.length - 1, constant, p);
       _beta = beta;
       _f = f.ordinal();
       _l = l.ordinal();
@@ -858,12 +661,13 @@ public class GLSM {
     }
 
     /**
-     * Applies the link function (logit in this case) on the input and calls
+     * Applies the link function on the input and calls
      * underlying LSM.
      *
-     * Two steps are performed here: 1) y is replaced by z, which is obtained by
-     * Taylor expansion at the point of last estimate of y (x'*beta) 2) both x
-     * and y are wighted by the square root of inverse of variance of y at this
+     * Two steps are performed here:
+     * 1) y is replaced by z, which is obtained by
+     * Taylor expansion at the point of last estimate of y (x'*beta)
+     * 2) Weight is applied to both x and y. Weight is the square root of inverse of variance of y at this
      * data point according to our model
      *
      */
@@ -883,9 +687,6 @@ public class GLSM {
       // add the constant (constant/Intercept is not included in the x vector,
       // have to add it seprately)
       gmu += _origConstant * _beta[x.length - 1];
-//      _deviance += deviance(f,y,gmu);
-//      double dev = deviance(f,y, _ymu);
-//      _nullDeviance += dev;
       // get the inverse to get esitamte of p(Y=1|X) according to previous model
       double mu = linkInv(l,gmu);
       double dgmu = linkDeriv(l,mu);
@@ -895,31 +696,26 @@ public class GLSM {
                                                // log(0),log(1)
       // Step 2
       double vary = variance(f,mu); // variance of y accrodgin to our model
-      // (binomial distribution)
+
       // compute the weights (inverse of variance of z)
       double var = dgmu * dgmu * vary;
-      // apply the weight, we want each datapoint to have weight of inverse of
+      // Apply the weight. We want each datapoint to have weight of inverse of
       // the variance of y at this point.
-      // since we compute x'x, we take sqrt(w) and apply it to both x and y
-      // (since we also compute X*y)
+      // Since we compute x'x, we take sqrt(w) and apply it to both x and y
+      // (we also compute X*y)
       double w = Math.sqrt(1 / var);
       for( int i = 0; i < x.length; ++i )
         x[i] *= w;
       _constant = _origConstant * w;
-      // compute the deviance according to the previous model
-
       super.map(x);
-    }
-
-    @Override
-    public void reduce(DRemoteTask drt){
-      IRLSMTask other = (IRLSMTask)drt;
-      _nullDeviance += other._nullDeviance;
-      _deviance += other._deviance;
-      super.reduce(drt);
     }
   }
 
+  /**
+   * Specialization of IRLSM for binomial family. Values 0/1 are enforced.(_case = 1, everything else = 0)
+   * @author tomasnykodym
+   *
+   */
   public static class BinomialTask extends IRLSMTask {
     double _case; // in
     long _caseCount; // out
@@ -928,7 +724,7 @@ public class GLSM {
       this(colIds, s, constant, null, p, l, ymu, bargs);
     }
     public BinomialTask(int [] colIds, Sampling s, int constant, double [] beta, int [] p, Link l, double ymu, BinomialArgs bargs){
-      super(colIds,s,constant, beta, p,  Family.binomial,l,ymu);
+      super(colIds,s,constant, beta, p,  Family.binomial,l);
       _case = bargs._case;
     }
 
@@ -944,101 +740,7 @@ public class GLSM {
   }
 
 
-  /**
-   * Task computing one round of logistic regression by iterative least square
-   * method. Given beta_k, computes beta_(k+1). Works by transforming input
-   * vector by logit function and passing the transformed input to LSM.
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static class LogitLSMTask extends LSMTask {
-    double[] _beta;
-    double   _origConstant;
-    long     _ncases;
-    boolean  _treatNonzerosAsOne;
-
-    public LogitLSMTask() {
-    } // Empty constructor for the serializers
-
-    public LogitLSMTask(int[] colIds, Sampling s, int constant, double[] beta,
-        int[] p, boolean nonZerosAsOnes) {
-      super(colIds, s, colIds.length - 1, constant, p,0);
-      _beta = beta;
-      _treatNonzerosAsOne = nonZerosAsOnes;
-    }
-
-    public LogitLSMTask(int[] colIds, Sampling s, int constant, int[] p,
-        boolean nonZerosAsOnes) {
-      this(colIds, s, constant, new double[colIds.length
-          - ((constant == 0) ? 1 : 0)], p, nonZerosAsOnes);
-    }
-
-    @Override
-    public void init(int xlen, int nrows) {
-      super.init(xlen, nrows);
-      _origConstant = _constant;
-    }
-
-    /**
-     * Applies the link function (logit in this case) on the input and calls
-     * underlying LSM.
-     *
-     * Two steps are performed here: 1) y is replaced by z, which is obtained by
-     * Taylor expansion at the point of last estimate of y (x'*beta) 2) both x
-     * and y are wighted by the square root of inverse of variance of y at this
-     * data point according to our model
-     *
-     */
-    @Override
-    public void map(double[] x) {
-      if( _treatNonzerosAsOne && x[x.length - 1] != 0 ) x[x.length - 1] = 1;
-      double y = x[x.length - 1];
-      assert 0 <= y && y <= 1;
-      _ncases += y;
-      // transform input to the GLR according to Olga's slides
-      // (glm lecture, page 12)
-      // Step 1, compute the estimate of y according to previous model (old
-      // beta)
-      double gmu = 0.0;
-      for( int i = 0; i < x.length - 1; ++i ) {
-        gmu += x[i] * _beta[i];
-      }
-      // add the constant (constant/Intercept is not included in the x vector,
-      // have to add it seprately)
-      gmu += _origConstant * _beta[x.length - 1];
-      // get the inverse to get estimate of p(Y=1|X) according to previous model
-      double mu = logitInv(gmu);
-      double dgmu = logitPrime(mu);
-      x[x.length - 1] = gmu + (y - mu) * dgmu; // z = y approx by Taylor
-                                               // expansion at the point of our
-                                               // estimate (mu), done to avoid
-                                               // log(0),log(1)
-      // Step 2
-      double vary = mu * (1 - mu); // variance of y accrodgin to our model
-                                   // (binomial distribution)
-      // compute the weights (inverse of variance of z)
-      double var = dgmu * dgmu * vary;
-      // apply the weight, we want each datapoint to have weight of inverse of
-      // the variance of y at this point.
-      // since we compute x'x, we take sqrt(w) and apply it to both x and y
-      // (since we also compute X*y)
-      double w = Math.sqrt(1 / var);
-      for( int i = 0; i < x.length; ++i )
-        x[i] *= w;
-      _constant = _origConstant * w;
-      // step 3 performed by LSMTask.map
-      super.map(x);
-    }
-
-    @Override
-    public void reduce(DRemoteTask drt) {
-      _ncases += ((LogitLSMTask) drt)._ncases;
-      super.reduce(drt);
-    }
-  }
-
-  public static class LSMTest extends RowVecTask {
+  public static class GLMTest extends RowVecTask {
     // INPUTS
     public static final int CONSTANT = 0;
     public static final int BETA     = 1;
@@ -1057,10 +759,10 @@ public class GLSM {
     transient Link _link;
     transient Family _family;
 
-    public LSMTest() {
+    public GLMTest() {
     }
 
-    public LSMTest(GLM_Model m, Sampling s, double ymu) {
+    public GLMTest(GLM_Model m, Sampling s, double ymu) {
       super(m.colIds, s, true, m.preprocessing);
       _inputParams = new double[m.beta.length + BETA];
       _inputParams[CONSTANT] = m.lsmParams.constant;
@@ -1072,7 +774,7 @@ public class GLSM {
 
     @Override
     public void reduce(DRemoteTask drt) {
-      LSMTest other = (LSMTest) drt;
+      GLMTest other = (GLMTest) drt;
       _n += other._n;
       if( _results == null ) _results = other._results;
       else for( int i = 0; i < _results.length; ++i )
@@ -1120,18 +822,8 @@ public class GLSM {
     }
   }
 
-  /**
-   * Lasso implementation, based on ADMM algorithm.
-   *
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static class LASSO_Task extends LSMTask {
 
-  }
-
-  public static class BinomialTest extends LSMTest {
+  public static class BinomialTest extends GLMTest {
     double   _threshold;
     double _case;
 

@@ -3,8 +3,6 @@ package water.parser;
 import java.io.*;
 import java.util.*;
 
-import com.google.common.base.Strings;
-
 import water.*;
 import water.parser.ParseDataset.ColumnDomain;
 import water.parser.SeparatedValueParser.Row;
@@ -100,14 +98,15 @@ public class ParseState implements Cloneable {
   }
 
   public void maybeAssignColumnNames(String[] names) {
-    assert names == null || names.length == _num_cols;
-    if( names != null ) {
-      int num = 0;
-      for( String n : names ) if( n != null ) ++num;
-      names = num > names.length/2 ? names : null;
-    }
     for( int i = 0; i < _num_cols; i++ )
-      _cols[i]._name = names != null ? Strings.nullToEmpty(names[i]) : "";
+      _cols[i]._name = "";
+    if( names == null ) return; // No column names
+    assert names.length == _num_cols;
+    int num = 0;
+    for( String n : names ) if( n != null ) ++num;
+    if( num <= names.length/2 ) return; // Not enuf==> declare no names
+    for( int i = 0; i < _num_cols; i++ )
+      if( names[i]!=null ) _cols[i]._name = names[i];
   }
 
   public void prepareForStatsGathering() {
@@ -136,13 +135,11 @@ public class ParseState implements Cloneable {
     ++_num_rows;
     for( int i = 0; i < row._fieldVals.length; ++i ) {
       double d = row._fieldVals[i];
-      if(Double.isNaN(d)) { // Broken data on row
-        String s = row._fieldStringVals[i];
-        if( !Strings.isNullOrEmpty(s) ) _cols_domains[i].add(s);
-
-        _cols[i]._size |=32;  // Flag as seen broken data
+      if( Double.isNaN(d) ) {   // Broken data on row
+        _cols_domains[i].add(row._fieldStringVals[i]);
+        _cols[i]._size |=32;    // Flag as seen broken data
         _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
-        continue;             // But do not muck up column stats
+        continue;               // But do not muck up column stats
       }
       ++_cols[i]._n;
       // The column contains a number => mark column domain as dead.
@@ -162,9 +159,8 @@ public class ParseState implements Cloneable {
 
   public void finishStatsGathering(int idx) {
     // Kill column domains which contain too many different values.
-    for( ColumnDomain dict : _cols_domains ) {
+    for( ColumnDomain dict : _cols_domains )
       if (dict.size() > ColumnDomain.DOMAIN_MAX_VALUES) dict.kill();
-    }
 
     // Also pass along the rows-per-chunk
     _rows_chk = new int[idx+1];
@@ -184,13 +180,12 @@ public class ParseState implements Cloneable {
       if(_cols.length <= _num_cols){
         ValueArray.Column [] newCols = new ValueArray.Column[_num_cols];
         System.arraycopy(_cols, 0, newCols, 0, _cols.length);
-        for(int i = _cols.length; i < _num_cols; ++i){
+        for(int i = _cols.length; i < _num_cols; ++i)
           newCols[i] = new ValueArray.Column();
-        }
         _cols = newCols;
       }
       for( int i=0; i<s._num_cols; i++ ) {
-        ValueArray.Column c =    _cols[i];
+        ValueArray.Column c =   _cols[i];
         ValueArray.Column d = s._cols[i];
         if( d._min < c._min ) c._min = d._min; // min of mins
         if( d._max > c._max ) c._max = d._max; // max of maxes
@@ -226,10 +221,6 @@ public class ParseState implements Cloneable {
     ColumnDomain[] d2 = s._cols_domains;
     if( d1 == null ) d1 = d2;
     else {
-      if (d1.length < d2.length) {
-        Set<String> newD1[] = new Set[d2.length];
-        System.arraycopy(d1, 0, newD1, 0, d1.length);
-      }
       // Union of d1 and d2 but preserve the insertion order.
       for (int i = 0; i < d1.length; i++) {
         if (d1[i] == null) {
@@ -249,13 +240,12 @@ public class ParseState implements Cloneable {
 
   public HashMap<String,Integer>[] createColumnIndexes() {
     HashMap<String,Integer>[] columnIndexes = new HashMap[_num_cols];
-    for (int i = 0; i < _num_cols; i++) {
+    for( int i = 0; i < _num_cols; i++ ) {
       if (_cols_domains[i].size() == 0) continue;
       columnIndexes[i] = new HashMap<String, Integer>();
       int j = 0;
-      for (String s : _cols_domains[i]._domainValues) {
+      for (String s : _cols_domains[i]._domainValues)
         columnIndexes[i].put(s,j++);
-      }
     }
     return columnIndexes;
   }
@@ -265,7 +255,7 @@ public class ParseState implements Cloneable {
     for( int i=0; i< _cols.length; i++ ) {
       double d = row._fieldVals[i];
       ValueArray.Column col = _cols[i];
-      if ( columnIndexes[i] != null) {
+      if( columnIndexes[i] != null) {
         assert Double.isNaN(d);
         d = columnIndexes[i].get(row._fieldStringVals[i]).intValue();
       }
@@ -300,8 +290,11 @@ public class ParseState implements Cloneable {
       ParseDataset.ColumnDomain colDom   = _cols_domains[i];
       ValueArray.Column col = _cols[i];
       col._domain = colDom;
+      // If we have column names, and the column name does not otherwise exist
+      // in the column we can remove it from the domain.  BUT if the column
+      // name appears in the column as a normal text string - we still need it.
       // Column domain contains column name => exclude column name from domain.
-      colDom._domainValues.remove(col._name);
+      //colDom._domainValues.remove(col._name);
 
       // The column's domain contains too many unique strings => drop the
       // domain. Column is already marked as erroneous.
@@ -314,7 +307,7 @@ public class ParseState implements Cloneable {
         col._base  = 0;
         col._min   = 0;
         col._max   = colDom.size() - 1;
-        col._badat = 0; // I can't precisely recognize the wrong column value => all cells contain correct value
+        col._badat = 0;
         col._scale = 1; // Do not scale
         col._size  = 0; // Mark integer column
       }

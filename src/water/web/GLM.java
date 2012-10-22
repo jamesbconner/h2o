@@ -1,7 +1,16 @@
 package water.web;
 
 import hex.*;
-import hex.GLSM.*;
+import hex.DGLM.BinomialArgs;
+import hex.DGLM.BinomialValidation;
+import hex.DGLM.Family;
+import hex.DGLM.FamilyArgs;
+import hex.DGLM.GLM_Model;
+import hex.DGLM.GLM_Params;
+import hex.DGLM.GLM_Validation;
+import hex.DGLM.GLSMException;
+import hex.DGLM.Link;
+import hex.DLSM.LSM_Params;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -14,6 +23,11 @@ import com.google.gson.*;
 
 public class GLM extends H2OPage {
 
+  static class GLMInputException  extends  RuntimeException {
+    public GLMInputException(String msg) {
+      super(msg);
+    }
+  }
   static String getColName(int colId, String[] colNames) {
     return colId == colNames.length ? "Intercept" : colName(colId,colNames);
   }
@@ -40,10 +54,10 @@ public class GLM extends H2OPage {
       String[] colNames = ary.col_names();
       int[] yarr = parseVariableExpression(colNames, p.getProperty("Y"));
       if( yarr.length != 1 )
-        throw new InvalidInputException("Y has to refer to exactly one column!");
+        throw new GLMInputException("Y has to refer to exactly one column!");
       int Y = yarr[0];
       if( 0 > Y || Y >= ary.num_cols() )
-        throw new InvalidInputException("invalid Y value, column " + Y
+        throw new GLMInputException("invalid Y value, column " + Y
             + " does not exist!");
       int[] X = null;
       if( p.containsKey("X") ) X = parseVariableExpression(colNames,
@@ -90,7 +104,6 @@ public class GLM extends H2OPage {
       try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
 
       String method = p.getProperty("family", "gaussian").toLowerCase();
-      boolean nonZerosAsOnes = Boolean.valueOf(p.getProperty("bool","false"));
       res.addProperty("key", ary._key.toString());
       res.addProperty("keyHref", "/Inspect?Key=" + ary._key.toString());
       res.addProperty("h2o", H2O.SELF.urlEncode());
@@ -98,19 +111,21 @@ public class GLM extends H2OPage {
       if( method.equals("gaussian") ) res.addProperty("name","Linear regression");
       else if( method.equals("binomial") )
         res.addProperty("name", "Logistic regression");
-      GLSM.Family f;
-      try{f = GLSM.Family.valueOf(method.toLowerCase());}catch(IllegalArgumentException e){throw new InvalidInputException("unknown family " + method);}
-      GLSM.Norm norm;
-      try{norm = GLSM.Norm.valueOf(p.getProperty("norm", "NONE"));}catch(IllegalArgumentException e){throw new InvalidInputException("unknown norm " + p.getProperty("norm","NONE"));}
+      DGLM.Family f;
+      try{f = DGLM.Family.valueOf(method.toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + method);}
+      DGLM.Norm norm;
+      try{norm = DGLM.Norm.valueOf(p.getProperty("norm", "NONE"));}catch(IllegalArgumentException e){throw new GLMInputException("unknown norm " + p.getProperty("norm","NONE"));}
       double lambda = 0.0;
       double rho = 0;
-      try{ rho = Double.valueOf(p.getProperty("rho", "0.01"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("rho", "0.01"));}
+      try{ rho = Double.valueOf(p.getProperty("rho", "0.01"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("rho", "0.01"));}
       double alpha = 1.0;
-      try{ alpha = Double.valueOf(p.getProperty("alpha", "1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
-      if(norm != GLSM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
+      try{ alpha = Double.valueOf(p.getProperty("alpha", "1"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
+      if(norm != DGLM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
       Link l = f.defaultLink;
+      if(p.containsKey("link"))
+        try{l = Link.valueOf(p.getProperty("link").toLowerCase());}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
       if(p.containsKey("link")) {
-        try{l = GLSM.Link.valueOf(p.get("link").toString().toLowerCase());}catch(Exception e){throw new InvalidInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
+        try{l = DGLM.Link.valueOf(p.get("link").toString().toLowerCase());}catch(Exception e){throw new GLMInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
       }
       GLM_Params glmParams = new GLM_Params(f, l);
       FamilyArgs fargs = null;
@@ -120,6 +135,7 @@ public class GLM extends H2OPage {
       }
       LSM_Params lsmParams = new LSM_Params(norm,lambda,rho,alpha,1);
       JsonObject jGlmParams = new JsonObject();
+
       jGlmParams.addProperty("link", glmParams.link.toString());
       jGlmParams.addProperty("family", glmParams.family.toString());
       res.add("glmParams", jGlmParams);
@@ -131,7 +147,7 @@ public class GLM extends H2OPage {
       res.add("lsmParams", jLsmParams);
 
 
-      GLM_Model m = GLSM.solve(ary, columns, null, glmParams,lsmParams,fargs);
+      GLM_Model m = DGLM.solve(ary, columns, null, glmParams,lsmParams,fargs);
       if(m.warnings != null){
         JsonArray warnings = new JsonArray();
         for(String w:m.warnings)warnings.add(new JsonPrimitive(w));
@@ -169,11 +185,11 @@ public class GLM extends H2OPage {
       try{xfactor = Integer.valueOf(p.getProperty("xval","0"));}catch(NumberFormatException e){res.addProperty("error", "invalid cross factor value, expected integer, found " + p.getProperty("xval"));return res;};
       if(xfactor == 0)return res;
       if(xfactor > m.n)xfactor = (int)m.n;
-      if(xfactor == 1)throw new InvalidInputException("Invalid value of xfactor. Has to be either 0 (no crossvalidation) or > 1.");
+      if(xfactor == 1)throw new GLMInputException("Invalid value of xfactor. Has to be either 0 (no crossvalidation) or > 1.");
       res.addProperty("xfactor", xfactor);
       res.addProperty("threshold", threshold);
       //ValueArray ary, int[] colIds, int xfactor, GLM_Params glmParams, LSM_Params lsmParams, FamilyArgs fargs)
-      ArrayList<GLM_Validation> vals = GLSM.xValidate(ary,columns,xfactor, glmParams, lsmParams, fargs);
+      ArrayList<GLM_Validation> vals = DGLM.xValidate(ary,columns,xfactor, glmParams, lsmParams, fargs);
       val = vals.get(0);
       if(val instanceof BinomialValidation){
         BinomialValidation v = (BinomialValidation)val;
@@ -206,7 +222,7 @@ public class GLM extends H2OPage {
       res.addProperty("errRate", dformat.format(val.errMean()));
       res.addProperty("errRateVar", dformat.format(val.errVar()));
 
-    } catch( InvalidInputException e1 ) {
+    } catch( GLMInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());
     } catch( GLSMException e2 ) {
       res.addProperty("error", "Unable to run the regression on this data: '"
@@ -348,7 +364,6 @@ public class GLM extends H2OPage {
     if(glmParams.get("link").getAsString().equals("identity")){
       m = new RString("y = %equation");
       m.replace("equation", getFormulaSrc(x, false));
-      responseTemplate.replace("modelSrc", m.toString());
     } else if( glmParams.get("link").getAsString().equals("logit") ) {
       m = new RString("y = 1/(1 + Math.exp(%equation))");
       m.replace("equation", getFormulaSrc(x, true));

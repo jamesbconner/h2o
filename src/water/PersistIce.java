@@ -35,9 +35,10 @@ public abstract class PersistIce {
 
   // Clear the ICE directory
   public static void cleanIce(File dir) {
-    for( File f : dir.listFiles() )
+    for( File f : dir.listFiles() ) {
       if( f.isDirectory() ) cleanIce(f); 
-      else f.delete();
+      f.delete();
+    }
   }
 
   // Initializes Key/Value pairs for files on the local disk.

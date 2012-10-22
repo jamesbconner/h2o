@@ -5,9 +5,6 @@ import java.util.Iterator;
 
 import water.*;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Strings;
-
 public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>, Iterator<SeparatedValueParser.Row> {
   private final Key _key;
   private final long _startChunk;
@@ -32,7 +29,7 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
     _separator      = seperator;
 
     _key = k;
-    _curVal = UKV.get(k);
+    _curVal = DKV.get(k);
     assert _curVal != null;
 
     if( _key._kb[0] == Key.ARRAYLET_CHUNK ) {
@@ -150,9 +147,8 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
         double v = _sloppy_decimal.doubleValue();
         _row._fieldVals[field] = Double.isNaN(v) ? _decimal.doubleValue() : v;
         _row._fieldStringVals[field] = null;
-        if (Double.isNaN(_row._fieldVals[field])) { // it is not a number => it can be a text field
-          _row._fieldStringVals[field] = Strings.emptyToNull(_textual.stringValue());
-        }
+        if( Double.isNaN(_row._fieldVals[field]) ) // it is not a number => it can be a text field
+          _row._fieldStringVals[field] = _textual.stringValue();
       } else {
         b = scanPastNextSeparator();
       }
@@ -168,10 +164,8 @@ public class SeparatedValueParser implements Iterable<SeparatedValueParser.Row>,
   }
 
   public String toString() {
-    return Objects.toStringHelper(this)
-        .add("curChunk", _curChunk)
-        .add("_offset", _offset) + "\n" +
-        new String(_curData, _offset, Math.min(100, _curData.length - _offset));
+    return String.format("curChunk=%d _offset=%d\n%s",_curChunk,_offset,
+                         new String(_curData, _offset, Math.min(100, _curData.length - _offset)));
   }
 
 

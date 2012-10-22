@@ -1,5 +1,6 @@
 import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
 import requests, psutil, argparse, sys, unittest
+import glob
 
 def __drain(src, dst):
     for l in src:
@@ -48,16 +49,19 @@ def parse_our_args():
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     sys.argv[1:] = args.unittest_args
 
-def verboseprint(*args):
+def verboseprint(*args, **kwargs):
     if verbose:
-        for arg in args: # so you don't have to create a single string
-            print arg,
+        for x in args: # so you don't have to create a single string
+            print x,
+        for x in kwargs: # so you don't have to create a single string
+            print x,
         print
-    # so we can see problems when hung?
-    sys.stdout.flush()
+        # so we can see problems when hung?
+        sys.stdout.flush()
 
 def find_dataset(f):
     (head, tail) = os.path.split(os.path.abspath('datasets'))
+    verboseprint("find_dataset looking upwards from", head, "for", tail)
     while not os.path.exists(os.path.join(head, tail)):
         head = os.path.split(head)[0]
     return os.path.join(head, tail, f)
@@ -85,6 +89,17 @@ def clean_sandbox():
         # This seems reliable on windows+cygwin
         os.system("rm -rf "+LOG_DIR)
     os.mkdir(LOG_DIR)
+
+def clean_sandbox_stdout_stderr():
+    if os.path.exists(LOG_DIR):
+        files = []
+        # glob.glob returns an iterator
+        for f in glob.glob(LOG_DIR + '/*stdout*'):
+            verboseprint("cleaning", f)
+            os.remove(f)
+        for f in glob.glob(LOG_DIR + '/*stderr*'):
+            verboseprint("cleaning", f)
+            os.remove(f)
 
 def tmp_file(prefix='', suffix=''):
     return tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=LOG_DIR)
@@ -162,11 +177,35 @@ def spawn_cmd_and_wait(name, args, timeout=None):
 # this can be used for a local IP address, just done thru ssh 
 # node_count is per host if hosts is specified.
 # If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
+global nodes
 nodes = []
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
-def build_cloud(node_count=2, base_port=54321, ports_per_node=3, hosts=None, 
-    timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
 
+# this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
+# if any. (in build_cloud)
+global use_hdfs
+use_hdfs = False
+
+global hdfs_name_node
+hdfs_name_node = "192.168.1.151"
+
+def build_cloud(node_count=2, base_port=54321, hosts=None, 
+        timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
+    global nodes, use_hdfs, hdfs_name_node
+
+    # set the hdfs info that tests will use from kwargs
+    # the philosopy is that kwargs holds stuff that's used for node level building.
+    if "use_hdfs" in kwargs:
+        use_hdfs = kwargs["use_hdfs"]
+        verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
+
+
+    if "hdfs_name_node" in kwargs:
+        hdfs_name_node = kwargs["hdfs_name_node"]
+        verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
+
+    # hardwire this. don't need it to be an arg
+    ports_per_node = 3
     node_list = []
     try:
 
@@ -272,6 +311,18 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
         cloud_size = c['cloud_size']
         consensus = c['consensus']
 
+        if (cloud_size > node_count):
+            emsg = (
+                "\n\nERROR: cloud_size: %d reported via json is bigger than we expect: %d" % (cloud_size, node_count) +
+                "\nYou likely have zombie(s) with the same cloud name on the network, that's forming up with you." +
+                "\nLook at the cloud IP's in 'grep Paxos sandbox/*stdout*' for some IP's you didn't expect." +
+                "\n\nYou probably don't have to do anything, as the cloud shutdown in this test should"  +
+                "\nhave sent a Shutdown.json to all in that cloud (you'll see a kill -2 in the *stdout*)." +
+                "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's." +
+                "\nIf you think you really have an intermittent cloud build, report it."
+                )
+            raise Exception(emsg)
+
         a = (cloud_size==node_count and consensus)
         ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
         return(a)
@@ -291,6 +342,7 @@ class H2O(object):
         # json name used in import
         rjson = r.json
         if 'error' in rjson:
+            print rjson
             raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         return rjson
 
@@ -332,7 +384,6 @@ class H2O(object):
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
         verboseprint("\nput_file #1 phase response: ", resp1)
-
         resp2 = self.__check_request(
             requests.post(self.__url('Upload.json', port=resp1['port']), 
                 files={"File": open(f, 'rb')}
@@ -369,7 +420,8 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, modelKey="pymodel",clazz=None):
+    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, 
+        modelKey="pymodel",clazz=None):
         # modelkey is ____model by default
         # can get error result too?
         
@@ -396,12 +448,12 @@ class H2O(object):
         verboseprint("\nrandom_forest result:", a)
         return a
 
-    # per Jan: if treesKey is empty, you are trying to use a previously constructed model on a new dataset
-    # if treesKey has a value, you are building a forest and the modelKey is the current, partial, forest.
-    # if treesKey: update the model (as required) until all ntree have appeared based on the available trees.  
+    # per Jan: if treesKey is empty, you are trying to use a prio model on a new dataset
+    # if treesKey has a value, you are building a forest and modelKey is the current, partial, forest.
+    # if treesKey: update the model (as required) until all ntree have appeared.
     # if no treesKey: display the model as-is.
     # TEMPORARY: there is no state in H2O right now for linking RF and RFview ntrees
-    # so I have to send the exact same ntrees I sent during RF
+    # so I have to send the exact same ntree I sent during RF
     # basically, undefined behavior if I send anything other than the same thing, so it's required.
     def random_forest_view(self, dataKeyHref, modelKeyHref, treesKeyHref, ntree):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
@@ -514,22 +566,51 @@ class H2O(object):
         #! FIX! is this used for both local and remote? 
         # I guess it doesn't matter if we use flatfile for both now
         args = [ 'java' ]
+
+        # defaults to not specifying
+        if self.java_heap_GB is not None:
+            if (1>self.java_heap_GB>12):
+                raise Exception('java_heap_GB <1 or >12 (GB): %s' % (self.java_heap_GB))
+            args += [ '-Xmx%dG' % self.java_heap_GB ]
+
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
-        # '--flatfile=pytest_flatfile-%s' %getpass.getuser(),
+        # FIX! need to be able to specify name node/path for non-0xdata hdfs
+        # specifying hdfs stuff when not used shouldn't hurt anything
+
         args += [
             "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
-            '--name=pytest-%s' % getpass.getuser(),
+            '--name=pytest-%s' % getpass.getuser()
             ]
+
+        if self.use_hdfs:
+            args += [
+                '-hdfs hdfs://' + self.hdfs_name_node,
+                '-hdfs_version cdh4',
+                '-hdfs-root /datasets'
+            ]
+
+            # we need a global for hdfs_name_node for tests to build up hdfs URIs.
+            # They're all getting the same value
+            # passed down from build_cloud_with_hosts. so use that one? or if a LocalH2O 
+            # test uses just build_cloud directly. So do it up in build_cloud to handle both.
+
+        if self.use_flatfile:
+            args += [
+                '--flatfile=pytest_flatfile-%s' %getpass.getuser()
+            ]
+
         if not self.sigar:
             args += ['--nosigar']
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None):
+        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
+        java_heap_GB=None):
+
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
 
@@ -538,6 +619,11 @@ class H2O(object):
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output
+        self.use_hdfs = use_hdfs
+        self.hdfs_name_node = hdfs_name_node
+        self.use_flatfile = use_flatfile
+
+        self.java_heap_GB = java_heap_GB
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
@@ -631,6 +717,7 @@ class LocalH2O(H2O):
 
 class RemoteHost(object):
     def upload_file(self, f, progress=None):
+        # FIX! we won't find it here if it's hdfs://192.168.1.151/ file
         f = find_file(f)
         if f not in self.uploaded:
             import md5

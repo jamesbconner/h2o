@@ -245,13 +245,11 @@ public final class ParseDataset {
       }
     }
 
-    public final boolean add(String s) {
-      if (_killed) return false; // this column domain is not live anymore (too many unique values)
-      if (_domainValues.size() == DOMAIN_MAX_VALUES) {
-        kill();
-        return false;
-      }
-      return _domainValues.add(s);
+    public final void add(String s) {
+      if( s == null ) return;   // Silently ignore nulls
+      if (_killed) return; // this column domain is not live anymore (too many unique values)
+      if (_domainValues.size() == DOMAIN_MAX_VALUES) kill();
+      else _domainValues.add(s);
     }
 
     public void write( DataOutputStream dos ) throws IOException {
