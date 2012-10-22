@@ -6,6 +6,7 @@ import water.Log;
 
 public class Hdfs {
   private static final String DEFAULT_HDFS_VERSION = "cdh4";
+  private static final String MAPRFS_HDFS_VERSION = "0.20.2";
 
   public static boolean initialize() {
     assert (H2O.OPT_ARGS.hdfs != null);
@@ -17,6 +18,7 @@ public class Hdfs {
       //             -hdfs-root=root
       //             -hdfs-config=config file
       String version = H2O.OPT_ARGS.hdfs_version==null ? DEFAULT_HDFS_VERSION : H2O.OPT_ARGS.hdfs_version;
+      if (H2O.OPT_ARGS.maprfs!=null) version = MAPRFS_HDFS_VERSION;
       try {
         Boot._init.addInternalJars("hadoop/"+version+"/");
       } catch(Exception e) {
