@@ -91,7 +91,7 @@ public class ValueArray extends Value {
   public long getChunkFileOffset(Key k){
     if(row_size() > 0) {
       long chunkIdx = ValueArray.getChunkIndex(k);
-      long rpc = (1 << 20)/row_size();
+      long rpc = chunk_size()/row_size();
       return  header_size() + chunkIdx * rpc * row_size();
     } else {
       return ValueArray.getOffset(k);
@@ -115,6 +115,15 @@ public class ValueArray extends Value {
     return make_chunkkey(chunk_offset(chunknum));
   }
 
+  public long chunk_size_structured() {
+    if(row_size() > 0) {
+      long rpc = chunk_size()/row_size();
+      System.out.println("ValueArray.chunk_size_structured() = " + rpc*row_size());
+      return rpc*row_size();
+    } else {
+      return chunk_size();
+    }
+  }
   public static long chunk_size() {
     return 1L << LOG_CHK;
   }
