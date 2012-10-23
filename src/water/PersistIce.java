@@ -126,33 +126,6 @@ public abstract class PersistIce {
   }
   private static File encodeKeyToFile(Key k, byte type) {
     StringBuilder sb = new StringBuilder();
-/*    // check if we are system key
-    if (k._kb[0]<32) {
-      sb = new StringBuilder(k._kb.length/2+4);
-      sb.append('%');
-      for( byte b : k._kb ) {
-        int nib0 = ((b>>>4)&15)+'0';
-        if( nib0 > '9' ) nib0 += 'A'-10-'0';
-        int nib1 = ((b>>>0)&15)+'0';
-        if( nib1 > '9' ) nib1 += 'A'-10-'0';
-        sb.append((char)nib0).append((char)nib1);
-      }
-    // or a normal key
-    } else {
-      // Escapes special characters in the given key so that in can be used as a
-      // filename on the disk
-      sb = new StringBuilder(k._kb.length*2);
-      for( byte b : k._kb ) {
-        switch( b ) {
-        case '%':  sb.append("%%"); break;
-        case '.':  sb.append("%d"); break; // dot
-        case '/':  sb.append("%s"); break; // slash
-        case ':':  sb.append("%c"); break; // colon
-        case '\\': sb.append("%b"); break; // backslash
-        default:   sb.append((char)b); break;
-        }
-      }
-    }
     // append the value type and replication factor */
     sb.append(k.toString());
     sb.append('.');
