@@ -174,12 +174,12 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
-# this can be used for a local IP address, just done thru ssh 
-# node_count is per host if hosts is specified.
-# If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
+# used to get a browser pointing to the last RFview
+global json_url_history
+json_url_history = []
+
 global nodes
 nodes = []
-# FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 
 # this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
 # if any. (in build_cloud)
@@ -189,6 +189,8 @@ use_hdfs = False
 global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
+# node_count is per host if hosts is specified.
+# FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
         timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
     global nodes, use_hdfs, hdfs_name_node
@@ -198,7 +200,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
     if "use_hdfs" in kwargs:
         use_hdfs = kwargs["use_hdfs"]
         verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
-
 
     if "hdfs_name_node" in kwargs:
         hdfs_name_node = kwargs["hdfs_name_node"]
@@ -333,13 +334,18 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
 class H2O(object):
     def __url(self, loc, port=None):
         if port is None: port = self.port
-        return 'http://%s:%d/%s' % (self.addr, port, loc)
+        u = 'http://%s:%d/%s' % (self.addr, port, loc)
+        return u 
 
     def __check_request(self, r):
         log('Sent ' + r.url)
         if not r:
             raise Exception('r Error in %s: %s' % (inspect.stack()[1][3], str(r)))
-        # json name used in import
+        # this is used to open a browser on RFview results to see confusion matrix
+        # we don't' have that may urls flying around, so let's keep them all
+        # the browser can walk back until it hits a RFview. I suppose this should be an object.
+        json_url_history.append(r.url)
+
         rjson = r.json
         if 'error' in rjson:
             print rjson
@@ -404,9 +410,23 @@ class H2O(object):
         verboseprint("\nget_file result:", dump_json(a))
         return a
 
+    # FIX! TEMP: right now H2O does blocking response ..i.e. we get nothing until 
+    # the parse is done. Parse can take a long time. Should be intermediate views of something?
+    # if we timeout repeatedly, we can exceed the default retry count in the requests library
+    # set retries and timeout specifically here, so we can learn more about this
+    # timeout has to be big to cover longest expected parse? timeout is float. secs?
+    # looks like max_retries is part of configuration defaults
+    # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
     def parse(self, key):
-        a = self.__check_request(requests.get(self.__url('Parse.json'),
-            params={"Key": key}))
+        # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
+        # requests.defaults({max_retries : 4})
+        # https://github.com/kennethreitz/requests/issues/719
+        # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
+        a = self.__check_request(requests.get(
+                url=self.__url('Parse.json'),
+                timeout=30.0,
+                params={"Key": key}
+                ))
         verboseprint("\nparse result:",dump_json(a))
         return a
 
