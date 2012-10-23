@@ -289,7 +289,6 @@ public final class H2O {
     public String nosigar;            // Disable Sigar-based statistics
     public String keepice;            // Do not delete ice on startup
     public String auth;               // Require authentication for the webpages
-    public String maprfs;             // Enable MapR-FS support
   }
   public static boolean IS_SYSTEM_RUNNING = false;
 
