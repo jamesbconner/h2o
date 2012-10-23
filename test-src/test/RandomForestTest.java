@@ -40,14 +40,14 @@ public class RandomForestTest {
     try {
       // RF Page is driven by a Properties
       Properties p = new Properties();
-      p.setProperty("Key",H2OPage.encode(okey));
+      p.setProperty("Key",okey.toString());
       p.setProperty("ntree",Integer.toString(NTREE));
       RandomForestPage RFP = new RandomForestPage();
 
       // Start RFPage, get a JSON result.
       JsonObject res = RFP.serverJson(null,p,null);
       // From the JSON, get treesKey & ntree to be built
-      Key treesKey = H2OPage.decode(res.get("treesKeyHref").getAsString());
+      Key treesKey = Key.make(res.get("treesKeyHref").getAsString());
       int ntree = res.get("ntree").getAsInt();
       assertEquals(ntree,NTREE);
       // Wait for the trees to be built.  This should be a blocking call someday.
@@ -61,7 +61,7 @@ public class RandomForestTest {
         try { Thread.sleep(100); } catch( InterruptedException ie ) { }
       }
       // Peel out the modelKey.
-      Key modelKey = H2OPage.decode(res.get("modelKeyHref").getAsString());
+      Key modelKey = Key.make(res.get("modelKeyHref").getAsString());
       Value modelVal = UKV.get(modelKey);
       Model model = new Model();
       model.read(new Stream(modelVal.get()));
@@ -69,9 +69,9 @@ public class RandomForestTest {
       assertEquals(CLASSES,model._classes);
 
       // Now build the properties for a RFView page.
-      p.setProperty("dataKey",H2OPage.encode(okey));
-      p.setProperty("modelKey",H2OPage.encode(modelKey));
-      p.setProperty("treesKey",H2OPage.encode(treesKey));
+      p.setProperty("dataKey",okey.toString());
+      p.setProperty("modelKey",modelKey.toString());
+      p.setProperty("treesKey",treesKey.toString());
       p.setProperty("ntree",Integer.toString(ntree));
 
       // Spin until all trees are built
@@ -82,14 +82,14 @@ public class RandomForestTest {
         String res2 = rfv.serveImpl(null,p,null);
 
         // Verify Goodness and Light
-        Key oKey2 = H2OPage.decode(rfv_res.get("dataKeyHref").getAsString());
+        Key oKey2 = Key.make(rfv_res.get("dataKeyHref").getAsString());
         assertEquals(okey,oKey2);
-        Key mkey2 = H2OPage.decode(rfv_res.get("modelKeyHref").getAsString());
+        Key mkey2 = Key.make(rfv_res.get("modelKeyHref").getAsString());
         assertEquals(modelKey,mkey2);
         modelVal = UKV.get(modelKey);
         model = new Model();
         model.read(new Stream(modelVal.get()));
-        confKey = H2OPage.decode(rfv_res.get("confusionKeyHref").getAsString());
+        confKey = Key.make(rfv_res.get("confusionKeyHref").getAsString());
         if( model.size() >= NTREE ) break;
         UKV.remove(confKey);    // Premature incremental Confusion; nuke it
         try { Thread.sleep(100); } catch( InterruptedException ie ) { }

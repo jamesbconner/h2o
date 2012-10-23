@@ -87,51 +87,9 @@ public abstract class H2OPage extends Page {
     return notice.toString();
   }
 
-  private static final char[] HEX = "0123456789abcdef".toCharArray();
-
-  public static String encode(Key k) {
-    byte[] what = k._kb;
-    int len = what.length;
-    while( --len >= 0 ) {
-      char a = (char) what[len];
-      if( a == '-' ) continue;
-      if( a == '.' ) continue;
-      if( 'a' <= a && a <= 'z' ) continue;
-      if( 'A' <= a && a <= 'Z' ) continue;
-      if( '0' <= a && a <= '9' ) continue;
-      break;
-    }
-    StringBuilder sb = new StringBuilder();
-    for( int i = 0; i <= len; ++i ) {
-      byte a = what[i];
-      sb.append(HEX[(a >> 4) & 0x0F]);
-      sb.append(HEX[(a >> 0) & 0x0F]);
-    }
-    sb.append("____");
-    for( int i = len + 1; i < what.length; ++i ) sb.append((char)what[i]);
-    return sb.toString();
-  }
-
-  public static Key decode(String what) {
-    if( what==null ) return null;
-    int len = what.indexOf("____");
-    String tail = what.substring(len + 4);
-    int r = 0;
-    byte[] res = new byte[len/2 + tail.length()];
-    for( int i = 0; i < len; i+=2 ) {
-      char h = what.charAt(i);
-      char l = what.charAt(i+1);
-      h -= Character.isDigit(h) ? '0' : ('a' - 10);
-      l -= Character.isDigit(l) ? '0' : ('a' - 10);
-      res[r++] = (byte)(h << 4 | l);
-    }
-    System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
-    return Key.make(res);
-  }
-
   public static void addProperty(JsonObject json, String k, Key key) {
     json.addProperty(k, key.toString());
-    json.addProperty(k + "Href", encode(key));
+    json.addProperty(k + "Href", key.toString());
   }
 
   public static String wrap(String what) {

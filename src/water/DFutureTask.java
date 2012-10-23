@@ -1,5 +1,4 @@
 package water;
-import com.google.common.io.Closeables;
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.Socket;
@@ -220,7 +219,6 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
 
   // ---
   // TCP large K/V send from the remote to the target.
-
   static boolean tcp_send( H2ONode h2o, UDP.udp udp_type, int tasknum, Object... args ) {
     TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
     Socket sock = null;

@@ -231,10 +231,6 @@ public class Inspect extends H2OPage {
     for( int i=0; i<num_col; i++ )
       sb.append("<td>").append(format(ary.col_sigma(i))).append("</td>");
     response.replace("sigma_row",sb);
-    sb = new StringBuilder();
-    for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(format(ary.col_var(i))).append("</td>");
-    response.replace("var_row",sb);
     // Compression/math function: Ax+B
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ ) {
@@ -358,7 +354,6 @@ public class Inspect extends H2OPage {
     + "  <tr><td>Min/Max</td>%min_max_row</tr>\n"
     + "  <tr><td>&mu;</td>%mean_row</tr>\n"
     + "  <tr><td>&sigma;</td>%sigma_row</tr>\n"
-    + "  <tr><td>Var</td>%var_row</tr>\n"
     + "%tableRow{\n"
     + "  <tr>%data_row</tr>\n"
     + "}\n"

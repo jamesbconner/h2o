@@ -1,13 +1,15 @@
-
 import getpass, json, h2o
 # UPDATE: all multi-machine testing will pass list of IP and base port addresses to H2O
 # means we won't realy on h2o self-discovery of cluster
 
-def build_cloud_with_hosts(**kwargs):
+# None means the json will specify, or the default for json below
+# only these two args override for now. can add more.
+def build_cloud_with_hosts(node_count=None, use_flatfile=False, 
+    use_hdfs=False, hdfs_name_node="192.168.1.151", **kwargs):
+
     # For seeing example of what we want in the json, if we add things
     #   import h2o_config
 
-    # loading json for config
     configFilename = './pytest_config-%s.json' %getpass.getuser()
     h2o.verboseprint("Loading host config from", configFilename)
     with open(configFilename, 'rb') as fp:
@@ -22,9 +24,35 @@ def build_cloud_with_hosts(**kwargs):
     password = hostDict.setdefault('password', None)
     sigar = hostDict.setdefault('sigar', False)
 
-    h2o.verboseprint("host config: ", username, password, h2oPerHost, basePort, sigar, hostList)
+    useFlatfile = hostDict.setdefault('use_flatfile', False)
 
-    #*************************************
+    useHdfs = hostDict.setdefault('use_hdfs', False)
+    hdfs_name_node = hostDict.setdefault('hdfs_name_node', '192.168.1.151')
+
+    # default to none, which means the arg isn't used and java decides for us
+    # useful for small dram systems, and for testing that
+    java_heap_GB = hostDict.setdefault('java_heap_GB', None)
+
+    # can override the json with a caller's argument
+    # FIX! and we support passing othe kwargs from above? but they don't override
+    # json, ...so have to fix here if that's desired
+    if node_count is not None:
+        h2oPerHost = node_count
+
+    if use_flatfile is not None:
+        useFlatfile = use_flatfile
+
+    if use_hdfs is not None:
+        useHdfs = use_hdfs
+
+    if hdfs_name_node is not None:
+        hdfsNameNode = hdfs_name_node
+
+    h2o.verboseprint("host config: ", username, password, 
+        h2oPerHost, basePort, sigar, useFlatfile, 
+        useHdfs, hdfsNameNode, hostList, **kwargs)
+
+    #********************
     global hosts
     h2o.verboseprint("About to RemoteHost, likely bad ip if hangs")
     hosts = []
@@ -37,5 +65,10 @@ def build_cloud_with_hosts(**kwargs):
     # timeout wants to be larger for large numbers of hosts * h2oPerHost
     # use 60 sec min, 2 sec per node.
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
-    h2o.build_cloud(h2oPerHost,base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,
-        sigar=sigar, **kwargs)
+
+    h2o.build_cloud(h2oPerHost,
+            base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,sigar=sigar, 
+            use_flatfile=useFlatfile,
+            use_hdfs=useHdfs,hdfs_name_node=hdfsNameNode,
+            java_heap_GB=java_heap_GB,
+            **kwargs)

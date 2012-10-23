@@ -59,7 +59,7 @@ public abstract class PersistHdfs {
     if( _fs != null && _root != null ) loadPersistentKeysFromFolder(_root, "");
   }
 
-  
+
   public static Value readValueFromFile(Path p, String prefix) throws IOException {
     Key k = decodeFile(p, prefix);
     if( k == null )
@@ -83,7 +83,7 @@ public abstract class PersistHdfs {
           ? new Value((int)size,0,k,Value.HDFS)
           : new ValueArray(k,size,Value.HDFS);
        val.setdsk();
-    }    
+    }
     H2O.putIfAbsent_raw(k, val);
     return val;
   }
@@ -116,7 +116,7 @@ public abstract class PersistHdfs {
   // 512 bytes.
   static private final String KEY_PREFIX="hdfs:/";
   static private final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
-  
+
   public static String path2KeyStr(Path p){
     if(p.depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR;
     if(p.getParent().depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR + p.getName();
@@ -155,8 +155,8 @@ public abstract class PersistHdfs {
         if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
           Key hk = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
           p = getPathForKey(hk);
-          ValueArray ary = (ValueArray)DKV.get(hk);          
-          off = ary.getChunkFileOffset(k);                              
+          ValueArray ary = (ValueArray)DKV.get(hk);
+          off = ary.getChunkFileOffset(k);
         } else
           p = getPathForKey(k);
         s = _fs.open(p);
@@ -173,16 +173,16 @@ public abstract class PersistHdfs {
       return null;
     }
   }
-  
+
 
   static void createFile(Value v, String path) throws IOException{
     Path p = new Path(_root, path);
-    FSDataOutputStream s;     
+    FSDataOutputStream s;
     _fs.mkdirs(p.getParent());
     s = _fs.create(p);
     try {
       if((v instanceof ValueArray) && path.endsWith(".hex")){
-        byte [] mem  = v.get();        
+        byte [] mem  = v.get();
         int padding = pad8(mem.length + 2) - mem.length - 2;
         // write lenght of the header in bytes
         s.writeShort((short)(mem.length+padding));
@@ -190,29 +190,29 @@ public abstract class PersistHdfs {
         s.write(mem);
         // pad the lenght to multiple of 8
         for(int i = 0; i < padding; ++i)s.writeByte(0);
-      } 
+      }
     }finally{
       s.close();
-    }      
+    }
   }
 //for moving ValueArrays to HDFS
  static void storeChunk(Value v, String path) throws IOException {
      Path p = new Path(_root, path);
-     FSDataOutputStream s = _fs.append(p);          
+     FSDataOutputStream s = _fs.append(p);
      try {
        // we're moving file to hdfs, possibly from other source, make sure it
        // is loaded first
        byte[] m = v.get();
-       if( m != null ) s.write(m);    
+       if( m != null ) s.write(m);
      } finally {
        s.close();
-     }   
+     }
  }
 
  static void addNewVal2KVStore(String path){
    Path p = new Path(_root,path);
    try{
-     readValueFromFile(p,path2KeyStr(p.getParent()));     
+     readValueFromFile(p,path2KeyStr(p.getParent()));
    }catch(IOException e){throw new Error(e);}
  }
 
@@ -226,7 +226,7 @@ public abstract class PersistHdfs {
     assert !(v instanceof ValueArray);
     // individual arraylet chunks can not be on hdfs
     // (hdfs files can not be written to at specified offset)
-    assert v._key._kb[0] != Key.ARRAYLET_CHUNK; 
+    assert v._key._kb[0] != Key.ARRAYLET_CHUNK;
 
     try {
       Path p = getPathForKey(v._key);
@@ -242,6 +242,7 @@ public abstract class PersistHdfs {
         s.close();
       }
     } catch( IOException e ) {
+      e.printStackTrace();
     }
   }
 
@@ -260,21 +261,25 @@ public abstract class PersistHdfs {
 
   public static Value lazy_array_chunk( Key key ) {
     assert key._kb[0] == Key.ARRAYLET_CHUNK;
+    System.out.println("PersistHdfs.lazy_array_chunk()");
     try {
       Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
       ValueArray ary = (ValueArray)DKV.get(arykey);
-      long off = ary.getChunkFileOffset(key); // The offset
+      long off = ary.getChunkFileOffset(key);
       Path p = getPathForKey(arykey);
       long size = _fs.getFileStatus(p).getLen();
       long rem = size-off;
-      int sz = (ValueArray.chunks(rem) > 1) ? (int)ValueArray.chunk_size() : (int)rem;
+      // We have to get real size of chunk
+      int sz = (ValueArray.chunks(rem) > 1) ? (int)ary.chunk_size_structured() : (int)rem;
 
-      // the last chunk can be fat, so it got packed into the earlier chunk
-      if( rem < ValueArray.chunk_size() && off > 0 ) return null;
+      // The last chunk can be fat, so it got packed into the earlier chunk, but ONLY if there is more than one chunk
+      if( rem < ary.chunk_size_structured() && off > 0 && ary.chunks() > 1) return null;
+
       Value val = new Value(sz,0,key,Value.HDFS);
       val.setdsk();               // But its already on disk.
       return val;
     } catch( IOException e ) {  // Broken disk / short-file???
+      System.out.println("[hdfs] PersistHdfs.lazy_array_chunk() - returning null, because cannot load chunk lazily due to:" + e.getMessage());
       return null;
     }
   }

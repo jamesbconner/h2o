@@ -135,11 +135,11 @@ public class ParseState implements Cloneable {
     ++_num_rows;
     for( int i = 0; i < row._fieldVals.length; ++i ) {
       double d = row._fieldVals[i];
-      if(Double.isNaN(d)) { // Broken data on row
+      if( Double.isNaN(d) ) {   // Broken data on row
         _cols_domains[i].add(row._fieldStringVals[i]);
-        _cols[i]._size |=32;  // Flag as seen broken data
+        _cols[i]._size |=32;    // Flag as seen broken data
         _cols[i]._badat = (char)Math.min(_cols[i]._badat+1,65535);
-        continue;             // But do not muck up column stats
+        continue;               // But do not muck up column stats
       }
       ++_cols[i]._n;
       // The column contains a number => mark column domain as dead.
@@ -290,8 +290,11 @@ public class ParseState implements Cloneable {
       ParseDataset.ColumnDomain colDom   = _cols_domains[i];
       ValueArray.Column col = _cols[i];
       col._domain = colDom;
+      // If we have column names, and the column name does not otherwise exist
+      // in the column we can remove it from the domain.  BUT if the column
+      // name appears in the column as a normal text string - we still need it.
       // Column domain contains column name => exclude column name from domain.
-      colDom._domainValues.remove(col._name);
+      //colDom._domainValues.remove(col._name);
 
       // The column's domain contains too many unique strings => drop the
       // domain. Column is already marked as erroneous.

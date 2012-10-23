@@ -33,7 +33,7 @@ public class RFView extends H2OPage {
     String skey = p.getProperty("treesKey");
     Key treeskey = null;
     try {
-      treeskey = H2OPage.decode(skey);
+      treeskey = Key.make(skey);
     } catch( IllegalArgumentException e ) {
       throw new PageError("Not a valid key: "+ skey);
     }

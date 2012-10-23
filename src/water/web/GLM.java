@@ -105,7 +105,7 @@ public class GLM extends H2OPage {
 
       String method = p.getProperty("family", "gaussian").toLowerCase();
       res.addProperty("key", ary._key.toString());
-      res.addProperty("keyHref", "/Inspect?Key=" + H2OPage.encode(ary._key));
+      res.addProperty("keyHref", "/Inspect?Key=" + ary._key.toString());
       res.addProperty("h2o", H2O.SELF.urlEncode());
       long t1 = System.currentTimeMillis();
       if( method.equals("gaussian") ) res.addProperty("name","Linear regression");

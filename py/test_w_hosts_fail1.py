@@ -67,7 +67,6 @@ class Basic(unittest.TestCase):
         # Let's try it twice!
         for trials in xrange(1,7):
             # prime
-            trees = 4057
             trees = 6
 
             for x in xrange (161,240,20):
@@ -94,9 +93,6 @@ class Basic(unittest.TestCase):
                 # partial clean, so we can look at tree builds from this run if hang
                 h2o.clean_sandbox_stdout_stderr()
                 
-                # UPDATE: check if not incrementing the tree count changes things
-                # trees += 10
-
 if __name__ == '__main__':
     h2o.unit_main()
 

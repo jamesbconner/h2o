@@ -17,11 +17,19 @@ public class Cloud extends H2OPage {
   public JsonObject serverJson(Server server, Properties parms, String sessionID) {
     JsonObject res = new JsonObject();
     final H2O cloud = H2O.CLOUD;
+    final H2ONode self = H2O.SELF;
     res.addProperty("cloud_name", H2O.NAME);
-    res.addProperty("node_name", H2O.SELF.toString());
+    res.addProperty("node_name", self.toString());
     res.addProperty("cloud_size",cloud._memary.length);
     res.addProperty("consensus",Paxos._commonKnowledge); // Cloud is globally accepted
     res.addProperty("locked",Paxos._cloud_locked); // Cloud is locked against changes
+
+    res.addProperty("fjthrds_hi",self.get_fjthrds_hi());
+    res.addProperty("fjqueue_hi",self.get_fjqueue_hi());
+    res.addProperty("fjthrds_lo",self.get_fjthrds_lo());
+    res.addProperty("fjqueue_lo",self.get_fjqueue_lo());
+    res.addProperty("rpcs"      ,self.get_rpcs()      );
+
     return res;
   }
 
