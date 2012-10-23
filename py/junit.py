@@ -24,7 +24,8 @@ class JUnit(unittest.TestCase):
                     'test.DatasetCornerCasesTest',
                     'test.AppendKeyTest',
                     'test.RandomForestTest',
-                    'test.ExprTest'
+                    'test.ExprTest',
+                    'test.KeyToString'
                     ])
 
             rc = ps.wait(None)

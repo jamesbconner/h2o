@@ -288,8 +288,8 @@ public final class Key implements Comparable {
     if( what==null ) return null;
     if (what.charAt(0) == MAGIC_CHAR) {
       int len = what.indexOf(MAGIC_CHAR,1);
-      String tail = what.substring(len);
-      byte[] res = new byte[len-2/2 + tail.length()];
+      String tail = what.substring(len+1);
+      byte[] res = new byte[(len-1)/2 + tail.length()];
       int r = 0;
       for( int i = 1; i < len; i+=2 ) {
         char h = what.charAt(i);
