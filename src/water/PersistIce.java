@@ -125,7 +125,7 @@ public abstract class PersistIce {
     return encodeKeyToFile(v._key,v.type());
   }
   private static File encodeKeyToFile(Key k, byte type) {
-    StringBuilder sb = null;
+    StringBuilder sb = new StringBuilder();
 /*    // check if we are system key
     if (k._kb[0]<32) {
       sb = new StringBuilder(k._kb.length/2+4);
