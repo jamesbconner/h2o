@@ -7,11 +7,15 @@ def hdfsFileToPut():
     # hmm. we want different name nodes
     # I suppose can make hdfs_name_node a global, and assemble
     # the right name?. it gets set by h2o.build_cloud()
-    a = 'hdfs://' + h2o.hdfs_name_node + '/datasets/covtype.data'
+    a = 'hdfs://' + h2o.hdfs_name_node + '/user/0xdiag/hhp.cut3.214.0_1.data'
     h2o.verboseprint("hdfs URI in hdfsFileToPut:", a)
     return a
 
-# choices:
+# 192.168.0.33
+# -rw-r--r--   3 0xdiag supergroup   56697186 2012-10-22 22:28 hdfs://192.168.0.33/user/0xdiag/hhp.cut3.214.0_1.data
+
+
+# 192.168.1.151
 # -rw-r--r--   3 hduser supergroup    41169365 2012-09-14 12:48 /datasets/hhp_9_14_12.data
 # -rw-r--r--   3 hduser supergroup    48381802 2012-09-04 13:08 /datasets/hhp2.os.noisy.0_1.data
 # -rw-r--r--   3 hduser supergroup    48397103 2012-09-04 13:08 /datasets/hhp2.os.noisy.9_4.data

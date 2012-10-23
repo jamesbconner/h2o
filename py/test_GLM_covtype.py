@@ -1,15 +1,16 @@
 import os, json, unittest, time, shutil, sys
 import h2o, h2o_cmd as cmd
 
+
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        node_count = 1
+        node_count = 4
         h2o.build_cloud(node_count)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud()
+        h2o.tear_down_cloud(h2o.nodes)
 
     def test_A_Basic(self):
         for n in h2o.nodes:
@@ -19,40 +20,30 @@ class Basic(unittest.TestCase):
     def test_C_hhp_107_01(self):
         timeoutSecs = 2
         
-        csvFilename = "hhp_107_01.data.gz"
+        csvFilename = "covtype.data"
         csvPathname = "../smalldata" + '/' + csvFilename
         print "\n" + csvPathname
 
-        Y = "106"
+        # columns start at 0
+        Y = "54"
         X = ""
         put = h2o.nodes[0].put_file(csvPathname)
         parseKey = h2o.nodes[0].parse(put['keyHref'])
 
-        for appendX in xrange(107):
-            if (appendX == 9):
-                print "\n9 causes singularity. not used"
-            elif (appendX == 12): 
-                print "\n12 causes singularity. not used"
-            elif (appendX == 25): 
-                print "\n25 causes singularity. not used"
-            elif (appendX == 53): 
-                print "\n53 causes singularity. not used"
-            elif (appendX == 54): 
-                print "\n54 causes singularity. not used"
-            elif (appendX == 76): 
-                print "\n76 causes singularity. not used"
-            elif (appendX == 91): 
-                print "\n91 causes singularity. not used"
-            elif (appendX == 103): 
-                print "\n103 causes singularity. not used"
-            elif (appendX == 106):
-                print "\n106 is output."
-            else:
+        for appendX in xrange(55):
+            # if (appendX == 9):
+            # elif (appendX == 12): 
+            # else:
+            # all cols seem good so far (up to 32 tested..then a different DKV fail.
+            if (1==1):
                 if X == "": 
                     X = str(appendX)
                 else:
                     X = X + "," + str(appendX)
 
+            # only run if appendX is > 29, to save time
+            # we need to cycle up to there though, to get the parameters right for GLM json
+            if (appendX>29):
                 sys.stdout.write('.')
                 sys.stdout.flush() 
                 print "\nX:", X
@@ -70,6 +61,7 @@ class Basic(unittest.TestCase):
                 print "falsePositive:", glm['falsePositive']
                 print "coefficients:", glm['coefficients']
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
+
 
 
 if __name__ == '__main__':

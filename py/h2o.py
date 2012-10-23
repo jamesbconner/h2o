@@ -607,10 +607,11 @@ class H2O(object):
             ]
 
         if self.use_hdfs:
+            #    '-hdfs-root /datasets'
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
                 '-hdfs_version cdh4',
-                '-hdfs-root /datasets'
+                '-hdfs-root /'
             ]
 
             # we need a global for hdfs_name_node for tests to build up hdfs URIs.
