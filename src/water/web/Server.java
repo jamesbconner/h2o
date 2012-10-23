@@ -69,6 +69,8 @@ public class Server extends NanoHTTPD {
     _pages.put("loginQuery", new LoginQuery());
     _pages.put("login", new Login());
     _pages.put("logoff", new Logoff());
+    _pages.put("nop", new NOP());
+    _pages.put("NOP", new NOP());
   }
 
 
