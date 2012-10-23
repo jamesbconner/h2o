@@ -48,16 +48,6 @@
 ;; Finally drag in all of JDEE
 (require 'jde)
 
-;; JDibug debugger
-(add-to-list 'load-path (expand-file-name "~/Desktop/Dropbox/Programs/Emacs/jdibug-0.5"))
-(require 'jdibug)
-(define-key jde-mode-map [f8]   'jdibug-step-over)
-(define-key jde-mode-map [M-f8] 'jdibug-step-into)
-(define-key jde-mode-map [f7]   'jdibug-step-out)
-(define-key jde-mode-map [M-f7] 'jdibug-resume)
-(define-key jde-mode-map [f5]   'jdibug-debug-view)
-(define-key jde-mode-map [M-f5] 'jdibug-undebug-view)
-
 ;; BASH
 (setq binary-process-input t)
 (setq w32-quote-process-args ?\")
@@ -65,6 +55,7 @@
 (setenv "SHELL" shell-file-name)
 (setq explicit-shell-file-name shell-file-name)
 (setq explicit-sh-args '("-login" "-i"))
+(setenv '"PS1" '"[\w] ")
 
 (custom-set-variables
   ;; custom-set-variables was added by Custom.

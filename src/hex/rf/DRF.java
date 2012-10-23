@@ -31,10 +31,9 @@ public class DRF extends water.DRemoteTask {
 
   private void validateInputData(ValueArray ary){
     final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
-    // There is no point in running Rf when all the training data have the same
-    // class, however it is currently failing the test/build
-    if( !(2 <= classes && classes < 255 ) )
-      throw new IllegalDataException("Number of classes must be between 2 and 254, found " + classes);
+    // There is no point in running Rf when all the training data have the same class
+    if( !(2 <= classes && classes <= 65534 ) )
+      throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
   public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol, int[] ignores) {
@@ -63,7 +62,7 @@ public class DRF extends water.DRemoteTask {
     ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
     final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
-    assert 0 <= classes && classes < 255;
+    assert 0 <= classes && classes < 65535;
     String[] names = ary.col_names();
 
     // One pass over all chunks to compute max rows

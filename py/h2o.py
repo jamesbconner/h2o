@@ -174,12 +174,12 @@ def spawn_cmd_and_wait(name, args, timeout=None):
     elif rc != 0:
         raise Exception("%s %s failed.\nstdout:\n%s\n\nstderr:\n%s" % (name, args, out, err))
 
-# this can be used for a local IP address, just done thru ssh 
-# node_count is per host if hosts is specified.
-# If used for remote cloud, make base_port something else, to avoid conflict with Sri's cloud
+# used to get a browser pointing to the last RFview
+global json_url_history
+json_url_history = []
+
 global nodes
 nodes = []
-# FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 
 # this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
 # if any. (in build_cloud)
@@ -189,6 +189,8 @@ use_hdfs = False
 global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
+# node_count is per host if hosts is specified.
+# FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
         timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
     global nodes, use_hdfs, hdfs_name_node
@@ -198,7 +200,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
     if "use_hdfs" in kwargs:
         use_hdfs = kwargs["use_hdfs"]
         verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
-
 
     if "hdfs_name_node" in kwargs:
         hdfs_name_node = kwargs["hdfs_name_node"]
@@ -311,6 +312,18 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
         cloud_size = c['cloud_size']
         consensus = c['consensus']
 
+        if (cloud_size > node_count):
+            emsg = (
+                "\n\nERROR: cloud_size: %d reported via json is bigger than we expect: %d" % (cloud_size, node_count) +
+                "\nYou likely have zombie(s) with the same cloud name on the network, that's forming up with you." +
+                "\nLook at the cloud IP's in 'grep Paxos sandbox/*stdout*' for some IP's you didn't expect." +
+                "\n\nYou probably don't have to do anything, as the cloud shutdown in this test should"  +
+                "\nhave sent a Shutdown.json to all in that cloud (you'll see a kill -2 in the *stdout*)." +
+                "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's." +
+                "\nIf you think you really have an intermittent cloud build, report it."
+                )
+            raise Exception(emsg)
+
         a = (cloud_size==node_count and consensus)
         ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
         return(a)
@@ -321,13 +334,18 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
 class H2O(object):
     def __url(self, loc, port=None):
         if port is None: port = self.port
-        return 'http://%s:%d/%s' % (self.addr, port, loc)
+        u = 'http://%s:%d/%s' % (self.addr, port, loc)
+        return u 
 
     def __check_request(self, r):
         log('Sent ' + r.url)
         if not r:
             raise Exception('r Error in %s: %s' % (inspect.stack()[1][3], str(r)))
-        # json name used in import
+        # this is used to open a browser on RFview results to see confusion matrix
+        # we don't' have that may urls flying around, so let's keep them all
+        # the browser can walk back until it hits a RFview. I suppose this should be an object.
+        json_url_history.append(r.url)
+
         rjson = r.json
         if 'error' in rjson:
             print rjson
@@ -372,7 +390,6 @@ class H2O(object):
                 params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
                 ))
         verboseprint("\nput_file #1 phase response: ", resp1)
-
         resp2 = self.__check_request(
             requests.post(self.__url('Upload.json', port=resp1['port']), 
                 files={"File": open(f, 'rb')}
@@ -393,9 +410,23 @@ class H2O(object):
         verboseprint("\nget_file result:", dump_json(a))
         return a
 
+    # FIX! TEMP: right now H2O does blocking response ..i.e. we get nothing until 
+    # the parse is done. Parse can take a long time. Should be intermediate views of something?
+    # if we timeout repeatedly, we can exceed the default retry count in the requests library
+    # set retries and timeout specifically here, so we can learn more about this
+    # timeout has to be big to cover longest expected parse? timeout is float. secs?
+    # looks like max_retries is part of configuration defaults
+    # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
     def parse(self, key):
-        a = self.__check_request(requests.get(self.__url('Parse.json'),
-            params={"Key": key}))
+        # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
+        # requests.defaults({max_retries : 4})
+        # https://github.com/kennethreitz/requests/issues/719
+        # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
+        a = self.__check_request(requests.get(
+                url=self.__url('Parse.json'),
+                timeout=30.0,
+                params={"Key": key}
+                ))
         verboseprint("\nparse result:",dump_json(a))
         return a
 
@@ -555,6 +586,13 @@ class H2O(object):
         #! FIX! is this used for both local and remote? 
         # I guess it doesn't matter if we use flatfile for both now
         args = [ 'java' ]
+
+        # defaults to not specifying
+        if self.java_heap_GB is not None:
+            if (1>self.java_heap_GB>12):
+                raise Exception('java_heap_GB <1 or >12 (GB): %s' % (self.java_heap_GB))
+            args += [ '-Xmx%dG' % self.java_heap_GB ]
+
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
         # FIX! need to be able to specify name node/path for non-0xdata hdfs
@@ -569,10 +607,11 @@ class H2O(object):
             ]
 
         if self.use_hdfs:
+            #    '-hdfs-root /datasets'
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
                 '-hdfs_version cdh4',
-                '-hdfs-root /datasets'
+                '-hdfs-root /'
             ]
 
             # we need a global for hdfs_name_node for tests to build up hdfs URIs.
@@ -590,7 +629,8 @@ class H2O(object):
         return args
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False):
+        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
+        java_heap_GB=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -603,6 +643,8 @@ class H2O(object):
         self.use_hdfs = use_hdfs
         self.hdfs_name_node = hdfs_name_node
         self.use_flatfile = use_flatfile
+
+        self.java_heap_GB = java_heap_GB
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
