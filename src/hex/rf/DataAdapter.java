@@ -1,5 +1,8 @@
 package hex.rf;
 
+import gnu.trove.map.hash.TFloatIntHashMap;
+import gnu.trove.map.hash.TFloatShortHashMap;
+
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -147,12 +150,15 @@ class DataAdapter  {
         it's one-based (e.g. covtype) or -1/+1 (arcene).   */
     short[] shrink() {
       if (ignore()) return null;
-      HashMap<Float,Short> o2v2 = _isClass ? null : hashCol();
-      if (_isClass) for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
       short[] res = new short[rows()];
-      int min = (int)min_;
-      for(int j=0;j<rows();j++)
-        res[j] = _isClass ? (short)((int)v_[j]-min) :  o2v2.get(v_[j]);
+      if( _isClass ) {
+        for(float v : v_) smax_ = v > smax_ ? (short) v : smax_;
+        int min = (int)min_;
+        for( int j = 0; j < rows(); j++ ) res[j] = (short)((int)v_[j]-min);
+      } else {
+        TFloatShortHashMap o2v2 = hashCol();
+        for( int j = 0; j < rows(); j++ ) res[j] = o2v2.get(v_[j]);
+      }
       v_= null;
       return res;
     }
@@ -160,38 +166,34 @@ class DataAdapter  {
     /** Maximum arity for a column (not a hard limit at this point) */
     static final short BIN_LIMIT = 1024;
 
-    HashMap hashCol() {
+    TFloatShortHashMap hashCol() {
       // Remove duplicate floats
-      HashMap<Float,Integer> res = new HashMap<Float,Integer>(100);
-      for( int i=0; i< rows(); i++ )
-        res.put(v_[i], (res.containsKey(v_[i]) ? res.get(v_[i]) : 0) + 1);
+      TFloatIntHashMap freq = new TFloatIntHashMap(100);
+      for( int i = 0; i < rows(); i++ ) freq.adjustOrPutValue(v_[i], 1, 1);
 
       // Compute bin-size
-      int bin_size = (res.size() > BIN_LIMIT) ? (rows() / BIN_LIMIT) : 1;
+      int bin_size = (freq.size() > BIN_LIMIT) ? (rows() / BIN_LIMIT) : 1;
       if( bin_size > 1 )
-        Utils.pln(this + " this column's arity was cut from "+ res.size()+ " to " + BIN_LIMIT);
+        Utils.pln(this + " this column's arity was cut from "+ freq.size()+ " to " + BIN_LIMIT);
 
-      // Convert Floats to floats and sort
-      Float[] fks = res.keySet().toArray(new Float[0]);
-      float[] ks = new float[fks.length];
-      for( int idx=0; idx<fks.length; idx++ )  ks[idx] = fks[idx];
+      float[] ks = freq.keys();
       Arrays.sort(ks);
 
       // Assign shorts to floats, with binning.
       _v2o = new float[ks.length]; // Reverse mapping
-      HashMap<Float,Short> res2 = new HashMap<Float,Short>(); // Forward mapping
+      TFloatShortHashMap res = new TFloatShortHashMap();
       smax_ = 0;
       int bin_cnt = 0;
       for( float d : ks ) {
-        _v2o[smax_] = d;          // Reverse mapping
-        res2.put(d, smax_);       // Forward mapping
-        bin_cnt += res.get(d);    // Grow bin
-        if( bin_cnt > bin_size ) {// This bin is full?
-          smax_++;                // Flip bins!
+        _v2o[smax_] = d;           // Reverse mapping
+        res.put(d, smax_);         // Forward mapping
+        bin_cnt += freq.get(d);    // Grow bin
+        if( bin_cnt > bin_size ) { // This bin is full?
+          smax_++;                 // Flip bins!
           bin_cnt=0;
         }
       }
-      return res2;
+      return res;
     }
   }
 }
