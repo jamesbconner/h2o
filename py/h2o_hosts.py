@@ -4,8 +4,8 @@ import getpass, json, h2o
 
 # None means the json will specify, or the default for json below
 # only these two args override for now. can add more.
-def build_cloud_with_hosts(node_count=None, use_flatfile=False, 
-    use_hdfs=False, hdfs_name_node="192.168.1.151", **kwargs):
+def build_cloud_with_hosts(node_count=None, use_flatfile=None, 
+    use_hdfs=None, hdfs_name_node="192.168.1.151", **kwargs):
 
     # For seeing example of what we want in the json, if we add things
     #   import h2o_config
