@@ -89,7 +89,6 @@ public abstract class H2OPage extends Page {
 
   public static void addProperty(JsonObject json, String k, Key key) {
     json.addProperty(k, key.toString());
-    json.addProperty(k + "Href", key.toString());
   }
 
   public static String wrap(String what) {

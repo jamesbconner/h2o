@@ -105,7 +105,6 @@ public class GLM extends H2OPage {
 
       String method = p.getProperty("family", "gaussian").toLowerCase();
       res.addProperty("key", ary._key.toString());
-      res.addProperty("keyHref", "/Inspect?Key=" + ary._key.toString());
       res.addProperty("h2o", H2O.SELF.urlEncode());
       long t1 = System.currentTimeMillis();
       if( method.equals("gaussian") ) res.addProperty("name","Linear regression");
@@ -308,7 +307,7 @@ public class GLM extends H2OPage {
     // "<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">%AIC_formated</span></div>");
 
     RString responseTemplate = new RString(
-        "<div class='alert %succ'>GLM on data <a href=%keyHref>%key</a> computed in %time[ms]. %warningMsgs</div>"
+        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a> computed in %time[ms]. %warningMsgs</div>"
             + "<h3>GLM Parameters</h3>"
             + "%parameters"
             + "<h3>Coefficients</h3>"

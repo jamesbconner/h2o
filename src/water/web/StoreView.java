@@ -169,7 +169,7 @@ public class StoreView extends H2OPage {
     row.replace("size",val.length());
 
     if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
-      RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+      RString hdfs = new RString("<a href='Store2HDFS?Key=%$key'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
       row.replace("storeHdfs", hdfs.toString());
     } else {
@@ -221,9 +221,9 @@ public class StoreView extends H2OPage {
     + "%tableRow{\n"
     + "  <tr>"
     + "    <td>"
-    + "      <a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>"
+    + "      <a style='%delBtnStyle' href='RemoveAck?Key=%$key'><button class='btn btn-danger btn-mini'>X</button></a>"
     + "      %storeHdfs"
-    + "      &nbsp;&nbsp;<a href='/%inspect?Key=%keyHref'>%key</a>%execbtn"
+    + "      &nbsp;&nbsp;<a href='/%inspect?Key=%$key'>%key</a>%execbtn"
     + "    </td>"
     + "    <td>%size</td>"
     + "    <td>%rows</td>"

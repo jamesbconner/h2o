@@ -161,7 +161,7 @@ public class RFView extends H2OPage {
 
   // use a function instead of a constant so that a debugger can live swap it
   private String html() {
-    return "\nRandom Forest of <a href='Inspect?Key=%origKeyHref'>%origKey</a>, %numtrees trees\n<p>"
+    return "\nRandom Forest of <a href='Inspect?Key=%$origKey'>%origKey</a>, %numtrees trees\n<p>"
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"
@@ -174,7 +174,7 @@ public class RFView extends H2OPage {
       + "min/avg/max depth=%depth, leaves=%leaves<p>\n"
       + "Click to view individual trees:<p>"
       + "%trees{\n"
-      + "  <a href='/RFTreeView?modelKey=%modelKeyHref&n=%n&dataKey=%dataKeyHref&class=%class'>%n</a> "
+      + "  <a href='/RFTreeView?modelKey=%$modelKey&n=%n&dataKey=%$dataKey&class=%class'>%n</a> "
       + "}\n"
       ;
   }

@@ -97,7 +97,7 @@ public class Inspect extends H2OPage {
     response.replace("key",key);
 
     if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
-      RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+      RString hdfs = new RString("<a href='Store2HDFS?Key=%$key'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
       response.replace("storeHdfs", hdfs.toString());
     } else {
@@ -157,7 +157,7 @@ public class Inspect extends H2OPage {
 
 
   final static String html =
-      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%$key'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%$key'>%key</a>%execbtn</h1>"
     + "%storeHdfs"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col/><col/><col colspan=5 align=center/></colgroup>\n"
@@ -182,7 +182,7 @@ public class Inspect extends H2OPage {
     + "%parse";
 
   final static String html_parse =
-    "<a href='/%pfunc?Key=%keyHref&Key2=%parseKeyHref'>Basic Text-File Parse into %parseKey</a>\n";
+    "<a href='/%pfunc?Key=%$key&Key2=%$parseKey'>Basic Text-File Parse into %parseKey</a>\n";
 
   // ---------------------
   // Structured Array / Dataset display
@@ -190,7 +190,7 @@ public class Inspect extends H2OPage {
   String structured_array( Key key, ValueArray ary ) {
     RString response = new RString(html_ary);
     if(H2O.OPT_ARGS.hdfs != null && !ary.onHDFS()){
-      RString hdfs = new RString("<a href='Store2HDFS?Key=%keyHref'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
+      RString hdfs = new RString("<a href='Store2HDFS?Key=%$key'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
       response.replace("storeHdfs", hdfs.toString());
     } else {
@@ -340,9 +340,9 @@ public class Inspect extends H2OPage {
   }
 
   final static String html_ary =
-      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%keyHref'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%keyHref'>%key</a>%execbtn</h1>"
+      "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%$key'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%$key'>%key</a>%execbtn</h1>"
     + "%storeHdfs"
-    + "<p>Generated from <a href=/Inspect?Key=%priorKeyHref>%priorKey</a> by '%xform'<p>"
+    + "<p>Generated from <a href=/Inspect?Key=%$priorKey>%priorKey</a> by '%xform'<p>"
     + "<b><font size=+1>%rowsize Bytes-per-row * %rows Rows = Totalsize %size</font></b></em><br>"
     + "Parsed %ncolumns columns<br>"
     + "<table class='table table-striped table-bordered table-condensed'>"

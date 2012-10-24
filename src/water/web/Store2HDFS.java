@@ -20,7 +20,7 @@ public class Store2HDFS extends H2OPage {
     
     Key tgtKey = TaskStore2HDFS.store2Hdfs(srcKey);
     
-    RString res = new RString("Successfully stored on HDFS into <a href='/Inspect?Key=%keyHref'>%key</a>");
+    RString res = new RString("Successfully stored on HDFS into <a href='/Inspect?Key=%$key'>%key</a>");
     res.replace("key", tgtKey);
     
     return H2OPage.success(res.toString());
