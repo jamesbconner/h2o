@@ -81,22 +81,21 @@ public class DRF extends water.DRemoteTask {
       }
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary._key.toString(), names, names[_classcol], _ignores, num_rows, unique, _seed, classes);
-    final int num_cols = ary.num_cols();
-    final float[] ds = new float[num_cols];
-    num_rows = 0;
     // Now load the DataAdapter with all the rows on this Node
     RecursiveAction[] parts = new RecursiveAction[num_keys];
     num_keys = 0;
+    num_rows = 0;
     for( final Key key : keys ) {
       if( key.home() ) {
         final int start_row = num_rows;
         parts[num_keys++] = new RecursiveAction() {
           @Override
           protected void compute() {
+            float[] ds = new float[ary.num_cols()];
             byte[] bits = DKV.get(key).get();
             final int rows = bits.length/rowsize;
             ROW: for( int j = 0; j < rows; j++ ) { // For all rows in this chunk
-              for( int k=0; k<num_cols; k++ ) {
+              for( int k = 0; k < ds.length; k++ ) {
                 // bad data means skip row
                 if( !ary.valid(bits,j,rowsize,k) ) continue ROW;
                 ds[k] = (float)ary.datad(bits,j,rowsize,k);
