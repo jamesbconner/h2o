@@ -26,7 +26,7 @@ class Basic(unittest.TestCase):
         Y = "106"
         X = ""
         put = h2o.nodes[0].put_file(csvPathname)
-        parseKey = h2o.nodes[0].parse(put['keyHref'])
+        parseKey = h2o.nodes[0].parse(put['key'])
 
         for appendX in xrange(107):
             if (appendX == 9):

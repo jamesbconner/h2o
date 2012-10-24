@@ -1,0 +1,10 @@
+2012-10-24 12:18:02.481402 -- java -ea -jar ../build/h2o.jar --port=54321 --ip=192.168.1.15 --ice_root=sandbox/ice.J0OsnM --name=pytest-peta --nosigar    #PID 5918, stdout local-h2o.stdout.9rpoZw.log, stderr local-h2o.stderr.s9RerX.log
+2012-10-24 12:18:02.488597 -- java -ea -jar ../build/h2o.jar --port=54324 --ip=192.168.1.15 --ice_root=sandbox/ice.B9igVQ --name=pytest-peta --nosigar    #PID 5919, stdout local-h2o.stdout.yYivyV.log, stderr local-h2o.stderr.a3r5au.log
+2012-10-24 12:18:05.604891 -- Sent http://192.168.1.15:54321/Cloud.json
+2012-10-24 12:18:05.615585 -- Sent http://192.168.1.15:54321/Cloud.json
+2012-10-24 12:18:05.872954 -- Sent http://192.168.1.15:54321/Cloud.json
+2012-10-24 12:18:06.132061 -- Sent http://192.168.1.15:54321/Cloud.json
+2012-10-24 12:18:06.393784 -- Sent http://192.168.1.15:54321/Cloud.json
+2012-10-24 12:18:06.658780 -- Sent http://192.168.1.15:54321/Cloud.json
+2012-10-24 12:18:06.672606 -- java -Dh2o.arg.ice_root=sandbox/ice.DSx84b -Dh2o.arg.name=pytest-peta -Dh2o.arg.ip=192.168.1.15 -ea -jar ../build/h2o.jar -mainClass org.junit.runner.JUnitCore test.RStringTest    #PID 5970, stdout junit.stdout.pCF5ID.log, stderr junit.stderr.P6nqIg.log
+2012-10-24 12:18:08.137193 -- Sent http://192.168.1.15:54321/Shutdown.json

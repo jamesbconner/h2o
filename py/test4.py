@@ -44,7 +44,7 @@ class Basic(unittest.TestCase):
 
             csvPathname = "../smalldata/hhp_107_01_short.data"
             put = n.put_file(csvPathname)
-            parseKey = n.parse(put['keyHref'])
+            parseKey = n.parse(put['key'])
 
             ### print 'Trial:', trial
             trial += 1

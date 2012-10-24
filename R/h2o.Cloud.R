@@ -20,8 +20,8 @@ setMethod("uploadFile", c(cloud="h2o.Cloud",file="character"),function(cloud,fil
 	url <- paste(cloud@url,"PutFile.json",sep="/");
 	res <- fromJSON(postForm(url,File=file));
 	url <- paste(cloud@url,"Parse.json",sep="/");
-	res <- fromJSON(postForm(url,Key=res$keyHref));	
-	new('h2o.data.frame', key = res$keyHref);
+	res <- fromJSON(postForm(url,Key=res$key));	
+	new('h2o.data.frame', key = res$key);
 });
 
 parseX <- function(formula){

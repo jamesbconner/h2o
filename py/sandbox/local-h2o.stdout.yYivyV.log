@@ -1,0 +1,5 @@
+[h2o] HTTP listening on port: 54324, UDP port: 54325, TCP port: 54326
+[h2o] (v0.3) 'pytest-peta' on /192.168.1.15:54325, discovery address /231.171.7.148:59307
+[h2o] Paxos Cloud of size 1 formed: [/192.168.1.15:54325]
+[h2o] Paxos Cloud voting in progress
+[h2o] Paxos Cloud of size 2 formed: [/192.168.1.15:54322, /192.168.1.15:54325]

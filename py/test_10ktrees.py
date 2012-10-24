@@ -41,7 +41,7 @@ class Basic(unittest.TestCase):
 
             # broke out the put separately so we can iterate a test just on the RF
             put = h2o.nodes[0].put_file(csvPathname)
-            parseKey = h2o.nodes[0].parse(put['keyHref'])
+            parseKey = h2o.nodes[0].parse(put['key'])
 
             h2o.verboseprint("Trial", trial)
             cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=30, retryDelaySecs=3)
