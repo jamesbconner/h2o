@@ -2,11 +2,15 @@ import unittest
 import h2o, h2o_cmd, h2o_hosts
 import os, time, sys
 
-
 def runLinuxCmds(cmds):
     for c in cmds:
-        h2o.verboseprint(c)
-        os.system("sudo " + c)
+        # h2o.verboseprint(c)
+        print c
+        # this should execute the command on the other machine?
+        # do nothing for now
+        # this won't work if we build_cloud() only build_cloud_with_hosts()
+        # wrong. this is the local machine
+        # os.system("sudo " + c)
 
 def showIptables():
     print "\nshowing iptables -L now"
