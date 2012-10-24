@@ -23,7 +23,6 @@ public class Data implements Iterable<Row> {
     }
     public int numClasses()    { return classes(); }
     public int classOf()       { return  data_.classOf(index); }
-    public float getF(int col) { return data_.getF(col,index); }
     public short getS(int col) { return data_.getS(index,col); }
 
     public final short getEncodedColumnValue(int colIndex) {

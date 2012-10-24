@@ -112,7 +112,6 @@ class DataAdapter  {
   }
   short getS(int row, int col) { return _data[row * _c.length + col]; }
   void setS(int row, int col, short val) { _data[row * _c.length + col]= val; }
-  protected float getF(int col, int idx) { return _c[col].getF(idx); }
   static final DecimalFormat df = new  DecimalFormat ("0.##");
 
   private static class C {
@@ -137,7 +136,6 @@ class DataAdapter  {
       _v[row]=x;
     }
 
-    float getF(int i) { return _v[i]; }
     boolean ignore() { return _ignore; }
 
     public String toString() {
