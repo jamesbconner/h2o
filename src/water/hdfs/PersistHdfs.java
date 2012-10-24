@@ -19,6 +19,11 @@ public abstract class PersistHdfs {
   private final static Configuration _conf;
   private static FileSystem _fs;
   private static Path _root;
+  
+  
+  public static String getHDFSRoot() {
+    return _root == null ? null : H2O.OPT_ARGS.hdfs + _root.toString();
+  }
 
   public static int pad8(int x){
     return (x == (x & 7))?x:(x & ~7) + 8;
@@ -45,8 +50,10 @@ public abstract class PersistHdfs {
         _fs = FileSystem.get(_conf);
         _root = new Path(ROOT);
         _fs.mkdirs(_root);
-        int num = loadPersistentKeysFromFolder(_root,"");
-        System.out.println("[h2o,hdfs] " + H2O.OPT_ARGS.hdfs+ROOT+" loaded " + num + " keys");
+        if (H2O.OPT_ARGS.hdfs_nopreload==null) {
+          int num = loadPersistentKeysFromFolder(_root,"");
+          System.out.println("[h2o,hdfs] " + H2O.OPT_ARGS.hdfs+ROOT+" loaded " + num + " keys");
+        }
       } catch( IOException e ) {
         // pass
         System.out.println(e.getMessage());
@@ -55,16 +62,18 @@ public abstract class PersistHdfs {
     }
   }
 
-  public static void refreshHDFSKeys(){
-    if( _fs != null && _root != null ) loadPersistentKeysFromFolder(_root, "");
+  public static void refreshHDFSKeys() {
+    if( (_fs != null) && (_root != null) && (H2O.OPT_ARGS.hdfs_nopreload==null) ) loadPersistentKeysFromFolder(_root, "");
   }
 
 
   public static Value readValueFromFile(Path p, String prefix) throws IOException {
     Key k = decodeFile(p, prefix);
+    System.out.println("Key created for path "+p+", prefix "+prefix+": "+new String(k._kb));
+    
     if( k == null )
       return null;
-    if(!_fs.isFile(p))throw new Error("No such file on hdfs! " + p);
+    if(!_fs.isFile(p)) throw new IOException("No such file on hdfs! " + p);
     long size = _fs.getFileStatus(p).getLen();
     Value val;
     if(p.getName().endsWith(".hex")){
@@ -117,7 +126,7 @@ public abstract class PersistHdfs {
   static private final String KEY_PREFIX="hdfs:/";
   static private final int KEY_PREFIX_LENGTH=KEY_PREFIX.length();
 
-  public static String path2KeyStr(Path p){
+  public static String path2KeyStr(Path p) {
     if(p.depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR;
     if(p.getParent().depth() == _root.depth()) return KEY_PREFIX + Path.SEPARATOR + p.getName();
     return path2KeyStr(p.getParent()) + Path.SEPARATOR + p.getName();
@@ -134,12 +143,12 @@ public abstract class PersistHdfs {
   // TODO Something should be done about keys whose value is larger than 512
   // bytes, for now, they are not supported.
   static Path getPathForKey(Key k) {
-    final int len = KEY_PREFIX_LENGTH + 1; // Strip key prefix & leading slash
+    final int len = KEY_PREFIX_LENGTH+1; // Strip key prefix & leading slash
     String s = new String(k._kb,len, k._kb.length-len);
     return new Path(_root, s);
   }
 
-   public static Key getKeyForPath(String p){
+  public static Key getKeyForPath(String p){
     return Key.make(KEY_PREFIX + Path.SEPARATOR + p);
   }
 
@@ -209,13 +218,15 @@ public abstract class PersistHdfs {
      }
  }
 
- static void addNewVal2KVStore(String path){
+ public static Key importPath(String path) throws IOException {
    Path p = new Path(_root,path);
-   try{
-     readValueFromFile(p,path2KeyStr(p.getParent()));
-   }catch(IOException e){throw new Error(e);}
+   return readValueFromFile(p,path2KeyStr(p.getParent()))._key;
  }
 
+ public static Key importPath(String path, String prefix) throws IOException {
+   Path p = new Path(_root,path);
+   return readValueFromFile(p,prefix)._key;
+ }
 
   static public void file_store(Value v) {
     // Only the home node does persistence on HDFS

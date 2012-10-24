@@ -52,6 +52,7 @@ public class Server extends NanoHTTPD {
     _pages.put("ProgressReport",new ProgressReport());
     _pages.put("ProgressView",new ProgressView());
     _pages.put("PutFile",new PutFile());
+    _pages.put("PutHDFS",new PutHDFS());
     _pages.put("Put",new PutQuery());
     _pages.put("PutValue",new PutValue());
     _pages.put("RFView",new RFView()); // View random-forest output
