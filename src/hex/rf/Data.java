@@ -39,13 +39,13 @@ public class Data implements Iterable<Row> {
   protected Data(DataAdapter da) { data_ = da; }
 
   protected int start()          { return 0;                   }
-  protected int end()            { return data_.rows();        }
+  protected int end()            { return data_._numRows;        }
   public int rows()              { return end() - start();     }
   public int columns()           { return data_.columns();     }
   public int classes()           { return data_.classes();     }
   public int seed()              { return data_.seed();        }
   public int dataId()            { return data_.dataId();      }
-  public int classIdx()          { return data_.classIdx_;     }
+  public int classIdx()          { return data_._classIdx;     }
   public String colName(int i)   { return data_.columnNames()[i]; }
   public float unmap(int col, float split) { return data_.unmap(col, split); }
   public int columnArity(int colIndex) { return data_.columnArity(colIndex); }
