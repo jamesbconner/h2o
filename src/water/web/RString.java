@@ -170,6 +170,12 @@ class LabelledStringList {
 
 /**
  * A replaceable string that allows very easy and simple replacements.
+ * 
+ * %placeholder is normally inserted
+ * 
+ * %$placeholder is inserted in URL encoding for UTF-8 charset. This should be
+ * used for all hrefs. 
+ * 
  */
 public class RString {
   // A placeholder information with replcement group and start and end labels.
