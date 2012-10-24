@@ -1,13 +1,6 @@
 package test;
-import java.util.Arrays;
-import org.junit.AfterClass;
-import static org.junit.Assert.*;
-import org.junit.BeforeClass;
+import static org.junit.Assert.assertEquals;
 import org.junit.Test;
-import water.*;
-import water.exec.*;
-import water.parser.ParseDataset;
-import water.util.KeyUtil;
 import water.web.RString;
 
 public class RStringTest {
