@@ -69,7 +69,6 @@ public abstract class PersistHdfs {
 
   public static Value readValueFromFile(Path p, String prefix) throws IOException {
     Key k = decodeFile(p, prefix);
-    System.out.println("Key created for path "+p+", prefix "+prefix+": "+new String(k._kb));
     
     if( k == null )
       return null;
@@ -85,15 +84,15 @@ public abstract class PersistHdfs {
       }
       byte [] mem = MemoryManager.allocateMemory(sz);
       s.readFully(mem);
-      val = new ValueArray(k,mem);
-      val.switch2HdfsBackend(true);
+      val = new ValueArray(k,mem, Value.HDFS);
+      //val.switch2HdfsBackend(true);
     } else {
        val = (size < 2*ValueArray.chunk_size())
           ? new Value((int)size,0,k,Value.HDFS)
           : new ValueArray(k,size,Value.HDFS);
        val.setdsk();
     }
-    H2O.putIfAbsent_raw(k, val);
+    H2O.putIfMatch(k, val, null);
     return val;
   }
   private static int loadPersistentKeysFromFolder(Path folder, String prefix) {
@@ -272,7 +271,6 @@ public abstract class PersistHdfs {
 
   public static Value lazy_array_chunk( Key key ) {
     assert key._kb[0] == Key.ARRAYLET_CHUNK;
-    System.out.println("PersistHdfs.lazy_array_chunk()");
     try {
       Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
       ValueArray ary = (ValueArray)DKV.get(arykey);
