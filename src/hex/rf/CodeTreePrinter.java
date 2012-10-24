@@ -29,7 +29,7 @@ public class CodeTreePrinter extends TreePrinter {
   }
 
   void printNode(LeafNode t) throws IOException {
-    _dest.append("return ").append(Integer.toString(t.class_)).append('\n');
+    _dest.append("return ").append(Integer.toString(t._class)).append('\n');
   }
 
   void printNode(SplitNode t) throws IOException {

@@ -2,6 +2,14 @@ import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, o
 import requests, psutil, argparse, sys, unittest
 import glob
 
+# pytestflatfile name
+# the cloud is uniquely named per user (only)
+# if that's sufficient, it should be fine to uniquely identify the flatfile by name only also
+# (both are the user that runs the test. Note the config might have a different username on the
+# remote machine (0xdiag, say, or hduser)
+def pff_name():
+    return('pytest_flatfile-%s' %getpass.getuser())
+
 def __drain(src, dst):
     for l in src:
         if type(dst) == type(0):
@@ -35,7 +43,6 @@ def parse_our_args():
     parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
     parser.add_argument('--use_hosts', '-uh', help="create node_count H2Os on each host in the hosts list", action="store_true")
     parser.add_argument('--debugger', help="Launch java processes with java debug attach mechanisms", action="store_true")
-    
     
     parser.add_argument('unittest_args', nargs='*')
 
@@ -212,10 +219,9 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 
         # we're going to always create the flatfile. 
         # Used for all remote cases now. (per sri)
-        pff_name = 'pytest_flatfile-%s' %getpass.getuser()
-        pff = open(pff_name, "w+")
-        pff.write("# Created by build_cloud\n")
-        pff.write("# " + str(datetime.datetime.now()) + "\n")
+        pff = open(pff_name(), "w+")
+        # pff.write("# Created by build_cloud\n")
+        # pff.write("# " + str(datetime.datetime.now()) + "\n")
 
         # if no hosts list, use psutil method on local host.
         totalNodes = 0
@@ -275,11 +281,18 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         p = int(10.0 * sofar / total)
         sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
         sys.stdout.flush()
+        
     if not slow_connection:
         for h in hosts:
             h.upload_file('build/h2o.jar', progress=prog)
+            # skipping progress indicator for the flatfile
+            h.upload_file(pff_name())
     else:
         f = find_file('build/h2o.jar')
+        hosts[0].upload_file(f, progress=prog)
+        hosts[0].push_file_to_remotes(f, hosts[1:])
+
+        f = find_file(pff_name())
         hosts[0].upload_file(f, progress=prog)
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
@@ -424,7 +437,7 @@ class H2O(object):
         # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
         a = self.__check_request(requests.get(
                 url=self.__url('Parse.json'),
-                timeout=30.0,
+                timeout=3000.0,
                 params={"Key": key}
                 ))
         verboseprint("\nparse result:",dump_json(a))
@@ -464,7 +477,10 @@ class H2O(object):
         if not clazz is None: rfParams['class'] = clazz
 
         verboseprint("\nrandom_forest parameters:", rfParams)
-        a = self.__check_request(requests.get(self.__url('RF.json'), params=rfParams))
+        a = self.__check_request(requests.get(
+            url=self.__url('RF.json'), 
+            timeout=3000,
+            params=rfParams))
         verboseprint("\nrandom_forest result:", a)
         return a
 
@@ -607,11 +623,11 @@ class H2O(object):
             ]
 
         if self.use_hdfs:
-            #    '-hdfs-root /datasets'
+            #    '-hdfs_root /datasets'
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
                 '-hdfs_version cdh4',
-                '-hdfs-root /'
+                '-hdfs_root /'
             ]
 
             # we need a global for hdfs_name_node for tests to build up hdfs URIs.
@@ -621,7 +637,7 @@ class H2O(object):
 
         if self.use_flatfile:
             args += [
-                '--flatfile=pytest_flatfile-%s' %getpass.getuser()
+                '--flatfile=' + self.flatfile,
             ]
 
         if not self.sigar:
@@ -699,6 +715,9 @@ class LocalH2O(H2O):
 
     def get_h2o_jar(self):
         return find_file('build/h2o.jar')
+
+    def get_flatfile(self):
+        return find_file(pff_name())
 
     def get_ice_dir(self):
         return self.ice
@@ -813,6 +832,8 @@ class RemoteH2O(H2O):
         super(RemoteH2O, self).__init__(*args, **keywords)
 
         self.jar = host.upload_file('build/h2o.jar')
+        # need to copy the flatfile. We don't always use it (depends on h2o args)
+        self.flatfile = host.upload_file(pff_name())
         self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
@@ -834,6 +855,9 @@ class RemoteH2O(H2O):
 
     def get_h2o_jar(self):
         return self.jar
+
+    def get_flatfile(self):
+        return self.flatfile
 
     def get_ice_dir(self):
         return self.ice

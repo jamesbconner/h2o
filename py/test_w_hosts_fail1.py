@@ -4,7 +4,7 @@ import h2o_cmd, h2o, h2o_hosts
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts(use_hdfs=True)
+        h2o_hosts.build_cloud_with_hosts(use_hdfs=False)
 
     @classmethod
     def tearDownClass(cls):
