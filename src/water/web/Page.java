@@ -60,8 +60,7 @@ public abstract class Page {
     + "</html>";
   
   public static class PageError extends Exception {
-    public final String _msg;
-    public PageError(String msg) { _msg = msg; }
+    public PageError(String msg) { super(msg); }
   }
 
   public String[] requiredArguments() {

@@ -149,7 +149,7 @@ public class Server extends NanoHTTPD {
     try {
       result = json ? page.serverJson(this,parms,sessionID) : page.serve(this,parms,sessionID);
     } catch( PageError e ) {
-      result = e._msg;
+      result = e.getMessage();
     }
     if (result == null) return http404(uri);
     if (result instanceof Response) return (Response)result;
