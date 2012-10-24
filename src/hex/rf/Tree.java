@@ -137,20 +137,20 @@ public class Tree extends CountedCompleter {
 
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {
-    final int class_;    // A category reported by the inner node
+    final int _class;    // A category reported by the inner node
     LeafNode(int c) {
       assert 0 <= c && c < 100; // sanity check
-      class_ = c;               // Class from 0 to _N-1
+      _class = c;               // Class from 0 to _N-1
     }
     @Override public int depth()  { return 0; }
     @Override public int leaves() { return 1; }
-    public int classify(Row r) { return class_; }
-    public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(class_).append(']'); }
+    public int classify(Row r) { return _class; }
+    public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(_class).append(']'); }
     public void print(TreePrinter p) throws IOException { p.printNode(this); }
     void write( Stream bs ) {
-      assert 0 <= class_ && class_ < 100;
+      assert 0 <= _class && _class < 100;
       bs.set1('[');             // Leaf indicator
-      bs.set1(class_);
+      bs.set1(_class);
     }
     int size_impl( ) { return 2; } // 2 bytes in serialized form
   }

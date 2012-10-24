@@ -31,7 +31,7 @@ public class GraphvizTreePrinter extends TreePrinter {
     int obj = System.identityHashCode(t);
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Leaf Node",
-        MessageFormat.format("Class {0}", t.class_)));
+        MessageFormat.format("Class {0}", t._class)));
   }
 
 
