@@ -18,22 +18,22 @@ public class KeyToString {
   }
 
   @Test public void testKeyToString() {
-// DO NOT DELETE THIS COMMENT, IT IS A TEMPORARILY DISABLED TEST THAT IS UNDER CONTROL    
-/*    byte[] b = "XXXHelloAll".getBytes();
+    byte[] b = "XXXHelloAll".getBytes();
     assertTrue(Key.make(b).toString().equals("XXXHelloAll"));
     assertTrue(Arrays.equals(Key.make(b)._kb,b));
     b[0] = 16;
     b[1] = 20;
-    Key k = Key.make("_202020_");
+    Key k = Key.make("$202020$");
     System.err.println(k.toString());
     assertEquals(k._kb.length, 3);
     assertEquals(k._kb[0], 32);
     assertEquals(k._kb[1], 32);
     assertEquals(k._kb[2], 32);
-    k = Key.make("_202020_Azaz09-.");
-    assertTrue(k.toString().equals("_202020_Azaz09-."));
-    k = Key.make("HiThere");
-    assertTrue(k.toString().equals("HiThere")); */
+    k = Key.make("$232323$Azaz09-.");
+    System.err.println(k.toString());
+    assertTrue(k.toString().equals("$232323$Azaz09-."));
+    k = Key.make("Hi There");
+    assertTrue(k.toString().equals("Hi There"));
   }
   
 }
