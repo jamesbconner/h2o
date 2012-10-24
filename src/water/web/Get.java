@@ -27,7 +27,7 @@ public class Get extends Page {
     } catch( IOException ex ) {
       return H2OPage.wrap(H2OPage.error(ex.toString()));
     } catch( PageError e ) {
-      return H2OPage.wrap(H2OPage.error(e._msg));
+      return H2OPage.wrap(H2OPage.error(e.getMessage()));
     }
   }
 

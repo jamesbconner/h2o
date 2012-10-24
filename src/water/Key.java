@@ -247,7 +247,7 @@ public final class Key implements Comparable {
   }
 
   
-  public static final char MAGIC_CHAR = '_';
+  public static final char MAGIC_CHAR = '$';
   private static final char[] HEX = "0123456789abcdef".toCharArray();
   
   /** Converts the key to HTML displayable string.
@@ -263,6 +263,11 @@ public final class Key implements Comparable {
       char a = (char) _kb[len];
       if( a == '-' ) continue;
       if( a == '.' ) continue;
+      if( a == '/' ) continue;
+      if( a == '\\' ) continue;
+      if( a == ':' ) continue;
+      if( a == '_' ) continue;
+      if( a == ' ' ) continue;
       if( 'a' <= a && a <= 'z' ) continue;
       if( 'A' <= a && a <= 'Z' ) continue;
       if( '0' <= a && a <= '9' ) continue;

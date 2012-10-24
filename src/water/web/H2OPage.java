@@ -61,7 +61,7 @@ public abstract class H2OPage extends Page {
 
       response.replace("contents",result);
     } catch (PageError e) {
-      response.replace("contents", e._msg);
+      response.replace("contents", e.getMessage());
     }
     return response.toString();
   }

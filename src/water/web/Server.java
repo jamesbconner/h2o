@@ -52,6 +52,7 @@ public class Server extends NanoHTTPD {
     _pages.put("ProgressReport",new ProgressReport());
     _pages.put("ProgressView",new ProgressView());
     _pages.put("PutFile",new PutFile());
+    _pages.put("PutHDFS",new PutHDFS());
     _pages.put("Put",new PutQuery());
     _pages.put("PutValue",new PutValue());
     _pages.put("RFView",new RFView()); // View random-forest output
@@ -150,7 +151,7 @@ public class Server extends NanoHTTPD {
     try {
       result = json ? page.serverJson(this,parms,sessionID) : page.serve(this,parms,sessionID);
     } catch( PageError e ) {
-      result = e._msg;
+      result = e.getMessage();
     }
     if (result == null) return http404(uri);
     if (result instanceof Response) return (Response)result;

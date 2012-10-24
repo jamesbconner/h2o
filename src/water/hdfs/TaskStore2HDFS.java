@@ -126,7 +126,11 @@ public class TaskStore2HDFS extends RemoteTask {
       // val.switch2HdfsBackend(true); // switch the value persist backend to
       // hdfs and status to ON DISK
       if( ++_indexFrom == _indexTo ) { // all done, load value to the store
-        PersistHdfs.addNewVal2KVStore(path);
+        try {
+          PersistHdfs.importPath(path);
+        } catch (IOException e) {
+          throw new Error(e);
+        }
         // remove the old value
         removeOldValue(val);
         break;
