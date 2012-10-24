@@ -28,7 +28,7 @@ public class Tree extends CountedCompleter {
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
   final int  _seed;             // Pseudo random seeds
-  ThreadLocal<Statistic>[] stats_  = new ThreadLocal[2];
+  ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
 
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed) {
@@ -59,12 +59,12 @@ public class Tree extends CountedCompleter {
   }
 
   private Statistic getStatistic(int index, Data data, int seed) {
-    Statistic result = stats_[index].get();
+    Statistic result = _stats[index].get();
     if( result==null ) {
       result  = _type == StatType.GINI ?
           new GiniStatistic   (data,_features, _seed) :
           new EntropyStatistic(data,_features, _seed);
-      stats_[index].set(result);
+      _stats[index].set(result);
     }
     result.reset(data, seed);
     return result;
@@ -72,8 +72,8 @@ public class Tree extends CountedCompleter {
 
   // Actually build the tree
   public void compute() {
-    stats_[0] = new ThreadLocal<Statistic>();
-    stats_[1] = new ThreadLocal<Statistic>();
+    _stats[0] = new ThreadLocal<Statistic>();
+    _stats[1] = new ThreadLocal<Statistic>();
     Statistic left = getStatistic(0,_data, _seed);
     // calculate the split
     for( Row r : _data ) left.add(r);
@@ -83,37 +83,37 @@ public class Tree extends CountedCompleter {
       : new FJBuild (spl,_data,0, _seed + 1).compute();
     StringBuilder sb = new StringBuilder("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,150).toString());
-    stats_ = null; // GC
+    _stats = null; // GC
     tryComplete();
   }
 
   private class FJBuild extends RecursiveTask<INode> {
-    final Statistic.Split split_;
-    final Data data_;
-    final int depth_, _seed;
+    final Statistic.Split _split;
+    final Data _data;
+    final int _depth, _seed;
 
     FJBuild(Statistic.Split split, Data data, int depth, int seed) {
-      split_ = split;  data_ = data; depth_ = depth; _seed = seed;
+      _split = split;  _data = data; _depth = depth; _seed = seed;
     }
 
     @Override public INode compute() {
-      Statistic left = getStatistic(0,data_, _seed + 10101); // first get the statistics
-      Statistic rite = getStatistic(1,data_, _seed +  2020);
+      Statistic left = getStatistic(0,_data, _seed + 10101); // first get the statistics
+      Statistic rite = getStatistic(1,_data, _seed +  2020);
       Data[] res = new Data[2]; // create the data, node and filter the data
-      int c = split_._column, s = split_._split;
-      assert c != data_.classIdx();
-      SplitNode nd = split_.isExclusion() ?
-        new ExclusionNode(c, s, data_.colName(c), data_.unmap(c,s)) :
-        new SplitNode    (c, s, data_.colName(c), data_.unmap(c, s) );
-      data_.filter(nd,res,left,rite);
+      int c = _split._column, s = _split._split;
+      assert c != _data.classIdx();
+      SplitNode nd = _split.isExclusion() ?
+        new ExclusionNode(c, s, _data.colName(c), _data.unmap(c,s)) :
+        new SplitNode    (c, s, _data.colName(c), _data.unmap(c, s) );
+      _data.filter(nd,res,left,rite);
 
       FJBuild fj0 = null, fj1 = null;
-      Statistic.Split ls = left.split(data_, depth_ >= _max_depth); // get the splits
-      Statistic.Split rs = rite.split(data_, depth_ >= _max_depth);
+      Statistic.Split ls = left.split(_data, _depth >= _max_depth); // get the splits
+      Statistic.Split rs = rite.split(_data, _depth >= _max_depth);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
-      else                    fj0 = new  FJBuild(ls,res[0],depth_+1, _seed + 1);
+      else                    fj0 = new  FJBuild(ls,res[0],_depth+1, _seed + 1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
-      else                    fj1 = new  FJBuild(rs,res[1],depth_+1, _seed - 1);
+      else                    fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - 1);
       // Recursively build the splits, in parallel
       if( fj0 != null &&        (fj1!=null && THREADED) ) fj0.fork();
       if( fj1 != null ) nd._r = fj1.compute();
