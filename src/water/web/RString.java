@@ -294,7 +294,7 @@ class RString {
   }
 
   public void replace(String what, Key key) {
-    replace(what + "Href", H2OPage.encode(key));
+    replace(what + "Href", key.toString());
     replace(what, key.user_allowed() ? key.toString() : "<code>"+key.toString()+"</code>");
   }
 

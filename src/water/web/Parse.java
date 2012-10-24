@@ -17,8 +17,8 @@ public class Parse extends H2OPage {
     String k = p.getProperty("Key");
     String rk = p.getProperty("Key2", UUID.randomUUID().toString());
 
-    Key key = decode(k);
-    Key resKey = decode(rk);
+    Key key = Key.make(k);
+    Key resKey = Key.make(rk);
 
     JsonObject res = new JsonObject();
     addProperty(res, "key", resKey);
