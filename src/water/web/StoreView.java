@@ -114,8 +114,8 @@ public class StoreView extends H2OPage {
     StringBuilder sb = new StringBuilder();
     sb.append("<div class='pagination pagination-centered' style='margin:0px auto'><ul>");
     if (offset!=0) {
-      sb.append("<li><a href='?o=0"+prefix+"'>First</li>");
-      sb.append("<li><a href='?o="+(offset-1)+prefix+"'>&lt;&lt;</a></li>");
+      sb.append("<li><a href='StoreView?o=0"+prefix+"'>First</li>");
+      sb.append("<li><a href='StoreView?o="+(offset-1)+prefix+"'>&lt;&lt;</a></li>");
     }
     int j = 0;
     int i = offset - 5;
@@ -125,14 +125,14 @@ public class StoreView extends H2OPage {
       if (i>size/KEYS_PER_PAGE)
         break;
       if (i==offset)
-        sb.append("<li class='active'><a href=''>"+i+"</li>");
+        sb.append("<li class='active'><a href='StoreView'>"+i+"</li>");
       else
-        sb.append("<li><a href='?o="+i+prefix+"'>"+i+"</li>");
+        sb.append("<li><a href='StoreView?o="+i+prefix+"'>"+i+"</li>");
       ++j;
     }
     if (offset < (size/KEYS_PER_PAGE)) {
-      sb.append("<li><a href='?o="+(offset+1)+prefix+"'>&gt;&gt;</a></li>");
-      sb.append("<li><a href='?o="+(size/KEYS_PER_PAGE)+prefix+"'>Last</a></li>");
+      sb.append("<li><a href='StoreView?o="+(offset+1)+prefix+"'>&gt;&gt;</a></li>");
+      sb.append("<li><a href='StoreView?o="+(size/KEYS_PER_PAGE)+prefix+"'>Last</a></li>");
     }
     sb.append("</ul></div>");
     String nav = sb.toString();
