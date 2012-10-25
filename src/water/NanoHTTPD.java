@@ -342,6 +342,8 @@ public class NanoHTTPD
         {
           String contentType = "";
           String contentTypeHeader = header.getProperty("content-type");
+          if (contentTypeHeader == null)
+            contentTypeHeader = "";
           StringTokenizer st = new StringTokenizer( contentTypeHeader , "; " );
           if ( st.hasMoreTokens()) {
             contentType = st.nextToken();
@@ -364,16 +366,18 @@ public class NanoHTTPD
             // Handle application/x-www-form-urlencoded
             String postLine = "";
             char pbuf[] = new char[512];
-            int read = in.read(pbuf);
-            while ( read >= 0 && !postLine.endsWith("\r\n") )
-            {
-              postLine += String.valueOf(pbuf, 0, read);
-              if (!in.ready()) // avoid hanging here
-                break;
-              read = in.read(pbuf);
+            if (is.available()!=0) {
+              int read = in.read(pbuf);
+              while ( read >= 0 && !postLine.endsWith("\r\n") )
+              {
+                postLine += String.valueOf(pbuf, 0, read);
+                if (!in.ready()) // avoid hanging here
+                  break;
+                read = in.read(pbuf);
+              }
+              postLine = postLine.trim();
+              decodeParms( postLine, parms );
             }
-            postLine = postLine.trim();
-            decodeParms( postLine, parms );
           }
         }
 
