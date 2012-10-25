@@ -64,9 +64,6 @@ public class DRF extends water.DRemoteTask {
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
-    final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
-    assert 0 <= classes && classes < 65535;
-    String[] names = ary.col_names();
 
     // One pass over all chunks to compute max rows
     int num_keys = 0;
@@ -80,7 +77,7 @@ public class DRF extends water.DRemoteTask {
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    final DataAdapter dapt = new DataAdapter(ary._key.toString(), names, names[_classcol], _ignores, num_rows, unique, _seed, classes);
+    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
     RecursiveAction[] parts = new RecursiveAction[num_keys];
     num_keys = 0;
