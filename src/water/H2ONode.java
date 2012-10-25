@@ -87,6 +87,15 @@ public class H2ONode implements Comparable {
   static private final AtomicInteger UNIQUE = new AtomicInteger(1);
   static public H2ONode IDX[] = new H2ONode[1];
 
+  public static final void checkCommunication(H2ONode node){
+    Ping p = Ping.testConnection(node, true, true);
+    if(!p.connectionOk()){
+      if(!p.udpOk())System.err.println("UDP communication with node " + node + " failed!");
+      if(!p.tcpOk())System.err.println("TCP communication with node " + node._key._inet + ":" + node._key.tcp_port() + " failed!");
+      System.err.println("Invalid cloud setup (broken communication). Please make sure that all nodes can communicate directly");
+      System.exit(-1);
+    }
+  }
   // Create and/or re-use an H2ONode.  Each gets a unique dense index, and is
   // *interned*: there is only one per InetAddress.
   public static final H2ONode intern( H2Okey key ) {
@@ -94,6 +103,7 @@ public class H2ONode implements Comparable {
     if( h2o != null ) return h2o;
     final int idx = UNIQUE.getAndIncrement();
     h2o = new H2ONode(key,idx);
+    if(idx > 1)checkCommunication(h2o);
     H2ONode old = INTERN.putIfAbsent(key,h2o);
     if( old != null ) return old;
     synchronized(H2O.class) {

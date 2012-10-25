@@ -45,8 +45,9 @@ public abstract class UDP {
       putkey (false,new TaskPutKey .RemoteHandler()), // Put a Value for 1 Key
       rexec  (false,new TaskRemExec.RemoteHandler()), // Remote execution request
       atomic (false,new TaskRemExec.RemoteHandler()), // Remote transaction request
-    
-      // This packet serves to obtain stdout/stderr/results from remote nodes 
+      ping   (true,new Ping.RemoteHandler()),
+      pAck   (true,new Ping.UDPpingAck()),
+      // This packet serves to obtain stdout/stderr/results from remote nodes
       log    (false, new RemoteLog()); //
 
     final UDP _udp;           // The Callable S.A.M. instance
@@ -182,37 +183,37 @@ public abstract class UDP {
   public static int wire_len(double[]x ) { if( x==null ) return 4; return 4+(x.length<<3); }
   public static int wire_len(  long[]x ) { if( x==null ) return 4; return 4+(x.length<<3); }
 
-  public static int wire_len(  byte[][]x ) { 
+  public static int wire_len(  byte[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( byte[] b : x ) sum += wire_len(b);
     return sum;
   }
-  public static int wire_len( short[][]x ) { 
+  public static int wire_len( short[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( short[] b : x ) sum += wire_len(b);
     return sum;
   }
-  public static int wire_len( char[][]x ) { 
+  public static int wire_len( char[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( char[] b : x ) sum += wire_len(b);
     return sum;
   }
-  public static int wire_len( int[][]x ) { 
+  public static int wire_len( int[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( int[] b : x ) sum += wire_len(b);
     return sum;
   }
-  public static int wire_len( float[][]x ) { 
+  public static int wire_len( float[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( float[] b : x ) sum += wire_len(b);
     return sum;
   }
-  public static int wire_len( double[][]x ) { 
+  public static int wire_len( double[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( double[] b : x ) sum += wire_len(b);
     return sum;
   }
-  public static int wire_len( long[][]x ) { 
+  public static int wire_len( long[][]x ) {
     if( x==null ) return 4;  int sum = 4;
     for( long[] b : x ) sum += wire_len(b);
     return sum;
