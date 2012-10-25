@@ -54,7 +54,7 @@ public abstract class UDP {
     udp( boolean paxos, UDP udp ) { _paxos = paxos; _udp = udp; }
     static public udp[] UDPS = values();
     // Default: most tasks go to the hi-priority queue
-    ForkJoinPool pool() { return this==rexec ? H2O.FJP_NORM : H2O.FJP_HI; }
+    ForkJoinPool pool() { return (this==rexec || this==atomic) ? H2O.FJP_NORM : H2O.FJP_HI; }
   };
 
   abstract void call(DatagramPacket pack, H2ONode h2o);
