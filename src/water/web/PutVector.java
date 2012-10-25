@@ -39,7 +39,6 @@ public class PutVector extends JSONPage {
   }
   
   public static double[] parseSpaceSeparatedDoubles(String from) {
-    System.out.println(from);
     String[] s = from.split(" ");
     double[] d = new double[s.length];
     for (int i = 0; i< s.length; ++i)
