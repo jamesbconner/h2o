@@ -9,39 +9,39 @@ import java.util.Random;
 public class Data implements Iterable<Row> {
 
   public final class Row {
-    int index;
+    int _index;
     public String toString() {
       StringBuilder sb = new StringBuilder();
-      sb.append(index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < data_.columns(); ++i ) sb.append(data_.getS(index, i));
+      sb.append(_index).append(" ["+classOf()+"]:");
+      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getS(_index, i));
       return sb.toString();
     }
     public int numClasses() { return classes(); }
-    public int classOf()    { return data_.classOf(index); }
+    public int classOf()    { return _data.classOf(_index); }
     public final short getEncodedColumnValue(int colIndex) {
-      return data_.getEncodedColumnValue(index, colIndex);
+      return _data.getEncodedColumnValue(_index, colIndex);
     }
   }
 
-  protected final DataAdapter data_;
+  protected final DataAdapter _data;
 
   /** Returns new Data object that stores all adapter's rows unchanged.   */
   public static Data make(DataAdapter da) { return new Data(da); }
 
-  protected Data(DataAdapter da) { data_ = da; }
+  protected Data(DataAdapter da) { _data = da; }
 
   protected int start()          { return 0;                   }
-  protected int end()            { return data_._numRows;        }
+  protected int end()            { return _data._numRows;        }
   public int rows()              { return end() - start();     }
-  public int columns()           { return data_.columns();     }
-  public int classes()           { return data_.classes();     }
-  public int seed()              { return data_.seed();        }
-  public int dataId()            { return data_.dataId();      }
-  public int classIdx()          { return data_._classIdx;     }
-  public String colName(int i)   { return data_.columnNames()[i]; }
-  public float unmap(int col, float split) { return data_.unmap(col, split); }
-  public int columnArity(int colIndex) { return data_.columnArity(colIndex); }
-  public boolean ignore(int col) { return data_.ignore(col);   }
+  public int columns()           { return _data.columns();     }
+  public int classes()           { return _data.classes();     }
+  public int seed()              { return _data.seed();        }
+  public int dataId()            { return _data.dataId();      }
+  public int classIdx()          { return _data._classIdx;     }
+  public String colName(int i)   { return _data.columnNames()[i]; }
+  public float unmap(int col, float split) { return _data.unmap(col, split); }
+  public int columnArity(int colIndex) { return _data.columnArity(colIndex); }
+  public boolean ignore(int col) { return _data.ignore(col);   }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
   private class RowIter implements Iterator<Row> {
@@ -49,7 +49,7 @@ public class Data implements Iterable<Row> {
     int _pos = 0; final int _end;
     public RowIter(int start, int end) { _pos = start; _end = end;       }
     public boolean hasNext()           { return _pos < _end;             }
-    public Row next()                  { _r.index = permute(_pos++); return _r; }
+    public Row next()                  { _r._index = permute(_pos++); return _r; }
     public void remove()               { throw new Error("Unsupported"); }
   }
 
@@ -58,7 +58,7 @@ public class Data implements Iterable<Row> {
     int[] permutation = getPermutationArray();
     int l = start(), r = end() - 1;
     while (l <= r) {
-      int permIdx = row.index = permutation[l];
+      int permIdx = row._index = permutation[l];
       if (node.isIn(row)) {
         ls.add(row);
         ++l;
@@ -113,7 +113,7 @@ class Subset extends Data {
   /** Creates new subset of the given data adapter. The permutation is an array
    * of original row indices of the DataAdapter object that will be used.  */
   public Subset(Data data, int[] permutation, int start, int end) {
-    super(data.data_);
+    super(data._data);
     _start       = start;
     _end         = end;
     _permutation = permutation;
