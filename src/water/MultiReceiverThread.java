@@ -15,6 +15,7 @@ import java.util.*;
  */
 
 public class MultiReceiverThread extends Thread {
+  public static volatile long receivedMCastMsgCount;
   public MultiReceiverThread() { super("Multicast UDP Receiver"); }
 
   // The Run Method.
@@ -36,7 +37,7 @@ public class MultiReceiverThread extends Thread {
     while( true ) {
       // Get a free datagram packet
       DatagramPacket pack = UDPReceiverThread.get_pack();
-
+      ++receivedMCastMsgCount;
       try {
         // ---
         // Cleanup from any prior socket failures.  Rare unless we're really sick.
