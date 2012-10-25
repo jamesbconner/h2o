@@ -2,6 +2,7 @@ package water.web;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
+import com.google.gson.JsonObject;
 import init.Boot;
 import java.io.*;
 import java.util.Enumeration;
@@ -151,7 +152,13 @@ public class Server extends NanoHTTPD {
     try {
       result = json ? page.serverJson(this,parms,sessionID) : page.serve(this,parms,sessionID);
     } catch( PageError e ) {
-      result = e.getMessage();
+      if (json) {
+        JsonObject r = new JsonObject();
+        r.addProperty("Error", e.getMessage());
+        result = r;
+      } else {
+        result = e.getMessage();
+      }
     }
     if (result == null) return http404(uri);
     if (result instanceof Response) return (Response)result;
