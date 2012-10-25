@@ -623,11 +623,12 @@ class H2O(object):
             ]
 
         if self.use_hdfs:
-            #    '-hdfs_root /datasets'
+            # '-hdfs_root /datasets'
+            # '-hdfs_nopreload',
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
                 '-hdfs_version cdh4',
-                '-hdfs_root /'
+                '-hdfs_root /datasets'
             ]
 
             # we need a global for hdfs_name_node for tests to build up hdfs URIs.
