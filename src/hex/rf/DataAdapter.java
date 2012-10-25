@@ -3,50 +3,41 @@ package hex.rf;
 import gnu.trove.map.hash.*;
 
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import com.google.common.primitives.Ints;
 
 import jsr166y.RecursiveAction;
 import water.MemoryManager;
+import water.ValueArray;
 
 class DataAdapter  {
   private short[] _data;
-  private C[] _c;
-  private TObjectIntHashMap<String> _c2i = new TObjectIntHashMap<String>();
-  private final String _name;
+  private final int _numClasses;
+  private final String[] _columnNames;
+  private final C[] _c;
+  private final ValueArray _ary;
   private final int _dataId;           // Unique cookie identifying this dataset
-  private int _numClasses;
-  private String[] _columnNames;
   private final int _seed;
   public final int _classIdx;
   public final int _numRows;
 
-  /** Create a data adapter
-   * @param name  of the dataset
-   * @param columns names of the columns, can be empty in which case we use the column number
-   * @param classNm  name of the column that has the predictor
-   * @param rows number of rows
-   * @param data_id  identifier of the chunk we are working on
-   * @param seed  for pseudo random number generation
-   * @param numClasses number of classes the data can belong to
-   */
-  DataAdapter(String name, Object[] columns, String classNm, int[] ignores, int rows, int data_id, int seed, int numClasses) {
+  DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
+      int data_id, int seed) {
     _seed = seed+data_id;
-    _name=name;
-    _c = new C[columns.length];
-    _columnNames = new String[columns.length];
-    // Note that the number of classes is not generally known in a distributed
-    // fashion, as any single JVM does not see all the data - so it needs to be
-    // passed in here.
-    _numClasses = numClasses;
-    for( int i=0; i<columns.length; i++ ) {
-      _c2i.put(_columnNames[i] = columns[i].toString(), i);
-    }
-    _classIdx = _c2i.get(classNm);
-    assert ignores.length < columns.length;
-    for( int i=0; i<columns.length; i++ ) {
-      boolean ignore = false;
-      for(int j=0;j<ignores.length;j++) if(ignores[j]==i) ignore=true;
-      _c[i]= new C(_columnNames[i], rows, i==_classIdx,ignore);
+    _ary = ary;
+    _columnNames = ary.col_names();
+    _c = new C[_columnNames.length];
+
+    _numClasses = (int)(ary.col_max(classCol) - ary.col_min(classCol))+1;
+    assert 0 <= _numClasses && _numClasses < 65535;
+
+    _classIdx = classCol;
+    assert ignores.length < _columnNames.length;
+    for( int i = 0; i < _columnNames.length; i++ ) {
+      boolean ignore = Ints.indexOf(ignores, i) > 0;
+      _c[i]= new C(_columnNames[i], rows, i==_classIdx, ignore);
     }
     _dataId = data_id;
     _numRows = rows;
@@ -66,8 +57,9 @@ class DataAdapter  {
       return fmid;
     }
   }
+
   /** Return the name of the data set. */
-  public String name() { return _name; }
+  public String name() { return _ary._key.toString(); }
 
   /** Encode the data in a compact form.*/
   public ArrayList<RecursiveAction> shrinkWrap() {
