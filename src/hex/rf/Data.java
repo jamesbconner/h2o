@@ -3,13 +3,8 @@ package hex.rf;
 import hex.rf.Data.Row;
 import hex.rf.Tree.SplitNode;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
-import java.util.Set;
-
-import com.google.common.primitives.Ints;
 
 public class Data implements Iterable<Row> {
 
@@ -18,13 +13,11 @@ public class Data implements Iterable<Row> {
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < data_.columns(); ++i ) sb.append(" "+getS(i));
+      for( int i = 0; i < data_.columns(); ++i ) sb.append(data_.getS(index, i));
       return sb.toString();
     }
-    public int numClasses()    { return classes(); }
-    public int classOf()       { return  data_.classOf(index); }
-    public short getS(int col) { return data_.getS(index,col); }
-
+    public int numClasses() { return classes(); }
+    public int classOf()    { return data_.classOf(index); }
     public final short getEncodedColumnValue(int colIndex) {
       return data_.getEncodedColumnValue(index, colIndex);
     }
