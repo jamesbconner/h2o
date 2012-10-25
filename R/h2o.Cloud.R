@@ -1,7 +1,7 @@
 library('RCurl');
 library('rjson');
 library('methods');
-source('~/Documents/h2o.data.frame.R');
+source('h2o.data.frame.R');
 
 # Class representing the cloud
 setClass("h2o.Cloud", representation (url = "character"),prototype=prototype(url="localhost:54321"));
