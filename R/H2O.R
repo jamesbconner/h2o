@@ -58,6 +58,19 @@ inspect.H2O <- function(x, key) {
   }
 }
 
+put.H2O <- function(x, key, value) {
+  # Puts the given vector to the H2O cloud under the given key name. Returns the key name itself.
+  H2O._printConnection(x)
+  H2O._printIfVerbose(x,"  put of vector (size ",length(value),")")
+  res = H2O._remoteSend(x,"PutVector.json",Key=key,Value=paste0(value,collapse=" "))
+  if (H2O._isError(res)) {
+    H2O._printError(x,res$Error,prefix="  ")
+    NULL
+  } else {
+    res$Key
+  }
+}
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 is.defined <- function(x) {
@@ -68,7 +81,7 @@ is.defined <- function(x) {
 H2O._printIfVerbose <- function(x,...,prefix="") {
   # If given connection is set to verbose, prints the given message
   if (x$verbose)
-    print(paste(...,sep=""))
+    cat(paste(...,"\n",sep=""))
 }
 
 H2O._remoteSend <- function(x,page,...) {
@@ -86,7 +99,7 @@ H2O._printError <- function(x,error,prefix="") {
   # prints given error (splits lines if necessary)
   items = strsplit(errString,"\n")[[1]];
   for (i in 1:length(items))
-    print(paste(prefix,items[i]))
+    cat(paste(prefix,items[i],"\n"))
 }
 
 H2O._isError <- function(response) {
@@ -125,4 +138,8 @@ exec <- function(this, ...) {
 
 inspect <- function(this, ...) {
   UseMethod("inspect",this)
+}
+
+put <- function(this, ...) {
+  UseMethod("put",this)
 }
