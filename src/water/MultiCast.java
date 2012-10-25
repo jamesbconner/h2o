@@ -112,4 +112,8 @@ public abstract class MultiCast {
 
     return 0;
   }
+  static int singlecast(InetAddress addr, int port, byte [] buf,int len){
+    return send(addr,port,buf,0,len);
+  }
+
 }

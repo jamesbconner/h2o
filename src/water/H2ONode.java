@@ -93,7 +93,7 @@ public class H2ONode implements Comparable {
       if(!p.udpOk())System.err.println("UDP communication with node " + node + " failed!");
       if(!p.tcpOk())System.err.println("TCP communication with node " + node._key._inet + ":" + node._key.tcp_port() + " failed!");
       System.err.println("Invalid cloud setup (broken communication). Please make sure that all nodes can communicate directly");
-      System.exit(-1);
+      //System.exit(-1);
     }
   }
   // Create and/or re-use an H2ONode.  Each gets a unique dense index, and is
