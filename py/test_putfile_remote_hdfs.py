@@ -60,7 +60,7 @@ class Basic(unittest.TestCase):
             result = node.put_file(cvsfile)
             h2o.verboseprint("put_file ok for node", nodeTry)
 
-            key    = result['keyHref']
+            key    = result['key']
             r      = node.get_key(key)
             f      = open(cvsfile)
             self.diff(r, f)

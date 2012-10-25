@@ -264,6 +264,14 @@ public class Value {
     _persist = ICE;
   }
 
+  // Memory came from elsewhere
+  public Value(Key k, byte[] bits, byte mode) {
+    _mem = bits;
+    _max = bits.length;
+    _key = k;
+    _persist = mode;
+  }
+
   // Check that these are the same values... but one might be a prefix _mem of
   // the other.  This is not an absolute test: the Values might differ even if
   // this reports 'true'.  However, if it reports 'false' then the Values

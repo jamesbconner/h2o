@@ -12,6 +12,8 @@ import water.Key;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.gson.*;
+import java.io.IOException;
+import java.net.URLEncoder;
 
 /**
  * List that has labels to it (something like copyable iterators) and some very
@@ -168,8 +170,14 @@ class LabelledStringList {
 
 /**
  * A replaceable string that allows very easy and simple replacements.
+ * 
+ * %placeholder is normally inserted
+ * 
+ * %$placeholder is inserted in URL encoding for UTF-8 charset. This should be
+ * used for all hrefs. 
+ * 
  */
-class RString {
+public class RString {
   // A placeholder information with replcement group and start and end labels.
 
   private static class Placeholder {
@@ -202,7 +210,7 @@ class RString {
 
   // Passes only valid placeholder name characters
   static private boolean isIdentChar(char x) {
-    return ((x >= 'a') && (x <= 'z')) || ((x >= 'A') && (x <= 'Z')) || ((x >= '0') && (x <= '9')) || (x == '_');
+    return (x == '$') || ((x >= 'a') && (x <= 'z')) || ((x >= 'A') && (x <= 'Z')) || ((x >= '0') && (x <= '9')) || (x == '_');
   }
 
   // Creates a string that is itself a replacement group.
@@ -236,7 +244,7 @@ class RString {
       if( from.charAt(start) == '%' ) {
         cur.insertAndAdvance(from.substring(end, start));
         end = start + 1;
-      } else {
+      } else { 
         cur.insertAndAdvance(from.substring(end, start - 1));
         end = start;
         while( (end < from.length()) && (isIdentChar(from.charAt(end))) ) {
@@ -256,7 +264,7 @@ class RString {
           _placeholders.put(pname, new Placeholder(cur.clone(), cur.clone(), from.substring(start, end)));
           ++end;
         }
-        start = end;
+//        start = end;
       }
     }
   }
@@ -294,16 +302,24 @@ class RString {
   }
 
   public void replace(String what, Key key) {
-    replace(what + "Href", key.toString());
     replace(what, key.user_allowed() ? key.toString() : "<code>"+key.toString()+"</code>");
   }
-
+  
   // Replaces the given placeholder with an object. On a single placeholder,
   // multiple replaces can be called in which case they are appended one after
   // another in order.
   public void replace(String what, Object with) {
+    if (what.charAt(0)=='$')
+      throw new Error("$ is now control char that denotes URL encoding!");
     for (Placeholder p : _placeholders.get(what))
       p.end.insertAndAdvance(with.toString());
+
+    for (Placeholder p : _placeholders.get("$"+what))
+      try {
+        p.end.insertAndAdvance(URLEncoder.encode(with.toString(),"UTF-8"));
+      } catch (IOException e) {
+        p.end.insertAndAdvance(e.toString());
+      }
   }
 
   // Returns a replacement group of the given name and clears it so that it

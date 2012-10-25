@@ -5,7 +5,7 @@ def runGLM(node=None,csvPathname=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=
     if not csvPathname: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
-    parse = node.parse(put['keyHref'])
+    parse = node.parse(put['key'])
     glm = runGLMOnly(node=node, parseKey=parse,X=X,Y=Y,
         timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
     return glm
@@ -14,7 +14,7 @@ def runGLMOnly(node=None,parseKey=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    glm = node.GLM(parseKey['keyHref'],X=X,Y=Y)
+    glm = node.GLM(parseKey['key'],X=X,Y=Y)
     return glm
 
 # You can change those on the URL line woth "&colA=77&colB=99"
@@ -25,7 +25,7 @@ def runLR(node=None,csvPathname=None,colA=0,colB=1,timeoutSecs=30,retryDelaySecs
     if not csvPathname: raise Exception('No file name for LR specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
-    parse = node.parse(put['keyHref'])
+    parse = node.parse(put['key'])
     runLROnly(node=node, parseKey=parse, 
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
@@ -33,7 +33,7 @@ def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySec
     if not parseKey: raise Exception('No file name for LR specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    lr = node.linear_reg(parseKey['keyHref'], colA, colB)
+    lr = node.linear_reg(parseKey['key'], colA, colB)
 
 ###     # we'll have to add something for LR.json to verify the LR results
 
@@ -42,7 +42,7 @@ def runRF(node=None, csvPathname=None, trees=5, timeoutSecs=30, retryDelaySecs=2
     if not csvPathname: raise Exception('No file name for RF specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
-    parse = node.parse(put['keyHref'])
+    parse = node.parse(put['key'])
     rfView = runRFOnly(node=node, parseKey=parse, trees=trees,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs, **kwargs)
     return(rfView)
@@ -54,8 +54,8 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     if not node: node = h2o.nodes[0]
     #! FIX! what else is in parseKey that we should check?
     h2o.verboseprint("runRFOnly parseKey:",parseKey)
-    keyHref = parseKey['keyHref']
-    rf = node.random_forest(keyHref, trees, depth, **kwargs)
+    key = parseKey['key']
+    rf = node.random_forest(key, trees, depth, **kwargs)
 
     # rf result json: 
     # this is the number of trees asked for
@@ -76,10 +76,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     modelKey = rf['modelKey']
     treesKey = rf['treesKey']
 
-    # these are all needed for RFview
-    dataKeyHref  = rf['dataKeyHref']
-    modelKeyHref = rf['modelKeyHref']
-    treesKeyHref = rf['treesKeyHref']
     ntree        = rf['ntree']
 
     # /ip:port of cloud (can't use h2o name)
@@ -90,7 +86,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # expect response to match the number of trees you asked for
     # FIX! allow nodes*request to be legal for temporary bug workaround
     def test(n):
-        a = n.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,ntree)['modelSize']
+        a = n.random_forest_view(dataKey,modelKey,treesKey,ntree)['modelSize']
         return(a==trees or a==(len(h2o.nodes)*trees))
 
     node.stabilize(
@@ -99,16 +95,15 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     # kind of wasteful re-read, but maybe good for testing
-    rfView = node.random_forest_view(dataKeyHref,modelKeyHref,treesKeyHref,ntree)
+    rfView = node.random_forest_view(dataKey,modelKey,treesKey,ntree)
     modelSize = rfView['modelSize']
     confusionKey = rfView['confusionKey']
-    confusionKeyHref = rfView['confusionKeyHref']
 
     # FIX! how am I supposed to verify results, or get results/
     # touch all these just to do something
-    cmInspect = node.inspect(confusionKeyHref)
-    treeInspect = node.inspect(treesKeyHref)
-    modelInspect = node.inspect(modelKeyHref)
-    dataInspect = node.inspect(dataKeyHref)
+    cmInspect = node.inspect(confusionKey)
+    treeInspect = node.inspect(treesKey)
+    modelInspect = node.inspect(modelKey)
+    dataInspect = node.inspect(dataKey)
 
     return(rfView)

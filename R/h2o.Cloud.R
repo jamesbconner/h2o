@@ -1,7 +1,7 @@
 library('RCurl');
 library('rjson');
 library('methods');
-source('~/Documents/h2o.data.frame.R');
+source('h2o.data.frame.R');
 
 # Class representing the cloud
 setClass("h2o.Cloud", representation (url = "character"),prototype=prototype(url="localhost:54321"));
@@ -20,8 +20,8 @@ setMethod("uploadFile", c(cloud="h2o.Cloud",file="character"),function(cloud,fil
 	url <- paste(cloud@url,"PutFile.json",sep="/");
 	res <- fromJSON(postForm(url,File=file));
 	url <- paste(cloud@url,"Parse.json",sep="/");
-	res <- fromJSON(postForm(url,Key=res$keyHref));	
-	new('h2o.data.frame', key = res$keyHref);
+	res <- fromJSON(postForm(url,Key=res$key));	
+	new('h2o.data.frame', key = res$key);
 });
 
 parseX <- function(formula){

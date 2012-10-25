@@ -42,7 +42,7 @@ public class PutValue extends H2OPage {
     JsonObject json = serverJson(s, p, sessionID);
     RString response = new RString("" +
         "<div class='alert alert-success'>" +
-        "Key <a href='Inspect?Key=%keyHref'>%key</a> has been put to the " +
+        "Key <a href='Inspect?Key=%$key'>%key</a> has been put to the " +
         "store with replication factor %rf, value size <strong>%vsize</strong>." +
         "</div>" +
         "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;" +

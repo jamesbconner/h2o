@@ -1,6 +1,7 @@
 package water.web;
 
 import java.util.Properties;
+import water.hdfs.PersistHdfs;
 
 /** Stores a key using either GET or POST method
  *
@@ -31,7 +32,16 @@ public class PutQuery extends H2OPage {
     + "      <td><div id='progress' class='progress progress-striped span6'><div class='bar' style='width: 0%;'></div></div></td>"
     + "      <td><button type='submit' class='btn btn-primary' id='UploadBtn'>Upload</button></td>"
     + "  </tr>"
-*/    + "</table>"
+*/
+    + "</table>"
+    +"<div style='display:%hdfsenabled'>"
+    + "<p>or you may write the HDFS path to the file you want to import:"
+    + "<form class='well form-inline' action='PutHDFS'>"
+    + "  %hdfsroot<input type='text' class='input-small span4' placeholder='Path (excluding server)' name='path' id='path'>"
+    + "  <button type='submit' class='btn btn-primary'>Import</button>"
+    + "</form>"
+    + "</div>"
+          
     ;
 
   @Override
@@ -46,6 +56,14 @@ public class PutQuery extends H2OPage {
                           };
   }
   @Override protected String serveImpl(Server server, Properties args, String sessionID) {
-    return html;
+    RString r = new RString(html);
+    String hdfsroot = PersistHdfs.getHDFSRoot();
+    if (hdfsroot != null) {
+      r.replace("hdfsroot",hdfsroot+"/");
+      r.replace("hdfsenabled","block");
+    } else {
+      r.replace("hdfsenabled","none");
+    }
+    return r.toString();
   }
 }

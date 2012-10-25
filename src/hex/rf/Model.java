@@ -103,22 +103,22 @@ public class Model extends RemoteTask {
   public String depth()  { find_leaves_depth(); return _td.toString(); }
 
   public static class Counter {
-    double min_ = Double.MAX_VALUE;
-    double max_ = Double.MIN_VALUE;
-    int    count_;
-    double total_;
+    double _min = Double.MAX_VALUE;
+    double _max = Double.MIN_VALUE;
+    int    _count;
+    double _total;
     public void add(double what) {
-      total_ += what;
-      min_ = Math.min(what, min_);
-      max_ = Math.max(what, max_);
-      ++count_;
+      _total += what;
+      _min = Math.min(what, _min);
+      _max = Math.max(what, _max);
+      ++_count;
     }
-    public double min() { return min_; }
-    public double max() { return max_; }
-    public double avg() { return total_ / count_; }
-    public int count()  { return count_; }
+    public double min() { return _min; }
+    public double max() { return _max; }
+    public double avg() { return _total / _count; }
+    public int count()  { return _count; }
     @Override
-    public String toString() { return count_==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",min_,avg(),max_); }
+    public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,avg(),_max); }
   }
 
   public void invoke( Key args ) { throw H2O.unimpl(); }

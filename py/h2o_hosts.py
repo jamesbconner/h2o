@@ -4,8 +4,8 @@ import getpass, json, h2o
 
 # None means the json will specify, or the default for json below
 # only these two args override for now. can add more.
-def build_cloud_with_hosts(node_count=None, use_flatfile=False, 
-    use_hdfs=False, hdfs_name_node="192.168.1.151", **kwargs):
+def build_cloud_with_hosts(node_count=None, use_flatfile=None, 
+    use_hdfs=None, hdfs_name_node="192.168.1.151", **kwargs):
 
     # For seeing example of what we want in the json, if we add things
     #   import h2o_config
@@ -15,6 +15,7 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
     with open(configFilename, 'rb') as fp:
          hostDict = json.load(fp)
 
+    slow_connection = hostDict.setdefault('slow_connection', False)
     hostList = hostDict.setdefault('ip','192.168.0.161')
     h2oPerHost = hostDict.setdefault('h2o_per_host', 2)
     # default should avoid colliding with sri's demo cloud ports: 54321
@@ -60,7 +61,7 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=False,
         h2o.verboseprint("Connecting to:", h)
         hosts.append(h2o.RemoteHost(h, username, password))
 
-    h2o.upload_jar_to_remote_hosts(hosts)
+    h2o.upload_jar_to_remote_hosts(hosts, slow_connection=slow_connection)
 
     # timeout wants to be larger for large numbers of hosts * h2oPerHost
     # use 60 sec min, 2 sec per node.

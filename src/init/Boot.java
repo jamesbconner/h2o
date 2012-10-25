@@ -76,6 +76,7 @@ public class Boot extends ClassLoader {
       addInternalJars("junit");
       addInternalJars("jama");
       addInternalJars("poi");
+      addInternalJars("trove");
     } else {
       System.setProperty("org.hyperic.sigar.path", "lib/binlib");
     }
@@ -197,11 +198,11 @@ public class Boot extends ClassLoader {
       // We need the RemoteTask CtClass before we can ask "subclassOf"
       if( _remoteTask == null ) { // Lazily set the RemoteTask CtClass
         _remoteTask = _pool.get("water.RemoteTask");
-        _remoteTask.toClass(this); // Go ahead and early load it
+        _remoteTask.toClass(this, null); // Go ahead and early load it
       }
       if( _remoteTask == cc ||          // No need to rewrite the base class
           !cc.subclassOf(_remoteTask) ) // Not a child of RemoteTask
-        return cc.toClass(this); // Just the same class with 'this' Boot class loader
+        return cc.toClass(this, null); // Just the same class with 'this' Boot class loader
       return javassistLoadClass(cc); // Add serialization methods
     } catch( NotFoundException nfe ) {
       return null;              // Not found?  Use the normal loader then
@@ -242,7 +243,7 @@ public class Boot extends ClassLoader {
       assert hasExisting("read" ,"(Ljava/io/DataInputStream;)V",ccms);
       assert hasExisting("write","(Lwater/Stream;)V",ccms);
       assert hasExisting("read" ,"(Lwater/Stream;)V",ccms);
-      return cc.toClass(this);  // Has serialization methods already; blow off adding more
+      return cc.toClass(this, null);  // Has serialization methods already; blow off adding more
     }
     assert !hasExisting("write","(Ljava/io/DataOutputStream;)V",ccms);
     assert !hasExisting("read" ,"(Ljava/io/DataInputStream;)V",ccms);
@@ -344,7 +345,7 @@ public class Boot extends ClassLoader {
     // Make the class public
     cc.setModifiers(javassist.Modifier.setPublic(cc.getModifiers()));
 
-    return cc.toClass(this);
+    return cc.toClass(this, null);
   }
 
   // Produce a code body with all these fill-ins.

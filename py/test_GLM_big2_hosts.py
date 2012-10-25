@@ -28,7 +28,7 @@ class Basic(unittest.TestCase):
 
         # columns start at 0
         put = h2o.nodes[0].put_file(csvPathname)
-        parseKey = h2o.nodes[0].parse(put['keyHref'])
+        parseKey = h2o.nodes[0].parse(put['key'])
 
         # pop open a browser on the cloud
         h2b.browseTheCloud()

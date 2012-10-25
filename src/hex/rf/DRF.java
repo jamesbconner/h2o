@@ -1,7 +1,10 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
 import water.*;
+
 import java.util.HashSet;
+
+import jsr166y.RecursiveAction;
 
 /**
  * Distributed RandomForest
@@ -59,43 +62,50 @@ public class DRF extends water.DRemoteTask {
   }
 
   public final  DataAdapter extractData(Key arykey, Key [] keys){
-    ValueArray ary = (ValueArray)DKV.get(arykey);
+    final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
-    final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
-    assert 0 <= classes && classes < 65535;
-    String[] names = ary.col_names();
 
     // One pass over all chunks to compute max rows
+    int num_keys = 0;
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
       if( key.home() ) {
-        // An NPE here means the cloud is changing...
+        num_keys++;
         num_rows += DKV.get(key)._max/rowsize;
         if( unique == -1 )
           unique = ValueArray.getChunkIndex(key);
       }
     // The data adapter...
-    DataAdapter dapt = new DataAdapter(ary._key.toString(), names, names[_classcol], _ignores, num_rows, unique, _seed, classes);
-    final int num_cols = ary.num_cols();
-    float[] ds = new float[num_cols];
+    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
-    for( Key key : keys ) {
+    RecursiveAction[] parts = new RecursiveAction[num_keys];
+    num_keys = 0;
+    num_rows = 0;
+    for( final Key key : keys ) {
       if( key.home() ) {
-        byte[] bits = DKV.get(key).get();
-        final int rows = bits.length/rowsize;
-        for( int j=0; j<rows; j++ ) { // For all rows in this chunk
-          ds[num_cols-1] = Float.NaN; // Row-has-invalid-data flag on last column
-          for( int k=0; k<num_cols; k++ ) {
-            if( !ary.valid(bits,j,rowsize,k) ) break; // oops, bad data on row
-            ds[k] = (float)ary.datad(bits,j,rowsize,k);
+        final int start_row = num_rows;
+        parts[num_keys++] = new RecursiveAction() {
+          @Override
+          protected void compute() {
+            float[] ds = new float[ary.num_cols()];
+            byte[] bits = DKV.get(key).get();
+            final int rows = bits.length/rowsize;
+            ROW: for( int j = 0; j < rows; j++ ) { // For all rows in this chunk
+              for( int k = 0; k < ds.length; k++ ) {
+                // bad data means skip row
+                if( !ary.valid(bits,j,rowsize,k) ) continue ROW;
+                ds[k] = (float)ary.datad(bits,j,rowsize,k);
+              }
+              dapt.addRow(ds, start_row+j);
+            }
           }
-          if( !Float.isNaN(ds[num_cols-1]) ) // Insert only good rows
-            dapt.addRow(ds);                 // Insert row
-        }
+        };
+        num_rows += DKV.get(key)._max/rowsize;
       }
     }
-    dapt.shrinkWrap();
+    invokeAll(parts);             // first collect all the data row wise
+    invokeAll(dapt.shrinkWrap()); // then shrink wrap the columns
     return dapt;
   }
   // Local RF computation.

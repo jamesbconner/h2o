@@ -46,7 +46,7 @@ class Basic(unittest.TestCase):
         node    = h2o.nodes[0]
         result  = node.put_file(cvsfile)
 
-        key     = result['keyHref']
+        key     = result['key']
         r       = node.get_key(key)
         f       = open(cvsfile)
         self.diff(r, f)
@@ -57,7 +57,7 @@ class Basic(unittest.TestCase):
         cvsfile = h2o.find_file(file_to_put())
         for node in h2o.nodes:
             result = node.put_file(cvsfile)
-            key    = result['keyHref']
+            key    = result['key']
             r      = node.get_key(key)
             f      = open(cvsfile)
             self.diff(r, f)

@@ -25,7 +25,7 @@ public class RemoveAck extends H2OPage {
     + "<div style='text-align:center'>"
     + "<a href='StoreView'><button class='btn btn-primary'>No, back to node</button></a>"
     + "&nbsp;&nbsp;&nbsp;"
-    + "<a href='Remove?Key=%keyHref'><button class='btn btn-danger'>Yes!</button></a>"
+    + "<a href='Remove?Key=%$key'><button class='btn btn-danger'>Yes!</button></a>"
     + "</div>"
     ;
 }

@@ -126,7 +126,7 @@ public class Cloud extends H2OPage {
     + "<tbody>\n"
     + "%tableRow{"
     + "  <tr>"
-    + "    <td><a href='Remote?Node=%host'>%node</a></td>"
+    + "    <td><a href='Remote?Node=%$host'>%node</a></td>"
     + "    <td>%num_cpus</td>"
     + "    <td>%num_keys</td>"
     + "    <td>%val_size</td>"

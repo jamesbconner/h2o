@@ -47,7 +47,7 @@ public class RandomForestTest {
       // Start RFPage, get a JSON result.
       JsonObject res = RFP.serverJson(null,p,null);
       // From the JSON, get treesKey & ntree to be built
-      Key treesKey = Key.make(res.get("treesKeyHref").getAsString());
+      Key treesKey = Key.make(res.get("treesKey").getAsString());
       int ntree = res.get("ntree").getAsInt();
       assertEquals(ntree,NTREE);
       // Wait for the trees to be built.  This should be a blocking call someday.
@@ -61,7 +61,7 @@ public class RandomForestTest {
         try { Thread.sleep(100); } catch( InterruptedException ie ) { }
       }
       // Peel out the modelKey.
-      Key modelKey = Key.make(res.get("modelKeyHref").getAsString());
+      Key modelKey = Key.make(res.get("modelKey").getAsString());
       Value modelVal = UKV.get(modelKey);
       Model model = new Model();
       model.read(new Stream(modelVal.get()));
@@ -82,14 +82,14 @@ public class RandomForestTest {
         String res2 = rfv.serveImpl(null,p,null);
 
         // Verify Goodness and Light
-        Key oKey2 = Key.make(rfv_res.get("dataKeyHref").getAsString());
+        Key oKey2 = Key.make(rfv_res.get("dataKey").getAsString());
         assertEquals(okey,oKey2);
-        Key mkey2 = Key.make(rfv_res.get("modelKeyHref").getAsString());
+        Key mkey2 = Key.make(rfv_res.get("modelKey").getAsString());
         assertEquals(modelKey,mkey2);
         modelVal = UKV.get(modelKey);
         model = new Model();
         model.read(new Stream(modelVal.get()));
-        confKey = Key.make(rfv_res.get("confusionKeyHref").getAsString());
+        confKey = Key.make(rfv_res.get("confusionKey").getAsString());
         if( model.size() >= NTREE ) break;
         UKV.remove(confKey);    // Premature incremental Confusion; nuke it
         try { Thread.sleep(100); } catch( InterruptedException ie ) { }

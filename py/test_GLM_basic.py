@@ -72,7 +72,7 @@ class Basic(unittest.TestCase):
         csvFilename = "prostate.csv"
         csvPathname = "../smalldata/logreg" + '/' + csvFilename
         put = nodes[0].put_file(csvPathname)
-        parseKey = nodes[0].parse(put['keyHref'])
+        parseKey = nodes[0].parse(put['key'])
 
         for appendX in xrange(9):
             if (appendX == 0):

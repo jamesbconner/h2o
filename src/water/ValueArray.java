@@ -37,6 +37,10 @@ public class ValueArray extends Value {
     super(k,mem);
   }
 
+  public ValueArray(Key k, byte [] mem, byte mode) {
+    super(k,mem,mode);
+  }
+
   @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
 
   @Override public byte type() { return ARRAY; }
@@ -118,7 +122,6 @@ public class ValueArray extends Value {
   public long chunk_size_structured() {
     if(row_size() > 0) {
       long rpc = chunk_size()/row_size();
-      System.out.println("ValueArray.chunk_size_structured() = " + rpc*row_size());
       return rpc*row_size();
     } else {
       return chunk_size();

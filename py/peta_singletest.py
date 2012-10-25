@@ -1,7 +1,7 @@
 import os, json, unittest, time, shutil, sys, getpass
 import h2o
 
-class JUnit(unittest.TestCase):
+class PetaTest(unittest.TestCase):
 
     def testAll(self):
         try:
@@ -18,14 +18,6 @@ class JUnit(unittest.TestCase):
                     '-ea', '-jar', h2o.find_file('build/h2o.jar'),
                     '-mainClass', 'org.junit.runner.JUnitCore',
                     # The tests
-                    'test.KVTest',
-                    'test.ParserTest',
-                    'test.AutoSerialTest',
-                    'test.DatasetCornerCasesTest',
-                    'test.AppendKeyTest',
-                    'test.RandomForestTest',
-                    'test.ExprTest',
-                    'test.KeyToString',
                     'test.RStringTest',
                     ])
 

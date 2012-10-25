@@ -25,7 +25,7 @@ public class RandomForestPage extends H2OPage {
 
     // Optionally, save the model
     Key modelKey = null;
-    String skey = p.getProperty("modelKey","____model");
+    String skey = p.getProperty("modelKey","model");
     try {
       modelKey = Key.make(skey);
     } catch( IllegalArgumentException e ) {
@@ -82,5 +82,5 @@ public class RandomForestPage extends H2OPage {
     return H2OPage.error(json.get("error").toString());
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%dataKeyHref&modelKey=%modelKeyHref&treesKey=%treesKeyHref&ntree=%ntree&class=%class\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&treesKey=%$treesKey&ntree=%ntree&class=%class\">\n";
 }

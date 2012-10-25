@@ -210,6 +210,30 @@ public abstract class MemoryManager {
     _heapMonitor = new HeapUsageMonitor();
   }
 
+
+  public static short[] allocateMemoryShort(int size) {
+    if (size > 128)
+      while (!canAllocate) {
+        // Failed: block until we think we can allocate
+        synchronized(_lock) {
+          NUM_BLOCKED++;
+          try {
+            _lock.wait(1000);
+          } catch (InterruptedException ex) {
+          }
+          --NUM_BLOCKED;
+          try{
+            return new short[size];
+          } catch (OutOfMemoryError e){
+            canAllocate = false;
+            System.err.println("Run out of memory in MemoryManager.allocateMemory! Stopping all alocations!");
+          }
+        }
+      }
+    // allocate small values directly
+    return new short[size];
+  }
+
   // allocates memory, will block until there is enough available memory
   public static byte[] allocateMemory(int size) {
     if (size > 256)

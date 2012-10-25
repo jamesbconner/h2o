@@ -22,7 +22,7 @@ public class ExecWeb extends H2OPage {
       addProperty(res,"ResultKey", k);
     } catch( PositionedException e ) {
       res.addProperty("Expr", x);
-      res.addProperty("Error", e.reportHTML(x));      
+      res.addProperty("Error", e.report(x));      
     }
     return res;
   }
@@ -31,12 +31,12 @@ public class ExecWeb extends H2OPage {
   @Override protected String serveImpl(Server server, Properties args, String sessionId) throws PageError {
     RString query = new RString(ExecQuery.html);
     query.replace("expr",args.getProperty("Expr"));
-    JsonObject json = serverJson(server, args, sessionId);
-    if (json.has("Error")) {
-      return query.toString() + error("<span style='font-family:monospace'>"+json.getAsJsonPrimitive("Error").getAsString()+"</span>");
-    } else {
-      args.put("Key",json.get("ResultKeyHref").getAsString());
-      return  query.toString() + new Inspect().serveImpl(server,args,sessionId);
+    try {
+      Key k = water.exec.Exec.exec(args.getProperty("Expr"));
+      args.put("Key",k.toString());
+      return query.toString() + new Inspect().serveImpl(server,args,sessionId);
+    } catch (PositionedException e) {
+      return query.toString() + error("<span style='font-family:monospace'>"+e.reportHTML(args.getProperty("Expr")) +"</span>");
     }
   }
 }

@@ -178,7 +178,6 @@ public class RFRunner {
     return true;
   }
 
-  private static int seed() { return (int) (System.currentTimeMillis() & 0xFFFF); }
   private static int[] size(int[] multiples, int max){
     int off =0;
     while(multiples[off]<max) off++;
