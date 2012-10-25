@@ -6,6 +6,7 @@ import java.text.DecimalFormat;
 import java.util.*;
 
 import jsr166y.RecursiveAction;
+import water.MemoryManager;
 
 class DataAdapter  {
   private short[] _data;
@@ -87,7 +88,7 @@ class DataAdapter  {
     return res;
   }
 
-  public void freeze()        { _data = new short[ _c.length * _numRows]; }
+  public void freeze()        { _data = MemoryManager.allocateMemoryShort(_c.length * _numRows); }
   public int seed()           { return _seed; }
   public int columns()        { return _c.length;}
   public int classOf(int idx) { return getS(idx,_classIdx); }
