@@ -316,6 +316,13 @@ public final class H2O {
     startNetworkServices();  // start server services
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
+    // test if we have multicast
+    if (OPT_ARGS.flatfile==null && CLOUD._memary.length == 1) {
+      try {Thread.sleep(1000);} catch( InterruptedException e ) {}
+      if(MultiReceiverThread.receivedMCastMsgCount == 0){
+        System.err.println("WARNING: No other nodes are visible. No flatfile argument and no multicast messages received. Broken multicast?");
+      }
+    }
   }
 
 
