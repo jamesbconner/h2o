@@ -194,6 +194,7 @@ public final class TimelineSnapshot implements
       case rebooted:
       case timeline:
       case log:
+      case ping:
         // compare only first 3 bytes here (udp type and port)
         if ((myl0 & 0xFFFFFFl) != (otherl0 & myl0 & 0xFFFFFFl))
           return false;
