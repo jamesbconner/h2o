@@ -106,7 +106,11 @@ class KeyLiteral extends Expr {
   }
 
   @Override
-  public Result eval() throws EvaluationException { return Result.permanent(_key); }
+  public Result eval() throws EvaluationException {
+    if (DKV.get(_key) == null)
+      throw new EvaluationException(_pos, "Key "+_key.toString()+" not found.");
+    return Result.permanent(_key);
+  }
 }
 
 // =============================================================================
