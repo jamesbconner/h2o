@@ -84,10 +84,16 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     whatIsThis= rf['class']
 
     # expect response to match the number of trees you asked for
-    # FIX! allow nodes*request to be legal for temporary bug workaround
     def test(n):
         a = n.random_forest_view(dataKey,modelKey,treesKey,ntree)['modelSize']
-        return(a==trees or a==(len(h2o.nodes)*trees))
+        # don't pass back the expected number, for possible fail message
+        # so print what we got, if not equal..it's kind of intermediate results that are useful?
+        # normally we won't see any?
+        # FIX! this is really just for current debug of not-done.
+        if (a!=trees and a>0):
+            # don't print the typical case of 0 (starting)
+            print "Waiting for RF done: at %d of %d trees" % (a, trees)
+        return(a==trees)
 
     node.stabilize(
             test,
