@@ -63,6 +63,7 @@ public abstract class Function {
       new Min("min");
       new Max("max");
       new Sum("sum");
+      new Mean("mean");
     }
 }
 
@@ -134,6 +135,35 @@ class Sum extends Function {
 
   @Override protected Result doEval(Result... args) {
     MRSum task = new MRSum(args[0]._key, args[0].colIndex());
+    task.invoke(args[0]._key);
+    return Result.scalar(task.result());
+  }
+}
+
+// Mean -------------------------------------------------------------------------
+
+class Mean extends Function {
+  
+  static class MRMean extends Helpers.ScallarCollector {
+
+    @Override protected void collect(double x) { _result += x; }
+
+    @Override protected void reduce(double x) { _result += x; }
+    
+    @Override public double result() {
+      ValueArray va = (ValueArray) DKV.get(_key);
+      return _result / va.num_rows();
+    }
+    
+    public MRMean(Key k, int col) { super(k,col,0); }
+  }
+  
+  public Mean(String name) {
+    super(name,new ArgChecker[] { new SingleColumn() });
+  }
+
+  @Override protected Result doEval(Result... args) {
+    MRMean task = new MRMean(args[0]._key, args[0].colIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
