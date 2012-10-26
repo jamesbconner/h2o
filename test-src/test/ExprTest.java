@@ -65,7 +65,7 @@ public class ExprTest {
     testParseFail("4e4e4");
     testParseFail("a +* b");
     testParseFail("(a + b");
-    testParseFail(" \"hello");
+    testParseFail(" |hello");
     testParseFail(" a $ 5");
   }
   
@@ -218,8 +218,8 @@ public class ExprTest {
   }
  
   @Test public void testQuotedIdents() {
-    testScalarExpression("\"a\\\"b/c\\\\d\" = 5", 5);
-    testScalarExpression("\"a\\\"b/c\\\\d\"", 5);
+    testScalarExpression("|a\"b/c\\\\d| = 5", 5);
+    testScalarExpression("|a\"b/c\\\\d|", 5);
     UKV.remove(Key.make("a\"b/c\\d"));
   }
   

@@ -23,6 +23,7 @@ public class RLikeParser {
       ttFloat, // any floating point number
       ttInteger, // integer number
       ttIdent, // any identifier
+      ttString,
       ttOpAssign, // assignment, = or <-
       ttOpRightAssign, // -> assignment in R
       ttOpDollar, // $
@@ -36,6 +37,7 @@ public class RLikeParser {
       ttOpBracketClose, // ]
       ttOpLess, // <
       ttOpGreater, // >
+      ttOpComma, // ,
       ttEOF,
       ttUnknown,;
 
@@ -47,6 +49,8 @@ public class RLikeParser {
             return "integer";
           case ttIdent:
             return "identifier";
+          case ttString:
+            return "string literal";
           case ttOpAssign:
             return "assignment";
           case ttOpRightAssign:
@@ -73,6 +77,8 @@ public class RLikeParser {
             return "opening bracket";
           case ttOpBracketClose:
             return "closing bracket";
+          case ttOpComma:
+            return "comma ','";
           case ttEOF:
             return "end of input";
           default:
@@ -111,12 +117,17 @@ public class RLikeParser {
     }
 
     public Token(int pos, String s) {
+      this(pos,s,Type.ttIdent);
+    }
+
+    public Token(int pos, String s, Type type) {
       _pos = pos;
-      this._type = Type.ttIdent;
+      this._type = type;
       _value = 0;
       _valueInt = 0;
       _id = s;
     }
+    
   }
   private Stream _s;
   private Token _top;
@@ -135,6 +146,15 @@ public class RLikeParser {
     if( top()._type != type )
       throw new ParserException(top()._pos, type, top()._type);
     return pop();
+  }
+  
+  protected boolean condPop(Token.Type type) throws ParserException {
+    if (top()._type == type) {
+      pop();
+      return true;
+    } else {
+      return false;
+    }
   }
 
   private void skipWhitespace() {
@@ -216,7 +236,13 @@ public class RLikeParser {
       case '>':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpGreater);
+      case ',':
+        ++_s._off;
+        return new Token(pos,Token.Type.ttOpComma);
       case '"':
+      case '\'':
+        return parseString();
+      case '|':
         return parseIdent();
       default:
         if( isCharacter(c) )
@@ -226,16 +252,55 @@ public class RLikeParser {
     }
     return new Token(pos, Token.Type.ttUnknown);
   }
+  
+  private Token parseString() throws ParserException {
+    int start = _s._off;
+    char end = (char) _s.peek1() == '"' ? '"' : '\'';
+    StringBuilder sb = new StringBuilder();
+    while (true) {
+      if( _s.eof() )
+        throw new ParserException(start, "String does not finish before the end of input");
+      if( _s.peek1() == end ) {
+        ++_s._off;
+        break; // end of the string
+      } else if( _s.peek1() == '\\' ) {
+        ++_s._off;
+        if( _s.eof() )
+          throw new ParserException(start, "String does not finish before the end of input");
+        char add;
+        switch( _s.peek1() ) {
+          case '"':
+          case '\\':
+          case '\'':
+            add = (char) _s.peek1();
+            break;
+          case 'n':
+            add = '\n';
+            break;
+          case 't':
+            add = '\t';
+            break;
+          default:
+            throw new ParserException(start, "Only pipe and backslash can be escaped in strings.");
+        } 
+        ++_s._off;
+        sb.append(add);
+      } else {
+        sb.append((char) _s.get1());
+      }
+    }
+    return new Token(start,sb.toString(),Token.Type.ttString);
+  }
 
   private Token parseIdent() throws ParserException {
     int start = _s._off;
-    if( _s.peek1() == '"' ) { // escaped string
+    if( _s.peek1() == '|' ) { // escaped string
       ++_s._off;
       StringBuilder sb = new StringBuilder();
       while( true ) {
         if( _s.eof() )
           throw new ParserException(start, "String does not finish before the end of input");
-        if( _s.peek1() == '"' ) {
+        if( _s.peek1() == '|' ) {
           ++_s._off;
           break; // end of the string
         } else if( _s.peek1() == '\\' ) {
@@ -243,12 +308,11 @@ public class RLikeParser {
           if( _s.eof() )
             throw new ParserException(start, "String does not finish before the end of input");
           switch( _s.peek1() ) {
-            case '"':
+            case '|':
             case '\\':
-            case '\'':
               break;
             default:
-              throw new ParserException(start, "Only quotes and backslash can be escaped in strings.");
+              throw new ParserException(start, "Only pipe and backslash can be escaped in strings.");
           }
         }
         sb.append((char) _s.get1());
@@ -367,7 +431,7 @@ public class RLikeParser {
   /*
    * This is silly grammar for now, I need to understand R more to make it
    *
-   * F -> - F | number | ident ( = S | $ ident | [ number ] ) | ( S )
+   * F -> - F | number | FUNCTION | ident ( = S | $ ident | [ number ] ) | ( S )
    */
   private Expr parse_F() throws ParserException {
     int pos = top()._pos;
@@ -392,7 +456,10 @@ public class RLikeParser {
           int idx = pop(Token.Type.ttInteger)._valueInt;
           pop(Token.Type.ttOpBracketClose);
           return new ColumnSelector(pos, new KeyLiteral(t._pos, t._id), idx);
+        } else if (top()._type == Token.Type.ttOpParOpen) {
+          return parse_Function(t);
         } else {
+          
           return new KeyLiteral(t._pos, t._id);
         }
       }
@@ -406,4 +473,34 @@ public class RLikeParser {
         throw new ParserException(top()._pos, "Number or parenthesis", top()._type);
     }
   }
+  
+  /*
+   * FUNCTION -> fName '(' [ S {, S } ] ')'
+   * 
+   * where fName is already parsed
+   */
+  
+  private Expr parse_Function(Token fName) throws ParserException {
+    FunctionCall result = new FunctionCall(fName._pos,fName._id);
+    pop(Token.Type.ttOpParOpen);
+    while (true) {
+      if (top()._type == Token.Type.ttEOF)
+        throw new ParserException(fName._pos,"Unfinished arguments list for function call");
+      if (condPop(Token.Type.ttOpParClose))
+        break;
+      result.addArgument(parse_S());
+      if (condPop(Token.Type.ttOpComma)) {
+        if (top()._type == Token.Type.ttOpParClose)
+          throw new ParserException(top()._pos, "Expected argument definition start after the comma, not end of args list");
+      } else {
+        pop(Token.Type.ttOpParClose);
+        break;
+      }
+    }
+    if (result.numArgs()!=result._function.numArgs())
+      throw new ParserException(fName._pos,"Functionn "+fName._id+" is expected to take "+result._function.numArgs()+" arguments, but "+result.numArgs()+" were given");
+    return result;
+  }
 }
+
+

@@ -38,6 +38,7 @@ public class Server extends NanoHTTPD {
     _pages.put("ExecQuery",new ExecQuery());
     _pages.put("Get",new Get());
     _pages.put("GetQuery",new GetQuery());
+    _pages.put("GetVector",new GetVector());
     _pages.put("ImportFolder",new ImportFolder());
     _pages.put("ImportQuery",new ImportQuery());
     _pages.put("ImportUrl",new ImportUrl());
@@ -56,6 +57,7 @@ public class Server extends NanoHTTPD {
     _pages.put("PutHDFS",new PutHDFS());
     _pages.put("Put",new PutQuery());
     _pages.put("PutValue",new PutValue());
+    _pages.put("PutVector",new PutVector());
     _pages.put("RFView",new RFView()); // View random-forest output
     _pages.put("RFTreeView",new RFTreeView());
     _pages.put("RF",new RandomForestPage());
@@ -142,9 +144,14 @@ public class Server extends NanoHTTPD {
     if (reqArgs!=null) {
       for (String s : reqArgs) {
         if (!parms.containsKey(s) || parms.getProperty(s).isEmpty()) {
-          if (json) return new Response(HTTP_BADREQUEST, mime, "{}");
-          return new Response(HTTP_OK, mime,
+          if (json) {
+            JsonObject r = new JsonObject();
+            r.addProperty("Error", "Not all required parameters were supplied: argument "+s+" is missing.");
+            return new Response(HTTP_OK, mime, r.toString());
+          } else {
+            return new Response(HTTP_OK, mime,
               H2OPage.wrap(H2OPage.error("Not all required parameters were supplied to page <strong>"+uri+"</strong><br/>Argument <strong>"+s+"</strong> is missing.")));
+          }
         }
       }
     }
