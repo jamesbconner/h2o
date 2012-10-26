@@ -10,6 +10,7 @@ import java.util.Arrays;
 import water.DRemoteTask;
 import water.ValueArray;
 
+
 /**
  * Distributed General Linear Model solver.
  *
@@ -28,7 +29,8 @@ import water.ValueArray;
  */
 public class DGLM {
 
-  static final double DEFAULT_EPS = 1e-8;
+  static final double DEFAULT_EPS = 1e-5;
+  public final static int MAX_ITER = 50;
 
   public static enum Link {
     identity(0),
@@ -567,10 +569,11 @@ public class DGLM {
     }
     double [] beta = new double [colIds.length];
     Arrays.fill(beta, glmParams.link.defaultBeta);
-    double diff;
+    double diff = 0;
     long N = 0;
     try{
-      do {
+      for(int i = 0; i != MAX_ITER; ++i) {
+        //System.out.println("iteration: " + i + ", beta = " + Arrays.toString(beta));
         IRLSMTask tsk;
         switch(glmParams.family){
         case binomial:
@@ -585,15 +588,17 @@ public class DGLM {
 
         N = tsk._n;
         tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, m.lsmParams);
-        if( beta != null ) for( int i = 0; i < beta.length; ++i )
-          diff = Math.max(diff, Math.abs(beta[i] - tsk._beta[i]));
+        if( beta != null ) for( int j = 0; j < beta.length; ++j )
+          diff = Math.max(diff, Math.abs(beta[j] - tsk._beta[j]));
         else diff = Double.MAX_VALUE;
         beta = tsk._beta;
-      } while( diff > BETA_EPS );
+        if(diff < BETA_EPS)break;
+      } 
     } catch (Exception e) {
       if(beta == null)throw new GLSMException("Failed to compute the data: " + e.getMessage());;
-      m.warnings = new String[]{"Failed to converge"};
+      m.warnings = new String[]{"Failed to converge due to NaNs"};
     }
+    if(diff >= BETA_EPS)m.warnings = new String[]{"Failed to converge due to reaching max # iterations"};
     m.beta = beta;
     m.n = N;
     return m;
