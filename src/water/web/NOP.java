@@ -33,7 +33,7 @@ public class NOP extends H2OPage {
     }
     NOPTask tsk = new NOPTask();
     tsk.invoke(k);
-    res.addProperty("result", tsk._res);
+    res.addProperty("result", tsk.toString());
     return res;
   }
   @Override

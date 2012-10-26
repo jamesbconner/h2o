@@ -199,7 +199,7 @@ hdfs_name_node = "192.168.1.151"
 # node_count is per host if hosts is specified.
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
-        timeoutSecs=15, retryDelaySecs=0.25, cleanup=True, **kwargs):
+        timeoutSecs=20, retryDelaySecs=0.5, cleanup=True, **kwargs):
     global nodes, use_hdfs, hdfs_name_node
 
     # set the hdfs info that tests will use from kwargs
