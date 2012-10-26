@@ -2,7 +2,7 @@ library('RCurl');
 library('rjson');
 
 # H2O <-> R Interop Layer
-#
+# 
 # We use the S3 OOP system in R for its simplicity and ease of use. Also I have learned that these are most widely used.
 #
 # An example session will thus be:
@@ -21,8 +21,12 @@ H2O.MAX_RESULT_SIZE = 200000
 
 h2o <- function(expr) {
   # Executes the given expression on H2O server and returns the result as R variable. It may error if the result is
-  # too big as it is still work in progress.  
-  h2o.get(h2o.exec(expr))
+  # too big as it is still work in progress.
+  res = h2o.exec(expr)
+  if (is.defined(res))
+    h2o.get(res)
+  else
+    NULL
 }
 
 h2o.connect <- function(server = H2O.SERVER, verbose = H2O.VERBOSE) {
