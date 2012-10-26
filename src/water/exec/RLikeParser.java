@@ -281,7 +281,7 @@ public class RLikeParser {
             add = '\t';
             break;
           default:
-            throw new ParserException(start, "Only pipe and backslash can be escaped in strings.");
+            throw new ParserException(start, "Quotes slashes and \\n and \\t are allowed to be slashed in strings.");
         } 
         ++_s._off;
         sb.append(add);
@@ -312,7 +312,7 @@ public class RLikeParser {
             case '\\':
               break;
             default:
-              throw new ParserException(start, "Only pipe and backslash can be escaped in strings.");
+              throw new ParserException(start, "Only pipe and backslash can be escaped in idents.");
           }
         }
         sb.append((char) _s.get1());
