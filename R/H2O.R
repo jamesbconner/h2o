@@ -59,7 +59,8 @@ inspect.H2O <- function(x, key) {
 }
 
 put.H2O <- function(x, key, value) {
-  # Puts the given vector to the H2O cloud under the given key name. Returns the key name itself.
+  # Puts the given vector to the H2O cloud under the given key name. Returns the key name itself. Current limit on the
+  # vector is that it must be only a single column vector and have no more than 200000 items. 
   H2O._printConnection(x)
   H2O._printIfVerbose(x,"  put of vector (size ",length(value),")")
   res = H2O._remoteSend(x,"PutVector.json",Key=key,Value=paste0(value,collapse=" "))
@@ -68,6 +69,35 @@ put.H2O <- function(x, key, value) {
     NULL
   } else {
     res$Key
+  }
+}
+
+get.H2O <- function(x, key) {
+  # returns the given key from H2O. DataFrames of multiple columns are supported as long as their number of elements,
+  # that is columns * rows is smaller than 200000.
+  H2O._printConnection(x)
+  H2O._printIfVerbose(x,"  get of vector/dataframe (key ",key,")")
+  res = H2O._remoteSend(x,"GetVector.json",Key=key)
+  res
+  if (H2O._isError(res)) {
+    H2O._printError(x,res$Error,prefix="  ")
+    NULL
+  } else {
+    H2O._printIfVerbose(x,"    returned data frame of ",res$num_cols," column(s) and ",res$num_rows," row(s)")
+    if (length(res$columns) == 1) {
+      H2O._printIfVerbose(x,"    converting to single column vector")
+      lapply(strsplit(res$columns[[1]]$contents,split=" "),as.numeric)[[1]]
+    } else {
+      r = data.frame()
+      rows = res$num_rows
+      for (i in 1:length(res$columns)) {
+        col = res$columns[[i]]
+        name = as.character(col$name)
+        x = lapply(strsplit(col$contents, split=" "),as.numeric)[[1]]
+        r[1:rows, name] <- x
+      }
+      r
+    }
   }
 }
 
@@ -97,7 +127,7 @@ H2O._printConnection <- function(x) {
 
 H2O._printError <- function(x,error,prefix="") {
   # prints given error (splits lines if necessary)
-  items = strsplit(errString,"\n")[[1]];
+  items = strsplit(error,"\n")[[1]];
   for (i in 1:length(items))
     cat(paste(prefix,items[i],"\n"))
 }
@@ -133,13 +163,17 @@ H2O._inspectToDataFrame <- function(response) {
 # S3 functions -- methods layer
 
 exec <- function(this, ...) {
-  UseMethod("exec",this)
+  UseMethod("exec", this)
 }
 
 inspect <- function(this, ...) {
-  UseMethod("inspect",this)
+  UseMethod("inspect", this)
 }
 
 put <- function(this, ...) {
-  UseMethod("put",this)
+  UseMethod("put", this)
+}
+
+get <- function(this, ...) {
+  UseMethod("get", this)
 }

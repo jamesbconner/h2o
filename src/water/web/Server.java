@@ -38,6 +38,7 @@ public class Server extends NanoHTTPD {
     _pages.put("ExecQuery",new ExecQuery());
     _pages.put("Get",new Get());
     _pages.put("GetQuery",new GetQuery());
+    _pages.put("GetVector",new GetVector());
     _pages.put("ImportFolder",new ImportFolder());
     _pages.put("ImportQuery",new ImportQuery());
     _pages.put("ImportUrl",new ImportUrl());
