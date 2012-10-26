@@ -1,5 +1,6 @@
 package water.exec;
 
+import java.util.ArrayList;
 import water.*;
 import water.exec.RLikeParser.Token;
 import water.parser.ParseDataset;
@@ -429,4 +430,52 @@ class BinaryOperator extends Expr {
       kr.dispose();
     }
   }
+}
+
+// =============================================================================
+// FunctionCall
+// =============================================================================
+
+class FunctionCall extends Expr {
+  
+  public static abstract class FunctionDefinition {
+    
+    
+  }
+  
+  public final Function _function;
+  
+  
+  private final ArrayList<Expr> _args = new ArrayList();
+
+  public FunctionCall(int pos, String fName) throws ParserException {
+    super(pos);
+    _function = Function.FUNCTIONS.get(fName);
+    if (_function == null)
+      throw new ParserException(_pos, "Function "+fName+" not found.");
+  }
+  
+  public void addArgument(Expr arg) {
+    _args.add(arg);
+  }
+  
+  public int numArgs() {
+    return _args.size();
+  }
+  
+  public Expr arg(int index) {
+    return _args.get(index);
+  }
+  
+  @Override public Result eval() throws EvaluationException {
+    Result[] args = new Result[_args.size()];
+    for (int i = 0; i < args.length; ++i)
+      args[i] = _args.get(i).eval();
+    try {
+      return _function.eval(args);      
+    } catch (Exception e) {
+      throw new EvaluationException(_pos, e.getMessage());
+    }
+  }
+  
 }

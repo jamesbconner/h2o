@@ -10,6 +10,51 @@ import water.parser.ParseDataset;
  * @author peta
  */
 public class Helpers {
+
+  // scalar collector task -----------------------------------------------------
+  
+  public static abstract class ScallarCollector extends MRTask {
+
+    public final Key _key;
+    public int _col;
+    protected double _result;
+
+    protected abstract void collect(double x);
+    
+    protected abstract void reduce(double x);
+    
+    public double result() { return _result; }
+    
+    @Override
+    public void map(Key key) {
+      ValueArray va = (ValueArray) DKV.get(_key);
+      double mean = va.col_mean(_col);
+      Value v = DKV.get(key);
+      if (v == null) 
+        System.err.println(key.toString());
+      byte[] bits = DKV.get(key).get();
+      int rowSize = va.row_size();
+      for( int i = 0; i < bits.length / rowSize; ++i ) {
+        double x = va.datad(bits, i, rowSize, _col);
+        collect(x);
+      }
+    }
+
+    @Override
+    public void reduce(DRemoteTask drt) {
+      Helpers.ScallarCollector other = (Helpers.ScallarCollector) drt;
+      reduce(other._result);
+    }
+
+    public ScallarCollector(Key key, int col, double initVal) { // constructor
+      _key = key;
+      _col = col >=0 ? col : 0;
+      _result = initVal;
+    }
+  }
+  
+  
+  
   
   // sigma ---------------------------------------------------------------------
   
@@ -237,4 +282,6 @@ class DeepSingleColumnAssignment extends MRTask {
     _from = from;
     _colIndex = colIndex;
   }
+  
 }
+

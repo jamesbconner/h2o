@@ -5,6 +5,7 @@ import java.util.*;
 
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
+import water.exec.Function;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 
@@ -314,6 +315,9 @@ public final class H2O {
     initializePersistence();
     // Start network services, including heartbeats & Paxos
     startNetworkServices();  // start server services
+    
+    initializeExpressionEvaluation(); // starts the expression evaluation system
+    
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
     // test if we have multicast
@@ -325,6 +329,9 @@ public final class H2O {
     }
   }
 
+  private static void initializeExpressionEvaluation() {
+    Function.initializeCommonFunctions();
+  }
 
   /** Starts the local k-v store.
    * Initializes the local k-v store, local node and the local cloud with itself

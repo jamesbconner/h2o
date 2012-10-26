@@ -36,6 +36,7 @@ public class RLikeParser {
       ttOpBracketClose, // ]
       ttOpLess, // <
       ttOpGreater, // >
+      ttOpComma, // ,
       ttEOF,
       ttUnknown,;
 
@@ -73,6 +74,8 @@ public class RLikeParser {
             return "opening bracket";
           case ttOpBracketClose:
             return "closing bracket";
+          case ttOpComma:
+            return "comma ','";
           case ttEOF:
             return "end of input";
           default:
@@ -135,6 +138,15 @@ public class RLikeParser {
     if( top()._type != type )
       throw new ParserException(top()._pos, type, top()._type);
     return pop();
+  }
+  
+  protected boolean condPop(Token.Type type) throws ParserException {
+    if (top()._type == type) {
+      pop();
+      return true;
+    } else {
+      return false;
+    }
   }
 
   private void skipWhitespace() {
@@ -216,6 +228,9 @@ public class RLikeParser {
       case '>':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpGreater);
+      case ',':
+        ++_s._off;
+        return new Token(pos,Token.Type.ttOpComma);
       case '"':
         return parseIdent();
       default:
@@ -367,7 +382,7 @@ public class RLikeParser {
   /*
    * This is silly grammar for now, I need to understand R more to make it
    *
-   * F -> - F | number | ident ( = S | $ ident | [ number ] ) | ( S )
+   * F -> - F | number | FUNCTION | ident ( = S | $ ident | [ number ] ) | ( S )
    */
   private Expr parse_F() throws ParserException {
     int pos = top()._pos;
@@ -392,7 +407,10 @@ public class RLikeParser {
           int idx = pop(Token.Type.ttInteger)._valueInt;
           pop(Token.Type.ttOpBracketClose);
           return new ColumnSelector(pos, new KeyLiteral(t._pos, t._id), idx);
+        } else if (top()._type == Token.Type.ttOpParOpen) {
+          return parse_Function(t);
         } else {
+          
           return new KeyLiteral(t._pos, t._id);
         }
       }
@@ -406,4 +424,34 @@ public class RLikeParser {
         throw new ParserException(top()._pos, "Number or parenthesis", top()._type);
     }
   }
+  
+  /*
+   * FUNCTION -> fName '(' [ S {, S } ] ')'
+   * 
+   * where fName is already parsed
+   */
+  
+  private Expr parse_Function(Token fName) throws ParserException {
+    FunctionCall result = new FunctionCall(fName._pos,fName._id);
+    pop(Token.Type.ttOpParOpen);
+    while (true) {
+      if (top()._type == Token.Type.ttEOF)
+        throw new ParserException(fName._pos,"Unfinished arguments list for function call");
+      if (condPop(Token.Type.ttOpParClose))
+        break;
+      result.addArgument(parse_S());
+      if (condPop(Token.Type.ttOpComma)) {
+        if (top()._type == Token.Type.ttOpParClose)
+          throw new ParserException(top()._pos, "Expected argument definition start after the comma, not end of args list");
+      } else {
+        pop(Token.Type.ttOpParClose);
+        break;
+      }
+    }
+    if (result.numArgs()!=result._function.numArgs())
+      throw new ParserException(fName._pos,"Functionn "+fName._id+" is expected to take "+result._function.numArgs()+" arguments, but "+result.numArgs()+" were given");
+    return result;
+  }
 }
+
+
