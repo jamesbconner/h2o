@@ -226,14 +226,6 @@ public class Value {
     if( chunknum != 0 ) throw new ArrayIndexOutOfBoundsException(Long.toString(chunknum));
     return _key;                // Self-key
   }
-  // Reverse the magic key to an offset
-  public long arraylet_offset() {
-    return UDP.get8(_key._kb,2);
-  }
-  // Reverse the magic key to a UUID
-  public UUID arraylet_uuid() {
-    return new UUID(UDP.get8(_key._kb,18),UDP.get8(_key._kb,10));
-  }
 
   // --------------------------------------------------------------------------
   // Set just the initial fields
