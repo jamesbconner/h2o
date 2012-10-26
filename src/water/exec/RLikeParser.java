@@ -255,7 +255,7 @@ public class RLikeParser {
   
   private Token parseString() throws ParserException {
     int start = _s._off;
-    char end = (char) _s.peek1() == '"' ? '"' : '\'';
+    char end = (char) _s.get1() == '"' ? '"' : '\'';
     StringBuilder sb = new StringBuilder();
     while (true) {
       if( _s.eof() )
@@ -431,7 +431,7 @@ public class RLikeParser {
   /*
    * This is silly grammar for now, I need to understand R more to make it
    *
-   * F -> - F | number | FUNCTION | ident ( = S | $ ident | [ number ] ) | ( S )
+   * F -> - F | STRING | number | FUNCTION | ident ( = S | $ ident | [ number ] ) | ( S )
    */
   private Expr parse_F() throws ParserException {
     int pos = top()._pos;
@@ -442,6 +442,8 @@ public class RLikeParser {
         return new FloatLiteral(pos, pop()._value);
       case ttInteger:
         return new FloatLiteral(pos, pop()._value);
+      case ttString:
+        return new StringLiteral(pos, pop()._id);
       case ttIdent: {
         Token t = pop();
         if( top()._type == Token.Type.ttOpAssign ) {
