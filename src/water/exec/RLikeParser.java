@@ -23,6 +23,7 @@ public class RLikeParser {
       ttFloat, // any floating point number
       ttInteger, // integer number
       ttIdent, // any identifier
+      ttString,
       ttOpAssign, // assignment, = or <-
       ttOpRightAssign, // -> assignment in R
       ttOpDollar, // $
@@ -48,6 +49,8 @@ public class RLikeParser {
             return "integer";
           case ttIdent:
             return "identifier";
+          case ttString:
+            return "string literal";
           case ttOpAssign:
             return "assignment";
           case ttOpRightAssign:
@@ -114,12 +117,17 @@ public class RLikeParser {
     }
 
     public Token(int pos, String s) {
+      this(pos,s,Type.ttIdent);
+    }
+
+    public Token(int pos, String s, Type type) {
       _pos = pos;
-      this._type = Type.ttIdent;
+      this._type = type;
       _value = 0;
       _valueInt = 0;
       _id = s;
     }
+    
   }
   private Stream _s;
   private Token _top;
@@ -232,6 +240,9 @@ public class RLikeParser {
         ++_s._off;
         return new Token(pos,Token.Type.ttOpComma);
       case '"':
+      case '\'':
+        return parseString();
+      case '|':
         return parseIdent();
       default:
         if( isCharacter(c) )
@@ -241,16 +252,55 @@ public class RLikeParser {
     }
     return new Token(pos, Token.Type.ttUnknown);
   }
+  
+  private Token parseString() throws ParserException {
+    int start = _s._off;
+    char end = (char) _s.peek1() == '"' ? '"' : '\'';
+    StringBuilder sb = new StringBuilder();
+    while (true) {
+      if( _s.eof() )
+        throw new ParserException(start, "String does not finish before the end of input");
+      if( _s.peek1() == end ) {
+        ++_s._off;
+        break; // end of the string
+      } else if( _s.peek1() == '\\' ) {
+        ++_s._off;
+        if( _s.eof() )
+          throw new ParserException(start, "String does not finish before the end of input");
+        char add;
+        switch( _s.peek1() ) {
+          case '"':
+          case '\\':
+          case '\'':
+            add = (char) _s.peek1();
+            break;
+          case 'n':
+            add = '\n';
+            break;
+          case 't':
+            add = '\t';
+            break;
+          default:
+            throw new ParserException(start, "Only pipe and backslash can be escaped in strings.");
+        } 
+        ++_s._off;
+        sb.append(add);
+      } else {
+        sb.append((char) _s.get1());
+      }
+    }
+    return new Token(start,sb.toString(),Token.Type.ttString);
+  }
 
   private Token parseIdent() throws ParserException {
     int start = _s._off;
-    if( _s.peek1() == '"' ) { // escaped string
+    if( _s.peek1() == '|' ) { // escaped string
       ++_s._off;
       StringBuilder sb = new StringBuilder();
       while( true ) {
         if( _s.eof() )
           throw new ParserException(start, "String does not finish before the end of input");
-        if( _s.peek1() == '"' ) {
+        if( _s.peek1() == '|' ) {
           ++_s._off;
           break; // end of the string
         } else if( _s.peek1() == '\\' ) {
@@ -258,12 +308,11 @@ public class RLikeParser {
           if( _s.eof() )
             throw new ParserException(start, "String does not finish before the end of input");
           switch( _s.peek1() ) {
-            case '"':
+            case '|':
             case '\\':
-            case '\'':
               break;
             default:
-              throw new ParserException(start, "Only quotes and backslash can be escaped in strings.");
+              throw new ParserException(start, "Only pipe and backslash can be escaped in strings.");
           }
         }
         sb.append((char) _s.get1());
