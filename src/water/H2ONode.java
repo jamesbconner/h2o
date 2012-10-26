@@ -321,11 +321,11 @@ public class H2ONode implements Comparable {
     port(2),                    // Sending node port #
     cloud_id(16),               // Unique identifier for this Cloud
     num_cpus(2),                // Number of CPUs for this Node, limit of 65535
-    free_mem(3),                // Free memory in K (goes up and down with GC)
-    tot_mem (3),                // Total memory in K (should track virtual mem?)
-    max_mem (3),                // Max memory in K (max mem limit for JVM)
+    free_mem(3),                // Free memory in M (goes up and down with GC)
+    tot_mem (3),                // Total memory in M (should track virtual mem?)
+    max_mem (3),                // Max memory in M (max mem limit for JVM)
     keys(4),                    // Number of LOCAL keys in this node, cached or homed
-    valsz(4),                   // Sum of value bytes used, in K
+    valsz(4),                   // Sum of value bytes used, in M
     free_disk(4),               // Free disk (internally stored in megabyte precision)
     max_disk(4),                // Disk size (internally stored in megabyte precision)
     cpu_util(2),                // CPU utilization
@@ -418,11 +418,11 @@ public class H2ONode implements Comparable {
   // Getters and Setters
   public void set_health( byte[] buf ) {  System.arraycopy(buf,0,_health_buf,0,_health_buf.length);  }
   public void set_num_cpus (int  n) {     set_buf(offset.num_cpus.x,size.num_cpus.x,n); }
-  public void set_free_mem (long n) {     set_buf(offset.free_mem.x,size.free_mem.x,n>>10); }
-  public void set_tot_mem  (long n) {     set_buf(offset.tot_mem .x,size.tot_mem .x,n>>10); }
-  public void set_max_mem  (long n) {     set_buf(offset.max_mem .x,size.max_mem .x,n>>10); }
+  public void set_free_mem (long n) {     set_buf(offset.free_mem.x,size.free_mem.x,n>>20); }
+  public void set_tot_mem  (long n) {     set_buf(offset.tot_mem .x,size.tot_mem .x,n>>20); }
+  public void set_max_mem  (long n) {     set_buf(offset.max_mem .x,size.max_mem .x,n>>20); }
   public void set_keys     (long n) {     set_buf(offset.keys    .x,size.keys    .x,n    ); }
-  public void set_valsz    (long n) {     set_buf(offset.valsz   .x,size.valsz   .x,n>>10); }
+  public void set_valsz    (long n) {     set_buf(offset.valsz   .x,size.valsz   .x,n>>20); }
   public void set_free_disk(long n) {     set_buf(offset.free_disk.x,size.free_disk.x,n >> 20); }
   public void set_max_disk (long n) {     set_buf(offset.max_disk.x,size.max_disk.x,n>>20); }
   public void set_cpu_util (double d) {
