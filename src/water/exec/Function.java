@@ -28,7 +28,7 @@ public abstract class Function {
      */
     public static class SingleColumn extends ArgChecker {
       @Override public void check(Result arg) throws Exception {
-        if (arg.isConstant())
+        if (arg._type == Result.Type.rtNumberLiteral)
           throw new Exception("Expected single column vector, but scalar constant found.");
         if (arg.colIndex()>=0) // we have selected the arg properly
           return;

@@ -14,18 +14,26 @@ public abstract class Expr {
   // Result
   
   public static class Result {
-
+    public static enum Type {
+      rtKey,
+      rtNumberLiteral,
+      rtStringLiteral
+    }
     public final Key _key;
     private int _refCount;
     boolean _copied;
     private int _colIndex;
     public final double _const;
+    public final String _str;
+    public Type _type;
 
     private Result(Key k, int refCount) {
       _key = k;
       _refCount = refCount;
       _colIndex = -1;
       _const = 0;
+      _type = Type.rtKey;
+      _str = null;
     }
 
     private Result(double value) {
@@ -33,6 +41,17 @@ public abstract class Expr {
       _refCount = 1;
       _colIndex = -1;
       _const = value;
+      _type = Type.rtNumberLiteral;
+      _str = null;
+    }
+
+    private Result(String str) {
+      _key = null;
+      _refCount = 1;
+      _colIndex = -1;
+      _const = 0;
+      _type = Type.rtStringLiteral;
+      _str = str;
     }
 
     public static Result temporary(Key k) { return new Result(k, 1); }
@@ -42,6 +61,8 @@ public abstract class Expr {
     public static Result permanent(Key k) { return new Result(k, -1); }
 
     public static Result scalar(double v) { return new Result(v); }
+    
+    public static Result string(String s) { return new Result(s); }
 
     public void dispose() {
       if( _key == null )
@@ -64,7 +85,6 @@ public abstract class Expr {
 
     public void setColIndex(int index) { _colIndex = index; }
 
-    public boolean isConstant() { return _key == null; }
   }
 
   public abstract Result eval() throws EvaluationException;
@@ -127,6 +147,22 @@ class FloatLiteral extends Expr {
 
   @Override
   public Expr.Result eval() throws EvaluationException { return Expr.Result.scalar(_d); }
+}
+
+// =============================================================================
+// StringLiteral 
+// =============================================================================
+class StringLiteral extends Expr {
+
+  public final String _str;
+
+  public StringLiteral(int pos, String str) {
+    super(pos);
+    _str = str;
+  }
+
+  @Override
+  public Expr.Result eval() throws EvaluationException { return Expr.Result.string(_str); }
 }
 
 // =============================================================================
@@ -268,10 +304,14 @@ class UnaryOperator extends Expr {
     // get the keys and the values    
     Result op = _opnd.eval();
     try {
-      if( op.isConstant() )
-        return evalConst(op);
-      else
-        return evalVect(op);
+      switch (op._type) {
+        case rtNumberLiteral:
+          return evalConst(op);
+        case rtKey:
+          return evalVect(op);
+        default:
+          throw new EvaluationException(_pos, "Incompatible operand type, expected Value or number constant");
+      }
     } finally {
       op.dispose();
     }
@@ -418,16 +458,27 @@ class BinaryOperator extends Expr {
     Result kl = _left.eval();
     Result kr = _right.eval();
     try {
-      if( kl.isConstant() ) {
-        if( kr.isConstant() )
-          return evalConstConst(kl, kr);
-        else
-          return evalConstVect(kl, kr);
-      } else {
-        if( kr.isConstant() )
-          return evalVectConst(kl, kr);
-        else
-          return evalVectVect(kl, kr);
+      switch (kl._type) {
+        case rtNumberLiteral:
+          switch (kr._type) {
+            case rtNumberLiteral:
+              return evalConstConst(kl, kr);
+            case rtKey:
+              return evalConstVect(kl, kr);
+            default:
+              throw new EvaluationException(_pos,"Only Value or numeric constant are allowed as the second operand");
+          }
+        case rtKey:
+          switch (kr._type) {
+            case rtNumberLiteral:
+              return evalVectConst(kl, kr);
+            case rtKey:
+              return evalVectVect(kl, kr);
+            default:
+              throw new EvaluationException(_pos,"Only Value or numeric constant are allowed as the second operand");
+          }
+        default:
+          throw new EvaluationException(_pos,"Only Value or numeric constant are allowed as the first operand");
       }
     } finally {
       kl.dispose();

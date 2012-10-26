@@ -3,6 +3,7 @@ package water.exec;
 
 import java.io.IOException;
 import water.*;
+import water.exec.Expr.Result;
 import water.parser.ParseDataset;
 
 /**
@@ -125,8 +126,8 @@ public class Helpers {
    * @param what
    * @throws EvaluationException
    */
-  public static void assign(int pos, final Key to, Expr.Result what) throws EvaluationException {
-    if( what.isConstant() ) { // assigning to a constant creates a vector of size 1 
+  public static void assign(int pos, final Key to, Result what) throws EvaluationException {
+    if( what._type == Result.Type.rtNumberLiteral ) { // assigning to a constant creates a vector of size 1 
       // The 1 tiny arraylet
       Key key2 = ValueArray.make_chunkkey(to, 0);
       byte[] bits = new byte[8];
@@ -136,41 +137,45 @@ public class Helpers {
       // The metadata
       VABuilder b = new VABuilder(to.toString(),1).addDoubleColumn("0",what._const, what._const, what._const,0).createAndStore(to);
       if( tpk != null ) tpk.get();
-    } else if( what.canShallowCopy() ) {
-      assert (false); // we do not support shallow copy now (TODO)
-      ValueArray v = (ValueArray) DKV.get(what._key);
-      if( v == null )
-        throw new EvaluationException(pos, "Key " + what._key + " not found");
-      byte[] bits = v.get();
-      ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
-      DKV.put(to, r);
-      what._copied = true; // TODO do we need to sync this? 
-    } else if (what.colIndex()!=-1) { // copy in place of a single column only
-      ValueArray v = (ValueArray) DKV.get(what._key);
-      if( v == null )
-        throw new EvaluationException(pos, "Key " + what._key + " not found");
-      int col = what.colIndex();
-      VABuilder b = new VABuilder(to.toString(), v.num_rows()).addColumn(v.col_name(col),v.col_size(col), v.col_scale(col),v.col_min(col), v.col_max(col), v.col_mean(col), v.col_sigma(col)).createAndStore(to);
-      DeepSingleColumnAssignment da = new DeepSingleColumnAssignment(what._key, to, col);
-      da.invoke(to);
+    } else if (what._type == Result.Type.rtKey) {
+      if( what.canShallowCopy() ) {
+        assert (false); // we do not support shallow copy now (TODO)
+        ValueArray v = (ValueArray) DKV.get(what._key);
+        if( v == null )
+          throw new EvaluationException(pos, "Key " + what._key + " not found");
+        byte[] bits = v.get();
+        ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
+        DKV.put(to, r);
+        what._copied = true; // TODO do we need to sync this? 
+      } else if (what.colIndex()!=-1) { // copy in place of a single column only
+        ValueArray v = (ValueArray) DKV.get(what._key);
+        if( v == null )
+          throw new EvaluationException(pos, "Key " + what._key + " not found");
+        int col = what.colIndex();
+        VABuilder b = new VABuilder(to.toString(), v.num_rows()).addColumn(v.col_name(col),v.col_size(col), v.col_scale(col),v.col_min(col), v.col_max(col), v.col_mean(col), v.col_sigma(col)).createAndStore(to);
+        DeepSingleColumnAssignment da = new DeepSingleColumnAssignment(what._key, to, col);
+        da.invoke(to);
+      } else {
+        ValueArray v = (ValueArray) DKV.get(what._key);
+        if( v == null )
+          throw new EvaluationException(pos, "Key " + what._key + " not found");
+        byte[] bits = v.get();
+        ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
+        MRTask copyTask = new MRTask() {
+          @Override public void map(Key key) {
+            byte[] bits = DKV.get(key).get();
+            long offset = ValueArray.getOffset(key);
+            Key k = ValueArray.make_chunkkey(to, offset);
+            Value v = new Value(k, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
+            lazy_complete(DKV.put(k, v));
+          }
+          @Override  public void reduce(DRemoteTask drt) { }
+        };
+        copyTask.lazy_complete(DKV.put(to, r));
+        copyTask.invoke(what._key);
+      }
     } else {
-      ValueArray v = (ValueArray) DKV.get(what._key);
-      if( v == null )
-        throw new EvaluationException(pos, "Key " + what._key + " not found");
-      byte[] bits = v.get();
-      ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
-      MRTask copyTask = new MRTask() {
-        @Override public void map(Key key) {
-          byte[] bits = DKV.get(key).get();
-          long offset = ValueArray.getOffset(key);
-          Key k = ValueArray.make_chunkkey(to, offset);
-          Value v = new Value(k, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
-          lazy_complete(DKV.put(k, v));
-        }
-        @Override  public void reduce(DRemoteTask drt) { }
-      };
-      copyTask.lazy_complete(DKV.put(to, r));
-      copyTask.invoke(what._key);
+      throw new EvaluationException(pos,"Only Values and numeric constants can be assigned");
     }
   }
 

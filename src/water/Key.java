@@ -261,16 +261,13 @@ public final class Key implements Comparable {
     int len = _kb.length;
     while( --len >= 0 ) {
       char a = (char) _kb[len];
-      if( a == '-' ) continue;
-      if( a == '.' ) continue;
-      if( a == '/' ) continue;
-      if( a == '\\' ) continue;
-      if( a == ':' ) continue;
-      if( a == '_' ) continue;
-      if( a == ' ' ) continue;
-      if( 'a' <= a && a <= 'z' ) continue;
-      if( 'A' <= a && a <= 'Z' ) continue;
-      if( '0' <= a && a <= '9' ) continue;
+      if (' ' <= a && a <= '#') continue;
+      // then we have $ which is not allowed
+      if ('%' <= a && a <= '~') continue;        
+      // already in the one above
+      //if( 'a' <= a && a <= 'z' ) continue;
+      //if( 'A' <= a && a <= 'Z' ) continue;
+      //if( '0' <= a && a <= '9' ) continue;
       break;
     }
     if (len>=0) {
