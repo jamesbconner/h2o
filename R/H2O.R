@@ -101,6 +101,12 @@ get.H2O <- function(x, key) {
   }
 }
 
+execGet.H2O <- function(x,expr) {
+  # Executes the given expression on H2O and imports the result to R
+  exec(x,expr)
+  get(x,"Result")
+}
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 is.defined <- function(x) {
@@ -176,4 +182,8 @@ put <- function(this, ...) {
 
 get <- function(this, ...) {
   UseMethod("get", this)
+}
+
+execGet <- function(this, ...) {
+  UseMethod("execGet", this)
 }
