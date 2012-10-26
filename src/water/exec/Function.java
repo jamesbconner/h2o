@@ -5,7 +5,11 @@ import java.util.HashMap;
 import water.*;
 import water.exec.Expr.Result;
 
-/**
+/** A class that represents the function call. 
+ * 
+ * Checks arguments in a proper manner using the argchecker instances and
+ * executes the function. Subclasses should only override the doEval abstract
+ * method.
  *
  * @author peta
  */
@@ -13,12 +17,15 @@ public abstract class Function {
   
     public static final HashMap<String,Function> FUNCTIONS = new HashMap();
   
-    public static class ArgChecker {
-      public void check(Result arg) throws Exception {
-        // pass
-      }
+    /** A simple class that checks whether given argument corresponds to
+     * the requirements. Each class should check one type of an argument
+     */
+    public abstract static class ArgChecker {
+      public abstract void check(Result arg) throws Exception;
     }
     
+    /** Checks that the given argument is a single column vector.
+     */
     public static class SingleColumn extends ArgChecker {
       @Override public void check(Result arg) throws Exception {
         if (arg.isConstant())
@@ -66,7 +73,6 @@ public abstract class Function {
       new Mean("mean");
     }
 }
-
 
 // Min -------------------------------------------------------------------------
 

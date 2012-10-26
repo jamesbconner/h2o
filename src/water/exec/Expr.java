@@ -442,13 +442,7 @@ class BinaryOperator extends Expr {
 
 class FunctionCall extends Expr {
   
-  public static abstract class FunctionDefinition {
-    
-    
-  }
-  
   public final Function _function;
-  
   
   private final ArrayList<Expr> _args = new ArrayList();
 
