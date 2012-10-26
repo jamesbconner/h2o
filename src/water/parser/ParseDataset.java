@@ -494,11 +494,11 @@ public final class ParseDataset {
 
     @Override public byte[] atomic( byte[] bits1 ) {
       byte[] mem = DKV.get(_key).get();
-      byte[] bits2 = (bits1 == null)
-          ? new byte[_dst_off + mem.length] // Initial array of correct size
-              : Arrays.copyOf(bits1,Math.max(_dst_off+mem.length,bits1.length));
-          System.arraycopy(mem,0,bits2,_dst_off,mem.length);
-          return bits2;
+      int len = Math.max(_dst_off + mem.length,bits1==null?0:bits1.length);
+      byte[] bits2 = MemoryManager.allocateMemory(len);
+      if( bits1 != null ) System.arraycopy(bits1,0,bits2,0,bits1.length);
+      System.arraycopy(mem,0,bits2,_dst_off,mem.length);
+      return bits2;
     }
 
     @Override public void onSuccess() {
