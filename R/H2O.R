@@ -17,7 +17,7 @@ library('rjson');
 
 H2O.SERVER = "localhost:54321"
 H2O.VERBOSE = TRUE
-H2O.MAX_RESULT_SIZE = 200000
+H2O.MAX_RESPONSE_ITEMS = 200000
 
 h2o <- function(expr) {
   # Executes the given expression on H2O server and returns the result as R variable. It may error if the result is
@@ -80,22 +80,22 @@ h2o.put <- function(key, value) {
   }
 }
 
-h2o.get <- function(key) {
+h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
   # returns the given key from H2O. DataFrames of multiple columns are supported as long as their number of elements,
   # that is columns * rows is smaller than 200000.
   H2O._printIfVerbose("  get of vector/dataframe (key ",key,")")
-  res = H2O._remoteSend("GetVector.json",Key=key)
+  res = H2O._remoteSend("GetVector.json",Key=key,MaxItems=max)
   if (H2O._isError(res)) {
     H2O._printError(res$Error,prefix="  ")
     NULL
   } else {
-    H2O._printIfVerbose("    returned data frame of ",res$num_cols," column(s) and ",res$num_rows," row(s)")
+    H2O._printIfVerbose("    returned data frame of ",res$num_cols," column(s) and ",res$num_rows," row(s), first ",res$sent_rows," row(s) returned")
     if (length(res$columns) == 1) {
       H2O._printIfVerbose("    converting to single column vector")
       lapply(strsplit(res$columns[[1]]$contents,split=" "),as.numeric)[[1]]
     } else {
       r = data.frame()
-      rows = res$num_rows
+      rows = res$sent_rows
       for (i in 1:length(res$columns)) {
         col = res$columns[[i]]
         name = as.character(col$name)
