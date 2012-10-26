@@ -61,6 +61,7 @@ public abstract class Function {
     
     public static void initializeCommonFunctions() {
       new Min("min");
+      new Max("max");
     }
 }
 
@@ -84,6 +85,30 @@ class Min extends Function {
 
   @Override protected Result doEval(Result... args) {
     MRMin task = new MRMin(args[0]._key, args[0].colIndex());
+    task.invoke(args[0]._key);
+    return Result.scalar(task.result());
+  }
+}
+
+// Min -------------------------------------------------------------------------
+
+class Max extends Function {
+  
+  static class MRMax extends Helpers.ScallarCollector {
+
+    @Override protected void collect(double x) { if (x > _result) _result = x; }
+
+    @Override protected void reduce(double x) { if (x > _result) _result = x; }
+    
+    public MRMax(Key k, int col) { super(k,col,-Double.MAX_VALUE); }
+  }
+  
+  public Max(String name) {
+    super(name,new ArgChecker[] { new SingleColumn() });
+  }
+
+  @Override protected Result doEval(Result... args) {
+    MRMax task = new MRMax(args[0]._key, args[0].colIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
