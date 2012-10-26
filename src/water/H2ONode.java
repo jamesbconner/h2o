@@ -468,11 +468,11 @@ public class H2ONode implements Comparable {
   public void set_udp_bytes_sent(long n) { set_buf(offset.udp_bytes_sent.x, size.udp_bytes_sent.x, n); }
 
   public int  get_num_cpus () {return (int)get_buf(offset.num_cpus.x,size.num_cpus.x  ); }
-  public long get_free_mem () {return      get_buf(offset.free_mem.x,size.free_mem.x  )<<10; }
-  public long get_tot_mem  () {return      get_buf(offset.tot_mem .x,size.tot_mem .x  )<<10; }
-  public long get_max_mem  () {return      get_buf(offset.max_mem .x,size.max_mem .x  )<<10; }
+  public long get_free_mem () {return      get_buf(offset.free_mem.x,size.free_mem.x  )<<20; }
+  public long get_tot_mem  () {return      get_buf(offset.tot_mem .x,size.tot_mem .x  )<<20; }
+  public long get_max_mem  () {return      get_buf(offset.max_mem .x,size.max_mem .x  )<<20; }
   public long get_keys     () {return      get_buf(offset.keys    .x,size.keys    .x  );     }
-  public long get_valsz    () {return      get_buf(offset.valsz   .x,size.valsz   .x  )<<10; }
+  public long get_valsz    () {return      get_buf(offset.valsz   .x,size.valsz   .x  )<<20; }
   public long get_free_disk() {return      get_buf(offset.free_disk.x,size.free_disk.x) << 20; }
   public long get_max_disk () {return      get_buf(offset.max_disk.x,size.max_disk.x) << 20; }
   public double [] get_cpu_load () {
@@ -535,7 +535,7 @@ public class H2ONode implements Comparable {
   private long get_buf(int off, int size) {
     long sum=0;
     for( int i=0; i<size; i++ )
-      sum |= ((long)(0xff&_health_buf[off+i])<<(i<<3));
+      sum |= (((long)(0xff&_health_buf[off+i]))<<(i<<3));
     return sum;
   }
   private void set_buf(int off, int size, long n) {
