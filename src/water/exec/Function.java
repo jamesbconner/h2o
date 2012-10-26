@@ -175,3 +175,25 @@ class Mean extends Function {
   }
 }
 
+
+/** Function that can do optional arguments.
+ * 
+ * @author peta
+ */
+
+abstract class Function2 {
+  
+  public abstract class ArgCheck {
+    final String _name;
+    
+    public ArgCheck() {
+      _name = null; // required
+    }
+    
+    public ArgCheck(String name, double defaultValue) {
+      _name = name;
+    }
+  }
+  
+}
+
