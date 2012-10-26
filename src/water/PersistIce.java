@@ -156,6 +156,7 @@ public abstract class PersistIce {
     try {
       File f = encodeKeyToFile(v);
       if( f.length() < v._max ) { // Should be fully on disk... or
+        System.out.println("Failed to file_load; file is short "+f.length());
         assert !v.is_persisted(); // or it's a racey delete of a spilled value
         return null;              // No value
       }
@@ -189,6 +190,7 @@ public abstract class PersistIce {
         s.close();
       }
     } catch( IOException e ) {
+      throw new RuntimeException("File store failed: "+e);
     }
   }
 
