@@ -4,13 +4,8 @@ import h2o_browse as h2b
 
 try:
     h2o.clean_sandbox()
-    print 'Connecting to hosts'
-    hosts = [
-        h2o.RemoteHost('rufus.local','fowles'),
-        h2o.RemoteHost('eiji.local', 'boots'),
-    ]
     print 'Building cloud'
-    h2o.build_cloud(node_count=3, hosts=hosts)
+    h2o.build_cloud(node_count=6)
 
     SYNDATASETS_DIR = './syn_datasets'
     if os.path.exists(SYNDATASETS_DIR):
