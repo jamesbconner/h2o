@@ -62,6 +62,7 @@ public abstract class Function {
     public static void initializeCommonFunctions() {
       new Min("min");
       new Max("max");
+      new Sum("sum");
     }
 }
 
@@ -104,7 +105,7 @@ class Max extends Function {
   }
   
   public Max(String name) {
-    super(name,new ArgChecker[] { new SingleColumn() });
+    super(name,new Function.ArgChecker[] { new Function.SingleColumn() });
   }
 
   @Override protected Result doEval(Result... args) {
@@ -113,3 +114,28 @@ class Max extends Function {
     return Result.scalar(task.result());
   }
 }
+
+// Sum -------------------------------------------------------------------------
+
+class Sum extends Function {
+  
+  static class MRSum extends Helpers.ScallarCollector {
+
+    @Override protected void collect(double x) { _result += x; }
+
+    @Override protected void reduce(double x) { _result += x; }
+    
+    public MRSum(Key k, int col) { super(k,col,0); }
+  }
+  
+  public Sum(String name) {
+    super(name,new ArgChecker[] { new SingleColumn() });
+  }
+
+  @Override protected Result doEval(Result... args) {
+    MRSum task = new MRSum(args[0]._key, args[0].colIndex());
+    task.invoke(args[0]._key);
+    return Result.scalar(task.result());
+  }
+}
+
