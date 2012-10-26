@@ -1,7 +1,9 @@
 import os, json, unittest, time, shutil, sys
 import h2o_cmd, h2o
+import h2o_browse as h2b
 
 try:
+    h2o.clean_sandbox()
     print 'Connecting to hosts'
     hosts = [
         h2o.RemoteHost('rufus.local','fowles'),
@@ -38,15 +40,7 @@ try:
 
         csvFilename = "parity_128_4_" + str(y) + "_quad.data"  
         csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-        # FIX! TBD do we always have to kick off the run from node 0?
-        # random guess about length of time, varying with more hosts/nodes?
         timeoutSecs = 20 + 5*(len(h2o.nodes))
-        # for debug (browser)
-        ###timeoutSecs = 3600
-        # RFview consumes cycles. Only retry once a second, to avoid slowing things down
-        # this also does the put, which is probably a good thing to try multiple times also
-
-        # change the model name each iteration, so they stay in h2o
         modelKey = csvFilename + "_" + str(trials)
         h2o_cmd.runRF(trees=trees, modelKey=modelKey, timeoutSecs=timeoutSecs, 
             retryDelaySecs=1, csvPathname=csvPathname)
@@ -56,6 +50,7 @@ except KeyboardInterrupt:
     print 'Interrupted'
 except Exception, e:
     print 'Exception', e
+    h2b.browseJsonHistoryAsUrlLastMatch("RFView")
     while True:
         time.sleep(1)
 finally:
