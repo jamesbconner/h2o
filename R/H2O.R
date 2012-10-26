@@ -15,77 +15,79 @@ library('rjson');
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-H2O.Connect <- function(server="localhost:54321", verbose=TRUE) {
+H2O.SERVER = "localhost:54321"
+H2O.VERBOSE = TRUE
+H2O.MAX_RESULT_SIZE = 200000
+
+h2o <- function(expr) {
+  # Executes the given expression on H2O server and returns the result as R variable. It may error if the result is
+  # too big as it is still work in progress.  
+  h2o.get(h2o.exec(expr))
+}
+
+h2o.connect <- function(server = H2O.SERVER, verbose = H2O.VERBOSE) {
   # Creates the connection to the H2O server, checks its capabilities and returns the connection object. Connects to
   # the server and obtains its cloud information. If verbose mode is enabled (by default) also prints the information
   # as it goes.
+  H2O.SERVER = server
+  H2O.VERBOSE = verbose
   x <- list()
   x$server = server
   x$verbose = verbose
-  class(x) <- "H2O"
-  H2O._printIfVerbose(x,"Connecting to server ",server)
-  x$cloud <- H2O._remoteSend(x,"Cloud.json",Client="R Interop 0.1")
-  H2O._printConnection(x)
-  H2O._printIfVerbose(x,"  size ",x$cloud$cloud_size)
+  H2O._printIfVerbose("Connecting to server ",server)
+  x$cloud <- H2O._remoteSend("Cloud.json",Client="R Interop 0.1")
+  H2O._printIfVerbose("  size ",x$cloud$cloud_size)
   x
 }
 
-# ---------------------------------------------------------------------------------------------------------------------
-
-exec.H2O <- function(x, expr) {
-  # Executes the given expression of the H2O server specified
-  H2O._printConnection(x)
-  H2O._printIfVerbose(x,"  sending expression ",expr)
-  res = H2O._remoteSend(x,"Exec.json",Expr=expr)
-  if (H2O._isError(res)) {
-    H2O._printError(x,res$Error,prefix="  ")
-    NULL
-  } else {
-    inspect(x,res$Result)
-  }
-}
-
-inspect.H2O <- function(x, key) {
+h2o.inspect <- function(key) {
   # Returns the inspected key
-  H2O._printConnection(x)
-  H2O._printIfVerbose(x,"  inspecting key ",key)
-  res = H2O._remoteSend(x,"Inspect.json",Key=key)
+  H2O._printIfVerbose("  inspecting key ",key)
+  res = H2O._remoteSend("Inspect.json",Key=key)
   if (H2O._isError(res)) {
-    H2O._printError(x,res$Error,prefix="  ")
+    H2O._printError(res$Error,prefix="  ")
     NULL
   } else {
     H2O._inspectToDataFrame(res)
   }
 }
 
-put.H2O <- function(x, key, value) {
+h2o.exec <- function(expr) {
+  H2O._printIfVerbose("  sending expression ",expr)
+  res = H2O._remoteSend("Exec.json",Expr=expr)
+  if (H2O._isError(res)) {
+    H2O._printError(res$Error,prefix="  ")
+    NULL
+  } else {
+    res$Result
+  }
+}
+
+h2o.put <- function(key, value) {
   # Puts the given vector to the H2O cloud under the given key name. Returns the key name itself. Current limit on the
   # vector is that it must be only a single column vector and have no more than 200000 items. 
-  H2O._printConnection(x)
-  H2O._printIfVerbose(x,"  put of vector (size ",length(value),")")
-  res = H2O._remoteSend(x,"PutVector.json",Key=key,Value=paste0(value,collapse=" "))
+  H2O._printIfVerbose("  put of vector (size ",length(value),")")
+  res = H2O._remoteSend("PutVector.json",Key=key,Value=paste0(value,collapse=" "))
   if (H2O._isError(res)) {
-    H2O._printError(x,res$Error,prefix="  ")
+    H2O._printError(res$Error,prefix="  ")
     NULL
   } else {
     res$Key
   }
 }
 
-get.H2O <- function(x, key) {
+h2o.get <- function(key) {
   # returns the given key from H2O. DataFrames of multiple columns are supported as long as their number of elements,
   # that is columns * rows is smaller than 200000.
-  H2O._printConnection(x)
-  H2O._printIfVerbose(x,"  get of vector/dataframe (key ",key,")")
-  res = H2O._remoteSend(x,"GetVector.json",Key=key)
-  res
+  H2O._printIfVerbose("  get of vector/dataframe (key ",key,")")
+  res = H2O._remoteSend("GetVector.json",Key=key)
   if (H2O._isError(res)) {
-    H2O._printError(x,res$Error,prefix="  ")
+    H2O._printError(res$Error,prefix="  ")
     NULL
   } else {
-    H2O._printIfVerbose(x,"    returned data frame of ",res$num_cols," column(s) and ",res$num_rows," row(s)")
+    H2O._printIfVerbose("    returned data frame of ",res$num_cols," column(s) and ",res$num_rows," row(s)")
     if (length(res$columns) == 1) {
-      H2O._printIfVerbose(x,"    converting to single column vector")
+      H2O._printIfVerbose("    converting to single column vector")
       lapply(strsplit(res$columns[[1]]$contents,split=" "),as.numeric)[[1]]
     } else {
       r = data.frame()
@@ -101,12 +103,6 @@ get.H2O <- function(x, key) {
   }
 }
 
-execGet.H2O <- function(x,expr) {
-  # Executes the given expression on H2O and imports the result to R
-  exec(x,expr)
-  get(x,"Result")
-}
-
 # ---------------------------------------------------------------------------------------------------------------------
 
 is.defined <- function(x) {
@@ -114,24 +110,19 @@ is.defined <- function(x) {
   return (!is.null(x))
 }
 
-H2O._printIfVerbose <- function(x,...,prefix="") {
+H2O._printIfVerbose <- function(...,prefix="") {
   # If given connection is set to verbose, prints the given message
-  if (x$verbose)
+  if (H2O.VERBOSE)
     cat(paste(...,"\n",sep=""))
 }
 
-H2O._remoteSend <- function(x,page,...) {
+H2O._remoteSend <- function(page,...) {
   # Sends given page request to the specified server and return its result
-  url <- paste(x$server, page, sep = "/")
+  url <- paste(H2O.SERVER, page, sep = "/")
   fromJSON(postForm(url,...))
 }
 
-H2O._printConnection <- function(x) {
-  # prints the basic connection information (cloud name and connected node)
-  H2O._printIfVerbose(x,"Cloud ",x$cloud$cloud_name,", node ",x$cloud$node_name,":")
-}
-
-H2O._printError <- function(x,error,prefix="") {
+H2O._printError <- function(error,prefix="") {
   # prints given error (splits lines if necessary)
   items = strsplit(error,"\n")[[1]];
   for (i in 1:length(items))
@@ -165,25 +156,3 @@ H2O._inspectToDataFrame <- function(response) {
              var = as.numeric(extract(res,"var")));
 }
 
-# ---------------------------------------------------------------------------------------------------------------------
-# S3 functions -- methods layer
-
-exec <- function(this, ...) {
-  UseMethod("exec", this)
-}
-
-inspect <- function(this, ...) {
-  UseMethod("inspect", this)
-}
-
-put <- function(this, ...) {
-  UseMethod("put", this)
-}
-
-get <- function(this, ...) {
-  UseMethod("get", this)
-}
-
-execGet <- function(this, ...) {
-  UseMethod("execGet", this)
-}
