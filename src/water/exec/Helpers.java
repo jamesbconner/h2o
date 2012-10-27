@@ -26,8 +26,8 @@ public class Helpers {
     
     public double result() { return _result; }
     
-    @Override
-    public void map(Key key) {
+    @Override public void map(Key key) {
+      _result = 0;
       ValueArray va = (ValueArray) DKV.get(_key);
       double mean = va.col_mean(_col);
       Value v = DKV.get(key);
@@ -37,14 +37,15 @@ public class Helpers {
       int rowSize = va.row_size();
       for( int i = 0; i < bits.length / rowSize; ++i ) {
         double x = va.datad(bits, i, rowSize, _col);
-        collect(x);
+        if (!Double.isNaN(x))
+          collect(x);
       }
     }
 
-    @Override
-    public void reduce(DRemoteTask drt) {
+    @Override public void reduce(DRemoteTask drt) {
       Helpers.ScallarCollector other = (Helpers.ScallarCollector) drt;
-      reduce(other._result);
+      if (!Double.isNaN(other._result))
+        reduce(other._result);
     }
 
     public ScallarCollector(Key key, int col, double initVal) { // constructor
