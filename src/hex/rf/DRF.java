@@ -2,7 +2,7 @@ package hex.rf;
 import hex.rf.Tree.StatType;
 import water.*;
 
-import java.util.HashSet;
+import java.util.*;
 
 import jsr166y.RecursiveAction;
 
@@ -126,17 +126,20 @@ public class DRF extends water.DRemoteTask {
     ValueArray ary = (ValueArray)DKV.get(_arykey);
     final long num_chunks = ary.chunks();
     final int num_nodes = H2O.CLOUD.size();
-    HashSet<H2ONode>nodes = new HashSet();
+    HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {
       nodes.add(ary.chunk_get(i).home_node());
       if( nodes.size() == num_nodes ) // All of them?
         break;                        // Done
     }
-    // Give each Node ntrees/#nodes worth of trees, rounding as needed.
-    int ntrees = _ntrees/nodes.size(); // Rounded down; every Node does at least this many
-    // If your node index is small, you do 1 more tree as needed.
-    if( H2O.CLOUD.nidx(H2O.SELF) < (_ntrees - ntrees*nodes.size()) )
-      ntrees++;
+
+    H2ONode[] array = nodes.toArray(new H2ONode[nodes.size()]);
+    Arrays.sort(array);
+    // Give each Node ntrees/#nodes worth of trees.  Round down for later nodes,
+    // and round up for earlier nodes.
+    int ntrees = _ntrees/nodes.size();
+    if( Arrays.binarySearch(array, H2O.SELF) < _ntrees - ntrees*nodes.size() )
+      ++ntrees;
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");

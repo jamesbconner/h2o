@@ -20,7 +20,7 @@ public class GetVector extends JSONPage {
   @Override public JsonObject serverJson(Server server, Properties parms, String sessionID) throws PageError {
     JsonObject result = new JsonObject();
     try {
-      int maxItems = Integer.parseInt(parms.getProperty("MaxItems","200000"));
+      int maxItems = (int) Double.parseDouble(parms.getProperty("MaxItems","200000")); // we need this because R uses e+ format even for integers
       Value v = DKV.get(Key.make(parms.getProperty("Key")));
       if (v==null)
         throw new IOException("Key not found");
