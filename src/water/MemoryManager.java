@@ -46,7 +46,7 @@ public abstract class MemoryManager {
   static final long MEM_HI; // clean half of above
 
   static final long CACHE_HI; // clean half of above
-  static final long CACHE_LO; // don not clean anything if below
+  static final long CACHE_LO; // do not clean anything if below
 
   // Number of threads blocked waiting for memory
   private static int NUM_BLOCKED = 0;
@@ -57,7 +57,7 @@ public abstract class MemoryManager {
   static volatile long mem2Free;
 
   // block new allocations if false
-  static volatile boolean canAllocate = true;
+  private static volatile boolean canAllocate = true;
 
   private static int _sCounter = 0; // contains count of successive "old" values
   private static int _uCounter = 0; // contains count of successive "young" values
@@ -70,8 +70,15 @@ public abstract class MemoryManager {
   static long _maxTime = 4000;
   private static long _previousT = _maxTime;
 
-  public static boolean memCritical() {
-    return !canAllocate;
+  public static boolean memCritical() {  return !canAllocate; }
+
+  public static void setMemGood() {
+    canAllocate = true;
+    System.err.println("Continuing after swapping");
+  }
+  public static void setMemLow() {
+    canAllocate = false;
+    System.err.println("Pausing to swap to disk; more memory may help");
   }
 
   public static void setCacheSz(long c) {
@@ -103,16 +110,15 @@ public abstract class MemoryManager {
         }
         _sCounter = 0;
       }
-      if ((mem2Free > 0) && (CACHED > CACHE_LO)) {
+      if( mem2Free > 0 && (CACHED > CACHE_LO)) {
         byte[] m = v._mem;
         if (m != null) {
           v.free_mem();
           mem2Free -= m.length;
-          if (!canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1))) {
+          if( !canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1))) {
             synchronized(_lock) {
               if (!canAllocate) {
-                System.out.println("[h20] MEMORY BELOW CRITICAL, ALLOWING ALLOCATIONS");
-                canAllocate = true;
+                setMemGood();
                 if (NUM_BLOCKED > 0) {
                   NUM_BLOCKED = 0;
                   _lock.notifyAll();
@@ -177,15 +183,13 @@ public abstract class MemoryManager {
      */
     public void handleNotification(Notification notification, Object handback) {
       String notifType = notification.getType();
-      if (notifType
-          .equals(MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED)) {
+      if (notifType.equals(MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED)) {
         // overall heap usage
         long heapUsage = _allMemBean.getHeapMemoryUsage().getUsed();
         long clean = 0;
         if (heapUsage > MEM_CRITICAL) { // memory level critical
-          System.out.println("[h20] MEMORY LEVEL CRITICAL, stopping allocations");
           clean = (heapUsage - MEM_CRITICAL) + ((MEM_CRITICAL - MEM_HI) >> 1);
-          canAllocate = false; // stop new allocations until we free enough mem
+          setMemLow();          // Stop allocations
         } else if (heapUsage > MEM_HI) {
           clean = ((heapUsage - MEM_HI) >> 1);
         }
@@ -211,51 +215,50 @@ public abstract class MemoryManager {
   }
 
 
-  public static short[] allocateMemoryShort(int size) {
-    if (size > 128)
-      while (!canAllocate) {
-        // Failed: block until we think we can allocate
-        synchronized(_lock) {
-          NUM_BLOCKED++;
-          try {
-            _lock.wait(1000);
-          } catch (InterruptedException ex) {
-          }
-          --NUM_BLOCKED;
-          try{
-            return new short[size];
-          } catch (OutOfMemoryError e){
-            canAllocate = false;
-            System.err.println("Run out of memory in MemoryManager.allocateMemory! Stopping all alocations!");
-          }
-        }
-      }
-    // allocate small values directly
-    return new short[size];
-  }
-
   // allocates memory, will block until there is enough available memory
   public static byte[] allocateMemory(int size) {
-    if (size > 256)
-      while (!canAllocate) {
-        // Failed: block until we think we can allocate
+    while( true ) {
+      if( !canAllocate && size > 128 ) {
         synchronized(_lock) {
           NUM_BLOCKED++;
-          try {
-            _lock.wait(1000);
-          } catch (InterruptedException ex) {
-          }
+          try { _lock.wait(1000); } catch (InterruptedException ex) { }
           --NUM_BLOCKED;
-          try{
-            return new byte[size];
-          } catch (OutOfMemoryError e){
-            canAllocate = false;
-            System.err.println("Run out of memory in MemoryManager.allocateMemory! Stopping all alocations!");
-          }
         }
       }
-    // allocate small values directly
-    return new byte[size];
+      try { return new byte[size]; }
+      catch( OutOfMemoryError e ) { }
+      setMemLow();              // Low memory; block for swapping
+    }
+  }
+
+  public static short[] allocateMemoryShort(int size) {
+    while( true ) {
+      if( !canAllocate && size > 128 ) {
+        synchronized(_lock) {
+          NUM_BLOCKED++;
+          try { _lock.wait(1000); } catch (InterruptedException ex) { }
+          --NUM_BLOCKED;
+        }
+      }
+      try { return new short[size]; }
+      catch( OutOfMemoryError e ) { }
+      setMemLow();              // Low memory; block for swapping
+    }
+  }
+
+  public static float[] allocateMemoryFloat(int size) {
+    while( true ) {
+      if( !canAllocate && size > 128 ) {
+        synchronized(_lock) {
+          NUM_BLOCKED++;
+          try { _lock.wait(1000); } catch (InterruptedException ex) { }
+          --NUM_BLOCKED;
+        }
+      }
+      try { return new float[size]; }
+      catch( OutOfMemoryError e ) { }
+      setMemLow();            // Low memory; block for swapping
+    }
   }
 
 //allocates memory, will block until there is enough available memory
