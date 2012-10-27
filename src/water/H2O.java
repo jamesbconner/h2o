@@ -5,6 +5,7 @@ import java.util.*;
 
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
+import water.H2ONode.H2Okey;
 import water.exec.Function;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
@@ -315,16 +316,21 @@ public final class H2O {
     initializePersistence();
     // Start network services, including heartbeats & Paxos
     startNetworkServices();  // start server services
-    
+
     initializeExpressionEvaluation(); // starts the expression evaluation system
-    
+
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
     // test if we have multicast
+    try {Thread.sleep(20000);} catch( InterruptedException e ) {}
     if (OPT_ARGS.flatfile==null && CLOUD._memary.length == 1) {
-      try {Thread.sleep(1000);} catch( InterruptedException e ) {}
       if(MultiReceiverThread.receivedMCastMsgCount == 0){
         System.err.println("WARNING: No other nodes are visible. No flatfile argument and no multicast messages received. Broken multicast?");
+      }
+    } else {
+      for(H2ONode n:H2O.CLOUD._memary){
+        if(n == H2O.SELF)continue;
+        if(n._last_heard_from == 0)System.err.println("Never heard from " + n);
       }
     }
   }
@@ -480,6 +486,7 @@ public final class H2O {
           port = Integer.decode(ss[2]);
         } catch( NumberFormatException nfe ) {  Log.die("Invalid port #: "+ss[2]); }
         h2os.add(H2ONode.intern(inet,port));
+        //h2os.add(new H2ONode(inet,port));
       }
     } catch( Exception e ) {  Log.die(e.toString()); }
     finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
