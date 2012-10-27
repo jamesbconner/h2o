@@ -21,6 +21,25 @@ public abstract class PersistIce {
   private static final String ICE_DIR = "ice";
   private static final File iceRoot;
 
+  static String encode(String what) {
+    try {
+      return URLEncoder.encode(what,"UTF8").replace("%","=");
+    } catch (UnsupportedEncodingException e) {
+      //pass
+      return null;
+    }
+  }
+  
+  static String decode(String what) {
+    try {
+      return URLDecoder.decode(what.replace("=","%"),"UTF8");
+    } catch (UnsupportedEncodingException e) {
+      //pass
+      return null;
+    }
+  }
+  
+  
   // Load into the K/V store all the files found on the local disk
   static void initialize() {}
   static {
@@ -66,7 +85,7 @@ public abstract class PersistIce {
   private static final Key decodeKey(File f) {
     String key = f.getName();
     key = key.substring(0,key.lastIndexOf('.')); 
-    return Key.make(URLDecoder.decode(key),decodeReplication(f));
+    return Key.make(decode(key),decodeReplication(f));
   }
 
   private static byte decodeReplication(File f) {
@@ -92,7 +111,7 @@ public abstract class PersistIce {
   private static File encodeKeyToFile(Key k, byte type) {
     StringBuilder sb = new StringBuilder();
     // append the value type and replication factor */
-    sb.append(URLEncoder.encode(k.toString()));
+    sb.append(encode(k.toString()));
     sb.append('.');
     sb.append((char)type);
     sb.append(k.desired());
