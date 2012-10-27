@@ -1,6 +1,7 @@
 package water;
-
 import java.io.*;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 
 // Persistence backend for the local storage device
 //
@@ -65,7 +66,7 @@ public abstract class PersistIce {
   private static final Key decodeKey(File f) {
     String key = f.getName();
     key = key.substring(0,key.lastIndexOf('.')); 
-    return Key.make(key,decodeReplication(f));
+    return Key.make(URLDecoder.decode(key),decodeReplication(f));
   }
 
   private static byte decodeReplication(File f) {
@@ -91,7 +92,7 @@ public abstract class PersistIce {
   private static File encodeKeyToFile(Key k, byte type) {
     StringBuilder sb = new StringBuilder();
     // append the value type and replication factor */
-    sb.append( k._kb[0] == Key.ARRAYLET_CHUNK ? (""+ValueArray.getChunkIndex(k)) : k.toString());
+    sb.append(URLEncoder.encode(k.toString()));
     sb.append('.');
     sb.append((char)type);
     sb.append(k.desired());
@@ -154,6 +155,7 @@ public abstract class PersistIce {
         s.close();
       }
     } catch( IOException e ) {
+      e.printStackTrace();
       throw new RuntimeException("File store failed: "+e);
     }
   }

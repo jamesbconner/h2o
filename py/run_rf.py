@@ -34,7 +34,7 @@ try:
     csvFilename = "parity_128_4_" + str(y) + "_quad.data"  
     csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
-    reparse = False
+    reparse = True
     if not reparse:
         node = h2o.nodes[0]
         put = node.put_file(csvPathname)
