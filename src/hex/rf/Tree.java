@@ -139,7 +139,7 @@ public class Tree extends CountedCompleter {
   static class LeafNode extends INode {
     final int _class;    // A category reported by the inner node
     LeafNode(int c) {
-      assert 0 <= c && c < 100; // sanity check
+      assert 0 <= c && c < 65534; // sanity check
       _class = c;               // Class from 0 to _N-1
     }
     @Override public int depth()  { return 0; }
