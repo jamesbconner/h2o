@@ -2,15 +2,17 @@ package water.web;
 
 import hex.*;
 import hex.DGLM.BinomialArgs;
-import hex.DGLM.BinomialValidation;
 import hex.DGLM.Family;
 import hex.DGLM.FamilyArgs;
-import hex.DGLM.GLM_Model;
+import hex.DGLM.GLMBinomialValidation;
+import hex.DGLM.GLMModel;
+import hex.DGLM.GLMValidation;
 import hex.DGLM.GLM_Params;
-import hex.DGLM.GLM_Validation;
 import hex.DGLM.GLSMException;
 import hex.DGLM.Link;
 import hex.DLSM.LSM_Params;
+import hex.Models.ClassifierValidation;
+import hex.Models.ModelValidation;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -145,81 +147,77 @@ public class GLM extends H2OPage {
       jLsmParams.addProperty("alpha", lsmParams.alpha);
       res.add("lsmParams", jLsmParams);
 
-
-      GLM_Model m = DGLM.solve(ary, columns, null, glmParams,lsmParams,fargs);
-      if(m.warnings != null){
+      DGLM glm = new DGLM(glmParams,lsmParams,fargs);
+      GLMModel m = glm.trainOn(ary, columns, null);
+      if(m._warnings != null){
         JsonArray warnings = new JsonArray();
-        for(String w:m.warnings)warnings.add(new JsonPrimitive(w));
+        for(String w:m._warnings)warnings.add(new JsonPrimitive(w));
         res.add("warnings", warnings);
       }
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("rows",ary.num_rows());
       res.addProperty("time", deltaT);
-      res.add("coefficients", getCoefficients(columns, colNames, m.beta));
+      res.add("coefficients", getCoefficients(columns, colNames, m.beta()));
 
-      GLM_Validation val = m.validateOn(ary, null);
+      GLMValidation val = (GLMValidation)m.validateOn(ary._key, null);
       if(val != null){
         JsonObject trainingValidation = new JsonObject();
-        trainingValidation.addProperty("DegreesOfFreedom", m.n - 1);
-        trainingValidation.addProperty("ResidualDegreesOfFreedom", m.n - X.length - 1);
+        trainingValidation.addProperty("DegreesOfFreedom", m.n() - 1);
+        trainingValidation.addProperty("ResidualDegreesOfFreedom", m.n() - X.length - 1);
         trainingValidation.addProperty("NullDeviance", dformat.format(val.nullDeviance()));
-        trainingValidation.addProperty("ResidualDeviance", dformat.format(val.residualDeviance()));
+        trainingValidation.addProperty("ResidualDeviance", dformat.format(val.resDeviance()));
         int k = X.length + 1;
-        trainingValidation.addProperty("AIC", dformat.format(2 * k + val.residualDeviance()));
-        trainingValidation.addProperty("trainingSetErrorRate",dformat.format(val.errMean()));
+        trainingValidation.addProperty("AIC", dformat.format(2 * k + val.resDeviance()));
+        trainingValidation.addProperty("trainingSetErrorRate",dformat.format(val.err()));
         res.add("trainingSetValidation", trainingValidation);
-        if(val instanceof BinomialValidation){
-          BinomialValidation bv = (BinomialValidation)val;
+        if(val instanceof GLMBinomialValidation){
+          GLMBinomialValidation bv = (GLMBinomialValidation)val;
           JsonObject errDetails = new JsonObject();
-          errDetails.addProperty("falsePositive", dformat.format(bv.fpMean()));
-          errDetails.addProperty("falseNegative", dformat.format(bv.fnMean()));
-          errDetails.addProperty("truePositive", dformat.format(bv.tpMean()));
-          errDetails.addProperty("trueNegative", dformat.format(bv.tnMean()));
+          errDetails.addProperty("falsePositive", dformat.format(bv.fp()));
+          errDetails.addProperty("falseNegative", dformat.format(bv.fn()));
+          errDetails.addProperty("truePositive", dformat.format(bv.tp()));
+          errDetails.addProperty("trueNegative", dformat.format(bv.tn()));
           res.add("trainingErrorDetails", errDetails);
         }
-
       }
       // Cross Validation
       int xfactor;
       try{xfactor = Integer.valueOf(p.getProperty("xval","0"));}catch(NumberFormatException e){res.addProperty("error", "invalid cross factor value, expected integer, found " + p.getProperty("xval"));return res;};
-      if(xfactor == 0)return res;
-      if(xfactor > m.n)xfactor = (int)m.n;
-      if(xfactor == 1)throw new GLMInputException("Invalid value of xfactor. Has to be either 0 (no crossvalidation) or > 1.");
+      if(xfactor <= 1)return res;
+      if(xfactor > m.n())xfactor = (int)m.n();
       res.addProperty("xfactor", xfactor);
       res.addProperty("threshold", threshold);
-      //ValueArray ary, int[] colIds, int xfactor, GLM_Params glmParams, LSM_Params lsmParams, FamilyArgs fargs)
-      ArrayList<GLM_Validation> vals = DGLM.xValidate(ary,columns,xfactor, glmParams, lsmParams, fargs);
-      val = vals.get(0);
-      if(val instanceof BinomialValidation){
-        BinomialValidation v = (BinomialValidation)val;
-        res.addProperty("trueNegative", dformat.format(v.tnMean()));
+      ModelValidation [] vals = Models.crossValidate(glm, xfactor, ary, columns, 20);
+      if(vals[0] instanceof Models.BinaryClassifierValidation){
+        Models.BinaryClassifierValidation v = (Models.BinaryClassifierValidation)vals[0];
+        res.addProperty("trueNegative", dformat.format(v.tn()));
         res.addProperty("trueNegativeVar", dformat.format(v.tnVar()));
-        res.addProperty("truePositive", dformat.format(v.tpMean()));
+        res.addProperty("truePositive", dformat.format(v.tp()));
         res.addProperty("truePositiveVar", dformat.format(v.tpVar()));
-        res.addProperty("falseNegative", dformat.format(v.fnMean()));
+        res.addProperty("falseNegative", dformat.format(v.fn()));
         res.addProperty("falseNegativeVar", dformat.format(v.fnVar()));
-        res.addProperty("falsePositive", dformat.format(v.fpMean()));
-        res.addProperty("falsePositiveVar", dformat.format(v.fpVar()));
-        // add individual models
+        res.addProperty("falsePositive", dformat.format(v.fp()));
+      }
+     // add individual models
+      if(vals[0] instanceof Models.ClassifierValidation){
         JsonArray models = new JsonArray();
-        for(int i = 1; i < vals.size(); ++i) {
+        for(int i = 1; i < vals.length; ++i) {
           JsonObject im = new JsonObject();
           JsonArray arr = new JsonArray();
-          v = (BinomialValidation)vals.get(i);
-          for(int j = 0; j < 2;++j){
+          ClassifierValidation v = (ClassifierValidation)vals[i];
+          for(int j = 0; j < v.classes(); ++j){
             JsonArray row = new JsonArray();
-            for(int k = 0; k < 2;++k)
+            for(int k = 0; k < v.classes();++k)
               row.add(new JsonPrimitive(v.cm(j,k)));
             arr.add(row);
           }
           im.add("cm", arr);
-          im.add("coefs", getCoefficients(columns, colNames, v.m().beta));
           models.add(im);
         }
         res.add("models", models);
+        res.addProperty("errRate", dformat.format(val.err()));
+      //res.addProperty("errRateVar", dformat.format(val.errVar()));
       }
-      res.addProperty("errRate", dformat.format(val.errMean()));
-      res.addProperty("errRateVar", dformat.format(val.errVar()));
 
     } catch( GLMInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());
@@ -408,7 +406,7 @@ public class GLM extends H2OPage {
         for(JsonElement o:models){
           bldr.append("<h4>Model " + modelIdx++ + "</h4>");
           JsonObject model = (JsonObject)o;
-          bldr.append("\n<h5>Coefficients:</h5><div>" + getCoefficientsStr(model.get("coefs").getAsJsonObject()) + "</div><h5>Confusion Matrix</h5>");
+          //bldr.append("\n<h5>Coefficients:</h5><div>" + getCoefficientsStr(model.get("coefs").getAsJsonObject()) + "</div><h5>Confusion Matrix</h5>");
           JsonArray arr = model.get("cm").getAsJsonArray();
           bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
           int rowidx = 0;

@@ -31,7 +31,7 @@ public abstract class RemoteTask extends CountedCompleter {
   }
 
   // Make a RemoteTask
-  static final RemoteTask make( String clazz) {
+  static protected final RemoteTask make( String clazz) {
     // Make a local instance and call map on it
     Exception e=null;
     try {
