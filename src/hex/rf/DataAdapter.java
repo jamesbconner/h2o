@@ -113,7 +113,7 @@ class DataAdapter  {
       _name = s;
       _isClass = isClass;
       _ignore = ignore;
-      _raw = ignore ? null : new float[rows];
+      _raw = ignore ? null : MemoryManager.allocateMemoryFloat(rows);
     }
 
     void add(float x, int row) {

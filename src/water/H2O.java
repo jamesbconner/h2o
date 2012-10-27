@@ -546,11 +546,11 @@ public final class H2O {
           if( !(ov instanceof Value) ) continue; // Ignore tombstones and Primes and null's
           Value val = (Value)ov;
           byte[] m = val._mem;
-          if( m != null ) {
-            cacheSz += m.length; // Accumulate total amount of cached keys
-            if( m.length < val._max )
-              continue;         // Do not persist partial keys
-          }
+          if( m == null ) continue;
+          cacheSz += m.length;  // Accumulate total amount of cached keys
+          if( m.length < val._max )
+            continue;           // Do not persist partial keys
+
           // System keys that are not just backing arraylets of user keys are
           // not persisted - we figure they have a very short lifetime.
           if( !MemoryManager.memCritical() ) { // if memory is critical, persist and free system keys also.
@@ -580,11 +580,12 @@ public final class H2O {
           // Store user-keys, or arraylets from user-keys
           val.store_persist();
 
-          if( m != null && MemoryManager.removeValue(currentTime, val) )
+          if( MemoryManager.removeValue(currentTime, val) )
             cacheSz -= m.length;
         }
         // update the cache sz
         MemoryManager.setCacheSz(cacheSz);
+        try { Thread.sleep(1000); } catch (InterruptedException e) { }
       }
     }
   }
