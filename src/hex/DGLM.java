@@ -10,6 +10,7 @@ import java.util.Arrays;
 
 import water.*;
 
+
 /**
  * Distributed General Linear Model solver.
  *
@@ -28,7 +29,8 @@ import water.*;
  */
 public class DGLM implements Models.ModelBuilder {
 
-  static final double DEFAULT_EPS = 1e-8;
+  static final double DEFAULT_EPS = 1e-5;
+  public final static int MAX_ITER = 50;
 
   public static enum Link {
     identity(0),
@@ -249,267 +251,9 @@ public class DGLM implements Models.ModelBuilder {
   private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
 
   Sampling         _sampling;
-  /**
-   *  Class for holding of validation info of given glm model.
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static class GLM_Validation implements Cloneable {
-    GLM_Model _m;
-    long      _n;
-    double    _resDev;
-    double    _nullDev;
-    double    _errMean;
-    double    _errVar;
-    int       _t;
-
-    public GLM_Validation(GLM_Model m, double err, double resDev, double nullDev, long n) {
-      _m = m;
-      _n = n;
-      _errMean = err;
-      _resDev = resDev;
-      _nullDev = nullDev;
-      _t = 1;
-    }
-
-    public GLM_Validation(GLM_Validation other) {
-      _m = other._m;
-      _n = other._n;
-      _t = other._t;
-      _errMean = other._errMean;
-      _errVar = other._errVar;
-      _t = other._t;
-      _nullDev = other._nullDev;
-      _resDev = other._resDev;
-    }
-
-    public void aggregate(GLM_Validation other) {
-      // recursive avg formula
-      _n += other._n;
-      ++_t;
-      _errMean = (_t - 1.0) / _t * _errMean + 1.0 / _t * other._errMean;
-      // recursive variance formula
-      double newVar = (other._errMean - _errMean);
-      _errVar = ((_t - 1.0) / _t) * _errVar + (1.0 / (_t - 1)) * newVar
-          * newVar;
-    }
-
-    public long n() {
-      return _m.n;
-    }
-
-    public double errMean() {
-      return _errMean;
-    }
-
-    public double errVar() {
-      return _errVar;
-    }
-
-    public double nullDeviance() {
-      return _nullDev;
-    }
-
-    public double residualDeviance() {
-      return _resDev;
-    }
-
-    public GLM_Model m() {
-      return _m;
-    }
-
-    @Override
-    public GLM_Validation clone() {
-      return new GLM_Validation(this);
-    }
-  }
-
-  /**
-   * Binomial validation adds confusion matrix (which is 2 by 2 in binomial case).
-   * @author tomasnykodym
-   *
-   */
-  public static class BinomialValidation extends GLM_Validation {
-    static long sum(long[][] cm) {
-      long res = 0;
-      for( int i = 0; i < cm.length; ++i )
-        for( int j = 0; j < cm[i].length; ++j )
-          res += cm[i][j];
-      return res;
-    }
-
-    static long sum_diag(long[][] cm) {
-      long res = 0;
-      for( int i = 0; i < cm.length; ++i )
-        res += cm[i][i];
-      return res;
-    }
-
-    long[][]   _cm;
-    double[][] _cmMean;
-    double[][] _cmVar;
-
-    public BinomialValidation(GLM_Model m, long[][] cm, long n,
-        double nullDeviance, double residualDeviance) {
-      super(m, (sum(cm) - sum_diag(cm)) / (double) sum(cm),residualDeviance,nullDeviance, n);
-
-      _cm = cm;
-      _cmMean = new double[_cm.length][_cm.length];
-      _cmVar = new double[_cm.length][_cm.length];
-      double dn = 1.0 / Math.max(1, _n);
-      for( int i = 0; i < _cmMean.length; ++i )
-        for( int j = 0; j < _cmMean.length; ++j )
-          _cmMean[i][j] = _cm[i][j] * dn;
-    }
-
-    public BinomialValidation(BinomialValidation other) {
-      super(other);
-      _cm = other._cm.clone();
-      _cmMean = other._cmMean.clone();
-      _cmVar = other._cmVar.clone();
-    }
-
-    @Override
-    public void aggregate(GLM_Validation g) {
-      super.aggregate(g);
-      BinomialValidation other = (BinomialValidation) g;
-      for( int i = 0; i < _cmMean.length; ++i )
-        for( int j = 0; j < _cmMean.length; ++j ) {
-          _cmMean[i][j] = (_t - 1.0) / _t * _cmMean[i][j] + 1.0 / _t
-              * other._cmMean[i][j];
-          double newVar = (other._cmMean[i][j] - _cmMean[i][j]);
-          _cmVar[i][j] = ((_t - 1.0) / _t) * _cmVar[i][j] + (1.0 / (_t - 1))
-              * newVar * newVar;
-        }
-    }
-
-    public long cm(int i, int j) {
-      return _cm[i][j];
-    }
-
-    public double fpMean() {
-      return _cmMean[1][0];
-    }
-
-    public double fpVar() {
-      return _cmVar[1][0];
-    }
-
-    public double fnMean() {
-      return _cmMean[0][1];
-    }
-
-    public double fnVar() {
-      return _cmVar[0][1];
-    }
-
-    public double tpMean() {
-      return _cmMean[0][0];
-    }
-
-    public double tpVar() {
-      return _cmVar[0][0];
-    }
-
-    public double tnMean() {
-      return _cmMean[1][1];
-    }
-
-    public double tnVar() {
-      return _cmVar[1][1];
-    }
-
-    @Override
-    public BinomialValidation clone() {
-      return new BinomialValidation(this);
-    }
-  }
-
-  /**
-   * Holds info about fitted glm model.
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static class GLM_Model {
-    GLM_Params glmParams;
-    LSM_Params lsmParams;
-    double nullDeviance;
-    double residualDeviance;
-    double err;
-    public double[] beta;
-    public int [] colIds;
-    double[][]   pVals;
-    public String[]       warnings;
-    public long     n;
-    public GLM_Model(){}
-    public GLM_Model(long n, double[] beta, double [][] pVals, GLM_Params gp, LSM_Params lp) {
-      this(n, beta, pVals, gp, lp, null);
-    }
-    public GLM_Model(long n, double[] beta, double[][] pVals,GLM_Params gp, LSM_Params lp,
-        String[] warnings) {
-      this.n = n;
-      this.beta = beta;
-      this.warnings = warnings;
-      this.pVals = pVals;
-      glmParams = gp;
-      lsmParams = lp;
-    }
-    public double apply(double[] x) {
-      double res = 0.0;
-      for( int i = 0; i < x.length; ++i )
-        res += beta[i] * x[i];
-      if( lsmParams.constant != 0 ) res += lsmParams.constant * beta[x.length];
-      return res;
-    }
-    public GLM_Validation validateOn(ValueArray ary, Sampling s) {
-      //double ymu = link(glmParams.link,ary.col_mean(colIds[colIds.length-1]));
-      double ymu = ary.col_mean(colIds[colIds.length-1]);
-      GLMTest tst = new GLMTest(this,s,ymu);
-      tst.invoke(ary._key);
-      return new GLM_Validation(this, tst._results[GLMTest.ERRORS]/tst._n, tst._results[GLMTest.H], tst._results[GLMTest.H0],tst._n);
-    }
-    public String toString(){
-      StringBuilder res = new StringBuilder("GLM Model:\n");
-      if(warnings != null){
-        res.append("\tWarnings: " + Arrays.toString(warnings) + "\n");
-      }
-      res.append("\tCoefficients: " + Arrays.toString(beta) + "\n");
-      res.append("\tNull Deviance: " + nullDeviance + "\n");
-      res.append("\tResidual Deviance: " + residualDeviance + "\n");
-      return res.toString();
-    }
-  }
-
-  /**
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static class BinomialModel extends GLM_Model {
-    double _threshold;
-    double _case;
-
-    public BinomialModel(BinomialArgs arg){
-      _threshold= arg._threshold;
-      _case = arg._case;
-    }
-
-    public GLM_Validation validateOn(ValueArray ary, Sampling s) {
-      //double ymu = link(glmParams.link,ary.col_mean(colIds[colIds.length-1]));
-      double ymu = ary.col_mean(colIds[colIds.length-1]);
-      BinomialTest tst = new BinomialTest(this,s,ymu);
-      tst.invoke(ary._key);
-      return new BinomialValidation(this, tst._confMatrix, tst._n, tst._results[GLMTest.H0], tst._results[GLMTest.H]);
-    }
-
-  }
 
 
   public static final double BETA_EPS = 1e-8;
-
-
   public static final LSM_Params defaultLSMParams = new LSM_Params();
 
   GLM_Params _glmParams;
@@ -562,11 +306,12 @@ public class DGLM implements Models.ModelBuilder {
     }
     double [] beta = new double [colIds.length];
     Arrays.fill(beta, _glmParams.link.defaultBeta);
-    double diff;
+    double diff = 0;
     long N = 0;
     m._ymu = ary.col_mean(colIds[colIds.length-1]);
     try{
-      do {
+      for(int i = 0; i != MAX_ITER; ++i) {
+        //System.out.println("iteration: " + i + ", beta = " + Arrays.toString(beta));
         IRLSMTask tsk;
         switch(_glmParams.family){
         case binomial:
@@ -584,18 +329,17 @@ public class DGLM implements Models.ModelBuilder {
 
         N = tsk._n;
         tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
-        if( beta != null ) for( int i = 0; i < beta.length; ++i )
-          diff = Math.max(diff, Math.abs(beta[i] - tsk._beta[i]));
+        if( beta != null ) for( int j = 0; j < beta.length; ++j )
+          diff = Math.max(diff, Math.abs(beta[j] - tsk._beta[j]));
         else diff = Double.MAX_VALUE;
         beta = tsk._beta;
-      } while( diff > BETA_EPS );
+        if(diff < BETA_EPS)break;
+      }
     } catch (Exception e) {
       if(beta == null)throw new GLSMException("Failed to compute the data: " + e.getMessage());;
-      m._warnings = new String[]{"Failed to converge"};
+      m._warnings = new String[]{"Failed to converge due to NaNs"};
     }
-    if(_glmParams.family == Family.binomial){
-
-    }
+    if(diff >= BETA_EPS)m._warnings = new String[]{"Failed to converge due to reaching max # iterations"};
     m._beta = beta;
     m._n = N;
     return m;
@@ -841,8 +585,8 @@ public class DGLM implements Models.ModelBuilder {
       throw new RuntimeException("TODO Auto-generated method stub");
     }
 
-
   }
+
 
   public static class GLMBinomialModel extends GLMModel {
     double _threshold = 0.5;
@@ -987,142 +731,9 @@ public class DGLM implements Models.ModelBuilder {
     public int classes() {
       return 2;
     }
-
     @Override
     public GLMBinomialValidation clone() {
       return new GLMBinomialValidation(this);
     }
-
   }
-
-
-  public static class GLMTest extends RowVecTask {
-    // INPUTS
-    public static final int CONSTANT = 0;
-    public static final int BETA     = 1;
-    // RESULTS
-    public static final int ERRORS   = 0;
-    public static final int H0       = 1;
-    public static final int H        = 2;
-
-
-    double[] _inputParams; // constant + beta
-    double[] _results;
-
-    double _ymu;
-    int _familyOrd;
-    int _linkOrd;
-    transient Link _link;
-    transient Family _family;
-
-    public GLMTest() {
-    }
-
-    public GLMTest(GLM_Model m, Sampling s, double ymu) {
-      super(m.colIds, s, true, m.pVals);
-      _inputParams = new double[m.beta.length + BETA];
-      _inputParams[CONSTANT] = m.lsmParams.constant;
-      System.arraycopy(m.beta, 0, _inputParams, BETA, m.beta.length);
-      _familyOrd = m.glmParams.family.ordinal();
-      _linkOrd = m.glmParams.link.ordinal();
-      _ymu = ymu;
-    }
-
-    @Override
-    public void reduce(DRemoteTask drt) {
-      GLMTest other = (GLMTest) drt;
-      _n += other._n;
-      if( _results == null ) _results = other._results;
-      else for( int i = 0; i < _results.length; ++i )
-        _results[i] += other._results[i];
-    }
-
-    @Override
-    protected void preMap(int xlen, int nrows) {
-      _results = new double[3];
-      _family = Family.values()[_familyOrd];
-      _link = Link.values()[_linkOrd];
-    }
-
-    protected double getMu(double[] x) {
-      double ym = 0;
-      for( int i = 0; i < (x.length - 1); ++i )
-        ym += x[i] * _inputParams[BETA + i];
-      if( _inputParams[CONSTANT] != 0 )
-        ym += _inputParams[CONSTANT] * _inputParams[BETA + x.length - 1];
-      return ym;
-    }
-
-    protected double getYm(double[] x) {
-      return linkInv(_link,getMu(x));
-    }
-
-
-    @Override
-    void processRow(double[] x) {
-      double mu = getYm(x);
-      double y = x[x.length-1];
-      double diff = y - linkInv(_link, mu);
-      _results[ERRORS] += (diff) * (diff);
-      _results[H] += deviance(_family, y, mu);
-      _results[H0] += deviance(_family,y, _ymu);
-    }
-
-    @Override
-    protected void postMap() {
-      _inputParams = null; // don't propagate beta back
-    }
-
-    public double err() {
-      return (_results != null) ? _results[ERRORS] : 0;
-    }
-  }
-
-
-  public static class BinomialTest extends GLMTest {
-    double   _threshold;
-    double _case;
-
-    long[][] _confMatrix;
-
-    public BinomialTest() {}
-
-    public BinomialTest(BinomialModel m, Sampling s, double ymu) {
-      super(m,s,ymu);
-      _threshold = m._threshold;
-      _case = m._case;
-    }
-
-    @Override
-    protected void preMap(int xlen, int nrows) {
-      _confMatrix = new long[2][2];
-      super.preMap(xlen, nrows);
-    }
-
-    @Override
-    void processRow(double[] x) {
-      x[x.length - 1] = (x[x.length - 1] == _case)?1:0;
-      super.processRow(x);
-      double yr =x[x.length - 1];
-      double p = getYm(x);
-      int ym = (p > _threshold) ? 1 : 0;
-      _confMatrix[ym][(int) yr] += 1;
-    }
-
-    @Override
-    public void postMap() {
-      _results[ERRORS] = (_confMatrix[1][0] + _confMatrix[0][1]) / (double) _n;
-    }
-
-    @Override
-    public void reduce(DRemoteTask drt) {
-      super.reduce(drt);
-      BinomialTest other = (BinomialTest) drt;
-      if( _confMatrix == null ) _confMatrix = other._confMatrix;
-      else for( int i = 0; i < _confMatrix.length; ++i )
-        for( int j = 0; j < _confMatrix[i].length; ++j )
-          _confMatrix[i][j] += other._confMatrix[i][j];
-    }
-  }
-
 }

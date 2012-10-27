@@ -1,6 +1,7 @@
 package water;
-
 import java.io.*;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 
 // Persistence backend for the local storage device
 //
@@ -64,44 +65,8 @@ public abstract class PersistIce {
   // ice are likely to be arraylet chunks
   private static final Key decodeKey(File f) {
     String key = f.getName();
-    key = key.substring(0,key.lastIndexOf('.'));
-    return Key.make(key,decodeReplication(f));
-/*    byte[] kb = null;
-    // a normal key - ASCII with special characters encoded after % sign
-    if ((key.length()<=2) || (key.charAt(0)!='%') || (key.charAt(1)<'0') || (key.charAt(1)>'9')) {
-      byte[] nkb = new byte[key.length()];
-      int j = 0;
-      for( int i = 0; i < key.length(); ++i ) {
-        byte b = (byte)key.charAt(i);
-        if( b == '%' ) {
-          switch( key.charAt(++i) ) {
-          case '%':  b = '%' ; break;
-          case 'b':  b = '\\'; break;
-          case 'c':  b = ':' ; break;
-          case 'd':  b = '.' ; break;
-          case 's':  b = '/' ; break;
-          default:   System.err.println("Invalid format of filename " + f.getName() + " at index " + i);
-          }
-        }
-        nkb[j++] = b;
-        kb = new byte[j];
-        System.arraycopy(nkb,0,kb,0,j);
-      }
-    } else {
-      // system key, encoded by % and then 2 bytes for each byte of the key
-      kb = new byte[(key.length()-1)/2];
-      int j = 0;
-      // Then hexelate the entire thing
-      for( int i = 1; i < key.length(); i+=2 ) {
-        char b0 = (char)(key.charAt(i+0)-'0');
-        if( b0 > 9 ) b0 += '0'+10-'A';
-        char b1 = (char)(key.charAt(i+1)-'0');
-        if( b1 > 9 ) b1 += '0'+10-'A';
-        kb[j++] = (byte)((b0<<4)|b1);  // De-hexelated byte
-      }
-    }
-    // now in kb we have the key name
-    return Key.make(kb,decodeReplication(f)); */
+    key = key.substring(0,key.lastIndexOf('.')); 
+    return Key.make(URLDecoder.decode(key),decodeReplication(f));
   }
 
   private static byte decodeReplication(File f) {
@@ -113,7 +78,7 @@ public abstract class PersistIce {
       Log.die("[ice] Unable to decode filename "+f.getAbsolutePath());
       return 0; // unreachable
     }
-  }
+   }
 
   private static byte decodeType(File f) {
     String ext = f.getName();
@@ -127,7 +92,7 @@ public abstract class PersistIce {
   private static File encodeKeyToFile(Key k, byte type) {
     StringBuilder sb = new StringBuilder();
     // append the value type and replication factor */
-    sb.append(k.toString());
+    sb.append(URLEncoder.encode(k.toString()));
     sb.append('.');
     sb.append((char)type);
     sb.append(k.desired());
@@ -156,6 +121,7 @@ public abstract class PersistIce {
     try {
       File f = encodeKeyToFile(v);
       if( f.length() < v._max ) { // Should be fully on disk... or
+        System.out.println("Failed to file_load; file is short "+f.length());
         assert !v.is_persisted(); // or it's a racey delete of a spilled value
         return null;              // No value
       }
@@ -189,6 +155,8 @@ public abstract class PersistIce {
         s.close();
       }
     } catch( IOException e ) {
+      e.printStackTrace();
+      throw new RuntimeException("File store failed: "+e);
     }
   }
 

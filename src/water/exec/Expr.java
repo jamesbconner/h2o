@@ -1,6 +1,7 @@
 package water.exec;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import water.*;
 import water.exec.RLikeParser.Token;
 import water.parser.ParseDataset;
@@ -14,18 +15,26 @@ public abstract class Expr {
   // Result
   
   public static class Result {
-
+    public static enum Type {
+      rtKey,
+      rtNumberLiteral,
+      rtStringLiteral
+    }
     public final Key _key;
     private int _refCount;
     boolean _copied;
     private int _colIndex;
     public final double _const;
+    public final String _str;
+    public Type _type;
 
     private Result(Key k, int refCount) {
       _key = k;
       _refCount = refCount;
       _colIndex = -1;
       _const = 0;
+      _type = Type.rtKey;
+      _str = null;
     }
 
     private Result(double value) {
@@ -33,6 +42,17 @@ public abstract class Expr {
       _refCount = 1;
       _colIndex = -1;
       _const = value;
+      _type = Type.rtNumberLiteral;
+      _str = null;
+    }
+
+    private Result(String str) {
+      _key = null;
+      _refCount = 1;
+      _colIndex = -1;
+      _const = 0;
+      _type = Type.rtStringLiteral;
+      _str = str;
     }
 
     public static Result temporary(Key k) { return new Result(k, 1); }
@@ -42,6 +62,8 @@ public abstract class Expr {
     public static Result permanent(Key k) { return new Result(k, -1); }
 
     public static Result scalar(double v) { return new Result(v); }
+    
+    public static Result string(String s) { return new Result(s); }
 
     public void dispose() {
       if( _key == null )
@@ -64,7 +86,6 @@ public abstract class Expr {
 
     public void setColIndex(int index) { _colIndex = index; }
 
-    public boolean isConstant() { return _key == null; }
   }
 
   public abstract Result eval() throws EvaluationException;
@@ -127,6 +148,22 @@ class FloatLiteral extends Expr {
 
   @Override
   public Expr.Result eval() throws EvaluationException { return Expr.Result.scalar(_d); }
+}
+
+// =============================================================================
+// StringLiteral 
+// =============================================================================
+class StringLiteral extends Expr {
+
+  public final String _str;
+
+  public StringLiteral(int pos, String str) {
+    super(pos);
+    _str = str;
+  }
+
+  @Override
+  public Expr.Result eval() throws EvaluationException { return Expr.Result.string(_str); }
 }
 
 // =============================================================================
@@ -268,10 +305,14 @@ class UnaryOperator extends Expr {
     // get the keys and the values    
     Result op = _opnd.eval();
     try {
-      if( op.isConstant() )
-        return evalConst(op);
-      else
-        return evalVect(op);
+      switch (op._type) {
+        case rtNumberLiteral:
+          return evalConst(op);
+        case rtKey:
+          return evalVect(op);
+        default:
+          throw new EvaluationException(_pos, "Incompatible operand type, expected Value or number constant");
+      }
     } finally {
       op.dispose();
     }
@@ -418,16 +459,27 @@ class BinaryOperator extends Expr {
     Result kl = _left.eval();
     Result kr = _right.eval();
     try {
-      if( kl.isConstant() ) {
-        if( kr.isConstant() )
-          return evalConstConst(kl, kr);
-        else
-          return evalConstVect(kl, kr);
-      } else {
-        if( kr.isConstant() )
-          return evalVectConst(kl, kr);
-        else
-          return evalVectVect(kl, kr);
+      switch (kl._type) {
+        case rtNumberLiteral:
+          switch (kr._type) {
+            case rtNumberLiteral:
+              return evalConstConst(kl, kr);
+            case rtKey:
+              return evalConstVect(kl, kr);
+            default:
+              throw new EvaluationException(_pos,"Only Value or numeric constant are allowed as the second operand");
+          }
+        case rtKey:
+          switch (kr._type) {
+            case rtNumberLiteral:
+              return evalVectConst(kl, kr);
+            case rtKey:
+              return evalVectVect(kl, kr);
+            default:
+              throw new EvaluationException(_pos,"Only Value or numeric constant are allowed as the second operand");
+          }
+        default:
+          throw new EvaluationException(_pos,"Only Value or numeric constant are allowed as the first operand");
       }
     } finally {
       kl.dispose();
@@ -444,36 +496,68 @@ class FunctionCall extends Expr {
   
   public final Function _function;
   
-  private final ArrayList<Expr> _args = new ArrayList();
-
+  private final Expr[] _args;
+  
   public FunctionCall(int pos, String fName) throws ParserException {
     super(pos);
+    // TODO get to _function
     _function = Function.FUNCTIONS.get(fName);
     if (_function == null)
-      throw new ParserException(_pos, "Function "+fName+" not found.");
+      throw new ParserException(pos,"Function "+fName+" is not defined.");
+    _args = new Expr[_function.numArgs()];
   }
   
-  public void addArgument(Expr arg) {
-    _args.add(arg);
+  public void addArgument(Expr argument) throws ParserException {
+    int i = 0;
+    while ((i < _args.length) && (_args[i] != null)) ++i;
+    if (i==_args.length)
+      throw new ParserException(argument._pos,"Function "+_function._name+" takes only "+_args.length+" arguments");
+    _args[i] = argument;
   }
   
-  public int numArgs() {
-    return _args.size();
+  public void addArgument(Expr argument, int idx) {
+    assert (idx < _args.length) && (idx>=0) && (_args[idx] == null);
+    _args[idx] = argument;
   }
   
-  public Expr arg(int index) {
-    return _args.get(index);
+  public void addArgument(Expr argument, String name) throws ParserException {
+    int idx = _function.argIndex(name);
+    if (idx == -1)
+      throw new ParserException(argument._pos,"Argument "+name+" not recognized for function "+_function._name);
+    if (_args[idx] != null)
+      throw new ParserException(argument._pos,"Argument "+name+" already defined for function "+_function._name);
+    addArgument(argument,idx);
   }
   
-  @Override public Result eval() throws EvaluationException {
-    Result[] args = new Result[_args.size()];
-    for (int i = 0; i < args.length; ++i)
-      args[i] = _args.get(i).eval();
-    try {
-      return _function.eval(args);      
-    } catch (Exception e) {
-      throw new EvaluationException(_pos, e.getMessage());
+  /** Just checks that we either have the argument, or that its default value can be obtained. */ 
+  public void staticArgumentVerification() throws ParserException {
+    for (int i = 0; i < _args.length; ++i) {
+      if (_args[i] != null)
+        continue;
+      if (_function.checker(i)._defaultValue != null)
+        continue;
+      throw new ParserException(_pos,"Formal argument index "+i+" is missing and does not have default value for function "+_function._name);
     }
   }
-  
+
+  @Override public Result eval() throws EvaluationException {
+    Result[] args = new Result[_args.length];
+    for (int i = 0; i<args.length; ++i) {
+      if (_args[i] == null) {
+        args[i] = _function.checker(i)._defaultValue;
+      } else {
+        args[i] = _args[i].eval();
+        try {
+          _function.checker(i).checkResult(args[i]);
+        } catch (Exception e) {
+          throw new EvaluationException(_args[i]._pos,e.getMessage());
+        }
+      }
+    }
+    try {
+      return _function.eval(args);
+    } catch (Exception e) {
+      throw new EvaluationException(_pos,e.getMessage());
+    }
+  }
 }

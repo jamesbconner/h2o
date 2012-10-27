@@ -27,18 +27,30 @@ try:
     # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
     csvFilename = "parity_128_4_161_quad.data"  
 
+    print 'Put and parse'
+    # prime
+    trees = 6
+    y = 10000 * 161
+    csvFilename = "parity_128_4_" + str(y) + "_quad.data"  
+    csvPathname = SYNDATASETS_DIR + '/' + csvFilename
+
+    reparse = True
+    if not reparse:
+        node = h2o.nodes[0]
+        put = node.put_file(csvPathname)
+        parse = node.parse(put['key'])
+
     print 'Running trials'
     for trials in xrange(1,10000):
-        # prime
-        trees = 6
-        y = 10000 * 161
+        if reparse:
+            node = h2o.nodes[0]
+            put = node.put_file(csvPathname)
+            parse = node.parse(put['key'])
 
-        csvFilename = "parity_128_4_" + str(y) + "_quad.data"  
-        csvPathname = SYNDATASETS_DIR + '/' + csvFilename
         timeoutSecs = 20 + 5*(len(h2o.nodes))
         modelKey = csvFilename + "_" + str(trials)
-        h2o_cmd.runRF(trees=trees, modelKey=modelKey, timeoutSecs=timeoutSecs, 
-            retryDelaySecs=1, csvPathname=csvPathname)
+        h2o_cmd.runRFOnly(parseKey=parse, trees=trees,
+                modelKey=modelKey, timeoutSecs=timeoutSecs, retryDelaySecs=2)
         sys.stdout.write('.')
         sys.stdout.flush()
 except KeyboardInterrupt:
