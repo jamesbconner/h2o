@@ -477,7 +477,7 @@ public class RLikeParser {
   }
   
   /*
-   * FUNCTION -> fName '(' [ S {, S } ] ')'
+   * FUNCTION -> fName '(' [ FARG {, FARG } ] ')'
    * 
    * where fName is already parsed
    */
@@ -485,23 +485,41 @@ public class RLikeParser {
   private Expr parse_Function(Token fName) throws ParserException {
     FunctionCall result = new FunctionCall(fName._pos,fName._id);
     pop(Token.Type.ttOpParOpen);
-    while (true) {
-      if (top()._type == Token.Type.ttEOF)
-        throw new ParserException(fName._pos,"Unfinished arguments list for function call");
-      if (condPop(Token.Type.ttOpParClose))
-        break;
-      result.addArgument(parse_S());
-      if (condPop(Token.Type.ttOpComma)) {
-        if (top()._type == Token.Type.ttOpParClose)
-          throw new ParserException(top()._pos, "Expected argument definition start after the comma, not end of args list");
-      } else {
-        pop(Token.Type.ttOpParClose);
-        break;
+    int argIndex = 0;
+    boolean haveSeenNamedArg = false;
+    if (top()._type != Token.Type.ttOpParClose) {
+      haveSeenNamedArg = parse_FunctionArgument(result,argIndex,haveSeenNamedArg);
+      ++argIndex;
+      while (condPop(Token.Type.ttOpComma)) {
+        haveSeenNamedArg = parse_FunctionArgument(result,argIndex,haveSeenNamedArg);
+        ++argIndex;
       }
     }
-    if (result.numArgs()!=result._function.numArgs())
-      throw new ParserException(fName._pos,"Functionn "+fName._id+" is expected to take "+result._function.numArgs()+" arguments, but "+result.numArgs()+" were given");
+    pop(Token.Type.ttOpParClose);
+    result.staticArgumentVerification();
     return result;
+  }
+  
+  /*
+   * FARG -> argname = S | S
+   */
+  
+  private boolean parse_FunctionArgument(FunctionCall f, int argIndex, boolean seenNamedArgsBefore) throws ParserException {
+    Token t = top();
+    if ((t._type == Token.Type.ttIdent) && (f._function.argIndex(t._id)!=-1)) { // it is an argument and it does exist in the function
+      pop();
+      if (condPop(Token.Type.ttOpAssign)) {
+        Expr e = parse_S();
+        f.addArgument(e, t._id);
+        return true;
+      }
+      _s._off = t._pos; // go back to do unnamed
+    }
+    if (seenNamedArgsBefore)
+      throw new ParserException(t._pos,"After a named argument is used, only named arguments can follow");
+    Expr e = parse_S();
+    f.addArgument(e, argIndex);
+    return false;
   }
 }
 

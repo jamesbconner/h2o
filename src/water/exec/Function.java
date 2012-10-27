@@ -1,6 +1,7 @@
 
 package water.exec;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import water.*;
 import water.exec.Expr.Result;
@@ -13,66 +14,131 @@ import water.exec.Expr.Result;
  *
  * @author peta
  */
-public abstract class Function {
-  
-    public static final HashMap<String,Function> FUNCTIONS = new HashMap();
-  
-    /** A simple class that checks whether given argument corresponds to
-     * the requirements. Each class should check one type of an argument
-     */
-    public abstract static class ArgChecker {
-      public abstract void check(Result arg) throws Exception;
-    }
-    
-    /** Checks that the given argument is a single column vector.
-     */
-    public static class SingleColumn extends ArgChecker {
-      @Override public void check(Result arg) throws Exception {
-        if (arg._type == Result.Type.rtNumberLiteral)
-          throw new Exception("Expected single column vector, but scalar constant found.");
-        if (arg.colIndex()>=0) // we have selected the arg properly
-          return;
-        ValueArray va = (ValueArray) DKV.get(arg._key);
-        if (va.num_cols()!=1)
-          throw new Exception("Expected single column vector, but "+va.num_cols()+" columns found.");
-      }
-    }
-    
-    public final ArgChecker[] _argCheckers;
-    public final String _name;
-    
-    public Function(String name, ArgChecker[] argCheckers) {
-      _argCheckers = argCheckers;
-      _name = name;
-      FUNCTIONS.put(name,this);
-    }
-    
-    public int numArgs() {
-      return _argCheckers.length;
-    }
-    
-    protected abstract Result doEval(Result... args);
 
-    public final Result eval(Result... args) throws Exception {
-      assert (args.length == _argCheckers.length);
-      // now check all the arguments
-      for (int i = 0; i < args.length; ++i)
-        try {
-          _argCheckers[i].check(args[i]);
-        } catch (Exception e) {
-          throw new Exception("Arguent "+i+": "+e.getMessage());
-        }
-      // run the evaluation
-      return doEval(args);
+public abstract class Function {
+
+  // ArgCheck ------------------------------------------------------------------
+  
+  public abstract class ArgCheck {
+    public final String _name;
+    public final Result _defaultValue;
+    
+    protected ArgCheck() {
+      _name = null; // required
+      _defaultValue = null;
     }
     
-    public static void initializeCommonFunctions() {
-      new Min("min");
-      new Max("max");
-      new Sum("sum");
-      new Mean("mean");
+    protected ArgCheck(String name) {
+      _name = name;
+      _defaultValue = null;
     }
+    
+    protected ArgCheck(String name, double defaultValue) {
+      _name = name;
+      _defaultValue = Result.scalar(defaultValue);
+    }
+
+    protected ArgCheck(String name, String defaultValue) {
+      _name = name;
+      _defaultValue = Result.string(defaultValue);
+    }
+    
+    
+    public abstract void checkResult(Result r) throws Exception;
+  }
+  
+  // ArgScalar -----------------------------------------------------------------
+  
+  public class ArgScalar extends ArgCheck {
+
+    public ArgScalar() { }
+    public ArgScalar(String name) { super(name); }
+    public ArgScalar(String name, double defaultValue) { super(name,defaultValue); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtNumberLiteral)
+        throw new Exception("Expected number literal");
+    }
+  }
+  
+  // ArgString -----------------------------------------------------------------
+  
+  public class ArgString extends ArgCheck {
+
+    public ArgString() { }
+    public ArgString(String name) { super(name); }
+    public ArgString(String name, String defaultValue) { super(name,defaultValue); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtStringLiteral)
+        throw new Exception("Expected string literal");
+    }
+  }
+  
+  // ArgSingleColumn -----------------------------------------------------------
+  
+  public class ArgVector extends ArgCheck {
+    public ArgVector() { }
+    public ArgVector(String name) { super(name); }
+
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtKey)
+        throw new Exception("Expected vector (value)");
+      if (r.colIndex() >= 0) // that is we are selecting single column
+        return;
+      ValueArray va = (ValueArray) DKV.get(r._key);
+      if (va.num_cols()!=1)
+        throw new Exception("Expected single column vector, but "+va.num_cols()+" columns found.");
+    }
+  }
+  
+  // Function implementation ---------------------------------------------------
+    
+  private ArrayList<ArgCheck> _argCheckers = new ArrayList();
+  private HashMap<String,Integer> _argNames = new HashMap();
+
+  public final String _name;
+  
+  protected void addChecker(ArgCheck checker) {
+    if (checker._name!=null)
+      _argNames.put(checker._name,_argCheckers.size());
+    _argCheckers.add(checker);
+  }
+
+  public ArgCheck checker(int index) {
+    return _argCheckers.get(index);  
+  }
+  
+  public int numArgs() {
+    return _argCheckers.size();
+  }
+  
+  public int argIndex(String name) {
+    Integer i = _argNames.get(name); 
+    return i == null ? -1 : i; 
+  }
+  
+  public Function(String name) {
+    _name = name;
+    assert (FUNCTIONS.get(name) == null);
+    FUNCTIONS.put(name,this);
+  }
+  
+  
+  public abstract Result eval(Result... args) throws Exception;
+  
+  // static list of all functions 
+  
+  public static final HashMap<String,Function> FUNCTIONS = new HashMap();
+
+  public static void initializeCommonFunctions() {
+    new Min("min");
+    new Max("max");
+    new Sum("sum");
+    new Mean("mean");
+  }
 }
+
 
 // Min -------------------------------------------------------------------------
 
@@ -88,10 +154,11 @@ class Min extends Function {
   }
   
   public Min(String name) {
-    super(name,new ArgChecker[] { new SingleColumn() });
+    super(name);
+    addChecker(new ArgVector("src"));
   }
 
-  @Override protected Result doEval(Result... args) {
+  @Override public Result eval(Result... args) throws Exception {
     MRMin task = new MRMin(args[0]._key, args[0].colIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
@@ -112,10 +179,11 @@ class Max extends Function {
   }
   
   public Max(String name) {
-    super(name,new Function.ArgChecker[] { new Function.SingleColumn() });
+    super(name);
+    addChecker(new ArgVector("src"));
   }
 
-  @Override protected Result doEval(Result... args) {
+  @Override public Result eval(Result... args) throws Exception {
     MRMax task = new MRMax(args[0]._key, args[0].colIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
@@ -136,10 +204,11 @@ class Sum extends Function {
   }
   
   public Sum(String name) {
-    super(name,new ArgChecker[] { new SingleColumn() });
+    super(name);
+    addChecker(new ArgVector("src"));
   }
 
-  @Override protected Result doEval(Result... args) {
+  @Override public Result eval(Result... args) throws Exception {
     MRSum task = new MRSum(args[0]._key, args[0].colIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
@@ -165,35 +234,13 @@ class Mean extends Function {
   }
   
   public Mean(String name) {
-    super(name,new ArgChecker[] { new SingleColumn() });
+    super(name);
+    addChecker(new ArgVector("src"));
   }
 
-  @Override protected Result doEval(Result... args) {
+  @Override public Result eval(Result... args) throws Exception {
     MRMean task = new MRMean(args[0]._key, args[0].colIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
 }
-
-
-/** Function that can do optional arguments.
- * 
- * @author peta
- */
-
-abstract class Function2 {
-  
-  public abstract class ArgCheck {
-    final String _name;
-    
-    public ArgCheck() {
-      _name = null; // required
-    }
-    
-    public ArgCheck(String name, double defaultValue) {
-      _name = name;
-    }
-  }
-  
-}
-
