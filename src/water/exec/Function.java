@@ -46,6 +46,20 @@ public abstract class Function {
     
     public abstract void checkResult(Result r) throws Exception;
   }
+
+  // ArgScalar -----------------------------------------------------------------
+  
+  public class ArgValue extends ArgCheck {
+
+    public ArgValue() { }
+    public ArgValue(String name) { super(name); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtKey)
+        throw new Exception("Expected value (possibly multiple columns)");
+    }
+  }
+  
   
   // ArgScalar -----------------------------------------------------------------
   
@@ -74,6 +88,27 @@ public abstract class Function {
         throw new Exception("Expected string literal");
     }
   }
+  
+  // ArgColIdent ---------------------------------------------------------------
+  
+  public class ArgColIdent extends ArgCheck {
+
+    public ArgColIdent() { }
+    public ArgColIdent(String name) { super(name); }
+    public ArgColIdent(String name, String defaultValue) { super(name,defaultValue); }
+    public ArgColIdent(String name, int defaultValue) { super(name,String.valueOf(defaultValue)); }
+
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type == Result.Type.rtStringLiteral)
+        return;
+      if (r._type == Result.Type.rtNumberLiteral)
+        if (Math.ceil(r._const) == Math.floor(r._const))
+          return;
+      throw new Exception("String or integer expected, float found.");
+    }
+    
+  }
+  
   
   // ArgSingleColumn -----------------------------------------------------------
   
@@ -196,7 +231,7 @@ class Sum extends Function {
   
   static class MRSum extends Helpers.ScallarCollector {
 
-    @Override protected void collect(double x) { _result += x; }
+    @Override protected void collect(double x) { _result += x; System.out.println(x + " - "+_result); }
 
     @Override protected void reduce(double x) { _result += x; }
     
@@ -215,7 +250,7 @@ class Sum extends Function {
   }
 }
 
-// Mean -------------------------------------------------------------------------
+// Mean ------------------------------------------------------------------------
 
 class Mean extends Function {
   
@@ -243,4 +278,32 @@ class Mean extends Function {
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
+}
+
+// GLM -------------------------------------------------------------------------
+
+class GLM extends Function {
+
+  public GLM(String name) {
+    super(name);
+    addChecker(new ArgValue("key"));
+    addChecker(new ArgColIdent("Y"));
+    // no support for X
+    // no support for negX
+    addChecker(new ArgString("family","gaussian"));
+    addChecker(new ArgScalar("xval",0));
+    addChecker(new ArgScalar("threshold",0.5));
+    addChecker(new ArgString("norm","NONE"));
+    addChecker(new ArgScalar("lambda",0.1));
+    addChecker(new ArgScalar("rho",1.0));
+    addChecker(new ArgScalar("alpha",1.0));
+  }
+
+  @Override public Result eval(Result... args) throws Exception {
+        
+    
+    throw new Exception("not implemented yet!");
+  }
+
+  
 }
