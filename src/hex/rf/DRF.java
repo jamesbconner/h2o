@@ -51,7 +51,6 @@ public class DRF extends water.DRemoteTask {
     drf._singlethreaded = singlethreaded;
     drf._seed = seed;
     drf._ignores = ignores;
-    Tree.THREADED = !singlethreaded;
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();

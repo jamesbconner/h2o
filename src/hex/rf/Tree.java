@@ -15,8 +15,6 @@ import water.Value;
 import water.ValueArray;
 
 public class Tree extends CountedCompleter {
-  static  boolean THREADED = false;  // multi-threaded ?
-
   static public enum StatType { ENTROPY, GINI };
 
   final StatType _type;         // Flavor of split logic
@@ -115,9 +113,9 @@ public class Tree extends CountedCompleter {
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
       else                    fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - 1);
       // Recursively build the splits, in parallel
-      if( fj0 != null &&        (fj1!=null && THREADED) ) fj0.fork();
+      if( fj0 != null &&        (fj1!=null ) ) fj0.fork();
       if( fj1 != null ) nd._r = fj1.compute();
-      if( fj0 != null ) nd._l = (fj1!=null && THREADED) ? fj0.join() : fj0.compute();
+      if( fj0 != null ) nd._l = (fj1!=null ) ? fj0.join() : fj0.compute();
       return nd;
     }
   }
