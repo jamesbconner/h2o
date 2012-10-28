@@ -73,15 +73,22 @@ public abstract class MemoryManager {
   public static boolean memCritical() {  return !canAllocate; }
 
   public static void setMemGood() {
-    canAllocate = true;
-    System.err.println("Continuing after swapping");
+    if( canAllocate ) return;
+    synchronized(_lock) {
+      canAllocate = true;
+      System.err.println("Continuing after swapping");
+      if (NUM_BLOCKED > 0) {
+        NUM_BLOCKED = 0;
+        _lock.notifyAll();
+      }
+    }
   }
   public static void setMemLow() {
     canAllocate = false;
     System.err.println("Pausing to swap to disk; more memory may help");
   }
 
-  public static void setCacheSz(long c) {
+  public static void setCacheSz(long c, boolean progress) {
     CACHED = c;
     if (CACHED > CACHE_HI) {
       long free = (CACHED - CACHE_HI) >> 1;
@@ -90,6 +97,10 @@ public abstract class MemoryManager {
         // called from the cleaner
         mem2Free = free;
       }
+    }
+    if( !canAllocate && progress == false ) {
+      System.out.println("But last pass cleaned nothing, so charge ahead hoping for a GC cycle");
+      setMemGood();
     }
   }
 
@@ -115,17 +126,8 @@ public abstract class MemoryManager {
         if (m != null) {
           v.free_mem();
           mem2Free -= m.length;
-          if( !canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1))) {
-            synchronized(_lock) {
-              if (!canAllocate) {
-                setMemGood();
-                if (NUM_BLOCKED > 0) {
-                  NUM_BLOCKED = 0;
-                  _lock.notifyAll();
-                }
-              }
-            }
-          }
+          if( !canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1)))
+            setMemGood();
         }
         return true;
       }

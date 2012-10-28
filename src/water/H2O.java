@@ -523,6 +523,7 @@ public final class H2O {
     public Cleaner() { super("Memory Cleaner"); }
 
     public void run() {
+      int cycles_no_progress = 0;
       while (true) {
         synchronized (STORE) {
           while( _dirty == false && (MemoryManager.mem2Free >> 20) <= 0 )
@@ -532,6 +533,7 @@ public final class H2O {
         // If not out of memory, sleep another second to batch-up writes
         if( (MemoryManager.mem2Free >> 20) <= 0 )
           try { Thread.sleep(5000); } catch (InterruptedException e) { }
+        boolean cleaned = false; // Anything got cleaned?
         long cacheSz = 0;       // Current size of cached memory
         final long currentTime = System.currentTimeMillis();
         // For faster K/V store walking get the NBHM raw backing array,
@@ -580,12 +582,19 @@ public final class H2O {
           // Store user-keys, or arraylets from user-keys
           val.store_persist();
 
-          if( MemoryManager.removeValue(currentTime, val) )
+          if( MemoryManager.removeValue(currentTime, val) ) {
             cacheSz -= m.length;
+            cleaned = true;
+          }
         }
+        if( cleaned ) cycles_no_progress = 0;
+        else cycles_no_progress++;
         // update the cache sz
-        MemoryManager.setCacheSz(cacheSz);
-        try { Thread.sleep(1000); } catch (InterruptedException e) { }
+        MemoryManager.setCacheSz(cacheSz, cycles_no_progress > 5);
+        if( cycles_no_progress > 5 ) {
+          cycles_no_progress = 0;
+          try { Thread.sleep(1000); } catch (InterruptedException e) { }
+        }
       }
     }
   }
