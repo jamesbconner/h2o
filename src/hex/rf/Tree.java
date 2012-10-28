@@ -279,7 +279,7 @@ public class Tree extends CountedCompleter {
       assert tbits[o] == '(' || tbits[o] == 'S' || tbits[o] == 'E';
       int col = ts.get2();      // Column number
       float fcmp = ts.get4f();  // Float to compare against
-      float fdat = (float)ary.datad(databits,row,rowsize,col,offs[col],size[col],base[col],scal[col]);
+      float fdat = (float)ary.datad(databits,row,rowsize,offs[col],size[col],base[col],scal[col],col);
       int skip = (ts.get1()&0xFF);
       if( skip == 0 ) skip = ts.get3();
       if (b == 'E') {
