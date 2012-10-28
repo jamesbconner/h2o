@@ -257,7 +257,7 @@ class DataAdapter  {
       }
       int n = _raw.length - ndups;
       int rem = n % BIN_LIMIT;
-      int maxBinSize = (n > BIN_LIMIT) ? (int)(n / BIN_LIMIT + Math.min(rem,1)) : 1;
+      int maxBinSize = (n > BIN_LIMIT) ? (n / BIN_LIMIT + Math.min(rem,1)) : 1;
       System.out.println("n = " + n + ", max bin size = " + maxBinSize);
       // Assign shorts to floats, with binning.
       _binned2raw = new float[Math.min(n, BIN_LIMIT)];
