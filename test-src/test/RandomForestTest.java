@@ -26,10 +26,10 @@ public class RandomForestTest {
   }
 
   // ---
-  // Test parsing "iris.csv" and running Random Forest - by driving the web interface
+  // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
   @org.junit.Test public void testRF_Iris() {
     final int CLASSES=3;        // Number of output classes in iris dataset
-    Key fkey = KeyUtil.load_test_file("smalldata/iris/iris.csv");
+    Key fkey = KeyUtil.load_test_file("smalldata/iris/iris2.csv");
     Key okey = Key.make("iris.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
@@ -65,7 +65,6 @@ public class RandomForestTest {
       Value modelVal = UKV.get(modelKey);
       Model model = new Model();
       model.read(new Stream(modelVal.get()));
-      assertEquals(0,model.size()); // Expect zero trees so-far.
       assertEquals(CLASSES,model._classes);
 
       // Now build the properties for a RFView page.

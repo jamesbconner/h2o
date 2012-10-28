@@ -17,6 +17,7 @@ public class DRF extends water.DRemoteTask {
   int _stat;            // Use Gini(1) or Entropy(0) for splits
   int _classcol;        // Column being classified
   Key _arykey;          // The ValueArray being RF'd
+  Key _modelKey;        // Where to jam the final trees
   public Key _treeskey; // Key of Tree-Keys built so-far
   int[] _ignores;
 
@@ -39,7 +40,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol, int[] ignores) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol, int[] ignores, Key modelKey) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -51,6 +52,7 @@ public class DRF extends water.DRemoteTask {
     drf._singlethreaded = singlethreaded;
     drf._seed = seed;
     drf._ignores = ignores;
+    drf._modelKey = modelKey;
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();

@@ -30,8 +30,10 @@ public class RandomForest {
             _data.sample(0.55),
             maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
         t.get();        // Block for a tree
-        new AppendKey(t.toKey()).fork(drf._treeskey);        // Atomic-append to the list of trees
+        new AppendKey(t.toKey()).invoke(drf._treeskey); // Atomic-append to the list of trees
         long now = System.currentTimeMillis();
+        Model model = new Model(drf._modelKey,drf._treeskey,data.columns(),data.classes());
+        UKV.put(drf._modelKey,model);
         System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
       }
     } catch( InterruptedException e ) { // Interrupted after partial build?
@@ -94,7 +96,7 @@ public class RandomForest {
     final int num_cols = va.num_cols();
     final int classcol = num_cols-1; // Defaults to last column
     long t1 = System.currentTimeMillis();
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded, classcol, new int[0]);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded, classcol, new int[0], Key.make("model"));
 
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
 
