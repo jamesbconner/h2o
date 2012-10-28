@@ -17,7 +17,8 @@ class DataAdapter  {
   private final String[] _columnNames;
   private final C[] _c;
   private final ValueArray _ary;
-  private final int _dataId;           // Unique cookie identifying this dataset
+  /** Unique cookie identifying this dataset*/
+  private final int _dataId;
   private final int _seed;
   public final int _classIdx;
   public final int _numRows;
@@ -119,6 +120,7 @@ class DataAdapter  {
   public void addRow(float[] v, int row) {
     for( int i = 0; i < v.length; i++ ) _c[i].add(v[i], row);
   }
+
   static final DecimalFormat df = new  DecimalFormat ("0.##");
 
   public boolean binColumn(int col){
@@ -254,7 +256,5 @@ class DataAdapter  {
       }
       _raw = null;
     }
-
-
   }
 }
