@@ -4,8 +4,7 @@ import gnu.trove.map.hash.TFloatIntHashMap;
 import gnu.trove.map.hash.TFloatShortHashMap;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
 import jsr166y.RecursiveAction;
 import water.MemoryManager;
@@ -43,7 +42,10 @@ class DataAdapter  {
       boolean ignore = Ints.indexOf(ignores, i) > 0;
       double range = _ary.col_max(i) - _ary.col_min(i);
       boolean raw = (_ary.col_size(i) > 0 && range < BIN_LIMIT && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
-      _c[i]= new C(_columnNames[i], rows, i==_classIdx, !raw, ignore);
+      C.ColType t = C.ColType.SHORT;
+      if(raw && range == 1)t = C.ColType.BOOL;
+      else if(raw && range <= Byte.MAX_VALUE)t = C.ColType.BYTE;
+      _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, !raw, ignore);
       if(raw){
         _c[i]._smax = (short)range;
         _c[i]._min = (float)_ary.col_min(i);
@@ -90,7 +92,7 @@ class DataAdapter  {
 
   public int seed()           { return _seed; }
   public int columns()        { return _c.length;}
-  public int classOf(int idx) { return getS(idx,_classIdx); }
+  public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
   public int dataId()         { return _dataId; }
   /** The number of possible prediction classes. */
   public int classes()        { return _numClasses; }
@@ -101,7 +103,7 @@ class DataAdapter  {
   public int columnArity(int col) { return ignore(col) ? 0 : _c[col]._smax; }
 
   /** Return a short that represents the binned value of the original row,column value.  */
-  public short getEncodedColumnValue(int rowIndex, int colIndex) { return getS(rowIndex, colIndex); }
+  public short getEncodedColumnValue(int rowIndex, int colIndex) { return _c[colIndex].getValue(rowIndex);}
 
   /** Return the array of all column names including ignored and class. */
   public String[] columnNames() { return _columnNames; }
@@ -111,37 +113,83 @@ class DataAdapter  {
   }
 
   public void addValue(short v, int row, int col){
-    _c[col]._binned[row] = v;
+    _c[col].setValue(row,v);
   }
   /** Add a row to this data set. */
   public void addRow(float[] v, int row) {
     for( int i = 0; i < v.length; i++ ) _c[i].add(v[i], row);
   }
-  short getS(int row, int col) { return _c[col]._binned[row]; }
   static final DecimalFormat df = new  DecimalFormat ("0.##");
 
   public boolean binColumn(int col){
     return _c[col]._bin;
   }
 
+
   private static class C {
+    enum ColType {BOOL,BYTE,SHORT};
+    ColType _ctype;
     String _name;
     boolean _ignore, _isClass, _bin;
     float _min=Float.MAX_VALUE, _max=Float.MIN_VALUE, _tot;
     short[] _binned;
+    byte [] _bvalues;
     float[] _raw;
     float[] _binned2raw;
+    BitSet _booleanValues;
     short _smax = -1;
 
-    C(String s, int rows, boolean isClass, boolean bin, boolean ignore) {
+    C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore) {
       _name = s;
       _isClass = isClass;
       _ignore = ignore;
       _bin = bin;
+      _ctype = t;
       if(!_ignore){
-        _raw = _bin?MemoryManager.allocateMemoryFloat(rows):null;
-        _binned = _bin?null:MemoryManager.allocateMemoryShort(rows);
+        if(_bin){
+          _raw = _bin?MemoryManager.allocateMemoryFloat(rows):null;
+        } else {
+          switch(_ctype){
+          case BOOL:
+            _booleanValues = new BitSet(rows);
+            break;
+          case BYTE:
+            _bvalues = new byte[rows];
+            break;
+          case SHORT:
+            _binned = new short[rows];
+          }
+        }
       }
+    }
+
+    public void setValue(int row, short s){
+      switch(_ctype){
+      case BOOL:
+        if(s == 1)_booleanValues.set(row);
+        break;
+      case BYTE:
+        if((byte)s != s){
+          System.out.println((byte)s + " != " + s);
+        }
+        assert (byte)s == s;
+        _bvalues[row] = (byte)s;
+        break;
+      case SHORT:
+        _binned[row] = s;
+      }
+    }
+
+    public short getValue(int i) {
+      switch(_ctype){
+      case BOOL:
+        return (short)(_booleanValues.get(i)?1:0);
+      case BYTE:
+        return _bvalues[i];
+      case SHORT:
+        return _binned[i];
+      }
+      throw new Error("illegal column type " + _ctype);
     }
 
     void add(float x, int row) {
