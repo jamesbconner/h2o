@@ -9,7 +9,7 @@ import water.*;
 public abstract class Models {
 
   public interface ModelBuilder {
-    public Model trainOn(ValueArray data, int[] colIds, Sampling s);
+    public NewModel trainOn(ValueArray data, int[] colIds, Sampling s);
   }
 
   public interface ModelValidation extends Cloneable {
@@ -68,7 +68,7 @@ public abstract class Models {
     int                       _rpc;
     double                    _ymu;
     Key                       _resultChunk0;
-    protected Model           _m;
+    protected NewModel           _m;
     protected ModelValidation _val;
     // transients
     transient byte[]          _data;
@@ -77,7 +77,7 @@ public abstract class Models {
     public ModelTask() {
     }
 
-    public ModelTask(Model m, int[] colIds, Sampling s, double[][] pVals,
+    public ModelTask(NewModel m, int[] colIds, Sampling s, double[][] pVals,
         double ymu) {
       super(colIds, s, m.skipIncompleteLines(), pVals);
       _ymu = ymu;
@@ -132,7 +132,7 @@ public abstract class Models {
           int cnLen = is.readInt();
           byte[] cn = new byte[cnLen];
           is.readFully(cn);
-          _m = (Model) Class.forName(new String(cn)).newInstance();
+          _m = (NewModel) Class.forName(new String(cn)).newInstance();
           _m.read(is);
           if( _storeResults ) _resultChunk0 = Key.read(is);
         }
@@ -172,7 +172,7 @@ public abstract class Models {
         _storeResults = (s.get1() != 0);
         _rpc = s.get4();
         _ymu = s.get8d();
-        _m = (Model)Class.forName(new String(s.getAry1())).newInstance();
+        _m = (NewModel)Class.forName(new String(s.getAry1())).newInstance();
         _m.read(s);
         if( _storeResults )_resultChunk0 = Key.read(s);
       }
@@ -214,7 +214,7 @@ public abstract class Models {
     }
   }
 
-  public static abstract class Model extends RemoteTask {
+  public static abstract class NewModel extends RemoteTask {
     public transient String[] _warnings;   // warning messages from model
                                             // building
     transient String[]        _columnNames;
@@ -228,16 +228,16 @@ public abstract class Models {
       return _n;
     }
 
-    public Model() {
+    public NewModel() {
     }
 
-    public Model(int [] colIds, double[][] pVals) {
+    public NewModel(int [] colIds, double[][] pVals) {
       this(null,colIds,pVals);
     }
-    public Model(String [] columnNames, double[][] pVals) {
+    public NewModel(String [] columnNames, double[][] pVals) {
       this(columnNames,null,pVals);
     }
-    public Model(String[] columnNames, int [] colIds, double[][] pVals) {
+    public NewModel(String[] columnNames, int [] colIds, double[][] pVals) {
       _colIds = colIds;
       _columnNames = columnNames;
       _pvals = pVals;

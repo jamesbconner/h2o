@@ -455,7 +455,7 @@ public class DGLM implements Models.ModelBuilder {
   }
 
 
-  public static class GLMModel extends Models.Model {
+  public static class GLMModel extends Models.NewModel {
     double [] _beta;
     int [] _colIds;
     int _link;
@@ -649,15 +649,14 @@ public class DGLM implements Models.ModelBuilder {
     @Override
     public void aggregate(Models.ModelValidation other) {
       super.aggregate(other);
-      _aggregate = true;
       GLMBinomialValidation v = (GLMBinomialValidation)other;
-      _fpMean = (_t - 1.0) / _t * _fpMean + 1.0 / _t * v._fpMean;
+      _fpMean = (_t - 1.0) / _t * fp() + 1.0 / _t * v.fp();
       // recursive variance formula
-      double newVar = (v._fpMean - _fpMean);
+      double newVar = (v.fp() - _fpMean);
       _fpVar = ((_t - 1.0) / _t) * _fpVar + (1.0 / (_t - 1)) * newVar
           * newVar;
 
-      _tpMean = (_t - 1.0) / _t * _tpMean + 1.0 / _t * v._tpMean;
+      _tpMean = (_t - 1.0) / _t * tp() + 1.0 / _t * tp();
       // recursive variance formula
       newVar = (v._tpMean - _tpMean);
       _tpVar = ((_t - 1.0) / _t) * _tpVar + (1.0 / (_t - 1)) * newVar
@@ -674,6 +673,7 @@ public class DGLM implements Models.ModelBuilder {
       newVar = (v._fnMean - _fnMean);
       _fnVar = ((_t - 1.0) / _t) * _fnVar + (1.0 / (_t - 1)) * newVar
           * newVar;
+      _aggregate = true;
 
     }
 
