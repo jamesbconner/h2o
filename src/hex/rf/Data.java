@@ -3,8 +3,7 @@ package hex.rf;
 import hex.rf.Data.Row;
 import hex.rf.Tree.SplitNode;
 
-import java.util.Iterator;
-import java.util.Random;
+import java.util.*;
 
 public class Data implements Iterable<Row> {
 
@@ -95,18 +94,37 @@ public class Data implements Iterable<Row> {
   // Reservoir sampling could be better here...
   // Parallelization is another good choice because we are single threaded at this point...
   public Data sample(double bagSizePct) {
-    // Make sure that values come in order
-    int size = (int)(rows() * bagSizePct);
     Random r = new Random(seed());
-    boolean[] in = new boolean[_data._numRows]; // original number of rows (values returned by permute)
-    for( int i = 0; i < size; ++i){
-       int off = permute(r.nextInt(rows()));
-       if (in[off]) i--; else in[off]=true;
-    }
+    int size = (int)(rows() * bagSizePct);
     int[] sample = new int[size];
-    for( int i = 0, j = 0; i < sample.length;) {
-      while(in[j]==false) j++;
-      sample[i++] = j++;
+
+    // dynamically select sampling method
+    // - reservior sampling requires 4*size bytes for indexes
+    // - naive tracking of duplicates requires _data._numRows bits
+    // we will use whichever is more memory effecient
+    if( 4*size > _data._numRows/8 ) {
+      // if we are sampling
+      BitSet chosen = new BitSet(_data._numRows);
+      for( int i = 0; i < size; ++i){
+        int off = permute(r.nextInt(rows()));
+        if( chosen.get(off) ) --i; // try again
+        else chosen.set(off);
+      }
+
+      int j = 0;
+      for( int i = chosen.nextSetBit(0); i >= 0; i = chosen.nextSetBit(i+1) )
+        sample[j++] = i;
+      assert j == size;
+    } else {
+      int[] chosen = new int[size];
+      int i = 0;
+      for( ; i < size; ++i ) chosen[i] = size;
+      for( ; i < _data._numRows; ++i ) {
+        int p = r.nextInt(i);
+        if( p < size ) chosen[p] = i;
+      }
+      for(i = 0; i < size; ++i) sample[i] = permute(chosen[i]);
+      Arrays.sort(sample); // we want an ordered sample
     }
     return new Subset(this, sample, 0, sample.length);
   }
