@@ -13,7 +13,7 @@ public class Data implements Iterable<Row> {
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(_index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getS(_index, i));
+      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i));
       return sb.toString();
     }
     public int numClasses() { return classes(); }
