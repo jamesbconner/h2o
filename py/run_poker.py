@@ -9,11 +9,9 @@ try:
     print 'Building cloud'
     h2o.build_cloud(1, capture_output=False)
     print 'Random Forest'
-    h2o_cmd.runRF(None, h2o.find_file('smalldata/poker/poker-hand-testing.data'),
+    h2o_cmd.runRF(None, h2o.find_dataset('UCI/UCI-large/covtype/covtype.data'),
             trees=10, timeoutSecs=60)
     print 'Completed'
-    h2b.browseJsonHistoryAsUrlLastMatch("RFView")
-    time.sleep(5*60)
 except KeyboardInterrupt:
     print 'Interrupted'
 finally:

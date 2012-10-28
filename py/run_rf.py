@@ -41,7 +41,7 @@ try:
         parse = node.parse(put['key'])
 
     print 'Running trials'
-    for trials in xrange(1,10000):
+    for trials in xrange(1,2):
         if reparse:
             node = h2o.nodes[0]
             put = node.put_file(csvPathname)
