@@ -23,7 +23,6 @@ public class DRF extends water.DRemoteTask {
 
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
-  transient boolean _singlethreaded; // Disable parallel execution
   transient RandomForest _rf;        // The local RandomForest
   transient int _seed;
 
@@ -40,7 +39,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, boolean singlethreaded, int classcol, int[] ignores, Key modelKey) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, int classcol, int[] ignores, Key modelKey) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._ntrees = ntrees;
@@ -49,16 +48,13 @@ public class DRF extends water.DRemoteTask {
     drf._arykey = ary._key;
     drf._classcol = classcol;
     drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
-    drf._singlethreaded = singlethreaded;
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
-    if( singlethreaded ) drf.invoke(ary._key);
-    else                 drf.fork  (ary._key);
-
+    drf.fork(ary._key);
     return drf;
   }
 
@@ -155,7 +151,7 @@ public class DRF extends water.DRemoteTask {
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
-    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat], _singlethreaded );
+    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat]);
     tryComplete();
   }
 

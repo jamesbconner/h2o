@@ -18,7 +18,7 @@ public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
 
-  public RandomForest( DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean singlethreaded ) {
+  public RandomForest( DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
 
     // Build N trees via the Random Forest algorithm.
     _data = data;
@@ -96,7 +96,7 @@ public class RandomForest {
     final int num_cols = va.num_cols();
     final int classcol = num_cols-1; // Defaults to last column
     long t1 = System.currentTimeMillis();
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, ARGS.singlethreaded, classcol, new int[0], Key.make("model"));
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, classcol, new int[0], Key.make("model"));
 
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
 

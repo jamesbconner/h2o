@@ -44,7 +44,6 @@ public class DatasetCornerCasesTest {
     int ntrees  = 5;
     int depth   = 30;
     int gini    = StatType.GINI.ordinal();
-    int singlethreaded =  1;
     int seed =  42;
     StatType statType = StatType.values()[gini];
     final int num_cols = val.num_cols();
@@ -53,7 +52,7 @@ public class DatasetCornerCasesTest {
 
     // Start the distributed Random Forest
     try {
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,singlethreaded==0/*non-blocking*/,classcol,new int[0], Key.make("model"));
+      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,classcol,new int[0], Key.make("model"));
       // Just wait little bit
       try { Thread.sleep(500); } catch( InterruptedException e ) {}
       // Create incremental confusion matrix
