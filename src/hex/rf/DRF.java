@@ -1,10 +1,10 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
-import water.*;
 
 import java.util.*;
 
 import jsr166y.RecursiveAction;
+import water.*;
 
 /**
  * Distributed RandomForest
@@ -76,7 +76,6 @@ public class DRF extends water.DRemoteTask {
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
     int ncolumns = ary.num_cols();
-    RecursiveAction[] columnsJobs = new RecursiveAction[ncolumns];
 
     ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
     ArrayList<RecursiveAction> simpleJobs = new ArrayList<RecursiveAction>();

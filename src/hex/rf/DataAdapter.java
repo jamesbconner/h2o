@@ -1,8 +1,5 @@
 package hex.rf;
 
-import gnu.trove.map.hash.TFloatIntHashMap;
-import gnu.trove.map.hash.TFloatShortHashMap;
-
 import java.text.DecimalFormat;
 import java.util.*;
 
