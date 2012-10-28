@@ -38,17 +38,6 @@ public class Tree extends CountedCompleter {
     _features = features;
     _seed = seed;
   }
-  // Constructor used to inhaling/de-serializing a pre-built tree.
-  public Tree( int data_id ) {
-    _type = StatType.ENTROPY;// Junk stat; not sensible except during building
-    _data = null;
-    _data_id = data_id;
-    _max_depth = 0;
-    _min_error_rate = -1.0;
-    _features = 0;
-    _seed = 0;
-  }
-
 
   // Oops, uncaught exception
   public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
@@ -72,13 +61,14 @@ public class Tree extends CountedCompleter {
   public void compute() {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
-    Statistic left = getStatistic(0,_data, _seed);
+    Data d = _data.sample(0.55);
+    Statistic left = getStatistic(0, d, _seed);
     // calculate the split
-    for( Row r : _data ) left.add(r);
-    Statistic.Split spl = left.split(_data,false);
+    for( Row r : d ) left.add(r);
+    Statistic.Split spl = left.split(d, false);
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
-      : new FJBuild (spl,_data,0, _seed + 1).compute();
+      : new FJBuild (spl, d, 0, _seed + 1).compute();
     StringBuilder sb = new StringBuilder("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,150).toString());
     _stats = null; // GC

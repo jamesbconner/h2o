@@ -205,7 +205,7 @@ class DataAdapter  {
     boolean ignore() { return _ignore; }
 
     public String toString() {
-      String res = "col("+_name+")";
+      String res = "Column("+_name+")";
       if (ignore()) return res + " ignored!";
       res+= "  ["+DataAdapter.df.format(_min) +","+DataAdapter.df.format(_max)+"], avg=";
       res+= DataAdapter.df.format(_tot/_raw.length) ;
@@ -233,7 +233,7 @@ class DataAdapter  {
         // Compute bin-size
         int maxBinSize = (freq.size() > BIN_LIMIT) ? (_raw.length / BIN_LIMIT) : 1;
         if( maxBinSize > 1 )
-          Utils.pln(this + " this column's arity was cut from "+ freq.size()+ " to " + BIN_LIMIT);
+          Utils.pln("[RF] The arity of " +this+ " was cut from "+ freq.size()+ " to " + BIN_LIMIT);
 
         float[] ks = freq.keys();
         Arrays.sort(ks);

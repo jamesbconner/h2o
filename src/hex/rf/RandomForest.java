@@ -26,8 +26,8 @@ public class RandomForest {
     try { // build one tree at a time, and forget it
       for( int i=0; i<ntrees; i++ ) {
         Tree t = null;
-        H2O.FJP_NORM.submit(t = new Tree(//_data.clone(),  // TODO / FIXME : this should clone in some cases...
-            _data.sample(0.55),
+        H2O.FJP_NORM.submit(t = new Tree(
+            _data,
             maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
         t.get();        // Block for a tree
         new AppendKey(t.toKey()).invoke(drf._treeskey); // Atomic-append to the list of trees
