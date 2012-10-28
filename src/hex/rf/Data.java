@@ -89,6 +89,28 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
+  //This method has to return an ordered sample. Ordering is important so that when we iterate
+  // over the sample we have some reasonable locality
+  // We could parallelize. And use something faster than nextInt
+  // Reservoir sampling could be better here...
+  // Parallelization is another good choice because we are single threaded at this point...
+  public Data sample(double bagSizePct) {
+    // Make sure that values come in order
+    int size = (int)(rows() * bagSizePct);
+    Random r = new Random(seed());
+    boolean[] in = new boolean[_data._numRows]; // original number of rows (values returned by permute)
+    for( int i = 0; i < size; ++i){
+       int off = permute(r.nextInt(rows()));
+       if (in[off]) i--; else in[off]=true;
+    }
+    int[] sample = new int[size];
+    for( int i = 0, j = 0; i < sample.length;) {
+      while(in[j]==false) j++;
+      sample[i++] = j++;
+    }
+    return new Subset(this, sample, 0, sample.length);
+  }
+
   public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
   @Override public       Data clone() { return this; }
 
