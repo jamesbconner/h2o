@@ -91,7 +91,6 @@ public class Data implements Iterable<Row> {
   //This method has to return an ordered sample. Ordering is important so that when we iterate
   // over the sample we have some reasonable locality
   // We could parallelize. And use something faster than nextInt
-  // Reservoir sampling could be better here...
   // Parallelization is another good choice because we are single threaded at this point...
   public Data sample(double bagSizePct) {
     Random r = new Random(seed());
@@ -103,7 +102,6 @@ public class Data implements Iterable<Row> {
     // - naive tracking of duplicates requires _data._numRows bits
     // we will use whichever is more memory effecient
     if( 4*size > _data._numRows/8 ) {
-      // if we are sampling
       BitSet chosen = new BitSet(_data._numRows);
       for( int i = 0; i < size; ++i){
         int off = permute(r.nextInt(rows()));
