@@ -101,7 +101,7 @@ public class Data implements Iterable<Row> {
     // - reservior sampling requires 4*size bytes for indexes
     // - naive tracking of duplicates requires _data._numRows bits
     // we will use whichever is more memory effecient
-    if( 4*size > _data._numRows/8 ) {
+    if( _data._numRows/8 < 4*size && bagSizePct < 0.9) {
       BitSet chosen = new BitSet(_data._numRows);
       for( int i = 0; i < size; ++i){
         int off = permute(r.nextInt(rows()));
