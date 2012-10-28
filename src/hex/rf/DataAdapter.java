@@ -23,6 +23,10 @@ class DataAdapter  {
   public final int _classIdx;
   public final int _numRows;
 
+  //public static final int MAX_BIN_LOG = 2;
+  /** Maximum arity for a column (not a hard limit at this point) */
+  static final short BIN_LIMIT = 1024;
+
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
       int data_id, int seed) {
     _seed = seed+data_id;
@@ -37,7 +41,14 @@ class DataAdapter  {
     assert ignores.length < _columnNames.length;
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) > 0;
-      _c[i]= new C(_columnNames[i], rows, i==_classIdx, ignore);
+      double range = _ary.col_max(i) - _ary.col_min(i);
+      boolean raw = (_ary.col_size(i) > 0 && range < BIN_LIMIT && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
+      _c[i]= new C(_columnNames[i], rows, i==_classIdx, !raw, ignore);
+      if(raw){
+        _c[i]._smax = (short)range;
+        _c[i]._min = (float)_ary.col_min(i);
+        _c[i]._max = (float)_ary.col_max(i);
+      }
     }
     _dataId = data_id;
     _numRows = rows;
@@ -47,6 +58,8 @@ class DataAdapter  {
   public float unmap(int col, float v){  // FIXME should this be a short???? JAN
     short idx = (short)v; // Convert split-point of the form X.5 to a (short)X
     C c = _c[col];
+    if ( !c._bin ) return v + c._min;
+
     if (v == idx) {  // this value isn't a split
       return c._binned2raw[idx+0];
     } else {
@@ -65,7 +78,7 @@ class DataAdapter  {
   public ArrayList<RecursiveAction> shrinkWrap() {
     ArrayList<RecursiveAction> res = new ArrayList(_c.length);
     for( final C c : _c ) {
-      if( c.ignore() ) continue;
+      if( c.ignore() || !c._bin) continue;
       res.add(new RecursiveAction() {
         protected void compute() {
           c.shrink();
@@ -93,6 +106,13 @@ class DataAdapter  {
   /** Return the array of all column names including ignored and class. */
   public String[] columnNames() { return _columnNames; }
 
+  public void addValueRaw(float v, int row, int col){
+    _c[col].add(v, row);
+  }
+
+  public void addValue(short v, int row, int col){
+    _c[col]._binned[row] = v;
+  }
   /** Add a row to this data set. */
   public void addRow(float[] v, int row) {
     for( int i = 0; i < v.length; i++ ) _c[i].add(v[i], row);
@@ -100,23 +120,32 @@ class DataAdapter  {
   short getS(int row, int col) { return _c[col]._binned[row]; }
   static final DecimalFormat df = new  DecimalFormat ("0.##");
 
+  public boolean binColumn(int col){
+    return _c[col]._bin;
+  }
+
   private static class C {
     String _name;
-    boolean _ignore, _isClass;
+    boolean _ignore, _isClass, _bin;
     float _min=Float.MAX_VALUE, _max=Float.MIN_VALUE, _tot;
     short[] _binned;
     float[] _raw;
     float[] _binned2raw;
     short _smax = -1;
 
-    C(String s, int rows, boolean isClass, boolean ignore) {
+    C(String s, int rows, boolean isClass, boolean bin, boolean ignore) {
       _name = s;
       _isClass = isClass;
       _ignore = ignore;
-      _raw = ignore ? null : MemoryManager.allocateMemoryFloat(rows);
+      _bin = bin;
+      if(!_ignore){
+        _raw = _bin?MemoryManager.allocateMemoryFloat(rows):null;
+        _binned = _bin?null:MemoryManager.allocateMemoryShort(rows);
+      }
     }
 
     void add(float x, int row) {
+      assert _bin;
       _min=Math.min(x,_min);
       _max=Math.max(x,_max);
       _tot+=x;
@@ -178,7 +207,6 @@ class DataAdapter  {
       _raw = null;
     }
 
-    /** Maximum arity for a column (not a hard limit at this point) */
-    static final short BIN_LIMIT = 1024;
+
   }
 }
