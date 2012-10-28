@@ -78,10 +78,7 @@ public class Confusion extends MRTask {
 
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
-    // Output to cloud
-    Stream s = new Stream(C.wire_len());
-    C.write(s);
-    DKV.put(key, new Value(key, s._buf));
+    UKV.put(key,C);             // Output to cloud
     return C;
   }
 
@@ -137,6 +134,18 @@ public class Confusion extends MRTask {
     int nchk = ValueArray.getChunkIndex(chunk_key);
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
     int[] votes = new int[_N];
+    // Break out all the ValueArray Column schema into an easier-to-read
+    // format.  Its used in the hot inner loop of Tree.classify.
+    final int offs[] = new int[ncols];
+    final int size[] = new int[ncols];
+    final int base[] = new int[ncols];
+    final int scal[] = new int[ncols];
+    for( int k = 0; k < ncols; k++ ) {
+      offs[k] = _data.col_off  (k);
+      size[k] = _data.col_size (k);
+      base[k] = _data.col_base (k);
+      scal[k] = _data.col_scale(k);
+    }
 
     MAIN_LOOP: // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
@@ -145,7 +154,7 @@ public class Confusion extends MRTask {
       if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
       for( int j=0; j<_N; j++ ) votes[j] = 0;
       for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
-        votes[_model.classify(t, chunk_bits, i, rowsize, _data)]++;
+        votes[_model.classify(t, chunk_bits, i, rowsize, _data, offs, size, base, scal)]++;
       int predict = Utils.maxIndex(votes, _rand);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);

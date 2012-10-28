@@ -66,22 +66,22 @@ public class Model extends RemoteTask {
    *          the size in byte of each row
    * @return the predicted response class
    */
-  public short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data) {
-    short predict = Tree.classify(_trees[tree_id], data, chunk, row, rowsize);
+  public short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
+    short predict = Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal);
     assert 0 <= predict && predict < _classes : ("prediction " + predict
         + " < " + _classes);
     return predict;
   }
 
-  public int[] vote(byte[] chunk, int row, int rowsize, ValueArray data) {
+  public int[] vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
     int[] votes = new int[_classes];
     for( int i = 0; i < _ntrees; i++ )
-      votes[classify(i, chunk, row, rowsize, data)]++;
+      votes[classify(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
     return votes;
   }
 
-  public short classify(byte[] chunk, int row, int rowsize, ValueArray data) {
-    int[] votes = vote(chunk, row, rowsize, data);
+  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
+    int[] votes = vote(chunk, row, rowsize, data, offs, size, base, scal);
     return (short) Utils.maxIndex(votes, _rand);
   }
 

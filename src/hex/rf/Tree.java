@@ -270,7 +270,7 @@ public class Tree extends CountedCompleter {
   // Classify this serialized tree - withOUT inflating it to a full tree.
   // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
   // Returns classes from 0 to N-1
-  public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize ) {
+  public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal ) {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
     while( ts.get1() != '[' ) { // While not a leaf indicator
@@ -279,7 +279,7 @@ public class Tree extends CountedCompleter {
       assert tbits[o] == '(' || tbits[o] == 'S' || tbits[o] == 'E';
       int col = ts.get2();      // Column number
       float fcmp = ts.get4f();  // Float to compare against
-      float fdat = (float)ary.datad(databits,row,rowsize,col);
+      float fdat = (float)ary.datad(databits,row,rowsize,col,offs[col],size[col],base[col],scal[col]);
       int skip = (ts.get1()&0xFF);
       if( skip == 0 ) skip = ts.get3();
       if (b == 'E') {
