@@ -1,9 +1,7 @@
 package hex;
 
-import hex.DGLM.DataPreprocessing;
 import hex.DGLM.Norm;
 import water.DRemoteTask;
-import water.ValueArray;
 import Jama.CholeskyDecomposition;
 import Jama.Matrix;
 
@@ -162,50 +160,6 @@ public class DLSM {
       throw new Error("Unexpected Norm " + params.n);
     }
   }
-
-  /**
-   * Return the vector with data preprocessing flags. Will mark the columns which need to be normalized/regularized.
-   *
-   * If DataPReprocessing is set to AUTO, it will be set to Regularization if norm = L1 or L2.
-   * For each column, test if it already is regularized/normalized and set the flag accordingly.
-   *
-   * @param ary
-   * @param colIds
-   * @param p
-   * @param n
-   * @return array of preprocessing flags
-   */
-  static int [] getDataPreprocessing(ValueArray ary, int [] colIds, DataPreprocessing p, Norm n){
-    int [] res = null;
-    switch(p){
-    case AUTO:
-      if(n != Norm.NONE ) {
-        res = new int[colIds.length];
-        for( int i = 0; i < colIds.length - 1; ++i )
-          if( (ary.col_mean(colIds[i]) != 0) || ary.col_sigma(colIds[i]) != 1 )
-            res[i] = RowVecTask.STANDARDIZE_DATA;
-      }
-      break;
-    case NORMALIZE:
-      res = new int[colIds.length];
-      for( int i = 0; i < colIds.length - 1; ++i )
-        if( (ary.col_min(colIds[i]) != 0) || ary.col_max(colIds[i]) != 1 )
-          res[i] = RowVecTask.NORMALIZE_DATA;
-      break;
-    case STANDARDIZE:
-      res = new int[colIds.length];
-      for( int i = 0; i < colIds.length - 1; ++i )
-        if( (ary.col_mean(colIds[i]) != 0) || ary.col_sigma(colIds[i]) != 1 )
-          res[i] = RowVecTask.STANDARDIZE_DATA;
-      break;
-    case NONE:
-      break;
-    default:
-      throw new Error("Invalid data preprocessing flag " + p);
-    }
-    return res;
-  }
-
   /**
    * MR task to compute A'A and Ab matrices in one pass.
    * Since A'A is symmetric, only lower diagonal is computed.
@@ -223,17 +177,17 @@ public class DLSM {
     public LSMTask() {
     } // Empty constructors for the serializers
 
-    public LSMTask(int[] colIds, int constant, int[] p) {
-      this(colIds, null, colIds.length - 1, constant, p);
+    public LSMTask(int[] colIds, int constant, double[][] pVals) {
+      this(colIds, null, colIds.length - 1, constant, pVals);
     }
 
-    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant, int[] p) {
-      super(colIds, s, true, p);
+    protected LSMTask(int[] colIds, Sampling s, int xlen, int constant, double[][] pVals) {
+      super(colIds, s, true, pVals);
       _constant = constant;
     }
 
     @Override
-    public void init(int xlen, int nrows) {
+    public void preMap(int xlen, int nrows) {
       super.init(); // should always be called
       // the size is xlen (the columns read from the data object) + 1 for the
       // constant (Intercept)
@@ -248,7 +202,7 @@ public class DLSM {
      * chunk. Since (x'*x) is symmetric, only the lower diagonal is computed.
      */
     @Override
-    public void map(double[] x) {
+    public void processRow(double[] x) {
       double y = x[x.length - 1];
       // compute x*x' and add it to the marix
       for( int i = 0; i < (x.length - 1); ++i ) {
@@ -266,7 +220,7 @@ public class DLSM {
     }
 
     @Override
-    public void cleanup() {
+    public void postMap() {
       // We divide by _n here, which is the number of rows processed in this
       // chunk, while
       // we really want to divide by N (the number of rows in the whole
@@ -282,7 +236,7 @@ public class DLSM {
         }
         _xy[i] *= nInv;
       }
-      super.cleanup();
+      super.postMap();
     }
 
     /**

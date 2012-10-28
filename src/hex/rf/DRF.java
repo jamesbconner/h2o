@@ -95,9 +95,20 @@ public class DRF extends water.DRemoteTask {
               for( int k = 0; k < ds.length; k++ ) {
                 // bad data means skip row
                 if( !ary.valid(bits,j,rowsize,k) ) continue ROW;
-                ds[k] = (float)ary.datad(bits,j,rowsize,k);
+                if(dapt.binColumn(k))
+                  dapt.addValueRaw((float)ary.datad(bits,j,rowsize,k), start_row+j, k);
+                else {
+                  long v = ary.data(bits,j,rowsize,k);
+                  v -= ary.col_min(k);
+                  double d = ary.col_max(k);
+                  if(d < 0)v += (long)d;
+                  if(v < 0 || v >= 1024){
+                    System.err.println("raw binn out of bounds: " + v + ", colsize = " + ary.col_size(k) + ", max=" + ary.col_mean(k) + ", min=" + ary.col_min(k) );
+                  }
+                  dapt.addValue((short)v, start_row+j, k);
+
+                }
               }
-              dapt.addRow(ds, start_row+j);
             }
           }
         };

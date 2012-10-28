@@ -55,10 +55,10 @@ public abstract class Paxos {
   static long PROPOSAL_MAX;
 
   // Whether or not we have common knowledge
-  public static volatile boolean _commonKnowledge = false; 
+  public static volatile boolean _commonKnowledge = false;
   // Whether or not we're allowing distributed-writes.  The cloud is not
   // allowed to change shape once we begin writing.
-  public static volatile boolean _cloud_locked = false; 
+  public static volatile boolean _cloud_locked = false;
 
   // ---
   // This is a packet announcing what Cloud this Node thinks is the current
@@ -118,7 +118,7 @@ public abstract class Paxos {
       // Node woke up and hasn't yet smelled the roses (i.e., isn't aware the
       // Cloud shifted and kicked him out).  Could be a late heartbeat from
       // him.  Offer to vote him back in.
-      if( !PROPOSED_MEMBERS.add(h2o) )
+      if( !addProposedMember(h2o) )
         print_debug("hart: already part of proposal",PROPOSED_MEMBERS);
     }
 
@@ -210,6 +210,19 @@ public abstract class Paxos {
     }
   }
 
+
+  static private boolean addProposedMember(H2ONode n){
+    if(!PROPOSED_MEMBERS.contains(n)){
+      Ping p = Ping.testConnection(n, true, true);
+      if(!p.connectionOk()){
+        if(!p.udpOk())System.err.println("UDP communication with node " + n + " failed!");
+        if(!p.tcpOk())System.err.println("TCP communication with node " + n._key._inet + ":" + n._key.tcp_port() + " failed!");
+        System.err.println("Invalid cloud setup (broken communication). Please make sure that all nodes can communicate directly");
+        //System.exit(-1);
+      }
+    }
+    return PROPOSED_MEMBERS.add(n);
+  }
   // ---
   // This is a packet announcing a Proposal, which includes an 8-byte Proposal
   // number and the guy who sent it (and thinks he should be leader).
@@ -220,7 +233,7 @@ public abstract class Paxos {
     // state we're holding but we won't be pulling in all HIS Cloud
     // members... we wont find out about them until other people start
     // announcing themselves... so adding this dude here is an optimization.
-    if( PROPOSED_MEMBERS.add(proposer) ) {
+    if(addProposedMember(proposer)) {
       // Since he's new: would he be leader?
       if( proposer.compareTo(LEADER) < 0 )
         LEADER = proposer;
@@ -270,7 +283,7 @@ public abstract class Paxos {
     long proposal_num = promise(buf);
     print_debug("recv: Nack num "+proposal_num+" by ",h2o);
 
-    if( PROPOSED_MEMBERS.add(h2o) ) {
+    if( addProposedMember(h2o) ) {
       // Since he's new: would he be leader?
       if( h2o.compareTo(LEADER) < 0 )
         LEADER = h2o;
@@ -401,7 +414,7 @@ public abstract class Paxos {
   static void lock_cloud() {
     if( _cloud_locked ) return; // Fast-path cutout
     synchronized(Paxos.class) {
-      while( !_commonKnowledge ) 
+      while( !_commonKnowledge )
         try { Paxos.class.wait(); } catch( InterruptedException ie ) { }
     }
     _cloud_locked = true;
