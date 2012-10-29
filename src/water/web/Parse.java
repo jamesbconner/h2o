@@ -41,8 +41,8 @@ public class Parse extends H2OPage {
     JsonObject json = serverJson(s, p,sessionID);
 
     RString res = json.get("TimeMS").getAsInt() > 0
-        ? new RString("Parsed into <a href='/Inspect?Key=%$key'>%key</a> in %TimeMS msec")
-        : new RString("Already parsed into <a href='/Inspect?Key=%$key'>%key</a>.");
+        ? new RString("Parsed into <a href='/Inspect?Key=%$Key'>%Key</a> in %TimeMS msec")
+        : new RString("Already parsed into <a href='/Inspect?Key=%$Key'>%Key</a>.");
     res.replace(json);
     return res.toString();
   }
