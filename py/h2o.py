@@ -605,7 +605,7 @@ class H2O(object):
 
         # defaults to not specifying
         if self.java_heap_GB is not None:
-            if (1>self.java_heap_GB>12):
+            if (1 > self.java_heap_GB > 20):
                 raise Exception('java_heap_GB <1 or >12 (GB): %s' % (self.java_heap_GB))
             args += [ '-Xmx%dG' % self.java_heap_GB ]
 
