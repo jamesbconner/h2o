@@ -525,61 +525,15 @@ public final class H2O {
       STORE.notifyAll();
     }
   }
-  protected static class Histogram {
-    static final int MAX_TIME;
-    static final int _logdim = 8;
-    static final int _scaledim = 8;
-    static final int _scale = 8;
-    static final int _base = _scale *_scaledim;
-    static{
-      int m = 0;
-      for(int i = 0; i < _logdim; ++i)
-        m += (_base << i);
-      MAX_TIME = m;
-    }
 
-    static long [][] _m = new long[_logdim][_scaledim];
-
-    public static int old(long mem2free){
-      int res = MAX_TIME;
-      int log = _m.length-1;
-      int scale = _m[log].length -1;
-      int tdiff = (scale << log);
-      while(mem2free > 0){
-        if(scale == -1){
-          if(--log == -1)return 0;
-          scale = _m[log].length-1;
-          tdiff = (scale << log);
-        }
-        mem2free -= _m[log][scale--];
-        res -= tdiff;
-      }
-      return res;
-    }
-
-    public static void update(Value v){
-      long delta = System.currentTimeMillis() - v._lastAccessedTime;
-      if(delta >= MAX_TIME)++_m[_logdim-1][_scaledim-1];
-      else{
-        int log;
-        for(log = 0; (delta >> (log+1)) >= _base; ++log);
-        delta -= (_base << log);
-        int scale;
-        for(scale = 0; delta > (scale+1)*(_scale << log); ++scale);
-        ++_m[log][scale];
-      }
-    }
-
-    public static void reset(){
-      for(int i = 0; i < _logdim; ++i)Arrays.fill(_m[i], 0);
-    }
-  }
   // Periodically write user keys to disk
   public static class Cleaner extends Thread {
     public Cleaner() { super("Memory Cleaner"); }
 
-    int [][] histogram = new int [8][16];
-
+    long [] histogram = new long [128];
+    int maxTime;
+    int currentMaxTime;
+    int hStep;
 
     public void run() {
       int cycles_no_progress = 0;
@@ -592,8 +546,26 @@ public final class H2O {
         // If not out of memory, sleep another second to batch-up writes
         if( (MemoryManager.mem2Free >> 20) <= 0 )
           try { Thread.sleep(5000); } catch (InterruptedException e) { }
-        int old = Histogram.old(MemoryManager.mem2Free);
-        Histogram.reset();
+        // obtain the expected age of "old" values to be removed from memory
+        long s = 0;
+        int idx = histogram.length-1;
+
+        int old = maxTime;
+        while (idx >= 0 && ((s + histogram[idx]) <= MemoryManager.mem2Free)) {
+          s += histogram[idx];
+          old -= hStep;
+          --idx;
+        }
+        Arrays.fill(histogram, 0);
+        maxTime = currentMaxTime;
+        if(maxTime == 0){
+          maxTime = 1024*histogram.length;
+          hStep = 1024;
+          old = Integer.MAX_VALUE;
+        } else hStep = Math.max(1,maxTime/histogram.length);
+        currentMaxTime = 0;
+        System.out.println("old = " + old + ", maxTime = " + maxTime + " hstep = " + hStep);
+
         boolean cleaned = false; // Anything got cleaned?
         long cacheSz = 0;       // Current size of cached memory
         final long currentTime = System.currentTimeMillis();
@@ -642,12 +614,13 @@ public final class H2O {
 
           // Store user-keys, or arraylets from user-keys
           val.store_persist();
-
-          if((currentTime - val._lastAccessedTime) > old &&  MemoryManager.removeValue(val) ) {
+          int age = (int)(System.currentTimeMillis() - val._lastAccessedTime);
+          if(age >= old &&  MemoryManager.removeValue(val) ) {
             cacheSz -= m.length;
             cleaned = true;
           } else { // update the histogram
-            Histogram.update(val);
+            if(age > currentMaxTime)currentMaxTime = age;
+            histogram[Math.min(age/hStep,histogram.length-1)] += val.mem().length;
           }
         }
         if( cleaned ) cycles_no_progress = 0;
