@@ -87,6 +87,7 @@ public class RandomForestTest {
         assertArrayEquals(ans[i],C._matrix[i]);
 
       // Cleanup
+      //UKV.remove(model._treesKey);
       UKV.remove(modelKey);
       UKV.remove(confKey);
 

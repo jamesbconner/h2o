@@ -233,7 +233,11 @@ public final class Key implements Comparable {
   }
 
   // Expand a KEY_OF_KEYS into an array of keys
-  public Key[] flatten() {  return DKV.get(this).flatten();  }
+  public Key[] flatten() {
+    Value val = DKV.get(this);
+    if( val == null ) return null;
+    return val.flatten();
+  }
 
 
   // User keys must be all ASCII, but we only check the 1st byte

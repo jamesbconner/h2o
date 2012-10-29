@@ -22,10 +22,11 @@ public class Tree extends CountedCompleter {
   ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
   final Key _treesKey;
   final Key _modelKey;
+  final int _alltrees;
   final long _start;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
@@ -35,6 +36,7 @@ public class Tree extends CountedCompleter {
     _seed = seed;
     _treesKey = treesKey;
     _modelKey = modelKey;
+    _alltrees = alltrees;
     _start = System.currentTimeMillis();
   }
 
@@ -71,12 +73,43 @@ public class Tree extends CountedCompleter {
     StringBuilder sb = new StringBuilder("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,150).toString());
     _stats = null; // GC
-    tryComplete();
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     long now = System.currentTimeMillis();
-    Model model = new Model(_modelKey,_treesKey,_data.columns(),_data.classes());
-    UKV.put(_modelKey,model);
+    // Atomically improve the Model as well
+    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees);
+    am.invoke(_modelKey);
+
     System.out.println("Tree ready after "+(now-_start)+" msec");
+    tryComplete();
+  }
+
+  static class AtomicModel extends Atomic {
+    Key _modelKey;
+    Key _treesKey;
+    int _features, _classes, _ntree;
+    boolean _nuke;
+
+    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n ) {
+      _modelKey = modelKey;
+      _treesKey = treesKey;
+      _features = f;
+      _classes = c;
+      _ntree = n;
+    }
+    public byte[] atomic( byte[] bits ) {
+      Model m_new = new Model(_modelKey,_treesKey,_features,_classes);
+      if( bits != null ) {
+        Model m_old = new Model();
+        m_old.read(new Stream(bits));
+        if( m_old.size() >= m_new.size() )
+          return bits.clone();
+      }
+      Stream s = new Stream();
+      m_new.write(s);           // Write the larger model out
+      _nuke = (m_new.size() == _ntree);
+      return s._buf;
+    }
+    public void onSuccess() { if( _nuke ) UKV.remove(_treesKey); }
   }
 
   private class FJBuild extends RecursiveTask<INode> {

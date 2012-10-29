@@ -43,7 +43,6 @@ public abstract class UKV {
         drt.lazy_complete(DKV.remove(ary.chunk_get(i)));
       drt.block_pending();
     }
-    if( res != null ) res.free_mem();
     if( tpk != null ) tpk.get(); // Block for remote-put to complete
   }
 

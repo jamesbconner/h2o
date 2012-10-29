@@ -484,13 +484,8 @@ class H2O(object):
         verboseprint("\nrandom_forest result:", a)
         return a
 
-    # per Jan: if treesKey is empty, you are trying to use a prio model on a new dataset
-    # if treesKey has a value, you are building a forest and modelKey is the current, partial, forest.
-    # if treesKey: update the model (as required) until all ntree have appeared.
-    # if no treesKey: display the model as-is.
-    # TEMPORARY: there is no state in H2O right now for linking RF and RFview ntrees
-    # so I have to send the exact same ntree I sent during RF
-    # basically, undefined behavior if I send anything other than the same thing, so it's required.
+    # Model updates asynchrounously as long as more trees appear.
+    # Check modelSize to see if all trees are ready.
     def random_forest_view(self, dataKey, modelKey, ntree):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={

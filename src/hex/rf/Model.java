@@ -39,10 +39,15 @@ public class Model extends RemoteTask {
     _classes = classes;
     _features = features;
     Key[] tkeys = treeskey.flatten(); // Trees
+    if( tkeys == null ) return;       // Broken model?  quit now
+    _trees = new byte[tkeys.length][];
+    for( int i = 0; i < tkeys.length; i++ ) {
+      Value v = DKV.get(tkeys[i]);
+      if( v == null )           // Missing trees?
+        return;                 // Broken model; quit now
+      _trees[i] = v.get();
+    }
     _ntrees = tkeys.length;
-    _trees = new byte[_ntrees][];
-    for( int i = 0; i < _ntrees; i++ )
-      _trees[i] = DKV.get(tkeys[i]).get();
   }
 
   /** The number of trees in this model. */

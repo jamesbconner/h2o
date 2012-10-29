@@ -68,8 +68,10 @@ public class RFView extends H2OPage {
     // The model is required
     final Key modelKey = ServletUtil.check_key(p,"modelKey");
     Model model = UKV.get(modelKey, new Model());
-    final int atree = json.get("atree").getAsInt();
-    final int ntree = json.get("ntree").getAsInt();
+    int atree = json.get("atree").getAsInt();
+    int ntree = json.get("ntree").getAsInt();
+    json.addProperty("modelSize",model.size()); // how many we got
+    if( model.size() == ntree ) atree = ntree;
 
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
@@ -131,14 +133,13 @@ public class RFView extends H2OPage {
     if( atree < model.size() ) {
       RString button = new RString(htmlButton);
       button.replace(json);
-      System.out.println("Button: "+button);
       response.replace("validateMore", button.toString());
     } else {
       response.replace("validateMore", "");
     }
     response.replace(json);
     if( atree < ntree ) 
-      response.replace("tstyle","background-color:salmon;");
+      response.replace("tstyle","background-color:green;");
     _refresh = model.size() < ntree ? 5 : 0; // Refresh in 5sec if not all trees yet
 
     // Compute a few stats over trees

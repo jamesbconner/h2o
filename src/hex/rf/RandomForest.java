@@ -1,11 +1,7 @@
 package hex.rf;
-
 import hex.rf.Tree.StatType;
-
 import java.io.File;
 import java.util.Arrays;
-import java.util.concurrent.ExecutionException;
-
 import water.*;
 import water.util.KeyUtil;
 
@@ -18,28 +14,16 @@ public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
 
-  public RandomForest( DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
-
+  public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
-    long start = System.currentTimeMillis();
-    try { // build one tree at a time, and forget it
-      for( int i=0; i<ntrees; i++ ) {
-        Tree t = null;
-        H2O.FJP_NORM.submit(t = new Tree(
-            _data,
-            maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
-        t.get();        // Block for a tree
-        new AppendKey(t.toKey()).invoke(drf._treeskey); // Atomic-append to the list of trees
-        long now = System.currentTimeMillis();
-        Model model = new Model(drf._modelKey,drf._treeskey,data.columns(),data.classes());
-        UKV.put(drf._modelKey,model);
-        System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
-        if( model.size() == drf._ntrees )
-          UKV.remove(drf._treeskey);
-      }
-    } catch( InterruptedException e ) { // Interrupted after partial build?
-    } catch( ExecutionException e ) { throw new Error(e); }
+    final long start = System.currentTimeMillis();
+    Tree[] trees = new Tree[ntrees];
+    for (int i = 0; i < ntrees; ++i)
+      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees);
+    water.DRemoteTask.invokeAll(trees);
+    long now = System.currentTimeMillis();
+    System.out.println("All trees ("+ntrees+") ready after "+(now-start)+" msec");
   }
 
   public static class OptArgs extends Arguments.Opt {
