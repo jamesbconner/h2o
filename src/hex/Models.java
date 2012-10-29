@@ -91,18 +91,17 @@ public abstract class Models {
             14 + (_storeResults?_resultChunk0.wire_len():0) + _m.wire_len());
     }
 
+    @Override
     public void write(DataOutputStream os) throws IOException {
       super.write(os);
       os.writeBoolean(_validate);
       os.writeBoolean(_reduce);
-      if( _reduce ) {
-        if( _validate ) {
-          byte[] cn = _val.getClass().getName().getBytes();
-          os.write(cn.length);
-          os.write(cn);
-          _val.write(os);
-        }
-      } else {
+      if( _reduce && _validate) {
+        byte[] cn = _val.getClass().getName().getBytes();
+        os.write(cn.length);
+        os.write(cn);
+        _val.write(os);
+      } else if(!_reduce){
         os.writeBoolean(_storeResults);
         os.writeInt(_rpc);
         os.writeDouble(_ymu);
@@ -114,20 +113,19 @@ public abstract class Models {
       }
     }
 
+    @Override
     public void read(DataInputStream is) throws IOException {
       super.read(is);
       try {
         _validate = is.readBoolean();
         _reduce = is.readBoolean();
-        if( _reduce ) {
-          if( _validate ) {
-            int cnLen = is.readInt();
-            byte[] cn = new byte[cnLen];
-            is.readFully(cn);
-            _val = (ModelValidation) Class.forName(new String(cn)).newInstance();
-            _val.read(is);
-          }
-        } else {
+        if( _reduce && _validate) {
+          int cnLen = is.readInt();
+          byte[] cn = new byte[cnLen];
+          is.readFully(cn);
+          _val = (ModelValidation) Class.forName(new String(cn)).newInstance();
+          _val.read(is);
+        } else if(!_reduce){
           _storeResults = is.readBoolean();
           _rpc = is.readInt();
           _ymu = is.readDouble();
@@ -143,16 +141,15 @@ public abstract class Models {
       }
     }
 
+    @Override
     public void write(Stream s) {
       super.write(s);
       s.set1(_validate?1:0);
       s.set1(_reduce?1:0);
-      if( _reduce ) {
-        if( _validate ) {
-          s.setAry1(_val.getClass().getName().getBytes());
-          _val.write(s);
-        }
-      } else {
+      if( _reduce && _validate) {
+        s.setAry1(_val.getClass().getName().getBytes());
+        _val.write(s);
+      } else if(!_reduce){
         s.set1(_storeResults?1:0);
         s.set4(_rpc);
         s.set8d(_ymu);
@@ -162,6 +159,7 @@ public abstract class Models {
       }
     }
 
+    @Override
     public void read(Stream s) {
       super.read(s);
       try{
@@ -210,10 +208,11 @@ public abstract class Models {
 
     @Override
     public void reduce(DRemoteTask drt) {
+      _reduce = true;
       if( _validate ) {
         ModelTask other = (ModelTask) drt;
         if( _val == null ) _val = other._val;
-        else if(other._val != null) _val.add(other._val);
+        else _val.add(other._val);
       }
     }
   }
