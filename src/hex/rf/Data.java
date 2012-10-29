@@ -90,40 +90,21 @@ public class Data implements Iterable<Row> {
 
   //This method has to return an ordered sample. Ordering is important so that when we iterate
   // over the sample we have some reasonable locality
-  // We could parallelize. And use something faster than nextInt
-  // Parallelization is another good choice because we are single threaded at this point...
   public Data sample(double bagSizePct) {
+    long start = System.currentTimeMillis();
     Random r = new Random(seed());
-    int size = (int)(rows() * bagSizePct);
+    int max = rows();
+    int size = (int)(max * bagSizePct);
     int[] sample = new int[size];
-
-    // dynamically select sampling method
-    // - reservior sampling requires 4*size bytes for indexes
-    // - naive tracking of duplicates requires _data._numRows bits
-    // we will use whichever is more memory effecient
-    if( _data._numRows/8 < 4*size && bagSizePct < 0.9) {
-      BitSet chosen = new BitSet(_data._numRows);
-      for( int i = 0; i < size; ++i){
-        int off = permute(r.nextInt(rows()));
-        if( chosen.get(off) ) --i; // try again
-        else chosen.set(off);
-      }
-
-      int j = 0;
-      for( int i = chosen.nextSetBit(0); i >= 0; i = chosen.nextSetBit(i+1) )
-        sample[j++] = i;
-      assert j == size;
-    } else {
-      int[] chosen = new int[size];
-      int i = 0;
-      for( ; i < size; ++i ) chosen[i] = size;
-      for( ; i < _data._numRows; ++i ) {
-        int p = r.nextInt(i);
-        if( p < size ) chosen[p] = i;
-      }
-      for(i = 0; i < size; ++i) sample[i] = permute(chosen[i]);
-      Arrays.sort(sample); // we want an ordered sample
+    int i = 0;
+    for( ; i < size; ++i ) sample[i] = i;
+    for( ; i < max ; ++i ) {
+      int p = r.nextInt(i);
+      if( p < size ) sample[p] = i;
     }
+    Arrays.sort(sample); // we want an ordered sample
+    long end = System.currentTimeMillis();
+    System.out.println("Sampling took "+(end-start)+" msec");
     return new Subset(this, sample, 0, sample.length);
   }
 
@@ -164,5 +145,23 @@ class Subset extends Data {
     int pos = 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) p[pos++] = i;
     return new Subset(this, p, 0, p.length);
+  }
+
+  // The parent version is specialized for speed
+  @Override public Data sample(double bagSizePct) {
+    long start = System.currentTimeMillis();
+    Random r = new Random(seed());
+    int size = (int)(rows() * bagSizePct);
+    int[] sample = new int[size];
+    int i = 0;
+    for( ; i < size; ++i ) sample[i] = permute(i + start());
+    for( ; i < rows(); ++i ) {
+      int p = r.nextInt(i);
+      if( p < size ) sample[p] = permute(i + start());
+    }
+    Arrays.sort(sample); // we want an ordered sample
+    long end = System.currentTimeMillis();
+    System.out.println("Sampling took "+(end-start)+" msec");
+    return new Subset(this, sample, 0, sample.length);
   }
 }
