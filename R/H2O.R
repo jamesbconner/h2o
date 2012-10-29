@@ -20,9 +20,15 @@ H2O.VERBOSE = TRUE
 H2O.MAX_RESPONSE_ITEMS = 200000
 
 h2o.help <- function() {
-  cat("This is help for H2O <-> R interop")
-  cat("")
-  cat("The following functions are supported now:")
+  cat("This is help for H2O <-> R interop\n")
+  cat("\n")
+  cat("The following functions are supported now:\n")
+  cat("  h2o(expr) executes the expression on H2O and returns the resulting key (clipped)\n")
+  cat("  h2o.inspect(key) returns the inspection of the key\n")
+  cat("  h2o.get(key) returns the dataframe stored in given key to R\n")
+  cat("  h2o.put(key,vector) stores the vector to H2O key\n")
+  cat("  h2o.import(key,file) imports file local on the server to H2O store. and hexes it\n")
+  cat("  h2o.rf(Key, ...) invokes random forest (experimental)\n")
 }
 
 
