@@ -5,9 +5,6 @@ import hex.rf.Tree.StatType;
 import java.io.File;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinTask;
-import jsr166y.RecursiveAction;
-
 import water.*;
 import water.util.KeyUtil;
 
@@ -22,20 +19,20 @@ public class RandomForest {
 
 
   public static final boolean BUILD_TREES_IN_PARALLEL = false;
-  
-  
+
+
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
 
     // Build N trees via the Random Forest algorithm.
     _data = data;
     final long start = System.currentTimeMillis();
-    
+
     if (BUILD_TREES_IN_PARALLEL) {
       Tree[] trees = new Tree[ntrees];
       for (int i = 0; i < ntrees; ++i) {
         trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i);
       }
-      water.DRemoteTask.invokeAll(trees);    
+      water.DRemoteTask.invokeAll(trees);
     } else {
       try { // build one tree at a time, and forget it
         for( int i=0; i<ntrees; i++ ) {

@@ -78,10 +78,11 @@ public class DRF extends water.DRemoteTask {
     int ncolumns = ary.num_cols();
 
     ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
-    ArrayList<RecursiveAction> simpleJobs = new ArrayList<RecursiveAction>();
+    ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
 
     final Key [] ks = keys;
 
+    // first do the binning.
     for(int i = 0; i < ncolumns; ++i){
       final int col = i;
       if(dapt.binColumn(col)){
@@ -99,17 +100,19 @@ public class DRF extends water.DRemoteTask {
               }
               start_row += rows;
             }
-            dapt.shrinkColumn(col);
+            dapt.computeBins(col);
           }
         });
       }
     }
+    invokeAll(binningJobs);
+    // now read the values
     int rpc = (int)(ValueArray.chunk_size() / ary.row_size());
     int start_row = 0;
     for(final Key k:ks) {
       final int S = start_row;
       if(!k.home())continue;
-      simpleJobs.add(new RecursiveAction() {
+      dataInhaleJobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
@@ -130,8 +133,7 @@ public class DRF extends water.DRemoteTask {
       });
       start_row += rpc;
     }
-    invokeAll(binningJobs);
-    invokeAll(simpleJobs);
+    invokeAll(dataInhaleJobs);
     return dapt;
   }
   // Local RF computation.
