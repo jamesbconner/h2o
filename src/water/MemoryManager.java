@@ -109,8 +109,8 @@ public abstract class MemoryManager {
     long deltaT = currentTime - v._lastAccessedTime;
     if (deltaT > _maxTime) {
       _uCounter = 0;
-      // if we hit 10 old elements in a row, increase expected age
-      if (++_sCounter == 10) {
+      // if we hit 100 old elements in a row, increase expected age
+      if (++_sCounter == 100) {
         if (_previousT > _maxTime) {
           long x = _maxTime;
           _maxTime += ((_previousT - _maxTime) >> 1);
@@ -133,8 +133,8 @@ public abstract class MemoryManager {
       }
     } else {
       _sCounter = 0;
-      // if we hit 10 young elements in a row, decrease expected age
-      if (++_uCounter == 10) {
+      // if we hit 100 young elements in a row, decrease expected age
+      if (++_uCounter == 100) {
         if (_previousT < _maxTime) {
           long x = _maxTime;
           _maxTime -= ((_maxTime - _previousT) >> 1);

@@ -27,7 +27,7 @@ public final class ParseDataset {
 
   // Configuration kind for parser
   private static final int PARSE_SVMLIGHT = 101;
-  private static final int PARSE_COMMASEP = 102;
+  public static final int PARSE_COMMASEP = 102;
   private static final int PARSE_SPACESEP = 103;
 
   // Index to array returned by method guesss_parser_setup()
@@ -585,7 +585,7 @@ public final class ParseDataset {
 
   // Alternative column title guesser.  Returns an array of Strings, or
   // null if none.
-  private static String[] guessColNames( Value dataset, int num_cols, byte csvType ) {
+  public static String[] guessColNames( Value dataset, int num_cols, byte csvType ) {
     SeparatedValueParser csv = new SeparatedValueParser(dataset.chunk_get(0),
         csvType == PARSE_COMMASEP ? ',' : ' ', num_cols);
     Iterator<Row> it = csv.iterator();

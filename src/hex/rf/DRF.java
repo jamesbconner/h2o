@@ -98,6 +98,9 @@ public class DRF extends water.DRemoteTask {
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
     // One pass over all chunks to compute max rows
+
+    Utils.startTimer("maxrows");
+
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
@@ -106,10 +109,14 @@ public class DRF extends water.DRemoteTask {
         if( unique == -1 )
           unique = ValueArray.getChunkIndex(key);
       }
+    Utils.pln("[RF] Max/min done in "+ Utils.printTimer("maxrows"));
+
+    Utils.startTimer("binning");
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
     int ncolumns = ary.num_cols();
+
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
     final Key [] ks = keys;
     // bin the columns, do at most 1/2 of the columns at once
@@ -123,7 +130,8 @@ public class DRF extends water.DRemoteTask {
     for(; i < ncolumns; ++i)
       if(dapt.binColumn(i))colIds[j++] = i;
     if(j != 0)binData(dapt, keys, ary, colIds, j);
-
+    Utils.pln("[RF] Binning done in " + Utils.printTimer("binning"));
+    Utils.startTimer("inhale");
     // now read the values
     int start_row = 0;
     for(final Key k:ks) {
@@ -151,12 +159,16 @@ public class DRF extends water.DRemoteTask {
       start_row += rows;
     }
     invokeAll(dataInhaleJobs);
+
+    Utils.pln("[RF] Inhale done in " + Utils.printTimer("inhale"));
+
     return dapt;
   }
   // Local RF computation.
   public final void compute() {
+    Utils.startTimer("extract");
     DataAdapter dapt = extractData(_arykey, _keys);
-    Utils.pln("[RF] Data adapter built");
+    Utils.pln("[RF] Data adapter built in " + Utils.printTimer("extract") );
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
     sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution

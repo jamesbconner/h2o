@@ -23,7 +23,9 @@ public class Tree extends CountedCompleter {
   final Key _treesKey;
   final Key _modelKey;
   final int _alltrees;
-  final long _start;
+  final int _treeId;
+
+  private static int TID;
 
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees) {
@@ -37,7 +39,8 @@ public class Tree extends CountedCompleter {
     _treesKey = treesKey;
     _modelKey = modelKey;
     _alltrees = alltrees;
-    _start = System.currentTimeMillis();
+    synchronized(Tree.class) {   _treeId = ++TID;  }
+    Utils.startTimer("tree"+_treeId);
   }
 
   // Oops, uncaught exception
@@ -62,7 +65,9 @@ public class Tree extends CountedCompleter {
   public void compute() {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
+    Utils.startTimer("sample"+_treeId);
     Data d = _data.sample(0.55);
+    Utils.pln("[RF] Tree " + _treeId+ " sample done in "+ Utils.printTimer("sample"+_treeId));
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
     for( Row r : d ) left.add(r);
@@ -70,16 +75,15 @@ public class Tree extends CountedCompleter {
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
       : new FJBuild (spl, d, 0, _seed + 1).compute();
-    StringBuilder sb = new StringBuilder("Tree :"+_data_id+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
+    StringBuilder sb = new StringBuilder("Tree : " +_treeId+" ("+_data_id+") d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,150).toString());
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
-    long now = System.currentTimeMillis();
     // Atomically improve the Model as well
     AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees);
     am.invoke(_modelKey);
 
-    System.out.println("Tree ready after "+(now-_start)+" msec");
+    Utils.pln("[RF] Tree "+_treeId+ " done in "+ Utils.printTimer("tree"+_treeId));
     tryComplete();
   }
 

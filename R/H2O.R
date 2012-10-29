@@ -19,6 +19,19 @@ H2O.SERVER = "localhost:54321"
 H2O.VERBOSE = TRUE
 H2O.MAX_RESPONSE_ITEMS = 200000
 
+h2o.help <- function() {
+  cat("This is help for H2O <-> R interop\n")
+  cat("\n")
+  cat("The following functions are supported now:\n")
+  cat("  h2o(expr) executes the expression on H2O and returns the resulting key (clipped)\n")
+  cat("  h2o.inspect(key) returns the inspection of the key\n")
+  cat("  h2o.get(key) returns the dataframe stored in given key to R\n")
+  cat("  h2o.put(key,vector) stores the vector to H2O key\n")
+  cat("  h2o.import(key,file) imports file local on the server to H2O store. and hexes it\n")
+  cat("  h2o.rf(Key, ...) invokes random forest (experimental)\n")
+}
+
+
 h2o <- function(expr) {
   # Executes the given expression on H2O server and returns the result as R variable. It may error if the result is
   # too big as it is still work in progress.
@@ -113,9 +126,9 @@ h2o.remove <- function(key) {
   }
 }
 
-h2o.rf <- function(key,numTrees,maxDepth=30,model="model",gini=1,seed=42) {
-  H2O._printIfVerbose("  executing RF on ",key,", ",numTrees," trees , maxDepth ",maxDepth,", gini ",gini,", seed ",seed,", model key ",model)
-  res = H2O._remoteSend("RF.json",Key=key, ntree=numTrees, depth=maxDepth, gini=gini, seed=seed, modelKey=model)
+h2o.rf <- function(key,ntree, depth=30,model="model",gini=1,seed=42) {
+  H2O._printIfVerbose("  executing RF on ",key,", ",ntree," trees , maxDepth ",depth,", gini ",gini,", seed ",seed,", model key ",model)
+  res = H2O._remoteSend("RF.json",Key=key, ntree=ntree, depth=depth, gini=gini, seed=seed, modelKey=model)
   if (H2O._isError(res)) {
     H2O._printError(res$Error,prefix="  ")
     NULL
