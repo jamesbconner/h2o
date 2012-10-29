@@ -17,13 +17,12 @@ public class RandomForest {
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
-    final long start = System.currentTimeMillis();
+    Utils.startTimer("alltrees");
     Tree[] trees = new Tree[ntrees];
     for (int i = 0; i < ntrees; ++i)
       trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees);
     water.DRemoteTask.invokeAll(trees);
-    long now = System.currentTimeMillis();
-    System.out.println("All trees ("+ntrees+") ready after "+(now-start)+" msec");
+    Utils.pln("All trees ("+ntrees+") done in "+ Utils.printTimer("alltrees"));
   }
 
   public static class OptArgs extends Arguments.Opt {
@@ -81,7 +80,7 @@ public class RandomForest {
     Utils.pln("[RF] Starting RF.");
     final int num_cols = va.num_cols();
     final int classcol = num_cols-1; // Defaults to last column
-    long t1 = System.currentTimeMillis();
+    Utils.startTimer("main");
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, classcol, new int[0], Key.make("model"));
 
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
@@ -94,7 +93,10 @@ public class RandomForest {
     Model model = new Model(modelKey,drf._treeskey,num_cols,classes);
     UKV.put(modelKey,model);
 
-    long t2 = System.currentTimeMillis();
+    String t2 =Utils.printTimer("main");
+    Utils.pln("[RF] trees done in "+ t2);
+    Utils.startTimer("validation");
+
     assert tkeys.length == ntrees;
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
       DRF.forceNoSample = true;
@@ -110,7 +112,8 @@ public class RandomForest {
       c.setValidation(drf._validation.getPermutationArray());
       c.report();
     }
-    System.out.println("Random forest finished in: " + (t2 - t1) + " ms");
+    Utils.pln("[RF] Random forest finished in: " + t2);
+    Utils.pln("[RF] Validation done in: " + Utils.printTimer("validation"));
     UDPRebooted.global_kill(2);
   }
 }
