@@ -236,7 +236,6 @@ public class DLSM {
         }
         _xy[i] *= nInv;
       }
-      super.postMap();
     }
 
     /**
@@ -246,14 +245,18 @@ public class DLSM {
     public void reduce(DRemoteTask drt) {
       LSMTask other = (LSMTask) drt;
       if( _xx != null || _xy != null ) {
-        double R = 1.0 / (_n + other._n);
-        double myR = other._n * R;
-        double r = _n * R;
+        double myR = 0.5;
+        double otherR = 0.5;
+        if(_n != other._n){
+          double R = 1.0 / (_n + other._n);
+          myR = _n * R;
+          otherR = other._n * R;
+        }
         for( int i = 0; i < _xx.length; ++i ) {
           for( int j = 0; j <= i; ++j ) {
-            _xx[i][j] = (myR * _xx[i][j] + r * other._xx[i][j]);
+            _xx[i][j] = (myR * _xx[i][j] + otherR * other._xx[i][j]);
           }
-          _xy[i] = (myR * _xy[i] + r * other._xy[i]);
+          _xy[i] = (myR * _xy[i] + otherR * other._xy[i]);
         }
       } else {
         _xx = other._xx;
