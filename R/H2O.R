@@ -80,6 +80,26 @@ h2o.put <- function(key, value) {
   }
 }
 
+h2o.import <- function(key, file, hex=TRUE) {
+  if (hex) {
+    uploadKey = file
+  } else {
+    uploadKey = key
+  }
+  H2O._printIfVerbose("  put file ",file," to key ",uploadKey)
+  res = H2O._remoteSend("ImportUrl.json",Url=file)
+  if (!H2O._isError(res) && hex) {
+    H2O._printIfVerbose("  parsing key ",res$Key," to key ",key)
+    res = H2O._remoteSend("Parse.json",Key=res$Key, Key2=key)
+  }
+  if (H2O._isError(res)) {
+    H2O._printError(res$Error,prefix="  ")
+    NULL
+  } else {
+    res$Key
+  }
+} 
+
 h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
   # returns the given key from H2O. DataFrames of multiple columns are supported as long as their number of elements,
   # that is columns * rows is smaller than 200000.
