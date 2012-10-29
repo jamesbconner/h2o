@@ -81,6 +81,7 @@ h2o.put <- function(key, value) {
 }
 
 h2o.import <- function(key, file, hex=TRUE) {
+  # imports url to the server. This is probably only worth our debugging. Probably. 
   if (hex) {
     uploadKey = file
   } else {
@@ -99,6 +100,30 @@ h2o.import <- function(key, file, hex=TRUE) {
     res$Key
   }
 } 
+
+h2o.remove <- function(key) {
+  # deletes the given UKV key. 
+  H2O._printIfVerbose("  removing key ",key)
+  res = H2O._remoteSend("Remove.json",Key=key)
+  if (H2O._isError(res)) {
+    H2O._printError(res$Error,prefix="  ")
+    NULL
+  } else {
+    res$Key
+  }
+}
+
+h2o.rf <- function(key,numTrees,maxDepth=30,model="model",gini=1,seed=42) {
+  H2O._printIfVerbose("  executing RF on ",key,", ",numTrees," trees , maxDepth ",maxDepth,", gini ",gini,", seed ",seed,", model key ",model)
+  res = H2O._remoteSend("RF.json",Key=key, ntree=numTrees, depth=maxDepth, gini=gini, seed=seed, modelKey=model)
+  if (H2O._isError(res)) {
+    H2O._printError(res$Error,prefix="  ")
+    NULL
+  } else {
+    res
+  }
+  
+}
 
 h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
   # returns the given key from H2O. DataFrames of multiple columns are supported as long as their number of elements,
