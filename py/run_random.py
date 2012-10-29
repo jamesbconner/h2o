@@ -7,9 +7,9 @@ h2o.parse_our_args()
 
 try:
     print 'Building cloud'
-    h2o.build_cloud(1, capture_output=False)
+    h2o.build_cloud(1, capture_output=False, java_heap_GB=15)
     print 'Random Forest'
-    h2o_cmd.runRF(None, h2o.find_dataset('UCI/UCI-large/covtype/covtype.data'),
+    h2o_cmd.runRF(None, h2o.find_dataset('UCI/UCI-large/covtype/covtype.5g.data'),
             trees=10, timeoutSecs=60)
     print 'Completed'
 except KeyboardInterrupt:
