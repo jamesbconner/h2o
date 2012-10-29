@@ -14,14 +14,20 @@ public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
 
+  private static final boolean PARALLEL = true;
+
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
     Utils.startTimer("alltrees");
     Tree[] trees = new Tree[ntrees];
-    for (int i = 0; i < ntrees; ++i)
+    for (int i = 0; i < ntrees; ++i) {
       trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees);
-    water.DRemoteTask.invokeAll(trees);
+      if (PARALLEL==false) water.DRemoteTask.invokeAll(new Tree[]{trees[i]});
+    }
+    if (PARALLEL) water.DRemoteTask.invokeAll(trees);
+
+
     Utils.pln("All trees ("+ntrees+") done in "+ Utils.printTimer("alltrees"));
   }
 
