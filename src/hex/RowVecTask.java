@@ -112,18 +112,6 @@ public abstract class RowVecTask extends MRTask {
     assert key.home();
     Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
     _ary = (ValueArray) DKV.get(aryKey);
-//    if(_colIds == null && _colNames != null) {
-//      _colIds = new int [_colNames.length];
-//      _L0:for(int i = 0; i < _colIds.length; ++i) {
-//        for(int j = 0; j < _ary.num_cols(); ++j) {
-//          if(_colNames[i].equalsIgnoreCase(_ary.col_name(j))){
-//            _colIds[i] = j;
-//            continue _L0;
-//          }
-//        }
-//        throw new Error("unknown column " + _colNames[i]);
-//      }
-//    }
     byte[] bits = DKV.get(key).get();
     int[] off = new int[_colIds.length];
     int[] sz = new int[_colIds.length];

@@ -1,8 +1,5 @@
 package hex.rf;
 
-import gnu.trove.map.hash.TFloatIntHashMap;
-import gnu.trove.map.hash.TFloatShortHashMap;
-
 import java.text.DecimalFormat;
 import java.util.*;
 
@@ -58,7 +55,7 @@ class DataAdapter  {
   }
 
   /** Given a value in enum format, returns a value in the original range. */
-  public float unmap(int col, float v){  // FIXME should this be a short???? JAN
+  public float unmap(int col, int v){  // FIXME should this be a short???? JAN
     short idx = (short)v; // Convert split-point of the form X.5 to a (short)X
     C c = _c[col];
     if ( !c._bin ) return v + c._min;
@@ -91,6 +88,8 @@ class DataAdapter  {
     return res;
   }
 
+  public void shrinkColumn(int col){_c[col].shrink();}
+
   public int seed()           { return _seed; }
   public int columns()        { return _c.length;}
   public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
@@ -110,15 +109,28 @@ class DataAdapter  {
   public String[] columnNames() { return _columnNames; }
 
   public void addValueRaw(float v, int row, int col){
-    _c[col].add(v, row);
+    _c[col].addRaw(v, row);
   }
+
 
   public void addValue(short v, int row, int col){
     _c[col].setValue(row,v);
   }
+
+  public void addValue(float v, int row, int col){
+    // Find the bin value by lookup in _bin2raw array which is sorted so we can do binary lookup.
+    // The index returned is - length - 1 in case the value
+    int idx = Arrays.binarySearch(_c[col]._binned2raw,v);
+    if(idx < 0)idx = -idx - 1;
+    if(idx >= _c[col]._smax)System.err.println("unexpected sv = " + idx);
+    // the array lookup can return the lengthof the array in case the value would be > max,
+    // which should (does) not happen right now, but just in case for the future, cap it to the max bin value)
+    _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
+  }
+
   /** Add a row to this data set. */
   public void addRow(float[] v, int row) {
-    for( int i = 0; i < v.length; i++ ) _c[i].add(v[i], row);
+    for( int i = 0; i < v.length; i++ ) _c[i].addRaw(v[i], row);
   }
 
   static final DecimalFormat df = new  DecimalFormat ("0.##");
@@ -127,6 +139,13 @@ class DataAdapter  {
     return _c[col]._bin;
   }
 
+  public void printBinningInfo(){
+    for(int i = 0; i < _c[0]._n; ++i){
+      for(int j = 0; j < _c.length; ++j)
+        System.out.print(_c[j].getValue(i) + "(" +  unmap(j,_c[j].getValue(i)) + ") ");
+      System.out.println();
+    }
+  }
 
   private static class C {
     enum ColType {BOOL,BYTE,SHORT};
@@ -136,10 +155,12 @@ class DataAdapter  {
     float _min=Float.MAX_VALUE, _max=Float.MIN_VALUE, _tot;
     short[] _binned;
     byte [] _bvalues;
-    float[] _raw;
+    float[]  _raw;
+    // TFloatIntHashMap _freq;
     float[] _binned2raw;
     BitSet _booleanValues;
     short _smax = -1;
+    int _n;
 
     C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore) {
       _name = s;
@@ -147,9 +168,10 @@ class DataAdapter  {
       _ignore = ignore;
       _bin = bin;
       _ctype = t;
+      _n = rows;
       if(!_ignore){
         if(_bin){
-          _raw = _bin?MemoryManager.allocateMemoryFloat(rows):null;
+          _raw = _bin?new float[rows]:null;
         } else {
           switch(_ctype){
           case BOOL:
@@ -194,13 +216,14 @@ class DataAdapter  {
       throw new Error("illegal column type " + _ctype);
     }
 
-    void add(float x, int row) {
+    void addRaw(float x, int row) {
       assert _bin;
       _min=Math.min(x,_min);
       _max=Math.max(x,_max);
       _tot+=x;
-      _raw[row]=x;
+      _raw[row] = x;
     }
+
 
     boolean ignore() { return _ignore; }
 
@@ -208,7 +231,7 @@ class DataAdapter  {
       String res = "Column("+_name+")";
       if (ignore()) return res + " ignored!";
       res+= "  ["+DataAdapter.df.format(_min) +","+DataAdapter.df.format(_max)+"], avg=";
-      res+= DataAdapter.df.format(_tot/_raw.length) ;
+      res+= DataAdapter.df.format(_tot/_n) ;
       if (_isClass) res+= " CLASS ";
       return res;
     }
@@ -219,41 +242,41 @@ class DataAdapter  {
      *  it's one-based (e.g. covtype) or -1/+1 (arcene).   */
     void shrink() {
       if (ignore()) return;
-      _binned = MemoryManager.allocateMemoryShort(_raw.length);
-      if( _isClass ) {
-        _smax = (short) _max;
-        int min = (int)_min;
-        for( int j = 0; j < _raw.length; j++ )
-          _binned[j] = (short)((int)_raw[j]-min);
-      } else {
-        // Remove duplicate floats
-        TFloatIntHashMap freq = new TFloatIntHashMap(BIN_LIMIT);
-        for( float f : _raw ) freq.adjustOrPutValue(f, 1, 1);
-
-        // Compute bin-size
-        int maxBinSize = (freq.size() > BIN_LIMIT) ? (_raw.length / BIN_LIMIT) : 1;
-        if( maxBinSize > 1 )
-          Utils.pln("[RF] The arity of " +this+ " was cut from "+ freq.size()+ " to " + BIN_LIMIT);
-
-        float[] ks = freq.keys();
-        Arrays.sort(ks);
-
-        // Assign shorts to floats, with binning.
-        _binned2raw = new float[Math.min(freq.size(), BIN_LIMIT)];
-        TFloatShortHashMap o2v2 = new TFloatShortHashMap(ks.length);
-        _smax = 0;
-        int cntCurBin = 0;
-        for( float d : ks ) {
-          _binned2raw[_smax] = d;
-          o2v2.put(d, _smax);
-          cntCurBin += freq.get(d);
-          if( cntCurBin > maxBinSize ) {
-            ++_smax;
-            cntCurBin = 0;
-          }
+      assert !_isClass;
+      Arrays.sort(_raw);
+      int ndups = 0;
+      int i = 0;
+      // count dups
+      while(i < _raw.length-1){
+        int j = i+1;
+        while(j < _raw.length && _raw[i] == _raw[j]){
+          ++ndups;
+          ++j;
         }
-        for( int j = 0; j < _raw.length; j++ ) _binned[j] = o2v2.get(_raw[j]);
+        i = j;
       }
+      int n = _raw.length - ndups;
+      int rem = n % BIN_LIMIT;
+      int maxBinSize = (n > BIN_LIMIT) ? (n / BIN_LIMIT + Math.min(rem,1)) : 1;
+      System.out.println("n = " + n + ", max bin size = " + maxBinSize);
+      // Assign shorts to floats, with binning.
+      _binned2raw = new float[Math.min(n, BIN_LIMIT)];
+      _smax = 0;
+      int cntCurBin = 1;
+      _binned2raw[0] = _raw[0];
+      for(i = 1; i < _raw.length; ++i) {
+        if(_raw[i] == _binned2raw[_smax])continue; // remove dups
+        if( ++cntCurBin > maxBinSize ) {
+          if(rem > 0 && --rem == 0)--maxBinSize; // check if we can reduce the bin size
+          ++_smax;
+          cntCurBin = 1;
+        }
+        _binned2raw[_smax] = _raw[i];
+      }
+      ++_smax;
+      if( n > BIN_LIMIT )
+        Utils.pln(this + " this column's arity was cut from "+ n + " to " + _smax);
+      _binned = MemoryManager.allocateMemoryShort(_n);
       _raw = null;
     }
   }
