@@ -88,7 +88,7 @@ class DataAdapter  {
     return res;
   }
 
-  public void shrinkColumn(int col){_c[col].shrink();}
+  public void computeBins(int col){_c[col].shrink();}
 
   public int seed()           { return _seed; }
   public int columns()        { return _c.length;}

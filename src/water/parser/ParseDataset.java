@@ -586,7 +586,7 @@ public final class ParseDataset {
   // Alternative column title guesser.  Returns an array of Strings, or
   // null if none.
   private static String[] guessColNames( Value dataset, int num_cols, byte csvType ) {
-    SeparatedValueParser csv = new SeparatedValueParser(dataset._key,
+    SeparatedValueParser csv = new SeparatedValueParser(dataset.chunk_get(0),
         csvType == PARSE_COMMASEP ? ',' : ' ', num_cols);
     Iterator<Row> it = csv.iterator();
     if( !it.hasNext() ) return null;
