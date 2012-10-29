@@ -620,7 +620,7 @@ public final class H2O {
             cleaned = true;
           } else { // update the histogram
             if(age > currentMaxTime)currentMaxTime = age;
-            histogram[Math.min(age/hStep,histogram.length-1)] += val.mem().length;
+            histogram[Math.min(age/hStep,histogram.length-1)] += m.length;
           }
         }
         if( cleaned ) cycles_no_progress = 0;
