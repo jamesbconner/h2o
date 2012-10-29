@@ -58,11 +58,50 @@ public class DRF extends water.DRemoteTask {
     return drf;
   }
 
+
+
+  private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
+    final int rowsize= ary.row_size();
+    final int rpc = (int)(ValueArray.chunk_size()/rowsize);
+    ArrayList<RecursiveAction> jobs = new ArrayList<RecursiveAction>();
+    int S = 0;
+    for(final Key k:keys){
+      if(!k.home())continue;
+      final int start_row = S;
+      jobs.add(new RecursiveAction() {
+        @Override
+        protected void compute() {
+          byte[] bits = DKV.get(k).get();
+          final int rows = bits.length/rowsize;
+          for(int j = 0; j < rows; ++j)
+            for(int c = 0; c < ncols; ++c)
+              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + start_row, colIds[c]);
+        }
+      });
+      S += rpc;
+    }
+    invokeAll(jobs);
+    // now do the binning
+    jobs.clear();
+    for(int c = 0; c < ncols; ++c){
+      final int col = colIds[c];
+      jobs.add(new RecursiveAction() {
+        @Override
+        protected void compute() {
+          dapt.computeBins(col);
+        }
+      });
+    }
+    invokeAll(jobs);
+  }
+
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
 
     // One pass over all chunks to compute max rows
+
+    Utils.startTimer("maxrows");
 
     int num_rows = 0;
     int unique = -1;
@@ -72,40 +111,31 @@ public class DRF extends water.DRemoteTask {
         if( unique == -1 )
           unique = ValueArray.getChunkIndex(key);
       }
+    Utils.pln("[RF] Max/min done in "+ Utils.printTimer("maxrows"));
+
+    Utils.startTimer("binning");
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
     int ncolumns = ary.num_cols();
 
-    ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
 
     final Key [] ks = keys;
 
-    // first do the binning.
-    for(int i = 0; i < ncolumns; ++i){
-      final int col = i;
-      if(dapt.binColumn(col)){
-        binningJobs.add(new RecursiveAction() {
-          @Override
-          protected void compute() {
-            int start_row = 0;
-            for(Key k:ks){
-              if(!k.home())continue;
-              byte[] bits = DKV.get(k).get();
-              final int rows = bits.length/rowsize;
-              for( int j = 0; j < rows; j++ ) { // For all rows in this chunk
-                if( !ary.valid(bits,j,rowsize,col)) continue;
-                dapt.addValueRaw((float)ary.datad(bits,j,rowsize,col), j + start_row, col);
-              }
-              start_row += rows;
-            }
-            dapt.computeBins(col);
-          }
-        });
-      }
-    }
-    invokeAll(binningJobs);
+    // bin the columns, do at most 1/2 of the columns at once
+    int colIds [] = new int[ncolumns>>1];
+    int j = 0;
+    for(int i = 0; i < ncolumns && j < colIds.length; ++i)
+      if(dapt.binColumn(i))colIds[j++] = i;
+    binData(dapt, keys, ary, colIds, j);
+    int jj = 0;
+    for(int i = j; i < ncolumns; ++i)
+      if(dapt.binColumn(i))colIds[jj++] = i;
+    if(jj > 0)binData(dapt, keys, ary, colIds, jj);
+    Utils.pln("[RF] Binning done in " + Utils.printTimer("binning"));
+
+    Utils.startTimer("inhale");
     // now read the values
     int rpc = (int)(ValueArray.chunk_size() / ary.row_size());
     int start_row = 0;
@@ -134,12 +164,16 @@ public class DRF extends water.DRemoteTask {
       start_row += rpc;
     }
     invokeAll(dataInhaleJobs);
+
+    Utils.pln("[RF] Inhale done in " + Utils.printTimer("inhale"));
+
     return dapt;
   }
   // Local RF computation.
   public final void compute() {
+    Utils.startTimer("extract");
     DataAdapter dapt = extractData(_arykey, _keys);
-    Utils.pln("[RF] Data adapter built");
+    Utils.pln("[RF] Data adapter built in " + Utils.printTimer("extract") );
     // If we have too little data to validate distributed, then
     // split the data now with sampling and train on one set & validate on the other.
     sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
