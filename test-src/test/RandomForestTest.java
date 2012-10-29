@@ -1,16 +1,21 @@
 package test;
 
-import com.google.gson.JsonObject;
-import hex.rf.Model;
-import hex.rf.Confusion;
-import java.io.File;
-import java.util.Properties;
-import org.junit.*;
 import static org.junit.Assert.*;
+import hex.rf.Confusion;
+import hex.rf.Model;
+
+import java.util.Properties;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+
 import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
-import water.web.*;
+import water.web.RFView;
+import water.web.RandomForestPage;
+
+import com.google.gson.JsonObject;
 
 public class RandomForestTest {
   private static int _initial_keycnt = 0;
@@ -33,7 +38,7 @@ public class RandomForestTest {
     Key okey = Key.make("iris.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
-    ValueArray va = (ValueArray)DKV.get(okey);
+    DKV.get(okey);
     final int NTREE=7;
 
     // Build a Random Forest
@@ -68,7 +73,7 @@ public class RandomForestTest {
 
       RFView rfv = new RFView();
       JsonObject rfv_res = rfv.serverJson(null,p,null);
-      String res2 = rfv.serveImpl(null,p,null);
+      rfv.serveImpl(null,p,null);
 
       // Verify Goodness and Light
       Key oKey2 = Key.make(rfv_res.get("dataKey").getAsString());
@@ -78,11 +83,11 @@ public class RandomForestTest {
       Key confKey = Key.make(rfv_res.get("confusionKey").getAsString());
       // Should be a pre-built confusion
       Confusion C = UKV.get(confKey,new Confusion());
-      
+
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{50,0,0},{0,45,5},{0,5,45}};
+      long ans[][] = new long[][]{{50,0,0},{0,45,5},{0,2,48}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
