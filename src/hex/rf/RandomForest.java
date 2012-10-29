@@ -5,6 +5,8 @@ import hex.rf.Tree.StatType;
 import java.io.File;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinTask;
+import jsr166y.RecursiveAction;
 
 import water.*;
 import water.util.KeyUtil;
@@ -18,26 +20,36 @@ public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
 
-  public RandomForest( DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
+
+  public static final boolean BUILD_TREES_IN_PARALLEL = false;
+  
+  
+  public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat) {
 
     // Build N trees via the Random Forest algorithm.
     _data = data;
-    long start = System.currentTimeMillis();
-    try { // build one tree at a time, and forget it
-      for( int i=0; i<ntrees; i++ ) {
-        Tree t = null;
-        H2O.FJP_NORM.submit(t = new Tree(
-            _data,
-            maxTreeDepth,minErrorRate,stat,features(), i + data.seed()));
-        t.get();        // Block for a tree
-        new AppendKey(t.toKey()).invoke(drf._treeskey); // Atomic-append to the list of trees
-        long now = System.currentTimeMillis();
-        Model model = new Model(drf._modelKey,drf._treeskey,data.columns(),data.classes());
-        UKV.put(drf._modelKey,model);
-        System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
+    final long start = System.currentTimeMillis();
+    
+    if (BUILD_TREES_IN_PARALLEL) {
+      Tree[] trees = new Tree[ntrees];
+      for (int i = 0; i < ntrees; ++i) {
+        trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i);
       }
-    } catch( InterruptedException e ) { // Interrupted after partial build?
-    } catch( ExecutionException e ) { throw new Error(e); }
+      water.DRemoteTask.invokeAll(trees);    
+    } else {
+      try { // build one tree at a time, and forget it
+        for( int i=0; i<ntrees; i++ ) {
+          Tree t = null;
+          H2O.FJP_NORM.submit(t = new Tree(
+              _data,
+              maxTreeDepth,minErrorRate,stat,features(), i + data.seed(),drf._treeskey, drf._modelKey,i));
+          t.get();        // Block for a tree
+        }
+      } catch( InterruptedException e ) { // Interrupted after partial build?
+      } catch( ExecutionException e ) { throw new Error(e); }
+    }
+    long now = System.currentTimeMillis();
+    System.out.println("All trees ("+ntrees+") ready after "+(now-start)+" msec");
   }
 
   public static class OptArgs extends Arguments.Opt {

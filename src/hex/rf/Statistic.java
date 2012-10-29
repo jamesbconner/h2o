@@ -120,6 +120,7 @@ abstract class Statistic {
       _columnDists[i][row.getEncodedColumnValue(i)][row.classOf()] += 1;
   }
 
+  
   /** Calculates the best split and returns it. The split can be either a split
    * which is a node where all rows with given column value smaller or equal to
    * the split value will go to the left and all greater will go to the right.
@@ -135,8 +136,12 @@ abstract class Statistic {
     if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m);
 
     // try the splits
-    Split bestSplit = columnSplit(_features[0],d, dist, distWeight);
-    for( int j = 1; j < _features.length; ++j ) {
+    Split bestSplit = Split.split(_features[0], 0, -Double.MAX_VALUE);
+    for( int j = 0; j < _features.length; ++j ) {
+//      if (d.columnArity(_features[j]) < MIN_ARITY_FOR_NONEXCLUSION_SPLITS) {
+//        continue;
+        
+//      }
       Split s = columnSplit(_features[j],d, dist, distWeight);
       if( s.betterThan(bestSplit) )
         bestSplit = s;
@@ -146,6 +151,8 @@ abstract class Statistic {
       return bestSplit;
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
 
+    
+    
     // try the exclusions now if some of them will be better
     for( int j = 0; j < _features.length; ++j) {
       Split s = columnExclusion(_features[j],d,dist,distWeight);
@@ -154,5 +161,7 @@ abstract class Statistic {
     }
     return bestSplit;
   }
+  
+  public static final int MIN_ARITY_FOR_NONEXCLUSION_SPLITS = 0;
 }
 
