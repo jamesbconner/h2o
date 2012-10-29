@@ -491,12 +491,11 @@ class H2O(object):
     # TEMPORARY: there is no state in H2O right now for linking RF and RFview ntrees
     # so I have to send the exact same ntree I sent during RF
     # basically, undefined behavior if I send anything other than the same thing, so it's required.
-    def random_forest_view(self, dataKey, modelKey, treesKey, ntree):
+    def random_forest_view(self, dataKey, modelKey, ntree):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={
                 "dataKey": dataKey,
                 "modelKey": modelKey,
-                "treesKey": treesKey,
                 "ntree": ntree
                 }))
         verboseprint("\nrandom_forest_view result:", a)

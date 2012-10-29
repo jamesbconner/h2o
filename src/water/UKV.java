@@ -93,7 +93,15 @@ public abstract class UKV {
     byte[] bits = new byte[rt.wire_len()];
     rt.write(new Stream(bits));
     Value val = new Value(key,bits);
-    UKV.put(key,val);
+    put(key,val);
+  }
+  // Also, allow auto-deserialization.  Usage:
+  //   SomeRemoteTask srt = UKV.get(key,new SomeRemoteTask());
+  static public <T extends RemoteTask> T get( Key key, T rt ) {
+    Value val = get(key);
+    if( val == null ) return null;
+    rt.read(new Stream(val.get()));
+    return rt;
   }
 
 

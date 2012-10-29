@@ -12,7 +12,7 @@ import jsr166y.RecursiveAction;
  */
 public class DRF extends water.DRemoteTask {
   // Cloud-wide data
-  int _ntrees;          // Number of trees PER NODE
+  int _ntrees;          // Number of trees TOTAL, not per-node
   int _depth;           // Tree-depth limiter
   int _stat;            // Use Gini(1) or Entropy(0) for splits
   int _classcol;        // Column being classified

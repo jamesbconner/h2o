@@ -46,56 +46,38 @@ public class RandomForestTest {
 
       // Start RFPage, get a JSON result.
       JsonObject res = RFP.serverJson(null,p,null);
-      // From the JSON, get treesKey & ntree to be built
-      Key treesKey = Key.make(res.get("treesKey").getAsString());
+      // From the JSON, get modelKey & ntree to be built
+      Key modelKey = Key.make(res.get("modelKey").getAsString());
+      Model model = new Model();
       int ntree = res.get("ntree").getAsInt();
       assertEquals(ntree,NTREE);
       // Wait for the trees to be built.  This should be a blocking call someday.
       while( true ) {
-        Value tkbits = DKV.get(treesKey);
-        if( tkbits != null ) {
-          byte[] buf = tkbits.get();
-          int klen = UDP.get4(buf,0);
-          if( klen >= ntree ) break;
-        }
+        // Peel out the model.
+        model = UKV.get(modelKey,model);
+        if( model.size() >= ntree ) break;
         try { Thread.sleep(100); } catch( InterruptedException ie ) { }
       }
-      // Peel out the modelKey.
-      Key modelKey = Key.make(res.get("modelKey").getAsString());
-      Value modelVal = UKV.get(modelKey);
-      Model model = new Model();
-      model.read(new Stream(modelVal.get()));
+
       assertEquals(CLASSES,model._classes);
 
       // Now build the properties for a RFView page.
       p.setProperty("dataKey",okey.toString());
       p.setProperty("modelKey",modelKey.toString());
-      p.setProperty("treesKey",treesKey.toString());
       p.setProperty("ntree",Integer.toString(ntree));
 
-      // Spin until all trees are built
-      Key confKey=null;
-      while( true ) {
-        RFView rfv = new RFView();
-        JsonObject rfv_res = rfv.serverJson(null,p,null);
-        String res2 = rfv.serveImpl(null,p,null);
+      RFView rfv = new RFView();
+      JsonObject rfv_res = rfv.serverJson(null,p,null);
+      String res2 = rfv.serveImpl(null,p,null);
 
-        // Verify Goodness and Light
-        Key oKey2 = Key.make(rfv_res.get("dataKey").getAsString());
-        assertEquals(okey,oKey2);
-        Key mkey2 = Key.make(rfv_res.get("modelKey").getAsString());
-        assertEquals(modelKey,mkey2);
-        modelVal = UKV.get(modelKey);
-        model = new Model();
-        model.read(new Stream(modelVal.get()));
-        confKey = Key.make(rfv_res.get("confusionKey").getAsString());
-        if( model.size() >= NTREE ) break;
-        UKV.remove(confKey);    // Premature incremental Confusion; nuke it
-        try { Thread.sleep(100); } catch( InterruptedException ie ) { }
-      }
+      // Verify Goodness and Light
+      Key oKey2 = Key.make(rfv_res.get("dataKey").getAsString());
+      assertEquals(okey,oKey2);
+      Key mkey2 = Key.make(rfv_res.get("modelKey").getAsString());
+      assertEquals(modelKey,mkey2);
+      Key confKey = Key.make(rfv_res.get("confusionKey").getAsString());
       // Should be a pre-built confusion
-      Confusion C = new Confusion();
-      C.read(new Stream(UKV.get(confKey).get()));
+      Confusion C = UKV.get(confKey,new Confusion());
       
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
@@ -105,7 +87,6 @@ public class RandomForestTest {
         assertArrayEquals(ans[i],C._matrix[i]);
 
       // Cleanup
-      UKV.remove(treesKey);
       UKV.remove(modelKey);
       UKV.remove(confKey);
 

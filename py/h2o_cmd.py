@@ -64,7 +64,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # u'modelSize: 6, 
     # u'class': 4
     # u'dataKey': u'...', 
-    # u'treesKey': u'...', 
     # u'modelKey': u'model', 
     # u'dataKeyHref': u'...', 
     # u'treesKeyHref': u'...', 
@@ -74,8 +73,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # FIX! check all of these somehow?
     dataKey  = rf['dataKey']
     modelKey = rf['modelKey']
-    treesKey = rf['treesKey']
-
     ntree        = rf['ntree']
 
     # /ip:port of cloud (can't use h2o name)
@@ -85,7 +82,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
 
     # expect response to match the number of trees you asked for
     def test(n):
-        a = n.random_forest_view(dataKey,modelKey,treesKey,ntree)['modelSize']
+        a = n.random_forest_view(dataKey,modelKey,ntree)['modelSize']
         # don't pass back the expected number, for possible fail message
         # so print what we got, if not equal..it's kind of intermediate results that are useful?
         # normally we won't see any?
@@ -101,14 +98,13 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     # kind of wasteful re-read, but maybe good for testing
-    rfView = node.random_forest_view(dataKey,modelKey,treesKey,ntree)
+    rfView = node.random_forest_view(dataKey,modelKey,ntree)
     modelSize = rfView['modelSize']
     confusionKey = rfView['confusionKey']
 
     # FIX! how am I supposed to verify results, or get results/
     # touch all these just to do something
     cmInspect = node.inspect(confusionKey)
-    treeInspect = node.inspect(treesKey)
     modelInspect = node.inspect(modelKey)
     dataInspect = node.inspect(dataKey)
 

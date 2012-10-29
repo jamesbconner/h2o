@@ -35,6 +35,8 @@ public class RandomForest {
         Model model = new Model(drf._modelKey,drf._treeskey,data.columns(),data.classes());
         UKV.put(drf._modelKey,model);
         System.out.println("Tree "+i+" ready after "+(now-start)+" msec");
+        if( model.size() == drf._ntrees )
+          UKV.remove(drf._treeskey);
       }
     } catch( InterruptedException e ) { // Interrupted after partial build?
     } catch( ExecutionException e ) { throw new Error(e); }
@@ -117,10 +119,10 @@ public class RandomForest {
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Confusion c = Confusion.make( model, valKey, classcol);
+      Confusion c = Confusion.make( model, -1, valKey, classcol);
       c.report();
     } else {
-      Confusion c = Confusion.make( model, drf._arykey, classcol);
+      Confusion c = Confusion.make( model, -1, drf._arykey, classcol);
       c.setValidation(drf._validation.getPermutationArray());
       c.report();
     }
@@ -128,5 +130,3 @@ public class RandomForest {
     UDPRebooted.global_kill(2);
   }
 }
-
-

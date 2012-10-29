@@ -49,8 +49,10 @@ public class Model extends RemoteTask {
   public int treeCount() { return _ntrees; }
   public int size() { return _ntrees; }
 
-  public String name() {
-    return _key.toString()+"["+size()+"]";
+  public String name(int atree) {
+    if( atree == -1 ) atree = size();
+    assert atree <= size();
+    return _key.toString()+"["+atree+"]";
   }
 
   /**

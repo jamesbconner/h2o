@@ -61,7 +61,6 @@ public class RandomForestPage extends H2OPage {
 
       // Pass along all to the viewer
       addProperty(res,"dataKey" , ary._key);
-      addProperty(res,"treesKey", drf._treeskey);
       addProperty(res,"modelKey", modelKey);
       res.addProperty("ntree", ntree);
       res.addProperty("class", classcol);
@@ -81,5 +80,5 @@ public class RandomForestPage extends H2OPage {
     return H2OPage.error(json.get("error").toString());
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&treesKey=%$treesKey&ntree=%ntree&class=%class\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class\">\n";
 }
