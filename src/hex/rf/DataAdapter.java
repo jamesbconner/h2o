@@ -190,16 +190,16 @@ class DataAdapter  {
     public void setValue(int row, short s){
       switch(_ctype){
       case BOOL:
+        if(_booleanValues == null) _booleanValues = new BitSet(_n);
         if(s == 1)_booleanValues.set(row);
         break;
       case BYTE:
-        if((byte)s != s){
-          System.out.println((byte)s + " != " + s);
-        }
         assert (byte)s == s;
+        if(_bvalues == null)_bvalues = MemoryManager.allocateMemory(_n);
         _bvalues[row] = (byte)s;
         break;
       case SHORT:
+        if(_binned == null)_binned = MemoryManager.allocateMemoryShort(_n);
         _binned[row] = s;
       }
     }
@@ -221,9 +221,9 @@ class DataAdapter  {
       _min=Math.min(x,_min);
       _max=Math.max(x,_max);
       _tot+=x;
+      if(_raw == null)_raw = MemoryManager.allocateMemoryFloat(_n);
       _raw[row] = x;
     }
-
 
     boolean ignore() { return _ignore; }
 

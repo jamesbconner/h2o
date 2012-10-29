@@ -58,6 +58,43 @@ public class DRF extends water.DRemoteTask {
     return drf;
   }
 
+
+
+  private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
+    final int rowsize= ary.row_size();
+    final int rpc = (int)(ValueArray.chunk_size()/rowsize);
+    ArrayList<RecursiveAction> jobs = new ArrayList<RecursiveAction>();
+    int S = 0;
+    for(final Key k:keys){
+      if(!k.home())continue;
+      final int start_row = S;
+      jobs.add(new RecursiveAction() {
+        @Override
+        protected void compute() {
+          byte[] bits = DKV.get(k).get();
+          final int rows = bits.length/rowsize;
+          for(int j = 0; j < rows; ++j)
+            for(int c = 0; c < ncols; ++c)
+              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + start_row, colIds[c]);
+        }
+      });
+      S += rpc;
+    }
+    invokeAll(jobs);
+    // now do the binning
+    jobs.clear();
+    for(int c = 0; c < ncols; ++c){
+      final int col = colIds[c];
+      jobs.add(new RecursiveAction() {
+        @Override
+        protected void compute() {
+          dapt.computeBins(col);
+        }
+      });
+    }
+    invokeAll(jobs);
+  }
+
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
@@ -82,30 +119,17 @@ public class DRF extends water.DRemoteTask {
 
     final Key [] ks = keys;
 
-    // first do the binning.
-    for(int i = 0; i < ncolumns; ++i){
-      final int col = i;
-      if(dapt.binColumn(col)){
-        binningJobs.add(new RecursiveAction() {
-          @Override
-          protected void compute() {
-            int start_row = 0;
-            for(Key k:ks){
-              if(!k.home())continue;
-              byte[] bits = DKV.get(k).get();
-              final int rows = bits.length/rowsize;
-              for( int j = 0; j < rows; j++ ) { // For all rows in this chunk
-                if( !ary.valid(bits,j,rowsize,col)) continue;
-                dapt.addValueRaw((float)ary.datad(bits,j,rowsize,col), j + start_row, col);
-              }
-              start_row += rows;
-            }
-            dapt.computeBins(col);
-          }
-        });
-      }
-    }
-    invokeAll(binningJobs);
+    // bin the columns, do at most 1/2 of the columns at once
+    int colIds [] = new int[ncolumns>>1];
+    int j = 0;
+    for(int i = 0; i < ncolumns && j < colIds.length; ++i)
+      if(dapt.binColumn(i))colIds[j++] = i;
+    binData(dapt, keys, ary, colIds, j);
+    int jj = 0;
+    for(int i = j; i < ncolumns; ++i)
+      if(dapt.binColumn(i))colIds[jj++] = i;
+    if(jj > 0)binData(dapt, keys, ary, colIds, jj);
+
     // now read the values
     int rpc = (int)(ValueArray.chunk_size() / ary.row_size());
     int start_row = 0;
