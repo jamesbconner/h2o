@@ -1,14 +1,14 @@
 package test;
 
+import com.sun.xml.internal.messaging.saaj.util.ByteInputStream;
+import java.io.IOException;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import static org.junit.Assert.*;
 
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+import water.*;
+import water.parser.ParseDataset;
 import water.parser.ParseDataset.ColumnDomain;
 import water.parser.SeparatedValueParser;
 import water.parser.SeparatedValueParser.Row;
@@ -35,6 +35,24 @@ public class ParserTest {
     return keys;
   }
 
+  @Test public void testColumnNames() {
+     String s = "hello,all,here,this\n4,5,6,7";
+     Key k = Key.make("TESTTESTTEST");
+     try {
+       ValueArray.read_put_stream(k, new ByteInputStream(s.getBytes(), s.length()));
+     } catch (IOException e) {
+       // pass
+     }
+     String[] x = ParseDataset.guessColNames(DKV.get(k), 4, (byte) ParseDataset.PARSE_COMMASEP);
+     assertEquals(x.length,4);
+     assertEquals(x[0],"hello");
+     assertEquals(x[1],"all");
+     assertEquals(x[2],"here");
+     assertEquals(x[3],"this");
+     UKV.remove(k);
+  }
+  
+  
   @Test public void testBasic() {
     String[] data = new String[] {
         "1|2|3",
