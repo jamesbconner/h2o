@@ -138,8 +138,6 @@ public class RFView extends H2OPage {
       response.replace("validateMore", "");
     }
     response.replace(json);
-    if( atree < ntree ) 
-      response.replace("tstyle","background-color:green;");
     _refresh = model.size() < ntree ? 5 : 0; // Refresh in 5sec if not all trees yet
 
     // Compute a few stats over trees
@@ -163,7 +161,7 @@ public class RFView extends H2OPage {
   private String html() {
     return "\nRandom Forest of <a href='Inspect?Key=%$dataKey'>%dataKey</a>\n"
       +"<table><tbody>"
-      + "<tr><td style='%tstyle'>Showing %atree of %ntree trees, with %modelSize trees built</td></tr>"
+      + "<tr><td>Showing %atree of %ntree trees, with %modelSize trees built</td></tr>"
       + "<tr><td>%validateMore</td></tr>"
       + "</tbody></table>\n"
       + "<h2>Confusion Matrix</h2>"
