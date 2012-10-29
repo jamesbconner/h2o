@@ -38,19 +38,23 @@ public class RFView extends H2OPage {
     // limit, unless all trees have finally arrived.
     if( model.size() == ntree ) atree = ntree;
 
-    // Make or find a C.M. against the model.  If the model has had a prior
-    // C.M. run, we'll find it via hashing.  If not, we'll block while we build
-    // the C.M.
-    Confusion confusion = Confusion.make( model, atree, ary._key, classcol );
 
     JsonObject res = new JsonObject();
     addProperty(res, "dataKey", ary._key);
     res.addProperty("class",classcol);
     addProperty(res, "modelKey", modelKey);
-    addProperty(res, "confusionKey", confusion.keyFor());
     res.addProperty("ntree",ntree); // asked-for trees
     res.addProperty("atree",atree); // displayed trees
     res.addProperty("modelSize",model.size()); // how many we got
+    
+    // only create conf matrix if asked for
+    if (p.getProperty("noCM","0").equals("0")) {
+      // Make or find a C.M. against the model.  If the model has had a prior
+      // C.M. run, we'll find it via hashing.  If not, we'll block while we build
+      // the C.M.
+      Confusion confusion = Confusion.make( model, atree, ary._key, classcol );
+      addProperty(res, "confusionKey", confusion.keyFor());
+    }
     return res;
   }
 
