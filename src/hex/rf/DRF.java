@@ -62,23 +62,22 @@ public class DRF extends water.DRemoteTask {
 
   private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
     final int rowsize= ary.row_size();
-    final int rpc = (int)(ValueArray.chunk_size()/rowsize);
     ArrayList<RecursiveAction> jobs = new ArrayList<RecursiveAction>();
     int S = 0;
-    for(final Key k:keys){
+    for(final Key k:keys) {
       if(!k.home())continue;
+      final int rows = DKV.get(k)._max/rowsize;
       final int start_row = S;
       jobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          final int rows = bits.length/rowsize;
           for(int j = 0; j < rows; ++j)
             for(int c = 0; c < ncols; ++c)
               dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + start_row, colIds[c]);
         }
       });
-      S += rpc;
+      S += rows;
     }
     invokeAll(jobs);
     // now do the binning
@@ -98,9 +97,7 @@ public class DRF extends water.DRemoteTask {
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
-
     // One pass over all chunks to compute max rows
-
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
@@ -113,34 +110,30 @@ public class DRF extends water.DRemoteTask {
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
     int ncolumns = ary.num_cols();
-
-    ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
-
     final Key [] ks = keys;
-
     // bin the columns, do at most 1/2 of the columns at once
     int colIds [] = new int[ncolumns>>1];
     int j = 0;
-    for(int i = 0; i < ncolumns && j < colIds.length; ++i)
+    int i = 0;
+    for(; i < ncolumns && j < colIds.length; ++i)
       if(dapt.binColumn(i))colIds[j++] = i;
     binData(dapt, keys, ary, colIds, j);
-    int jj = 0;
-    for(int i = j; i < ncolumns; ++i)
-      if(dapt.binColumn(i))colIds[jj++] = i;
-    if(jj > 0)binData(dapt, keys, ary, colIds, jj);
+    j = 0;
+    for(; i < ncolumns; ++i)
+      if(dapt.binColumn(i))colIds[j++] = i;
+    if(j != 0)binData(dapt, keys, ary, colIds, j);
 
     // now read the values
-    int rpc = (int)(ValueArray.chunk_size() / ary.row_size());
     int start_row = 0;
     for(final Key k:ks) {
       final int S = start_row;
       if(!k.home())continue;
+      final int rows = DKV.get(k)._max/rowsize;
       dataInhaleJobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          final int rows = bits.length/rowsize;
           ROWS:for(int j = 0; j < rows; ++j){
             for(int c = 0; c < ary.num_cols(); ++c){
               if( !ary.valid(bits,j,rowsize,c)) continue ROWS;
@@ -155,7 +148,7 @@ public class DRF extends water.DRemoteTask {
           }
         }
       });
-      start_row += rpc;
+      start_row += rows;
     }
     invokeAll(dataInhaleJobs);
     return dapt;
