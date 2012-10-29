@@ -1,10 +1,10 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
-import water.*;
 
 import java.util.*;
 
 import jsr166y.RecursiveAction;
+import water.*;
 
 /**
  * Distributed RandomForest
@@ -63,12 +63,11 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
 
     // One pass over all chunks to compute max rows
-    int num_keys = 0;
+
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
       if( key.home() ) {
-        num_keys++;
         num_rows += DKV.get(key)._max/rowsize;
         if( unique == -1 )
           unique = ValueArray.getChunkIndex(key);
@@ -76,44 +75,63 @@ public class DRF extends water.DRemoteTask {
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
     // Now load the DataAdapter with all the rows on this Node
-    RecursiveAction[] parts = new RecursiveAction[num_keys];
-    num_keys = 0;
-    num_rows = 0;
-    for( final Key key : keys ) {
-      if( key.home() ) {
-        final int start_row = num_rows;
-        parts[num_keys++] = new RecursiveAction() {
+    int ncolumns = ary.num_cols();
+
+    ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
+    ArrayList<RecursiveAction> simpleJobs = new ArrayList<RecursiveAction>();
+
+    final Key [] ks = keys;
+
+    for(int i = 0; i < ncolumns; ++i){
+      final int col = i;
+      if(dapt.binColumn(col)){
+        binningJobs.add(new RecursiveAction() {
           @Override
           protected void compute() {
-            float[] ds = new float[ary.num_cols()];
-            byte[] bits = DKV.get(key).get();
-            final int rows = bits.length/rowsize;
-            ROW: for( int j = 0; j < rows; j++ ) { // For all rows in this chunk
-              for( int k = 0; k < ds.length; k++ ) {
-                // bad data means skip row
-                if( !ary.valid(bits,j,rowsize,k) ) continue ROW;
-                if(dapt.binColumn(k))
-                  dapt.addValueRaw((float)ary.datad(bits,j,rowsize,k), start_row+j, k);
-                else {
-                  long v = ary.data(bits,j,rowsize,k);
-                  v -= ary.col_min(k);
-                  double d = ary.col_max(k);
-                  if(d < 0)v += (long)d;
-                  if(v < 0 || v >= 1024){
-                    System.err.println("raw binn out of bounds: " + v + ", colsize = " + ary.col_size(k) + ", max=" + ary.col_mean(k) + ", min=" + ary.col_min(k) );
-                  }
-                  dapt.addValue((short)v, start_row+j, k);
-
-                }
+            int start_row = 0;
+            for(Key k:ks){
+              if(!k.home())continue;
+              byte[] bits = DKV.get(k).get();
+              final int rows = bits.length/rowsize;
+              for( int j = 0; j < rows; j++ ) { // For all rows in this chunk
+                if( !ary.valid(bits,j,rowsize,col)) continue;
+                dapt.addValueRaw((float)ary.datad(bits,j,rowsize,col), j + start_row, col);
+              }
+              start_row += rows;
+            }
+            dapt.shrinkColumn(col);
+          }
+        });
+      }
+    }
+    int rpc = (int)(ValueArray.chunk_size() / ary.row_size());
+    int start_row = 0;
+    for(final Key k:ks) {
+      final int S = start_row;
+      if(!k.home())continue;
+      simpleJobs.add(new RecursiveAction() {
+        @Override
+        protected void compute() {
+          byte[] bits = DKV.get(k).get();
+          final int rows = bits.length/rowsize;
+          ROWS:for(int j = 0; j < rows; ++j){
+            for(int c = 0; c < ary.num_cols(); ++c){
+              if( !ary.valid(bits,j,rowsize,c)) continue ROWS;
+              if(dapt.binColumn(c))
+                dapt.addValue((float)ary.datad(bits,j,rowsize,c), j + S, c);
+              else{
+                long v = ary.data(bits,j,rowsize,c);
+                v -= ary.col_min(c);
+                dapt.addValue((short)v, S+j, c);
               }
             }
           }
-        };
-        num_rows += DKV.get(key)._max/rowsize;
-      }
+        }
+      });
+      start_row += rpc;
     }
-    invokeAll(parts);             // first collect all the data row wise
-    invokeAll(dapt.shrinkWrap()); // then shrink wrap the columns
+    invokeAll(binningJobs);
+    invokeAll(simpleJobs);
     return dapt;
   }
   // Local RF computation.

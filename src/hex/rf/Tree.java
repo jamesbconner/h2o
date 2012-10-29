@@ -1,18 +1,11 @@
 package hex.rf;
 
 import hex.rf.Data.Row;
-
 import java.io.IOException;
 import java.util.UUID;
-
 import jsr166y.CountedCompleter;
 import jsr166y.RecursiveTask;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Stream;
-import water.Value;
-import water.ValueArray;
+import water.*;
 
 public class Tree extends CountedCompleter {
   static public enum StatType { ENTROPY, GINI };
@@ -27,16 +20,22 @@ public class Tree extends CountedCompleter {
   INode _tree;                  // Root of decision tree
   final int  _seed;             // Pseudo random seeds
   ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
+  final Key _treesKey;
+  final Key _modelKey;
+  final long _start;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId) {
     _type = stat;
     _data = data;
-    _data_id = data.dataId();
+    _data_id = treeId; //data.dataId();
     _max_depth = max_depth-1;
     _min_error_rate = min_error_rate;
     _features = features;
     _seed = seed;
+    _treesKey = treesKey;
+    _modelKey = modelKey;
+    _start = System.currentTimeMillis();
   }
 
   // Oops, uncaught exception
@@ -73,6 +72,11 @@ public class Tree extends CountedCompleter {
     Utils.pln(_tree.toString(sb,150).toString());
     _stats = null; // GC
     tryComplete();
+    new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
+    long now = System.currentTimeMillis();
+    Model model = new Model(_modelKey,_treesKey,_data.columns(),_data.classes());
+    UKV.put(_modelKey,model);
+    System.out.println("Tree ready after "+(now-_start)+" msec");
   }
 
   private class FJBuild extends RecursiveTask<INode> {

@@ -68,7 +68,7 @@ public abstract class Models {
     int                       _rpc;
     double                    _ymu;
     Key                       _resultChunk0;
-    protected NewModel           _m;
+    protected NewModel        _m;
     protected ModelValidation _val;
     // transients
     transient byte[]          _data;
@@ -86,15 +86,16 @@ public abstract class Models {
 
     @Override
     public int wire_len() {
-      if( _reduce ) return 2 + (_validate ? _val.wire_len() : 0);
-      return 14 + (_storeResults?_resultChunk0.wire_len():0) + _m.wire_len();
+      return super.wire_len() + ((_reduce)?
+          2 + (_validate ? _val.wire_len() : 0):
+            14 + (_storeResults?_resultChunk0.wire_len():0) + _m.wire_len());
     }
 
     public void write(DataOutputStream os) throws IOException {
+      super.write(os);
       os.writeBoolean(_validate);
       os.writeBoolean(_reduce);
       if( _reduce ) {
-
         if( _validate ) {
           byte[] cn = _val.getClass().getName().getBytes();
           os.write(cn.length);
@@ -114,6 +115,7 @@ public abstract class Models {
     }
 
     public void read(DataInputStream is) throws IOException {
+      super.read(is);
       try {
         _validate = is.readBoolean();
         _reduce = is.readBoolean();
@@ -142,6 +144,7 @@ public abstract class Models {
     }
 
     public void write(Stream s) {
+      super.write(s);
       s.set1(_validate?1:0);
       s.set1(_reduce?1:0);
       if( _reduce ) {
@@ -160,6 +163,7 @@ public abstract class Models {
     }
 
     public void read(Stream s) {
+      super.read(s);
       try{
       _validate = (s.get1() != 0);
       _reduce = (s.get1() != 0);
@@ -209,7 +213,7 @@ public abstract class Models {
       if( _validate ) {
         ModelTask other = (ModelTask) drt;
         if( _val == null ) _val = other._val;
-        else _val.add(other._val);
+        else if(other._val != null) _val.add(other._val);
       }
     }
   }
