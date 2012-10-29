@@ -105,46 +105,16 @@ public abstract class MemoryManager {
   }
 
   // test if value should be remove and update _maxTime estimate
-  static boolean removeValue(long currentTime, Value v) {
-    long deltaT = currentTime - v._lastAccessedTime;
-    if (deltaT > _maxTime) {
-      _uCounter = 0;
-      // if we hit 100 old elements in a row, increase expected age
-      if (++_sCounter == 100) {
-        if (_previousT > _maxTime) {
-          long x = _maxTime;
-          _maxTime += ((_previousT - _maxTime) >> 1);
-          _previousT = x;
-        } else {
-          _previousT = _maxTime;
-          _maxTime = (_maxTime << 1) - (_maxTime >> 1);
-        }
-        _sCounter = 0;
+  static boolean removeValue(Value v) {
+    if( mem2Free > 0 && (CACHED > CACHE_LO)) {
+      byte[] m = v._mem;
+      if (m != null) {
+        v.free_mem();
+        mem2Free -= m.length;
+        if( !canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1)))
+          setMemGood();
       }
-      if( mem2Free > 0 && (CACHED > CACHE_LO)) {
-        byte[] m = v._mem;
-        if (m != null) {
-          v.free_mem();
-          mem2Free -= m.length;
-          if( !canAllocate && (mem2Free < ((MEM_CRITICAL - MEM_HI) >> 1)))
-            setMemGood();
-        }
-        return true;
-      }
-    } else {
-      _sCounter = 0;
-      // if we hit 100 young elements in a row, decrease expected age
-      if (++_uCounter == 100) {
-        if (_previousT < _maxTime) {
-          long x = _maxTime;
-          _maxTime -= ((_maxTime - _previousT) >> 1);
-          _previousT = x;
-        } else {
-          _previousT = _maxTime;
-          _maxTime = (_maxTime >> 1) + (_maxTime >> 2);
-        }
-        _uCounter = 0;
-      }
+      return true;
     }
     return false;
   }
@@ -211,7 +181,7 @@ public abstract class MemoryManager {
     MEM_CRITICAL = MEM_MAX - (MEM_MAX >> 2);
     MEM_HI = MEM_CRITICAL - (MEM_CRITICAL >> 2);
     // start offloading to disk when cache above 1/2 of the heap
-    CACHE_HI = (MEM_MAX >> 1)+(MEM_MAX >> 2); 
+    CACHE_HI = (MEM_MAX >> 1)+(MEM_MAX >> 2);
     CACHE_LO = MEM_MAX >> 3; // keep at least 1/8 of the heap for cache so that computation can proceeed
     _heapMonitor = new HeapUsageMonitor();
   }
