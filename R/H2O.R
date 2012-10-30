@@ -35,7 +35,6 @@ h2o.help <- function() {
 h2o <- function(expr) {
   # Executes the given expression on H2O server and returns the result as R variable. It may error if the result is
   # too big as it is still work in progress.
-  res = h2o.exec(deparse(substitute(expr)))
   if (is.defined(res))
     h2o.get(res)
   else
@@ -59,7 +58,6 @@ h2o.connect <- function(server = H2O.SERVER, verbose = H2O.VERBOSE) {
 
 h2o.inspect <- function(key) {
   # Returns the inspected key
-  key = deparse(substitute(key))
   H2O._printIfVerbose("  inspecting key ",key)
   res = H2O._remoteSend("Inspect.json",Key=key)
   if (H2O._isError(res)) {
@@ -84,7 +82,6 @@ h2o.exec <- function(expr) {
 h2o.put <- function(key, value) {
   # Puts the given vector to the H2O cloud under the given key name. Returns the key name itself. Current limit on the
   # vector is that it must be only a single column vector and have no more than 200000 items. 
-  key = deparse(substitute(key))
   H2O._printIfVerbose("  put of vector (size ",length(value),")")
   res = H2O._remoteSend("PutVector.json",Key=key,Value=paste0(value,collapse=" "))
   if (H2O._isError(res)) {
@@ -97,7 +94,6 @@ h2o.put <- function(key, value) {
 
 h2o.import <- function(key, file, hex=TRUE) {
   # imports url to the server. This is probably only worth our debugging. Probably. 
-  key = deparse(substitute(key))
   if (hex) {
     uploadKey = file
   } else {
@@ -131,7 +127,6 @@ h2o.remove <- function(key) {
 }
 
 h2o.rf <- function(key,ntree, depth=30,model=FALSE,gini=1,seed=42,wait=TRUE) {
-  key = deparse(substitute(key))
   if (model==FALSE)
     model = paste(key,"_model",sep="")
   H2O._printIfVerbose("  executing RF on ",key,", ",ntree," trees , maxDepth ",depth,", gini ",gini,", seed ",seed,", model key ",model)
@@ -147,8 +142,6 @@ h2o.rf <- function(key,ntree, depth=30,model=FALSE,gini=1,seed=42,wait=TRUE) {
 }
 
 h2o.rfView <- function(dataKey, modelKey) {
-  dataKey = deparse(substitute(dataKey))
-  modelKey = deparse(substitute(modelKey))
   H2O._printIfVerbose("  RF model request for data ",dataKey," and model ",modelKey)
   res = H2O._remoteSend("RFView.json",dataKey=dataKey, modelKey=modelKey)
   if (H2O._isError(res)) {
@@ -183,6 +176,19 @@ h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
       }
       r
     }
+  }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+h2o.debug.freeMem <- function(key) {
+  H2O._printIfVerbose("  freeMem of key ",key)
+  res = H2O._remoteSend("Debug.json",action="freeMem",key=key)
+  if (H2O._isError(res)) {
+    H2O._printError(res$Error,prefix="  ")
+    NULL
+  } else {
+    res
   }
 }
 
