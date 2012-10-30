@@ -33,6 +33,7 @@ public class DRF extends water.DRemoteTask {
   }
 
   private void validateInputData(ValueArray ary){
+    if(ary.col_size(_classcol) < 0)throw new IllegalDataException("Floating point class column is not supported.");
     final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
     // There is no point in running Rf when all the training data have the same class
     if( !(2 <= classes && classes <= 65534 ) )
