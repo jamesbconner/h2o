@@ -41,6 +41,7 @@ public class RandomForest {
 	int depth = Integer.MAX_VALUE;
 	double cutRate = 0;
 	float sample = (float) 0.55;
+	int binLimit = 1024;
 	String statType = "entropy";
 	int seed = 42;
 	boolean singlethreaded;
@@ -88,7 +89,7 @@ public class RandomForest {
     final int num_cols = va.num_cols();
     final int classcol = num_cols-1; // Defaults to last column
     Utils.startTimer("main");
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, ARGS.sample, st, ARGS.seed, classcol, new int[0], Key.make("model"));
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, ARGS.sample, (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"));
 
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
 
