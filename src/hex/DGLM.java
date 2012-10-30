@@ -295,8 +295,7 @@ public class DGLM implements Models.ModelBuilder {
       }
     }
     //GLM_Model m = (glmParams.family == Family.binomial)? new BinomialModel((BinomialArgs)fargs):new GLM_Model();//colIds, beta, p, gp, lp)
-    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
-
+    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0, ((BinomialArgs)_fargs)._case):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
     if(_glmParams.family == Family.gaussian){
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  _lsmParams.constant, pVals);
       tsk.invoke(ary._key);
@@ -590,15 +589,20 @@ public class DGLM implements Models.ModelBuilder {
 
   public static class GLMBinomialModel extends GLMModel {
     double _threshold = 0.5;
+    double _case = 1.0;
 
-
+    @Override
+    public double getYr(double[] x) {
+      return (x[x.length-1] == _case)?1.0:0.0;
+    }
 
     public GLMBinomialModel(){}
     public GLMBinomialModel(String [] columNames, int [] colIds, double [][] pVals){
       super(columNames, colIds, pVals);
     }
-    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu){
+    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu, double caseVal){
       super(columnNames, colIds, pVals,b,l,f,ymu);
+      _case = caseVal;
     }
 
 
@@ -633,6 +637,7 @@ public class DGLM implements Models.ModelBuilder {
       _threshold = other._threshold;
       _cm = other._cm.clone();
     }
+
 
 
 
