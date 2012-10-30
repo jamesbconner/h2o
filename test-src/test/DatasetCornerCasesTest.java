@@ -52,11 +52,7 @@ public class DatasetCornerCasesTest {
 
     // Start the distributed Random Forest
     try {
-<<<<<<< HEAD
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,statType,seed,classcol,new int[0], Key.make("model"),true);
-=======
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,100,(short)1024,statType,seed,classcol,new int[0], Key.make("model"));
->>>>>>> 813bdeb4ac2b26d8b70b5f4aa36ec8b131ad31d2
+      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,-1.0,100,(short)1024,statType,seed,classcol,new int[0], Key.make("model"),true);
       // Just wait little bit
       try { Thread.sleep(500); } catch( InterruptedException e ) {}
       // Create incremental confusion matrix
