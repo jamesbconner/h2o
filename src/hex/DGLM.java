@@ -507,7 +507,7 @@ public class DGLM implements Models.ModelBuilder {
     transient Link _l;
     transient Family _f;
     long _n;
-    int _t;
+    int _t = 1;
 
     public GLMValidation(double ymu, Link l, Family f){
       _ymu = ymu;
@@ -652,25 +652,25 @@ public class DGLM implements Models.ModelBuilder {
       GLMBinomialValidation v = (GLMBinomialValidation)other;
       _fpMean = (_t - 1.0) / _t * fp() + 1.0 / _t * v.fp();
       // recursive variance formula
-      double newVar = (v.fp() - _fpMean);
+      double newVar = (v.fp() - fp());
       _fpVar = ((_t - 1.0) / _t) * _fpVar + (1.0 / (_t - 1)) * newVar
           * newVar;
 
       _tpMean = (_t - 1.0) / _t * tp() + 1.0 / _t * tp();
       // recursive variance formula
-      newVar = (v._tpMean - _tpMean);
+      newVar = (v.tp() - tp());
       _tpVar = ((_t - 1.0) / _t) * _tpVar + (1.0 / (_t - 1)) * newVar
           * newVar;
 
-      _tnMean = (_t - 1.0) / _t * _tnMean + 1.0 / _t * v._tnMean;
+      _tnMean = (_t - 1.0) / _t * tn() + 1.0 / _t * v.tn();
       // recursive variance formula
-      newVar = (v._tnMean - _tnMean);
+      newVar = (v.tn() - tn());
       _tnVar = ((_t - 1.0) / _t) * _tnVar + (1.0 / (_t - 1)) * newVar
           * newVar;
 
-      _fnMean = (_t - 1.0) / _t * _fnMean + 1.0 / _t * v._fnMean;
+      _fnMean = (_t - 1.0) / _t * fn() + 1.0 / _t * v.fn();
       // recursive variance formula
-      newVar = (v._fnMean - _fnMean);
+      newVar = (v.fn() - fn());
       _fnVar = ((_t - 1.0) / _t) * _fnVar + (1.0 / (_t - 1)) * newVar
           * newVar;
       _aggregate = true;
@@ -705,7 +705,7 @@ public class DGLM implements Models.ModelBuilder {
     }
 
     public double fn(){
-      return _aggregate?_tnMean:(double)_cm[0][1]/(double)_n;
+      return _aggregate?_fnMean:(double)_cm[0][1]/(double)_n;
     }
 
     public double fnVar(){
