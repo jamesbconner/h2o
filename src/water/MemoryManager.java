@@ -181,7 +181,7 @@ public abstract class MemoryManager {
     MEM_CRITICAL = MEM_MAX - (MEM_MAX >> 2);
     MEM_HI = MEM_CRITICAL - (MEM_CRITICAL >> 2);
     // start offloading to disk when cache above 1/2 of the heap
-    CACHE_HI = (MEM_MAX >> 1)+(MEM_MAX >> 2);
+    CACHE_HI = (MEM_MAX >> 1);
     CACHE_LO = MEM_MAX >> 3; // keep at least 1/8 of the heap for cache so that computation can proceeed
     _heapMonitor = new HeapUsageMonitor();
   }

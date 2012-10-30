@@ -169,22 +169,6 @@ class DataAdapter  {
       _bin = bin;
       _ctype = t;
       _n = rows;
-      if(!_ignore){
-        if(_bin){
-          _raw = _bin?new float[rows]:null;
-        } else {
-          switch(_ctype){
-          case BOOL:
-            _booleanValues = new BitSet(rows);
-            break;
-          case BYTE:
-            _bvalues = new byte[rows];
-            break;
-          case SHORT:
-            _binned = new short[rows];
-          }
-        }
-      }
     }
 
     public void setValue(int row, short s){
@@ -276,7 +260,6 @@ class DataAdapter  {
       ++_smax;
       if( n > BIN_LIMIT )
         Utils.pln(this + " this column's arity was cut from "+ n + " to " + _smax);
-      _binned = MemoryManager.allocateMemoryShort(_n);
       _raw = null;
     }
   }

@@ -131,8 +131,9 @@ public class GLM extends H2OPage {
       GLM_Params glmParams = new GLM_Params(f, l);
       FamilyArgs fargs = null;
       if(f == Family.binomial){
-        //TODO
-        fargs = new BinomialArgs(threshold, 1.0);
+        double caseVal = 1.0;
+        try{Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
+        fargs = new BinomialArgs(threshold, caseVal);
       }
       LSM_Params lsmParams = new LSM_Params(norm,lambda,rho,alpha,1);
       JsonObject jGlmParams = new JsonObject();
