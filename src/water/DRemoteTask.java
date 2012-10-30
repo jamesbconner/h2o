@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import water.web.Cloud;
 
 // *DISTRIBUTED* RemoteTask
 // Execute a set of Keys on the home for each Key.
@@ -49,6 +50,21 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
   public void invoke( Key args ) {
     invoke(flatten_keys(args)); // Convert to array-of-keys and invoke
   }
+  
+  
+  /** Invokes the task on all nodes
+   * 
+   */
+  public void invokeOnAllNodes() {
+    H2O cloud = H2O.CLOUD;
+    Key[] args = new Key[cloud.size()];
+    assert (cloud._memary.length == cloud.size());
+    for (int i = 0; i < args.length; ++i) {
+      args[i] = Key.make("__H2O__RUNONALL__",(byte)0,(byte)0,cloud._memary[i]);
+    }
+    invoke(args);
+  }
+  
 
   public void invoke( Key[] args ) {
     fork(args).get();        // Block until the job is done
