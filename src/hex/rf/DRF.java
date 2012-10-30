@@ -13,6 +13,7 @@ import water.*;
 public class DRF extends water.DRemoteTask {
   // Cloud-wide data
   int _ntrees;          // Number of trees TOTAL, not per-node
+  boolean _parallel;    // build trees in parallel or one by one
   int _depth;           // Tree-depth limiter
   int _stat;            // Use Gini(1) or Entropy(0) for splits
   int _classcol;        // Column being classified
@@ -39,9 +40,10 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, int classcol, int[] ignores, Key modelKey) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
+    drf._parallel = parallelTrees;
     drf._ntrees = ntrees;
     drf._depth = depth;
     drf._stat = stat.ordinal();
@@ -200,8 +202,7 @@ public class DRF extends water.DRemoteTask {
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
-    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat]);
-    tryComplete();
+    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel);
   }
 
   static boolean sample;

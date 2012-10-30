@@ -20,6 +20,7 @@ public class RandomForestPage extends H2OPage {
     int depth = getAsNumber(p,"depth", 30);
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int seed = getAsNumber(p,"seed", 42);
+    boolean parallel = getAsNumber(p,"parallel",1) == 0;
     StatType statType = StatType.values()[gini];
 
     // Optionally, save the model
@@ -52,7 +53,7 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth,-1.0,statType,seed, classcol,ignores,modelKey);
+      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth,-1.0,statType,seed, classcol,ignores,modelKey,parallel);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
       Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes);
