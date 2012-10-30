@@ -167,7 +167,16 @@ public abstract class PersistHdfs {
           off = ary.getChunkFileOffset(k);
         } else
           p = getPathForKey(k);
-        s = _fs.open(p);
+        try {
+          s = _fs.open(p);
+        } catch (IOException e) {
+          if (e.getMessage().equals("Filesystem closed")) {
+            _fs = FileSystem.get(_conf);
+            s = _fs.open(p);
+          } else {
+            throw e;
+          }
+        }
         int br = s.read(off, b, 0, len);
         assert (br == len);
         assert v.is_persisted();
