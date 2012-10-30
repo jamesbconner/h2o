@@ -21,6 +21,8 @@ public class DRF extends water.DRemoteTask {
   Key _modelKey;        // Where to jam the final trees
   public Key _treeskey; // Key of Tree-Keys built so-far
   int[] _ignores;
+  float _sample;
+  short _bin_limit;
 
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
@@ -40,7 +42,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._parallel = parallelTrees;
@@ -53,6 +55,8 @@ public class DRF extends water.DRemoteTask {
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
+    drf._sample = sample;
+    drf._bin_limit = binLimit;
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
@@ -115,7 +119,7 @@ public class DRF extends water.DRemoteTask {
 
     Utils.startTimer("binning");
     // The data adapter...
-    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed);
+    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _bin_limit);
     // Now load the DataAdapter with all the rows on this Node
     int ncolumns = ary.num_cols();
 
