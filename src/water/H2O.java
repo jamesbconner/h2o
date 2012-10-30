@@ -549,22 +549,21 @@ public final class H2O {
         // obtain the expected age of "old" values to be removed from memory
         long s = 0;
         int idx = histogram.length-1;
-
         int old = maxTime;
-        while (idx >= 0 && ((s + histogram[idx]) <= MemoryManager.mem2Free)) {
+        while( idx >= 0 && ((s + histogram[idx]) <= MemoryManager.mem2Free) ) {
           s += histogram[idx];
           old -= hStep;
           --idx;
         }
         Arrays.fill(histogram, 0);
         maxTime = currentMaxTime;
-        if(maxTime == 0){
+        if( maxTime == 0 ) {
           maxTime = 1024*histogram.length;
           hStep = 1024;
           old = Integer.MAX_VALUE;
         } else hStep = Math.max(1,maxTime/histogram.length);
         currentMaxTime = 0;
-        System.out.println("old = " + old + ", maxTime = " + maxTime + " hstep = " + hStep);
+        System.out.println("old = " + old + ", maxTime = " + maxTime+" idx="+idx+" 2free="+MemoryManager.mem2Free );
 
         boolean cleaned = false; // Anything got cleaned?
         long cacheSz = 0;       // Current size of cached memory
