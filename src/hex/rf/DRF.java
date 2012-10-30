@@ -208,6 +208,7 @@ public class DRF extends water.DRemoteTask {
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
     _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel);
+    tryComplete();
   }
 
   static boolean sample;

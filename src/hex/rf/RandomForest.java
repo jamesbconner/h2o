@@ -14,8 +14,6 @@ public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features = -1;   // features to check at each split
 
-//  public final boolean PARALLEL = true;
-
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
