@@ -18,6 +18,8 @@ public class RandomForestPage extends H2OPage {
     ValueArray ary = ServletUtil.check_array(p,"Key");
     int ntree = getAsNumber(p,"ntree", 5);
     int depth = getAsNumber(p,"depth", 30);
+    int smp = getAsNumber(p,"sample", 55);
+    float sample = smp==0? 1 : (float)(smp/100);
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int seed = getAsNumber(p,"seed", 42);
     StatType statType = StatType.values()[gini];
@@ -52,7 +54,7 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth,-1.0,statType,seed, classcol,ignores,modelKey);
+      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth,-1.0, sample, statType,seed, classcol,ignores,modelKey);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
       Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes);

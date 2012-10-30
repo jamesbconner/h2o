@@ -22,7 +22,7 @@ public class RandomForest {
     Utils.startTimer("alltrees");
     Tree[] trees = new Tree[ntrees];
     for (int i = 0; i < ntrees; ++i) {
-      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees);
+      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample);
       if (PARALLEL==false) water.DRemoteTask.invokeAll(new Tree[]{trees[i]});
     }
     if (PARALLEL) water.DRemoteTask.invokeAll(trees);
@@ -40,6 +40,7 @@ public class RandomForest {
 	int ntrees = 10;
 	int depth = Integer.MAX_VALUE;
 	double cutRate = 0;
+	float sample = (float) 0.55;
 	String statType = "entropy";
 	int seed = 42;
 	boolean singlethreaded;
@@ -87,7 +88,7 @@ public class RandomForest {
     final int num_cols = va.num_cols();
     final int classcol = num_cols-1; // Defaults to last column
     Utils.startTimer("main");
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, st, ARGS.seed, classcol, new int[0], Key.make("model"));
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, ARGS.sample, st, ARGS.seed, classcol, new int[0], Key.make("model"));
 
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
 
