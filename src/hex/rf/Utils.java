@@ -2,9 +2,8 @@
 package hex.rf;
 
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
-import java.util.HashMap;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class Utils {
@@ -75,21 +74,21 @@ public class Utils {
 
   public static void pln(String s) { System.out.println(s); }
 
-  private static HashMap<String, Long> timers = new HashMap<String, Long>();
+  private static ConcurrentHashMap<String,Long> timers = new ConcurrentHashMap<String, Long>();
   public static void startTimer(String name) {
-    if (timers.get(name)!=null) pln("[RF] Trying to start timer " + name +" twice");
-     timers.put(name, System.currentTimeMillis());
+    if( timers.putIfAbsent(name, System.currentTimeMillis()) != null )
+      pln("[RF] Trying to start timer " + name +" twice");
   }
+
   public static String printTimer(String name) {
     long now = System.currentTimeMillis();
     Long old = timers.get(name);
-    if (old==null) pln("[RF] Trying to print timer " + name +" before start.");
+    if( old==null ) pln("[RF] Trying to print timer " + name +" before start.");
     long l = now - old.longValue();
     final long hr = TimeUnit.MILLISECONDS.toHours(l);
     final long min = TimeUnit.MILLISECONDS.toMinutes(l - TimeUnit.HOURS.toMillis(hr));
     final long sec = TimeUnit.MILLISECONDS.toSeconds(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min));
     final long ms = TimeUnit.MILLISECONDS.toMillis(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min) - TimeUnit.SECONDS.toMillis(sec));
     return String.format("%02d:%02d:%02d.%03d", hr, min, sec, ms);
-
   }
 }
