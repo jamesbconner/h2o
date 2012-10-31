@@ -35,6 +35,10 @@ public class HeartBeatThread extends Thread {
   // to remove him.
   static public final int QUEUEDEPTH = 100;
 
+  // My Histogram.  Called from any thread calling into the MM.
+  // Singleton, allocated now so I do not allocate during an OOM event.
+  static private final H2O.Cleaner.Histo myHisto = new H2O.Cleaner.Histo();
+
   // The Run Method.
   // Started by main() on a single thread, this code publishes Cloud membership
   // to the Cloud once a second (across all members).  If anybody disagrees
@@ -59,7 +63,7 @@ public class HeartBeatThread extends Thread {
       me.set_max_mem (           maxmem);
       me.set_tot_mem (run.totalMemory());
       me.set_keys    (H2O.STORE.size());
-      me.set_valsz   (MemoryManager.CACHED);
+      me.set_valsz   (myHisto.histo(false)._cached);
       me.set_rpcs    (DFutureTask.TASKS.size());
       me.set_fjthrds_hi(H2O.FJP_HI  .getPoolSize());
       me.set_fjthrds_lo(H2O.FJP_NORM.getPoolSize());

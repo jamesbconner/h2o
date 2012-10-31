@@ -181,6 +181,7 @@ public class Value {
   // Load some or all of completely persisted Values
   byte[] load_persist(int len) {
     assert is_persisted();
+    H2O.dirty_store(); // Not really dirtying it, but definitely changing amount of RAM-cached data
     switch( _persist&BACKEND_MASK ) {
     case ICE : return PersistIce .file_load(this,len);
     case HDFS: return PersistHdfs.file_load(this,len);
