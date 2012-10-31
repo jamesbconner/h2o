@@ -25,7 +25,6 @@ public class RandomForest {
     }
     if (parallelTrees) water.DRemoteTask.invokeAll(trees);
 
-
     Utils.pln("All trees ("+ntrees+") done in "+ Utils.printTimer("alltrees"));
   }
 

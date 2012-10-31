@@ -17,13 +17,20 @@ public class RandomForestPage extends H2OPage {
   public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(p,"Key");
     int ntree = getAsNumber(p,"ntree", 5);
+    if( ntree <= 0 )
+      throw new InvalidInputException("Number of trees "+ntree+" must be positive.");
     int depth = getAsNumber(p,"depth", 30);
     int binLimit = getAsNumber(p,"binlimit", 1024);
-    int smp = getAsNumber(p,"sample", 55);
-    float sample = smp==0? 1 : (float)(smp/100);
+    int smp = getAsNumber(p,"sample", 67);
+    if( smp <= 0 || smp > 100 )
+      throw new InvalidInputException("Sampling percent of "+smp+" has to be between 0 and 100");
+    float sample = smp==0 ? 1.00f : ((float)smp/100);
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int seed = getAsNumber(p,"seed", 42);
-    boolean parallel = getAsNumber(p,"parallel",1) == 0;
+    int par = getAsNumber(p,"parallel",1);
+    if( !(par == 0 || par == 1) )
+      throw new InvalidInputException("Parallel tree building "+par+" must be either 0 or 1");
+    boolean parallel =  par== 1;
     StatType statType = StatType.values()[gini];
 
     // Optionally, save the model
