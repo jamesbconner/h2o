@@ -1,6 +1,9 @@
 package water.parser;
 
+import java.io.*;
 import java.util.*;
+
+import water.Stream;
 
 /**
  * Trie for parsing enums in the FastParser.
@@ -17,7 +20,7 @@ public final class FastTrie {
   boolean _compressed;
 
   int max_tokens = 1024;
-  int _nfinalStates = 0;
+  short _nfinalStates = (short)0;
   short _state0 = (short)0;
 
   public FastTrie(){
@@ -39,6 +42,58 @@ public final class FastTrie {
       _succ = new short[8];
       _alpha = new byte[8];
     }
+
+    int n(){
+      if(_compressed)return (_alpha == null)?0:_alpha.length;
+      int n = _alpha.length;
+      for(int i = 0; i < _succ.length && _succ[i] == _state0; ++i)--n;
+      return n;
+    }
+
+    int wire_len(){
+      return 10 + ((_alpha != null)?3*_alpha.length:0);
+    }
+
+    void write(Stream s){
+      s.set2(_skip);
+      s.setAry1(_alpha);
+      s.setAry2(_succ);
+    }
+
+    void read(Stream s){
+      _skip = (short)s.get2();
+      _alpha = s.getAry1();
+      _succ = s.getAry2();
+    }
+
+    public void write(DataOutputStream os) throws IOException {
+      os.writeShort(_skip);
+      if(_alpha != null){
+        os.writeInt(_alpha.length);
+        os.write(_alpha);
+        os.writeInt(_succ.length);
+        for(short s:_succ)os.writeShort(s);
+      } else {
+        os.writeInt(-1);
+        os.writeInt(-1);
+      }
+    }
+
+    public void read ( DataInputStream is) throws IOException {
+      _skip = is.readShort();
+      int n = is.readInt();
+      if(n == -1)
+        is.readInt();
+      else {
+        _alpha = new byte[n];
+        is.readFully(_alpha);
+        int m = is.readInt();
+        assert n == m;
+        _succ = new short[n];
+        for(int i = 0; i < n; ++i)_succ[i] = is.readShort();
+      }
+    }
+
     void merge(FastTrie otherTrie, short sIdx){
       State other = otherTrie._states[sIdx];
       for(int i = 0; i < other._alpha.length; ++i){
@@ -149,6 +204,7 @@ public final class FastTrie {
     _compressed = true;
     _state0 = (short)_nfinalStates;
     _state = _state0;
+    _nstates = (short)_states.length;
   }
 
   /**
@@ -174,6 +230,51 @@ public final class FastTrie {
       _nstates = other._nstates;
     }
     _states[0].merge(other, (short)0);
+  }
+
+  public int wire_len(){
+    int res = 5;
+    for(int i = 0; i < _nstates; ++i){
+      res += _states[i].wire_len();
+    }
+    return res;
+  }
+
+  public void write(DataOutputStream os) throws IOException {
+    os.writeBoolean(_compressed);
+    os.writeShort(_nstates);
+    os.writeShort(_compressed?_state0:_nfinalStates);
+    for(int i =0; i < _nstates; ++i)_states[i].write(os);
+  }
+
+  public void write(Stream s) {
+    s.set1(_compressed?1:0);
+    s.set2(_nstates);
+    s.set2(_compressed?_state0:_nfinalStates);
+    for(int i =0; i < _nstates; ++i)_states[i].write(s);
+  }
+
+  public void read(Stream s) {
+    _compressed = s.get1() == 1;
+    _nstates = (short)s.get2();
+    _nfinalStates = (short)s.get2();
+    if(_compressed)_state0 = _nfinalStates;
+    _states= new State[_nstates];
+    for(int i = 0; i < _states.length; ++i){
+      _states[i] = new State();
+      _states[i].read(s);
+    }
+  }
+
+  public void read (DataInputStream is) throws IOException {
+    _compressed = is.readBoolean();
+    _nstates = is.readShort();
+    _nfinalStates = is.readShort();
+    if(_compressed)_state0 = _nfinalStates;
+    for(int i = 0; i < _states.length; ++i){
+      _states[i] = new State();
+      _states[i].read(is);
+    }
   }
 
   public static int [] addWords (String [] words, FastTrie t){
