@@ -94,9 +94,10 @@ public final class FastTrie {
       return s;
     }
   }
-  void addByte(byte b){
+  public short addByte(byte b){
     assert  0 <= b && b < 128;
     if(nfinalStates < max_tokens)_state = _states[_state].getTransition(b);
+    return 0;
   }
 
   PatricianTrie asPatricianTrie(){
