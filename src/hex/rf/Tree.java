@@ -23,12 +23,10 @@ public class Tree extends CountedCompleter {
   final Key _treesKey;
   final Key _modelKey;
   final int _alltrees;
-  final int _treeId;
-
-  private static int TID;
+  final float _sample;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
@@ -39,8 +37,8 @@ public class Tree extends CountedCompleter {
     _treesKey = treesKey;
     _modelKey = modelKey;
     _alltrees = alltrees;
-    synchronized(Tree.class) {   _treeId = ++TID;  }
-    Utils.startTimer("tree"+_treeId);
+    _sample = sample;
+    Utils.startTimer("tree"+(_data_id+1));
   }
 
   // Oops, uncaught exception
@@ -65,9 +63,9 @@ public class Tree extends CountedCompleter {
   public void compute() {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
-    Utils.startTimer("sample"+_treeId);
-    Data d = _data.sample(0.55);
-    Utils.pln("[RF] Tree " + _treeId+ " sample done in "+ Utils.printTimer("sample"+_treeId));
+    Utils.startTimer("sample"+(_data_id+1));
+    Data d = _data.sample(_sample);
+    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ Utils.printTimer("sample"+(_data_id+1)));
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
     for( Row r : d ) left.add(r);
@@ -75,7 +73,7 @@ public class Tree extends CountedCompleter {
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
       : new FJBuild (spl, d, 0, _seed + 1).compute();
-    StringBuilder sb = new StringBuilder("Tree : " +_treeId+" ("+_data_id+") d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
+    StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,150).toString());
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
@@ -83,7 +81,7 @@ public class Tree extends CountedCompleter {
     AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees);
     am.invoke(_modelKey);
 
-    Utils.pln("[RF] Tree "+_treeId+ " done in "+ Utils.printTimer("tree"+_treeId));
+    Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ Utils.printTimer("tree"+(_data_id+1)));
     tryComplete();
   }
 

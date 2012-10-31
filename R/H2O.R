@@ -100,7 +100,7 @@ h2o.import <- function(key, file, hex=TRUE) {
     uploadKey = key
   }
   H2O._printIfVerbose("  put file ",file," to key ",uploadKey)
-  res = H2O._remoteSend("ImportUrl.json",Url=file)
+  res = H2O._remoteSend("ImportUrl.json",Key=uploadKey,Url=file)
   if (!H2O._isError(res) && hex) {
     H2O._printIfVerbose("  parsing key ",res$Key," to key ",key)
     res = H2O._remoteSend("Parse.json",Key=res$Key, Key2=key)
@@ -184,6 +184,17 @@ h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
 h2o.debug.freeMem <- function(key) {
   H2O._printIfVerbose("  freeMem of key ",key)
   res = H2O._remoteSend("Debug.json",action="freeMem",key=key)
+  if (H2O._isError(res)) {
+    H2O._printError(res$Error,prefix="  ")
+    NULL
+  } else {
+    res
+  }
+}
+
+h2o.debug.fastParse <- function(key) {
+  H2O._printIfVerbose("  fastParse of key ",key)
+  res = H2O._remoteSend("Debug.json",action="fastParse",key=key)
   if (H2O._isError(res)) {
     H2O._printError(res$Error,prefix="  ")
     NULL

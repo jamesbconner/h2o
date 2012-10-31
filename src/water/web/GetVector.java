@@ -27,8 +27,6 @@ public class GetVector extends JSONPage {
       if (!(v instanceof ValueArray))
         throw new IOException("Only ValueArrays can be returned at this point");
       ValueArray va = (ValueArray) v;
-      if (va.num_rows()*va.num_cols() > 200000)
-        throw new IOException("Only dataframes with less than 2000000 entries (cols*rows) are supported now");
       JsonArray columns = new JsonArray();
       int numRows = (int) Math.min(va.num_rows(),maxItems / va.num_cols());
       for (int i = 0; i < va.num_cols(); ++i) {

@@ -20,14 +20,14 @@ class DataAdapter  {
   public final int _classIdx;
   public final int _numRows;
 
-  //public static final int MAX_BIN_LOG = 2;
   /** Maximum arity for a column (not a hard limit at this point) */
-  static final short BIN_LIMIT = 1024;
+  final short _bin_limit;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
-      int data_id, int seed) {
+      int data_id, int seed, short bin_limit) {
     _seed = seed+data_id;
     _ary = ary;
+    _bin_limit = bin_limit;
     _columnNames = ary.col_names();
     _c = new C[_columnNames.length];
 
@@ -39,11 +39,11 @@ class DataAdapter  {
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) > 0;
       double range = _ary.col_max(i) - _ary.col_min(i);
-      boolean raw = (_ary.col_size(i) > 0 && range < BIN_LIMIT && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
+      boolean raw = (_ary.col_size(i) > 0 && range < _bin_limit && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
       if(raw && range == 1)t = C.ColType.BOOL;
       else if(raw && range <= Byte.MAX_VALUE)t = C.ColType.BYTE;
-      _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, !raw, ignore);
+      _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, !raw, ignore,_bin_limit);
       if(raw){
         _c[i]._smax = (short)range;
         _c[i]._min = (float)_ary.col_min(i);
@@ -161,14 +161,32 @@ class DataAdapter  {
     BitSet _booleanValues;
     short _smax = -1;
     int _n;
+    final short _bin_limit;
 
-    C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore) {
+    C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore, short bin_limit) {
       _name = s;
       _isClass = isClass;
       _ignore = ignore;
       _bin = bin;
+      _bin_limit = bin_limit;
       _ctype = t;
       _n = rows;
+      if(!_ignore){
+        if(_bin){
+          _raw = _bin?new float[rows]:null;
+        } else {
+          switch(_ctype){
+          case BOOL:
+            _booleanValues = new BitSet(rows);
+            break;
+          case BYTE:
+            _bvalues = new byte[rows];
+            break;
+          case SHORT:
+            _binned = new short[rows];
+          }
+        }
+      }
     }
 
     public void setValue(int row, short s){
@@ -240,11 +258,11 @@ class DataAdapter  {
         i = j;
       }
       int n = _raw.length - ndups;
-      int rem = n % BIN_LIMIT;
-      int maxBinSize = (n > BIN_LIMIT) ? (n / BIN_LIMIT + Math.min(rem,1)) : 1;
+      int rem = n % _bin_limit;
+      int maxBinSize = (n > _bin_limit) ? (n / _bin_limit + Math.min(rem,1)) : 1;
       System.out.println("n = " + n + ", max bin size = " + maxBinSize);
       // Assign shorts to floats, with binning.
-      _binned2raw = new float[Math.min(n, BIN_LIMIT)];
+      _binned2raw = new float[Math.min(n, _bin_limit)];
       _smax = 0;
       int cntCurBin = 1;
       _binned2raw[0] = _raw[0];
@@ -258,8 +276,9 @@ class DataAdapter  {
         _binned2raw[_smax] = _raw[i];
       }
       ++_smax;
-      if( n > BIN_LIMIT )
+      if( n > _bin_limit )
         Utils.pln(this + " this column's arity was cut from "+ n + " to " + _smax);
+      _binned = MemoryManager.allocateMemoryShort(_n);
       _raw = null;
     }
   }
