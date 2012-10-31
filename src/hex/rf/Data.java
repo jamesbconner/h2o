@@ -91,6 +91,7 @@ public class Data implements Iterable<Row> {
   public Data sample(double bagSizePct) {
     Random r = new Random(seed());
     int size = (int)(rows() * bagSizePct);
+    if( size == 0 && rows() > 0 ) size = 1;
     int[] sample = new int[size];
     int i = 0;
     for( ; i < size; ++i ) sample[i] = permute(i + start());

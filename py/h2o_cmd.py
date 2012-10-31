@@ -54,7 +54,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     if not node: node = h2o.nodes[0]
     #! FIX! what else is in parseKey that we should check?
     h2o.verboseprint("runRFOnly parseKey:",parseKey)
-    key = parseKey['key']
+    key = parseKey['Key']
     rf = node.random_forest(key, trees, depth, **kwargs)
 
     # rf result json: 
