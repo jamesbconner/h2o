@@ -39,4 +39,8 @@ public class ExecWeb extends H2OPage {
       return query.toString() + error("<span style='font-family:monospace'>"+e.reportHTML(args.getProperty("Expr")) +"</span>");
     }
   }
+
+  @Override public String[] requiredArguments() {
+    return new String[] { "Expr" };
+  }
 }
