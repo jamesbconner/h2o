@@ -83,7 +83,7 @@ public class Utils {
   public static String printTimer(String name) {
     long now = System.currentTimeMillis();
     Long old = timers.get(name);
-    if (old==null) pln("[RF] Trying to print timer " + name +" before start.");
+    if (old==null) return "[RF] Trying to print timer " + name +" before start.";
     long l = now - old.longValue();
     final long hr = TimeUnit.MILLISECONDS.toHours(l);
     final long min = TimeUnit.MILLISECONDS.toMinutes(l - TimeUnit.HOURS.toMillis(hr));
