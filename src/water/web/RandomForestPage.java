@@ -18,7 +18,7 @@ public class RandomForestPage extends H2OPage {
     ValueArray ary = ServletUtil.check_array(p,"Key");
     int ntree = getAsNumber(p,"ntree", 5);
     int depth = getAsNumber(p,"depth", 30);
-    int binLimit = getAsNumber(p,"binlimit", 55);
+    int binLimit = getAsNumber(p,"binlimit", 1024);
     int smp = getAsNumber(p,"sample", 55);
     float sample = smp==0? 1 : (float)(smp/100);
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
