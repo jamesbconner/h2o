@@ -140,6 +140,11 @@ NEXT_CHAR:
             state = STRING;
             colTrie = _columnTries[colIdx];
             continue MAIN_LOOP;
+          } else if (c == CHAR_SEPARATOR) {
+            throw new Error("Yoda says: Separator after empty value, what to do with it now not sure I am.");
+          } else if (isEOL(c)) {
+            state = EOL;
+            continue MAIN_LOOP;
           }
           state = NUMBER;
           number = 0;
