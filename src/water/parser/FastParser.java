@@ -1,6 +1,7 @@
 
 package water.parser;
 
+import java.util.ArrayList;
 import water.*;
 
 /**
@@ -91,7 +92,7 @@ NEXT_CHAR:
             state = COND_QUOTE;
             break NEXT_CHAR;
           } if ((quotes != 0) || !(isEOL(c) || isWhitespace(c) || (c == CHAR_SEPARATOR))) {
-            colTrie.addChar((char)c);
+            offset += colTrie.addByte(c); // FastTrie returns skipped chars - 1
             break NEXT_CHAR;
           }
           // fallthrough to STRING_END
@@ -236,7 +237,7 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case COND_QUOTE:
           if (c == quotes) {
-            colTrie.addChar((char)quotes);
+            offset += colTrie.addByte(c); // FastTrie returns skipped chars - 1
             state = STRING;
             break NEXT_CHAR;
           } else {
@@ -249,15 +250,15 @@ NEXT_CHAR:
           throw new Error("Unknown state "+state);
       } // end NEXT_CHAR
       ++offset;
-      if (offset == bits.length) {
+      if (offset >= bits.length) {
         if (_ary == null)
           break;
+        offset -= bits.length;
         key = _ary.make_chunkkey(ValueArray.getOffset(key)+offset);
         Value v = DKV.get(key); // we had the last key
         if (v == null)
           break MAIN_LOOP;
         bits = v.get();
-        offset = 0;
         secondChunk = true;
       }
       c = bits[offset];
@@ -298,6 +299,25 @@ NEXT_CHAR:
   }
   
   
+  
+  /** This guy attempts to figure out the settings of the CSV file from the
+   * first few lines. 
+   * 
+   * 
+   */
+  private void guessParserSetup() {
+    ArrayList<String> row1 = new ArrayList();
+    ArrayList<Character> row1Types = new ArrayList();
+    ArrayList<String> row2 = new ArrayList();
+    ArrayList<Character> row2Types = new ArrayList();
+    byte[] bits;
+    Value v = DKV.get(_aryKey);
+    if (v instanceof ValueArray) 
+      bits = DKV.get(ValueArray.getChunk(_aryKey,0)).get();
+    else 
+      bits = v.get();
+    
+  }
   
   
 
