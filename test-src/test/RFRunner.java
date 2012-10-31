@@ -1,21 +1,10 @@
-package hex.rf;
+package test;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.io.Reader;
+import hex.rf.Utils;
+
+import java.io.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.StringTokenizer;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,13 +33,11 @@ public class RFRunner {
   static final String[] RESULTS = new String[] { "ntrees", "nvars", "err", "avg.depth", "avg.leaves", "rows", "time" };
 
   static final String JAVA         = "java";
-  static final String JAR          = "-javaagent:build/h2o.jar -jar build/h2o.jar";
+  static final String JAR          = "-jar build/h2o.jar";
   static final String MAIN         = "-mainClass hex.rf.RandomForest";
   static final String[] stat_types = new String[] { "gini", "entropy" };
   static final int[] ntrees        = new int[] { 1, 50, 100, 300 };
   static final int[] sizeMultiples = new int[]{ 1, 4, 12, 24, 32, 64};
-  static PrintStream stdout        = System.out;
-
 
   static class RFArgs extends Arguments.Opt {
     String file;                // data
@@ -82,19 +69,22 @@ public class RFRunner {
   static class RFProcess extends Thread {
     Process _process;
     BufferedReader _rd;
+    BufferedReader _rdErr;
     String[] results = new String[RESULTS.length];
     String exception;
     PrintStream _stdout = System.out;
+    PrintStream _stderr = System.err;
 
     /* Creates RFPRocess and spawns new process. */
     RFProcess(String cmd) throws Exception {
-      System.out.println("'"+JAVA+" "+cmd+"'");
+      Utils.pln("'"+JAVA+" "+cmd+"'");
       List<String> c = new ArrayList<String>();
       c.add(JAVA);  for(String s : cmd.split(" "))  { s = s.trim(); if (s.length()>0) c.add(s); }
       ProcessBuilder bldr = new ProcessBuilder(c);
       bldr.redirectErrorStream(true);
       _process = bldr.start();
       _rd = new BufferedReader(new InputStreamReader(_process.getInputStream()));
+      _rdErr = new BufferedReader(new InputStreamReader(_process.getErrorStream()));
     }
 
     /** Kill the spawned process. And kill the thread. */
@@ -184,6 +174,7 @@ public class RFRunner {
     return Arrays.copyOf(multiples, off+1);
   }
 
+  /** Builds a list of test input files */
   static String[] makeFiles(String[] files, int[] multiples) {
     LinkedList<String> ls = new LinkedList();
     for(String f:files)
@@ -192,6 +183,7 @@ public class RFRunner {
     ls.toArray(res);
     return res;
   }
+  /** Creates a multiply repeated file */
   static String[] makeFile(String fn,int[] multiples) throws IOException {
     File f = new File(fn);
     String name = f.getName();
@@ -210,14 +202,12 @@ public class RFRunner {
       FileWriter fw = new FileWriter(f2, true);
       for( int i = 0; i <= m; ++i )  fw.write(content);
       fw.close();
-     // f2.deleteOnExit();
     }
     return names;
   }
 
 
   static void runTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
-    stdout = out;
     int[] szMultiples = size(sizeMultiples, args.maxConcat);
     int[] szTrees = ntrees;
     String[] stats  = stat_types;
@@ -243,8 +233,77 @@ public class RFRunner {
        runTest(cmd, args.resultDB, out);
   }
 
+  static HashMap<String,String> special = new HashMap<String,String>();
+
+  static {
+    special.put("smalldata//stego/stego_training.data", "-classcol=1");
+    special.put("smalldata//stego/stego_testing.data", "-classcol=1");
+  };
+
+  public static void basicTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
+    String[] files = new String[]{
+    "smalldata//cars.csv",
+    "smalldata//hhp_9_17_12.predict.100rows.data",
+    "smalldata//iris/iris2.csv",
+    "smalldata//logreg/benign.csv",
+    "smalldata//logreg/prostate.csv",
+    "smalldata//poker/poker-hand-testing.data",
+    "smalldata//poker/poker10",
+    "smalldata//poker/poker100",
+    "smalldata//poker/poker1000",
+    "smalldata//stego/stego_testing.data",
+    "smalldata//stego/stego_training.data",
+    "smalldata//test/arit.csv",
+    "smalldata//test/HTWO-87-one-line-dataset-0.csv",
+    "smalldata//test/HTWO-87-one-line-dataset-1dos.csv",
+    "smalldata//test/HTWO-87-one-line-dataset-1unix.csv",
+    "smalldata//test/HTWO-87-one-line-dataset-2dos.csv",
+    "smalldata//test/HTWO-87-one-line-dataset-2unix.csv",
+    "smalldata//test/HTWO-87-two-lines-dataset.csv",
+    "smalldata//test/test1.dat",
+    "smalldata//test/test_26cols_comma_sep.csv",
+    "smalldata//test/test_26cols_multi_space_sep.csv",
+    "smalldata//test/test_26cols_single_space_sep.csv",
+    "smalldata//test/test_26cols_single_space_sep_2.csv",
+    "smalldata//test/test_all_raw_top10rows.csv",
+    "smalldata//test/test_domains_and_column_names.csv",
+    "smalldata//test/test_less_than_65535_unique_names.csv",
+    "smalldata//test/test_more_than_65535_unique_names.csv",
+    "smalldata//test/test_var.csv"};
+
+    int[] szTrees = new int[]{10};
+    String[] stats  = new String[]{"gini"};
+    boolean[] threading = new boolean[]{true};
+    int[] seeds = new int[]{ 3};
+
+    int experiments = files.length * szTrees.length*stats.length*threading.length*seeds.length;
+    String[] commands = new String[experiments];
+    int i = 0;
+    for(String f : files)
+      for (boolean thread : threading)
+        for (int sz :szTrees)
+          for(String stat : stats)
+            for(int seed : seeds) {
+              RFArgs rfa = new RFArgs();
+              rfa.seed = seed; rfa.statType = stat; rfa.file = f;
+              rfa.ntrees = sz;  rfa.singlethreaded = thread;
+              String add = special.get(f)==null? "" : (" "+special.get(f));
+              commands[i++] = javaCmd + " " + rfa + add;
+            }
+
+    for( String cmd : commands)
+       runTest(cmd, args.resultDB, out);
+
+  }
 
   public static void main(String[] args) throws Exception {
+    final OptArgs ARGS        = new OptArgs();
+    new Arguments(args).extract(ARGS);
+    PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
+    String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
+    try { basicTests(javaCmd, out, ARGS); } finally { out.close(); }
+  }
+  public static void main2(String[] args) throws Exception {
     final OptArgs ARGS        = new OptArgs();
     new Arguments(args).extract(ARGS);
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
