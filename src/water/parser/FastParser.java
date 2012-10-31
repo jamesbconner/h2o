@@ -145,7 +145,8 @@ NEXT_CHAR:
           } else if (isEOL(c)) {
             state = EOL;
             continue MAIN_LOOP;
-          }
+          }  
+          
           state = NUMBER;
           number = 0;
           exp = 0;
