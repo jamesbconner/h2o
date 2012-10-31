@@ -1,7 +1,6 @@
 package water.parser;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
 /**
  * Trie for parsing enums in the FastParser.
@@ -13,7 +12,8 @@ import java.util.Arrays;
 public final class FastTrie {
   short _state;
   State [] _states = new State[1024];
-  short _nstates;
+  short _nstates = 1;
+  boolean _compressed;
 
   int max_tokens = 1024;
   byte aMin = Byte.MAX_VALUE,aMax = Byte.MIN_VALUE;
@@ -31,6 +31,7 @@ public final class FastTrie {
   final class State {
     byte [] _alpha = new byte[8];
     short [] _succ = new short[8];
+    short _skip;
     boolean _final;
 
     void merge(FastTrie otherTrie, short sIdx){
@@ -41,25 +42,27 @@ public final class FastTrie {
         _states[getTransition(other._alpha[i])].merge(otherTrie, other._succ[i]);
       }
     }
-    short toPatricianTrieStates(ArrayList<PatricianTrie.State> states, ArrayList<Short> finalStates, short skip){
+
+    short compress(ArrayList<State> states, short skip){
       int firstSucc = 0;
       for(firstSucc = 0; firstSucc < _succ.length; ++firstSucc)if(_succ[firstSucc] != 0)break;
       int nsucc = _succ.length-firstSucc;
       if(_final || nsucc > 1){
-        PatricianTrie.State s = new PatricianTrie.State();
+        State s = new State();
         short res = (short)states.size();
         states.add(s);
+        s._skip = skip;
         if(nsucc > 0){
-          s._skip = skip;
+
           s._succ = new short[nsucc];
-          s._alpha = Arrays.copyOfRange(_alpha,firstSucc,nsucc);
-          for(int i = firstSucc; i < nsucc; ++i){
-            if(_succ[i] == 0)continue;
-            s._succ[i] = _states[_succ[i]].toPatricianTrieStates(states, finalStates, (short)0);
+          s._alpha = Arrays.copyOfRange(_alpha,firstSucc,firstSucc+nsucc);
+          for(int i = 0; i < nsucc; ++i){
+            if(_succ[i+firstSucc] == 0)continue;
+            s._succ[i] = _states[_succ[i+firstSucc]].compress(states, (short)0);
           }
         }
         return res;
-      } else return _states[_succ[firstSucc]].toPatricianTrieStates(states, finalStates, ++skip);
+      } else return _states[_succ[firstSucc]].compress(states, ++skip);
     }
 
     final short getTransition(byte c){
@@ -67,9 +70,10 @@ public final class FastTrie {
       for(;firstSucc < _succ.length && _succ[firstSucc] == 0; ++firstSucc);
       int idx = Arrays.binarySearch(_alpha, firstSucc, _succ.length, c);
       if(idx >= 0)return _succ[idx];
+      if(_compressed)throw new Error("missing transition in compressed trie!");
       // we need a new state
       short s = addState(new State());
-      idx = -idx - 1;
+      idx = -idx - 2;
       if(_succ[0] == 0){ // array is not full
         if(idx == _succ.length)--idx;
         for(int i = firstSucc; i <= idx; ++i){
@@ -94,17 +98,39 @@ public final class FastTrie {
       return s;
     }
   }
+
+  @Override
+  public String toString(){
+    LinkedList<Short> openedNodes = new LinkedList<Short>();
+    openedNodes.add((short)0);
+    StringBuilder sb = new StringBuilder();
+    while(!openedNodes.isEmpty()){
+      short stidx = openedNodes.pollFirst();
+      State st = _states[stidx];
+      sb.append("state: " + stidx + " skip:" + st._skip +  " final:" + st._final + " transitions: ");
+      for(int i = st._succ.length-1; i >= 0; --i){
+        short s = st._succ[i];
+        if(s == 0)break;
+        openedNodes.push(s);
+        sb.append((char)st._alpha[i] + ":" + s + " ");
+      }
+      sb.append('\n');
+    }
+    return sb.toString();
+  }
+
   public short addByte(byte b){
     assert  0 <= b && b < 128;
     if(nfinalStates < max_tokens)_state = _states[_state].getTransition(b);
-    return 0;
+    return _states[_state]._skip;
   }
 
-  PatricianTrie asPatricianTrie(){
-    PatricianTrie res = new PatricianTrie();
-    ArrayList<PatricianTrie.State> pStates = new ArrayList<FastTrie.PatricianTrie.State>();
-
-    return res;
+  void compress(){
+    ArrayList<State> newStates = new ArrayList<State>();
+    _states[0].compress(newStates, (short)0);
+    _states = new State[newStates.size()];
+    _states = newStates.toArray(_states);
+    _compressed = true;
   }
 
   /**
@@ -112,7 +138,7 @@ public final class FastTrie {
    */
   public int getTokenId(){
     if(nfinalStates >= max_tokens-1)return -1;
-   nfinalStates++;
+    nfinalStates++;
     _states[_state]._final = true;
     int res = _state;
     _state = 0;
@@ -127,37 +153,15 @@ public final class FastTrie {
     _states[0].merge(other, (short)0);
   }
 
-  public static class PatricianTrie {
-    short _state;
-    short [] _finalStateIdx;
-    State [] _states;
-
-    public short addByte(byte b) {
-      _state = _states[_state].transition(b);
-      return _states[_state]._skip;
-    }
-
-    public int getTokenId(){
-      int res = Arrays.binarySearch(_finalStateIdx, _state);
-      _state = 0;
-      return res;
-    }
-
-    final static class State {
-      short _skip;
-      byte  [] _alpha;
-      short [] _succ;
-      public short transition(byte b){
-        return _succ[Arrays.binarySearch(_alpha, b)];
-      }
-    };
-  }
-
   public static int [] addWords (String [] words, FastTrie t){
     int [] res = new int[words.length];
     int i = 0;
     for(String w:words){
-      for(byte b:w.getBytes())t.addByte(b);
+      int j = 0;
+      byte [] bs = w.getBytes();
+      while(j < bs.length){
+        j += t.addByte(bs[j])+1;
+      }
       res[i++] = t.getTokenId();
     }
     return res;
@@ -169,5 +173,28 @@ public final class FastTrie {
     int [] res2 = addWords(words, t);
     System.out.println("res1 = " + Arrays.toString(res1));
     System.out.println("res2 = " + Arrays.toString(res2));
+    System.out.println("Trie: ");
+    System.out.println(t.toString());
+
+    FastTrie t2 = new FastTrie();
+    String [] words2 = new String[]{"haha","abc", "gogo","gaga","hahagaga", "hahaha","gagaga"};
+    int [] res3 = addWords(words2, t2);
+    int [] res4 = addWords(words2, t2);
+    System.out.println("res3 = " + Arrays.toString(res3));
+    System.out.println("res4 = " + Arrays.toString(res4));
+    t.merge(t2);
+    res2 = addWords(words, t);
+    System.out.println("res5 = " + Arrays.toString(res2));
+    System.out.println(t);
+    res2 = addWords(words2, t);
+    System.out.println("res6 = " + Arrays.toString(res2));
+    System.out.println(t);
+    t.compress();
+    System.out.println("===================================================================");
+    System.out.println(t);
+    res2 = addWords(words2, t);
+    System.out.println("res7 = " + Arrays.toString(res2));
+    System.out.println(t);
+
   }
 }
