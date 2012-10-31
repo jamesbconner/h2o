@@ -14,7 +14,7 @@ def runGLMOnly(node=None,parseKey=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    glm = node.GLM(parseKey['key'],X=X,Y=Y)
+    glm = node.GLM(parseKey['Key'],X=X,Y=Y)
     return glm
 
 # You can change those on the URL line woth "&colA=77&colB=99"
@@ -33,7 +33,7 @@ def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySec
     if not parseKey: raise Exception('No file name for LR specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    lr = node.linear_reg(parseKey['key'], colA, colB)
+    lr = node.linear_reg(parseKey['Key'], colA, colB)
 
 ###     # we'll have to add something for LR.json to verify the LR results
 
