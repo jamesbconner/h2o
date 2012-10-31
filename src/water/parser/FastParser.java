@@ -19,8 +19,11 @@ public class FastParser extends MRTask {
   public static final byte CHAR_DOUBLE_QUOTE = '"';
   public static final byte CHAR_SINGLE_QUOTE = '\'';
   
-  public byte CHAR_DECIMAL_SEPARATOR = '.';
-  public byte CHAR_SEPARATOR = ',';
+  //public byte CHAR_DECIMAL_SEPARATOR = '.';
+  //public byte CHAR_SEPARATOR = ',';
+
+  public byte CHAR_DECIMAL_SEPARATOR = 0;
+  public byte CHAR_SEPARATOR = 0;
   
   
   private static final int SKIP_LINE = 0;
@@ -51,6 +54,15 @@ public class FastParser extends MRTask {
     _aryKey = aryKey;
     _phase = 1;
   }
+  
+  private void addError(long pos, String error) {
+    
+  }
+
+  private void addWarning(long pos, String error) {
+    
+  }
+  
   
   @Override public void map(Key key) {
     ValueArray _ary = null;
@@ -298,25 +310,63 @@ NEXT_CHAR:
     
   }
   
+
   
-  
-  /** This guy attempts to figure out the settings of the CSV file from the
-   * first few lines. 
-   * 
-   * 
-   */
-  private void guessParserSetup() {
-    ArrayList<String> row1 = new ArrayList();
-    ArrayList<Character> row1Types = new ArrayList();
-    ArrayList<String> row2 = new ArrayList();
-    ArrayList<Character> row2Types = new ArrayList();
-    byte[] bits;
+  private byte[] getFirstChunk() {
     Value v = DKV.get(_aryKey);
     if (v instanceof ValueArray) 
-      bits = DKV.get(ValueArray.getChunk(_aryKey,0)).get();
+      return DKV.get(ValueArray.getChunk(_aryKey,0)).get();
     else 
-      bits = v.get();
-    
+      return v.get();
+  }
+
+  /** Determines the parser setup for separators. If the separators cannot be
+   * inferred from the first chunk, the defaults - comma for separator and dot
+   * for decimal separator are used. 
+   */
+  private void determineParserDelimiters() {
+    byte[] bits = getFirstChunk();
+    int offset = 0;
+    while ((offset < bits.length) && ((CHAR_SEPARATOR == 0) || (CHAR_DECIMAL_SEPARATOR == 0))) {
+      
+      
+      ++offset;
+    }
+    if (CHAR_SEPARATOR == 0) {
+      addWarning(0,"Unable to determine separator character. Defaulting to comma");
+      CHAR_SEPARATOR = ',';
+    }
+    if (CHAR_DECIMAL_SEPARATOR == 0) {
+      addWarning(0,"Unable to determine decimal separator character. Defaulting to dot");
+      CHAR_DECIMAL_SEPARATOR = '.'; 
+    }
+  }
+  
+  /** Determines the column names to be used for the parser, if any. Column
+   * names are used if the first line has only strings in it and the second line
+   * does not. Otherwise we assume that column names are not present.
+   */
+  private void determineColumnNames() {
+    ArrayList<String> colNames = new ArrayList();
+    byte[] bits = getFirstChunk();
+    int offset = 0;
+    int state = COND_QUOTED_TOKEN;
+    byte c = bits[offset];
+    byte quotes = 0;
+      
+  }
+  
+  private int parseColName(byte[] bits, int offset, ArrayList<String> colNames) {
+    int start = offset;
+    byte quotes = 0;
+    int state = COND_QUOTED_TOKEN;
+    byte c = bits[offset];
+    while (offset < bits.length) {
+      switch (state) {
+        case COND_QUOTED_TOKEN:
+      }
+    }
+    return offset;
   }
   
   
