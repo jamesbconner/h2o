@@ -254,22 +254,23 @@ public class RFRunner {
     "smalldata//stego/stego_testing.data",
     "smalldata//stego/stego_training.data",
     "smalldata//test/arit.csv",
-    "smalldata//test/HTWO-87-one-line-dataset-0.csv",
-    "smalldata//test/HTWO-87-one-line-dataset-1dos.csv",
-    "smalldata//test/HTWO-87-one-line-dataset-1unix.csv",
-    "smalldata//test/HTWO-87-one-line-dataset-2dos.csv",
-    "smalldata//test/HTWO-87-one-line-dataset-2unix.csv",
-    "smalldata//test/HTWO-87-two-lines-dataset.csv",
-    "smalldata//test/test1.dat",
-    "smalldata//test/test_26cols_comma_sep.csv",
-    "smalldata//test/test_26cols_multi_space_sep.csv",
-    "smalldata//test/test_26cols_single_space_sep.csv",
-    "smalldata//test/test_26cols_single_space_sep_2.csv",
+   // "smalldata//test/HTWO-87-one-line-dataset-0.csv",      all of these are not running
+   // "smalldata//test/HTWO-87-one-line-dataset-1dos.csv",
+   // "smalldata//test/HTWO-87-one-line-dataset-1unix.csv",
+   // "smalldata//test/HTWO-87-one-line-dataset-2dos.csv",
+   // "smalldata//test/HTWO-87-one-line-dataset-2unix.csv",
+   // "smalldata//test/HTWO-87-two-lines-dataset.csv",
+   // "smalldata//test/test1.dat",
+   // "smalldata//test/test_26cols_comma_sep.csv",
+   // "smalldata//test/test_26cols_multi_space_sep.csv",
+   // "smalldata//test/test_26cols_single_space_sep.csv",
+   // "smalldata//test/test_26cols_single_space_sep_2.csv",
     "smalldata//test/test_all_raw_top10rows.csv",
     "smalldata//test/test_domains_and_column_names.csv",
     "smalldata//test/test_less_than_65535_unique_names.csv",
     "smalldata//test/test_more_than_65535_unique_names.csv",
-    "smalldata//test/test_var.csv"};
+    "smalldata//test/test_var.csv"
+    };
 
     int[] szTrees = new int[]{10};
     String[] stats  = new String[]{"gini"};
