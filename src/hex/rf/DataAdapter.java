@@ -1,13 +1,11 @@
 package hex.rf;
-
+import com.google.common.primitives.Ints;
 import java.text.DecimalFormat;
 import java.util.*;
-
 import jsr166y.RecursiveAction;
+import water.H2O;
 import water.MemoryManager;
 import water.ValueArray;
-
-import com.google.common.primitives.Ints;
 
 class DataAdapter  {
   private final int _numClasses;
@@ -171,21 +169,16 @@ class DataAdapter  {
       _bin_limit = bin_limit;
       _ctype = t;
       _n = rows;
-      if(!_ignore){
-        if(_bin){
-          _raw = _bin?new float[rows]:null;
-        } else {
-          switch(_ctype){
-          case BOOL:
-            _booleanValues = new BitSet(rows);
-            break;
-          case BYTE:
-            _bvalues = new byte[rows];
-            break;
-          case SHORT:
-            _binned = new short[rows];
-          }
-        }
+      if( ignore ) return;        // Ignore this column
+      if( bin ) {
+        _raw = MemoryManager.allocateMemoryFloat(rows);
+        return;
+      } 
+      switch( _ctype ) {
+      case BOOL:  _booleanValues = new BitSet(rows);  break;
+      case BYTE:  _bvalues = MemoryManager.allocateMemory(rows);  break;
+      case SHORT: _binned  = MemoryManager.allocateMemoryShort(rows);  break;
+      default: throw H2O.unimpl();
       }
     }
 
@@ -208,12 +201,9 @@ class DataAdapter  {
 
     public short getValue(int i) {
       switch(_ctype){
-      case BOOL:
-        return (short)(_booleanValues.get(i)?1:0);
-      case BYTE:
-        return _bvalues[i];
-      case SHORT:
-        return _binned[i];
+      case BOOL:  return (short)(_booleanValues.get(i)?1:0);
+      case BYTE:  return _bvalues[i];
+      case SHORT: return _binned[i];
       }
       throw new Error("illegal column type " + _ctype);
     }
@@ -262,7 +252,7 @@ class DataAdapter  {
       int maxBinSize = (n > _bin_limit) ? (n / _bin_limit + Math.min(rem,1)) : 1;
       System.out.println("n = " + n + ", max bin size = " + maxBinSize);
       // Assign shorts to floats, with binning.
-      _binned2raw = new float[Math.min(n, _bin_limit)];
+      _binned2raw = MemoryManager.allocateMemoryFloat(Math.min(n, _bin_limit));
       _smax = 0;
       int cntCurBin = 1;
       _binned2raw[0] = _raw[0];
