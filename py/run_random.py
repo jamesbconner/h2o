@@ -8,7 +8,7 @@ h2o.parse_our_args()
 reservation = ec2.run_instances(2)
 try:
     print 'Building cloud'
-    hosts = ec2.hosts_for_reservation(reservation)
+    hosts = ec2.create_hosts(reservation)
     ec2.build_cloud(hosts, 2, capture_output=False, java_heap_GB=15)
     print 'Random Forest'
     h2o_cmd.runRF(None, h2o.find_file('smalldata/iris/iris2.csv'))
