@@ -2,6 +2,7 @@ package hex.rf;
 
 import hex.rf.Data.Row;
 import hex.rf.Tree.SplitNode;
+import water.MemoryManager;
 
 import java.util.*;
 
@@ -79,7 +80,7 @@ public class Data implements Iterable<Row> {
     Random r = new Random(seed());
     for( int i = 0; i < size; ++i)
       in[permute(r.nextInt(rows()))]++;
-    int[] sample = new int[size];
+    int[] sample = MemoryManager.allocateMemoryInt(size);
     for( int i = 0, j = 0; i < sample.length;) {
       while(in[j]==0) j++;
       for (int k = 0; k < in[j]; k++) sample[i++] = j;
@@ -92,7 +93,7 @@ public class Data implements Iterable<Row> {
     Random r = new Random(seed());
     int size = (int)(rows() * bagSizePct);
     if( size == 0 && rows() > 0 ) size = 1;
-    int[] sample = new int[size];
+    int[] sample = MemoryManager.allocateMemoryInt(size);
     int i = 0;
     for( ; i < size; ++i ) sample[i] = permute(i + start());
     for( ; i < rows(); ++i ) {
@@ -108,7 +109,7 @@ public class Data implements Iterable<Row> {
 
   protected int permute(int idx) { return idx; }
   protected int[] getPermutationArray() {
-    int[] perm = new int[rows()];
+    int[] perm = MemoryManager.allocateMemoryInt(rows());
     for( int i = 0; i < perm.length; ++i ) perm[i] = i;
     return perm;
   }
@@ -136,7 +137,7 @@ class Subset extends Data {
   @Override public Data complement(Data parent, short[] complement) {
     int size= 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) size++;
-    int[] p = new int[size];
+    int[] p = MemoryManager.allocateMemoryInt(size);
     int pos = 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) p[pos++] = i;
     return new Subset(this, p, 0, p.length);
