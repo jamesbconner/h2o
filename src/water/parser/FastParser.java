@@ -134,7 +134,8 @@ NEXT_CHAR:
           if (c == quotes) {
             state = COND_QUOTE;
             break NEXT_CHAR;
-          } if ((quotes != 0) || !(isEOL(c) || isWhitespace(c) || (c == CHAR_SEPARATOR))) {
+          } 
+          if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
             offset += colTrie.addByte(c); // FastTrie returns skipped chars - 1
             break NEXT_CHAR;
           }
@@ -142,7 +143,7 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case STRING_END:
           // we have parsed the string enum correctly
-          row.setCol(colIdx, colTrie.getTokenId(),(short)0);
+          row.setCol(colIdx, colTrie.getTokenId(),Short.MAX_VALUE);
           state = SEPARATOR_OR_EOL; 
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
@@ -160,6 +161,7 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case EOL: 
           if (colIdx != 0)
+//            System.out.println(row.toString());
             callback.addRow(row);
           colIdx = 0;
           state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
@@ -173,7 +175,7 @@ NEXT_CHAR:
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            row.setCol(colIdx++,0,(short)0);
+            row.setCol(colIdx++,-1,Short.MAX_VALUE);
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
@@ -189,7 +191,7 @@ NEXT_CHAR:
           // fallthrough to TOKEN
         // ---------------------------------------------------------------------
         case TOKEN:
-          if ((c > '9') && (c != CHAR_DECIMAL_SEPARATOR)) {
+          if (((c > '9') || (c < '0')) && (c != CHAR_DECIMAL_SEPARATOR)) {
             state = STRING;
             colTrie = _columnTries[colIdx];
             continue MAIN_LOOP;
@@ -224,8 +226,8 @@ NEXT_CHAR:
           }
           if (exp == -1) {
             number = -number;
-            exp = 1;
           }
+          exp = 0;
           // fallthrough to NUMBER_END
         // ---------------------------------------------------------------------
         case NUMBER_END:
@@ -235,10 +237,6 @@ NEXT_CHAR:
           }
           if (isEOL(c) || isWhitespace(c) || (c ==  CHAR_SEPARATOR)) {
             exp = exp - fractionDigits;
-            if (exp == 0) {
-              exp = 1;
-              number = 0;
-            }
             row.setCol(colIdx,number, (short) exp);
 /*            System.out.println("  number "+number+", fraction digits "+fractionDigits+", exp "+exp);
             double r = number;
@@ -280,14 +278,17 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case NUMBER_FRACTION:
           if ((c >= '0') && (c <= '9')) {
-            number = (number*10)+(c-'0');
             if (number >= LARGEST_DIGIT_NUMBER) {
               if (fractionDigits!=0)
-                fractionDigits = offset - fractionDigits;
+                fractionDigits = offset - 1 - fractionDigits;
               state = NUMBER_SKIP;
+            } else {
+              number = (number*10)+(c-'0');
             }
             break NEXT_CHAR;
           } else if ((c == 'e') || (c == 'E')) {
+            if (fractionDigits!=0)
+              fractionDigits = offset - 1 - fractionDigits;
             state = NUMBER_EXP_START;
             break NEXT_CHAR;
           }
@@ -296,8 +297,8 @@ NEXT_CHAR:
             fractionDigits = offset - fractionDigits-1;
           if (exp == -1) {
             number = -number;
-            exp = 1;
           }
+          exp = 0;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_EXP_START:
