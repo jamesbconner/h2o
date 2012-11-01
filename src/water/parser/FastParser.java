@@ -355,6 +355,8 @@ NEXT_CHAR:
       if (offset >= bits.length) {
         if (_ary == null)
           break;
+        numStart -= bits.length;
+        fractionDigits -= bits.length;
         offset -= bits.length;
         key = _ary.make_chunkkey(ValueArray.getOffset(key)+offset);
         Value v = DKV.get(key); // we had the last key
