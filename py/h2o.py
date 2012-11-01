@@ -1,6 +1,7 @@
 import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, os.path, getpass
 import requests, psutil, argparse, sys, unittest
 import glob
+import h2o_browse as h2b
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -31,6 +32,7 @@ def unit_main():
     parse_our_args()
     unittest.main()
 
+browse_json = False
 verbose = False
 ipaddr = None
 use_hosts = False
@@ -39,15 +41,17 @@ debugger=False
 def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
-    parser.add_argument('--verbose','-v', help="increased output", action="store_true")
-    parser.add_argument('--ip', type=str, help="IP address to use for single host H2O with psutil control")
-    parser.add_argument('--use_hosts', '-uh', help="create node_count H2Os on each host in the hosts list", action="store_true")
-    parser.add_argument('--debugger', help="Launch java processes with java debug attach mechanisms", action="store_true")
+    parser.add_argument('--browse_json','-b', help='Pops a browser to selected json equivalent urls. Selective. Also keeps test alive (and H2O alive) till you ctrl-c. Then should do clean exit', action='store_true')
+    parser.add_argument('--verbose','-v', help='increased output', action='store_true')
+    parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
+    parser.add_argument('--use_hosts', '-uh', help='pending...intent was conditional hosts use', action='store_true')
+    parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
     
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global verbose, ipaddr, use_hosts, debugger
+    global browse_json, verbose, ipaddr, use_hosts, debugger
+    browse_json = args.browse_json
     verbose = args.verbose
     ipaddr = args.ip
     use_hosts = args.use_hosts
@@ -489,7 +493,7 @@ class H2O(object):
 
     # Model updates asynchrounously as long as more trees appear.
     # Check modelSize to see if all trees are ready.
-    def random_forest_view(self, dataKey, modelKey, ntree):
+    def random_forest_view(self, dataKey, modelKey, ntree, browseAlso=False):
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={
                 "dataKey": dataKey,
@@ -497,6 +501,10 @@ class H2O(object):
                 "ntree": ntree
                 }))
         verboseprint("\nrandom_forest_view result:", a)
+        # we should know the json url from above, but heck lets just use
+        # the same history-based, global mechanism we use elsewhere
+        if (browseAlso):
+            h2b.browseJsonHistoryAsUrlLastMatch("RFView")
         return a
 
     def linear_reg(self, key, colA=0, colB=1):
@@ -506,13 +514,13 @@ class H2O(object):
                 "colB": colB,
                 "Key": key
                 }))
-        verboseprint("linear_reg:", a)
+        verboseprint("linear_reg result:", a)
         return a
 
     def linear_reg_view(self, key):
         a = self.__check_request(requests.get(self.__url('LRView.json'),
             params={"Key": key}))
-        verboseprint("linear_reg_view:", a)
+        verboseprint("linear_reg_view result:", a)
         return a
 
     # X and Y can be label strings, column nums, or comma separated combinations
