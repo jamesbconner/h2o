@@ -13,23 +13,20 @@ public class FastParser {
   
   public static final class Row {
     public final long[] _numbers;
-    public final byte[] _fractionLength;
     public final short[] _exponents;
 
     public Row(int numOfColumns) {
       _numbers = new long[numOfColumns];
-      _fractionLength = new byte[numOfColumns];
       _exponents = new short[numOfColumns];
     }
     
-    public void setCol(int colIdx, long number, byte fractionLength, short exponent) {
+    public void setCol(int colIdx, long number, short exponent) {
       _numbers[colIdx] = number;
-      _fractionLength[colIdx] = fractionLength;
       _exponents[colIdx] = exponent;
     }
 
     @Override public String toString() {
-      return Arrays.toString(_numbers) + Arrays.toString(_fractionLength) + Arrays.toString(_exponents);
+      return Arrays.toString(_numbers) + Arrays.toString(_exponents);
     }
   }
   
@@ -90,22 +87,21 @@ public class FastParser {
     _powersOf10[7] = 0.00000001;
   } */
   
-  public FastParser(Key key, Key aryKey, int numColumns, byte separator, byte decimalSeparator, Object callback) throws Exception {
+  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, Object callback) throws Exception {
     _aryKey = aryKey;
     _numColumns = numColumns; 
     CHAR_SEPARATOR = separator;
     CHAR_DECIMAL_SEPARATOR = decimalSeparator;
-    parse(key);
   }
   
-  protected final void parse(Key key) throws Exception {
+  public final void parse(Key key, boolean skipFirstLine) throws Exception {
     ValueArray _ary = null;
     FastTrie[] _columnTries = new FastTrie[10];
     for (int i = 0; i < _columnTries.length; ++i)
       _columnTries[i] = new FastTrie();
     byte[] bits = DKV.get(key).get();
     int offset = 0;
-    int state = SKIP_LINE;
+    int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
     byte quotes = 0;
     int colIdx = 0;
     FastTrie colTrie = null;
@@ -146,7 +142,7 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case STRING_END:
           // we have parsed the string enum correctly
-          row.setCol(colIdx, colTrie.getTokenId(),(byte)-1,(short)0);
+          row.setCol(colIdx, colTrie.getTokenId(),(short)0);
           state = SEPARATOR_OR_EOL; 
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
@@ -177,7 +173,7 @@ NEXT_CHAR:
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            row.setCol(colIdx++,0,(byte)-2,(short)0);
+            row.setCol(colIdx++,0,(short)0);
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
@@ -238,7 +234,12 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if (isEOL(c) || isWhitespace(c) || (c ==  CHAR_SEPARATOR)) {
-            row.setCol(colIdx,number,(byte) fractionDigits, (short) exp);
+            exp = exp - fractionDigits;
+            if (exp == 0) {
+              exp = 1;
+              number = 0;
+            }
+            row.setCol(colIdx,number, (short) exp);
 /*            System.out.println("  number "+number+", fraction digits "+fractionDigits+", exp "+exp);
             double r = number;
             if ((fractionDigits > 0) && (fractionDigits <=8))
