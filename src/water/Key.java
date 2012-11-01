@@ -1,12 +1,9 @@
 package water;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.io.*;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 /**
@@ -64,8 +61,10 @@ public final class Key implements Comparable {
   private long _disk_replicas; // Replicas known to be in proper Nodes
   void clr_disk_replicas() { _disk_replicas=0; }
   // Same thing for memory-only replicas.
-  private long _mem_replicas; // Replicas known to be in proper Nodes
-  void clr_mem_replicas() { _mem_replicas=0; }
+  private AtomicLong _mem_replicas = new AtomicLong(0);; // Replicas known to be in proper Nodes
+  void clr_mem_replicas() {
+    _mem_replicas.set(0);
+  }
 
   public static byte MAXREPLICATION = 127;
 
@@ -92,8 +91,6 @@ public final class Key implements Comparable {
   // Desired replication factor.  Can be zero for temp keys.  Not allowed to
   // later, because it messes with e.g. meta-data on disk.
   private static int desired(long cache) { return (int)(cache>>>32)&0x00FF; }
-
-  private static int pad3 ( long cache ) { return (int)(cache>>>40)&0xFFFFFF; }
 
   private static long build_cache( int cidx, int home, int replica, int desired ) {
     return                      // Build the new cache word
@@ -201,7 +198,7 @@ public final class Key implements Comparable {
   }
   static public  Key make(byte[] kb) { return make(kb,DEFAULT_DESIRED_REPLICA_FACTOR); }
   static private Key make(byte[] kb, int off, int len, byte rf) { return make(Arrays.copyOfRange(kb,off,off+len),rf); }
-  static public  Key make(String s) { return make(decodeKeyName(s));} 
+  static public  Key make(String s) { return make(decodeKeyName(s));}
   static public  Key make(String s, byte rf) { return make(decodeKeyName(s), rf);}
   static public  Key make() { return make( UUID.randomUUID().toString() ); }
 
@@ -250,10 +247,10 @@ public final class Key implements Comparable {
     return ((_kb[0]&0xff)>=32) ? USER_KEY : (_kb[0]&0xff);
   }
 
-  
+
   public static final char MAGIC_CHAR = '$';
   private static final char[] HEX = "0123456789abcdef".toCharArray();
-  
+
   /** Converts the key to HTML displayable string.
    *
    * For user keys returns the key itself, for system keys returns their
@@ -267,7 +264,7 @@ public final class Key implements Comparable {
       char a = (char) _kb[len];
       if (' ' <= a && a <= '#') continue;
       // then we have $ which is not allowed
-      if ('%' <= a && a <= '~') continue;        
+      if ('%' <= a && a <= '~') continue;
       // already in the one above
       //if( 'a' <= a && a <= 'z' ) continue;
       //if( 'A' <= a && a <= 'Z' ) continue;
@@ -305,13 +302,13 @@ public final class Key implements Comparable {
         res[r++] = (byte)(h << 4 | l);
       }
       System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
-      return res;      
+      return res;
     } else {
       return what.getBytes();
     }
   }
-  
-  
+
+
   public int hashCode() { return _hash; }
   public boolean equals( Object o ) {
     if( this == o ) return true;
@@ -345,7 +342,7 @@ public final class Key implements Comparable {
     return ((d>>>idx)&0xff) != 0;
   }
   boolean is_disk_replica( H2ONode h2o ) { return is_replica(_disk_replicas,h2o); }
-  boolean  is_mem_replica( H2ONode h2o ) { return is_replica( _mem_replicas,h2o); }
+  boolean  is_mem_replica( H2ONode h2o ) { return is_replica( _mem_replicas.get(), h2o); }
 
   static long set_replica( long d, H2ONode h2o ) {
     assert h2o != H2O.SELF;     // This is always for REMOTE replicas & caching
@@ -356,7 +353,11 @@ public final class Key implements Comparable {
   }
   // Only the HOME node for a key tracks replicas
   void set_disk_replica( H2ONode h2o ) { assert home(); _disk_replicas=set_replica(_disk_replicas,h2o); }
-  void  set_mem_replica( H2ONode h2o ) { assert home();  _mem_replicas=set_replica( _mem_replicas,h2o); }
+  void  set_mem_replica( H2ONode h2o ) {
+    assert home();
+    long old = _mem_replicas.get();
+    while( !_mem_replicas.compareAndSet(old, set_replica(old, h2o)) ) old = _mem_replicas.get();
+  }
 
   static long clr_replica( long d, H2ONode h2o ) {
     int idx = get_byte_shift(h2o,d);
@@ -365,7 +366,10 @@ public final class Key implements Comparable {
     return d;
   }
   void clr_disk_replica( H2ONode h2o ) { _disk_replicas=clr_replica(_disk_replicas,h2o); }
-  void  clr_mem_replica( H2ONode h2o ) {  _mem_replicas=clr_replica( _mem_replicas,h2o); }
+  void  clr_mem_replica( H2ONode h2o ) {
+    long old = _mem_replicas.get();
+    while( !_mem_replicas.compareAndSet(old, clr_replica(old, h2o)) ) old = _mem_replicas.get();
+  }
 
   // Query the known level of persistence.  Only counts up to 8 known replicas right now.
   public int count_disk_replicas() {
@@ -386,7 +390,6 @@ public final class Key implements Comparable {
   public String print_replicas() {
     String s= "{";
     long d = _disk_replicas;
-    H2O cloud = H2O.CLOUD;
     while( d != 0 ) {
       int idx = (int)(d&0xFF);// Unsigned byte unique index being cached
       d >>= 8;
@@ -405,8 +408,9 @@ public final class Key implements Comparable {
   // future optimization can allow more slop in the Memory Model).
   void invalidate_remote_caches() {
     assert home();   // Only home node tracks mem replicas & issue invalidates
-    long d = _mem_replicas;
-    _mem_replicas = 0;          // Needs to be atomic!!
+
+    long d = _mem_replicas.get();
+    while( !_mem_replicas.compareAndSet(d, 0) ) d = _mem_replicas.get();
     if( cache_has_overflowed(d) )
       throw H2O.unimpl(); // bulk invalidate for key=this
     if( d == 0 ) return;
