@@ -11,6 +11,11 @@ import water.*;
  */
 public class FastParser {
   
+  /**
+   * Number is anything with number and exp being reasonable values. NaN is -1
+   * and exp being Short.MAX_VALUE. Short.MAX_VALUE and nonnegative number is 
+   * parsed enum. 
+   */
   public static final class Row {
     public final long[] _numbers;
     public final short[] _exponents;
@@ -40,12 +45,8 @@ public class FastParser {
   public static final byte CHAR_DOUBLE_QUOTE = '"';
   public static final byte CHAR_SINGLE_QUOTE = '\'';
   
-  //public byte CHAR_DECIMAL_SEPARATOR = '.';
-  //public byte CHAR_SEPARATOR = ',';
-
-  public byte CHAR_DECIMAL_SEPARATOR = 0;
-  public byte CHAR_SEPARATOR = 0;
-  
+  public final byte CHAR_DECIMAL_SEPARATOR;
+  public final byte CHAR_SEPARATOR;
   
   private static final int SKIP_LINE = 0;
   private static final int EXPECT_COND_LF = 1;
@@ -70,22 +71,11 @@ public class FastParser {
 
   public final Key _aryKey;
   
-  int _numColumns;
+  public final int _numColumns;
   
-//  static final double[] _powersOf10 = new double[8];
   
   Object callback;
   
-/*  static {
-    _powersOf10[0] = 0.1;
-    _powersOf10[1] = 0.01;
-    _powersOf10[2] = 0.001;
-    _powersOf10[3] = 0.0001;
-    _powersOf10[4] = 0.00001;
-    _powersOf10[5] = 0.000001;
-    _powersOf10[6] = 0.0000001;
-    _powersOf10[7] = 0.00000001;
-  } */
   
   public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, Object callback) throws Exception {
     _aryKey = aryKey;
@@ -238,15 +228,6 @@ NEXT_CHAR:
           if (isEOL(c) || isWhitespace(c) || (c ==  CHAR_SEPARATOR)) {
             exp = exp - fractionDigits;
             row.setCol(colIdx,number, (short) exp);
-/*            System.out.println("  number "+number+", fraction digits "+fractionDigits+", exp "+exp);
-            double r = number;
-            if ((fractionDigits > 0) && (fractionDigits <=8))
-              r = r *  _powersOf10[fractionDigits-1];
-            else if (fractionDigits > 8) 
-              r = r * 1 / Math.pow(10, fractionDigits);
-            if (exp != 1)
-              r = r * Math.pow(10,exp);
-            row._fieldVals[colIdx] = r; */
             state = SEPARATOR_OR_EOL;
             continue MAIN_LOOP;
           } else {
