@@ -378,3 +378,178 @@ NEXT_CHAR:
   }
 
 }
+
+/** Performs compression of the numbers. 
+ * 
+ * 
+ * @author peta
+ */
+class ParserCompressor {
+  
+  
+  final double[] _mins;
+  final double[] _maxs;
+  final int[] _scales;
+  final byte[] _modes;
+  final long[] _bases;
+  
+  
+  private static final byte BYTE_ENUM = 1;
+  private static final byte SHORT_ENUM = 2;
+  private static final byte INT_ENUM = 3;
+  private static final byte BYTE = 4;
+  private static final byte BYTE_BASE = 5;
+  private static final byte SHORT = 6;
+  private static final byte SHORT_BASE = 7;
+  private static final byte INT = 8;
+  private static final byte INT_BASE = 9;
+  private static final byte LONG = 10;
+  private static final byte FLOAT = 11;
+  private static final byte DOUBLE = 12;
+  private static final byte SHORT_COMPRESSED_DOUBLE = 13;
+  
+  
+  private static int[] powersOf10 = new int[] { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
+
+  
+  byte[] _bits;
+  int _offset;
+  
+  public ParserCompressor(double[] mins, double[] maxs, int[] scales) {
+    _mins = mins;
+    _maxs = maxs;
+    _scales = scales;
+    _modes = new byte[_mins.length];
+    _bases = new long[_mins.length];
+    calculateColumnEncodings();
+  }
+  
+  private void calculateColumnEncodings() {
+    for (int i = 0; i < _mins.length; ++i) {
+      if (_scales[i] == 0) { // it is integer value
+        // does the column fit into byte 
+        if (_maxs[i] - _mins[i] < 256) {
+          if (_mins[i]>=0) {
+            _modes[i] = BYTE;
+          } else {
+            _modes[i] = BYTE_BASE;
+            _bases[i] = (int)_mins[i] - Byte.MIN_VALUE;
+          }
+        } else if (_maxs[i] - _mins[i] < 65536) {
+          if (_mins[i]>=0) {
+            _modes[i] = SHORT;
+          } else {
+            _modes[i] = SHORT_BASE;
+            _bases[i] = (int)_mins[i] - Short.MIN_VALUE;
+          }
+        } else if (_maxs[i] - _mins[i] < (1l << 32)) {
+          if (_mins[i]>=0) {
+            _modes[i] = INT;
+          } else {
+            _modes[i] = INT_BASE;
+            _bases[i] = (int)_mins[i] - Integer.MIN_VALUE;
+          }
+        } else {
+          _modes[i] = LONG;
+        }
+      } else {
+        // it is scaled -> 
+        long diff = (long) ((_maxs[i] * pow10(_scales[i]) - (_mins[i] * pow10(_scales[i)); 
+        
+        
+        
+        
+        
+      }
+      
+      
+      // check if we can encode it as shorts
+      double x = _maxs[i] -_mins[i];
+      
+      
+      
+    }
+  }
+  
+  private static int pow10(int exp) {
+    int result = 1;
+    int base = 10;
+    while (exp>0) {
+      if ((exp & 1) != 0)
+        result *= base;
+      exp >>= 1;
+      base *= 10;
+    }
+    return result;
+}
+  
+  
+  private void addRow(FastParser.Row row) {
+    assert (_mins.length == row._numbers.length); 
+    for (int i = 0; i < row._numbers.length; ++i) {
+      long number = row._numbers[i];
+      int exp = row._exponents[i];
+      switch (_modes[i]) {
+        case BYTE_ENUM:
+          _offset = UDP.set1(_bits,_offset,(int) number);
+          break;
+        case SHORT_ENUM:
+          _offset = UDP.set2(_bits,_offset,(int) number);
+          break;
+        case INT_ENUM:
+          _offset = UDP.set4(_bits,_offset,(int) number);
+          break;
+        case BYTE:
+          number = number * powersOf10[exp];
+          _offset = UDP.set1(_bits,_offset,(int) number);
+          break;
+        case SHORT:
+          number = number * powersOf10[exp];
+          _offset = UDP.set2(_bits,_offset,(int) number);
+          break;
+        case INT:
+          number = number * powersOf10[exp];
+          _offset = UDP.set4(_bits,_offset,(int) number);
+          break;
+        case BYTE_BASE:
+          number = number * powersOf10[exp] - _bases[i];
+          _offset = UDP.set1(_bits,_offset,(int) number);
+          break;
+        case SHORT_BASE:
+          number = number * powersOf10[exp] - _bases[i];
+          _offset = UDP.set2(_bits,_offset,(int) number);
+          break;
+        case INT_BASE:
+          number = number * powersOf10[exp] - _bases[i];
+          _offset = UDP.set4(_bits,_offset,(int) number);
+          break;
+        case LONG:
+          if (exp > powersOf10.length) 
+            number = number * pow10(exp);
+          else if (exp>0)
+            number = number * powersOf10[exp];
+          _offset = UDP.set8(_bits,_offset,(int) number);
+          break;
+        case FLOAT:
+          _offset += UDP.set8d(_bits,_offset, (float) FILL_IN);
+          break;
+        case DOUBLE:
+          _offset += UDP.set8d(_bits,_offset, FILL_IN);
+          break;
+        case SHORT_COMPRESSED_DOUBLE:
+          exp = exp + _scales[i];
+          assert (exp>=0) : "Scale is wrong!!";
+          if (exp>0) 
+            number = number * pow10(exp);
+          number -= _bases[i];
+          _offset = UDP.set2(_bits,_offset,(int)number);
+          break;
+      }
+    }
+  }
+  
+  
+  
+}
+
+

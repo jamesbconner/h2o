@@ -114,6 +114,11 @@ public abstract class UDP {
   public static void set_task( byte[] buf, int t ) { set4(buf,SZ_PORT,t); }
   public static final int SZ_TASK = SZ_PORT+4; // Offset past the control & port & task bytes
 
+  public static int set1(byte[] buf, int off, int x) {
+    buf[off++] = (byte) x;
+    return off;
+  }
+  
   // Generic set/get
   public static int set2( byte[] buf, int off, int x ) {
     assert -32768 <= x && x <= 65535;

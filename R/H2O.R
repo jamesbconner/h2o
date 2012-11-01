@@ -35,6 +35,7 @@ h2o.help <- function() {
 h2o <- function(expr) {
   # Executes the given expression on H2O server and returns the result as R variable. It may error if the result is
   # too big as it is still work in progress.
+  res = h2o.exec(expr);
   if (is.defined(res))
     h2o.get(res)
   else
