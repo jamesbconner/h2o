@@ -415,16 +415,16 @@ class ParserCompressor {
   byte[] _bits;
   int _offset;
   
-  public ParserCompressor(double[] mins, double[] maxs, int[] scales) {
+  public ParserCompressor(double[] mins, double[] maxs, int[] scales, boolean[] isFloat) {
     _mins = mins;
     _maxs = maxs;
     _scales = scales;
     _modes = new byte[_mins.length];
     _bases = new long[_mins.length];
-    calculateColumnEncodings();
+    calculateColumnEncodings(isFloat);
   }
   
-  private void calculateColumnEncodings() {
+  private void calculateColumnEncodings(boolean[] isFloat) {
     for (int i = 0; i < _mins.length; ++i) {
       if (_scales[i] == 0) { // it is integer value
         // does the column fit into byte 
@@ -453,21 +453,14 @@ class ParserCompressor {
           _modes[i] = LONG;
         }
       } else {
-        // it is scaled -> 
-        long diff = (long) ((_maxs[i] * pow10(_scales[i]) - (_mins[i] * pow10(_scales[i)); 
-        
-        
-        
-        
-        
+        double diff = (_maxs[i] * pow10(_scales[i]) - _mins[i] * pow10(_scales[i]));
+        if (diff < 65536) {
+          _modes[i] = SHORT_COMPRESSED_DOUBLE;
+          _mins[i] = _mins[0] * pow10(_scales[i]); 
+        } else {
+          _modes[i] = isFloat[i] ? FLOAT : DOUBLE;
+        }
       }
-      
-      
-      // check if we can encode it as shorts
-      double x = _maxs[i] -_mins[i];
-      
-      
-      
     }
   }
   
@@ -481,7 +474,7 @@ class ParserCompressor {
       base *= 10;
     }
     return result;
-}
+  }
   
   
   private void addRow(FastParser.Row row) {
@@ -531,18 +524,14 @@ class ParserCompressor {
           _offset = UDP.set8(_bits,_offset,(int) number);
           break;
         case FLOAT:
-          _offset += UDP.set8d(_bits,_offset, (float) FILL_IN);
+          _offset += UDP.set8d(_bits,_offset, (float) toDouble(number,exp));
           break;
         case DOUBLE:
-          _offset += UDP.set8d(_bits,_offset, FILL_IN);
+          _offset += UDP.set8d(_bits,_offset, toDouble(number,exp));
           break;
         case SHORT_COMPRESSED_DOUBLE:
-          exp = exp + _scales[i];
-          assert (exp>=0) : "Scale is wrong!!";
-          if (exp>0) 
-            number = number * pow10(exp);
-          number -= _bases[i];
-          _offset = UDP.set2(_bits,_offset,(int)number);
+          double d = toDouble(number, exp+_scales[i]);
+          _offset = UDP.set2(_bits,_offset,(int)(d - _mins[i]));
           break;
       }
     }
