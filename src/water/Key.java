@@ -53,7 +53,6 @@ public final class Key implements Comparable {
   public static final byte USER_KEY = 32;
 
 
-
   // Known-achieved replication factor.  This is a cache of the first 8 Nodes
   // that have "checked in" with disk completion.  Monotonically increases over
   // time; limit of 8 replicas.  Tossed out on an update.  Implemented as 8 bytes
@@ -61,7 +60,7 @@ public final class Key implements Comparable {
   private long _disk_replicas; // Replicas known to be in proper Nodes
   void clr_disk_replicas() { _disk_replicas=0; }
   // Same thing for memory-only replicas.
-  private AtomicLong _mem_replicas = new AtomicLong(0);; // Replicas known to be in proper Nodes
+  private AtomicLong _mem_replicas = new AtomicLong(0); // Replicas known to be in proper Nodes
   void clr_mem_replicas() {
     _mem_replicas.set(0);
   }
@@ -413,7 +412,10 @@ public final class Key implements Comparable {
     while( !_mem_replicas.compareAndSet(d, 0) ) d = _mem_replicas.get();
     if( cache_has_overflowed(d) )
       throw H2O.unimpl(); // bulk invalidate for key=this
-    if( d == 0 ) return;
+    if( d == 0 ) {
+      System.out.println("Nothing to invalidate for "+this);
+      return;
+    }
     TaskPutKey[] tpks = new TaskPutKey[8]; // Collect all the pending invalidates
     int i=0;
     while( d != 0 ) {
@@ -421,6 +423,7 @@ public final class Key implements Comparable {
       d >>= 8;
       H2ONode h2o = H2ONode.IDX[idx];
       tpks[i++] = invalidate(h2o);
+      System.out.println("Invalidate "+h2o+" for "+this);
     }
     // Bulk block until all invalidates happen
     for( int j=0; j<i; j++ )
