@@ -1,19 +1,23 @@
-import h2o, h2o_cmd
+import h2o, h2o_cmd, ec2
 import h2o_browse as h2b
 import time
 
 h2o.clean_sandbox()
 h2o.parse_our_args()
 
+reservation = ec2.run_instances(2)
 try:
     print 'Building cloud'
-    h2o.build_cloud(1, capture_output=False, java_heap_GB=15)
+    hosts = ec2.hosts_for_reservation(reservation)
+    ec2.build_cloud(hosts, 2, capture_output=False, java_heap_GB=15)
     print 'Random Forest'
-    h2o_cmd.runRF(None, h2o.find_dataset('UCI/UCI-large/covtype/covtype.5g.data'),
-            trees=10, timeoutSecs=60)
+    h2o_cmd.runRF(None, h2o.find_file('smalldata/iris/iris2.csv'))
     print 'Completed'
+    h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+    while True:
+        time.sleep(1)
 except KeyboardInterrupt:
     print 'Interrupted'
 finally:
     print 'EAT THE BABIES'
-    h2o.tear_down_cloud()
+    ec2.terminate_instances(reservation)

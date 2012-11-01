@@ -7,7 +7,7 @@ import glob
 # if that's sufficient, it should be fine to uniquely identify the flatfile by name only also
 # (both are the user that runs the test. Note the config might have a different username on the
 # remote machine (0xdiag, say, or hduser)
-def pff_name():
+def flatfile_name():
     return('pytest_flatfile-%s' %getpass.getuser())
 
 def __drain(src, dst):
@@ -77,7 +77,7 @@ def find_file(base):
     f = base
     if not os.path.exists(f): f = '../'+base
     if not os.path.exists(f):
-        raise Exception("find_file can't find %s." % (csvPathname))
+        raise Exception("unable to find file %s" % base)
     return f
 
 # Return file size.
@@ -196,6 +196,21 @@ use_hdfs = False
 global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
+def write_flatfile(node_count=2, base_port=54321, hosts=None):
+    ports_per_node = 3
+    # we're going to always create the flatfile. 
+    # Used for all remote cases now. (per sri)
+    pff = open(flatfile_name(), "w+")
+    if hosts is None:
+        ip = get_ip_address()
+        for i in xrange(node_count):
+            pff.write("/" + ip + ":" + str(base_port +3*i+ 1) + "\n")
+    else:
+        for h in hosts:
+            for i in xrange(node_count):
+                pff.write("/" + h.addr + ":" + str(base_port +3*i+ 1) + "\n")
+    pff.close()
+
 # node_count is per host if hosts is specified.
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
@@ -212,17 +227,13 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         hdfs_name_node = kwargs["hdfs_name_node"]
         verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
+    if 'use_flatfile' in kwargs:
+        write_flatfile(node_count=node_count, base_port=base_port, hosts=hosts)
+
     # hardwire this. don't need it to be an arg
     ports_per_node = 3
     node_list = []
     try:
-
-        # we're going to always create the flatfile. 
-        # Used for all remote cases now. (per sri)
-        pff = open(pff_name(), "w+")
-        # pff.write("# Created by build_cloud\n")
-        # pff.write("# " + str(datetime.datetime.now()) + "\n")
-
         # if no hosts list, use psutil method on local host.
         totalNodes = 0
         if hosts is None:
@@ -232,10 +243,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
                 newNode = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
                 node_list.append(newNode)
                 totalNodes += 1
-                # dont need the name in front
-                # FIX! this format might change?
-                # IS THIS RIGHT? give it the UDP port not the base port
-                pff.write("/" + newNode.addr + ":" + str(newNode.port+1) + "\n")
         else:
             hostCount = len(hosts)
             for h in hosts:
@@ -244,10 +251,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
                     newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
                     node_list.append(newNode)
                     totalNodes += 1
-                    # IS THIS RIGHT? give it the UDP port not the base port
-                    pff.write("/" + newNode.addr + ":" + str(newNode.port+1) + "\n")
-
-        pff.close()
 
         verboseprint("Attempting Cloud stabilize of", totalNodes, "nodes on", hostCount, "hosts")
         start = time.time()
@@ -286,13 +289,13 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         for h in hosts:
             h.upload_file('build/h2o.jar', progress=prog)
             # skipping progress indicator for the flatfile
-            h.upload_file(pff_name())
+            h.upload_file(flatfile_name())
     else:
         f = find_file('build/h2o.jar')
         hosts[0].upload_file(f, progress=prog)
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
-        f = find_file(pff_name())
+        f = find_file(flatfile_name())
         hosts[0].upload_file(f, progress=prog)
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
@@ -712,7 +715,7 @@ class LocalH2O(H2O):
         return find_file('build/h2o.jar')
 
     def get_flatfile(self):
-        return find_file(pff_name())
+        return find_file(flatfile_name())
 
     def get_ice_dir(self):
         return self.ice
@@ -771,26 +774,27 @@ class RemoteHost(object):
         '''Record a file as having been uploaded by external means'''
         self.uploaded[f] = dest
 
+    def run_cmd(self, cmd):
+        log('Running `%s` on %s' % (cmd, self))
+        (stdin, stdout, stderr) = self.ssh.exec_command(cmd)
+        stdin.close()
+
+        sys.stdout.write(stdout.read())
+        sys.stdout.flush()
+        stdout.close()
+
+        sys.stderr.write(stderr.read())
+        sys.stderr.flush()
+        stderr.close()
+
     def push_file_to_remotes(self, f, hosts):
         dest = self.uploaded[f]
         for h in hosts:
             if h == self: continue
-            log('Pushing %s from %s to %s' % (dest, self, h))
-            cmd = 'scp %s %s@%s:%s' % (dest, h.username, h.addr, dest)
-            (stdin, stdout, stderr) = self.ssh.exec_command(cmd)
-            stdin.close()
-
-            sys.stdout.write(stdout.read())
-            sys.stdout.flush()
-            stdout.close()
-
-            sys.stderr.write(stderr.read())
-            sys.stderr.flush()
-            stderr.close()
-
+            self.run_cmd('scp %s %s@%s:%s' % (dest, h.username, h.addr, dest))
             h.record_file(f, dest)
 
-    def __init__(self, addr, username, password=None):
+    def __init__(self, addr, username, password=None, **kwargs):
         import paramiko
         self.addr = addr
         self.username = username
@@ -801,9 +805,9 @@ class RemoteHost(object):
         self.ssh.set_missing_host_key_policy(policy)
         self.ssh.load_system_host_keys()
         if password is None:
-            self.ssh.connect(self.addr, username=username)
+            self.ssh.connect(self.addr, username=username, **kwargs)
         else:
-            self.ssh.connect(self.addr, username=username, password=password)
+            self.ssh.connect(self.addr, username=username, password=password, **kwargs)
 
         self.uploaded = {}
 
@@ -828,7 +832,7 @@ class RemoteH2O(H2O):
 
         self.jar = host.upload_file('build/h2o.jar')
         # need to copy the flatfile. We don't always use it (depends on h2o args)
-        self.flatfile = host.upload_file(pff_name())
+        self.flatfile = host.upload_file(flatfile_name())
         self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
