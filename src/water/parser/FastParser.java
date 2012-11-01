@@ -12,26 +12,32 @@ import water.*;
 public class FastParser {
   
   /**
-   * Number is anything with number and exp being reasonable values. NaN is -1
-   * and exp being Short.MAX_VALUE. Short.MAX_VALUE and nonnegative number is 
-   * parsed enum. 
+   * Number is anything with number and exp being reasonable values. 
+   * 
+   * NaN is encoded as numLength -1
+   * enum is encoded as numLength -2
+   * 
+   * 
    */
   public static final class Row {
     public final long[] _numbers;
     public final short[] _exponents;
+    public final byte[] _numLength;
 
     public Row(int numOfColumns) {
       _numbers = new long[numOfColumns];
       _exponents = new short[numOfColumns];
+      _numLength = new byte[numOfColumns];
     }
     
-    public void setCol(int colIdx, long number, short exponent) {
+    public void setCol(int colIdx, long number, short exponent, byte numLength) {
       _numbers[colIdx] = number;
       _exponents[colIdx] = exponent;
+      _numLength[colIdx] = numLength;
     }
 
     @Override public String toString() {
-      return Arrays.toString(_numbers) + Arrays.toString(_exponents);
+      return Arrays.toString(_numbers) + Arrays.toString(_exponents) + Arrays.toString(_numLength);
     }
   }
   
@@ -66,6 +72,7 @@ public class FastParser {
   private static final int SEPARATOR_OR_EOL = 8;
   private static final int WHITESPACE_BEFORE_TOKEN = 9;
   private static final int STRING_END = 11;
+  private static final int COND_QUOTED_NUMBER_END = 12;
   
   private static final long LARGEST_DIGIT_NUMBER = 1000000000000000000L;
 
@@ -98,6 +105,7 @@ public class FastParser {
     long number = 0;
     int exp = 0;
     int fractionDigits = 0;
+    int numStart = 0;
     boolean secondChunk = false;    
     Row row = new Row(_numColumns);
     byte c = bits[offset];
@@ -133,7 +141,7 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case STRING_END:
           // we have parsed the string enum correctly
-          row.setCol(colIdx, colTrie.getTokenId(),Short.MAX_VALUE);
+          row.setCol(colIdx, colTrie.getTokenId(),(short) 0, (byte) -2);
           state = SEPARATOR_OR_EOL; 
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
@@ -165,7 +173,7 @@ NEXT_CHAR:
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            row.setCol(colIdx++,-1,Short.MAX_VALUE);
+            row.setCol(colIdx++,-1,(short) 0, (byte) -2);
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
@@ -181,7 +189,7 @@ NEXT_CHAR:
           // fallthrough to TOKEN
         // ---------------------------------------------------------------------
         case TOKEN:
-          if (((c > '9') || (c < '0')) && (c != CHAR_DECIMAL_SEPARATOR)) {
+          if (((c > '9') || (c < '0')) && (c != CHAR_DECIMAL_SEPARATOR) && (c != '-') && (c != '+')) {
             state = STRING;
             colTrie = _columnTries[colIdx];
             continue MAIN_LOOP;
@@ -192,8 +200,10 @@ NEXT_CHAR:
           state = NUMBER;
           number = 0;
           fractionDigits = 0;
+          numStart = offset;
           if (c == '-') {
             exp = -1;
+            ++numStart;
             break NEXT_CHAR;
           } else {
             exp = 1;
@@ -207,10 +217,12 @@ NEXT_CHAR:
               state = NUMBER_SKIP;
             break NEXT_CHAR;
           } else if (c == CHAR_DECIMAL_SEPARATOR) {
+            ++numStart;
             state = NUMBER_FRACTION;
             fractionDigits = offset;
             break NEXT_CHAR;
           } else if ((c == 'e') || (c == 'E')) {
+            ++numStart;
             state = NUMBER_EXP_START;
             break NEXT_CHAR;
           }
@@ -218,16 +230,20 @@ NEXT_CHAR:
             number = -number;
           }
           exp = 0;
-          // fallthrough to NUMBER_END
+          // fallthrough to COND_QUOTED_NUMBER_END
         // ---------------------------------------------------------------------
-        case NUMBER_END:
+        case COND_QUOTED_NUMBER_END:
+          state = NUMBER_END;
+          numStart = offset - numStart;
           if ( c == quotes) {
             quotes = 0;
             break NEXT_CHAR;
           }
+          // fallthrough NUMBER_END
+        case NUMBER_END:
           if (isEOL(c) || isWhitespace(c) || (c ==  CHAR_SEPARATOR)) {
             exp = exp - fractionDigits;
-            row.setCol(colIdx,number, (short) exp);
+            row.setCol(colIdx,number, (short) exp, (byte) numStart);
             state = SEPARATOR_OR_EOL;
             continue MAIN_LOOP;
           } else {
@@ -235,6 +251,7 @@ NEXT_CHAR:
           }
         // ---------------------------------------------------------------------
         case NUMBER_SKIP:  
+          ++numStart;
           if ((c >= '0') && (c <= '9')) {
             break NEXT_CHAR;
           } else if (c == CHAR_DECIMAL_SEPARATOR) {
@@ -244,17 +261,18 @@ NEXT_CHAR:
             state = NUMBER_EXP_START;
             break NEXT_CHAR;
           }
-          state = NUMBER_END;
+          state = COND_QUOTED_NUMBER_END;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_SKIP_NO_DOT:
+          ++numStart;
           if ((c >= '0') && (c <= '9')) {
             break NEXT_CHAR;
           } else if ((c == 'e') || (c == 'E')) {
             state = NUMBER_EXP_START;
             break NEXT_CHAR;
           }
-          state = NUMBER_END;
+          state = COND_QUOTED_NUMBER_END;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_FRACTION:
@@ -268,12 +286,13 @@ NEXT_CHAR:
             }
             break NEXT_CHAR;
           } else if ((c == 'e') || (c == 'E')) {
+            ++numStart;
             if (fractionDigits!=0)
               fractionDigits = offset - 1 - fractionDigits;
             state = NUMBER_EXP_START;
             break NEXT_CHAR;
           }
-          state = NUMBER_END;
+          state = COND_QUOTED_NUMBER_END;
           if (fractionDigits!=0)
             fractionDigits = offset - fractionDigits-1;
           if (exp == -1) {
@@ -288,21 +307,25 @@ NEXT_CHAR:
           }
           exp = 0;
           if (c == '-') {
+            ++numStart;
             state = NUMBER_EXP_NEGATIVE;
             break NEXT_CHAR;
           } else {
             state = NUMBER_EXP;
-            if (c == '+')
+            if (c == '+') {
+              ++numStart;
               break NEXT_CHAR;
+            }
           }
           // fallthrough to NUMBER_EXP
         // ---------------------------------------------------------------------
         case NUMBER_EXP:
           if ((c >= '0') && (c <= '9')) {
+            ++numStart;
             exp = (exp*10)+(c-'0');
             break NEXT_CHAR;
           }
-          state = NUMBER_END;
+          state = COND_QUOTED_NUMBER_END;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_EXP_NEGATIVE:
@@ -311,7 +334,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           exp = - exp;
-          state = NUMBER_END;
+          state = COND_QUOTED_NUMBER_END;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case COND_QUOTE:
