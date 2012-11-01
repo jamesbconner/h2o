@@ -31,9 +31,9 @@ public class Debug extends JSONPage {
           throw new Exception("Value is not persistent. Cannot be freed mem");
         v.free_mem();
         
-      } else if (action.equals("fastParse")) {
-        FastParser parser = new FastParser(Key.make(args.getProperty("key","__NOKEY__")));
-        parser.invoke(parser._aryKey);
+//      } else if (action.equals("fastParse")) {
+//        FastParser parser = new FastParser(Key.make(args.getProperty("key","__NOKEY__")));
+//        parser.invoke(parser._aryKey);
       } else {
         throw new Exception("Action "+action+" not recognized by the debug interface.");
       }

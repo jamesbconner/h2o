@@ -9,21 +9,27 @@ import water.*;
  *
  * @author peta
  */
-public class FastParser extends MRTask {
+public class FastParser {
   
   public static final class Row {
-    public final double[] _fieldVals;
+    public final long[] _numbers;
+    public final byte[] _fractionLength;
+    public final short[] _exponents;
 
     public Row(int numOfColumns) {
-      _fieldVals       = new double[numOfColumns];
+      _numbers = new long[numOfColumns];
+      _fractionLength = new byte[numOfColumns];
+      _exponents = new short[numOfColumns];
     }
-
-    public Row(double[] vals) {
-      _fieldVals = vals;
+    
+    public void setCol(int colIdx, long number, byte fractionLength, short exponent) {
+      _numbers[colIdx] = number;
+      _fractionLength[colIdx] = fractionLength;
+      _exponents[colIdx] = exponent;
     }
 
     @Override public String toString() {
-      return Arrays.toString(_fieldVals);
+      return Arrays.toString(_numbers) + Arrays.toString(_fractionLength) + Arrays.toString(_exponents);
     }
   }
   
@@ -67,38 +73,32 @@ public class FastParser extends MRTask {
 
   public final Key _aryKey;
   
-  int _phase;
-  
   int _numColumns;
   
-  long[] _powersOf10 = new long[8];
+//  static final double[] _powersOf10 = new double[8];
   
+  Object callback;
   
-  public FastParser(Key aryKey) {
+/*  static {
+    _powersOf10[0] = 0.1;
+    _powersOf10[1] = 0.01;
+    _powersOf10[2] = 0.001;
+    _powersOf10[3] = 0.0001;
+    _powersOf10[4] = 0.00001;
+    _powersOf10[5] = 0.000001;
+    _powersOf10[6] = 0.0000001;
+    _powersOf10[7] = 0.00000001;
+  } */
+  
+  public FastParser(Key key, Key aryKey, int numColumns, byte separator, byte decimalSeparator, Object callback) throws Exception {
     _aryKey = aryKey;
-    _phase = 1;
-    _powersOf10[0] = 10;
-    _powersOf10[1] = 100;
-    _powersOf10[2] = 1000;
-    _powersOf10[3] = 10000;
-    _powersOf10[4] = 100000;
-    _powersOf10[5] = 1000000;
-    _powersOf10[6] = 10000000;
-    _powersOf10[7] = 100000000;
-    _numColumns = 20; // TODO DELETE THIS WHEN I COMPUTE COLUMNS
-    CHAR_SEPARATOR = ',';
-    CHAR_DECIMAL_SEPARATOR = '.';
+    _numColumns = numColumns; 
+    CHAR_SEPARATOR = separator;
+    CHAR_DECIMAL_SEPARATOR = decimalSeparator;
+    parse(key);
   }
   
-  private void addError(long pos, String error) {
-    
-  }
-
-  private void addWarning(long pos, String error) {
-    
-  }
-  
-  @Override public void map(Key key) {
+  protected final void parse(Key key) throws Exception {
     ValueArray _ary = null;
     FastTrie[] _columnTries = new FastTrie[10];
     for (int i = 0; i < _columnTries.length; ++i)
@@ -110,8 +110,7 @@ public class FastParser extends MRTask {
     int colIdx = 0;
     FastTrie colTrie = null;
     long number = 0;
-    long exp = 0;
-    int number_multiplier = 0;
+    int exp = 0;
     int fractionDigits = 0;
     boolean secondChunk = false;    
     Row row = new Row(_numColumns);
@@ -147,17 +146,15 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case STRING_END:
           // we have parsed the string enum correctly
-          row._fieldVals[colIdx] = colTrie.getTokenId(); 
+          row.setCol(colIdx, colTrie.getTokenId(),(byte)-1,(short)0);
           state = SEPARATOR_OR_EOL; 
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
         case SEPARATOR_OR_EOL:
           if (c == CHAR_SEPARATOR) {
             ++colIdx;
-            if (colIdx==row._fieldVals.length) {
-              addError(offset,"Only "+_numColumns+" columns expected.");
-              break MAIN_LOOP;
-            }
+            if (colIdx == _numColumns)
+              throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           }
@@ -167,34 +164,30 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case EOL: 
           if (colIdx != 0)
-            if (_phase == 1)
-              phase1AddRow(row);
-            else 
-              phase2AddRow(row);
+            callback.addRow(row);
           colIdx = 0;
           state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
           if (secondChunk)
             break MAIN_LOOP; // second chunk only does the first row
           break NEXT_CHAR;
         // ---------------------------------------------------------------------
-        case WHITESPACE_BEFORE_TOKEN:  
-          if (isWhitespace(c))
-            break NEXT_CHAR;
-          if (c == CHAR_SEPARATOR) {
+        case WHITESPACE_BEFORE_TOKEN: 
+          if (c == CHAR_SPACE) {
+            if (c == CHAR_SEPARATOR)
+              break NEXT_CHAR;
+          } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            row._fieldVals[colIdx++] = Double.NaN;
-            if (colIdx==row._fieldVals.length) {
-              addError(offset,"Only "+_numColumns+" columns expected.");
-              break MAIN_LOOP;
-            }
+            row.setCol(colIdx++,0,(byte)-2,(short)0);
+            if (colIdx == _numColumns)
+              throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
           }
           // fallthrough to COND_QUOTED_TOKEN
         // ---------------------------------------------------------------------
         case COND_QUOTED_TOKEN:
+          state = TOKEN;
           if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
             quotes = c;
-            state = TOKEN;
             break NEXT_CHAR;
           }
           // fallthrough to TOKEN
@@ -245,19 +238,20 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if (isEOL(c) || isWhitespace(c) || (c ==  CHAR_SEPARATOR)) {
-            System.out.println("  number "+number+", fraction digits "+fractionDigits+", exp "+exp);
+            row.setCol(colIdx,number,(byte) fractionDigits, (short) exp);
+/*            System.out.println("  number "+number+", fraction digits "+fractionDigits+", exp "+exp);
             double r = number;
             if ((fractionDigits > 0) && (fractionDigits <=8))
-              r = r * 1 / _powersOf10[fractionDigits-1];
+              r = r *  _powersOf10[fractionDigits-1];
             else if (fractionDigits > 8) 
               r = r * 1 / Math.pow(10, fractionDigits);
             if (exp != 1)
               r = r * Math.pow(10,exp);
-            row._fieldVals[colIdx] = r;
+            row._fieldVals[colIdx] = r; */
             state = SEPARATOR_OR_EOL;
             continue MAIN_LOOP;
           } else {
-            throw new Error("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
+            throw new Exception("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
           }
         // ---------------------------------------------------------------------
         case NUMBER_SKIP:  
@@ -374,142 +368,5 @@ NEXT_CHAR:
   private boolean isEOL(byte c) {
     return (c == CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
   }
-
-  @Override public void reduce(DRemoteTask drt) {
-/*    FastParser other = (FastParser) drt;
-    if (_columnTries == null) 
-      _columnTries = other._columnTries;
-    else
-      for (int i = 0; i < _columnTries.length; ++i)
-        _columnTries[i].update(other._columnTries[i]); */
-  }
-  
-  private void phase1AddRow(Row row) {
-    System.out.println(row.toString());
-  }
-
-  private void phase2AddRow(Row row) {
-    System.out.println(row.toString());
-    
-  }
-  
-  private byte[] getFirstChunk() {
-    Value v = DKV.get(_aryKey);
-    if (v instanceof ValueArray) 
-      return DKV.get(ValueArray.getChunk(_aryKey,0)).get();
-    else 
-      return v.get();
-  }
-
-  /** Determines the parser setup for separators. If the separators cannot be
-   * inferred from the first chunk, the defaults - comma for separator and dot
-   * for decimal separator are used. 
-   */
-  private void determineParserDelimiters() {
-    byte[] bits = getFirstChunk();
-    int offset = 0;
-    while ((offset < bits.length) && ((CHAR_SEPARATOR == 0) || (CHAR_DECIMAL_SEPARATOR == 0))) {
-      
-      
-      ++offset;
-    }
-    if (CHAR_SEPARATOR == 0) {
-      addWarning(0,"Unable to determine separator character. Defaulting to comma");
-      CHAR_SEPARATOR = ',';
-    }
-    if (CHAR_DECIMAL_SEPARATOR == 0) {
-      addWarning(0,"Unable to determine decimal separator character. Defaulting to dot");
-      CHAR_DECIMAL_SEPARATOR = '.'; 
-    }
-  }
-
-  private static final int NUMBER_FOUND_OR_ERROR = -2;
-  
-  /** Determines the column names to be used for the parser, if any. Column
-   * names are used if the first line has only strings in it and the second line
-   * does not. Otherwise we assume that column names are not present.
-   */
-  private boolean determineColumnNames() {
-    ArrayList<String> colNames = new ArrayList();
-    byte[] bits = getFirstChunk();
-    int offset = 0;
-    while (offset < bits.length) {
-      offset = parseColName(bits,offset,colNames);
-      if (offset == NUMBER_FOUND_OR_ERROR)
-        return false;
-      if (isEOL(bits[offset]))
-        break;
-    }
-    ++offset;
-    if (offset >= bits.length)
-      return false;
-    if (bits[offset] == CHAR_LF)
-      ++offset;
-    
-    
-    
-    
-    return true;
-      
-  }
-  
-  private int tokenDelimiter(byte[] bits, int offset) {
-    byte quotes = (bits[offset] == CHAR_SINGLE_QUOTE) || (bits[offset] == CHAR_SINGLE_QUOTE) ? bits[offset++] : 0;
-    while (offset < bits.length) {
-    }
-    return offset;
-  }
-  
-  
-  private int parseColName(byte[] bits, int offset, ArrayList<String> colNames) {
-    byte quotes = 0;
-    int state = COND_QUOTED_TOKEN;
-    byte c = bits[offset];
-    StringBuilder sb = new StringBuilder();
-MAIN_LOOP:    
-    while (true) {
-NEXT_CHAR:
-      switch (state) {
-        case COND_QUOTED_TOKEN:
-          state = TOKEN;
-          if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
-            quotes = c;
-            break NEXT_CHAR;
-          }
-          if ((c >= '0') && (c <= '9'))
-            return NUMBER_FOUND_OR_ERROR;
-          state = STRING;
-          // fallthrough to STRING
-        case STRING:
-          if (c == quotes)
-            state = COND_QUOTE;
-          if (isEOL(c) || (c == CHAR_SEPARATOR)) {
-            state = STRING_END;
-          } else {
-            sb.append(c);
-            break NEXT_CHAR;
-          }
-          // fallthrough to STRING_END
-        case STRING_END:
-          colNames.add(sb.toString());
-          return offset;
-        case COND_QUOTE:
-          if (c == quotes) {
-            sb.append(c);
-            state = TOKEN;
-            break NEXT_CHAR;
-          }
-          state = STRING_END;
-          continue MAIN_LOOP;
-        default:
-          assert (false) : " We have wrong state "+state;
-      }
-      ++offset;
-      if (offset == bits.length)
-        return NUMBER_FOUND_OR_ERROR;
-    }
-  }
-  
-  
 
 }
