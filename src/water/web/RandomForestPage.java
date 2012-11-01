@@ -58,8 +58,10 @@ public class RandomForestPage extends H2OPage {
     String igz = p.getProperty("ignore");
     int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary.col_names(), igz);
 
-    // Start the distributed Random Forest
+    // Remove any prior model; about to overwrite it
+    UKV.remove(modelKey);
 
+    // Start the distributed Random Forest
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
