@@ -39,6 +39,12 @@ public final class VAIterator implements Iterator<VAIterator> {
     _rowInChunk = -1;
     _rowsInChunk = 0;
     _currentRow = -1;
+    if (startRow!=0)
+      skipRows(startRow-1);
+  }
+
+  public VAIterator(Key key, int defaultColumn) {
+    this(key,defaultColumn,0);
   }
   
   public void setDefaultColumn(int colIdx) {
@@ -54,7 +60,7 @@ public final class VAIterator implements Iterator<VAIterator> {
     return _defaultColumn;
   }
   
-  public void skipRows(int rows) {
+  public void skipRows(long rows) {
     assert (_currentRow + rows < _rows);
     while (true) {
       if (_rowInChunk + rows < _rowsInChunk) {

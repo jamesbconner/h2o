@@ -1,5 +1,6 @@
 package test;
 
+import static org.junit.Assert.*;
 import hex.rf.Utils;
 
 import java.io.*;
@@ -45,11 +46,10 @@ public class RFRunner {
     String rawKey;              //
     String validationFile;      // validation data
     int ntrees = 10;            // number of trees
-    int depth = -1;             // max depth of trees
-    double cutRate = 0;         // min purity of a node
-    String statType = "entropy";// split type
+    int depth = Integer.MAX_VALUE; // max depth of trees
+    double cutRate = -1;         // min purity of a node
+    String statType = "gini";// split type
     int seed = 42;              // seed
-    boolean singlethreaded;     // multi threaded
   }
 
   static class OptArgs extends Arguments.Opt {
@@ -219,13 +219,12 @@ public class RFRunner {
     String[] commands = new String[experiments];
     int i = 0;
     for(String f : files)
-      for (boolean thread : threading)
         for (int sz :szTrees)
           for(String stat : stats)
             for(int seed : seeds) {
               RFArgs rfa = new RFArgs();
               rfa.seed = seed; rfa.statType = stat; rfa.file = f;
-              rfa.ntrees = sz;  rfa.singlethreaded = thread;
+              rfa.ntrees = sz;
               commands[i++] = javaCmd + " " + rfa;
             }
 
@@ -281,13 +280,12 @@ public class RFRunner {
     String[] commands = new String[experiments];
     int i = 0;
     for(String f : files)
-      for (boolean thread : threading)
         for (int sz :szTrees)
           for(String stat : stats)
             for(int seed : seeds) {
               RFArgs rfa = new RFArgs();
               rfa.seed = seed; rfa.statType = stat; rfa.file = f;
-              rfa.ntrees = sz;  rfa.singlethreaded = thread;
+              rfa.ntrees = sz;
               String add = special.get(f)==null? "" : (" "+special.get(f));
               commands[i++] = javaCmd + " " + rfa + add;
             }
@@ -296,6 +294,42 @@ public class RFRunner {
        runTest(cmd, args.resultDB, out);
 
   }
+
+
+
+  public static void quickTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
+    String[] files = new String[]{
+    "smalldata//cars.csv",
+    "smalldata//hhp_9_17_12.predict.100rows.data",
+    "smalldata//iris/iris2.csv",
+    "smalldata//logreg/benign.csv",
+    "smalldata//logreg/prostate.csv",
+      };
+
+    int[] szTrees = new int[]{10};
+    String[] stats  = new String[]{"gini"};
+    boolean[] threading = new boolean[]{true};
+    int[] seeds = new int[]{ 3};
+
+    int experiments = files.length * szTrees.length*stats.length*threading.length*seeds.length;
+    String[] commands = new String[experiments];
+    int i = 0;
+    for(String f : files)
+        for (int sz :szTrees)
+          for(String stat : stats)
+            for(int seed : seeds) {
+              RFArgs rfa = new RFArgs();
+              rfa.seed = seed; rfa.statType = stat; rfa.file = f;
+              rfa.ntrees = sz;
+              String add = special.get(f)==null? "" : (" "+special.get(f));
+              commands[i++] = javaCmd + " " + rfa + add;
+            }
+
+    for( String cmd : commands)
+       runTest(cmd, args.resultDB, out);
+
+  }
+
 
   public static void main(String[] args) throws Exception {
     final OptArgs ARGS        = new OptArgs();
@@ -310,5 +344,13 @@ public class RFRunner {
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
     String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
     try { runTests(javaCmd, out, ARGS); } finally { out.close(); }
+  }
+
+  @org.junit.Test
+  public void test_Others() throws Exception {
+    final OptArgs ARGS        = new OptArgs();
+    PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
+    String javaCmd =   ARGS.jvmArgs + " " + RFRunner.JAR + " " + RFRunner.MAIN;
+    try { RFRunner.quickTests(javaCmd, out, ARGS ); } finally { out.close(); }
   }
 }

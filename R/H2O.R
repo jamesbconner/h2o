@@ -152,11 +152,11 @@ h2o.rfView <- function(dataKey, modelKey) {
   }  
 }
 
-h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
+h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS, startRow=0) {
   # returns the given key from H2O. DataFrames of multiple columns are supported as long as their number of elements,
   # that is columns * rows is smaller than 200000.
   H2O._printIfVerbose("  get of vector/dataframe (key ",key,")")
-  res = H2O._remoteSend("GetVector.json",Key=key,MaxItems=max)
+  res = H2O._remoteSend("GetVector.json",Key=key,MaxItems=max, startRow=startRow)
   if (H2O._isError(res)) {
     H2O._printError(res$Error,prefix="  ")
     NULL
@@ -164,15 +164,16 @@ h2o.get <- function(key, max=H2O.MAX_RESPONSE_ITEMS) {
     H2O._printIfVerbose("    returned data frame of ",res$num_cols," column(s) and ",res$num_rows," row(s), first ",res$sent_rows," row(s) returned")
     if (length(res$columns) == 1) {
       H2O._printIfVerbose("    converting to single column vector")
-      lapply(strsplit(res$columns[[1]]$contents,split=" "),as.numeric)[[1]]
+      res$columns[[1]]$contents
+      #lapply(strsplit(res$columns[[1]]$contents,split=" "),as.numeric)[[1]]
     } else {
       r = data.frame()
       rows = res$sent_rows
       for (i in 1:length(res$columns)) {
         col = res$columns[[i]]
         name = as.character(col$name)
-        x = lapply(strsplit(col$contents, split=" "),as.numeric)[[1]]
-        r[1:rows, name] <- x
+        #x = lapply(strsplit(col$contents, split=" "),as.numeric)[[1]]
+        r[1:rows, name] <- col$contents #x
       }
       r
     }

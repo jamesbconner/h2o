@@ -4,11 +4,13 @@ import static org.junit.Assert.*;
 import hex.rf.Confusion;
 import hex.rf.Model;
 
+import java.io.*;
 import java.util.Properties;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
+import test.RFRunner.OptArgs;
 import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
@@ -88,7 +90,7 @@ public class RandomForestTest {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{50,0,0},{0,45,5},{0,0,50}};
+      long ans[][] = new long[][]{{50,0,0},{0,49,1},{0,0,50}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
