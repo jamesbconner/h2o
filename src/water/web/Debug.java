@@ -7,6 +7,7 @@ import water.DKV;
 import water.Key;
 import water.Value;
 import water.parser.FastParser;
+import water.parser.ParseDataset;
 
 /**
  *
@@ -32,6 +33,7 @@ public class Debug extends JSONPage {
         v.free_mem();
         
       } else if (action.equals("fastParse")) {
+        ParseDataset p = new ParseDataset();
         FastParser parser = new FastParser(null, 4, (byte) ',', (byte) '.', null);
         parser.parse(Key.make(args.getProperty("key")),false);
       } else {
