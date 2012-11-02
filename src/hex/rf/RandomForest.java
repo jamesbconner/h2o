@@ -1,7 +1,8 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
+
 import java.io.File;
-import java.util.Arrays;
+
 import water.*;
 import water.util.KeyUtil;
 
@@ -36,7 +37,6 @@ public class RandomForest {
 	String h2oArgs = "";
 	int ntrees = 10;
 	int depth = Integer.MAX_VALUE;
-	double cutRate = -1;
 	float sample = (float) 0.67;
 	int binLimit = 1024;
 	int classcol = -1;
@@ -79,7 +79,7 @@ public class RandomForest {
     final int num_cols = va.num_cols();
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
     Utils.startTimer("main");
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, ARGS.sample, (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.sample, (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true);
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
     Key[] tkeys = null;
     while(tkeys == null || tkeys.length!=ARGS.ntrees) tkeys = drf._treeskey.flatten();

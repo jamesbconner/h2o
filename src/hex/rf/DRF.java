@@ -43,7 +43,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._parallel = parallelTrees;
