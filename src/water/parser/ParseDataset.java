@@ -17,16 +17,92 @@ import com.google.common.io.Closeables;
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
 
-  static interface ParseHandler {
-    public void handleRow(double[] nums, String[] strs);
-    public void handleFinished(String[] headerRow);
-  }
-  static interface ParseEngine {
-    void doParse(InputStream is, ParseHandler h) throws Exception;
-  }
+
+//Guess
+ private static Compression guessCompressionMethod(Value dataset) {
+   Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
+   byte[] b = v0.get();                      // Bytes for 1st chunk
+
+   // Look for ZIP magic
+   if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
+     return Compression.ZIP;
+   if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
+     return Compression.GZIP;
+   return Compression.NONE;
+ }
+
+
+//---
+ // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
+ // the number of columns for svm light is not reliable as it only relies on info from the first chunk
+ private static int[] guessParserSetup(Value dataset, boolean parseFirst ) {
+   // Best-guess on count of columns and separator.  Skip the 1st line.
+   // Count column delimiters in the next line. If there are commas, assume file is comma separated.
+   // if there are (several) ':', assume it is in svmlight format.
+   Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
+   byte[] b = v0.get();                      // Bytes for 1st chunk
+
+   int i=0;
+   // Skip all leading whitespace
+   while( i<b.length && Character.isWhitespace(b[i]) ) i++;
+   if( !parseFirst ) {         // Skip the first line, it might contain labels
+     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
+   }
+   if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
+   if( i   < b.length &&  b[i] == '\n' ) i++;
+   // start counting columns on the 2nd line
+   final int line_start = i;
+   int cols = 0;
+   int mode = 0;
+   int colonCounter = 0;
+   boolean commas  = false;     // Assume white-space only columns
+   boolean escaped = false;
+   while( i < b.length ) {
+     char c = (char)b[i++];
+     if( c == '"' ) {
+       escaped = !escaped;
+       continue;
+     }
+     if (!escaped) {
+       if( c=='\n' || c== '\r' ) {
+         break;
+       }
+       if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
+         if( mode == 1 ) mode = 2;
+       } else if( c == ',' ) {   // Found a comma?
+         if( commas == false ) { // Not in comma-seperator mode?
+           // Reset the entire line parse & try again, this time with comma
+           // separators enabled.
+           commas=true;          // Saw a comma
+           i = line_start;       // Reset to line start
+           cols = mode = 0;      // Reset parsing mode
+           continue;             // Try again
+         }
+         if( mode == 0 ) cols++;
+         mode = 0;
+       } else if(c == ':' && (++colonCounter == 3)){
+         // if there are at least 3 ':' on the line, the file is probably svmlight format
+         throw new Error("SVMLIGHT format is currently unsupported");
+       } else {                  // Else its just column data
+         if( mode != 1 ) cols++;
+         mode = 1;
+       }
+     }
+   }
+   // If no columns, and skipped first row - try again parsing 1st row
+   if( cols == 0 && parseFirst == false ) return guessParserSetup(dataset,true);
+   return new int[]{ commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols };
+ }
+
+ // ---
+
+ // Alternative column title guesser.  Returns an array of Strings, or
+ // null if none.
+ public static String[] guessColNames( Value dataset, int [] psetup ) {
+   return null;
+ }
 
   // Configuration kind for parser
-  private static final int PARSE_SVMLIGHT = 101;
   public static final int PARSE_COMMASEP = 102;
   private static final int PARSE_SPACESEP = 103;
 
@@ -39,22 +115,8 @@ public final class ParseDataset {
   public static void parse( Key result, Value dataset ) {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
-
     try {
-      try {
-        parseWithEngine(result, dataset, new XlsParser.Engine());
-        return;
-      } catch( Exception e ) { }
-
       Compression compression = guessCompressionMethod(dataset);
-      if( compression == Compression.ZIP ) {
-        // .xlsx files are actually zip files with xml inside them
-        try {
-          parseWithEngine(result, dataset, new XlsxParser.Engine());
-          return;
-        } catch( Exception e ) { }
-      }
-
       switch (compression) {
       case NONE: parseUncompressed(result, dataset); break;
       case ZIP : parseZipped      (result, dataset); break;
@@ -66,111 +128,18 @@ public final class ParseDataset {
     }
   }
 
+
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
-    int [] typeArr = guessParserSetup(dataset,false);
-    switch( typeArr[PARSER_IDX] ) {
-    case PARSE_SVMLIGHT:
-      throw new Error("Parsing for SVMLIGHT is unimplemented");
-    case PARSE_COMMASEP:
-    case PARSE_SPACESEP:
-      parseSeparated(result, dataset, (byte) typeArr[PARSER_IDX], typeArr[COLNUM_IDX]);
-      break;
-    default: H2O.unimpl();
-    }
-
+    int [] psetup =  guessParserSetup(dataset, false);
+    String [] colNames = guessColNames(dataset,psetup);
+    boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
+    // pass 1
+    DParseTask tsk = new DParseTask(psetup[0],psetup[1]);
   }
 
-//  public static void parseWithEngine(Key result, Value dataset, ParseEngine e) throws Exception {
-//    final ParseState state = new ParseState();
-//    state._num_rows  = 0; // No rows yet
-//    state._num_cols  = 0; // No rows yet
-//
-//    e.doParse(dataset.openStream(), new ParseHandler() {
-//      @Override
-//      public void handleRow(double[] rowNums, String[] rowStrs) {
-//        if( state._num_cols == 0 ) {
-//          state._num_cols = rowNums.length;
-//          state.prepareForStatsGathering();
-//        }
-//        if( allNaNs(rowNums) ) return;
-//        state.addRowToStats(new Row(rowNums, rowStrs));
-//      }
-//
-//      @Override
-//      public void handleFinished(String[] names) {
-//        state.finishStatsGathering(0);
-//        state.maybeAssignColumnNames(names);
-//      }
-//    });
-//
-//    state.filterColumnsDomains();
-//    state.computeColumnSize();
-//    final int row_size = state.computeOffsets();
-//    final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
-//    final double[] sumerr = new double[state._num_cols];
-//    final HashMap<String,Integer> columnIndexes[] = state.createColumnIndexes();
-//    e.doParse(dataset.openStream(), new ParseHandler() {
-//      int off = 0;
-//      @Override
-//      public void handleRow(double[] rowNums, String[] rowStrs) {
-//        if( allNaNs(rowNums) ) return;
-//        state.addRowToBuffer(buf, off, sumerr, new Row(rowNums, rowStrs), columnIndexes);
-//        off += row_size;
-//      }
-//
-//      @Override public void handleFinished(String[] headerRow) { }
-//    });
-//
-//    state.normalizeVariance(sumerr);
-//    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf, null);
-//    // Now make the structured ValueArray & insert the main key
-//    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
-//        state._num_rows, row_size, state._cols);
-//    UKV.put(result,ary);
-//  }
-
-  public static void parseSeparated(Key result, Value dataset, byte parseType, int num_cols) {
-
-    DParseStatsPass dp1 = new DParseStatsPass();
-    dp1._parseType = parseType;
-    ParseState state = dp1._state;
-    state._num_cols  = num_cols;
-    state._num_rows  = 0; // No rows yet
-    dp1.invoke(dataset._key); // Parse whole dataset!
-    assert state == dp1._state;
-
-    // #1: Guess Column names, if any
-    String[] names = null;
-    try { // to be robust here have a fail-safe mode but log the exception
-          // NOTE: we should log such fail-safe situations
-      names = guessColNames(dataset, num_cols, parseType);
-    } catch( Exception e ) {
-      System.err.println("[parser] Column names guesser failed.");
-      e.printStackTrace(System.err);
-    }
-    state.maybeAssignColumnNames(names);
-    state.filterColumnsDomains();
-    state.computeColumnSize();
-    int row_size = state.computeOffsets();
-
-    // Setup for pass-2, where we do the actual data conversion. Also computes variance.
-    DParseCollectDataPass dp2 = new DParseCollectDataPass();
-    dp2._parseType = parseType;
-    dp2._row_size = row_size;
-    dp2._state  = state.clone();
-    dp2._result = result;
-    dp2.invoke(dataset._key);   // Parse whole dataset!
-
-    state.normalizeVariance(dp2._sumerr);
-    // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", state._num_rows, row_size, state._cols);
-    UKV.put(result,ary);
-
-    // Done building the result ValueArray!
-  }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
@@ -218,152 +187,42 @@ public final class ParseDataset {
     return true;
   }
 
-  // Helper class containing column domain and providing its serialization and deserialization.
-  // Note: helper class expect the maximum size of the domain as stated in DOMAIN_MAX_BYTE_SIZE - i.e., 2 bytes
-  static public class ColumnDomain {
-    // Maximum size (in bytes) of column which contains enum (= limited number of string values)
-    public static final byte DOMAIN_MAX_BYTE_SIZE = 2;
-    public static final int  DOMAIN_MAX_VALUES    = (1 << DOMAIN_MAX_BYTE_SIZE*8)-1;
-
-    // Include all domain values in their insert-order.
-    LinkedHashSet<String> _domainValues;
-    //
-    boolean _killed;
-
-    public ColumnDomain() {
-      // Domain values are stored in the set which preserve insert order.
-      _domainValues = new LinkedHashSet<String>();
-      _killed       = false;
-    }
-
-    public final int     size()     { return _domainValues.size(); }
-    public final boolean isKilled() { return _killed; }
-    public final void    kill()     {
-      if (!_killed) {
-        _killed = true;
-        _domainValues.clear();
-      }
-    }
-
-    public final void add(String s) {
-      if( s == null ) return;   // Silently ignore nulls
-      if (_killed) return; // this column domain is not live anymore (too many unique values)
-      if (_domainValues.size() == DOMAIN_MAX_VALUES) kill();
-      else _domainValues.add(s);
-    }
-
-    public void write( DataOutputStream dos ) throws IOException {
-      // write size of domain
-      dos.writeShort(_killed ? 65535 : _domainValues.size());
-      // write domain values
-      for (String s : _domainValues) {
-        dos.writeShort(s.length()); // Note: we do not expect to have domain names longer than > 2^16 characters
-        dos.write(s.getBytes());
-      }
-    }
-
-    public void write( Stream s ) {
-      final int off = s._off;
-      s.set2(_killed ? 65535 : _domainValues.size());
-      for( String sv : _domainValues)
-        s.setLen2Str(sv);
-      assert off+wire_len() == s._off;
-    }
-
-    static public ColumnDomain read( DataInputStream dis ) throws IOException {
-      ColumnDomain cd = new ColumnDomain();
-      int domainSize  = dis.readChar();
-      cd._killed = (domainSize==65535);
-      if( !cd._killed ) {
-        for (int i = 0; i < domainSize; i++) {
-          int len     = dis.readShort();
-          byte name[] = new byte[len];
-          dis.readFully(name);
-          cd._domainValues.add(new String(name));
-        }
-      }
-      return cd;
-    }
-
-    static public ColumnDomain read( Stream s ) {
-      final int off = s._off;
-      ColumnDomain cd = new ColumnDomain();
-      int domainSize  = s.get2();
-      cd._killed = (domainSize==65535);
-      if( !cd._killed ) {
-        for( int i = 0; i < domainSize; i++)
-          cd._domainValues.add(s.getLen2Str());
-      }
-      assert off+cd.wire_len() == s._off;
-      return cd;
-    }
-
-    public final int wire_len() {
-      int res = 2;              // 2bytes to store size of domain: 2 bytes
-      for (String s : _domainValues)
-        res += 2+s.length() ;   // 2bytes to store string length + string bytes
-      return res;
-    }
-
-    // Union of two column enum domains. If the union is
-    public final ColumnDomain union(ColumnDomain columnDomain) {
-      if (_killed) return this; // killed domains cannot be extended any more
-      if (columnDomain._killed) {
-        kill();
-        return this;
-      }
-
-      _domainValues.addAll(columnDomain._domainValues);
-
-      // check the size after union - if the domain is to big => kill it
-      if (_domainValues.size() > DOMAIN_MAX_VALUES) kill();
-
-      return this;
-    }
-
-    // For testing
-    public final String[] toArray() { return  _domainValues.toArray(new String[_domainValues.size()]); }
-  }
-
   public static final class DParseTask extends MRTask {
-    static final byte MCOL = -2;  // mixed numbers and strings
     static final byte SCOL = -3;  // string column (too many enum values)
     // pass 1 types
-    static final byte UCOL =  0;  // unknown
-    static final byte ICOL =  1;  // number column
-    static final byte FCOL =  2;  // number column
-    static final byte DCOL =  3;  // number column
-    static final byte ECOL =  4;  // number column
+    static final byte UCOL  = 0;  // unknown
+    static final byte ECOL  = 1;  // enum column
+    static final byte ICOL  = 2;  // integer column
+    static final byte FCOL  = 3;  // float column
+    static final byte DCOL  = 4;  // double column
     // pass 2 types
-    static final byte BYTE_ENUM  = 5;
-    static final byte SHORT_ENUM = 6;
-    static final byte INT_ENUM   = 7;
-    static final byte BYTE       = 8;
-    static final byte BYTE_BASE  = 9;
-    static final byte SHORT      = 10;
-    static final byte SHORT_BASE = 11;
-    static final byte INT        = 12;
-    static final byte INT_BASE   = 13;
-    static final byte LONG       = 14;
-    static final byte FLOAT      = 15;
-    static final byte DOUBLE     = 16;
-    static final byte BSHORT     = 17;
-    static final byte DSHORT     = 18;
-    static final byte DSHORT_BASE= 19;
+    static final byte BYTE  = 5;
+    static final byte SHORT = 6;
+    static final byte INT   = 7;
+    static final byte LONG  = 8;
+    static final byte DSHORT= 9;
 
     int _phase;
+    int  _myrows;
     int _ncolumns;
     byte _sep = (byte)',';
     byte _decSep = (byte)'.';
+
     String _error;
     byte     [] _colTypes;
     int      [] _scale;
     long     [] _invalidValues;
     double   [] _min;
     double   [] _max;
-    boolean  [] _floats;
     FastTrie [] _enums;
+    int      [] _nrows;
 
+
+    public DParseTask() {}
+    public DParseTask(Value dataset, byte sep, int ncolumns) {
+      _ncolumns = ncolumns;
+      _sep = sep;
+    }
     @Override public int wire_len() {
       switch(_phase){
       case 0:
@@ -372,61 +231,39 @@ public final class ParseDataset {
       return 0;
       }
 
-    @Override public void write( Stream s )                                {
+    @Override public void write( Stream s ) {
       s.set4(_phase);
       s.set4(_ncolumns);
       s.set1(_sep);
       s.set1(_decSep);
-      switch(_phase){
-      case 0:
-        break;
-      case 1:
-        s.setAry1(_colTypes);
-        s.setAry4(_scale);
-        s.setAry8(_invalidValues);
-        s.setAry8d(_min);
-        s.setAry8d(_max);
-        int n = 0;
-        for(int i = 0; i < _ncolumns;++i)
-          if(_colTypes[i] == ECOL || _colTypes[i] == MCOL)++n;
-        s.set4(n);
-        for(int i = 0; i < _ncolumns; ++i){
-
-        }
-      default:
-        throw new Error("illegal phase " + _phase);
-      }
-
+      s.setAry1(_colTypes);
+      s.setAry4(_scale);
+      s.setAry8(_invalidValues);
+      s.setAry8d(_min);
+      s.setAry8d(_max);
+      if(_enums != null){
+        s.set4(_enums.length);
+        for(FastTrie t:_enums) t.write(s);
+      } else
+        s.set4(-1);
     }
     @Override public void read ( Stream s ) {
       _phase = s.get4();
       _ncolumns = s.get4();
       _sep = s.get1();
       _decSep = s.get1();
-      switch(_phase){
-      case 0:
-        break;
-      case 1:
-        _colTypes = s.getAry1();
-        _scale = s.getAry4();
-        _invalidValues = s.getAry8();
-        _min = s.getAry8d();
-        _max = s.getAry8d();
-        int n = s.get4();
-        if(n > 0){
-          _enums = new FastTrie[n];
-          for(int i = 0; i < n; ++i){
-            _enums[i] = new FastTrie();
-            _enums[i].read(s);
-          }
+      _colTypes = s.getAry1();
+      _scale = s.getAry4();
+      _invalidValues = s.getAry8();
+      _min = s.getAry8d();
+      _max = s.getAry8d();
+      int n = s.get4();
+      if(n != -1){
+        _enums = new FastTrie[n];
+        for(int i = 0; i < n; ++i){
+          _enums[i] = new FastTrie();
+          _enums[i].read(s);
         }
-        break;
-      case 2:
-        break;
-      case 3:
-        break;
-      default:
-        throw new Error("illegal phase " + _phase);
       }
     }
 
@@ -463,7 +300,11 @@ public final class ParseDataset {
     @Override
     public void map(Key key) {
       Key aryKey  = Key.make(ValueArray.getArrayKeyBytes(key));
-      _colTypes = new byte[_ncolumns];
+
+      if(_phase == 1)_colTypes = new byte[_ncolumns];
+      else for(byte b:_colTypes){
+
+      }
       try{
         FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
         p.parse(key,true);
@@ -471,12 +312,35 @@ public final class ParseDataset {
       }catch(Exception e){
         _error = e.getMessage();
       }
+      _nrows[ValueArray.getChunkIndex(key)] = _myrows;
     }
-
 
     @Override
     public void reduce(DRemoteTask drt) {
-      throw new RuntimeException("TODO Auto-generated method stub");
+      DParseTask other = (DParseTask)drt;
+      for(int i = 0; i < _nrows.length; ++i){
+        assert _nrows[i] == 0 || other._nrows[i] == 0;
+        _nrows[i] += other._nrows[i];
+      }
+      if(_enums == null){
+        _enums = other._enums;
+        assert _min == null;
+        _min = other._min;
+        assert _max == null;
+        _max = other._max;
+        assert _scale == null;
+        _scale = other._scale;
+        assert _colTypes == null;
+        _colTypes = other._colTypes;
+      } else for(int i = 0; i < _ncolumns; ++i) {
+        _enums[i].merge(other._enums[i]);
+        if(other._min[i] < _min[i])_min[i] = other._min[i];
+        if(other._max[i] > _max[i])_max[i] = other._max[i];
+        if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
+        if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
+      }
+      if(_error == null)_error = other._error;
+      else if(other._error != null) _error = _error + "\n" + other._error;
     }
 
     static double [] powers10 = new double[]{
@@ -503,60 +367,61 @@ public final class ParseDataset {
       10000000000.0
     };
 
+    static long [] powers10i = new long[]{
+      0,
+      10,
+      100,
+      1000,
+      10000,
+      100000,
+      1000000,
+      10000000,
+      100000000,
+      1000000000,
+      10000000000l
+    };
+
     static double pow10(int exp){
       return ((exp >= -10 && exp <= 10)?powers10[exp+10]:Math.pow(10, exp));
     }
 
+    static long pow10i(int exp){
+      assert 10 >= exp && exp >= 0;
+      return powers10i[exp];
+    }
+
     double [] _dbases;
     long   [] _lbases;
+    Stream _s;
 
     private void calculateColumnEncodings(){
       for(int i = 0; i < _ncolumns; ++i){
         switch(_colTypes[i]){
         case ICOL: // number
-          if (_max[i] - _min[i] <= 256) {
-            if (_max[i] <= Byte.MAX_VALUE && _min[i] >= Byte.MIN_VALUE)
-              _colTypes[i] = BYTE;
-            else {
-              _colTypes[i] = BYTE_BASE;
-              _lbases[i] = Byte.MIN_VALUE - (long)_min[i];
-            }
-          } else if ((_max[i] - _min[i]) <= 65536) {
-            if (_max[i] <= Short.MAX_VALUE && _min[i] >= Short.MIN_VALUE)
-              _colTypes[i] = SHORT;
-            else {
-              _colTypes[i] = SHORT_BASE;
-              _lbases[i] = Short.MIN_VALUE - (long)_min[i];
-            }
-          } else if (_max[i] - _min[i] <= (1l << 32)) {
-            if (_max[i] <= Integer.MAX_VALUE && _min[i] >= Integer.MIN_VALUE)
+          if (_max[i] - _min[i] < 255) {
+            _colTypes[i] = BYTE;
+            _lbases[i] = (long)_min[i];
+          } else if ((_max[i] - _min[i]) < 65535) {
+            _colTypes[i] = SHORT;
+            _lbases[i] = (long)_min[i];
+          } else if (_max[i] - _min[i] < (1l << 32)) {
               _colTypes[i] = INT;
-            else {
-              _colTypes[i] = INT_BASE;
-              _lbases[i] = Integer.MIN_VALUE - (long)_min[i];
-            }
-          } else {
+            _lbases[i] = (long)_min[i];
+          } else
             _colTypes[i] = LONG;
-          }
           break;
         case FCOL:
         case DCOL:
           double s = pow10(_scale[i]);
           double range = s*(_max[i]-_min[i]);
-          if(range <= 65536){
-            double max = s*_max[i];
-            double min = s*_min[i];
-            if(max <= Short.MAX_VALUE && min >= Short.MIN_VALUE)
-              _colTypes[i] = DSHORT;
-            else {
-              _colTypes[i] = DSHORT_BASE;
-              _dbases[i] = Short.MIN_VALUE - min;
-            }
+          if(range < 65535){
+            _colTypes[i] = DSHORT;
+            _lbases[i] = (long)(s*_min[i]);
           } // else leave it as float/double
         case ECOL: // enum
-          if(_enums[i]._nfinalStates <= 256)_colTypes[i] = BYTE_ENUM;
-          else if(_enums[i]._nfinalStates <= 65536)_colTypes[i] = SHORT_ENUM;
-          else _colTypes[i] = INT_ENUM;
+          if(_enums[i]._nfinalStates < 256)_colTypes[i] = BYTE;
+          else if(_enums[i]._nfinalStates < 65536)_colTypes[i] = SHORT;
+          else _colTypes[i] = INT;
         }
       }
     }
@@ -564,12 +429,11 @@ public final class ParseDataset {
     public void addRow(FastParser.Row row){
       switch (_phase) {
       case 0:
+        ++_myrows;
         for(int i = 0; i < _ncolumns; ++i){
-          if(row._exponents[i] == Integer.MAX_VALUE){
-            ++_invalidValues[i];
-            if(row._numbers[i] < 0){
-              continue; //NaN
-            }
+          if(row._numLength[i] < 0)++_invalidValues[i];
+          if(row._numbers[i] == -1)continue; //NaN
+          if(row._numbers[i] == -2){
             // enum
             switch(_colTypes[i]){
             case UCOL:
@@ -577,200 +441,65 @@ public final class ParseDataset {
             case ECOL:
               if(row._numbers[i] == -1)_colTypes[i] = SCOL;
               break;
-            case NCOL:
-              _colTypes[i] = MCOL;
-            case MCOL:
-              ++_invalidValues[i];
             default:
               break;
             }
           } else { // number
-              switch(_colTypes[i]){
-              case ECOL:
-                _colTypes[i] = MCOL;
-                break;
-              case UCOL:
-                _colTypes[i] = NCOL;
-                break;
+            double d = row._numbers[i]*pow10(row._exponents[i]);
+            if(d < _min[i])_min[i] = d;
+            if(d > _max[i])_max[i] = d;
+            int exp = row._numLength[i] + row._exponents[i];
+            if(exp < 0) {
+              if(exp < _scale[i])_scale[i] = exp;
+              if(_colTypes[i] != DCOL){
+                if((float)d != d)_colTypes[i] = DCOL;
+                else _colTypes[i] = FCOL;
               }
-              int exp = row._numLength[i] + row._exponents[i];
-              if(exp < 0 && exp < _scale[i])_scale[i] = exp;
-              double d = row._numbers[i]*pow10(exp);
-              if(d < _min[i])_min[i] = d;
-              if(d > _max[i])_max[i] = d;
-              if(_floats[i] && (float)d != d)_floats[i] = false;
-            }
-          }
-      case 2:
-        for (int i = 0; i < row._numbers.length; ++i) {
-          long number = row._numbers[i];
-          int exp = row._exponents[i];
-          switch (_colTypes[i]) {
-            case BYTE_ENUM:
-              _offset = UDP.set1(_bits,_offset,(int) number);
-              break;
-            case SHORT_ENUM:
-              _offset = UDP.set2(_bits,_offset,(int) number);
-              break;
-            case INT_ENUM:
-              _offset = UDP.set4(_bits,_offset,(int) number);
-              break;
-            case BYTE:
-              number = number * powersOf10[exp];
-              _offset = UDP.set1(_bits,_offset,(int) number);
-              break;
-            case SHORT:
-              number = number * powersOf10[exp];
-              _offset = UDP.set2(_bits,_offset,(int) number);
-              break;
-            case INT:
-              number = number * powersOf10[exp];
-              _offset = UDP.set4(_bits,_offset,(int) number);
-              break;
-            case BYTE_BASE:
-              number = number * powersOf10[exp] - _bases[i];
-              _offset = UDP.set1(_bits,_offset,(int) number);
-              break;
-            case SHORT_BASE:
-              number = number * powersOf10[exp] - _bases[i];
-              _offset = UDP.set2(_bits,_offset,(int) number);
-              break;
-            case INT_BASE:
-              number = number * powersOf10[exp] - _bases[i];
-              _offset = UDP.set4(_bits,_offset,(int) number);
-              break;
-            case LONG:
-              if (exp > powersOf10.length)
-                number = number * pow10(exp);
-              else if (exp>0)
-                number = number * powersOf10[exp];
-              _offset = UDP.set8(_bits,_offset,(int) number);
-              break;
-            case FLOAT:
-              _offset += UDP.set8d(_bits,_offset, (float) toDouble(number,exp));
-              break;
-            case DOUBLE:
-              _offset += UDP.set8d(_bits,_offset, toDouble(number,exp));
-              break;
-            case SHORT_COMPRESSED_DOUBLE:
-              double d = toDouble(number, exp+_scales[i]);
-              _offset = UDP.set2(_bits,_offset,(int)(d - _mins[i]));
-              break;
+            } else if(_colTypes[i] == UCOL || _colTypes[i] == ECOL)
+              _colTypes[i] = ICOL;
           }
         }
+      case 2:
+        for (int i = 0; i < row._numbers.length; ++i) {
+          switch(row._numLength[i]){
+          case -1: // NaN
+            row._numbers[i] = -1l;
+            row._numbers[i] += _lbases[i];
+            // fallthrough -1 is NaN for all values, _lbases will cancel each other
+            // -1 is also NaN in case of enum (we're in number column)
+          case -2: // enum
+            // lbase for enums is 0
+          default:
+            switch (_colTypes[i]) {
+              case BYTE:
+                _s.set1((byte)(row._numbers[i] - _lbases[i]));
+                break;
+              case SHORT:
+                _s.set2((short)(row._numbers[i] - _lbases[i]));
+                break;
+              case INT:
+                _s.set4((int)(row._numbers[i] - _lbases[i]));
+                break;
+              case LONG:
+                _s.set8(row._numbers[i]);
+                break;
+              case FCOL:
+                _s.set4f((float)(row._numbers[i] * pow10(row._exponents[i])));
+                break;
+              case DCOL:
+                _s.set8d(row._numbers[i] * pow10(row._exponents[i]));
+              case DSHORT:
+                _s.set2((short)(row._numbers[i]*pow10i(_scale[i]+row._exponents[i]) - _lbases[i]));
+                break;
+            }
+          }
         }
       }
     }
-
-
-
+  }
   // ----
   // Distributed parsing.
 
-  // Just the common fields being moved over the wire during parse compaction.
-  public static abstract class DParse extends MRTask {
-    ParseState _state;
-    public DParse() { _state = new ParseState(); }
-
-    @Override
-    protected DParse clone() throws CloneNotSupportedException {
-      DParse dp = (DParse) super.clone();
-      dp._state = _state.clone();
-      return dp;
-    }
-
-    // Hand-rolled serializer for the above common fields.
-    // Some Day Real Soon auto-gen me.
-    @Override public int wire_len() { return _state.wire_len(); }
-    @Override public void write( Stream s )                                { _state.write(s);   }
-    @Override public void read ( Stream s )                                { _state.read(s);    }
-    @Override public void write( DataOutputStream dos ) throws IOException { _state.write(dos); }
-    @Override public void read ( DataInputStream dis  ) throws IOException { _state.read(dis);  }
-  }
-
-  // ----
-  // Distributed parsing, Pass 1
-  // Find min/max, digits per column.  Find number of rows per chunk.
-  // Collects columns' domains (in case the column contains string values).
-  public static class DParseStatsPass extends DParse {
-    byte _parseType;
-
-    public void map( Key key ) {
-      _state.prepareForStatsGathering();
-      SeparatedValueParser csv = new SeparatedValueParser(key,
-          _parseType == PARSE_COMMASEP ? ',' : ' ',
-          _state._cols.length);
-      for( Row row : csv ) {
-        if( !allNaNs(row._fieldVals) ) _state.addRowToStats(row);
-      }
-      _state.finishStatsGathering(key.user_allowed() ? 0 : ValueArray.getChunkIndex(key));
-    }
-
-    // Combine results
-    public void reduce( DRemoteTask rt ) {
-      _state.mergeStats(((DParseStatsPass)rt)._state);
-    }
-  }
-
-  // ----
-  // Distributed parsing, Pass 2
-  // Parse the data, and jam it into compressed fixed-sized row data
-  public static class DParseCollectDataPass extends DParse {
-    Key _result;
-    double[] _sumerr;
-    int _row_size;
-    byte _parseType;
-
-    // Parse just this chunk, compress into new format.
-    public void map( Key key ) {
-      assert _state._cols != null;
-
-      // Get chunk index
-      int cidx = key.user_allowed() ? 0 : ValueArray.getChunkIndex(key);
-      int start_row = _state._rows_chk[cidx];
-      int num_rows = _state._rows_chk[cidx+1]-start_row;
-
-      // Get a place to hold the data
-      byte[] buf = MemoryManager.allocateMemory(num_rows*_row_size);
-      // A place to hold each column datum
-      _sumerr = new double[_state._num_cols];
-      // The parser
-      SeparatedValueParser csv = new SeparatedValueParser(key,
-          _parseType == PARSE_COMMASEP ? ',' : ' ', _state._cols.length);
-
-      // Prepare hashmap for each column domain to get domain item's index quickly
-      HashMap<String,Integer> columnIndexes[] = _state.createColumnIndexes();
-
-      // Fill the rows
-      int off = 0;
-      for( Row row : csv ) {
-        if( allNaNs(row._fieldVals) ) continue; // Row is dead, skip it entirely
-        _state.addRowToBuffer(buf, off, _sumerr, row, columnIndexes);
-        off += _row_size;
-      }
-
-      packRowsIntoValueArrayChunks(_result, start_row, num_rows, _row_size, _state, buf, this);
-
-      // Reset these arrays to null, so they are not part of the return result.
-      _state._rows_chk = null;
-      _state._cols = null;
-      _state._cols_domains = null;
-      _state._num_rows = 0;            // No data to return
-    }
-
-    public void reduce( DRemoteTask rt ) {
-      // return the variance
-      DParseCollectDataPass dp2 = (DParseCollectDataPass)rt;
-      if( _sumerr == null )
-        _sumerr = dp2._sumerr;
-      else {
-        for(int i = 0; i < _sumerr.length; ++i)
-          _sumerr[i] += dp2._sumerr[i];
-      }
-      _state._cols = null;
-      _state._num_rows = 0;
-    }
-  }
 
   // Atomically fold together as many rows as will fit in the next chunk.  I
   // have an array of bits (buf) which is an even count of rows.  I want to
@@ -844,91 +573,8 @@ public final class ParseDataset {
       DKV.remove(_key);
     }
   }
-
-  // Guess
-  private static Compression guessCompressionMethod(Value dataset) {
-    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
-    byte[] b = v0.get();                      // Bytes for 1st chunk
-
-    // Look for ZIP magic
-    if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
-      return Compression.ZIP;
-    if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
-      return Compression.GZIP;
-    return Compression.NONE;
-  }
-
-  // ---
-  // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
-  // the number of columns for svm light is not reliable as it only relies on info from the first chunk
-  private static int[] guessParserSetup(Value dataset, boolean parseFirst ) {
-    // Best-guess on count of columns and separator.  Skip the 1st line.
-    // Count column delimiters in the next line. If there are commas, assume file is comma separated.
-    // if there are (several) ':', assume it is in svmlight format.
-    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
-    byte[] b = v0.get();                      // Bytes for 1st chunk
-
-    int i=0;
-    // Skip all leading whitespace
-    while( i<b.length && Character.isWhitespace(b[i]) ) i++;
-    if( !parseFirst ) {         // Skip the first line, it might contain labels
-      while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
-    }
-    if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
-    if( i   < b.length &&  b[i] == '\n' ) i++;
-    // start counting columns on the 2nd line
-    final int line_start = i;
-    int cols = 0;
-    int mode = 0;
-    int colonCounter = 0;
-    boolean commas  = false;     // Assume white-space only columns
-    boolean escaped = false;
-    while( i < b.length ) {
-      char c = (char)b[i++];
-      if( c == '"' ) {
-        escaped = !escaped;
-        continue;
-      }
-      if (!escaped) {
-        if( c=='\n' || c== '\r' ) {
-          break;
-        }
-        if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
-          if( mode == 1 ) mode = 2;
-        } else if( c == ',' ) {   // Found a comma?
-          if( commas == false ) { // Not in comma-seperator mode?
-            // Reset the entire line parse & try again, this time with comma
-            // separators enabled.
-            commas=true;          // Saw a comma
-            i = line_start;       // Reset to line start
-            cols = mode = 0;      // Reset parsing mode
-            continue;             // Try again
-          }
-          if( mode == 0 ) cols++;
-          mode = 0;
-        } else if(c == ':' && (++colonCounter == 3)){
-          // if there are at least 3 ':' on the line, the file is probably svmlight format
-          throw new Error("SVMLIGHT format is currently unsupported");
-        } else {                  // Else its just column data
-          if( mode != 1 ) cols++;
-          mode = 1;
-        }
-      }
-    }
-    // If no columns, and skipped first row - try again parsing 1st row
-    if( cols == 0 && parseFirst == false ) return guessParserSetup(dataset,true);
-    return new int[]{ commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols };
-  }
-
-  // ---
-
-  // Alternative column title guesser.  Returns an array of Strings, or
-  // null if none.
-  public static String[] guessColNames( Value dataset, int num_cols, byte csvType ) {
-    SeparatedValueParser csv = new SeparatedValueParser(dataset.chunk_get(0),
-        csvType == PARSE_COMMASEP ? ',' : ' ', num_cols);
-    Iterator<Row> it = csv.iterator();
-    if( !it.hasNext() ) return null;
-    return it.next()._fieldStringVals;
-  }
 }
+
+
+
+
