@@ -80,6 +80,9 @@ public class RandomForest {
     final int num_cols = va.num_cols();
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
     Utils.startTimer("main");
+    assert ARGS.sample >0 && ARGS.sample<=100;
+    assert ARGS.ntrees >=0;
+    assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  ((float)ARGS.sample/100), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true);
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
     Key[] tkeys = null;
