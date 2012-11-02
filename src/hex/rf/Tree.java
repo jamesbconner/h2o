@@ -104,7 +104,7 @@ public class Tree extends CountedCompleter {
         Model m_old = new Model();
         m_old.read(new Stream(bits));
         if( m_old.size() >= m_new.size() )
-          return bits.clone();
+          return bits;          // Abort the XTN with no change
       }
       Stream s = new Stream();
       m_new.write(s);           // Write the larger model out

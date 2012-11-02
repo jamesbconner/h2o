@@ -91,10 +91,11 @@ public class TaskGetKey extends DFutureTask<Value> {
         buf[off++] = 0;          // persistence
         off += set4(buf,off,-3); // Value-len == -3
       } else {                   // Have a value to ship about
-        H2O cloud = H2O.CLOUD;
-        H2ONode home = cloud._memary[key.home(cloud)]; // Home for the key
+        H2ONode home = key.home_node(); // Home for the key
         if( home == H2O.SELF ) { // Shipping from home node?
-          key.set_mem_replica(h2o); // Record remote replica
+          if( !val.set_mem_replica(h2o) ) { // Record remote replica
+            throw H2O.unimpl();  // restart from H2O.get()...
+          }
         } else {                 // Shipping from non-home?
           assert home == h2o;    // Assert home is asking for the key
         }

@@ -105,7 +105,7 @@ public class DebugView extends H2OPage {
     int r = key.desired();
     int repl = key.replica(cloud);
     if( repl < r ) { // If we should be replicating, then report what replication we know of
-      int d = key.count_disk_replicas();
+      int d = val.count_mem_replicas();
       if( val.is_persisted() ) d++; // One more for self
       if( d < r )
         row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");

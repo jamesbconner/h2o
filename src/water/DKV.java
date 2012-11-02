@@ -14,11 +14,12 @@ public abstract class DKV {
   // This put is a top-level user-update, and not a reflected or retried
   // update.  i.e., The User has initiated a change against the K/V store.
   // This is a WEAK update: it is not strongly ordered with other updates
-  static public TaskPutKey put( Key key, Value val ) {
+  static public TaskPutKey put( Key key, Value val ) { return put(key,val,H2O.SELF); }
+  static public TaskPutKey put( Key key, Value val, H2ONode sender ) {
     assert val==null || val.is_same_key(key);
     while( true ) {
       Value old = H2O.get(key);
-      Object res = DputIfMatch(key,val,old);
+      Object res = DputIfMatch(key,val,old,sender);
       if( res == old ) return null; // PUT worked without a TPK
       if( res instanceof TaskPutKey ) return (TaskPutKey)res;
     }
@@ -34,7 +35,10 @@ public abstract class DKV {
   // "callers pay" model with a more complex return setup.  The return value
   // is a TPK if one is needed, or the old Value if not.  If a TPK is returned
   // the old Value is stashed inside of it for the caller to consume.
-  static protected Object DputIfMatch( Key key, Value val, Value old ) {
+  static protected Object DputIfMatch( Key key, Value val, Value old, H2ONode sender ) {
+    if( val != null && sender != H2O.SELF )
+      val.set_mem_replica(sender); // New Value will have at least 1 mem replica
+
     // local update first, since this is a weak update
     Value res = H2O.putIfMatch(key,val,old);
     if( res != old )            // Failed?
@@ -56,21 +60,20 @@ public abstract class DKV {
     // If PUT is on non-HOME, replicate/push to HOME
     // If PUT is on     HOME, invalidate remote caches
     if( key.home() ) {          // On     HOME?
-      key.invalidate_remote_caches();
-      return old;               // Return success value
+      return old == null ? null : old.invalidate_remote_caches(sender);
     } else {                    // On non-HOME?
       H2O cloud = H2O.CLOUD;
       int home_idx = cloud.D(key,0);
       H2ONode target = cloud._memary[home_idx];
-      // Start a write, but do not block for it
-      TaskPutKey tpk = new TaskPutKey(target,key,val);
-      tpk._oldval = old;
-      return tpk;
+      // Start a write, but do not block for it.  Returns a cookie we can block
+      // on, plus the old value buried in the cookie.
+      return new TaskPutKey(target,key,val, old);
     }
   }
 
   // Stall until all existing writes have completed.
-  // Used to order successive writes.
+  // Used to order successive writes to unrelated keys.
+  // Also blocks for invalidates
   static public void write_barrier() {
     for( DFutureTask dt : DFutureTask.TASKS.values() )
       if( dt instanceof TaskPutKey )

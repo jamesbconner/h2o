@@ -19,15 +19,16 @@ public class TaskPutKey extends DFutureTask<Object> {
 
   final Key _key; // The LOCAL Key; presumably a bare Key no Value, and NOT interned
   final Value _val; // Value to be pushed
-  Value _oldval;    // "Helper" return value for DKV.put; not used here
+  final Value _old; // "Helper" return value for DKV.put; not used here
 
   // Asking the remote for the Value matching this specific Key.  Return the
   // first len bytes of that key.  If len==Integer.MAX_VALUE the intent is to
   // cache the entire key locally.
-  protected TaskPutKey( H2ONode target, Key key, Value val ) {
+  protected TaskPutKey( H2ONode target, Key key, Value val, Value old ) {
     super( target,UDP.udp.putkey );
     _key  = key;
     _val = val;
+    _old = old;
 
     // A Stronger MM is easier, in many ways than an weaker one.  In this case
     // I am ordering writes from the same Node to the same Key, so that the
@@ -113,14 +114,8 @@ public class TaskPutKey extends DFutureTask<Object> {
     // Update the local target STORE given this pair from the remote.
     private void update( Key key, Value val, H2ONode sender ) {
       assert key.home() || val==null; // Only PUT to home for keys, or remote invalidation from home
-      // We are about to update the local STORE for this key.
-      // All known replicas will become invalid... except the sender.
-      // Clear his replica-bits so we do not invalidate him.
-      key. clr_mem_replica(sender);
-      key.clr_disk_replica(sender);
       if( key.home() ) {        // Home-side put?
-        // Home-node side PUT (which may require invalidates)
-        DKV.put(key,val);
+        DKV.put(key,val,sender);// Home-node side PUT (which may require invalidates)
       } else {                  // Remote put: only invalidate is allowed
         assert val == null;     // Invalidate only
         // Similar to DKV.put, except no further invalidates nor forwarding to home
@@ -129,14 +124,6 @@ public class TaskPutKey extends DFutureTask<Object> {
         while( H2O.putIfMatch(key,null,old) != old )
           old = H2O.get(key);   // Repeat until we invalidate something
       }
-      // Now we assume the sender is still valid in ram.
-      if( val != null ) key.set_mem_replica(sender);
-      // There's a weird race where another thread is writing also, and we set
-      // blind-set the mem-replica field... preventing invalidates.  If we
-      // see a change, force an invalidate to reload
-      Value v2 = H2O.get(key);
-      if( val != v2 && v2 != null && !v2.true_ifequals(val) )
-        key.invalidate(sender);
     }
 
 
@@ -156,5 +143,22 @@ public class TaskPutKey extends DFutureTask<Object> {
   // returns the old value.
   protected Object unpack( DatagramPacket p ) {
     return _key;
+  }
+
+  // Can be a collection of TPKs... useful for blocking on a parallel
+  // collection of independent pending writes.
+  TaskPutKey _tpks[];
+  protected TaskPutKey( Value old ) {
+    super(null,UDP.udp.bad);
+    _key = null;
+    _val = null;
+    _old = old;
+    _tpks = new TaskPutKey[8];
+  }
+  // Blocking call for either the collection or upcall for the singleton case.
+  public Object get() {
+    if( _tpks == null ) return super.get();
+    for( TaskPutKey tpk : _tpks ) if( tpk != null ) tpk.get();
+    return null;
   }
 }
