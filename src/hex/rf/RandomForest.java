@@ -36,13 +36,12 @@ public class RandomForest {
 	String h2oArgs = "";
 	int ntrees = 10;
 	int depth = Integer.MAX_VALUE;
-	double cutRate = 0;
-	float sample = (float) 0.55;
+	double cutRate = -1;
+	float sample = (float) 0.67;
 	int binLimit = 1024;
 	int classcol = -1;
 	String statType = "entropy";
 	int seed = 42;
-	boolean singlethreaded;
   }
 
   static final OptArgs ARGS = new OptArgs();
@@ -57,10 +56,7 @@ public class RandomForest {
       ARGS.h2oArgs = ARGS.h2oArgs.substring(1, ARGS.h2oArgs.length()-1);
     ARGS.h2oArgs = ARGS.h2oArgs.trim();
     String [] h2oArgs = ARGS.h2oArgs.split("[ \t]+");
-    System.out.println("H2O args = " + Arrays.toString(h2oArgs));
     H2O.main(h2oArgs);
-    System.out.println(ARGS.file);
-    Thread.sleep(100);
     ValueArray va;
     // get the input data
     if(ARGS.parsdedKey != null) // data already parsed
@@ -74,28 +70,19 @@ public class RandomForest {
       va = KeyUtil.parse_test_key(fk,Key.make(KeyUtil.getHexKeyFromFile(f)));
       DKV.remove(fk);
     }
-    int ntrees = ARGS.ntrees;
-    if(ntrees == 0) {
+    if(ARGS.ntrees == 0) {
       System.out.println("Nothing to do as ntrees == 0");
       UDPRebooted.global_kill(2);
       return;
     }
-    DRF.sample = (ARGS.validationFile == null || ARGS.validationFile.isEmpty());
-    DRF.forceNoSample = (ARGS.validationFile != null && !ARGS.validationFile.isEmpty());
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
-    Utils.pln("[RF] Starting RF.");
     final int num_cols = va.num_cols();
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
-
     Utils.startTimer("main");
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth, ARGS.cutRate, ARGS.sample, (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true);
-
     final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
-
-
     Key[] tkeys = null;
-    while(tkeys == null || tkeys.length!=ntrees) tkeys = drf._treeskey.flatten();
-
+    while(tkeys == null || tkeys.length!=ARGS.ntrees) tkeys = drf._treeskey.flatten();
     Key modelKey = Key.make("model");
     Model model = new Model(modelKey,drf._treeskey,num_cols,classes);
     UKV.put(modelKey,model);
@@ -104,9 +91,8 @@ public class RandomForest {
     Utils.pln("[RF] trees done in "+ t2);
     Utils.startTimer("validation");
 
-    assert tkeys.length == ntrees;
+    assert tkeys.length == ARGS.ntrees;
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
-      DRF.forceNoSample = true;
       Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
       ValueArray valAry = KeyUtil.parse_test_key(valKey);
       Key[] keys = new Key[(int)valAry.chunks()];

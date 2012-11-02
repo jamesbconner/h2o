@@ -176,13 +176,8 @@ public class DRF extends water.DRemoteTask {
     Utils.startTimer("extract");
     DataAdapter dapt = extractData(_arykey, _keys);
     Utils.pln("[RF] Data adapter built in " + Utils.printTimer("extract") );
-    // If we have too little data to validate distributed, then
-    // split the data now with sampling and train on one set & validate on the other.
-    sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
-    Data d = Data.make(dapt);
-    short[] complement = sample ? new short[d.rows()] : null;
-    Data t = sample ? d.sampleWithReplacement(.666, complement) : d;
-    _validation = sample ? t.complement(d, complement) : null;
+    Data t = Data.make(dapt);
+    _validation = t; // FIXME... this does not look right.
 
     // Figure the number of trees to make locally, so the total hits ntrees.
     // Divide equally amongst all the nodes that actually have data.
@@ -210,9 +205,6 @@ public class DRF extends water.DRemoteTask {
     _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel);
     tryComplete();
   }
-
-  static boolean sample;
-  static boolean forceNoSample = false;
 
   public void reduce( DRemoteTask drt ) { }
 }
