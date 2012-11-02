@@ -43,7 +43,7 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     drf._parallel = parallelTrees;
@@ -60,14 +60,10 @@ public class DRF extends water.DRemoteTask {
     drf._bin_limit = binLimit;
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
+    DKV.write_barrier();
+    drf.fork(drf._arykey);
     return drf;
   }
-  
-  public void startComputation() {
-    DKV.write_barrier();
-    fork(_arykey);
-  }
-
 
 
   private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
@@ -179,13 +175,8 @@ public class DRF extends water.DRemoteTask {
     Utils.startTimer("extract");
     DataAdapter dapt = extractData(_arykey, _keys);
     Utils.pln("[RF] Data adapter built in " + Utils.printTimer("extract") );
-    // If we have too little data to validate distributed, then
-    // split the data now with sampling and train on one set & validate on the other.
-    sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
-    Data d = Data.make(dapt);
-    short[] complement = sample ? new short[d.rows()] : null;
-    Data t = sample ? d.sampleWithReplacement(.666, complement) : d;
-    _validation = sample ? t.complement(d, complement) : null;
+    Data t = Data.make(dapt);
+    _validation = t; // FIXME... this does not look right.
 
     // Figure the number of trees to make locally, so the total hits ntrees.
     // Divide equally amongst all the nodes that actually have data.
@@ -213,9 +204,6 @@ public class DRF extends water.DRemoteTask {
     _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel);
     tryComplete();
   }
-
-  static boolean sample;
-  static boolean forceNoSample = false;
 
   public void reduce( DRemoteTask drt ) { }
 }
