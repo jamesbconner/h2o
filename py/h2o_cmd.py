@@ -68,19 +68,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     key = parseKey['Key']
     rf = node.random_forest(key, trees, depth, **kwargs)
 
-    # rf result json: 
-    # this is the number of trees asked for
-    # u'ntree': 6, 
-    # this is the number of trees currently in the model (changes till == ntree)
-    # u'modelSize: 6, 
-    # u'class': 4
-    # u'dataKey': u'...', 
-    # u'modelKey': u'model', 
-    # u'dataKeyHref': u'...', 
-    # u'treesKeyHref': u'...', 
-    # u'modelKeyHref': u'____model'
-    # u'h2o': u'/192.168.0.35:54321', 
-
     # FIX! check all of these somehow?
     dataKey  = rf['dataKey']
     modelKey = rf['modelKey']
