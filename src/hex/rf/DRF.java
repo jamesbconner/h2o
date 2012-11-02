@@ -61,10 +61,9 @@ public class DRF extends water.DRemoteTask {
     drf.validateInputData(ary);
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
-    drf.fork(ary._key);
+    drf.fork(drf._arykey);
     return drf;
   }
-
 
 
   private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
