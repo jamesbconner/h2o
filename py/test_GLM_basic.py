@@ -54,7 +54,7 @@ class Basic(unittest.TestCase):
                 print "Y:", Y
 
                 ### FIX! add some expected result checking
-                glm = cmd.runGLM(csvPathname=csvPathname, X=X, Y=Y, 
+                glm = cmd.runGLM(csvPathname=csvPathname, X=X, Y=Y, xval=4,
                     timeoutSecs=timeoutSecs)
                 ### {u'h2o': u'/192.168.0.37:54321', u'Intercept': -1.0986109988055501, u'response_html': u'<div class=\'alert alert-success\'>Linear regression on data <a href=____9f961-8a18-4863-81ca-159ff76315f9>9f961-8a18-4863-81ca-159ff76315f9</a> computed in 20[ms]<strong>.</div><div class="container">Result Coeficients:<div>STR = -4.163336342344337E-16</div><div>Intercept = -1.0986109988055501</div></div>', u'STR': -4.163336342344337e-16, u'time': 20}
 
@@ -93,7 +93,7 @@ class Basic(unittest.TestCase):
                 print "Y:", Y
 
                 ### FIX! add some expected result checking
-                glm = cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
+                glm = cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, xval=5, timeoutSecs=timeoutSecs)
                 h2o.verboseprint("\nglm:", glm)
                 print "\nerrRate:", glm['errRate']
                 print "trueNegative:", glm['trueNegative']

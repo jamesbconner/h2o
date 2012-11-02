@@ -494,6 +494,8 @@ class H2O(object):
     # Model updates asynchrounously as long as more trees appear.
     # Check modelSize to see if all trees are ready.
     def random_forest_view(self, dataKey, modelKey, ntree, browseAlso=False):
+        # FIX! temporary hack: rfview should ignore ntree!
+        # force it to be bad
         a = self.__check_request(requests.get(self.__url('RFView.json'),
             params={
                 "dataKey": dataKey,
@@ -503,7 +505,8 @@ class H2O(object):
         verboseprint("\nrandom_forest_view result:", a)
         # we should know the json url from above, but heck lets just use
         # the same history-based, global mechanism we use elsewhere
-        if (browseAlso):
+        # look at the passed down enable, or the global args
+        if (browseAlso | browse_json):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
         return a
 
@@ -528,16 +531,22 @@ class H2O(object):
     # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
     # in the dataset. We'll just do that all the time for now.
     # FIX! add more parameters from the wiki
-    def GLM(self, key, X="0", Y="1", family="binomial", xval=10, bool="true"):
-        a = self.__check_request(requests.get(self.__url('GLM.json'),
-            params={
+    def GLM(self, key, X="0", Y="1", family="binomial", xval=10, bool="true", **kwargs):
+        # we're going to build up the list by adding kvargs here, because
+        # the possibilities are large and changing!
+        params_list = { 
                 "family": family,
                 "X": X,
                 "Y": Y,
                 "Key": key,
                 "xval": xval,
                 "bool": bool
-                }))
+                }
+        # add one dictionary to another (2nd dominates)               
+        params_list.update(kwargs)
+        print "hello", params_list
+
+        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_list))
         verboseprint("GLM:", a)
         return a
 

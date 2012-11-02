@@ -2,20 +2,28 @@ import os, json, unittest, time, shutil, sys
 import h2o
 import h2o_browse as h2b
 
-def runGLM(node=None,csvPathname=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=0.5):
+def runGLM(node=None,csvPathname=None,X="0",Y="1",
+    timeoutSecs=30,retryDelaySecs=0.5,
+    family="binomial",xval=10,bool="true",**kwargs):
+    print "Hello1:", xval
     if not csvPathname: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
     parse = node.parse(put['key'])
     glm = runGLMOnly(node=node, parseKey=parse,X=X,Y=Y,
-        timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+        timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs,
+        family=family,xval=xval,bool=bool,**kwargs)
     return glm
 
-def runGLMOnly(node=None,parseKey=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=0.5):
+def runGLMOnly(node=None,parseKey=None,X="0",Y="1",
+    timeoutSecs=30,retryDelaySecs=0.5,
+    family="binomial",xval=10,bool="true",**kwargs):
+    print "Hello2:", xval
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    glm = node.GLM(parseKey['Key'],X=X,Y=Y)
+    glm = node.GLM(parseKey['Key'],X=X,Y=Y,
+        family=family,xval=xval,bool=bool,**kwargs)
     return glm
 
 # You can change those on the URL line woth "&colA=77&colB=99"
