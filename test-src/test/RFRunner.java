@@ -45,11 +45,10 @@ public class RFRunner {
     String rawKey;              //
     String validationFile;      // validation data
     int ntrees = 10;            // number of trees
-    int depth = -1;             // max depth of trees
-    double cutRate = 0;         // min purity of a node
-    String statType = "entropy";// split type
+    int depth = Integer.MAX_VALUE; // max depth of trees
+    double cutRate = -1;         // min purity of a node
+    String statType = "gini";// split type
     int seed = 42;              // seed
-    boolean singlethreaded;     // multi threaded
   }
 
   static class OptArgs extends Arguments.Opt {
@@ -219,13 +218,12 @@ public class RFRunner {
     String[] commands = new String[experiments];
     int i = 0;
     for(String f : files)
-      for (boolean thread : threading)
         for (int sz :szTrees)
           for(String stat : stats)
             for(int seed : seeds) {
               RFArgs rfa = new RFArgs();
               rfa.seed = seed; rfa.statType = stat; rfa.file = f;
-              rfa.ntrees = sz;  rfa.singlethreaded = thread;
+              rfa.ntrees = sz;
               commands[i++] = javaCmd + " " + rfa;
             }
 
@@ -281,13 +279,12 @@ public class RFRunner {
     String[] commands = new String[experiments];
     int i = 0;
     for(String f : files)
-      for (boolean thread : threading)
         for (int sz :szTrees)
           for(String stat : stats)
             for(int seed : seeds) {
               RFArgs rfa = new RFArgs();
               rfa.seed = seed; rfa.statType = stat; rfa.file = f;
-              rfa.ntrees = sz;  rfa.singlethreaded = thread;
+              rfa.ntrees = sz;
               String add = special.get(f)==null? "" : (" "+special.get(f));
               commands[i++] = javaCmd + " " + rfa + add;
             }
