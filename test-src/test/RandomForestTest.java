@@ -4,11 +4,13 @@ import static org.junit.Assert.*;
 import hex.rf.Confusion;
 import hex.rf.Model;
 
+import java.io.*;
 import java.util.Properties;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
+import test.RFRunner.OptArgs;
 import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
