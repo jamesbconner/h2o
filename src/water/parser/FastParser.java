@@ -4,20 +4,21 @@ package water.parser;
 import java.util.ArrayList;
 import java.util.Arrays;
 import water.*;
+import water.parser.ParseDataset.DParseTask;
 
 /**
  *
  * @author peta
  */
 public class FastParser {
-  
+
   /**
-   * Number is anything with number and exp being reasonable values. 
-   * 
+   * Number is anything with number and exp being reasonable values.
+   *
    * NaN is encoded as numLength -1
    * enum is encoded as numLength -2
-   * 
-   * 
+   *
+   *
    */
   public static final class Row {
     public final long[] _numbers;
@@ -29,7 +30,7 @@ public class FastParser {
       _exponents = new short[numOfColumns];
       _numLength = new byte[numOfColumns];
     }
-    
+
     public void setCol(int colIdx, long number, short exponent, byte numLength) {
       _numbers[colIdx] = number;
       _exponents[colIdx] = exponent;
@@ -40,8 +41,8 @@ public class FastParser {
       return Arrays.toString(_numbers) + Arrays.toString(_exponents) + Arrays.toString(_numLength);
     }
   }
-  
-  
+
+
   public static final byte CHAR_TAB = '\t';
   public static final byte CHAR_LF = 10;
   public static final byte CHAR_SPACE = ' ';
@@ -50,10 +51,10 @@ public class FastParser {
   public static final byte CHAR_FF = 12;
   public static final byte CHAR_DOUBLE_QUOTE = '"';
   public static final byte CHAR_SINGLE_QUOTE = '\'';
-  
+
   public final byte CHAR_DECIMAL_SEPARATOR;
   public final byte CHAR_SEPARATOR;
-  
+
   private static final int SKIP_LINE = 0;
   private static final int EXPECT_COND_LF = 1;
   private static final int EOL = 2;
@@ -68,29 +69,30 @@ public class FastParser {
   private static final int NUMBER_EXP_START = 60;
   private static final int NUMBER_END = 53;
   private static final int STRING = 6;
-  private static final int COND_QUOTE = 7; 
+  private static final int COND_QUOTE = 7;
   private static final int SEPARATOR_OR_EOL = 8;
   private static final int WHITESPACE_BEFORE_TOKEN = 9;
   private static final int STRING_END = 11;
   private static final int COND_QUOTED_NUMBER_END = 12;
-  
+
   private static final long LARGEST_DIGIT_NUMBER = 1000000000000000000L;
 
   public final Key _aryKey;
-  
+
   public final int _numColumns;
-  
-  
-  Object callback;
-  
-  
-  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, Object callback) throws Exception {
+
+
+  DParseTask callback;
+
+
+  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback) throws Exception {
     _aryKey = aryKey;
-    _numColumns = numColumns; 
+    _numColumns = numColumns;
     CHAR_SEPARATOR = separator;
     CHAR_DECIMAL_SEPARATOR = decimalSeparator;
+    this.callback = callback;
   }
-  
+
   public final void parse(Key key, boolean skipFirstLine) throws Exception {
     ValueArray _ary = null;
     FastTrie[] _columnTries = new FastTrie[10];
@@ -106,7 +108,7 @@ public class FastParser {
     int exp = 0;
     int fractionDigits = 0;
     int numStart = 0;
-    boolean secondChunk = false;    
+    boolean secondChunk = false;
     Row row = new Row(_numColumns);
     byte c = bits[offset];
 MAIN_LOOP:
@@ -114,7 +116,7 @@ MAIN_LOOP:
 NEXT_CHAR:
       switch (state) {
         // ---------------------------------------------------------------------
-        case SKIP_LINE: 
+        case SKIP_LINE:
           if (isEOL(c)) {
             state = EOL;
           } else {
@@ -132,7 +134,7 @@ NEXT_CHAR:
           if (c == quotes) {
             state = COND_QUOTE;
             break NEXT_CHAR;
-          } 
+          }
           if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
             offset += colTrie.addByte(c); // FastTrie returns skipped chars - 1
             break NEXT_CHAR;
@@ -142,7 +144,7 @@ NEXT_CHAR:
         case STRING_END:
           // we have parsed the string enum correctly
           row.setCol(colIdx, colTrie.getTokenId(),(short) 0, (byte) -2);
-          state = SEPARATOR_OR_EOL; 
+          state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
         case SEPARATOR_OR_EOL:
@@ -157,7 +159,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           // fallthrough to EOL
         // ---------------------------------------------------------------------
-        case EOL: 
+        case EOL:
           if (colIdx != 0)
 //            System.out.println(row.toString());
             callback.addRow(row);
@@ -167,7 +169,7 @@ NEXT_CHAR:
             break MAIN_LOOP; // second chunk only does the first row
           break NEXT_CHAR;
         // ---------------------------------------------------------------------
-        case WHITESPACE_BEFORE_TOKEN: 
+        case WHITESPACE_BEFORE_TOKEN:
           if (c == CHAR_SPACE) {
             if (c == CHAR_SEPARATOR)
               break NEXT_CHAR;
@@ -196,7 +198,7 @@ NEXT_CHAR:
           } else if (isEOL(c)) {
             state = EOL;
             continue MAIN_LOOP;
-          }  
+          }
           state = NUMBER;
           number = 0;
           fractionDigits = 0;
@@ -250,7 +252,7 @@ NEXT_CHAR:
             throw new Exception("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
           }
         // ---------------------------------------------------------------------
-        case NUMBER_SKIP:  
+        case NUMBER_SKIP:
           ++numStart;
           if ((c >= '0') && (c <= '9')) {
             break NEXT_CHAR;
@@ -368,177 +370,17 @@ NEXT_CHAR:
       c = bits[offset];
     } // end MAIN_LOOP
   }
-  
+
   private boolean isWhitespace(byte c) {
     return (c == CHAR_SPACE) || (c == CHAR_TAB);
   }
-  
+
   private boolean isEOL(byte c) {
     return (c == CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
   }
 
 }
 
-/** Performs compression of the numbers. 
- * 
- * 
- * @author peta
- */
-class ParserCompressor {
-  
-  
-  final double[] _mins;
-  final double[] _maxs;
-  final int[] _scales;
-  final byte[] _modes;
-  final long[] _bases;
-  
-  
-  private static final byte BYTE_ENUM = 1;
-  private static final byte SHORT_ENUM = 2;
-  private static final byte INT_ENUM = 3;
-  private static final byte BYTE = 4;
-  private static final byte BYTE_BASE = 5;
-  private static final byte SHORT = 6;
-  private static final byte SHORT_BASE = 7;
-  private static final byte INT = 8;
-  private static final byte INT_BASE = 9;
-  private static final byte LONG = 10;
-  private static final byte FLOAT = 11;
-  private static final byte DOUBLE = 12;
-  private static final byte SHORT_COMPRESSED_DOUBLE = 13;
-  
-  
-  private static int[] powersOf10 = new int[] { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
 
-  
-  byte[] _bits;
-  int _offset;
-  
-  public ParserCompressor(double[] mins, double[] maxs, int[] scales, boolean[] isFloat) {
-    _mins = mins;
-    _maxs = maxs;
-    _scales = scales;
-    _modes = new byte[_mins.length];
-    _bases = new long[_mins.length];
-    calculateColumnEncodings(isFloat);
-  }
-  
-  private void calculateColumnEncodings(boolean[] isFloat) {
-    for (int i = 0; i < _mins.length; ++i) {
-      if (_scales[i] == 0) { // it is integer value
-        // does the column fit into byte 
-        if (_maxs[i] - _mins[i] < 256) {
-          if (_mins[i]>=0) {
-            _modes[i] = BYTE;
-          } else {
-            _modes[i] = BYTE_BASE;
-            _bases[i] = (int)_mins[i] - Byte.MIN_VALUE;
-          }
-        } else if (_maxs[i] - _mins[i] < 65536) {
-          if (_mins[i]>=0) {
-            _modes[i] = SHORT;
-          } else {
-            _modes[i] = SHORT_BASE;
-            _bases[i] = (int)_mins[i] - Short.MIN_VALUE;
-          }
-        } else if (_maxs[i] - _mins[i] < (1l << 32)) {
-          if (_mins[i]>=0) {
-            _modes[i] = INT;
-          } else {
-            _modes[i] = INT_BASE;
-            _bases[i] = (int)_mins[i] - Integer.MIN_VALUE;
-          }
-        } else {
-          _modes[i] = LONG;
-        }
-      } else {
-        double diff = (_maxs[i] * pow10(_scales[i]) - _mins[i] * pow10(_scales[i]));
-        if (diff < 65536) {
-          _modes[i] = SHORT_COMPRESSED_DOUBLE;
-          _mins[i] = _mins[0] * pow10(_scales[i]); 
-        } else {
-          _modes[i] = isFloat[i] ? FLOAT : DOUBLE;
-        }
-      }
-    }
-  }
-  
-  private static int pow10(int exp) {
-    int result = 1;
-    int base = 10;
-    while (exp>0) {
-      if ((exp & 1) != 0)
-        result *= base;
-      exp >>= 1;
-      base *= 10;
-    }
-    return result;
-  }
-  
-  
-  private void addRow(FastParser.Row row) {
-    assert (_mins.length == row._numbers.length); 
-    for (int i = 0; i < row._numbers.length; ++i) {
-      long number = row._numbers[i];
-      int exp = row._exponents[i];
-      switch (_modes[i]) {
-        case BYTE_ENUM:
-          _offset = UDP.set1(_bits,_offset,(int) number);
-          break;
-        case SHORT_ENUM:
-          _offset = UDP.set2(_bits,_offset,(int) number);
-          break;
-        case INT_ENUM:
-          _offset = UDP.set4(_bits,_offset,(int) number);
-          break;
-        case BYTE:
-          number = number * powersOf10[exp];
-          _offset = UDP.set1(_bits,_offset,(int) number);
-          break;
-        case SHORT:
-          number = number * powersOf10[exp];
-          _offset = UDP.set2(_bits,_offset,(int) number);
-          break;
-        case INT:
-          number = number * powersOf10[exp];
-          _offset = UDP.set4(_bits,_offset,(int) number);
-          break;
-        case BYTE_BASE:
-          number = number * powersOf10[exp] - _bases[i];
-          _offset = UDP.set1(_bits,_offset,(int) number);
-          break;
-        case SHORT_BASE:
-          number = number * powersOf10[exp] - _bases[i];
-          _offset = UDP.set2(_bits,_offset,(int) number);
-          break;
-        case INT_BASE:
-          number = number * powersOf10[exp] - _bases[i];
-          _offset = UDP.set4(_bits,_offset,(int) number);
-          break;
-        case LONG:
-          if (exp > powersOf10.length) 
-            number = number * pow10(exp);
-          else if (exp>0)
-            number = number * powersOf10[exp];
-          _offset = UDP.set8(_bits,_offset,(int) number);
-          break;
-        case FLOAT:
-          _offset += UDP.set8d(_bits,_offset, (float) toDouble(number,exp));
-          break;
-        case DOUBLE:
-          _offset += UDP.set8d(_bits,_offset, toDouble(number,exp));
-          break;
-        case SHORT_COMPRESSED_DOUBLE:
-          double d = toDouble(number, exp+_scales[i]);
-          _offset = UDP.set2(_bits,_offset,(int)(d - _mins[i]));
-          break;
-      }
-    }
-  }
-  
-  
-  
-}
 
 

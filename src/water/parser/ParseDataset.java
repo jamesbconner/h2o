@@ -83,54 +83,54 @@ public final class ParseDataset {
 
   }
 
-  public static void parseWithEngine(Key result, Value dataset, ParseEngine e) throws Exception {
-    final ParseState state = new ParseState();
-    state._num_rows  = 0; // No rows yet
-    state._num_cols  = 0; // No rows yet
-
-    e.doParse(dataset.openStream(), new ParseHandler() {
-      @Override
-      public void handleRow(double[] rowNums, String[] rowStrs) {
-        if( state._num_cols == 0 ) {
-          state._num_cols = rowNums.length;
-          state.prepareForStatsGathering();
-        }
-        if( allNaNs(rowNums) ) return;
-        state.addRowToStats(new Row(rowNums, rowStrs));
-      }
-
-      @Override
-      public void handleFinished(String[] names) {
-        state.finishStatsGathering(0);
-        state.maybeAssignColumnNames(names);
-      }
-    });
-
-    state.filterColumnsDomains();
-    state.computeColumnSize();
-    final int row_size = state.computeOffsets();
-    final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
-    final double[] sumerr = new double[state._num_cols];
-    final HashMap<String,Integer> columnIndexes[] = state.createColumnIndexes();
-    e.doParse(dataset.openStream(), new ParseHandler() {
-      int off = 0;
-      @Override
-      public void handleRow(double[] rowNums, String[] rowStrs) {
-        if( allNaNs(rowNums) ) return;
-        state.addRowToBuffer(buf, off, sumerr, new Row(rowNums, rowStrs), columnIndexes);
-        off += row_size;
-      }
-
-      @Override public void handleFinished(String[] headerRow) { }
-    });
-
-    state.normalizeVariance(sumerr);
-    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf, null);
-    // Now make the structured ValueArray & insert the main key
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
-        state._num_rows, row_size, state._cols);
-    UKV.put(result,ary);
-  }
+//  public static void parseWithEngine(Key result, Value dataset, ParseEngine e) throws Exception {
+//    final ParseState state = new ParseState();
+//    state._num_rows  = 0; // No rows yet
+//    state._num_cols  = 0; // No rows yet
+//
+//    e.doParse(dataset.openStream(), new ParseHandler() {
+//      @Override
+//      public void handleRow(double[] rowNums, String[] rowStrs) {
+//        if( state._num_cols == 0 ) {
+//          state._num_cols = rowNums.length;
+//          state.prepareForStatsGathering();
+//        }
+//        if( allNaNs(rowNums) ) return;
+//        state.addRowToStats(new Row(rowNums, rowStrs));
+//      }
+//
+//      @Override
+//      public void handleFinished(String[] names) {
+//        state.finishStatsGathering(0);
+//        state.maybeAssignColumnNames(names);
+//      }
+//    });
+//
+//    state.filterColumnsDomains();
+//    state.computeColumnSize();
+//    final int row_size = state.computeOffsets();
+//    final byte[] buf = MemoryManager.allocateMemory(state._num_rows*row_size);
+//    final double[] sumerr = new double[state._num_cols];
+//    final HashMap<String,Integer> columnIndexes[] = state.createColumnIndexes();
+//    e.doParse(dataset.openStream(), new ParseHandler() {
+//      int off = 0;
+//      @Override
+//      public void handleRow(double[] rowNums, String[] rowStrs) {
+//        if( allNaNs(rowNums) ) return;
+//        state.addRowToBuffer(buf, off, sumerr, new Row(rowNums, rowStrs), columnIndexes);
+//        off += row_size;
+//      }
+//
+//      @Override public void handleFinished(String[] headerRow) { }
+//    });
+//
+//    state.normalizeVariance(sumerr);
+//    packRowsIntoValueArrayChunks(result, 0, state._num_rows, row_size, state, buf, null);
+//    // Now make the structured ValueArray & insert the main key
+//    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "excel_parse",
+//        state._num_rows, row_size, state._cols);
+//    UKV.put(result,ary);
+//  }
 
   public static void parseSeparated(Key result, Value dataset, byte parseType, int num_cols) {
 
@@ -324,6 +324,345 @@ public final class ParseDataset {
     // For testing
     public final String[] toArray() { return  _domainValues.toArray(new String[_domainValues.size()]); }
   }
+
+  public static final class DParseTask extends MRTask {
+    static final byte MCOL = -2;  // mixed numbers and strings
+    static final byte SCOL = -3;  // string column (too many enum values)
+    // pass 1 types
+    static final byte UCOL =  0;  // unknown
+    static final byte ICOL =  1;  // number column
+    static final byte FCOL =  2;  // number column
+    static final byte DCOL =  3;  // number column
+    static final byte ECOL =  4;  // number column
+    // pass 2 types
+    static final byte BYTE_ENUM  = 5;
+    static final byte SHORT_ENUM = 6;
+    static final byte INT_ENUM   = 7;
+    static final byte BYTE       = 8;
+    static final byte BYTE_BASE  = 9;
+    static final byte SHORT      = 10;
+    static final byte SHORT_BASE = 11;
+    static final byte INT        = 12;
+    static final byte INT_BASE   = 13;
+    static final byte LONG       = 14;
+    static final byte FLOAT      = 15;
+    static final byte DOUBLE     = 16;
+    static final byte BSHORT     = 17;
+    static final byte DSHORT     = 18;
+    static final byte DSHORT_BASE= 19;
+
+    int _phase;
+    int _ncolumns;
+    byte _sep = (byte)',';
+    byte _decSep = (byte)'.';
+    String _error;
+    byte     [] _colTypes;
+    int      [] _scale;
+    long     [] _invalidValues;
+    double   [] _min;
+    double   [] _max;
+    boolean  [] _floats;
+    FastTrie [] _enums;
+
+    @Override public int wire_len() {
+      switch(_phase){
+      case 0:
+        return 4 + 4 + 1 + 1;
+      }
+      return 0;
+      }
+
+    @Override public void write( Stream s )                                {
+      s.set4(_phase);
+      s.set4(_ncolumns);
+      s.set1(_sep);
+      s.set1(_decSep);
+      switch(_phase){
+      case 0:
+        break;
+      case 1:
+        s.setAry1(_colTypes);
+        s.setAry4(_scale);
+        s.setAry8(_invalidValues);
+        s.setAry8d(_min);
+        s.setAry8d(_max);
+        int n = 0;
+        for(int i = 0; i < _ncolumns;++i)
+          if(_colTypes[i] == ECOL || _colTypes[i] == MCOL)++n;
+        s.set4(n);
+        for(int i = 0; i < _ncolumns; ++i){
+
+        }
+      default:
+        throw new Error("illegal phase " + _phase);
+      }
+
+    }
+    @Override public void read ( Stream s ) {
+      _phase = s.get4();
+      _ncolumns = s.get4();
+      _sep = s.get1();
+      _decSep = s.get1();
+      switch(_phase){
+      case 0:
+        break;
+      case 1:
+        _colTypes = s.getAry1();
+        _scale = s.getAry4();
+        _invalidValues = s.getAry8();
+        _min = s.getAry8d();
+        _max = s.getAry8d();
+        int n = s.get4();
+        if(n > 0){
+          _enums = new FastTrie[n];
+          for(int i = 0; i < n; ++i){
+            _enums[i] = new FastTrie();
+            _enums[i].read(s);
+          }
+        }
+        break;
+      case 2:
+        break;
+      case 3:
+        break;
+      default:
+        throw new Error("illegal phase " + _phase);
+      }
+    }
+
+    @Override public void write( DataOutputStream dos ) throws IOException {
+      dos.writeInt(_phase);
+      dos.writeInt(_ncolumns);
+      dos.writeByte(_sep);
+      dos.writeByte(_decSep);
+      switch(_phase){
+      case 0:
+        break;
+      default:
+        throw new Error("illegal phase " + _phase);
+      }
+    }
+
+    @Override public void read ( DataInputStream dis  ) throws IOException {
+      _phase = dis.readInt();
+      _ncolumns = dis.readInt();
+      _sep = dis.readByte();
+      _decSep = dis.readByte();
+      switch(_phase){
+      case 0:
+        break;
+      case 1:
+        break;
+      default:
+        throw new Error("illegal phase " + _phase);
+      }
+    }
+
+
+
+    @Override
+    public void map(Key key) {
+      Key aryKey  = Key.make(ValueArray.getArrayKeyBytes(key));
+      _colTypes = new byte[_ncolumns];
+      try{
+        FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+        p.parse(key,true);
+        ++_phase;
+      }catch(Exception e){
+        _error = e.getMessage();
+      }
+    }
+
+
+    @Override
+    public void reduce(DRemoteTask drt) {
+      throw new RuntimeException("TODO Auto-generated method stub");
+    }
+
+    static double [] powers10 = new double[]{
+      0.0000000001,
+      0.000000001,
+      0.00000001,
+      0.0000001,
+      0.000001,
+      0.00001,
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+      0.0,
+      10.0,
+      100.0,
+      1000.0,
+      10000.0,
+      100000.0,
+      1000000.0,
+      10000000.0,
+      100000000.0,
+      1000000000.0,
+      10000000000.0
+    };
+
+    static double pow10(int exp){
+      return ((exp >= -10 && exp <= 10)?powers10[exp+10]:Math.pow(10, exp));
+    }
+
+    double [] _dbases;
+    long   [] _lbases;
+
+    private void calculateColumnEncodings(){
+      for(int i = 0; i < _ncolumns; ++i){
+        switch(_colTypes[i]){
+        case ICOL: // number
+          if (_max[i] - _min[i] <= 256) {
+            if (_max[i] <= Byte.MAX_VALUE && _min[i] >= Byte.MIN_VALUE)
+              _colTypes[i] = BYTE;
+            else {
+              _colTypes[i] = BYTE_BASE;
+              _lbases[i] = Byte.MIN_VALUE - (long)_min[i];
+            }
+          } else if ((_max[i] - _min[i]) <= 65536) {
+            if (_max[i] <= Short.MAX_VALUE && _min[i] >= Short.MIN_VALUE)
+              _colTypes[i] = SHORT;
+            else {
+              _colTypes[i] = SHORT_BASE;
+              _lbases[i] = Short.MIN_VALUE - (long)_min[i];
+            }
+          } else if (_max[i] - _min[i] <= (1l << 32)) {
+            if (_max[i] <= Integer.MAX_VALUE && _min[i] >= Integer.MIN_VALUE)
+              _colTypes[i] = INT;
+            else {
+              _colTypes[i] = INT_BASE;
+              _lbases[i] = Integer.MIN_VALUE - (long)_min[i];
+            }
+          } else {
+            _colTypes[i] = LONG;
+          }
+          break;
+        case FCOL:
+        case DCOL:
+          double s = pow10(_scale[i]);
+          double range = s*(_max[i]-_min[i]);
+          if(range <= 65536){
+            double max = s*_max[i];
+            double min = s*_min[i];
+            if(max <= Short.MAX_VALUE && min >= Short.MIN_VALUE)
+              _colTypes[i] = DSHORT;
+            else {
+              _colTypes[i] = DSHORT_BASE;
+              _dbases[i] = Short.MIN_VALUE - min;
+            }
+          } // else leave it as float/double
+        case ECOL: // enum
+          if(_enums[i]._nfinalStates <= 256)_colTypes[i] = BYTE_ENUM;
+          else if(_enums[i]._nfinalStates <= 65536)_colTypes[i] = SHORT_ENUM;
+          else _colTypes[i] = INT_ENUM;
+        }
+      }
+    }
+
+    public void addRow(FastParser.Row row){
+      switch (_phase) {
+      case 0:
+        for(int i = 0; i < _ncolumns; ++i){
+          if(row._exponents[i] == Integer.MAX_VALUE){
+            ++_invalidValues[i];
+            if(row._numbers[i] < 0){
+              continue; //NaN
+            }
+            // enum
+            switch(_colTypes[i]){
+            case UCOL:
+              _colTypes[i] = ECOL;
+            case ECOL:
+              if(row._numbers[i] == -1)_colTypes[i] = SCOL;
+              break;
+            case NCOL:
+              _colTypes[i] = MCOL;
+            case MCOL:
+              ++_invalidValues[i];
+            default:
+              break;
+            }
+          } else { // number
+              switch(_colTypes[i]){
+              case ECOL:
+                _colTypes[i] = MCOL;
+                break;
+              case UCOL:
+                _colTypes[i] = NCOL;
+                break;
+              }
+              int exp = row._numLength[i] + row._exponents[i];
+              if(exp < 0 && exp < _scale[i])_scale[i] = exp;
+              double d = row._numbers[i]*pow10(exp);
+              if(d < _min[i])_min[i] = d;
+              if(d > _max[i])_max[i] = d;
+              if(_floats[i] && (float)d != d)_floats[i] = false;
+            }
+          }
+      case 2:
+        for (int i = 0; i < row._numbers.length; ++i) {
+          long number = row._numbers[i];
+          int exp = row._exponents[i];
+          switch (_colTypes[i]) {
+            case BYTE_ENUM:
+              _offset = UDP.set1(_bits,_offset,(int) number);
+              break;
+            case SHORT_ENUM:
+              _offset = UDP.set2(_bits,_offset,(int) number);
+              break;
+            case INT_ENUM:
+              _offset = UDP.set4(_bits,_offset,(int) number);
+              break;
+            case BYTE:
+              number = number * powersOf10[exp];
+              _offset = UDP.set1(_bits,_offset,(int) number);
+              break;
+            case SHORT:
+              number = number * powersOf10[exp];
+              _offset = UDP.set2(_bits,_offset,(int) number);
+              break;
+            case INT:
+              number = number * powersOf10[exp];
+              _offset = UDP.set4(_bits,_offset,(int) number);
+              break;
+            case BYTE_BASE:
+              number = number * powersOf10[exp] - _bases[i];
+              _offset = UDP.set1(_bits,_offset,(int) number);
+              break;
+            case SHORT_BASE:
+              number = number * powersOf10[exp] - _bases[i];
+              _offset = UDP.set2(_bits,_offset,(int) number);
+              break;
+            case INT_BASE:
+              number = number * powersOf10[exp] - _bases[i];
+              _offset = UDP.set4(_bits,_offset,(int) number);
+              break;
+            case LONG:
+              if (exp > powersOf10.length)
+                number = number * pow10(exp);
+              else if (exp>0)
+                number = number * powersOf10[exp];
+              _offset = UDP.set8(_bits,_offset,(int) number);
+              break;
+            case FLOAT:
+              _offset += UDP.set8d(_bits,_offset, (float) toDouble(number,exp));
+              break;
+            case DOUBLE:
+              _offset += UDP.set8d(_bits,_offset, toDouble(number,exp));
+              break;
+            case SHORT_COMPRESSED_DOUBLE:
+              double d = toDouble(number, exp+_scales[i]);
+              _offset = UDP.set2(_bits,_offset,(int)(d - _mins[i]));
+              break;
+          }
+        }
+        }
+      }
+    }
+
+
 
   // ----
   // Distributed parsing.
