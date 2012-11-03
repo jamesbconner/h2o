@@ -145,7 +145,7 @@ public final class ParseDataset {
     int row_size = 0;
     for(Column c:cols)row_size += c._size;
     // finally make the value array header
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, tsk._outputRows[tsk._outputRows.length-1], row_size, cols);
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._outputRows[tsk._outputRows.length-1], row_size, cols);
     DKV.put(result, ary);
   }
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)

@@ -356,6 +356,7 @@ public class ValueArray extends Value {
 
   public static class ColumnDomain {
     String [] _str;
+    public ColumnDomain(){}
     public ColumnDomain(String [] str){_str= str;}
     public String getStr(int i){return _str[i];}
     public int wire_len(){
@@ -668,7 +669,7 @@ public class ValueArray extends Value {
     return false;
   }
 
-  static public ValueArray make(Key key, byte persistence_mode, Key priorkey, long num_rows, int row_size, Column[] cols ) {
+  static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;
     // Also include String column-name metadata
@@ -697,7 +698,8 @@ public class ValueArray extends Value {
     priorkey.write(s);
     // XForm string, with leading 2 bytes of length
     UDP.set4(mem,XFORM_OFF,s._off);
-
+    // XForm string, with leading 2 bytes of length
+    s.setLen2Str(xform);
     // Now the column names
     for( int i=0; i<cols.length; i++ ) {
       UDP.set4(mem,ary.col(i)+NAME_COL_OFF,s._off); // First the offset to the name

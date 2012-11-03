@@ -1,7 +1,9 @@
 package water.exec;
 import java.util.ArrayList;
+
 import water.*;
 import water.ValueArray.Column;
+import water.ValueArray.ColumnDomain;
 import water.parser.ParseDataset;
 
 /** A simple class that automates construction of ValueArrays.
@@ -31,7 +33,7 @@ public class VABuilder {
     c._max = Double.NaN;
     c._mean = Double.NaN;
     c._sigma = Double.NaN;
-    c._domain = ColumnDomain();
+    c._domain = new ColumnDomain();
     _cols.add(c);
     return this;
   }
@@ -59,8 +61,7 @@ public class VABuilder {
     c._max = max;
     c._mean = mean;
     c._sigma = sigma;
-    c._domain = new ParseDataset.ColumnDomain();
-    c._domain.kill();
+    c._domain = new ColumnDomain();
     _cols.add(c);
     return this;
   }
