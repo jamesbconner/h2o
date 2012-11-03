@@ -356,6 +356,22 @@ public class ValueArray extends Value {
   static private final int  META_COL_SIZE =  PAD0_COL_OFF + (((PAD0_COL_OFF & 7) != 0)?(8 - (PAD0_COL_OFF & 7)):0); // pad to 8 bytes
 
 
+  public static class ColumnDomain {
+    String [] _str;
+    public ColumnDomain(String [] str){_str= str;}
+    public String getStr(int i){return _str[i];}
+    public int wire_len(){
+      int res = 4;
+      for(String s:_str){
+        res += s.length() + 2;
+      }
+    }
+
+
+  }
+
+
+
   // internal convience class for building structured ValueArrays
   static public class Column {
     public String       _name;

@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.zip.*;
 
 import water.*;
+import water.ValueArray.Column;
 import water.parser.SeparatedValueParser.Row;
 
 import com.google.common.io.Closeables;
@@ -137,7 +138,10 @@ public final class ParseDataset {
     String [] colNames = guessColNames(dataset,psetup);
     boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
     // pass 1
-    DParseTask tsk = new DParseTask(psetup[0],psetup[1]);
+    DParseTask tsk = new DParseTask(dataset, (byte)psetup[0],psetup[1],skipFirstLine);
+    tsk.invoke(dataset._key);
+    ValueArray.Column [] cols = tsk.pass2(dataset._key);
+
   }
 
 
@@ -190,38 +194,57 @@ public final class ParseDataset {
   public static final class DParseTask extends MRTask {
     static final byte SCOL = -3;  // string column (too many enum values)
     // pass 1 types
-    static final byte UCOL  = 0;  // unknown
-    static final byte ECOL  = 1;  // enum column
-    static final byte ICOL  = 2;  // integer column
-    static final byte FCOL  = 3;  // float column
-    static final byte DCOL  = 4;  // double column
+    static final byte UCOL  = 10;  // unknown
+    static final byte ECOL  = 11;  // enum column
+    static final byte ICOL  = 12;  // integer column
+    static final byte FCOL  = 13;  // float column
+    static final byte DCOL  = 14;  // double column
     // pass 2 types
-    static final byte BYTE  = 5;
-    static final byte SHORT = 6;
-    static final byte INT   = 7;
-    static final byte LONG  = 8;
-    static final byte DSHORT= 9;
+    static final byte BYTE  = 1;
+    static final byte SHORT = 2;
+    static final byte INT   = 3;
+    static final byte LONG  = 4;
+    static final byte DSHORT= 5;
+    static final byte FLOAT = 6;
+    static final byte DOUBLE= 7;
 
-    int _phase;
-    int  _myrows;
-    int _ncolumns;
-    byte _sep = (byte)',';
-    byte _decSep = (byte)'.';
+    static final int [] colSizes = new int[]{0,1,2,4,8,2,4,8};
 
-    String _error;
+    int     _phase;
+    boolean _skipFirstLine;
+    int     _myrows;
+    int     _ncolumns;
+    byte    _sep = (byte)',';
+    byte    _decSep = (byte)'.';
+    String  _error;
+    int     _rpc;
+    int     _rowsize;
+
+    transient int [] _outputRows;
+    transient int    _outputIdx;
+    transient Stream [] _outputStreams;
+    Key _resultKey;
+
     byte     [] _colTypes;
     int      [] _scale;
     long     [] _invalidValues;
     double   [] _min;
     double   [] _max;
+    double   [] _mean;
+    double   [] _sigma;
     FastTrie [] _enums;
     int      [] _nrows;
 
 
+
     public DParseTask() {}
-    public DParseTask(Value dataset, byte sep, int ncolumns) {
+    public DParseTask(Value dataset, byte sep, int ncolumns, boolean skipFirstLine) {
       _ncolumns = ncolumns;
       _sep = sep;
+      if(dataset instanceof ValueArray){
+        ValueArray ary = (ValueArray)dataset;
+        _nrows = new int[(int)ary.chunks()];
+      }
     }
     @Override public int wire_len() {
       switch(_phase){
@@ -236,6 +259,7 @@ public final class ParseDataset {
       s.set4(_ncolumns);
       s.set1(_sep);
       s.set1(_decSep);
+      s.setAry4(_nrows);
       s.setAry1(_colTypes);
       s.setAry4(_scale);
       s.setAry8(_invalidValues);
@@ -252,6 +276,7 @@ public final class ParseDataset {
       _ncolumns = s.get4();
       _sep = s.get1();
       _decSep = s.get1();
+      _nrows = s.getAry4();
       _colTypes = s.getAry1();
       _scale = s.getAry4();
       _invalidValues = s.getAry8();
@@ -267,17 +292,55 @@ public final class ParseDataset {
       }
     }
 
+    public ValueArray.Column[] pass2(Key dataset){
+      String [][] colDomains = new String[_ncolumns][];
+      for(int i = 0; i < _colTypes.length; ++i){
+        if(_colTypes[i] == ECOL)colDomains[i] = _enums[i].compress();
+        else _enums[i].kill();
+      }
+      calculateColumnEncodings();
+      DParseTask tsk = new DParseTask();
+      tsk._enums = _enums;
+      tsk._colTypes = _colTypes;
+      tsk._nrows = _nrows;
+      tsk._sep = _sep;
+      tsk._decSep = _decSep;
+      // don't pass invalid values, we do not need them 2nd pass
+      tsk._bases = _bases;
+      tsk._phase = 2;
+      tsk._scale = _scale;
+      tsk._ncolumns = _ncolumns;
+      tsk.invoke(dataset);
+      // now create the value array head from all the information
+      Column [] cols = new Column[_ncolumns];
+      int off = 0;
+      for(int i = 0; i < _colTypes.length; ++i){
+        cols[i]         = new Column();
+        cols[i]._badat  = (char)Math.min(65535, _invalidValues[i]);
+        cols[i]._base   = _bases[i];
+        cols[i]._scale  = (short)_scale[i];
+        cols[i]._off    = (short)off;
+        cols[i]._size   = (byte)colSizes[_colTypes[i]];
+        cols[i]._domain = new ValueArray.ColumnDomain(colDomains[i]);
+        cols[i]._max    = _max[i];
+        cols[i]._min    = _min[i];
+        cols[i]._mean   = _mean[i];
+        cols[i]._sigma  = tsk._sigma[i];
+        off +=  cols[i]._off;
+      }
+      return cols;
+    }
+
     @Override public void write( DataOutputStream dos ) throws IOException {
       dos.writeInt(_phase);
       dos.writeInt(_ncolumns);
       dos.writeByte(_sep);
       dos.writeByte(_decSep);
-      switch(_phase){
-      case 0:
-        break;
-      default:
-        throw new Error("illegal phase " + _phase);
-      }
+      if(_nrows != null){
+        dos.write(_nrows.length);
+        for(int i:_nrows)dos.writeInt(i);
+      } else dos.write(-1);
+
     }
 
     @Override public void read ( DataInputStream dis  ) throws IOException {
@@ -285,43 +348,84 @@ public final class ParseDataset {
       _ncolumns = dis.readInt();
       _sep = dis.readByte();
       _decSep = dis.readByte();
-      switch(_phase){
-      case 0:
-        break;
-      case 1:
-        break;
-      default:
-        throw new Error("illegal phase " + _phase);
+      int n = dis.readInt();
+      if(n != -1){
+        _nrows = new int[n];
+        for(int i = 0; i < n; ++i)_nrows[i] = dis.readInt();
       }
+
     }
 
 
 
     @Override
     public void map(Key key) {
-      Key aryKey  = Key.make(ValueArray.getArrayKeyBytes(key));
-
-      if(_phase == 1)_colTypes = new byte[_ncolumns];
-      else for(byte b:_colTypes){
-
-      }
       try{
-        FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-        p.parse(key,true);
-        ++_phase;
+        Key aryKey = null;
+        boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
+        if(arraylet) {
+          aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
+          _skipFirstLine |= ValueArray.getChunkIndex(key) != 0;
+        }
+        switch(_phase){
+        case 0:
+          _colTypes = new byte[_ncolumns];
+          FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+          p.parse(key,_skipFirstLine);
+          Arrays.fill(_nrows, 0, ValueArray.getChunkIndex(key), _myrows);
+          break;
+        case 1:
+          int rowsize = 0;
+          for(byte b:_colTypes)rowsize += colSizes[b];
+          int rpc = (int)ValueArray.chunk_size()/rowsize;
+          // compute the chunks to be updated and allocate memory for them
+          int firstRow = 0;
+          int lastRow = _nrows[0];
+          if(arraylet){
+            long origChunkIdx = ValueArray.getChunkIndex(key);
+            firstRow = (origChunkIdx == 0)?0:_nrows[(int)origChunkIdx-1];
+            lastRow = _nrows[(int)origChunkIdx];
+          }
+          int firstChunk = firstRow/rpc;
+          int off = firstRow % rpc;
+          int firstChunkOff = off*rowsize;
+          int n = 0;
+          while((firstRow - off + (n+1)*rpc) < lastRow)++n;
+          _outputRows = new int[n];
+          _outputStreams = new Stream[n];
+          int diff = rpc - off;
+          _outputRows[0] = firstRow + diff;
+          _outputStreams[0] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
+          firstRow += diff;
+          for(int i = 1; i < n; ++i){
+            diff = Math.min(rpc, lastRow-firstRow);
+            _outputStreams[i] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
+            firstRow += diff;
+            _outputRows[i] = firstRow;
+          }
+          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+          p2.parse(key,_skipFirstLine);
+          // send the atomic unions
+          Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
+          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._buf.length);
+          lazy_complete(u.fork(k));
+          for(int i = 1; i < n; ++i){
+            k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
+            u = new AtomicUnion(_outputStreams[i]._buf, 0, 0, _outputStreams[i]._buf.length);
+            lazy_complete(u.fork(k));
+          }
+        }
       }catch(Exception e){
         _error = e.getMessage();
       }
-      _nrows[ValueArray.getChunkIndex(key)] = _myrows;
     }
 
     @Override
     public void reduce(DRemoteTask drt) {
       DParseTask other = (DParseTask)drt;
-      for(int i = 0; i < _nrows.length; ++i){
-        assert _nrows[i] == 0 || other._nrows[i] == 0;
+      for(int i = 0; i < _nrows.length; ++i)
         _nrows[i] += other._nrows[i];
-      }
+
       if(_enums == null){
         _enums = other._enums;
         assert _min == null;
@@ -390,8 +494,7 @@ public final class ParseDataset {
       return powers10i[exp];
     }
 
-    double [] _dbases;
-    long   [] _lbases;
+    int [] _bases;
     Stream _s;
 
     private void calculateColumnEncodings(){
@@ -400,13 +503,13 @@ public final class ParseDataset {
         case ICOL: // number
           if (_max[i] - _min[i] < 255) {
             _colTypes[i] = BYTE;
-            _lbases[i] = (long)_min[i];
+            _bases[i] = (int)_min[i];
           } else if ((_max[i] - _min[i]) < 65535) {
             _colTypes[i] = SHORT;
-            _lbases[i] = (long)_min[i];
+            _bases[i] = (int)_min[i];
           } else if (_max[i] - _min[i] < (1l << 32)) {
               _colTypes[i] = INT;
-            _lbases[i] = (long)_min[i];
+            _bases[i] = (int)_min[i];
           } else
             _colTypes[i] = LONG;
           break;
@@ -416,8 +519,9 @@ public final class ParseDataset {
           double range = s*(_max[i]-_min[i]);
           if(range < 65535){
             _colTypes[i] = DSHORT;
-            _lbases[i] = (long)(s*_min[i]);
+            _bases[i] = (int)(s*_min[i]);
           } // else leave it as float/double
+          break;
         case ECOL: // enum
           if(_enums[i]._nfinalStates < 256)_colTypes[i] = BYTE;
           else if(_enums[i]._nfinalStates < 65536)_colTypes[i] = SHORT;
@@ -459,12 +563,13 @@ public final class ParseDataset {
               _colTypes[i] = ICOL;
           }
         }
-      case 2:
+      case 1:
+        ++_myrows;
         for (int i = 0; i < row._numbers.length; ++i) {
           switch(row._numLength[i]){
           case -1: // NaN
-            row._numbers[i] = -1l;
-            row._numbers[i] += _lbases[i];
+            row._numbers[i]  = -1l;
+            row._numbers[i] += _bases[i];
             // fallthrough -1 is NaN for all values, _lbases will cancel each other
             // -1 is also NaN in case of enum (we're in number column)
           case -2: // enum
@@ -472,87 +577,37 @@ public final class ParseDataset {
           default:
             switch (_colTypes[i]) {
               case BYTE:
-                _s.set1((byte)(row._numbers[i] - _lbases[i]));
+                _s.set1((byte)(row._numbers[i] - _bases[i]));
                 break;
               case SHORT:
-                _s.set2((short)(row._numbers[i] - _lbases[i]));
+                _s.set2((short)(row._numbers[i] - _bases[i]));
                 break;
               case INT:
-                _s.set4((int)(row._numbers[i] - _lbases[i]));
+                _s.set4((int)(row._numbers[i] - _bases[i]));
                 break;
               case LONG:
                 _s.set8(row._numbers[i]);
                 break;
-              case FCOL:
+              case FLOAT:
                 _s.set4f((float)(row._numbers[i] * pow10(row._exponents[i])));
                 break;
-              case DCOL:
+              case DOUBLE:
                 _s.set8d(row._numbers[i] * pow10(row._exponents[i]));
               case DSHORT:
-                _s.set2((short)(row._numbers[i]*pow10i(_scale[i]+row._exponents[i]) - _lbases[i]));
+                _s.set2((short)(row._numbers[i]*pow10i(_scale[i]+row._exponents[i]) - _bases[i]));
                 break;
             }
           }
         }
+        if(_myrows == _outputRows[_outputIdx] && ++_outputIdx < _outputStreams.length)
+          _s = _outputStreams[_outputIdx];
       }
-    }
-  }
-  // ----
-  // Distributed parsing.
-
-
-  // Atomically fold together as many rows as will fit in the next chunk.  I
-  // have an array of bits (buf) which is an even count of rows.  I want to
-  // pack them into the target ValueArray, as many as will fit in a next
-  // chunk.  Because the size isn't an even multiple of chunks, I surely will
-  // need to update multiple target chunks.  (imagine parallel copying a
-  // large source buffer into a chunked target buffer)
-  public static void packRowsIntoValueArrayChunks( Key result, int startRow, int numRows,
-                                                   int rowSize, ParseState state, byte[] buf, DRemoteTask drt) {
-
-    // Compute the last dst chunk (which might be up to 2meg instead of capped at 1meg)
-    int maxRow = state._rows_chk[state._rows_chk.length-1];
-    int rowsPerChunk = (int)(ValueArray.chunk_size()/rowSize);
-    int maxChunk = maxRow/rowsPerChunk;
-
-    // Now, rather painfully, ship the bits to the target keys.  Ship in
-    // large chunks according to what fits in the next target chunk.
-    int curRow = 0;             // Number of processed rows
-    while( curRow < numRows ) {
-      int rowToWrite = startRow+curRow;  // First row to write to
-      int chunk = rowToWrite/rowsPerChunk;        // First chunk to write to
-      if( chunk > 0 && chunk == maxChunk ) // Last chunk?
-        chunk--;                 // It's actually the prior chunk, made bigger
-      // Get the key for that chunk.  Note that this key may not yet exist.
-      Key key = ValueArray.make_chunkkey(result,ValueArray.chunk_offset(chunk));
-      // Get the starting row# for this chunk
-      int rowsAlreadyWritten = chunk*rowsPerChunk;
-      // Get the number of rows to skip
-      int firstRowInChunk = rowToWrite-rowsAlreadyWritten;
-      int dstOff = firstRowInChunk*rowSize; // Offset in the dest chunk
-      int srcOff = curRow*rowSize; // Offset in buf to read from
-
-      // Rows to write in this chunk
-      int rowy = rowsPerChunk - firstRowInChunk;      // Number of rows we could write in a 1meg chunk
-      int rowz = numRows - curRow; // Number of unwritten rows in our source
-      if( chunk < maxChunk-1 && rowz > rowy ) // Not last chunk (which is large) and more rows
-        rowz = rowy;              // Limit of rows to write
-      int len = rowz*rowSize;    // Bytes to write
-
-      // Remotely, atomically, merge this buffer into the remote key
-      assert srcOff+len <= buf.length;
-      AtomicUnion au = new AtomicUnion(buf, srcOff, dstOff, len);
-      DFutureTask autask = au.fork(key);
-      if( drt != null ) drt.lazy_complete(autask); // Start atomic update
-      // Do not wait on completion now; the atomic-update is fire-and-forget here.
-      curRow += rowz;              // Rows written out
     }
   }
 
   public static class AtomicUnion extends Atomic {
     Key _key;
     int _dst_off;
-
     public AtomicUnion() {}
     public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
       _dst_off = dstOff;
@@ -568,7 +623,6 @@ public final class ParseDataset {
       System.arraycopy(mem,0,bits2,_dst_off,mem.length);
       return bits2;
     }
-
     @Override public void onSuccess() {
       DKV.remove(_key);
     }
