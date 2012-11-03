@@ -60,7 +60,7 @@ public final class VAIterator implements Iterator<VAIterator> {
     return _defaultColumn;
   }
   
-  public void skipRows(long rows) {
+  private void skipRows(long rows) { 
     assert (_currentRow + rows < _rows);
     while (true) {
       if (_rowInChunk + rows < _rowsInChunk) {
