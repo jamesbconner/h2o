@@ -59,6 +59,7 @@ public class DRF extends water.DRemoteTask {
     drf._sample = sample;
     drf._bin_limit = binLimit;
     drf.validateInputData(ary);
+    Utils.clearTimers();
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
     drf.fork(drf._arykey);

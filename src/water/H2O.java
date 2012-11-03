@@ -322,18 +322,6 @@ public final class H2O {
 
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
-    // test if we have multicast
-    try {Thread.sleep(20000);} catch( InterruptedException e ) {}
-    if (OPT_ARGS.flatfile==null && CLOUD._memary.length == 1) {
-      if(MultiReceiverThread.receivedMCastMsgCount == 0){
-        System.err.println("WARNING: No other nodes are visible. No flatfile argument and no multicast messages received. Broken multicast?");
-      }
-    } else {
-      for(H2ONode n:H2O.CLOUD._memary){
-        if(n == H2O.SELF)continue;
-        if(n._last_heard_from == 0)System.err.println("Never heard from " + n);
-      }
-    }
   }
 
   private static void initializeExpressionEvaluation() {

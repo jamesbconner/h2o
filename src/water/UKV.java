@@ -25,7 +25,7 @@ public abstract class UKV {
     TaskPutKey tpk = null;
     if( o instanceof TaskPutKey ) {
       tpk = (TaskPutKey)o;
-      res = tpk._oldval;
+      res = tpk._old;
     } else {
       res = (Value)o;
     }

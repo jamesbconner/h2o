@@ -47,6 +47,8 @@ public class HeartBeatThread extends Thread {
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
     Sigar sigar = new Sigar();
+    final long start = System.currentTimeMillis();
+    boolean warn_isolated_cloud = false;
 
     while( true ) {
       // Once per second, for the entire cloud a Node will multi-cast publish
@@ -110,7 +112,7 @@ public class HeartBeatThread extends Thread {
       // If we have no internet connection, then the multicast goes
       // nowhere and we never receive a heartbeat from ourselves!
       // Fake it now.
-      long now = System.currentTimeMillis();
+      final long now = System.currentTimeMillis();
       H2O.SELF._last_heard_from = now;
 
       // Look for napping Nodes & propose removing from Cloud
@@ -121,6 +123,23 @@ public class HeartBeatThread extends Thread {
           break;
         }
       }
+
+      // ---
+      // After 20secs, one time only, report if we find no other nodes.
+      if( !warn_isolated_cloud && (start-now) > 20000 ) {
+        if( H2O.OPT_ARGS.flatfile==null && cloud._memary.length == 1 ) {
+          if( MultiReceiverThread.receivedMCastMsgCount == 0 ) {
+            System.err.println("WARNING: No other nodes are visible.  No flatfile argument was given, and no multicast messages have been received.  Perhaps multicast has been disabled?");
+          }
+        } else {                // Flat-file case.
+          for( H2ONode n : H2O.CLOUD._memary ) {
+            if( n == H2O.SELF ) continue;
+            if( n._last_heard_from == 0 )
+              System.err.println("WARNING Never heard from " + n);
+          }
+        }
+      }
+
     }
   }
 
