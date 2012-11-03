@@ -135,16 +135,19 @@ public final class ParseDataset {
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
     int [] psetup =  guessParserSetup(dataset, false);
-    String [] colNames = guessColNames(dataset,psetup);
+    byte [] bits = (dataset instanceof ValueArray)?DKV.get(dataset._key).get(256*1024):dataset.get(256*1024);
+    String [] colNames = FastParser.determineColumnNames(bits,(byte)psetup[0]);
     boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
     // pass 1
     DParseTask tsk = new DParseTask(dataset, (byte)psetup[0],psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
-
+    int row_size = 0;
+    for(Column c:cols)row_size += c._size;
+    // finally make the value array header
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, tsk._outputRows[tsk._outputRows.length-1], row_size, cols);
+    DKV.put(result, ary);
   }
-
-
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
   public static void parseZipped( Key result, Value dataset ) throws IOException {
@@ -372,7 +375,8 @@ public final class ParseDataset {
           _colTypes = new byte[_ncolumns];
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p.parse(key,_skipFirstLine);
-          Arrays.fill(_nrows, 0, ValueArray.getChunkIndex(key), _myrows);
+          int indexFrom = ValueArray.getChunkIndex(key)+1;
+          if(indexFrom < _nrows.length)Arrays.fill(_nrows, ValueArray.getChunkIndex(key)+1, _nrows.length, _myrows);
           break;
         case 1:
           int rowsize = 0;

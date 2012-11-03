@@ -2,8 +2,6 @@ package water;
 import java.io.*;
 import java.util.Arrays;
 
-import water.parser.ParseDataset.ColumnDomain;
-
 /**
  * Large Arrays & Arraylets
  *
@@ -655,14 +653,14 @@ public class ValueArray extends Value {
     return false;
   }
 
-  static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
+  static public ValueArray make(Key key, byte persistence_mode, Key priorkey, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;
     // Also include String column-name metadata
     for( Column column : cols )
-      sz += column._name.length()+2/*2 bytes of pre-length*/;
+      sz += column._name.length() /*2 bytes of pre-length*/;
     // Also priorkey & xform
-    sz += priorkey.wire_len()+xform.length()+2;
+    sz += priorkey.wire_len()+2;
     // Also include meta-data representing column domains.
     for( Column column : cols)
       sz += column._domain.wire_len();
@@ -684,7 +682,7 @@ public class ValueArray extends Value {
     priorkey.write(s);
     // XForm string, with leading 2 bytes of length
     UDP.set4(mem,XFORM_OFF,s._off);
-    s.setLen2Str(xform);
+
     // Now the column names
     for( int i=0; i<cols.length; i++ ) {
       UDP.set4(mem,ary.col(i)+NAME_COL_OFF,s._off); // First the offset to the name
