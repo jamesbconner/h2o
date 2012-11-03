@@ -371,13 +371,166 @@ NEXT_CHAR:
     } // end MAIN_LOOP
   }
 
-  private boolean isWhitespace(byte c) {
+  private static boolean isWhitespace(byte c) {
     return (c == CHAR_SPACE) || (c == CHAR_TAB);
   }
 
-  private boolean isEOL(byte c) {
+  private static boolean isEOL(byte c) {
     return (c == CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
   }
+  
+  private static final int TOKEN_START = 100;
+  private static final int SECOND_LINE = 101;
+  private static final int SECOND_COND_QUOTED_TOKEN = 102;
+  private static final int SECOND_WHITESPACE_BEFORE_TOKEN = 103;
+  private static final int SECOND_TOKEN_FIRST_LETTER = 104;
+  private static final int SECOND_TOKEN = 105;
+  private static final int SECOND_COND_QUOTE = 106;
+  private static final int SECOND_SEPARATOR_OR_EOL = 107;
+  
+  
+  private static boolean determineColumnNames(byte[] bits, byte separator) throws Exception {
+    ArrayList<String> colNames = new ArrayList();
+    int offset = 0;
+    int state = COND_QUOTED_TOKEN;
+    boolean result = true;
+    byte quotes = 0;
+    byte c = bits[offset];
+    StringBuilder sb = null;
+MAIN_LOOP:
+    while (true) {
+NEXT_CHAR:
+      switch (state) {
+        case WHITESPACE_BEFORE_TOKEN:
+          if (c == CHAR_SPACE) {
+            if (c == separator)
+              break NEXT_CHAR;
+          } else if (c == separator) {
+            // we have empty token, store as empty string
+            colNames.add("");
+            result = false;
+            break NEXT_CHAR;
+          }
+          // fallthrough to COND_QUOTED_TOKEN
+        case COND_QUOTED_TOKEN:
+          if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
+            quotes = c;
+            state = TOKEN_START;
+            break NEXT_CHAR;
+          }
+          // fallthrough to TOKEN_START
+        case TOKEN_START:
+          if ((c >= '0') && (c <= '9'))
+            result = false; // we can't have the header - numeric in first row
+          sb = new StringBuilder();
+          state = TOKEN;
+          // fallthrough to TOKEN
+        case TOKEN:
+          if ((quotes == 0) && ((c == separator) || isEOL(c))) {
+            state = SEPARATOR_OR_EOL;
+            continue MAIN_LOOP;
+          } else if (c == quotes) {
+            state = COND_QUOTE;
+            break NEXT_CHAR;
+          }
+          sb.append((char)c);
+          break NEXT_CHAR;
+        case COND_QUOTE:
+          if (c == quotes) {
+            state = TOKEN;
+            sb.append((char)c);
+            break NEXT_CHAR;
+          }
+          quotes = 0;
+          state = SEPARATOR_OR_EOL;
+          // fallthrough to SEPARATOR_OR_EOL
+        case SEPARATOR_OR_EOL:
+          colNames.add(sb.toString());
+          if (isEOL(c)) {
+            state = (c == CHAR_CR) ? EXPECT_COND_LF : SECOND_LINE; 
+            break NEXT_CHAR;
+          } else if (c == separator) {
+            state = WHITESPACE_BEFORE_TOKEN;
+            break NEXT_CHAR;
+          } else {
+            result = false;
+            throw new Exception("Separator or end of line expected after the end of column "+colNames.size()+" but "+c+" found");
+          }
+        case EXPECT_COND_LF:
+          state = SECOND_LINE;
+          if (c == CHAR_LF)
+            break NEXT_CHAR;
+          // fallthrough to SECOND_LINE
+        case SECOND_LINE:
+          System.out.println("Found second line after "+colNames.size()+" columns");
+          _numColumns = colNames.size();
+          if (result == false) // if we do not have column names there is no point in looking for the numbers
+            break MAIN_LOOP; 
+          state = SECOND_WHITESPACE_BEFORE_TOKEN;
+          // fallthrough to SECOND_WHITESPACE_BEFORE_TOKEN
+        case SECOND_WHITESPACE_BEFORE_TOKEN:
+          if (c == separator)
+              break NEXT_CHAR;
+          // fallthrough SECOND_COND_QUOTED_TOKEN
+        case SECOND_COND_QUOTED_TOKEN:
+          if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
+            quotes = c;
+            state = SECOND_TOKEN_FIRST_LETTER;
+            break NEXT_CHAR;
+          }
+          // fallthrough SECOND_TOKEN_FIRST_LETTER
+        case SECOND_TOKEN_FIRST_LETTER:
+          if ((c >= '0') && (c <= '9')) // we have confirmed it was header
+            break MAIN_LOOP;
+          state = SECOND_TOKEN;
+          // fallthrough SECOND_TOKEN
+        case SECOND_TOKEN:        
+          if ((quotes == 0) && ((c == separator) || isEOL(c))) {
+            state = SECOND_SEPARATOR_OR_EOL;
+            continue MAIN_LOOP;
+          } else if (c == quotes) {
+            state = SECOND_COND_QUOTE;
+            break NEXT_CHAR;
+          }
+          sb.append(c);
+          break NEXT_CHAR;
+        case SECOND_COND_QUOTE:
+          if (c == quotes) {
+            state = TOKEN;
+            sb.append(c);
+            break NEXT_CHAR;
+          }
+          quotes = 0;
+          state = SECOND_SEPARATOR_OR_EOL;
+          // fallthorugh to SECOND_SEPARATOR_OR_EOL
+        case SECOND_SEPARATOR_OR_EOL:
+          if (isEOL(c)) { // end of second line means all were strings again...
+            result = false;
+            break MAIN_LOOP;
+          } else if (c == separator) {
+            state = SECOND_TOKEN_FIRST_LETTER;
+            break NEXT_CHAR;
+          } else {
+            result = false;
+            throw new Exception("Separator or end of line expected after the end of column "+colNames.size()+" but "+c+" found");
+          }
+      }
+      ++offset;
+      if (offset == bits.length)
+        break;
+      c = bits[offset];
+    }
+    if (result) {
+      System.out.println("I have found this:");
+      for (String s : colNames) {
+        System.out.println(s);
+      }
+    } else {
+      System.out.println("Did not find any column names");
+    }
+    return result;
+  }
+  
 
 }
 
