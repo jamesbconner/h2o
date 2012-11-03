@@ -145,7 +145,8 @@ public class RFRunner {
     return files;
   }
 
-  static boolean runTest(String cmd, String resultDB, PrintStream stdout) throws Exception {
+
+  static boolean runTest(String cmd, String resultDB, PrintStream stdout, boolean check) throws Exception {
     RFProcess p = new RFProcess(cmd);
     p._stdout = stdout;
     p.start(); p.join(MAX_RUNNING_TIME); p.cleanup();
@@ -160,8 +161,14 @@ public class RFRunner {
         fw.write("\n");
     }
     fw.write(new SimpleDateFormat("yyyy.MM.dd HH:mm").format(new Date(System.currentTimeMillis())) + ","+cmd+",");
-        if( p.exception != null ) {
-      System.err.println("Error: " + p.exception);  fw.write("," + p.exception);
+    if (check) {
+      String expect = errorRates.get(cmd);
+     // if (expect != null)
+      //  assertEquals(expect,p.exception);
+    }
+    if( p.exception != null ) {
+      System.err.println("Error: " + p.exception);
+      fw.write("," + p.exception);
     } else for( String s : p.results )  fw.write("," + s);
     fw.write("\n");
     fw.close();
@@ -207,7 +214,7 @@ public class RFRunner {
   }
 
 
-  static void runTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
+  static void runTests(String javaCmd, PrintStream out, OptArgs args,boolean check) throws Exception {
     int[] szMultiples = size(sizeMultiples, args.maxConcat);
     int[] szTrees = ntrees;
     String[] stats  = stat_types;
@@ -229,14 +236,18 @@ public class RFRunner {
             }
 
     for( String cmd : commands)
-       runTest(cmd, args.resultDB, out);
+       runTest(cmd, args.resultDB, out,check);
   }
 
   static HashMap<String,String> special = new HashMap<String,String>();
+  static HashMap<String,String> errorRates = new HashMap<String,String>();
 
   static {
     special.put("smalldata//stego/stego_training.data", "-classcol=1");
     special.put("smalldata//stego/stego_testing.data", "-classcol=1");
+
+    errorRates.put(" -Xmx4g -jar build/h2o.jar -mainClass hex.rf.RandomForest  -file=smalldata//cars.csv -ntrees=10 -depth=2147483647 -cutRate=-1.0 -statType=gini -seed=3"
+, "28%");
   };
 
   public static void basicTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
@@ -291,7 +302,7 @@ public class RFRunner {
             }
 
     for( String cmd : commands)
-       runTest(cmd, args.resultDB, out);
+       runTest(cmd, args.resultDB, out, false);
 
   }
 
@@ -326,7 +337,7 @@ public class RFRunner {
             }
 
     for( String cmd : commands)
-       runTest(cmd, args.resultDB, out);
+       runTest(cmd, args.resultDB, out, true);
 
   }
 
@@ -336,14 +347,14 @@ public class RFRunner {
     new Arguments(args).extract(ARGS);
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
     String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
-    try { basicTests(javaCmd, out, ARGS); } finally { out.close(); }
+    try { quickTests(javaCmd, out, ARGS); } finally { out.close(); }
   }
   public static void main2(String[] args) throws Exception {
     final OptArgs ARGS        = new OptArgs();
     new Arguments(args).extract(ARGS);
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
     String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
-    try { runTests(javaCmd, out, ARGS); } finally { out.close(); }
+    try { runTests(javaCmd, out, ARGS, false); } finally { out.close(); }
   }
 
   @org.junit.Test
