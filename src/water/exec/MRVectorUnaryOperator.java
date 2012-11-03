@@ -47,33 +47,26 @@ public abstract class MRVectorUnaryOperator extends MRTask {
 
   @Override
   public void map(Key key) {
-    ValueArray opnd_ = (ValueArray) DKV.get(_key);
-    ValueArray result_ = (ValueArray) DKV.get(_resultKey);
-
-    // get the bits to which we will write
-    long chunkOffset = ValueArray.getOffset(key);
-    long row = chunkOffset / result_.row_size();
-    // now if we are last chunk, number of rows is all remaining
-    // otherwise it is the chunk_size() / row_size
-    long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
-    if( row / chunkRows == result_.chunks() - 1 )
-      chunkRows = result_.num_rows() - row;
-    byte[] bits = MemoryManager.allocateMemory((int) chunkRows * 8); // create the byte array
-    // now calculate the results
-    for( int i = 0; i < chunkRows; ++i ) {
-      double opnd = opnd_.datad(row + i, _col);
-      double result = operator(opnd);
-      UDP.set8d(bits, i * 8, result);
-      if( result < _min )
-        _min = result;
-      if( result > _max )
-        _max = result;
-      _tot += result;
+    ValueArray result = (ValueArray) DKV.get(_resultKey);
+    long rowOffset = ValueArray.getOffset(key) / result.row_size();
+    VAIterator opnd = new VAIterator(_key,_col, rowOffset);
+    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
+    if (rowOffset + chunkRows >= result.num_rows())
+      chunkRows = (int) (result.num_rows() - rowOffset);
+    int chunkLength = chunkRows * 8;
+    byte[] bits = MemoryManager.allocateMemory(chunkLength); // create the byte array
+    for (int i = 0; i < chunkLength; i+=8) {
+      opnd.next();
+      double x = operator(opnd.datad());
+      UDP.set8d(bits,i,x);
+      if (x < _min)
+        _min = x;
+      if (x > _max)
+        _max = x;
+      _tot += x;
     }
-    // we have the bytes now, just store the value
     Value val = new Value(key, bits);
     lazy_complete(DKV.put(key, val));
-    // and we are done...
   }
 
   @Override
