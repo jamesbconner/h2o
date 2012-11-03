@@ -72,6 +72,10 @@ public final class VAIterator implements Iterator<VAIterator> {
       next(); // move to next chunk
     }
   }
+  
+  public long row() {
+    return _currentRow;
+  }
 
   @Override public boolean hasNext() {
     return (_currentRow < _rows);
@@ -81,8 +85,14 @@ public final class VAIterator implements Iterator<VAIterator> {
     ++_currentRow;
     ++_rowInChunk;
     if (_rowInChunk == _rowsInChunk) { 
+      if (_currentRow == _rows) { // wrap after end has been reached
+        _currentRow = 0;
+        _rowInChunk = 0;
+        _chunkOffset = 0;
+      } else {
       // load new chunk
-      _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
+        _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
+      }
       Key k = ValueArray.make_chunkkey(_ary._key, _chunkOffset);
       _chunkBits = DKV.get(k).get();
       _rowsInChunk = _chunkBits.length / _rowSize;
