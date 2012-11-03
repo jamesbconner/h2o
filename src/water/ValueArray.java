@@ -363,9 +363,24 @@ public class ValueArray extends Value {
       for(String s:_str){
         res += s.length() + 2;
       }
+      return res;
     }
 
-
+    public void read(Stream s){
+      int n = s.get4();
+      if(n != -1){
+        _str = new String[n];
+        for(int i = 0; i < n; ++i){
+          _str[i] = s.getLen2Str();
+        }
+      }
+    }
+    public void write(Stream s){
+      if(_str != null){
+        s.set4(_str.length);
+        for(String str:_str)s.setLen2Bytes(str.getBytes());
+      } else s.set4(-1);
+    }
   }
 
 
