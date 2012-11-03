@@ -135,11 +135,13 @@ public final class ParseDataset {
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
     int [] psetup =  guessParserSetup(dataset, false);
+    byte sep = (byte)',';
+    if(sep == PARSE_SPACESEP)sep = ' ';
     byte [] bits = (dataset instanceof ValueArray)?DKV.get(dataset._key).get(256*1024):dataset.get(256*1024);
-    String [] colNames = FastParser.determineColumnNames(bits,(byte)psetup[0]);
+    String [] colNames = FastParser.determineColumnNames(bits,sep);
     boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
     // pass 1
-    DParseTask tsk = new DParseTask(dataset, (byte)psetup[0],psetup[1],skipFirstLine);
+    DParseTask tsk = new DParseTask(dataset, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
     int row_size = 0;

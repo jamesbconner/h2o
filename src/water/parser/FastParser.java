@@ -96,9 +96,6 @@ public class FastParser {
 
   public final void parse(Key key, boolean skipFirstLine) throws Exception {
     ValueArray _ary = null;
-    FastTrie[] _columnTries = new FastTrie[10];
-    for (int i = 0; i < _columnTries.length; ++i)
-      _columnTries[i] = new FastTrie();
     byte[] bits = DKV.get(key).get();
     int offset = 0;
     int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
@@ -194,7 +191,7 @@ NEXT_CHAR:
         case TOKEN:
           if (((c > '9') || (c < '0')) && (c != CHAR_DECIMAL_SEPARATOR) && (c != '-') && (c != '+')) {
             state = STRING;
-            colTrie = _columnTries[colIdx];
+            colTrie = callback._enums[colIdx];
             continue MAIN_LOOP;
           } else if (isEOL(c)) {
             state = EOL;
