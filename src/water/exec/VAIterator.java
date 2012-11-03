@@ -40,7 +40,7 @@ public final class VAIterator implements Iterator<VAIterator> {
     _rowsInChunk = 0;
     _currentRow = -1;
     if (startRow!=0)
-      skipRows(startRow-1);
+      skipRows((startRow % _rows)-1);
   }
 
   public VAIterator(Key key, int defaultColumn) {
