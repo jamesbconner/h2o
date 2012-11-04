@@ -148,7 +148,7 @@ public class RFView extends H2OPage {
     response.replace( "depth",model.depth());
     response.replace("leaves",model.leaves());
 
-    int limkeys = Math.min(model.size(),100);
+    int limkeys = Math.min(model.size(),1000);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("trees");
       trow.replace("modelKey",modelKey);
