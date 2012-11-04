@@ -300,7 +300,7 @@ public class ValueArray extends Value {
 
   // Layout of structured ValueArrays
   static private final int LENGTH_OFF  =0;              // Total byte length
-  static private final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
+  static public  final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
   static private final int PRIORKEY_OFF=NUM_ROWS_OFF+8; // prior key string offset
   static private final int XFORM_OFF   =PRIORKEY_OFF+4; // prior xforms string offset
   static private final int ROW_SIZE_OFF=XFORM_OFF   +4; // Size of each row (sum of column widths)

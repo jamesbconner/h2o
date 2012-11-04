@@ -286,11 +286,38 @@ public class H2ONode implements Comparable {
   // Stop tracking a remote task, because we got an ACKACK
   void remove_task_tracking( long tnum ) {
     WORK.remove(tnum);
+    synchronized( WORK ) { WORK.notify(); } // wake up blocked pending gets
   }
 
   // This Node rebooted recently; we can quit tracking prior work history
   void rebooted() {
     WORK.clear();
+    synchronized( WORK ) { WORK.notify(); } // wake up blocked pending gets
+  }
+
+  // Block this thread until all pending gets from here to 'this' H2ONode are
+  // served.  We've just changed a K/V mapping, and we have pending invalidates.
+  // Remote H2ONodes need to either get the old value plus the invalidate, or
+  // the new Value... but not the invalidate THEN the old Value - which will
+  // leave them with a stale old Value.
+  // We can be conservative here, and block for any set of tasks which include
+  // all possible TGKs of the same Value.
+  public void block_pending_gets( Value val ) {
+    // Assert mem_replicas is locked down - and thus no new TGKs will appear on
+    // this Value needing to be blocked here.
+    assert val.mem_replicas() == -1; // Already locked down mem_replicas
+    for( DatagramPacket p : WORK.values() ) {
+      byte[] buf = p.getData();
+      int first_byte = UDP.get_ctrl(buf);
+      assert first_byte != 0xab; // did not receive a clobbered packet?
+      if( first_byte != UDP.udp.getkey.ordinal() && first_byte != UDP.udp.ack.ordinal() )
+        continue;               // This cannot be a TGK, or it's ACK.
+      final int task = UDP.get_task(buf);
+      synchronized( WORK ) {
+        while( WORK.containsKey(task) )
+          try { WORK.wait(); } catch( InterruptedException e ) { }
+      }
+    }
   }
 
   // ---------------
