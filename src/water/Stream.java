@@ -23,7 +23,7 @@ public class Stream {
   private byte[] grow2( int l ) {
     int l2 = _buf.length;
     while( l2 < l ) l2<<=1;
-    return (_buf = Arrays.copyOf(_buf,l2));
+    return (_buf = MemoryManager.arrayCopyOfRange(_buf,0,l2));
   }
 
   public Stream set1 ( int   a) {        grow(1)[_off++] = (byte)a ; return this; }
@@ -133,8 +133,8 @@ public class Stream {
     _off += l;
     return new String(_buf, o, l);
   }
-  public byte[] getLen2Bytes() { int l = get2(); return Arrays.copyOfRange(_buf, _off, _off += l); }
-  public byte[] getLen4Bytes() { int l = get4(); return Arrays.copyOfRange(_buf, _off, _off += l); }
+  public byte[] getLen2Bytes() { int l = get2(); return MemoryManager.arrayCopyOfRange(_buf, _off, _off += l); }
+  public byte[] getLen4Bytes() { int l = get4(); return MemoryManager.arrayCopyOfRange(_buf, _off, _off += l); }
   public void getBytes(byte[] dst, int len) {
     System.arraycopy(_buf, _off, dst, 0, len);
     _off += len;
