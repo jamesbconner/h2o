@@ -348,6 +348,18 @@ class BinaryOperator extends Expr {
         return Result.scalar(l._const * r._const);
       case ttOpDiv:
         return Result.scalar(l._const / r._const);
+      case ttOpLess:
+        return Result.scalar(l._const < r._const ? 1 : 0);
+      case ttOpLessOrEq:
+        return Result.scalar(l._const <= r._const ? 1 : 0);
+      case ttOpGreater:
+        return Result.scalar(l._const > r._const ? 1 : 0);
+      case ttOpGreaterOrEq:
+        return Result.scalar(l._const >= r._const ? 1 : 0);
+      case ttOpEq:
+        return Result.scalar(l._const == r._const ? 1 : 0);
+      case ttOpNeq:
+        return Result.scalar(l._const != r._const ? 1 : 0);
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
@@ -385,6 +397,24 @@ class BinaryOperator extends Expr {
       case ttOpDiv:
         op = new DivOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
+      case ttOpLess:
+        op = new LessOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpLessOrEq:
+        op = new LessOrEqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpGreater:
+        op = new GreaterOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpGreaterOrEq:
+        op = new GreaterOrEqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpEq:
+        op = new EqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpNeq:
+        op = new NeqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
@@ -404,16 +434,34 @@ class BinaryOperator extends Expr {
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpAdd:
-        op = new RightAdd(r._key, res._key, r.rawColIndex(), l._const);
+        op = new LeftAdd(r._key, res._key, r.rawColIndex(), l._const); // commutative
         break;
       case ttOpSub:
         op = new RightSub(r._key, res._key, r.rawColIndex(), l._const);
         break;
       case ttOpMul:
-        op = new RightMul(r._key, res._key, r.rawColIndex(), l._const);
+        op = new LeftMul(r._key, res._key, r.rawColIndex(), l._const); // commutative
         break;
       case ttOpDiv:
         op = new RightDiv(r._key, res._key, r.rawColIndex(), l._const);
+        break;
+      case ttOpLess:
+        op = new LeftGreaterOrEq(l._key, res._key, l.rawColIndex(), r._const); // s < V <-> V >= s
+        break;
+      case ttOpLessOrEq:
+        op = new LeftGreater(l._key, res._key, l.rawColIndex(), r._const); // s <= V <-> V > s
+        break;
+      case ttOpGreater:
+        op = new LeftLessOrEq(l._key, res._key, l.rawColIndex(), r._const); // s > V <-> V <= s
+        break;
+      case ttOpGreaterOrEq:
+        op = new LeftLess(l._key, res._key, l.rawColIndex(), r._const); // s >= V <-> V < s
+        break;
+      case ttOpEq:
+        op = new LeftEq(l._key, res._key, l.rawColIndex(), r._const); // commutative
+        break;
+      case ttOpNeq:
+        op = new LeftNeq(l._key, res._key, l.rawColIndex(), r._const); // commutative
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
@@ -445,6 +493,24 @@ class BinaryOperator extends Expr {
         break;
       case ttOpDiv:
         op = new LeftDiv(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpLess:
+        op = new LeftLess(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpLessOrEq:
+        op = new LeftLessOrEq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpGreater:
+        op = new LeftGreater(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpGreaterOrEq:
+        op = new LeftGreaterOrEq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpEq:
+        op = new LeftEq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpNeq:
+        op = new LeftNeq(l._key, res._key, l.rawColIndex(), r._const);
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
