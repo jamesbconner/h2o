@@ -101,7 +101,7 @@ public class TaskGetKey extends DFutureTask<Value> {
             // Recording a replica failed?  Only happens if the value is being
             // racily changed... and we are landing just after the change.
             // Restart from scratch, which should hit the new Value.
-            return callx(p,h2o,tripcnt++);  // Restart from scratch
+            return callx(p,h2o,tripcnt+1);  // Restart from scratch
         } else {                 // Shipping from non-home?
           assert home == h2o;    // Assert home is asking for the key
         }
