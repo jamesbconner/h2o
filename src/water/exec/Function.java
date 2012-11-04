@@ -119,7 +119,7 @@ public abstract class Function {
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtKey)
         throw new Exception("Expected vector (value)");
-      if (r.colIndex() >= 0) // that is we are selecting single column
+      if (r.rawColIndex() >= 0) // that is we are selecting single column
         return;
       ValueArray va = (ValueArray) DKV.get(r._key);
       if (va.num_cols()!=1)
@@ -171,6 +171,7 @@ public abstract class Function {
     new Max("max");
     new Sum("sum");
     new Mean("mean");
+    new Filter("filter");
   }
 }
 
@@ -194,7 +195,7 @@ class Min extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRMin task = new MRMin(args[0]._key, args[0].colIndex());
+    MRMin task = new MRMin(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
@@ -219,7 +220,7 @@ class Max extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRMax task = new MRMax(args[0]._key, args[0].colIndex());
+    MRMax task = new MRMax(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
@@ -244,7 +245,7 @@ class Sum extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRSum task = new MRSum(args[0]._key, args[0].colIndex());
+    MRSum task = new MRSum(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
@@ -274,9 +275,30 @@ class Mean extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRMean task = new MRMean(args[0]._key, args[0].colIndex());
+    MRMean task = new MRMean(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
+  }
+}
+
+// Filter ----------------------------------------------------------------------
+
+class Filter extends Function {
+  
+  public Filter(String name) {
+    super(name);
+    addChecker(new ArgValue("src"));
+    addChecker(new ArgVector("bitVect"));
+  }
+  
+  @Override public Result eval(Result... args) throws Exception {
+    Result r = Result.temporary();
+    BooleanVectorFilter filter = new BooleanVectorFilter(r._key,args[1]._key, args[1].colIndex());
+    filter.invoke(args[0]._key);
+    ValueArray va = (ValueArray) DKV.get(args[0]._key);
+    va = VABuilder.updateRows(va, r._key, filter._filteredRows);
+    DKV.put(va._key,va);
+    return r;
   }
 }
 
