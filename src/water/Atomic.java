@@ -78,9 +78,10 @@ public abstract class Atomic extends RemoteTask {
       Object res = DKV.DputIfMatch(_key,val2,val1,H2O.SELF);
       if( res instanceof TaskPutKey ) {
         TaskPutKey tpk = (TaskPutKey)res;
+        assert tpk._old == val1;// We only get a block-result if we also succeeded
+        onSuccess();            // Call user's post-XTN function
         tpk.get();              // Block for the DputIfMatch to complete
-        res = tpk._old;         // Pick up the results
-        assert res == val1;     // We only get a block-result if we also succeeded
+        return;
       }
       if( res == val1 ) {       // Success?
         onSuccess();            // Call user's post-XTN function
