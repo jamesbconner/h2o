@@ -126,4 +126,12 @@ public class VABuilder {
     return this;
   }
 
+  
+  public static ValueArray updateRows(ValueArray old, Key newKey, long newRows) {
+    byte[] oldBits = old.get();
+    byte[] bits = MemoryManager.allocateMemory(oldBits.length);
+    System.arraycopy(oldBits, 0, bits, 0, bits.length);
+    UDP.set8(bits,ValueArray.NUM_ROWS_OFF,newRows);
+    return new ValueArray(newKey,bits);
+  }
 }

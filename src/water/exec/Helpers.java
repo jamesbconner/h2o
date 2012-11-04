@@ -148,11 +148,11 @@ public class Helpers {
         ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
         DKV.put(to, r);
         what._copied = true; // TODO do we need to sync this? 
-      } else if (what.colIndex()!=-1) { // copy in place of a single column only
+      } else if (what.rawColIndex()!=-1) { // copy in place of a single column only
         ValueArray v = (ValueArray) DKV.get(what._key);
         if( v == null )
           throw new EvaluationException(pos, "Key " + what._key + " not found");
-        int col = what.colIndex();
+        int col = what.rawColIndex();
         VABuilder b = new VABuilder(to.toString(), v.num_rows()).addColumn(v.col_name(col),v.col_size(col), v.col_scale(col),v.col_min(col), v.col_max(col), v.col_mean(col), v.col_sigma(col)).createAndStore(to);
         DeepSingleColumnAssignment da = new DeepSingleColumnAssignment(what._key, to, col);
         da.invoke(to);
