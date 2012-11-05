@@ -400,6 +400,10 @@ NEXT_CHAR:
   private static final int SECOND_SEPARATOR_OR_EOL = 107;
 
 
+  private static boolean canBeInNumber(byte c) {
+    return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+');
+  }
+  
   static String [] determineColumnNames(byte[] bits, byte separator) {
     ArrayList<String> colNames = new ArrayList();
     int offset = 0;
@@ -408,6 +412,7 @@ NEXT_CHAR:
     byte quotes = 0;
     byte c = bits[offset];
     StringBuilder sb = null;
+    boolean mightBeNumber = true;
 MAIN_LOOP:
     while (true) {
 NEXT_CHAR:
@@ -429,8 +434,7 @@ NEXT_CHAR:
           }
           // fallthrough to TOKEN_START
         case TOKEN_START:
-          if ((c >= '0') && (c <= '9'))
-            return null; // we can't have the header - numeric in first row
+          mightBeNumber = true;
           sb = new StringBuilder();
           state = TOKEN;
           // fallthrough to TOKEN
@@ -442,6 +446,7 @@ NEXT_CHAR:
             state = COND_QUOTE;
             break NEXT_CHAR;
           }
+          mightBeNumber = mightBeNumber && canBeInNumber(c);
           sb.append((char)c);
           break NEXT_CHAR;
         case COND_QUOTE:
@@ -454,6 +459,8 @@ NEXT_CHAR:
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
         case SEPARATOR_OR_EOL:
+          if (mightBeNumber == true) 
+            return null; // it is a number, so we can't count it as column header
           colNames.add(sb.toString());
           if (isEOL(c)) {
             state = (c == CHAR_CR) ? EXPECT_COND_LF : SECOND_LINE;
