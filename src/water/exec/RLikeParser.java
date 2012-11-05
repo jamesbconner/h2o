@@ -41,7 +41,9 @@ public class RLikeParser {
       ttOpNeq, // !=
       ttOpLessOrEq, // <=
       ttOpGreaterOrEq, //>=
-      
+      ttOpAnd, // &&
+      ttOpOr, // ||
+      ttOpNot, // !
       ttOpComma, // ,
       ttEOF,
       ttUnknown,;
@@ -82,6 +84,12 @@ public class RLikeParser {
             return "operator ==";
           case ttOpNeq:
             return "operator !=";
+          case ttOpAnd:
+            return "operator &&";
+          case ttOpOr:
+            return "operator ||";
+          case ttOpNot:
+            return "operator !";
           case ttOpParOpen:
             return "opening parenthesis";
           case ttOpParClose:
@@ -211,6 +219,14 @@ public class RLikeParser {
         } else {
           return new Token(pos, Token.Type.ttOpAssign);
         }
+      case '&':
+        ++_s._off;
+        if (_s.peek1() == '&') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpAnd);
+        } else {
+          throw new ParserException(pos,"&& expected");
+        }
       case '$':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpDollar);
@@ -275,6 +291,13 @@ public class RLikeParser {
       case '\'':
         return parseString();
       case '|':
+        ++_s._off;
+        if (_s.peek1() =='|') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpOr);
+        } else {
+          --_s._off;
+        }
         return parseIdent();
       default:
         if( isCharacter(c) )
