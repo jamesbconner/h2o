@@ -87,6 +87,10 @@ class RandomFilter extends CustomFilter {
   
 }
 
+// =============================================================================
+// BooleanVectorFilter
+// =============================================================================
+
 class BooleanVectorFilter extends CustomFilter {
   
   Key _bVect; 
@@ -136,7 +140,7 @@ class BooleanVectorFilter extends CustomFilter {
     _bVect.write(ds);
     ds.writeInt(_bCol);
   }
-  
-  
-  
 }
+
+
+

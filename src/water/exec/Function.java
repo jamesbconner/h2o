@@ -74,6 +74,40 @@ public abstract class Function {
         throw new Exception("Expected number literal");
     }
   }
+
+  // ArgInt --------------------------------------------------------------------
+  
+  public class ArgInt extends ArgCheck {
+
+    public ArgInt() { }
+    public ArgInt(String name) { super(name); }
+    public ArgInt(String name, long defaultValue) { super(name,defaultValue); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtNumberLiteral)
+        throw new Exception("Expected number");
+      if ((long) r._const != r._const)
+        throw new Exception("Expected integer number");
+    }
+  }
+
+  // ArgIntPositive-------------------------------------------------------------
+  
+  public class ArgIntPositive extends ArgCheck {
+
+    public ArgIntPositive() { }
+    public ArgIntPositive(String name) { super(name); }
+    public ArgIntPositive(String name, long defaultValue) { super(name,defaultValue); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtNumberLiteral)
+        throw new Exception("Expected number");
+      if ((long) r._const != r._const)
+        throw new Exception("Expected integer number");
+      if (r._const < 0)
+        throw new Exception("Expected positive argument");
+    }
+  }
   
   // ArgString -----------------------------------------------------------------
   
@@ -172,9 +206,9 @@ public abstract class Function {
     new Sum("sum");
     new Mean("mean");
     new Filter("filter");
+    new Slice("slice");
   }
 }
-
 
 // Min -------------------------------------------------------------------------
 
@@ -300,6 +334,39 @@ class Filter extends Function {
     DKV.put(va._key,va);
     return r;
   }
+}
+
+class Slice extends Function {
+
+  public Slice(String name) {
+    super(name);
+    addChecker(new ArgValue("src"));
+    addChecker(new ArgIntPositive("start"));
+    addChecker(new ArgIntPositive("count",-1));
+  }
+  
+  @Override public Result eval(Result... args) throws Exception {
+    // additional arg checking
+    ValueArray ary = (ValueArray) DKV.get(args[0]._key);
+    long start = (long) args[1]._const;
+    long length = (long) args[2]._const;
+    if (start >= ary.num_rows())
+      throw new Exception("Start of the slice must be withtin the source data frame.");
+    if (length == -1)
+      length = ary.num_rows() - start;
+    if (start+length > ary.num_rows())
+      throw new Exception("Start + offset is out of bounds.");
+    Result r = Result.temporary();
+    ValueArray va = (ValueArray) DKV.get(args[0]._key);
+    va = VABuilder.updateRows(va, r._key, length);
+    DKV.put(va._key,va);
+    DKV.write_barrier();
+    SliceFilter filter = new SliceFilter(args[0]._key,start,length);
+    filter.invoke(r._key);
+    assert (filter._filteredRows == length);
+    return r;
+  }
+  
 }
 
 // GLM -------------------------------------------------------------------------
