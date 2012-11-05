@@ -146,8 +146,8 @@ public final class ParseDataset {
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
     int row_size = 0;
     for (int i = 0; i < cols.length; ++i) {
-      row_size += cols[i]._size;
       cols[i]._off = (short)row_size;
+      row_size += cols[i]._size;
       if (colNames != null)
         cols[i]._name = colNames[i];
     }
@@ -310,6 +310,7 @@ public final class ParseDataset {
       }
       calculateColumnEncodings();
       DParseTask tsk = new DParseTask();
+      tsk._skipFirstLine = _skipFirstLine;
       tsk._myrows = _myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
       tsk._resultKey = _resultKey;
       tsk._enums = _enums;
@@ -617,16 +618,16 @@ public final class ParseDataset {
           default:
             switch (_colTypes[i]) {
               case BYTE:
-                _s.set1((byte)(row._numbers[i] - _bases[i]));
+                _s.set1((byte)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
                 break;
               case SHORT:
-                _s.set2((short)(row._numbers[i] - _bases[i]));
+                _s.set2((short)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
                 break;
               case INT:
-                _s.set4((int)(row._numbers[i] - _bases[i]));
+                _s.set4((int)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
                 break;
               case LONG:
-                _s.set8(row._numbers[i]);
+                _s.set8(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]));
                 break;
               case FLOAT:
                 _s.set4f((float)(row._numbers[i] * pow10(row._exponents[i])));
