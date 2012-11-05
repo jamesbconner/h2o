@@ -31,6 +31,7 @@ public class RLikeParser {
       ttOpSub, // -
       ttOpMul, // *
       ttOpDiv, // /
+      ttOpMod, // %
       ttOpParOpen, // (
       ttOpParClose, // )
       ttOpBracketOpen, // [
@@ -72,6 +73,8 @@ public class RLikeParser {
             return "operator *";
           case ttOpDiv:
             return "operator /";
+          case ttOpMod:
+            return "operator %";
           case ttOpLess:
             return "operator <";
           case ttOpGreater:
@@ -230,6 +233,9 @@ public class RLikeParser {
       case '$':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpDollar);
+      case '%':
+        ++_s._off;
+        return new Token(pos, Token.Type.ttOpMod);
       case '+':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpAdd);
@@ -523,11 +529,11 @@ public class RLikeParser {
   }
 
   /*
-   * T -> F { * F | / F }
+   * T -> F { * F | / F | % F }
    */
   private Expr parse_T() throws ParserException {
     Expr result = parse_F();
-    while( (top()._type == Token.Type.ttOpMul) || (top()._type == Token.Type.ttOpDiv) ) {
+    while( (top()._type == Token.Type.ttOpMul) || (top()._type == Token.Type.ttOpDiv) || (top()._type == Token.Type.ttOpMod)) {
       Token t = pop();
       result = new BinaryOperator(t._pos, t._type, result, parse_T());
     }

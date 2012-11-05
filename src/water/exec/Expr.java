@@ -348,6 +348,8 @@ class BinaryOperator extends Expr {
         return Result.scalar(l._const * r._const);
       case ttOpDiv:
         return Result.scalar(l._const / r._const);
+      case ttOpMod:
+        return Result.scalar(l._const % r._const);
       case ttOpLess:
         return Result.scalar(l._const < r._const ? 1 : 0);
       case ttOpLessOrEq:
@@ -400,6 +402,9 @@ class BinaryOperator extends Expr {
         break;
       case ttOpDiv:
         op = new DivOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpMod:
+        op = new ModOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
       case ttOpLess:
         op = new LessOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
@@ -455,6 +460,9 @@ class BinaryOperator extends Expr {
       case ttOpDiv:
         op = new RightDiv(r._key, res._key, r.rawColIndex(), l._const);
         break;
+      case ttOpMod:
+        op = new RightMod(r._key, res._key, r.rawColIndex(), l._const);
+        break;
       case ttOpLess:
         op = new LeftGreaterOrEq(l._key, res._key, l.rawColIndex(), r._const); // s < V <-> V >= s
         break;
@@ -509,6 +517,9 @@ class BinaryOperator extends Expr {
         break;
       case ttOpDiv:
         op = new LeftDiv(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpMod:
+        op = new LeftMod(l._key, res._key, l.rawColIndex(), r._const);
         break;
       case ttOpLess:
         op = new LeftLess(l._key, res._key, l.rawColIndex(), r._const);

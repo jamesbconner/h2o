@@ -175,6 +175,22 @@ class LeftDiv extends ParametrizedMRVectorUnaryOperator {
 }
 
 // =============================================================================
+// LeftMod
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftMod extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftMod(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd % _param; }
+}
+
+// =============================================================================
 // LeftLess
 // =============================================================================
 /**
@@ -341,6 +357,22 @@ class RightDiv extends ParametrizedMRVectorUnaryOperator {
 
   @Override
   public double operator(double opnd) { return _param / opnd; }
+}
+
+// =============================================================================
+// RightMod
+// =============================================================================
+/**
+ * Where the arraylet operand is on the RHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class RightMod extends ParametrizedMRVectorUnaryOperator {
+
+  public RightMod(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return _param % opnd; }
 }
 
 // =============================================================================

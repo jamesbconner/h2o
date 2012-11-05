@@ -69,6 +69,12 @@ public abstract class CustomFilter extends MRTask {
   }
 
 }
+
+
+// =============================================================================
+// RandomFilter
+// =============================================================================
+
 class RandomFilter extends CustomFilter {
 
   long resultRows;
