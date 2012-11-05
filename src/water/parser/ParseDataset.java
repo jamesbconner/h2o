@@ -308,6 +308,7 @@ public final class ParseDataset {
         if(_colTypes[i] == ECOL)colDomains[i] = _enums[i].compress();
         else _enums[i].kill();
       }
+      _bases = new int[_ncolumns];
       calculateColumnEncodings();
       DParseTask tsk = new DParseTask();
       tsk._skipFirstLine = _skipFirstLine;
@@ -394,7 +395,6 @@ public final class ParseDataset {
           Arrays.fill(_max, Double.MIN_VALUE);
           _mean = new double[_ncolumns];
           _scale = new int[_ncolumns];
-          _bases = new int[_ncolumns];
           for(int i = 0; i < _enums.length; ++i)_enums[i] = new FastTrie();
           _colTypes = new byte[_ncolumns];
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
@@ -463,21 +463,27 @@ public final class ParseDataset {
         _nrows[i] += other._nrows[i];
       if(_sigma == null)_sigma = other._sigma;
       if(_enums == null){
-        _enums = other._enums;
         assert _min == null;
-        _min = other._min;
         assert _max == null;
-        _max = other._max;
         assert _scale == null;
-        _scale = other._scale;
         assert _colTypes == null;
+        _enums = other._enums;
+        _min = other._min;
+        _max = other._max;
+        _scale = other._scale;
         _colTypes = other._colTypes;
-      } else for(int i = 0; i < _ncolumns; ++i) {
-        _enums[i].merge(other._enums[i]);
-        if(other._min[i] < _min[i])_min[i] = other._min[i];
-        if(other._max[i] > _max[i])_max[i] = other._max[i];
-        if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
-        if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
+      } else {
+        if (_phase == 0) {
+          for(int i = 0; i < _ncolumns; ++i) {
+            _enums[i].merge(other._enums[i]);
+            if(other._min[i] < _min[i])_min[i] = other._min[i];
+            if(other._max[i] > _max[i])_max[i] = other._max[i];
+            if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
+            if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
+          }
+        } else {
+          // pass -- phase 1 does not require any reduction of these
+        }
       }
       if(_error == null)_error = other._error;
       else if(other._error != null) _error = _error + "\n" + other._error;
@@ -534,6 +540,8 @@ public final class ParseDataset {
     Stream _s;
 
     private void calculateColumnEncodings(){
+      assert (_bases != null);
+      assert (_min != null);
       for(int i = 0; i < _ncolumns; ++i){
         switch(_colTypes[i]){
         case ICOL: // number
