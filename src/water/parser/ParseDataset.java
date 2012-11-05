@@ -168,9 +168,7 @@ public final class ParseDataset {
       // else it is possible to dive into a directory but in this case I would
       // prefer to return error since the ZIP file has not expected format
     } finally { Closeables.closeQuietly(zis); }
-
     if( key == null ) throw new Error("Cannot uncompressed ZIP-compressed dataset!");
-
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
   }
@@ -199,7 +197,7 @@ public final class ParseDataset {
   public static final class DParseTask extends MRTask {
     static final byte SCOL = -3;  // string column (too many enum values)
     // pass 1 types
-    static final byte UCOL  = 10;  // unknown
+    static final byte UCOL  = 0;  // unknown
     static final byte ECOL  = 11;  // enum column
     static final byte ICOL  = 12;  // integer column
     static final byte FCOL  = 13;  // float column
@@ -306,6 +304,7 @@ public final class ParseDataset {
       }
       calculateColumnEncodings();
       DParseTask tsk = new DParseTask();
+      tsk._myrows = _myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
       tsk._resultKey = _resultKey;
       tsk._enums = _enums;
       tsk._colTypes = _colTypes;
@@ -325,7 +324,8 @@ public final class ParseDataset {
         cols[i]         = new Column();
         cols[i]._badat  = (char)Math.min(65535, _invalidValues[i]);
         cols[i]._base   = _bases[i];
-        cols[i]._scale  = (short)-_scale[i];
+        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!";
+        cols[i]._scale  = (short)pow10i(-_scale[i]);
         cols[i]._off    = (short)off;
         cols[i]._size   = (byte)colSizes[_colTypes[i]];
         cols[i]._domain = new ValueArray.ColumnDomain(colDomains[i]);
@@ -403,7 +403,7 @@ public final class ParseDataset {
           int rpc = (int)ValueArray.chunk_size()/rowsize;
           // compute the chunks to be updated and allocate memory for them
           int firstRow = 0;
-          int lastRow = rpc;
+          int lastRow = _myrows;
           if(arraylet){
             long origChunkIdx = ValueArray.getChunkIndex(key);
             firstRow = (origChunkIdx == 0)?0:_nrows[(int)origChunkIdx-1];
@@ -414,7 +414,7 @@ public final class ParseDataset {
           int firstChunkOff = off*rowsize;
           int n = 0;
           while((firstRow - off + (n+1)*rpc) < lastRow)++n;
-          int diff = rpc - off;
+          int diff = Math.min(lastRow,rpc - off); // for single value, diff is simply the idx of the last row
           _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
           _outputRows = new int[n+1];
           _outputRows[0] = firstRow + diff;
@@ -431,7 +431,7 @@ public final class ParseDataset {
           p2.parse(key,_skipFirstLine);
           // send the atomic unions
           Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._buf.length);
+          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._off);
           lazy_complete(u.fork(k));
           for(int i = 1; i < n; ++i){
             k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
@@ -486,7 +486,7 @@ public final class ParseDataset {
       0.001,
       0.01,
       0.1,
-      0.0,
+      1.0,
       10.0,
       100.0,
       1000.0,
@@ -500,7 +500,7 @@ public final class ParseDataset {
     };
 
     static long [] powers10i = new long[]{
-      0,
+      1,
       10,
       100,
       1000,
@@ -563,9 +563,12 @@ public final class ParseDataset {
       case 0:
         ++_myrows;
         for(int i = 0; i < _ncolumns; ++i){
-          if(row._numLength[i] < 0)++_invalidValues[i];
-          if(row._numbers[i] == -1)continue; //NaN
-          if(row._numbers[i] == -2){
+          switch(row._numLength[i]) {
+          case -1:
+            ++_invalidValues[i];
+            continue; //NaN
+          case -2:
+            if(_colTypes[i] > ECOL)++_invalidValues[i];
             // enum
             switch(_colTypes[i]){
             case UCOL:
@@ -576,18 +579,19 @@ public final class ParseDataset {
             default:
               break;
             }
-          } else { // number
-            double d = row._numbers[i]*pow10(row._exponents[i]);
-            if(d < _min[i])_min[i] = d;
-            if(d > _max[i])_max[i] = d;
-            int exp = row._numLength[i] + row._exponents[i];
-            if(exp < 0) {
-              if(exp < _scale[i])_scale[i] = exp;
-              if(_colTypes[i] != DCOL){
-                if((float)d != d)_colTypes[i] = DCOL;
-                else _colTypes[i] = FCOL;
-              }
-            } else if(_colTypes[i] == UCOL || _colTypes[i] == ECOL)
+            break;
+           default:
+             assert row._numLength[i] >= 0:"unexpected num length " + row._numLength[i];
+             double d = row._numbers[i]*pow10(row._exponents[i]);
+             if(d < _min[i])_min[i] = d;
+             if(d > _max[i])_max[i] = d;
+             if(row._exponents[i] < _scale[i]) {
+               _scale[i] = row._exponents[i];
+               if(_colTypes[i] != DCOL){
+                 if((float)d != d)_colTypes[i] = DCOL;
+                 else _colTypes[i] = FCOL;
+               }
+            } else if(_colTypes[i] < ICOL)
               _colTypes[i] = ICOL;
           }
         }
