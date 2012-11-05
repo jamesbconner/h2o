@@ -154,7 +154,7 @@ public final class FastTrie {
       short s = addState(new State(8));
       idx = -idx - 2;
       if(_succ[0] == 0){ // array is not full
-        if(idx == _succ.length)--idx;
+
         for(int i = firstSucc; i <= idx; ++i){
           _alpha[i-1] = _alpha[i];
           _succ[i-1] = _succ[i];
