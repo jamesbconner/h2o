@@ -163,15 +163,15 @@ public final class FastTrie {
         _succ[idx] = s;
       } else {
         int N = _alpha.length + (_alpha.length >> 1);
-        byte [] newTransitions = new byte[N];
+        byte [] newAlpha = new byte[N];
         short [] newStates = new short[N];
-        System.arraycopy(_succ, 0, newStates, 0,idx);
-        System.arraycopy(_alpha, 0, _alpha, 0,idx);
-        newStates[idx] = s;
-        newTransitions[idx] = c;
-        System.arraycopy(_succ, idx, newStates, idx+1,_succ.length-idx);
-        System.arraycopy(_alpha, 0, _alpha, idx+1,_alpha.length-idx);
-        _alpha = newTransitions;
+        System.arraycopy(_succ, 0, newStates, (_alpha.length >> 1)-1,idx+1);
+        System.arraycopy(_alpha, 0, newAlpha, (_alpha.length >> 1)-1,idx+1);
+        newStates[idx+(_alpha.length >> 1)] = s;
+        newAlpha[idx+(_alpha.length >> 1)] = c;
+        System.arraycopy(_succ, idx, newStates, idx+(_alpha.length >> 1),_succ.length-idx-1);
+        System.arraycopy(_alpha, idx, newAlpha, idx+(_alpha.length >> 1),_alpha.length-idx-1);
+        _alpha = newAlpha;
         _succ = newStates;
       }
       return s;
@@ -327,7 +327,7 @@ public final class FastTrie {
   }
   public static void main(String [] args){
     FastTrie t = new FastTrie();
-    String [] words = new String[]{"haha","gaga","hahagaga", "hahaha","gagaga"};
+    String [] words = new String[]{"haha","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
     int [] res1 = addWords(words, t);
     int [] res2 = addWords(words, t);
     System.out.println("res1 = " + Arrays.toString(res1));
@@ -336,7 +336,7 @@ public final class FastTrie {
     System.out.println(t.toString());
 
     FastTrie t2 = new FastTrie();
-    String [] words2 = new String[]{"haha","abc", "gogo","gaga","hahagaga", "hahaha","gagaga"};
+    String [] words2 = new String[]{"haha","abc", "gogo","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
     int [] res3 = addWords(words2, t2);
     int [] res4 = addWords(words2, t2);
     System.out.println("res3 = " + Arrays.toString(res3));
