@@ -23,6 +23,7 @@ public class Stream {
   private byte[] grow2( int l ) {
     int l2 = _buf.length;
     while( l2 < l ) l2<<=1;
+    assert(false);
     return (_buf = Arrays.copyOf(_buf,l2));
   }
 

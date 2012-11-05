@@ -8,6 +8,7 @@ import water.ValueArray.Column;
 import water.parser.SeparatedValueParser.Row;
 
 import com.google.common.io.Closeables;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured
@@ -152,7 +153,7 @@ public final class ParseDataset {
         cols[i]._name = colNames[i];
     }
     // finally make the value array header
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._outputRows[tsk._outputRows.length-1], row_size, cols);
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._numRows /*tsk._outputRows[tsk._outputRows.length-1] */, row_size, cols);
     DKV.put(result, ary);
   }
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -246,12 +247,18 @@ public final class ParseDataset {
     int      [] _nrows;
 
 
+    int _numRows; // number of rows -- works only in second pass FIXME in first pass object
+    
 
     public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
       _resultKey = resultKey;
       _ncolumns = ncolumns;
       _sep = sep;
+      if (dataset instanceof ValueArray) {
+        ValueArray ary = (ValueArray) dataset;
+        _nrows = new int[(int)ary.chunks()];
+      } 
 
       _skipFirstLine = skipFirstLine;
     }
@@ -323,13 +330,22 @@ public final class ParseDataset {
       tsk._phase = 1;
       tsk._scale = _scale;
       tsk._ncolumns = _ncolumns;
+      if (tsk._nrows != null) {
+        _numRows =0;
+        for (int i = 0; i < tsk._nrows.length; ++i) {
+          _numRows += tsk._nrows[i];
+          tsk._nrows[i] = _numRows;
+        }
+        System.out.println(Arrays.toString(tsk._nrows));
+      }
       tsk.invoke(dataset);
+      System.out.println("FINISHED ALL");
       // now create the value array head from all the information
       Column [] cols = new Column[_ncolumns];
       int off = 0;
       for(int i = 0; i < _colTypes.length; ++i){
         cols[i]         = new Column();
-        cols[i]._badat  = (char)Math.min(65535, _invalidValues[i]);
+        cols[i]._badat  = 0; // FIXME (char)Math.min(65535, _invalidValues[i] );
         cols[i]._base   = _bases[i];
         assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!";
         cols[i]._scale  = (short)pow10i(-_scale[i]);
@@ -338,8 +354,8 @@ public final class ParseDataset {
         cols[i]._domain = new ValueArray.ColumnDomain(colDomains[i]);
         cols[i]._max    = _max[i];
         cols[i]._min    = _min[i];
-        cols[i]._mean   = _mean[i];
-        cols[i]._sigma  = tsk._sigma[i];
+        cols[i]._mean   = 0; // FIXME _mean[i];
+        cols[i]._sigma  = 0; // FIXME tsk._sigma[i];
         cols[i]._name = "" + i;
         off +=  cols[i]._off;
       }
@@ -383,10 +399,9 @@ public final class ParseDataset {
         if(arraylet) {
           aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
           _chunkId = ValueArray.getChunkIndex(key);
-          skipFirstLine = skipFirstLine && (ValueArray.getChunkIndex(key) == 0);
+          skipFirstLine = skipFirstLine || (ValueArray.getChunkIndex(key) != 0);
           if(_phase == 0){
             ValueArray ary = (ValueArray)DKV.get(aryKey);
-            _nrows = new int[(int)ary.chunks()];
           }
         }
         switch(_phase){
@@ -403,12 +418,14 @@ public final class ParseDataset {
           _colTypes = new byte[_ncolumns];
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p.parse(key,skipFirstLine);
-          if(arraylet){
-            int indexFrom = ValueArray.getChunkIndex(key)+1;
-            if(indexFrom < _nrows.length)Arrays.fill(_nrows, indexFrom, _nrows.length, _myrows);
+          if(arraylet) {
+            assert (_nrows[ValueArray.getChunkIndex(key)] == 0);
+            _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
+          
           break;
         case 1:
+//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"started...");
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += colSizes[b];
@@ -416,43 +433,91 @@ public final class ParseDataset {
           // compute the chunks to be updated and allocate memory for them
           int firstRow = 0;
           int lastRow = _myrows;
+          _myrows = 0;
           if(arraylet){
             long origChunkIdx = ValueArray.getChunkIndex(key);
-            firstRow = (origChunkIdx == 0)?0:_nrows[(int)origChunkIdx-1];
+            firstRow = (origChunkIdx == 0) ? 0 : _nrows[(int)origChunkIdx-1];
             lastRow = _nrows[(int)origChunkIdx];
           }
-          int firstChunk = firstRow/rpc;
-          int off = firstRow % rpc;
-          int firstChunkOff = off*rowsize;
-          int n = 0;
-          while((firstRow - off + (n+1)*rpc) < lastRow)++n;
-          int diff = Math.min(lastRow,rpc - off); // for single value, diff is simply the idx of the last row
-          if(diff < 0){
-            System.err.println("negative diff");
+          int rowsToParse = lastRow - firstRow;
+          int chunkRows = Math.min(rpc - (firstRow % rpc),rowsToParse);
+          int n = 1;
+          while (chunkRows + ((n-1)*rpc) < rowsToParse) ++n;
+          _outputRows = new int[n];
+          _outputStreams = new Stream[n];
+          synchronized (_count) {
+            System.out.println("Rows to parse: "+rowsToParse);
+            int i = 0;
+            while (rowsToParse > 0) {
+              _outputRows[i] = chunkRows;
+              _outputStreams[i] = new Stream(chunkRows*rowsize);
+              System.out.println("  Creating stream for "+chunkRows);
+              rowsToParse -= chunkRows;
+              chunkRows = Math.min(rowsToParse,rpc);
+              ++i;
+            }
+            if (rowsToParse != 0)
+              assert(false);
+            _s = _outputStreams[0];
+          
+//          while((firstRow - off + (n+1)*rpc) < lastRow)++n;
+//          int diff = Math.min(lastRow,rpc - off); // for single value, diff is simply the idx of the last row
+//          if(diff < 0){
+//            System.err.println("negative diff");
+//          }
+//          _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
+//          _outputRows = new int[n+1];
+//          _outputRows[0] = firstRow + diff;
+//          _outputStreams = new Stream[n+1];
+//          _outputStreams[0] = _s;
+//          firstRow += diff;
+//          for(int i = 1; i <= n; ++i){
+//            diff = Math.min(rpc, lastRow-firstRow);
+//            _outputStreams[i] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
+//            firstRow += diff;
+//            _outputRows[i] = firstRow;
+//          }
+//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"before parser...");
+            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+            p2.parse(key,skipFirstLine);
           }
-          _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
-          _outputRows = new int[n+1];
-          _outputRows[0] = firstRow + diff;
-          _outputStreams = new Stream[n+1];
-          _outputStreams[0] = _s;
-          firstRow += diff;
-          for(int i = 1; i <= n; ++i){
-            diff = Math.min(rpc, lastRow-firstRow);
-            _outputStreams[i] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
-            firstRow += diff;
-            _outputRows[i] = firstRow;
+          
+          int inChunkOffset = (firstRow % rpc) * rowsize; // index into the chunk I am writing to
+          int lastChunk = Math.max(1,_nrows[_nrows.length-1] / rpc) - 1; // index of the last chunk in the VA
+          int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
+          if (chunkIndex > lastChunk) {
+            assert (chunkIndex == lastChunk + 1);
+            inChunkOffset += rpc * rowsize;
+            --chunkIndex;
           }
-          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-          p2.parse(key,skipFirstLine);
-          // send the atomic unions
-          Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._off);
-          lazy_complete(u.fork(k));
-          for(int i = 1; i < n; ++i){
-            k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-            u = new AtomicUnion(_outputStreams[i]._buf, 0, 0, _outputStreams[i]._buf.length);
+          for (int i = 0; i < _outputStreams.length; ++i) {
+            Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
+            if (_outputStreams[i]._off != _outputStreams[i]._buf.length) {
+              assert(false);
+            }
+            AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[0]._buf.length);
             lazy_complete(u.fork(k));
+            if (chunkIndex == lastChunk) {
+              inChunkOffset += _outputStreams[i]._buf.length;
+            } else {
+              ++chunkIndex;
+              inChunkOffset = 0;
+            }
           }
+//          
+//////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after parser...");
+////          // send the atomic unions
+//          Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
+//          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._off);
+//          lazy_complete(u.fork(k));
+//////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after first atomic...");
+//          for(int i = 1; i < n; ++i){
+//            k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
+//            u = new AtomicUnion(_outputStreams[i]._buf, 0, 0, _outputStreams[i]._buf.length);
+//            lazy_complete(u.fork(k));
+//////            System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after another atomic...");
+//          }
+//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+" after all atomics...");
           break;
         default:
           assert false:"unexpected phase " + _phase;
@@ -463,10 +528,13 @@ public final class ParseDataset {
       }
     }
 
+    static boolean checkAddRow = false;
+    
+    static AtomicInteger _count = new AtomicInteger(0);
+    
     @Override
     public void reduce(DRemoteTask drt) {
       DParseTask other = (DParseTask)drt;
-
       if(_sigma == null)_sigma = other._sigma;
       if(_enums == null){
         assert _min == null;
@@ -481,16 +549,15 @@ public final class ParseDataset {
         _nrows = other._nrows;
       } else {
         if (_phase == 0) {
+          if (_nrows != other._nrows)
+            for (int i = 0; i < _nrows.length; ++i)
+              _nrows[i] += other._nrows[i];
           for(int i = 0; i < _ncolumns; ++i) {
             _enums[i].merge(other._enums[i]);
             if(other._min[i] < _min[i])_min[i] = other._min[i];
             if(other._max[i] > _max[i])_max[i] = other._max[i];
             if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
             if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
-            if(_nrows[i] + other._nrows[i] < 0){
-              System.out.println("negative number of rows");
-            }
-            _nrows[i] += other._nrows[i];
           }
         } else {
           // pass -- phase 1 does not require any reduction of these
@@ -624,6 +691,13 @@ public final class ParseDataset {
         }
         break;
       case 1:
+        if(_myrows == _outputRows[_outputIdx]) {
+          ++_outputIdx;
+          if (_outputIdx >= _outputStreams.length)
+            assert (false);
+          _s = _outputStreams[_outputIdx];
+          _myrows = 0;
+        }
         ++_myrows;
         for (int i = 0; i < row._numbers.length; ++i) {
           switch(row._numLength[i]) {
@@ -653,16 +727,17 @@ public final class ParseDataset {
                 break;
               case DOUBLE:
                 _s.set8d(row._numbers[i] * pow10(row._exponents[i]));
+                break;
               case DSHORT:
                 // scale is computed as negative in the first pass,
                 // therefore to compute the positive exponent after scale, we add scale and the original exponent
                 _s.set2((short)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
                 break;
             }
-            if(_myrows == _outputRows[_outputIdx] && ++_outputIdx < _outputStreams.length)
-              _s = _outputStreams[_outputIdx];
           }
         }
+        if (checkAddRow)
+          System.out.println("   leave "+_myrows);
         break;
       default:
         assert false:"unexpected phase " + _phase;
