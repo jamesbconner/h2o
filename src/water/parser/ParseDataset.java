@@ -378,9 +378,10 @@ public final class ParseDataset {
       try{
         Key aryKey = null;
         boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
+        boolean skipFirstLine = _skipFirstLine;
         if(arraylet) {
           aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
-          _skipFirstLine |= ValueArray.getChunkIndex(key) != 0;
+          skipFirstLine = skipFirstLine && (ValueArray.getChunkIndex(key) == 0);
         }
         switch(_phase){
         case 0:
@@ -396,7 +397,7 @@ public final class ParseDataset {
           for(int i = 0; i < _enums.length; ++i)_enums[i] = new FastTrie();
           _colTypes = new byte[_ncolumns];
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-          p.parse(key,_skipFirstLine);
+          p.parse(key,skipFirstLine);
           if(arraylet){
             int indexFrom = ValueArray.getChunkIndex(key)+1;
             if(indexFrom < _nrows.length)Arrays.fill(_nrows, ValueArray.getChunkIndex(key)+1, _nrows.length, _myrows);
@@ -434,7 +435,7 @@ public final class ParseDataset {
             _outputRows[i] = firstRow;
           }
           FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-          p2.parse(key,_skipFirstLine);
+          p2.parse(key,skipFirstLine);
           // send the atomic unions
           Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
           AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._off);
