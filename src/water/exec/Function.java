@@ -404,8 +404,8 @@ class RandBitVect extends Function {
       for (int i = 0; i < create; ++i)
         t[i] = true;
       Random r = new Random();
-      for (int i = 0; i < rows; ++i) {
-        int j = r.nextInt(rows);
+      for (int i = rows-1; i >=1; --i) {
+        int j = r.nextInt(i+1);
         boolean x = t[i];
         t[i] = t[j];
         t[j] = x;
