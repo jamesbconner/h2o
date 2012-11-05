@@ -532,7 +532,7 @@ class H2O(object):
     # in the dataset. We'll just do that all the time for now.
     # FIX! add more parameters from the wiki
     def GLM(self, key, X="0", Y="1", family="binomial", xval=10, bool="true", **kwargs):
-        # we're going to build up the list by adding kvargs here, because
+        # we're going to build up the list by adding kwargs here, because
         # the possibilities are large and changing!
         params_list = { 
                 "family": family,

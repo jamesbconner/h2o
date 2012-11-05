@@ -5,7 +5,6 @@ import h2o_browse as h2b
 def runGLM(node=None,csvPathname=None,X="0",Y="1",
     timeoutSecs=30,retryDelaySecs=0.5,
     family="binomial",xval=10,bool="true",**kwargs):
-    print "Hello1:", xval
     if not csvPathname: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
@@ -18,7 +17,6 @@ def runGLM(node=None,csvPathname=None,X="0",Y="1",
 def runGLMOnly(node=None,parseKey=None,X="0",Y="1",
     timeoutSecs=30,retryDelaySecs=0.5,
     family="binomial",xval=10,bool="true",**kwargs):
-    print "Hello2:", xval
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
@@ -67,19 +65,6 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     h2o.verboseprint("runRFOnly parseKey:",parseKey)
     key = parseKey['Key']
     rf = node.random_forest(key, trees, depth, **kwargs)
-
-    # rf result json: 
-    # this is the number of trees asked for
-    # u'ntree': 6, 
-    # this is the number of trees currently in the model (changes till == ntree)
-    # u'modelSize: 6, 
-    # u'class': 4
-    # u'dataKey': u'...', 
-    # u'modelKey': u'model', 
-    # u'dataKeyHref': u'...', 
-    # u'treesKeyHref': u'...', 
-    # u'modelKeyHref': u'____model'
-    # u'h2o': u'/192.168.0.35:54321', 
 
     # FIX! check all of these somehow?
     dataKey  = rf['dataKey']
