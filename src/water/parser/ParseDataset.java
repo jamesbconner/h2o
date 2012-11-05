@@ -145,7 +145,11 @@ public final class ParseDataset {
     tsk.invoke(dataset._key);
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
     int row_size = 0;
-    for(Column c:cols)row_size += c._size;
+    for(Column c:cols) {
+      c._off = (short)row_size;
+      row_size += c._size;
+
+    }
     // finally make the value array header
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._outputRows[tsk._outputRows.length-1], row_size, cols);
     DKV.put(result, ary);

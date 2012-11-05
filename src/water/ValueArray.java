@@ -625,10 +625,11 @@ public class ValueArray extends Value {
     assert row_size() == row_size;
     assert col_off  (colnum)==col_off  ;
     assert col_base (colnum)==col_base ;
+    assert col_scale == 1;
     assert col_scale(colnum)==col_scale;
     assert col_size (colnum)==col_size ;
     int off = (row_in_chunk * row_size) + col_off;
-    double res=0;
+    long res=0;
     switch( col_size ) {
     case  1:       res =    0xff&  bits[off]; break;
     case  2:       res = UDP.get2 (bits,off); break;
@@ -638,7 +639,7 @@ public class ValueArray extends Value {
     case -8:return (long)UDP.get8d(bits,off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
-    return (long)((res+col_base(colnum))/col_scale(colnum));
+    return res + col_base;
   }
 
 
