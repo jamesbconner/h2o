@@ -360,16 +360,16 @@ public class ValueArray extends Value {
     public ColumnDomain(String [] str){_str= str;}
     public String getStr(int i){return _str[i];}
     public int wire_len(){
-      int res = 4;
-      for(String s:_str){
+      int res = 2;
+      if(_str != null) for(String s:_str) {
         res += s.length() + 2;
       }
       return res;
     }
 
     public void read(Stream s){
-      int n = s.get4();
-      if(n != -1){
+      int n = s.get2();
+      if(n != 0){
         _str = new String[n];
         for(int i = 0; i < n; ++i){
           _str[i] = s.getLen2Str();
@@ -378,9 +378,9 @@ public class ValueArray extends Value {
     }
     public void write(Stream s){
       if(_str != null){
-        s.set4(_str.length);
+        s.set2(_str.length);
         for(String str:_str)s.setLen2Bytes(str.getBytes());
-      } else s.set4(-1);
+      } else s.set2(0);
     }
   }
 
@@ -674,9 +674,9 @@ public class ValueArray extends Value {
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;
     // Also include String column-name metadata
     for( Column column : cols )
-      sz += column._name.length() /*2 bytes of pre-length*/;
+      sz += column._name.length()+2/*2 bytes of pre-length*/;
     // Also priorkey & xform
-    sz += priorkey.wire_len()+2;
+    sz += priorkey.wire_len() + xform.length() + 2;
     // Also include meta-data representing column domains.
     for( Column column : cols)
       sz += column._domain.wire_len();
@@ -710,7 +710,7 @@ public class ValueArray extends Value {
       UDP.set4(mem,ary.col(i)+DOMAIN_COL_OFF,s._off); // First write the offset of domain to column header.
       cols[i]._domain.write(s);                       // Then the domain names
     }
-
+    assert s._off == mem.length:"s.off("+s._off+") != mem.length (" + mem.length + ")";
     return ary;
   }
 }

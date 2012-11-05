@@ -141,7 +141,7 @@ public final class ParseDataset {
     String [] colNames = FastParser.determineColumnNames(bits,sep);
     boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
     // pass 1
-    DParseTask tsk = new DParseTask(dataset, sep,psetup[1],skipFirstLine);
+    DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
     int row_size = 0;
@@ -243,7 +243,8 @@ public final class ParseDataset {
 
 
     public DParseTask() {}
-    public DParseTask(Value dataset, byte sep, int ncolumns, boolean skipFirstLine) {
+    public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
+      _resultKey = resultKey;
       _ncolumns = ncolumns;
       _sep = sep;
       if(dataset instanceof ValueArray){
@@ -305,6 +306,7 @@ public final class ParseDataset {
       }
       calculateColumnEncodings();
       DParseTask tsk = new DParseTask();
+      tsk._resultKey = _resultKey;
       tsk._enums = _enums;
       tsk._colTypes = _colTypes;
       tsk._nrows = _nrows;
@@ -312,7 +314,7 @@ public final class ParseDataset {
       tsk._decSep = _decSep;
       // don't pass invalid values, we do not need them 2nd pass
       tsk._bases = _bases;
-      tsk._phase = 2;
+      tsk._phase = 1;
       tsk._scale = _scale;
       tsk._ncolumns = _ncolumns;
       tsk.invoke(dataset);
@@ -323,7 +325,7 @@ public final class ParseDataset {
         cols[i]         = new Column();
         cols[i]._badat  = (char)Math.min(65535, _invalidValues[i]);
         cols[i]._base   = _bases[i];
-        cols[i]._scale  = (short)_scale[i];
+        cols[i]._scale  = (short)-_scale[i];
         cols[i]._off    = (short)off;
         cols[i]._size   = (byte)colSizes[_colTypes[i]];
         cols[i]._domain = new ValueArray.ColumnDomain(colDomains[i]);
@@ -331,8 +333,10 @@ public final class ParseDataset {
         cols[i]._min    = _min[i];
         cols[i]._mean   = _mean[i];
         cols[i]._sigma  = tsk._sigma[i];
+        cols[i]._name = "" + i;
         off +=  cols[i]._off;
       }
+      _outputRows = tsk._outputRows;
       return cols;
     }
 
@@ -374,19 +378,32 @@ public final class ParseDataset {
         }
         switch(_phase){
         case 0:
+          _enums = new FastTrie[_ncolumns];
+          _invalidValues = new long[_ncolumns];
+          _min = new double [_ncolumns];
+          Arrays.fill(_min, Double.MAX_VALUE);
+          _max = new double[_ncolumns];
+          Arrays.fill(_max, Double.MIN_VALUE);
+          _mean = new double[_ncolumns];
+          _scale = new int[_ncolumns];
+          _bases = new int[_ncolumns];
+          for(int i = 0; i < _enums.length; ++i)_enums[i] = new FastTrie();
           _colTypes = new byte[_ncolumns];
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p.parse(key,_skipFirstLine);
-          int indexFrom = ValueArray.getChunkIndex(key)+1;
-          if(indexFrom < _nrows.length)Arrays.fill(_nrows, ValueArray.getChunkIndex(key)+1, _nrows.length, _myrows);
+          if(arraylet){
+            int indexFrom = ValueArray.getChunkIndex(key)+1;
+            if(indexFrom < _nrows.length)Arrays.fill(_nrows, ValueArray.getChunkIndex(key)+1, _nrows.length, _myrows);
+          }
           break;
         case 1:
+          _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += colSizes[b];
           int rpc = (int)ValueArray.chunk_size()/rowsize;
           // compute the chunks to be updated and allocate memory for them
           int firstRow = 0;
-          int lastRow = _nrows[0];
+          int lastRow = rpc;
           if(arraylet){
             long origChunkIdx = ValueArray.getChunkIndex(key);
             firstRow = (origChunkIdx == 0)?0:_nrows[(int)origChunkIdx-1];
@@ -397,13 +414,14 @@ public final class ParseDataset {
           int firstChunkOff = off*rowsize;
           int n = 0;
           while((firstRow - off + (n+1)*rpc) < lastRow)++n;
-          _outputRows = new int[n];
-          _outputStreams = new Stream[n];
           int diff = rpc - off;
+          _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
+          _outputRows = new int[n+1];
           _outputRows[0] = firstRow + diff;
-          _outputStreams[0] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
+          _outputStreams = new Stream[n+1];
+          _outputStreams[0] = _s;
           firstRow += diff;
-          for(int i = 1; i < n; ++i){
+          for(int i = 1; i <= n; ++i){
             diff = Math.min(rpc, lastRow-firstRow);
             _outputStreams[i] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
             firstRow += diff;
@@ -420,8 +438,12 @@ public final class ParseDataset {
             u = new AtomicUnion(_outputStreams[i]._buf, 0, 0, _outputStreams[i]._buf.length);
             lazy_complete(u.fork(k));
           }
+          break;
+        default:
+          assert false:"unexpected phase " + _phase;
         }
       }catch(Exception e){
+        e.printStackTrace();
         _error = e.getMessage();
       }
     }
@@ -431,7 +453,7 @@ public final class ParseDataset {
       DParseTask other = (DParseTask)drt;
       for(int i = 0; i < _nrows.length; ++i)
         _nrows[i] += other._nrows[i];
-
+      if(_sigma == null)_sigma = other._sigma;
       if(_enums == null){
         _enums = other._enums;
         assert _min == null;
@@ -496,7 +518,7 @@ public final class ParseDataset {
     }
 
     static long pow10i(int exp){
-      assert 10 >= exp && exp >= 0;
+      assert 10 >= exp && exp >= 0:"unexpceted exponent " + exp;
       return powers10i[exp];
     }
 
@@ -569,10 +591,11 @@ public final class ParseDataset {
               _colTypes[i] = ICOL;
           }
         }
+        break;
       case 1:
         ++_myrows;
         for (int i = 0; i < row._numbers.length; ++i) {
-          switch(row._numLength[i]){
+          switch(row._numLength[i]) {
           case -1: // NaN
             row._numbers[i]  = -1l;
             row._numbers[i] += _bases[i];
@@ -600,13 +623,18 @@ public final class ParseDataset {
               case DOUBLE:
                 _s.set8d(row._numbers[i] * pow10(row._exponents[i]));
               case DSHORT:
-                _s.set2((short)(row._numbers[i]*pow10i(_scale[i]+row._exponents[i]) - _bases[i]));
+                // scale is computed as negative in the first pass,
+                // therefore to compute the positive exponent after scale, we add scale and the original exponent
+                _s.set2((short)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
                 break;
             }
+            if(_myrows == _outputRows[_outputIdx] && ++_outputIdx < _outputStreams.length)
+              _s = _outputStreams[_outputIdx];
           }
         }
-        if(_myrows == _outputRows[_outputIdx] && ++_outputIdx < _outputStreams.length)
-          _s = _outputStreams[_outputIdx];
+        break;
+      default:
+        assert false:"unexpected phase " + _phase;
       }
     }
   }
