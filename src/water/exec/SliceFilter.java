@@ -29,7 +29,7 @@ public class SliceFilter extends MRTask {
   
   @Override public void map(Key key) {
     long startRow = ValueArray.getOffset(key);
-    int rowsInChunk = chunkRows(startRow);
+    int rowsInChunk = VABuilder.chunkSize(key, _length*_rowSize) / _rowSize;
     VAIterator iter = new VAIterator(_source,0,_start+startRow);
     byte[] bits = MemoryManager.allocateMemory(rowsInChunk*_rowSize);
     for (int offset = 0; offset < bits.length; offset += _rowSize) {
@@ -43,13 +43,6 @@ public class SliceFilter extends MRTask {
   @Override public void reduce(DRemoteTask drt) {
     SliceFilter other = (SliceFilter) drt;
     _filteredRows += other._filteredRows;
-  }
-  
-  private int chunkRows(long startRow) {
-    int result = (int) (ValueArray.chunk_size() / _rowSize);
-    if (startRow + result >= _length)
-      result = (int) (_length - startRow);
-    return result;
   }
 
 }

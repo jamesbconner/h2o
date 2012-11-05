@@ -56,9 +56,10 @@ public abstract class MRVectorBinaryOperator extends MRTask {
     long rowOffset = ValueArray.getOffset(key) / result.row_size();
     VAIterator left = new VAIterator(_leftKey,_leftCol, rowOffset);
     VAIterator right = new VAIterator(_rightKey,_rightCol, rowOffset);
-    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
-    if (rowOffset + chunkRows >= result.num_rows())
-      chunkRows = (int) (result.num_rows() - rowOffset);
+    int chunkRows = VABuilder.chunkSize(key, result.length()) / result.row_size();
+//    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
+//    if (rowOffset + chunkRows >= result.num_rows())
+//      chunkRows = (int) (result.num_rows() - rowOffset);
     int chunkLength = chunkRows * 8;
     byte[] bits = MemoryManager.allocateMemory(chunkLength); // create the byte array
     for (int i = 0; i < chunkLength; i+=8) {

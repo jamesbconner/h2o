@@ -17,6 +17,8 @@ public abstract class CustomFilter extends MRTask {
 
   Key _destKey;
   
+  int _rowSize;
+  
   
   protected CustomFilter(Key destKey) {
     _destKey = destKey;
@@ -27,13 +29,13 @@ public abstract class CustomFilter extends MRTask {
     byte[] bits = DKV.get(key).get();
     byte[] newBits = MemoryManager.allocateMemory(bits.length);
     int wo = 0;
-    int rowSize = ary.row_size();
+    _rowSize = ary.row_size();
     filterInitMap(ary,key,bits.length);
-    for (int offset = 0; offset < bits.length; offset += rowSize) {
+    for (int offset = 0; offset < bits.length; offset += _rowSize) {
       if (filter(bits,offset)) {
         ++_filteredRows;
-        System.arraycopy(bits,offset,newBits,wo,rowSize);
-        wo += rowSize;
+        System.arraycopy(bits,offset,newBits,wo,_rowSize);
+        wo += _rowSize;
       }
     }
     byte[] x = MemoryManager.allocateMemory(wo);
@@ -68,29 +70,6 @@ public abstract class CustomFilter extends MRTask {
     // pass
   }
 
-}
-
-
-// =============================================================================
-// RandomFilter
-// =============================================================================
-
-class RandomFilter extends CustomFilter {
-
-  long resultRows;
-  
-  @Override protected boolean filter(byte[] bits, int rowOffset) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  @Override protected void filterInitMap(ValueArray ary, Key k, int rows) {
-    // pass
-  }
-  
-  protected RandomFilter(Key destKey) {
-    super(destKey);
-  }
-  
 }
 
 // =============================================================================

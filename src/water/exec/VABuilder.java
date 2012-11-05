@@ -134,4 +134,14 @@ public class VABuilder {
     UDP.set8(bits,ValueArray.NUM_ROWS_OFF,newRows);
     return new ValueArray(newKey,bits);
   }
+  
+  public static int chunkSize(Key k, long aryLength) {
+    int result = (int) ValueArray.chunk_size();
+    long offset = ValueArray.getOffset(k);
+    if (offset + result + result >= aryLength)
+      return (int) (aryLength - offset);
+    else
+      return result;
+  }
+
 }

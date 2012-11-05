@@ -3,6 +3,7 @@ package water.exec;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 import water.*;
 import water.exec.Expr.Result;
 
@@ -207,6 +208,7 @@ public abstract class Function {
     new Mean("mean");
     new Filter("filter");
     new Slice("slice");
+    new RandBitVect("randomBitVector");
   }
 }
 
@@ -266,7 +268,7 @@ class Sum extends Function {
   
   static class MRSum extends Helpers.ScallarCollector {
 
-    @Override protected void collect(double x) { _result += x; System.out.println(x + " - "+_result); }
+    @Override protected void collect(double x) { _result += x; }
 
     @Override protected void reduce(double x) { _result += x; }
     
@@ -364,6 +366,83 @@ class Slice extends Function {
     SliceFilter filter = new SliceFilter(args[0]._key,start,length);
     filter.invoke(r._key);
     assert (filter._filteredRows == length);
+    return r;
+  }
+  
+}
+
+
+// RandBitVect -----------------------------------------------------------------
+
+class RandBitVect extends Function {
+  
+  static class RandVectBuilder extends MRTask {
+
+    Key _key;
+    long _selected;
+    long _size;
+    long _createdSelected;
+    
+    public RandVectBuilder(Key k, long selected) {
+      _key = k;
+      _selected = selected;
+      ValueArray va = (ValueArray) DKV.get(k);
+      _size = va.length();
+    }
+    
+    @Override public void map(Key key) {
+      byte[] bits = MemoryManager.allocateMemory(VABuilder.chunkSize(key, _size));
+      int rows = bits.length / 8;
+      long start = ValueArray.getOffset(key) / 8;
+      double expectedBefore = start * ( (double)_selected / (_size / 8));
+      double expectedAfter = (start + rows) * ((double)  _selected / (_size / 8));
+      int create = (int) (Math.round(expectedAfter) - Math.round(expectedBefore));
+      //System.out.println("RVB: before "+ expectedBefore+" after "+expectedAfter+" to be created "+create+" on rows "+rows);
+      _createdSelected += create;
+      boolean[] t = new boolean[rows];
+      for (int i = 0; i < create; ++i)
+        t[i] = true;
+      Random r = new Random();
+      for (int i = 0; i < rows; ++i) {
+        int j = r.nextInt(rows);
+        boolean x = t[i];
+        t[i] = t[j];
+        t[j] = x;
+      }
+      int offset = 0;
+      for (int i = 0; i < rows; ++i)
+        offset += UDP.set8d(bits,offset, t[i] ? 1 : 0);
+      DKV.put(key, new Value(key,bits));
+    }
+
+    @Override  public void reduce(DRemoteTask drt) {
+      RandVectBuilder other = (RandVectBuilder) drt;
+      _createdSelected += other._createdSelected;
+    }
+    
+  }
+  
+
+  public RandBitVect(String name) {
+    super(name);
+    addChecker(new ArgIntPositive("size"));
+    addChecker(new ArgIntPositive("selected"));
+  }
+  
+  @Override  public Result eval(Result... args) throws Exception {
+    Result r = Result.temporary();
+    long size = (long) args[0]._const;
+    long selected = (long) args[1]._const;
+    if (selected > size) 
+      throw new Exception("Number of selected rows must be smaller or equal than total number of rows for a random bit vector");
+    double min = 0;
+    double max = 1;
+    double mean = selected / size;
+    double var = Math.sqrt((1 - mean) * ( 1-mean) * selected + (mean*mean*(size-selected)) / size);
+    VABuilder b = new VABuilder("",size).addDoubleColumn("bits",min,max,mean,var).createAndStore(r._key);
+    RandVectBuilder rvb = new RandVectBuilder(r._key,selected);
+    rvb.invoke(r._key);
+    assert (rvb._createdSelected == selected) : rvb._createdSelected + " != " + selected;
     return r;
   }
   
