@@ -26,7 +26,7 @@ class Basic(unittest.TestCase):
         if not os.path.exists(csvPathnamegz):
             raise Exception("Can't find %s.gz" % (csvPathnamegz))
 
-        print "RF start on ", csvPathnamegz, "this will probably take 10 minutes.."
+        print "RF start on ", csvPathnamegz, "this will probably take 1 minute.."
         start = time.time()
         h2o_cmd.runRF(csvPathname=csvPathnamegz, trees=200,
                 timeoutSecs=400, retryDelaySecs=15)
