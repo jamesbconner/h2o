@@ -121,5 +121,10 @@ public final class VAIterator implements Iterator<VAIterator> {
     return _ary.datad(_chunkBits,_rowInChunk,_rowSize,column);
   }
   
+  public int copyCurrentRow(byte[] dest, int offset) {
+    System.arraycopy(_chunkBits, _rowInChunk*_rowSize, dest, offset, _rowSize);
+    return offset + _rowSize;
+  }
+  
   
 }

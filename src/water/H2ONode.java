@@ -286,13 +286,13 @@ public class H2ONode implements Comparable {
   // Stop tracking a remote task, because we got an ACKACK
   void remove_task_tracking( long tnum ) {
     WORK.remove(tnum);
-    synchronized( WORK ) { WORK.notify(); } // wake up blocked pending gets
+    synchronized( WORK ) { WORK.notifyAll(); } // wake up blocked pending gets
   }
 
   // This Node rebooted recently; we can quit tracking prior work history
   void rebooted() {
     WORK.clear();
-    synchronized( WORK ) { WORK.notify(); } // wake up blocked pending gets
+    synchronized( WORK ) { WORK.notifyAll(); } // wake up blocked pending gets
   }
 
   // Block this thread until all pending gets from here to 'this' H2ONode are
@@ -312,10 +312,19 @@ public class H2ONode implements Comparable {
       assert first_byte != 0xab; // did not receive a clobbered packet?
       if( first_byte != UDP.udp.getkey.ordinal() && first_byte != UDP.udp.ack.ordinal() )
         continue;               // This cannot be a TGK, or it's ACK.
+      // Here I have either a pending Get (possibly of an unrelated Key) or an
+      // ACK of a Get, either of which might be for the same Key as the
+      // invalidate.  Be conservative & block for it.
       final int task = UDP.get_task(buf);
       synchronized( WORK ) {
-        while( WORK.containsKey(task) )
-          try { WORK.wait(); } catch( InterruptedException e ) { }
+        while( WORK.containsKey(task) ) { // While this task is stll pending
+          // Sometimes an ACKACK gets lost, but ACKS can fearlessly be resent
+          // and we'll wait for an ACKACK.
+          if( first_byte == UDP.udp.ack.ordinal() )
+            send(p,p.getLength());
+          // Wait for the ACKACK to clear the WORK queue
+          try { WORK.wait(1000); } catch( InterruptedException e ) { }
+        }
       }
     }
   }

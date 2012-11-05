@@ -69,6 +69,12 @@ public abstract class CustomFilter extends MRTask {
   }
 
 }
+
+
+// =============================================================================
+// RandomFilter
+// =============================================================================
+
 class RandomFilter extends CustomFilter {
 
   long resultRows;
@@ -86,6 +92,10 @@ class RandomFilter extends CustomFilter {
   }
   
 }
+
+// =============================================================================
+// BooleanVectorFilter
+// =============================================================================
 
 class BooleanVectorFilter extends CustomFilter {
   
@@ -136,7 +146,7 @@ class BooleanVectorFilter extends CustomFilter {
     _bVect.write(ds);
     ds.writeInt(_bCol);
   }
-  
-  
-  
 }
+
+
+

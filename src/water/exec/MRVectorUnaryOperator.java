@@ -175,20 +175,157 @@ class LeftDiv extends ParametrizedMRVectorUnaryOperator {
 }
 
 // =============================================================================
-// RightAdd
+// LeftMod
 // =============================================================================
 /**
- * Where the arraylet operand is on the RHS of the operator with parameter.
+ * Where the arraylet operand is on the LHS of the operator with parameter.
  *
  * @author peta
  */
-class RightAdd extends ParametrizedMRVectorUnaryOperator {
+class LeftMod extends ParametrizedMRVectorUnaryOperator {
 
-  public RightAdd(Key key, Key result, int col, double param) { super(key, result, col, param); }
+  public LeftMod(Key key, Key result, int col, double param) { super(key, result, col, param); }
 
   @Override
-  public double operator(double opnd) { return _param + opnd; }
+  public double operator(double opnd) { return opnd % _param; }
 }
+
+// =============================================================================
+// LeftLess
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftLess extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftLess(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd < _param ? 1 : 0; }
+}
+
+// =============================================================================
+// LeftLessOrEq
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftLessOrEq extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftLessOrEq(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd <= _param ? 1 : 0; }
+}
+
+// =============================================================================
+// LeftGreater
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftGreater extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftGreater(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd > _param ? 1 : 0; }
+}
+
+// =============================================================================
+// LeftGreaterOrEq
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftGreaterOrEq extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftGreaterOrEq(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd >= _param ? 1 : 0; }
+}
+
+// =============================================================================
+// LeftEq
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftEq extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftEq(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd == _param ? 1 : 0; }
+}
+
+// =============================================================================
+// LeftNeq
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftNeq extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftNeq(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return opnd != _param ? 1 : 0; }
+}
+
+// =============================================================================
+// LeftAnd
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftAnd extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftAnd(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) {
+    if (opnd==0)
+      return 0;
+    return _param != 0 ? 1 : 0;
+  }
+}
+
+// =============================================================================
+// LeftOr
+// =============================================================================
+/**
+ * Where the arraylet operand is on the LHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class LeftOr extends ParametrizedMRVectorUnaryOperator {
+
+  public LeftOr(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) {
+    if (opnd!=0)
+      return 1;
+    return _param != 0 ? 1 : 0;
+  }
+}
+
 
 // =============================================================================
 // RightSub
@@ -207,22 +344,6 @@ class RightSub extends ParametrizedMRVectorUnaryOperator {
 }
 
 // =============================================================================
-// RightMul
-// =============================================================================
-/**
- * Where the arraylet operand is on the RHS of the operator with parameter.
- *
- * @author peta
- */
-class RightMul extends ParametrizedMRVectorUnaryOperator {
-  
-  public RightMul(Key key, Key result, int col, double param) { super(key, result, col, param); }
-
-  @Override
-  public double operator(double opnd) { return _param * opnd; }
-}
-
-// =============================================================================
 // RightDiv
 // =============================================================================
 /**
@@ -236,4 +357,60 @@ class RightDiv extends ParametrizedMRVectorUnaryOperator {
 
   @Override
   public double operator(double opnd) { return _param / opnd; }
+}
+
+// =============================================================================
+// RightMod
+// =============================================================================
+/**
+ * Where the arraylet operand is on the RHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class RightMod extends ParametrizedMRVectorUnaryOperator {
+
+  public RightMod(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) { return _param % opnd; }
+}
+
+// =============================================================================
+// RightAnd
+// =============================================================================
+/**
+ * Where the arraylet operand is on the RHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class RightAnd extends ParametrizedMRVectorUnaryOperator {
+
+  public RightAnd(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) {
+    if (_param==0)
+      return 0;
+    return opnd != 0 ? 1 : 0;
+  }
+}
+
+// =============================================================================
+// RightOr
+// =============================================================================
+/**
+ * Where the arraylet operand is on the RHS of the operator with parameter.
+ *
+ * @author peta
+ */
+class RightOr extends ParametrizedMRVectorUnaryOperator {
+
+  public RightOr(Key key, Key result, int col, double param) { super(key, result, col, param); }
+
+  @Override
+  public double operator(double opnd) {
+    if (_param != 0)
+      return 1;
+    return opnd != 0 ? 1 : 0;
+  }
 }

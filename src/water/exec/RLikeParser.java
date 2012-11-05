@@ -31,12 +31,20 @@ public class RLikeParser {
       ttOpSub, // -
       ttOpMul, // *
       ttOpDiv, // /
+      ttOpMod, // %
       ttOpParOpen, // (
       ttOpParClose, // )
       ttOpBracketOpen, // [
       ttOpBracketClose, // ]
       ttOpLess, // <
       ttOpGreater, // >
+      ttOpEq, // ==
+      ttOpNeq, // !=
+      ttOpLessOrEq, // <=
+      ttOpGreaterOrEq, //>=
+      ttOpAnd, // &&
+      ttOpOr, // ||
+      ttOpNot, // !
       ttOpComma, // ,
       ttEOF,
       ttUnknown,;
@@ -65,10 +73,26 @@ public class RLikeParser {
             return "operator *";
           case ttOpDiv:
             return "operator /";
+          case ttOpMod:
+            return "operator %";
           case ttOpLess:
             return "operator <";
           case ttOpGreater:
             return "operator >";
+          case ttOpLessOrEq:
+            return "operator <=";
+          case ttOpGreaterOrEq:
+            return "operator >=";
+          case ttOpEq:
+            return "operator ==";
+          case ttOpNeq:
+            return "operator !=";
+          case ttOpAnd:
+            return "operator &&";
+          case ttOpOr:
+            return "operator ||";
+          case ttOpNot:
+            return "operator !";
           case ttOpParOpen:
             return "opening parenthesis";
           case ttOpParClose:
@@ -192,10 +216,26 @@ public class RLikeParser {
     switch( c ) {
       case '=':
         ++_s._off;
-        return new Token(pos, Token.Type.ttOpAssign);
+        if (_s.peek1() == '=') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpEq);
+        } else {
+          return new Token(pos, Token.Type.ttOpAssign);
+        }
+      case '&':
+        ++_s._off;
+        if (_s.peek1() == '&') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpAnd);
+        } else {
+          throw new ParserException(pos,"&& expected");
+        }
       case '$':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpDollar);
+      case '%':
+        ++_s._off;
+        return new Token(pos, Token.Type.ttOpMod);
       case '+':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpAdd);
@@ -230,19 +270,40 @@ public class RLikeParser {
         if( _s.peek1() == '-' ) {
           ++_s._off;
           return new Token(pos, Token.Type.ttOpAssign);
+        } else if (_s.peek1() == '=') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpLessOrEq);
         } else {
           return new Token(pos, Token.Type.ttOpLess);
         }
       case '>':
         ++_s._off;
-        return new Token(pos, Token.Type.ttOpGreater);
+        if (_s.peek1() == '=') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpGreaterOrEq);
+        } else {
+          return new Token(pos, Token.Type.ttOpGreater);
+        }
       case ',':
         ++_s._off;
         return new Token(pos,Token.Type.ttOpComma);
+      case '!':
+        ++_s._off;
+        if (_s.peek1() != '=')
+          throw new ParserException(pos," != operator expected");
+        ++_s._off;
+        return new Token(pos,Token.Type.ttOpNeq);
       case '"':
       case '\'':
         return parseString();
       case '|':
+        ++_s._off;
+        if (_s.peek1() =='|') {
+          ++_s._off;
+          return new Token(pos, Token.Type.ttOpOr);
+        } else {
+          --_s._off;
+        }
         return parseIdent();
       default:
         if( isCharacter(c) )
@@ -399,15 +460,66 @@ public class RLikeParser {
     }
     return result;
   }
-
+  
   /*
    *
    *
-   * E -> T { + T | - T }
+   * E -> E1 ( && | '||' ) E1 }
    *
    * @return
    */
   private Expr parse_E() throws ParserException {
+    Expr result = parse_E1();
+    while( (top()._type == Token.Type.ttOpAnd) || (top()._type == Token.Type.ttOpOr) ) {
+      Token t = pop();
+      result = new BinaryOperator(t._pos, t._type, result, parse_E1());
+    }
+    return result;
+  }
+  /*
+   *
+   *
+   * E1 -> E2 ( == | != ) E2 }
+   *
+   * @return
+   */
+  private Expr parse_E1() throws ParserException {
+    Expr result = parse_E2();
+    while( (top()._type == Token.Type.ttOpEq) || (top()._type == Token.Type.ttOpNeq) ) {
+      Token t = pop();
+      result = new BinaryOperator(t._pos, t._type, result, parse_E2());
+    }
+    return result;
+  }
+  
+  
+  /*
+   *
+   *
+   * E2 -> E3 { ( < | > | <= | >= ) E3 }
+   *
+   * @return
+   */
+  private Expr parse_E2() throws ParserException {
+    Expr result = parse_E3();
+    while( (top()._type == Token.Type.ttOpLess) 
+            || (top()._type == Token.Type.ttOpLessOrEq)
+            || (top()._type == Token.Type.ttOpGreater)
+            || (top()._type == Token.Type.ttOpGreaterOrEq) ) {
+      Token t = pop();
+      result = new BinaryOperator(t._pos, t._type, result, parse_E3());
+    }
+    return result;
+  }
+  
+  /*
+   *
+   *
+   * E3 -> T { + T | - T }
+   *
+   * @return
+   */
+  private Expr parse_E3() throws ParserException {
     Expr result = parse_T();
     while( (top()._type == Token.Type.ttOpAdd) || (top()._type == Token.Type.ttOpSub) ) {
       Token t = pop();
@@ -417,11 +529,11 @@ public class RLikeParser {
   }
 
   /*
-   * T -> F { * F | / F }
+   * T -> F { * F | / F | % F }
    */
   private Expr parse_T() throws ParserException {
     Expr result = parse_F();
-    while( (top()._type == Token.Type.ttOpMul) || (top()._type == Token.Type.ttOpDiv) ) {
+    while( (top()._type == Token.Type.ttOpMul) || (top()._type == Token.Type.ttOpDiv) || (top()._type == Token.Type.ttOpMod)) {
       Token t = pop();
       result = new BinaryOperator(t._pos, t._type, result, parse_T());
     }

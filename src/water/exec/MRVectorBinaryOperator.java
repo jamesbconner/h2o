@@ -131,3 +131,102 @@ class DivOperator extends water.exec.MRVectorBinaryOperator {
   @Override
   public double operator(double left, double right) { return left / right; }
 }
+
+// =============================================================================
+// ModOperator
+// =============================================================================
+class ModOperator extends water.exec.MRVectorBinaryOperator {
+
+  public ModOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left % right; }
+}
+
+// =============================================================================
+// LessOperator
+// =============================================================================
+class LessOperator extends water.exec.MRVectorBinaryOperator {
+
+  public LessOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left < right ? 1 : 0; }
+}
+
+// =============================================================================
+// LessOrEqOperator
+// =============================================================================
+class LessOrEqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public LessOrEqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left <= right ? 1 : 0; }
+}
+
+// =============================================================================
+// GreaterOperator
+// =============================================================================
+class GreaterOperator extends water.exec.MRVectorBinaryOperator {
+
+  public GreaterOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left > right ? 1 : 0; }
+}
+
+// =============================================================================
+// GreaterOrEqOperator
+// =============================================================================
+class GreaterOrEqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public GreaterOrEqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left >= right ? 1 : 0; }
+}
+
+// =============================================================================
+// EqOperator
+// =============================================================================
+class EqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public EqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left == right ? 1 : 0; }
+}
+
+// =============================================================================
+// NeqOperator
+// =============================================================================
+class NeqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public NeqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left != right ? 1 : 0; }
+}
+
+// =============================================================================
+// AndOperator
+// =============================================================================
+class AndOperator extends water.exec.MRVectorBinaryOperator {
+
+  public AndOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return ((left != 0) &&  (right != 0)) ? 1 : 0; }
+}
+
+// =============================================================================
+// OrOperator
+// =============================================================================
+class OrOperator extends water.exec.MRVectorBinaryOperator {
+
+  public OrOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return ((left != 0) || (right != 0)) ? 1 : 0; }
+}
