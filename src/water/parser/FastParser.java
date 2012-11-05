@@ -106,6 +106,7 @@ public class FastParser {
     int exp = 0;
     int fractionDigits = 0;
     int numStart = 0;
+    int tokenStart = 0; // used for numeric token to backtrace if not successful
     boolean secondChunk = false;
     Row row = new Row(_numColumns);
     byte c = bits[offset];
@@ -201,6 +202,7 @@ NEXT_CHAR:
           number = 0;
           fractionDigits = 0;
           numStart = offset;
+          tokenStart = offset;
           if (c == '-') {
             exp = -1;
             ++numStart;
@@ -241,13 +243,15 @@ NEXT_CHAR:
           }
           // fallthrough NUMBER_END
         case NUMBER_END:
-          if (isEOL(c) || isWhitespace(c) || (c ==  CHAR_SEPARATOR)) {
+          if (isEOL(c) /* || isWhitespace(c) */ || (c ==  CHAR_SEPARATOR)) {
             exp = exp - fractionDigits;
             row.setCol(colIdx,number, (short) exp, (byte) numStart);
             state = SEPARATOR_OR_EOL;
             continue MAIN_LOOP;
           } else {
-            throw new Exception("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
+            offset = tokenStart-1;
+            break NEXT_CHAR; // parse as String token now 
+            //throw new Exception("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
           }
         // ---------------------------------------------------------------------
         case NUMBER_SKIP:
@@ -352,12 +356,21 @@ NEXT_CHAR:
           assert (false) : " We have wrong state "+state;
       } // end NEXT_CHAR
       ++offset;
-      if (offset >= bits.length) {
+      if (offset < 0) {
+        assert secondChunk : "This can only happen when we are in second chunk and are reverting to first one.";
+        secondChunk = false;
+        key = _ary.make_chunkkey(ValueArray.getOffset(key));
+        Value v = DKV.get(key); // we had the last key
+        assert (v != null) : "The value used to be there!";
+        bits = v.get();
+        offset += bits.length;
+      } else if (offset >= bits.length) {
         if (_ary == null)
           break;
         numStart -= bits.length;
         fractionDigits -= bits.length;
         offset -= bits.length;
+        tokenStart -= bits.length;
         key = _ary.make_chunkkey(ValueArray.getOffset(key)+offset);
         Value v = DKV.get(key); // we had the last key
         if (v == null)
