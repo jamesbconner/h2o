@@ -209,6 +209,7 @@ public abstract class Function {
     new Filter("filter");
     new Slice("slice");
     new RandBitVect("randomBitVector");
+    new RandomFilter("randomFilter");
   }
 }
 
@@ -446,6 +447,30 @@ class RandBitVect extends Function {
     return r;
   }
   
+}
+
+
+
+// GLM -------------------------------------------------------------------------
+
+class RandomFilter extends Function {
+
+  public RandomFilter(String name) {
+    super(name);
+    addChecker(new ArgValue("src"));
+    addChecker(new ArgIntPositive("rows"));
+  }
+  
+  @Override public Result eval(Result... args) throws Exception {
+    ValueArray ary = (ValueArray) DKV.get(args[0]._key);
+    long rows = (long) args[1]._const;
+    if (rows > ary.num_rows())
+      throw new Exception("Unable to sample more rows that are already present in the data frame");
+    Result bVect = Function.FUNCTIONS.get("randomBitVector").eval(Result.scalar(ary.num_rows()), args[1]);
+    Result result = Function.FUNCTIONS.get("filter").eval(args[0],bVect);
+    bVect.dispose();
+    return result;
+  }
 }
 
 // GLM -------------------------------------------------------------------------

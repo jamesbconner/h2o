@@ -299,7 +299,7 @@ public class ValueArray extends Value {
   // an optional offset & scale factor.  These are described in the meta-data.
 
   // Layout of structured ValueArrays
-  static private final int LENGTH_OFF  =0;              // Total byte length
+  static public  final int LENGTH_OFF  =0;              // Total byte length
   static public  final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
   static private final int PRIORKEY_OFF=NUM_ROWS_OFF+8; // prior key string offset
   static private final int XFORM_OFF   =PRIORKEY_OFF+4; // prior xforms string offset
