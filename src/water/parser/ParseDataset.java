@@ -145,7 +145,12 @@ public final class ParseDataset {
     tsk.invoke(dataset._key);
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
     int row_size = 0;
-    for(Column c:cols)row_size += c._size;
+    for (int i = 0; i < cols.length; ++i) {
+      row_size += cols[i]._size;
+      if (colNames != null)
+        cols[i]._name = colNames[i];
+    }
+    //for(Column c:cols)row_size += c._size;
     // finally make the value array header
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._outputRows[tsk._outputRows.length-1], row_size, cols);
     DKV.put(result, ary);
@@ -249,6 +254,7 @@ public final class ParseDataset {
         ValueArray ary = (ValueArray)dataset;
         _nrows = new int[(int)ary.chunks()];
       }
+      _skipFirstLine = skipFirstLine;
     }
     @Override public int wire_len() {
       switch(_phase){
