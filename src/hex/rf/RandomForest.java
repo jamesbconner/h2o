@@ -34,7 +34,7 @@ public class RandomForest {
 	String rawKey;
 	String parsdedKey;
 	String validationFile = null;
-	String h2oArgs = "";
+	String h2oArgs = " --name=Test"+ System.nanoTime()+ " ";
 	int ntrees = 10;
 	int depth = Integer.MAX_VALUE;
 	double cutRate = -1;
@@ -79,23 +79,19 @@ public class RandomForest {
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
     final int num_cols = va.num_cols();
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
-    Utils.startTimer("main");
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  ((float)ARGS.sample/100), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true);
-    final int classes = (short)((va.col_max(classcol) - va.col_min(classcol))+1);
-    Key[] tkeys = null;
-    while(tkeys == null || tkeys.length!=ARGS.ntrees) tkeys = drf._treeskey.flatten();
-    Key modelKey = Key.make("model");
-    Model model = new Model(modelKey,drf._treeskey,num_cols,classes);
-    UKV.put(modelKey,model);
+    drf.get(); // block
 
-    String t2 =Utils.printTimer("main");
+    Model model = UKV.get(drf._modelKey, new Model());
+
+    String t2 =Utils.printTimer("maintimer");
     Utils.pln("[RF] trees done in "+ t2);
     Utils.startTimer("validation");
 
-    assert tkeys.length == ARGS.ntrees;
+
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
       Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
       ValueArray valAry = KeyUtil.parse_test_key(valKey);
