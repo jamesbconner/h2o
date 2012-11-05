@@ -5,7 +5,6 @@ import h2o_browse as h2b
 def runGLM(node=None,csvPathname=None,X="0",Y="1",
     timeoutSecs=30,retryDelaySecs=0.5,
     family="binomial",xval=10,bool="true",**kwargs):
-    print "Hello1:", xval
     if not csvPathname: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname)
@@ -18,7 +17,6 @@ def runGLM(node=None,csvPathname=None,X="0",Y="1",
 def runGLMOnly(node=None,parseKey=None,X="0",Y="1",
     timeoutSecs=30,retryDelaySecs=0.5,
     family="binomial",xval=10,bool="true",**kwargs):
-    print "Hello2:", xval
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout

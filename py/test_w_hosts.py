@@ -36,9 +36,6 @@ class Basic(unittest.TestCase):
         # h2o.touch_cloud()
 
         # Create a directory for the created dataset files. ok if already exists
-        global SYNDATASETS_DIR
-        global SYNSCRIPTS_DIR
-
         SYNDATASETS_DIR = './syn_datasets'
         if os.path.exists(SYNDATASETS_DIR):
             shutil.rmtree(SYNDATASETS_DIR)
@@ -79,7 +76,7 @@ class Basic(unittest.TestCase):
                 csvPathname = SYNDATASETS_DIR + '/' + csvFilename
                 # FIX! TBD do we always have to kick off the run from node 0?
                 # random guess about length of time, varying with more hosts/nodes?
-                timeoutSecs = 20 + 5*(len(h2o.nodes))
+                timeoutSecs = 30 + trees*(len(h2o.nodes))
                 # for debug (browser)
                 ###timeoutSecs = 3600
                 # RFview consumes cycles. Only retry once a second, to avoid slowing things down
@@ -93,7 +90,7 @@ class Basic(unittest.TestCase):
                 sys.stdout.flush()
 
                 # partial clean, so we can look at tree builds from this run if hang
-                h2o.clean_sandbox_stdout_stderr()
+                # h2o.clean_sandbox_stdout_stderr()
                 
                 # UPDATE: check if not incrementing the tree count changes things
                 # trees += 10

@@ -12,14 +12,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     # NOTE: unittest will run tests in an arbitrary order..not constrained to order written here.
-
     # by using intermediate "_A_" etc. That should make unittest order match order here? 
 
     def test_A_Basic(self):
@@ -28,7 +21,6 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_RF_iris2(self):
-        # FIX! will check some results with RFview
         RFview = h2o_cmd.runRF(trees=6, timeoutSecs=10,
                 csvPathname = h2o.find_file('smalldata/iris/iris2.csv'))
 
@@ -45,7 +37,7 @@ class Basic(unittest.TestCase):
 
         SYNSCRIPTS_DIR = './syn_scripts'
 
-        # Trying a possible strategy for creating tests on the fly.
+        # create datasets with a perl 
         # Creates the filename from the args, in the right place
         #   i.e. ./syn_datasets/parity_128_4_1024_quad.data
         # The .pl assumes ./syn_datasets exists.
@@ -53,7 +45,6 @@ class Basic(unittest.TestCase):
 
         # always match the run below!
         for x in xrange (11,100,10):
-            # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
             # FIX! as long as we're doing a couple, you'd think we wouldn't have to 
             # wait for the last one to be gen'ed here before we start the first below.
@@ -72,7 +63,6 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            # FIX! TBD do we always have to kick off the run from node 0? what if we do another node?
             # Only pop the browsers down in RF if verbose!
             h2o_cmd.runRF(trees=trees, timeoutSecs=timeoutSecs, csvPathname=csvPathname, browseAlso=h2o.browse_json)
             trees += 10

@@ -26,9 +26,9 @@ class Basic(unittest.TestCase):
 
         h2b.browseTheCloud()
         csvPathname = '../smalldata/poker/poker1000'
-        # h2o_cmd.runRF(trees=10000, timeoutSecs=300, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=10000, timeoutSecs=300, csvPathname=csvPathname)
 
-        # h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+        h2b.browseJsonHistoryAsUrlLastMatch("RFView")
 
         # browseJsonHistoryAsUrl()
 
