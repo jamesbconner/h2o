@@ -360,6 +360,10 @@ class BinaryOperator extends Expr {
         return Result.scalar(l._const == r._const ? 1 : 0);
       case ttOpNeq:
         return Result.scalar(l._const != r._const ? 1 : 0);
+      case ttOpAnd:
+        return Result.scalar(((l._const != 0) && (r._const !=0)) ? 1 : 0);
+      case ttOpOr:
+        return Result.scalar(((l._const != 0) && (r._const !=0)) ? 1 : 0);
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
@@ -415,6 +419,12 @@ class BinaryOperator extends Expr {
       case ttOpNeq:
         op = new NeqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
+      case ttOpAnd:
+        op = new AndOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpOr:
+        op = new OrOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
@@ -462,6 +472,12 @@ class BinaryOperator extends Expr {
         break;
       case ttOpNeq:
         op = new LeftNeq(l._key, res._key, l.rawColIndex(), r._const); // commutative
+        break;
+      case ttOpAnd:
+        op = new RightAnd(r._key, res._key, r.rawColIndex(), l._const);
+        break;
+      case ttOpOr:
+        op = new RightOr(r._key, res._key, r.rawColIndex(), l._const);
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
@@ -511,6 +527,12 @@ class BinaryOperator extends Expr {
         break;
       case ttOpNeq:
         op = new LeftNeq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpAnd:
+        op = new LeftAnd(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpOr:
+        op = new LeftOr(l._key, res._key, l.rawColIndex(), r._const);
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
