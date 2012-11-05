@@ -247,6 +247,19 @@ public abstract class MemoryManager {
     }
   }
 
+  public static boolean[] allocateMemoryBoolean(int size) {
+    while( true ) {
+      if( !CAN_ALLOC && size > 256 ) {
+        synchronized(_lock) {
+          try { _lock.wait(1000); } catch (InterruptedException ex) { }
+        }
+      }
+      try { return new boolean[size]; }
+      catch( OutOfMemoryError e ) { }
+      set_goals("OOM",true);    // Low memory; block for swapping
+    }
+  }
+
   //allocates memory, will block until there is enough available memory
   public static byte[] arrayCopyOfRange(byte [] original, int from, int to ) {
     while( true ) {

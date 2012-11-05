@@ -400,7 +400,7 @@ class RandBitVect extends Function {
       int create = (int) (Math.round(expectedAfter) - Math.round(expectedBefore));
       //System.out.println("RVB: before "+ expectedBefore+" after "+expectedAfter+" to be created "+create+" on rows "+rows);
       _createdSelected += create;
-      boolean[] t = new boolean[rows];
+      boolean[] t = MemoryManager.allocateMemoryBoolean(rows);
       for (int i = 0; i < create; ++i)
         t[i] = true;
       Random r = new Random();
