@@ -218,6 +218,8 @@ public final class ParseDataset {
 
     static final int [] colSizes = new int[]{0,1,2,4,8,2,4,8};
 
+    int     _chunkId = -1;
+
     int     _phase;
     boolean _skipFirstLine;
     int     _myrows;
@@ -250,10 +252,7 @@ public final class ParseDataset {
       _resultKey = resultKey;
       _ncolumns = ncolumns;
       _sep = sep;
-      if(dataset instanceof ValueArray){
-        ValueArray ary = (ValueArray)dataset;
-        _nrows = new int[(int)ary.chunks()];
-      }
+
       _skipFirstLine = skipFirstLine;
     }
     @Override public int wire_len() {
@@ -383,7 +382,12 @@ public final class ParseDataset {
         boolean skipFirstLine = _skipFirstLine;
         if(arraylet) {
           aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
+          _chunkId = ValueArray.getChunkIndex(key);
           skipFirstLine = skipFirstLine && (ValueArray.getChunkIndex(key) == 0);
+          if(_phase == 0){
+            ValueArray ary = (ValueArray)DKV.get(aryKey);
+            _nrows = new int[(int)ary.chunks()];
+          }
         }
         switch(_phase){
         case 0:
@@ -401,7 +405,7 @@ public final class ParseDataset {
           p.parse(key,skipFirstLine);
           if(arraylet){
             int indexFrom = ValueArray.getChunkIndex(key)+1;
-            if(indexFrom < _nrows.length)Arrays.fill(_nrows, ValueArray.getChunkIndex(key)+1, _nrows.length, _myrows);
+            if(indexFrom < _nrows.length)Arrays.fill(_nrows, indexFrom, _nrows.length, _myrows);
           }
           break;
         case 1:
@@ -423,6 +427,9 @@ public final class ParseDataset {
           int n = 0;
           while((firstRow - off + (n+1)*rpc) < lastRow)++n;
           int diff = Math.min(lastRow,rpc - off); // for single value, diff is simply the idx of the last row
+          if(diff < 0){
+            System.err.println("negative diff");
+          }
           _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
           _outputRows = new int[n+1];
           _outputRows[0] = firstRow + diff;
@@ -459,8 +466,7 @@ public final class ParseDataset {
     @Override
     public void reduce(DRemoteTask drt) {
       DParseTask other = (DParseTask)drt;
-      for(int i = 0; i < _nrows.length; ++i)
-        _nrows[i] += other._nrows[i];
+
       if(_sigma == null)_sigma = other._sigma;
       if(_enums == null){
         assert _min == null;
@@ -472,6 +478,7 @@ public final class ParseDataset {
         _max = other._max;
         _scale = other._scale;
         _colTypes = other._colTypes;
+        _nrows = other._nrows;
       } else {
         if (_phase == 0) {
           for(int i = 0; i < _ncolumns; ++i) {
@@ -480,6 +487,10 @@ public final class ParseDataset {
             if(other._max[i] > _max[i])_max[i] = other._max[i];
             if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
             if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
+            if(_nrows[i] + other._nrows[i] < 0){
+              System.out.println("negative number of rows");
+            }
+            _nrows[i] += other._nrows[i];
           }
         } else {
           // pass -- phase 1 does not require any reduction of these
