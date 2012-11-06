@@ -240,8 +240,8 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case COND_QUOTED_NUMBER_END:
           numStart = offset - numStart;
-          state = NUMBER_END;
           if ( c == quotes) {
+            state = NUMBER_END;
             quotes = 0;
             break NEXT_CHAR;
           } 
