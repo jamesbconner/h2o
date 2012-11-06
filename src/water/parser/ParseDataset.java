@@ -1,16 +1,14 @@
 package water.parser;
 import java.io.*;
-import java.util.*;
+import java.util.Arrays;
 import java.util.zip.*;
 
 import water.*;
 import water.ValueArray.Column;
-import water.parser.SeparatedValueParser.Row;
 
 import com.google.common.io.Closeables;
-import java.util.concurrent.atomic.AtomicInteger;
 
-/**
+/**¯
  * Helper class to parse an entire ValueArray data, and produce a structured
  * ValueArray result.
  *
@@ -150,10 +148,10 @@ public final class ParseDataset {
     tsk.invoke(dataset._key);
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
+    //tsk.check(result);
     start = System.currentTimeMillis() - start;
     System.out.println("Phase 1 took "+p1end);
     System.out.println("Parser took "+start);
-//    tsk.check(result);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -219,23 +217,23 @@ public final class ParseDataset {
 
     static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8,0};
 
-    int     _chunkId = -1;
-
-    int     _phase;
+    // scalar variables
     boolean _skipFirstLine;
+    int     _chunkId = -1;
+    int     _phase;
     int     _myrows;
     int     _ncolumns;
     byte    _sep = (byte)',';
     byte    _decSep = (byte)'.';
-    String  _error;
     int     _rpc;
     int     _rowsize;
+    int     _numRows; // number of rows -- works only in second pass FIXME in first pass object
+    // 31 bytes
 
-    transient int [] _outputRows;
-    transient int    _outputIdx;
-    transient Stream [] _outputStreams;
     Key _resultKey;
+    String  _error;
 
+    // arrays
     byte     [] _colTypes;
     int      [] _scale;
     long     [] _invalidValues;
@@ -243,13 +241,16 @@ public final class ParseDataset {
     double   [] _max;
     double   [] _mean;
     double   [] _sigma;
-    FastTrie [] _enums;
     int      [] _nrows;
+    FastTrie [] _enums;
 
 
-    int _numRows; // number of rows -- works only in second pass FIXME in first pass object
-
-    String[][] _colDomains;
+    // transients - each map creates and uses it's own, no need to get these back
+    transient int [] _outputRows;
+    transient int    _outputIdx;
+    transient Stream [] _outputStreams;
+    // create and used only on the task caller's side
+    transient String[][] _colDomains;
 
     public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
@@ -264,45 +265,106 @@ public final class ParseDataset {
       _skipFirstLine = skipFirstLine;
     }
     @Override public int wire_len() {
-      switch(_phase){
-      case 0:
-        return 4 + 4 + 1 + 1;
-      }
-      return 0;
-      }
+      int res = 31 + _resultKey.wire_len();
+      res += 2 + ((_error != null)?_error.length():0);
+      res += 4 + ((_colTypes != null)?_colTypes.length:0);
+      res += 4 + ((_scale != null)?_scale.length:0);
+      res += 4 + ((_invalidValues != null)?_invalidValues.length:0);
+      res += 4 + ((_min != null)?_min.length:0);
+      res += 4 + ((_max != null)?_max.length:0);
+      res += 4 + ((_mean != null)?_mean.length:0);
+      res += 4 + ((_sigma != null)?_sigma.length:0);
+      res += 4 + ((_nrows != null)?_nrows.length:0);
+      res += 4;
+      if(_enums != null)for(FastTrie t:_enums) res += t.wire_len();
+      return res;
+    }
 
-    @Override public void write( Stream s ) {
-      s.set4(_phase);
-      s.set4(_ncolumns);
-      s.set1(_sep);
-      s.set1(_decSep);
-      s.setAry4(_nrows);
+    @Override public void write( DataOutputStream os) {
+      os.writeBoolean(_skipFirstLine);
+      os.writeInt(_chunkId);
+      os.writeInt(_phase);
+      os.writeInt(_myrows);
+      os.writeInt(_ncolumns);
+      os.writeByte(_sep);
+      os.writeByte(_decSep);
+      os.writeInt(_rpc);
+      os.writeInt(_rowsize);
+      os.writeInt(_numRows);
+      // 31 bytes
+      _resultKey.write(os);
+      if(_error == null)
+        os.writeInt(-1);
+      else {
+        byte [] bs = _error.getBytes();
+        os.write(bs.length);
+        os.write();
+      }
       s.setAry1(_colTypes);
       s.setAry4(_scale);
       s.setAry8(_invalidValues);
       s.setAry8d(_min);
       s.setAry8d(_max);
-      if(_enums != null){
-        s.set4(_enums.length);
-        for(FastTrie t:_enums) t.write(s);
-      } else
-        s.set4(-1);
+      s.setAry8d(_mean);
+      s.setAry8d(_sigma);
+      s.setAry4(_nrows);
+      s.set4((_enums == null?-1:_enums.length));
+
     }
+
+    @Override public void write( Stream s ) {
+      s.setz(_skipFirstLine);
+      s.set4(_chunkId);
+      s.set4(_phase);
+      s.set4(_myrows);
+      s.set4(_ncolumns);
+      s.set1(_sep);
+      s.set1(_decSep);
+      s.set4(_rpc);
+      s.set4(_rowsize);
+      s.set4(_numRows);
+      // 31 bytes
+      _resultKey.write(s);
+      s.setLen2Str(_error);
+      s.setAry1(_colTypes);
+      s.setAry4(_scale);
+      s.setAry8(_invalidValues);
+      s.setAry8d(_min);
+      s.setAry8d(_max);
+      s.setAry8d(_mean);
+      s.setAry8d(_sigma);
+      s.setAry4(_nrows);
+      s.set4((_enums == null?-1:_enums.length));
+      if(_enums != null) for(FastTrie t:_enums)
+        t.write(s);
+    }
+
     @Override public void read ( Stream s ) {
-      _phase = s.get4();
-      _ncolumns = s.get4();
-      _sep = s.get1();
-      _decSep = s.get1();
-      _nrows = s.getAry4();
-      _colTypes = s.getAry1();
-      _scale = s.getAry4();
+      _skipFirstLine = s.getz();
+      _chunkId       = s.get4();
+      _phase         = s.get4();
+      _myrows        = s.get4();
+      _ncolumns      = s.get4();
+      _sep           = s.get1();
+      _decSep        = s.get1();
+      _rpc           = s.get4();
+      _rowsize       = s.get4();
+      _numRows       = s.get4();
+      // 31 bytes
+      _resultKey     = Key.read(s);
+      _error         = s.getLen2Str();
+      _colTypes      = s.getAry1();
+      _scale         = s.getAry4();
       _invalidValues = s.getAry8();
-      _min = s.getAry8d();
-      _max = s.getAry8d();
+      _min           = s.getAry8d();
+      _max           = s.getAry8d();
+      _mean          = s.getAry8d();
+      _sigma         = s.getAry8d();
+      _nrows         = s.getAry4();
       int n = s.get4();
       if(n != -1){
         _enums = new FastTrie[n];
-        for(int i = 0; i < n; ++i){
+        for(int i = 0; i < n; ++i) {
           _enums[i] = new FastTrie();
           _enums[i].read(s);
         }
@@ -315,8 +377,6 @@ public final class ParseDataset {
       for(int i = 0; i < _colTypes.length; ++i){
         if(_colTypes[i] == ECOL){
           _colDomains[i] = _enums[i].compress();
-          System.out.println(Arrays.toString(_colDomains[i]));
-          System.out.println(_enums[i].toString());
         }
         else _enums[i].kill();
       }
