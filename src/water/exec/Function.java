@@ -210,6 +210,7 @@ public abstract class Function {
     new Slice("slice");
     new RandBitVect("randomBitVector");
     new RandomFilter("randomFilter");
+    new Log("log");
   }
 }
 
@@ -449,9 +450,7 @@ class RandBitVect extends Function {
   
 }
 
-
-
-// GLM -------------------------------------------------------------------------
+// RandomFilter ----------------------------------------------------------------
 
 class RandomFilter extends Function {
 
@@ -471,6 +470,37 @@ class RandomFilter extends Function {
     bVect.dispose();
     return result;
   }
+}
+
+// Log ------------------------------------------------------------------------
+
+class Log extends Function {
+
+  static class MRLog extends MRVectorUnaryOperator {
+
+    public MRLog(Key key, Key result, int col) { super(key, result, col); }
+    
+    
+    @Override public double operator(double opnd) {
+      return Math.log(opnd);
+    }
+  }
+  
+  public Log(String name) {
+    super(name);
+    addChecker(new Function.ArgVector("src"));
+  }
+
+  @Override public Result eval(Result... args) throws Exception {
+    Result r = Result.temporary();
+    ValueArray va = (ValueArray) DKV.get(args[0]._key);
+    VABuilder b = new VABuilder("temp",va.num_rows()).addDoubleColumn("0").createAndStore(r._key);
+    MRLog task = new Log.MRLog(args[0]._key, r._key, args[0].colIndex());
+    task.invoke(r._key);
+    b.setColumnStats(0,task._min, task._max, task._tot / va.num_rows()).createAndStore(r._key);
+    return r;
+  }
+  
 }
 
 // GLM -------------------------------------------------------------------------
