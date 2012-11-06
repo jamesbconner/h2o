@@ -681,18 +681,9 @@ public final class ParseDataset {
         for(int i = 0; i < _ncolumns; ++i){
           switch(row._numLength[i]) {
           case -1:
-            ++_invalidValues[i];
             continue; //NaN
           case -2:
-            if(_colTypes[i] > ECOL)++_invalidValues[i];
-            // enum
-            switch(_colTypes[i]){
-            case UCOL:
-              _colTypes[i] = ECOL;
-              break;
-            default:
-              break;
-            }
+            if(_colTypes[i] ==UCOL)_colTypes[i] = ECOL;
             break;
            default:
              assert row._numLength[i] >= 0:"unexpected num length " + row._numLength[i];
@@ -705,7 +696,7 @@ public final class ParseDataset {
                  if((float)d != d)_colTypes[i] = DCOL;
                  else _colTypes[i] = FCOL;
                }
-            } else if(_colTypes[i] < ICOL)
+             } else if(_colTypes[i] < ICOL)
               _colTypes[i] = ICOL;
           }
         }
