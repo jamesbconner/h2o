@@ -298,7 +298,7 @@ class UnaryOperator extends Expr {
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
     op.invoke(res._key);
-    b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key).createAndStore(res._key);
+    b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key);
     return res;
   }
 
