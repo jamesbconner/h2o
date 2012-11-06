@@ -98,10 +98,10 @@ public class RandomForest {
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Confusion c = Confusion.make( model, -1, valKey, classcol);
+      Confusion c = Confusion.make( model, valKey, classcol);
       c.report();
     } else {
-      Confusion c = Confusion.make( model, -1, drf._arykey, classcol);
+      Confusion c = Confusion.make( model, drf._arykey, classcol);
       c.setValidation(drf._validation.getPermutationArray());
       c.report();
     }

@@ -82,7 +82,7 @@ abstract class Statistic {
     // first create the column distributions
     _columnDists = new int[data.columns()][][];
     for (int i = 0; i < _columnDists.length; ++i)
-      _columnDists[i] = new int[data.columnArity(i)+1][data.classes()];
+      _columnDists[i] = data.ignore(i) ? null : new int[data.columnArity(i)+1][data.classes()];
     // create the columns themselves
     _features = new int[features];
   }
@@ -107,14 +107,21 @@ abstract class Statistic {
       int off = random.nextInt(i);
       if( off < _features.length ) _features[off] = i;
     }
-    // If we chose the class column, pick the last column instead (which
-    // otherwise did not get a chance to be picked).
+    // If we chose the class column, pick the last not-ignored column instead
+    // (which otherwise did not get a chance to be picked).
     int classIdx = data.classIdx();
     for( i=0; i<_features.length; i++ )
-      if( _features[i] == classIdx )  _features[i] = data.columns()-1;
+      if( _features[i] == classIdx ) break;
+    if( i < _features.length ) { // Class picked?
+      _features[i] = data.columns()-1;
+      while( data.ignore(_features[i]) ) _features[i]--;
+    }
+    for( int k : _features) assert !data.ignore(k);
+    for( int k : _features) assert k != classIdx;
+
     // reset the column distributions for those
-    for (int k : _features)
-      for (int[] d: _columnDists[k]) Arrays.fill(d,0);
+    for( int k : _features)
+      for( int[] d: _columnDists[k]) Arrays.fill(d,0);
   }
 
   /** Adds the given row to the statistic. Updates the column distributions for
@@ -122,7 +129,7 @@ abstract class Statistic {
    */
   void add(Row row) {
     for (int i : _features)
-      _columnDists[i][row.getEncodedColumnValue(i)][row.classOf()] += 1;
+      _columnDists[i][row.getEncodedColumnValue(i)][row.classOf()]++;
   }
 
 
@@ -143,10 +150,6 @@ abstract class Statistic {
     // try the splits
     Split bestSplit = Split.split(_features[0], 0, -Double.MAX_VALUE);
     for( int j = 0; j < _features.length; ++j ) {
-//      if (d.columnArity(_features[j]) < MIN_ARITY_FOR_NONEXCLUSION_SPLITS) {
-//        continue;
-
-//      }
       Split s = columnSplit(_features[j],d, dist, distWeight);
       if( s.betterThan(bestSplit) )
         bestSplit = s;

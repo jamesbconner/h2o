@@ -35,13 +35,14 @@ class DataAdapter  {
     _classIdx = classCol;
     assert ignores.length < _columnNames.length;
     for( int i = 0; i < _columnNames.length; i++ ) {
-      boolean ignore = Ints.indexOf(ignores, i) > 0;
+      boolean ignore = Ints.indexOf(ignores, i) >= 0;
       double range = _ary.col_max(i) - _ary.col_min(i);
       boolean raw = (_ary.col_size(i) > 0 && range < _bin_limit && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
-      if(raw && range == 1)t = C.ColType.BOOL;
-      else if(raw && range <= Byte.MAX_VALUE)t = C.ColType.BYTE;
-      _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, !raw, ignore,_bin_limit);
+      if( raw && range <= 1) t = C.ColType.BOOL;
+      else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
+      boolean do_bin = !raw && !ignore;
+      _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
       if(raw){
         _c[i]._smax = (short)range;
         _c[i]._min = (float)_ary.col_min(i);
@@ -76,7 +77,7 @@ class DataAdapter  {
   public ArrayList<RecursiveAction> shrinkWrap() {
     ArrayList<RecursiveAction> res = new ArrayList(_c.length);
     for( final C c : _c ) {
-      if( c.ignore() || !c._bin) continue;
+      if( c._ignore || !c._bin) continue;
       res.add(new RecursiveAction() {
         protected void compute() {
           c.shrink();
@@ -95,7 +96,7 @@ class DataAdapter  {
   /** The number of possible prediction classes. */
   public int classes()        { return _numClasses; }
   /** True if we should ignore column i. */
-  public boolean ignore(int i)     { return _c[i].ignore(); }
+  public boolean ignore(int i){ return _c[i]._ignore; }
 
   /** Returns the number of bins, i.e. the number of distinct values in the column.  Zero if we are ignoring the column. */
   public int columnArity(int col) { return ignore(col) ? 0 : _c[col]._smax; }
@@ -121,8 +122,9 @@ class DataAdapter  {
     int idx = Arrays.binarySearch(_c[col]._binned2raw,v);
     if(idx < 0)idx = -idx - 1;
     if(idx >= _c[col]._smax)System.err.println("unexpected sv = " + idx);
-    // the array lookup can return the lengthof the array in case the value would be > max,
-    // which should (does) not happen right now, but just in case for the future, cap it to the max bin value)
+    // The array lookup can return the length of the array in case the value
+    // would be > max, which should (does) not happen right now, but just in
+    // case for the future, cap it to the max bin value)
     _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
   }
 
@@ -149,7 +151,7 @@ class DataAdapter  {
     enum ColType {BOOL,BYTE,SHORT};
     ColType _ctype;
     String _name;
-    boolean _ignore, _isClass, _bin;
+    public final boolean _ignore, _isClass, _bin;
     float _min=Float.MAX_VALUE, _max=Float.MIN_VALUE, _tot;
     short[] _binned;
     byte [] _bvalues;
@@ -173,7 +175,7 @@ class DataAdapter  {
       if( bin ) {
         _raw = MemoryManager.allocateMemoryFloat(rows);
         return;
-      } 
+      }
       switch( _ctype ) {
       case BOOL:  _booleanValues = new BitSet(rows);  break;
       case BYTE:  _bvalues = MemoryManager.allocateMemory(rows);  break;
@@ -189,7 +191,7 @@ class DataAdapter  {
         if(s == 1)_booleanValues.set(row);
         break;
       case BYTE:
-        assert (byte)s == s;
+        assert (byte)s == s : "(byte)"+s+" name="+_name+" _min="+_min+" _max"+_max;
         if(_bvalues == null)_bvalues = MemoryManager.allocateMemory(_n);
         _bvalues[row] = (byte)s;
         break;
@@ -217,11 +219,9 @@ class DataAdapter  {
       _raw[row] = x;
     }
 
-    boolean ignore() { return _ignore; }
-
     public String toString() {
       String res = "Column("+_name+")";
-      if (ignore()) return res + " ignored!";
+      if( _ignore ) return res + " ignored!";
       res+= "  ["+DataAdapter.df.format(_min) +","+DataAdapter.df.format(_max)+"], avg=";
       res+= DataAdapter.df.format(_tot/_n) ;
       if (_isClass) res+= " CLASS ";
@@ -233,7 +233,7 @@ class DataAdapter  {
      *  Sometimes the class allows a zero class (e.g. iris, poker) and sometimes
      *  it's one-based (e.g. covtype) or -1/+1 (arcene).   */
     void shrink() {
-      if (ignore()) return;
+      if( _ignore ) return;
       assert !_isClass;
       Arrays.sort(_raw);
       int ndups = 0;

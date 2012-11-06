@@ -18,7 +18,7 @@ public class DRF extends water.DRemoteTask {
   int _stat;            // Use Gini(1) or Entropy(0) for splits
   int _classcol;        // Column being classified
   Key _arykey;          // The ValueArray being RF'd
-  Key _modelKey;        // Where to jam the final trees
+  public Key _modelKey; // Where to jam the final trees
   public Key _treeskey; // Key of Tree-Keys built so-far
   int[] _ignores;
   float _sample;
@@ -56,6 +56,7 @@ public class DRF extends water.DRemoteTask {
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
+    assert sample <= 1.0f;
     drf._sample = sample;
     drf._bin_limit = binLimit;
     drf.validateInputData(ary);
@@ -71,21 +72,24 @@ public class DRF extends water.DRemoteTask {
   private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
     final int rowsize= ary.row_size();
     ArrayList<RecursiveAction> jobs = new ArrayList<RecursiveAction>();
-    int S = 0;
+    int start_row = 0;
     for(final Key k:keys) {
-      if(!k.home())continue;
+      if( !k.home() ) continue;
       final int rows = DKV.get(k)._max/rowsize;
-      final int start_row = S;
+      final int S = start_row;
       jobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          for(int j = 0; j < rows; ++j)
+          ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncols; ++c)
-              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + start_row, colIds[c]);
+              if( !ary.valid(bits,j,rowsize,colIds[c])) continue ROWS;
+            for(int c = 0; c < ncols; ++c)
+              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + S, colIds[c]);
+          }
         }
       });
-      S += rows;
+      start_row += rows;
     }
     invokeAll(jobs);
     // now do the binning
@@ -105,10 +109,9 @@ public class DRF extends water.DRemoteTask {
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
+
     // One pass over all chunks to compute max rows
-
     Utils.startTimer("maxrows");
-
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
@@ -123,26 +126,32 @@ public class DRF extends water.DRemoteTask {
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _bin_limit);
     // Now load the DataAdapter with all the rows on this Node
-    int ncolumns = ary.num_cols();
+    final int ncolumns = ary.num_cols();
 
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
     final Key [] ks = keys;
+
     // bin the columns, do at most 1/2 of the columns at once
-    int colIds [] = new int[ncolumns>>1];
+    int colIds [] = new int[(ncolumns+1)>>1];
     int j = 0;
     int i = 0;
     for(; i < ncolumns && j < colIds.length; ++i)
-      if(dapt.binColumn(i))colIds[j++] = i;
+      if( dapt.binColumn(i) ) colIds[j++] = i;
     binData(dapt, keys, ary, colIds, j);
     j = 0;
     for(; i < ncolumns; ++i)
-      if(dapt.binColumn(i))colIds[j++] = i;
-    if(j != 0)binData(dapt, keys, ary, colIds, j);
+      if( dapt.binColumn(i) ) colIds[j++] = i;
+    if(j != 0) binData(dapt, keys, ary, colIds, j);
     Utils.pln("[RF] Binning done in " + Utils.printTimer("binning"));
     Utils.startTimer("inhale");
+
+    // Build fast cutout for ignored columns
+    final boolean icols[] = new boolean[ncolumns];
+    for( int k : _ignores ) icols[k]=true;
+
     // now read the values
     int start_row = 0;
-    for(final Key k:ks) {
+    for( final Key k : ks ) {
       final int S = start_row;
       if(!k.home())continue;
       final int rows = DKV.get(k)._max/rowsize;
@@ -150,12 +159,15 @@ public class DRF extends water.DRemoteTask {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          ROWS:for(int j = 0; j < rows; ++j){
-            for(int c = 0; c < ary.num_cols(); ++c){
-              if( !ary.valid(bits,j,rowsize,c)) continue ROWS;
-              if(dapt.binColumn(c))
+          ROWS: for(int j = 0; j < rows; ++j) {
+            // Bail out of broken rows in not-ignored columns
+            for(int c = 0; c < ncolumns; ++c)
+              if( !icols[c] && !ary.valid(bits,j,rowsize,c)) continue ROWS;
+            for( int c = 0; c < ncolumns; ++c) {
+              if( !ary.valid(bits,j,rowsize,c)) {
+              } else if( dapt.binColumn(c) ) {
                 dapt.addValue((float)ary.datad(bits,j,rowsize,c), j + S, c);
-              else{
+              } else {
                 long v = ary.data(bits,j,rowsize,c);
                 v -= ary.col_min(c);
                 dapt.addValue((short)v, S+j, c);
