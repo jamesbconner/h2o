@@ -404,7 +404,7 @@ NEXT_CHAR:
   }
 
   private static boolean isEOL(byte c) {
-    return (c == CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
+    return (c >= CHAR_LF) && ( c<= CHAR_CR); //== CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
   }
 
   private static final byte TOKEN_START = 19;
