@@ -236,6 +236,12 @@ public final class FastTrie {
    */
   public int getTokenId(){
     if(_nfinalStates >= max_tokens-1)return -1;
+    if(_compressed){
+      assert _state < _state0;
+      int res =  _state;
+      _state = _state0;
+      return res;
+    }
     int idx = Arrays.binarySearch(_finalStates, 0,_nfinalStates,_state);
     if(idx < 0) {
       if(_nfinalStates == _finalStates.length){
