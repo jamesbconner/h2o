@@ -1,16 +1,14 @@
 package water.parser;
 import java.io.*;
-import java.util.*;
+import java.util.Arrays;
 import java.util.zip.*;
 
 import water.*;
 import water.ValueArray.Column;
-import water.parser.SeparatedValueParser.Row;
 
 import com.google.common.io.Closeables;
-import java.util.concurrent.atomic.AtomicInteger;
 
-/**
+/**¯
  * Helper class to parse an entire ValueArray data, and produce a structured
  * ValueArray result.
  *
@@ -148,7 +146,7 @@ public final class ParseDataset {
     tsk.invoke(dataset._key);
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
-    tsk.check(result);
+    //tsk.check(result);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -310,8 +308,6 @@ public final class ParseDataset {
       for(int i = 0; i < _colTypes.length; ++i){
         if(_colTypes[i] == ECOL){
           _colDomains[i] = _enums[i].compress();
-          System.out.println(Arrays.toString(_colDomains[i]));
-          System.out.println(_enums[i].toString());
         }
         else _enums[i].kill();
       }

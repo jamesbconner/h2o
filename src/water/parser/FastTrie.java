@@ -24,7 +24,7 @@ public final class FastTrie {
 
 
   public FastTrie(){
-    _states[0] = new State(8);
+    _states[0] = new State();
   }
   final private short addState(State s){
     if(_nstates == _states.length) {
@@ -42,51 +42,44 @@ public final class FastTrie {
   }
 
   final class State {
-    byte [] _alpha;// = new byte[8];
-    short [] _succ;// = new short[8];
+//    byte [] _alpha;// = new byte[8];
+//    short [] _succ;// = new short[8];
     short _skip;
 
-    State(){}
-    State(int i){
-      _succ = new short[8];
-      _alpha = new byte[8];
-    }
+    short _transitions[][];
 
-    int n(){
-      if(_compressed)return (_alpha == null)?0:_alpha.length;
-      int n = _alpha.length;
-      for(int i = 0; i < _succ.length && _succ[i] == _state0; ++i)--n;
-      return n;
-    }
+    State(){}
+
+
 
     int wire_len(){
-      return 10 + ((_alpha != null)?3*_alpha.length:0);
+      return 10 ;//+ ((_alpha != null)?3*_alpha.length:0);
     }
 
 
     void write(Stream s){
       s.set2(_skip);
-      s.setAry1(_alpha);
-      s.setAry2(_succ);
+//      s.setAry1(_alpha);
+//      s.setAry2(_succ);
     }
 
     void read(Stream s){
       _skip = (short)s.get2();
-      _alpha = s.getAry1();
-      _succ = s.getAry2();
+//      _alpha = s.getAry1();
+//      _succ = s.getAry2();
     }
 
     public void write(DataOutputStream os) throws IOException {
       os.writeShort(_skip);
-      if(_alpha != null){
-        os.writeInt(_alpha.length);
-        os.write(_alpha);
-        os.writeInt(_succ.length);
-        for(short s:_succ)os.writeShort(s);
-      } else {
-        os.writeInt(-1);
-        os.writeInt(-1);
-      }
+//      if(_alpha != null){
+//        os.writeInt(_alpha.length);
+//        os.write(_alpha);
+//        os.writeInt(_succ.length);
+//        for(short s:_succ)os.writeShort(s);
+//      } else {
+//        os.writeInt(-1);
+//        os.writeInt(-1);
+//      }
     }
 
     public void read ( DataInputStream is) throws IOException {
@@ -95,28 +88,40 @@ public final class FastTrie {
       if(n == -1)
         is.readInt();
       else {
-        _alpha = new byte[n];
-        is.readFully(_alpha);
-        int m = is.readInt();
-        assert n == m;
-        _succ = new short[n];
-        for(int i = 0; i < n; ++i)_succ[i] = is.readShort();
+//        _alpha = new byte[n];
+//        is.readFully(_alpha);
+//        int m = is.readInt();
+//        assert n == m;
+//        _succ = new short[n];
+//        for(int i = 0; i < n; ++i)_succ[i] = is.readShort();
       }
     }
 
     void merge(FastTrie otherTrie, short sIdx){
       State other = otherTrie._states[sIdx];
-      for(int i = 0; i < other._alpha.length; ++i){
-        if(other._succ[i] == 0)continue;
-        _states[getTransition(other._alpha[i])].merge(otherTrie, other._succ[i]);
+      if(other._transitions == null)return;
+      for(int i = 0; i < 16; ++i){
+        if(other._transitions[i] == null)continue;
+        for(int j = 0; j < 16; ++j){
+          if(other._transitions[i][j] == 0)continue;
+          _states[getTransition((byte)((i << 4) + j))].merge(otherTrie, other._transitions[i][j]);
+        }
       }
     }
 
     short compress(ArrayList<State> states, String [] strings, StringBuilder currentString, short skip, boolean finalState){
-      int firstSucc = 0;
-      for(firstSucc = 0; firstSucc < _succ.length; ++firstSucc)if(_succ[firstSucc] != 0)break;
-      int nsucc = _succ.length-firstSucc;
-
+      int nsucc = 0;
+      int x = 0,y = 0;
+      if(_transitions != null){
+        for(int i = 0; i < 16; ++i){
+          if(_transitions[i] == null)continue;
+          for(int j = 0; j < 16; ++j)
+            if(_transitions[i][j] != 0){
+              ++nsucc;
+              x = i; y = j;
+            }
+        }
+      }
       if(nsucc != 1 || finalState || states.size() <= strings.length){
         State s = new State();
         short res = (short)states.size();
@@ -125,67 +130,45 @@ public final class FastTrie {
           states.set(res, s);
           strings[res] = currentString.toString();
         } else states.add(s);
-
         s._skip = skip;
-
         if(nsucc > 0){
-          s._succ = new short[nsucc];
-          s._alpha = Arrays.copyOfRange(_alpha,firstSucc,firstSucc+nsucc);
-          for(int i = 0; i < nsucc; ++i){
-            if(_succ[i+firstSucc] == 0)continue;
-            short nextS = _succ[i+firstSucc];
-            currentString.append((char)_alpha[i+firstSucc]);
-            s._succ[i] = _states[nextS].compress(states, strings, currentString, (short)0, _finaStates.get(nextS));
-            currentString.setLength(currentString.length()-1);
+          s._transitions = new short[16][];
+          for(int i = 0; i < 16; ++i) {
+            if(_transitions[i] != null){
+              s._transitions[i] = new short[16];
+              Arrays.fill(s._transitions[i],(short)strings.length); // fill with the new state 0
+              for(int j = 0; j < 16; ++j){
+                short nextS = _transitions[i][j];
+                if(nextS != 0){
+                  currentString.append((char)((i << 4) + j));
+                  s._transitions[i][j] = _states[nextS].compress(states, strings, currentString, (short)0, _finaStates.get(nextS));
+                  currentString.setLength(currentString.length()-1);
+                }
+              }
+            }
           }
         }
         return res;
+      } else {
+        short nextS = _transitions[x][y];
+        currentString.append((char)((x << 4) + y));
+        short res =  _states[nextS].compress(states, strings, currentString, ++skip, _finaStates.get(nextS));
+        currentString.setLength(currentString.length()-1);
+        return res;
       }
-      short nextS = _succ[firstSucc];
-      currentString.append((char)_alpha[firstSucc]);
-      short res =  _states[_succ[firstSucc]].compress(states, strings, currentString, ++skip, _finaStates.get(nextS));
-      currentString.setLength(currentString.length()-1);
-      return res;
     }
 
     final short getTransition(byte c){
-      int firstSucc = 0;
-      for(;firstSucc < _succ.length && _succ[firstSucc] == _state0; ++firstSucc);
-      int idx = Arrays.binarySearch(_alpha, firstSucc, _succ.length, c);
-      if(idx >= 0)return _succ[idx];
-      if(_compressed)
-        throw new Error("missing transition " + (char)c + " in compressed trie!");
-      // we need a new state
-      short s = addState(new State(8));
-      idx = -idx - 2;
-      if(_succ[0] == 0){ // array is not full
-
-        for(int i = firstSucc; i <= idx; ++i){
-          _alpha[i-1] = _alpha[i];
-          _succ[i-1] = _succ[i];
-        }
-        _alpha[idx] = c;
-        _succ[idx] = s;
-      } else {
-        int delta  = (_alpha.length >> 1);
-        int N = _alpha.length + delta;
-        byte [] newAlpha = new byte[N];
-        short [] newStates = new short[N];
-        if(idx >= 0){
-          System.arraycopy(_succ, 0, newStates, (_alpha.length >> 1)-1,idx+1);
-          System.arraycopy(_alpha, 0, newAlpha, (_alpha.length >> 1)-1,idx+1);
-        }
-        assert newStates[idx+delta] == 0;
-        newStates[idx+delta] = s;
-        assert newAlpha[idx+delta] == 0;
-        newAlpha[idx+delta] = c;
-        System.arraycopy(_succ, idx+1, newStates, idx+(_alpha.length >> 1)+1,_succ.length-idx-1);
-        System.arraycopy(_alpha, idx+1, newAlpha, idx+(_alpha.length >> 1)+1,_alpha.length-idx-1);
-        assert idx+(_alpha.length >> 1)+1 + _alpha.length-idx-1 == newAlpha.length;
-        _alpha = newAlpha;
-        _succ = newStates;
+      int idx = c >> 4;
+      c &= 0x0F;
+      // todo CAS everything so that it can be shared
+      if(_transitions == null)_transitions = new short[16][];
+      if(_transitions[idx] == null)_transitions[idx] = new short[16];
+      if(_transitions[idx][c] == _state0){
+        assert !_compressed:"missing transition";
+        _transitions[idx][c] = addState(new State());
       }
-      return s;
+      return _transitions[idx][c];
     }
   }
 
@@ -198,13 +181,17 @@ public final class FastTrie {
     while(!openedNodes.isEmpty()){
       short stidx = openedNodes.pollFirst();
       State st = _states[stidx];
-      sb.append("state: " + stidx + " skip:" + st._skip + " transitions: ");
-      if(st._succ != null){
-        for(int i = st._succ.length-1; i >= 0; --i) {
-          short s = st._succ[i];
-          if(s == _state0)break;
-          openedNodes.push(s);
-          sb.append((char)st._alpha[i] + ":" + s + " ");
+      boolean finalState = _compressed?(stidx < _state0):_finaStates.get(stidx);
+      sb.append("state: " + stidx + (finalState?"*":"") + " skip:" + st._skip + " transitions: ");
+      if(st._transitions != null){
+        for(int i = 0; i < 16; ++i) {
+          if(st._transitions[i] == null)continue;
+          for(int j = 0; j < 16; ++j){
+            short s = st._transitions[i][j];
+            if(s == _state0)continue;
+            openedNodes.push(s);
+            sb.append((char)((i << 4) + j) + ":" + s + " ");
+          }
         }
       }
       sb.append('\n');
@@ -324,6 +311,7 @@ public final class FastTrie {
       int j = 0;
       byte [] bs = w.getBytes();
       while(j < bs.length){
+        System.out.println((char)bs[j]);
         j += t.addByte(bs[j])+1;
       }
       res[i++] = t.getTokenId();
@@ -334,9 +322,18 @@ public final class FastTrie {
   static String [] data = new String[] {"J","G","B","B","D","D","I","I","F","F","I","I","I","I","I","H","I","I","I","I","C","A","A","J","J","I","I"};
   public static void main(String [] args){
     FastTrie t = new FastTrie();
-    addWords(data, t);
+    int [] res = addWords(data, t);
+    System.out.println(Arrays.toString(res));
+    int [] res2 = addWords(data, t);
+    System.out.println(t);
+    System.out.println(Arrays.toString(res2));
     String [] vals = t.compress();
     System.out.println(Arrays.toString(vals));
+    System.out.println(t);
+    int [] res3 = addWords(data, t);
+    System.out.println(Arrays.toString(res3));
+    System.out.println(t);
+
 //    FastTrie t = new FastTrie();
 //    String [] words = new String[]{"haha","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
 //    int [] res1 = addWords(words, t);
