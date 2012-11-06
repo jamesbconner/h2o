@@ -145,13 +145,15 @@ public final class ParseDataset {
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
+    long p1end = System.currentTimeMillis() - start;
+    System.out.println("Phase 1 took "+p1end);
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
     start = System.currentTimeMillis() - start;
     System.out.println("Parser took "+start);
-    tsk.check(result);
+//    tsk.check(result);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -525,7 +527,7 @@ public final class ParseDataset {
           }
           for (int i = 0; i < _outputStreams.length; ++i) {
             Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
-            assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
+            //assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
             AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
@@ -670,7 +672,8 @@ public final class ParseDataset {
       }
     }
 
-    public void addRow(FastParser.Row row){
+
+    public void addRow(FastParser.Row row) {
       switch (_phase) {
       case 0:
         ++_myrows;
