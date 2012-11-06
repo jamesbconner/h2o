@@ -47,7 +47,8 @@ public class RFRunner {
     String validationFile;      // validation data
     int ntrees = 10;            // number of trees
     int depth = Integer.MAX_VALUE; // max depth of trees
-    double cutRate = -1;         // min purity of a node
+    int sample = 67;  // sampling rate
+    int binLimit = 1024;
     String statType = "gini";// split type
     int seed = 42;              // seed
   }
@@ -307,14 +308,45 @@ public class RFRunner {
   }
 
 
+  public static void covTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
+    String[] files = new String[]{
+        "../datasets/UCI/UCI-large/covtype/covtype.data",
+      };
+
+    int[] szTrees = new int[]{1,10,20,50,100,200};
+    int[] binLimits = new int[]{1024,10000};
+    int[] samples = new int[]{10,20,50,80,100};
+    String[] stats  = new String[]{"gini","entropy"};
+    int[] seeds = new int[]{ 3, 4, 5, 6};
+
+    int experiments = files.length * szTrees.length*stats.length*samples.length*seeds.length *binLimits.length;
+    String[] commands = new String[experiments];
+    int i = 0;
+    for(String f : files)
+     for (int sz :szTrees)
+      for(String stat : stats)
+        for(int  smpl : samples)
+         for(int  bl : binLimits)
+            for(int seed : seeds) {
+              RFArgs rfa = new RFArgs();
+              rfa.seed = seed; rfa.statType = stat; rfa.file = f;
+              rfa.ntrees = sz; rfa.sample= smpl; rfa.binLimit = bl;
+              String add = special.get(f)==null? "" : (" "+special.get(f));
+              commands[i++] = javaCmd + " " + rfa + add;
+            }
+
+    for( String cmd : commands)
+       runTest(cmd, args.resultDB, out, true);
+
+  }
+
+
 
   public static void quickTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
     String[] files = new String[]{
     "smalldata//cars.csv",
     "smalldata//hhp_9_17_12.predict.100rows.data",
     "smalldata//iris/iris2.csv",
-    "smalldata//logreg/benign.csv",
-    "smalldata//logreg/prostate.csv",
       };
 
     int[] szTrees = new int[]{10};
@@ -343,6 +375,13 @@ public class RFRunner {
 
 
   public static void main(String[] args) throws Exception {
+    final OptArgs ARGS        = new OptArgs();
+    new Arguments(args).extract(ARGS);
+    PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
+    String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
+    try { covTests(javaCmd, out, ARGS); } finally { out.close(); }
+  }
+  public static void main3(String[] args) throws Exception {
     final OptArgs ARGS        = new OptArgs();
     new Arguments(args).extract(ARGS);
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));

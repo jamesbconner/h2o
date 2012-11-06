@@ -261,16 +261,9 @@ public class DGLM implements Models.ModelBuilder {
   FamilyArgs _fargs;
 
 /**
- * Solve glm problem by iterative reqeighted least squqre method.
- * Repeatedly solves LSM problem with weights given by previous iteration until fixpoint is reached.
- *
- * @param ary
- * @param colIds
- * @param s
- * @param glmParams
- * @param lsmParams
- * @param fargs
- * @return
+ * Solve glm problem by iterative reweighted least square method.
+ * Repeatedly solves LSM problem with weights given by previous iteration until
+ * a fixed point is reached.
  */
   public GLMModel trainOn(ValueArray ary, int[] colIds, Sampling s) {
     if(_lsmParams == null)_lsmParams = defaultLSMParams;
