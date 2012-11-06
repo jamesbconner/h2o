@@ -196,7 +196,7 @@ public final class ParseDataset {
   }
 
   public static final class DParseTask extends MRTask {
-    static final byte SCOL = -3;  // string column (too many enum values)
+    static final byte SCOL = 8;  // string column (too many enum values)
     // pass 1 types
     static final byte UCOL  = 0;  // unknown
     static final byte ECOL  = 11;  // enum column
@@ -212,7 +212,7 @@ public final class ParseDataset {
     static final byte FLOAT = 6;
     static final byte DOUBLE= 7;
 
-    static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8};
+    static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8,0};
 
     int     _chunkId = -1;
 
@@ -308,7 +308,11 @@ public final class ParseDataset {
       assert (_phase == 0);
       _colDomains = new String[_ncolumns][];
       for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL)_colDomains[i] = _enums[i].compress();
+        if(_colTypes[i] == ECOL){
+          _colDomains[i] = _enums[i].compress();
+          System.out.println(Arrays.toString(_colDomains[i]));
+          System.out.println(_enums[i].toString());
+        }
         else _enums[i].kill();
       }
       _bases = new int[_ncolumns];

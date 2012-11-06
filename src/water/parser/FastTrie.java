@@ -149,7 +149,8 @@ public final class FastTrie {
       for(;firstSucc < _succ.length && _succ[firstSucc] == _state0; ++firstSucc);
       int idx = Arrays.binarySearch(_alpha, firstSucc, _succ.length, c);
       if(idx >= 0)return _succ[idx];
-      if(_compressed)throw new Error("missing transition in compressed trie!");
+      if(_compressed)
+        throw new Error("missing transition " + (char)c + " in compressed trie!");
       // we need a new state
       short s = addState(new State(8));
       idx = -idx - 2;
@@ -162,15 +163,21 @@ public final class FastTrie {
         _alpha[idx] = c;
         _succ[idx] = s;
       } else {
-        int N = _alpha.length + (_alpha.length >> 1);
+        int delta  = (_alpha.length >> 1);
+        int N = _alpha.length + delta;
         byte [] newAlpha = new byte[N];
         short [] newStates = new short[N];
-        System.arraycopy(_succ, 0, newStates, (_alpha.length >> 1)-1,idx+1);
-        System.arraycopy(_alpha, 0, newAlpha, (_alpha.length >> 1)-1,idx+1);
-        newStates[idx+(_alpha.length >> 1)] = s;
-        newAlpha[idx+(_alpha.length >> 1)] = c;
-        System.arraycopy(_succ, idx, newStates, idx+(_alpha.length >> 1),_succ.length-idx-1);
-        System.arraycopy(_alpha, idx, newAlpha, idx+(_alpha.length >> 1),_alpha.length-idx-1);
+        if(idx >= 0){
+          System.arraycopy(_succ, 0, newStates, (_alpha.length >> 1)-1,idx+1);
+          System.arraycopy(_alpha, 0, newAlpha, (_alpha.length >> 1)-1,idx+1);
+        }
+        assert newStates[idx+delta] == 0;
+        newStates[idx+delta] = s;
+        assert newAlpha[idx+delta] == 0;
+        newAlpha[idx+delta] = c;
+        System.arraycopy(_succ, idx+1, newStates, idx+(_alpha.length >> 1)+1,_succ.length-idx-1);
+        System.arraycopy(_alpha, idx+1, newAlpha, idx+(_alpha.length >> 1)+1,_alpha.length-idx-1);
+        assert idx+(_alpha.length >> 1)+1 + _alpha.length-idx-1 == newAlpha.length;
         _alpha = newAlpha;
         _succ = newStates;
       }
@@ -330,36 +337,42 @@ public final class FastTrie {
     }
     return res;
   }
+
+  static String [] data = new String[] {"J","G","B","B","D","D","I","I","F","F","I","I","I","I","I","H","I","I","I","I","C","A","A","J","J","I","I"};
   public static void main(String [] args){
     FastTrie t = new FastTrie();
-    String [] words = new String[]{"haha","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
-    int [] res1 = addWords(words, t);
-    int [] res2 = addWords(words, t);
-    System.out.println("res1 = " + Arrays.toString(res1));
-    System.out.println("res2 = " + Arrays.toString(res2));
-    System.out.println("Trie: ");
-    System.out.println(t.toString());
-
-    FastTrie t2 = new FastTrie();
-    String [] words2 = new String[]{"haha","abc", "gogo","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
-    int [] res3 = addWords(words2, t2);
-    int [] res4 = addWords(words2, t2);
-    System.out.println("res3 = " + Arrays.toString(res3));
-    System.out.println("res4 = " + Arrays.toString(res4));
-    t.merge(t2);
-    res2 = addWords(words, t);
-    System.out.println("res5 = " + Arrays.toString(res2));
-    System.out.println(t);
-    res2 = addWords(words2, t);
-    System.out.println("res6 = " + Arrays.toString(res2));
-    System.out.println(t);
-    String[] strings = t.compress();
-    System.out.println("###################################################################");
-    System.out.println(Arrays.toString(strings));
-    System.out.println("===================================================================");
-    System.out.println(t);
-    res2 = addWords(words2, t);
-    System.out.println("res7 = " + Arrays.toString(res2));
-    System.out.println(t);
+    addWords(data, t);
+    String [] vals = t.compress();
+    System.out.println(Arrays.toString(vals));
+//    FastTrie t = new FastTrie();
+//    String [] words = new String[]{"haha","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
+//    int [] res1 = addWords(words, t);
+//    int [] res2 = addWords(words, t);
+//    System.out.println("res1 = " + Arrays.toString(res1));
+//    System.out.println("res2 = " + Arrays.toString(res2));
+//    System.out.println("Trie: ");
+//    System.out.println(t.toString());
+//
+//    FastTrie t2 = new FastTrie();
+//    String [] words2 = new String[]{"haha","abc", "gogo","gaga","hahagaga", "hahaha","gagaga","abcdefghijklmnopqrstuvwvxyz"};
+//    int [] res3 = addWords(words2, t2);
+//    int [] res4 = addWords(words2, t2);
+//    System.out.println("res3 = " + Arrays.toString(res3));
+//    System.out.println("res4 = " + Arrays.toString(res4));
+//    t.merge(t2);
+//    res2 = addWords(words, t);
+//    System.out.println("res5 = " + Arrays.toString(res2));
+//    System.out.println(t);
+//    res2 = addWords(words2, t);
+//    System.out.println("res6 = " + Arrays.toString(res2));
+//    System.out.println(t);
+//    String[] strings = t.compress();
+//    System.out.println("###################################################################");
+//    System.out.println(Arrays.toString(strings));
+//    System.out.println("===================================================================");
+//    System.out.println(t);
+//    res2 = addWords(words2, t);
+//    System.out.println("res7 = " + Arrays.toString(res2));
+//    System.out.println(t);
   }
 }
