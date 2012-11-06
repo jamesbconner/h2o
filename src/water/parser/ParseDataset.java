@@ -675,9 +675,9 @@ public final class ParseDataset {
 
 
     public void addRow(FastParser.Row row) {
+      ++_myrows;
       switch (_phase) {
       case 0:
-        ++_myrows;
         for(int i = 0; i < _ncolumns; ++i){
           switch(row._numLength[i]) {
           case -1:
@@ -702,13 +702,12 @@ public final class ParseDataset {
         }
         break;
       case 1:
-        if(_myrows == _outputRows[_outputIdx]) {
+        if(_myrows > _outputRows[_outputIdx]) {
           ++_outputIdx;
           assert (_outputIdx < _outputStreams.length);
           _s = _outputStreams[_outputIdx];
-          _myrows = 0;
+          _myrows = 1;
         }
-        ++_myrows;
         for (int i = 0; i < row._numbers.length; ++i) {
           switch(row._numLength[i]) {
           case -1: // NaN
