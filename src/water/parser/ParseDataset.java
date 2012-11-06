@@ -8,7 +8,7 @@ import water.ValueArray.Column;
 
 import com.google.common.io.Closeables;
 
-/**¯
+/**ï¿½
  * Helper class to parse an entire ValueArray data, and produce a structured
  * ValueArray result.
  *
@@ -264,23 +264,119 @@ public final class ParseDataset {
 
       _skipFirstLine = skipFirstLine;
     }
+    /* We are synchronizing:
+     * 
+     * int _chunkId                     4
+     * byte _decSep                     1
+     * int _myrows                      4       
+     * int _ncolumns                    4
+     * int _numRows                     4
+     * int _phase                       4
+     * int _rowsize                     4 
+     * int _rpc                         4
+     * byte _sep                        1
+     * boolean _skipFirstLine           1
+     *                                  31
+     * 
+     * @return 
+     */
     @Override public int wire_len() {
-      int res = 31 + _resultKey.wire_len();
-      res += 2 + ((_error != null)?_error.length():0);
-      res += 4 + ((_colTypes != null)?_colTypes.length:0);
-      res += 4 + ((_scale != null)?_scale.length:0);
-      res += 4 + ((_invalidValues != null)?_invalidValues.length:0);
-      res += 4 + ((_min != null)?_min.length:0);
-      res += 4 + ((_max != null)?_max.length:0);
-      res += 4 + ((_mean != null)?_mean.length:0);
-      res += 4 + ((_sigma != null)?_sigma.length:0);
-      res += 4 + ((_nrows != null)?_nrows.length:0);
+      int res = (7*4)+ (3*1) + _resultKey.wire_len();
+      res += 4 + ((_error != null) ? _error.length() : 0);
+      res += 4 + ((_colTypes != null) ? _colTypes.length : 0);
+      res += 4 + ((_scale != null) ? _scale.length : 0);
+      res += 4 + ((_invalidValues != null) ? _invalidValues.length : 0);
+      res += 4 + ((_min != null) ? _min.length : 0);
+      res += 4 + ((_max != null) ? _max.length : 0);
+      res += 4 + ((_mean != null) ? _mean.length : 0);
+      res += 4 + ((_sigma != null) ? _sigma.length : 0);
+      res += 4 + ((_nrows != null) ? _nrows.length : 0);
       res += 4;
       if(_enums != null)for(FastTrie t:_enums) res += t.wire_len();
       return res;
     }
 
-    @Override public void write( DataOutputStream os) {
+    // These should go someplace else, decide where during merge as they might
+    // be useful for other classes too
+    public static void writeAry1(DataOutputStream os, byte[] ary) throws IOException {
+      if (ary == null) {
+        os.writeInt(-1);
+      } else {
+        os.writeInt(ary.length);
+        os.write(ary);
+      }
+    }
+    
+    public static byte[] readAry1(DataInputStream is) throws IOException {
+      int n = is.readInt();
+      if (n == -1)
+        return null;
+      byte[] result = new byte[n];
+      is.read(result, 0, n);
+      return result;
+    }
+
+    public static void writeAry4(DataOutputStream os, int[] ary) throws IOException {
+      if (ary == null) {
+        os.writeInt(-1);
+      } else {
+        os.writeInt(ary.length);
+        for (int i : ary)
+          os.writeInt(i);
+      }
+    }
+    
+    public static int[] readAry4(DataInputStream is) throws IOException {
+      int n = is.readInt();
+      if (n == -1)
+        return null;
+      int[] result = new int[n];
+      for (int i = 0; i < n; ++i)
+        result[i] = is.readInt();
+      return result;
+    }
+
+    public static void writeAry8(DataOutputStream os, long[] ary) throws IOException {
+      if (ary == null) {
+        os.writeInt(-1);
+      } else {
+        os.writeInt(ary.length);
+        for (long i : ary)
+          os.writeLong(i);
+      }
+    }
+
+    public static long[] readAry8(DataInputStream is) throws IOException {
+      int n = is.readInt();
+      if (n == -1)
+        return null;
+      long[] result = new long[n];
+      for (int i = 0; i < n; ++i)
+        result[i] = is.readLong();
+      return result;
+    }
+
+    public static void writeAry8d(DataOutputStream os, double[] ary) throws IOException {
+      if (ary == null) {
+        os.writeInt(-1);
+      } else {
+        os.writeInt(ary.length);
+        for (double i : ary)
+          os.writeDouble(i);
+      }
+    }
+
+    public static double[] readAry8d(DataInputStream is) throws IOException {
+      int n = is.readInt();
+      if (n == -1)
+        return null;
+      double[] result = new double[n];
+      for (int i = 0; i < n; ++i)
+        result[i] = is.readDouble();
+      return result;
+    }
+    
+    @Override public void write( DataOutputStream os) throws IOException {
       os.writeBoolean(_skipFirstLine);
       os.writeInt(_chunkId);
       os.writeInt(_phase);
@@ -293,23 +389,56 @@ public final class ParseDataset {
       os.writeInt(_numRows);
       // 31 bytes
       _resultKey.write(os);
-      if(_error == null)
+      writeAry1(os,_error == null ? null : _error.getBytes());
+      writeAry1(os,_colTypes);
+      writeAry4(os,_scale);
+      writeAry8(os,_invalidValues);
+      writeAry8d(os,_min);
+      writeAry8d(os,_max);
+      writeAry8d(os,_mean);
+      writeAry8d(os,_sigma);
+      writeAry4(os,_nrows);
+      if (_enums == null) {
         os.writeInt(-1);
-      else {
-        byte [] bs = _error.getBytes();
-        os.write(bs.length);
-        os.write();
+      } else {
+        os.writeInt(_enums.length);
+        for (FastTrie ft : _enums)
+          ft.write(os);
       }
-      s.setAry1(_colTypes);
-      s.setAry4(_scale);
-      s.setAry8(_invalidValues);
-      s.setAry8d(_min);
-      s.setAry8d(_max);
-      s.setAry8d(_mean);
-      s.setAry8d(_sigma);
-      s.setAry4(_nrows);
-      s.set4((_enums == null?-1:_enums.length));
-
+    }
+    
+    @Override public void read(DataInputStream is) throws IOException {
+      _skipFirstLine = is.readBoolean();
+      _chunkId = is.readInt();
+      _phase = is.readInt();
+      _myrows = is.readInt();
+      _ncolumns = is.readInt();
+      _sep = is.readByte();
+      _decSep = is.readByte();
+      _rpc = is.readInt();
+      _rowsize = is.readInt();
+      _numRows = is.readInt();
+      // 31 bytes
+      _resultKey.read(is);
+      byte[] err = readAry1(is);
+      if (err!=null)
+        _error = new String(err);
+      _colTypes = readAry1(is);
+      _scale = readAry4(is);
+      _invalidValues = readAry8(is);
+      _min = readAry8d(is);
+      _max = readAry8d(is);
+      _mean = readAry8d(is);
+      _sigma = readAry8d(is);
+      _nrows = readAry4(is);
+      int n = is.readInt();
+      if (n != -1) {
+        _enums = new FastTrie[n];
+        for(int i = 0; i < n; ++i) {
+          _enums[i] = new FastTrie();
+          _enums[i].read(is);
+        }
+      }
     }
 
     @Override public void write( Stream s ) {
@@ -325,7 +454,7 @@ public final class ParseDataset {
       s.set4(_numRows);
       // 31 bytes
       _resultKey.write(s);
-      s.setLen2Str(_error);
+      s.setLen4Str(_error);
       s.setAry1(_colTypes);
       s.setAry4(_scale);
       s.setAry8(_invalidValues);
@@ -334,9 +463,13 @@ public final class ParseDataset {
       s.setAry8d(_mean);
       s.setAry8d(_sigma);
       s.setAry4(_nrows);
-      s.set4((_enums == null?-1:_enums.length));
-      if(_enums != null) for(FastTrie t:_enums)
-        t.write(s);
+      if (_enums == null) {
+        s.set4(-1);
+      } else {
+        s.set4(_enums.length);
+        for (FastTrie ft : _enums) 
+          ft.write(s);
+      }
     }
 
     @Override public void read ( Stream s ) {
@@ -352,7 +485,7 @@ public final class ParseDataset {
       _numRows       = s.get4();
       // 31 bytes
       _resultKey     = Key.read(s);
-      _error         = s.getLen2Str();
+      _error         = s.getLen4Str();
       _colTypes      = s.getAry1();
       _scale         = s.getAry4();
       _invalidValues = s.getAry8();
@@ -362,7 +495,7 @@ public final class ParseDataset {
       _sigma         = s.getAry8d();
       _nrows         = s.getAry4();
       int n = s.get4();
-      if(n != -1){
+      if (n != -1) {
         _enums = new FastTrie[n];
         for(int i = 0; i < n; ++i) {
           _enums[i] = new FastTrie();
@@ -484,34 +617,6 @@ public final class ParseDataset {
       assert (totalSize == va.length()):"totalSize: " + totalSize + ", va.length(): " + va.length();
       assert (totalRows == ((double)va.length() / va.row_size()));
     }
-
-
-    @Override public void write( DataOutputStream dos ) throws IOException {
-      dos.writeInt(_phase);
-      dos.writeInt(_ncolumns);
-      dos.writeByte(_sep);
-      dos.writeByte(_decSep);
-      if(_nrows != null){
-        dos.write(_nrows.length);
-        for(int i:_nrows)dos.writeInt(i);
-      } else dos.write(-1);
-
-    }
-
-    @Override public void read ( DataInputStream dis  ) throws IOException {
-      _phase = dis.readInt();
-      _ncolumns = dis.readInt();
-      _sep = dis.readByte();
-      _decSep = dis.readByte();
-      int n = dis.readInt();
-      if(n != -1){
-        _nrows = new int[n];
-        for(int i = 0; i < n; ++i)_nrows[i] = dis.readInt();
-      }
-
-    }
-
-
 
     @Override
     public void map(Key key) {

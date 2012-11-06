@@ -48,6 +48,17 @@ public class Stream {
     }
   }
 
+  @SuppressWarnings("deprecation") public Stream setLen4Str(String s) {
+    if( s == null ) return set4(-1);
+    else {
+      grow(4+s.length());
+      set4(s.length());
+      s.getBytes(0, s.length(), _buf, _off);
+      _off += s.length();
+      return this;
+    }
+  }
+
   public Stream setLen2Bytes(byte[] b) {
       assert b.length < 65535;
       grow(2+b.length);
@@ -131,6 +142,12 @@ public class Stream {
   public String getLen2Str()   {
     int l = get2(), o = _off;
     if( l == 65535 ) return null;
+    _off += l;
+    return new String(_buf, o, l);
+  }
+  public String getLen4Str()   {
+    int l = get4(), o = _off;
+    if( l == -1 ) return null;
     _off += l;
     return new String(_buf, o, l);
   }
