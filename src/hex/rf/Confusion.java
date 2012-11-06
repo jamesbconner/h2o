@@ -145,11 +145,12 @@ public class Confusion extends MRTask {
       scal[k] = _data.col_scale(k);
     }
 
-    MAIN_LOOP: // Now for all rows, classify & vote!
+    // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
       // We do not skip broken rows!  If we need the data and it is missing,
       // the classifier returns the junk class+1.
-      if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
+      if( ignoreRow(nchk, i) ) continue; // Skipped for validating & training
+      if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) continue; // Cannot vote if no class!
       for( int j=0; j<_N; j++ ) votes[j] = 0;
       int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
