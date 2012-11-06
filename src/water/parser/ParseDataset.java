@@ -481,7 +481,7 @@ public final class ParseDataset {
         case 1:
           _sigma = new double[_ncolumns];
           int rowsize = 0;
-          for(byte b:_colTypes)rowsize += colSizes[b];
+          for(byte b:_colTypes)rowsize += Math.abs(colSizes[b]);
           int rpc = (int)ValueArray.chunk_size()/rowsize;
           int firstRow = 0;
           int lastRow = _myrows;
