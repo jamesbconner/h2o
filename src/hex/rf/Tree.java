@@ -75,7 +75,7 @@ public class Tree extends CountedCompleter {
       ? new LeafNode(spl._split)
       : new FJBuild (spl, d, 0, _seed + 1).compute();
     StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
-    Utils.pln(_tree.toString(sb,150).toString());
+    Utils.pln(_tree.toString(sb,200).toString());
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well

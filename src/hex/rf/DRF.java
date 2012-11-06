@@ -20,14 +20,14 @@ public class DRF extends water.DRemoteTask {
   Key _arykey;          // The ValueArray being RF'd
   public Key _modelKey; // Where to jam the final trees
   public Key _treeskey; // Key of Tree-Keys built so-far
-  int[] _ignores;
-  float _sample;
-  short _bin_limit;
+  int[] _ignores;       // Columns to ignore
+  float _sample;        // Sampling rate
+  short _bin_limit;     // Size of largest count-of-uniques in a column
+  int _seed;            // Random # seed
 
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
   transient RandomForest _rf;        // The local RandomForest
-  transient int _seed;
 
   public static class IllegalDataException extends Error {
     public IllegalDataException(String string) {

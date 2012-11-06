@@ -37,13 +37,13 @@ class DataAdapter  {
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       double range = _ary.col_max(i) - _ary.col_min(i);
-      boolean raw = (_ary.col_size(i) > 0 && range < _bin_limit && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
+      boolean raw = (_ary.col_size(i) > 0 && _ary.col_scale(i)==1.0 && range < _bin_limit && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
       boolean do_bin = !raw && !ignore;
       _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
-      if(raw){
+      if( raw ) {
         _c[i]._smax = (short)range;
         _c[i]._min = (float)_ary.col_min(i);
         _c[i]._max = (float)_ary.col_max(i);
@@ -250,7 +250,6 @@ class DataAdapter  {
       int n = _raw.length - ndups;
       int rem = n % _bin_limit;
       int maxBinSize = (n > _bin_limit) ? (n / _bin_limit + Math.min(rem,1)) : 1;
-      System.out.println("n = " + n + ", max bin size = " + maxBinSize);
       // Assign shorts to floats, with binning.
       _binned2raw = MemoryManager.allocateMemoryFloat(Math.min(n, _bin_limit));
       _smax = 0;
