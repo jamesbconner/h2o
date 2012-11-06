@@ -10,6 +10,13 @@ h2o["haha"] = [1,2,3,4,5,6,7,8,9,10]
 
 y = h2o["haha"]
 
+y += 5
+
+y.invalidate()
+print y.__repr__()
+
+print y.get()
+
 print y.__repr__()
 
 

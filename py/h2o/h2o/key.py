@@ -97,7 +97,11 @@ class Key(Inspect):
         server to get the value. You may always call the invalidate() method to 
         """
         if (self._value == None):
-            self._value = self._h2o.get(self._name)
+            try:
+              res = self._h2o._remoteSend(PAGE_GET, { KEY : self._name })
+              self._value = self._h2o._keyToDict(res)
+            except H2OException:
+              pass
         return self._value
 
     def invalidate(self):

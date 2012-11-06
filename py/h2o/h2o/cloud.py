@@ -76,6 +76,7 @@ class Cloud:
     def get(self,key):
         """ Gets the given key. """
         try:
+
             res = self._remoteSend(PAGE_GET, { KEY : key })
             return Key(self,key,self._keyToDict(res))
         except H2OException:
