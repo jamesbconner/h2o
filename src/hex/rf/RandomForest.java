@@ -1,8 +1,6 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
-
 import java.io.File;
-
 import water.*;
 import water.util.KeyUtil;
 
@@ -18,15 +16,15 @@ public class RandomForest {
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
-    Utils.startTimer("alltrees");
+    Timer t_alltrees = new Timer();
     Tree[] trees = new Tree[ntrees];
     for (int i = 0; i < ntrees; ++i) {
       trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample);
-      if (!parallelTrees) water.DRemoteTask.invokeAll(new Tree[]{trees[i]});
+      if (!parallelTrees) DRemoteTask.invokeAll(new Tree[]{trees[i]});
     }
-    if (parallelTrees) water.DRemoteTask.invokeAll(trees);
+    if (parallelTrees) DRemoteTask.invokeAll(trees);
 
-    Utils.pln("All trees ("+ntrees+") done in "+ Utils.printTimer("alltrees"));
+    Utils.pln("All trees ("+ntrees+") done in "+ t_alltrees);
   }
 
   public static class OptArgs extends Arguments.Opt {
@@ -84,14 +82,10 @@ public class RandomForest {
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
     DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  ((float)ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true);
     drf.get(); // block
-
     Model model = UKV.get(drf._modelKey, new Model());
+    Utils.pln("[RF] Random forest finished in "+ drf._t_main);
 
-    String t2 =Utils.printTimer("maintimer");
-    Utils.pln("[RF] trees done in "+ t2);
-    Utils.startTimer("validation");
-
-
+    Timer t_valid = new Timer();
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
       Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
       ValueArray valAry = KeyUtil.parse_test_key(valKey);
@@ -105,8 +99,7 @@ public class RandomForest {
       c.setValidation(drf._validation.getPermutationArray());
       c.report();
     }
-    Utils.pln("[RF] Random forest finished in: " + t2);
-    Utils.pln("[RF] Validation done in: " + Utils.printTimer("validation"));
+    Utils.pln("[RF] Validation done in: " + t_valid);
     UDPRebooted.global_kill(2);
   }
 }

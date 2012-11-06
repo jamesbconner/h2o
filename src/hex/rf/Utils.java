@@ -1,15 +1,9 @@
-
 package hex.rf;
 
-import java.sql.Date;
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 public class Utils {
-
 
   /** Returns the index of the largest value in the array. In case of a tie, an
    * the index is selected randomly.   */
@@ -75,33 +69,4 @@ public class Utils {
   }
 
   public static void pln(String s) { System.out.println(s); }
-
-  private static ConcurrentHashMap<String,Long> startTimers = new ConcurrentHashMap<String, Long>();
-  private static ConcurrentHashMap<String,Long> endTimers = new ConcurrentHashMap<String, Long>();
-
-  public static void clearTimers() {
-    startTimers = new ConcurrentHashMap<String, Long>();
-    endTimers = new ConcurrentHashMap<String, Long>();
-  }
-
-  public static void startTimer(String name) {
-    if( startTimers.putIfAbsent(name, System.currentTimeMillis()) != null )
-      pln("[RF] Trying to start timer " + name +" twice");
-  }
-
-  public static String printTimer(String name) {
-    long now = System.currentTimeMillis();
-    Long old = startTimers.get(name);
-    if( old==null ) return "[RF] Trying to print timer " + name +" before start.";
-    Long L = endTimers.get(name);
-    long l = L==null? now - old.longValue() : L.longValue();
-    if (L == null) endTimers.put(name, l);
-
-    final long hr = TimeUnit.MILLISECONDS.toHours(l);
-    final long min = TimeUnit.MILLISECONDS.toMinutes(l - TimeUnit.HOURS.toMillis(hr));
-    final long sec = TimeUnit.MILLISECONDS.toSeconds(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min));
-    final long ms = TimeUnit.MILLISECONDS.toMillis(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min) - TimeUnit.SECONDS.toMillis(sec));
-    return String.format("%02d:%02d:%02d.%03d", hr, min, sec, ms) + " (Wall clock time: " +
-        new SimpleDateFormat("dd-MMM hh:mm").format(new Date(System.currentTimeMillis())) + ") ";
-  }
 }
