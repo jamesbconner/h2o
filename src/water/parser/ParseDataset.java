@@ -473,12 +473,10 @@ public final class ParseDataset {
           
           break;
         case 1:
-//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"started...");
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += colSizes[b];
           int rpc = (int)ValueArray.chunk_size()/rowsize;
-          // compute the chunks to be updated and allocate memory for them
           int firstRow = 0;
           int lastRow = _myrows;
           _myrows = 0;
@@ -493,42 +491,17 @@ public final class ParseDataset {
           while (chunkRows + ((n-1)*rpc) < rowsToParse) ++n;
           _outputRows = new int[n];
           _outputStreams = new Stream[n];
-          synchronized (_count) {
-            System.out.println("Rows to parse: "+rowsToParse);
-            int j = 0;
-            while (rowsToParse > 0) {
-              _outputRows[j] = chunkRows;
-              _outputStreams[j] = new Stream(chunkRows*rowsize);
-              System.out.println("  Creating stream for "+chunkRows);
-              rowsToParse -= chunkRows;
-              chunkRows = Math.min(rowsToParse,rpc);
-              ++j;
-            }
-            if (rowsToParse != 0)
-              assert(false);
-            _s = _outputStreams[0];
-          
-//          while((firstRow - off + (n+1)*rpc) < lastRow)++n;
-//          int diff = Math.min(lastRow,rpc - off); // for single value, diff is simply the idx of the last row
-//          if(diff < 0){
-//            System.err.println("negative diff");
-//          }
-//          _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
-//          _outputRows = new int[n+1];
-//          _outputRows[0] = firstRow + diff;
-//          _outputStreams = new Stream[n+1];
-//          _outputStreams[0] = _s;
-//          firstRow += diff;
-//          for(int i = 1; i <= n; ++i){
-//            diff = Math.min(rpc, lastRow-firstRow);
-//            _outputStreams[i] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
-//            firstRow += diff;
-//            _outputRows[i] = firstRow;
-//          }
-//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"before parser...");
-            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-            p2.parse(key,skipFirstLine);
-          
+          int j = 0;
+          while (rowsToParse > 0) {
+            _outputRows[j] = chunkRows;
+            _outputStreams[j] = new Stream(chunkRows*rowsize);
+            rowsToParse -= chunkRows;
+            chunkRows = Math.min(rowsToParse,rpc);
+            ++j;
+          }
+          _s = _outputStreams[0];
+          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+          p2.parse(key,skipFirstLine);
           int inChunkOffset = (firstRow % rpc) * rowsize; // index into the chunk I am writing to
           int lastChunk = Math.max(1,_nrows[_nrows.length-1] / rpc) - 1; // index of the last chunk in the VA
           int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
@@ -537,14 +510,12 @@ public final class ParseDataset {
             inChunkOffset += rpc * rowsize;
             --chunkIndex;
           }
-          System.out.println("---------");
           for (int i = 0; i < _outputStreams.length; ++i) {
             Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
             if (_outputStreams[i]._off != _outputStreams[i]._buf.length) {
               assert(false);
             }
             AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
-            System.out.println("Chunk "+chunkIndex+" size "+_outputStreams[i]._buf.length+" offset "+inChunkOffset+" to offset "+(inChunkOffset + _outputStreams[i]._buf.length));
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
               inChunkOffset += _outputStreams[i]._buf.length;
@@ -553,21 +524,6 @@ public final class ParseDataset {
               inChunkOffset = 0;
             }
           }
-          }
-//          
-//////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after parser...");
-////          // send the atomic unions
-//          Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-//          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._off);
-//          lazy_complete(u.fork(k));
-//////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after first atomic...");
-//          for(int i = 1; i < n; ++i){
-//            k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-//            u = new AtomicUnion(_outputStreams[i]._buf, 0, 0, _outputStreams[i]._buf.length);
-//            lazy_complete(u.fork(k));
-//////            System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after another atomic...");
-//          }
-//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+" after all atomics...");
           break;
         default:
           assert false:"unexpected phase " + _phase;
