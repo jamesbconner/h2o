@@ -334,13 +334,15 @@ public final class ParseDataset {
       tsk._mean = _mean;
       tsk._sigma = _sigma;
       if (tsk._nrows != null) {
-        _numRows =0;
+        _numRows = 0;
         for (int i = 0; i < tsk._nrows.length; ++i) {
           _numRows += tsk._nrows[i];
           tsk._nrows[i] = _numRows;
         }
+        tsk._numRows = _numRows;
+      } else {
+        tsk._numRows = _myrows;
       }
-      tsk._numRows = _numRows;
       return tsk;
     }
 
