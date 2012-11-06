@@ -157,7 +157,7 @@ abstract class Statistic {
     // if we are an impossible split now, we can't get better by the exclusion
     if( bestSplit.isImpossible() ) {
       reset(_data,_seed+1);  // We try ~10 times ... and give up.
-      if (recurse++ < 0)  bestSplit = split(_data,expectLeaf);
+      if (recurse++ < 10)  bestSplit = split(_data,expectLeaf);
       return bestSplit;
     }
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
