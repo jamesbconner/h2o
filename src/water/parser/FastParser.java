@@ -248,12 +248,26 @@ NEXT_CHAR:
           }
           // fallthrough NUMBER_END
         case NUMBER_END:
-          if (isEOL(c) /* || isWhitespace(c) */ || (c ==  CHAR_SEPARATOR)) {
+          if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
             row.setCol(colIdx,number, (short) exp, (byte) numStart);
-            state = SEPARATOR_OR_EOL;
-            //++beenHere;
-            continue MAIN_LOOP;
+            // do separator state here too
+            ++colIdx;
+            if (colIdx == _numColumns)
+              throw new Exception("Only "+_numColumns+" columns expected.");
+            state = WHITESPACE_BEFORE_TOKEN;
+            break NEXT_CHAR;
+          } else if (isEOL(c)) {
+            exp = exp - fractionDigits;
+            row.setCol(colIdx,number, (short) exp, (byte) numStart);
+            // do EOL here for speedup reasons
+            if (colIdx != 0)
+              callback.addRow(row);
+            colIdx = 0;
+            state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
+            if (secondChunk)
+              break MAIN_LOOP; // second chunk only does the first row
+            break NEXT_CHAR;
           } else {
             offset = tokenStart-1;
             break NEXT_CHAR; // parse as String token now 
