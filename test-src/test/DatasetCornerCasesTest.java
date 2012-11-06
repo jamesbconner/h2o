@@ -28,7 +28,7 @@ public class DatasetCornerCasesTest {
    *
    *  - two lines dataset (one line is a comment) throws assertion java.lang.AssertionError: classOf no dists > 0? 1
    */
-  @Test public void testTwoLineDataset() {
+  @Test public void testTwoLineDataset() throws Exception {
     Key fkey = KeyUtil.load_test_file("smalldata/test/HTWO-87-two-lines-dataset.csv");
     Key okey = Key.make("HTWO-87-two-lines-dataset.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
@@ -52,11 +52,11 @@ public class DatasetCornerCasesTest {
 
     // Start the distributed Random Forest
     try {
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,100,(short)1024,statType,seed,classcol,new int[0], Key.make("model"),true);
+      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,new int[0], Key.make("model"),true);
       // Just wait little bit
-      try { Thread.sleep(500); } catch( InterruptedException e ) {}
+      drf.get();
       // Create incremental confusion matrix
-      Model model = new Model(null,drf._treeskey,num_cols,classes);
+      Model model = UKV.get(drf._modelKey,new Model());
       assertEquals("Number of classes == 1", 1,  model._classes);
       assertTrue("Number of trees > 0 ", model.size()> 0);
     } catch( DRF.IllegalDataException e ) {
@@ -104,4 +104,7 @@ public class DatasetCornerCasesTest {
     UKV.remove(fkey);
     UKV.remove(okey);
   }
+
+
+
 }
