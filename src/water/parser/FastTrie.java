@@ -234,9 +234,14 @@ public final class FastTrie {
       if(_nfinalStates == _finalStates.length){
         _finalStates = Arrays.copyOf(_finalStates, _nfinalStates + (_nfinalStates >> 1));
       }
-      _finalStates[_nfinalStates++] = _state;
+      idx = -idx - 1;
+      for(int i = _nfinalStates; i > idx; --i){
+        _finalStates[i] = _finalStates[i-1];
+      }
+      _finalStates[idx] = _state;
+      ++_nfinalStates;
     }
-    int res = _state;
+    int res = _finalStates[idx];
     _state = _state0;
     return res;
   }
