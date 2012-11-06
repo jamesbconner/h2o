@@ -155,6 +155,7 @@ public final class ParseDataset {
     // finally make the value array header
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._numRows /*tsk._outputRows[tsk._outputRows.length-1] */, row_size, cols);
     DKV.put(result, ary);
+    tsk.check(result);
   }
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
@@ -360,8 +361,55 @@ public final class ParseDataset {
         off +=  cols[i]._off;
       }
       _outputRows = tsk._outputRows;
+      
+      
       return cols;
     }
+    
+    
+    void check(Key k) {
+      assert (k==_resultKey);
+      System.out.println(_numRows);
+      Value v = DKV.get(k);
+      assert (v != null);
+      assert (v instanceof ValueArray);
+      ValueArray va = (ValueArray) v;
+      System.out.println("Num rows:     "+va.num_rows());
+      System.out.println("Num cols:     "+va.num_cols());
+      System.out.println("Rowsize:      "+va.row_size());
+      System.out.println("Length:       "+va.length());
+      System.out.println("Rows:         "+((double)va.length() / va.row_size()));
+      assert (va.num_rows() == va.length() / va.row_size());
+      System.out.println("Chunk size:   "+(ValueArray.chunk_size() / va.row_size()) * va.row_size());
+      System.out.println("RPC:          "+ValueArray.chunk_size() / va.row_size());
+      System.out.println("Num chunks:   "+va.chunks());
+      long totalSize = 0;
+      long totalRows = 0;
+      for (int i = 0; i < va.chunks(); ++i) {
+        System.out.println("  chunk:             "+i);
+        System.out.println("    chunk off:         "+ValueArray.chunk_offset(i)+" (reported by VA)");
+        System.out.println("    chunk real off:    "+i * ValueArray.chunk_size() / va.row_size() * va.row_size());
+        Value c = DKV.get(va.chunk_get(i));
+        if (c == null)
+          System.out.println("                       CHUNK AS REPORTED BY VA NOT FOUND");
+        assert (c!=null);
+        System.out.println("    chunk size:        "+c.length());
+        System.out.println("    chunk rows:        "+c.length() / va.row_size());
+        byte[] b = c.get();
+        assert (b.length == c.length());
+        totalSize += c.length();
+        System.out.println("    total size:        "+totalSize);
+        totalRows += c.length() / va.row_size();
+        System.out.println("    total rows:        "+totalRows);
+      }
+      System.out.println("Length exp:   "+va.length());
+      System.out.println("Length:       "+totalSize);
+      System.out.println("Rows exp:     "+((double)va.length() / va.row_size()));
+      System.out.println("Rows:         "+totalRows);
+      assert (totalSize == va.length());
+      assert (totalRows == ((double)va.length() / va.row_size()));
+    }
+    
 
     @Override public void write( DataOutputStream dos ) throws IOException {
       dos.writeInt(_phase);
@@ -447,14 +495,14 @@ public final class ParseDataset {
           _outputStreams = new Stream[n];
           synchronized (_count) {
             System.out.println("Rows to parse: "+rowsToParse);
-            int i = 0;
+            int j = 0;
             while (rowsToParse > 0) {
-              _outputRows[i] = chunkRows;
-              _outputStreams[i] = new Stream(chunkRows*rowsize);
+              _outputRows[j] = chunkRows;
+              _outputStreams[j] = new Stream(chunkRows*rowsize);
               System.out.println("  Creating stream for "+chunkRows);
               rowsToParse -= chunkRows;
               chunkRows = Math.min(rowsToParse,rpc);
-              ++i;
+              ++j;
             }
             if (rowsToParse != 0)
               assert(false);
@@ -480,7 +528,6 @@ public final class ParseDataset {
 //          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"before parser...");
             FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
             p2.parse(key,skipFirstLine);
-          }
           
           int inChunkOffset = (firstRow % rpc) * rowsize; // index into the chunk I am writing to
           int lastChunk = Math.max(1,_nrows[_nrows.length-1] / rpc) - 1; // index of the last chunk in the VA
@@ -490,12 +537,14 @@ public final class ParseDataset {
             inChunkOffset += rpc * rowsize;
             --chunkIndex;
           }
+          System.out.println("---------");
           for (int i = 0; i < _outputStreams.length; ++i) {
             Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
             if (_outputStreams[i]._off != _outputStreams[i]._buf.length) {
               assert(false);
             }
-            AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[0]._buf.length);
+            AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
+            System.out.println("Chunk "+chunkIndex+" size "+_outputStreams[i]._buf.length+" offset "+inChunkOffset+" to offset "+(inChunkOffset + _outputStreams[i]._buf.length));
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
               inChunkOffset += _outputStreams[i]._buf.length;
@@ -503,6 +552,7 @@ public final class ParseDataset {
               ++chunkIndex;
               inChunkOffset = 0;
             }
+          }
           }
 //          
 //////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after parser...");
