@@ -185,31 +185,34 @@ NEXT_CHAR:
         case COND_QUOTED_TOKEN:
           state = TOKEN;
           if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
+            assert (quotes == 0);
             quotes = c;
             break NEXT_CHAR;
           }
           // fallthrough to TOKEN
         // ---------------------------------------------------------------------
         case TOKEN:
-          if (((c > '9') || (c < '0')) && (c != CHAR_DECIMAL_SEPARATOR) && (c != '-') && (c != '+')) {
+          if (((c >= '0') && (c <= '9')) || (c == '-') || (c == CHAR_DECIMAL_SEPARATOR) || (c == '+')) {
+            state = NUMBER;
+            number = 0;
+            fractionDigits = 0;
+            numStart = offset;
+            tokenStart = offset;
+            if (c == '-') {
+              exp = -1;
+              ++numStart;
+              break NEXT_CHAR;
+            } else {
+              exp = 1;
+            }
+            // fallthrough
+          } /*else if (!isEOL(c)) {
+            state = EOL;
+            continue MAIN_LOOP;
+          } */ else {
             state = STRING;
             colTrie = callback._enums[colIdx];
             continue MAIN_LOOP;
-          } else if (isEOL(c)) {
-            state = EOL;
-            continue MAIN_LOOP;
-          }
-          state = NUMBER;
-          number = 0;
-          fractionDigits = 0;
-          numStart = offset;
-          tokenStart = offset;
-          if (c == '-') {
-            exp = -1;
-            ++numStart;
-            break NEXT_CHAR;
-          } else {
-            exp = 1;
           }
           // fallthrough to NUMBER
         // ---------------------------------------------------------------------

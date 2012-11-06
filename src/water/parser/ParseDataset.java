@@ -139,7 +139,7 @@ public final class ParseDataset {
     int [] psetup =  guessParserSetup(dataset, false);
     byte sep = (byte)',';
     if(sep == PARSE_SPACESEP)sep = ' ';
-    byte [] bits = (dataset instanceof ValueArray)?DKV.get(dataset._key).get(256*1024):dataset.get(256*1024);
+    byte [] bits = (dataset instanceof ValueArray) ? DKV.get(((ValueArray)dataset).make_chunkkey(0)).get(256*1024) : dataset.get(256*1024);
     String [] colNames = FastParser.determineColumnNames(bits,sep);
     boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
     // pass 1
