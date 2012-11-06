@@ -113,7 +113,7 @@ public final class FastTrie {
       for(firstSucc = 0; firstSucc < _succ.length; ++firstSucc)if(_succ[firstSucc] != 0)break;
       int nsucc = _succ.length-firstSucc;
 
-      if(nsucc != 1 || finalState){
+      if(nsucc != 1 || finalState || states.size() <= _nfinalStates){
         State s = new State();
         short res = (short)states.size();
         if(finalState){
