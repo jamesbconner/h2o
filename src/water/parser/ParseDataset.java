@@ -212,7 +212,7 @@ public final class ParseDataset {
     static final byte FLOAT = 6;
     static final byte DOUBLE= 7;
 
-    static final int [] colSizes = new int[]{0,1,2,4,8,2,4,8};
+    static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8};
 
     int     _chunkId = -1;
 
@@ -354,7 +354,7 @@ public final class ParseDataset {
         cols[i]         = new Column();
         cols[i]._badat  = 0; // FIXME (char)Math.min(65535, _invalidValues[i] );
         cols[i]._base   = _bases[i];
-        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!";
+        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!,  col = " + i + ", scale = " + _scale[i];
         cols[i]._scale  = (short)pow10i(-_scale[i]);
         cols[i]._off    = (short)off;
         cols[i]._size   = (byte)colSizes[_colTypes[i]];
@@ -364,7 +364,7 @@ public final class ParseDataset {
         cols[i]._mean   = 0; // FIXME _mean[i];
         cols[i]._sigma  = 0; // FIXME tsk._sigma[i];
         cols[i]._name   =  colNames == null ? String.valueOf(i) : colNames[i];
-        off +=  cols[i]._size;
+        off +=  Math.abs(cols[i]._size);
       }
       // finally make the value array header
       ValueArray ary = ValueArray.make(_resultKey, Value.ICE, dataset._key, "basic_parse", _numRows, off, cols);
@@ -642,14 +642,20 @@ public final class ParseDataset {
           break;
         case FCOL:
         case DCOL:
-          double s = pow10(_scale[i]);
+          double s = pow10(-_scale[i]);
           double range = s*(_max[i]-_min[i]);
           if(range < 65535){
             _colTypes[i] = DSHORT;
             _bases[i] = (int)(s*_min[i]);
-          } // else leave it as float/double
+          } else {
+            _scale[i] = 0;
+            _bases[i] = 0;
+            _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
+          }
           break;
         case ECOL: // enum
+          _max[i] = _enums[i]._nfinalStates-1;
+          _min[i] = 0;
           if(_enums[i]._nfinalStates < 256)_colTypes[i] = BYTE;
           else if(_enums[i]._nfinalStates < 65536)_colTypes[i] = SHORT;
           else _colTypes[i] = INT;
