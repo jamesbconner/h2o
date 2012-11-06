@@ -149,27 +149,8 @@ public final class ParseDataset {
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
     tsk.check(result);
-/*    
-    
-    
-    
-    
-    
-    
-    
-    
-    ValueArray.Column [] cols = tsk.pass2(dataset._key);
-    int row_size = 0;
-    for (int i = 0; i < cols.length; ++i) {
-      cols[i]._off = (short)row_size;
-      row_size += cols[i]._size;
-      if (colNames != null)
-        cols[i]._name = colNames[i];
-    }
-    // finally make the value array header
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._numRows , row_size, cols);
-    DKV.put(result, ary); */
   }
+
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
   public static void parseZipped( Key result, Value dataset ) throws IOException {
@@ -387,64 +368,6 @@ public final class ParseDataset {
       ValueArray ary = ValueArray.make(_resultKey, Value.ICE, dataset._key, "basic_parse", _numRows, off, cols);
       DKV.put(_resultKey, ary);
     }
-    
-    
-/*    public ValueArray.Column[] pass2(Key dataset){
-      String [][] colDomains = new String[_ncolumns][];
-      for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL)colDomains[i] = _enums[i].compress();
-        else _enums[i].kill();
-      }
-      _bases = new int[_ncolumns];
-      calculateColumnEncodings();
-      DParseTask tsk = new DParseTask();
-      tsk._skipFirstLine = _skipFirstLine;
-      tsk._myrows = _myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
-      tsk._resultKey = _resultKey;
-      tsk._enums = _enums;
-      tsk._colTypes = _colTypes;
-      tsk._nrows = _nrows;
-      tsk._sep = _sep;
-      tsk._decSep = _decSep;
-      // don't pass invalid values, we do not need them 2nd pass
-      tsk._bases = _bases;
-      tsk._phase = 1;
-      tsk._scale = _scale;
-      tsk._ncolumns = _ncolumns;
-      if (tsk._nrows != null) {
-        _numRows =0;
-        for (int i = 0; i < tsk._nrows.length; ++i) {
-          _numRows += tsk._nrows[i];
-          tsk._nrows[i] = _numRows;
-        }
-        System.out.println(Arrays.toString(tsk._nrows));
-      }
-      tsk.invoke(dataset);
-      System.out.println("FINISHED ALL");
-      // now create the value array head from all the information
-      Column [] cols = new Column[_ncolumns];
-      int off = 0;
-      for(int i = 0; i < _colTypes.length; ++i){
-        cols[i]         = new Column();
-        cols[i]._badat  = 0; // FIXME (char)Math.min(65535, _invalidValues[i] );
-        cols[i]._base   = _bases[i];
-        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!";
-        cols[i]._scale  = (short)pow10i(-_scale[i]);
-        cols[i]._off    = (short)off;
-        cols[i]._size   = (byte)colSizes[_colTypes[i]];
-        cols[i]._domain = new ValueArray.ColumnDomain(colDomains[i]);
-        cols[i]._max    = _max[i];
-        cols[i]._min    = _min[i];
-        cols[i]._mean   = 0; // FIXME _mean[i];
-        cols[i]._sigma  = 0; // FIXME tsk._sigma[i];
-        cols[i]._name = "" + i;
-        off +=  cols[i]._off;
-      }
-      _outputRows = tsk._outputRows;
-      
-      
-      return cols;
-    } */
     
     // DO NOT THROW AWAY THIS CODE, I WILL USE IT IN VABUILDER AFTER WE MERGE!!!!!!!!
     // (function check)
