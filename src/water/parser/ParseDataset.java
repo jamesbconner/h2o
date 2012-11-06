@@ -243,8 +243,8 @@ public final class ParseDataset {
 
 
     int _numRows; // number of rows -- works only in second pass FIXME in first pass object
-    
-    String[][] _colDomains;     
+
+    String[][] _colDomains;
 
     public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
@@ -254,7 +254,7 @@ public final class ParseDataset {
       if (dataset instanceof ValueArray) {
         ValueArray ary = (ValueArray) dataset;
         _nrows = new int[(int)ary.chunks()];
-      } 
+      }
 
       _skipFirstLine = skipFirstLine;
     }
@@ -343,7 +343,7 @@ public final class ParseDataset {
       tsk._numRows = _numRows;
       return tsk;
     }
-    
+
     public void createValueArrayHeader(String[] colNames,Value dataset) {
       assert (_phase == 1);
       Column[] cols = new Column[_ncolumns];
@@ -368,7 +368,7 @@ public final class ParseDataset {
       ValueArray ary = ValueArray.make(_resultKey, Value.ICE, dataset._key, "basic_parse", _numRows, off, cols);
       DKV.put(_resultKey, ary);
     }
-    
+
     // DO NOT THROW AWAY THIS CODE, I WILL USE IT IN VABUILDER AFTER WE MERGE!!!!!!!!
     // (function check)
     void check(Key k) {
@@ -410,10 +410,10 @@ public final class ParseDataset {
       System.out.println("Length:       "+totalSize);
       System.out.println("Rows exp:     "+((double)va.length() / va.row_size()));
       System.out.println("Rows:         "+totalRows);
-      assert (totalSize == va.length());
+      assert (totalSize == va.length()):"totalSize: " + totalSize + ", va.length(): " + va.length();
       assert (totalRows == ((double)va.length() / va.row_size()));
     }
-    
+
 
     @Override public void write( DataOutputStream dos ) throws IOException {
       dos.writeInt(_phase);
@@ -474,7 +474,7 @@ public final class ParseDataset {
             assert (_nrows[ValueArray.getChunkIndex(key)] == 0);
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
-          
+
           break;
         case 1:
           _sigma = new double[_ncolumns];
@@ -507,7 +507,7 @@ public final class ParseDataset {
           FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p2.parse(key,skipFirstLine);
           int inChunkOffset = (firstRow % rpc) * rowsize; // index into the chunk I am writing to
-          int lastChunk = Math.max(1,_nrows[_nrows.length-1] / rpc) - 1; // index of the last chunk in the VA
+          int lastChunk = Math.max(1,this._numRows / rpc) - 1; // index of the last chunk in the VA
           int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
           if (chunkIndex > lastChunk) {
             assert (chunkIndex == lastChunk + 1);
