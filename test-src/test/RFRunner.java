@@ -310,16 +310,14 @@ public class RFRunner {
 
   public static void covTests(String javaCmd, PrintStream out, OptArgs args) throws Exception {
     String[] files = new String[]{
-        "smalldata//poker/poker10",
-    "smalldata//iris/iris2.csv",
         "../datasets/UCI/UCI-large/covtype/covtype.data",
       };
 
-    int[] szTrees = new int[]{1};//,10,20,50,100,200};
-    int[] binLimits = new int[]{1024,2046,10000};
-    int[] samples = new int[]{100};//,20,50,80,100};
+    int[] szTrees = new int[]{1,10,20,50,100,200};
+    int[] binLimits = new int[]{1024,10000};
+    int[] samples = new int[]{10,20,50,80,100};
     String[] stats  = new String[]{"gini","entropy"};
-    int[] seeds = new int[]{ 3};
+    int[] seeds = new int[]{ 3, 4, 5, 6};
 
     int experiments = files.length * szTrees.length*stats.length*samples.length*seeds.length *binLimits.length;
     String[] commands = new String[experiments];

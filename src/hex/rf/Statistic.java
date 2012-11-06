@@ -13,6 +13,9 @@ abstract class Statistic {
   protected final int[][][] _columnDists;  // Column distributions for the given statistic
   protected final int[] _features;         // Columns/features that are currently used.
   protected     Random random;             // pseudo random number generator
+  private int _seed;
+  private Data _data;
+  private int recurse;
 
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
@@ -89,7 +92,9 @@ abstract class Statistic {
    * distribution arrays.
    */
   void reset(Data data, int seed) {
-    random = new Random(seed);
+    _seed = seed;
+    _data = data;
+    random = new Random(_seed);
     // first get the columns for current split via Reservoir Sampling
     // http://en.wikipedia.org/wiki/Reservoir_sampling
     // Pick from all the columns-1, and if we chose the class column,
@@ -120,7 +125,7 @@ abstract class Statistic {
       _columnDists[i][row.getEncodedColumnValue(i)][row.classOf()] += 1;
   }
 
-  
+
   /** Calculates the best split and returns it. The split can be either a split
    * which is a node where all rows with given column value smaller or equal to
    * the split value will go to the left and all greater will go to the right.
@@ -140,19 +145,20 @@ abstract class Statistic {
     for( int j = 0; j < _features.length; ++j ) {
 //      if (d.columnArity(_features[j]) < MIN_ARITY_FOR_NONEXCLUSION_SPLITS) {
 //        continue;
-        
+
 //      }
       Split s = columnSplit(_features[j],d, dist, distWeight);
       if( s.betterThan(bestSplit) )
         bestSplit = s;
     }
     // if we are an impossible split now, we can't get better by the exclusion
-    if( bestSplit.isImpossible() )
+    if( bestSplit.isImpossible() ) {
+      reset(_data,_seed);  // We try ~10 times ... and give up.
+      if (recurse++ < 10)  bestSplit = split(_data,expectLeaf);
       return bestSplit;
+    }
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
 
-    
-    
     // try the exclusions now if some of them will be better
     for( int j = 0; j < _features.length; ++j) {
       Split s = columnExclusion(_features[j],d,dist,distWeight);
@@ -161,7 +167,7 @@ abstract class Statistic {
     }
     return bestSplit;
   }
-  
+
   public static final int MIN_ARITY_FOR_NONEXCLUSION_SPLITS = 0;
 }
 

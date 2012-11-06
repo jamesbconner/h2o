@@ -307,7 +307,7 @@ public final class H2O {
     Arguments arguments = new Arguments(args);
     arguments.extract(OPT_ARGS);
     ARGS = arguments.toStringArray();
-
+    
     // Redirect System.out/.err to the Log system and collect them in LogHub
     LogHub.prepare_log_hub();
     Log.hook_sys_out_err();

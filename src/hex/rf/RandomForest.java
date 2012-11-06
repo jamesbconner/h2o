@@ -37,10 +37,10 @@ public class RandomForest {
 	String h2oArgs = " --name=Test"+ System.nanoTime()+ " ";
 	int ntrees = 10;
 	int depth = Integer.MAX_VALUE;
-	double cutRate = -1;
 	int sample = 67;
 	int binLimit = 1024;
 	int classcol = -1;
+	int features = -1;
 	String statType = "entropy";
 	int seed = 42;
   }
