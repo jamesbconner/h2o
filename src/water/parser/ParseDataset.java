@@ -135,6 +135,7 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
+    long start = System.currentTimeMillis();
     int [] psetup =  guessParserSetup(dataset, false);
     byte sep = (byte)',';
     if(sep == PARSE_SPACESEP)sep = ' ';
@@ -148,6 +149,8 @@ public final class ParseDataset {
     tsk.invoke(dataset._key);
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
+    start = System.currentTimeMillis() - start;
+    System.out.println("Parser took "+start);
     tsk.check(result);
   }
 
