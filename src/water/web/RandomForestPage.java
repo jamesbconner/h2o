@@ -24,7 +24,7 @@ public class RandomForestPage extends H2OPage {
     int smp = getAsNumber(p,"sample", 67);
     if( smp <= 0 || smp > 100 )
       throw new InvalidInputException("Sampling percent of "+smp+" has to be between 0 and 100");
-    float sample = smp==0 ? 1.00f : ((float)smp/100);
+    float sample = smp==0 ? 1.00f : ((float)smp/100.0f);
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int seed = getAsNumber(p,"seed", 42);
     int par = getAsNumber(p,"parallel",1);
