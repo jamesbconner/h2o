@@ -360,8 +360,56 @@ public final class ParseDataset {
         off +=  cols[i]._off;
       }
       _outputRows = tsk._outputRows;
+      
+      
       return cols;
     }
+    
+    // DO NOT THROW AWAY THIS CODE, I WILL USE IT IN VABUILDER AFTER WE MERGE!!!!!!!!
+    // (function check)
+    void check(Key k) {
+      assert (k==_resultKey);
+      System.out.println(_numRows);
+      Value v = DKV.get(k);
+      assert (v != null);
+      assert (v instanceof ValueArray);
+      ValueArray va = (ValueArray) v;
+      System.out.println("Num rows:     "+va.num_rows());
+      System.out.println("Num cols:     "+va.num_cols());
+      System.out.println("Rowsize:      "+va.row_size());
+      System.out.println("Length:       "+va.length());
+      System.out.println("Rows:         "+((double)va.length() / va.row_size()));
+      assert (va.num_rows() == va.length() / va.row_size());
+      System.out.println("Chunk size:   "+(ValueArray.chunk_size() / va.row_size()) * va.row_size());
+      System.out.println("RPC:          "+ValueArray.chunk_size() / va.row_size());
+      System.out.println("Num chunks:   "+va.chunks());
+      long totalSize = 0;
+      long totalRows = 0;
+      for (int i = 0; i < va.chunks(); ++i) {
+        System.out.println("  chunk:             "+i);
+        System.out.println("    chunk off:         "+ValueArray.chunk_offset(i)+" (reported by VA)");
+        System.out.println("    chunk real off:    "+i * ValueArray.chunk_size() / va.row_size() * va.row_size());
+        Value c = DKV.get(va.chunk_get(i));
+        if (c == null)
+          System.out.println("                       CHUNK AS REPORTED BY VA NOT FOUND");
+        assert (c!=null);
+        System.out.println("    chunk size:        "+c.length());
+        System.out.println("    chunk rows:        "+c.length() / va.row_size());
+        byte[] b = c.get();
+        assert (b.length == c.length());
+        totalSize += c.length();
+        System.out.println("    total size:        "+totalSize);
+        totalRows += c.length() / va.row_size();
+        System.out.println("    total rows:        "+totalRows);
+      }
+      System.out.println("Length exp:   "+va.length());
+      System.out.println("Length:       "+totalSize);
+      System.out.println("Rows exp:     "+((double)va.length() / va.row_size()));
+      System.out.println("Rows:         "+totalRows);
+      assert (totalSize == va.length());
+      assert (totalRows == ((double)va.length() / va.row_size()));
+    }
+    
 
     @Override public void write( DataOutputStream dos ) throws IOException {
       dos.writeInt(_phase);
@@ -425,12 +473,10 @@ public final class ParseDataset {
           
           break;
         case 1:
-//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"started...");
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += colSizes[b];
           int rpc = (int)ValueArray.chunk_size()/rowsize;
-          // compute the chunks to be updated and allocate memory for them
           int firstRow = 0;
           int lastRow = _myrows;
           _myrows = 0;
@@ -445,43 +491,17 @@ public final class ParseDataset {
           while (chunkRows + ((n-1)*rpc) < rowsToParse) ++n;
           _outputRows = new int[n];
           _outputStreams = new Stream[n];
-          synchronized (_count) {
-            System.out.println("Rows to parse: "+rowsToParse);
-            int i = 0;
-            while (rowsToParse > 0) {
-              _outputRows[i] = chunkRows;
-              _outputStreams[i] = new Stream(chunkRows*rowsize);
-              System.out.println("  Creating stream for "+chunkRows);
-              rowsToParse -= chunkRows;
-              chunkRows = Math.min(rowsToParse,rpc);
-              ++i;
-            }
-            if (rowsToParse != 0)
-              assert(false);
-            _s = _outputStreams[0];
-          
-//          while((firstRow - off + (n+1)*rpc) < lastRow)++n;
-//          int diff = Math.min(lastRow,rpc - off); // for single value, diff is simply the idx of the last row
-//          if(diff < 0){
-//            System.err.println("negative diff");
-//          }
-//          _s = new Stream(MemoryManager.allocateMemory(diff*rowsize));
-//          _outputRows = new int[n+1];
-//          _outputRows[0] = firstRow + diff;
-//          _outputStreams = new Stream[n+1];
-//          _outputStreams[0] = _s;
-//          firstRow += diff;
-//          for(int i = 1; i <= n; ++i){
-//            diff = Math.min(rpc, lastRow-firstRow);
-//            _outputStreams[i] = new Stream(MemoryManager.allocateMemory(diff*rowsize));
-//            firstRow += diff;
-//            _outputRows[i] = firstRow;
-//          }
-//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"before parser...");
-            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-            p2.parse(key,skipFirstLine);
+          int j = 0;
+          while (rowsToParse > 0) {
+            _outputRows[j] = chunkRows;
+            _outputStreams[j] = new Stream(chunkRows*rowsize);
+            rowsToParse -= chunkRows;
+            chunkRows = Math.min(rowsToParse,rpc);
+            ++j;
           }
-          
+          _s = _outputStreams[0];
+          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+          p2.parse(key,skipFirstLine);
           int inChunkOffset = (firstRow % rpc) * rowsize; // index into the chunk I am writing to
           int lastChunk = Math.max(1,_nrows[_nrows.length-1] / rpc) - 1; // index of the last chunk in the VA
           int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
@@ -495,7 +515,7 @@ public final class ParseDataset {
             if (_outputStreams[i]._off != _outputStreams[i]._buf.length) {
               assert(false);
             }
-            AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[0]._buf.length);
+            AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
               inChunkOffset += _outputStreams[i]._buf.length;
@@ -504,20 +524,6 @@ public final class ParseDataset {
               inChunkOffset = 0;
             }
           }
-//          
-//////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after parser...");
-////          // send the atomic unions
-//          Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-//          AtomicUnion u = new AtomicUnion(_outputStreams[0]._buf, 0, firstChunkOff, _outputStreams[0]._off);
-//          lazy_complete(u.fork(k));
-//////          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after first atomic...");
-//          for(int i = 1; i < n; ++i){
-//            k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(firstChunk++));
-//            u = new AtomicUnion(_outputStreams[i]._buf, 0, 0, _outputStreams[i]._buf.length);
-//            lazy_complete(u.fork(k));
-//////            System.out.println("Chunk "+ValueArray.getChunkIndex(key)+"after another atomic...");
-//          }
-//          System.out.println("Chunk "+ValueArray.getChunkIndex(key)+" after all atomics...");
           break;
         default:
           assert false:"unexpected phase " + _phase;
@@ -528,10 +534,6 @@ public final class ParseDataset {
       }
     }
 
-    static boolean checkAddRow = false;
-    
-    static AtomicInteger _count = new AtomicInteger(0);
-    
     @Override
     public void reduce(DRemoteTask drt) {
       DParseTask other = (DParseTask)drt;
@@ -693,8 +695,7 @@ public final class ParseDataset {
       case 1:
         if(_myrows == _outputRows[_outputIdx]) {
           ++_outputIdx;
-          if (_outputIdx >= _outputStreams.length)
-            assert (false);
+          assert (_outputIdx < _outputStreams.length);
           _s = _outputStreams[_outputIdx];
           _myrows = 0;
         }
@@ -736,8 +737,6 @@ public final class ParseDataset {
             }
           }
         }
-        if (checkAddRow)
-          System.out.println("   leave "+_myrows);
         break;
       default:
         assert false:"unexpected phase " + _phase;
