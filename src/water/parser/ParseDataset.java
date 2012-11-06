@@ -133,6 +133,7 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
+    System.out.println("Parser started...");
     long start = System.currentTimeMillis();
     int [] psetup =  guessParserSetup(dataset, false);
     byte sep = (byte)',';
@@ -143,6 +144,7 @@ public final class ParseDataset {
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
+    System.out.println("Pass1 done...");
     long p1end = System.currentTimeMillis() - start;
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
@@ -284,15 +286,20 @@ public final class ParseDataset {
       int res = (7*4)+ (3*1) + _resultKey.wire_len();
       res += 4 + ((_error != null) ? _error.length() : 0);
       res += 4 + ((_colTypes != null) ? _colTypes.length : 0);
-      res += 4 + ((_scale != null) ? _scale.length : 0);
-      res += 4 + ((_invalidValues != null) ? _invalidValues.length : 0);
-      res += 4 + ((_min != null) ? _min.length : 0);
-      res += 4 + ((_max != null) ? _max.length : 0);
-      res += 4 + ((_mean != null) ? _mean.length : 0);
-      res += 4 + ((_sigma != null) ? _sigma.length : 0);
-      res += 4 + ((_nrows != null) ? _nrows.length : 0);
+      res += 4 + ((_scale != null) ? _scale.length * 4 : 0);
+      res += 4 + ((_invalidValues != null) ? _invalidValues.length * 8 : 0);
+      res += 4 + ((_min != null) ? _min.length * 8 : 0);
+      res += 4 + ((_max != null) ? _max.length * 8 : 0);
+      res += 4 + ((_mean != null) ? _mean.length * 8 : 0);
+      res += 4 + ((_sigma != null) ? _sigma.length * 8 : 0);
+      res += 4 + ((_nrows != null) ? _nrows.length * 4 : 0);
       res += 4;
-      if(_enums != null)for(FastTrie t:_enums) res += t.wire_len();
+      if (_enums != null)
+        for (FastTrie t:_enums) {
+          res += 1;
+          if (t != null) // enums can be null too
+            res += t.wire_len();
+        }
       return res;
     }
 
@@ -377,6 +384,7 @@ public final class ParseDataset {
     }
     
     @Override public void write( DataOutputStream os) throws IOException {
+      System.out.println("wds");
       os.writeBoolean(_skipFirstLine);
       os.writeInt(_chunkId);
       os.writeInt(_phase);
@@ -402,12 +410,19 @@ public final class ParseDataset {
         os.writeInt(-1);
       } else {
         os.writeInt(_enums.length);
-        for (FastTrie ft : _enums)
-          ft.write(os);
+        for (FastTrie ft : _enums) {
+          if (ft == null) {
+            os.writeByte(-1);
+          } else {
+            os.writeByte(-1);
+//            ft.write(os);
+          }
+        }
       }
     }
     
     @Override public void read(DataInputStream is) throws IOException {
+      System.out.println("rds");
       _skipFirstLine = is.readBoolean();
       _chunkId = is.readInt();
       _phase = is.readInt();
@@ -435,13 +450,17 @@ public final class ParseDataset {
       if (n != -1) {
         _enums = new FastTrie[n];
         for(int i = 0; i < n; ++i) {
-          _enums[i] = new FastTrie();
-          _enums[i].read(is);
+          if (is.readByte()==1) {
+            _enums[i] = new FastTrie();
+            _enums[i].read(is);
+          }
         }
       }
     }
 
     @Override public void write( Stream s ) {
+      System.out.println("Write start, expect "+wire_len()+" bytes");
+      int off = s._off;
       s.setz(_skipFirstLine);
       s.set4(_chunkId);
       s.set4(_phase);
@@ -467,12 +486,22 @@ public final class ParseDataset {
         s.set4(-1);
       } else {
         s.set4(_enums.length);
-        for (FastTrie ft : _enums) 
-          ft.write(s);
+        for (FastTrie ft : _enums) {
+          if (ft == null) {
+            s.set1(-1);
+          } else {
+            s.set1(1);
+            ft.write(s);
+          }
+        }
       }
+      System.out.println("Write done, took "+(s._off - off)+" bytes");
+      assert (s._off - off == wire_len());
     }
 
     @Override public void read ( Stream s ) {
+      System.out.println("Read start");
+      int off = s._off;
       _skipFirstLine = s.getz();
       _chunkId       = s.get4();
       _phase         = s.get4();
@@ -498,10 +527,14 @@ public final class ParseDataset {
       if (n != -1) {
         _enums = new FastTrie[n];
         for(int i = 0; i < n; ++i) {
-          _enums[i] = new FastTrie();
-          _enums[i].read(s);
+          if (s.get1() == 1) {
+            _enums[i] = new FastTrie();
+            _enums[i].read(s);
+          }
         }
       }
+      System.out.println("Read done, took "+(s._off - off)+" bytes");
+      assert (s._off - off == wire_len());
     }
 
     public DParseTask pass2() {
@@ -634,6 +667,7 @@ public final class ParseDataset {
         }
         switch(_phase){
         case 0:
+          System.out.println("Starting pass 1 "+key.toString());
           _enums = new FastTrie[_ncolumns];
           _invalidValues = new long[_ncolumns];
           _min = new double [_ncolumns];
@@ -650,7 +684,7 @@ public final class ParseDataset {
             assert (_nrows[ValueArray.getChunkIndex(key)] == 0);
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
-
+          System.out.println("End pass 1 "+key.toString());
           break;
         case 1:
           _sigma = new double[_ncolumns];
@@ -714,37 +748,41 @@ public final class ParseDataset {
 
     @Override
     public void reduce(DRemoteTask drt) {
-      DParseTask other = (DParseTask)drt;
-      if(_sigma == null)_sigma = other._sigma;
-      if(_enums == null){
-        assert _min == null;
-        assert _max == null;
-        assert _scale == null;
-        assert _colTypes == null;
-        _enums = other._enums;
-        _min = other._min;
-        _max = other._max;
-        _scale = other._scale;
-        _colTypes = other._colTypes;
-        _nrows = other._nrows;
-      } else {
-        if (_phase == 0) {
-          if (_nrows != other._nrows)
-            for (int i = 0; i < _nrows.length; ++i)
-              _nrows[i] += other._nrows[i];
-          for(int i = 0; i < _ncolumns; ++i) {
-            _enums[i].merge(other._enums[i]);
-            if(other._min[i] < _min[i])_min[i] = other._min[i];
-            if(other._max[i] > _max[i])_max[i] = other._max[i];
-            if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
-            if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
-          }
+      try {
+        DParseTask other = (DParseTask)drt;
+        if(_sigma == null)_sigma = other._sigma;
+        if(_enums == null){
+          assert _min == null;
+          assert _max == null;
+          assert _scale == null;
+          assert _colTypes == null;
+          _enums = other._enums;
+          _min = other._min;
+          _max = other._max;
+          _scale = other._scale;
+          _colTypes = other._colTypes;
+          _nrows = other._nrows;
         } else {
-          // pass -- phase 1 does not require any reduction of these
+          if (_phase == 0) {
+            if (_nrows != other._nrows)
+              for (int i = 0; i < _nrows.length; ++i)
+                _nrows[i] += other._nrows[i];
+            for(int i = 0; i < _ncolumns; ++i) {
+              _enums[i].merge(other._enums[i]);
+              if(other._min[i] < _min[i])_min[i] = other._min[i];
+              if(other._max[i] > _max[i])_max[i] = other._max[i];
+              if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
+              if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
+            }
+          } else {
+            // pass -- phase 1 does not require any reduction of these
+          }
         }
+        if(_error == null)_error = other._error;
+        else if(other._error != null) _error = _error + "\n" + other._error;
+      } catch (Exception e) {
+        e.printStackTrace();
       }
-      if(_error == null)_error = other._error;
-      else if(other._error != null) _error = _error + "\n" + other._error;
     }
 
     static double [] powers10 = new double[]{
