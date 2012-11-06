@@ -21,8 +21,7 @@ public class Model extends RemoteTask {
   /** Number of features these trees are built for */
   public int       _features;
   /** Pseudo random number used as tie breaker. */
-  final transient private Random     _rand = new Random(42); // FIXME:
-                                                             // parameterize?
+  final transient private Random _rand = new Random(42); // FIXME: parameterize?
   /**
    * A RandomForest Model
    *
@@ -71,25 +70,35 @@ public class Model extends RemoteTask {
    *          the row number in the chunk
    * @param rowsize
    *          the size in byte of each row
-   * @return the predicted response class
+   * @return the predicted response class, or class+1 for broken rows
    */
   public short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
-    short predict = Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal);
-    assert 0 <= predict && predict < _classes : ("prediction " + predict
-        + " < " + _classes);
-    return predict;
+    return Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal, (short)_classes);
   }
 
-  public int[] vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
-    int[] votes = new int[_classes];
+  public void vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
+    assert votes.length == _classes+1/*+1 to catch broken rows*/;
     for( int i = 0; i < _ntrees; i++ )
       votes[classify(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
-    return votes;
   }
 
-  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
-    int[] votes = vote(chunk, row, rowsize, data, offs, size, base, scal);
-    return (short) Utils.maxIndex(votes, _rand);
+  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
+    // Vote all the trees for the row
+    vote(chunk, row, rowsize, data, offs, size, base, scal, votes);
+    // Tally results
+    int result = 0;
+    int tied = 1;
+    for( int i = 1; i<votes.length-1; i++)
+      if( votes[i] > votes[result] ) { result=i; tied=1; }
+      else if( votes[i] == votes[result] ) { tied++; }
+    if( tied==1 ) return (short)result;
+    // Tie-breaker logic
+    int j = _rand.nextInt(tied); // From zero to number of tied classes-1
+    int k = 0;
+    for( int i=0; i<votes.length-1; i++ )
+      if( votes[i]==votes[result] && (k++ >= j) )
+        return (short)i;
+    throw H2O.unimpl();
   }
 
   // Lazy initialization of tree leaves, depth

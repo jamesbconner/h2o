@@ -131,7 +131,7 @@ public class Confusion extends MRTask {
     final int cmin = (int) _data.col_min(_classcol); // Typically 0-(n-1) or 1-N
     int nchk = ValueArray.getChunkIndex(chunk_key);
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
-    int[] votes = new int[_N];
+    int[] votes = new int[_N+1]; // One for each class and one more for broken rows
     // Break out all the ValueArray Column schema into an easier-to-read
     // format.  Its used in the hot inner loop of Tree.classify.
     final int offs[] = new int[ncols];
@@ -147,13 +147,11 @@ public class Confusion extends MRTask {
 
     MAIN_LOOP: // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
-      for( int k = 0; k < ncols; k++ )
-        if( !_data.valid(chunk_bits, i, rowsize, k) )  continue MAIN_LOOP; // Skip broken rows
+      // We do not skip broken rows!  If we need the data and it is missing,
+      // the classifier returns the junk class+1.
       if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
       for( int j=0; j<_N; j++ ) votes[j] = 0;
-      for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
-        votes[_model.classify(t, chunk_bits, i, rowsize, _data, offs, size, base, scal)]++;
-      int predict = Utils.maxIndex(votes, _rand);
+      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;
