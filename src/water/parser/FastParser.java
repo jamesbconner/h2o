@@ -95,7 +95,7 @@ public class FastParser {
   }
 
   public final void parse(Key key, boolean skipFirstLine) throws Exception {
-    ValueArray _ary = null;
+    ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
     byte[] bits = DKV.get(key).get();
     int offset = 0;
     byte state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
@@ -110,9 +110,10 @@ public class FastParser {
     boolean secondChunk = false;
     Row row = new Row(_numColumns);
     byte c = bits[offset];
-    //int beenHere = 0;
+//    int beenHere = 0;
 MAIN_LOOP:
     while (true) {
+//      ++beenHere;
 NEXT_CHAR:
       switch (state) {
         // ---------------------------------------------------------------------
@@ -122,14 +123,12 @@ NEXT_CHAR:
           } else {
             break NEXT_CHAR;
           }
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case EXPECT_COND_LF:
           state = WHITESPACE_BEFORE_TOKEN;
           if (c == CHAR_LF)
             break NEXT_CHAR;
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case STRING:
@@ -163,7 +162,6 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case EOL:
           if (colIdx != 0)
-//            System.out.println(row.toString());
             callback.addRow(row);
           colIdx = 0;
           state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
@@ -196,11 +194,9 @@ NEXT_CHAR:
           if (((c > '9') || (c < '0')) && (c != CHAR_DECIMAL_SEPARATOR) && (c != '-') && (c != '+')) {
             state = STRING;
             colTrie = callback._enums[colIdx];
-            //++beenHere;
             continue MAIN_LOOP;
           } else if (isEOL(c)) {
             state = EOL;
-            //++beenHere;
             continue MAIN_LOOP;
           }
           state = NUMBER;
@@ -240,12 +236,12 @@ NEXT_CHAR:
           // fallthrough to COND_QUOTED_NUMBER_END
         // ---------------------------------------------------------------------
         case COND_QUOTED_NUMBER_END:
-          state = NUMBER_END;
           numStart = offset - numStart;
+          state = NUMBER_END;
           if ( c == quotes) {
             quotes = 0;
             break NEXT_CHAR;
-          }
+          } 
           // fallthrough NUMBER_END
         case NUMBER_END:
           if (c == CHAR_SEPARATOR) {
@@ -271,7 +267,6 @@ NEXT_CHAR:
           } else {
             offset = tokenStart-1;
             break NEXT_CHAR; // parse as String token now 
-            //throw new Exception("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
           }
         // ---------------------------------------------------------------------
         case NUMBER_SKIP:
@@ -298,7 +293,6 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           state = COND_QUOTED_NUMBER_END;
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_FRACTION:
@@ -325,7 +319,6 @@ NEXT_CHAR:
             number = -number;
           }
           exp = 0;
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_EXP_START:
@@ -353,7 +346,6 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           state = COND_QUOTED_NUMBER_END;
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_EXP_NEGATIVE:
@@ -363,7 +355,6 @@ NEXT_CHAR:
           }
           exp = - exp;
           state = COND_QUOTED_NUMBER_END;
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case COND_QUOTE:
@@ -374,7 +365,6 @@ NEXT_CHAR:
           } else {
             quotes = 0;
             state = STRING_END;
-            //++beenHere;
             continue MAIN_LOOP;
           }
         // ---------------------------------------------------------------------
@@ -385,7 +375,6 @@ NEXT_CHAR:
       if (offset < 0) {
         assert secondChunk : "This can only happen when we are in second chunk and are reverting to first one.";
         secondChunk = false;
-        key = _ary.make_chunkkey(ValueArray.getOffset(key));
         Value v = DKV.get(key); // we had the last key
         assert (v != null) : "The value used to be there!";
         bits = v.get();
@@ -394,19 +383,20 @@ NEXT_CHAR:
         if (_ary == null)
           break;
         numStart -= bits.length;
-        fractionDigits -= bits.length;
+        if (state == NUMBER_FRACTION) 
+          fractionDigits -= bits.length;
         offset -= bits.length;
         tokenStart -= bits.length;
-        key = _ary.make_chunkkey(ValueArray.getOffset(key)+offset);
-        Value v = DKV.get(key); // we had the last key
+        Key k2 = _ary.make_chunkkey(ValueArray.getOffset(key)+ValueArray.chunk_size());
+        Value v = DKV.get(k2); // we had the last key
         if (v == null)
           break MAIN_LOOP;
-        bits = v.get();
+        bits = v.get(512);
         secondChunk = true;
       }
       c = bits[offset];
     } // end MAIN_LOOP
-//    System.out.println(beenHere);
+//    System.out.println("been here: "+beenHere);
   }
 
   private static boolean isWhitespace(byte c) {

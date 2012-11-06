@@ -146,12 +146,12 @@ public final class ParseDataset {
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
     long p1end = System.currentTimeMillis() - start;
-    System.out.println("Phase 1 took "+p1end);
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
     start = System.currentTimeMillis() - start;
+    System.out.println("Phase 1 took "+p1end);
     System.out.println("Parser took "+start);
 //    tsk.check(result);
   }
