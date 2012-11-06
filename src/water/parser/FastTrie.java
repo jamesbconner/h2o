@@ -14,13 +14,12 @@ import water.Stream;
  */
 public final class FastTrie {
   short _state;
-  State [] _states = new State[1024];
-  short [] _finalStates = new short[256];
+  State [] _states = new State[256];
+  BitSet _finaStates = new BitSet(256);
   short _nstates = 1;
   boolean _compressed;
   boolean _killed;
   int max_tokens = 1024;
-  short _nfinalStates = (short)0;
   short _state0 = (short)0;
 
 
@@ -28,7 +27,12 @@ public final class FastTrie {
     _states[0] = new State(8);
   }
   final private short addState(State s){
-    if(_nstates == _states.length)_states = Arrays.copyOf(_states, _states.length + (_states.length >> 1));
+    if(_nstates == _states.length) {
+      _states = Arrays.copyOf(_states, _states.length + (_states.length >> 1));
+      BitSet newFinalStates = new BitSet(_states.length);
+      newFinalStates.or(_finaStates);
+      _finaStates = newFinalStates;
+    }
     _states[_nstates] = s;
     return _nstates++;
   }
@@ -113,7 +117,7 @@ public final class FastTrie {
       for(firstSucc = 0; firstSucc < _succ.length; ++firstSucc)if(_succ[firstSucc] != 0)break;
       int nsucc = _succ.length-firstSucc;
 
-      if(nsucc != 1 || finalState || states.size() <= _nfinalStates){
+      if(nsucc != 1 || finalState || states.size() <= strings.length){
         State s = new State();
         short res = (short)states.size();
         if(finalState){
@@ -131,7 +135,7 @@ public final class FastTrie {
             if(_succ[i+firstSucc] == 0)continue;
             short nextS = _succ[i+firstSucc];
             currentString.append((char)_alpha[i+firstSucc]);
-            s._succ[i] = _states[nextS].compress(states, strings, currentString, (short)0, Arrays.binarySearch(_finalStates, 0, _nfinalStates, nextS) >= 0);
+            s._succ[i] = _states[nextS].compress(states, strings, currentString, (short)0, _finaStates.get(nextS));
             currentString.setLength(currentString.length()-1);
           }
         }
@@ -139,7 +143,7 @@ public final class FastTrie {
       }
       short nextS = _succ[firstSucc];
       currentString.append((char)_alpha[firstSucc]);
-      short res =  _states[_succ[firstSucc]].compress(states, strings, currentString, ++skip, Arrays.binarySearch(_finalStates,0,_nfinalStates, nextS) >= 0);
+      short res =  _states[_succ[firstSucc]].compress(states, strings, currentString, ++skip, _finaStates.get(nextS));
       currentString.setLength(currentString.length()-1);
       return res;
     }
@@ -209,25 +213,28 @@ public final class FastTrie {
   }
 
   public short addByte(byte b){
-    if(_killed)return -1;
+    if(_killed)return 0;
     assert  0 <= b && b < 128;
-    if(_nfinalStates < max_tokens)_state = _states[_state].getTransition(b);
+    _state = _states[_state].getTransition(b);
     return _states[_state]._skip;
   }
 
   String [] compress(){
     if(_killed) return null;
+    int  nfinalStates = _finaStates.cardinality();
     ArrayList<State> newStates = new ArrayList<State>();
+    // add nulls for final states to make sure we can add all final states in the beginningof the array
+    for(int i = 0; i < nfinalStates; ++i)newStates.add(null);
     // put final states in the beginning...
-    for(int i = 0; i < _nfinalStates;++i)newStates.add(null);
-    String [] strings = new String[_nfinalStates];
+    String [] strings = new String[nfinalStates];
     _states[0].compress(newStates, strings, new StringBuilder(),(short)0,false);
     _states = new State[newStates.size()];
     _states = newStates.toArray(_states);
     _compressed = true;
-    _state0 = _nfinalStates;
+    _state0 = (short)nfinalStates;
     _state = _state0;
     _nstates = (short)_states.length;
+    _finaStates = null;
     return strings;
   }
 
@@ -235,26 +242,10 @@ public final class FastTrie {
    * get token id of the currently parsed String and reset the Trie to start new word.
    */
   public int getTokenId(){
-    if(_nfinalStates >= max_tokens-1)return -1;
-    if(_compressed){
-      assert _state < _state0;
-      int res =  _state;
-      _state = _state0;
-      return res;
-    }
-    int idx = Arrays.binarySearch(_finalStates, 0,_nfinalStates,_state);
-    if(idx < 0) {
-      if(_nfinalStates == _finalStates.length){
-        _finalStates = Arrays.copyOf(_finalStates, _nfinalStates + (_nfinalStates >> 1));
-      }
-      idx = -idx - 1;
-      for(int i = _nfinalStates; i > idx; --i){
-        _finalStates[i] = _finalStates[i-1];
-      }
-      _finalStates[idx] = _state;
-      ++_nfinalStates;
-    }
-    int res = _finalStates[idx];
+    if(_killed)return -1;
+    assert !_compressed || _state < _state0;
+    int res =  _state;
+    if(!_compressed)_finaStates.set(_state);
     _state = _state0;
     return res;
   }
@@ -286,7 +277,6 @@ public final class FastTrie {
     if(!_killed){
       os.writeBoolean(_compressed);
       os.writeShort(_nstates);
-      os.writeShort(_compressed?_state0:_nfinalStates);
       for(int i =0; i < _nstates; ++i)_states[i].write(os);
     }
   }
@@ -296,7 +286,7 @@ public final class FastTrie {
     if(!_killed){
       s.setz(_compressed);
       s.set2(_nstates);
-      s.set2(_compressed?_state0:_nfinalStates);
+
       for(int i =0; i < _nstates; ++i)_states[i].write(s);
     }
   }
@@ -306,8 +296,6 @@ public final class FastTrie {
     if(!_killed){
       _compressed = s.get1() == 1;
       _nstates = (short)s.get2();
-      _nfinalStates = (short)s.get2();
-      if(_compressed)_state0 = _nfinalStates;
       _states= new State[_nstates];
       for(int i = 0; i < _states.length; ++i){
         _states[i] = new State();
@@ -321,8 +309,7 @@ public final class FastTrie {
     if(!_killed){
       _compressed = is.readBoolean();
       _nstates = is.readShort();
-      _nfinalStates = is.readShort();
-      if(_compressed)_state0 = _nfinalStates;
+
       for(int i = 0; i < _states.length; ++i){
         _states[i] = new State();
         _states[i].read(is);

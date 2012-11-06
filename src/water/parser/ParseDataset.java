@@ -664,10 +664,10 @@ public final class ParseDataset {
           }
           break;
         case ECOL: // enum
-          _max[i] = _enums[i]._nfinalStates-1;
+          _max[i] = _enums[i]._state0-1;
           _min[i] = 0;
-          if(_enums[i]._nfinalStates < 256)_colTypes[i] = BYTE;
-          else if(_enums[i]._nfinalStates < 65536)_colTypes[i] = SHORT;
+          if(_enums[i]._state0 < 256)_colTypes[i] = BYTE;
+          else if(_enums[i]._state0 < 65536)_colTypes[i] = SHORT;
           else _colTypes[i] = INT;
         }
       }
