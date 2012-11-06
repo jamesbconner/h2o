@@ -56,16 +56,16 @@ public class Confusion extends MRTask {
     shared_init();
   }
 
-  public Key keyFor() { return keyFor(_model,-1,_datakey, _classcol); }
-  static public Key keyFor(Model model, int atree, Key datakey, int classcol) {
-    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+model.name(atree)+")");
+  public Key keyFor() { return keyFor(_model._key,_model.size(),_datakey, _classcol); }
+  static public Key keyFor(Key modelKey, int msize, Key datakey, int classcol) {
+    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"])");
   }
 
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
-  static public Confusion make(Model model, int atree, Key datakey, int classcol) {
-    Key key = keyFor(model, atree, datakey, classcol);
+  static public Confusion make(Model model, Key datakey, int classcol) {
+    Key key = keyFor(model._key, model.size(), datakey, classcol);
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
       C.shared_init();

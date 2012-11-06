@@ -60,6 +60,8 @@ public class RandomForestPage extends H2OPage {
 
     // Remove any prior model; about to overwrite it
     UKV.remove(modelKey);
+    for( int i=0; i<=ntree; i++ ) // Also, all related Confusions
+      UKV.remove(Confusion.keyFor(modelKey,i,ary._key,classcol));
 
     // Start the distributed Random Forest
     JsonObject res = new JsonObject();

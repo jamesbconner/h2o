@@ -46,13 +46,13 @@ public class RFView extends H2OPage {
     res.addProperty("ntree",ntree); // asked-for trees
     res.addProperty("atree",atree); // displayed trees
     res.addProperty("modelSize",model.size()); // how many we got
-    
+
     // only create conf matrix if asked for
     if (p.getProperty("noCM","0").equals("0")) {
       // Make or find a C.M. against the model.  If the model has had a prior
       // C.M. run, we'll find it via hashing.  If not, we'll block while we build
       // the C.M.
-      Confusion confusion = Confusion.make( model, atree, ary._key, classcol );
+      Confusion confusion = Confusion.make( model, ary._key, classcol );
       addProperty(res, "confusionKey", confusion.keyFor());
     }
     return res;
@@ -80,7 +80,7 @@ public class RFView extends H2OPage {
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
-    Confusion confusion = Confusion.make( model, atree, ary._key, classcol );
+    Confusion confusion = Confusion.make( model, ary._key, classcol );
 
     // Display the confusion-matrix table here
     // First the title line

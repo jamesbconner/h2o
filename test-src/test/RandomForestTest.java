@@ -31,7 +31,7 @@ public class RandomForestTest {
 
   // ---
   // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
-  @org.junit.Test public void testRF_Iris() {
+  @org.junit.Test public void testRF_Iris() throws Exception {
     final int CLASSES=3;        // Number of output classes in iris dataset
     Key fkey = KeyUtil.load_test_file("smalldata/iris/iris2.csv");
     Key okey = Key.make("iris.hex");
@@ -70,10 +70,11 @@ public class RandomForestTest {
       p.setProperty("dataKey",okey.toString());
       p.setProperty("modelKey",modelKey.toString());
       p.setProperty("ntree",Integer.toString(ntree));
+      p.setProperty("atree",Integer.toString(ntree));
 
       RFView rfv = new RFView();
       JsonObject rfv_res = rfv.serverJson(null,p,null);
-      rfv.serveImpl(null,p,null);
+      rfv.serveImpl(null,p,null); // Build the CM
 
       // Verify Goodness and Light
       Key oKey2 = Key.make(rfv_res.get("dataKey").getAsString());
@@ -119,7 +120,7 @@ public class RandomForestTest {
     assertEquals("Number of cols", 12, val.num_cols());
 
     // setup default values for DRF
-    int ntrees  = 5;
+    int ntrees  = 3;
     int depth   = 30;
     int gini    = StatType.GINI.ordinal();
     int seed =  42;
@@ -133,8 +134,15 @@ public class RandomForestTest {
     DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true);
     // Just wait little bit
     drf.get();
-    // Create incremental confusion matrix
-    Model model = UKV.get(drf._modelKey,new Model());
+    // Create incremental confusion matrix.
+    Model model;
+    while( true ) { 
+      // RACEY BUG HERE: Model is supposed to be complete after drf.get, but as
+      // of 11/5/2012 it takes a little while for all trees to appear.
+      model = UKV.get(drf._modelKey,new Model());
+      if( model.size()==ntrees ) break;
+      Thread.sleep(100);
+    }
     assertEquals("Number of classes", 2,  model._classes);
     assertEquals("Number of trees", ntrees, model.size());
 
