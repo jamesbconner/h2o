@@ -144,6 +144,20 @@ public final class ParseDataset {
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
+    tsk = tsk.pass2();
+    tsk.invoke(dataset._key);
+    // now calculate the column information
+    tsk.createValueArrayHeader(colNames,dataset);
+    tsk.check(result);
+/*    
+    
+    
+    
+    
+    
+    
+    
+    
     ValueArray.Column [] cols = tsk.pass2(dataset._key);
     int row_size = 0;
     for (int i = 0; i < cols.length; ++i) {
@@ -153,8 +167,8 @@ public final class ParseDataset {
         cols[i]._name = colNames[i];
     }
     // finally make the value array header
-    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._numRows /*tsk._outputRows[tsk._outputRows.length-1] */, row_size, cols);
-    DKV.put(result, ary);
+    ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._numRows , row_size, cols);
+    DKV.put(result, ary); */
   }
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
@@ -249,6 +263,7 @@ public final class ParseDataset {
 
     int _numRows; // number of rows -- works only in second pass FIXME in first pass object
     
+    String[][] _colDomains;     
 
     public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
@@ -308,7 +323,73 @@ public final class ParseDataset {
       }
     }
 
-    public ValueArray.Column[] pass2(Key dataset){
+    public DParseTask pass2() {
+      assert (_phase == 0);
+      _colDomains = new String[_ncolumns][];
+      for(int i = 0; i < _colTypes.length; ++i){
+        if(_colTypes[i] == ECOL)_colDomains[i] = _enums[i].compress();
+        else _enums[i].kill();
+      }
+      _bases = new int[_ncolumns];
+      calculateColumnEncodings();
+      DParseTask tsk = new DParseTask();
+      tsk._skipFirstLine = _skipFirstLine;
+      tsk._myrows = _myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
+      tsk._resultKey = _resultKey;
+      tsk._enums = _enums;
+      tsk._colTypes = _colTypes;
+      tsk._nrows = _nrows;
+      tsk._sep = _sep;
+      tsk._decSep = _decSep;
+      // don't pass invalid values, we do not need them 2nd pass
+      tsk._bases = _bases;
+      tsk._phase = 1;
+      tsk._scale = _scale;
+      tsk._ncolumns = _ncolumns;
+      tsk._outputRows = _outputRows;
+      tsk._colDomains = _colDomains;
+      tsk._min = _min;
+      tsk._max = _max;
+      tsk._mean = _mean;
+      tsk._sigma = _sigma;
+      if (tsk._nrows != null) {
+        _numRows =0;
+        for (int i = 0; i < tsk._nrows.length; ++i) {
+          _numRows += tsk._nrows[i];
+          tsk._nrows[i] = _numRows;
+        }
+      }
+      tsk._numRows = _numRows;
+      return tsk;
+    }
+    
+    public void createValueArrayHeader(String[] colNames,Value dataset) {
+      assert (_phase == 1);
+      Column[] cols = new Column[_ncolumns];
+      int off = 0;
+      for(int i = 0; i < cols.length; ++i){
+        cols[i]         = new Column();
+        cols[i]._badat  = 0; // FIXME (char)Math.min(65535, _invalidValues[i] );
+        cols[i]._base   = _bases[i];
+        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!";
+        cols[i]._scale  = (short)pow10i(-_scale[i]);
+        cols[i]._off    = (short)off;
+        cols[i]._size   = (byte)colSizes[_colTypes[i]];
+        cols[i]._domain = new ValueArray.ColumnDomain(_colDomains[i]);
+        cols[i]._max    = _max[i];
+        cols[i]._min    = _min[i];
+        cols[i]._mean   = 0; // FIXME _mean[i];
+        cols[i]._sigma  = 0; // FIXME tsk._sigma[i];
+        cols[i]._name   =  colNames == null ? String.valueOf(i) : colNames[i];
+        off +=  cols[i]._size;
+      }
+      // finally make the value array header
+      ValueArray ary = ValueArray.make(_resultKey, Value.ICE, dataset._key, "basic_parse", _numRows, off, cols);
+      DKV.put(_resultKey, ary);
+    }
+    
+    
+/*    public ValueArray.Column[] pass2(Key dataset){
       String [][] colDomains = new String[_ncolumns][];
       for(int i = 0; i < _colTypes.length; ++i){
         if(_colTypes[i] == ECOL)colDomains[i] = _enums[i].compress();
@@ -363,7 +444,7 @@ public final class ParseDataset {
       
       
       return cols;
-    }
+    } */
     
     // DO NOT THROW AWAY THIS CODE, I WILL USE IT IN VABUILDER AFTER WE MERGE!!!!!!!!
     // (function check)
@@ -512,9 +593,7 @@ public final class ParseDataset {
           }
           for (int i = 0; i < _outputStreams.length; ++i) {
             Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
-            if (_outputStreams[i]._off != _outputStreams[i]._buf.length) {
-              assert(false);
-            }
+            assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
             AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
@@ -529,7 +608,6 @@ public final class ParseDataset {
           assert false:"unexpected phase " + _phase;
         }
       }catch(Exception e){
-        e.printStackTrace();
         _error = e.getMessage();
       }
     }
