@@ -473,7 +473,7 @@ class Log extends Function {
     Result r = Result.temporary();
     ValueArray va = (ValueArray) DKV.get(args[0]._key);
     VABuilder b = new VABuilder("temp",va.num_rows()).addDoubleColumn("0").createAndStore(r._key);
-    MRLog task = new Log.MRLog(args[0]._key, r._key, args[0].rawColIndex());
+    MRLog task = new Log.MRLog(args[0]._key, r._key, args[0].colIndex());
     task.invoke(r._key);
     b.setColumnStats(0,task._min, task._max, task._tot / va.num_rows()).createAndStore(r._key);
     return r;
