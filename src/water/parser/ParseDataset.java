@@ -238,6 +238,7 @@ public final class ParseDataset {
     // arrays
     byte     [] _colTypes;
     int      [] _scale;
+    int      [] _bases;
     long     [] _invalidValues;
     double   [] _min;
     double   [] _max;
@@ -267,26 +268,27 @@ public final class ParseDataset {
       _skipFirstLine = skipFirstLine;
     }
     /* We are synchronizing:
-     * 
+     *
      * int _chunkId                     4
      * byte _decSep                     1
-     * int _myrows                      4       
+     * int _myrows                      4
      * int _ncolumns                    4
      * int _numRows                     4
      * int _phase                       4
-     * int _rowsize                     4 
+     * int _rowsize                     4
      * int _rpc                         4
      * byte _sep                        1
      * boolean _skipFirstLine           1
      *                                  31
-     * 
-     * @return 
+     *
+     * @return
      */
     @Override public int wire_len() {
       int res = (7*4)+ (3*1) + _resultKey.wire_len();
       res += 4 + ((_error != null) ? _error.length() : 0);
       res += 4 + ((_colTypes != null) ? _colTypes.length : 0);
       res += 4 + ((_scale != null) ? _scale.length * 4 : 0);
+      res += 4 + ((_bases != null) ? _bases.length * 4 : 0);
       res += 4 + ((_invalidValues != null) ? _invalidValues.length * 8 : 0);
       res += 4 + ((_min != null) ? _min.length * 8 : 0);
       res += 4 + ((_max != null) ? _max.length * 8 : 0);
@@ -313,7 +315,7 @@ public final class ParseDataset {
         os.write(ary);
       }
     }
-    
+
     public static byte[] readAry1(DataInputStream is) throws IOException {
       int n = is.readInt();
       if (n == -1)
@@ -332,7 +334,7 @@ public final class ParseDataset {
           os.writeInt(i);
       }
     }
-    
+
     public static int[] readAry4(DataInputStream is) throws IOException {
       int n = is.readInt();
       if (n == -1)
@@ -382,7 +384,7 @@ public final class ParseDataset {
         result[i] = is.readDouble();
       return result;
     }
-    
+
     @Override public void write( DataOutputStream os) throws IOException {
       System.out.println("wds");
       os.writeBoolean(_skipFirstLine);
@@ -400,6 +402,7 @@ public final class ParseDataset {
       writeAry1(os,_error == null ? null : _error.getBytes());
       writeAry1(os,_colTypes);
       writeAry4(os,_scale);
+      writeAry4(os,_bases);
       writeAry8(os,_invalidValues);
       writeAry8d(os,_min);
       writeAry8d(os,_max);
@@ -420,7 +423,7 @@ public final class ParseDataset {
         }
       }
     }
-    
+
     @Override public void read(DataInputStream is) throws IOException {
       System.out.println("rds");
       _skipFirstLine = is.readBoolean();
@@ -440,6 +443,7 @@ public final class ParseDataset {
         _error = new String(err);
       _colTypes = readAry1(is);
       _scale = readAry4(is);
+      _bases = readAry4(is);
       _invalidValues = readAry8(is);
       _min = readAry8d(is);
       _max = readAry8d(is);
@@ -476,6 +480,7 @@ public final class ParseDataset {
       s.setLen4Str(_error);
       s.setAry1(_colTypes);
       s.setAry4(_scale);
+      s.setAry4(_bases);
       s.setAry8(_invalidValues);
       s.setAry8d(_min);
       s.setAry8d(_max);
@@ -517,6 +522,7 @@ public final class ParseDataset {
       _error         = s.getLen4Str();
       _colTypes      = s.getAry1();
       _scale         = s.getAry4();
+      _bases         = s.getAry4();
       _invalidValues = s.getAry8();
       _min           = s.getAry8d();
       _max           = s.getAry8d();
@@ -832,8 +838,8 @@ public final class ParseDataset {
       return powers10i[exp];
     }
 
-    int [] _bases;
-    Stream _s;
+
+    transient Stream _s;
 
     private void calculateColumnEncodings(){
       assert (_bases != null);

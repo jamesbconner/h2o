@@ -259,11 +259,15 @@ public final class FastTrie {
   }
 
   public int wire_len(){
-    int res = 8;
-    if(!_compressed)
-      res += 2*_finalStates.cardinality();
-    for(int i = 0; i < _nstates; ++i)
-      res += _states[i].wire_len();
+    int res = 1;
+    if(!_killed){
+      res += 7;
+      if(!_compressed)
+        res += 2 + 2*_finalStates.cardinality();
+
+      for(int i = 0; i < _nstates; ++i)
+        res += _states[i].wire_len();
+    }
     return res;
   }
 
@@ -274,6 +278,11 @@ public final class FastTrie {
       os.writeShort(_state0);
       os.writeShort(_state);
       os.writeShort(_nstates);
+      if(!_compressed) {
+        os.writeShort((short)_finalStates.cardinality());
+        for(int i =0; i < _nstates; ++i)
+          if(_finalStates.get(i))os.writeShort((short)i);
+      }
       for(int i =0; i < _nstates; ++i)
         _states[i].write(os);
     }
@@ -286,6 +295,11 @@ public final class FastTrie {
       s.set2(_state0);
       s.set2(_state);
       s.set2(_nstates);
+      if(!_compressed) {
+        s.set2((short)_finalStates.cardinality());
+        for(int i =0; i < _nstates; ++i)
+          if(_finalStates.get(i))s.set2((short)i);
+      }
       for(int i = 0; i < _nstates; ++i)
         _states[i].write(s);
     }
@@ -299,6 +313,12 @@ public final class FastTrie {
       _state = (short)s.get2();
       _nstates = (short)s.get2();
       _states= new State[_nstates];
+      if(!_compressed){
+        int n = s.get2();
+        _finalStates = new BitSet(_nstates);
+        for(int i = 0; i < n; ++i)
+          _finalStates.set(s.get2());
+      }
       for(int i = 0; i < _states.length; ++i){
         _states[i] = new State();
         _states[i].read(s);
@@ -313,6 +333,12 @@ public final class FastTrie {
       _state0 = is.readShort();
       _state = is.readShort();
       _nstates = is.readShort();
+      if(!_compressed){
+        int n = is.readShort();
+        _finalStates = new BitSet(_nstates);
+        for(int i = 0; i < n; ++i)
+          _finalStates.set(is.readShort());
+      }
       for(int i = 0; i < _states.length; ++i){
         _states[i] = new State();
         _states[i].read(is);
