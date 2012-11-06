@@ -155,7 +155,6 @@ public final class ParseDataset {
     // finally make the value array header
     ValueArray ary = ValueArray.make(result, Value.ICE, dataset._key, "basic_parse", tsk._numRows /*tsk._outputRows[tsk._outputRows.length-1] */, row_size, cols);
     DKV.put(result, ary);
-    tsk.check(result);
   }
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
   // The method exepct a dataset which contains a ZIP file encapsulating one file.
@@ -366,7 +365,8 @@ public final class ParseDataset {
       return cols;
     }
     
-    
+    // DO NOT THROW AWAY THIS CODE, I WILL USE IT IN VABUILDER AFTER WE MERGE!!!!!!!!
+    // (function check)
     void check(Key k) {
       assert (k==_resultKey);
       System.out.println(_numRows);
@@ -534,10 +534,6 @@ public final class ParseDataset {
       }
     }
 
-    static boolean checkAddRow = false;
-    
-    static AtomicInteger _count = new AtomicInteger(0);
-    
     @Override
     public void reduce(DRemoteTask drt) {
       DParseTask other = (DParseTask)drt;
@@ -699,8 +695,7 @@ public final class ParseDataset {
       case 1:
         if(_myrows == _outputRows[_outputIdx]) {
           ++_outputIdx;
-          if (_outputIdx >= _outputStreams.length)
-            assert (false);
+          assert (_outputIdx < _outputStreams.length);
           _s = _outputStreams[_outputIdx];
           _myrows = 0;
         }
@@ -742,8 +737,6 @@ public final class ParseDataset {
             }
           }
         }
-        if (checkAddRow)
-          System.out.println("   leave "+_myrows);
         break;
       default:
         assert false:"unexpected phase " + _phase;
