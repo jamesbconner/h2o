@@ -513,7 +513,8 @@ public class ValueArray extends Value {
     byte[] mem = get();
     Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
     int domainSize = s.get2();
-    if (ord < 0 || ord >= domainSize) throw new ArrayIndexOutOfBoundsException(ord);
+    if (ord < 0 || ord >= domainSize)
+      throw new ArrayIndexOutOfBoundsException(ord);
     for( int i = 0; i < ord; i++)
       s.getLen2Str();
     return s.getLen2Str();

@@ -402,7 +402,7 @@ public final class ParseDataset {
         Value c = DKV.get(va.chunk_get(i));
         if (c == null)
           System.out.println("                       CHUNK AS REPORTED BY VA NOT FOUND");
-        assert (c!=null);
+        assert (c!=null):"missing chunk " + i;
         System.out.println("    chunk size:        "+c.length());
         System.out.println("    chunk rows:        "+c.length() / va.row_size());
         byte[] b = c.get();
@@ -537,6 +537,7 @@ public final class ParseDataset {
           assert false:"unexpected phase " + _phase;
         }
       }catch(Exception e){
+        e.printStackTrace();
         _error = e.getMessage();
       }
     }
