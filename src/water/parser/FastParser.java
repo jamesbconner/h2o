@@ -392,7 +392,7 @@ NEXT_CHAR:
       }
       c = bits[offset];
     } // end MAIN_LOOP
-    System.out.println(beenHere);
+//    System.out.println(beenHere);
   }
 
   private static boolean isWhitespace(byte c) {
