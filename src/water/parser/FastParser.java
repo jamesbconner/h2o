@@ -56,25 +56,25 @@ public class FastParser {
   public final byte CHAR_DECIMAL_SEPARATOR;
   public final byte CHAR_SEPARATOR;
 
-  private static final int SKIP_LINE = 0;
-  private static final int EXPECT_COND_LF = 1;
-  private static final int EOL = 2;
-  private static final int TOKEN = 4;
-  private static final int COND_QUOTED_TOKEN = 10;
-  private static final int NUMBER = 5;
-  private static final int NUMBER_SKIP = 50;
-  private static final int NUMBER_SKIP_NO_DOT = 54;
-  private static final int NUMBER_FRACTION = 51;
-  private static final int NUMBER_EXP = 52;
-  private static final int NUMBER_EXP_NEGATIVE = 61;
-  private static final int NUMBER_EXP_START = 60;
-  private static final int NUMBER_END = 53;
-  private static final int STRING = 6;
-  private static final int COND_QUOTE = 7;
-  private static final int SEPARATOR_OR_EOL = 8;
-  private static final int WHITESPACE_BEFORE_TOKEN = 9;
-  private static final int STRING_END = 11;
-  private static final int COND_QUOTED_NUMBER_END = 12;
+  private static final byte SKIP_LINE = 0;
+  private static final byte EXPECT_COND_LF = 1;
+  private static final byte EOL = 2;
+  private static final byte TOKEN = 3;
+  private static final byte COND_QUOTED_TOKEN = 4;
+  private static final byte NUMBER = 5;
+  private static final byte NUMBER_SKIP = 6;
+  private static final byte NUMBER_SKIP_NO_DOT = 7;
+  private static final byte NUMBER_FRACTION = 8;
+  private static final byte NUMBER_EXP = 9;
+  private static final byte NUMBER_EXP_NEGATIVE = 10;
+  private static final byte NUMBER_EXP_START = 11;
+  private static final byte NUMBER_END = 12;
+  private static final byte STRING = 13;
+  private static final byte COND_QUOTE = 14;
+  private static final byte SEPARATOR_OR_EOL = 15;
+  private static final byte WHITESPACE_BEFORE_TOKEN = 16;
+  private static final byte STRING_END = 17;
+  private static final byte COND_QUOTED_NUMBER_END = 18;
 
   private static final long LARGEST_DIGIT_NUMBER = 1000000000000000000L;
 
@@ -95,12 +95,12 @@ public class FastParser {
   }
 
   public final void parse(Key key, boolean skipFirstLine) throws Exception {
-    ValueArray _ary = null;
+    ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
     byte[] bits = DKV.get(key).get();
     int offset = 0;
-    int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
+    byte state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
     byte quotes = 0;
-    int colIdx = 0;
+    short colIdx = 0;
     FastTrie colTrie = null;
     long number = 0;
     int exp = 0;
@@ -110,8 +110,10 @@ public class FastParser {
     boolean secondChunk = false;
     Row row = new Row(_numColumns);
     byte c = bits[offset];
+//    int beenHere = 0;
 MAIN_LOOP:
     while (true) {
+//      ++beenHere;
 NEXT_CHAR:
       switch (state) {
         // ---------------------------------------------------------------------
@@ -160,7 +162,6 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case EOL:
           if (colIdx != 0)
-//            System.out.println(row.toString());
             callback.addRow(row);
           colIdx = 0;
           state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
@@ -235,23 +236,37 @@ NEXT_CHAR:
           // fallthrough to COND_QUOTED_NUMBER_END
         // ---------------------------------------------------------------------
         case COND_QUOTED_NUMBER_END:
-          state = NUMBER_END;
           numStart = offset - numStart;
+          state = NUMBER_END;
           if ( c == quotes) {
             quotes = 0;
             break NEXT_CHAR;
-          }
+          } 
           // fallthrough NUMBER_END
         case NUMBER_END:
-          if (isEOL(c) /* || isWhitespace(c) */ || (c ==  CHAR_SEPARATOR)) {
+          if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
             row.setCol(colIdx,number, (short) exp, (byte) numStart);
-            state = SEPARATOR_OR_EOL;
-            continue MAIN_LOOP;
+            // do separator state here too
+            ++colIdx;
+            if (colIdx == _numColumns)
+              throw new Exception("Only "+_numColumns+" columns expected.");
+            state = WHITESPACE_BEFORE_TOKEN;
+            break NEXT_CHAR;
+          } else if (isEOL(c)) {
+            exp = exp - fractionDigits;
+            row.setCol(colIdx,number, (short) exp, (byte) numStart);
+            // do EOL here for speedup reasons
+            if (colIdx != 0)
+              callback.addRow(row);
+            colIdx = 0;
+            state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
+            if (secondChunk)
+              break MAIN_LOOP; // second chunk only does the first row
+            break NEXT_CHAR;
           } else {
             offset = tokenStart-1;
             break NEXT_CHAR; // parse as String token now 
-            //throw new Exception("After number, only EOL, whitespace or a separator "+CHAR_SEPARATOR+" is allowed, but character "+(char)c+" found");
           }
         // ---------------------------------------------------------------------
         case NUMBER_SKIP:
@@ -266,6 +281,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           state = COND_QUOTED_NUMBER_END;
+          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_SKIP_NO_DOT:
@@ -359,7 +375,6 @@ NEXT_CHAR:
       if (offset < 0) {
         assert secondChunk : "This can only happen when we are in second chunk and are reverting to first one.";
         secondChunk = false;
-        key = _ary.make_chunkkey(ValueArray.getOffset(key));
         Value v = DKV.get(key); // we had the last key
         assert (v != null) : "The value used to be there!";
         bits = v.get();
@@ -368,18 +383,20 @@ NEXT_CHAR:
         if (_ary == null)
           break;
         numStart -= bits.length;
-        fractionDigits -= bits.length;
+        if (state == NUMBER_FRACTION) 
+          fractionDigits -= bits.length;
         offset -= bits.length;
         tokenStart -= bits.length;
-        key = _ary.make_chunkkey(ValueArray.getOffset(key)+offset);
-        Value v = DKV.get(key); // we had the last key
+        Key k2 = _ary.make_chunkkey(ValueArray.getOffset(key)+ValueArray.chunk_size());
+        Value v = DKV.get(k2); // we had the last key
         if (v == null)
           break MAIN_LOOP;
-        bits = v.get();
+        bits = v.get(512);
         secondChunk = true;
       }
       c = bits[offset];
     } // end MAIN_LOOP
+//    System.out.println("been here: "+beenHere);
   }
 
   private static boolean isWhitespace(byte c) {
@@ -390,14 +407,14 @@ NEXT_CHAR:
     return (c == CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
   }
 
-  private static final int TOKEN_START = 100;
-  private static final int SECOND_LINE = 101;
-  private static final int SECOND_COND_QUOTED_TOKEN = 102;
-  private static final int SECOND_WHITESPACE_BEFORE_TOKEN = 103;
-  private static final int SECOND_TOKEN_FIRST_LETTER = 104;
-  private static final int SECOND_TOKEN = 105;
-  private static final int SECOND_COND_QUOTE = 106;
-  private static final int SECOND_SEPARATOR_OR_EOL = 107;
+  private static final byte TOKEN_START = 19;
+  private static final byte SECOND_LINE = 20;
+  private static final byte SECOND_COND_QUOTED_TOKEN = 21;
+  private static final byte SECOND_WHITESPACE_BEFORE_TOKEN = 22;
+  private static final byte SECOND_TOKEN_FIRST_LETTER = 23;
+  private static final byte SECOND_TOKEN = 24;
+  private static final byte SECOND_COND_QUOTE = 25;
+  private static final byte SECOND_SEPARATOR_OR_EOL = 26;
 
 
   private static boolean canBeInNumber(byte c) {
@@ -407,7 +424,7 @@ NEXT_CHAR:
   static String [] determineColumnNames(byte[] bits, byte separator) {
     ArrayList<String> colNames = new ArrayList();
     int offset = 0;
-    int state = COND_QUOTED_TOKEN;
+    byte state = COND_QUOTED_TOKEN;
     String [] result;
     byte quotes = 0;
     byte c = bits[offset];

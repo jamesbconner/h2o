@@ -133,6 +133,7 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
+    long start = System.currentTimeMillis();
     int [] psetup =  guessParserSetup(dataset, false);
     byte sep = (byte)',';
     if(sep == PARSE_SPACESEP)sep = ' ';
@@ -142,11 +143,15 @@ public final class ParseDataset {
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
+    long p1end = System.currentTimeMillis() - start;
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // now calculate the column information
     tsk.createValueArrayHeader(colNames,dataset);
     //tsk.check(result);
+    start = System.currentTimeMillis() - start;
+    System.out.println("Phase 1 took "+p1end);
+    System.out.println("Parser took "+start);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -518,7 +523,7 @@ public final class ParseDataset {
           }
           for (int i = 0; i < _outputStreams.length; ++i) {
             Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
-            assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
+            //assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
             AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
@@ -664,10 +669,11 @@ public final class ParseDataset {
       }
     }
 
-    public void addRow(FastParser.Row row){
+
+    public void addRow(FastParser.Row row) {
+      ++_myrows;
       switch (_phase) {
       case 0:
-        ++_myrows;
         for(int i = 0; i < _ncolumns; ++i){
           switch(row._numLength[i]) {
           case -1:
@@ -692,13 +698,12 @@ public final class ParseDataset {
         }
         break;
       case 1:
-        if(_myrows == _outputRows[_outputIdx]) {
+        if(_myrows > _outputRows[_outputIdx]) {
           ++_outputIdx;
           assert (_outputIdx < _outputStreams.length);
           _s = _outputStreams[_outputIdx];
-          _myrows = 0;
+          _myrows = 1;
         }
-        ++_myrows;
         for (int i = 0; i < row._numbers.length; ++i) {
           switch(row._numLength[i]) {
           case -1: // NaN
