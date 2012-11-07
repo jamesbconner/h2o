@@ -149,12 +149,20 @@ public class ParseState implements Cloneable {
       _cols[i]._mean += d;
 
       // I pass a flag in the _size field if any value is NOT an integer.
-      if( ((int)(d     )) != (d     ) ) _cols[i]._size |= 1; // not int:      52
-      if( ((int)(d*  10)) != (d*  10) ) _cols[i]._size |= 2; // not 1 digit:  5.2
-      if( ((int)(d* 100)) != (d* 100) ) _cols[i]._size |= 4; // not 2 digits: 5.24
-      if( ((int)(d*1000)) != (d*1000) ) _cols[i]._size |= 8; // not 3 digits: 5.239
-      if( ((float)d)      !=  d       ) _cols[i]._size |=16; // not float   : 5.23912f
+      nearly(1.*    d, 1,i);    // not int:      52
+      nearly(10.*   d, 2,i);    // not 1 digit:  5.2
+      nearly(100.*  d, 4,i);    // not 2 digits: 5.24
+      nearly(1000.* d, 8,i);    // not 3 digits: 5.239
+      if( Math.abs(((float)d)-d) < 1e-8 ) _cols[i]._size |=16; // not float   : 5.23912f
     }
+  }
+
+  private final void nearly( double d, int flag, int i ) {
+    int e = (int)d;
+    double f = (double)e;
+    double diff = Math.abs(f-d);
+    double epsilon = 1e-8;
+    if( diff > epsilon ) _cols[i]._size |= flag;
   }
 
   public void finishStatsGathering(int idx) {

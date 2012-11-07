@@ -45,26 +45,22 @@ public abstract class DRemoteTask extends RemoteTask implements Cloneable {
     } catch( CloneNotSupportedException e ) { throw new Error(e); }
   }
 
+  // Invokes the task on all nodes
+  public void invokeOnAllNodes() {
+    H2O cloud = H2O.CLOUD;
+    Key[] args = new Key[cloud.size()];
+    String skey = "RunOnAll__"+UUID.randomUUID().toString();
+    for( int i = 0; i < args.length; ++i )
+      args[i] = Key.make(skey,(byte)0,Key.DFJ_INTERNAL_USER,cloud._memary[i]);
+    invoke(args);
+  }
+
+
   // Top-level remote execution hook.  The Key is an ArrayLet or an array of
   // Keys; start F/J'ing on individual keys.  Blocks.
   public void invoke( Key args ) {
     invoke(flatten_keys(args)); // Convert to array-of-keys and invoke
   }
-  
-  
-  /** Invokes the task on all nodes
-   * 
-   */
-  public void invokeOnAllNodes() {
-    H2O cloud = H2O.CLOUD;
-    Key[] args = new Key[cloud.size()];
-    assert (cloud._memary.length == cloud.size());
-    for (int i = 0; i < args.length; ++i) {
-      args[i] = Key.make("__H2O__RUNONALL__",(byte)0,(byte)0,cloud._memary[i]);
-    }
-    invoke(args);
-  }
-  
 
   public void invoke( Key[] args ) {
     fork(args).get();        // Block until the job is done

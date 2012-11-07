@@ -29,6 +29,7 @@ public class RFView extends H2OPage {
     // Atree & Ntree are optional.
     // Atree - number of trees to display, if not all are available.
     // Ntree - final number of trees that will eventually be built.
+    //   0 <= atree <= model.size() <= ntree
     int atree = getAsNumber(p,"atree",0);
     int ntree = getAsNumber(p,"ntree",model.size());
 
@@ -41,8 +42,8 @@ public class RFView extends H2OPage {
 
     JsonObject res = new JsonObject();
     addProperty(res, "dataKey", ary._key);
-    res.addProperty("class",classcol);
     addProperty(res, "modelKey", modelKey);
+    res.addProperty("class",classcol);
     res.addProperty("ntree",ntree); // asked-for trees
     res.addProperty("atree",atree); // displayed trees
     res.addProperty("modelSize",model.size()); // how many we got

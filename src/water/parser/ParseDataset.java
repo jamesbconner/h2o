@@ -195,6 +195,7 @@ public final class ParseDataset {
 
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
+    UKV.remove(key);
   }
 
   public static void parseGZipped( Key result, Value dataset ) throws IOException {
@@ -208,6 +209,7 @@ public final class ParseDataset {
     if( key == null ) throw new Error("Cannot uncompressed GZIP-compressed dataset!");
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
+    UKV.remove(key);
   }
 
   // True if the array is all NaNs

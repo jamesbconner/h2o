@@ -50,7 +50,10 @@ public class SloppyDecimalParser {
     if( _state == ERROR || _state == LEADING || _state == NEGATE ) return Double.NaN;
     if( _neg ) _value = -_value;
     double d = _value*_scale;
-    if( _digs <= 8 ) d = (float)d; // Knock low-precision decimal values back to float precision
+    // Values with 0-3 digits we'll represent as scaled decimals.
+    // Values with 4-8 digits we'll represent as floats.
+    // Knock low-precision decimal values back to float precision
+    if( 3 < _digs && _digs <= 8 ) d = (float)d;
     return d;
   }
 }

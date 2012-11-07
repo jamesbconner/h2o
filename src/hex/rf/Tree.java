@@ -24,6 +24,7 @@ public class Tree extends CountedCompleter {
   final Key _modelKey;
   final int _alltrees;
   final float _sample;
+  transient Timer _timer;
 
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample) {
@@ -39,7 +40,7 @@ public class Tree extends CountedCompleter {
     _alltrees = alltrees;
     _sample = sample;
     assert sample <= 1.0f;
-    Utils.startTimer("tree"+(_data_id+1));
+    _timer = new Timer();
   }
 
   // Oops, uncaught exception
@@ -64,9 +65,9 @@ public class Tree extends CountedCompleter {
   public void compute() {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
-    Utils.startTimer("sample"+(_data_id+1));
+    Timer t_sample = new Timer();
     Data d = _data.sample(_sample);
-    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ Utils.printTimer("sample"+(_data_id+1)));
+    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample);
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
     for( Row r : d ) left.add(r);
@@ -75,14 +76,14 @@ public class Tree extends CountedCompleter {
       ? new LeafNode(spl._split)
       : new FJBuild (spl, d, 0, _seed + 1).compute();
     StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
-    Utils.pln(_tree.toString(sb,150).toString());
+    Utils.pln(_tree.toString(sb,200).toString());
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
     AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees);
     am.invoke(_modelKey);
 
-    Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ Utils.printTimer("tree"+(_data_id+1)));
+    Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
     tryComplete();
   }
 

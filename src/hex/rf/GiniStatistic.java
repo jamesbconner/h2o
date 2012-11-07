@@ -42,6 +42,9 @@ public class GiniStatistic extends Statistic {
     int bestSplit = -1;
     double bestFitness = 0.0;   // Fitness to maximize
     assert !d.ignore(colIndex);
+    assert _columnDists[colIndex].length > 1; // Have 2 have at least 2 rows to split
+    assert leftDist.length==_columnDists[colIndex][0].length;
+
     for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
       // first copy the i-th guys from rite to left
       for (int j = 0; j < leftDist.length; ++j) {

@@ -1,8 +1,8 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
-
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import jsr166y.RecursiveAction;
 import water.*;
 
@@ -20,14 +20,15 @@ public class DRF extends water.DRemoteTask {
   Key _arykey;          // The ValueArray being RF'd
   public Key _modelKey; // Where to jam the final trees
   public Key _treeskey; // Key of Tree-Keys built so-far
-  int[] _ignores;
-  float _sample;
-  short _bin_limit;
+  int[] _ignores;       // Columns to ignore
+  float _sample;        // Sampling rate
+  short _bin_limit;     // Size of largest count-of-uniques in a column
+  int _seed;            // Random # seed
 
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
   transient RandomForest _rf;        // The local RandomForest
-  transient int _seed;
+  transient Timer _t_main;     // Main timer
 
   public static class IllegalDataException extends Error {
     public IllegalDataException(String string) {
@@ -60,8 +61,7 @@ public class DRF extends water.DRemoteTask {
     drf._sample = sample;
     drf._bin_limit = binLimit;
     drf.validateInputData(ary);
-    Utils.clearTimers();
-    Utils.startTimer("maintimer");
+    drf._t_main = new Timer();
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
     drf.fork(drf._arykey);
@@ -111,7 +111,7 @@ public class DRF extends water.DRemoteTask {
     final int rowsize = ary.row_size();
 
     // One pass over all chunks to compute max rows
-    Utils.startTimer("maxrows");
+    Timer t_max = new Timer();
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
@@ -120,9 +120,9 @@ public class DRF extends water.DRemoteTask {
         if( unique == -1 )
           unique = ValueArray.getChunkIndex(key);
       }
-    Utils.pln("[RF] Max/min done in "+ Utils.printTimer("maxrows"));
+    Utils.pln("[RF] Max/min done in "+ t_max);
 
-    Utils.startTimer("binning");
+    Timer t_bin = new Timer();
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _bin_limit);
     // Now load the DataAdapter with all the rows on this Node
@@ -142,9 +142,9 @@ public class DRF extends water.DRemoteTask {
     for(; i < ncolumns; ++i)
       if( dapt.binColumn(i) ) colIds[j++] = i;
     if(j != 0) binData(dapt, keys, ary, colIds, j);
-    Utils.pln("[RF] Binning done in " + Utils.printTimer("binning"));
-    Utils.startTimer("inhale");
+    Utils.pln("[RF] Binning done in " + t_bin);
 
+    Timer t_inhale = new Timer();
     // Build fast cutout for ignored columns
     final boolean icols[] = new boolean[ncolumns];
     for( int k : _ignores ) icols[k]=true;
@@ -180,15 +180,15 @@ public class DRF extends water.DRemoteTask {
     }
     invokeAll(dataInhaleJobs);
 
-    Utils.pln("[RF] Inhale done in " + Utils.printTimer("inhale"));
+    Utils.pln("[RF] Inhale done in " + t_inhale);
 
     return dapt;
   }
   // Local RF computation.
   public final void compute() {
-    Utils.startTimer("extract");
+    Timer t_extract = new Timer();
     DataAdapter dapt = extractData(_arykey, _keys);
-    Utils.pln("[RF] Data adapter built in " + Utils.printTimer("extract") );
+    Utils.pln("[RF] Data adapter built in " + t_extract );
     Data t = Data.make(dapt);
     _validation = t; // FIXME... this does not look right.
 
