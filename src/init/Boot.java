@@ -442,6 +442,6 @@ public class Boot extends ClassLoader {
 
 
   private static Error barf( CtField ctf ) {
-    return new Error("Serialization of field "+ctf.getName()+" not implemented");
+    return new Error("Serialization of field "+ctf.getName()+" with signature "+ctf.getSignature()+" is not implemented");
   }
 }
