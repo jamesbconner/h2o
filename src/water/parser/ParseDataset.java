@@ -881,7 +881,7 @@ public final class ParseDataset {
           case -1:
             continue; //NaN
           case -2:
-            if(_colTypes[i] ==UCOL)_colTypes[i] = ECOL;
+            if(_colTypes[i] ==UCOL) _colTypes[i] = ECOL;
             break;
            default:
              assert numLength[i] >= 0:"unexpected num length " + numLength[i];
