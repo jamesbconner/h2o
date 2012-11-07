@@ -14,7 +14,7 @@ import water.Stream;
  */
 public final class FastTrie {
   short _state;
-  State [] _states = new State[256];
+  State [] _states = new State[1];
   BitSet _finalStates = new BitSet(256);
   short _nstates = 1;
   boolean _compressed;
@@ -26,7 +26,7 @@ public final class FastTrie {
   }
   final private short addState(State s){
     if(_nstates == _states.length) {
-      _states = Arrays.copyOf(_states, _states.length + (_states.length >> 1));
+      _states = Arrays.copyOf(_states, _states.length + (_states.length >> 1) + 1);
       BitSet newFinalStates = new BitSet(_states.length);
       newFinalStates.or(_finalStates);
       _finalStates = newFinalStates;
