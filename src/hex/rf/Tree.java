@@ -57,7 +57,8 @@ public class Tree extends CountedCompleter {
           new EntropyStatistic(data,_features, _seed);
       _stats[index].set(result);
     }
-    result.reset(data, seed);
+    boolean res = result.reset(data, seed, false);
+    assert res;
     return result;
   }
 
@@ -137,8 +138,8 @@ public class Tree extends CountedCompleter {
       _data.filter(nd,res,left,rite);
 
       FJBuild fj0 = null, fj1 = null;
-      Statistic.Split ls = left.split(_data, _depth >= _max_depth); // get the splits
-      Statistic.Split rs = rite.split(_data, _depth >= _max_depth);
+      Statistic.Split ls = left.split(res[0], _depth >= _max_depth); // get the splits
+      Statistic.Split rs = rite.split(res[1], _depth >= _max_depth);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
       else                    fj0 = new  FJBuild(ls,res[0],_depth+1, _seed + 1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
