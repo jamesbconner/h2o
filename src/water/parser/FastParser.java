@@ -497,6 +497,8 @@ NEXT_CHAR:
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
         case SEPARATOR_OR_EOL:
+          if (sb.toString().isEmpty())
+            mightBeNumber = false;
           if (mightBeNumber == true) 
             return null; // it is a number, so we can't count it as column header
           colNames.add(sb.toString());
