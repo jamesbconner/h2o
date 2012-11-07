@@ -94,21 +94,10 @@ public final class ParseDataset {
    return new int[]{ commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols };
  }
 
- // ---
-
- // Alternative column title guesser.  Returns an array of Strings, or
- // null if none.
- public static String[] guessColNames( Value dataset, int [] psetup ) {
-   return null;
- }
 
   // Configuration kind for parser
   public static final int PARSE_COMMASEP = 102;
   private static final int PARSE_SPACESEP = 103;
-
-  // Index to array returned by method guesss_parser_setup()
-  static final int PARSER_IDX = 0;
-  static final int COLNUM_IDX = 1;
 
   // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
   // result.
@@ -144,7 +133,7 @@ public final class ParseDataset {
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
-    System.out.println("Pass1 done...");
+//    System.out.println("Pass1 done...");
     long p1end = System.currentTimeMillis() - start;
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
@@ -193,7 +182,7 @@ public final class ParseDataset {
   }
 
   // True if the array is all NaNs
-  final static boolean allNaNs( double ds[] ) {
+  static boolean allNaNs( double ds[] ) {
     for( double d : ds )
       if( !Double.isNaN(d) )
         return false;
@@ -386,7 +375,7 @@ public final class ParseDataset {
     }
 
     @Override public void write( DataOutputStream os) throws IOException {
-      System.out.println("wds");
+//      System.out.println("wds");
       os.writeBoolean(_skipFirstLine);
       os.writeInt(_chunkId);
       os.writeInt(_phase);
@@ -425,7 +414,7 @@ public final class ParseDataset {
     }
 
     @Override public void read(DataInputStream is) throws IOException {
-      System.out.println("rds");
+//      System.out.println("rds");
       _skipFirstLine = is.readBoolean();
       _chunkId = is.readInt();
       _phase = is.readInt();
@@ -463,8 +452,8 @@ public final class ParseDataset {
     }
 
     @Override public void write( Stream s ) {
-      System.out.println("Write start, expect "+wire_len()+" bytes");
-      int off = s._off;
+//      System.out.println("Write start, expect "+wire_len()+" bytes");
+//      int off = s._off;
       s.setz(_skipFirstLine);
       s.set4(_chunkId);
       s.set4(_phase);
@@ -500,12 +489,12 @@ public final class ParseDataset {
           }
         }
       }
-      System.out.println("Write done, took "+(s._off - off)+" bytes");
-      assert (s._off - off == wire_len());
+//      System.out.println("Write done, took "+(s._off - off)+" bytes");
+//      assert (s._off - off == wire_len());
     }
 
     @Override public void read ( Stream s ) {
-      System.out.println("Read start");
+//      System.out.println("Read start");
       int off = s._off;
       _skipFirstLine = s.getz();
       _chunkId       = s.get4();
@@ -539,8 +528,8 @@ public final class ParseDataset {
           }
         }
       }
-      System.out.println("Read done, took "+(s._off - off)+" bytes");
-      assert (s._off - off == wire_len());
+//      System.out.println("Read done, took "+(s._off - off)+" bytes");
+//      assert (s._off - off == wire_len());
     }
 
     public DParseTask pass2() {
@@ -673,7 +662,7 @@ public final class ParseDataset {
         }
         switch(_phase){
         case 0:
-          System.out.println("Starting pass 1 "+key.toString());
+//          System.out.println("Starting pass 1 "+key.toString());
           _enums = new FastTrie[_ncolumns];
           _invalidValues = new long[_ncolumns];
           _min = new double [_ncolumns];
@@ -690,7 +679,7 @@ public final class ParseDataset {
             assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
-          System.out.println("End pass 1 "+key.toString());
+//          System.out.println("End pass 1 "+key.toString());
           break;
         case 1:
           _sigma = new double[_ncolumns];
