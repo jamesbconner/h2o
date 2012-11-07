@@ -426,7 +426,7 @@ public final class ParseDataset {
       _rowsize = is.readInt();
       _numRows = is.readInt();
       // 31 bytes
-      _resultKey.read(is);
+      _resultKey = Key.read(is);
       byte[] err = readAry1(is);
       if (err!=null)
         _error = new String(err);
