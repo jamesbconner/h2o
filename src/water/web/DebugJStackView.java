@@ -93,7 +93,7 @@ public class DebugJStackView extends H2OPage {
 
     JsonObject result = new JsonObject();
     JsonArray nodes = new JsonArray();
-    result.addProperty("node", H2O.SELF.toString());
+    result.addProperty("node_name", H2O.SELF.toString());
     result.addProperty("cloud_name", H2O.NAME);
     result.addProperty("time", DateFormat.getInstance().format(new Date()));
     result.add("nodes", nodes);
@@ -114,7 +114,7 @@ public class DebugJStackView extends H2OPage {
     RString r = new RString(html());
 
     r.replace("cloud_name", result.get("cloud_name"));
-    r.replace("node", result.get("node"));
+    r.replace("node_name", result.get("node_name"));
     r.replace("time", result.get("time"));
 
     JsonArray jary = result.getAsJsonArray("nodes");
@@ -152,12 +152,16 @@ public class DebugJStackView extends H2OPage {
 
   private String html() {
     return
-    	 "<ul class='nav nav-tabs'>"
+        "<div class='alert alert-success'>"
+         + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
+         + "</div>"
+    	 + "<ul class='nav nav-tabs'>"
+    	 + " <li class=''><a href='DebugView'>Keys</a></li>"
          + " <li class='active'><a href='DbgJStack'>JStack</a></li>\n"
          + " <li class='disabled'><a href='#'>JStat</a></li>\n"
          + "</ul>\n"
          + "<div class='alert alert-success'>"
-         + "Nodes stack traces generated for cloud %cloud_name at %time from node %node."
+         + "Nodes stack traces generated for cloud %cloud_name at %time from node %node_name."
          + "</div>"
          + "<div class='tabbable tabs-left'>\n"
          + " <ul class='nav nav-tabs' id='nodesTab'>\n"
