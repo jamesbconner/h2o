@@ -664,6 +664,7 @@ public final class ParseDataset {
         case 0:
 //          System.out.println("Starting pass 1 "+key.toString());
           _enums = new FastTrie[_ncolumns];
+          for(int i = 0; i < _enums.length; ++i)_enums[i] = new FastTrie();
           _invalidValues = new long[_ncolumns];
           _min = new double [_ncolumns];
           Arrays.fill(_min, Double.MAX_VALUE);
@@ -671,7 +672,6 @@ public final class ParseDataset {
           Arrays.fill(_max, Double.MIN_VALUE);
           _mean = new double[_ncolumns];
           _scale = new int[_ncolumns];
-          for(int i = 0; i < _enums.length; ++i)_enums[i] = new FastTrie();
           _colTypes = new byte[_ncolumns];
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p.parse(key,skipFirstLine);
@@ -871,7 +871,7 @@ public final class ParseDataset {
       }
     }
 
-    
+
     public void addRow2(long[] numbers, short[] exponents, byte[] numLength) {
       ++_myrows;
       switch (_phase) {
@@ -948,7 +948,7 @@ public final class ParseDataset {
         assert false:"unexpected phase " + _phase;
       }
     }
-    
+
 
     public void addRow(FastParser.Row row) {
       ++_myrows;

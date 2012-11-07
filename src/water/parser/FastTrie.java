@@ -32,6 +32,7 @@ public final class FastTrie {
       _finalStates = newFinalStates;
     }
     _states[_nstates] = s;
+    assert _nstates < _states.length:"unexpected number of states:" + _nstates + ", states.length = " + _states.length;
     return _nstates++;
   }
 
@@ -112,7 +113,9 @@ public final class FastTrie {
         if(other._transitions[i] == null)continue;
         for(int j = 0; j < 16; ++j){
           if(other._transitions[i][j] == 0)continue;
-          _states[getTransition((byte)((i << 4) + j))].merge(otherTrie, other._transitions[i][j]);
+          int x = getTransition((byte)((i << 4) + j));
+          assert x < _states.length;
+          _states[x].merge(otherTrie, other._transitions[i][j]);
         }
       }
     }
@@ -169,13 +172,16 @@ public final class FastTrie {
     final short getTransition(byte c){
       int idx = c >> 4;
       c &= 0x0F;
-      // TODO CAS everything so that it can be shared
       if(_transitions == null)_transitions = new short[16][];
       if(_transitions[idx] == null)_transitions[idx] = new short[16];
       if(_transitions[idx][c] == _state0){
         assert !_compressed:"missing transition";
         _transitions[idx][c] = addState(new State());
+        assert _transitions[idx][c] < _nstates:"unexpected target state: " + _transitions[idx][c] + ", nstates = " + _nstates;
+        assert _nstates <= _states.length:"*unexpected number of states:" + _nstates + ", states.length = " + _states.length;
       }
+      assert _transitions[idx][c] < _nstates:"unexpected target state: " + _transitions[idx][c] + ", nstates = " + _nstates + "state0 = " + _state0;
+      assert _nstates <= _states.length:"unexpected number of states:" + _nstates + ", states.length = " + _states.length;
       return _transitions[idx][c];
     }
   }
@@ -222,6 +228,7 @@ public final class FastTrie {
     for(int i = 0; i < nfinalStates; ++i)newStates.add(null);
     // put final states in the beginning...
     String [] strings = new String[nfinalStates];
+    int origStates = _states.length;
     _states[0].compress(newStates, strings, new StringBuilder(),(short)0,false);
     _states = new State[newStates.size()];
     _states = newStates.toArray(_states);
@@ -230,6 +237,7 @@ public final class FastTrie {
     _state = _state0;
     _nstates = (short)_states.length;
     _finalStates = null;
+    System.out.println("Trie compressed  from " + origStates + " to " + _states.length + " states");
     return strings;
   }
 
