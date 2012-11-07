@@ -62,7 +62,7 @@ public class DLSM {
     }
   }
 
-  // ADMM shrinkgge operator
+  // ADMM shrinkage operator
   private static double shrinkage(double x, double kappa) {
     return Math.max(0, x - kappa) - Math.max(0, -x - kappa);
   }
@@ -204,7 +204,7 @@ public class DLSM {
     @Override
     public void processRow(double[] x) {
       double y = x[x.length - 1];
-      // compute x*x' and add it to the marix
+      // compute x*x' and add it to the matrix
       for( int i = 0; i < (x.length - 1); ++i ) {
         for( int j = 0; j <= i; ++j ) { // matrix is symmetric -> compute only lower diag
           _xx[i][j] += x[i] * x[j];
@@ -212,7 +212,7 @@ public class DLSM {
         _xy[i] += x[i] * y;
       }
       // compute the constant (constant is not part of x and has to be computed
-      // sepearetly)
+      // separately)
       for( int j = 0; j < (x.length - 1); ++j )
         _xx[x.length - 1][j] += _constant * x[j];
       _xx[x.length - 1][x.length - 1] += _constant * _constant;
