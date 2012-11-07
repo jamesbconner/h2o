@@ -120,8 +120,8 @@ public class Server extends NanoHTTPD {
 
   // uri serve -----------------------------------------------------------------
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1); // Jack priority for user-visible requests
     if (uri.isEmpty()) uri = "/";
-
 
     Page page = _pages.get(uri.substring(1));
     boolean json = uri.endsWith(".json");
