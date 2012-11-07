@@ -28,36 +28,33 @@ public abstract class RowVecTask extends MRTask {
   }
 
   public static double[][] getDataPreprocessingForColumns(DataPreprocessing dp, ValueArray ary, int [] colIds){
-    if(dp == DataPreprocessing.NONE)return null;
+    if( dp == DataPreprocessing.NONE ) return null;
     double [][] res = new double[colIds.length][2];
-    if(dp != DataPreprocessing.NONE){
-      switch(dp) {
-      case NORMALIZE:
-        for(int i = 0; i < colIds.length;++i){
-          if(ary.col_max(colIds[i]) > 1 || ary.col_min(colIds[i]) < 0){
-            double min = ary.col_min(colIds[i]);
-            double max = ary.col_max(colIds[i]);
-            res[i][1] = min;
-            res[i][1] = 1/Math.max(Double.MAX_VALUE,max - min);
-          }
+    switch(dp) {
+    case NORMALIZE:
+      for(int i = 0; i < colIds.length;++i){
+        if(ary.col_max(colIds[i]) > 1 || ary.col_min(colIds[i]) < 0){
+          double min = ary.col_min(colIds[i]);
+          double max = ary.col_max(colIds[i]);
+          res[i][0] = min;
+          res[i][1] = max == min ? 1 : 1/(max - min);
         }
-        break;
-      case STANDARDIZE:
-        for(int i = 0; i < colIds.length;++i){
-          if(ary.col_mean(colIds[i]) != 0 || ary.col_sigma(colIds[i]) != 1){
-            res[i][0] = ary.col_mean(colIds[i]);
-            res[i][1] = 1/Math.max(Double.MIN_NORMAL, ary.col_sigma(colIds[i]));
-          }
-        }
-        break;
-      default:
-        throw new Error("unknown DataPreprocessing mode " + dp);
       }
+      break;
+    case STANDARDIZE:
+      for(int i = 0; i < colIds.length;++i){
+        if(ary.col_mean(colIds[i]) != 0 || ary.col_sigma(colIds[i]) != 1){
+          res[i][0] = ary.col_mean(colIds[i]);
+          res[i][1] = 1/Math.max(Double.MIN_NORMAL, ary.col_sigma(colIds[i]));
+        }
+      }
+      break;
+    default: throw new Error("unknown DataPreprocessing mode " + dp);
     }
     return res;
   }
 
-  protected boolean _skipIncompleteLines; // if ture, rows with invalid/missing values will be skipped
+  protected boolean _skipIncompleteLines; // if true, rows with invalid/missing values will be skipped
   protected int [] _colIds;
   protected double [][] _pVals;
   long _n;
