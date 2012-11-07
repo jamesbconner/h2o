@@ -319,7 +319,7 @@ public final class FastTrie {
         for(int i = 0; i < n; ++i)
           _finalStates.set(s.get2());
       }
-      for(int i = 0; i < _states.length; ++i){
+      for(int i = 0; i < _nstates; ++i){
         _states[i] = new State();
         _states[i].read(s);
       }
@@ -339,7 +339,7 @@ public final class FastTrie {
         for(int i = 0; i < n; ++i)
           _finalStates.set(is.readShort());
       }
-      for(int i = 0; i < _states.length; ++i){
+      for(int i = 0; i < _nstates; ++i){
         _states[i] = new State();
         _states[i].read(is);
       }
