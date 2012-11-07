@@ -60,6 +60,7 @@ public class Server extends NanoHTTPD {
     _pages.put("PutValue",new PutValue());
     _pages.put("PutVector",new PutVector());
     _pages.put("RFView",new RFView()); // View random-forest output
+    _pages.put("RFViewQuery",new RFViewQuery()); // View random-forest output
     _pages.put("RFTreeView",new RFTreeView());
     _pages.put("RF",new RandomForestPage());
     _pages.put("RandomForest",new RandomForestPage());
