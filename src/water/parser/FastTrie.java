@@ -21,6 +21,7 @@ public final class FastTrie {
   boolean _killed;
   short _state0 = (short)0;
 
+  int _id = (int)Math.random()*100;
   public FastTrie(){
     _states[0] = new State();
   }
@@ -106,16 +107,22 @@ public final class FastTrie {
       }
     }
 
-    void merge(FastTrie otherTrie, short sIdx){
+    void merge(short myIdx, FastTrie otherTrie, short sIdx){
       State other = otherTrie._states[sIdx];
+      if(otherTrie._finalStates.get(sIdx))
+        _finalStates.set(myIdx);
       if(other._transitions == null)return;
       for(int i = 0; i < 16; ++i){
         if(other._transitions[i] == null)continue;
         for(int j = 0; j < 16; ++j){
           if(other._transitions[i][j] == 0)continue;
-          int x = getTransition((byte)((i << 4) + j));
-          assert x < _states.length;
-          _states[x].merge(otherTrie, other._transitions[i][j]);
+         // System.out.println(_id + " _state = " + _state);
+          try{
+            short x = getTransition((byte)((i << 4) + j));
+            _states[x].merge(x,otherTrie, other._transitions[i][j]);
+          } catch(Exception e){
+            e.printStackTrace();
+          }
         }
       }
     }
@@ -175,6 +182,9 @@ public final class FastTrie {
       if(_transitions == null)_transitions = new short[16][];
       if(_transitions[idx] == null)_transitions[idx] = new short[16];
       if(_transitions[idx][c] == _state0){
+        if(_compressed){
+          System.out.println(" sem v kunde!");
+        }
         assert !_compressed:"missing transition";
         _transitions[idx][c] = addState(new State());
         assert _transitions[idx][c] < _nstates:"unexpected target state: " + _transitions[idx][c] + ", nstates = " + _nstates;
@@ -264,7 +274,7 @@ public final class FastTrie {
       _states = other._states;
       _nstates = other._nstates;
     }
-    _states[0].merge(other, (short)0);
+    _states[0].merge((short)0,other, (short)0);
   }
 
   public int wire_len(){
