@@ -871,6 +871,84 @@ public final class ParseDataset {
       }
     }
 
+    
+    public void addRow2(long[] numbers, short[] exponents, byte[] numLength) {
+      ++_myrows;
+      switch (_phase) {
+      case 0:
+        for(int i = 0; i < _ncolumns; ++i){
+          switch(numLength[i]) {
+          case -1:
+            continue; //NaN
+          case -2:
+            if(_colTypes[i] ==UCOL)_colTypes[i] = ECOL;
+            break;
+           default:
+             assert numLength[i] >= 0:"unexpected num length " + numLength[i];
+             double d = numbers[i]*pow10(exponents[i]);
+             if(d < _min[i])_min[i] = d;
+             if(d > _max[i])_max[i] = d;
+             if(exponents[i] < _scale[i]) {
+               _scale[i] = exponents[i];
+               if(_colTypes[i] != DCOL){
+                 if((float)d != d)_colTypes[i] = DCOL;
+                 else _colTypes[i] = FCOL;
+               }
+             } else if(_colTypes[i] < ICOL)
+              _colTypes[i] = ICOL;
+          }
+        }
+        break;
+      case 1:
+        if(_myrows > _outputRows[_outputIdx]) {
+          ++_outputIdx;
+          assert (_outputIdx < _outputStreams.length);
+          _s = _outputStreams[_outputIdx];
+          _myrows = 1;
+        }
+        for (int i = 0; i < numbers.length; ++i) {
+          switch(numLength[i]) {
+          case -1: // NaN
+            numbers[i]  = -1l;
+            numbers[i] += _bases[i];
+            // fallthrough -1 is NaN for all values, _lbases will cancel each other
+            // -1 is also NaN in case of enum (we're in number column)
+          case -2: // enum
+            // lbase for enums is 0
+          default:
+            switch (_colTypes[i]) {
+              case BYTE:
+                _s.set1((byte)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
+                break;
+              case SHORT:
+                _s.set2((short)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
+                break;
+              case INT:
+                _s.set4((int)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
+                break;
+              case LONG:
+                _s.set8(numbers[i]*pow10i(exponents[i] - _scale[i]));
+                break;
+              case FLOAT:
+                _s.set4f((float)(numbers[i] * pow10(exponents[i])));
+                break;
+              case DOUBLE:
+                _s.set8d(numbers[i] * pow10(exponents[i]));
+                break;
+              case DSHORT:
+                // scale is computed as negative in the first pass,
+                // therefore to compute the positive exponent after scale, we add scale and the original exponent
+                _s.set2((short)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
+                break;
+            }
+          }
+        }
+        break;
+      default:
+        assert false:"unexpected phase " + _phase;
+      }
+    }
+    
 
     public void addRow(FastParser.Row row) {
       ++_myrows;

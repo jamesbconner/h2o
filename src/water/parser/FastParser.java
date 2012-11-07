@@ -108,7 +108,10 @@ public class FastParser {
     int numStart = 0;
     int tokenStart = 0; // used for numeric token to backtrace if not successful
     boolean secondChunk = false;
-    Row row = new Row(_numColumns);
+//    Row row = new Row(_numColumns);
+    long[] _numbers = new long[_numColumns];
+    short[] _exponents = new short[_numColumns];
+    byte[] _numLength = new byte[_numColumns];
     byte c = bits[offset];
 //    int beenHere = 0;
 MAIN_LOOP:
@@ -144,13 +147,16 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case STRING_END:
           // we have parsed the string enum correctly
-          row.setCol(colIdx, colTrie.getTokenId(),(short) 0, (byte) -2);
+          _numbers[colIdx] = colTrie.getTokenId();
+          _exponents[colIdx] = 0;
+          _numLength[colIdx] = -2;
+          ++colIdx;
+//          row.setCol(colIdx++, colTrie.getTokenId(),(short) 0, (byte) -2);
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
         case SEPARATOR_OR_EOL:
           if (c == CHAR_SEPARATOR) {
-            ++colIdx;
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
@@ -162,7 +168,8 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case EOL:
           if (colIdx != 0)
-            callback.addRow(row);
+            callback.addRow2(_numbers,_exponents,_numLength);
+//            callback.addRow(row);
           colIdx = 0;
           state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
           if (secondChunk)
@@ -175,7 +182,11 @@ NEXT_CHAR:
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            row.setCol(colIdx++,-1,(short) 0, (byte) -2);
+            _numbers[colIdx] = colTrie.getTokenId();
+            _exponents[colIdx] = 0;
+            _numLength[colIdx] = -2;
+            ++colIdx;
+//            row.setCol(colIdx++,-1,(short) 0, (byte) -2);
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
@@ -249,19 +260,26 @@ NEXT_CHAR:
         case NUMBER_END:
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
-            row.setCol(colIdx,number, (short) exp, (byte) numStart);
-            // do separator state here too
+            _numbers[colIdx] = number;
+            _exponents[colIdx] = (short) exp;
+            _numLength[colIdx] = (byte) numStart;
             ++colIdx;
+//            row.setCol(colIdx++,number, (short) exp, (byte) numStart);
+            // do separator state here too
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           } else if (isEOL(c)) {
             exp = exp - fractionDigits;
-            row.setCol(colIdx,number, (short) exp, (byte) numStart);
+            _numbers[colIdx] = number;
+            _exponents[colIdx] = (short) exp;
+            _numLength[colIdx] = (byte) numStart;
+//            row.setCol(colIdx,number, (short) exp, (byte) numStart);
             // do EOL here for speedup reasons
             if (colIdx != 0)
-              callback.addRow(row);
+              callback.addRow2(_numbers,_exponents,_numLength);
+//              callback.addRow(row);
             colIdx = 0;
             state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
             if (secondChunk)
