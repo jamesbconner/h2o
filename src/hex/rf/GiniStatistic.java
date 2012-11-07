@@ -64,7 +64,7 @@ public class GiniStatistic extends Statistic {
         bestFitness = f;
       }
     }
-    return bestSplit == -1 
+    return bestSplit == -1
       ? Split.impossible(Utils.maxIndex(dist, random))
       : Split.split(colIndex, bestSplit, bestFitness);
   }
@@ -97,7 +97,7 @@ public class GiniStatistic extends Statistic {
         bestFitness = f;
       }
     }
-    return bestSplit == -1 
+    return bestSplit == -1
       ? Split.impossible(Utils.maxIndex(dist, random))
       : Split.exclusion(colIndex, bestSplit, bestFitness);
   }

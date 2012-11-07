@@ -531,17 +531,15 @@ class H2O(object):
     # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
     # in the dataset. We'll just do that all the time for now.
     # FIX! add more parameters from the wiki
-    def GLM(self, key, X="0", Y="1", family="binomial", xval=10, bool="true", **kwargs):
+    def GLM(self, key, Y, family="binomial", **kwargs):
         # we're going to build up the list by adding kwargs here, because
         # the possibilities are large and changing!
         params_list = { 
                 "family": family,
-                "X": X,
                 "Y": Y,
                 "Key": key,
-                "xval": xval,
-                "bool": bool
                 }
+
         # add one dictionary to another (2nd dominates)               
         params_list.update(kwargs)
         print "hello", params_list
