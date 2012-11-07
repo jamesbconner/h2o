@@ -569,9 +569,9 @@ public final class ParseDataset {
           }
           if( mode == 0 ) cols++;
           mode = 0;
-        } else if(c == ':' && (++colonCounter == 3)){
-          // if there are at least 3 ':' on the line, the file is probably svmlight format
-          throw new Error("SVMLIGHT format is currently unsupported");
+//        } else if(c == ':' && (++colonCounter == 3)){
+//          // if there are at least 3 ':' on the line, the file is probably svmlight format
+//          throw new Error("SVMLIGHT format is currently unsupported");
         } else {                  // Else its just column data
           if( mode != 1 ) cols++;
           mode = 1;
