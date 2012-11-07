@@ -238,6 +238,7 @@ public final class FastTrie {
    */
   public int getTokenId(){
     if(_killed)return -1;
+    if(_state == _state0)return -1;
     assert !_compressed || _state < _state0;
     int res =  _state;
     if(!_compressed)_finalStates.set(_state);
