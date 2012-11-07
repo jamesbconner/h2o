@@ -417,8 +417,8 @@ public final class ParseDataset {
           if (ft == null) {
             os.writeByte(-1);
           } else {
-            os.writeByte(-1);
-//            ft.write(os);
+            os.writeByte(1);
+            ft.write(os);
           }
         }
       }
@@ -687,7 +687,7 @@ public final class ParseDataset {
           FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p.parse(key,skipFirstLine);
           if(arraylet) {
-            assert (_nrows[ValueArray.getChunkIndex(key)] == 0);
+            assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
           System.out.println("End pass 1 "+key.toString());
