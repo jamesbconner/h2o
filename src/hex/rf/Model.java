@@ -20,8 +20,6 @@ public class Model extends RemoteTask {
   public int       _classes;
   /** Number of features these trees are built for */
   public int       _features;
-  /** Pseudo random number used as tie breaker. */
-  final transient private Random _rand = new Random(42); // FIXME: parameterize?
   /**
    * A RandomForest Model
    *
@@ -82,7 +80,7 @@ public class Model extends RemoteTask {
       votes[classify(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
   }
 
-  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
+  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, Random rand ) {
     // Vote all the trees for the row
     vote(chunk, row, rowsize, data, offs, size, base, scal, votes);
     // Tally results
@@ -93,7 +91,7 @@ public class Model extends RemoteTask {
       else if( votes[i] == votes[result] ) { tied++; }
     if( tied==1 ) return (short)result;
     // Tie-breaker logic
-    int j = _rand.nextInt(tied); // From zero to number of tied classes-1
+    int j = rand.nextInt(tied); // From zero to number of tied classes-1
     int k = 0;
     for( int i=0; i<votes.length-1; i++ )
       if( votes[i]==votes[result] && (k++ >= j) )

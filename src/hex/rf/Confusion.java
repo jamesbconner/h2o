@@ -144,6 +144,7 @@ public class Confusion extends MRTask {
       base[k] = _data.col_base (k);
       scal[k] = _data.col_scale(k);
     }
+    Random rand = new Random(ValueArray.getChunkIndex(chunk_key));
 
     // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
@@ -152,7 +153,7 @@ public class Confusion extends MRTask {
       if( ignoreRow(nchk, i) ) continue; // Skipped for validating & training
       if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) continue; // Cannot vote if no class!
       for( int j=0; j<_N; j++ ) votes[j] = 0;
-      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes);
+      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, rand);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;
@@ -166,9 +167,11 @@ public class Confusion extends MRTask {
     Confusion C = (Confusion) drt;
     long[][] m1 = _matrix;
     long[][] m2 = C._matrix;
-    if( m1 == null ) { _matrix = m2; return; } // Take other work straight-up
-    for( int i = 0; i < m1.length; i++ )
-      for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
+    if( m1 == null ) _matrix = m2;  // Take other work straight-up
+    else {
+      for( int i = 0; i < m1.length; i++ )
+        for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
+    }
     _rows += C._rows;
     _errors += C._errors;
   }
