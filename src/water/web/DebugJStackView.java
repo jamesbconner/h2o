@@ -4,6 +4,7 @@
 package water.web;
 
 import java.io.*;
+import java.text.DateFormat;
 import java.util.*;
 import java.util.Map.Entry;
 
@@ -92,6 +93,9 @@ public class DebugJStackView extends H2OPage {
 
     JsonObject result = new JsonObject();
     JsonArray nodes = new JsonArray();
+    result.addProperty("node", H2O.SELF.toString());
+    result.addProperty("cloud_name", H2O.NAME);
+    result.addProperty("time", DateFormat.getInstance().format(new Date()));
     result.add("nodes", nodes);
     for (int i=0; i<collector.result.length; ++i) {
       JsonObject el = new JsonObject();
@@ -108,6 +112,10 @@ public class DebugJStackView extends H2OPage {
   protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     JsonObject result = serverJson(server, args, sessionID);
     RString r = new RString(html());
+
+    r.replace("cloud_name", result.get("cloud_name"));
+    r.replace("node", result.get("node"));
+    r.replace("time", result.get("time"));
 
     JsonArray jary = result.getAsJsonArray("nodes");
     int i = 0;
@@ -146,8 +154,11 @@ public class DebugJStackView extends H2OPage {
     return
     	 "<ul class='nav nav-tabs'>"
          + " <li class='active'><a href='DbgJStack'>JStack</a></li>\n"
-         + " <li class='disabled'> <a href='DbgJStat'>JStat</a></li>\n"
+         + " <li class='disabled'><a href='#'>JStat</a></li>\n"
          + "</ul>\n"
+         + "<div class='alert alert-success'>"
+         + "Nodes stack traces generated for cloud %cloud_name at %time from node %node."
+         + "</div>"
          + "<div class='tabbable tabs-left'>\n"
          + " <ul class='nav nav-tabs' id='nodesTab'>\n"
          + "%nodeTab{"
