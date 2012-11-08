@@ -193,6 +193,7 @@ public final class FastTrie {
     }
 
     final int getTransition(int c){
+      assert (c & 0xFF) == c;
       int idx = c >> 4;
       c &= 0x0F;
       if(_transitions == null)_transitions = new short[16][];
