@@ -27,8 +27,11 @@ public class RFBuildQuery extends H2OPage {
     return res.toString();
   }
 
-  private String select(String name, boolean multiple, String[] options) {
+  private String select(String name, String description, boolean multiple, String[] options) {
     StringBuilder res = new StringBuilder();
+    res.append("<label for='").append(name).append("'>");
+    res.append(description);
+    res.append("</label>&nbsp;&nbsp;");
     res.append("<select ");
     if(multiple) res.append("multiple='true' ");
     res.append("name='").append(name).append("' ");
@@ -56,10 +59,10 @@ public class RFBuildQuery extends H2OPage {
     return new RString(
         "Select the parameters for the random forest.<hr>" +
         "<form class='well form-inline' action='RF'>" +
-        input("input-small span4", "text", DATA_KEY,  "Hex key for data") +
-        select(CLASS_COL, false, cols) +
-        select(IGNORE_COL, true, cols) +
-        input("input-small span4", "text", MODEL_KEY, "Hex key for model to be built") +
+        input("input-small span4", "text", DATA_KEY,  "Hex key for data") +"<br>"+
+        select(CLASS_COL, "Column to learn", false, cols) +"<br>"+
+        select(IGNORE_COL, "Columns to ignore", true, cols) +"<br>"+
+        input("input-small span4", "text", MODEL_KEY, "Key for result model") +"<br>"+
         "  <button class='btn btn-primary' type='submit'>Build Random Forest</button>" +
         "</form>"
         );
