@@ -249,9 +249,7 @@ public final class ParseDataset {
     // create and used only on the task caller's side
     transient String[][] _colDomains;
 
-    public DParseTask() {
-      System.out.println("curak");
-    }
+    public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
       _resultKey = resultKey;
       _ncolumns = ncolumns;

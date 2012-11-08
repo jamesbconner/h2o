@@ -197,9 +197,6 @@ public final class FastTrie {
       if(_transitions == null)_transitions = new short[16][];
       if(_transitions[idx] == null)_transitions[idx] = new short[16];
       if(_transitions[idx][c] == _state0){
-        if(_compressed){
-          System.out.println(" sem v kunde!");
-        }
         assert !_compressed:"missing transition";
         _transitions[idx][c] = addState(new State());
         assert _transitions[idx][c] < _nstates:"unexpected target state: " + _transitions[idx][c] + ", nstates = " + _nstates;
@@ -276,9 +273,6 @@ public final class FastTrie {
   public int getTokenId(){
     if(_killed)return -1;
     if(_state == _state0)return -1;
-    if(_compressed && (_state >= _state0)){
-      System.out.println("Sem prdeli!");
-    }
     assert (!_compressed || (_state < _state0));
     int res =  _state;
     if(!_compressed)_finalStates.set(_state);
