@@ -540,12 +540,34 @@ public class RLikeParser {
     return result;
   }
 
+  
+  
+  /* 
+   * F -> F2 [ $ ident | '[' number ']' ]
+   */
+  private Expr parse_F() throws ParserException {
+    Expr f = parse_F2();
+    switch (top()._type) {
+      case ttOpDollar:
+        int pos = pop()._pos;
+        return new StringColumnSelector(pos, f, pop(Token.Type.ttIdent)._id);
+      case ttOpBracketOpen:
+        pos = pop()._pos;
+        int idx = pop(Token.Type.ttInteger)._valueInt;
+        pop(Token.Type.ttOpBracketClose);
+        return new ColumnSelector(pos, f, idx);
+      default:
+        return f;
+    }
+  }
+  
+  
   /*
    * This is silly grammar for now, I need to understand R more to make it
    *
-   * F -> - F | STRING | number | FUNCTION | ident ( = S | $ ident | [ number ] ) | ( S )
+   * F2 -> - STRING | number | FUNCTION | ident ( = S | $ ident | [ number ] ) | ( S )
    */
-  private Expr parse_F() throws ParserException {
+  private Expr parse_F2() throws ParserException {
     int pos = top()._pos;
     switch( top()._type ) {
       case ttOpSub:
@@ -562,18 +584,9 @@ public class RLikeParser {
           pos = pop()._pos;
           Expr rhs = parse_S();
           return new AssignmentOperator(pos, Key.make(t._id), rhs);
-        } else if( top()._type == Token.Type.ttOpDollar ) {
-          pos = pop()._pos;
-          return new StringColumnSelector(pos, new KeyLiteral(t._pos, t._id), pop(Token.Type.ttIdent)._id);
-        } else if( top()._type == Token.Type.ttOpBracketOpen ) {
-          pos = pop()._pos;
-          int idx = pop(Token.Type.ttInteger)._valueInt;
-          pop(Token.Type.ttOpBracketClose);
-          return new ColumnSelector(pos, new KeyLiteral(t._pos, t._id), idx);
         } else if (top()._type == Token.Type.ttOpParOpen) {
           return parse_Function(t);
         } else {
-          
           return new KeyLiteral(t._pos, t._id);
         }
       }
