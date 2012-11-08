@@ -150,7 +150,6 @@ abstract class Statistic {
     // check if we are leaf node
     int m = Utils.maxIndex(dist, random); //FIXME:take care of the case where there are several classes
     if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m);
-
     // try the splits
     Split bestSplit = Split.split(_features[0], 0, -Double.MAX_VALUE);
     for( int j = 0; j < _features.length; ++j ) {
@@ -163,10 +162,7 @@ abstract class Statistic {
       if (!reset(d,_seed+1, true)) return bestSplit;
       for(Row r: d)  add(r);
       bestSplit = split(d,expectLeaf);
-      if (bestSplit.isImpossible()) {
-        Utils.pln("IMP "+I++);
-        return bestSplit;
-      }
+      if (bestSplit.isImpossible()) return bestSplit;
     }
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
 
