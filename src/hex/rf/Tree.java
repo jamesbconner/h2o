@@ -71,7 +71,8 @@ public class Tree extends CountedCompleter {
     Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample);
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
-    for( Row r : d ) left.add(r);
+    for( Row r : d ) left.addQ(r);
+    left.applyClassWeights();   // Weight the distributions
     Statistic.Split spl = left.split(d, false);
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)

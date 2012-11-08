@@ -42,6 +42,7 @@ public class Data implements Iterable<Row> {
   public float unmap(int col, int split) { return _data.unmap(col, split); }
   public int columnArity(int colIndex) { return _data.columnArity(colIndex); }
   public boolean ignore(int col) { return _data.ignore(col);   }
+  public double[] classWt()      { return _data._classWt; }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
   private class RowIter implements Iterator<Row> {
@@ -60,15 +61,17 @@ public class Data implements Iterable<Row> {
     while (l <= r) {
       int permIdx = row._index = permutation[l];
       if (node.isIn(row)) {
-        ls.add(row);
+        ls.addQ(row);
         ++l;
       } else {
-        rs.add(row);
+        rs.addQ(row);
         permutation[l] = permutation[r];
         permutation[r--] = permIdx;
       }
     }
     assert r+1 == l;
+    ls.applyClassWeights();     // Weight the distributions
+    rs.applyClassWeights();     // Weight the distributions
     result[0]= new Subset(this, permutation, start(), l);
     result[1]= new Subset(this, permutation, l,   end());
   }

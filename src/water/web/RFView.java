@@ -163,7 +163,7 @@ public class RFView extends H2OPage {
       trow.append();
     }
 
-    confusion.report();  // Print on std out...
+    //confusion.report();  // Print on std out...
 
     RString url = new RString("RFViewQuery?modelKey=%$key&class=%class");
     url.replace("key", modelKey);

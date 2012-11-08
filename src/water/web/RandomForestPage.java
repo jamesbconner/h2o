@@ -28,11 +28,7 @@ public class RandomForestPage extends H2OPage {
 
   
   public static double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws PageError {
-    if (classColIdx == -1)
-      classColIdx = ary.num_cols()-1;
-    else
-      if ((classColIdx<0) || (classColIdx >= ary.num_cols()))
-        throw new PageError(classColIdx+" is not a valid column for given dataset");
+    assert classColIdx>=0 && classColIdx < ary.num_cols();
     // determine the arity of the column
     HashMap<String,Integer> classNames = new HashMap();
     int arity = ary.col_enum_domain_size(classColIdx);
@@ -45,8 +41,9 @@ public class RandomForestPage extends H2OPage {
         throw new PageError("Only integer or enum columns can be classes!");
       if (max - min > maxClasses) // arbitrary number
         throw new PageError("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
-      for (int i = 0; i < max - min; ++i)
+      for (int i = 0; i <= max - min; ++i)
         classNames.put(String.valueOf(min+i),i);
+      arity = classNames.size();
     } else {
       String[] domain = ary.col_enum_domain(classColIdx);
       for (int i = 0; i < domain.length; ++i)
@@ -77,7 +74,6 @@ public class RandomForestPage extends H2OPage {
       }
       start = end;
       while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
-      System.out.println("className: "+className);
       if (bsource[start]!='=')
         throw new PageError("Expected = after the class name.");
       ++start;
@@ -89,7 +85,6 @@ public class RandomForestPage extends H2OPage {
         classWeight = Double.parseDouble(source.substring(start,end));
         start = end + 1;
       }
-      System.out.println("classWeight: "+classWeight);
       if (!classNames.containsKey(className))
         throw new PageError("Class "+className+" not found!");
       result[classNames.get(className)] = classWeight;
@@ -112,7 +107,6 @@ public class RandomForestPage extends H2OPage {
     int gini = getAsNumber(p, GINI, StatType.GINI.ordinal());
     int seed = getAsNumber(p, RAND_SEED, 42);
     int par = getAsNumber(p, PARALLEL, 1);
-    double[] weights = determineClassWeights(p.getProperty("weights",""), ary, -1, 4096);
     if( !(par == 0 || par == 1) )
       throw new InvalidInputException("Parallel tree building "+par+" must be either 0 or 1");
     boolean parallel =  par== 1;
@@ -139,6 +133,7 @@ public class RandomForestPage extends H2OPage {
       if( classcol < 0 || classcol >= ary.num_cols() )
         throw new InvalidInputException("Class out of range");
     }
+    double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, 4096);
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
@@ -155,7 +150,7 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel);
+      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
       Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes);
