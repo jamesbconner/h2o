@@ -41,7 +41,7 @@ public class RandomForestPage extends H2OPage {
         throw new PageError("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
       String[] result = new String[max-min+1];
       for (int i = 0; i <= max - min; ++i)
-        result[i] = String.valueOf(min+1);
+        result[i] = String.valueOf(min+i);
       return result;
     } else {
       return  ary.col_enum_domain(classColIdx);
