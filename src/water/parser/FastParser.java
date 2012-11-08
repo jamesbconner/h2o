@@ -98,9 +98,9 @@ public class FastParser {
     ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
     byte[] bits = DKV.get(key).get();
     int offset = 0;
-    byte state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
-    byte quotes = 0;
-    short colIdx = 0;
+    int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
+    int quotes = 0;
+    int colIdx = 0;
     FastTrie colTrie = null;
     long number = 0;
     int exp = 0;
