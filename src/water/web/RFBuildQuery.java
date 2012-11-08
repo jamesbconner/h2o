@@ -3,26 +3,74 @@ package water.web;
 
 import java.util.Properties;
 
-public class RFBuildQuery extends H2OPage {
+import water.ValueArray;
 
-  private RString html() {
-    return new RString("" +
-        "Select the model & data and other arguments for the Random Forest View to look at:<br/>" +
-        "<form class='well form-inline' action='RFView'>" +
-        "  <button class='btn btn-primary' type='submit'>View</button>" +
-        "  <input class='input-small span4' type='text' name='dataKey' id='dataKey' placeholder='Hex key for data' value=\"%dataKey\">" +
-        "  <input class='input-small span4' type='text' name='modelKey' id='modelKey' placeholder='Hex key for model' value=\"%modelKey\">" +
-        "  <input class='input-small span2' type='text' name='class' id='class' placeholder='Class' value=\"%class\">" +
+public class RFBuildQuery extends H2OPage {
+  private static final String DATA_KEY  = RandomForestPage.DATA_KEY;
+  private static final String MODEL_KEY = RandomForestPage.MODEL_KEY;
+  private static final String CLASS_COL = RandomForestPage.CLASS_COL;
+
+  public static final String NUM_TREE   = RandomForestPage.NUM_TREE;
+  public static final String MAX_DEPTH  = RandomForestPage.MAX_DEPTH;
+  public static final String SAMPLE     = RandomForestPage.SAMPLE;
+  public static final String BIN_LIMIT  = RandomForestPage.BIN_LIMIT;
+  public static final String GINI       = RandomForestPage.GINI;
+  public static final String IGNORE_COL = RandomForestPage.IGNORE_COL;
+
+  private String input(String clz, String type, String name, String placeholder) {
+    RString res = new RString(
+        "<input class='%clz' type='%type' name='%name' id='%name' placeholder='%placeholder' value=\"%%%name\">");
+    res.replace("clz", clz);
+    res.replace("type", type);
+    res.replace("name", name);
+    res.replace("placeholder", placeholder);
+    return res.toString();
+  }
+
+  private String select(String name, boolean multiple, String[] options) {
+    StringBuilder res = new StringBuilder();
+    res.append("<select ");
+    if(multiple) res.append("multiple='true' ");
+    res.append("name='").append(name).append("' ");
+    res.append(">");
+    for( String o : options ) {
+      res.append("<option value='").append(o).append("'>");
+      res.append(o);
+      res.append("</option>");
+    }
+    res.append("</select>");
+    return res.toString();
+  }
+
+  private RString html(ValueArray va) {
+    if( va == null ) {
+      return new RString(
+          "Select a hex key to use as the learning set.<hr>" +
+          "<form class='well form-inline' action='RFBuildQuery'>" +
+          input("input-small span4", "text", DATA_KEY, "Hex key for learning") +
+          "<button class='btn btn-primary' type='submit'>Update</button>" +
+          "</form>");
+    }
+    String[] cols = va.col_names();
+
+    return new RString(
+        "Select the parameters for the random forest.<hr>" +
+        "<form class='well form-inline' action='RF'>" +
+        input("input-small span4", "text", DATA_KEY,  "Hex key for data") +
+        select(CLASS_COL, false, cols) +
+        select(IGNORE_COL, true, cols) +
+        input("input-small span4", "text", MODEL_KEY, "Hex key for model to be built") +
+        "  <button class='btn btn-primary' type='submit'>Build Random Forest</button>" +
         "</form>"
         );
   }
 
-  @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
-    RString result = html();
-    result.replace("dataKey",args.getProperty("dataKey",""));
-    result.replace("modelKey",args.getProperty("modelKey",""));
-    result.replace("class",args.getProperty("class",""));
+  @Override protected String serveImpl(Server server, Properties p, String sessionID) throws PageError {
+    String key = p.getProperty(DATA_KEY, null);
+    RString result = html(key == null ? null : ServletUtil.check_array(p, DATA_KEY));
+    result.replace(DATA_KEY,  p.getProperty(DATA_KEY,  ""));
+    result.replace(MODEL_KEY, p.getProperty(MODEL_KEY, ""));
+    result.replace(CLASS_COL, p.getProperty(CLASS_COL, ""));
     return result.toString();
   }
-
 }
