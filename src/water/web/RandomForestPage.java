@@ -3,6 +3,7 @@ package water.web;
 import com.google.gson.JsonObject;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
+import java.util.HashMap;
 import java.util.Properties;
 import water.*;
 
@@ -13,6 +14,77 @@ public class RandomForestPage extends H2OPage {
     return new String[] { "Key" };
   }
 
+  
+  public static double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws PageError {
+    if (classColIdx == -1)
+      classColIdx = ary.num_cols()-1;
+    else
+      if ((classColIdx<0) || (classColIdx >= ary.num_cols()))
+        throw new PageError(classColIdx+" is not a valid column for given dataset");
+    // determine the arity of the column
+    HashMap<String,Integer> classNames = new HashMap();
+    int arity = ary.col_enum_domain_size(classColIdx);
+    if (arity == 0) {
+      int min = (int) ary.col_min(classColIdx);
+      if (ary.col_min(classColIdx) != min)
+        throw new PageError("Only integer or enum columns can be classes!");
+      int max = (int) ary.col_max(classColIdx);
+      if (ary.col_max(classColIdx) != max)
+        throw new PageError("Only integer or enum columns can be classes!");
+      if (max - min > maxClasses) // arbitrary number
+        throw new PageError("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+      for (int i = 0; i < max - min; ++i)
+        classNames.put(String.valueOf(min+i),i);
+    } else {
+      String[] domain = ary.col_enum_domain(classColIdx);
+      for (int i = 0; i < domain.length; ++i)
+        classNames.put(domain[i],i);
+    }
+    if (source.isEmpty())
+      return null;
+    double[] result = new double[arity];
+    for (int i = 0; i < result.length; ++i)
+      result[i] = 1;
+    // now parse the given string and update the weights
+    int start = 0;
+    byte[] bsource = source.getBytes();
+    while (start < bsource.length) {
+      while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+      String className;
+      double classWeight;
+      int end = 0;
+      if (bsource[start] == ',') {
+        ++start;
+        end = source.indexOf(',',start);
+        className = source.substring(start,end);
+        ++end;
+        
+      } else {
+        end = source.indexOf('=',start);
+        className = source.substring(start,end);
+      }
+      start = end;
+      while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+      System.out.println("className: "+className);
+      if (bsource[start]!='=')
+        throw new PageError("Expected = after the class name.");
+      ++start;
+      end = source.indexOf(',',start);
+      if (end == -1) {
+        classWeight = Double.parseDouble(source.substring(start));
+        start = bsource.length;
+      } else {
+        classWeight = Double.parseDouble(source.substring(start,end));
+        start = end + 1;
+      }
+      System.out.println("classWeight: "+classWeight);
+      if (!classNames.containsKey(className))
+        throw new PageError("Class "+className+" not found!");
+      result[classNames.get(className)] = classWeight;
+    }
+    return result;
+  } 
+  
   @Override
   public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(p,"Key");
@@ -28,6 +100,7 @@ public class RandomForestPage extends H2OPage {
     int gini = getAsNumber(p, "gini", StatType.GINI.ordinal());
     int seed = getAsNumber(p,"seed", 42);
     int par = getAsNumber(p,"parallel",1);
+    double[] weights = determineClassWeights(p.getProperty("weights",""), ary, -1, 4096);
     if( !(par == 0 || par == 1) )
       throw new InvalidInputException("Parallel tree building "+par+" must be either 0 or 1");
     boolean parallel =  par== 1;
