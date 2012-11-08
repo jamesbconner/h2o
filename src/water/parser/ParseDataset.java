@@ -130,6 +130,10 @@ public final class ParseDataset {
     byte [] bits = (dataset instanceof ValueArray) ? DKV.get(((ValueArray)dataset).make_chunkkey(0)).get(256*1024) : dataset.get(256*1024);
     String [] colNames = FastParser.determineColumnNames(bits,sep);
     boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
+    if (colNames!=null) {
+      psetup[1] = colNames.length;
+      System.out.println("old parser setup is ******");
+    }
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);

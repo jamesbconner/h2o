@@ -294,6 +294,8 @@ NEXT_CHAR:
               break MAIN_LOOP; // second chunk only does the first row
             break NEXT_CHAR;
           } else {
+            state = STRING;
+            colTrie = callback._enums[colIdx];
             offset = tokenStart-1;
             break NEXT_CHAR; // parse as String token now 
           }
