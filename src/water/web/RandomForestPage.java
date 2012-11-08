@@ -74,8 +74,8 @@ public class RandomForestPage extends H2OPage {
       // Save it to the cloud
       UKV.put(modelKey,model);
       // Pass along all to the viewer
-      addProperty(res,"dataKey" , ary._key);
-      addProperty(res,"modelKey", modelKey);
+      res.addProperty("dataKey", ary._key.toString());
+      res.addProperty("modelKey", modelKey.toString());
       res.addProperty("ntree", ntree);
       res.addProperty("class", classcol);
     } catch(DRF.IllegalDataException e) {

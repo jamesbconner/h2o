@@ -218,7 +218,7 @@ public class PutFile extends H2OPage {
       jsonFile.addProperty("size", val.length());
       jsonFile.addProperty("url",  "/Get?Key=" + key.toString());
       jsonFile.addProperty("rf",   rf);
-      addProperty(jsonFile, "key", key);
+      jsonFile.addProperty("key", key.toString());
       jsonResult.add(jsonFile);
 
       return jsonResult;

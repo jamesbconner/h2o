@@ -36,7 +36,7 @@ public class Inspect extends H2OPage {
       throw new PageError("Key not found: " + key.toString());
 
     JsonObject result = new JsonObject();
-    addProperty(result, "key", key);
+    result.addProperty("key", key.toString());
     if (val instanceof ValueArray) {
       result.addProperty("type", "ary");
       ValueArray ary = (ValueArray) val;

@@ -1,30 +1,35 @@
 package water.web;
-import com.google.gson.JsonObject;
 import hex.rf.Confusion;
 import hex.rf.Model;
-import hex.rf.Tree;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
+
 import java.util.Properties;
+
 import water.*;
 
+import com.google.gson.JsonObject;
+
 public class RFView extends H2OPage {
+  public static final String DATA_KEY  = "dataKey";
+  public static final String MODEL_KEY = "modelKey";
+  public static final String CLASS_COL = "class";
+  public static final String REQ_TREE  = "atree";
+  public static final String NUM_TREE  = "ntree";
 
   @Override public String[] requiredArguments() {
-    return new String[] { "dataKey", "modelKey" };
+    return new String[] { DATA_KEY, MODEL_KEY };
   }
 
   @Override public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     // The dataset is required
-    ValueArray ary = ServletUtil.check_array(p,"dataKey");
+    ValueArray ary = ServletUtil.check_array(p, DATA_KEY);
 
     // The model is required
-    final Key modelKey = ServletUtil.check_key(p,"modelKey");
+    final Key modelKey = ServletUtil.check_key(p, MODEL_KEY);
     Model model = UKV.get(modelKey, new Model());
     if( model == null ) throw new PageError("Model key is missing");
 
     // Class is optional
-    int classcol = getAsNumber(p,"class",ary.num_cols()-1);
+    int classcol = getAsNumber(p, CLASS_COL, ary.num_cols()-1);
     if( classcol < 0 || classcol >= ary.num_cols() )
       throw new PageError("Class out of range");
 
@@ -32,8 +37,8 @@ public class RFView extends H2OPage {
     // Atree - number of trees to display, if not all are available.
     // Ntree - final number of trees that will eventually be built.
     //   0 <= atree <= model.size() <= ntree
-    int atree = getAsNumber(p,"atree",0);
-    int ntree = getAsNumber(p,"ntree",model.size());
+    int atree = getAsNumber(p, REQ_TREE,0);
+    int ntree = getAsNumber(p, NUM_TREE, model.size());
 
     // Validation is moderately expensive, so do not run validation unless
     // asked-for or all trees are finally available.  "atrees" is the number of
@@ -41,14 +46,13 @@ public class RFView extends H2OPage {
     // limit, unless all trees have finally arrived.
     if( model.size() == ntree ) atree = ntree;
 
-
     JsonObject res = new JsonObject();
-    addProperty(res, "dataKey", ary._key);
-    addProperty(res, "modelKey", modelKey);
-    res.addProperty("class",classcol);
-    res.addProperty("ntree",ntree); // asked-for trees
-    res.addProperty("atree",atree); // displayed trees
-    res.addProperty("modelSize",model.size()); // how many we got
+    res.addProperty(DATA_KEY,    ary._key.toString());
+    res.addProperty(MODEL_KEY,   modelKey.toString());
+    res.addProperty(CLASS_COL,   classcol);
+    res.addProperty(NUM_TREE,    ntree); // asked-for trees
+    res.addProperty(REQ_TREE,    atree); // displayed trees
+    res.addProperty("modelSize", model.size()); // how many we got
 
     // only create conf matrix if asked for
     if (p.getProperty("noCM","0").equals("0")) {
@@ -56,7 +60,7 @@ public class RFView extends H2OPage {
       // C.M. run, we'll find it via hashing.  If not, we'll block while we build
       // the C.M.
       Confusion confusion = Confusion.make( model, ary._key, classcol );
-      addProperty(res, "confusionKey", confusion.keyFor());
+      res.addProperty("confusionKey", confusion.keyFor().toString());
     }
     return res;
   }
@@ -65,19 +69,17 @@ public class RFView extends H2OPage {
     // Update the Model.
     // Compute the Confusion.
     JsonObject json = serverJson(s, p, sessionID);
-    if( json.has("error") )
-      return H2OPage.error(json.get("error").toString());
+    if( json.has("error") ) return H2OPage.error(json.get("error").toString());
 
     // The dataset is required
-    ValueArray ary = ServletUtil.check_array(p,"dataKey");
-    final int classcol = json.get("class").getAsInt();
+    ValueArray ary = ServletUtil.check_array(p, DATA_KEY);
+    final int classcol = json.get(CLASS_COL).getAsInt();
 
     // The model is required
-    final Key modelKey = ServletUtil.check_key(p,"modelKey");
+    final Key modelKey = ServletUtil.check_key(p, MODEL_KEY);
     Model model = UKV.get(modelKey, new Model());
-    int atree = json.get("atree").getAsInt();
-    int ntree = json.get("ntree").getAsInt();
-    json.addProperty("modelSize",model.size()); // how many we got
+    int atree = json.get(REQ_TREE).getAsInt();
+    int ntree = json.get(NUM_TREE).getAsInt();
     if( model.size() == ntree ) atree = ntree;
 
     // Since the model has already been run on this dataset (in the serverJson
@@ -154,20 +156,19 @@ public class RFView extends H2OPage {
     int limkeys = Math.min(model.size(),1000);
     for( int i=0; i<limkeys; i++ ) {
       RString trow = response.restartGroup("trees");
-      trow.replace("modelKey",modelKey);
+      trow.replace(MODEL_KEY,modelKey);
       trow.replace("n",i);
-      trow.replace("dataKey",ary._key);
-      trow.replace("class",classcol);
+      trow.replace(DATA_KEY,ary._key);
+      trow.replace(CLASS_COL,classcol);
       trow.append();
     }
 
     confusion.report();  // Print on std out...
 
-    try {
-      response.replace("validateOther","RFViewQuery?modelKey="+URLEncoder.encode(p.getProperty("modelKey"),"UTF8")+"&class="+p.getProperty("class",""));
-    } catch (UnsupportedEncodingException e) {
-      // pass
-    }
+    RString url = new RString("RFViewQuery?modelKey=%$key&class=%class");
+    url.replace("key", modelKey);
+    url.replace(CLASS_COL, classcol);
+    response.replace("validateOther", url.toString());
 
     return response.toString();
   }
@@ -179,7 +180,7 @@ public class RFView extends H2OPage {
       + "<tr><td>Showing %atree of %ntree trees, with %modelSize trees built</td></tr>"
       + "<tr><td>%validateMore</td></tr>"
       + "</tbody></table>\n"
-      + "<p><a href=\"%validateOther\">Validate another data</a></p>"
+      + "<p><a href=\"%validateOther\">Validate model with another dataset</a></p>"
 
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"

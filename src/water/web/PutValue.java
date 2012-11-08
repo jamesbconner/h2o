@@ -32,7 +32,7 @@ public class PutValue extends H2OPage {
     DKV.put(key, val);
 
     JsonObject res = new JsonObject();
-    addProperty(res, "key",   key);
+    res.addProperty("key", key.toString());
     res.addProperty( "rf",    rf);
     res.addProperty( "vsize", valS.length());
     return res;
