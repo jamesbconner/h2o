@@ -68,12 +68,24 @@ public class RFBuildQuery extends H2OPage {
         );
   }
 
+  
+  static String html = ""
+          + "<p>Select the data on which the random forest should be build and then click on the <i>Next</i> button:</p>"
+          + "<form class='well form-inline' action='RFBuildQuery1'>"
+          + "  <input type='text' class='input-small span4' placeholder='key' name='dataKey' id='dataKey'>"
+          + "  <button type='submit' class='btn btn-primary'>Next</button>"
+          + "</form> "
+          ;
+  
   @Override protected String serveImpl(Server server, Properties p, String sessionID) throws PageError {
+    return html;
+/*    
+    
     String key = p.getProperty(DATA_KEY, null);
     RString result = html(key == null ? null : ServletUtil.check_array(p, DATA_KEY));
     result.replace(DATA_KEY,  p.getProperty(DATA_KEY,  ""));
     result.replace(MODEL_KEY, p.getProperty(MODEL_KEY, ""));
     result.replace(CLASS_COL, p.getProperty(CLASS_COL, ""));
-    return result.toString();
+    return result.toString(); */
   }
 }
