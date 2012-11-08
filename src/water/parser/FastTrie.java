@@ -241,6 +241,7 @@ public final class FastTrie {
   }
 
   public short addByte(int b){
+    assert (b & 0xFF) == b;
     if(_killed)return 0;
     _state = _states[_state].getTransition(((int)b) & 0xff);
     return _states[_state]._skip;
