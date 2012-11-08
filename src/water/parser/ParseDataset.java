@@ -682,6 +682,8 @@ public final class ParseDataset {
 //          System.out.println("End pass 1 "+key.toString());
           break;
         case 1:
+          _enums = _enums.clone();
+          for(int i = 0; i < _enums.length; ++i)_enums[i] = _enums[i].clone();
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += Math.abs(colSizes[b]);

@@ -21,6 +21,17 @@ public final class FastTrie {
   boolean _killed;
   short _state0 = (short)0;
 
+  public FastTrie clone() {
+    FastTrie res = new FastTrie();
+    res._state = _state;
+    res._states = _states;
+    res._finalStates = _finalStates;
+    res._nstates = _nstates;
+    res._compressed = _compressed;
+    res._killed =_killed;
+    res._state0 = _state0;
+    return res;
+  }
   int _id = (int)Math.random()*100;
   public FastTrie(){
     _states[0] = new State();
@@ -108,6 +119,7 @@ public final class FastTrie {
     }
 
     void merge(short myIdx, FastTrie otherTrie, short sIdx){
+      assert !_compressed;
       State other = otherTrie._states[sIdx];
       if(otherTrie._finalStates.get(sIdx))
         _finalStates.set(myIdx);
@@ -257,7 +269,10 @@ public final class FastTrie {
   public int getTokenId(){
     if(_killed)return -1;
     if(_state == _state0)return -1;
-    assert !_compressed || _state < _state0;
+    if(_compressed && (_state >= _state0)){
+      System.out.println("Sem prdeli!");
+    }
+    assert (!_compressed || (_state < _state0));
     int res =  _state;
     if(!_compressed)_finalStates.set(_state);
     _state = _state0;
@@ -273,8 +288,9 @@ public final class FastTrie {
     if(_nstates == 0){
       _states = other._states;
       _nstates = other._nstates;
+    } else {
+      _states[0].merge((short)0,other, (short)0);
     }
-    _states[0].merge((short)0,other, (short)0);
   }
 
   public int wire_len(){
