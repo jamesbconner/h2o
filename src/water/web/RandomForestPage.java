@@ -21,16 +21,14 @@ public class RandomForestPage extends H2OPage {
   public static final String CLASS_COL  = "class";
   public static final String IGNORE_COL = "ignore";
 
+  public static final int MAX_CLASSES = 4096;
+  
   @Override
   public String[] requiredArguments() {
     return new String[] { DATA_KEY };
   }
 
-  
-  public static double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws PageError {
-    assert classColIdx>=0 && classColIdx < ary.num_cols();
-    // determine the arity of the column
-    HashMap<String,Integer> classNames = new HashMap();
+  public static String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws PageError {
     int arity = ary.col_enum_domain_size(classColIdx);
     if (arity == 65535) {
       int min = (int) ary.col_min(classColIdx);
@@ -41,17 +39,26 @@ public class RandomForestPage extends H2OPage {
         throw new PageError("Only integer or enum columns can be classes!");
       if (max - min > maxClasses) // arbitrary number
         throw new PageError("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+      String[] result = new String[max-min+1];
       for (int i = 0; i <= max - min; ++i)
-        classNames.put(String.valueOf(min+i),i);
-      arity = classNames.size();
+        result[i] = String.valueOf(min+1);
+      return result;
     } else {
-      String[] domain = ary.col_enum_domain(classColIdx);
-      for (int i = 0; i < domain.length; ++i)
-        classNames.put(domain[i],i);
+      return  ary.col_enum_domain(classColIdx);
     }
+  }
+  
+  
+  public static double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws PageError {
+    assert classColIdx>=0 && classColIdx < ary.num_cols();
+    // determine the arity of the column
+    HashMap<String,Integer> classNames = new HashMap();
+    String[] names = determineColumnClassNames(ary,classColIdx,maxClasses);
+    for (int i = 0; i < names.length; ++i)
+      classNames.put(names[i],i);
     if (source.isEmpty())
       return null;
-    double[] result = new double[arity];
+    double[] result = new double[names.length];
     for (int i = 0; i < result.length; ++i)
       result[i] = 1;
     // now parse the given string and update the weights
@@ -133,7 +140,7 @@ public class RandomForestPage extends H2OPage {
       if( classcol < 0 || classcol >= ary.num_cols() )
         throw new InvalidInputException("Class out of range");
     }
-    double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, 4096);
+    double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
