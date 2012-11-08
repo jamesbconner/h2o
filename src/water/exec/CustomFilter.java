@@ -94,7 +94,7 @@ class BooleanVectorFilter extends CustomFilter {
   }
 
   @Override protected void filterInitMap(ValueArray ary, Key k, int rows) {
-    long row = ValueArray.getOffset(k) / ary.row_size();
+    long row = ValueArray.getChunkIndex(k) * ValueArray.chunk_size() / ary.row_size();
     _bIter = new VAIterator(_bVect,_bCol,row);
   }
   

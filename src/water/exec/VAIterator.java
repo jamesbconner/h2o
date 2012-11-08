@@ -42,7 +42,7 @@ public final class VAIterator implements Iterator<VAIterator> {
     _currentRow = -1;
     _chunkIdx = -1;
     if (startRow!=0)
-      skipRows((startRow % _rows)-1);
+      skipRows((startRow % _rows));
   }
 
   public VAIterator(Key key, int defaultColumn) {
@@ -64,13 +64,13 @@ public final class VAIterator implements Iterator<VAIterator> {
   
   private void skipRows(long rows) { 
     assert (_currentRow + rows < _rows);
-    while (true) {
-      if (_rowInChunk + rows < _rowsInChunk) {
+    next();
+    while (true) { 
+      if (rows < _rowsInChunk) {
         _rowInChunk += rows;
         break;
       }
-      rows -= (_rowsInChunk - _rowInChunk);
-      _rowInChunk = _rowsInChunk-1;
+      rows -= _rowsInChunk;
       next(); // move to next chunk
     }
   }
@@ -98,6 +98,8 @@ public final class VAIterator implements Iterator<VAIterator> {
         _chunkIdx += 1;
       }
       Key k = ValueArray.make_chunkkey(_ary._key, _chunkIdx << ValueArray.LOG_CHK);
+      if (DKV.get(k) == null)
+        System.out.println("OMFG FAIL");
       _chunkBits = DKV.get(k).get();
       _rowsInChunk = _chunkBits.length / _rowSize;
       _rowInChunk = 0;
