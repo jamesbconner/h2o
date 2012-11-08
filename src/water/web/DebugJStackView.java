@@ -51,7 +51,12 @@ public class DebugJStackView extends H2OPage {
     }
 
     private void append(final StringBuilder sb, final Thread t) {
-      sb.append(t); sb.append('\n');
+      sb.append('"'); sb.append(t.getName()); sb.append('"');
+      if (t.isDaemon()) sb.append(" daemon");
+      sb.append(" prio="); sb.append(t.getPriority());
+      sb.append(" tid="); sb.append(t.getId());
+      sb.append("\n  java.lang.Thread.State: "); sb.append(t.getState());
+      sb.append('\n');
     }
 
     private void append(final StringBuilder sb, final StackTraceElement[] trace) {
@@ -158,7 +163,6 @@ public class DebugJStackView extends H2OPage {
     	 + "<ul class='nav nav-tabs'>"
     	 + " <li class=''><a href='DebugView'>Keys</a></li>"
          + " <li class='active'><a href='DbgJStack'>JStack</a></li>\n"
-         + " <li class='disabled'><a href='#'>JStat</a></li>\n"
          + "</ul>\n"
          + "<div class='alert alert-success'>"
          + "Nodes stack traces generated for cloud %cloud_name at %time from node %node_name."

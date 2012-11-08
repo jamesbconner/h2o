@@ -453,6 +453,9 @@ class H2O(object):
     def netstat(self):
         return self.__check_request(requests.get(self.__url('Network.json')))
 
+    def jstack(self):
+        return self.__check_request(requests.get(self.__url("JStack.json")))
+
     # FIX! what about Key2 shows up in browser next step? (parse)
     def inspect(self, key):
         a = self.__check_request(requests.get(self.__url('Inspect.json'),

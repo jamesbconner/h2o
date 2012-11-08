@@ -76,6 +76,7 @@ public class Server extends NanoHTTPD {
     _pages.put("logoff", new Logoff());
     _pages.put("nop", new NOP());
     _pages.put("NOP", new NOP());
+    _pages.put("JStack", new DebugJStackView());
     _pages.put("DbgJStack", new DebugJStackView());
   }
 

@@ -136,7 +136,6 @@ public class DebugView extends H2OPage {
           + "<ul class='nav nav-tabs'>"
           + " <li class='active'><a href='DebugView'>Keys</a></li>"
           + " <li class=''><a href='DbgJStack'>JStack</a></li>"
-          + " <li class=''><a href='#'>JStat</a></li>"
           + "</ul>"
           + "<form class='well form-inline' action='DebugView'>"
           + "  <input type='text' class='input-small span10' placeholder='filter' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
