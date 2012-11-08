@@ -18,7 +18,6 @@ public class UDPAckAck extends UDP {
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
   public String print16( byte[] buf ) {
-    int tasknum = get_task(buf);
-    return "task# "+tasknum;
+    return "task# "+get_task(buf)+" 0x"+super.print16(buf);
   }
 }

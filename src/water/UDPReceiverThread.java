@@ -35,7 +35,8 @@ public class UDPReceiverThread extends Thread {
     }
     // Free list is empty, so make a new one
     if( p == null )
-      return new DatagramPacket(new byte[1600],1600);
+      return new DatagramPacket(new byte[1600],0);
+    assert p.getLength()==0;
     assert clobbered(p.getData());
     return p;
   }
@@ -43,6 +44,7 @@ public class UDPReceiverThread extends Thread {
   static void free_pack(DatagramPacket pack) {
     assert !on_free_list(pack);
     assert clobber(pack.getData());
+    pack.setLength(0);
     synchronized(FREELIST) { FREELIST.add(pack); }
   }
   static boolean clobber(byte[] b) { Arrays.fill(b,(byte)0xab); return true; }
@@ -91,6 +93,9 @@ public class UDPReceiverThread extends Thread {
           sock = new DatagramSocket(H2O.UDP_PORT);
 
         // Receive a packet
+        int len = pack.getData().length; // Receive all that will fit
+        assert len >= MultiCast.MTU;
+        pack.setLength(len);
         sock.receive(pack);
         TimeLine.record_recv(pack);
 
