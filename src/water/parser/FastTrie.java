@@ -13,7 +13,7 @@ import water.Stream;
  *
  */
 public final class FastTrie {
-  short _state;
+  int _state;
   State [] _states = new State[1];
   BitSet _finalStates = new BitSet(256);
   short _nstates = 1;
@@ -37,8 +37,12 @@ public final class FastTrie {
     _states[0] = new State();
   }
   final private short addState(State s){
+    if(_nstates == Short.MAX_VALUE){
+      kill();
+      return 0;
+    }
     if(_nstates == _states.length) {
-      _states = Arrays.copyOf(_states, _states.length + (_states.length >> 1) + 1);
+      _states = Arrays.copyOf(_states, Math.min(Short.MAX_VALUE, _states.length + (_states.length >> 1) + 1));
       BitSet newFinalStates = new BitSet(_states.length);
       newFinalStates.or(_finalStates);
       _finalStates = newFinalStates;
@@ -118,7 +122,7 @@ public final class FastTrie {
       }
     }
 
-    void merge(short myIdx, FastTrie otherTrie, short sIdx){
+    void merge(int myIdx, FastTrie otherTrie, int sIdx){
       assert !_compressed;
       State other = otherTrie._states[sIdx];
       if(otherTrie._finalStates.get(sIdx))
@@ -130,7 +134,7 @@ public final class FastTrie {
           if(other._transitions[i][j] == 0)continue;
          // System.out.println(_id + " _state = " + _state);
           try{
-            short x = getTransition((byte)((i << 4) + j));
+            int x = getTransition(((i << 4) + j));
             _states[x].merge(x,otherTrie, other._transitions[i][j]);
           } catch(Exception e){
             e.printStackTrace();
@@ -188,7 +192,7 @@ public final class FastTrie {
       }
     }
 
-    final short getTransition(byte c){
+    final int getTransition(int c){
       int idx = c >> 4;
       c &= 0x0F;
       if(_transitions == null)_transitions = new short[16][];
@@ -235,7 +239,7 @@ public final class FastTrie {
     return sb.toString();
   }
 
-  public short addByte(byte b){
+  public short addByte(int b){
     if(_killed)return 0;
     _state = _states[_state].getTransition((int)b) & 0xff);
     return _states[_state]._skip;
