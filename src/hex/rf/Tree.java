@@ -57,8 +57,8 @@ public class Tree extends CountedCompleter {
           new EntropyStatistic(data,_features, _seed);
       _stats[index].set(result);
     }
-    boolean res = result.reset(data, seed, false);
-    assert res;
+    result.forget_features();   // All new features
+    result.reset(data, seed);
     return result;
   }
 

@@ -2,13 +2,16 @@ import os, json, unittest, time, shutil, sys
 import h2o
 import h2o_browse as h2b
 
+def parseFile(node=None, file=None, key=None):
+    if not file: raise Exception('No file name specified')
+    if not node: node = h2o.nodes[0]
+    put = node.put_file(file, key=key)
+    return node.parse(put['key'], put['key']+'.hex')
+
 def runGLM(node=None,csvPathname=None,X="0",Y="1",
     timeoutSecs=30,retryDelaySecs=0.5,
     family="binomial",xval=10,bool="true",**kwargs):
-    if not csvPathname: raise Exception('No file name for GLM specified')
-    if not node: node = h2o.nodes[0]
-    put = node.put_file(csvPathname)
-    parse = node.parse(put['key'])
+    parse = parseFile(node, csvPathname)
     glm = runGLMOnly(node=node, parseKey=parse,X=X,Y=Y,
         timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs,
         family=family,xval=xval,bool=bool,**kwargs)
@@ -20,41 +23,28 @@ def runGLMOnly(node=None,parseKey=None,X="0",Y="1",
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    glm = node.GLM(parseKey['Key'],X=X,Y=Y,
-        family=family,xval=xval,bool=bool,**kwargs)
-    return glm
+    return node.GLM(parseKey['Key'],X=X,Y=Y, family=family,xval=xval,bool=bool,**kwargs)
 
 # You can change those on the URL line woth "&colA=77&colB=99"
 # LinReg draws a line from a collection of points.  Only works if you have 2 or more points.
 # will get NaNs if A/B is just one point.
 
-def runLR(node=None,csvPathname=None,colA=0,colB=1,timeoutSecs=30,retryDelaySecs=0.5):
-    if not csvPathname: raise Exception('No file name for LR specified')
-    if not node: node = h2o.nodes[0]
-    put = node.put_file(csvPathname)
-    parse = node.parse(put['key'])
-    runLROnly(node=node, parseKey=parse, 
-            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+def runLR(node=None, csvPathname=None, **kwargs):
+    parse = parseFile(node, csvPathname)
+    return runLROnly(node=node, parseKey=parse, **kwargs)
 
 def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySecs=0.5):
     if not parseKey: raise Exception('No file name for LR specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    lr = node.linear_reg(parseKey['Key'], colA, colB)
+    return node.linear_reg(parseKey['Key'], colA, colB)
 
 ###     # we'll have to add something for LR.json to verify the LR results
 
 # there are more RF parameters in **kwargs. see h2o.py
-def runRF(node=None, csvPathname=None, trees=5, timeoutSecs=30, retryDelaySecs=2, 
-    browseAlso=False, **kwargs):
-    if not csvPathname: raise Exception('No file name for RF specified')
-    if not node: node = h2o.nodes[0]
-    put = node.put_file(csvPathname)
-    parse = node.parse(put['key'])
-    rfView = runRFOnly(node=node, parseKey=parse, trees=trees,
-            timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs, 
-            browseAlso=browseAlso, **kwargs)
-    return(rfView)
+def runRF(node=None, csvPathname=None, **kwargs):
+    parse = parseFile(node, csvPathname)
+    return runRFOnly(node=node, parseKey=parse, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRFOnly(node=None, parseKey=None, trees=5, depth=30, 
@@ -69,7 +59,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # FIX! check all of these somehow?
     dataKey  = rf['dataKey']
     modelKey = rf['modelKey']
-    ntree        = rf['ntree']
+    ntree    = rf['ntree']
 
     # /ip:port of cloud (can't use h2o name)
     rfCloud = rf['h2o']
@@ -87,7 +77,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
         if (a!=trees and a>0):
             # don't print the typical case of 0 (starting)
             print "Waiting for RF done: at %d of %d trees" % (a, trees)
-        return(a==trees)
+        return a==trees
 
     node.stabilize(
             test,
@@ -105,4 +95,4 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     modelInspect = node.inspect(modelKey)
     dataInspect = node.inspect(dataKey)
 
-    return(rfView)
+    return rfView

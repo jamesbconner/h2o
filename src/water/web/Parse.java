@@ -21,7 +21,7 @@ public class Parse extends H2OPage {
     Key resKey = Key.make(rk);
 
     JsonObject res = new JsonObject();
-    addProperty(res, "Key", resKey);
+    res.addProperty("Key", resKey.toString());
 
     if( DKV.get(resKey) == null ) { // Key not parsed?  Parse it
       long start = System.currentTimeMillis();

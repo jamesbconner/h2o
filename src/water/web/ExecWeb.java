@@ -19,7 +19,7 @@ public class ExecWeb extends H2OPage {
     try {
       Key k = water.exec.Exec.exec(x);
       res.addProperty("Expr", x);
-      addProperty(res,"ResultKey", k);
+      res.addProperty("ResultKey", k.toString());
     } catch( PositionedException e ) {
       res.addProperty("Expr", x);
       res.addProperty("Error", e.report(x));      

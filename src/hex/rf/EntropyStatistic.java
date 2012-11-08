@@ -56,7 +56,7 @@ class EntropyStatistic extends Statistic {
     }
     // no suitable split can be made, return an impossible const split
     return bestSplit == -1
-      ? Split.impossible(Utils.maxIndex(dist,random))
+      ? Split.impossible(Utils.maxIndex(dist,_random))
       : Split.split(col,bestSplit,maxReduction);
   }
   
@@ -90,7 +90,7 @@ class EntropyStatistic extends Statistic {
     }
     // no suitable split can be made, return an impossible const split
     return bestSplit == -1
-      ? Split.impossible(Utils.maxIndex(dist,random))
+      ? Split.impossible(Utils.maxIndex(dist,_random))
       : Split.exclusion(colIndex,bestSplit,maxReduction);
   } 
 } 

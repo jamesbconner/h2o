@@ -1,17 +1,19 @@
 package water.web;
 
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
-import com.google.gson.JsonObject;
 import init.Boot;
+
 import java.io.*;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+
 import water.H2O;
 import water.NanoHTTPD;
 import water.web.Page.PageError;
+
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
+import com.google.gson.JsonObject;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -59,8 +61,9 @@ public class Server extends NanoHTTPD {
     _pages.put("Put",new PutQuery());
     _pages.put("PutValue",new PutValue());
     _pages.put("PutVector",new PutVector());
-    _pages.put("RFView",new RFView()); // View random-forest output
-    _pages.put("RFViewQuery",new RFViewQuery()); // View random-forest output
+    _pages.put("RFView",new RFView());
+    _pages.put("RFViewQuery",new RFViewQuery());
+    _pages.put("RFBuildQuery",new RFBuildQuery());
     _pages.put("RFTreeView",new RFTreeView());
     _pages.put("RF",new RandomForestPage());
     _pages.put("RandomForest",new RandomForestPage());

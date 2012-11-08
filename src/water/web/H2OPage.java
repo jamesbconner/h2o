@@ -29,6 +29,7 @@ public abstract class H2OPage extends Page {
     + "              <li><a href=\"/Put\">Put</a></li>"
     + "              <li><a href=\"/Timeline\">Timeline</a></li>"
     + "              <li><a href=\"/ImportQuery\">Import</a></li>"
+    + "              <li><a href=\"/RFBuildQuery\">RF</a></li>"
     + "              <li><a href=\"/DebugView\">Debug View</a></li>"
     + "              <li><a href=\"/ProgressView\">Progress View</a></li>"
     + "              <li><a href=\"/Network\">Network</a></li>"
@@ -85,10 +86,6 @@ public abstract class H2OPage extends Page {
     notice.replace("atype","alert-success");
     notice.replace("notice",text);
     return notice.toString();
-  }
-
-  public static void addProperty(JsonObject json, String k, Key key) {
-    json.addProperty(k, key.toString());
   }
 
   public static String wrap(String what) {

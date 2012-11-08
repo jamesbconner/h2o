@@ -42,8 +42,8 @@ public class GiniStatistic extends Statistic {
     int bestSplit = -1;
     double bestFitness = 0.0;   // Fitness to maximize
     assert !d.ignore(colIndex);
-    assert _columnDists[colIndex].length > 1; // Have 2 have at least 2 rows to split
-    assert leftDist.length==_columnDists[colIndex][0].length;
+    //assert _columnDists[colIndex].length > 1; // Have to have at least 2 rows to split
+    //assert leftDist.length==_columnDists[colIndex][0].length;
 
     for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
       // first copy the i-th guys from rite to left
@@ -65,7 +65,7 @@ public class GiniStatistic extends Statistic {
       }
     }
     return bestSplit == -1
-      ? Split.impossible(Utils.maxIndex(dist, random))
+      ? Split.impossible(Utils.maxIndex(dist, _random))
       : Split.split(colIndex, bestSplit, bestFitness);
   }
 
@@ -98,7 +98,7 @@ public class GiniStatistic extends Statistic {
       }
     }
     return bestSplit == -1
-      ? Split.impossible(Utils.maxIndex(dist, random))
+      ? Split.impossible(Utils.maxIndex(dist, _random))
       : Split.exclusion(colIndex, bestSplit, bestFitness);
   }
 }
