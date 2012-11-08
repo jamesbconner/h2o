@@ -121,6 +121,7 @@ public class TaskGetKey extends DFutureTask<Value> {
       }
 
       // Send it back
+      assert off >= UDP.SZ_TASK+1+1+4;
       reply(p,off,h2o);
       return 0;
     }
@@ -172,15 +173,14 @@ public class TaskGetKey extends DFutureTask<Value> {
     try {
       // First SZ_TASK bytes have UDP type# and port and task#.
       byte[] buf = p.getData();
+      // Get result length; 2 bytes at the beginning of the value write are
+      // persistence and type, then 4 bytes of length
+      int len = UDP.get4(buf,UDP.SZ_TASK+2);
 
-      int len = UDP.get4(buf,UDP.SZ_TASK+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
       Value val;
       if(      len == -3 ) return null;   // Remote-miss
       else if( len == -2 ) val = _tcp_val;
-      else {
-        Stream s = new Stream(buf, UDP.SZ_TASK);
-        val = Value.read(s, _key);
-      }
+      else                 val = Value.read(new Stream(buf, UDP.SZ_TASK), _key);
 
       // Need to officially put_if_later, in case of racing other updates
       Value old = H2O.get(_key);

@@ -1,6 +1,5 @@
 package test;
 
-import static org.junit.Assert.*;
 import hex.rf.Utils;
 
 import java.io.*;
@@ -18,20 +17,54 @@ import water.util.KeyUtil;
 public class RFRunner {
 
   static final long MAX_RUNNING_TIME = 20 * 60000; // max runtime is 20 mins
-  static final int ERROR_IDX = 2;
+  static final int ERROR_IDX = 3;
+  static enum patterns { FINISH, NTREES, FEATURES, ERROR, DEPTH, LEAVES, ROWS };
 
-  static final Pattern[] RESULT = new Pattern[] {
-      Pattern.compile("Number of trees:[ ]*([0-9]+)"),
-      Pattern.compile("No of variables tried at each split:[ ]*([0-9]+)"),
-      Pattern.compile("Estimate of error rate:[ ]*([0-9]+)"),
-      Pattern.compile("Avg tree depth \\(min, max\\):[ ]*([0-9]+).*"),
-      Pattern.compile("Avg tree leaves \\(min, max\\):[ ]*([0-9]+).*"),
-      Pattern.compile("Validated on \\(rows\\):[ ]*([0-9]+).*"),
-      Pattern.compile("Random forest finished in:[ ]*(.*)"), };
-  static final Pattern EXCEPTION = Pattern.compile("Exception in thread \"(.*\") (.*)");
-  static final Pattern ERROR = Pattern.compile("java.lang.(.*?Error.*)");
-  static final Pattern MEM_CRICITAL = Pattern.compile("[h20] MEMORY LEVEL CRITICAL, stopping allocations");
-  static final String[] RESULTS = new String[] { "ntrees", "nvars", "err", "avg.depth", "avg.leaves", "rows", "time" };
+  static class iMatch {
+    static final Pattern
+      pfinish = Pattern.compile("Random forest finished in[ ]*(.*)"),
+      pntrees = Pattern.compile("Number of trees:[ ]*([0-9]+)"),
+      pfeatures = Pattern.compile("No of variables tried at each split:[ ]*([0-9]+)"),
+      perror = Pattern.compile("Estimate of error rate:[ ]*([0-9]+)"),
+      pdepth = Pattern.compile("Avg tree depth \\(min, max\\):[ ]*([0-9]+).*"),
+      pleaves = Pattern.compile("Avg tree leaves \\(min, max\\):[ ]*([0-9]+).*"),
+      prows = Pattern.compile("Validated on \\(rows\\):[ ]*([0-9]+).*"),
+      EXCEPTION = Pattern.compile("Exception in thread \"(.*\") (.*)"),
+      ERROR = Pattern.compile("java.lang.(.*?Error.*)");
+    String _finish;
+    int _ntrees=-1, _features=-1, _err=-1, _avgdepth=-1, _mindepth=-1, _maxdepth=-1, _avgleaf=-1,_minleaf=-1,_maxleaf=-1,_rows=-1;
+
+    boolean match(String s) {
+      Matcher m = null;
+      m = pfinish.matcher(s);
+      if (m.find()) { _finish = m.group(1); return false; }
+      m = pntrees.matcher(s);
+      if (m.find()) { _ntrees = Integer.parseInt(m.group(1)); return false; }
+      m = pfeatures.matcher(s);
+      if (m.find()) { _features = Integer.parseInt(m.group(1)); return false; }
+      m = perror.matcher(s);
+      if (m.find()) { _err = Integer.parseInt(m.group(1)); return false; }
+      m = pleaves.matcher(s);
+      if (m.find()) { _avgleaf = Integer.parseInt(m.group(1)); return false; }
+      m = prows.matcher(s);
+      if (m.find()) { _rows = Integer.parseInt(m.group(1)); return true; }
+      return false;
+    }
+    String exception(String s) {
+      Matcher m = EXCEPTION.matcher(s);
+      if (m.find()) return "thread=" + m.group(1) + ", exception = " + m.group(2);
+      m = ERROR.matcher(s);
+      if (m.find()) return  m.group(1);
+      return null;
+     }
+
+      void print(FileWriter fw) throws IOException {
+        fw.write(_err+"," +_ntrees +"," +_features+"," +0+ "," +_avgleaf+","+ _rows+"," +_finish);
+      }
+
+
+  }
+   static final String[] RESULTS = new String[] { "err", "ntrees", "nvars",  "avg.depth", "avg.leaves", "rows", "time" };
 
   static final String JAVA         = "java";
   static final String JAR          = "-jar build/h2o.jar";
@@ -63,6 +96,8 @@ public class RFRunner {
     String resultDB = "/tmp/results.csv";                     // output file
   }
 
+   static iMatch _im;
+
   /**
    * Represents spawned process with H2O running RF. Hooks stdout and stderr and
    * looks for exceptions (failed run) and results.
@@ -71,7 +106,6 @@ public class RFRunner {
     Process _process;
     BufferedReader _rd;
     BufferedReader _rdErr;
-    String[] results = new String[RESULTS.length];
     String exception;
     PrintStream _stdout = System.out;
     PrintStream _stderr = System.err;
@@ -96,30 +130,14 @@ public class RFRunner {
      * running time). */
     @Override public void run() {
       try {
-        int state = 0, memCriticals = 0;
         String _line;
+        _im = new iMatch();
         while( (_line = _rd.readLine()) != null ) {
           _stdout.println(_line);
-          Matcher m = RESULT[state].matcher(_line);
-          if( m.find() ) {
-            results[state] = m.group(1);
-            if( ++state == RESULT.length ) {
-              System.out.println("Error: " + results[ERROR_IDX] + "%");   break;
-            }
-          }
-          m = EXCEPTION.matcher(_line);
-          if( m.find() ) { // exception has been thrown -> fail!
-            exception = "thread=" + m.group(1) + ", exception = " + m.group(2);   break;
-          }
-          m = ERROR.matcher(_line);
-          if( m.find() ) { // exception has been thrown -> fail!
-            exception = m.group(1);  break;
-          }
-          if( MEM_CRICITAL.matcher(_line).find() ) {
-            if( ++memCriticals == 10 ) { // unlikely to recover, but can waste lot of time, kill it
-              exception = "LOW MEMORY";  break;
-            }
-          } else  memCriticals = 0;
+          boolean done = _im.match(_line);
+          if (done) { System.out.println("Error: " + _im._err + "%"); break; }
+          exception = _im.exception(_line);
+          if (exception!=null) break;
         }
       } catch( Exception e ) { throw new Error(e); }
     }
@@ -170,7 +188,7 @@ public class RFRunner {
     if( p.exception != null ) {
       System.err.println("Error: " + p.exception);
       fw.write("," + p.exception);
-    } else for( String s : p.results )  fw.write("," + s);
+    } else _im.print(fw);
     fw.write("\n");
     fw.close();
     return true;

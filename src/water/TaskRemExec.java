@@ -121,7 +121,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       dt.invoke(args);
 
       byte[] buf = p.getData();
-      assert buf[UDP.SZ_TASK]==SERVER_UDP_SEND || buf[UDP.SZ_TASK]==SERVER_TCP_SEND;
+      byte b = buf[UDP.SZ_TASK];
+      assert b==SERVER_UDP_SEND || b==SERVER_TCP_SEND : "remexec reply pack busted: "+b;
 
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#

@@ -4,6 +4,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import jsr166y.ForkJoinPool;
 import water.nbhm.NonBlockingHashMap;
 import water.nbhm.NonBlockingHashMapLong;
 
@@ -306,26 +307,50 @@ public class H2ONode implements Comparable {
     // Assert mem_replicas is locked down - and thus no new TGKs will appear on
     // this Value needing to be blocked here.
     assert val.mem_replicas() == -1; // Already locked down mem_replicas
-    for( DatagramPacket p : WORK.values() ) {
+    NonBlockingHashMapLong.IteratorLong ii = (NonBlockingHashMapLong.IteratorLong)WORK.keys();
+    while( ii.hasNext() ) {
+      final int task = (int)ii.nextLong();
+      DatagramPacket p = WORK.get(task);
+      if( p==null ) continue;   // Already removed
       byte[] buf = p.getData();
       int first_byte = UDP.get_ctrl(buf);
       assert first_byte != 0xab; // did not receive a clobbered packet?
       if( first_byte != UDP.udp.getkey.ordinal() && first_byte != UDP.udp.ack.ordinal() )
         continue;               // This cannot be a TGK, or it's ACK.
+      // Clone a private copy: original 'p' gets freed at any moment in time.
+      // As long as the task is still a key in the WORK set, then the packet
+      // has not been freed & recycled so the clone is good.
+      buf = buf.clone();
+      if( WORK.get(task)!=p ) continue;
+
       // Here I have either a pending Get (possibly of an unrelated Key) or an
       // ACK of a Get, either of which might be for the same Key as the
       // invalidate.  Be conservative & block for it.
-      final int task = UDP.get_task(buf);
+      try { ForkJoinPool.managedBlock(new FJB(buf)); } catch( InterruptedException e ) { }
+    }
+  }
+  private class FJB implements ForkJoinPool.ManagedBlocker {
+    final byte[] _buf;
+    final int _t;
+    private FJB(byte[] buf) { _buf=buf; _t = UDP.get_task(buf); }
+    // Return true if blocking is unnecessary, which is true if the Task is missing
+    public boolean isReleasable() {  return !WORK.containsKey(_t);  }
+    // Possibly blocks the current thread.  Returns true if isReleasable would
+    // return true.  Used by the FJ Pool management to spawn threads to prevent
+    // deadlock is otherwise all threads would block on waits.
+    public boolean block() {
+      DatagramPacket p = new DatagramPacket(_buf,_buf.length);
       synchronized( WORK ) {
-        while( WORK.containsKey(task) ) { // While this task is stll pending
+        while( !isReleasable() ) { // While this task is stll pending
           // Sometimes an ACKACK gets lost, but ACKS can fearlessly be resent
           // and we'll wait for an ACKACK.
-          if( first_byte == UDP.udp.ack.ordinal() )
-            send(p,p.getLength());
+          if( UDP.get_ctrl(_buf) == UDP.udp.ack.ordinal() )
+            send(p,_buf.length);
           // Wait for the ACKACK to clear the WORK queue
           try { WORK.wait(1000); } catch( InterruptedException e ) { }
         }
       }
+      return true;
     }
   }
 

@@ -29,6 +29,7 @@ public final class VAIterator implements Iterator<VAIterator> {
   private byte[] _chunkBits;
   private long _chunkOffset;
   private long _currentRow;
+  private int _chunkIdx;
   
   public VAIterator(Key k, int defaultColumn, long startRow) {
     _ary = (ValueArray) DKV.get(k);
@@ -39,8 +40,9 @@ public final class VAIterator implements Iterator<VAIterator> {
     _rowInChunk = -1;
     _rowsInChunk = 0;
     _currentRow = -1;
+    _chunkIdx = -1;
     if (startRow!=0)
-      skipRows((startRow % _rows)-1);
+      skipRows((startRow % _rows));
   }
 
   public VAIterator(Key key, int defaultColumn) {
@@ -62,13 +64,13 @@ public final class VAIterator implements Iterator<VAIterator> {
   
   private void skipRows(long rows) { 
     assert (_currentRow + rows < _rows);
-    while (true) {
-      if (_rowInChunk + rows < _rowsInChunk) {
+    next();
+    while (true) { 
+      if (rows < _rowsInChunk) {
         _rowInChunk += rows;
         break;
       }
-      rows -= (_rowsInChunk - _rowInChunk);
-      _rowInChunk = _rowsInChunk-1;
+      rows -= _rowsInChunk;
       next(); // move to next chunk
     }
   }
@@ -89,11 +91,15 @@ public final class VAIterator implements Iterator<VAIterator> {
         _currentRow = 0;
         _rowInChunk = 0;
         _chunkOffset = 0;
+        _chunkIdx = 0;
       } else {
-      // load new chunk
+        // load new chunk
         _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
+        _chunkIdx += 1;
       }
-      Key k = ValueArray.make_chunkkey(_ary._key, _chunkOffset);
+      Key k = ValueArray.make_chunkkey(_ary._key, _chunkIdx << ValueArray.LOG_CHK);
+      if (DKV.get(k) == null)
+        System.out.println("OMFG FAIL");
       _chunkBits = DKV.get(k).get();
       _rowsInChunk = _chunkBits.length / _rowSize;
       _rowInChunk = 0;

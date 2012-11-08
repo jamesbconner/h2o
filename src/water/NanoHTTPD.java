@@ -273,6 +273,7 @@ public class NanoHTTPD
       mySocket = s;
       Thread t = new Thread( this );
       t.setDaemon( true );
+      t.setPriority(Thread.MAX_PRIORITY-1);
       t.start();
     }
 

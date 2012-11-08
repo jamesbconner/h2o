@@ -2,8 +2,7 @@ package hex.rf;
 
 import hex.rf.Data.Row;
 
-import java.util.Arrays;
-import java.util.Random;
+import java.util.*;
 
 /** A general statistic framework. Keeps track of the column distributions and
  * analyzes the column splits in the end producing the single split that will
@@ -14,7 +13,6 @@ abstract class Statistic {
   protected final int[] _features;         // Columns/features that are currently used.
   protected     Random random;             // pseudo random number generator
   private int _seed;
-  private Data _data;
   private int recurse;
 
   /** Returns the best split for a given column   */
@@ -87,14 +85,22 @@ abstract class Statistic {
     _features = new int[features];
   }
 
+  HashSet<Integer> _remembered = new HashSet<Integer>();
+
   /** Resets the statistic so that it can be used to compute new node. Creates
    * a new subset of columns that will be analyzed and clears their
    * distribution arrays.
    */
-  void reset(Data data, int seed) {
-    _seed = seed;
-    _data = data;
-    random = new Random(_seed);
+  boolean reset(Data data, int seed, boolean remember) {
+    random = new Random(_seed = seed);
+    if(remember) {
+       // Check that we have enough properties left
+      int sz = _remembered.size(), ln = _features.length, cnt = 0;
+      for(int i=0;i<data.columns();i++) if(!data.ignore(i)) cnt++;
+      if ( (sz+ln+ln) > cnt ) return false; // we have tried all the features.
+      for(int i=0;i<_features.length;i++) _remembered.add(_features[i]);
+    } else if (_remembered.size()>0) _remembered = new HashSet<Integer>();
+
     // first get the columns for current split via Reservoir Sampling
     // http://en.wikipedia.org/wiki/Reservoir_sampling
     // Pick from all the columns-1, and if we chose the class column,
@@ -103,25 +109,23 @@ abstract class Statistic {
     int i = 0, j = 0;
     for( ; j<_features.length; i++) if (!data.ignore(i))  _features[j++] = i;
     for( ; i<data.columns()-1; i++ ) {
-      if(data.ignore(i)) continue;
+      if(data.ignore(i) || _remembered.contains(i)) continue;
       int off = random.nextInt(i);
       if( off < _features.length ) _features[off] = i;
     }
     // If we chose the class column, pick the last not-ignored column instead
     // (which otherwise did not get a chance to be picked).
     int classIdx = data.classIdx();
-    for( i=0; i<_features.length; i++ )
-      if( _features[i] == classIdx ) break;
+    for( i=0; i<_features.length; i++ ) if( _features[i] == classIdx ) break;
     if( i < _features.length ) { // Class picked?
       _features[i] = data.columns()-1;
-      while( data.ignore(_features[i]) ) _features[i]--;
+      while( data.ignore(_features[i]) || _remembered.contains(i) ) _features[i]--;
     }
     for( int k : _features) assert !data.ignore(k);
     for( int k : _features) assert k != classIdx;
-
     // reset the column distributions for those
-    for( int k : _features)
-      for( int[] d: _columnDists[k]) Arrays.fill(d,0);
+    for( int k : _features) for( int[] d: _columnDists[k]) Arrays.fill(d,0);
+    return true;
   }
 
   /** Adds the given row to the statistic. Updates the column distributions for
@@ -146,7 +150,6 @@ abstract class Statistic {
     // check if we are leaf node
     int m = Utils.maxIndex(dist, random); //FIXME:take care of the case where there are several classes
     if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m);
-
     // try the splits
     Split bestSplit = Split.split(_features[0], 0, -Double.MAX_VALUE);
     for( int j = 0; j < _features.length; ++j ) {
@@ -156,9 +159,10 @@ abstract class Statistic {
     }
     // if we are an impossible split now, we can't get better by the exclusion
     if( bestSplit.isImpossible() ) {
-      //reset(_data,_seed+1);  // We try ~10 times ... and give up.
-      //if (recurse++ < 10)  bestSplit = split(_data,expectLeaf);
-      return bestSplit;
+      if (!reset(d,_seed+1, true)) return bestSplit;
+      for(Row r: d)  add(r);
+      bestSplit = split(d,expectLeaf);
+      if (bestSplit.isImpossible()) return bestSplit;
     }
     assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
 
@@ -171,6 +175,6 @@ abstract class Statistic {
     return bestSplit;
   }
 
-  public static final int MIN_ARITY_FOR_NONEXCLUSION_SPLITS = 0;
+ static int I , L;
 }
 

@@ -60,6 +60,7 @@ public class Server extends NanoHTTPD {
     _pages.put("PutValue",new PutValue());
     _pages.put("PutVector",new PutVector());
     _pages.put("RFView",new RFView()); // View random-forest output
+    _pages.put("RFViewQuery",new RFViewQuery()); // View random-forest output
     _pages.put("RFTreeView",new RFTreeView());
     _pages.put("RF",new RandomForestPage());
     _pages.put("RandomForest",new RandomForestPage());
@@ -121,8 +122,8 @@ public class Server extends NanoHTTPD {
 
   // uri serve -----------------------------------------------------------------
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1); // Jack priority for user-visible requests
     if (uri.isEmpty()) uri = "/";
-
 
     Page page = _pages.get(uri.substring(1));
     boolean json = uri.endsWith(".json");
