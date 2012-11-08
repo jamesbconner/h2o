@@ -141,7 +141,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
-            offset += colTrie.addByte(c); // FastTrie returns skipped chars - 1
+            offset += colTrie.addCharacter(c); // FastTrie returns skipped chars - 1
             break NEXT_CHAR;
           }
           // fallthrough to STRING_END
@@ -390,7 +390,7 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case COND_QUOTE:
           if (c == quotes) {
-            offset += colTrie.addByte(c); // FastTrie returns skipped chars - 1
+            offset += colTrie.addCharacter(c); // FastTrie returns skipped chars - 1
             state = STRING;
             break NEXT_CHAR;
           } else {

@@ -240,8 +240,7 @@ public final class FastTrie {
     return sb.toString();
   }
 
-  public short addByte(int b){
-    assert (b & 0xFF) == b;
+  public short addCharacter(int b){
     if(_killed)return 0;
     _state = _states[_state].getTransition(((int)b) & 0xff);
     return _states[_state]._skip;
@@ -394,7 +393,7 @@ public final class FastTrie {
       byte [] bs = w.getBytes();
       while(j < bs.length){
         System.out.println((char)bs[j]);
-        j += t.addByte(bs[j])+1;
+        j += t.addCharacter(bs[j])+1;
       }
       res[i++] = t.getTokenId();
     }
