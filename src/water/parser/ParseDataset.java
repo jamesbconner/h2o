@@ -873,6 +873,88 @@ public final class ParseDataset {
       }
     }
 
+    
+    
+    public void newLine() {
+      ++_myrows;
+      if (_phase != 0) {
+        if(_myrows > _outputRows[_outputIdx]) {
+          ++_outputIdx;
+          assert (_outputIdx < _outputStreams.length);
+          _s = _outputStreams[_outputIdx];
+          _myrows = 1;
+        }
+      }
+    }
+    
+    public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
+      if (_phase == 0) {
+        switch(numLength) {
+          case -1:
+            break;
+          case -2:
+            if(_colTypes[colIdx] ==UCOL) _colTypes[colIdx] = ECOL;
+            break;
+          default:
+            assert numLength >= 0:"unexpected num length " + numLength;
+          double d = number*pow10(exp);
+            if(d < _min[colIdx])_min[colIdx] = d;
+            if(d > _max[colIdx])_max[colIdx] = d;
+            if(exp < _scale[colIdx]) {
+              _scale[colIdx] = exp;
+              if(_colTypes[colIdx] != DCOL){
+                if((float)d != d)_colTypes[colIdx] = DCOL;
+                else _colTypes[colIdx] = FCOL;
+              }
+            } else if(_colTypes[colIdx] < ICOL) {
+             _colTypes[colIdx] = ICOL;
+            }
+            break;
+        }
+      } else {
+        if (_s._off == _s._buf.length) {
+          System.out.println("haha");
+        }
+        switch(numLength) {
+          case -1: // NaN
+            number  = -1l;
+            number += _bases[colIdx];
+            // fallthrough -1 is NaN for all values, _lbases will cancel each other
+            // -1 is also NaN in case of enum (we're in number column)
+          case -2: // enum
+            // lbase for enums is 0
+          default:
+            switch (_colTypes[colIdx]) {
+              case BYTE:
+                _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case SHORT:
+                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case INT:
+                _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case LONG:
+                _s.set8(number*pow10i(exp - _scale[colIdx]));
+                break;
+              case FLOAT:
+                _s.set4f((float)(number * pow10(exp)));
+                break;
+              case DOUBLE:
+                _s.set8d(number * pow10(exp));
+                break;
+              case DSHORT:
+                // scale is computed as negative in the first pass,
+                // therefore to compute the positive exponent after scale, we add scale and the original exponent
+                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+            }
+        }
+      }
+    }
+      
+      
+      
 
     public void addRow2(long[] numbers, short[] exponents, byte[] numLength) {
       ++_myrows;

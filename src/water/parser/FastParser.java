@@ -100,7 +100,6 @@ public class FastParser {
     int offset = 0;
     int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
     int quotes = 0;
-    int colIdx = 0;
     FastTrie colTrie = null;
     long number = 0;
     int exp = 0;
@@ -109,11 +108,13 @@ public class FastParser {
     int tokenStart = 0; // used for numeric token to backtrace if not successful
     boolean secondChunk = false;
 //    Row row = new Row(_numColumns);
-    long[] _numbers = new long[_numColumns];
-    short[] _exponents = new short[_numColumns];
-    byte[] _numLength = new byte[_numColumns];
+    int colIdx = 0;
+    //long[] _numbers = new long[_numColumns];
+    //short[] _exponents = new short[_numColumns];
+    //byte[] _numLength = new byte[_numColumns];
     byte c = bits[offset];
 //    int beenHere = 0;
+    callback.newLine();
 MAIN_LOOP:
     while (true) {
 //      ++beenHere;
@@ -147,9 +148,10 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case STRING_END:
           // we have parsed the string enum correctly
-          _numbers[colIdx] = colTrie.getTokenId();
-          _exponents[colIdx] = 0;
-          _numLength[colIdx] = -2;
+          callback.addCol(colIdx,colTrie.getTokenId(),0,-2);
+//          _numbers[colIdx] = colTrie.getTokenId();
+//          _exponents[colIdx] = 0;
+//          _numLength[colIdx] = -2;
           ++colIdx;
 //          row.setCol(colIdx++, colTrie.getTokenId(),(short) 0, (byte) -2);
           state = SEPARATOR_OR_EOL;
@@ -167,10 +169,12 @@ NEXT_CHAR:
           // fallthrough to EOL
         // ---------------------------------------------------------------------
         case EOL:
-          if (colIdx != 0)
-            callback.addRow2(_numbers,_exponents,_numLength);
-//            callback.addRow(row);
-          colIdx = 0;
+          if (colIdx != 0) {
+//            callback.addRow2(_numbers,_exponents,_numLength);
+////            callback.addRow(row);
+            colIdx = 0;
+            callback.newLine();
+          }
           state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
           if (secondChunk)
             break MAIN_LOOP; // second chunk only does the first row
@@ -182,9 +186,10 @@ NEXT_CHAR:
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            _numbers[colIdx] = colTrie.getTokenId();
-            _exponents[colIdx] = 0;
-            _numLength[colIdx] = -2;
+            callback.addCol(colIdx,-1,0,-2);
+//            _numbers[colIdx] = -1;
+//            _exponents[colIdx] = 0;
+//            _numLength[colIdx] = -2;
             ++colIdx;
 //            row.setCol(colIdx++,-1,(short) 0, (byte) -2);
             if (colIdx == _numColumns)
@@ -260,9 +265,10 @@ NEXT_CHAR:
         case NUMBER_END:
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
-            _numbers[colIdx] = number;
-            _exponents[colIdx] = (short) exp;
-            _numLength[colIdx] = (byte) numStart;
+            callback.addCol(colIdx,number,exp,numStart);
+//            _numbers[colIdx] = number;
+//            _exponents[colIdx] = (short) exp;
+//            _numLength[colIdx] = (byte) numStart;
             ++colIdx;
 //            row.setCol(colIdx++,number, (short) exp, (byte) numStart);
             // do separator state here too
@@ -272,15 +278,17 @@ NEXT_CHAR:
             break NEXT_CHAR;
           } else if (isEOL(c)) {
             exp = exp - fractionDigits;
-            _numbers[colIdx] = number;
-            _exponents[colIdx] = (short) exp;
-            _numLength[colIdx] = (byte) numStart;
-//            row.setCol(colIdx,number, (short) exp, (byte) numStart);
+            callback.addCol(colIdx,number,exp,numStart);
+//            _numbers[colIdx] = number;
+//            _exponents[colIdx] = (short) exp;
+//            _numLength[colIdx] = (byte) numStart;
             // do EOL here for speedup reasons
-            if (colIdx != 0)
-              callback.addRow2(_numbers,_exponents,_numLength);
+            if (colIdx != 0) {
+//              callback.addRow2(_numbers,_exponents,_numLength);
 //              callback.addRow(row);
-            colIdx = 0;
+              colIdx = 0;
+              callback.newLine();
+            }
             state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
             if (secondChunk)
               break MAIN_LOOP; // second chunk only does the first row
