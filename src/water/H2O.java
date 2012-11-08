@@ -6,10 +6,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
-import water.H2ONode.H2Okey;
 import water.exec.Function;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
+
+import com.google.common.base.Strings;
+import com.google.common.io.Closeables;
 
 /**
  * Start point for creating or joining an <code>H2O</code> Cloud.
@@ -341,8 +343,10 @@ public final class H2O {
     SELF = H2ONode.self();
     // Do not forget to put SELF into the static configuration (to simulate
     // proper multicast behavior)
-    if( STATIC_H2OS != null )
+    if( STATIC_H2OS != null && !STATIC_H2OS.contains(SELF)) {
+      System.err.println("[h2o] *WARNING* flatfile configuration does not include self: " + SELF);
       STATIC_H2OS.add(SELF);
+    }
 
     System.out.println("[h2o] ("+VERSION+") '"+NAME+"' on " + SELF+
                        (OPT_ARGS.flatfile==null
@@ -448,48 +452,70 @@ public final class H2O {
     CLOUD_MULTICAST_PORT = (port>>>16);
   }
 
-  // Read a set of Nodes from a file.  Example:
-  //   # this is a comment
-  //   10.10.65.105:54322
+  /**
+   * Read a set of Nodes from a file.  Format is:
+   *
+   * name/ip_address:port
+   *   - name is unused and optional
+   *   - port is optional
+   *   - leading '#' indicates a comment
+   *
+   * For example:
+   *
+   *   10.10.65.105:54322
+   *   # disabled for testing
+   *   # 10.10.65.106
+   *   /10.10.65.107
+   *   # run two nodes on 108
+   *   10.10.65.108:54322
+   *   10.10.65.108:54325
+   */
   private static HashSet<H2ONode> from_file( String fname ) {
     if( fname == null ) return null;
     File f = new File(fname);
     if( !f.exists() ) return null; // No flat file
     HashSet<H2ONode> h2os = new HashSet<H2ONode>();
     BufferedReader br = null;
-    int port=-1;
+    int port = DEFAULT_PORT+1; // default UDP port
     try {
       br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
       String strLine = null;
       while( (strLine = br.readLine()) != null) {
         strLine = strLine.trim();
-        // be user friendly and skip comments
-        if (strLine.startsWith("#")) continue;
-        // skip empty lines
-        if (strLine.isEmpty()) continue;
-        final String[] ss = strLine.split("[/:]");
-        if( ss.length<2 && ss.length>3 )
-          Log.die("Invalid format, must be name/ip[:port], not '"+strLine+"'");
+        // be user friendly and skip comments and empty lines
+        if (strLine.startsWith("#") || strLine.isEmpty()) continue;
 
-        // Parse IP address
-        final InetAddress inet = InetAddress.getByName(ss[1]);
-        if( !(inet instanceof Inet4Address) )
-          Log.die("Only IP4 addresses allowed.");
-        // Parse port number if it was specified
-        if (ss.length == 3 && ss[2]!=null) {
-          try {
-            port = Integer.decode(ss[2]);
-          } catch( NumberFormatException nfe ) {  Log.die("Invalid port #: "+ss[2]); }
-        } else { // Port is not specified => use default UDP port
-          port = DEFAULT_PORT+1; // default UDP port
+        String ip = null, portStr = null;
+        int slashIdx = strLine.indexOf('/');
+        int colonIdx = strLine.indexOf(':');
+        if( slashIdx == -1 && colonIdx == -1 ) {
+          ip = strLine;
+        } else if( slashIdx == -1 ) {
+          ip      = strLine.substring(0, colonIdx);
+          portStr = strLine.substring(colonIdx+1);
+        } else if( colonIdx == -1 ) {
+          ip      = strLine.substring(slashIdx+1);
+        } else if( slashIdx > colonIdx ) {
+          Log.die("Invalid format, must be name/ip[:port], not '"+strLine+"'");
+        } else {
+          ip      = strLine.substring(slashIdx+1, colonIdx);
+          portStr = strLine.substring(colonIdx+1);
         }
-        System.out.println("H2O.from_file(): "+port);
-        // Build a list of nodes
-        h2os.add(H2ONode.intern(inet,port));
-        //h2os.add(new H2ONode(inet,port));
+
+        InetAddress inet = InetAddress.getByName(ip);
+        if( !(inet instanceof Inet4Address) )
+          Log.die("Only IP4 addresses allowed: given " + ip);
+        if( !Strings.isNullOrEmpty(portStr) ) {
+          try {
+            port = Integer.decode(portStr);
+          } catch( NumberFormatException nfe ) {
+            Log.die("Invalid port #: "+portStr);
+          }
+        }
+        h2os.add(H2ONode.intern(inet, port));
       }
-    } catch( Exception e ) {  Log.die(e.toString()); }
-    finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
+    } catch( Exception e ) { Log.die(e.toString()); }
+    finally { Closeables.closeQuietly(br); }
     return h2os;
   }
 
@@ -532,18 +558,16 @@ public final class H2O {
 
   // Periodically write user keys to disk
   public static class Cleaner extends Thread {
-    static private Cleaner C;
     // Desired cache level.  Set by the MemoryManager asynchronously.
     static public volatile long DESIRED;
     // Histogram used by the Cleaner
     private final Histo _myHisto;
     // Turn on to see copious cache-cleaning stats
-    static public final boolean VERBOSE = false;
+    static public final boolean VERBOSE = Boolean.getBoolean("h2o.cleaner.verbose");
 
     public Cleaner() {
       super("Memory Cleaner");
       _dirty = Long.MAX_VALUE;  // Set to clean-store
-      C = this;
       _myHisto = new Histo();   // Build/allocate a first histogram
       _myHisto.compute(0);      // Compute lousy histogram; find eldest
       Histo.H.set(_myHisto);    // Force to be the most recent
@@ -707,7 +731,6 @@ public final class H2O {
           // In the raw backing array, Keys and Values alternate in slots
           Object ok = kvs[i+0], ov = kvs[i+1];
           if( !(ok instanceof Key  ) ) continue; // Ignore tombstones and Primes and null's
-          Key   key = (Key  )ok;
           if( !(ov instanceof Value) ) continue; // Ignore tombstones and Primes and null's
           Value val = (Value)ov;
           byte[] m = val._mem;
