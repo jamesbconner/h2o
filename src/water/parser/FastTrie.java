@@ -39,7 +39,7 @@ public final class FastTrie {
   final private short addState(State s){
     if(_nstates == Short.MAX_VALUE){
       kill();
-      return 0;
+      return -1;
     }
     if(_nstates == _states.length) {
       _states = Arrays.copyOf(_states, Math.min(Short.MAX_VALUE, _states.length + (_states.length >> 1) + 1));
@@ -53,7 +53,8 @@ public final class FastTrie {
   }
 
   public void kill(){
-    _killed = false;
+    _killed = true;
+    _states = null;
   }
 
   final class State {
@@ -204,6 +205,7 @@ public final class FastTrie {
         }
         assert !_compressed:"missing transition";
         _transitions[idx][c] = addState(new State());
+        if(_killed) return -1;
         assert _transitions[idx][c] < _nstates:"unexpected target state: " + _transitions[idx][c] + ", nstates = " + _nstates;
         assert _nstates <= _states.length:"*unexpected number of states:" + _nstates + ", states.length = " + _states.length;
       }
@@ -241,8 +243,9 @@ public final class FastTrie {
   }
 
   public short addCharacter(int b){
-    if(_killed)return 0;
+    if(_killed)return -1;
     _state = _states[_state].getTransition(((int)b) & 0xff);
+    if(_killed)return -1;
     return _states[_state]._skip;
   }
 
@@ -284,11 +287,8 @@ public final class FastTrie {
   }
 
   public void merge(FastTrie other){
-    if(_killed || other._killed){
-      _killed = true;
-      _states = null;
-      return;
-    }
+    if(other._killed)kill();
+    if(_killed)return;
     if(_nstates == 0){
       _states = other._states;
       _nstates = other._nstates;
@@ -393,7 +393,7 @@ public final class FastTrie {
       byte [] bs = w.getBytes();
       while(j < bs.length){
         System.out.println((char)bs[j]);
-        j += t.addCharacter(bs[j])+1;
+        j += t.addCharacter(((int)bs[j])&0xFF)+1;
       }
       res[i++] = t.getTokenId();
     }

@@ -141,7 +141,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
-            offset += colTrie.addCharacter(c); // FastTrie returns skipped chars - 1
+            offset += colTrie.addCharacter(((int)c)&0xFF); // FastTrie returns skipped chars - 1
             break NEXT_CHAR;
           }
           // fallthrough to STRING_END
@@ -260,7 +260,7 @@ NEXT_CHAR:
             state = NUMBER_END;
             quotes = 0;
             break NEXT_CHAR;
-          } 
+          }
           // fallthrough NUMBER_END
         case NUMBER_END:
           if (c == CHAR_SEPARATOR) {
@@ -297,7 +297,7 @@ NEXT_CHAR:
             state = STRING;
             colTrie = callback._enums[colIdx];
             offset = tokenStart-1;
-            break NEXT_CHAR; // parse as String token now 
+            break NEXT_CHAR; // parse as String token now
           }
         // ---------------------------------------------------------------------
         case NUMBER_SKIP:
@@ -414,7 +414,7 @@ NEXT_CHAR:
         if (_ary == null)
           break;
         numStart -= bits.length;
-        if (state == NUMBER_FRACTION) 
+        if (state == NUMBER_FRACTION)
           fractionDigits -= bits.length;
         offset -= bits.length;
         tokenStart -= bits.length;
@@ -451,7 +451,7 @@ NEXT_CHAR:
   private static boolean canBeInNumber(byte c) {
     return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+');
   }
-  
+
   static String [] determineColumnNames(byte[] bits, byte separator) {
     ArrayList<String> colNames = new ArrayList();
     int offset = 0;
@@ -509,7 +509,7 @@ NEXT_CHAR:
         case SEPARATOR_OR_EOL:
           if (sb.toString().isEmpty())
             mightBeNumber = false;
-          if (mightBeNumber == true) 
+          if (mightBeNumber == true)
             return null; // it is a number, so we can't count it as column header
           colNames.add(sb.toString());
           if (isEOL(c)) {

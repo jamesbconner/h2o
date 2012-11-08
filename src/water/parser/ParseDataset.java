@@ -540,10 +540,9 @@ public final class ParseDataset {
       assert (_phase == 0);
       _colDomains = new String[_ncolumns][];
       for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL){
+        if(_colTypes[i] == ECOL && !_enums[i]._killed){
           _colDomains[i] = _enums[i].compress();
-        }
-        else _enums[i].kill();
+        } else _enums[i].kill();
       }
       _bases = new int[_ncolumns];
       calculateColumnEncodings();
@@ -877,8 +876,8 @@ public final class ParseDataset {
       }
     }
 
-    
-    
+
+
     public void newLine() {
       ++_myrows;
       if (_phase != 0) {
@@ -890,7 +889,7 @@ public final class ParseDataset {
         }
       }
     }
-    
+
     public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
       if (_phase == 0) {
         switch(numLength) {
@@ -956,9 +955,9 @@ public final class ParseDataset {
         }
       }
     }
-      
-      
-      
+
+
+
 
     public void addRow2(long[] numbers, short[] exponents, byte[] numLength) {
       ++_myrows;
