@@ -21,6 +21,9 @@ public final class FastTrie {
   boolean _killed;
   short _state0 = (short)0;
 
+  static class TooManyStatesException extends Exception{
+    public TooManyStatesException(){super("Too many states in FastTrie");}
+  }
   public FastTrie clone() {
     FastTrie res = new FastTrie();
     res._state = _state;
@@ -36,11 +39,9 @@ public final class FastTrie {
   public FastTrie(){
     _states[0] = new State();
   }
-  final private short addState(State s){
-    if(_nstates == Short.MAX_VALUE){
-      kill();
-      return -1;
-    }
+  final private short addState(State s) throws TooManyStatesException {
+    if(_nstates == Short.MAX_VALUE)throw new TooManyStatesException();
+
     if(_nstates == _states.length) {
       _states = Arrays.copyOf(_states, Math.min(Short.MAX_VALUE, _states.length + (_states.length >> 1) + 1));
       BitSet newFinalStates = new BitSet(_states.length);
@@ -123,7 +124,7 @@ public final class FastTrie {
       }
     }
 
-    void merge(int myIdx, FastTrie otherTrie, int sIdx){
+    void merge(int myIdx, FastTrie otherTrie, int sIdx) throws TooManyStatesException{
       assert !_compressed;
       State other = otherTrie._states[sIdx];
       if(otherTrie._finalStates.get(sIdx))
@@ -134,12 +135,8 @@ public final class FastTrie {
         for(int j = 0; j < 16; ++j){
           if(other._transitions[i][j] == 0)continue;
          // System.out.println(_id + " _state = " + _state);
-          try{
-            int x = getTransition(((i << 4) + j));
-            _states[x].merge(x,otherTrie, other._transitions[i][j]);
-          } catch(Exception e){
-            e.printStackTrace();
-          }
+          int x = getTransition(((i << 4) + j));
+          _states[x].merge(x,otherTrie, other._transitions[i][j]);
         }
       }
     }
@@ -193,7 +190,7 @@ public final class FastTrie {
       }
     }
 
-    final int getTransition(int c){
+    final int getTransition(int c) throws TooManyStatesException {
       assert (c & 0xFF) == c;
       int idx = c >> 4;
       c &= 0x0F;
@@ -205,7 +202,6 @@ public final class FastTrie {
         }
         assert !_compressed:"missing transition";
         _transitions[idx][c] = addState(new State());
-        if(_killed) return -1;
         assert _transitions[idx][c] < _nstates:"unexpected target state: " + _transitions[idx][c] + ", nstates = " + _nstates;
         assert _nstates <= _states.length:"*unexpected number of states:" + _nstates + ", states.length = " + _states.length;
       }
@@ -243,10 +239,14 @@ public final class FastTrie {
   }
 
   public short addCharacter(int b){
-    if(_killed)return -1;
+    if(_killed)return 0;
+    try{
     _state = _states[_state].getTransition(((int)b) & 0xff);
-    if(_killed)return -1;
     return _states[_state]._skip;
+    }catch(TooManyStatesException e){
+      kill();
+      return 0;
+    }
   }
 
   String [] compress(){
@@ -293,7 +293,11 @@ public final class FastTrie {
       _states = other._states;
       _nstates = other._nstates;
     } else {
-      _states[0].merge((short)0,other, (short)0);
+      try {
+        _states[0].merge((short)0,other, (short)0);
+      } catch( TooManyStatesException e ) {
+        kill();
+      }
     }
   }
 

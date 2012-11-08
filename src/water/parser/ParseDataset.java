@@ -210,7 +210,8 @@ public final class ParseDataset {
     static final byte DOUBLE= 7;
     static final byte STRINGCOL = 8;  // string column (too many enum values)
 
-    static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8,0};
+    static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8,1};
+    transient boolean _killedEnums [];
 
     // scalar variables
     boolean _skipFirstLine;
@@ -248,7 +249,9 @@ public final class ParseDataset {
     // create and used only on the task caller's side
     transient String[][] _colDomains;
 
-    public DParseTask() {}
+    public DParseTask() {
+      System.out.println("curak");
+    }
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
       _resultKey = resultKey;
       _ncolumns = ncolumns;
@@ -257,7 +260,7 @@ public final class ParseDataset {
         ValueArray ary = (ValueArray) dataset;
         _nrows = new int[(int)ary.chunks()];
       }
-
+      _killedEnums = new boolean[ncolumns];
       _skipFirstLine = skipFirstLine;
     }
     /* We are synchronizing:
@@ -424,6 +427,7 @@ public final class ParseDataset {
       _phase = is.readInt();
       _myrows = is.readInt();
       _ncolumns = is.readInt();
+      if(_phase == 0)_killedEnums = new boolean[_ncolumns];
       _sep = is.readByte();
       _decSep = is.readByte();
       _rpc = is.readInt();
@@ -522,6 +526,7 @@ public final class ParseDataset {
       _mean          = s.getAry8d();
       _sigma         = s.getAry8d();
       _nrows         = s.getAry4();
+      if(_phase == 0)_killedEnums = new boolean[_ncolumns];
       int n = s.get4();
       if (n != -1) {
         _enums = new FastTrie[n];
@@ -665,9 +670,11 @@ public final class ParseDataset {
         }
         switch(_phase){
         case 0:
-//          System.out.println("Starting pass 1 "+key.toString());
           _enums = new FastTrie[_ncolumns];
-          for(int i = 0; i < _enums.length; ++i)_enums[i] = new FastTrie();
+          for(int i = 0; i < _enums.length; ++i){
+            _enums[i] = new FastTrie();
+            if(_killedEnums[i])_enums[i].kill();
+          }
           _invalidValues = new long[_ncolumns];
           _min = new double [_ncolumns];
           Arrays.fill(_min, Double.MAX_VALUE);
@@ -840,6 +847,19 @@ public final class ParseDataset {
       assert (_min != null);
       for(int i = 0; i < _ncolumns; ++i){
         switch(_colTypes[i]){
+        case ECOL: // enum
+          if(_enums[i]._killed){
+            _max[i] = 0;
+            _min[i] = 0;
+            _colTypes[i] = STRINGCOL;
+          } else {
+            _max[i] = _enums[i]._state0-1;
+            _min[i] = 0;
+            if(_enums[i]._state0 < 256)_colTypes[i] = BYTE;
+            else if(_enums[i]._state0 < 65536)_colTypes[i] = SHORT;
+            else _colTypes[i] = INT;
+          }
+
         case ICOL: // number
           if (_max[i] - _min[i] < 255) {
             _colTypes[i] = BYTE;
@@ -866,13 +886,7 @@ public final class ParseDataset {
             _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
           }
           break;
-        case ECOL: // enum
-          _max[i] = _enums[i]._state0-1;
-          _min[i] = 0;
-          if(_enums[i]._state0 < 256)_colTypes[i] = BYTE;
-          else if(_enums[i]._state0 < 65536)_colTypes[i] = SHORT;
-          else _colTypes[i] = INT;
-        }
+                }
       }
     }
 
@@ -896,6 +910,8 @@ public final class ParseDataset {
           case -1:
             break;
           case -2:
+            if(_enums[colIdx]._killed)
+              _killedEnums[colIdx] = true;
             if(_colTypes[colIdx] ==UCOL) _colTypes[colIdx] = ECOL;
             break;
           default:
@@ -950,6 +966,8 @@ public final class ParseDataset {
                 // scale is computed as negative in the first pass,
                 // therefore to compute the positive exponent after scale, we add scale and the original exponent
                 _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case STRINGCOL:
                 break;
             }
         }
@@ -1105,6 +1123,8 @@ public final class ParseDataset {
                 // therefore to compute the positive exponent after scale, we add scale and the original exponent
                 _s.set2((short)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
                 break;
+              case STRINGCOL:
+                _s.set1(-1);
             }
           }
         }
