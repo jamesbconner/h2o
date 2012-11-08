@@ -36,7 +36,7 @@ public class RandomForestPage extends H2OPage {
     // determine the arity of the column
     HashMap<String,Integer> classNames = new HashMap();
     int arity = ary.col_enum_domain_size(classColIdx);
-    if (arity == 0) {
+    if (arity == 65535) {
       int min = (int) ary.col_min(classColIdx);
       if (ary.col_min(classColIdx) != min)
         throw new PageError("Only integer or enum columns can be classes!");
