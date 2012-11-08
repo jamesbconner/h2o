@@ -14,6 +14,7 @@ abstract class Statistic {
   protected Random _random;                // pseudo random number generator
   private int _seed;
   private HashSet<Integer> _remembered;
+  final double[] _classWt;      // Class weights
 
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
@@ -84,6 +85,7 @@ abstract class Statistic {
     // create the columns themselves
     _features = new int[features];
     _remembered = null;
+    _classWt = data.classWt();  // Class weights
   }
 
   // Remember a set of features that were useless in splitting this set of rows
@@ -135,9 +137,19 @@ abstract class Statistic {
   /** Adds the given row to the statistic. Updates the column distributions for
    * the analyzed columns.
    */
-  void add(Row row) {
+  void addQ(Row row) {
+    final int cls = row.classOf();
     for (int i : _features)
-      _columnDists[i][row.getEncodedColumnValue(i)][row.classOf()]++;
+      _columnDists[i][row.getEncodedColumnValue(i)][cls]++;
+  }
+
+  // Apply any class weights to the distributions.
+  void applyClassWeights() {
+    if( _classWt == null ) return;
+    for( int [][] dist : _columnDists ) // For all columns, get the distribution
+      for( int[] clss : dist )          // For all distributions, get the class distribution
+        for( int cls=0; cls<clss.length; cls++ )
+          clss[cls] = (int)(clss[cls]*_classWt[cls]); // Scale by the class weights
   }
 
 
@@ -166,7 +178,8 @@ abstract class Statistic {
       // See if we have enough features to try again with all new features.
       if( !remember_features(d) ) return bestSplit;
       reset(d,_seed+1);         // Reset with new features
-      for(Row r: d)  add(r);
+      for(Row r: d)  addQ(r);   // Reload the distributions
+      applyClassWeights();      // Weight the distributions
       bestSplit = split(d,expectLeaf);
       if (bestSplit.isImpossible()) return bestSplit;
     }

@@ -17,12 +17,13 @@ class DataAdapter  {
   private final int _seed;
   public final int _classIdx;
   public final int _numRows;
+  public final double[] _classWt;
 
   /** Maximum arity for a column (not a hard limit at this point) */
   final short _bin_limit;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
-      int data_id, int seed, short bin_limit) {
+              int data_id, int seed, short bin_limit, double[] classWt) {
     _seed = seed+data_id;
     _ary = ary;
     _bin_limit = bin_limit;
@@ -51,6 +52,8 @@ class DataAdapter  {
     }
     _dataId = data_id;
     _numRows = rows;
+    assert classWt == null || classWt.length==_numClasses;
+    _classWt = classWt;
   }
 
   /** Given a value in enum format, returns a value in the original range. */
