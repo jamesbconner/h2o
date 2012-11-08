@@ -64,6 +64,9 @@ public class MultiReceiverThread extends Thread {
         }
 
         // Receive a packet
+        int len = pack.getData().length; // Receive all that will fit
+        assert len >= MultiCast.MTU;
+        pack.setLength(len);
         sock.receive(pack);
         TimeLine.record_recv(pack);
 
