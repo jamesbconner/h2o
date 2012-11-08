@@ -307,7 +307,7 @@ public final class H2O {
     Arguments arguments = new Arguments(args);
     arguments.extract(OPT_ARGS);
     ARGS = arguments.toStringArray();
-    
+
     // Redirect System.out/.err to the Log system and collect them in LogHub
     LogHub.prepare_log_hub();
     Log.hook_sys_out_err();
@@ -462,18 +462,29 @@ public final class H2O {
       br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
       String strLine = null;
       while( (strLine = br.readLine()) != null) {
+        strLine = strLine.trim();
         // be user friendly and skip comments
         if (strLine.startsWith("#")) continue;
+        // skip empty lines
+        if (strLine.isEmpty()) continue;
         final String[] ss = strLine.split("[/:]");
-        if( ss.length!=3 )
-          Log.die("Invalid format, must be name/ip:port, not '"+strLine+"'");
+        if( ss.length<2 && ss.length>3 )
+          Log.die("Invalid format, must be name/ip[:port], not '"+strLine+"'");
 
+        // Parse IP address
         final InetAddress inet = InetAddress.getByName(ss[1]);
         if( !(inet instanceof Inet4Address) )
           Log.die("Only IP4 addresses allowed.");
-        try {
-          port = Integer.decode(ss[2]);
-        } catch( NumberFormatException nfe ) {  Log.die("Invalid port #: "+ss[2]); }
+        // Parse port number if it was specified
+        if (ss.length == 3 && ss[2]!=null) {
+          try {
+            port = Integer.decode(ss[2]);
+          } catch( NumberFormatException nfe ) {  Log.die("Invalid port #: "+ss[2]); }
+        } else { // Port is not specified => use default UDP port
+          port = DEFAULT_PORT+1; // default UDP port
+        }
+        System.out.println("H2O.from_file(): "+port);
+        // Build a list of nodes
         h2os.add(H2ONode.intern(inet,port));
         //h2os.add(new H2ONode(inet,port));
       }
