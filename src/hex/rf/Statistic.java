@@ -192,7 +192,5 @@ abstract class Statistic {
     }
     return bestSplit;
   }
-
- static int I , L;
 }
 
