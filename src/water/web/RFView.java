@@ -160,11 +160,15 @@ public class RFView extends H2OPage {
       trow.replace("class",classcol);
       trow.append();
     }
+
+    confusion.report();  // Print on std out...
+
     try {
       response.replace("validateOther","RFViewQuery?modelKey="+URLEncoder.encode(p.getProperty("modelKey"),"UTF8")+"&class="+p.getProperty("class",""));
     } catch (UnsupportedEncodingException e) {
       // pass
     }
+
     return response.toString();
   }
 
@@ -176,7 +180,7 @@ public class RFView extends H2OPage {
       + "<tr><td>%validateMore</td></tr>"
       + "</tbody></table>\n"
       + "<p><a href=\"%validateOther\">Validate another data</a></p>"
-            
+
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"
