@@ -149,7 +149,7 @@ public class RandomForestPage extends H2OPage {
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
-    System.out.println("[RF] ignoring: " + igz);
+    if( igz!=null ) System.out.println("[RF] ignoring: " + igz);
     System.out.println("[RF] class column: " + classcol);
     int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary.col_names(), igz);
 
