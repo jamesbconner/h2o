@@ -38,13 +38,11 @@ public class GiniStatistic extends Statistic {
     int leftWeight = 0;
     int riteWeight = distWeight;
     double totWeight = (double)riteWeight;
-
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
-    double bestFitness = 0.0;   // Fitness to maximize
+    double bestFitness = 0.0;
     assert !d.ignore(colIndex);
-    //assert _columnDists[colIndex].length > 1; // Have to have at least 2 rows to split
-    //assert leftDist.length==_columnDists[colIndex][0].length;
+    assert leftDist.length==_columnDists[colIndex][0].length;
 
     for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
       // first copy the i-th guys from rite to left
@@ -73,7 +71,6 @@ public class GiniStatistic extends Statistic {
   @Override protected Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight) {
     int[] inclDist = new int[d.classes()];
     int[] exclDist = dist.clone();
-
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = 0.0;   // Fitness to maximize

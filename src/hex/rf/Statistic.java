@@ -9,12 +9,14 @@ import java.util.*;
  * be used for the node.
  */
 abstract class Statistic {
-  protected final int[][][] _columnDists;  // Column distributions for the given statistic
+  /** Column distributions:  column index x column arity x classes
+   *  Remembers the number of rows of the given column index, encodedValue, class.  */
+  protected final int[][][] _columnDists;
   protected final int[] _features;         // Columns/features that are currently used.
-  protected Random _random;                // pseudo random number generator
-  private int _seed;
-  private HashSet<Integer> _remembered;
-  final double[] _classWt;      // Class weights
+  protected Random _random;                // Pseudo random number generator
+  private int _seed;                       // Seed for prng
+  private HashSet<Integer> _remembered;    // Features already used
+  final double[] _classWt;                 // Class weights
 
   /** Returns the best split for a given column   */
   protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
