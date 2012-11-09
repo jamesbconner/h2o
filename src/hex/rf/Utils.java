@@ -34,11 +34,8 @@ public class Utils {
     return (what < 1e-06) ? 0 : what * Math.log(what);
   }
 
-  public static String p2d(double d) { return df.format(d); }
-  static final DecimalFormat df = new  DecimalFormat ("0.##");
-  public static String p5d(double d) { return df5.format(d); }
-  static final DecimalFormat df5 = new  DecimalFormat ("0.#####");
-
+  public static String p2d(double d) { return new DecimalFormat ("0.##"   ).format(d); }
+  public static String p5d(double d) { return new DecimalFormat ("0.#####").format(d); }
 
   public static int set4( byte[] buf, int off, int x ) {
     for( int i=0; i<4; i++ ) buf[i+off] = (byte)(x>>(i<<3));
