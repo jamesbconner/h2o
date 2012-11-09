@@ -45,7 +45,12 @@ public class RandomForest {
 
   static final OptArgs ARGS = new OptArgs();
 
-  public int features() { return _features== -1 ? (int)Math.sqrt(_data.columns()) : _features; }
+  public int features() {
+    if( _features != -1 ) return _features;
+    int used = -1; // we don't use the class column, but it is not ignored
+    for(int i = 0; i < _data.columns(); ++i) if(!_data.ignore(i)) ++used;
+    return (int)Math.sqrt(used);
+  }
 
 
   public static void main(String[] args) throws Exception {
@@ -80,7 +85,7 @@ public class RandomForest {
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  ((float)ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true, null);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true, null);
     drf.get(); // block
     Model model = UKV.get(drf._modelKey, new Model());
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);

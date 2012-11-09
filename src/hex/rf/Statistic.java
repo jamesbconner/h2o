@@ -95,13 +95,21 @@ abstract class Statistic {
   boolean remember_features(Data data) {
     // Check that we have enough properties left
     if( _remembered == null ) _remembered = new HashSet<Integer>();
-    int sz = _remembered.size(), ln = _features.length, cnt = 0;
-    for(int i=0;i<data.columns();i++) if(!data.ignore(i)) cnt++;
-    if ( (sz+ln+ln) > cnt ) return false; // we have tried all the features.
+    int used = _remembered.size() + _features.length;
+    int available = -1; // we don't count the class column
+    for(int i=0;i<data.columns();i++) if(!data.ignore(i)) available++;
+    if( used >= available ) return false; // we have tried all the features.
     for(int i=0;i<_features.length;i++) _remembered.add(_features[i]);
     return true;
   }
   void forget_features() { _remembered = null; }
+
+  private boolean isColumnUsable(Data d, int i) {
+    assert i < d.columns();
+    return d.classIdx() != i
+        && !d.ignore(i)
+        && (_remembered == null || !_remembered.contains(i));
+  }
 
   /** Resets the statistic so that it can be used to compute new node. Creates
    * a new subset of columns that will be analyzed and clears their
@@ -114,22 +122,14 @@ abstract class Statistic {
     // replace it with the last column.
     // Columns that have been marked as ignore should not be selected.
     int i = 0, j = 0;
-    for( ; j<_features.length; i++) if (!data.ignore(i))  _features[j++] = i;
-    for( ; i<data.columns()-1; i++ ) {
-      if( data.ignore(i) || (_remembered != null && _remembered.contains(i))) continue;
+    for( ; j<_features.length; i++) if (isColumnUsable(data, i)) _features[j++] = i;
+    for( ; i<data.columns(); i++ ) {
+      if( !isColumnUsable(data, i) ) continue;
       int off = _random.nextInt(i);
       if( off < _features.length ) _features[off] = i;
     }
-    // If we chose the class column, pick the last not-ignored column instead
-    // (which otherwise did not get a chance to be picked).
-    int classIdx = data.classIdx();
-    for( i=0; i<_features.length; i++ ) if( _features[i] == classIdx ) break;
-    if( i < _features.length ) { // Class picked?
-      _features[i] = data.columns()-1;
-      while( data.ignore(_features[i]) || (_remembered != null && _remembered.contains(i)) ) _features[i]--;
-    }
     for( int k : _features) assert !data.ignore(k);
-    for( int k : _features) assert k != classIdx;
+    for( int k : _features) assert k != data.classIdx();
     // reset the column distributions for those
     for( int k : _features) for( int[] d: _columnDists[k]) Arrays.fill(d,0);
   }
