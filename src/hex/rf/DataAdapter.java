@@ -34,7 +34,7 @@ class DataAdapter  {
     assert 0 <= _numClasses && _numClasses < 65535;
 
     _classIdx = classCol;
-    assert ignores.length < _columnNames.length;
+    assert ignores.length < _columnNames.length - 1;
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       double range = _ary.col_max(i) - _ary.col_min(i);

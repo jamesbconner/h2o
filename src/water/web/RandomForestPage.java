@@ -22,7 +22,7 @@ public class RandomForestPage extends H2OPage {
   public static final String IGNORE_COL = "ignore";
 
   public static final int MAX_CLASSES = 4096;
-  
+
   @Override
   public String[] requiredArguments() {
     return new String[] { DATA_KEY };
@@ -47,8 +47,8 @@ public class RandomForestPage extends H2OPage {
       return  ary.col_enum_domain(classColIdx);
     }
   }
-  
-  
+
+
   public static double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws PageError {
     assert classColIdx>=0 && classColIdx < ary.num_cols();
     // determine the arity of the column
@@ -74,7 +74,7 @@ public class RandomForestPage extends H2OPage {
         end = source.indexOf(',',start);
         className = source.substring(start,end);
         ++end;
-        
+
       } else {
         end = source.indexOf('=',start);
         className = source.substring(start,end);
@@ -97,8 +97,8 @@ public class RandomForestPage extends H2OPage {
       result[classNames.get(className)] = classWeight;
     }
     return result;
-  } 
-  
+  }
+
   @Override
   public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(p, DATA_KEY);
@@ -147,6 +147,9 @@ public class RandomForestPage extends H2OPage {
     System.out.println("[RF] ignoring: " + igz);
     System.out.println("[RF] class column: " + classcol);
     int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary.col_names(), igz);
+
+    if( ignores.length + 1 >= ary.num_cols() )
+      throw new InvalidInputException("Cannot ignore every column");
 
     // Remove any prior model; about to overwrite it
     UKV.remove(modelKey);
