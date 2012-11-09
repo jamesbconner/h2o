@@ -146,12 +146,11 @@ abstract class Statistic {
   // Apply any class weights to the distributions.
   void applyClassWeights() {
     if( _classWt == null ) return;
-    for( int [][] dist : _columnDists ) // For all columns, get the distribution
-      for( int[] clss : dist )          // For all distributions, get the class distribution
+    for( int f : _features ) // For all columns, get the distribution
+      for( int[] clss : _columnDists[f] ) // For all distributions, get the class distribution
         for( int cls=0; cls<clss.length; cls++ )
           clss[cls] = (int)(clss[cls]*_classWt[cls]); // Scale by the class weights
   }
-
 
   /** Calculates the best split and returns it. The split can be either a split
    * which is a node where all rows with given column value smaller or equal to
