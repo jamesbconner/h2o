@@ -131,7 +131,7 @@ public class RandomForestTest {
     final int ignore[] = new int[]{6}; // Ignore column 6
 
     // Start the distributed Random Forest
-    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null);
+    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1);
     // Just wait little bit
     drf.get();
     // Create incremental confusion matrix.

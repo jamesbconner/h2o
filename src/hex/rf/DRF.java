@@ -26,6 +26,8 @@ public class DRF extends water.DRemoteTask {
   int _seed;            // Random # seed
   double[] _classWt;    // Class weights
 
+  int _features;
+  
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
   transient RandomForest _rf;        // The local RandomForest
@@ -45,9 +47,11 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
+    assert (features>0) && (features<ary.num_cols()-1); 
+    drf._features = features;
     drf._parallel = parallelTrees;
     drf._ntrees = ntrees;
     drf._depth = depth;
@@ -217,7 +221,7 @@ public class DRF extends water.DRemoteTask {
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
-    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel);
+    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel,_features);
     tryComplete();
   }
 

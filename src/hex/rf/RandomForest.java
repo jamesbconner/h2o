@@ -11,11 +11,12 @@ import water.util.KeyUtil;
  */
 public class RandomForest {
   final Data _data;             // The data to train on.
-  private int _features = -1;   // features to check at each split
+  private final int _features;   // features to check at each split
 
-  public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees) {
+  public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees, int features) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
+    _features = features;
     Timer t_alltrees = new Timer();
     Tree[] trees = new Tree[ntrees];
     for (int i = 0; i < ntrees; ++i) {
@@ -55,6 +56,7 @@ public class RandomForest {
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
+    int features = -1;
     arguments.extract(ARGS);
     if(ARGS.h2oArgs.startsWith("\"") && ARGS.h2oArgs.endsWith("\""))
       ARGS.h2oArgs = ARGS.h2oArgs.substring(1, ARGS.h2oArgs.length()-1);
@@ -85,7 +87,7 @@ public class RandomForest {
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true, null);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true, null,features);
     drf.get(); // block
     Model model = UKV.get(drf._modelKey, new Model());
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);

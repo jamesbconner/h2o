@@ -130,8 +130,8 @@ public class RandomForestPage extends H2OPage {
       throw new PageError("Not a valid key: "+ skey);
     }
 
-    int features = getAsNumber(p,FEATURES,(int)Math.ceil(Math.sqrt(ary.num_cols())));
-    if ((features<=0) || (features>=ary.num_cols()))
+    int features = getAsNumber(p,FEATURES,-1);
+    if ((features!=-1) && ((features<=0) || (features>=ary.num_cols())))
       throw new PageError("Number of features can only be between 1 and num_cols - 1");
     
     // Pick the column to classify
@@ -165,7 +165,7 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o",H2O.SELF.urlEncode());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt);
+      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
       Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes);
