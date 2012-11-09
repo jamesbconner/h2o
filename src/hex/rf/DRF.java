@@ -50,7 +50,7 @@ public class DRF extends water.DRemoteTask {
   public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
-    assert (features>0) && (features<ary.num_cols()-1); 
+    assert (features==-1) || ((features>0) && (features<ary.num_cols()-1)); 
     drf._features = features;
     drf._parallel = parallelTrees;
     drf._ntrees = ntrees;
