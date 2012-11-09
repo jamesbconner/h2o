@@ -24,8 +24,9 @@ public class GiniStatistic extends Statistic {
 
   private double gini(int[] dd, int sum) {
     double result = 1.0;
+    double sd = (double)sum;
     for (int d : dd) {
-      double tmp = ((double)d)/sum;
+      double tmp = ((double)d)/sd;
       result -= tmp*tmp;
     }
     return result;
@@ -36,7 +37,7 @@ public class GiniStatistic extends Statistic {
     int[] riteDist = dist.clone();
     int leftWeight = 0;
     int riteWeight = distWeight;
-    int totWeight = riteWeight;
+    double totWeight = (double)riteWeight;
 
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
