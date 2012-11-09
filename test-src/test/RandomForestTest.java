@@ -1,20 +1,20 @@
 package test;
 import static org.junit.Assert.*;
-import com.google.gson.JsonObject;
-import hex.rf.Confusion;
-import hex.rf.DRF;
-import hex.rf.Model;
+import hex.rf.*;
 import hex.rf.Tree.StatType;
-import java.io.*;
+
 import java.util.Properties;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import test.RFRunner.OptArgs;
+
 import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
 import water.web.RFView;
 import water.web.RandomForestPage;
+
+import com.google.gson.JsonObject;
 
 public class RandomForestTest {
   private static int _initial_keycnt = 0;
@@ -88,7 +88,7 @@ public class RandomForestTest {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{50,0,0},{0,49,1},{0,0,50}};
+      long ans[][] = new long[][]{{50,0,0},{0,50,0},{0,0,50}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
@@ -125,9 +125,7 @@ public class RandomForestTest {
     int gini    = StatType.GINI.ordinal();
     int seed =  42;
     StatType statType = StatType.values()[gini];
-    final int num_cols = val.num_cols();
     final int classcol = 1; // For credit: classify column 1
-    final int classes = (short)((val.col_max(classcol) - val.col_min(classcol))+1);
     final int ignore[] = new int[]{6}; // Ignore column 6
 
     // Start the distributed Random Forest
@@ -136,7 +134,7 @@ public class RandomForestTest {
     drf.get();
     // Create incremental confusion matrix.
     Model model;
-    while( true ) { 
+    while( true ) {
       // RACEY BUG HERE: Model is supposed to be complete after drf.get, but as
       // of 11/5/2012 it takes a little while for all trees to appear.
       model = UKV.get(drf._modelKey,new Model());

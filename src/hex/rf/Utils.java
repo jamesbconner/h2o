@@ -5,12 +5,21 @@ import java.util.Random;
 
 public class Utils {
 
-  /** Returns the index of the largest value in the array. In case of a tie, an
-   * the index is selected randomly.   */
+  /** Returns the index of the largest value in the array.
+   * In case of a tie, an the index is selected randomly.
+   */
   public static int maxIndex(int[] from, Random rand) {
+    assert rand != null;
     int result = 0;
-    for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
-      else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
+    int maxCount = 0; // count of maximal element for a 1 item reservoir sample
+    for( int i = 1; i < from.length; ++i ) {
+      if( from[i] > from[result] ) {
+        result = i;
+        maxCount = 1;
+      } else if( from[i] == from[result] ) {
+        if( rand.nextInt(++maxCount) == 0 ) result = i;
+      }
+    }
     return result;
   }
 
@@ -20,16 +29,6 @@ public class Utils {
       if (from[i]>from[result]) result = i;
     return result;
   }
-
-
-  public static String join(int[] what, String with) {
-    if (what==null)  return "";
-    StringBuilder sb = new StringBuilder();
-    sb.append(what[0]);
-    for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
-    return sb.toString();
-  }
-
 
   public static double lnF(double what) {
     return (what < 1e-06) ? 0 : what * Math.log(what);
@@ -41,7 +40,7 @@ public class Utils {
   static final DecimalFormat df5 = new  DecimalFormat ("0.#####");
 
 
-   public static int set4( byte[] buf, int off, int x ) {
+  public static int set4( byte[] buf, int off, int x ) {
     for( int i=0; i<4; i++ ) buf[i+off] = (byte)(x>>(i<<3));
     return 4;
   }
