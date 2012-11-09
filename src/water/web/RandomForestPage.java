@@ -176,6 +176,7 @@ public class RandomForestPage extends H2OPage {
       res.addProperty("modelKey", modelKey.toString());
       res.addProperty(NUM_TREE, ntree);
       res.addProperty("class", classcol);
+      res.addProperty("classWt", p.getProperty("classWt",""));
     } catch(DRF.IllegalDataException e) {
       res.addProperty("error", H2OPage.error("Incorrect input data: " + e.getMessage()));
     }
@@ -192,5 +193,5 @@ public class RandomForestPage extends H2OPage {
     return H2OPage.error(json.get("error").toString());
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class&classWt=%classWt\">\n";
 }
