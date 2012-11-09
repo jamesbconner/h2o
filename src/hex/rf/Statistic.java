@@ -98,14 +98,14 @@ abstract class Statistic {
     int used = _remembered.size() + _features.length;
     int available = -1; // we don't count the class column
     for(int i=0;i<data.columns();i++) if(!data.ignore(i)) available++;
-    if( used >= available ) return false; // we have tried all the features.
+    if( used+ _features.length >= available ) return false; // we have tried all the features.
     for(int i=0;i<_features.length;i++) _remembered.add(_features[i]);
     return true;
   }
   void forget_features() { _remembered = null; }
 
   private boolean isColumnUsable(Data d, int i) {
-    assert i < d.columns();
+    assert i < d.columns() : ""+i+"<"+d.columns();
     return d.classIdx() != i
         && !d.ignore(i)
         && (_remembered == null || !_remembered.contains(i));

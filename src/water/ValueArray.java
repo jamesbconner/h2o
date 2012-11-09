@@ -451,7 +451,7 @@ public class ValueArray extends Value {
     byte[] mem = get();
     int off = UDP.get4(mem,col(cnum)+NAME_COL_OFF);
     int len = UDP.get2(mem,off);
-    return len > 0 ? new String(mem,off+2,len) : null;
+    return len > 0 ? new String(mem,off+2,len) : Integer.toString(cnum);
   }
   // All the column names.  Unlike the above version, this one replaces null
   // strings with a column number and never returns null names

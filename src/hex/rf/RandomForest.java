@@ -11,7 +11,7 @@ import water.util.KeyUtil;
  */
 public class RandomForest {
   final Data _data;             // The data to train on.
-  private final int _features;   // features to check at each split
+  private int _features;        // features to check at each split
 
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees, int features) {
     // Build N trees via the Random Forest algorithm.
@@ -50,7 +50,7 @@ public class RandomForest {
     if( _features != -1 ) return _features;
     int used = -1; // we don't use the class column, but it is not ignored
     for(int i = 0; i < _data.columns(); ++i) if(!_data.ignore(i)) ++used;
-    return (int)Math.sqrt(used);
+    return (_features = (int)Math.sqrt(used));
   }
 
 
