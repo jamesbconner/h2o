@@ -33,6 +33,8 @@ public class Confusion extends MRTask {
   private long                _errors;
   /** Number of rows used for building the matrix. */
   private long                _rows;
+  /** Class weights */
+  private double[]            _classWt;
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42. */
   private transient Random    _rand;
@@ -49,10 +51,11 @@ public class Confusion extends MRTask {
    * @param model the ensemble used to classify
    * @param datakey the key of the data that will be classified
    */
-  private Confusion(Model model, Key datakey, int classcol ) {
+  private Confusion(Model model, Key datakey, int classcol, double[] classWt ) {
     _modelKey = model._key;
     _datakey = datakey;
     _classcol = classcol;
+    _classWt = classWt;
     shared_init();
   }
 
@@ -64,7 +67,7 @@ public class Confusion extends MRTask {
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
-  static public Confusion make(Model model, Key datakey, int classcol) {
+  static public Confusion make(Model model, Key datakey, int classcol, double[] classWt) {
     Key key = keyFor(model._key, model.size(), datakey, classcol);
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
@@ -72,11 +75,16 @@ public class Confusion extends MRTask {
       return C;
     }
 
-    C = new Confusion(model,datakey,classcol);
+    C = new Confusion(model,datakey,classcol,classWt);
 
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
     UKV.put(key,C);             // Output to cloud
+    if( classWt != null ) {
+      for( int i=0; i<classWt.length; i++ )
+        if( classWt[i] != 1.0 )
+          System.out.println("Weighted class "+i+" by "+classWt[i]);
+    }
     return C;
   }
 
@@ -153,7 +161,7 @@ public class Confusion extends MRTask {
       if( ignoreRow(nchk, i) ) continue; // Skipped for validating & training
       if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) continue; // Cannot vote if no class!
       for( int j=0; j<_N; j++ ) votes[j] = 0;
-      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, rand);
+      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, _classWt, rand);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;

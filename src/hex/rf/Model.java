@@ -80,9 +80,14 @@ public class Model extends RemoteTask {
       votes[classify(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
   }
 
-  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, Random rand ) {
+  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, double[] classWt, Random rand ) {
     // Vote all the trees for the row
     vote(chunk, row, rowsize, data, offs, size, base, scal, votes);
+    // Scale the votes by class weights: it as-if rows of the weighted classes
+    // were replicated many times so get many votes.
+    if( classWt != null )
+      for( int i=0; i<votes.length-1; i++ )
+        votes[i] = (int)(votes[i]*classWt[i]);
     // Tally results
     int result = 0;
     int tied = 1;
