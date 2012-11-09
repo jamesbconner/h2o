@@ -38,6 +38,7 @@ class DataAdapter  {
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       double range = _ary.col_max(i) - _ary.col_min(i);
+      if (range==0) { ignore = true; Utils.pln("Ignoring column " + i + " as all values are identical.");   }
       boolean raw = (_ary.col_size(i) > 0 && _ary.col_scale(i)==1.0 && range < _bin_limit && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1) t = C.ColType.BOOL;
