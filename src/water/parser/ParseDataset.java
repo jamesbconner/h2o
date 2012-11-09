@@ -188,6 +188,8 @@ public final class ParseDataset {
       // There is at least one entry in zip file and it is not a directory.
       if (ze != null && !ze.isDirectory()) {
         key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", zis, Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+      } else {
+        throw new Error("ZIP file has an unexpected format.  Only zip files containing a top level file are supported.");
       }
       // else it is possible to dive into a directory but in this case I would
       // prefer to return error since the ZIP file has not expected format

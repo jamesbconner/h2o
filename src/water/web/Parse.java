@@ -25,8 +25,16 @@ public class Parse extends H2OPage {
       long start = System.currentTimeMillis();
       Value dataset = DKV.get(key);  // Get the source dataset root key
       if( dataset == null ) throw new PageError(key.toString()+" not found");
-      if( dataset.get().length == 0 ) throw new PageError("Cannot parse an empty file.");
-      ParseDataset.parse(resKey, dataset);
+      try {
+        ParseDataset.parse(resKey, dataset);
+      } catch(IllegalArgumentException e) {
+        e.printStackTrace(System.err);
+        throw new PageError(e.getMessage());
+      } catch(Error e) {
+        e.printStackTrace(System.err);
+        throw new PageError(e.getMessage());
+      }
+
       long now = System.currentTimeMillis();
       res.addProperty("TimeMS", now - start);
     } else {
