@@ -475,7 +475,7 @@ class H2O(object):
                 # test should get the right one from RF.json output, for use in RFview
                 # passing a modelKey is really so it persists if we're doing multiple RFs
                 # and we want to pass a new model name each time to avoid overwrite
-                "modelKey": "____" + modelKey,
+                "modelKey": modelKey,
                 "singlethreaded": singlethreaded,
                 "seed": seed,
                 "gini": gini,
