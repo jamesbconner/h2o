@@ -40,6 +40,8 @@ public final class ParseDataset {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
 
+    if( dataset.get().length == 0 ) throw new IllegalArgumentException("Cannot parse an empty file.");
+
     try {
       try {
         parseWithEngine(result, dataset, new XlsParser.Engine());
