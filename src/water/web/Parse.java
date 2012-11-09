@@ -2,9 +2,7 @@ package water.web;
 import java.util.Properties;
 import java.util.UUID;
 
-import water.DKV;
-import water.Key;
-import water.Value;
+import water.*;
 import water.parser.ParseDataset;
 
 import com.google.gson.JsonObject;
@@ -39,11 +37,13 @@ public class Parse extends H2OPage {
 
   @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
     JsonObject json = serverJson(s, p,sessionID);
+    long time = json.get("TimeMS").getAsLong();
 
-    RString res = json.get("TimeMS").getAsInt() > 0
-        ? new RString("Parsed into <a href='/Inspect?Key=%$Key'>%Key</a> in %TimeMS msec")
+    RString res = time > 0
+        ? new RString("Parsed into <a href='/Inspect?Key=%$Key'>%Key</a> in %TimeMS")
         : new RString("Already parsed into <a href='/Inspect?Key=%$Key'>%Key</a>.");
-    res.replace(json);
+    res.replace("Key", json.get("Key").getAsString());
+    res.replace("TimeMS", Timer.toHuman(time, true));
     return res.toString();
   }
 }
