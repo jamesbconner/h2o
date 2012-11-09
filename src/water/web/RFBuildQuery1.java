@@ -16,28 +16,47 @@ public class RFBuildQuery1 extends H2OPage {
     return new String[] { "dataKey" };
   }
 
-  static String html = "<p>We will be building a random forest from <b>%key</b>"
-          + "<form class='form-horizontal' action='RFBuildQuery2'>"
+  static String html = 
+            "<script type='text/javascript'>\n"
+          + "  var classIdx = %classIdx\n"
+          + "  function sendForm() {\n"
+          + "    if (classIdx == -1)\n"
+          + "      classIdx = document.getElementById('cco').value\n"
+          + "    document.getElementById('class').value=classIdx\n"
+          + "    document.forms['rfbuild'].submit()\n"
+          + "  }\n"
+          + "</script>"
+          + "<p>We will be building a random forest from <b>%key</b>"
+          + "<form class='form-horizontal' action='RFBuildQuery2' id='rfbuild'>"
           + "  <div class='control-group'>"
           + "    <label class='control-label' for='dataKey'>Data</label>"
           + "    <div class='controls'>"
           + "      <input class='uneditable-input span5' type='text' id='dataKey' name='dataKey' value='%dataKey'>"
-          + "    </div>"
-          + "  </div>"
-          + "  <div class='control-group'>"
-          + "    <label class='control-label' for='class'>Class column</label>"
-          + "    <div class='controls'>"
-          + "      <select id='class' name='class'>"
-          + "        %colClass{<option value='%colIdx'>%colName</option>}"
-          + "      </select>"
-          + "    </div>"
-          + "  </div>"
-          + "  <div class='control-group'>"
-          + "    <div class='controls'>"
-          + "      <button type='submit' class='btn btn-primary'>Next</button>"
+          + "      <input type='hidden' id='class' name='class'>"
           + "    </div>"
           + "  </div>"
           + "</form>"
+          + "<div class='form-horizontal' action='RFBuildQuery2'>"
+          + "  <div class='control-group'>"
+          + "    <label class='control-label' for='class'>Class column</label>"
+          + "    <div class='controls'>"
+          + "      <input onclick='classIdx=0; 'type='radio' id='cc' name='cc' value='0'>&nbsp;%col0 <i>(first)</i><br />"
+          + "      <input onclick='classIdx=1; '%check1 type='radio' id='cc' name='cc' value='1'>&nbsp;%col1 <i>(second)</i><br />"
+          + "      <input onclick='classIdx=%classIdx;' %checkLast type='radio' style='%styleLast' id='cc' name='cc' value='%colLastIdx'>&nbsp;%colLast <i>(last)</i><br />"
+          + "      <div style='%styleOther'>"
+          + "        <input onclick='classIdx=-1;' type='radio' id='cc' name='cc' value='-1'>&nbsp;other&nbsp;"
+          + "        <select id='cco'>"
+          + "          %colClass{<option value='%colIdx'>%colName</option>}"
+          + "        </select>"
+          + "      </div>"
+          + "    </div>"
+          + "  </div>"
+          + "  <div class='control-group'>"
+          + "    <div class='controls'>"
+          + "      <button onclick='sendForm()' class='btn btn-primary'>Next</button>"
+          + "    </div>"
+          + "  </div>"
+          + "</div>"
           ;
 
   @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
@@ -49,11 +68,29 @@ public class RFBuildQuery1 extends H2OPage {
     if (!(v instanceof ValueArray))
       throw new PageError("Key is not a dataframe");
     ValueArray va = (ValueArray) v;
-    for (int i = 0; i < va.num_cols(); ++i) {
-      RString str = result.restartGroup("colClass");
-      str.replace("colIdx",i);
-      str.replace("colName",va.col_name(i) == null ? i : va.col_name(i));
-      str.append();
+    int numCols = va.num_cols();
+    assert (numCols>=2);
+    result.replace("col0",va.col_name(0));
+    result.replace("col1",va.col_name(1));
+    if (numCols>2) {
+      result.replace("colLastIdx",numCols-1);
+      result.replace("colLast",va.col_name(numCols-1));
+      result.replace("checkLast","checked");
+      result.replace("classIdx",numCols-1);
+      if (numCols>3) {
+        for (int i = 0; i < va.num_cols(); ++i) {
+          RString str = result.restartGroup("colClass");
+          str.replace("colIdx",i);
+          str.replace("colName",va.col_name(i) == null ? i : va.col_name(i));
+          str.append();
+        }
+      } else {
+        result.replace("styleOther","display:none");
+      }
+    } else {
+      result.replace("styleLast","display:none");
+      result.replace("check1","checked");
+      result.replace("classIdx",1);
     }
     return result.toString();
   }

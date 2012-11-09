@@ -20,6 +20,7 @@ public class RandomForestPage extends H2OPage {
   public static final String MODEL_KEY  = "modelKey";
   public static final String CLASS_COL  = "class";
   public static final String IGNORE_COL = "ignore";
+  public static final String FEATURES   = "features";
 
   public static final int MAX_CLASSES = 4096;
 
@@ -129,6 +130,10 @@ public class RandomForestPage extends H2OPage {
       throw new PageError("Not a valid key: "+ skey);
     }
 
+    int features = getAsNumber(p,FEATURES,(int)Math.ceil(Math.sqrt(ary.num_cols())));
+    if ((features<=0) || (features>=ary.num_cols()))
+      throw new PageError("Number of features can only be between 1 and num_cols - 1");
+    
     // Pick the column to classify
     int classcol = ary.num_cols()-1; // Default to the last column
     String clz = p.getProperty(CLASS_COL);

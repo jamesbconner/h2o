@@ -71,10 +71,11 @@ public class RFBuildQuery2 extends H2OPage {
           + "  <div class='control-group'>"
           + "    <label class='control-label' for=''>Additional args</label>"
           + "    <div class='controls'>"
-          + "      <input type='text span1' name='depth' id='depth' placeholder='(depth, no limit)'>"
-          + "      <input type='text span1' name='binLimit' id='binLimit' placeholder='(bin limit, 1024)'>"
-          + "      <input type='text span1' name='sample' id='sample' placeholder='(sample, 67)'>"
-          + "      <input type='text span1' name='seed' id='seed' placeholder='(seed, 42)'>"
+          + "      <input type='text' class='span2' name='depth' id='depth' placeholder='(depth, no limit)'>"
+          + "      <input type='text' class='span2' name='binLimit' id='binLimit' placeholder='(bin limit, 1024)'>"
+          + "      <input type='text' class='span2' name='sample' id='sample' placeholder='(sample, 67)'>"
+          + "      <input type='text' class='span2' name='seed' id='seed' placeholder='(seed, 42)'>"
+          + "      <input type='text' class='span2' name='features' id='features' placeholder='(features, %defFeatures)'>"
           + "    </div>"
           + "  </div>"
           + "  <div class='control-group'>"
@@ -84,9 +85,9 @@ public class RFBuildQuery2 extends H2OPage {
           + "    </div>"
           + "  </div>"
           + "  <div class='control-group'>"
-          + "    <label class='control-label' for='model'>Model</label>"
+          + "    <label class='control-label' for='modelKey'>Model</label>"
           + "    <div class='controls'>"
-          + "      <input class='span5' type='text' id='model' name='model' placeholder='model key (default model)'>"
+          + "      <input class='span5' type='text' id='modelKey' name='modelKey' placeholder='model key (default model)'>"
           + "    </div>"
           + "  </div>"
           + "</form>"
@@ -125,6 +126,7 @@ public class RFBuildQuery2 extends H2OPage {
         str.append();
       }
     }
+    result.replace("defFeatures",(int)Math.ceil(Math.sqrt(va.num_cols())));
     String[] classes = RandomForestPage.determineColumnClassNames(va, classCol, RandomForestPage.MAX_CLASSES);
     result.replace("numClasses",classes.length);
     for (int i = 0; i < classes.length; ++i) {
