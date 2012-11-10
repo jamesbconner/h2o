@@ -13,11 +13,19 @@ library('rjson');
 
 # Public functions & declarations -------------------------------------------------------------------------------------
 
+# Determines the server and port to which the interop layer always connects
 h2o.SERVER = "localhost:54321"
+
+# If verbose, messages will be printed when data is requested, and / or received from the server
 h2o.VERBOSE = TRUE
+
+# Default maximal number of rows that will be fetched from the server. There is no guarantee that this number of rows
+# will actually be fetched as the server has a final say in the matter
 h2o.MAX_GET_ROWS = 200000
 
-
+# Executes the given expression on the server and returns the result. The expression can either be a string, or can be
+# an unquoted expression, which will be automatically strigified by the function. This is a shorthand for an h2o.exec
+# call followed by h2o.get of the result key. See the h2o.get function for details on the other arguments.  
 h2o <- function(expr,maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE) {
   type = tryCatch({ typeof(expr) }, error = function(e) { "expr" })
   if (type != "character")
@@ -26,6 +34,11 @@ h2o <- function(expr,maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE) {
   h2o.get(keyName, maxRows, forceDataFrame)
 }
 
+# Executes the given expression on the server and returns the name of the key in which the result is stored. The
+# expression can either be a string, or an unquoted expression which is automatically quoted by the function.
+#
+# *** Please note that under the current implementation the result key is always "Result" and gets rewritten with
+# each new execution.
 h2o.exec <- function(expr) {
   type = tryCatch({ typeof(expr) }, error = function(e) { "expr" })
   if (type != "character")
@@ -35,6 +48,11 @@ h2o.exec <- function(expr) {
   res$ResultKey
 }
 
+# Returns the key of given name as R data. The key can either be a string, or a name which is then automatically
+# transferred to a string by the function. maxRows argument specifies how many rows at most should be fetched
+# from the server. However there is no guarantee, that this many rows will be fetched as the server has the final
+# word on this matter. If returned value has multiple columns, an R dataframe is returned. For a single column,
+# a simple vector is created unless the forceDataFrame argument is set to TRUE.
 h2o.get <- function(keyName, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -44,6 +62,11 @@ h2o.get <- function(keyName, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE)
   h2o.__convertToRData(res,forceDataFrame = forceDataFrame)
 }
 
+# Puts the given vector to H2O cloud under given key name. As usual key name can either be a string or a literal.
+# Returns the key name. 
+#
+# *** Please note that under current implementation only single column vectors can be stored. This behavior is to
+# change with the new ValueArray classes in H2O. 
 h2o.put <- function(keyName, value) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -53,6 +76,10 @@ h2o.put <- function(keyName, value) {
   res$Key
 }
 
+# Inspects the given key on H2O cloud. Key can be either a string or a literal which will be translated to a string.
+# Returns a list with key name (key), value type (type), number of rows in the value (rows), number of columns (cols),
+# size of a single row in bytes (rowSize) and total size in bytes of the value (size). Also list of all columns
+# with their names, offsets, types, scales, min, max, badat, means and variancesis returned in a data frame (columns).
 h2o.inspect <- function(keyName) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -89,6 +116,7 @@ h2o.inspect <- function(keyName) {
   result
 }
 
+# Deletes the given key (string or literal) from the cloud. Returns the deleted key name. 
 h2o.remove <- function(keyName) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -98,15 +126,19 @@ h2o.remove <- function(keyName) {
   res$Key
 }
 
+# Imports the given URL to the cloud. The URL must be visible from the node to which the interop is connecting to.
+# If parse is set to TRUE the imported file will also be parsed so that it can be immediately used in R. In this
+# case the specified key name is actually the name of the parsed value. The url itself is used as name for the
+# unparsed key, which is *NOT* deleted. 
 h2o.importUrl <- function(keyName, url, parse = TRUE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
     keyName = deparse(substitute(keyName))
-  h2o.__printIfVerbose("  Importing url ",url," to key ",keyName)
   if (parse)
     uploadKey = url
   else
     uploadKey = keyName
+  h2o.__printIfVerbose("  Importing url ",url," to key ",uploadKey)
   res = h2o.__remoteSend(h2o.__PAGE_IMPORT, Key = uploadKey, Url = url)
   if (parse) {
     h2o.__printIfVerbose("  parsing key ",uploadKey," to key ",keyName)
@@ -115,6 +147,8 @@ h2o.importUrl <- function(keyName, url, parse = TRUE) {
   res$Key
 }
 
+# Imports a file local to the server the interop is connecting to. Other arguments are the same as for the importUrl
+# function.
 h2o.importFile <- function(keyName, fileName, parse = TRUE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -124,6 +158,10 @@ h2o.importFile <- function(keyName, fileName, parse = TRUE) {
 
 # shorthands ----------------------------------------------------------------------------------------------------------
 
+# Shorthand for a value slice expression. This is the same as running h2o(slice(keyName, startRow, length)). Returns 
+# length number of rows from startRow of the given key. Length of -1 (default) returns all the elements in the key
+# after the start row. Not all elements might be required as the server may decide to send fewer lines for memory
+# reasons. Other arguments are the same as for the h2o.get() function. 
 h2o.slice <- function(keyName, startRow, length=-1, forceDataFrame = FALSE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -137,6 +175,9 @@ h2o.slice <- function(keyName, startRow, length=-1, forceDataFrame = FALSE) {
   h2o.get(resultKey,h2o.MAX_GET_ROWS, forceDataFrame)
 }
 
+# Shorthand for a filter function in H2O. Submitted with the key to be filtered and an expressing to determine whether
+# a row should be applied or not. Other arguments are the same as for h2o.get() function.
+# Example: h2o.filter(haha, haha$gaga < 5) returns all rows of haha in which the column gaga hs value smaller than 5.
 h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -150,6 +191,8 @@ h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame
   h2o.get(resultKey,maxRows,forceDataFrame)
 }
 
+
+# GLM function. This should be rewiewed by someone who actually understands the GLM:-D
 h2o.glm = function(keyName, Y, X = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
