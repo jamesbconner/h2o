@@ -658,7 +658,6 @@ class FunctionCall extends Expr {
     try {
       return _function.eval(args);
     } catch (Exception e) {
-      e.printStackTrace();
       throw new EvaluationException(_pos,e.getMessage());
     }
   }

@@ -65,6 +65,7 @@ public final class VAIterator implements Iterator<VAIterator> {
   private void skipRows(long rows) { 
     assert (_currentRow + rows < _rows);
     next();
+    --rows; // on the next() call we will be at the desired row
     while (true) { 
       if (rows < _rowsInChunk) {
         _rowInChunk += rows;
