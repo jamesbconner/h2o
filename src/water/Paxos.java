@@ -214,6 +214,7 @@ public abstract class Paxos {
   static private boolean addProposedMember(H2ONode n){
     if(!PROPOSED_MEMBERS.contains(n)){
       if( _cloud_locked ) {
+        System.err.println("[h2o] Killing new arrival "+n+" because the cloud is locked.");
         UDPRebooted.T.locked.singlecast(n);
         return false;
       }
