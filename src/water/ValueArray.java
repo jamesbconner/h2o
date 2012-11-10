@@ -153,6 +153,18 @@ public class ValueArray extends Value {
     throw new IOException("Missing chunk "+idx+", broken "+H2O.OPT_ARGS.ice_root+"?");
   }
 
+  /** Returns the start row of the given chunk. 
+   * 
+   * Assumes all chunks up to the last one are of the same size (fully
+   * popullated). 
+   * 
+   * @param k key of the chunk
+   * @return Index of the first row in the chunk. 
+   */
+  long startRowForChunk(Key k) {
+    return getOffset(k) / row_size();
+  }
+  
   static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
     // Main Key
     Key key = Key.make(keyname,rf);

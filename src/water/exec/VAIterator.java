@@ -99,8 +99,6 @@ public final class VAIterator implements Iterator<VAIterator> {
         _chunkIdx += 1;
       }
       Key k = ValueArray.make_chunkkey(_ary._key, _chunkIdx << ValueArray.LOG_CHK);
-      if (DKV.get(k) == null)
-        System.out.println("OMFG FAIL");
       _chunkBits = DKV.get(k).get();
       _rowsInChunk = _chunkBits.length / _rowSize;
       _rowInChunk = 0;
