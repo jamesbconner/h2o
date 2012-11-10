@@ -20,15 +20,13 @@ public class Model extends RemoteTask {
   public int       _classes;
   /** Number of features these trees are built for */
   public int       _features;
-  /**
-   * A RandomForest Model
+  private int[] _seeds;
+
+  /** A RandomForest Model
    *
-   * @param treeskey
-   *          a key of keys of trees
-   * @param classes
-   *          the number of response classes
-   * @param data
-   *          the dataset
+   * @param treeskey    a key of keys of trees
+   * @param classes     the number of response classes
+   * @param data        the dataset
    */
   public Model() { }
   public Model(Key key, Key treeskey, int features, int classes) {
@@ -59,15 +57,10 @@ public class Model extends RemoteTask {
 
   /**
    * Classify a row according to one particular tree.
-   *
-   * @param tree_id
-   *          the number of the tree to use
-   * @param chunk
-   *          the chunk we are using
-   * @param row
-   *          the row number in the chunk
-   * @param rowsize
-   *          the size in byte of each row
+   * @param tree_id  the number of the tree to use
+   * @param chunk    the chunk we are using
+   * @param row      the row number in the chunk
+   * @param rowsize  the size in byte of each row
    * @return the predicted response class, or class+1 for broken rows
    */
   public short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
