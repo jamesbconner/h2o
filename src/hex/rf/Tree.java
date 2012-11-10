@@ -67,7 +67,7 @@ public class Tree extends CountedCompleter {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
     Timer t_sample = new Timer();
-    Data d = _data.sample(_sample);
+    Data d = _data.sample(_sample,_seed);
     Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample);
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
@@ -294,6 +294,7 @@ public class Tree extends CountedCompleter {
   public Key toKey() {
     Stream bs = new Stream();
     bs.set4(_data_id);
+    bs.set4(_seed);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
@@ -306,6 +307,7 @@ public class Tree extends CountedCompleter {
   public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal, short badData ) {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
+    ts.get4();    // Skip seed
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
       byte b = tbits[o];
@@ -327,6 +329,15 @@ public class Tree extends CountedCompleter {
     return (short) ( ts.get1()&0xFF );      // Return the leaf's class
   }
 
+  public static int seed( byte[] bits) {
+    Stream ts = new Stream(bits);
+    ts.get4();
+    return ts.get4();
+  }
+  public static int dataId( byte[] bits) {
+    Stream ts = new Stream(bits);
+    return ts.get4();
+  }
   // Abstract visitor class for serialized trees.
   public static abstract class TreeVisitor<T extends Exception> {
     TreeVisitor<T> leaf( int tclass          ) throws T { return this; }

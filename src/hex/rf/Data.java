@@ -92,8 +92,8 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
-  public Data sample(double bagSizePct) {
-    Random r = new Random(seed());
+  public Data sample(double bagSizePct, int seed) {
+    Random r = new Random(seed);
     int size = (int)(rows() * bagSizePct);
     if( size == 0 && rows() > 0 ) size = 1;
     int[] sample = MemoryManager.allocateMemoryInt(size);
