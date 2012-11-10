@@ -122,7 +122,7 @@ h2o.importFile <- function(keyName, fileName, parse = TRUE) {
   h2o.importUrl(keyName,paste("file://",fileName,sep=""),parse = parse)
 }
 
-# expression shorthands -----------------------------------------------------------------------------------------------
+# shorthands ----------------------------------------------------------------------------------------------------------
 
 h2o.slice <- function(keyName, startRow, length=-1, forceDataFrame = FALSE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
@@ -132,8 +132,42 @@ h2o.slice <- function(keyName, startRow, length=-1, forceDataFrame = FALSE) {
     expr = paste("slice(",keyName,",",startRow,")",sep="")
   else
     expr = paste("slice(",keyName,",",startRow,",",length,")",sep="")
-  resultKey = h2o.__exec(expr)
-  h2o.__get(resultKey,maxRows = h2o.MAX_GET_ROWS, forceDataFrame)
+  h2o.__printIfVerbose("  slicing key ",keyName," - expression ",expr)
+  resultKey = h2o.exec(expr)
+  h2o.get(resultKey,h2o.MAX_GET_ROWS, forceDataFrame)
+}
+
+h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE) {
+  type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
+  if (type != "character")
+    keyName = deparse(substitute(keyName))
+  type = tryCatch({ typeof(expr) }, error = function(e) { "expr" })
+  if (type != "character")
+    expr = deparse(substitute(expr))
+  expr = paste("filter(",keyName,",",expr,")")
+  h2o.__printIfVerbose("  filtering key ",keyName," - expression ",expr)
+  resultKey = h2o.exec(expr)
+  h2o.get(resultKey,maxRows,forceDataFrame)
+}
+
+h2o.glm = function(keyName, Y, X = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
+  type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
+  if (type != "character")
+    keyName = deparse(substitute(keyName))
+  type = tryCatch({ typeof(Y) }, error = function(e) { "expr" })
+  if (type != "character")
+    Y = deparse(substitute(Y))
+  type = tryCatch({ typeof(family) }, error = function(e) { "expr" })
+  if (type != "character")
+    family = deparse(substitute(family))
+  type = tryCatch({ typeof(norm) }, error = function(e) { "expr" })
+  if (type != "character")
+    norm = deparse(substitute(norm))
+  X = paste0(X,collapse=",")
+  negX = paste0(negX,collapse=",")
+  h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",Y)
+  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = Y, "-X" = X, negX = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
+  res
 }
 
 # Internal functions & declarations -----------------------------------------------------------------------------------
@@ -145,6 +179,7 @@ h2o.__PAGE_INSPECT = "Inspect.json"
 h2o.__PAGE_REMOVE = "Remove.json"
 h2o.__PAGE_IMPORT = "ImportUrl.json"
 h2o.__PAGE_PARSE = "Parse.json"
+h2o.__PAGE_GLM = "GLM.json"
 
 
 h2o.__printIfVerbose <- function(...) {
