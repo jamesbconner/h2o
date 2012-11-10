@@ -367,7 +367,7 @@ public final class H2O {
   private static void startNetworkServices() {
     // We've rebooted the JVM recently.  Tell other Nodes they can ignore task
     // prior tasks by us.  Do this before we receive any packets
-    UDPRebooted.build_and_multicast();
+    UDPRebooted.T.reboot.broadcast();
 
     // Start the UDPReceiverThread, to listen for requests from other Cloud
     // Nodes.  There should be only 1 of these, and it never shuts down.

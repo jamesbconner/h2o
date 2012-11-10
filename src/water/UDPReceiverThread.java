@@ -1,10 +1,8 @@
 package water;
-import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.util.ArrayList;
 import java.util.Arrays;
-
-import water.UDP.udp;
 
 /**
  * The Thread that looks for UDP Cloud requests.
@@ -137,11 +135,7 @@ public class UDPReceiverThread extends Thread {
         continue;
       }
 
-      // Suicide packet?  Short-n-sweet...
-      if( first_byte == UDP.udp.rebooted.ordinal() && pbuf[UDP.SZ_PORT]>1 ) {
-        System.err.println("[h2o] Received kill "+pbuf[UDP.SZ_PORT]+" from "+h2o);
-        System.exit(-1);
-      }
+      UDPRebooted.checkForSuicide(first_byte, pbuf, h2o);
 
       // Paxos stateless packets & ACKs just fire immediately in a worker
       // thread.  Dups are handled by these packet handlers directly.  No
