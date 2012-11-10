@@ -64,6 +64,7 @@ public class Model extends RemoteTask {
    * @return the predicted response class, or class+1 for broken rows
    */
   public short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
+ //   Data ds = data.sample();
     return Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal, (short)_classes);
   }
 
