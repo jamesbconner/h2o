@@ -13,7 +13,7 @@ public class Shutdown extends H2OPage {
     t.schedule(new TimerTask() {
       @Override
       public void run() {
-        UDPRebooted.global_kill(2);
+        UDPRebooted.T.shutdown.broadcast();
         System.exit(-1);
       }
     }, 100);

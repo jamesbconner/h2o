@@ -1,6 +1,5 @@
 package water;
 import java.net.*;
-import java.util.*;
 
 /**
  * The Thread that looks for Multicast UDP Cloud requests.
@@ -102,11 +101,7 @@ public class MultiReceiverThread extends Thread {
         continue;
       }
 
-      // Suicide packet?  Short-n-sweet...
-      if( first_byte == UDP.udp.rebooted.ordinal() && pbuf[UDP.SZ_PORT]>1 ) {
-        System.err.println("[h2o] Received kill "+pbuf[UDP.SZ_PORT]+" from "+h2o);
-        System.exit(-1);
-      }
+      UDPRebooted.checkForSuicide(first_byte, pbuf, h2o);
 
       // Paxos stateless packets & ACKs just fire immediately in a worker
       // thread.  Dups are handled by these packet handlers directly.  No

@@ -1,6 +1,8 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
+
 import java.io.File;
+
 import water.*;
 import water.util.KeyUtil;
 
@@ -78,7 +80,7 @@ public class RandomForest {
     }
     if(ARGS.ntrees == 0) {
       System.out.println("Nothing to do as ntrees == 0");
-      UDPRebooted.global_kill(2);
+      UDPRebooted.T.shutdown.broadcast();
       return;
     }
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
@@ -107,6 +109,6 @@ public class RandomForest {
       c.report();
     }
     Utils.pln("[RF] Validation done in: " + t_valid);
-    UDPRebooted.global_kill(2);
+    UDPRebooted.T.shutdown.broadcast();
   }
 }
