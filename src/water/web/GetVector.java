@@ -19,27 +19,28 @@ import water.exec.VAIterator;
  */
 public class GetVector extends JSONPage {
   
+  public static int MAX_REQUEST_ITEMS = 200000;
+  
   @Override public JsonObject serverJson(Server server, Properties parms, String sessionID) throws PageError {
     JsonObject result = new JsonObject();
     try {
-      int maxItems = (int) Double.parseDouble(parms.getProperty("MaxItems","200000")); // we need this because R uses e+ format even for integers
       Value v = DKV.get(Key.make(parms.getProperty("Key")));
       if (v==null)
         throw new IOException("Key not found");
       if (!(v instanceof ValueArray))
         throw new IOException("Only ValueArrays can be returned at this point");
      
-      long startRow = Long.parseLong(parms.getProperty("startRow","0"));
+      VAIterator iter = new VAIterator(Key.make(parms.getProperty("Key")), 0, 0);
       
+      long maxRows = Math.min(MAX_REQUEST_ITEMS / iter._ary.num_cols(), iter._ary.num_rows());
       
-      VAIterator iter = new VAIterator(Key.make(parms.getProperty("Key")), 0, startRow);
+      maxRows = Math.min((long) Double.parseDouble(parms.getProperty("maxRows",String.valueOf(maxRows))),maxRows);  // we need this because R uses e+ format even for integers
       
-      long rows = Long.parseLong(parms.getProperty("rows",String.valueOf(Math.min(iter._ary.num_rows()-startRow,maxItems / iter._ary.num_cols()))));
       JsonArray columns = new JsonArray();
       JsonArray[] cols = new JsonArray[iter._ary.num_cols()];
       for (int i = 0; i < cols.length; ++i) 
         cols[i] = new JsonArray();
-      for (int j = 0; j < rows; ++j) {
+      for (int j = 0; j < maxRows; ++j) {
         iter.next();
         for (int i = 0 ; i < cols.length; ++i) {
           cols[i].add(new JsonPrimitive(iter.datad(i)));
@@ -56,7 +57,7 @@ public class GetVector extends JSONPage {
       result.add("columns",columns);
       result.addProperty("num_rows",iter._ary.num_rows());
       result.addProperty("num_cols",iter._ary.num_cols());
-      result.addProperty("sent_rows",rows);
+      result.addProperty("sent_rows",maxRows);
     } catch (Exception e) {
       result.addProperty("Error", e.toString());
     }  
