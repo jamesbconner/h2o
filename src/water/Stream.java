@@ -15,9 +15,12 @@ import water.nbhm.UtilUnsafe;
  */
 public class Stream {
   private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
-  private static final int _Bbase  = _unsafe.arrayBaseOffset(byte[].class);
-  private static final int _Ibase  = _unsafe.arrayBaseOffset( int[].class);
-  private static final int _Lbase  = _unsafe.arrayBaseOffset(long[].class);
+  private static final int _Bbase  = _unsafe.arrayBaseOffset(  byte[].class);
+  private static final int _Dbase  = _unsafe.arrayBaseOffset(double[].class);
+  private static final int _Fbase  = _unsafe.arrayBaseOffset( float[].class);
+  private static final int _Ibase  = _unsafe.arrayBaseOffset(   int[].class);
+  private static final int _Lbase  = _unsafe.arrayBaseOffset(  long[].class);
+  private static final int _Sbase  = _unsafe.arrayBaseOffset( short[].class);
 
   public byte[] _buf;
   public int _off;
@@ -83,7 +86,11 @@ public class Stream {
   }
   public void setAry2(short[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set2(x[i]);
+    if( x != null ) {
+      grow(x.length<<1);
+      _unsafe.copyMemory(x,_Sbase,_buf,_off+_Bbase,x.length<<1);
+      _off += (x.length<<1);
+    }
   }
   public void setAry4(int[]x) {
     set4(x==null?-1:x.length);
@@ -95,15 +102,27 @@ public class Stream {
   }
   public void setAry4f(float[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set4f(x[i]);
+    if( x != null ) {
+      grow(x.length<<2);
+      _unsafe.copyMemory(x,_Fbase,_buf,_off+_Bbase,x.length<<2);
+      _off += (x.length<<2);
+    }
   }
   public void setAry8(long[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set8(x[i]);
+    if( x != null ) {
+      grow(x.length<<3);
+      _unsafe.copyMemory(x,_Lbase,_buf,_off+_Bbase,x.length<<3);
+      _off += (x.length<<3);
+    }
   }
   public void setAry8d(double[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set8d(x[i]);
+    if( x != null ) {
+      grow(x.length<<3);
+      _unsafe.copyMemory(x,_Dbase,_buf,_off+_Bbase,x.length<<3);
+      _off += (x.length<<3);
+    }
   }
   public void setAry11(byte[][]x) {
     set4(x==null?-1:x.length);
