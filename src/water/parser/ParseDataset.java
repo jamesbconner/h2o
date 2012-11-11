@@ -142,6 +142,7 @@ public final class ParseDataset {
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // now calculate the column information
+    tsk.normalizeVariance();
     tsk.createValueArrayHeader(colNames,dataset);
     //tsk.check(result);
     start = System.currentTimeMillis() - start;
@@ -305,6 +306,11 @@ public final class ParseDataset {
       return tsk;
     }
 
+    void normalizeVariance(){
+      for(int i = 0; i < _ncolumns; ++i)
+        _sigma[i] = Math.sqrt(_sigma[i]);
+    }
+
     public void createValueArrayHeader(String[] colNames,Value dataset) {
       assert (_phase == 1);
       Column[] cols = new Column[_ncolumns];
@@ -394,7 +400,6 @@ public final class ParseDataset {
             if(_killedEnums[i] == 1)
               _enums[i].kill();
           }
-          _invalidValues = new long[_ncolumns];
           _min = new double [_ncolumns];
           Arrays.fill(_min, Double.MAX_VALUE);
           _max = new double[_ncolumns];
@@ -410,16 +415,7 @@ public final class ParseDataset {
           }
           break;
         case 1:
-          File f = new File("enums_" + H2O.SELF.index() + "_" + Math.random());
-          f.createNewFile();
-          FileOutputStream os = new FileOutputStream(f);
-          _enums = _enums.clone();
-          for(int i = 0; i < _enums.length; ++i){
-            _enums[i] = _enums[i].clone();
-            os.write(_enums[i].toString().getBytes());
-            os.write('\n');
-          }
-          os.close();
+          _invalidValues = new long[_ncolumns];
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += Math.abs(colSizes[b]);
@@ -507,9 +503,23 @@ public final class ParseDataset {
               if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
               if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
             }
-          } else {
-            // pass -- phase 1 does not require any reduction of these
-          }
+          } else if(_phase == -1) {
+            if(_invalidValues == null)
+              _invalidValues = other._invalidValues;
+            else for(int i = 0; i < _ncolumns; ++i)
+              _invalidValues[i] += other._invalidValues[i];
+            if(_sigma == null)
+              _sigma = other._sigma;
+            else for(int i = 0; i < _ncolumns; ++i) {
+              if(_myrows ==  other._myrows)
+                _sigma[i] = 0.5*(_sigma[i] + other._sigma[i]);
+              else {
+                _sigma[i] = (_myrows*_sigma[i] + other._myrows*other._sigma[i])/(_myrows + other._myrows);
+              }
+            }
+            _myrows += other._myrows;
+          } else
+            assert false:"unexpected _phase value:" + _phase;
         }
         if(_error == null)_error = other._error;
         else if(other._error != null) _error = _error + "\n" + other._error;
@@ -645,6 +655,7 @@ public final class ParseDataset {
           double d = number*pow10(exp);
             if(d < _min[colIdx])_min[colIdx] = d;
             if(d > _max[colIdx])_max[colIdx] = d;
+            _mean[colIdx] += d;
             if(exp < _scale[colIdx]) {
               _scale[colIdx] = exp;
               if(_colTypes[colIdx] != DCOL){
@@ -664,10 +675,13 @@ public final class ParseDataset {
           case -1: // NaN
             number  = -1l;
             number += _bases[colIdx];
+            ++_invalidValues[colIdx];
             // fallthrough -1 is NaN for all values, _lbases will cancel each other
             // -1 is also NaN in case of enum (we're in number column)
           case -2: // enum
             // lbase for enums is 0
+            if(_enums[colIdx]._killed && numLength == -2)
+              ++_invalidValues[colIdx];
           default:
             switch (_colTypes[colIdx]) {
               case BYTE:
@@ -697,166 +711,11 @@ public final class ParseDataset {
                 break;
             }
         }
-      }
-    }
-
-
-
-
-    public void addRow2(long[] numbers, short[] exponents, byte[] numLength) {
-      ++_myrows;
-      switch (_phase) {
-      case 0:
-        for(int i = 0; i < _ncolumns; ++i){
-          switch(numLength[i]) {
-          case -1:
-            continue; //NaN
-          case -2:
-            if(_colTypes[i] ==UCOL) _colTypes[i] = ECOL;
-            break;
-           default:
-             assert numLength[i] >= 0:"unexpected num length " + numLength[i];
-             double d = numbers[i]*pow10(exponents[i]);
-             if(d < _min[i])_min[i] = d;
-             if(d > _max[i])_max[i] = d;
-             if(exponents[i] < _scale[i]) {
-               _scale[i] = exponents[i];
-               if(_colTypes[i] != DCOL){
-                 if((float)d != d)_colTypes[i] = DCOL;
-                 else _colTypes[i] = FCOL;
-               }
-             } else if(_colTypes[i] < ICOL)
-              _colTypes[i] = ICOL;
-          }
+        // update sigma
+        if(numLength > 0 && !Double.isNaN(_mean[colIdx])) {
+          double d = number*pow10(exp) - _mean[colIdx];
+          _sigma[colIdx] += d*d;
         }
-        break;
-      case 1:
-        if(_myrows > _outputRows[_outputIdx]) {
-          ++_outputIdx;
-          assert (_outputIdx < _outputStreams.length);
-          _s = _outputStreams[_outputIdx];
-          _myrows = 1;
-        }
-        for (int i = 0; i < numbers.length; ++i) {
-          switch(numLength[i]) {
-          case -1: // NaN
-            numbers[i]  = -1l;
-            numbers[i] += _bases[i];
-            // fallthrough -1 is NaN for all values, _lbases will cancel each other
-            // -1 is also NaN in case of enum (we're in number column)
-          case -2: // enum
-            // lbase for enums is 0
-          default:
-            switch (_colTypes[i]) {
-              case BYTE:
-                _s.set1((byte)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case SHORT:
-                _s.set2((short)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case INT:
-                _s.set4((int)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case LONG:
-                _s.set8(numbers[i]*pow10i(exponents[i] - _scale[i]));
-                break;
-              case FLOAT:
-                _s.set4f((float)(numbers[i] * pow10(exponents[i])));
-                break;
-              case DOUBLE:
-                _s.set8d(numbers[i] * pow10(exponents[i]));
-                break;
-              case DSHORT:
-                // scale is computed as negative in the first pass,
-                // therefore to compute the positive exponent after scale, we add scale and the original exponent
-                _s.set2((short)(numbers[i]*pow10i(exponents[i] - _scale[i]) - _bases[i]));
-                break;
-            }
-          }
-        }
-        break;
-      default:
-        assert false:"unexpected phase " + _phase;
-      }
-    }
-
-
-    public void addRow(FastParser.Row row) {
-      ++_myrows;
-      switch (_phase) {
-      case 0:
-        for(int i = 0; i < _ncolumns; ++i){
-          switch(row._numLength[i]) {
-          case -1:
-            continue; //NaN
-          case -2:
-            if(_colTypes[i] ==UCOL)_colTypes[i] = ECOL;
-            break;
-           default:
-             assert row._numLength[i] >= 0:"unexpected num length " + row._numLength[i];
-             double d = row._numbers[i]*pow10(row._exponents[i]);
-             if(d < _min[i])_min[i] = d;
-             if(d > _max[i])_max[i] = d;
-             if(row._exponents[i] < _scale[i]) {
-               _scale[i] = row._exponents[i];
-               if(_colTypes[i] != DCOL){
-                 if((float)d != d)_colTypes[i] = DCOL;
-                 else _colTypes[i] = FCOL;
-               }
-             } else if(_colTypes[i] < ICOL)
-              _colTypes[i] = ICOL;
-          }
-        }
-        break;
-      case 1:
-        if(_myrows > _outputRows[_outputIdx]) {
-          ++_outputIdx;
-          assert (_outputIdx < _outputStreams.length);
-          _s = _outputStreams[_outputIdx];
-          _myrows = 1;
-        }
-        for (int i = 0; i < row._numbers.length; ++i) {
-          switch(row._numLength[i]) {
-          case -1: // NaN
-            row._numbers[i]  = -1l;
-            row._numbers[i] += _bases[i];
-            // fallthrough -1 is NaN for all values, _lbases will cancel each other
-            // -1 is also NaN in case of enum (we're in number column)
-          case -2: // enum
-            // lbase for enums is 0
-          default:
-            switch (_colTypes[i]) {
-              case BYTE:
-                _s.set1((byte)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case SHORT:
-                _s.set2((short)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case INT:
-                _s.set4((int)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case LONG:
-                _s.set8(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]));
-                break;
-              case FLOAT:
-                _s.set4f((float)(row._numbers[i] * pow10(row._exponents[i])));
-                break;
-              case DOUBLE:
-                _s.set8d(row._numbers[i] * pow10(row._exponents[i]));
-                break;
-              case DSHORT:
-                // scale is computed as negative in the first pass,
-                // therefore to compute the positive exponent after scale, we add scale and the original exponent
-                _s.set2((short)(row._numbers[i]*pow10i(row._exponents[i] - _scale[i]) - _bases[i]));
-                break;
-              case STRINGCOL:
-                _s.set1(-1);
-            }
-          }
-        }
-        break;
-      default:
-        assert false:"unexpected phase " + _phase;
       }
     }
   }
