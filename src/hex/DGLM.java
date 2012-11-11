@@ -5,6 +5,7 @@ import hex.DLSM.LSM_Params;
 import hex.Models.BinaryClassifierValidation;
 import hex.RowVecTask.DataPreprocessing;
 import hex.RowVecTask.Sampling;
+import init.H2OSerializable;
 
 import java.util.Arrays;
 
@@ -497,7 +498,7 @@ public class DGLM implements Models.ModelBuilder {
       return new GLMValidation(_ymu, Link.values()[_link], Family.values()[_family]);
     }
   }
-  public static class GLMValidation extends RemoteTask implements Models.ModelValidation {
+  public static class GLMValidation extends Models.ModelValidation {
     double _nullDev;
     double _resDev;
     double _err;
@@ -574,16 +575,6 @@ public class DGLM implements Models.ModelBuilder {
       return _n;
     }
 
-    @Override
-    public void invoke(Key args) {
-      throw new RuntimeException("TODO Auto-generated method stub");
-    }
-
-    @Override
-    public void compute() {
-      throw new RuntimeException("TODO Auto-generated method stub");
-    }
-
   }
 
 
@@ -613,7 +604,7 @@ public class DGLM implements Models.ModelBuilder {
     }
   }
 
-  public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation {
+  public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation, H2OSerializable {
     double _threshold;
     long [][] _cm;
     double _fpMean;

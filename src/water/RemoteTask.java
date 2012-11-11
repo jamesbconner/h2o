@@ -1,7 +1,8 @@
 package water;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import init.H2OSerializable;
+
+import java.io.*;
+
 import jsr166y.CountedCompleter;
 
 // Objects which are passed & remotely executed.  They have an efficient
@@ -17,7 +18,7 @@ import jsr166y.CountedCompleter;
 
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 // @version 1.0
-public abstract class RemoteTask extends CountedCompleter {
+public abstract class RemoteTask extends CountedCompleter implements H2OSerializable {
 
   // Top-level remote execution hook.  The Key is an ArrayLet or an array of
   // Keys; start F/J'ing on individual keys.  Blocks.
