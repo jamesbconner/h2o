@@ -11,7 +11,6 @@ class DataAdapter  {
   private final int _numClasses;
   private final String[] _columnNames;
   private final C[] _c;
-  private final ValueArray _ary;
   /** Unique cookie identifying this dataset*/
   private final int _dataId;
   private final int _seed;
@@ -25,7 +24,6 @@ class DataAdapter  {
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
               int data_id, int seed, short bin_limit, double[] classWt) {
     _seed = seed+data_id;
-    _ary = ary;
     _bin_limit = bin_limit;
     _columnNames = ary.col_names();
     _c = new C[_columnNames.length];
@@ -37,9 +35,9 @@ class DataAdapter  {
     assert ignores.length < _columnNames.length - 1;
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
-      double range = _ary.col_max(i) - _ary.col_min(i);
+      double range = ary.col_max(i) - ary.col_min(i);
       if (range==0) { ignore = true; Utils.pln("Ignoring column " + i + " as all values are identical.");   }
-      boolean raw = (_ary.col_size(i) > 0 && _ary.col_scale(i)==1.0 && range < _bin_limit && _ary.col_max(i) >= 0); //TODO do it for negative columns as well
+      boolean raw = (ary.col_size(i) > 0 && ary.col_scale(i)==1.0 && range < _bin_limit && ary.col_max(i) >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
@@ -47,8 +45,8 @@ class DataAdapter  {
       _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
       if( raw ) {
         _c[i]._smax = (short)range;
-        _c[i]._min = (float)_ary.col_min(i);
-        _c[i]._max = (float)_ary.col_max(i);
+        _c[i]._min = (float)ary.col_min(i);
+        _c[i]._max = (float)ary.col_max(i);
       }
     }
     _dataId = data_id;
@@ -73,9 +71,6 @@ class DataAdapter  {
       return fmid;
     }
   }
-
-  /** Return the name of the data set. */
-  public String name() { return _ary._key.toString(); }
 
   /** Encode the data in a compact form.*/
   public ArrayList<RecursiveAction> shrinkWrap() {
@@ -130,11 +125,6 @@ class DataAdapter  {
     // would be > max, which should (does) not happen right now, but just in
     // case for the future, cap it to the max bin value)
     _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
-  }
-
-  /** Add a row to this data set. */
-  public void addRow(float[] v, int row) {
-    for( int i = 0; i < v.length; i++ ) _c[i].addRaw(v[i], row);
   }
 
   static final DecimalFormat df = new  DecimalFormat ("0.##");

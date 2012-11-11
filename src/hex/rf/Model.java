@@ -6,7 +6,7 @@ import water.*;
 
 /**
  * A model is an ensemble of trees that can be serialized and that can be used
- * to
+ * to classify data.
  */
 public class Model extends RemoteTask {
 
@@ -23,7 +23,6 @@ public class Model extends RemoteTask {
   private int[] _seeds;
 
   /** A RandomForest Model
-   *
    * @param treeskey    a key of keys of trees
    * @param classes     the number of response classes
    * @param data        the dataset
@@ -38,8 +37,7 @@ public class Model extends RemoteTask {
     _trees = new byte[tkeys.length][];
     for( int i = 0; i < tkeys.length; i++ ) {
       Value v = DKV.get(tkeys[i]);
-      if( v == null )           // Missing trees?
-        return;                 // Broken model; quit now
+      if( v == null )   return;     // Broken model; quit now
       _trees[i] = v.get();
     }
     _ntrees = tkeys.length;
@@ -63,12 +61,12 @@ public class Model extends RemoteTask {
    * @param rowsize  the size in byte of each row
    * @return the predicted response class, or class+1 for broken rows
    */
-  public short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
+  private short classify(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
  //   Data ds = data.sample();
     return Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal, (short)_classes);
   }
 
-  public void vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
+  private void vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
     assert votes.length == _classes+1/*+1 to catch broken rows*/;
     for( int i = 0; i < _ntrees; i++ )
       votes[classify(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
@@ -115,23 +113,18 @@ public class Model extends RemoteTask {
   public String leaves() { find_leaves_depth(); return _tl.toString(); }
   public String depth()  { find_leaves_depth(); return _td.toString(); }
 
-  public static class Counter {
-    double _min = Double.MAX_VALUE;
-    double _max = Double.MIN_VALUE;
+  private static class Counter {
+    double _min = Double.MAX_VALUE, _max = Double.MIN_VALUE;
     int    _count;
     double _total;
-    public void add(double what) {
+    void add(double what) {
       _total += what;
       _min = Math.min(what, _min);
       _max = Math.max(what, _max);
       ++_count;
     }
-    public double min() { return _min; }
-    public double max() { return _max; }
-    public double avg() { return _total / _count; }
-    public int count()  { return _count; }
-    @Override
-    public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,avg(),_max); }
+    double avg() { return _total / _count; }
+    @Override public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,avg(),_max); }
   }
 
   public void invoke( Key args ) { throw H2O.unimpl(); }

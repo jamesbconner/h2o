@@ -92,24 +92,29 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
-  public Data sample(double bagSizePct, int seed) {
+  public static int[] makeSample(double bagSizePct, int rows, int seed) {
     Random r = new Random(seed);
-    int size = (int)(rows() * bagSizePct);
-    if( size == 0 && rows() > 0 ) size = 1;
+    int size = (int)(rows * bagSizePct);
+    if( size == 0 && rows> 0 ) size = 1;
     int[] sample = MemoryManager.allocateMemoryInt(size);
     int i = 0;
-    for( ; i < size; ++i ) sample[i] = permute(i + start());
-    for( ; i < rows(); ++i ) {
+    for( ; i < size; ++i ) sample[i] = i;
+    for( ; i < rows; ++i ) {
       int p = r.nextInt(i);
-      if( p < size ) sample[p] = permute(i + start());
+      if( p < size ) sample[p] = i;
     }
     Arrays.sort(sample); // we want an ordered sample
+    return sample;
+  }
+
+  public Data sample(double bagSizePct, int seed) {
+    assert !(this instanceof Subset); // we do not support permutations
+    int[] sample = makeSample(bagSizePct, rows(), seed);
     return new Subset(this, sample, 0, sample.length);
   }
 
   public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
-  @Override public       Data clone() { return this; }
-
+  @Override public Data clone() { return this; }
   protected int permute(int idx) { return idx; }
   protected int[] getPermutationArray() {
     int[] perm = MemoryManager.allocateMemoryInt(rows());
