@@ -439,6 +439,8 @@ NEXT_CHAR:
       c = bits[offset];
     } // end MAIN_LOOP
 //    System.out.println("been here: "+beenHere);
+    if (colIdx == 0)
+      callback.rollbackLine();
   }
 
   private static boolean isWhitespace(byte c) {
