@@ -626,18 +626,26 @@ public final class ParseDataset {
       }
     }
 
-
-
     public void newLine() {
       ++_myrows;
       if (_phase != 0) {
         if(_myrows > _outputRows[_outputIdx]) {
           ++_outputIdx;
-          assert (_outputIdx < _outputStreams.length);
-          _s = _outputStreams[_outputIdx];
-          _myrows = 1;
+          // this can happen if the last line ends in EOL. However this also
+          // means that we will never write to the stream again, so it is ok. 
+          if (_outputIdx == _outputStreams.length) {
+            _s = null;
+          } else {
+            _s = _outputStreams[_outputIdx];
+            _myrows = 1;
+          }
         }
       }
+    }
+    
+    public void rollbackLine() {
+      --_myrows;
+      assert (_phase == 0 || _s == null);
     }
 
     public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
