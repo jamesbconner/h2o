@@ -10,10 +10,8 @@ def runGLM(node=None,csvPathname=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=
         timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
     return glm
 
-def runGLMOnly(node=None,parseKey=None,X="0",Y="1",timeoutSecs=30,retryDelaySecs=0.5):
-    if not parseKey: raise Exception('No file name for GLM specified')
+def runGLMOnly(node=None,args = {},timeoutSecs=30,retryDelaySecs=0.5):
     if not node: node = h2o.nodes[0]
-    # FIX! add something like stabilize in RF to check results, and also retry/timeout
     glm = node.GLM(parseKey['key'],X=X,Y=Y)
     return glm
 
