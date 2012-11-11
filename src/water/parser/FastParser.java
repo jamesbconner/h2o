@@ -75,6 +75,7 @@ public class FastParser {
   private static final byte WHITESPACE_BEFORE_TOKEN = 16;
   private static final byte STRING_END = 17;
   private static final byte COND_QUOTED_NUMBER_END = 18;
+  private static final byte POSSIBLE_EMPTY_LINE = 19;
 
   private static final long LARGEST_DIGIT_NUMBER = 1000000000000000000L;
 
@@ -130,7 +131,7 @@ NEXT_CHAR:
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case EXPECT_COND_LF:
-          state = WHITESPACE_BEFORE_TOKEN;
+          state = POSSIBLE_EMPTY_LINE;
           if (c == CHAR_LF)
             break NEXT_CHAR;
           continue MAIN_LOOP;
@@ -175,10 +176,20 @@ NEXT_CHAR:
             colIdx = 0;
             callback.newLine();
           }
-          state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
+          
+          state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
           if (secondChunk)
             break MAIN_LOOP; // second chunk only does the first row
           break NEXT_CHAR;
+        // ---------------------------------------------------------------------
+        case POSSIBLE_EMPTY_LINE:
+          if (isEOL(c)) {
+            if (c == CHAR_CR)
+              state = EXPECT_COND_LF;
+            break NEXT_CHAR;
+          }
+          state = WHITESPACE_BEFORE_TOKEN;
+          // fallthrough to WHITESPACE_BEFORE_TOKEN  
         // ---------------------------------------------------------------------
         case WHITESPACE_BEFORE_TOKEN:
           if (c == CHAR_SPACE) {
@@ -289,7 +300,7 @@ NEXT_CHAR:
               colIdx = 0;
               callback.newLine();
             }
-            state = (c == CHAR_CR) ? EXPECT_COND_LF : WHITESPACE_BEFORE_TOKEN;
+            state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
             if (secondChunk)
               break MAIN_LOOP; // second chunk only does the first row
             break NEXT_CHAR;
