@@ -1,5 +1,7 @@
 package water;
 import java.util.Arrays;
+import sun.misc.Unsafe;
+import water.nbhm.UtilUnsafe;
 
 /**
  * A Dumb-Ass byte[]-backed Stream, because Java Got It Wrong.
@@ -12,6 +14,11 @@ import java.util.Arrays;
  * @version 1.0
  */
 public class Stream {
+  private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
+  private static final int _Bbase  = _unsafe.arrayBaseOffset(byte[].class);
+  private static final int _Ibase  = _unsafe.arrayBaseOffset( int[].class);
+  private static final int _Lbase  = _unsafe.arrayBaseOffset(long[].class);
+
   public byte[] _buf;
   public int _off;
   public Stream()                    { _buf = new byte[4];   }
@@ -80,7 +87,11 @@ public class Stream {
   }
   public void setAry4(int[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set4(x[i]);
+    if( x != null ) {
+      grow(x.length<<2);
+      _unsafe.copyMemory(x,_Ibase,_buf,_off+_Bbase,x.length<<2);
+      _off += (x.length<<2);
+    }
   }
   public void setAry4f(float[]x) {
     set4(x==null?-1:x.length);
