@@ -1,10 +1,10 @@
 package water.parser;
 
 import init.H2OSerializable;
-
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 
 /**
  * Trie for parsing enums in the FastParser.
@@ -25,7 +25,7 @@ public final class FastTrie implements H2OSerializable {
   static class TooManyStatesException extends Exception{
     public TooManyStatesException(){super("Too many states in FastTrie");}
   }
-  public FastTrie clone() {
+  @Override public FastTrie clone() {
     FastTrie res = new FastTrie();
     res._state = _state;
     res._states = _states;
@@ -40,7 +40,8 @@ public final class FastTrie implements H2OSerializable {
   public FastTrie(){
     _states[0] = new State();
   }
-  final private short addState(State s) throws TooManyStatesException {
+  
+  private short addState(State s) throws TooManyStatesException {
     if(_nstates == Short.MAX_VALUE)throw new TooManyStatesException();
     if(_nstates == _states.length) {
       _states = Arrays.copyOf(_states, Math.min(Short.MAX_VALUE, _states.length + (_states.length >> 1) + 1));
@@ -203,7 +204,7 @@ public final class FastTrie implements H2OSerializable {
   }
 
 
-  final private int getTransition(State s, int c) throws TooManyStatesException {
+  private int getTransition(State s, int c) throws TooManyStatesException {
     try{
       assert (c & 0xFF) == c;
       int idx = c >> 4;
