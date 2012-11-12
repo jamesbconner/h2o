@@ -715,14 +715,6 @@ VALUE_TYPE:
                 break VALUE_TYPE;
             }
             break VALUE_TYPE;
-/*            number  = -1l;
-            number += _bases[colIdx];
-            // fallthrough -1 is NaN for all values, _lbases will cancel each other
-            // -1 is also NaN in case of enum (we're in number column)
-          case -2: // enum
-            if(_enums[colIdx]._killed || numLength == -1) // if not enum (enum is killed) both enum (-2) and NaN(-1) are invalid values.
-              ++_invalidValues[colIdx];
-            nan = true; */
           default:
             switch (_colTypes[colIdx]) {
               case BYTE:
