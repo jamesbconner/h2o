@@ -113,6 +113,8 @@ NEXT_CHAR:
           // fallthrough to STRING_END
         // ---------------------------------------------------------------------
         case STRING_END:
+          if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB)))
+            break NEXT_CHAR;
           // we have parsed the string enum correctly
           callback.addCol(colIdx,colTrie.getTokenId(),0,-2);
           ++colIdx;
@@ -229,8 +231,6 @@ NEXT_CHAR:
           }
           // fallthrough NUMBER_END
         case NUMBER_END:
-          if ((c == CHAR_SPACE) || (c == CHAR_TAB))
-            break NEXT_CHAR;
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
             callback.addCol(colIdx,number,exp,numStart);
@@ -251,6 +251,8 @@ NEXT_CHAR:
             state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
             if (secondChunk)
               break MAIN_LOOP; // second chunk only does the first row
+            break NEXT_CHAR;
+          } else if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB))) {
             break NEXT_CHAR;
           } else {
             state = STRING;
