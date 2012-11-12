@@ -80,9 +80,6 @@ public final class ParseDataset {
          }
          if( mode == 0 ) cols++;
          mode = 0;
-       } else if(c == ':' && (++colonCounter == 3)){
-         // if there are at least 3 ':' on the line, the file is probably svmlight format
-         throw new Error("SVMLIGHT format is currently unsupported");
        } else {                  // Else its just column data
          if( mode != 1 ) cols++;
          mode = 1;
@@ -129,7 +126,7 @@ public final class ParseDataset {
     if(sep == PARSE_SPACESEP)sep = ' ';
     byte [] bits = (dataset instanceof ValueArray) ? DKV.get(((ValueArray)dataset).make_chunkkey(0)).get(256*1024) : dataset.get(256*1024);
     String [] colNames = FastParser.determineColumnNames(bits,sep);
-    boolean skipFirstLine = (colNames != null && colNames.length == psetup[1]);
+    boolean skipFirstLine = colNames != null;
     if (colNames!=null) {
       psetup[1] = colNames.length;
       System.out.println("old parser setup is ******");
@@ -141,8 +138,9 @@ public final class ParseDataset {
     long p1end = System.currentTimeMillis() - start;
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
-    // now calculate the column information
-    tsk.normalizeVariance();
+    // normalize sigma
+    for(int i = 0; i < tsk._ncolumns; ++i)
+      tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
     tsk.createValueArrayHeader(colNames,dataset);
     //tsk.check(result);
     start = System.currentTimeMillis() - start;
@@ -267,12 +265,25 @@ public final class ParseDataset {
       assert (_phase == 0);
       _colDomains = new String[_ncolumns][];
       for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL && !_enums[i]._killed){
+        if(_colTypes[i] == ECOL && !_enums[i]._killed)
           _colDomains[i] = _enums[i].compress();
-        } else _enums[i].kill();
+        else
+          _enums[i].kill();
       }
       _bases = new int[_ncolumns];
       calculateColumnEncodings();
+      if (_nrows != null) {
+        _numRows = 0;
+        for (int i = 0; i < _nrows.length; ++i) {
+          _numRows += _nrows[i];
+          _nrows[i] = _numRows;
+        }
+      } else {
+        _numRows = _myrows;
+      }
+      // normalize mean
+      for(int i = 0; i < _ncolumns; ++i)
+        _mean[i] = _mean[i]/(_numRows - _invalidValues[i]);
       DParseTask tsk = new DParseTask();
       tsk._skipFirstLine = _skipFirstLine;
       tsk._myrows = _myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
@@ -280,6 +291,7 @@ public final class ParseDataset {
       tsk._enums = _enums;
       tsk._colTypes = _colTypes;
       tsk._nrows = _nrows;
+      tsk._numRows = _numRows;
       tsk._sep = _sep;
       tsk._decSep = _decSep;
       // don't pass invalid values, we do not need them 2nd pass
@@ -293,22 +305,7 @@ public final class ParseDataset {
       tsk._max = _max;
       tsk._mean = _mean;
       tsk._sigma = _sigma;
-      if (tsk._nrows != null) {
-        _numRows = 0;
-        for (int i = 0; i < tsk._nrows.length; ++i) {
-          _numRows += tsk._nrows[i];
-          tsk._nrows[i] = _numRows;
-        }
-        tsk._numRows = _numRows;
-      } else {
-        tsk._numRows = _myrows;
-      }
       return tsk;
-    }
-
-    void normalizeVariance(){
-      for(int i = 0; i < _ncolumns; ++i)
-        _sigma[i] = Math.sqrt(_sigma[i]);
     }
 
     public void createValueArrayHeader(String[] colNames,Value dataset) {
@@ -414,11 +411,9 @@ public final class ParseDataset {
             assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
-          double inv = 1.0/_myrows;
-          for(int i = 0; i < _ncolumns; ++i)
-            _mean[i] *= inv;
           break;
         case 1:
+          _invalidValues = new long[_ncolumns];
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += Math.abs(colSizes[b]);
@@ -468,9 +463,6 @@ public final class ParseDataset {
               inChunkOffset = 0;
             }
           }
-          inv = 1.0/_myrows;
-          for(int i = 0; i < _ncolumns; ++i)
-            _sigma[i] *= inv;
           break;
         default:
           assert false:"unexpected phase " + _phase;
@@ -481,14 +473,14 @@ public final class ParseDataset {
       }
     }
 
-    private double combineAvgVals(int col, double val, double otherVal, DParseTask other){
-      if((_myrows - _invalidValues[col]) == (other._myrows - other._invalidValues[col]))
-        return 0.5*(val + otherVal);
-      double inv = 1.0/Math.max(1,(_myrows+other._myrows - _invalidValues[col] - other._invalidValues[col]));
-      double myCoef = inv*(_myrows - _invalidValues[col]);
-      double otherCoef = inv*(other._myrows - other._invalidValues[col]);
-      return myCoef*val + otherCoef*otherVal;
-    }
+//    private double combineAvgVals(int col, double val, double otherVal, DParseTask other){
+//      if((_myrows - _invalidValues[col]) == (other._myrows - other._invalidValues[col]))
+//        return 0.5*(val + otherVal);
+//      double inv = 1.0/Math.max(1,(_myrows+other._myrows - _invalidValues[col] - other._invalidValues[col]));
+//      double myCoef = inv*(_myrows - _invalidValues[col]);
+//      double otherCoef = inv*(other._myrows - other._invalidValues[col]);
+//      return myCoef*val + otherCoef*otherVal;
+//    }
 
     @Override
     public void reduce(DRemoteTask drt) {
@@ -517,11 +509,11 @@ public final class ParseDataset {
               if(other._max[i] > _max[i])_max[i] = other._max[i];
               if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
               if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
-              _mean[i] = combineAvgVals(i, _mean[i], other._mean[i], other);
+              _mean[i] += other._mean[i];
             }
           } else if(_phase == 1) {
             for(int i = 0; i < _ncolumns; ++i)
-                _sigma[i] = combineAvgVals(i, _sigma[i], other._sigma[i], other);
+                _sigma[i] += other._sigma[i];
           } else
             assert false:"unexpected _phase value:" + _phase;
           for(int i = 0; i < _ncolumns; ++i)
@@ -556,7 +548,7 @@ public final class ParseDataset {
       10000000.0,
       100000000.0,
       1000000000.0,
-      10000000000.0
+      10000000000.0,
     };
 
     static long [] powers10i = new long[]{
@@ -689,17 +681,17 @@ public final class ParseDataset {
         if (_s._off == _s._buf.length) {
           System.out.println("haha");
         }
+        boolean nan = false;
         switch(numLength) {
           case -1: // NaN
             number  = -1l;
             number += _bases[colIdx];
-            ++_invalidValues[colIdx];
             // fallthrough -1 is NaN for all values, _lbases will cancel each other
             // -1 is also NaN in case of enum (we're in number column)
           case -2: // enum
-            // lbase for enums is 0
-            if(_enums[colIdx]._killed && numLength == -2)
+            if(_enums[colIdx]._killed || numLength == -1) // if not enum (enum is killed) both enum (-2) and NaN(-1) are invalid values.
               ++_invalidValues[colIdx];
+            nan = true;
           default:
             switch (_colTypes[colIdx]) {
               case BYTE:
@@ -709,16 +701,16 @@ public final class ParseDataset {
                 _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
                 break;
               case INT:
-                _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                _s.set4((int)((nan)?Integer.MIN_VALUE:number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
                 break;
               case LONG:
-                _s.set8(number*pow10i(exp - _scale[colIdx]));
+                _s.set8((nan)?Long.MIN_VALUE:number*pow10i(exp - _scale[colIdx]));
                 break;
               case FLOAT:
-                _s.set4f((float)(number * pow10(exp)));
+                _s.set4f((nan)?Float.NaN:(float)(number * pow10(exp)));
                 break;
               case DOUBLE:
-                _s.set8d(number * pow10(exp));
+                _s.set8d((nan)?Double.NaN:number * pow10(exp));
                 break;
               case DSHORT:
                 // scale is computed as negative in the first pass,
