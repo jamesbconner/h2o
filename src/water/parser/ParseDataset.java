@@ -317,7 +317,7 @@ public final class ParseDataset {
       int off = 0;
       for(int i = 0; i < cols.length; ++i){
         cols[i]         = new Column();
-        cols[i]._badat  = 0; // FIXME (char)Math.min(65535, _invalidValues[i] );
+        cols[i]._badat  = (char)Math.min(65535, _invalidValues[i] );
         cols[i]._base   = _bases[i];
         assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!,  col = " + i + ", scale = " + _scale[i];
         cols[i]._scale  = (short)pow10i(-_scale[i]);
@@ -326,8 +326,8 @@ public final class ParseDataset {
         cols[i]._domain = new ValueArray.ColumnDomain(_colDomains[i]);
         cols[i]._max    = _max[i];
         cols[i]._min    = _min[i];
-        cols[i]._mean   = 0; // FIXME _mean[i];
-        cols[i]._sigma  = 0; // FIXME tsk._sigma[i];
+        cols[i]._mean   = _mean[i];
+        cols[i]._sigma  = _sigma[i];
         cols[i]._name   =  colNames == null ? String.valueOf(i) : colNames[i];
         off +=  Math.abs(cols[i]._size);
       }
@@ -392,6 +392,7 @@ public final class ParseDataset {
           _chunkId = ValueArray.getChunkIndex(key);
           skipFirstLine = skipFirstLine || (ValueArray.getChunkIndex(key) != 0);
         }
+        _invalidValues = new long[_ncolumns];
         switch(_phase){
         case 0:
           _enums = new FastTrie[_ncolumns];
@@ -413,9 +414,11 @@ public final class ParseDataset {
             assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
           }
+          double inv = 1.0/_myrows;
+          for(int i = 0; i < _ncolumns; ++i)
+            _mean[i] *= inv;
           break;
         case 1:
-          _invalidValues = new long[_ncolumns];
           _sigma = new double[_ncolumns];
           int rowsize = 0;
           for(byte b:_colTypes)rowsize += Math.abs(colSizes[b]);
@@ -465,6 +468,9 @@ public final class ParseDataset {
               inChunkOffset = 0;
             }
           }
+          inv = 1.0/_myrows;
+          for(int i = 0; i < _ncolumns; ++i)
+            _sigma[i] *= inv;
           break;
         default:
           assert false:"unexpected phase " + _phase;
@@ -475,22 +481,31 @@ public final class ParseDataset {
       }
     }
 
+    private double combineAvgVals(int col, double val, double otherVal, DParseTask other){
+      if((_myrows - _invalidValues[col]) == (other._myrows - other._invalidValues[col]))
+        return 0.5*(val + otherVal);
+      double inv = 1.0/Math.max(1,(_myrows+other._myrows - _invalidValues[col] - other._invalidValues[col]));
+      double myCoef = inv*(_myrows - _invalidValues[col]);
+      double otherCoef = inv*(other._myrows - other._invalidValues[col]);
+      return myCoef*val + otherCoef*otherVal;
+    }
+
     @Override
     public void reduce(DRemoteTask drt) {
       try {
         DParseTask other = (DParseTask)drt;
         if(_sigma == null)_sigma = other._sigma;
-        if(_enums == null){
-          assert _min == null;
-          assert _max == null;
-          assert _scale == null;
-          assert _colTypes == null;
+        if(_invalidValues == null){
           _enums = other._enums;
           _min = other._min;
           _max = other._max;
+          _mean = other._mean;
+          _sigma = other._sigma;
           _scale = other._scale;
           _colTypes = other._colTypes;
           _nrows = other._nrows;
+          _myrows = other._myrows;
+          _invalidValues = other._invalidValues;
         } else {
           if (_phase == 0) {
             if (_nrows != other._nrows)
@@ -502,25 +517,17 @@ public final class ParseDataset {
               if(other._max[i] > _max[i])_max[i] = other._max[i];
               if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
               if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
+              _mean[i] = combineAvgVals(i, _mean[i], other._mean[i], other);
             }
-          } else if(_phase == -1) {
-            if(_invalidValues == null)
-              _invalidValues = other._invalidValues;
-            else for(int i = 0; i < _ncolumns; ++i)
-              _invalidValues[i] += other._invalidValues[i];
-            if(_sigma == null)
-              _sigma = other._sigma;
-            else for(int i = 0; i < _ncolumns; ++i) {
-              if(_myrows ==  other._myrows)
-                _sigma[i] = 0.5*(_sigma[i] + other._sigma[i]);
-              else {
-                _sigma[i] = (_myrows*_sigma[i] + other._myrows*other._sigma[i])/(_myrows + other._myrows);
-              }
-            }
-            _myrows += other._myrows;
+          } else if(_phase == 1) {
+            for(int i = 0; i < _ncolumns; ++i)
+                _sigma[i] = combineAvgVals(i, _sigma[i], other._sigma[i], other);
           } else
             assert false:"unexpected _phase value:" + _phase;
+          for(int i = 0; i < _ncolumns; ++i)
+            _invalidValues[i] += other._invalidValues[i];
         }
+        _myrows += other._myrows;
         if(_error == null)_error = other._error;
         else if(other._error != null) _error = _error + "\n" + other._error;
       } catch (Exception e) {
@@ -632,7 +639,7 @@ public final class ParseDataset {
         if(_myrows > _outputRows[_outputIdx]) {
           ++_outputIdx;
           // this can happen if the last line ends in EOL. However this also
-          // means that we will never write to the stream again, so it is ok. 
+          // means that we will never write to the stream again, so it is ok.
           if (_outputIdx == _outputStreams.length) {
             _s = null;
           } else {
@@ -642,7 +649,7 @@ public final class ParseDataset {
         }
       }
     }
-    
+
     public void rollbackLine() {
       --_myrows;
       assert (_phase == 0 || _s == null);
@@ -652,11 +659,13 @@ public final class ParseDataset {
       if (_phase == 0) {
         switch(numLength) {
           case -1:
+            ++_invalidValues[colIdx];
             break;
           case -2:
             if(_enums[colIdx]._killed)
               _killedEnums[colIdx] = 1;
             if(_colTypes[colIdx] ==UCOL) _colTypes[colIdx] = ECOL;
+            ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
             break;
           default:
             assert numLength >= 0:"unexpected num length " + numLength;

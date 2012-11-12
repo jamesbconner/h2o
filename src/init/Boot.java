@@ -237,7 +237,6 @@ public class Boot extends ClassLoader {
   // This method is handed a CtClass which is known to be a subclass of
   // water.RemoteTask.  Add any missing serialization methods.
   Class addSerializationMethods( CtClass cc ) throws CannotCompileException, NotFoundException {
-    System.out.println("adding serializaition to " + cc.getName());
     // Check for having "wire_len".  Either All or None of wire_len, read &
     // write must be defined.  Note that I use getDeclaredMethods which returns
     // only the local methods.  The singular getDeclaredMethod searches for a
@@ -449,21 +448,14 @@ public class Boot extends ClassLoader {
       else if( ftype == 9 ) sb.append(strs);
       else if( ftype == OBJ_ARR_TYPE ||  ftype == OBJ_TYPE) {
         CtClass c = ((ftype == OBJ_ARR_TYPE)?ctf.getType().getComponentType():ctf.getType());
-        if(c == null){
-          System.out.println("haha");
-        }
         assert c.subtypeOf(_h2oSerializable);
         // todo detect cycles!
         if(!c.isModified() && !c.isFrozen()){
-
           // check if we're the inner class!
-          if(!cc.getName().startsWith(c.getName())){
-            System.out.println("generating nested class " + c.getName() + " from " + cc.getName());
+          if(!cc.getName().startsWith(c.getName()))
             javassistLoadClass(c);
-          } else {
-            System.out.println("skipping outer class");
+          else
             continue;
-          }
         }
         sb.append(ftype == OBJ_ARR_TYPE?objectArr:object);
         // gadd serialization to the object if needed
@@ -481,7 +473,6 @@ public class Boot extends ClassLoader {
     }
     sb.append(trailer);
     String body = sb.toString();
-    System.out.println(body);
     try {
       //System.out.println(body);  // Uncomment me to see the generated code
       cc.addMethod(CtNewMethod.make(body,cc));
