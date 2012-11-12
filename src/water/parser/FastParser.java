@@ -13,37 +13,6 @@ import water.parser.ParseDataset.DParseTask;
  */
 public class FastParser {
 
-  /**
-   * Number is anything with number and exp being reasonable values.
-   *
-   * NaN is encoded as numLength -1
-   * enum is encoded as numLength -2
-   *
-   *
-   */
-  public static final class Row {
-    public final long[] _numbers;
-    public final short[] _exponents;
-    public final byte[] _numLength;
-
-    public Row(int numOfColumns) {
-      _numbers = new long[numOfColumns];
-      _exponents = new short[numOfColumns];
-      _numLength = new byte[numOfColumns];
-    }
-
-    public void setCol(int colIdx, long number, short exponent, byte numLength) {
-      _numbers[colIdx] = number;
-      _exponents[colIdx] = exponent;
-      _numLength[colIdx] = numLength;
-    }
-
-    @Override public String toString() {
-      return Arrays.toString(_numbers) + Arrays.toString(_exponents) + Arrays.toString(_numLength);
-    }
-  }
-
-
   public static final byte CHAR_TAB = '\t';
   public static final byte CHAR_LF = 10;
   public static final byte CHAR_SPACE = ' ';
@@ -182,8 +151,7 @@ NEXT_CHAR:
           // fallthrough to WHITESPACE_BEFORE_TOKEN
         // ---------------------------------------------------------------------
         case WHITESPACE_BEFORE_TOKEN:
-          if (c == CHAR_SPACE) {
-            if (c == CHAR_SEPARATOR)
+          if ((c == CHAR_SPACE) || ( c == CHAR_TAB)) {
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
@@ -261,6 +229,8 @@ NEXT_CHAR:
           }
           // fallthrough NUMBER_END
         case NUMBER_END:
+          if ((c == CHAR_SPACE) || (c == CHAR_TAB))
+            break NEXT_CHAR;
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
             callback.addCol(colIdx,number,exp,numStart);
