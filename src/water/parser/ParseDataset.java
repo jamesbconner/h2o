@@ -589,10 +589,10 @@ public final class ParseDataset {
             _min[i] = 0;
             _colTypes[i] = STRINGCOL;
           } else {
-            _max[i] = _enums[i]._state0-1;
+            _max[i] = _enums[i]._initialState-1;
             _min[i] = 0;
-            if(_enums[i]._state0 < 256)_colTypes[i] = BYTE;
-            else if(_enums[i]._state0 < 65536)_colTypes[i] = SHORT;
+            if(_enums[i]._initialState < 256)_colTypes[i] = BYTE;
+            else if(_enums[i]._initialState < 65536)_colTypes[i] = SHORT;
             else _colTypes[i] = INT;
           }
 
@@ -649,6 +649,7 @@ public final class ParseDataset {
     }
 
     public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
+      assert(colIdx < _ncolumns);
       if (_phase == 0) {
         switch(numLength) {
           case -1:
