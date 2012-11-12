@@ -214,8 +214,18 @@ public abstract class Paxos {
   static private boolean addProposedMember(H2ONode n){
     if(!PROPOSED_MEMBERS.contains(n)){
       if( _cloud_locked ) {
-        System.err.println("[h2o] Killing new arrival "+n+" because the cloud is locked.");
+        System.err.println("[h2o] Killing "+n+" because the cloud is locked.");
         UDPRebooted.T.locked.singlecast(n);
+        return false;
+      }
+      if( !n.check_cloud_md5() ) {
+        if( H2O.CLOUD.size() > 1 ) {
+          System.err.println("[h2o] Killing "+n+"  because of jar mismatch.");
+          UDPRebooted.T.mismatch.singlecast(n);
+        } else {
+          System.err.println("[h2o] Attempting to join "+n+" with a jar mismatch. Killing self.");
+          System.exit(-1);
+        }
         return false;
       }
       Ping p = Ping.testConnection(n, true, true);

@@ -3,10 +3,19 @@ package init;
 import java.io.*;
 import java.lang.reflect.*;
 import java.net.*;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
+import com.google.common.io.ByteStreams;
+import com.google.common.io.InputSupplier;
+
 import javassist.*;
 
 
@@ -22,9 +31,10 @@ import javassist.*;
 public class Boot extends ClassLoader {
 
   public static final Boot _init;
+  public final byte[] _jarHash;
+
   private final ZipFile _h2oJar;
   private final File _parentDir;
-  File _binlib;
   // javassist support for rewriting class files
   private ClassPool _pool;      // The pool of altered classes
   private CtClass _remoteTask;  // The Compile-Time Class for "RemoteTask"
@@ -37,16 +47,37 @@ public class Boot extends ClassLoader {
     }
   }
 
+  private byte[] getMD5(InputStream is) throws IOException {
+    try {
+      MessageDigest md5 = MessageDigest.getInstance("MD5");
+      byte[] buf = new byte[4096];
+      int pos;
+      while( (pos = is.read(buf)) > 0 ) md5.update(buf, 0, pos);
+      return md5.digest();
+    } catch( NoSuchAlgorithmException e ) {
+      throw new RuntimeException(e);
+    } finally {
+      try { is.close(); } catch( IOException e ) { }
+    }
+  }
+
   private Boot() throws IOException {
     final String ownJar = getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
     ZipFile jar = null;
     File dir = null;
     if( ownJar.endsWith(".jar") ) { // do nothing if not run from jar
-      jar = new ZipFile(URLDecoder.decode(ownJar, "UTF-8"));
+      String path = URLDecoder.decode(ownJar, "UTF-8");
+      InputStream is = new FileInputStream(path);
+      this._jarHash = getMD5(is);
+      is.close();
+
+      jar = new ZipFile(path);
       dir = File.createTempFile("h2o-temp-", "");
       if( !dir.delete() ) throw new IOException("Failed to remove tmp file: " + dir.getAbsolutePath());
       if( !dir.mkdir() )  throw new IOException("Failed to create tmp dir: "  + dir.getAbsolutePath());
       dir.deleteOnExit();
+    } else {
+      this._jarHash = new byte[16];
     }
     _h2oJar = jar;
     _parentDir = (dir==null) ? new File(".") : dir;

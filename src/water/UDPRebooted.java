@@ -14,7 +14,8 @@ public class UDPRebooted extends UDP {
     reboot,
     shutdown,
     error,
-    locked;
+    locked,
+    mismatch;
 
     public void singlecast(H2ONode target) {
       byte[] buf = make(); // Send it 3 times.  Obnoxious, but effective
@@ -50,12 +51,15 @@ public class UDPRebooted extends UDP {
     if( first_byte != UDP.udp.rebooted.ordinal() ) return;
     int type = pbuf[UDP.SZ_PORT];
     if( type > 1 ) {
+      String m;
       switch( T.values()[type] ) {
-      case error:    System.err.println("[h2o] Error leading to a cloud kill from "+h2o); break;
-      case shutdown: System.err.println("[h2o] Orderly shutdown command from "     +h2o); break;
-      case locked:   System.err.println("[h2o] Killed joining a locked cloud from "+h2o); break;
-      default:       System.err.println("[h2o] Received kill "+type+" from "       +h2o); break;
+      case error:    m = "Error leading to a cloud kill"              ; break;
+      case shutdown: m = "Orderly shutdown command"                   ; break;
+      case locked:   m = "Killed joining a locked cloud"              ; break;
+      case mismatch: m = "Killed joining a cloud with a different jar"; break;
+      default:       m = "Received kill "+type                        ; break;
       }
+      System.err.println("[h2o] "+m+" from "+h2o);
       System.exit(-1);
     }
   }

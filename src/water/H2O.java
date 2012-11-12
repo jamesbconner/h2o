@@ -438,7 +438,7 @@ public final class H2O {
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
     // Read a flatfile of allowed nodes
-    STATIC_H2OS = from_file(OPT_ARGS.flatfile);
+    STATIC_H2OS = parseFlatFile(OPT_ARGS.flatfile);
 
     // Multi-cast ports are in the range E1.00.00.00 to EF.FF.FF.FF
     int hash = NAME.hashCode()&0x7fffffff;
@@ -470,7 +470,7 @@ public final class H2O {
    *   10.10.65.108:54322
    *   10.10.65.108:54325
    */
-  private static HashSet<H2ONode> from_file( String fname ) {
+  private static HashSet<H2ONode> parseFlatFile( String fname ) {
     if( fname == null ) return null;
     File f = new File(fname);
     if( !f.exists() ) return null; // No flat file
