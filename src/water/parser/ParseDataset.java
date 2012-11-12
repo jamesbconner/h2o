@@ -118,8 +118,6 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     // Guess on the number of columns, build a column array.
-    System.out.println("Parser started...");
-    long start = System.currentTimeMillis();
     int [] psetup =  guessParserSetup(dataset, false);
     byte sep = (byte)',';
     if(sep == PARSE_SPACESEP)sep = ' ';
@@ -133,16 +131,12 @@ public final class ParseDataset {
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
-    long p1end = System.currentTimeMillis() - start;
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // normalize sigma
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
     tsk.createValueArrayHeader(colNames,dataset);
-    start = System.currentTimeMillis() - start;
-    System.out.println("Phase 1 took "+p1end);
-    System.out.println("Parser took "+start);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
