@@ -349,6 +349,7 @@ public class Tree extends CountedCompleter {
     TreeVisitor( byte[] tbits ) {
       _ts = new Stream(tbits);
       _ts.get4();               // Skip tree ID
+      _ts.get4();               // Skip seed
     }
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();

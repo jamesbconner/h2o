@@ -1,7 +1,7 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
 
-import java.io.File;
+import java.io.*;
 
 import water.*;
 import water.util.KeyUtil;
