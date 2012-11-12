@@ -413,6 +413,9 @@ public final class ParseDataset {
           }
           break;
         case 1:
+          _enums = _enums.clone();
+          for(int i = 0; i < _enums.length; ++i)
+            if(!_enums[i]._killed)_enums[i] = _enums[i].clone();
           _invalidValues = new long[_ncolumns];
           _sigma = new double[_ncolumns];
           int rowsize = 0;
