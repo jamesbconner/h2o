@@ -250,7 +250,6 @@ FIND_SUCCESSORS:
     _initialState = (short)nfinalStates;
     _state = _initialState;
     _nstates = (short)_states.length;
-    //System.out.println("Trie compressed  from " + origStates + " to " + _states.length + " states");
     return strings;
   }
   
@@ -395,7 +394,6 @@ FIND_SUCCESSORS:
       if(other._transitions[i] == null)continue;
       for(int j = 0; j < 16; ++j){
         if(other._transitions[i][j] == 0)continue;
-       // System.out.println(_id + " _state = " + _state);
         int x = getTransition(s,((i << 4) + j));
         mergeStates(x,otherTrie, other._transitions[i][j]);
       }
@@ -430,45 +428,5 @@ FIND_SUCCESSORS:
     } catch (TooManyStatesException e) {
       assertTrue(false);
     }
-  }
-
-  
-  public static int [] addWords (String [] words, FastTrie t){
-    int [] res = new int[words.length];
-    int i = 0;
-    for(String w:words){
-      int j = 0;
-      byte [] bs = w.getBytes();
-      while(j < bs.length){
-        System.out.println((char)bs[j]);
-        j += t.addCharacter(bs[j]&0xFF)+1;
-      }
-      res[i++] = t.getTokenId();
-    }
-    return res;
-  }
-
-  static String [] data = new String[] {"J","G","B","B","D","D","I","I","F","F","I","I","I","I","I","H","I","I","I","I","C","A","A","J","J","I","I"};
-
-  
-  public static void main(String [] args) throws SecurityException, NoSuchMethodException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException{
-    
-    test();
-    
-  /*  
-    FastTrie t = new FastTrie();
-    int [] res = addWords(data, t);
-    System.out.println(Arrays.toString(res));
-    int [] res2 = addWords(data, t);
-    System.out.println(t);
-    System.out.println(Arrays.toString(res2));
-    String [] vals = t.compress();
-    System.out.println(Arrays.toString(vals));
-    System.out.println(t);
-    int [] res3 = addWords(data, t);
-    System.out.println(Arrays.toString(res3));
-    System.out.println(t);
-    System.out.println(data.getClass());
-    System.out.println(data.getClass().getComponentType().getName()); */
   }
 }

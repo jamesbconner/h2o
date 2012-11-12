@@ -129,12 +129,11 @@ public final class ParseDataset {
     boolean skipFirstLine = colNames != null;
     if (colNames!=null) {
       psetup[1] = colNames.length;
-      System.out.println("old parser setup is ******");
+      // TODO Parser setup is aparently not working properly
     }
     // pass 1
     DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
-//    System.out.println("Pass1 done...");
     long p1end = System.currentTimeMillis() - start;
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
@@ -142,7 +141,6 @@ public final class ParseDataset {
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
     tsk.createValueArrayHeader(colNames,dataset);
-    //tsk.check(result);
     start = System.currentTimeMillis() - start;
     System.out.println("Phase 1 took "+p1end);
     System.out.println("Parser took "+start);
@@ -475,15 +473,6 @@ public final class ParseDataset {
         _error = e.getMessage();
       }
     }
-
-//    private double combineAvgVals(int col, double val, double otherVal, DParseTask other){
-//      if((_myrows - _invalidValues[col]) == (other._myrows - other._invalidValues[col]))
-//        return 0.5*(val + otherVal);
-//      double inv = 1.0/Math.max(1,(_myrows+other._myrows - _invalidValues[col] - other._invalidValues[col]));
-//      double myCoef = inv*(_myrows - _invalidValues[col]);
-//      double otherCoef = inv*(other._myrows - other._invalidValues[col]);
-//      return myCoef*val + otherCoef*otherVal;
-//    }
 
     @Override
     public void reduce(DRemoteTask drt) {

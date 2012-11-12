@@ -108,17 +108,11 @@ public class FastParser {
     int numStart = 0;
     int tokenStart = 0; // used for numeric token to backtrace if not successful
     boolean secondChunk = false;
-//    Row row = new Row(_numColumns);
     int colIdx = 0;
-    //long[] _numbers = new long[_numColumns];
-    //short[] _exponents = new short[_numColumns];
-    //byte[] _numLength = new byte[_numColumns];
     byte c = bits[offset];
-//    int beenHere = 0;
     callback.newLine();
 MAIN_LOOP:
     while (true) {
-//      ++beenHere;
 NEXT_CHAR:
       switch (state) {
         // ---------------------------------------------------------------------
@@ -150,11 +144,7 @@ NEXT_CHAR:
         case STRING_END:
           // we have parsed the string enum correctly
           callback.addCol(colIdx,colTrie.getTokenId(),0,-2);
-//          _numbers[colIdx] = colTrie.getTokenId();
-//          _exponents[colIdx] = 0;
-//          _numLength[colIdx] = -2;
           ++colIdx;
-//          row.setCol(colIdx++, colTrie.getTokenId(),(short) 0, (byte) -2);
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
@@ -171,8 +161,6 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case EOL:
           if (colIdx != 0) {
-//            callback.addRow2(_numbers,_exponents,_numLength);
-////            callback.addRow(row);
             colIdx = 0;
             callback.newLine();
           }
@@ -198,11 +186,7 @@ NEXT_CHAR:
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
             callback.addCol(colIdx,-1,0,-2);
-//            _numbers[colIdx] = -1;
-//            _exponents[colIdx] = 0;
-//            _numLength[colIdx] = -2;
             ++colIdx;
-//            row.setCol(colIdx++,-1,(short) 0, (byte) -2);
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
@@ -237,10 +221,7 @@ NEXT_CHAR:
               exp = 1;
             }
             // fallthrough
-          } /*else if (!isEOL(c)) {
-            state = EOL;
-            continue MAIN_LOOP;
-          } */ else {
+          } else {
             state = STRING;
             colTrie = callback._enums[colIdx];
             continue MAIN_LOOP;
@@ -281,11 +262,7 @@ NEXT_CHAR:
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
             callback.addCol(colIdx,number,exp,numStart);
-//            _numbers[colIdx] = number;
-//            _exponents[colIdx] = (short) exp;
-//            _numLength[colIdx] = (byte) numStart;
             ++colIdx;
-//            row.setCol(colIdx++,number, (short) exp, (byte) numStart);
             // do separator state here too
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
@@ -294,13 +271,8 @@ NEXT_CHAR:
           } else if (isEOL(c)) {
             exp = exp - fractionDigits;
             callback.addCol(colIdx,number,exp,numStart);
-//            _numbers[colIdx] = number;
-//            _exponents[colIdx] = (short) exp;
-//            _numLength[colIdx] = (byte) numStart;
             // do EOL here for speedup reasons
             if (colIdx != 0) {
-//              callback.addRow2(_numbers,_exponents,_numLength);
-//              callback.addRow(row);
               colIdx = 0;
               callback.newLine();
             }
@@ -327,7 +299,6 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           state = COND_QUOTED_NUMBER_END;
-          //++beenHere;
           continue MAIN_LOOP;
         // ---------------------------------------------------------------------
         case NUMBER_SKIP_NO_DOT:
@@ -442,7 +413,6 @@ NEXT_CHAR:
       }
       c = bits[offset];
     } // end MAIN_LOOP
-//    System.out.println("been here: "+beenHere);
     if (colIdx == 0)
       callback.rollbackLine();
   }
@@ -452,7 +422,7 @@ NEXT_CHAR:
   }
 
   private static boolean isEOL(byte c) {
-    return (c >= CHAR_LF) && ( c<= CHAR_CR); //== CHAR_CR) || (c == CHAR_LF) || (c == CHAR_VT) || (c == CHAR_FF);
+    return (c >= CHAR_LF) && ( c<= CHAR_CR);
   }
 
   private static final byte TOKEN_START = 19;
@@ -536,7 +506,6 @@ NEXT_CHAR:
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           } else {
-            //throw new Exception("Separator or end of line expected after the end of column "+colNames.size()+" but "+c+" found");
             return null;
           }
         case EXPECT_COND_LF:
@@ -545,8 +514,6 @@ NEXT_CHAR:
             break NEXT_CHAR;
           // fallthrough to SECOND_LINE
         case SECOND_LINE:
-          System.out.println("Found second line after "+colNames.size()+" columns");
-         // _numColumns = colNames.size();
           state = SECOND_WHITESPACE_BEFORE_TOKEN;
           // fallthrough to SECOND_WHITESPACE_BEFORE_TOKEN
         case SECOND_WHITESPACE_BEFORE_TOKEN:
@@ -591,7 +558,6 @@ NEXT_CHAR:
             state = SECOND_TOKEN_FIRST_LETTER;
             break NEXT_CHAR;
           } else {
-            // throw new Exception("Separator or end of line expected after the end of column "+colNames.size()+" but "+c+" found");
             return null;
           }
       }
@@ -605,8 +571,6 @@ NEXT_CHAR:
     colNames.toArray(result);
     return result;
   }
-
-
 }
 
 
