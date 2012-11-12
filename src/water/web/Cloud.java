@@ -2,10 +2,7 @@ package water.web;
 
 import com.google.gson.JsonObject;
 import java.util.Properties;
-import water.H2O;
-import water.H2ONode;
-import water.HeartBeatThread;
-import water.Paxos;
+import water.*;
 
 public class Cloud extends H2OPage {
 
@@ -45,14 +42,14 @@ public class Cloud extends H2OPage {
       //String name = h2o._inet.getHostName();
       row.replace("host",h2o);
       row.replace("node",h2o);
-      row.replace("num_cpus" ,            h2o.get_num_cpus () );
-      row.replace("free_mem" ,toMegabytes(h2o.get_free_mem ()));
-      row.replace("tot_mem"  ,toMegabytes(h2o.get_tot_mem  ()));
-      row.replace("max_mem"  ,toMegabytes(h2o.get_max_mem  ()));
-      row.replace("num_keys" ,           (h2o.get_keys     ()));
-      row.replace("val_size" ,toMegabytes(h2o.get_valsz    ()));
-      row.replace("free_disk",toMegabytes(h2o.get_free_disk()));
-      row.replace("max_disk" ,toMegabytes(h2o.get_max_disk ()));
+      row.replace("num_cpus" ,                 (h2o.get_num_cpus ()));
+      row.replace("free_mem" ,PrettyPrint.bytes(h2o.get_free_mem ()));
+      row.replace("tot_mem"  ,PrettyPrint.bytes(h2o.get_tot_mem  ()));
+      row.replace("max_mem"  ,PrettyPrint.bytes(h2o.get_max_mem  ()));
+      row.replace("num_keys" ,                 (h2o.get_keys     ()));
+      row.replace("val_size" ,PrettyPrint.bytes(h2o.get_valsz    ()));
+      row.replace("free_disk",PrettyPrint.bytes(h2o.get_free_disk()));
+      row.replace("max_disk" ,PrettyPrint.bytes(h2o.get_max_disk ()));
 
       row.replace("cpu_util" ,pos_neg(h2o.get_cpu_util()));
 
@@ -65,16 +62,16 @@ public class Cloud extends H2OPage {
       int fjt_hi = h2o.get_fjthrds_hi();
       if(fjq_hi > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyleHi","background-color:green;");
-      row.replace("fjthrds_hi" , fjt_hi);
-      row.replace("fjqueue_hi" , fjq_hi);
+      row.replace("fjthrds_hi",  fjt_hi);
+      row.replace("fjqueue_hi",  fjq_hi);
       int fjq_lo = h2o.get_fjqueue_lo();
       int fjt_lo = h2o.get_fjthrds_lo();
       if(fjq_lo > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyleLo","background-color:green;");
-      row.replace("fjthrds_lo" , fjt_lo);
-      row.replace("fjqueue_lo" , fjq_lo);
-      row.replace("rpcs" ,                h2o.get_rpcs());
-      row.replace("tcps_active" ,         h2o.get_tcps_active());
+      row.replace("fjthrds_lo",  fjt_lo);
+      row.replace("fjqueue_lo",  fjq_lo);
+      row.replace("rpcs",        h2o.get_rpcs());
+      row.replace("tcps_active", h2o.get_tcps_active());
 
       row.append();
     }
@@ -82,10 +79,6 @@ public class Cloud extends H2OPage {
     response.replace("voting",Paxos._commonKnowledge?"":"Voting in progress");
     response.replace("locked",Paxos._cloud_locked?"Cloud locked":"");
     return response.toString();
-  }
-
-  static String toMegabytes(long what) {
-    return Long.toString(what>>20)+"M";
   }
 
   static String pos_neg( double d ) {

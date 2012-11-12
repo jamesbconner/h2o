@@ -5,11 +5,7 @@ import java.util.Properties;
 
 import com.google.gson.*;
 
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
-import water.H2O;
+import water.*;
 
 public class Inspect extends H2OPage {
 
@@ -150,7 +146,7 @@ public class Inspect extends H2OPage {
     }
     if( val.length() > len ) sb.append("...");
     row.replace("value",sb);
-    row.replace("size",val.length());
+    row.replace("size", PrettyPrint.bytes(val.length()));
 
     ServletUtil.createBestEffortSummary(key, row);
   }
@@ -199,9 +195,9 @@ public class Inspect extends H2OPage {
     // Pretty-print the key
     response.replace("key",key);
     response.replace("priorKey",ary.prior_key());
-    response.replace("size",ary.length());
     response.replace("rows",ary.num_rows());
-    response.replace("rowsize",ary.row_size());
+    response.replace("rowsize", ary.row_size());
+    response.replace("size", PrettyPrint.bytes(ary.length()));
     response.replace("ncolumns",ary.num_cols());
     response.replace("xform",ary.xform());
 
@@ -343,7 +339,7 @@ public class Inspect extends H2OPage {
       "<h1><a style='%delBtnStyle' href='RemoveAck?Key=%$key'><button class='btn btn-danger btn-mini'>X</button></a>&nbsp;&nbsp;<a href='/Get?Key=%$key'>%key</a>%execbtn</h1>"
     + "%storeHdfs"
     + "<p>Generated from <a href=/Inspect?Key=%$priorKey>%priorKey</a> by '%xform'<p>"
-    + "<b><font size=+1>%rowsize Bytes-per-row * %rows Rows = Totalsize %size</font></b></em><br>"
+    + "<b><font size=+1>%rowsize bytes-per-row * %rows Rows = Totalsize %size</font></b></em><br>"
     + "Parsed %ncolumns columns<br>"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<thead><tr><th>Column %head_row</tr></thead>\n"
