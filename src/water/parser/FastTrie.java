@@ -59,6 +59,10 @@ public final class FastTrie implements H2OSerializable {
     testAddCharacter();
     testGetTokenId();
     testGetTransition();
+    testMergeStates();
+    testMerge();
+    testCompressState();
+    System.out.println("ALL OK");
   }
   
   @Test public static void testEmptyTrie() {
@@ -228,6 +232,11 @@ public final class FastTrie implements H2OSerializable {
       return res;
     }
   }
+  
+  @Test public static void testCompressState() {
+    
+    
+  }
 
 
   String [] compress(){
@@ -283,18 +292,30 @@ public final class FastTrie implements H2OSerializable {
   public void merge(FastTrie other){
     if(other._killed)kill();
     if(_killed)return;
-    if(_nstates == 0){
-      _states = other._states;
-      _nstates = other._nstates;
-    } else {
-      try {
-        mergeStates(0,other, 0);
-      } catch( TooManyStatesException e ) {
-        kill();
-      }
+    assert (_nstates >= 1);
+    assert (other._nstates >= 1);
+    try {
+      mergeStates(0,other, 0);
+    } catch( TooManyStatesException e ) {
+      kill();
     }
   }
-
+  
+  @Test public static void testMerge() {
+    FastTrie t1 = new FastTrie();
+    FastTrie t2 = new FastTrie();
+    t2.kill();
+    t1.merge(t2);
+    assertTrue(t1._killed);
+    t2 = new FastTrie();
+    t2.addCharacter(5);
+    t1.merge(t2);
+    assertTrue(t1._killed);
+    assertNull(t1._states);
+    t1 = new FastTrie();
+    t1.merge(t2);
+    assertEquals(2,t1._nstates);
+  }
 
   private int getTransition(State s, int c) throws TooManyStatesException {
     assert (c & 0xFF) == c;
@@ -339,7 +360,38 @@ public final class FastTrie implements H2OSerializable {
       }
     }
   }
+  
+  @Test public static void testMergeStates() {
+    try {
+      FastTrie t1 = new FastTrie();
+      FastTrie t2 = new FastTrie();
+      t1.addCharacter(5);
+      t2.addCharacter(5);
+      t2.getTokenId();
+      assertEquals(2,t1._nstates);
+      t1.mergeStates(1,t2,1);
+      assertTrue(t1._states[1]._isFinal);
+      assertEquals(2,t1._nstates);
+      t2.addCharacter(5);
+      t2.addCharacter(3);
+      t1.mergeStates(1,t2,1);
+      assertEquals(3,t1._nstates);
+      assertEquals(2,t1.getTransition(t1._states[1],3));
+      assertFalse(t1._states[2]._isFinal);
+      t2.getTokenId();
+      t2.addCharacter(5);
+      t2.addCharacter(20);
+      t1.mergeStates(1,t2,1);
+      assertEquals(4,t1._nstates);
+      assertEquals(2,t1.getTransition(t1._states[1],3));
+      assertEquals(3,t1.getTransition(t1._states[1],20));
+      assertTrue(t1._states[2]._isFinal);
+    } catch (TooManyStatesException e) {
+      assertTrue(false);
+    }
+  }
 
+  
   public static int [] addWords (String [] words, FastTrie t){
     int [] res = new int[words.length];
     int i = 0;
@@ -357,15 +409,6 @@ public final class FastTrie implements H2OSerializable {
 
   static String [] data = new String[] {"J","G","B","B","D","D","I","I","F","F","I","I","I","I","I","H","I","I","I","I","C","A","A","J","J","I","I"};
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
   
   public static void main(String [] args) throws SecurityException, NoSuchMethodException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException{
     
