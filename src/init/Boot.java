@@ -234,6 +234,18 @@ public class Boot extends ClassLoader {
     return false;
   }
 
+  private static boolean hasSerialization(CtClass ct) throws NotFoundException {
+    CtMethod ccms[] = ct.getDeclaredMethods();
+    if( hasExisting("wire_len","()I",ccms) ) { // Already has serialization methods?
+      assert hasExisting("write","(Ljava/io/DataOutputStream;)V",ccms);
+      assert hasExisting("read" ,"(Ljava/io/DataInputStream;)V",ccms);
+      assert hasExisting("write","(Lwater/Stream;)V",ccms);
+      assert hasExisting("read" ,"(Lwater/Stream;)V",ccms);
+      return true;
+    } else
+      return false;
+  }
+
   // This method is handed a CtClass which is known to be a subclass of
   // water.RemoteTask.  Add any missing serialization methods.
   Class addSerializationMethods( CtClass cc ) throws CannotCompileException, NotFoundException {
@@ -450,7 +462,9 @@ public class Boot extends ClassLoader {
         CtClass c = ((ftype == OBJ_ARR_TYPE)?ctf.getType().getComponentType():ctf.getType());
         assert c.subtypeOf(_h2oSerializable);
         // todo detect cycles!
-        if(!c.isModified() && !c.isFrozen()){
+        if(!c.isFrozen() && !hasSerialization(c)){
+          if(c.getName().contains("$") && !javassist.Modifier.isStatic(c.getModifiers())) // non static inner classes, not allowed
+            throw new Error("Can not serialize field '" + ctf + "' with type = '" + c.getName() + "': Auto serialization of non-static inner classes not supported!");
           // check if we're the inner class!
           if(!cc.getName().startsWith(c.getName()))
             javassistLoadClass(c);
@@ -530,10 +544,12 @@ public class Boot extends ClassLoader {
       if( sig.equals("Ljava/lang/String;") ) return 9;
       try {
         CtClass ct = ctf.getType();
-        if(idx > 0 && ct.isArray() && ct.getComponentType().subtypeOf(_h2oSerializable))
-          return OBJ_ARR_TYPE-10;
-        if(ct.subtypeOf(_h2oSerializable)){
-          return OBJ_TYPE;
+        if(idx > 0 && ct.isArray()){
+          CtClass cct = ct.getComponentType();
+          if(cct.subtypeOf(_h2oSerializable))
+              return OBJ_ARR_TYPE-10;
+        } else if(ct.subtypeOf(_h2oSerializable)){
+            return OBJ_TYPE;
         }
       } catch( NotFoundException e ) {}
       break;
@@ -552,5 +568,9 @@ public class Boot extends ClassLoader {
 
   private static Error barf( CtField ctf ) {
     return new Error("Serialization of field "+ctf.getName()+" not implemented");
+  }
+
+  private static Error barf( CtField ctf, String msg) {
+    return new Error("Serialization of field "+ctf.getName()+" not implemented, " + msg);
   }
 }

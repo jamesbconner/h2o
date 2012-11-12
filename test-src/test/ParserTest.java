@@ -1,9 +1,12 @@
 
-package water.parser;
+package test;
 
 import static org.junit.Assert.*;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import water.parser.FastParser;
 
 public class ParserTest {
   @BeforeClass public static void setupCloud() {
@@ -14,7 +17,7 @@ public class ParserTest {
       ex.printStackTrace();
     }
   }
-  
+
   @Test public void testDecodeHeaders() {
     String text = "col1,col2,col3\n1,2,3";
     String[] cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
