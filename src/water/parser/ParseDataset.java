@@ -681,15 +681,17 @@ public final class ParseDataset {
 VALUE_TYPE:        
         switch(numLength) {
           case -2: // enum
-            switch (_colTypes[colIdx]) {
-              case BYTE:
-                _s.set1((byte)number);
-                break VALUE_TYPE;
-              case SHORT:
-                _s.set2((short)number);
-                break VALUE_TYPE;
-              default:
-                // pass to NaN
+            if (!_enums[colIdx]._killed) {
+              switch (_colTypes[colIdx]) {
+                case BYTE:
+                  _s.set1((byte)number);
+                  break VALUE_TYPE;
+                case SHORT:
+                  _s.set2((short)number);
+                  break VALUE_TYPE;
+                default:
+                  assert(false);
+              }
             }
           case -1: // NaN
             ++_invalidValues[colIdx];
