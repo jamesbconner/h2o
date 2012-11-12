@@ -234,10 +234,9 @@ public final class FastTrie implements H2OSerializable {
   }
   
   @Test public static void testCompressState() {
-    
+        
     
   }
-
 
   String [] compress(){
     if(_killed) return null;
