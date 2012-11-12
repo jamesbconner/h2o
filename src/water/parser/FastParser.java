@@ -206,6 +206,10 @@ NEXT_CHAR:
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
+          } else if (isEOL(c)) {
+            callback.addCol(colIdx,-1,0,-2);
+            state = EOL;
+            continue MAIN_LOOP;
           }
           // fallthrough to COND_QUOTED_TOKEN
         // ---------------------------------------------------------------------

@@ -61,7 +61,8 @@ public final class FastTrie implements H2OSerializable {
     testGetTransition();
     testMergeStates();
     testMerge();
-    testCompressState();
+    // test compress state is tested here too
+    testCompress();
     System.out.println("ALL OK");
   }
   
@@ -185,59 +186,64 @@ public final class FastTrie implements H2OSerializable {
   }
 
   int compressState(State oldS, ArrayList<State> states, String [] strings, StringBuilder currentString, short skip) {
-    int nsucc = 0;
-    int x = 0,y = 0;
-    if(oldS._transitions != null){
-      for(int i = 0; i < 16; ++i){
-        if(oldS._transitions[i] == null)continue;
-        for(int j = 0; j < 16; ++j)
-          if(oldS._transitions[i][j] != 0){
-            ++nsucc;
-            x = i; y = j;
-          }
-      }
-    }
-    if(nsucc != 1 || oldS._isFinal || states.size() <= strings.length){
+    // index of the state to be returned
+    int stateIndex;
+    // compute number of successors
+    int successors = 0;
+    int x = 0; // buffer of the single transition - if any 
+    int y = 0; // position in the buffer of the single transition, if any
+    if (oldS._transitions != null)
+FIND_SUCCESSORS:
+      for (int i = 0; i < 16; ++i) // buffers
+        if (oldS._transitions[i] != null) 
+          for (int j = 0; j < 16; ++j)
+            if (oldS._transitions[i][j] != _initialState) {
+              ++successors;
+              if (successors > 1)
+                break FIND_SUCCESSORS;
+              x = i;
+              y = j;
+            }
+    // never compress state with more than one successors, initial state, or a final state,
+    // which has 0 successors
+    if ((successors == 1) && (oldS != _states[_initialState]) && (!oldS._isFinal)) {
+      int nextS = oldS._transitions[x][y];
+      currentString.append((char)((x << 4) + y));
+      stateIndex =  compressState(_states[nextS], states, strings, currentString, ++skip);
+      currentString.setLength(currentString.length()-1);
+    } else {
+      // we cannot compress the state now, create a new state
       State s = new State();
-      short res = (short)states.size();
-      if(oldS._isFinal) {
-        for(res = 0; res < states.size(); ++res)if(states.get(res) == null)break;
-        states.set(res, s);
-        strings[res] = currentString.toString();
-      } else states.add(s);
+      if (oldS._isFinal) { // final states have reserved space at the beginning of the array
+        stateIndex = 0;
+        while (states.get(stateIndex) != null) 
+          ++stateIndex;
+        states.set(stateIndex,s);
+        strings[stateIndex] = currentString.toString();
+      } else { // normal states go to the back of the array
+        stateIndex = states.size();
+        states.add(s);
+      }
       s._skip = skip;
-      if(nsucc > 0){
+      if (successors != 0) {
         s._transitions = new short[16][];
-        for(int i = 0; i < 16; ++i) {
-          if(oldS._transitions[i] != null){
-            s._transitions[i] = new short[16];
-            Arrays.fill(s._transitions[i],(short)strings.length); // fill with the new state 0
-            for(int j = 0; j < 16; ++j){
-              short nextS = oldS._transitions[i][j];
-              if(nextS != 0){
+        for (int i = 0; i < 16; ++i) {
+          if (oldS._transitions[i] != null) {
+            s._transitions[i] = new short[16];  
+            Arrays.fill(s._transitions[i], (short)strings.length); // fill with new initial state
+            for (int j = 0; j < 16; ++j) {
+              if (oldS._transitions[i][j] != _initialState) {
                 currentString.append((char)((i << 4) + j));
-                s._transitions[i][j] = (short)compressState(_states[nextS],states, strings, currentString, (short)0);
+                s._transitions[i][j] = (short)compressState(_states[oldS._transitions[i][j]],states, strings, currentString, (short)0);
                 currentString.setLength(currentString.length()-1);
               }
             }
           }
         }
       }
-      return res;
-    } else {
-      short nextS = oldS._transitions[x][y];
-      currentString.append((char)((x << 4) + y));
-      int res =  compressState(_states[nextS], states, strings, currentString, ++skip);
-      currentString.setLength(currentString.length()-1);
-      return res;
     }
-  }
-  
-  @Test public static void testCompressState() {
-    
-    
-  }
-
+    return stateIndex;
+  } 
 
   String [] compress(){
     if(_killed) return null;
@@ -257,8 +263,55 @@ public final class FastTrie implements H2OSerializable {
     _initialState = (short)nfinalStates;
     _state = _initialState;
     _nstates = (short)_states.length;
-    System.out.println("Trie compressed  from " + origStates + " to " + _states.length + " states");
+    //System.out.println("Trie compressed  from " + origStates + " to " + _states.length + " states");
     return strings;
+  }
+  
+  @Test public static void testCompress() {
+    FastTrie t = new FastTrie(); // do not compress initial, compress others
+    t.addCharacter(5);
+    t.addCharacter(6);
+    t.addCharacter(7);
+    t.addCharacter(8);
+    t.getTokenId();
+    t.compress();
+    assertTrue(t._compressed);
+    assertEquals(2, t._nstates);
+    assertEquals(1, t._initialState);
+    assertEquals(1, t._state);
+    assertEquals(3, t.addCharacter(5));
+    assertEquals(0, t.getTokenId());
+    t = new FastTrie(); // do not compress state with 2 or more successors
+    t.addCharacter(5);
+    t.addCharacter(3);
+    t.getTokenId();
+    t.addCharacter(5);
+    t.addCharacter(4);
+    t.getTokenId();
+    t.compress();
+    assertEquals(4, t._nstates);
+    assertEquals(0, t.addCharacter(5));
+    assertEquals(0, t.addCharacter(3));
+    assertEquals(0, t.getTokenId());
+    assertEquals(0, t.addCharacter(5));
+    assertEquals(0, t.addCharacter(4));
+    assertEquals(1, t.getTokenId());
+    t = new FastTrie(); // do not jump over final state
+    t.addCharacter(5);
+    t.addCharacter(3);
+    t.addCharacter(6);
+    t.getTokenId();
+    t.addCharacter(5);
+    t.addCharacter(3);
+    t.addCharacter(6);
+    t.addCharacter(7);
+    t.addCharacter(8);
+    t.getTokenId();
+    t.compress();
+    assertEquals(3, t._nstates);
+    assertEquals(2,t.addCharacter(5));
+    assertEquals(1,t.addCharacter(7));
+    assertEquals(1,t.getTokenId());
   }
 
   /**
@@ -266,7 +319,8 @@ public final class FastTrie implements H2OSerializable {
    */
   public int getTokenId(){
     if(_killed)return -1;
-    assert (_state != _initialState);
+    if (_state == _initialState)
+      assert (_state != _initialState);
     assert (!_compressed || (_state < _initialState));
     int res =  _state;
     _states[_state]._isFinal = true;
