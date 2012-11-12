@@ -466,10 +466,7 @@ public class Boot extends ClassLoader {
           if(c.getName().contains("$") && !javassist.Modifier.isStatic(c.getModifiers())) // non static inner classes, not allowed
             throw new Error("Can not serialize field '" + ctf + "' with type = '" + c.getName() + "': Auto serialization of non-static inner classes not supported!");
           // check if we're the inner class!
-          if(!cc.getName().startsWith(c.getName()))
-            javassistLoadClass(c);
-          else
-            continue;
+          javassistLoadClass(c);
         }
         sb.append(ftype == OBJ_ARR_TYPE?objectArr:object);
         // gadd serialization to the object if needed
