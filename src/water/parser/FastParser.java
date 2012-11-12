@@ -597,7 +597,7 @@ NEXT_CHAR:
       }
       ++offset;
       if (offset == bits.length)
-        break;
+        return null;
       c = bits[offset];
     }
     if(colNames.isEmpty())return null;
