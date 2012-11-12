@@ -5,7 +5,8 @@ import getpass, json, h2o
 # None means the json will specify, or the default for json below
 # only these two args override for now. can add more.
 def build_cloud_with_hosts(node_count=None, use_flatfile=None, 
-    use_hdfs=None, hdfs_name_node="192.168.1.151", **kwargs):
+    use_hdfs=None, hdfs_name_node="192.168.1.151", 
+    java_heap_GB=None, **kwargs):
 
     # For seeing example of what we want in the json, if we add things
     #   import h2o_config
@@ -32,7 +33,9 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
 
     # default to none, which means the arg isn't used and java decides for us
     # useful for small dram systems, and for testing that
-    java_heap_GB = hostDict.setdefault('java_heap_GB', None)
+    javaHeapGB = hostDict.setdefault('java_heap_GB', None)
+
+    use_home_for_ice = hostDict.setdefault('use_home_for_ice', False)
 
     # can override the json with a caller's argument
     # FIX! and we support passing othe kwargs from above? but they don't override
@@ -49,9 +52,13 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     if hdfs_name_node is not None:
         hdfsNameNode = hdfs_name_node
 
+    if java_heap_GB is not None:
+        javaHeapGB = java_heap_GB
+
     h2o.verboseprint("host config: ", username, password, 
         h2oPerHost, basePort, sigar, useFlatfile, 
-        useHdfs, hdfsNameNode, hostList, **kwargs)
+        useHdfs, hdfsNameNode, javaHeapGB, use_home_for_ice,
+        hostList, **kwargs)
 
     #********************
     global hosts
@@ -68,8 +75,8 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
 
     h2o.build_cloud(h2oPerHost,
-            base_port=basePort,hosts=hosts,timeoutSecs=timeoutSecs,sigar=sigar, 
+            base_port=basePort, hosts=hosts, timeoutSecs=timeoutSecs, sigar=sigar, 
             use_flatfile=useFlatfile,
-            use_hdfs=useHdfs,hdfs_name_node=hdfsNameNode,
-            java_heap_GB=java_heap_GB,
+            use_hdfs=useHdfs, hdfs_name_node=hdfsNameNode,
+            java_heap_GB=javaHeapGB, use_home_for_ice=use_home_for_ice,
             **kwargs)

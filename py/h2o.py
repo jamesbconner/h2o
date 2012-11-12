@@ -661,7 +661,7 @@ class H2O(object):
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
         use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
-        java_heap_GB=None):
+        java_heap_GB=None, use_home_for_ice=False, username=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -676,6 +676,9 @@ class H2O(object):
         self.use_flatfile = use_flatfile
 
         self.java_heap_GB = java_heap_GB
+
+        self.use_home_for_ice = use_home_for_ice
+        self.username = username
 
     def __str__(self):
         return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
@@ -694,8 +697,8 @@ class H2O(object):
 
 class ExternalH2O(H2O):
     '''An H2O instance launched outside the control of python'''
-    def __init__(self, *args, **keywords):
-        super(ExternalH2O, self).__init__(*args, **keywords)
+    def __init__(self, *args, **kwargs):
+        super(ExternalH2O, self).__init__(*args, **kwargs)
 
     def get_h2o_jar(self):
         return find_file('build/h2o.jar') # just a likely guess
@@ -720,9 +723,10 @@ class ExternalH2O(H2O):
 
 class LocalH2O(H2O):
     '''An H2O instance launched by the python framework on the local host using psutil'''
-    def __init__(self, *args, **keywords):
-        super(LocalH2O, self).__init__(*args, **keywords)
+    def __init__(self, *args, **kwargs):
+        super(LocalH2O, self).__init__(*args, **kwargs)
         self.rc = None
+        # FIX! no option for local /home/username ..always /tmp
         self.ice = tmp_dir('ice.')
         spawn = spawn_cmd('local-h2o', self.get_args(),
                 capture_output=self.capture_output)
@@ -828,8 +832,8 @@ class RemoteHost(object):
 
         self.uploaded = {}
 
-    def remote_h2o(self, *args, **keywords):
-        return RemoteH2O(self, self.addr, *args, **keywords)
+    def remote_h2o(self, *args, **kwargs):
+        return RemoteH2O(self, self.addr, *args, **kwargs)
 
     def open_channel(self):
         # kbn
@@ -844,13 +848,18 @@ class RemoteHost(object):
 
 class RemoteH2O(H2O):
     '''An H2O instance launched by the python framework on a specified host using openssh'''
-    def __init__(self, host, *args, **keywords):
-        super(RemoteH2O, self).__init__(*args, **keywords)
+    def __init__(self, host, *args, **kwargs):
+        super(RemoteH2O, self).__init__(*args, **kwargs)
 
         self.jar = host.upload_file('build/h2o.jar')
         # need to copy the flatfile. We don't always use it (depends on h2o args)
         self.flatfile = host.upload_file(flatfile_name())
-        self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
+
+        if self.use_home_for_ice:
+            # this will be the username used to ssh to the host
+            self.ice = "/home/" + host.username + '/ice.%d.%s' % (self.port, time.time())
+        else:
+            self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
         cmd = ' '.join(self.get_args())
