@@ -6,6 +6,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.AfterClass;
 import static org.junit.Assert.*;
 import org.junit.BeforeClass;
@@ -26,7 +28,7 @@ public final class FastTrie implements H2OSerializable {
   short _nstates = 1;
   boolean _compressed;
   boolean _killed;
-  short _state0 = (short)0;
+  short _initialState = (short)0;
 
   static class TooManyStatesException extends Exception{
     public TooManyStatesException(){super("Too many states in FastTrie");}
@@ -37,8 +39,8 @@ public final class FastTrie implements H2OSerializable {
     res._states = _states;
     res._nstates = _nstates;
     res._compressed = _compressed;
-    res._killed =_killed;
-    res._state0 = _state0;
+    res._killed = _killed;
+    res._initialState = _initialState;
     return res;
   }
   int _id = (int)Math.random()*100;
@@ -53,6 +55,14 @@ public final class FastTrie implements H2OSerializable {
     State.testEmptyState();
     testEmptyTrie();
     testKill();
+    testAddState();
+    testAddCharacter();
+    testGetTokenId();
+    testGetTransition();
+    testMergeStates();
+    testMerge();
+    testCompressState();
+    System.out.println("ALL OK");
   }
   
   @Test public static void testEmptyTrie() {
@@ -60,7 +70,7 @@ public final class FastTrie implements H2OSerializable {
     assertNotNull(t._states);
     assertEquals(false, t._compressed);
     assertEquals(1,t._states.length);
-    assertEquals(0, t._state0);
+    assertEquals(0, t._initialState);
     assertEquals(1,t._nstates);
     assertEquals(false,t._killed);
   }
@@ -79,6 +89,26 @@ public final class FastTrie implements H2OSerializable {
     FastTrie t = new FastTrie();
     // we have one state, and we will grow.
     State s0 = t._states[0];
+    State s1 = new State();
+    try {
+      assertEquals(1,t.addState(s1));
+    } catch( TooManyStatesException ex ) {
+      assertTrue(false);
+    }
+    assertEquals(s0,t._states[0]);
+    assertEquals(s1,t._states[1]);
+    assertEquals(2,t._states.length);
+    assertEquals(2,t._nstates);
+    try {
+      assertEquals(2,t.addState(s1));
+      assertEquals(3,t.addState(s1));
+      assertEquals(4,t.addState(s1));
+      assertEquals(5,t.addState(s1));
+    } catch( TooManyStatesException ex ) {
+      assertTrue(false);
+    }
+    assertEquals(6, t._nstates);
+    assertEquals(7, t._states.length);
   }
 
   public void kill(){
@@ -113,7 +143,7 @@ public final class FastTrie implements H2OSerializable {
   public String toString() {
     if(_killed)return "FastTrie(killed)";
     LinkedList<Short> openedNodes = new LinkedList<Short>();
-    openedNodes.add(_state0);
+    openedNodes.add(_initialState);
     StringBuilder sb = new StringBuilder();
     while(!openedNodes.isEmpty()){
       short stidx = openedNodes.pollFirst();
@@ -124,7 +154,7 @@ public final class FastTrie implements H2OSerializable {
           if(st._transitions[i] == null)continue;
           for(int j = 0; j < 16; ++j){
             short s = st._transitions[i][j];
-            if(s == _state0)continue;
+            if(s == _initialState)continue;
             openedNodes.push(s);
             sb.append((char)((i << 4) + j) + ":" + s + " ");
           }
@@ -135,7 +165,7 @@ public final class FastTrie implements H2OSerializable {
     return sb.toString();
   }
 
-  public short addCharacter(int b){
+  public int addCharacter(int b) {
     if(_killed)return 0;
     try{
       _state = getTransition(_states[_state],b);
@@ -144,6 +174,14 @@ public final class FastTrie implements H2OSerializable {
       kill();
       return 0;
     }
+  }
+  
+  @Test public static void testAddCharacter() {
+    FastTrie t = new FastTrie();
+    assertEquals(0, t.addCharacter(5));
+    assertEquals(1, t._state);
+    t.kill();
+    assertEquals(0, t.addCharacter(5));
   }
 
   int compressState(State oldS, ArrayList<State> states, String [] strings, StringBuilder currentString, short skip) {
@@ -194,6 +232,11 @@ public final class FastTrie implements H2OSerializable {
       return res;
     }
   }
+  
+  @Test public static void testCompressState() {
+    
+    
+  }
 
 
   String [] compress(){
@@ -211,8 +254,8 @@ public final class FastTrie implements H2OSerializable {
     _states = new State[newStates.size()];
     _states = newStates.toArray(_states);
     _compressed = true;
-    _state0 = (short)nfinalStates;
-    _state = _state0;
+    _initialState = (short)nfinalStates;
+    _state = _initialState;
     _nstates = (short)_states.length;
     System.out.println("Trie compressed  from " + origStates + " to " + _states.length + " states");
     return strings;
@@ -223,48 +266,80 @@ public final class FastTrie implements H2OSerializable {
    */
   public int getTokenId(){
     if(_killed)return -1;
-    if(_state == _state0)return -1;
-    assert (!_compressed || (_state < _state0));
+    assert (_state != _initialState);
+    assert (!_compressed || (_state < _initialState));
     int res =  _state;
     _states[_state]._isFinal = true;
-    _state = _state0;
+    _state = _initialState;
     return res;
   }
+  
+  @Test public static void testGetTokenId() {
+    FastTrie t = new FastTrie();
+    t.addCharacter(5);
+    assertEquals(1,t._state);
+    t.addCharacter(7);
+    assertEquals(2,t._state);
+    assertEquals(2,t.getTokenId());
+    assertEquals(0,t._state);
+    assertEquals(true, t._states[2]._isFinal);
+    t.kill();
+    t.addCharacter(5);
+    assertEquals(-1,t.getTokenId());
+  }
+  
 
   public void merge(FastTrie other){
     if(other._killed)kill();
     if(_killed)return;
-    if(_nstates == 0){
-      _states = other._states;
-      _nstates = other._nstates;
-    } else {
-      try {
-        mergeStates(0,other, 0);
-      } catch( TooManyStatesException e ) {
-        kill();
-      }
+    assert (_nstates >= 1);
+    assert (other._nstates >= 1);
+    try {
+      mergeStates(0,other, 0);
+    } catch( TooManyStatesException e ) {
+      kill();
     }
   }
-
+  
+  @Test public static void testMerge() {
+    FastTrie t1 = new FastTrie();
+    FastTrie t2 = new FastTrie();
+    t2.kill();
+    t1.merge(t2);
+    assertTrue(t1._killed);
+    t2 = new FastTrie();
+    t2.addCharacter(5);
+    t1.merge(t2);
+    assertTrue(t1._killed);
+    assertNull(t1._states);
+    t1 = new FastTrie();
+    t1.merge(t2);
+    assertEquals(2,t1._nstates);
+  }
 
   private int getTransition(State s, int c) throws TooManyStatesException {
-    try{
-      assert (c & 0xFF) == c;
-      int idx = c >> 4;
-      c &= 0x0F;
-      if(_compressed){
-        _compressed = (false || _compressed);
-      }
-      assert !_compressed || (s._transitions != null && s._transitions[idx] != null && s._transitions[idx][c] != _state0):"missing transition in compressed Trie!";
-      if(!_compressed) {
-        if(s._transitions == null)s._transitions = new short[16][];
-        if(s._transitions[idx] == null)s._transitions[idx] = new short[16];
-        if(s._transitions[idx][c] == _state0) s._transitions[idx][c] = addState(new State());
-      }
-      return s._transitions[idx][c];
-    }catch(NullPointerException e){
-      e.printStackTrace();
-      throw new Error(e);
+    assert (c & 0xFF) == c;
+    int idx = c >> 4;
+    c &= 0x0F;
+    assert !_compressed || (s._transitions != null && s._transitions[idx] != null && s._transitions[idx][c] != _initialState):"missing transition in compressed Trie!";
+    if (!_compressed) {
+      if(s._transitions == null)s._transitions = new short[16][];
+      if(s._transitions[idx] == null)s._transitions[idx] = new short[16];
+      if(s._transitions[idx][c] == _initialState) s._transitions[idx][c] = addState(new State());
+    }
+    return s._transitions[idx][c];
+  }
+  
+  @Test public static void testGetTransition() {
+    try {
+      FastTrie t = new FastTrie();
+      assertEquals(1,t.getTransition(t._states[0],5));
+      State s = t._states[0];
+      assertNotNull(s._transitions);
+      assertNotNull(s._transitions[0]);
+      assertEquals(1, s._transitions[0][5]);
+    } catch (TooManyStatesException e) {
+      assertTrue(false);
     }
   }
 
@@ -285,7 +360,38 @@ public final class FastTrie implements H2OSerializable {
       }
     }
   }
+  
+  @Test public static void testMergeStates() {
+    try {
+      FastTrie t1 = new FastTrie();
+      FastTrie t2 = new FastTrie();
+      t1.addCharacter(5);
+      t2.addCharacter(5);
+      t2.getTokenId();
+      assertEquals(2,t1._nstates);
+      t1.mergeStates(1,t2,1);
+      assertTrue(t1._states[1]._isFinal);
+      assertEquals(2,t1._nstates);
+      t2.addCharacter(5);
+      t2.addCharacter(3);
+      t1.mergeStates(1,t2,1);
+      assertEquals(3,t1._nstates);
+      assertEquals(2,t1.getTransition(t1._states[1],3));
+      assertFalse(t1._states[2]._isFinal);
+      t2.getTokenId();
+      t2.addCharacter(5);
+      t2.addCharacter(20);
+      t1.mergeStates(1,t2,1);
+      assertEquals(4,t1._nstates);
+      assertEquals(2,t1.getTransition(t1._states[1],3));
+      assertEquals(3,t1.getTransition(t1._states[1],20));
+      assertTrue(t1._states[2]._isFinal);
+    } catch (TooManyStatesException e) {
+      assertTrue(false);
+    }
+  }
 
+  
   public static int [] addWords (String [] words, FastTrie t){
     int [] res = new int[words.length];
     int i = 0;
@@ -304,16 +410,11 @@ public final class FastTrie implements H2OSerializable {
   static String [] data = new String[] {"J","G","B","B","D","D","I","I","F","F","I","I","I","I","I","H","I","I","I","I","C","A","A","J","J","I","I"};
 
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
   public static void main(String [] args) throws SecurityException, NoSuchMethodException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException{
+    
+    test();
+    
+  /*  
     FastTrie t = new FastTrie();
     int [] res = addWords(data, t);
     System.out.println(Arrays.toString(res));
@@ -327,6 +428,6 @@ public final class FastTrie implements H2OSerializable {
     System.out.println(Arrays.toString(res3));
     System.out.println(t);
     System.out.println(data.getClass());
-    System.out.println(data.getClass().getComponentType().getName());
+    System.out.println(data.getClass().getComponentType().getName()); */
   }
 }
