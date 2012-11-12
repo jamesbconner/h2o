@@ -52,18 +52,6 @@ public final class FastTrie implements H2OSerializable {
    * have conveniently from one place. 
    */
   public static void test() {
-    State.testEmptyState();
-    testEmptyTrie();
-    testKill();
-    testAddState();
-    testAddCharacter();
-    testGetTokenId();
-    testGetTransition();
-    testMergeStates();
-    testMerge();
-    // test compress state is tested here too
-    testCompress();
-    System.out.println("ALL OK");
   }
   
   @Test public static void testEmptyTrie() {
@@ -130,15 +118,14 @@ public final class FastTrie implements H2OSerializable {
     short _transitions[][];
     boolean _isFinal;
     public State(){}
-    
-    @Test public static void testEmptyState() {
-      State s = new State();
-      assertEquals(0, s._skip);
-      assertNull(s._transitions);
-      assertFalse(s._isFinal);
-    }
   }
-
+  
+  @Test public static void testEmptyState() {
+    State s = new State();
+    assertEquals(0, s._skip);
+    assertNull(s._transitions);
+    assertFalse(s._isFinal);
+  }
 
   @Override
   public String toString() {

@@ -18,7 +18,7 @@ class PetaTest(unittest.TestCase):
                     '-ea', '-jar', h2o.find_file('build/h2o.jar'),
                     '-mainClass', 'org.junit.runner.JUnitCore',
                     # The tests
-                    'test.RStringTest',
+                    'test.FastTrieTest',
                     ])
 
             rc = ps.wait(None)

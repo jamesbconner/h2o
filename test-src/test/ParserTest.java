@@ -1,20 +1,51 @@
-//package test;
-//
-//import java.io.IOException;
-//
-//import org.junit.*;
-//
-//import water.*;
-//import water.ValueArray.ColumnDomain;
-//import water.parser.SeparatedValueParser;
-//import water.parser.SeparatedValueParser.Row;
-//
-//import com.sun.xml.internal.messaging.saaj.util.ByteInputStream;
-//
-//public class ParserTest {
-//  @BeforeClass public static void setupCloud() {
-//    H2O.main(new String[] {});
-//  }
+
+package water.parser;
+
+import static org.junit.Assert.*;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+public class ParserTest {
+  @BeforeClass public static void setupCloud() {
+    try {
+      //H2O.main(new String[] {});
+      init.Boot.main(new String[] {});
+    } catch( Exception ex ) {
+      ex.printStackTrace();
+    }
+  }
+  
+  @Test public void testDecodeHeaders() {
+    String text = "col1,col2,col3\n1,2,3";
+    String[] cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
+    assertNotNull(cols);
+    assertEquals(3,cols.length);
+    assertEquals("col1",cols[0]);
+    assertEquals("col2",cols[1]);
+    assertEquals("col3",cols[2]);
+    text = "col1,45ert,\"haha\"\n,bubu,gege,67\n";
+    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
+    assertNotNull(cols);
+    assertEquals(3,cols.length);
+    assertEquals("col1",cols[0]);
+    assertEquals("45ert",cols[1]);
+    assertEquals("haha",cols[2]);
+    text = "col1,45ert,\"haha\"\n,bubu,gege,\"67\"\n";
+    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
+    assertNotNull(cols);
+    text = "col1,45ert,\"haha\"\n,bubu,67";
+    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
+    assertNotNull(cols);
+    assertEquals(3,cols.length);
+    text = "col1,45ert,\"haha\"\n,bubu,gege,gogo";
+    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
+    assertNull(cols);
+    text = "col1,45e,\"haha\"\n,bubu,gege,67";
+    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
+    assertNull(cols);
+  }
+}
+
 //
 //  private double[] d(double... ds) { return ds; }
 //  private String[] s(String...ss)  { return ss; }
