@@ -568,6 +568,7 @@ public final class ParseDataset {
 
     transient Stream _s;
 
+    @SuppressWarnings("fallthrough")
     private void calculateColumnEncodings(){
       assert (_bases != null);
       assert (_min != null);
@@ -638,6 +639,7 @@ public final class ParseDataset {
       assert (_phase == 0 || _s == null);
     }
 
+    @SuppressWarnings("fallthrough")
     public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
       assert(colIdx < _ncolumns);
       if (_phase == 0) {

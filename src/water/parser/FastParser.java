@@ -413,6 +413,7 @@ NEXT_CHAR:
     return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+');
   }
 
+  @SuppressWarnings("fallthrough")
   public static String [] determineColumnNames(byte[] bits, byte separator) {
     ArrayList<String> colNames = new ArrayList();
     int offset = 0;
