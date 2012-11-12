@@ -678,20 +678,51 @@ public final class ParseDataset {
             break;
         }
       } else {
-        if (_s._off == _s._buf.length) {
-          System.out.println("haha");
-        }
-        boolean nan = false;
+VALUE_TYPE:        
         switch(numLength) {
+          case -2: // enum
+            switch (_colTypes[colIdx]) {
+              case BYTE:
+                _s.set1((byte)number);
+                break VALUE_TYPE;
+              case SHORT:
+                _s.set2((short)number);
+                break VALUE_TYPE;
+              default:
+                // pass to NaN
+            }
           case -1: // NaN
-            number  = -1l;
+            ++_invalidValues[colIdx];
+            switch (_colTypes[colIdx]) {
+              case BYTE:
+                _s.set1(-1);
+                break VALUE_TYPE;
+              case SHORT:
+              case DSHORT:
+                _s.set2(-1);
+                break VALUE_TYPE;
+              case INT:
+                _s.set4(Integer.MIN_VALUE);
+                break VALUE_TYPE;
+              case LONG:
+                _s.set8(Long.MIN_VALUE);
+                break VALUE_TYPE;
+              case FLOAT:
+                _s.set4f(Float.NaN);
+                break VALUE_TYPE;
+              case DOUBLE:
+                _s.set8d(Double.NaN);
+                break VALUE_TYPE;
+            }
+            break VALUE_TYPE;
+/*            number  = -1l;
             number += _bases[colIdx];
             // fallthrough -1 is NaN for all values, _lbases will cancel each other
             // -1 is also NaN in case of enum (we're in number column)
           case -2: // enum
             if(_enums[colIdx]._killed || numLength == -1) // if not enum (enum is killed) both enum (-2) and NaN(-1) are invalid values.
               ++_invalidValues[colIdx];
-            nan = true;
+            nan = true; */
           default:
             switch (_colTypes[colIdx]) {
               case BYTE:
@@ -701,16 +732,16 @@ public final class ParseDataset {
                 _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
                 break;
               case INT:
-                _s.set4((int)((nan)?Integer.MIN_VALUE:number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
                 break;
               case LONG:
-                _s.set8((nan)?Long.MIN_VALUE:number*pow10i(exp - _scale[colIdx]));
+                _s.set8(number*pow10i(exp - _scale[colIdx]));
                 break;
               case FLOAT:
-                _s.set4f((nan)?Float.NaN:(float)(number * pow10(exp)));
+                _s.set4f((float)(number * pow10(exp)));
                 break;
               case DOUBLE:
-                _s.set8d((nan)?Double.NaN:number * pow10(exp));
+                _s.set8d(number * pow10(exp));
                 break;
               case DSHORT:
                 // scale is computed as negative in the first pass,
