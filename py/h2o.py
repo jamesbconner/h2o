@@ -208,11 +208,11 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
     if hosts is None:
         ip = get_ip_address()
         for i in xrange(node_count):
-            pff.write("/" + ip + ":" + str(base_port +3*i+ 1) + "\n")
+            pff.write("/" + ip + ":" + str(base_port +3*i) + "\n")
     else:
         for h in hosts:
             for i in xrange(node_count):
-                pff.write("/" + h.addr + ":" + str(base_port +3*i+ 1) + "\n")
+                pff.write("/" + h.addr + ":" + str(base_port +3*i) + "\n")
     pff.close()
 
 # node_count is per host if hosts is specified.

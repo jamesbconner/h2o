@@ -345,6 +345,7 @@ public final class H2O {
     // proper multicast behavior)
     if( STATIC_H2OS != null && !STATIC_H2OS.contains(SELF)) {
       System.err.println("[h2o] *WARNING* flatfile configuration does not include self: " + SELF);
+      System.err.println("[h2o] *WARNING* flatfile contains: " + STATIC_H2OS);
       STATIC_H2OS.add(SELF);
     }
 
@@ -476,7 +477,7 @@ public final class H2O {
     if( !f.exists() ) return null; // No flat file
     HashSet<H2ONode> h2os = new HashSet<H2ONode>();
     BufferedReader br = null;
-    int port = DEFAULT_PORT+1; // default UDP port
+    int port = DEFAULT_PORT;
     try {
       br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
       String strLine = null;
@@ -512,7 +513,7 @@ public final class H2O {
             Log.die("Invalid port #: "+portStr);
           }
         }
-        h2os.add(H2ONode.intern(inet, port));
+        h2os.add(H2ONode.intern(inet, port+1));// use the UDP port here
       }
     } catch( Exception e ) { Log.die(e.toString()); }
     finally { Closeables.closeQuietly(br); }

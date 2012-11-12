@@ -133,7 +133,7 @@ public class RandomForestPage extends H2OPage {
     int features = getAsNumber(p,FEATURES,-1);
     if ((features!=-1) && ((features<=0) || (features>=ary.num_cols())))
       throw new PageError("Number of features can only be between 1 and num_cols - 1");
-    
+
     // Pick the column to classify
     int classcol = ary.num_cols()-1; // Default to the last column
     String clz = p.getProperty(CLASS_COL);
@@ -163,7 +163,7 @@ public class RandomForestPage extends H2OPage {
 
     // Start the distributed Random Forest
     JsonObject res = new JsonObject();
-    res.addProperty("h2o",H2O.SELF.urlEncode());
+    res.addProperty("h2o", H2O.SELF.toString());
     try {
       DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
       // Output a model with zero trees (so far).
