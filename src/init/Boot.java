@@ -530,10 +530,18 @@ public class Boot extends ClassLoader {
       if( sig.equals("Ljava/lang/String;") ) return 9;
       try {
         CtClass ct = ctf.getType();
-        if(idx > 0 && ct.isArray() && ct.getComponentType().subtypeOf(_h2oSerializable))
-          return OBJ_ARR_TYPE-10;
-        if(ct.subtypeOf(_h2oSerializable)){
-          return OBJ_TYPE;
+        if(idx > 0 && ct.isArray()){
+          CtClass cct = ct.getComponentType();
+          if(cct.subtypeOf(_h2oSerializable)) {
+            if(!cct.getName().contains("$") || javassist.Modifier.isStatic(cct.getModifiers())) // non static inner classes, not allowed
+              return OBJ_ARR_TYPE-10;
+            else throw barf(ctf,"can not serialize non-static inner classes");
+          }
+        } else if(ct.subtypeOf(_h2oSerializable)){
+          if(!ct.getName().contains("$") || javassist.Modifier.isStatic(ct.getModifiers())) // non static inner classes, not allowed
+            return OBJ_TYPE;
+          else
+            throw barf(ctf,"can not serialize non-static inner classes");
         }
       } catch( NotFoundException e ) {}
       break;
@@ -552,5 +560,9 @@ public class Boot extends ClassLoader {
 
   private static Error barf( CtField ctf ) {
     return new Error("Serialization of field "+ctf.getName()+" not implemented");
+  }
+
+  private static Error barf( CtField ctf, String msg) {
+    return new Error("Serialization of field "+ctf.getName()+" not implemented, " + msg);
   }
 }

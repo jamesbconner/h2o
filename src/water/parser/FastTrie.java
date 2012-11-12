@@ -37,7 +37,7 @@ public final class FastTrie implements H2OSerializable {
     res._initialState = _initialState;
     return res;
   }
-  int _id = (int)Math.random()*100;
+
   public FastTrie(){
     _states[0] = new State();
   }
