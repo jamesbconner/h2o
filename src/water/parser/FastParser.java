@@ -95,6 +95,7 @@ public class FastParser {
     this.callback = callback;
   }
 
+  @SuppressWarnings("fallthrough")
   public final void parse(Key key, boolean skipFirstLine) throws Exception {
     ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
     byte[] bits = DKV.get(key).get();
@@ -114,6 +115,7 @@ public class FastParser {
 MAIN_LOOP:
     while (true) {
 NEXT_CHAR:
+
       switch (state) {
         // ---------------------------------------------------------------------
         case SKIP_LINE:
@@ -136,7 +138,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
-            offset += colTrie.addCharacter(((int)c)&0xFF); // FastTrie returns skipped chars - 1
+            offset += colTrie.addCharacter(c&0xFF); // FastTrie returns skipped chars - 1
             break NEXT_CHAR;
           }
           // fallthrough to STRING_END
@@ -164,7 +166,7 @@ NEXT_CHAR:
             colIdx = 0;
             callback.newLine();
           }
-          
+
           state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
           if (secondChunk)
             break MAIN_LOOP; // second chunk only does the first row
@@ -177,7 +179,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           state = WHITESPACE_BEFORE_TOKEN;
-          // fallthrough to WHITESPACE_BEFORE_TOKEN  
+          // fallthrough to WHITESPACE_BEFORE_TOKEN
         // ---------------------------------------------------------------------
         case WHITESPACE_BEFORE_TOKEN:
           if (c == CHAR_SPACE) {

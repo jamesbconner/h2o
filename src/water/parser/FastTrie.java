@@ -1,16 +1,10 @@
 package water.parser;
 
-import com.sun.corba.se.spi.activation._ActivatorImplBase;
-import init.H2OSerializable;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.junit.AfterClass;
 import static org.junit.Assert.*;
-import org.junit.BeforeClass;
+import init.H2OSerializable;
+
+import java.util.*;
+
 import org.junit.Test;
 
 
@@ -47,13 +41,13 @@ public final class FastTrie implements H2OSerializable {
   public FastTrie(){
     _states[0] = new State();
   }
-  
+
   /** A wrapper for all the tests we have for fast trie. Just calls all test we
-   * have conveniently from one place. 
+   * have conveniently from one place.
    */
   public static void test() {
   }
-  
+
   @Test public static void testEmptyTrie() {
     FastTrie t = new FastTrie();
     assertNotNull(t._states);
@@ -63,7 +57,7 @@ public final class FastTrie implements H2OSerializable {
     assertEquals(1,t._nstates);
     assertEquals(false,t._killed);
   }
-  
+
   private short addState(State s) throws TooManyStatesException {
     if(_nstates == Short.MAX_VALUE)throw new TooManyStatesException();
     if(_nstates == _states.length) {
@@ -73,7 +67,7 @@ public final class FastTrie implements H2OSerializable {
     assert _nstates < _states.length:"unexpected number of states:" + _nstates + ", states.length = " + _states.length;
     return _nstates++;
   }
-  
+
   @Test public static void testAddState() {
     FastTrie t = new FastTrie();
     // we have one state, and we will grow.
@@ -105,7 +99,7 @@ public final class FastTrie implements H2OSerializable {
     _killed = true;
     _states = null;
   }
-  
+
   @Test public static void testKill() {
     FastTrie t = new FastTrie();
     t.kill();
@@ -119,7 +113,7 @@ public final class FastTrie implements H2OSerializable {
     boolean _isFinal;
     public State(){}
   }
-  
+
   @Test public static void testEmptyState() {
     State s = new State();
     assertEquals(0, s._skip);
@@ -163,7 +157,7 @@ public final class FastTrie implements H2OSerializable {
       return 0;
     }
   }
-  
+
   @Test public static void testAddCharacter() {
     FastTrie t = new FastTrie();
     assertEquals(0, t.addCharacter(5));
@@ -177,12 +171,12 @@ public final class FastTrie implements H2OSerializable {
     int stateIndex;
     // compute number of successors
     int successors = 0;
-    int x = 0; // buffer of the single transition - if any 
+    int x = 0; // buffer of the single transition - if any
     int y = 0; // position in the buffer of the single transition, if any
     if (oldS._transitions != null)
 FIND_SUCCESSORS:
       for (int i = 0; i < 16; ++i) // buffers
-        if (oldS._transitions[i] != null) 
+        if (oldS._transitions[i] != null)
           for (int j = 0; j < 16; ++j)
             if (oldS._transitions[i][j] != _initialState) {
               ++successors;
@@ -203,7 +197,7 @@ FIND_SUCCESSORS:
       State s = new State();
       if (oldS._isFinal) { // final states have reserved space at the beginning of the array
         stateIndex = 0;
-        while (states.get(stateIndex) != null) 
+        while (states.get(stateIndex) != null)
           ++stateIndex;
         states.set(stateIndex,s);
         strings[stateIndex] = currentString.toString();
@@ -216,7 +210,7 @@ FIND_SUCCESSORS:
         s._transitions = new short[16][];
         for (int i = 0; i < 16; ++i) {
           if (oldS._transitions[i] != null) {
-            s._transitions[i] = new short[16];  
+            s._transitions[i] = new short[16];
             Arrays.fill(s._transitions[i], (short)strings.length); // fill with new initial state
             for (int j = 0; j < 16; ++j) {
               if (oldS._transitions[i][j] != _initialState) {
@@ -230,7 +224,7 @@ FIND_SUCCESSORS:
       }
     }
     return stateIndex;
-  } 
+  }
 
   String [] compress(){
     if(_killed) return null;
@@ -242,7 +236,6 @@ FIND_SUCCESSORS:
     for(int i = 0; i < nfinalStates; ++i)newStates.add(null);
     // put final states in the beginning...
     String [] strings = new String[nfinalStates];
-    int origStates = _states.length;
     compressState(_states[0],newStates, strings, new StringBuilder(),(short)0);
     _states = new State[newStates.size()];
     _states = newStates.toArray(_states);
@@ -252,7 +245,7 @@ FIND_SUCCESSORS:
     _nstates = (short)_states.length;
     return strings;
   }
-  
+
   @Test public static void testCompress() {
     FastTrie t = new FastTrie(); // do not compress initial, compress others
     t.addCharacter(5);
@@ -313,7 +306,7 @@ FIND_SUCCESSORS:
     _state = _initialState;
     return res;
   }
-  
+
   @Test public static void testGetTokenId() {
     FastTrie t = new FastTrie();
     t.addCharacter(5);
@@ -327,7 +320,7 @@ FIND_SUCCESSORS:
     t.addCharacter(5);
     assertEquals(-1,t.getTokenId());
   }
-  
+
 
   public void merge(FastTrie other){
     if(other._killed)kill();
@@ -340,7 +333,7 @@ FIND_SUCCESSORS:
       kill();
     }
   }
-  
+
   @Test public static void testMerge() {
     FastTrie t1 = new FastTrie();
     FastTrie t2 = new FastTrie();
@@ -369,7 +362,7 @@ FIND_SUCCESSORS:
     }
     return s._transitions[idx][c];
   }
-  
+
   @Test public static void testGetTransition() {
     try {
       FastTrie t = new FastTrie();
@@ -399,7 +392,7 @@ FIND_SUCCESSORS:
       }
     }
   }
-  
+
   @Test public static void testMergeStates() {
     try {
       FastTrie t1 = new FastTrie();

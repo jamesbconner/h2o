@@ -54,7 +54,6 @@ public final class ParseDataset {
    final int line_start = i;
    int cols = 0;
    int mode = 0;
-   int colonCounter = 0;
    boolean commas  = false;     // Assume white-space only columns
    boolean escaped = false;
    while( i < b.length ) {
@@ -670,7 +669,7 @@ public final class ParseDataset {
             break;
         }
       } else {
-VALUE_TYPE:        
+VALUE_TYPE:
         switch(numLength) {
           case -2: // enum
             if (!_enums[colIdx]._killed) {
