@@ -7,9 +7,6 @@ import java.util.Arrays;
 import water.*;
 import water.parser.ParseDataset.DParseTask;
 
-
-import static org.junit.Assert.*;
-
 /**
  *
  * @author peta
@@ -551,38 +548,6 @@ NEXT_CHAR:
     colNames.toArray(result);
     return result;
   }
-  
-  
-  public static void main(String[] argv) {
-    String text = "col1,col2,col3\n1,2,3";
-    String[] cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
-    assertNotNull(cols);
-    assertEquals(3,cols.length);
-    assertEquals("col1",cols[0]);
-    assertEquals("col2",cols[1]);
-    assertEquals("col3",cols[2]);
-    text = "col1,45ert,\"haha\"\n,bubu,gege,67\n";
-    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
-    assertNotNull(cols);
-    assertEquals(3,cols.length);
-    assertEquals("col1",cols[0]);
-    assertEquals("45ert",cols[1]);
-    assertEquals("haha",cols[2]);
-    text = "col1,45ert,\"haha\"\n,bubu,gege,\"67\"\n";
-    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
-    assertNotNull(cols);
-    text = "col1,45ert,\"haha\"\n,bubu,67";
-    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
-    assertNotNull(cols);
-    assertEquals(3,cols.length);
-    text = "col1,45ert,\"haha\"\n,bubu,gege,gogo";
-    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
-    assertNull(cols);
-    text = "col1,45e,\"haha\"\n,bubu,gege,67";
-    cols = FastParser.determineColumnNames(text.getBytes(),(byte)',');
-    assertNull(cols);
-  }
-  
 }
 
 
