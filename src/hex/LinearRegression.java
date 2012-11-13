@@ -19,6 +19,8 @@ public abstract class LinearRegression {
     // Pass 2: Compute squared errors
     CalcSquareErrorsTasks lr2 = new CalcSquareErrorsTasks();
     lr2._arykey = ary._key;
+    lr2._colA = colA;
+    lr2._colB = colB;
     lr2._Xbar = lr1._sumX / n;
     lr2._Ybar = lr1._sumY / n;
     lr2.invoke(ary._key);
@@ -27,6 +29,8 @@ public abstract class LinearRegression {
     // Compute the regression
     CalcRegressionTask lr3 = new CalcRegressionTask();
     lr3._arykey = ary._key;
+    lr3._colA = colA;
+    lr3._colB = colB;
     lr3._beta1 = lr2._XYbar / lr2._XXbar;
     lr3._beta0 = lr2._Ybar - lr3._beta1 * lr2._Xbar;
     lr3._Ybar  = lr2._Ybar;
