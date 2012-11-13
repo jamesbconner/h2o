@@ -69,8 +69,11 @@ public final class VAIterator implements Iterator<VAIterator> {
     while (true) { 
       if (rows < _rowsInChunk) {
         _rowInChunk += rows;
+        _currentRow += rows;
         break;
       }
+      _rowInChunk = _rowsInChunk-1;
+      _currentRow += _rowsInChunk-1;
       rows -= _rowsInChunk;
       next(); // move to next chunk
     }
