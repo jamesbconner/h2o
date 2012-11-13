@@ -239,6 +239,8 @@ public final class ParseDataset {
     transient Stream [] _outputStreams;
     // create and used only on the task caller's side
     transient String[][] _colDomains;
+    
+    transient int _lastOffset;
 
     public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
@@ -365,9 +367,10 @@ public final class ParseDataset {
             if(!_enums[i]._killed)_enums[i] = _enums[i].clone();
           _invalidValues = new long[_ncolumns];
           _sigma = new double[_ncolumns];
-          int rowsize = 0;
-          for(byte b:_colTypes)rowsize += Math.abs(colSizes[b]);
-          int rpc = (int)ValueArray.chunk_size()/rowsize;
+          _rowsize = 0;
+          for(byte b:_colTypes) _rowsize += Math.abs(colSizes[b]);
+          _lastOffset = -_rowsize;
+          int rpc = (int)ValueArray.chunk_size()/_rowsize;
           int firstRow = 0;
           int lastRow = _myrows;
           _myrows = 0;
@@ -385,7 +388,7 @@ public final class ParseDataset {
           int j = 0;
           while (rowsToParse > 0) {
             _outputRows[j] = chunkRows;
-            _outputStreams[j] = new Stream(chunkRows*rowsize);
+            _outputStreams[j] = new Stream(chunkRows*_rowsize);
             rowsToParse -= chunkRows;
             chunkRows = Math.min(rowsToParse,rpc);
             ++j;
@@ -393,17 +396,17 @@ public final class ParseDataset {
           _s = _outputStreams[0];
           FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
           p2.parse(key,skipFirstLine);
-          int inChunkOffset = (firstRow % rpc) * rowsize; // index into the chunk I am writing to
+          int inChunkOffset = (firstRow % rpc) * _rowsize; // index into the chunk I am writing to
           int lastChunk = Math.max(1,this._numRows / rpc) - 1; // index of the last chunk in the VA
           int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
           if (chunkIndex > lastChunk) {
             assert (chunkIndex == lastChunk + 1);
-            inChunkOffset += rpc * rowsize;
+            inChunkOffset += rpc * _rowsize;
             --chunkIndex;
           }
           for (int i = 0; i < _outputStreams.length; ++i) {
             Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
-            //assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
+            assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
             AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
             lazy_complete(u.fork(k));
             if (chunkIndex == lastChunk) {
@@ -569,6 +572,11 @@ public final class ParseDataset {
     public void newLine() {
       ++_myrows;
       if (_phase != 0) {
+        _lastOffset += _rowsize;
+        // to make sure that all rows are the same size, even if there are 
+        // missing columns
+        if (_lastOffset > _s._off)
+          _s._off = _lastOffset;
         if(_myrows > _outputRows[_outputIdx]) {
           ++_outputIdx;
           // this can happen if the last line ends in EOL. However this also
@@ -578,6 +586,7 @@ public final class ParseDataset {
           } else {
             _s = _outputStreams[_outputIdx];
             _myrows = 1;
+            _lastOffset = 0;
           }
         }
       }

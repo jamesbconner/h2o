@@ -532,7 +532,7 @@ NEXT_CHAR:
           if (isEOL(c)) { // end of second line means all were strings again...
             return null;
           } else if (c == separator) {
-            state = SECOND_TOKEN_FIRST_LETTER;
+            state = SECOND_WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           } else {
             return null;
