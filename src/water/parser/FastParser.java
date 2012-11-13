@@ -384,6 +384,8 @@ NEXT_CHAR:
           break MAIN_LOOP;
         bits = v.get(512);
         secondChunk = true;
+        if (bits[0] == CHAR_LF && state == EXPECT_COND_LF)
+          break MAIN_LOOP; // when the first character we see is a line end
       }
       c = bits[offset];
     } // end MAIN_LOOP
@@ -413,6 +415,7 @@ NEXT_CHAR:
     return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+');
   }
 
+  @SuppressWarnings("fallthrough")
   public static String [] determineColumnNames(byte[] bits, byte separator) {
     ArrayList<String> colNames = new ArrayList();
     int offset = 0;

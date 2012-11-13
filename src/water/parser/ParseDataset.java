@@ -138,6 +138,7 @@ public final class ParseDataset {
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
     tsk.createValueArrayHeader(colNames,dataset);
+    tsk.check(result);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -562,6 +563,7 @@ public final class ParseDataset {
 
     transient Stream _s;
 
+    @SuppressWarnings("fallthrough")
     private void calculateColumnEncodings(){
       assert (_bases != null);
       assert (_min != null);
@@ -634,6 +636,7 @@ public final class ParseDataset {
       assert (_phase == 0 || _s == null);
     }
 
+    @SuppressWarnings("fallthrough")
     public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
       assert(colIdx < _ncolumns);
       if (_phase == 0) {
