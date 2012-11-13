@@ -20,7 +20,7 @@ public class LinearRegression extends H2OPage {
     JsonObject json = serverJson(server, args, sessionID);
 
     RString html = new RString(
-        "Linear Regression of %key between columns %colA and %colB" +
+        "Linear Regression of <a href='/Inspect?Key=%$Key'>%Key</a> between columns %ColA and %ColB" +
         "<p>Pass 1 took %p1, pass 2 took %p2, Pass 3 took %p3" +
         "<p>Found <b>%Rows</b>" +
         "<p><b>y = %Beta1 * x + %Beta0</b>" +

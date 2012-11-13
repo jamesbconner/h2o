@@ -3,14 +3,9 @@ import com.google.gson.JsonObject;
 
 import water.*;
 
-/**
- * @author cliffc@0xdata.com
- */
 public abstract class LinearRegression {
 
   static public JsonObject run( ValueArray ary, int colA, int colB ) {
-    JsonObject res = new JsonObject();
-
     LR_Task lr = new LR_Task();
     lr._arykey = ary._key;
     lr._colA = colA;
@@ -47,6 +42,10 @@ public abstract class LinearRegression {
     double svar1 = svar / lr._XXbar;
     double svar0 = svar/n + lr._Xbar*lr._Xbar*svar1;
 
+    JsonObject res = new JsonObject();
+    res.addProperty("Key", ary._key.toString());
+    res.addProperty("ColA", ary.col_name(colA));
+    res.addProperty("ColB", ary.col_name(colB));
     res.addProperty("Pass1Msecs", pass1 - start);
     res.addProperty("Pass2Msecs", pass2-pass1);
     res.addProperty("Pass3Msecs", pass3-pass2);
