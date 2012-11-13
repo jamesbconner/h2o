@@ -599,7 +599,7 @@ public class ValueArray extends Value {
     switch( col_size ) {
     case  1:         res =    0xff&  bits[off]; break;
     case  2:         res = UDP.get2 (bits,off); break;
-    case  4:return         UDP.get4 (bits,off);
+    case  4:         res = UDP.get4 (bits,off); break;
     case  8:return         UDP.get8 (bits,off); // No scale/offset for long   data
     case -4:return         UDP.get4f(bits,off); // No scale/offset for float  data
     case -8:return         UDP.get8d(bits,off); // No scale/offset for double data
@@ -634,7 +634,7 @@ public class ValueArray extends Value {
     switch( col_size ) {
     case  1:       res =    0xff&  bits[off]; break;
     case  2:       res = UDP.get2 (bits,off); break;
-    case  4:return       UDP.get4 (bits,off);
+    case  4:       res = UDP.get4 (bits,off); break;
     case  8:return       UDP.get8 (bits,off); // No scale/offset for long   data
     case -4:return (long)UDP.get4f(bits,off); // No scale/offset for float  data
     case -8:return (long)UDP.get8d(bits,off); // No scale/offset for double data

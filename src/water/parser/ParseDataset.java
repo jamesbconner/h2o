@@ -137,6 +137,7 @@ public final class ParseDataset {
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
     tsk.createValueArrayHeader(colNames,dataset);
+    tsk.check(result);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
