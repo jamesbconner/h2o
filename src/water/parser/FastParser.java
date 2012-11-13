@@ -384,6 +384,8 @@ NEXT_CHAR:
           break MAIN_LOOP;
         bits = v.get(512);
         secondChunk = true;
+        if (bits[0] == CHAR_LF && state == EXPECT_COND_LF)
+          break MAIN_LOOP; // when the first character we see is a line end
       }
       c = bits[offset];
     } // end MAIN_LOOP
