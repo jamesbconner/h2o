@@ -5,11 +5,10 @@ library('rjson');
 #
 # This is a new version that will eventually be packaged. Comments are yet missing, will be added soon.
 
-
-#is.defined <- function(x) {
-#  # !is.null is ugly :)
-#  return (!is.null(x))
-#}
+is.defined <- function(x) {
+  # !is.null is ugly :)
+  return (!is.null(x))
+}
 
 # Public functions & declarations -------------------------------------------------------------------------------------
 
