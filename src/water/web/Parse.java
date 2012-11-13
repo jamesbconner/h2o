@@ -52,7 +52,7 @@ public class Parse extends H2OPage {
         ? new RString("Parsed into <a href='/Inspect?Key=%$Key'>%Key</a> in %TimeMS")
         : new RString("Already parsed into <a href='/Inspect?Key=%$Key'>%Key</a>.");
     res.replace("Key", json.get("Key").getAsString());
-    res.replace("TimeMS", Timer.toHuman(time, true));
+    res.replace("TimeMS", PrettyPrint.msecs(time, true));
     return res.toString();
   }
 }
