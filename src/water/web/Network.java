@@ -4,8 +4,7 @@ import java.util.Properties;
 
 import com.google.gson.JsonObject;
 
-import water.H2O;
-import water.H2ONode;
+import water.*;
 
 /**
  * Network statistics web page.
@@ -29,33 +28,33 @@ public class Network extends H2OPage {
     res.addProperty("cloud_size",cloud._memary.length);
 
     // Returns only this node statistics
-    final H2ONode theNode = H2O.SELF;
-    res.addProperty("total_in_conn", toPosNumber(theNode.get_total_in_conn()));
-    res.addProperty("total_out_conn", toPosNumber(theNode.get_total_out_conn()));
-    res.addProperty("tcp_in_conn", toPosNumber(theNode.get_tcp_in_conn()));
-    res.addProperty("tcp_out_conn", toPosNumber(theNode.get_tcp_out_conn()));
-    res.addProperty("udp_in_conn", toPosNumber(theNode.get_udp_in_conn()));
-    res.addProperty("udp_out_conn", toPosNumber(theNode.get_udp_out_conn()));
+    final H2ONode n = H2O.SELF;
+    res.addProperty("total_in_conn",  n.get_total_in_conn());
+    res.addProperty("total_out_conn", n.get_total_out_conn());
+    res.addProperty("tcp_in_conn",    n.get_tcp_in_conn());
+    res.addProperty("tcp_out_conn",   n.get_tcp_out_conn());
+    res.addProperty("udp_in_conn",    n.get_udp_in_conn());
+    res.addProperty("udp_out_conn",   n.get_udp_out_conn());
 
     // fill total traffic statistics
-    res.addProperty("total_packets_recv", toPosNumber(theNode.get_total_packets_recv()));
-    res.addProperty("total_bytes_recv", toBytes(theNode.get_total_bytes_recv()));
-    res.addProperty("total_bytes_recv_rate", toBytesPerSecond(theNode.get_total_bytes_recv_rate()));
-    res.addProperty("total_packets_sent", toPosNumber(theNode.get_total_packets_sent()));
-    res.addProperty("total_bytes_sent", toBytes(theNode.get_total_bytes_sent()));
-    res.addProperty("total_bytes_sent_rate", toBytesPerSecond(theNode.get_total_bytes_sent_rate()));
+    res.addProperty("total_packets_recv",    n.get_total_packets_recv());
+    res.addProperty("total_bytes_recv",      n.get_total_bytes_recv());
+    res.addProperty("total_bytes_recv_rate", n.get_total_bytes_recv_rate());
+    res.addProperty("total_packets_sent",    n.get_total_packets_sent());
+    res.addProperty("total_bytes_sent",      n.get_total_bytes_sent());
+    res.addProperty("total_bytes_sent_rate", n.get_total_bytes_sent_rate());
 
     // fill TCP traffic statistics
-    res.addProperty("tcp_packets_recv", toPosNumber(theNode.get_tcp_packets_recv()));
-    res.addProperty("tcp_bytes_recv", toBytes(theNode.get_tcp_bytes_recv()));
-    res.addProperty("tcp_packets_sent", toPosNumber(theNode.get_tcp_packets_sent()));
-    res.addProperty("tcp_bytes_sent", toBytes(theNode.get_tcp_bytes_sent()));
+    res.addProperty("tcp_packets_recv", n.get_tcp_packets_recv());
+    res.addProperty("tcp_bytes_recv",   n.get_tcp_bytes_recv());
+    res.addProperty("tcp_packets_sent", n.get_tcp_packets_sent());
+    res.addProperty("tcp_bytes_sent",   n.get_tcp_bytes_sent());
 
     // fill UDP traffic statistics
-    res.addProperty("udp_packets_recv", toPosNumber(theNode.get_udp_packets_recv()));
-    res.addProperty("udp_bytes_recv", toBytes(theNode.get_udp_bytes_recv()));
-    res.addProperty("udp_packets_sent", toPosNumber(theNode.get_udp_packets_sent()));
-    res.addProperty("udp_bytes_sent", toBytes(theNode.get_udp_bytes_sent()));
+    res.addProperty("udp_packets_recv", n.get_udp_packets_recv());
+    res.addProperty("udp_bytes_recv",   n.get_udp_bytes_recv());
+    res.addProperty("udp_packets_sent", n.get_udp_packets_sent());
+    res.addProperty("udp_bytes_sent",   n.get_udp_bytes_sent());
 
     return res;
   }
@@ -72,32 +71,32 @@ public class Network extends H2OPage {
       RString row = response.restartGroup("tableRow");
       row.replace("node", h2o);
       // fill number of connections
-      row.replace("total_in_conn", toPosNumber(h2o.get_total_in_conn()));
+      row.replace("total_in_conn",  toPosNumber(h2o.get_total_in_conn()));
       row.replace("total_out_conn", toPosNumber(h2o.get_total_out_conn()));
-      row.replace("tcp_in_conn", toPosNumber(h2o.get_tcp_in_conn()));
-      row.replace("tcp_out_conn", toPosNumber(h2o.get_tcp_out_conn()));
-      row.replace("udp_in_conn", toPosNumber(h2o.get_udp_in_conn()));
-      row.replace("udp_out_conn", toPosNumber(h2o.get_udp_out_conn()));
+      row.replace("tcp_in_conn",    toPosNumber(h2o.get_tcp_in_conn()));
+      row.replace("tcp_out_conn",   toPosNumber(h2o.get_tcp_out_conn()));
+      row.replace("udp_in_conn",    toPosNumber(h2o.get_udp_in_conn()));
+      row.replace("udp_out_conn",   toPosNumber(h2o.get_udp_out_conn()));
 
       // fill total traffic statistics
-      row.replace("total_packets_recv", toPosNumber(h2o.get_total_packets_recv()));
-      row.replace("total_bytes_recv", toBytes(h2o.get_total_bytes_recv()));
-      row.replace("total_bytes_recv_rate", toBytesPerSecond(h2o.get_total_bytes_recv_rate()));
-      row.replace("total_packets_sent", toPosNumber(h2o.get_total_packets_sent()));
-      row.replace("total_bytes_sent", toBytes(h2o.get_total_bytes_sent()));
-      row.replace("total_bytes_sent_rate", toBytesPerSecond(h2o.get_total_bytes_sent_rate()));
+      row.replace("total_packets_recv",    toPosNumber(h2o.get_total_packets_recv()));
+      row.replace("total_bytes_recv",      PrettyPrint.bytes(h2o.get_total_bytes_recv()));
+      row.replace("total_bytes_recv_rate", PrettyPrint.bytesPerSecond(h2o.get_total_bytes_recv_rate()));
+      row.replace("total_packets_sent",    toPosNumber(h2o.get_total_packets_sent()));
+      row.replace("total_bytes_sent",      PrettyPrint.bytes(h2o.get_total_bytes_sent()));
+      row.replace("total_bytes_sent_rate", PrettyPrint.bytesPerSecond(h2o.get_total_bytes_sent_rate()));
 
       // fill TCP traffic statistics
       row.replace("tcp_packets_recv", toPosNumber(h2o.get_tcp_packets_recv()));
-      row.replace("tcp_bytes_recv", toBytes(h2o.get_tcp_bytes_recv()));
+      row.replace("tcp_bytes_recv",   PrettyPrint.bytes(h2o.get_tcp_bytes_recv()));
       row.replace("tcp_packets_sent", toPosNumber(h2o.get_tcp_packets_sent()));
-      row.replace("tcp_bytes_sent", toBytes(h2o.get_tcp_bytes_sent()));
+      row.replace("tcp_bytes_sent",   PrettyPrint.bytes(h2o.get_tcp_bytes_sent()));
 
       // fill UDP traffic statistics
       row.replace("udp_packets_recv", toPosNumber(h2o.get_udp_packets_recv()));
-      row.replace("udp_bytes_recv", toBytes(h2o.get_udp_bytes_recv()));
+      row.replace("udp_bytes_recv",   PrettyPrint.bytes(h2o.get_udp_bytes_recv()));
       row.replace("udp_packets_sent", toPosNumber(h2o.get_udp_packets_sent()));
-      row.replace("udp_bytes_sent", toBytes(h2o.get_udp_bytes_sent()));
+      row.replace("udp_bytes_sent",   PrettyPrint.bytes(h2o.get_udp_bytes_sent()));
 
       row.append();
     }
@@ -106,38 +105,8 @@ public class Network extends H2OPage {
   }
 
   protected String toPosNumber(final long num) {
-    if (num < 0) {
-      return NOT_AVAILABLE;
-    } else {
-      return String.valueOf(num);
-    }
-  }
-
-  protected String toBytes(final long num) {
-    if (num < 0) {
-      return NOT_AVAILABLE;
-    } else {
-      return toCorrectUnit(num);
-    }
-  }
-
-  protected String toBytesPerSecond(final long num) {
-    if (num < 0) {
-      return NOT_AVAILABLE;
-    } else {
-      return toCorrectUnit(num) + "/s";
-    }
-  }
-
-  protected String toCorrectUnit(final long num) {
-    byte unit = 0; // 0 ~ Bytes
-    long number = num;
-    while (number > 1024 && unit < UNITS.length) {
-      number = number >> 10;
-      unit++;
-    }
-
-    return number + " " + UNITS[unit];
+    if (num < 0) return "n/a";
+    return String.valueOf(num);
   }
 
   // Note: Open Sockets | TCP/UDP | state | recvs, packets, read/s write/s bytes/s | sends, packets, read/s, write/s, bytes/s
@@ -168,9 +137,4 @@ public class Network extends H2OPage {
     + "}"
     + "</tbody>"
     + "</table>\n";
-
-  private static final String NOT_AVAILABLE = "n/a";
-
-  private static final String UNITS[] = {"B", "KB", "MB", "GB"};
-
 }
