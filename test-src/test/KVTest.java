@@ -6,6 +6,8 @@ import java.io.File;
 
 import org.junit.*;
 
+import com.google.gson.JsonObject;
+
 import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
@@ -218,15 +220,11 @@ public class KVTest {
     UKV.remove(fkey);
     ValueArray va = (ValueArray)DKV.get(okey);
     // Compute LinearRegression between columns 2 & 3
-    String LR_result = LinearRegression.run(va,2,3);
-    String[] res = LR_result.split("<p>");
-    assertEquals("Linear Regression of cars.hex between columns cylinders and displacement (cc)",res[0]);
-    //assertEquals("Pass 1 in 10msec",res[1]);
-    //assertEquals("Pass 2 in 6msec",res[2]);
-    assertEquals("<b>y = 58.326241377521995 * x + -124.57816399564385</b>",res[3]);
-    //assertEquals("Pass 3 in 6msec",res[4]);
-    assertEquals("R^2                 = 0.9058985668996267",res[5]);
-    assertEquals("std error of beta_1 = 0.9352584499359637",res[6]);
+    JsonObject res = LinearRegression.run(va,2,3);
+    assertEquals(58.326241377521995,  res.get("Beta1"      ).getAsDouble(), 0.000001);
+    assertEquals(-124.57816399564385, res.get("Beta0"      ).getAsDouble(), 0.000001);
+    assertEquals(0.9058985668996267,  res.get("RSquared"   ).getAsDouble(), 0.000001);
+    assertEquals(0.9352584499359637,  res.get("Beta1StdErr").getAsDouble(), 0.000001);
     UKV.remove(okey);
   }
 }
