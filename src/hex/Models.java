@@ -1,9 +1,7 @@
 package hex;
 
 import hex.RowVecTask.Sampling;
-
-import java.io.*;
-
+import init.H2OSerializable;
 import water.*;
 
 public abstract class Models {
@@ -12,14 +10,11 @@ public abstract class Models {
     public NewModel trainOn(ValueArray data, int[] colIds, Sampling s);
   }
 
-  public interface ModelValidation extends Cloneable {
-    public void add(double yr, double ym);
-
-    public void add(ModelValidation other);
-
-    public double err();
-
-    public long n();
+  public static abstract class ModelValidation implements Cloneable, H2OSerializable {
+    public abstract void add(double yr, double ym);
+    public abstract void add(ModelValidation other);
+    public abstract double err();
+    public abstract long n();
 
     /**
      * Combines result during cross validation.
@@ -31,34 +26,23 @@ public abstract class Models {
      */
     public abstract void aggregate(ModelValidation other);
 
-    public ModelValidation clone();
-
-    public int wire_len();
-
-    public void write(Stream s);
-
-    public void read(Stream s);
-
-    public void write(DataOutputStream os) throws IOException;
-
-    public void read(DataInputStream is) throws IOException;
+    public abstract ModelValidation clone();
   }
 
-  public interface ClassifierValidation extends ModelValidation {
-    public int classes();
-
-    public long cm(int i, int j);
+  public interface ClassifierValidation {
+    public abstract int classes();
+    public abstract long cm(int i, int j);
   }
 
   public interface BinaryClassifierValidation extends ClassifierValidation {
-    public double fp();
-    public double fpVar();
-    public double fn();
-    public double fnVar();
-    public double tp();
-    public double tpVar();
-    public double tn();
-    public double tnVar();
+    public abstract double fp();
+    public abstract double fpVar();
+    public abstract double fn();
+    public abstract double fnVar();
+    public abstract double tp();
+    public abstract double tpVar();
+    public abstract double tn();
+    public abstract double tnVar();
   }
 
   public static class ModelTask extends RowVecTask {
@@ -82,105 +66,6 @@ public abstract class Models {
       super(colIds, s, m.skipIncompleteLines(), pVals);
       _ymu = ymu;
       _m = m;
-    }
-
-    @Override
-    public int wire_len() {
-      return super.wire_len() + ((_reduce)?
-          2 + (_validate ? _val.wire_len() : 0):
-            14 + (_storeResults?_resultChunk0.wire_len():0) + _m.wire_len());
-    }
-
-    @Override
-    public void write(DataOutputStream os) throws IOException {
-      super.write(os);
-      os.writeBoolean(_validate);
-      os.writeBoolean(_reduce);
-      if( _reduce && _validate) {
-        byte[] cn = _val.getClass().getName().getBytes();
-        os.write(cn.length);
-        os.write(cn);
-        _val.write(os);
-      } else if(!_reduce){
-        os.writeBoolean(_storeResults);
-        os.writeInt(_rpc);
-        os.writeDouble(_ymu);
-        byte[] cn = _m.getClass().getName().getBytes();
-        os.write(cn.length);
-        os.write(cn);
-        _m.write(os);
-        if( _storeResults ) _resultChunk0.write(os);
-      }
-    }
-
-    @Override
-    public void read(DataInputStream is) throws IOException {
-      super.read(is);
-      try {
-        _validate = is.readBoolean();
-        _reduce = is.readBoolean();
-        if( _reduce && _validate) {
-          int cnLen = is.readInt();
-          byte[] cn = new byte[cnLen];
-          is.readFully(cn);
-          _val = (ModelValidation) Class.forName(new String(cn)).newInstance();
-          _val.read(is);
-        } else if(!_reduce){
-          _storeResults = is.readBoolean();
-          _rpc = is.readInt();
-          _ymu = is.readDouble();
-          int cnLen = is.readInt();
-          byte[] cn = new byte[cnLen];
-          is.readFully(cn);
-          _m = (NewModel) Class.forName(new String(cn)).newInstance();
-          _m.read(is);
-          if( _storeResults ) _resultChunk0 = Key.read(is);
-        }
-      } catch( Exception e ) {
-        throw new Error(e);
-      }
-    }
-
-    @Override
-    public void write(Stream s) {
-      super.write(s);
-      s.set1(_validate?1:0);
-      s.set1(_reduce?1:0);
-      if( _reduce && _validate) {
-        s.setAry1(_val.getClass().getName().getBytes());
-        _val.write(s);
-      } else if(!_reduce){
-        s.set1(_storeResults?1:0);
-        s.set4(_rpc);
-        s.set8d(_ymu);
-        s.setAry1(_m.getClass().getName().getBytes());
-        _m.write(s);
-        if( _storeResults ) _resultChunk0.write(s);
-      }
-    }
-
-    @Override
-    public void read(Stream s) {
-      super.read(s);
-      try{
-      _validate = (s.get1() != 0);
-      _reduce = (s.get1() != 0);
-      if( _reduce ) {
-        if( _validate ) {
-          _val = (ModelValidation)Class.forName(new String(s.getAry1())).newInstance();
-          _val.read(s);
-        }
-      } else {
-        _storeResults = (s.get1() != 0);
-        _rpc = s.get4();
-        _ymu = s.get8d();
-        _m = (NewModel)Class.forName(new String(s.getAry1())).newInstance();
-        _m.read(s);
-        if( _storeResults )_resultChunk0 = Key.read(s);
-      }
-      }catch(Exception e){
-        throw new Error(e);
-      }
     }
 
     @Override
@@ -217,7 +102,7 @@ public abstract class Models {
     }
   }
 
-  public static abstract class NewModel extends RemoteTask {
+  public static abstract class NewModel implements H2OSerializable {
     public transient String[] _warnings;   // warning messages from model
                                             // building
     transient String[]        _columnNames;
@@ -295,17 +180,6 @@ public abstract class Models {
       tsk.invoke(k);
       return tsk._val;
     }
-
-    @Override
-    public void invoke(Key k) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void compute() {
-      throw new UnsupportedOperationException();
-    }
-
   }
 
   public static ModelValidation[] crossValidate(ModelBuilder bldr, int fold,

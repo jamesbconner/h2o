@@ -2,8 +2,6 @@ package water;
 import java.io.*;
 import java.util.Arrays;
 
-import water.parser.ParseDataset.ColumnDomain;
-
 /**
  * Large Arrays & Arraylets
  *
@@ -368,6 +366,38 @@ public class ValueArray extends Value {
   static private final int  META_COL_SIZE =  PAD0_COL_OFF + (((PAD0_COL_OFF & 7) != 0)?(8 - (PAD0_COL_OFF & 7)):0); // pad to 8 bytes
 
 
+  public static class ColumnDomain {
+    String [] _str;
+    public ColumnDomain(){}
+    public ColumnDomain(String [] str){_str= str;}
+    public String getStr(int i){return _str[i];}
+    public int wire_len(){
+      int res = 2;
+      if(_str != null) for(String s:_str) {
+        res += s.length() + 2;
+      }
+      return res;
+    }
+
+    public void read(Stream s){
+      int n = s.get2();
+      if(n != 0){
+        _str = new String[n];
+        for(int i = 0; i < n; ++i){
+          _str[i] = s.getLen2Str();
+        }
+      }
+    }
+    public void write(Stream s){
+      if(_str != null){
+        s.set2(_str.length);
+        for(String str:_str)s.setLen2Bytes(str.getBytes());
+      } else s.set2(0);
+    }
+  }
+
+
+
   // internal convience class for building structured ValueArrays
   static public class Column {
     public String       _name;
@@ -495,7 +525,8 @@ public class ValueArray extends Value {
     byte[] mem = get();
     Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
     int domainSize = s.get2();
-    if (ord < 0 || ord >= domainSize) throw new ArrayIndexOutOfBoundsException(ord);
+    if (ord < 0 || ord >= domainSize)
+      throw new ArrayIndexOutOfBoundsException(ord);
     for( int i = 0; i < ord; i++)
       s.getLen2Str();
     return s.getLen2Str();
@@ -607,10 +638,11 @@ public class ValueArray extends Value {
     assert row_size() == row_size;
     assert col_off  (colnum)==col_off  ;
     assert col_base (colnum)==col_base ;
+    assert col_scale == 1;
     assert col_scale(colnum)==col_scale;
     assert col_size (colnum)==col_size ;
     int off = (row_in_chunk * row_size) + col_off;
-    double res=0;
+    long res=0;
     switch( col_size ) {
     case  1:       res =    0xff&  bits[off]; break;
     case  2:       res = UDP.get2 (bits,off); break;
@@ -620,7 +652,7 @@ public class ValueArray extends Value {
     case -8:return (long)UDP.get8d(bits,off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
-    return (long)((res+col_base(colnum))/col_scale(colnum));
+    return res + col_base;
   }
 
 
@@ -658,7 +690,7 @@ public class ValueArray extends Value {
     for( Column column : cols )
       sz += column._name.length()+2/*2 bytes of pre-length*/;
     // Also priorkey & xform
-    sz += priorkey.wire_len()+xform.length()+2;
+    sz += priorkey.wire_len() + xform.length() + 2;
     // Also include meta-data representing column domains.
     for( Column column : cols)
       sz += column._domain.wire_len();
@@ -680,6 +712,7 @@ public class ValueArray extends Value {
     priorkey.write(s);
     // XForm string, with leading 2 bytes of length
     UDP.set4(mem,XFORM_OFF,s._off);
+    // XForm string, with leading 2 bytes of length
     s.setLen2Str(xform);
     // Now the column names
     for( int i=0; i<cols.length; i++ ) {
@@ -691,7 +724,7 @@ public class ValueArray extends Value {
       UDP.set4(mem,ary.col(i)+DOMAIN_COL_OFF,s._off); // First write the offset of domain to column header.
       cols[i]._domain.write(s);                       // Then the domain names
     }
-
+    assert s._off == mem.length:"s.off("+s._off+") != mem.length (" + mem.length + ")";
     return ary;
   }
 }

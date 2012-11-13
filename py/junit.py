@@ -27,6 +27,7 @@ class JUnit(unittest.TestCase):
                     'test.ExprTest',
                     'test.KeyToString',
                     'test.RStringTest',
+                    'test.FastTrieTest',
                     ])
 
             rc = ps.wait(None)
