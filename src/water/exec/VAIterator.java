@@ -4,6 +4,7 @@ package water.exec;
 import java.util.Iterator;
 import water.DKV;
 import water.Key;
+import water.Value;
 import water.ValueArray;
 
 /**
@@ -102,6 +103,7 @@ public final class VAIterator implements Iterator<VAIterator> {
         _chunkIdx += 1;
       }
       Key k = ValueArray.make_chunkkey(_ary._key, _chunkIdx << ValueArray.LOG_CHK);
+      Value v = DKV.get(k);
       _chunkBits = DKV.get(k).get();
       _rowsInChunk = _chunkBits.length / _rowSize;
       _rowInChunk = 0;

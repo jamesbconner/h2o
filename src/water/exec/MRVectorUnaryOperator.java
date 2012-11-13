@@ -50,7 +50,7 @@ public abstract class MRVectorUnaryOperator extends MRTask {
     ValueArray result = (ValueArray) DKV.get(_resultKey);
     long rowOffset = ValueArray.getOffset(key) / result.row_size();
     VAIterator opnd = new VAIterator(_key,_col, rowOffset);
-    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
+    int chunkRows = VABuilder.chunkSize(key, result.length()) / result.row_size();
     if (rowOffset + chunkRows >= result.num_rows())
       chunkRows = (int) (result.num_rows() - rowOffset);
     int chunkLength = chunkRows * 8;
