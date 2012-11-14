@@ -56,6 +56,17 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     key = parseKey['Key']
     rf = node.random_forest(key, trees, depth, **kwargs)
 
+
+    # if we have something in Error, print it!
+    # FIX! have to figure out unexpected vs expected errors
+    # {u'Error': u'Only integer or enum columns can be classes!'}
+
+    # FIX! right now, the json doesn't always return the same dict keys
+    # so have to look to see if Error is present
+    if 'Error' in rf:
+        if rf['Error'] is not None:
+            print "Unexpected Error in rf result:", rf
+
     # FIX! check all of these somehow?
     dataKey  = rf['dataKey']
     modelKey = rf['modelKey']
