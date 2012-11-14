@@ -38,7 +38,7 @@ public final class ParseDataset {
  }
 
 
- public static class ValueString implements CharSequence {
+ public final static class ValueString implements CharSequence {
    byte [] _buff;
    int _off;
    int _length;
