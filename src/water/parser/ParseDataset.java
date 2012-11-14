@@ -21,8 +21,10 @@ import com.google.common.io.Closeables;
 @SuppressWarnings("fallthrough")
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
-
-
+  
+  private static final int PHASE_ONE = 0;
+  private static final int PHASE_TWO = 0;
+  
 //Guess
  private static Compression guessCompressionMethod(Value dataset) {
    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
