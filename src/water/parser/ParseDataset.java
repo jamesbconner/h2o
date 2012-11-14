@@ -69,6 +69,21 @@ public final class ParseDataset {
   public String toString(){
     return new String(_buff,_off,_length);
   }
+  
+  public ValueString() { }
+  
+  public ValueString(String from) {
+    _buff = from.getBytes();
+    _off = 0;
+    _length = _buff.length;
+  }
+  
+  public ValueString setTo(String what) {
+    _buff = what.getBytes();
+    _off = 0;
+    _length = _buff.length;
+    return this;
+  }
  }
 
 
@@ -703,12 +718,6 @@ public final class ParseDataset {
       }
     }
     
-    public void addCol(int colIdx, String value) {
-      // NOT IMPLEMENTED YET
-      // here I should just update the 
-      System.out.println("Added column "+colIdx+" value "+value);
-    }
-    
     public void setColumnNames(String[] colNames) {
       // NOT IMPLEMENTED YET
     }
@@ -716,7 +725,8 @@ public final class ParseDataset {
     
 
     public void addInvalidCol(int colIdx){
-      if(_phase == 0)return;
+      if(_phase == PHASE_ONE)
+        return;
       ++_invalidValues[colIdx];
       switch (_colTypes[colIdx]) {
         case BYTE:

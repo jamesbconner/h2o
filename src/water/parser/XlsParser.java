@@ -12,12 +12,15 @@ import org.apache.poi.hssf.eventusermodel.dummyrecord.MissingCellDummyRecord;
 import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import water.parser.ParseDataset.DParseTask;
+import water.parser.ParseDataset.ValueString;
 
 public class XlsParser implements HSSFListener {
 
   private final POIFSFileSystem _fs;
   private final DParseTask _callback;
   private FormatTrackingHSSFListener _formatListener;
+  
+  private final ValueString _str = new ValueString();
 
   public XlsParser(InputStream is, DParseTask callback) throws IOException {
     _fs = new POIFSFileSystem(is);
@@ -44,7 +47,7 @@ public class XlsParser implements HSSFListener {
   public void processRecord(Record record) {
     int curCol = -1;
     double curNum = Double.NaN;
-    String curStr = null;
+    ValueString curStr = null;
 
     switch( record.getSid() ) {
       case BoundSheetRecord.sid:
@@ -58,13 +61,13 @@ public class XlsParser implements HSSFListener {
         BlankRecord brec = (BlankRecord) record;
 
         curCol = brec.getColumn();
-        curStr = "";
+        curStr = _str.setTo("");
         break;
       case BoolErrRecord.sid:
         BoolErrRecord berec = (BoolErrRecord) record;
 
         curCol = berec.getColumn();
-        curStr = "";
+        curStr = _str.setTo("");
         break;
 
       case FormulaRecord.sid:
@@ -84,7 +87,7 @@ public class XlsParser implements HSSFListener {
         if( _outputNextStringRecord ) {
           // String for formula
           StringRecord srec = (StringRecord) record;
-          curStr = srec.getString();
+          curStr = _str.setTo(srec.getString());
           curCol = _nextCol;
           _outputNextStringRecord = false;
         }
@@ -93,7 +96,7 @@ public class XlsParser implements HSSFListener {
         LabelRecord lrec = (LabelRecord) record;
 
         curCol = lrec.getColumn();
-        curStr = lrec.getValue();
+        curStr = _str.setTo(lrec.getValue());
         break;
       case LabelSSTRecord.sid:
         LabelSSTRecord lsrec = (LabelSSTRecord) record;
@@ -101,7 +104,7 @@ public class XlsParser implements HSSFListener {
           System.err.println("[ExcelParser] Missing SST record");
         } else {
           curCol = lsrec.getColumn();
-          curStr = _sstRecord.getString(lsrec.getSSTIndex()).toString();
+          curStr = _str.setTo(_sstRecord.getString(lsrec.getSSTIndex()).toString());
         }
         break;
       case NoteRecord.sid:
@@ -142,12 +145,15 @@ public class XlsParser implements HSSFListener {
       return;
     
     if (_firstRow) {
-      _columnNames.add(curStr == null ? "" : curStr);
+      _columnNames.add(curStr == null ? "" : curStr.toString());
     } else {
       if (curStr == null)
-        _callback.addCol(curCol, curNum);
+        if (Double.isNaN(curNum))
+          _callback.addInvalidCol(curCol);
+        else
+          _callback.addCol(curCol, curNum);
       else 
-        _callback.addCol(curCol, curStr);
+        _callback.addStrCol(curCol, curStr);
     }
   }
   /*
