@@ -233,8 +233,8 @@ h2o.__remoteSend <- function(page,...) {
   # Sends the given arguments as URL arguments to the given page on the specified server
   url = paste(h2o.SERVER,page,sep="/")
   res = fromJSON(postForm(url,...))
-  if (is.defined(res$Error))
-    stop(paste(url," returned the following error:\n",h2o.__formatError(res$Error)))
+#  if (is.defined(res$Error))
+#    stop(paste(url," returned the following error:\n",h2o.__formatError(res$Error)))
   res    
 }
 

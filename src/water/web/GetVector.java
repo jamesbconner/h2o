@@ -43,7 +43,10 @@ public class GetVector extends JSONPage {
       for (int j = 0; j < maxRows; ++j) {
         iter.next();
         for (int i = 0 ; i < cols.length; ++i) {
-          cols[i].add(new JsonPrimitive(iter.datad(i)));
+          if (iter.isValid(i))
+            cols[i].add(new JsonPrimitive(String.valueOf(iter.datad(i))));
+          else 
+            cols[i].add(new JsonPrimitive("NaN"));
         }
       }
       for (int i = 0; i < cols.length; ++i) {
