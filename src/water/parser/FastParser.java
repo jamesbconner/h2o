@@ -2,10 +2,10 @@
 package water.parser;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import water.*;
 import water.parser.ParseDataset.DParseTask;
+import water.parser.ParseDataset.ValueString;
 
 /**
  *
@@ -53,7 +53,9 @@ public class FastParser {
   public final int _numColumns;
 
 
+  ValueString _str = new ValueString();
   DParseTask callback;
+
 
 
   public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback) throws Exception {
@@ -107,7 +109,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
-            offset += colTrie.addCharacter(c&0xFF); // FastTrie returns skipped chars - 1
+            ++_str._length;
             break NEXT_CHAR;
           }
           // fallthrough to STRING_END
@@ -116,7 +118,15 @@ NEXT_CHAR:
           if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB)))
             break NEXT_CHAR;
           // we have parsed the string enum correctly
-          callback.addCol(colIdx,colTrie.getTokenId(),0,-2);
+          if(_str._buff != bits){ // crossing chunk boundary
+            byte [] buf = new byte[_str._length];
+            int l1 = _str._buff.length-_str._off;
+            System.arraycopy(_str._buff, _str._off, buf, 0, l1);
+            System.arraycopy(bits, 0, buf, l1, _str._length-l1);
+          }
+          callback.addStrCol(colIdx, _str);
+          _str._buff = null;
+          _str._length = 0;
           ++colIdx;
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
@@ -157,13 +167,20 @@ NEXT_CHAR:
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
-            callback.addCol(colIdx,-1,0,-2);
+            callback.addInvalidCol(colIdx);
             ++colIdx;
             if (colIdx == _numColumns)
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
           } else if (isEOL(c)) {
-            callback.addCol(colIdx,-1,0,-2);
+            if(_str._buff != bits){ // crossing chunk boundary
+              byte [] buf = new byte[_str._length];
+              int l1 = _str._buff.length-_str._off;
+              System.arraycopy(_str._buff, _str._off, buf, 0, l1);
+              System.arraycopy(bits, 0, buf, l1, _str._length-l1);
+            }
+            callback.addStrCol(colIdx,_str);
+            _str._buff = null;
             state = EOL;
             continue MAIN_LOOP;
           }
@@ -195,7 +212,9 @@ NEXT_CHAR:
             // fallthrough
           } else {
             state = STRING;
-            colTrie = callback._enums[colIdx];
+            _str._buff = bits;
+            _str._off = offset;
+            _str._length = 0;
             continue MAIN_LOOP;
           }
           // fallthrough to NUMBER
@@ -233,7 +252,7 @@ NEXT_CHAR:
         case NUMBER_END:
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
-            callback.addCol(colIdx,number,exp,numStart);
+            callback.addNumCol(colIdx,number,exp,numStart);
             ++colIdx;
             // do separator state here too
             if (colIdx == _numColumns)
@@ -242,7 +261,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           } else if (isEOL(c)) {
             exp = exp - fractionDigits;
-            callback.addCol(colIdx,number,exp,numStart);
+            callback.addNumCol(colIdx,number,exp,numStart);
             // do EOL here for speedup reasons
             if (colIdx != 0) {
               colIdx = 0;
@@ -256,8 +275,10 @@ NEXT_CHAR:
             break NEXT_CHAR;
           } else {
             state = STRING;
-            colTrie = callback._enums[colIdx];
             offset = tokenStart-1;
+            _str._buff = bits;
+            _str._off = offset;
+            _str._length = 0;
             break NEXT_CHAR; // parse as String token now
           }
         // ---------------------------------------------------------------------

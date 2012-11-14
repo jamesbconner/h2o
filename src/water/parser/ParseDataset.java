@@ -686,9 +686,8 @@ public final class ParseDataset {
       assert (_phase == 0 || _s == null);
     }
 
-
-
     public void addInvalidCol(int colIdx){
+      if(_phase == 0)return;
       ++_invalidValues[colIdx];
       switch (_colTypes[colIdx]) {
         case BYTE:
@@ -730,6 +729,8 @@ public final class ParseDataset {
       } else if(_enums[colIdx] != null) {
         assert _enums[colIdx] != null;
         int id = _enums[colIdx].getTokenId(str);
+        // we do not expect any misses here
+        assert 0 <= id && id < _enums[colIdx].size();
         switch (_colTypes[colIdx]) {
         case BYTE:
           _s.set1(id);
