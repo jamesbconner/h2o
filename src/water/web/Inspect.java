@@ -59,11 +59,11 @@ public class Inspect extends H2OPage {
         col.addProperty("size",  Math.abs(ary.col_size(i)));
         col.addProperty("base",  ary.col_base(i));
         col.addProperty("scale", ary.col_scale(i));
-        col.addProperty("min",   ary.col_min(i));
-        col.addProperty("max",   ary.col_max(i));
-        col.addProperty("badat", ary.col_badat(i));
-        col.addProperty("mean",  ary.col_mean(i));
-        col.addProperty("var",  ary.col_sigma(i));
+        col.addProperty("min",   String.valueOf(ary.col_min(i)));
+        col.addProperty("max",   String.valueOf(ary.col_max(i)));
+        col.addProperty("badat", String.valueOf(ary.col_badat(i)));
+        col.addProperty("mean",  String.valueOf(ary.col_mean(i)));
+        col.addProperty("var",  String.valueOf(ary.col_sigma(i)));
         columns.add(col);
       }
       result.add("columns", columns);

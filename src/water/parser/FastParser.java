@@ -191,6 +191,10 @@ NEXT_CHAR:
               break NEXT_CHAR;
             } else {
               exp = 1;
+              if (c == '+') {
+                ++numStart;
+                break NEXT_CHAR;
+              }
             }
             // fallthrough
           } else {
