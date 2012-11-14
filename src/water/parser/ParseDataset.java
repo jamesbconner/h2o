@@ -690,7 +690,7 @@ public final class ParseDataset {
 
     
     
-    public void addCol(int colIdx, double value) throws Exception {
+    public void addCol(int colIdx, double value) {
       if (Double.isNaN(value)) {
         addInvalidCol(colIdx);
       } else {
@@ -702,6 +702,7 @@ public final class ParseDataset {
           --exp; 
           number = (long)d;
         }
+        addNumCol(colIdx, number, exp, 1);
       }
     }
     
@@ -748,7 +749,7 @@ public final class ParseDataset {
     public static final int MAX_ENUM_ELEMS = 65000;
 
     public void addStrCol(int colIdx, ValueString str){
-      if(_phase == 0) {
+      if(_phase == PHASE_ONE) {
         Enum e = _enums[colIdx];
         if(e == null)return;
         if(_colTypes[colIdx] ==UCOL)
@@ -778,7 +779,7 @@ public final class ParseDataset {
     }
 
     @SuppressWarnings("fallthrough")
-    public void addNumCol(int colIdx, long number, int exp, int numLength) throws Exception {
+    public void addNumCol(int colIdx, long number, int exp, int numLength) {
       if(colIdx >= _ncolumns)
         return;
       if (_phase == 0) {
