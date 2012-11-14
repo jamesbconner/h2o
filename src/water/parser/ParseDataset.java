@@ -341,17 +341,19 @@ public final class ParseDataset {
         _nrows = new int[(int)ary.chunks()];
       }
       _skipFirstLine = skipFirstLine;
-      _enums = new ArrayList<NonBlockingHashMap<CharSequence, Integer>>(_ncolumns);
+      _enums = new Enum[_ncolumns];
       for(int i = 0; i < _ncolumns; ++i)
-        _enums.set(i,new NonBlockingHashMap<CharSequence, Integer>());
+        _enums[i] = new Enum();
     }
 
     public DParseTask pass2() {
       assert (_phase == 0);
       _colDomains = new String[_ncolumns][];
       for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL && _enums.get(i) != null){
-
+        if(_colTypes[i] == ECOL && _enums[i] != null && !_enums[i].isKilled())
+          _colDomains[i] = _enums[i].computeColumnDomain();
+        else
+          _enums[i] = null;
       }
       _bases = new int[_ncolumns];
       calculateColumnEncodings();
