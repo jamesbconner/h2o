@@ -692,7 +692,7 @@ public final class ParseDataset {
     
     public void addCol(int colIdx, double value) throws Exception {
       if (Double.isNaN(value)) {
-        addNumCol(colIdx,0,0,-1);
+        addInvalidCol(colIdx);
       } else {
         double  d= value;
         int exp = 0;
@@ -702,10 +702,7 @@ public final class ParseDataset {
           --exp; 
           number = (long)d;
         }
-        
       }
-      // NOT IMPLEMENTED YET
-      System.out.println("Added column "+colIdx+" value "+value);
     }
     
     public void addCol(int colIdx, String value) {
