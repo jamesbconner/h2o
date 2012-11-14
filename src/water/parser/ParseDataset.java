@@ -2,7 +2,6 @@ package water.parser;
 import init.H2OSerializable;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.zip.*;
 
@@ -22,6 +21,8 @@ import com.google.common.io.Closeables;
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
 
+  private static final int PHASE_ONE = 0;
+  private static final int PHASE_TWO = 0;
 
 //Guess
  private static Compression guessCompressionMethod(Value dataset) {
