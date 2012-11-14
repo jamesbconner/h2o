@@ -719,19 +719,17 @@ public final class ParseDataset {
 
     public void addStrCol(int colIdx, ValueString str){
       if(_phase == 0) {
-        NonBlockingHashMap<CharSequence, Integer> e = _enums[colIdx];
+        Enum e = _enums[colIdx];
         if(e == null)return;
         if(_colTypes[colIdx] ==UCOL)
           _colTypes[colIdx] = ECOL;
-        if(e.get(str) == null) {
-          e.put(str.toString(), 0);
-          if(e.size() > MAX_ENUM_ELEMS)
-            _enums[colIdx] = null;
-        }
+        e.getTokenId(str);
+        if(e.size() > MAX_ENUM_ELEMS)
+          e.kill();
         ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
       } else if(_enums[colIdx] != null) {
-        assert _enums[colIdx].get(str) != null;
-        int id = _enums[colIdx].get(str);
+        assert _enums[colIdx] != null;
+        int id = _enums[colIdx].getTokenId(str);
         switch (_colTypes[colIdx]) {
         case BYTE:
           _s.set1(id);
