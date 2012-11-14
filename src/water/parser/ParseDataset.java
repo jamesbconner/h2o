@@ -683,6 +683,7 @@ public final class ParseDataset {
         System.out.println("haha");
       assert (_phase == 0 || _s == null);
     }
+<<<<<<< Updated upstream
 
 
 
@@ -745,6 +746,36 @@ public final class ParseDataset {
         }
       } else
         addInvalidCol(colIdx);
+=======
+    
+    
+    public void addCol(int colIdx, double value) throws Exception {
+      if (Double.isNaN(value)) {
+        addCol(colIdx,0,0,-1);
+      } else {
+        double  d= value;
+        int exp = 0;
+        long number = (long)d;
+        while (number != d) {
+          d = d * 10;
+          --exp; 
+          number = (long)d;
+        }
+        
+      }
+      // NOT IMPLEMENTED YET
+      System.out.println("Added column "+colIdx+" value "+value);
+    }
+    
+    public void addCol(int colIdx, String value) {
+      // NOT IMPLEMENTED YET
+      // here I should just update the 
+      System.out.println("Added column "+colIdx+" value "+value);
+    }
+    
+    public void setColumnNames(String[] colNames) {
+      // NOT IMPLEMENTED YET
+>>>>>>> Stashed changes
     }
 
     @SuppressWarnings("fallthrough")
@@ -752,6 +783,7 @@ public final class ParseDataset {
       if(colIdx >= _ncolumns)
         return;
       if (_phase == 0) {
+<<<<<<< Updated upstream
         if(numLength >= 0) {
           double d = number*pow10(exp);
           if(d < _min[colIdx])_min[colIdx] = d;
@@ -764,6 +796,32 @@ public final class ParseDataset {
                 _colTypes[colIdx] = DCOL;
               else
                 _colTypes[colIdx] = FCOL;
+=======
+        switch(numLength) {
+          case -1:
+            ++_invalidValues[colIdx];
+            break;
+          case -2:
+            if(_enums[colIdx]._killed)
+              _killedEnums[colIdx] = 1;
+            if(_colTypes[colIdx] ==UCOL) _colTypes[colIdx] = ECOL;
+            ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
+            break;
+          default:
+            assert numLength >= 0:"unexpected num length " + numLength;
+            double d = number*pow10(exp);
+            if(d < _min[colIdx])_min[colIdx] = d;
+            if(d > _max[colIdx])_max[colIdx] = d;
+            _mean[colIdx] += d;
+            if(exp < _scale[colIdx]) {
+              _scale[colIdx] = exp;
+              if(_colTypes[colIdx] != DCOL){
+                if((float)d != d)_colTypes[colIdx] = DCOL;
+                else _colTypes[colIdx] = FCOL;
+              }
+            } else if(_colTypes[colIdx] < ICOL) {
+             _colTypes[colIdx] = ICOL;
+>>>>>>> Stashed changes
             }
           } else if(_colTypes[colIdx] < ICOL) {
            _colTypes[colIdx] = ICOL;
