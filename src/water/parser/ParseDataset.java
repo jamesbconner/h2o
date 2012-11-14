@@ -2,7 +2,6 @@ package water.parser;
 import init.H2OSerializable;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.zip.*;
 
@@ -21,10 +20,10 @@ import com.google.common.io.Closeables;
 @SuppressWarnings("fallthrough")
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
-  
+
   private static final int PHASE_ONE = 0;
   private static final int PHASE_TWO = 0;
-  
+
 //Guess
  private static Compression guessCompressionMethod(Value dataset) {
    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
@@ -688,8 +687,6 @@ public final class ParseDataset {
       assert (_phase == 0 || _s == null);
     }
 
-    
-    
     public void addCol(int colIdx, double value) {
       if (Double.isNaN(value)) {
         addInvalidCol(colIdx);
@@ -718,8 +715,8 @@ public final class ParseDataset {
     
     
 
-
     public void addInvalidCol(int colIdx){
+      if(_phase == 0)return;
       ++_invalidValues[colIdx];
       switch (_colTypes[colIdx]) {
         case BYTE:
@@ -761,6 +758,8 @@ public final class ParseDataset {
       } else if(_enums[colIdx] != null) {
         assert _enums[colIdx] != null;
         int id = _enums[colIdx].getTokenId(str);
+        // we do not expect any misses here
+        assert 0 <= id && id < _enums[colIdx].size();
         switch (_colTypes[colIdx]) {
         case BYTE:
           _s.set1(id);
