@@ -1,10 +1,14 @@
 package water.parser;
-import java.io.*;
+import init.H2OSerializable;
+
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.zip.*;
 
 import water.*;
 import water.ValueArray.Column;
+import water.nbhm.NonBlockingHashMap;
 
 import com.google.common.io.Closeables;
 
@@ -14,6 +18,7 @@ import com.google.common.io.Closeables;
  *
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  */
+@SuppressWarnings("fallthrough")
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
 
@@ -31,6 +36,46 @@ public final class ParseDataset {
    return Compression.NONE;
  }
 
+
+ static class ValueString implements CharSequence {
+   byte [] _buff;
+   int _off;
+   int _length;
+
+   @Override
+   public int hashCode(){
+     int hash = 1;
+     int n = _off + _length;
+     for (int i = _off; i < n; ++i)
+       hash = 31 * hash + _buff[i];
+     return hash;
+   }
+
+  @Override
+  public char charAt(int index) {
+    return (char)_buff[_off+index];
+  }
+
+  @Override
+  public int length() {
+    return _length;
+  }
+  @Override
+  public CharSequence subSequence(int start, int end) {
+    return new String(_buff,_off+start, end-start);
+  }
+  @Override
+  public String toString(){
+    return new String(_buff,_off,_length);
+  }
+ }
+
+
+
+
+ int getTokenId(int colIdx){
+   return -1;
+ }
 
 //---
  // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
@@ -108,7 +153,7 @@ public final class ParseDataset {
       case GZIP: parseGZipped     (result, dataset); break;
       default  : throw new Error("Uknown compression of dataset!");
       }
-    } catch( IOException e ) {
+    } catch( Exception e ) {
       throw new Error(e);
     }
   }
@@ -117,6 +162,9 @@ public final class ParseDataset {
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
+    String datasetName = new String(dataset._key._kb);
+    if(datasetName.endsWith(".xls") || datasetName.contains(".xls."))
+      throw new Error("xls format is currently not supported.");
     // Guess on the number of columns, build a column array.
     int [] psetup =  guessParserSetup(dataset, false);
     byte sep = (byte)',';
@@ -137,7 +185,6 @@ public final class ParseDataset {
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
     tsk.createValueArrayHeader(colNames,dataset);
-    tsk.check(result);
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -202,7 +249,6 @@ public final class ParseDataset {
     static final byte STRINGCOL = 8;  // string column (too many enum values)
 
     static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8,1};
-    byte _killedEnums [];
 
     // scalar variables
     boolean _skipFirstLine;
@@ -220,6 +266,49 @@ public final class ParseDataset {
     Key _resultKey;
     String  _error;
 
+
+    final class Enum implements H2OSerializable {
+      NonBlockingHashMap<CharSequence, Integer> _map;
+
+      Enum(){
+        _map = new NonBlockingHashMap<CharSequence, Integer>();
+      }
+
+      int getTokenId(CharSequence str){
+
+
+        return -1;
+      }
+
+      public void merge(Enum other){
+        if(this != other) {
+          NonBlockingHashMap<CharSequence, Integer> myMap = _map;
+          for(CharSequence str:other._map.keySet()){
+            myMap.put(str, 0);
+          }
+        }
+      }
+      public int size() {return _map.size();}
+      public boolean isKilled() {return _map == null;}
+      public void kill(){_map = null;}
+
+      public String [] computeColumnDomain(){
+        String [] res = new String[_map.size()];
+        NonBlockingHashMap<CharSequence, Integer> oldMap = _map;
+        if(oldMap == null)return null;
+        oldMap.keySet().toArray(res);
+        Arrays.sort(res);
+        NonBlockingHashMap<CharSequence, Integer> newMap = new NonBlockingHashMap<CharSequence, Integer>();
+        for(int j = 0; j < res.length; ++j)
+          newMap.put(res[j], j);
+        oldMap.clear();
+        _map = newMap;
+        return res;
+      }
+
+    }
+
+
     // arrays
     byte     [] _colTypes;
     int      [] _scale;
@@ -230,7 +319,7 @@ public final class ParseDataset {
     double   [] _mean;
     double   [] _sigma;
     int      [] _nrows;
-    FastTrie [] _enums;
+    Enum     [] _enums;
 
 
     // transients - each map creates and uses it's own, no need to get these back
@@ -239,7 +328,7 @@ public final class ParseDataset {
     transient Stream [] _outputStreams;
     // create and used only on the task caller's side
     transient String[][] _colDomains;
-    
+
     transient int _lastOffset;
 
     public DParseTask() {}
@@ -251,18 +340,18 @@ public final class ParseDataset {
         ValueArray ary = (ValueArray) dataset;
         _nrows = new int[(int)ary.chunks()];
       }
-      _killedEnums = new byte[ncolumns];
       _skipFirstLine = skipFirstLine;
+      _enums = new ArrayList<NonBlockingHashMap<CharSequence, Integer>>(_ncolumns);
+      for(int i = 0; i < _ncolumns; ++i)
+        _enums.set(i,new NonBlockingHashMap<CharSequence, Integer>());
     }
 
     public DParseTask pass2() {
       assert (_phase == 0);
       _colDomains = new String[_ncolumns][];
       for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL && !_enums[i]._killed)
-          _colDomains[i] = _enums[i].compress();
-        else
-          _enums[i].kill();
+        if(_colTypes[i] == ECOL && _enums.get(i) != null){
+
       }
       _bases = new int[_ncolumns];
       calculateColumnEncodings();
@@ -327,51 +416,6 @@ public final class ParseDataset {
       DKV.put(_resultKey, ary);
     }
 
-    // DO NOT THROW AWAY THIS CODE, I WILL USE IT IN VABUILDER AFTER WE MERGE!!!!!!!!
-    // (function check)
-    void check(Key k) {
-      assert (k==_resultKey);
-      System.out.println(_numRows);
-      Value v = DKV.get(k);
-      assert (v != null);
-      assert (v instanceof ValueArray);
-      ValueArray va = (ValueArray) v;
-      System.out.println("Num rows:     "+va.num_rows());
-      System.out.println("Num cols:     "+va.num_cols());
-      System.out.println("Rowsize:      "+va.row_size());
-      System.out.println("Length:       "+va.length());
-      System.out.println("Rows:         "+((double)va.length() / va.row_size()));
-      assert (va.num_rows() == va.length() / va.row_size());
-      System.out.println("Chunk size:   "+(ValueArray.chunk_size() / va.row_size()) * va.row_size());
-      System.out.println("RPC:          "+ValueArray.chunk_size() / va.row_size());
-      System.out.println("Num chunks:   "+va.chunks());
-      long totalSize = 0;
-      long totalRows = 0;
-      for (int i = 0; i < va.chunks(); ++i) {
-        System.out.println("  chunk:             "+i);
-        System.out.println("    chunk off:         "+ValueArray.chunk_offset(i)+" (reported by VA)");
-        System.out.println("    chunk real off:    "+i * ValueArray.chunk_size() / va.row_size() * va.row_size());
-        Value c = DKV.get(va.chunk_get(i));
-        if (c == null)
-          System.out.println("                       CHUNK AS REPORTED BY VA NOT FOUND");
-        assert (c!=null):"missing chunk " + i;
-        System.out.println("    chunk size:        "+c.length());
-        System.out.println("    chunk rows:        "+c.length() / va.row_size());
-        byte[] b = c.get();
-        assert (b.length == c.length());
-        totalSize += c.length();
-        System.out.println("    total size:        "+totalSize);
-        totalRows += c.length() / va.row_size();
-        System.out.println("    total rows:        "+totalRows);
-      }
-      System.out.println("Length exp:   "+va.length());
-      System.out.println("Length:       "+totalSize);
-      System.out.println("Rows exp:     "+((double)va.length() / va.row_size()));
-      System.out.println("Rows:         "+totalRows);
-      assert (totalSize == va.length()):"totalSize: " + totalSize + ", va.length(): " + va.length();
-      assert (totalRows == ((double)va.length() / va.row_size()));
-    }
-
     @Override
     public void map(Key key) {
       try{
@@ -386,12 +430,6 @@ public final class ParseDataset {
         _invalidValues = new long[_ncolumns];
         switch(_phase){
         case 0:
-          _enums = new FastTrie[_ncolumns];
-          for(int i = 0; i < _enums.length; ++i){
-            _enums[i] = new FastTrie();
-            if(_killedEnums[i] == 1)
-              _enums[i].kill();
-          }
           _min = new double [_ncolumns];
           Arrays.fill(_min, Double.MAX_VALUE);
           _max = new double[_ncolumns];
@@ -407,9 +445,6 @@ public final class ParseDataset {
           }
           break;
         case 1:
-          _enums = _enums.clone();
-          for(int i = 0; i < _enums.length; ++i)
-            if(!_enums[i]._killed)_enums[i] = _enums[i].clone();
           _invalidValues = new long[_ncolumns];
           _sigma = new double[_ncolumns];
           _rowsize = 0;
@@ -485,7 +520,6 @@ public final class ParseDataset {
           _scale = other._scale;
           _colTypes = other._colTypes;
           _nrows = other._nrows;
-          _myrows = other._myrows;
           _invalidValues = other._invalidValues;
         } else {
           if (_phase == 0) {
@@ -493,7 +527,9 @@ public final class ParseDataset {
               for (int i = 0; i < _nrows.length; ++i)
                 _nrows[i] += other._nrows[i];
             for(int i = 0; i < _ncolumns; ++i) {
-              _enums[i].merge(other._enums[i]);
+              if(_enums != other._enums){
+
+              }
               if(other._min[i] < _min[i])_min[i] = other._min[i];
               if(other._max[i] > _max[i])_max[i] = other._max[i];
               if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
@@ -559,6 +595,9 @@ public final class ParseDataset {
     }
 
     static long pow10i(int exp){
+      if(exp < 0){
+        System.out.println("haha");
+      }
       assert 10 >= exp && exp >= 0:"unexpceted exponent " + exp;
       return powers10i[exp];
     }
@@ -573,18 +612,18 @@ public final class ParseDataset {
       for(int i = 0; i < _ncolumns; ++i){
         switch(_colTypes[i]){
         case ECOL: // enum
-          if(_enums[i]._killed){
+          if(_enums[i].isKilled()){
             _max[i] = 0;
             _min[i] = 0;
             _colTypes[i] = STRINGCOL;
           } else {
-            _max[i] = _enums[i]._initialState-1;
+            _max[i] = _colDomains[i].length-1;
             _min[i] = 0;
-            if(_enums[i]._initialState < 256)_colTypes[i] = BYTE;
-            else if(_enums[i]._initialState < 65536)_colTypes[i] = SHORT;
+            if(_max[i] < 256)_colTypes[i] = BYTE;
+            else if(_max[i] < 65536)_colTypes[i] = SHORT;
             else _colTypes[i] = INT;
           }
-
+          break;
         case ICOL: // number
           if (_max[i] - _min[i] < 255) {
             _colTypes[i] = BYTE;
@@ -611,7 +650,7 @@ public final class ParseDataset {
             _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
           }
           break;
-                }
+        }
       }
     }
 
@@ -619,7 +658,7 @@ public final class ParseDataset {
       ++_myrows;
       if (_phase != 0) {
         _lastOffset += _rowsize;
-        // to make sure that all rows are the same size, even if there are 
+        // to make sure that all rows are the same size, even if there are
         // missing columns
         if (_lastOffset > _s._off)
           _s._off = _lastOffset;
@@ -640,80 +679,102 @@ public final class ParseDataset {
 
     public void rollbackLine() {
       --_myrows;
+      if(_phase != 0 && _s != null)
+        System.out.println("haha");
       assert (_phase == 0 || _s == null);
     }
 
-    @SuppressWarnings("fallthrough")
-    public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
-      assert(colIdx < _ncolumns);
-      if (_phase == 0) {
-        switch(numLength) {
-          case -1:
-            ++_invalidValues[colIdx];
-            break;
-          case -2:
-            if(_enums[colIdx]._killed)
-              _killedEnums[colIdx] = 1;
-            if(_colTypes[colIdx] ==UCOL) _colTypes[colIdx] = ECOL;
-            ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
-            break;
-          default:
-            assert numLength >= 0:"unexpected num length " + numLength;
-          double d = number*pow10(exp);
-            if(d < _min[colIdx])_min[colIdx] = d;
-            if(d > _max[colIdx])_max[colIdx] = d;
-            _mean[colIdx] += d;
-            if(exp < _scale[colIdx]) {
-              _scale[colIdx] = exp;
-              if(_colTypes[colIdx] != DCOL){
-                if((float)d != d)_colTypes[colIdx] = DCOL;
-                else _colTypes[colIdx] = FCOL;
-              }
-            } else if(_colTypes[colIdx] < ICOL) {
-             _colTypes[colIdx] = ICOL;
-            }
-            break;
+
+
+    public void addInvalidCol(int colIdx){
+      ++_invalidValues[colIdx];
+      switch (_colTypes[colIdx]) {
+        case BYTE:
+          _s.set1(-1);
+          break;
+        case SHORT:
+        case DSHORT:
+          _s.set2(-1);
+          break;
+        case INT:
+          _s.set4(Integer.MIN_VALUE);
+          break;
+        case LONG:
+          _s.set8(Long.MIN_VALUE);
+          break;
+        case FLOAT:
+          _s.set4f(Float.NaN);
+          break;
+        case DOUBLE:
+          _s.set8d(Double.NaN);
+          break;
+        default:
+          assert false:"illegal case: " + _colTypes[colIdx];
+      }
+    }
+
+    public static final int MAX_ENUM_ELEMS = 65000;
+
+    public void addStrCol(int colIdx, ValueString str){
+      if(_phase == 0) {
+        NonBlockingHashMap<CharSequence, Integer> e = _enums[colIdx];
+        if(e == null)return;
+        if(_colTypes[colIdx] ==UCOL)
+          _colTypes[colIdx] = ECOL;
+        if(e.get(str) == null) {
+          e.put(str.toString(), 0);
+          if(e.size() > MAX_ENUM_ELEMS)
+            _enums[colIdx] = null;
         }
+        ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
+      } else if(_enums[colIdx] != null) {
+        assert _enums[colIdx].get(str) != null;
+        int id = _enums[colIdx].get(str);
+        switch (_colTypes[colIdx]) {
+        case BYTE:
+          _s.set1(id);
+          break;
+        case SHORT:
+          _s.set2(id);
+          break;
+        case INT:
+          _s.set4(id);
+          break;
+        default:
+          assert false:"illegal case: " + _colTypes[colIdx];
+        }
+      } else
+        addInvalidCol(colIdx);
+    }
+
+    @SuppressWarnings("fallthrough")
+    public void addNumCol(int colIdx, long number, int exp, int numLength) throws Exception {
+      if(colIdx >= _ncolumns)
+        return;
+      if (_phase == 0) {
+        if(numLength >= 0) {
+          double d = number*pow10(exp);
+          if(d < _min[colIdx])_min[colIdx] = d;
+          if(d > _max[colIdx])_max[colIdx] = d;
+          _mean[colIdx] += d;
+          if(exp < _scale[colIdx]) {
+            _scale[colIdx] = exp;
+            if(_colTypes[colIdx] != DCOL){
+              if((float)d != d)
+                _colTypes[colIdx] = DCOL;
+              else
+                _colTypes[colIdx] = FCOL;
+            }
+          } else if(_colTypes[colIdx] < ICOL) {
+           _colTypes[colIdx] = ICOL;
+          }
+        } else
+          ++_invalidValues[colIdx];
       } else {
-VALUE_TYPE:
         switch(numLength) {
-          case -2: // enum
-            if (!_enums[colIdx]._killed) {
-              switch (_colTypes[colIdx]) {
-                case BYTE:
-                  _s.set1((byte)number);
-                  break VALUE_TYPE;
-                case SHORT:
-                  _s.set2((short)number);
-                  break VALUE_TYPE;
-                default:
-                  assert(false);
-              }
-            }
           case -1: // NaN
-            ++_invalidValues[colIdx];
-            switch (_colTypes[colIdx]) {
-              case BYTE:
-                _s.set1(-1);
-                break VALUE_TYPE;
-              case SHORT:
-              case DSHORT:
-                _s.set2(-1);
-                break VALUE_TYPE;
-              case INT:
-                _s.set4(Integer.MIN_VALUE);
-                break VALUE_TYPE;
-              case LONG:
-                _s.set8(Long.MIN_VALUE);
-                break VALUE_TYPE;
-              case FLOAT:
-                _s.set4f(Float.NaN);
-                break VALUE_TYPE;
-              case DOUBLE:
-                _s.set8d(Double.NaN);
-                break VALUE_TYPE;
-            }
-            break VALUE_TYPE;
+            addInvalidCol(colIdx);
+            break;
           default:
             switch (_colTypes[colIdx]) {
               case BYTE:
@@ -761,7 +822,6 @@ VALUE_TYPE:
       _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
       DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
     }
-
     @Override public byte[] atomic( byte[] bits1 ) {
       byte[] mem = DKV.get(_key).get();
       int len = Math.max(_dst_off + mem.length,bits1==null?0:bits1.length);
