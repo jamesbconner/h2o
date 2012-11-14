@@ -53,7 +53,6 @@ public class FastParser {
   public final int _numColumns;
 
 
-  ValueString _str = new ValueString();
   DParseTask callback;
 
 
@@ -69,6 +68,7 @@ public class FastParser {
   @SuppressWarnings("fallthrough")
   public final void parse(Key key, boolean skipFirstLine) throws Exception {
     ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
+    ValueString _str = new ValueString();
     byte[] bits = DKV.get(key).get();
     int offset = 0;
     int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
