@@ -22,7 +22,7 @@ public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
 
   private static final int PHASE_ONE = 0;
-  private static final int PHASE_TWO = 0;
+  private static final int PHASE_TWO = 1;
 
 //Guess
  private static Compression guessCompressionMethod(Value dataset) {
@@ -687,6 +687,34 @@ public final class ParseDataset {
       assert (_phase == 0 || _s == null);
     }
 
+    public void addCol(int colIdx, double value) {
+      if (Double.isNaN(value)) {
+        addInvalidCol(colIdx);
+      } else {
+        double  d= value;
+        int exp = 0;
+        long number = (long)d;
+        while (number != d) {
+          d = d * 10;
+          --exp;
+          number = (long)d;
+        }
+        addNumCol(colIdx, number, exp, 1);
+      }
+    }
+
+    public void addCol(int colIdx, String value) {
+      // NOT IMPLEMENTED YET
+      // here I should just update the
+      System.out.println("Added column "+colIdx+" value "+value);
+    }
+
+    public void setColumnNames(String[] colNames) {
+      // NOT IMPLEMENTED YET
+    }
+
+
+
     public void addInvalidCol(int colIdx){
       if(colIdx >= _ncolumns)
         return;
@@ -722,7 +750,7 @@ public final class ParseDataset {
     public void addStrCol(int colIdx, ValueString str){
       if(colIdx >= _ncolumns)
         return;
-      if(_phase == 0) {
+      if(_phase == PHASE_ONE) {
         Enum e = _enums[colIdx];
         if(e == null)return;
         if(_colTypes[colIdx] ==UCOL)
@@ -754,7 +782,7 @@ public final class ParseDataset {
     }
 
     @SuppressWarnings("fallthrough")
-    public void addNumCol(int colIdx, long number, int exp, int numLength) throws Exception {
+    public void addNumCol(int colIdx, long number, int exp, int numLength) {
       if(colIdx >= _ncolumns)
         return;
       if (_phase == 0) {
