@@ -22,7 +22,7 @@ public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
 
   private static final int PHASE_ONE = 0;
-  private static final int PHASE_TWO = 0;
+  private static final int PHASE_TWO = 1;
 
 //Guess
  private static Compression guessCompressionMethod(Value dataset) {
@@ -711,23 +711,23 @@ public final class ParseDataset {
         long number = (long)d;
         while (number != d) {
           d = d * 10;
-          --exp; 
+          --exp;
           number = (long)d;
         }
         addNumCol(colIdx, number, exp, 1);
       }
     }
-    
     public void setColumnNames(String[] colNames) {
       // NOT IMPLEMENTED YET
     }
-    
-    
+
+
 
     public void addInvalidCol(int colIdx){
-      if(_phase == PHASE_ONE)
+      if(colIdx >= _ncolumns)
         return;
       ++_invalidValues[colIdx];
+      if(_phase == 0)return;
       switch (_colTypes[colIdx]) {
         case BYTE:
           _s.set1(-1);
@@ -756,6 +756,8 @@ public final class ParseDataset {
     public static final int MAX_ENUM_ELEMS = 65000;
 
     public void addStrCol(int colIdx, ValueString str){
+      if(colIdx >= _ncolumns)
+        return;
       if(_phase == PHASE_ONE) {
         Enum e = _enums[colIdx];
         if(e == null)return;
@@ -792,24 +794,22 @@ public final class ParseDataset {
       if(colIdx >= _ncolumns)
         return;
       if (_phase == 0) {
-        if(numLength >= 0) {
-          double d = number*pow10(exp);
-          if(d < _min[colIdx])_min[colIdx] = d;
-          if(d > _max[colIdx])_max[colIdx] = d;
-          _mean[colIdx] += d;
-          if(exp < _scale[colIdx]) {
-            _scale[colIdx] = exp;
-            if(_colTypes[colIdx] != DCOL){
-              if((float)d != d)
-                _colTypes[colIdx] = DCOL;
-              else
-                _colTypes[colIdx] = FCOL;
-            }
-          } else if(_colTypes[colIdx] < ICOL) {
-           _colTypes[colIdx] = ICOL;
+        assert numLength >= 0:"invalid numLenght argument: " + numLength;
+        double d = number*pow10(exp);
+        if(d < _min[colIdx])_min[colIdx] = d;
+        if(d > _max[colIdx])_max[colIdx] = d;
+        _mean[colIdx] += d;
+        if(exp < _scale[colIdx]) {
+          _scale[colIdx] = exp;
+          if(_colTypes[colIdx] != DCOL){
+            if((float)d != d)
+              _colTypes[colIdx] = DCOL;
+            else
+              _colTypes[colIdx] = FCOL;
           }
-        } else
-          ++_invalidValues[colIdx];
+        } else if(_colTypes[colIdx] < ICOL) {
+         _colTypes[colIdx] = ICOL;
+        }
       } else {
         switch(numLength) {
           case -1: // NaN
