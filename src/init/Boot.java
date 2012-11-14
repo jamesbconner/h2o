@@ -314,8 +314,9 @@ public class Boot extends ClassLoader {
     // Build a wireLen method that looks something like this:
     //     public int wireLen() { return 4+4+(_xs==null?0:(_xs.length*4))8+0; }
     make_body(cc,ctfs,callsuper,
-              "public int wire_len() {\n  int res = 0;\n",
-              " res += super.wire_len();\n",
+              "public int wire_len() {\n"+
+              "  int res = 0;\n",
+              "  res += super.wire_len();\n",
               "  res += %d;\n",
               "  res += water.UDP.wire_len(%s);\n",
               "  res += (%s==null?1:%s.wire_len());\n",
@@ -324,12 +325,23 @@ public class Boot extends ClassLoader {
               // ------------------ object array ----------------------------------------------------------
               "  res += 4;\n"+
               "  if(%s != null) {\n"+
-              "    res += 2 + %s.getClass().getComponentType().getName().length();\n"+
+              "    res += %s.length + 2 + %s.getClass().getComponentType().getName().length();\n"+
               "    for(int i = 0; i < %s.length; ++i)\n" +
-              "      res += 1 + ((%s[i] != null)?%s[i].wire_len():0);\n" +
+              "      if(%s[i] != null)res += %s[i].wire_len();\n" +
               "  }\n",
-              // ------------------ end of object array -----------------------------------------------------
-              "\n  return res;\n}");
+              // ------------------ object 2D array ----------------------------------------------------------
+              "  res += 4;\n"+
+              "  if(%s != null) {\n"+
+              "    res += 4*%s.length + 2 + %s.getClass().getComponentType().getComponentType().getName().length();\n"+
+              "    for(int i = 0; i < %s.length; ++i)\n" +
+              "      if(%s[i] != null){\n"+
+              "        res += %s[i].length;\n"+
+              "        for(int j = 0; j < %s[i].length; ++j)"+
+              "          if(%s[i][j] != null)res += %s[i][j].wire_len();\n"+
+              "      }\n" +
+              "  }\n",
+              // ------------------ end of object @D array -----------------------------------------------------
+              "  return res;\n}");
 
     // Build a write method that looks something like this:
     //     public void write( DataOutputStream dos ) throws IOException {
@@ -358,7 +370,26 @@ public class Boot extends ClassLoader {
               "      }\n" +
               "   }\n" +
               " }\n",
-              // ------------------ end of object array -----------------------------------------------------
+              // ------------------ object 2D array ----------------------------------------------------------
+              "  if(%s == null) {\n"+
+              "    dos.writeInt(-1);\n"+
+              "  }else {\n"+
+              "    dos.writeInt(%s.length);\n" +
+              "    water.TCPReceiverThread.writeStr(dos,%s.getClass().getComponentType().getComponentType().getName());\n" +
+              "    for(int i = 0; i < %s.length; ++i){\n"+
+              "      if(%s[i] == null) {\n"+
+              "        dos.writeInt(-1);\n"+
+              "      } else {\n"+
+              "        dos.writeInt(%s[i].length);\n"+
+              "        for(int j = 0; j < %s[i].length; ++j){\n" +
+              "          dos.writeBoolean(%s[i][j] != null);\n" +
+              "          if(%s[i][j] != null)\n"+
+              "            %s[i][j].write(dos);\n"+
+              "        }\n" +
+              "      }\n" +
+              "    }\n" +
+              "  }\n",
+              // ------------------ end of object @D array -----------------------------------------------------
               "}");
 
     // Build a read method that looks something like this:
@@ -388,8 +419,27 @@ public class Boot extends ClassLoader {
               "      }\n" +
               "    }\n" +
               "  }\n",
-              // ------------------ end of object array -----------------------------------------------------
-              "}\n");
+              // ------------------ object 2D array ----------------------------------------------------------
+              "  int n = dis.readInt();"+
+              "  if(n != -1) {"+
+              "    %s = new %C[n][];\n" +
+              "    String cn = water.TCPReceiverThread.readStr(dis);\n" +
+              "    Class c = Class.forName(cn);\n" +
+              "    for(int i = 0; i < %s.length; ++i){\n"+
+              "      int m = dis.readInt();\n"+
+              "      if(m != -1) {\n"+
+              "        %s[i] = new %C[m];\n"+
+              "        for(int j = 0; j < m; ++j){\n"+
+              "          if(dis.readBoolean()){\n"+
+              "            %s[i][j] = (%C)c.newInstance();\n" +
+              "            %s[i][j].read(dis);\n" +
+              "          }"+
+              "        }"+
+              "      }\n" +
+              "    }\n" +
+              "  }\n",
+              // ------------------ end of object @D array -----------------------------------------------------
+              "}");
 
     // Build a write method that looks something like this:
     //     public void write( Stream s ) {
@@ -416,7 +466,26 @@ public class Boot extends ClassLoader {
               "      }\n" +
               "   }\n" +
               " }\n",
-              // ------------------ end of object array -----------------------------------------------------
+              // ------------------ object 2D array ----------------------------------------------------------
+              "  if(%s == null) {\n"+
+              "    s.set4(-1);\n"+
+              "  }else {\n"+
+              "    s.set4(%s.length);\n" +
+              "    s.setLen2Str(%s.getClass().getComponentType().getComponentType().getName());\n" +
+              "    for(int i = 0; i < %s.length; ++i){\n"+
+              "      if(%s[i] == null) {\n"+
+              "        s.set4(-1);\n"+
+              "      } else {\n"+
+              "        s.set4(%s[i].length);\n"+
+              "        for(int j = 0; j < %s[i].length; ++j){\n" +
+              "          s.setz(%s[i][j] != null);\n" +
+              "          if(%s[i][j] != null)\n"+
+              "            %s[i][j].write(s);\n"+
+              "        }\n" +
+              "      }\n" +
+              "    }\n" +
+              "  }\n",
+              // ------------------ end of object @D array -----------------------------------------------------
               "}");
     // Build a read method that looks something like this:
     //     public void read( Stream s ) {
@@ -444,7 +513,26 @@ public class Boot extends ClassLoader {
               "      }\n" +
               "    }\n" +
               "  }\n",
-              // ------------------ end of object array -----------------------------------------------------
+              // ------------------ object 2D array ----------------------------------------------------------
+              "  int n = s.get4();"+
+              "  if(n != -1) {"+
+              "    %s = new %C[n][];\n" +
+              "    String cn = s.getLen2Str();\n" +
+              "    Class c = Class.forName(cn);\n" +
+              "    for(int i = 0; i < %s.length; ++i){\n"+
+              "      int m = s.get4();\n"+
+              "      if(m != -1) {\n"+
+              "        %s[i] = new %C[m];\n"+
+              "        for(int j = 0; j < m; ++j){\n"+
+              "          if(s.getz()){\n" +
+              "            %s[i][j] = (%C)c.newInstance();\n" +
+              "            %s[i][j].read(s);\n" +
+              "          }\n"+
+              "        }\n"+
+              "      }\n" +
+              "    }\n" +
+              "  }\n",
+              // ------------------ end of object @D array -----------------------------------------------------
               "}");
     // Make the class public
     cc.setModifiers(javassist.Modifier.setPublic(cc.getModifiers()));
@@ -464,6 +552,7 @@ public class Boot extends ClassLoader {
                                String strs,
                                String object,
                                String objectArr,
+                               String object2DArr,
                                String trailer
                                ) throws CannotCompileException, NotFoundException{
     StringBuilder sb = new StringBuilder();
@@ -474,32 +563,48 @@ public class Boot extends ClassLoader {
       if( javassist.Modifier.isTransient(mods) || javassist.Modifier.isStatic(mods) )
         continue;  // Only serialize not-transient instance fields (not static)
       int ftype = ftype(ctf);   // Field type encoding
-      if     ( ftype <= 7 ) sb.append(prims);
-      else if( ftype == 8 ) sb.append(keys);
-      else if( ftype == 9 ) sb.append(strs);
-      else if( ftype == OBJ_ARR_TYPE ||  ftype == OBJ_TYPE) {
-        CtClass c = ((ftype == OBJ_ARR_TYPE)?ctf.getType().getComponentType():ctf.getType());
-        assert c.subtypeOf(_h2oSerializable);
-        // todo detect cycles!
-        if(!c.isFrozen() && !hasSerialization(c)){
-          if(c.getName().contains("$") && !javassist.Modifier.isStatic(c.getModifiers())) // non static inner classes, not allowed
-            throw new Error("Can not serialize field '" + ctf + "' with type = '" + c.getName() + "': Auto serialization of non-static inner classes not supported!");
-          // check if we're the inner class!
-          javassistLoadClass(c);
+
+      if( ftype <= 7 )
+        sb.append(prims);
+      else if( ftype >=10 && ftype < 100)
+        sb.append(primarys);
+      else {
+        CtClass c = null;
+        switch(ftype){
+        case 8:
+          sb.append(keys);
+          break;
+        case 9:
+          sb.append(strs);
+          break;
+        case OBJ_2DARR_TYPE:
+          c = ctf.getType().getComponentType().getComponentType();
+          sb.append(object2DArr);
+          break;
+        case OBJ_ARR_TYPE:
+          c = ctf.getType().getComponentType();
+          sb.append(objectArr);
+          break;
+        case OBJ_TYPE:
+          c = ctf.getType();
+          sb.append(object);
+          break;
         }
-        sb.append(ftype == OBJ_ARR_TYPE?objectArr:object);
-        // gadd serialization to the object if needed
-        try {
-          c.getDeclaredMethod("wire_len");
-        } catch( NotFoundException e ) {
-          assert false:"missing generated methods in class " + c.getName();
+        if(c != null){
+          assert c.subtypeOf(_h2oSerializable);
+          if(c != cc && !c.isFrozen() && !javassist.Modifier.isAbstract(c.getModifiers()) && !hasSerialization(c)){
+            if(c.getName().contains("$") && !javassist.Modifier.isStatic(c.getModifiers())) // non static inner classes, not allowed
+              throw new Error("Can not serialize field '" + ctf + "' with type = '" + c.getName() + "': Auto serialization of non-static inner classes not supported!");
+            // check if we're the inner class!
+            javassistLoadClass(c);
+          }
+          subsub(sb,"%C",c.getName().replace('$','.'));
         }
-        subsub(sb,"%C",c.getName().replace('$','.'));
-      } else if( ftype >=10 ) sb.append(primarys);
+      }
       subsub(sb,"%s",ctf.getName()); // %s ==> field name
-      subsub(sb,"%d",FLDSZ0[ftype]); // %d ==> field size in bytes, so 1 (bools,bytes) up to 8 (longs/doubles)
-      subsub(sb,"%z",FLDSZ1[ftype]); // %z ==> as %d, but with trailing f/d so 8 (longs) and 8d (doubles)
-      subsub(sb,"%S",FLDSZ2[ftype]); // %S ==> Byte, Short, Char, Int, Float, Double, Long
+      if(ftype<FLDSZ0.length)subsub(sb,"%d",FLDSZ0[ftype]); // %d ==> field size in bytes, so 1 (bools,bytes) up to 8 (longs/doubles)
+      if(ftype<FLDSZ1.length)subsub(sb,"%z",FLDSZ1[ftype]); // %z ==> as %d, but with trailing f/d so 8 (longs) and 8d (doubles)
+      if(ftype<FLDSZ2.length)subsub(sb,"%S",FLDSZ2[ftype]); // %S ==> Byte, Short, Char, Int, Float, Double, Long
     }
     sb.append(trailer);
     String body = sb.toString();
@@ -534,8 +639,9 @@ public class Boot extends ClassLoader {
     "-1"
   };
 
-  public static final int OBJ_TYPE = 18;
-  public static final int OBJ_ARR_TYPE = 19;
+  public static final int OBJ_TYPE = 101;
+  public static final int OBJ_ARR_TYPE = 102;
+  public static final int OBJ_2DARR_TYPE = 103;
   // Field types:
   // 0-7: primitives
   // 8: Key
@@ -544,6 +650,7 @@ public class Boot extends ClassLoader {
   // 18: H2OSerializable
   // Barfs on all others (eg Values or array-of-Frob, etc)
   private int ftype( CtField ctf ) { return ftype0(ctf,0); }
+  @SuppressWarnings("fallthrough")
   private int ftype0( CtField ctf, int idx ) {
     String sig = ctf.getSignature();
     switch( sig.charAt(idx) ) {
@@ -560,17 +667,26 @@ public class Boot extends ClassLoader {
       if( sig.equals("Ljava/lang/String;") ) return 9;
       try {
         CtClass ct = ctf.getType();
-        if(idx > 0 && ct.isArray()){
-          CtClass cct = ct.getComponentType();
-          if(cct.subtypeOf(_h2oSerializable))
-              return OBJ_ARR_TYPE-10;
+        if(ct.isArray()){
+          switch(idx){
+          case 1:
+            CtClass cct = ct.getComponentType();
+            if(cct.subtypeOf(_h2oSerializable))
+                return OBJ_ARR_TYPE;
+          case 2:
+            cct = ct.getComponentType().getComponentType();
+            if(cct.subtypeOf(_h2oSerializable))
+                return OBJ_2DARR_TYPE;
+          }
         } else if(ct.subtypeOf(_h2oSerializable)){
             return OBJ_TYPE;
         }
       } catch( NotFoundException e ) {}
       break;
     case '[':                   // Arrays
-      return ftype0(ctf,idx+1)+10; // Same as prims, plus 10
+      int res = ftype0(ctf,idx+1); // Same as prims, plus 10
+      if(res < 100) res += 10;
+      return res;
     }
     throw barf(ctf);
   }

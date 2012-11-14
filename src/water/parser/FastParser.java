@@ -5,6 +5,7 @@ import java.util.ArrayList;
 
 import water.*;
 import water.parser.ParseDataset.DParseTask;
+import water.parser.ParseDataset.ValueString;
 
 /**
  *
@@ -55,6 +56,9 @@ public class FastParser {
 
   DParseTask callback;
 
+  ValueString _eVal = new ValueString();
+
+
 
   public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback) throws Exception {
     _aryKey = aryKey;
@@ -71,7 +75,6 @@ public class FastParser {
     int offset = 0;
     int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
     int quotes = 0;
-    FastTrie colTrie = null;
     long number = 0;
     int exp = 0;
     int fractionDigits = 0;
@@ -116,15 +119,13 @@ NEXT_CHAR:
           if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB)))
             break NEXT_CHAR;
           // we have parsed the string enum correctly
-          callback.addCol(colIdx,colTrie.getTokenId(),0,-2);
+          callback.addSCol(colIdx,_eVal);
           ++colIdx;
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
         // ---------------------------------------------------------------------
         case SEPARATOR_OR_EOL:
           if (c == CHAR_SEPARATOR) {
-            if (colIdx == _numColumns)
-              throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           }
@@ -195,7 +196,8 @@ NEXT_CHAR:
             // fallthrough
           } else {
             state = STRING;
-            colTrie = callback._enums[colIdx];
+            if(colIdx < callback._enums.length)
+              colTrie = callback._enums[colIdx];
             continue MAIN_LOOP;
           }
           // fallthrough to NUMBER
@@ -256,7 +258,8 @@ NEXT_CHAR:
             break NEXT_CHAR;
           } else {
             state = STRING;
-            colTrie = callback._enums[colIdx];
+            if(colIdx < callback._enums.length)
+              colTrie = callback._enums[colIdx];
             offset = tokenStart-1;
             break NEXT_CHAR; // parse as String token now
           }
