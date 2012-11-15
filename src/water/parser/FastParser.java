@@ -123,8 +123,6 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case SEPARATOR_OR_EOL:
           if (c == CHAR_SEPARATOR) {
-            if (colIdx == _numColumns)
-              throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           }
@@ -159,8 +157,6 @@ NEXT_CHAR:
             // we have empty token, store as NaN
             callback.addCol(colIdx,-1,0,-2);
             ++colIdx;
-            if (colIdx == _numColumns)
-              throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
           } else if (isEOL(c)) {
             callback.addCol(colIdx,-1,0,-2);
@@ -240,8 +236,6 @@ NEXT_CHAR:
             callback.addCol(colIdx,number,exp,numStart);
             ++colIdx;
             // do separator state here too
-            if (colIdx == _numColumns)
-              throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           } else if (isEOL(c)) {
