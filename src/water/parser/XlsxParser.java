@@ -73,8 +73,10 @@ public class XlsxParser extends CustomParser {
     public void startElement(String uri, String localName, String name,
         Attributes attributes) throws SAXException {
       // c => cell
+      System.out.println(name);
       if( name.equals("row") ) {
         _rowStr = Strings.nullToEmpty(attributes.getValue("r"));
+        System.out.println(_rowStr);
       } else if( name.equals("c") ) {
         // Figure out if the value is an index in the SST
         String cellType = attributes.getValue("t");
@@ -113,6 +115,7 @@ public class XlsxParser extends CustomParser {
       if( name.equals("v") ) {
         if (_firstRow) {
           _colNames.add(_lastContents);
+          System.out.println(_lastContents)
         } else  {
           System.out.println(_curCol);
           try {
