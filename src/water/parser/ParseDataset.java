@@ -26,7 +26,6 @@ public final class ParseDataset {
   
   private static final int PHASE_ONE = 0;
   private static final int PHASE_TWO = 1;
-  public static final int MAX_ENUM_SIZE = 65535;
 
 // Guess
  private static Compression guessCompressionMethod(Value dataset) {
@@ -203,7 +202,7 @@ public final class ParseDataset {
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
 //    tsk.createValueArrayHeader(colNames,dataset);
-    
+        
     
   }
 
@@ -214,141 +213,6 @@ public final class ParseDataset {
         return false;
     return true;
   }
-
-  /**
-   * Class for tracking enum columns.
-   *
-   * Basically a wrapper around non blocking hash map.
-   * In the first pass, we just collect set of unique strings per column
-   * (if there are less than MAX_ENUM_SIZE unique elements).
-   *
-   * After pass1, the keys are sorted and indexed alphabetically.
-   * In the second pass, map is used only for lookup and never updated.
-   *
-   * Enum objects are shared among threads on the local nodes!
-   *
-   * @author tomasnykodym
-   *
-   */
-  public static final class Enum implements H2OSerializable {
-    NonBlockingHashMap<ValueString, Integer> _map;
-    public Enum(){
-      _map = new NonBlockingHashMap<ValueString, Integer>();
-    }
-
-    /**
-     * Add key to this map (treated as hash set in this case).
-     * All keys are added with value = 1.
-     * @param str
-     */
-    void addKey(ValueString str){
-      // _map is shared and be cast to null (if enum is killed) -> grab local copy
-      NonBlockingHashMap<ValueString, Integer> m = _map;
-      if(m == null)return;
-      if(m.get(str) == null){
-        m.put(new ValueString(Arrays.copyOfRange(str._buf, str._off, str._off + str._length)), 1);
-        if(m.size() > MAX_ENUM_SIZE)
-          kill();
-      }
-    }
-
-    int getTokenId(ValueString str){
-      assert _map.get(str) != null:"missing value! " + str.toString();
-      return _map.get(str);
-    }
-
-    public void merge(Enum other){
-      if(this != other) {
-        if(isKilled() || other.isKilled()){
-          kill(); // too many values, enum shoudl be killed!
-        } else { // do the merge
-          NonBlockingHashMap<ValueString, Integer> myMap = _map;
-          for(ValueString str:other._map.keySet()){
-            myMap.put(str, 0);
-          }
-          if(myMap.size() > MAX_ENUM_SIZE)
-            kill();
-        }
-      }
-    }
-    public int size() {return _map.size();}
-    public boolean isKilled() {return _map == null;}
-    public void kill(){_map = null;}
-
-    // assuming single threaded
-    public String [] computeColumnDomain(){
-      if(isKilled())return null;
-      String [] res = new String[_map.size()];
-      NonBlockingHashMap<ValueString, Integer> oldMap = _map;
-      if(oldMap == null)return null;
-      Iterator<ValueString> it = oldMap.keySet().iterator();
-      for(int i = 0; i < res.length; ++i)
-        res[i] = it.next().toString();
-      Arrays.sort(res);
-      NonBlockingHashMap<ValueString, Integer> newMap = new NonBlockingHashMap<ValueString, Integer>();
-      for(int j = 0; j < res.length; ++j)
-        newMap.put(new ValueString(res[j]), j);
-      oldMap.clear();
-      _map = newMap;
-      return res;
-    }
- // assuming single threaded
-    int wire_len(){
-      // 4 bytes for map size + size* (4 bytes per ValueString._buf.length of the key + 4 bytes of int value)
-      int res = 4 + 8*_map.size();
-      // compute sum of keylens
-      for(ValueString str:_map.keySet())res += str._length;
-      return res;
-    }
- // assuming single threaded
-    public void write(DataOutputStream dos) throws IOException{
-      dos.writeInt(_map.size());
-      Object [] kvs = _map.kvs();
-      for(int i = 2; i < kvs.length; i+= 2){
-        if(kvs[i] == null)continue;
-        assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
-        assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-        ValueString k = (ValueString)kvs[i];
-        assert k._off == 0:"invalid ValueString offset in enum: " + k._off;
-        Integer v = (Integer)kvs[i+1];
-        TCPReceiverThread.writeAry(dos,k._buf);
-        dos.writeInt(v);
-      }
-    }
- // assuming single threaded
-    public void read(DataInputStream dis) throws IOException{
-      int n = dis.readInt();
-      _map = new NonBlockingHashMap<ValueString, Integer>();
-      for(int i = 0; i < n; ++i){
-        ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
-        Integer v = dis.readInt();
-        _map.put(k, v);
-      }
-    }
- // assuming single threaded
-    public void write(Stream s) throws IOException{
-      s.set4(_map.size());
-      Object [] kvs = _map.kvs();
-      for(int i = 2; i < kvs.length; i+= 2){
-        if(kvs[i] == null)continue;
-        assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
-        assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-        s.setAry1(((ValueString)kvs[i])._buf);
-        s.set4((Integer)kvs[i+1]);
-      }
-    }
- // assuming single threaded
-    public void read(Stream s) throws IOException{
-      int n = s.get4();
-      _map = new NonBlockingHashMap<ValueString, Integer>();
-      for(int i = 0; i < n; ++i){
-        ValueString k = new ValueString(s.getAry1());
-        Integer v = s.get4();
-        _map.put(k, v);
-      }
-    }
-  }
-
 
   public static final class DParseTask extends MRTask {
     // pass 1 types
@@ -402,13 +266,9 @@ public final class ParseDataset {
 
 
     // transients - each map creates and uses it's own, no need to get these back
-    transient int [] _outputRows;
-    transient int    _outputIdx;
-    transient Stream [] _outputStreams;
     // create and used only on the task caller's side
     transient String[][] _colDomains;
 
-    transient int _lastOffset;
 
     
     /** Manages the chunk parts of the result hex varray. 
@@ -500,9 +360,14 @@ public final class ParseDataset {
       // return all output streams 
       return result.toArray(new OutputStreamRecord[result.size()]);
     } 
-    
-    transient OutputStreamRecord[] _outputStreams2;
 
+    // 
+    transient OutputStreamRecord[] _outputStreams2;
+    transient Stream _s;
+    transient int _lastOffset;
+    transient int    _outputIdx;
+
+    
     
     transient final CustomParser.Type _parserType;
     transient final Value _sourceDataset;
@@ -611,7 +476,6 @@ public final class ParseDataset {
       tsk._phase = 1;
       tsk._scale = _scale;
       tsk._ncolumns = _ncolumns;
-      tsk._outputRows = _outputRows;
       tsk._colDomains = _colDomains;
       tsk._min = _min;
       tsk._max = _max;
@@ -644,10 +508,6 @@ public final class ParseDataset {
       ValueArray ary = ValueArray.make(_resultKey, Value.ICE, dataset._key, "basic_parse", _numRows, off, cols);
       DKV.put(_resultKey, ary);
     }
-
-
-    // TODO PETA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // I must break map to more steps so that I can reuse code
 
     /** Initialize phase one data structures with the appropriate number of
      * columns.
@@ -744,8 +604,7 @@ public final class ParseDataset {
       }
     }
 
-    // OLD MAP that is ugly and well, old
-    
+/*    
 //    @Override
     public void map2(Key key) {
       try{
@@ -834,7 +693,7 @@ public final class ParseDataset {
         e.printStackTrace();
         _error = e.getMessage();
       }
-    }
+    } */
 
     @Override
     public void reduce(DRemoteTask drt) {
@@ -929,7 +788,6 @@ public final class ParseDataset {
     }
 
 
-    transient Stream _s;
 
     @SuppressWarnings("fallthrough")
     private void calculateColumnEncodings(){
@@ -1007,7 +865,7 @@ public final class ParseDataset {
         }
       }
     }
-    
+/*    
     // old new line that is to be deleted
     
     public void newLine2() {
@@ -1031,7 +889,7 @@ public final class ParseDataset {
           }
         }
       }
-    }
+    } */
 
     public void rollbackLine() {
       --_myrows;
