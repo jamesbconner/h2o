@@ -27,7 +27,7 @@ public class DRF extends water.DRemoteTask {
   double[] _classWt;    // Class weights
 
   int _features;
-  
+
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
   transient RandomForest _rf;        // The local RandomForest
@@ -50,7 +50,7 @@ public class DRF extends water.DRemoteTask {
   public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
-    assert features==-1 || ((features>0) && (features<ary.num_cols()-1)); 
+    assert features==-1 || ((features>0) && (features<ary.num_cols()-1));
     drf._features = features;
     drf._parallel = parallelTrees;
     drf._ntrees = ntrees;
@@ -165,29 +165,26 @@ public class DRF extends water.DRemoteTask {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
+          dapt.stamp(k,S);
           ROWS: for(int j = 0; j < rows; ++j) {
-            // Bail out of broken rows in not-ignored columns
-            for(int c = 0; c < ncolumns; ++c)
+            for(int c = 0; c < ncolumns; ++c) // Bail out of broken rows in not-ignored columns
               if( !icols[c] && !ary.valid(bits,j,rowsize,c)) continue ROWS;
-            for( int c = 0; c < ncolumns; ++c) {
-              if( !ary.valid(bits,j,rowsize,c)) {
-              } else if( dapt.binColumn(c) ) {
+            for( int c = 0; c < ncolumns; ++c)
+              if( dapt.binColumn(c) ) {
                 dapt.addValue((float)ary.datad(bits,j,rowsize,c), j + S, c);
               } else {
                 long v = ary.data(bits,j,rowsize,c);
                 v -= ary.col_min(c);
                 dapt.addValue((short)v, S+j, c);
               }
-            }
           }
         }
       });
       start_row += rows;
     }
     invokeAll(dataInhaleJobs);
-
+    dapt.persistChunks();
     Utils.pln("[RF] Inhale done in " + t_inhale);
-
     return dapt;
   }
   // Local RF computation.

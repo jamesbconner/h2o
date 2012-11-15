@@ -1,8 +1,11 @@
 package hex.rf;
 
 import hex.rf.Data.Row;
-import java.io.IOException;
+
+import java.io.*;
+import java.util.HashMap;
 import java.util.UUID;
+
 import jsr166y.CountedCompleter;
 import jsr166y.RecursiveTask;
 import water.*;
@@ -82,7 +85,7 @@ public class Tree extends CountedCompleter {
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
-    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees);
+    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample);
     am.invoke(_modelKey);
 
     Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
@@ -94,16 +97,18 @@ public class Tree extends CountedCompleter {
     Key _treesKey;
     int _features, _classes, _ntree;
     boolean _nuke;
+    float _sample;
 
-    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n ) {
+    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample) {
       _modelKey = modelKey;
       _treesKey = treesKey;
       _features = f;
       _classes = c;
       _ntree = n;
+      _sample = sample;
     }
     public byte[] atomic( byte[] bits ) {
-      Model m_new = new Model(_modelKey,_treesKey,_features,_classes);
+      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample);
       if( bits != null ) {
         Model m_old = new Model();
         m_old.read(new Stream(bits));
@@ -295,19 +300,23 @@ public class Tree extends CountedCompleter {
     Stream bs = new Stream();
     bs.set4(_data_id);
     bs.set4(_seed);
+    char[] chars = _data._data.getChunksKey().toString().toCharArray();
+    for(char c : chars) bs.set2(c);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
     return key;
   }
 
-  // Classify this serialized tree - withOUT inflating it to a full tree.
-  // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
-  // Returns classes from 0 to N-1
+  /** Classify this serialized tree - withOUT inflating it to a full tree.
+     Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
+     Returns classes from 0 to N-1*/
   public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal, short badData ) {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
     ts.get4();    // Skip seed
+    for(int i=0;i<45;i++) ts.get2(); // skipping chunk key string
+
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
       byte b = tbits[o];
@@ -334,6 +343,29 @@ public class Tree extends CountedCompleter {
     ts.get4();
     return ts.get4();
   }
+  public static HashMap<String, Integer> getChunkMap( byte[] bits) {
+    Stream ts = new Stream(bits);
+    ts.get4();
+    ts.get4();
+    char[] chars = new char[45];
+    for(int i=0;i<45;i++) chars[i]= (char) ts.get2(); // skipping chunk key string
+    Key k=  Key.make(new String(chars));
+    Value v = DKV.get(k);
+    byte[] data = v.get();
+    ByteArrayInputStream bis = new ByteArrayInputStream(data);
+    ObjectInput in = null;
+    HashMap<String,Integer> h = null;
+    try { try {
+      in = new ObjectInputStream(bis);
+      h =(HashMap<String,Integer>) in.readObject();
+    } finally {
+      bis.close();
+      in.close();
+    }
+    } catch (Exception e) { throw new Error(e); }
+    return h;
+  }
+
   public static int dataId( byte[] bits) {
     Stream ts = new Stream(bits);
     return ts.get4();
@@ -350,6 +382,7 @@ public class Tree extends CountedCompleter {
       _ts = new Stream(tbits);
       _ts.get4();               // Skip tree ID
       _ts.get4();               // Skip seed
+      for(int i=0;i<45;i++) _ts.get2(); // skipping chunk key string
     }
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();
