@@ -373,7 +373,7 @@ public final class ParseDataset {
             is = _sourceDataset.openStream();
             XlsParser p = new XlsParser(this);
             p.parse(_sourceDataset._key); 
-            System.out.println("hello");
+            --_myrows; // do not count the header
           } catch (IOException e) {
             this._error = e.getMessage();
           } finally {
