@@ -38,7 +38,7 @@ public final class ParseDataset {
  }
 
 
- static class ValueString implements CharSequence {
+ public final static class ValueString implements CharSequence {
    byte [] _buff;
    int _off;
    int _length;
@@ -68,6 +68,21 @@ public final class ParseDataset {
   @Override
   public String toString(){
     return new String(_buff,_off,_length);
+  }
+  
+  public ValueString() { }
+  
+  public ValueString(String from) {
+    _buff = from.getBytes();
+    _off = 0;
+    _length = _buff.length;
+  }
+  
+  public ValueString setTo(String what) {
+    _buff = what.getBytes();
+    _off = 0;
+    _length = _buff.length;
+    return this;
   }
  }
 
@@ -750,13 +765,8 @@ public final class ParseDataset {
         addNumCol(colIdx, number, exp, 1);
       }
     }
-
-    public void addCol(int colIdx, String value) {
-      // NOT IMPLEMENTED YET
-      // here I should just update the
-      System.out.println("Added column "+colIdx+" value "+value);
-    }
-
+    
+    
     public void setColumnNames(String[] colNames) {
       // NOT IMPLEMENTED YET
     }
@@ -767,7 +777,8 @@ public final class ParseDataset {
       if(colIdx >= _ncolumns)
         return;
       ++_invalidValues[colIdx];
-      if(_phase == 0)return;
+      if(_phase == PHASE_ONE)
+        return;
       switch (_colTypes[colIdx]) {
         case BYTE:
           _s.set1(-1);
@@ -798,97 +809,109 @@ public final class ParseDataset {
     public void addStrCol(int colIdx, ValueString str){
       if(colIdx >= _ncolumns)
         return;
-      if(_phase == PHASE_ONE) {
-        Enum e = _enums[colIdx];
-        if(e == null)return;
-        if(_colTypes[colIdx] ==UCOL)
-          _colTypes[colIdx] = ECOL;
-        e.getTokenId(str);
-        if(e.size() > MAX_ENUM_ELEMS)
-          e.kill();
-        ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
-      } else if(_enums[colIdx] != null) {
-        assert _enums[colIdx] != null;
-        int id = _enums[colIdx].getTokenId(str);
-        // we do not expect any misses here
-        assert 0 <= id && id < _enums[colIdx].size();
-        switch (_colTypes[colIdx]) {
-        case BYTE:
-          _s.set1(id);
+      switch (_phase) {
+        case PHASE_ONE:
+          Enum e = _enums[colIdx];
+          if(e == null)return;
+          if(_colTypes[colIdx] ==UCOL)
+            _colTypes[colIdx] = ECOL;
+          e.getTokenId(str);
+          if(e.size() > MAX_ENUM_ELEMS)
+            e.kill();
+          ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
           break;
-        case SHORT:
-          _s.set2(id);
-          break;
-        case INT:
-          _s.set4(id);
+        case PHASE_TWO:
+          if(_enums[colIdx] != null) {
+            int id = _enums[colIdx].getTokenId(str);
+            // we do not expect any misses here
+            assert 0 <= id && id < _enums[colIdx].size();
+            switch (_colTypes[colIdx]) {
+            case BYTE:
+              _s.set1(id);
+              break;
+            case SHORT:
+              _s.set2(id);
+              break;
+            case INT:
+              _s.set4(id);
+              break;
+            default:
+              assert false:"illegal case: " + _colTypes[colIdx];
+            }
+          } else {
+            addInvalidCol(colIdx);
+          }
           break;
         default:
-          assert false:"illegal case: " + _colTypes[colIdx];
-        }
-      } else
-        addInvalidCol(colIdx);
+          assert (false);
+      }
     }
 
     @SuppressWarnings("fallthrough")
     public void addNumCol(int colIdx, long number, int exp, int numLength) {
       if(colIdx >= _ncolumns)
         return;
-      if (_phase == 0) {
-        assert numLength >= 0:"invalid numLenght argument: " + numLength;
-        double d = number*pow10(exp);
-        if(d < _min[colIdx])_min[colIdx] = d;
-        if(d > _max[colIdx])_max[colIdx] = d;
-        _mean[colIdx] += d;
-        if(exp < _scale[colIdx]) {
-          _scale[colIdx] = exp;
-          if(_colTypes[colIdx] != DCOL){
-            if((float)d != d)
-              _colTypes[colIdx] = DCOL;
-            else
-              _colTypes[colIdx] = FCOL;
-          }
-        } else if(_colTypes[colIdx] < ICOL) {
-         _colTypes[colIdx] = ICOL;
-        }
-      } else {
-        switch(numLength) {
-          case -1: // NaN
-            addInvalidCol(colIdx);
-            break;
-          default:
-            switch (_colTypes[colIdx]) {
-              case BYTE:
-                _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case SHORT:
-                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case INT:
-                _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case LONG:
-                _s.set8(number*pow10i(exp - _scale[colIdx]));
-                break;
-              case FLOAT:
-                _s.set4f((float)(number * pow10(exp)));
-                break;
-              case DOUBLE:
-                _s.set8d(number * pow10(exp));
-                break;
-              case DSHORT:
-                // scale is computed as negative in the first pass,
-                // therefore to compute the positive exponent after scale, we add scale and the original exponent
-                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case STRINGCOL:
-                break;
+      switch (_phase) {
+        case PHASE_ONE:
+          assert numLength >= 0:"invalid numLenght argument: " + numLength;
+          double d = number*pow10(exp);
+          if(d < _min[colIdx])_min[colIdx] = d;
+          if(d > _max[colIdx])_max[colIdx] = d;
+          _mean[colIdx] += d;
+          if(exp < _scale[colIdx]) {
+            _scale[colIdx] = exp;
+            if(_colTypes[colIdx] != DCOL){
+              if((float)d != d)
+                _colTypes[colIdx] = DCOL;
+              else
+                _colTypes[colIdx] = FCOL;
             }
-        }
-        // update sigma
-        if(numLength > 0 && !Double.isNaN(_mean[colIdx])) {
-          double d = number*pow10(exp) - _mean[colIdx];
-          _sigma[colIdx] += d*d;
-        }
+          } else if(_colTypes[colIdx] < ICOL) {
+          _colTypes[colIdx] = ICOL;
+          }
+          break;
+        case PHASE_TWO:
+          switch(numLength) {
+            case -1: // NaN
+              addInvalidCol(colIdx);
+              break;
+            default:
+              switch (_colTypes[colIdx]) {
+                case BYTE:
+                  _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                  break;
+                case SHORT:
+                  _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                  break;
+                case INT:
+                  _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                  break;
+                case LONG:
+                  _s.set8(number*pow10i(exp - _scale[colIdx]));
+                  break;
+                case FLOAT:
+                  _s.set4f((float)(number * pow10(exp)));
+                  break;
+                case DOUBLE:
+                  _s.set8d(number * pow10(exp));
+                  break;
+                case DSHORT:
+                  // scale is computed as negative in the first pass,
+                  // therefore to compute the positive exponent after scale, we add scale and the original exponent
+                  _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                  break;
+                case STRINGCOL:
+                  break;
+              }
+          }
+          // update sigma
+          if(numLength > 0 && !Double.isNaN(_mean[colIdx])) {
+            d = number*pow10(exp) - _mean[colIdx];
+            _sigma[colIdx] += d*d;
+          }
+          break;
+        default:
+          assert (false);
       }
     }
   }
