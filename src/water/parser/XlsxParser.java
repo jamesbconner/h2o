@@ -63,7 +63,6 @@ public class XlsxParser extends CustomParser {
       try { is.close(); } catch (IOException e) { }
     }
   }
-
   
   private class SheetHandler extends DefaultHandler {
     private String  _lastContents;
@@ -115,6 +114,7 @@ public class XlsxParser extends CustomParser {
         if (_firstRow) {
           _colNames.add(_lastContents);
         } else  {
+          System.out.println(_curCol);
           try {
             Double d = Double.parseDouble(_lastContents);
             if (Double.isNaN(d))

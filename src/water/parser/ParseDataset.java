@@ -46,30 +46,39 @@ public final class ParseDataset {
     if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
       throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
     try {
+      // try if it is XLS file first
+      try {
+        parseUncompressed(result,dataset,CustomParser.Type.XLS);
+        return;
+      } catch (Exception e) {
+        // pass
+      }
       Compression compression = guessCompressionMethod(dataset);
+      if (compression == Compression.ZIP) {
+        try {
+          parseUncompressed(result,dataset,CustomParser.Type.XLSX);
+          return;
+        } catch (Exception e) {
+          // pass
+        }
+      }
       switch (compression) {
-      case NONE: parseUncompressed(result, dataset); break;
-      case ZIP : parseZipped      (result, dataset); break;
-      case GZIP: parseGZipped     (result, dataset); break;
-      default  : throw new Error("Uknown compression of dataset!");
+        case NONE: parseUncompressed(result, dataset,CustomParser.Type.CSV); break;
+        case ZIP : parseZipped      (result, dataset); break;
+        case GZIP: parseGZipped     (result, dataset); break;
+        default  : throw new Error("Uknown compression of dataset!");
       }
     } catch( Exception e ) {
       throw new Error(e);
     }
   }
-
-
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
  // result.  This does a distributed parallel parse.
-  public static void parseUncompressed( Key result, Value dataset ) throws Exception {
-    String datasetName = new String(dataset._key._kb);
-//    if(datasetName.endsWith(".xls") || datasetName.contains(".xls."))
-//      throw new Error("xls format is currently not supported.");
-    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, CustomParser.Type.XLSX);
+  public static void parseUncompressed( Key result, Value dataset, CustomParser.Type parserType ) throws Exception {
+    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, parserType);
     phaseOne.phaseOne();
     DParseTask phaseTwo = DParseTask.createPhaseTwo(phaseOne);
     phaseTwo.phaseTwo();
-    
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
