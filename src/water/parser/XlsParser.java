@@ -30,17 +30,20 @@ public class XlsParser extends CustomParser implements HSSFListener {
 
   @Override public void parse(Key key) throws IOException {
     _firstRow = true;
-    _fs = new POIFSFileSystem(DKV.get(key).openStream());
-    MissingRecordAwareHSSFListener listener = new MissingRecordAwareHSSFListener(this);
-    _formatListener = new FormatTrackingHSSFListener(listener);
+    InputStream is = DKV.get(key).openStream();
+    try {
+      _fs = new POIFSFileSystem(is);
+      MissingRecordAwareHSSFListener listener = new MissingRecordAwareHSSFListener(this);
+      _formatListener = new FormatTrackingHSSFListener(listener);
 
-    HSSFEventFactory factory = new HSSFEventFactory();
-    HSSFRequest request = new HSSFRequest();
-    request.addListenerForAllRecords(_formatListener);
+      HSSFEventFactory factory = new HSSFEventFactory();
+      HSSFRequest request = new HSSFRequest();
+      request.addListenerForAllRecords(_formatListener);
 
-    factory.processWorkbookEvents(request, _fs);
-//    _handler.handleFinished(_firstRow);
-
+      factory.processWorkbookEvents(request, _fs);
+    } finally {
+      try { is.close(); } catch (IOException e) { }
+    }
   }
   
   ArrayList<String> _columnNames = new ArrayList();

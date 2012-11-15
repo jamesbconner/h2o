@@ -61,11 +61,11 @@ public final class ParseDataset {
 
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
  // result.  This does a distributed parallel parse.
-  public static void parseUncompressed( Key result, Value dataset ) throws IOException {
+  public static void parseUncompressed( Key result, Value dataset ) throws Exception {
     String datasetName = new String(dataset._key._kb);
 //    if(datasetName.endsWith(".xls") || datasetName.contains(".xls."))
 //      throw new Error("xls format is currently not supported.");
-    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, CustomParser.Type.XLS);
+    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, CustomParser.Type.XLSX);
     phaseOne.phaseOne();
     DParseTask phaseTwo = DParseTask.createPhaseTwo(phaseOne);
     phaseTwo.phaseTwo();
@@ -324,7 +324,7 @@ public final class ParseDataset {
       return new DParseTask(dataset,resultKey,parserType); 
     }
     
-    public void phaseOne() { 
+    public void phaseOne() throws Exception { 
       switch (_parserType) {
         case CSV:
           // precompute the parser setup, column setup and other settings
@@ -356,20 +356,12 @@ public final class ParseDataset {
           this.invoke(_sourceDataset._key);
           break;
         case XLS:
+        case XLSX:
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
-          InputStream is = null;
-          try {
-            is = _sourceDataset.openStream();
-            XlsParser p = new XlsParser(this);
-            p.parse(_sourceDataset._key); 
-            --_myrows; // do not count the header
-          } catch (IOException e) {
-            this._error = e.getMessage();
-          } finally {
-            if (is!=null)
-              try { is.close(); } catch (IOException e) { }
-          }
+          CustomParser p = (_parserType == CustomParser.Type.XLS) ? new XlsParser(this) : new XlsxParser(this);
+          p.parse(_sourceDataset._key); 
+          --_myrows; // do not count the header
           break;
         default:
           throw new Error("NOT IMPLEMENTED");
@@ -406,7 +398,7 @@ public final class ParseDataset {
       return t;
     }
     
-    public void phaseTwo() throws IOException {
+    public void phaseTwo() throws Exception {
       switch (_parserType) {
         case CSV:
           // for CSV parser just launch the distributed parser on the chunks
@@ -414,6 +406,7 @@ public final class ParseDataset {
           this.invoke(_sourceDataset._key);
           break;
         case XLS:
+        case XLSX:
           // initialize statistics - invalid rows, sigma and row size
           phaseTwoInitialize();
           // create the output streams
@@ -421,7 +414,7 @@ public final class ParseDataset {
           assert (_outputStreams2.length > 0);
           _s = _outputStreams2[0].initialize();
           // perform the second parse pass
-          XlsParser p = new XlsParser(this);
+          CustomParser p = (_parserType == CustomParser.Type.XLS) ? new XlsParser(this) : new XlsxParser(this);
           p.parse(_sourceDataset._key);
           // store the last stream if not stored during the parse
           if (_s != null) 

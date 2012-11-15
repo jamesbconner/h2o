@@ -45,17 +45,22 @@ public class XlsxParser extends CustomParser {
   
   @Override public void parse(Key key) throws Exception {
     _firstRow = true;
-    XSSFReader reader = new XSSFReader(OPCPackage.open(DKV.get(key).openStream()));
-    _sst = reader.getSharedStringsTable();
-    XMLReader parser = makeSheetParser();
-    Iterator<InputStream> it = reader.getSheetsData(); 
-    while (it.hasNext()) {
-      InputStream sheet = it.next();
-      try {
-        parser.parse(new InputSource(sheet));
-      } finally {
-        sheet.close();
+    InputStream is = DKV.get(key).openStream();
+    try {
+      XSSFReader reader = new XSSFReader(OPCPackage.open(is));
+      _sst = reader.getSharedStringsTable();
+      XMLReader parser = makeSheetParser();
+      Iterator<InputStream> it = reader.getSheetsData(); 
+      while (it.hasNext()) {
+        InputStream sheet = it.next();
+        try {
+          parser.parse(new InputSource(sheet));
+        } finally {
+          sheet.close();
+        }
       }
+    } finally {
+      try { is.close(); } catch (IOException e) { }
     }
   }
 
