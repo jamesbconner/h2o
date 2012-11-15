@@ -10,6 +10,7 @@ import water.ValueArray.Column;
 import water.nbhm.NonBlockingHashMap;
 
 import com.google.common.io.Closeables;
+import java.util.ArrayList;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured
@@ -395,6 +396,103 @@ public final class ParseDataset {
 
     transient int _lastOffset;
 
+    
+    /** Manages the chunk parts of the result hex varray. 
+     * 
+     * Second pass parse encodes the data from the source file to the sequence
+     * of these stream objects. Each stream object will always go to a single
+     * chunk (but a single chunk can contain more stream objects). To manage
+     * this situation, the list of stream records is created upfront and then
+     * filled automatically. 
+     * 
+     * Stream record then knows its chunkIndex, that is which chunk it will be
+     * written to, the offset into that chunk it will be written and the number
+     * of input rows that will be parsed to it.
+     */
+    final class OutputStreamRecord {
+      final int _chunkIndex;
+      final int _chunkOffset;
+      final int _numRows;
+      Stream _stream;
+
+      /** Allocates the stream for the chunk. Streams should only be allocated
+       * right before the record will be used and should be stored immediately
+       * after that. 
+       */
+      public Stream initialize() {
+        assert (_stream == null);
+        _stream = new Stream(_numRows * _rowsize);
+        return _stream;
+      }
+      
+      /** Stores the stream to its chunk using the atomic union. After the data
+       * from the stream is stored, its memory is freed up. 
+       */
+      public void store() {
+        assert (_stream != null);
+        assert (_stream.eof());
+        Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(_chunkIndex));
+        AtomicUnion u = new AtomicUnion(_stream._buf,0,_chunkOffset,_stream._buf.length);
+        lazy_complete(u.fork(k));
+        _stream = null; // free mem
+      }
+      
+      // You are not expected to create record streams yourself, use the 
+      // createRecords method of the DParseTask.
+      protected OutputStreamRecord(int chunkIndex, int chunkOffset, int numRows) {
+        _chunkIndex = chunkIndex;
+        _chunkOffset = chunkOffset;
+        _numRows = numRows;
+      }
+    }
+    
+    /** Returns the list of streams that should be used to store the given rows.
+     * 
+     * None of the returned streams is initialized. 
+     * 
+     * @param firstRow
+     * @param rowsToParse
+     * @return 
+     */
+    protected OutputStreamRecord[] createRecords(long firstRow, int rowsToParse) {
+      assert (_rowsize != 0);
+      ArrayList<OutputStreamRecord> result = new ArrayList();
+      int rpc = (int) ValueArray.chunk_size() / _rowsize;
+      int rowInChunk = (int)firstRow % rpc;
+      int lastChunk = Math.max(1,this._numRows / rpc) - 1; // index of the last chunk in the VA
+      int chunkIndex = (int)firstRow/rpc; // index of the chunk I am writing to
+      if (chunkIndex > lastChunk) { // we can be writing to the second chunk after its real boundary
+        assert (chunkIndex == lastChunk + 1);
+        rowInChunk += rpc;
+        --chunkIndex;
+      }
+      do {
+        // number of rows that go the the current chunk - all remaining rows for the
+        // last chunk, or the number of rows that can go to the chunk
+        int rowsToChunk = (chunkIndex == lastChunk) ? rowsToParse : (rpc - rowInChunk); 
+        // add the output stream reacord
+        result.add(new OutputStreamRecord(chunkIndex, rowInChunk * _rowsize, rowsToChunk));
+        // update the running variables
+        if (chunkIndex < lastChunk) {
+          rowInChunk = 0;
+          ++chunkIndex;
+        }
+        rowsToParse -= rowsToChunk;
+        assert (rowsToParse >= 0);
+      } while (rowsToParse > 0);
+      
+      _outputIdx = 0;
+      _lastOffset = - _rowsize;
+      // return all output streams 
+      return result.toArray(new OutputStreamRecord[result.size()]);
+    } 
+    
+    transient OutputStreamRecord[] _outputStreams2;
+
+    
+    
+    
+    
     public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
       _resultKey = resultKey;
@@ -509,10 +607,13 @@ public final class ParseDataset {
     public void phaseTwoInitialize() {
       assert (_phase == PHASE_TWO);
       _invalidValues = new long[_ncolumns];
-
+      _sigma = new double[_ncolumns];
+      _rowsize = 0;
+      for(byte b:_colTypes) _rowsize += Math.abs(colSizes[b]);
     }
     
-    public void newMap(Key key) {
+//    public void newMap(Key key) {
+    @Override public void map(Key key) {
       try {
         Key aryKey = null;
         boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
@@ -525,7 +626,9 @@ public final class ParseDataset {
         switch (_phase) {
           case PHASE_ONE:
             assert (_ncolumns != 0);
+            // initialize the column statistics 
             phaseOneInitialize(_ncolumns);
+            // perform the parse
             FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
             p.parse(key,skipFirstLine);
             if(arraylet) {
@@ -534,23 +637,41 @@ public final class ParseDataset {
             }
             break;
           case PHASE_TWO:
-            
+            assert (_ncolumns != 0);
+            // initialize statistics - invalid rows, sigma and row size
+            phaseTwoInitialize();
+            // calculate the first row and the number of rows to parse
+            int firstRow = 0;
+            int lastRow = _myrows;
+            _myrows = 0;
+            if(arraylet){
+              long origChunkIdx = ValueArray.getChunkIndex(key);
+              firstRow = (origChunkIdx == 0) ? 0 : _nrows[(int)origChunkIdx-1];
+              lastRow = _nrows[(int)origChunkIdx];
+            }
+            int rowsToParse = lastRow - firstRow;
+            // create the output streams
+            _outputStreams2 = createRecords(firstRow, rowsToParse);
+            assert (_outputStreams2.length > 0);
+            _s = _outputStreams2[0].initialize();
+            // perform the second parse pass
+            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+            p2.parse(key,skipFirstLine);
+            // store the last stream if not stored during the parse
+            if (_s != null) 
+              _outputStreams2[_outputIdx].store();
             break;
           default:
             assert (false);
-          
-          
         }
-        
-        
       }catch(Exception e){
         e.printStackTrace();
         _error = e.getMessage();
       }
     }
 
-    @Override
-    public void map(Key key) {
+//    @Override
+    public void map2(Key key) {
       try{
         Key aryKey = null;
         boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
@@ -787,7 +908,32 @@ public final class ParseDataset {
       }
     }
 
+    
     public void newLine() {
+      ++_myrows;
+      if (_phase == PHASE_TWO) {
+        _lastOffset += _rowsize;
+        // check if the row was a full size row or not
+        if (_lastOffset > _s._off) {
+          // JIRA - maybe we might want to do domething else here - now it fills
+          // the contents to the default value which is 0
+          _s._off = _lastOffset;
+        }
+        // if we are at the end of current stream, move to the next one
+        if (_s.eof()) {
+          _outputStreams2[_outputIdx].store();
+          ++_outputIdx;
+          if (_outputIdx < _outputStreams.length) {
+            _s = _outputStreams2[_outputIdx].initialize();
+            _lastOffset = 0;
+          } else {
+            _s = null; // just to be sure we throw a NPE if there is a problem
+          }
+        }
+      }
+    }
+    
+    public void newLine2() {
       ++_myrows;
       if (_phase != 0) {
         _lastOffset += _rowsize;
