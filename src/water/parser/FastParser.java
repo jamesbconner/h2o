@@ -158,8 +158,6 @@ NEXT_CHAR:
             // we have empty token, store as NaN
             callback.addInvalidCol(colIdx);
             ++colIdx;
-            if (colIdx == _numColumns)
-              throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
           } else if (isEOL(c)) {
             if((_str._off + _str._length) > _str._buf.length){ // crossing chunk boundary
@@ -240,8 +238,6 @@ NEXT_CHAR:
             callback.addNumCol(colIdx,number,exp,numStart);
             ++colIdx;
             // do separator state here too
-            if (colIdx == _numColumns)
-              throw new Exception("Only "+_numColumns+" columns expected.");
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           } else if (isEOL(c)) {
