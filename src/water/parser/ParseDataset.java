@@ -391,6 +391,16 @@ public final class ParseDataset {
         default:
           throw new Error("NOT IMPLEMENTED");
       }
+      // calculate proper numbers of rows for the chunks
+      if (_nrows != null) {
+        _numRows = 0;
+        for (int i = 0; i < _nrows.length; ++i) {
+          _numRows += _nrows[i];
+          _nrows[i] = _numRows;
+        }
+      } else {
+        _numRows = _myrows;
+      }
       // normalize mean
       for(int i = 0; i < _ncolumns; ++i)
         _mean[i] = _mean[i]/(_numRows - _invalidValues[i]);
@@ -454,15 +464,6 @@ public final class ParseDataset {
           _enums[i] = null;
       }
       calculateColumnEncodings();
-      if (_nrows != null) {
-        _numRows = 0;
-        for (int i = 0; i < _nrows.length; ++i) {
-          _numRows += _nrows[i];
-          _nrows[i] = _numRows;
-        }
-      } else {
-        _numRows = _myrows;
-      }
     }
 
     public void createValueArrayHeader() {
