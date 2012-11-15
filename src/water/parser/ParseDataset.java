@@ -69,15 +69,15 @@ public final class ParseDataset {
   public String toString(){
     return new String(_buff,_off,_length);
   }
-  
+
   public ValueString() { }
-  
+
   public ValueString(String from) {
     _buff = from.getBytes();
     _off = 0;
     _length = _buff.length;
   }
-  
+
   public ValueString setTo(String what) {
     _buff = what.getBytes();
     _off = 0;
@@ -357,7 +357,7 @@ public final class ParseDataset {
           if(kvs[i] == null)continue;
           assert kvs[i] instanceof String:"invalid key inside enum"+kvs[i].toString();
           assert kvs[i+1] instanceof String:"invalid value inside enum"+kvs[i].toString();
-          s.setLen2Bytes(((String)kvs[i]));
+          s.setLen2Str(((String)kvs[i]));
           s.set4((Integer)kvs[i+1]);
         }
       }
@@ -482,10 +482,10 @@ public final class ParseDataset {
       DKV.put(_resultKey, ary);
     }
 
-    
+
     // TODO PETA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // I must break map to more steps so that I can reuse code
-    
+
     public void phaseOneInitialize(int numColumns) {
       assert (_phase == PHASE_ONE);
       _ncolumns = numColumns;
@@ -498,11 +498,11 @@ public final class ParseDataset {
       _scale = new int[_ncolumns];
       _colTypes = new byte[_ncolumns];
     }
-    
+
     public void phaseTwoInitialize() {
       assert (_phase == PHASE_TWO);
       _invalidValues = new long[_ncolumns];
-      
+
     }
 
     @Override
@@ -788,8 +788,8 @@ public final class ParseDataset {
         addNumCol(colIdx, number, exp, 1);
       }
     }
-    
-    
+
+
     public void setColumnNames(String[] colNames) {
       // NOT IMPLEMENTED YET
     }
