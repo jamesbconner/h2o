@@ -599,19 +599,10 @@ public final class ParseDataset {
       assert (_phase == 0 || _s == null);
     }
     
-    
-    public void addCol(int colIdx, double value) {
-      // NOT IMPLEMENTED YET
-    }
-    
-    public void addCol(int colIdx, String value) {
-      // NOT IMPLEMENTED YET
-    }
-    
-
     @SuppressWarnings("fallthrough")
     public void addCol(int colIdx, long number, int exp, int numLength) throws Exception {
-      assert(colIdx < _ncolumns);
+      if (colIdx >= _ncolumns)
+        return; // nothing to be done
       if (_phase == 0) {
         switch(numLength) {
           case -1:
