@@ -543,7 +543,7 @@ public final class ParseDataset {
       do {
         // number of rows that go the the current chunk - all remaining rows for the
         // last chunk, or the number of rows that can go to the chunk
-        int rowsToChunk = (chunkIndex == lastChunk) ? rowsToParse : (rpc - rowInChunk); 
+        int rowsToChunk = (chunkIndex == lastChunk) ? rowsToParse : Math.min(rowsToParse, rpc - rowInChunk); 
         // add the output stream reacord
         result.add(new OutputStreamRecord(chunkIndex, rowInChunk * _rowsize, rowsToChunk));
         // update the running variables
@@ -993,7 +993,7 @@ public final class ParseDataset {
         if (_s.eof()) {
           _outputStreams2[_outputIdx].store();
           ++_outputIdx;
-          if (_outputIdx < _outputStreams.length) {
+          if (_outputIdx < _outputStreams2.length) {
             _s = _outputStreams2[_outputIdx].initialize();
             _lastOffset = 0;
           } else {
