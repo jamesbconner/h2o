@@ -486,6 +486,11 @@ public final class ParseDataset {
     // TODO PETA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // I must break map to more steps so that I can reuse code
 
+    /** Initialize phase one data structures with the appropriate number of
+     * columns. 
+     * 
+     * @param numColumns 
+     */
     public void phaseOneInitialize(int numColumns) {
       assert (_phase == PHASE_ONE);
       _ncolumns = numColumns;
@@ -499,10 +504,49 @@ public final class ParseDataset {
       _colTypes = new byte[_ncolumns];
     }
 
+    /** Initializes the output streams. 
+     */
     public void phaseTwoInitialize() {
       assert (_phase == PHASE_TWO);
       _invalidValues = new long[_ncolumns];
 
+    }
+    
+    public void newMap(Key key) {
+      try {
+        Key aryKey = null;
+        boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
+        boolean skipFirstLine = _skipFirstLine;
+        if(arraylet) {
+          aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
+          _chunkId = ValueArray.getChunkIndex(key);
+          skipFirstLine = skipFirstLine || (ValueArray.getChunkIndex(key) != 0);
+        }
+        switch (_phase) {
+          case PHASE_ONE:
+            assert (_ncolumns != 0);
+            phaseOneInitialize(_ncolumns);
+            FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
+            p.parse(key,skipFirstLine);
+            if(arraylet) {
+              assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
+              _nrows[ValueArray.getChunkIndex(key)] = _myrows;
+            }
+            break;
+          case PHASE_TWO:
+            
+            break;
+          default:
+            assert (false);
+          
+          
+        }
+        
+        
+      }catch(Exception e){
+        e.printStackTrace();
+        _error = e.getMessage();
+      }
     }
 
     @Override
