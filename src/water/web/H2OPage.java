@@ -1,9 +1,8 @@
 package water.web;
 
-import com.google.gson.JsonObject;
 import java.util.Properties;
+
 import water.ValueArray;
-import water.Key;
 
 /** H2O branded web page.
  *
@@ -29,6 +28,7 @@ public abstract class H2OPage extends Page {
     + "              <li><a href=\"/Put\">Put</a></li>"
     + "              <li><a href=\"/Timeline\">Timeline</a></li>"
     + "              <li><a href=\"/ImportQuery\">Import</a></li>"
+    + "              <li><a href=\"/RFBuildQuery\">RF</a></li>"
     + "              <li><a href=\"/DebugView\">Debug View</a></li>"
     + "              <li><a href=\"/ProgressView\">Progress View</a></li>"
     + "              <li><a href=\"/Network\">Network</a></li>"
@@ -87,10 +87,6 @@ public abstract class H2OPage extends Page {
     return notice.toString();
   }
 
-  public static void addProperty(JsonObject json, String k, Key key) {
-    json.addProperty(k, key.toString());
-  }
-
   public static String wrap(String what) {
     RString response = new RString(html);
     response.replace("contents",what);
@@ -144,18 +140,23 @@ public abstract class H2OPage extends Page {
         res = new_res;
         continue __OUTER;
       }
-      for( int j = 0; j < colNames.length; ++j )
-        if( colNames[j].equalsIgnoreCase(colExp) ) {
-          res[idx++] = j;
-          continue __OUTER;
-        }
-      try {
-        res[idx++] = Integer.valueOf(colExps[i].trim());
-      } catch( NumberFormatException e ) {
-        throw new InvalidColumnIdException(colExps[i].trim());
-      }
+      res[idx++] = parseColumnNameOrIndex(colNames, colExp);
     }
     return res;
+  }
+
+  public int parseColumnNameOrIndex(String[] colNames, String s) throws InvalidColumnIdException {
+    s = s.trim();
+    for( int j = 0; j < colNames.length; ++j )
+      if( colNames[j].equalsIgnoreCase(s) )
+        return j;
+    try {
+      int i = Integer.valueOf(s);
+      if(i < 0 || colNames.length <= i) throw new InvalidColumnIdException(s);
+      return i;
+    } catch( NumberFormatException e ) {
+      throw new InvalidColumnIdException(s);
+    }
   }
 
 }

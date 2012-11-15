@@ -1,17 +1,19 @@
 package water.web;
 
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
-import com.google.gson.JsonObject;
 import init.Boot;
+
 import java.io.*;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+
 import water.H2O;
 import water.NanoHTTPD;
 import water.web.Page.PageError;
+
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
+import com.google.gson.JsonObject;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -59,7 +61,11 @@ public class Server extends NanoHTTPD {
     _pages.put("Put",new PutQuery());
     _pages.put("PutValue",new PutValue());
     _pages.put("PutVector",new PutVector());
-    _pages.put("RFView",new RFView()); // View random-forest output
+    _pages.put("RFView",new RFView());
+    _pages.put("RFViewQuery",new RFViewQuery());
+    _pages.put("RFBuildQuery",new RFBuildQuery());
+    _pages.put("RFBuildQuery1",new RFBuildQuery1());
+    _pages.put("RFBuildQuery2",new RFBuildQuery2());
     _pages.put("RFTreeView",new RFTreeView());
     _pages.put("RF",new RandomForestPage());
     _pages.put("RandomForest",new RandomForestPage());
@@ -76,6 +82,8 @@ public class Server extends NanoHTTPD {
     _pages.put("logoff", new Logoff());
     _pages.put("nop", new NOP());
     _pages.put("NOP", new NOP());
+    _pages.put("JStack", new DebugJStackView());
+    _pages.put("DbgJStack", new DebugJStackView());
   }
 
 
@@ -119,8 +127,8 @@ public class Server extends NanoHTTPD {
 
   // uri serve -----------------------------------------------------------------
   @Override public Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1); // Jack priority for user-visible requests
     if (uri.isEmpty()) uri = "/";
-
 
     Page page = _pages.get(uri.substring(1));
     boolean json = uri.endsWith(".json");

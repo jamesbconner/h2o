@@ -15,21 +15,6 @@ import water.web.Page.PageError;
  */
 public class ServletUtil {
 
-  // Pull out two parameters and check for errors on the key
-  public static String serveTwoParams(Properties args, RunnableTask task) throws PageError {
-    ValueArray ary = check_array(args,"Key");
-
-    int colA = H2OPage.getAsNumber(args,"colA",0);
-    int colB = H2OPage.getAsNumber(args,"colB",1);
-
-    if( !(0 <= colA && colA < ary.num_cols()) )
-      return H2OPage.wrap(H2OPage.error("Column "+colA+" must be between 0 and "+(ary.num_cols()-1)));
-    if( !(0 <= colB && colB < ary.num_cols()) )
-      return H2OPage.wrap(H2OPage.error("Column "+colB+" must be between 0 and "+(ary.num_cols()-1)));
-
-    return task.run(ary,colA,colB);
-  }
-
   // Returns a structured ValueArray or an error String
   public static ValueArray check_array(Properties args, String s) throws PageError {
     Key key = check_key(args,s);

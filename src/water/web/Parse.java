@@ -2,9 +2,7 @@ package water.web;
 import java.util.Properties;
 import java.util.UUID;
 
-import water.DKV;
-import water.Key;
-import water.Value;
+import water.*;
 import water.parser.ParseDataset;
 
 import com.google.gson.JsonObject;
@@ -21,13 +19,22 @@ public class Parse extends H2OPage {
     Key resKey = Key.make(rk);
 
     JsonObject res = new JsonObject();
-    addProperty(res, "Key", resKey);
+    res.addProperty("Key", resKey.toString());
 
     if( DKV.get(resKey) == null ) { // Key not parsed?  Parse it
       long start = System.currentTimeMillis();
       Value dataset = DKV.get(key);  // Get the source dataset root key
       if( dataset == null ) throw new PageError(key.toString()+" not found");
-      ParseDataset.parse(resKey, dataset);
+      try {
+        ParseDataset.parse(resKey, dataset);
+      } catch(IllegalArgumentException e) {
+        e.printStackTrace(System.err);
+        throw new PageError(e.getMessage());
+      } catch(Error e) {
+        e.printStackTrace(System.err);
+        throw new PageError(e.getMessage());
+      }
+
       long now = System.currentTimeMillis();
       res.addProperty("TimeMS", now - start);
     } else {
@@ -39,11 +46,13 @@ public class Parse extends H2OPage {
 
   @Override protected String serveImpl(Server s, Properties p, String sessionID) throws PageError {
     JsonObject json = serverJson(s, p,sessionID);
+    long time = json.get("TimeMS").getAsLong();
 
-    RString res = json.get("TimeMS").getAsInt() > 0
-        ? new RString("Parsed into <a href='/Inspect?Key=%$Key'>%Key</a> in %TimeMS msec")
+    RString res = time > 0
+        ? new RString("Parsed into <a href='/Inspect?Key=%$Key'>%Key</a> in %TimeMS")
         : new RString("Already parsed into <a href='/Inspect?Key=%$Key'>%Key</a>.");
-    res.replace(json);
+    res.replace("Key", json.get("Key").getAsString());
+    res.replace("TimeMS", PrettyPrint.msecs(time, true));
     return res.toString();
   }
 }

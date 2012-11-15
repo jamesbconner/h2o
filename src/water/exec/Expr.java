@@ -82,8 +82,10 @@ public abstract class Expr {
     // shallow copy does not seem to be possible at the moment - arraylets are fixed to their key
     //return isTemporary() && (_copied == false);
 
-    public int colIndex() { return _colIndex; }
-
+    public int rawColIndex() { return _colIndex; }
+    
+    public int colIndex() { return _colIndex < 0 ? 0 : _colIndex; } 
+    
     public void setColIndex(int index) { _colIndex = index; }
 
   }
@@ -279,7 +281,7 @@ class UnaryOperator extends Expr {
   private Result evalVect(Result o) throws EvaluationException {
     Result res = Result.temporary();
     ValueArray opnd = getValueArray(o._key);
-    if (o.colIndex() == -1) {
+    if (o.rawColIndex() == -1) {
       o.setColIndex(0);
       if (opnd.num_cols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for the operand");
@@ -290,13 +292,13 @@ class UnaryOperator extends Expr {
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpSub:
-        op = new UnaryMinus(o._key, res._key, o.colIndex());
+        op = new UnaryMinus(o._key, res._key, o.rawColIndex());
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
     op.invoke(res._key);
-    b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key).createAndStore(res._key);
+    b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key);
     return res;
   }
 
@@ -346,6 +348,24 @@ class BinaryOperator extends Expr {
         return Result.scalar(l._const * r._const);
       case ttOpDiv:
         return Result.scalar(l._const / r._const);
+      case ttOpMod:
+        return Result.scalar(l._const % r._const);
+      case ttOpLess:
+        return Result.scalar(l._const < r._const ? 1 : 0);
+      case ttOpLessOrEq:
+        return Result.scalar(l._const <= r._const ? 1 : 0);
+      case ttOpGreater:
+        return Result.scalar(l._const > r._const ? 1 : 0);
+      case ttOpGreaterOrEq:
+        return Result.scalar(l._const >= r._const ? 1 : 0);
+      case ttOpEq:
+        return Result.scalar(l._const == r._const ? 1 : 0);
+      case ttOpNeq:
+        return Result.scalar(l._const != r._const ? 1 : 0);
+      case ttOpAnd:
+        return Result.scalar(((l._const != 0) && (r._const !=0)) ? 1 : 0);
+      case ttOpOr:
+        return Result.scalar(((l._const != 0) && (r._const !=0)) ? 1 : 0);
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
@@ -355,12 +375,12 @@ class BinaryOperator extends Expr {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
     ValueArray vr = getValueArray(r._key);
-    if (l.colIndex() == -1) {
+    if (l.rawColIndex() == -1) {
       l.setColIndex(0);
       if (vl.num_cols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for left operand");
     }
-    if (r.colIndex() == -1) {
+    if (r.rawColIndex() == -1) {
       r.setColIndex(0);
       if (vr.num_cols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for right operand");
@@ -372,16 +392,43 @@ class BinaryOperator extends Expr {
     MRVectorBinaryOperator op;
     switch( _type ) {
       case ttOpAdd:
-        op = new AddOperator(l._key, r._key, res._key, l.colIndex(), r.colIndex());
+        op = new AddOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
       case ttOpSub:
-        op = new SubOperator(l._key, r._key, res._key, l.colIndex(), r.colIndex());
+        op = new SubOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
       case ttOpMul:
-        op = new MulOperator(l._key, r._key, res._key, l.colIndex(), r.colIndex());
+        op = new MulOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
       case ttOpDiv:
-        op = new DivOperator(l._key, r._key, res._key, l.colIndex(), r.colIndex());
+        op = new DivOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpMod:
+        op = new ModOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpLess:
+        op = new LessOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpLessOrEq:
+        op = new LessOrEqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpGreater:
+        op = new GreaterOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpGreaterOrEq:
+        op = new GreaterOrEqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpEq:
+        op = new EqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpNeq:
+        op = new NeqOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpAnd:
+        op = new AndOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
+        break;
+      case ttOpOr:
+        op = new OrOperator(l._key, r._key, res._key, l.rawColIndex(), r.rawColIndex());
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
@@ -394,7 +441,7 @@ class BinaryOperator extends Expr {
   private Result evalConstVect(final Result l, Result r) throws EvaluationException {
     Result res = Result.temporary();
     ValueArray vr = getValueArray(r._key);
-    if (r.colIndex() == -1) {
+    if (r.rawColIndex() == -1) {
       r.setColIndex(0);
       if (vr.num_cols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for right operand");
@@ -402,16 +449,43 @@ class BinaryOperator extends Expr {
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpAdd:
-        op = new RightAdd(r._key, res._key, r.colIndex(), l._const);
+        op = new LeftAdd(r._key, res._key, r.rawColIndex(), l._const); // commutative
         break;
       case ttOpSub:
-        op = new RightSub(r._key, res._key, r.colIndex(), l._const);
+        op = new RightSub(r._key, res._key, r.rawColIndex(), l._const);
         break;
       case ttOpMul:
-        op = new RightMul(r._key, res._key, r.colIndex(), l._const);
+        op = new LeftMul(r._key, res._key, r.rawColIndex(), l._const); // commutative
         break;
       case ttOpDiv:
-        op = new RightDiv(r._key, res._key, r.colIndex(), l._const);
+        op = new RightDiv(r._key, res._key, r.rawColIndex(), l._const);
+        break;
+      case ttOpMod:
+        op = new RightMod(r._key, res._key, r.rawColIndex(), l._const);
+        break;
+      case ttOpLess:
+        op = new LeftGreaterOrEq(l._key, res._key, l.rawColIndex(), r._const); // s < V <-> V >= s
+        break;
+      case ttOpLessOrEq:
+        op = new LeftGreater(l._key, res._key, l.rawColIndex(), r._const); // s <= V <-> V > s
+        break;
+      case ttOpGreater:
+        op = new LeftLessOrEq(l._key, res._key, l.rawColIndex(), r._const); // s > V <-> V <= s
+        break;
+      case ttOpGreaterOrEq:
+        op = new LeftLess(l._key, res._key, l.rawColIndex(), r._const); // s >= V <-> V < s
+        break;
+      case ttOpEq:
+        op = new LeftEq(l._key, res._key, l.rawColIndex(), r._const); // commutative
+        break;
+      case ttOpNeq:
+        op = new LeftNeq(l._key, res._key, l.rawColIndex(), r._const); // commutative
+        break;
+      case ttOpAnd:
+        op = new RightAnd(r._key, res._key, r.rawColIndex(), l._const);
+        break;
+      case ttOpOr:
+        op = new RightOr(r._key, res._key, r.rawColIndex(), l._const);
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
@@ -425,7 +499,7 @@ class BinaryOperator extends Expr {
   private Result evalVectConst(Result l, final Result r) throws EvaluationException {
     Result res = Result.temporary();
     ValueArray vl = getValueArray(l._key);
-    if (l.colIndex() == -1) {
+    if (l.rawColIndex() == -1) {
       l.setColIndex(0);
       if (vl.num_cols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for left operand");
@@ -433,16 +507,43 @@ class BinaryOperator extends Expr {
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpAdd:
-        op = new LeftAdd(l._key, res._key, l.colIndex(), r._const);
+        op = new LeftAdd(l._key, res._key, l.rawColIndex(), r._const);
         break;
       case ttOpSub:
-        op = new LeftSub(l._key, res._key, l.colIndex(), r._const);
+        op = new LeftSub(l._key, res._key, l.rawColIndex(), r._const);
         break;
       case ttOpMul:
-        op = new LeftMul(l._key, res._key, l.colIndex(), r._const);
+        op = new LeftMul(l._key, res._key, l.rawColIndex(), r._const);
         break;
       case ttOpDiv:
-        op = new LeftDiv(l._key, res._key, l.colIndex(), r._const);
+        op = new LeftDiv(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpMod:
+        op = new LeftMod(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpLess:
+        op = new LeftLess(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpLessOrEq:
+        op = new LeftLessOrEq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpGreater:
+        op = new LeftGreater(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpGreaterOrEq:
+        op = new LeftGreaterOrEq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpEq:
+        op = new LeftEq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpNeq:
+        op = new LeftNeq(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpAnd:
+        op = new LeftAnd(l._key, res._key, l.rawColIndex(), r._const);
+        break;
+      case ttOpOr:
+        op = new LeftOr(l._key, res._key, l.rawColIndex(), r._const);
         break;
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());

@@ -1,8 +1,7 @@
 package test;
-
 import static org.junit.Assert.*;
-import hex.rf.Confusion;
-import hex.rf.Model;
+import hex.rf.*;
+import hex.rf.Tree.StatType;
 
 import java.util.Properties;
 
@@ -32,7 +31,7 @@ public class RandomForestTest {
 
   // ---
   // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
-  @org.junit.Test public void testRF_Iris() {
+  @org.junit.Test public void testRF_Iris() throws Exception {
     final int CLASSES=3;        // Number of output classes in iris dataset
     Key fkey = KeyUtil.load_test_file("smalldata/iris/iris2.csv");
     Key okey = Key.make("iris.hex");
@@ -47,6 +46,7 @@ public class RandomForestTest {
       Properties p = new Properties();
       p.setProperty("Key",okey.toString());
       p.setProperty("ntree",Integer.toString(NTREE));
+      p.setProperty("sample",Integer.toString(100));
       RandomForestPage RFP = new RandomForestPage();
 
       // Start RFPage, get a JSON result.
@@ -70,10 +70,11 @@ public class RandomForestTest {
       p.setProperty("dataKey",okey.toString());
       p.setProperty("modelKey",modelKey.toString());
       p.setProperty("ntree",Integer.toString(ntree));
+      p.setProperty("atree",Integer.toString(ntree));
 
       RFView rfv = new RFView();
       JsonObject rfv_res = rfv.serverJson(null,p,null);
-      rfv.serveImpl(null,p,null);
+      rfv.serveImpl(null,p,null); // Build the CM
 
       // Verify Goodness and Light
       Key oKey2 = Key.make(rfv_res.get("dataKey").getAsString());
@@ -87,12 +88,11 @@ public class RandomForestTest {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{50,0,0},{0,45,5},{0,2,48}};
+      long ans[][] = new long[][]{{50,0,0},{0,50,0},{0,0,50}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
       // Cleanup
-      //UKV.remove(model._treesKey);
       UKV.remove(modelKey);
       UKV.remove(confKey);
 
@@ -102,4 +102,50 @@ public class RandomForestTest {
       UKV.remove(okey);
     }
   }
+
+
+  // Test kaggle/creditsample-test data
+  @org.junit.Test public void kaggle_credit() throws Exception {
+    Key fkey = KeyUtil.load_test_file("smalldata/kaggle/creditsample-training.csv.gz");
+    Key okey = Key.make("credit.hex");
+    ParseDataset.parse(okey,DKV.get(fkey));
+    UKV.remove(fkey);
+    UKV.remove(Key.make("smalldata/kaggle/creditsample-training.csv.gz_UNZIPPED"));
+    UKV.remove(Key.make("smalldata\\kaggle\\creditsample-training.csv.gz_UNZIPPED"));
+    ValueArray val = (ValueArray) DKV.get(okey);
+
+    // Check parsed dataset
+    assertEquals("Number of chunks", 4, val.chunks());
+    assertEquals("Number of rows", 150000, val.num_rows());
+    assertEquals("Number of cols", 12, val.num_cols());
+
+    // setup default values for DRF
+    int ntrees  = 3;
+    int depth   = 30;
+    int gini    = StatType.GINI.ordinal();
+    int seed =  42;
+    StatType statType = StatType.values()[gini];
+    final int classcol = 1; // For credit: classify column 1
+    final int ignore[] = new int[]{6}; // Ignore column 6
+
+    // Start the distributed Random Forest
+    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1);
+    // Just wait little bit
+    drf.get();
+    // Create incremental confusion matrix.
+    Model model;
+    while( true ) {
+      // RACEY BUG HERE: Model is supposed to be complete after drf.get, but as
+      // of 11/5/2012 it takes a little while for all trees to appear.
+      model = UKV.get(drf._modelKey,new Model());
+      if( model.size()==ntrees ) break;
+      Thread.sleep(100);
+    }
+    assertEquals("Number of classes", 2,  model._classes);
+    assertEquals("Number of trees", ntrees, model.size());
+
+    UKV.remove(drf._modelKey);
+    UKV.remove(okey);
+  }
+
 }

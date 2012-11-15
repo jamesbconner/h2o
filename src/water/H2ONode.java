@@ -1,9 +1,12 @@
 package water;
 
+import init.Boot;
+
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import jsr166y.ForkJoinPool;
 import water.nbhm.NonBlockingHashMap;
 import water.nbhm.NonBlockingHashMapLong;
 
@@ -31,8 +34,7 @@ public class H2ONode implements Comparable {
       H2Okey key = (H2Okey)o;
       return _port==key._port && _inet.equals(key._inet);
     }
-    public String toString() { return _inet.toString()+":"+ _port   ; }
-    public String urlEncode(){ return _inet.toString()+":"+(_port-1); }
+    public String toString() { return _inet.toString()+":"+(_port-1); }
     static int wire_len() { return 4/*IP4 only*/+2/*port#*/; }
     int write( byte[] buf, int off ) {
       byte[] ip = _inet.getAddress();
@@ -60,7 +62,7 @@ public class H2ONode implements Comparable {
   public long _last_heard_from; // Time in msec since we last heard from this Node
 
   // The wire-line protocol health buffer
-  byte[] _health_buf = new byte[offset.max.x];
+  byte[] _health_buf = new byte[hb.max.offset()];
 
   // These are INTERN'd upon construction, and are uniquely numbered within the
   // same run of a JVM.  If a remote Node goes down, then back up... it will
@@ -225,7 +227,6 @@ public class H2ONode implements Comparable {
     return local;
   }
 
-  // Is cloud member
   public final boolean is_cloud_member(H2O cloud) {
     return
       get_cloud_id_lo() == cloud._id.getLeastSignificantBits() &&
@@ -233,15 +234,12 @@ public class H2ONode implements Comparable {
       cloud._memset.contains(this);
   }
 
-
   // Thin wrappers to send UDP packets to this H2ONode
   int send( byte[] buf, int len ) { return MultiCast.singlecast(this,buf,len); }
   void send( DatagramPacket p, int len ) { send(p.getData(),len); }
 
-
   // Happy printable string
-  public String toString() { return _key.toString (); }
-  public String urlEncode(){ return _key.urlEncode(); }
+  public String toString()  { return _key.toString (); }
 
   // index of this node in the current cloud... can change at the next cloud.
   public int index() { return H2O.CLOUD.nidx(this); }
@@ -286,11 +284,71 @@ public class H2ONode implements Comparable {
   // Stop tracking a remote task, because we got an ACKACK
   void remove_task_tracking( long tnum ) {
     WORK.remove(tnum);
+    synchronized( WORK ) { WORK.notifyAll(); } // wake up blocked pending gets
   }
 
   // This Node rebooted recently; we can quit tracking prior work history
   void rebooted() {
     WORK.clear();
+    synchronized( WORK ) { WORK.notifyAll(); } // wake up blocked pending gets
+  }
+
+  // Block this thread until all pending gets from here to 'this' H2ONode are
+  // served.  We've just changed a K/V mapping, and we have pending invalidates.
+  // Remote H2ONodes need to either get the old value plus the invalidate, or
+  // the new Value... but not the invalidate THEN the old Value - which will
+  // leave them with a stale old Value.
+  // We can be conservative here, and block for any set of tasks which include
+  // all possible TGKs of the same Value.
+  public void block_pending_gets( Value val ) {
+    // Assert mem_replicas is locked down - and thus no new TGKs will appear on
+    // this Value needing to be blocked here.
+    assert val.mem_replicas() == -1; // Already locked down mem_replicas
+    NonBlockingHashMapLong.IteratorLong ii = (NonBlockingHashMapLong.IteratorLong)WORK.keys();
+    while( ii.hasNext() ) {
+      final int task = (int)ii.nextLong();
+      DatagramPacket p = WORK.get(task);
+      if( p==null ) continue;   // Already removed
+      byte[] buf = p.getData();
+      int first_byte = UDP.get_ctrl(buf);
+      assert first_byte != 0xab; // did not receive a clobbered packet?
+      if( first_byte != UDP.udp.getkey.ordinal() && first_byte != UDP.udp.ack.ordinal() )
+        continue;               // This cannot be a TGK, or it's ACK.
+      // Clone a private copy: original 'p' gets freed at any moment in time.
+      // As long as the task is still a key in the WORK set, then the packet
+      // has not been freed & recycled so the clone is good.
+      buf = buf.clone();
+      if( WORK.get(task)!=p ) continue;
+
+      // Here I have either a pending Get (possibly of an unrelated Key) or an
+      // ACK of a Get, either of which might be for the same Key as the
+      // invalidate.  Be conservative & block for it.
+      try { ForkJoinPool.managedBlock(new FJB(buf)); } catch( InterruptedException e ) { }
+    }
+  }
+  private class FJB implements ForkJoinPool.ManagedBlocker {
+    final byte[] _buf;
+    final int _t;
+    private FJB(byte[] buf) { _buf=buf; _t = UDP.get_task(buf); }
+    // Return true if blocking is unnecessary, which is true if the Task is missing
+    public boolean isReleasable() {  return !WORK.containsKey(_t);  }
+    // Possibly blocks the current thread.  Returns true if isReleasable would
+    // return true.  Used by the FJ Pool management to spawn threads to prevent
+    // deadlock is otherwise all threads would block on waits.
+    public boolean block() {
+      DatagramPacket p = new DatagramPacket(_buf,_buf.length);
+      synchronized( WORK ) {
+        while( !isReleasable() ) { // While this task is stll pending
+          // Sometimes an ACKACK gets lost, but ACKS can fearlessly be resent
+          // and we'll wait for an ACKACK.
+          if( UDP.get_ctrl(_buf) == UDP.udp.ack.ordinal() )
+            send(p,_buf.length);
+          // Wait for the ACKACK to clear the WORK queue
+          try { WORK.wait(1000); } catch( InterruptedException e ) { }
+        }
+      }
+      return true;
+    }
   }
 
   // ---------------
@@ -306,11 +364,12 @@ public class H2ONode implements Comparable {
   // buffer.  It is multi-cast via the HeartBeatThread and read via the UDP
   // reading thread
 
-  // Buffer size and offsets, in bytes.
-  public static enum size {
+  // Buffer size and offset()s, in bytes.
+  public static enum hb {
     udp_enum(1),                // Packet type
     port(2),                    // Sending node port #
     cloud_id(16),               // Unique identifier for this Cloud
+    cloud_md5(16),              // Unique identifier for this Cloud
     num_cpus(2),                // Number of CPUs for this Node, limit of 65535
     free_mem(3),                // Free memory in M (goes up and down with GC)
     tot_mem (3),                // Total memory in M (should track virtual mem?)
@@ -351,177 +410,147 @@ public class H2ONode implements Comparable {
     udp_packets_sent(8),        // UDP packets sent
     udp_bytes_recv(8),          // UDP packets received
     udp_bytes_sent(8),          // UDP packets sent
+    max(0);
     ;
-    final int x;
-    size(int x) { this.x=x; }
+    private final int size;
+    private int off;
+    hb( int size ) {
+      this.size = size;
+      this.off  = -1;
+    }
+
+    public int offset() {
+      if( off >= 0 ) return off;
+      int offset = 0;
+      hb[] values = values();
+      for( int i = 0; i < ordinal(); ++i ) {
+        offset += values[i].size;
+      }
+      return this.off = offset;
+    }
+
   };
-
-  public static enum offset {
-    udp_enum(0),
-    port    (udp_enum.x+size.udp_enum.x),
-    cloud_id(port    .x+size.port    .x),
-    num_cpus(cloud_id.x+size.cloud_id.x),
-    free_mem(num_cpus.x+size.num_cpus.x),
-    tot_mem (free_mem.x+size.free_mem.x),
-    max_mem (tot_mem .x+size.tot_mem .x),
-    keys    (max_mem .x+size.max_mem .x),
-    valsz   (keys    .x+size.keys    .x),
-    free_disk(valsz  .x+size.valsz   .x),
-    max_disk(free_disk.x+size.free_disk.x),
-    cpu_util(max_disk.x+size.max_disk.x),
-    cpu_load_1(cpu_util.x+size.cpu_util.x),
-    cpu_load_5(cpu_load_1.x+size.cpu_load_1.x),
-    cpu_load_15(cpu_load_5.x+size.cpu_load_5.x),
-    rpcs       (cpu_load_15.x+size.cpu_load_15.x),
-    fjthrds_hi(rpcs      .x+size.rpcs      .x),
-    fjthrds_lo(fjthrds_hi.x+size.fjthrds_hi.x),
-    fjqueue_hi(fjthrds_lo.x+size.fjthrds_lo.x),
-    fjqueue_lo(fjqueue_hi.x+size.fjqueue_hi.x),
-    tcps_active(fjqueue_lo.x+size.fjqueue_lo.x),
-    node_type(tcps_active.x+size.tcps_active.x),
-    // Network statistics
-    total_in_conn   (node_type.x+size.node_type.x),
-    total_out_conn  (total_in_conn.x+size.total_in_conn.x),
-    tcp_in_conn     (total_out_conn.x+size.total_out_conn.x),
-    tcp_out_conn    (tcp_in_conn.x+size.tcp_in_conn.x),
-    udp_in_conn     (tcp_out_conn.x+size.tcp_out_conn.x),
-    udp_out_conn    (udp_in_conn.x+size.udp_in_conn.x),
-    total_packets_recv (udp_out_conn.x+size.udp_out_conn.x),
-    total_packets_sent (total_packets_recv.x+size.total_packets_recv.x),
-    total_bytes_recv(total_packets_sent.x+size.total_packets_sent.x),
-    total_bytes_sent(total_bytes_recv.x+size.total_bytes_recv.x),
-    total_bytes_recv_rate(total_bytes_sent.x+size.total_bytes_sent.x),
-    total_bytes_sent_rate(total_bytes_recv_rate.x+size.total_bytes_recv_rate.x),
-    tcp_packets_recv(total_bytes_sent_rate.x+size.total_bytes_sent_rate.x),
-    tcp_packets_sent(tcp_packets_recv.x+size.tcp_packets_recv.x),
-    tcp_bytes_recv  (tcp_packets_sent.x+size.tcp_packets_sent.x),
-    tcp_bytes_sent  (tcp_bytes_recv.x+size.tcp_bytes_recv.x),
-    udp_packets_recv(tcp_bytes_sent.x+size.tcp_bytes_sent.x),
-    udp_packets_sent(udp_packets_recv.x+size.udp_packets_recv.x),
-    udp_bytes_recv  (udp_packets_sent.x+size.udp_packets_sent.x),
-    udp_bytes_sent  (udp_bytes_recv.x+size.udp_bytes_recv.x),
-
-    max             (udp_bytes_sent.x+size.udp_bytes_sent.x);
-    final int x;
-    offset(int x) { this.x=x; }
-  }
 
   // Getters and Setters
   public void set_health( byte[] buf ) {  System.arraycopy(buf,0,_health_buf,0,_health_buf.length);  }
-  public void set_num_cpus (int  n) {     set_buf(offset.num_cpus.x,size.num_cpus.x,n); }
-  public void set_free_mem (long n) {     set_buf(offset.free_mem.x,size.free_mem.x,n>>20); }
-  public void set_tot_mem  (long n) {     set_buf(offset.tot_mem .x,size.tot_mem .x,n>>20); }
-  public void set_max_mem  (long n) {     set_buf(offset.max_mem .x,size.max_mem .x,n>>20); }
-  public void set_keys     (long n) {     set_buf(offset.keys    .x,size.keys    .x,n    ); }
-  public void set_valsz    (long n) {     set_buf(offset.valsz   .x,size.valsz   .x,n>>20); }
-  public void set_free_disk(long n) {     set_buf(offset.free_disk.x,size.free_disk.x,n >> 20); }
-  public void set_max_disk (long n) {     set_buf(offset.max_disk.x,size.max_disk.x,n>>20); }
+  public void set_num_cpus (int  n) {     set_buf(hb.num_cpus.offset(),hb.num_cpus.size,n); }
+  public void set_free_mem (long n) {     set_buf(hb.free_mem.offset(),hb.free_mem.size,n>>20); }
+  public void set_tot_mem  (long n) {     set_buf(hb.tot_mem .offset(),hb.tot_mem .size,n>>20); }
+  public void set_max_mem  (long n) {     set_buf(hb.max_mem .offset(),hb.max_mem .size,n>>20); }
+  public void set_keys     (long n) {     set_buf(hb.keys    .offset(),hb.keys    .size,n    ); }
+  public void set_valsz    (long n) {     set_buf(hb.valsz   .offset(),hb.valsz   .size,n>>20); }
+  public void set_free_disk(long n) {     set_buf(hb.free_disk.offset(),hb.free_disk.size,n >> 20); }
+  public void set_max_disk (long n) {     set_buf(hb.max_disk.offset(),hb.max_disk.size,n>>20); }
   public void set_cpu_util (double d) {
       if(d >= 0)
-        set_buf(offset.cpu_util.x, size.cpu_util.x,((long)(1000*d)) & 0xFFFF);
+        set_buf(hb.cpu_util.offset(), hb.cpu_util.size,((long)(1000*d)) & 0xFFFF);
       else
-        set_buf(offset.cpu_util.x, size.cpu_util.x,0xFFFF);
+        set_buf(hb.cpu_util.offset(), hb.cpu_util.size,0xFFFF);
   }
   public void set_cpu_load (double oneMinute, double fiveMinutes, double fifteenMinutes) {
-    set_buf(offset.cpu_load_1 .x, size.cpu_load_1 .x,
+    set_buf(hb.cpu_load_1 .offset(), hb.cpu_load_1 .size,
             oneMinute      >= 0 ? ((long)(1000*    oneMinute )) & 0xFFFF : 0xFFFF);
-    set_buf(offset.cpu_load_5 .x, size.cpu_load_5 .x,
+    set_buf(hb.cpu_load_5 .offset(), hb.cpu_load_5 .size,
             fiveMinutes    >= 0 ? ((long)(1000*   fiveMinutes)) & 0xFFFF : 0xFFFF);
-    set_buf(offset.cpu_load_15.x, size.cpu_load_15.x,
+    set_buf(hb.cpu_load_15.offset(), hb.cpu_load_15.size,
             fifteenMinutes >= 0 ? ((long)(1000*fifteenMinutes)) & 0xFFFF : 0xFFFF);
   }
-  public void set_rpcs(int n)        { set_buf(offset.rpcs        .x,size.rpcs        .x,n ); }
-  public void set_fjthrds_hi(int qd) { set_buf(offset.fjthrds_hi  .x,size.fjthrds_hi  .x,qd); }
-  public void set_fjthrds_lo(int qd) { set_buf(offset.fjthrds_lo  .x,size.fjthrds_lo  .x,qd); }
-  public void set_fjqueue_hi(int qd) { set_buf(offset.fjqueue_hi  .x,size.fjqueue_hi  .x,qd); }
-  public void set_fjqueue_lo(int qd) { set_buf(offset.fjqueue_lo  .x,size.fjqueue_lo  .x,qd); }
-  public void set_tcps_active(int t) { set_buf(offset.tcps_active .x,size.tcps_active .x,t ); }
-  public void set_node_type(byte nt) { set_buf(offset.node_type   .x,size.node_type   .x,nt); }
-  public void set_total_in_conn(int n)  { set_buf(offset.total_in_conn.x, size.total_in_conn.x, n); }
-  public void set_total_out_conn(int n) { set_buf(offset.total_out_conn.x, size.total_out_conn.x, n); }
-  public void set_tcp_in_conn(int n)    { set_buf(offset.tcp_in_conn.x, size.tcp_in_conn.x, n); }
-  public void set_tcp_out_conn(int n)   { set_buf(offset.tcp_out_conn.x, size.tcp_out_conn.x, n); }
-  public void set_udp_in_conn(int n)    { set_buf(offset.udp_in_conn.x, size.udp_in_conn.x, n); }
-  public void set_udp_out_conn(int n)   { set_buf(offset.udp_out_conn.x, size.udp_out_conn.x, n); }
-  public void set_total_packets_recv(long n){ set_buf(offset.total_packets_recv.x, size.total_packets_recv.x, n); }
-  public void set_total_packets_sent(long n){ set_buf(offset.total_packets_sent.x, size.total_packets_sent.x, n); }
-  public void set_total_bytes_recv(long n){ set_buf(offset.total_bytes_recv.x, size.total_bytes_recv.x, n); }
-  public void set_total_bytes_sent(long n){ set_buf(offset.total_bytes_sent.x, size.total_bytes_sent.x, n); }
-  public void set_total_bytes_recv_rate(int n) { set_buf(offset.total_bytes_recv_rate.x, size.total_bytes_recv_rate.x, n); }
-  public void set_total_bytes_sent_rate(int n) { set_buf(offset.total_bytes_sent_rate.x, size.total_bytes_sent_rate.x, n); }
-  public void set_tcp_packets_recv(long n){ set_buf(offset.tcp_packets_recv.x, size.tcp_packets_recv.x, n); }
-  public void set_tcp_packets_sent(long n){ set_buf(offset.tcp_packets_sent.x, size.tcp_packets_sent.x, n); }
-  public void set_tcp_bytes_recv(long n){ set_buf(offset.tcp_bytes_recv.x, size.tcp_bytes_recv.x, n); }
-  public void set_tcp_bytes_sent(long n){ set_buf(offset.tcp_bytes_sent.x, size.tcp_bytes_sent.x, n); }
-  public void set_udp_packets_recv(long n) { set_buf(offset.udp_packets_recv.x, size.udp_packets_recv.x, n); }
-  public void set_udp_packets_sent(long n) { set_buf(offset.udp_packets_sent.x, size.udp_packets_sent.x, n); }
-  public void set_udp_bytes_recv(long n) { set_buf(offset.udp_bytes_recv.x, size.udp_bytes_recv.x, n); }
-  public void set_udp_bytes_sent(long n) { set_buf(offset.udp_bytes_sent.x, size.udp_bytes_sent.x, n); }
+  public void set_rpcs(int n)        { set_buf(hb.rpcs        .offset(),hb.rpcs        .size,n ); }
+  public void set_fjthrds_hi(int qd) { set_buf(hb.fjthrds_hi  .offset(),hb.fjthrds_hi  .size,qd); }
+  public void set_fjthrds_lo(int qd) { set_buf(hb.fjthrds_lo  .offset(),hb.fjthrds_lo  .size,qd); }
+  public void set_fjqueue_hi(int qd) { set_buf(hb.fjqueue_hi  .offset(),hb.fjqueue_hi  .size,qd); }
+  public void set_fjqueue_lo(int qd) { set_buf(hb.fjqueue_lo  .offset(),hb.fjqueue_lo  .size,qd); }
+  public void set_tcps_active(int t) { set_buf(hb.tcps_active .offset(),hb.tcps_active .size,t ); }
+  public void set_node_type(byte nt) { set_buf(hb.node_type   .offset(),hb.node_type   .size,nt); }
+  public void set_total_in_conn(int n)  { set_buf(hb.total_in_conn.offset(), hb.total_in_conn.size, n); }
+  public void set_total_out_conn(int n) { set_buf(hb.total_out_conn.offset(), hb.total_out_conn.size, n); }
+  public void set_tcp_in_conn(int n)    { set_buf(hb.tcp_in_conn.offset(), hb.tcp_in_conn.size, n); }
+  public void set_tcp_out_conn(int n)   { set_buf(hb.tcp_out_conn.offset(), hb.tcp_out_conn.size, n); }
+  public void set_udp_in_conn(int n)    { set_buf(hb.udp_in_conn.offset(), hb.udp_in_conn.size, n); }
+  public void set_udp_out_conn(int n)   { set_buf(hb.udp_out_conn.offset(), hb.udp_out_conn.size, n); }
+  public void set_total_packets_recv(long n){ set_buf(hb.total_packets_recv.offset(), hb.total_packets_recv.size, n); }
+  public void set_total_packets_sent(long n){ set_buf(hb.total_packets_sent.offset(), hb.total_packets_sent.size, n); }
+  public void set_total_bytes_recv(long n){ set_buf(hb.total_bytes_recv.offset(), hb.total_bytes_recv.size, n); }
+  public void set_total_bytes_sent(long n){ set_buf(hb.total_bytes_sent.offset(), hb.total_bytes_sent.size, n); }
+  public void set_total_bytes_recv_rate(int n) { set_buf(hb.total_bytes_recv_rate.offset(), hb.total_bytes_recv_rate.size, n); }
+  public void set_total_bytes_sent_rate(int n) { set_buf(hb.total_bytes_sent_rate.offset(), hb.total_bytes_sent_rate.size, n); }
+  public void set_tcp_packets_recv(long n){ set_buf(hb.tcp_packets_recv.offset(), hb.tcp_packets_recv.size, n); }
+  public void set_tcp_packets_sent(long n){ set_buf(hb.tcp_packets_sent.offset(), hb.tcp_packets_sent.size, n); }
+  public void set_tcp_bytes_recv(long n){ set_buf(hb.tcp_bytes_recv.offset(), hb.tcp_bytes_recv.size, n); }
+  public void set_tcp_bytes_sent(long n){ set_buf(hb.tcp_bytes_sent.offset(), hb.tcp_bytes_sent.size, n); }
+  public void set_udp_packets_recv(long n) { set_buf(hb.udp_packets_recv.offset(), hb.udp_packets_recv.size, n); }
+  public void set_udp_packets_sent(long n) { set_buf(hb.udp_packets_sent.offset(), hb.udp_packets_sent.size, n); }
+  public void set_udp_bytes_recv(long n) { set_buf(hb.udp_bytes_recv.offset(), hb.udp_bytes_recv.size, n); }
+  public void set_udp_bytes_sent(long n) { set_buf(hb.udp_bytes_sent.offset(), hb.udp_bytes_sent.size, n); }
 
-  public int  get_num_cpus () {return (int)get_buf(offset.num_cpus.x,size.num_cpus.x  ); }
-  public long get_free_mem () {return      get_buf(offset.free_mem.x,size.free_mem.x  )<<20; }
-  public long get_tot_mem  () {return      get_buf(offset.tot_mem .x,size.tot_mem .x  )<<20; }
-  public long get_max_mem  () {return      get_buf(offset.max_mem .x,size.max_mem .x  )<<20; }
-  public long get_keys     () {return      get_buf(offset.keys    .x,size.keys    .x  );     }
-  public long get_valsz    () {return      get_buf(offset.valsz   .x,size.valsz   .x  )<<20; }
-  public long get_free_disk() {return      get_buf(offset.free_disk.x,size.free_disk.x) << 20; }
-  public long get_max_disk () {return      get_buf(offset.max_disk.x,size.max_disk.x) << 20; }
+  public int  get_num_cpus () {return (int)get_buf(hb.num_cpus.offset(),hb.num_cpus.size  ); }
+  public long get_free_mem () {return      get_buf(hb.free_mem.offset(),hb.free_mem.size  )<<20; }
+  public long get_tot_mem  () {return      get_buf(hb.tot_mem .offset(),hb.tot_mem .size  )<<20; }
+  public long get_max_mem  () {return      get_buf(hb.max_mem .offset(),hb.max_mem .size  )<<20; }
+  public long get_keys     () {return      get_buf(hb.keys    .offset(),hb.keys    .size  );     }
+  public long get_valsz    () {return      get_buf(hb.valsz   .offset(),hb.valsz   .size  )<<20; }
+  public long get_free_disk() {return      get_buf(hb.free_disk.offset(),hb.free_disk.size) << 20; }
+  public long get_max_disk () {return      get_buf(hb.max_disk.offset(),hb.max_disk.size) << 20; }
   public double [] get_cpu_load () {
     double [] result = {-1.0,-1.0,-1.0};
-    long oneM = get_buf(offset.cpu_load_1.x, size.cpu_load_1.x);
-    long fiveM = get_buf(offset.cpu_load_5.x, size.cpu_load_5.x);
-    long fifteenM = get_buf(offset.cpu_load_15.x, size.cpu_load_15.x);
-    if(oneM != 0xFFFFL){
-        result[0] = oneM/1000.0;
-    }
-    if(fiveM != 0xFFFFL){
-        result[1] = fiveM/1000.0;
-    }
-    if(fifteenM != 0xFFFFL){
-        result[2] = fifteenM/1000.0;
-    }
+    long oneM     = get_buf(hb.cpu_load_1 .offset(), hb.cpu_load_1 .size);
+    long fiveM    = get_buf(hb.cpu_load_5 .offset(), hb.cpu_load_5 .size);
+    long fifteenM = get_buf(hb.cpu_load_15.offset(), hb.cpu_load_15.size);
+    if( oneM     != 0xFFFFL) result[0] = oneM     / 1000.0;
+    if( fiveM    != 0xFFFFL) result[1] = fiveM    / 1000.0;
+    if( fifteenM != 0xFFFFL) result[2] = fifteenM / 1000.0;
     return result;
   }
   public double get_cpu_util () {
-    long n = get_buf(offset.cpu_util.x,size.cpu_util.x);
+    long n = get_buf(hb.cpu_util.offset(),hb.cpu_util.size);
     return n != 0xFFFFL ? n/1000.0 : -1.0;
   }
-  public int get_rpcs()       { return (int)get_buf(offset.rpcs.x, size.rpcs.x); }
-  public int get_fjthrds_hi() { return (int)get_buf(offset.fjthrds_hi.x, size.fjthrds_hi.x); }
-  public int get_fjthrds_lo() { return (int)get_buf(offset.fjthrds_lo.x, size.fjthrds_lo.x); }
-  public int get_fjqueue_hi() { return (int)get_buf(offset.fjqueue_hi.x, size.fjqueue_hi.x); }
-  public int get_fjqueue_lo() { return (int)get_buf(offset.fjqueue_lo.x, size.fjqueue_lo.x); }
-  public int get_tcps_active() { return (int)get_buf(offset.tcps_active.x, size.tcps_active.x); }
-  public int get_total_in_conn()    { return (int)get_buf(offset.total_in_conn.x, size.total_in_conn.x); }
-  public int get_total_out_conn()   { return (int)get_buf(offset.total_out_conn.x, size.total_out_conn.x); }
-  public int get_tcp_in_conn()      { return (int)get_buf(offset.tcp_in_conn.x, size.tcp_in_conn.x); }
-  public int get_tcp_out_conn()     { return (int)get_buf(offset.tcp_out_conn.x, size.tcp_out_conn.x); }
-  public int get_udp_in_conn()      { return (int)get_buf(offset.udp_in_conn.x, size.udp_in_conn.x); }
-  public int get_udp_out_conn()     { return (int)get_buf(offset.udp_out_conn.x, size.udp_out_conn.x); }
-  public long get_total_packets_recv() { return get_buf(offset.total_packets_recv.x, size.total_packets_recv.x); }
-  public long get_total_packets_sent() { return get_buf(offset.total_packets_sent.x, size.total_packets_sent.x); }
-  public long get_total_bytes_recv() { return get_buf(offset.total_bytes_recv.x, size.total_bytes_recv.x); }
-  public long get_total_bytes_sent() { return get_buf(offset.total_bytes_sent.x, size.total_bytes_sent.x); }
-  public int  get_total_bytes_recv_rate() { return (int) get_buf(offset.total_bytes_recv_rate.x, size.total_bytes_recv_rate.x); }
-  public int  get_total_bytes_sent_rate() { return (int) get_buf(offset.total_bytes_sent_rate.x, size.total_bytes_sent_rate.x); }
-  public long get_tcp_packets_recv() { return get_buf(offset.tcp_packets_recv.x, size.tcp_packets_recv.x); }
-  public long get_tcp_packets_sent() { return get_buf(offset.tcp_packets_sent.x, size.tcp_packets_sent.x); }
-  public long get_tcp_bytes_recv()  { return get_buf(offset.tcp_bytes_recv.x, size.tcp_bytes_recv.x); }
-  public long get_tcp_bytes_sent()  { return get_buf(offset.tcp_bytes_sent.x, size.tcp_bytes_sent.x); }
-  public long get_udp_packets_recv(){ return get_buf(offset.udp_packets_recv.x, size.udp_packets_recv.x); }
-  public long get_udp_packets_sent(){ return get_buf(offset.udp_packets_sent.x, size.udp_packets_sent.x); }
-  public long get_udp_bytes_recv(){ return get_buf(offset.udp_bytes_recv.x, size.udp_bytes_recv.x); }
-  public long get_udp_bytes_sent(){ return get_buf(offset.udp_bytes_sent.x, size.udp_bytes_sent.x); }
+  public int get_rpcs()       { return (int)get_buf(hb.rpcs.offset(), hb.rpcs.size); }
+  public int get_fjthrds_hi() { return (int)get_buf(hb.fjthrds_hi.offset(), hb.fjthrds_hi.size); }
+  public int get_fjthrds_lo() { return (int)get_buf(hb.fjthrds_lo.offset(), hb.fjthrds_lo.size); }
+  public int get_fjqueue_hi() { return (int)get_buf(hb.fjqueue_hi.offset(), hb.fjqueue_hi.size); }
+  public int get_fjqueue_lo() { return (int)get_buf(hb.fjqueue_lo.offset(), hb.fjqueue_lo.size); }
+  public int get_tcps_active() { return (int)get_buf(hb.tcps_active.offset(), hb.tcps_active.size); }
+  public int get_total_in_conn()    { return (int)get_buf(hb.total_in_conn.offset(), hb.total_in_conn.size); }
+  public int get_total_out_conn()   { return (int)get_buf(hb.total_out_conn.offset(), hb.total_out_conn.size); }
+  public int get_tcp_in_conn()      { return (int)get_buf(hb.tcp_in_conn.offset(), hb.tcp_in_conn.size); }
+  public int get_tcp_out_conn()     { return (int)get_buf(hb.tcp_out_conn.offset(), hb.tcp_out_conn.size); }
+  public int get_udp_in_conn()      { return (int)get_buf(hb.udp_in_conn.offset(), hb.udp_in_conn.size); }
+  public int get_udp_out_conn()     { return (int)get_buf(hb.udp_out_conn.offset(), hb.udp_out_conn.size); }
+  public long get_total_packets_recv() { return get_buf(hb.total_packets_recv.offset(), hb.total_packets_recv.size); }
+  public long get_total_packets_sent() { return get_buf(hb.total_packets_sent.offset(), hb.total_packets_sent.size); }
+  public long get_total_bytes_recv() { return get_buf(hb.total_bytes_recv.offset(), hb.total_bytes_recv.size); }
+  public long get_total_bytes_sent() { return get_buf(hb.total_bytes_sent.offset(), hb.total_bytes_sent.size); }
+  public int  get_total_bytes_recv_rate() { return (int) get_buf(hb.total_bytes_recv_rate.offset(), hb.total_bytes_recv_rate.size); }
+  public int  get_total_bytes_sent_rate() { return (int) get_buf(hb.total_bytes_sent_rate.offset(), hb.total_bytes_sent_rate.size); }
+  public long get_tcp_packets_recv() { return get_buf(hb.tcp_packets_recv.offset(), hb.tcp_packets_recv.size); }
+  public long get_tcp_packets_sent() { return get_buf(hb.tcp_packets_sent.offset(), hb.tcp_packets_sent.size); }
+  public long get_tcp_bytes_recv()  { return get_buf(hb.tcp_bytes_recv.offset(), hb.tcp_bytes_recv.size); }
+  public long get_tcp_bytes_sent()  { return get_buf(hb.tcp_bytes_sent.offset(), hb.tcp_bytes_sent.size); }
+  public long get_udp_packets_recv(){ return get_buf(hb.udp_packets_recv.offset(), hb.udp_packets_recv.size); }
+  public long get_udp_packets_sent(){ return get_buf(hb.udp_packets_sent.offset(), hb.udp_packets_sent.size); }
+  public long get_udp_bytes_recv(){ return get_buf(hb.udp_bytes_recv.offset(), hb.udp_bytes_recv.size); }
+  public long get_udp_bytes_sent(){ return get_buf(hb.udp_bytes_sent.offset(), hb.udp_bytes_sent.size); }
 
   public static final byte HDFS_NAMENODE = 'N';
 
-  public byte get_node_type() { return (byte)get_buf(offset.node_type.x, size.node_type.x); }
+  public byte get_node_type() { return (byte)get_buf(hb.node_type.offset(), hb.node_type.size); }
   public void set_cloud_id ( UUID id ) {
-    set_buf(offset.cloud_id.x+0,8,id.getLeastSignificantBits());
-    set_buf(offset.cloud_id.x+8,8,id. getMostSignificantBits());
+    set_buf(hb.cloud_id.offset()+0,8,id.getLeastSignificantBits());
+    set_buf(hb.cloud_id.offset()+8,8,id. getMostSignificantBits());
   }
-  public long get_cloud_id_lo() { return get_buf(offset.cloud_id.x+0,8);  }
-  public long get_cloud_id_hi() { return get_buf(offset.cloud_id.x+8,8);  }
+  public long get_cloud_id_lo() { return get_buf(hb.cloud_id.offset()+0,8);  }
+  public long get_cloud_id_hi() { return get_buf(hb.cloud_id.offset()+8,8);  }
+
+  public void set_cloud_md5 () {
+    System.arraycopy(Boot._init._jarHash, 0, _health_buf, hb.cloud_md5.offset(), hb.cloud_md5.size);
+  }
+  public boolean check_cloud_md5 () {
+    boolean match = true;
+    for( int i = 0; i < hb.cloud_md5.size; ++i )
+      match &= Boot._init._jarHash[i] == _health_buf[i + hb.cloud_md5.offset()];
+    return match;
+  }
 
   private long get_buf(int off, int size) {
     long sum=0;
@@ -534,5 +563,4 @@ public class H2ONode implements Comparable {
     for( int i=0; i<size; i++ )
       _health_buf[off+i] = (byte)(n>>>(i<<3));
   }
-
 }

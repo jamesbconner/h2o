@@ -24,8 +24,9 @@ public class GiniStatistic extends Statistic {
 
   private double gini(int[] dd, int sum) {
     double result = 1.0;
+    double sd = (double)sum;
     for (int d : dd) {
-      double tmp = ((double)d)/sum;
+      double tmp = ((double)d)/sd;
       result -= tmp*tmp;
     }
     return result;
@@ -36,11 +37,13 @@ public class GiniStatistic extends Statistic {
     int[] riteDist = dist.clone();
     int leftWeight = 0;
     int riteWeight = distWeight;
-    int totWeight = riteWeight;
-
+    double totWeight = (double)riteWeight;
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
-    double bestFitness = 0.0;   // Fitness to maximize
+    double bestFitness = 0.0;
+    assert !d.ignore(colIndex);
+    assert leftDist.length==_columnDists[colIndex][0].length;
+
     for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
       // first copy the i-th guys from rite to left
       for (int j = 0; j < leftDist.length; ++j) {
@@ -60,15 +63,14 @@ public class GiniStatistic extends Statistic {
         bestFitness = f;
       }
     }
-    return bestSplit == -1 
-      ? Split.impossible(Utils.maxIndex(dist, random))
+    return bestSplit == -1
+      ? Split.impossible(Utils.maxIndex(dist, _random))
       : Split.split(colIndex, bestSplit, bestFitness);
   }
 
   @Override protected Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight) {
     int[] inclDist = new int[d.classes()];
     int[] exclDist = dist.clone();
-
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = 0.0;   // Fitness to maximize
@@ -93,8 +95,8 @@ public class GiniStatistic extends Statistic {
         bestFitness = f;
       }
     }
-    return bestSplit == -1 
-      ? Split.impossible(Utils.maxIndex(dist, random))
+    return bestSplit == -1
+      ? Split.impossible(Utils.maxIndex(dist, _random))
       : Split.exclusion(colIndex, bestSplit, bestFitness);
   }
 }

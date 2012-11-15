@@ -273,6 +273,7 @@ public class NanoHTTPD
       mySocket = s;
       Thread t = new Thread( this );
       t.setDaemon( true );
+      t.setPriority(Thread.MAX_PRIORITY-1);
       t.start();
     }
 
@@ -651,9 +652,12 @@ public class NanoHTTPD
       {
         String e = st.nextToken();
         int sep = e.indexOf( '=' );
-        if ( sep >= 0 )
-          p.put( decodePercent( e.substring( 0, sep )).trim(),
-              decodePercent( e.substring( sep+1 )));
+        if ( sep >= 0 ) {
+          String key = decodePercent( e.substring( 0, sep ) ).trim();
+          String value = decodePercent( e.substring( sep+1 ) );
+          String old = p.getProperty(key, null);
+          p.put(key, old == null ? value : (old+","+value));
+        }
       }
         }
 

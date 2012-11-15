@@ -2,6 +2,7 @@ package hex.rf;
 
 import hex.rf.Data.Row;
 import hex.rf.Tree.SplitNode;
+import water.MemoryManager;
 
 import java.util.*;
 
@@ -41,6 +42,7 @@ public class Data implements Iterable<Row> {
   public float unmap(int col, int split) { return _data.unmap(col, split); }
   public int columnArity(int colIndex) { return _data.columnArity(colIndex); }
   public boolean ignore(int col) { return _data.ignore(col);   }
+  public double[] classWt()      { return _data._classWt; }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
   private class RowIter implements Iterator<Row> {
@@ -59,15 +61,17 @@ public class Data implements Iterable<Row> {
     while (l <= r) {
       int permIdx = row._index = permutation[l];
       if (node.isIn(row)) {
-        ls.add(row);
+        ls.addQ(row);
         ++l;
       } else {
-        rs.add(row);
+        rs.addQ(row);
         permutation[l] = permutation[r];
         permutation[r--] = permIdx;
       }
     }
     assert r+1 == l;
+    ls.applyClassWeights();     // Weight the distributions
+    rs.applyClassWeights();     // Weight the distributions
     result[0]= new Subset(this, permutation, start(), l);
     result[1]= new Subset(this, permutation, l,   end());
   }
@@ -79,7 +83,7 @@ public class Data implements Iterable<Row> {
     Random r = new Random(seed());
     for( int i = 0; i < size; ++i)
       in[permute(r.nextInt(rows()))]++;
-    int[] sample = new int[size];
+    int[] sample = MemoryManager.allocateMemoryInt(size);
     for( int i = 0, j = 0; i < sample.length;) {
       while(in[j]==0) j++;
       for (int k = 0; k < in[j]; k++) sample[i++] = j;
@@ -88,26 +92,32 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
-  public Data sample(double bagSizePct) {
-    Random r = new Random(seed());
-    int size = (int)(rows() * bagSizePct);
-    int[] sample = new int[size];
+  public static int[] makeSample(double bagSizePct, int rows, int seed) {
+    Random r = new Random(seed);
+    int size = (int)(rows * bagSizePct);
+    if( size == 0 && rows> 0 ) size = 1;
+    int[] sample = MemoryManager.allocateMemoryInt(size);
     int i = 0;
-    for( ; i < size; ++i ) sample[i] = permute(i + start());
-    for( ; i < rows(); ++i ) {
+    for( ; i < size; ++i ) sample[i] = i;
+    for( ; i < rows; ++i ) {
       int p = r.nextInt(i);
-      if( p < size ) sample[p] = permute(i + start());
+      if( p < size ) sample[p] = i;
     }
     Arrays.sort(sample); // we want an ordered sample
+    return sample;
+  }
+
+  public Data sample(double bagSizePct, int seed) {
+    assert !(this instanceof Subset); // we do not support permutations
+    int[] sample = makeSample(bagSizePct, rows(), seed);
     return new Subset(this, sample, 0, sample.length);
   }
 
   public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
-  @Override public       Data clone() { return this; }
-
+  @Override public Data clone() { return this; }
   protected int permute(int idx) { return idx; }
   protected int[] getPermutationArray() {
-    int[] perm = new int[rows()];
+    int[] perm = MemoryManager.allocateMemoryInt(rows());
     for( int i = 0; i < perm.length; ++i ) perm[i] = i;
     return perm;
   }
@@ -135,7 +145,7 @@ class Subset extends Data {
   @Override public Data complement(Data parent, short[] complement) {
     int size= 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) size++;
-    int[] p = new int[size];
+    int[] p = MemoryManager.allocateMemoryInt(size);
     int pos = 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) p[pos++] = i;
     return new Subset(this, p, 0, p.length);

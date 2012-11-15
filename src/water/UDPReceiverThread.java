@@ -1,10 +1,8 @@
 package water;
-import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.util.ArrayList;
 import java.util.Arrays;
-
-import water.UDP.udp;
 
 /**
  * The Thread that looks for UDP Cloud requests.
@@ -35,7 +33,8 @@ public class UDPReceiverThread extends Thread {
     }
     // Free list is empty, so make a new one
     if( p == null )
-      return new DatagramPacket(new byte[1600],1600);
+      return new DatagramPacket(new byte[1600],0);
+    assert p.getLength()==0;
     assert clobbered(p.getData());
     return p;
   }
@@ -43,6 +42,7 @@ public class UDPReceiverThread extends Thread {
   static void free_pack(DatagramPacket pack) {
     assert !on_free_list(pack);
     assert clobber(pack.getData());
+    pack.setLength(0);
     synchronized(FREELIST) { FREELIST.add(pack); }
   }
   static boolean clobber(byte[] b) { Arrays.fill(b,(byte)0xab); return true; }
@@ -91,6 +91,9 @@ public class UDPReceiverThread extends Thread {
           sock = new DatagramSocket(H2O.UDP_PORT);
 
         // Receive a packet
+        int len = pack.getData().length; // Receive all that will fit
+        assert len >= MultiCast.MTU;
+        pack.setLength(len);
         sock.receive(pack);
         TimeLine.record_recv(pack);
 
@@ -132,11 +135,7 @@ public class UDPReceiverThread extends Thread {
         continue;
       }
 
-      // Suicide packet?  Short-n-sweet...
-      if( first_byte == UDP.udp.rebooted.ordinal() && pbuf[UDP.SZ_PORT]>1 ) {
-        System.err.println("[h2o] Received kill "+pbuf[UDP.SZ_PORT]+" from "+h2o);
-        System.exit(-1);
-      }
+      UDPRebooted.checkForSuicide(first_byte, pbuf, h2o);
 
       // Paxos stateless packets & ACKs just fire immediately in a worker
       // thread.  Dups are handled by these packet handlers directly.  No

@@ -1,5 +1,7 @@
 package water;
 import java.util.Arrays;
+import sun.misc.Unsafe;
+import water.nbhm.UtilUnsafe;
 
 /**
  * A Dumb-Ass byte[]-backed Stream, because Java Got It Wrong.
@@ -12,6 +14,14 @@ import java.util.Arrays;
  * @version 1.0
  */
 public class Stream {
+  private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
+  private static final int _Bbase  = _unsafe.arrayBaseOffset(  byte[].class);
+  private static final int _Dbase  = _unsafe.arrayBaseOffset(double[].class);
+  private static final int _Fbase  = _unsafe.arrayBaseOffset( float[].class);
+  private static final int _Ibase  = _unsafe.arrayBaseOffset(   int[].class);
+  private static final int _Lbase  = _unsafe.arrayBaseOffset(  long[].class);
+  private static final int _Sbase  = _unsafe.arrayBaseOffset( short[].class);
+
   public byte[] _buf;
   public int _off;
   public Stream()                    { _buf = new byte[4];   }
@@ -23,8 +33,7 @@ public class Stream {
   private byte[] grow2( int l ) {
     int l2 = _buf.length;
     while( l2 < l ) l2<<=1;
-    assert(false);
-    return (_buf = Arrays.copyOf(_buf,l2));
+    return (_buf = MemoryManager.arrayCopyOfRange(_buf,0,l2));
   }
 
   public Stream set1 ( int   a) {        grow(1)[_off++] = (byte)a ; return this; }
@@ -42,17 +51,6 @@ public class Stream {
       assert s.length() < 65535;
       grow(2+s.length());
       set2(s.length());
-      s.getBytes(0, s.length(), _buf, _off);
-      _off += s.length();
-      return this;
-    }
-  }
-
-  @SuppressWarnings("deprecation") public Stream setLen4Str(String s) {
-    if( s == null ) return set4(-1);
-    else {
-      grow(4+s.length());
-      set4(s.length());
       s.getBytes(0, s.length(), _buf, _off);
       _off += s.length();
       return this;
@@ -82,35 +80,55 @@ public class Stream {
     _off += len;
   }
 
-
   public void setAry1(byte[]x) {
     if( x==null ) set4(-1);
     else setLen4Bytes(x);
   }
   public void setAry2(short[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set2(x[i]);
+    if( x != null ) {
+      grow(x.length<<1);
+      _unsafe.copyMemory(x,_Sbase,_buf,_off+_Bbase,x.length<<1);
+      _off += (x.length<<1);
+    }
   }
   public void setAry4(int[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set4(x[i]);
+    if( x != null ) {
+      grow(x.length<<2);
+      _unsafe.copyMemory(x,_Ibase,_buf,_off+_Bbase,x.length<<2);
+      _off += (x.length<<2);
+    }
   }
   public void setAry4f(float[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set4f(x[i]);
+    if( x != null ) {
+      grow(x.length<<2);
+      _unsafe.copyMemory(x,_Fbase,_buf,_off+_Bbase,x.length<<2);
+      _off += (x.length<<2);
+    }
   }
   public void setAry8(long[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set8(x[i]);
+    if( x != null ) {
+      grow(x.length<<3);
+      _unsafe.copyMemory(x,_Lbase,_buf,_off+_Bbase,x.length<<3);
+      _off += (x.length<<3);
+    }
   }
   public void setAry8d(double[]x) {
     set4(x==null?-1:x.length);
-    if( x != null ) for( int i=0; i<x.length; i++ ) set8d(x[i]);
+    if( x != null ) {
+      grow(x.length<<3);
+      _unsafe.copyMemory(x,_Dbase,_buf,_off+_Bbase,x.length<<3);
+      _off += (x.length<<3);
+    }
   }
   public void setAry11(byte[][]x) {
     set4(x==null?-1:x.length);
     if( x != null ) for( int i=0; i<x.length; i++ ) setAry1(x[i]);
   }
+
   public void setAry22(short[][]x) {
     set4(x==null?-1:x.length);
     if( x != null ) for( int i=0; i<x.length; i++ ) setAry2(x[i]);
@@ -151,14 +169,8 @@ public class Stream {
     _off += l;
     return new String(_buf, o, l);
   }
-  public String getLen4Str()   {
-    int l = get4(), o = _off;
-    if( l == -1 ) return null;
-    _off += l;
-    return new String(_buf, o, l);
-  }
-  public byte[] getLen2Bytes() { int l = get2(); return Arrays.copyOfRange(_buf, _off, _off += l); }
-  public byte[] getLen4Bytes() { int l = get4(); return Arrays.copyOfRange(_buf, _off, _off += l); }
+  public byte[] getLen2Bytes() { int l = get2(); return MemoryManager.arrayCopyOfRange(_buf, _off, _off += l); }
+  public byte[] getLen4Bytes() { int l = get4(); return MemoryManager.arrayCopyOfRange(_buf, _off, _off += l); }
   public void getBytes(byte[] dst, int len) {
     System.arraycopy(_buf, _off, dst, 0, len);
     _off += len;

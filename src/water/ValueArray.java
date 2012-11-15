@@ -151,6 +151,18 @@ public class ValueArray extends Value {
     throw new IOException("Missing chunk "+idx+", broken "+H2O.OPT_ARGS.ice_root+"?");
   }
 
+  /** Returns the start row of the given chunk. 
+   * 
+   * Assumes all chunks up to the last one are of the same size (fully
+   * popullated). 
+   * 
+   * @param k key of the chunk
+   * @return Index of the first row in the chunk. 
+   */
+  long startRowForChunk(Key k) {
+    return getOffset(k) / row_size();
+  }
+  
   static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
     // Main Key
     Key key = Key.make(keyname,rf);
@@ -297,8 +309,8 @@ public class ValueArray extends Value {
   // an optional offset & scale factor.  These are described in the meta-data.
 
   // Layout of structured ValueArrays
-  static private final int LENGTH_OFF  =0;              // Total byte length
-  static private final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
+  static public  final int LENGTH_OFF  =0;              // Total byte length
+  static public  final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
   static private final int PRIORKEY_OFF=NUM_ROWS_OFF+8; // prior key string offset
   static private final int XFORM_OFF   =PRIORKEY_OFF+4; // prior xforms string offset
   static private final int ROW_SIZE_OFF=XFORM_OFF   +4; // Size of each row (sum of column widths)
@@ -481,7 +493,7 @@ public class ValueArray extends Value {
     byte[] mem = get();
     int off = UDP.get4(mem,col(cnum)+NAME_COL_OFF);
     int len = UDP.get2(mem,off);
-    return len > 0 ? new String(mem,off+2,len) : null;
+    return len > 0 ? new String(mem,off+2,len) : Integer.toString(cnum);
   }
   // All the column names.  Unlike the above version, this one replaces null
   // strings with a column number and never returns null names
@@ -670,7 +682,7 @@ public class ValueArray extends Value {
     }
     return false;
   }
-
+  
   static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;

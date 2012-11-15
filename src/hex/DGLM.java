@@ -262,16 +262,9 @@ public class DGLM implements Models.ModelBuilder {
   FamilyArgs _fargs;
 
 /**
- * Solve glm problem by iterative reqeighted least squqre method.
- * Repeatedly solves LSM problem with weights given by previous iteration until fixpoint is reached.
- *
- * @param ary
- * @param colIds
- * @param s
- * @param glmParams
- * @param lsmParams
- * @param fargs
- * @return
+ * Solve glm problem by iterative reweighted least square method.
+ * Repeatedly solves LSM problem with weights given by previous iteration until
+ * a fixed point is reached.
  */
   public GLMModel trainOn(ValueArray ary, int[] colIds, Sampling s) {
     if(_lsmParams == null)_lsmParams = defaultLSMParams;
@@ -402,9 +395,9 @@ public class DGLM implements Models.ModelBuilder {
         gmu += x[i] * _beta[i];
       }
       // add the constant (constant/Intercept is not included in the x vector,
-      // have to add it seprately)
+      // have to add it separately)
       gmu += _origConstant * _beta[x.length - 1];
-      // get the inverse to get esitamte of p(Y=1|X) according to previous model
+      // get the inverse to get estimate of p(Y=1|X) according to previous model
       double mu = linkInv(l,gmu);
       double dgmu = linkDeriv(l,mu);
       x[x.length - 1] = gmu + (y - mu) * dgmu; // z = y approx by Taylor
@@ -412,11 +405,11 @@ public class DGLM implements Models.ModelBuilder {
                                                // estimate (mu), done to avoid
                                                // log(0),log(1)
       // Step 2
-      double vary = variance(f,mu); // variance of y accrodgin to our model
+      double vary = variance(f,mu); // variance of y according to our model
 
       // compute the weights (inverse of variance of z)
       double var = dgmu * dgmu * vary;
-      // Apply the weight. We want each datapoint to have weight of inverse of
+      // Apply the weight. We want each data point to have weight of inverse of
       // the variance of y at this point.
       // Since we compute x'x, we take sqrt(w) and apply it to both x and y
       // (we also compute X*y)
@@ -430,13 +423,10 @@ public class DGLM implements Models.ModelBuilder {
 
   /**
    * Specialization of IRLSM for binomial family. Values 0/1 are enforced.(_case = 1, everything else = 0)
-   * @author tomasnykodym
-   *
    */
   public static class BinomialTask extends IRLSMTask {
     double _case; // in
     long _caseCount; // out
-
 
     public BinomialTask(int [] colIds, Sampling s, int constant, double [] beta, double[][] pVals, Link l,BinomialArgs bargs){
       super(colIds,s,constant, beta, pVals,  Family.binomial,l);

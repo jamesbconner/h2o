@@ -3,6 +3,7 @@ package water.exec;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 import water.*;
 import water.exec.Expr.Result;
 
@@ -74,6 +75,40 @@ public abstract class Function {
         throw new Exception("Expected number literal");
     }
   }
+
+  // ArgInt --------------------------------------------------------------------
+  
+  public class ArgInt extends ArgCheck {
+
+    public ArgInt() { }
+    public ArgInt(String name) { super(name); }
+    public ArgInt(String name, long defaultValue) { super(name,defaultValue); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtNumberLiteral)
+        throw new Exception("Expected number");
+      if ((long) r._const != r._const)
+        throw new Exception("Expected integer number");
+    }
+  }
+
+  // ArgIntPositive-------------------------------------------------------------
+  
+  public class ArgIntPositive extends ArgCheck {
+
+    public ArgIntPositive() { }
+    public ArgIntPositive(String name) { super(name); }
+    public ArgIntPositive(String name, long defaultValue) { super(name,defaultValue); }
+    
+    @Override public void checkResult(Result r) throws Exception {
+      if (r._type != Result.Type.rtNumberLiteral)
+        throw new Exception("Expected number");
+      if ((long) r._const != r._const)
+        throw new Exception("Expected integer number");
+      if (r._const < 0)
+        throw new Exception("Expected positive argument");
+    }
+  }
   
   // ArgString -----------------------------------------------------------------
   
@@ -119,7 +154,7 @@ public abstract class Function {
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtKey)
         throw new Exception("Expected vector (value)");
-      if (r.colIndex() >= 0) // that is we are selecting single column
+      if (r.rawColIndex() >= 0) // that is we are selecting single column
         return;
       ValueArray va = (ValueArray) DKV.get(r._key);
       if (va.num_cols()!=1)
@@ -171,9 +206,13 @@ public abstract class Function {
     new Max("max");
     new Sum("sum");
     new Mean("mean");
+    new Filter("filter");
+    new Slice("slice");
+    new RandBitVect("randomBitVector");
+    new RandomFilter("randomFilter");
+    new Log("log");
   }
 }
-
 
 // Min -------------------------------------------------------------------------
 
@@ -194,7 +233,7 @@ class Min extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRMin task = new MRMin(args[0]._key, args[0].colIndex());
+    MRMin task = new MRMin(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
@@ -219,7 +258,7 @@ class Max extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRMax task = new MRMax(args[0]._key, args[0].colIndex());
+    MRMax task = new MRMax(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
@@ -231,7 +270,7 @@ class Sum extends Function {
   
   static class MRSum extends Helpers.ScallarCollector {
 
-    @Override protected void collect(double x) { _result += x; System.out.println(x + " - "+_result); }
+    @Override protected void collect(double x) { _result += x; }
 
     @Override protected void reduce(double x) { _result += x; }
     
@@ -244,7 +283,7 @@ class Sum extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRSum task = new MRSum(args[0]._key, args[0].colIndex());
+    MRSum task = new MRSum(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
@@ -274,10 +313,194 @@ class Mean extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-    MRMean task = new MRMean(args[0]._key, args[0].colIndex());
+    MRMean task = new MRMean(args[0]._key, args[0].rawColIndex());
     task.invoke(args[0]._key);
     return Result.scalar(task.result());
   }
+}
+
+// Filter ----------------------------------------------------------------------
+
+class Filter extends Function {
+  
+  public Filter(String name) {
+    super(name);
+    addChecker(new ArgValue("src"));
+    addChecker(new ArgVector("bitVect"));
+  }
+  
+  @Override public Result eval(Result... args) throws Exception {
+    Result r = Result.temporary();
+    BooleanVectorFilter filter = new BooleanVectorFilter(r._key,args[1]._key, args[1].colIndex());
+    filter.invoke(args[0]._key);
+    ValueArray va = (ValueArray) DKV.get(args[0]._key);
+    va = VABuilder.updateRows(va, r._key, filter._filteredRows);
+    DKV.put(va._key,va);
+    return r;
+  }
+}
+
+class Slice extends Function {
+
+  public Slice(String name) {
+    super(name);
+    addChecker(new ArgValue("src"));
+    addChecker(new ArgIntPositive("start"));
+    addChecker(new ArgIntPositive("count",-1));
+  }
+  
+  @Override public Result eval(Result... args) throws Exception {
+    // additional arg checking
+    ValueArray ary = (ValueArray) DKV.get(args[0]._key);
+    long start = (long) args[1]._const;
+    long length = (long) args[2]._const;
+    if (start >= ary.num_rows())
+      throw new Exception("Start of the slice must be withtin the source data frame.");
+    if (length == -1)
+      length = ary.num_rows() - start;
+    if (start+length > ary.num_rows())
+      throw new Exception("Start + offset is out of bounds.");
+    Result r = Result.temporary();
+    ValueArray va = (ValueArray) DKV.get(args[0]._key);
+    va = VABuilder.updateRows(va, r._key, length);
+    DKV.put(va._key,va);
+    DKV.write_barrier();
+    SliceFilter filter = new SliceFilter(args[0]._key,start,length);
+    filter.invoke(r._key);
+    assert (filter._filteredRows == length);
+    return r;
+  }
+  
+}
+
+
+// RandBitVect -----------------------------------------------------------------
+
+class RandBitVect extends Function {
+  
+  static class RandVectBuilder extends MRTask {
+
+    Key _key;
+    long _selected;
+    long _size;
+    long _createdSelected;
+    
+    public RandVectBuilder(Key k, long selected) {
+      _key = k;
+      _selected = selected;
+      ValueArray va = (ValueArray) DKV.get(k);
+      _size = va.length();
+    }
+    
+    @Override public void map(Key key) {
+      byte[] bits = MemoryManager.allocateMemory(VABuilder.chunkSize(key, _size));
+      int rows = bits.length / 8;
+      long start = ValueArray.getOffset(key) / 8;
+      double expectedBefore = start * ( (double)_selected / (_size / 8));
+      double expectedAfter = (start + rows) * ((double)  _selected / (_size / 8));
+      int create = (int) (Math.round(expectedAfter) - Math.round(expectedBefore));
+      //System.out.println("RVB: before "+ expectedBefore+" after "+expectedAfter+" to be created "+create+" on rows "+rows);
+      _createdSelected += create;
+      boolean[] t = MemoryManager.allocateMemoryBoolean(rows);
+      for (int i = 0; i < create; ++i)
+        t[i] = true;
+      Random r = new Random();
+      for (int i = rows-1; i >=1; --i) {
+        int j = r.nextInt(i+1);
+        boolean x = t[i];
+        t[i] = t[j];
+        t[j] = x;
+      }
+      int offset = 0;
+      for (int i = 0; i < rows; ++i)
+        offset += UDP.set8d(bits,offset, t[i] ? 1 : 0);
+      DKV.put(key, new Value(key,bits));
+    }
+
+    @Override  public void reduce(DRemoteTask drt) {
+      RandVectBuilder other = (RandVectBuilder) drt;
+      _createdSelected += other._createdSelected;
+    }
+    
+  }
+  
+
+  public RandBitVect(String name) {
+    super(name);
+    addChecker(new ArgIntPositive("size"));
+    addChecker(new ArgIntPositive("selected"));
+  }
+  
+  @Override  public Result eval(Result... args) throws Exception {
+    Result r = Result.temporary();
+    long size = (long) args[0]._const;
+    long selected = (long) args[1]._const;
+    if (selected > size) 
+      throw new Exception("Number of selected rows must be smaller or equal than total number of rows for a random bit vector");
+    double min = 0;
+    double max = 1;
+    double mean = selected / size;
+    double var = Math.sqrt((1 - mean) * ( 1-mean) * selected + (mean*mean*(size-selected)) / size);
+    VABuilder b = new VABuilder("",size).addDoubleColumn("bits",min,max,mean,var).createAndStore(r._key);
+    RandVectBuilder rvb = new RandVectBuilder(r._key,selected);
+    rvb.invoke(r._key);
+    assert (rvb._createdSelected == selected) : rvb._createdSelected + " != " + selected;
+    return r;
+  }
+  
+}
+
+// RandomFilter ----------------------------------------------------------------
+
+class RandomFilter extends Function {
+
+  public RandomFilter(String name) {
+    super(name);
+    addChecker(new ArgValue("src"));
+    addChecker(new ArgIntPositive("rows"));
+  }
+  
+  @Override public Result eval(Result... args) throws Exception {
+    ValueArray ary = (ValueArray) DKV.get(args[0]._key);
+    long rows = (long) args[1]._const;
+    if (rows > ary.num_rows())
+      throw new Exception("Unable to sample more rows that are already present in the data frame");
+    Result bVect = Function.FUNCTIONS.get("randomBitVector").eval(Result.scalar(ary.num_rows()), args[1]);
+    Result result = Function.FUNCTIONS.get("filter").eval(args[0],bVect);
+    bVect.dispose();
+    return result;
+  }
+}
+
+// Log ------------------------------------------------------------------------
+
+class Log extends Function {
+
+  static class MRLog extends MRVectorUnaryOperator {
+
+    public MRLog(Key key, Key result, int col) { super(key, result, col); }
+    
+    
+    @Override public double operator(double opnd) {
+      return Math.log(opnd);
+    }
+  }
+  
+  public Log(String name) {
+    super(name);
+    addChecker(new Function.ArgVector("src"));
+  }
+
+  @Override public Result eval(Result... args) throws Exception {
+    Result r = Result.temporary();
+    ValueArray va = (ValueArray) DKV.get(args[0]._key);
+    VABuilder b = new VABuilder("temp",va.num_rows()).addDoubleColumn("0").createAndStore(r._key);
+    MRLog task = new Log.MRLog(args[0]._key, r._key, args[0].colIndex());
+    task.invoke(r._key);
+    b.setColumnStats(0,task._min, task._max, task._tot / va.num_rows()).createAndStore(r._key);
+    return r;
+  }
+  
 }
 
 // GLM -------------------------------------------------------------------------

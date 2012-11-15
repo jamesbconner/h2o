@@ -64,7 +64,11 @@ public class TaskGetKey extends DFutureTask<Value> {
   public static class RemoteHandler extends UDP {
     // Received a request for N keys.  Build & return the answer.
     void call(DatagramPacket p, H2ONode h2o) {
+      callx(p,h2o,0);
+    }
+    private int callx(DatagramPacket p, H2ONode h2o, int tripcnt) {
       assert Thread.currentThread().getPriority() == Thread.MAX_PRIORITY-2;
+      assert tripcnt < 1000;    // Seems highly unlikely this gets above 2...
       // Unpack the incoming arguments
       byte[] buf = p.getData();
       UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
@@ -91,10 +95,13 @@ public class TaskGetKey extends DFutureTask<Value> {
         buf[off++] = 0;          // persistence
         off += set4(buf,off,-3); // Value-len == -3
       } else {                   // Have a value to ship about
-        H2O cloud = H2O.CLOUD;
-        H2ONode home = cloud._memary[key.home(cloud)]; // Home for the key
+        H2ONode home = key.home_node(); // Home for the key
         if( home == H2O.SELF ) { // Shipping from home node?
-          key.set_mem_replica(h2o); // Record remote replica
+          if( !val.set_mem_replica(h2o) ) // Record remote replica
+            // Recording a replica failed?  Only happens if the value is being
+            // racily changed... and we are landing just after the change.
+            // Restart from scratch, which should hit the new Value.
+            return callx(p,h2o,tripcnt+1);  // Restart from scratch
         } else {                 // Shipping from non-home?
           assert home == h2o;    // Assert home is asking for the key
         }
@@ -106,7 +113,7 @@ public class TaskGetKey extends DFutureTask<Value> {
           // Push the large result back *now* (no async pause) via TCP
           if( !tcp_send(h2o,UDP.udp.getkey,get_task(buf),key,val,vbuf) ) {
             h2o.remove_task_tracking(get_task(buf)); // Remove all record of trying this get
-            return; // If the TCP failed... then so do we; no result; caller will retry
+            return 0; // If the TCP failed... then so do we; no result; caller will retry
           }
           val.write(s, -2);
         }
@@ -114,7 +121,9 @@ public class TaskGetKey extends DFutureTask<Value> {
       }
 
       // Send it back
+      assert off >= UDP.SZ_TASK+1+1+4;
       reply(p,off,h2o);
+      return 0;
     }
 
     // TCP large K/V RECIEVE on the target from the remote.  Note that 'this'
@@ -164,15 +173,14 @@ public class TaskGetKey extends DFutureTask<Value> {
     try {
       // First SZ_TASK bytes have UDP type# and port and task#.
       byte[] buf = p.getData();
+      // Get result length; 2 bytes at the beginning of the value write are
+      // persistence and type, then 4 bytes of length
+      int len = UDP.get4(buf,UDP.SZ_TASK+2);
 
-      int len = UDP.get4(buf,UDP.SZ_TASK+2); // Get result length 2 bytes at the beginning of the value write are persistence and type
       Value val;
       if(      len == -3 ) return null;   // Remote-miss
       else if( len == -2 ) val = _tcp_val;
-      else {
-        Stream s = new Stream(buf, UDP.SZ_TASK);
-        val = Value.read(s, _key);
-      }
+      else                 val = Value.read(new Stream(buf, UDP.SZ_TASK), _key);
 
       // Need to officially put_if_later, in case of racing other updates
       Value old = H2O.get(_key);

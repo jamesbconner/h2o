@@ -27,7 +27,9 @@ public abstract class Atomic extends RemoteTask {
   // User's function to be run atomically.  The Key's Value is fetched from the
   // home STORE, and the bits are passed in.  The returned bits are atomically
   // installed as the new Value (the function is retried until it runs
-  // atomically).  The original bits are supposed to be read-only.
+  // atomically).  The original bits are supposed to be read-only.  User can
+  // abort the transaction (onSuccess is NOT executed) by returning the
+  // original bits.
   abstract public byte[] atomic( byte[] bits );
   // override this if you need to perform some action after the update succeeds (eg cleanup)
   public void onSuccess(){}
@@ -51,6 +53,11 @@ public abstract class Atomic extends RemoteTask {
 
   // The (remote) workhorse:
   @Override public final void compute( ) {
+    compute2();
+    _key = null;                // No need for key no more
+    tryComplete();              // Tell F/J this task is done
+  }
+  private final void compute2( ) {
     assert _key.home();         // Key is at Home!
     while( true ) {
       Value val1 = DKV.get(_key);
@@ -64,17 +71,22 @@ public abstract class Atomic extends RemoteTask {
       // Run users' function.  This is supposed to read-only from bits1 and
       // return new bits2 to atomically install.
       byte[] bits2 = atomic(bits1);
-      assert bits1 == null || bits1 != bits2; // No returning the same array
+      if( bits2 == bits1 ) return; // User aborts the transaction
 
       // Attempt atomic update
       Value val2 = new Value(_key,bits2);
-      Value res = (Value)DKV.DputIfMatch(_key,val2,val1);
+      Object res = DKV.DputIfMatch(_key,val2,val1,H2O.SELF);
+      if( res instanceof TaskPutKey ) {
+        TaskPutKey tpk = (TaskPutKey)res;
+        assert tpk._old == val1;// We only get a block-result if we also succeeded
+        onSuccess();            // Call user's post-XTN function
+        tpk.get();              // Block for the DputIfMatch to complete
+        return;
+      }
       if( res == val1 ) {       // Success?
         onSuccess();            // Call user's post-XTN function
-        _key = null;            // No need for key no more
-        tryComplete();          // Tell F/J this task is done
         return; 
-      }      
+      }
       // and retry
     }
   }

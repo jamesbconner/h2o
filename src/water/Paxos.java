@@ -213,6 +213,21 @@ public abstract class Paxos {
 
   static private boolean addProposedMember(H2ONode n){
     if(!PROPOSED_MEMBERS.contains(n)){
+      if( _cloud_locked ) {
+        System.err.println("[h2o] Killing "+n+" because the cloud is locked.");
+        UDPRebooted.T.locked.singlecast(n);
+        return false;
+      }
+      if( !n.check_cloud_md5() ) {
+        if( H2O.CLOUD.size() > 1 ) {
+          System.err.println("[h2o] Killing "+n+"  because of jar mismatch.");
+          UDPRebooted.T.mismatch.singlecast(n);
+        } else {
+          System.err.println("[h2o] Attempting to join "+n+" with a jar mismatch. Killing self.");
+          System.exit(-1);
+        }
+        return false;
+      }
       Ping p = Ping.testConnection(n, true, true);
       if(!p.connectionOk()){
         if(!p.udpOk())System.err.println("UDP communication with node " + n + " failed!");
@@ -386,8 +401,6 @@ public abstract class Paxos {
       // voting.  Pick up the largest proposal to-date, and start voting again.
       if( proposal_num > PROPOSAL_MAX ) PROPOSAL_MAX = proposal_num;
       return print_debug("do  : Leader missed me; I am still not in the new Cloud, so refuse the Accept and let my Heartbeat publish me again",members,buf);
-      //do_change_announcement(H2O.CLOUD);
-      //return 0;
     }
 
     if( proposal_num == PROPOSAL_MAX && uuid(buf).equals(H2O.CLOUD._id) )
@@ -395,8 +408,7 @@ public abstract class Paxos {
 
     // We just got a proposal to change the cloud
     if( _commonKnowledge ) {    // We thought we knew what was going on?
-      if( _cloud_locked )       // Oops - cloud locked
-        cloud_kill(); // Cloud-wide kill because things changed after key inserted
+      assert !_cloud_locked;
       _commonKnowledge = false; // No longer sure about things
       System.out.println("[h2o] Paxos Cloud voting in progress");
     }
@@ -423,7 +435,7 @@ public abstract class Paxos {
   // Cloud changed shape after locking (after keys distributed)... all key
   // lookups would be foo-bar'd, so just kill everything instead.
   static void cloud_kill() {
-    UDPRebooted.global_kill(3);
+    UDPRebooted.T.error.broadcast();
     System.err.println("[h2o] Cloud changing after Keys distributed - fatal error.");
     System.err.println("[h2o] Received kill "+3+" from "+H2O.SELF);
     System.exit(-1);

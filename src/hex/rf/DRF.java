@@ -1,8 +1,8 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
-
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import jsr166y.RecursiveAction;
 import water.*;
 
@@ -18,16 +18,20 @@ public class DRF extends water.DRemoteTask {
   int _stat;            // Use Gini(1) or Entropy(0) for splits
   int _classcol;        // Column being classified
   Key _arykey;          // The ValueArray being RF'd
-  Key _modelKey;        // Where to jam the final trees
+  public Key _modelKey; // Where to jam the final trees
   public Key _treeskey; // Key of Tree-Keys built so-far
-  int[] _ignores;
-  float _sample;
-  short _bin_limit;
+  int[] _ignores;       // Columns to ignore
+  float _sample;        // Sampling rate
+  short _bin_limit;     // Size of largest count-of-uniques in a column
+  int _seed;            // Random # seed
+  double[] _classWt;    // Class weights
 
+  int _features;
+  
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
   transient RandomForest _rf;        // The local RandomForest
-  transient int _seed;
+  transient Timer _t_main;     // Main timer
 
   public static class IllegalDataException extends Error {
     public IllegalDataException(String string) {
@@ -43,9 +47,11 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, double cutRate, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees) {
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, int seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
+    assert features==-1 || ((features>0) && (features<ary.num_cols()-1)); 
+    drf._features = features;
     drf._parallel = parallelTrees;
     drf._ntrees = ntrees;
     drf._depth = depth;
@@ -56,35 +62,40 @@ public class DRF extends water.DRemoteTask {
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
+    assert sample <= 1.0f;
     drf._sample = sample;
     drf._bin_limit = binLimit;
+    drf._classWt = classWt;
     drf.validateInputData(ary);
+    drf._t_main = new Timer();
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     DKV.write_barrier();
-    drf.fork(ary._key);
+    drf.fork(drf._arykey);
     return drf;
   }
-
 
 
   private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
     final int rowsize= ary.row_size();
     ArrayList<RecursiveAction> jobs = new ArrayList<RecursiveAction>();
-    int S = 0;
+    int start_row = 0;
     for(final Key k:keys) {
-      if(!k.home())continue;
+      if( !k.home() ) continue;
       final int rows = DKV.get(k)._max/rowsize;
-      final int start_row = S;
+      final int S = start_row;
       jobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          for(int j = 0; j < rows; ++j)
+          ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncols; ++c)
-              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + start_row, colIds[c]);
+              if( !ary.valid(bits,j,rowsize,colIds[c])) continue ROWS;
+            for(int c = 0; c < ncols; ++c)
+              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + S, colIds[c]);
+          }
         }
       });
-      S += rows;
+      start_row += rows;
     }
     invokeAll(jobs);
     // now do the binning
@@ -104,10 +115,9 @@ public class DRF extends water.DRemoteTask {
   public final  DataAdapter extractData(Key arykey, Key [] keys){
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
+
     // One pass over all chunks to compute max rows
-
-    Utils.startTimer("maxrows");
-
+    Timer t_max = new Timer();
     int num_rows = 0;
     int unique = -1;
     for( Key key : keys )
@@ -116,32 +126,38 @@ public class DRF extends water.DRemoteTask {
         if( unique == -1 )
           unique = ValueArray.getChunkIndex(key);
       }
-    Utils.pln("[RF] Max/min done in "+ Utils.printTimer("maxrows"));
+    Utils.pln("[RF] Max/min done in "+ t_max);
 
-    Utils.startTimer("binning");
+    Timer t_bin = new Timer();
     // The data adapter...
-    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _bin_limit);
+    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _bin_limit, _classWt);
     // Now load the DataAdapter with all the rows on this Node
-    int ncolumns = ary.num_cols();
+    final int ncolumns = ary.num_cols();
 
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
     final Key [] ks = keys;
+
     // bin the columns, do at most 1/2 of the columns at once
-    int colIds [] = new int[ncolumns>>1];
+    int colIds [] = new int[(ncolumns+1)>>1];
     int j = 0;
     int i = 0;
     for(; i < ncolumns && j < colIds.length; ++i)
-      if(dapt.binColumn(i))colIds[j++] = i;
+      if( dapt.binColumn(i) ) colIds[j++] = i;
     binData(dapt, keys, ary, colIds, j);
     j = 0;
     for(; i < ncolumns; ++i)
-      if(dapt.binColumn(i))colIds[j++] = i;
-    if(j != 0)binData(dapt, keys, ary, colIds, j);
-    Utils.pln("[RF] Binning done in " + Utils.printTimer("binning"));
-    Utils.startTimer("inhale");
+      if( dapt.binColumn(i) ) colIds[j++] = i;
+    if(j != 0) binData(dapt, keys, ary, colIds, j);
+    Utils.pln("[RF] Binning done in " + t_bin);
+
+    Timer t_inhale = new Timer();
+    // Build fast cutout for ignored columns
+    final boolean icols[] = new boolean[ncolumns];
+    for( int k : _ignores ) icols[k]=true;
+
     // now read the values
     int start_row = 0;
-    for(final Key k:ks) {
+    for( final Key k : ks ) {
       final int S = start_row;
       if(!k.home())continue;
       final int rows = DKV.get(k)._max/rowsize;
@@ -149,12 +165,15 @@ public class DRF extends water.DRemoteTask {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          ROWS:for(int j = 0; j < rows; ++j){
-            for(int c = 0; c < ary.num_cols(); ++c){
-              if( !ary.valid(bits,j,rowsize,c)) continue ROWS;
-              if(dapt.binColumn(c))
+          ROWS: for(int j = 0; j < rows; ++j) {
+            // Bail out of broken rows in not-ignored columns
+            for(int c = 0; c < ncolumns; ++c)
+              if( !icols[c] && !ary.valid(bits,j,rowsize,c)) continue ROWS;
+            for( int c = 0; c < ncolumns; ++c) {
+              if( !ary.valid(bits,j,rowsize,c)) {
+              } else if( dapt.binColumn(c) ) {
                 dapt.addValue((float)ary.datad(bits,j,rowsize,c), j + S, c);
-              else{
+              } else {
                 long v = ary.data(bits,j,rowsize,c);
                 v -= ary.col_min(c);
                 dapt.addValue((short)v, S+j, c);
@@ -167,22 +186,17 @@ public class DRF extends water.DRemoteTask {
     }
     invokeAll(dataInhaleJobs);
 
-    Utils.pln("[RF] Inhale done in " + Utils.printTimer("inhale"));
+    Utils.pln("[RF] Inhale done in " + t_inhale);
 
     return dapt;
   }
   // Local RF computation.
   public final void compute() {
-    Utils.startTimer("extract");
+    Timer t_extract = new Timer();
     DataAdapter dapt = extractData(_arykey, _keys);
-    Utils.pln("[RF] Data adapter built in " + Utils.printTimer("extract") );
-    // If we have too little data to validate distributed, then
-    // split the data now with sampling and train on one set & validate on the other.
-    sample = (!forceNoSample) && sample || _keys.length < 2; // Sample if we only have 1 key, hence no distribution
-    Data d = Data.make(dapt);
-    short[] complement = sample ? new short[d.rows()] : null;
-    Data t = sample ? d.sampleWithReplacement(.666, complement) : d;
-    _validation = sample ? t.complement(d, complement) : null;
+    Utils.pln("[RF] Data adapter built in " + t_extract );
+    Data t = Data.make(dapt);
+    _validation = t; // FIXME... this does not look right.
 
     // Figure the number of trees to make locally, so the total hits ntrees.
     // Divide equally amongst all the nodes that actually have data.
@@ -207,12 +221,9 @@ public class DRF extends water.DRemoteTask {
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
-    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel);
+    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel,_features);
     tryComplete();
   }
-
-  static boolean sample;
-  static boolean forceNoSample = false;
 
   public void reduce( DRemoteTask drt ) { }
 }

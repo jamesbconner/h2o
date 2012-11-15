@@ -123,4 +123,23 @@ public class VABuilder {
     return this;
   }
 
+  
+  public static ValueArray updateRows(ValueArray old, Key newKey, long newRows) {
+    byte[] oldBits = old.get();
+    byte[] bits = MemoryManager.allocateMemory(oldBits.length);
+    System.arraycopy(oldBits, 0, bits, 0, bits.length);
+    UDP.set8(bits,ValueArray.NUM_ROWS_OFF,newRows);
+    UDP.set8(bits,ValueArray.LENGTH_OFF,newRows*old.row_size());
+    return new ValueArray(newKey,bits);
+  }
+  
+  public static int chunkSize(Key k, long aryLength) {
+    int result = (int) ValueArray.chunk_size();
+    long offset = ValueArray.getOffset(k);
+    if (offset + result + result >= aryLength)
+      return (int) (aryLength - offset);
+    else
+      return result;
+  }
+
 }

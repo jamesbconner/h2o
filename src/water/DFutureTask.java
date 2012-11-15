@@ -100,12 +100,6 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       TASKS.remove(_tasknum);   // Flag as task-completed, even if the result is null
       notifyAll();              // And notify in any case
     }
-    // ACKACK the remote, telling him "we got the answer"
-    byte[] buf = p.getData();
-    UDP.set_ctrl(buf,UDP.udp.ackack.ordinal());
-    UDP.clr_port(buf); // Re-using UDP packet, so side-step the port reset assert
-    MultiCast.singlecast(_target,buf,UDP.SZ_TASK);
-    UDPReceiverThread.free_pack(p);
   }
 
   // Similar to FutureTask.get() but does not throw any exceptions.  Returns

@@ -1,20 +1,14 @@
 package hex;
-import java.io.*;
 import water.*;
+
+import com.google.gson.JsonObject;
 
 /**
  * Calculate the covariance and correlation of two variables
- *
- * @author alex@0xdata.com
  */
 public abstract class Covariance {
 
-  static public String run( ValueArray ary, int colA, int colB ) {
-    StringBuilder sb = new StringBuilder();
-
-    sb.append("Covariance of ").append(ary._key).append(" between ").
-      append(colA).append(" and ").append(colB);
-
+  static public JsonObject run( ValueArray ary, int colA, int colB ) {
     COV_Task cov = new COV_Task();
     cov._arykey = ary._key;
     cov._colA = colA;
@@ -25,7 +19,6 @@ public abstract class Covariance {
     long start = System.currentTimeMillis();
     cov.invoke(ary._key);
     long pass1 = System.currentTimeMillis();
-    sb.append("<p>Pass 1 in ").append(pass1-start).append("msec");
 
     // Pass 2: Compute the product of variance for variance and covariance
     long n = ary.num_rows();
@@ -35,8 +28,6 @@ public abstract class Covariance {
     cov.reinitialize();
     cov.invoke(ary._key);
     long pass2 = System.currentTimeMillis();
-    sb.append("<P>Pass 2 in ").append(pass2-pass1).append("msec");
-
 
     // Compute results
     // We divide by n-1 since we lost a df by using a sample mean
@@ -47,17 +38,21 @@ public abstract class Covariance {
     double covariance = cov._XYbar / (n - 1);
     double correlation = covariance / sdX / sdY;
 
-    // Print results
-    sb.append("<p>Covariance = ").append(covariance);
-    sb.append("<p>Correlation = ").append(correlation);
-
-    sb.append("<p><table><tr><td></td><td>Var ").append(colA).append("</td><td>Var ").append(colB).append("</td></tr>");
-    sb.append("<tr><td>Mean </td><td>").append(cov._Xbar).append("</td><td>").append(cov._Ybar).append("</td></tr>");
-    sb.append("<tr><td>Standard Deviation </td><td>").append(sdX).append("</td><td>").append(sdY).append("</td></tr>");
-    sb.append("<tr><td>Variance </td><td>").append(varianceX).append("</td><td>").append(varianceY).append("</td></tr>");
-    sb.append("</table>");
-
-    return sb.toString();
+    JsonObject res = new JsonObject();
+    res.addProperty("Key", ary._key.toString());
+    res.addProperty("ColA", ary.col_name(colA));
+    res.addProperty("ColB", ary.col_name(colB));
+    res.addProperty("Pass1Msecs", pass1 - start);
+    res.addProperty("Pass2Msecs", pass2 - start);
+    res.addProperty("Covariance", covariance);
+    res.addProperty("Correlation", correlation);
+    res.addProperty("XMean", cov._Xbar);
+    res.addProperty("YMean", cov._Ybar);
+    res.addProperty("XStdDev", sdX);
+    res.addProperty("YStdDev", sdY);
+    res.addProperty("XVariance", varianceX);
+    res.addProperty("YVariance", varianceY);
+    return res;
   }
 
   public static class COV_Task extends MRTask {

@@ -121,7 +121,8 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       dt.invoke(args);
 
       byte[] buf = p.getData();
-      assert buf[UDP.SZ_TASK]==SERVER_UDP_SEND || buf[UDP.SZ_TASK]==SERVER_TCP_SEND;
+      byte b = buf[UDP.SZ_TASK];
+      assert b==SERVER_UDP_SEND || b==SERVER_TCP_SEND : "remexec reply pack busted: "+b;
 
       // Send it back
       int off = UDP.SZ_TASK;    // Skip udp byte and port and task#
@@ -215,16 +216,24 @@ public class TaskRemExec<T extends RemoteTask> extends DFutureTask<T> {
       int udp     = get_ctrl(buf);
       int port    = get_port(buf);
       int tasknum = get_task(buf);
-      int off     = UDP.SZ_TASK; // Skip udp byte and port and task#
-      byte flag   = buf[off++];  // Flag for udp/tcp
-      if( flag == 0 || flag == 2 ) {
-        off += 3;               // 3 byets of zero classloader
-        byte rf     = buf[off++];
-        int klen    = get2(buf,off); off+=2;
-        return "task# "+tasknum+" "+flag+" key["+klen+"]="+(char)buf[off]+(char)buf[off+1];
-      } else {
-        return "task# "+tasknum+" "+flag+" TCP "+((flag==1)?"pack":"reply");
+      Stream s = new Stream(buf,UDP.SZ_TASK); // Skip udp byte and port and task#
+      byte flag   = s.get1();                 // Flag for udp/tcp
+      String clazz= "";                       // Rexec class
+      if( flag == SERVER_UDP_SEND || flag == SERVER_TCP_SEND ) {
+        int slen = s.get2();    // String clazz len
+        slen = Math.min(slen,s._buf.length-s._off);
+        clazz = new String(buf,s._off,slen);
       }
+      String fs="";
+      switch( flag ) {
+      case SERVER_UDP_SEND: fs = "SERVER_UDP_SEND"; break;
+      case SERVER_TCP_SEND: fs = "SERVER_TCP_SEND"; break;
+      case CLIENT_UDP_SEND: fs = "CLIENT_UDP_SEND"; break;
+      case CLIENT_TCP_SEND: fs = "CLIENT_TCP_SEND"; break;
+      case TCP_INCOMING_REXEC: fs = "TCP_INCOMING_REXEC"; break;
+      case TCP_OUTGOING_REXEC: fs = "TCP_OUTGOING_REXEC"; break;
+      }
+      return "task# "+tasknum+" "+fs+" "+clazz;
     }
   }
 

@@ -152,7 +152,8 @@ public abstract class PersistIce {
         s.close();
       }
     } catch( IOException e ) {  // Broken disk / short-file???
-      return null;              // Also: EOFException for deleted files
+      e.printStackTrace();
+      throw new RuntimeException("File load failed: "+e);
     }
   }
 
@@ -166,9 +167,8 @@ public abstract class PersistIce {
       OutputStream s = new FileOutputStream(encodeKeyToFile(v));
       try {
         byte[] m = v._mem; // we are not single threaded anymore
-        assert (m == null || m.length == v._max); // Assert not saving partial files
-        if( m!=null )
-          s.write(m);
+        assert m != null && m.length == v._max; // Assert not saving partial files
+        s.write(m);
         v.setdsk();             // Set as write-complete to disk
       } finally {
         s.close();

@@ -1,18 +1,14 @@
 package water.web;
 
-import hex.Models;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Properties;
 
 import water.*;
 
 public class ImportFolder extends H2OPage {
-  
-  
+
+
   public static class FolderIntegrityChecker extends DRemoteTask {
 
     String[] _files;
@@ -20,9 +16,9 @@ public class ImportFolder extends H2OPage {
     short[] _ok;
     int _nodes;
     int _stringSizes;
-    
+
     ArrayList<File> _filesInProgress;
-    
+
     @Override public void compute() {
       _ok = new short[_files.length];
       for (int i = 0; i < _files.length; ++i) {
@@ -56,8 +52,8 @@ public class ImportFolder extends H2OPage {
         _filesInProgress.add(folder);
       }
     }
-    
-    
+
+
     public FolderIntegrityChecker(File root) {
       _filesInProgress = new ArrayList();
       addFolder(root);
@@ -73,12 +69,11 @@ public class ImportFolder extends H2OPage {
       _filesInProgress = null;
       _nodes = 0;
     }
-    
+
     private Key importFile(int i) {
       if (_ok[i] == _nodes) {
         File f = new File(_files[i]);
         Key k = PersistNFS.decodeFile(f);
-        String fname = f.getName();
         long size = f.length();
         Value val = (size < 2*ValueArray.chunk_size())
           ? new Value((int)size,0,k,Value.NFS)
@@ -90,7 +85,7 @@ public class ImportFolder extends H2OPage {
         return null;
       }
     }
-    
+
     public String importFilesHTML() {
       StringBuilder sb = new StringBuilder();
       int correct = 0;
@@ -99,18 +94,22 @@ public class ImportFolder extends H2OPage {
         if (k == null) {
           sb.append(error("File <strong>"+_files[i]+"</strong> does not have the same size on all nodes."));
         } else {
-          sb.append(success("File <strong>"+_files[i]+"</strong> imported as key <strong>"+k.toString()+"</strong>"));
+          RString html = new RString("File <strong>%File</strong> imported as" +
+          		" key <a href='/Inspect?Key=%$Key'>%Key</a>");
+          html.replace("File", _files[i]);
+          html.replace("Key", k);
+          sb.append(success(html.toString()));
           ++correct;
         }
       }
-      return "Out of "+_files.length+" a total of "+correct+" was successfully imported to the cloud."+sb.toString(); 
+      return "Out of "+_files.length+" a total of "+correct+" was successfully imported to the cloud."+sb.toString();
     }
-    
+
     public FolderIntegrityChecker() {
-      
+
     }
-    
-    @Override public int wire_len() { 
+
+    @Override public int wire_len() {
       return super.wire_len() + 4 + 4 + 4 +_stringSizes + _files.length*(2+8+2);
     }
 
@@ -159,7 +158,7 @@ public class ImportFolder extends H2OPage {
         _ok[i] = is.readShort();
       }
     }
-  
+
     @Override public void read(Stream s) {
       super.read(s);
       int fLength = s.get4();
@@ -202,9 +201,4 @@ public class ImportFolder extends H2OPage {
   @Override public String[] requiredArguments() {
     return new String[] { "Folder" };
   }
-
-  private static final String html =
-    "<p>Imported %num files in total:"
-    + "%entry{ %contents }"
-    ;
 }

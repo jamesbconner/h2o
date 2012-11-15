@@ -1,10 +1,6 @@
 package water;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.io.*;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
@@ -56,19 +52,6 @@ public final class Key implements Comparable {
   public static final byte USER_KEY = 32;
 
 
-
-  // Known-achieved replication factor.  This is a cache of the first 8 Nodes
-  // that have "checked in" with disk completion.  Monotonically increases over
-  // time; limit of 8 replicas.  Tossed out on an update.  Implemented as 8 bytes
-  // of dense integer indices, H2ONode._unique_idx.  This can be racily set.
-  private long _disk_replicas; // Replicas known to be in proper Nodes
-  void clr_disk_replicas() { _disk_replicas=0; }
-  // Same thing for memory-only replicas.
-  private long _mem_replicas; // Replicas known to be in proper Nodes
-  void clr_mem_replicas() { _mem_replicas=0; }
-
-  public static byte MAXREPLICATION = 127;
-
   // 64 bits of Cloud-specific cached stuff.  It is changed atomically by any
   // thread that visits it and has the wrong Cloud.  It has to be read *in the
   // context of a specific Cloud*, since a re-read may be for another Cloud.
@@ -92,8 +75,6 @@ public final class Key implements Comparable {
   // Desired replication factor.  Can be zero for temp keys.  Not allowed to
   // later, because it messes with e.g. meta-data on disk.
   private static int desired(long cache) { return (int)(cache>>>32)&0x00FF; }
-
-  private static int pad3 ( long cache ) { return (int)(cache>>>40)&0xFFFFFF; }
 
   private static long build_cache( int cidx, int home, int replica, int desired ) {
     return                      // Build the new cache word
@@ -201,7 +182,7 @@ public final class Key implements Comparable {
   }
   static public  Key make(byte[] kb) { return make(kb,DEFAULT_DESIRED_REPLICA_FACTOR); }
   static private Key make(byte[] kb, int off, int len, byte rf) { return make(Arrays.copyOfRange(kb,off,off+len),rf); }
-  static public  Key make(String s) { return make(decodeKeyName(s));} 
+  static public  Key make(String s) { return make(decodeKeyName(s));}
   static public  Key make(String s, byte rf) { return make(decodeKeyName(s), rf);}
   static public  Key make() { return make( UUID.randomUUID().toString() ); }
 
@@ -250,10 +231,10 @@ public final class Key implements Comparable {
     return ((_kb[0]&0xff)>=32) ? USER_KEY : (_kb[0]&0xff);
   }
 
-  
+
   public static final char MAGIC_CHAR = '$';
   private static final char[] HEX = "0123456789abcdef".toCharArray();
-  
+
   /** Converts the key to HTML displayable string.
    *
    * For user keys returns the key itself, for system keys returns their
@@ -267,7 +248,7 @@ public final class Key implements Comparable {
       char a = (char) _kb[len];
       if (' ' <= a && a <= '#') continue;
       // then we have $ which is not allowed
-      if ('%' <= a && a <= '~') continue;        
+      if ('%' <= a && a <= '~') continue;
       // already in the one above
       //if( 'a' <= a && a <= 'z' ) continue;
       //if( 'A' <= a && a <= 'Z' ) continue;
@@ -305,131 +286,18 @@ public final class Key implements Comparable {
         res[r++] = (byte)(h << 4 | l);
       }
       System.arraycopy(tail.getBytes(), 0, res, r, tail.length());
-      return res;      
+      return res;
     } else {
       return what.getBytes();
     }
   }
-  
-  
+
   public int hashCode() { return _hash; }
   public boolean equals( Object o ) {
     if( this == o ) return true;
     Key k = (Key)o;
     return Arrays.equals(k._kb,_kb);
   }
-
-  // ---------------------------------------------------------------------
-  // Known-achieved replication factor.  This is a cache of the first 8 Nodes
-  // that have "checked in" with disk completion.  Monotonically increases over
-  // time; limit of 8 replicas.  Tossed out on an update.  Implemented as 8 bytes
-  // of dense integer indices, H2ONode._unique_idx;
-  static private boolean cache_has_overflowed( long d ) {
-    return (d>>>56)!=0;         // Overflowed if last byte is set
-  }
-
-  // Return the cache slot shift of this node, or a blank slot, or 64 if full
-  static private int get_byte_shift( H2ONode h2o, long d ) {
-    final char hidx = (char)h2o._unique_idx;
-    assert hidx < 255;
-    for( int i=0; i<64; i+=8 ) {       // 8 bytes of cache
-      char idx = (char)((d>>>i)&0xFF); // Unsigned byte unique index being cached
-      if( hidx == idx ) return i; // Found match
-      if( idx == 0 ) return i;    // Found blank
-    }
-    return 64;                  // Missed
-  }
-  static boolean is_replica( long d, H2ONode h2o ) {
-    int idx = get_byte_shift(h2o,d);
-    if( idx == 64 ) return false;
-    return ((d>>>idx)&0xff) != 0;
-  }
-  boolean is_disk_replica( H2ONode h2o ) { return is_replica(_disk_replicas,h2o); }
-  boolean  is_mem_replica( H2ONode h2o ) { return is_replica( _mem_replicas,h2o); }
-
-  static long set_replica( long d, H2ONode h2o ) {
-    assert h2o != H2O.SELF;     // This is always for REMOTE replicas & caching
-    int idx = get_byte_shift(h2o,d);
-    if( idx < 64 )                         // Cache not full
-      d |= (((long)h2o._unique_idx)<<idx); // cache it
-    return d;
-  }
-  // Only the HOME node for a key tracks replicas
-  void set_disk_replica( H2ONode h2o ) { assert home(); _disk_replicas=set_replica(_disk_replicas,h2o); }
-  void  set_mem_replica( H2ONode h2o ) { assert home();  _mem_replicas=set_replica( _mem_replicas,h2o); }
-
-  static long clr_replica( long d, H2ONode h2o ) {
-    int idx = get_byte_shift(h2o,d);
-    if( idx < 64 )              // Find in cache?
-      d &= ~(0xFFL<<idx);       // Nuke it
-    return d;
-  }
-  void clr_disk_replica( H2ONode h2o ) { _disk_replicas=clr_replica(_disk_replicas,h2o); }
-  void  clr_mem_replica( H2ONode h2o ) {  _mem_replicas=clr_replica( _mem_replicas,h2o); }
-
-  // Query the known level of persistence.  Only counts up to 8 known replicas right now.
-  public int count_disk_replicas() {
-    long d = _disk_replicas;
-    H2O cloud = H2O.CLOUD;
-    int repl = 0;
-    while( d != 0 ) {
-      int idx = (int)(d&0xFF);// Unsigned byte unique index being cached
-      // Node being cached
-      H2ONode h2o = H2ONode.IDX[idx];
-      // Only report if is in the current Cloud
-      if( cloud._memset.contains(h2o) ) repl++;
-      d >>= 8;
-    }
-    return repl;
-  }
-
-  public String print_replicas() {
-    String s= "{";
-    long d = _disk_replicas;
-    H2O cloud = H2O.CLOUD;
-    while( d != 0 ) {
-      int idx = (int)(d&0xFF);// Unsigned byte unique index being cached
-      d >>= 8;
-      H2ONode h2o = H2ONode.IDX[idx];
-      s += h2o + ", ";
-    }
-    return s+"}";
-  }
-
-  // Returns true if the value is stored on the local disk.
-  boolean is_disk_local() { return is_disk_replica( H2O.SELF); }
-
-  // Inform all the cached copies of this key, that it has changed.  This is a
-  // non-blocking invalidate (but returns the task to block for it).  (Well,
-  // actually right now this call just blocks till all invalidates complete; a
-  // future optimization can allow more slop in the Memory Model).
-  void invalidate_remote_caches() {
-    assert home();   // Only home node tracks mem replicas & issue invalidates
-    long d = _mem_replicas;
-    _mem_replicas = 0;          // Needs to be atomic!!
-    if( cache_has_overflowed(d) )
-      throw H2O.unimpl(); // bulk invalidate for key=this
-    if( d == 0 ) return;
-    TaskPutKey[] tpks = new TaskPutKey[8]; // Collect all the pending invalidates
-    int i=0;
-    while( d != 0 ) {
-      int idx = (int)(d&0xff);
-      d >>= 8;
-      H2ONode h2o = H2ONode.IDX[idx];
-      tpks[i++] = invalidate(h2o);
-    }
-    // Bulk block until all invalidates happen
-    for( int j=0; j<i; j++ )
-      tpks[j].get();
-  }
-  TaskPutKey invalidate(H2ONode target) {
-    assert target != H2O.SELF;   // No point in tracking self, nor invalidating self
-    H2O cloud = H2O.CLOUD;
-    int home_idx = home(cloud);
-    assert cloud._memary[home_idx]==H2O.SELF; // Only home does invalidates
-    return new TaskPutKey(target,this,null);  // Fire off a remote delete
-  }
-
 
   // --------------------------------------------------------------------------
   // Read/Write keys in UDP packets

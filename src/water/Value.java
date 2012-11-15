@@ -12,6 +12,7 @@ import java.util.UUID;
 import sun.misc.Unsafe;
 import water.hdfs.PersistHdfs;
 import water.nbhm.UtilUnsafe;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Values
@@ -134,6 +135,109 @@ public class Value {
     return _key== val._key;
   }
 
+  // ---------------------
+  // Known remote replicas.  This is a cache of the first 8 non-home Nodes that
+  // have replicated this Value.  Monotonically increases over time; limit of 8
+  // replicas.  Tossed out on an update.  Implemented as 8 bytes of dense
+  // integer indices, H2ONode._unique_idx.  The special value of -1 indicates
+  // that the 'this' Value is invalidated, and no new replicas can be made.
+  private AtomicLong _mem_replicas = new AtomicLong(0); // Replicas known to be in proper Nodes
+  public long mem_replicas() { return _mem_replicas.get(); }
+
+  // Return the cache slot shift of this node, or a blank slot, or 64 if full
+  static private int get_byte_shift( H2ONode h2o, long d ) {
+    final char hidx = (char)h2o._unique_idx;
+    assert hidx < 255;
+    for( int i=0; i<64; i+=8 ) {       // 8 bytes of cache
+      char idx = (char)((d>>>i)&0xFF); // Unsigned byte unique index being cached
+      if( hidx == idx ) return i; // Found match
+      if( idx == 0 ) return i;    // Found blank
+    }
+    return 64;                    // Missed
+  }
+  // True if h2o appears in the cache 'd', or the cache is full.
+  static boolean is_replica( long d, H2ONode h2o ) {
+    int idx = get_byte_shift(h2o,d);
+    if( idx == 64 ) return true;
+    return ((d>>>idx)&0xff) != 0;
+  }
+  // True if h2o is assumed to be a mem_replica.
+  boolean  is_mem_replica( H2ONode h2o ) { return is_replica( _mem_replicas.get(), h2o); }
+
+  // Set h2o as a replica.  Drops it if the cache is full, because full caches
+  // are assumed to replicate everything.
+  static long set_replica( long d, H2ONode h2o ) {
+    assert h2o != H2O.SELF;     // This is always for REMOTE replicas & caching
+    assert d != -1;             // No more replicas allowed.
+    int idx = get_byte_shift(h2o,d);
+    if( idx < 64 )                         // Cache not full
+      d |= (((long)h2o._unique_idx)<<idx); // cache it
+    return d;
+  }
+  // Atomically insert h2o into the mem_replica list; reports false if the
+  // Value flagged against future replication with a -1.  Reports true if the
+  // cache is full (and then relies on bulk invalidation).
+  boolean set_mem_replica( H2ONode h2o ) {
+    assert _key.home();         // Only the HOME node for a key tracks replicas
+    while( true ) {
+      long old = _mem_replicas.get();
+      if( old == -1 ) return false; // No new replications
+      if( _mem_replicas.compareAndSet(old, set_replica(old, h2o)) ) return true;
+    }
+  }
+
+  // Count known memory replicas from 0 to 7, or -1 if stale & locked.
+  // 8 replicas means "8 or more".
+  public int count_mem_replicas() {
+    long d = _mem_replicas.get();
+    if( d == -1 ) return -1;    // Stale
+    int cnt =0;
+    for( int i=0; i<64; i+=8 )  // 8 bytes of cache
+      if( ((d>>>i)&0xFF) != 0 ) cnt++;
+    return cnt;
+  }
+
+  // Inform all the cached copies of this key (except the sender) that it has
+  // changed.  Sender is not flushed because presumbably he has the very value
+  // we are updating to.  Non-blocking, but returns a cookie that can be
+  // blocked on.  If no TPKs are required, returns 'this'.  Otherwise returns a
+  // TPK or a collection of TPKs with 'this' buried inside.
+  Object invalidate_remote_caches( H2ONode sender ) {
+    assert _key.home();   // Only home node tracks mem replicas & issue invalidates
+    // Atomically get the set of replicas, and block any future replications by
+    // setting a -1 in the cache.  This is a linearization point for the Memory
+    // Model ordering: racing remote Gets will either get inserted before we
+    // flip to a -1... and get an invalidate, or else they will fail to be
+    // inserted and will retry and get the new Value.
+    long d = _mem_replicas.get();
+    while( !_mem_replicas.compareAndSet(d, -1) ) d = _mem_replicas.get();
+    if( d == 0 ) return this;   // Nobody to invalidate?
+    // Only 1 caller of this method, so only one thread flips cache 'd' to -1.
+    // The one caller is the winner of a DKV.putIfMatch race.
+    assert( d != -1 );
+    if( (d>>56) != 0 )          // Cache has overflowed?
+      throw H2O.unimpl();       // bulk invalidate?
+    TaskPutKey tpks = new TaskPutKey(this); // Collect all the pending invalidates
+    int i=0;
+    while( d != 0 ) {           // For all cached replicas
+      int idx = (int)(d&0xff);
+      d >>= 8;
+      H2ONode h2o = H2ONode.IDX[idx];
+      if( h2o != sender )       // No need to invalidate sender
+        tpks._tpks[i++] = invalidate(h2o);
+    }
+    return tpks;
+  }
+  TaskPutKey invalidate(H2ONode target) {
+    assert target != H2O.SELF;   // No point in tracking self, nor invalidating self
+    H2O cloud = H2O.CLOUD;
+    int home_idx = _key.home(cloud);
+    assert cloud._memary[home_idx]==H2O.SELF; // Only home does invalidates
+    target.block_pending_gets(this);
+    return new TaskPutKey(target,_key,null,this);  // Fire off a remote delete
+  }
+
+
   // ---------------------------------------------------------------------------
   // Abstract interface for value subtypes
   // ---------------------------------------------------------------------------
@@ -181,6 +285,7 @@ public class Value {
   // Load some or all of completely persisted Values
   byte[] load_persist(int len) {
     assert is_persisted();
+    H2O.dirty_store(); // Not really dirtying it, but definitely changing amount of RAM-cached data
     switch( _persist&BACKEND_MASK ) {
     case ICE : return PersistIce .file_load(this,len);
     case HDFS: return PersistHdfs.file_load(this,len);
@@ -419,20 +524,20 @@ public class Value {
   public boolean onHDFS(){
     return (_persist & BACKEND_MASK) == HDFS;
   }
-  // atomicaly set the backend to hdfs and persist state to not persisted
+
+  // Set the backend to hdfs and persist state to not persisted
   // and than remove the old stored value (if any)
-  //
   public void switch2HdfsBackend(boolean persisted){
     byte oldPersist = _persist;
-    if(persisted)_persist = HDFS|ON_dsk; else _persist = HDFS;
-    if((oldPersist & ON_dsk) > 0)
+    _persist = (persisted ? HDFS|ON_dsk : HDFS); 
+    if( (oldPersist & ON_dsk) != 0 )
       switch( oldPersist&BACKEND_MASK ) {
       case ICE : PersistIce .file_delete(this); break;
       case HDFS: assert(false); PersistHdfs.file_delete(this); break;
       case NFS : PersistNFS .file_delete(this); break;
       default  : throw H2O.unimpl();
       }
-    _key.invalidate_remote_caches();
+    invalidate_remote_caches(H2O.SELF);
   }
 
 }

@@ -1,21 +1,25 @@
-
 package hex.rf;
 
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
-import java.util.HashMap;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 public class Utils {
 
-
-  /** Returns the index of the largest value in the array. In case of a tie, an
-   * the index is selected randomly.   */
+  /** Returns the index of the largest value in the array.
+   * In case of a tie, an the index is selected randomly.
+   */
   public static int maxIndex(int[] from, Random rand) {
+    assert rand != null;
     int result = 0;
-    for (int i = 1; i<from.length; ++i) if (from[i]>from[result]) result = i;
-      else if (from[i]==from[result] && rand!=null && rand.nextBoolean()) result = i; // tie breaker
+    int maxCount = 0; // count of maximal element for a 1 item reservoir sample
+    for( int i = 1; i < from.length; ++i ) {
+      if( from[i] > from[result] ) {
+        result = i;
+        maxCount = 1;
+      } else if( from[i] == from[result] ) {
+        if( rand.nextInt(++maxCount) == 0 ) result = i;
+      }
+    }
     return result;
   }
 
@@ -26,27 +30,14 @@ public class Utils {
     return result;
   }
 
-
-  public static String join(int[] what, String with) {
-    if (what==null)  return "";
-    StringBuilder sb = new StringBuilder();
-    sb.append(what[0]);
-    for (int i = 1; i<what.length;++i) sb.append(with+what[i]);
-    return sb.toString();
-  }
-
-
   public static double lnF(double what) {
     return (what < 1e-06) ? 0 : what * Math.log(what);
   }
 
-  public static String p2d(double d) { return df.format(d); }
-  static final DecimalFormat df = new  DecimalFormat ("0.##");
-  public static String p5d(double d) { return df5.format(d); }
-  static final DecimalFormat df5 = new  DecimalFormat ("0.#####");
+  public static String p2d(double d) { return new DecimalFormat ("0.##"   ).format(d); }
+  public static String p5d(double d) { return new DecimalFormat ("0.#####").format(d); }
 
-
-   public static int set4( byte[] buf, int off, int x ) {
+  public static int set4( byte[] buf, int off, int x ) {
     for( int i=0; i<4; i++ ) buf[i+off] = (byte)(x>>(i<<3));
     return 4;
   }
@@ -74,22 +65,4 @@ public class Utils {
   }
 
   public static void pln(String s) { System.out.println(s); }
-
-  private static HashMap<String, Long> timers = new HashMap<String, Long>();
-  public static void startTimer(String name) {
-    if (timers.get(name)!=null) pln("[RF] Trying to start timer " + name +" twice");
-     timers.put(name, System.currentTimeMillis());
-  }
-  public static String printTimer(String name) {
-    long now = System.currentTimeMillis();
-    Long old = timers.get(name);
-    if (old==null) pln("[RF] Trying to print timer " + name +" before start.");
-    long l = now - old.longValue();
-    final long hr = TimeUnit.MILLISECONDS.toHours(l);
-    final long min = TimeUnit.MILLISECONDS.toMinutes(l - TimeUnit.HOURS.toMillis(hr));
-    final long sec = TimeUnit.MILLISECONDS.toSeconds(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min));
-    final long ms = TimeUnit.MILLISECONDS.toMillis(l - TimeUnit.HOURS.toMillis(hr) - TimeUnit.MINUTES.toMillis(min) - TimeUnit.SECONDS.toMillis(sec));
-    return String.format("%02d:%02d:%02d.%03d", hr, min, sec, ms);
-
-  }
 }

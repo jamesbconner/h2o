@@ -144,6 +144,12 @@ public class TCPReceiverThread extends Thread {
     for( int i=0; i<len; i++ ) ary[i] = readDoubleAry(dis);
     return ary;
   }
+  public static String[] readStrAry( DataInputStream dis ) throws IOException {
+    int len = dis.readInt(); if( len == -1 ) return null;
+    String[] ary  = new String[len];
+    for( int i=0; i<len; i++ ) ary[i] = readStr(dis);
+    return ary;
+  }
   public static String readStr( DataInputStream dis ) throws IOException {
     int len = dis.readChar(); if( len == 65535 ) return null;
     byte[] ary  = new byte[len];
@@ -197,6 +203,10 @@ public class TCPReceiverThread extends Thread {
   public static void writeAry( DataOutputStream dos, double[][] ary ) throws IOException {
     dos.writeInt(ary==null?-1:ary.length);
     if( ary !=null ) for( int i=0; i<ary.length; i++ ) writeAry(dos,ary[i]);
+  }
+  public static void writeAry( DataOutputStream dos, String[] ary ) throws IOException {
+    dos.writeInt(ary==null?-1:ary.length);
+    if( ary !=null ) for( int i=0; i<ary.length; i++ ) writeStr(dos,ary[i]);
   }
   public static void writeStr( DataOutputStream dos, String str ) throws IOException {
     if( str == null ) dos.writeChar(65535);

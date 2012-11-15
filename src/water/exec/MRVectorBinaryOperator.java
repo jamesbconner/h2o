@@ -12,7 +12,7 @@ import water.*;
 public abstract class MRVectorBinaryOperator extends MRTask {
 
   private final Key _leftKey;
-  private final Key _rightKe;
+  private final Key _rightKey;
   private final Key _resultKey;
   private final int _leftCol;
   private final int _rightCol;
@@ -32,7 +32,7 @@ public abstract class MRVectorBinaryOperator extends MRTask {
    */
   public MRVectorBinaryOperator(Key left, Key right, Key result, int leftCol, int rightCol) {
     _leftKey = left;
-    _rightKe = right;
+    _rightKey = right;
     _resultKey = result;
     _leftCol = leftCol;
     _rightCol = rightCol;
@@ -47,40 +47,34 @@ public abstract class MRVectorBinaryOperator extends MRTask {
    */
   public abstract double operator(double left, double right);
 
-  @Override
-  public void map(Key key) {
-    ValueArray left_ = (ValueArray) DKV.get(_leftKey);
-    ValueArray right_ = (ValueArray) DKV.get(_rightKe);
-    ValueArray result_ = (ValueArray) DKV.get(_resultKey);
-    // get the bits to which we will write
-    long chunkOffset = ValueArray.getOffset(key);
-    long row = chunkOffset / result_.row_size();
-    // now if we are last chunk, number of rows is all remaining
-    // otherwise it is the chunk_size() / row_size
-    long chunkRows = ValueArray.chunk_size() / result_.row_size(); // now rows per chunk
-    if( row / chunkRows == result_.chunks() - 1 )
-      chunkRows = result_.num_rows() - row;
-    byte[] bits = MemoryManager.allocateMemory((int) chunkRows * 8); // create the byte array
-    // now calculate the results
-    long leftRow = row % left_.num_rows();
-    long rightRow = row % right_.num_rows();
-    for( int i = 0; i < chunkRows; ++i ) {
-      double left = left_.datad(leftRow, _leftCol);
-      double right = right_.datad(rightRow, _rightCol);
-      double result = operator(left, right);
-      UDP.set8d(bits, i * 8, result);
-      if( result < _min )
-        _min = result;
-      if( result > _max )
-        _max = result;
-      _tot += result;
-      leftRow = (leftRow + 1) % left_.num_rows();
-      rightRow = (rightRow + 1) % right_.num_rows();
+  
+  /* We are creating new one, so I can tell the row number quite easily from the
+   * chunk index. 
+   */
+  @Override public void map(Key key) {
+    ValueArray result = (ValueArray) DKV.get(_resultKey);
+    long rowOffset = ValueArray.getOffset(key) / result.row_size();
+    VAIterator left = new VAIterator(_leftKey,_leftCol, rowOffset);
+    VAIterator right = new VAIterator(_rightKey,_rightCol, rowOffset);
+    int chunkRows = VABuilder.chunkSize(key, result.length()) / result.row_size();
+//    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
+//    if (rowOffset + chunkRows >= result.num_rows())
+//      chunkRows = (int) (result.num_rows() - rowOffset);
+    int chunkLength = chunkRows * 8;
+    byte[] bits = MemoryManager.allocateMemory(chunkLength); // create the byte array
+    for (int i = 0; i < chunkLength; i+=8) {
+      left.next();
+      right.next();
+      double x = operator(left.datad(), right.datad());
+      UDP.set8d(bits,i,x);
+      if (x < _min)
+        _min = x;
+      if (x > _max)
+        _max = x;
+      _tot += x;
     }
-    // we have the bytes now, just store the value
     Value val = new Value(key, bits);
     lazy_complete(DKV.put(key, val));
-    // and we are done...
   }
 
   @Override
@@ -137,4 +131,103 @@ class DivOperator extends water.exec.MRVectorBinaryOperator {
 
   @Override
   public double operator(double left, double right) { return left / right; }
+}
+
+// =============================================================================
+// ModOperator
+// =============================================================================
+class ModOperator extends water.exec.MRVectorBinaryOperator {
+
+  public ModOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left % right; }
+}
+
+// =============================================================================
+// LessOperator
+// =============================================================================
+class LessOperator extends water.exec.MRVectorBinaryOperator {
+
+  public LessOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left < right ? 1 : 0; }
+}
+
+// =============================================================================
+// LessOrEqOperator
+// =============================================================================
+class LessOrEqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public LessOrEqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left <= right ? 1 : 0; }
+}
+
+// =============================================================================
+// GreaterOperator
+// =============================================================================
+class GreaterOperator extends water.exec.MRVectorBinaryOperator {
+
+  public GreaterOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left > right ? 1 : 0; }
+}
+
+// =============================================================================
+// GreaterOrEqOperator
+// =============================================================================
+class GreaterOrEqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public GreaterOrEqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left >= right ? 1 : 0; }
+}
+
+// =============================================================================
+// EqOperator
+// =============================================================================
+class EqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public EqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left == right ? 1 : 0; }
+}
+
+// =============================================================================
+// NeqOperator
+// =============================================================================
+class NeqOperator extends water.exec.MRVectorBinaryOperator {
+
+  public NeqOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return left != right ? 1 : 0; }
+}
+
+// =============================================================================
+// AndOperator
+// =============================================================================
+class AndOperator extends water.exec.MRVectorBinaryOperator {
+
+  public AndOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return ((left != 0) &&  (right != 0)) ? 1 : 0; }
+}
+
+// =============================================================================
+// OrOperator
+// =============================================================================
+class OrOperator extends water.exec.MRVectorBinaryOperator {
+
+  public OrOperator(Key left, Key right, Key result, int leftCol, int rightCol) { super(left, right, result, leftCol, rightCol); }
+
+  @Override
+  public double operator(double left, double right) { return ((left != 0) || (right != 0)) ? 1 : 0; }
 }

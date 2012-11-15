@@ -24,6 +24,7 @@ public class Tree extends CountedCompleter {
   final Key _modelKey;
   final int _alltrees;
   final float _sample;
+  transient Timer _timer;
 
   // Constructor used to define the specs when building the tree from the top
   public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample) {
@@ -38,7 +39,8 @@ public class Tree extends CountedCompleter {
     _modelKey = modelKey;
     _alltrees = alltrees;
     _sample = sample;
-    Utils.startTimer("tree"+(_data_id+1));
+    assert sample <= 1.0f;
+    _timer = new Timer();
   }
 
   // Oops, uncaught exception
@@ -55,6 +57,7 @@ public class Tree extends CountedCompleter {
           new EntropyStatistic(data,_features, _seed);
       _stats[index].set(result);
     }
+    result.forget_features();   // All new features
     result.reset(data, seed);
     return result;
   }
@@ -63,25 +66,26 @@ public class Tree extends CountedCompleter {
   public void compute() {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
-    Utils.startTimer("sample"+(_data_id+1));
-    Data d = _data.sample(_sample);
-    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ Utils.printTimer("sample"+(_data_id+1)));
+    Timer t_sample = new Timer();
+    Data d = _data.sample(_sample,_seed);
+    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample);
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
-    for( Row r : d ) left.add(r);
+    for( Row r : d ) left.addQ(r);
+    left.applyClassWeights();   // Weight the distributions
     Statistic.Split spl = left.split(d, false);
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
       : new FJBuild (spl, d, 0, _seed + 1).compute();
     StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
-    Utils.pln(_tree.toString(sb,150).toString());
+    Utils.pln(_tree.toString(sb,200).toString());
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
     AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees);
     am.invoke(_modelKey);
 
-    Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ Utils.printTimer("tree"+(_data_id+1)));
+    Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
     tryComplete();
   }
 
@@ -104,7 +108,7 @@ public class Tree extends CountedCompleter {
         Model m_old = new Model();
         m_old.read(new Stream(bits));
         if( m_old.size() >= m_new.size() )
-          return bits.clone();
+          return bits;          // Abort the XTN with no change
       }
       Stream s = new Stream();
       m_new.write(s);           // Write the larger model out
@@ -135,8 +139,8 @@ public class Tree extends CountedCompleter {
       _data.filter(nd,res,left,rite);
 
       FJBuild fj0 = null, fj1 = null;
-      Statistic.Split ls = left.split(_data, _depth >= _max_depth); // get the splits
-      Statistic.Split rs = rite.split(_data, _depth >= _max_depth);
+      Statistic.Split ls = left.split(res[0], _depth >= _max_depth); // get the splits
+      Statistic.Split rs = rite.split(res[1], _depth >= _max_depth);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
       else                    fj0 = new  FJBuild(ls,res[0],_depth+1, _seed + 1);
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
@@ -290,6 +294,7 @@ public class Tree extends CountedCompleter {
   public Key toKey() {
     Stream bs = new Stream();
     bs.set4(_data_id);
+    bs.set4(_seed);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
@@ -299,15 +304,17 @@ public class Tree extends CountedCompleter {
   // Classify this serialized tree - withOUT inflating it to a full tree.
   // Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
   // Returns classes from 0 to N-1
-  public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal ) {
+  public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal, short badData ) {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
+    ts.get4();    // Skip seed
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
       byte b = tbits[o];
       assert tbits[o] == '(' || tbits[o] == 'S' || tbits[o] == 'E';
       int col = ts.get2();      // Column number
       float fcmp = ts.get4f();  // Float to compare against
+      if( !ary.valid(databits,row,rowsize,offs[col],size[col]) ) return badData;
       float fdat = (float)ary.datad(databits,row,rowsize,offs[col],size[col],base[col],scal[col],col);
       int skip = (ts.get1()&0xFF);
       if( skip == 0 ) skip = ts.get3();
@@ -322,6 +329,15 @@ public class Tree extends CountedCompleter {
     return (short) ( ts.get1()&0xFF );      // Return the leaf's class
   }
 
+  public static int seed( byte[] bits) {
+    Stream ts = new Stream(bits);
+    ts.get4();
+    return ts.get4();
+  }
+  public static int dataId( byte[] bits) {
+    Stream ts = new Stream(bits);
+    return ts.get4();
+  }
   // Abstract visitor class for serialized trees.
   public static abstract class TreeVisitor<T extends Exception> {
     TreeVisitor<T> leaf( int tclass          ) throws T { return this; }
@@ -333,6 +349,7 @@ public class Tree extends CountedCompleter {
     TreeVisitor( byte[] tbits ) {
       _ts = new Stream(tbits);
       _ts.get4();               // Skip tree ID
+      _ts.get4();               // Skip seed
     }
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();

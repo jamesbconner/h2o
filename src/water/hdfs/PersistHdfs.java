@@ -171,6 +171,7 @@ public abstract class PersistHdfs {
           s = _fs.open(p);
         } catch (IOException e) {
           if (e.getMessage().equals("Filesystem closed")) {
+            System.out.println("Retrying fs.open with a new FileSystem to fix the too-many-open-files problem");
             _fs = FileSystem.get(_conf);
             s = _fs.open(p);
           } else {
@@ -201,7 +202,7 @@ public abstract class PersistHdfs {
       if((v instanceof ValueArray) && path.endsWith(".hex")){
         byte [] mem  = v.get();
         int padding = pad8(mem.length + 2) - mem.length - 2;
-        // write lenght of the header in bytes
+        // write length of the header in bytes
         s.writeShort((short)(mem.length+padding));
         // write the header data
         s.write(mem);

@@ -105,7 +105,7 @@ public class DebugView extends H2OPage {
     int r = key.desired();
     int repl = key.replica(cloud);
     if( repl < r ) { // If we should be replicating, then report what replication we know of
-      int d = key.count_disk_replicas();
+      int d = val.count_mem_replicas();
       if( val.is_persisted() ) d++; // One more for self
       if( d < r )
         row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
@@ -133,6 +133,10 @@ public class DebugView extends H2OPage {
             "<div class='alert alert-success'>"
           + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
           + "</div>"
+          + "<ul class='nav nav-tabs'>"
+          + " <li class='active'><a href='DebugView'>Keys</a></li>"
+          + " <li class=''><a href='DbgJStack'>JStack</a></li>"
+          + "</ul>"
           + "<form class='well form-inline' action='DebugView'>"
           + "  <input type='text' class='input-small span10' placeholder='filter' name='Prefix' id='Prefix' %pvalue maxlength='512'>"
           + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"

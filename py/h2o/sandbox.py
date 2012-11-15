@@ -4,23 +4,20 @@ sys.path.append(os.getcwd())
 
 import h2o
 
-cloud = h2o.Cloud()
+h2o = h2o.Cloud()
 
-print cloud.name
-print cloud.size
+h2o["haha"] = [1,2,3,4,5,6,7,8,9,10]
 
-#h2o["haha"] = [1,2,3,4,5,6,7,8,9,10]
+y = h2o["haha"]
 
-#y = h2o["haha"]
+y += 5
 
-#y += 5
+y.invalidate()
+print y.__repr__()
 
-#y.invalidate()
-#print y.__repr__()
+print y.get()
 
-#print y.get()
-
-#print y.__repr__()
+print y.__repr__()
 
 
 #print y

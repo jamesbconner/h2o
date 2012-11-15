@@ -2,13 +2,16 @@ package water;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jsr166y.ForkJoinPool;
 import jsr166y.ForkJoinWorkerThread;
-import water.H2ONode.H2Okey;
 import water.exec.Function;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
+
+import com.google.common.base.Strings;
+import com.google.common.io.Closeables;
 
 /**
  * Start point for creating or joining an <code>H2O</code> Cloud.
@@ -197,7 +200,7 @@ public final class H2O {
     // If the K/V mapping is changing, let the store cleaner just overwrite.
     // If the K/V mapping is new, let the store cleaner just create
     if( old != null && val == null ) old.remove_persist(); // Remove the old guy
-    if( val != null ) kick_store_cleaner(); // Start storing the new guy
+    if( val != null ) dirty_store(); // Start storing the new guy
     return old;                 // Return success
   }
 
@@ -321,18 +324,6 @@ public final class H2O {
 
     startupFinalize();    // finalizes the startup & tests (if any)
     // Hang out here until the End of Time
-    // test if we have multicast
-    try {Thread.sleep(20000);} catch( InterruptedException e ) {}
-    if (OPT_ARGS.flatfile==null && CLOUD._memary.length == 1) {
-      if(MultiReceiverThread.receivedMCastMsgCount == 0){
-        System.err.println("WARNING: No other nodes are visible. No flatfile argument and no multicast messages received. Broken multicast?");
-      }
-    } else {
-      for(H2ONode n:H2O.CLOUD._memary){
-        if(n == H2O.SELF)continue;
-        if(n._last_heard_from == 0)System.err.println("Never heard from " + n);
-      }
-    }
   }
 
   private static void initializeExpressionEvaluation() {
@@ -352,8 +343,11 @@ public final class H2O {
     SELF = H2ONode.self();
     // Do not forget to put SELF into the static configuration (to simulate
     // proper multicast behavior)
-    if( STATIC_H2OS != null )
+    if( STATIC_H2OS != null && !STATIC_H2OS.contains(SELF)) {
+      System.err.println("[h2o] *WARNING* flatfile configuration does not include self: " + SELF);
+      System.err.println("[h2o] *WARNING* flatfile contains: " + STATIC_H2OS);
       STATIC_H2OS.add(SELF);
+    }
 
     System.out.println("[h2o] ("+VERSION+") '"+NAME+"' on " + SELF+
                        (OPT_ARGS.flatfile==null
@@ -374,7 +368,7 @@ public final class H2O {
   private static void startNetworkServices() {
     // We've rebooted the JVM recently.  Tell other Nodes they can ignore task
     // prior tasks by us.  Do this before we receive any packets
-    UDPRebooted.build_and_multicast();
+    UDPRebooted.T.reboot.broadcast();
 
     // Start the UDPReceiverThread, to listen for requests from other Cloud
     // Nodes.  There should be only 1 of these, and it never shuts down.
@@ -445,7 +439,7 @@ public final class H2O {
 
     NAME = OPT_ARGS.name==null?  System.getProperty("user.name") : OPT_ARGS.name;
     // Read a flatfile of allowed nodes
-    STATIC_H2OS = from_file(OPT_ARGS.flatfile);
+    STATIC_H2OS = parseFlatFile(OPT_ARGS.flatfile);
 
     // Multi-cast ports are in the range E1.00.00.00 to EF.FF.FF.FF
     int hash = NAME.hashCode()&0x7fffffff;
@@ -459,37 +453,70 @@ public final class H2O {
     CLOUD_MULTICAST_PORT = (port>>>16);
   }
 
-  // Read a set of Nodes from a file.  Example:
-  //   # this is a comment
-  //   10.10.65.105:54322
-  private static HashSet<H2ONode> from_file( String fname ) {
+  /**
+   * Read a set of Nodes from a file.  Format is:
+   *
+   * name/ip_address:port
+   *   - name is unused and optional
+   *   - port is optional
+   *   - leading '#' indicates a comment
+   *
+   * For example:
+   *
+   *   10.10.65.105:54322
+   *   # disabled for testing
+   *   # 10.10.65.106
+   *   /10.10.65.107
+   *   # run two nodes on 108
+   *   10.10.65.108:54322
+   *   10.10.65.108:54325
+   */
+  private static HashSet<H2ONode> parseFlatFile( String fname ) {
     if( fname == null ) return null;
     File f = new File(fname);
     if( !f.exists() ) return null; // No flat file
     HashSet<H2ONode> h2os = new HashSet<H2ONode>();
     BufferedReader br = null;
-    int port=-1;
+    int port = DEFAULT_PORT;
     try {
       br = new BufferedReader(new InputStreamReader(new FileInputStream(f)));
       String strLine = null;
       while( (strLine = br.readLine()) != null) {
-        // be user friendly and skip comments
-        if (strLine.startsWith("#")) continue;
-        final String[] ss = strLine.split("[/:]");
-        if( ss.length!=3 )
-          Log.die("Invalid format, must be name/ip:port, not '"+strLine+"'");
+        strLine = strLine.trim();
+        // be user friendly and skip comments and empty lines
+        if (strLine.startsWith("#") || strLine.isEmpty()) continue;
 
-        final InetAddress inet = InetAddress.getByName(ss[1]);
+        String ip = null, portStr = null;
+        int slashIdx = strLine.indexOf('/');
+        int colonIdx = strLine.indexOf(':');
+        if( slashIdx == -1 && colonIdx == -1 ) {
+          ip = strLine;
+        } else if( slashIdx == -1 ) {
+          ip      = strLine.substring(0, colonIdx);
+          portStr = strLine.substring(colonIdx+1);
+        } else if( colonIdx == -1 ) {
+          ip      = strLine.substring(slashIdx+1);
+        } else if( slashIdx > colonIdx ) {
+          Log.die("Invalid format, must be name/ip[:port], not '"+strLine+"'");
+        } else {
+          ip      = strLine.substring(slashIdx+1, colonIdx);
+          portStr = strLine.substring(colonIdx+1);
+        }
+
+        InetAddress inet = InetAddress.getByName(ip);
         if( !(inet instanceof Inet4Address) )
-          Log.die("Only IP4 addresses allowed.");
-        try {
-          port = Integer.decode(ss[2]);
-        } catch( NumberFormatException nfe ) {  Log.die("Invalid port #: "+ss[2]); }
-        h2os.add(H2ONode.intern(inet,port));
-        //h2os.add(new H2ONode(inet,port));
+          Log.die("Only IP4 addresses allowed: given " + ip);
+        if( !Strings.isNullOrEmpty(portStr) ) {
+          try {
+            port = Integer.decode(portStr);
+          } catch( NumberFormatException nfe ) {
+            Log.die("Invalid port #: "+portStr);
+          }
+        }
+        h2os.add(H2ONode.intern(inet, port+1));// use the UDP port here
       }
-    } catch( Exception e ) {  Log.die(e.toString()); }
-    finally { try { br.close(); } catch( IOException e ) { /* nasty ignore */ } };
+    } catch( Exception e ) { Log.die(e.toString()); }
+    finally { Closeables.closeQuietly(br); }
     return h2os;
   }
 
@@ -517,58 +544,80 @@ public final class H2O {
 
   // Cleaner ---------------------------------------------------------------
 
-  static boolean _dirty;
+  // msec time at which the STORE was dirtied.
+  // Long.MAX_VALUE if clean.
+  static private volatile long _dirty;  // When was store dirtied
 
+  static void dirty_store() { dirty_store(System.currentTimeMillis()); }
+  static void dirty_store( long x ) {
+    // Keep earliest dirty time seen
+    if( x < _dirty ) _dirty = x;
+  }
   static void kick_store_cleaner() {
-    synchronized(STORE) {
-      _dirty = true;
-      STORE.notifyAll();
-    }
+    synchronized(STORE) { STORE.notifyAll(); }
   }
 
   // Periodically write user keys to disk
   public static class Cleaner extends Thread {
-    public Cleaner() { super("Memory Cleaner"); }
+    // Desired cache level.  Set by the MemoryManager asynchronously.
+    static public volatile long DESIRED;
+    // Histogram used by the Cleaner
+    private final Histo _myHisto;
+    // Turn on to see copious cache-cleaning stats
+    static public final boolean VERBOSE = Boolean.getBoolean("h2o.cleaner.verbose");
 
-    long [] histogram = new long [128];
-    int maxTime;
-    int currentMaxTime;
-    int hStep;
+    public Cleaner() {
+      super("Memory Cleaner");
+      _dirty = Long.MAX_VALUE;  // Set to clean-store
+      _myHisto = new Histo();   // Build/allocate a first histogram
+      _myHisto.compute(0);      // Compute lousy histogram; find eldest
+      Histo.H.set(_myHisto);    // Force to be the most recent
+      _myHisto.histo(true);     // Force a recompute with a good eldest
+      MemoryManager.set_goals("init",false);
+    }
 
     public void run() {
-      int cycles_no_progress = 0;
       while (true) {
-        synchronized (STORE) {
-          while( _dirty == false && (MemoryManager.mem2Free >> 20) <= 0 )
-            try { STORE.wait(); } catch (InterruptedException ie) { }
-          _dirty = false;       // Clear the flag, about to clean
-        } // Release lock
-        // If not out of memory, sleep another second to batch-up writes
-        if( (MemoryManager.mem2Free >> 20) <= 0 )
-          try { Thread.sleep(5000); } catch (InterruptedException e) { }
-        // obtain the expected age of "old" values to be removed from memory
-        long s = 0;
-        int idx = histogram.length-1;
+        // Sweep the K/V store, writing out Values (cleaning) and free'ing
+        // - Clean all "old" values (lazily, optimistically)
+        // - Clean and free old values if above the desired cache level
+        // Do not let optimistic cleaning get in the way of emergency cleaning.
 
-        int old = maxTime;
-        while (idx >= 0 && ((s + histogram[idx]) <= MemoryManager.mem2Free)) {
-          s += histogram[idx];
-          old -= hStep;
-          --idx;
+        // Get a recent histogram, computing one as needed
+        Histo h = _myHisto.histo(false);
+        long now = System.currentTimeMillis();
+        long dirty = _dirty; // When things first got dirtied
+
+        // Start cleaning if: "dirty" was set a "long" time ago, or we beyond
+        // the desired cache levels.  Inverse: go back to sleep if the cache
+        // is below desired levels & nothing has been dirty awhile.
+        if( h._cached < DESIRED && // Cache is low and
+            (now-dirty < 5000) ) { // not dirty a long time
+          // Block asleep, waking every 5 secs to check for stuff, or when poked
+          synchronized( STORE ) {
+            try { STORE.wait(5000); } catch (InterruptedException ie) { }
+          }
+          continue;             // Awoke; loop back and re-check histogram.
         }
-        Arrays.fill(histogram, 0);
-        maxTime = currentMaxTime;
-        if(maxTime == 0){
-          maxTime = 1024*histogram.length;
-          hStep = 1024;
-          old = Integer.MAX_VALUE;
-        } else hStep = Math.max(1,maxTime/histogram.length);
-        currentMaxTime = 0;
-        System.out.println("old = " + old + ", maxTime = " + maxTime + " hstep = " + hStep);
 
-        boolean cleaned = false; // Anything got cleaned?
-        long cacheSz = 0;       // Current size of cached memory
-        final long currentTime = System.currentTimeMillis();
+        now = System.currentTimeMillis();
+        _dirty = Long.MAX_VALUE; // Reset, since we are going write stuff out
+
+        // The age beyond which we need to toss out things to hit the desired
+        // caching levels.  If forced, be exact (toss out the minimal amount).
+        // If lazy, store-to-disk things down to 1/2 the desired cache level
+        // and anything older than 5 secs.
+        boolean force = (h._cached >= DESIRED); // Forced to clean
+        long clean_to_age = h.clean_to(force ? DESIRED : (DESIRED>>1));
+        // If not forced cleaning, expand the cleaning age to allows Values
+        // more than 5sec old
+        if( !force ) clean_to_age = Math.max(clean_to_age,now-5000);
+
+        if( VERBOSE )
+          System.out.println("[clean >>>] "+h+" DESIRED="+(DESIRED>>20)+"M dirtysince="+(now-dirty)+" force="+force+" clean2age="+(now-clean_to_age));
+        long cleaned = 0;
+        long freed = 0;
+
         // For faster K/V store walking get the NBHM raw backing array,
         // and walk it directly.
         Object[] kvs = STORE.raw_array();
@@ -581,56 +630,153 @@ public final class H2O {
           if( !(ov instanceof Value) ) continue; // Ignore tombstones and Primes and null's
           Value val = (Value)ov;
           byte[] m = val._mem;
-          if( m == null ) continue;
-          cacheSz += m.length;  // Accumulate total amount of cached keys
-          if( m.length < val._max )
-            continue;           // Do not persist partial keys
+          if( m == null ) continue; // Nothing to throw out
 
-          // System keys that are not just backing arraylets of user keys are
-          // not persisted - we figure they have a very short lifetime.
-          if( !MemoryManager.memCritical() ) { // if memory is critical, persist and free system keys also.
-            if( key._kb[0] != Key.ARRAYLET_CHUNK )  // Not arraylet?
-              continue; // Not enough savings to write it with mem-pressure to force us
-            // If this is a chunk of a system-defined array, then assume it has
-            // short lifetime, and we do not want to spin the disk writing it
-            // unless we're under memory pressure.
-            Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
-            if( !arykey.user_allowed() )
-              continue; // System array chunk?
-          } else {      // Under memory pressure?
-            // Now write to disk everything, except sys non-array chunks - this
-            // are typically both very small and very short lived.
-            if( key._kb[0] != Key.ARRAYLET_CHUNK && !key.user_allowed() )
-              continue;
-          }
           // ValueArrays covering large files in global filesystems such as NFS
           // or HDFS are only made on import (right now), and not reconstructed
           // by inspection of the Key or filesystem.... so we cannot toss them
-          // out because they will not be reconstructed merely by loading the
-          // Value.
+          // out because they will not be reconstructed merely by loading the Value.
           if( val instanceof ValueArray &&
               (val._persist & Value.BACKEND_MASK)!=Value.ICE )
-            continue;
+            continue;           // Cannot throw out
 
-          // Store user-keys, or arraylets from user-keys
-          val.store_persist();
-          int age = (int)(System.currentTimeMillis() - val._lastAccessedTime);
-          if(age >= old &&  MemoryManager.removeValue(val) ) {
-            cacheSz -= m.length;
-            cleaned = true;
-          } else { // update the histogram
-            if(age > currentMaxTime)currentMaxTime = age;
-            histogram[Math.min(age/hStep,histogram.length-1)] += m.length;
+          // Ignore things younger than the required age.  In particular, do
+          // not spill-to-disk all dirty things we find.
+          long touched = val._lastAccessedTime;
+          if( touched > clean_to_age ) {
+            dirty_store(touched); // But may write it out later
+            continue;
+          }
+
+          // Should I write this value out to disk?
+          // Should I further force it from memory?
+          if( force || lazy_clean(key) ) {
+            if( VERBOSE && !val.is_persisted() ) { System.out.print('.'); cleaned += m.length; }
+            val.store_persist();          // Write to disk
+            if( force ) val.free_mem();   // And, under pressure, free mem
+            if( VERBOSE ) freed += m.length;
           }
         }
-        if( cleaned ) cycles_no_progress = 0;
-        else cycles_no_progress++;
-        // update the cache sz
-        MemoryManager.setCacheSz(cacheSz, cycles_no_progress > 5);
-        if( cycles_no_progress > 5 ) {
-          cycles_no_progress = 0;
-          try { Thread.sleep(1000); } catch (InterruptedException e) { }
+
+        h = _myHisto.histo(true); // Force a new histogram
+        MemoryManager.set_goals("postclean",false);
+        if( VERBOSE )
+          System.out.println("[clean <<<] "+h+" cleaned="+(cleaned>>20)+"M, freed="+(freed>>20)+"M, DESIRED="+(DESIRED>>20)+"M");
+      }
+    }
+
+    // Rules on when to write & free a Key, when not under memory pressure.
+    boolean lazy_clean( Key key ) {
+      // Only arraylets are worth tossing out even lazily.
+      if( key._kb[0] != Key.ARRAYLET_CHUNK )  // Not arraylet?
+        return false; // Not enough savings to write it with mem-pressure to force us
+      // If this is a chunk of a system-defined array, then assume it has
+      // short lifetime, and we do not want to spin the disk writing it
+      // unless we're under memory pressure.
+      Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
+      if( !arykey.user_allowed() )
+        return false;           // System array chunk?
+      return true;              // Write key out
+    }
+
+
+    // Histogram class
+    public static class Histo {
+      // Current best histogram
+      static public final AtomicReference<Histo> H = new AtomicReference(null);
+
+      final long[] _hs = new long[128];
+      long _oldest;            // Time of the oldest K/V discovered this pass
+      long _eldest;            // Time of the eldest K/V found in some prior pass
+      long _hStep;             // Histogram step: (now-eldest)/histogram.length
+      long _cached;            // Total alive data in the histogram
+      long _when;              // When was this histogram computed
+      Value _vold;             // For assertions: record the oldest Value
+      boolean _clean;          // Was "clean" K/V when built?
+
+      // Return the current best histogram
+      static Histo best_histo() { return H.get(); }
+
+      // Return the current best histogram, recomputing in-place if it is
+      // getting stale.  Synchronized so the same histogram can be called into
+      // here and will be only computed into one-at-a-time.
+      synchronized Histo histo( boolean force ) {
+        Histo h = H.get();      // Grab current best histogram
+        if( !force && System.currentTimeMillis() < h._when+100 )
+          return h;             // It is recent; use it
+        if( h._clean && _dirty==Long.MAX_VALUE )
+          return h;             // No change to the K/V store, so no point
+        compute(h._oldest);     // Use last oldest value for computing the next histogram in-place
+        // Atomically set a more recent histogram, racing against other threads
+        // setting a newer histogram.  Probably just the Cleaner thread racing
+        // against F/J workers calling into the MemoryManager.
+        while( h._when <= _when && !H.compareAndSet(h,this) )
+          h = H.get();
+        return H.get();
+      }
+
+      // Compute a histogram
+      public void compute( long eldest ) {
+        Arrays.fill(_hs, 0);
+        _when = System.currentTimeMillis();
+        _eldest = eldest;       // Eldest seen in some prior pass
+        _hStep = Math.max(1,(_when-eldest)/_hs.length);
+        boolean clean = _dirty==Long.MAX_VALUE;
+        // Compute the hard way
+        Object[] kvs = STORE.raw_array();
+        long cached = 0;       // Total K/V cached in ram
+        long oldest = Long.MAX_VALUE; // K/V with the longest time since being touched
+        Value vold = null;
+        // Start the walk at slot 2, because slots 0,1 hold meta-data
+        for( int i=2; i<kvs.length; i += 2 ) {
+          // In the raw backing array, Keys and Values alternate in slots
+          Object ok = kvs[i+0], ov = kvs[i+1];
+          if( !(ok instanceof Key  ) ) continue; // Ignore tombstones and Primes and null's
+          if( !(ov instanceof Value) ) continue; // Ignore tombstones and Primes and null's
+          Value val = (Value)ov;
+          byte[] m = val._mem;
+          if( m == null ) continue;
+          if( val instanceof ValueArray &&
+              (val._persist & Value.BACKEND_MASK)!=Value.ICE )
+            continue;           // Cannot throw out
+
+          cached += m.length; // Accumulate total amount of cached keys
+          if( val._lastAccessedTime < oldest ) { // Found an older Value?
+            vold = val;                          // Record oldest Value seen
+            oldest = val._lastAccessedTime;
+          }
+          // Compute histogram bucket
+          int idx = (int)((val._lastAccessedTime - eldest)/_hStep);
+          if( idx < 0 ) idx = 0;
+          else if( idx >= _hs.length ) idx = _hs.length-1;
+          _hs[idx] += m.length; // Bump histogram bucket
         }
+        _cached = cached;       // Total cached
+        _oldest = oldest;       // Oldest seen in this pass
+        _vold = vold;
+        _clean = clean && _dirty==Long.MAX_VALUE; // Looks like a clean K/V the whole time?
+        if( VERBOSE ) System.out.println("[compute histo "+(cached>>20)+"M]");
+      }
+
+      // Compute the time (in msec) for which we need to throw out things
+      // to throw out enough things to hit the desired cached memory level.
+      long clean_to( long desired ) {
+        if( _cached < desired ) return Long.MAX_VALUE; // Already there; nothing to remove
+        long age = _eldest;     // Age of bucket zero
+        long s = 0;             // Total amount toss out
+        for( long t : _hs ) {   // For all buckets...
+          s += t;               // Raise amount tossed out
+          age += _hStep;        // Raise age beyond which you need to go
+          if( _cached - s < desired ) break;
+        }
+        return age;
+      }
+
+      // Pretty print
+      public String toString() {
+        long x = _eldest;
+        long now = System.currentTimeMillis();
+        return "H("+(_cached>>20)+"M, "+x+" < +"+(_oldest-x)+" <...{"+_hStep+"}...< +"+(_hStep*128)+" < +"+(now-x)+")";
       }
     }
   }

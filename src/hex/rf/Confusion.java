@@ -33,6 +33,8 @@ public class Confusion extends MRTask {
   private long                _errors;
   /** Number of rows used for building the matrix. */
   private long                _rows;
+  /** Class weights */
+  private double[]            _classWt;
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42. */
   private transient Random    _rand;
@@ -49,34 +51,40 @@ public class Confusion extends MRTask {
    * @param model the ensemble used to classify
    * @param datakey the key of the data that will be classified
    */
-  private Confusion(Model model, Key datakey, int classcol ) {
+  private Confusion(Model model, Key datakey, int classcol, double[] classWt ) {
     _modelKey = model._key;
     _datakey = datakey;
     _classcol = classcol;
+    _classWt = classWt;
     shared_init();
   }
 
-  public Key keyFor() { return keyFor(_model,-1,_datakey, _classcol); }
-  static public Key keyFor(Model model, int atree, Key datakey, int classcol) {
-    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+model.name(atree)+")");
+  public Key keyFor() { return keyFor(_model._key,_model.size(),_datakey, _classcol); }
+  static public Key keyFor(Key modelKey, int msize, Key datakey, int classcol) {
+    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"])");
   }
 
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
-  static public Confusion make(Model model, int atree, Key datakey, int classcol) {
-    Key key = keyFor(model, atree, datakey, classcol);
+  static public Confusion make(Model model, Key datakey, int classcol, double[] classWt) {
+    Key key = keyFor(model._key, model.size(), datakey, classcol);
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
       C.shared_init();
       return C;
     }
 
-    C = new Confusion(model,datakey,classcol);
+    C = new Confusion(model,datakey,classcol,classWt);
 
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
     UKV.put(key,C);             // Output to cloud
+    if( classWt != null ) {
+      for( int i=0; i<classWt.length; i++ )
+        if( classWt[i] != 1.0 )
+          System.out.println("Weighted class "+i+" by "+classWt[i]);
+    }
     return C;
   }
 
@@ -131,7 +139,7 @@ public class Confusion extends MRTask {
     final int cmin = (int) _data.col_min(_classcol); // Typically 0-(n-1) or 1-N
     int nchk = ValueArray.getChunkIndex(chunk_key);
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
-    int[] votes = new int[_N];
+    int[] votes = new int[_N+1]; // One for each class and one more for broken rows
     // Break out all the ValueArray Column schema into an easier-to-read
     // format.  Its used in the hot inner loop of Tree.classify.
     final int offs[] = new int[ncols];
@@ -144,16 +152,16 @@ public class Confusion extends MRTask {
       base[k] = _data.col_base (k);
       scal[k] = _data.col_scale(k);
     }
+    Random rand = new Random(ValueArray.getChunkIndex(chunk_key));
 
-    MAIN_LOOP: // Now for all rows, classify & vote!
+    // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
-      for( int k = 0; k < ncols; k++ )
-        if( !_data.valid(chunk_bits, i, rowsize, k) )  continue MAIN_LOOP; // Skip broken rows
-      if( ignoreRow(nchk, i) ) continue MAIN_LOOP;
+      // We do not skip broken rows!  If we need the data and it is missing,
+      // the classifier returns the junk class+1.
+      if( ignoreRow(nchk, i) ) continue; // Skipped for validating & training
+      if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) continue; // Cannot vote if no class!
       for( int j=0; j<_N; j++ ) votes[j] = 0;
-      for( int t = 0; t < _model.size(); t++ )  // This tree's prediction for row i
-        votes[_model.classify(t, chunk_bits, i, rowsize, _data, offs, size, base, scal)]++;
-      int predict = Utils.maxIndex(votes, _rand);
+      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, _classWt, rand);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;
@@ -167,9 +175,11 @@ public class Confusion extends MRTask {
     Confusion C = (Confusion) drt;
     long[][] m1 = _matrix;
     long[][] m2 = C._matrix;
-    if( m1 == null ) { _matrix = m2; return; } // Take other work straight-up
-    for( int i = 0; i < m1.length; i++ )
-      for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
+    if( m1 == null ) _matrix = m2;  // Take other work straight-up
+    else {
+      for( int i = 0; i < m1.length; i++ )
+        for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
+    }
     _rows += C._rows;
     _errors += C._errors;
   }

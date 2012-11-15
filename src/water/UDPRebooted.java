@@ -9,6 +9,37 @@ import java.net.DatagramPacket;
  */
 
 public class UDPRebooted extends UDP {
+  public static enum T {
+    none,
+    reboot,
+    shutdown,
+    error,
+    locked,
+    mismatch;
+
+    public void singlecast(H2ONode target) {
+      byte[] buf = make(); // Send it 3 times.  Obnoxious, but effective
+      MultiCast.singlecast(target, buf, buf.length);
+      MultiCast.singlecast(target, buf, buf.length);
+      MultiCast.singlecast(target, buf, buf.length);
+    }
+
+    public void broadcast()  {
+      byte[] buf = make(); // Send it 3 times.  Obnoxious, but effective
+      MultiCast.multicast(buf);
+      MultiCast.multicast(buf);
+      MultiCast.multicast(buf);
+    }
+
+    private byte[] make() {
+      assert this != none;
+      byte[] buf = new byte[16];
+      buf[0] = (byte)UDP.udp.rebooted.ordinal();
+      buf[SZ_PORT] = (byte)ordinal();
+      return buf;
+    }
+  }
+
   // Handle an incoming rebooted packet
   void call(DatagramPacket pack, H2ONode h2o) {
     if( h2o != null ) h2o.rebooted();
@@ -16,28 +47,22 @@ public class UDPRebooted extends UDP {
     UDPReceiverThread.free_pack(pack);
   }
 
-  // Announce self-node reboot to the world
-  static void build_and_multicast( ) {
-    byte[] buf = new byte[16];
-    buf[0] = (byte)UDP.udp.rebooted.ordinal();
-    buf[SZ_PORT] = 1;    // This is a reboot announcement
-    // Send it 3 times.  Obnoxious, but unlikely to be not heard
-    MultiCast.multicast(buf);
-    MultiCast.multicast(buf);
-    MultiCast.multicast(buf);
+  public static void checkForSuicide(int first_byte, byte[] pbuf, H2ONode h2o) {
+    if( first_byte != UDP.udp.rebooted.ordinal() ) return;
+    int type = pbuf[UDP.SZ_PORT];
+    if( type > 1 ) {
+      String m;
+      switch( T.values()[type] ) {
+      case error:    m = "Error leading to a cloud kill"              ; break;
+      case shutdown: m = "Orderly shutdown command"                   ; break;
+      case locked:   m = "Killed joining a locked cloud"              ; break;
+      case mismatch: m = "Killed joining a cloud with a different jar"; break;
+      default:       m = "Received kill "+type                        ; break;
+      }
+      System.err.println("[h2o] "+m+" from "+h2o);
+      System.exit(-1);
+    }
   }
 
-  // Announce self-node reboot to the world
-  static public void global_kill( int x ) {
-    byte[] buf = new byte[16];
-    buf[0] = (byte)UDP.udp.rebooted.ordinal();
-    buf[SZ_PORT] = (byte)x;     // This is a global-kill announcement
-    // Send it 3 times.  Obnoxious, but unlikely to be not heard
-    MultiCast.multicast(buf);
-    MultiCast.multicast(buf);
-    MultiCast.multicast(buf);
-  }
-
-  // Pretty-print bytes 1-15; byte 0 is the udp_type enum
   public String print16( byte[] buf ) { return ""; }
 }

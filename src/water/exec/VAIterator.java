@@ -4,6 +4,7 @@ package water.exec;
 import java.util.Iterator;
 import water.DKV;
 import water.Key;
+import water.Value;
 import water.ValueArray;
 
 /**
@@ -29,6 +30,7 @@ public final class VAIterator implements Iterator<VAIterator> {
   private byte[] _chunkBits;
   private long _chunkOffset;
   private long _currentRow;
+  private int _chunkIdx;
   
   public VAIterator(Key k, int defaultColumn, long startRow) {
     _ary = (ValueArray) DKV.get(k);
@@ -39,6 +41,13 @@ public final class VAIterator implements Iterator<VAIterator> {
     _rowInChunk = -1;
     _rowsInChunk = 0;
     _currentRow = -1;
+    _chunkIdx = -1;
+    if (startRow!=0)
+      skipRows((startRow % _rows));
+  }
+
+  public VAIterator(Key key, int defaultColumn) {
+    this(key,defaultColumn,0);
   }
   
   public void setDefaultColumn(int colIdx) {
@@ -54,17 +63,25 @@ public final class VAIterator implements Iterator<VAIterator> {
     return _defaultColumn;
   }
   
-  public void skipRows(int rows) {
+  private void skipRows(long rows) { 
     assert (_currentRow + rows < _rows);
-    while (true) {
-      if (_rowInChunk + rows < _rowsInChunk) {
+    next();
+    --rows; // on the next() call we will be at the desired row
+    while (true) { 
+      if (rows < _rowsInChunk) {
         _rowInChunk += rows;
+        _currentRow += rows;
         break;
       }
-      rows -= (_rowsInChunk - _rowInChunk);
       _rowInChunk = _rowsInChunk-1;
+      _currentRow += _rowsInChunk-1;
+      rows -= _rowsInChunk;
       next(); // move to next chunk
     }
+  }
+  
+  public long row() {
+    return _currentRow;
   }
 
   @Override public boolean hasNext() {
@@ -75,9 +92,18 @@ public final class VAIterator implements Iterator<VAIterator> {
     ++_currentRow;
     ++_rowInChunk;
     if (_rowInChunk == _rowsInChunk) { 
-      // load new chunk
-      _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
-      Key k = ValueArray.make_chunkkey(_ary._key, _chunkOffset);
+      if (_currentRow == _rows) { // wrap after end has been reached
+        _currentRow = 0;
+        _rowInChunk = 0;
+        _chunkOffset = 0;
+        _chunkIdx = 0;
+      } else {
+        // load new chunk
+        _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
+        _chunkIdx += 1;
+      }
+      Key k = ValueArray.make_chunkkey(_ary._key, _chunkIdx << ValueArray.LOG_CHK);
+      Value v = DKV.get(k);
       _chunkBits = DKV.get(k).get();
       _rowsInChunk = _chunkBits.length / _rowSize;
       _rowInChunk = 0;
@@ -103,6 +129,11 @@ public final class VAIterator implements Iterator<VAIterator> {
   
   public double datad(int column) {
     return _ary.datad(_chunkBits,_rowInChunk,_rowSize,column);
+  }
+  
+  public int copyCurrentRow(byte[] dest, int offset) {
+    System.arraycopy(_chunkBits, _rowInChunk*_rowSize, dest, offset, _rowSize);
+    return offset + _rowSize;
   }
   
   

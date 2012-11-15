@@ -19,9 +19,7 @@ class Basic(unittest.TestCase):
 
     def test_C_hhp_107_01(self):
         timeoutSecs = 2
-        
-        csvFilename = "covtype.data"
-        csvPathname = "../smalldata" + '/' + csvFilename
+        csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
 
         # columns start at 0

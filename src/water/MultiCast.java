@@ -1,6 +1,5 @@
 package water;
 import java.net.*;
-import java.util.Enumeration;
 import java.util.HashSet;
 
 /**
