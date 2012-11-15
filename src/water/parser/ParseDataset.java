@@ -434,6 +434,29 @@ public final class ParseDataset {
       DKV.put(_resultKey, ary);
     }
 
+    
+    // TODO PETA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // I must break map to more steps so that I can reuse code
+    
+    public void phaseOneInitialize(int numColumns) {
+      assert (_phase == PHASE_ONE);
+      _ncolumns = numColumns;
+      _invalidValues = new long[_ncolumns];
+      _min = new double [_ncolumns];
+      Arrays.fill(_min, Double.MAX_VALUE);
+      _max = new double[_ncolumns];
+      Arrays.fill(_max, Double.MIN_VALUE);
+      _mean = new double[_ncolumns];
+      _scale = new int[_ncolumns];
+      _colTypes = new byte[_ncolumns];
+    }
+    
+    public void phaseTwoInitialize() {
+      assert (_phase == PHASE_TWO);
+      _invalidValues = new long[_ncolumns];
+      
+    }
+
     @Override
     public void map(Key key) {
       try{
