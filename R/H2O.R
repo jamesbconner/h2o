@@ -250,7 +250,7 @@ h2o.__convertToRData <- function(res,forceDataFrame=FALSE) {
   # converts the given response to an R vector or dataframe. Vector is used when there is only one column, otherwise dataframe is used. 
   if (!forceDataFrame && (length(res$columns) == 1)) {
     h2o.__printIfVerbose("  converting returned ",res$num_cols," columns and ",res$sent_rows," rows to an R vector")
-    res$columns[[1]]$contents
+    as.numeric(res$columns[[1]]$contents)
   } else {
     h2o.__printIfVerbose("  converting returned ",res$num_cols," columns and ",res$sent_rows," rows to an R data frame")
     r = data.frame()
@@ -258,7 +258,7 @@ h2o.__convertToRData <- function(res,forceDataFrame=FALSE) {
     for (i in 1:length(res$columns)) {
       col = res$columns[[i]]
       name = as.character(col$name)
-      r[1:rows, name] <- col$contents 
+      r[1:rows, name] <- as.numeric(col$contents)
     }
     r
   }
