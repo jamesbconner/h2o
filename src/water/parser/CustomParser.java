@@ -21,6 +21,7 @@ public abstract class CustomParser {
   public static final byte CHAR_DOUBLE_QUOTE = '"';
   public static final byte CHAR_SINGLE_QUOTE = '\'';
   public static final byte CHAR_NULL = 0;
+  public static final byte CHAR_COMMA = ',';
 
   public abstract void parse(Key key) throws Exception;
 

@@ -550,6 +550,63 @@ NEXT_CHAR:
     colNames.toArray(result);
     return result;
   }
+  
+ // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
+ // the number of columns for svm light is not reliable as it only relies on info from the first chunk
+ public static int[] guessParserSetup(byte[] b, boolean parseFirst ) {
+   // Best-guess on count of columns and separator.  Skip the 1st line.
+   // Count column delimiters in the next line. If there are commas, assume file is comma separated.
+   // if there are (several) ':', assume it is in svmlight format.
+
+   int i=0;
+   // Skip all leading whitespace
+   while( i<b.length && Character.isWhitespace(b[i]) ) i++;
+   if( !parseFirst ) {         // Skip the first line, it might contain labels
+     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
+   }
+   if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
+   if( i   < b.length &&  b[i] == '\n' ) i++;
+   // start counting columns on the 2nd line
+   final int line_start = i;
+   int cols = 0;
+   int mode = 0;
+   boolean commas  = false;     // Assume white-space only columns
+   boolean escaped = false;
+   while( i < b.length ) {
+     char c = (char)b[i++];
+     if( c == '"' ) {
+       escaped = !escaped;
+       continue;
+     }
+     if (!escaped) {
+       if( c=='\n' || c== '\r' ) {
+         break;
+       }
+       if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
+         if( mode == 1 ) mode = 2;
+       } else if( c == ',' ) {   // Found a comma?
+         if( commas == false ) { // Not in comma-seperator mode?
+           // Reset the entire line parse & try again, this time with comma
+           // separators enabled.
+           commas=true;          // Saw a comma
+           i = line_start;       // Reset to line start
+           cols = mode = 0;      // Reset parsing mode
+           continue;             // Try again
+         }
+         if( mode == 0 ) cols++;
+         mode = 0;
+       } else {                  // Else its just column data
+         if( mode != 1 ) cols++;
+         mode = 1;
+       }
+     }
+   }
+   // If no columns, and skipped first row - try again parsing 1st row
+   if( cols == 0 && parseFirst == false ) return guessParserSetup(b,true);
+   return new int[]{ commas ? CHAR_COMMA : CHAR_SPACE, cols };
+ }
+  
+  
 }
 
 

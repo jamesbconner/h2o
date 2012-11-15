@@ -40,69 +40,6 @@ public final class ParseDataset {
    return Compression.NONE;
  }
 
-//---
- // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
- // the number of columns for svm light is not reliable as it only relies on info from the first chunk
- private static int[] guessParserSetup(Value dataset, boolean parseFirst ) {
-   // Best-guess on count of columns and separator.  Skip the 1st line.
-   // Count column delimiters in the next line. If there are commas, assume file is comma separated.
-   // if there are (several) ':', assume it is in svmlight format.
-   Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
-   byte[] b = v0.get();                      // Bytes for 1st chunk
-
-   int i=0;
-   // Skip all leading whitespace
-   while( i<b.length && Character.isWhitespace(b[i]) ) i++;
-   if( !parseFirst ) {         // Skip the first line, it might contain labels
-     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
-   }
-   if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
-   if( i   < b.length &&  b[i] == '\n' ) i++;
-   // start counting columns on the 2nd line
-   final int line_start = i;
-   int cols = 0;
-   int mode = 0;
-   boolean commas  = false;     // Assume white-space only columns
-   boolean escaped = false;
-   while( i < b.length ) {
-     char c = (char)b[i++];
-     if( c == '"' ) {
-       escaped = !escaped;
-       continue;
-     }
-     if (!escaped) {
-       if( c=='\n' || c== '\r' ) {
-         break;
-       }
-       if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
-         if( mode == 1 ) mode = 2;
-       } else if( c == ',' ) {   // Found a comma?
-         if( commas == false ) { // Not in comma-seperator mode?
-           // Reset the entire line parse & try again, this time with comma
-           // separators enabled.
-           commas=true;          // Saw a comma
-           i = line_start;       // Reset to line start
-           cols = mode = 0;      // Reset parsing mode
-           continue;             // Try again
-         }
-         if( mode == 0 ) cols++;
-         mode = 0;
-       } else {                  // Else its just column data
-         if( mode != 1 ) cols++;
-         mode = 1;
-       }
-     }
-   }
-   // If no columns, and skipped first row - try again parsing 1st row
-   if( cols == 0 && parseFirst == false ) return guessParserSetup(dataset,true);
-   return new int[]{ commas ? PARSE_COMMASEP : PARSE_SPACESEP, cols };
- }
-
-
-  // Configuration kind for parser
-  public static final int PARSE_COMMASEP = 102;
-  private static final int PARSE_SPACESEP = 103;
-
   // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
   // result.
   public static void parse( Key result, Value dataset ) {
@@ -128,26 +65,31 @@ public final class ParseDataset {
     String datasetName = new String(dataset._key._kb);
     if(datasetName.endsWith(".xls") || datasetName.contains(".xls."))
       throw new Error("xls format is currently not supported.");
+    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, CustomParser.Type.CSV);
+    phaseOne.phaseOne();
+    DParseTask phaseTwo = DParseTask.createPhaseTwo(phaseOne);
+    phaseTwo.phaseTwo();
+    
+    
+/*
     // Guess on the number of columns, build a column array.
-    int [] psetup =  guessParserSetup(dataset, false);
-    byte sep = (byte)',';
-    if(sep == PARSE_SPACESEP)sep = ' ';
+    int [] psetup =  FastParser.guessParserSetup(dataset, false);
     byte [] bits = (dataset instanceof ValueArray) ? DKV.get(((ValueArray)dataset).make_chunkkey(0)).get(256*1024) : dataset.get(256*1024);
-    String [] colNames = FastParser.determineColumnNames(bits,sep);
+    String [] colNames = FastParser.determineColumnNames(bits,(byte)psetup[0]);
     boolean skipFirstLine = colNames != null;
     if (colNames!=null) {
       psetup[1] = colNames.length;
       // TODO Parser setup is aparently not working properly
     }
     // pass 1
-    DParseTask tsk = new DParseTask(dataset, result, sep,psetup[1],skipFirstLine);
+    DParseTask tsk = new DParseTask(dataset, result, (byte)psetup[0],psetup[1],skipFirstLine);
     tsk.invoke(dataset._key);
     tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // normalize sigma
     for(int i = 0; i < tsk._ncolumns; ++i)
       tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
-    tsk.createValueArrayHeader(colNames,dataset);
+    tsk.createValueArrayHeader(colNames,dataset); */
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -196,7 +138,7 @@ public final class ParseDataset {
   public static void parseXls(Key result, Value dataset) throws IOException {
     DParseTask tsk = new DParseTask(dataset, result, FastParser.CHAR_NULL, 0, false);
     tsk.invoke(dataset._key);
-    tsk = tsk.pass2();
+//    tsk = tsk.pass2();
     tsk.invoke(dataset._key);
     // normalize sigma
     for(int i = 0; i < tsk._ncolumns; ++i)
@@ -366,6 +308,8 @@ public final class ParseDataset {
     transient Stream _s;
     transient int _lastOffset;
     transient int    _outputIdx;
+    
+    transient String[] _colNames;
 
     
     
@@ -400,20 +344,43 @@ public final class ParseDataset {
     public DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
       _parserType = parserType;
       _sourceDataset = dataset;
+      _resultKey = resultKey;
+      _phase = PHASE_ONE;
     }
     
     
-    static DParseTask create(Value dataset, Key resultKey, CustomParser.Type parserType) {
-      
-      return null;
+    public static DParseTask createPhaseOne(Value dataset, Key resultKey, CustomParser.Type parserType) {
+      return new DParseTask(dataset,resultKey,parserType); 
     }
     
-    void phaseOne() { 
+    public void phaseOne() { 
       switch (_parserType) {
         case CSV:
           // precompute the parser setup, column setup and other settings
-          
-          
+          byte [] bits = DKV.get(_sourceDataset.chunk_get(0)).get(256*1024);
+          int [] psetup = FastParser.guessParserSetup(bits, false);
+          _colNames = FastParser.determineColumnNames(bits,(byte)psetup[0]);
+          // initialize the column names
+          // TODO Parser setup is aparently not working properly
+          if (_colNames!=null) {
+            // use the column names found in the header if any
+            psetup[1] = _colNames.length;
+            setColumnNames(_colNames);
+          } else {
+            // otherwise initialize the column names appropriately
+            _colNames = new String[psetup[1]];
+            for (int i = 0; i < psetup[1]; ++i)
+              _colNames[i] = String.valueOf(i);
+            setColumnNames(_colNames);
+          }
+          _skipFirstLine = _colNames != null;
+          // set the separator
+          this._sep = (byte) psetup[0];
+          // if parsing value array, initialize the nrows array
+          if (_sourceDataset instanceof ValueArray) {
+            ValueArray ary = (ValueArray) _sourceDataset;
+            _nrows = new int[(int)ary.chunks()];
+          }
           // launch the distributed parser on its chunks. 
           this.invoke(_sourceDataset._key);
           break;
@@ -421,33 +388,71 @@ public final class ParseDataset {
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
           
-        
-        
+        default:
+          throw new Error("NOT IMPLEMENTED");
       }
+      // normalize mean
+      for(int i = 0; i < _ncolumns; ++i)
+        _mean[i] = _mean[i]/(_numRows - _invalidValues[i]);
     }
     
-    static DParseTask createPhaseTwo(DParseTask phaseOne) {
-      return null;
+    public static DParseTask createPhaseTwo(DParseTask phaseOneTask) {
+      return new DParseTask(phaseOneTask);
     }
     
-    static void phaseTwo(DParseTask task) {
-      
-      
+    public void phaseTwo() {
+      switch (_parserType) {
+        case CSV:
+          // for CSV parser just launch the distributed parser on the chunks
+          // again
+          this.invoke(_sourceDataset._key);
+          break;
+        case XLS:
+        default:
+          throw new Error("NOT IMPLEMENTED");
+      }
+      // normalize sigma
+      for(int i = 0; i < _ncolumns; ++i)
+        _sigma[i] = Math.sqrt(_sigma[i]/(_numRows - _invalidValues[i]));
+      createValueArrayHeader();
     }
-    
-    
-    
 
-    public DParseTask pass2() {
-      assert (_phase == 0);
+    private DParseTask(DParseTask other) {
+      assert (other._phase == PHASE_ONE);
+      // copy the phase one data
+      // don't pass invalid values, we do not need them 2nd pass
+      _parserType = other._parserType;
+      _sourceDataset = other._sourceDataset;
+      _enums = other._enums;
+      _colTypes = other._colTypes;
+      _nrows = other._nrows;
+      _skipFirstLine = other._skipFirstLine;
+      _myrows = other._myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
+      _resultKey = other._resultKey;
+      _colTypes = other._colTypes;
+      _nrows = other._nrows;
+      _numRows = other._numRows;
+      _sep = other._sep;
+      _decSep = other._decSep;
+      _scale = other._scale;
+      _ncolumns = other._ncolumns;
+      _min = other._min;
+      _max = other._max;
+      _mean = other._mean;
+      _sigma = other._sigma;
+      _colNames = other._colNames;
+
+      // create new data for phase two
       _colDomains = new String[_ncolumns][];
+      _bases = new int[_ncolumns];
+      _phase = PHASE_TWO;
+      // calculate the column domains
       for(int i = 0; i < _colTypes.length; ++i){
         if(_colTypes[i] == ECOL && _enums[i] != null && !_enums[i].isKilled())
           _colDomains[i] = _enums[i].computeColumnDomain();
         else
           _enums[i] = null;
       }
-      _bases = new int[_ncolumns];
       calculateColumnEncodings();
       if (_nrows != null) {
         _numRows = 0;
@@ -458,34 +463,10 @@ public final class ParseDataset {
       } else {
         _numRows = _myrows;
       }
-      // normalize mean
-      for(int i = 0; i < _ncolumns; ++i)
-        _mean[i] = _mean[i]/(_numRows - _invalidValues[i]);
-      DParseTask tsk = new DParseTask();
-      tsk._skipFirstLine = _skipFirstLine;
-      tsk._myrows = _myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
-      tsk._resultKey = _resultKey;
-      tsk._enums = _enums;
-      tsk._colTypes = _colTypes;
-      tsk._nrows = _nrows;
-      tsk._numRows = _numRows;
-      tsk._sep = _sep;
-      tsk._decSep = _decSep;
-      // don't pass invalid values, we do not need them 2nd pass
-      tsk._bases = _bases;
-      tsk._phase = 1;
-      tsk._scale = _scale;
-      tsk._ncolumns = _ncolumns;
-      tsk._colDomains = _colDomains;
-      tsk._min = _min;
-      tsk._max = _max;
-      tsk._mean = _mean;
-      tsk._sigma = _sigma;
-      return tsk;
     }
 
-    public void createValueArrayHeader(String[] colNames,Value dataset) {
-      assert (_phase == 1);
+    public void createValueArrayHeader() {
+      assert (_phase == PHASE_TWO);
       Column[] cols = new Column[_ncolumns];
       int off = 0;
       for(int i = 0; i < cols.length; ++i){
@@ -501,11 +482,11 @@ public final class ParseDataset {
         cols[i]._min    = _min[i];
         cols[i]._mean   = _mean[i];
         cols[i]._sigma  = _sigma[i];
-        cols[i]._name   =  colNames == null ? String.valueOf(i) : colNames[i];
+        cols[i]._name   = _colNames[i];
         off +=  Math.abs(cols[i]._size);
       }
       // finally make the value array header
-      ValueArray ary = ValueArray.make(_resultKey, Value.ICE, dataset._key, "basic_parse", _numRows, off, cols);
+      ValueArray ary = ValueArray.make(_resultKey, Value.ICE, _sourceDataset._key, "basic_parse", _numRows, off, cols);
       DKV.put(_resultKey, ary);
     }
 
@@ -514,9 +495,8 @@ public final class ParseDataset {
      *
      * @param numColumns
      */
-    public void phaseOneInitialize(int numColumns) {
+    public void phaseOneInitialize() {
       assert (_phase == PHASE_ONE);
-      _ncolumns = numColumns;
       _invalidValues = new long[_ncolumns];
       _min = new double [_ncolumns];
       Arrays.fill(_min, Double.MAX_VALUE);
@@ -561,7 +541,7 @@ public final class ParseDataset {
           case PHASE_ONE:
             assert (_ncolumns != 0);
             // initialize the column statistics 
-            phaseOneInitialize(_ncolumns);
+            phaseOneInitialize();
             // perform the parse
             FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
             p.parse(key);
@@ -913,11 +893,24 @@ public final class ParseDataset {
     }
 
 
+    /** Sets the column names and creates the array of the enums for each
+     * column. 
+     * 
+     * @param colNames 
+     */
     public void setColumnNames(String[] colNames) {
-      // NOT IMPLEMENTED YET
+      assert (colNames != null);
+      _colNames = colNames;
+      _ncolumns = colNames.length;
+      _enums = new Enum[_ncolumns];
+      for(int i = 0; i < _ncolumns; ++i)
+        _enums[i] = new Enum();
+      // Initialize the statistics for the XLS parsers. Statistics for CSV
+      // parsers are created in the map method - they must be different for
+      // each distributed invocation
+      if (_parserType == CustomParser.Type.XLS)
+        phaseOneInitialize();
     }
-
-
 
     public void addInvalidCol(int colIdx){
       if(colIdx >= _ncolumns)
