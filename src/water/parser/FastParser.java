@@ -5,7 +5,7 @@ import java.util.ArrayList;
 
 import water.*;
 import water.parser.ParseDataset.DParseTask;
-import water.parser.ParseDataset.ValueString;
+import water.parser.ValueString;
 
 /**
  *

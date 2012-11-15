@@ -13,7 +13,7 @@ import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import water.Key;
 import water.parser.ParseDataset.DParseTask;
-import water.parser.ParseDataset.ValueString;
+import water.parser.ValueString;
 
 public class XlsParser extends CustomParser implements HSSFListener {
 
@@ -157,43 +157,11 @@ public class XlsParser extends CustomParser implements HSSFListener {
         _callback.addStrCol(curCol, curStr);
     }
   }
-  /*
-   * public static class Engine implements ParseDataset.ParseEngine { @Override
-   * public void doParse(InputStream is, ParseHandler h) throws IOException {
-   * XlsParser p = new XlsParser(is, h); p.process();
-   * MissingRecordAwareHSSFListener listener = new
-   * MissingRecordAwareHSSFListener(this); _formatListener = new
-   * FormatTrackingHSSFListener(listener);
-   *
-   * HSSFEventFactory factory = new HSSFEventFactory(); HSSFRequest request =
-   * new HSSFRequest();
-   *
-   * request.addListenerForAllRecords(_formatListener);
-   *
-   * factory.processWorkbookEvents(request, _fs);
-   * _handler.handleFinished(_firstRow); } }
-   */
-//  private String[] _firstRow = null;
+
   private SSTRecord _sstRecord;
   private int _nextCol;
   private boolean _outputNextStringRecord;
 
-  /*
-   * public XlsParser(InputStream is, ParseHandler handler) throws IOException {
-   * _fs = new POIFSFileSystem(is); _handler = handler; }
-   *
-   * public void process() throws IOException { MissingRecordAwareHSSFListener
-   * listener = new MissingRecordAwareHSSFListener(this); _formatListener = new
-   * FormatTrackingHSSFListener(listener);
-   *
-   * HSSFEventFactory factory = new HSSFEventFactory(); HSSFRequest request =
-   * new HSSFRequest(); request.addListenerForAllRecords(_formatListener);
-   *
-   * factory.processWorkbookEvents(request, _fs);
-   * _handler.handleFinished(_firstRow); }
-   */
-  
-  
   
   public static void main(String[] argv) throws IOException {
     FileInputStream fs = new FileInputStream("/home/peta/iris.xls");
