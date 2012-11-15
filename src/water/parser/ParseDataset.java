@@ -70,26 +70,6 @@ public final class ParseDataset {
     DParseTask phaseTwo = DParseTask.createPhaseTwo(phaseOne);
     phaseTwo.phaseTwo();
     
-    
-/*
-    // Guess on the number of columns, build a column array.
-    int [] psetup =  FastParser.guessParserSetup(dataset, false);
-    byte [] bits = (dataset instanceof ValueArray) ? DKV.get(((ValueArray)dataset).make_chunkkey(0)).get(256*1024) : dataset.get(256*1024);
-    String [] colNames = FastParser.determineColumnNames(bits,(byte)psetup[0]);
-    boolean skipFirstLine = colNames != null;
-    if (colNames!=null) {
-      psetup[1] = colNames.length;
-      // TODO Parser setup is aparently not working properly
-    }
-    // pass 1
-    DParseTask tsk = new DParseTask(dataset, result, (byte)psetup[0],psetup[1],skipFirstLine);
-    tsk.invoke(dataset._key);
-    tsk = tsk.pass2();
-    tsk.invoke(dataset._key);
-    // normalize sigma
-    for(int i = 0; i < tsk._ncolumns; ++i)
-      tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
-    tsk.createValueArrayHeader(colNames,dataset); */
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -305,29 +285,39 @@ public final class ParseDataset {
       _sourceDataset = null;
     }
     
-    public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
-      _resultKey = resultKey;
-      _ncolumns = ncolumns;
-      _sep = sep;
-      if (dataset instanceof ValueArray) {
-        ValueArray ary = (ValueArray) dataset;
-        _nrows = new int[(int)ary.chunks()];
-      }
-      _skipFirstLine = skipFirstLine;
-      _enums = new Enum[_ncolumns];
-      for(int i = 0; i < _ncolumns; ++i)
-        _enums[i] = new Enum();
-      _parserType = CustomParser.Type.CSV;
-      _sourceDataset = null;
-    }
-    
-    
-    public DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
+    private DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
       _parserType = parserType;
       _sourceDataset = dataset;
       _resultKey = resultKey;
       _phase = PHASE_ONE;
     }
+
+    private DParseTask(DParseTask other) {
+      assert (other._phase == PHASE_ONE);
+      // copy the phase one data
+      // don't pass invalid values, we do not need them 2nd pass
+      _parserType = other._parserType;
+      _sourceDataset = other._sourceDataset;
+      _enums = other._enums;
+      _colTypes = other._colTypes;
+      _nrows = other._nrows;
+      _skipFirstLine = other._skipFirstLine;
+      _myrows = other._myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
+      _resultKey = other._resultKey;
+      _colTypes = other._colTypes;
+      _nrows = other._nrows;
+      _numRows = other._numRows;
+      _sep = other._sep;
+      _decSep = other._decSep;
+      _scale = other._scale;
+      _ncolumns = other._ncolumns;
+      _min = other._min;
+      _max = other._max;
+      _mean = other._mean;
+      _sigma = other._sigma;
+      _colNames = other._colNames;
+    }
+    
     
     
     public static DParseTask createPhaseOne(Value dataset, Key resultKey, CustomParser.Type parserType) {
@@ -400,7 +390,20 @@ public final class ParseDataset {
     }
     
     public static DParseTask createPhaseTwo(DParseTask phaseOneTask) {
-      return new DParseTask(phaseOneTask);
+      DParseTask t = new DParseTask(phaseOneTask);
+      // create new data for phase two
+      t._colDomains = new String[t._ncolumns][];
+      t._bases = new int[t._ncolumns];
+      t._phase = PHASE_TWO;
+      // calculate the column domains
+      for(int i = 0; i < t._colTypes.length; ++i){
+        if(t._colTypes[i] == ECOL && t._enums[i] != null && !t._enums[i].isKilled())
+          t._colDomains[i] = t._enums[i].computeColumnDomain();
+        else
+          t._enums[i] = null;
+      }
+      t.calculateColumnEncodings();
+      return t;
     }
     
     public void phaseTwo() throws IOException {
@@ -433,44 +436,6 @@ public final class ParseDataset {
       createValueArrayHeader();
     }
 
-    private DParseTask(DParseTask other) {
-      assert (other._phase == PHASE_ONE);
-      // copy the phase one data
-      // don't pass invalid values, we do not need them 2nd pass
-      _parserType = other._parserType;
-      _sourceDataset = other._sourceDataset;
-      _enums = other._enums;
-      _colTypes = other._colTypes;
-      _nrows = other._nrows;
-      _skipFirstLine = other._skipFirstLine;
-      _myrows = other._myrows; // for simple values, number of rows is kept in the member variable instead of _nrows
-      _resultKey = other._resultKey;
-      _colTypes = other._colTypes;
-      _nrows = other._nrows;
-      _numRows = other._numRows;
-      _sep = other._sep;
-      _decSep = other._decSep;
-      _scale = other._scale;
-      _ncolumns = other._ncolumns;
-      _min = other._min;
-      _max = other._max;
-      _mean = other._mean;
-      _sigma = other._sigma;
-      _colNames = other._colNames;
-
-      // create new data for phase two
-      _colDomains = new String[_ncolumns][];
-      _bases = new int[_ncolumns];
-      _phase = PHASE_TWO;
-      // calculate the column domains
-      for(int i = 0; i < _colTypes.length; ++i){
-        if(_colTypes[i] == ECOL && _enums[i] != null && !_enums[i].isKilled())
-          _colDomains[i] = _enums[i].computeColumnDomain();
-        else
-          _enums[i] = null;
-      }
-      calculateColumnEncodings();
-    }
 
     public void createValueArrayHeader() {
       assert (_phase == PHASE_TWO);
@@ -591,97 +556,6 @@ public final class ParseDataset {
         _error = e.getMessage();
       }
     }
-
-/*    
-//    @Override
-    public void map2(Key key) {
-      try{
-        Key aryKey = null;
-        boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
-        boolean skipFirstLine = _skipFirstLine;
-        if(arraylet) {
-          aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
-          _chunkId = ValueArray.getChunkIndex(key);
-          skipFirstLine = skipFirstLine || (ValueArray.getChunkIndex(key) != 0);
-        }
-        _invalidValues = new long[_ncolumns];
-        switch(_phase){
-        case 0:
-          _min = new double [_ncolumns];
-          Arrays.fill(_min, Double.MAX_VALUE);
-          _max = new double[_ncolumns];
-          Arrays.fill(_max, Double.MIN_VALUE);
-          _mean = new double[_ncolumns];
-          _scale = new int[_ncolumns];
-          _colTypes = new byte[_ncolumns];
-          FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
-          p.parse(key);
-          if(arraylet) {
-            assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
-            _nrows[ValueArray.getChunkIndex(key)] = _myrows;
-          }
-          break;
-        case 1:
-          _invalidValues = new long[_ncolumns];
-          _sigma = new double[_ncolumns];
-          _rowsize = 0;
-          for(byte b:_colTypes) _rowsize += Math.abs(colSizes[b]);
-          _lastOffset = -_rowsize;
-          int rpc = (int)ValueArray.chunk_size()/_rowsize;
-          int firstRow = 0;
-          int lastRow = _myrows;
-          _myrows = 0;
-          if(arraylet){
-            long origChunkIdx = ValueArray.getChunkIndex(key);
-            firstRow = (origChunkIdx == 0) ? 0 : _nrows[(int)origChunkIdx-1];
-            lastRow = _nrows[(int)origChunkIdx];
-          }
-          int rowsToParse = lastRow - firstRow;
-          int chunkRows = Math.min(rpc - (firstRow % rpc),rowsToParse);
-          int n = 1;
-          while (chunkRows + ((n-1)*rpc) < rowsToParse) ++n;
-          _outputRows = new int[n];
-          _outputStreams = new Stream[n];
-          int j = 0;
-          while (rowsToParse > 0) {
-            _outputRows[j] = chunkRows;
-            _outputStreams[j] = new Stream(chunkRows*_rowsize);
-            rowsToParse -= chunkRows;
-            chunkRows = Math.min(rowsToParse,rpc);
-            ++j;
-          }
-          _s = _outputStreams[0];
-          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
-          p2.parse(key);
-          int inChunkOffset = (firstRow % rpc) * _rowsize; // index into the chunk I am writing to
-          int lastChunk = Math.max(1,this._numRows / rpc) - 1; // index of the last chunk in the VA
-          int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
-          if (chunkIndex > lastChunk) {
-            assert (chunkIndex == lastChunk + 1);
-            inChunkOffset += rpc * _rowsize;
-            --chunkIndex;
-          }
-          for (int i = 0; i < _outputStreams.length; ++i) {
-            Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(chunkIndex));
-            assert (_outputStreams[i]._off == _outputStreams[i]._buf.length);
-            AtomicUnion u = new AtomicUnion(_outputStreams[i]._buf,0,inChunkOffset,_outputStreams[i]._buf.length);
-            lazy_complete(u.fork(k));
-            if (chunkIndex == lastChunk) {
-              inChunkOffset += _outputStreams[i]._buf.length;
-            } else {
-              ++chunkIndex;
-              inChunkOffset = 0;
-            }
-          }
-          break;
-        default:
-          assert false:"unexpected phase " + _phase;
-        }
-      }catch(Exception e){
-        e.printStackTrace();
-        _error = e.getMessage();
-      }
-    } */
 
     @Override
     public void reduce(DRemoteTask drt) {
@@ -853,31 +727,6 @@ public final class ParseDataset {
         }
       }
     }
-/*    
-    // old new line that is to be deleted
-    
-    public void newLine2() {
-      ++_myrows;
-      if (_phase != 0) {
-        _lastOffset += _rowsize;
-        // to make sure that all rows are the same size, even if there are
-        // missing columns
-        if (_lastOffset > _s._off)
-          _s._off = _lastOffset;
-        if(_myrows > _outputRows[_outputIdx]) {
-          ++_outputIdx;
-          // this can happen if the last line ends in EOL. However this also
-          // means that we will never write to the stream again, so it is ok.
-          if (_outputIdx == _outputStreams.length) {
-            _s = null;
-          } else {
-            _s = _outputStreams[_outputIdx];
-            _myrows = 1;
-            _lastOffset = 0;
-          }
-        }
-      }
-    } */
 
     public void rollbackLine() {
       --_myrows;
