@@ -11,10 +11,11 @@ import org.apache.poi.hssf.eventusermodel.dummyrecord.LastCellOfRowDummyRecord;
 import org.apache.poi.hssf.eventusermodel.dummyrecord.MissingCellDummyRecord;
 import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import water.Key;
 import water.parser.ParseDataset.DParseTask;
 import water.parser.ParseDataset.ValueString;
 
-public class XlsParser implements HSSFListener {
+public class XlsParser extends CustomParser implements HSSFListener {
 
   private final POIFSFileSystem _fs;
   private final DParseTask _callback;
@@ -27,7 +28,7 @@ public class XlsParser implements HSSFListener {
     _callback = callback;
   }
 
-  public void parse() throws IOException {
+  @Override public void parse(Key key) throws IOException {
     MissingRecordAwareHSSFListener listener = new MissingRecordAwareHSSFListener(this);
     _formatListener = new FormatTrackingHSSFListener(listener);
 
@@ -198,7 +199,7 @@ public class XlsParser implements HSSFListener {
     FileInputStream fs = new FileInputStream("/home/peta/iris.xls");
     DParseTask callback = new DParseTask();
     XlsParser p = new XlsParser(fs,callback);
-    p.parse();
+    p.parse(null);
   }
 }
 

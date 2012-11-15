@@ -11,16 +11,8 @@ import water.parser.ParseDataset.ValueString;
  *
  * @author peta
  */
-public class FastParser {
+public class FastParser extends CustomParser {
 
-  public static final byte CHAR_TAB = '\t';
-  public static final byte CHAR_LF = 10;
-  public static final byte CHAR_SPACE = ' ';
-  public static final byte CHAR_CR = 13;
-  public static final byte CHAR_VT = 11;
-  public static final byte CHAR_FF = 12;
-  public static final byte CHAR_DOUBLE_QUOTE = '"';
-  public static final byte CHAR_SINGLE_QUOTE = '\'';
 
   public final byte CHAR_DECIMAL_SEPARATOR;
   public final byte CHAR_SEPARATOR;
@@ -51,27 +43,30 @@ public class FastParser {
   public final Key _aryKey;
 
   public final int _numColumns;
+  
+  public final boolean _skipFirstLine;
 
 
   DParseTask callback;
 
 
 
-  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback) throws Exception {
+  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback, boolean skipFirstLine) throws Exception {
     _aryKey = aryKey;
     _numColumns = numColumns;
     CHAR_SEPARATOR = separator;
     CHAR_DECIMAL_SEPARATOR = decimalSeparator;
     this.callback = callback;
+    _skipFirstLine = skipFirstLine;
   }
 
   @SuppressWarnings("fallthrough")
-  public final void parse(Key key, boolean skipFirstLine) throws Exception {
+  @Override public final void parse(Key key) throws Exception {
     ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
     ValueString _str = new ValueString();
     byte[] bits = DKV.get(key).get();
     int offset = 0;
-    int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
+    int state = _skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
     int quotes = 0;
     long number = 0;
     int exp = 0;

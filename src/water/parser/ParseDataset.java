@@ -22,7 +22,7 @@ import java.util.ArrayList;
 @SuppressWarnings("fallthrough")
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
-
+  
   private static final int PHASE_ONE = 0;
   private static final int PHASE_TWO = 1;
   public static final int MAX_ENUM_SIZE = 65535;
@@ -284,6 +284,26 @@ public final class ParseDataset {
     if( key == null ) throw new Error("Cannot uncompressed GZIP-compressed dataset!");
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
+  }
+  
+  /** Parses the XLS format dataset.
+   * 
+   * @param result
+   * @param dataset
+   * @throws IOException 
+   */ 
+  
+  public static void parseXls(Key result, Value dataset) throws IOException {
+    DParseTask tsk = new DParseTask(dataset, result, FastParser.CHAR_NULL, 0, false);
+    tsk.invoke(dataset._key);
+    tsk = tsk.pass2();
+    tsk.invoke(dataset._key);
+    // normalize sigma
+    for(int i = 0; i < tsk._ncolumns; ++i)
+      tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
+//    tsk.createValueArrayHeader(colNames,dataset);
+    
+    
   }
 
   // True if the array is all NaNs
@@ -564,10 +584,17 @@ public final class ParseDataset {
     transient OutputStreamRecord[] _outputStreams2;
 
     
+    transient final CustomParser.Type _parserType;
+    transient final Value _sourceDataset;
     
     
+    // As this is only used for distributed CSV parser we initialize the values
+    // for the CSV parser itself.
+    public DParseTask() {
+      _parserType = CustomParser.Type.CSV;
+      _sourceDataset = null;
+    }
     
-    public DParseTask() {}
     public DParseTask(Value dataset, Key resultKey, byte sep, int ncolumns, boolean skipFirstLine) {
       _resultKey = resultKey;
       _ncolumns = ncolumns;
@@ -580,7 +607,51 @@ public final class ParseDataset {
       _enums = new Enum[_ncolumns];
       for(int i = 0; i < _ncolumns; ++i)
         _enums[i] = new Enum();
+      _parserType = CustomParser.Type.CSV;
+      _sourceDataset = null;
     }
+    
+    
+    public DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
+      _parserType = parserType;
+      _sourceDataset = dataset;
+    }
+    
+    
+    static DParseTask create(Value dataset, Key resultKey, CustomParser.Type parserType) {
+      
+      return null;
+    }
+    
+    void phaseOne() { 
+      switch (_parserType) {
+        case CSV:
+          // precompute the parser setup, column setup and other settings
+          
+          
+          // launch the distributed parser on its chunks. 
+          this.invoke(_sourceDataset._key);
+          break;
+        case XLS:
+          // XLS parsing is not distributed, just obtain the value stream and
+          // run the parser
+          
+        
+        
+      }
+    }
+    
+    static DParseTask createPhaseTwo(DParseTask phaseOne) {
+      return null;
+    }
+    
+    static void phaseTwo(DParseTask task) {
+      
+      
+    }
+    
+    
+    
 
     public DParseTask pass2() {
       assert (_phase == 0);
@@ -686,7 +757,16 @@ public final class ParseDataset {
       for(byte b:_colTypes) _rowsize += Math.abs(colSizes[b]);
     }
     
-//    public void newMap(Key key) {
+    /** Map function for distributed parsing of the CSV files.
+     * 
+     * In first phase it calculates the min, max, means, encodings and other
+     * statistics about the dataset, determines the number of columns.
+     * 
+     * The second pass then encodes the parsed dataset to the result key,
+     * splitting it into equal sized chunks. 
+     * 
+     * @param key 
+     */
     @Override public void map(Key key) {
       try {
         Key aryKey = null;
@@ -703,8 +783,8 @@ public final class ParseDataset {
             // initialize the column statistics 
             phaseOneInitialize(_ncolumns);
             // perform the parse
-            FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-            p.parse(key,skipFirstLine);
+            FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
+            p.parse(key);
             if(arraylet) {
               assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
               _nrows[ValueArray.getChunkIndex(key)] = _myrows;
@@ -729,8 +809,8 @@ public final class ParseDataset {
             assert (_outputStreams2.length > 0);
             _s = _outputStreams2[0].initialize();
             // perform the second parse pass
-            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-            p2.parse(key,skipFirstLine);
+            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
+            p2.parse(key);
             // store the last stream if not stored during the parse
             if (_s != null) 
               _outputStreams2[_outputIdx].store();
@@ -744,6 +824,8 @@ public final class ParseDataset {
       }
     }
 
+    // OLD MAP that is ugly and well, old
+    
 //    @Override
     public void map2(Key key) {
       try{
@@ -765,8 +847,8 @@ public final class ParseDataset {
           _mean = new double[_ncolumns];
           _scale = new int[_ncolumns];
           _colTypes = new byte[_ncolumns];
-          FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-          p.parse(key,skipFirstLine);
+          FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
+          p.parse(key);
           if(arraylet) {
             assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
             _nrows[ValueArray.getChunkIndex(key)] = _myrows;
@@ -802,8 +884,8 @@ public final class ParseDataset {
             ++j;
           }
           _s = _outputStreams[0];
-          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this);
-          p2.parse(key,skipFirstLine);
+          FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
+          p2.parse(key);
           int inChunkOffset = (firstRow % rpc) * _rowsize; // index into the chunk I am writing to
           int lastChunk = Math.max(1,this._numRows / rpc) - 1; // index of the last chunk in the VA
           int chunkIndex = firstRow/rpc; // index of the chunk I am writing to
@@ -979,6 +1061,9 @@ public final class ParseDataset {
     }
 
     
+    /** Advances to new line. In phase two it also must make sure that the
+     * 
+     */ 
     public void newLine() {
       ++_myrows;
       if (_phase == PHASE_TWO) {
@@ -1002,6 +1087,8 @@ public final class ParseDataset {
         }
       }
     }
+    
+    // old new line that is to be deleted
     
     public void newLine2() {
       ++_myrows;
