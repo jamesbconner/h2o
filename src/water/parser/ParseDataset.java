@@ -4,6 +4,7 @@ import init.H2OSerializable;
 
 import java.io.*;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.zip.*;
 
 import water.*;
@@ -26,7 +27,7 @@ public final class ParseDataset {
   private static final int PHASE_TWO = 1;
   public static final int MAX_ENUM_SIZE = 65535;
 
-//Guess
+// Guess
  private static Compression guessCompressionMethod(Value dataset) {
    Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
    byte[] b = v0.get();                      // Bytes for 1st chunk
@@ -40,12 +41,10 @@ public final class ParseDataset {
  }
 
 
- public final static class ValueString implements CharSequence {
+ public final static class ValueString {
    byte [] _buf;
    int _off;
    int _length;
-
-
 
    public ValueString(byte [] buf, int off, int len){
      _buf = buf;
@@ -53,18 +52,16 @@ public final class ParseDataset {
      _length = len;
    }
 
+   public ValueString(byte [] buf){
+     this(buf,0,buf.length);
+   }
    @Override
    public int hashCode(){
-     try {
      int hash = 0;
      int n = _off + _length;
-
      for (int i = _off; i < n; ++i)
        hash = 31 * hash + _buf[i];
      return hash;
-     }catch(Exception e){
-       throw new Error(e);
-     }
    }
 
    void addChar(){
@@ -76,32 +73,16 @@ public final class ParseDataset {
      _off = off;
      _length = len;
    }
+
    void addBuff(byte [] bits){
-     try{
-       byte [] buf = new byte[_length];
-       int l1 = _buf.length-_off;
-       System.arraycopy(_buf, _off, buf, 0, l1);
-       System.arraycopy(bits, 0, buf, l1, _length-l1);
-       _off = 0;
-       _buf = buf;
-     } catch(Exception e){
-       throw new Error(e);
-     }
+     byte [] buf = new byte[_length];
+     int l1 = _buf.length-_off;
+     System.arraycopy(_buf, _off, buf, 0, l1);
+     System.arraycopy(bits, 0, buf, l1, _length-l1);
+     _off = 0;
+     _buf = buf;
    }
 
-  @Override
-  public char charAt(int index) {
-    return (char)_buf[_off+index];
-  }
-
-  @Override
-  public int length() {
-    return _length;
-  }
-  @Override
-  public CharSequence subSequence(int start, int end) {
-    return new String(_buf,_off+start, end-start);
-  }
   @Override
   public String toString(){
     return new String(_buf,_off,_length);
@@ -123,20 +104,13 @@ public final class ParseDataset {
   }
 
   @Override public boolean equals(Object o){
-    if(!(o instanceof CharSequence)) return false;
-    CharSequence str = (CharSequence)o;
-    if(str.length() != _length)return false;
+    if(!(o instanceof ValueString)) return false;
+    ValueString str = (ValueString)o;
+    if(str._length != _length)return false;
     for(int i = 0; i < _length; ++i)
-      if(charAt(i) != str.charAt(i)) return false;
+      if(_buf[_off+i] != str._buf[str._off+i]) return false;
     return true;
   }
- }
-
-
-
-
- int getTokenId(int colIdx){
-   return -1;
  }
 
 //---
@@ -293,28 +267,44 @@ public final class ParseDataset {
     return true;
   }
 
+  /**
+   * Class for tracking enum columns.
+   *
+   * Basically a wrapper around non blocking hash map.
+   * In the first pass, we just collect set of unique strings per column
+   * (if there are less than MAX_ENUM_SIZE unique elements).
+   *
+   * After pass1, the keys are sorted and indexed alphabetically.
+   * In the second pass, map is used only for lookup and never updated.
+   *
+   * Enum objects are shared among threads on the local nodes!
+   *
+   * @author tomasnykodym
+   *
+   */
   public static final class Enum implements H2OSerializable {
-    NonBlockingHashMap<CharSequence, Integer> _map;
+    NonBlockingHashMap<ValueString, Integer> _map;
     public Enum(){
-      _map = new NonBlockingHashMap<CharSequence, Integer>();
+      _map = new NonBlockingHashMap<ValueString, Integer>();
     }
 
-    void addValue(CharSequence str){
-      try{
-        NonBlockingHashMap<CharSequence, Integer> m = _map;
-        if(m == null)return;
-        if(m.get(str) == null){
-          m.put(str.toString(), 1);
-          if(m.size() > MAX_ENUM_SIZE){
-            System.out.println("killing enum of size " + m.size());
-            kill();
-          }
-        }
-      }catch(Exception e){
-        throw new Error(e);
+    /**
+     * Add key to this map (treated as hash set in this case).
+     * All keys are added with value = 1.
+     * @param str
+     */
+    void addKey(ValueString str){
+      // _map is shared and be cast to null (if enum is killed) -> grab local copy
+      NonBlockingHashMap<ValueString, Integer> m = _map;
+      if(m == null)return;
+      if(m.get(str) == null){
+        m.put(new ValueString(Arrays.copyOfRange(str._buf, str._off, str._off + str._length)), 1);
+        if(m.size() > MAX_ENUM_SIZE)
+          kill();
       }
     }
-    int getTokenId(CharSequence str){
+
+    int getTokenId(ValueString str){
       assert _map.get(str) != null:"missing value! " + str.toString();
       return _map.get(str);
     }
@@ -324,8 +314,8 @@ public final class ParseDataset {
         if(isKilled() || other.isKilled()){
           kill(); // too many values, enum shoudl be killed!
         } else { // do the merge
-          NonBlockingHashMap<CharSequence, Integer> myMap = _map;
-          for(CharSequence str:other._map.keySet()){
+          NonBlockingHashMap<ValueString, Integer> myMap = _map;
+          for(ValueString str:other._map.keySet()){
             myMap.put(str, 0);
           }
           if(myMap.size() > MAX_ENUM_SIZE)
@@ -341,23 +331,25 @@ public final class ParseDataset {
     public String [] computeColumnDomain(){
       if(isKilled())return null;
       String [] res = new String[_map.size()];
-      NonBlockingHashMap<CharSequence, Integer> oldMap = _map;
+      NonBlockingHashMap<ValueString, Integer> oldMap = _map;
       if(oldMap == null)return null;
-      oldMap.keySet().toArray(res);
+      Iterator<ValueString> it = oldMap.keySet().iterator();
+      for(int i = 0; i < res.length; ++i)
+        res[i] = it.next().toString();
       Arrays.sort(res);
-      NonBlockingHashMap<CharSequence, Integer> newMap = new NonBlockingHashMap<CharSequence, Integer>();
+      NonBlockingHashMap<ValueString, Integer> newMap = new NonBlockingHashMap<ValueString, Integer>();
       for(int j = 0; j < res.length; ++j)
-        newMap.put(res[j], j);
+        newMap.put(new ValueString(res[j]), j);
       oldMap.clear();
       _map = newMap;
       return res;
     }
  // assuming single threaded
     int wire_len(){
-      // 4 bytes for map size + size* (2 byte per String lenght of the key + 4 bytes of int value)
-      int res = 4 + 6*_map.size();
+      // 4 bytes for map size + size* (4 bytes per ValueString._buf.length of the key + 4 bytes of int value)
+      int res = 4 + 8*_map.size();
       // compute sum of keylens
-      for(CharSequence str:_map.keySet())res += str.length();
+      for(ValueString str:_map.keySet())res += str._length;
       return res;
     }
  // assuming single threaded
@@ -366,20 +358,21 @@ public final class ParseDataset {
       Object [] kvs = _map.kvs();
       for(int i = 2; i < kvs.length; i+= 2){
         if(kvs[i] == null)continue;
-        assert kvs[i] instanceof String:"invalid key inside enum: "+kvs[i].toString();
+        assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
         assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-        String k = (String)kvs[i];
+        ValueString k = (ValueString)kvs[i];
+        assert k._off == 0:"invalid ValueString offset in enum: " + k._off;
         Integer v = (Integer)kvs[i+1];
-        TCPReceiverThread.writeStr(dos, k);
+        TCPReceiverThread.writeAry(dos,k._buf);
         dos.writeInt(v);
       }
     }
  // assuming single threaded
     public void read(DataInputStream dis) throws IOException{
       int n = dis.readInt();
-      _map = new NonBlockingHashMap<CharSequence, Integer>();
+      _map = new NonBlockingHashMap<ValueString, Integer>();
       for(int i = 0; i < n; ++i){
-        String k = TCPReceiverThread.readStr(dis);
+        ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
         Integer v = dis.readInt();
         _map.put(k, v);
       }
@@ -390,18 +383,18 @@ public final class ParseDataset {
       Object [] kvs = _map.kvs();
       for(int i = 2; i < kvs.length; i+= 2){
         if(kvs[i] == null)continue;
-        assert kvs[i] instanceof String:"invalid key inside enum: "+kvs[i].toString();
+        assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
         assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-        s.setLen2Str(((String)kvs[i]));
+        s.setAry1(((ValueString)kvs[i])._buf);
         s.set4((Integer)kvs[i+1]);
       }
     }
  // assuming single threaded
     public void read(Stream s) throws IOException{
       int n = s.get4();
-      _map = new NonBlockingHashMap<CharSequence, Integer>();
+      _map = new NonBlockingHashMap<ValueString, Integer>();
       for(int i = 0; i < n; ++i){
-        String k = s.getLen2Str();
+        ValueString k = new ValueString(s.getAry1());
         Integer v = s.get4();
         _map.put(k, v);
       }
@@ -561,9 +554,9 @@ public final class ParseDataset {
     // I must break map to more steps so that I can reuse code
 
     /** Initialize phase one data structures with the appropriate number of
-     * columns. 
-     * 
-     * @param numColumns 
+     * columns.
+     *
+     * @param numColumns
      */
     public void phaseOneInitialize(int numColumns) {
       assert (_phase == PHASE_ONE);
@@ -578,14 +571,14 @@ public final class ParseDataset {
       _colTypes = new byte[_ncolumns];
     }
 
-    /** Initializes the output streams. 
+    /** Initializes the output streams.
      */
     public void phaseTwoInitialize() {
       assert (_phase == PHASE_TWO);
       _invalidValues = new long[_ncolumns];
 
     }
-    
+
     public void newMap(Key key) {
       try {
         Key aryKey = null;
@@ -608,15 +601,15 @@ public final class ParseDataset {
             }
             break;
           case PHASE_TWO:
-            
+
             break;
           default:
             assert (false);
-          
-          
+
+
         }
-        
-        
+
+
       }catch(Exception e){
         e.printStackTrace();
         _error = e.getMessage();
@@ -953,7 +946,7 @@ public final class ParseDataset {
           if(e == null || e.isKilled())return;
           if(_colTypes[colIdx] ==UCOL)
             _colTypes[colIdx] = ECOL;
-          e.addValue(str);
+          e.addKey(str);
           ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
           break;
         case PHASE_TWO:
