@@ -115,8 +115,8 @@ public class XlsxParser extends CustomParser {
       if( name.equals("v") ) {
         if (_firstRow) {
           _colNames.add(_lastContents);
-          System.out.println(_lastContents)
-        } else  {
+          System.out.println(_lastContents);
+        } else {
           System.out.println(_curCol);
           try {
             Double d = Double.parseDouble(_lastContents);
@@ -132,6 +132,7 @@ public class XlsxParser extends CustomParser {
           }
         }
       } else if( name.equals("row") ) {
+        System.out.println("closing line");
         if( _firstRow == true ) {
           _callback.setColumnNames(_colNames.toArray(new String[_colNames.size()]));
           _firstRow = false;
