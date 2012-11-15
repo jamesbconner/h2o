@@ -31,7 +31,7 @@ public class RandomForestPage extends H2OPage {
 
   public static String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws PageError {
     int arity = ary.col_enum_domain_size(classColIdx);
-    if (arity == 65535) {
+    if (arity == 0) {
       int min = (int) ary.col_min(classColIdx);
       if (ary.col_min(classColIdx) != min)
         throw new PageError("Only integer or enum columns can be classes!");
