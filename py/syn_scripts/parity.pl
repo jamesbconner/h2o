@@ -39,7 +39,10 @@ my $file = "./syn_datasets/parity_" . $inumLimit . "_" . $onumLimit . "_" . $max
 
 print "output file is: $file\n";
 open my $fh,'>', $file or die "Can't open the output file: $!";
-print $fh "# ".localtime()." parity.pl ".$inumLimit." ".$onumLimit." ".$maxrows."\n";
+# 11/15/12 H2O doesn't support #. will mess things up, especially if first line
+# we should handle blank though. Just print a blank
+# print $fh "# ".localtime()." parity.pl ".$inumLimit." ".$onumLimit." ".$maxrows."\n";
+print $fh "";
 
 # go do it!
 makeIO($maxrows,$inputBase);
