@@ -11,24 +11,26 @@ import org.apache.poi.hssf.eventusermodel.dummyrecord.LastCellOfRowDummyRecord;
 import org.apache.poi.hssf.eventusermodel.dummyrecord.MissingCellDummyRecord;
 import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import water.DKV;
 import water.Key;
 import water.parser.ParseDataset.DParseTask;
 import water.parser.ValueString;
 
 public class XlsParser extends CustomParser implements HSSFListener {
 
-  private final POIFSFileSystem _fs;
+  private POIFSFileSystem _fs;
   private final DParseTask _callback;
   private FormatTrackingHSSFListener _formatListener;
   
   private final ValueString _str = new ValueString();
 
-  public XlsParser(InputStream is, DParseTask callback) throws IOException {
-    _fs = new POIFSFileSystem(is);
+  public XlsParser(DParseTask callback) throws IOException {
     _callback = callback;
   }
 
   @Override public void parse(Key key) throws IOException {
+    _firstRow = true;
+    _fs = new POIFSFileSystem(DKV.get(key).openStream());
     MissingRecordAwareHSSFListener listener = new MissingRecordAwareHSSFListener(this);
     _formatListener = new FormatTrackingHSSFListener(listener);
 
@@ -138,8 +140,7 @@ public class XlsParser extends CustomParser implements HSSFListener {
         arr = _columnNames.toArray(arr);
         _callback.setColumnNames(arr);
       }
-      System.out.println("new line");
-//      _callback.newLine();
+      _callback.newLine();
     }
 
     if (curCol == -1)
@@ -161,13 +162,5 @@ public class XlsParser extends CustomParser implements HSSFListener {
   private SSTRecord _sstRecord;
   private int _nextCol;
   private boolean _outputNextStringRecord;
-
-  
-  public static void main(String[] argv) throws IOException {
-    FileInputStream fs = new FileInputStream("/home/peta/iris.xls");
-    DParseTask callback = new DParseTask();
-    XlsParser p = new XlsParser(fs,callback);
-    p.parse(null);
-  }
 }
 

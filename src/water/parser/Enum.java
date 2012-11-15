@@ -53,6 +53,8 @@ public final class Enum implements H2OSerializable {
   }
 
   int getTokenId(ValueString str){
+    if (_map.get(str) == null) 
+      System.out.println(Arrays.toString(_map.keySet().toArray()));
     assert _map.get(str) != null:"missing value! " + str.toString();
     return _map.get(str);
   }

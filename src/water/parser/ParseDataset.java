@@ -63,9 +63,9 @@ public final class ParseDataset {
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset ) throws IOException {
     String datasetName = new String(dataset._key._kb);
-    if(datasetName.endsWith(".xls") || datasetName.contains(".xls."))
-      throw new Error("xls format is currently not supported.");
-    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, CustomParser.Type.CSV);
+//    if(datasetName.endsWith(".xls") || datasetName.contains(".xls."))
+//      throw new Error("xls format is currently not supported.");
+    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, CustomParser.Type.XLS);
     phaseOne.phaseOne();
     DParseTask phaseTwo = DParseTask.createPhaseTwo(phaseOne);
     phaseTwo.phaseTwo();
@@ -126,26 +126,6 @@ public final class ParseDataset {
     if( key == null ) throw new Error("Cannot uncompressed GZIP-compressed dataset!");
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
-  }
-  
-  /** Parses the XLS format dataset.
-   * 
-   * @param result
-   * @param dataset
-   * @throws IOException 
-   */ 
-  
-  public static void parseXls(Key result, Value dataset) throws IOException {
-    DParseTask tsk = new DParseTask(dataset, result, FastParser.CHAR_NULL, 0, false);
-    tsk.invoke(dataset._key);
-//    tsk = tsk.pass2();
-    tsk.invoke(dataset._key);
-    // normalize sigma
-    for(int i = 0; i < tsk._ncolumns; ++i)
-      tsk._sigma[i] = Math.sqrt(tsk._sigma[i]/(tsk._numRows - tsk._invalidValues[i]));
-//    tsk.createValueArrayHeader(colNames,dataset);
-        
-    
   }
 
   // True if the array is all NaNs
@@ -246,7 +226,8 @@ public final class ParseDataset {
        */
       public void store() {
         assert (_stream != null);
-        assert (_stream.eof());
+        if (!_stream.eof())
+          assert (_stream.eof());
         Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(_chunkIndex));
         AtomicUnion u = new AtomicUnion(_stream._buf,0,_chunkOffset,_stream._buf.length);
         lazy_complete(u.fork(k));
@@ -387,7 +368,19 @@ public final class ParseDataset {
         case XLS:
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
-          
+          InputStream is = null;
+          try {
+            is = _sourceDataset.openStream();
+            XlsParser p = new XlsParser(this);
+            p.parse(_sourceDataset._key); 
+            System.out.println("hello");
+          } catch (IOException e) {
+            this._error = e.getMessage();
+          } finally {
+            if (is!=null)
+              try { is.close(); } catch (IOException e) { }
+          }
+          break;
         default:
           throw new Error("NOT IMPLEMENTED");
       }
@@ -410,7 +403,7 @@ public final class ParseDataset {
       return new DParseTask(phaseOneTask);
     }
     
-    public void phaseTwo() {
+    public void phaseTwo() throws IOException {
       switch (_parserType) {
         case CSV:
           // for CSV parser just launch the distributed parser on the chunks
@@ -418,6 +411,19 @@ public final class ParseDataset {
           this.invoke(_sourceDataset._key);
           break;
         case XLS:
+          // initialize statistics - invalid rows, sigma and row size
+          phaseTwoInitialize();
+          // create the output streams
+          _outputStreams2 = createRecords(0, _myrows);
+          assert (_outputStreams2.length > 0);
+          _s = _outputStreams2[0].initialize();
+          // perform the second parse pass
+          XlsParser p = new XlsParser(this);
+          p.parse(_sourceDataset._key);
+          // store the last stream if not stored during the parse
+          if (_s != null) 
+            _outputStreams2[_outputIdx].store();
+          break;
         default:
           throw new Error("NOT IMPLEMENTED");
       }
@@ -497,7 +503,8 @@ public final class ParseDataset {
      * @param numColumns
      */
     public void phaseOneInitialize() {
-      assert (_phase == PHASE_ONE);
+      if (_phase != PHASE_ONE)
+        assert (_phase == PHASE_ONE);
       _invalidValues = new long[_ncolumns];
       _min = new double [_ncolumns];
       Arrays.fill(_min, Double.MAX_VALUE);
@@ -900,17 +907,19 @@ public final class ParseDataset {
      * @param colNames 
      */
     public void setColumnNames(String[] colNames) {
-      assert (colNames != null);
-      _colNames = colNames;
-      _ncolumns = colNames.length;
-      _enums = new Enum[_ncolumns];
-      for(int i = 0; i < _ncolumns; ++i)
-        _enums[i] = new Enum();
-      // Initialize the statistics for the XLS parsers. Statistics for CSV
-      // parsers are created in the map method - they must be different for
-      // each distributed invocation
-      if (_parserType == CustomParser.Type.XLS)
-        phaseOneInitialize();
+      if (_phase == PHASE_ONE) {
+        assert (colNames != null);
+        _colNames = colNames;
+        _ncolumns = colNames.length;
+        _enums = new Enum[_ncolumns];
+        for(int i = 0; i < _ncolumns; ++i)
+          _enums[i] = new Enum();
+        // Initialize the statistics for the XLS parsers. Statistics for CSV
+        // parsers are created in the map method - they must be different for
+        // each distributed invocation
+        if (_parserType == CustomParser.Type.XLS)
+          phaseOneInitialize();
+      }
     }
 
     public void addInvalidCol(int colIdx){
