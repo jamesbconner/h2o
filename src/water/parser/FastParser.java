@@ -73,7 +73,6 @@ public class FastParser {
     int offset = 0;
     int state = skipFirstLine ? SKIP_LINE : WHITESPACE_BEFORE_TOKEN;
     int quotes = 0;
-    FastTrie colTrie = null;
     long number = 0;
     int exp = 0;
     int fractionDigits = 0;
@@ -109,7 +108,7 @@ NEXT_CHAR:
             break NEXT_CHAR;
           }
           if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
-            ++_str._length;
+            _str.addChar();
             break NEXT_CHAR;
           }
           // fallthrough to STRING_END
@@ -118,15 +117,12 @@ NEXT_CHAR:
           if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB)))
             break NEXT_CHAR;
           // we have parsed the string enum correctly
-          if(_str._buff != bits){ // crossing chunk boundary
-            byte [] buf = new byte[_str._length];
-            int l1 = _str._buff.length-_str._off;
-            System.arraycopy(_str._buff, _str._off, buf, 0, l1);
-            System.arraycopy(bits, 0, buf, l1, _str._length-l1);
+          if((_str._off + _str._length) >  _str._buf.length){ // crossing chunk boundary
+            assert _str._buf != bits;
+            _str.addBuff(bits);
           }
           callback.addStrCol(colIdx, _str);
-          _str._buff = null;
-          _str._length = 0;
+          _str.set(null, 0, 0);
           ++colIdx;
           state = SEPARATOR_OR_EOL;
           // fallthrough to SEPARATOR_OR_EOL
@@ -173,14 +169,12 @@ NEXT_CHAR:
               throw new Exception("Only "+_numColumns+" columns expected.");
             break NEXT_CHAR;
           } else if (isEOL(c)) {
-            if(_str._buff != bits){ // crossing chunk boundary
-              byte [] buf = new byte[_str._length];
-              int l1 = _str._buff.length-_str._off;
-              System.arraycopy(_str._buff, _str._off, buf, 0, l1);
-              System.arraycopy(bits, 0, buf, l1, _str._length-l1);
+            if((_str._off + _str.length()) > _str._buf.length){ // crossing chunk boundary
+              assert _str._buf != bits;
+              _str.addBuff(bits);
             }
             callback.addStrCol(colIdx,_str);
-            _str._buff = null;
+            _str.set(null,0,0);
             state = EOL;
             continue MAIN_LOOP;
           }
@@ -212,9 +206,7 @@ NEXT_CHAR:
             // fallthrough
           } else {
             state = STRING;
-            _str._buff = bits;
-            _str._off = offset;
-            _str._length = 0;
+            _str.set(bits, offset, 0);
             continue MAIN_LOOP;
           }
           // fallthrough to NUMBER
@@ -276,9 +268,7 @@ NEXT_CHAR:
           } else {
             state = STRING;
             offset = tokenStart-1;
-            _str._buff = bits;
-            _str._off = offset;
-            _str._length = 0;
+            _str.set(bits,offset,0);
             break NEXT_CHAR; // parse as String token now
           }
         // ---------------------------------------------------------------------
@@ -371,7 +361,8 @@ NEXT_CHAR:
         // ---------------------------------------------------------------------
         case COND_QUOTE:
           if (c == quotes) {
-            offset += colTrie.addCharacter(c); // FastTrie returns skipped chars - 1
+            //TODO
+            _str.set(bits, offset, 0);
             state = STRING;
             break NEXT_CHAR;
           } else {
@@ -391,6 +382,7 @@ NEXT_CHAR:
         assert (v != null) : "The value used to be there!";
         bits = v.get();
         offset += bits.length;
+        _str.set(bits,offset,0);
       } else if (offset >= bits.length) {
         if (_ary == null)
           break;

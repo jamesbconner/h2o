@@ -1,3 +1,4 @@
+
 package water.parser;
 import init.H2OSerializable;
 
@@ -24,6 +25,7 @@ public final class ParseDataset {
 
   private static final int PHASE_ONE = 0;
   private static final int PHASE_TWO = 1;
+  public static final int MAX_ENUM_SIZE = 65535;
 
 //Guess
  private static Compression guessCompressionMethod(Value dataset) {
@@ -40,22 +42,57 @@ public final class ParseDataset {
 
 
  public final static class ValueString implements CharSequence {
-   byte [] _buff;
+   byte [] _buf;
    int _off;
    int _length;
 
+
+
+   public ValueString(byte [] buf, int off, int len){
+     _buf = buf;
+     _off = off;
+     _length = len;
+   }
+
    @Override
    public int hashCode(){
-     int hash = 1;
+     try {
+     int hash = 0;
      int n = _off + _length;
+
      for (int i = _off; i < n; ++i)
-       hash = 31 * hash + _buff[i];
+       hash = 31 * hash + _buf[i];
      return hash;
+     }catch(Exception e){
+       throw new Error(e);
+     }
+   }
+
+   void addChar(){
+     ++_length;
+   }
+
+   void set(byte [] buf, int off, int len){
+     _buf = buf;
+     _off = off;
+     _length = len;
+   }
+   void addBuff(byte [] bits){
+     try{
+       byte [] buf = new byte[_length];
+       int l1 = _buf.length-_off;
+       System.arraycopy(_buf, _off, buf, 0, l1);
+       System.arraycopy(bits, 0, buf, l1, _length-l1);
+       _off = 0;
+       _buf = buf;
+     } catch(Exception e){
+       throw new Error(e);
+     }
    }
 
   @Override
   public char charAt(int index) {
-    return (char)_buff[_off+index];
+    return (char)_buf[_off+index];
   }
 
   @Override
@@ -64,26 +101,35 @@ public final class ParseDataset {
   }
   @Override
   public CharSequence subSequence(int start, int end) {
-    return new String(_buff,_off+start, end-start);
+    return new String(_buf,_off+start, end-start);
   }
   @Override
   public String toString(){
-    return new String(_buff,_off,_length);
+    return new String(_buf,_off,_length);
   }
 
   public ValueString() { }
 
   public ValueString(String from) {
-    _buff = from.getBytes();
+    _buf = from.getBytes();
     _off = 0;
-    _length = _buff.length;
+    _length = _buf.length;
   }
 
   public ValueString setTo(String what) {
-    _buff = what.getBytes();
+    _buf = what.getBytes();
     _off = 0;
-    _length = _buff.length;
+    _length = _buf.length;
     return this;
+  }
+
+  @Override public boolean equals(Object o){
+    if(!(o instanceof CharSequence)) return false;
+    CharSequence str = (CharSequence)o;
+    if(str.length() != _length)return false;
+    for(int i = 0; i < _length; ++i)
+      if(charAt(i) != str.charAt(i)) return false;
+    return true;
   }
  }
 
@@ -248,6 +294,122 @@ public final class ParseDataset {
     return true;
   }
 
+  public static final class Enum implements H2OSerializable {
+    NonBlockingHashMap<CharSequence, Integer> _map;
+    public Enum(){
+      _map = new NonBlockingHashMap<CharSequence, Integer>();
+    }
+
+    void addValue(CharSequence str){
+      try{
+        NonBlockingHashMap<CharSequence, Integer> m = _map;
+        if(m == null)return;
+        if(m.get(str) == null){
+          m.put(str.toString(), 1);
+          if(m.size() > MAX_ENUM_SIZE){
+            System.out.println("killing enum of size " + m.size());
+            kill();
+          }
+        }
+      }catch(Exception e){
+        throw new Error(e);
+      }
+    }
+    int getTokenId(CharSequence str){
+      assert _map.get(str) != null:"missing value! " + str.toString();
+      return _map.get(str);
+    }
+
+    public void merge(Enum other){
+      if(this != other) {
+        if(isKilled() || other.isKilled()){
+          kill(); // too many values, enum shoudl be killed!
+        } else { // do the merge
+          NonBlockingHashMap<CharSequence, Integer> myMap = _map;
+          for(CharSequence str:other._map.keySet()){
+            myMap.put(str, 0);
+          }
+          if(myMap.size() > MAX_ENUM_SIZE)
+            kill();
+        }
+      }
+    }
+    public int size() {return _map.size();}
+    public boolean isKilled() {return _map == null;}
+    public void kill(){_map = null;}
+
+    // assuming single threaded
+    public String [] computeColumnDomain(){
+      if(isKilled())return null;
+      String [] res = new String[_map.size()];
+      NonBlockingHashMap<CharSequence, Integer> oldMap = _map;
+      if(oldMap == null)return null;
+      oldMap.keySet().toArray(res);
+      Arrays.sort(res);
+      NonBlockingHashMap<CharSequence, Integer> newMap = new NonBlockingHashMap<CharSequence, Integer>();
+      for(int j = 0; j < res.length; ++j)
+        newMap.put(res[j], j);
+      oldMap.clear();
+      _map = newMap;
+      return res;
+    }
+ // assuming single threaded
+    int wire_len(){
+      // 4 bytes for map size + size* (2 byte per String lenght of the key + 4 bytes of int value)
+      int res = 4 + 6*_map.size();
+      // compute sum of keylens
+      for(CharSequence str:_map.keySet())res += str.length();
+      return res;
+    }
+ // assuming single threaded
+    public void write(DataOutputStream dos) throws IOException{
+      dos.writeInt(_map.size());
+      Object [] kvs = _map.kvs();
+      for(int i = 2; i < kvs.length; i+= 2){
+        if(kvs[i] == null)continue;
+        assert kvs[i] instanceof String:"invalid key inside enum: "+kvs[i].toString();
+        assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
+        String k = (String)kvs[i];
+        Integer v = (Integer)kvs[i+1];
+        TCPReceiverThread.writeStr(dos, k);
+        dos.writeInt(v);
+      }
+    }
+ // assuming single threaded
+    public void read(DataInputStream dis) throws IOException{
+      int n = dis.readInt();
+      _map = new NonBlockingHashMap<CharSequence, Integer>();
+      for(int i = 0; i < n; ++i){
+        String k = TCPReceiverThread.readStr(dis);
+        Integer v = dis.readInt();
+        _map.put(k, v);
+      }
+    }
+ // assuming single threaded
+    public void write(Stream s) throws IOException{
+      s.set4(_map.size());
+      Object [] kvs = _map.kvs();
+      for(int i = 2; i < kvs.length; i+= 2){
+        if(kvs[i] == null)continue;
+        assert kvs[i] instanceof String:"invalid key inside enum: "+kvs[i].toString();
+        assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
+        s.setLen2Str(((String)kvs[i]));
+        s.set4((Integer)kvs[i+1]);
+      }
+    }
+ // assuming single threaded
+    public void read(Stream s) throws IOException{
+      int n = s.get4();
+      _map = new NonBlockingHashMap<CharSequence, Integer>();
+      for(int i = 0; i < n; ++i){
+        String k = s.getLen2Str();
+        Integer v = s.get4();
+        _map.put(k, v);
+      }
+    }
+  }
+
+
   public static final class DParseTask extends MRTask {
     // pass 1 types
     static final byte UCOL  = 0;  // unknown
@@ -284,94 +446,6 @@ public final class ParseDataset {
     String  _error;
 
 
-    final class Enum implements H2OSerializable {
-      NonBlockingHashMap<CharSequence, Integer> _map;
-
-      Enum(){
-        _map = new NonBlockingHashMap<CharSequence, Integer>();
-      }
-
-      int getTokenId(CharSequence str){
-
-
-        return -1;
-      }
-
-      public void merge(Enum other){
-        if(this != other) {
-          NonBlockingHashMap<CharSequence, Integer> myMap = _map;
-          for(CharSequence str:other._map.keySet()){
-            myMap.put(str, 0);
-          }
-        }
-      }
-      public int size() {return _map.size();}
-      public boolean isKilled() {return _map == null;}
-      public void kill(){_map = null;}
-
-      public String [] computeColumnDomain(){
-        String [] res = new String[_map.size()];
-        NonBlockingHashMap<CharSequence, Integer> oldMap = _map;
-        if(oldMap == null)return null;
-        oldMap.keySet().toArray(res);
-        Arrays.sort(res);
-        NonBlockingHashMap<CharSequence, Integer> newMap = new NonBlockingHashMap<CharSequence, Integer>();
-        for(int j = 0; j < res.length; ++j)
-          newMap.put(res[j], j);
-        oldMap.clear();
-        _map = newMap;
-        return res;
-      }
-      int wire_len(){
-        // 4 bytes for map size + size* (2 byte per String lenght of the key + 4 bytes of int value)
-        int res = 4 + 6*_map.size();
-        // compute sum of keylens
-        for(CharSequence str:_map.keySet())res += str.length();
-        return res;
-      }
-      public void write(DataOutputStream dos) throws IOException{
-        dos.writeInt(_map.size());
-        Object [] kvs = _map.kvs();
-        for(int i = 3; i < kvs.length; i+= 2){
-          if(kvs[i] == null)continue;
-          assert kvs[i] instanceof String:"invalid key inside enum"+kvs[i].toString();
-          assert kvs[i+1] instanceof String:"invalid value inside enum"+kvs[i].toString();
-          String k = (String)kvs[i];
-          Integer v = (Integer)kvs[i+1];
-          TCPReceiverThread.writeStr(dos, k);
-          dos.writeInt(v);
-        }
-      }
-      public void read(DataInputStream dis) throws IOException{
-        int n = dis.readInt();
-        _map = new NonBlockingHashMap<CharSequence, Integer>();
-        for(int i = 0; i < n; ++i){
-          String k = TCPReceiverThread.readStr(dis);
-          Integer v = dis.readInt();
-          _map.put(k, v);
-        }
-      }
-      public void write(Stream s) throws IOException{
-        s.set4(_map.size());
-        Object [] kvs = _map.kvs();
-        for(int i = 3; i < kvs.length; i+= 2){
-          if(kvs[i] == null)continue;
-          assert kvs[i] instanceof String:"invalid key inside enum"+kvs[i].toString();
-          assert kvs[i+1] instanceof String:"invalid value inside enum"+kvs[i].toString();
-          s.setLen2Str(((String)kvs[i]));
-          s.set4((Integer)kvs[i+1]);
-        }
-      }
-      public void read(Stream s) throws IOException{
-        int n = s.get4();
-        _map = new NonBlockingHashMap<CharSequence, Integer>();
-        for(int i = 0; i < n; ++i){
-          String k = s.getLen2Str();
-          Integer v = s.get4();
-          _map.put(k, v);
-        }
-      }
-    }
 
 
     // arrays
@@ -781,9 +855,8 @@ public final class ParseDataset {
               for (int i = 0; i < _nrows.length; ++i)
                 _nrows[i] += other._nrows[i];
             for(int i = 0; i < _ncolumns; ++i) {
-              if(_enums != other._enums){
-
-              }
+              if(_enums[i] != other._enums[i])
+                _enums[i].merge(other._enums[i]);
               if(other._min[i] < _min[i])_min[i] = other._min[i];
               if(other._max[i] > _max[i])_max[i] = other._max[i];
               if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
@@ -849,9 +922,6 @@ public final class ParseDataset {
     }
 
     static long pow10i(int exp){
-      if(exp < 0){
-        System.out.println("haha");
-      }
       assert 10 >= exp && exp >= 0:"unexpceted exponent " + exp;
       return powers10i[exp];
     }
@@ -866,7 +936,7 @@ public final class ParseDataset {
       for(int i = 0; i < _ncolumns; ++i){
         switch(_colTypes[i]){
         case ECOL: // enum
-          if(_enums[i].isKilled()){
+          if(_enums[i] == null || _enums[i].isKilled()){
             _max[i] = 0;
             _min[i] = 0;
             _colTypes[i] = STRINGCOL;
@@ -958,8 +1028,6 @@ public final class ParseDataset {
 
     public void rollbackLine() {
       --_myrows;
-      if(_phase != 0 && _s != null)
-        System.out.println("haha");
       assert (_phase == 0 || _s == null);
     }
 
@@ -1012,12 +1080,15 @@ public final class ParseDataset {
         case DOUBLE:
           _s.set8d(Double.NaN);
           break;
+        case STRINGCOL:
+          // TODO, replace with empty space!
+          _s.set1(-1);
+          break;
         default:
           assert false:"illegal case: " + _colTypes[colIdx];
       }
     }
 
-    public static final int MAX_ENUM_ELEMS = 65000;
 
     public void addStrCol(int colIdx, ValueString str){
       if(colIdx >= _ncolumns)
@@ -1025,12 +1096,10 @@ public final class ParseDataset {
       switch (_phase) {
         case PHASE_ONE:
           Enum e = _enums[colIdx];
-          if(e == null)return;
+          if(e == null || e.isKilled())return;
           if(_colTypes[colIdx] ==UCOL)
             _colTypes[colIdx] = ECOL;
-          e.getTokenId(str);
-          if(e.size() > MAX_ENUM_ELEMS)
-            e.kill();
+          e.addValue(str);
           ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
           break;
         case PHASE_TWO:
@@ -1149,6 +1218,12 @@ public final class ParseDataset {
     @Override public void onSuccess() {
       DKV.remove(_key);
     }
+  }
+
+  public static void main(String [] args){
+    byte [] buff = "hahagaga".getBytes();
+    ValueString str = new ValueString(buff,0,8);
+    System.out.println(str.hashCode() + " " + "hahagaga".hashCode());
   }
 }
 
