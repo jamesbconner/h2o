@@ -10,7 +10,7 @@ import water.Key;
  */
 public abstract class CustomParser {
   
-  public enum Type { CSV, XLS }
+  public enum Type { CSV, XLS, XLSX }
   
   public static final byte CHAR_TAB = '\t';
   public static final byte CHAR_LF = 10;
