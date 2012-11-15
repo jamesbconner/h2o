@@ -848,6 +848,7 @@ public final class ParseDataset {
       }
     }
 
+    static final int MAX_FLOAT_MANTISSA = 0x7FFFFF;
     @SuppressWarnings("fallthrough")
     public void addNumCol(int colIdx, long number, int exp, int numLength) {
       if(colIdx >= _ncolumns)
@@ -862,7 +863,7 @@ public final class ParseDataset {
           if(exp < _scale[colIdx]) {
             _scale[colIdx] = exp;
             if(_colTypes[colIdx] != DCOL){
-              if((float)d != d)
+              if(number > MAX_FLOAT_MANTISSA || exp < Float.MIN_EXPONENT || exp > Float.MAX_EXPONENT)
                 _colTypes[colIdx] = DCOL;
               else
                 _colTypes[colIdx] = FCOL;
