@@ -1,7 +1,7 @@
 package water.parser;
 import init.H2OSerializable;
 
-import java.io.IOException;
+import java.io.*;
 import java.util.Arrays;
 import java.util.zip.*;
 
@@ -11,7 +11,7 @@ import water.nbhm.NonBlockingHashMap;
 
 import com.google.common.io.Closeables;
 
-/**�
+/**
  * Helper class to parse an entire ValueArray data, and produce a structured
  * ValueArray result.
  *
@@ -321,7 +321,55 @@ public final class ParseDataset {
         _map = newMap;
         return res;
       }
-
+      int wire_len(){
+        // 4 bytes for map size + size* (2 byte per String lenght of the key + 4 bytes of int value)
+        int res = 4 + 6*_map.size();
+        // compute sum of keylens
+        for(CharSequence str:_map.keySet())res += str.length();
+        return res;
+      }
+      public void write(DataOutputStream dos) throws IOException{
+        dos.writeInt(_map.size());
+        Object [] kvs = _map.kvs();
+        for(int i = 3; i < kvs.length; i+= 2){
+          if(kvs[i] == null)continue;
+          assert kvs[i] instanceof String:"invalid key inside enum"+kvs[i].toString();
+          assert kvs[i+1] instanceof String:"invalid value inside enum"+kvs[i].toString();
+          String k = (String)kvs[i];
+          Integer v = (Integer)kvs[i+1];
+          TCPReceiverThread.writeStr(dos, k);
+          dos.writeInt(v);
+        }
+      }
+      public void read(DataInputStream dis) throws IOException{
+        int n = dis.readInt();
+        _map = new NonBlockingHashMap<CharSequence, Integer>();
+        for(int i = 0; i < n; ++i){
+          String k = TCPReceiverThread.readStr(dis);
+          Integer v = dis.readInt();
+          _map.put(k, v);
+        }
+      }
+      public void write(Stream s) throws IOException{
+        s.set4(_map.size());
+        Object [] kvs = _map.kvs();
+        for(int i = 3; i < kvs.length; i+= 2){
+          if(kvs[i] == null)continue;
+          assert kvs[i] instanceof String:"invalid key inside enum"+kvs[i].toString();
+          assert kvs[i+1] instanceof String:"invalid value inside enum"+kvs[i].toString();
+          s.setLen2Bytes(((String)kvs[i]));
+          s.set4((Integer)kvs[i+1]);
+        }
+      }
+      public void read(Stream s) throws IOException{
+        int n = s.get4();
+        _map = new NonBlockingHashMap<CharSequence, Integer>();
+        for(int i = 0; i < n; ++i){
+          String k = s.getLen2Str();
+          Integer v = s.get4();
+          _map.put(k, v);
+        }
+      }
     }
 
 
