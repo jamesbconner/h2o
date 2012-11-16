@@ -251,7 +251,7 @@ NEXT_CHAR:
           } else {
             state = STRING;
             offset = tokenStart-1;
-            _str.set(bits,offset,0);
+            _str.set(bits,tokenStart,0);
             break NEXT_CHAR; // parse as String token now
           }
         // ---------------------------------------------------------------------
@@ -345,7 +345,7 @@ NEXT_CHAR:
         case COND_QUOTE:
           if (c == quotes) {
             //TODO
-            _str.set(bits, offset, 0);
+            _str.set(bits, offset+1, 0);
             state = STRING;
             break NEXT_CHAR;
           } else {
