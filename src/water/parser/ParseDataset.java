@@ -372,8 +372,8 @@ public final class ParseDataset {
         case CSV:
           // precompute the parser setup, column setup and other settings
           byte [] bits = DKV.get(_sourceDataset.chunk_get(0)).get(256*1024);
-          int [] psetup = FastParser.guessParserSetup(bits, false);
-          _colNames = FastParser.determineColumnNames(bits,(byte)psetup[0]);
+          int [] psetup = CsvParser.guessParserSetup(bits, false);
+          _colNames = CsvParser.determineColumnNames(bits,(byte)psetup[0]);
           // initialize the column names
           // TODO Parser setup is aparently not working properly
           if (_colNames!=null) {
@@ -598,7 +598,7 @@ public final class ParseDataset {
             // initialize the column statistics 
             phaseOneInitialize();
             // perform the parse
-            FastParser p = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
+            CsvParser p = new CsvParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
             p.parse(key);
             if(arraylet) {
               assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
@@ -624,7 +624,7 @@ public final class ParseDataset {
             assert (_outputStreams2.length > 0);
             _s = _outputStreams2[0].initialize();
             // perform the second parse pass
-            FastParser p2 = new FastParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
+            CsvParser p2 = new CsvParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
             p2.parse(key);
             // store the last stream if not stored during the parse
             if (_s != null) 

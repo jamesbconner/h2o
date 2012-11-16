@@ -11,7 +11,7 @@ import water.parser.ValueString;
  *
  * @author peta
  */
-public class FastParser extends CustomParser {
+public class CsvParser extends CustomParser {
 
 
   public final byte CHAR_DECIMAL_SEPARATOR;
@@ -51,7 +51,7 @@ public class FastParser extends CustomParser {
 
 
 
-  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback, boolean skipFirstLine) throws Exception {
+  public CsvParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback, boolean skipFirstLine) throws Exception {
     _aryKey = aryKey;
     _numColumns = numColumns;
     CHAR_SEPARATOR = separator;
