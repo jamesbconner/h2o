@@ -31,7 +31,7 @@ public class RandomForestPage extends H2OPage {
 
   public static String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws PageError {
     int arity = ary.col_enum_domain_size(classColIdx);
-    if (arity == 65535) {
+    if (arity == 0) {
       int min = (int) ary.col_min(classColIdx);
       if (ary.col_min(classColIdx) != min)
         throw new PageError("Only integer or enum columns can be classes!");
@@ -168,7 +168,7 @@ public class RandomForestPage extends H2OPage {
       DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
-      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes);
+      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample);
       // Save it to the cloud
       UKV.put(modelKey,model);
       // Pass along all to the viewer

@@ -136,5 +136,13 @@ public final class VAIterator implements Iterator<VAIterator> {
     return offset + _rowSize;
   }
   
+  public boolean isValid(int column) {
+    return _ary.valid(_chunkBits, _rowInChunk, _rowSize, column);
+  }
+
+  public boolean isValid() {
+    return _ary.valid(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize);
+  }
+  
   
 }

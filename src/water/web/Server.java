@@ -63,6 +63,7 @@ public class Server extends NanoHTTPD {
     _pages.put("PutVector",new PutVector());
     _pages.put("RFView",new RFView());
     _pages.put("RFViewQuery",new RFViewQuery());
+    _pages.put("RFViewQuery1",new RFViewQuery1());
     _pages.put("RFBuildQuery",new RFBuildQuery());
     _pages.put("RFBuildQuery1",new RFBuildQuery1());
     _pages.put("RFBuildQuery2",new RFBuildQuery2());

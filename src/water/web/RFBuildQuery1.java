@@ -68,6 +68,8 @@ public class RFBuildQuery1 extends H2OPage {
     if (!(v instanceof ValueArray))
       throw new PageError("Key is not a dataframe");
     ValueArray va = (ValueArray) v;
+    if (va.num_rows() <= 0)
+      throw new PageError("Key is not a parsed dataframe");
     int numCols = va.num_cols();
     assert (numCols>=2);
     result.replace("col0",va.col_name(0));

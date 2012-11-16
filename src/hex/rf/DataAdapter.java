@@ -1,11 +1,11 @@
 package hex.rf;
-import com.google.common.primitives.Ints;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.*;
-import jsr166y.RecursiveAction;
-import water.H2O;
-import water.MemoryManager;
-import water.ValueArray;
+
+import water.*;
+
+import com.google.common.primitives.Ints;
 
 class DataAdapter  {
   private final int _numClasses;
@@ -72,20 +72,6 @@ class DataAdapter  {
     }
   }
 
-  /** Encode the data in a compact form.*/
-  public ArrayList<RecursiveAction> shrinkWrap() {
-    ArrayList<RecursiveAction> res = new ArrayList(_c.length);
-    for( final C c : _c ) {
-      if( c._ignore || !c._bin) continue;
-      res.add(new RecursiveAction() {
-        protected void compute() {
-          c.shrink();
-        };
-      });
-    }
-    return res;
-  }
-
   public void computeBins(int col){_c[col].shrink();}
 
   public int seed()           { return _seed; }
@@ -127,19 +113,9 @@ class DataAdapter  {
     _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
   }
 
-  static final DecimalFormat df = new  DecimalFormat ("0.##");
 
-  public boolean binColumn(int col){
-    return _c[col]._bin;
-  }
-
-  public void printBinningInfo(){
-    for(int i = 0; i < _c[0]._n; ++i){
-      for(int j = 0; j < _c.length; ++j)
-        System.out.print(_c[j].getValue(i) + "(" +  unmap(j,_c[j].getValue(i)) + ") ");
-      System.out.println();
-    }
-  }
+  /** Should we bin this column? */
+  public boolean binColumn(int col){ return _c[col]._bin; }
 
   private static class C {
     enum ColType {BOOL,BYTE,SHORT};
@@ -156,6 +132,7 @@ class DataAdapter  {
     short _smax = -1;
     int _n;
     final short _bin_limit;
+    static final DecimalFormat df = new  DecimalFormat ("0.##");
 
     C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore, short bin_limit) {
       _name = s;
@@ -216,8 +193,8 @@ class DataAdapter  {
     public String toString() {
       String res = "Column("+_name+")";
       if( _ignore ) return res + " ignored!";
-      res+= "  ["+DataAdapter.df.format(_min) +","+DataAdapter.df.format(_max)+"], avg=";
-      res+= DataAdapter.df.format(_tot/_n) ;
+      res+= "  ["+df.format(_min) +","+df.format(_max)+"], avg=";
+      res+= df.format(_tot/_n) ;
       if (_isClass) res+= " CLASS ";
       return res;
     }
@@ -265,4 +242,39 @@ class DataAdapter  {
       _raw = null;
     }
   }
+
+  /** Chunk map. */
+  final HashMap<String,Integer> chunks = new HashMap<String,Integer>();
+
+  /** Remember the starting point of each data chunk. */
+  public synchronized void stamp(Key k, int s) { chunks.put(k.toString(),s); }
+
+  /** Chunk map key. */
+  private Key _chunksKey;
+
+  /** Return the Key for this data adapter's chunk map. */
+  public Key getChunksKey(){ assert _chunksKey !=null; return _chunksKey;}
+
+  /** For each adapter, we store a K/V pair that holds the keys for each chunk and
+   *  the offset in the big array (after skipping rows). An extra K/V pair is added
+   *  record the last row. */
+  public synchronized void persistChunks() {
+    try {
+      assert _chunksKey == null;
+      String str = ("DataAdapter" + UUID.randomUUID().toString()).substring(0,45);
+      assert str.length() == 45;
+      Utils.pln(str);
+      Key k = Key.make(str);
+      chunks.put("end",_numRows);
+      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+      ObjectOutput out = null;
+      try { // Serialization
+        out = new ObjectOutputStream(bos);
+        out.writeObject(chunks);
+      } finally { out.close();  bos.close();   }
+      DKV.put(k, new Value(k, bos.toByteArray()));
+      _chunksKey = k;
+    } catch( IOException e ) { throw new Error(e); }
+  }
+
 }

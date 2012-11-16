@@ -7,6 +7,7 @@ import java.util.Properties;
 import water.*;
 
 import com.google.gson.JsonObject;
+import java.util.Arrays;
 
 public class RFView extends H2OPage {
   public static final String DATA_KEY  = "dataKey";
@@ -87,6 +88,10 @@ public class RFView extends H2OPage {
 
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
+    if (p.getProperty("clearCM","0").equals("1")) {
+      Confusion.remove(model,ary._key,classcol);
+    }
+    
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
@@ -157,6 +162,8 @@ public class RFView extends H2OPage {
     // Compute a few stats over trees
     response.replace( "depth",model.depth());
     response.replace("leaves",model.leaves());
+    
+    response.replace("weights", classWt == null ? "default" : Arrays.toString(classWt));
 
     int limkeys = Math.min(model.size(),1000);
     for( int i=0; i<limkeys; i++ ) {
@@ -170,9 +177,10 @@ public class RFView extends H2OPage {
 
     //confusion.report();  // Print on std out...
 
-    RString url = new RString("RFViewQuery?modelKey=%$key&class=%class");
+    RString url = new RString("RFViewQuery?modelKey=%$key&class=%class&dataKey=%$data");
     url.replace("key", modelKey);
     url.replace(CLASS_COL, classcol);
+    url.replace("data",ary._key);
     response.replace("validateOther", url.toString());
 
     return response.toString();
@@ -186,7 +194,8 @@ public class RFView extends H2OPage {
       + "<tr><td>%validateMore</td></tr>"
       + "</tbody></table>\n"
       + "<p><a href=\"%validateOther\">Validate model with another dataset</a></p>"
-
+      + "<p>Model key:<b>%modelKey</b></p>"
+      + "<p>Weighted voting:<b>%weights</b></p>"
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"
