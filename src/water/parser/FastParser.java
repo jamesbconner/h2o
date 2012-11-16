@@ -160,12 +160,7 @@ NEXT_CHAR:
             ++colIdx;
             break NEXT_CHAR;
           } else if (isEOL(c)) {
-            if((_str._off + _str._length) > _str._buf.length){ // crossing chunk boundary
-              assert _str._buf != bits;
-              _str.addBuff(bits);
-            }
-            callback.addStrCol(colIdx,_str);
-            _str.set(null,0,0);
+            callback.addInvalidCol(colIdx);
             state = EOL;
             continue MAIN_LOOP;
           }
