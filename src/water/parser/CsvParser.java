@@ -11,7 +11,7 @@ import water.parser.ValueString;
  *
  * @author peta
  */
-public class FastParser extends CustomParser {
+public class CsvParser extends CustomParser {
 
 
   public final byte CHAR_DECIMAL_SEPARATOR;
@@ -51,7 +51,7 @@ public class FastParser extends CustomParser {
 
 
 
-  public FastParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback, boolean skipFirstLine) throws Exception {
+  public CsvParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback, boolean skipFirstLine) throws Exception {
     _aryKey = aryKey;
     _numColumns = numColumns;
     CHAR_SEPARATOR = separator;
@@ -367,8 +367,16 @@ NEXT_CHAR:
         offset += bits.length;
         _str.set(bits,offset,0);
       } else if (offset >= bits.length) {
-        if (_ary == null)
-          break;
+        secondChunk = true;
+        // if we can't get further we might have been the last one and we must
+        // commit the latest guy if we had one. 
+        if (_ary == null) {
+          if ((state != EXPECT_COND_LF) && (state != POSSIBLE_EMPTY_LINE)) {
+            c = CHAR_LF;
+            continue MAIN_LOOP;
+          }
+          break MAIN_LOOP;
+        }
         numStart -= bits.length;
         if (state == NUMBER_FRACTION)
           fractionDigits -= bits.length;
@@ -376,10 +384,16 @@ NEXT_CHAR:
         tokenStart -= bits.length;
         Key k2 = _ary.make_chunkkey(ValueArray.getOffset(key)+ValueArray.chunk_size());
         Value v = DKV.get(k2); // we had the last key
-        if (v == null)
+        // if we can't get further we might have been the last one and we must
+        // commit the latest guy if we had one. 
+        if (v == null) {
+          if ((state != EXPECT_COND_LF) && (state != POSSIBLE_EMPTY_LINE)) {
+            c = CHAR_LF;
+            continue MAIN_LOOP;
+          }
           break MAIN_LOOP;
+        }
         bits = v.get(512);
-        secondChunk = true;
         if (bits[0] == CHAR_LF && state == EXPECT_COND_LF)
           break MAIN_LOOP; // when the first character we see is a line end
       }
