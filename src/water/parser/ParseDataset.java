@@ -347,6 +347,7 @@ public final class ParseDataset {
             // use the column names found in the header if any
             psetup[1] = _colNames.length;
             setColumnNames(_colNames);
+            _skipFirstLine = true;
           } else {
             // otherwise initialize the column names appropriately
             _colNames = new String[psetup[1]];
@@ -660,6 +661,9 @@ public final class ParseDataset {
       assert (_min != null);
       for(int i = 0; i < _ncolumns; ++i){
         switch(_colTypes[i]){
+        case UCOL: // only missing values
+          _colTypes[i] = BYTE;
+          break;
         case ECOL: // enum
           if(_enums[i] == null || _enums[i].isKilled()){
             _max[i] = 0;
