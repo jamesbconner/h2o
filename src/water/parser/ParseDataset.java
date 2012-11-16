@@ -77,11 +77,14 @@ public final class ParseDataset {
   public static void parseUncompressed( Key result, Value dataset, CustomParser.Type parserType ) throws Exception {
     DParseTask phaseOne = DParseTask.createPassOne(dataset, result, parserType);
     phaseOne.passOne();
-    if ((phaseOne._error == null) || !phaseOne._error.isEmpty())
+    if ((phaseOne._error != null) && !phaseOne._error.isEmpty()) {
+      System.err.println(phaseOne._error);
       throw new Exception("The dataset format is not recognized/supported");
+    }
     DParseTask phaseTwo = DParseTask.createPassTwo(phaseOne);
     phaseTwo.passTwo();
-    if ((phaseTwo._error == null) || !phaseTwo._error.isEmpty()) {
+    if ((phaseTwo._error != null) && !phaseTwo._error.isEmpty()) {
+      System.err.println(phaseTwo._error);
       UKV.remove(result); // delete bad stuff if any
       throw new Exception("The dataset format is not recognized/supported");
     }
@@ -641,6 +644,7 @@ public final class ParseDataset {
             assert (false);
         }
       }catch(Exception e){
+        e.printStackTrace();
         _error = e.getMessage();
       }
     }
@@ -686,6 +690,7 @@ public final class ParseDataset {
         if(_error == null)_error = other._error;
         else if(other._error != null) _error = _error + "\n" + other._error;
       } catch (Exception e) {
+        e.printStackTrace();
       }
     }
 
