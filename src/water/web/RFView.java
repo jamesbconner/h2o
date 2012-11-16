@@ -89,7 +89,6 @@ public class RFView extends H2OPage {
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
     if (p.getProperty("clearCM","0").equals("1")) {
-      System.out.println("clearing CF");
       Confusion.remove(model,ary._key,classcol);
     }
     
@@ -163,6 +162,8 @@ public class RFView extends H2OPage {
     // Compute a few stats over trees
     response.replace( "depth",model.depth());
     response.replace("leaves",model.leaves());
+    
+    response.replace("weights", classWt == null ? "default" : Arrays.toString(classWt));
 
     int limkeys = Math.min(model.size(),1000);
     for( int i=0; i<limkeys; i++ ) {
@@ -193,7 +194,8 @@ public class RFView extends H2OPage {
       + "<tr><td>%validateMore</td></tr>"
       + "</tbody></table>\n"
       + "<p><a href=\"%validateOther\">Validate model with another dataset</a></p>"
-
+      + "<p>Model key:<b>%modelKey</b></p>"
+      + "<p>Weighted voting:<b>%weights</b></p>"
       + "<h2>Confusion Matrix</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"
