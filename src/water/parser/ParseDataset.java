@@ -24,8 +24,8 @@ import java.util.ArrayList;
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
   
-  private static final int PHASE_ONE = 0;
-  private static final int PHASE_TWO = 1;
+  private static final int PASS_ONE = 0;
+  private static final int PASS_TWO = 1;
 
 // Guess
  private static Compression guessCompressionMethod(Value dataset) {
@@ -75,10 +75,10 @@ public final class ParseDataset {
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
  // result.  This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset, CustomParser.Type parserType ) throws Exception {
-    DParseTask phaseOne = DParseTask.createPhaseOne(dataset, result, parserType);
-    phaseOne.phaseOne();
-    DParseTask phaseTwo = DParseTask.createPhaseTwo(phaseOne);
-    phaseTwo.phaseTwo();
+    DParseTask phaseOne = DParseTask.createPassOne(dataset, result, parserType);
+    phaseOne.passOne();
+    DParseTask phaseTwo = DParseTask.createPassTwo(phaseOne);
+    phaseTwo.passTwo();
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -125,6 +125,18 @@ public final class ParseDataset {
     return true;
   }
 
+  
+  /** Class responsible for actual parsing of the datasets.
+   * 
+   * Works in two phases, first phase collects basic statistics and determines
+   * the column encodings of the dataset. 
+   * 
+   * Second phase the goes over all data again, encodes them and writes them to
+   * the result VA. 
+   * 
+   * The parser works distributed for CSV parsing, but is one node only for the
+   * XLS and XLSX formats (they are not fully our code). 
+   */
   public static final class DParseTask extends MRTask {
     // pass 1 types
     static final byte UCOL  = 0;  // unknown
@@ -161,9 +173,6 @@ public final class ParseDataset {
     Key _resultKey;
     String  _error;
 
-
-
-
     // arrays
     byte     [] _colTypes;
     int      [] _scale;
@@ -176,13 +185,10 @@ public final class ParseDataset {
     int      [] _nrows;
     Enum     [] _enums;
 
-
     // transients - each map creates and uses it's own, no need to get these back
     // create and used only on the task caller's side
     transient String[][] _colDomains;
 
-
-    
     /** Manages the chunk parts of the result hex varray. 
      * 
      * Second pass parse encodes the data from the source file to the sequence
@@ -302,7 +308,7 @@ public final class ParseDataset {
       _parserType = parserType;
       _sourceDataset = dataset;
       _resultKey = resultKey;
-      _phase = PHASE_ONE;
+      _phase = PASS_ONE;
     }
 
     /** Private constructor for phase two, copy constructor from phase one. 
@@ -312,7 +318,7 @@ public final class ParseDataset {
      * @param other 
      */
     private DParseTask(DParseTask other) {
-      assert (other._phase == PHASE_ONE);
+      assert (other._phase == PASS_ONE);
       // copy the phase one data
       // don't pass invalid values, we do not need them 2nd pass
       _parserType = other._parserType;
@@ -344,7 +350,7 @@ public final class ParseDataset {
      * @param parserType Parser type to use.
      * @return Phase one DRemoteTask object.
      */
-    public static DParseTask createPhaseOne(Value dataset, Key resultKey, CustomParser.Type parserType) {
+    public static DParseTask createPassOne(Value dataset, Key resultKey, CustomParser.Type parserType) {
       return new DParseTask(dataset,resultKey,parserType); 
     }
     
@@ -361,7 +367,7 @@ public final class ParseDataset {
      * 
      * @throws Exception 
      */
-    public void phaseOne() throws Exception { 
+    public void passOne() throws Exception { 
       switch (_parserType) {
         case CSV:
           // precompute the parser setup, column setup and other settings
@@ -429,12 +435,12 @@ public final class ParseDataset {
      * @param phaseOneTask
      * @return 
      */
-    public static DParseTask createPhaseTwo(DParseTask phaseOneTask) {
+    public static DParseTask createPassTwo(DParseTask phaseOneTask) {
       DParseTask t = new DParseTask(phaseOneTask);
       // create new data for phase two
       t._colDomains = new String[t._ncolumns][];
       t._bases = new int[t._ncolumns];
-      t._phase = PHASE_TWO;
+      t._phase = PASS_TWO;
       // calculate the column domains
       for(int i = 0; i < t._colTypes.length; ++i){
         if(t._colTypes[i] == ECOL && t._enums[i] != null && !t._enums[i].isKilled())
@@ -458,7 +464,7 @@ public final class ParseDataset {
      * 
      * @throws Exception 
      */
-    public void phaseTwo() throws Exception {
+    public void passTwo() throws Exception {
       switch (_parserType) {
         case CSV:
           // for CSV parser just launch the distributed parser on the chunks
@@ -495,7 +501,7 @@ public final class ParseDataset {
      * of the parsed dataset. 
      */
     private void createValueArrayHeader() {
-      assert (_phase == PHASE_TWO);
+      assert (_phase == PASS_TWO);
       Column[] cols = new Column[_ncolumns];
       int off = 0;
       for(int i = 0; i < cols.length; ++i){
@@ -519,12 +525,33 @@ public final class ParseDataset {
       DKV.put(_resultKey, ary);
     }
 
+    /** Sets the column names and creates the array of the enums for each
+     * column. 
+     * 
+     * @param colNames 
+     */
+    public void setColumnNames(String[] colNames) {
+      if (_phase == PASS_ONE) {
+        assert (colNames != null);
+        _colNames = colNames;
+        _ncolumns = colNames.length;
+        _enums = new Enum[_ncolumns];
+        for(int i = 0; i < _ncolumns; ++i)
+          _enums[i] = new Enum();
+        // Initialize the statistics for the XLS parsers. Statistics for CSV
+        // parsers are created in the map method - they must be different for
+        // each distributed invocation
+        if ((_parserType == CustomParser.Type.XLS) || (_parserType == CustomParser.Type.XLSX))
+          phaseOneInitialize();
+      }
+    }
+
     /** Initialize phase one data structures with the appropriate number of
      * columns.
      */
     public void phaseOneInitialize() {
-      if (_phase != PHASE_ONE)
-        assert (_phase == PHASE_ONE);
+      if (_phase != PASS_ONE)
+        assert (_phase == PASS_ONE);
       _invalidValues = new long[_ncolumns];
       _min = new double [_ncolumns];
       Arrays.fill(_min, Double.MAX_VALUE);
@@ -538,7 +565,7 @@ public final class ParseDataset {
     /** Initializes the phase two data. 
      */
     public void phaseTwoInitialize() {
-      assert (_phase == PHASE_TWO);
+      assert (_phase == PASS_TWO);
       _invalidValues = new long[_ncolumns];
       _sigma = new double[_ncolumns];
       _rowsize = 0;
@@ -566,7 +593,7 @@ public final class ParseDataset {
           skipFirstLine = skipFirstLine || (ValueArray.getChunkIndex(key) != 0);
         }
         switch (_phase) {
-          case PHASE_ONE:
+          case PASS_ONE:
             assert (_ncolumns != 0);
             // initialize the column statistics 
             phaseOneInitialize();
@@ -578,7 +605,7 @@ public final class ParseDataset {
               _nrows[ValueArray.getChunkIndex(key)] = _myrows;
             }
             break;
-          case PHASE_TWO:
+          case PASS_TWO:
             assert (_ncolumns != 0);
             // initialize statistics - invalid rows, sigma and row size
             phaseTwoInitialize();
@@ -704,8 +731,6 @@ public final class ParseDataset {
       return powers10i[exp];
     }
 
-
-
     @SuppressWarnings("fallthrough")
     private void calculateColumnEncodings(){
       assert (_bases != null);
@@ -757,14 +782,13 @@ public final class ParseDataset {
         }
       }
     }
-
     
     /** Advances to new line. In phase two it also must make sure that the
      * 
      */ 
     public void newLine() {
       ++_myrows;
-      if (_phase == PHASE_TWO) {
+      if (_phase == PASS_TWO) {
         _lastOffset += _rowsize;
         // check if the row was a full size row or not
         if (_lastOffset > _s._off) {
@@ -786,11 +810,19 @@ public final class ParseDataset {
       }
     }
 
+    /** Rolls back parsed line. Useful for CsvParser when it parses new line
+     * that should not be added. It can easily revert it by this. 
+     */
     public void rollbackLine() {
       --_myrows;
       assert (_phase == 0 || _s == null);
     }
-
+    
+    /** Adds double value to the column. 
+     * 
+     * @param colIdx
+     * @param value 
+     */
     public void addCol(int colIdx, double value) {
       if (Double.isNaN(value)) {
         addInvalidCol(colIdx);
@@ -807,33 +839,15 @@ public final class ParseDataset {
       }
     }
 
-
-    /** Sets the column names and creates the array of the enums for each
-     * column. 
+    /** Adds invalid value to the column. 
      * 
-     * @param colNames 
+     * @param colIdx 
      */
-    public void setColumnNames(String[] colNames) {
-      if (_phase == PHASE_ONE) {
-        assert (colNames != null);
-        _colNames = colNames;
-        _ncolumns = colNames.length;
-        _enums = new Enum[_ncolumns];
-        for(int i = 0; i < _ncolumns; ++i)
-          _enums[i] = new Enum();
-        // Initialize the statistics for the XLS parsers. Statistics for CSV
-        // parsers are created in the map method - they must be different for
-        // each distributed invocation
-        if ((_parserType == CustomParser.Type.XLS) || (_parserType == CustomParser.Type.XLSX))
-          phaseOneInitialize();
-      }
-    }
-
     public void addInvalidCol(int colIdx){
       if(colIdx >= _ncolumns)
         return;
       ++_invalidValues[colIdx];
-      if(_phase == PHASE_ONE)
+      if(_phase == PASS_ONE)
         return;
       switch (_colTypes[colIdx]) {
         case BYTE:
@@ -864,12 +878,13 @@ public final class ParseDataset {
       }
     }
 
-
+    /** Adds string (enum) value to the column. 
+     */
     public void addStrCol(int colIdx, ValueString str){
       if(colIdx >= _ncolumns)
         return;
       switch (_phase) {
-        case PHASE_ONE:
+        case PASS_ONE:
           Enum e = _enums[colIdx];
           if(e == null || e.isKilled())return;
           if(_colTypes[colIdx] ==UCOL)
@@ -877,7 +892,7 @@ public final class ParseDataset {
           e.addKey(str);
           ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
           break;
-        case PHASE_TWO:
+        case PASS_TWO:
           if(_enums[colIdx] != null) {
             int id = _enums[colIdx].getTokenId(str);
             // we do not expect any misses here
@@ -904,13 +919,15 @@ public final class ParseDataset {
       }
     }
 
+    /** Adds number value to the column parsed with mantissa and exponent. 
+     */
     static final int MAX_FLOAT_MANTISSA = 0x7FFFFF;
     @SuppressWarnings("fallthrough")
     public void addNumCol(int colIdx, long number, int exp) {
       if(colIdx >= _ncolumns)
         return;
       switch (_phase) {
-        case PHASE_ONE:
+        case PASS_ONE:
           double d = number*pow10(exp);
           if(d < _min[colIdx])_min[colIdx] = d;
           if(d > _max[colIdx])_max[colIdx] = d;
@@ -927,7 +944,7 @@ public final class ParseDataset {
           _colTypes[colIdx] = ICOL;
           }
           break;
-        case PHASE_TWO:
+        case PASS_TWO:
             switch (_colTypes[colIdx]) {
               case BYTE:
                 _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
