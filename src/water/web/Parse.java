@@ -28,10 +28,8 @@ public class Parse extends H2OPage {
       try {
         ParseDataset.parse(resKey, dataset);
       } catch(IllegalArgumentException e) {
-        e.printStackTrace(System.err);
         throw new PageError(e.getMessage());
       } catch(Error e) {
-        e.printStackTrace(System.err);
         throw new PageError(e.getMessage());
       }
 

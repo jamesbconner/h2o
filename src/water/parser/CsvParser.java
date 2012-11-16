@@ -136,7 +136,6 @@ NEXT_CHAR:
             colIdx = 0;
             callback.newLine();
           }
-
           state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
           if (secondChunk)
             break MAIN_LOOP; // second chunk only does the first row
@@ -247,6 +246,7 @@ NEXT_CHAR:
               break MAIN_LOOP; // second chunk only does the first row
             break NEXT_CHAR;
           } else if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB))) {
+            state = NUMBER_END;
             break NEXT_CHAR;
           } else {
             state = STRING;

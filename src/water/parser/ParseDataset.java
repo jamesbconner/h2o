@@ -77,8 +77,14 @@ public final class ParseDataset {
   public static void parseUncompressed( Key result, Value dataset, CustomParser.Type parserType ) throws Exception {
     DParseTask phaseOne = DParseTask.createPassOne(dataset, result, parserType);
     phaseOne.passOne();
+    if ((phaseOne._error == null) || !phaseOne._error.isEmpty())
+      throw new Exception("The dataset format is not recognized/supported");
     DParseTask phaseTwo = DParseTask.createPassTwo(phaseOne);
     phaseTwo.passTwo();
+    if ((phaseTwo._error == null) || !phaseTwo._error.isEmpty()) {
+      UKV.remove(result); // delete bad stuff if any
+      throw new Exception("The dataset format is not recognized/supported");
+    }
   }
 
   // Unpack zipped CSV-style structure and call method parseUncompressed(...)
@@ -341,6 +347,7 @@ public final class ParseDataset {
       _mean = other._mean;
       _sigma = other._sigma;
       _colNames = other._colNames;
+      _error = other._error;
     }
     
     /** Creates a phase one dparse task. 
@@ -634,7 +641,6 @@ public final class ParseDataset {
             assert (false);
         }
       }catch(Exception e){
-        e.printStackTrace();
         _error = e.getMessage();
       }
     }
@@ -680,7 +686,6 @@ public final class ParseDataset {
         if(_error == null)_error = other._error;
         else if(other._error != null) _error = _error + "\n" + other._error;
       } catch (Exception e) {
-        e.printStackTrace();
       }
     }
 
@@ -948,36 +953,38 @@ public final class ParseDataset {
           }
           break;
         case PASS_TWO:
-            switch (_colTypes[colIdx]) {
-              case BYTE:
-                _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case SHORT:
-                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case INT:
-                _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case LONG:
-                _s.set8(number*pow10i(exp - _scale[colIdx]));
-                break;
-              case FLOAT:
-                _s.set4f((float)(number * pow10(exp)));
-                break;
-              case DOUBLE:
-                _s.set8d(number * pow10(exp));
-                break;
-              case DBYTE:
-                _s.set1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case DSHORT:
-                // scale is computed as negative in the first pass,
-                // therefore to compute the positive exponent after scale, we add scale and the original exponent
-                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                break;
-              case STRINGCOL:
-                break;
-            }
+          if (_s == null) 
+            System.out.println("mrdka");
+          switch (_colTypes[colIdx]) {
+            case BYTE:
+              _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              break;
+            case SHORT:
+              _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              break;
+            case INT:
+              _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              break;
+            case LONG:
+              _s.set8(number*pow10i(exp - _scale[colIdx]));
+              break;
+            case FLOAT:
+              _s.set4f((float)(number * pow10(exp)));
+              break;
+            case DOUBLE:
+              _s.set8d(number * pow10(exp));
+              break;
+            case DBYTE:
+              _s.set1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              break;
+            case DSHORT:
+              // scale is computed as negative in the first pass,
+              // therefore to compute the positive exponent after scale, we add scale and the original exponent
+              _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              break;
+            case STRINGCOL:
+              break;
+          }
           // update sigma
           if(!Double.isNaN(_mean[colIdx])) {
             d = number*pow10(exp) - _mean[colIdx];
