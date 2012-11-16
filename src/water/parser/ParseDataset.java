@@ -137,12 +137,13 @@ public final class ParseDataset {
     static final byte SHORT = 2;
     static final byte INT   = 3;
     static final byte LONG  = 4;
-    static final byte DSHORT= 5;
-    static final byte FLOAT = 6;
-    static final byte DOUBLE= 7;
-    static final byte STRINGCOL = 8;  // string column (too many enum values)
+    static final byte DBYTE = 5;
+    static final byte DSHORT= 6;
+    static final byte FLOAT = 7;
+    static final byte DOUBLE= 8;
+    static final byte STRINGCOL = 9;  // string column (too many enum values)
 
-    static final int [] colSizes = new int[]{0,1,2,4,8,2,-4,-8,1};
+    static final int [] colSizes = new int[]{0,1,2,4,8,1,2,-4,-8,1};
 
     // scalar variables
     boolean _skipFirstLine;
@@ -689,7 +690,10 @@ public final class ParseDataset {
         case DCOL:
           double s = pow10(-_scale[i]);
           double range = s*(_max[i]-_min[i]);
-          if(range < 65535){
+          if(range < 256){
+            _colTypes[i] = DBYTE;
+            _bases[i] = (int)(s*_min[i]);
+          } else if(range < 65535){
             _colTypes[i] = DSHORT;
             _bases[i] = (int)(s*_min[i]);
           } else {
@@ -896,6 +900,9 @@ public final class ParseDataset {
                   break;
                 case DOUBLE:
                   _s.set8d(number * pow10(exp));
+                  break;
+                case DBYTE:
+                  _s.set1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
                   break;
                 case DSHORT:
                   // scale is computed as negative in the first pass,
