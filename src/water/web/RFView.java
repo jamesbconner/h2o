@@ -7,6 +7,7 @@ import java.util.Properties;
 import water.*;
 
 import com.google.gson.JsonObject;
+import java.util.Arrays;
 
 public class RFView extends H2OPage {
   public static final String DATA_KEY  = "dataKey";
@@ -87,6 +88,11 @@ public class RFView extends H2OPage {
 
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
+    if (p.getProperty("clearCM","0").equals("1")) {
+      System.out.println("clearing CF");
+      Confusion.remove(model,ary._key,classcol);
+    }
+    
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
@@ -170,9 +176,10 @@ public class RFView extends H2OPage {
 
     //confusion.report();  // Print on std out...
 
-    RString url = new RString("RFViewQuery?modelKey=%$key&class=%class");
+    RString url = new RString("RFViewQuery?modelKey=%$key&class=%class&dataKey=%$data");
     url.replace("key", modelKey);
     url.replace(CLASS_COL, classcol);
+    url.replace("data",ary._key);
     response.replace("validateOther", url.toString());
 
     return response.toString();

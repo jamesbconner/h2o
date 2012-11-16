@@ -63,6 +63,11 @@ public class Confusion extends MRTask {
   static public Key keyFor(Key modelKey, int msize, Key datakey, int classcol) {
     return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"])");
   }
+  
+  public static void remove(Model model, Key datakey, int classcol) {
+    Key key = keyFor(model._key, model.size(), datakey, classcol);
+    UKV.remove(key);
+  }
 
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
