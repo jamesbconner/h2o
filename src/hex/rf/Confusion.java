@@ -159,14 +159,24 @@ public class Confusion extends MRTask {
     }
     Random rand = new Random(ValueArray.getChunkIndex(chunk_key));
 
+    int[][] ignores = new int[_model.treeCount()][];
+    for(int i =0;i<_model.treeCount();i++)
+       if ( _model.buildComplement(i, chunk_key) ) {
+         int seed = _model.getTreeSeed(i);
+         int start = _model.getStart(i, chunk_key);
+         int end = _model.getEnd(i, chunk_key);
+         ignores[i] = Data.makeSample(_model._sample, seed, start, end);
+       } else { throw new Error(chunk_key.toString()); }
+
+    int skipped = 0;
     // Now for all rows, classify & vote!
     for( int i = 0; i < rows; i++ ) {
       // We do not skip broken rows!  If we need the data and it is missing,
       // the classifier returns the junk class+1.
-      if( ignoreRow(nchk, i) ) continue; // Skipped for validating & training
-      if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) continue; // Cannot vote if no class!
+      if( ignoreRow(nchk, i) )  continue;  // Skipped for validating & training
+      if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) { skipped++; continue; } // Cannot vote if no class!
       for( int j=0; j<_N; j++ ) votes[j] = 0;
-      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, _classWt, rand);
+      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, _classWt, rand, ignores, skipped);
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][predict]++;

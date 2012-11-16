@@ -92,16 +92,17 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
-  public static int[] makeSample(double bagSizePct, int rows, int seed) {
+  public static int[] makeSample(double bagSizePct, int seed, int start, int end) {
     Random r = new Random(seed);
+    int rows = end - start;
     int size = (int)(rows * bagSizePct);
     if( size == 0 && rows> 0 ) size = 1;
     int[] sample = MemoryManager.allocateMemoryInt(size);
     int i = 0;
-    for( ; i < size; ++i ) sample[i] = i;
+    for( ; i < size; ++i ) sample[i] = start + i;
     for( ; i < rows; ++i ) {
       int p = r.nextInt(i);
-      if( p < size ) sample[p] = i;
+      if( p < size ) sample[p] = start + i;
     }
     Arrays.sort(sample); // we want an ordered sample
     return sample;
@@ -109,8 +110,25 @@ public class Data implements Iterable<Row> {
 
   public Data sample(double bagSizePct, int seed) {
     assert !(this instanceof Subset); // we do not support permutations
-    int[] sample = makeSample(bagSizePct, rows(), seed);
-    return new Subset(this, sample, 0, sample.length);
+    Integer[] bounds = new Integer[_data.chunks.size()];
+    _data.chunks.values().toArray(bounds);
+    Arrays.sort(bounds); // make sure we have the right order
+    int[][] all = new int[bounds.length][];
+    int len=0;
+    for(int i=0;i<bounds.length;i++) {
+      int start = bounds[i];
+      int end = i==bounds.length-1 ? rows() : bounds[i+1];
+      int[] sample = makeSample(bagSizePct, seed, start, end);
+      all[i] = sample;
+      len+=sample.length;
+    }
+
+    int[] samples = MemoryManager.allocateMemoryInt(len);
+    len = 0;
+    for(int i=0;i<bounds.length;i++)
+      for(int j=0;j<all[i].length;j++) samples[len++]=all[i][j];
+
+    return new Subset(this, samples, 0, samples.length);
   }
 
   public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
