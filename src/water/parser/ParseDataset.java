@@ -274,16 +274,11 @@ public final class ParseDataset {
       return result.toArray(new OutputStreamRecord[result.size()]);
     } 
 
-    // 
     transient OutputStreamRecord[] _outputStreams2;
     transient Stream _s;
     transient int _lastOffset;
     transient int    _outputIdx;
-    
     transient String[] _colNames;
-
-    
-    
     transient final CustomParser.Type _parserType;
     transient final Value _sourceDataset;
     
@@ -294,7 +289,15 @@ public final class ParseDataset {
       _parserType = CustomParser.Type.CSV;
       _sourceDataset = null;
     }
-    
+
+    /** Private constructor for phase one.
+     * 
+     * use createPhaseOne() static method instead.
+     * 
+     * @param dataset
+     * @param resultKey
+     * @param parserType 
+     */
     private DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
       _parserType = parserType;
       _sourceDataset = dataset;
@@ -302,6 +305,12 @@ public final class ParseDataset {
       _phase = PHASE_ONE;
     }
 
+    /** Private constructor for phase two, copy constructor from phase one. 
+     * 
+     * Use createPhaseTwo() static method instead. 
+     * 
+     * @param other 
+     */
     private DParseTask(DParseTask other) {
       assert (other._phase == PHASE_ONE);
       // copy the phase one data
@@ -328,12 +337,30 @@ public final class ParseDataset {
       _colNames = other._colNames;
     }
     
-    
-    
+    /** Creates a phase one dparse task. 
+     * 
+     * @param dataset Dataset to parse.
+     * @param resultKey VA to store results to.
+     * @param parserType Parser type to use.
+     * @return Phase one DRemoteTask object.
+     */
     public static DParseTask createPhaseOne(Value dataset, Key resultKey, CustomParser.Type parserType) {
       return new DParseTask(dataset,resultKey,parserType); 
     }
     
+    /** Executes the phase one of the parser.
+     * 
+     * First phase detects the encoding and basic statistics of the parsed
+     * dataset. 
+     * 
+     * For CSV parsers it detects the parser setup and then launches the
+     * distributed computation on per chunk basis. 
+     * 
+     * For XLS and XLSX parsers that do not work in distrubuted way parses the
+     * whole datasets. 
+     * 
+     * @throws Exception 
+     */
     public void phaseOne() throws Exception { 
       switch (_parserType) {
         case CSV:
@@ -396,7 +423,12 @@ public final class ParseDataset {
       for(int i = 0; i < _ncolumns; ++i)
         _mean[i] = _mean[i]/(_numRows - _invalidValues[i]);
     }
-    
+
+    /** Creates the second pass dparse task from a first phase one. 
+     * 
+     * @param phaseOneTask
+     * @return 
+     */
     public static DParseTask createPhaseTwo(DParseTask phaseOneTask) {
       DParseTask t = new DParseTask(phaseOneTask);
       // create new data for phase two
@@ -413,7 +445,19 @@ public final class ParseDataset {
       t.calculateColumnEncodings();
       return t;
     }
-    
+
+    /** Executes the phase two of the parser task. 
+     * 
+     * In phase two the data is encoded to the final VA, which is then created
+     * properly at the end. 
+     * 
+     * For CSV launches the distributed computation.
+     * 
+     * For XLS and XLSX parsers computes all the chunks itself as there is no
+     * option for their distributed processing. 
+     * 
+     * @throws Exception 
+     */
     public void phaseTwo() throws Exception {
       switch (_parserType) {
         case CSV:
@@ -445,8 +489,12 @@ public final class ParseDataset {
       createValueArrayHeader();
     }
 
-
-    public void createValueArrayHeader() {
+    /** Creates the value header based on the calculated columns. 
+     * 
+     * Also stores the header to its appropriate key. This will be the VA header
+     * of the parsed dataset. 
+     */
+    private void createValueArrayHeader() {
       assert (_phase == PHASE_TWO);
       Column[] cols = new Column[_ncolumns];
       int off = 0;
@@ -473,8 +521,6 @@ public final class ParseDataset {
 
     /** Initialize phase one data structures with the appropriate number of
      * columns.
-     *
-     * @param numColumns
      */
     public void phaseOneInitialize() {
       if (_phase != PHASE_ONE)
@@ -489,7 +535,7 @@ public final class ParseDataset {
       _colTypes = new byte[_ncolumns];
     }
 
-    /** Initializes the output streams.
+    /** Initializes the phase two data. 
      */
     public void phaseTwoInitialize() {
       assert (_phase == PHASE_TWO);
