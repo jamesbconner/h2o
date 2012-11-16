@@ -237,15 +237,17 @@ NEXT_CHAR:
             exp = exp - fractionDigits;
             callback.addNumCol(colIdx,number,exp);
             // do EOL here for speedup reasons
-            if (colIdx != 0) {
-              colIdx = 0;
-              callback.newLine();
-            }
+            colIdx = 0;
+            callback.newLine();
             state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
             if (secondChunk)
               break MAIN_LOOP; // second chunk only does the first row
             break NEXT_CHAR;
-          } else if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB))) {
+          } else if ((c == '%')) {
+            state = NUMBER_END;
+            exp -= 2;
+            break NEXT_CHAR;
+          }  else if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB))) {
             state = NUMBER_END;
             break NEXT_CHAR;
           } else {
@@ -422,7 +424,7 @@ NEXT_CHAR:
 
 
   private static boolean canBeInNumber(byte c) {
-    return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+');
+    return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+') || (c == '%') || (c == '$');
   }
 
   @SuppressWarnings("fallthrough")
