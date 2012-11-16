@@ -300,8 +300,7 @@ public class Tree extends CountedCompleter {
     Stream bs = new Stream();
     bs.set4(_data_id);
     bs.set4(_seed);
-    char[] chars = _data._data.getChunksKey().toString().toCharArray();
-    for(char c : chars) bs.set2(c);
+    _data._data.getChunksKey().write(bs);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
@@ -315,7 +314,7 @@ public class Tree extends CountedCompleter {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
     ts.get4();    // Skip seed
-    for(int i=0;i<45;i++) ts.get2(); // skipping chunk key string
+    Key.read(ts); // skipping chunk key string
 
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
@@ -347,9 +346,7 @@ public class Tree extends CountedCompleter {
     Stream ts = new Stream(bits);
     ts.get4();
     ts.get4();
-    char[] chars = new char[45];
-    for(int i=0;i<45;i++) chars[i]= (char) ts.get2(); // skipping chunk key string
-    Key k=  Key.make(new String(chars));
+    Key k = Key.read(ts);
     Value v = DKV.get(k);
     byte[] data = v.get();
     ByteArrayInputStream bis = new ByteArrayInputStream(data);
@@ -382,7 +379,7 @@ public class Tree extends CountedCompleter {
       _ts = new Stream(tbits);
       _ts.get4();               // Skip tree ID
       _ts.get4();               // Skip seed
-      for(int i=0;i<45;i++) _ts.get2(); // skipping chunk key string
+      Key.read(_ts);            // skipping chunk key string
     }
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();
