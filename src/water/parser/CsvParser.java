@@ -43,7 +43,7 @@ public class CsvParser extends CustomParser {
   public final Key _aryKey;
 
   public final int _numColumns;
-  
+
   public final boolean _skipFirstLine;
 
 
@@ -357,20 +357,19 @@ NEXT_CHAR:
         default:
           assert (false) : " We have wrong state "+state;
       } // end NEXT_CHAR
-      ++offset;
-      if (offset <= 0) {
+      ++offset; // do not need to adjust for offset increase here - the offset is set to tokenStart-1!
+      if (offset < 0) {
         assert secondChunk : "This can only happen when we are in second chunk and are reverting to first one.";
         secondChunk = false;
         Value v = DKV.get(key); // we had the last key
         assert (v != null) : "The value used to be there!";
         bits = v.get();
         offset += bits.length;
-        --offset;
         _str.set(bits,offset,0);
       } else if (offset >= bits.length) {
         secondChunk = true;
         // if we can't get further we might have been the last one and we must
-        // commit the latest guy if we had one. 
+        // commit the latest guy if we had one.
         if (_ary == null) {
           if ((state != EXPECT_COND_LF) && (state != POSSIBLE_EMPTY_LINE)) {
             c = CHAR_LF;
@@ -386,7 +385,7 @@ NEXT_CHAR:
         Key k2 = _ary.make_chunkkey(ValueArray.getOffset(key)+ValueArray.chunk_size());
         Value v = DKV.get(k2); // we had the last key
         // if we can't get further we might have been the last one and we must
-        // commit the latest guy if we had one. 
+        // commit the latest guy if we had one.
         if (v == null) {
           if ((state != EXPECT_COND_LF) && (state != POSSIBLE_EMPTY_LINE)) {
             c = CHAR_LF;
@@ -559,7 +558,7 @@ NEXT_CHAR:
     colNames.toArray(result);
     return result;
   }
-  
+
  // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
  // the number of columns for svm light is not reliable as it only relies on info from the first chunk
  public static int[] guessParserSetup(byte[] b, boolean parseFirst ) {
@@ -614,8 +613,8 @@ NEXT_CHAR:
    if( cols == 0 && parseFirst == false ) return guessParserSetup(b,true);
    return new int[]{ commas ? CHAR_COMMA : CHAR_SPACE, cols };
  }
-  
-  
+
+
 }
 
 

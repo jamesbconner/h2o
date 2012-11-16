@@ -1,18 +1,14 @@
 
 package water.parser;
-import init.H2OSerializable;
-
-import java.io.*;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.zip.*;
 
 import water.*;
 import water.ValueArray.Column;
-import water.nbhm.NonBlockingHashMap;
 
 import com.google.common.io.Closeables;
-import java.util.ArrayList;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured
@@ -23,7 +19,7 @@ import java.util.ArrayList;
 @SuppressWarnings("fallthrough")
 public final class ParseDataset {
   static enum Compression { NONE, ZIP, GZIP }
-  
+
   private static final int PASS_ONE = 0;
   private static final int PASS_TWO = 1;
 
@@ -134,17 +130,17 @@ public final class ParseDataset {
     return true;
   }
 
-  
+
   /** Class responsible for actual parsing of the datasets.
-   * 
+   *
    * Works in two phases, first phase collects basic statistics and determines
-   * the column encodings of the dataset. 
-   * 
+   * the column encodings of the dataset.
+   *
    * Second phase the goes over all data again, encodes them and writes them to
-   * the result VA. 
-   * 
+   * the result VA.
+   *
    * The parser works distributed for CSV parsing, but is one node only for the
-   * XLS and XLSX formats (they are not fully our code). 
+   * XLS and XLSX formats (they are not fully our code).
    */
   public static final class DParseTask extends MRTask {
     // pass 1 types
@@ -198,14 +194,14 @@ public final class ParseDataset {
     // create and used only on the task caller's side
     transient String[][] _colDomains;
 
-    /** Manages the chunk parts of the result hex varray. 
-     * 
+    /** Manages the chunk parts of the result hex varray.
+     *
      * Second pass parse encodes the data from the source file to the sequence
      * of these stream objects. Each stream object will always go to a single
      * chunk (but a single chunk can contain more stream objects). To manage
      * this situation, the list of stream records is created upfront and then
-     * filled automatically. 
-     * 
+     * filled automatically.
+     *
      * Stream record then knows its chunkIndex, that is which chunk it will be
      * written to, the offset into that chunk it will be written and the number
      * of input rows that will be parsed to it.
@@ -218,16 +214,16 @@ public final class ParseDataset {
 
       /** Allocates the stream for the chunk. Streams should only be allocated
        * right before the record will be used and should be stored immediately
-       * after that. 
+       * after that.
        */
       public Stream initialize() {
         assert (_stream == null);
         _stream = new Stream(_numRows * _rowsize);
         return _stream;
       }
-      
+
       /** Stores the stream to its chunk using the atomic union. After the data
-       * from the stream is stored, its memory is freed up. 
+       * from the stream is stored, its memory is freed up.
        */
       public void store() {
         assert (_stream != null);
@@ -238,8 +234,8 @@ public final class ParseDataset {
         lazy_complete(u.fork(k));
         _stream = null; // free mem
       }
-      
-      // You are not expected to create record streams yourself, use the 
+
+      // You are not expected to create record streams yourself, use the
       // createRecords method of the DParseTask.
       protected OutputStreamRecord(int chunkIndex, int chunkOffset, int numRows) {
         _chunkIndex = chunkIndex;
@@ -247,14 +243,14 @@ public final class ParseDataset {
         _numRows = numRows;
       }
     }
-    
+
     /** Returns the list of streams that should be used to store the given rows.
-     * 
-     * None of the returned streams is initialized. 
-     * 
+     *
+     * None of the returned streams is initialized.
+     *
      * @param firstRow
      * @param rowsToParse
-     * @return 
+     * @return
      */
     protected OutputStreamRecord[] createRecords(long firstRow, int rowsToParse) {
       assert (_rowsize != 0);
@@ -271,7 +267,7 @@ public final class ParseDataset {
       do {
         // number of rows that go the the current chunk - all remaining rows for the
         // last chunk, or the number of rows that can go to the chunk
-        int rowsToChunk = (chunkIndex == lastChunk) ? rowsToParse : Math.min(rowsToParse, rpc - rowInChunk); 
+        int rowsToChunk = (chunkIndex == lastChunk) ? rowsToParse : Math.min(rowsToParse, rpc - rowInChunk);
         // add the output stream reacord
         result.add(new OutputStreamRecord(chunkIndex, rowInChunk * _rowsize, rowsToChunk));
         // update the running variables
@@ -282,12 +278,12 @@ public final class ParseDataset {
         rowsToParse -= rowsToChunk;
         assert (rowsToParse >= 0);
       } while (rowsToParse > 0);
-      
+
       _outputIdx = 0;
       _lastOffset = - _rowsize;
-      // return all output streams 
+      // return all output streams
       return result.toArray(new OutputStreamRecord[result.size()]);
-    } 
+    }
 
     transient OutputStreamRecord[] _outputStreams2;
     transient Stream _s;
@@ -296,8 +292,8 @@ public final class ParseDataset {
     transient String[] _colNames;
     transient final CustomParser.Type _parserType;
     transient final Value _sourceDataset;
-    
-    
+
+
     // As this is only used for distributed CSV parser we initialize the values
     // for the CSV parser itself.
     public DParseTask() {
@@ -306,12 +302,12 @@ public final class ParseDataset {
     }
 
     /** Private constructor for phase one.
-     * 
+     *
      * use createPhaseOne() static method instead.
-     * 
+     *
      * @param dataset
      * @param resultKey
-     * @param parserType 
+     * @param parserType
      */
     private DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
       _parserType = parserType;
@@ -320,11 +316,11 @@ public final class ParseDataset {
       _phase = PASS_ONE;
     }
 
-    /** Private constructor for phase two, copy constructor from phase one. 
-     * 
-     * Use createPhaseTwo() static method instead. 
-     * 
-     * @param other 
+    /** Private constructor for phase two, copy constructor from phase one.
+     *
+     * Use createPhaseTwo() static method instead.
+     *
+     * @param other
      */
     private DParseTask(DParseTask other) {
       assert (other._phase == PASS_ONE);
@@ -352,32 +348,32 @@ public final class ParseDataset {
       _colNames = other._colNames;
       _error = other._error;
     }
-    
-    /** Creates a phase one dparse task. 
-     * 
+
+    /** Creates a phase one dparse task.
+     *
      * @param dataset Dataset to parse.
      * @param resultKey VA to store results to.
      * @param parserType Parser type to use.
      * @return Phase one DRemoteTask object.
      */
     public static DParseTask createPassOne(Value dataset, Key resultKey, CustomParser.Type parserType) {
-      return new DParseTask(dataset,resultKey,parserType); 
+      return new DParseTask(dataset,resultKey,parserType);
     }
-    
+
     /** Executes the phase one of the parser.
-     * 
+     *
      * First phase detects the encoding and basic statistics of the parsed
-     * dataset. 
-     * 
+     * dataset.
+     *
      * For CSV parsers it detects the parser setup and then launches the
-     * distributed computation on per chunk basis. 
-     * 
+     * distributed computation on per chunk basis.
+     *
      * For XLS and XLSX parsers that do not work in distrubuted way parses the
-     * whole datasets. 
-     * 
-     * @throws Exception 
+     * whole datasets.
+     *
+     * @throws Exception
      */
-    public void passOne() throws Exception { 
+    public void passOne() throws Exception {
       switch (_parserType) {
         case CSV:
           // precompute the parser setup, column setup and other settings
@@ -406,21 +402,21 @@ public final class ParseDataset {
             ValueArray ary = (ValueArray) _sourceDataset;
             _nrows = new int[(int)ary.chunks()];
           }
-          // launch the distributed parser on its chunks. 
+          // launch the distributed parser on its chunks.
           this.invoke(_sourceDataset._key);
           break;
         case XLS:
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
           CustomParser p = new XlsParser(this);
-          p.parse(_sourceDataset._key); 
+          p.parse(_sourceDataset._key);
           --_myrows; // do not count the header
           break;
         case XLSX:
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
           CustomParser px = new XlsxParser(this);
-          px.parse(_sourceDataset._key); 
+          px.parse(_sourceDataset._key);
           break;
         default:
           throw new Error("NOT IMPLEMENTED");
@@ -440,10 +436,10 @@ public final class ParseDataset {
         _mean[i] = _mean[i]/(_numRows - _invalidValues[i]);
     }
 
-    /** Creates the second pass dparse task from a first phase one. 
-     * 
+    /** Creates the second pass dparse task from a first phase one.
+     *
      * @param phaseOneTask
-     * @return 
+     * @return
      */
     public static DParseTask createPassTwo(DParseTask phaseOneTask) {
       DParseTask t = new DParseTask(phaseOneTask);
@@ -462,17 +458,17 @@ public final class ParseDataset {
       return t;
     }
 
-    /** Executes the phase two of the parser task. 
-     * 
+    /** Executes the phase two of the parser task.
+     *
      * In phase two the data is encoded to the final VA, which is then created
-     * properly at the end. 
-     * 
+     * properly at the end.
+     *
      * For CSV launches the distributed computation.
-     * 
+     *
      * For XLS and XLSX parsers computes all the chunks itself as there is no
-     * option for their distributed processing. 
-     * 
-     * @throws Exception 
+     * option for their distributed processing.
+     *
+     * @throws Exception
      */
     public void passTwo() throws Exception {
       switch (_parserType) {
@@ -493,7 +489,7 @@ public final class ParseDataset {
           CustomParser p = (_parserType == CustomParser.Type.XLS) ? new XlsParser(this) : new XlsxParser(this);
           p.parse(_sourceDataset._key);
           // store the last stream if not stored during the parse
-          if (_s != null) 
+          if (_s != null)
             _outputStreams2[_outputIdx].store();
           break;
         default:
@@ -505,10 +501,10 @@ public final class ParseDataset {
       createValueArrayHeader();
     }
 
-    /** Creates the value header based on the calculated columns. 
-     * 
+    /** Creates the value header based on the calculated columns.
+     *
      * Also stores the header to its appropriate key. This will be the VA header
-     * of the parsed dataset. 
+     * of the parsed dataset.
      */
     private void createValueArrayHeader() {
       assert (_phase == PASS_TWO);
@@ -536,9 +532,9 @@ public final class ParseDataset {
     }
 
     /** Sets the column names and creates the array of the enums for each
-     * column. 
-     * 
-     * @param colNames 
+     * column.
+     *
+     * @param colNames
      */
     public void setColumnNames(String[] colNames) {
       if (_phase == PASS_ONE) {
@@ -572,7 +568,7 @@ public final class ParseDataset {
       _colTypes = new byte[_ncolumns];
     }
 
-    /** Initializes the phase two data. 
+    /** Initializes the phase two data.
      */
     public void phaseTwoInitialize() {
       assert (_phase == PASS_TWO);
@@ -581,16 +577,16 @@ public final class ParseDataset {
       _rowsize = 0;
       for(byte b:_colTypes) _rowsize += Math.abs(colSizes[b]);
     }
-    
+
     /** Map function for distributed parsing of the CSV files.
-     * 
+     *
      * In first phase it calculates the min, max, means, encodings and other
      * statistics about the dataset, determines the number of columns.
-     * 
+     *
      * The second pass then encodes the parsed dataset to the result key,
-     * splitting it into equal sized chunks. 
-     * 
-     * @param key 
+     * splitting it into equal sized chunks.
+     *
+     * @param key
      */
     @Override public void map(Key key) {
       try {
@@ -605,7 +601,7 @@ public final class ParseDataset {
         switch (_phase) {
           case PASS_ONE:
             assert (_ncolumns != 0);
-            // initialize the column statistics 
+            // initialize the column statistics
             phaseOneInitialize();
             // perform the parse
             CsvParser p = new CsvParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
@@ -637,7 +633,7 @@ public final class ParseDataset {
             CsvParser p2 = new CsvParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
             p2.parse(key);
             // store the last stream if not stored during the parse
-            if (_s != null) 
+            if (_s != null)
               _outputStreams2[_outputIdx].store();
             break;
           default:
@@ -795,10 +791,10 @@ public final class ParseDataset {
         }
       }
     }
-    
+
     /** Advances to new line. In phase two it also must make sure that the
-     * 
-     */ 
+     *
+     */
     public void newLine() {
       ++_myrows;
       if (_phase == PASS_TWO) {
@@ -824,17 +820,17 @@ public final class ParseDataset {
     }
 
     /** Rolls back parsed line. Useful for CsvParser when it parses new line
-     * that should not be added. It can easily revert it by this. 
+     * that should not be added. It can easily revert it by this.
      */
     public void rollbackLine() {
       --_myrows;
       assert (_phase == 0 || _s == null);
     }
-    
-    /** Adds double value to the column. 
-     * 
+
+    /** Adds double value to the column.
+     *
      * @param colIdx
-     * @param value 
+     * @param value
      */
     public void addCol(int colIdx, double value) {
       if (Double.isNaN(value)) {
@@ -852,9 +848,9 @@ public final class ParseDataset {
       }
     }
 
-    /** Adds invalid value to the column. 
-     * 
-     * @param colIdx 
+    /** Adds invalid value to the column.
+     *
+     * @param colIdx
      */
     public void addInvalidCol(int colIdx){
       if(colIdx >= _ncolumns)
@@ -891,7 +887,7 @@ public final class ParseDataset {
       }
     }
 
-    /** Adds string (enum) value to the column. 
+    /** Adds string (enum) value to the column.
      */
     public void addStrCol(int colIdx, ValueString str){
       if(colIdx >= _ncolumns)
@@ -932,7 +928,7 @@ public final class ParseDataset {
       }
     }
 
-    /** Adds number value to the column parsed with mantissa and exponent. 
+    /** Adds number value to the column parsed with mantissa and exponent.
      */
     static final int MAX_FLOAT_MANTISSA = 0x7FFFFF;
     @SuppressWarnings("fallthrough")
@@ -958,8 +954,6 @@ public final class ParseDataset {
           }
           break;
         case PASS_TWO:
-          if (_s == null) 
-            System.out.println("mrdka");
           switch (_colTypes[colIdx]) {
             case BYTE:
               _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));

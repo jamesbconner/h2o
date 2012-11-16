@@ -29,7 +29,7 @@ import water.nbhm.NonBlockingHashMap;
 public final class Enum implements H2OSerializable {
 
   public static final int MAX_ENUM_SIZE = 65535;
-  
+
   NonBlockingHashMap<ValueString, Integer> _map;
 
   public Enum(){
@@ -53,7 +53,7 @@ public final class Enum implements H2OSerializable {
   }
 
   int getTokenId(ValueString str){
-    if (_map.get(str) == null) 
+    if (_map.get(str) == null)
       System.out.println(Arrays.toString(_map.keySet().toArray()));
     assert _map.get(str) != null:"missing value! " + str.toString();
     return _map.get(str);
@@ -75,7 +75,10 @@ public final class Enum implements H2OSerializable {
   }
   public int size() {return _map.size();}
   public boolean isKilled() {return _map == null;}
-  public void kill(){_map = null;}
+  public void kill(){
+    System.out.println("killling ");
+    _map = null;
+  }
 
   // assuming single threaded
   public String [] computeColumnDomain(){
@@ -117,7 +120,7 @@ public final class Enum implements H2OSerializable {
     for(int i = 2; i < kvs.length; i+= 2){
       try{
         if(kvs[i] == null)continue;
-        if(!(kvs[i] instanceof ValueString)){
+        if(!(kvs[i] instanceof ValueString) || !(kvs[i+1] instanceof Integer)){
           System.out.println("haha");
         }
         assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
@@ -135,13 +138,17 @@ public final class Enum implements H2OSerializable {
   }
 // assuming single threaded
   public void read(DataInputStream dis) throws IOException{
-    int n = dis.readInt();
-    if(n <= 0)return;
-    _map = new NonBlockingHashMap<ValueString, Integer>();
-    for(int i = 0; i < n; ++i){
-      ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
-      Integer v = dis.readInt();
-      _map.put(k, v);
+    try{
+      int n = dis.readInt();
+      if(n <= 0)return;
+      _map = new NonBlockingHashMap<ValueString, Integer>();
+      for(int i = 0; i < n; ++i){
+        ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
+        Integer v = dis.readInt();
+        _map.put(k, v);
+      }
+    }catch (IOException e){
+      System.out.println("hahagaga");
     }
   }
 // assuming single threaded

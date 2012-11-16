@@ -35,8 +35,6 @@ public final class ValueString {
    }
 
    void set(byte [] buf, int off, int len){
-     if (off <0)
-       System.out.println("mrdka");
      _buf = buf;
      _off = off;
      _length = len;
