@@ -73,10 +73,8 @@ public class XlsxParser extends CustomParser {
     public void startElement(String uri, String localName, String name,
         Attributes attributes) throws SAXException {
       // c => cell
-      System.out.println(name);
       if( name.equals("row") ) {
         _rowStr = Strings.nullToEmpty(attributes.getValue("r"));
-        System.out.println(_rowStr);
       } else if( name.equals("c") ) {
         // Figure out if the value is an index in the SST
         String cellType = attributes.getValue("t");
@@ -115,24 +113,25 @@ public class XlsxParser extends CustomParser {
       if( name.equals("v") ) {
         if (_firstRow) {
           _colNames.add(_lastContents);
-          System.out.println(_lastContents);
         } else {
-          System.out.println(_curCol);
           try {
-            Double d = Double.parseDouble(_lastContents);
-            if (Double.isNaN(d))
-              _callback.addInvalidCol(_curCol);
-            else
-              _callback.addCol(_curCol,d);
-          } catch( NumberFormatException e ) {
-            if (_lastContents.isEmpty())
-              _callback.addInvalidCol(_curCol);
-            else
-              _callback.addStrCol(_curCol, _str.setTo(_lastContents));
+            try {
+              Double d = Double.parseDouble(_lastContents);
+              if (Double.isNaN(d))
+                _callback.addInvalidCol(_curCol);
+              else
+                _callback.addCol(_curCol,d);
+            } catch( NumberFormatException e ) {
+              if (_lastContents.isEmpty())
+                _callback.addInvalidCol(_curCol);
+              else
+                _callback.addStrCol(_curCol, _str.setTo(_lastContents));
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
           }
         }
       } else if( name.equals("row") ) {
-        System.out.println("closing line");
         if( _firstRow == true ) {
           _callback.setColumnNames(_colNames.toArray(new String[_colNames.size()]));
           _firstRow = false;

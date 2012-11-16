@@ -366,12 +366,17 @@ public final class ParseDataset {
           this.invoke(_sourceDataset._key);
           break;
         case XLS:
+          // XLS parsing is not distributed, just obtain the value stream and
+          // run the parser
+          CustomParser p = new XlsParser(this);
+          p.parse(_sourceDataset._key); 
+          --_myrows; // do not count the header
+          break;
         case XLSX:
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
-          CustomParser p = (_parserType == CustomParser.Type.XLS) ? new XlsParser(this) : new XlsxParser(this);
-          p.parse(_sourceDataset._key); 
-          --_myrows; // do not count the header
+          CustomParser px = new XlsxParser(this);
+          px.parse(_sourceDataset._key); 
           break;
         default:
           throw new Error("NOT IMPLEMENTED");
@@ -772,7 +777,7 @@ public final class ParseDataset {
         // Initialize the statistics for the XLS parsers. Statistics for CSV
         // parsers are created in the map method - they must be different for
         // each distributed invocation
-        if (_parserType == CustomParser.Type.XLS)
+        if ((_parserType == CustomParser.Type.XLS) || (_parserType == CustomParser.Type.XLSX))
           phaseOneInitialize();
       }
     }
