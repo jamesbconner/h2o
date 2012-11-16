@@ -358,13 +358,14 @@ NEXT_CHAR:
           assert (false) : " We have wrong state "+state;
       } // end NEXT_CHAR
       ++offset;
-      if (offset < 0) {
+      if (offset <= 0) {
         assert secondChunk : "This can only happen when we are in second chunk and are reverting to first one.";
         secondChunk = false;
         Value v = DKV.get(key); // we had the last key
         assert (v != null) : "The value used to be there!";
         bits = v.get();
         offset += bits.length;
+        --offset;
         _str.set(bits,offset,0);
       } else if (offset >= bits.length) {
         secondChunk = true;

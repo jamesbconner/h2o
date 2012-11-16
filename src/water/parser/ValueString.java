@@ -5,7 +5,7 @@ package water.parser;
  *
  * @author peta
  */
-public class ValueString {
+public final class ValueString {
    byte [] _buf;
    int _off;
    int _length;
@@ -23,6 +23,8 @@ public class ValueString {
    public int hashCode(){
      int hash = 0;
      int n = _off + _length;
+     if (_off < 0)
+       System.out.println("mrdka");
      for (int i = _off; i < n; ++i)
        hash = 31 * hash + _buf[i];
      return hash;
@@ -33,6 +35,8 @@ public class ValueString {
    }
 
    void set(byte [] buf, int off, int len){
+     if (off <0)
+       System.out.println("mrdka");
      _buf = buf;
      _off = off;
      _length = len;
