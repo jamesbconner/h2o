@@ -938,7 +938,7 @@ public final class ParseDataset {
           if(exp < _scale[colIdx]) {
             _scale[colIdx] = exp;
             if(_colTypes[colIdx] != DCOL){
-              if(number > MAX_FLOAT_MANTISSA || exp < Float.MIN_EXPONENT || exp > Float.MAX_EXPONENT)
+              if(Math.abs(number) > MAX_FLOAT_MANTISSA || exp < Float.MIN_EXPONENT || exp > Float.MAX_EXPONENT)
                 _colTypes[colIdx] = DCOL;
               else
                 _colTypes[colIdx] = FCOL;
