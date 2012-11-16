@@ -354,8 +354,8 @@ public final class ParseDataset {
             for (int i = 0; i < psetup[1]; ++i)
               _colNames[i] = String.valueOf(i);
             setColumnNames(_colNames);
+            _skipFirstLine = false;
           }
-          _skipFirstLine = _colNames != null;
           // set the separator
           this._sep = (byte) psetup[0];
           // if parsing value array, initialize the nrows array
@@ -367,12 +367,17 @@ public final class ParseDataset {
           this.invoke(_sourceDataset._key);
           break;
         case XLS:
+          // XLS parsing is not distributed, just obtain the value stream and
+          // run the parser
+          CustomParser p = new XlsParser(this);
+          p.parse(_sourceDataset._key); 
+          --_myrows; // do not count the header
+          break;
         case XLSX:
           // XLS parsing is not distributed, just obtain the value stream and
           // run the parser
-          CustomParser p = (_parserType == CustomParser.Type.XLS) ? new XlsParser(this) : new XlsxParser(this);
-          p.parse(_sourceDataset._key); 
-          --_myrows; // do not count the header
+          CustomParser px = new XlsxParser(this);
+          px.parse(_sourceDataset._key); 
           break;
         default:
           throw new Error("NOT IMPLEMENTED");
@@ -755,7 +760,7 @@ public final class ParseDataset {
           --exp;
           number = (long)d;
         }
-        addNumCol(colIdx, number, exp, 1);
+        addNumCol(colIdx, number, exp);
       }
     }
 
@@ -776,7 +781,7 @@ public final class ParseDataset {
         // Initialize the statistics for the XLS parsers. Statistics for CSV
         // parsers are created in the map method - they must be different for
         // each distributed invocation
-        if (_parserType == CustomParser.Type.XLS)
+        if ((_parserType == CustomParser.Type.XLS) || (_parserType == CustomParser.Type.XLSX))
           phaseOneInitialize();
       }
     }
@@ -858,12 +863,11 @@ public final class ParseDataset {
 
     static final int MAX_FLOAT_MANTISSA = 0x7FFFFF;
     @SuppressWarnings("fallthrough")
-    public void addNumCol(int colIdx, long number, int exp, int numLength) {
+    public void addNumCol(int colIdx, long number, int exp) {
       if(colIdx >= _ncolumns)
         return;
       switch (_phase) {
         case PHASE_ONE:
-          assert numLength >= 0:"invalid numLenght argument: " + numLength;
           double d = number*pow10(exp);
           if(d < _min[colIdx])_min[colIdx] = d;
           if(d > _max[colIdx])_max[colIdx] = d;
@@ -881,44 +885,38 @@ public final class ParseDataset {
           }
           break;
         case PHASE_TWO:
-          switch(numLength) {
-            case -1: // NaN
-              addInvalidCol(colIdx);
-              break;
-            default:
-              switch (_colTypes[colIdx]) {
-                case BYTE:
-                  _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                  break;
-                case SHORT:
-                  _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                  break;
-                case INT:
-                  _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                  break;
-                case LONG:
-                  _s.set8(number*pow10i(exp - _scale[colIdx]));
-                  break;
-                case FLOAT:
-                  _s.set4f((float)(number * pow10(exp)));
-                  break;
-                case DOUBLE:
-                  _s.set8d(number * pow10(exp));
-                  break;
-                case DBYTE:
-                  _s.set1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                  break;
-                case DSHORT:
-                  // scale is computed as negative in the first pass,
-                  // therefore to compute the positive exponent after scale, we add scale and the original exponent
-                  _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
-                  break;
-                case STRINGCOL:
-                  break;
-              }
-          }
+            switch (_colTypes[colIdx]) {
+              case BYTE:
+                _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case SHORT:
+                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case INT:
+                _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case LONG:
+                _s.set8(number*pow10i(exp - _scale[colIdx]));
+                break;
+              case FLOAT:
+                _s.set4f((float)(number * pow10(exp)));
+                break;
+              case DOUBLE:
+                _s.set8d(number * pow10(exp));
+                break;
+              case DBYTE:
+                _s.set1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case DSHORT:
+                // scale is computed as negative in the first pass,
+                // therefore to compute the positive exponent after scale, we add scale and the original exponent
+                _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+                break;
+              case STRINGCOL:
+                break;
+            }
           // update sigma
-          if(numLength > 0 && !Double.isNaN(_mean[colIdx])) {
+          if(!Double.isNaN(_mean[colIdx])) {
             d = number*pow10(exp) - _mean[colIdx];
             _sigma[colIdx] += d*d;
           }

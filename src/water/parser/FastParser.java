@@ -225,7 +225,6 @@ NEXT_CHAR:
           // fallthrough to COND_QUOTED_NUMBER_END
         // ---------------------------------------------------------------------
         case COND_QUOTED_NUMBER_END:
-          numStart = offset - numStart;
           if ( c == quotes) {
             state = NUMBER_END;
             quotes = 0;
@@ -235,14 +234,14 @@ NEXT_CHAR:
         case NUMBER_END:
           if (c == CHAR_SEPARATOR) {
             exp = exp - fractionDigits;
-            callback.addNumCol(colIdx,number,exp,numStart);
+            callback.addNumCol(colIdx,number,exp);
             ++colIdx;
             // do separator state here too
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           } else if (isEOL(c)) {
             exp = exp - fractionDigits;
-            callback.addNumCol(colIdx,number,exp,numStart);
+            callback.addNumCol(colIdx,number,exp);
             // do EOL here for speedup reasons
             if (colIdx != 0) {
               colIdx = 0;
