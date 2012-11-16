@@ -97,29 +97,46 @@ public final class Enum implements H2OSerializable {
 // assuming single threaded
   int wire_len(){
     // 4 bytes for map size + size* (4 bytes per ValueString._buf.length of the key + 4 bytes of int value)
-    int res = 4 + 8*_map.size();
+    int res = 4;
+    if(_map != null){
+      res += 8*_map.size();
     // compute sum of keylens
-    for(ValueString str:_map.keySet())res += str._length;
+      for(ValueString str:_map.keySet())res += str._length;
+    }
     return res;
   }
 // assuming single threaded
   public void write(DataOutputStream dos) throws IOException{
+
+    if(_map == null){
+      dos.writeInt(0);
+      return;
+    }
     dos.writeInt(_map.size());
     Object [] kvs = _map.kvs();
     for(int i = 2; i < kvs.length; i+= 2){
-      if(kvs[i] == null)continue;
-      assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
-      assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-      ValueString k = (ValueString)kvs[i];
-      assert k._off == 0:"invalid ValueString offset in enum: " + k._off;
-      Integer v = (Integer)kvs[i+1];
-      TCPReceiverThread.writeAry(dos,k._buf);
-      dos.writeInt(v);
+      try{
+        if(kvs[i] == null)continue;
+        if(!(kvs[i] instanceof ValueString)){
+          System.out.println("haha");
+        }
+        assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
+        assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
+        ValueString k = (ValueString)kvs[i];
+        assert k._off == 0:"invalid ValueString offset in enum: " + k._off;
+        Integer v = (Integer)kvs[i+1];
+        TCPReceiverThread.writeAry(dos,k._buf);
+        dos.writeInt(v);
+      }catch(IOException e){
+        System.out.println("gaga");
+        throw e;
+      }
     }
   }
 // assuming single threaded
   public void read(DataInputStream dis) throws IOException{
     int n = dis.readInt();
+    if(n <= 0)return;
     _map = new NonBlockingHashMap<ValueString, Integer>();
     for(int i = 0; i < n; ++i){
       ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
@@ -129,6 +146,10 @@ public final class Enum implements H2OSerializable {
   }
 // assuming single threaded
   public void write(Stream s) throws IOException{
+    if(_map == null){
+      s.set4(0);
+      return;
+    }
     s.set4(_map.size());
     Object [] kvs = _map.kvs();
     for(int i = 2; i < kvs.length; i+= 2){
@@ -142,6 +163,7 @@ public final class Enum implements H2OSerializable {
 // assuming single threaded
   public void read(Stream s) throws IOException{
     int n = s.get4();
+    if(n <= 0)return;
     _map = new NonBlockingHashMap<ValueString, Integer>();
     for(int i = 0; i < n; ++i){
       ValueString k = new ValueString(s.getAry1());
