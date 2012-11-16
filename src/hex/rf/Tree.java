@@ -28,9 +28,10 @@ public class Tree extends CountedCompleter {
   final int _alltrees;
   final float _sample;
   transient Timer _timer;
+  int[] _ignoreColumns;         // columns ignored by the tree
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int[] ignoreColumns) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
@@ -42,6 +43,7 @@ public class Tree extends CountedCompleter {
     _modelKey = modelKey;
     _alltrees = alltrees;
     _sample = sample;
+    _ignoreColumns = ignoreColumns;
     assert sample <= 1.0f;
     _timer = new Timer();
   }
@@ -85,7 +87,7 @@ public class Tree extends CountedCompleter {
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
-    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample);
+    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample, _ignoreColumns);
     am.invoke(_modelKey);
 
     Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
@@ -98,17 +100,19 @@ public class Tree extends CountedCompleter {
     int _features, _classes, _ntree;
     boolean _nuke;
     float _sample;
+    int[] _ignore;
 
-    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample) {
+    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample, int[] ignore) {
       _modelKey = modelKey;
       _treesKey = treesKey;
       _features = f;
       _classes = c;
       _ntree = n;
       _sample = sample;
+      _ignore = ignore;
     }
     public byte[] atomic( byte[] bits ) {
-      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample);
+      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample,_ignore);
       if( bits != null ) {
         Model m_old = new Model();
         m_old.read(new Stream(bits));

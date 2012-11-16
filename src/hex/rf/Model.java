@@ -22,6 +22,8 @@ public class Model extends RemoteTask {
   public int       _features;
   /** Sampling rate used when building trees. */
   public float     _sample;
+  /** Columns ignored in the model. */
+  public int[]     _ignoredColumns;
 
   /** A RandomForest Model
    * @param treeskey    a key of keys of trees
@@ -29,11 +31,12 @@ public class Model extends RemoteTask {
    * @param data        the dataset
    */
   public Model() { }
-  public Model(Key key, Key treeskey, int features, int classes, float sample) {
+  public Model(Key key, Key treeskey, int features, int classes, float sample, int[] ignoredColumns) {
     _key = key;
     _classes = classes;
     _features = features;
     _sample = sample;
+    _ignoredColumns = ignoredColumns;
     Key[] tkeys = treeskey.flatten(); // Trees
     if( tkeys == null ) return;       // Broken model?  quit now
     _trees = new byte[tkeys.length][];

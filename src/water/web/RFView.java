@@ -88,6 +88,9 @@ public class RFView extends H2OPage {
 
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
+    int[] ignores = model._ignoredColumns == null ? new int[0] : model._ignoredColumns;
+    System.out.println("CM ignores columns "+Arrays.toString(ignores));
+
     if (p.getProperty("clearCM","0").equals("1")) {
       Confusion.remove(model,ary._key,classcol);
     }
