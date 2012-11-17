@@ -531,6 +531,15 @@ public final class ParseDataset {
       DKV.put(_resultKey, ary);
     }
 
+
+    @Override public void init(){
+      super.init();
+      if(_enums == null){
+        _enums = new Enum[_ncolumns];
+        for(int i = 0; i < _ncolumns; ++i)
+          _enums[i] = new Enum();
+      }
+    }
     /** Sets the column names and creates the array of the enums for each
      * column.
      *
@@ -541,9 +550,7 @@ public final class ParseDataset {
         assert (colNames != null);
         _colNames = colNames;
         _ncolumns = colNames.length;
-        _enums = new Enum[_ncolumns];
-        for(int i = 0; i < _ncolumns; ++i)
-          _enums[i] = new Enum();
+
         // Initialize the statistics for the XLS parsers. Statistics for CSV
         // parsers are created in the map method - they must be different for
         // each distributed invocation
@@ -1018,11 +1025,6 @@ public final class ParseDataset {
     }
   }
 
-  public static void main(String [] args){
-    byte [] buff = "hahagaga".getBytes();
-    ValueString str = new ValueString(buff,0,8);
-    System.out.println(str.hashCode() + " " + "hahagaga".hashCode());
-  }
 }
 
 
