@@ -67,6 +67,8 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     for h in hostList:
         h2o.verboseprint("Connecting to:", h)
         hosts.append(h2o.RemoteHost(h, username, password))
+   
+    h2o.write_flatfile(node_count=h2oPerHost, base_port=basePort, hosts=hosts)
 
     h2o.upload_jar_to_remote_hosts(hosts, slow_connection=slow_connection)
 

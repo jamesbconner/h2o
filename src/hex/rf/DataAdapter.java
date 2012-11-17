@@ -11,6 +11,7 @@ class DataAdapter  {
   private final int _numClasses;
   private final String[] _columnNames;
   private final C[] _c;
+  public  final ValueArray _ary;
   /** Unique cookie identifying this dataset*/
   private final int _dataId;
   private final int _seed;
@@ -24,6 +25,7 @@ class DataAdapter  {
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
               int data_id, int seed, short bin_limit, double[] classWt) {
     _seed = seed+data_id;
+    _ary = ary;
     _bin_limit = bin_limit;
     _columnNames = ary.col_names();
     _c = new C[_columnNames.length];
@@ -36,10 +38,11 @@ class DataAdapter  {
     for( int i = 0; i < _columnNames.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       double range = ary.col_max(i) - ary.col_min(i);
+      if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("Ignoring column " + i + " as all values are identical.");   }
       boolean raw = (ary.col_size(i) > 0 && ary.col_scale(i)==1.0 && range < _bin_limit && ary.col_max(i) >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
-      if( raw && range <= 1) t = C.ColType.BOOL;
+      if( raw && range <= 1 ) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
       boolean do_bin = !raw && !ignore;
       _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
@@ -83,7 +86,8 @@ class DataAdapter  {
   /** True if we should ignore column i. */
   public boolean ignore(int i){ return _c[i]._ignore; }
 
-  /** Returns the number of bins, i.e. the number of distinct values in the column.  Zero if we are ignoring the column. */
+  /** Returns the number of bins, i.e. the number of distinct values in the
+   * column.  Zero if we are ignoring the column. */
   public int columnArity(int col) { return ignore(col) ? 0 : _c[col]._smax; }
 
   /** Return a short that represents the binned value of the original row,column value.  */
@@ -113,6 +117,11 @@ class DataAdapter  {
     _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
   }
 
+  // Mark this row as being invalid for tree-building, typically because it
+  // contains invalid data in some columns.
+  public void setBad(int row) {
+    _c[_classIdx].setValue(row,(short)-1);
+  }
 
   /** Should we bin this column? */
   public boolean binColumn(int col){ return _c[col]._bin; }
@@ -242,39 +251,4 @@ class DataAdapter  {
       _raw = null;
     }
   }
-
-  /** Chunk map. */
-  final HashMap<String,Integer> chunks = new HashMap<String,Integer>();
-
-  /** Remember the starting point of each data chunk. */
-  public synchronized void stamp(Key k, int s) { chunks.put(k.toString(),s); }
-
-  /** Chunk map key. */
-  private Key _chunksKey;
-
-  /** Return the Key for this data adapter's chunk map. */
-  public Key getChunksKey(){ assert _chunksKey !=null; return _chunksKey;}
-
-  /** For each adapter, we store a K/V pair that holds the keys for each chunk and
-   *  the offset in the big array (after skipping rows). An extra K/V pair is added
-   *  record the last row. */
-  public synchronized void persistChunks() {
-    try {
-      assert _chunksKey == null;
-      String str = ("DataAdapter" + UUID.randomUUID().toString()).substring(0,45);
-      assert str.length() == 45;
-      Utils.pln(str);
-      Key k = Key.make(str);
-      chunks.put("end",_numRows);
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
-      ObjectOutput out = null;
-      try { // Serialization
-        out = new ObjectOutputStream(bos);
-        out.writeObject(chunks);
-      } finally { out.close();  bos.close();   }
-      DKV.put(k, new Value(k, bos.toByteArray()));
-      _chunksKey = k;
-    } catch( IOException e ) { throw new Error(e); }
-  }
-
 }

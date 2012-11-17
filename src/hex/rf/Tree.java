@@ -21,27 +21,31 @@ public class Tree extends CountedCompleter {
   final int _features;
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
-  final int  _seed;             // Pseudo random seeds
   ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
   final Key _treesKey;
   final Key _modelKey;
-  final int _alltrees;
-  final float _sample;
+  final int _alltrees;          // Number of trees expected to build a complete model
+  final int _seed;              // Pseudo random seed: used to playback sampling
+  final int _numrows;           // Used to playback sampling
+  final float _sample;          // Sample rate
   transient Timer _timer;
+  int[] _ignoreColumns;         // columns ignored by the tree
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
     _max_depth = max_depth-1;
     _min_error_rate = min_error_rate;
     _features = features;
-    _seed = seed;
     _treesKey = treesKey;
     _modelKey = modelKey;
     _alltrees = alltrees;
+    _seed = seed;
     _sample = sample;
+    _numrows = rowsize;
+    _ignoreColumns = ignoreColumns;
     assert sample <= 1.0f;
     _timer = new Timer();
   }
@@ -70,7 +74,7 @@ public class Tree extends CountedCompleter {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
     Timer t_sample = new Timer();
-    Data d = _data.sample(_sample,_seed);
+    Data d = _data.sample(_sample,_seed,_numrows);
     Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample);
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
@@ -85,7 +89,7 @@ public class Tree extends CountedCompleter {
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
-    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample);
+    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample, _data._data._ary._key,_ignoreColumns);
     am.invoke(_modelKey);
 
     Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
@@ -98,17 +102,21 @@ public class Tree extends CountedCompleter {
     int _features, _classes, _ntree;
     boolean _nuke;
     float _sample;
+    Key _dataset;
+    int[] _ignore;
 
-    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample) {
+    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample, Key dataset, int[] ignore) {
       _modelKey = modelKey;
       _treesKey = treesKey;
       _features = f;
       _classes = c;
       _ntree = n;
       _sample = sample;
+      _dataset = dataset;
+      _ignore = ignore;
     }
     public byte[] atomic( byte[] bits ) {
-      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample);
+      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample,_dataset,_ignore);
       if( bits != null ) {
         Model m_old = new Model();
         m_old.read(new Stream(bits));
@@ -300,7 +308,6 @@ public class Tree extends CountedCompleter {
     Stream bs = new Stream();
     bs.set4(_data_id);
     bs.set4(_seed);
-    _data._data.getChunksKey().write(bs);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
@@ -314,7 +321,6 @@ public class Tree extends CountedCompleter {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
     ts.get4();    // Skip seed
-    Key.read(ts); // skipping chunk key string
 
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
@@ -342,26 +348,6 @@ public class Tree extends CountedCompleter {
     ts.get4();
     return ts.get4();
   }
-  public static HashMap<String, Integer> getChunkMap( byte[] bits) {
-    Stream ts = new Stream(bits);
-    ts.get4();
-    ts.get4();
-    Key k = Key.read(ts);
-    Value v = DKV.get(k);
-    byte[] data = v.get();
-    ByteArrayInputStream bis = new ByteArrayInputStream(data);
-    ObjectInput in = null;
-    HashMap<String,Integer> h = null;
-    try { try {
-      in = new ObjectInputStream(bis);
-      h =(HashMap<String,Integer>) in.readObject();
-    } finally {
-      bis.close();
-      in.close();
-    }
-    } catch (Exception e) { throw new Error(e); }
-    return h;
-  }
 
   public static int dataId( byte[] bits) {
     Stream ts = new Stream(bits);
@@ -379,7 +365,6 @@ public class Tree extends CountedCompleter {
       _ts = new Stream(tbits);
       _ts.get4();               // Skip tree ID
       _ts.get4();               // Skip seed
-      Key.read(_ts);            // skipping chunk key string
     }
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();

@@ -31,7 +31,7 @@ public class Data implements Iterable<Row> {
   protected Data(DataAdapter da) { _data = da; }
 
   protected int start()          { return 0;                   }
-  protected int end()            { return _data._numRows;        }
+  protected int end()            { return _data._numRows;      }
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
   public int classes()           { return _data.classes();     }
@@ -92,45 +92,79 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
-  public static int[] makeSample(double bagSizePct, int seed, int start, int end) {
+
+  private int[] sample_resevoir(double bagSizePct, int seed, int numrows ) {
+    // Resevoir Sampling.  First fill with sequential valid rows.  
+    // i ranges from 0 to rows() (all the data).
+    // j    is the number of *valid* rows seen so far.  
+    // rows is the number of *valid* rows total.
+    // invariant:  size/rows==bagSizePct
     Random r = new Random(seed);
-    int rows = end - start;
-    int size = (int)(rows * bagSizePct);
-    if( size == 0 && rows> 0 ) size = 1;
+    int rows = rows();
+    int size = bagsz(rows,bagSizePct);
     int[] sample = MemoryManager.allocateMemoryInt(size);
-    int i = 0;
-    for( ; i < size; ++i ) sample[i] = start + i;
-    for( ; i < rows; ++i ) {
-      int p = r.nextInt(i);
-      if( p < size ) sample[p] = start + i;
+    int i = 0, j = 0;
+    for( ; j<size; i++ )                 // Until we get 'size' valid rows
+      if( _data.classOf(i) == -1 )       // Invalid row?
+        size = bagsz(--rows,bagSizePct); // Toss out from row-cnt & sample-size
+      else sample[j++] = i;              // Keep valid row
+    // Resample the rest.
+    for( ; i < rows(); i++ ) {
+      if( _data.classOf(i) == -1 ) {     // Invalid row?
+        size = bagsz(--rows,bagSizePct); // Toss out from row-cnt & sample-size
+      } else {                           // Valid row; sample it
+        // Resevoir Sampling: pick the next value from 0 to #rows seen so far
+        // but it is an INCLUSIVE pick, so pre-increment j.  Imagine the
+        // degenerate case of size=1 - from 100 rows.  We want to pick a single
+        // final row at random.  At this point sample[0]=0 and j=1 (1 valid
+        // row).  r.nextInt(1) will always yield a 0... which forces this
+        // die-roll to pick row 1 over row 0, and row 0 can never be picked.
+        int p = r.nextInt(++j); // Roll a dice for all valid rows
+        if( p < size ) sample[p] = i;
+      }
     }
+    return Arrays.copyOf(sample,size); // Trim out bad rows
+  }
+
+  // Roll a fair die for sampling, resetting the random die every numrows
+  private int[] sample_fair(double bagSizePct, int seed, int numrows ) {
+    Random r = null;
+    int rows = rows();
+    int size = bagsz(rows,bagSizePct);
+    int[] sample = MemoryManager.allocateMemoryInt((int)(size*1.10));
+    float f = (float)bagSizePct;
+    int cnt=0;                  // Counter for resetting Random
+    int j=0;                    // Number of selected samples
+    for( int i=0; i<rows(); i++ ) {
+      if( cnt--==0 ) { 
+        r = new Random(seed+i); // Seed is seed+(chunk#*numrows)
+        cnt=numrows-1;          // 
+        if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
+      }
+      if( _data.classOf(i) != -1 && r.nextFloat() < f ) {
+        if( j == sample.length ) sample = Arrays.copyOfRange(sample,0,(int)(sample.length*1.2));
+        sample[j++] = i;
+      }
+    }
+    return Arrays.copyOf(sample,j); // Trim out bad rows
+  }
+
+  // Determinstically sample the 'this' Data at the bagSizePct.  Toss out
+  // invalid rows (as-if not sampled), but maintain the sampling rate.
+  public Data sample(double bagSizePct, int seed, int numrows) {
+    assert getClass()==Data.class; // No subclassing on this method
+
+    //int[] sample = sample_resevoir(bagSizePct,seed,numrows);
+    int[] sample = sample_fair    (bagSizePct,seed,numrows);
+
     Arrays.sort(sample); // we want an ordered sample
-    return sample;
+    return new Subset(this, sample, 0, sample.length);
   }
-
-  public Data sample(double bagSizePct, int seed) {
-    assert !(this instanceof Subset); // we do not support permutations
-    Integer[] bounds = new Integer[_data.chunks.size()];
-    _data.chunks.values().toArray(bounds);
-    Arrays.sort(bounds); // make sure we have the right order
-    int[][] all = new int[bounds.length][];
-    int len=0;
-    for(int i=0;i<bounds.length;i++) {
-      int start = bounds[i];
-      int end = i==bounds.length-1 ? rows() : bounds[i+1];
-      int[] sample = makeSample(bagSizePct, seed, start, end);
-      all[i] = sample;
-      len+=sample.length;
-    }
-
-    int[] samples = MemoryManager.allocateMemoryInt(len);
-    len = 0;
-    for(int i=0;i<bounds.length;i++)
-      for(int j=0;j<all[i].length;j++) samples[len++]=all[i][j];
-
-    return new Subset(this, samples, 0, samples.length);
+  private int bagsz( int rows, double bagSizePct ) {
+    int size = (int)(rows * bagSizePct);
+    return (size>0 || rows==0) ? size : 1;
   }
-
+  
   public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
   @Override public Data clone() { return this; }
   protected int permute(int idx) { return idx; }
@@ -168,5 +202,4 @@ class Subset extends Data {
     for(int i=0;i<complement.length; i++) if (complement[i]==0) p[pos++] = i;
     return new Subset(this, p, 0, p.length);
   }
-
 }

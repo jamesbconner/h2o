@@ -43,6 +43,9 @@ public class Confusion extends MRTask {
   transient private int[]     _validation;
   /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
   transient private int       _rows_per_normal_chunk;
+  // Data to replay the sampling algorithm
+  transient private int[]     _chunk_row_mapping;
+  private int[] _ignores;
 
   /**   Constructor for use by the serializers */
   public Confusion() { }
@@ -51,11 +54,12 @@ public class Confusion extends MRTask {
    * @param model the ensemble used to classify
    * @param datakey the key of the data that will be classified
    */
-  private Confusion(Model model, Key datakey, int classcol, double[] classWt ) {
+  private Confusion(Model model, Key datakey, int classcol, int[] ignores, double[] classWt ) {
     _modelKey = model._key;
     _datakey = datakey;
     _classcol = classcol;
     _classWt = classWt;
+    _ignores = ignores;
     shared_init();
   }
 
@@ -72,7 +76,7 @@ public class Confusion extends MRTask {
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
-  static public Confusion make(Model model, Key datakey, int classcol, double[] classWt) {
+  static public Confusion make(Model model, Key datakey, int classcol, int[] ignores, double[] classWt) {
     Key key = keyFor(model._key, model.size(), datakey, classcol);
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
@@ -80,16 +84,15 @@ public class Confusion extends MRTask {
       return C;
     }
 
-    C = new Confusion(model,datakey,classcol,classWt);
+    C = new Confusion(model,datakey,classcol,ignores,classWt);
 
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
     UKV.put(key,C);             // Output to cloud
-    if( classWt != null ) {
+    if( classWt != null )
       for( int i=0; i<classWt.length; i++ )
         if( classWt[i] != 1.0 )
-          System.out.println("Weighted class "+i+" by "+classWt[i]);
-    }
+          System.out.println("[CM] Weighted votes "+i+" by "+classWt[i]);
     return C;
   }
 
@@ -114,6 +117,15 @@ public class Confusion extends MRTask {
   public void init() {
     super.init();
     shared_init();
+    // Make a mapping from chunk# to row# just for chunks on this node
+    int x = ValueArray.getChunkIndex(_keys[_keys.length-1]);
+    _chunk_row_mapping = new int[ValueArray.getChunkIndex(_keys[_keys.length-1])+1];
+    int off=0;
+    for( Key k : _keys )
+      if( k.home() ) {
+        _chunk_row_mapping[ValueArray.getChunkIndex(k)] = off;
+        off += _rows_per_normal_chunk;
+      }
   }
 
   /** Set the validation set before starting. */
@@ -143,8 +155,6 @@ public class Confusion extends MRTask {
     final int ncols= _data.num_cols();
     final int cmin = (int) _data.col_min(_classcol); // Typically 0-(n-1) or 1-N
     int nchk = ValueArray.getChunkIndex(chunk_key);
-    _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
-    int[] votes = new int[_N+1]; // One for each class and one more for broken rows
     // Break out all the ValueArray Column schema into an easier-to-read
     // format.  Its used in the hot inner loop of Tree.classify.
     final int offs[] = new int[ncols];
@@ -157,31 +167,63 @@ public class Confusion extends MRTask {
       base[k] = _data.col_base (k);
       scal[k] = _data.col_scale(k);
     }
-    Random rand = new Random(ValueArray.getChunkIndex(chunk_key));
 
-    int[][] ignores = new int[_model.treeCount()][];
-    for(int i =0;i<_model.treeCount();i++)
-       if ( _model.buildComplement(i, chunk_key) ) {
-         int seed = _model.getTreeSeed(i);
-         int start = _model.getStart(i, chunk_key);
-         int end = _model.getEnd(i, chunk_key);
-         ignores[i] = Data.makeSample(_model._sample, seed, start, end);
-       } else { throw new Error(chunk_key.toString()); }
+    // Votes: we vote each tree on each row, holding on to the votes until the end
+    int[][] votes = new int[rows][_N];
 
-    int skipped = 0;
-    // Now for all rows, classify & vote!
+    // Build fast cutout for ignored columns
+    final boolean icols[] = new boolean[ncols];
+    for( int k : _ignores ) icols[k]=true;
+    // Replay the Data.java's "sample_fair" sampling algorithm to exclude data
+    // we trained on during voting.
+    assert nchk==0 || _chunk_row_mapping[nchk]>0;
+
+    // For all trees, re-iterate the data on this chunk
+    for( int ntree = 0; ntree < _model.treeCount(); ntree++ ) {
+      int seed = _model.seed(ntree);
+      long init_row = _chunk_row_mapping[nchk];
+      Random r = new Random(seed+init_row);
+      
+      // Now for all rows, classify & vote!
+      ROWS: for( int i = 0; i < rows; i++ ) {
+        if( ignoreRow(nchk, i) ) continue;  // Skipped for validating & training
+
+        for(int c = 0; c < ncols; ++c) // Bail out of broken rows in not-ignored columns
+          if( !icols[c] && !_data.valid(chunk_bits,i,rowsize,c))
+            continue ROWS;      // Skip partial row
+        if( r.nextFloat() < _model._sample )
+          continue ROWS;        // Skip row used during training
+        // Predict with this tree
+        int prediction = _model.classify0(ntree, chunk_bits, i, rowsize, _data, offs, size, base, scal);
+        if( prediction >= _N ) continue ROWS; // Junk row cannot be predicted
+        votes[i][prediction]++; // Vote the row
+      }
+    }
+
+    // Assemble the votes-per-class into predictions & score each row
+    _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
     for( int i = 0; i < rows; i++ ) {
-      // We do not skip broken rows!  If we need the data and it is missing,
-      // the classifier returns the junk class+1.
-      if( ignoreRow(nchk, i) )  continue;  // Skipped for validating & training
-      if( !_data.valid(chunk_bits, i, rowsize, _classcol) ) { skipped++; continue; } // Cannot vote if no class!
-      for( int j=0; j<_N; j++ ) votes[j] = 0;
-      int predict = _model.classify(chunk_bits, i, rowsize, _data, offs, size, base, scal, votes, _classWt, rand, ignores, skipped);
+      int[] vi = votes[i];
+      if( _classWt != null )
+        for( int v = 0; v<_N; v++)
+          vi[v] = (int)(vi[v]*_classWt[v]);
+      int result = 0;
+      int tied = 1;
+      for( int l = 1; l<_N; l++)
+        if( vi[l] > vi[result] ) { result=l; tied=1; }
+        else if( vi[l] == vi[result] ) { tied++; }
+      if( vi[result]==0 ) continue; // Ignore rows with zero votes
+      if( tied>1 ) {                // Tie-breaker logic
+        int j = _rand.nextInt(tied); // From zero to number of tied classes-1
+        int k = 0;
+        for( int l=0; l<_N; l++ )
+          if( vi[l]==vi[result] && (k++ >= j) ) 
+            { result = l; break; }
+      }
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
-      _matrix[cclass][predict]++;
-      _rows++;
-      if( predict != cclass ) _errors++;
+      _matrix[cclass][result]++;
+      if( result != cclass ) _errors++;
     }
   }
 

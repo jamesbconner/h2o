@@ -1,8 +1,6 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
-
-import java.io.*;
-
+import java.io.File;
 import water.*;
 import water.util.KeyUtil;
 
@@ -15,14 +13,14 @@ public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features;        // features to check at each split
 
-  public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees, int features) {
+  public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees, int features, int[] ignoreColumns) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
     _features = features;
     Timer t_alltrees = new Timer();
     Tree[] trees = new Tree[ntrees];
     for (int i = 0; i < ntrees; ++i) {
-      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample);
+      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns);
       if (!parallelTrees) DRemoteTask.invokeAll(new Tree[]{trees[i]});
     }
     if (parallelTrees) DRemoteTask.invokeAll(trees);
@@ -101,10 +99,10 @@ public class RandomForest {
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Confusion c = Confusion.make( model, valKey, classcol, null);
+      Confusion c = Confusion.make( model, valKey, classcol, new int[0], null);
       c.report();
     } else {
-      Confusion c = Confusion.make( model, drf._arykey, classcol, null);
+      Confusion c = Confusion.make( model, drf._arykey, classcol, new int[0], null);
       c.setValidation(drf._validation.getPermutationArray());
       c.report();
     }
