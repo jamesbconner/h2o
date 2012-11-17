@@ -581,6 +581,8 @@ NEXT_CHAR:
         // pass
         }
       }
+    } else {
+      hasNumber = false;
     }
     if (!hasNumber) {
       for (int i = 0; i < l1.length; ++i)
