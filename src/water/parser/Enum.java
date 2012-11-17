@@ -2,11 +2,10 @@
 package water.parser;
 
 import init.H2OSerializable;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Iterator;
+
+import java.io.*;
+import java.util.*;
+
 import water.Stream;
 import water.TCPReceiverThread;
 import water.nbhm.NonBlockingHashMap;
@@ -53,8 +52,6 @@ public final class Enum implements H2OSerializable {
   }
 
   int getTokenId(ValueString str){
-    if (_map.get(str) == null)
-      System.out.println(Arrays.toString(_map.keySet().toArray()));
     assert _map.get(str) != null:"missing value! " + str.toString();
     return _map.get(str);
   }
@@ -76,7 +73,6 @@ public final class Enum implements H2OSerializable {
   public int size() {return _map.size();}
   public boolean isKilled() {return _map == null;}
   public void kill(){
-    System.out.println("killling ");
     _map = null;
   }
 
@@ -110,45 +106,30 @@ public final class Enum implements H2OSerializable {
   }
 // assuming single threaded
   public void write(DataOutputStream dos) throws IOException{
-
     if(_map == null){
       dos.writeInt(0);
       return;
     }
-    dos.writeInt(_map.size());
-    Object [] kvs = _map.kvs();
-    for(int i = 2; i < kvs.length; i+= 2){
-      try{
-        if(kvs[i] == null)continue;
-        if(!(kvs[i] instanceof ValueString) || !(kvs[i+1] instanceof Integer)){
-          System.out.println("haha");
-        }
-        assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
-        assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-        ValueString k = (ValueString)kvs[i];
-        assert k._off == 0:"invalid ValueString offset in enum: " + k._off;
-        Integer v = (Integer)kvs[i+1];
-        TCPReceiverThread.writeAry(dos,k._buf);
-        dos.writeInt(v);
-      }catch(IOException e){
-        System.out.println("gaga");
-        throw e;
-      }
+    int n = _map.entrySet().size();
+    dos.writeInt(n);
+    int i = 0;
+    for(Map.Entry<ValueString,Integer> e:_map.entrySet()){
+      assert ++i <= n;
+      assert e.getKey()._off == 0;
+      TCPReceiverThread.writeAry(dos,e.getKey()._buf);
+      dos.writeInt(e.getValue());
     }
+    assert i == n;
   }
 // assuming single threaded
   public void read(DataInputStream dis) throws IOException{
-    try{
-      int n = dis.readInt();
-      if(n <= 0)return;
-      _map = new NonBlockingHashMap<ValueString, Integer>();
-      for(int i = 0; i < n; ++i){
-        ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
-        Integer v = dis.readInt();
-        _map.put(k, v);
-      }
-    }catch (IOException e){
-      System.out.println("hahagaga");
+    int n = dis.readInt();
+    if(n <= 0)return;
+    _map = new NonBlockingHashMap<ValueString, Integer>();
+    for(int i = 0; i < n; ++i){
+      ValueString k = new ValueString(TCPReceiverThread.readByteAry(dis));
+      Integer v = dis.readInt();
+      _map.put(k, v);
     }
   }
 // assuming single threaded
@@ -157,15 +138,18 @@ public final class Enum implements H2OSerializable {
       s.set4(0);
       return;
     }
-    s.set4(_map.size());
+    int n = _map.entrySet().size();
+    s.set4(_map.entrySet().size());
     Object [] kvs = _map.kvs();
-    for(int i = 2; i < kvs.length; i+= 2){
-      if(kvs[i] == null)continue;
-      assert kvs[i] instanceof ValueString:"invalid key inside enum: "+kvs[i].toString();
-      assert kvs[i+1] instanceof Integer:"invalid value inside enum: "+kvs[i+1].toString();
-      s.setAry1(((ValueString)kvs[i])._buf);
-      s.set4((Integer)kvs[i+1]);
+    int i = 0;
+    for(Map.Entry<ValueString,Integer> e:_map.entrySet()){
+      assert ++i <= n;
+      assert (_map.size() == n):"_map changed during serialization, orig size= " + n + ", new size = " + _map.size();
+      assert e.getKey()._off == 0;
+      s.setAry1(e.getKey()._buf);
+      s.set4(e.getValue());
     }
+    assert i == n;
   }
 // assuming single threaded
   public void read(Stream s) throws IOException{
