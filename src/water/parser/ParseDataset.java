@@ -47,7 +47,6 @@ public final class ParseDataset {
         parseUncompressed(result,dataset,CustomParser.Type.XLS);
         return;
       } catch (Exception e) {
-        e.printStackTrace();
         // pass
       }
       Compression compression = guessCompressionMethod(dataset);
@@ -56,7 +55,6 @@ public final class ParseDataset {
           parseUncompressed(result,dataset,CustomParser.Type.XLSX);
           return;
         } catch (Exception e) {
-          e.printStackTrace();
           // pass
         }
       }
@@ -380,25 +378,14 @@ public final class ParseDataset {
         case CSV:
           // precompute the parser setup, column setup and other settings
           byte [] bits = DKV.get(_sourceDataset.chunk_get(0)).get(256*1024);
-          int [] psetup = CsvParser.guessParserSetup(bits, false);
-          _colNames = CsvParser.determineColumnNames(bits,(byte)psetup[0]);
-          // initialize the column names
-          // TODO Parser setup is aparently not working properly
-          if (_colNames!=null) {
-            // use the column names found in the header if any
-            psetup[1] = _colNames.length;
-            setColumnNames(_colNames);
-            _skipFirstLine = true;
-          } else {
-            // otherwise initialize the column names appropriately
-            _colNames = new String[psetup[1]];
-            for (int i = 0; i < psetup[1]; ++i)
-              _colNames[i] = String.valueOf(i);
-            setColumnNames(_colNames);
-            _skipFirstLine = false;
-          }
+          CsvParser.Setup setup = CsvParser.guessCsvSetup(bits);
+          if (setup == null)
+            throw new Exception("Unable to determine the separator, or number of columns on the dataset");
+          _colNames = setup.columnNames;
+          setColumnNames(_colNames);
+          _skipFirstLine = setup.hasHeader;
           // set the separator
-          this._sep = (byte) psetup[0];
+          this._sep = setup.separator;
           // if parsing value array, initialize the nrows array
           if (_sourceDataset instanceof ValueArray) {
             ValueArray ary = (ValueArray) _sourceDataset;

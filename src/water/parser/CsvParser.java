@@ -2,6 +2,7 @@
 package water.parser;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import water.*;
 import water.parser.ParseDataset.DParseTask;
@@ -77,6 +78,17 @@ public class CsvParser extends CustomParser {
     boolean secondChunk = false;
     int colIdx = 0;
     byte c = bits[offset];
+    // skip comments for the first chunk
+    if ((_ary == null) || (ValueArray.getChunkIndex(key) == 0)) {
+      while (c == '#') {
+        while ((offset < bits.length) && (bits[offset] != CHAR_CR) && (bits[offset] != CHAR_LF)) ++offset;
+        if ((offset+1 < bits.length) && (bits[offset] == CHAR_CR) && (bits[offset+1] == CHAR_LF)) ++offset;
+        ++offset;
+        if (offset >= bits.length)
+          return;
+        c = bits[offset];
+      }
+    }
     callback.newLine();
 MAIN_LOOP:
     while (true) {
@@ -435,210 +447,173 @@ NEXT_CHAR:
     return (c >= CHAR_LF) && ( c<= CHAR_CR);
   }
 
-  private static final byte TOKEN_START = 19;
-  private static final byte SECOND_LINE = 20;
-  private static final byte SECOND_COND_QUOTED_TOKEN = 21;
-  private static final byte SECOND_WHITESPACE_BEFORE_TOKEN = 22;
-  private static final byte SECOND_TOKEN_FIRST_LETTER = 23;
-  private static final byte SECOND_TOKEN = 24;
-  private static final byte SECOND_COND_QUOTE = 25;
-  private static final byte SECOND_SEPARATOR_OR_EOL = 26;
-
-
-  private static boolean canBeInNumber(byte c) {
-    return ((c >='0') && ( c <= '9')) || (c == 'E') || (c == 'e') || (c == '.') || (c == '-') || (c == '+') || (c == '%') || (c == '$');
+  public static class Setup {
+    final byte separator;
+    final String[] columnNames;
+    final boolean hasHeader;
+    public Setup(byte separator, String[] columnNames, boolean hasHeader) {
+      this.separator = separator;
+      this.columnNames = columnNames;
+      this.hasHeader = hasHeader;
+    }
   }
 
-  @SuppressWarnings("fallthrough")
-  public static String [] determineColumnNames(byte[] bits, byte separator) {
-    ArrayList<String> colNames = new ArrayList();
+  private static byte[] separators = new byte[] { ',', ';', '|', '\t', ' ' };
+
+  private static int[] determineSeparatorCounts(String from) {
+    int[] result = new int[separators.length];
+    byte[] bits = from.getBytes();
     int offset = 0;
-    byte state = COND_QUOTED_TOKEN;
-    String [] result;
-    byte quotes = 0;
-    byte c = bits[offset];
-    StringBuilder sb = null;
-    boolean mightBeNumber = true;
-MAIN_LOOP:
-    while (true) {
-NEXT_CHAR:
-      switch (state) {
-        case WHITESPACE_BEFORE_TOKEN:
-          if (c == CHAR_SPACE) {
-            if (c == separator)
-              break NEXT_CHAR;
-          } else if (c == separator) {
-            // we have empty token, store as empty string
-            return null;
+  MAIN_LOOP:
+    while (offset < bits.length) {
+      byte c = bits[offset];
+      for (int i = 0; i < separators.length; ++i)
+        if (c == separators[i])
+          ++result[i];
+      if ((c == '"') || (c == '\'')) {
+        ++offset;
+        while (offset < bits.length) {
+          if (bits[offset] == c) {
+            if (offset+1 == bits.length) // last character on the line was a quote, we are done
+              break MAIN_LOOP;
+            if (bits[offset+1] != c)
+              break;
           }
-          // fallthrough to COND_QUOTED_TOKEN
-        case COND_QUOTED_TOKEN:
-          if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
-            quotes = c;
-            state = TOKEN_START;
-            break NEXT_CHAR;
-          }
-          // fallthrough to TOKEN_START
-        case TOKEN_START:
-          mightBeNumber = true;
-          sb = new StringBuilder();
-          state = TOKEN;
-          // fallthrough to TOKEN
-        case TOKEN:
-          if ((quotes == 0) && ((c == separator) || isEOL(c))) {
-            state = SEPARATOR_OR_EOL;
-            continue MAIN_LOOP;
-          } else if (c == quotes) {
-            state = COND_QUOTE;
-            break NEXT_CHAR;
-          }
-          mightBeNumber = mightBeNumber && canBeInNumber(c);
-          sb.append((char)c);
-          break NEXT_CHAR;
-        case COND_QUOTE:
-          if (c == quotes) {
-            state = TOKEN;
-            sb.append((char)c);
-            break NEXT_CHAR;
-          }
-          quotes = 0;
-          state = SEPARATOR_OR_EOL;
-          // fallthrough to SEPARATOR_OR_EOL
-        case SEPARATOR_OR_EOL:
-          if (sb.toString().isEmpty())
-            mightBeNumber = false;
-          if (mightBeNumber == true)
-            return null; // it is a number, so we can't count it as column header
-          colNames.add(sb.toString());
-          if (isEOL(c)) {
-            state = (c == CHAR_CR) ? EXPECT_COND_LF : SECOND_LINE;
-            break NEXT_CHAR;
-          } else if (c == separator) {
-            state = WHITESPACE_BEFORE_TOKEN;
-            break NEXT_CHAR;
-          } else {
-            return null;
-          }
-        case EXPECT_COND_LF:
-          state = SECOND_LINE;
-          if (c == CHAR_LF)
-            break NEXT_CHAR;
-          // fallthrough to SECOND_LINE
-        case SECOND_LINE:
-          state = SECOND_WHITESPACE_BEFORE_TOKEN;
-          // fallthrough to SECOND_WHITESPACE_BEFORE_TOKEN
-        case SECOND_WHITESPACE_BEFORE_TOKEN:
-          if (c == separator)
-              break NEXT_CHAR;
-          // fallthrough SECOND_COND_QUOTED_TOKEN
-        case SECOND_COND_QUOTED_TOKEN:
-          if ((c == CHAR_SINGLE_QUOTE) || (c == CHAR_DOUBLE_QUOTE)) {
-            quotes = c;
-            state = SECOND_TOKEN_FIRST_LETTER;
-            break NEXT_CHAR;
-          }
-          // fallthrough SECOND_TOKEN_FIRST_LETTER
-        case SECOND_TOKEN_FIRST_LETTER:
-          if (((c >= '0') && (c <= '9'))  || (c == '$')) // we have confirmed it was header
-            break MAIN_LOOP;
-          state = SECOND_TOKEN;
-          // fallthrough SECOND_TOKEN
-        case SECOND_TOKEN:
-          if ((quotes == 0) && ((c == separator) || isEOL(c))) {
-            state = SECOND_SEPARATOR_OR_EOL;
-            continue MAIN_LOOP;
-          } else if (c == quotes) {
-            state = SECOND_COND_QUOTE;
-            break NEXT_CHAR;
-          }
-          sb.append(c);
-          break NEXT_CHAR;
-        case SECOND_COND_QUOTE:
-          if (c == quotes) {
-            state = TOKEN;
-            sb.append(c);
-            break NEXT_CHAR;
-          }
-          quotes = 0;
-          state = SECOND_SEPARATOR_OR_EOL;
-          // fallthorugh to SECOND_SEPARATOR_OR_EOL
-        case SECOND_SEPARATOR_OR_EOL:
-          if (isEOL(c)) { // end of second line means all were strings again...
-            return null;
-          } else if (c == separator) {
-            state = SECOND_WHITESPACE_BEFORE_TOKEN;
-            break NEXT_CHAR;
-          } else {
-            return null;
-          }
+          ++offset;
+        }
       }
       ++offset;
-      if (offset == bits.length)
-        return null;
-      c = bits[offset];
     }
-    if(colNames.isEmpty())return null;
-    result = new String[colNames.size()];
-    colNames.toArray(result);
     return result;
   }
 
- // Guess type of file (csv comma separated, csv space separated, svmlight) and the number of columns,
- // the number of columns for svm light is not reliable as it only relies on info from the first chunk
- public static int[] guessParserSetup(byte[] b, boolean parseFirst ) {
-   // Best-guess on count of columns and separator.  Skip the 1st line.
-   // Count column delimiters in the next line. If there are commas, assume file is comma separated.
-   // if there are (several) ':', assume it is in svmlight format.
+  /** Determines the tokens that are inside a line and returns them as strings
+   * in an array. Assumes the given separator.
+   *
+   * @param from
+   * @param separator
+   * @return
+   */
+  private static String[] determineTokens(String from, byte separator) {
+    ArrayList<String> tokens = new ArrayList();
+    byte[] bits = from.getBytes();
+    int offset = 0;
+    int quotes = 0;
+    while (offset < bits.length) {
+    StringBuilder t = new StringBuilder();
+      byte c = bits[offset];
+      if ((c == '"') || (c == '\'')) {
+        quotes = c;
+        ++offset;
+      }
+      while (offset < bits.length) {
+        c = bits[offset];
+        if ((c == quotes)) {
+          ++offset;
+          if ((offset < bits.length) && (bits[offset] == c)) {
+            t.append((char)c);
+            ++offset;
+            continue;
+          }
+          quotes = 0;
+          break;
+        } else if ((quotes == 0) && ((c == separator) || (c == CHAR_CR) || (c == CHAR_LF))) {
+          break;
+        } else {
+          t.append((char)c);
+          ++offset;
+        }
+      }
+      c = (offset == bits.length) ? CHAR_LF : bits[offset];
+      tokens.add(t.toString());
+      if ((c == CHAR_CR) || (c == CHAR_LF) || (offset == bits.length))
+        break;
+      if (c != separator)
+        return new String[0]; // an error
+      ++offset;
+      while ((offset < bits.length) && ( bits[offset] == ' ')) ++offset;
+    }
+    return tokens.toArray(new String[tokens.size()]);
+  }
 
-   int i=0;
-   // Skip all leading whitespace
-   while( i<b.length && Character.isWhitespace(b[i]) ) i++;
-   if( !parseFirst ) {         // Skip the first line, it might contain labels
-     while( i<b.length && b[i] != '\r' && b[i] != '\n' ) i++; // Skip a line
-   }
-   if( i+1 < b.length && (b[i] == '\r' && b[i+1]=='\n') ) i++;
-   if( i   < b.length &&  b[i] == '\n' ) i++;
-   // start counting columns on the 2nd line
-   final int line_start = i;
-   int cols = 0;
-   int mode = 0;
-   boolean commas  = false;     // Assume white-space only columns
-   boolean escaped = false;
-   while( i < b.length ) {
-     char c = (char)b[i++];
-     if( c == '"' ) {
-       escaped = !escaped;
-       continue;
-     }
-     if (!escaped) {
-       if( c=='\n' || c== '\r' ) {
-         break;
-       }
-       if( !commas && Character.isWhitespace(c) ) { // Whites-space column seperator
-         if( mode == 1 ) mode = 2;
-       } else if( c == ',' ) {   // Found a comma?
-         if( commas == false ) { // Not in comma-seperator mode?
-           // Reset the entire line parse & try again, this time with comma
-           // separators enabled.
-           commas=true;          // Saw a comma
-           i = line_start;       // Reset to line start
-           cols = mode = 0;      // Reset parsing mode
-           continue;             // Try again
-         }
-         if( mode == 0 ) cols++;
-         mode = 0;
-       } else {                  // Else its just column data
-         if( mode != 1 ) cols++;
-         mode = 1;
-       }
-     }
-   }
-   // If no columns, and skipped first row - try again parsing 1st row
-   if( cols == 0 && parseFirst == false ) return guessParserSetup(b,true);
-   return new int[]{ commas ? CHAR_COMMA : CHAR_SPACE, cols };
- }
+  /** Assumption is no numbers in l1 and at least one number in l2.
+   *
+   * For simplicity I am using Java's parsing functions.
+   */
+  private static Setup guessColumnNames(String[] l1, String[] l2, byte separator) {
+    boolean hasNumber = false;
+    for (int i = 0; i < l1.length; ++i) {
+      try {
+        Double.parseDouble(l1[i].trim());
+        hasNumber = true;
+        break;
+      } catch (NumberFormatException e) {
+        // pass
+      }
+    }
+    if (!hasNumber) {
+      for (int i = 0; i < l2.length; ++i) {
+        try {
+          Double.parseDouble(l2[i].trim());
+          hasNumber = true;
+          break;
+        } catch (NumberFormatException e) {
+        // pass
+        }
+      }
+    }
+    if (!hasNumber) {
+      for (int i = 0; i < l1.length; ++i)
+        l1[i] = String.valueOf(i);
+    }
+    return new Setup(separator, l1, hasNumber);
+  }
 
-
+  public static Setup guessCsvSetup(byte[] bits) {
+    String[] lines = new String[2];
+    int offset = 0;
+    while (offset < bits.length) {
+      int lineStart = offset;
+      while ((offset < bits.length) && (bits[offset] != CHAR_CR) && (bits[offset] != CHAR_LF)) ++offset;
+      int lineEnd = offset;
+      ++offset;
+      if ((offset < bits.length) && (bits[offset] == CHAR_LF)) ++offset;
+      if (bits[lineStart] == '#')
+        continue;
+      if (lineEnd>lineStart) {
+        String line = new String(bits,lineStart, lineEnd-lineStart);
+        if (lines[0] == null) {
+          lines[0] = line;
+        } else {
+          lines[1] = line;
+          break;
+        }
+      }
+    }
+    // we do not have enough lines to decide
+    if (lines[1] == null)
+      return null;
+    // when we have two lines, calculate the separator counts on them
+    int[] s1 = determineSeparatorCounts(lines[0]);
+    int[] s2 = determineSeparatorCounts(lines[1]);
+    // now we have the counts - if both lines have the same number of separators
+    // the we assume it is the separator. Separators are ordered by their
+    // likelyhoods. If no separators have same counts, space will be used as the
+    // default one
+    for (int i = 0; i < s1.length; ++i)
+      if (((s1[i] == s2[i]) && (s1[i] != 0)) || (i == separators.length-1)) {
+        try {
+          String[] t1 = determineTokens(lines[0], separators[i]);
+          String[] t2 = determineTokens(lines[1], separators[i]);
+          if (t1.length != t2.length)
+            continue;
+          return guessColumnNames(t1,t2,separators[i]);
+        } catch (Exception e) {
+          // pass
+        }
+      }
+    return null;
+  }
 }
 
 
