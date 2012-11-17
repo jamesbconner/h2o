@@ -231,9 +231,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         hdfs_name_node = kwargs["hdfs_name_node"]
         verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
-    if 'use_flatfile' in kwargs:
-        write_flatfile(node_count=node_count, base_port=base_port, hosts=hosts)
-
     # hardwire this. don't need it to be an arg
     ports_per_node = 3
     node_list = []
