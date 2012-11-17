@@ -37,6 +37,7 @@ public class CsvParser extends CustomParser {
   private static final byte STRING_END = 17;
   private static final byte COND_QUOTED_NUMBER_END = 18;
   private static final byte POSSIBLE_EMPTY_LINE = 19;
+  private static final byte POSSIBLE_CURRENCY = 20;
 
   private static final long LARGEST_DIGIT_NUMBER = 1000000000000000000L;
 
@@ -141,6 +142,24 @@ NEXT_CHAR:
             break MAIN_LOOP; // second chunk only does the first row
           break NEXT_CHAR;
         // ---------------------------------------------------------------------
+        case POSSIBLE_CURRENCY:
+          if (((c >= '0') && (c <= '9')) || (c == '-') || (c == CHAR_DECIMAL_SEPARATOR) || (c == '+')) {
+            state = TOKEN;
+          } else {
+            _str.set(bits,offset-1,0);
+            _str.addChar();
+            if (c == quotes) {
+              state = COND_QUOTE;
+              break NEXT_CHAR;
+            }
+            if ((quotes != 0) || ((!isEOL(c) && (c != CHAR_SEPARATOR)))) {
+              state = STRING;
+            } else {
+              state = STRING_END;
+            }
+          }
+          continue MAIN_LOOP;
+        // ---------------------------------------------------------------------
         case POSSIBLE_EMPTY_LINE:
           if (isEOL(c)) {
             if (c == CHAR_CR)
@@ -189,6 +208,9 @@ NEXT_CHAR:
               exp = 1;
             }
             // fallthrough
+          } else if (c == '$') {
+            state = POSSIBLE_CURRENCY;
+            break NEXT_CHAR;
           } else {
             state = STRING;
             _str.set(bits, offset, 0);
@@ -517,7 +539,7 @@ NEXT_CHAR:
           }
           // fallthrough SECOND_TOKEN_FIRST_LETTER
         case SECOND_TOKEN_FIRST_LETTER:
-          if ((c >= '0') && (c <= '9')) // we have confirmed it was header
+          if (((c >= '0') && (c <= '9'))  || (c == '$')) // we have confirmed it was header
             break MAIN_LOOP;
           state = SECOND_TOKEN;
           // fallthrough SECOND_TOKEN
