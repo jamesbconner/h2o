@@ -47,6 +47,7 @@ public final class ParseDataset {
         parseUncompressed(result,dataset,CustomParser.Type.XLS);
         return;
       } catch (Exception e) {
+        e.printStackTrace();
         // pass
       }
       Compression compression = guessCompressionMethod(dataset);
@@ -55,6 +56,7 @@ public final class ParseDataset {
           parseUncompressed(result,dataset,CustomParser.Type.XLSX);
           return;
         } catch (Exception e) {
+          e.printStackTrace();
           // pass
         }
       }
@@ -531,14 +533,17 @@ public final class ParseDataset {
       DKV.put(_resultKey, ary);
     }
 
-
-    @Override public void init(){
-      super.init();
+    private void createEnums() {
       if(_enums == null){
         _enums = new Enum[_ncolumns];
         for(int i = 0; i < _ncolumns; ++i)
           _enums[i] = new Enum();
       }
+    }
+
+    @Override public void init(){
+      super.init();
+      createEnums();
     }
     /** Sets the column names and creates the array of the enums for each
      * column.
@@ -554,8 +559,10 @@ public final class ParseDataset {
         // Initialize the statistics for the XLS parsers. Statistics for CSV
         // parsers are created in the map method - they must be different for
         // each distributed invocation
-        if ((_parserType == CustomParser.Type.XLS) || (_parserType == CustomParser.Type.XLSX))
+        if ((_parserType == CustomParser.Type.XLS) || (_parserType == CustomParser.Type.XLSX)) {
+          createEnums();
           phaseOneInitialize();
+        }
       }
     }
 

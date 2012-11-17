@@ -23,8 +23,6 @@ public final class ValueString {
    public int hashCode(){
      int hash = 0;
      int n = _off + _length;
-     if (_off < 0)
-       System.out.println("mrdka");
      for (int i = _off; i < n; ++i)
        hash = 31 * hash + _buf[i];
      return hash;
