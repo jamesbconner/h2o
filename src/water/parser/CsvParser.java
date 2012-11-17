@@ -447,6 +447,11 @@ NEXT_CHAR:
     return (c >= CHAR_LF) && ( c<= CHAR_CR);
   }
 
+  /** Setup of the parser.
+   *
+   * Simply holds the column names, their length also determines the number of
+   * columns, the separator used and whether the CSV file had a header or not.
+   */
   public static class Setup {
     final byte separator;
     final String[] columnNames;
@@ -458,8 +463,21 @@ NEXT_CHAR:
     }
   }
 
+  /** Separators recognized by the parser. You can add new separators to this
+   * list and the parser will automatically attempt to recognie them. In case of
+   * doubt the separators are listed in descending order of probability, with
+   * space being the last one - space must always be the last one as it is used
+   * if all other fails because multiple spaces can be used as a single
+   * separator.
+   */
   private static byte[] separators = new byte[] { ',', ';', '|', '\t', ' ' };
 
+  /** Dermines the number of separators in given line. Correctly handles quoted
+   * tokens.
+   *
+   * @param from
+   * @return
+   */
   private static int[] determineSeparatorCounts(String from) {
     int[] result = new int[separators.length];
     byte[] bits = from.getBytes();
@@ -538,7 +556,9 @@ NEXT_CHAR:
 
   /** Assumption is no numbers in l1 and at least one number in l2.
    *
-   * For simplicity I am using Java's parsing functions.
+   * For simplicity I am using Java's parsing functions. Header means that all
+   * tokens in first line are strings and at least one token in the second line
+   * is a number.
    */
   private static Setup guessColumnNames(String[] l1, String[] l2, byte separator) {
     boolean hasNumber = false;
@@ -569,6 +589,14 @@ NEXT_CHAR:
     return new Setup(separator, l1, hasNumber);
   }
 
+  /** Determines the CSV parser setup from the first two lines.
+   *
+   * A separator is selected if both two lines have the same ammount of them
+   * and the tokenization then returns same number of columns.
+   *
+   * @param bits
+   * @return
+   */
   public static Setup guessCsvSetup(byte[] bits) {
     String[] lines = new String[2];
     int offset = 0;
