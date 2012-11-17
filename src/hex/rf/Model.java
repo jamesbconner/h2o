@@ -22,6 +22,10 @@ public class Model extends RemoteTask {
   public int       _features;
   /** Sampling rate used when building trees. */
   public float     _sample;
+  /** Key model was built with */
+  public Key       _dataset;
+  /** Columns ignored in the model. */
+  public int[]     _ignoredColumns;
 
   /** A RandomForest Model
    * @param treeskey    a key of keys of trees
@@ -29,11 +33,13 @@ public class Model extends RemoteTask {
    * @param data        the dataset
    */
   public Model() { }
-  public Model(Key key, Key treeskey, int features, int classes, float sample) {
+  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns) {
     _key = key;
     _classes = classes;
     _features = features;
     _sample = sample;
+    _dataset = dataset;
+    _ignoredColumns = ignoredColumns;
     Key[] tkeys = treeskey.flatten(); // Trees
     if( tkeys == null ) return;       // Broken model?  quit now
     _trees = new byte[tkeys.length][];
@@ -63,26 +69,19 @@ public class Model extends RemoteTask {
    * @param rowsize  the size in byte of each row
    * @return the predicted response class, or class+1 for broken rows
    */
-  private short classify0(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
+  public short classify0(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
     return Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal, (short)_classes);
   }
 
-  private void vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, int[][] ignores, int skipCount ) {
+  private void vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
     assert votes.length == _classes+1/*+1 to catch broken rows*/;
-    TREE:
-    for( int i = 0; i < _ntrees; i++ ) {
-     int[] ignore = ignores[i];
-     if (ignore!=null) {
-       int row_id = row -skipCount;
-       for(int v :ignore) if (v==row_id) continue TREE; else if (v>row_id) break;
-     }
-     votes[classify0(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
-    }
+    for( int i = 0; i < _ntrees; i++ )
+      votes[classify0(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
   }
 
-  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, double[] classWt, Random rand, int[][]ignores, int skipCount ) {
+  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, double[] classWt, Random rand ) {
     // Vote all the trees for the row
-    vote(chunk, row, rowsize, data, offs, size, base, scal, votes, ignores, skipCount);
+    vote(chunk, row, rowsize, data, offs, size, base, scal, votes);
     // Scale the votes by class weights: it as-if rows of the weighted classes
     // were replicated many times so get many votes.
     if( classWt != null )
@@ -104,11 +103,10 @@ public class Model extends RemoteTask {
     throw H2O.unimpl();
   }
 
-  /** Has this tree been built with rows in this chunk? */
-  public boolean buildComplement(int tree_id, Key chunk) {
-    return  Tree.getChunkMap(_trees[tree_id]).containsKey(chunk.toString());
+  // The seed for a given tree
+  int seed( int ntree ) {
+    return UDP.get4(_trees[ntree],4);
   }
-
 
   // Lazy initialization of tree leaves, depth
   private transient Counter _tl, _td;
@@ -145,24 +143,4 @@ public class Model extends RemoteTask {
   public void compute( )         { throw H2O.unimpl(); }
   /** Return the random seed used to sample this tree. */
   public int getTreeSeed(int i) {  return Tree.seed(_trees[i]); }
-  public int getStart(int i, Key chunk_key) {
-    HashMap<String,Integer> map = Tree.getChunkMap(_trees[i]);
-    Integer start = map.get(chunk_key.toString());
-    assert start != null;
-    return start;
-  }
-  public int getEnd(int i, Key chunk_key) {
-    HashMap<String,Integer> map = Tree.getChunkMap(_trees[i]);
-    Integer start = map.get(chunk_key.toString());
-    assert start != null;
-    Integer[] ints = new Integer[map.size()];
-    map.values().toArray(ints);
-    Arrays.sort(ints);
-    boolean next =false;
-    for(int v : ints) {
-      if (next) return v;
-      if (v == start) next = true;
-    }
-    return map.get("end");
-  }
 }

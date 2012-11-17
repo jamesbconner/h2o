@@ -100,7 +100,7 @@ public class RFBuildQuery2 extends H2OPage {
           + "        <input class='span1' id='w%wi' type='text' placeholder='(default 1)'><span class='add-on'>%className</span>"
           + "          <input style='display:none' id='n%wi' type='text' value='%className'>"
           + "      </div><br/><br/>}"
-          + "    <button class='btn btn-primary' onclick='sendForm()' >Calculate RF</button>"
+          + "    <button class='btn btn-primary' onclick='sendForm()' >Calculate Confusion Matrix</button>"
           + "    </div>"
           + "  </div>"
           + "</div>"

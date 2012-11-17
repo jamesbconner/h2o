@@ -15,6 +15,7 @@ public class RFView extends H2OPage {
   public static final String CLASS_COL = "class";
   public static final String REQ_TREE  = "atree";
   public static final String NUM_TREE  = "ntree";
+  public static final String IGNORE_COL = "ignore";
   public static final int MAX_CLASSES = 4096;
 
   @Override public String[] requiredArguments() {
@@ -44,6 +45,11 @@ public class RFView extends H2OPage {
 
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
+    // Pick columns to ignore
+    String igz = p.getProperty(IGNORE_COL);
+    if( igz!=null ) System.out.println("[CM] ignoring: " + igz);
+    int[] ignores = model._ignoredColumns;
+
     // Validation is moderately expensive, so do not run validation unless
     // asked-for or all trees are finally available.  "atrees" is the number of
     // trees for which validation has been asked-for.  Only validate up to this
@@ -63,7 +69,7 @@ public class RFView extends H2OPage {
       // Make or find a C.M. against the model.  If the model has had a prior
       // C.M. run, we'll find it via hashing.  If not, we'll block while we build
       // the C.M.
-      Confusion confusion = Confusion.make( model, ary._key, classcol, classWt );
+      Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt );
       res.addProperty("confusionKey", confusion.keyFor().toString());
     }
     return res;
@@ -87,15 +93,18 @@ public class RFView extends H2OPage {
     if( model.size() == ntree ) atree = ntree;
 
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
+    
+    int[] ignores = model._ignoredColumns == null ? new int[0] : model._ignoredColumns;
+    if( ignores != null && ignores.length > 0 )
+      System.out.println("[CM] ignores columns "+Arrays.toString(ignores));
 
-    if (p.getProperty("clearCM","0").equals("1")) {
+    if (p.getProperty("clearCM","0").equals("1"))
       Confusion.remove(model,ary._key,classcol);
-    }
     
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
-    Confusion confusion = Confusion.make( model, ary._key, classcol, classWt );
+    Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt );
 
     // Display the confusion-matrix table here
     // First the title line

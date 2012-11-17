@@ -22,6 +22,7 @@ public class DRF extends water.DRemoteTask {
   public Key _treeskey; // Key of Tree-Keys built so-far
   int[] _ignores;       // Columns to ignore
   float _sample;        // Sampling rate
+  int _numrows;         // Used to replay sampling
   short _bin_limit;     // Size of largest count-of-uniques in a column
   int _seed;            // Random # seed
   double[] _classWt;    // Class weights
@@ -62,7 +63,7 @@ public class DRF extends water.DRemoteTask {
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
-    assert sample <= 1.0f;
+    assert 0.0f <= sample && sample <= 1.0f;
     drf._sample = sample;
     drf._bin_limit = binLimit;
     drf._classWt = classWt;
@@ -112,9 +113,10 @@ public class DRF extends water.DRemoteTask {
     invokeAll(jobs);
   }
 
-  public final  DataAdapter extractData(Key arykey, Key [] keys){
+  public final  DataAdapter extractData(Key arykey, final Key [] keys) {
     final ValueArray ary = (ValueArray)DKV.get(arykey);
     final int rowsize = ary.row_size();
+    _numrows = DKV.get(keys[0])._max/rowsize; // Rows-per-chunk
 
     // One pass over all chunks to compute max rows
     Timer t_max = new Timer();
@@ -135,7 +137,6 @@ public class DRF extends water.DRemoteTask {
     final int ncolumns = ary.num_cols();
 
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
-    final Key [] ks = keys;
 
     // bin the columns, do at most 1/2 of the columns at once
     int colIds [] = new int[(ncolumns+1)>>1];
@@ -157,7 +158,7 @@ public class DRF extends water.DRemoteTask {
 
     // now read the values
     int start_row = 0;
-    for( final Key k : ks ) {
+    for( final Key k : keys ) {
       final int S = start_row;
       if(!k.home())continue;
       final int rows = DKV.get(k)._max/rowsize;
@@ -165,13 +166,17 @@ public class DRF extends water.DRemoteTask {
         @Override
         protected void compute() {
           byte[] bits = DKV.get(k).get();
-          dapt.stamp(k,S);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncolumns; ++c) // Bail out of broken rows in not-ignored columns
-              if( !icols[c] && !ary.valid(bits,j,rowsize,c)) continue ROWS;
+              if( !icols[c] && !ary.valid(bits,j,rowsize,c)) {
+                dapt.setBad(S+j);
+                continue ROWS;
+              }
             for( int c = 0; c < ncolumns; ++c)
-              if( dapt.binColumn(c) ) {
-                dapt.addValue((float)ary.datad(bits,j,rowsize,c), j + S, c);
+              if( icols[c] )
+                dapt.addValue((short)0,S+j,c);
+              else if( dapt.binColumn(c) ) {
+                dapt.addValue((float)ary.datad(bits,j,rowsize,c), S+j, c);
               } else {
                 long v = ary.data(bits,j,rowsize,c);
                 v -= ary.col_min(c);
@@ -183,7 +188,6 @@ public class DRF extends water.DRemoteTask {
       start_row += rows;
     }
     invokeAll(dataInhaleJobs);
-    dapt.persistChunks();
     Utils.pln("[RF] Inhale done in " + t_inhale);
     return dapt;
   }
@@ -218,7 +222,7 @@ public class DRF extends water.DRemoteTask {
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
-    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel,_features);
+    _rf = new RandomForest(this, t, ntrees, _depth, 0.0, StatType.values()[_stat],_parallel,_features,_ignores);
     tryComplete();
   }
 
