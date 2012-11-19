@@ -248,7 +248,10 @@ h2o.__formatError <- function(error,prefix="  ") {
 
 h2o.__convertToRData <- function(res,forceDataFrame=FALSE) {
   # converts the given response to an R vector or dataframe. Vector is used when there is only one column, otherwise dataframe is used. 
-  if (!forceDataFrame && (length(res$columns) == 1)) {
+  if ((res$num_cols == 0) || (res$num_rows == 0)) {
+    h2o.__printIfVerbose("  empty result, returning null")
+    NULL
+  } else if (!forceDataFrame && (length(res$columns) == 1)) {
     h2o.__printIfVerbose("  converting returned ",res$num_cols," columns and ",res$sent_rows," rows to an R vector")
     as.numeric(res$columns[[1]]$contents)
   } else {
