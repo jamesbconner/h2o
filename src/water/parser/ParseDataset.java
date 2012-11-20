@@ -227,8 +227,7 @@ public final class ParseDataset {
        */
       public void store() {
         assert (_stream != null);
-        if (!_stream.eof())
-          assert (_stream.eof());
+        assert (_stream.eof());
         Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(_chunkIndex));
         AtomicUnion u = new AtomicUnion(_stream._buf,0,_chunkOffset,_stream._buf.length);
         lazy_complete(u.fork(k));
@@ -820,8 +819,7 @@ public final class ParseDataset {
      */
     public void rollbackLine() {
       --_myrows;
-      if (!(_phase == 0 || _s == null))
-        assert (_phase == 0 || _s == null);
+      assert (_phase == 0 || _s == null);
     }
 
     /** Adds double value to the column.
