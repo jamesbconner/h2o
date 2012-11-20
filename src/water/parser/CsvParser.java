@@ -75,7 +75,7 @@ public class CsvParser extends CustomParser {
     int fractionDigits = 0;
     int numStart = 0;
     int tokenStart = 0; // used for numeric token to backtrace if not successful
-    boolean secondChunk = false;
+    int secondChunk = 0; // 0 = not, 1 = in, or back in first one, 2 == no luck
     int colIdx = 0;
     byte c = bits[offset];
     // skip comments for the first chunk
@@ -150,7 +150,7 @@ NEXT_CHAR:
             callback.newLine();
           }
           state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
-          if (secondChunk)
+          if (secondChunk != 0)
             break MAIN_LOOP; // second chunk only does the first row
           break NEXT_CHAR;
         // ---------------------------------------------------------------------
@@ -274,7 +274,7 @@ NEXT_CHAR:
             colIdx = 0;
             callback.newLine();
             state = (c == CHAR_CR) ? EXPECT_COND_LF : POSSIBLE_EMPTY_LINE;
-            if (secondChunk)
+            if (secondChunk != 0)
               break MAIN_LOOP; // second chunk only does the first row
             break NEXT_CHAR;
           } else if ((c == '%')) {
@@ -395,15 +395,15 @@ NEXT_CHAR:
       } // end NEXT_CHAR
       ++offset; // do not need to adjust for offset increase here - the offset is set to tokenStart-1!
       if (offset < 0) {
-        assert secondChunk : "This can only happen when we are in second chunk and are reverting to first one.";
-        secondChunk = false;
+        assert secondChunk != 0 : "This can only happen when we are in second chunk and are reverting to first one.";
+        secondChunk = 0;
         Value v = DKV.get(key); // we had the last key
         assert (v != null) : "The value used to be there!";
         bits = v.get();
         offset += bits.length;
         _str.set(bits,offset,0);
       } else if (offset >= bits.length) {
-        secondChunk = true;
+        ++secondChunk;
         // if we can't get further we might have been the last one and we must
         // commit the latest guy if we had one.
         if (_ary == null) {
@@ -420,6 +420,8 @@ NEXT_CHAR:
         tokenStart -= bits.length;
         Key k2 = _ary.make_chunkkey(ValueArray.getOffset(key)+ValueArray.chunk_size());
         Value v = DKV.get(k2); // we had the last key
+        if (secondChunk == 2)
+          v = null;
         // if we can't get further we might have been the last one and we must
         // commit the latest guy if we had one.
         if (v == null) {
@@ -517,6 +519,7 @@ NEXT_CHAR:
     byte[] bits = from.getBytes();
     int offset = 0;
     int quotes = 0;
+    while ((offset < bits.length) && (bits[offset] == CHAR_SPACE)) ++offset; // skip first whitespace
     while (offset < bits.length) {
     StringBuilder t = new StringBuilder();
       byte c = bits[offset];

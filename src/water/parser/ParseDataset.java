@@ -280,18 +280,18 @@ public final class ParseDataset {
       } while (rowsToParse > 0);
 
       _outputIdx = 0;
-      _lastOffset = - _rowsize;
+      _colIdx = _ncolumns; // skip first line
       // return all output streams
       return result.toArray(new OutputStreamRecord[result.size()]);
     }
 
     transient OutputStreamRecord[] _outputStreams2;
     transient Stream _s;
-    transient int _lastOffset;
     transient int    _outputIdx;
     transient String[] _colNames;
     transient final CustomParser.Type _parserType;
     transient final Value _sourceDataset;
+    transient int _colIdx;
 
 
     // As this is only used for distributed CSV parser we initialize the values
@@ -799,20 +799,15 @@ public final class ParseDataset {
     public void newLine() {
       ++_myrows;
       if (_phase == PASS_TWO) {
-        _lastOffset += _rowsize;
-        // check if the row was a full size row or not
-        if (_lastOffset > _s._off) {
-          // JIRA - maybe we might want to do domething else here - now it fills
-          // the contents to the default value which is 0
-          _s._off = _lastOffset;
-        }
+        while (_colIdx < _ncolumns)
+          addInvalidCol(_colIdx);
+        _colIdx = 0;
         // if we are at the end of current stream, move to the next one
         if (_s.eof()) {
           _outputStreams2[_outputIdx].store();
           ++_outputIdx;
           if (_outputIdx < _outputStreams2.length) {
             _s = _outputStreams2[_outputIdx].initialize();
-            _lastOffset = 0;
           } else {
             _s = null; // just to be sure we throw a NPE if there is a problem
           }
@@ -825,7 +820,8 @@ public final class ParseDataset {
      */
     public void rollbackLine() {
       --_myrows;
-      assert (_phase == 0 || _s == null);
+      if (!(_phase == 0 || _s == null))
+        assert (_phase == 0 || _s == null);
     }
 
     /** Adds double value to the column.
@@ -854,6 +850,7 @@ public final class ParseDataset {
      * @param colIdx
      */
     public void addInvalidCol(int colIdx){
+      ++_colIdx;
       if(colIdx >= _ncolumns)
         return;
       ++_invalidValues[colIdx];
@@ -861,6 +858,7 @@ public final class ParseDataset {
         return;
       switch (_colTypes[colIdx]) {
         case BYTE:
+        case DBYTE:
           _s.set1(-1);
           break;
         case SHORT:
@@ -891,6 +889,7 @@ public final class ParseDataset {
     /** Adds string (enum) value to the column.
      */
     public void addStrCol(int colIdx, ValueString str){
+      ++_colIdx;
       if(colIdx >= _ncolumns)
         return;
       switch (_phase) {
@@ -934,6 +933,7 @@ public final class ParseDataset {
     static final int MAX_FLOAT_MANTISSA = 0x7FFFFF;
     @SuppressWarnings("fallthrough")
     public void addNumCol(int colIdx, long number, int exp) {
+      ++_colIdx;
       if(colIdx >= _ncolumns)
         return;
       switch (_phase) {
