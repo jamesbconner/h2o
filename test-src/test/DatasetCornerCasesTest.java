@@ -37,7 +37,7 @@ public class DatasetCornerCasesTest {
 
     // Check parsed dataset
     assertEquals("Number of chunks == 1", 1, val.chunks());
-    assertEquals("Number of rows   == 1", 1, val.num_rows());
+    assertEquals("Number of rows   == 2", 2, val.num_rows());
     assertEquals("Number of cols   == 9", 9, val.num_cols());
 
     // setup default values for DRF
@@ -98,7 +98,7 @@ public class DatasetCornerCasesTest {
 
     ValueArray val = (ValueArray) DKV.get(okey);
     assertEquals(filename + ": number of chunks == 1", 1, val.chunks());
-    assertEquals(filename + ": number of rows   == 1", 1, val.num_rows());
+    assertEquals(filename + ": number of rows   == 2", 2, val.num_rows());
     assertEquals(filename + ": number of cols   == 9", 9, val.num_cols());
 
     UKV.remove(fkey);
