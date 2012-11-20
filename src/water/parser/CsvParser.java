@@ -647,6 +647,26 @@ NEXT_CHAR:
       }
     return null;
   }
+
+  public static int[] inspect(byte[] bits) {
+    Setup s = guessCsvSetup(bits);
+    if (s == null)
+      return null;
+    int lines = 0;
+    int offset = 0;
+    while (offset < bits.length) {
+      int lineStart = offset;
+      while ((offset < bits.length) && (bits[offset] != CHAR_CR) && (bits[offset] != CHAR_LF)) ++offset;
+      int lineEnd = offset;
+      ++offset;
+      if ((offset < bits.length) && (bits[offset] == CHAR_LF)) ++offset;
+      if (bits[lineStart] == '#')
+        continue;
+      if (lineEnd>lineStart)
+        ++lines;
+    }
+    return new int[] { lines, s.columnNames.length };
+  }
 }
 
 
