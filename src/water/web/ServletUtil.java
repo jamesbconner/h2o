@@ -6,8 +6,7 @@ import water.DKV;
 import water.Key;
 import water.Value;
 import water.ValueArray;
-import water.parser.SeparatedValueParser;
-import water.parser.SeparatedValueParser.Row;
+import water.parser.CsvParser;
 import water.web.Page.PageError;
 
 /**
@@ -47,45 +46,11 @@ public class ServletUtil {
     // Guess any separator
     Key key0 = DKV.get(key).chunk_get(0); // Key for 1st chunk
     byte[] bs = DKV.get(key0).get(); // First chunk
-    char sep = ' ';
-    for( byte b : bs ) {
-      if( b==',' || b=='\t' ) { sep=(char)b; break; }
-      else if( b=='\r' || b=='\n' ) { break; }
-    }
-    SeparatedValueParser csv = new SeparatedValueParser(key, sep, maxCols);
-    double sums[] = new double[maxCols];
-    double mins[] = new double[maxCols];
-    double maxs[] = new double[maxCols];
-    int    rows[] = new int   [maxCols];
-    for( int i = 0; i < maxCols; i++ ) {
-      mins[i] = Double.MAX_VALUE;
-      maxs[i] = Double.MIN_VALUE;
-    }
-    int maxrows = 0;
-    int maxValidColumn = 0;
-    for( Row r : csv ) {
-      for( int i = 0; i < maxCols; ++i ) {
-        double d = r._fieldVals[i];
-        if( !Double.isNaN(d) ) {
-          rows[i]++;
-          sums[i] += d;
-          mins[i] = Math.min(mins[i], d);
-          maxs[i] = Math.max(maxs[i], d);
-          maxrows = Math.max(rows[i],maxrows);
-          maxValidColumn = Math.max(i, maxValidColumn);
-        }
-      }
-    }
+    int[] rows_cols = CsvParser.inspect(bs);
     // Inject into the HTML
-    if( maxValidColumn > 0 && maxrows > 0 ) {
-      row.replace("rows",maxrows);
-      row.replace("cols",maxValidColumn);
-      for( int i=0; i<Math.min(maxValidColumn,5); i++ ) {
-        String s = "";
-        if( mins[i] < Double.MAX_VALUE && maxs[i] > Double.MIN_VALUE && rows[i] > 0 )
-          s = String.format("%4.1f / %4.1f / %4.1f",mins[i],sums[i]/rows[i],maxs[i]);
-        row.replace("col"+i,s);
-      }
+    if (rows_cols != null) {
+      row.replace("rows",rows_cols[0]);
+      row.replace("cols",rows_cols[1]);
     }
     row.append();
   }
