@@ -71,7 +71,7 @@ h2o.put <- function(keyName, value) {
   if (type != "character")
     keyName = deparse(substitute(keyName))
   h2o.__printIfVerbose("  Putting a vector of ",length(value)," to key ",keyName)
-  res = h2o.__remoteSend(h2o.__PAGE_PUT,Key = keyName, Value = paste0(value,collapse=" "))
+  res = h2o.__remoteSend(h2o.__PAGE_PUT,Key = keyName, Value = paste(value,sep="",collapse=" "))
   res$Key
 }
 
@@ -205,8 +205,8 @@ h2o.glm = function(keyName, Y, X = "", negX = "", family = "gaussian", xval = 0,
   type = tryCatch({ typeof(norm) }, error = function(e) { "expr" })
   if (type != "character")
     norm = deparse(substitute(norm))
-  X = paste0(X,collapse=",")
-  negX = paste0(negX,collapse=",")
+  X = paste(X,sep="",collapse=",")
+  negX = paste(negX,sep="",collapse=",")
   h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",Y)
   res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = Y, "-X" = X, negX = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
   res
