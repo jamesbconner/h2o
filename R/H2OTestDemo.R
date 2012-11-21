@@ -12,6 +12,8 @@ h2o.glm(covtype, Y = 12, family=binomial)
 h2o.filter(covtype, covtype[6] < mean(covtype[6]))
 h2o(covtype[1] + covtype[2] * 4 + max(covtype[6]) * covtype[1] + 7 - covtype[3])
 h2o(log(covtype[1]))
+# add randomforest test
+h2o.rf(covtype, class = "54", ntree = "10")
 
 # Run GLM
 h2o.importFile("prostate", paste(getwd(),"../smalldata/logreg/prostate.csv",sep="/"))

@@ -212,6 +212,24 @@ h2o.glm = function(keyName, Y, X = "", negX = "", family = "gaussian", xval = 0,
   res
 }
 
+# RF function. 
+h2o.rf = function(keyName, ntree="", class = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
+  type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
+  if (type != "character")
+    keyName = deparse(substitute(keyName))
+  type = tryCatch({ typeof(ntree) }, error = function(e) { "expr" })
+  if (type != "character")
+    Y = deparse(substitute(ntree))
+  type = tryCatch({ typeof(class) }, error = function(e) { "expr" })
+ 
+  
+  h2o.__printIfVerbose("  running RF on vector ",keyName," class column ",class, " number of trees", ntree)
+  res = h2o.__remoteSend(h2o.__PAGE_RF, Key = keyName, ntree = ntree, class = class)
+  res
+}
+
+
+
 # Internal functions & declarations -----------------------------------------------------------------------------------
 
 h2o.__PAGE_EXEC = "Exec.json"
@@ -222,7 +240,7 @@ h2o.__PAGE_REMOVE = "Remove.json"
 h2o.__PAGE_IMPORT = "ImportUrl.json"
 h2o.__PAGE_PARSE = "Parse.json"
 h2o.__PAGE_GLM = "GLM.json"
-
+h2o.__PAGE_RF  = "RF.json"
 
 h2o.__printIfVerbose <- function(...) {
   if (h2o.VERBOSE == TRUE)
