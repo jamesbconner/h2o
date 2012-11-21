@@ -14,4 +14,4 @@ h2o(log(covtype[1]))
 # Run GLM
 h2o.importFile("prostate", paste(getwd(),"../smalldata/logreg/prostate.csv",sep="/"))
 h2o.inspect("prostate")
-
+h2o.glm(prostate, Y = CAPSULE, family=binomial)
