@@ -1,4 +1,6 @@
 # Test R functionality for Demo
+# to invoke this you need R 2.15 as of now
+# R -f H2OTestDemo.R 
 source("./H2O.R")
 
 # Run expressions on covtype
