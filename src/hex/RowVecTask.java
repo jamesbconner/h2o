@@ -43,7 +43,9 @@ public abstract class RowVecTask extends MRTask {
       break;
     case STANDARDIZE:
       for(int i = 0; i < colIds.length;++i){
-        if(ary.col_mean(colIds[i]) != 0 || ary.col_sigma(colIds[i]) != 1){
+        if(ary.col_has_enum_domain(i)) // do no standardize enums at the moment
+          res[i][1] = 0;
+        else if(ary.col_mean(colIds[i]) != 0 || ary.col_sigma(colIds[i]) != 1){
           res[i][0] = ary.col_mean(colIds[i]);
           res[i][1] = 1/Math.max(Double.MIN_NORMAL, ary.col_sigma(colIds[i]));
         }
