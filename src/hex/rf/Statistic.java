@@ -14,7 +14,7 @@ abstract class Statistic {
   protected final int[][][] _columnDists;
   protected final int[] _features;         // Columns/features that are currently used.
   protected Random _random;                // Pseudo random number generator
-  private int _seed;                       // Seed for prng
+  private long _seed;                      // Seed for prng
   private HashSet<Integer> _remembered;    // Features already used
   final double[] _classWt;                 // Class weights
 
@@ -78,7 +78,7 @@ abstract class Statistic {
     return sum;
   }
 
-  Statistic(Data data, int features, int seed) {
+  Statistic(Data data, int features, long seed) {
     _random = new Random(seed);
     // first create the column distributions
     _columnDists = new int[data.columns()][][];
@@ -116,7 +116,7 @@ abstract class Statistic {
   /** Resets the statistic so that it can be used to compute new node. Creates
    * a new subset of columns that will be analyzed and clears their
    * distribution arrays.   */
-  void reset(Data data, int seed) {
+  void reset(Data data, long seed) {
     _random = new Random(_seed = seed);
     // first get the columns for current split via Reservoir Sampling
     // http://en.wikipedia.org/wiki/Reservoir_sampling
@@ -178,7 +178,7 @@ abstract class Statistic {
     if( bestSplit.isImpossible() ) {
       // See if we have enough features to try again with all new features.
       if( !remember_features(d) ) return bestSplit;
-      reset(d,_seed+1);         // Reset with new features
+      reset(d,_seed+(1L<<16));  // Reset with new features
       for(Row r: d)  addQ(r);   // Reload the distributions
       applyClassWeights();      // Weight the distributions
       bestSplit = split(d,expectLeaf);

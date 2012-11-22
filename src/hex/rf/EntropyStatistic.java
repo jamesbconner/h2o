@@ -25,7 +25,7 @@
  */
 class EntropyStatistic extends Statistic {
   
-  public EntropyStatistic(Data data, int features, int seed) { super(data, features, seed); }
+  public EntropyStatistic(Data data, int features, long seed) { super(data, features, seed); }
   
   @Override protected Split columnSplit(int col, Data d, int[] dist, int distWeight) {
     int[] distL = new int[d.classes()];

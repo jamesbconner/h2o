@@ -105,6 +105,18 @@ public abstract class H2OPage extends Page {
     return result;
   }
 
+  public static long getAsNumber(Properties args, String arg, long def) {
+    long result = def;
+    try {
+      String s = args.getProperty(arg,"");
+      if (!s.isEmpty())
+        result = Long.parseLong(s);
+    } catch (NumberFormatException e) {
+      return def;
+    }
+    return result;
+  }
+
   static String colName(int colId, ValueArray ary   ) { return colName(colId,ary.col_name(colId)); }
   static String colName(int colId, String[] colNames) { return colName(colId,    colNames[colId]); }
   static String colName(int colId, String n) { return n==null ? "Column "+colId : n; }

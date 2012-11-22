@@ -14,7 +14,7 @@ class DataAdapter  {
   public  final ValueArray _ary;
   /** Unique cookie identifying this dataset*/
   private final int _dataId;
-  private final int _seed;
+  private final long _seed;
   public final int _classIdx;
   public final int _numRows;
   public final double[] _classWt;
@@ -23,8 +23,8 @@ class DataAdapter  {
   final short _bin_limit;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
-              int data_id, int seed, short bin_limit, double[] classWt) {
-    _seed = seed+data_id;
+              int data_id, long seed, short bin_limit, double[] classWt) {
+    _seed = seed+((long)data_id<<16);
     _ary = ary;
     _bin_limit = bin_limit;
     _columnNames = ary.col_names();
@@ -77,7 +77,7 @@ class DataAdapter  {
 
   public void computeBins(int col){_c[col].shrink();}
 
-  public int seed()           { return _seed; }
+  public long seed()          { return _seed; }
   public int columns()        { return _c.length;}
   public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
   public int dataId()         { return _dataId; }

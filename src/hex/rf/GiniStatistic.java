@@ -20,7 +20,7 @@ package hex.rf;
  */
 public class GiniStatistic extends Statistic {
 
-  public GiniStatistic(Data data, int features, int seed) { super(data, features, seed); }
+  public GiniStatistic(Data data, int features, long seed) { super(data, features, seed); }
 
   private double gini(int[] dd, int sum) {
     double result = 1.0;

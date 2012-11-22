@@ -104,8 +104,8 @@ public class Model extends RemoteTask {
   }
 
   // The seed for a given tree
-  int seed( int ntree ) {
-    return UDP.get4(_trees[ntree],4);
+  long seed( int ntree ) {
+    return UDP.get8(_trees[ntree],4);
   }
 
   // Lazy initialization of tree leaves, depth
@@ -142,5 +142,5 @@ public class Model extends RemoteTask {
   public void invoke( Key args ) { throw H2O.unimpl(); }
   public void compute( )         { throw H2O.unimpl(); }
   /** Return the random seed used to sample this tree. */
-  public int getTreeSeed(int i) {  return Tree.seed(_trees[i]); }
+  public long getTreeSeed(int i) {  return Tree.seed(_trees[i]); }
 }
