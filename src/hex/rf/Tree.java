@@ -25,14 +25,14 @@ public class Tree extends CountedCompleter {
   final Key _treesKey;
   final Key _modelKey;
   final int _alltrees;          // Number of trees expected to build a complete model
-  final int _seed;              // Pseudo random seed: used to playback sampling
+  final long _seed;             // Pseudo random seed: used to playback sampling
   final int _numrows;           // Used to playback sampling
   final float _sample;          // Sample rate
   transient Timer _timer;
   int[] _ignoreColumns;         // columns ignored by the tree
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, int seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, long seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
@@ -56,7 +56,7 @@ public class Tree extends CountedCompleter {
     return true;
   }
 
-  private Statistic getStatistic(int index, Data data, int seed) {
+  private Statistic getStatistic(int index, Data data, long seed) {
     Statistic result = _stats[index].get();
     if( result==null ) {
       result  = _type == StatType.GINI ?
@@ -83,7 +83,7 @@ public class Tree extends CountedCompleter {
     Statistic.Split spl = left.split(d, false);
     _tree = spl.isLeafNode()
       ? new LeafNode(spl._split)
-      : new FJBuild (spl, d, 0, _seed + 1).compute();
+      : new FJBuild (spl, d, 0, _seed + (1L)<<16).compute();
     StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,200).toString());
     _stats = null; // GC
@@ -134,15 +134,16 @@ public class Tree extends CountedCompleter {
   private class FJBuild extends RecursiveTask<INode> {
     final Statistic.Split _split;
     final Data _data;
-    final int _depth, _seed;
+    final int _depth;
+    final long _seed;
 
-    FJBuild(Statistic.Split split, Data data, int depth, int seed) {
+    FJBuild(Statistic.Split split, Data data, int depth, long seed) {
       _split = split;  _data = data; _depth = depth; _seed = seed;
     }
 
     @Override public INode compute() {
-      Statistic left = getStatistic(0,_data, _seed + 10101); // first get the statistics
-      Statistic rite = getStatistic(1,_data, _seed +  2020);
+      Statistic left = getStatistic(0,_data, _seed + (10101L<<16)); // first get the statistics
+      Statistic rite = getStatistic(1,_data, _seed + ( 2020L<<16));
       Data[] res = new Data[2]; // create the data, node and filter the data
       int c = _split._column, s = _split._split;
       assert c != _data.classIdx();
@@ -155,9 +156,9 @@ public class Tree extends CountedCompleter {
       Statistic.Split ls = left.split(res[0], _depth >= _max_depth); // get the splits
       Statistic.Split rs = rite.split(res[1], _depth >= _max_depth);
       if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
-      else                    fj0 = new  FJBuild(ls,res[0],_depth+1, _seed + 1);
+      else                    fj0 = new  FJBuild(ls,res[0],_depth+1, _seed + (1L<<16));
       if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
-      else                    fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - 1);
+      else                    fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - (1L<<16));
       // Recursively build the splits, in parallel
       if( fj0 != null &&        (fj1!=null ) ) fj0.fork();
       if( fj1 != null ) nd._r = fj1.compute();
@@ -307,7 +308,7 @@ public class Tree extends CountedCompleter {
   public Key toKey() {
     Stream bs = new Stream();
     bs.set4(_data_id);
-    bs.set4(_seed);
+    bs.set8(_seed);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
     DKV.put(key,new Value(key,bs.trim()));
@@ -320,7 +321,7 @@ public class Tree extends CountedCompleter {
   public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal, short badData ) {
     Stream ts = new Stream(tbits);
     ts.get4();    // Skip tree-id
-    ts.get4();    // Skip seed
+    ts.get8();    // Skip seed
 
     while( ts.get1() != '[' ) { // While not a leaf indicator
       int o = ts._off-1;
@@ -343,10 +344,10 @@ public class Tree extends CountedCompleter {
     return (short) ( ts.get1()&0xFF );      // Return the leaf's class
   }
 
-  public static int seed( byte[] bits) {
+  public static long seed( byte[] bits) {
     Stream ts = new Stream(bits);
     ts.get4();
-    return ts.get4();
+    return ts.get8();
   }
 
   public static int dataId( byte[] bits) {
@@ -364,7 +365,7 @@ public class Tree extends CountedCompleter {
     TreeVisitor( byte[] tbits ) {
       _ts = new Stream(tbits);
       _ts.get4();               // Skip tree ID
-      _ts.get4();               // Skip seed
+      _ts.get8();               // Skip seed
     }
     final TreeVisitor<T> visit() throws T {
       byte b = _ts.get1();

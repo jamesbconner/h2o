@@ -35,7 +35,7 @@ public class Data implements Iterable<Row> {
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
   public int classes()           { return _data.classes();     }
-  public int seed()              { return _data.seed();        }
+  public long seed()             { return _data.seed();        }
   public int dataId()            { return _data.dataId();      }
   public int classIdx()          { return _data._classIdx;     }
   public String colName(int i)   { return _data.columnNames()[i]; }
@@ -93,7 +93,7 @@ public class Data implements Iterable<Row> {
   }
 
 
-  private int[] sample_resevoir(double bagSizePct, int seed, int numrows ) {
+  private int[] sample_resevoir(double bagSizePct, long seed, int numrows ) {
     // Resevoir Sampling.  First fill with sequential valid rows.  
     // i ranges from 0 to rows() (all the data).
     // j    is the number of *valid* rows seen so far.  
@@ -127,7 +127,7 @@ public class Data implements Iterable<Row> {
   }
 
   // Roll a fair die for sampling, resetting the random die every numrows
-  private int[] sample_fair(double bagSizePct, int seed, int numrows ) {
+  private int[] sample_fair(double bagSizePct, long seed, int numrows ) {
     Random r = null;
     int rows = rows();
     int size = bagsz(rows,bagSizePct);
@@ -137,7 +137,7 @@ public class Data implements Iterable<Row> {
     int j=0;                    // Number of selected samples
     for( int i=0; i<rows(); i++ ) {
       if( cnt--==0 ) { 
-        r = new Random(seed+i); // Seed is seed+(chunk#*numrows)
+        r = new Random(seed+(i<<16)); // Seed is seed+(chunk#*numrows)
         cnt=numrows-1;          // 
         if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
       }
@@ -151,7 +151,7 @@ public class Data implements Iterable<Row> {
 
   // Determinstically sample the 'this' Data at the bagSizePct.  Toss out
   // invalid rows (as-if not sampled), but maintain the sampling rate.
-  public Data sample(double bagSizePct, int seed, int numrows) {
+  public Data sample(double bagSizePct, long seed, int numrows) {
     assert getClass()==Data.class; // No subclassing on this method
 
     //int[] sample = sample_resevoir(bagSizePct,seed,numrows);

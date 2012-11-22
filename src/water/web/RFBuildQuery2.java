@@ -74,7 +74,7 @@ public class RFBuildQuery2 extends H2OPage {
           + "      <input type='text' class='span2' name='depth' id='depth' placeholder='(depth, no limit)'>"
           + "      <input type='text' class='span2' name='binLimit' id='binLimit' placeholder='(bin limit, 1024)'>"
           + "      <input type='text' class='span2' name='sample' id='sample' placeholder='(sample, 67)'>"
-          + "      <input type='text' class='span2' name='seed' id='seed' placeholder='(seed, 42)'>"
+          + "      <input type='text' class='span2' name='seed' id='seed' placeholder='(seed, 181247619891)'>"
           + "      <input type='text' class='span2' name='features' id='features' placeholder='(features, %defFeatures)'>"
           + "    </div>"
           + "  </div>"

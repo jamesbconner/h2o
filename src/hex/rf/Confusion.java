@@ -98,7 +98,7 @@ public class Confusion extends MRTask {
 
   /** Shared init: for new Confusions, for remote Confusions*/
   private void shared_init() {
-    _rand   = new Random(42);
+    _rand   = new Random(42L<<32);
     _data = (ValueArray) DKV.get(_datakey); // load the dataset
     _model = new Model();
     _model.read(new Stream(UKV.get(_modelKey).get()));
@@ -180,9 +180,9 @@ public class Confusion extends MRTask {
 
     // For all trees, re-iterate the data on this chunk
     for( int ntree = 0; ntree < _model.treeCount(); ntree++ ) {
-      int seed = _model.seed(ntree);
+      long seed = _model.seed(ntree);
       long init_row = _chunk_row_mapping[nchk];
-      Random r = new Random(seed+init_row);
+      Random r = new Random(seed+(init_row<<16));
       
       // Now for all rows, classify & vote!
       ROWS: for( int i = 0; i < rows; i++ ) {

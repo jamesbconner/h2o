@@ -113,7 +113,7 @@ public class RandomForestPage extends H2OPage {
       throw new InvalidInputException("Sampling percent of "+smp+" has to be between 0 and 100");
     float sample = smp==0 ? 1.00f : (smp/100.0f);
     int gini = getAsNumber(p, GINI, StatType.GINI.ordinal());
-    int seed = getAsNumber(p, RAND_SEED, 42);
+    long seed = getAsNumber(p, RAND_SEED, 181247619891L);
     int par = getAsNumber(p, PARALLEL, 1);
     if( !(par == 0 || par == 1) )
       throw new InvalidInputException("Parallel tree building "+par+" must be either 0 or 1");
