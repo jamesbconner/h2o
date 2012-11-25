@@ -27,12 +27,13 @@ public class Model extends RemoteTask {
   /** Columns ignored in the model. */
   public int[]     _ignoredColumns;
 
+  public Model() { }
+
   /** A RandomForest Model
    * @param treeskey    a key of keys of trees
    * @param classes     the number of response classes
    * @param data        the dataset
    */
-  public Model() { }
   public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns) {
     _key = key;
     _classes = classes;
