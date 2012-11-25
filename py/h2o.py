@@ -278,6 +278,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for n in node_list: n.terminate()
         else:
             nodes[:] = node_list
+        check_sandbox_for_errors()
         raise
 
     # this is just in case they don't assign the return to the nodes global?

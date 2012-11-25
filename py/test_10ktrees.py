@@ -12,9 +12,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_GenParity1(self):
-        global SYNDATASETS_DIR
-        global SYNSCRIPTS_DIR
-
         SYNDATASETS_DIR = './syn_datasets'
         if os.path.exists(SYNDATASETS_DIR):
             shutil.rmtree(SYNDATASETS_DIR)
@@ -23,11 +20,10 @@ class Basic(unittest.TestCase):
         SYNSCRIPTS_DIR = './syn_scripts'
 
         # always match the run below!
+        # just using one file for now
         for x in [10000]:
-            # Have to split the string out to list for pipe
             shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
             h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split(),4)
-            # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
         # always match the gen above!
@@ -35,7 +31,6 @@ class Basic(unittest.TestCase):
             sys.stdout.write('.')
             sys.stdout.flush()
 
-            # just use one file for now
             csvFilename = "parity_128_4_" + str(10000) + "_quad.data"  
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
