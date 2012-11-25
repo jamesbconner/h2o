@@ -319,8 +319,8 @@ def check_sandbox_for_errors():
             sandFile = open(LOG_DIR + "/" + filename, "r")
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
-            # oh well...if so ..it's a bug!
-            regex = re.compile('error|assert|warn|info',re.IGNORECASE)
+            # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
+            regex = re.compile('error|assert|warn|info|killing',re.IGNORECASE)
             found = False
             for line in sandFile:
                 if found or regex.search(line):
