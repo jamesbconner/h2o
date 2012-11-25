@@ -2,6 +2,7 @@ import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, o
 import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
+import re
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -300,6 +301,31 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         hosts[0].upload_file(f, progress=prog)
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
+def check_sandbox_for_errors():
+    # dump any assertion or error line to the screen
+    # Both "passing" and failing tests??? I guess that's good.
+    # If timeouts are tuned reasonably, we'll get here quick
+    # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
+
+    # if you find a problem, just keep printing till the end
+    # in that file. Could move this to per-test teardown
+    # but the stdout/stderr is shared for the entire cloud session?
+    # so don't want to dump it multiple times?
+    for filename in os.listdir(LOG_DIR):
+        if re.search('stdout|stderr',filename):
+            sandFile = open(LOG_DIR + "/" + filename, "r")
+            # just in case rror/ssert is lower or upper case
+            # FIX! aren't we going to get the cloud building info failure messages
+            # oh well...if so ..it's a bug!
+            regex = re.compile('error|assert|warn|info',re.IGNORECASE)
+            found = False
+            for line in sandFile:
+                if found or regex.search(line):
+                    # to avoid extra newline from print. line already has one
+                    sys.stdout.write(line)
+                    found = True
+            sandFile.close()
+
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
     try:
@@ -308,6 +334,7 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
+        check_sandbox_for_errors()
 
 # REQUIRED IN EACH TEST: have to touch something otherwise the ssh channel shuts down
 # and terminates the H2O. We're using RemoteH2O which keeps H2O there only 
