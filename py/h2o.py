@@ -59,7 +59,10 @@ def parse_our_args():
     debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
-    sys.argv[1:] = args.unittest_args
+    # FIX! this isn't working to grab the args we don't care about
+    # pass "-f" to stop on first error to unittest. and -v
+    # We want this to be standard, always (note -f for unittest, nose uses -x?)
+    sys.argv[1:] = ["-f", "-v"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
     if verbose:
