@@ -11,8 +11,7 @@ import java.util.regex.Pattern;
 import water.Arguments;
 import water.util.KeyUtil;
 
-/**
- * Launch RF in a new vm and records  results.
+/** Launch RF in a new vm and records  results.
  */
 public class RFRunner {
 
@@ -46,6 +45,8 @@ public class RFRunner {
       if (m.find()) { _err = Integer.parseInt(m.group(1)); return false; }
       m = pleaves.matcher(s);
       if (m.find()) { _avgleaf = Integer.parseInt(m.group(1)); return false; }
+      m = pdepth.matcher(s);
+      if (m.find()) { _avgdepth = Integer.parseInt(m.group(1)); return false; }
       m = prows.matcher(s);
       if (m.find()) { _rows = Integer.parseInt(m.group(1)); return true; }
       return false;
@@ -84,6 +85,7 @@ public class RFRunner {
     int binLimit = 1024;
     String statType = "gini";// split type
     int seed = 42;              // seed
+    String ignores;
   }
 
   static class OptArgs extends Arguments.Opt {
@@ -331,11 +333,20 @@ public class RFRunner {
         "../datasets/UCI/UCI-large/covtype/covtype.data",
       };
 
-    int[] szTrees = new int[]{1,10,20,50,100,200};
-    int[] binLimits = new int[]{1024,10000};
-    int[] samples = new int[]{10,20,50,80,100};
-    String[] stats  = new String[]{"gini","entropy"};
-    int[] seeds = new int[]{ 3, 4, 5, 6};
+    int[] szTrees = new int[]{//1,
+        //10,20,50,100,200
+        250, 300
+    };
+    int[] binLimits = new int[]{//1024,
+        10000};
+    int[] samples = new int[]{//10,
+        20,
+        50,67,80};
+    String[] stats  = new String[]{//"gini",
+        "entropy"};
+    int[] seeds = new int[]{ 3,
+       // 4, 5
+        };
 
     int experiments = files.length * szTrees.length*stats.length*samples.length*seeds.length *binLimits.length;
     String[] commands = new String[experiments];
@@ -349,6 +360,43 @@ public class RFRunner {
               RFArgs rfa = new RFArgs();
               rfa.seed = seed; rfa.statType = stat; rfa.file = f;
               rfa.ntrees = sz; rfa.sample= smpl; rfa.binLimit = bl;
+              String add = special.get(f)==null? "" : (" "+special.get(f));
+              commands[i++] = javaCmd + " " + rfa + add;
+            }
+
+    for( String cmd : commands)
+       runTest(cmd, args.resultDB, out, true);
+
+  }
+
+
+
+  public static void covTest2(String javaCmd, PrintStream out, OptArgs args) throws Exception {
+    String[] files = new String[]{"../datasets/UCI/UCI-large/covtype/covtype.data"};
+    int[] szTrees = new int[]{50,
+        //100,200
+         };
+    int[] binLimits = new int[]{10000};
+    int[] samples = new int[]{50,};
+    String[] stats  = new String[]{ "entropy"};
+    int[] seeds = new int[]{ 3,};
+    int[] ignores = new int[53];
+    for(int i=0;i<ignores.length;i++)ignores[i]=i;
+
+    int experiments = files.length * szTrees.length*stats.length*samples.length*seeds.length *binLimits.length*ignores.length;
+    String[] commands = new String[experiments];
+    int i = 0;
+    for(int ig : ignores)
+    for(String f : files)
+     for (int sz :szTrees)
+      for(String stat : stats)
+        for(int  smpl : samples)
+         for(int  bl : binLimits)
+            for(int seed : seeds) {
+              RFArgs rfa = new RFArgs();
+              rfa.seed = seed; rfa.statType = stat; rfa.file = f;
+              rfa.ntrees = sz; rfa.sample= smpl; rfa.binLimit = bl;
+              rfa.ignores=Integer.toString(ig);
               String add = special.get(f)==null? "" : (" "+special.get(f));
               commands[i++] = javaCmd + " " + rfa + add;
             }
@@ -397,7 +445,7 @@ public class RFRunner {
     new Arguments(args).extract(ARGS);
     PrintStream out = new PrintStream(new File("/tmp/RFRunner.stdout.txt"));
     String javaCmd =   ARGS.jvmArgs + " " + JAR + " " + MAIN;
-    try { covTests(javaCmd, out, ARGS); } finally { out.close(); }
+    try { covTest2(javaCmd, out, ARGS); } finally { out.close(); }
   }
   public static void main3(String[] args) throws Exception {
     final OptArgs ARGS        = new OptArgs();

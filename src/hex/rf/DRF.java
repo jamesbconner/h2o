@@ -6,26 +6,40 @@ import java.util.HashSet;
 import jsr166y.RecursiveAction;
 import water.*;
 
-/**
- * Distributed RandomForest
- * @author cliffc
- */
+/** Distributed RandomForest */
 public class DRF extends water.DRemoteTask {
-  // Cloud-wide data
-  int _ntrees;          // Number of trees TOTAL, not per-node
-  boolean _parallel;    // build trees in parallel or one by one
-  int _depth;           // Tree-depth limiter
-  int _stat;            // Use Gini(1) or Entropy(0) for splits
-  int _classcol;        // Column being classified
-  Key _arykey;          // The ValueArray being RF'd
-  public Key _modelKey; // Where to jam the final trees
-  public Key _treeskey; // Key of Tree-Keys built so-far
-  int[] _ignores;       // Columns to ignore
-  float _sample;        // Sampling rate
-  int _numrows;         // Used to replay sampling
-  short _bin_limit;     // Size of largest count-of-uniques in a column
-  long _seed;           // Random # seed
-  double[] _classWt;    // Class weights
+
+  // OPTIONS FOR RF
+  /** Total number of trees  (default: 10) */
+  int _ntrees;
+  /** If true, build trees in parallel (default: true) */
+  boolean _parallel;
+  /** Maximum depth for trees (default MaxInt) */
+  int _depth;
+  /** Split statistic (1=Gini, 0=Entropy; default 1) */
+  int _stat;
+  /** Feature holding the classifier  (default: #features-1) */
+  int _classcol;
+  /** Features to ignore (default: none) */
+  int[] _ignores;
+  /** Proportion of observations to use for building each individual tree (default: .67)*/
+  float _sample;
+  /** Used to replay sampling */
+  int _numrows;
+  /** Limit of the cardinality of a feature */
+  short _binLimit;
+  /** Pseudo random seed */
+  long _seed;
+  /** Weights of the different features (default: 1/features) */
+  double[] _classWt;
+
+  // INTERNAL DATA
+  /** Key for the data being classified */
+  Key _arykey;
+  /** Key for the model being buildt */
+  public Key _modelKey;
+  /** Key for the trees built so far*/
+  public Key _treeskey;
 
   int _features;
 
@@ -35,9 +49,7 @@ public class DRF extends water.DRemoteTask {
   transient Timer _t_main;     // Main timer
 
   public static class IllegalDataException extends Error {
-    public IllegalDataException(String string) {
-      super(string);
-    }
+    public IllegalDataException(String string) { super(string); }
   }
 
   private void validateInputData(ValueArray ary){
@@ -65,7 +77,7 @@ public class DRF extends water.DRemoteTask {
     drf._modelKey = modelKey;
     assert 0.0f <= sample && sample <= 1.0f;
     drf._sample = sample;
-    drf._bin_limit = binLimit;
+    drf._binLimit = binLimit;
     drf._classWt = classWt;
     drf.validateInputData(ary);
     drf._t_main = new Timer();
@@ -132,7 +144,7 @@ public class DRF extends water.DRemoteTask {
 
     Timer t_bin = new Timer();
     // The data adapter...
-    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _bin_limit, _classWt);
+    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _binLimit, _classWt);
     // Now load the DataAdapter with all the rows on this Node
     final int ncolumns = ary.num_cols();
 
@@ -219,6 +231,12 @@ public class DRF extends water.DRemoteTask {
     int ntrees = _ntrees/nodes.size();
     if( Arrays.binarySearch(array, H2O.SELF) < _ntrees - ntrees*nodes.size() )
       ++ntrees;
+
+    if (_features==-1){
+      int used = -1; // we don't use the class column, but it is not ignored
+      for(int i = 0; i < t.columns(); ++i) if(!t.ignore(i)) ++used;
+      _features = (int)Math.sqrt(used);
+    }
 
     // Make a single RandomForest to that does all the tree-construction work.
     Utils.pln("[RF] Building "+ntrees+" trees");
