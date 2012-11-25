@@ -11,9 +11,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_GenParity1(self):
-        global SYNDATASETS_DIR
-        global SYNSCRIPTS_DIR
-
         SYNDATASETS_DIR = './syn_datasets'
         if os.path.exists(SYNDATASETS_DIR):
             shutil.rmtree(SYNDATASETS_DIR)
