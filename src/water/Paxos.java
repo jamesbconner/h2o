@@ -220,10 +220,10 @@ public abstract class Paxos {
       }
       if( !n.check_cloud_md5() ) {
         if( H2O.CLOUD.size() > 1 ) {
-          System.err.println("[h2o] Killing "+n+"  because of jar mismatch.");
+          System.err.println("[h2o] Error: Killing "+n+"  because of jar mismatch.");
           UDPRebooted.T.mismatch.singlecast(n);
         } else {
-          System.err.println("[h2o] Attempting to join "+n+" with a jar mismatch. Killing self.");
+          System.err.println("[h2o] Error: Attempting to join "+n+" with a jar mismatch. Killing self.");
           System.exit(-1);
         }
         return false;
