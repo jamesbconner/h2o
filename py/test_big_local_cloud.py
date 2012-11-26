@@ -4,8 +4,8 @@ import time
 
 class Basic(unittest.TestCase):
     def test_Cloud(self):
-        for trials in range(0,5):
-            for tryNodes in range(16,20):
+        for trials in range(0,2):
+            for tryNodes in [12]:
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
