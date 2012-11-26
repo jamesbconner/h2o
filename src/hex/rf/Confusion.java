@@ -1,5 +1,6 @@
 package hex.rf;
 
+import java.io.*;
 import java.util.Random;
 
 import water.*;
@@ -295,4 +296,5 @@ public class Confusion extends MRTask {
         + "                Validated on (rows): " + _rows;
     Utils.pln(s);
   }
+
 }

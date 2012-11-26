@@ -80,8 +80,10 @@ public class RandomForest {
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
     int[] ignores = new int[0];
     if (ARGS.ignores!=null) {
-      ignores = new int[1];
-      ignores[0] = Integer.parseInt(ARGS.ignores);
+      String[] strs = ARGS.ignores.split(",");
+      ignores = new int[strs.length];
+      for(int i=0;i<ignores.length;i++)
+        ignores[i] = Integer.parseInt(strs[i]);
     }
 
     final int num_cols = va.num_cols();
