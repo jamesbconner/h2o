@@ -206,7 +206,6 @@ global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
 def write_flatfile(node_count=2, base_port=54321, hosts=None):
-    ports_per_node = 3
     # we're going to always create the flatfile. 
     # Used for all remote cases now. (per sri)
     pff = open(flatfile_name(), "w+")
@@ -322,7 +321,7 @@ def check_sandbox_for_errors():
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile('error|assert|warn|info|killing',re.IGNORECASE)
+            regex = re.compile('error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
             found = False
             for line in sandFile:
                 if found or regex.search(line):
@@ -757,6 +756,7 @@ class LocalH2O(H2O):
         self.rc = None
         # FIX! no option for local /home/username ..always /tmp
         self.ice = tmp_dir('ice.')
+        self.flatfile = flatfile_name()
         spawn = spawn_cmd('local-h2o', self.get_args(),
                 capture_output=self.capture_output)
         self.ps = spawn[0]
@@ -765,7 +765,8 @@ class LocalH2O(H2O):
         return find_file('build/h2o.jar')
 
     def get_flatfile(self):
-        return find_file(flatfile_name())
+        return self.flatfile
+        # return find_file(flatfile_name())
 
     def get_ice_dir(self):
         return self.ice
