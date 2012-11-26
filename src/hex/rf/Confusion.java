@@ -1,6 +1,5 @@
 package hex.rf;
 
-import java.io.*;
 import java.util.Random;
 
 import water.*;

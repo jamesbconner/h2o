@@ -2,8 +2,7 @@ package hex.rf;
 
 import hex.rf.Data.Row;
 
-import java.io.*;
-import java.util.HashMap;
+import java.io.IOException;
 import java.util.UUID;
 
 import jsr166y.CountedCompleter;
