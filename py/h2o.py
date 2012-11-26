@@ -33,6 +33,7 @@ def unit_main():
     parse_our_args()
     unittest.main()
 
+
 browse_json = False
 verbose = False
 ipaddr = None
@@ -572,7 +573,7 @@ class H2O(object):
 
         # add one dictionary to another (2nd dominates)               
         params_list.update(kwargs)
-        print "hello", params_list
+        verboseprint("GLM params list", params_list)
 
         a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_list))
         verboseprint("GLM:", a)
