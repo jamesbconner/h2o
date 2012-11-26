@@ -1,7 +1,7 @@
 package hex.rf;
-import java.io.*;
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.Arrays;
+import java.util.BitSet;
 
 import water.*;
 

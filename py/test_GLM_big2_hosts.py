@@ -22,13 +22,9 @@ class Basic(unittest.TestCase):
     def test_C_hhp_107_01(self):
         timeoutSecs = 2
         
-        csvFilename = "hhp_107_01.data.gz"
-        csvPathname = "../smalldata" + '/' + csvFilename
+        csvPathname = "../smalldata/hhp_107_01.data.gz"
         print "\n" + csvPathname
-
-        # columns start at 0
-        put = h2o.nodes[0].put_file(csvPathname)
-        parseKey = h2o.nodes[0].parse(put['key'])
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
         # pop open a browser on the cloud
         h2b.browseTheCloud()
@@ -39,23 +35,23 @@ class Basic(unittest.TestCase):
         # for appendX in range(1,107):
         for appendX in range(1,107):
             if (appendX == 9):
-                print "\n9 causes singularity. not used"
+                print "9 causes singularity. not used"
             elif (appendX == 12): 
-                print "\n12 causes singularity. not used"
+                print "12 causes singularity. not used"
             elif (appendX == 25): 
-                print "\n25 causes singularity. not used"
+                print "25 causes singularity. not used"
             elif (appendX == 53): 
-                print "\n53 causes singularity. not used"
+                print "53 causes singularity. not used"
             elif (appendX == 54): 
-                print "\n54 causes singularity. not used"
+                print "54 causes singularity. not used"
             elif (appendX == 76): 
-                print "\n76 causes singularity. not used"
+                print "76 causes singularity. not used"
             elif (appendX == 91): 
-                print "\n91 causes singularity. not used"
+                print "91 causes singularity. not used"
             elif (appendX == 103): 
-                print "\n103 causes singularity. not used"
+                print "103 causes singularity. not used"
             elif (appendX == 106):
-                print "\n106 is output."
+                print "106 is output."
             else:
                 if X == "": 
                     X = str(appendX)
@@ -63,7 +59,7 @@ class Basic(unittest.TestCase):
                     X = X + "," + str(appendX)
 
         # go right to the big X and iterate on that case
-        for trial in range(1,10):
+        for trial in range(2):
             print "\nTrial #", trial, "start"
             print "\nX:", X
             print "Y:", Y

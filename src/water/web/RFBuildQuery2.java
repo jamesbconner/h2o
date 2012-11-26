@@ -32,7 +32,7 @@ public class RFBuildQuery2 extends H2OPage {
           + "        str = str+','+name+'='+weight\n"
           + "    }\n"
           + "    return str\n"
-          + "}\n"       
+          + "}\n"
           + "function sendForm() {\n"
           + "  document.getElementById('classWt').value = getWeightsString()\n"
           + "  document.forms['rfbuild'].submit()\n"
@@ -56,7 +56,7 @@ public class RFBuildQuery2 extends H2OPage {
           + "  <div class='control-group'>"
           + "    <label class='control-label' for='ntree'>Number of trees</label>"
           + "    <div class='controls'>"
-          + "      <input type='text span5' id='ntree' name='ntree' placeholder='5 (default)'>"
+          + "      <input type='text span5' id='ntree' name='ntree' placeholder='50 (default)'>"
           + "    </div>"
           + "  </div>"
           + "  <div class='control-group'>"
@@ -135,7 +135,7 @@ public class RFBuildQuery2 extends H2OPage {
       str.replace("className",classes[i]);
       str.append();
     }
-    
+
     return result.toString();
   }
 

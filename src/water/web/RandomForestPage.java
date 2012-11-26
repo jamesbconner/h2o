@@ -103,7 +103,7 @@ public class RandomForestPage extends H2OPage {
   @Override
   public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(p, DATA_KEY);
-    int ntree = getAsNumber(p,NUM_TREE, 5);
+    int ntree = getAsNumber(p,NUM_TREE, 50);
     if( ntree <= 0 )
       throw new InvalidInputException("Number of trees "+ntree+" must be positive.");
     int depth = getAsNumber(p,MAX_DEPTH, Integer.MAX_VALUE);

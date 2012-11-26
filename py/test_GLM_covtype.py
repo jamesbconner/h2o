@@ -1,5 +1,5 @@
 import os, json, unittest, time, shutil, sys
-import h2o, h2o_cmd as cmd
+import h2o, h2o_cmd
 
 
 class Basic(unittest.TestCase):
@@ -25,8 +25,7 @@ class Basic(unittest.TestCase):
         # columns start at 0
         Y = "54"
         X = ""
-        put = h2o.nodes[0].put_file(csvPathname)
-        parseKey = h2o.nodes[0].parse(put['key'])
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
         for appendX in xrange(55):
             # if (appendX == 9):
@@ -39,9 +38,9 @@ class Basic(unittest.TestCase):
                 else:
                     X = X + "," + str(appendX)
 
-            # only run if appendX is > 29, to save time
+            # only run if appendX is > 49 to save time
             # we need to cycle up to there though, to get the parameters right for GLM json
-            if (appendX>29):
+            if (appendX>49):
                 sys.stdout.write('.')
                 sys.stdout.flush() 
                 print "\nX:", X
@@ -49,7 +48,7 @@ class Basic(unittest.TestCase):
 
                 start = time.time()
                 ### FIX! add some expected result checking
-                glm = cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
 
                 h2o.verboseprint("\nglm:", glm)
                 print "\nerrRate:", glm['errRate']

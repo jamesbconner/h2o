@@ -31,7 +31,7 @@ public class Confusion extends MRTask {
   public long                 _matrix[][];
   /** Number of mistaken assignments. */
   private long                _errors;
-  /** Number of rows used for building the matrix. */
+  /** Number of rows used for building the matrix.*/
   private long                _rows;
   /** Class weights */
   private double[]            _classWt;
@@ -43,7 +43,7 @@ public class Confusion extends MRTask {
   transient private int[]     _validation;
   /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
   transient private int       _rows_per_normal_chunk;
-  // Data to replay the sampling algorithm
+  /** Data to replay the sampling algorithm */
   transient private int[]     _chunk_row_mapping;
   private int[] _ignores;
 
@@ -67,7 +67,7 @@ public class Confusion extends MRTask {
   static public Key keyFor(Key modelKey, int msize, Key datakey, int classcol) {
     return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"])");
   }
-  
+
   public static void remove(Model model, Key datakey, int classcol) {
     Key key = keyFor(model._key, model.size(), datakey, classcol);
     UKV.remove(key);
@@ -183,7 +183,7 @@ public class Confusion extends MRTask {
       long seed = _model.seed(ntree);
       long init_row = _chunk_row_mapping[nchk];
       Random r = new Random(seed+(init_row<<16));
-      
+
       // Now for all rows, classify & vote!
       ROWS: for( int i = 0; i < rows; i++ ) {
         if( ignoreRow(nchk, i) ) continue;  // Skipped for validating & training
@@ -200,6 +200,7 @@ public class Confusion extends MRTask {
       }
     }
 
+    int validation_rows = 0;
     // Assemble the votes-per-class into predictions & score each row
     _matrix = new long[_N][_N]; // Make an empty confusion matrix for this chunk
     for( int i = 0; i < rows; i++ ) {
@@ -217,14 +218,16 @@ public class Confusion extends MRTask {
         int j = _rand.nextInt(tied); // From zero to number of tied classes-1
         int k = 0;
         for( int l=0; l<_N; l++ )
-          if( vi[l]==vi[result] && (k++ >= j) ) 
+          if( vi[l]==vi[result] && (k++ >= j) )
             { result = l; break; }
       }
       int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][result]++;
       if( result != cclass ) _errors++;
+      validation_rows++;
     }
+    _rows=Math.max(validation_rows,_rows);
   }
 
   /** Reduction combines the confusion matrices. */
@@ -292,4 +295,5 @@ public class Confusion extends MRTask {
         + "                Validated on (rows): " + _rows;
     Utils.pln(s);
   }
+
 }

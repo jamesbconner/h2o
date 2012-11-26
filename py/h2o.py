@@ -2,6 +2,7 @@ import time, os, json, signal, tempfile, shutil, datetime, inspect, threading, o
 import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
+import re
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -32,6 +33,7 @@ def unit_main():
     parse_our_args()
     unittest.main()
 
+
 browse_json = False
 verbose = False
 ipaddr = None
@@ -58,7 +60,10 @@ def parse_our_args():
     debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
-    sys.argv[1:] = args.unittest_args
+    # FIX! this isn't working to grab the args we don't care about
+    # pass "-f" to stop on first error to unittest. and -v
+    # We want this to be standard, always (note -f for unittest, nose uses -x?)
+    sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
     if verbose:
@@ -201,7 +206,6 @@ global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
 def write_flatfile(node_count=2, base_port=54321, hosts=None):
-    ports_per_node = 3
     # we're going to always create the flatfile. 
     # Used for all remote cases now. (per sri)
     pff = open(flatfile_name(), "w+")
@@ -274,6 +278,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for n in node_list: n.terminate()
         else:
             nodes[:] = node_list
+        check_sandbox_for_errors()
         raise
 
     # this is just in case they don't assign the return to the nodes global?
@@ -300,6 +305,31 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         hosts[0].upload_file(f, progress=prog)
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
+def check_sandbox_for_errors():
+    # dump any assertion or error line to the screen
+    # Both "passing" and failing tests??? I guess that's good.
+    # If timeouts are tuned reasonably, we'll get here quick
+    # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
+
+    # if you find a problem, just keep printing till the end
+    # in that file. Could move this to per-test teardown
+    # but the stdout/stderr is shared for the entire cloud session?
+    # so don't want to dump it multiple times?
+    for filename in os.listdir(LOG_DIR):
+        if re.search('stdout|stderr',filename):
+            sandFile = open(LOG_DIR + "/" + filename, "r")
+            # just in case rror/ssert is lower or upper case
+            # FIX! aren't we going to get the cloud building info failure messages
+            # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
+            regex = re.compile('error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
+            found = False
+            for line in sandFile:
+                if found or regex.search(line):
+                    # to avoid extra newline from print. line already has one
+                    sys.stdout.write(line)
+                    found = True
+            sandFile.close()
+
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
     try:
@@ -308,6 +338,7 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
+        check_sandbox_for_errors()
 
 # REQUIRED IN EACH TEST: have to touch something otherwise the ssh channel shuts down
 # and terminates the H2O. We're using RemoteH2O which keeps H2O there only 
@@ -541,7 +572,7 @@ class H2O(object):
 
         # add one dictionary to another (2nd dominates)               
         params_list.update(kwargs)
-        print "hello", params_list
+        verboseprint("GLM params list", params_list)
 
         a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_list))
         verboseprint("GLM:", a)
@@ -725,6 +756,7 @@ class LocalH2O(H2O):
         self.rc = None
         # FIX! no option for local /home/username ..always /tmp
         self.ice = tmp_dir('ice.')
+        self.flatfile = flatfile_name()
         spawn = spawn_cmd('local-h2o', self.get_args(),
                 capture_output=self.capture_output)
         self.ps = spawn[0]
@@ -733,7 +765,8 @@ class LocalH2O(H2O):
         return find_file('build/h2o.jar')
 
     def get_flatfile(self):
-        return find_file(flatfile_name())
+        return self.flatfile
+        # return find_file(flatfile_name())
 
     def get_ice_dir(self):
         return self.ice

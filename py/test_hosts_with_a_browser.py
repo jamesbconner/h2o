@@ -16,7 +16,7 @@ class Basic(unittest.TestCase):
         # do what my json says, but with my hdfs. hdfs_name_node from the json
         # I'll set use_hdfs to False here, because H2O won't start if it can't talk to the hdfs
         # h2o_hosts.build_cloud_with_hosts(use_hdfs=False)
-        h2o_hosts.build_cloud_with_hosts(use_hdfs=True)
+        h2o_hosts.build_cloud_with_hosts(use_hdfs=False)
 
     @classmethod
     def tearDownClass(cls):
@@ -26,9 +26,9 @@ class Basic(unittest.TestCase):
 
         h2b.browseTheCloud()
         csvPathname = '../smalldata/poker/poker1000'
-        h2o_cmd.runRF(trees=10000, timeoutSecs=300, csvPathname=csvPathname)
+        # h2o_cmd.runRF(trees=10000, timeoutSecs=300, csvPathname=csvPathname)
 
-        h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+        # h2b.browseJsonHistoryAsUrlLastMatch("RFView")
 
         # browseJsonHistoryAsUrl()
 

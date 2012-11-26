@@ -94,9 +94,9 @@ public class Data implements Iterable<Row> {
 
 
   private int[] sample_resevoir(double bagSizePct, long seed, int numrows ) {
-    // Resevoir Sampling.  First fill with sequential valid rows.  
+    // Resevoir Sampling.  First fill with sequential valid rows.
     // i ranges from 0 to rows() (all the data).
-    // j    is the number of *valid* rows seen so far.  
+    // j    is the number of *valid* rows seen so far.
     // rows is the number of *valid* rows total.
     // invariant:  size/rows==bagSizePct
     Random r = new Random(seed);
@@ -136,9 +136,9 @@ public class Data implements Iterable<Row> {
     int cnt=0;                  // Counter for resetting Random
     int j=0;                    // Number of selected samples
     for( int i=0; i<rows(); i++ ) {
-      if( cnt--==0 ) { 
+      if( cnt--==0 ) {
         r = new Random(seed+(i<<16)); // Seed is seed+(chunk#*numrows)
-        cnt=numrows-1;          // 
+        cnt=numrows-1;          //
         if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
       }
       if( _data.classOf(i) != -1 && r.nextFloat() < f ) {
@@ -164,7 +164,7 @@ public class Data implements Iterable<Row> {
     int size = (int)(rows * bagSizePct);
     return (size>0 || rows==0) ? size : 1;
   }
-  
+
   public Data complement(Data parent, short[] complement) { throw new Error("Only for subsets."); }
   @Override public Data clone() { return this; }
   protected int permute(int idx) { return idx; }

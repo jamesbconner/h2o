@@ -32,7 +32,7 @@ public class RandomForest {
 	String file = "smalldata/poker/poker-hand-testing.data";
 	String rawKey;
 	String parsdedKey;
-	String validationFile = null;
+	String validationFile;
 	String h2oArgs = " --name=Test"+ System.nanoTime()+ " ";
 	int ntrees = 10;
 	int depth = Integer.MAX_VALUE;
@@ -40,23 +40,19 @@ public class RandomForest {
 	int binLimit = 1024;
 	int classcol = -1;
 	int features = -1;
+	int parallel = 1;
 	String statType = "entropy";
 	int seed = 42;
+	String ignores;
   }
 
   static final OptArgs ARGS = new OptArgs();
 
-  public int features() {
-    if( _features != -1 ) return _features;
-    int used = -1; // we don't use the class column, but it is not ignored
-    for(int i = 0; i < _data.columns(); ++i) if(!_data.ignore(i)) ++used;
-    return (_features = (int)Math.sqrt(used));
-  }
+  public int features() { return _features; }
 
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
-    int features = -1;
     arguments.extract(ARGS);
     if(ARGS.h2oArgs.startsWith("\"") && ARGS.h2oArgs.endsWith("\""))
       ARGS.h2oArgs = ARGS.h2oArgs.substring(1, ARGS.h2oArgs.length()-1);
@@ -82,12 +78,20 @@ public class RandomForest {
       return;
     }
     StatType st = ARGS.statType.equals("gini") ? StatType.GINI : StatType.ENTROPY;
+    int[] ignores = new int[0];
+    if (ARGS.ignores!=null) {
+      String[] strs = ARGS.ignores.split(",");
+      ignores = new int[strs.length];
+      for(int i=0;i<ignores.length;i++)
+        ignores[i] = Integer.parseInt(strs[i]);
+    }
+
     final int num_cols = va.num_cols();
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, new int[0], Key.make("model"),true, null,features);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1);
     drf.get(); // block
     Model model = UKV.get(drf._modelKey, new Model());
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);
@@ -99,10 +103,10 @@ public class RandomForest {
       Key[] keys = new Key[(int)valAry.chunks()];
       for( int i=0; i<keys.length; i++ )
         keys[i] = valAry.chunk_get(i);
-      Confusion c = Confusion.make( model, valKey, classcol, new int[0], null);
+      Confusion c = Confusion.make( model, valKey, classcol,ignores, null);
       c.report();
     } else {
-      Confusion c = Confusion.make( model, drf._arykey, classcol, new int[0], null);
+      Confusion c = Confusion.make( model, drf._arykey, classcol, ignores, null);
       c.setValidation(drf._validation.getPermutationArray());
       c.report();
     }

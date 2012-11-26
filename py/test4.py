@@ -10,31 +10,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-    def test_B_GenParity1(self):
-        global SYNDATASETS_DIR
-        global SYNSCRIPTS_DIR
-
-        SYNDATASETS_DIR = './syn_datasets'
-        if os.path.exists(SYNDATASETS_DIR):
-            shutil.rmtree(SYNDATASETS_DIR)
-        os.mkdir(SYNDATASETS_DIR)
-
-        SYNSCRIPTS_DIR = './syn_scripts'
-
-        # always match the run below!
-        for x in [10000]:
-            # Have to split the string out to list for pipe
-            shCmdString = "perl " + SYNSCRIPTS_DIR + "/parity.pl 128 4 "+ str(x) + " quad"
-            h2o.spawn_cmd('parity.pl', shCmdString.split())
-            # the algorithm for creating the path and filename is hardwired in parity.pl..i.e
-            csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
-
+    def test_B_hhp_107_01_loop(self):
         timeoutSecs = 10
         trial = 1
         n = h2o.nodes[0]
@@ -42,7 +18,7 @@ class Basic(unittest.TestCase):
             sys.stdout.write('.')
             sys.stdout.flush()
 
-            csvPathname = "../smalldata/hhp_107_01_short.data"
+            csvPathname = "../smalldata/hhp_107_01.data.gz"
             put = n.put_file(csvPathname)
             parseKey = n.parse(put['key'])
 

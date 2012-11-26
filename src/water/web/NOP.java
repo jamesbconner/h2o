@@ -3,13 +3,11 @@ package water.web;
 
 import hex.NOPTask;
 
-import java.text.DecimalFormat;
-import java.util.*;
-import java.util.Map.Entry;
+import java.util.Properties;
 
 import water.*;
 
-import com.google.gson.*;
+import com.google.gson.JsonObject;
 
 public class NOP extends H2OPage {
 

@@ -11,12 +11,6 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test1(self):
         for x in xrange (1,2000,1):
             if ((x % 100) == 0):
