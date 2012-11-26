@@ -72,6 +72,7 @@ public class CsvParser extends CustomParser {
     int quotes = 0;
     long number = 0;
     int exp = 0;
+    boolean decimal = false;
     int fractionDigits = 0;
     int numStart = 0;
     int tokenStart = 0; // used for numeric token to backtrace if not successful
@@ -210,6 +211,7 @@ NEXT_CHAR:
             state = NUMBER;
             number = 0;
             fractionDigits = 0;
+            decimal = false;
             numStart = offset;
             tokenStart = offset;
             if (c == '-') {
@@ -240,6 +242,7 @@ NEXT_CHAR:
             ++numStart;
             state = NUMBER_FRACTION;
             fractionDigits = offset;
+            decimal = true;
             break NEXT_CHAR;
           } else if ((c == 'e') || (c == 'E')) {
             ++numStart;
@@ -319,7 +322,7 @@ NEXT_CHAR:
         case NUMBER_FRACTION:
           if ((c >= '0') && (c <= '9')) {
             if (number >= LARGEST_DIGIT_NUMBER) {
-              if (fractionDigits!=0)
+              if (decimal)
                 fractionDigits = offset - 1 - fractionDigits;
               state = NUMBER_SKIP;
             } else {
@@ -328,13 +331,13 @@ NEXT_CHAR:
             break NEXT_CHAR;
           } else if ((c == 'e') || (c == 'E')) {
             ++numStart;
-            if (fractionDigits!=0)
+            if (decimal)
               fractionDigits = offset - 1 - fractionDigits;
             state = NUMBER_EXP_START;
             break NEXT_CHAR;
           }
           state = COND_QUOTED_NUMBER_END;
-          if (fractionDigits!=0)
+          if (decimal)
             fractionDigits = offset - fractionDigits-1;
           if (exp == -1) {
             number = -number;
