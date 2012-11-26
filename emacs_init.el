@@ -2,6 +2,9 @@
 ;; Set the debug option to enable a backtrace when a problem occurs.
 ;;(setq debug-on-error t)
 
+;; TAGS!!!
+;;rm TAGS; ctags -e --recurse=yes --extra=+q --fields=+fksaiS
+
 ;; JDEE.  For me: mostly the debugger
 (add-to-list 'load-path (expand-file-name "~/Desktop/Dropbox/Programs/Emacs/jdee-2.4.0.1/lisp"))
 
