@@ -60,7 +60,7 @@ class Basic(unittest.TestCase):
 
                 start = time.time()
                 ### FIX! add some expected result checking
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=timeoutSecs)
 
                 h2o.verboseprint("\nglm:", glm)
                 print "\nTrial #", trial

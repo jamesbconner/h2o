@@ -561,13 +561,14 @@ class H2O(object):
     # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
     # in the dataset. We'll just do that all the time for now.
     # FIX! add more parameters from the wiki
-    def GLM(self, key, Y, family="binomial", **kwargs):
+    def GLM(self, key, Y, family="binomial", glm_lambda=None, **kwargs):
         # we're going to build up the list by adding kwargs here, because
         # the possibilities are large and changing!
         params_list = { 
                 "family": family,
                 "Y": Y,
                 "Key": key,
+                "lambda": glm_lambda
                 }
 
         # add one dictionary to another (2nd dominates)               
@@ -576,12 +577,6 @@ class H2O(object):
 
         a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_list))
         verboseprint("GLM:", a)
-        return a
-
-    def GLM_view(self, key):
-        a = self.__check_request(requests.get(self.__url('GLMView.json'),
-            params={"Key": key}))
-        verboseprint("GLM_view:", a)
         return a
 
     def stabilize(self, test_func, error,

@@ -23,15 +23,20 @@ class Basic(unittest.TestCase):
 
     def test_100kx7cat(self):
 
-        # these are still in /home/kevin/scikit/datasets/logreg
-        # "4_100kx7_logreg.data",
-        # "8_100kx7_logreg.data",
-        # "16_100kx7_logreg.data"
 
+        # larger set in my local dir
+        csvFilenameList = [
+            "1_100kx7_logreg.data",
+            "2_100kx7_logreg.data",
+            "4_100kx7_logreg.data",
+            "8_100kx7_logreg.data",
+            "16_100kx7_logreg.data"
+        ]
+        # these are still in /home/kevin/scikit/datasets/logreg
         # FIX! just two for now..
         csvFilenameList = [
             "1_100kx7_logreg.data.gz",
-            "2_100kx7_logreg.data.gz",
+            "2_100kx7_logreg.data.gz"
         ]
 
         # pop open a browser on the cloud
@@ -41,12 +46,17 @@ class Basic(unittest.TestCase):
         # save the first, for all comparisions, to avoid slow drift with each iteration
         firstglm = {}
         for csvFilename in csvFilenameList:
-            csvPathname = h2o.find_file('smalldata' + '/' + csvFilename)
+            csvPathname = h2o.find_file('smalldata/' + csvFilename)
+            # I use this if i want the larger set in my localdir
+            # csvPathname = h2o.find_file('/home/kevin/scikit/datasets/logreg/' + csvFilename)
+
             print "\n" + csvPathname
 
             start = time.time()
             ### FIX! add some expected result checking
+            # can't pass lamba as kwarg because it's a python reserved word
             glm = h2o_cmd.runGLM(csvPathname=csvPathname, Y=7, family="binomial", 
+                xval=10, norm="L1", glm_lambda=1e-4,
                 timeoutSecs=timeoutSecs)
 
             h2o.verboseprint("\nglm:", glm)
@@ -73,7 +83,7 @@ class Basic(unittest.TestCase):
                 delta = .1 * float(glm[key])
                 msg = "Too large a delta (" + str(delta) + ") comparing current and first for: " + key
                 self.assertAlmostEqual(float(glm[key]), float(firstglm[key]), delta=delta, msg=msg);
-                self.assertGreater(float(glm[key]), 0.0, key + " not > 0.0 in current")
+                self.assertGreaterEqual(float(glm[key]), 0.0, key + " not >= 0.0 in current")
 
 
             if firstglm:
