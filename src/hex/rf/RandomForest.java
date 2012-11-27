@@ -97,18 +97,14 @@ public class RandomForest {
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);
 
     Timer t_valid = new Timer();
-    Confusion c = null;
+    Key valKey = drf._arykey;
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
-      Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
+      valKey = KeyUtil.load_test_file(ARGS.validationFile);
       ValueArray valAry = KeyUtil.parse_test_key(valKey);
       Key[] keys = new Key[(int)valAry.chunks()];
-      for( int i=0; i<keys.length; i++ )
-        keys[i] = valAry.chunk_get(i);
-      c = Confusion.make( model, valKey, classcol,ignores, null);
-    } else {
-      c = Confusion.make( model, drf._arykey, classcol, ignores, null);
+      for( int i=0; i<keys.length; i++ ) keys[i] = valAry.chunk_get(i);
     }
-    c.report();
+    Confusion.make( model, valKey, classcol,ignores, null).report();
     Utils.pln("[RF] Validation done in: " + t_valid);
     UDPRebooted.T.shutdown.broadcast();
   }
