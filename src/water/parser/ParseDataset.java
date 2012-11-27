@@ -733,7 +733,7 @@ public final class ParseDataset {
     }
 
     static long pow10i(int exp){
-      assert 10 >= exp && exp >= 0:"unexpceted exponent " + exp;
+      assert 10 >= exp && exp >= 0:"unexpected exponent " + exp;
       return powers10i[exp];
     }
 
@@ -819,8 +819,6 @@ public final class ParseDataset {
      */
     public void rollbackLine() {
       --_myrows;
-      if(_phase != 0 && _s != null)
-        System.out.println("haha");
       assert (_phase == 0 || _s == null);
     }
 
