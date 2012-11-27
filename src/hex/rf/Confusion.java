@@ -38,9 +38,6 @@ public class Confusion extends MRTask {
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42. */
   private transient Random    _rand;
-  /** The indices of the rows used for validation. This is currently mostly used
-      for single node validation (the indices come from the complement of sample). */
-  transient private int[]     _validation;
   /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
   transient private int       _rows_per_normal_chunk;
   /** Data to replay the sampling algorithm */
@@ -128,24 +125,6 @@ public class Confusion extends MRTask {
       }
   }
 
-  /** Set the validation set before starting. */
-  public void setValidation(int[] indices) {
-    if( _validation != null ) throw new Error("Confusion Matrix already initialized.");
-    _validation = indices;
-  }
-
-  /** index in the validation set. */
-  private int _posInValidation;
-
-  /** Skip rows that are not in the validation set. Assumes the set is sorted in
-   * ascending order.*/
-  private boolean ignoreRow(int chunk_idx, int row) {
-    if( _validation == null ) return false; // no validation set, use all rows.
-    row = chunk_idx * _rows_per_normal_chunk + row; // adjust to get an absolute row number
-    while( _validation.length > _posInValidation && _validation[_posInValidation] < row )  _posInValidation++;
-    if( _validation.length == _posInValidation ) return true; // gone past the end... ignore
-    return !(_validation[_posInValidation] == row); // return true if we shoud ignore the row
-  }
 
   /**A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
   public void map(Key chunk_key) {
@@ -186,8 +165,6 @@ public class Confusion extends MRTask {
 
       // Now for all rows, classify & vote!
       ROWS: for( int i = 0; i < rows; i++ ) {
-        if( ignoreRow(nchk, i) ) continue;  // Skipped for validating & training
-
         for(int c = 0; c < ncols; ++c) // Bail out of broken rows in not-ignored columns
           if( !icols[c] && !_data.valid(chunk_bits,i,rowsize,c))
             continue ROWS;      // Skip partial row

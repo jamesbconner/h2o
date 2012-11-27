@@ -97,18 +97,18 @@ public class RandomForest {
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);
 
     Timer t_valid = new Timer();
+    Key valKey = drf._arykey;
+    Utils.pln("[RF] Computing out of bag error");
+    Confusion.make( model, valKey, classcol,ignores, null).report();
+
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate n the suplied file
-      Key valKey = KeyUtil.load_test_file(ARGS.validationFile);
-      ValueArray valAry = KeyUtil.parse_test_key(valKey);
-      Key[] keys = new Key[(int)valAry.chunks()];
-      for( int i=0; i<keys.length; i++ )
-        keys[i] = valAry.chunk_get(i);
-      Confusion c = Confusion.make( model, valKey, classcol,ignores, null);
-      c.report();
-    } else {
-      Confusion c = Confusion.make( model, drf._arykey, classcol, ignores, null);
-      c.setValidation(drf._validation.getPermutationArray());
-      c.report();
+      File f = new File(ARGS.validationFile);
+      System.out.println("[RF] Loading validation file " + f);
+      Key fk = KeyUtil.load_test_file(f);
+      ValueArray v = KeyUtil.parse_test_key(fk,Key.make(KeyUtil.getHexKeyFromFile(f)));
+      valKey = v._key;
+      DKV.remove(fk);
+      Confusion.make( model, valKey, classcol,ignores, null).report();
     }
     Utils.pln("[RF] Validation done in: " + t_valid);
     UDPRebooted.T.shutdown.broadcast();
