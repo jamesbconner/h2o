@@ -23,7 +23,6 @@ public class UDPHeartbeat extends UDP {
   // and local Node health, published by any Node.
   static void build_and_multicast( H2O cloud ) {
     H2O.SELF.set_cloud_id(cloud._id);
-    H2O.SELF.set_cloud_md5();
     MultiCast.multicast(H2O.SELF._health_buf);
   }
 

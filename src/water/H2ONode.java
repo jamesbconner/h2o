@@ -157,7 +157,9 @@ public class H2ONode implements Comparable {
     } catch( SocketException e ) {
       throw new RuntimeException(e);
     }
-    return intern(new H2Okey(local,H2O.UDP_PORT));
+    H2ONode s = intern(new H2Okey(local,H2O.UDP_PORT));
+    s.set_cloud_md5();
+    return s;
   }
   static InetAddress findInetAddressForSelf() throws Error {
     // Get a list of all valid IPs on this machine.  Typically 1 on Mac or
@@ -412,7 +414,7 @@ public class H2ONode implements Comparable {
     udp_bytes_sent(8),          // UDP packets sent
     max(0);
     ;
-    private final int size;
+    final int size;
     private int off;
     hb( int size ) {
       this.size = size;
@@ -550,6 +552,11 @@ public class H2ONode implements Comparable {
     for( int i = 0; i < hb.cloud_md5.size; ++i )
       match &= Boot._init._jarHash[i] == _health_buf[i + hb.cloud_md5.offset()];
     return match;
+  }
+  public boolean has_cloud_md5() {
+    for( int i = 0; i < hb.cloud_md5.size; ++i )
+      if( _health_buf[i + hb.cloud_md5.offset()] != 0 ) return true;
+    return false;
   }
 
   private long get_buf(int off, int size) {
