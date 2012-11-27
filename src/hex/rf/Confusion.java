@@ -115,7 +115,6 @@ public class Confusion extends MRTask {
     super.init();
     shared_init();
     // Make a mapping from chunk# to row# just for chunks on this node
-    int x = ValueArray.getChunkIndex(_keys[_keys.length-1]);
     _chunk_row_mapping = new int[ValueArray.getChunkIndex(_keys[_keys.length-1])+1];
     int off=0;
     for( Key k : _keys )
@@ -155,7 +154,6 @@ public class Confusion extends MRTask {
     for( int k : _ignores ) icols[k]=true;
     // Replay the Data.java's "sample_fair" sampling algorithm to exclude data
     // we trained on during voting.
-    assert nchk==0 || _chunk_row_mapping[nchk]>0;
 
     // For all trees, re-iterate the data on this chunk
     for( int ntree = 0; ntree < _model.treeCount(); ntree++ ) {
