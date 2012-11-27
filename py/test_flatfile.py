@@ -7,8 +7,8 @@ class Basic(unittest.TestCase):
     def setUpClass(cls):
         # I suppose we really should move flatfile creation for hosts/ec2/and local
         # into build_cloud. it doesn't need to be here external
-        h2o.write_flatfile(node_count=3, base_port=54321)
-        h2o.build_cloud(node_count=3,base_port=54321, use_flatfile=True)
+        h2o.write_flatfile(node_count=3)
+        h2o.build_cloud(node_count=3,use_flatfile=True)
 
     @classmethod
     def tearDownClass(cls):

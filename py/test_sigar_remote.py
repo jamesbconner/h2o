@@ -34,8 +34,7 @@ class Basic(unittest.TestCase):
 
         h2o.upload_jar_to_remote_hosts(hosts)
         # build cloud
-        nodes = h2o.build_remote_cloud(hosts, nodes_per_host, 
-                base_port=55321, sigar=True)
+        nodes = h2o.build_remote_cloud(hosts, nodes_per_host, sigar=True)
 
 
     @classmethod

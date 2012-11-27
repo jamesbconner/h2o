@@ -30,8 +30,7 @@ class Basic(unittest.TestCase):
             # use 60 sec min, 2 sec per node.
             timeoutSecs = max(60, 2*(len(h2o_hosts.hosts) * nodes_per_host))
             
-            h2o.build_cloud(nodes_per_host, base_port=56321, 
-                hosts=h2o_hosts.hosts, timeoutSecs=60, retryDelaySecs=1)
+            h2o.build_cloud(nodes_per_host, hosts=h2o_hosts.hosts, timeoutSecs=60, retryDelaySecs=1)
 
             # FIX! if node[0] is fast, maybe the other nodes aren't at a point where they won't get
             # connection errors. Stabilize them too! Can have short timeout here, because they should be 
