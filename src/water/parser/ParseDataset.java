@@ -819,6 +819,8 @@ public final class ParseDataset {
      */
     public void rollbackLine() {
       --_myrows;
+      if(_phase != 0 && _s != null)
+        System.out.println("haha");
       assert (_phase == 0 || _s == null);
     }
 
@@ -887,11 +889,11 @@ public final class ParseDataset {
     /** Adds string (enum) value to the column.
      */
     public void addStrCol(int colIdx, ValueString str){
-      ++_colIdx;
       if(colIdx >= _ncolumns)
         return;
       switch (_phase) {
         case PASS_ONE:
+          ++_colIdx;
           Enum e = _enums[colIdx];
           if(e == null || e.isKilled())return;
           if(_colTypes[colIdx] ==UCOL)
@@ -901,6 +903,7 @@ public final class ParseDataset {
           break;
         case PASS_TWO:
           if(_enums[colIdx] != null) {
+            ++_colIdx;
             int id = _enums[colIdx].getTokenId(str);
             // we do not expect any misses here
             assert 0 <= id && id < _enums[colIdx].size();
