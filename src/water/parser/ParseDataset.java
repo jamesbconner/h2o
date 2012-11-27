@@ -670,7 +670,7 @@ public final class ParseDataset {
                 _enums[i].merge(other._enums[i]);
               if(other._min[i] < _min[i])_min[i] = other._min[i];
               if(other._max[i] > _max[i])_max[i] = other._max[i];
-              if(other._scale[i] > _scale[i])_scale[i] = other._scale[i];
+              if(other._scale[i] < _scale[i])_scale[i] = other._scale[i];
               if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
               _mean[i] += other._mean[i];
             }
@@ -733,7 +733,7 @@ public final class ParseDataset {
     }
 
     static long pow10i(int exp){
-      assert 10 >= exp && exp >= 0:"unexpceted exponent " + exp;
+      assert 10 >= exp && exp >= 0:"unexpected exponent " + exp;
       return powers10i[exp];
     }
 
@@ -819,8 +819,6 @@ public final class ParseDataset {
      */
     public void rollbackLine() {
       --_myrows;
-      if(_phase != 0 && _s != null)
-        System.out.println("haha");
       assert (_phase == 0 || _s == null);
     }
 
