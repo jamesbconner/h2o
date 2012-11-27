@@ -4,6 +4,9 @@ import h2o, h2o_cmd
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # FIX! saw a issue where 3 jvms, caused RF not to get the last tree?
+        # fairness?
+        # passed with 2. depends on machine.
         h2o.build_cloud(node_count=3)
 
     @classmethod

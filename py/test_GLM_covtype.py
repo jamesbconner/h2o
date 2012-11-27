@@ -5,12 +5,12 @@ import h2o, h2o_cmd
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        node_count = 4
-        h2o.build_cloud(node_count)
+        # uses two much memory with 4?
+        h2o.build_cloud(3)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(h2o.nodes)
+        h2o.tear_down_cloud()
 
     def test_A_Basic(self):
         for n in h2o.nodes:

@@ -73,6 +73,7 @@ public class Boot extends ClassLoader {
       dir.deleteOnExit();
     } else {
       this._jarHash = new byte[16];
+      Arrays.fill(this._jarHash, (byte)0xFF);
     }
     _h2oJar = jar;
     _parentDir = (dir==null) ? new File(".") : dir;

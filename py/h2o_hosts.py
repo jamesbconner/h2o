@@ -1,4 +1,5 @@
 import getpass, json, h2o
+import random
 # UPDATE: all multi-machine testing will pass list of IP and base port addresses to H2O
 # means we won't realy on h2o self-discovery of cluster
 
@@ -20,7 +21,11 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     hostList = hostDict.setdefault('ip','192.168.0.161')
     h2oPerHost = hostDict.setdefault('h2o_per_host', 2)
     # default should avoid colliding with sri's demo cloud ports: 54321
-    basePort = hostDict.setdefault('base_port', 55321)
+    # we get some problems with sticky ports, during back to back tests in regressions
+    # to avoid waiting, randomize the port to make it less likely?
+    # at least for the hosts case
+    offset = random.randint(0,31)
+    basePort = hostDict.setdefault('base_port', 55300 + offset)
     username = hostDict.setdefault('username','0xdiag')
     # stupid but here for clarity
     password = hostDict.setdefault('password', None)
@@ -69,7 +74,6 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
         hosts.append(h2o.RemoteHost(h, username, password))
    
     h2o.write_flatfile(node_count=h2oPerHost, base_port=basePort, hosts=hosts)
-
     h2o.upload_jar_to_remote_hosts(hosts, slow_connection=slow_connection)
 
     # timeout wants to be larger for large numbers of hosts * h2oPerHost

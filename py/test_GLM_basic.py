@@ -7,11 +7,11 @@ class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global nodes
-        nodes = h2o.build_cloud(node_count=1)
+        nodes = h2o.build_cloud(1)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def test_A_Basic(self):
         for n in nodes:

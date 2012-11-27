@@ -10,8 +10,10 @@ import java.net.DatagramPacket;
 
 public class UDPPaxosProposal extends UDP {
   void call(DatagramPacket pack, H2ONode h2o) {
-    long proposal_num = get8(pack.getData(),SZ_PORT);
-    Paxos.do_proposal(proposal_num,h2o);
+    if( h2o.has_cloud_md5() ) {
+      long proposal_num = get8(pack.getData(),SZ_PORT);
+      Paxos.do_proposal(proposal_num,h2o);
+    }
     // This is a stateless paxos-style packet; we must free it
     UDPReceiverThread.free_pack(pack);
   }

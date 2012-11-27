@@ -9,7 +9,7 @@ import java.net.DatagramPacket;
  */
 public class UDPPaxosNack extends UDP {
   void call(DatagramPacket pack, H2ONode h2o) {
-    Paxos.do_nack(pack.getData(), h2o);
+    if(h2o.has_cloud_md5()) Paxos.do_nack(pack.getData(), h2o);
     // This is a stateless paxos-style packet; we must free it
     UDPReceiverThread.free_pack(pack);
   }

@@ -19,6 +19,7 @@ class Basic(unittest.TestCase):
     def testCloud(self):
         global nodes
 
+        baseport = 54300
         for tryNodes in range(2,10):
             sys.stdout.write('.')
             sys.stdout.flush()
@@ -37,6 +38,9 @@ class Basic(unittest.TestCase):
 
             # can't talk to cloud after we tear it down. This will fail
             # FIX! I suppose tear down should be checked somehow at some point
+
+            # increment the base_port to avoid sticky ports when we do another
+            baseport += 3 * tryNodes
 
 if __name__ == '__main__':
     h2o.unit_main()

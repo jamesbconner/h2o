@@ -44,7 +44,8 @@ class Basic(unittest.TestCase):
         infile = open("../smalldata/datagen1.csv", 'r') 
         csvPathname = SYNDATASETS_DIR + "/datagen1_1.csv"
         outfile = open(csvPathname,'w') # existing file gets erased
-        # assume all the test files are unix lineend. I guess there shouldn't be any "in-between" ones
+        # assume all the test files are unix lineend. 
+        # I guess there shouldn't be any "in-between" ones
         # okay if they change I guess.
         for line in infile.readlines():
             outfile.write(line.strip("\n") + "\r")
