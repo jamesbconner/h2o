@@ -79,6 +79,7 @@ public final class ParseDataset {
     }
     DParseTask phaseTwo = DParseTask.createPassTwo(phaseOne);
     phaseTwo.passTwo();
+    phaseTwo.block_pending();
     if ((phaseTwo._error != null) && !phaseTwo._error.isEmpty()) {
       System.err.println(phaseTwo._error);
       UKV.remove(result); // delete bad stuff if any
