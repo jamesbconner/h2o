@@ -16,7 +16,7 @@ class Basic(unittest.TestCase):
         if not os.path.exists(csvPathname):
             raise Exception("Can't find %s." % (csvPathname))
 
-        h2o_cmd.runRF(trees=50, timeoutSecs=10, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=50, timeoutSecs=50, csvPathname=csvPathname)
 
 if __name__ == '__main__':
     h2o.unit_main()

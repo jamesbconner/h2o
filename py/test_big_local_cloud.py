@@ -20,7 +20,7 @@ class Basic(unittest.TestCase):
                 h2o.clean_sandbox()
                 # with so many jvms, wait for sticky ports to be freed up..slow os stuff?
                 # changed, to increment the base_port, to avoid reuse immediately
-                # time.sleep(4)
+                time.sleep(4)
                 base_port += 3 * tryNodes
 
 

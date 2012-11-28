@@ -7,8 +7,8 @@ import java.util.Random;
 import water.*;
 import water.exec.Expr.Result;
 
-/** A class that represents the function call. 
- * 
+/** A class that represents the function call.
+ *
  * Checks arguments in a proper manner using the argchecker instances and
  * executes the function. Subclasses should only override the doEval abstract
  * method.
@@ -19,21 +19,21 @@ import water.exec.Expr.Result;
 public abstract class Function {
 
   // ArgCheck ------------------------------------------------------------------
-  
+
   public abstract class ArgCheck {
     public final String _name;
     public final Result _defaultValue;
-    
+
     protected ArgCheck() {
       _name = null; // required
       _defaultValue = null;
     }
-    
+
     protected ArgCheck(String name) {
       _name = name;
       _defaultValue = null;
     }
-    
+
     protected ArgCheck(String name, double defaultValue) {
       _name = name;
       _defaultValue = Result.scalar(defaultValue);
@@ -43,33 +43,33 @@ public abstract class Function {
       _name = name;
       _defaultValue = Result.string(defaultValue);
     }
-    
-    
+
+
     public abstract void checkResult(Result r) throws Exception;
   }
 
   // ArgScalar -----------------------------------------------------------------
-  
+
   public class ArgValue extends ArgCheck {
 
     public ArgValue() { }
     public ArgValue(String name) { super(name); }
-    
+
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtKey)
         throw new Exception("Expected value (possibly multiple columns)");
     }
   }
-  
-  
+
+
   // ArgScalar -----------------------------------------------------------------
-  
+
   public class ArgScalar extends ArgCheck {
 
     public ArgScalar() { }
     public ArgScalar(String name) { super(name); }
     public ArgScalar(String name, double defaultValue) { super(name,defaultValue); }
-    
+
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtNumberLiteral)
         throw new Exception("Expected number literal");
@@ -77,13 +77,13 @@ public abstract class Function {
   }
 
   // ArgInt --------------------------------------------------------------------
-  
+
   public class ArgInt extends ArgCheck {
 
     public ArgInt() { }
     public ArgInt(String name) { super(name); }
     public ArgInt(String name, long defaultValue) { super(name,defaultValue); }
-    
+
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtNumberLiteral)
         throw new Exception("Expected number");
@@ -93,13 +93,13 @@ public abstract class Function {
   }
 
   // ArgIntPositive-------------------------------------------------------------
-  
+
   public class ArgIntPositive extends ArgCheck {
 
     public ArgIntPositive() { }
     public ArgIntPositive(String name) { super(name); }
     public ArgIntPositive(String name, long defaultValue) { super(name,defaultValue); }
-    
+
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtNumberLiteral)
         throw new Exception("Expected number");
@@ -109,23 +109,23 @@ public abstract class Function {
         throw new Exception("Expected positive argument");
     }
   }
-  
+
   // ArgString -----------------------------------------------------------------
-  
+
   public class ArgString extends ArgCheck {
 
     public ArgString() { }
     public ArgString(String name) { super(name); }
     public ArgString(String name, String defaultValue) { super(name,defaultValue); }
-    
+
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtStringLiteral)
         throw new Exception("Expected string literal");
     }
   }
-  
+
   // ArgColIdent ---------------------------------------------------------------
-  
+
   public class ArgColIdent extends ArgCheck {
 
     public ArgColIdent() { }
@@ -141,12 +141,12 @@ public abstract class Function {
           return;
       throw new Exception("String or integer expected, float found.");
     }
-    
+
   }
-  
-  
+
+
   // ArgSingleColumn -----------------------------------------------------------
-  
+
   public class ArgVector extends ArgCheck {
     public ArgVector() { }
     public ArgVector(String name) { super(name); }
@@ -161,14 +161,14 @@ public abstract class Function {
         throw new Exception("Expected single column vector, but "+va.num_cols()+" columns found.");
     }
   }
-  
+
   // Function implementation ---------------------------------------------------
-    
+
   private ArrayList<ArgCheck> _argCheckers = new ArrayList();
   private HashMap<String,Integer> _argNames = new HashMap();
 
   public final String _name;
-  
+
   protected void addChecker(ArgCheck checker) {
     if (checker._name!=null)
       _argNames.put(checker._name,_argCheckers.size());
@@ -176,29 +176,29 @@ public abstract class Function {
   }
 
   public ArgCheck checker(int index) {
-    return _argCheckers.get(index);  
+    return _argCheckers.get(index);
   }
-  
+
   public int numArgs() {
     return _argCheckers.size();
   }
-  
+
   public int argIndex(String name) {
-    Integer i = _argNames.get(name); 
-    return i == null ? -1 : i; 
+    Integer i = _argNames.get(name);
+    return i == null ? -1 : i;
   }
-  
+
   public Function(String name) {
     _name = name;
     assert (FUNCTIONS.get(name) == null);
     FUNCTIONS.put(name,this);
   }
-  
-  
+
+
   public abstract Result eval(Result... args) throws Exception;
-  
-  // static list of all functions 
-  
+
+  // static list of all functions
+
   public static final HashMap<String,Function> FUNCTIONS = new HashMap();
 
   public static void initializeCommonFunctions() {
@@ -217,16 +217,16 @@ public abstract class Function {
 // Min -------------------------------------------------------------------------
 
 class Min extends Function {
-  
+
   static class MRMin extends Helpers.ScallarCollector {
 
     @Override protected void collect(double x) { if (x < _result) _result = x; }
 
     @Override protected void reduce(double x) { if (x < _result) _result = x; }
-    
+
     public MRMin(Key k, int col) { super(k,col,Double.MAX_VALUE); }
   }
-  
+
   public Min(String name) {
     super(name);
     addChecker(new ArgVector("src"));
@@ -242,16 +242,16 @@ class Min extends Function {
 // Max -------------------------------------------------------------------------
 
 class Max extends Function {
-  
+
   static class MRMax extends Helpers.ScallarCollector {
 
     @Override protected void collect(double x) { if (x > _result) _result = x; }
 
     @Override protected void reduce(double x) { if (x > _result) _result = x; }
-    
+
     public MRMax(Key k, int col) { super(k,col,-Double.MAX_VALUE); }
   }
-  
+
   public Max(String name) {
     super(name);
     addChecker(new ArgVector("src"));
@@ -267,16 +267,16 @@ class Max extends Function {
 // Sum -------------------------------------------------------------------------
 
 class Sum extends Function {
-  
+
   static class MRSum extends Helpers.ScallarCollector {
 
     @Override protected void collect(double x) { _result += x; }
 
     @Override protected void reduce(double x) { _result += x; }
-    
+
     public MRSum(Key k, int col) { super(k,col,0); }
   }
-  
+
   public Sum(String name) {
     super(name);
     addChecker(new ArgVector("src"));
@@ -292,21 +292,21 @@ class Sum extends Function {
 // Mean ------------------------------------------------------------------------
 
 class Mean extends Function {
-  
+
   static class MRMean extends Helpers.ScallarCollector {
 
     @Override protected void collect(double x) { _result += x; }
 
     @Override protected void reduce(double x) { _result += x; }
-    
+
     @Override public double result() {
       ValueArray va = (ValueArray) DKV.get(_key);
       return _result / va.num_rows();
     }
-    
+
     public MRMean(Key k, int col) { super(k,col,0); }
   }
-  
+
   public Mean(String name) {
     super(name);
     addChecker(new ArgVector("src"));
@@ -322,13 +322,13 @@ class Mean extends Function {
 // Filter ----------------------------------------------------------------------
 
 class Filter extends Function {
-  
+
   public Filter(String name) {
     super(name);
     addChecker(new ArgValue("src"));
     addChecker(new ArgVector("bitVect"));
   }
-  
+
   @Override public Result eval(Result... args) throws Exception {
     Result r = Result.temporary();
     BooleanVectorFilter filter = new BooleanVectorFilter(r._key,args[1]._key, args[1].colIndex());
@@ -348,7 +348,7 @@ class Slice extends Function {
     addChecker(new ArgIntPositive("start"));
     addChecker(new ArgIntPositive("count",-1));
   }
-  
+
   @Override public Result eval(Result... args) throws Exception {
     // additional arg checking
     ValueArray ary = (ValueArray) DKV.get(args[0]._key);
@@ -367,33 +367,33 @@ class Slice extends Function {
     DKV.write_barrier();
     SliceFilter filter = new SliceFilter(args[0]._key,start,length);
     filter.invoke(r._key);
-    assert (filter._filteredRows == length);
+    assert (filter._filteredRows == length) : filter._filteredRows + " -- " + length;
     return r;
   }
-  
+
 }
 
 
 // RandBitVect -----------------------------------------------------------------
 
 class RandBitVect extends Function {
-  
+
   static class RandVectBuilder extends MRTask {
 
     Key _key;
     long _selected;
     long _size;
     long _createdSelected;
-    
+
     public RandVectBuilder(Key k, long selected) {
       _key = k;
       _selected = selected;
       ValueArray va = (ValueArray) DKV.get(k);
       _size = va.length();
     }
-    
+
     @Override public void map(Key key) {
-      byte[] bits = MemoryManager.allocateMemory(VABuilder.chunkSize(key, _size));
+      byte[] bits = MemoryManager.allocateMemory(VABuilder.chunkSize(key, _size, 8));
       int rows = bits.length / 8;
       long start = ValueArray.getOffset(key) / 8;
       double expectedBefore = start * ( (double)_selected / (_size / 8));
@@ -421,21 +421,21 @@ class RandBitVect extends Function {
       RandVectBuilder other = (RandVectBuilder) drt;
       _createdSelected += other._createdSelected;
     }
-    
+
   }
-  
+
 
   public RandBitVect(String name) {
     super(name);
     addChecker(new ArgIntPositive("size"));
     addChecker(new ArgIntPositive("selected"));
   }
-  
+
   @Override  public Result eval(Result... args) throws Exception {
     Result r = Result.temporary();
     long size = (long) args[0]._const;
     long selected = (long) args[1]._const;
-    if (selected > size) 
+    if (selected > size)
       throw new Exception("Number of selected rows must be smaller or equal than total number of rows for a random bit vector");
     double min = 0;
     double max = 1;
@@ -447,7 +447,7 @@ class RandBitVect extends Function {
     assert (rvb._createdSelected == selected) : rvb._createdSelected + " != " + selected;
     return r;
   }
-  
+
 }
 
 // RandomFilter ----------------------------------------------------------------
@@ -459,7 +459,7 @@ class RandomFilter extends Function {
     addChecker(new ArgValue("src"));
     addChecker(new ArgIntPositive("rows"));
   }
-  
+
   @Override public Result eval(Result... args) throws Exception {
     ValueArray ary = (ValueArray) DKV.get(args[0]._key);
     long rows = (long) args[1]._const;
@@ -479,13 +479,13 @@ class Log extends Function {
   static class MRLog extends MRVectorUnaryOperator {
 
     public MRLog(Key key, Key result, int col) { super(key, result, col); }
-    
-    
+
+
     @Override public double operator(double opnd) {
       return Math.log(opnd);
     }
   }
-  
+
   public Log(String name) {
     super(name);
     addChecker(new Function.ArgVector("src"));
@@ -500,7 +500,7 @@ class Log extends Function {
     b.setColumnStats(0,task._min, task._max, task._tot / va.num_rows()).createAndStore(r._key);
     return r;
   }
-  
+
 }
 
 // GLM -------------------------------------------------------------------------
@@ -523,10 +523,10 @@ class GLM extends Function {
   }
 
   @Override public Result eval(Result... args) throws Exception {
-        
-    
+
+
     throw new Exception("not implemented yet!");
   }
 
-  
+
 }

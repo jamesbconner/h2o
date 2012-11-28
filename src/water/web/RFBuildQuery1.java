@@ -16,7 +16,7 @@ public class RFBuildQuery1 extends H2OPage {
     return new String[] { "dataKey" };
   }
 
-  static String html = 
+  static String html =
             "<script type='text/javascript'>\n"
           + "  var classIdx = %classIdx\n"
           + "  function sendForm() {\n"
@@ -38,7 +38,7 @@ public class RFBuildQuery1 extends H2OPage {
           + "  <div class='control-group'>"
           + "    <label class='control-label' for='dataKey'>Data</label>"
           + "    <div class='controls'>"
-          + "      <input class='uneditable-input span5' type='text' id='dataKey' name='dataKey' value='%dataKey'>"
+          + "      <input disabled='disabled' class='uneditable-input span5' type='text' id='dataKey' name='dataKey' value='%dataKey'>"
           + "      <input type='hidden' id='class' name='class'>"
           + "    </div>"
           + "  </div>"

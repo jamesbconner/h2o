@@ -398,6 +398,9 @@ class H2O(object):
         if 'error' in rjson:
             print rjson
             raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
+        elif 'Error' in rjson:
+            print rjson
+            raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['Error']))
         return rjson
 
 

@@ -123,7 +123,7 @@ public class VABuilder {
     return this;
   }
 
-  
+
   public static ValueArray updateRows(ValueArray old, Key newKey, long newRows) {
     byte[] oldBits = old.get();
     byte[] bits = MemoryManager.allocateMemory(oldBits.length);
@@ -132,10 +132,11 @@ public class VABuilder {
     UDP.set8(bits,ValueArray.LENGTH_OFF,newRows*old.row_size());
     return new ValueArray(newKey,bits);
   }
-  
-  public static int chunkSize(Key k, long aryLength) {
+
+  public static int chunkSize(Key k, long aryLength, int rowSize) {
     int result = (int) ValueArray.chunk_size();
-    long offset = ValueArray.getOffset(k);
+    result = (result / rowSize) * rowSize; //- (result % rowSize);
+    long offset = ValueArray.getChunkIndex(k) * result;
     if (offset + result + result >= aryLength)
       return (int) (aryLength - offset);
     else
