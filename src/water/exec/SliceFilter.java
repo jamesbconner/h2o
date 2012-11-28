@@ -32,7 +32,6 @@ public class SliceFilter extends MRTask {
     int rowsInChunk = VABuilder.chunkSize(key, _length*_rowSize, _rowSize) / _rowSize;
     VAIterator iter = new VAIterator(_source,0,_start+startRow);
     byte[] bits = MemoryManager.allocateMemory(rowsInChunk*_rowSize);
-    System.out.println("rowsInChunk: "+rowsInChunk+" start row: "+startRow+", rowSize "+_rowSize);
     for (int offset = 0; offset < bits.length; offset += _rowSize) {
       iter.next();
       iter.copyCurrentRow(bits,offset);
