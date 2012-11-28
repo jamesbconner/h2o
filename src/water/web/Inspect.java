@@ -40,7 +40,7 @@ public class Inspect extends H2OPage {
       result.addProperty("cols", ary.num_cols());
       result.addProperty("rowsize",ary.row_size());
       result.addProperty("size",ary.length());
-      result.addProperty("priorKey",ary.prior_key().toString());
+      result.addProperty("priorKey",ary.prior_key() == null ? "" : ary.prior_key().toString());
       JsonArray columns = new JsonArray();
       for( int i=0; i<ary.num_cols(); i++ ) {
         JsonObject col = new JsonObject();
