@@ -69,7 +69,8 @@ public class RFView extends H2OPage {
       // Make or find a C.M. against the model.  If the model has had a prior
       // C.M. run, we'll find it via hashing.  If not, we'll block while we build
       // the C.M.
-      Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt );
+      Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt, false );
+      confusion.report();
       res.addProperty("confusionKey", confusion.keyFor().toString());
     }
     return res;
@@ -93,19 +94,19 @@ public class RFView extends H2OPage {
     if( model.size() == ntree ) atree = ntree;
 
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
-    
+
     int[] ignores = model._ignoredColumns == null ? new int[0] : model._ignoredColumns;
     if( ignores != null && ignores.length > 0 )
       System.out.println("[CM] ignores columns "+Arrays.toString(ignores));
 
     if (p.getProperty("clearCM","0").equals("1"))
       Confusion.remove(model,ary._key,classcol);
-    
+
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
-    Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt );
-
+    Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt, true );
+    confusion.report();
     // Display the confusion-matrix table here
     // First the title line
     final int N = model._classes;
@@ -171,7 +172,7 @@ public class RFView extends H2OPage {
     // Compute a few stats over trees
     response.replace( "depth",model.depth());
     response.replace("leaves",model.leaves());
-    
+
     response.replace("weights", classWt == null ? "default" : Arrays.toString(classWt));
 
     int limkeys = Math.min(model.size(),1000);

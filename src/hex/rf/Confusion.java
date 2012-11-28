@@ -43,6 +43,7 @@ public class Confusion extends MRTask {
   /** Data to replay the sampling algorithm */
   transient private int[]     _chunk_row_mapping;
   private int[] _ignores;
+  private boolean _computeOOB;
 
   /**   Constructor for use by the serializers */
   public Confusion() { }
@@ -51,12 +52,13 @@ public class Confusion extends MRTask {
    * @param model the ensemble used to classify
    * @param datakey the key of the data that will be classified
    */
-  private Confusion(Model model, Key datakey, int classcol, int[] ignores, double[] classWt ) {
+  private Confusion(Model model, Key datakey, int classcol, int[] ignores, double[] classWt, boolean computeOOB ) {
     _modelKey = model._key;
     _datakey = datakey;
     _classcol = classcol;
     _classWt = classWt;
     _ignores = ignores;
+    _computeOOB = computeOOB;
     shared_init();
   }
 
@@ -73,7 +75,7 @@ public class Confusion extends MRTask {
   /**Apply a model to a dataset to produce a Confusion Matrix.  To support
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
-  static public Confusion make(Model model, Key datakey, int classcol, int[] ignores, double[] classWt) {
+  static public Confusion make(Model model, Key datakey, int classcol, int[] ignores, double[] classWt,boolean computeOOB) {
     Key key = keyFor(model._key, model.size(), datakey, classcol);
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
@@ -81,7 +83,7 @@ public class Confusion extends MRTask {
       return C;
     }
 
-    C = new Confusion(model,datakey,classcol,ignores,classWt);
+    C = new Confusion(model,datakey,classcol,ignores,classWt,computeOOB);
 
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
@@ -159,14 +161,14 @@ public class Confusion extends MRTask {
     for( int ntree = 0; ntree < _model.treeCount(); ntree++ ) {
       long seed = _model.seed(ntree);
       long init_row = _chunk_row_mapping[nchk];
-      Random r = new Random(seed+(init_row<<16));
+      Random r = new Random(seed+(init_row<<16)  + (nchk==0?1111:0));
 
       // Now for all rows, classify & vote!
       ROWS: for( int i = 0; i < rows; i++ ) {
         for(int c = 0; c < ncols; ++c) // Bail out of broken rows in not-ignored columns
           if( !icols[c] && !_data.valid(chunk_bits,i,rowsize,c))
             continue ROWS;      // Skip partial row
-        if( r.nextFloat() < _model._sample )
+        if( _computeOOB &&  r.nextFloat() < _model._sample )
           continue ROWS;        // Skip row used during training
         // Predict with this tree
         int prediction = _model.classify0(ntree, chunk_bits, i, rowsize, _data, offs, size, base, scal);
