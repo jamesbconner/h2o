@@ -4,9 +4,9 @@ package water.exec;
 import water.*;
 
 /** Slice filter!
- * 
+ *
  * This filter is invoked on DEST, not on source argument!!!
- * 
+ *
  * @author peta
  */
 public class SliceFilter extends MRTask {
@@ -16,7 +16,7 @@ public class SliceFilter extends MRTask {
   long _length;
   int _rowSize;
   long _filteredRows;
-  
+
   public SliceFilter(Key source, long start, long length) {
     _source = source;
     _start = start;
@@ -25,13 +25,14 @@ public class SliceFilter extends MRTask {
     assert (start + length <= ary.num_rows());
     _rowSize = ary.row_size();
   }
-  
-  
+
+
   @Override public void map(Key key) {
-    long startRow = ValueArray.getOffset(key);
-    int rowsInChunk = VABuilder.chunkSize(key, _length*_rowSize) / _rowSize;
+    long startRow = ValueArray.getChunkIndex(key) * (ValueArray.chunk_size() / _rowSize);
+    int rowsInChunk = VABuilder.chunkSize(key, _length*_rowSize, _rowSize) / _rowSize;
     VAIterator iter = new VAIterator(_source,0,_start+startRow);
     byte[] bits = MemoryManager.allocateMemory(rowsInChunk*_rowSize);
+    System.out.println("rowsInChunk: "+rowsInChunk+" start row: "+startRow+", rowSize "+_rowSize);
     for (int offset = 0; offset < bits.length; offset += _rowSize) {
       iter.next();
       iter.copyCurrentRow(bits,offset);
