@@ -88,7 +88,7 @@ public class UDPReceiverThread extends Thread {
         // ---
         // Common-case setup of a socket
         if( sock == null )
-          sock = new DatagramSocket(H2O.UDP_PORT);
+          sock = H2O._udpSocket;
 
         // Receive a packet
         int len = pack.getData().length; // Receive all that will fit

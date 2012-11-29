@@ -14,6 +14,7 @@ import water.web.Page.PageError;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.gson.JsonObject;
+import java.net.ServerSocket;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -96,7 +97,7 @@ public class Server extends NanoHTTPD {
           while( true ) {
             try {
               // Try to get the NanoHTTP daemon started
-              new Server(H2O.WEB_PORT);
+              new Server(H2O._webSocket);
               break;
             } catch ( Exception ioe ) {
               System.err.println("Launching NanoHTTP server got "+ioe);
@@ -189,8 +190,8 @@ public class Server extends NanoHTTPD {
     return _pages.get(uri);
   }
 
-  private Server( int port ) throws IOException {
-    super(port,null);
+  private Server( ServerSocket socket ) throws IOException {
+    super(socket,null);
   }
 
   // Resource loading ----------------------------------------------------------
