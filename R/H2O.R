@@ -192,6 +192,7 @@ h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame
 
 
 # GLM function. This should be rewiewed by someone who actually understands the GLM:-D
+# Please note that the x and negX arguments cannot be specified without quotes as lists are expected. 
 h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
