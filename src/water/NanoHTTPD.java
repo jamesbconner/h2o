@@ -196,14 +196,17 @@ public class NanoHTTPD
   // Socket & server code
   // ==================================================
 
+
+
+
   /**
    * Starts a HTTP server to given port.<p>
    * Throws an IOException if the socket is already in use
    */
-  public NanoHTTPD( int port, File wwwroot ) throws IOException {
-    myTcpPort = port;
+  public NanoHTTPD( ServerSocket socket, File wwwroot ) throws IOException {
+    myTcpPort = socket.getLocalPort();
     this.myRootDir = wwwroot;
-    myServerSocket = new ServerSocket( myTcpPort );
+    myServerSocket = socket;
     myThread = new Thread(new Runnable() {
       public void run() {
         try {
@@ -252,7 +255,7 @@ public class NanoHTTPD
       }
 
     try {
-      new NanoHTTPD( port, wwwroot );
+      new NanoHTTPD( new ServerSocket(port), wwwroot );
     } catch( IOException ioe ) {
       System.err.println( "Couldn't start server:\n" + ioe );
       System.exit( -1 );

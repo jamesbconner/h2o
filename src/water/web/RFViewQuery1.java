@@ -31,13 +31,13 @@ public class RFViewQuery1 extends H2OPage {
           + "        str = str+','+name+'='+weight\n"
           + "    }\n"
           + "    return str\n"
-          + "}\n"       
+          + "}\n"
           + "function sendForm() {\n"
           + "  document.getElementById('classWt').value = getWeightsString()\n"
           + "  document.forms['rfbuild'].submit()\n"
           + "}\n"
           + "</script>"
-          + "<form class='form-horizontal' action='RFView' id='rfbuild'>"
+          + "<form class='form-horizontal' action='RFViewWait' id='rfbuild'>"
           + "  <div class='control-group'>"
           + "    <label class='control-label' for='Key'>Data</label>"
           + "    <div class='controls'>"
@@ -57,6 +57,12 @@ public class RFViewQuery1 extends H2OPage {
           + "    <label class='control-label' for='modelKey'>Model</label>"
           + "    <div class='controls'>"
           + "      <input class='uneditable-input span5' type='text' id='modelKey' name='modelKey' value='%modelKey'placeholder='model key (default model)'>"
+          + "    </div>"
+          + "  </div>"
+          + "  <div class='control-group'>"
+          + "    <label class='control-label' for='OOBEE'>Error estimation</label>"
+          + "    <div class='controls'>"
+          + "      <input type='checkbox' id='OOBEE' name='OOBEE' value='true' >&nbsp;out-of-bag</input>"
           + "    </div>"
           + "  </div>"
           + "</form>"
@@ -98,5 +104,4 @@ public class RFViewQuery1 extends H2OPage {
     }
     return result.toString();
   }
-
 }

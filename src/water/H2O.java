@@ -12,6 +12,8 @@ import water.nbhm.NonBlockingHashMap;
 
 import com.google.common.base.Strings;
 import com.google.common.io.Closeables;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Start point for creating or joining an <code>H2O</code> Cloud.
@@ -413,6 +415,11 @@ public final class H2O {
     try { Thread.sleep(1000); } catch( InterruptedException e ) { }
   }
 
+  public static ServerSocket _webSocket;
+  public static DatagramSocket _udpSocket;
+  public static ServerSocket _tcpSocket;
+
+
   // Parse arguments and set cloud name in any case.  Strip out "-name NAME"
   // and "-flatfile <filename>".  Ignore the rest.  Set multi-cast port as a hash
   // function of the name.  Parse node ip addresses from the filename.
@@ -422,15 +429,30 @@ public final class H2O {
     UDP_PORT = WEB_PORT+1;
     TCP_PORT = WEB_PORT+2;
 
-    // See if we can grab them without bind errors!
-    while( !(test_port(WEB_PORT) && test_port(UDP_PORT) && test_port(TCP_PORT)) ) {
-      if( OPT_ARGS.port != 0 )
-        Log.die("On " + H2ONode.findInetAddressForSelf() +
-            " some of the required ports " + (OPT_ARGS.port+0) +
-            ", "                           + (OPT_ARGS.port+1) +
-            ", and "                       + (OPT_ARGS.port+2) +
-            " are not available, change -port PORT and try again.");
+    while (true) {
 
+      try {
+        _webSocket = new ServerSocket(WEB_PORT);
+        _udpSocket = new DatagramSocket(UDP_PORT);
+        _tcpSocket = new ServerSocket(TCP_PORT);
+        break;
+      } catch (IOException e) {
+        if (_webSocket != null)
+          try { _webSocket.close(); } catch( IOException ex ) { /* pass */ }
+        if (_udpSocket != null)
+          _udpSocket.close();
+        if (_tcpSocket != null)
+          try { _tcpSocket.close(); } catch( IOException ex ) { /* pass */ }
+        _webSocket = null;
+        _udpSocket = null;
+        _tcpSocket = null;
+        if( OPT_ARGS.port != 0 )
+          Log.die("On " + H2ONode.findInetAddressForSelf() +
+              " some of the required ports " + (OPT_ARGS.port+0) +
+              ", "                           + (OPT_ARGS.port+1) +
+              ", and "                       + (OPT_ARGS.port+2) +
+              " are not available, change -port PORT and try again.");
+      }
       // Try the next available port(s)
       WEB_PORT++; UDP_PORT++; TCP_PORT++;
     }
@@ -518,21 +540,6 @@ public final class H2O {
     } catch( Exception e ) { Log.die(e.toString()); }
     finally { Closeables.closeQuietly(br); }
     return h2os;
-  }
-
-  // Test if this port is available
-  static boolean test_port( int port ) {
-    boolean res = true;
-    ServerSocket ss = null;
-    try {
-      ss = new ServerSocket(port);
-    } catch( IOException se ) {
-      res = false;
-    } finally {
-      if( ss != null )
-        try { ss.close(); } catch( IOException se ) { }
-    }
-    return res;
   }
 
   static void initializePersistence() {

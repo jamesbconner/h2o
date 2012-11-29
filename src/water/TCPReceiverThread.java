@@ -43,7 +43,7 @@ public class TCPReceiverThread extends Thread {
         // ---
         // More common-case setup of a ServerSocket
         if( sock == null )
-          sock = new ServerSocket(H2O.TCP_PORT);
+          sock = H2O._tcpSocket;
 
         // Open a TCP connection
         client = sock.accept();

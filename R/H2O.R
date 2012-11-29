@@ -57,7 +57,7 @@ h2o.get <- function(keyName, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE)
   if (type != "character")
     keyName = deparse(substitute(keyName))
   h2o.__printIfVerbose("  Getting key ",keyName)
-  res = h2o.__remoteSend(h2o.__PAGE_GET, Key = keyName, maxRows = maxRows)
+  res = h2o.__remoteSend(h2o.__PAGE_GET, Key = keyName, maxRows = as.character(maxRows))
   h2o.__convertToRData(res,forceDataFrame = forceDataFrame)
 }
 
@@ -192,13 +192,13 @@ h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame
 
 
 # GLM function. This should be rewiewed by someone who actually understands the GLM:-D
-h2o.glm = function(keyName, Y, X = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
+h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
     keyName = deparse(substitute(keyName))
-  type = tryCatch({ typeof(Y) }, error = function(e) { "expr" })
+  type = tryCatch({ typeof(y) }, error = function(e) { "expr" })
   if (type != "character")
-    Y = deparse(substitute(Y))
+    y = deparse(substitute(y))
   type = tryCatch({ typeof(family) }, error = function(e) { "expr" })
   if (type != "character")
     family = deparse(substitute(family))
@@ -208,7 +208,7 @@ h2o.glm = function(keyName, Y, X = "", negX = "", family = "gaussian", xval = 0,
   X = paste(X,sep="",collapse=",")
   negX = paste(negX,sep="",collapse=",")
   h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",Y)
-  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = Y, "-X" = X, negX = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
+  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = y, "-X" = x, negX = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
   res
 }
 

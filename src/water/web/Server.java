@@ -14,6 +14,7 @@ import water.web.Page.PageError;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.gson.JsonObject;
+import java.net.ServerSocket;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -62,6 +63,7 @@ public class Server extends NanoHTTPD {
     _pages.put("PutValue",new PutValue());
     _pages.put("PutVector",new PutVector());
     _pages.put("RFView",new RFView());
+    _pages.put("RFViewWait",new RFViewWait());
     _pages.put("RFViewQuery",new RFViewQuery());
     _pages.put("RFViewQuery1",new RFViewQuery1());
     _pages.put("RFBuildQuery",new RFBuildQuery());
@@ -95,7 +97,7 @@ public class Server extends NanoHTTPD {
           while( true ) {
             try {
               // Try to get the NanoHTTP daemon started
-              new Server(H2O.WEB_PORT);
+              new Server(H2O._webSocket);
               break;
             } catch ( Exception ioe ) {
               System.err.println("Launching NanoHTTP server got "+ioe);
@@ -188,8 +190,8 @@ public class Server extends NanoHTTPD {
     return _pages.get(uri);
   }
 
-  private Server( int port ) throws IOException {
-    super(port,null);
+  private Server( ServerSocket socket ) throws IOException {
+    super(socket,null);
   }
 
   // Resource loading ----------------------------------------------------------
