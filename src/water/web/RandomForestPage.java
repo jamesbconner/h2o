@@ -132,7 +132,7 @@ public class RandomForestPage extends H2OPage {
     }
 
     int features = getAsNumber(p,FEATURES,-1);
-    if ((features!=-1) && ((features<=0) || (features>=ary.num_cols())))
+    if ((features!=-1) && ((features<=0) || (features>=ary.num_cols() - 1)))
       throw new PageError("Number of features can only be between 1 and num_cols - 1");
 
     // Pick the column to classify

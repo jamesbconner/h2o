@@ -43,7 +43,7 @@ public class TCPReceiverThread extends Thread {
         // ---
         // More common-case setup of a ServerSocket
         if( sock == null )
-          sock = new ServerSocket(H2O.TCP_PORT);
+          sock = H2O._tcpSocket;
 
         // Open a TCP connection
         client = sock.accept();
@@ -52,15 +52,12 @@ public class TCPReceiverThread extends Thread {
         // Put out the control byte & sender port#
         int ctrl = dis.readByte()&0xFF;
         int port = dis.readShort()&0xFFFF;
-        if(ctrl == UDP.udp.ping.ordinal()){
-          FJPacket.call(ctrl,dis,null);
-        } else {
-          // Record the last time we heard from any given Node
-          H2ONode hello = H2ONode.intern(client.getInetAddress(),port);
-          hello._last_heard_from = System.currentTimeMillis();
-          // Hand off the TCP connection to the proper handler
-          FJPacket.call(ctrl,dis,hello);
-        }
+
+        // Record the last time we heard from any given Node
+        H2ONode hello = H2ONode.intern(client.getInetAddress(),port);
+        hello._last_heard_from = System.currentTimeMillis();
+        // Hand off the TCP connection to the proper handler
+        FJPacket.call(ctrl,dis,hello);
         // Write 1 byte of ACK
         OutputStream os = client.getOutputStream();
         os.write(99);           // Write 1 byte of ack

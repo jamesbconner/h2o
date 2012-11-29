@@ -8,6 +8,8 @@ import water.*;
 
 import com.google.gson.JsonObject;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class RFView extends H2OPage {
   public static final String DATA_KEY  = "dataKey";
@@ -199,7 +201,6 @@ public class RFView extends H2OPage {
     url.replace(CLASS_COL, classcol);
     url.replace("data",ary._key);
     response.replace("validateOther", url.toString());
-
     return response.toString();
   }
 

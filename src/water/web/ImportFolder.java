@@ -190,6 +190,7 @@ public class ImportFolder extends H2OPage {
       File root = new File(folder);
       if (!root.exists())
         throw new Exception("Unable to import folder "+folder+". Folder not found.");
+      folder = root.getCanonicalPath();
       FolderIntegrityChecker checker = new FolderIntegrityChecker(new File(folder));
       checker.invokeOnAllNodes();
       return checker.importFilesHTML();

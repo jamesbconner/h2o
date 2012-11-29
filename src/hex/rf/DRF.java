@@ -145,6 +145,16 @@ public class DRF extends water.DRemoteTask {
     Timer t_bin = new Timer();
     // The data adapter...
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, num_rows, unique, _seed, _binLimit, _classWt);
+
+    // Check that we have proper number of valid columns vs. features selected, if not cap
+    int validCols = -1; // for classIdx column
+    for (int i = 0; i < dapt.columns(); ++i)
+      if (!dapt.ignore(i)) ++validCols;
+    if (validCols < _features) {
+      System.out.println("Limiting features from "+_features+" to "+validCols+" because there are no more valid columns in the dataset");
+      _features = validCols;
+    }
+
     // Now load the DataAdapter with all the rows on this Node
     final int ncolumns = ary.num_cols();
 
