@@ -561,9 +561,9 @@ public final class ParseDataset {
         assert (_phase == PASS_ONE);
       _invalidValues = new long[_ncolumns];
       _min = new double [_ncolumns];
-      Arrays.fill(_min, Double.MAX_VALUE);
+      Arrays.fill(_min, Double.POSITIVE_INFINITY);
       _max = new double[_ncolumns];
-      Arrays.fill(_max, Double.MIN_VALUE);
+      Arrays.fill(_max, Double.NEGATIVE_INFINITY);
       _mean = new double[_ncolumns];
       _scale = new int[_ncolumns];
       _colTypes = new byte[_ncolumns];
@@ -775,7 +775,7 @@ public final class ParseDataset {
           break;
         case FCOL:
         case DCOL:
-          if(_scale[i] >= -4){
+          if(_scale[i] >= -4 && (_max[i] <= powers10i[powers10i.length-1]) && (_min[i] >= -powers10i[powers10i.length-1])){
             double s = pow10(-_scale[i]);
             double range = s*(_max[i]-_min[i]);
             if(range < 256){
@@ -945,16 +945,16 @@ public final class ParseDataset {
           if(d < _min[colIdx])_min[colIdx] = d;
           if(d > _max[colIdx])_max[colIdx] = d;
           _mean[colIdx] += d;
-          if(exp < _scale[colIdx]) {
-            _scale[colIdx] = exp;
+          if(exp != 0) {
+            if(exp < _scale[colIdx])_scale[colIdx] = exp;
             if(_colTypes[colIdx] != DCOL){
-              if(Math.abs(number) > MAX_FLOAT_MANTISSA || exp < Float.MIN_EXPONENT || exp > Float.MAX_EXPONENT)
+              if(Math.abs(number) > MAX_FLOAT_MANTISSA || exp < -35 || exp > 35)
                 _colTypes[colIdx] = DCOL;
               else
                 _colTypes[colIdx] = FCOL;
             }
           } else if(_colTypes[colIdx] < ICOL) {
-          _colTypes[colIdx] = ICOL;
+            _colTypes[colIdx] = ICOL;
           }
           break;
         case PASS_TWO:

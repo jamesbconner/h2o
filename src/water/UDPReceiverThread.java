@@ -108,14 +108,6 @@ public class UDPReceiverThread extends Thread {
       byte[] pbuf = pack.getData();
       int first_byte = UDP.get_ctrl(pbuf);
       assert first_byte != 0xab; // did not receive a clobbered packet?
-
-      // process ping request here
-      if(first_byte == UDP.udp.ping.ordinal() || first_byte == UDP.udp.pAck.ordinal() ){
-        // reply to ping right away (the other guy is likely not part of this cloud yet, just testing
-        // if we can communicate.
-        H2O.FJP_HI.execute(new FJPacket(pack,null));
-        continue;
-      }
       // Get the Cloud we are operating under for this packet
       H2O cloud = H2O.CLOUD;
       // Get the H2ONode (many people use it).

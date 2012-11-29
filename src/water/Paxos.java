@@ -232,13 +232,6 @@ public abstract class Paxos {
         }
         return false;
       }
-      Ping p = Ping.testConnection(n, true, true);
-      if(!p.connectionOk()){
-        if(!p.udpOk())System.err.println("UDP communication with node " + n + " failed!");
-        if(!p.tcpOk())System.err.println("TCP communication with node " + n._key._inet + ":" + n._key.tcp_port() + " failed!");
-        System.err.println("Invalid cloud setup (broken communication). Please make sure that all nodes can communicate directly");
-        //System.exit(-1);
-      }
     }
     return PROPOSED_MEMBERS.add(n);
   }
