@@ -205,10 +205,10 @@ h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0,
   type = tryCatch({ typeof(norm) }, error = function(e) { "expr" })
   if (type != "character")
     norm = deparse(substitute(norm))
-  X = paste(X,sep="",collapse=",")
+  x = paste(x,sep="",collapse=",")
   negX = paste(negX,sep="",collapse=",")
-  h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",Y)
-  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = y, "-X" = x, negX = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
+  h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",y)
+  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = y, X = x, "-X" = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
   res
 }
 
