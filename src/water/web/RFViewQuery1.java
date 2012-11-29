@@ -59,6 +59,12 @@ public class RFViewQuery1 extends H2OPage {
           + "      <input class='uneditable-input span5' type='text' id='modelKey' name='modelKey' value='%modelKey'placeholder='model key (default model)'>"
           + "    </div>"
           + "  </div>"
+          + "  <div class='control-group'>"
+          + "    <label class='control-label' for='OOBEE'>Error estimation</label>"
+          + "    <div class='controls'>"
+          + "      <input type='checkbox' id='OOBEE' name='OOBEE' value='true' >&nbsp;out-of-bag</input>"
+          + "    </div>"
+          + "  </div>"
           + "</form>"
           + "<div class='form-horizontal'>"
           + "  <div class='control-group'>"
@@ -98,5 +104,4 @@ public class RFViewQuery1 extends H2OPage {
     }
     return result.toString();
   }
-
 }
