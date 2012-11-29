@@ -10,7 +10,7 @@ import water.Stream;
 public class RLikeParser {
 
   // ---------------------------------------------------------------------------
-  // Lexer part 
+  // Lexer part
   //
   // A simple lexer that can support a LL(1) grammar for the time being.
   // We might get more complicated here in the future. But for now, I can't care
@@ -151,7 +151,7 @@ public class RLikeParser {
       _valueInt = 0;
       _id = s;
     }
-    
+
   }
   private Stream _s;
   private Token _top;
@@ -171,7 +171,7 @@ public class RLikeParser {
       throw new ParserException(top()._pos, type, top()._type);
     return pop();
   }
-  
+
   protected boolean condPop(Token.Type type) throws ParserException {
     if (top()._type == type) {
       pop();
@@ -313,7 +313,7 @@ public class RLikeParser {
     }
     return new Token(pos, Token.Type.ttUnknown);
   }
-  
+
   private Token parseString() throws ParserException {
     int start = _s._off;
     char end = (char) _s.get1() == '"' ? '"' : '\'';
@@ -343,7 +343,7 @@ public class RLikeParser {
             break;
           default:
             throw new ParserException(start, "Quotes slashes and \\n and \\t are allowed to be slashed in strings.");
-        } 
+        }
         ++_s._off;
         sb.append(add);
       } else {
@@ -460,7 +460,7 @@ public class RLikeParser {
     }
     return result;
   }
-  
+
   /*
    *
    *
@@ -491,8 +491,8 @@ public class RLikeParser {
     }
     return result;
   }
-  
-  
+
+
   /*
    *
    *
@@ -502,7 +502,7 @@ public class RLikeParser {
    */
   private Expr parse_E2() throws ParserException {
     Expr result = parse_E3();
-    while( (top()._type == Token.Type.ttOpLess) 
+    while( (top()._type == Token.Type.ttOpLess)
             || (top()._type == Token.Type.ttOpLessOrEq)
             || (top()._type == Token.Type.ttOpGreater)
             || (top()._type == Token.Type.ttOpGreaterOrEq) ) {
@@ -511,7 +511,7 @@ public class RLikeParser {
     }
     return result;
   }
-  
+
   /*
    *
    *
@@ -540,9 +540,9 @@ public class RLikeParser {
     return result;
   }
 
-  
-  
-  /* 
+
+
+  /*
    * F -> F2 [ $ ident | '[' number ']' ]
    */
   private Expr parse_F() throws ParserException {
@@ -560,8 +560,8 @@ public class RLikeParser {
         return f;
     }
   }
-  
-  
+
+
   /*
    * This is silly grammar for now, I need to understand R more to make it
    *
@@ -600,13 +600,13 @@ public class RLikeParser {
         throw new ParserException(top()._pos, "Number or parenthesis", top()._type);
     }
   }
-  
+
   /*
    * FUNCTION -> fName '(' [ FARG {, FARG } ] ')'
-   * 
+   *
    * where fName is already parsed
    */
-  
+
   private Expr parse_Function(Token fName) throws ParserException {
     FunctionCall result = new FunctionCall(fName._pos,fName._id);
     pop(Token.Type.ttOpParOpen);
@@ -624,13 +624,15 @@ public class RLikeParser {
     result.staticArgumentVerification();
     return result;
   }
-  
+
   /*
    * FARG -> argname = S | S
    */
-  
+
   private boolean parse_FunctionArgument(FunctionCall f, int argIndex, boolean seenNamedArgsBefore) throws ParserException {
     Token t = top();
+    if (argIndex >= f._function.numArgs())
+      throw new ParserException(t._pos,"Too many arguments to function");
     if ((t._type == Token.Type.ttIdent) && (f._function.argIndex(t._id)!=-1)) { // it is an argument and it does exist in the function
       pop();
       if (condPop(Token.Type.ttOpAssign)) {
