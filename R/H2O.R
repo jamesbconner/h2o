@@ -57,7 +57,7 @@ h2o.get <- function(keyName, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE)
   if (type != "character")
     keyName = deparse(substitute(keyName))
   h2o.__printIfVerbose("  Getting key ",keyName)
-  res = h2o.__remoteSend(h2o.__PAGE_GET, Key = keyName, maxRows = maxRows)
+  res = h2o.__remoteSend(h2o.__PAGE_GET, Key = keyName, maxRows = as.character(maxRows))
   h2o.__convertToRData(res,forceDataFrame = forceDataFrame)
 }
 
