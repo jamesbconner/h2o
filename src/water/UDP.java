@@ -45,8 +45,6 @@ public abstract class UDP {
       putkey (false,new TaskPutKey .RemoteHandler()), // Put a Value for 1 Key
       rexec  (false,new TaskRemExec.RemoteHandler()), // Remote execution request
       atomic (false,new TaskRemExec.RemoteHandler()), // Remote transaction request
-      ping   (true,new Ping.RemoteHandler()),
-      pAck   (true,new Ping.UDPpingAck()),
       // This packet serves to obtain stdout/stderr/results from remote nodes
       log    (false, new RemoteLog()); //
 
@@ -118,7 +116,7 @@ public abstract class UDP {
     buf[off++] = (byte) x;
     return off;
   }
-  
+
   // Generic set/get
   public static int set2( byte[] buf, int off, int x ) {
     assert -32768 <= x && x <= 65535;

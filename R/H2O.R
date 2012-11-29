@@ -134,14 +134,14 @@ h2o.importUrl <- function(keyName, url, parse = TRUE) {
   if (type != "character")
     keyName = deparse(substitute(keyName))
   if (parse)
-    uploadKey = url
+    uploadKey = ""
   else
     uploadKey = keyName
   h2o.__printIfVerbose("  Importing url ",url," to key ",uploadKey)
   res = h2o.__remoteSend(h2o.__PAGE_IMPORT, Key = uploadKey, Url = url)
   if (parse) {
     h2o.__printIfVerbose("  parsing key ",uploadKey," to key ",keyName)
-    res = h2o.__remoteSend(h2o.__PAGE_PARSE, Key = uploadKey, Key2 = keyName)    
+    res = h2o.__remoteSend(h2o.__PAGE_PARSE, Key = res$Key, Key2 = keyName)    
   } 
   res$Key
 }
@@ -192,6 +192,7 @@ h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame
 
 
 # GLM function. This should be rewiewed by someone who actually understands the GLM:-D
+# Please note that the x and negX arguments cannot be specified without quotes as lists are expected. 
 h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
@@ -205,10 +206,10 @@ h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0,
   type = tryCatch({ typeof(norm) }, error = function(e) { "expr" })
   if (type != "character")
     norm = deparse(substitute(norm))
-  X = paste(X,sep="",collapse=",")
+  x = paste(x,sep="",collapse=",")
   negX = paste(negX,sep="",collapse=",")
-  h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",Y)
-  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = y, "-X" = x, negX = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
+  h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",y)
+  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = y, X = x, "-X" = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
   res
 }
 

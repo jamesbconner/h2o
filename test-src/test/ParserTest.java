@@ -35,6 +35,19 @@ public class ParserTest {
     return k;
   }
 
+  public static boolean compareDoubles(double a, double b, double threshold){
+    int e1 = 0;
+    int e2 = 0;
+    while(a > 1){
+      a /= 10;
+      ++e1;
+    }
+    while(b > 1){
+       b /= 10;
+       ++e2;
+    }
+    return ((e1 == e2) && Math.abs(a - b) < threshold);
+  }
   public static void testParsed(Key k, double[][] expected) {
     try {
       ValueArray va = (ValueArray) DKV.get(k);
@@ -45,7 +58,7 @@ public class ParserTest {
           if (Double.isNaN(expected[i][j]))
             Assert.assertFalse(i+" -- "+j, va.valid(i,j));
           else
-            Assert.assertEquals(i+" -- "+j,expected[i][j],va.datad(i,j),0);
+            Assert.assertTrue(compareDoubles(expected[i][j],va.datad(i,j),0.001));
         }
     } catch (IOException e) {
       Assert.assertTrue(false);
@@ -213,6 +226,20 @@ public class ParserTest {
     }
   }
 
+  @Test public void testNumberFormats(){
+    String [] data = {"+.6e102|+.7e102|+.8e102\n.6e102|.7e102|.8e102\n"};
+    double[][] expDouble = new double[][] {
+        d(+.6e102,.7e102,.8e102), // preserve order
+        d(+.6e102, +.7e102,+.8e102),
+    };
+    for (char separator : SEPARATORS) {
+      String[] dataset = getDataForSeparator(separator, data);
+      Key key = k(dataset);
+      Key r = Key.make();
+      ParseDataset.parse(r,DKV.get(key));
+      testParsed(r, expDouble);
+    }
+  }
  @Test public void testMultipleNondecimalColumns() {
     String data[] = {
         "foo|    2|one\n"

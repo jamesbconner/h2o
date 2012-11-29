@@ -218,6 +218,10 @@ NEXT_CHAR:
               exp = -1;
               ++numStart;
               break NEXT_CHAR;
+            } else if(c == '+'){
+              exp = 1;
+              ++numStart;
+              break NEXT_CHAR;
             } else {
               exp = 1;
             }

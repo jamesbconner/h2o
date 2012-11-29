@@ -29,7 +29,7 @@ public abstract class PersistIce {
       return null;
     }
   }
-  
+
   static String decode(String what) {
     try {
       return URLDecoder.decode(what.replace("=","%"),"UTF8");
@@ -38,8 +38,8 @@ public abstract class PersistIce {
       return null;
     }
   }
-  
-  
+
+
   // Load into the K/V store all the files found on the local disk
   static void initialize() {}
   static {
@@ -58,7 +58,7 @@ public abstract class PersistIce {
   // Clear the ICE directory
   public static void cleanIce(File dir) {
     for( File f : dir.listFiles() ) {
-      if( f.isDirectory() ) cleanIce(f); 
+      if( f.isDirectory() ) cleanIce(f);
       f.delete();
     }
   }
@@ -86,7 +86,7 @@ public abstract class PersistIce {
   // ice are likely to be arraylet chunks
   private static final Key decodeKey(File f) {
     String key = f.getName();
-    key = key.substring(0,key.lastIndexOf('.')); 
+    key = key.substring(0,key.lastIndexOf('.'));
     return Key.make(decode(key),decodeReplication(f));
   }
 
@@ -117,7 +117,9 @@ public abstract class PersistIce {
     sb.append('.');
     sb.append((char)type);
     sb.append(k.desired());
-    return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
+    File f = new File(iceRoot, getDirectoryForKey(k));
+    return new File(f,sb.toString());
+    //return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
   }
 
   private static String getDirectoryForKey(Key key) {
@@ -166,7 +168,13 @@ public abstract class PersistIce {
     try {
       new File(iceRoot,getDirectoryForKey(v._key)).mkdirs();
       // Nuke any prior file.
-      OutputStream s = new FileOutputStream(encodeKeyToFile(v));
+      OutputStream s = null;
+      try {
+        s = new FileOutputStream(encodeKeyToFile(v));
+      } catch (FileNotFoundException e) {
+        System.out.println("Key: "+v._key.toString());
+        System.out.println("Encoded: "+encodeKeyToFile(v));
+      }
       try {
         byte[] m = v._mem; // we are not single threaded anymore
         assert m != null && m.length == v._max; // Assert not saving partial files

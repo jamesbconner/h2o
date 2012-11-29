@@ -87,9 +87,10 @@ public class Stream {
   public void setAry2(short[]x) {
     set4(x==null?-1:x.length);
     if( x != null ) {
-      grow(x.length<<1);
-      _unsafe.copyMemory(x,_Sbase,_buf,_off+_Bbase,x.length<<1);
-      _off += (x.length<<1);
+      //grow(x.length<<1);
+      //_unsafe.copyMemory(x,_Sbase,_buf,_off+_Bbase,x.length<<1);
+      //_off += (x.length<<1);
+      for( int i : x ) set2(i);
     }
   }
   public void setAry4(int[]x) {
