@@ -1,13 +1,13 @@
 # Test R functionality for Demo
 # to invoke this you need R 2.15 as of now
 # R -f H2OTestDemo.R 
-source("./H2O.R")
+source("../R/H2O.R")
 
 # Run expressions on covtype
-h2o.importFile("covtype", "/Users/sris/_work/datasets/UCI/UCI-large/covtype/covtype.data")
+h2o.importFile("covtype", paste(getwd(), "../smalldata/covtype/covtype.20k.data", sep="/"))
 h2o.inspect("covtype")
 h2o(slice(covtype,100,100))
-h2o(slice(covtype,1,40000))
+h2o(slice(covtype,1,4000))
 h2o(sum(covtype[12]))
 h2o.glm(covtype, y = 12, family=binomial)
 h2o.glm(covtype, y = 12, x = "1:8", family=binomial)
