@@ -264,7 +264,7 @@ public class Confusion extends MRTask {
           "              Type of random forest: classification\n"
         + "                    Number of trees: " + _model.size() + "\n"
         + "No of variables tried at each split: " + _model._features + "\n"
-        + "             Estimate of error rate: " + Math.round(err * 10000) / 100 + "%  (" + err + ")\n"
+        + "              Estimate of err. rate: " + Math.round(err * 10000) / 100 + "%  (" + err + ")\n"
         + "                   Confusion matrix:\n"
         + confusionMatrix() + "\n"
         + "          Avg tree depth (min, max): "  + _model.depth() + "\n"
