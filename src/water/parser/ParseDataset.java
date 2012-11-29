@@ -561,9 +561,9 @@ public final class ParseDataset {
         assert (_phase == PASS_ONE);
       _invalidValues = new long[_ncolumns];
       _min = new double [_ncolumns];
-      Arrays.fill(_min, Double.MAX_VALUE);
+      Arrays.fill(_min, Double.POSITIVE_INFINITY);
       _max = new double[_ncolumns];
-      Arrays.fill(_max, Double.MIN_VALUE);
+      Arrays.fill(_max, Double.NEGATIVE_INFINITY);
       _mean = new double[_ncolumns];
       _scale = new int[_ncolumns];
       _colTypes = new byte[_ncolumns];
