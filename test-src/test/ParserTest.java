@@ -6,8 +6,6 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.sun.tools.javac.resources.compiler;
-
 import water.DKV;
 import water.H2O;
 import water.Key;
