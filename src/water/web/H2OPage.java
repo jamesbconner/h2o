@@ -117,6 +117,10 @@ public abstract class H2OPage extends Page {
     return result;
   }
 
+  public static boolean getBoolean(Properties args, String arg) {
+    return args.getProperty(arg,"false").equals("true");
+  }
+
   static String colName(int colId, ValueArray ary   ) { return colName(colId,ary.col_name(colId)); }
   static String colName(int colId, String[] colNames) { return colName(colId,    colNames[colId]); }
   static String colName(int colId, String n) { return n==null ? "Column "+colId : n; }

@@ -47,16 +47,16 @@ public abstract class MRVectorBinaryOperator extends MRTask {
    */
   public abstract double operator(double left, double right);
 
-  
+
   /* We are creating new one, so I can tell the row number quite easily from the
-   * chunk index. 
+   * chunk index.
    */
   @Override public void map(Key key) {
     ValueArray result = (ValueArray) DKV.get(_resultKey);
     long rowOffset = ValueArray.getOffset(key) / result.row_size();
     VAIterator left = new VAIterator(_leftKey,_leftCol, rowOffset);
     VAIterator right = new VAIterator(_rightKey,_rightCol, rowOffset);
-    int chunkRows = VABuilder.chunkSize(key, result.length()) / result.row_size();
+    int chunkRows = VABuilder.chunkSize(key, result.length(), result.row_size()) / result.row_size();
 //    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
 //    if (rowOffset + chunkRows >= result.num_rows())
 //      chunkRows = (int) (result.num_rows() - rowOffset);

@@ -6,7 +6,7 @@ class Basic(unittest.TestCase):
     def test_Cloud(self):
         base_port = 54300
         for trials in range(0,2):
-            for tryNodes in [10]:
+            for tryNodes in [4,8,10]:
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
@@ -20,7 +20,7 @@ class Basic(unittest.TestCase):
                 h2o.clean_sandbox()
                 # with so many jvms, wait for sticky ports to be freed up..slow os stuff?
                 # changed, to increment the base_port, to avoid reuse immediately
-                # time.sleep(4)
+                time.sleep(4)
                 base_port += 3 * tryNodes
 
 

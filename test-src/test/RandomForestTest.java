@@ -47,6 +47,7 @@ public class RandomForestTest {
       p.setProperty("Key",okey.toString());
       p.setProperty("ntree",Integer.toString(NTREE));
       p.setProperty("sample",Integer.toString(67));
+      p.setProperty("OOBEE","true");
       RandomForestPage RFP = new RandomForestPage();
 
       // Start RFPage, get a JSON result.
@@ -93,7 +94,7 @@ public class RandomForestTest {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{48,1,0},{0,44,3},{0,3,39}};
+      long ans[][] = new long[][]{{45,0,0},{0,48,1},{0,1,46}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 

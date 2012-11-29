@@ -15,7 +15,8 @@ public class RFView extends H2OPage {
   public static final String CLASS_COL = "class";
   public static final String REQ_TREE  = "atree";
   public static final String NUM_TREE  = "ntree";
-  public static final String IGNORE_COL = "ignore";
+  public static final String IGNORE_COL= "ignore";
+  public static final String OOBEE     = "OOBEE";
   public static final int MAX_CLASSES = 4096;
 
   @Override public String[] requiredArguments() {
@@ -43,6 +44,9 @@ public class RFView extends H2OPage {
     int atree = getAsNumber(p, REQ_TREE,0);
     int ntree = getAsNumber(p, NUM_TREE, model.size());
 
+    // Compute Out of Bag Error Estimate
+    boolean oobee = getBoolean(p,OOBEE);
+
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
 
     // Pick columns to ignore
@@ -69,7 +73,7 @@ public class RFView extends H2OPage {
       // Make or find a C.M. against the model.  If the model has had a prior
       // C.M. run, we'll find it via hashing.  If not, we'll block while we build
       // the C.M.
-      Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt );
+      Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt, oobee );
       res.addProperty("confusionKey", confusion.keyFor().toString());
     }
     return res;
@@ -92,20 +96,23 @@ public class RFView extends H2OPage {
     int ntree = json.get(NUM_TREE).getAsInt();
     if( model.size() == ntree ) atree = ntree;
 
+    // Compute Out of Bag Error Estimate
+    boolean oobee = getBoolean(p,OOBEE);
+
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
-    
+
     int[] ignores = model._ignoredColumns == null ? new int[0] : model._ignoredColumns;
     if( ignores != null && ignores.length > 0 )
       System.out.println("[CM] ignores columns "+Arrays.toString(ignores));
 
     if (p.getProperty("clearCM","0").equals("1"))
-      Confusion.remove(model,ary._key,classcol);
-    
+      Confusion.remove(model,ary._key,classcol,oobee);
+
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
-    Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt );
-
+    Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt, oobee );
+    confusion.report();
     // Display the confusion-matrix table here
     // First the title line
     final int N = model._classes;
@@ -117,6 +124,7 @@ public class RFView extends H2OPage {
       sb.append("<th>").append("class "+(i+cmin));
     sb.append("<th>Error");
     response.replace("chead",sb.toString());
+    response.replace("flavor", confusion._computeOOB ? "OOB error estimate" : "full scoring");
 
     // Now the confusion-matrix body lines
     long ctots[] = new long[N]; // column totals
@@ -171,7 +179,7 @@ public class RFView extends H2OPage {
     // Compute a few stats over trees
     response.replace( "depth",model.depth());
     response.replace("leaves",model.leaves());
-    
+
     response.replace("weights", classWt == null ? "default" : Arrays.toString(classWt));
 
     int limkeys = Math.min(model.size(),1000);
@@ -205,7 +213,7 @@ public class RFView extends H2OPage {
       + "<p><a href=\"%validateOther\">Validate model with another dataset</a></p>"
       + "<p>Model key:<b>%modelKey</b></p>"
       + "<p>Weighted voting:<b>%weights</b></p>"
-      + "<h2>Confusion Matrix</h2>"
+      + "<h2>Confusion Matrix - %flavor</h2>"
       + "<table class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"
       + "<tbody>\n"
