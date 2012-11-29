@@ -48,6 +48,8 @@ public abstract class PersistIce {
     iceRoot = new File(ROOT+File.separator+ICE_DIR+H2O.WEB_PORT);
     // Make the directory as-needed
     iceRoot.mkdirs();
+    if( !(iceRoot.isDirectory() && iceRoot.canRead() && iceRoot.canWrite()) )
+      Log.die("ice_root not a read/writable directory");
     // By popular demand, clear out ICE on startup instead of trying to preserve it
     if( H2O.OPT_ARGS.keepice == null )  cleanIce(iceRoot);
     else initializeFilesFromFolder(iceRoot);
