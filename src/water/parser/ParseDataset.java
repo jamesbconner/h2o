@@ -774,19 +774,22 @@ public final class ParseDataset {
           break;
         case FCOL:
         case DCOL:
-          double s = pow10(-_scale[i]);
-          double range = s*(_max[i]-_min[i]);
-          if(range < 256){
-            _colTypes[i] = DBYTE;
-            _bases[i] = (int)(s*_min[i]);
-          } else if(range < 65535){
-            _colTypes[i] = DSHORT;
-            _bases[i] = (int)(s*_min[i]);
-          } else {
-            _scale[i] = 0;
-            _bases[i] = 0;
-            _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
+          if(_scale[i] >= -4){
+            double s = pow10(-_scale[i]);
+            double range = s*(_max[i]-_min[i]);
+            if(range < 256){
+              _colTypes[i] = DBYTE;
+              _bases[i] = (int)(s*_min[i]);
+              break;
+            } else if(range < 65535){
+              _colTypes[i] = DSHORT;
+              _bases[i] = (int)(s*_min[i]);
+              break;
+            }
           }
+          _scale[i] = 0;
+          _bases[i] = 0;
+          _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
           break;
         }
       }
