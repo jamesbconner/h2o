@@ -4,7 +4,8 @@
 source("./H2O.R")
 
 # Run expressions on covtype
-h2o.importFile("covtype", paste(getwd(),"../../datasets/UCI/UCI-large/covtype/covtype.data",sep="/"))
+#h2o.importFile("covtype", paste(getwd(),"../../datasets/UCI/UCI-large/covtype/covtype.data",sep="/"))
+h2o.importFile("covtype", "/Users/sris/_work/datasets/UCI/UCI-large/covtype/covtype.data")
 h2o.inspect("covtype")
 h2o(slice(covtype,100,100))
 h2o(slice(covtype,1,40000))
