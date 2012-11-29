@@ -324,10 +324,11 @@ def check_sandbox_for_errors():
             regex = re.compile('error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
             found = False
             for line in sandFile:
-                if found or regex.search(line):
+                if not found:
+                    found = regex.search(line) and ('error rate' not in line)
+                if found:
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
-                    found = True
             sandFile.close()
 
 def tear_down_cloud(node_list=None):
