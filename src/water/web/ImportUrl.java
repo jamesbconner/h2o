@@ -8,13 +8,19 @@ import java.util.Properties;
 
 import com.google.common.io.Closeables;
 import com.google.gson.JsonObject;
+import java.io.File;
 
 import water.Key;
 import water.ValueArray;
 
 public class ImportUrl extends H2OPage {
-  
+
   public static Key importUrl(String keyName, String urlStr, byte rf) throws Exception {
+    if (urlStr.startsWith("file://")) {
+      urlStr = urlStr.substring("file://".length());
+      File f = new File(urlStr);
+      urlStr = "file://"+f.getCanonicalPath();
+    }
     URL url;
     try {
       url = new URL(urlStr);
@@ -44,14 +50,14 @@ public class ImportUrl extends H2OPage {
     }
   }
 
-  
+
   protected static Key importUrl(Properties args) throws Exception {
     String keyName = args.getProperty("Key",null);
     String url = args.getProperty("Url");
     byte rf = (byte) getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
     return importUrl(keyName, url, rf);
   }
-  
+
   @Override public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {
     JsonObject result = new JsonObject();
     try {
@@ -62,7 +68,7 @@ public class ImportUrl extends H2OPage {
     }
     return result;
   }
-  
+
   @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     try {
       Key k = importUrl(args);

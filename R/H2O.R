@@ -134,14 +134,14 @@ h2o.importUrl <- function(keyName, url, parse = TRUE) {
   if (type != "character")
     keyName = deparse(substitute(keyName))
   if (parse)
-    uploadKey = url
+    uploadKey = ""
   else
     uploadKey = keyName
   h2o.__printIfVerbose("  Importing url ",url," to key ",uploadKey)
   res = h2o.__remoteSend(h2o.__PAGE_IMPORT, Key = uploadKey, Url = url)
   if (parse) {
     h2o.__printIfVerbose("  parsing key ",uploadKey," to key ",keyName)
-    res = h2o.__remoteSend(h2o.__PAGE_PARSE, Key = uploadKey, Key2 = keyName)    
+    res = h2o.__remoteSend(h2o.__PAGE_PARSE, Key = res$Key, Key2 = keyName)    
   } 
   res$Key
 }
