@@ -43,7 +43,7 @@ public class Confusion extends MRTask {
   /** Data to replay the sampling algorithm */
   transient private int[]     _chunk_row_mapping;
   private int[] _ignores;
-  private boolean _computeOOB;
+  public boolean _computeOOB;
 
   /**   Constructor for use by the serializers */
   public Confusion() { }
@@ -62,13 +62,13 @@ public class Confusion extends MRTask {
     shared_init();
   }
 
-  public Key keyFor() { return keyFor(_model._key,_model.size(),_datakey, _classcol); }
-  static public Key keyFor(Key modelKey, int msize, Key datakey, int classcol) {
-    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"])");
+  public Key keyFor() { return keyFor(_model._key,_model.size(),_datakey, _classcol, _computeOOB); }
+  static public Key keyFor(Key modelKey, int msize, Key datakey, int classcol, boolean computeOOB) {
+    return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"],"+(computeOOB?"1":"0")+")");
   }
 
-  public static void remove(Model model, Key datakey, int classcol) {
-    Key key = keyFor(model._key, model.size(), datakey, classcol);
+  public static void remove(Model model, Key datakey, int classcol, boolean computeOOB) {
+    Key key = keyFor(model._key, model.size(), datakey, classcol, computeOOB);
     UKV.remove(key);
   }
 
@@ -76,7 +76,7 @@ public class Confusion extends MRTask {
      incremental & repeated model application, hash the model & data and look
      for that Key to already exist, returning a prior CM if one is available.*/
   static public Confusion make(Model model, Key datakey, int classcol, int[] ignores, double[] classWt,boolean computeOOB) {
-    Key key = keyFor(model._key, model.size(), datakey, classcol);
+    Key key = keyFor(model._key, model.size(), datakey, classcol, computeOOB);
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
       C.shared_init();
@@ -99,8 +99,8 @@ public class Confusion extends MRTask {
   private void shared_init() {
     _rand   = new Random(42L<<32);
     _data = (ValueArray) DKV.get(_datakey); // load the dataset
-    _model = new Model();
-    _model.read(new Stream(UKV.get(_modelKey).get()));
+    _model = UKV.get(_modelKey,new Model());
+    assert !_computeOOB || _model._dataset==_datakey ;
     _N = (int)((_data.col_max(_classcol) - _data.col_min(_classcol))+1);
     assert _N > 0;
     byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // get the 0-th chunk and figure out its size

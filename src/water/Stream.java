@@ -95,33 +95,37 @@ public class Stream {
   public void setAry4(int[]x) {
     set4(x==null?-1:x.length);
     if( x != null ) {
-      grow(x.length<<2);
-      _unsafe.copyMemory(x,_Ibase,_buf,_off+_Bbase,x.length<<2);
-      _off += (x.length<<2);
+      //grow(x.length<<2);
+      //_unsafe.copyMemory(x,_Ibase,_buf,_off+_Bbase,x.length<<2);
+      //_off += (x.length<<2);
+      for( int i : x ) set4(i);
     }
   }
   public void setAry4f(float[]x) {
     set4(x==null?-1:x.length);
     if( x != null ) {
-      grow(x.length<<2);
-      _unsafe.copyMemory(x,_Fbase,_buf,_off+_Bbase,x.length<<2);
-      _off += (x.length<<2);
+      //grow(x.length<<2);
+      //_unsafe.copyMemory(x,_Fbase,_buf,_off+_Bbase,x.length<<2);
+      //_off += (x.length<<2);
+      for( float f : x ) set4f(f);
     }
   }
   public void setAry8(long[]x) {
     set4(x==null?-1:x.length);
     if( x != null ) {
-      grow(x.length<<3);
-      _unsafe.copyMemory(x,_Lbase,_buf,_off+_Bbase,x.length<<3);
-      _off += (x.length<<3);
+      //grow(x.length<<3);
+      //_unsafe.copyMemory(x,_Lbase,_buf,_off+_Bbase,x.length<<3);
+      //_off += (x.length<<3);
+      for( long l : x ) set8(l);
     }
   }
   public void setAry8d(double[]x) {
     set4(x==null?-1:x.length);
     if( x != null ) {
-      grow(x.length<<3);
-      _unsafe.copyMemory(x,_Dbase,_buf,_off+_Bbase,x.length<<3);
-      _off += (x.length<<3);
+      //grow(x.length<<3);
+      //_unsafe.copyMemory(x,_Dbase,_buf,_off+_Bbase,x.length<<3);
+      //_off += (x.length<<3);
+      for( double d : x ) set8d(d);
     }
   }
   public void setAry11(byte[][]x) {

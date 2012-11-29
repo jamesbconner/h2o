@@ -20,6 +20,7 @@ public class RandomForestPage extends H2OPage {
   public static final String MODEL_KEY  = "modelKey";
   public static final String CLASS_COL  = "class";
   public static final String IGNORE_COL = "ignore";
+  public static final String OOBEE      = "OOBEE";
   public static final String FEATURES   = "features";
 
   public static final int MAX_CLASSES = 4096;
@@ -158,8 +159,10 @@ public class RandomForestPage extends H2OPage {
 
     // Remove any prior model; about to overwrite it
     UKV.remove(modelKey);
-    for( int i=0; i<=ntree; i++ ) // Also, all related Confusions
-      UKV.remove(Confusion.keyFor(modelKey,i,ary._key,classcol));
+    for( int i=0; i<=ntree; i++ ) { // Also, all related Confusions
+      UKV.remove(Confusion.keyFor(modelKey,i,ary._key,classcol,true ));
+      UKV.remove(Confusion.keyFor(modelKey,i,ary._key,classcol,false));
+    }
 
     // Start the distributed Random Forest
     JsonObject res = new JsonObject();
@@ -177,6 +180,7 @@ public class RandomForestPage extends H2OPage {
       res.addProperty(NUM_TREE, ntree);
       res.addProperty("class", classcol);
       res.addProperty("classWt", p.getProperty("classWt",""));
+      res.addProperty("OOBEE",getBoolean(p,OOBEE));
     } catch(DRF.IllegalDataException e) {
       res.addProperty("error", H2OPage.error("Incorrect input data: " + e.getMessage()));
     }
@@ -193,5 +197,5 @@ public class RandomForestPage extends H2OPage {
     return H2OPage.error(json.get("error").toString());
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class&classWt=%classWt\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class&classWt=%classWt&OOBEE=%OOBEE\">\n";
 }
