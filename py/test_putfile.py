@@ -16,12 +16,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
         #pass
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_A_putfile(self):
         cvsfile = h2o.find_file(file_to_put())
         node    = h2o.nodes[0]

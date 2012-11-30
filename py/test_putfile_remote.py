@@ -17,12 +17,6 @@ class Basic(unittest.TestCase):
         h2o.verboseprint("Tearing down cloud")
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     # Try to put a file to each node in the cloud and checked reported size of the saved file 
     def test_A_putfile_to_all_nodes(self):
         

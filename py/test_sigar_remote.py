@@ -42,12 +42,6 @@ class Basic(unittest.TestCase):
         h2o.verboseprint("Tearing down cloud")
         h2o.tear_down_cloud(nodes)
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_sigar_remote(self):
         # Nasty trick - let remote virtual machines to exchange several heartbeat packets to obtain network statistics
         h2o.verboseprint("Waiting...")
