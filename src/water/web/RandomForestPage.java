@@ -192,10 +192,11 @@ public class RandomForestPage extends H2OPage {
     if(!json.has("error")){
       RString response = new RString(html);
       response.replace(json);
+      response.replace("message","<b>Please wait!</b> It may take some time to launch the computation of the trees. This page will be automatically updated once some information is available.");
       return response.toString();
     }
     return H2OPage.error(json.get("error").toString());
   }
   final static String html =
-    "<meta http-equiv=\"REFRESH\" content=\"0;url=/RFView?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class&classWt=%classWt&OOBEE=%OOBEE\">\n";
+    "<meta http-equiv=\"REFRESH\" content=\"0;url=/Wait?dataKey=%$dataKey&modelKey=%$modelKey&ntree=%ntree&class=%class&classWt=%classWt&OOBEE=%OOBEE&_WAIT_TARGET=RFView&_WAIT_MESSAGE=%$message\">\n";
 }

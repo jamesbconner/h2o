@@ -98,7 +98,6 @@ public class Confusion extends MRTask {
     }
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
-    try { Thread.sleep(5000); } catch( InterruptedException ex ) { /* pass */ }
     UKV.put(key,C);             // Output to cloud
     UKV.remove(progressKey); // signal that we have done computing the matrix
     if( classWt != null )
