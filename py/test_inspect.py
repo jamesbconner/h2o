@@ -28,12 +28,6 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_A_inspect_poker1000(self):
         cvsfile = h2o.find_file("smalldata/poker/poker1000")
         node    = h2o.nodes[0]

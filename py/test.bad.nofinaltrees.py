@@ -13,12 +13,6 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     # NOTE: unittest will run tests in an arbitrary order..not constrained
     # to order written here.
 

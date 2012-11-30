@@ -12,12 +12,6 @@ class JStackApi(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud(nodes)
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_jstack(self):
         # Ask each node for jstack statistics
         for n in nodes:

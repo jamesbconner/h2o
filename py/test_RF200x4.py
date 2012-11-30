@@ -10,12 +10,6 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_RFhhp(self):
         # changed to load the .gz directly
         # don't ever gunzip, since we want to test H2O's ability to use *.gz

@@ -2,19 +2,6 @@ import os, json, unittest, time, shutil, sys
 import h2o
 
 class Basic(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        pass
-
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def testCloud(self):
         global nodes
