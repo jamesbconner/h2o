@@ -1,7 +1,6 @@
 package hex.rf;
 
 import java.util.Random;
-
 import water.*;
 
 /**
@@ -67,6 +66,11 @@ public class Confusion extends MRTask {
     return Key.make("ConfusionMatrix of (" + datakey+"["+classcol+"],"+modelKey+"["+msize+"],"+(computeOOB?"1":"0")+")");
   }
 
+  static public Key keyForProgress(Key modelKey, int msize, Key datakey, int classcol, boolean computeOOB) {
+    // make sure it is a system key
+    return Key.make("\0" + keyFor(modelKey, msize, datakey, classcol, computeOOB));
+  }
+
   public static void remove(Model model, Key datakey, int classcol, boolean computeOOB) {
     Key key = keyFor(model._key, model.size(), datakey, classcol, computeOOB);
     UKV.remove(key);
@@ -77,22 +81,35 @@ public class Confusion extends MRTask {
      for that Key to already exist, returning a prior CM if one is available.*/
   static public Confusion make(Model model, Key datakey, int classcol, int[] ignores, double[] classWt,boolean computeOOB) {
     Key key = keyFor(model._key, model.size(), datakey, classcol, computeOOB);
+    byte[] inProgress = "IN_PROGRESS".getBytes();
     Confusion C = UKV.get(key,new Confusion());
     if( C != null ) {         // Look for a prior cached result
       C.shared_init();
       return C;
     }
 
+    // mark that we are computing the matrix now
+    Key progressKey = keyForProgress(model._key, model.size(), datakey, classcol, computeOOB);
+    Value v = H2O.putIfMatch(progressKey, new Value(progressKey,"IN_PROGRESS"), null);
     C = new Confusion(model,datakey,classcol,ignores,classWt,computeOOB);
-
+    if (v != null) { // someone is already working on the matrix, stop
+      C._matrix = null;
+      return C;
+    }
     if( model.size() > 0 )
       C.invoke(datakey);        // Compute on it: count votes
+    try { Thread.sleep(5000); } catch( InterruptedException ex ) { /* pass */ }
     UKV.put(key,C);             // Output to cloud
+    UKV.remove(progressKey); // signal that we have done computing the matrix
     if( classWt != null )
       for( int i=0; i<classWt.length; i++ )
         if( classWt[i] != 1.0 )
           System.out.println("[CM] Weighted votes "+i+" by "+classWt[i]);
     return C;
+  }
+
+  public boolean isValid() {
+    return _matrix != null;
   }
 
   /** Shared init: for new Confusions, for remote Confusions*/

@@ -110,62 +110,67 @@ public class RFView extends H2OPage {
     if (p.getProperty("clearCM","0").equals("1"))
       Confusion.remove(model,ary._key,classcol,oobee);
 
+    RString response = new RString(html());
     // Since the model has already been run on this dataset (in the serverJson
     // above), and Confusion.make caches - calling it again a quick way to
     // de-serialize the Confusion from the H2O Store.
     Confusion confusion = Confusion.make( model, ary._key, classcol, ignores, classWt, oobee );
-    confusion.report();
-    // Display the confusion-matrix table here
-    // First the title line
-    final int N = model._classes;
-    RString response = new RString(html());
-    int cmin = (int)ary.col_min(classcol);
-    StringBuilder sb = new StringBuilder();
-    sb.append("<th>Actual \\ Predicted");
-    for( int i=0; i<N; i++ )
-      sb.append("<th>").append("class "+(i+cmin));
-    sb.append("<th>Error");
-    response.replace("chead",sb.toString());
-    response.replace("flavor", confusion._computeOOB ? "OOB error estimate" : "full scoring");
+    if (confusion.isValid()) {
+      confusion.report();
+      // Display the confusion-matrix table here
+      // First the title line
+      final int N = model._classes;
+      int cmin = (int)ary.col_min(classcol);
+      StringBuilder sb = new StringBuilder();
+      sb.append("<th>Actual \\ Predicted");
+      for( int i=0; i<N; i++ )
+        sb.append("<th>").append("class "+(i+cmin));
+      sb.append("<th>Error");
+      response.replace("chead",sb.toString());
+      response.replace("flavor", confusion._computeOOB ? "OOB error estimate" : "full scoring");
 
-    // Now the confusion-matrix body lines
-    long ctots[] = new long[N]; // column totals
-    long terrs = 0;
-    for( int i=0; i<N; i++ ) {
+      // Now the confusion-matrix body lines
+      long ctots[] = new long[N]; // column totals
+      long terrs = 0;
+      for( int i=0; i<N; i++ ) {
+        RString row = response.restartGroup("CtableRow");
+        sb = new StringBuilder();
+        sb.append("<td>").append("class "+(i+cmin));
+        long tot=0;
+        long err=0;
+        for( int j=0; j<N; j++ ) {
+          long v = confusion._matrix==null ? 0 : confusion._matrix[i][j];
+          tot += v;               // Line totals
+          ctots[j] += v;          // Column totals
+          if( i==j ) sb.append("<td style='background-color:LightGreen'>");
+          else { sb.append("<td>"); err += v; }
+          sb.append(v);
+        }
+        terrs += err;             // Total errors
+        sb.append("<td>");
+        if( tot != 0 )
+          sb.append(String.format("%5.3f = %d / %d",(double)err/tot,err,tot));
+        row.replace("crow",sb.toString());
+        row.append();
+      }
+      // Last the summary line
       RString row = response.restartGroup("CtableRow");
       sb = new StringBuilder();
-      sb.append("<td>").append("class "+(i+cmin));
-      long tot=0;
-      long err=0;
-      for( int j=0; j<N; j++ ) {
-        long v = confusion._matrix==null ? 0 : confusion._matrix[i][j];
-        tot += v;               // Line totals
-        ctots[j] += v;          // Column totals
-        if( i==j ) sb.append("<td style='background-color:LightGreen'>");
-        else { sb.append("<td>"); err += v; }
-        sb.append(v);
+      sb.append("<td>").append("Totals");
+      long ttots= 0;
+      for( int i=0; i<N; i++ ) {
+        ttots += ctots[i];
+        sb.append("<td>").append(ctots[i]);
       }
-      terrs += err;             // Total errors
       sb.append("<td>");
-      if( tot != 0 )
-        sb.append(String.format("%5.3f = %d / %d",(double)err/tot,err,tot));
+      if( ttots != 0 )
+        sb.append(String.format("%5.3f = %d / %d",(double)terrs/ttots,terrs,ttots));
       row.replace("crow",sb.toString());
       row.append();
+    } else {
+      response.replace("ctableStyle","display:none");
+      response.replace("ctableMessage","<div class='alert alert-info'><b>Please wait!</b> The confusion matrix is already being calculated. The page will automatically refresh..</div>");
     }
-    // Last the summary line
-    RString row = response.restartGroup("CtableRow");
-    sb = new StringBuilder();
-    sb.append("<td>").append("Totals");
-    long ttots= 0;
-    for( int i=0; i<N; i++ ) {
-      ttots += ctots[i];
-      sb.append("<td>").append(ctots[i]);
-    }
-    sb.append("<td>");
-    if( ttots != 0 )
-      sb.append(String.format("%5.3f = %d / %d",(double)terrs/ttots,terrs,ttots));
-    row.replace("crow",sb.toString());
-    row.append();
 
     // Report on the basic model info
     if( atree < model.size() ) {
@@ -215,7 +220,8 @@ public class RFView extends H2OPage {
       + "<p>Model key:<b>%modelKey</b></p>"
       + "<p>Weighted voting:<b>%weights</b></p>"
       + "<h2>Confusion Matrix - %flavor</h2>"
-      + "<table class='table table-striped table-bordered table-condensed'>"
+      + "%ctableMessage"
+      + "<table style='%ctableStyle' class='table table-striped table-bordered table-condensed'>"
       + "<thead>%chead</thead>\n"
       + "<tbody>\n"
       + "%CtableRow{<tr>%crow</tr>}\n"
