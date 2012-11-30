@@ -11,7 +11,7 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_claim_prediction(self):
-        csvPathname = '../smalldata/allstate/claim_prediction_train_set_10000.csv.gz'
+        csvPathname = '../smalldata/allstate/claim_prediction_train_set_10000_int.csv.gz'
 
         if not os.path.exists(csvPathname):
             raise Exception("Can't find %s." % (csvPathname))
