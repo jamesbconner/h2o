@@ -13,7 +13,7 @@ public abstract class Expr {
 
   // ---------------------------------------------------------------------------
   // Result
-  
+
   public static class Result {
     public static enum Type {
       rtKey,
@@ -62,7 +62,7 @@ public abstract class Expr {
     public static Result permanent(Key k) { return new Result(k, -1); }
 
     public static Result scalar(double v) { return new Result(v); }
-    
+
     public static Result string(String s) { return new Result(s); }
 
     public void dispose() {
@@ -83,10 +83,21 @@ public abstract class Expr {
     //return isTemporary() && (_copied == false);
 
     public int rawColIndex() { return _colIndex; }
-    
-    public int colIndex() { return _colIndex < 0 ? 0 : _colIndex; } 
-    
+
+    public int colIndex() { return _colIndex < 0 ? 0 : _colIndex; }
+
     public void setColIndex(int index) { _colIndex = index; }
+
+    public void convertToSingleColumn(int pos) throws EvaluationException {
+      if (_type != Type.rtKey)
+        return; // nothing to do
+      ValueArray va = getValueArray(pos,_key);
+      if (rawColIndex() == -1) {
+        setColIndex(0);
+        if (va.num_cols()!=1)
+          throw new EvaluationException(pos, "Column must be specified for the first operand");
+      }
+    }
 
   }
 
@@ -106,14 +117,18 @@ public abstract class Expr {
    * @throws EvaluationException
    */
   public ValueArray getValueArray(Key k) throws EvaluationException {
+    return getValueArray(_pos, k);
+  }
+
+  public static ValueArray getValueArray(int pos, Key k) throws EvaluationException {
     Value v = DKV.get(k);
     if( v == null )
-      throw new EvaluationException(_pos, "Key " + k.toString() + " not found");
+      throw new EvaluationException(pos, "Key " + k.toString() + " not found");
     if( !(v instanceof ValueArray) )
-      throw new EvaluationException(_pos, "Key " + k.toString() + " does not contain an array, while array is expected.");
+      throw new EvaluationException(pos, "Key " + k.toString() + " does not contain an array, while array is expected.");
     return (ValueArray) v;
   }
-  
+
 }
 
 // =============================================================================
@@ -137,7 +152,7 @@ class KeyLiteral extends Expr {
 }
 
 // =============================================================================
-// FloatLiteral 
+// FloatLiteral
 // =============================================================================
 class FloatLiteral extends Expr {
 
@@ -153,7 +168,7 @@ class FloatLiteral extends Expr {
 }
 
 // =============================================================================
-// StringLiteral 
+// StringLiteral
 // =============================================================================
 class StringLiteral extends Expr {
 
@@ -169,7 +184,7 @@ class StringLiteral extends Expr {
 }
 
 // =============================================================================
-// AssignmentOperator 
+// AssignmentOperator
 // =============================================================================
 class AssignmentOperator extends Expr {
 
@@ -304,7 +319,7 @@ class UnaryOperator extends Expr {
 
   @Override
   public Result eval() throws EvaluationException {
-    // get the keys and the values    
+    // get the keys and the values
     Result op = _opnd.eval();
     try {
       switch (op._type) {
@@ -556,7 +571,7 @@ class BinaryOperator extends Expr {
 
   @Override
   public Result eval() throws EvaluationException {
-    // get the keys and the values    
+    // get the keys and the values
     Result kl = _left.eval();
     Result kr = _right.eval();
     try {
@@ -594,11 +609,11 @@ class BinaryOperator extends Expr {
 // =============================================================================
 
 class FunctionCall extends Expr {
-  
+
   public final Function _function;
-  
+
   private final Expr[] _args;
-  
+
   public FunctionCall(int pos, String fName) throws ParserException {
     super(pos);
     // TODO get to _function
@@ -607,7 +622,7 @@ class FunctionCall extends Expr {
       throw new ParserException(pos,"Function "+fName+" is not defined.");
     _args = new Expr[_function.numArgs()];
   }
-  
+
   public void addArgument(Expr argument) throws ParserException {
     int i = 0;
     while ((i < _args.length) && (_args[i] != null)) ++i;
@@ -615,12 +630,12 @@ class FunctionCall extends Expr {
       throw new ParserException(argument._pos,"Function "+_function._name+" takes only "+_args.length+" arguments");
     _args[i] = argument;
   }
-  
+
   public void addArgument(Expr argument, int idx) {
     assert (idx < _args.length) && (idx>=0) && (_args[idx] == null);
     _args[idx] = argument;
   }
-  
+
   public void addArgument(Expr argument, String name) throws ParserException {
     int idx = _function.argIndex(name);
     if (idx == -1)
@@ -629,8 +644,8 @@ class FunctionCall extends Expr {
       throw new ParserException(argument._pos,"Argument "+name+" already defined for function "+_function._name);
     addArgument(argument,idx);
   }
-  
-  /** Just checks that we either have the argument, or that its default value can be obtained. */ 
+
+  /** Just checks that we either have the argument, or that its default value can be obtained. */
   public void staticArgumentVerification() throws ParserException {
     for (int i = 0; i < _args.length; ++i) {
       if (_args[i] != null)
@@ -661,4 +676,71 @@ class FunctionCall extends Expr {
       throw new EvaluationException(_pos,e.getMessage());
     }
   }
+}
+
+// =============================================================================
+// Ternary conditional operator ? : (inline if)
+// =============================================================================
+
+/** The ternary inline if operator.
+ *
+ * If the first condition expression evaluates to a scalar, then simply result
+ * of either the true or false expression is evaluated and returned whatever
+ * they are.
+ *
+ * If the result of the condition expression is a vector, then a new vector is
+ * returned that consists of the values reported by true / false expressions
+ * wrapped (if necessary) or multiplied if they are scalars.
+ *
+ * @author peta
+ */
+class Iif extends Expr {
+
+  public final Expr _cond;
+  public final Expr _ifTrue;
+  public final Expr _ifFalse;
+
+  public Iif(int pos, Expr cond, Expr ifTrue, Expr ifFalse)  {
+    super(pos);
+    _cond = cond;
+    _ifTrue = ifTrue;
+    _ifFalse = ifFalse;
+  }
+
+
+  @Override public Result eval() throws EvaluationException {
+    Result cond = _cond.eval();
+    // if condition is a scalar, return true or false arg unmodified
+    if (cond._type == Result.Type.rtNumberLiteral)
+      return cond._const != 0 ? _ifTrue.eval() : _ifFalse.eval();
+    if (cond._type == Result.Type.rtKey) {
+      cond.convertToSingleColumn(_pos);
+      ValueArray vc = getValueArray(cond._key);
+      Result result = Result.temporary();
+      Result ifTrue = _ifTrue.eval();
+      Result ifFalse = _ifFalse.eval();
+      ifTrue.convertToSingleColumn(_pos);
+      ifFalse.convertToSingleColumn(_pos);
+      MRColumnProducer task = null;
+      if (ifTrue._type == Result.Type.rtNumberLiteral) {
+        if (ifFalse._type == Result.Type.rtNumberLiteral)
+          task = new IifOperatorScalar23(cond._key, ifTrue._const, ifFalse._const, result._key, cond.colIndex());
+        else
+          task = new IifOperatorScalar2(cond._key, ifTrue._const, ifFalse._key, result._key, cond.colIndex(), ifFalse.colIndex());
+      } else {
+        if (ifFalse._type == Result.Type.rtNumberLiteral)
+          task = new IifOperatorScalar3(cond._key, ifTrue._key, ifFalse._const, result._key, cond.colIndex(), ifTrue.colIndex());
+        else
+          task = new IifOperator(cond._key, ifTrue._key, ifFalse._key, result._key, cond.colIndex(), ifTrue.colIndex(), ifFalse.colIndex());
+      }
+      VABuilder b = new VABuilder("temp", vc.num_rows()).addDoubleColumn("0").createAndStore(result._key);
+      task.invoke(result._key);
+      b.setColumnStats(0, task._min, task._max, task._tot / vc.num_rows()).createAndStore(result._key);
+      return result;
+    }
+
+    return null;
+  }
+
+
 }

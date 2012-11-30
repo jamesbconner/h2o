@@ -9,16 +9,13 @@ import water.*;
  *
  * @author peta
  */
-public abstract class MRVectorBinaryOperator extends MRTask {
+public abstract class MRVectorBinaryOperator extends MRColumnProducer {
 
   private final Key _leftKey;
   private final Key _rightKey;
   private final Key _resultKey;
   private final int _leftCol;
   private final int _rightCol;
-  double _min = Double.POSITIVE_INFINITY;
-  double _max = Double.NEGATIVE_INFINITY;
-  double _tot = 0;
 
   /**
    * Creates the binary operator task for the given keys.
@@ -67,26 +64,12 @@ public abstract class MRVectorBinaryOperator extends MRTask {
       right.next();
       double x = operator(left.datad(), right.datad());
       UDP.set8d(bits,i,x);
-      if (x < _min)
-        _min = x;
-      if (x > _max)
-        _max = x;
-      _tot += x;
+      updateColumnWith(x);
     }
     Value val = new Value(key, bits);
     lazy_complete(DKV.put(key, val));
   }
 
-  @Override
-  public void reduce(DRemoteTask drt) {
-    // unify the min & max guys
-    water.exec.MRVectorBinaryOperator other = (water.exec.MRVectorBinaryOperator) drt;
-    if( other._min < _min )
-      _min = other._min;
-    if( other._max > _max )
-      _max = other._max;
-    _tot += other._tot;
-  }
 }
 
 // =============================================================================
@@ -231,3 +214,4 @@ class OrOperator extends water.exec.MRVectorBinaryOperator {
   @Override
   public double operator(double left, double right) { return ((left != 0) || (right != 0)) ? 1 : 0; }
 }
+

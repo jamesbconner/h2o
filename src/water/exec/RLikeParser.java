@@ -46,6 +46,8 @@ public class RLikeParser {
       ttOpOr, // ||
       ttOpNot, // !
       ttOpComma, // ,
+      ttOpIif, // ?
+      ttOpColon, // :
       ttEOF,
       ttUnknown,;
 
@@ -103,6 +105,10 @@ public class RLikeParser {
             return "closing bracket";
           case ttOpComma:
             return "comma ','";
+          case ttOpIif:
+            return "inline if '?'";
+          case ttOpColon:
+            return "colon ':'";
           case ttEOF:
             return "end of input";
           default:
@@ -230,6 +236,12 @@ public class RLikeParser {
         } else {
           throw new ParserException(pos,"&& expected");
         }
+      case '?':
+        ++_s._off;
+        return new Token(pos, Token.Type.ttOpIif);
+      case ':':
+        ++_s._off;
+        return new Token(pos, Token.Type.ttOpColon);
       case '$':
         ++_s._off;
         return new Token(pos, Token.Type.ttOpDollar);
@@ -461,65 +473,84 @@ public class RLikeParser {
     return result;
   }
 
-  /*
-   *
-   *
-   * E -> E1 ( && | '||' ) E1 }
+  /** E -> E1 [ ? E : E ]
    *
    * @return
+   * @throws ParserException
    */
+
   private Expr parse_E() throws ParserException {
+    int pos = top()._pos;
     Expr result = parse_E1();
-    while( (top()._type == Token.Type.ttOpAnd) || (top()._type == Token.Type.ttOpOr) ) {
-      Token t = pop();
-      result = new BinaryOperator(t._pos, t._type, result, parse_E1());
+    if (top()._type == Token.Type.ttOpIif) {
+      pop();
+      Expr ifTrue = parse_E();
+      pop(Token.Type.ttOpColon);
+      Expr ifFalse = parse_E();
+      result = new Iif(pos, result, ifTrue, ifFalse);
     }
     return result;
   }
+
   /*
    *
    *
-   * E1 -> E2 ( == | != ) E2 }
+   * E1 -> E2 ( && | '||' ) E2 }
    *
    * @return
    */
   private Expr parse_E1() throws ParserException {
     Expr result = parse_E2();
-    while( (top()._type == Token.Type.ttOpEq) || (top()._type == Token.Type.ttOpNeq) ) {
+    while( (top()._type == Token.Type.ttOpAnd) || (top()._type == Token.Type.ttOpOr) ) {
       Token t = pop();
       result = new BinaryOperator(t._pos, t._type, result, parse_E2());
     }
     return result;
   }
-
-
   /*
    *
    *
-   * E2 -> E3 { ( < | > | <= | >= ) E3 }
+   * E2 -> E3 ( == | != ) E3 }
    *
    * @return
    */
   private Expr parse_E2() throws ParserException {
     Expr result = parse_E3();
-    while( (top()._type == Token.Type.ttOpLess)
-            || (top()._type == Token.Type.ttOpLessOrEq)
-            || (top()._type == Token.Type.ttOpGreater)
-            || (top()._type == Token.Type.ttOpGreaterOrEq) ) {
+    while( (top()._type == Token.Type.ttOpEq) || (top()._type == Token.Type.ttOpNeq) ) {
       Token t = pop();
       result = new BinaryOperator(t._pos, t._type, result, parse_E3());
     }
     return result;
   }
 
+
   /*
    *
    *
-   * E3 -> T { + T | - T }
+   * E3 -> E4 { ( < | > | <= | >= ) E4 }
    *
    * @return
    */
   private Expr parse_E3() throws ParserException {
+    Expr result = parse_E4();
+    while( (top()._type == Token.Type.ttOpLess)
+            || (top()._type == Token.Type.ttOpLessOrEq)
+            || (top()._type == Token.Type.ttOpGreater)
+            || (top()._type == Token.Type.ttOpGreaterOrEq) ) {
+      Token t = pop();
+      result = new BinaryOperator(t._pos, t._type, result, parse_E4());
+    }
+    return result;
+  }
+
+  /*
+   *
+   *
+   * E4 -> T { + T | - T }
+   *
+   * @return
+   */
+  private Expr parse_E4() throws ParserException {
     Expr result = parse_T();
     while( (top()._type == Token.Type.ttOpAdd) || (top()._type == Token.Type.ttOpSub) ) {
       Token t = pop();

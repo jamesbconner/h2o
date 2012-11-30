@@ -11,14 +11,11 @@ import water.*;
  *
  * @author peta
  */
-public abstract class MRVectorUnaryOperator extends MRTask {
+public abstract class MRVectorUnaryOperator extends MRColumnProducer {
 
   private final Key _key;
   private final Key _resultKey;
   private final int _col;
-  double _min = Double.POSITIVE_INFINITY;
-  double _max = Double.NEGATIVE_INFINITY;
-  double _tot = 0;
 
   /**
    * Creates the binary operator task for the given keys.
@@ -59,26 +56,12 @@ public abstract class MRVectorUnaryOperator extends MRTask {
       opnd.next();
       double x = operator(opnd.datad());
       UDP.set8d(bits,i,x);
-      if (x < _min)
-        _min = x;
-      if (x > _max)
-        _max = x;
-      _tot += x;
+      updateColumnWith(x);
     }
     Value val = new Value(key, bits);
     lazy_complete(DKV.put(key, val));
   }
 
-  @Override
-  public void reduce(DRemoteTask drt) {
-    // unify the min & max guys
-    water.exec.MRVectorUnaryOperator other = (water.exec.MRVectorUnaryOperator) drt;
-    if( other._min < _min )
-      _min = other._min;
-    if( other._max > _max )
-      _max = other._max;
-    _tot += other._tot;
-  }
 }
 
 // =============================================================================
