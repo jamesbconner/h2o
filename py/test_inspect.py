@@ -33,7 +33,7 @@ class Basic(unittest.TestCase):
         node    = h2o.nodes[0]
         
         res  = self.putfile_and_parse(node, cvsfile)
-        ary  = node.inspect(res['key'])
+        ary  = node.inspect(res['Key'])
         # count lines in input file - there is no header for poker 1000
         rows = wcl(cvsfile)
 
@@ -74,7 +74,7 @@ class Basic(unittest.TestCase):
         node    = h2o.nodes[0]
         
         res  = self.putfile_and_parse(node, cvsfile)
-        ary  = node.inspect(res['key'])
+        ary  = node.inspect(res['Key'])
 
         self.assertEqual(rows, ary['rows'])
         self.assertEqual(cols, ary['cols'])
