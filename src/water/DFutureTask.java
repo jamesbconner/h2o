@@ -48,7 +48,7 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
     _tasknum = Locally_Unique_TaskIDs.getAndIncrement();
     _type = type;
     _started = System.currentTimeMillis();
-    _retry = RETRY_MS;
+    _retry = (_type == UDP.udp.rexec || _type == UDP.udp.atomic) ? RETRY_MS*10 : RETRY_MS; 
   }
 
   // 'Pack' a UDP packet, by default.  Override this if you want to use a more
@@ -81,7 +81,8 @@ public class DFutureTask<V> implements Future<V>, Delayed, ForkJoinPool.ManagedB
       // Double retry until we exceed existing age.  This is the time to delay
       // until we try again.  Note that we come here immediately on creation,
       // so the first doubling happens before anybody does any waiting.
-      _retry += (_retry < 5000 ) ? _retry : 5000;
+      int cap = (_type == UDP.udp.rexec || _type == UDP.udp.atomic) ? 50000 : 5000;
+      _retry += (_retry < cap ) ? _retry : cap;
       // Put self on the "TBD" list of tasks awaiting Timeout.
       // So: dont really 'forget' but remember me in a little bit.
       assert !UDPTimeOutThread.PENDING.contains(this);
