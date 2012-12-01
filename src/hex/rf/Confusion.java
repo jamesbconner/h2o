@@ -68,7 +68,7 @@ public class Confusion extends MRTask {
 
   static public Key keyForProgress(Key modelKey, int msize, Key datakey, int classcol, boolean computeOOB) {
     // make sure it is a system key
-    return Key.make("\0" + keyFor(modelKey, msize, datakey, classcol, computeOOB));
+    return Key.make("\0" + "ConfusionMatrixProgress of (" + datakey+"["+classcol+"],"+modelKey+")");
   }
 
   public static void remove(Model model, Key datakey, int classcol, boolean computeOOB) {
