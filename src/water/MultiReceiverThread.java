@@ -135,7 +135,7 @@ public class MultiReceiverThread extends Thread {
       // we just want to send the dup reply back.
       DatagramPacket old = h2o.putIfAbsent(pack);
       if( old != null ) {       // We've seen this packet before?
-        if( (0xFF&old.getData()[0]) == ACK ) {
+        if( UDP.get_ctrl(old.getData()) == ACK ) {
           int dum = H2O.VOLATILE; // Dummy volatile read between 1st byte & rest of packet
           // This is an old re-send of the same thing we've answered to
           // before.  Send back the same old answer ACK.
@@ -145,8 +145,8 @@ public class MultiReceiverThread extends Thread {
           // work-in-progress locally.  We have no answer yet to reply with
           // but we do not want to re-offer the packet for repeated work.
           // Just ignore the packet.
-          UDPReceiverThread.free_pack(pack);
         }
+        UDPReceiverThread.free_pack(pack);
       } else {                  // Else not a repeat-packet
         // Announce new packet to workers
         // "rexec" goes to "normal" priority queue.
