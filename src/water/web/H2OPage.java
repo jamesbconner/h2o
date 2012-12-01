@@ -137,7 +137,7 @@ public abstract class H2OPage extends Page {
     }
   }
 
-  public int[] parseVariableExpression(String[] colNames, String vexp) throws PageError {
+  public static int[] parseVariableExpression(String[] colNames, String vexp) throws PageError {
     if( vexp.trim().isEmpty() ) return new int[0];
     String[] colExps = vexp.split(",");
     int[] res = new int[colExps.length];
@@ -161,7 +161,7 @@ public abstract class H2OPage extends Page {
     return res;
   }
 
-  public int parseColumnNameOrIndex(String[] colNames, String s) throws InvalidColumnIdException {
+  public static int parseColumnNameOrIndex(String[] colNames, String s) throws InvalidColumnIdException {
     s = s.trim();
     for( int j = 0; j < colNames.length; ++j )
       if( colNames[j].equalsIgnoreCase(s) )
