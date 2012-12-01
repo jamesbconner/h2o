@@ -151,18 +151,18 @@ public class ValueArray extends Value {
     throw new IOException("Missing chunk "+idx+", broken "+H2O.OPT_ARGS.ice_root+"?");
   }
 
-  /** Returns the start row of the given chunk. 
-   * 
+  /** Returns the start row of the given chunk.
+   *
    * Assumes all chunks up to the last one are of the same size (fully
-   * popullated). 
-   * 
+   * popullated).
+   *
    * @param k key of the chunk
-   * @return Index of the first row in the chunk. 
+   * @return Index of the first row in the chunk.
    */
   long startRowForChunk(Key k) {
     return getOffset(k) / row_size();
   }
-  
+
   static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
     // Main Key
     Key key = Key.make(keyname,rf);
@@ -495,6 +495,32 @@ public class ValueArray extends Value {
     int len = UDP.get2(mem,off);
     return len > 0 ? new String(mem,off+2,len) : Integer.toString(cnum);
   }
+
+  /** Returns the column object for the given column id.
+   *
+   * This is useful when we are restructuralizing the
+   *
+   * @param idx
+   * @return
+   */
+  public Column getColumn(int idx) {
+    byte[] mem = get();
+    Column c = new Column();
+    c._badat = (char) col_badat(idx);
+    c._base = col_base(idx);
+    c._max = col_max(idx);
+    c._mean = col_mean(idx);
+    c._min = col_min(idx);
+    c._n = UDP.get8(mem,col(idx)+N_COL_OFF);
+    c._name = col_name(idx);
+    c._off = (short) col_off(idx);
+    c._scale = (short) col_scale(idx);
+    c._sigma = col_sigma(idx);
+    c._size = (byte) col_size(idx);
+    c._domain = new ColumnDomain(col_enum_domain(idx));
+    return c;
+  }
+
   // All the column names.  Unlike the above version, this one replaces null
   // strings with a column number and never returns null names
   public String[] col_names() {
@@ -682,7 +708,7 @@ public class ValueArray extends Value {
     }
     return false;
   }
-  
+
   static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
     // Size of base meta-data, plus column meta-data.
     int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;

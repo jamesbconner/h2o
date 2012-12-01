@@ -14,9 +14,9 @@ import water.ValueArray;
 public final class VAIterator implements Iterator<VAIterator> {
 
   public final ValueArray _ary;
-  
+
   public final long _rows;
-  
+
   public final int _rowSize;
 
   private int _defaultColumn;
@@ -24,14 +24,14 @@ public final class VAIterator implements Iterator<VAIterator> {
   private int _defaultColumnSize;
   private int _defaultColumnBase;
   private int _defaultColumnScale;
-  
+
   private int _rowInChunk;
   private int _rowsInChunk;
   private byte[] _chunkBits;
   private long _chunkOffset;
   private long _currentRow;
   private int _chunkIdx;
-  
+
   public VAIterator(Key k, int defaultColumn, long startRow) {
     _ary = (ValueArray) DKV.get(k);
     assert (_ary != null) : "VA for key "+k.toString()+" not found.";
@@ -49,7 +49,7 @@ public final class VAIterator implements Iterator<VAIterator> {
   public VAIterator(Key key, int defaultColumn) {
     this(key,defaultColumn,0);
   }
-  
+
   public void setDefaultColumn(int colIdx) {
     assert (colIdx>=0) && (colIdx<_ary.num_cols());
     _defaultColumn = colIdx;
@@ -58,16 +58,16 @@ public final class VAIterator implements Iterator<VAIterator> {
     _defaultColumnBase = _ary.col_base(colIdx);
     _defaultColumnScale = _ary.col_scale(colIdx);
   }
-  
+
   public int defaultColumn() {
     return _defaultColumn;
   }
-  
-  private void skipRows(long rows) { 
+
+  private void skipRows(long rows) {
     assert (_currentRow + rows < _rows);
     next();
     --rows; // on the next() call we will be at the desired row
-    while (true) { 
+    while (true) {
       if (rows < _rowsInChunk) {
         _rowInChunk += rows;
         _currentRow += rows;
@@ -79,7 +79,7 @@ public final class VAIterator implements Iterator<VAIterator> {
       next(); // move to next chunk
     }
   }
-  
+
   public long row() {
     return _currentRow;
   }
@@ -91,7 +91,7 @@ public final class VAIterator implements Iterator<VAIterator> {
   @Override public VAIterator next() {
     ++_currentRow;
     ++_rowInChunk;
-    if (_rowInChunk == _rowsInChunk) { 
+    if (_rowInChunk == _rowsInChunk) {
       if (_currentRow == _rows) { // wrap after end has been reached
         _currentRow = 0;
         _rowInChunk = 0;
@@ -110,32 +110,37 @@ public final class VAIterator implements Iterator<VAIterator> {
     }
     return this;
   }
-  
+
   @Override public void remove() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
-  
+
   public long data() {
     return _ary.data(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize, _defaultColumnBase, _defaultColumnScale, _defaultColumn);
   }
-  
+
   public long data(int column) {
     return _ary.data(_chunkBits,_rowInChunk,_rowSize,column);
   }
-  
+
   public double datad() {
     return _ary.datad(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize, _defaultColumnBase, _defaultColumnScale, _defaultColumn);
   }
-  
+
   public double datad(int column) {
     return _ary.datad(_chunkBits,_rowInChunk,_rowSize,column);
   }
-  
+
   public int copyCurrentRow(byte[] dest, int offset) {
     System.arraycopy(_chunkBits, _rowInChunk*_rowSize, dest, offset, _rowSize);
     return offset + _rowSize;
   }
-  
+
+  public int copyCurrentRowPart(byte[] dest, int offset, int rowStart, int rowEnd) {
+    System.arraycopy(_chunkBits, _rowInChunk*_rowSize+rowStart, dest, offset, rowEnd-rowStart);
+    return rowEnd - rowStart + offset;
+  }
+
   public boolean isValid(int column) {
     return _ary.valid(_chunkBits, _rowInChunk, _rowSize, column);
   }
@@ -143,6 +148,6 @@ public final class VAIterator implements Iterator<VAIterator> {
   public boolean isValid() {
     return _ary.valid(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize);
   }
-  
-  
+
+
 }

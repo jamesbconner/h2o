@@ -142,5 +142,31 @@ public class VABuilder {
     else
       return result;
   }
-
 }
+/*
+
+    private void createValueArrayHeader() {
+      assert (_phase == PASS_TWO);
+      Column[] cols = new Column[_ncolumns];
+      int off = 0;
+      for(int i = 0; i < cols.length; ++i){
+        cols[i]         = new Column();
+        cols[i]._badat  = (char)Math.min(65535, _invalidValues[i] );
+        cols[i]._base   = _bases[i];
+        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!,  col = " + i + ", scale = " + _scale[i];
+        cols[i]._scale  = (short)pow10i(-_scale[i]);
+        cols[i]._off    = (short)off;
+        cols[i]._size   = (byte)colSizes[_colTypes[i]];
+        cols[i]._domain = new ValueArray.ColumnDomain(_colDomains[i]);
+        cols[i]._max    = _max[i];
+        cols[i]._min    = _min[i];
+        cols[i]._mean   = _mean[i];
+        cols[i]._sigma  = _sigma[i];
+        cols[i]._name   = _colNames[i];
+        off +=  Math.abs(cols[i]._size);
+      }
+      // finally make the value array header
+      ValueArray ary = ValueArray.make(_resultKey, Value.ICE, _sourceDataset._key, "basic_parse", _numRows, off, cols);
+      DKV.put(_resultKey, ary);
+    }
+*/

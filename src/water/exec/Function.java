@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 import water.*;
+import water.ValueArray.Column;
 import water.exec.Expr.Result;
 
 /** A class that represents the function call.
@@ -139,9 +140,8 @@ public abstract class Function {
       if (r._type == Result.Type.rtNumberLiteral)
         if (Math.ceil(r._const) == Math.floor(r._const))
           return;
-      throw new Exception("String or integer expected, float found.");
+      throw new Exception("String or integer expected.");
     }
-
   }
 
 
@@ -211,6 +211,7 @@ public abstract class Function {
     new RandBitVect("randomBitVector");
     new RandomFilter("randomFilter");
     new Log("log");
+    new InPlaceColSwap("colSwap");
   }
 }
 
@@ -340,6 +341,8 @@ class Filter extends Function {
   }
 }
 
+// Slice -----------------------------------------------------------------------
+
 class Slice extends Function {
 
   public Slice(String name) {
@@ -372,7 +375,6 @@ class Slice extends Function {
   }
 
 }
-
 
 // RandBitVect -----------------------------------------------------------------
 
@@ -501,6 +503,110 @@ class Log extends Function {
     return r;
   }
 
+}
+
+// colSwap ---------------------------------------------------------------------
+
+/** Swaps the column in place for a different column.
+ * 
+ * @author peta
+ */
+class InPlaceColSwap extends Function {
+
+  static class ColSwapTask extends MRTask {
+
+    final Key _resultKey;
+    final Key _oldKey;
+    final Key _newKey;
+    final int _oldCol;
+    final int _newCol;
+
+    public ColSwapTask(Key resultKey, Key oldKey, Key newKey, int oldCol, int newCol) {
+      _resultKey = resultKey;
+      _oldKey = oldKey;
+      _newKey = newKey;
+      _oldCol = oldCol;
+      _newCol = newCol;
+    }
+
+    @Override public void map(Key key) {
+      // a simple MR, get the row offset for the given key, then initialize the
+      // iterators and patch the result
+      ValueArray result = (ValueArray) DKV.get(_resultKey);
+      int rowSize = result.row_size();
+      long rowOffset = ValueArray.getOffset(key) / result.row_size();
+      VAIterator oldVal = new VAIterator(_oldKey,_oldCol, rowOffset);
+      VAIterator newVal = new VAIterator(_newKey,_newCol, rowOffset);
+      int chunkRows = VABuilder.chunkSize(key, result.length(), rowSize) / rowSize;
+      byte[] bits = MemoryManager.allocateMemory(chunkRows * rowSize);
+      // calculate the markers
+      int oldMark1 = oldVal._ary.col_off(_oldCol);
+      int newMark1 = newVal._ary.col_off(_newCol);
+      int oldMark2 = Math.abs(oldVal._ary.col_size(_oldCol)) + oldMark1;
+      int newMark2 = Math.abs(newVal._ary.col_size(_newCol)) + newMark1;
+      int oldMark3 = oldVal._ary.row_size();
+      for (int off = 0; off < bits.length; /* done in the body */) {
+        oldVal.next();
+        newVal.next();
+        // copy & patch the data
+        off = oldVal.copyCurrentRowPart(bits, off, 0, oldMark1);
+        off = newVal.copyCurrentRowPart(bits, off, newMark1, newMark2);
+        off = oldVal.copyCurrentRowPart(bits, off, oldMark2, oldMark3);
+        assert (off % rowSize == 0);
+      }
+      // store the value
+      Value val = new Value(key, bits);
+      lazy_complete(DKV.put(key, val));
+    }
+
+    @Override public void reduce(DRemoteTask drt) {
+      // pass
+    }
+  }
+
+  public InPlaceColSwap(String name) {
+    super(name);
+    addChecker(new ArgValue("source"));
+    addChecker(new ArgColIdent("col"));
+    addChecker(new ArgVector("newCol"));
+  }
+
+
+  @Override public Result eval(Result... args) throws Exception {
+    // get and check the arguments
+    Key oldKey = args[0]._key;
+    Key newKey = args[2]._key;
+    ValueArray oldAry = (ValueArray) DKV.get(oldKey);
+    ValueArray newAry = (ValueArray) DKV.get(newKey);
+    assert (oldAry != null);
+    assert (newAry != null);
+    int oldCol = Helpers.checkedColumnIndex(oldAry, args[1]);
+    if (oldCol == -1)
+      throw new Exception("Column not found in source value.");
+    int newCol = args[2].colIndex();
+    // calculate the new column headers for the result
+    Column[] cols = new Column[oldAry.num_cols()];
+    int off = 0;
+    for (int i = 0; i < cols.length; ++i) {
+      if (oldCol == i) {
+        cols[i] = newAry.getColumn(newCol);
+        cols[i]._name = oldAry.col_name(i);
+      } else {
+        cols[i] = oldAry.getColumn(i);
+      }
+      cols[i]._off = (short) off;
+      off += Math.abs(cols[i]._size);
+    }
+    // get the temporary result key
+    Result result = Result.temporary();
+    // we now have the new column layout and must do the copying, create the
+    // value array
+    ValueArray ary = ValueArray.make(result._key, Value.ICE, oldKey, "column "+oldCol+" replaced with column "+newCol+" from "+newKey.toString(), oldAry.num_rows(), off, cols);
+    DKV.put(result._key,ary);
+    ColSwapTask task = new ColSwapTask(result._key, oldKey, newKey, oldCol, newCol);
+    task.invoke(result._key);
+    return result;
+  }
 }
 
 // GLM -------------------------------------------------------------------------

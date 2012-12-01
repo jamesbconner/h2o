@@ -12,8 +12,24 @@ import water.parser.ParseDataset;
  */
 public class Helpers {
 
+
+  public static int checkedColumnIndex(ValueArray ary, Result from) {
+    int result = -1;
+    if (from._type == Result.Type.rtStringLiteral) {
+      for (int i = 0; i < ary.num_cols(); ++i)
+        if (from._str.equals(ary.col_name(i)))
+          return i;
+    } else {
+      result = (int) from._const;
+    }
+    if (result >= ary.num_cols())
+      return -1;
+    return result;
+  }
+
+
   // scalar collector task -----------------------------------------------------
-  
+
   public static abstract class ScallarCollector extends MRTask {
 
     public final Key _key;
@@ -21,17 +37,17 @@ public class Helpers {
     protected double _result;
 
     protected abstract void collect(double x);
-    
+
     protected abstract void reduce(double x);
-    
+
     public double result() { return _result; }
-    
+
     @Override public void map(Key key) {
       _result = 0;
       ValueArray va = (ValueArray) DKV.get(_key);
       double mean = va.col_mean(_col);
       Value v = DKV.get(key);
-      if (v == null) 
+      if (v == null)
         System.err.println(key.toString());
       byte[] bits = DKV.get(key).get();
       int rowSize = va.row_size();
@@ -54,12 +70,12 @@ public class Helpers {
       _result = initVal;
     }
   }
-  
-  
-  
-  
+
+
+
+
   // sigma ---------------------------------------------------------------------
-  
+
   /**
    * Calculates the second pass of column metadata for the given key.
    *
@@ -87,7 +103,7 @@ public class Helpers {
       ValueArray va = (ValueArray) DKV.get(_key);
       double mean = va.col_mean(_col);
       Value v = DKV.get(key);
-      if (v == null) 
+      if (v == null)
         System.err.println(key.toString());
       byte[] bits = DKV.get(key).get();
       int rowSize = va.row_size();
@@ -114,10 +130,10 @@ public class Helpers {
       return Math.sqrt(_sigma / va.num_rows());
     }
   }
-  
+
   // ---------------------------------------------------------------------------
   // Assignments
-  
+
   /**
    * Assigns (copies) the what argument to the given key.
    *
@@ -128,7 +144,7 @@ public class Helpers {
    * @throws EvaluationException
    */
   public static void assign(int pos, final Key to, Result what) throws EvaluationException {
-    if( what._type == Result.Type.rtNumberLiteral ) { // assigning to a constant creates a vector of size 1 
+    if( what._type == Result.Type.rtNumberLiteral ) { // assigning to a constant creates a vector of size 1
       // The 1 tiny arraylet
       Key key2 = ValueArray.make_chunkkey(to, 0);
       byte[] bits = new byte[8];
@@ -147,7 +163,7 @@ public class Helpers {
         byte[] bits = v.get();
         ValueArray r = new ValueArray(to, MemoryManager.arrayCopyOfRange(bits, 0, bits.length)); // we must copy it because of the memory managed
         DKV.put(to, r);
-        what._copied = true; // TODO do we need to sync this? 
+        what._copied = true; // TODO do we need to sync this?
       } else if (what.rawColIndex()!=-1) { // copy in place of a single column only
         ValueArray v = (ValueArray) DKV.get(what._key);
         if( v == null )
@@ -182,10 +198,10 @@ public class Helpers {
 
   // sigma ---------------------------------------------------------------------
 
-  /** Creates a simple vector using the given values only. 
-   * 
+  /** Creates a simple vector using the given values only.
+   *
    * @param name
-   * @param items 
+   * @param items
    */
   public void createVector(Key name, String colName, double[] items) {
     // TODO TODO TODO
@@ -199,7 +215,7 @@ public class Helpers {
     for (int i = 0; i < items.length; ++i) {
       if ((bits == null) || (offset == bits.length)) { // create new chunk
         offset = 0;
-        
+
       }
       UDP.set8d(bits,offset,items[i]);
       offset += 8;
@@ -213,15 +229,15 @@ public class Helpers {
     b.setColumnStats(0,min,max,tot);
     b.createAndStore(name);
   }
-  
+
 }
 
 
 /** TODO scaling is missing, I should probably do VA iterators to do the job
- * for me much better. 
- * 
+ * for me much better.
+ *
  * TODO!!!!!!!!!!!!
- * 
+ *
  * @author peta
  */
 class DeepSingleColumnAssignment extends MRTask {
@@ -229,8 +245,8 @@ class DeepSingleColumnAssignment extends MRTask {
   private Key _to;
   private Key _from;
   private int _colIndex;
-  
-  
+
+
   @Override public void map(Key key) {
     ValueArray vTo = (ValueArray) DKV.get(_to);
     ValueArray vFrom = (ValueArray) DKV.get(_from);
@@ -269,7 +285,7 @@ class DeepSingleColumnAssignment extends MRTask {
         default:
           throw new IOException("Unsupported colSize "+colSize);
       }
-    }    
+    }
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -277,17 +293,16 @@ class DeepSingleColumnAssignment extends MRTask {
     Value val = new Value(key, bits);
     lazy_complete(DKV.put(key, val));
     // and we are done...
-    
+
   }
 
   @Override public void reduce(DRemoteTask drt) { }
-  
-  
+
+
   public DeepSingleColumnAssignment(Key from, Key to, int colIndex) {
     _to = to;
     _from = from;
     _colIndex = colIndex;
   }
-  
 }
 
