@@ -2,10 +2,12 @@
 package water.exec;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
 import water.*;
 import water.ValueArray.Column;
+import water.ValueArray.ColumnDomain;
 import water.exec.Expr.Result;
 
 /** A class that represents the function call.
@@ -212,6 +214,7 @@ public abstract class Function {
     new RandomFilter("randomFilter");
     new Log("log");
     new InPlaceColSwap("colSwap");
+    new MakeEnum("makeEnum");
   }
 }
 
@@ -505,10 +508,172 @@ class Log extends Function {
 
 }
 
+// makeEnum --------------------------------------------------------------------
+
+
+// colSwap ---------------------------------------------------------------------
+
+/** Makes an enum from given class.
+ *
+ * @author peta
+ */
+class MakeEnum extends Function {
+
+  static class GetEnumTask extends MRTask {
+
+    water.parser.Enum _domain;
+    final int _colIndex;
+    final Key _aryKey;
+
+    public GetEnumTask(Key aryKey, int colIndex) {
+      _colIndex = colIndex;
+      _aryKey = aryKey;
+    }
+
+    @Override public void init(){
+      super.init();
+      if (_domain == null)
+        _domain = new water.parser.Enum();
+    }
+
+    @Override public void map(Key key) {
+      ValueArray ary = (ValueArray) DKV.get(_aryKey);
+      byte[] bits = DKV.get(key).get();
+      int rowSize = ary.row_size();
+      int colOffset = ary.col_off(_colIndex);
+      int colSize = ary.col_size(_colIndex);
+      int colBase = ary.col_base(_colIndex);
+      int colScale = ary.col_scale(_colIndex);
+      int rowsInChunk = bits.length / rowSize;
+      for (int i = 0; i < rowsInChunk; ++i) {
+        _domain.addKey(String.valueOf(ary.datad(bits,i,rowSize,colOffset, colSize, colBase, colScale, _colIndex)));
+      }
+    }
+
+    @Override public void reduce(DRemoteTask drt) {
+      GetEnumTask other = (GetEnumTask) drt;
+      if (_domain == null) {
+        _domain = other._domain;
+      } else if (_domain != other._domain) {
+        _domain.merge(other._domain);
+      }
+    }
+
+  }
+
+  static class PackToEnumTask extends MRTask {
+
+    final water.parser.Enum _domain;
+    final Key _resultKey;
+    final Key _sourceKey;
+    final int _sourceCol;
+
+    double _tot;
+
+    public PackToEnumTask(Key resultKey, Key sourceKey, int sourceCol, water.parser.Enum domain) {
+      _domain = domain;
+      _resultKey = resultKey;
+      _sourceKey = sourceKey;
+      _sourceCol = sourceCol;
+    }
+
+    @Override public void map(Key key) {
+      ValueArray result = (ValueArray) DKV.get(_resultKey);
+      long rowOffset = ValueArray.getOffset(key) / result.row_size();
+      VAIterator source = new VAIterator(_sourceKey,_sourceCol, rowOffset);
+      int chunkRows = VABuilder.chunkSize(key, result.length(), result.row_size()) / result.row_size();
+      if (rowOffset + chunkRows >= result.num_rows())
+        chunkRows = (int) (result.num_rows() - rowOffset);
+      int size = _domain.size() < 255 ? 1 : 2;
+      int chunkLength = chunkRows * size;
+      byte[] bits = MemoryManager.allocateMemory(chunkLength); // create the byte array
+      for (int i = 0; i < chunkLength;) {
+        source.next();
+        int id = _domain.getTokenId(String.valueOf(source.datad()));
+        _tot += id;
+        // we do not expect any misses here
+        assert 0 <= id && id < _domain.size();
+        switch (size) {
+            case 1:
+              i = UDP.set1(bits, i, id);
+              break;
+            case 2:
+              i = UDP.set2(bits, i, id);
+              break;
+            case 4: // not used
+              i = UDP.set4(bits, i, id);
+              break;
+            default:
+              assert false:"illegal size: " + size;
+            }
+      }
+      Value val = new Value(key, bits);
+      lazy_complete(DKV.put(key, val));
+    }
+
+    @Override
+    public void reduce(DRemoteTask drt) {
+      PackToEnumTask other = (PackToEnumTask) drt;
+      _tot += other._tot;
+    }
+  }
+
+
+
+  public MakeEnum(String name) {
+    super(name);
+    addChecker(new ArgVector("col"));
+  }
+
+  @Override
+  public Result eval(Result... args) throws Exception {
+    try {
+    ValueArray oldAry = (ValueArray) DKV.get(args[0]._key);
+    // calculate the enums for the new encoded column
+    GetEnumTask etask = new GetEnumTask(args[0]._key, args[0].colIndex());
+    etask.invoke(args[0]._key);
+    // error if we have too many of them
+    if (etask._domain.isKilled())
+      throw new Exception("More than 65535 unique values found. The column is too big for enums.");
+    // compute the domain and determine the column properties
+    Column c = new Column();
+    String[] domainStr = etask._domain.computeColumnDomain();
+    c._domain = new ColumnDomain(domainStr);
+    c._base = 0;
+    c._max = domainStr.length-1;
+    c._min = 0;
+    c._mean = Double.NaN;
+    c._scale = 1;
+    c._sigma = Double.NaN;
+    c._size = (domainStr.length < 255) ? (byte)1 : (byte)2;
+    c._name = oldAry.col_name(args[0].colIndex());
+    c._off = 0;
+    c._badat = (char) oldAry.col_badat(args[0].colIndex());
+    // create the temporary result and VA
+    Result result = Result.temporary();
+    ValueArray ary = ValueArray.make(result._key, Value.ICE, args[0]._key, "makeEnum result", oldAry.num_rows(), c._size, new Column[] { c });
+    DKV.put(result._key, ary);
+    // invoke the pack task
+    PackToEnumTask ptask = new PackToEnumTask(result._key, args[0]._key, args[0].colIndex(),etask._domain);
+    ptask.invoke(result._key);
+    // update the mean
+    c._mean = ptask._tot / oldAry.num_rows();
+    ary = ValueArray.make(result._key, Value.ICE, args[0]._key, "makeEnum result", oldAry.num_rows(), c._size, new Column[] { c });
+    DKV.put(result._key, ary);
+    return result;
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+
+}
+
 // colSwap ---------------------------------------------------------------------
 
 /** Swaps the column in place for a different column.
- * 
+ *
  * @author peta
  */
 class InPlaceColSwap extends Function {
