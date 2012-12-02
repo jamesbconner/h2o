@@ -51,6 +51,14 @@ public final class Enum implements H2OSerializable {
     }
   }
 
+  public void addKey(String str) {
+    addKey(new ValueString(str));
+  }
+
+  public int getTokenId(String str) {
+    return getTokenId(new ValueString(str));
+  }
+
   int getTokenId(ValueString str){
     assert _map.get(str) != null:"missing value! " + str.toString();
     return _map.get(str);
