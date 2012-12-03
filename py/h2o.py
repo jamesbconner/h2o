@@ -546,6 +546,8 @@ class H2O(object):
     # OOBEE=true&
     # singlethreaded=0&     ..debug only..
     # dataKey=chess_2x2_500_int.hex
+    # ignore=&   ...this is ignore columns
+    # UPDATE: jan says the ignore should be picked up from the model
     def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
 
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
@@ -557,6 +559,12 @@ class H2O(object):
             'ntree' : ntree
             }
         browseAlso = kwargs.pop('browseAlso', False)
+
+        # any ignore should come from the model, not from kwargs
+        # so throw that away also!
+        # FIX! what about other "params" that should be passed forward from the model?
+        kwargs.pop('ignore', None)
+
         params_dict.update(kwargs)
 
         a = self.__check_request(requests.get(
