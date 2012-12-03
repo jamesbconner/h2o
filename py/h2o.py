@@ -514,10 +514,11 @@ class H2O(object):
     # singlethreaded=0&     ..debug only..may be gone
     # Key=chess_2x2_500_int.hex
 
-    def random_forest(self, Key, ntree, **kwargs):
+    # note ntree in kwargs can overwrite trees!
+    def random_forest(self, Key, trees, **kwargs):
         params_dict = {
             'Key' : Key,
-            'ntree' : ntree,
+            'ntree' : trees,
             'modelKey' : 'pytest_model',
             'depth' : 30,
             'browseAlso' : False,
@@ -549,11 +550,12 @@ class H2O(object):
 
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
-        params_dict = { 
+        # Note ntree in kwargs can overwrite trees! We use this for random param generation
+        params_dict = {
             'dataKey' : dataKey,
             'modelKey' : modelKey,
             'ntree' : ntree
-        }
+            }
         browseAlso = kwargs.pop('browseAlso', False)
         params_dict.update(kwargs)
 
@@ -599,10 +601,10 @@ class H2O(object):
     def GLM(self, key, **kwargs):
         # for defaults
         params_dict = { 
-                'family': 'binomial',
-                'Key': key,
-                'Y': 1
-                }
+            'family': 'binomial',
+            'Key': key,
+            'Y': 1
+            }
 
         glm_lambda = kwargs.pop('glm_lambda', None)
         if glm_lambda is not None: params_dict['lambda'] = glm_lambda
