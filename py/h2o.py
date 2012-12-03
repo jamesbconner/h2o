@@ -534,25 +534,18 @@ class H2O(object):
     # Key=chess_2x2_500_int.hex
 
     # philosophy: named for required, kwargs for optional?
-    def random_forest(self,key,ntree=6,**kwargs):
-        modelKey = kwargs.pop('modelKey', 'pytest_model')
-        depth = kwargs.pop('depth', 30)
-        clazz = kwargs.pop('clazz', None)
-
-        browseAlso = kwargs.pop('browseAlso', False)
-
-        params_dict = { }
-        def addIfNotNone(key,value):
-            if key is not None: params_dict[key] = value
+    def random_forest(self, Key, ntree, **kwargs):
+        params_dict = {
+            'Key' : Key,
+            'ntree' : ntree,
+            'modelKey' : 'pytest_model',
+            'depth' : 30,
+            'browseAlso' : False,
+            }
         
-        addIfNotNone('Key', key)
-        addIfNotNone('modelKey', modelKey)
-        addIfNotNone('ntree', ntree)
-        addIfNotNone('depth', depth)
-        addIfNotNone('class', clazz)
-
-        # add one dictionary to another (2nd dominates)               
-        # this allows all the extra args currently in the wiki (and commented above)
+        clazz = kwargs.pop('clazz', None)
+        if clazz is not None: params_dict['class'] = clazz
+        
         params_dict.update(kwargs)
 
         verboseprint("\nrandom_forest parameters:", params_dict)
@@ -576,25 +569,22 @@ class H2O(object):
     # OOBEE=true&
     # singlethreaded=0&     ..debug only..
     # dataKey=chess_2x2_500_int.hex
-    def random_forest_view(self,dataKey,modelKey,ntree,**kwargs):
+    def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
 
-        browseAlso = kwargs.pop('browseAlso', False)
         # should do something about random_forest and random_forest_view both just 
         # using a shared dictionary? There are some unique keys for each though.
         # (and some unused but that should be okay)
-        params_dict = { }
-        def addIfNotNone(key,value):
-            if key is not None: params_dict[key] = value
-        addIfNotNone('dataKey', dataKey)
-        addIfNotNone('modelKey', modelKey)
-        addIfNotNone('ntree', ntree)
-
-        # add one dictionary to another (2nd dominates)               
-        # this allows all the extra args currently in the wiki (and commented above)
 
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
+        params_dict = { 
+            'dataKey' : dataKey,
+            'modelKey' : modelKey,
+            'ntree' : ntree
+        }
+        browseAlso = kwargs.pop('browseAlso', False)
         params_dict.update(kwargs)
+
 
         a = self.__check_request(requests.get(
             self.__url('RFView.json'), 

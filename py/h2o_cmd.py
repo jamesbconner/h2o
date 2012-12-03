@@ -46,8 +46,8 @@ def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySec
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRF(node=None, csvPathname=None, trees=5, **kwargs):
-    parse = parseFile(node, csvPathname)
-    return runRFOnly(node=node, parseKey=parse, trees=5, **kwargs)
+    parseKey = parseFile(node, csvPathname)
+    return runRFOnly(node, parseKey, trees, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRFOnly(node=None, parseKey=None, trees=5,
@@ -55,9 +55,9 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     if not parseKey: raise Exception('No parsed key for RF specified')
     if not node: node = h2o.nodes[0]
     #! FIX! what else is in parseKey that we should check?
-    h2o.verboseprint("runRFOnly parseKey:",parseKey)
-    key = parseKey['Key']
-    rf = node.random_forest(key, ntree=trees, **kwargs)
+    h2o.verboseprint("runRFOnly parseKey:", parseKey)
+    Key = parseKey['Key']
+    rf = node.random_forest(Key, trees, **kwargs)
 
     # if we have something in Error, print it!
     # FIX! have to figure out unexpected vs expected errors
@@ -83,7 +83,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     # FIX! I guess extra kwargs to RFView shouldn't hurt it??
     def test(n):
         # Only passing browse to this guy (and at the end)
-        rfView = n.random_forest_view(dataKey,modelKey,ntree,**kwargs)
+        rfView = n.random_forest_view(dataKey, modelKey, ntree, **kwargs)
         modelSize = rfView['modelSize']
         if (modelSize!=trees and modelSize>0):
             # don't print the typical case of 0 (starting)
@@ -96,7 +96,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     # kind of wasteful re-read, but maybe good for testing
-    rfView = node.random_forest_view(dataKey,modelKey,ntree,**kwargs)
+    rfView = node.random_forest_view(dataKey, modelKey, ntree, **kwargs)
     modelSize = rfView['modelSize']
     confusionKey = rfView['confusionKey']
 
