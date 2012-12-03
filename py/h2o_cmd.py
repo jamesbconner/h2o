@@ -45,20 +45,19 @@ def runLROnly(node=None,parseKey=None,colA=0,colB=1,timeoutSecs=30,retryDelaySec
 ###     # we'll have to add something for LR.json to verify the LR results
 
 # there are more RF parameters in **kwargs. see h2o.py
-def runRF(node=None, csvPathname=None, **kwargs):
+def runRF(node=None, csvPathname=None, trees=5, **kwargs):
     parse = parseFile(node, csvPathname)
-    return runRFOnly(node=node, parseKey=parse, **kwargs)
+    return runRFOnly(node=node, parseKey=parse, trees=5, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
-def runRFOnly(node=None, parseKey=None, trees=5, depth=30, 
-        timeoutSecs=30, retryDelaySecs=2, browseAlso=False, **kwargs):
+def runRFOnly(node=None, parseKey=None, trees=5,
+        timeoutSecs=30, retryDelaySecs=2, **kwargs):
     if not parseKey: raise Exception('No parsed key for RF specified')
     if not node: node = h2o.nodes[0]
     #! FIX! what else is in parseKey that we should check?
     h2o.verboseprint("runRFOnly parseKey:",parseKey)
     key = parseKey['Key']
-    rf = node.random_forest(key, trees, depth, **kwargs)
-
+    rf = node.random_forest(key, ntree=trees, **kwargs)
 
     # if we have something in Error, print it!
     # FIX! have to figure out unexpected vs expected errors
@@ -68,7 +67,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
     # so have to look to see if Error is present
     if 'Error' in rf:
         if rf['Error'] is not None:
-            print "Unexpected Error in rf result:", rf
+            print "Unexpected Error key/value in rf result:", rf
 
     # FIX! check all of these somehow?
     dataKey  = rf['dataKey']
@@ -77,21 +76,19 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
 
     # /ip:port of cloud (can't use h2o name)
     rfCloud = rf['h2o']
-    # not goal # of trees?, or current that RF is out?. trees is the goal?
-    whatIsThis= rf['class']
+    # output class?
+    rfClass= rf['class']
 
     # expect response to match the number of trees you asked for
+    # FIX! I guess extra kwargs to RFView shouldn't hurt it??
     def test(n):
         # Only passing browse to this guy (and at the end)
-        a = n.random_forest_view(dataKey,modelKey,ntree,browseAlso=browseAlso)['modelSize']
-        # don't pass back the expected number, for possible fail message
-        # so print what we got, if not equal..it's kind of intermediate results that are useful?
-        # normally we won't see any?
-        # FIX! this is really just for current debug of not-done.
-        if (a!=trees and a>0):
+        rfView = n.random_forest_view(dataKey,modelKey,ntree,**kwargs)
+        modelSize = rfView['modelSize']
+        if (modelSize!=trees and modelSize>0):
             # don't print the typical case of 0 (starting)
-            print "Waiting for RF done: at %d of %d trees" % (a, trees)
-        return a==trees
+            print "Waiting for RF done: at %d of %d trees" % (modelSize, trees)
+        return modelSize==trees
 
     node.stabilize(
             test,
@@ -99,7 +96,7 @@ def runRFOnly(node=None, parseKey=None, trees=5, depth=30,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     # kind of wasteful re-read, but maybe good for testing
-    rfView = node.random_forest_view(dataKey,modelKey,ntree,browseAlso=browseAlso)
+    rfView = node.random_forest_view(dataKey,modelKey,ntree,**kwargs)
     modelSize = rfView['modelSize']
     confusionKey = rfView['confusionKey']
 

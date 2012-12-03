@@ -496,48 +496,110 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, 
-        modelKey="pymodel",clazz=None):
-        # modelkey is ____model by default
-        # can get error result too?
-        
-        # FIX! pass a model name here, that is unique for every RF model we due 
-        # during a cloud build..so we can look at it with the browser and not have multiple RF's
-        # overwrite the same model (and lose the data so we can't see it in the browser any more
-        rfParams = {
-                # FIX! temporary H2O bug..put ____ in front of model name to get it used right
-                # test should get the right one from RF.json output, for use in RFview
-                # passing a modelKey is really so it persists if we're doing multiple RFs
-                # and we want to pass a new model name each time to avoid overwrite
-                "modelKey": modelKey,
-                "singlethreaded": singlethreaded,
-                "seed": seed,
-                "gini": gini,
-                "depth": depth,
-                "ntree": ntree,
-                "Key": key
-                }
-        if not clazz is None: rfParams['class'] = clazz
 
-        verboseprint("\nrandom_forest parameters:", rfParams)
+    # allow passing None as parameter, in case test wants to do that and not get the field
+    # on the url (to test H2O defaults, maybe?)
+
+    # useful? dict patterns at http://pythonguy.wordpress.com/2011/08/10/some-dict-patterns/
+    
+    # adding kwargs like for GLM, to allow arbitrary addition of extra args
+    # only specifying cases were we override H2O defaults here, with our own defaults?
+    # maybe unnecessary
+
+    # I suppose it should just pass the dictionary here? but people may want this level
+    # of api in tests?
+    # tip: use browser history to see what H2O browser does behind the scenes
+    # tip: use http://meyerweb.com/eric/tools/dencoder to decode the javascript url back to original
+    # classWt can refer to column names or numbers? (numbers should be 0 start like GLM?)
+    # Will pass the full list to both random_forest and random_forest_view. They will sort out what they need.
+
+    # RF gets a more full set. I guess for the matching ones, they have to be identical to RFView.
+    # class: only enums or integers allowed in class column. defaults to last column
+
+    # RF?
+    # classWt=&
+    # class=2&
+    # ntree=&
+    # modelKey=& 
+    # OOBEE=true&
+    # gini=1&
+    # depth=&
+    # binLimit=&
+    # parallel=&
+    # ignore=&   ...this is ignore columns
+    # sample=&
+    # seed=&
+    # features=1&
+    # singlethreaded=0&     ..debug only..may be gone
+    # Key=chess_2x2_500_int.hex
+
+    # philosophy: named for required, kwargs for optional?
+    def random_forest(self,key,ntree=6,**kwargs):
+        modelKey = kwargs.pop('modelKey', 'pytest_model')
+        depth = kwargs.pop('depth', 30)
+        clazz = kwargs.pop('clazz', None)
+
+        browseAlso = kwargs.pop('browseAlso', False)
+
+        params_dict = { }
+        def addIfNotNone(key,value):
+            if key is not None: params_dict[key] = value
+        
+        addIfNotNone('Key', key)
+        addIfNotNone('modelKey', modelKey)
+        addIfNotNone('ntree', ntree)
+        addIfNotNone('depth', depth)
+        addIfNotNone('class', clazz)
+
+        # add one dictionary to another (2nd dominates)               
+        # this allows all the extra args currently in the wiki (and commented above)
+        params_dict.update(kwargs)
+
+        verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
             url=self.__url('RF.json'), 
             timeout=3000,
-            params=rfParams))
+            params=params_dict))
         verboseprint("\nrandom_forest result:", a)
         return a
 
     # Model updates asynchrounously as long as more trees appear.
     # Check modelSize to see if all trees are ready.
-    def random_forest_view(self, dataKey, modelKey, ntree, browseAlso=False):
-        # FIX! temporary hack: rfview should ignore ntree!
-        # force it to be bad
-        a = self.__check_request(requests.get(self.__url('RFView.json'),
-            params={
-                "dataKey": dataKey,
-                "modelKey": modelKey,
-                "ntree": ntree
-                }))
+
+    # current RFView variables
+    # not sure what ignore columns doesn't propagate. 
+    # RFView?
+    # classWt=classWt=B=1,W=2&
+    # class=2&
+    # ntree=50&
+    # modelKey=model&
+    # OOBEE=true&
+    # singlethreaded=0&     ..debug only..
+    # dataKey=chess_2x2_500_int.hex
+    def random_forest_view(self,dataKey,modelKey,ntree,**kwargs):
+
+        browseAlso = kwargs.pop('browseAlso', False)
+        # should do something about random_forest and random_forest_view both just 
+        # using a shared dictionary? There are some unique keys for each though.
+        # (and some unused but that should be okay)
+        params_dict = { }
+        def addIfNotNone(key,value):
+            if key is not None: params_dict[key] = value
+        addIfNotNone('dataKey', dataKey)
+        addIfNotNone('modelKey', modelKey)
+        addIfNotNone('ntree', ntree)
+
+        # add one dictionary to another (2nd dominates)               
+        # this allows all the extra args currently in the wiki (and commented above)
+
+        # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
+        # that would make sure we only pass the minimal?
+        params_dict.update(kwargs)
+
+        a = self.__check_request(requests.get(
+            self.__url('RFView.json'), 
+            params=params_dict))
+
         verboseprint("\nrandom_forest_view result:", a)
         # we should know the json url from above, but heck lets just use
         # the same history-based, global mechanism we use elsewhere
@@ -570,7 +632,7 @@ class H2O(object):
     def GLM(self, key, Y, family="binomial", glm_lambda=None, **kwargs):
         # we're going to build up the list by adding kwargs here, because
         # the possibilities are large and changing!
-        params_list = { 
+        params_dict = { 
                 "family": family,
                 "Y": Y,
                 "Key": key,
@@ -578,10 +640,12 @@ class H2O(object):
                 }
 
         # add one dictionary to another (2nd dominates)               
-        params_list.update(kwargs)
-        verboseprint("GLM params list", params_list)
+        # this allows all the extra args currently in the wiki
+        # X, xval, threshold, norm, rho, alpha
+        params_dict.update(kwargs)
+        verboseprint("GLM params list", params_dict)
 
-        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_list))
+        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
         verboseprint("GLM:", a)
         return a
 
