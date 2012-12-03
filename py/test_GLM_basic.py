@@ -50,7 +50,6 @@ class Basic(unittest.TestCase):
                 ### FIX! add some expected result checking
                 glm = h2o_cmd.runGLM(csvPathname=csvPathname, X=X, Y=Y, xval=4,
                     timeoutSecs=timeoutSecs)
-                ### {u'h2o': u'/192.168.0.37:54321', u'Intercept': -1.0986109988055501, u'response_html': u'<div class=\'alert alert-success\'>Linear regression on data <a href=____9f961-8a18-4863-81ca-159ff76315f9>9f961-8a18-4863-81ca-159ff76315f9</a> computed in 20[ms]<strong>.</div><div class="container">Result Coeficients:<div>STR = -4.163336342344337E-16</div><div>Intercept = -1.0986109988055501</div></div>', u'STR': -4.163336342344337e-16, u'time': 20}
 
                 h2o.verboseprint("glm: ", glm)
                 print "\ncoefficients:", glm['coefficients']
@@ -87,13 +86,42 @@ class Basic(unittest.TestCase):
 
                 ### FIX! add some expected result checking
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, xval=5, timeoutSecs=timeoutSecs)
+
+                # {
+                # "key":"1_100kx7_logreg.data.hex",
+                # "h2o":"/192.168.0.37:55320",
+                # "name":"Logistic regression",
+                # "glmParams":{"link":"logit","family":"binomial"},
+                # "lsmParams":{"norm":"NONE","lambda":0.0,"rho":0.01,"alpha":1.0},
+                # "warnings":["Failed to converge due to NaNs"],
+                # "rows":100000,
+                # "time":148,
+                # "coefficients":{"0":9.200235113946587,"1":0.5845263465847916,"2":4.243632149713497,"3":0.8381294453405328,"4":0.8222999328856485,"5":32.25703239247885,"6":0.07752460411110679, "Intercept":-124.05198738651708},
+                # "trainingSetValidation":{"DegreesOfFreedom":99999,"ResidualDegreesOfFreedom":99992,"NullDeviance":"19538990.016","ResidualDeviance":"2907.0454","AIC":"2923.0454","trainingSetErrorRate":"0.0003"},
+                # "trainingErrorDetails":{"falsePositive":"0.0001","falseNegative":"0.0002","truePositive":"0.1377","trueNegative":"0.862"}
+                # }
+
+                # 'xfactor': 5, 
+                # 'threshold': 0.5, 
+
+                # different when xvalidation is used? No trainingErrorDetails?
                 h2o.verboseprint("\nglm:", glm)
-                print "\nerrRate:", glm['errRate']
-                print "trueNegative:", glm['trueNegative']
-                print "truePositive:", glm['truePositive']
-                print "falseNegative:", glm['falseNegative']
-                print "falsePositive:", glm['falsePositive']
+                if 'warnings' in glm:
+                    print "\nwarnings:", glm['warnings']
+
+                print "GLM time", glm['time']
                 print "coefficients:", glm['coefficients']
+                print glm
+
+                tsv = glm['trainingSetValidation']
+                print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
+                # ted = glm['trainingErrorDetails']
+
+                # print "trueNegative:", ted['trueNegative']
+                # print "truePositive:", ted['truePositive']
+                # print "falseNegative:", ted['falseNegative']
+                # print "falsePositive:", ted['falsePositive']
+
 
 if __name__ == '__main__':
     h2o.unit_main()

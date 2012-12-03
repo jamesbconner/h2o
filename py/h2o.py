@@ -496,26 +496,7 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-
-    # allow passing None as parameter, in case test wants to do that and not get the field
-    # on the url (to test H2O defaults, maybe?)
-
-    # useful? dict patterns at http://pythonguy.wordpress.com/2011/08/10/some-dict-patterns/
-    
-    # adding kwargs like for GLM, to allow arbitrary addition of extra args
-    # only specifying cases were we override H2O defaults here, with our own defaults?
-    # maybe unnecessary
-
-    # I suppose it should just pass the dictionary here? but people may want this level
-    # of api in tests?
-    # tip: use browser history to see what H2O browser does behind the scenes
-    # tip: use http://meyerweb.com/eric/tools/dencoder to decode the javascript url back to original
-    # classWt can refer to column names or numbers? (numbers should be 0 start like GLM?)
-    # Will pass the full list to both random_forest and random_forest_view. They will sort out what they need.
-
-    # RF gets a more full set. I guess for the matching ones, they have to be identical to RFView.
-    # class: only enums or integers allowed in class column. defaults to last column
-
+    # kwargs used to pass:
     # RF?
     # classWt=&
     # class=2&
@@ -533,7 +514,6 @@ class H2O(object):
     # singlethreaded=0&     ..debug only..may be gone
     # Key=chess_2x2_500_int.hex
 
-    # philosophy: named for required, kwargs for optional?
     def random_forest(self, Key, ntree, **kwargs):
         params_dict = {
             'Key' : Key,
@@ -556,11 +536,7 @@ class H2O(object):
         verboseprint("\nrandom_forest result:", a)
         return a
 
-    # Model updates asynchrounously as long as more trees appear.
-    # Check modelSize to see if all trees are ready.
-
-    # current RFView variables
-    # not sure what ignore columns doesn't propagate. 
+    # kwargs used to pass:
     # RFView?
     # classWt=classWt=B=1,W=2&
     # class=2&
@@ -571,10 +547,6 @@ class H2O(object):
     # dataKey=chess_2x2_500_int.hex
     def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
 
-        # should do something about random_forest and random_forest_view both just 
-        # using a shared dictionary? There are some unique keys for each though.
-        # (and some unused but that should be okay)
-
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
         params_dict = { 
@@ -584,7 +556,6 @@ class H2O(object):
         }
         browseAlso = kwargs.pop('browseAlso', False)
         params_dict.update(kwargs)
-
 
         a = self.__check_request(requests.get(
             self.__url('RFView.json'), 
@@ -601,37 +572,41 @@ class H2O(object):
     def linear_reg(self, key, colA=0, colB=1):
         a = self.__check_request(requests.get(self.__url('LR.json'),
             params={
-                "colA": colA,
-                "colB": colB,
-                "Key": key
+                'colA': colA,
+                'colB': colB,
+                'Key': key
                 }))
         verboseprint("linear_reg result:", a)
         return a
 
     def linear_reg_view(self, key):
         a = self.__check_request(requests.get(self.__url('LRView.json'),
-            params={"Key": key}))
+            params={'Key': key}))
         verboseprint("linear_reg_view result:", a)
         return a
 
-    # X and Y can be label strings, column nums, or comma separated combinations
-    # xval gives us cross validation and more info
-    # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
-    # in the dataset. We'll just do that all the time for now.
-    # FIX! add more parameters from the wiki
-    def GLM(self, key, Y, family="binomial", glm_lambda=None, **kwargs):
-        # we're going to build up the list by adding kwargs here, because
-        # the possibilities are large and changing!
+    # kwargs used to pass:
+    # Y
+    # X
+    # -X
+    # family
+    # threshold
+    # norm
+    # glm_lambda (becomes lambda)
+    # rho
+    # alpha
+
+    def GLM(self, key, **kwargs):
+        # for defaults
         params_dict = { 
-                "family": family,
-                "Y": Y,
-                "Key": key,
-                "lambda": glm_lambda
+                'family': 'binomial',
+                'Key': key,
+                'Y': 1
                 }
 
-        # add one dictionary to another (2nd dominates)               
-        # this allows all the extra args currently in the wiki
-        # X, xval, threshold, norm, rho, alpha
+        glm_lambda = kwargs.pop('glm_lambda', None)
+        if glm_lambda is not None: params_dict['lambda'] = glm_lambda
+
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
 

@@ -10,23 +10,18 @@ def parseFile(node=None, csvPathname=None, key=None):
 
 
 # don't need X..H2O default is okay (all X), but can pass it as kwargs
-def runGLM(node=None,csvPathname=None,Y="1",
-    timeoutSecs=30,retryDelaySecs=0.5,
-    family="binomial",glm_lambda=None,**kwargs):
+def runGLM(node=None,csvPathname=None,timeoutSecs=30,retryDelaySecs=0.5,**kwargs):
     parse = parseFile(node, csvPathname)
-    glm = runGLMOnly(node=node, parseKey=parse,Y=Y,
-        timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs,
-        family=family,glm_lambda=glm_lambda,**kwargs)
+    glm = runGLMOnly(node=node, parseKey=parse,
+        timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs,**kwargs)
     return glm
 
 # don't need X..H2O default is okay (all X), but can pass it as kwargs
-def runGLMOnly(node=None,parseKey=None,Y="1",
-    timeoutSecs=30,retryDelaySecs=0.5,
-    family="binomial",glm_lambda=None,**kwargs):
+def runGLMOnly(node=None,parseKey=None,timeoutSecs=30,retryDelaySecs=0.5,**kwargs):
     if not parseKey: raise Exception('No file name for GLM specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    return node.GLM(parseKey['Key'],Y=Y,family=family,glm_lambda=glm_lambda,**kwargs)
+    return node.GLM(parseKey['Key'], **kwargs)
 
 # You can change those on the URL line woth "&colA=77&colB=99"
 # LinReg draws a line from a collection of points.  Only works if you have 2 or more points.
