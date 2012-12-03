@@ -39,7 +39,7 @@ class Basic(unittest.TestCase):
             parseKey = h2o.nodes[0].parse(put['key'])
 
             h2o.verboseprint("Trial", trial)
-            cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=30, retryDelaySecs=3)
+            cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=60, retryDelaySecs=3)
 
 if __name__ == '__main__':
     h2o.unit_main()
