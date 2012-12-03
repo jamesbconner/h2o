@@ -50,7 +50,7 @@ public abstract class MemoryManager {
   static final HeapUsageMonitor HEAP_USAGE_MONITOR = new HeapUsageMonitor();
   static volatile long HEAP_USED_AT_LAST_GC;
   static volatile long POJO_USED_AT_LAST_GC;
-  static volatile long TIME_AT_LAST_GC;
+  static volatile long TIME_AT_LAST_GC=System.currentTimeMillis();
 
   // Keep the K/V store below this threshold AND this is the FullGC call-back
   // threshold - which is limited in size to the old-gen pool size.
@@ -107,6 +107,7 @@ public abstract class MemoryManager {
     // Decay POJO amount
     long p = POJO_USED_AT_LAST_GC;
     long age = (System.currentTimeMillis() - TIME_AT_LAST_GC); // Age since last FullGC
+    age = Math.min(age,10*60*1000 );                           // Clip at 10mins
     while( (age-=5000) > 0 ) p = p-(p>>3); // Decay effective POJO by 1/8th every 5sec
     d -= 2*p;    // Allow for the effective POJO, and again to throttle GC rate
     d = Math.max(d,MEM_MAX>>3); // Keep at least 1/8th heap

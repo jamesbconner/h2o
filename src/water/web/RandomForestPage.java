@@ -13,7 +13,7 @@ public class RandomForestPage extends H2OPage {
   public static final String NUM_TREE   = "ntree";
   public static final String MAX_DEPTH  = "depth";
   public static final String SAMPLE     = "sample";
-  public static final String BIN_LIMIT  = "binlimit";
+  public static final String BIN_LIMIT  = "binLimit";
   public static final String GINI       = "gini";
   public static final String RAND_SEED  = "seed";
   public static final String PARALLEL   = "parallel";
