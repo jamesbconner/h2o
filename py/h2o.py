@@ -397,13 +397,23 @@ class H2O(object):
         # the browser can walk back until it hits a RFview. I suppose this should be an object.
         json_url_history.append(r.url)
 
+        # HACK: excessive variance in GLM/RF/other..so check a bunch...should jira this issue
         rjson = r.json
         if 'error' in rjson:
             print rjson
-            raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
+            raise Exception('rjson error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         elif 'Error' in rjson:
             print rjson
             raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['Error']))
+        elif 'warning' in rjson:
+            print 'rjson warning in %s: %s' % (inspect.stack()[1][3], rjson['warning'])
+        elif 'Warning' in rjson:
+            print 'rjson Warning in %s: %s' % (inspect.stack()[1][3], rjson['Warning'])
+        elif 'warnings' in rjson:
+            print 'rjson warnings in %s: %s' % (inspect.stack()[1][3], rjson['warnings'])
+        elif 'Warnings' in rjson:
+            print 'rjson Warnings in %s: %s' % (inspect.stack()[1][3], rjson['Warnings'])
+
         return rjson
 
 
@@ -494,6 +504,15 @@ class H2O(object):
         a = self.__check_request(requests.get(self.__url('Inspect.json'),
             params={"Key": key}))
         ### verboseprint("\ninspect result:", dump_json(a))
+        return a
+
+    def import_folder(self, folder, repl):
+        a = self.__check_request(requests.get(
+            self.__url('ImportFolder.json'),
+            params={
+                "folder": folder,
+                "rf": repl}))
+        verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
     # kwargs used to pass:
@@ -622,7 +641,7 @@ class H2O(object):
 
         a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
         verboseprint("GLM:", a)
-        return a
+        return a 
 
     def stabilize(self, test_func, error,
             timeoutSecs=10, retryDelaySecs=0.5):
