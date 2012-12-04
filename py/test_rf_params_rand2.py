@@ -50,7 +50,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_loop_random_param_poker1000(self):
+    def test_loop_random_param_covtype(self):
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
 
         # for determinism, I guess we should spit out the seed?

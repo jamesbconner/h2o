@@ -5,7 +5,7 @@ import argparse
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(node_count=3)
+        h2o.build_cloud(node_count=2)
 
     @classmethod
     def tearDownClass(cls):

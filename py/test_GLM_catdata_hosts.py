@@ -59,9 +59,6 @@ class Basic(unittest.TestCase):
 
             # different when xvalidation is used? No trainingErrorDetails?
             h2o.verboseprint("\nglm:", glm)
-            if 'warnings' in glm:
-                print "\nwarnings:", glm['warnings']
-
             print "GLM time", glm['time']
             print "coefficients:", glm['coefficients']
             print glm

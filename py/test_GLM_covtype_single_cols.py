@@ -18,6 +18,39 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_covtype_single_cols(self):
+
+        def simpleCheckGLM(glm,colX):
+            # h2o GLM will verboseprint the result and print errors. 
+            # so don't have to do that
+            # different when xvalidation is used? No trainingErrorDetails?
+            print "GLM time", glm['time']
+            tsv = glm['trainingSetValidation']
+            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
+
+            ted = glm['trainingErrorDetails']
+            print "trueNegative:", ted['trueNegative']
+            print "truePositive:", ted['truePositive']
+            print "falseNegative:", ted['falseNegative']
+            print "falsePositive:", ted['falsePositive']
+
+            # it's a dicitionary!
+            coefficients = glm['coefficients']
+            print "\ncoefficients:", coefficients
+            # pick out the coefficent for the column we enabled.
+            absXCoeff = abs(float(coefficients[str(colX)]))
+            # intercept is buried in there too
+            absIntercept = abs(float(coefficients[str(colX)]))
+            
+            self.assertGreater(absXCoeff, 0.000001, (
+                "abs. value of GLM coefficients['" + str(colX) + "'] is " + 
+                str(absXCoeff) + ", not >= 0.000001 for X=" + str(colX)
+                ))
+
+            self.assertGreater(absIntercept, 0.000001, (
+                "abs. value of GLM coefficients['intercept'] is " + 
+                str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
+                ))
+
         timeoutSecs = 2
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
@@ -46,37 +79,7 @@ class Basic(unittest.TestCase):
                 start = time.time()
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
 
-                # h2o GLM will verboseprint the result and print errors
-                # different when xvalidation is used? No trainingErrorDetails?
-                print "GLM time", glm['time']
-
-                tsv = glm['trainingSetValidation']
-                print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-
-                ted = glm['trainingErrorDetails']
-                print "trueNegative:", ted['trueNegative']
-                print "truePositive:", ted['truePositive']
-                print "falseNegative:", ted['falseNegative']
-                print "falsePositive:", ted['falsePositive']
-
-                # it's a dicitionary!
-                coefficients = glm['coefficients']
-                print "\ncoefficients:", coefficients
-                # pick out the coefficent for the column we enabled.
-                absXCoeff = abs(float(coefficients[str(colX)]))
-                # intercept is buried in there too
-                absIntercept = abs(float(coefficients[str(colX)]))
-                
-                self.assertGreater(absXCoeff, 0.000001, (
-                    "abs. value of GLM coefficients['" + str(colX) + "'] is " + 
-                    str(absXCoeff) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-                self.assertGreater(absIntercept, 0.000001, (
-                    "abs. value of GLM coefficients['intercept'] is " + 
-                    str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
+                simpleCheckGLM(glm,colX)
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 
