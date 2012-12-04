@@ -1,8 +1,13 @@
 package water.web;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import water.*;
 
@@ -105,6 +110,26 @@ public class ImportFolder extends H2OPage {
       return "Out of "+_files.length+" a total of "+correct+" was successfully imported to the cloud."+sb.toString();
     }
 
+    public JsonObject importFilesJson() {
+      JsonObject result = new JsonObject();
+      JsonArray ok = new JsonArray();
+      JsonArray failed = new JsonArray();
+      int correct = 0;
+      for (int i = 0; i < _files.length; ++i) {
+        Key k = importFile(i);
+        if (k == null) {
+          failed.add(new JsonPrimitive(_files[i]));
+        } else {
+          ok.add(new JsonPrimitive(_files[i]));
+          ++correct;
+        }
+      }
+      result.add("failed",failed);
+      result.add("ok",ok);
+      result.addProperty("imported",correct);
+      return result;
+    }
+
     public FolderIntegrityChecker() {
 
     }
@@ -180,22 +205,38 @@ public class ImportFolder extends H2OPage {
     }
   }
 
+
+  FolderIntegrityChecker importFolder(Properties args) throws Exception {
+    String folder = args.getProperty("Folder");
+    int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+    if ((rf<0) || (rf>127))
+      throw new Exception("Replication factor must be from 0 to 127.");
+     File root = new File(folder);
+    if (!root.exists())
+      throw new Exception("Unable to import folder "+folder+". Folder not found.");
+    folder = root.getCanonicalPath();
+    FolderIntegrityChecker checker = new FolderIntegrityChecker(new File(folder));
+    checker.invokeOnAllNodes();
+    return checker;
+  }
+
+
+  @Override public JsonObject serverJson(Server server, Properties args, String sessionID) {
+    try {
+      return importFolder(args).importFilesJson();
+    } catch (Exception e) {
+      JsonObject result = new JsonObject();
+      result.addProperty("Error",e.getMessage());
+      return result;
+    }
+  }
+
+
   @Override protected String serveImpl(Server server, Properties args, String sessionID) {
     try {
-      String folder = args.getProperty("Folder");
-      int rf = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-      if ((rf<0) || (rf>127))
-        throw new Exception("Replication factor must be from 0 to 127.");
-
-      File root = new File(folder);
-      if (!root.exists())
-        throw new Exception("Unable to import folder "+folder+". Folder not found.");
-      folder = root.getCanonicalPath();
-      FolderIntegrityChecker checker = new FolderIntegrityChecker(new File(folder));
-      checker.invokeOnAllNodes();
-      return checker.importFilesHTML();
-    } catch (Exception e) {
-      return error(e.toString());
+      return importFolder(args).importFilesHTML();
+    } catch( Exception ex ) {
+      return error(ex.getMessage());
     }
   }
 
