@@ -63,7 +63,7 @@ public class GLM extends H2OPage {
             + " does not exist!");
       int[] X = null;
       // ignore empty X == make as if X not present
-      if (p.containsKey("X") && ((p.getProperty("X)") == null) || (p.getProperty("X)").isEmpty())))
+      if (p.containsKey("X") && ((p.getProperty("X") == null) || (p.getProperty("X").isEmpty())))
         p.remove("X");
       if( p.containsKey("X") ) X = parseVariableExpression(colNames,
           p.getProperty("X"));
