@@ -181,6 +181,14 @@ public class GLM extends H2OPage {
           errDetails.addProperty("falseNegative", dformat.format(bv.fn()));
           errDetails.addProperty("truePositive", dformat.format(bv.tp()));
           errDetails.addProperty("trueNegative", dformat.format(bv.tn()));
+          JsonArray arr = new JsonArray();
+          for(int j = 0; j < bv.classes(); ++j){
+            JsonArray row = new JsonArray();
+            for(int kk = 0; kk < bv.classes();++kk)
+              row.add(new JsonPrimitive(bv.cm(j,kk)));
+            arr.add(row);
+          }
+          errDetails.add("cm", arr);
           res.add("trainingErrorDetails", errDetails);
         }
       }
@@ -293,6 +301,21 @@ public class GLM extends H2OPage {
 
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
+
+  static void buildCM(JsonArray arr,StringBuilder bldr){
+    bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
+    int rowidx = 0;
+    for(JsonElement e:arr){
+      bldr.append("<tr><th>Y<sub>model</sub>=" + rowidx++ + "</th>");
+      JsonArray a = e.getAsJsonArray();
+      for(JsonElement elem:a){
+           bldr.append("<td>" + elem.getAsString() + "</td>");
+      }
+      bldr.append("</tr>\n");
+    }
+    bldr.append("</tbody></table>\n");
+  }
+
   @Override
   protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     // RString responseTemplate = new RString(
@@ -379,8 +402,13 @@ public class GLM extends H2OPage {
     if(json.has("trainingSetValidation")){
       trainingSetValidationTemplate.replace((JsonObject)json.get("trainingSetValidation"));
       if(json.has("trainingErrorDetails")){
-        errDetailTemplate.replace((JsonObject)json.get("trainingErrorDetails"));
-        trainingSetValidationTemplate.replace("errorDetails",errDetailTemplate.toString());
+        JsonObject e = (JsonObject)json.get("trainingErrorDetails");
+        JsonArray arr = e.get("cm").getAsJsonArray();
+        e.remove("cm");
+        errDetailTemplate.replace(e);
+        StringBuilder b = new StringBuilder();
+        buildCM(arr, b);
+        trainingSetValidationTemplate.replace("errorDetails",errDetailTemplate.toString() + "\n" + b.toString());
       }
       responseTemplate.replace("tValid",trainingSetValidationTemplate.toString());
     }

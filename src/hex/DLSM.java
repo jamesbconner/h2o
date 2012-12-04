@@ -45,6 +45,8 @@ import Jama.Matrix;
  */
 public class DLSM {
 
+  static class DLSM_SingularMatrixException extends RuntimeException {}
+
   public static class LSM_Params{
     public Norm n = Norm.NONE;
     public double lambda = 0;
@@ -74,9 +76,10 @@ public class DLSM {
    * @param xyAry Ab
    * @param params
    * @return x vector minimizing the given LSM problem.
+   * @throws DLSM_SingularMatrixException
    */
   protected static double[] solveLSM(double[][] xxAry, double[] xyAry,
-      LSM_Params params) {
+      LSM_Params params) throws DLSM_SingularMatrixException {
     Matrix xx = new Matrix(xxAry.length, xxAry.length);
     // we only computed half of the symmetric matrix, now we need to fill the
     // rest before computing the inverse
@@ -107,7 +110,12 @@ public class DLSM {
     switch( params.n ) {
     case NONE:
     case L2: // L2 and no penalty need only one iteration
-      return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
+      try {
+        return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
+      } catch(Exception e){
+        assert params.n == Norm.NONE;
+        throw new DLSM_SingularMatrixException();
+      }
     case L1: { // use ADMM to solve LASSO
       final int N = xyAry.length;
       final double ABSTOL = Math.sqrt(N) * 1e-4;
@@ -125,7 +133,6 @@ public class DLSM {
         }
         // updated x
         xm = lu.solve(xy);
-
         // vars to be used for stopping criteria
         double x_norm = 0;
         double z_norm = 0;
