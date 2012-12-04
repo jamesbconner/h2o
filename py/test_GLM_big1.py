@@ -71,7 +71,18 @@ class Basic(unittest.TestCase):
                 print "\nwarnings:", glm['warnings']
 
             print "GLM time", glm['time']
-            # print "coefficients:", glm['coefficients']
+            coefficients = glm['coefficients']
+            print "coefficients:", coefficients
+            # quick and dirty check: if all the coefficients are zero, something is broken
+            # intercept is in there too, but this will get it okay
+            # just sum the abs value  up..look for greater than 0
+            s = 0.0
+            for c in coefficients:
+                v = coefficients[c]
+                s += abs(float(v))
+                self.assertGreater(s, 0.000001, (
+                    "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 0.000001"
+                    ))
 
             tsv = glm['trainingSetValidation']
             print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']

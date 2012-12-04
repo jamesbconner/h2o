@@ -52,20 +52,31 @@ class Basic(unittest.TestCase):
 
                 # different when xvalidation is used? No trainingErrorDetails?
                 h2o.verboseprint("\nglm:", glm)
-                if 'warnings' in glm:
-                    print "\nwarnings:", glm['warnings']
+
+            if 'warnings' in glm:
+                print "\nwarnings:", glm['warnings']
 
                 print "GLM time", glm['time']
-                print "coefficients:", glm['coefficients']
+                coefficients = glm['coefficients']
+                print "coefficients:", coefficients
+                # quick and dirty check: if all the coefficients are zero, something is broken
+                # intercept is in there too, but this will get it okay
+                # just sum the abs value  up..look for greater than 0
+                s = 0.0
+                for c in coefficients:
+                    v = coefficients[c]
+                    s += abs(float(v))
+                    self.assertGreater(s, 0.000001, (
+                        "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 0.000001"
+                        ))
 
                 tsv = glm['trainingSetValidation']
                 print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-
-                # ted = glm['trainingErrorDetails']
-                # print "trueNegative:", ted['trueNegative']
-                # print "truePositive:", ted['truePositive']
-                # print "falseNegative:", ted['falseNegative']
-                # print "falsePositive:", ted['falsePositive']
+                ted = glm['trainingErrorDetails']
+                print "trueNegative:", ted['trueNegative']
+                print "truePositive:", ted['truePositive']
+                print "falseNegative:", ted['falseNegative']
+                print "falsePositive:", ted['falsePositive']
 
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
