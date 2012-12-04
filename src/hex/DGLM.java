@@ -1,5 +1,6 @@
 package hex;
 
+import hex.DLSM.DLSM_SingularMatrixException;
 import hex.DLSM.LSMTask;
 import hex.DLSM.LSM_Params;
 import hex.Models.BinaryClassifierValidation;
@@ -294,7 +295,15 @@ public class DGLM implements Models.ModelBuilder {
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  _lsmParams.constant, pVals);
       tsk.invoke(ary._key);
       m._n = tsk._n;
-      m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+      try {
+        m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+      }catch (DLSM_SingularMatrixException e){
+        assert _lsmParams.n == Norm.NONE;
+        _lsmParams.n = Norm.L2;
+        _lsmParams.lambda = 1e-5;
+        m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+        m._warnings = new String[] {"Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5" };
+      }
       return m;
     }
     double [] beta = new double [colIds.length];
@@ -319,8 +328,17 @@ public class DGLM implements Models.ModelBuilder {
 
         }
         diff = 0;
-
         N = tsk._n;
+        try {
+          m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+        }catch (DLSM_SingularMatrixException e){
+          assert _lsmParams.n == Norm.NONE;
+          _lsmParams.n = Norm.L2;
+          _lsmParams.lambda = 1e-5;
+          m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+          m._warnings = new String[] {"Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5" };
+        }
+
         tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
         if( beta != null ) for( int j = 0; j < beta.length; ++j )
           diff = Math.max(diff, Math.abs(beta[j] - tsk._beta[j]));
@@ -596,7 +614,7 @@ public class DGLM implements Models.ModelBuilder {
 
   public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation, H2OSerializable {
     double _threshold;
-    long [][] _cm;
+    public long [][] _cm;
     double _fpMean;
     double _fpVar;
     double _fnMean;
