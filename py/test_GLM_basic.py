@@ -87,40 +87,33 @@ class Basic(unittest.TestCase):
                 ### FIX! add some expected result checking
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, xval=5, timeoutSecs=timeoutSecs)
 
-                # {
-                # "key":"1_100kx7_logreg.data.hex",
-                # "h2o":"/192.168.0.37:55320",
-                # "name":"Logistic regression",
-                # "glmParams":{"link":"logit","family":"binomial"},
-                # "lsmParams":{"norm":"NONE","lambda":0.0,"rho":0.01,"alpha":1.0},
-                # "warnings":["Failed to converge due to NaNs"],
-                # "rows":100000,
-                # "time":148,
-                # "coefficients":{"0":9.200235113946587,"1":0.5845263465847916,"2":4.243632149713497,"3":0.8381294453405328,"4":0.8222999328856485,"5":32.25703239247885,"6":0.07752460411110679, "Intercept":-124.05198738651708},
-                # "trainingSetValidation":{"DegreesOfFreedom":99999,"ResidualDegreesOfFreedom":99992,"NullDeviance":"19538990.016","ResidualDeviance":"2907.0454","AIC":"2923.0454","trainingSetErrorRate":"0.0003"},
-                # "trainingErrorDetails":{"falsePositive":"0.0001","falseNegative":"0.0002","truePositive":"0.1377","trueNegative":"0.862"}
-                # }
+                # different json entries when xvalidation is used? No trainingErrorDetails?
+                # h2o GLM does dump of json result now with verbose
 
-                # 'xfactor': 5, 
-                # 'threshold': 0.5, 
-
-                # different when xvalidation is used? No trainingErrorDetails?
-                h2o.verboseprint("\nglm:", glm)
                 if 'warnings' in glm:
                     print "\nwarnings:", glm['warnings']
 
                 print "GLM time", glm['time']
-                print "coefficients:", glm['coefficients']
-                print glm
+                coefficients = glm['coefficients']
+                print "coefficients:", coefficients
+                # quick and dirty check: if all the coefficients are zero, something is broken
+                # intercept is in there too, but this will get it okay
+                # just sum the abs value  up..look for greater than 0
+                s = 0.0
+                for c in coefficients:
+                    v = coefficients[c]
+                    s += abs(float(v))
+                    self.assertGreater(s, 0.000001, (
+                        "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 0.000001"
+                        ))
 
                 tsv = glm['trainingSetValidation']
                 print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-                # ted = glm['trainingErrorDetails']
-
-                # print "trueNegative:", ted['trueNegative']
-                # print "truePositive:", ted['truePositive']
-                # print "falseNegative:", ted['falseNegative']
-                # print "falsePositive:", ted['falsePositive']
+                ted = glm['trainingErrorDetails']
+                print "trueNegative:", ted['trueNegative']
+                print "truePositive:", ted['truePositive']
+                print "falseNegative:", ted['falseNegative']
+                print "falsePositive:", ted['falsePositive']
 
 
 if __name__ == '__main__':

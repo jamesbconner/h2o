@@ -66,39 +66,48 @@ class Basic(unittest.TestCase):
             start = time.time()
             ### FIX! add some expected result checking
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=7, X=X, Y=Y, timeoutSecs=timeoutSecs)
+            # maybe we can see the GLM results in a browser?
+            # FIX! does it recompute it??
+            h2b.browseJsonHistoryAsUrlLastMatch("GLM")
 
             print "\nTrial #", trial
             h2o.verboseprint("\nglm:", glm)
 
             # different when xvalidation is used? No trainingErrorDetails?
             h2o.verboseprint("\nglm:", glm)
+
             if 'warnings' in glm:
                 print "\nwarnings:", glm['warnings']
 
             print "GLM time", glm['time']
-            # print "coefficients:", glm['coefficients']
+            coefficients = glm['coefficients']
+            print "coefficients:", coefficients
+            # quick and dirty check: if all the coefficients are zero, something is broken
+            # intercept is in there too, but this will get it okay
+            # just sum the abs value  up..look for greater than 0
+            s = 0.0
+            for c in coefficients:
+                v = coefficients[c]
+                s += abs(float(v))
+                self.assertGreater(s, 0.000001, (
+                    "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 0.000001"
+                    ))
 
             tsv = glm['trainingSetValidation']
             print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-            # ted = glm['trainingErrorDetails']
-
-            # print "trueNegative:", ted['trueNegative']
-            # print "truePositive:", ted['truePositive']
-            # print "falseNegative:", ted['falseNegative']
-            # print "falsePositive:", ted['falsePositive']
+            ted = glm['trainingErrorDetails']
+            print "trueNegative:", ted['trueNegative']
+            print "truePositive:", ted['truePositive']
+            print "falseNegative:", ted['falseNegative']
+            print "falsePositive:", ted['falsePositive']
 
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-
-            # maybe we can see the GLM results in a browser?
-            # FIX! does it recompute it??
-            h2b.browseJsonHistoryAsUrlLastMatch("GLM")
-            # wait in case it recomputes it
-            time.sleep(10)
-
 
             sys.stdout.write('.')
             sys.stdout.flush() 
 
+            # wait in case it recomputes it
+            time.sleep(10)
         # browseJsonHistoryAsUrl()
 
 if __name__ == '__main__':

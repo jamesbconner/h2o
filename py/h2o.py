@@ -134,7 +134,7 @@ def log(cmd, comment=None):
         f.write("\n")
 
 def dump_json(j):
-    return json.dumps(j, indent=2)
+    return json.dumps(j, sort_keys=True, indent=2)
 
 # Hackery: find the ip address that gets you to Google's DNS
 # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
@@ -553,7 +553,7 @@ class H2O(object):
             url=self.__url('RF.json'), 
             timeout=3000,
             params=params_dict))
-        verboseprint("\nrandom_forest result:", a)
+        verboseprint("\nrandom_forest result:", dump_json(a))
         return a
 
     # kwargs used to pass:
@@ -594,7 +594,7 @@ class H2O(object):
             self.__url('RFView.json'), 
             params=params_dict))
 
-        verboseprint("\nrandom_forest_view result:", a)
+        verboseprint("\nrandom_forest_view result:", dump_json(a))
         # we should know the json url from above, but heck lets just use
         # the same history-based, global mechanism we use elsewhere
         # look at the passed down enable, or the global args
@@ -609,13 +609,13 @@ class H2O(object):
                 'colB': colB,
                 'Key': key
                 }))
-        verboseprint("linear_reg result:", a)
+        verboseprint("linear_reg result:", dump_json(a))
         return a
 
     def linear_reg_view(self, key):
         a = self.__check_request(requests.get(self.__url('LRView.json'),
             params={'Key': key}))
-        verboseprint("linear_reg_view result:", a)
+        verboseprint("linear_reg_view result:", dump_json(a))
         return a
 
     # kwargs used to pass:
@@ -637,14 +637,26 @@ class H2O(object):
             'Y': 1
             }
 
+        # special case these two because of name issues.
+        # use glm_lamba, not lambda
+        # use glm_notX, not -X
         glm_lambda = kwargs.pop('glm_lambda', None)
         if glm_lambda is not None: params_dict['lambda'] = glm_lambda
+        glm_notX = kwargs.pop('glm_-X', None)
+        if glm_notX is not None: params_dict['-X'] = glm_notX
 
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
 
         a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
-        verboseprint("GLM:", a)
+        # remove the 'models' key that has all the CMs from cross validation..too much to print
+        b = dict.copy(a)
+        # if you don't do xval, there is no models, so have to check first
+        if 'models' in b:
+            del b['models']
+        
+        verboseprint("\nNot printing the CMs returned by cross validation, if any")
+        verboseprint("GLM:", dump_json(b))
         return a 
 
     def stabilize(self, test_func, error,

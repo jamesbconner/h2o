@@ -36,10 +36,11 @@ class Basic(unittest.TestCase):
             # it's a dicitionary!
             coefficients = glm['coefficients']
             print "\ncoefficients:", coefficients
-            # pick out the coefficent for the column we enabled.
+            # pick out the coefficent for the column we enabled. This only works if no labels were in the dataset
+            # because we're using col for the key
             absXCoeff = abs(float(coefficients[str(colX)]))
             # intercept is buried in there too
-            absIntercept = abs(float(coefficients[str(colX)]))
+            absIntercept = abs(float(coefficients['Intercept']))
             
             self.assertGreater(absXCoeff, 0.000001, (
                 "abs. value of GLM coefficients['" + str(colX) + "'] is " + 
@@ -77,7 +78,7 @@ class Basic(unittest.TestCase):
                 print "Y:", Y
 
                 start = time.time()
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, timeoutSecs=timeoutSecs)
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=timeoutSecs)
 
                 simpleCheckGLM(glm,colX)
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
