@@ -506,11 +506,11 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def import_folder(self, folder, repl):
+    def import_folder(self, folder, repl=None):
         a = self.__check_request(requests.get(
             self.__url('ImportFolder.json'),
             params={
-                "folder": folder,
+                "Folder": folder,
                 "rf": repl}))
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
