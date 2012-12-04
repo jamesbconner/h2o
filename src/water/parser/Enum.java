@@ -102,7 +102,7 @@ public final class Enum implements H2OSerializable {
     return res;
   }
 // assuming single threaded
-  int wire_len(){
+  public int wire_len(){
     // 4 bytes for map size + size* (4 bytes per ValueString._buf.length of the key + 4 bytes of int value)
     int res = 4;
     if(_map != null){
