@@ -131,12 +131,18 @@ public class GLM extends H2OPage {
       if(p.containsKey("link")) {
         try{l = DGLM.Link.valueOf(p.get("link").toString().toLowerCase());}catch(Exception e){throw new GLMInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
       }
+      JsonObject jLsmParams = new JsonObject();
       GLM_Params glmParams = new GLM_Params(f, l);
       FamilyArgs fargs = null;
       if(f == Family.binomial){
         double caseVal = 1.0;
-        try{Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
-        fargs = new BinomialArgs(threshold, caseVal);
+        double [] wt = new double[]{1.0,1.0};
+        try{caseVal = Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
+        if(p.containsKey("weight")){
+          try{wt[1] = Double.valueOf(p.getProperty("weight", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of wight, expect number, got " + p.getProperty("case")); return res;}
+        }
+        fargs = new BinomialArgs(threshold, caseVal,wt);
+        jLsmParams.addProperty("weights", Arrays.toString(wt));
       }
       LSM_Params lsmParams = new LSM_Params(norm,lambda,rho,alpha,1);
       JsonObject jGlmParams = new JsonObject();
@@ -144,7 +150,7 @@ public class GLM extends H2OPage {
       jGlmParams.addProperty("link", glmParams.link.toString());
       jGlmParams.addProperty("family", glmParams.family.toString());
       res.add("glmParams", jGlmParams);
-      JsonObject jLsmParams = new JsonObject();
+
       jLsmParams.addProperty("norm", lsmParams.n.toString());
       jLsmParams.addProperty("lambda", lsmParams.lambda);
       jLsmParams.addProperty("rho", lsmParams.rho);
@@ -296,6 +302,8 @@ public class GLM extends H2OPage {
     } else if(norm.equals("L2")){
       bldr.append(" <span><b>&lambda;: </b>" + lsmParams.get("lambda").getAsString() + "</span> ");
     }
+    if(lsmParams.has("weights"))
+      bldr.append("<span><b>weights: </b>" + lsmParams.get("weights").getAsString() + "</span>");
     return bldr.toString();
   }
 

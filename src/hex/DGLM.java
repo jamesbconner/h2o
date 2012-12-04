@@ -215,10 +215,12 @@ public class DGLM implements Models.ModelBuilder {
   public static class BinomialArgs extends FamilyArgs {
     double _threshold = 0.5; // decision threshold for classification/validation
     double _case = 1.0; // value to be mapped to 1 (en eeverything else to 0).
+    double [] _wt = new double[]{1.0,1.0};
 
-    public BinomialArgs(double t, double c){
+    public BinomialArgs(double t, double c, double [] wt){
       _threshold = t;
       _case = c;
+      _wt = wt;
     }
   }
 
@@ -367,6 +369,7 @@ public class DGLM implements Models.ModelBuilder {
    */
   public static class IRLSMTask extends LSMTask {
     double[] _beta;
+    double   _w = 1.0;
     double   _origConstant;
     int      _f;
     int      _l;
@@ -431,7 +434,7 @@ public class DGLM implements Models.ModelBuilder {
       // the variance of y at this point.
       // Since we compute x'x, we take sqrt(w) and apply it to both x and y
       // (we also compute X*y)
-      double w = Math.sqrt(1 / var);
+      double w = Math.sqrt(1 / var)*_w;
       for( int i = 0; i < x.length; ++i )
         x[i] *= w;
       _constant = _origConstant * w;
@@ -445,19 +448,25 @@ public class DGLM implements Models.ModelBuilder {
   public static class BinomialTask extends IRLSMTask {
     double _case; // in
     long _caseCount; // out
+    double [] _wt;
 
     public BinomialTask(int [] colIds, Sampling s, int constant, double [] beta, double[][] pVals, Link l,BinomialArgs bargs){
       super(colIds,s,constant, beta, pVals,  Family.binomial,l);
       _case = bargs._case;
+      _wt = bargs._wt;
     }
 
     @Override
     public void processRow(double [] x){
       if(x[x.length-1] == _case){
         x[x.length-1] = 1.0;
+        _w = _wt[1];
         ++_caseCount;
-      } else
+      } else {
         x[x.length-1] = 0.0;
+        _w = _wt[0];
+      }
+
       super.processRow(x);
     }
   }
