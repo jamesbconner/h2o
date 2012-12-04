@@ -572,19 +572,23 @@ class H2O(object):
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
         # Note ntree in kwargs can overwrite trees! We use this for random param generation
+
+        # UPDATE: only pass the minimal set of params to RFView. It should get the 
+        # rest from the model. what about classWt? It can be different between RF and RFView?
+        # Will need to update this list if we params for RfView
         params_dict = {
             'dataKey' : dataKey,
             'modelKey' : modelKey,
-            'ntree' : ntree
+            'OOBEE' : None,
+            'classWt' : None
             }
-        browseAlso = kwargs.pop('browseAlso', False)
+        # only update params_dict..don't add
+        # throw away anything else as it should come from the model (propagating what RF used)
+        for k in kwargs:
+            if k in params_dict:
+                params_dict[k] = kwargs[k]
 
-        # any ignore should come from the model, not from kwargs
-        # so throw that away also!
-        # FIX! what about other "params" that should be passed forward from the model?
-        kwargs.pop('ignore', None)
-
-        params_dict.update(kwargs)
+        browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
             self.__url('RFView.json'), 
