@@ -1,6 +1,9 @@
 package hex.rf;
 import hex.rf.Tree.StatType;
+
 import java.io.File;
+import java.util.Random;
+
 import water.*;
 import water.util.KeyUtil;
 
@@ -19,8 +22,9 @@ public class RandomForest {
     _features = features;
     Timer t_alltrees = new Timer();
     Tree[] trees = new Tree[ntrees];
+    Random rnd = new Random(data.seed());
     for (int i = 0; i < ntrees; ++i) {
-      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(), i+data.seed(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns);
+      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(),rnd.nextLong(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns);
       if (!parallelTrees) DRemoteTask.invokeAll(new Tree[]{trees[i]});
     }
     if (parallelTrees) DRemoteTask.invokeAll(trees);
