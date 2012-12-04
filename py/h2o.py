@@ -637,8 +637,13 @@ class H2O(object):
             'Y': 1
             }
 
+        # special case these two because of name issues.
+        # use glm_lamba, not lambda
+        # use glm_notX, not -X
         glm_lambda = kwargs.pop('glm_lambda', None)
         if glm_lambda is not None: params_dict['lambda'] = glm_lambda
+        glm_notX = kwargs.pop('glm_-X', None)
+        if glm_notX is not None: params_dict['-X'] = glm_notX
 
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
@@ -646,7 +651,9 @@ class H2O(object):
         a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
         # remove the 'models' key that has all the CMs from cross validation..too much to print
         b = dict.copy(a)
-        del b['models']
+        # if you don't do xval, there is no models, so have to check first
+        if 'models' in b:
+            del b['models']
         
         verboseprint("\nNot printing the CMs returned by cross validation, if any")
         verboseprint("GLM:", dump_json(b))
