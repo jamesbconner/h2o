@@ -17,7 +17,7 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
-    def test_C_hhp_107_01(self):
+    def test_B_covtype(self):
         timeoutSecs = 2
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
@@ -40,7 +40,7 @@ class Basic(unittest.TestCase):
 
             # only run if appendX is > 49 to save time
             # we need to cycle up to there though, to get the parameters right for GLM json
-            if (appendX>49):
+            # if (appendX>49):
                 sys.stdout.write('.')
                 sys.stdout.flush() 
                 print "\nX:", X
@@ -50,13 +50,23 @@ class Basic(unittest.TestCase):
                 ### FIX! add some expected result checking
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=11, X=X, Y=Y, timeoutSecs=timeoutSecs)
 
+                # different when xvalidation is used? No trainingErrorDetails?
                 h2o.verboseprint("\nglm:", glm)
-                print "\nerrRate:", glm['errRate']
-                print "trueNegative:", glm['trueNegative']
-                print "truePositive:", glm['truePositive']
-                print "falseNegative:", glm['falseNegative']
-                print "falsePositive:", glm['falsePositive']
+                if 'warnings' in glm:
+                    print "\nwarnings:", glm['warnings']
+
+                print "GLM time", glm['time']
                 print "coefficients:", glm['coefficients']
+
+                tsv = glm['trainingSetValidation']
+                print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
+
+                # ted = glm['trainingErrorDetails']
+                # print "trueNegative:", ted['trueNegative']
+                # print "truePositive:", ted['truePositive']
+                # print "falseNegative:", ted['falseNegative']
+                # print "falsePositive:", ted['falsePositive']
+
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 

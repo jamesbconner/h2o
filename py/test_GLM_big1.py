@@ -26,6 +26,7 @@ class Basic(unittest.TestCase):
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
         # create the X that excludes some columns
+        trial = 0
         for appendX in xrange(107):
             if (appendX == 9):
                 print "9 causes singularity. not used"
@@ -51,26 +52,36 @@ class Basic(unittest.TestCase):
                 else:
                     X = X + "," + str(appendX)
 
-        # run it times
         for trial in xrange(3):
-                sys.stdout.write('.')
-                sys.stdout.flush() 
-                print "\nX:", X
-                print "Y:", Y
+            sys.stdout.write('.')
+            sys.stdout.flush() 
+            print "\nX:", X
+            print "Y:", Y
 
-                start = time.time()
-                ### FIX! add some expected result checking
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=timeoutSecs)
+            start = time.time()
+            ### FIX! add some expected result checking
+            glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=timeoutSecs)
 
-                h2o.verboseprint("\nglm:", glm)
-                print "\nTrial #", trial
-                print "errRate:", glm['errRate']
-                print "trueNegative:", glm['trueNegative']
-                print "truePositive:", glm['truePositive']
-                print "falseNegative:", glm['falseNegative']
-                print "falsePositive:", glm['falsePositive']
-                print "coefficients:", glm['coefficients']
-                print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
+            h2o.verboseprint("\nglm:", glm)
+            print "\nTrial #", trial
+
+            # different when xvalidation is used? No trainingErrorDetails?
+            h2o.verboseprint("\nglm:", glm)
+            if 'warnings' in glm:
+                print "\nwarnings:", glm['warnings']
+
+            print "GLM time", glm['time']
+            # print "coefficients:", glm['coefficients']
+
+            tsv = glm['trainingSetValidation']
+            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
+            ted = glm['trainingErrorDetails']
+            print "trueNegative:", ted['trueNegative']
+            print "truePositive:", ted['truePositive']
+            print "falseNegative:", ted['falseNegative']
+            print "falsePositive:", ted['falsePositive']
+
+            print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
     h2o.unit_main()

@@ -435,6 +435,7 @@ public final class H2O {
         _webSocket = new ServerSocket(WEB_PORT);
         _udpSocket = new DatagramSocket(UDP_PORT);
         _tcpSocket = new ServerSocket(TCP_PORT);
+        _udpSocket.setReceiveBufferSize(1<<20);
         break;
       } catch (IOException e) {
         if (_webSocket != null)

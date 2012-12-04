@@ -32,7 +32,6 @@ class Basic(unittest.TestCase):
         # build up the parameter string in X
         Y = "106"
         X = ""
-        # for appendX in range(1,107):
         for appendX in range(1,107):
             if (appendX == 9):
                 print "9 causes singularity. not used"
@@ -70,12 +69,24 @@ class Basic(unittest.TestCase):
 
             print "\nTrial #", trial
             h2o.verboseprint("\nglm:", glm)
-            print "errRate:", glm['errRate']
-            print "trueNegative:", glm['trueNegative']
-            print "truePositive:", glm['truePositive']
-            print "falseNegative:", glm['falseNegative']
-            print "falsePositive:", glm['falsePositive']
-            print "coefficients:", glm['coefficients']
+
+            # different when xvalidation is used? No trainingErrorDetails?
+            h2o.verboseprint("\nglm:", glm)
+            if 'warnings' in glm:
+                print "\nwarnings:", glm['warnings']
+
+            print "GLM time", glm['time']
+            # print "coefficients:", glm['coefficients']
+
+            tsv = glm['trainingSetValidation']
+            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
+            # ted = glm['trainingErrorDetails']
+
+            # print "trueNegative:", ted['trueNegative']
+            # print "truePositive:", ted['truePositive']
+            # print "falseNegative:", ted['falseNegative']
+            # print "falsePositive:", ted['falsePositive']
+
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
             # maybe we can see the GLM results in a browser?

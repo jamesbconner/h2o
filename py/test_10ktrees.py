@@ -5,7 +5,7 @@ import argparse
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(node_count=3)
+        h2o.build_cloud(node_count=2)
 
     @classmethod
     def tearDownClass(cls):
@@ -39,7 +39,7 @@ class Basic(unittest.TestCase):
             parseKey = h2o.nodes[0].parse(put['key'])
 
             h2o.verboseprint("Trial", trial)
-            cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=30, retryDelaySecs=3)
+            cmd.runRFOnly(parseKey=parseKey, trees=10000, depth=100, timeoutSecs=60, retryDelaySecs=3)
 
 if __name__ == '__main__':
     h2o.unit_main()

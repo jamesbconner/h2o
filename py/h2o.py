@@ -397,13 +397,23 @@ class H2O(object):
         # the browser can walk back until it hits a RFview. I suppose this should be an object.
         json_url_history.append(r.url)
 
+        # HACK: excessive variance in GLM/RF/other..so check a bunch...should jira this issue
         rjson = r.json
         if 'error' in rjson:
             print rjson
-            raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
+            raise Exception('rjson error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
         elif 'Error' in rjson:
             print rjson
             raise Exception('rjson Error in %s: %s' % (inspect.stack()[1][3], rjson['Error']))
+        elif 'warning' in rjson:
+            print 'rjson warning in %s: %s' % (inspect.stack()[1][3], rjson['warning'])
+        elif 'Warning' in rjson:
+            print 'rjson Warning in %s: %s' % (inspect.stack()[1][3], rjson['Warning'])
+        elif 'warnings' in rjson:
+            print 'rjson warnings in %s: %s' % (inspect.stack()[1][3], rjson['warnings'])
+        elif 'Warnings' in rjson:
+            print 'rjson Warnings in %s: %s' % (inspect.stack()[1][3], rjson['Warnings'])
+
         return rjson
 
 
@@ -496,48 +506,94 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def random_forest(self, key, ntree=6, depth=30, seed=1, gini=1, singlethreaded=0, 
-        modelKey="pymodel",clazz=None):
-        # modelkey is ____model by default
-        # can get error result too?
-        
-        # FIX! pass a model name here, that is unique for every RF model we due 
-        # during a cloud build..so we can look at it with the browser and not have multiple RF's
-        # overwrite the same model (and lose the data so we can't see it in the browser any more
-        rfParams = {
-                # FIX! temporary H2O bug..put ____ in front of model name to get it used right
-                # test should get the right one from RF.json output, for use in RFview
-                # passing a modelKey is really so it persists if we're doing multiple RFs
-                # and we want to pass a new model name each time to avoid overwrite
-                "modelKey": modelKey,
-                "singlethreaded": singlethreaded,
-                "seed": seed,
-                "gini": gini,
-                "depth": depth,
-                "ntree": ntree,
-                "Key": key
-                }
-        if not clazz is None: rfParams['class'] = clazz
+    def import_folder(self, folder, repl=None):
+        a = self.__check_request(requests.get(
+            self.__url('ImportFolder.json'),
+            params={
+                "Folder": folder,
+                "rf": repl}))
+        verboseprint("\nimport_folder result:", dump_json(a))
+        return a
 
-        verboseprint("\nrandom_forest parameters:", rfParams)
+    # kwargs used to pass:
+    # RF?
+    # classWt=&
+    # class=2&
+    # ntree=&
+    # modelKey=& 
+    # OOBEE=true&
+    # gini=1&
+    # depth=&
+    # binLimit=&
+    # parallel=&
+    # ignore=&   ...this is ignore columns
+    # sample=&
+    # seed=&
+    # features=1&
+    # singlethreaded=0&     ..debug only..may be gone
+    # Key=chess_2x2_500_int.hex
+
+    # note ntree in kwargs can overwrite trees!
+    def random_forest(self, Key, trees, **kwargs):
+        params_dict = {
+            'Key' : Key,
+            'ntree' : trees,
+            'modelKey' : 'pytest_model',
+            'depth' : 30,
+            'browseAlso' : False,
+            }
+        
+        clazz = kwargs.pop('clazz', None)
+        if clazz is not None: params_dict['class'] = clazz
+        
+        params_dict.update(kwargs)
+
+        verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
             url=self.__url('RF.json'), 
             timeout=3000,
-            params=rfParams))
+            params=params_dict))
         verboseprint("\nrandom_forest result:", a)
         return a
 
-    # Model updates asynchrounously as long as more trees appear.
-    # Check modelSize to see if all trees are ready.
-    def random_forest_view(self, dataKey, modelKey, ntree, browseAlso=False):
-        # FIX! temporary hack: rfview should ignore ntree!
-        # force it to be bad
-        a = self.__check_request(requests.get(self.__url('RFView.json'),
-            params={
-                "dataKey": dataKey,
-                "modelKey": modelKey,
-                "ntree": ntree
-                }))
+    # kwargs used to pass:
+    # RFView?
+    # classWt=classWt=B=1,W=2&
+    # class=2&
+    # ntree=50&
+    # modelKey=model&
+    # OOBEE=true&
+    # singlethreaded=0&     ..debug only..
+    # dataKey=chess_2x2_500_int.hex
+    # ignore=&   ...this is ignore columns
+    # UPDATE: jan says the ignore should be picked up from the model
+    def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
+
+        # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
+        # that would make sure we only pass the minimal?
+        # Note ntree in kwargs can overwrite trees! We use this for random param generation
+
+        # UPDATE: only pass the minimal set of params to RFView. It should get the 
+        # rest from the model. what about classWt? It can be different between RF and RFView?
+        # Will need to update this list if we params for RfView
+        params_dict = {
+            'dataKey' : dataKey,
+            'modelKey' : modelKey,
+            'OOBEE' : None,
+            'classWt' : None
+            }
+        # only update params_dict..don't add
+        # throw away anything else as it should come from the model (propagating what RF used)
+        for k in kwargs:
+            if k in params_dict:
+                params_dict[k] = kwargs[k]
+
+        browseAlso = kwargs.pop('browseAlso',False)
+
+        a = self.__check_request(requests.get(
+            self.__url('RFView.json'), 
+            params=params_dict))
+
         verboseprint("\nrandom_forest_view result:", a)
         # we should know the json url from above, but heck lets just use
         # the same history-based, global mechanism we use elsewhere
@@ -549,41 +605,47 @@ class H2O(object):
     def linear_reg(self, key, colA=0, colB=1):
         a = self.__check_request(requests.get(self.__url('LR.json'),
             params={
-                "colA": colA,
-                "colB": colB,
-                "Key": key
+                'colA': colA,
+                'colB': colB,
+                'Key': key
                 }))
         verboseprint("linear_reg result:", a)
         return a
 
     def linear_reg_view(self, key):
         a = self.__check_request(requests.get(self.__url('LRView.json'),
-            params={"Key": key}))
+            params={'Key': key}))
         verboseprint("linear_reg_view result:", a)
         return a
 
-    # X and Y can be label strings, column nums, or comma separated combinations
-    # xval gives us cross validation and more info
-    # bool will allow us to user existing data sets..it makes Tomas treat all non-zero as 1
-    # in the dataset. We'll just do that all the time for now.
-    # FIX! add more parameters from the wiki
-    def GLM(self, key, Y, family="binomial", glm_lambda=None, **kwargs):
-        # we're going to build up the list by adding kwargs here, because
-        # the possibilities are large and changing!
-        params_list = { 
-                "family": family,
-                "Y": Y,
-                "Key": key,
-                "lambda": glm_lambda
-                }
+    # kwargs used to pass:
+    # Y
+    # X
+    # -X
+    # family
+    # threshold
+    # norm
+    # glm_lambda (becomes lambda)
+    # rho
+    # alpha
 
-        # add one dictionary to another (2nd dominates)               
-        params_list.update(kwargs)
-        verboseprint("GLM params list", params_list)
+    def GLM(self, key, **kwargs):
+        # for defaults
+        params_dict = { 
+            'family': 'binomial',
+            'Key': key,
+            'Y': 1
+            }
 
-        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_list))
+        glm_lambda = kwargs.pop('glm_lambda', None)
+        if glm_lambda is not None: params_dict['lambda'] = glm_lambda
+
+        params_dict.update(kwargs)
+        verboseprint("GLM params list", params_dict)
+
+        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
         verboseprint("GLM:", a)
-        return a
+        return a 
 
     def stabilize(self, test_func, error,
             timeoutSecs=10, retryDelaySecs=0.5):
