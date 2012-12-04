@@ -53,7 +53,8 @@ class Basic(unittest.TestCase):
             start = time.time()
             ### FIX! add some expected result checking
             # can't pass lamba as kwarg because it's a python reserved word
-            glm = h2o_cmd.runGLM(csvPathname=csvPathname, Y=7, family="binomial", 
+            glm = h2o_cmd.runGLM(csvPathname=csvPathname, 
+                Y=7, glm_notX='1:52', family="binomial", 
                 xval=10, norm="L1", glm_lambda=1e-4,
                 timeoutSecs=timeoutSecs)
 
@@ -61,17 +62,8 @@ class Basic(unittest.TestCase):
             h2o.verboseprint("\nglm:", glm)
             print "GLM time", glm['time']
             print "coefficients:", glm['coefficients']
-            print glm
-
             tsv = glm['trainingSetValidation']
             print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-            # ted = glm['trainingErrorDetails']
-
-            # print "trueNegative:", ted['trueNegative']
-            # print "truePositive:", ted['truePositive']
-            # print "falseNegative:", ted['falseNegative']
-            # print "falsePositive:", ted['falsePositive']
-
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
             # maybe we can see the GLM results in a browser?
