@@ -40,26 +40,27 @@ class Basic(unittest.TestCase):
 
             # only run if appendX is > 49 to save time
             # we need to cycle up to there though, to get the parameters right for GLM json
-            # if (appendX>49):
+            if (appendX>49):
                 sys.stdout.write('.')
                 sys.stdout.flush() 
                 print "\nX:", X
                 print "Y:", Y
 
                 start = time.time()
-                ### FIX! add some expected result checking
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=11, X=X, Y=Y, timeoutSecs=timeoutSecs)
+                # norm=L2 to avoid coefficients = 0 in result?
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, 
+                    xval=11, norm='L2', X=X, Y=Y, timeoutSecs=timeoutSecs)
 
-                # different when xvalidation is used? No trainingErrorDetails?
-                h2o.verboseprint("\nglm:", glm)
+                # glm json result is prettyprinted now in h2o GLM, if verbose
 
-            if 'warnings' in glm:
-                print "\nwarnings:", glm['warnings']
+                if 'warnings' in glm:
+                    print "\nwarnings:", glm['warnings']
 
                 print "GLM time", glm['time']
                 coefficients = glm['coefficients']
                 print "coefficients:", coefficients
-                # quick and dirty check: if all the coefficients are zero, something is broken
+                # quick and dirty check: 
+                # if all the coefficients are zero, something is broken
                 # intercept is in there too, but this will get it okay
                 # just sum the abs value  up..look for greater than 0
                 s = 0.0
@@ -67,7 +68,8 @@ class Basic(unittest.TestCase):
                     v = coefficients[c]
                     s += abs(float(v))
                     self.assertGreater(s, 0.000001, (
-                        "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 0.000001"
+                        "sum of abs. value of GLM coefficients/intercept is " +
+                        str(s) + ", not >= 0.000001"
                         ))
 
                 tsv = glm['trainingSetValidation']
