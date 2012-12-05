@@ -337,11 +337,14 @@ public class DGLM implements Models.ModelBuilder {
         try {
           m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
         }catch (DLSM_SingularMatrixException e){
-          assert _lsmParams.n == Norm.NONE;
-          _lsmParams.n = Norm.L2;
-          _lsmParams.lambda = 1e-5;
-          m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
-          m._warnings = new String[] {"Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5" };
+          int n = 0;
+          if(m._warnings != null){
+            n = m._warnings.length;
+            m._warnings = Arrays.copyOf(m._warnings, n + 1);
+          } else
+            m._warnings = new String[1];
+          m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
+          m._beta = e.res;
         }
 
         tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
