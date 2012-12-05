@@ -139,7 +139,7 @@ public class GLM extends H2OPage {
         double [] wt = new double[]{1.0,1.0};
         try{caseVal = Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
         if(p.containsKey("weight")){
-          try{wt[1] = Double.valueOf(p.getProperty("weight", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of wight, expect number, got " + p.getProperty("case")); return res;}
+          try{wt[1] = Math.sqrt(Double.valueOf(p.getProperty("weight", "1.0")));}catch(NumberFormatException e){res.addProperty("error", "invalid value of weight, expected positive number, got " + p.getProperty("case")); return res;}
         }
         fargs = new BinomialArgs(threshold, caseVal,wt);
         jLsmParams.addProperty("weights", Arrays.toString(wt));
