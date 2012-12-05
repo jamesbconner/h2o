@@ -45,7 +45,10 @@ import Jama.Matrix;
  */
 public class DLSM {
 
-  static class DLSM_SingularMatrixException extends RuntimeException {}
+  static class DLSM_SingularMatrixException extends RuntimeException {
+    public double [] res;
+    DLSM_SingularMatrixException(double [] r){res = r;}
+  }
 
   public static class LSM_Params{
     public Norm n = Norm.NONE;
@@ -114,7 +117,9 @@ public class DLSM {
         return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
       } catch(Exception e){
         assert params.n == Norm.NONE;
-        throw new DLSM_SingularMatrixException();
+        params.n = Norm.L2;
+        params.lambda = 1e-5;
+        throw new DLSM_SingularMatrixException(solveLSM(xxAry, xyAry, params));
       }
     case L1: { // use ADMM to solve LASSO
       final int N = xyAry.length;

@@ -149,6 +149,7 @@ public class GLM extends H2OPage {
 
       jGlmParams.addProperty("link", glmParams.link.toString());
       jGlmParams.addProperty("family", glmParams.family.toString());
+      jGlmParams.addProperty("threshold", threshold);
       res.add("glmParams", jGlmParams);
 
       jLsmParams.addProperty("norm", lsmParams.n.toString());
@@ -304,6 +305,8 @@ public class GLM extends H2OPage {
     }
     if(lsmParams.has("weights"))
       bldr.append("<span><b>weights: </b>" + lsmParams.get("weights").getAsString() + "</span>");
+    if(glmParams.has("threshold"))
+      bldr.append("<span><b>decision threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
     return bldr.toString();
   }
 

@@ -292,7 +292,7 @@ public class DGLM implements Models.ModelBuilder {
       }
     }
     //GLM_Model m = (glmParams.family == Family.binomial)? new BinomialModel((BinomialArgs)fargs):new GLM_Model();//colIds, beta, p, gp, lp)
-    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0, ((BinomialArgs)_fargs)._case):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
+    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0, (BinomialArgs)_fargs):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
     if(_glmParams.family == Family.gaussian){
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  _lsmParams.constant, pVals);
       tsk.invoke(ary._key);
@@ -300,11 +300,14 @@ public class DGLM implements Models.ModelBuilder {
       try {
         m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
       }catch (DLSM_SingularMatrixException e){
-        assert _lsmParams.n == Norm.NONE;
-        _lsmParams.n = Norm.L2;
-        _lsmParams.lambda = 1e-5;
-        m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
-        m._warnings = new String[] {"Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5" };
+        int n = 0;
+        if(m._warnings != null){
+          n = m._warnings.length;
+          m._warnings = Arrays.copyOf(m._warnings, n + 1);
+        } else
+          m._warnings = new String[1];
+        m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
+        m._beta = e.res;
       }
       return m;
     }
@@ -608,9 +611,11 @@ public class DGLM implements Models.ModelBuilder {
     public GLMBinomialModel(String [] columNames, int [] colIds, double [][] pVals){
       super(columNames, colIds, pVals);
     }
-    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu, double caseVal){
+
+    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu, BinomialArgs args){
       super(columnNames, colIds, pVals,b,l,f,ymu);
-      _case = caseVal;
+      _case = args._case;
+      _threshold = args._threshold;
     }
 
 
