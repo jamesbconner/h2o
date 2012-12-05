@@ -88,7 +88,7 @@ public class Debug extends JSONPage {
     DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
     // Output a model with zero trees (so far).
     final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
-    Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores);
+    Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores, drf._features);
     // Save it to the cloud
     UKV.put(modelKey,model);
     // wait for the computation to finish

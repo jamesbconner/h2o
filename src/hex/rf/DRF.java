@@ -41,7 +41,8 @@ public class DRF extends water.DRemoteTask {
   /** Key for the trees built so far*/
   public Key _treeskey;
 
-  int _features;
+  /* Number of features which are tried at each split */
+  public int _features;
 
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
