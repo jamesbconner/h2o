@@ -9,8 +9,6 @@ import random
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # h2o_hosts.build_cloud_with_hosts()
-        # single jvm on local machine
         h2o_hosts.build_cloud_with_hosts(1)
 
     @classmethod
@@ -24,41 +22,51 @@ class Basic(unittest.TestCase):
         importFolderPath = "/home/0xdiag/datasets"
         node = h2o.nodes[0]
         importFolderResult = node.import_folder(importFolderPath)
-        print importFolderResult
+        h2o.dump_json(importFolderResult)
 
         def parseImportFolderFile(node=None, csvFilename=None):
-            if not csvFilename: raise Exception('No csvFilename parameter in parseImportFolderFile')
+            if not csvFilename: raise Exception('parseImportFolderFile: No csvFilename')
             if not node: node = h2o.nodes[0]
 
-            importFolderKey = csvFilename
-            print "importFolderKey:", importFolderKey
+            csvPathnameForH2O = "nfs:/" + importFolderPath + "/" + csvFilename
+            # hmm..are we required to inspect before parse? would think not, but let's look
+            inspect = node.inspect(csvPathnameForH2O)
+            print "\nInspect file result:", inspect
 
-            inspect = node.inspect(importFolderKey)
-            print inspect
-            parseKey = node.parse(key=importFolderKey, key2=csvFilename + ".hex")
-            print parseKey
+            # We like the short parse key2 name. 
+            # We don't drop anything from csvFilename, unlike H2O default
+            print "Waiting for the slow parse of the file:", csvFilename
+            parseKey = node.parse(key=csvPathnameForH2O, key2=csvFilename + '.hex')
+            print "\nParse result:", parseKey
             return parseKey
 
+        # FIX! for local 0xdata, this will be different (/home/0xdiag/datasets)
         csvFilenameAll = [
-            "billion_rows.csv.gz",
-            "new-poker-hand.full.311M.txt.gz",
-            "covtype20x.data",
-            "covtype200x.data"
+            'billion_rows.csv.gz',
+            'covtype200x.data',
+            'billion_rows.csv.gz',
+            'covtype200x.data',
+            'covtype20x.data',
+            'covtype.data',
+            'new-poker-hand.full.311M.txt.gz'
             ]
         csvFilenameList = random.sample(csvFilenameAll,1)
 
         # pop open a browser on the cloud
         h2b.browseTheCloud()
 
-        timeoutSecs = 200
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = parseImportFolderFile(csvFilename=csvFilename)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "parse result:", parseKey['Key']
+            print "Parse result['Key']:", parseKey['Key']
+
+            # We should be able to see the parse result?
+            inspect = node.inspect(parseKey['Key'])
 
             print "\n" + csvFilename
             start = time.time()
+            timeoutSecs = 2000
             RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=timeoutSecs)
 
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
@@ -67,8 +75,6 @@ class Basic(unittest.TestCase):
 
             sys.stdout.write('.')
             sys.stdout.flush() 
-
-        # browseJsonHistoryAsUrl()
 
 if __name__ == '__main__':
     h2o.unit_main()
