@@ -3,6 +3,8 @@ package water.api;
 
 import com.google.gson.JsonObject;
 import java.util.Properties;
+import water.Key;
+import water.Value;
 
 /**
  *
@@ -16,11 +18,12 @@ public class PutValue extends Request {
 
   protected final KeyArgument _key = new KeyArgument(JSON_KEY);
   protected final StringArgument _value = new StringArgument(JSON_VALUE);
-  protected final IntegerArgument _rf = new IntegerArgument(JSON_RF,0,10,2);
+  protected final IntegerArgument _rf = new IntegerArgument(JSON_RF,0,256,2);
 
   @Override
   public void serve(JsonObject response, Properties args) {
-    throw new UnsupportedOperationException("Not supported yet.");
+    Key k = _key.value(args);
+    Value v = new Value(k,_value.value(args).getBytes(),)
   }
 
 }

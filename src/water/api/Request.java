@@ -219,10 +219,28 @@ public abstract class Request {
     public final int _min;
     public final int _max;
 
-    public IntegerArgument(String name, Integer defaultValue) {
-      super(name,defaultValue);
+    public IntegerArgument(String name, int defaultValue) {
+      super(name, defaultValue);
       _min = Integer.MIN_VALUE;
       _max = Integer.MAX_VALUE;
+    }
+
+    public IntegerArgument(String name, int min, int max, int defaultValue) {
+      super(name, defaultValue);
+      _min = min;
+      _max = max;
+    }
+
+    @Override protected Integer decode(String value) throws Exception {
+      try {
+        int i = Integer.valueOf(value);
+        if ((i<_min) || (i >=_max))
+          throw new Exception("value "+i+" out of allowed range <"+_min+" ; "+_max+")");
+        return i;
+      } catch (NumberFormatException e) {
+        throw new Exception("not a valid number format: "+value);
+      }
+    }
 
 
   }
