@@ -404,6 +404,7 @@ public final class H2O {
     new Cleaner().start();
 
     water.web.Server.start();
+    water.api.RequestServer.start();
   }
 
   /** Finalizes the node startup.
