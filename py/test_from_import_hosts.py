@@ -20,6 +20,7 @@ class Basic(unittest.TestCase):
         # assume the importFolder prefix is datasets, for now
         # just do the import folder once
         importFolderPath = "/home/0xdiag/datasets"
+        importFolderPath = "/home/hduser/hdfs_datasets"
         node = h2o.nodes[0]
         importFolderResult = node.import_folder(importFolderPath)
         h2o.dump_json(importFolderResult)
@@ -30,8 +31,9 @@ class Basic(unittest.TestCase):
 
             csvPathnameForH2O = "nfs:/" + importFolderPath + "/" + csvFilename
             # hmm..are we required to inspect before parse? would think not, but let's look
-            inspect = node.inspect(csvPathnameForH2O)
-            print "\nInspect file result:", inspect
+
+            # inspect = node.inspect(csvPathnameForH2O)
+            # print "\nInspect file result:", inspect
 
             # We like the short parse key2 name. 
             # We don't drop anything from csvFilename, unlike H2O default
@@ -40,15 +42,12 @@ class Basic(unittest.TestCase):
             print "\nParse result:", parseKey
             return parseKey
 
-        # FIX! for local 0xdata, this will be different (/home/0xdiag/datasets)
+        #    "covtype200x.data"
         csvFilenameAll = [
-            'billion_rows.csv.gz',
-            'covtype200x.data',
-            'billion_rows.csv.gz',
-            'covtype200x.data',
-            'covtype20x.data',
-            'covtype.data',
-            'new-poker-hand.full.311M.txt.gz'
+            "billion_rows.csv.gz",
+            "covtype169x.data",
+            "covtype.13x.shuffle.data",
+            "3G_poker_shuffle"
             ]
         csvFilenameList = random.sample(csvFilenameAll,1)
 
@@ -67,7 +66,8 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
             start = time.time()
             timeoutSecs = 2000
-            RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=timeoutSecs)
+            # because of poker and the water.UDP.set3(UDP.java) issue..constrain depth to 25
+            RFview = h2o_cmd.runRFOnly(trees=1,depth=25,parseKey=parseKey,timeoutSecs=timeoutSecs)
 
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
             # wait in case it recomputes it
