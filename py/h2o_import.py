@@ -1,3 +1,4 @@
+import h2o
 # assume the importFolder prefix is datasets, for now
 # just do the import folder once
 def setupImportFolder(node=None, importFolderPath='/home/0xdiag/datasets'):
