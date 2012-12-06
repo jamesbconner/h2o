@@ -144,7 +144,6 @@ public class VABuilder {
   }
 
   static void check(Key k) {
-    System.out.println(_numRows);
     Value v = DKV.get(k);
     assert (v != null);
     assert (v instanceof ValueArray);
