@@ -23,8 +23,8 @@ import water.web.Server;
 
 public abstract class Request {
 
-  public static final String JSON_ERROR = "Error";
-  public static final String JSON_ERROR_TYPE = "ErrorType";
+  public static final String JSON_ERROR = "error";
+  public static final String JSON_ERROR_TYPE = "error_type";
 
 
 
