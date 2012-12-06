@@ -214,6 +214,19 @@ public abstract class Request {
     }
   }
 
+  public class IntegerArgument extends DefaultValueArgument<Integer> {
+
+    public final int _min;
+    public final int _max;
+
+    public IntegerArgument(String name, Integer defaultValue) {
+      super(name,defaultValue);
+      _min = Integer.MIN_VALUE;
+      _max = Integer.MAX_VALUE;
+
+
+  }
+
   // Dispatch ------------------------------------------------------------------
 
   /** Dispatches the request.
