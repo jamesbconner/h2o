@@ -47,8 +47,8 @@ public abstract class Request {
    * @param response
    * @return
    */
-  public String createHtml(JsonObject response) {
-    return "NOT IMPLEMENTED YET";
+  protected void createHTMLBuilders(HTMLBuilder builder) {
+    // pass
   }
 
   /** Creates the HTML query page for the request, if any.
@@ -56,7 +56,7 @@ public abstract class Request {
    * @param submittedArgs
    * @return
    */
-  public String createQuery(Properties submittedArgs) {
+  protected String createQuery(Properties submittedArgs) {
     return "QUERY NOT IMPLEMENTED YET";
   }
 
@@ -241,8 +241,11 @@ public abstract class Request {
       // server the request
       serve(response,parsedArgs);
       // if we are in HTML, create the response string and return it
-      if (isHTML)
-        return wrap(server,createHtml(response));
+      if (isHTML) {
+        HTMLBuilder builder = new HTMLBuilder(this, response);
+        createHTMLBuilders(builder);
+        return wrap(server, builder.build());
+      }
     } catch (IllegalArgumentException e) {
       // if we have illegal arguments, get the queryHTML page and display the
       // error if we have at least some arguments specified
@@ -262,6 +265,7 @@ public abstract class Request {
         response.addProperty(JSON_ERROR,e.getMessage());
       }
     } catch (Exception e) {
+      e.printStackTrace();
       // anything else, store to response's error field
       response = new JsonObject();
       response.addProperty(JSON_ERROR,e.getMessage());
@@ -287,9 +291,7 @@ public abstract class Request {
     return result;
   }
 
-
-
-  //
+  // html template and navbar handling -----------------------------------------
 
   private static String htmlTemplate;
 

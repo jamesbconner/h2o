@@ -2,6 +2,7 @@
 package water.api;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Properties;
 import water.H2O;
@@ -74,6 +75,14 @@ public class Cloud extends Request {
       nodes.add(node);
     }
     response.add(JSON_NODES,nodes);
+  }
+
+  @Override protected void createHTMLBuilders(HTMLBuilder builder) {
+    builder.setBuilder(JSON_NODES+"."+JSON_NODES_NAME, builder.new LinkTableCellBuilder() {
+      @Override protected String makeHref(JsonElement value) {
+        return "Remote.html?node="+DOM.urlEncode(value.getAsString());
+      }
+    });
   }
 
   public static String pos_neg(double d) {
