@@ -142,31 +142,46 @@ public class VABuilder {
     else
       return result;
   }
-}
-/*
 
-    private void createValueArrayHeader() {
-      assert (_phase == PASS_TWO);
-      Column[] cols = new Column[_ncolumns];
-      int off = 0;
-      for(int i = 0; i < cols.length; ++i){
-        cols[i]         = new Column();
-        cols[i]._badat  = (char)Math.min(65535, _invalidValues[i] );
-        cols[i]._base   = _bases[i];
-        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!,  col = " + i + ", scale = " + _scale[i];
-        cols[i]._scale  = (short)pow10i(-_scale[i]);
-        cols[i]._off    = (short)off;
-        cols[i]._size   = (byte)colSizes[_colTypes[i]];
-        cols[i]._domain = new ValueArray.ColumnDomain(_colDomains[i]);
-        cols[i]._max    = _max[i];
-        cols[i]._min    = _min[i];
-        cols[i]._mean   = _mean[i];
-        cols[i]._sigma  = _sigma[i];
-        cols[i]._name   = _colNames[i];
-        off +=  Math.abs(cols[i]._size);
-      }
-      // finally make the value array header
-      ValueArray ary = ValueArray.make(_resultKey, Value.ICE, _sourceDataset._key, "basic_parse", _numRows, off, cols);
-      DKV.put(_resultKey, ary);
+  static void check(Key k) {
+    System.out.println(_numRows);
+    Value v = DKV.get(k);
+    assert (v != null);
+    assert (v instanceof ValueArray);
+    ValueArray va = (ValueArray) v;
+    System.out.println("Num rows:     "+va.num_rows());
+    System.out.println("Num cols:     "+va.num_cols());
+    System.out.println("Rowsize:      "+va.row_size());
+    System.out.println("Length:       "+va.length());
+    System.out.println("Rows:         "+((double)va.length() / va.row_size()));
+    assert (va.num_rows() == va.length() / va.row_size());
+    System.out.println("Chunk size:   "+(ValueArray.chunk_size() / va.row_size()) * va.row_size());
+    System.out.println("RPC:          "+ValueArray.chunk_size() / va.row_size());
+    System.out.println("Num chunks:   "+va.chunks());
+    long totalSize = 0;
+    long totalRows = 0;
+    for (int i = 0; i < va.chunks(); ++i) {
+      System.out.println("  chunk:             "+i);
+      System.out.println("    chunk off:         "+ValueArray.chunk_offset(i)+" (reported by VA)");
+      System.out.println("    chunk real off:    "+i * ValueArray.chunk_size() / va.row_size() * va.row_size());
+      Value c = DKV.get(va.chunk_get(i));
+      if (c == null)
+        System.out.println("                       CHUNK AS REPORTED BY VA NOT FOUND");
+      assert (c!=null):"missing chunk " + i;
+      System.out.println("    chunk size:        "+c.length());
+      System.out.println("    chunk rows:        "+c.length() / va.row_size());
+      byte[] b = c.get();
+      assert (b.length == c.length());
+      totalSize += c.length();
+      System.out.println("    total size:        "+totalSize);
+      totalRows += c.length() / va.row_size();
+      System.out.println("    total rows:        "+totalRows);
     }
-*/
+    System.out.println("Length exp:   "+va.length());
+    System.out.println("Length:       "+totalSize);
+    System.out.println("Rows exp:     "+((double)va.length() / va.row_size()));
+    System.out.println("Rows:         "+totalRows);
+    assert (totalSize == va.length()):"totalSize: " + totalSize + ", va.length(): " + va.length();
+    assert (totalRows == ((double)va.length() / va.row_size()));
+  }
+}
