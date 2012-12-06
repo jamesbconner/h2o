@@ -25,8 +25,9 @@ public class RandomForest {
     Random rnd = new Random(data.seed());
     for (int i = 0; i < ntrees; ++i) {
       trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(),rnd.nextLong(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns);
-      if (!parallelTrees || i==ntrees-1 ) DRemoteTask.invokeAll(new Tree[]{trees[i]});
-    }
+      if (!parallelTrees) DRemoteTask.invokeAll(new Tree[]{trees[i]});
+     }
+    if (parallelTrees) DRemoteTask.invokeAll(trees);
     Utils.pln("All trees ("+ntrees+") done in "+ t_alltrees);
   }
 
