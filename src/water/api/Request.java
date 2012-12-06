@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import init.Boot;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Properties;
 import water.*;
 import water.web.Page;
@@ -295,8 +296,6 @@ public abstract class Request {
 
   private static String htmlTemplate;
 
-  // HTML template used for all pages
-
   static {
     InputStream resource = Boot._init.getResource2("/page.html");
     try {
@@ -308,6 +307,72 @@ public abstract class Request {
     } finally {
       Closeables.closeQuietly(resource);
     }
+  }
+
+  private static class MenuItem {
+    public final Request _request;
+    public final String _name;
+    public MenuItem(Request request, String name) {
+      _request = request;
+      _name = name;
+    }
+    public void toHTML(StringBuilder sb) {
+      sb.append("<li><a href='");
+      sb.append(DOM.urlEncode(_request._href+".html"));
+      sb.append("'>");
+      sb.append(_name);
+      sb.append("</a></li>");
+    }
+
+  }
+
+  private static HashMap<String, ArrayList<MenuItem> > _navbar = new HashMap();
+  private static ArrayList<String> _navbarOrdering = new ArrayList();
+
+
+
+  public static void initializeNavBar() {
+    StringBuilder sb = new StringBuilder();
+    for (String s : _navbarOrdering) {
+      ArrayList<MenuItem> arl = _navbar.get(s);
+      if (arl.size() == 1) {
+        arl.get(0).toHTML(sb);
+      } else {
+        sb.append("<li class='dropdown'>");
+        sb.append("<a href='#' class='dropdown-togg;e' data-toggle='dropdown'>");
+        sb.append(s);
+        sb.append("<b class='caret'></b>");
+        sb.append("</a>");
+        sb.append("<ul class='dropdown-menu'>");
+        for (MenuItem i : arl)
+          i.toHTML(sb);
+        sb.append("</ul></li>");
+      }
+    }
+    RString str = new RString(htmlTemplate);
+    str.replace("NAVBAR",sb.toString());
+    str.replace("CONTENTS","%CONTENTS");
+    htmlTemplate = str.toString();
+  }
+
+  public static Request addToNavbar(Request r, String name) {
+    assert (! _navbar.containsKey(name));
+    ArrayList<MenuItem> arl = new ArrayList();
+    arl.add(new MenuItem(r,name));
+    _navbar.put(name,arl);
+    _navbarOrdering.add(name);
+    return r;
+  }
+
+  public static Request addToNavbar(Request r, String name, String category) {
+    ArrayList<MenuItem> arl = _navbar.get(category);
+    if (arl == null) {
+      arl = new ArrayList();
+      _navbar.put(category,arl);
+      _navbarOrdering.add(category);
+    }
+    arl.add(new MenuItem(r,name));
+    return r;
   }
 
 
