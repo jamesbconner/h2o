@@ -52,14 +52,14 @@ class Basic(unittest.TestCase):
     def test_loop_random_param_poker1000(self):
         csvPathname = '../smalldata/poker/poker1000'
 
-        # for determinism, I guess we should spit out the seed?
-        # random.seed(SEED)
-        SEED = random.randint(0, sys.maxint)
-        # if you have to force to redo a test
-        # SEED = 
-        random.seed(SEED)
-        print "\nUsing random seed:", SEED
         for trial in range(20):
+            # for determinism, I guess we should spit out the seed?
+            # random.seed(SEED)
+            SEED = random.randint(0, sys.maxint)
+            # if you have to force to redo a test
+            # SEED = 
+            random.seed(SEED)
+            print "\nUsing random seed:", SEED
             # form random selections of RF parameters
             kwargs = {}
             randomGroupSize = random.randint(1,len(paramDict))
