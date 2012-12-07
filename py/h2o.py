@@ -481,14 +481,14 @@ class H2O(object):
     # timeout has to be big to cover longest expected parse? timeout is float. secs?
     # looks like max_retries is part of configuration defaults
     # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
-    def parse(self, key, key2=None):
+    def parse(self, key, key2=None, timeoutSecs=300):
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
         # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
         a = self.__check_request(requests.get(
                 url=self.__url('Parse.json'),
-                timeout=3000.0,
+                timeout=timeoutSecs,
                 params={"Key": key, "Key2":key2}
                 ))
         verboseprint("\nparse result:",dump_json(a))
@@ -534,7 +534,7 @@ class H2O(object):
     # Key=chess_2x2_500_int.hex
 
     # note ntree in kwargs can overwrite trees!
-    def random_forest(self, Key, trees, **kwargs):
+    def random_forest(self, Key, trees, timeoutSecs=300, **kwargs):
         params_dict = {
             'Key' : Key,
             'ntree' : trees,
@@ -551,7 +551,7 @@ class H2O(object):
         verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
             url=self.__url('RF.json'), 
-            timeout=3000,
+            timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nrandom_forest result:", dump_json(a))
         return a
@@ -567,7 +567,7 @@ class H2O(object):
     # dataKey=chess_2x2_500_int.hex
     # ignore=&   ...this is ignore columns
     # UPDATE: jan says the ignore should be picked up from the model
-    def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
+    def random_forest_view(self, dataKey, modelKey, ntree, timeoutSecs=300, **kwargs):
 
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
@@ -591,7 +591,8 @@ class H2O(object):
         browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
-            self.__url('RFView.json'), 
+            self.__url('RFView.json'),
+            timeout=timeoutSecs,
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
@@ -602,13 +603,15 @@ class H2O(object):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
         return a
 
-    def linear_reg(self, key, colA=0, colB=1):
+    def linear_reg(self, key, **kwargs):
+        params_dict = {
+            'colA' : 0,
+            'colB' : 1,
+            }
+        params_dict.update(kwargs)
+
         a = self.__check_request(requests.get(self.__url('LR.json'),
-            params={
-                'colA': colA,
-                'colB': colB,
-                'Key': key
-                }))
+            params=params_dict))
         verboseprint("linear_reg result:", dump_json(a))
         return a
 
@@ -629,7 +632,7 @@ class H2O(object):
     # rho
     # alpha
 
-    def GLM(self, key, **kwargs):
+    def GLM(self, key, timeoutSecs=300, **kwargs):
         # for defaults
         params_dict = { 
             'family': 'binomial',
@@ -648,7 +651,10 @@ class H2O(object):
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
 
-        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
+        a = self.__check_request(requests.get(
+            self.__url('GLM.json'), 
+            timeout=timeoutSecs,
+            params=params_dict))
         # remove the 'models' key that has all the CMs from cross validation..too much to print
         b = dict.copy(a)
         # if you don't do xval, there is no models, so have to check first
