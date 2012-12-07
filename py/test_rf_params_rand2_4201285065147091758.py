@@ -23,11 +23,12 @@ import random, sys
 # assume poker1000 datset
 
 # we can pass ntree thru kwargs if we don't use the "trees" parameter in runRF
-# only classes 0-8 in the last col of poker1000
+# only classes 1-7 in the 55th col
+# don't allow None on ntree..causes 50 tree default!
 paramDict = {
-    'class': [None,10],
-    'classWt': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2','8=2'],
-    'ntree': [None,1,10,100],
+    'class': [None,54],
+    'classWt': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2'],
+    'ntree': [1,3,7,23],
     'modelKey': ['modelkeyA', '012345', '__hello'],
     'OOBEE': ['None', 'true', 'false'],
     'gini': [None, 0, 1],
@@ -37,7 +38,7 @@ paramDict = {
     'ignore': [None,0,1,2,3,4,5,6,7,8,9],
     'sample': [None,20,40,60,80,100],
     'seed': [None,'0','1','11111','19823134','0x1231231'],
-    'features': [None,1,2,3,4,5,6,7,8,9]
+    'features': [None,1,3,5,7,9,11,13,17,19,23,37,54]
     }
 
 class Basic(unittest.TestCase):
@@ -49,17 +50,16 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_loop_random_param_poker1000(self):
-        csvPathname = '../smalldata/poker/poker1000'
+    def test_loop_random_param_covtype(self):
+        csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
 
+        # for determinism, I guess we should spit out the seed?
+        ##### SEED = random.randint(0, sys.maxint)
+        # if you have to force to redo a test
+        SEED = 4201285065147091758
+        random.seed(SEED)
+        print "\nUsing random seed:", SEED
         for trial in range(20):
-            # for determinism, I guess we should spit out the seed?
-            # random.seed(SEED)
-            SEED = random.randint(0, sys.maxint)
-            # if you have to force to redo a test
-            # SEED = 
-            random.seed(SEED)
-            print "\nUsing random seed:", SEED
             # form random selections of RF parameters
             kwargs = {}
             randomGroupSize = random.randint(1,len(paramDict))
@@ -71,7 +71,7 @@ class Basic(unittest.TestCase):
 
             print kwargs
             
-            h2o_cmd.runRF(timeoutSecs=20, csvPathname=csvPathname, **kwargs)
+            h2o_cmd.runRF(timeoutSecs=70, csvPathname=csvPathname, **kwargs)
 
             print "Trial #", trial, "completed"
 
