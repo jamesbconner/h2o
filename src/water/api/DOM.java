@@ -18,48 +18,46 @@ import water.Log;
 public class DOM {
 
   /** Appends the nicely formatted success message. Green. */
-  public static void success(StringBuilder sb, String message) {
-    sb.append("<div class='alert alert-success'>");
-    sb.append(message);
-    sb.append("</div>");
+  public static String success(String message) {
+    return "<div class='alert alert-success'>"
+            + message
+            +"</div>";
   }
 
   /** Appends the nicely formatted info message. Blue. */
-  public static void info(StringBuilder sb, String message) {
-    sb.append("<div class='alert alert-info'>");
-    sb.append(message);
-    sb.append("</div>");
+  public static String info(String message) {
+    return "<div class='alert alert-info'>"
+            + message
+            +"</div>";
   }
 
   /** Appends the nicely formatted warning message. Orange.*/
-  public static void warning(StringBuilder sb, String message) {
-    sb.append("<div class='alert'>");
-    sb.append(message);
-    sb.append("</div>");
+  public static String warning(String message) {
+    return "<div class='alert'>"
+            + message
+            +"</div>";
   }
 
   /** Appends the nicely formatted error message. Red. */
-  public static void error(StringBuilder sb, String message) {
-    sb.append("<div class='alert alert-error'>");
-    sb.append(message);
-    sb.append("</div>");
+  public static String error(String message) {
+    return "<div class='alert alert-error'>"
+            + message
+            +"</div>";
   }
 
   /** Returns the horizontal description list. This should be used to display
    * simple JSON values. */
-  public static void dlHorizontal(StringBuilder sb, String header, String value) {
-    sb.append("<dl class='dl-horizontal'>");
-    sb.append("<dt>");
-    sb.append(header);
-    sb.append("</dt><dd>");
-    sb.append(value);
-    sb.append("</dd></dl>");
+  public static String dlHorizontal(String header, String value) {
+    return "<dl class='dl-horizontal'>"
+            + "<dt>"
+            + header
+            + "</dt><dd>"
+            + value
+            + "</dd></dl>";
   }
 
-  public static void td(StringBuilder sb, String innerHTML) {
-    sb.append("<td>");
-    sb.append(innerHTML);
-    sb.append("</td>");
+  public static String td(String innerHTML) {
+    return "<td>" + innerHTML + "</td>";
   }
 
   public static String urlEncode(String what) {

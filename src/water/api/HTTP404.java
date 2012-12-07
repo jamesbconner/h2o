@@ -1,6 +1,7 @@
 
 package water.api;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Properties;
 
@@ -18,10 +19,14 @@ public class HTTP404 extends Request {
     response.addProperty(JSON_ERROR_TYPE,NAME);
   }
 
-  public String createHtml(JsonObject response) {
-    StringBuilder sb = new StringBuilder();
-    DOM.error(sb,"<h1>HTTP 404</h1><p>"+response.get(JSON_ERROR).getAsString()+"</p>");
-    return sb.toString();
+
+  @Override protected void createHTMLBuilders(HTMLBuilder builder) {
+    builder.setBuilder(HTMLBuilder.RESPONSE_ROOT, builder.new Builder() {
+      @Override public void build(String name, JsonElement value) {
+        JsonObject json = (JsonObject) value;
+        append(DOM.error("<h1>HTTP 404</h1><p>"+json.get(JSON_ERROR).getAsString()+"</p>"));
+      }
+    });
   }
 
 

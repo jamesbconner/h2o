@@ -52,15 +52,6 @@ public abstract class Request {
     // pass
   }
 
-  /** Creates the HTML query page for the request, if any.
-   *
-   * @param submittedArgs
-   * @return
-   */
-  protected String createQuery(Properties submittedArgs) {
-    return "QUERY NOT IMPLEMENTED YET";
-  }
-
   // basic API for creating requests -------------------------------------------
 
 
@@ -120,6 +111,16 @@ public abstract class Request {
       if (args.contains(_name))
         return (T) args.get(_name);
       return defaultValue();
+    }
+
+    /** Adds the query part for the query that is being built.
+     *
+     * @param sb
+     * @param value
+     */
+    public void buildQuery(StringBuilder sb, String value) {
+      sb.append(_name);
+      sb.append("<input />");
     }
   }
 
@@ -241,9 +242,19 @@ public abstract class Request {
         throw new Exception("not a valid number format: "+value);
       }
     }
-
-
   }
+
+  // Query building ------------------------------------------------------------
+
+  /** Creates the HTML query page for the request, if any.
+   *
+   * @param submittedArgs
+   * @return
+   */
+  protected String createQuery(Properties submittedArgs) {
+    return "QUERY NOT IMPLEMENTED YET";
+  }
+
 
   // Dispatch ------------------------------------------------------------------
 
@@ -285,10 +296,10 @@ public abstract class Request {
         StringBuilder sb = new StringBuilder();
         String query = createQuery(args);
         // if empty arguments, or no query, display the error
-        if (!args.isEmpty() || query == null)
-          DOM.error(sb,e.getMessage());
+        if ( query.isEmpty())
+          sb.append(DOM.error(e.getMessage()));
         // append the query form if created
-        if (query != null)
+        else
           sb.append(query);
         // return the contents
         return wrap(server,sb.toString());

@@ -77,10 +77,9 @@ public class HTMLBuilder {
     return name.substring(0,1).toUpperCase()+name.replace("_"," ").substring(1);
   }
 
-
-
-
-
+  protected void append(String s) {
+    _sb.append(s);
+  }
 
   private Builder _tableRowBuilder = new TableRow();
   private Builder _tableCellBuilder = new TableCell();
@@ -141,7 +140,7 @@ public class HTMLBuilder {
 
     @Override public void build(String name, JsonElement value) {
       if (!(value instanceof JsonObject)) {
-        DOM.warning(_sb,"JSON element "+getContextName(name)+" is not an expected object. Value: "+value.toString());
+        append(DOM.warning("JSON element "+getContextName(name)+" is not an expected object. Value: "+value.toString()));
       } else {
         JsonObject objValue = (JsonObject) value;
         JsonObject oldCurrent = _current;
@@ -171,7 +170,7 @@ public class HTMLBuilder {
   public class ArrayBuilder extends NestedBuilder {
     @Override public void build(String name, JsonElement value) {
       if (!(value instanceof JsonArray)) {
-        DOM.warning(_sb,"JSON element "+getContextName(name)+" is not an expected array. Value: "+value.toString());
+        append(DOM.warning("JSON element "+getContextName(name)+" is not an expected array. Value: "+value.toString()));
       } else {
         JsonArray aryValue = (JsonArray) value;
         String oldCurrentName = _currentName;
@@ -202,7 +201,7 @@ public class HTMLBuilder {
   public class SingleValue extends Builder {
 
     @Override public void build(String name, JsonElement value) {
-      DOM.dlHorizontal(_sb,JSON2HTML(name),value.getAsString());
+      append(DOM.dlHorizontal(JSON2HTML(name),value.getAsString()));
     }
   }
 
@@ -212,41 +211,41 @@ public class HTMLBuilder {
   public class TableCell extends Builder {
 
     @Override public void build(String name, JsonElement value) {
-      DOM.td(_sb, value.getAsString());
+      append(DOM.td(value.getAsString()));
     }
   }
 
   public class TableRow extends NestedBuilder {
     @Override public void beforeBuilding(String name, JsonElement value) {
-      _sb.append("<tr>");
+      append("<tr>");
     }
 
     @Override public void afterBuilding(String name, JsonElement value) {
-      _sb.append("</tr>");
+      append("</tr>");
     }
   }
 
   public class Table extends ArrayBuilder {
 
     protected void buildHeader(JsonObject from) {
-      _sb.append("<tr>");
+      append("<tr>");
       for (Map.Entry<String, JsonElement> e : from.entrySet()) {
-        _sb.append("<th>");
-        _sb.append(JSON2HTML(e.getKey()));
-        _sb.append("</th>");
+        append("<th>");
+        append(JSON2HTML(e.getKey()));
+        append("</th>");
       }
-      _sb.append("</tr>");
+      append("</tr>");
     }
 
     @Override public void beforeBuilding(String name, JsonElement value) {
-      _sb.append("<h3>");
-      _sb.append(JSON2HTML(name));
-      _sb.append("</h3>");
+      append("<h3>");
+      append(JSON2HTML(name));
+      append("</h3>");
       JsonArray ary = (JsonArray) value;
       if (ary.size() == 0) {
-        DOM.info(_sb,"empty");
+        append(DOM.info("empty"));
       } else {
-        _sb.append("<table class='table table-striped table-bordered'>");
+        append("<table class='table table-striped table-bordered'>");
         JsonElement first = ary.get(0);
         if (first instanceof JsonObject)
           buildHeader((JsonObject)first);
@@ -256,23 +255,23 @@ public class HTMLBuilder {
     @Override public void afterBuilding(String name, JsonElement value) {
       JsonArray ary = (JsonArray) value;
       if (ary.size() != 0)
-        _sb.append("</table>");
+        append("</table>");
     }
   }
 
   public class NestedObject extends NestedBuilder {
     @Override public void beforeBuilding(String name, JsonElement value) {
-      _sb.append("<h3>");
-      _sb.append(name);
-      _sb.append("</h3>");
+      append("<h3>");
+      append(name);
+      append("</h3>");
     }
   }
 
   public class Response extends NestedBuilder {
     @Override public void beforeBuilding(String name, JsonElement value) {
-      _sb.append("<h2>");
-      _sb.append(_requestName);
-      _sb.append("</h2>");
+      append("<h2>");
+      append(_requestName);
+      append("</h2>");
     }
   }
 
@@ -281,7 +280,7 @@ public class HTMLBuilder {
     protected abstract String makeHref(JsonElement value);
 
     @Override public void build(String name, JsonElement value) {
-      DOM.td(_sb, DOM.a(value.getAsString(),makeHref(value)));
+      append(DOM.td(DOM.a(value.getAsString(),makeHref(value))));
     }
 
   }
