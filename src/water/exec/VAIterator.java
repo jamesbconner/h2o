@@ -111,6 +111,32 @@ public final class VAIterator implements Iterator<VAIterator> {
     return this;
   }
 
+  /** Moves to a specific row number. The row is active after the call to the
+   * method, so no next() should be called after it.
+   *
+   * It is very simple now but it is dead code anyways with the new value
+   * arrays to come.
+   *
+   * @param rowNum
+   */
+  public void goTo(int rowNum) {
+    while (true) {
+      long chunkFirst = _chunkOffset / _rowSize;
+      long nextChunk = chunkFirst + _rowsInChunk;
+      // is the expected row in the current chunk? If yes return
+      if ((rowNum >= chunkFirst) && (rowNum < nextChunk)) {
+        _currentRow = rowNum;
+        _rowInChunk = (int) (rowNum - chunkFirst);
+        return;
+      }
+      // if no move to the next chunk and try again, because iterator is wrapped
+      // this will work also for row numbers smaller than current row
+      _currentRow = nextChunk - 1;
+      _rowInChunk = _rowsInChunk - 1;
+      next();
+    }
+  }
+
   @Override public void remove() {
     throw new UnsupportedOperationException("Not supported yet.");
   }
