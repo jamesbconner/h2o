@@ -77,10 +77,6 @@ public class HTMLBuilder {
     return name.substring(0,1).toUpperCase()+name.replace("_"," ").substring(1);
   }
 
-  protected void append(String s) {
-    _sb.append(s);
-  }
-
   private Builder _tableRowBuilder = new TableRow();
   private Builder _tableCellBuilder = new TableCell();
   private Builder _tableBuilder = new Table();
@@ -123,6 +119,10 @@ public class HTMLBuilder {
       if (el instanceof JsonObject)
         return _nestedValueBuilder;
       return _singleValueBuilder;
+    }
+
+    protected void append(String s) {
+      _sb.append(s);
     }
 
 

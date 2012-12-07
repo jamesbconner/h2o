@@ -21,7 +21,7 @@ public class HTTP500 extends Request {
   }
 
   @Override protected void createHTMLBuilders(final HTMLBuilder builder) {
-    builder.setBuilder(HTMLBuilder.RESPONSE_ROOT, builder.new HTMLBuilder.Builder() {
+    builder.setBuilder(HTMLBuilder.RESPONSE_ROOT, builder.new Builder() {
       @Override public void build(String name, JsonElement value) {
         JsonObject json = (JsonObject) value;
         append(DOM.error("<h1>HTTP 500</h1><p>"+json.get(JSON_ERROR).getAsString()+"</p>"));
