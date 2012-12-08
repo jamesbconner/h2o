@@ -548,9 +548,9 @@ class H2O(object):
     # Key=chess_2x2_500_int.hex
 
     # note ntree in kwargs can overwrite trees!
-    def random_forest(self, Key, trees, timeoutSecs=300, **kwargs):
+    def random_forest(self, key, trees, timeoutSecs=300, **kwargs):
         params_dict = {
-            'Key' : Key,
+            'Key' : key,
             'ntree' : trees,
             'modelKey' : 'pytest_model',
             'depth' : 30,
@@ -617,21 +617,27 @@ class H2O(object):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
         return a
 
-    def linear_reg(self, key, **kwargs):
+    def linear_reg(self, key, timeoutSecs=10, **kwargs):
         params_dict = {
+            'Key' : key,
             'colA' : 0,
             'colB' : 1,
             }
         params_dict.update(kwargs)
-
-        a = self.__check_request(requests.get(self.__url('LR.json'),
+        a = self.__check_request(
+            requests.get(self.__url('LR.json'),
+            timeout=timeoutSecs,
             params=params_dict))
-        verboseprint("linear_reg result:", dump_json(a))
+
+        verboseprint("\nlinear_reg result:", dump_json(a))
         return a
 
-    def linear_reg_view(self, key):
-        a = self.__check_request(requests.get(self.__url('LRView.json'),
+    def linear_reg_view(self, key, timeoutSecs=10):
+        a = self.__check_request(
+            requests.get(self.__url('LRView.json'),
+            timeout=timeoutSecs,
             params={'Key': key}))
+
         verboseprint("linear_reg_view result:", dump_json(a))
         return a
 

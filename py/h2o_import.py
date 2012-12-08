@@ -7,7 +7,7 @@ def setupImportFolder(node=None, importFolderPath='/home/0xdiag/datasets'):
     h2o.dump_json(importFolderResult)
 
 # assumes you call setupImportFolder first
-def parseImportFolderFile(node=None, csvFilename=None, importFolderPath=None):
+def parseImportFolderFile(node=None, csvFilename=None, importFolderPath=None, timeoutSecs=None):
     if not node: node = h2o.nodes[0]
     if not csvFilename: raise Exception('parseImportFolderFile: No csvFilename')
 
@@ -20,7 +20,7 @@ def parseImportFolderFile(node=None, csvFilename=None, importFolderPath=None):
     # We like the short parse key2 name. 
     # We don't drop anything from csvFilename, unlike H2O default
     print "Waiting for the slow parse of the file:", csvFilename
-    parseKey = node.parse(key=csvPathnameForH2O, key2=csvFilename + '.hex')
+    parseKey = node.parse(key=csvPathnameForH2O, key2=csvFilename + '.hex', timeoutSecs=timeoutSecs)
     print "\nParse result:", parseKey
     return parseKey
 

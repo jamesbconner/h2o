@@ -28,20 +28,16 @@ def runGLMOnly(node=None,parseKey=None,
 # LinReg draws a line from a collection of points.  Only works if you have 2 or more points.
 # will get NaNs if A/B is just one point.
 
-# colA, colB?
+# colA, colB? (kwargs?)
 def runLR(node=None, csvPathname=None, timeoutSecs=20, **kwargs):
     parseKey = parseFile(node, csvPathname)
     return runLROnly(node, parseKey, timeoutSecs, **kwargs)
 
-# break out colA/B to get defaults..might update to match the RF/GLM style of doing
-# it from kwargs?
-def runLROnly(node=None,parseKey=None,timeoutSecs=20, **kwargs):
+def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
     if not parseKey: raise Exception('No file name for LR specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
     return node.linear_reg(parseKey['Key'], timeoutSecs, **kwargs)
-
-###     # we'll have to add something for LR.json to verify the LR results
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRF(node=None, csvPathname=None, trees=5, 

@@ -33,11 +33,10 @@ class Basic(unittest.TestCase):
 
         importFolderPath = '/home/0xdiag/datasets'
         h2i.setupImportFolder(None, importFolderPath)
-        timeoutSecs = 2000
         firstglm= {}
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in importFolder dir 
-            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath)
+            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, timeoutSecs=2000)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
             print "Parse result['Key']:", parseKey['Key']
 
@@ -51,7 +50,7 @@ class Basic(unittest.TestCase):
             # xval=10, norm="L2", glm_lambda=1e-4,
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey,
                 Y=54, X='0:7', norm="L2", xval=2, family="binomial", 
-                timeoutSecs=timeoutSecs)
+                timeoutSecs=2000)
 
             # different when xvalidation is used? No trainingErrorDetails?
             h2o.verboseprint("\nglm:", glm)
