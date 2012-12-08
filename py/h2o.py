@@ -390,7 +390,7 @@ class H2O(object):
 
     def __check_request(self, r, extraComment=None):
         if extraComment:
-            log('Sent ' + r.url + "# " + extraComment)
+            log('Sent ' + r.url + " # " + extraComment)
         else:
             log('Sent ' + r.url)
 
