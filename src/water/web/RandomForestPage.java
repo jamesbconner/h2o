@@ -149,10 +149,11 @@ public class RandomForestPage extends H2OPage {
         throw new InvalidInputException("Class out of range");
     }
     double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
-    boolean stratify = p.containsKey("stratify");
+    boolean stratify = p.getProperty("stratify","0").equals("1");
+
     Map<Integer,Integer>  strata = null;
     if(stratify && p.containsKey("strata"))
-      strata = RandomForest.parseStrata(p.getProperty("strata"));
+      strata = RandomForest.parseStrata(p.getProperty("strata").trim());
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
@@ -186,7 +187,7 @@ public class RandomForestPage extends H2OPage {
       res.addProperty(NUM_TREE, ntree);
       res.addProperty("class", classcol);
       res.addProperty("classWt", p.getProperty("classWt",""));
-      res.addProperty("OOBEE",getBoolean(p,OOBEE));
+      res.addProperty("OOBEE",!stratify && getBoolean(p,OOBEE));
     } catch(DRF.IllegalDataException e) {
       res.addProperty("error", H2OPage.error("Incorrect input data: " + e.getMessage()));
     }
