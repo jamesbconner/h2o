@@ -6,8 +6,10 @@ import water.MemoryManager;
 
 import java.util.*;
 
-public class Data implements Iterable<Row> {
+import org.apache.hadoop.mapred.lib.InputSampler.IntervalSampler;
 
+public class Data implements Iterable<Row> {
+  boolean _stratify;
   public final class Row {
     int _index;
     public String toString() {
@@ -32,6 +34,7 @@ public class Data implements Iterable<Row> {
 
   protected int start()          { return 0;                   }
   protected int end()            { return _data._numRows;      }
+  public int badRows()           { return _data._badRows;      }
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
   public int classes()           { return _data.classes();     }
@@ -148,15 +151,37 @@ public class Data implements Iterable<Row> {
     }
     return Arrays.copyOf(sample,j); // Trim out bad rows
   }
+  // added for stratified sampling, uniformly picks sample of n elements from the given interval
+  private int sampleFromClass(int c, int n, int startIdx, int sample [], Random r) {
+    int iStart = _data._intervalsStarts[c];
+    int iEnd = _data._intervalsStarts[c+1];
+    int iWidth = iEnd - iStart;
+    for(int i = 0; i < n; ++i){
+      sample[startIdx++] = iStart + r.nextInt(iWidth);
+    }
+    return startIdx;
+  }
 
-  // Determinstically sample the 'this' Data at the bagSizePct.  Toss out
+  public Data sample(int [] strata, long seed) {
+    int sz = 0;
+    for(int s:strata)sz += s;
+    int [] sample = new int[sz];
+    int idx = 0;
+    Random r = new Random(seed);
+    for(int i = 0; i < strata.length; ++i){
+      idx = sampleFromClass(i, strata[i], idx, sample,r);
+    }
+    Arrays.sort(sample); // we want an ordered sample
+    return new Subset(this, sample, 0, sample.length);
+  }
+
+  // Deterministically sample the 'this' Data at the bagSizePct.  Toss out
   // invalid rows (as-if not sampled), but maintain the sampling rate.
   public Data sample(double bagSizePct, long seed, int numrows) {
     assert getClass()==Data.class; // No subclassing on this method
-
-    //int[] sample = sample_resevoir(bagSizePct,seed,numrows);
-    int[] sample = sample_fair    (bagSizePct,seed,numrows);
-
+    int [] sample;
+    sample = sample_fair(bagSizePct,seed,numrows);
+    // add the remaining rows
     Arrays.sort(sample); // we want an ordered sample
     return new Subset(this, sample, 0, sample.length);
   }
