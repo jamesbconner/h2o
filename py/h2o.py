@@ -65,7 +65,7 @@ def parse_our_args():
     # We want this to be standard, always (note -f for unittest, nose uses -x?)
     # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
     # kbn: disabling failfast until we fix jenkins
-    sys.argv[1:] = ['-v', '--failfast'] + args.unittest_args
+    sys.argv[1:] = ['-v'] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
     if verbose:
@@ -388,8 +388,12 @@ class H2O(object):
         u = 'http://%s:%d/%s' % (self.addr, port, loc)
         return u 
 
-    def __check_request(self, r):
-        log('Sent ' + r.url)
+    def __check_request(self, r, extraComment=None):
+        if extraComment:
+            log('Sent ' + r.url + " # " + extraComment)
+        else:
+            log('Sent ' + r.url)
+
         if not r:
             raise Exception('r Error in %s: %s' % (inspect.stack()[1][3], str(r)))
         # this is used to open a browser on RFview results to see confusion matrix
@@ -437,27 +441,33 @@ class H2O(object):
 
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
-            requests.get(self.__url('PutValue.json'), 
-                params={"Value": value, "Key": key, "RF": repl}
-                ))
+            requests.get(
+                self.__url('PutValue.json'), 
+                params={"Value": value, "Key": key, "RF": repl}),
+            extraComment = str(value) + "," + str(key) + "," + str(repl))
 
     def put_file_old(self, f, key=None, repl=None):
         return self.__check_request(
-            requests.post(self.__url('PutFile.json'), 
+            requests.post(
+                self.__url('PutFile.json'), 
                 files={"File": open(f, 'rb')},
-                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
-                ))
+                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
+            extraComment = str(f) + "," + str(key) + "," + str(repl))
 
     def put_file(self, f, key=None, repl=None):
         resp1 =  self.__check_request(
-            requests.get(self.__url('PutFile.json'), 
-                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
-                ))
+            requests.get(
+                self.__url('PutFile.json'), 
+                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
+            extraComment = str(f) + "," + str(key) + "," + str(repl))
+
         verboseprint("\nput_file #1 phase response: ", resp1)
         resp2 = self.__check_request(
-            requests.post(self.__url('Upload.json', port=resp1['port']), 
-                files={"File": open(f, 'rb')}
-                ))
+            requests.post(
+                self.__url('Upload.json', port=resp1['port']), 
+                files={"File": open(f, 'rb')}),
+            extraComment = str(f))
+
         verboseprint("put_file #2 phase response: ", resp2)
 
         return resp2[0]
@@ -469,8 +479,11 @@ class H2O(object):
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
-        a = self.__check_request(requests.post(self.__url('GetFile.json'), 
-            files={"File": open(f, 'rb')}))
+        a = self.__check_request(
+            requests.post(
+                self.__url('GetFile.json'), 
+                files={"File": open(f, 'rb')}),
+            extraComment = str(f))
         verboseprint("\nget_file result:", dump_json(a))
         return a
 
@@ -481,16 +494,17 @@ class H2O(object):
     # timeout has to be big to cover longest expected parse? timeout is float. secs?
     # looks like max_retries is part of configuration defaults
     # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
-    def parse(self, key, key2=None):
+    def parse(self, key, key2=None, timeoutSecs=300):
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
         # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
-        a = self.__check_request(requests.get(
+        # don't need extraComment because
+        a = self.__check_request(
+            requests.get(
                 url=self.__url('Parse.json'),
-                timeout=3000.0,
-                params={"Key": key, "Key2":key2}
-                ))
+                timeout=timeoutSecs,
+                params={"Key": key, "Key2": key2}))
         verboseprint("\nparse result:",dump_json(a))
         return a
 
@@ -534,7 +548,7 @@ class H2O(object):
     # Key=chess_2x2_500_int.hex
 
     # note ntree in kwargs can overwrite trees!
-    def random_forest(self, Key, trees, **kwargs):
+    def random_forest(self, Key, trees, timeoutSecs=300, **kwargs):
         params_dict = {
             'Key' : Key,
             'ntree' : trees,
@@ -551,7 +565,7 @@ class H2O(object):
         verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
             url=self.__url('RF.json'), 
-            timeout=3000,
+            timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nrandom_forest result:", dump_json(a))
         return a
@@ -567,7 +581,7 @@ class H2O(object):
     # dataKey=chess_2x2_500_int.hex
     # ignore=&   ...this is ignore columns
     # UPDATE: jan says the ignore should be picked up from the model
-    def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
+    def random_forest_view(self, dataKey, modelKey, ntree, timeoutSecs=300, **kwargs):
 
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
@@ -591,7 +605,8 @@ class H2O(object):
         browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
-            self.__url('RFView.json'), 
+            self.__url('RFView.json'),
+            timeout=timeoutSecs,
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
@@ -602,13 +617,15 @@ class H2O(object):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
         return a
 
-    def linear_reg(self, key, colA=0, colB=1):
+    def linear_reg(self, key, **kwargs):
+        params_dict = {
+            'colA' : 0,
+            'colB' : 1,
+            }
+        params_dict.update(kwargs)
+
         a = self.__check_request(requests.get(self.__url('LR.json'),
-            params={
-                'colA': colA,
-                'colB': colB,
-                'Key': key
-                }))
+            params=params_dict))
         verboseprint("linear_reg result:", dump_json(a))
         return a
 
@@ -629,7 +646,7 @@ class H2O(object):
     # rho
     # alpha
 
-    def GLM(self, key, **kwargs):
+    def GLM(self, key, timeoutSecs=300, **kwargs):
         # for defaults
         params_dict = { 
             'family': 'binomial',
@@ -648,7 +665,10 @@ class H2O(object):
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
 
-        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
+        a = self.__check_request(requests.get(
+            self.__url('GLM.json'), 
+            timeout=timeoutSecs,
+            params=params_dict))
         # remove the 'models' key that has all the CMs from cross validation..too much to print
         b = dict.copy(a)
         # if you don't do xval, there is no models, so have to check first

@@ -20,10 +20,12 @@ class Basic(unittest.TestCase):
         # We don't drop anything from csvFilename, unlike H2O default
         # FIX! for local 0xdata, this will be different (/home/0xdiag/datasets)
         csvFilenameList = [
+            'covtype200x.data',
+            'covtype200x.data',
             'covtype.data',
             'covtype.data',
             'covtype20x.data',
-            'covtype200x.data',
+            'covtype20x.data',
             ]
 
         # a browser window too, just because we can
@@ -64,15 +66,6 @@ class Basic(unittest.TestCase):
             print "glm end on ", csvFilename, 'took', time.time() - start, 'seconds'
 
             h2b.browseJsonHistoryAsUrlLastMatch("GLM")
-
-            print ("expected results\n" + 
-                "coefficients: {\n" +
-                "     u'1': -0.008869905291197862,\n" +
-                "     u'0': 0.726580291279175,\n" +
-                "     u'Intercept': -0.43289099532324116\n" +
-                "}\n" +
-                "trainingSetErrorRate: 0.2681\n"
-                )
 
             # compare this glm to last one. since the files are concatenations, 
             # the results should be similar? 10% of first is allowed delta
