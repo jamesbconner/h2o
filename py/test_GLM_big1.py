@@ -16,14 +16,13 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_C_hhp_107_01(self):
-        timeoutSecs = 2
         
         csvPathname = "../smalldata/hhp_107_01.data.gz"
         print "\n" + csvPathname
 
         Y = "106"
         X = ""
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=2)
 
         # create the X that excludes some columns
         trial = 0
@@ -60,7 +59,7 @@ class Basic(unittest.TestCase):
 
             start = time.time()
             ### FIX! add some expected result checking
-            glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=timeoutSecs)
+            glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=300)
 
             h2o.verboseprint("\nglm:", glm)
             print "\nTrial #", trial
