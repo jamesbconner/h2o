@@ -65,7 +65,7 @@ def parse_our_args():
     # We want this to be standard, always (note -f for unittest, nose uses -x?)
     # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
     # kbn: disabling failfast until we fix jenkins
-    sys.argv[1:] = ['-v', '--failfast'] + args.unittest_args
+    sys.argv[1:] = ['-v'] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
     if verbose:
@@ -388,8 +388,12 @@ class H2O(object):
         u = 'http://%s:%d/%s' % (self.addr, port, loc)
         return u 
 
-    def __check_request(self, r):
-        log('Sent ' + r.url)
+    def __check_request(self, r, extraComment=None):
+        if extraComment:
+            log('Sent ' + r.url + "# " + extraComment)
+        else:
+            log('Sent ' + r.url)
+
         if not r:
             raise Exception('r Error in %s: %s' % (inspect.stack()[1][3], str(r)))
         # this is used to open a browser on RFview results to see confusion matrix
@@ -437,27 +441,33 @@ class H2O(object):
 
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
-            requests.get(self.__url('PutValue.json'), 
-                params={"Value": value, "Key": key, "RF": repl}
-                ))
+            requests.get(
+                self.__url('PutValue.json'), 
+                params={"Value": value, "Key": key, "RF": repl}),
+            extraComment = str(value) + "," + str(key) + "," + str(repl))
 
     def put_file_old(self, f, key=None, repl=None):
         return self.__check_request(
-            requests.post(self.__url('PutFile.json'), 
+            requests.post(
+                self.__url('PutFile.json'), 
                 files={"File": open(f, 'rb')},
-                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
-                ))
+                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
+            extraComment = str(f) + "," + str(key) + "," + str(repl))
 
     def put_file(self, f, key=None, repl=None):
         resp1 =  self.__check_request(
-            requests.get(self.__url('PutFile.json'), 
-                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
-                ))
+            requests.get(
+                self.__url('PutFile.json'), 
+                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
+            extraComment = str(f) + "," + str(key) + "," + str(repl))
+
         verboseprint("\nput_file #1 phase response: ", resp1)
         resp2 = self.__check_request(
-            requests.post(self.__url('Upload.json', port=resp1['port']), 
-                files={"File": open(f, 'rb')}
-                ))
+            requests.post(
+                self.__url('Upload.json', port=resp1['port']), 
+                files={"File": open(f, 'rb')}),
+            extraComment = str(f))
+
         verboseprint("put_file #2 phase response: ", resp2)
 
         return resp2[0]
@@ -469,8 +479,11 @@ class H2O(object):
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
-        a = self.__check_request(requests.post(self.__url('GetFile.json'), 
-            files={"File": open(f, 'rb')}))
+        a = self.__check_request(
+            requests.post(
+                self.__url('GetFile.json'), 
+                files={"File": open(f, 'rb')}),
+            extraComment = str(f))
         verboseprint("\nget_file result:", dump_json(a))
         return a
 
@@ -486,11 +499,12 @@ class H2O(object):
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
         # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
-        a = self.__check_request(requests.get(
+        # don't need extraComment because
+        a = self.__check_request(
+            requests.get(
                 url=self.__url('Parse.json'),
                 timeout=timeoutSecs,
-                params={"Key": key, "Key2":key2}
-                ))
+                params={"Key": key, "Key2": key2}))
         verboseprint("\nparse result:",dump_json(a))
         return a
 
