@@ -52,7 +52,7 @@ public class DatasetCornerCasesTest {
 
     // Start the distributed Random Forest
     try {
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,new int[0], Key.make("model"),true,null,-1);
+      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,new int[0], Key.make("model"),true,null,-1,false,null);
       // Just wait little bit
       drf.get();
       // Create incremental confusion matrix

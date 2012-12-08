@@ -86,6 +86,8 @@ public class RFRunner {
     String statType = "gini";// split type
     int seed = 42;              // seed
     String ignores;
+    boolean stratify;
+    String strata;
   }
 
   static class OptArgs extends Arguments.Opt {
@@ -372,38 +374,41 @@ public class RFRunner {
 
 
   public static void covTest2(String javaCmd, PrintStream out, OptArgs args) throws Exception {
-    String[] files = new String[]{"../datasets/UCI/UCI-large/covtype/covtype.data"};
-    int[] szTrees = new int[]{50,
-        //100,200
-         };
-    int[] binLimits = new int[]{10000};
-    int[] samples = new int[]{50,};
+    String[][] files = new String[][]{{"../datasets/rftest/covtype_train.data","../datasets/rftest/covtype_test.data"}};
+    int[] szTrees = new int[]{50,100,200};
+    int[] binLimits = new int[]{1024};
+    int[] samples = new int[]{33,50,67};
     String[] stats  = new String[]{ "entropy"};
     int[] seeds = new int[]{ 3,};
     int[] ignores = new int[53];
+    boolean [] stratify = new boolean []{false,true};
+    String [] stratas = new String[]{null,"2:5000,3:5000,4:5000,5:5000,6:5000","0:5000,1:5000,2:5000,3:5000,4:5000,5:5000,6:5000"};
     for(int i=0;i<ignores.length;i++)ignores[i]=i;
-
     int experiments = files.length * szTrees.length*stats.length*samples.length*seeds.length *binLimits.length*ignores.length;
     String[] commands = new String[experiments];
     int i = 0;
     for(int ig : ignores)
-    for(String f : files)
+    for(String [] f : files)
      for (int sz :szTrees)
       for(String stat : stats)
         for(int  smpl : samples)
          for(int  bl : binLimits)
-            for(int seed : seeds) {
-              RFArgs rfa = new RFArgs();
-              rfa.seed = seed; rfa.statType = stat; rfa.file = f;
-              rfa.ntrees = sz; rfa.sample= smpl; rfa.binLimit = bl;
-              rfa.ignores=Integer.toString(ig);
-              String add = special.get(f)==null? "" : (" "+special.get(f));
-              commands[i++] = javaCmd + " " + rfa + add;
-            }
-
+            for(int seed : seeds)
+              for(boolean s : stratify)
+                for(String strata: stratas) {
+                  if(s || strata == null){
+                    RFArgs rfa = new RFArgs();
+                    rfa.seed = seed; rfa.statType = stat; rfa.file = f[0]; rfa.validationFile = f[1];
+                    rfa.ntrees = sz; rfa.sample= smpl; rfa.binLimit = bl;
+                    rfa.ignores=Integer.toString(ig);
+                    rfa.stratify = s;
+                    rfa.strata = strata;
+                    String add = special.get(f)==null? "" : (" "+special.get(f));
+                    commands[i++] = javaCmd + " " + rfa + add;
+                  }
+                }
     for( String cmd : commands)
        runTest(cmd, args.resultDB, out, true);
-
   }
 
 

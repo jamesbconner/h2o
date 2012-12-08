@@ -320,6 +320,7 @@ public class Boot extends ClassLoader {
               "  res += %d;\n",
               "  res += water.UDP.wire_len(%s);\n",
               "  res += (%s==null?1:%s.wire_len());\n",
+              "  res += water.SerializationUtils.wire_len(%s);\n",
               "  res += 2+(%s==null?0:%s.length());\n",
               "  res += 1 + (%s==null?0:%s.wire_len() + 2+%s.getClass().getName().length());\n",
               // ------------------ object array ----------------------------------------------------------
@@ -344,6 +345,7 @@ public class Boot extends ClassLoader {
               "  dos.write%S(%s);\n",
               "  water.TCPReceiverThread.writeAry(dos,%s);\n",
               "  if( %s == null ) dos.writeByte(-1); else %s.write(dos);\n",
+              "  water.SerializationUtils.write(dos,%s);\n",
               "  water.TCPReceiverThread.writeStr(dos,%s);\n",
               "  dos.writeBoolean(%s != null); \n  if(%s != null){\n    water.TCPReceiverThread.writeStr(dos,%s.getClass().getName());\n    %s.write(dos);\n  }\n",
               // ------------------ object array ----------------------------------------------------------
@@ -374,6 +376,7 @@ public class Boot extends ClassLoader {
               "  %s = dis.read%S();\n",
               "  %s = water.TCPReceiverThread.read%SAry(dis);\n",
               "  %s = water.Key.read(dis);\n",
+              "  %s = water.SerializationUtils.readKeys(dis);\n",
               "  %s = water.TCPReceiverThread.readStr(dis);\n",
               "  if(dis.readBoolean()){\n    String cn = water.TCPReceiverThread.readStr(dis);   %s = (%C)Class.forName(cn).newInstance();\n    %s.read(dis);\n  }\n",
               // ------------------ object array ----------------------------------------------------------
@@ -404,6 +407,7 @@ public class Boot extends ClassLoader {
               "  s.set%z(%s);\n",
               "  s.setAry%z(%s);\n",
               "  if( %s == null ) s.set1(-1); else %s.write(s);\n",
+              "  water.SerializationUtils.write(s,%s);\n",
               "  s.setLen2Str(%s);",
               "  s.setz(%s!=null);\n  if( %s != null ){\n    s.setLen2Str(%s.getClass().getName()); %s.write(s);\n  }\n",
               // ------------------ object array ----------------------------------------------------------
@@ -431,6 +435,7 @@ public class Boot extends ClassLoader {
               "  %s = s.get%z();\n",
               "  %s = s.getAry%z();\n",
               "  %s = water.Key.read(s);\n",
+              "  %s = water.SerializationUtils.readKeys(s);\n",
               "  %s = s.getLen2Str();\n",
               "  if(s.getz()){\n   String cn = s.getLen2Str();\n    %s = (%C)Class.forName(cn).newInstance();\n    %s.read(s);\n  }\n",
               // ------------------ object array ----------------------------------------------------------
@@ -462,6 +467,7 @@ public class Boot extends ClassLoader {
                                String prims,
                                String primarys,
                                String keys,
+                               String keyArray,
                                String strs,
                                String object,
                                String objectArr,
@@ -478,6 +484,7 @@ public class Boot extends ClassLoader {
       if     ( ftype <= 7 ) sb.append(prims);
       else if( ftype == 8 ) sb.append(keys);
       else if( ftype == 9 ) sb.append(strs);
+      else if( ftype == KEY_ARR_TYPE) sb.append(keyArray);
       else if( ftype == OBJ_ARR_TYPE ||  ftype == OBJ_TYPE) {
         CtClass c = ((ftype == OBJ_ARR_TYPE)?ctf.getType().getComponentType():ctf.getType());
         assert c.subtypeOf(_h2oSerializable);
@@ -537,12 +544,14 @@ public class Boot extends ClassLoader {
 
   public static final int OBJ_TYPE = 18;
   public static final int OBJ_ARR_TYPE = 19;
+  public static final int KEY_ARR_TYPE = 20;
   // Field types:
   // 0-7: primitives
   // 8: Key
   // 9: String
   // 10-17: array-of-prim\
   // 18: H2OSerializable
+  // 19: Key []
   // Barfs on all others (eg Values or array-of-Frob, etc)
   private int ftype( CtField ctf ) { return ftype0(ctf,0); }
   private int ftype0( CtField ctf, int idx ) {
@@ -558,6 +567,7 @@ public class Boot extends ClassLoader {
     case 'D': return 7;
     case 'L':                   // Handled classes
       if( sig.equals("Lwater/Key;") ) return 8;
+      if( sig.equals("[Lwater/Key;") ) return KEY_ARR_TYPE-10; // 10 is added after this call because of the array
       if( sig.equals("Ljava/lang/String;") ) return 9;
       try {
         CtClass ct = ctf.getType();
