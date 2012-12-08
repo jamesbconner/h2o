@@ -14,8 +14,8 @@ public class HTTP404 extends Request {
 
   private final StringArgument _error = new StringArgument(JSON_ERROR,"Unknown error");
 
-  @Override public void serve(JsonObject response, Properties args) {
-    response.addProperty(JSON_ERROR,_error.value(args));
+  @Override public void serve(JsonObject response) {
+    response.addProperty(JSON_ERROR,_error.value());
     response.addProperty(JSON_ERROR_TYPE,NAME);
   }
 

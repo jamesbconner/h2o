@@ -35,7 +35,7 @@ public abstract class Request {
    * @param args
    * @return
    */
-  public abstract void serve(JsonObject response,Properties args);
+  public abstract void serve(JsonObject response);
 
 
   /** Produces the HTML response from the given JSON object.
@@ -70,6 +70,9 @@ public abstract class Request {
 
   private ArrayList<Argument> _arguments = new ArrayList();
 
+  private ThreadLocal<Properties> _objectArguments = new ThreadLocal();
+
+
 
   /** An argument to the request.
    *
@@ -93,7 +96,7 @@ public abstract class Request {
     }
 
     protected T check(Properties args) throws IllegalArgumentException {
-      if ((args.containsKey(_name) == false) || args.getProperty(_name).isEmpty()) {
+      if (args.containsKey(_name) == false) {
         if (_required)
           throw new IllegalArgumentException("Argument "+_name+" must be provided to the request");
         else
@@ -113,18 +116,31 @@ public abstract class Request {
     /** Returns the value of the current argument in the given call.
      *
      */
-    public T value(Properties args) {
+    public T value() {
+      Properties args = _objectArguments.get();
       if (args.containsKey(_name))
         return (T) args.get(_name);
       return defaultValue();
     }
 
-    /** Adds the query part for the query that is being built.
+    public boolean specified() {
+      Properties args = _objectArguments.get();
+      return args.containsKey(_name);
+    }
+
+    /** Adds the query part for the query that is being built. Value is the
+     * original value submitted by the request, if any. If no value submitted,
+     * then value is null. Null is returned also if the argument was empty.
      *
      * @param sb
      * @param value
      */
     public String buildQuery(String value) {
+      if (value == null) {
+        T v = defaultValue();
+        if (v!=null)
+          value = v.toString();
+      }
       return DOM.textInput(_name, value, description());
     }
 
@@ -133,10 +149,10 @@ public abstract class Request {
      * @return
      */
     public String description() {
-      return null;
+      return "";
     };
 
-    public final String help() {
+    public String help() {
       return _help;
     }
 
@@ -215,6 +231,8 @@ public abstract class Request {
     }
 
     @Override protected Key decode(String value) throws Exception {
+      if (value.isEmpty())
+        throw new Exception("Key cannot be empty");
       Key k = Key.make(value);
       return k;
     }
@@ -241,6 +259,8 @@ public abstract class Request {
     }
 
     @Override protected Key decode(String value) throws Exception {
+      if (value.isEmpty())
+        throw new Exception("Key cannot be empty");
       Key k = Key.make(value);
       Value v = DKV.get(Key.make(value));
       if (v == null)
@@ -264,7 +284,7 @@ public abstract class Request {
       _max = Integer.MAX_VALUE;
     }
 
-    public IntegerArgument(String name, int min, int max, int defaultValue, String help) {
+    public IntegerArgument(String name, int min, int max, Integer defaultValue, String help) {
       super(name, defaultValue, help);
       _min = min;
       _max = max;
@@ -284,6 +304,40 @@ public abstract class Request {
     @Override public String description() {
       return "Integer value in range <"+_min+", "+_max+").";
     }
+  }
+
+  public class BooleanArgument extends DefaultValueArgument<Boolean> {
+
+    public BooleanArgument(String name, String help) {
+      super(name, false, help); // bollean alrgument cannot really be required. Its omission is false
+    }
+
+    public BooleanArgument(String name, boolean defaultValue, String help) {
+      super(name, defaultValue, help);
+    }
+
+    @Override protected Boolean decode(String value) throws Exception {
+      if (value.equals("1"))
+        return true;
+      if (value.equals("0"))
+        return false;
+      if (value.isEmpty())
+        return false;
+      throw new Exception("Invalid value "+value+" for boolean - only 1 or 0 can be used");
+    }
+
+    public String buildQuery(String value) {
+      return DOM.checkbox(_name, (value!=null) && value.equals("1"), description());
+    }
+
+    @Override public String description() {
+      return super.help();
+    }
+
+    @Override public String help() {
+      return "";
+    }
+
   }
 
   // Query building ------------------------------------------------------------
@@ -318,7 +372,7 @@ public abstract class Request {
       if (error != null && reportErrors)
         input.replace("ERROR", error);
       input.replace("ARG_NAME", arg._name);
-      input.replace("ARG_HELP", arg._help);
+      input.replace("ARG_HELP", arg.help());
       input.replace("ARG_ASTERISK", arg.requiredHTML());
       input.replace("ARG_INPUT", arg.buildQuery(submittedArgs.getProperty(arg._name)));
       sb.append(input.toString());
@@ -349,16 +403,17 @@ public abstract class Request {
    * @return
    */
   private String processQueryArguments(Properties submittedArgs, Argument arg) {
-    Object o = null;
+    //Object o = null;
     String error = null;
     try {
-      o = arg.check(submittedArgs);
+      //o =
+      arg.check(submittedArgs);
     } catch (IllegalArgumentException e) {
       error = DOM.error(e.getMessage());
     }
-    if (o == null && !arg._required)
-      o = arg.defaultValue();
-    submittedArgs.put(arg._name, nullToEmptyString(o).toString());
+    //if (o == null && !arg._required)
+    //  o = arg.defaultValue();
+    //submittedArgs.put(arg._name, nullToEmptyString(o).toString());
     return error;
   }
 
@@ -386,9 +441,9 @@ public abstract class Request {
     JsonObject response = new JsonObject();
     try {
       // check all arguments and create the parsed arguments hashtable
-      Properties parsedArgs = checkArguments(args);
+      _objectArguments.set(checkArguments(args));
       // server the request
-      serve(response,parsedArgs);
+      serve(response);
       // if we are in HTML, create the response string and return it
       if (isHTML) {
         HTMLBuilder builder = new HTMLBuilder(this, response);
@@ -421,6 +476,8 @@ public abstract class Request {
       // anything else, store to response's error field
       response = new JsonObject();
       response.addProperty(JSON_ERROR,e.getMessage());
+    } finally {
+      _objectArguments.set(null);
     }
     return wrap(server,response);
   }

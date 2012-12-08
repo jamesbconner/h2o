@@ -29,9 +29,10 @@ public class RequestServer extends NanoHTTPD {
     _http500 = registerRequest(new HTTP500(), HTTP500.NAME);
     Request.addToNavbar(registerRequest(new Cloud()),"Cloud");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
+    Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
 
 
-    
+
     Request.initializeNavBar();
   }
 
@@ -99,6 +100,7 @@ public class RequestServer extends NanoHTTPD {
       // call the request
       return request.dispatch(this,parms,isHTML);
     } catch (Exception e) {
+      e.printStackTrace();
       // make sure that no Exception is ever thrown out from the request
       parms.setProperty(Request.JSON_ERROR,e.getMessage());
       return _requests.get(_http500.href()).dispatch(this,parms,isHTML);

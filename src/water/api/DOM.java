@@ -88,4 +88,8 @@ public class DOM {
   public static String textInput(String name, String value, String placeholder) {
     return "<input class='span5' type='text' name='"+name+"' id='"+name+"' placeholder='"+placeholder+"' "+ (((value!=null) && (!value.isEmpty())) ? (" value='"+value+"' />") : "/>");
   }
+
+  public static String checkbox(String name, boolean checked, String placeholder) {
+    return "<input id='"+name+"' name='"+name+"' type='checkbox' value='1' "+(checked ? " checked='1' ": "")+" /> "+placeholder;
+  }
 }

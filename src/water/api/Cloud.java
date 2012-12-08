@@ -42,7 +42,7 @@ public class Cloud extends Request {
   public static final String JSON_NODES_RPCS = "rpcs";
   public static final String JSON_NODES_TCPS_ACTIVE = "tcps_active";
 
-  @Override public void serve(JsonObject response, Properties args) {
+  @Override public void serve(JsonObject response) {
     final H2O cloud = H2O.CLOUD;
     final H2ONode self = H2O.SELF;
     response.addProperty(JSON_CLOUD_NAME, H2O.NAME);

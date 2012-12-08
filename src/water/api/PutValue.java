@@ -26,9 +26,9 @@ public class PutValue extends Request {
   protected final StringArgument _value = new StringArgument(HTTP_VALUE,"Value");
   protected final IntegerArgument _rf = new IntegerArgument(HTTP_RF,0,256,2,"Replication factor");
 
-  @Override public void serve(JsonObject response, Properties args) {
-    Key k = Key.make(_key.value(args)._kb, (byte) (int)_rf.value(args));
-    Value v = new Value(k,_value.value(args).getBytes());
+  @Override public void serve(JsonObject response) {
+    Key k = Key.make(_key.value()._kb, (byte) (int)_rf.value());
+    Value v = new Value(k,_value.value().getBytes());
     UKV.put(k,v);
     response.addProperty(JSON_KEY,k.toString());
     response.addProperty(JSON_RF,k.desired());
