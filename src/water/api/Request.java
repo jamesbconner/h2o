@@ -185,7 +185,6 @@ public abstract class Request {
     }
 
     public T defaultValue() {
-      assert (_required == false) : "You never ask defaultValue of a required argument";
       return _defaultValue;
     }
 
@@ -326,7 +325,9 @@ public abstract class Request {
       throw new Exception("Invalid value "+value+" for boolean - only 1 or 0 can be used");
     }
 
-    public String buildQuery(String value) {
+    @Override public String buildQuery(String value) {
+      if (value == null)
+        value = defaultValue() ? "1" : "0";
       return DOM.checkbox(_name, (value!=null) && value.equals("1"), description());
     }
 
@@ -385,11 +386,6 @@ public abstract class Request {
     return sb.toString();
   }
 
-
-  private Object nullToEmptyString(Object o) {
-    return o == null ? "" : o;
-  }
-
   /** Processes the argument for the query. If the argument is given, it is
    * checked and its toString value used. If the value is not specified, either
    * its default value is used, or the empty string is specified if it defaults
@@ -411,6 +407,8 @@ public abstract class Request {
     } catch (IllegalArgumentException e) {
       error = DOM.error(e.getMessage());
     }
+    if (submittedArgs.getProperty(arg._name,"").equals(""))
+      submittedArgs.remove(arg._name);
     //if (o == null && !arg._required)
     //  o = arg.defaultValue();
     //submittedArgs.put(arg._name, nullToEmptyString(o).toString());
