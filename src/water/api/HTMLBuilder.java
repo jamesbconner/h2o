@@ -261,17 +261,14 @@ public class HTMLBuilder {
 
   public class NestedObject extends NestedBuilder {
     @Override public void beforeBuilding(String name, JsonElement value) {
-      append("<h3>");
-      append(name);
-      append("</h3>");
+      append(DOM.h3(name));
     }
   }
 
   public class Response extends NestedBuilder {
     @Override public void beforeBuilding(String name, JsonElement value) {
-      append("<h2>");
-      append(_requestName);
-      append("</h2>");
+      append(DOM.h3(_requestName));
+      append(DOM.p("The request has been successful. This page displays the result of its evaluation:"));
     }
   }
 

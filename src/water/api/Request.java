@@ -81,20 +81,26 @@ public abstract class Request {
    */
   public abstract class Argument<T> {
 
-    protected final String _name;
-    protected final boolean _required;
+    public final String _name;
+    public final boolean _required;
+    public final String _help;
 
-    protected Argument(String name, boolean required) {
+    protected Argument(String name, boolean required, String help) {
       _name = name;
-      _required = false;
+      _required = required;
       _arguments.add(this);
+      _help = help;
     }
 
-    protected void check(Properties args, Properties decoded) throws IllegalArgumentException {
-      if (_required && (args.containsKey(_name) == false))
-        throw new IllegalArgumentException("Argument "+_name+" must be provided to the request");
+    protected T check(Properties args) throws IllegalArgumentException {
+      if ((args.containsKey(_name) == false) || args.getProperty(_name).isEmpty()) {
+        if (_required)
+          throw new IllegalArgumentException("Argument "+_name+" must be provided to the request");
+        else
+          return null;
+      }
       try {
-        decoded.put(_name,decode(args.getProperty(_name)));
+        return decode(args.getProperty(_name));
       } catch (Exception e) {
         throw new IllegalArgumentException("Argument "+_name+" has invalid value: "+e.getMessage());
       }
@@ -108,7 +114,7 @@ public abstract class Request {
      *
      */
     public T value(Properties args) {
-      if (args.contains(_name))
+      if (args.containsKey(_name))
         return (T) args.get(_name);
       return defaultValue();
     }
@@ -118,9 +124,27 @@ public abstract class Request {
      * @param sb
      * @param value
      */
-    public void buildQuery(StringBuilder sb, String value) {
-      sb.append(_name);
-      sb.append("<input />");
+    public String buildQuery(String value) {
+      return DOM.textInput(_name, value, description());
+    }
+
+    /** Returns the description of the values of the argument. This is not what
+     * the argument means, but what are the available values. Null by default.
+     * @return
+     */
+    public String description() {
+      return null;
+    };
+
+    public final String help() {
+      return _help;
+    }
+
+    public final String requiredHTML() {
+      if (_required)
+        return DOM.color("*","#ff0000");
+      else
+        return DOM.color("*","#ffffff");
     }
   }
 
@@ -134,13 +158,13 @@ public abstract class Request {
   public abstract class DefaultValueArgument<T> extends Argument<T> {
     private final T _defaultValue;
 
-    protected DefaultValueArgument(String name) {
-      super(name, true);
+    protected DefaultValueArgument(String name, String help) {
+      super(name, true, help);
       _defaultValue = null;
     }
 
-    protected DefaultValueArgument(String name, T defaultValue) {
-      super(name, false);
+    protected DefaultValueArgument(String name, T defaultValue, String help) {
+      super(name, false, help);
       _defaultValue = defaultValue;
     }
 
@@ -156,16 +180,20 @@ public abstract class Request {
    */
   public class StringArgument extends DefaultValueArgument<String> {
 
-    public StringArgument(String name, String defaultValue) {
-      super(name, defaultValue);
+    public StringArgument(String name, String defaultValue, String help) {
+      super(name, defaultValue, help);
     }
 
-    public StringArgument(String name) {
-      super(name);
+    public StringArgument(String name, String help) {
+      super(name, help);
     }
 
     @Override protected String decode(String value) throws Exception {
       return value;
+    }
+
+    @Override public String description() {
+      return "Any string value.";
     }
 
   }
@@ -178,18 +206,23 @@ public abstract class Request {
    */
   public class KeyArgument extends DefaultValueArgument<Key> {
 
-    public KeyArgument(String name, Key defaultValue) {
-      super(name, defaultValue);
+    public KeyArgument(String name, Key defaultValue, String help) {
+      super(name, defaultValue, help);
     }
 
-    public KeyArgument(String name) {
-      super(name);
+    public KeyArgument(String name, String help) {
+      super(name, help);
     }
 
     @Override protected Key decode(String value) throws Exception {
       Key k = Key.make(value);
       return k;
     }
+
+    @Override public String description() {
+      return "Valid key name (a-z,A-Z,0-9, space, ...).";
+    }
+
   }
 
   /** A properly formed existing key.
@@ -197,21 +230,26 @@ public abstract class Request {
    * Returns the value associated with the key itself.
    *
    */
-  public class ExistingKeyArgument extends DefaultValueArgument<Value> {
+  public class ExistingKeyArgument extends DefaultValueArgument<Key> {
 
-    public ExistingKeyArgument(String name, Value defaultValue) {
-      super(name, defaultValue);
+    public ExistingKeyArgument(String name, Key defaultValue, String help) {
+      super(name, defaultValue, help);
     }
 
-    public ExistingKeyArgument(String name) {
-      super(name);
+    public ExistingKeyArgument(String name, String help) {
+      super(name, help);
     }
 
-    @Override protected Value decode(String value) throws Exception {
+    @Override protected Key decode(String value) throws Exception {
+      Key k = Key.make(value);
       Value v = DKV.get(Key.make(value));
       if (v == null)
         throw new Exception("key "+value+"not found");
-      return v;
+      return k;
+    }
+
+    @Override public String description() {
+      return "Key that already exists in H2O.";
     }
   }
 
@@ -220,14 +258,14 @@ public abstract class Request {
     public final int _min;
     public final int _max;
 
-    public IntegerArgument(String name, int defaultValue) {
-      super(name, defaultValue);
+    public IntegerArgument(String name, int defaultValue, String help) {
+      super(name, defaultValue, help);
       _min = Integer.MIN_VALUE;
       _max = Integer.MAX_VALUE;
     }
 
-    public IntegerArgument(String name, int min, int max, int defaultValue) {
-      super(name, defaultValue);
+    public IntegerArgument(String name, int min, int max, int defaultValue, String help) {
+      super(name, defaultValue, help);
       _min = min;
       _max = max;
     }
@@ -242,9 +280,23 @@ public abstract class Request {
         throw new Exception("not a valid number format: "+value);
       }
     }
+
+    @Override public String description() {
+      return "Integer value in range <"+_min+", "+_max+").";
+    }
   }
 
   // Query building ------------------------------------------------------------
+
+  private static final String _formInput =
+            "%ERROR"
+          + "<div class='control-group'>"
+          + "  <label class='control-label' for='%ARG_NAME'>%ARG_HELP:%ARG_ASTERISK</label>"
+          + "  <div class='controls'>"
+          + "    %ARG_INPUT"
+          + "  </div>"
+          + "</div>"
+          ;
 
   /** Creates the HTML query page for the request, if any.
    *
@@ -252,9 +304,63 @@ public abstract class Request {
    * @return
    */
   protected String createQuery(Properties submittedArgs) {
-    return "QUERY NOT IMPLEMENTED YET";
+    StringBuilder sb = new StringBuilder();
+    sb.append(DOM.h3(_href+" request"));
+    boolean reportErrors = ! submittedArgs.isEmpty();
+    sb.append(DOM.p("Please fill in the following arguments to the request. When you are done, press the <i>Send Request</i> button."));
+    if (reportErrors)
+      sb.append(DOM.p("Invalid or missing values are highlighted by the errors found for your convenience. Please correct them and then resend the request."));
+    sb.append(DOM.p("Required values are marked with a red asterisk - "+DOM.color("*","#ff0000")+"."));
+    sb.append("<form class='form-horizontal'>");
+    for (Argument arg : _arguments) {
+      RString input = new RString(_formInput);
+      String error = processQueryArguments(submittedArgs, arg);
+      if (error != null && reportErrors)
+        input.replace("ERROR", error);
+      input.replace("ARG_NAME", arg._name);
+      input.replace("ARG_HELP", arg._help);
+      input.replace("ARG_ASTERISK", arg.requiredHTML());
+      input.replace("ARG_INPUT", arg.buildQuery(submittedArgs.getProperty(arg._name)));
+      sb.append(input.toString());
+    }
+    sb.append("<div class='controls'>");
+    sb.append("  <input type='submit' class='btn btn-primary' value='Send request' />");
+    sb.append("  <input type='reset' class='btn' value='Clear' />");
+    sb.append("</div>");
+    sb.append("</form>");
+    return sb.toString();
   }
 
+
+  private Object nullToEmptyString(Object o) {
+    return o == null ? "" : o;
+  }
+
+  /** Processes the argument for the query. If the argument is given, it is
+   * checked and its toString value used. If the value is not specified, either
+   * its default value is used, or the empty string is specified if it defaults
+   * to null.
+   *
+   * Returns the error to be reported to user, if any.
+   *
+   * @param submittedArgs
+   * @param arg
+   * @param reportErrors
+   * @return
+   */
+  private String processQueryArguments(Properties submittedArgs, Argument arg) {
+    Object o = null;
+    String error = null;
+    try {
+      o = arg.check(submittedArgs);
+    } catch (IllegalArgumentException e) {
+      error = DOM.error(e.getMessage());
+    }
+    if (o == null && !arg._required)
+      o = arg.defaultValue();
+    submittedArgs.put(arg._name, nullToEmptyString(o).toString());
+    return error;
+  }
 
   // Dispatch ------------------------------------------------------------------
 
@@ -309,11 +415,13 @@ public abstract class Request {
       }
     } catch (Exception e) {
       e.printStackTrace();
+      // at the end return the JSON, assuming that JSON is what we want
+      if (isHTML)
+        return wrap(server, DOM.error(e.getMessage()));
       // anything else, store to response's error field
       response = new JsonObject();
       response.addProperty(JSON_ERROR,e.getMessage());
     }
-    // at the end return the JSON, assuming that JSON is what we want
     return wrap(server,response);
   }
 
@@ -329,8 +437,11 @@ public abstract class Request {
 
   private Properties checkArguments(Properties args) throws IllegalArgumentException {
     Properties result = new Properties();
-    for (Argument arg : _arguments)
-      arg.check(args,result);
+    for (Argument arg : _arguments) {
+      Object o = arg.check(args);
+      if (o != null)
+        result.put(arg._name, o);
+    }
     return result;
   }
 
@@ -377,7 +488,7 @@ public abstract class Request {
     StringBuilder sb = new StringBuilder();
     for (String s : _navbarOrdering) {
       ArrayList<MenuItem> arl = _navbar.get(s);
-      if (arl.size() == 1) {
+      if ((arl.size() == 1) && arl.get(0)._name.equals(s)) {
         arl.get(0).toHTML(sb);
       } else {
         sb.append("<li class='dropdown'>");
