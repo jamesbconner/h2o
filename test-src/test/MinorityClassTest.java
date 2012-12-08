@@ -5,7 +5,7 @@ import hex.rf.MinorityClasses;
 import hex.rf.MinorityClasses.UnbalancedClass;
 
 import java.io.FileInputStream;
-import java.util.*;
+import java.util.Arrays;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -20,7 +20,7 @@ public class MinorityClassTest {
   static Key _key;
   static ValueArray _data;
   static final int _classIdx = 10;
-  static H2OTestCloud _cloud;
+
   static int _nodes = 3;
 
   @BeforeClass public static void setupCloud() throws Exception {
