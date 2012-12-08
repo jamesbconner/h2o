@@ -94,7 +94,7 @@ public class RandomForestTest {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{45,0,0},{0,48,1},{0,1,46}};
+      long ans[][] = new long[][]{{47,0,0},{0,44,4},{0,1,47}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
