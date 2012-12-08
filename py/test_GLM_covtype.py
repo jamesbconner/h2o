@@ -18,14 +18,13 @@ class Basic(unittest.TestCase):
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
     def test_B_covtype(self):
-        timeoutSecs = 2
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
 
         # columns start at 0
         Y = "54"
         X = ""
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname,timeoutSecs=2)
 
         for appendX in xrange(55):
             # if (appendX == 9):
@@ -49,7 +48,7 @@ class Basic(unittest.TestCase):
                 start = time.time()
                 # norm=L2 to avoid coefficients = 0 in result?
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, 
-                    xval=11, norm='L2', X=X, Y=Y, timeoutSecs=timeoutSecs)
+                    xval=11, norm='L2', X=X, Y=Y, timeoutSecs=90)
 
                 # glm json result is prettyprinted now in h2o GLM, if verbose
 
