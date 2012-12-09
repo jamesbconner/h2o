@@ -19,13 +19,16 @@ class Basic(unittest.TestCase):
 
         print "\nWe're not CM data getting back from RFView.json that we can check!. so look at the browser"
         print 'The good case with ignore="boat,body"'
-        rfv = h2o_cmd.runRF(trees=50, timeoutSecs=10, ignore="boat,body", csvPathname=csvPathname)
+        rfv = h2o_cmd.runRF(trees=5, timeoutSecs=10, ignore="boat,body", csvPathname=csvPathname)
         print "RFView.json result:"
         print h2o.dump_json(rfv)
         h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+        # warning: can't use the browser to go back and look at individual trees..they will be the next trees
+        # if we don't wait here
+        # time.sleep(1500)
 
         print "\nNow the bad case (no ignore)"
-        rfv = h2o_cmd.runRF(trees=50, timeoutSecs=10, csvPathname=csvPathname)
+        rfv = h2o_cmd.runRF(trees=5, timeoutSecs=10, csvPathname=csvPathname)
         print "RFView.json result:"
         print h2o.dump_json(rfv)
         h2b.browseJsonHistoryAsUrlLastMatch("RFView")
