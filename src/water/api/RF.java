@@ -144,13 +144,19 @@ public class RF extends Request {
       _key = key;
       _col = col;
       _defaultValue = defaultValue;
-
-
     }
 
     @Override
     protected double[] decode(String value) throws Exception {
 
+
+    }
+
+    @Override public double[] defaultValue() {
+      if (_required)
+        return null;
+      ValueArray ary = _key.value();
+      double[] r = new double[ary.]
 
     }
 
