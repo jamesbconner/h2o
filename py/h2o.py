@@ -762,7 +762,11 @@ class H2O(object):
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
-            '--name=pytest-%s' % getpass.getuser()
+            # if I have multiple jenkins projects doing different h2o clouds, I need
+            # I need different ports and different cloud name.
+            # does different cloud name prevent them from joining up (even if same multicast ports?)
+            # I suppose I can force a base address. or run on another machine?
+            '--name=pytest-%s-%s' % (getpass.getuser(), os.getpid())
             ]
 
         if self.use_hdfs:
