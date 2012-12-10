@@ -30,6 +30,8 @@ class Basic(unittest.TestCase):
             "billion_rows.csv.gz",
             ]
         csvFilenameList = random.sample(csvFilenameAll,1)
+        csvFilenameList = csvFilenameAll
+
 
         # pop open a browser on the cloud
         h2b.browseTheCloud()

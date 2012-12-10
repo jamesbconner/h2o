@@ -49,7 +49,7 @@ class Basic(unittest.TestCase):
             # FIX! just look at X=0:1 for speed, for now
             # xval=10, norm="L2", glm_lambda=1e-4,
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey,
-                Y=54, X='0:7', norm="L2", xval=2, family="binomial", 
+                Y=54, X='0:53', norm="L2", xval=2, family="binomial", 
                 timeoutSecs=2000)
 
             # different when xvalidation is used? No trainingErrorDetails?
