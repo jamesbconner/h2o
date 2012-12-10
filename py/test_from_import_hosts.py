@@ -21,7 +21,7 @@ class Basic(unittest.TestCase):
         importFolderPath = "/home/hduser/hdfs_datasets"
         importFolderPath = "/home/0xdiag/datasets"
         h2i.setupImportFolder(None, importFolderPath)
-        timeoutSecs = 2000
+        timeoutSecs = 4000
         #    "covtype169x.data",
         #    "covtype.13x.shuffle.data",
         #    "3G_poker_shuffle"
@@ -38,7 +38,7 @@ class Basic(unittest.TestCase):
 
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in importFolder dir 
-            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath)
+            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, timeoutSecs=3000)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
             print "Parse result['Key']:", parseKey['Key']
 
