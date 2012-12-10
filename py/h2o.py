@@ -766,7 +766,7 @@ class H2O(object):
             # I need different ports and different cloud name.
             # does different cloud name prevent them from joining up (even if same multicast ports?)
             # I suppose I can force a base address. or run on another machine?
-            '--name=pytest-%s-%s' % (getpass.getuser(), os.getpid())
+            '--name=pytest-%s' % getpass.getuser()
             ]
 
         if self.use_hdfs:
