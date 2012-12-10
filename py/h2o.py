@@ -12,6 +12,10 @@ import re
 def flatfile_name():
     return('pytest_flatfile-%s' %getpass.getuser())
 
+def cloud_name():
+    return('pytest-%s-%s' % (getpass.getuser(), os.getpid()))
+    # return('pytest-%s' % getpass.getuser())
+
 def __drain(src, dst):
     for l in src:
         if type(dst) == type(0):
@@ -766,7 +770,7 @@ class H2O(object):
             # I need different ports and different cloud name.
             # does different cloud name prevent them from joining up (even if same multicast ports?)
             # I suppose I can force a base address. or run on another machine?
-            '--name=pytest-%s' % getpass.getuser()
+            '--name=' + cloud_name()
             ]
 
         if self.use_hdfs:
