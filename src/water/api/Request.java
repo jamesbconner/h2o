@@ -346,7 +346,7 @@ public abstract class Request {
   private static final String _formInput =
             "%ERROR"
           + "<div class='control-group'>"
-          + "  <label class='control-label' for='%ARG_NAME'>%ARG_HELP:%ARG_ASTERISK</label>"
+          + "  <label class='control-label' for='%ARG_NAME'>%ARG_ASTERISK %ARG_HELP</label>"
           + "  <div class='controls'>"
           + "    %ARG_INPUT"
           + "  </div>"
@@ -367,21 +367,28 @@ public abstract class Request {
       sb.append(DOM.p("Invalid or missing values are highlighted by the errors found for your convenience. Please correct them and then resend the request."));
     sb.append(DOM.p("Required values are marked with a red asterisk - "+DOM.color("*","#ff0000")+"."));
     sb.append("<form class='form-horizontal'>");
+    sb.append("<div class='control-group'><div class='controls'>");
+    sb.append("  <input type='submit' class='btn btn-primary' value='Send request' />");
+    sb.append("  <input type='reset' class='btn' value='Clear' />");
+    sb.append("</div></div>");
     for (Argument arg : _arguments) {
       RString input = new RString(_formInput);
       String error = processQueryArguments(submittedArgs, arg);
       if (error != null && reportErrors)
         input.replace("ERROR", error);
       input.replace("ARG_NAME", arg._name);
-      input.replace("ARG_HELP", arg.help());
+      String help = arg.help();
+      if (!help.isEmpty())
+        help += ":";
+      input.replace("ARG_HELP", help);
       input.replace("ARG_ASTERISK", arg.requiredHTML());
       input.replace("ARG_INPUT", arg.buildQuery(submittedArgs.getProperty(arg._name)));
       sb.append(input.toString());
     }
-    sb.append("<div class='controls'>");
+    sb.append("<div class='control-group'><div class='controls'>");
     sb.append("  <input type='submit' class='btn btn-primary' value='Send request' />");
     sb.append("  <input type='reset' class='btn' value='Clear' />");
-    sb.append("</div>");
+    sb.append("</div></div>");
     sb.append("</form>");
     return sb.toString();
   }
@@ -438,8 +445,8 @@ public abstract class Request {
     // create the JSON object for the serve method
     JsonObject response = new JsonObject();
     try {
-      // check all arguments and create the parsed arguments hashtable
-      _objectArguments.set(checkArguments(args));
+      // check all arguments
+      checkArguments(args);
       // server the request
       serve(response);
       // if we are in HTML, create the response string and return it
@@ -490,14 +497,16 @@ public abstract class Request {
     return server.new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_JSON, response.toString());
   }
 
-  private Properties checkArguments(Properties args) throws IllegalArgumentException {
+  private void checkArguments(Properties args) throws IllegalArgumentException {
+    // Create the properties and immediately stores them so that checked
+    // arguments can access the values of already parsed ones.
     Properties result = new Properties();
+    _objectArguments.set(result);
     for (Argument arg : _arguments) {
       Object o = arg.check(args);
       if (o != null)
         result.put(arg._name, o);
     }
-    return result;
   }
 
   // html template and navbar handling -----------------------------------------
