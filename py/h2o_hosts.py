@@ -12,7 +12,12 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     # For seeing example of what we want in the json, if we add things
     #   import h2o_config
 
-    configFilename = './pytest_config-%s.json' %getpass.getuser()
+    # allow user to specify the config json at the command line. config_json is a global.
+    # shouldn't need this??
+    if h2o.config_json:
+        configFilename = h2o.config_json
+    else:
+        configFilename = './pytest_config-%s.json' %getpass.getuser()
     h2o.verboseprint("Loading host config from", configFilename)
     with open(configFilename, 'rb') as fp:
          hostDict = json.load(fp)

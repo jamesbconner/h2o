@@ -44,6 +44,7 @@ browse_json = False
 verbose = False
 ipaddr = None
 use_hosts = False
+config_json = False
 debugger=False
 
 def parse_our_args():
@@ -53,16 +54,19 @@ def parse_our_args():
     parser.add_argument('--verbose','-v', help='increased output', action='store_true')
     parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
     parser.add_argument('--use_hosts', '-uh', help='pending...intent was conditional hosts use', action='store_true')
+    parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
+
     
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global browse_json, verbose, ipaddr, use_hosts, debugger
+    global browse_json, verbose, ipaddr, use_hosts, config_json, debugger
     browse_json = args.browse_json
     verbose = args.verbose
     ipaddr = args.ip
     use_hosts = args.use_hosts
+    config_json = args.config_json
     debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
