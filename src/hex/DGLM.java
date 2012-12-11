@@ -3,6 +3,7 @@ package hex;
 import hex.DLSM.DLSM_SingularMatrixException;
 import hex.DLSM.LSMTask;
 import hex.DLSM.LSM_Params;
+import hex.DLSM.Norm;
 import hex.Models.BinaryClassifierValidation;
 import hex.RowVecTask.DataPreprocessing;
 import hex.RowVecTask.Sampling;
@@ -10,7 +11,7 @@ import init.H2OSerializable;
 
 import java.util.Arrays;
 
-import water.*;
+import water.ValueArray;
 
 
 /**
@@ -62,12 +63,7 @@ public class DGLM implements Models.ModelBuilder {
     Family(Link l){defaultLink = l;}
   }
 
-  // supported norms (penalty functions)
-  public static enum Norm {
-    NONE, // standard regression without any regularization
-    L1,   // LASSO
-    L2;   // ridge regression
-  }
+
 
   public DGLM(GLM_Params glmPArams, LSM_Params lsmParams, FamilyArgs fargs) {
     _glmParams = glmPArams;

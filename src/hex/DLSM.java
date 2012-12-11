@@ -1,6 +1,5 @@
 package hex;
 
-import hex.DGLM.Norm;
 import water.DRemoteTask;
 import Jama.CholeskyDecomposition;
 import Jama.Matrix;
@@ -50,9 +49,19 @@ public class DLSM {
     DLSM_SingularMatrixException(double [] r){res = r;}
   }
 
+  // supported norms (penalty functions)
+  public static enum Norm {
+    NONE, // standard regression without any regularization
+    L1,   // LASSO
+    L2,
+    ENET,
+    ;   // ridge regression
+  }
+
   public static class LSM_Params{
     public Norm n = Norm.NONE;
     public double lambda = 0;
+    public double lambda2 = 0;
     public double rho = 0;
     public double alpha = 0;
     int constant = 1;
@@ -96,6 +105,11 @@ public class DLSM {
     case L2:
       d = params.lambda;
       break;
+    case ENET:
+      d = params.lambda2 + params.rho;
+      break;
+    default:
+      assert false:"unexpected norm " + params.n;
     }
     for( int i = 0; i < xxAry.length; ++i ) {
       for( int j = 0; j < xxAry[i].length; ++j ) {
@@ -116,9 +130,8 @@ public class DLSM {
       try {
         return lu.solve(new Matrix(xyAry, xyAry.length)).getColumnPackedCopy();
       } catch(Exception e){
-        assert params.n == Norm.NONE;
         params.n = Norm.L2;
-        params.lambda = 1e-5;
+        params.lambda = (params.lambda == 0)?1e-10:(10*params.lambda);
         throw new DLSM_SingularMatrixException(solveLSM(xxAry, xyAry, params));
       }
     case L1: { // use ADMM to solve LASSO
