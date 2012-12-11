@@ -3,6 +3,7 @@ import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
 import re
+import inspect
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -33,6 +34,7 @@ def drain(src, dst):
     t.start()
 
 def unit_main():
+    print "Running python:", inspect.stack()[1][1]
     clean_sandbox()
     parse_our_args()
     unittest.main()
