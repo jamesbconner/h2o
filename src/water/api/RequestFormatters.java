@@ -7,7 +7,7 @@ import com.google.gson.JsonElement;
  *
  * @author peta
  */
-public class RequestFormatters extends RequestArguments {
+public class RequestFormatters extends RequestQueries {
 
   public abstract class Formatter {
 
@@ -30,10 +30,8 @@ public class RequestFormatters extends RequestArguments {
 
   public abstract static class ObjectFormatter extends Formatter {
 
-
-
     protected String build(JsonElement element, String elementName, String elementContext) {
-      
+      assert (_chain == null); // chaining is not supported for builders
     }
 
   }

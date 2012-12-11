@@ -10,7 +10,7 @@ import water.*;
  *
  * @author peta
  */
-public class RequestArguments extends RequestConstants {
+public class RequestArguments extends RequestStatics {
 
   protected ThreadLocal<HashMap<String,Object>> _checkedArguments = new ThreadLocal();
   protected ThreadLocal<Properties> _originalArguments = new ThreadLocal();
