@@ -550,6 +550,31 @@ class H2O(object):
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
+    def exec_query(self, key, timeoutSecs=20, **kwargs):
+        params_dict = {
+            'Key' : key,
+            'min' : None,
+            'max' : None,
+            'mean' : None,
+            'filter': None,
+            'slice': None,
+            'randomBitVector': None,
+            'randomFilter': None,
+            'log': None,
+            'colSwap': None,
+            'makeEnum': None,
+            'browseAlso' : False,
+            }
+        params_dict.update(kwargs)
+
+        verboseprint("\nexec_query:", params_dict)
+        a = self.__check_request(requests.get(
+            url=self.__url('Exec.json'), 
+            timeout=timeoutSecs,
+            params=params_dict))
+        verboseprint("\nexec_query result:", dump_json(a))
+        return a
+
     # kwargs used to pass:
     # RF?
     # classWt=&
