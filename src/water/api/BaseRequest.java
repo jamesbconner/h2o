@@ -1,21 +1,35 @@
 
 package water.api;
 
+import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
-import water.*;
+import water.NanoHTTPD;
+import water.web.RString;
 
-/**
+/** Base class of all requests that determines how the request handles its
+ * arguments. While the code might in theory go to the Request class itself,
+ * this is a simple mechanism how to make sure that the code is more modular
+ * and more readable.
+ *
+ * Each request has its own arguments and its serve method can only access the
+ * properly parsed arguments.
  *
  * @author peta
  */
-public class RequestArguments extends RequestConstants {
+public class BaseRequest {
 
-  protected ThreadLocal<HashMap<String,Object>> _checkedArguments = new ThreadLocal();
-  protected ThreadLocal<Properties> _originalArguments = new ThreadLocal();
+  public static final String JSON_ERROR = "error";
 
-  protected ArrayList<Argument> _arguments = new ArrayList();
+  // ===========================================================================
+  // Arguments processing
+  // ===========================================================================
+
+  private ThreadLocal<HashMap<String,Object>> _checkedArguments = new ThreadLocal();
+  private ThreadLocal<Properties> _originalArguments = new ThreadLocal();
+
+  private ArrayList<Argument> _arguments = new ArrayList();
 
   // ---------------------------------------------------------------------------
 
@@ -241,254 +255,183 @@ public class RequestArguments extends RequestConstants {
   }
 
   // ===========================================================================
-  // Any defined Argument type should go here:
+  // Request dispatch
   // ===========================================================================
 
-  /** Any string argument.
+  /** Request type.
    *
-   * Performs *no* checks at all so accepts any string.
+   * Requests can have multiple types. Basic types include the plain json type
+   * in which the result is returned as a JSON object, a html type that acts as
+   * the webpage, or the html.help type that displays the extended help for the
+   * request.
    *
-   * NOTE that unless default value empty string is defined, the string will
-   * not accept an empty string.
+   * The html.wiki type is also added that displays the markup of the wiki that
+   * should be used to document the request as per Matt's suggestion.
+   *
+   * NOTE the requests are distinguished by their suffixes. Please make the
+   * suffix start with the dot character to avoid any problems with request
+   * names.
    */
-  public class Str extends DefaultValueArgument<String> {
-
-    /** Creates a required string argument. Does not accept even empty string.
+  public static enum RequestType {
+    json(""), ///< json type request, a result is a JSON structure
+    www(".html"), ///< webpage request
+    help(".html.help"), ///< should display the help on the given request
+    wiki(".html.wiki") ///< displays the help for the given request in a markup for wiki
+    ;
+    /** Suffix of the request - extension of the URL.
      */
-    public Str(String name, String help) {
-      super(name, help);
+    public final String _suffix;
+
+    RequestType(String suffix) {
+      _suffix = suffix;
     }
 
-    /** Creates an optional string argument. Default value must be specified.
+    /** Returns the request type of a given URL. JSON request type is the default
+     * type when the extension from the URL cannot be determined.
      */
-    public Str(String name, String defaultValue, String help) {
-      super(name, defaultValue, help);
+    public static RequestType requestType(String requestUrl) {
+      if (requestUrl.endsWith(www._suffix))
+        return www;
+      if (requestUrl.endsWith(help._suffix))
+        return help;
+      if (requestUrl.endsWith(wiki._suffix))
+        return wiki;
+      return json;
     }
 
-    /** Parses the string. The string is simple returned.
+    /** Returns the name of the request, that is the request url without the
+     * request suffix.
      */
-    @Override protected String parse(String input) throws Exception {
-      return input;
-    }
-
-    /** Any string will do, non-empty if required.
-     */
-    @Override public String description() {
-      return _required ? "any nonempty string" : "any string";
+    public String requestName(String requestUrl) {
+      return requestUrl.substring(0, requestUrl.length()-_suffix.length());
     }
   }
 
   // ---------------------------------------------------------------------------
 
-  /** Integer argument.
+  /** Serves the request returning the response object using the appropriate
+   * request type.
    *
+   * help and wiki requests are handled completely separately and their
+   * arguments are discarded completely. See their respective methods.
+   *
+   * For json and www requests their argument are first checked. If the
+   * arguments are correct, the serve method is called and the response object
+   * is returned. In www mode the response object is interpreted by the HTML
+   * engine and then returned to the user as web page.
+   *
+   * In www mode, if some of the arguments are not matched properly, the
+   * automatic query build process is initiated and the query is returned
+   * instead of the simple error.
+   *
+   * If in www mode and no arguments are present, the query is provided with no
+   * errors.
    */
+  public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
+    String result = null; // string to which the result will be stored
+    switch (type) {
+      case wiki:
+        result = serveWiki();
+        break;
+      case help:
+        result = serveHelp();
+        break;
+      case json:
+      case www:
+        result = checkArguments(args, type);
 
-  public class Int extends DefaultValueArgument<Integer> {
-
-    public final int _min;
-    public final int _max;
-
-    public Int(String name, String help) {
-      this(name,help, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
+  }
 
-    public Int(String name, String help, int min, int max) {
-      super(name, help);
-      _min = min;
-      _max = max;
-    }
 
-    public Int(String name, int defaultValue, String help) {
-      this(name, defaultValue, help, Integer.MIN_VALUE, Integer.MAX_VALUE);
-    }
+  private static final String _queryHtml =
+            "<h3>Request %REQ_NAME</h3>"
+          + "<p>Please specify the arguments for the request. If you have"
+          + " already specified them, but they are wrong, or missing,"
+          + " appropriate errors are displayed next to the form inputs.</p>"
+          + "<p>Required fields are denoted by a red asterisk"
+          + " <span style='color:#ffc0c0'>*</span></p>."
+          + "<p><a href='%REQ_NAME.help'>Request help</a></p>"
+          + "<form>"
+          + "  <div class='control-group'><div class='controls'>"
+          + "    <input type='submit' class='btn btn-primary' value='Send request' />"
+          + "    <input type='reset' class='btn' value='Clear' />"
+          + "  </div></div>"
+          + "  %ARG_INPUT_HTML{"
+          + "  %ERROR"
+          + "  <div class='control-group'>"
+          + "    <label class='control-label' for='%ARG_NAME'>%ARG_ASTERISK %ARG_HELP</label>"
+          + "    <div class='controls'>"
+          + "      %ARG_INPUT_CONTROL"
+          + "    </div>"
+          + "  </div>"
+          + "  }"
+          + "  <div class='control-group'><div class='controls'>"
+          + "    <input type='submit' class='btn btn-primary' value='Send request' />"
+          + "    <input type='reset' class='btn' value='Clear' />"
+          + "  </div></div>"
+          + "</form>"
+          ;
 
-    public Int(String name, int defaultValue, String help, int min, int max) {
-      super(name, defaultValue, help);
-      _min = min;
-      _max = max;
-    }
-
-    @Override protected Integer parse(String input) throws Exception {
-      int result;
+  private String checkArguments(Properties args, RequestType type) {
+    _originalArguments.set(new Properties());
+    _checkedArguments.set(new HashMap());
+    for (Argument arg: _arguments) {
       try {
-        result = Integer.parseInt(input);
-      } catch (NumberFormatException e) {
-        throw new Exception(input+" is not a valid integer");
+        arg.check(args.getProperty(arg._name,""));
+      } catch (IllegalArgumentException e) {
+        return jsonError("Argument "+arg._name+" error: "+e.getMessage()).toString();
       }
-      if ((result<_min) || (result>_max))
-        throw new Exception(input+" is not from "+_min+" to "+_max+" (inclusive)");
-      return result;
-    }
-
-    @Override public String description() {
-      if ((_min == Integer.MIN_VALUE) && (_max == Integer.MAX_VALUE))
-        return "any integer number";
-      return "integer from "+_min+" to "+_max+" (inclusive)";
     }
   }
 
-  // ---------------------------------------------------------------------------
+  protected String buildQuery(Properties args) {
+    RString query = new RString(_queryHtml);
+    query.replace("REQ_NAME", this.getClass().getSimpleName());
+    for (Argument arg: _arguments) {
+      RString input = query.restartGroup("ARG_INPUT_HTML");
+      input.replace("ARG_NAME",arg._name);
+      input.replace("ARG_ASTERISK", DOM.color( arg._required ? "#ff0000" : "#ffffff", "*"));
+      input.replace("ARG_HELP", arg.help());
+      if (! args.isEmpty()) {
+        try {
+          arg.check(args.getProperty(arg._name,""));
+        } catch (IllegalArgumentException e) {
+          input.replace("ERROR","Error: "+e.getMessage());
+        }
+      }
+      input.replace("ARG_INPUT_CONTROL", arg.query());
+    }
+    return query.toString();
+  }
 
-  /** Real argument
+
+  /** Serves the help of the request page.
    *
    */
-  public class Real extends DefaultValueArgument<Double> {
-
-    public final Double _min;
-    public final Double _max;
-
-    public Real(String name, String help) {
-      this(name, help, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-    }
-
-    public Real(String name, String help, double min, double max) {
-      super(name, help);
-      _min = min;
-      _max = max;
-    }
-
-    public Real(String name, double defaultValue, String help) {
-      this(name, defaultValue, help, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-    }
-
-    public Real(String name, double defaultValue, String help, double min, double max) {
-      super(name, defaultValue, help);
-      _min = min;
-      _max = max;
-    }
-
-    @Override
-    protected Double parse(String input) throws Exception {
-      double result;
-      try {
-        result = Double.parseDouble(input);
-      } catch (NumberFormatException e) {
-        throw new Exception(input+" is not a valid real number");
-      }
-      if ((result<_min) || (result>_max))
-        throw new Exception(input+" is not from "+_min+" to "+_max+" (inclusive)");
-      return result;
-    }
-
-    @Override
-    public String description() {
-      if ((_min == Double.NEGATIVE_INFINITY) && (_max == Double.POSITIVE_INFINITY))
-        return "any real number";
-      return "real number from "+_min+" to "+_max+" (inclusive)";
-    }
+  private String serveHelp() {
+    return "NOT IMPLEMENTED YET";
   }
 
-  // ---------------------------------------------------------------------------
-
-  /** Boolean argument.
+  /** Serves the wiki of the request page.
    *
    */
-  public class Bool extends DefaultValueArgument<Boolean> {
+  private String serveWiki() {
 
-    // is always optional, default is always false
-    public Bool(String name, String help) {
-      super(name, false, help);
-    }
-
-    @Override protected Boolean parse(String input) throws Exception {
-      if (input.equals("1"))
-        return true;
-      if (input.equals("0"))
-        return false;
-      throw new Exception("value "+input+" is not boolean (1 or 0 accepted only)");
-    }
-
-    @Override public String description() {
-      return super.help();
-    }
-
-    @Override public String help() {
-      return "";
-    }
-
-    @Override protected String query() {
-      return DOM.checkbox(_name, value(), description());
-    }
+    return "NOT IMPLEMENTED YET";
   }
 
-  // ---------------------------------------------------------------------------
 
-  public class H2OKey extends DefaultValueArgument<Key> {
 
-    public H2OKey(String name, String help) {
-      super(name, help);
-    }
+  // ===========================================================================
+  // Helpers
+  // ===========================================================================
 
-    public H2OKey(String name, String keyName, String help) {
-      super(name, Key.make(keyName), help);
-    }
-
-    public H2OKey(String name, Key key, String help) {
-      super(name, key, help);
-    }
-
-    @Override protected Key parse(String input) throws Exception {
-      return Key.make(input);
-    }
-
-    @Override public String description() {
-      // TODO what actually is a valid key name? I know I should now, but it is
-      // better to have tests for it:)
-      return "a valid H2O key name";
-    }
+  protected static JsonObject jsonError(String error) {
+    JsonObject result = new JsonObject();
+    result.addProperty(JSON_ERROR, error);
+    return result;
   }
-
-  // ---------------------------------------------------------------------------
-
-  public class H2OExistingKey extends Argument<Value> {
-
-    // IS ALWAYS REQUIRED
-    public H2OExistingKey(String name, String help) {
-      super(name, true, help);
-    }
-
-    @Override protected Value parse(String input) throws Exception {
-      Key k = Key.make(input);
-      Value v = DKV.get(k);
-      if (v == null)
-        throw new Exception("key "+input+" does not exist");
-      return v;
-    }
-
-    @Override public String description() {
-      return "an existing H2O key";
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-
-  public class H2OValueArrayKey extends Argument<ValueArray> {
-
-    // IS ALWAYS REQUIRED
-    public H2OValueArrayKey(String name, String help) {
-      super(name, true, help);
-    }
-
-    @Override protected ValueArray parse(String input) throws Exception {
-      Key k = Key.make(input);
-      Value v = DKV.get(k);
-      if (v == null)
-        throw new Exception("key "+input+" does not exist!");
-      if (!(v instanceof ValueArray))
-        throw new Exception("key "+input+" does not point to a HEX file");
-      return (ValueArray)v;
-    }
-
-    @Override public String description() {
-      // TODO how do we call these keys for customers?
-      return "an existing hex key";
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-
-
 
 
 }
