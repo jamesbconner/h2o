@@ -79,7 +79,7 @@ class Basic(unittest.TestCase):
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
-        for trial in range(20):
+        for trial in range(40):
             # default
             colX = 0 
             # form random selections of RF parameters
@@ -103,8 +103,13 @@ class Basic(unittest.TestCase):
             print kwargs
             
             start = time.time()
-            glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
+            glm = h2o_cmd.runGLMOnly(timeoutSecs=150, parseKey=parseKey, **kwargs)
             simpleCheckGLM(glm,colX)
+            # FIX! I suppose we have the problem of stdout/stderr not having flushed?
+            # should hook in some way of flushing the remote node stdout/stderr
+            if (h2o.check_sandbox_for_errors()):
+                raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
+
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 

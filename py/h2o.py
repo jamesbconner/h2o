@@ -347,6 +347,9 @@ def check_sandbox_for_errors():
         
             sandFile.close()
 
+    return (printing!=0) # can test and cause exception
+
+
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
     try:
