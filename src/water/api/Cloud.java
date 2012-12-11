@@ -77,14 +77,6 @@ public class Cloud extends Request {
     response.add(JSON_NODES,nodes);
   }
 
-  @Override protected void createHTMLBuilders(HTMLBuilder builder) {
-    builder.setBuilder(JSON_NODES+"."+JSON_NODES_NAME, builder.new LinkTableCellBuilder() {
-      @Override protected String makeHref(JsonElement value) {
-        return "Remote.html?node="+DOM.urlEncode(value.getAsString());
-      }
-    });
-  }
-
   public static String pos_neg(double d) {
     return d >= 0 ? String.valueOf(d) : "n/a";
   }

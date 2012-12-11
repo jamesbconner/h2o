@@ -59,6 +59,9 @@ public class DOM {
   public static String td(String innerHTML) {
     return "<td>" + innerHTML + "</td>";
   }
+  public static String th(String innerHTML) {
+    return "<th>" + innerHTML + "</th>";
+  }
 
   public static String urlEncode(String what) {
     try {

@@ -22,9 +22,9 @@ public class PutValue extends Request {
   public static final String JSON_VALUE_SIZE = "value_size";
   public static final String JSON_RF = "rf";
 
-  protected final KeyArgument _key = new KeyArgument(HTTP_KEY,"Key");
-  protected final StringArgument _value = new StringArgument(HTTP_VALUE,"Value");
-  protected final IntegerArgument _rf = new IntegerArgument(HTTP_RF,0,256,2,"Replication factor");
+  protected final H2OKey _key = new H2OKey(HTTP_KEY,"Key");
+  protected final Str _value = new Str(HTTP_VALUE,"Value");
+  protected final Int _rf = new Int(HTTP_RF,2,"Replication factor",0,255);
 
   @Override public void serve(JsonObject response) {
     Key k = Key.make(_key.value()._kb, (byte) (int)_rf.value());

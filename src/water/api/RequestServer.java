@@ -25,11 +25,11 @@ public class RequestServer extends NanoHTTPD {
 
   // initialization ------------------------------------------------------------
   static {
-    _http404 = registerRequest(new HTTP404(), HTTP404.NAME);
-    _http500 = registerRequest(new HTTP500(), HTTP500.NAME);
+    _http404 = registerRequest(new HTTP404());
+    _http500 = registerRequest(new HTTP500());
     Request.addToNavbar(registerRequest(new Cloud()),"Cloud");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
-    Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
+ //   Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
 
 
 
@@ -39,21 +39,13 @@ public class RequestServer extends NanoHTTPD {
   /** Registers the request with the request server.
    *
    * returns the request so that it can be further updated.
-   *
-   * @param req
-   * @param href
-   * @return
    */
-  protected static Request registerRequest(Request req, String href) {
-    assert (! href.endsWith(HTML_EXT)) : "Hrefs of webpages should not end with .html";
-    assert (! _requests.containsKey(href)) : "Request with href "+href+" already registered";
-    req.setHref(href);
-    _requests.put(href,req);
-    return req;
-  }
 
   protected static Request registerRequest(Request req) {
-    return registerRequest(req, req.getClass().getSimpleName());
+    String href = req.getClass().getSimpleName();
+    assert (! _requests.containsKey(href)) : "Request with href "+href+" already registered";
+    _requests.put(href,req);
+    return req;
 
   }
 
@@ -77,20 +69,18 @@ public class RequestServer extends NanoHTTPD {
 
   // uri serve -----------------------------------------------------------------
 
-  public static final String HTML_EXT = ".html";
 
   @Override public NanoHTTPD.Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
     // Jack priority for user-visible requests
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
     // update arguments and determine control variables
     if (uri.isEmpty()) uri = "/";
-    boolean isHTML = uri.equals("/") || uri.endsWith(HTML_EXT);
-    // get rid of the .html suffix
-    if (uri.endsWith(HTML_EXT))
-      uri = uri.substring(0,uri.length()-HTML_EXT.length());
+    // determine the request type
+    Request.RequestType type = Request.RequestType.requestType(uri);
+    String requestName = type.requestName(uri);
     try {
       // determine if we have known resource
-      Request request = _requests.get(uri.substring(1));
+      Request request = _requests.get(requestName);
       // if the request is not know, treat as resource request, or 404 if not
       // found
       if (request == null)
@@ -98,12 +88,12 @@ public class RequestServer extends NanoHTTPD {
       // otherwise unify get & post arguments
       parms.putAll(files);
       // call the request
-      return request.dispatch(this,parms,isHTML);
+      return request.serve(this,parms,type);
     } catch (Exception e) {
       e.printStackTrace();
       // make sure that no Exception is ever thrown out from the request
       parms.setProperty(Request.JSON_ERROR,e.getMessage());
-      return _requests.get(_http500.href()).dispatch(this,parms,isHTML);
+      return _http500.serve(this,parms,type);
     }
   }
 
@@ -132,7 +122,7 @@ public class RequestServer extends NanoHTTPD {
       // make sure that no Exception is ever thrown out from the request
       Properties parms = new Properties();
       parms.setProperty(Request.JSON_ERROR,uri);
-      return _requests.get(_http404.href()).dispatch(this,parms,true);
+      return _http404.serve(this,parms,Request.RequestType.www);
     }
     String mime = NanoHTTPD.MIME_DEFAULT_BINARY;
     if (uri.endsWith(".css"))

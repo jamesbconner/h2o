@@ -57,7 +57,10 @@ public class RequestStatics {
      * request suffix.
      */
     public String requestName(String requestUrl) {
-      return requestUrl.substring(0, requestUrl.length()-_suffix.length());
+      String result = requestUrl.substring(0, requestUrl.length()-_suffix.length());
+      if (result.charAt(0) == '/')
+        return result.substring(1);
+      return result;
     }
   }
 

@@ -37,14 +37,14 @@ public class RequestQueries extends RequestArguments {
   }
 
   private static final String _queryHtml =
-            "<h3>Request %REQ_NAME</h3>"
+            "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.html.help'>help</a> )</h3>"
           + "<p>Please specify the arguments for the request. If you have"
           + " already specified them, but they are wrong, or missing,"
           + " appropriate errors are displayed next to the form inputs.</p>"
           + "<p>Required fields are denoted by a red asterisk"
-          + " <span style='color:#ffc0c0'>*</span></p>."
-          + "<p><a href='%REQ_NAME.help'>Request help</a></p>"
-          + "<form>"
+          + " <span style='color:#ff0000'>*</span>.</p>"
+          + "<p></p>"
+          + "<form class='form-horizontal'>"
           + "  <div class='control-group'><div class='controls'>"
           + "    <input type='submit' class='btn btn-primary' value='Send request' />"
           + "    <input type='reset' class='btn' value='Clear' />"
@@ -74,16 +74,17 @@ public class RequestQueries extends RequestArguments {
     for (Argument arg: _arguments) {
       RString input = query.restartGroup("ARG_INPUT_HTML");
       input.replace("ARG_NAME",arg._name);
-      input.replace("ARG_ASTERISK", DOM.color( arg._required ? "#ff0000" : "#ffffff", "*"));
+      input.replace("ARG_ASTERISK", DOM.color("*", arg._required ? "#ff0000" : "#ffffff"));
       input.replace("ARG_HELP", arg.help());
       if (! args.isEmpty()) {
         try {
           arg.check(args.getProperty(arg._name,""));
         } catch (IllegalArgumentException e) {
-          input.replace("ERROR","Error: "+e.getMessage());
+          input.replace("ERROR",DOM.error("Error: "+e.getMessage()));
         }
       }
       input.replace("ARG_INPUT_CONTROL", arg.query());
+      input.append();
     }
     return query.toString();
   }
