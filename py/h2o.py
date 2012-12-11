@@ -314,14 +314,14 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
 def check_sandbox_for_errors():
-    # dump any assertion or error line to the screen
+    # Dump any assertion or error line to the screen
     # Both "passing" and failing tests??? I guess that's good.
     # If timeouts are tuned reasonably, we'll get here quick
     # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
 
     # if you find a problem, just keep printing till the end
-    # in that file. Could move this to per-test teardown
-    # but the stdout/stderr is shared for the entire cloud session?
+    # in that file. 
+    # The stdout/stderr is shared for the entire cloud session?
     # so don't want to dump it multiple times?
     for filename in os.listdir(LOG_DIR):
         if re.search('stdout|stderr',filename):
@@ -330,13 +330,21 @@ def check_sandbox_for_errors():
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
             regex = re.compile('exception|error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
-            found = False
+            printing = 0
             for line in sandFile:
-                if not found:
-                    found = regex.search(line) and ('error rate' not in line)
-                if found:
+                newFound = regex.search(line) and ('error rate' not in line)
+                if (printing==0 and newFound):
+                    printing = 1
+                elif (printing==1):
+                    # if we've been printing, stop when you get to another error
+                    # we don't care about seeing multiple prints scroll off the screen
+                    if (newFound):
+                        printing = 2 
+
+                if (printing==1):
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
+        
             sandFile.close()
 
 def tear_down_cloud(node_list=None):
