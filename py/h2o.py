@@ -69,7 +69,7 @@ def parse_our_args():
     # We want this to be standard, always (note -f for unittest, nose uses -x?)
     # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
     # kbn: disabling failfast until we fix jenkins
-    sys.argv[1:] = ['-v'] + args.unittest_args
+    sys.argv[1:] = ['-v', "--failfast"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
     if verbose:
