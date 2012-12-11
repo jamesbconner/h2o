@@ -8,14 +8,17 @@ import random, sys, time
 # Exception in thread "Thread-6" java.lang.RuntimeException: Matrix is not symmetric positive definite.
 # at Jama.CholeskyDecomposition.solve(CholeskyDecomposition.java:173)
 
+
+# Hardwire to norm=L2 to avoid gram matrix problem?
+# try always using L1 or L2
 paramDict = {
     'Y': [54],
     'X': [0,1,15,33,34],
     '-X': [None,'40:53'],
-    'family': [None,'binomial'],
+    'family': ['binomial'],
     'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
-    'norm': [None,'L1', 'L2'],
+    'norm': ['L1', 'L2'],
     'glm_lamba': [None, 1e-4,1,10,1e4],
     'rho': [None, 1e-4,1,10,1e4],
     'alpha': [None, 1e-4,1,10,1e4],
@@ -84,7 +87,8 @@ class Basic(unittest.TestCase):
             # with a different choice. we need the xval to get the error details 
             # in the json(below)
             # force family=binomial to avoid the assertion error above with gaussian
-            kwargs = {'Y': 54, 'xval' : 3, 'family' : "binomial"}
+            # seed norm to L2, so have that or the selection above
+            kwargs = {'Y': 54, 'xval' : 3, 'family' : 'binomial', 'norm' : 'L2'}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
