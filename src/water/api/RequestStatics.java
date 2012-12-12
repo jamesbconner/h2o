@@ -17,6 +17,22 @@ public class RequestStatics {
   public static final String JSON_VALUE = "value";
   public static final String JSON_VALUE_SIZE = "value_size";
   public static final String JSON_RF = "rf";
+  public static final String JSON_DATA_KEY = "key";
+  public static final String JSON_NUM_TREES = "ntree";
+  public static final String JSON_DEPTH = "depth";
+  public static final String JSON_SAMPLE = "sample";
+  public static final String JSON_BIN_LIMIT = "bin_limit";
+  public static final String JSON_GINI = "gini";
+  public static final String JSON_SEED = "seed";
+  public static final String JSON_PARALLEL = "parallel";
+  public static final String JSON_MODEL_KEY = "model_key";
+  public static final String JSON_CLASS = "class";
+  public static final String JSON_IGNORE = "ignore";
+  public static final String JSON_OOBEE = "oobee";
+  public static final String JSON_FEATURES = "features";
+  public static final String JSON_STRATIFY = "stratify";
+  public static final String JSON_STRATA = "strata";
+  public static final String JSON_WEIGHTS = "classWt";
 
 
 

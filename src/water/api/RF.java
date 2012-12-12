@@ -17,23 +17,6 @@ import water.web.*;
  */
 public class RF extends Request {
 
-  public static final String JSON_DATA_KEY = "key";
-  public static final String JSON_NUM_TREES = "ntree";
-  public static final String JSON_DEPTH = "depth";
-  public static final String JSON_SAMPLE = "sample";
-  public static final String JSON_BIN_LIMIT = "bin_limit";
-  public static final String JSON_GINI = "gini";
-  public static final String JSON_SEED = "seed";
-  public static final String JSON_PARALLEL = "parallel";
-  public static final String JSON_MODEL_KEY = "model_key";
-  public static final String JSON_CLASS = "class";
-  public static final String JSON_IGNORE = "ignore";
-  public static final String JSON_OOBEE = "oobee";
-  public static final String JSON_FEATURES = "features";
-  public static final String JSON_STRATIFY = "stratify";
-  public static final String JSON_STRATA = "strata";
-  public static final String JSON_WEIGHTS = "classWt";
-
   protected final H2OValueArrayKey _dataKey = new H2OValueArrayKey(JSON_DATA_KEY,"Data key");
   protected final H2OKeyCol _classCol = new H2OKeyCol(_dataKey,JSON_CLASS,"Class column:");
   protected final Int _numTrees = new Int(JSON_NUM_TREES,50,"Number of trees to build",0,Integer.MAX_VALUE);
@@ -63,7 +46,7 @@ public class RF extends Request {
     float sample = _sample.value() / 100f;
     double[] weights = _weights.value();
     try {
-    DRF drf = hex.rf.DRF.web_main(
+      DRF drf = hex.rf.DRF.web_main(
               ary,
               _numTrees.value(),
               _depth.value(),

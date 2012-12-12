@@ -151,6 +151,7 @@ public class RequestArguments extends RequestStatics {
           parsed = true;
         }
       } catch (Exception e) {
+        e.printStackTrace();
         throw new IllegalArgumentException(e.getMessage());
       } finally {
         if (!parsed) {
@@ -566,7 +567,7 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected double[] parse(String input) throws Exception {
       ValueArray ary = _key.notNullValue();
-      int col = _col.value();
+      int col = _col.notNullValue();
       double[] result = determineClassWeights(input,ary,col,4096);
       return result;
     }
