@@ -52,6 +52,11 @@ public class RequestArguments extends RequestStatics {
    */
   public abstract class Argument<T> {
 
+    /** Fill in this string to have it displayed at the help page generated
+     * automatically by the framework.
+     */
+    public String _requestHelp = null;
+
     /** Override this method to determine how the arguent's value in Java is
      * parsed from the text input.
      *
@@ -114,6 +119,19 @@ public class RequestArguments extends RequestStatics {
       return _help;
     }
 
+    /** Creates the request help page part for the given argument. Displays its
+     * JSON name, query name (the one in HTML), value type and the request help
+     * provided by the argument.
+     */
+    public void requestHelp(StringBuilder sb) {
+      sb.append(DOM.h4(_name+DOM.color("*", _required ? "#ff0000" : "#ffffff")));
+      sb.append(DOM.dlHorizontal("JSON name",_name));
+      sb.append(DOM.dlHorizontal("Query name",_help));
+      sb.append(DOM.dlHorizontal("Value type",description()));
+      if (_requestHelp != null)
+        sb.append(DOM.dlHorizontal(" ",_requestHelp));
+    }
+
     /** Checks and parses the value of the argument.
      *
      * Checks the argument and attempts to parse it to a proper object. If any
@@ -151,7 +169,7 @@ public class RequestArguments extends RequestStatics {
           parsed = true;
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        //e.printStackTrace();
         throw new IllegalArgumentException(e.getMessage());
       } finally {
         if (!parsed) {
@@ -457,9 +475,23 @@ public class RequestArguments extends RequestStatics {
       // better to have tests for it:)
       return "a valid H2O key name";
     }
+
   }
 
   // ---------------------------------------------------------------------------
+
+  private static final String _h2oKeyTypeahead =
+            "<script type='text/javascript'>"
+          + "$('#%ID').typeahead({"
+          + "  source:"
+          + "    function(query,process) {"
+          + "      return $.get('/WWWKeys.json', { filter: query }, function (data) {"
+          + "        return process(data.keys);"
+          + "      });"
+          + "    }"
+          + "});"
+          + "</script>"
+          ;
 
   public class H2OExistingKey extends Argument<Value> {
 
@@ -479,14 +511,33 @@ public class RequestArguments extends RequestStatics {
     @Override public String description() {
       return "an existing H2O key";
     }
+
+    @Override protected String query() {
+      String s = super.query();
+      s += _h2oKeyTypeahead.replace("%ID",_name);
+      return s;
+    }
   }
 
   // ---------------------------------------------------------------------------
 
-  public class H2OValueArrayKey extends Argument<ValueArray> {
+  private static final String _h2oHexKeyTypeahead =
+            "<script type='text/javascript'>"
+          + "$('#%ID').typeahead({"
+          + "  source:"
+          + "    function(query,process) {"
+          + "      return $.get('/WWWHexKeys.json', { filter: query }, function (data) {"
+          + "        return process(data.keys);"
+          + "      });"
+          + "    }"
+          + "});"
+          + "</script>"
+          ;
+
+  public class H2OHexKey extends Argument<ValueArray> {
 
     // IS ALWAYS REQUIRED
-    public H2OValueArrayKey(String name, String help) {
+    public H2OHexKey(String name, String help) {
       super(name, true, help);
     }
 
@@ -504,6 +555,12 @@ public class RequestArguments extends RequestStatics {
       // TODO how do we call these keys for customers?
       return "an existing hex key";
     }
+
+    @Override protected String query() {
+      String s = super.query();
+      s += _h2oHexKeyTypeahead.replace("%ID",_name);
+      return s;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -514,14 +571,14 @@ public class RequestArguments extends RequestStatics {
    *
    */
   public class H2OKeyCol extends DefaultValueArgument<Integer> {
-    protected final H2OValueArrayKey _key;
+    protected final H2OHexKey _key;
 
-    public H2OKeyCol(H2OValueArrayKey key, String name, String help) {
+    public H2OKeyCol(H2OHexKey key, String name, String help) {
       super(name,help);
       _key = key;
     }
 
-    public H2OKeyCol(H2OValueArrayKey key, String name, int defaultValue, String help) {
+    public H2OKeyCol(H2OHexKey key, String name, int defaultValue, String help) {
       super(name, defaultValue, help);
       _key = key;
     }
@@ -553,10 +610,10 @@ public class RequestArguments extends RequestStatics {
     public final double _defaultValue;
     public final double _min;
     public final double _max;
-    public final H2OValueArrayKey _key;
+    public final H2OHexKey _key;
     public final H2OKeyCol _col;
 
-    public H2OCategoryDoubles(H2OValueArrayKey key, H2OKeyCol col, String name, double defaultValue, String help, double min, double max) {
+    public H2OCategoryDoubles(H2OHexKey key, H2OKeyCol col, String name, double defaultValue, String help, double min, double max) {
       super(name, false, help);
       _key = key;
       _col = col;
@@ -667,9 +724,9 @@ public class RequestArguments extends RequestStatics {
 
   public class H2OKeyCols extends DefaultValueArgument<int[]> {
 
-    public final H2OValueArrayKey _key;
+    public final H2OHexKey _key;
 
-    public H2OKeyCols(H2OValueArrayKey key, String name, int[] defaultValue, String help) {
+    public H2OKeyCols(H2OHexKey key, String name, int[] defaultValue, String help) {
       super(name,defaultValue,help);
       _key = key;
     }

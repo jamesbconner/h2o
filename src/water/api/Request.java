@@ -50,7 +50,14 @@ public abstract class Request extends RequestFormatters {
   }
 
   private String serveHelp() {
-    return "HELP NOT IMPLEMENTED YET";
+    StringBuilder sb = new StringBuilder();
+    String requestName = getClass().getSimpleName();
+    sb.append(DOM.h3(requestName));
+    if (_requestHelp != null)
+      sb.append(DOM.p(_requestHelp));
+    for (Argument arg : _arguments)
+      arg.requestHelp(sb);
+    return sb.toString();
   }
 
   private String serveWiki() {

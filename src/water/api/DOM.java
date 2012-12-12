@@ -87,6 +87,9 @@ public class DOM {
   public static String h3(String name) {
     return "<h3>"+name+"</h3>";
   }
+  public static String h4(String name) {
+    return "<h4>"+name+"</h4>";
+  }
 
   public static String textInput(String name, String value, String placeholder) {
     return "<input class='span5' type='text' name='"+name+"' id='"+name+"' placeholder='"+placeholder+"' "+ (((value!=null) && (!value.isEmpty())) ? (" value='"+value+"' />") : "/>");

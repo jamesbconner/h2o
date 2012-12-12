@@ -33,6 +33,9 @@ public class RequestStatics {
   public static final String JSON_STRATIFY = "stratify";
   public static final String JSON_STRATA = "strata";
   public static final String JSON_WEIGHTS = "classWt";
+  public static final String JSON_FILTER = "filter";
+  public static final String JSON_KEYS = "keys";
+  public static final String JSON_LIMIT = "limit";
 
 
 
@@ -41,10 +44,10 @@ public class RequestStatics {
    *
    * Requests can have multiple types. Basic types include the plain json type
    * in which the result is returned as a JSON object, a html type that acts as
-   * the webpage, or the html.help type that displays the extended help for the
+   * the webpage, or the help type that displays the extended help for the
    * request.
    *
-   * The html.wiki type is also added that displays the markup of the wiki that
+   * The wiki type is also added that displays the markup of the wiki that
    * should be used to document the request as per Matt's suggestion.
    *
    * NOTE the requests are distinguished by their suffixes. Please make the
@@ -54,8 +57,9 @@ public class RequestStatics {
   public static enum RequestType {
     json(".json"), ///< json type request, a result is a JSON structure
     www(".html"), ///< webpage request
-    help(".html.help"), ///< should display the help on the given request
-    wiki(".html.wiki") ///< displays the help for the given request in a markup for wiki
+    help(".help"), ///< should display the help on the given request
+    wiki(".wiki"), ///< displays the help for the given request in a markup for wiki
+    query(".query"), ///< fDisplays the query for the argument in html mode
     ;
     /** Suffix of the request - extension of the URL.
      */
@@ -74,6 +78,8 @@ public class RequestStatics {
       if (requestUrl.endsWith(help._suffix))
         return help;
       if (requestUrl.endsWith(wiki._suffix))
+        return wiki;
+      if (requestUrl.endsWith(query._suffix))
         return wiki;
       return json;
     }

@@ -17,7 +17,7 @@ import water.web.*;
  */
 public class RF extends Request {
 
-  protected final H2OValueArrayKey _dataKey = new H2OValueArrayKey(JSON_DATA_KEY,"Data key");
+  protected final H2OHexKey _dataKey = new H2OHexKey(JSON_DATA_KEY,"Data key");
   protected final H2OKeyCol _classCol = new H2OKeyCol(_dataKey,JSON_CLASS,"Class column:");
   protected final Int _numTrees = new Int(JSON_NUM_TREES,50,"Number of trees to build",0,Integer.MAX_VALUE);
   protected final Int _depth = new Int(JSON_DEPTH,0,"Max tree depth",0,Integer.MAX_VALUE);
