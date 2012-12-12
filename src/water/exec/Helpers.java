@@ -264,19 +264,19 @@ class DeepSingleColumnAssignment extends MRTask {
     for (int i = 0; i < chunkRows; ++i) {
       switch (colSize) {
         case 1:
-          bits[offset] = (byte) vFrom.data(i+row,_colIndex);
+          bits[offset] = (byte) vFrom.datad(i+row,_colIndex);
           offset += 1;
           break;
         case 2:
-          UDP.set2(bits,offset, (int) vFrom.data(i+row,_colIndex));
+          UDP.set2(bits,offset, (int) vFrom.datad(i+row,_colIndex));
           offset += 2;
           break;
         case 4:
-          UDP.set4(bits,offset, (int) vFrom.data(i+row,_colIndex));
+          UDP.set4(bits,offset, (int) vFrom.datad(i+row,_colIndex));
           offset += 4;
           break;
         case 8:
-          UDP.set8(bits,offset, vFrom.data(i+row,_colIndex));
+          UDP.set8(bits,offset, (long) vFrom.datad(i+row,_colIndex));
           offset += 8;
           break;
         case -8:
