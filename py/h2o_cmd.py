@@ -2,39 +2,44 @@ import os, json, unittest, time, shutil, sys
 import h2o
 import h2o_browse as h2b
 
-def parseFile(node=None, csvPathname=None, key=None, timeoutSecs=20):
+def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20):
     if not csvPathname: raise Exception('No file name specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname, key=key)
-    return node.parse(put['key'], put['key']+'.hex', timeoutSecs)
+    if key2 is None:
+        # don't rely on h2o default key name
+        myKey2 = put['key'] + '.hex'
+    else:
+        myKey2 = key2
+    return node.parse(put['key'], myKey2, timeoutSecs)
 
-# don't need X..H2O default is okay (all X), but can pass it as kwargs
+# since we'll be doing lots of execs on a parsed file, not useful to have parse+exec
+# retryDelaySecs isn't used, 
+def runExecOnly(node=None,parseKey=None,timeoutSecs=20,**kwargs):
+    if not parseKey: raise Exception('No parsed key for Exec specified')
+    if not node: node = h2o.nodes[0]
+    # no such thing as GLMView..don't use retryDelaySecs
+    return node.exec_query(parseKey['Key'], timeoutSecs, **kwargs)
+
 def runGLM(node=None,csvPathname=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):
     parseKey = parseFile(node, csvPathname)
     glm = runGLMOnly(node, parseKey, timeoutSecs, retryDelaySecs,**kwargs)
     return glm
 
-# don't need X..H2O default is okay (all X), but can pass it as kwargs
 def runGLMOnly(node=None,parseKey=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):
-    if not parseKey: raise Exception('No file name for GLM specified')
+    if not parseKey: raise Exception('No parsed key for GLM specified')
     if not node: node = h2o.nodes[0]
-    # FIX! add something like stabilize in RF
-    # we currently don't use the retryDelaySecs
+    # no such thing as GLMView..don't use retryDelaySecs
     return node.GLM(parseKey['Key'], timeoutSecs, **kwargs)
 
-# You can change those on the URL line woth "&colA=77&colB=99"
-# LinReg draws a line from a collection of points.  Only works if you have 2 or more points.
-# will get NaNs if A/B is just one point.
-
-# colA, colB? (kwargs?)
 def runLR(node=None, csvPathname=None, timeoutSecs=20, **kwargs):
     parseKey = parseFile(node, csvPathname)
     return runLROnly(node, parseKey, timeoutSecs, **kwargs)
 
 def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
-    if not parseKey: raise Exception('No file name for LR specified')
+    if not parseKey: raise Exception('No parsed key for LR specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
     return node.linear_reg(parseKey['Key'], timeoutSecs, **kwargs)

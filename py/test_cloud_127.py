@@ -7,7 +7,7 @@ class Basic(unittest.TestCase):
         global nodes
 
         baseport = 54300
-        for tryNodes in range(2,10):
+        for tryNodes in range(2,8):
             sys.stdout.write('.')
             sys.stdout.flush()
 
