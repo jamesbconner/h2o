@@ -55,14 +55,26 @@ public class RequestFormatters extends RequestQueries {
   }
 
   protected String _format(JsonArray ary) {
+    if (ary.size()==0) {
+      return DOM.p("empty");
+    }
     StringBuilder sb = new StringBuilder();
     sb.append("<table class='table table-striped table-bordered'>");
-    sb.append(_tableHeader((JsonObject)ary.get(0)));
-    for (JsonElement e : ary) {
-      sb.append("<tr>");
-      for (Map.Entry<String,JsonElement> entry : ((JsonObject) e).entrySet())
-        sb.append(DOM.td(_format(entry.getValue())));
-      sb.append("</tr>");
+    if (!(ary.get(0) instanceof JsonObject)) {
+      sb.append("<tr>"+DOM.th("Value")+"</tr>");
+      for (JsonElement e : ary) {
+        sb.append("<tr>");
+        sb.append(DOM.td(_format(e)));
+        sb.append("</tr>");
+      }
+    } else {
+      sb.append(_tableHeader((JsonObject)ary.get(0)));
+      for (JsonElement e : ary) {
+        sb.append("<tr>");
+        for (Map.Entry<String,JsonElement> entry : ((JsonObject) e).entrySet())
+          sb.append(DOM.td(_format(entry.getValue())));
+        sb.append("</tr>");
+      }
     }
     sb.append("</table>");
     return sb.toString();

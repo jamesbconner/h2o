@@ -33,6 +33,14 @@ public class RequestServer extends NanoHTTPD {
 
 
 
+
+
+
+
+
+    registerRequest(new WWWKeys());
+
+
     Request.initializeNavBar();
   }
 
