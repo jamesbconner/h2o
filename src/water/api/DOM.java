@@ -45,6 +45,34 @@ public class DOM {
             +"</div>";
   }
 
+  /** Appends the nicely formatted success message. Green. */
+  public static String success(String id, String message) {
+    return "<div id='"+id+"' class='alert alert-success'>"
+            + message
+            +"</div>";
+  }
+
+  /** Appends the nicely formatted info message. Blue. */
+  public static String info(String id, String message) {
+    return "<div id='"+id+"' class='alert alert-info'>"
+            + message
+            +"</div>";
+  }
+
+  /** Appends the nicely formatted warning message. Orange.*/
+  public static String warning(String id, String message) {
+    return "<div id='"+id+"' class='alert'>"
+            + message
+            +"</div>";
+  }
+
+  /** Appends the nicely formatted error message. Red. */
+  public static String error(String id, String message) {
+    return "<div id='"+id+"' class='alert alert-error'>"
+            + message
+            +"</div>";
+  }
+
   /** Returns the horizontal description list. This should be used to display
    * simple JSON values. */
   public static String dlHorizontal(String header, String value) {

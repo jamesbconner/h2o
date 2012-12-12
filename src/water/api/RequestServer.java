@@ -40,6 +40,7 @@ public class RequestServer extends NanoHTTPD {
 
     registerRequest(new WWWKeys());
     registerRequest(new WWWHexKeys());
+    registerRequest(new WWWHexKeyCols());
 
     Request.initializeNavBar();
   }

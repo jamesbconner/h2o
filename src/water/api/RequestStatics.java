@@ -11,6 +11,8 @@ import java.util.regex.Pattern;
 public class RequestStatics {
 
   public static final String JSON_ERROR = "error";
+  public static final String JSON_STATUS = "status";
+  public static final String JSON_STATUS_DONE = "done";
 
 
   public static final String JSON_KEY = "key";
@@ -36,8 +38,12 @@ public class RequestStatics {
   public static final String JSON_FILTER = "filter";
   public static final String JSON_KEYS = "keys";
   public static final String JSON_LIMIT = "limit";
+  public static final String JSON_COLUMNS = "columns";
+  public static final String JSON_CHECKARG_ARG = "__arg__";
 
-
+  public String requestName() {
+    return getClass().getSimpleName();
+  }
 
 
   /** Request type.
@@ -60,6 +66,7 @@ public class RequestStatics {
     help(".help"), ///< should display the help on the given request
     wiki(".wiki"), ///< displays the help for the given request in a markup for wiki
     query(".query"), ///< fDisplays the query for the argument in html mode
+    checkArg(".checkArg"), ///< checks single argument specified by the __arg__ argument
     ;
     /** Suffix of the request - extension of the URL.
      */
@@ -80,7 +87,9 @@ public class RequestStatics {
       if (requestUrl.endsWith(wiki._suffix))
         return wiki;
       if (requestUrl.endsWith(query._suffix))
-        return wiki;
+        return query;
+      if (requestUrl.endsWith(checkArg._suffix))
+        return checkArg;
       return json;
     }
 

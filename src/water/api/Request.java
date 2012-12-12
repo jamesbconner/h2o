@@ -28,6 +28,7 @@ public abstract class Request extends RequestFormatters {
   protected abstract void serve(JsonObject response);
 
 
+
   public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     switch (type) {
       case help:
@@ -44,6 +45,11 @@ public abstract class Request extends RequestFormatters {
         if (type == RequestType.json)
           return wrap(server, result);
         return wrap(server,format(result));
+      case query:
+        query = checkArguments(args, type);
+        return wrap(server,query);
+      case checkArg:
+        return wrap(server,checkSingleArgument(args,args.getProperty(JSON_CHECKARG_ARG)));
       default:
         throw new RuntimeException("Invalid request type "+type.toString());
     }

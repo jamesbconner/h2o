@@ -3,6 +3,7 @@ package water.api;
 
 import java.util.*;
 import water.*;
+import water.web.RString;
 
 /**
  *
@@ -218,7 +219,20 @@ public class RequestArguments extends RequestStatics {
      * method in the HTML query for the argument.
      */
     protected String query() {
-      return DOM.textInput(_name, originalValue(), description());
+      String v = originalValue();
+      if (v.isEmpty()) {
+        T dv = value();
+        if (dv != null)
+          v = dv.toString();
+      }
+      return DOM.textInput(_name, v, description());
+    }
+
+    /** Returns the javascript code required for the given query item. Does not
+     * include javascript tags.
+     */
+    protected String javascript() {
+      return "";
     }
 
     /** Returns the value of the argument if it is not null. If null, throws the
@@ -480,18 +494,26 @@ public class RequestArguments extends RequestStatics {
 
   // ---------------------------------------------------------------------------
 
-  private static final String _h2oKeyTypeahead =
-            "<script type='text/javascript'>"
-          + "$('#%ID').typeahead({"
+  private static final String _h2oKeysJavascript =
+            "$('#%ID').typeahead({"
           + "  source:"
           + "    function(query,process) {"
-          + "      return $.get('/WWWKeys.json', { filter: query }, function (data) {"
+          + "      return $.get('%TYPEAHEAD', { filter: query }, function (data) {"
           + "        return process(data.keys);"
           + "      });"
           + "    }"
           + "});"
-          + "</script>"
+          + "$('#%ID').change( function() {"
+          + "  $.get('%REQUEST_ID.checkArg', { __arg__: '%ID', %ID: $('#%ID').val() }, function (data) {"
+          + "    if (data.error == 'undefined') {"
+          + "      query_show_success('%ID','The argument is correct');"
+          + "    } else {"
+          + "      query_show_error('%ID', data.error);    "
+          + "    }"
+          + "  });"
+          + "});"
           ;
+
 
   public class H2OExistingKey extends Argument<Value> {
 
@@ -512,27 +534,17 @@ public class RequestArguments extends RequestStatics {
       return "an existing H2O key";
     }
 
-    @Override protected String query() {
-      String s = super.query();
-      s += _h2oKeyTypeahead.replace("%ID",_name);
-      return s;
+    @Override protected String javascript() {
+      RString js = new RString(_h2oKeysJavascript);
+      js.replace("REQUEST_ID",requestName());
+      js.replace("ID",_name);
+      js.replace("TYPEAHEAD","WWWKeys.json");
+      return super.javascript() + js.toString();
     }
   }
 
   // ---------------------------------------------------------------------------
 
-  private static final String _h2oHexKeyTypeahead =
-            "<script type='text/javascript'>"
-          + "$('#%ID').typeahead({"
-          + "  source:"
-          + "    function(query,process) {"
-          + "      return $.get('/WWWHexKeys.json', { filter: query }, function (data) {"
-          + "        return process(data.keys);"
-          + "      });"
-          + "    }"
-          + "});"
-          + "</script>"
-          ;
 
   public class H2OHexKey extends Argument<ValueArray> {
 
@@ -548,7 +560,10 @@ public class RequestArguments extends RequestStatics {
         throw new Exception("key "+input+" does not exist!");
       if (!(v instanceof ValueArray))
         throw new Exception("key "+input+" does not point to a HEX file");
-      return (ValueArray)v;
+      ValueArray va = (ValueArray) v;
+      if (va.num_cols()==0)
+        throw new Exception("key "+input+" does not point to a HEX file");
+      return va;
     }
 
     @Override public String description() {
@@ -556,10 +571,12 @@ public class RequestArguments extends RequestStatics {
       return "an existing hex key";
     }
 
-    @Override protected String query() {
-      String s = super.query();
-      s += _h2oHexKeyTypeahead.replace("%ID",_name);
-      return s;
+    @Override protected String javascript() {
+      RString js = new RString(_h2oKeysJavascript);
+      js.replace("REQUEST_ID",requestName());
+      js.replace("ID",_name);
+      js.replace("TYPEAHEAD","WWWHexKeys.json");
+      return super.javascript() + js.toString();
     }
   }
 

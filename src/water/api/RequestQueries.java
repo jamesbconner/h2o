@@ -1,6 +1,7 @@
 
 package water.api;
 
+import com.google.gson.JsonObject;
 import java.util.HashMap;
 import java.util.Properties;
 import water.web.RString;
@@ -10,6 +11,28 @@ import water.web.RString;
  * @author peta
  */
 public class RequestQueries extends RequestArguments {
+
+
+  protected final JsonObject checkSingleArgument(Properties args, String argName) {
+    _originalArguments.set(new Properties());
+    _checkedArguments.set(new HashMap());
+    JsonObject result = new JsonObject();
+    for (Argument arg: _arguments) {
+      if (arg._name.equals(argName)) {
+        try {
+          arg.check(args.getProperty(arg._name,""));
+          result.addProperty(JSON_STATUS, JSON_STATUS_DONE);
+          return result;
+        } catch (IllegalArgumentException e) {
+          result.addProperty(JSON_ERROR, "Argument "+arg._name+" error: "+e.getMessage());
+          return result;
+        }
+      }
+    }
+    result.addProperty(JSON_ERROR,"Argument "+argName+" not defined for request "+getClass().getSimpleName());
+    return result;
+  }
+
 
   /** Checks the given arguments.
    *
@@ -23,6 +46,8 @@ public class RequestQueries extends RequestArguments {
   protected final String checkArguments(Properties args, RequestType type) {
     _originalArguments.set(new Properties());
     _checkedArguments.set(new HashMap());
+    if (type == RequestType.query)
+      return buildQuery(args);
     for (Argument arg: _arguments) {
       try {
         arg.check(args.getProperty(arg._name,""));
@@ -37,7 +62,8 @@ public class RequestQueries extends RequestArguments {
   }
 
   private static final String _queryHtml =
-            "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
+            "<script type='text/javascript' src='queries.js'></script>"
+          + "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
           + "<p>Please specify the arguments for the request. If you have"
           + " already specified them, but they are wrong, or missing,"
           + " appropriate errors are displayed next to the form inputs.</p>"
@@ -50,13 +76,17 @@ public class RequestQueries extends RequestArguments {
           + "    <input type='reset' class='btn' value='Clear' />"
           + "  </div></div>"
           + "  %ARG_INPUT_HTML{"
-          + "  %ERROR"
-          + "  <div class='control-group'>"
+          + "  <div id='inputQuery_error_%ARG_NAME' class='alert alert-error' style='%ERROR_STYLE'>%ERROR</div>"
+          + "  <div id='inputQuery_notice_%ARG_NAME' class='alert alert-info'>%NOTICE</div>"
+          + "  <div id='inputQuery_controls_%ARG_NAME' class='control-group'>"
           + "    <label class='control-label' for='%ARG_NAME'>%ARG_ASTERISK %ARG_HELP</label>"
           + "    <div class='controls'>"
           + "      %ARG_INPUT_CONTROL"
           + "    </div>"
           + "  </div>"
+          + "  <script type='text/javascript'>"
+          + "  %SCRIPT"
+          + "  </script>"
           + "  }"
           + "  <div class='control-group'><div class='controls'>"
           + "    <input type='submit' class='btn btn-primary' value='Send request' />"
@@ -73,6 +103,7 @@ public class RequestQueries extends RequestArguments {
     query.replace("REQ_NAME", this.getClass().getSimpleName());
     for (Argument arg: _arguments) {
       RString input = query.restartGroup("ARG_INPUT_HTML");
+      input.replace("NOTICE","Not all required arguments for this argument have been specified correctly");
       input.replace("ARG_NAME",arg._name);
       input.replace("ARG_ASTERISK", DOM.color("*", arg._required ? "#ff0000" : "#ffffff"));
       input.replace("ARG_HELP", arg.help());
@@ -80,9 +111,12 @@ public class RequestQueries extends RequestArguments {
         arg.check(args.getProperty(arg._name,""));
       } catch (IllegalArgumentException e) {
         if (! args.isEmpty())
-          input.replace("ERROR",DOM.error("Error: "+e.getMessage()));
+          input.replace("ERROR","Error: "+e.getMessage());
+        else
+          input.replace("ERROR_STYLE","display:none");
       }
       input.replace("ARG_INPUT_CONTROL", arg.query());
+      input.replace("SCRIPT",arg.javascript());
       input.append();
     }
     return query.toString();
