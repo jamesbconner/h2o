@@ -6,7 +6,7 @@ class Basic(unittest.TestCase):
     def test_Cloud(self):
         base_port = 54300
         for trials in range(0,2):
-            for tryNodes in [4,8,10]:
+            for tryNodes in [4,8]:
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
