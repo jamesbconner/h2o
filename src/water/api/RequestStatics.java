@@ -52,7 +52,7 @@ public class RequestStatics {
    * names.
    */
   public static enum RequestType {
-    json(""), ///< json type request, a result is a JSON structure
+    json(".json"), ///< json type request, a result is a JSON structure
     www(".html"), ///< webpage request
     help(".html.help"), ///< should display the help on the given request
     wiki(".html.wiki") ///< displays the help for the given request in a markup for wiki
@@ -82,7 +82,7 @@ public class RequestStatics {
      * request suffix.
      */
     public String requestName(String requestUrl) {
-      String result = requestUrl.substring(0, requestUrl.length()-_suffix.length());
+      String result = (requestUrl.endsWith(_suffix)) ? requestUrl.substring(0, requestUrl.length()-_suffix.length()) : requestUrl;
       if (result.charAt(0) == '/')
         return result.substring(1);
       return result;
