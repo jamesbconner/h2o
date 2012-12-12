@@ -32,6 +32,7 @@ public class Boot extends ClassLoader {
   // javassist support for rewriting class files
   private ClassPool _pool;      // The pool of altered classes
   private CtClass _h2oSerializable;  // The Compile-Time Class for "RemoteTask"
+  private CtClass _h2oSerializableImpl;  // The Compile-Time Class for "RemoteTask"
   private CtClass _remoteTask;  // The Compile-Time Class for "RemoteTask"
 
   static {
@@ -225,6 +226,8 @@ public class Boot extends ClassLoader {
       // We need the RemoteTask CtClass before we can ask "subclassOf"
       if( _h2oSerializable == null )  // Lazily set the RemoteTask CtClass
         _h2oSerializable = _pool.get("init.H2OSerializable");
+      if( _h2oSerializableImpl == null )  // Lazily set the RemoteTask CtClass
+        _h2oSerializableImpl = _pool.get("init.H2OSerializableImpl");
       if(_remoteTask == null){
         _remoteTask = _pool.get("water.RemoteTask");
         _remoteTask.toClass(this, null); // Go ahead and early load it
@@ -281,7 +284,7 @@ public class Boot extends ClassLoader {
     // loading of those superclasses.
     CtMethod ccms[] = cc.getDeclaredMethods();
     if( hasExisting("wire_len","()I",ccms) ) { // Already has serialization methods?
-      assert hasExisting("write","(Ljava/io/DataOutputStream;)V",ccms);
+      assert hasExisting("write","(Ljava/io/DataOutputStream;)V",ccms):cc.toString();
       assert hasExisting("read" ,"(Ljava/io/DataInputStream;)V",ccms);
       assert hasExisting("write","(Lwater/Stream;)V",ccms);
       assert hasExisting("read" ,"(Lwater/Stream;)V",ccms);
@@ -453,8 +456,9 @@ public class Boot extends ClassLoader {
               // ------------------ end of object array -----------------------------------------------------
               "}");
     // Make the class public
-    cc.setModifiers(javassist.Modifier.setPublic(cc.getModifiers()));
 
+    cc.setModifiers(javassist.Modifier.setPublic(cc.getModifiers()));
+    cc.addInterface(_h2oSerializableImpl);
     return cc.toClass(this, null);
   }
 

@@ -1,5 +1,7 @@
 package hex;
 
+import java.util.Arrays;
+
 import hex.RowVecTask.Sampling;
 import init.H2OSerializable;
 import water.*;
@@ -137,6 +139,16 @@ public abstract class Models {
 
     public double getYr(double[] x) {
       return x[x.length - 1];
+    }
+
+    public void addWarning(String s){
+      int n = 0;
+      if(_warnings != null){
+        n = _warnings.length;
+        _warnings = Arrays.copyOf(_warnings, n+1);
+      } else
+        _warnings = new String [1];
+      _warnings[n] = s;
     }
 
     abstract ModelValidation makeValidation();

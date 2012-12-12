@@ -11,6 +11,7 @@ import hex.DGLM.GLM_Params;
 import hex.DGLM.GLSMException;
 import hex.DGLM.Link;
 import hex.DLSM.LSM_Params;
+import hex.DLSM.Norm;
 import hex.Models.ClassifierValidation;
 import hex.Models.ModelValidation;
 
@@ -46,6 +47,66 @@ public class GLM extends H2OPage {
       coefficients.addProperty(colName, beta[i]);
     }
     return coefficients;
+  }
+
+  FamilyArgs getFamilyArgs(Family f, Properties p){
+    FamilyArgs res = null;
+    if(f == Family.binomial){
+      double caseVal = 1.0;
+      double threshold = 0.5;
+      double [] wt = new double[]{1.0,1.0};
+      try{caseVal = Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){throw new GLMInputException("illegal case value" + p.getProperty("case", "1.0"));}
+      if(p.containsKey("weight")){
+        try{wt[1] = Double.valueOf(p.getProperty("weight", "1.0"));}catch(NumberFormatException e){throw new GLMInputException("illegal weight value " + p.getProperty("weight"));}
+      }
+      if(p.containsKey("threshold"))
+        try{threshold = Double.valueOf(p.getProperty("threshold"));}catch(NumberFormatException e){throw new GLMInputException("illegal threshold value " + p.getProperty("threshold"));}
+      res = new BinomialArgs(threshold, caseVal,wt);
+    }
+    return res;
+  }
+  GLM_Params getGLMParams(Properties p){
+    GLM_Params res = new GLM_Params();
+    try{res._family = DGLM.Family.valueOf(p.getProperty("family", "gaussian").toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
+
+    if(p.containsKey("link"))
+     try{res._link = Link.valueOf(p.getProperty("link").toLowerCase());}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
+    else
+      res._link = res._family.defaultLink;
+    if(p.containsKey("ITER"))
+      try{res._maxIter = Integer.valueOf(p.get("ITER").toString());}catch(Exception e){throw new GLMInputException("invalid ITER argument " + p.getProperty("ITER"));}
+    if(p.containsKey("betaEps"))
+      try{res._betaEps = Double.valueOf(p.get("ITER").toString());}catch(Exception e){throw new GLMInputException("invalid ITER argument " + p.getProperty("ITER"));}
+    res._fargs = getFamilyArgs(res._family, p);
+    return res;
+  }
+
+  LSM_Params getLSMParams(Properties p){
+    LSM_Params res = new LSM_Params();
+    if(p.containsKey("norm"))
+      try{res.n = DLSM.Norm.valueOf(p.getProperty("norm"));}catch(IllegalArgumentException e){throw new GLMInputException("unknown norm " + p.getProperty("norm"));}
+    if(res.n != Norm.NONE)
+      if(p.containsKey("lambda"))
+        try{ res.lambda = Double.valueOf(p.getProperty("lambda"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("lambda"));}
+      else
+        res.lambda = 1e-5;
+    if(res.n == Norm.L1 || res.n == Norm.ENET){
+      if(p.containsKey("rho"))
+        try{ res.rho = Double.valueOf(p.getProperty("rho"));}catch(NumberFormatException e){throw new GLMInputException("invalid rho argument " + p.getProperty("rho"));}
+      else
+        res.rho = 0.01;
+      if(p.containsKey("alpha"))
+        try{ res.alpha = Double.valueOf(p.getProperty("alpha"));}catch(NumberFormatException e){throw new GLMInputException("invalid alpha argument " + p.getProperty("alpha"));}
+      else
+        res.alpha = 1.0;
+      if(res.n == Norm.ENET){
+        if(p.containsKey("lambda2"))
+          try{ res.lambda2 = Double.valueOf(p.getProperty("lambda2"));}catch(NumberFormatException e){throw new GLMInputException("invalid alpha argument " + p.getProperty("lambda2"));}
+        else
+          res.lambda2 = 1e-5;
+      }
+    }
+    return res;
   }
 
   @Override
@@ -105,72 +166,32 @@ public class GLM extends H2OPage {
           res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
-      double threshold;
-      try{threshold = Double.valueOf(p.getProperty("threshold", "0.5"));}catch(NumberFormatException e){res.addProperty("error", "invalid threshold value, expected double, found " + p.getProperty("xval"));return res;};
-
-      String method = p.getProperty("family", "gaussian").toLowerCase();
       res.addProperty("key", ary._key.toString());
       res.addProperty("h2o", H2O.SELF.toString());
+
+      GLM_Params glmParams = getGLMParams(p);
+      LSM_Params lsmParams = getLSMParams(p);
+
       long t1 = System.currentTimeMillis();
-      if( method.equals("gaussian") ) res.addProperty("name","Linear regression");
-      else if( method.equals("binomial") )
-        res.addProperty("name", "Logistic regression");
-      DGLM.Family f;
-      try{f = DGLM.Family.valueOf(method.toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + method);}
-      DGLM.Norm norm;
-      try{norm = DGLM.Norm.valueOf(p.getProperty("norm", "NONE"));}catch(IllegalArgumentException e){throw new GLMInputException("unknown norm " + p.getProperty("norm","NONE"));}
-      double lambda = 0.0;
-      double rho = 0;
-      try{ rho = Double.valueOf(p.getProperty("rho", "0.01"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("rho", "0.01"));}
-      double alpha = 1.0;
-      try{ alpha = Double.valueOf(p.getProperty("alpha", "1"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
-      if(norm != DGLM.Norm.NONE)try{ lambda = Double.valueOf(p.getProperty("lambda", "0.1"));}catch(NumberFormatException e){throw new GLMInputException("invalid lambda argument " + p.getProperty("lambda", "0.1"));}
-      Link l = f.defaultLink;
-      if(p.containsKey("link"))
-        try{l = Link.valueOf(p.getProperty("link").toLowerCase());}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
-      if(p.containsKey("link")) {
-        try{l = DGLM.Link.valueOf(p.get("link").toString().toLowerCase());}catch(Exception e){throw new GLMInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
-      }
-      JsonObject jLsmParams = new JsonObject();
-      GLM_Params glmParams = new GLM_Params(f, l);
-      FamilyArgs fargs = null;
-      if(f == Family.binomial){
-        double caseVal = 1.0;
-        double [] wt = new double[]{1.0,1.0};
-        try{caseVal = Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
-        if(p.containsKey("weight")){
-          try{wt[1] = Math.sqrt(Double.valueOf(p.getProperty("weight", "1.0")));}catch(NumberFormatException e){res.addProperty("error", "invalid value of weight, expected positive number, got " + p.getProperty("case")); return res;}
-        }
-        fargs = new BinomialArgs(threshold, caseVal,wt);
-        jLsmParams.addProperty("weights", Arrays.toString(wt));
-      }
-      LSM_Params lsmParams = new LSM_Params(norm,lambda,rho,alpha,1);
-      JsonObject jGlmParams = new JsonObject();
 
-      jGlmParams.addProperty("link", glmParams.link.toString());
-      jGlmParams.addProperty("family", glmParams.family.toString());
-      jGlmParams.addProperty("threshold", threshold);
-      res.add("glmParams", jGlmParams);
 
-      jLsmParams.addProperty("norm", lsmParams.n.toString());
-      jLsmParams.addProperty("lambda", lsmParams.lambda);
-      jLsmParams.addProperty("rho", lsmParams.rho);
-      jLsmParams.addProperty("alpha", lsmParams.alpha);
-      res.add("lsmParams", jLsmParams);
-
-      DGLM glm = new DGLM(glmParams,lsmParams,fargs);
+      DGLM glm = new DGLM(glmParams,lsmParams);
       GLMModel m = glm.trainOn(ary, columns, null);
       if(m._warnings != null){
         JsonArray warnings = new JsonArray();
         for(String w:m._warnings)warnings.add(new JsonPrimitive(w));
         res.add("warnings", warnings);
       }
+      res.addProperty("iterations", m._iterations);
+      res.add("glmParams", glmParams.toJson());
+      res.add("lsmParams", lsmParams.toJson());
       long deltaT = System.currentTimeMillis() - t1;
       res.addProperty("rows",ary.num_rows());
       res.addProperty("time", deltaT);
       res.add("coefficients", getCoefficients(columns, colNames, m.beta()));
-
+      long t = System.currentTimeMillis();
       GLMValidation val = (GLMValidation)m.validateOn(ary._key, null);
+      res.addProperty("validationTime", System.currentTimeMillis()-t);
       if(val != null){
         JsonObject trainingValidation = new JsonObject();
         trainingValidation.addProperty("DegreesOfFreedom", m.n() - 1);
@@ -205,7 +226,7 @@ public class GLM extends H2OPage {
       if(xfactor <= 1)return res;
       if(xfactor > m.n())xfactor = (int)m.n();
       res.addProperty("xfactor", xfactor);
-      res.addProperty("threshold", threshold);
+
       ModelValidation [] vals = Models.crossValidate(glm, xfactor, ary, columns, 20);
       if(vals[0] instanceof Models.BinaryClassifierValidation){
         Models.BinaryClassifierValidation v = (Models.BinaryClassifierValidation)vals[0];
@@ -292,22 +313,23 @@ public class GLM extends H2OPage {
 
   static String getGLMParams(JsonObject glmParams, JsonObject lsmParams){
     StringBuilder bldr = new StringBuilder();
-    bldr.append("<span><b>family: </b>" + glmParams.get("family").getAsString() + "</span>");
-    bldr.append(" <span><b>link: </b>" + glmParams.get("link").getAsString() + "</span> ");
-    String norm = lsmParams.get("norm").getAsString();
-    bldr.append(" <span><b>norm: </b>" + norm + "</span> ");
-    if(norm.equals("L1")){
-      bldr.append(" <span><b>&lambda;: </b>" + lsmParams.get("lambda").getAsString() + "</span> ");
-      bldr.append(" <span><b>&rho;: </b>" + lsmParams.get("rho").getAsString() + "</span> ");
-      bldr.append(" <span><b>&alpha;: </b>" + lsmParams.get("alpha").getAsString() + "</span> ");
-    } else if(norm.equals("L2")){
-      bldr.append(" <span><b>&lambda;: </b>" + lsmParams.get("lambda").getAsString() + "</span> ");
-    }
-    if(lsmParams.has("weights"))
-      bldr.append("<span><b>weights: </b>" + lsmParams.get("weights").getAsString() + "</span>");
-    if(glmParams.has("threshold"))
-      bldr.append("<span><b>decision threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
+    addGLMParamsHTML(glmParams, lsmParams, bldr);
     return bldr.toString();
+  }
+
+  static void addGLMParamsHTML(JsonObject glmParams, JsonObject lsmParams, StringBuilder bldr){
+    bldr.append("<span><b>family: </b>" + glmParams.get("family").getAsString() + "</span>");
+    bldr.append(" <span><b>link: </b>" + glmParams.get("link").getAsString() + "</span>");
+    bldr.append(" <span><b>&epsilon;<sub>&beta;</sub>: </b>" + glmParams.get("betaEps").getAsString() + "</span>");
+    bldr.append(" <span><b>threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
+    String [] params = new String[]{"norm","lambda","lambda2","rho","alpha","weights"};
+    String [] paramHTML = new String[]{"norm","&lambda;<sub>1</sub>","&lambda;<sub>2</sub>","&rho;","&alpha;","weights"};
+    for(int i = 0; i < params.length; ++i){
+      if(!lsmParams.has(params[i]))continue;
+      String s = lsmParams.get(params[i]).getAsString();
+      if(s.equals("0.0"))continue;
+      bldr.append(" <span><b>" + paramHTML[i] + ":</b>" + s + "</span> ");
+    }
   }
 
   static DecimalFormat dformat = new DecimalFormat("###.####");
@@ -343,7 +365,7 @@ public class GLM extends H2OPage {
     // "<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">%AIC_formated</span></div>");
 
     RString responseTemplate = new RString(
-        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a> computed in %time[ms]. %warningMsgs</div>"
+        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a> finished in %iterations iterations. Computed in %time[ms]. %warningMsgs</div>"
             + "<h3>GLM Parameters</h3>"
             + "%parameters"
             + "<h3>Coefficients</h3>"
@@ -376,7 +398,7 @@ public class GLM extends H2OPage {
       JsonArray warnings = (JsonArray)json.get("warnings");
       StringBuilder wBldr = new StringBuilder("<div><b>Warnings:</b>");
       for(JsonElement w:warnings){
-        wBldr.append(w.getAsString());
+        wBldr.append("<div>" + w.getAsString() + "</div>");
       }
       wBldr.append("</div>");
       responseTemplate.replace("warningMsgs",wBldr.toString());
@@ -391,8 +413,8 @@ public class GLM extends H2OPage {
 
     JsonObject x = json.get("coefficients").getAsJsonObject();
     responseTemplate.replace("coefficientHTML",getCoefficientsStr(x));
-    JsonObject glmParams = json.getAsJsonObject("glmParams").getAsJsonObject();
-    JsonObject lsmParams = json.getAsJsonObject("lsmParams").getAsJsonObject();
+    JsonObject glmParams = json.get("glmParams").getAsJsonObject();
+    JsonObject lsmParams = json.get("lsmParams").getAsJsonObject();
 
     responseTemplate.replace("parameters",getGLMParams(glmParams, lsmParams));
     RString m = null;

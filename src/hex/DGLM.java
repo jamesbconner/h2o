@@ -9,9 +9,14 @@ import hex.RowVecTask.DataPreprocessing;
 import hex.RowVecTask.Sampling;
 import init.H2OSerializable;
 
+import java.io.*;
 import java.util.Arrays;
+import java.util.Map.Entry;
 
-import water.ValueArray;
+import water.*;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 
 /**
@@ -31,9 +36,6 @@ import water.ValueArray;
  *
  */
 public class DGLM implements Models.ModelBuilder {
-
-  static final double DEFAULT_EPS = 1e-5;
-  public final static int MAX_ITER = 50;
 
   public static enum Link {
     identity(0),
@@ -65,10 +67,9 @@ public class DGLM implements Models.ModelBuilder {
 
 
 
-  public DGLM(GLM_Params glmPArams, LSM_Params lsmParams, FamilyArgs fargs) {
+  public DGLM(GLM_Params glmPArams, LSM_Params lsmParams) {
     _glmParams = glmPArams;
     _lsmParams = lsmParams;
-    _fargs = fargs;
   }
   /**
    * Per family variance computation
@@ -82,7 +83,7 @@ public class DGLM implements Models.ModelBuilder {
     case gaussian:
       return 1;
     case binomial:
-      assert 0 <= mu && mu <= 1;
+      assert 0 <= mu && mu <= 1:"unexpected mu:" + mu;
       return mu*(1-mu);
     case poisson:
       return mu;
@@ -201,7 +202,16 @@ public class DGLM implements Models.ModelBuilder {
    * @author tomasnykodym
    *
    */
-  public static abstract class FamilyArgs{}
+  public static abstract class FamilyArgs implements H2OSerializable {
+    public JsonObject toJson(){
+      return new JsonObject();
+    }
+    public int wire_len(){return 0;}
+    public void write(Stream s){}
+    public void write(DataOutputStream dos){}
+    public void read(Stream s){}
+    public void read(DataInputStream dis){}
+  }
 
   /**
    *  Args for binomial family
@@ -218,6 +228,14 @@ public class DGLM implements Models.ModelBuilder {
       _case = c;
       _wt = wt;
     }
+    @Override
+    public JsonObject toJson(){
+      JsonObject res = new JsonObject();
+      res.addProperty("threshold", _threshold);
+      res.addProperty("case", _case);
+      res.addProperty("weights", Arrays.toString(_wt));
+      return res;
+    }
   }
 
   /**
@@ -225,21 +243,83 @@ public class DGLM implements Models.ModelBuilder {
    * @author tomasnykodym
    *
    */
-  public static class GLM_Params{
-    double beta_eps = DGLM.DEFAULT_EPS; // precision level for beta
-    public Family family = Family.gaussian;
-    public Link link = Link.identity;
-    DataPreprocessing preprocessing;
+  public static class GLM_Params implements H2OSerializable {
+    public static final int DEFAULT_MAX_ITER = 50;
+    public double _betaEps = 1e-3; // precision level for beta
+    public Family _family = Family.gaussian;
+    public Link _link = Link.identity;
+    public DataPreprocessing _preprocessing = DataPreprocessing.AUTO;
+    public int _maxIter = DEFAULT_MAX_ITER;
+    public FamilyArgs _fargs;
+    public double [] _weights;
 
-    public GLM_Params(Family f, Link l){
-      this(f,l,DEFAULT_EPS,DataPreprocessing.AUTO);
+    public GLM_Params(){}
+    public GLM_Params(Family f, FamilyArgs fargs, Link l, int maxIter, double beps, DataPreprocessing p){
+      _family = f;
+      _fargs = fargs;
+      _link = l;
+      _maxIter = maxIter;
+      _betaEps = beps;
+      _preprocessing = p;
     }
-    public GLM_Params(Family f, Link l, double beps, DataPreprocessing p){
-      family = f;
-      link = l;
-      beta_eps = beps;
-      preprocessing = p;
+    public JsonObject toJson(){
+      JsonObject res = new JsonObject();
+      res.addProperty("betaEps", _betaEps);
+      res.addProperty("family", _family.toString());
+      res.addProperty("link", _link.toString());
+      res.addProperty("prepropcessing", _preprocessing.toString());
+      res.addProperty("maxIter", _maxIter);
+      if(_fargs != null){
+        JsonObject fargsJson = _fargs.toJson();
+        for(Entry<String,JsonElement> e:fargsJson.entrySet())
+          res.addProperty(e.getKey(), e.getValue().toString());
+      }
+      return res;
     }
+
+    public int wire_len(){
+      return 8 + 4 + 4 + 4 + 4 + _fargs.wire_len() + UDP.wire_len(_weights);
+    }
+
+    public void write(Stream s){
+     s.set8d(_betaEps);
+     s.set4(_family.ordinal());
+     s.set4(_link.ordinal());
+     s.set4(_preprocessing.ordinal());
+     s.set4(_maxIter);
+     _fargs.write(s);
+     s.setAry8d(_weights);
+    }
+
+    public void write(DataOutputStream dos) throws IOException{
+      dos.writeDouble(_betaEps);
+      dos.writeInt(_family.ordinal());
+      dos.writeInt(_link.ordinal());
+      dos.writeInt(_preprocessing.ordinal());
+      dos.writeInt(_maxIter);
+      _fargs.write(dos);
+      TCPReceiverThread.writeAry(dos, _weights);
+     }
+
+    public void read(Stream s){
+      _betaEps = s.get8d();
+      _family = Family.values()[s.get4()];
+      _link = Link.values()[s.get4()];
+      _preprocessing = DataPreprocessing.values()[s.get4()];
+      _maxIter = s.get4();
+      _fargs = (FamilyArgs)SerializationUtils.readObject(s);
+      s.setAry8d(_weights);
+     }
+
+     public void read(DataInputStream dis) throws IOException{
+       _betaEps = dis.readDouble();
+       _family = Family.values()[dis.readInt()];
+       _link = Link.values()[dis.readInt()];
+       _preprocessing = DataPreprocessing.values()[dis.readInt()];
+       _maxIter = dis.readInt();
+       _fargs = (FamilyArgs)SerializationUtils.readObject(dis);
+       _weights = TCPReceiverThread.readDoubleAry(dis);
+      }
   }
 
   public static class GLSMException extends RuntimeException {
@@ -253,12 +333,11 @@ public class DGLM implements Models.ModelBuilder {
   Sampling         _sampling;
 
 
-  public static final double BETA_EPS = 1e-8;
   public static final LSM_Params defaultLSMParams = new LSM_Params();
 
   GLM_Params _glmParams;
   LSM_Params _lsmParams;
-  FamilyArgs _fargs;
+
 
 /**
  * Solve glm problem by iterative reweighted least square method.
@@ -267,8 +346,8 @@ public class DGLM implements Models.ModelBuilder {
  */
   public GLMModel trainOn(ValueArray ary, int[] colIds, Sampling s) {
     if(_lsmParams == null)_lsmParams = defaultLSMParams;
-    DataPreprocessing dp = _glmParams.preprocessing;
-    if(_glmParams.preprocessing == DataPreprocessing.AUTO){
+    DataPreprocessing dp = _glmParams._preprocessing;
+    if(_glmParams._preprocessing == DataPreprocessing.AUTO){
       // default is to standardize data if using penalty function and do nothing if not
       if(_lsmParams.n != Norm.NONE) dp = DataPreprocessing.STANDARDIZE;
       else dp = DataPreprocessing.NONE;
@@ -288,8 +367,8 @@ public class DGLM implements Models.ModelBuilder {
       }
     }
     //GLM_Model m = (glmParams.family == Family.binomial)? new BinomialModel((BinomialArgs)fargs):new GLM_Model();//colIds, beta, p, gp, lp)
-    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0, (BinomialArgs)_fargs):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
-    if(_glmParams.family == Family.gaussian){
+    GLMModel m = (_glmParams._family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,0,_glmParams):new GLMModel(colNames,colIds, pVals, null,0, _glmParams);
+    if(_glmParams._family == Family.gaussian){
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  _lsmParams.constant, pVals);
       tsk.invoke(ary._key);
       m._n = tsk._n;
@@ -305,33 +384,35 @@ public class DGLM implements Models.ModelBuilder {
         m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
         m._beta = e.res;
       }
+      ++m._iterations;
       return m;
     }
     double [] beta = new double [colIds.length];
-    Arrays.fill(beta, _glmParams.link.defaultBeta);
+    Arrays.fill(beta, _glmParams._link.defaultBeta);
     double diff = 0;
     long N = 0;
     m._ymu = ary.col_mean(colIds[colIds.length-1]);
     try{
-      for(int i = 0; i != MAX_ITER; ++i) {
+      for(int i = 0; i != _glmParams._maxIter; ++i) {
+        ++m._iterations;
         //System.out.println("iteration: " + i + ", beta = " + Arrays.toString(beta));
         IRLSMTask tsk;
-        switch(_glmParams.family){
+        switch(_glmParams._family){
         case binomial:
-          BinomialArgs bargs = (BinomialArgs)_fargs;
-          tsk = new BinomialTask(colIds, s, _lsmParams.constant, beta, pVals, _glmParams.link,bargs);
+          BinomialArgs bargs = (BinomialArgs)_glmParams._fargs;
+          tsk = new BinomialTask(colIds, s, _lsmParams.constant, beta, pVals, _glmParams._link,bargs);
           tsk.invoke(ary._key);
           m._ymu = ((BinomialTask)tsk)._caseCount/(double)tsk._n;
           break;
         default:
-          tsk = new IRLSMTask(colIds, s, _lsmParams.constant, beta, pVals, _glmParams.family, _glmParams.link);
+          tsk = new IRLSMTask(colIds, s, _lsmParams.constant, beta, pVals, _glmParams._family, _glmParams._link);
           tsk.invoke(ary._key);
 
         }
         diff = 0;
         N = tsk._n;
         try {
-          m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+          tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
         }catch (DLSM_SingularMatrixException e){
           int n = 0;
           if(m._warnings != null){
@@ -339,22 +420,26 @@ public class DGLM implements Models.ModelBuilder {
             m._warnings = Arrays.copyOf(m._warnings, n + 1);
           } else
             m._warnings = new String[1];
-          m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
-          m._beta = e.res;
+          m._warnings[n] = "Using L2 regularization due to singular gram matrix.";
+          tsk._beta = e.res;
         }
-
-        tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
         if( beta != null ) for( int j = 0; j < beta.length; ++j )
           diff = Math.max(diff, Math.abs(beta[j] - tsk._beta[j]));
         else diff = Double.MAX_VALUE;
         beta = tsk._beta;
-        if(diff < BETA_EPS)break;
+        if(diff < _glmParams._betaEps)break;
       }
     } catch (Exception e) {
       if(beta == null)throw new GLSMException("Failed to compute the data: " + e.getMessage());;
-      m._warnings = new String[]{"Failed to converge due to NaNs"};
+      int n = 0;
+      if(m._warnings != null){
+        n = m._warnings.length;
+        m._warnings = Arrays.copyOf(m._warnings, n+1);
+      } else
+        m._warnings = new String[1];
+      m._warnings[n] = "Failed to converge due to NaNs";
     }
-    if(diff >= BETA_EPS)m._warnings = new String[]{"Failed to converge due to reaching max # iterations"};
+    if(diff >= _glmParams._betaEps)m.addWarning("Reached max # iterations: " + _glmParams._maxIter);
     m._beta = beta;
     m._n = N;
     return m;
@@ -477,20 +562,19 @@ public class DGLM implements Models.ModelBuilder {
   public static class GLMModel extends Models.NewModel {
     double [] _beta;
     int [] _colIds;
-    int _link;
-    int _family;
+    public int _iterations;
+    GLM_Params _glmParams;
 
     public GLMModel(){}
 
     public GLMModel(String [] columnNames, int [] colIds, double [][] pVals) {
-      this(columnNames, colIds, pVals, null, Link.identity, Family.gaussian, 0.0);
+      this(columnNames, colIds, pVals, null, 0.0, new GLM_Params());
     }
 
-    public GLMModel(String [] columnNames,int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu) {
+    public GLMModel(String [] columnNames,int [] colIds, double[][] pVals, double [] b, double ymu, GLM_Params glmParams) {
       super(columnNames,colIds, pVals);
       _beta = b;
-      _link = l.ordinal();
-      _family = f.ordinal();
+      _glmParams = glmParams;
       _ymu = ymu;
     }
 
@@ -509,13 +593,14 @@ public class DGLM implements Models.ModelBuilder {
     }
 
     public double getYm(double[] x) {
-      return linkInv(Link.values()[_link],getMu(x));
+      return linkInv(_glmParams._link,getMu(x));
     }
 
     @Override
     Models.ModelValidation makeValidation() {
-      return new GLMValidation(_ymu, Link.values()[_link], Family.values()[_family]);
+      return new GLMValidation(_ymu, _glmParams);
     }
+
   }
   public static class GLMValidation extends Models.ModelValidation {
     double _nullDev;
@@ -523,15 +608,13 @@ public class DGLM implements Models.ModelBuilder {
     double _err;
     double _errVar;
     transient double _ymu;
-    transient Link _l;
-    transient Family _f;
+    GLM_Params _glmParams;
     long _n;
     int _t = 1;
 
-    public GLMValidation(double ymu, Link l, Family f){
+    public GLMValidation(double ymu, GLM_Params glmParams){
       _ymu = ymu;
-      _l = l;
-      _f = f;
+      _glmParams = glmParams;
     }
 
     public GLMValidation(GLMValidation other){
@@ -540,16 +623,15 @@ public class DGLM implements Models.ModelBuilder {
       _err = other._err;
       _errVar = other._errVar;
       _ymu = other._ymu;
-      _l = other._l;
-      _f = other._f;
+      _glmParams = other._glmParams;
       _n = other._n;
       _t = other._t;
     }
 
     @Override
     public void add(double yr, double ym) {
-      _nullDev += deviance(_f, yr, _ymu);
-      _resDev += deviance(_f, yr, ym);
+      _nullDev += deviance(_glmParams._family, yr, _ymu);
+      _resDev += deviance(_glmParams._family, yr, ym);
       _err += (yr-ym)*(yr-ym);
       ++_n;
     }
@@ -598,12 +680,10 @@ public class DGLM implements Models.ModelBuilder {
 
 
   public static class GLMBinomialModel extends GLMModel {
-    double _threshold = 0.5;
-    double _case = 1.0;
 
     @Override
     public double getYr(double[] x) {
-      return (x[x.length-1] == _case)?1.0:0.0;
+      return (x[x.length-1] == ((BinomialArgs)_glmParams._fargs)._case)?1.0:0.0;
     }
 
     public GLMBinomialModel(){}
@@ -611,22 +691,19 @@ public class DGLM implements Models.ModelBuilder {
       super(columNames, colIds, pVals);
     }
 
-    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu, BinomialArgs args){
-      super(columnNames, colIds, pVals,b,l,f,ymu);
-      _case = args._case;
-      _threshold = args._threshold;
+    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, double ymu, GLM_Params glmParams){
+      super(columnNames, colIds, pVals,b,ymu, glmParams);
     }
 
 
 
     @Override
     Models.ModelValidation makeValidation() {
-      return new GLMBinomialValidation(_ymu,Link.values()[_link], Family.values()[_family],_threshold);
+      return new GLMBinomialValidation(_ymu,_glmParams);
     }
   }
 
   public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation, H2OSerializable {
-    double _threshold;
     public long [][] _cm;
     double _fpMean;
     double _fpVar;
@@ -638,26 +715,21 @@ public class DGLM implements Models.ModelBuilder {
     double _tpVar;
     boolean _aggregate;
 
-    public GLMBinomialValidation(double ymu, Link l, Family f, double threshold){
-      super(ymu,l,f);
-      _threshold = threshold;
+    public GLMBinomialValidation(double ymu, GLM_Params glmParams){
+      super(ymu,glmParams);
       _cm = new long[2][2];
     }
 
     public GLMBinomialValidation(GLMBinomialValidation other){
       super(other);
-      _threshold = other._threshold;
       _cm = other._cm.clone();
     }
-
-
-
 
     @Override
     public void add(double yr, double ym) {
       assert !_aggregate;
       super.add(yr,ym);
-      int m = (ym > _threshold)?1:0;
+      int m = (ym > ((BinomialArgs)_glmParams._fargs)._threshold)?1:0;
       int r = (int)yr;
       assert r == yr;
       ++_cm[m][r];

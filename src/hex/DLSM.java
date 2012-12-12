@@ -1,5 +1,8 @@
 package hex;
 
+import java.util.Arrays;
+
+import com.google.gson.JsonObject;
 import water.DRemoteTask;
 import Jama.CholeskyDecomposition;
 import Jama.Matrix;
@@ -64,7 +67,7 @@ public class DLSM {
     public double lambda2 = 0;
     public double rho = 0;
     public double alpha = 0;
-    int constant = 1;
+    public int constant = 1;
 
     public LSM_Params(){}
     public LSM_Params(Norm n, double lambda, double rho, double alpha, int constant){
@@ -73,6 +76,17 @@ public class DLSM {
       this.rho = rho;
       this.alpha = alpha;
       this.constant = constant;
+    }
+
+    public JsonObject toJson(){
+      JsonObject res = new JsonObject();
+      res.addProperty("Norm", n.toString());
+      res.addProperty("lambda", lambda);
+      res.addProperty("lambda2", lambda2);
+      res.addProperty("rho", rho);
+      res.addProperty("alpha", alpha);
+      res.addProperty("constant",constant);
+      return res;
     }
   }
 
@@ -132,8 +146,15 @@ public class DLSM {
       } catch(Exception e){
         params.n = Norm.L2;
         params.lambda = (params.lambda == 0)?1e-10:(10*params.lambda);
-        throw new DLSM_SingularMatrixException(solveLSM(xxAry, xyAry, params));
+        if(params.lambda > 1e-5) {
+          double [] res = new double[xxAry.length];
+          Arrays.fill(res, Double.NaN);
+          throw new DLSM_SingularMatrixException(res);
+        }
+        double [] res = solveLSM(xxAry, xyAry, params);
+        throw new DLSM_SingularMatrixException(res);
       }
+    case ENET:
     case L1: { // use ADMM to solve LASSO
       final int N = xyAry.length;
       final double ABSTOL = Math.sqrt(N) * 1e-4;
