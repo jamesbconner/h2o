@@ -1,8 +1,5 @@
 package water;
 
-import init.H2OSerializable;
-import init.H2OSerializeableImpl;
-
 import java.io.*;
 
 
@@ -111,40 +108,40 @@ public class SerializationUtils {
     return res;
   }
 
-  public static int wire_len(H2OSerializable obj){
-    return ((H2OSerializeableImpl)obj).wire_len();
-  }
-
-  public static H2OSerializable readObject(Stream s){
-    if(!s.getz())return null;
-    String className = s.getLen2Str();
-    H2OSerializeableImpl obj;
-    try {
-      obj = (H2OSerializeableImpl)Class.forName(className).newInstance();
-      obj.read(s);
-      return (H2OSerializable)obj;
-    } catch( Exception e ) {
-      throw new Error(e);
-    }
-  }
-  public static H2OSerializable readObject(DataInputStream dis) throws IOException{
-    if(!dis.readBoolean())return null;
-    String className = TCPReceiverThread.readStr(dis);
-    H2OSerializeableImpl obj;
-    try {
-      obj = (H2OSerializeableImpl)Class.forName(className).newInstance();
-      obj.read(dis);
-      return (H2OSerializable)obj;
-    } catch( Exception e ) {
-      throw new Error(e);
-    }
-  }
-  public static void writeObject(H2OSerializable obj, Stream s){
-    s.setz(obj != null);
-    if(obj != null) ((H2OSerializeableImpl)obj).write(s);
-  }
-  public static void writeObject(H2OSerializable obj, DataOutputStream dos) throws IOException{
-    dos.writeBoolean(obj != null);
-    if(obj != null)((H2OSerializeableImpl)obj).write(dos);
-  }
+//  public static int wire_len(H2OSerializable obj){
+//    return ((H2OSerializeableImpl)obj).wire_len();
+//  }
+//
+//  public static H2OSerializable readObject(Stream s){
+//    if(!s.getz())return null;
+//    String className = s.getLen2Str();
+//    H2OSerializeableImpl obj;
+//    try {
+//      obj = (H2OSerializeableImpl)Class.forName(className).newInstance();
+//      obj.read(s);
+//      return (H2OSerializable)obj;
+//    } catch( Exception e ) {
+//      throw new Error(e);
+//    }
+//  }
+//  public static H2OSerializable readObject(DataInputStream dis) throws IOException{
+//    if(!dis.readBoolean())return null;
+//    String className = TCPReceiverThread.readStr(dis);
+//    H2OSerializeableImpl obj;
+//    try {
+//      obj = (H2OSerializeableImpl)Class.forName(className).newInstance();
+//      obj.read(dis);
+//      return (H2OSerializable)obj;
+//    } catch( Exception e ) {
+//      throw new Error(e);
+//    }
+//  }
+//  public static void writeObject(H2OSerializable obj, Stream s){
+//    s.setz(obj != null);
+//    if(obj != null) ((H2OSerializeableImpl)obj).write(s);
+//  }
+//  public static void writeObject(H2OSerializable obj, DataOutputStream dos) throws IOException{
+//    dos.writeBoolean(obj != null);
+//    if(obj != null)((H2OSerializeableImpl)obj).write(dos);
+//  }
 }

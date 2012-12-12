@@ -67,17 +67,17 @@ public class GLM extends H2OPage {
   }
   GLM_Params getGLMParams(Properties p){
     GLM_Params res = new GLM_Params();
-    try{res._family = DGLM.Family.valueOf(p.getProperty("family", "gaussian").toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
+    try{res._family = DGLM.Family.valueOf(p.getProperty("family", "gaussian").toLowerCase()).ordinal();}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
 
     if(p.containsKey("link"))
-     try{res._link = Link.valueOf(p.getProperty("link").toLowerCase());}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
+     try{res._link = Link.valueOf(p.getProperty("link").toLowerCase()).ordinal();}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
     else
-      res._link = res._family.defaultLink;
+      res._link = Family.values()[res._family].defaultLink.ordinal();
     if(p.containsKey("ITER"))
       try{res._maxIter = Integer.valueOf(p.get("ITER").toString());}catch(Exception e){throw new GLMInputException("invalid ITER argument " + p.getProperty("ITER"));}
     if(p.containsKey("betaEps"))
-      try{res._betaEps = Double.valueOf(p.get("ITER").toString());}catch(Exception e){throw new GLMInputException("invalid ITER argument " + p.getProperty("ITER"));}
-    res._fargs = getFamilyArgs(res._family, p);
+      try{res._betaEps = Double.valueOf(p.get("betaEps").toString());}catch(Exception e){throw new GLMInputException("invalid betaEps argument " + p.getProperty("betaEps"));}
+    res._fargs = getFamilyArgs(Family.values()[res._family], p);
     return res;
   }
 
@@ -201,23 +201,43 @@ public class GLM extends H2OPage {
         int k = X.length + 1;
         trainingValidation.addProperty("AIC", dformat.format(2 * k + val.resDeviance()));
         trainingValidation.addProperty("trainingSetErrorRate",dformat.format(val.err()));
-        res.add("trainingSetValidation", trainingValidation);
+        res.add("validation", trainingValidation);
         if(val instanceof GLMBinomialValidation){
           GLMBinomialValidation bv = (GLMBinomialValidation)val;
-          JsonObject errDetails = new JsonObject();
-          errDetails.addProperty("falsePositive", dformat.format(bv.fp()));
-          errDetails.addProperty("falseNegative", dformat.format(bv.fn()));
-          errDetails.addProperty("truePositive", dformat.format(bv.tp()));
-          errDetails.addProperty("trueNegative", dformat.format(bv.tn()));
           JsonArray arr = new JsonArray();
+          JsonArray firstRow = new JsonArray();
+          firstRow.add(new JsonPrimitive("Actual / Predicted"));
+          for(int j = 0; j < bv.classes(); ++j) firstRow.add(new JsonPrimitive("class " + j));
+          firstRow.add(new JsonPrimitive("Error"));
+          arr.add(firstRow);
+          long [] totalCounts = new long [bv._cm.length];
+          long totalErr = 0;
           for(int j = 0; j < bv.classes(); ++j){
+            long total = 0;
+            long err = 0;
             JsonArray row = new JsonArray();
-            for(int kk = 0; kk < bv.classes();++kk)
-              row.add(new JsonPrimitive(bv.cm(j,kk)));
+            row.add(new JsonPrimitive("class " + j));
+            for(int kk = 0; kk < bv.classes();++kk){
+              totalCounts[j] += bv.cm(kk,j);
+              total += bv.cm(kk,j);
+              if(kk != j)err += bv.cm(kk,j);
+              row.add(new JsonPrimitive(bv.cm(kk,j)));
+            }
+
+            if(total != 0) {
+              double classErr = (double)err/total;
+              row.add(new JsonPrimitive(dformat.format(classErr) + " = " + err + " / " + total));
+              totalErr += err;
+            } else
+              row.add(new JsonPrimitive("0"));
             arr.add(row);
           }
-          errDetails.add("cm", arr);
-          res.add("trainingErrorDetails", errDetails);
+          JsonArray lastRow = new JsonArray();
+          lastRow.add(new JsonPrimitive("Totals"));
+          for(int j = 0; j < bv.classes(); ++j) lastRow.add(new JsonPrimitive(totalCounts[j]));
+          lastRow.add(new JsonPrimitive((double)totalErr/bv.n() + " = " + totalErr + " / " + bv.n()));
+          arr.add(lastRow);
+          res.add("cm", arr);
         }
       }
       // Cross Validation
@@ -336,34 +356,28 @@ public class GLM extends H2OPage {
 
 
   static void buildCM(JsonArray arr,StringBuilder bldr){
-    bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
-    int rowidx = 0;
+    bldr.append("<table class='table table-striped table-bordered table-condensed'><thead>");
+    boolean firstRow = true;
     for(JsonElement e:arr){
-      bldr.append("<tr><th>Y<sub>model</sub>=" + rowidx++ + "</th>");
-      JsonArray a = e.getAsJsonArray();
-      for(JsonElement elem:a){
-           bldr.append("<td>" + elem.getAsString() + "</td>");
+      bldr.append("<tr>\n");
+      String [] tags = new String[]{"<td>","</td>"};
+      String [] htags = new String[]{"<th>","</th>"};
+      boolean firstCol = true;
+      for(JsonElement f:e.getAsJsonArray()){
+        if(firstCol || firstRow)
+          bldr.append(htags[0] + f.getAsString() + htags[1]);
+        else
+          bldr.append(tags[0] + f.getAsString() + tags[1]);
+        firstCol = false;
       }
       bldr.append("</tr>\n");
+      firstRow = false;
     }
     bldr.append("</tbody></table>\n");
   }
 
   @Override
   protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
-    // RString responseTemplate = new RString(
-    // "<div class='alert alert-success'>%name on data <a href=%keyHref>%key</a> computed in %time[ms]<strong>.</div>"
-    // + "<div>Coefficients:%coefficientHTML</div>"
-    // + "<p>"
-    // +
-    // "<div>Degrees of freedom: <span style=\"font-weight: normal\">%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</span></div>"
-    // +
-    // "<div>Null Deviance: <span style=\"font-weight: normal\">%NullDeviance</span></div>"
-    // +
-    // "<div>Residual Deviance: <span style=\"font-weight: normal\">%ResidualDeviance</span></div>"
-    // +
-    // "<div>AIC: <span style=\"font-weight:normal;margin-left:5px\">%AIC_formated</span></div>");
-
     RString responseTemplate = new RString(
         "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a> finished in %iterations iterations. Computed in %time[ms]. %warningMsgs</div>"
             + "<h3>GLM Parameters</h3>"
@@ -372,23 +386,23 @@ public class GLM extends H2OPage {
             + "<div>%coefficientHTML</div>"
             + "<h5>Model SRC</h5>"
             + "<div><code>%modelSrc</code></div>"
-            + "<br/> %tValid %confusion_matrix %xvalidation");
-
-    RString trainingSetValidationTemplate = new RString(
-             "<h3>Validation</h3>"
+            + "<br/> "
+            + "<h3> Training Set Validation</h3>"
             + "<table class='table table-striped table-bordered table-condensed'>"
             + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
             + "<tr><th>Null Deviance</th><td>%NullDeviance</td></tr>"
             + "<tr><th>Residual Deviance</th><td>%ResidualDeviance</td></tr>"
             + "<tr><th>AIC</th><td>%AIC</td></tr>"
             + "<tr><th>Training Error Rate Avg</th><td>%trainingSetErrorRate</td></tr>"
-            + "%errorDetails"
-            + "</table>");
-
-    RString errDetailTemplate = new RString(
-          "<tr><th>False Positives</th><td>%falsePositive</td></tr>"
-        + "<tr><th>False Negative</th><td>%falseNegative</td></tr>");
-
+            + "</table>"
+            + "<h4>Confusion Matrix</h4>"
+            + "%cm " + " %xval");
+    RString xTemplate = new RString(
+          "<h3> %foldfold Validation</h3>"
+        + "<h4>Average Confusion Matrix</h4>"
+        + "%avgCM"
+        + "<h4>Individual Models</h4>"
+        + "%imodels");
 
     JsonObject json = serverJson(server, args, sessionID);
     if( json.has("error") )
@@ -406,9 +420,15 @@ public class GLM extends H2OPage {
     } else {
       responseTemplate.replace("succ","alert-success");
     }
-    JsonArray models = (JsonArray)json.get("models");
-    json.remove("models");
-    responseTemplate.replace(json);
+
+    if(json.has("cm")){
+      JsonArray arr = json.get("cm").getAsJsonArray();
+      json.remove("cm");
+      StringBuilder b = new StringBuilder();
+      buildCM(arr, b);
+      responseTemplate.replace("cm",b.toString());
+    }
+    if(json.has("validation"))responseTemplate.replace(json.get("validation").getAsJsonObject());
     StringBuilder bldr = new StringBuilder();
 
     JsonObject x = json.get("coefficients").getAsJsonObject();
@@ -432,62 +452,14 @@ public class GLM extends H2OPage {
       m.replace("equation", getFormulaSrc(x, false));
     }
     responseTemplate.replace("modelSrc", m.toString());
-    if(json.has("trainingSetValidation")){
-      trainingSetValidationTemplate.replace((JsonObject)json.get("trainingSetValidation"));
-      if(json.has("trainingErrorDetails")){
-        JsonObject e = (JsonObject)json.get("trainingErrorDetails");
-        JsonArray arr = e.get("cm").getAsJsonArray();
-        e.remove("cm");
-        errDetailTemplate.replace(e);
-        StringBuilder b = new StringBuilder();
-        buildCM(arr, b);
-        trainingSetValidationTemplate.replace("errorDetails",errDetailTemplate.toString() + "\n" + b.toString());
-      }
-      responseTemplate.replace("tValid",trainingSetValidationTemplate.toString());
+    responseTemplate.replace((JsonObject)json.get("trainingSetValidation"));
+    JsonArray models = (JsonArray)json.get("models");
+    if(models != null){
+      bldr = new StringBuilder("<h3>Individual Models</h3>");
+      for(JsonElement e:models)
+        buildCM(e.getAsJsonArray(), bldr);
     }
-
-    if(json.has("xfactor")){
-      RString xValidationTemplate = new RString(
-           "<h3>%xfactor fold Cross Validation</h3>"
-          + "%xvalidation_parameters"
-          +"<table class='table table-striped table-bordered table-condensed'>"
-          +"<thead><tr><th></th><th>Mean</th><th>Variance</th></tr></thead>"
-          +"<tbody>"
-          +"<tr><th>Error rate</th><td>%errRate</td><td>%errRateVar</td></tr>"
-          +"<tr><th>True Positive</th><td>%trueNegative</td><td>%trueNegativeVar</td></tr>"
-          +"<tr><th>True Negative</th><td>%truePositive</td><td>%truePositiveVar</td></tr>"
-          +"<tr><th>False Negative</th><td>%falseNegative</td><td>%falseNegativeVar</td></tr>"
-          +"<tr><th>False Positive</th><td>%falsePositive</td><td>%falsePositiveVar</td></tr>"
-          +"</tbody>"
-          +"</table>");
-
-      xValidationTemplate.replace(json);
-      if(glmParams.get("family").getAsString().equals("binomial")){
-        xValidationTemplate.replace("xvalidation_parameters","<div>decision threshold = %threshold</div>");
-      }
-      if(models != null){
-        bldr =new StringBuilder("<h3>Individual Models</h3>");
-        int modelIdx = 1;
-        for(JsonElement o:models){
-          bldr.append("<h4>Model " + modelIdx++ + "</h4>");
-          JsonObject model = (JsonObject)o;
-          //bldr.append("\n<h5>Coefficients:</h5><div>" + getCoefficientsStr(model.get("coefs").getAsJsonObject()) + "</div><h5>Confusion Matrix</h5>");
-          JsonArray arr = model.get("cm").getAsJsonArray();
-          bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
-          int rowidx = 0;
-          for(JsonElement e:arr){
-            bldr.append("<tr><th>Y<sub>model</sub>=" + rowidx++ + "</th>");
-            JsonArray a = e.getAsJsonArray();
-            for(JsonElement elem:a){
-                 bldr.append("<td>" + elem.getAsString() + "</td>");
-            }
-            bldr.append("</tr>\n");
-          }
-          bldr.append("</tbody></table>\n");
-        }
-      }
-      responseTemplate.replace("xvalidation",xValidationTemplate.toString() + bldr.toString());
-    }
+    responseTemplate.replace("imodels", bldr.toString());
     return responseTemplate.toString();
   }
 }

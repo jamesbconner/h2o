@@ -248,21 +248,24 @@ public class DLSM {
      * chunk. Since (x'*x) is symmetric, only the lower diagonal is computed.
      */
     @Override
-    public void processRow(double[] x) {
-      double y = x[x.length - 1];
+    public void processRow(double[] x, int [] indexes) {
+      double y = x[indexes.length-1];
       // compute x*x' and add it to the matrix
-      for( int i = 0; i < (x.length - 1); ++i ) {
+      for( int k = 0; k < (indexes.length-1); ++k) {
+        int i = indexes[k];
         for( int j = 0; j <= i; ++j ) { // matrix is symmetric -> compute only lower diag
-          _xx[i][j] += x[i] * x[j];
+          _xx[i][j] += x[k] * x[j];
         }
-        _xy[i] += x[i] * y;
+        _xy[i] += x[k] * y;
       }
       // compute the constant (constant is not part of x and has to be computed
       // separately)
-      for( int j = 0; j < (x.length - 1); ++j )
-        _xx[x.length - 1][j] += _constant * x[j];
-      _xx[x.length - 1][x.length - 1] += _constant * _constant;
-      _xy[x.length - 1] += _constant * y;
+      for( int i = 0; i < (indexes.length-1); ++i){
+        int j = indexes[i];
+        _xx[_xx.length - 1][j] += _constant * x[i];
+      }
+      _xx[_xx.length - 1][_xx.length - 1] += _constant * _constant;
+      _xy[_xy.length - 1] += _constant * y;
     }
 
     @Override

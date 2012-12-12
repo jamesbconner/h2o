@@ -193,9 +193,11 @@ public final class Key implements Comparable {
     return make(decodeKeyName(s),rf,systemType,replicas);
   }
 
-
+  static public Key makeLocal(){return makeLocal(Key.DFJ_INTERNAL_USER);}
+  static public Key makeLocal(byte keyType){ return Key.make(Key.make()._kb,(byte)1,keyType,H2O.SELF);}
   // Make a Key which is homed to specific nodes.
   static public Key make(byte[] kb, byte rf, byte systemType, H2ONode... replicas) {
+
     assert 0 <=replicas.length && replicas.length<=3; // no more than 3 replicas allowed to be stored in the key
     assert systemType<32; // only system keys allowed
     // Key byte layout is:
