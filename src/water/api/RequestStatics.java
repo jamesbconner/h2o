@@ -12,6 +12,15 @@ public class RequestStatics {
 
   public static final String JSON_ERROR = "error";
 
+
+  public static final String JSON_KEY = "key";
+  public static final String JSON_VALUE = "value";
+  public static final String JSON_VALUE_SIZE = "value_size";
+  public static final String JSON_RF = "rf";
+
+
+
+
   /** Request type.
    *
    * Requests can have multiple types. Basic types include the plain json type

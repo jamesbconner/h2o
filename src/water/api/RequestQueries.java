@@ -76,12 +76,11 @@ public class RequestQueries extends RequestArguments {
       input.replace("ARG_NAME",arg._name);
       input.replace("ARG_ASTERISK", DOM.color("*", arg._required ? "#ff0000" : "#ffffff"));
       input.replace("ARG_HELP", arg.help());
-      if (! args.isEmpty()) {
-        try {
-          arg.check(args.getProperty(arg._name,""));
-        } catch (IllegalArgumentException e) {
+      try {
+        arg.check(args.getProperty(arg._name,""));
+      } catch (IllegalArgumentException e) {
+        if (! args.isEmpty())
           input.replace("ERROR",DOM.error("Error: "+e.getMessage()));
-        }
       }
       input.replace("ARG_INPUT_CONTROL", arg.query());
       input.append();

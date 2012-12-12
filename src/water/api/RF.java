@@ -32,138 +32,23 @@ public class RF extends Request {
   public static final String JSON_FEATURES = "features";
   public static final String JSON_STRATIFY = "stratify";
   public static final String JSON_STRATA = "strata";
+  public static final String JSON_WEIGHTS = "classWt";
 
-  protected final ExistingVAKeyArgument _dataKey = new ExistingVAKeyArgument(JSON_DATA_KEY,"Data key");
-  protected final IntegerArgument _numTrees = new IntegerArgument(JSON_NUM_TREES,0,Integer.MAX_VALUE,50,"Number of trees to build");
-  protected final IntegerArgument _depth = new IntegerArgument(JSON_DEPTH,0,Integer.MAX_VALUE,0,"Max tree depth");
-  protected final IntegerArgument _sample = new IntegerArgument(JSON_SAMPLE, 0, 101, 67, "Sample rate");
-  protected final IntegerArgument _binLimit = new IntegerArgument(JSON_BIN_LIMIT,0,65536, 1024, "Max # of bins");
-  protected final BooleanArgument _gini = new BooleanArgument(JSON_GINI,false,"Use Gini statistics (default is Entropy)");
-  protected final IntegerArgument _seed = new IntegerArgument(JSON_SEED,0,Integer.MAX_VALUE,null,"Random seed");
-  protected final BooleanArgument _parallel = new BooleanArgument(JSON_PARALLEL,true,"Build trees in parallel");
-  protected final KeyArgument _modelKey = new KeyArgument(JSON_MODEL_KEY,Key.make("model"),"Model key");
-  protected final BooleanArgument _oobee = new BooleanArgument(JSON_OOBEE,"Out of bag errors");
-  protected final BooleanArgument _stratify = new BooleanArgument(JSON_STRATIFY,"Stratify");
-  protected final KeyColumnArgument _classCol = new KeyColumnArgument(_dataKey,JSON_CLASS,"Class column:");
-
-
-  /** Key to an existing ValueArray.
-   *
-   * Checks that the given key exists and that it points to a ValueArray instance.
-   * The value array itself is then the value of the argument.
-   *
-   * Query element is just a text edit.
-   *
-   * TODO query element should be key autocompleted.
-   *
-   */
-  public class ExistingVAKeyArgument extends Argument<ValueArray> {
-
-    public ExistingVAKeyArgument(String name, String help) {
-      super(name, true, help);
-    }
-
-    @Override protected ValueArray decode(String value) throws Exception {
-      if (value.isEmpty())
-        throw new Exception("Empty key cannot be hex key");
-      Key k = Key.make(value);
-      Value v = DKV.get(k);
-      if (v == null)
-        throw new Exception("Key "+value+" not found");
-      if (!(v instanceof ValueArray))
-        throw new Exception("Key "+value+" does not point to a hex value");
-      return (ValueArray) v;
-    }
-
-    @Override public ValueArray defaultValue() {
-      return null;
-    }
-
-    @Override public String description() {
-      return "Existing key of a HEX value";
-    }
-
-  }
-
-  /** Argument for a key column.
-   *
-   * Given a specific key.
-   *
-   *
-   */
-  public class KeyColumnArgument extends DefaultValueArgument<Integer> {
-    protected final ExistingVAKeyArgument _key;
-
-    public KeyColumnArgument(ExistingVAKeyArgument key, String name, String help) {
-      super(name,help);
-      _key = key;
-    }
-
-    public KeyColumnArgument(ExistingVAKeyArgument key, String name, int defaultValue, String help) {
-      super(name, defaultValue, help);
-      _key = key;
-    }
-
-    @Override protected Integer decode(String value) throws Exception {
-      ValueArray ary = _key.value();
-      if (ary == null)
-        throw new Exception("Unable to determine valid column for invalid key (argument "+_key._name);
-      for (int i = 0; i < ary.num_cols(); ++i)
-        if (ary.col_name(i).equals(value))
-          return i;
-      try {
-        int i = Integer.parseInt(value);
-        if ((i<0) || (i>=ary.num_cols()))
-          throw new Exception("Column index "+i+" out of range <0 , "+ary.num_cols()+") of columns for key "+ary._key);
-        return i;
-      } catch (NumberFormatException e) {
-        throw new Exception(value+" does not name any column in key "+ary._key);
-      }
-    }
-
-    @Override public String description() {
-      return "Index of the column, or the column name for key specified by argument "+_key._name;
-    }
-  }
-
-  public class DoubleCategoryArrayArgument extends Argument<double[]> {
-
-    protected final ExistingVAKeyArgument _key;
-    protected final KeyColumnArgument _col;
-    protected final double _defaultValue;
-
-    public DoubleCategoryArrayArgument(ExistingVAKeyArgument key, KeyColumnArgument col, String name, String help) {
-      super(name, true, help);
-      _key = key;
-      _col = col;
-      _defaultValue = Double.NaN;
-    }
-
-    public DoubleCategoryArrayArgument(ExistingVAKeyArgument key, KeyColumnArgument col, String name, double defaultValue, String help) {
-      super(name, false, help);
-      _key = key;
-      _col = col;
-      _defaultValue = defaultValue;
-    }
-
-    @Override
-    protected double[] decode(String value) throws Exception {
-
-
-    }
-
-    @Override public double[] defaultValue() {
-      if (_required)
-        return null;
-      ValueArray ary = _key.value();
-      double[] r = new double[ary.]
-
-    }
-
-
-
-  }
-
+  protected final H2OValueArrayKey _dataKey = new H2OValueArrayKey(JSON_DATA_KEY,"Data key");
+  protected final H2OKeyCol _classCol = new H2OKeyCol(_dataKey,JSON_CLASS,"Class column:");
+  protected final Int _numTrees = new Int(JSON_NUM_TREES,50,"Number of trees to build",0,Integer.MAX_VALUE);
+  protected final Int _depth = new Int(JSON_DEPTH,0,"Max tree depth",0,Integer.MAX_VALUE);
+  protected final Int _sample = new Int(JSON_SAMPLE, 67, "Sample rate", 0, 100);
+  protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, "Max # of bins",0,65535);
+  protected final Bool _gini = new Bool(JSON_GINI,true,"Use Gini statistics (default is Entropy)");
+  protected final Int _seed = new Int(JSON_SEED,0,"Random seed");
+  protected final Bool _parallel = new Bool(JSON_PARALLEL,true,"Build trees in parallel");
+  protected final H2OKey _modelKey = new H2OKey(JSON_MODEL_KEY,Key.make("model"),"Model key");
+  protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
+  protected final Bool _stratify = new Bool(JSON_STRATIFY,false,"Stratify");
+  protected final H2OCategoryDoubles _weights = new H2OCategoryDoubles(_dataKey, _classCol, JSON_WEIGHTS,1,"Category weights",0,Double.POSITIVE_INFINITY);
+  protected final H2OKeyCols _ignore = new H2OKeyCols(_dataKey,JSON_IGNORE,new int[0],"Ignore columns");
+  protected final Int _features = new Int(JSON_FEATURES, 0, "Features", 0, Integer.MAX_VALUE);
 
   /** Fires the random forest computation.
    *
@@ -176,8 +61,9 @@ public class RF extends Request {
     Tree.StatType statType = Tree.StatType.values()[_gini.value() ? 1 : 0];
     int classCol = _classCol.value();
     float sample = _sample.value() / 100f;
+    double[] weights = _weights.value();
     try {
-      DRF drf = hex.rf.DRF.web_main(
+    DRF drf = hex.rf.DRF.web_main(
               ary,
               _numTrees.value(),
               _depth.value(),
@@ -186,25 +72,25 @@ public class RF extends Request {
               statType,
               _seed.value(),
               classCol,
-              ignores,
+              _ignore.value(),
               modelKey,
               _parallel.value(),
-              classWt,
+              weights,
               _features.value()
               );
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classCol) - ary.col_min(classCol))+1);
       // Output a model with zero trees (so far).
-      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores);
+      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,_ignore.value());
       // Save it to the cloud
       UKV.put(modelKey,model);
-      // Pass along all to the viewer
+      // Pass along all to the viewer */
       response.addProperty(JSON_DATA_KEY, ary._key.toString());
       response.addProperty(JSON_MODEL_KEY, modelKey.toString());
-      response.addProperty(JSON_NUM_TREE, ntree);
-      response.addProperty(JSON_CLASS_COLUMN, classcol);
-      response.addProperty(JSON_CLASS_WEIGHT, p.getProperty("classWt",""));
-      response.addProperty(JSON_OOBE,getBoolean(p,OOBEE));
+      response.addProperty(JSON_NUM_TREES, _numTrees.value());
+      response.addProperty(JSON_CLASS, classCol);
+//      response.addProperty(JSON_CLASS_WEIGHT, p.getProperty("classWt",""));
+//      response.addProperty(JSON_OOBEE,getBoolean(p,OOBEE));
     } catch (Exception e) {
       response.addProperty(JSON_ERROR,"Cannot start the RF computation. The following error was reported: "+e.getMessage());
       return;

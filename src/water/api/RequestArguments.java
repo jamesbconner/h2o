@@ -1,9 +1,7 @@
 
 package water.api;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Properties;
+import java.util.*;
 import water.*;
 
 /**
@@ -184,6 +182,13 @@ public class RequestArguments extends RequestStatics {
       return _originalArguments.get().containsKey(_name);
     }
 
+    /** Returns the original value submitted in the form, or empty string if
+     * no value was submitted.
+     */
+    public final String originalValue() {
+      return _originalArguments.get().getProperty(_name,"");
+    }
+
     /** Returns the query HTML code for the argument. The argument's value() is
      * used to determine what to put in the form.
      *
@@ -194,9 +199,19 @@ public class RequestArguments extends RequestStatics {
      * method in the HTML query for the argument.
      */
     protected String query() {
-      T value = value();
-      return DOM.textInput(_name, value == null ? "" : value.toString(), description());
+      return DOM.textInput(_name, originalValue(), description());
     }
+
+    /** Returns the value of the argument if it is not null. If null, throws the
+     * exception.
+     */
+    public T notNullValue() throws Exception {
+      T v = value();
+      if (v == null)
+        throw new Exception("argument "+_name+" must be defined");
+      return v;
+    }
+
   }
 
   // ---------------------------------------------------------------------------
@@ -276,6 +291,7 @@ public class RequestArguments extends RequestStatics {
     @Override public String description() {
       return _required ? "any nonempty string" : "any string";
     }
+
   }
 
   // ---------------------------------------------------------------------------
@@ -386,9 +402,12 @@ public class RequestArguments extends RequestStatics {
    */
   public class Bool extends DefaultValueArgument<Boolean> {
 
-    // is always optional, default is always false
     public Bool(String name, String help) {
       super(name, false, help);
+    }
+
+    public Bool(String name, boolean defaultValue, String help) {
+      super(name, defaultValue, help);
     }
 
     @Override protected Boolean parse(String input) throws Exception {
@@ -488,7 +507,206 @@ public class RequestArguments extends RequestStatics {
 
   // ---------------------------------------------------------------------------
 
+  /** Argument for a key column.
+   *
+   * Given a specific key.
+   *
+   */
+  public class H2OKeyCol extends DefaultValueArgument<Integer> {
+    protected final H2OValueArrayKey _key;
+
+    public H2OKeyCol(H2OValueArrayKey key, String name, String help) {
+      super(name,help);
+      _key = key;
+    }
+
+    public H2OKeyCol(H2OValueArrayKey key, String name, int defaultValue, String help) {
+      super(name, defaultValue, help);
+      _key = key;
+    }
+
+    @Override protected Integer parse(String value) throws Exception {
+      ValueArray ary = _key.notNullValue();
+      for (int i = 0; i < ary.num_cols(); ++i)
+        if (ary.col_name(i).equals(value))
+          return i;
+      try {
+        int i = Integer.parseInt(value);
+        if ((i<0) || (i>=ary.num_cols()))
+          throw new Exception("Column index "+i+" out of range <0 , "+ary.num_cols()+") of columns for key "+ary._key);
+        return i;
+      } catch (NumberFormatException e) {
+        throw new Exception(value+" does not name any column in key "+ary._key);
+      }
+    }
+
+    @Override public String description() {
+      return "Index of the column, or the column name for key specified by argument "+_key._name;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+
+  public class H2OCategoryDoubles extends Argument<double[]> {
+
+    public final double _defaultValue;
+    public final double _min;
+    public final double _max;
+    public final H2OValueArrayKey _key;
+    public final H2OKeyCol _col;
+
+    public H2OCategoryDoubles(H2OValueArrayKey key, H2OKeyCol col, String name, double defaultValue, String help, double min, double max) {
+      super(name, false, help);
+      _key = key;
+      _col = col;
+      _defaultValue = defaultValue;
+      _min = min;
+      _max = max;
+    }
+
+    @Override protected double[] parse(String input) throws Exception {
+      ValueArray ary = _key.notNullValue();
+      int col = _col.value();
+      double[] result = determineClassWeights(input,ary,col,4096);
+      return result;
+    }
+
+    @Override public String description() {
+      return "comma separated list of assignment to col names or col idxs";
+    }
+
+    @Override protected double[] defaultValue() {
+      try {
+        ValueArray ary = _key.notNullValue();
+        int col = _col.notNullValue();
+        String[] names = determineColumnClassNames(ary,col,4096);
+        double result[] = new double[names.length];
+        for (int i = 0; i < result.length; ++i)
+          result[i] = _defaultValue;
+        return result;
+      } catch (Exception e) {
+        return null;
+      }
+    }
+
+    protected String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws Exception {
+      int arity = ary.col_enum_domain_size(classColIdx);
+      if (arity == 0) {
+        int min = (int) ary.col_min(classColIdx);
+        if (ary.col_min(classColIdx) != min)
+          throw new Exception("Only integer or enum columns can be classes!");
+        int max = (int) ary.col_max(classColIdx);
+        if (ary.col_max(classColIdx) != max)
+          throw new Exception("Only integer or enum columns can be classes!");
+        if (max - min > maxClasses) // arbitrary number
+          throw new Exception("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+        String[] result = new String[max-min+1];
+        for (int i = 0; i <= max - min; ++i)
+          result[i] = String.valueOf(min+i);
+        return result;
+      } else {
+        return  ary.col_enum_domain(classColIdx);
+      }
+    }
 
 
+    public double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws Exception {
+      assert classColIdx>=0 && classColIdx < ary.num_cols();
+      // determine the arity of the column
+      HashMap<String,Integer> classNames = new HashMap();
+      String[] names = determineColumnClassNames(ary,classColIdx,maxClasses);
+      for (int i = 0; i < names.length; ++i)
+        classNames.put(names[i],i);
+      if (source.isEmpty())
+        return null;
+      double[] result = new double[names.length];
+      for (int i = 0; i < result.length; ++i)
+        result[i] = 1;
+      // now parse the given string and update the weights
+      int start = 0;
+      byte[] bsource = source.getBytes();
+      while (start < bsource.length) {
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        String className;
+        double classWeight;
+        int end = 0;
+        if (bsource[start] == ',') {
+          ++start;
+          end = source.indexOf(',',start);
+          className = source.substring(start,end);
+          ++end;
 
+        } else {
+          end = source.indexOf('=',start);
+          className = source.substring(start,end);
+        }
+        start = end;
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        if (bsource[start]!='=')
+          throw new Exception("Expected = after the class name.");
+        ++start;
+        end = source.indexOf(',',start);
+        if (end == -1) {
+          classWeight = Double.parseDouble(source.substring(start));
+          start = bsource.length;
+        } else {
+          classWeight = Double.parseDouble(source.substring(start,end));
+          start = end + 1;
+        }
+        if (!classNames.containsKey(className))
+          throw new Exception("Class "+className+" not found!");
+        result[classNames.get(className)] = classWeight;
+      }
+      return result;
+    }
+
+  }
+
+  // ---------------------------------------------------------------------------
+
+  public class H2OKeyCols extends DefaultValueArgument<int[]> {
+
+    public final H2OValueArrayKey _key;
+
+    public H2OKeyCols(H2OValueArrayKey key, String name, int[] defaultValue, String help) {
+      super(name,defaultValue,help);
+      _key = key;
+    }
+
+    private int colToInt(ValueArray ary, String colName) throws Exception {
+      colName = colName.trim();
+      for (int i = 0; i < ary.num_cols(); ++i)
+        if (ary.col_name(i).equals(colName))
+          return i;
+      try {
+        int i = Integer.parseInt(colName);
+        if ((i>=0) && ( i < ary.num_cols()))
+          return i;
+      } catch (NumberFormatException e) {
+      }
+      throw new Exception(colName+" is not a valid column name or column index");
+    }
+
+    @Override protected int[] parse(String input) throws Exception {
+      ValueArray ary = _key.notNullValue();
+      Set<Integer> cols = new HashSet();
+      ARGS:
+      for (String s : input.split(",")) {
+        int i = colToInt(ary,s);
+        if (cols.contains(i))
+          throw new Exception("Column "+s+" already specified");
+        cols.add(i);
+      }
+      int[] result = new int[cols.size()];
+      int i = 0;
+      for (Integer j : cols)
+        result[i++] = j;
+      return result;
+    }
+
+    @Override public String description() {
+      return "comma separated list of columns (numbers or names)";
+    }
+
+  }
 }
