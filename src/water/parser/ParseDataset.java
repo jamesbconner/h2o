@@ -106,7 +106,7 @@ public final class ParseDataset {
       ZipEntry ze = zis.getNextEntry();
       // There is at least one entry in zip file and it is not a directory.
       if (ze != null && !ze.isDirectory()) {
-        key = ValueArray.read_put(new String(dataset._key._kb) + "_UNZIPPED", zis);
+        key = ValueArray.readPut(new String(dataset._key._kb) + "_UNZIPPED", zis);
       }
       // else it is possible to dive into a directory but in this case I would
       // prefer to return error since the ZIP file has not expected format
@@ -122,7 +122,7 @@ public final class ParseDataset {
     Key key = null;
     try {
       gzis = new GZIPInputStream(dataset.openStream());
-      key = ValueArray.read_put(new String(dataset._key._kb) + "_UNZIPPED", gzis);
+      key = ValueArray.readPut(new String(dataset._key._kb) + "_UNZIPPED", gzis);
     } finally { Closeables.closeQuietly(gzis); }
 
     if( key == null ) throw new Error("Cannot uncompressed GZIP-compressed dataset!");
@@ -236,7 +236,7 @@ public final class ParseDataset {
        */
       public void store() {
         assert _ab.eof();
-        Key k = ValueArray.get_key(_chunkIndex, _resultKey);
+        Key k = ValueArray.getChunkKey(_chunkIndex, _resultKey);
         AtomicUnion u = new AtomicUnion(_ab.bufClose(),_chunkOffset);
         alsoBlockFor(u.fork(k));
         _ab = null; // free mem

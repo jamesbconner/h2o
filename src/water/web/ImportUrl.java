@@ -39,7 +39,7 @@ public class ImportUrl extends H2OPage {
     try {
       s = url.openStream();
       if( s==null ) throw new Exception("Unable to open stream to URL "+url.toString());
-      Key result = ValueArray.read_put(keyName, s);
+      Key result = ValueArray.readPut(keyName, s);
       return result;
     } catch (IOException e) {
       throw new Exception(e.getMessage());

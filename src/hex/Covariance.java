@@ -66,7 +66,7 @@ public abstract class Covariance {
       // Get the root ValueArray for the metadata
       ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       final int rows = bits.remaining()/ary._rowsize;
       // Columns to work on
       ValueArray.Column A = ary._cols[_colA];

@@ -92,15 +92,11 @@ public class ValueArray extends Iced {
     return new AutoBuffer(val.get()).get(ValueArray.class).init(val._key);
   }
 
-  // TODO kill me
-  public long num_rows() { return _numrows; }
-  public int num_cols() { return _cols.length; }
-  public int row_size() { return _rowsize; }
-
+  public int rowSize() { return _rowsize; }
   public long numRows() { return _numrows; }
   public int numCols() { return _cols.length; }
   public long length() { return _numrows*_rowsize; }
-  public boolean has_bad(int colnum) { return _cols[colnum]._n != _numrows; }
+  public boolean hasInvalidRows(int colnum) { return _cols[colnum]._n != _numrows; }
 
   // internal convience class for building structured ValueArrays
   static public class Column extends Iced {
@@ -128,10 +124,10 @@ public class ValueArray extends Iced {
   }
 
   // Get a usable pile-o-bits
-  public AutoBuffer get_chunk( long chknum ) { return get_chunk(get_key(chknum)); }
-  public AutoBuffer get_chunk( Key key ) { return new AutoBuffer(DKV.get(key).get()); }
+  public AutoBuffer getChunk( long chknum ) { return getChunk(getChunkKey(chknum)); }
+  public AutoBuffer getChunk( Key key ) { return new AutoBuffer(DKV.get(key).get()); }
   // Which row in the chunk?
-  public int row_in_chunk( long chknum, long rownum ) {
+  public int rowInChunk( long chknum, long rownum ) {
     return (int)(rownum - chknum*_rpc);
   }
 
@@ -141,7 +137,7 @@ public class ValueArray extends Iced {
   // probably need help pulling out the loop invariants.
   public double datad(long rownum, int colnum) {
     long chknum= Math.min(rownum/_rpc,_chunks-1);
-    return datad(get_chunk(chknum),row_in_chunk(chknum,rownum),colnum);
+    return datad(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
 
   // This is a version where the colnum data is not yet pulled out.
@@ -168,7 +164,7 @@ public class ValueArray extends Iced {
   // Value extracted, then scaled & based - the integer version.
   public long data(long rownum, int colnum) throws IOException {
     long chknum= Math.min(rownum/_rpc,_chunks-1);
-    return data(get_chunk(chknum),row_in_chunk(chknum,rownum),colnum);
+    return data(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
   public long data(AutoBuffer ab, int row_in_chunk, int colnum) {
     return data(ab,row_in_chunk,_cols[colnum]);
@@ -194,7 +190,7 @@ public class ValueArray extends Iced {
   // Test if the value is valid, or was missing in the orginal dataset
   public boolean isNA(long rownum, int colnum) throws IOException {
     long chknum= Math.min(rownum/_rpc,_chunks-1);
-    return isNA(get_chunk(chknum),row_in_chunk(chknum,rownum),colnum);
+    return isNA(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
   public boolean isNA(AutoBuffer ab, int row_in_chunk, int colnum ) {
     return isNA(ab,row_in_chunk,_cols[colnum]);
@@ -215,21 +211,21 @@ public class ValueArray extends Iced {
   }
 
   // Get the proper Key for a given chunk number
-  public Key get_key( long chknum ) {
+  public Key getChunkKey( long chknum ) {
     assert 0 <= chknum && chknum < _chunks : "AIOOB "+chknum+" < "+_chunks;
-    return get_key(chknum,_key);
+    return getChunkKey(chknum,_key);
   }
-  public static Key get_key( long chknum, Key key ) {
+  public static Key getChunkKey( long chknum, Key arrayKey ) {
     byte[] buf = new AutoBuffer().put1(Key.ARRAYLET_CHUNK).put1(0)
-      .put8(chknum<<LOG_CHK).putA1(key._kb,key._kb.length).buf();
-    return Key.make(buf,(byte)key.desired());
+      .put8(chknum<<LOG_CHK).putA1(arrayKey._kb,arrayKey._kb.length).buf();
+    return Key.make(buf,(byte)arrayKey.desired());
   }
 
   // Get the root array Key from a random arraylet sub-key
-  public static Key getArrayKey( Key k ) { return Key.make(getArrayKeyBytes(k)); }
-  public static byte[] getArrayKeyBytes( Key k ) {
+  public static Key getArrayKey( Key k ) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
-    return Arrays.copyOfRange(k._kb,2+8,k._kb.length);
+    byte[] kb =  Arrays.copyOfRange(k._kb,2+8,k._kb.length);
+    return Key.make(kb);
   }
 
   // Get the chunk-index from a random arraylet sub-key
@@ -242,14 +238,14 @@ public class ValueArray extends Iced {
   // ---
   // Read a (possibly VERY large file) and put it in the K/V store and return a
   // Value for it. Files larger than 2Meg are broken into arraylets of 1Meg each.
-  static public Key read_put(String keyname, InputStream is) throws IOException {
+  static public Key readPut(String keyname, InputStream is) throws IOException {
     Futures fs = new Futures();
-    Key k = read_put(keyname,is,fs);
+    Key k = readPut(keyname,is,fs);
     fs.block_pending();
     return k;
   }
 
-  static private Key read_put(String keyname, InputStream is, Futures fs) throws IOException {
+  static private Key readPut(String keyname, InputStream is, Futures fs) throws IOException {
     final Key key = Key.make(keyname);
 
     // try to read 2-chunks or less into the buffer
@@ -270,9 +266,9 @@ public class ValueArray extends Iced {
     // Oops - read 2 chunks worth of data and still more coming.  Switch over
     // to a ValueArray, and write out what we got as the first two of possibly
     // many chunks.
-    Key ckey0 = get_key(0,key);
+    Key ckey0 = getChunkKey(0,key);
     DKV.put(ckey0,new Value(ckey0,Arrays.copyOfRange(buf,            0,(int) CHUNK_SZ    )),fs);
-    Key ckey1 = get_key(1,key);
+    Key ckey1 = getChunkKey(1,key);
     DKV.put(ckey1,new Value(ckey1,Arrays.copyOfRange(buf,(int)CHUNK_SZ,(int)(CHUNK_SZ<<1))),fs);
 
     // Read the rest out
@@ -287,13 +283,13 @@ public class ValueArray extends Iced {
         off+=sz;
       szl += off;
       if( off<CHUNK_SZ ) break;
-      Key ckey = get_key(cidx++,key);
+      Key ckey = getChunkKey(cidx++,key);
       DKV.put(ckey,new Value(ckey,buf),fs);
     }
     assert is.read(new byte[1]) == -1;
 
     // Last chunk is short, read it; combine buffers and make the last chunk larger
-    Key ckey = get_key(cidx-1,key); // Get last chunk written out
+    Key ckey = getChunkKey(cidx-1,key); // Get last chunk written out
     assert DKV.get(ckey).get()==oldbuf; // Maybe false-alarms under high-memory-pressure?
     byte[] newbuf = Arrays.copyOf(oldbuf,(int)(off+CHUNK_SZ));
     System.arraycopy(buf,0,newbuf,(int)CHUNK_SZ,off);
@@ -310,7 +306,7 @@ public class ValueArray extends Iced {
       @Override public int available() throws IOException {
         if( _ab==null || _ab.remaining()==0 ) {
           if( _chkidx >= _chunks ) return 0;
-          _ab = get_chunk(_chkidx++);
+          _ab = getChunk(_chkidx++);
         }
         return _ab.remaining();
       }

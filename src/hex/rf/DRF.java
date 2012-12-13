@@ -87,7 +87,7 @@ public class DRF extends water.DRemoteTask {
     final long num_chunks = ary._chunks;
     HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {
-      nodes.add(ary.get_chunk(i)._h2o);
+      nodes.add(ary.getChunk(i)._h2o);
       if( nodes.size() == num_nodes ) // All of them?
         break;                        // Done
     }
@@ -199,9 +199,9 @@ public class DRF extends water.DRemoteTask {
     }
     @Override
     protected void compute() {
-      AutoBuffer bits = _ary.get_chunk(_k);
+      AutoBuffer bits = _ary.getChunk(_k);
       Column cl = _ary._cols[_classcol];
-      int rows = bits.remaining()/_ary.row_size();
+      int rows = bits.remaining()/_ary.rowSize();
       int [] indexes = new int[nclasses];
       ROWS:for(int i = 0; i < rows; ++i){
         int c = (int)(_ary.datad(bits, i, cl)-cl._min);
@@ -235,7 +235,7 @@ public class DRF extends water.DRemoteTask {
    */
   private DataAdapter inhaleData() {
     final ValueArray ary = ValueArray.value(_arykey);
-    int row_size = ary.row_size();
+    int row_size = ary.rowSize();
     int rpc = (int)ValueArray.CHUNK_SZ/row_size;
     final Column classCol = ary._cols[_classcol];
     final int nclasses = (int)(classCol._max - classCol._min + 1);
@@ -251,8 +251,8 @@ public class DRF extends water.DRemoteTask {
       htasks[i] = new RecursiveAction() {
         @Override
         protected void compute() {
-          AutoBuffer bits = ary.get_chunk(chunkKey);
-          int rows = bits.remaining()/ary.row_size();
+          AutoBuffer bits = ary.getChunk(chunkKey);
+          int rows = bits.remaining()/ary.rowSize();
           for(int i = 0; i < rows; ++i)
             ++chunkHistogram[chunkId][(int)(ary.data(bits, i, classCol)-classCol._min)];
         }
@@ -320,13 +320,13 @@ public class DRF extends water.DRemoteTask {
       dapt.setIntervalStart(i, startRows[i]);
     }
     // cols that do not need binning
-    int [] rawCols = new int[ary.num_cols() - _ignores.length];
+    int [] rawCols = new int[ary.numCols() - _ignores.length];
     // cols that will be binned
-    int [] binCols = new int[ary.num_cols() - _ignores.length];
+    int [] binCols = new int[ary.numCols() - _ignores.length];
     int b = 0;
     int r = 0;
 
-    for(int i = 0; i < ary.num_cols(); ++i){
+    for(int i = 0; i < ary.numCols(); ++i){
       if(Arrays.binarySearch(_ignores, i) < 0){
         if(dapt.binColumn(i)) binCols[b++] = i;
         else rawCols[r++] = i;
@@ -399,7 +399,7 @@ public class DRF extends water.DRemoteTask {
       jobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
-          AutoBuffer bits = ary.get_chunk(k);
+          AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncols; ++c)
               if( ary.isNA(bits,j,colIds[c])) continue ROWS;
@@ -487,7 +487,7 @@ public class DRF extends water.DRemoteTask {
       dataInhaleJobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
-          AutoBuffer bits = ary.get_chunk(k);
+          AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncolumns; ++c) // Bail out of broken rows in not-ignored columns
               if( !icols[c] && ary.isNA(bits,j,c)) {
@@ -529,7 +529,7 @@ public class DRF extends water.DRemoteTask {
     final int num_nodes = H2O.CLOUD.size();
     HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {
-      nodes.add(ary.get_key(i).home_node());
+      nodes.add(ary.getChunkKey(i).home_node());
       if( nodes.size() == num_nodes ) // All of them?
         break;                        // Done
     }

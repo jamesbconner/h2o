@@ -95,9 +95,9 @@ public class MinorityClasses {
     @Override
     public void map(Key key) {
       ValueArray ary = ValueArray.value(_aryKey);
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       Column c = ary._cols[_classIdx];
-      int rows = bits.remaining()/ary.row_size();
+      int rows = bits.remaining()/ary.rowSize();
       for(int i = 0; i < rows; ++i)
         if(Arrays.binarySearch(_minorities, (int)ary.datad(bits, i, c)) < 0)
           ++_res;
@@ -125,7 +125,7 @@ public class MinorityClasses {
     ClassExtractTask tsk = new ClassExtractTask();
     tsk._imbalancedClasses = classIds;
     tsk._classColumnIdx = classIdx;
-    tsk._rowsize = data.row_size();
+    tsk._rowsize = data.rowSize();
     tsk.invoke(data._key);
     // deal with the remainders
     for(int i = 0; i < tsk._offsets.length; ++i)
@@ -160,9 +160,9 @@ public class MinorityClasses {
     public void map(Key key) {
       ValueArray ary = ValueArray.value(_aryKey);
       _histogram = new int[H2O.CLOUD.size()][_n];
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       Column c = ary._cols[_classIdx];
-      int rows = bits.remaining()/ary.row_size();
+      int rows = bits.remaining()/ary.rowSize();
       for(int i = 0; i < rows; ++i)
         ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
     }
@@ -226,7 +226,7 @@ public class MinorityClasses {
 
     @Override
     public void map(Key key) {
-      Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
+      Key aryKey = ValueArray.getArrayKey(key);
       ValueArray ary = ValueArray.value(aryKey);
       _offsets = new int[_imbalancedClasses.length];
       _histogram = new int[_imbalancedClasses.length];
@@ -234,10 +234,10 @@ public class MinorityClasses {
       _bufs = new byte[_imbalancedClasses.length][];
       for(int i = 0; i < _bufs.length; ++i)
         _bufs[i] = new byte[1 << (ValueArray.LOG_CHK - 5)];
-      AutoBuffer bits = ary.get_chunk(key);
-      int rowsize = ary.row_size();
+      AutoBuffer bits = ary.getChunk(key);
+      int rowsize = ary.rowSize();
       Column c = ary._cols[_classColumnIdx];
-      int rows = bits.remaining()/ary.row_size();
+      int rows = bits.remaining()/ary.rowSize();
       int chunksize = rows*rowsize;
       for(int i = 0; i < rows; ++i) {
         int idx = Arrays.binarySearch(_imbalancedClasses, (int)ary.datad(bits, i, c));

@@ -28,7 +28,7 @@ public class PutVector extends JSONPage {
       tot += d[i];
     }
     // The 1 tiny arraylet
-    Key key2 = ValueArray.get_key(0, k);
+    Key key2 = ValueArray.getChunkKey(0, k);
     Value val = new Value(key2, bits);
     DKV.put(key2, val);
     // The metadata

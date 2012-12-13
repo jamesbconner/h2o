@@ -36,7 +36,7 @@ public class KeyUtil {
     FileInputStream fis = null;
     try {
       fis = new FileInputStream(file);
-      key = ValueArray.read_put(keyname, fis);
+      key = ValueArray.readPut(keyname, fis);
     } catch( IOException e ) {
       Closeables.closeQuietly(fis);
     }

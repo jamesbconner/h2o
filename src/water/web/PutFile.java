@@ -179,7 +179,7 @@ public class PutFile extends H2OPage {
         entity.skipHeader();
 
         // Read directly from stream and create a key
-        Key key = ValueArray.read_put(keyname, entity.getContent());
+        Key key = ValueArray.readPut(keyname, entity.getContent());
         JsonElement jsonResult = getJsonResult(key);
         String result = jsonResult.toString();
 

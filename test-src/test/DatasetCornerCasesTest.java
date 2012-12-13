@@ -46,7 +46,7 @@ public class DatasetCornerCasesTest {
     int gini    = StatType.GINI.ordinal();
     long seed   =  42L;
     StatType statType = StatType.values()[gini];
-    final int num_cols = val.num_cols();
+    final int num_cols = val.numCols();
     final int classcol = num_cols-1; // For iris: classify the last column
     final int classes = (short)((val._cols[classcol]._max - val._cols[classcol]._min)+1);
 

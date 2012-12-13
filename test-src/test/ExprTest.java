@@ -118,8 +118,8 @@ public class ExprTest {
   protected void testScalarExpression(String expr, double result) {
     Key key = executeExpression(expr);
     ValueArray va = ValueArray.value(key);
-    assertEquals(va.num_rows(), 1);
-    assertEquals(va.num_cols(), 1);
+    assertEquals(va.numRows(), 1);
+    assertEquals(va.numCols(), 1);
     assertEquals(result,va.datad(0,0), 0.0);
     UKV.remove(key);
   }
@@ -137,9 +137,9 @@ public class ExprTest {
     assertEquals(v.datad(0,0),n1,0.0);
     assertEquals(v.datad(1,0),n2,0.0);
     assertEquals(v.datad(2,0),n3,0.0);
-    assertEquals(v.datad(v.num_rows()-3,0),nx3,0.0);
-    assertEquals(v.datad(v.num_rows()-2,0),nx2,0.0);
-    assertEquals(v.datad(v.num_rows()-1,0),nx1,0.0);
+    assertEquals(v.datad(v.numRows()-3,0),nx3,0.0);
+    assertEquals(v.datad(v.numRows()-2,0),nx2,0.0);
+    assertEquals(v.datad(v.numRows()-1,0),nx1,0.0);
   }
 
   public void testVectorExpression(String expr, double n1, double n2, double n3, double nx3, double nx2, double nx1) {
@@ -150,8 +150,8 @@ public class ExprTest {
 
   public void testDataFrameStructure(Key k, int rows, int cols) {
     ValueArray v = ValueArray.value(k);
-    assertEquals(v.num_rows(), rows);
-    assertEquals(v.num_cols(), cols);
+    assertEquals(v.numRows(), rows);
+    assertEquals(v.numCols(), cols);
   }
 
   @Test public void testNumberParsing() {

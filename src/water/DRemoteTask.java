@@ -180,7 +180,7 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
       ValueArray ary = ValueArray.value(val);
       Key[] keys = new Key[(int)ary._chunks];
       for( int i=0; i<keys.length; i++ )
-        keys[i] = ary.get_key(i);
+        keys[i] = ary.getChunkKey(i);
       return keys;
     }
     // Handy wrap single key into a array-of-1 key

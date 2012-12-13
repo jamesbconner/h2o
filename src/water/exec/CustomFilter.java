@@ -25,7 +25,7 @@ public abstract class CustomFilter extends MRTask {
 
   @Override public void map(Key key) {
     ValueArray ary = ValueArray.value(ValueArray.getArrayKey(key));
-    AutoBuffer bits = ary.get_chunk(key);
+    AutoBuffer bits = ary.getChunk(key);
     int wo = 0;
     _rowSize = ary._rowsize;
     filterInitMap(ary, key, bits.remaining());
@@ -37,7 +37,7 @@ public abstract class CustomFilter extends MRTask {
         wo += _rowSize;
       }
     }
-    Key d = ValueArray.get_key(ValueArray.getChunkIndex(key), _destKey);
+    Key d = ValueArray.getChunkKey(ValueArray.getChunkIndex(key), _destKey);
     Value v = new Value(d, newBits.buf());
     DKV.put(d,v);
   }
