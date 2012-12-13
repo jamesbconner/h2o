@@ -25,6 +25,8 @@ import random, sys
 # we can pass ntree thru kwargs if we don't use the "trees" parameter in runRF
 # only classes 1-7 in the 55th col
 # don't allow None on ntree..causes 50 tree default!
+# FIX! binLimit causes fail if == 1
+print "Temporarily not using binLimit=1"
 paramDict = {
     'class': [None,54],
     'classWt': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2'],
