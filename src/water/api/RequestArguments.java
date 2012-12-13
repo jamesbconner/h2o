@@ -809,4 +809,20 @@ public class RequestArguments extends RequestStatics {
     }
 
   }
+
+
+
+
+
+
+  public abstract class Arg {
+    public String _requestHelp;
+    public final String _name;
+
+    protected Arg(String name) {
+      _name = name;
+      _arguments.add(this);
+    }
+
+  }
 }
