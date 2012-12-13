@@ -11,7 +11,6 @@ import water.ValueArray.Column;
 
 /** Distributed RandomForest */
 public class DRF extends water.DRemoteTask {
-
   boolean _useStratifySampling;
   int [][] _histogram;
 
@@ -73,6 +72,14 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
+  /**
+   * This method has two functions:
+   *   1) computes default strata sizes (can be overriden by user)
+   *   2) identifies unbalanced classes (based on stratas) and extracts them out of the dataset.
+   *
+   * @param ary
+   * @param strata
+   */
   public void extractMinorities(ValueArray ary, Map<Integer,Integer> strata){
     _nHist = MinorityClasses.histogram(ary, _classcol);
     _gHist = MinorityClasses.globalHistogram(_nHist);
@@ -89,7 +96,6 @@ public class DRF extends water.DRemoteTask {
     int k = 0;
     for(H2ONode n:nodes)nodesIdxs[k++] = n.index();
     Arrays.sort(nodesIdxs);
-
     int majority = 0;
     for(int i:_gHist)if(i > majority)majority = i;
     majority = Math.round((_sample*majority)/cloudSize);
@@ -104,9 +110,10 @@ public class DRF extends water.DRemoteTask {
       if(e.getKey() < 0 || e.getKey() >= _strata.length)
         System.err.println("Ignoring illegal class index when parsing strata argument: " + e.getKey());
       else
-        _strata[e.getKey()] = e.getValue();
+        _strata[e.getKey()] = Math.min(_gHist[e.getKey()], e.getValue());
+
     for(int i:nodesIdxs){
-      if(_gHist[i] < (int)(_strata[i]/_sample))System.err.println("There is not enough samples of class " + i + ", it will be oversampled!");
+      if(_gHist[i] < (int)(_strata[i]/_sample))System.err.println("There is not enough samples of class " + i + ".");
     }
     // decide which classes need to be extracted
     SortedSet<Integer> uClasses = new TreeSet<Integer>();
@@ -154,7 +161,13 @@ public class DRF extends water.DRemoteTask {
     return drf;
   }
 
-
+  /**
+   * Job to inhale data for stratify sampling
+   * (done differently than standard inhale since we sort the data by classes)
+   *
+   * @author tomasnykodym
+   *
+   */
   static final class DataInhale extends RecursiveAction {
     int _classcol;
     int [] binColIds;
@@ -212,6 +225,14 @@ public class DRF extends water.DRemoteTask {
     }
   }
 
+  /**
+   * Data inhale for stratify sampling.
+   *
+   * Sorts input by class column and can sample
+   * data from other nodes in case of minority/unbalanced class.
+   *
+   * @return
+   */
   private DataAdapter inhaleData() {
     final ValueArray ary = ValueArray.value(_arykey);
     int row_size = ary.row_size();
@@ -222,6 +243,7 @@ public class DRF extends water.DRemoteTask {
 
     final int [][] chunkHistogram = new int [_keys.length+1][nclasses];
 
+    // first compute histogram of classes per chunk (for sorting purposes)
     RecursiveAction [] htasks = new RecursiveAction[_keys.length];
     for(int i = 0; i < _keys.length; ++i){
       final int chunkId = i;
@@ -237,7 +259,7 @@ public class DRF extends water.DRemoteTask {
       };
     }
     invokeAll(htasks);
-
+    // compute sums of our class counts
     for(int i = 0; i < _keys.length; ++i)
       for(int j = 0; j < nclasses; ++j)
         chunkHistogram[_keys.length][j] += chunkHistogram[i][j];
@@ -245,19 +267,20 @@ public class DRF extends water.DRemoteTask {
     ArrayList<Key> myKeys = new ArrayList<Key>();
     for(Key k:_keys)myKeys.add(k);
     if(_uClasses != null) {
-
+      // boolean array to keep track which classes to ignore when reading local keys
       unbalancedClasses = new boolean[nclasses];
       for(UnbalancedClass c:_uClasses){
         unbalancedClasses[c._c] = true;
-        int nrows = (int)(_strata[c._c]/_sample);
-        int echunks = 1 + nrows/rpc; // TODO
-        if(echunks >= c._chunks.length){
+        int nrows = _strata[c._c];
+        int echunks = 1 + nrows/rpc;
+        if(echunks >= c._chunks.length) { // we need all the chuks from all the nodes
           chunkHistogram[_keys.length][c._c] = _gHist[c._c];
           for(Key k:c._chunks)
             myKeys.add(k);
-        } else {
+        } else { // sample only from some of chunks on other nodes
           int r = 0;
           ArrayList<Integer> indexes = new ArrayList<Integer>();
+          // include all local chunks and identify non-locals
           for(int i = 0; i < c._chunks.length; ++i) {
             if(c._chunks[i].home()){
               myKeys.add(c._chunks[i]);
@@ -265,6 +288,8 @@ public class DRF extends water.DRemoteTask {
             } else
               indexes.add(i);
           }
+          // sample from non-local chunks until we have enough rows
+          // sampling only works on chunk boundary -> we can end up with upt to rpc more rows than requested
           Random rand = new Random(_seed);
           while(r < nrows){
             assert !indexes.isEmpty();
@@ -281,11 +306,12 @@ public class DRF extends water.DRemoteTask {
       }
     }
 
-    int totalRows = 0;
+    int totalRows = 0; // size of local DataAdapter
     for(int i = 0; i < nclasses;++i)
       totalRows += chunkHistogram[_keys.length][i];
     final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, totalRows, ValueArray.getChunkIndex(_keys[0]), _seed, _binLimit, _classWt);
 
+    // vector keeping track of indexes of individual classes so that we can read data in parallel
     final int [] startRows = new int[nclasses];
 
     dapt.initIntervals(nclasses);
@@ -293,7 +319,9 @@ public class DRF extends water.DRemoteTask {
       startRows[i] = startRows[i-1] + chunkHistogram[_keys.length][i-1];
       dapt.setIntervalStart(i, startRows[i]);
     }
+    // cols that do not need binning
     int [] rawCols = new int[ary.num_cols() - _ignores.length];
+    // cols that will be binned
     int [] binCols = new int[ary.num_cols() - _ignores.length];
     int b = 0;
     int r = 0;
@@ -325,11 +353,11 @@ public class DRF extends water.DRemoteTask {
       job.rawColMins = rawMins;
       job.nclasses = nclasses;
       inhaleJobs.add(job);
-      if(i < _keys.length)
+      if(i < _keys.length) // local (majority class) chunk
         for(int j = 0; j < nclasses; ++j){
           if(unbalancedClasses == null || !unbalancedClasses[j])
             startRows[j] += chunkHistogram[i][j];
-      } else {
+      } else { // chunk containing only single unbalanced class
         // find the unbalanced class
         int c = 0;
         for(;c < (_uClasses.length-1) && i-_uClasses[c]._chunks.length >= 0; ++c);
@@ -337,6 +365,7 @@ public class DRF extends water.DRemoteTask {
       }
     }
     invokeAll(inhaleJobs);
+    // compute the binning
     if(binCols.length > 0){
       ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
       for(int c:binCols){
@@ -349,7 +378,7 @@ public class DRF extends water.DRemoteTask {
         });
       }
       invokeAll(binningJobs);
-      // now do the inhale jobs again
+      // now do the inhale jobs again, this time reading all the values
       ArrayList<DataInhale> inhaleJobs2 = new ArrayList<DRF.DataInhale>();
       for(DataInhale job: inhaleJobs)
         inhaleJobs2.add(new DataInhale(job));

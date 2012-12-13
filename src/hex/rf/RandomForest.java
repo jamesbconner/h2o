@@ -65,11 +65,12 @@ public class RandomForest {
 
 
   public static Map<Integer,Integer> parseStrata(String s){
+    if(s.isEmpty())return null;
     String [] strs = s.split(",");
     Map<Integer,Integer> res = new HashMap<Integer, Integer>();
     for(String x:strs){
       String [] arr = x.split(":");
-      res.put(Integer.parseInt(arr[0]), Integer.parseInt(arr[1]));
+      res.put(Integer.parseInt(arr[0].trim()), Integer.parseInt(arr[1].trim()));
     }
     return res;
   }
