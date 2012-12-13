@@ -234,7 +234,7 @@ public abstract class MemoryManager {
       catch( OutOfMemoryError e ) { }
       set_goals("OOM",true); // Low memory; block for swapping
     }
-  
+
   }
   public static int[] malloc4(int size) {
     while( true ) {
@@ -262,6 +262,20 @@ public abstract class MemoryManager {
     }
   }
 
+
+  //allocates memory, will block until there is enough available memory
+  public static byte[] arrayCopyOf(byte [] original, int sz ) {
+    while( true ) {
+      if( !CAN_ALLOC && sz > 256 ) {
+        synchronized(_lock) {
+          try { _lock.wait(1000); } catch (InterruptedException ex) { }
+        }
+      }
+      try { return Arrays.copyOf(original, sz); }
+      catch( OutOfMemoryError e ) { }
+      set_goals("OOM",true);    // Low memory; block for swapping
+    }
+  }
   //allocates memory, will block until there is enough available memory
   public static byte[] arrayCopyOfRange(byte [] original, int from, int to ) {
     while( true ) {

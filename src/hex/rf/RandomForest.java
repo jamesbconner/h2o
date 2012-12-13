@@ -2,7 +2,8 @@ package hex.rf;
 import hex.rf.Tree.StatType;
 
 import java.io.File;
-import java.util.Random;
+import java.util.*;
+import water.Timer;
 
 import water.*;
 import water.util.KeyUtil;
@@ -15,19 +16,23 @@ import water.util.KeyUtil;
 public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features;        // features to check at each split
+  boolean _stratify;
+  int [] _strata;
 
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees, int features, int[] ignoreColumns) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
     _features = features;
+    _stratify = drf._useStratifySampling;
+    _strata = drf._strata;
     Timer t_alltrees = new Timer();
     Tree[] trees = new Tree[ntrees];
     Random rnd = new Random(data.seed());
     for (int i = 0; i < ntrees; ++i) {
-      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(),rnd.nextLong(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns);
+      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(),rnd.nextLong(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns,_stratify, _strata);
       if (!parallelTrees) DRemoteTask.invokeAll(new Tree[]{trees[i]});
-     }
-    if (parallelTrees) DRemoteTask.invokeAll(trees);
+    }
+    if(parallelTrees)DRemoteTask.invokeAll(trees);
     Utils.pln("All trees ("+ntrees+") done in "+ t_alltrees);
   }
 
@@ -44,15 +49,30 @@ public class RandomForest {
 	int classcol = -1;
 	int features = -1;
 	int parallel = 1;
+	boolean outOfBagError;
+	boolean stratify;
+	String strata;
 	String statType = "entropy";
 	int seed = 42;
 	String ignores;
+	int nnodes = 1;
+	int cloudFormationTimeout=10; // wait for up to 10seconds
   }
 
   static final OptArgs ARGS = new OptArgs();
 
   public int features() { return _features; }
 
+
+  public static Map<Integer,Integer> parseStrata(String s){
+    String [] strs = s.split(",");
+    Map<Integer,Integer> res = new HashMap<Integer, Integer>();
+    for(String x:strs){
+      String [] arr = x.split(":");
+      res.put(Integer.parseInt(arr[0]), Integer.parseInt(arr[1]));
+    }
+    return res;
+  }
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
@@ -94,7 +114,7 @@ public class RandomForest {
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1, false, null);
     drf.get(); // block
     Model model = UKV.get(drf._modelKey, new Model());
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);

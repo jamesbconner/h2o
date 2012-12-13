@@ -10,6 +10,8 @@ import com.google.common.primitives.Ints;
 
 class DataAdapter  {
   private final int _numClasses;
+  int [] _intervalsStarts;
+  int _badRows;
   private final C[] _c;
   public  final ValueArray _ary;
   /** Unique cookie identifying this dataset*/
@@ -18,6 +20,7 @@ class DataAdapter  {
   public final int _classIdx;
   public final int _numRows;
   public final double[] _classWt;
+
 
   /** Maximum arity for a column (not a hard limit at this point) */
   final short _bin_limit;
@@ -57,6 +60,15 @@ class DataAdapter  {
     _numRows = rows;
     assert classWt == null || classWt.length==_numClasses;
     _classWt = classWt;
+  }
+  public void initIntervals(int n){
+    _intervalsStarts = new int[n+1];
+    _intervalsStarts[n] = _numRows;
+  }
+  public void setIntervalStart(int i, int S){
+    if(_intervalsStarts == null)_intervalsStarts = new int[i+1];
+    if(_intervalsStarts.length <= i)_intervalsStarts = Arrays.copyOf(_intervalsStarts, i+1);
+    _intervalsStarts[i] = S;
   }
 
   /** Given a value in enum format, returns a value in the original range. */
@@ -121,7 +133,10 @@ class DataAdapter  {
   // Mark this row as being invalid for tree-building, typically because it
   // contains invalid data in some columns.
   public void setBad(int row) {
-    _c[_classIdx].setValue(row,(short)-1);
+    if(_c[_classIdx].getValue(row) != -1){
+      ++_badRows;
+      _c[_classIdx].setValue(row,(short)-1);
+    }
   }
 
   /** Should we bin this column? */

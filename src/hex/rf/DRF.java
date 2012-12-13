@@ -1,4 +1,5 @@
 package hex.rf;
+import hex.rf.MinorityClasses.UnbalancedClass;
 import hex.rf.Tree.StatType;
 
 import java.util.*;
@@ -10,6 +11,9 @@ import water.ValueArray.Column;
 
 /** Distributed RandomForest */
 public class DRF extends water.DRemoteTask {
+
+  boolean _useStratifySampling;
+  int [][] _histogram;
 
   // OPTIONS FOR RF
   /** Total number of trees  (default: 10) */
@@ -38,6 +42,8 @@ public class DRF extends water.DRemoteTask {
   // INTERNAL DATA
   /** Key for the data being classified */
   Key _arykey;
+  UnbalancedClass [] _uClasses;
+  int [] _strata;
   /** Key for the model being buildt */
   public Key _modelKey;
   /** Key for the trees built so far*/
@@ -51,6 +57,8 @@ public class DRF extends water.DRemoteTask {
   transient RandomForest _rf;        // The local RandomForest
   transient Timer _t_main;     // Main timer
 
+  int [][] _nHist;
+  int [] _gHist;
   public static class IllegalDataException extends Error {
     public IllegalDataException(String string) { super(string); }
   }
@@ -65,7 +73,56 @@ public class DRF extends water.DRemoteTask {
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
   }
 
-  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, long seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features) {
+  public void extractMinorities(ValueArray ary, Map<Integer,Integer> strata){
+    _nHist = MinorityClasses.histogram(ary, _classcol);
+    _gHist = MinorityClasses.globalHistogram(_nHist);
+    final int num_nodes = H2O.CLOUD.size();
+    final long num_chunks = ary._chunks;
+    HashSet<H2ONode> nodes = new HashSet();
+    for( long i=0; i<num_chunks; i++ ) {
+      nodes.add(ary.get_chunk(i)._h2o);
+      if( nodes.size() == num_nodes ) // All of them?
+        break;                        // Done
+    }
+    int cloudSize = nodes.size();
+    int [] nodesIdxs = new int[nodes.size()];
+    int k = 0;
+    for(H2ONode n:nodes)nodesIdxs[k++] = n.index();
+    Arrays.sort(nodesIdxs);
+
+    int majority = 0;
+    for(int i:_gHist)if(i > majority)majority = i;
+    majority = Math.round((_sample*majority)/cloudSize);
+    int minStrata = majority >> 9;
+    _strata = new int[_gHist.length];
+    for(int i = 0; i < _strata.length; ++i){
+      // TODO should class weight be adjusted?
+      _strata[i] = Math.min(_gHist[i],Math.max(minStrata,Math.round((_sample*_gHist[i])/cloudSize)));
+    }
+
+    if( strata != null) for(Map.Entry<Integer, Integer> e: strata.entrySet())
+      if(e.getKey() < 0 || e.getKey() >= _strata.length)
+        System.err.println("Ignoring illegal class index when parsing strata argument: " + e.getKey());
+      else
+        _strata[e.getKey()] = e.getValue();
+    for(int i:nodesIdxs){
+      if(_gHist[i] < (int)(_strata[i]/_sample))System.err.println("There is not enough samples of class " + i + ", it will be oversampled!");
+    }
+    // decide which classes need to be extracted
+    SortedSet<Integer> uClasses = new TreeSet<Integer>();
+    for(int i:nodesIdxs)
+      for(int c = 0; c < _nHist[i].length; ++c)
+        // node does not have enough samples
+        if(_nHist[i][c] < _strata[c])uClasses.add(c);
+    if(!uClasses.isEmpty()){
+      int [] u  = new int [uClasses.size()];
+      int i = 0;
+      for(int c:uClasses)u[i++] = c;
+      _uClasses = MinorityClasses.extractUnbalancedClasses(ary, _classcol, u);
+    }
+
+  }
+  public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, long seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features, boolean stratify, Map<Integer,Integer> strata) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
     assert features==-1 || ((features>0) && (features<ary._cols.length-1));
@@ -76,7 +133,7 @@ public class DRF extends water.DRemoteTask {
     drf._stat = stat.ordinal();
     drf._arykey = ary._key;
     drf._classcol = classcol;
-    drf._treeskey = Key.make("Trees of "+ary._key,(byte)1,Key.KEY_OF_KEYS);
+    drf._treeskey = Key.make("Trees of " + ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
@@ -95,6 +152,210 @@ public class DRF extends water.DRemoteTask {
     DKV.write_barrier();
     drf.fork(drf._arykey);
     return drf;
+  }
+
+
+  static final class DataInhale extends RecursiveAction {
+    int _classcol;
+    int [] binColIds;
+    int [] rawColIds;
+    int [] rawColMins;
+    boolean [] iclasses;
+    DataAdapter _dapt;
+    int nclasses;
+    int [] _startRows;
+    Key _k;
+    ValueArray _ary;
+    boolean _bin;
+
+    public DataInhale(){
+
+    }
+    public DataInhale(DataInhale other){
+      _classcol = other._classcol;
+      binColIds = other.binColIds;
+      rawColIds = other.rawColIds;
+      rawColMins = other.rawColMins;
+      iclasses = other.iclasses;
+      _dapt = other._dapt;
+      _startRows = other._startRows;
+      _k = other._k;
+      _ary = other._ary;
+      _bin = other._bin;
+      nclasses = other.nclasses;
+    }
+    @Override
+    protected void compute() {
+      AutoBuffer bits = _ary.get_chunk(_k);
+      Column cl = _ary._cols[_classcol];
+      int rows = bits.remaining()/_ary.row_size();
+      int [] indexes = new int[nclasses];
+      ROWS:for(int i = 0; i < rows; ++i){
+        int c = (int)(_ary.datad(bits, i, cl)-cl._min);
+        int outputRow = indexes[c] + _startRows[c];
+        if( (iclasses != null) && iclasses[c] )               continue ROWS;
+        for( int col:binColIds) if( _ary.isNA(bits, i, col) ) continue ROWS;
+        for( int col:rawColIds) if( _ary.isNA(bits, i, col) ) continue ROWS;
+        ++indexes[c];
+        if(_bin){
+          for(int col:binColIds)
+            _dapt.addValueRaw((float)_ary.datad(bits, i, col),outputRow,col);
+        } else {
+          for(int col:binColIds)
+            _dapt.addValue((float)_ary.datad(bits, i, col), outputRow, col);
+          for(int col = 0; col < rawColIds.length; ++col){
+            _dapt.addValue((short)(_ary.data(bits, i, rawColIds[col]) - rawColMins[col]), outputRow, rawColIds[col]);
+          }
+        }
+      }
+      _bin = false;
+    }
+  }
+
+  private DataAdapter inhaleData() {
+    final ValueArray ary = ValueArray.value(_arykey);
+    int row_size = ary.row_size();
+    int rpc = (int)ValueArray.CHUNK_SZ/row_size;
+    final Column classCol = ary._cols[_classcol];
+    final int nclasses = (int)(classCol._max - classCol._min + 1);
+    boolean [] unbalancedClasses = null;
+
+    final int [][] chunkHistogram = new int [_keys.length+1][nclasses];
+
+    RecursiveAction [] htasks = new RecursiveAction[_keys.length];
+    for(int i = 0; i < _keys.length; ++i){
+      final int chunkId = i;
+      final Key chunkKey = _keys[i];
+      htasks[i] = new RecursiveAction() {
+        @Override
+        protected void compute() {
+          AutoBuffer bits = ary.get_chunk(chunkKey);
+          int rows = bits.remaining()/ary.row_size();
+          for(int i = 0; i < rows; ++i)
+            ++chunkHistogram[chunkId][(int)(ary.data(bits, i, classCol)-classCol._min)];
+        }
+      };
+    }
+    invokeAll(htasks);
+
+    for(int i = 0; i < _keys.length; ++i)
+      for(int j = 0; j < nclasses; ++j)
+        chunkHistogram[_keys.length][j] += chunkHistogram[i][j];
+
+    ArrayList<Key> myKeys = new ArrayList<Key>();
+    for(Key k:_keys)myKeys.add(k);
+    if(_uClasses != null) {
+
+      unbalancedClasses = new boolean[nclasses];
+      for(UnbalancedClass c:_uClasses){
+        unbalancedClasses[c._c] = true;
+        int nrows = (int)(_strata[c._c]/_sample);
+        int echunks = 1 + nrows/rpc; // TODO
+        if(echunks >= c._chunks.length){
+          chunkHistogram[_keys.length][c._c] = _gHist[c._c];
+          for(Key k:c._chunks)
+            myKeys.add(k);
+        } else {
+          int r = 0;
+          ArrayList<Integer> indexes = new ArrayList<Integer>();
+          for(int i = 0; i < c._chunks.length; ++i) {
+            if(c._chunks[i].home()){
+              myKeys.add(c._chunks[i]);
+              r += DKV.get(c._chunks[i])._max/row_size;
+            } else
+              indexes.add(i);
+          }
+          Random rand = new Random(_seed);
+          while(r < nrows){
+            assert !indexes.isEmpty();
+            int i = rand.nextInt() % indexes.size();
+            Key k = c._chunks[indexes.get(i)];
+            r += DKV.get(k)._max/row_size;
+            myKeys.add(k);
+            int last = indexes.size()-1;
+            indexes.set(i, indexes.get(last));
+            indexes.remove(last);
+          }
+          chunkHistogram[_keys.length][c._c] = Math.min(r,nrows);
+        }
+      }
+    }
+
+    int totalRows = 0;
+    for(int i = 0; i < nclasses;++i)
+      totalRows += chunkHistogram[_keys.length][i];
+    final DataAdapter dapt = new DataAdapter(ary, _classcol, _ignores, totalRows, ValueArray.getChunkIndex(_keys[0]), _seed, _binLimit, _classWt);
+
+    final int [] startRows = new int[nclasses];
+
+    dapt.initIntervals(nclasses);
+    for(int i = 1; i < nclasses; ++i){
+      startRows[i] = startRows[i-1] + chunkHistogram[_keys.length][i-1];
+      dapt.setIntervalStart(i, startRows[i]);
+    }
+    int [] rawCols = new int[ary.num_cols() - _ignores.length];
+    int [] binCols = new int[ary.num_cols() - _ignores.length];
+    int b = 0;
+    int r = 0;
+
+    for(int i = 0; i < ary.num_cols(); ++i){
+      if(Arrays.binarySearch(_ignores, i) < 0){
+        if(dapt.binColumn(i)) binCols[b++] = i;
+        else rawCols[r++] = i;
+      }
+    }
+    rawCols = Arrays.copyOf(rawCols, r);
+    binCols = Arrays.copyOf(binCols, b);
+    int [] rawMins = new int[r];
+    for(int i = 0; i < rawCols.length; ++i)
+      rawMins[i] = (int)ary._cols[rawCols[i]]._min;
+    ArrayList<DataInhale> inhaleJobs = new ArrayList<DRF.DataInhale>();
+    for (int i = 0; i < myKeys.size(); ++i){
+      Key k = myKeys.get(i);
+      DataInhale job = new DataInhale();
+      job._ary = ary;
+      job._dapt = dapt;
+      job._classcol = _classcol;
+      job._startRows = startRows.clone();
+      job._k = k;
+      job._bin = (binCols.length > 0);
+      job.iclasses = i < _keys.length?unbalancedClasses:null;
+      job.binColIds = binCols;
+      job.rawColIds = rawCols;
+      job.rawColMins = rawMins;
+      job.nclasses = nclasses;
+      inhaleJobs.add(job);
+      if(i < _keys.length)
+        for(int j = 0; j < nclasses; ++j){
+          if(unbalancedClasses == null || !unbalancedClasses[j])
+            startRows[j] += chunkHistogram[i][j];
+      } else {
+        // find the unbalanced class
+        int c = 0;
+        for(;c < (_uClasses.length-1) && i-_uClasses[c]._chunks.length >= 0; ++c);
+        startRows[c] += DKV.get(myKeys.get(i))._max/rpc;
+      }
+    }
+    invokeAll(inhaleJobs);
+    if(binCols.length > 0){
+      ArrayList<RecursiveAction> binningJobs = new ArrayList<RecursiveAction>();
+      for(int c:binCols){
+        final int col = c;
+        binningJobs.add(new RecursiveAction() {
+          @Override
+          protected void compute() {
+            dapt.computeBins(col);
+          }
+        });
+      }
+      invokeAll(binningJobs);
+      // now do the inhale jobs again
+      ArrayList<DataInhale> inhaleJobs2 = new ArrayList<DRF.DataInhale>();
+      for(DataInhale job: inhaleJobs)
+        inhaleJobs2.add(new DataInhale(job));
+      invokeAll(inhaleJobs2);
+    }
+    return dapt;
   }
 
 
@@ -226,7 +487,7 @@ public class DRF extends water.DRemoteTask {
   // Local RF computation.
   public final void compute() {
     Timer t_extract = new Timer();
-    DataAdapter dapt = extractData(_arykey, _keys);
+    DataAdapter dapt = _useStratifySampling?inhaleData():extractData(_arykey, _keys);
     Utils.pln("[RF] Data adapter built in " + t_extract );
     Data t = Data.make(dapt);
     _validation = t; // FIXME... this does not look right.

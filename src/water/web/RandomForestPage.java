@@ -3,8 +3,7 @@ package water.web;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
 
-import java.util.HashMap;
-import java.util.Properties;
+import java.util.*;
 
 import water.*;
 import water.ValueArray.Column;
@@ -152,6 +151,10 @@ public class RandomForestPage extends H2OPage {
         throw new InvalidInputException("Class out of range");
     }
     double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
+    boolean stratify = p.containsKey("stratify");
+    Map<Integer,Integer>  strata = null;
+    if(stratify && p.containsKey("strata"))
+      strata = RandomForest.parseStrata(p.getProperty("strata"));
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
@@ -173,7 +176,7 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o", H2O.SELF.toString());
     try {
-      hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
+      hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features, stratify, strata);
       // Pass along all to the viewer
       res.addProperty("dataKey", ary._key.toString());
       res.addProperty("modelKey", modelKey.toString());

@@ -86,7 +86,7 @@ public class Debug extends JSONPage {
 
     // Start the distributed Random Forest
     long startTrees = System.currentTimeMillis();
-    DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
+    DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features,false,null);
     // Output a model with zero trees (so far).
     Column c = ary._cols[classcol];
     final int classes = (int) (c._max - c._min + 1);
