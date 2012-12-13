@@ -815,14 +815,80 @@ public class RequestArguments extends RequestStatics {
 
 
 
-  public abstract class Arg {
+  public static abstract class Arg<T> {
+
+  public static class ArgumentRecord {
+    public String _originalValue;
+    public Object _parsedValue;
+    public String _disabledReason;
+    public boolean _valid;
+  }
+
+
     public String _requestHelp;
     public final String _name;
+    public ArrayList<Arg> _dependencies = null;
+
+    private ThreadLocal<ArgumentRecord> _argumentRecord;
+
+    protected final void addDependency(Arg arg) {
+      if (_dependencies == null)
+        _dependencies = new ArrayList();
+      _dependencies.add(arg);
+    }
+
+    protected abstract T parse(String input) throws Exception;
+
+    protected final ArgumentRecord argumentRecord() {
+      return _argumentRecord.get();
+    }
+
+    public final void disable(String reason) {
+      argumentRecord()._disabledReason = reason;
+    }
+
+    public final boolean disabled() {
+      return argumentRecord()._disabledReason != null;
+    }
+
+    public final boolean valid() {
+      return argumentRecord()._valid;
+    }
+
+    public final boolean specified() {
+      return (argumentRecord()._originalValue != null) && valid();
+    }
+
+    public final boolean
+
+    public void check() {
+      if (disabled())
+        return;
+      if (_dependencies != null) {
+        for (Arg dep : _dependencies)
+          if (!dep.valid()) {
+            disable("");
+            return;
+          }
+
+      }
+
+
+
+
+
+
+
+
+    }
+
 
     protected Arg(String name) {
       _name = name;
       _arguments.add(this);
     }
+
+
 
   }
 }
