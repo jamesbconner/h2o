@@ -16,6 +16,7 @@ public class RequestQueries extends RequestArguments {
   protected final JsonObject checkSingleArgument(Properties args, String argName) {
     _originalArguments.set(new Properties());
     _checkedArguments.set(new HashMap());
+    _disabled.set(new Properties());
     JsonObject result = new JsonObject();
     for (Argument arg: _arguments) {
       if (arg._name.equals(argName)) {
@@ -46,6 +47,7 @@ public class RequestQueries extends RequestArguments {
   protected final String checkArguments(Properties args, RequestType type) {
     _originalArguments.set(new Properties());
     _checkedArguments.set(new HashMap());
+    _disabled.set(new Properties());
     if (type == RequestType.query)
       return buildQuery(args);
     for (Argument arg: _arguments) {
@@ -70,17 +72,18 @@ public class RequestQueries extends RequestArguments {
           + "<p>Required fields are denoted by a red asterisk"
           + " <span style='color:#ff0000'>*</span>.</p>"
           + "<p></p>"
-          + "<form class='form-horizontal'>"
+          + "<form id='query' class='form-horizontal'>"
           + "  <div class='control-group'><div class='controls'>"
           + "    <input type='submit' class='btn btn-primary' value='Send request' />"
           + "    <input type='reset' class='btn' value='Clear' />"
           + "  </div></div>"
           + "  %ARG_INPUT_HTML{"
           + "  <div id='inputQuery_error_%ARG_NAME' class='alert alert-error' style='%ERROR_STYLE'>%ERROR</div>"
-          + "  <div id='inputQuery_notice_%ARG_NAME' class='alert alert-info'>%NOTICE</div>"
           + "  <div id='inputQuery_controls_%ARG_NAME' class='control-group'>"
           + "    <label class='control-label' for='%ARG_NAME'>%ARG_ASTERISK %ARG_HELP</label>"
           + "    <div class='controls'>"
+          + "      <input type='text' class='span5' disabled value='%NOTICE' style='%NOTICE_STYLE' />"
+//          + "      <span id='inputQuery_notice_%ARG_NAME' class='label label-info' style='%NOTICE_STYLE'>%NOTICE</span>"
           + "      %ARG_INPUT_CONTROL"
           + "    </div>"
           + "  </div>"
@@ -103,20 +106,27 @@ public class RequestQueries extends RequestArguments {
     query.replace("REQ_NAME", this.getClass().getSimpleName());
     for (Argument arg: _arguments) {
       RString input = query.restartGroup("ARG_INPUT_HTML");
-      input.replace("NOTICE","Not all required arguments for this argument have been specified correctly");
       input.replace("ARG_NAME",arg._name);
       input.replace("ARG_ASTERISK", DOM.color("*", arg._required ? "#ff0000" : "#ffffff"));
       input.replace("ARG_HELP", arg.help());
       try {
-        arg.check(args.getProperty(arg._name,""));
+        arg.checkRequirements();
+        if (arg.disabled() == null) {
+          input.replace("NOTICE_STYLE","display:none");
+          arg.check(args.getProperty(arg._name,""));
+        } else {
+          input.replace("NOTICE", arg.disabled());
+        }
+        input.replace("ERROR_STYLE","display:none");
       } catch (IllegalArgumentException e) {
         if (! args.isEmpty())
           input.replace("ERROR","Error: "+e.getMessage());
         else
           input.replace("ERROR_STYLE","display:none");
       }
-      input.replace("ARG_INPUT_CONTROL", arg.query());
-      input.replace("SCRIPT",arg.javascript());
+      if (arg.disabled() ==  null)
+        input.replace("ARG_INPUT_CONTROL", arg.query());
+
       input.append();
     }
     return query.toString();

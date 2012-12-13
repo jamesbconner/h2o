@@ -46,7 +46,8 @@ public class WWWHexKeys extends Request {
       if( !key.user_allowed() ) // Also filter out for user-keys
         continue;
       Value v = H2O.get(key);
-      if (!(v instanceof ValueArray)) continue; // Ignore non VA keys
+      if (!(v instanceof ValueArray))
+        continue; // Ignore non VA keys
       if (((ValueArray)v).num_cols()==0)
         continue; // VA, but not hex
       keys[len++] = key;        // Capture the key

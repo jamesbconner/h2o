@@ -13,6 +13,7 @@ public class RequestArguments extends RequestStatics {
 
   protected ThreadLocal<HashMap<String,Object>> _checkedArguments = new ThreadLocal();
   protected ThreadLocal<Properties> _originalArguments = new ThreadLocal();
+  protected ThreadLocal<Properties> _disabled = new ThreadLocal();
 
   protected ArrayList<Argument> _arguments = new ArrayList();
 
@@ -228,13 +229,6 @@ public class RequestArguments extends RequestStatics {
       return DOM.textInput(_name, v, description());
     }
 
-    /** Returns the javascript code required for the given query item. Does not
-     * include javascript tags.
-     */
-    protected String javascript() {
-      return "";
-    }
-
     /** Returns the value of the argument if it is not null. If null, throws the
      * exception.
      */
@@ -243,6 +237,26 @@ public class RequestArguments extends RequestStatics {
       if (v == null)
         throw new Exception("argument "+_name+" must be defined");
       return v;
+    }
+
+    /** Returns null if the argument is currently not disabled, otherwise returns
+     * the disabled message (reason).
+     */
+    public final String disabled() {
+      return _disabled.get().getProperty(_name,null);
+    }
+
+    /** Disables the current argument. Supplied message is the reason why the
+     * argument is disabled.
+     */
+    public final void disable(String message) {
+      _disabled.get().put(_name, message);
+    }
+
+    /** Checks that all requirements of the argument are met. If not it should
+     * mark the argument as disabled.
+     */
+    protected void checkRequirements() {
     }
 
   }
@@ -495,7 +509,8 @@ public class RequestArguments extends RequestStatics {
   // ---------------------------------------------------------------------------
 
   private static final String _h2oKeysJavascript =
-            "$('#%ID').typeahead({"
+            "<script type='text/javascript'>"
+          + "$('#%ID').typeahead({"
           + "  source:"
           + "    function(query,process) {"
           + "      return $.get('%TYPEAHEAD', { filter: query }, function (data) {"
@@ -503,15 +518,7 @@ public class RequestArguments extends RequestStatics {
           + "      });"
           + "    }"
           + "});"
-          + "$('#%ID').change( function() {"
-          + "  $.get('%REQUEST_ID.checkArg', { __arg__: '%ID', %ID: $('#%ID').val() }, function (data) {"
-          + "    if (data.error == 'undefined') {"
-          + "      query_show_success('%ID','The argument is correct');"
-          + "    } else {"
-          + "      query_show_error('%ID', data.error);    "
-          + "    }"
-          + "  });"
-          + "});"
+          + "</script>"
           ;
 
 
@@ -534,12 +541,11 @@ public class RequestArguments extends RequestStatics {
       return "an existing H2O key";
     }
 
-    @Override protected String javascript() {
+    @Override protected String query() {
       RString js = new RString(_h2oKeysJavascript);
-      js.replace("REQUEST_ID",requestName());
       js.replace("ID",_name);
       js.replace("TYPEAHEAD","WWWKeys.json");
-      return super.javascript() + js.toString();
+      return super.query() + js.toString();
     }
   }
 
@@ -571,12 +577,11 @@ public class RequestArguments extends RequestStatics {
       return "an existing hex key";
     }
 
-    @Override protected String javascript() {
+    @Override protected String query() {
       RString js = new RString(_h2oKeysJavascript);
-      js.replace("REQUEST_ID",requestName());
       js.replace("ID",_name);
       js.replace("TYPEAHEAD","WWWHexKeys.json");
-      return super.javascript() + js.toString();
+      return super.query() + js.toString();
     }
   }
 
@@ -617,6 +622,15 @@ public class RequestArguments extends RequestStatics {
 
     @Override public String description() {
       return "Index of the column, or the column name for key specified by argument "+_key._name;
+    }
+
+    /** Checks that all requirements of the argument are met. If not it should
+     * mark the argument as disabled.
+     */
+    @Override protected void checkRequirements() {
+      if ((_key.disabled() != null)
+        || (_key.value() == null))
+        disable("Argument "+_key._name+" must be specified in order to edit.");
     }
   }
 
@@ -662,6 +676,17 @@ public class RequestArguments extends RequestStatics {
       } catch (Exception e) {
         return null;
       }
+    }
+
+    /** Checks that all requirements of the argument are met. If not it should
+     * mark the argument as disabled.
+     */
+    @Override protected void checkRequirements() {
+      if ((_key.disabled() != null)
+              || (_key.value() == null)
+              || (_col.disabled() != null)
+              || (_col.value() != null))
+        disable("Arguments "+_key._name+" and "+_col._name+" must be specified in order to edit.");
     }
 
     protected String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws Exception {
