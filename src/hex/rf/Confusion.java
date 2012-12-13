@@ -150,7 +150,7 @@ public class Confusion extends MRTask {
 
   /**A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
   public void map(Key chunk_key) {
-    AutoBuffer bits = _data.get_chunk(chunk_key);
+    AutoBuffer bits = _data.getChunk(chunk_key);
     final int rowsize = _data._rowsize;
     final int rows = bits.remaining() / rowsize;
     final int cmin = (int) _data._cols[_classcol]._min;

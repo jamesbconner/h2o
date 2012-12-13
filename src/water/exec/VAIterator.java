@@ -31,7 +31,7 @@ public final class VAIterator implements Iterator<VAIterator> {
     _ary = ValueArray.value(k);
     assert (_ary != null) : "VA for key "+k.toString()+" not found.";
     _rows = _ary.numRows();
-    _rowSize = _ary.row_size();
+    _rowSize = _ary.rowSize();
     setDefaultColumn(defaultColumn);
     _rowInChunk = -1;
     _rowsInChunk = 0;
@@ -46,7 +46,7 @@ public final class VAIterator implements Iterator<VAIterator> {
   }
 
   public void setDefaultColumn(int colIdx) {
-    assert (colIdx>=0) && (colIdx<_ary.num_cols());
+    assert (colIdx>=0) && (colIdx<_ary.numCols());
     _defaultCol = _ary._cols[colIdx];
   }
 
@@ -93,7 +93,7 @@ public final class VAIterator implements Iterator<VAIterator> {
         _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
         _chunkIdx += 1;
       }
-      _chunkBits = _ary.get_chunk(_chunkIdx);
+      _chunkBits = _ary.getChunk(_chunkIdx);
       _rowsInChunk = _chunkBits.remaining() / _rowSize;
       _rowInChunk = 0;
     }

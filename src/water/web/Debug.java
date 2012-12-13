@@ -52,18 +52,18 @@ public class Debug extends JSONPage {
     }
 
     int features = getAsNumber(p,RandomForestPage.FEATURES,-1);
-    if ((features!=-1) && ((features<=0) || (features>=ary.num_cols() - 1)))
+    if ((features!=-1) && ((features<=0) || (features>=ary.numCols() - 1)))
       throw new PageError("Number of features can only be between 1 and num_cols - 1");
 
     // Pick the column to classify
-    int classcol = ary.num_cols()-1; // Default to the last column
+    int classcol = ary.numCols()-1; // Default to the last column
     String clz = p.getProperty(RandomForestPage.CLASS_COL);
     if( clz != null ) {
       int[] clarr = RandomForestPage.parseVariableExpression(ary, clz);
       if( clarr.length != 1 )
         throw new InvalidInputException("Class has to refer to exactly one column!");
       classcol = clarr[0];
-      if( classcol < 0 || classcol >= ary.num_cols() )
+      if( classcol < 0 || classcol >= ary.numCols() )
         throw new InvalidInputException("Class out of range");
     }
     double[] classWt = RandomForestPage.determineClassWeights(p.getProperty("classWt",""), ary, classcol, RandomForestPage.MAX_CLASSES);
@@ -74,7 +74,7 @@ public class Debug extends JSONPage {
     System.out.println("[RF] class column: " + classcol);
     int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary, igz);
 
-    if( ignores.length + 1 >= ary.num_cols() )
+    if( ignores.length + 1 >= ary.numCols() )
       throw new InvalidInputException("Cannot ignore every column");
 
     // Remove any prior model; about to overwrite it
@@ -90,7 +90,7 @@ public class Debug extends JSONPage {
     // Output a model with zero trees (so far).
     Column c = ary._cols[classcol];
     final int classes = (int) (c._max - c._min + 1);
-    Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores, drf._features);
+    Model model = new Model(modelKey,drf._treeskey,ary.numCols(),classes,sample,ary._key,ignores, drf._features);
     // Save it to the cloud
     UKV.put(modelKey,model);
     // wait for the computation to finish

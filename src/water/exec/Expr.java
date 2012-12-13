@@ -94,7 +94,7 @@ public abstract class Expr {
       ValueArray va = getValueArray(pos,_key);
       if (rawColIndex() == -1) {
         setColIndex(0);
-        if (va.num_cols()!=1)
+        if (va.numCols()!=1)
           throw new EvaluationException(pos, "Column must be specified for the first operand");
       }
     }
@@ -223,9 +223,9 @@ class ColumnSelector extends Expr {
   public Result eval() throws EvaluationException {
     Result result = _expr.eval();
     ValueArray v = getValueArray(result._key);
-    if( v.num_cols() <= _colIndex ) {
+    if( v.numCols() <= _colIndex ) {
       result.dispose();
-      throw new EvaluationException(_pos, "Column " + _colIndex + " not present in expression (has " + v.num_cols() + ")");
+      throw new EvaluationException(_pos, "Column " + _colIndex + " not present in expression (has " + v.numCols() + ")");
     }
     result.setColIndex(_colIndex);
     return result;
@@ -254,7 +254,7 @@ class StringColumnSelector extends Expr {
       result.dispose();
       throw new EvaluationException(_pos, "Key " + result._key.toString() + " not found");
     }
-    for( int i = 0; i < v.num_cols(); ++i ) {
+    for( int i = 0; i < v.numCols(); ++i ) {
       if( v._cols[i]._name.equals(_colName) ) {
         result.setColIndex(i);
         return result;
@@ -293,12 +293,12 @@ class UnaryOperator extends Expr {
     ValueArray opnd = getValueArray(o._key);
     if (o.rawColIndex() == -1) {
       o.setColIndex(0);
-      if (opnd.num_cols()!=1)
+      if (opnd.numCols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for the operand");
     }
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
-    VABuilder b = new VABuilder("temp",opnd.num_rows()).addDoubleColumn("0").createAndStore(res._key);
+    VABuilder b = new VABuilder("temp",opnd.numRows()).addDoubleColumn("0").createAndStore(res._key);
     MRVectorUnaryOperator op;
     switch( _type ) {
       case ttOpSub:
@@ -308,7 +308,7 @@ class UnaryOperator extends Expr {
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
     op.invoke(res._key);
-    b.setColumnStats(0,op._min, op._max, op._tot / opnd.num_rows()).createAndStore(res._key);
+    b.setColumnStats(0,op._min, op._max, op._tot / opnd.numRows()).createAndStore(res._key);
     return res;
   }
 
@@ -387,15 +387,15 @@ class BinaryOperator extends Expr {
     ValueArray vr = getValueArray(r._key);
     if (l.rawColIndex() == -1) {
       l.setColIndex(0);
-      if (vl.num_cols()!=1)
+      if (vl.numCols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for left operand");
     }
     if (r.rawColIndex() == -1) {
       r.setColIndex(0);
-      if (vr.num_cols()!=1)
+      if (vr.numCols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for right operand");
     }
-    long resultRows = Math.max(vl.num_rows(), vr.num_rows());
+    long resultRows = Math.max(vl.numRows(), vr.numRows());
     // we do not need to check the columns here - the column selector operator does this for us
     // one step ahead
     VABuilder b = new VABuilder("temp",resultRows).addDoubleColumn("0").createAndStore(res._key);
@@ -453,7 +453,7 @@ class BinaryOperator extends Expr {
     ValueArray vr = getValueArray(r._key);
     if (r.rawColIndex() == -1) {
       r.setColIndex(0);
-      if (vr.num_cols()!=1)
+      if (vr.numCols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for right operand");
     }
     MRVectorUnaryOperator op;
@@ -500,9 +500,9 @@ class BinaryOperator extends Expr {
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
-    VABuilder b = new VABuilder("temp",vr.num_rows()).addDoubleColumn("0").createAndStore(res._key);
+    VABuilder b = new VABuilder("temp",vr.numRows()).addDoubleColumn("0").createAndStore(res._key);
     op.invoke(res._key);
-    b.setColumnStats(0,op._min, op._max, op._tot / vr.num_rows()).createAndStore(res._key);
+    b.setColumnStats(0,op._min, op._max, op._tot / vr.numRows()).createAndStore(res._key);
     return res;
   }
 
@@ -511,7 +511,7 @@ class BinaryOperator extends Expr {
     ValueArray vl = getValueArray(l._key);
     if (l.rawColIndex() == -1) {
       l.setColIndex(0);
-      if (vl.num_cols()!=1)
+      if (vl.numCols()!=1)
         throw new EvaluationException(_pos, "Column must be specified for left operand");
     }
     MRVectorUnaryOperator op;
@@ -558,9 +558,9 @@ class BinaryOperator extends Expr {
       default:
         throw new EvaluationException(_pos, "Unknown operator to be used for binary operator evaluation: " + _type.toString());
     }
-    VABuilder b = new VABuilder("temp", vl.num_rows()).addDoubleColumn("0").createAndStore(res._key);
+    VABuilder b = new VABuilder("temp", vl.numRows()).addDoubleColumn("0").createAndStore(res._key);
     op.invoke(res._key);
-    b.setColumnStats(0,op._min, op._max, op._tot / vl.num_rows()).createAndStore(res._key);
+    b.setColumnStats(0,op._min, op._max, op._tot / vl.numRows()).createAndStore(res._key);
     return res;
   }
 
@@ -728,9 +728,9 @@ class Iif extends Expr {
         else
           task = new IifOperator(cond._key, ifTrue._key, ifFalse._key, result._key, cond.colIndex(), ifTrue.colIndex(), ifFalse.colIndex());
       }
-      VABuilder b = new VABuilder("temp", vc.num_rows()).addDoubleColumn("0").createAndStore(result._key);
+      VABuilder b = new VABuilder("temp", vc.numRows()).addDoubleColumn("0").createAndStore(result._key);
       task.invoke(result._key);
-      b.setColumnStats(0, task._min, task._max, task._tot / vc.num_rows()).createAndStore(result._key);
+      b.setColumnStats(0, task._min, task._max, task._tot / vc.numRows()).createAndStore(result._key);
       return result;
     }
 

@@ -419,7 +419,7 @@ NEXT_CHAR:
         tokenStart -= bits.length;
         long chkidx = ValueArray.getChunkIndex(key);
         Value v = (secondChunk < 2 && chkidx+1 < _ary._chunks) 
-          ? DKV.get(_ary.get_key(chkidx+1)) : null;
+          ? DKV.get(_ary.getChunkKey(chkidx+1)) : null;
         // if we can't get further we might have been the last one and we must
         // commit the latest guy if we had one.
         if (v == null) {

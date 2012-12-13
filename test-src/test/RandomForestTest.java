@@ -122,8 +122,8 @@ public class RandomForestTest {
 
     // Check parsed dataset
     assertEquals("Number of chunks", 4, val._chunks);
-    assertEquals("Number of rows", 150000, val.num_rows());
-    assertEquals("Number of cols", 12, val.num_cols());
+    assertEquals("Number of rows", 150000, val.numRows());
+    assertEquals("Number of cols", 12, val.numCols());
 
     // setup default values for DRF
     int ntrees  = 3;

@@ -31,7 +31,7 @@ public abstract class UKV {
     if( res != null && res._isArray!=0 ) {
       ValueArray ary = ValueArray.value(res);
       for( long i=0; i<ary._chunks; i++ ) // Delete all the chunks
-        DKV.remove(ary.get_key(i),fs);
+        DKV.remove(ary.getChunkKey(i),fs);
     }
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
       for( Key k : res.flatten() )      // Then recursively delete
@@ -51,7 +51,7 @@ public abstract class UKV {
     if( val._isArray != 0 ) { // See if this is an Array
       ValueArray ary = ValueArray.value(val);
       for( long i=0; i<ary._chunks; i++ ) // Delete all the chunks
-        remove(ary.get_key(i),fs);
+        remove(ary.getChunkKey(i),fs);
     }
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
       for( Key k : val.flatten() )      // Then recursively delete
@@ -64,7 +64,7 @@ public abstract class UKV {
   static public Value get( Key key ) {
     Value val = DKV.get(key);
     if( val != null && val._isArray !=0 ) {
-      Key k2 = ValueArray.get_key(0,key);
+      Key k2 = ValueArray.getChunkKey(0,key);
       Value vchunk0 = DKV.get(k2);
       assert vchunk0 != null : "missed looking for key "+k2+" from "+key;
       return vchunk0;           // Else just get the prefix asked for

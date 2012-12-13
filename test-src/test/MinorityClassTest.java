@@ -27,7 +27,7 @@ public class MinorityClassTest {
     H2O.main(new String[]{});
     if(_nodes > 1)Thread.sleep(1000);
     FileInputStream f = new FileInputStream("./smalldata/poker/poker-hand-testing.data");
-    Key k1 = ValueArray.read_put("poker_raw", f);
+    Key k1 = ValueArray.readPut("poker_raw", f);
     _key = Key.make("poker_parsed");
     ParseDataset.parse(_key, DKV.get(k1));
     _data = ValueArray.value(_key);

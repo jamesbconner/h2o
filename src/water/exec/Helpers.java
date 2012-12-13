@@ -50,7 +50,7 @@ public class Helpers {
       _result = 0;
       ValueArray va = ValueArray.value(_key);
       Column c = va._cols[_col];
-      AutoBuffer bits = va.get_chunk(key);
+      AutoBuffer bits = va.getChunk(key);
       int rowSize = va._rowsize;
       for( int i = 0; i < bits.remaining() / rowSize; ++i ) {
         double x = va.datad(bits, i, c);
@@ -103,7 +103,7 @@ public class Helpers {
       ValueArray va = ValueArray.value(_key);
       Column c = va._cols[_col];
       double mean = c._mean;
-      AutoBuffer bits = va.get_chunk(key);
+      AutoBuffer bits = va.getChunk(key);
       int num = bits.remaining() / va._rowsize;
       for( int i = 0; i < num; ++i ) {
         double x = va.datad(bits, i, c);
@@ -144,7 +144,7 @@ public class Helpers {
   public static void assign(int pos, final Key to, Result what) throws EvaluationException {
     if( what._type == Result.Type.rtNumberLiteral ) { // assigning to a constant creates a vector of size 1
       // The 1 tiny arraylet
-      Key key2 = ValueArray.get_key(0, to);
+      Key key2 = ValueArray.getChunkKey(0, to);
       byte[] bits = new byte[8];
       UDP.set8d(bits, 0, what._const);
       Value val = new Value(key2, bits);
@@ -174,7 +174,7 @@ public class Helpers {
         MRTask copyTask = new MRTask() {
           @Override public void map(Key key) {
             long chkidx = ValueArray.getChunkIndex(key);
-            Key k = ValueArray.get_key(chkidx, to);
+            Key k = ValueArray.getChunkKey(chkidx, to);
             byte[] bits = DKV.get(key).get();
             Value v = new Value(k, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
             DKV.put(k, v, getFutures());
@@ -247,7 +247,7 @@ class DeepSingleColumnAssignment extends MRTask {
     assert colSize == vTo._cols[0]._size;
     long chunkOffset = ValueArray.getChunkOffset(key);
     long row = chunkOffset / vTo._rowsize;
-    long chunkRows = VABuilder.chunkSize(key, vTo.length(), vTo.row_size()) / vTo.row_size();
+    long chunkRows = VABuilder.chunkSize(key, vTo.length(), vTo.rowSize()) / vTo.rowSize();
     AutoBuffer bits = new AutoBuffer((int)chunkRows*vTo._rowsize);
     try {
       for (int i = 0; i < chunkRows; ++i) {

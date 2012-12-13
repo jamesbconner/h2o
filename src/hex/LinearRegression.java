@@ -72,13 +72,13 @@ public abstract class LinearRegression {
       // Get the root ValueArray for the metadata
       ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       final int rows = bits.remaining()/ary._rowsize;
       // Columns to work on
       ValueArray.Column A = ary._cols[_colA];
       ValueArray.Column B = ary._cols[_colB];
 
-      if( !ary.has_bad(_colA) && !ary.has_bad(_colB) ) {
+      if( !ary.hasInvalidRows(_colA) && !ary.hasInvalidRows(_colB) ) {
         for( int i=0; i<rows; i++ ) {
           double X = ary.datad(bits,i,A);
           double Y = ary.datad(bits,i,B);
@@ -124,7 +124,7 @@ public abstract class LinearRegression {
       // Get the root ValueArray for the metadata
       ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       final int rows = bits.remaining()/ary._rowsize;
       // Columns to work on
       ValueArray.Column A = ary._cols[_colA];
@@ -133,7 +133,7 @@ public abstract class LinearRegression {
       final double Xbar = _Xbar;
       final double Ybar = _Ybar;
 
-      if( !ary.has_bad(_colA) && !ary.has_bad(_colB) ) {
+      if( !ary.hasInvalidRows(_colA) && !ary.hasInvalidRows(_colB) ) {
         for( int i=0; i<rows; i++ ) {
           double X = ary.datad(bits,i,A);
           double Y = ary.datad(bits,i,B);
@@ -179,7 +179,7 @@ public abstract class LinearRegression {
       // Get the root ValueArray for the metadata
       ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       final int rows = bits.remaining()/ary._rowsize;
       // Columns to work on
       ValueArray.Column A = ary._cols[_colA];
@@ -189,7 +189,7 @@ public abstract class LinearRegression {
       final double beta1 = _beta1;
       final double Ybar = _Ybar ;
 
-      if( !ary.has_bad(_colA) && !ary.has_bad(_colB) ) {
+      if( !ary.hasInvalidRows(_colA) && !ary.hasInvalidRows(_colB) ) {
         for( int i=0; i<rows; i++ ) {
           double X = ary.datad(bits,i,A);
           double Y = ary.datad(bits,i,B);

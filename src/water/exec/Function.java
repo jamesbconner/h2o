@@ -535,7 +535,7 @@ class MakeEnum extends Function {
 
     @Override public void map(Key key) {
       ValueArray ary = ValueArray.value(_aryKey);
-      AutoBuffer bits = ary.get_chunk(key);
+      AutoBuffer bits = ary.getChunk(key);
       Column c = ary._cols[_colIndex];
       int rowsInChunk = bits.remaining() / ary._rowsize;
       for (int i = 0; i < rowsInChunk; ++i) {

@@ -187,7 +187,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
 
   // Get the 1st bytes from either a plain Value, or chunk 0 of a ValueArray
   public byte[] getFirstBytes() {
-    return ((_isArray == 0) ? this : DKV.get(ValueArray.get_key(0,_key))).get();
+    return ((_isArray == 0) ? this : DKV.get(ValueArray.getChunkKey(0,_key))).get();
   }
 
   // For plain Values, just the length in bytes.

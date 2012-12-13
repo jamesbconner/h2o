@@ -112,9 +112,9 @@ public abstract class RowVecTask extends MRTask {
   @Override
   public void map(Key key) {
     assert key.home();
-    Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
-    _ary = ValueArray.value(DKV.get(aryKey));
-    AutoBuffer bits  = _ary.get_chunk(key);
+    Key aryKey = ValueArray.getArrayKey(key);
+    _ary = ValueArray.value(aryKey);
+    AutoBuffer bits  = _ary.getChunk(key);
     ValueArray.Column[] cols = new ValueArray.Column[_colIds.length];
     for( int i = 0; i < _colIds.length; ++i ) {
       cols[i] = _ary._cols[_colIds[i]];

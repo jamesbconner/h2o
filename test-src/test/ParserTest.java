@@ -33,7 +33,7 @@ public class ParserTest {
     ValueArray va = new ValueArray(k, data.length << ValueArray.LOG_CHK, Value.ICE);
     DKV.put(k, va.value());
     for (int i = 0; i < data.length; ++i) {
-      keys[i] = va.get_key(i);
+      keys[i] = va.getChunkKey(i);
       DKV.put(keys[i], new Value(keys[i], data[i]));
     }
     DKV.write_barrier();

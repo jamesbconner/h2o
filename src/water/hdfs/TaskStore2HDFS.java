@@ -48,7 +48,7 @@ public class TaskStore2HDFS extends DTask {
     UKV.put(selfKey,ts);
 
     // Then start writing chunks in-order with the zero chunk
-    H2ONode chk0_home = ValueArray.get_key(0,srcKey).home_node();
+    H2ONode chk0_home = ValueArray.getChunkKey(0,srcKey).home_node();
     RPC.call(ts.nextHome(),ts);
 
     // Watch the progress key until it gets removed
@@ -64,7 +64,9 @@ public class TaskStore2HDFS extends DTask {
 
   static private String getPathFromValue(Value v) {
     int prefixLen = 0;
-    byte[] kb = (v._key._kb[0] == Key.ARRAYLET_CHUNK) ? ValueArray.getArrayKeyBytes(v._key) : v._key._kb;
+    Key k = v._key;
+    if( k._kb[0] == Key.ARRAYLET_CHUNK ) k = ValueArray.getArrayKey(k);
+    byte[] kb = k._kb;
     switch( v._persist & Value.BACKEND_MASK ) {
     case Value.NFS:
       prefixLen = PersistNFS.KEY_PREFIX_LENGTH;
@@ -92,7 +94,7 @@ public class TaskStore2HDFS extends DTask {
   static void removeOldValue(Value v) {
     Key k = v._key;
     if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
-      k = Key.make(ValueArray.getArrayKeyBytes(k));
+      k = ValueArray.getArrayKey(k);
     }
     UKV.remove(k);
   }
@@ -110,7 +112,7 @@ public class TaskStore2HDFS extends DTask {
     Key self = selfKey();
 
     while( _indexFrom < ary._chunks ) {
-      Key ckey = ary.get_key(_indexFrom++);
+      Key ckey = ary.getChunkKey(_indexFrom++);
       if( !ckey.home() ) {      // Next chunk not At Home?
         RPC.call(nextHome(),this); // Hand the baton off to the next node/chunk
         return;
@@ -131,6 +133,6 @@ public class TaskStore2HDFS extends DTask {
     return Key.make("Store2HDFS"+_arykey);
   }
   private H2ONode nextHome() {
-    return ValueArray.get_key(_indexFrom,_arykey).home_node();
+    return ValueArray.getChunkKey(_indexFrom,_arykey).home_node();
   }
 }
