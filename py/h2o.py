@@ -366,9 +366,8 @@ def tear_down_cloud(node_list=None):
         node_list[:] = []
         check_sandbox_for_errors()
 
-# REQUIRED IN EACH TEST: have to touch something otherwise the ssh channel shuts down
-# and terminates the H2O. We're using RemoteH2O which keeps H2O there only 
-# while ssh channel is live. (good for avoiding orphans out of our test control)
+# don't need this any more? used to need it to make sure cloud didn't go away between 
+# unittest defs
 def touch_cloud(node_list=None):
     # Only need to use this if we're using hosts? 
     # So far, we don't need hosts as global ..so don't look at it here
