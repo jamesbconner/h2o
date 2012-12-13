@@ -141,10 +141,10 @@ public final class H2O {
     // See if this is a specifically homed Key
     byte[] kb = key._kb;
     if( !key.user_allowed() && repl < kb[1] ) { // Asking for a replica# from the homed list?
-      H2ONode h2o = new H2ONode();              // Fill in the fields from the Key
+      H2ONode h2o=null, h2otmp = new H2ONode(); // Fill in the fields from the Key
       AutoBuffer ab = new AutoBuffer(kb,2);
       for( int i=0; i<=repl; i++ )
-        h2o.read(ab);           // Read util we get the specified H2O
+        h2o = h2otmp.read(ab);  // Read util we get the specified H2O
       // Reverse the home to the index
       int idx = nidx(h2o);
       if( idx != -1 ) return idx;
