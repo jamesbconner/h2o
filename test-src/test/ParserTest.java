@@ -6,6 +6,7 @@ import java.util.Arrays;
 import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
+import water.util.KeyUtil;
 
 public class ParserTest {
   private static int _initial_keycnt = 0;
@@ -359,5 +360,14 @@ public class ParserTest {
       result[i] = data[i].replace(placeholder, sep);
     }
     return result;
+  }
+
+  @Test public void testTimeParse() {
+    Key fkey = KeyUtil.load_test_file("smalldata/kaggle/bestbuy_train_10k.csv.gz");
+    Key okey = Key.make("bestbuy.hex");
+    ParseDataset.parse(okey,DKV.get(fkey));
+    UKV.remove(fkey);
+    ValueArray va = ValueArray.value(DKV.get(okey));
+    UKV.remove(okey);
   }
 }

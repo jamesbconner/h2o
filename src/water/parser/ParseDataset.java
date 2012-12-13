@@ -1,13 +1,16 @@
 package water.parser;
+import com.google.common.io.Closeables;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.zip.*;
-
 import water.*;
 import water.ValueArray.Column;
-
-import com.google.common.io.Closeables;
+import water.parser.ValueString;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured
@@ -150,11 +153,12 @@ public final class ParseDataset {
    */
   public static final class DParseTask extends MRTask {
     // pass 1 types
-    static final byte UCOL = 0; // unknown
+    static final byte UCOL = 0;  // unknown
     static final byte ECOL = 11; // enum column
     static final byte ICOL = 12; // integer column
     static final byte FCOL = 13; // float column
     static final byte DCOL = 14; // double column
+    static final byte TCOL = 15; // time column
     // pass 2 types
     static final byte BYTE = 1;
     static final byte SHORT = 2;
@@ -664,6 +668,7 @@ public final class ParseDataset {
               if(other._min[i] < _min[i])_min[i] = other._min[i];
               if(other._max[i] > _max[i])_max[i] = other._max[i];
               if(other._scale[i] < _scale[i])_scale[i] = other._scale[i];
+              assert _colTypes[i] != TCOL || other._colTypes[i] == TCOL; // Both or neither are time
               if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
               _mean[i] += other._mean[i];
             }
@@ -731,7 +736,7 @@ public final class ParseDataset {
     }
 
     @SuppressWarnings("fallthrough")
-    private void calculateColumnEncodings(){
+    private void calculateColumnEncodings() {
       assert (_bases != null);
       assert (_min != null);
       for(int i = 0; i < _ncolumns; ++i){
@@ -784,6 +789,16 @@ public final class ParseDataset {
           _bases[i] = 0;
           _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
           break;
+
+        case TCOL:                // Time; millis since jan 1, 1970
+          _scale[i] = -1;
+          _bases[i] = 0;
+          _min[i] = 0.0;
+          _max[i] = System.currentTimeMillis();
+          _colTypes[i] = LONG;
+          break;
+
+        default: throw H2O.unimpl();
         }
       }
     }
@@ -877,17 +892,26 @@ public final class ParseDataset {
       }
     }
 
-    /** Adds string (enum) value to the column.
-*/
-    public void addStrCol(int colIdx, ValueString str){
-      if(colIdx >= _ncolumns)
+    /** Adds string (enum) value to the column. */
+    public void addStrCol( int colIdx, ValueString str ) {
+      if( colIdx >= _ncolumns )
         return;
       switch (_phase) {
         case PASS_ONE:
           ++_colIdx;
+          // If this is a yet unspecified but non-numeric column, attempt a time-parse
+          if( _colTypes[colIdx] == UCOL ) {
+            long time = attemptTimeParse(str);
+            if( time != Long.MIN_VALUE )
+              _colTypes[colIdx] = TCOL;
+          } else if( _colTypes[colIdx] == TCOL ) {
+            return;
+          }
+
+          // Now attempt to make this an Enum col
           Enum e = _enums[colIdx];
-          if(e == null || e.isKilled())return;
-          if(_colTypes[colIdx] ==UCOL)
+          if( e == null || e.isKilled() ) return;
+          if( _colTypes[colIdx] == UCOL )
             _colTypes[colIdx] = ECOL;
           e.addKey(str);
           ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used for mean computation, is recomputed in 2nd pass)
@@ -899,18 +923,15 @@ public final class ParseDataset {
             // we do not expect any misses here
             assert 0 <= id && id < _enums[colIdx].size();
             switch (_colTypes[colIdx]) {
-            case BYTE:
-              _ab.put1(id);
-              break;
-            case SHORT:
-              _ab.put2((char)id);
-              break;
-            case INT:
-              _ab.put4(id);
-              break;
-            default:
-              assert false:"illegal case: " + _colTypes[colIdx];
+            case BYTE:  _ab.put1(      id); break;
+            case SHORT: _ab.put2((char)id); break;
+            case INT:   _ab.put4(      id); break;
+            default:    assert false:"illegal case: " + _colTypes[colIdx];
             }
+          } else if( _colTypes[colIdx] == LONG ) {
+            ++_colIdx;
+            // Times are strings with a numeric column type of LONG
+            _ab.put8(attemptTimeParse(str));
           } else {
             addInvalidCol(colIdx);
           }
@@ -986,6 +1007,21 @@ public final class ParseDataset {
           assert (false);
       }
     }
+
+    // Deduce if we are looking at a Date/Time value, or not.
+    // If so, return time as msec since Jan 1, 1970 or Long.MIN_VALUE.
+    static final SimpleDateFormat SDFS[] = {
+      new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"),
+      new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    };
+    private long attemptTimeParse( ValueString str ) {
+      String s = str.toString().toLowerCase();
+      for( SimpleDateFormat sdf : SDFS ) {
+        try { return sdf.parse(s).getTime(); }
+        catch( ParseException pe ) { }
+      }
+      return Long.MIN_VALUE;
+    }
   }
 
   public static class AtomicUnion extends Atomic {
@@ -1009,5 +1045,4 @@ public final class ParseDataset {
       DKV.remove(_key);
     }
   }
-
 }
