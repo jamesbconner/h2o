@@ -34,7 +34,7 @@ public class RequestStatics {
   public static final String JSON_FEATURES = "features";
   public static final String JSON_STRATIFY = "stratify";
   public static final String JSON_STRATA = "strata";
-  public static final String JSON_WEIGHTS = "classWt";
+  public static final String JSON_WEIGHTS = "class_wt";
   public static final String JSON_FILTER = "filter";
   public static final String JSON_KEYS = "keys";
   public static final String JSON_LIMIT = "limit";

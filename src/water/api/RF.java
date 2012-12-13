@@ -46,7 +46,7 @@ public class RF extends Request {
     float sample = _sample.value() / 100f;
     double[] weights = _weights.value();
     try {
-      DRF drf = hex.rf.DRF.web_main(
+   /*   DRF drf = hex.rf.DRF.web_main(
               ary,
               _numTrees.value(),
               _depth.value(),
@@ -60,13 +60,13 @@ public class RF extends Request {
               _parallel.value(),
               weights,
               _features.value()
-              );
+              ); */
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classCol) - ary.col_min(classCol))+1);
       // Output a model with zero trees (so far).
-      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,_ignore.value());
+     // Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,_ignore.value());
       // Save it to the cloud
-      UKV.put(modelKey,model);
+     // UKV.put(modelKey,model);
       // Pass along all to the viewer */
       response.addProperty(JSON_DATA_KEY, ary._key.toString());
       response.addProperty(JSON_MODEL_KEY, modelKey.toString());

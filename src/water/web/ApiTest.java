@@ -2,7 +2,7 @@
 package water.web;
 
 import java.util.Properties;
-import water.api.html.HtmlPage;
+//import water.api.html.HtmlPage;
 
 /**
  *
@@ -11,7 +11,8 @@ import water.api.html.HtmlPage;
 public class ApiTest extends Page {
 
   @Override public Object serve(Server server, Properties args, String sessionID) {
-    return new HtmlPage().serve();
+//    return new HtmlPage().serve();
+    return null;
   }
 
 }
