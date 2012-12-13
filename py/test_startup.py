@@ -5,7 +5,8 @@ def quick_startup(num_babies=3, sigar=False):
     babies = []
     try:
         for i in xrange(num_babies):
-            babies.append(h2o.LocalH2O(port=54321+3*i, sigar=sigar))
+            # ports_per_node now 2
+            babies.append(h2o.LocalH2O(port=54321+2*i, sigar=sigar))
         n = h2o.ExternalH2O(port=54321)
         h2o.stabilize_cloud(n, num_babies)
     except Exception, e:
