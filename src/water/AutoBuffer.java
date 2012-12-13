@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class AutoBuffer {
   // The direct ByteBuffer for schlorping data about
-  private ByteBuffer _bb;
+  public ByteBuffer _bb;
 
   // The ByteChannel for schlorping more data in or out.  Could be a
   // SocketChannel (for a TCP connection) or a FileChannel (spill-to-disk) or a

@@ -161,7 +161,6 @@ public class MinorityClasses {
       ValueArray ary = ValueArray.value(_aryKey);
       _histogram = new int[H2O.CLOUD.size()][_n];
       AutoBuffer bits = ary.get_chunk(key);
-      int row_size = ary.row_size();
       Column c = ary._cols[_classIdx];
       int rows = bits.remaining()/ary.row_size();
       for(int i = 0; i < rows; ++i)
@@ -249,7 +248,8 @@ public class MinorityClasses {
             _bufs[idx] = Arrays.copyOf(_bufs[idx], chunksize);
           if((_offsets[idx] + rowsize) >= chunksize)
             System.out.println("haha");
-          System.arraycopy(bits,i*rowsize, _bufs[idx], _offsets[idx], rowsize);
+          System.arraycopy(bits._bb.array(),i*rowsize + bits._bb.arrayOffset(),
+              _bufs[idx], _offsets[idx], rowsize);
           _offsets[idx] += rowsize;
         }
       }
