@@ -512,7 +512,7 @@ public final class H2O {
         _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
         break;
       } catch (IOException e) {
-        try { _webSocket.close(); } catch( IOException ohwell ) { }
+        try { if( _webSocket != null ) _webSocket.close(); } catch( IOException ohwell ) { }
         Closeables.closeQuietly(_udpSocket);
         _webSocket = null;
         _udpSocket = null;
