@@ -427,10 +427,23 @@ public final class AutoBuffer {
     for( Freezable f : fs ) put(f);
     return this;
   }
+  public AutoBuffer putAA(Freezable[][] fs)    {
+    if( fs == null ) return put4(-1);
+    put4(fs.length);
+    for( Freezable[] f : fs ) putA(f);
+    return this;
+  }
   public <T extends Freezable> T[] getA(Class<T> tc) {
     int len = get4(); if( len == -1 ) return null;
     T[] ts = (T[]) Array.newInstance(tc, len);
     for( int i = 0; i < len; ++i ) ts[i] = get(tc);
+    return ts;
+  }
+  public <T extends Freezable> T[][] getAA(Class<T> tc) {
+    int len = get4(); if( len == -1 ) return null;
+    Class<T[]> tcA = (Class<T[]>) Array.newInstance(tc, 0).getClass();
+    T[][] ts = (T[][]) Array.newInstance(tcA, len);
+    for( int i = 0; i < len; ++i ) ts[i] = getA(tc);
     return ts;
   }
   public AutoBuffer putAStr(String[] fs)    {
