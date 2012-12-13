@@ -28,33 +28,33 @@ public class Network extends H2OPage {
     res.addProperty("cloud_size",cloud._memary.length);
 
     // Returns only this node statistics
-    final H2ONode n = H2O.SELF;
-    res.addProperty("total_in_conn",  n.get_total_in_conn());
-    res.addProperty("total_out_conn", n.get_total_out_conn());
-    res.addProperty("tcp_in_conn",    n.get_tcp_in_conn());
-    res.addProperty("tcp_out_conn",   n.get_tcp_out_conn());
-    res.addProperty("udp_in_conn",    n.get_udp_in_conn());
-    res.addProperty("udp_out_conn",   n.get_udp_out_conn());
+    HeartBeat hb = H2O.SELF._heartbeat;
+    res.addProperty("total_in_conn",  toPosNumber(hb._total_in_conn));
+    res.addProperty("total_out_conn", toPosNumber(hb._total_out_conn));
+    res.addProperty("tcp_in_conn",    toPosNumber(hb._tcp_in_conn));
+    res.addProperty("tcp_out_conn",   toPosNumber(hb._tcp_out_conn));
+    res.addProperty("udp_in_conn",    toPosNumber(hb._udp_in_conn));
+    res.addProperty("udp_out_conn",   toPosNumber(hb._udp_out_conn));
 
     // fill total traffic statistics
-    res.addProperty("total_packets_recv",    n.get_total_packets_recv());
-    res.addProperty("total_bytes_recv",      n.get_total_bytes_recv());
-    res.addProperty("total_bytes_recv_rate", n.get_total_bytes_recv_rate());
-    res.addProperty("total_packets_sent",    n.get_total_packets_sent());
-    res.addProperty("total_bytes_sent",      n.get_total_bytes_sent());
-    res.addProperty("total_bytes_sent_rate", n.get_total_bytes_sent_rate());
+    res.addProperty("total_packets_recv",    toPosNumber               (hb._total_packets_recv));
+    res.addProperty("total_bytes_recv",      PrettyPrint.bytes         (hb._total_bytes_recv));
+    res.addProperty("total_bytes_recv_rate", PrettyPrint.bytesPerSecond(hb._total_bytes_recv_rate));
+    res.addProperty("total_packets_sent",    toPosNumber               (hb._total_packets_sent));
+    res.addProperty("total_bytes_sent",      PrettyPrint.bytes         (hb._total_bytes_sent));
+    res.addProperty("total_bytes_sent_rate", PrettyPrint.bytesPerSecond(hb._total_bytes_sent_rate));
 
     // fill TCP traffic statistics
-    res.addProperty("tcp_packets_recv", n.get_tcp_packets_recv());
-    res.addProperty("tcp_bytes_recv",   n.get_tcp_bytes_recv());
-    res.addProperty("tcp_packets_sent", n.get_tcp_packets_sent());
-    res.addProperty("tcp_bytes_sent",   n.get_tcp_bytes_sent());
+    res.addProperty("tcp_packets_recv", toPosNumber      (hb._tcp_packets_recv));
+    res.addProperty("tcp_bytes_recv",   PrettyPrint.bytes(hb._tcp_bytes_recv));
+    res.addProperty("tcp_packets_sent", toPosNumber      (hb._tcp_packets_sent));
+    res.addProperty("tcp_bytes_sent",   PrettyPrint.bytes(hb._tcp_bytes_sent));
 
     // fill UDP traffic statistics
-    res.addProperty("udp_packets_recv", n.get_udp_packets_recv());
-    res.addProperty("udp_bytes_recv",   n.get_udp_bytes_recv());
-    res.addProperty("udp_packets_sent", n.get_udp_packets_sent());
-    res.addProperty("udp_bytes_sent",   n.get_udp_bytes_sent());
+    res.addProperty("udp_packets_recv", toPosNumber      (hb._udp_packets_recv));
+    res.addProperty("udp_bytes_recv",   PrettyPrint.bytes(hb._udp_bytes_recv));
+    res.addProperty("udp_packets_sent", toPosNumber      (hb._udp_packets_sent));
+    res.addProperty("udp_bytes_sent",   PrettyPrint.bytes(hb._udp_bytes_sent));
 
     return res;
   }
@@ -68,35 +68,36 @@ public class Network extends H2OPage {
 
     final H2O cloud = H2O.CLOUD;
     for (H2ONode h2o : cloud._memary) {
+      HeartBeat hb = h2o._heartbeat;
       RString row = response.restartGroup("tableRow");
       row.replace("node", h2o);
       // fill number of connections
-      row.replace("total_in_conn",  toPosNumber(h2o.get_total_in_conn()));
-      row.replace("total_out_conn", toPosNumber(h2o.get_total_out_conn()));
-      row.replace("tcp_in_conn",    toPosNumber(h2o.get_tcp_in_conn()));
-      row.replace("tcp_out_conn",   toPosNumber(h2o.get_tcp_out_conn()));
-      row.replace("udp_in_conn",    toPosNumber(h2o.get_udp_in_conn()));
-      row.replace("udp_out_conn",   toPosNumber(h2o.get_udp_out_conn()));
+      row.replace("total_in_conn", toPosNumber(hb._total_in_conn));
+      row.replace("total_out_conn", toPosNumber(hb._total_out_conn));
+      row.replace("tcp_in_conn", toPosNumber(hb._tcp_in_conn));
+      row.replace("tcp_out_conn", toPosNumber(hb._tcp_out_conn));
+      row.replace("udp_in_conn", toPosNumber(hb._udp_in_conn));
+      row.replace("udp_out_conn", toPosNumber(hb._udp_out_conn));
 
       // fill total traffic statistics
-      row.replace("total_packets_recv",    toPosNumber(h2o.get_total_packets_recv()));
-      row.replace("total_bytes_recv",      PrettyPrint.bytes(h2o.get_total_bytes_recv()));
-      row.replace("total_bytes_recv_rate", PrettyPrint.bytesPerSecond(h2o.get_total_bytes_recv_rate()));
-      row.replace("total_packets_sent",    toPosNumber(h2o.get_total_packets_sent()));
-      row.replace("total_bytes_sent",      PrettyPrint.bytes(h2o.get_total_bytes_sent()));
-      row.replace("total_bytes_sent_rate", PrettyPrint.bytesPerSecond(h2o.get_total_bytes_sent_rate()));
+      row.replace("total_packets_recv", toPosNumber(hb._total_packets_recv));
+      row.replace("total_bytes_recv", PrettyPrint.bytes(hb._total_bytes_recv));
+      row.replace("total_bytes_recv_rate", PrettyPrint.bytesPerSecond(hb._total_bytes_recv_rate));
+      row.replace("total_packets_sent", toPosNumber(hb._total_packets_sent));
+      row.replace("total_bytes_sent", PrettyPrint.bytes(hb._total_bytes_sent));
+      row.replace("total_bytes_sent_rate", PrettyPrint.bytesPerSecond(hb._total_bytes_sent_rate));
 
       // fill TCP traffic statistics
-      row.replace("tcp_packets_recv", toPosNumber(h2o.get_tcp_packets_recv()));
-      row.replace("tcp_bytes_recv",   PrettyPrint.bytes(h2o.get_tcp_bytes_recv()));
-      row.replace("tcp_packets_sent", toPosNumber(h2o.get_tcp_packets_sent()));
-      row.replace("tcp_bytes_sent",   PrettyPrint.bytes(h2o.get_tcp_bytes_sent()));
+      row.replace("tcp_packets_recv", toPosNumber(hb._tcp_packets_recv));
+      row.replace("tcp_bytes_recv", PrettyPrint.bytes(hb._tcp_bytes_recv));
+      row.replace("tcp_packets_sent", toPosNumber(hb._tcp_packets_sent));
+      row.replace("tcp_bytes_sent", PrettyPrint.bytes(hb._tcp_bytes_sent));
 
       // fill UDP traffic statistics
-      row.replace("udp_packets_recv", toPosNumber(h2o.get_udp_packets_recv()));
-      row.replace("udp_bytes_recv",   PrettyPrint.bytes(h2o.get_udp_bytes_recv()));
-      row.replace("udp_packets_sent", toPosNumber(h2o.get_udp_packets_sent()));
-      row.replace("udp_bytes_sent",   PrettyPrint.bytes(h2o.get_udp_bytes_sent()));
+      row.replace("udp_packets_recv", toPosNumber(hb._udp_packets_recv));
+      row.replace("udp_bytes_recv", PrettyPrint.bytes(hb._udp_bytes_recv));
+      row.replace("udp_packets_sent", toPosNumber(hb._udp_packets_sent));
+      row.replace("udp_bytes_sent", PrettyPrint.bytes(hb._udp_bytes_sent));
 
       row.append();
     }

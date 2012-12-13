@@ -18,8 +18,8 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
 
-import water.H2O;
-import water.ValueArray;
+import water.*;
+import water.ValueArray.Column;
 
 import com.google.gson.*;
 
@@ -30,8 +30,8 @@ public class GLM extends H2OPage {
       super(msg);
     }
   }
-  static String getColName(int colId, String[] colNames) {
-    return colId == colNames.length ? "Intercept" : colName(colId,colNames);
+  static String getColName(int colId, ValueArray ary) {
+    return colId == ary._cols.length ? "Intercept" : colName(colId, ary);
   }
 
   @Override
@@ -39,10 +39,10 @@ public class GLM extends H2OPage {
     return new String[] { "Key", "Y" };
   }
 
-  static JsonObject getCoefficients(int [] columnIds, String [] colNames, double [] beta){
+  static JsonObject getCoefficients(int [] columnIds, ValueArray ary, double [] beta){
     JsonObject coefficients = new JsonObject();
     for( int i = 0; i < beta.length; ++i ) {
-      String colName = (i == (beta.length - 1)) ? "Intercept" : getColName(columnIds[i], colNames);
+      String colName = (i == (beta.length - 1)) ? "Intercept" : getColName(columnIds[i], ary);
       coefficients.addProperty(colName, beta[i]);
     }
     return coefficients;
@@ -53,28 +53,27 @@ public class GLM extends H2OPage {
     JsonObject res = new JsonObject();
     try {
       ValueArray ary = ServletUtil.check_array(p, "Key");
-      String[] colNames = ary.col_names();
-      int[] yarr = parseVariableExpression(colNames, p.getProperty("Y"));
+      Column[] cols = ary._cols;
+      int[] yarr = parseVariableExpression(ary, p.getProperty("Y"));
       if( yarr.length != 1 )
         throw new GLMInputException("Y has to refer to exactly one column!");
       int Y = yarr[0];
-      if( 0 > Y || Y >= ary.num_cols() )
+      if( 0 > Y || Y >= cols.length )
         throw new GLMInputException("invalid Y value, column " + Y
             + " does not exist!");
       int[] X = null;
       // ignore empty X == make as if X not present
       if (p.containsKey("X") && ((p.getProperty("X") == null) || (p.getProperty("X").isEmpty())))
         p.remove("X");
-      if( p.containsKey("X") ) X = parseVariableExpression(colNames,
-          p.getProperty("X"));
+      if( p.containsKey("X") ) X = parseVariableExpression(ary, p.getProperty("X"));
       else {
-        X = new int[ary.num_cols() - 1];
+        X = new int[cols.length - 1];
         int idx = 0;
-        for( int i = 0; i < ary.num_cols(); ++i ) {
+        for( int i = 0; i < cols.length; ++i ) {
           if( i != Y ) X[idx++] = i;
         }
       }
-      int[] xComp = (p.containsKey("-X")) ? parseVariableExpression(colNames,
+      int[] xComp = (p.containsKey("-X")) ? parseVariableExpression(ary,
           p.getProperty("-X")) : new int[0];
       Arrays.sort(xComp);
       int n = X.length;
@@ -101,7 +100,7 @@ public class GLM extends H2OPage {
         if( X[i] != -1 ) columns[idx++] = X[i];
       columns[n] = Y;
       for( int x : columns )
-        if( 0 > x || x >= ary.num_cols() ) {
+        if( 0 > x || x >= cols.length ) {
           res.addProperty("error", "Invalid input: column " + x + " does not exist!");
           return res;
         }
@@ -166,9 +165,9 @@ public class GLM extends H2OPage {
         res.add("warnings", warnings);
       }
       long deltaT = System.currentTimeMillis() - t1;
-      res.addProperty("rows",ary.num_rows());
+      res.addProperty("rows", cols.length);
       res.addProperty("time", deltaT);
-      res.add("coefficients", getCoefficients(columns, colNames, m.beta()));
+      res.add("coefficients", getCoefficients(columns, ary, m.beta()));
 
       GLMValidation val = (GLMValidation)m.validateOn(ary._key, null);
       if(val != null){

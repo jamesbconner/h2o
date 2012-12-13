@@ -6,11 +6,10 @@ import hex.DLSM.LSM_Params;
 import hex.Models.BinaryClassifierValidation;
 import hex.RowVecTask.DataPreprocessing;
 import hex.RowVecTask.Sampling;
-import init.H2OSerializable;
 
 import java.util.Arrays;
 
-import water.*;
+import water.ValueArray;
 
 
 /**
@@ -284,9 +283,9 @@ public class DGLM implements Models.ModelBuilder {
       pVals[pVals.length-1][1] = 0;
     }
     String [] colNames = new String [colIds.length];
-    for(int i = 0; i < colIds.length; ++i){
-      colNames[i] = ary.col_name(colIds[i]);
-      if(colNames[i] == null){
+    for( int i = 0; i < colIds.length; ++i ){
+      colNames[i] = ary._cols[colIds[i]]._name;
+      if( colNames[i] == null ) {
         colNames = null;
         break;
       }
@@ -315,8 +314,8 @@ public class DGLM implements Models.ModelBuilder {
     Arrays.fill(beta, _glmParams.link.defaultBeta);
     double diff = 0;
     long N = 0;
-    m._ymu = ary.col_mean(colIds[colIds.length-1]);
-    try{
+    m._ymu = ary._cols[colIds[colIds.length-1]]._mean;
+    try {
       for(int i = 0; i != MAX_ITER; ++i) {
         //System.out.println("iteration: " + i + ", beta = " + Arrays.toString(beta));
         IRLSMTask tsk;
@@ -629,7 +628,7 @@ public class DGLM implements Models.ModelBuilder {
     }
   }
 
-  public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation, H2OSerializable {
+  public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation {
     double _threshold;
     public long [][] _cm;
     double _fpMean;

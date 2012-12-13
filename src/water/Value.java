@@ -1,18 +1,9 @@
 package water;
-
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Field;
-import java.util.Arrays;
-import java.util.UUID;
-
-import sun.misc.Unsafe;
-import water.hdfs.PersistHdfs;
-import water.nbhm.UtilUnsafe;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
+import jsr166y.ForkJoinPool;
+import water.hdfs.PersistHdfs;
 
 /**
  * Values
@@ -20,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author <a href="mailto:cliffc@0xdata.com"></a>
  * @version 1.0
  */
-public class Value {
+public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
 
   // ---
   // Values are wads of bits; known small enough to 'chunk' politely on disk,
@@ -29,7 +20,38 @@ public class Value {
   // version or both.  There's no caching smarts, nor compression nor de-dup
   // smarts.  This is just a local placeholder for some user bits being held at
   // this local Node.
-  public final int _max; // Max length of Value bytes
+  public int _max; // Max length of Value bytes
+
+  // ---
+  // A array of this Value when cached in DRAM, or NULL if not cached.  The
+  // contents of _mem are immutable (Key/Value mappings can be changed by an
+  // explicit PUT action).
+  protected volatile byte[] _mem;
+  public final byte[] mem() { return _mem; }
+
+  // The FAST path get-byte-array - final method for speed.
+  // Returns a NULL if the Value is deleted already.
+  public final byte[] get() {
+    byte[] mem = _mem;          // Read once!
+    if( mem != null ) return mem;
+    if( _max == 0 ) return (_mem = new byte[0]);
+    return (_mem = load_persist());
+  }
+  public final void free_mem() { _mem = null; }
+
+  // ---
+  // Time of last access to this value.
+  transient long _lastAccessedTime = System.currentTimeMillis();
+  public final void touch() {_lastAccessedTime = System.currentTimeMillis();}
+
+
+  // ---
+  // A Value is persisted. The Key is used to define the filename.
+  public transient Key _key;
+
+  // Assertion check that Keys match, for those Values that require an internal
+  // Key (usually for disk filename persistence).
+  protected boolean is_same_key(Key key) { return (_key==null) || (_key == key); }
 
   // ---
   // Backend persistence info.  3 bits are reserved for 8 different flavors of
@@ -60,205 +82,11 @@ public class Value {
   final public boolean is_persisted() { return (_persist&ON_dsk)!=0; }
 
   // ---
-  // A byte[] of this Value when cached in DRAM, or NULL if not cached.  Length
-  // cached in ram is _mem.length, which might be less than _max.  The actual
-  // contents of _mem are considered immutable (Key/Value mappings can be
-  // changed by an explicit PUT action) but prefixes of the full value can be
-  // cached in shorter _mem arrays.  Later, the prefix might be extended to a
-  // longer version, changing the _mem field itself without changing it's "as
-  // if immutable" symantics.
-  //
-  // This field is atomically updated (see CAS_mem below), to prevent racing
-  // parallel update threads from setting different _mem arrays representing
-  // different lengths of caching.
-  protected volatile byte[] _mem;
-  public final byte[] mem() { return _mem; }
-
-  // --- Bits to allow atomic update of the Value mem field
-  private static final Unsafe _unsafe = UtilUnsafe.getUnsafe();
-  private static final long _mem_offset;
-  static {                      // <clinit>
-    Field f1=null;
-    try {
-      f1 = Value.class.getDeclaredField("_mem");
-    } catch( java.lang.NoSuchFieldException e ) { System.err.println("Can't happen");
-    }
-    _mem_offset = _unsafe.objectFieldOffset(f1);
-  }
-
-  // Classic Compare-And-Swap of mem field
-  final boolean CAS_mem( byte[] old, byte[] nnn ) {
-    if( old == nnn ) return true;
-    return _unsafe.compareAndSwapObject(this, _mem_offset, old, nnn );
-  }
-  // Convenience for tracking in-use memory
-  final public void free_mem( ) { CAS_mem(_mem,null); }
-  // CAS in a larger byte[], returning the current one when done.
-  final byte[] CAS_mem_if_larger( byte[] nnn ) {
-    if( nnn == null ) return _mem;
-    while( true ) {
-      byte[] b = _mem;          // Read it again
-      if( b != null && b.length >= nnn.length )
-        return b;
-      if( CAS_mem(b,nnn) )
-        return nnn;
-    }
-  }
-
-  // The FAST path get-byte-array - final method for speed.
-  // Returns a NULL if the Value is deleted already.
-  public final byte[] get() { return get(Integer.MAX_VALUE); }
-  public final byte[] get( int len ) {
-    if( len > _max ) len = _max;
-    byte[] mem = _mem;          // Read once!
-    if( mem != null && len <= mem.length ) return mem;
-    if( mem != null && _max == 0 ) return mem;
-    byte[] newmem = (_max==0 ? new byte[0] : load_persist(len));
-    return CAS_mem_if_larger(newmem); // CAS in the larger read
-  }
-
-
-  // ---
-  // Time of last access to this value.
-  long _lastAccessedTime = System.currentTimeMillis();
-  public final void touch() {_lastAccessedTime = System.currentTimeMillis();}
-
-
-  // ---
-  // A Value is persisted. The Key is used to define the filename.
-  public Key _key;
-
-  // Assertion check that Keys match, for those Values that require an internal
-  // Key (usually for disk filename persistence).
-  protected boolean is_same_key(Key key) { return (_key==null) || (_key == key); }
-  protected boolean is_same_key(water.Value val) {
-    return _key== val._key;
-  }
-
-  // ---------------------
-  // Known remote replicas.  This is a cache of the first 8 non-home Nodes that
-  // have replicated this Value.  Monotonically increases over time; limit of 8
-  // replicas.  Tossed out on an update.  Implemented as 8 bytes of dense
-  // integer indices, H2ONode._unique_idx.  The special value of -1 indicates
-  // that the 'this' Value is invalidated, and no new replicas can be made.
-  private AtomicLong _mem_replicas = new AtomicLong(0); // Replicas known to be in proper Nodes
-  public long mem_replicas() { return _mem_replicas.get(); }
-
-  // Return the cache slot shift of this node, or a blank slot, or 64 if full
-  static private int get_byte_shift( H2ONode h2o, long d ) {
-    final char hidx = (char)h2o._unique_idx;
-    assert hidx < 255;
-    for( int i=0; i<64; i+=8 ) {       // 8 bytes of cache
-      char idx = (char)((d>>>i)&0xFF); // Unsigned byte unique index being cached
-      if( hidx == idx ) return i; // Found match
-      if( idx == 0 ) return i;    // Found blank
-    }
-    return 64;                    // Missed
-  }
-  // True if h2o appears in the cache 'd', or the cache is full.
-  static boolean is_replica( long d, H2ONode h2o ) {
-    int idx = get_byte_shift(h2o,d);
-    if( idx == 64 ) return true;
-    return ((d>>>idx)&0xff) != 0;
-  }
-  // True if h2o is assumed to be a mem_replica.
-  boolean  is_mem_replica( H2ONode h2o ) { return is_replica( _mem_replicas.get(), h2o); }
-
-  // Set h2o as a replica.  Drops it if the cache is full, because full caches
-  // are assumed to replicate everything.
-  static long set_replica( long d, H2ONode h2o ) {
-    assert h2o != H2O.SELF;     // This is always for REMOTE replicas & caching
-    assert d != -1;             // No more replicas allowed.
-    int idx = get_byte_shift(h2o,d);
-    if( idx < 64 )                         // Cache not full
-      d |= (((long)h2o._unique_idx)<<idx); // cache it
-    return d;
-  }
-  // Atomically insert h2o into the mem_replica list; reports false if the
-  // Value flagged against future replication with a -1.  Reports true if the
-  // cache is full (and then relies on bulk invalidation).
-  boolean set_mem_replica( H2ONode h2o ) {
-    assert _key.home();         // Only the HOME node for a key tracks replicas
-    while( true ) {
-      long old = _mem_replicas.get();
-      if( old == -1 ) return false; // No new replications
-      if( _mem_replicas.compareAndSet(old, set_replica(old, h2o)) ) return true;
-    }
-  }
-
-  // Count known memory replicas from 0 to 7, or -1 if stale & locked.
-  // 8 replicas means "8 or more".
-  public int count_mem_replicas() {
-    long d = _mem_replicas.get();
-    if( d == -1 ) return -1;    // Stale
-    int cnt =0;
-    for( int i=0; i<64; i+=8 )  // 8 bytes of cache
-      if( ((d>>>i)&0xFF) != 0 ) cnt++;
-    return cnt;
-  }
-
-  // Inform all the cached copies of this key (except the sender) that it has
-  // changed.  Sender is not flushed because presumbably he has the very value
-  // we are updating to.  Non-blocking, but returns a cookie that can be
-  // blocked on.  If no TPKs are required, returns 'this'.  Otherwise returns a
-  // TPK or a collection of TPKs with 'this' buried inside.
-  Object invalidate_remote_caches( H2ONode sender ) {
-    assert _key.home();   // Only home node tracks mem replicas & issue invalidates
-    // Atomically get the set of replicas, and block any future replications by
-    // setting a -1 in the cache.  This is a linearization point for the Memory
-    // Model ordering: racing remote Gets will either get inserted before we
-    // flip to a -1... and get an invalidate, or else they will fail to be
-    // inserted and will retry and get the new Value.
-    long d = _mem_replicas.get();
-    while( !_mem_replicas.compareAndSet(d, -1) ) d = _mem_replicas.get();
-    if( d == 0 ) return this;   // Nobody to invalidate?
-    // Only 1 caller of this method, so only one thread flips cache 'd' to -1.
-    // The one caller is the winner of a DKV.putIfMatch race.
-    assert( d != -1 );
-    if( (d>>56) != 0 )          // Cache has overflowed?
-      throw H2O.unimpl();       // bulk invalidate?
-    TaskPutKey tpks = new TaskPutKey(this); // Collect all the pending invalidates
-    int i=0;
-    while( d != 0 ) {           // For all cached replicas
-      int idx = (int)(d&0xff);
-      d >>= 8;
-      H2ONode h2o = H2ONode.IDX[idx];
-      if( h2o != sender )       // No need to invalidate sender
-        tpks._tpks[i++] = invalidate(h2o);
-    }
-    return tpks;
-  }
-  TaskPutKey invalidate(H2ONode target) {
-    assert target != H2O.SELF;   // No point in tracking self, nor invalidating self
-    H2O cloud = H2O.CLOUD;
-    int home_idx = _key.home(cloud);
-    assert cloud._memary[home_idx]==H2O.SELF; // Only home does invalidates
-    target.block_pending_gets(this);
-    return new TaskPutKey(target,_key,null,this);  // Fire off a remote delete
-  }
-
-
-  // ---------------------------------------------------------------------------
-  // Abstract interface for value subtypes
-  // ---------------------------------------------------------------------------
-  // A 1-byte ASCII char type-field for Values.  This byte must be unique
-  // across Value subclasses and is used to de-serialize Values.
-  //
-  // V - Normal Value.
-  // A - Array Head; types as a ValueArray.
-  public static final byte VALUE = (byte)'V';
-  public static final byte ARRAY = (byte)'A';
-
-  public byte type() { return VALUE; }
-
-  protected boolean getString_impl( int len, StringBuilder sb ) {
-    sb.append(name_persist());
-    sb.append(is_persisted() ? "." : "!");
-    return false;
-  }
-
-  // ---
   // Interface for using the persistence layer(s).
+  public boolean onICE (){ return (_persist & BACKEND_MASK) ==  ICE; }
+  public boolean onHDFS(){ return (_persist & BACKEND_MASK) == HDFS; }
+  public boolean onNFS (){ return (_persist & BACKEND_MASK) ==  NFS; }
+
   // Store complete Values to disk
   void store_persist() {
     if( is_persisted() ) return;
@@ -269,6 +97,7 @@ public class Value {
     default  : throw H2O.unimpl();
     }
   }
+
   // Remove dead Values from disk
   void remove_persist() {
     // do not yank memory, as we could have a racing get hold on to this
@@ -283,13 +112,12 @@ public class Value {
     }
   }
   // Load some or all of completely persisted Values
-  byte[] load_persist(int len) {
+  byte[] load_persist() {
     assert is_persisted();
-    H2O.dirty_store(); // Not really dirtying it, but definitely changing amount of RAM-cached data
     switch( _persist&BACKEND_MASK ) {
-    case ICE : return PersistIce .file_load(this,len);
-    case HDFS: return PersistHdfs.file_load(this,len);
-    case NFS : return PersistNFS .file_load(this,len);
+    case ICE : return PersistIce .file_load(this);
+    case HDFS: return PersistHdfs.file_load(this);
+    case NFS : return PersistNFS .file_load(this);
     default  : throw H2O.unimpl();
     }
   }
@@ -309,10 +137,10 @@ public class Value {
   // to all stores providing large-file access by default including S3.
   public static Value lazy_array_chunk( Key key ) {
     if( key._kb[0] != Key.ARRAYLET_CHUNK ) return null; // Not an arraylet chunk
-    Key arykey = Key.make(ValueArray.getArrayKeyBytes(key));
+    Key arykey = ValueArray.getArrayKey(key);
     Value v1 = DKV.get(arykey);
-    if( v1 == null ) return null;                  // Nope; not there
-    if( !(v1 instanceof ValueArray) ) return null; // Or not a ValueArray
+    if( v1 == null ) return null;       // Nope; not there
+    if( v1._isArray == 0 ) return null; // Or not a ValueArray
     switch( v1._persist&BACKEND_MASK ) {
     case ICE : if( !key.home() ) return null; // Only do this on the home node for ICE
                return PersistIce .lazy_array_chunk(key);
@@ -322,282 +150,303 @@ public class Value {
     }
   }
 
-  // ---
-  // Larger values are chunked into arraylets.  This is the number of chunks:
-  // by default the Value is its own single chunk.
-  public long chunks() { return 1; }
-  static public long chunk_offset( long chunknum ) { return chunknum << ValueArray.LOG_CHK; }
-  public Key chunk_get( long chunknum ) {
-    if( chunknum != 0 ) throw new ArrayIndexOutOfBoundsException(Long.toString(chunknum));
-    return _key;                // Self-key
+  protected boolean getString_impl( int len, StringBuilder sb ) {
+    sb.append(name_persist());
+    sb.append(is_persisted() ? "." : "!");
+    return false;
   }
 
-  // --------------------------------------------------------------------------
-  // Set just the initial fields
-  public Value(int max, int length, Key k, byte be ) {
-    _mem = MemoryManager.allocateMemory(length);
-    _max = max;
-    _key = k;
-    // For the ICE backend, assume new values are not-yet-written.
-    // For HDFS & NFS backends, assume we from global data and preserve the
-    // passed-in persist bits
-    byte p = (byte)(be&BACKEND_MASK);
-    _persist = (p==ICE) ? p : be;
-  }
-
-  public Value(Key key, int max) {
-    this(max,max,key,ICE);
-  }
-
-  public Value( Key key, String s ) {
-    this(key,s.length());
-    System.arraycopy(s.getBytes(),0,_mem,0,_mem.length);
-  }
-  // Memory came from elsewhere
-  public Value(Key k, byte[] bits ) {
-    _mem = bits;
-    _max = bits.length;
-    _key = k;
-    _persist = ICE;
-  }
-
-  // Memory came from elsewhere
-  public Value(Key k, byte[] bits, byte mode) {
-    _mem = bits;
-    _max = bits.length;
-    _key = k;
-    _persist = mode;
-  }
-
-  // Check that these are the same values... but one might be a prefix _mem of
-  // the other.  This is not an absolute test: the Values might differ even if
-  // this reports 'true'.  However, if it reports 'false' then the Values
-  // definitely different.  Does no disk i/o.
-  boolean false_ifunequals( Value val ) { return false_ifunequals(val,_mem,val._mem);  }
-  boolean false_ifunequals( Value val, byte[] mem1, byte[] mem2 ) {
-    if( _max != val._max ) return false;
-    if( _key != val._key && !_key.equals(val._key) ) return false;
-    // If we have any cached bits, they need to be equal.
-    if( mem1!=null && mem2!=null &&
-        !equal_buf_chk(mem2,0,mem1,0,Math.min(mem2.length,mem1.length)) )
-      return false;
-    return true;
-  }
-  // If this reports 'true' then the Values are definitely Equals.
-  // If this reports 'false' then the Values might still be equals.
-  boolean true_ifequals( Value val ) {
-    byte[] mem1 = _mem;
-    byte[] mem2 = val._mem;
-    if( !false_ifunequals(val,mem1,mem2) ) return false; // Definitely Not Equals
-    if( mem2 != null && mem2.length == _max &&
-        mem1 != null && mem1.length == _max )
-      return true;              // Definitely Equals
-    return false;               // Possibly equals but reporting not-equals
-  }
-  // True equals test.  May require disk I/O
-  boolean equals( Value val ) {
-    if( this == val ) return true;
-    if( _key != val._key && !_key.equals(val._key) ) return false;
-    if( _max != val._max ) return false;
-    return Arrays.equals(val.get(),get());
+  public StringBuilder getString( int len, StringBuilder sb ) {
+    int newlines=0;
+    byte[] b = get();
+    final int LEN=Math.min(len,b.length);
+    for( int i=0; i<LEN; i++ ) {
+      byte c = b[i];
+      if( c == '&' ) sb.append("&amp;");
+      else if( c == '<' ) sb.append("&lt;");
+      else if( c == '>' ) sb.append("&gt;");
+      else if( c == '\n' ) { sb.append("<br>"); if( newlines++ > 5 ) break; }
+      else if( c == ',' && i+1<LEN && b[i+1]!=' ' )
+        sb.append(", ");
+      else sb.append((char)c);
+    }
+    if( b.length > LEN ) sb.append("...");
+    return sb;
   }
 
   // Expand a KEY_OF_KEYS into an array of keys
   public Key[] flatten() {
     assert _key._kb[0] == Key.KEY_OF_KEYS;
-    byte[] buf = get();
-    int off = 0;
-    int klen = UDP.get4(buf,(off+=4)-4);
-    Key[] keys = new Key[klen];
-    for( int i=0; i<klen; i++ ) {
-      Key k = keys[i] = Key.read(buf,off);
-      off += k.wire_len();
-    }
-    return keys;
+    return new AutoBuffer(get(), 0).getA(Key.class);
   }
+
+  // Stupid typed-Value hack for ValueArray: contents are to be interpreted as
+  // a ValueArray.  Really, this needs to be replaced with a Real Value Type
+  // System (Michal's enums!).
+  public byte _isArray;
+
+  // Get the 1st bytes from either a plain Value, or chunk 0 of a ValueArray
+  public byte[] getFirstBytes() {
+    return ((_isArray == 0) ? this : DKV.get(ValueArray.get_key(0,_key))).get();
+  }
+
+  // For plain Values, just the length in bytes.
+  // For ValueArrays, the length of all chunks.
+  public long length() {
+    if( _isArray==0 ) return _max;
+    return ValueArray.value(this).length();
+  }
+
 
   // --------------------------------------------------------------------------
-  // Serialized format length 1+1+4+4+len bytes
-  final int wire_len(int len) {
-    return 1/*value-type*/+1/*persist info*/+4/*len*/+4/*max*/+(len>0?len:0);
+  // Set just the initial fields
+  public Value(Key k, int max, byte[] mem, byte be, byte isArray ) {
+    _key = k;
+    _max = max;
+    _mem = mem;
+    // For the ICE backend, assume new values are not-yet-written.
+    // For HDFS & NFS backends, assume we from global data and preserve the
+    // passed-in persist bits
+    byte p = (byte)(be&BACKEND_MASK);
+    _persist = (p==ICE) ? p : be;
+    _isArray = isArray;
+  }
+  public Value(Key k, int max, byte be    ) { this(k, max, null, be,(byte)0); }
+  public Value(Key k, int max             ) { this(k, max, MemoryManager.malloc1(max), ICE, (byte)0); }
+  public Value(Key k, int max, byte[] mem ) { this(k, max, mem, ICE, (byte)0); }
+  public Value(Key k, String s            ) { this(k, s.length(), s.getBytes()); }
+  public Value(Key k, byte[] bits         ) { this(k, bits.length,bits); }
+  public Value(Key k, byte[] bits, byte persist, byte isArray ) { this(k, bits.length,bits,persist, isArray); }
+  public Value() { }            // for auto-serialization
+
+  // Custom serializers: the _mem field is racily cleared by the MemoryManager
+  // and the normal serializer then might ship over a null instead of the
+  // intended byte[].  Also, the value is NOT on the deserialize'd machines disk
+  public AutoBuffer write(AutoBuffer bb) {
+    byte p = _persist;
+    if( onICE() ) p &= ~ON_dsk; // Not on the remote disk
+    return bb.put1(p).put1(_isArray).putA1(get());
   }
 
-  public final void write( Stream s, int len ) { write(s, len, len > 0 ? get(len) : null); }
-  public final void write( Stream s, int len, byte[] vbuf ) {
-    s.set1(type());
-    s.set1(_persist);
-    s.set4(len);
-    s.set4(_max);
-    if( len > 0 ) s.setBytes(vbuf, len);
+  // Custome serializer: set _max from _mem length; set replicas & timestamp.
+  public Value read(AutoBuffer bb) {
+    assert _key == null;        // Not set yet
+    _persist = (byte)bb.get1();
+    _isArray = (byte)bb.get1();
+    _mem = bb.getA1();
+    _max = _mem.length;
+    // On remote nodes _replicas is initialized to 0 (signaling a remote PUT is
+    // in progress) flips to -1 when the remote PUT is done, or +1 if a notify
+    // needs to happen.
+    _replicas.set(-1);          // Set as 'remote put is done'
+    touch();
+    return this;
   }
 
-  // Write up to len bytes of Value to the Stream
-  final void write( DataOutputStream dos, int len ) throws IOException {
-    write(dos,len,(len > 0) ? get(len):null);
+  // ---------------------
+  // Ordering of K/V's!  This field tracks a bunch of things used in ordering
+  // updates to the same Key.  Ordering Rules:
+  // - Program Order.  You see your own writes.  All writes in a single thread
+  //   strongly ordered (writes never roll back).  In particular can:
+  //   PUT(v1), GET, PUT(null) and The Right Thing happens.
+  // - Unrelated writes can race (unless fencing).
+  // - Writes are not atomic: some people can see a write ahead of others.
+  // - Last-write-wins: if we do a zillion writes to the same Key then wait "a
+  //   long time", then do reads all reads will see the same last value.
+  // - Blocking on a PUT stalls until the PUT is cloud-wide visible
+  //
+  // For comparison to H2O get/put MM
+  // IA Memory Ordering,  8 principles from Rich Hudson, Intel
+  // 1. Loads are not reordered with other loads
+  // 2. Stores are not reordered with other stores
+  // 3. Stores are not reordered with older loads
+  // 4. Loads may be reordered with older stores to different locations but not
+  //    with older stores to the same location
+  // 5. In a multiprocessor system, memory ordering obeys causality (memory
+  //    ordering respects transitive visibility).
+  // 6. In a multiprocessor system, stores to the same location have a total order
+  // 7. In a multiprocessor system, locked instructions have a total order
+  // 8. Loads and stores are not reordered with locked instructions.
+  //
+  // My (KN, CNC) interpretation of H2O MM from today:
+  // 1. Gets are not reordered with other Gets
+  // 2  Puts may be reordered with Puts to different Keys.
+  // 3. Puts may be reordered with older Gets to different Keys, but not with
+  //    older Gets to the same Key.
+  // 4. Gets may be reordered with older Puts to different Keys but not with
+  //    older Puts to the same Key.
+  // 5. Get/Put amongst threads doesn't obey causality
+  // 6. Puts to the same Key have a total order.
+  // 7. no such thing. although RMW operation exists with Put-like constraints.
+  // 8. Gets and Puts may be reordered with RMW operations
+  // 9. A write barrier exists that creates Sequential Consistency.  Same-key
+  //    ordering (3-4) can't be used to create the effect.
+  //
+  // A Reader/Writer lock for the home node to control racing Gets and Puts.
+  // - A bitvector of up to 58 cloud nodes known to have replicas
+  // - 6 bits of active Gets (reader-lock count up to 58), or -1/63- locked
+  // Active Readers/Gets atomically set the r/w lock count AND set their
+  // replication-bit (or fail because the lock is write-locked, in which
+  // case they Get is retried from the start and should see a new Value).
+  //
+  // An ACK from the client GET lowers the r/w lock count.
+  //
+  // Home node PUTs alter which Value is mapped to a Key, then they block until
+  // there are no active GETs, then atomically set the write-lock, then send
+  // out invalidates to all the replicas.  PUTs return when all invalidates
+  // have reported back.
+  //
+  // An initial remote PUT will default the value to 0.  A 2nd PUT attempt will
+  // block until the 1st one completes (multiple writes to the same Key from
+  // the same JVM block, so there is at most 1 outstanding write to the same
+  // Key from the same JVM).  The 2nd PUT will CAS the value to 1, indicating
+  // the need for the finishing 1st PUT to call notify().
+  //
+  // Note that this sequence involves a lot of blocking on the writes, but not
+  // the readers - i.e., writes are slow to complete.
+  private transient final AtomicLong _replicas = new AtomicLong(0);
+  public int numReplicas() {
+    long r = replicas();
+    int c = 0;
+    for( int i = 0; i < 58; ++i ) c += (r >> i) & 0x01;
+    return c;
   }
-  final void write( DataOutputStream dos, int len, byte[] vbuf ) throws IOException {
-    if( len > _max ) len = _max;
-    dos.writeByte(type());      // Value type
-    dos.writeByte(_persist);    // Value type
-    dos.writeInt(len);
-    dos.writeInt(_max);
-    if( len > 0 )                // Deleted keys have -1 len/max
-      dos.write(vbuf,0,len); // Sub-class specific data
+  public long replicas() { return _replicas.get(); }
+
+  // True if h2o has a copy of this Value
+  boolean is_replica( H2ONode h2o ) {
+    assert h2o._unique_idx<58;
+    return (_replicas.get()&(1L<<h2o._unique_idx)) != 0;
   }
 
-  static Value construct(int max, int len, Key key, byte p, byte type) {
-    switch (type) {
-    case ARRAY: return new ValueArray(max,len,key,p);
-    case VALUE: return new Value     (max,len,key,p);
-    default:
-      throw new Error("Unable to construct value of type "+(char)(type)+"(0x"+Integer.toHexString(0xff & type)+" (key "+key.toString()+")");
+  private static int decodeReaderCount(long replicas) { return (int) (replicas >>> 58); }
+  private static long encodeReaderCount(int readers)  { return ((long)readers) << 58; }
+
+  // Atomically insert h2o into the replica list; reports false if the Value
+  // flagged against future replication with a -1/63.  Also bumps the active
+  // Get count, which remains until the Get completes (we recieve an ACKACK).
+  boolean set_replica( H2ONode h2o ) {
+    assert h2o._unique_idx<58;
+    assert _key.home(); // Only the HOME node for a key tracks replicas
+    assert h2o != H2O.SELF;     // Do not track self as a replica
+    while( true ) {     // Repeat, in case racing GETs are bumping the counter
+      long old = _replicas.get();
+      if( old == -1 ) return false; // No new replications
+      long nnn = old + encodeReaderCount(1);
+      assert decodeReaderCount(nnn) < 58; // Count does not overflow
+      nnn |= (1L<<h2o._unique_idx); // Set replica bit for H2O
+      if( _replicas.compareAndSet(old,nnn) ) return true;
     }
   }
 
-  // Read 1+1+4+4+len+vc value bytes from the the UDP packet and into a new Value.
-  static Value read( Stream s, Key key ) {
-    byte type = s.get1();
-    if( type == 0 ) return null;  // Deleted sentinel
-    byte p  = s.get1();
-    int len = s.get4();
-    int max = s.get4();
-    Value val = construct(max, len, key, p, type);
-    if( len > 0 ) s.getBytes(val.mem(), len);
-    return val;
+  // Atomically lower active GET count
+  void lower_active_gets( H2ONode h2o ) {
+    assert h2o._unique_idx<58;
+    assert _key.home();  // Only the HOME node for a key tracks replicas
+    assert h2o != H2O.SELF;     // Do not track self as a replica
+    long nnn;
+    while( true ) {     // Repeat, in case racing GETs are bumping the counter
+      long old = _replicas.get();
+      assert old != -1;             // Not locked yet, because we are active
+      assert (old&(1L<<h2o._unique_idx)) !=0; // Self-bit is set
+      assert decodeReaderCount(old) > 0; // Since lowering, must be at least 1
+      nnn = old - encodeReaderCount(1);
+      if( _replicas.compareAndSet(old,nnn) )
+        break;                  // Repeat until count is lowered
+    }
+    if( decodeReaderCount(nnn) == 0 ) // GET count fell to zero?
+      synchronized( this ) { notifyAll(); } // Notify any pending blocked PUTs
   }
 
-  static Value read( DataInputStream dis, Key key ) throws IOException {
-    byte type = dis.readByte();
-    byte p  = dis.readByte();
-    int len = dis.readInt();
-    int max = dis.readInt();
-    Value val = construct(max,len,key,p,type);
-    if( len > 0 )
-      dis.readFully(val.mem());
-    return val;
+  // Atomically set the replica count to -1/63 locking it from further GETs and
+  // ship out invalidates to caching replicas.  May need to block on active
+  // GETs.  Updates a set of Future invalidates that can be blocked against.
+  Futures lock_and_invalidate( H2ONode sender, Futures fs ) {
+    assert _key.home(); // Only the HOME node for a key tracks replicas
+    // Lock against further GETs
+    long old = _replicas.get();
+    assert old != -1; // Only the thread doing a PUT ever locks
+    // Repeat, in case racing GETs are bumping the counter
+    while( decodeReaderCount(old) != 0 || // Has readers?
+           !_replicas.compareAndSet(old,-1) ) { // or failed to lock?
+      try { ForkJoinPool.managedBlock(this); } catch( InterruptedException e ) { }
+      old = _replicas.get();
+      assert old != -1; // Only the thread doing a PUT ever locks
+    }
+
+    if( old == 0 ) return fs; // Nobody is caching, so nothing to block against
+
+    // We have the set of Nodes with replicas now.  Ship out invalidates.
+    for( int i=0; i<58; i++ )
+      if( ((old>>i)&1) != 0 && H2ONode.IDX[i] != sender )
+        TaskPutKey.invalidate(H2ONode.IDX[i],_key,fs);
+    return fs;
   }
 
-  static boolean equal_buf_chk( byte[] b1, int off1, byte[] b2, int off2, int len ) {
-    for( int i=0; i<len; i++ )
-      if( b1[i+off1] != b2[i+off2] )
-        return false;
+  // Initialize the _replicas field for a PUT.  On the Home node (for remote
+  // PUTs), it is initialized to the one replica we know about.
+  void init_replica_home( H2ONode h2o, Key key ) {
+    assert key.home();
+    assert _key == null; // This is THE initializing key write for serialized Values
+    assert h2o != H2O.SELF;     // Do not track self as a replica
+    _key = key;
+    // Set the replica bit for the one node we know about, and leave the
+    // rest clear.  No GETs are in-flight at this time.
+    _replicas.set(1L<<h2o._unique_idx);
+  }
+
+  // Block this thread until all prior remote PUTs complete - to force
+  // remote-PUT ordering on the home node.
+  void start_put() {
+    assert !_key.home();
+    long x = 0;
+    while( (x=_replicas.get()) != -1L ) // Spin until replicas==-1
+      if( x == 1L || _replicas.compareAndSet(0L,1L) )
+        try { ForkJoinPool.managedBlock(this); } catch( InterruptedException e ) { }
+  }
+
+  // The PUT for this Value has completed.  Wakeup any blocked later PUTs.
+  void put_completes() {
+    assert !_key.home();
+    // Attempt an eager blind attempt, assuming no blocked pending notifies
+    if( _replicas.compareAndSet(0L, -1L) ) return;
+    synchronized(this) {
+      boolean res = _replicas.compareAndSet(1L, -1L);
+      assert res;               // Must succeed
+      notifyAll();              // Wake up pending blocked PUTs
+    }
+  }
+
+  // Return true if blocking is unnecessary.
+  // Alas, used in TWO places and the blocking API forces them to share here.
+  public boolean isReleasable() {
+    long r = _replicas.get();
+    if( _key.home() ) {         // Called from lock_and_invalidate
+      // Home-key blocking: wait for active-GET count to fall to zero
+      return decodeReaderCount(r) == 0;
+    } else {                    // Called from start_put
+      // Remote-key blocking: wait for active-PUT lock to hit -1
+      assert r == 1 || r == -1; // Either waiting (1) or done (-1) but not started(0)
+      return r == -1;           // done!
+    }
+  }
+  // Possibly blocks the current thread.  Returns true if isReleasable would
+  // return true.  Used by the FJ Pool management to spawn threads to prevent
+  // deadlock is otherwise all threads would block on waits.
+  public synchronized boolean block() {
+    while( !isReleasable() ) { try { wait(); } catch( InterruptedException e ) { } }
     return true;
   }
 
-  // Convert the first len bytes of Value to a pretty-printable String.
-  // Try to escape all HTML tags.
-  public final String getString( int len ) {
-    if( len > _max ) len = _max;
-    StringBuilder sb = new StringBuilder(len<0?0:len);
-    // Sub-class preliminaries
-    if( getString_impl(len,sb) ) return sb.toString();
-    // Ensure at least 'len' bytes are memory-local
-    byte[] mem = get(len);
-    sb.append("[");
-    if( mem == null ) return sb.append(_max).append(_max==0?"]":"] ioerror").toString();
-    sb.append(mem.length).append("/").append(_max).append("]=");
-    for( int i=0; i<len; i++ ) {
-      byte b = mem[i];
-      if( b=='\r' ) {           // CR?
-        if( i+1<len && mem[i+1]=='\n' )
-          i++;                  // Skip a trailing LF from a CR-LF pair
-        b = '\n';               // Swap CR and CR-LF for plain LF
-      }
-      if( b >= 32 || b == '\n' ) sb.append((char)b); // Standard ascii, let flow thru
-    }
-    if( len < _max ) sb.append("...");
-    return sb.toString();
+  public boolean remote_put_in_flight() {
+    assert !_key.home();
+    return _replicas.get() != -1;
   }
 
-  /** Returns a stream that can read the value.
-   * @return
-   */
+  // ---
+  // Creates a Stream for reading bytes
   public InputStream openStream() throws IOException {
-    return (chunks() <= 1)
-      ? new ByteArrayInputStream(DKV.get(_key).get())
-      : new ArrayletInputStream(this);
+    if( _isArray == 0 ) return new ByteArrayInputStream(get());
+    return ValueArray.value(this).openStream();
   }
-
-  public long length() { return _max<0?0:_max; }
-
-
-  public boolean onHDFS(){
-    return (_persist & BACKEND_MASK) == HDFS;
-  }
-
-  // Set the backend to hdfs and persist state to not persisted
-  // and than remove the old stored value (if any)
-  public void switch2HdfsBackend(boolean persisted){
-    byte oldPersist = _persist;
-    _persist = (persisted ? HDFS|ON_dsk : HDFS); 
-    if( (oldPersist & ON_dsk) != 0 )
-      switch( oldPersist&BACKEND_MASK ) {
-      case ICE : PersistIce .file_delete(this); break;
-      case HDFS: assert(false); PersistHdfs.file_delete(this); break;
-      case NFS : PersistNFS .file_delete(this); break;
-      default  : throw H2O.unimpl();
-      }
-    invalidate_remote_caches(H2O.SELF);
-  }
-
-}
-
-
-class ArrayletInputStream extends InputStream {
-  // arraylet value
-  private final ValueArray _arraylet;
-  // memory for the current chunk
-  private byte[] _mem;
-  // index of the current chunk
-  private long _chunkIndex;
-  // offset in the memory of the current chunk
-  private int _offset;
-
-  public ArrayletInputStream(Value v) throws IOException {
-    _arraylet = (ValueArray)v;
-    _mem = _arraylet.get(_chunkIndex++).get();
-  }
-
-  @Override public int available() throws IOException {
-    int availableBytes = _mem.length-_offset;
-    // Prevent stream close if we are at the end of actual chunk but there is still chunks to read
-    // and load the next chunk.
-    if (availableBytes == 0 && _chunkIndex < _arraylet.chunks()) {
-      _mem    = _arraylet.get(_chunkIndex++).get();
-      _offset = 0;
-      availableBytes = _mem.length;
-    }
-    return availableBytes;
-  }
-
-  @Override public void close() {
-    _chunkIndex = _arraylet.chunks();
-    _mem = new byte[0];
-    _offset = _mem.length;
-  }
-
-  @Override public int read() throws IOException {
-    if( available() == 0 ) {    // None available?
-      return -1;
-    }
-    return _mem[_offset++] & 0xFF;
-  }
-
-  @Override public int read(byte[] b, int off, int len) throws IOException {
-    int rc = 0;  // number of bytes read
-    while( len>0 ) {
-      int cs = Math.min(available(),len);
-      System.arraycopy(_mem,_offset,b,off,cs);
-      rc      += cs;
-      len     -= cs;
-      off     += cs;
-      _offset += cs;
-      if ( len<=0 ) break;
-      if ( available() == 0) {
-        if( _chunkIndex >= _arraylet.chunks() ) break;
-      }
-    }
-    return rc == 0 ? -1 : rc;
-  }
-
 }

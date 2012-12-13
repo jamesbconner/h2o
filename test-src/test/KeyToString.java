@@ -1,13 +1,10 @@
 package test;
+import static org.junit.Assert.*;
 import java.util.Arrays;
 import org.junit.AfterClass;
-import static org.junit.Assert.*;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import water.*;
-import water.exec.*;
-import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
 public class KeyToString {
   @BeforeClass public static void setupCloud() {
@@ -29,7 +26,6 @@ public class KeyToString {
     assertEquals(k._kb[1], 32);
     assertEquals(k._kb[2], 32);
     k = Key.make("$fffe85$Azaz09-.");
-    System.err.println(k.toString());
     assertTrue(k.toString().equals("$fffe85$Azaz09-."));
     k = Key.make("Hi There");
     assertTrue(k.toString().equals("Hi There"));

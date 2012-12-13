@@ -2,8 +2,7 @@ package hex.rf;
 import hex.rf.Tree.StatType;
 
 import java.io.File;
-import java.util.*;
-import water.Timer;
+import java.util.Random;
 
 import water.*;
 import water.util.KeyUtil;
@@ -16,23 +15,19 @@ import water.util.KeyUtil;
 public class RandomForest {
   final Data _data;             // The data to train on.
   private int _features;        // features to check at each split
-  boolean _stratify;
-  int [] _strata;
 
   public RandomForest(DRF drf, Data data, int ntrees, int maxTreeDepth, double minErrorRate, StatType stat, boolean parallelTrees, int features, int[] ignoreColumns) {
     // Build N trees via the Random Forest algorithm.
     _data = data;
     _features = features;
-    _stratify = drf._useStratifySampling;
-    _strata = drf._strata;
     Timer t_alltrees = new Timer();
     Tree[] trees = new Tree[ntrees];
     Random rnd = new Random(data.seed());
     for (int i = 0; i < ntrees; ++i) {
-      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(),rnd.nextLong(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns,_stratify, _strata);
+      trees[i] = new Tree(_data,maxTreeDepth,minErrorRate,stat,features(),rnd.nextLong(), drf._treeskey, drf._modelKey,i,drf._ntrees, drf._sample, drf._numrows, ignoreColumns);
       if (!parallelTrees) DRemoteTask.invokeAll(new Tree[]{trees[i]});
-    }
-    if(parallelTrees)DRemoteTask.invokeAll(trees);
+     }
+    if (parallelTrees) DRemoteTask.invokeAll(trees);
     Utils.pln("All trees ("+ntrees+") done in "+ t_alltrees);
   }
 
@@ -49,31 +44,15 @@ public class RandomForest {
 	int classcol = -1;
 	int features = -1;
 	int parallel = 1;
-	boolean outOfBagError;
-	boolean stratify;
-	String strata;
 	String statType = "entropy";
 	int seed = 42;
 	String ignores;
-	int nnodes = 1;
-	int cloudFormationTimeout=10; // wait for up to 10seconds
   }
 
   static final OptArgs ARGS = new OptArgs();
 
   public int features() { return _features; }
 
-
-  public static Map<Integer,Integer> parseStrata(String s){
-    if(s.isEmpty())return null;
-    String [] strs = s.split(",");
-    Map<Integer,Integer> res = new HashMap<Integer, Integer>();
-    for(String x:strs){
-      String [] arr = x.split(":");
-      res.put(Integer.parseInt(arr[0].trim()), Integer.parseInt(arr[1].trim()));
-    }
-    return res;
-  }
 
   public static void main(String[] args) throws Exception {
     Arguments arguments = new Arguments(args);
@@ -86,7 +65,7 @@ public class RandomForest {
     ValueArray va;
     // get the input data
     if(ARGS.parsdedKey != null) // data already parsed
-      va = (ValueArray)DKV.get(Key.make(ARGS.parsdedKey));
+      va = ValueArray.value(DKV.get(Key.make(ARGS.parsdedKey)));
     else if(ARGS.rawKey != null) // data loaded in K/V, not parsed yet
       va = KeyUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(KeyUtil.getHexKeyFromRawKey(ARGS.rawKey)));
     else { // data outside of H2O, load and parse
@@ -109,25 +88,22 @@ public class RandomForest {
       for(int i=0;i<ignores.length;i++)
         ignores[i] = Integer.parseInt(strs[i]);
     }
-    Map<Integer,Integer> strata = null;
-    if(ARGS.stratify && ARGS.strata != null)
-      strata = parseStrata(ARGS.strata);
 
-    final int num_cols = va.num_cols();
+    final int num_cols = va._cols.length;
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1, ARGS.stratify,strata);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1);
     drf.get(); // block
     Model model = UKV.get(drf._modelKey, new Model());
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);
+
     Timer t_valid = new Timer();
     Key valKey = drf._arykey;
-    if(ARGS.outOfBagError && !ARGS.stratify){
-      Utils.pln("[RF] Computing out of bag error");
-      Confusion.make( model, valKey, classcol,ignores, null, true).report();
-    }
+    Utils.pln("[RF] Computing out of bag error");
+    Confusion.make( model, valKey, classcol,ignores, null, true).report();
+
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate on the supplied file
       File f = new File(ARGS.validationFile);
       System.out.println("[RF] Loading validation file " + f);

@@ -118,10 +118,10 @@ public class RandomForestTest {
     UKV.remove(fkey);
     UKV.remove(Key.make("smalldata/kaggle/creditsample-training.csv.gz_UNZIPPED"));
     UKV.remove(Key.make("smalldata\\kaggle\\creditsample-training.csv.gz_UNZIPPED"));
-    ValueArray val = (ValueArray) DKV.get(okey);
+    ValueArray val = ValueArray.value(okey);
 
     // Check parsed dataset
-    assertEquals("Number of chunks", 4, val.chunks());
+    assertEquals("Number of chunks", 4, val._chunks);
     assertEquals("Number of rows", 150000, val.num_rows());
     assertEquals("Number of cols", 12, val.num_cols());
 
@@ -135,7 +135,7 @@ public class RandomForestTest {
     final int ignore[] = new int[]{6}; // Ignore column 6
 
     // Start the distributed Random Forest
-    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1,false,null);
+    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1);
     // Just wait little bit
     drf.get();
     // Create incremental confusion matrix.

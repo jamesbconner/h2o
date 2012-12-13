@@ -28,13 +28,13 @@ public abstract class PersistNFS {
     return new File(s);
   }
 
-  // Read up to 'len' bytes of Value.  Value should already be persisted to
-  // disk.  'len' should be sane: 0 <= len <= v._max (both ends are asserted
-  // for, although it's hard to see the asserts).  A racing delete can trigger
+  // Read up to 'len' bytes of Value. Value should already be persisted to
+  // disk. 'len' should be sane: 0 <= len <= v._max (both ends are asserted
+  // for, although it's hard to see the asserts). A racing delete can trigger
   // a failure where we get a null return, but no crash (although one could
   // argue that a racing load&delete is a bug no matter what).
-  static byte[] file_load(Value v, int len) {
-    byte[] b = MemoryManager.allocateMemory(len);
+  static byte[] file_load(Value v) {
+    byte[] b = MemoryManager.malloc1(v._max);
     try {
       FileInputStream s = null;
       try {
@@ -42,18 +42,18 @@ public abstract class PersistNFS {
         Key k = v._key;
         // Convert an arraylet chunk into a long-offset from the base file.
         if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
-          skip = ValueArray.getOffset(k); // The offset
-          k = Key.make(ValueArray.getArrayKeyBytes(k)); // From the base file key
+          skip = ValueArray.getChunkOffset(k); // The offset
+          k = ValueArray.getArrayKey(k);       // From the base file key
         }
         s = new FileInputStream(getFileForKey(k));
         while( (skip -= s.skip(skip)) > 0 ) ; // Skip to offset
-        for( int off = 0; off < len; off += s.read(b,off,len) ) ; // Read whole 'len'
+        for( int off = 0; off < v._max; off += s.read(b,off,v._max) ) ; // Read whole
         assert v.is_persisted();
         return b;
       } finally {
         if( s != null ) s.close();
       }
-    } catch( IOException e ) {  // Broken disk / short-file???
+    } catch( IOException e ) { // Broken disk / short-file???
       return null;
     }
   }
@@ -65,7 +65,7 @@ public abstract class PersistNFS {
     // A perhaps useless cutout: the upper layers should test this first.
     if( v.is_persisted() ) return;
     // Never store arraylets on NFS, instead we'll store the entire array.
-    assert !(v instanceof ValueArray);
+    assert v._isArray==0;
     try {
       File f = getFileForKey(v._key);
       f.mkdirs();
@@ -75,7 +75,7 @@ public abstract class PersistNFS {
         assert (m == null || m.length == v._max); // Assert not saving partial files
         if( m!=null )
           s.write(m);
-        v.setdsk();             // Set as write-complete to disk
+        v.setdsk(); // Set as write-complete to disk
       } finally {
         s.close();
       }
@@ -84,23 +84,22 @@ public abstract class PersistNFS {
   }
 
   static void file_delete(Value v) {
-    assert !v.is_persisted();   // Upper layers already cleared out
+    assert !v.is_persisted(); // Upper layers already cleared out
     File f = getFileForKey(v._key);
     f.delete();
   }
 
   static Value lazy_array_chunk( Key key ) {
-    assert key._kb[0] == Key.ARRAYLET_CHUNK;
-    Key arykey = Key.make(ValueArray.getArrayKeyBytes(key)); // From the base file key
-    long off = ValueArray.getOffset(key); // The offset
+    Key arykey = ValueArray.getArrayKey(key);  // From the base file key
+    long off = ValueArray.getChunkOffset(key); // The offset
     long size = getFileForKey(arykey).length();
     long rem = size-off;
 
     // the last chunk can be fat, so it got packed into the earlier chunk
-    if( rem < ValueArray.chunk_size() && off > 0 ) return null;
-    int sz = (ValueArray.chunks(rem) > 1) ? (int)ValueArray.chunk_size() : (int)rem;
-    Value val = new Value(sz,0,key,Value.NFS);
-    val.setdsk();             // But its already on disk.
+    if( rem < ValueArray.CHUNK_SZ && off > 0 ) return null;
+    int sz = (rem >= ValueArray.CHUNK_SZ*2) ? (int)ValueArray.CHUNK_SZ : (int)rem;
+    Value val = new Value(key,sz,Value.NFS);
+    val.setdsk(); // But its already on disk.
     return val;
   }
 }

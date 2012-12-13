@@ -1,19 +1,13 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
-
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.NoSuchElementException;
-
-import water.Key;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.gson.*;
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
+import water.Key;
 
 /**
  * List that has labels to it (something like copyable iterators) and some very
@@ -170,12 +164,12 @@ class LabelledStringList {
 
 /**
  * A replaceable string that allows very easy and simple replacements.
- * 
+ *
  * %placeholder is normally inserted
- * 
+ *
  * %$placeholder is inserted in URL encoding for UTF-8 charset. This should be
- * used for all hrefs. 
- * 
+ * used for all hrefs.
+ *
  */
 public class RString {
   // A placeholder information with replcement group and start and end labels.
@@ -244,7 +238,7 @@ public class RString {
       if( from.charAt(start) == '%' ) {
         cur.insertAndAdvance(from.substring(end, start));
         end = start + 1;
-      } else { 
+      } else {
         cur.insertAndAdvance(from.substring(end, start - 1));
         end = start;
         while( (end < from.length()) && (isIdentChar(from.charAt(end))) ) {
@@ -264,7 +258,6 @@ public class RString {
           _placeholders.put(pname, new Placeholder(cur.clone(), cur.clone(), from.substring(start, end)));
           ++end;
         }
-//        start = end;
       }
     }
   }

@@ -1,13 +1,14 @@
 
 package water.web;
 
-import com.google.gson.JsonObject;
-import hex.rf.Confusion;
-import hex.rf.DRF;
-import hex.rf.Model;
-import hex.rf.Tree;
+import hex.rf.*;
+
 import java.util.Properties;
+
 import water.*;
+import water.ValueArray.Column;
+
+import com.google.gson.JsonObject;
 
 /**
  *
@@ -58,7 +59,7 @@ public class Debug extends JSONPage {
     int classcol = ary.num_cols()-1; // Default to the last column
     String clz = p.getProperty(RandomForestPage.CLASS_COL);
     if( clz != null ) {
-      int[] clarr = RandomForestPage.parseVariableExpression(ary.col_names(), clz);
+      int[] clarr = RandomForestPage.parseVariableExpression(ary, clz);
       if( clarr.length != 1 )
         throw new InvalidInputException("Class has to refer to exactly one column!");
       classcol = clarr[0];
@@ -71,7 +72,7 @@ public class Debug extends JSONPage {
     String igz = p.getProperty(RandomForestPage.IGNORE_COL);
     if( igz!=null ) System.out.println("[RF] ignoring: " + igz);
     System.out.println("[RF] class column: " + classcol);
-    int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary.col_names(), igz);
+    int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary, igz);
 
     if( ignores.length + 1 >= ary.num_cols() )
       throw new InvalidInputException("Cannot ignore every column");
@@ -85,9 +86,10 @@ public class Debug extends JSONPage {
 
     // Start the distributed Random Forest
     long startTrees = System.currentTimeMillis();
-    DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features,false,null);
+    DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
     // Output a model with zero trees (so far).
-    final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
+    Column c = ary._cols[classcol];
+    final int classes = (int) (c._max - c._min + 1);
     Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores, drf._features);
     // Save it to the cloud
     UKV.put(modelKey,model);

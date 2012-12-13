@@ -21,9 +21,9 @@ public class Parse extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("Key", resKey.toString());
 
-    if( DKV.get(resKey) == null ) { // Key not parsed?  Parse it
+    if( DKV.get(resKey) == null ) { // Key not parsed? Parse it
       long start = System.currentTimeMillis();
-      Value dataset = DKV.get(key);  // Get the source dataset root key
+      Value dataset = DKV.get(key); // Get the source dataset root key
       if( dataset == null ) throw new PageError(key.toString()+" not found");
       try {
         ParseDataset.parse(resKey, dataset);

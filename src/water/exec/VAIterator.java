@@ -2,10 +2,9 @@
 package water.exec;
 
 import java.util.Iterator;
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+
+import water.*;
+import water.ValueArray.Column;
 
 /**
  *
@@ -19,23 +18,19 @@ public final class VAIterator implements Iterator<VAIterator> {
 
   public final int _rowSize;
 
-  private int _defaultColumn;
-  private int _defaultColumnOffset;
-  private int _defaultColumnSize;
-  private int _defaultColumnBase;
-  private int _defaultColumnScale;
+  private Column _defaultCol;
 
   private int _rowInChunk;
   private int _rowsInChunk;
-  private byte[] _chunkBits;
+  private AutoBuffer _chunkBits;
   private long _chunkOffset;
   private long _currentRow;
   private int _chunkIdx;
 
   public VAIterator(Key k, int defaultColumn, long startRow) {
-    _ary = (ValueArray) DKV.get(k);
+    _ary = ValueArray.value(k);
     assert (_ary != null) : "VA for key "+k.toString()+" not found.";
-    _rows = _ary.num_rows();
+    _rows = _ary.numRows();
     _rowSize = _ary.row_size();
     setDefaultColumn(defaultColumn);
     _rowInChunk = -1;
@@ -52,15 +47,11 @@ public final class VAIterator implements Iterator<VAIterator> {
 
   public void setDefaultColumn(int colIdx) {
     assert (colIdx>=0) && (colIdx<_ary.num_cols());
-    _defaultColumn = colIdx;
-    _defaultColumnOffset = _ary.col_off(colIdx);
-    _defaultColumnSize = _ary.col_size(colIdx);
-    _defaultColumnBase = _ary.col_base(colIdx);
-    _defaultColumnScale = _ary.col_scale(colIdx);
+    _defaultCol = _ary._cols[colIdx];
   }
 
-  public int defaultColumn() {
-    return _defaultColumn;
+  public Column defaultColumn() {
+    return _defaultCol;
   }
 
   private void skipRows(long rows) {
@@ -102,39 +93,11 @@ public final class VAIterator implements Iterator<VAIterator> {
         _chunkOffset = _chunkOffset + _rowsInChunk * _rowSize;
         _chunkIdx += 1;
       }
-      Key k = ValueArray.make_chunkkey(_ary._key, _chunkIdx << ValueArray.LOG_CHK);
-      Value v = DKV.get(k);
-      _chunkBits = DKV.get(k).get();
-      _rowsInChunk = _chunkBits.length / _rowSize;
+      _chunkBits = _ary.get_chunk(_chunkIdx);
+      _rowsInChunk = _chunkBits.remaining() / _rowSize;
       _rowInChunk = 0;
     }
     return this;
-  }
-
-  /** Moves to a specific row number. The row is active after the call to the
-   * method, so no next() should be called after it.
-   *
-   * It is very simple now but it is dead code anyways with the new value
-   * arrays to come.
-   *
-   * @param rowNum
-   */
-  public void goTo(int rowNum) {
-    while (true) {
-      long chunkFirst = _chunkOffset / _rowSize;
-      long nextChunk = chunkFirst + _rowsInChunk;
-      // is the expected row in the current chunk? If yes return
-      if ((rowNum >= chunkFirst) && (rowNum < nextChunk)) {
-        _currentRow = rowNum;
-        _rowInChunk = (int) (rowNum - chunkFirst);
-        return;
-      }
-      // if no move to the next chunk and try again, because iterator is wrapped
-      // this will work also for row numbers smaller than current row
-      _currentRow = nextChunk - 1;
-      _rowInChunk = _rowsInChunk - 1;
-      next();
-    }
   }
 
   @Override public void remove() {
@@ -142,37 +105,37 @@ public final class VAIterator implements Iterator<VAIterator> {
   }
 
   public long data() {
-    return _ary.data(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize, _defaultColumnBase, _defaultColumnScale, _defaultColumn);
+    return _ary.data(_chunkBits, _rowInChunk, _defaultCol);
   }
 
   public long data(int column) {
-    return _ary.data(_chunkBits,_rowInChunk,_rowSize,column);
+    return _ary.data(_chunkBits,_rowInChunk,column);
   }
 
   public double datad() {
-    return _ary.datad(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize, _defaultColumnBase, _defaultColumnScale, _defaultColumn);
+    return _ary.datad(_chunkBits, _rowInChunk, _defaultCol);
   }
 
   public double datad(int column) {
-    return _ary.datad(_chunkBits,_rowInChunk,_rowSize,column);
+    return _ary.datad(_chunkBits, _rowInChunk, column);
   }
 
-  public int copyCurrentRow(byte[] dest, int offset) {
-    System.arraycopy(_chunkBits, _rowInChunk*_rowSize, dest, offset, _rowSize);
+  public int copyCurrentRow(AutoBuffer bits, int offset) {
+    bits.copyArrayFrom(offset, _chunkBits, _rowInChunk*_rowSize, _rowSize);
     return offset + _rowSize;
   }
 
-  public int copyCurrentRowPart(byte[] dest, int offset, int rowStart, int rowEnd) {
-    System.arraycopy(_chunkBits, _rowInChunk*_rowSize+rowStart, dest, offset, rowEnd-rowStart);
+  public int copyCurrentRowPart(AutoBuffer dest, int offset, int rowStart, int rowEnd) {
+    dest.copyArrayFrom(offset, _chunkBits, _rowInChunk*_rowSize+rowStart, rowEnd-rowStart);
     return rowEnd - rowStart + offset;
   }
 
   public boolean isValid(int column) {
-    return _ary.valid(_chunkBits, _rowInChunk, _rowSize, column);
+    return !_ary.isNA(_chunkBits, _rowInChunk, column);
   }
 
   public boolean isValid() {
-    return _ary.valid(_chunkBits, _rowInChunk, _rowSize, _defaultColumnOffset, _defaultColumnSize);
+    return !_ary.isNA(_chunkBits, _rowInChunk, _defaultCol);
   }
 
 

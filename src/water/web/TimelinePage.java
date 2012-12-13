@@ -8,10 +8,8 @@ import com.google.common.collect.Lists;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import water.H2O;
-import water.H2ONode;
-import water.TimeLine;
-import water.UDP;
+import water.*;
+import water.UDP.udp;
 
 public class TimelinePage extends H2OPage {
 
@@ -97,7 +95,7 @@ public class TimelinePage extends H2OPage {
         if( !inet.isMulticastAddress() ){
           int port = -1;
           if(events._sends.containsKey(event) && !events._sends.get(event).isEmpty())
-            port = TimeLine.CLOUD._memary[events._sends.get(event).get(0).nodeId()]._key._port;
+            port = TimeLine.CLOUD._memary[events._sends.get(event).get(0).nodeId()]._key.getPort();
           String portStr = ":" + ((port != -1)?port:"?");
 
           recv = inet.toString() + portStr;
@@ -208,7 +206,7 @@ public class TimelinePage extends H2OPage {
         if(!inet.isMulticastAddress()){
           int port = -1;
           if(events._sends.containsKey(event) && !events._sends.get(event).isEmpty())
-            port = TimeLine.CLOUD._memary[events._sends.get(event).get(0).nodeId()]._key._port;
+            port = TimeLine.CLOUD._memary[events._sends.get(event).get(0).nodeId()]._key.getPort();
           String portStr = ":" + ((port != -1)?port:"?");//((port != -1)?port:"?");
           String addrString = inet.toString() + portStr;
           row.replace("recv",addrString);
@@ -218,10 +216,9 @@ public class TimelinePage extends H2OPage {
         // get the sender's port
         int port = event.portPack();
         row.replace("send",event.addrString());
-        row.replace("recv","<strong>"+((inet.equals(h2o._key._inet) && (port == h2o._key._port))?"self":h2o)+"</strong>");
+        row.replace("recv","<strong>"+((inet.equals(h2o._key) && (port == h2o._key.getPort()))?"self":h2o)+"</strong>");
       }
-      // Pretty-print payload
-      row.replace("bytes",UDP.printx16(l0,h8));
+      if( e != UDP.udp.bad) row.replace("bytes",UDP.printx16(l0,h8));
       row.append();
     }
 

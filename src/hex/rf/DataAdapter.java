@@ -4,70 +4,59 @@ import java.util.Arrays;
 import java.util.BitSet;
 
 import water.*;
+import water.ValueArray.Column;
 
 import com.google.common.primitives.Ints;
 
 class DataAdapter  {
   private final int _numClasses;
-  int [] _intervalsStarts;
-  int _badRows;
-  private final String[] _columnNames;
   private final C[] _c;
   public  final ValueArray _ary;
   /** Unique cookie identifying this dataset*/
-  private final int _dataId;
+  private final long _dataId;
   private final long _seed;
   public final int _classIdx;
   public final int _numRows;
   public final double[] _classWt;
 
-
   /** Maximum arity for a column (not a hard limit at this point) */
   final short _bin_limit;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
-              int data_id, long seed, short bin_limit, double[] classWt) {
-    _seed = seed+((long)data_id<<16);
+              long unique, long seed, short bin_limit, double[] classWt) {
+    _seed = seed+(unique<<16);
     _ary = ary;
     _bin_limit = bin_limit;
-    _columnNames = ary.col_names();
-    _c = new C[_columnNames.length];
+    Column[] cols = ary._cols;
+    _c = new C[cols.length];
 
-    _numClasses = (int)(ary.col_max(classCol) - ary.col_min(classCol))+1;
+    _numClasses = (int)(cols[classCol]._max - cols[classCol]._min)+1;
     assert 0 <= _numClasses && _numClasses < 65535;
 
     _classIdx = classCol;
-    assert ignores.length < _columnNames.length - 1;
-    for( int i = 0; i < _columnNames.length; i++ ) {
+    assert ignores.length < cols.length - 1;
+    for( int i = 0; i < cols.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
-      double range = ary.col_max(i) - ary.col_min(i);
+      Column c = cols[i];
+      double range = c._max - c._min;
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("Ignoring column " + i + " as all values are identical.");   }
-      boolean raw = (ary.col_size(i) > 0 && ary.col_scale(i)==1.0 && range < _bin_limit && ary.col_max(i) >= 0); //TODO do it for negative columns as well
+      boolean raw = (c._size > 0 && c._scale == 1.0 && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1 ) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
       boolean do_bin = !raw && !ignore;
-      _c[i]= new C(_columnNames[i], rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
+      _c[i]= new C(c._name, rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
       if( raw ) {
         _c[i]._smax = (short)range;
-        _c[i]._min = (float)ary.col_min(i);
-        _c[i]._max = (float)ary.col_max(i);
+        _c[i]._min = (float)c._min;
+        _c[i]._max = (float)c._max;
       }
     }
-    _dataId = data_id;
+    _dataId = unique;
     _numRows = rows;
     assert classWt == null || classWt.length==_numClasses;
     _classWt = classWt;
-  }
-  public void initIntervals(int n){
-    _intervalsStarts = new int[n+1];
-    _intervalsStarts[n] = _numRows;
-  }
-  public void setIntervalStart(int i, int S){
-    if(_intervalsStarts == null)_intervalsStarts = new int[i+1];
-    if(_intervalsStarts.length <= i)_intervalsStarts = Arrays.copyOf(_intervalsStarts, i+1);
-    _intervalsStarts[i] = S;
   }
 
   /** Given a value in enum format, returns a value in the original range. */
@@ -92,7 +81,7 @@ class DataAdapter  {
   public long seed()          { return _seed; }
   public int columns()        { return _c.length;}
   public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
-  public int dataId()         { return _dataId; }
+  public long dataId()         { return _dataId; }
   /** The number of possible prediction classes. */
   public int classes()        { return _numClasses; }
   /** True if we should ignore column i. */
@@ -106,7 +95,7 @@ class DataAdapter  {
   public short getEncodedColumnValue(int rowIndex, int colIndex) { return _c[colIndex].getValue(rowIndex);}
 
   /** Return the array of all column names including ignored and class. */
-  public String[] columnNames() { return _columnNames; }
+  public String columnNames(int i) { return _c[i]._name; }
 
   public void addValueRaw(float v, int row, int col){
     _c[col].addRaw(v, row);
@@ -132,10 +121,7 @@ class DataAdapter  {
   // Mark this row as being invalid for tree-building, typically because it
   // contains invalid data in some columns.
   public void setBad(int row) {
-    if(_c[_classIdx].getValue(row) != -1){
-      ++_badRows;
-      _c[_classIdx].setValue(row,(short)-1);
-    }
+    _c[_classIdx].setValue(row,(short)-1);
   }
 
   /** Should we bin this column? */
@@ -168,13 +154,13 @@ class DataAdapter  {
       _n = rows;
       if( ignore ) return;        // Ignore this column
       if( bin ) {
-        _raw = MemoryManager.allocateMemoryFloat(rows);
+        _raw = MemoryManager.malloc4f(rows);
         return;
       }
       switch( _ctype ) {
       case BOOL:  _booleanValues = new BitSet(rows);  break;
-      case BYTE:  _bvalues = MemoryManager.allocateMemory(rows);  break;
-      case SHORT: _binned  = MemoryManager.allocateMemoryShort(rows);  break;
+      case BYTE:  _bvalues = MemoryManager.malloc1(rows);  break;
+      case SHORT: _binned  = MemoryManager.malloc2(rows);  break;
       default: throw H2O.unimpl();
       }
     }
@@ -187,11 +173,11 @@ class DataAdapter  {
         break;
       case BYTE:
         assert (byte)s == s : "(byte)"+s+" name="+_name+" _min="+_min+" _max"+_max;
-        if(_bvalues == null)_bvalues = MemoryManager.allocateMemory(_n);
+        if(_bvalues == null)_bvalues = MemoryManager.malloc1(_n);
         _bvalues[row] = (byte)s;
         break;
       case SHORT:
-        if(_binned == null)_binned = MemoryManager.allocateMemoryShort(_n);
+        if(_binned == null)_binned = MemoryManager.malloc2(_n);
         _binned[row] = s;
       }
     }
@@ -210,7 +196,7 @@ class DataAdapter  {
       _min=Math.min(x,_min);
       _max=Math.max(x,_max);
       _tot+=x;
-      if(_raw == null)_raw = MemoryManager.allocateMemoryFloat(_n);
+      if(_raw == null)_raw = MemoryManager.malloc4f(_n);
       _raw[row] = x;
     }
 
@@ -246,7 +232,7 @@ class DataAdapter  {
       int rem = n % _bin_limit;
       int maxBinSize = (n > _bin_limit) ? (n / _bin_limit + Math.min(rem,1)) : 1;
       // Assign shorts to floats, with binning.
-      _binned2raw = MemoryManager.allocateMemoryFloat(Math.min(n, _bin_limit));
+      _binned2raw = MemoryManager.malloc4f(Math.min(n, _bin_limit));
       _smax = 0;
       int cntCurBin = 1;
       _binned2raw[0] = _raw[0];
@@ -262,7 +248,7 @@ class DataAdapter  {
       ++_smax;
       if( n > _bin_limit )
         Utils.pln(this + " this column's arity was cut from "+ n + " to " + _smax);
-      _binned = MemoryManager.allocateMemoryShort(_n);
+      _binned = MemoryManager.malloc2(_n);
       _raw = null;
     }
   }

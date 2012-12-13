@@ -15,7 +15,7 @@ import water.exec.VABuilder;
 public class PutVector extends JSONPage {
 
   public static Key storeDoublesAsValue(Key k, double[] d) {
-    byte[] bits = MemoryManager.allocateMemory(8*d.length);
+    byte[] bits = MemoryManager.malloc1(8*d.length);
     double min = d[0];
     double max = d[0];
     double tot = 0;
@@ -28,16 +28,16 @@ public class PutVector extends JSONPage {
       tot += d[i];
     }
     // The 1 tiny arraylet
-    Key key2 = ValueArray.make_chunkkey(k, 0);
+    Key key2 = ValueArray.get_key(0, k);
     Value val = new Value(key2, bits);
-    TaskPutKey tpk = DKV.put(key2, val);
+    DKV.put(key2, val);
     // The metadata
     VABuilder b = new VABuilder(k.toString(),d.length).addDoubleColumn("0",min, max, tot/d.length).createAndStore(k);
-    if( tpk != null ) tpk.get();
+    DKV.write_barrier();
     Helpers.calculateSigma(k,0);
     return k;
   }
-  
+
   public static double[] parseSpaceSeparatedDoubles(String from) {
     String[] s = from.split(" ");
     double[] d = new double[s.length];
@@ -45,7 +45,7 @@ public class PutVector extends JSONPage {
       d[i] = Double.parseDouble(s[i]);
     return d;
   }
-  
+
   @Override public JsonObject serverJson(Server server, Properties parms, String sessionID) throws PageError {
     JsonObject result = new JsonObject();
     try {
@@ -57,13 +57,13 @@ public class PutVector extends JSONPage {
       result.addProperty("Key",k.toString());
     } catch (Exception e) {
       result.addProperty("Error", e.toString());
-    }  
+    }
     return result;
   }
-    
+
   @Override public String[] requiredArguments() {
     return new String[] { "Key", "Value" };
   }
 
-  
+
 }

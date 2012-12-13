@@ -2,10 +2,11 @@
 package water.web;
 
 import java.util.Properties;
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+
+import com.google.common.base.Objects;
+
+import water.*;
+import water.ValueArray.Column;
 
 /**
  *
@@ -97,18 +98,6 @@ public class RFBuildQuery2 extends H2OPage {
           + "      <input class='span5' type='text' id='modelKey' name='modelKey' placeholder='model key (default model)'>"
           + "    </div>"
           + "  </div>"
-          + "  <div class='control-group'>"
-          + "    <label class='control-label' for='stratify'></label>"
-          + "    <div class='controls'>"
-          + "      <input type='checkbox' id='stratify' name='stratify' value='1'>&nbsp;stratify</input>"
-          + "    </div>"
-          + "  </div>"
-          + "  <div class='control-group'>"
-          + "    <label class='control-label' for='strata'>Strata</label>"
-          + "    <div class='controls'>"
-          + "      <input class='span5' type='text' id='strata' name='strata' placeholder='strata ({class:value} csl)'>"
-          + "    </div>"
-          + "  </div>"
           + "</form>"
           + "<div class='form-horizontal'>"
           + "  <div class='control-group'>"
@@ -130,22 +119,23 @@ public class RFBuildQuery2 extends H2OPage {
     Value v = DKV.get(Key.make(args.getProperty("dataKey")));
     if (v == null)
       throw new PageError("Key not found!");
-    if (!(v instanceof ValueArray))
+    if( v._isArray == 0 )
       throw new PageError("Key is not a dataframe");
-    ValueArray va = (ValueArray) v;
-    int classCol = getAsNumber(args, "class", va.num_cols()-1);
+    ValueArray va = ValueArray.value(v);
+    int classCol = getAsNumber(args, "class", va._cols.length-1);
     result.replace("classColIdx", classCol);
-    for (int i = 0; i < va.num_cols(); ++i) {
+    for (int i = 0; i < va._cols.length; ++i) {
+      Column c = va._cols[i];
       if ( i == classCol) {
-        result.replace("classColName",va.col_name(i) == null ? i : va.col_name(i));
+        result.replace("classColName", Objects.firstNonNull(c._name, i));
       } else {
         RString str = result.restartGroup("ignoreCol");
         str.replace("colIdx",i);
-        str.replace("colName",va.col_name(i) == null ? i : va.col_name(i));
+        str.replace("colName", Objects.firstNonNull(c._name, i));
         str.append();
       }
     }
-    result.replace("defFeatures",(int)Math.ceil(Math.sqrt(va.num_cols())));
+    result.replace("defFeatures",(int)Math.ceil(Math.sqrt(va._cols.length)));
     String[] classes = RandomForestPage.determineColumnClassNames(va, classCol, RandomForestPage.MAX_CLASSES);
     result.replace("numClasses",classes.length);
     for (int i = 0; i < classes.length; ++i) {

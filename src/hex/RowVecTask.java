@@ -1,6 +1,7 @@
 package hex;
 
 import water.*;
+import water.ValueArray.Column;
 
 public abstract class RowVecTask extends MRTask {
 
@@ -29,25 +30,26 @@ public abstract class RowVecTask extends MRTask {
 
   public static double[][] getDataPreprocessingForColumns(DataPreprocessing dp, ValueArray ary, int [] colIds){
     if( dp == DataPreprocessing.NONE ) return null;
-    double [][] res = new double[colIds.length][2];
+    double[][] res = new double[colIds.length][2];
     switch(dp) {
     case NORMALIZE:
-      for(int i = 0; i < colIds.length;++i){
-        if(ary.col_max(colIds[i]) > 1 || ary.col_min(colIds[i]) < 0){
-          double min = ary.col_min(colIds[i]);
-          double max = ary.col_max(colIds[i]);
+      for( int i = 0; i < colIds.length; ++i) {
+        Column c = ary._cols[colIds[i]];
+        if(c._max > 1 || c._min < 0){
+          double min = c._min;
+          double max = c._max;
           res[i][0] = min;
           res[i][1] = max == min ? 1 : 1/(max - min);
         }
       }
       break;
     case STANDARDIZE:
-      for(int i = 0; i < colIds.length;++i){
-        if(ary.col_has_enum_domain(i)) // do no standardize enums at the moment
-          res[i][1] = 0;
-        else if(ary.col_mean(colIds[i]) != 0 || ary.col_sigma(colIds[i]) != 1){
-          res[i][0] = ary.col_mean(colIds[i]);
-          res[i][1] = 1/Math.max(Double.MIN_NORMAL, ary.col_sigma(colIds[i]));
+      for( int i = 0; i < colIds.length;++i ) {
+        Column c = ary._cols[colIds[i]];
+        if( c._domain == null || c._domain.length == 0 ) res[i][1] = 0;
+        else if( c._mean != 0 || c._sigma != 1 ) {
+          res[i][0] = c._mean;
+          res[i][1] = 1/Math.max(Double.MIN_NORMAL, c._sigma);
         }
       }
       break;
@@ -106,39 +108,35 @@ public abstract class RowVecTask extends MRTask {
   }
 
   protected transient ValueArray _ary;
+
   @Override
   public void map(Key key) {
     assert key.home();
     Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
-    _ary = (ValueArray) DKV.get(aryKey);
-    byte[] bits = DKV.get(key).get();
-    int[] off = new int[_colIds.length];
-    int[] sz = new int[_colIds.length];
-    int[] base = new int[_colIds.length];
-    int[] scale = new int[_colIds.length];
+    _ary = ValueArray.value(DKV.get(aryKey));
+    AutoBuffer bits  = _ary.get_chunk(key);
+    ValueArray.Column[] cols = new ValueArray.Column[_colIds.length];
     for( int i = 0; i < _colIds.length; ++i ) {
-      off[i] = _ary.col_off(_colIds[i]);
-      sz[i] = _ary.col_size(_colIds[i]);
-      base[i] = _ary.col_base(_colIds[i]);
-      scale[i] = _ary.col_scale(_colIds[i]);
+      cols[i] = _ary._cols[_colIds[i]];
     }
-    int row_size = _ary.row_size();
-    int nrows = bits.length / row_size;
-    double [] x = new double[_colIds.length];
+    final int nrows = bits.remaining()/_ary._rowsize;
+
+    double[] x = new double[_colIds.length];
     int c = _offset;
     preMap(x.length,nrows);
-__OUTER:
-    for( int rid = 0; rid < nrows; ++rid ) {
-      if(_step != 0){
-        if(--c <= 0)c += _step;
+
+    ROWS: for( int rid = 0; rid < nrows; ++rid ) {
+      if( _step != 0 ) {
+        if( --c <= 0 ) c += _step;
         if(((c == _step) && !_complement) || ((c != _step) && _complement))
           continue;
       }
-      for( int i = 0; i < _colIds.length; ++i ) {
-        if(_skipIncompleteLines && !_ary.valid(bits, rid, row_size, off[i], sz[i]))
-         continue __OUTER;
-        x[i] = _ary.datad(bits, rid, row_size, off[i], sz[i], base[i],scale[i], _colIds[i]);
-        if(_pVals != null && _pVals[i][1] != 0) x[i] = (x[i] - _pVals[i][0]) * _pVals[i][1];
+      for( int i = 0; i < _colIds.length; ++i) {
+        if(_skipIncompleteLines && _ary.isNA(bits, rid, cols[i]))
+          continue ROWS;
+        x[i] = _ary.datad(bits, rid, cols[i]);
+        if( _pVals != null && _pVals[i][1] != 0 )
+          x[i] = (x[i] - _pVals[i][0]) * _pVals[i][1];
       }
       ++_n;
       processRow(x);

@@ -21,23 +21,23 @@ public class SliceFilter extends MRTask {
     _source = source;
     _start = start;
     _length = length;
-    ValueArray ary = (ValueArray) DKV.get(source);
-    assert (start + length <= ary.num_rows());
-    _rowSize = ary.row_size();
+    ValueArray ary = ValueArray.value(source);
+    assert (start + length <= ary.numRows());
+    _rowSize = ary._rowsize;
   }
 
 
   @Override public void map(Key key) {
-    long startRow = ValueArray.getChunkIndex(key) * (ValueArray.chunk_size() / _rowSize);
+    long startRow = ValueArray.getChunkIndex(key) * (ValueArray.CHUNK_SZ / _rowSize);
     int rowsInChunk = VABuilder.chunkSize(key, _length*_rowSize, _rowSize) / _rowSize;
     VAIterator iter = new VAIterator(_source,0,_start+startRow);
-    byte[] bits = MemoryManager.allocateMemory(rowsInChunk*_rowSize);
-    for (int offset = 0; offset < bits.length; offset += _rowSize) {
+    AutoBuffer bits = new AutoBuffer(rowsInChunk*_rowSize);
+    for (int offset = 0; offset < bits.remaining(); offset += _rowSize) {
       iter.next();
       iter.copyCurrentRow(bits,offset);
       ++_filteredRows;
     }
-    DKV.put(key, new Value(key,bits));
+    DKV.put(key, new Value(key,bits.bufClose()));
   }
 
   @Override public void reduce(DRemoteTask drt) {

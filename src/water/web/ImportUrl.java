@@ -15,7 +15,7 @@ import water.ValueArray;
 
 public class ImportUrl extends H2OPage {
 
-  public static Key importUrl(String keyName, String urlStr, byte rf) throws Exception {
+  public static Key importUrl(String keyName, String urlStr) throws Exception {
     if (urlStr.startsWith("file://")) {
       urlStr = urlStr.substring("file://".length());
       File f = new File(urlStr);
@@ -30,8 +30,6 @@ public class ImportUrl extends H2OPage {
     if ((keyName == null) || keyName.isEmpty())
       keyName = urlStr;
 
-    if( rf < 0 || rf > 127) throw new Exception("Replication factor must be from 0 to 127.");
-
     try {
        Key.make(keyName);
     } catch( IllegalArgumentException e ) {
@@ -41,7 +39,7 @@ public class ImportUrl extends H2OPage {
     try {
       s = url.openStream();
       if( s==null ) throw new Exception("Unable to open stream to URL "+url.toString());
-      Key result = ValueArray.read_put_stream(keyName, s, rf);
+      Key result = ValueArray.read_put(keyName, s);
       return result;
     } catch (IOException e) {
       throw new Exception(e.getMessage());
@@ -54,8 +52,7 @@ public class ImportUrl extends H2OPage {
   protected static Key importUrl(Properties args) throws Exception {
     String keyName = args.getProperty("Key",null);
     String url = args.getProperty("Url");
-    byte rf = (byte) getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-    return importUrl(keyName, url, rf);
+    return importUrl(keyName, url);
   }
 
   @Override public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {

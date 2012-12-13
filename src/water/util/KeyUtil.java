@@ -8,6 +8,8 @@ import java.io.IOException;
 
 import org.junit.Ignore;
 
+import com.google.common.io.Closeables;
+
 import water.DKV;
 import water.Key;
 import water.ValueArray;
@@ -34,9 +36,9 @@ public class KeyUtil {
     FileInputStream fis = null;
     try {
       fis = new FileInputStream(file);
-      key = ValueArray.read_put_file(keyname, fis, (byte)0);
+      key = ValueArray.read_put(keyname, fis);
     } catch( IOException e ) {
-      try { if( fis != null ) fis.close(); } catch( IOException e2 ) { }
+      Closeables.closeQuietly(fis);
     }
     if( key == null ) fail("failed load to "+file.getName());
     return key;
@@ -49,7 +51,7 @@ public class KeyUtil {
   public static ValueArray parse_test_key(Key fileKey, Key parsedKey) {
     System.out.println("PARSE: " + fileKey + ", " + parsedKey);
     ParseDataset.parse(parsedKey, DKV.get(fileKey));
-    return (ValueArray) DKV.get(parsedKey);
+    return ValueArray.value(DKV.get(parsedKey));
   }
   public static ValueArray parse_test_key(Key fileKey) {
     return parse_test_key(fileKey, Key.make());

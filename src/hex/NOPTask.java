@@ -1,13 +1,12 @@
 package hex;
-
 import water.*;
 
 public class NOPTask extends MRTask {
 
   public int _res;
   public int _missingKeysCount;
-  public int _minMissingKey = Integer.MAX_VALUE;
-  public int _maxMissingKey = Integer.MIN_VALUE;
+  public long _minMissingKey = Integer.MAX_VALUE;
+  public long _maxMissingKey = Integer.MIN_VALUE;
 
   @Override
   public void map(Key key) {
@@ -35,7 +34,7 @@ public class NOPTask extends MRTask {
 
   public String toString(){
     if(_missingKeysCount > 0)
-      return _missingKeysCount +  " keys missing,  Min = " + _minMissingKey + ", Max = " + _maxMissingKey + ", byte xor = " + _res;
-    return "No keys were missing. Byte xor = "  + _res;
+      return _missingKeysCount + " keys missing, Min = " + _minMissingKey + ", Max = " + _maxMissingKey + ", byte xor = " + _res;
+    return "No keys were missing. Byte xor = " + _res;
   }
 }

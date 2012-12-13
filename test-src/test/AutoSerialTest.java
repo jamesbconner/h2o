@@ -6,43 +6,27 @@ import org.junit.Assert;
 import org.junit.Test;
 import water.*;
 
-public class AutoSerialTest extends RemoteTask {
-  byte     _byte,  _bytes[];
-  short   _short, _shorts[];
-  int       _int,   _ints[];
-  float   _float, _floats[];
-  long     _long,  _longs[],  _longss[][];
+public class AutoSerialTest extends Iced {
+  byte _byte, _bytes[];
+  short _short, _shorts[];
+  int _int, _ints[];
+  float _float, _floats[];
+  long _long, _longs[], _longss[][];
   double _double,_doubles[],_doubless[][];
   String _string;
-  Key    _key;
+  Key _key;
 
-  static final byte[] _buf = new byte[1000];
-  static final Stream _str = new Stream(_buf,0);
-  static Stream str() { _str._off=0; return _str; }
-
-  static final ByteArrayOutputStream _bos = new ByteArrayOutputStream();
-  private DataOutputStream dos() {
-    _bos.reset();
-    return new DataOutputStream(_bos);
-  }
-
-  private DataInputStream dis() {
-    return new DataInputStream(new ByteArrayInputStream(_bos.toByteArray()));
-  }
-  public void invoke( Key args ) { throw H2O.unimpl(); }
-  public void compute( ) { throw H2O.unimpl(); }
+  static AutoBuffer _ab = new AutoBuffer(new byte[1000]);
+  static AutoBuffer abw() { return _ab.clearForWriting(); }
+  static AutoBuffer abr() { return _ab. flipForReading(); }
 
 
   @Test public void testByte() throws Exception {
     byte[] tests = { 0, 4, -1, 127, -128 };
     for( byte exp : tests) {
       _byte = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _byte);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _byte);
     }
   }
@@ -51,12 +35,8 @@ public class AutoSerialTest extends RemoteTask {
     short[] tests = { 0, 4, -1, 127, -128 };
     for( short exp : tests) {
       _short = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _short);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _short);
     }
   }
@@ -65,12 +45,8 @@ public class AutoSerialTest extends RemoteTask {
     int[] tests = { 0, 4, Integer.MAX_VALUE, Integer.MIN_VALUE, -1 };
     for( int exp : tests) {
       _int = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _int);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _int);
     }
   }
@@ -81,12 +57,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( long exp : tests) {
       _long = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _long);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _long);
     }
   }
@@ -98,12 +70,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( float exp : tests) {
       _float = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _float, 0.0);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _float, 0.0);
     }
   }
@@ -115,12 +83,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( double exp : tests) {
       _double = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _double, 0.0);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _double, 0.0);
     }
   }
@@ -130,12 +94,8 @@ public class AutoSerialTest extends RemoteTask {
     Key[] tests = { Key.make(), Key.make("monkey"), Key.make("ninja"), null };
     for( Key exp : tests) {
       _key = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _key);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _key);
     }
   }
@@ -145,12 +105,8 @@ public class AutoSerialTest extends RemoteTask {
     String[] tests = { new String(), "monkey", "ninja", null };
     for( String exp : tests) {
       _string = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertEquals(exp, _string);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertEquals(exp, _string);
     }
   }
@@ -164,12 +120,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( byte[] exp : tests) {
       _bytes = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertArrayEquals(exp, _bytes);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertArrayEquals(exp, _bytes);
     }
   }
@@ -183,12 +135,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( short[] exp : tests) {
       _shorts = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertArrayEquals(exp, _shorts);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertArrayEquals(exp, _shorts);
     }
   }
@@ -202,12 +150,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( int[] exp : tests) {
       _ints = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertArrayEquals(exp, _ints);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertArrayEquals(exp, _ints);
     }
   }
@@ -222,12 +166,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( long[] exp : tests) {
       _longs = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertArrayEquals(exp, _longs);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertArrayEquals(exp, _longs);
     }
   }
@@ -242,12 +182,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( float[] exp : tests) {
       _floats = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertTrue(Arrays.equals(exp, _floats));
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertTrue(Arrays.equals(exp, _floats));
     }
   }
@@ -262,12 +198,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( double[] exp : tests) {
       _doubles = exp;
-      this.write(str());
-      this. read(str());
-      Assert.assertTrue(Arrays.equals(exp, _doubles));
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       Assert.assertTrue(Arrays.equals(exp, _doubles));
     }
   }
@@ -286,16 +218,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( long[][] exp : tests) {
       _longss = exp;
-      this.write(str());
-      this. read(str());
-      if( exp != null ) {
-        Assert.assertEquals(_longss.length,exp.length);
-        for( int i=0; i<exp.length; i++ )
-          Assert.assertArrayEquals(_longss[i],exp[i]);
-      } else Assert.assertNull(_longss);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       if( exp != null ) {
         Assert.assertEquals(_longss.length,exp.length);
         for( int i=0; i<exp.length; i++ )
@@ -317,16 +241,8 @@ public class AutoSerialTest extends RemoteTask {
     };
     for( double[][] exp : tests) {
       _doubless = exp;
-      this.write(str());
-      this. read(str());
-      if( exp != null ) {
-        Assert.assertEquals(_doubless.length,exp.length);
-        for( int i=0; i<exp.length; i++ )
-          Assert.assertTrue(Arrays.equals(_doubless[i],exp[i]));
-      } else Assert.assertNull(_doubless);
-
-      this.write(dos());
-      this. read(dis());
+      this.write(abw());
+      this. read(abr());
       if( exp != null ) {
         Assert.assertEquals(_doubless.length,exp.length);
         for( int i=0; i<exp.length; i++ )

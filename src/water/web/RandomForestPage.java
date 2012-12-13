@@ -3,9 +3,11 @@ package water.web;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Properties;
 
 import water.*;
+import water.ValueArray.Column;
 
 import com.google.gson.JsonObject;
 
@@ -33,13 +35,14 @@ public class RandomForestPage extends H2OPage {
   }
 
   public static String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws PageError {
-    int arity = ary.col_enum_domain_size(classColIdx);
+    Column c = ary._cols[classColIdx];
+    int arity = c._domain == null ? 0 : c._domain.length;
     if (arity == 0) {
-      int min = (int) ary.col_min(classColIdx);
-      if (ary.col_min(classColIdx) != min)
+      int min = (int) c._min;
+      if (c._min != min)
         throw new PageError("Only integer or enum columns can be classes!");
-      int max = (int) ary.col_max(classColIdx);
-      if (ary.col_max(classColIdx) != max)
+      int max = (int) c._max;
+      if (c._max != max)
         throw new PageError("Only integer or enum columns can be classes!");
       if (max - min > maxClasses) // arbitrary number
         throw new PageError("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
@@ -48,13 +51,13 @@ public class RandomForestPage extends H2OPage {
         result[i] = String.valueOf(min+i);
       return result;
     } else {
-      return  ary.col_enum_domain(classColIdx);
+      return c._domain;
     }
   }
 
 
   public static double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws PageError {
-    assert classColIdx>=0 && classColIdx < ary.num_cols();
+    assert classColIdx>=0 && classColIdx < ary._cols.length;
     // determine the arity of the column
     HashMap<String,Integer> classNames = new HashMap();
     String[] names = determineColumnClassNames(ary,classColIdx,maxClasses);
@@ -134,34 +137,29 @@ public class RandomForestPage extends H2OPage {
     }
 
     int features = getAsNumber(p,FEATURES,-1);
-    if ((features!=-1) && ((features<=0) || (features>=ary.num_cols() - 1)))
+    if ((features!=-1) && ((features<=0) || (features>=ary._cols.length - 1)))
       throw new PageError("Number of features can only be between 1 and num_cols - 1");
 
     // Pick the column to classify
-    int classcol = ary.num_cols()-1; // Default to the last column
+    int classcol = ary._cols.length-1; // Default to the last column
     String clz = p.getProperty(CLASS_COL);
     if( clz != null ) {
-      int[] clarr = parseVariableExpression(ary.col_names(), clz);
+      int[] clarr = parseVariableExpression(ary, clz);
       if( clarr.length != 1 )
         throw new InvalidInputException("Class has to refer to exactly one column!");
       classcol = clarr[0];
-      if( classcol < 0 || classcol >= ary.num_cols() )
+      if( classcol < 0 || classcol >= ary._cols.length )
         throw new InvalidInputException("Class out of range");
     }
     double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
-    boolean stratify = p.getProperty("stratify","0").equals("1");
-
-    Map<Integer,Integer>  strata = null;
-    if(stratify && p.containsKey("strata"))
-      strata = RandomForest.parseStrata(p.getProperty("strata").trim());
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
     if( igz!=null ) System.out.println("[RF] ignoring: " + igz);
     System.out.println("[RF] class column: " + classcol);
-    int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary.col_names(), igz);
+    int[] ignores =  igz == null ? new int[0] : parseVariableExpression(ary, igz);
 
-    if( ignores.length + 1 >= ary.num_cols() )
+    if( ignores.length + 1 >= ary._cols.length )
       throw new InvalidInputException("Cannot ignore every column");
 
     // Remove any prior model; about to overwrite it
@@ -175,19 +173,14 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o", H2O.SELF.toString());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features, stratify,strata);
-      // Output a model with zero trees (so far).
-      final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
-      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores,drf._features);
-      // Save it to the cloud
-      UKV.put(modelKey,model);
+      hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
       // Pass along all to the viewer
       res.addProperty("dataKey", ary._key.toString());
       res.addProperty("modelKey", modelKey.toString());
       res.addProperty(NUM_TREE, ntree);
       res.addProperty("class", classcol);
       res.addProperty("classWt", p.getProperty("classWt",""));
-      res.addProperty("OOBEE",!stratify && getBoolean(p,OOBEE));
+      res.addProperty("OOBEE",getBoolean(p,OOBEE));
     } catch(DRF.IllegalDataException e) {
       res.addProperty("error", H2OPage.error("Incorrect input data: " + e.getMessage()));
     }

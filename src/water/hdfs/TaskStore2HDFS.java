@@ -15,59 +15,52 @@ import water.*;
  * stored has different home in which case the task is passed to the home node
  * of that chunk.
  *
- * Optionally, progress can be monitored by passing a key to a value containing
- * number of chunks stored.  If not null, this value will be updated as
- * additional chunks are stored.
- *
- * @author tomasnykodym
+ * @author tomasnykodym, cliffc
  *
  */
-public class TaskStore2HDFS extends RemoteTask {
-  Key _key;
+public class TaskStore2HDFS extends DTask {
+  Key _arykey;
   long _indexFrom;
-  final long _indexTo;
-  final Key _progressK;
 
   public static Key store2Hdfs(Key srcKey) {
-    Value v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK) ? Key.make(ValueArray.getArrayKeyBytes(srcKey)) : srcKey);
+    assert srcKey._kb[0] != Key.ARRAYLET_CHUNK;
+    Value v = DKV.get(srcKey);
+    assert v!= null;            // Persisting junk keys?
     String p = getPathFromValue(v);
-    Key result = PersistHdfs.getKeyForPath(p);
-    final long N = v.chunks();
+    Key result = PersistHdfs.getKeyForPathString(p);
+    System.out.println("store2Hdfs path="+p+" result="+result);
+    if( v._isArray == 0 ) {     // Simple chunk?
+      boolean res = PersistHdfs.storeChunk(v.get(), p);
+      assert res;
+      throw H2O.unimpl();
+      //PersistHdfs.refreshHDFSKeys();
+      //return result;
+    }
+
     // For ValueArrays, make the .hex header
-    if( v != null && v instanceof ValueArray ) {
-      try {         // for .hex files we need to store the header with metadata
-        PersistHdfs.createFile(v, p);
-      } catch( IOException e ) {
-        throw new Error(e);
-      }
-    }
-    // The progress key
-    Key pK = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
-    Value progress = new Value(pK, 8);
-    DKV.put(pK, progress);
+    boolean res = PersistHdfs.createHexHeader(v, p);
+    assert res;
 
-    try {
-      TaskStore2HDFS tsk = new TaskStore2HDFS(0, N, srcKey, pK);
-      tsk.invoke((v instanceof ValueArray) ? ValueArray.make_chunkkey(srcKey,0) : srcKey);
-      // HTML file save of Value
-      long storedCount = 0;
-      while( (storedCount = UDP.get8(DKV.get(pK).get(), 0)) < N ) {
-        try { Thread.sleep(100); } catch( InterruptedException e ) { }
-      }
-    } finally {
-      // remove progress info
-      DKV.remove(pK);
-    }
-    PersistHdfs.refreshHDFSKeys();
-    return result;
+    // The task managing which chunks to write next,
+    // store in a known key
+    TaskStore2HDFS ts = new TaskStore2HDFS(srcKey);
+    Key selfKey = ts.selfKey();
+    UKV.put(selfKey,ts);
+
+    // Then start writing chunks in-order with the zero chunk
+    H2ONode chk0_home = ValueArray.get_key(0,srcKey).home_node();
+    RPC.call(ts.nextHome(),ts);
+
+    // Watch the progress key until it gets removed
+    while( DKV.get(selfKey) != null )
+      try { Thread.sleep(100); } catch( InterruptedException e ) { }
+
+    throw H2O.unimpl();
+    //PersistHdfs.refreshHDFSKeys();
+    //return result;
   }
 
-  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey, Key progressKey) {
-    _key = srcKey;
-    _indexFrom = indexFrom;
-    _indexTo = indexTo;
-    _progressK = progressKey;
-  }
+  public TaskStore2HDFS(Key srcKey) { _arykey = srcKey; }
 
   static private String getPathFromValue(Value v) {
     int prefixLen = 0;
@@ -105,58 +98,39 @@ public class TaskStore2HDFS extends RemoteTask {
   }
 
   @Override
-  public final void invoke(Key key) {
-    _key = key;
+  public final TaskStore2HDFS invoke(H2ONode sender) {
     compute();
+    return this;
   }
 
   @Override
   public void compute() {
     String path = null;// getPathFromValue(val);
-    while( _key.home() ) {
-      Value val = UKV.get(_key);
-      // first store the data (so that the cleaner does not get into our way)
+    ValueArray ary = ValueArray.value(_arykey);
+    Key self = selfKey();
+
+    while( _indexFrom < ary._chunks ) {
+      Key ckey = ary.get_key(_indexFrom++);
+      if( !ckey.home() ) {      // Next chunk not At Home?
+        RPC.call(nextHome(),this); // Hand the baton off to the next node/chunk
+        return;
+      }
+      Value val = DKV.get(ckey);
       if( path == null )
         path = getPathFromValue(val);
-      try {
-        PersistHdfs.storeChunk(val, path);
-      } catch( IOException e ) {
-        throw new Error(e);
-      }
-      // val.switch2HdfsBackend(true); // switch the value persist backend to
-      // hdfs and status to ON DISK
-      if( ++_indexFrom == _indexTo ) { // all done, load value to the store
-        try {
-          PersistHdfs.importPath(path);
-        } catch (IOException e) {
-          throw new Error(e);
-        }
-        // remove the old value
-        removeOldValue(val);
-        break;
-      }
-      _key = ValueArray.getChunk(val._key, _indexFrom);
+      boolean res = PersistHdfs.storeChunk(val.get(), path);
+      assert res;
+      UKV.put(self,this);  // Update the progress/self key
     }
-    // store the rest
-    if( _indexFrom < _indexTo )
-      new TaskRemExec<TaskStore2HDFS>(_key.home_node(), this, _key);
-    // update the progress info
-    if( _progressK != null ) {
-      AtomicMax amax = new AtomicMax(_indexFrom);
-      amax.invoke(_progressK);
-    }
+    // We did the last chunk.  Removing the selfKey is the signal to the web
+    // thread that All Done.
+    UKV.remove(self);
   }
 
-  public static class AtomicMax extends Atomic {
-    private final long _myVal;
-    public AtomicMax(long val) { _myVal = val; }
-
-    @Override
-    public byte[] atomic(byte[] bits) {
-      assert bits != null;
-      byte[] res = new byte[8];
-      UDP.set8(res, 0, Math.max(_myVal, UDP.get8(bits, 0)));
-      return res;
-    }
+  private Key selfKey() {
+    return Key.make("Store2HDFS"+_arykey);
+  }
+  private H2ONode nextHome() {
+    return ValueArray.get_key(_indexFrom,_arykey).home_node();
   }
 }

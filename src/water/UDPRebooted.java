@@ -17,39 +17,16 @@ public class UDPRebooted extends UDP {
     locked,
     mismatch;
 
-    public void singlecast(H2ONode target) {
-      byte[] buf = make(); // Send it 3 times.  Obnoxious, but effective
-      MultiCast.singlecast(target, buf, buf.length);
-      MultiCast.singlecast(target, buf, buf.length);
-      MultiCast.singlecast(target, buf, buf.length);
-    }
-
-    public void broadcast()  {
-      byte[] buf = make(); // Send it 3 times.  Obnoxious, but effective
-      MultiCast.multicast(buf);
-      MultiCast.multicast(buf);
-      MultiCast.multicast(buf);
-    }
-
-    private byte[] make() {
+    public void send(H2ONode target) {
       assert this != none;
-      byte[] buf = new byte[16];
-      buf[0] = (byte)UDP.udp.rebooted.ordinal();
-      buf[SZ_PORT] = (byte)ordinal();
-      return buf;
+      new AutoBuffer(target).putUdp(udp.rebooted).put1(ordinal()).close();
     }
+    public void broadcast() { send(H2O.SELF); }
   }
 
-  // Handle an incoming rebooted packet
-  void call(DatagramPacket pack, H2ONode h2o) {
-    if( h2o != null ) h2o.rebooted();
-    // This is a stateless paxos-style packet; we must free it
-    UDPReceiverThread.free_pack(pack);
-  }
-
-  public static void checkForSuicide(int first_byte, byte[] pbuf, H2ONode h2o) {
+  public static void checkForSuicide(int first_byte, AutoBuffer ab) {
     if( first_byte != UDP.udp.rebooted.ordinal() ) return;
-    int type = pbuf[UDP.SZ_PORT];
+    int type = ab.get1();
     if( type > 1 ) {
       String m;
       switch( T.values()[type] ) {
@@ -59,10 +36,13 @@ public class UDPRebooted extends UDP {
       case mismatch: m = "Killed joining a cloud with a different jar"; break;
       default:       m = "Received kill "+type                        ; break;
       }
-      System.err.println("[h2o] "+m+" from "+h2o);
+      System.err.println("[h2o] "+m+" from "+ab._h2o);
       System.exit(-1);
     }
   }
 
-  public String print16( byte[] buf ) { return ""; }
+  AutoBuffer call(AutoBuffer ab) {
+    if( ab._h2o != null ) ab._h2o.rebooted();
+    return ab;
+  }
 }

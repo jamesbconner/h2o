@@ -121,12 +121,7 @@ public abstract class Expr {
   }
 
   public static ValueArray getValueArray(int pos, Key k) throws EvaluationException {
-    Value v = DKV.get(k);
-    if( v == null )
-      throw new EvaluationException(pos, "Key " + k.toString() + " not found");
-    if( !(v instanceof ValueArray) )
-      throw new EvaluationException(pos, "Key " + k.toString() + " does not contain an array, while array is expected.");
-    return (ValueArray) v;
+    return ValueArray.value(k);
   }
 
 }
@@ -260,7 +255,7 @@ class StringColumnSelector extends Expr {
       throw new EvaluationException(_pos, "Key " + result._key.toString() + " not found");
     }
     for( int i = 0; i < v.num_cols(); ++i ) {
-      if( v.col_name(i).equals(_colName) ) {
+      if( v._cols[i]._name.equals(_colName) ) {
         result.setColIndex(i);
         return result;
       }
