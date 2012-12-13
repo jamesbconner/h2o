@@ -40,7 +40,7 @@ public class UDPReceiverThread extends Thread {
         // Common-case setup of a socket
         if( sock == null ) {
           sock = DatagramChannel.open();
-          sock.bind(H2O.SELF._key);
+          sock.socket().bind(H2O.SELF._key);
         }
 
         // Receive a packet & handle it

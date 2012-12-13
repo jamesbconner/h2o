@@ -509,10 +509,10 @@ public final class H2O {
       try {
         _webSocket = new ServerSocket(WEB_PORT);
         _udpSocket = DatagramChannel.open();
-        _udpSocket.bind(new InetSocketAddress(inet, UDP_PORT));
+        _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
         break;
       } catch (IOException e) {
-        Closeables.closeQuietly(_webSocket);
+        try { _webSocket.close(); } catch( IOException ohwell ) { }
         Closeables.closeQuietly(_udpSocket);
         _webSocket = null;
         _udpSocket = null;
