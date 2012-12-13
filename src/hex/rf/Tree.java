@@ -16,8 +16,7 @@ public class Tree extends CountedCompleter {
   final Data _data;             // Data source
   final int _data_id;           // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;         // Tree-depth cutoff
-  /** Number of features to use */
-  final int _features;
+  final int _features;          // Number of features to check at each splitting (~ split features)
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
   ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
@@ -29,9 +28,11 @@ public class Tree extends CountedCompleter {
   final float _sample;          // Sample rate
   transient Timer _timer;
   int[] _ignoreColumns;         // columns ignored by the tree
+  boolean _stratify;
+  int [] _strata;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, long seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, long seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns, boolean stratify, int [] strata) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
@@ -47,6 +48,8 @@ public class Tree extends CountedCompleter {
     _ignoreColumns = ignoreColumns;
     assert sample <= 1.0f;
     _timer = new Timer();
+    _stratify = stratify;
+    _strata = strata;
   }
 
   // Oops, uncaught exception
@@ -73,8 +76,8 @@ public class Tree extends CountedCompleter {
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
     Timer t_sample = new Timer();
-    Data d = _data.sample(_sample,_seed,_numrows);
-    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample);
+    Data d = (true && _stratify)?_data.sample(_strata,_seed):_data.sample(_sample,_seed,_numrows);
+    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample + ", seed = " + _seed);
     Statistic left = getStatistic(0, d, _seed);
     // calculate the split
     for( Row r : d ) left.addQ(r);
@@ -88,7 +91,7 @@ public class Tree extends CountedCompleter {
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
-    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample, _data._data._ary._key,_ignoreColumns);
+    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample, _data._data._ary._key,_ignoreColumns, _features);
     am.invoke(_modelKey);
 
     Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
@@ -98,13 +101,13 @@ public class Tree extends CountedCompleter {
   static class AtomicModel extends Atomic {
     Key _modelKey;
     Key _treesKey;
-    int _features, _classes, _ntree;
+    int _features, _classes, _ntree, _splitFeatures;
     boolean _nuke;
     float _sample;
     Key _dataset;
     int[] _ignore;
 
-    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample, Key dataset, int[] ignore) {
+    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample, Key dataset, int[] ignore, int splitFeatures) {
       _modelKey = modelKey;
       _treesKey = treesKey;
       _features = f;
@@ -113,9 +116,10 @@ public class Tree extends CountedCompleter {
       _sample = sample;
       _dataset = dataset;
       _ignore = ignore;
+      _splitFeatures = splitFeatures;
     }
     public byte[] atomic( byte[] bits ) {
-      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample,_dataset,_ignore);
+      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample,_dataset,_ignore, _splitFeatures);
       if( bits != null ) {
         Model m_old = new Model();
         m_old.read(new Stream(bits));

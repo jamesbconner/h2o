@@ -131,20 +131,27 @@ public class GLM extends H2OPage {
       if(p.containsKey("link")) {
         try{l = DGLM.Link.valueOf(p.get("link").toString().toLowerCase());}catch(Exception e){throw new GLMInputException("invalid lambda argument " + p.getProperty("alpha", "1"));}
       }
+      JsonObject jLsmParams = new JsonObject();
       GLM_Params glmParams = new GLM_Params(f, l);
       FamilyArgs fargs = null;
       if(f == Family.binomial){
         double caseVal = 1.0;
-        try{Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
-        fargs = new BinomialArgs(threshold, caseVal);
+        double [] wt = new double[]{1.0,1.0};
+        try{caseVal = Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){res.addProperty("error", "invalid value of case, expect number, got " + p.getProperty("case")); return res;}
+        if(p.containsKey("weight")){
+          try{wt[1] = Math.sqrt(Double.valueOf(p.getProperty("weight", "1.0")));}catch(NumberFormatException e){res.addProperty("error", "invalid value of weight, expected positive number, got " + p.getProperty("case")); return res;}
+        }
+        fargs = new BinomialArgs(threshold, caseVal,wt);
+        jLsmParams.addProperty("weights", Arrays.toString(wt));
       }
       LSM_Params lsmParams = new LSM_Params(norm,lambda,rho,alpha,1);
       JsonObject jGlmParams = new JsonObject();
 
       jGlmParams.addProperty("link", glmParams.link.toString());
       jGlmParams.addProperty("family", glmParams.family.toString());
+      jGlmParams.addProperty("threshold", threshold);
       res.add("glmParams", jGlmParams);
-      JsonObject jLsmParams = new JsonObject();
+
       jLsmParams.addProperty("norm", lsmParams.n.toString());
       jLsmParams.addProperty("lambda", lsmParams.lambda);
       jLsmParams.addProperty("rho", lsmParams.rho);
@@ -181,6 +188,14 @@ public class GLM extends H2OPage {
           errDetails.addProperty("falseNegative", dformat.format(bv.fn()));
           errDetails.addProperty("truePositive", dformat.format(bv.tp()));
           errDetails.addProperty("trueNegative", dformat.format(bv.tn()));
+          JsonArray arr = new JsonArray();
+          for(int j = 0; j < bv.classes(); ++j){
+            JsonArray row = new JsonArray();
+            for(int kk = 0; kk < bv.classes();++kk)
+              row.add(new JsonPrimitive(bv.cm(j,kk)));
+            arr.add(row);
+          }
+          errDetails.add("cm", arr);
           res.add("trainingErrorDetails", errDetails);
         }
       }
@@ -288,10 +303,29 @@ public class GLM extends H2OPage {
     } else if(norm.equals("L2")){
       bldr.append(" <span><b>&lambda;: </b>" + lsmParams.get("lambda").getAsString() + "</span> ");
     }
+    if(lsmParams.has("weights"))
+      bldr.append("<span><b>weights: </b>" + lsmParams.get("weights").getAsString() + "</span>");
+    if(glmParams.has("threshold"))
+      bldr.append("<span><b>decision threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
     return bldr.toString();
   }
 
   static DecimalFormat dformat = new DecimalFormat("###.####");
+
+
+  static void buildCM(JsonArray arr,StringBuilder bldr){
+    bldr.append("<table class='table table-striped table-bordered table-condensed'><thead><tr><th></th><th>Y<sub>real</sub>=0</th><th>Y<sub>real</sub>=1</th></tr></thead><tbody>\n");
+    int rowidx = 0;
+    for(JsonElement e:arr){
+      bldr.append("<tr><th>Y<sub>model</sub>=" + rowidx++ + "</th>");
+      JsonArray a = e.getAsJsonArray();
+      for(JsonElement elem:a){
+           bldr.append("<td>" + elem.getAsString() + "</td>");
+      }
+      bldr.append("</tr>\n");
+    }
+    bldr.append("</tbody></table>\n");
+  }
 
   @Override
   protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
@@ -379,8 +413,13 @@ public class GLM extends H2OPage {
     if(json.has("trainingSetValidation")){
       trainingSetValidationTemplate.replace((JsonObject)json.get("trainingSetValidation"));
       if(json.has("trainingErrorDetails")){
-        errDetailTemplate.replace((JsonObject)json.get("trainingErrorDetails"));
-        trainingSetValidationTemplate.replace("errorDetails",errDetailTemplate.toString());
+        JsonObject e = (JsonObject)json.get("trainingErrorDetails");
+        JsonArray arr = e.get("cm").getAsJsonArray();
+        e.remove("cm");
+        errDetailTemplate.replace(e);
+        StringBuilder b = new StringBuilder();
+        buildCM(arr, b);
+        trainingSetValidationTemplate.replace("errorDetails",errDetailTemplate.toString() + "\n" + b.toString());
       }
       responseTemplate.replace("tValid",trainingSetValidationTemplate.toString());
     }

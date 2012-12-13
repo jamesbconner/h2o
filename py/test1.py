@@ -15,13 +15,13 @@ class Basic(unittest.TestCase):
             c = n.get_cloud()
             self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
-    def test_RF_iris2(self):
+    def notest_RF_iris2(self):
         trees = 6
         timeoutSecs = 20
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
         cmd.runRF(trees=trees, timeoutSecs=timeoutSecs, csvPathname=csvPathname)
 
-    def test_RF_poker100(self):
+    def notest_RF_poker100(self):
         trees = 6
         timeoutSecs = 20
         csvPathname = h2o.find_file('smalldata/poker/poker100')

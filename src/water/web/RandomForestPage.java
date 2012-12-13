@@ -1,11 +1,13 @@
 package water.web;
 
-import com.google.gson.JsonObject;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
-import java.util.HashMap;
-import java.util.Properties;
+
+import java.util.*;
+
 import water.*;
+
+import com.google.gson.JsonObject;
 
 // @author cliffc
 public class RandomForestPage extends H2OPage {
@@ -147,6 +149,11 @@ public class RandomForestPage extends H2OPage {
         throw new InvalidInputException("Class out of range");
     }
     double[] classWt = determineClassWeights(p.getProperty("classWt",""), ary, classcol, MAX_CLASSES);
+    boolean stratify = p.getProperty("stratify","0").equals("1");
+
+    Map<Integer,Integer>  strata = null;
+    if(stratify && p.containsKey("strata"))
+      strata = RandomForest.parseStrata(p.getProperty("strata").trim());
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
@@ -168,10 +175,10 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o", H2O.SELF.toString());
     try {
-      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features);
+      DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features, stratify,strata);
       // Output a model with zero trees (so far).
       final int classes = (short)((ary.col_max(classcol) - ary.col_min(classcol))+1);
-      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores);
+      Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,ignores,drf._features);
       // Save it to the cloud
       UKV.put(modelKey,model);
       // Pass along all to the viewer
@@ -180,7 +187,7 @@ public class RandomForestPage extends H2OPage {
       res.addProperty(NUM_TREE, ntree);
       res.addProperty("class", classcol);
       res.addProperty("classWt", p.getProperty("classWt",""));
-      res.addProperty("OOBEE",getBoolean(p,OOBEE));
+      res.addProperty("OOBEE",!stratify && getBoolean(p,OOBEE));
     } catch(DRF.IllegalDataException e) {
       res.addProperty("error", H2OPage.error("Incorrect input data: " + e.getMessage()));
     }

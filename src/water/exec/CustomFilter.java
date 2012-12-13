@@ -12,18 +12,20 @@ import water.*;
  * @author peta
  */
 public abstract class CustomFilter extends MRTask {
-  
+
   long _filteredRows;
 
   Key _destKey;
-  
+
   int _rowSize;
-  
-  
-  protected CustomFilter(Key destKey) {
+
+
+  public CustomFilter(Key destKey) {
     _destKey = destKey;
   }
-  
+
+  protected CustomFilter() { }
+
   @Override public void map(Key key) {
     ValueArray ary = (ValueArray) DKV.get(Key.make(ValueArray.getArrayKeyBytes(key)));
     byte[] bits = DKV.get(key).get();
@@ -49,22 +51,22 @@ public abstract class CustomFilter extends MRTask {
     CustomFilter other = (CustomFilter) drt;
     _filteredRows += other._filteredRows;
   }
-  
-  
+
+
   /** This is the filter function. It is given a byte array, that is the
-   * currently worked on input chunk and the rowOffset. Should return true if 
+   * currently worked on input chunk and the rowOffset. Should return true if
    * the row should be included in the output, or false if the row is not to
    * be included in the output.
-   * 
+   *
    * @param bits
    * @param rowOffset
-   * @return 
+   * @return
    */
   protected abstract boolean filter(byte[] bits, int rowOffset);
-  
+
   /** Override this if you need some code to be called when map is
-   * 
-   * @param rows 
+   *
+   * @param rows
    */
   protected void filterInitMap(ValueArray ary, Key k, int rows) {
     // pass
@@ -77,17 +79,17 @@ public abstract class CustomFilter extends MRTask {
 // =============================================================================
 
 class BooleanVectorFilter extends CustomFilter {
-  
-  Key _bVect; 
+
+  Key _bVect;
   int _bCol;
-  VAIterator _bIter;
-  
-  protected BooleanVectorFilter(Key destKey, Key bVect, int bCol) {
+  transient VAIterator _bIter;
+
+  public BooleanVectorFilter(Key destKey, Key bVect, int bCol) {
     super(destKey);
     _bVect = bVect;
     _bCol = bCol;
   }
-  
+
   @Override protected boolean filter(byte[] bits, int rowOffset) {
     _bIter.next();
     return _bIter.datad() != 0;
@@ -97,23 +99,23 @@ class BooleanVectorFilter extends CustomFilter {
     long row = ValueArray.getChunkIndex(k) * ValueArray.chunk_size() / ary.row_size();
     _bIter = new VAIterator(_bVect,_bCol,row);
   }
-  
-  @Override public int wire_len() {
+
+/*  @Override public int wire_len() {
     return super.wire_len()+_bVect.wire_len()+4;
   }
-  
+
   @Override public void read(Stream s) {
     super.read(s);
     _bVect = Key.read(s);
     _bCol = s.get4();
   }
-  
+
   @Override public void write(Stream s) {
     super.write(s);
     _bVect.write(s);
     s.set4(_bCol);
   }
-  
+
   @Override public void read(DataInputStream ds) throws IOException {
     super.read(ds);
     _bVect = Key.read(ds);
@@ -124,7 +126,7 @@ class BooleanVectorFilter extends CustomFilter {
     super.write(ds);
     _bVect.write(ds);
     ds.writeInt(_bCol);
-  }
+  } */
 }
 
 

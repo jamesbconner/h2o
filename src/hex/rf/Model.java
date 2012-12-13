@@ -26,6 +26,8 @@ public class Model extends RemoteTask {
   public Key       _dataset;
   /** Columns ignored in the model. */
   public int[]     _ignoredColumns;
+  /** Number of split features */
+  public int       _splitFeatures;
 
   public Model() { }
 
@@ -34,13 +36,15 @@ public class Model extends RemoteTask {
    * @param classes     the number of response classes
    * @param data        the dataset
    */
-  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns) {
-    _key = key;
-    _classes = classes;
-    _features = features;
-    _sample = sample;
-    _dataset = dataset;
+  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures) {
+    _key            = key;
+    _classes        = classes;
+    _features       = features;
+    _sample         = sample;
+    _dataset        = dataset;
     _ignoredColumns = ignoredColumns;
+    _splitFeatures  = splitFeatures;
+
     Key[] tkeys = treeskey.flatten(); // Trees
     if( tkeys == null ) return;       // Broken model?  quit now
     _trees = new byte[tkeys.length][];

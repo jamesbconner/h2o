@@ -91,7 +91,5 @@ class Basic(unittest.TestCase):
             sys.stdout.write('.')
             sys.stdout.flush() 
 
-        # browseJsonHistoryAsUrl()
-
 if __name__ == '__main__':
     h2o.unit_main()

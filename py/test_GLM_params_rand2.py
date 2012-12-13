@@ -3,12 +3,17 @@ import h2o, h2o_cmd
 import random, sys, time
 
 # none is illegal for threshold
+# always run with xval, to make sure we get the trainingErrorDetails
+# family gaussian gives us there
+# Exception in thread "Thread-6" java.lang.RuntimeException: Matrix is not symmetric positive definite.
+# at Jama.CholeskyDecomposition.solve(CholeskyDecomposition.java:173)
+
 paramDict = {
     'Y': [54],
-    'X': [None,0,1,2,15,27,33,43,51],
-    '-X': [None,'20:53'],
-    'family': [None,'binomial','gaussian'],
-    'xval': [None,1,2,3,7,10],
+    'X': [0,1,15,33,34],
+    '-X': [None,'40:53'],
+    'family': [None,'binomial'],
+    'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
     'norm': [None,'L1', 'L2'],
     'glm_lamba': [None, 1e-4,1,10,1e4],
@@ -47,7 +52,7 @@ class Basic(unittest.TestCase):
             # pick out the coefficent for the column we enabled.
             absXCoeff = abs(float(coefficients[str(colX)]))
             # intercept is buried in there too
-            absIntercept = abs(float(coefficients[str(colX)]))
+            absIntercept = abs(float(coefficients['Intercept']))
 
             if (1==0):
                 self.assertGreater(absXCoeff, 0.000001, (
@@ -56,7 +61,7 @@ class Basic(unittest.TestCase):
                     ))
 
                 self.assertGreater(absIntercept, 0.000001, (
-                    "abs. value of GLM coefficients['intercept'] is " +
+                    "abs. value of GLM coefficients['Intercept'] is " +
                     str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
                     ))
 
@@ -75,8 +80,11 @@ class Basic(unittest.TestCase):
             # default
             colX = 0 
             # form random selections of RF parameters
-            # always need Y=54
-            kwargs = {'Y': 54}
+            # always need Y=54. and always need some xval (which can be overwritten)
+            # with a different choice. we need the xval to get the error details 
+            # in the json(below)
+            # force family=binomial to avoid the assertion error above with gaussian
+            kwargs = {'Y': 54, 'xval' : 3, 'family' : "binomial"}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

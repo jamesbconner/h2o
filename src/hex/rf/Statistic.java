@@ -127,7 +127,7 @@ abstract class Statistic {
     for( ; j<_features.length; i++) if (isColumnUsable(data, i)) _features[j++] = i;
     for( ; i<data.columns(); i++ ) {
       if( !isColumnUsable(data, i) ) continue;
-      int off = _random.nextInt(i);
+      int off = _random.nextInt(i+1); // Reservoir sampling says: take a random number in the interval <0,index> (inclusive ranges are important !!!)
       if( off < _features.length ) _features[off] = i;
     }
     for( int k : _features) assert !data.ignore(k);

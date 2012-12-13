@@ -94,7 +94,7 @@ public class RandomForestTest {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{45,0,0},{0,48,1},{0,1,46}};
+      long ans[][] = new long[][]{{47,0,0},{0,44,4},{0,1,47}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
@@ -135,7 +135,7 @@ public class RandomForestTest {
     final int ignore[] = new int[]{6}; // Ignore column 6
 
     // Start the distributed Random Forest
-    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1);
+    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1,false,null);
     // Just wait little bit
     drf.get();
     // Create incremental confusion matrix.

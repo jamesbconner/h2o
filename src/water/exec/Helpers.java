@@ -254,28 +254,29 @@ class DeepSingleColumnAssignment extends MRTask {
     assert (colSize == vTo.col_size(0));
     long chunkOffset = ValueArray.getOffset(key);
     long row = chunkOffset / vTo.row_size();
-    long chunkRows = ValueArray.chunk_size() / vTo.row_size(); // now rows per chunk
-    if( row / chunkRows == vTo.chunks() - 1 )
-      chunkRows = vTo.num_rows() - row;
+    long chunkRows = VABuilder.chunkSize(key, vTo.length(), vTo.row_size()) / vTo.row_size();
+//    long chunkRows = ValueArray.chunk_size() / vTo.row_size(); // now rows per chunk
+//    if( row / chunkRows == vTo.chunks() - 1 )
+//      chunkRows = vTo.num_rows() - row;
     byte[] bits = MemoryManager.allocateMemory((int) chunkRows * vTo.row_size());
     int offset = 0;
     try {
     for (int i = 0; i < chunkRows; ++i) {
       switch (colSize) {
         case 1:
-          bits[offset] = (byte) vFrom.data(i+row,_colIndex);
+          bits[offset] = (byte) vFrom.datad(i+row,_colIndex);
           offset += 1;
           break;
         case 2:
-          UDP.set2(bits,offset, (int) vFrom.data(i+row,_colIndex));
+          UDP.set2(bits,offset, (int) vFrom.datad(i+row,_colIndex));
           offset += 2;
           break;
         case 4:
-          UDP.set4(bits,offset, (int) vFrom.data(i+row,_colIndex));
+          UDP.set4(bits,offset, (int) vFrom.datad(i+row,_colIndex));
           offset += 4;
           break;
         case 8:
-          UDP.set8(bits,offset, vFrom.data(i+row,_colIndex));
+          UDP.set8(bits,offset, (long) vFrom.datad(i+row,_colIndex));
           offset += 8;
           break;
         case -8:

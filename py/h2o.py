@@ -3,6 +3,7 @@ import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
 import re
+import inspect
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -11,6 +12,10 @@ import re
 # remote machine (0xdiag, say, or hduser)
 def flatfile_name():
     return('pytest_flatfile-%s' %getpass.getuser())
+
+def cloud_name():
+    return('pytest-%s-%s' % (getpass.getuser(), os.getpid()))
+    # return('pytest-%s' % getpass.getuser())
 
 def __drain(src, dst):
     for l in src:
@@ -29,6 +34,7 @@ def drain(src, dst):
     t.start()
 
 def unit_main():
+    print "\nRunning python:", inspect.stack()[1][1]
     clean_sandbox()
     parse_our_args()
     unittest.main()
@@ -38,6 +44,7 @@ browse_json = False
 verbose = False
 ipaddr = None
 use_hosts = False
+config_json = False
 debugger=False
 
 def parse_our_args():
@@ -47,16 +54,19 @@ def parse_our_args():
     parser.add_argument('--verbose','-v', help='increased output', action='store_true')
     parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
     parser.add_argument('--use_hosts', '-uh', help='pending...intent was conditional hosts use', action='store_true')
+    parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
+
     
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global browse_json, verbose, ipaddr, use_hosts, debugger
+    global browse_json, verbose, ipaddr, use_hosts, config_json, debugger
     browse_json = args.browse_json
     verbose = args.verbose
     ipaddr = args.ip
     use_hosts = args.use_hosts
+    config_json = args.config_json
     debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
@@ -65,7 +75,7 @@ def parse_our_args():
     # We want this to be standard, always (note -f for unittest, nose uses -x?)
     # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
     # kbn: disabling failfast until we fix jenkins
-    sys.argv[1:] = ["-v"] + args.unittest_args
+    sys.argv[1:] = ['-v', "--failfast"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
     if verbose:
@@ -289,9 +299,11 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 
 def upload_jar_to_remote_hosts(hosts, slow_connection=False):
     def prog(sofar, total):
-        p = int(10.0 * sofar / total)
-        sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
-        sys.stdout.flush()
+        # output is bad for jenkins
+        if not getpass.getuser() is 'jenkins':
+            p = int(10.0 * sofar / total)
+            sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
+            sys.stdout.flush()
         
     if not slow_connection:
         for h in hosts:
@@ -308,14 +320,14 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         hosts[0].push_file_to_remotes(f, hosts[1:])
 
 def check_sandbox_for_errors():
-    # dump any assertion or error line to the screen
+    # Dump any assertion or error line to the screen
     # Both "passing" and failing tests??? I guess that's good.
     # If timeouts are tuned reasonably, we'll get here quick
     # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
 
     # if you find a problem, just keep printing till the end
-    # in that file. Could move this to per-test teardown
-    # but the stdout/stderr is shared for the entire cloud session?
+    # in that file. 
+    # The stdout/stderr is shared for the entire cloud session?
     # so don't want to dump it multiple times?
     for filename in os.listdir(LOG_DIR):
         if re.search('stdout|stderr',filename):
@@ -323,15 +335,26 @@ def check_sandbox_for_errors():
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile('error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
-            found = False
+            regex = re.compile('exception|error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
+            printing = 0
             for line in sandFile:
-                if not found:
-                    found = regex.search(line) and ('error rate' not in line)
-                if found:
+                newFound = regex.search(line) and ('error rate' not in line)
+                if (printing==0 and newFound):
+                    printing = 1
+                elif (printing==1):
+                    # if we've been printing, stop when you get to another error
+                    # we don't care about seeing multiple prints scroll off the screen
+                    if (newFound):
+                        printing = 2 
+
+                if (printing==1):
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
+        
             sandFile.close()
+
+    return (printing!=0) # can test and cause exception
+
 
 def tear_down_cloud(node_list=None):
     if not node_list: node_list = nodes
@@ -343,9 +366,8 @@ def tear_down_cloud(node_list=None):
         node_list[:] = []
         check_sandbox_for_errors()
 
-# REQUIRED IN EACH TEST: have to touch something otherwise the ssh channel shuts down
-# and terminates the H2O. We're using RemoteH2O which keeps H2O there only 
-# while ssh channel is live. (good for avoiding orphans out of our test control)
+# don't need this any more? used to need it to make sure cloud didn't go away between 
+# unittest defs
 def touch_cloud(node_list=None):
     # Only need to use this if we're using hosts? 
     # So far, we don't need hosts as global ..so don't look at it here
@@ -388,8 +410,12 @@ class H2O(object):
         u = 'http://%s:%d/%s' % (self.addr, port, loc)
         return u 
 
-    def __check_request(self, r):
-        log('Sent ' + r.url)
+    def __check_request(self, r, extraComment=None):
+        if extraComment:
+            log('Sent ' + r.url + " # " + extraComment)
+        else:
+            log('Sent ' + r.url)
+
         if not r:
             raise Exception('r Error in %s: %s' % (inspect.stack()[1][3], str(r)))
         # this is used to open a browser on RFview results to see confusion matrix
@@ -437,27 +463,33 @@ class H2O(object):
 
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
-            requests.get(self.__url('PutValue.json'), 
-                params={"Value": value, "Key": key, "RF": repl}
-                ))
+            requests.get(
+                self.__url('PutValue.json'), 
+                params={"Value": value, "Key": key, "RF": repl}),
+            extraComment = str(value) + "," + str(key) + "," + str(repl))
 
     def put_file_old(self, f, key=None, repl=None):
         return self.__check_request(
-            requests.post(self.__url('PutFile.json'), 
+            requests.post(
+                self.__url('PutFile.json'), 
                 files={"File": open(f, 'rb')},
-                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
-                ))
+                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
+            extraComment = str(f) + "," + str(key) + "," + str(repl))
 
     def put_file(self, f, key=None, repl=None):
         resp1 =  self.__check_request(
-            requests.get(self.__url('PutFile.json'), 
-                params={"Key": key, "RF": repl} # key is optional. so is repl factor (called RF)
-                ))
+            requests.get(
+                self.__url('PutFile.json'), 
+                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
+            extraComment = str(f) + "," + str(key) + "," + str(repl))
+
         verboseprint("\nput_file #1 phase response: ", resp1)
         resp2 = self.__check_request(
-            requests.post(self.__url('Upload.json', port=resp1['port']), 
-                files={"File": open(f, 'rb')}
-                ))
+            requests.post(
+                self.__url('Upload.json', port=resp1['port']), 
+                files={"File": open(f, 'rb')}),
+            extraComment = str(f))
+
         verboseprint("put_file #2 phase response: ", resp2)
 
         return resp2[0]
@@ -469,8 +501,11 @@ class H2O(object):
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
-        a = self.__check_request(requests.post(self.__url('GetFile.json'), 
-            files={"File": open(f, 'rb')}))
+        a = self.__check_request(
+            requests.post(
+                self.__url('GetFile.json'), 
+                files={"File": open(f, 'rb')}),
+            extraComment = str(f))
         verboseprint("\nget_file result:", dump_json(a))
         return a
 
@@ -481,16 +516,17 @@ class H2O(object):
     # timeout has to be big to cover longest expected parse? timeout is float. secs?
     # looks like max_retries is part of configuration defaults
     # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
-    def parse(self, key, key2=None):
+    def parse(self, key, key2=None, timeoutSecs=300):
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
         # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
-        a = self.__check_request(requests.get(
+        # don't need extraComment because
+        a = self.__check_request(
+            requests.get(
                 url=self.__url('Parse.json'),
-                timeout=3000.0,
-                params={"Key": key, "Key2":key2}
-                ))
+                timeout=timeoutSecs,
+                params={"Key": key, "Key2": key2}))
         verboseprint("\nparse result:",dump_json(a))
         return a
 
@@ -515,6 +551,31 @@ class H2O(object):
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
+    def exec_query(self, key, timeoutSecs=20, **kwargs):
+        params_dict = {
+            'Key' : key,
+            'min' : None,
+            'max' : None,
+            'mean' : None,
+            'filter': None,
+            'slice': None,
+            'randomBitVector': None,
+            'randomFilter': None,
+            'log': None,
+            'colSwap': None,
+            'makeEnum': None,
+            'browseAlso' : False,
+            }
+        params_dict.update(kwargs)
+
+        verboseprint("\nexec_query:", params_dict)
+        a = self.__check_request(requests.get(
+            url=self.__url('Exec.json'), 
+            timeout=timeoutSecs,
+            params=params_dict))
+        verboseprint("\nexec_query result:", dump_json(a))
+        return a
+
     # kwargs used to pass:
     # RF?
     # classWt=&
@@ -534,9 +595,9 @@ class H2O(object):
     # Key=chess_2x2_500_int.hex
 
     # note ntree in kwargs can overwrite trees!
-    def random_forest(self, Key, trees, **kwargs):
+    def random_forest(self, key, trees, timeoutSecs=300, **kwargs):
         params_dict = {
-            'Key' : Key,
+            'Key' : key,
             'ntree' : trees,
             'modelKey' : 'pytest_model',
             'depth' : 30,
@@ -551,7 +612,7 @@ class H2O(object):
         verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
             url=self.__url('RF.json'), 
-            timeout=3000,
+            timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nrandom_forest result:", dump_json(a))
         return a
@@ -567,7 +628,7 @@ class H2O(object):
     # dataKey=chess_2x2_500_int.hex
     # ignore=&   ...this is ignore columns
     # UPDATE: jan says the ignore should be picked up from the model
-    def random_forest_view(self, dataKey, modelKey, ntree, **kwargs):
+    def random_forest_view(self, dataKey, modelKey, ntree, timeoutSecs=300, **kwargs):
 
         # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
         # that would make sure we only pass the minimal?
@@ -591,7 +652,8 @@ class H2O(object):
         browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
-            self.__url('RFView.json'), 
+            self.__url('RFView.json'),
+            timeout=timeoutSecs,
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
@@ -602,19 +664,27 @@ class H2O(object):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
         return a
 
-    def linear_reg(self, key, colA=0, colB=1):
-        a = self.__check_request(requests.get(self.__url('LR.json'),
-            params={
-                'colA': colA,
-                'colB': colB,
-                'Key': key
-                }))
-        verboseprint("linear_reg result:", dump_json(a))
+    def linear_reg(self, key, timeoutSecs=10, **kwargs):
+        params_dict = {
+            'Key' : key,
+            'colA' : 0,
+            'colB' : 1,
+            }
+        params_dict.update(kwargs)
+        a = self.__check_request(
+            requests.get(self.__url('LR.json'),
+            timeout=timeoutSecs,
+            params=params_dict))
+
+        verboseprint("\nlinear_reg result:", dump_json(a))
         return a
 
-    def linear_reg_view(self, key):
-        a = self.__check_request(requests.get(self.__url('LRView.json'),
+    def linear_reg_view(self, key, timeoutSecs=10):
+        a = self.__check_request(
+            requests.get(self.__url('LRView.json'),
+            timeout=timeoutSecs,
             params={'Key': key}))
+
         verboseprint("linear_reg_view result:", dump_json(a))
         return a
 
@@ -629,7 +699,7 @@ class H2O(object):
     # rho
     # alpha
 
-    def GLM(self, key, **kwargs):
+    def GLM(self, key, timeoutSecs=300, **kwargs):
         # for defaults
         params_dict = { 
             'family': 'binomial',
@@ -648,7 +718,10 @@ class H2O(object):
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
 
-        a = self.__check_request(requests.get(self.__url('GLM.json'), params=params_dict))
+        a = self.__check_request(requests.get(
+            self.__url('GLM.json'), 
+            timeout=timeoutSecs,
+            params=params_dict))
         # remove the 'models' key that has all the CMs from cross validation..too much to print
         b = dict.copy(a)
         # if you don't do xval, there is no models, so have to check first
@@ -736,7 +809,11 @@ class H2O(object):
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
-            '--name=pytest-%s' % getpass.getuser()
+            # if I have multiple jenkins projects doing different h2o clouds, I need
+            # I need different ports and different cloud name.
+            # does different cloud name prevent them from joining up (even if same multicast ports?)
+            # I suppose I can force a base address. or run on another machine?
+            '--name=' + cloud_name()
             ]
 
         if self.use_hdfs:

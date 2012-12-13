@@ -1,7 +1,7 @@
-hexbase
+h2o
 =======
 
-hexbase = fast analytics at scale
+h2o = fast analytics at scale
 Fast Analytics Engine over HDFS
 
 Product Vision for first cut:

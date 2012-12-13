@@ -1,5 +1,6 @@
 package hex;
 
+import hex.DLSM.DLSM_SingularMatrixException;
 import hex.DLSM.LSMTask;
 import hex.DLSM.LSM_Params;
 import hex.Models.BinaryClassifierValidation;
@@ -214,10 +215,12 @@ public class DGLM implements Models.ModelBuilder {
   public static class BinomialArgs extends FamilyArgs {
     double _threshold = 0.5; // decision threshold for classification/validation
     double _case = 1.0; // value to be mapped to 1 (en eeverything else to 0).
+    double [] _wt = new double[]{1.0,1.0};
 
-    public BinomialArgs(double t, double c){
+    public BinomialArgs(double t, double c, double [] wt){
       _threshold = t;
       _case = c;
+      _wt = wt;
     }
   }
 
@@ -289,12 +292,23 @@ public class DGLM implements Models.ModelBuilder {
       }
     }
     //GLM_Model m = (glmParams.family == Family.binomial)? new BinomialModel((BinomialArgs)fargs):new GLM_Model();//colIds, beta, p, gp, lp)
-    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0, ((BinomialArgs)_fargs)._case):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
+    GLMModel m = (_glmParams.family == Family.binomial)?new GLMBinomialModel(colNames, colIds, pVals,null,_glmParams.link,_glmParams.family,0, (BinomialArgs)_fargs):new GLMModel(colNames,colIds, pVals, null, _glmParams.link, _glmParams.family, 0);
     if(_glmParams.family == Family.gaussian){
       LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  _lsmParams.constant, pVals);
       tsk.invoke(ary._key);
       m._n = tsk._n;
-      m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+      try {
+        m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+      }catch (DLSM_SingularMatrixException e){
+        int n = 0;
+        if(m._warnings != null){
+          n = m._warnings.length;
+          m._warnings = Arrays.copyOf(m._warnings, n + 1);
+        } else
+          m._warnings = new String[1];
+        m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
+        m._beta = e.res;
+      }
       return m;
     }
     double [] beta = new double [colIds.length];
@@ -319,8 +333,20 @@ public class DGLM implements Models.ModelBuilder {
 
         }
         diff = 0;
-
         N = tsk._n;
+        try {
+          m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
+        }catch (DLSM_SingularMatrixException e){
+          int n = 0;
+          if(m._warnings != null){
+            n = m._warnings.length;
+            m._warnings = Arrays.copyOf(m._warnings, n + 1);
+          } else
+            m._warnings = new String[1];
+          m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
+          m._beta = e.res;
+        }
+
         tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
         if( beta != null ) for( int j = 0; j < beta.length; ++j )
           diff = Math.max(diff, Math.abs(beta[j] - tsk._beta[j]));
@@ -349,6 +375,7 @@ public class DGLM implements Models.ModelBuilder {
    */
   public static class IRLSMTask extends LSMTask {
     double[] _beta;
+    double   _w = 1.0;
     double   _origConstant;
     int      _f;
     int      _l;
@@ -413,7 +440,7 @@ public class DGLM implements Models.ModelBuilder {
       // the variance of y at this point.
       // Since we compute x'x, we take sqrt(w) and apply it to both x and y
       // (we also compute X*y)
-      double w = Math.sqrt(1 / var);
+      double w = Math.sqrt(1 / var)*_w;
       for( int i = 0; i < x.length; ++i )
         x[i] *= w;
       _constant = _origConstant * w;
@@ -427,19 +454,25 @@ public class DGLM implements Models.ModelBuilder {
   public static class BinomialTask extends IRLSMTask {
     double _case; // in
     long _caseCount; // out
+    double [] _wt;
 
     public BinomialTask(int [] colIds, Sampling s, int constant, double [] beta, double[][] pVals, Link l,BinomialArgs bargs){
       super(colIds,s,constant, beta, pVals,  Family.binomial,l);
       _case = bargs._case;
+      _wt = bargs._wt;
     }
 
     @Override
     public void processRow(double [] x){
       if(x[x.length-1] == _case){
         x[x.length-1] = 1.0;
+        _w = _wt[1];
         ++_caseCount;
-      } else
+      } else {
         x[x.length-1] = 0.0;
+        _w = _wt[0];
+      }
+
       super.processRow(x);
     }
   }
@@ -581,9 +614,11 @@ public class DGLM implements Models.ModelBuilder {
     public GLMBinomialModel(String [] columNames, int [] colIds, double [][] pVals){
       super(columNames, colIds, pVals);
     }
-    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu, double caseVal){
+
+    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, Link l, Family f, double ymu, BinomialArgs args){
       super(columnNames, colIds, pVals,b,l,f,ymu);
-      _case = caseVal;
+      _case = args._case;
+      _threshold = args._threshold;
     }
 
 
@@ -596,7 +631,7 @@ public class DGLM implements Models.ModelBuilder {
 
   public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation, H2OSerializable {
     double _threshold;
-    long [][] _cm;
+    public long [][] _cm;
     double _fpMean;
     double _fpVar;
     double _fnMean;
