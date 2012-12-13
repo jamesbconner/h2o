@@ -2,7 +2,8 @@ package water;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.RecursiveAction;
+
+import jsr166y.RecursiveAction;
 
 // A collection of Futures.  We can add more, or block on the whole collection.
 // Undefined if you try to add Futures while blocking.
