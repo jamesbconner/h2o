@@ -29,8 +29,8 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
         # Open URL in new window, raising the window if possible.
         # webbrowser.open_new_tab(json_url)
         url = re.sub(".json","",json_url)
-        print "browseJsonHistoryAsUrlLastMatch:", url
-        print "same, decoded:", urllib.unquote(url)
+        h2o.verboseprint("browseJsonHistoryAsUrlLastMatch:", url)
+        h2o.verboseprint("same, decoded:", urllib.unquote(url))
         webbrowser.open_new_tab(url)
 
 # maybe not useful, but something to play with.
