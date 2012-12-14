@@ -21,7 +21,7 @@ class Basic(unittest.TestCase):
         csvPathname = './new-poker-hand.full.311M.txt.gz'
         # broke out the put separately so we can iterate a test just on the RF
         # FIX! trying node 1..0 was failing?
-	parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=1000),
+	parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=1000)
         print 'parse TimeMS:', parseKey['TimeMS']
 
         trials = 0
