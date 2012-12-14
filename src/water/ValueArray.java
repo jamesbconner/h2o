@@ -222,10 +222,10 @@ public class ValueArray extends Iced {
   }
 
   // Get the root array Key from a random arraylet sub-key
-  public static Key getArrayKey( Key k ) {
+  public static Key getArrayKey( Key k ) { return Key.make(getArrayKeyBytes(k)); }
+  public static byte[] getArrayKeyBytes( Key k ) {
     assert k._kb[0] == Key.ARRAYLET_CHUNK;
-    byte[] kb =  Arrays.copyOfRange(k._kb,2+8,k._kb.length);
-    return Key.make(kb);
+    return Arrays.copyOfRange(k._kb,2+8,k._kb.length);
   }
 
   // Get the chunk-index from a random arraylet sub-key

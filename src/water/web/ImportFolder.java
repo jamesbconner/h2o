@@ -134,7 +134,6 @@ public class ImportFolder extends H2OPage {
     try {
       return importFolder(args).importFilesJson();
     } catch (Exception e) {
-      e.printStackTrace();
       JsonObject result = new JsonObject();
       result.addProperty("Error",e.getMessage());
       return result;
@@ -146,7 +145,6 @@ public class ImportFolder extends H2OPage {
     try {
       return importFolder(args).importFilesHTML();
     } catch( Exception ex ) {
-      ex.printStackTrace();
       return error(ex.getMessage());
     }
   }

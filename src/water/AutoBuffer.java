@@ -224,7 +224,9 @@ public final class AutoBuffer {
   }
   public final byte[] bufClose() {
     assert eof();
-    return _bb.array();
+    byte[] res = _bb.array();
+    bbFree();
+    return res;
   }
   public final boolean eof() {
     assert _h2o==null && _chan==null;

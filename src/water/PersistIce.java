@@ -165,7 +165,7 @@ public abstract class PersistIce {
     if( key._kb[0] != Key.ARRAYLET_CHUNK )
       return "not_an_arraylet";
     // Reverse arraylet key generation
-    byte[] b = ValueArray.getArrayKey(key)._kb;
+    byte[] b = ValueArray.getArrayKeyBytes(key);
     int j=0;                    // Strip out ':' in directory names
     for( int i=0; i<b.length; i++ )
       if( b[i] != ':' )

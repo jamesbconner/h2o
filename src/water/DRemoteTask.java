@@ -40,6 +40,7 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
     try {
       DRemoteTask dt = (DRemoteTask)this.clone();
       dt.setCompleter(this); // Set completer, what used to be a final field
+      dt._fs = null;         // Clone does not depend on extent futures
       dt.setPendingCount(0); // Volatile write for completer field; reset pending count also
       return dt;
     } catch( CloneNotSupportedException e ) { throw new Error(e); }
@@ -133,7 +134,7 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
       // Block for remote exec & reduce results into _drt
       if( _lo != null ) reduce(_lo.get());
       if( _hi != null ) reduce(_hi.get());
-      if( _fs != null ) _fs.compute(); // Block on all other pending tasks, also
+      if( _fs != null ) _fs.block_pending(); // Block on all other pending tasks, also
       return DRemoteTask.this;
     }
   };
