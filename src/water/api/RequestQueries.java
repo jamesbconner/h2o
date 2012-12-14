@@ -54,18 +54,18 @@ public class RequestQueries extends RequestArguments {
           + "  <dl class='dl-horizontal'><dt></dt><dd>"
           + "    <button class='btn btn-primary' onclick='query_submit()'>Submit</button>"
           + "    <button class='btn btn-info' onclick='query_submit(\'.query\')'>Refresh</button>"
+          + "    <button class='btn' onclick='query_reset()'>Reset</button>"
           + "  </dd></dl>"
           + "    %QUERY"
           + "  <dl class='dl-horizontal'><dt></dt><dd>"
           + "    <button class='btn btn-primary' onclick='query_submit()'>Submit</button>"
           + "    <button class='btn btn-info' onclick='query_submit(\'.query\')'>Refresh</button>"
+          + "    <button class='btn' onclick='query_reset()'>Reset</button>"
           + "  </dd></dl>"
           + "  <script type='text/javascript'>"
           + "    %SCRIPT"
           + "  </script>"
           ;
-
-
 
   private static final String _queryJs =
             "function query_refresh() {\n"
@@ -74,7 +74,7 @@ public class RequestQueries extends RequestArguments {
           + "function query_submit(requestType, specArg, specValue) {\n"
           + "  if (typeof(requestType) === 'undefined')\n"
           + "    requestType='.html';\n"
-          + "  var request = [];\n"
+          + "  var request = {};\n"
           + "  %REQUEST_ELEMENT{\n"
           + "    request.%ELEMENT_NAME = query_value_%ELEMENT_NAME();\n"
           + "  }\n"
@@ -82,6 +82,9 @@ public class RequestQueries extends RequestArguments {
           + "    request[specArg] = specValue;\n"
           + "  var location = '%REQUEST_NAME'+requestType+'?'+$.param(request);\n"
           + "  window.location = location;\n"
+          + "}\n"
+          + "function query_clear() {\n"
+          + "  window.location='%REQUEST_NAME.query';\n"
           + "}\n"
           + "%ELEMENT_VALUE{ %BODY\n }"
           + "%ELEMENT_ADDONS{ %BODY\n }"
