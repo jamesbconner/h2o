@@ -310,6 +310,70 @@ public class RequestArguments extends RequestStatics {
 
   }
 
+
+  // ===========================================================================
+  // InputSelect
+  // ===========================================================================
+
+  public abstract class InputSelect<T> extends Argument<T> {
+
+
+    /** Override this method to provide the values for the options. These will
+     * be the possible values returned by the form's input and should be the
+     * possible values for the JSON argument.
+     */
+    protected abstract String[] selectValues();
+
+    /** Returns which value should be selected. This is *not* the default value
+     * itself, as the default values may be of any type, but the input value
+     * that should be selected in the browser.
+     */
+    protected abstract String selectedItemValue();
+
+    /** Override this method to determine the value names, that is the names
+     * displayed in the browser. Return null, if the value strings should be
+     * used (this is default behavior).
+     */
+    protected String[] selectNames() {
+      return null;
+    }
+
+    public InputSelect(String name, boolean required) {
+      super(name, required);
+    }
+
+    @Override protected String queryElement() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<select id='"+_name+"' name='"+_name+"'>");
+      String selected = selectedItemValue();
+      String[] values = selectValues();
+      String[] names = selectNames();
+      if (names == null)
+        names = values;
+      assert (values.length == names.length);
+      if (_required)
+          sb.append("<option value=''>Please select...</option>");
+      for (int i = 0 ; i < values.length; ++i) {
+        if (values[i].equals(selected))
+          sb.append("<option value='"+values[i]+"' selected>"+names[i]+"</option>");
+        else
+          sb.append("<option value='"+values[i]+"'>"+names[i]+"</option>");
+      }
+      sb.append("</select>");
+      return sb.toString();
+    }
+
+    @Override protected String jsRefresh(String callbackName) {
+      return "$('#"+_name+"').change('"+callbackName+"');";
+    }
+
+    @Override protected String jsValue() {
+      return "return $('#"+_name+"').val();";
+    }
+
+  }
+
+
   // ===========================================================================
   // UserDefinedArguments
   //
@@ -536,9 +600,58 @@ public class RequestArguments extends RequestStatics {
 
   }
 
+  // ---------------------------------------------------------------------------
+  // StringListArgument
+  // ---------------------------------------------------------------------------
 
+  // NO EMPTY string in values
+  public class StringList extends InputSelect<String> {
 
+    public final String[] _values;
 
+    public final int _defaultIndex;
+
+    public StringList(String name, String[] values) {
+      super(name, true);
+      _values = values;
+      _defaultIndex = -1;
+    }
+
+    public StringList(String name, String[] values, int defaultIndex) {
+      super(name, false);
+      _values = values;
+      _defaultIndex = defaultIndex;
+    }
+
+    @Override  protected String[] selectValues() {
+      return _values;
+    }
+
+    @Override protected String selectedItemValue() {
+      if (_required && (!valid()))
+        return "";
+      return value();
+    }
+
+    @Override protected String parse(String input) throws IllegalArgumentException {
+      for (String s : _values)
+        if (s.equals(input))
+          return input;
+      throw new IllegalArgumentException("Invalid value "+input+", only "+Arrays.toString(_values)+" allowed");
+    }
+
+    @Override
+    protected String defaultValue() {
+      if (_defaultIndex == -1)
+        return null;
+      return _values[_defaultIndex];
+    }
+
+    @Override protected String queryDescription() {
+      return "any of "+Arrays.toString(_values);
+    }
+
+  }
 
 
 

@@ -105,7 +105,7 @@ public class RequestQueries extends RequestArguments {
         arg.check(args.getProperty(arg._name,""));
       } catch (IllegalArgumentException e) {
         // in query mode only display error for arguments present
-        if ((type != RequestType.query) || (!args.getProperty(arg._name,"").isEmpty()))
+        if (!args.isEmpty() && ((type != RequestType.query) || (!args.getProperty(arg._name,"").isEmpty())))
           query.append("<div class='alert alert-error'>"+e.getMessage()+"</div>");
       }
       query.append(arg.query());
