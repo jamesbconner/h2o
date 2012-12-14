@@ -1,6 +1,7 @@
 import unittest
 import h2o, h2o_cmd
 
+
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -10,7 +11,11 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_RF_poker_1m_rf(self):
+    def test_badchars(self):
+        print "badchars.csv has some 0x0 (<NUL>) characters."
+        print "They were created by a dd that filled out to buffer boundary with <NUL>"
+        print "They are visible using vim/vi"
+        
         csvPathname = '../smalldata/badchars.csv'
         h2o_cmd.runRF(trees=50, timeoutSecs=10, csvPathname=csvPathname)
 
