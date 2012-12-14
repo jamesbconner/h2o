@@ -69,8 +69,8 @@ public class Cloud extends H2OPage {
         row.replace("queueStyleLo","background-color:green;");
       row.replace("fjthrds_lo",  fjt_lo);
       row.replace("fjqueue_lo",  fjq_lo);
-      row.replace("rpcs",        hb._rpcs);
-      row.replace("tcps_active", hb._tcps_active);
+      row.replace("rpcs",        (int)hb._rpcs);
+      row.replace("tcps_active", (int)hb._tcps_active);
 
       row.append();
     }

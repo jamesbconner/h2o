@@ -333,8 +333,9 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
       long old = _replicas.get();
       if( old == -1 ) return false; // No new replications
       long nnn = old + encodeReaderCount(1);
-      assert decodeReaderCount(nnn) < 58; // Count does not overflow
       nnn |= (1L<<h2o._unique_idx); // Set replica bit for H2O
+      assert decodeReaderCount(nnn) < 58; // Count does not overflow
+      assert decodeReaderCount(nnn) > 0;  // At least one reader now
       if( _replicas.compareAndSet(old,nnn) ) return true;
     }
   }
@@ -351,6 +352,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
       assert (old&(1L<<h2o._unique_idx)) !=0; // Self-bit is set
       assert decodeReaderCount(old) > 0; // Since lowering, must be at least 1
       nnn = old - encodeReaderCount(1);
+      assert decodeReaderCount(nnn) >= 0; // Count does not go negative
       if( _replicas.compareAndSet(old,nnn) )
         break;                  // Repeat until count is lowered
     }
@@ -366,14 +368,16 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     // Lock against further GETs
     long old = _replicas.get();
     assert old != -1; // Only the thread doing a PUT ever locks
+    assert decodeReaderCount(old) >= 0; // Count does not go negative
     // Repeat, in case racing GETs are bumping the counter
-    while( decodeReaderCount(old) != 0 || // Has readers?
+    while( decodeReaderCount(old) > 0 || // Has readers?
            !_replicas.compareAndSet(old,-1) ) { // or failed to lock?
       try { ForkJoinPool.managedBlock(this); } catch( InterruptedException e ) { }
       old = _replicas.get();
       assert old != -1; // Only the thread doing a PUT ever locks
+      assert decodeReaderCount(old) >= 0; // Count does not go negative
     }
-
+    assert decodeReaderCount(old) == 0; // Only get here with no active readers
     if( old == 0 ) return fs; // Nobody is caching, so nothing to block against
 
     // We have the set of Nodes with replicas now.  Ship out invalidates.

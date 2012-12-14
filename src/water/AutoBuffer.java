@@ -205,8 +205,8 @@ public final class AutoBuffer {
     raisePriority();
   }
 
-  // True if we opened a TCP channel
-  boolean hasTCP() { return _chan != null; }
+  // True if we opened a TCP channel, or will open one to close-and-send
+  boolean hasTCP() { return _chan != null || (_bb != null && _bb.position() >= MTU); }
 
   // True if we are in read-mode
   boolean readMode() { return _read; }

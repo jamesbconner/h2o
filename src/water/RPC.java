@@ -109,7 +109,8 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
       if( !_did_tcp ) {
         // Ship the UDP packet with clazz name to execute
         // totally replace me with Michal's enums!!!
-        AutoBuffer ab = new AutoBuffer(_target).putTask(UDP.udp.execlo,_tasknum);
+        UDP.udp fjq = _dt instanceof TaskGetKey ? UDP.udp.exechi : UDP.udp.execlo;
+        AutoBuffer ab = new AutoBuffer(_target).putTask(fjq,_tasknum);
         ab.put1(CLIENT_UDP_SEND).putStr(_dt.getClass().getName());
         _dt.write(ab).close();  // Write the DTask
         if( ab.hasTCP() )       // Fit in a single UDP packet?
