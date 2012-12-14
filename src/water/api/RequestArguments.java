@@ -40,13 +40,6 @@ public class RequestArguments extends RequestStatics {
           + "    </dd>"
           + "  </dl>"
           ;
-//            "  <div id='inputQuery_controls_%ID' class='control-group'>"
-//          + "    <label class='control-label' for='%ID'>%ASTERISK %NAME</label>"
-//          + "    <div class='controls'>"
-//          + "      %ELEMENT"
-//          + "    </div>"
-//          + "  </div>"
-
 
   // ===========================================================================
   // Argument
@@ -220,7 +213,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change(callback);";
+      return "$('#"+_name+"').change("+callbackName+");";
     }
 
     @Override protected String jsValue() {

@@ -27,7 +27,7 @@ public class RequestQueries extends RequestArguments {
       arg.reset();
     // return query if in query mode
     if (type == RequestType.query)
-      return buildQuery(args);
+      return buildQuery(args,type);
     // check the arguments now
     for (Argument arg: _arguments) {
       try {
@@ -36,7 +36,7 @@ public class RequestQueries extends RequestArguments {
         if (type == RequestType.json)
           return jsonError("Argument "+arg._name+" error: "+e.getMessage()).toString();
         else
-          return buildQuery(args);
+          return buildQuery(args,type);
       }
     }
     return null;
@@ -53,13 +53,13 @@ public class RequestQueries extends RequestArguments {
           + "<p></p>"
           + "  <dl class='dl-horizontal'><dt></dt><dd>"
           + "    <button class='btn btn-primary' onclick='query_submit()'>Submit</button>"
-          + "    <button class='btn btn-info' onclick='query_submit(\'.query\')'>Refresh</button>"
+          + "    <button class='btn btn-info' onclick='query_refresh()'>Refresh</button>"
           + "    <button class='btn' onclick='query_reset()'>Reset</button>"
           + "  </dd></dl>"
           + "    %QUERY"
           + "  <dl class='dl-horizontal'><dt></dt><dd>"
           + "    <button class='btn btn-primary' onclick='query_submit()'>Submit</button>"
-          + "    <button class='btn btn-info' onclick='query_submit(\'.query\')'>Refresh</button>"
+          + "    <button class='btn btn-info' onclick='query_refresh()'>Refresh</button>"
           + "    <button class='btn' onclick='query_reset()'>Reset</button>"
           + "  </dd></dl>"
           + "  <script type='text/javascript'>"
@@ -83,7 +83,7 @@ public class RequestQueries extends RequestArguments {
           + "  var location = '%REQUEST_NAME'+requestType+'?'+$.param(request);\n"
           + "  window.location = location;\n"
           + "}\n"
-          + "function query_clear() {\n"
+          + "function query_reset() {\n"
           + "  window.location='%REQUEST_NAME.query';\n"
           + "}\n"
           + "%ELEMENT_VALUE{ %BODY\n }"
@@ -98,7 +98,7 @@ public class RequestQueries extends RequestArguments {
 
   /** Returns the request query form produced from the given input arguments.
    */
-  protected String buildQuery(Properties args) {
+  protected String buildQuery(Properties args, RequestType type) {
     RString result = new RString(_queryHtml);
     result.replace("REQ_NAME", this.getClass().getSimpleName());
     StringBuilder query = new StringBuilder();
@@ -108,7 +108,8 @@ public class RequestQueries extends RequestArguments {
       try {
         arg.check(args.getProperty(arg._name,""));
       } catch (IllegalArgumentException e) {
-        if (!args.isEmpty())
+        // in query mode only display error for arguments present
+        if ((type != RequestType.query) || (!args.getProperty(arg._name,"").isEmpty()))
           query.append("<div class='alert alert-error'>"+e.getMessage()+"</div>");
       }
       query.append(arg.query());
