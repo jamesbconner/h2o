@@ -66,7 +66,6 @@ public class RequestStatics {
     help(".help"), ///< should display the help on the given request
     wiki(".wiki"), ///< displays the help for the given request in a markup for wiki
     query(".query"), ///< fDisplays the query for the argument in html mode
-    checkArg(".checkArg"), ///< checks single argument specified by the __arg__ argument
     ;
     /** Suffix of the request - extension of the URL.
      */
@@ -88,8 +87,6 @@ public class RequestStatics {
         return wiki;
       if (requestUrl.endsWith(query._suffix))
         return query;
-      if (requestUrl.endsWith(checkArg._suffix))
-        return checkArg;
       return json;
     }
 
@@ -102,6 +99,11 @@ public class RequestStatics {
         return result.substring(1);
       return result;
     }
+  }
+
+
+  public static String JSON2HTML(String name) {
+    return name.substring(0,1).toUpperCase()+name.replace("_"," ").substring(1);
   }
 
 

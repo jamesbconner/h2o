@@ -17,10 +17,6 @@ import java.util.Map;
  */
 public class RequestFormatters extends RequestQueries {
 
-  public static String JSON2HTML(String name) {
-    return name.substring(0,1).toUpperCase()+name.replace("_"," ").substring(1);
-  }
-
   protected String format(JsonObject response) {
     StringBuilder sb = new StringBuilder();
     sb.append(DOM.h3(getClass().getSimpleName()));

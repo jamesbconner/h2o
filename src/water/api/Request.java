@@ -48,8 +48,6 @@ public abstract class Request extends RequestFormatters {
       case query:
         query = checkArguments(args, type);
         return wrap(server,query);
-      case checkArg:
-        return wrap(server,checkSingleArgument(args,args.getProperty(JSON_CHECKARG_ARG)));
       default:
         throw new RuntimeException("Invalid request type "+type.toString());
     }
@@ -62,7 +60,7 @@ public abstract class Request extends RequestFormatters {
     if (_requestHelp != null)
       sb.append(DOM.p(_requestHelp));
     for (Argument arg : _arguments)
-      arg.requestHelp(sb);
+      sb.append(arg.requestHelp());
     return sb.toString();
   }
 

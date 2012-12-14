@@ -12,29 +12,6 @@ import water.web.RString;
  */
 public class RequestQueries extends RequestArguments {
 
-
-  protected final JsonObject checkSingleArgument(Properties args, String argName) {
-    _originalArguments.set(new Properties());
-    _checkedArguments.set(new HashMap());
-    _disabled.set(new Properties());
-    JsonObject result = new JsonObject();
-    for (Argument arg: _arguments) {
-      if (arg._name.equals(argName)) {
-        try {
-          arg.check(args.getProperty(arg._name,""));
-          result.addProperty(JSON_STATUS, JSON_STATUS_DONE);
-          return result;
-        } catch (IllegalArgumentException e) {
-          result.addProperty(JSON_ERROR, "Argument "+arg._name+" error: "+e.getMessage());
-          return result;
-        }
-      }
-    }
-    result.addProperty(JSON_ERROR,"Argument "+argName+" not defined for request "+getClass().getSimpleName());
-    return result;
-  }
-
-
   /** Checks the given arguments.
    *
    * When first argument is found wrong, generates the json error and returns the
@@ -45,11 +22,13 @@ public class RequestQueries extends RequestArguments {
    * @return
    */
   protected final String checkArguments(Properties args, RequestType type) {
-    _originalArguments.set(new Properties());
-    _checkedArguments.set(new HashMap());
-    _disabled.set(new Properties());
+    // reset all arguments
+    for (Argument arg: _arguments)
+      arg.reset();
+    // return query if in query mode
     if (type == RequestType.query)
       return buildQuery(args);
+    // check the arguments now
     for (Argument arg: _arguments) {
       try {
         arg.check(args.getProperty(arg._name,""));
@@ -72,64 +51,85 @@ public class RequestQueries extends RequestArguments {
           + "<p>Required fields are denoted by a red asterisk"
           + " <span style='color:#ff0000'>*</span>.</p>"
           + "<p></p>"
-          + "<form id='query' class='form-horizontal'>"
-          + "  <div class='control-group'><div class='controls'>"
-          + "    <input type='submit' class='btn btn-primary' value='Send request' />"
-          + "    <input type='reset' class='btn' value='Clear' />"
-          + "  </div></div>"
-          + "  %ARG_INPUT_HTML{"
-          + "  <div id='inputQuery_error_%ARG_NAME' class='alert alert-error' style='%ERROR_STYLE'>%ERROR</div>"
-          + "  <div id='inputQuery_controls_%ARG_NAME' class='control-group'>"
-          + "    <label class='control-label' for='%ARG_NAME'>%ARG_ASTERISK %ARG_HELP</label>"
-          + "    <div class='controls'>"
-          + "      <input type='text' class='span5' disabled value='%NOTICE' style='%NOTICE_STYLE' />"
-//          + "      <span id='inputQuery_notice_%ARG_NAME' class='label label-info' style='%NOTICE_STYLE'>%NOTICE</span>"
-          + "      %ARG_INPUT_CONTROL"
-          + "    </div>"
-          + "  </div>"
+          + "  <dl class='dl-horizontal'><dt></dt><dd>"
+          + "    <button class='btn btn-primary' onclick='query_submit()'>Submit</button>"
+          + "    <button class='btn btn-info' onclick='query_submit(\'.query\')'>Refresh</button>"
+          + "  </dd></dl>"
+          + "    %QUERY"
+          + "  <dl class='dl-horizontal'><dt></dt><dd>"
+          + "    <button class='btn btn-primary' onclick='query_submit()'>Submit</button>"
+          + "    <button class='btn btn-info' onclick='query_submit(\'.query\')'>Refresh</button>"
+          + "  </dd></dl>"
           + "  <script type='text/javascript'>"
-          + "  %SCRIPT"
+          + "    %SCRIPT"
           + "  </script>"
-          + "  }"
-          + "  <div class='control-group'><div class='controls'>"
-          + "    <input type='submit' class='btn btn-primary' value='Send request' />"
-          + "    <input type='reset' class='btn' value='Clear' />"
-          + "  </div></div>"
-          + "</form>"
           ;
+
+
+
+  private static final String _queryJs =
+            "function query_refresh() {\n"
+          + "  query_submit('.query');\n"
+          + "}\n"
+          + "function query_submit(requestType, specArg, specValue) {\n"
+          + "  if (typeof(requestType) === 'undefined')\n"
+          + "    requestType='.html';\n"
+          + "  var request = [];\n"
+          + "  %REQUEST_ELEMENT{\n"
+          + "    request.%ELEMENT_NAME = query_value_%ELEMENT_NAME();\n"
+          + "  }\n"
+          + "  if (typeof(specArg) !== 'undefined')\n"
+          + "    request[specArg] = specValue;\n"
+          + "  var location = '%REQUEST_NAME'+requestType+'?'+$.param(request);\n"
+          + "  window.location = location;\n"
+          + "}\n"
+          + "%ELEMENT_VALUE{ %BODY\n }"
+          + "%ELEMENT_ADDONS{ %BODY\n }"
+          + "%ELEMENT_ONCHANGE{ %BODY\n }"
+          ;
+
+
+
+
 
 
   /** Returns the request query form produced from the given input arguments.
    */
   protected String buildQuery(Properties args) {
-    RString query = new RString(_queryHtml);
-    query.replace("REQ_NAME", this.getClass().getSimpleName());
+    RString result = new RString(_queryHtml);
+    result.replace("REQ_NAME", this.getClass().getSimpleName());
+    StringBuilder query = new StringBuilder();
+    RString script = new RString(_queryJs);
+    script.replace("REQUEST_NAME", getClass().getSimpleName());
     for (Argument arg: _arguments) {
-      RString input = query.restartGroup("ARG_INPUT_HTML");
-      input.replace("ARG_NAME",arg._name);
-      input.replace("ARG_ASTERISK", DOM.color("*", arg._required ? "#ff0000" : "#ffffff"));
-      input.replace("ARG_HELP", arg.help());
       try {
-        arg.checkRequirements();
-        if (arg.disabled() == null) {
-          input.replace("NOTICE_STYLE","display:none");
-          arg.check(args.getProperty(arg._name,""));
-        } else {
-          input.replace("NOTICE", arg.disabled());
-        }
-        input.replace("ERROR_STYLE","display:none");
+        arg.check(args.getProperty(arg._name,""));
       } catch (IllegalArgumentException e) {
-        if (! args.isEmpty())
-          input.replace("ERROR","Error: "+e.getMessage());
-        else
-          input.replace("ERROR_STYLE","display:none");
+        if (!args.isEmpty())
+          query.append("<div class='alert alert-error'>"+e.getMessage()+"</div>");
       }
-      if (arg.disabled() ==  null)
-        input.replace("ARG_INPUT_CONTROL", arg.queryElement());
-
-      input.append();
+      query.append(arg.query());
+      if (!arg.disabled()) {
+        RString x = script.restartGroup("REQUEST_ELEMENT");
+        x.replace("ELEMENT_NAME",arg._name);
+        x.append();
+        x = script.restartGroup("ELEMENT_VALUE");
+        x.replace("ELEMENT_NAME",arg._name);
+        x.replace("BODY","function query_value_"+arg._name+"() { "+arg.jsValue()+"} ");
+        x.append();
+      }
+      if (arg.refreshOnChange()) {
+        RString x = script.restartGroup("ELEMENT_ONCHANGE");
+        x.replace("BODY",arg.jsRefresh("query_refresh"));
+        x.append();
+      }
+      RString x = script.restartGroup("ELEMENT_ADDONS");
+      x.replace("BODY", arg.jsAddons());
+      x.append();
     }
-    return query.toString();
+    result.replace("QUERY",query.toString());
+    result.replace("SCRIPT",script.toString());
+    return result.toString();
   }
 
 }

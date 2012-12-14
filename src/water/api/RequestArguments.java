@@ -32,6 +32,22 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
+  protected static final String _queryHtml =
+            "  <dl class='dl-horizontal'>"
+          + "    <dt>%ASTERISK %NAME</dt>"
+          + "    <dd>"
+          + "      %ELEMENT"
+          + "    </dd>"
+          + "  </dl>"
+          ;
+//            "  <div id='inputQuery_controls_%ID' class='control-group'>"
+//          + "    <label class='control-label' for='%ID'>%ASTERISK %NAME</label>"
+//          + "    <div class='controls'>"
+//          + "      %ELEMENT"
+//          + "    </div>"
+//          + "  </div>"
+
+
   // ===========================================================================
   // Argument
   // ===========================================================================
@@ -62,20 +78,44 @@ public class RequestArguments extends RequestStatics {
       return _name;
     }
 
+    protected String query() {
+      RString result = new RString(_queryHtml);
+      result.replace("ID",_name);
+      result.replace("NAME", JSON2HTML(_name));
+      if (disabled())
+        result.replace("ELEMENT","<div class='alert alert-notice'>"+record()._disabledReason+"</div>");
+      else
+        result.replace("ELEMENT",queryElement());
+      if (_required)
+        result.replace("ASTERISK","<span style='color:#ff0000'>* </span>");
+      return result.toString();
+    }
+
+    /** Creates the request help page part for the given argument. Displays its
+     * JSON name, query name (the one in HTML), value type and the request help
+     * provided by the argument.
+     */
+    public String requestHelp() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<h4>"+_name+"</h4>");
+      sb.append("<p>"+queryDescription()+"</p>");
+      sb.append("<p>"+_requestHelp+"</p>");
+      return sb.toString();
+    }
+
     public String _requestHelp;
     public final String _name;
     public final boolean _required;
     private boolean _refreshOnChange;
     public ArrayList<Argument> _dependencies = null;
 
-    private ThreadLocal<Record> _argumentRecord;
+    private ThreadLocal<Record> _argumentRecord = new ThreadLocal();
 
 
     protected Argument(String name, boolean required) {
       _name = name;
       _required = required;
       _refreshOnChange = false;
-      assert(false);
       _arguments.add(this);
     }
 
@@ -84,7 +124,7 @@ public class RequestArguments extends RequestStatics {
       if (_dependencies == null)
         _dependencies = new ArrayList();
       _dependencies.add(arg);
-      arg.refreshOnChange();
+      arg.setRefreshOnChange();
     }
 
     protected final Record record() {
@@ -99,8 +139,12 @@ public class RequestArguments extends RequestStatics {
       return record().disabled();
     }
 
-    protected void refreshOnChange() {
+    protected void setRefreshOnChange() {
       _refreshOnChange = true;
+    }
+
+    public boolean refreshOnChange() {
+      return _refreshOnChange;
     }
 
     public final boolean valid() {
@@ -252,7 +296,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change(callback);";
+      return "$('#"+_name+"').change('"+callbackName+"');";
     }
 
     @Override protected String jsValue() {
@@ -339,7 +383,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     public Int(String name, Integer defaultValue, int min, int max) {
-      super(name,true);
+      super(name,false);
       _defaultValue = defaultValue;
       _min = min;
       _max = max;
