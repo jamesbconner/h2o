@@ -325,22 +325,27 @@ def check_sandbox_for_errors():
     # If timeouts are tuned reasonably, we'll get here quick
     # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
 
-    # if you find a problem, just keep printing till the end
-    # in that file. 
+    # if you find a problem, just keep printing till the end, in that file. 
     # The stdout/stderr is shared for the entire cloud session?
     # so don't want to dump it multiple times?
+
+    # "printing" is per file. foundAnyBadness is about the collection    `   
+    foundAnyBadness = False
     for filename in os.listdir(LOG_DIR):
         if re.search('stdout|stderr',filename):
             sandFile = open(LOG_DIR + "/" + filename, "r")
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile('exception|error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
+            regex = re.compile(
+                'exception|error|assert|warn|info|killing|killed|required ports',
+                re.IGNORECASE)
             printing = 0
             for line in sandFile:
                 newFound = regex.search(line) and ('error rate' not in line)
                 if (printing==0 and newFound):
                     printing = 1
+                    foundAnyBadness = True
                 elif (printing==1):
                     # if we've been printing, stop when you get to another error
                     # we don't care about seeing multiple prints scroll off the screen
@@ -350,10 +355,10 @@ def check_sandbox_for_errors():
                 if (printing==1):
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
-        
+
             sandFile.close()
 
-    return (printing!=0) # can test and cause exception
+    return (foundAnyBadness) # can test and cause exception
 
 
 def tear_down_cloud(node_list=None):
@@ -564,8 +569,8 @@ class H2O(object):
             'log': None,
             'colSwap': None,
             'makeEnum': None,
-            'browseAlso' : False,
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
 
         verboseprint("\nexec_query:", params_dict)
@@ -601,9 +606,9 @@ class H2O(object):
             'ntree' : trees,
             'modelKey' : 'pytest_model',
             'depth' : 30,
-            'browseAlso' : False,
             }
         
+        browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
         
@@ -643,13 +648,13 @@ class H2O(object):
             'OOBEE' : None,
             'classWt' : None
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         # only update params_dict..don't add
         # throw away anything else as it should come from the model (propagating what RF used)
         for k in kwargs:
             if k in params_dict:
                 params_dict[k] = kwargs[k]
 
-        browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
             self.__url('RFView.json'),
@@ -670,6 +675,7 @@ class H2O(object):
             'colA' : 0,
             'colB' : 1,
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
         a = self.__check_request(
             requests.get(self.__url('LR.json'),

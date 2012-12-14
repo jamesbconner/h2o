@@ -1,5 +1,5 @@
 import h2o
-import webbrowser, re, getpass
+import webbrowser, re, getpass, urllib
 # just some things useful for debugging or testing. pops the brower and let's you look at things
 # like the confusion matrix by matching the RFView json (h2o keeps the json history for us)
 
@@ -12,6 +12,7 @@ def browseTheCloud():
         # after cloud building, node[0] should have the right info for us
         cloud_url = "http://" + h2o.nodes[0].addr + ":" + str(h2o.nodes[0].port)
         # Open URL in new window, raising the window if possible.
+        h2o.verboseprint("browseTheCloud:", cloud_url)
         webbrowser.open_new(cloud_url)
 
 def browseJsonHistoryAsUrlLastMatch(matchme):
@@ -28,6 +29,8 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
         # Open URL in new window, raising the window if possible.
         # webbrowser.open_new_tab(json_url)
         url = re.sub(".json","",json_url)
+        print "browseJsonHistoryAsUrlLastMatch:", url
+        print "same, decoded:", urllib.unquote(url)
         webbrowser.open_new_tab(url)
 
 # maybe not useful, but something to play with.
@@ -46,5 +49,7 @@ def browseJsonHistoryAsUrl():
             if not re.search(ignoring,h2o.json_url_history[i]):
                 json_url = h2o.json_url_history[i]
                 url = re.sub(".json","",json_url)
+                print "browseJsonHistoryAsUrl:", url
+                print "same, decoded:", urllib.unquote(url)
                 webbrowser.open(url)
                 tabCount += 1
