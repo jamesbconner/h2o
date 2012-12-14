@@ -257,7 +257,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             hostCount = 1
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
-                newNode = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
+                newNode = LocalH2O(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                 node_list.append(newNode)
                 totalNodes += 1
         else:
@@ -265,7 +265,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
-                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
+                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                     node_list.append(newNode)
                     totalNodes += 1
 
@@ -847,7 +847,7 @@ class H2O(object):
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
         use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
-        java_heap_GB=None, use_home_for_ice=False, username=None):
+        java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -864,6 +864,7 @@ class H2O(object):
         self.java_heap_GB = java_heap_GB
 
         self.use_home_for_ice = use_home_for_ice
+        self.node_id = node_id
         self.username = username
 
     def __str__(self):
@@ -915,8 +916,12 @@ class LocalH2O(H2O):
         # FIX! no option for local /home/username ..always /tmp
         self.ice = tmp_dir('ice.')
         self.flatfile = flatfile_name()
-        spawn = spawn_cmd('local-h2o', self.get_args(),
-                capture_output=self.capture_output)
+        if self.node_id is not None:
+            logPrefix = 'local-h2o-' + str(self.node_id)
+        else:
+            logPrefix = 'local-h2o'
+
+        spawn = spawn_cmd(logPrefix, self.get_args(), capture_output=self.capture_output)
         self.ps = spawn[0]
 
     def get_h2o_jar(self):
@@ -1053,8 +1058,14 @@ class RemoteH2O(H2O):
         cmd = ' '.join(self.get_args())
         self.channel.exec_command(cmd)
         if self.capture_output:
-            outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
-            errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')
+            if self.node_id is not None:
+                logPrefix = 'remote-h2o-' + str(self.node_id)
+            else:
+                logPrefix = 'remote-h2o'
+
+            outfd,outpath = tmp_file(logPrefix + '.stdout.', '.log')
+            errfd,errpath = tmp_file(logPrefix + '.stderr.', '.log')
+
             drain(self.channel.makefile(), outfd)
             drain(self.channel.makefile_stderr(), errfd)
             comment = 'Remote on %s, stdout %s, stderr %s' % (
