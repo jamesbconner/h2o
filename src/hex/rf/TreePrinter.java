@@ -6,12 +6,14 @@ import hex.rf.Tree.SplitNode;
 
 import java.io.IOException;
 
+import water.ValueArray.Column;
+
 public abstract class TreePrinter {
-  protected final String[] _columnNames;
+  protected final Column[] _cols;
   protected final String[] _classNames;
 
-  public TreePrinter(String[] columns, String[] classNames) {
-    _columnNames = columns;
+  public TreePrinter(Column[] columns, String[] classNames) {
+    _cols = columns;
     _classNames = classNames;
   }
 

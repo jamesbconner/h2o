@@ -1,16 +1,19 @@
-
 package hex.rf;
 import hex.rf.MinorityClasses.UnbalancedClass;
 import hex.rf.Tree.StatType;
+
 import java.util.*;
+
 import jsr166y.RecursiveAction;
 import water.*;
 import water.Timer;
+import water.ValueArray.Column;
 
 /** Distributed RandomForest */
 public class DRF extends water.DRemoteTask {
   boolean _useStratifySampling;
   int [][] _histogram;
+
   // OPTIONS FOR RF
   /** Total number of trees  (default: 10) */
   int _ntrees;
@@ -60,8 +63,10 @@ public class DRF extends water.DRemoteTask {
   }
 
   private void validateInputData(ValueArray ary){
-    if(ary.col_size(_classcol) < 0)throw new IllegalDataException("Floating point class column is not supported.");
-    final int classes = (int)(ary.col_max(_classcol) - ary.col_min(_classcol))+1;
+    Column c = ary._cols[_classcol];
+    if(c._size < 0)
+      throw new IllegalDataException("Floating point class column is not supported.");
+    final int classes = (int)(c._max - c._min)+1;
     // There is no point in running Rf when all the training data have the same class
     if( !(2 <= classes && classes <= 65534 ) )
       throw new IllegalDataException("Number of classes must be >= 2 and <= 65534, found " + classes);
@@ -79,10 +84,10 @@ public class DRF extends water.DRemoteTask {
     _nHist = MinorityClasses.histogram(ary, _classcol);
     _gHist = MinorityClasses.globalHistogram(_nHist);
     final int num_nodes = H2O.CLOUD.size();
-    final long num_chunks = ary.chunks();
+    final long num_chunks = ary._chunks;
     HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {
-      nodes.add(ary.chunk_get(i).home_node());
+      nodes.add(ary.getChunk(i)._h2o);
       if( nodes.size() == num_nodes ) // All of them?
         break;                        // Done
     }
@@ -127,7 +132,7 @@ public class DRF extends water.DRemoteTask {
   public static DRF web_main( ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat, long seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int features, boolean stratify, Map<Integer,Integer> strata) {
     // Make a Task Key - a Key used by all nodes to report progress on RF
     DRF drf = new DRF();
-    assert features==-1 || ((features>0) && (features<ary.num_cols()-1));
+    assert features==-1 || ((features>0) && (features<ary._cols.length-1));
     drf._features = features;
     drf._parallel = parallelTrees;
     drf._ntrees = ntrees;
@@ -145,11 +150,12 @@ public class DRF extends water.DRemoteTask {
     drf._classWt = classWt;
     drf.validateInputData(ary);
     drf._t_main = new Timer();
-    if(stratify){
-      drf._useStratifySampling = true;
-      drf.extractMinorities(ary,strata);
-    }
+
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
+    Column c = ary._cols[classcol];
+    final int classes = (short)((c._max - c._min)+1);
+    UKV.put(modelKey, new Model(modelKey,drf._treeskey,ary._cols.length,classes,sample,ary._key,ignores,drf._features));
+
     DKV.write_barrier();
     drf.fork(drf._arykey);
     return drf;
@@ -193,36 +199,25 @@ public class DRF extends water.DRemoteTask {
     }
     @Override
     protected void compute() {
-      byte [] bits = DKV.get(_k).get();
-      int row_size = _ary.row_size();
-      int off = _ary.col_off(_classcol);
-      int size = _ary.col_size(_classcol);
-      int scale = _ary.col_scale(_classcol);
-      int base = _ary.col_base(_classcol);
-      int rows = bits.length/_ary.row_size();
+      AutoBuffer bits = _ary.getChunk(_k);
+      Column cl = _ary._cols[_classcol];
+      int rows = bits.remaining()/_ary.rowSize();
       int [] indexes = new int[nclasses];
       ROWS:for(int i = 0; i < rows; ++i){
-        int c = (int)(_ary.data(bits, i, row_size, off, size, base, scale, _classcol)-_ary.col_min(_classcol));
+        int c = (int)(_ary.datad(bits, i, cl)-cl._min);
         int outputRow = indexes[c] + _startRows[c];
-        if((iclasses != null) && iclasses[c])
-          continue;
-        for(int col:binColIds)
-          if(!_ary.valid(bits, i,row_size, col)){
-            continue ROWS;
-          }
-        for(int col:rawColIds)
-          if(!_ary.valid(bits, i, row_size, col)){
-            continue ROWS;
-          }
+        if( (iclasses != null) && iclasses[c] )               continue ROWS;
+        for( int col:binColIds) if( _ary.isNA(bits, i, col) ) continue ROWS;
+        for( int col:rawColIds) if( _ary.isNA(bits, i, col) ) continue ROWS;
         ++indexes[c];
         if(_bin){
           for(int col:binColIds)
-            _dapt.addValueRaw((float)_ary.datad(bits, i, row_size, col),outputRow,col);
+            _dapt.addValueRaw((float)_ary.datad(bits, i, col),outputRow,col);
         } else {
           for(int col:binColIds)
-            _dapt.addValue((float)_ary.datad(bits, i,row_size, col), outputRow, col);
+            _dapt.addValue((float)_ary.datad(bits, i, col), outputRow, col);
           for(int col = 0; col < rawColIds.length; ++col){
-            _dapt.addValue((short)(_ary.data(bits, i, row_size, rawColIds[col]) - rawColMins[col]), outputRow, rawColIds[col]);
+            _dapt.addValue((short)(_ary.data(bits, i, rawColIds[col]) - rawColMins[col]), outputRow, rawColIds[col]);
           }
         }
       }
@@ -239,10 +234,11 @@ public class DRF extends water.DRemoteTask {
    * @return
    */
   private DataAdapter inhaleData() {
-    final ValueArray ary = (ValueArray)DKV.get(_arykey);
-    int row_size = ary.row_size();
-    int rpc = (int)ValueArray.chunk_size()/row_size;
-    final int nclasses = (int)(ary.col_max(_classcol) - ary.col_min(_classcol) + 1);
+    final ValueArray ary = ValueArray.value(_arykey);
+    int row_size = ary.rowSize();
+    int rpc = (int)ValueArray.CHUNK_SZ/row_size;
+    final Column classCol = ary._cols[_classcol];
+    final int nclasses = (int)(classCol._max - classCol._min + 1);
     boolean [] unbalancedClasses = null;
 
     final int [][] chunkHistogram = new int [_keys.length+1][nclasses];
@@ -252,19 +248,13 @@ public class DRF extends water.DRemoteTask {
     for(int i = 0; i < _keys.length; ++i){
       final int chunkId = i;
       final Key chunkKey = _keys[i];
-      final int classIdx = _classcol;
       htasks[i] = new RecursiveAction() {
         @Override
         protected void compute() {
-          byte [] bits = DKV.get(chunkKey).get();
-          int row_size = ary.row_size();
-          int off = ary.col_off(classIdx);
-          int size = ary.col_size(classIdx);
-          int scale = ary.col_scale(classIdx);
-          int base = ary.col_base(classIdx);
-          int rows = bits.length/ary.row_size();
+          AutoBuffer bits = ary.getChunk(chunkKey);
+          int rows = bits.remaining()/ary.rowSize();
           for(int i = 0; i < rows; ++i)
-            ++chunkHistogram[chunkId][(int)(ary.data(bits, i, row_size, off, size, base, scale, classIdx)-ary.col_min(classIdx))];
+            ++chunkHistogram[chunkId][(int)(ary.data(bits, i, classCol)-classCol._min)];
         }
       };
     }
@@ -330,13 +320,13 @@ public class DRF extends water.DRemoteTask {
       dapt.setIntervalStart(i, startRows[i]);
     }
     // cols that do not need binning
-    int [] rawCols = new int[ary.num_cols() - _ignores.length];
+    int [] rawCols = new int[ary.numCols() - _ignores.length];
     // cols that will be binned
-    int [] binCols = new int[ary.num_cols() - _ignores.length];
+    int [] binCols = new int[ary.numCols() - _ignores.length];
     int b = 0;
     int r = 0;
 
-    for(int i = 0; i < ary.num_cols(); ++i){
+    for(int i = 0; i < ary.numCols(); ++i){
       if(Arrays.binarySearch(_ignores, i) < 0){
         if(dapt.binColumn(i)) binCols[b++] = i;
         else rawCols[r++] = i;
@@ -346,8 +336,7 @@ public class DRF extends water.DRemoteTask {
     binCols = Arrays.copyOf(binCols, b);
     int [] rawMins = new int[r];
     for(int i = 0; i < rawCols.length; ++i)
-      rawMins[i] = (int)ary.col_min(rawCols[i]);
-    // create first round of inhale jobs, will only read the columns which require binning
+      rawMins[i] = (int)ary._cols[rawCols[i]]._min;
     ArrayList<DataInhale> inhaleJobs = new ArrayList<DRF.DataInhale>();
     for (int i = 0; i < myKeys.size(); ++i){
       Key k = myKeys.get(i);
@@ -370,7 +359,6 @@ public class DRF extends water.DRemoteTask {
             startRows[j] += chunkHistogram[i][j];
       } else { // chunk containing only single unbalanced class
         // find the unbalanced class
-        int idx = i - _keys.length;
         int c = 0;
         for(;c < (_uClasses.length-1) && i-_uClasses[c]._chunks.length >= 0; ++c);
         startRows[c] += DKV.get(myKeys.get(i))._max/rpc;
@@ -401,7 +389,7 @@ public class DRF extends water.DRemoteTask {
 
 
   private static void binData(final DataAdapter dapt, final Key [] keys, final ValueArray ary, final int [] colIds, final int ncols){
-    final int rowsize= ary.row_size();
+    final int rowsize= ary._rowsize;
     ArrayList<RecursiveAction> jobs = new ArrayList<RecursiveAction>();
     int start_row = 0;
     for(final Key k:keys) {
@@ -411,12 +399,12 @@ public class DRF extends water.DRemoteTask {
       jobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
-          byte[] bits = DKV.get(k).get();
+          AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncols; ++c)
-              if( !ary.valid(bits,j,rowsize,colIds[c])) continue ROWS;
+              if( ary.isNA(bits,j,colIds[c])) continue ROWS;
             for(int c = 0; c < ncols; ++c)
-              dapt.addValueRaw((float)ary.datad(bits,j,rowsize,colIds[c]), j + S, colIds[c]);
+              dapt.addValueRaw((float)ary.datad(bits,j,colIds[c]), j + S, colIds[c]);
           }
         }
       });
@@ -438,14 +426,14 @@ public class DRF extends water.DRemoteTask {
   }
 
   public final  DataAdapter extractData(Key arykey, final Key [] keys) {
-    final ValueArray ary = (ValueArray)DKV.get(arykey);
-    final int rowsize = ary.row_size();
+    final ValueArray ary = ValueArray.value(DKV.get(arykey));
+    final int rowsize = ary._rowsize;
     _numrows = DKV.get(keys[0])._max/rowsize; // Rows-per-chunk
 
     // One pass over all chunks to compute max rows
     Timer t_max = new Timer();
     int num_rows = 0;
-    int unique = -1;
+    long unique = -1;
     for( Key key : keys )
       if( key.home() ) {
         num_rows += DKV.get(key)._max/rowsize;
@@ -468,7 +456,7 @@ public class DRF extends water.DRemoteTask {
     }
 
     // Now load the DataAdapter with all the rows on this Node
-    final int ncolumns = ary.num_cols();
+    final int ncolumns = ary._cols.length;
 
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
 
@@ -499,10 +487,10 @@ public class DRF extends water.DRemoteTask {
       dataInhaleJobs.add(new RecursiveAction() {
         @Override
         protected void compute() {
-          byte[] bits = DKV.get(k).get();
+          AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncolumns; ++c) // Bail out of broken rows in not-ignored columns
-              if( !icols[c] && !ary.valid(bits,j,rowsize,c)) {
+              if( !icols[c] && ary.isNA(bits,j,c)) {
                 dapt.setBad(S+j);
                 continue ROWS;
               }
@@ -510,10 +498,10 @@ public class DRF extends water.DRemoteTask {
               if( icols[c] )
                 dapt.addValue((short)0,S+j,c);
               else if( dapt.binColumn(c) ) {
-                dapt.addValue((float)ary.datad(bits,j,rowsize,c), S+j, c);
+                dapt.addValue((float)ary.datad(bits,j,c), S+j, c);
               } else {
-                long v = ary.data(bits,j,rowsize,c);
-                v -= ary.col_min(c);
+                long v = ary.data(bits,j,c);
+                v -= ary._cols[c]._min;
                 dapt.addValue((short)v, S+j, c);
               }
           }
@@ -536,12 +524,12 @@ public class DRF extends water.DRemoteTask {
     // Figure the number of trees to make locally, so the total hits ntrees.
     // Divide equally amongst all the nodes that actually have data.
     // First: compute how many nodes have data.
-    ValueArray ary = (ValueArray)DKV.get(_arykey);
-    final long num_chunks = ary.chunks();
+    ValueArray ary = ValueArray.value(DKV.get(_arykey));
+    final long num_chunks = ary._chunks;
     final int num_nodes = H2O.CLOUD.size();
     HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {
-      nodes.add(ary.chunk_get(i).home_node());
+      nodes.add(ary.getChunkKey(i).home_node());
       if( nodes.size() == num_nodes ) // All of them?
         break;                        // Done
     }

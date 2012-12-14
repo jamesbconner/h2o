@@ -49,25 +49,25 @@ public abstract class MRVectorBinaryOperator extends MRColumnProducer {
    * chunk index.
    */
   @Override public void map(Key key) {
-    ValueArray result = (ValueArray) DKV.get(_resultKey);
-    long rowOffset = ValueArray.getOffset(key) / result.row_size();
+    ValueArray result = ValueArray.value(_resultKey);
+    long rowOffset = ValueArray.getChunkOffset(key) / result._rowsize;
     VAIterator left = new VAIterator(_leftKey,_leftCol, rowOffset);
     VAIterator right = new VAIterator(_rightKey,_rightCol, rowOffset);
-    int chunkRows = VABuilder.chunkSize(key, result.length(), result.row_size()) / result.row_size();
+    int chunkRows = VABuilder.chunkSize(key, result.length(), result._rowsize) / result._rowsize;
 //    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
 //    if (rowOffset + chunkRows >= result.num_rows())
 //      chunkRows = (int) (result.num_rows() - rowOffset);
     int chunkLength = chunkRows * 8;
-    byte[] bits = MemoryManager.allocateMemory(chunkLength); // create the byte array
+    AutoBuffer bits = new AutoBuffer(chunkLength);
     for (int i = 0; i < chunkLength; i+=8) {
       left.next();
       right.next();
       double x = operator(left.datad(), right.datad());
-      UDP.set8d(bits,i,x);
+      bits.put8d(x);
       updateColumnWith(x);
     }
-    Value val = new Value(key, bits);
-    lazy_complete(DKV.put(key, val));
+    Value val = new Value(key, bits.bufClose());
+    DKV.put(key, val, getFutures());
   }
 
 }

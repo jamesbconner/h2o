@@ -1,4 +1,3 @@
-
 package water.parser;
 
 import java.util.ArrayList;
@@ -8,12 +7,7 @@ import water.*;
 import water.parser.ParseDataset.DParseTask;
 import water.parser.ValueString;
 
-/**
- *
- * @author peta
- */
 public class CsvParser extends CustomParser {
-
 
   public final byte CHAR_DECIMAL_SEPARATOR;
   public final byte CHAR_SEPARATOR;
@@ -48,9 +42,7 @@ public class CsvParser extends CustomParser {
 
   public final boolean _skipFirstLine;
 
-
   DParseTask callback;
-
 
 
   public CsvParser(Key aryKey, int numColumns, byte separator, byte decimalSeparator, DParseTask callback, boolean skipFirstLine) throws Exception {
@@ -64,7 +56,7 @@ public class CsvParser extends CustomParser {
 
   @SuppressWarnings("fallthrough")
   @Override public final void parse(Key key) throws Exception {
-    ValueArray _ary = _aryKey == null ? null : (ValueArray) DKV.get(_aryKey);
+    ValueArray _ary = _aryKey == null ? null : ValueArray.value(DKV.get(_aryKey));
     ValueString _str = new ValueString();
     byte[] bits = DKV.get(key).get();
     int offset = 0;
@@ -126,7 +118,7 @@ NEXT_CHAR:
           if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB)))
             break NEXT_CHAR;
           // we have parsed the string enum correctly
-          if((_str._off + _str._length) >  _str._buf.length){ // crossing chunk boundary
+          if((_str._off + _str._length) > _str._buf.length){ // crossing chunk boundary
             assert _str._buf != bits;
             _str.addBuff(bits);
           }
@@ -288,7 +280,7 @@ NEXT_CHAR:
             state = NUMBER_END;
             exp -= 2;
             break NEXT_CHAR;
-          }  else if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB))) {
+          } else if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB))) {
             state = NUMBER_END;
             break NEXT_CHAR;
           } else {
@@ -425,10 +417,9 @@ NEXT_CHAR:
           fractionDigits -= bits.length;
         offset -= bits.length;
         tokenStart -= bits.length;
-        Key k2 = _ary.make_chunkkey(ValueArray.getOffset(key)+ValueArray.chunk_size());
-        Value v = DKV.get(k2); // we had the last key
-        if (secondChunk == 2)
-          v = null;
+        long chkidx = ValueArray.getChunkIndex(key);
+        Value v = (secondChunk < 2 && chkidx+1 < _ary._chunks) 
+          ? DKV.get(_ary.getChunkKey(chkidx+1)) : null;
         // if we can't get further we might have been the last one and we must
         // commit the latest guy if we had one.
         if (v == null) {
@@ -438,7 +429,7 @@ NEXT_CHAR:
           }
           break MAIN_LOOP;
         }
-        bits = v.get(512);
+        bits = v.get();         // Could limit to eg 512 bytes
         if (bits[0] == CHAR_LF && state == EXPECT_COND_LF)
           break MAIN_LOOP; // when the first character we see is a line end
       }
@@ -483,9 +474,6 @@ NEXT_CHAR:
 
   /** Dermines the number of separators in given line. Correctly handles quoted
    * tokens.
-   *
-   * @param from
-   * @return
    */
   private static int[] determineSeparatorCounts(String from) {
     int[] result = new int[separators.length];
@@ -516,10 +504,6 @@ NEXT_CHAR:
 
   /** Determines the tokens that are inside a line and returns them as strings
    * in an array. Assumes the given separator.
-   *
-   * @param from
-   * @param separator
-   * @return
    */
   private static String[] determineTokens(String from, byte separator) {
     ArrayList<String> tokens = new ArrayList();
@@ -605,9 +589,6 @@ NEXT_CHAR:
    *
    * A separator is selected if both two lines have the same ammount of them
    * and the tokenization then returns same number of columns.
-   *
-   * @param bits
-   * @return
    */
   public static Setup guessCsvSetup(byte[] bits) {
     String[] lines = new String[2];
@@ -675,7 +656,3 @@ NEXT_CHAR:
     return new int[] { lines, s.columnNames.length };
   }
 }
-
-
-
-

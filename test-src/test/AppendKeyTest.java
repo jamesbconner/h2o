@@ -40,17 +40,18 @@ public class AppendKeyTest {
     Value v = DKV.get(k);
     Assert.assertNull(v);
 
-    new AppendKey("append 1".getBytes()).invoke(k);
-    v = DKV.get(k);
-    byte[] b = v.get();
-    Assert.assertEquals(1, UDP.get4(b, 0));
-    Assert.assertEquals("append 1", new String(b, 4, b.length-4));
+    Key a1 = Key.make("append 1");
+    new AppendKey(a1).invoke(k);
+    Key[] ks = new AutoBuffer(DKV.get(k).get()).getA(Key.class);
+    Assert.assertEquals(1, ks.length);
+    Assert.assertEquals(a1, ks[0]);
 
-    new AppendKey("append 2".getBytes()).invoke(k);
-    v = DKV.get(k);
-    b = v.get();
-    Assert.assertEquals(2, UDP.get4(b, 0));
-    Assert.assertEquals("append 1append 2", new String(b, 4, b.length-4));
+    Key a2 = Key.make("append 2");
+    new AppendKey(a2).invoke(k);
+    ks = new AutoBuffer(DKV.get(k).get()).getA(Key.class);
+    Assert.assertEquals(2, ks.length);
+    Assert.assertEquals(a1, ks[0]);
+    Assert.assertEquals(a2, ks[1]);
     DKV.remove(k);
   }
 
@@ -65,23 +66,19 @@ public class AppendKeyTest {
   private void doLarge(Key k) {
     Value v = DKV.get(k);
     Assert.assertNull(v);
-    Random r = new Random(0);
-    byte[] a1 = new byte[MultiCast.MTU * 2];
-    r.nextBytes(a1);
-    new AppendKey(a1).invoke(k);
-    v = DKV.get(k);
-    byte[] b = v.get();
-    Assert.assertEquals(1, UDP.get4(b, 0));
-    Assert.assertArrayEquals(a1, Arrays.copyOfRange(b, 4, 4+a1.length));
 
-    byte[] a2 = new byte[MultiCast.MTU * 4];
-    r.nextBytes(a2);
-    new AppendKey(a2).invoke(k);
-    v = DKV.get(k);
-    b = v.get();
-    Assert.assertEquals(2, UDP.get4(b, 0));
-    Assert.assertArrayEquals(a1, Arrays.copyOfRange(b, 4, 4+a1.length));
-    Assert.assertArrayEquals(a2, Arrays.copyOfRange(b, 4+a1.length, 4+a1.length+a2.length));
+    Random r = new Random(1234567890123456789L);
+    int total = 0;
+    while( total < AutoBuffer.MTU*8 ) {
+      byte[] kb = new byte[Key.KEY_LENGTH];
+      r.nextBytes(kb);
+      Key nk = Key.make(kb);
+      new AppendKey(nk).invoke(k);
+      v = DKV.get(k);
+      byte[] vb = v.get();
+      Assert.assertArrayEquals(kb, Arrays.copyOfRange(vb, vb.length-kb.length, vb.length));
+      total = vb.length;
+    }
     DKV.remove(k);
   }
 

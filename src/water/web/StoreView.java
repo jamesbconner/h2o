@@ -10,12 +10,8 @@ import water.H2O;
 import water.Key;
 import water.Value;
 import water.ValueArray;
-import water.hdfs.PersistHdfs;
+//import water.hdfs.PersistHdfs;
 
-/**
- *
- * @author peta
- */
 public class StoreView extends H2OPage {
 
   public static final int KEYS_PER_PAGE = 25;
@@ -36,20 +32,20 @@ public class StoreView extends H2OPage {
       offset = Integer.valueOf(args.getProperty("o", "0"));
     } catch( NumberFormatException e ) { /* pass */ }
 
-    Key[] keys = new Key[1024];    // Limit size of what we'll display on this page
+    Key[] keys = new Key[1024]; // Limit size of what we'll display on this page
     int len = 0;
     String filter = args.getProperty("Filter");
     String html_filter = (filter==null? "" : "?Filter="+filter);
-    PersistHdfs.refreshHDFSKeys();
+    //PersistHdfs.refreshHDFSKeys();
     // Gather some keys that pass all filters
     for( Key key : H2O.keySet() ) {
-      if( filter != null &&     // Have a filter?
+      if( filter != null && // Have a filter?
           key.toString().indexOf(filter) == -1 )
-        continue;               // Ignore this filtered-out key
+        continue; // Ignore this filtered-out key
       if( !key.user_allowed() ) // Also filter out for user-keys
         continue;
       if( H2O.get(key) == null ) continue; // Ignore misses
-      keys[len++] = key;        // Capture the key
+      keys[len++] = key; // Capture the key
       if( len == keys.length ) break; // List is full; stop
     }
 
@@ -70,21 +66,21 @@ public class StoreView extends H2OPage {
       offset = Integer.valueOf(args.getProperty("o", "0"));
     } catch( NumberFormatException e ) { /* pass */ }
     // write the response
-    H2O cloud = H2O.CLOUD;         // Current eldest Cloud
-    Key[] keys = new Key[1024];    // Limit size of what we'll display on this page
+    H2O cloud = H2O.CLOUD; // Current eldest Cloud
+    Key[] keys = new Key[1024]; // Limit size of what we'll display on this page
     int len = 0;
     String filter = args.getProperty("Filter");
     String html_filter = (filter==null? "" : "?Filter="+filter);
-    PersistHdfs.refreshHDFSKeys();
+    //PersistHdfs.refreshHDFSKeys();
     // Gather some keys that pass all filters
     for( Key key : H2O.keySet() ) {
-      if( filter != null &&     // Have a filter?
+      if( filter != null && // Have a filter?
           key.toString().indexOf(filter) == -1 )
-        continue;               // Ignore this filtered-out key
+        continue; // Ignore this filtered-out key
       if( !key.user_allowed() ) // Also filter out for user-keys
         continue;
       if( H2O.get(key) == null ) continue; // Ignore misses
-      keys[len++] = key;        // Capture the key
+      keys[len++] = key; // Capture the key
       if( len == keys.length ) break; // List is full; stop
     }
 
@@ -147,7 +143,7 @@ public class StoreView extends H2OPage {
     else
       row.replace("inspect", "Inspect");
     // Now the first 100 bytes of Value as a String
-    byte[] b = new byte[100];   // Amount to read
+    byte[] b = new byte[100]; // Amount to read
     int len=0;
     try {
       len = val.openStream().read(b); // Read, which might force loading.
@@ -176,23 +172,22 @@ public class StoreView extends H2OPage {
       row.replace("storeHdfs", "");
     }
 
-    // See if this is a structured ValueArray.  Report results from a total parse.
-    if( val instanceof ValueArray ) {
-      val = DKV.get(key);       // Get the whole ValueArray
-      if( ((ValueArray)val).num_cols() > 0 ) {
-        ValueArray ary = (ValueArray)val;
-        row.replace("rows",ary.num_rows());
-        int cols = ary.num_cols();
+    // See if this is a structured ValueArray. Report results from a total parse.
+    if( val._isArray != 0 ) {
+      ValueArray ary = ValueArray.value(val);
+      if( ary._cols.length > 1 || ary._cols[0]._size != 1 ) {
+        row.replace("rows",ary._numrows);
+        int cols = ary._cols.length;
         row.replace("cols",cols);
         for( int i=0; i<Math.min(cols,5); i++ ) {
           sb = new StringBuilder();
-          int sz = ary.col_size(i);
+          int sz = ary._cols[i]._size;
           if( sz != 0 ) {
-            double min = ary.col_min(i);
-            if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
+            double min = ary._cols[i]._min;
+            if( sz > 0 && ary._cols[i]._scale == 1 ) sb.append((long)min); else sb.append(min);
             sb.append(" / - / ");
-            double max = ary.col_max(i);
-            if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+            double max = ary._cols[i]._max;
+            if( sz > 0 && ary._cols[i]._scale == 1 ) sb.append((long)max); else sb.append(max);
           }
           row.replace("col"+i,sb);
         }
@@ -200,7 +195,7 @@ public class StoreView extends H2OPage {
         return;
       }
     }
-    ServletUtil.createBestEffortSummary(key, row);
+    ServletUtil.createBestEffortSummary(key, row, val.length());
   }
 
   final static String html =
@@ -208,33 +203,33 @@ public class StoreView extends H2OPage {
     + "You are connected to cloud <strong>%cloud_name</strong> and node <strong>%node_name</strong>."
     + "</div>"
     + "<form class='well form-inline' action='StoreView'>"
-    + "  <input type='text' class='input-small span10' placeholder='filter' name='Filter' id='Filter' %pvalue maxlength='512'>"
-    + "  <button type='submit' class='btn btn-primary'>Filter keys!</button>"
+    + " <input type='text' class='input-small span10' placeholder='filter' name='Filter' id='Filter' %pvalue maxlength='512'>"
+    + " <button type='submit' class='btn btn-primary'>Filter keys!</button>"
     + "</form>"
     + "<p>Displaying %noOfKeys keys"
     + "<p>%navup</p>"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col/><col/><col colspan=5 align=center/></colgroup>\n"
     + "<thead><tr><th> <th> <th> <th> <th align=center colspan=5>Min / Average / Max <th> </tr>\n"
-    + "       <tr><th>Key<th>Size<th>Rows parsed<th>Cols<th>Col 0<th>Col 1<th>Col 2<th>Col 3<th>Col 4<th>Value</tr></thead>\n"
+    + " <tr><th>Key<th>Size<th>Rows<th>Cols<th>Col 0<th>Col 1<th>Col 2<th>Col 3<th>Col 4<th>Value</tr></thead>\n"
     + "<tbody>\n"
     + "%tableRow{\n"
-    + "  <tr>"
-    + "    <td>"
-    + "      <a style='%delBtnStyle' href='RemoveAck?Key=%$key'><button class='btn btn-danger btn-mini'>X</button></a>"
-    + "      %storeHdfs"
-    + "      &nbsp;&nbsp;<a href='/%inspect?Key=%$key'>%key</a>%execbtn"
-    + "    </td>"
-    + "    <td>%size</td>"
-    + "    <td>%rows</td>"
-    + "    <td>%cols</td>"
-    + "    <td>%col0</td>"
-    + "    <td>%col1</td>"
-    + "    <td>%col2</td>"
-    + "    <td>%col3</td>"
-    + "    <td>%col4</td>"
-    + "    <td>%value</td>"
-    + "  </tr>\n"
+    + " <tr>"
+    + " <td>"
+    + " <a style='%delBtnStyle' href='RemoveAck?Key=%$key'><button class='btn btn-danger btn-mini'>X</button></a>"
+    + " %storeHdfs"
+    + " &nbsp;&nbsp;<a href='/%inspect?Key=%$key'>%key</a>%execbtn"
+    + " </td>"
+    + " <td>%size</td>"
+    + " <td>&#126;%rows</td>"
+    + " <td>%cols</td>"
+    + " <td>%col0</td>"
+    + " <td>%col1</td>"
+    + " <td>%col2</td>"
+    + " <td>%col3</td>"
+    + " <td>%col4</td>"
+    + " <td>%value</td>"
+    + " </tr>\n"
     + "}\n"
     + "</tbody>\n"
     + "</table>\n"

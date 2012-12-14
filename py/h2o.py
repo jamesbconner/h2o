@@ -224,11 +224,11 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
     if hosts is None:
         ip = get_ip_address()
         for i in xrange(node_count):
-            pff.write("/" + ip + ":" + str(base_port +3*i) + "\n")
+            pff.write("/" + ip + ":" + str(base_port +2*i) + "\n")
     else:
         for h in hosts:
             for i in xrange(node_count):
-                pff.write("/" + h.addr + ":" + str(base_port +3*i) + "\n")
+                pff.write("/" + h.addr + ":" + str(base_port +2*i) + "\n")
     pff.close()
 
 # node_count is per host if hosts is specified.
@@ -248,7 +248,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
     # hardwire this. don't need it to be an arg
-    ports_per_node = 3
+    ports_per_node = 2
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -300,7 +300,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 def upload_jar_to_remote_hosts(hosts, slow_connection=False):
     def prog(sofar, total):
         # output is bad for jenkins
-        if not getpass.getuser() is 'jenkins':
+        if not getpass.getuser() == 'jenkins':
             p = int(10.0 * sofar / total)
             sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
             sys.stdout.flush()

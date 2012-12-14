@@ -8,7 +8,7 @@ import webbrowser, re, getpass, urllib
 # and browse to network stats, or look at the time line. Starting from the cloud page is sufficient.
 def browseTheCloud():
     # disable browser stuff for jenkins
-    if not getpass.getuser() is 'jenkins':
+    if not getpass.getuser() == 'jenkins':
         # after cloud building, node[0] should have the right info for us
         cloud_url = "http://" + h2o.nodes[0].addr + ":" + str(h2o.nodes[0].port)
         # Open URL in new window, raising the window if possible.
@@ -16,7 +16,7 @@ def browseTheCloud():
         webbrowser.open_new(cloud_url)
 
 def browseJsonHistoryAsUrlLastMatch(matchme):
-    if not getpass.getuser() is 'jenkins':
+    if not getpass.getuser() == 'jenkins':
         # get rid of the ".json" from the last url used by the test framework.
         # if we hit len(), we point to 0, so stop
         len_history= len(h2o.json_url_history)
@@ -37,7 +37,7 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
 # go from end, backwards and see what breaks! (in json to html hack url transform)
 # note that put/upload  and rf/rfview methods are different for html vs json
 def browseJsonHistoryAsUrl():
-    if not getpass.getuser() is 'jenkins':
+    if not getpass.getuser() == 'jenkins':
         ignoring = "Cloud"
         i = -1
         # stop if you get to -50, don't want more than 50 tabs on browser

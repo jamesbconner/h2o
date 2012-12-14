@@ -86,7 +86,7 @@ public class RandomForest {
     ValueArray va;
     // get the input data
     if(ARGS.parsdedKey != null) // data already parsed
-      va = (ValueArray)DKV.get(Key.make(ARGS.parsdedKey));
+      va = ValueArray.value(DKV.get(Key.make(ARGS.parsdedKey)));
     else if(ARGS.rawKey != null) // data loaded in K/V, not parsed yet
       va = KeyUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(KeyUtil.getHexKeyFromRawKey(ARGS.rawKey)));
     else { // data outside of H2O, load and parse
@@ -109,25 +109,22 @@ public class RandomForest {
       for(int i=0;i<ignores.length;i++)
         ignores[i] = Integer.parseInt(strs[i]);
     }
-    Map<Integer,Integer> strata = null;
-    if(ARGS.stratify && ARGS.strata != null)
-      strata = parseStrata(ARGS.strata);
 
-    final int num_cols = va.num_cols();
+    final int num_cols = va._cols.length;
     final int classcol = ARGS.classcol == -1 ? num_cols-1: ARGS.classcol; // Defaults to last column
     assert ARGS.sample >0 && ARGS.sample<=100;
     assert ARGS.ntrees >=0;
     assert ARGS.binLimit > 0 && ARGS.binLimit <= Short.MAX_VALUE;
-    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1, ARGS.stratify,strata);
+    DRF drf = DRF.web_main(va, ARGS.ntrees, ARGS.depth,  (ARGS.sample/100.0f), (short)ARGS.binLimit, st, ARGS.seed, classcol, ignores, Key.make("model"),ARGS.parallel==1, null,/*features*/-1, false, null);
     drf.get(); // block
     Model model = UKV.get(drf._modelKey, new Model());
     Utils.pln("[RF] Random forest finished in "+ drf._t_main);
+
     Timer t_valid = new Timer();
     Key valKey = drf._arykey;
-    if(ARGS.outOfBagError && !ARGS.stratify){
-      Utils.pln("[RF] Computing out of bag error");
-      Confusion.make( model, valKey, classcol,ignores, null, true).report();
-    }
+    Utils.pln("[RF] Computing out of bag error");
+    Confusion.make( model, valKey, classcol,ignores, null, true).report();
+
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate on the supplied file
       File f = new File(ARGS.validationFile);
       System.out.println("[RF] Loading validation file " + f);

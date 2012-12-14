@@ -118,12 +118,12 @@ public class RandomForestTest {
     UKV.remove(fkey);
     UKV.remove(Key.make("smalldata/kaggle/creditsample-training.csv.gz_UNZIPPED"));
     UKV.remove(Key.make("smalldata\\kaggle\\creditsample-training.csv.gz_UNZIPPED"));
-    ValueArray val = (ValueArray) DKV.get(okey);
+    ValueArray val = ValueArray.value(okey);
 
     // Check parsed dataset
-    assertEquals("Number of chunks", 4, val.chunks());
-    assertEquals("Number of rows", 150000, val.num_rows());
-    assertEquals("Number of cols", 12, val.num_cols());
+    assertEquals("Number of chunks", 4, val._chunks);
+    assertEquals("Number of rows", 150000, val.numRows());
+    assertEquals("Number of cols", 12, val.numCols());
 
     // setup default values for DRF
     int ntrees  = 3;

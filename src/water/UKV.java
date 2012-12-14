@@ -19,158 +19,72 @@ public abstract class UKV {
   // This is a WEAK update: it is only strongly ordered with other updates to
   // the SAME key on the SAME node.
   static public void put( Key key, Value val ) {
-    assert key.user_allowed();
-    Object o = DKV.put(key,val);
-    Value res = null;
-    TaskPutKey tpk = null;
-    if( o instanceof TaskPutKey ) {
-      tpk = (TaskPutKey)o;
-      res = tpk._old;
-    } else {
-      res = (Value)o;
-    }
+    Futures fs = new Futures();
+    put(key,val,fs);
+    fs.block_pending();         // Block for remote-put to complete
+  }
+  static public void put( Key key, Value val, Futures fs ) {
+    Value res = DKV.put(key,val,fs);
     // If the old Value was a large array, we need to delete the leftover
     // chunks - they are unrelated to the new Value which might be either
     // bigger or smaller than the old Value.
-    if( res != null && res.type() == 'A' ) {
-      DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
-          public void reduce(DRemoteTask dt) {}
-          public void compute() {}
-        };
-      ValueArray ary = (ValueArray)res;
-      final long chunks = ary.chunks();
-      for( long i=0; i<chunks; i++ ) // Delete all the chunks
-        drt.lazy_complete(DKV.remove(ary.chunk_get(i)));
-      drt.block_pending();
+    if( res != null && res._isArray!=0 ) {
+      ValueArray ary = ValueArray.value(res);
+      for( long i=0; i<ary._chunks; i++ ) // Delete all the chunks
+        DKV.remove(ary.getChunkKey(i),fs);
     }
-    if( tpk != null ) tpk.get(); // Block for remote-put to complete
+    if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
+      for( Key k : res.flatten() )      // Then recursively delete
+        remove(k,fs);
+    if( res != null ) res.free_mem();
   }
 
   static public void remove( Key key ) {
+    Futures fs = new Futures();
+    remove(key,fs);             // Recursively delete, gather pending deletes
+    fs.block_pending();         // Block until all is deleted
+  }
+  // Recursively remove, gathering all the pending remote key-deletes
+  static private void remove( Key key, Futures fs ) {
     Value val = DKV.get(key,32); // Get the existing Value, if any
     if( val == null ) return;    // Trivial delete
-    DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
-        public void reduce(DRemoteTask dt) {}
-        public void compute() {}
-      };
-    if( val instanceof ValueArray ) { // See if this is an Array
-      ValueArray ary = (ValueArray)val;
-      final long chunks = ary.chunks();
-      // Delete all chunks
-      for( long i=0; i<=chunks; i++ ) // Delete all the chunks
-        drt.lazy_complete(DKV.remove(ary.chunk_get(i)));
+    if( val._isArray != 0 ) { // See if this is an Array
+      ValueArray ary = ValueArray.value(val);
+      for( long i=0; i<ary._chunks; i++ ) // Delete all the chunks
+        remove(ary.getChunkKey(i),fs);
     }
-
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
       for( Key k : val.flatten() )      // Then recursively delete
-        remove(k);
-    drt.lazy_complete(DKV.remove(key));
-    drt.block_pending();
+        remove(k,fs);
+    DKV.remove(key,fs);
   }
 
   // User-Weak-Get a Key from the distributed cloud.
-  static public Value get( Key key, int len ) {
-    Value val = DKV.get(key,len);
-    if( val instanceof ValueArray ) {
-      Key k2 = ValueArray.make_chunkkey(key,0);
-      Value vchunk0 = UKV.get(k2,len);
+  // Right now, just gets chunk#0 from a ValueArray, or a normal Value otherwise.
+  static public Value get( Key key ) {
+    Value val = DKV.get(key);
+    if( val != null && val._isArray !=0 ) {
+      Key k2 = ValueArray.getChunkKey(0,key);
+      Value vchunk0 = DKV.get(k2);
       assert vchunk0 != null : "missed looking for key "+k2+" from "+key;
-      if( len > vchunk0._max && len > ValueArray.chunk_size())
-        throw H2O.unimpl(); // "users should get a polite error if they attempt to fetch all of a giant value; users should chunk when fetching "+key+" and "+len+" bytes, found "+k2+" of len "+vchunk0._max);
       return vchunk0;           // Else just get the prefix asked for
     }
     return val;
   }
-  static public Value get( Key key ) { return get(key,(int)ValueArray.chunk_size()); }
 
   static public void put(String s, Value v) { put(Key.make(s), v); }
-  static public Value get(String s) { return get(Key.make(s)); }
+  //static public Value get(String s) { return get(Key.make(s)); }
   static public void remove(String s) { remove(Key.make(s)); }
 
   // Also, allow auto-serialization
-  static public void put( Key key, RemoteTask rt ) {
-    byte[] bits = new byte[rt.wire_len()];
-    rt.write(new Stream(bits));
-    Value val = new Value(key,bits);
-    put(key,val);
-  }
-  // Also, allow auto-deserialization.  Usage:
-  //   SomeRemoteTask srt = UKV.get(key,new SomeRemoteTask());
-  static public <T extends RemoteTask> T get( Key key, T rt ) {
-    Value val = get(key);
-    if( val == null ) return null;
-    rt.read(new Stream(val.get()));
-    return rt;
+  static public void put( Key key, Freezable fr ) {
+    if( fr == null ) UKV.put(key, null);
+    else UKV.put(key,new Value(key, fr.write(new AutoBuffer()).buf()));
   }
 
-
-  // Appends the given set of bytes to the arraylet
-  private static void appendArraylet(ValueArray alet, byte[] b) {
-    Value lastChunk = DKV.get(ValueArray.make_chunkkey(alet._key,alet.length() - alet.length() % ValueArray.chunk_size()));
-    int offset = 0;
-    int remaining = b.length;
-    // first update the last chunk
-    int size = (int) Math.min(ValueArray.chunk_size() - lastChunk._max, b.length);
-    if( size != 0 )
-      DKV.append(lastChunk._key, b, offset, size);
-    while( true ) {
-      // now add another chunk(s) if needed
-      offset += size;
-      remaining = remaining - size;
-      if( remaining == 0 )
-        break;
-      size = Math.min(remaining, (int) ValueArray.chunk_size());
-      long coffset = UDP.get8(lastChunk._key._kb, 2) + ValueArray.chunk_size();
-      lastChunk = new Value(ValueArray.make_chunkkey(alet._key,coffset), size);
-      System.arraycopy(b, offset, lastChunk.mem(), 0, size);
-      DKV.put(lastChunk._key, lastChunk);
-    }
-    // and finally update the arraylet size.
-    ValueArray newalet = new ValueArray(alet._key, alet.length() + b.length,Value.ICE);
-    // change the UUID so that it is the same
-    System.arraycopy(alet.get(), 10, newalet.mem(), 10, alet._max - 10);
-    DKV.put(newalet._key, newalet);
+  public static <T extends Freezable> T get(Key k, T t) {
+    Value v = UKV.get(k);
+    if( v == null ) return null;
+    return t.read(new AutoBuffer(v.get()));
   }
-
-  /**
-   * Appends the bytes in b to value stored in k.
-   *
-   * @param k
-   * @param b
-   */
-  public static void append(Key k, byte[] b) {
-    Value old = DKV.get(k);
-    // it is a first insert, in this case just put us in
-    if( old == null ) {
-      try {
-        ValueArray.read_put_stream(k, new ByteArrayInputStream(b));
-      } catch( IOException e ) {
-        // pass - this should never happen
-      }
-      // There already is a value:
-    } else {
-      // if it is an ICE value, and we can append, do the append
-      if( old.type() == Value.ICE ) {
-        if( old._max + b.length <= ValueArray.chunk_size() ) {
-          // we can append safely within the arraylet boundary, only append to
-          // the value and we are done
-          DKV.append(k, b);
-          // and return, we are done
-          return;
-        } else {
-          // we cannot append properly - create an arraylet
-          Value v = new Value(ValueArray.make_chunkkey(k,0), old._max);
-          System.arraycopy(old.get(), 0, v.mem(), 0, v._max);
-          ValueArray alet = new ValueArray(k, old._max,Value.ICE);
-          DKV.put(alet._key, alet);
-          DKV.put(v._key, v);
-        }
-      }
-      // now it is an arraylet, update it accordingly
-      Value v = DKV.get(k);
-      assert (v instanceof ValueArray);
-      appendArraylet((ValueArray) DKV.get(k), b);
-    }
-  }
-
 }

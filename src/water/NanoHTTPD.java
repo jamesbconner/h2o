@@ -196,9 +196,6 @@ public class NanoHTTPD
   // Socket & server code
   // ==================================================
 
-
-
-
   /**
    * Starts a HTTP server to given port.<p>
    * Throws an IOException if the socket is already in use
@@ -662,7 +659,7 @@ public class NanoHTTPD
           p.put(key, old == null ? value : (old+","+value));
         }
       }
-        }
+    }
 
     /**
      * Returns an error message as a HTTP response and

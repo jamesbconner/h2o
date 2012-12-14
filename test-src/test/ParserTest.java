@@ -1,37 +1,42 @@
 package test;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.Arrays;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+import org.junit.*;
+import water.*;
 import water.parser.ParseDataset;
+import water.util.KeyUtil;
 
 public class ParserTest {
+  private static int _initial_keycnt = 0;
+
   @BeforeClass public static void setupCloud() {
     H2O.main(new String[] {});
+    _initial_keycnt = H2O.store_size();
+  }
+
+  @AfterClass public static void checkLeakedKeys() {
+    DKV.write_barrier();
+    int leaked_keys = H2O.store_size() - _initial_keycnt;
+    assertEquals("No keys leaked", 0, leaked_keys);
   }
 
   private double[] d(double... ds) { return ds; }
-  private String[] s(String...ss)  { return ss; }
+  private String[] s(String...ss) { return ss; }
   private final double NaN = Double.NaN;
   private final char[] SEPARATORS = new char[] {',', ' '};
 
-  private Key k(String... data) {
+  private Key k(String kname, String... data) {
     Key[] keys = new Key[data.length];
-    Key k = Key.make();
+    Key k = Key.make(kname);
     ValueArray va = new ValueArray(k, data.length << ValueArray.LOG_CHK, Value.ICE);
-    DKV.put(k, va);
+    DKV.put(k, va.value());
     for (int i = 0; i < data.length; ++i) {
-      keys[i] = va.make_chunkkey(i << ValueArray.LOG_CHK);
+      keys[i] = va.getChunkKey(i);
       DKV.put(keys[i], new Value(keys[i], data[i]));
     }
+    DKV.write_barrier();
     return k;
   }
 
@@ -48,21 +53,23 @@ public class ParserTest {
     }
     return ((e1 == e2) && Math.abs(a - b) < threshold);
   }
-  public static void testParsed(Key k, double[][] expected) {
+  public static void testParsed(Key k, double[][] expected, Key inputkey) {
     try {
-      ValueArray va = (ValueArray) DKV.get(k);
-      Assert.assertEquals(expected.length,va.num_rows());
-      Assert.assertEquals(expected[0].length,va.num_cols());
-      for (int i = 0; i < va.num_rows(); ++i)
-        for (int j = 0; j < va.num_cols(); ++j) {
+      ValueArray va = ValueArray.value(DKV.get(k));
+      Assert.assertEquals(expected.length,va._numrows);
+      Assert.assertEquals(expected[0].length,va._cols.length);
+      for (int i = 0; i < va._numrows; ++i)
+        for (int j = 0; j < va._cols.length; ++j) {
           if (Double.isNaN(expected[i][j]))
-            Assert.assertFalse(i+" -- "+j, va.valid(i,j));
+            Assert.assertFalse(i+" -- "+j, !va.isNA(i,j));
           else
             Assert.assertTrue(compareDoubles(expected[i][j],va.datad(i,j),0.001));
         }
     } catch (IOException e) {
       Assert.assertTrue(false);
     }
+    UKV.remove(k);
+    UKV.remove(inputkey);
   }
 
   @Test public void testBasic() {
@@ -93,13 +100,13 @@ public class ParserTest {
       DKV.put(k, new Value(k, sb.toString()));
       Key r1 = Key.make("r1");
       ParseDataset.parse(r1, DKV.get(k));
-      testParsed(r1,exp);
+      testParsed(r1,exp,k);
       sb = new StringBuilder();
       for( int i = 0; i < dataset.length; ++i ) sb.append(dataset[i]).append("\r\n");
       DKV.put(k, new Value(k, sb.toString()));
       Key r2 = Key.make("r2");
       ParseDataset.parse(r2, DKV.get(k));
-      testParsed(r2,exp);
+      testParsed(r2,exp,k);
     }
   }
 
@@ -131,10 +138,10 @@ public class ParserTest {
 
     for (char separator : SEPARATORS) {
       String[] dataset = getDataForSeparator(separator, data);
-      Key k = k(dataset);
+      Key k = k("ChunkBoundaries",dataset);
       Key r3 = Key.make();
       ParseDataset.parse(r3,DKV.get(k));
-      testParsed(r3,exp);
+      testParsed(r3,exp,k);
     }
   }
 
@@ -148,9 +155,9 @@ public class ParserTest {
         "28|29|30"
     };
     double[][] exp = new double[][] {
-        d(1,  2,  3),
-        d(4,  5,  6),
-        d(7,  8,  9),
+        d(1, 2, 3),
+        d(4, 5, 6),
+        d(7, 8, 9),
         d(10, 11, 12),
         d(13, 14, 15),
         d(16, 17, 18),
@@ -162,19 +169,19 @@ public class ParserTest {
 
     for (char separator : SEPARATORS) {
       String[] dataset = getDataForSeparator(separator, data);
-      Key k = k(dataset);
+      Key k = k("ChunkBoundariesMixedLineEndings",dataset);
       Key r4 = Key.make();
       ParseDataset.parse(r4,DKV.get(k));
-      testParsed(r4,exp);
+      testParsed(r4,exp,k);
     }
   }
 
   @Test public void testNondecimalColumns() {
     String data[] = {
-          "1|  2|one\n"
-        + "3|  4|two\n"
-        + "5|  6|three\n"
-        + "7|  8|one\n"
+          "1| 2|one\n"
+        + "3| 4|two\n"
+        + "5| 6|three\n"
+        + "7| 8|one\n"
         + "9| 10|two\n"
         + "11|12|three\n"
         + "13|14|one\n"
@@ -184,10 +191,10 @@ public class ParserTest {
     };
 
     double[][] expDouble = new double[][] {
-        d(1,  2, 1), // preserve order
-        d(3,  4, 3),
-        d(5,  6, 2),
-        d(7,  8, 1),
+        d(1, 2, 1), // preserve order
+        d(3, 4, 3),
+        d(5, 6, 2),
+        d(7, 8, 1),
         d(9, 10, 3),
         d(11,12, 2),
         d(13,14, 1),
@@ -213,16 +220,16 @@ public class ParserTest {
 
     for (char separator : SEPARATORS) {
       String[] dataset = getDataForSeparator(separator, data);
-      Key key = k(dataset);
+      Key key = k("NondecimalColumns",dataset);
       Key r = Key.make();
       ParseDataset.parse(r,DKV.get(key));
-      ValueArray va = (ValueArray) DKV.get(r);
-      String[] cd = va.col_enum_domain(2);
+      ValueArray va = ValueArray.value(DKV.get(r));
+      String[] cd = va._cols[2]._domain;
       Assert.assertEquals(" four",cd[0]);
       Assert.assertEquals("one",cd[1]);
       Assert.assertEquals("three",cd[2]);
       Assert.assertEquals("two",cd[3]);
-      testParsed(r, expDouble);
+      testParsed(r, expDouble,key);
     }
   }
 
@@ -234,48 +241,48 @@ public class ParserTest {
     };
     for (char separator : SEPARATORS) {
       String[] dataset = getDataForSeparator(separator, data);
-      Key key = k(dataset);
+      Key key = k("NumberFormats",dataset);
       Key r = Key.make();
       ParseDataset.parse(r,DKV.get(key));
-      testParsed(r, expDouble);
+      testParsed(r, expDouble,key);
     }
   }
  @Test public void testMultipleNondecimalColumns() {
     String data[] = {
-        "foo|    2|one\n"
-      + "bar|    4|two\n"
-      + "foo|    6|three\n"
-      + "bar|    8|one\n"
+        "foo| 2|one\n"
+      + "bar| 4|two\n"
+      + "foo| 6|three\n"
+      + "bar| 8|one\n"
       + "bar|ten|two\n"
-      + "bar|   12|three\n"
+      + "bar| 12|three\n"
       + "foobar|14|one\n",
     };
     double[][] expDouble = new double[][] {
-        d(1,   2, 0), // preserve order
-        d(0,   4, 2),
-        d(1,   6, 1),
-        d(0,   8, 0),
+        d(1, 2, 0), // preserve order
+        d(0, 4, 2),
+        d(1, 6, 1),
+        d(0, 8, 0),
         d(0, NaN, 2),
-        d(0,  12, 1),
-        d(2,  14, 0),
+        d(0, 12, 1),
+        d(2, 14, 0),
     };
 
 
     for (char separator : SEPARATORS) {
       String[] dataset = getDataForSeparator(separator, data);
-      Key key = k(dataset);
+      Key key = k("MultipleNondecimalColumns",dataset);
       Key r = Key.make();
       ParseDataset.parse(r,DKV.get(key));
-      ValueArray va = (ValueArray) DKV.get(r);
-      String[] cd = va.col_enum_domain(2);
+      ValueArray va = ValueArray.value(DKV.get(r));
+      String[] cd = va._cols[2]._domain;
       Assert.assertEquals("one",cd[0]);
       Assert.assertEquals("three",cd[1]);
       Assert.assertEquals("two",cd[2]);
-      cd = va.col_enum_domain(0);
+      cd = va._cols[0]._domain;
       Assert.assertEquals("bar",cd[0]);
       Assert.assertEquals("foo",cd[1]);
       Assert.assertEquals("foobar",cd[2]);
-      testParsed(r, expDouble);
+      testParsed(r, expDouble,key);
     }
   }
 
@@ -301,22 +308,22 @@ public class ParserTest {
     final char separator = ',';
 
     String[] dataset = getDataForSeparator(separator, data);
-    Key key = k(dataset);
+    Key key = k("EmptyColumnValues",dataset);
     Key r = Key.make();
     ParseDataset.parse(r,DKV.get(key));
-    ValueArray va = (ValueArray) DKV.get(r);
-    String[] cd = va.col_enum_domain(3);
+    ValueArray va = ValueArray.value(DKV.get(r));
+    String[] cd = va._cols[3]._domain;
     Assert.assertEquals("bar",cd[0]);
     Assert.assertEquals("foo",cd[1]);
-    testParsed(r, expDouble);
+    testParsed(r, expDouble,key);
   }
 
 
   @Test public void testBasicSpaceAsSeparator() {
 
     String[] data = new String[] {
-        "   1|2|3",
-        "  4  |   5  |     6",
+        " 1|2|3",
+        " 4 | 5 | 6",
         "4|5.2 ",
         "asdf|qwer|1",
         "1.1",
@@ -340,7 +347,7 @@ public class ParserTest {
       DKV.put(k, new Value(k, sb.toString()));
       Key r5 = Key.make();
       ParseDataset.parse(r5, DKV.get(k));
-      testParsed(r5, exp);
+      testParsed(r5, exp,k);
     }
   }
 
@@ -353,5 +360,14 @@ public class ParserTest {
       result[i] = data[i].replace(placeholder, sep);
     }
     return result;
+  }
+
+  @Test public void testTimeParse() {
+    Key fkey = KeyUtil.load_test_file("smalldata/kaggle/bestbuy_train_10k.csv.gz");
+    Key okey = Key.make("bestbuy.hex");
+    ParseDataset.parse(okey,DKV.get(fkey));
+    UKV.remove(fkey);
+    ValueArray va = ValueArray.value(DKV.get(okey));
+    UKV.remove(okey);
   }
 }

@@ -3,12 +3,12 @@
  */
 package water.web;
 
-import java.io.*;
 import java.text.DateFormat;
 import java.util.*;
 import java.util.Map.Entry;
 
-import water.*;
+import water.DRemoteTask;
+import water.H2O;
 
 import com.google.gson.*;
 
@@ -20,7 +20,7 @@ public class DebugJStackView extends H2OPage {
 
   public static class JStackCollectorTask extends DRemoteTask {
 
-    /* OUT */ String[] result; /* for each node in the cloud it contains all threads stack traces */
+    String[] result; // for each node in the cloud it contains all threads stack traces
 
     public JStackCollectorTask() {
       result = new String[H2O.CLOUD._memary.length];
@@ -63,31 +63,6 @@ public class DebugJStackView extends H2OPage {
       for (int i=0; i < trace.length; i++) {
         sb.append("\tat "); sb.append(trace[i]); sb.append('\n');
       }
-    }
-
-    @Override public int wire_len() {
-      int len = 4 /* 4 bytes for array length */ ;
-      for (int i=0; i<result.length; ++i) {
-        len += 2 /* 2 bytes for string length */ + (result[i] != null ? result[i].length() : 0);
-      }
-      return len;
-    }
-
-    @Override public void read(DataInputStream is) throws IOException {
-      result = TCPReceiverThread.readStrAry(is);
-    }
-    @Override public void write(DataOutputStream os) throws IOException {
-      TCPReceiverThread.writeAry(os, result);
-    }
-    @Override public void read(Stream s) {
-      int len = s.get4();
-      result = len!=-1 ? new String[len] : null;
-      for (int i = 0; i<len; i++) result[i] = s.getLen2Str();
-    }
-    @Override public void write(Stream s) {
-      int len = result != null ? result.length : -1;
-      s.set4(len);
-      for (int i = 0; i<len; i++) s.setLen2Str(result[i]);
     }
   }
 

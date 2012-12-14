@@ -1,5 +1,5 @@
 import unittest
-import re, os, shutil
+import re, os, shutil, sys
 import h2o, h2o_cmd, h2o_hosts
 
 class Basic(unittest.TestCase):
@@ -202,9 +202,11 @@ if __name__ == '__main__':
                         '.data'
                     writeRows(csvPathname,newRows2,eol)
                     h2o_cmd.runRF(trees=1, timeoutSecs=10, csvPathname=csvPathname)
-    
+                    h2o.verboseprint("Set", set, "Trial #", trial)
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
+
                     trial += 1
-                    print "Set", set, "Trial #", trial
         return trial
     
     if os.path.exists(SYNDATASETS_DIR):

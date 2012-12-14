@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.SocketTimeoutException;
+import java.net.InetSocketAddress;
 import java.util.*;
 
 import org.apache.http.*;
@@ -21,43 +22,41 @@ import com.google.gson.*;
 
 public class PutFile extends H2OPage {
 
-    // Maximal waiting time for client connection.
-    // If the timeout is reached, server socket is closed.
-    public static final int ACCEPT_CLIENT_TIMEOUT = 1*60*1000; // = 1mins
+  // Maximal waiting time for client connection.
+  // If the timeout is reached, server socket is closed.
+  public static final int ACCEPT_CLIENT_TIMEOUT = 1*60*1000; // = 1mins
+  
+  public static int uploadFile(String filename, String key) throws PageError {
+    // Open a new port to listen by creating a server socket to permit upload.
+    // The socket is closed by the uploader thread.
+    ServerSocket serverSocket;
+    try {
+      // Setup server socket and get it port.
+      serverSocket = new ServerSocket(0, 1); // 0 = find an empty port, 1 = maximum length of queue
+      serverSocket.setSoTimeout(ACCEPT_CLIENT_TIMEOUT);
+      serverSocket.setReuseAddress(true);
+      int port = serverSocket.getLocalPort();
+      // Launch uploader thread which retrieve a byte stream from client
+      // and store it to key.
+      // If the client is not connected withing a specifed timeout, the
+      // thread is destroyed.
+      new UploaderThread(serverSocket, filename, key).start();
 
-    public static int uploadFile(String filename, String key, byte rf) throws PageError {
-      // Open a new port to listen by creating a server socket to permit upload.
-      // The socket is closed by the uploader thread.
-      ServerSocket serverSocket;
-      try {
-        // Setup server socket and get it port.
-        serverSocket = new ServerSocket(0, 1); // 0 = find an empty port, 1 = maximum length of queue
-        serverSocket.setSoTimeout(ACCEPT_CLIENT_TIMEOUT);
-        serverSocket.setReuseAddress(true);
-        int port = serverSocket.getLocalPort();
-        // Launch uploader thread which retrieve a byte stream from client
-        // and store it to key.
-        // If the client is not connected withing a specifed timeout, the
-        // thread is destroyed.
-        new UploaderThread(serverSocket, filename, key, rf).start();
+      return port;
 
-        return port;
-
-      } catch( IOException e ) {
-        throw new PageError("Cannot create server socket - please try one more time.");
-      }
+    } catch( IOException e ) {
+      throw new PageError("Cannot create server socket - please try one more time.");
     }
+  }
 
   @Override
   public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {
     // Get parameters: Key, file name, replication factor
-    String key   = args.getProperty("Key",UUID.randomUUID().toString());
+    String key = args.getProperty("Key",UUID.randomUUID().toString());
     if( key.isEmpty()) key = UUID.randomUUID().toString(); // additional check for empty Key-field since the Key-field can be returned as a part of form
     String fname = args.getProperty("File", "file"); // TODO: send file name
-    int    rf    = getAsNumber(args, "RF", Key.DEFAULT_DESIRED_REPLICA_FACTOR);
-    if( rf < 0 || 127 < rf) throw new PageError("Replication factor must be from 0 to 127.");
 
-    int port = uploadFile(fname, key, (byte) rf);
+    int port = uploadFile(fname, key);
     JsonObject res = new JsonObject();
     res.addProperty("port", port);
     return res;
@@ -69,18 +68,18 @@ public class PutFile extends H2OPage {
 
     RString response = new RString(html()); // FIXME: delete
     response.replace(json);
-    response.replace("host", H2O.SELF._key._inet.getHostAddress());
+    response.replace("host", H2O.SELF._key.getAddress().getHostAddress());
     return response.toString();
   }
 
   private String html() {
     return "<div class='alert alert-warning'>"
-    + "Upload the key to %host port %port via HTTP POST."
-    + "</div>"
-    + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
-    + "<a href='Put'><button class='btn'>Put again</button></a>"
-    + "</p>"
-    ;
+      + "Upload the key to %host port %port via HTTP POST."
+      + "</div>"
+      + "<p><a href='StoreView'><button class='btn btn-primary'>Back to Node</button></a>&nbsp;&nbsp;"
+      + "<a href='Put'><button class='btn'>Put again</button></a>"
+      + "</p>"
+      ;
   }
 
   // Thread handling upload of a (possibly large) file.
@@ -91,14 +90,12 @@ public class PutFile extends H2OPage {
     // Key properties
     String filename;
     String keyname;
-    byte   rf;
 
-    public UploaderThread(ServerSocket ssocket, String filename, String keyname, byte rf) {
+    public UploaderThread(ServerSocket ssocket, String filename, String keyname) {
       super("Uploader thread for: " + filename);
-      this.ssocket  = ssocket;
+      this.ssocket = ssocket;
       this.filename = filename;
-      this.keyname  = keyname;
-      this.rf       = rf;
+      this.keyname = keyname;
     }
 
     @Override
@@ -110,12 +107,12 @@ public class PutFile extends H2OPage {
           // Wait for the 1st connection and handle connection in this thread.
           DefaultHttpServerConnection conn = new DefaultHttpServerConnection();
           conn.bind(ssocket.accept(), new BasicHttpParams());
-          HttpRequest request           = conn.receiveRequestHeader();
-          RequestLine requestLine       = request.getRequestLine();
+          HttpRequest request = conn.receiveRequestHeader();
+          RequestLine requestLine = request.getRequestLine();
 
           try {
             HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, null);
-            boolean      finish   = false;
+            boolean finish = false;
             if (requestLine.getMethod().equals("OPTIONS")) {
               finish = handleOPTIONS(conn, request, response);
             } else if (requestLine.getMethod().equals("POST")) {
@@ -163,7 +160,7 @@ public class PutFile extends H2OPage {
       // TODO: support chunked uploads
       Header contentTypeHeader = request.getFirstHeader("Content-Type");
       if (contentTypeHeader == null || !contentTypeHeader.getValue().startsWith("multipart/form-data")) { // File is not received
-        sendError(response, HttpStatus.SC_BAD_REQUEST, "Request including multiopar/form-data is expected");
+        sendError(response, HttpStatus.SC_BAD_REQUEST, "Request including multipart/form-data is expected");
         return true;
       }
 
@@ -182,9 +179,9 @@ public class PutFile extends H2OPage {
         entity.skipHeader();
 
         // Read directly from stream and create a key
-        Key key                = ValueArray.read_put_stream(keyname, entity.getContent(), rf);
+        Key key = ValueArray.readPut(keyname, entity.getContent());
         JsonElement jsonResult = getJsonResult(key);
-        String      result     = jsonResult.toString();
+        String result = jsonResult.toString();
 
         response.setStatusCode(HttpStatus.SC_OK);
         response.setReasonPhrase("OK");
@@ -213,11 +210,10 @@ public class PutFile extends H2OPage {
       Value val = DKV.get(key);
       // The returned JSON object should follow structure of jquery-upload plugin
       JsonArray jsonResult = new JsonArray();
-      JsonObject jsonFile   = new JsonObject();
+      JsonObject jsonFile = new JsonObject();
       jsonFile.addProperty("name", filename);
       jsonFile.addProperty("size", val.length());
-      jsonFile.addProperty("url",  "/Get?Key=" + key.toString());
-      jsonFile.addProperty("rf",   rf);
+      jsonFile.addProperty("url", "/Get?Key=" + key.toString());
       jsonFile.addProperty("key", key.toString());
       jsonResult.add(jsonFile);
 
@@ -248,10 +244,10 @@ public class PutFile extends H2OPage {
       while ((c = is.read()) != -1) {
         switch( mode ) {
         case 0 : if (c=='\n') mode= 1; else if (c=='\r') mode=11; else mode = 0; break;
-        case 1 : if (c=='\n') return;  else if (c=='\r') mode= 0; else mode = 0; break;
+        case 1 : if (c=='\n') return; else if (c=='\r') mode= 0; else mode = 0; break;
         case 11: if (c=='\n') mode=12; else if (c=='\r') mode=11; else mode = 0; break;
         case 12: if (c=='\n') mode= 0; else if (c=='\r') mode=13; else mode = 0; break;
-        case 13: if (c=='\n') return;  else if (c=='\r') mode=11; else mode = 0; break;
+        case 13: if (c=='\n') return; else if (c=='\r') mode=11; else mode = 0; break;
         }
       }
     }
@@ -266,27 +262,27 @@ public class PutFile extends H2OPage {
       InputStream wrappedIs;
 
       byte[] lookAheadBuf;
-      int    lookAheadLen;
+      int lookAheadLen;
 
       public InputStreamWrapper(InputStream is) {
-        this.wrappedIs   = is;
+        this.wrappedIs = is;
         this.lookAheadBuf = new byte[boundary.length];
         this.lookAheadLen = 0;
       }
 
-      @Override public void    close()      throws IOException  { wrappedIs.close();                }
-      @Override public int     available()  throws IOException  { return wrappedIs.available();     }
-      @Override public long    skip(long n) throws IOException  { return wrappedIs.skip(n);         }
-      @Override public void    mark(int readlimit)              { wrappedIs.mark(readlimit);        }
-      @Override public void    reset()      throws IOException  { wrappedIs.reset();                }
-      @Override public boolean markSupported()                  { return wrappedIs.markSupported(); }
+      @Override public void close() throws IOException { wrappedIs.close(); }
+      @Override public int available() throws IOException { return wrappedIs.available(); }
+      @Override public long skip(long n) throws IOException { return wrappedIs.skip(n); }
+      @Override public void mark(int readlimit) { wrappedIs.mark(readlimit); }
+      @Override public void reset() throws IOException { wrappedIs.reset(); }
+      @Override public boolean markSupported() { return wrappedIs.markSupported(); }
 
-      @Override public int     read()         throws IOException { throw new UnsupportedOperationException(); }
-      @Override public int     read(byte[] b) throws IOException { return read(b, 0, b.length); }
-      @Override public int     read(byte[] b, int off, int len) throws IOException {
+      @Override public int read() throws IOException { throw new UnsupportedOperationException(); }
+      @Override public int read(byte[] b) throws IOException { return read(b, 0, b.length); }
+      @Override public int read(byte[] b, int off, int len) throws IOException {
         int readLen = readInternal(b, off, len);
         if (readLen != -1) {
-          int pos     = findBoundary(b, off, readLen);
+          int pos = findBoundary(b, off, readLen);
           if (pos != -1) {
             while (wrappedIs.read()!=-1) ; // read the rest of stream
             return pos - off;
@@ -301,7 +297,7 @@ public class PutFile extends H2OPage {
           off += lookAheadLen;
           len -= lookAheadLen;
         }
-        int readLen  = wrappedIs.read(b, off, len) + lookAheadLen;
+        int readLen = wrappedIs.read(b, off, len) + lookAheadLen;
         lookAheadLen = 0;
         return readLen;
       }
@@ -309,10 +305,10 @@ public class PutFile extends H2OPage {
       // Find boundary in read buffer
       private int findBoundary(byte[] b, int off, int len) throws IOException {
         int bidx = -1; // start index of boundary
-        int idx  = 0;  // actual index in boundary[]
+        int idx = 0; // actual index in boundary[]
         for(int i = off; i < off+len; i++) {
           if (boundary[idx] != b[i]) { // reset
-            idx  = 0;
+            idx = 0;
             bidx = -1;
           }
           if (boundary[idx] == b[i]) {
@@ -323,7 +319,7 @@ public class PutFile extends H2OPage {
         if (bidx != -1) { // it seems that there is boundary but we did not match all boundary length
           assert lookAheadLen == 0; // There should not be not read lookahead
           lookAheadLen = boundary.length - idx;
-          int readLen  = wrappedIs.read(lookAheadBuf, 0, lookAheadLen);
+          int readLen = wrappedIs.read(lookAheadBuf, 0, lookAheadLen);
           if (readLen < boundary.length - idx) { // There is not enough data to match boundary
             lookAheadLen = readLen;
             return -1;

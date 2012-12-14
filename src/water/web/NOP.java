@@ -1,13 +1,8 @@
 package water.web;
-
-
-import hex.NOPTask;
-
-import java.util.Properties;
-
-import water.*;
-
 import com.google.gson.JsonObject;
+import hex.NOPTask;
+import java.util.Properties;
+import water.*;
 
 public class NOP extends H2OPage {
 
@@ -20,12 +15,10 @@ public class NOP extends H2OPage {
       res.addProperty("error", "no such key in K/V store!");
       return res;
     }
-    if(!(v instanceof ValueArray)){
+    if( v._isArray==0 ){
       byte [] mem = v.get();
       int r = 0;
-      for(byte b:mem){
-        r ^= b;
-      }
+      for(byte b:mem) r ^= b;
       res.addProperty("result", r);
       return res;
     }

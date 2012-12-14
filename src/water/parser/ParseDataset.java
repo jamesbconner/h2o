@@ -1,14 +1,16 @@
-
 package water.parser;
+import com.google.common.io.Closeables;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.zip.*;
-
 import water.*;
 import water.ValueArray.Column;
-
-import com.google.common.io.Closeables;
+import water.parser.ValueString;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured
@@ -25,13 +27,13 @@ public final class ParseDataset {
 
 // Guess
  private static Compression guessCompressionMethod(Value dataset) {
-   Value v0 = DKV.get(dataset.chunk_get(0)); // First chunk
-   byte[] b = v0.get();                      // Bytes for 1st chunk
+   byte[] b = dataset.getFirstBytes(); // First chunk
+   AutoBuffer ab = new AutoBuffer(b);
 
    // Look for ZIP magic
-   if (b.length > ZipFile.LOCHDR && UDP.get4(b, 0) == ZipFile.LOCSIG)
+   if (b.length > ZipFile.LOCHDR && ab.get4(0) == ZipFile.LOCSIG)
      return Compression.ZIP;
-   if (b.length > 2 && UDP.get2(b, 0) == GZIPInputStream.GZIP_MAGIC)
+   if (b.length > 2 && ab.get2(0) == GZIPInputStream.GZIP_MAGIC)
      return Compression.GZIP;
    return Compression.NONE;
  }
@@ -39,8 +41,11 @@ public final class ParseDataset {
   // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
   // result.
   public static void parse( Key result, Value dataset ) {
-    if( dataset instanceof ValueArray && ((ValueArray)dataset).num_cols() > 0 )
-      throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
+    if( dataset._isArray != 0 ) {
+      ValueArray ary = ValueArray.value(dataset);
+      if( ary._cols.length > 1 || ary._cols[0]._size != 1 )
+        throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
+    }
     try {
       // try if it is XLS file first
       try {
@@ -60,16 +65,17 @@ public final class ParseDataset {
       }
       switch (compression) {
         case NONE: parseUncompressed(result, dataset,CustomParser.Type.CSV); break;
-        case ZIP : parseZipped      (result, dataset); break;
-        case GZIP: parseGZipped     (result, dataset); break;
-        default  : throw new Error("Uknown compression of dataset!");
+        case ZIP : parseZipped (result, dataset); break;
+        case GZIP: parseGZipped (result, dataset); break;
+        default : throw new Error("Uknown compression of dataset!");
       }
     } catch( Exception e ) {
       throw new Error(e);
     }
   }
+
  // Parse the uncompressed dataset as a CSV-style structure and produce a structured dataset
- // result.  This does a distributed parallel parse.
+ // result. This does a distributed parallel parse.
   public static void parseUncompressed( Key result, Value dataset, CustomParser.Type parserType ) throws Exception {
     DParseTask phaseOne = DParseTask.createPassOne(dataset, result, parserType);
     phaseOne.passOne();
@@ -79,7 +85,7 @@ public final class ParseDataset {
     }
     DParseTask phaseTwo = DParseTask.createPassTwo(phaseOne);
     phaseTwo.passTwo();
-    phaseTwo.block_pending();
+    DKV.write_barrier();        // Final write-barrier
     if ((phaseTwo._error != null) && !phaseTwo._error.isEmpty()) {
       System.err.println(phaseTwo._error);
       UKV.remove(result); // delete bad stuff if any
@@ -100,7 +106,7 @@ public final class ParseDataset {
       ZipEntry ze = zis.getNextEntry();
       // There is at least one entry in zip file and it is not a directory.
       if (ze != null && !ze.isDirectory()) {
-        key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", zis, Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+        key = ValueArray.readPut(new String(dataset._key._kb) + "_UNZIPPED", zis);
       }
       // else it is possible to dive into a directory but in this case I would
       // prefer to return error since the ZIP file has not expected format
@@ -108,6 +114,7 @@ public final class ParseDataset {
     if( key == null ) throw new Error("Cannot uncompressed ZIP-compressed dataset!");
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
+    UKV.remove(key);
   }
 
   public static void parseGZipped( Key result, Value dataset ) throws IOException {
@@ -115,12 +122,13 @@ public final class ParseDataset {
     Key key = null;
     try {
       gzis = new GZIPInputStream(dataset.openStream());
-      key = ValueArray.read_put_stream(new String(dataset._key._kb) + "_UNZIPPED", gzis, Key.DEFAULT_DESIRED_REPLICA_FACTOR);
+      key = ValueArray.readPut(new String(dataset._key._kb) + "_UNZIPPED", gzis);
     } finally { Closeables.closeQuietly(gzis); }
 
     if( key == null ) throw new Error("Cannot uncompressed GZIP-compressed dataset!");
     Value uncompressedDataset = DKV.get(key);
     parse(result, uncompressedDataset);
+    UKV.remove(key);
   }
 
   // True if the array is all NaNs
@@ -145,51 +153,52 @@ public final class ParseDataset {
    */
   public static final class DParseTask extends MRTask {
     // pass 1 types
-    static final byte UCOL  = 0;  // unknown
-    static final byte ECOL  = 11;  // enum column
-    static final byte ICOL  = 12;  // integer column
-    static final byte FCOL  = 13;  // float column
-    static final byte DCOL  = 14;  // double column
+    static final byte UCOL = 0;  // unknown
+    static final byte ECOL = 11; // enum column
+    static final byte ICOL = 12; // integer column
+    static final byte FCOL = 13; // float column
+    static final byte DCOL = 14; // double column
+    static final byte TCOL = 15; // time column
     // pass 2 types
-    static final byte BYTE  = 1;
+    static final byte BYTE = 1;
     static final byte SHORT = 2;
-    static final byte INT   = 3;
-    static final byte LONG  = 4;
+    static final byte INT = 3;
+    static final byte LONG = 4;
     static final byte DBYTE = 5;
     static final byte DSHORT= 6;
     static final byte FLOAT = 7;
     static final byte DOUBLE= 8;
-    static final byte STRINGCOL = 9;  // string column (too many enum values)
+    static final byte STRINGCOL = 9; // string column (too many enum values)
 
     static final int [] colSizes = new int[]{0,1,2,4,8,1,2,-4,-8,1};
 
     // scalar variables
     boolean _skipFirstLine;
-    int     _chunkId = -1;
-    int     _phase;
-    int     _myrows;
-    int     _ncolumns;
-    byte    _sep = (byte)',';
-    byte    _decSep = (byte)'.';
-    int     _rpc;
-    int     _rowsize;
-    int     _numRows; // number of rows -- works only in second pass FIXME in first pass object
+    long _chunkId = -1;
+    int _phase;
+    int _myrows;
+    int _ncolumns;
+    byte _sep = (byte)',';
+    byte _decSep = (byte)'.';
+    int _rpc;
+    int _rowsize;
+    int _numRows; // number of rows -- works only in second pass FIXME in first pass object
     // 31 bytes
 
     Key _resultKey;
-    String  _error;
+    String _error;
 
     // arrays
-    byte     [] _colTypes;
-    int      [] _scale;
-    int      [] _bases;
-    long     [] _invalidValues;
-    double   [] _min;
-    double   [] _max;
-    double   [] _mean;
-    double   [] _sigma;
-    int      [] _nrows;
-    Enum     [] _enums;
+    byte [] _colTypes;
+    int [] _scale;
+    int [] _bases;
+    long [] _invalidValues;
+    double [] _min;
+    double [] _max;
+    double [] _mean;
+    double [] _sigma;
+    int [] _nrows;
+    Enum [] _enums;
 
     // transients - each map creates and uses it's own, no need to get these back
     // create and used only on the task caller's side
@@ -211,28 +220,26 @@ public final class ParseDataset {
       final int _chunkIndex;
       final int _chunkOffset;
       final int _numRows;
-      Stream _stream;
+      AutoBuffer _ab;
 
       /** Allocates the stream for the chunk. Streams should only be allocated
        * right before the record will be used and should be stored immediately
        * after that.
        */
-      public Stream initialize() {
-        assert (_stream == null);
-        _stream = new Stream(_numRows * _rowsize);
-        return _stream;
+      public AutoBuffer initialize() {
+        assert  _ab == null;
+        return (_ab = new AutoBuffer(_numRows * _rowsize));
       }
 
       /** Stores the stream to its chunk using the atomic union. After the data
        * from the stream is stored, its memory is freed up.
        */
       public void store() {
-        assert (_stream != null);
-        assert (_stream.eof());
-        Key k = ValueArray.make_chunkkey(_resultKey,ValueArray.chunk_offset(_chunkIndex));
-        AtomicUnion u = new AtomicUnion(_stream._buf,0,_chunkOffset,_stream._buf.length);
-        lazy_complete(u.fork(k));
-        _stream = null; // free mem
+        assert _ab.eof();
+        Key k = ValueArray.getChunkKey(_chunkIndex, _resultKey);
+        AtomicUnion u = new AtomicUnion(_ab.bufClose(),_chunkOffset);
+        alsoBlockFor(u.fork(k));
+        _ab = null; // free mem
       }
 
       // You are not expected to create record streams yourself, use the
@@ -255,7 +262,7 @@ public final class ParseDataset {
     protected OutputStreamRecord[] createRecords(long firstRow, int rowsToParse) {
       assert (_rowsize != 0);
       ArrayList<OutputStreamRecord> result = new ArrayList();
-      int rpc = (int) ValueArray.chunk_size() / _rowsize;
+      int rpc = (int) ValueArray.CHUNK_SZ / _rowsize;
       int rowInChunk = (int)firstRow % rpc;
       int lastChunk = Math.max(1,this._numRows / rpc) - 1; // index of the last chunk in the VA
       int chunkIndex = (int)firstRow/rpc; // index of the chunk I am writing to
@@ -286,8 +293,8 @@ public final class ParseDataset {
     }
 
     transient OutputStreamRecord[] _outputStreams2;
-    transient Stream _s;
-    transient int    _outputIdx;
+    transient AutoBuffer _ab;
+    transient int _outputIdx;
     transient String[] _colNames;
     transient final CustomParser.Type _parserType;
     transient final Value _sourceDataset;
@@ -304,10 +311,6 @@ public final class ParseDataset {
     /** Private constructor for phase one.
      *
      * use createPhaseOne() static method instead.
-     *
-     * @param dataset
-     * @param resultKey
-     * @param parserType
      */
     private DParseTask(Value dataset, Key resultKey, CustomParser.Type parserType) {
       _parserType = parserType;
@@ -377,7 +380,7 @@ public final class ParseDataset {
       switch (_parserType) {
         case CSV:
           // precompute the parser setup, column setup and other settings
-          byte [] bits = DKV.get(_sourceDataset.chunk_get(0)).get(256*1024);
+          byte [] bits = _sourceDataset.getFirstBytes(); // Can limit to eg 256*1024
           CsvParser.Setup setup = CsvParser.guessCsvSetup(bits);
           if (setup == null)
             throw new Exception("Unable to determine the separator, or number of columns on the dataset");
@@ -387,9 +390,9 @@ public final class ParseDataset {
           // set the separator
           this._sep = setup.separator;
           // if parsing value array, initialize the nrows array
-          if (_sourceDataset instanceof ValueArray) {
-            ValueArray ary = (ValueArray) _sourceDataset;
-            _nrows = new int[(int)ary.chunks()];
+          if( _sourceDataset._isArray != 0 ) {
+            ValueArray ary = ValueArray.value(_sourceDataset);
+            _nrows = new int[(int)ary._chunks];
           }
           // launch the distributed parser on its chunks.
           this.invoke(_sourceDataset._key);
@@ -426,9 +429,6 @@ public final class ParseDataset {
     }
 
     /** Creates the second pass dparse task from a first phase one.
-     *
-     * @param phaseOneTask
-     * @return
      */
     public static DParseTask createPassTwo(DParseTask phaseOneTask) {
       DParseTask t = new DParseTask(phaseOneTask);
@@ -456,8 +456,6 @@ public final class ParseDataset {
      *
      * For XLS and XLSX parsers computes all the chunks itself as there is no
      * option for their distributed processing.
-     *
-     * @throws Exception
      */
     public void passTwo() throws Exception {
       switch (_parserType) {
@@ -473,12 +471,12 @@ public final class ParseDataset {
           // create the output streams
           _outputStreams2 = createRecords(0, _myrows);
           assert (_outputStreams2.length > 0);
-          _s = _outputStreams2[0].initialize();
+          _ab = _outputStreams2[0].initialize();
           // perform the second parse pass
           CustomParser p = (_parserType == CustomParser.Type.XLS) ? new XlsParser(this) : new XlsxParser(this);
           p.parse(_sourceDataset._key);
           // store the last stream if not stored during the parse
-          if (_s != null)
+          if (_ab != null)
             _outputStreams2[_outputIdx].store();
           break;
         default:
@@ -499,25 +497,25 @@ public final class ParseDataset {
       assert (_phase == PASS_TWO);
       Column[] cols = new Column[_ncolumns];
       int off = 0;
-      for(int i = 0; i < cols.length; ++i){
-        cols[i]         = new Column();
-        cols[i]._badat  = (char)Math.min(65535, _invalidValues[i] );
-        cols[i]._base   = _bases[i];
-        assert (short)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!,  col = " + i + ", scale = " + _scale[i];
-        cols[i]._scale  = (short)pow10i(-_scale[i]);
-        cols[i]._off    = (short)off;
-        cols[i]._size   = (byte)colSizes[_colTypes[i]];
-        cols[i]._domain = new ValueArray.ColumnDomain(_colDomains[i]);
-        cols[i]._max    = _max[i];
-        cols[i]._min    = _min[i];
-        cols[i]._mean   = _mean[i];
-        cols[i]._sigma  = _sigma[i];
-        cols[i]._name   = _colNames[i];
-        off +=  Math.abs(cols[i]._size);
+      for( int i = 0; i < cols.length; ++i) {
+        cols[i] = new Column();
+        cols[i]._n = _numRows - _invalidValues[i];
+        cols[i]._base = _bases[i];
+        assert (char)pow10i(-_scale[i]) == pow10i(-_scale[i]):"scale out of bounds!, col = " + i + ", scale = " + _scale[i];
+        cols[i]._scale = (char)pow10i(-_scale[i]);
+        cols[i]._off = (char)off;
+        cols[i]._size = (byte)colSizes[_colTypes[i]];
+        cols[i]._domain = _colDomains[i];
+        cols[i]._max = _max[i];
+        cols[i]._min = _min[i];
+        cols[i]._mean = _mean[i];
+        cols[i]._sigma = _sigma[i];
+        cols[i]._name = _colNames[i];
+        off += Math.abs(cols[i]._size);
       }
       // finally make the value array header
-      ValueArray ary = ValueArray.make(_resultKey, Value.ICE, _sourceDataset._key, "basic_parse", _numRows, off, cols);
-      DKV.put(_resultKey, ary);
+      ValueArray ary = new ValueArray(_resultKey, _numRows, off, cols);
+      DKV.put(_resultKey, ary.value());
     }
 
     private void createEnums() {
@@ -534,8 +532,6 @@ public final class ParseDataset {
     }
     /** Sets the column names and creates the array of the enums for each
      * column.
-     *
-     * @param colNames
      */
     public void setColumnNames(String[] colNames) {
       if (_phase == PASS_ONE) {
@@ -569,8 +565,7 @@ public final class ParseDataset {
       _colTypes = new byte[_ncolumns];
     }
 
-    /** Initializes the phase two data.
-     */
+    /** Initializes the phase two data. */
     public void phaseTwoInitialize() {
       assert (_phase == PASS_TWO);
       _invalidValues = new long[_ncolumns];
@@ -586,8 +581,6 @@ public final class ParseDataset {
      *
      * The second pass then encodes the parsed dataset to the result key,
      * splitting it into equal sized chunks.
-     *
-     * @param key
      */
     @Override public void map(Key key) {
       try {
@@ -595,7 +588,7 @@ public final class ParseDataset {
         boolean arraylet = key._kb[0] == Key.ARRAYLET_CHUNK;
         boolean skipFirstLine = _skipFirstLine;
         if(arraylet) {
-          aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
+          aryKey = ValueArray.getArrayKey(key);
           _chunkId = ValueArray.getChunkIndex(key);
           skipFirstLine = skipFirstLine || (ValueArray.getChunkIndex(key) != 0);
         }
@@ -608,8 +601,11 @@ public final class ParseDataset {
             CsvParser p = new CsvParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
             p.parse(key);
             if(arraylet) {
-              assert (_nrows[ValueArray.getChunkIndex(key)] == 0) : ValueArray.getChunkIndex(key)+": "+Arrays.toString(_nrows)+" ("+_nrows[ValueArray.getChunkIndex(key)]+" -- "+_myrows+")";
-              _nrows[ValueArray.getChunkIndex(key)] = _myrows;
+              long idx = ValueArray.getChunkIndex(key);
+              int idx2 = (int)idx;
+              assert idx2 == idx;
+              assert (_nrows[idx2] == 0) : idx+": "+Arrays.toString(_nrows)+" ("+_nrows[idx2]+" -- "+_myrows+")";
+              _nrows[idx2] = _myrows;
             }
             break;
           case PASS_TWO:
@@ -629,12 +625,12 @@ public final class ParseDataset {
             // create the output streams
             _outputStreams2 = createRecords(firstRow, rowsToParse);
             assert (_outputStreams2.length > 0);
-            _s = _outputStreams2[0].initialize();
+            _ab = _outputStreams2[0].initialize();
             // perform the second parse pass
             CsvParser p2 = new CsvParser(aryKey, _ncolumns, _sep, _decSep, this,skipFirstLine);
             p2.parse(key);
             // store the last stream if not stored during the parse
-            if (_s != null)
+            if (_ab != null)
               _outputStreams2[_outputIdx].store();
             break;
           default:
@@ -672,6 +668,7 @@ public final class ParseDataset {
               if(other._min[i] < _min[i])_min[i] = other._min[i];
               if(other._max[i] > _max[i])_max[i] = other._max[i];
               if(other._scale[i] < _scale[i])_scale[i] = other._scale[i];
+              assert _colTypes[i] != TCOL || other._colTypes[i] == TCOL; // Both or neither are time
               if(other._colTypes[i] > _colTypes[i])_colTypes[i] = other._colTypes[i];
               _mean[i] += other._mean[i];
             }
@@ -739,7 +736,7 @@ public final class ParseDataset {
     }
 
     @SuppressWarnings("fallthrough")
-    private void calculateColumnEncodings(){
+    private void calculateColumnEncodings() {
       assert (_bases != null);
       assert (_min != null);
       for(int i = 0; i < _ncolumns; ++i){
@@ -792,6 +789,16 @@ public final class ParseDataset {
           _bases[i] = 0;
           _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
           break;
+
+        case TCOL:                // Time; millis since jan 1, 1970
+          _scale[i] = -1;
+          _bases[i] = 0;
+          _min[i] = 0.0;
+          _max[i] = System.currentTimeMillis();
+          _colTypes[i] = LONG;
+          break;
+
+        default: throw H2O.unimpl();
         }
       }
     }
@@ -806,13 +813,13 @@ public final class ParseDataset {
           addInvalidCol(_colIdx);
         _colIdx = 0;
         // if we are at the end of current stream, move to the next one
-        if (_s.eof()) {
+        if (_ab.eof()) {
           _outputStreams2[_outputIdx].store();
           ++_outputIdx;
           if (_outputIdx < _outputStreams2.length) {
-            _s = _outputStreams2[_outputIdx].initialize();
+            _ab = _outputStreams2[_outputIdx].initialize();
           } else {
-            _s = null; // just to be sure we throw a NPE if there is a problem
+            _ab = null; // just to be sure we throw a NPE if there is a problem
           }
         }
       }
@@ -823,7 +830,7 @@ public final class ParseDataset {
      */
     public void rollbackLine() {
       --_myrows;
-      assert (_phase == 0 || _s == null);
+      assert (_phase == 0 || _ab == null) : "p="+_phase+" ab="+_ab;
     }
 
     /** Adds double value to the column.
@@ -835,7 +842,7 @@ public final class ParseDataset {
       if (Double.isNaN(value)) {
         addInvalidCol(colIdx);
       } else {
-        double  d= value;
+        double d= value;
         int exp = 0;
         long number = (long)d;
         while (number != d) {
@@ -847,10 +854,7 @@ public final class ParseDataset {
       }
     }
 
-    /** Adds invalid value to the column.
-     *
-     * @param colIdx
-     */
+    /** Adds invalid value to the column.  */
     public void addInvalidCol(int colIdx){
       ++_colIdx;
       if(colIdx >= _ncolumns)
@@ -861,47 +865,56 @@ public final class ParseDataset {
       switch (_colTypes[colIdx]) {
         case BYTE:
         case DBYTE:
-          _s.set1(-1);
+          _ab.put1(-1);
           break;
         case SHORT:
         case DSHORT:
-          _s.set2(-1);
+          _ab.put2((short)-1);
           break;
         case INT:
-          _s.set4(Integer.MIN_VALUE);
+          _ab.put4(Integer.MIN_VALUE);
           break;
         case LONG:
-          _s.set8(Long.MIN_VALUE);
+          _ab.put8(Long.MIN_VALUE);
           break;
         case FLOAT:
-          _s.set4f(Float.NaN);
+          _ab.put4f(Float.NaN);
           break;
         case DOUBLE:
-          _s.set8d(Double.NaN);
+          _ab.put8d(Double.NaN);
           break;
         case STRINGCOL:
           // TODO, replace with empty space!
-          _s.set1(-1);
+          _ab.put1(-1);
           break;
         default:
           assert false:"illegal case: " + _colTypes[colIdx];
       }
     }
 
-    /** Adds string (enum) value to the column.
-     */
-    public void addStrCol(int colIdx, ValueString str){
-      if(colIdx >= _ncolumns)
+    /** Adds string (enum) value to the column. */
+    public void addStrCol( int colIdx, ValueString str ) {
+      if( colIdx >= _ncolumns )
         return;
       switch (_phase) {
         case PASS_ONE:
           ++_colIdx;
+          // If this is a yet unspecified but non-numeric column, attempt a time-parse
+          if( _colTypes[colIdx] == UCOL ) {
+            long time = attemptTimeParse(str);
+            if( time != Long.MIN_VALUE )
+              _colTypes[colIdx] = TCOL;
+          } else if( _colTypes[colIdx] == TCOL ) {
+            return;
+          }
+
+          // Now attempt to make this an Enum col
           Enum e = _enums[colIdx];
-          if(e == null || e.isKilled())return;
-          if(_colTypes[colIdx] ==UCOL)
+          if( e == null || e.isKilled() ) return;
+          if( _colTypes[colIdx] == UCOL )
             _colTypes[colIdx] = ECOL;
           e.addKey(str);
-          ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used fo mean computation, is recomputed in 2nd pass)
+          ++_invalidValues[colIdx]; // invalid count in phase0 is in fact number of non-numbers (it is used for mean computation, is recomputed in 2nd pass)
           break;
         case PASS_TWO:
           if(_enums[colIdx] != null) {
@@ -910,18 +923,15 @@ public final class ParseDataset {
             // we do not expect any misses here
             assert 0 <= id && id < _enums[colIdx].size();
             switch (_colTypes[colIdx]) {
-            case BYTE:
-              _s.set1(id);
-              break;
-            case SHORT:
-              _s.set2(id);
-              break;
-            case INT:
-              _s.set4(id);
-              break;
-            default:
-              assert false:"illegal case: " + _colTypes[colIdx];
+            case BYTE:  _ab.put1(      id); break;
+            case SHORT: _ab.put2((char)id); break;
+            case INT:   _ab.put4(      id); break;
+            default:    assert false:"illegal case: " + _colTypes[colIdx];
             }
+          } else if( _colTypes[colIdx] == LONG ) {
+            ++_colIdx;
+            // Times are strings with a numeric column type of LONG
+            _ab.put8(attemptTimeParse(str));
           } else {
             addInvalidCol(colIdx);
           }
@@ -931,8 +941,7 @@ public final class ParseDataset {
       }
     }
 
-    /** Adds number value to the column parsed with mantissa and exponent.
-     */
+    /** Adds number value to the column parsed with mantissa and exponent.  */
     static final int MAX_FLOAT_MANTISSA = 0x7FFFFF;
     @SuppressWarnings("fallthrough")
     public void addNumCol(int colIdx, long number, int exp) {
@@ -960,30 +969,30 @@ public final class ParseDataset {
         case PASS_TWO:
           switch (_colTypes[colIdx]) {
             case BYTE:
-              _s.set1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              _ab.put1((byte)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
               break;
             case SHORT:
-              _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              _ab.put2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
               break;
             case INT:
-              _s.set4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              _ab.put4((int)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
               break;
             case LONG:
-              _s.set8(number*pow10i(exp - _scale[colIdx]));
+              _ab.put8(number*pow10i(exp - _scale[colIdx]));
               break;
             case FLOAT:
-              _s.set4f((float)(number * pow10(exp)));
+              _ab.put4f((float)(number * pow10(exp)));
               break;
             case DOUBLE:
-              _s.set8d(number * pow10(exp));
+              _ab.put8d(number * pow10(exp));
               break;
             case DBYTE:
-              _s.set1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              _ab.put1((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
               break;
             case DSHORT:
               // scale is computed as negative in the first pass,
               // therefore to compute the positive exponent after scale, we add scale and the original exponent
-              _s.set2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
+              _ab.put2((short)(number*pow10i(exp - _scale[colIdx]) - _bases[colIdx]));
               break;
             case STRINGCOL:
               break;
@@ -998,21 +1007,36 @@ public final class ParseDataset {
           assert (false);
       }
     }
+
+    // Deduce if we are looking at a Date/Time value, or not.
+    // If so, return time as msec since Jan 1, 1970 or Long.MIN_VALUE.
+    static final SimpleDateFormat SDFS[] = {
+      new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"),
+      new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    };
+    private long attemptTimeParse( ValueString str ) {
+      String s = str.toString().toLowerCase();
+      for( SimpleDateFormat sdf : SDFS ) {
+        try { return sdf.parse(s).getTime(); }
+        catch( ParseException pe ) { }
+      }
+      return Long.MIN_VALUE;
+    }
   }
 
   public static class AtomicUnion extends Atomic {
     Key _key;
     int _dst_off;
     public AtomicUnion() {}
-    public AtomicUnion(byte [] buf, int srcOff, int dstOff, int len){
+    public AtomicUnion(byte[] buf, int dstOff){
       _dst_off = dstOff;
       _key = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
-      DKV.put(_key, new Value(_key, MemoryManager.arrayCopyOfRange(buf, srcOff, srcOff+len)));
+      UKV.put(_key, new Value(_key, buf));
     }
     @Override public byte[] atomic( byte[] bits1 ) {
       byte[] mem = DKV.get(_key).get();
       int len = Math.max(_dst_off + mem.length,bits1==null?0:bits1.length);
-      byte[] bits2 = MemoryManager.allocateMemory(len);
+      byte[] bits2 = MemoryManager.malloc1(len);
       if( bits1 != null ) System.arraycopy(bits1,0,bits2,0,bits1.length);
       System.arraycopy(mem,0,bits2,_dst_off,mem.length);
       return bits2;
@@ -1021,9 +1045,4 @@ public final class ParseDataset {
       DKV.remove(_key);
     }
   }
-
 }
-
-
-
-

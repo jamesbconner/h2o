@@ -1,17 +1,9 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package water.web;
 
 import java.util.Properties;
-import water.NanoHTTPD;
-import water.NanoHTTPD.Response;
 
-/**
- *
- * @author peta
- */
+import water.NanoHTTPD;
+
 public class Logoff extends Page {
 
   private static final String logoff =
@@ -26,5 +18,5 @@ public class Logoff extends Page {
       resp.addHeader("Set-cookie", SessionManager.SESSION_COOKIE+"=__void__");
       return resp;
   }
-  
+
 }

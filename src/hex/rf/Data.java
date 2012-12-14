@@ -39,9 +39,9 @@ public class Data implements Iterable<Row> {
   public int columns()           { return _data.columns();     }
   public int classes()           { return _data.classes();     }
   public long seed()             { return _data.seed();        }
-  public int dataId()            { return _data.dataId();      }
+  public long dataId()           { return _data.dataId();      }
   public int classIdx()          { return _data._classIdx;     }
-  public String colName(int i)   { return _data.columnNames()[i]; }
+  public String colName(int i)   { return _data.columnNames(i); }
   public float unmap(int col, int split) { return _data.unmap(col, split); }
   public int columnArity(int colIndex) { return _data.columnArity(colIndex); }
   public boolean ignore(int col) { return _data.ignore(col);   }
@@ -86,7 +86,7 @@ public class Data implements Iterable<Row> {
     Random r = new Random(seed());
     for( int i = 0; i < size; ++i)
       in[permute(r.nextInt(rows()))]++;
-    int[] sample = MemoryManager.allocateMemoryInt(size);
+    int[] sample = MemoryManager.malloc4(size);
     for( int i = 0, j = 0; i < sample.length;) {
       while(in[j]==0) j++;
       for (int k = 0; k < in[j]; k++) sample[i++] = j;
@@ -105,7 +105,7 @@ public class Data implements Iterable<Row> {
     Random r = new Random(seed);
     int rows = rows();
     int size = bagsz(rows,bagSizePct);
-    int[] sample = MemoryManager.allocateMemoryInt(size);
+    int[] sample = MemoryManager.malloc4(size);
     int i = 0, j = 0;
     for( ; j<size; i++ )                 // Until we get 'size' valid rows
       if( _data.classOf(i) == -1 )       // Invalid row?
@@ -134,7 +134,7 @@ public class Data implements Iterable<Row> {
     Random r = null;
     int rows = rows();
     int size = bagsz(rows,bagSizePct);
-    int[] sample = MemoryManager.allocateMemoryInt((int)(size*1.10));
+    int[] sample = MemoryManager.malloc4((int)(size*1.10));
     float f = (float)bagSizePct;
     int cnt=0;                  // Counter for resetting Random
     int j=0;                    // Number of selected samples
@@ -194,7 +194,7 @@ public class Data implements Iterable<Row> {
   @Override public Data clone() { return this; }
   protected int permute(int idx) { return idx; }
   protected int[] getPermutationArray() {
-    int[] perm = MemoryManager.allocateMemoryInt(rows());
+    int[] perm = MemoryManager.malloc4(rows());
     for( int i = 0; i < perm.length; ++i ) perm[i] = i;
     return perm;
   }
@@ -222,7 +222,7 @@ class Subset extends Data {
   @Override public Data complement(Data parent, short[] complement) {
     int size= 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) size++;
-    int[] p = MemoryManager.allocateMemoryInt(size);
+    int[] p = MemoryManager.malloc4(size);
     int pos = 0;
     for(int i=0;i<complement.length; i++) if (complement[i]==0) p[pos++] = i;
     return new Subset(this, p, 0, p.length);

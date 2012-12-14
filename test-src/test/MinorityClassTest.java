@@ -20,7 +20,6 @@ public class MinorityClassTest {
   static Key _key;
   static ValueArray _data;
   static final int _classIdx = 10;
-
   static int _nodes = 3;
 
   @BeforeClass public static void setupCloud() throws Exception {
@@ -28,10 +27,10 @@ public class MinorityClassTest {
     H2O.main(new String[]{});
     if(_nodes > 1)Thread.sleep(1000);
     FileInputStream f = new FileInputStream("./smalldata/poker/poker-hand-testing.data");
-    Key k1 = ValueArray.read_put_file("poker_raw", f,(byte)1);
+    Key k1 = ValueArray.readPut("poker_raw", f);
     _key = Key.make("poker_parsed");
     ParseDataset.parse(_key, DKV.get(k1));
-    _data = (ValueArray)DKV.get(_key);
+    _data = ValueArray.value(_key);
   }
 
 //  @AfterClass public static void destroyCloud() throws IOException {

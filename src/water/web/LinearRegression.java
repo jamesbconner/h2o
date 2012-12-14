@@ -11,8 +11,8 @@ public class LinearRegression extends H2OPage {
   @Override
   public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(args,"Key");
-    int colA = parseColumnNameOrIndex(ary.col_names(), args.getProperty("colA", "0"));
-    int colB = parseColumnNameOrIndex(ary.col_names(), args.getProperty("colB", "1"));
+    int colA = parseColumnNameOrIndex(ary, args.getProperty("colA", "0"));
+    int colB = parseColumnNameOrIndex(ary, args.getProperty("colB", "1"));
     return hex.LinearRegression.run(ary,colA,colB);
   }
 
@@ -24,12 +24,12 @@ public class LinearRegression extends H2OPage {
         "<p>Pass 1 took %p1, pass 2 took %p2, Pass 3 took %p3" +
         "<p>Found <b>%Rows</b>" +
         "<p><b>y = %Beta1 * x + %Beta0</b>" +
-        "<p>R^2                 = %RSquared" +
+        "<p>R^2 = %RSquared" +
         "<p>std error of beta_1 = %Beta1StdErr" +
         "<p>std error of beta_0 = %Beta0StdErr" +
         "<p>SSTO = %SSTO" +
-        "<p>SSE  = %SSE" +
-        "<p>SSR  = %SSR" );
+        "<p>SSE = %SSE" +
+        "<p>SSR = %SSR" );
     html.replace(json);
     html.replace("p1", PrettyPrint.msecs(json.get("Pass1Msecs").getAsLong(), true));
     html.replace("p2", PrettyPrint.msecs(json.get("Pass2Msecs").getAsLong(), true));

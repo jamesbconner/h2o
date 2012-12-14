@@ -21,7 +21,8 @@ public class Hdfs {
       // If HDFS URI is MapR-fs - Switch two MapR version of hadoop
       version = version.equals("mapr") || (H2O.OPT_ARGS.hdfs.startsWith("maprfs://")) ? MAPRFS_HDFS_VERSION : version;
       try {
-        Boot._init.addInternalJars("hadoop/"+version+"/");
+        if( Boot._init.fromJar() )
+          Boot._init.addInternalJars("hadoop/"+version+"/");
       } catch(Exception e) {
         e.printStackTrace();
         Log.die("[hdfs] Unable to initialize hadoop version " + version +
