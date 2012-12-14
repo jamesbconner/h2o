@@ -125,7 +125,7 @@ public class RequestQueries extends RequestArguments {
           input.replace("ERROR_STYLE","display:none");
       }
       if (arg.disabled() ==  null)
-        input.replace("ARG_INPUT_CONTROL", arg.query());
+        input.replace("ARG_INPUT_CONTROL", arg.queryElement());
 
       input.append();
     }

@@ -15,9 +15,9 @@ import water.Value;
 public class PutValue extends Request {
 
 
-  protected final H2OKey _key = new H2OKey(JSON_KEY,"Key");
-  protected final Str _value = new Str(JSON_VALUE,"Value");
-  protected final Int _rf = new Int(JSON_RF,2,"Replication factor",0,255);
+  protected final H2OKey _key = new H2OKey(JSON_KEY);
+  protected final Str _value = new Str(JSON_VALUE);
+  protected final Int _rf = new Int(JSON_RF,2,0,255);
 
   public PutValue() {
     _requestHelp = "Stores the given value to the cloud under the specified key."

@@ -17,8 +17,8 @@ import water.hdfs.PersistHdfs;
  */
 public class WWWHexKeys extends Request {
 
-  private final Str _filter = new Str(JSON_FILTER,"","Filter for the keys to return");
-  private final Int _limit = new Int(JSON_LIMIT,1024,"Max number of keys to return",0,10240);
+  private final Str _filter = new Str(JSON_FILTER);
+  private final Int _limit = new Int(JSON_LIMIT,1024,0,10240);
 
 
   public WWWHexKeys() {

@@ -13,17 +13,44 @@ public class RequestArguments extends RequestStatics {
 
   protected ArrayList<Argument> _arguments = new ArrayList();
 
-  public static abstract class Argument<T> {
+  protected static class Record {
+    public String _originalValue = null;
+    public Object _parsedValue = null;
+    public String _disabledReason = null;
+    public boolean _valid = false;
+
+    public boolean disabled() {
+      return _disabledReason != null;
+    }
+
+    public boolean valid() {
+      return _valid;
+    }
+
+    public boolean specified() {
+      return valid() && _originalValue != null;
+    }
+  }
+
+  // ===========================================================================
+  // Argument
+  // ===========================================================================
+
+  public abstract class Argument<T> {
 
     protected abstract T parse(String input) throws IllegalArgumentException;
 
     protected abstract T defaultValue();
 
-    protected abstract String query();
+    protected abstract String queryElement();
 
-    protected abstract String refreshJS(String callbackName);
+    protected abstract String jsRefresh(String callbackName);
 
-    protected abstract String valueJS();
+    protected abstract String jsValue();
+
+    protected String jsAddons() {
+      return "";
+    }
 
     protected abstract String queryDescription();
 
@@ -35,41 +62,21 @@ public class RequestArguments extends RequestStatics {
       return _name;
     }
 
-    protected static class Record {
-      public String _originalValue = null;
-      public Object _parsedValue = null;
-      public String _disabledReason = null;
-      public boolean _valid = false;
-
-      public boolean disabled() {
-        return _disabledReason != null;
-      }
-
-      public boolean valid() {
-        return _valid;
-      }
-
-      public boolean specified() {
-        return valid() && _originalValue != null;
-      }
-    }
-
-
     public String _requestHelp;
     public final String _name;
     public final boolean _required;
-    public final boolean _refreshOnChange;
+    private boolean _refreshOnChange;
     public ArrayList<Argument> _dependencies = null;
 
     private ThreadLocal<Record> _argumentRecord;
 
 
-    protected Argument(String name, boolean required, boolean refreshOnChange) {
+    protected Argument(String name, boolean required) {
       _name = name;
       _required = required;
-      _refreshOnChange = refreshOnChange;
+      _refreshOnChange = false;
       assert(false);
-      //_arguments.add(this);
+      _arguments.add(this);
     }
 
 
@@ -77,6 +84,7 @@ public class RequestArguments extends RequestStatics {
       if (_dependencies == null)
         _dependencies = new ArrayList();
       _dependencies.add(arg);
+      arg.refreshOnChange();
     }
 
     protected final Record record() {
@@ -89,6 +97,10 @@ public class RequestArguments extends RequestStatics {
 
     public final boolean disabled() {
       return record().disabled();
+    }
+
+    protected void refreshOnChange() {
+      _refreshOnChange = true;
     }
 
     public final boolean valid() {
@@ -144,13 +156,13 @@ public class RequestArguments extends RequestStatics {
   // InputText
   // ===========================================================================
 
-  public static abstract class InputText<T> extends Argument<T> {
+  public abstract class InputText<T> extends Argument<T> {
 
-    public InputText(String name, boolean required, boolean refreshOnChange) {
-      super(name, required, refreshOnChange);
+    public InputText(String name, boolean required) {
+      super(name, required);
     }
 
-    @Override protected String query() {
+    @Override protected String queryElement() {
       // first determine the value to put in the field
       Record record = record();
       String value = record._originalValue;
@@ -163,12 +175,54 @@ public class RequestArguments extends RequestStatics {
       return "<input class='span5' type='text' name='"+_name+"' id='"+_name+"' placeholder='"+queryDescription()+"' "+ (!value.isEmpty() ? (" value='"+value+"' />") : "/>");
     }
 
-    @Override protected String refreshJS(String callbackName) {
+    @Override protected String jsRefresh(String callbackName) {
       return "$('#"+_name+"').change(callback);";
     }
 
-    @Override protected String valueJS() {
+    @Override protected String jsValue() {
       return "return $('#"+_name+"').val();";
+    }
+  }
+
+  // ===========================================================================
+  // TypeaheadInputText
+  // ===========================================================================
+
+  private static final String _typeahead =
+            "$('#%ID').typeahead({"
+          + "  source:"
+          + "    function(query,process) {"
+          + "      return $.get('%HREF', { filter: query, limit: %LIMIT }, function (data) {"
+          + "        return process(data.%DATA_NAME);"
+          + "      });"
+          + "    }"
+          + "});\n"
+          ;
+
+  public abstract class TypeaheadInputText<T> extends InputText<T> {
+
+    protected final String _typeaheadHref;
+    protected final String _typeaheadDataName;
+    protected final int _typeaheadLimit;
+
+    protected TypeaheadInputText(String name, boolean required, String href, String dataName) {
+      this(name, required, href, dataName, 1024);
+    }
+
+    protected TypeaheadInputText(String name, boolean required, String href, String dataName, int limit) {
+      super(name, required);
+      _typeaheadHref = href;
+      _typeaheadDataName = dataName;
+      _typeaheadLimit = limit;
+    }
+
+    @Override protected String jsAddons() {
+      RString s = new RString(_typeahead);
+      s.replace("ID", _name);
+      s.replace("HREF", _typeaheadHref);
+      s.replace("LIMIT", _typeaheadLimit);
+      s.replace("DATA_NAME", _typeaheadDataName);
+      return super.jsAddons()+s.toString();
     }
   }
 
@@ -176,17 +230,16 @@ public class RequestArguments extends RequestStatics {
   // InputCheckBox
   // ===========================================================================
 
-
-  public static class InputCheckBox extends Argument<Boolean> {
+  public class InputCheckBox extends Argument<Boolean> {
 
     public final boolean _defaultValue;
 
-    public InputCheckBox(String name, boolean refreshOnChange, boolean defaultValue) {
-      super(name, false, refreshOnChange); // checkbox is never required
+    public InputCheckBox(String name, boolean defaultValue) {
+      super(name, false); // checkbox is never required
       _defaultValue = defaultValue;
     }
 
-    @Override protected String query() {
+    @Override protected String queryElement() {
       // first determine the value to put in the field
       Record record = record();
       String value = record._originalValue;
@@ -198,11 +251,11 @@ public class RequestArguments extends RequestStatics {
       return "<input class='span5' type='checkbox' name='"+_name+"' id='"+_name+"' "+ (value.isEmpty() ? (" checked />") : "/>");
     }
 
-    @Override protected String refreshJS(String callbackName) {
+    @Override protected String jsRefresh(String callbackName) {
       return "$('#"+_name+"').change(callback);";
     }
 
-    @Override protected String valueJS() {
+    @Override protected String jsValue() {
       return "return $('#"+_name+"').val();";
     }
 
@@ -219,6 +272,237 @@ public class RequestArguments extends RequestStatics {
     }
 
   }
+
+  // ===========================================================================
+  // UserDefinedArguments
+  //
+  // Place your used defined arguments here.
+  //
+  // ===========================================================================
+
+  // ---------------------------------------------------------------------------
+  // Str
+  // ---------------------------------------------------------------------------
+
+  public class Str extends InputText<String> {
+
+    public final String _defaultValue;
+
+    public Str(String name) {
+      super(name,true);
+      _defaultValue = null;
+    }
+
+    public Str(String name, String defaultValue) {
+      super(name, false);
+      _defaultValue = defaultValue;
+    }
+
+    @Override protected String parse(String input) throws IllegalArgumentException {
+      return input;
+    }
+
+    @Override protected String defaultValue() {
+      return _defaultValue;
+    }
+
+    @Override protected String queryDescription() {
+      return _required ? "any non-empty string" : "any string";
+    }
+
+  }
+
+  // ---------------------------------------------------------------------------
+  // Int
+  // ---------------------------------------------------------------------------
+
+  public class Int extends InputText<Integer> {
+
+    public final Integer _defaultValue;
+
+    public final int _min;
+    public final int _max;
+
+    public Int(String name) {
+      this(name, Integer.MIN_VALUE, Integer.MAX_VALUE);
+    }
+
+    public Int(String name, int min, int max) {
+      super(name,true);
+      _defaultValue = null;
+      _min = min;
+      _max = max;
+    }
+
+    public Int(String name, Integer defaultValue) {
+      this(name, defaultValue, Integer.MIN_VALUE, Integer.MAX_VALUE);
+    }
+
+    public Int(String name, Integer defaultValue, int min, int max) {
+      super(name,true);
+      _defaultValue = defaultValue;
+      _min = min;
+      _max = max;
+    }
+
+    @Override protected Integer parse(String input) throws IllegalArgumentException {
+      try {
+        int i = Integer.parseInt(input);
+        if ((i< _min) || (i > _max))
+          throw new IllegalArgumentException("Value "+i+" is not between "+_min+" and "+_max+" (inclusive)");
+        return i;
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Value "+input+" is not a valid integer.");
+      }
+    }
+
+    @Override protected Integer defaultValue() {
+      return _defaultValue;
+    }
+
+    @Override protected String queryDescription() {
+      return ((_min == Integer.MIN_VALUE) && (_max == Integer.MAX_VALUE))
+              ? "integer value"
+              : "integer from "+_min+" to "+_max;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Real
+  // ---------------------------------------------------------------------------
+
+  public class Real extends InputText<Double> {
+
+    public final Double _defaultValue;
+
+    public final double _min;
+    public final double _max;
+
+    public Real(String name) {
+      this(name, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+    }
+
+    public Real(String name, double min, double max) {
+      super(name,true);
+      _defaultValue = null;
+      _min = min;
+      _max = max;
+    }
+
+    public Real(String name, Double defaultValue) {
+      this(name, defaultValue, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+    }
+
+    public Real(String name, Double defaultValue, double min, double max) {
+      super(name,true);
+      _defaultValue = defaultValue;
+      _min = min;
+      _max = max;
+    }
+
+    @Override protected Double parse(String input) throws IllegalArgumentException {
+      try {
+        double i = Double.parseDouble(input);
+        if ((i< _min) || (i > _max))
+          throw new IllegalArgumentException("Value "+i+" is not between "+_min+" and "+_max+" (inclusive)");
+        return i;
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Value "+input+" is not a valid real number.");
+      }
+    }
+
+    @Override protected Double defaultValue() {
+      return _defaultValue;
+    }
+
+    @Override protected String queryDescription() {
+      return ((_min == Double.NEGATIVE_INFINITY) && (_max == Double.POSITIVE_INFINITY))
+              ? "integer value"
+              : "integer from "+_min+" to "+_max;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // H2OKey
+  // ---------------------------------------------------------------------------
+
+  public class H2OKey extends InputText<Key> {
+
+    public final Key _defaultValue;
+
+    public H2OKey(String name) {
+      super(name, true);
+      _defaultValue = null;
+    }
+
+    public H2OKey(String name, String keyName) {
+      this(name, Key.make(keyName));
+    }
+
+    public H2OKey(String name, Key key) {
+      super(name, false);
+      _defaultValue = key;
+    }
+
+    @Override protected Key parse(String input) throws IllegalArgumentException {
+      Key k = Key.make(input);
+      return k;
+    }
+
+    @Override protected Key defaultValue() {
+      return _defaultValue;
+    }
+
+    @Override protected String queryDescription() {
+      return "valid H2O key";
+    }
+
+  }
+
+  // ---------------------------------------------------------------------------
+  // H2OExistingKey
+  // ---------------------------------------------------------------------------
+
+  public class H2OExistingKey extends TypeaheadInputText<Value> {
+
+    public final Key _defaultValue;
+
+    public H2OExistingKey(String name) {
+      super(name, true, "WWWKeys.json",JSON_KEYS);
+      _defaultValue = null;
+    }
+
+    public H2OExistingKey(String name, String keyName) {
+      this(name, Key.make(keyName));
+    }
+
+    public H2OExistingKey(String name, Key key) {
+      super(name, false,"WWWKeys.json", JSON_KEYS);
+      _defaultValue = key;
+    }
+
+    @Override protected Value parse(String input) throws IllegalArgumentException {
+      Key k = Key.make(input);
+      Value v = DKV.get(k);
+      if (v == null)
+        throw new IllegalArgumentException("Key "+input+" not found!");
+      return v;
+    }
+
+    @Override protected Value defaultValue() {
+      return DKV.get(_defaultValue);
+    }
+
+    @Override protected String queryDescription() {
+      return "an existing H2O key";
+    }
+
+  }
+
+
+
+
+
 
 
 
