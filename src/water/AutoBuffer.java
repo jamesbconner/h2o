@@ -376,7 +376,7 @@ public final class AutoBuffer {
 
   public AutoBuffer put3( int x ) {
     assert (-1<<24) <= x && x < (1<<24);
-    return put1(x >> 0).put1(x >> 8).put1(x >> 16);
+    return put1((x >> 0)&0xFF).put1((x >> 8)&0xFF).put1(x >> 16);
   }
 
 
@@ -396,7 +396,7 @@ public final class AutoBuffer {
   public AutoBuffer put8d(int off, double v) { _bb.putDouble(off, v);              return this; }
 
   public AutoBuffer putZ (boolean b){ return put1(b?1:0); }
-  public AutoBuffer put1 (   int b) { assert b >= -128 && b <= 255;
+  public AutoBuffer put1 (   int b) { assert b >= -128 && b <= 255 : ""+b+" is not a byte";
                                       putSp(1).put((byte)b); return this; }
   public AutoBuffer put2 (  char c) { putSp(2).putChar  (c); return this; }
   public AutoBuffer put2 ( short s) { putSp(2).putShort (s); return this; }
