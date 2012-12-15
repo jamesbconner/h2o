@@ -11,14 +11,15 @@ import h2o, h2o_cmd
 # at Jama.CholeskyDecomposition.solve(CholeskyDecomposition.java:173)
 
 # FIX! we'll have to do something for gaussian. It doesn't return the ted keys below
+# Always do poisson!
 paramDict = {
     'Y': [54],
     'X': [0,1,15,33,34],
     '-X': [None,'40:53'],
-    'family': ['binomial', 'poisson'],
+    'family': ['poisson'],
     'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
-    'norm': [None,'L1', 'L2'],
+    'norm': ['L1', 'L2'],
     'glm_lamba': [None, 1e-4,1,10,1e4],
     'rho': [None, 1e-4,1,10,1e4],
     'alpha': [None, 1e-4,1,10,1e4],
@@ -43,11 +44,12 @@ class Basic(unittest.TestCase):
             tsv = glm['trainingSetValidation']
             print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
 
-            ted = glm['trainingErrorDetails']
-            print "trueNegative:", ted['trueNegative']
-            print "truePositive:", ted['truePositive']
-            print "falseNegative:", ted['falseNegative']
-            print "falsePositive:", ted['falsePositive']
+            if (1==0):
+                ted = glm['trainingErrorDetails']
+                print "trueNegative:", ted['trueNegative']
+                print "truePositive:", ted['truePositive']
+                print "falseNegative:", ted['falseNegative']
+                print "falsePositive:", ted['falsePositive']
 
             # it's a dicitionary!
             coefficients = glm['coefficients']
@@ -86,8 +88,8 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details 
             # in the json(below)
-            # force family=binomial to avoid the assertion error above with gaussian
-            kwargs = {'Y': 54, 'xval' : 3, 'family' : "binomial"}
+            # always do poisson!
+            kwargs = {'Y': 54, 'xval' : 3, 'family' : "poisson"}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
