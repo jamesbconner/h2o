@@ -52,7 +52,7 @@ class Basic(unittest.TestCase):
                 str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
                 ))
 
-        timeoutSecs = 2
+        timeoutSecs = 6
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
 
