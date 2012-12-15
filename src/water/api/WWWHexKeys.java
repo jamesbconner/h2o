@@ -37,7 +37,7 @@ public class WWWHexKeys extends Request {
     Key[] keys = new Key[_limit.value()];    // Limit size of what we'll display on this page
     int len = 0;
     String filter = _filter.value();
-    PersistHdfs.refreshHDFSKeys();
+    //PersistHdfs.refreshHDFSKeys();
     // Gather some keys that pass all filters
     for( Key key : H2O.keySet() ) {
       if( filter != null &&     // Have a filter?
@@ -46,9 +46,10 @@ public class WWWHexKeys extends Request {
       if( !key.user_allowed() ) // Also filter out for user-keys
         continue;
       Value v = H2O.get(key);
-      if (!(v instanceof ValueArray))
+      if (v._isArray == 0)
         continue; // Ignore non VA keys
-      if (((ValueArray)v).num_cols()==0)
+      ValueArray va = ValueArray.value(v);
+      if ((va._cols == null) || (va._cols.length == 0))
         continue; // VA, but not hex
       keys[len++] = key;        // Capture the key
       if( len == keys.length ) {

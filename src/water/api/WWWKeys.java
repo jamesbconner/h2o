@@ -35,7 +35,7 @@ public class WWWKeys extends Request {
     Key[] keys = new Key[_limit.value()];    // Limit size of what we'll display on this page
     int len = 0;
     String filter = _filter.value();
-    PersistHdfs.refreshHDFSKeys();
+    //PersistHdfs.refreshHDFSKeys();
     // Gather some keys that pass all filters
     for( Key key : H2O.keySet() ) {
       if( filter != null &&     // Have a filter?

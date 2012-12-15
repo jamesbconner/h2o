@@ -17,8 +17,10 @@ public class WWWHexKeyCols extends Request {
   @Override protected void serve(JsonObject response) {
     ValueArray va = _key.value();
     JsonArray ary = new JsonArray();
-    for (int i = 0; i < va.num_cols(); ++i)
-      ary.add(new JsonPrimitive(va.col_name(i)));
+    for (int i = 0; i < va._cols.length; ++i) {
+      String name = va._cols[i]._name;
+      ary.add(new JsonPrimitive(name == null ? String.valueOf(i) : name));
+    }
     response.add(JSON_COLUMNS,ary);
   }
 
