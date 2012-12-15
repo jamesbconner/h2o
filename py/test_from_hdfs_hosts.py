@@ -2,6 +2,7 @@ import os, json, unittest, time, shutil, sys
 import h2o, h2o_cmd
 import h2o_hosts
 import h2o_browse as h2b
+import h2o_import as h2i
 import time
 import random
 
@@ -59,7 +60,7 @@ class Basic(unittest.TestCase):
         firstglm = {}
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in hdfs dir 
-            parseKey = h2o_cmd.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
+            parseKey = h2i.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
             print "parse result:", parseKey['Key']
             # I use this if i want the larger set in my localdir
