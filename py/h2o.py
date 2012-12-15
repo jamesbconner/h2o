@@ -218,11 +218,11 @@ json_url_history = []
 global nodes
 nodes = []
 
-# this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
-# if any. (in build_cloud)
 global use_hdfs
 use_hdfs = False
 
+# this is used by tests, to create hdfs URIs. 
+# it will always get set to the name node we're using, if any. (in build_cloud)
 global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
@@ -409,8 +409,12 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     # want node saying cloud = expected size, plus thinking everyone agrees with that.
     def test(n):
         c = n.get_cloud()
+        # don't want to check everything. But this will check that the keys are returned!
+        consensus  = c['consensus']
+        locked     = c['locked']
         cloud_size = c['cloud_size']
-        consensus = c['consensus']
+        cloud_name = c['cloud_name']
+        node_name  = c['node_name']
 
         if (cloud_size > node_count):
             emsg = (
@@ -424,8 +428,11 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
                 )
             raise Exception(emsg)
 
+        
         a = (cloud_size==node_count and consensus)
-        ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
+        if (a):
+            verboseprint("\tLocked won't happen until after keys are written")
+
         return(a)
 
     node.stabilize(test, error=('A cloud of size %d' % node_count),
@@ -472,7 +479,18 @@ class H2O(object):
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
-        verboseprint("get_cloud:", a)
+        # don't want to print everything from get_cloud json (f/j info etc)
+        # but this will check the keys exist!
+        consensus  = a['consensus']
+        locked     = a['locked']
+        cloud_size = a['cloud_size']
+        cloud_name = a['cloud_name']
+        node_name  = a['node_name']
+        verboseprint('%s%s %s%s %s%s' %(
+            "\tcloud_size: ", cloud_size,
+            "\tconsensus: ", consensus,
+            "\tlocked: ", locked
+            ))
         return a
 
     def get_timeline(self):
@@ -852,11 +870,6 @@ class H2O(object):
                 '-hdfs_version cdh4',
                 '-hdfs_root /datasets'
             ]
-
-            # we need a global for hdfs_name_node for tests to build up hdfs URIs.
-            # They're all getting the same value
-            # passed down from build_cloud_with_hosts. so use that one? or if a LocalH2O 
-            # test uses just build_cloud directly. So do it up in build_cloud to handle both.
 
         if self.use_flatfile:
             args += [
