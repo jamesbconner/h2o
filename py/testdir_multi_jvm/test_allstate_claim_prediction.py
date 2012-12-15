@@ -13,7 +13,7 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_claim_prediction(self):
-        csvPathname = h2o.find_file(smalldata/allstate/claim_prediction_train_set_10000_int.csv.gz)
+        csvPathname = h2o.find_file('smalldata/allstate/claim_prediction_train_set_10000_int.csv.gz')
         h2o_cmd.runRF(trees=50, timeoutSecs=10, csvPathname=csvPathname)
 
 if __name__ == '__main__':
