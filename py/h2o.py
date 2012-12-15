@@ -337,19 +337,27 @@ def check_sandbox_for_errors():
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile(
+            regex1 = re.compile(
                 'exception|error|assert|warn|info|killing|killed|required ports',
                 re.IGNORECASE)
+            regex2 = re.compile('Caused')
+
             printing = 0
             for line in sandFile:
-                newFound = regex.search(line) and ('error rate' not in line)
-                if (printing==0 and newFound):
+                foundBad = regex1.search(line) and ('error rate' not in line)
+                if (printing==0 and foundBad):
                     printing = 1
                     foundAnyBadness = True
                 elif (printing==1):
                     # if we've been printing, stop when you get to another error
-                    # we don't care about seeing multiple prints scroll off the screen
-                    if (newFound):
+                    # Matt is nice, so we are nice..keep printing if the pattern match for the condition
+                    # is on a line with "Caused" in it ("Caused by")
+                    # only use caused for overriding an end condition
+                    foundCaused = regex2.search(line)
+                    # since the "at ..." lines may have the "bad words" in them, we also don't want 
+                    # to stop if a line has " *at " at the beginning.
+                    foundAt = re.match(r'[\t ]+at ',line)
+                    if foundBad and not (foundCaused or foundAt):
                         printing = 2 
 
                 if (printing==1):
