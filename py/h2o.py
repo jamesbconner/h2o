@@ -96,7 +96,9 @@ def find_dataset(f):
 
 def find_file(base):
     f = base
-    if not os.path.exists(f): f = '../'+base
+    if not os.path.exists(f): f = '../' + base
+    if not os.path.exists(f): f = '../../' + base
+    if not os.path.exists(f): f = 'py/' + base
     if not os.path.exists(f):
         raise Exception("unable to find file %s" % base)
     return f
@@ -142,6 +144,13 @@ def log(cmd, comment=None):
             f.write('    #')
             f.write(comment)
         f.write("\n")
+
+def make_syn_dir():
+    SYNDATASETS_DIR = './syn_datasets'
+    if os.path.exists(SYNDATASETS_DIR):
+        shutil.rmtree(SYNDATASETS_DIR)
+    os.mkdir(SYNDATASETS_DIR)
+    return SYNDATASETS_DIR
 
 def dump_json(j):
     return json.dumps(j, sort_keys=True, indent=2)
@@ -290,7 +299,9 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for n in node_list: n.terminate()
         else:
             nodes[:] = node_list
-        check_sandbox_for_errors()
+        if (check_sandbox_for_errors()):
+            raise Exception("Errors in sandbox stdout or stderr." +  
+                "Could have occured at any prior time")
         raise
 
     # this is just in case they don't assign the return to the nodes global?
@@ -307,7 +318,8 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         
     if not slow_connection:
         for h in hosts:
-            h.upload_file('build/h2o.jar', progress=prog)
+            f = find_file('build/h2o.jar')
+            h.upload_file(f, progress=prog)
             # skipping progress indicator for the flatfile
             h.upload_file(flatfile_name())
     else:
@@ -377,7 +389,9 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
-        check_sandbox_for_errors()
+        if (check_sandbox_for_errors()):
+            raise Exception("tear_down_cloud: Errors in sandbox stdout or stderr." +
+                "Could have occured at any prior time")
 
 # don't need this any more? used to need it to make sure cloud didn't go away between 
 # unittest defs
