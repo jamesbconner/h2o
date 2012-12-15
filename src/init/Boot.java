@@ -306,6 +306,14 @@ public class Boot extends ClassLoader {
               "  super.write(ab);\n",
               "  ab.put%z(%s);\n",
               "  ab.put%z(%s);\n",
+
+              // there is a bug in javassist and this must be broken
+              // onto several separate lines
+              "  Class cz%s = %s == null ? null : %s.getClass();\n" +
+              "  Integer i%s = (Integer)%C.TYPE.get(cz%s);" +
+              "  ab.put1(i%s.intValue());\n" +
+              "  ab.put(%s);\n",
+
               "  return ab;\n" +
               "}");
 
@@ -320,6 +328,13 @@ public class Boot extends ClassLoader {
               "  super.read(s);\n",
               "  %s = s.get%z();\n",
               "  %s = (%C)s.get%z(%c.class);\n",
+
+              // there is a bug in javassist and this must be broken
+              // onto several separate lines
+              "  Integer i%s = Integer.valueOf(s.get1());\n" +
+              "  Class cz%s = (Class)%C.TYPE.inverse().get(i%s);\n" +
+              "  %s = (%C)s.get(cz%s);\n",
+
               "  return this;\n" +
               "}");
 
@@ -344,6 +359,7 @@ public class Boot extends ClassLoader {
                                String supers,
                                String prims,
                                String freezables,
+                               String abstractFreezables,
                                String trailer
                                ) throws CannotCompileException, NotFoundException {
     StringBuilder sb = new StringBuilder();
@@ -356,25 +372,36 @@ public class Boot extends ClassLoader {
         debug_print |= ctf.getName().equals("DEBUG_WEAVER");
         continue;  // Only serialize not-transient instance fields (not static)
       }
-
-      int ftype = ftype(cc, ctf.getSignature() );   // Field type encoding
-      sb.append(ftype%10 == 9 ? freezables : prims);
-
-      subsub(sb, "%s", ctf.getName());            // %s ==> field name
-
       CtClass base = ctf.getType();
       while( base.isArray() ) base = base.getComponentType();
-      subsub(sb, "%c", base.getName());          // %c ==> base class name
-      subsub(sb, "%C", ctf.getType().getName()); // %C ==> full class name
+
+      int ftype = ftype(cc, ctf.getSignature() );   // Field type encoding
+      if( ftype%10 == 9 ) {
+        if( javassist.Modifier.isAbstract(base.getModifiers()) ) {
+          sb.append(abstractFreezables);
+          if( ftype > 10 )
+            throw new Error(cc.getSimpleName()+"."+ctf.getSignature()+": "+
+                " Arrays of abstract freezables is not implemented");
+        } else {
+          sb.append(freezables);
+        }
+      } else {
+        sb.append(prims);
+      }
 
       String z = FLDSZ1[ftype % 10];
       for(int i = 0; i < ftype / 10; ++i ) z = 'A'+z;
-      subsub(sb, "%z", z);                        // %z ==> short type name
+      subsub(sb, "%z", z);                                         // %z ==> short type name
+      subsub(sb, "%s", ctf.getName());                             // %s ==> field name
+      subsub(sb, "%c", base.getName().replace('$', '.'));          // %c ==> base class name
+      subsub(sb, "%C", ctf.getType().getName().replace('$', '.')); // %C ==> full class name
+
     }
     sb.append(trailer);
     String body = sb.toString();
-    if( debug_print )
+    if( debug_print ) {
       System.out.println(cc.getName()+" "+body);
+    }
 
     try {
       cc.addMethod(CtNewMethod.make(body,cc));
