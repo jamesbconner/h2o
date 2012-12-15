@@ -27,7 +27,7 @@ import h2o, h2o_cmd
 # we can pass ntree thru kwargs if we don't use the "trees" parameter in runRF
 # only classes 1-7 in the 55th col
 # don't allow None on ntree..causes 50 tree default!
-print "Temporarily not using binLimit=1 to 3"
+print "Temporarily not using binLimit=1 to 4"
 paramDict = {
     'class': [None,54],
     'classWt': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2'],
@@ -36,7 +36,7 @@ paramDict = {
     'OOBEE': ['None', 'true', 'false'],
     'gini': [None, 0, 1],
     'depth': [None, 1,10,20,100],
-    'binLimit': [None,4,5,10,100,1000],
+    'binLimit': [None,5,10,100,1000],
     'parallel': [None,0,1],
     'ignore': [None,0,1,2,3,4,5,6,7,8,9],
     'sample': [None,20,40,60,80,100],
