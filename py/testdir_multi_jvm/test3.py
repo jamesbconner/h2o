@@ -33,7 +33,7 @@ class Basic(unittest.TestCase):
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             # broke out the put separately so we can iterate a test just on the RF
-            parseKey = h2o.parseFile(None, csvPathname)
+            parseKey = h2o_cmd.parseFile(None, csvPathname)
 
             ### print 'put TimeMS:', parseKey['TimeMS']
             h2o.verboseprint("Trial", trial)
