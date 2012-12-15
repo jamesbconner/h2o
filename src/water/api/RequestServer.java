@@ -29,7 +29,7 @@ public class RequestServer extends NanoHTTPD {
     _http500 = registerRequest(new HTTP500());
     Request.addToNavbar(registerRequest(new Cloud()),"Cloud");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
-//    Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
+    Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
 
 
 
@@ -40,7 +40,6 @@ public class RequestServer extends NanoHTTPD {
 
     registerRequest(new WWWKeys());
     registerRequest(new WWWHexKeys());
-//    registerRequest(new WWWHexKeyCols());
 
     Request.initializeNavBar();
   }

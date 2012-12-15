@@ -94,10 +94,8 @@ public class RequestArguments extends RequestStatics {
   // A string used to display the query element part of the argument
   protected static final String _queryHtml =
             "  <dl class='dl-horizontal'>"
-          + "    <dt>%ASTERISK %NAME</dt>"
-          + "    <dd>"
-          + "      %ELEMENT"
-          + "    </dd>"
+          + "    <dt style='padding-top:3px'>%ASTERISK %NAME</dt>"
+          + "    <dd>%ELEMENT</dd>"
           + "  </dl>"
           ;
 
@@ -183,7 +181,7 @@ public class RequestArguments extends RequestStatics {
       result.replace("ID",_name);
       result.replace("NAME", JSON2HTML(_name));
       if (disabled())
-        result.replace("ELEMENT","<div class='alert alert-notice'>"+record()._disabledReason+"</div>");
+        result.replace("ELEMENT","<div class='alert alert-info' style='padding-top:4px;padding-bottom:4px;margin-bottom:5px'>"+record()._disabledReason+"</div>");
       else
         result.replace("ELEMENT",queryElement());
       if (_required)
@@ -337,8 +335,8 @@ public class RequestArguments extends RequestStatics {
      * is empty and the argument is required.
      *
      * At the end of the function the value is either the result of a successful
-     * parse() call or a defaultValue no matter what the state of the argument
-     * is.
+     * parse() call or a defaultValue or null if the argument is disabled.
+     * However if the argument is disabled a defaultValue should not be called.
      */
     public void check(String input) throws IllegalArgumentException {
       // get the record -- we assume we have been reset properly
@@ -350,7 +348,7 @@ public class RequestArguments extends RequestStatics {
       record._originalValue = input;
       // there is not much to do if we are disabled
       if (record.disabled()) {
-        record._value = defaultValue();
+        record._value = null;
         return;
       }
       // check that we have all prerequisities properly initialized
@@ -358,7 +356,7 @@ public class RequestArguments extends RequestStatics {
         for (Argument dep : _prerequisities)
           if (!dep.valid()) {
             record._disabledReason = "Not all prerequisite arguments have been supplied: "+dep._name;
-            record._value = defaultValue();
+            record._value = null;
             return;
           }
       }
@@ -544,7 +542,8 @@ public class RequestArguments extends RequestStatics {
       throw new IllegalArgumentException(input+" is not valid boolean value. Only 1 and 0 are allowed.");
     }
 
-    /** Displays the query element. This is just the checkbox.
+    /** Displays the query element. This is just the checkbox followed by the
+     * description.
      */
     @Override protected String queryElement() {
       // first determine the value to put in the field
@@ -555,7 +554,7 @@ public class RequestArguments extends RequestStatics {
         Boolean v = defaultValue();
         value = ((v == null) || (v == false)) ? "" : "1" ;
       }
-      return "<input value='1' class='span5' type='checkbox' name='"+_name+"' id='"+_name+"' "+ (value.equals("1") ? (" checked />") : "/>");
+      return "<input value='1' class='span5' type='checkbox' name='"+_name+"' id='"+_name+"' "+ (value.equals("1") ? (" checked />") : "/>")+"&nbsp;&nbsp;"+queryDescription();
     }
 
     /** Refresh only taps to jQuery change event.
@@ -567,7 +566,7 @@ public class RequestArguments extends RequestStatics {
     /** Returns 1 if the checkbox is checked and 0 otherwise.
      */
     @Override protected String jsValue() {
-      return "return $('#"+_name+"').val() == '1' ? '1' : '0';";
+      return "return $('#"+_name+"').is(':checked') ? '1' : '0';";
     }
 
     /** Returns the default value.
@@ -808,6 +807,25 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ---------------------------------------------------------------------------
+  // Bool
+  // ---------------------------------------------------------------------------
+
+  public class Bool extends InputCheckBox {
+
+    public final String _description;
+
+    public Bool(String name, boolean defaultValue, String description) {
+      super(name, defaultValue);
+      _description = description;
+    }
+
+    @Override protected String queryDescription() {
+      return _description;
+    }
+
+  }
+
+  // ---------------------------------------------------------------------------
   // H2OKey
   // ---------------------------------------------------------------------------
 
@@ -881,8 +899,57 @@ public class RequestArguments extends RequestStatics {
     @Override protected String queryDescription() {
       return "an existing H2O key";
     }
-
   }
+
+  // ---------------------------------------------------------------------------
+  // H2OHexKey
+  // ---------------------------------------------------------------------------
+
+  public class H2OHexKey extends TypeaheadInputText<ValueArray> {
+
+    public final Key _defaultKey;
+
+    public H2OHexKey(String name) {
+      super(name, true, "WWWHexKeys.json",JSON_KEYS);
+      _defaultKey = null;
+    }
+
+    public H2OHexKey(String name, String keyName) {
+      this(name, Key.make(keyName));
+    }
+
+
+    public H2OHexKey(String name, Key key) {
+      super(name, false,"WWWHexKeys.json", JSON_KEYS);
+      _defaultKey = key;
+    }
+
+    @Override protected ValueArray parse(String input) throws IllegalArgumentException {
+      Key k = Key.make(input);
+      Value v = DKV.get(k);
+      if (v == null)
+        throw new IllegalArgumentException("Key "+input+" not found!");
+      if (v._isArray == 0)
+        throw new IllegalArgumentException("Key "+input+" is not a valid HEX key");
+      ValueArray va = ValueArray.value(v);
+      if ((va._cols == null) || (va._cols.length == 0))
+        throw new IllegalArgumentException("Key "+input+" is not a valid HEX key");
+      return va;
+    }
+
+    @Override protected ValueArray defaultValue() {
+      try {
+        return ValueArray.value(DKV.get(_defaultKey));
+      } catch (Exception e) {
+        return null;
+      }
+    }
+
+    @Override protected String queryDescription() {
+      return "an existing H2O HEX key";
+    }
+  }
+
 
   // ---------------------------------------------------------------------------
   // StringListArgument
@@ -934,634 +1001,78 @@ public class RequestArguments extends RequestStatics {
     @Override protected String queryDescription() {
       return "any of "+Arrays.toString(_values);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // H2OHexKeyCol
+  // ---------------------------------------------------------------------------
+
+  public class H2OHexKeyCol extends InputSelect<Integer> {
+
+    public final int _defaultCol;
+
+    public final H2OHexKey _key;
+
+    public H2OHexKeyCol(H2OHexKey key, String name) {
+      super(name, true);
+      _key = key;
+      _defaultCol = 0;
+      addPrerequisite(key);
+    }
+
+    public H2OHexKeyCol(H2OHexKey key, String name, int defaultCol) {
+      super(name, false);
+      _key = key;
+      _defaultCol = defaultCol;
+      addPrerequisite(key);
+    }
+
+    @Override protected String[] selectValues() {
+      ValueArray va = _key.value();
+      String[] result = new String[va._cols.length];
+      for(int i = 0; i < result.length; ++i)
+        result[i] = va._cols[i]._name == null ? String.valueOf(i) : va._cols[i]._name;
+      return result;
+    }
+
+    @Override protected String selectedItemValue() {
+      return String.valueOf(value());
+    }
+
+    @Override protected Integer parse(String input) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      // first check if we have string match
+      for (int i = 0; i < va._cols.length; ++i) {
+        String colName = va._cols[i]._name;
+        if (colName == null)
+          colName = String.valueOf(i);
+        if (colName.equals(input))
+          return i;
+      }
+      try {
+        int i = Integer.parseInt(input);
+        if ((i<0) || (i>=va._cols.length))
+          throw new IllegalArgumentException("HEX key only has "+va._cols.length+" columns");
+        return i;
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(input+" not a name of column, or a column index");
+      }
+    }
+
+    @Override protected Integer defaultValue() {
+      if (_defaultCol>=0)
+        return _defaultCol;
+      return _key.value()._cols.length - _defaultCol;
+    }
+
+    @Override protected String queryDescription() {
+      return "column of the key "+_key._name;
+    }
 
   }
 
 
 
-
-
-//  protected ThreadLocal<HashMap<String,Object>> _checkedArguments = new ThreadLocal();
-//  protected ThreadLocal<Properties> _originalArguments = new ThreadLocal();
-//  protected ThreadLocal<Properties> _disabled = new ThreadLocal();
-
-
-//  // ---------------------------------------------------------------------------
-//
-//  /** Request Argument accessor & checker.
-//   *
-//   * Each request has the serve() method - implemented not here, but in the
-//   * Request class itself for better clarity. This method has no arguments and
-//   * the only arguments it can access are those defined by the request itself as
-//   * its fields. If these inherit from the Argument class they will be
-//   * automatically checked, defaulted and all errors / queries properly
-//   * generated. THERE SHOULD BE NO OTHER WAY OF READING USER INPUT ARGUMENTS
-//   * THAN THROUGH AN APPROPROIATE CHECKER - this is important because otherwise
-//   * the automatic query generation mechanism does not work properly and all
-//   * errors raised from serve() method will be reported as HTTP 500 which is
-//   * not desirable.
-//   *
-//   * NOTE While you can in theory just use the default StringArgument class for
-//   * everything and still do the value checking in the serve method YOU SHOULD
-//   * NOT!
-//   *
-//   * The framework does not distinguish between an empty string and argument
-//   * not provided by default. If an argument is not provided, the empty string
-//   * value is used in all functions, where relevant. This is on purpose to make
-//   * things simpler and to facilitate the HTML form behavior where empty text
-//   * input might still send its value (empty string).
-//   *
-//   * Arguments might depend on each other. For instance a column selector
-//   * argument does depend on the VAKey argument. While the order of argument
-//   * creation is preserved while parsing, that is earlier created arguments are
-//   * parsed as first so that they are available for the later ones, it might
-//   * happen that the earlier argument failed and has therefore null as its
-//   * value stored, even if it is required. This must be checked in decode()
-//   * method.
-//   *
-//   * NOTE place all other arguments in here so that they stay in one place.
-//   */
-//  public abstract class Argument<T> {
-//
-//    /** Fill in this string to have it displayed at the help page generated
-//     * automatically by the framework.
-//     */
-//    public String _requestHelp = null;
-//
-//    /** Override this method to determine how the arguent's value in Java is
-//     * parsed from the text input.
-//     *
-//     * Any errors during the parsing should be reported.
-//     */
-//    protected abstract T parse(String input) throws Exception;
-//
-//    /** Description of the value that will be identified as correct argument
-//     * value. Used as placeholder in the query form.
-//     */
-//    public abstract String description();
-//
-//    /** Returns the default value of the argument. If the argument depends on
-//     * some other arguments, note that if these fail, their values might be null
-//     * when calling this method!
-//     */
-//    protected T defaultValue() {
-//      return null;
-//    }
-//
-//    /** Determines the HTTP protocol name of the argument. Please use
-//     * small_letters_with_underscores_instead_of_spaces.
-//     */
-//    public final String _name;
-//
-//    /** Determines whether the argument is required, or if can be omitted by
-//     * the user.
-//     */
-//    public final boolean _required;
-//
-//    /** Determines the help for the argument (the name of the field in the
-//     * query HTML form, should be a string in English:)
-//     */
-//    private final String _help;
-//
-//    /** Creates new argument with help being the same as the name of the
-//     * argument. See the other constructor for more details.
-//     */
-//    public Argument(String name, boolean required) {
-//      this(name, required, name);
-//    }
-//
-//    /** Creates the argument of given name and help specification. The argument
-//     * might be required, or not.
-//     *
-//     * Upon creation the argument is added to the list (ordered by the time of
-//     * creation) of the arguments for the given request automatically.
-//     */
-//    public Argument(String name, boolean required, String help) {
-//      _name = name;
-//      _required = required;
-//      _help = help;
-//      _arguments.add(this);
-//    }
-//
-//    /** Help to the argument. The argument name is displayed in the HTML query
-//     * instead of the HTTP argument name which might be ugly to look at.
-//     */
-//    public String help() {
-//      return _help;
-//    }
-//
-//    /** Creates the request help page part for the given argument. Displays its
-//     * JSON name, query name (the one in HTML), value type and the request help
-//     * provided by the argument.
-//     */
-//    public void requestHelp(StringBuilder sb) {
-//      sb.append(DOM.h4(_name+DOM.color("*", _required ? "#ff0000" : "#ffffff")));
-//      sb.append(DOM.dlHorizontal("JSON name",_name));
-//      sb.append(DOM.dlHorizontal("Query name",_help));
-//      sb.append(DOM.dlHorizontal("Value type",description()));
-//      if (_requestHelp != null)
-//        sb.append(DOM.dlHorizontal(" ",_requestHelp));
-//    }
-//
-//    /** Checks and parses the value of the argument.
-//     *
-//     * Checks the argument and attempts to parse it to a proper object. If any
-//     * error occurs during the parsing, it is reported.
-//     *
-//     * The method also stores the input to the originalArguments Properties
-//     * field of the request object.
-//     *
-//     * If the parsing was not successful, or the string empty, the defaultValue
-//     * method is called and the default value is stored to the checked arguments
-//     * if it is not null.
-//     *
-//     * Summary: After the call to this method, any error during the parsing of
-//     * the argument is reported. OriginalArguments field for the given argument
-//     * contains the input string (or empty string if the argument was not
-//     * specified) and the checkedArguments contains the parsed value, or the
-//     * default value if parsing was not successful or the string was empty.
-//     *
-//     * NOTE that if parsing returns null as the value, then null will indeed
-//     * appear in the hashmap (not stored, but when value() is called, null will
-//     * be returned).
-//     */
-//    protected void check(String input) throws IllegalArgumentException {
-//      HashMap<String,Object> checkedArgs = _checkedArguments.get();
-//      _originalArguments.get().put(_name,input);
-//      boolean parsed = false;
-//      try {
-//        if (input.isEmpty()) {
-//          if (_required)
-//            throw new IllegalArgumentException("Argument not specified, but required");
-//        } else {
-//          T val = parse(input);
-//          if (val != null)
-//            checkedArgs.put(_name, val);
-//          parsed = true;
-//        }
-//      } catch (Exception e) {
-//        //e.printStackTrace();
-//        throw new IllegalArgumentException(e.getMessage());
-//      } finally {
-//        if (!parsed) {
-//          T dv = defaultValue();
-//          if (dv != null)
-//            checkedArgs.put(_name, dv);
-//        }
-//      }
-//    }
-//
-//    /** Returns the value of the argument. This method of the argument can be
-//     * called anytime after the arguments are checked. It simply returns the
-//     * parsed value, or the default value if the argument is not required and
-//     * no value was given.
-//     *
-//     * NOTE: the default value must be present in the _checkedArguments hashmap
-//     * if a default value of the argument should be used.
-//     */
-//    public final T value() {
-//      return (T) _checkedArguments.get().get(_name);
-//    }
-//
-//    /** Returns true, if the argument was specified in the request. Returns true
-//     * even if the argument was specified wrongly. Of course this is only valid
-//     * in queries as you will never get to serve() method if arguments fail
-//     * their parsing.
-//     */
-//    public final boolean specified() {
-//      return _originalArguments.get().containsKey(_name);
-//    }
-//
-//    /** Returns the original value submitted in the form, or empty string if
-//     * no value was submitted.
-//     */
-//    public final String originalValue() {
-//      return _originalArguments.get().getProperty(_name,"");
-//    }
-//
-//    /** Returns the query HTML code for the argument. The argument's value() is
-//     * used to determine what to put in the form.
-//     *
-//     * By default, each argument displays a simple text field, with its own
-//     * name, inputValue if any and description used as placeholder.
-//     *
-//     * NOTE Override this method if you want to specify a more elaborate input
-//     * method in the HTML query for the argument.
-//     */
-//    protected String query() {
-//      String v = originalValue();
-//      if (v.isEmpty()) {
-//        T dv = value();
-//        if (dv != null)
-//          v = dv.toString();
-//      }
-//      return DOM.textInput(_name, v, description());
-//    }
-//
-//    /** Returns the value of the argument if it is not null. If null, throws the
-//     * exception.
-//     */
-//    public T notNullValue() throws Exception {
-//      T v = value();
-//      if (v == null)
-//        throw new Exception("argument "+_name+" must be defined");
-//      return v;
-//    }
-//
-//    /** Returns null if the argument is currently not disabled, otherwise returns
-//     * the disabled message (reason).
-//     */
-//    public final String disabled() {
-//      return _disabled.get().getProperty(_name,null);
-//    }
-//
-//    /** Disables the current argument. Supplied message is the reason why the
-//     * argument is disabled.
-//     */
-//    public final void disable(String message) {
-//      _disabled.get().put(_name, message);
-//    }
-//
-//    /** Checks that all requirements of the argument are met. If not it should
-//     * mark the argument as disabled.
-//     */
-//    protected void checkRequirements() {
-//    }
-//
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  /** Argument with a simple default value.
-//   *
-//   * Any argument that can specify its default value (if any) from its
-//   * initialization should inherit from this class.
-//   *
-//   * @param <T>
-//   */
-//  public abstract class DefaultValueArgument<T> extends Argument<T> {
-//
-//    private T _defaultValue;
-//
-//    /** Creates an argument with given name, help, and default value. This
-//     * argument is never required.
-//     */
-//    protected DefaultValueArgument(String name, T defaultValue, String help) {
-//      super(name, false, help);
-//      _defaultValue = defaultValue;
-//    }
-//
-//    /** Creates an argument with given name and help. This argument is always
-//     * required. Should the defaultValue() method on this argument be called,
-//     * the result is null.
-//     *
-//     * NOTE that null cannot be used to determine whether the argument is
-//     * required or not, as it may very well be a valid value of the argument
-//     * itself.
-//     */
-//    protected DefaultValueArgument(String name, String help) {
-//      super(name, true, help);
-//      _defaultValue = null;
-//    }
-//
-//    /** Returns the previously created default value.
-//     */
-//    @Override protected T defaultValue() {
-//      return _defaultValue;
-//    }
-//  }
-//
-//  // ===========================================================================
-//  // Any defined Argument type should go here:
-//  // ===========================================================================
-//
-//  /** Any string argument.
-//   *
-//   * Performs *no* checks at all so accepts any string.
-//   *
-//   * NOTE that unless default value empty string is defined, the string will
-//   * not accept an empty string.
-//   */
-//  public class Str extends DefaultValueArgument<String> {
-//
-//    /** Creates a required string argument. Does not accept even empty string.
-//     */
-//    public Str(String name, String help) {
-//      super(name, help);
-//    }
-//
-//    /** Creates an optional string argument. Default value must be specified.
-//     */
-//    public Str(String name, String defaultValue, String help) {
-//      super(name, defaultValue, help);
-//    }
-//
-//    /** Parses the string. The string is simple returned.
-//     */
-//    @Override protected String parse(String input) throws Exception {
-//      return input;
-//    }
-//
-//    /** Any string will do, non-empty if required.
-//     */
-//    @Override public String description() {
-//      return _required ? "any nonempty string" : "any string";
-//    }
-//
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  /** Integer argument.
-//   *
-//   */
-//
-//  public class Int extends DefaultValueArgument<Integer> {
-//
-//    public final int _min;
-//    public final int _max;
-//
-//    public Int(String name, String help) {
-//      this(name,help, Integer.MIN_VALUE, Integer.MAX_VALUE);
-//    }
-//
-//    public Int(String name, String help, int min, int max) {
-//      super(name, help);
-//      _min = min;
-//      _max = max;
-//    }
-//
-//    public Int(String name, int defaultValue, String help) {
-//      this(name, defaultValue, help, Integer.MIN_VALUE, Integer.MAX_VALUE);
-//    }
-//
-//    public Int(String name, int defaultValue, String help, int min, int max) {
-//      super(name, defaultValue, help);
-//      _min = min;
-//      _max = max;
-//    }
-//
-//    @Override protected Integer parse(String input) throws Exception {
-//      int result;
-//      try {
-//        result = Integer.parseInt(input);
-//      } catch (NumberFormatException e) {
-//        throw new Exception(input+" is not a valid integer");
-//      }
-//      if ((result<_min) || (result>_max))
-//        throw new Exception(input+" is not from "+_min+" to "+_max+" (inclusive)");
-//      return result;
-//    }
-//
-//    @Override public String description() {
-//      if ((_min == Integer.MIN_VALUE) && (_max == Integer.MAX_VALUE))
-//        return "any integer number";
-//      return "integer from "+_min+" to "+_max+" (inclusive)";
-//    }
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  /** Real argument
-//   *
-//   */
-//  public class Real extends DefaultValueArgument<Double> {
-//
-//    public final Double _min;
-//    public final Double _max;
-//
-//    public Real(String name, String help) {
-//      this(name, help, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-//    }
-//
-//    public Real(String name, String help, double min, double max) {
-//      super(name, help);
-//      _min = min;
-//      _max = max;
-//    }
-//
-//    public Real(String name, double defaultValue, String help) {
-//      this(name, defaultValue, help, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-//    }
-//
-//    public Real(String name, double defaultValue, String help, double min, double max) {
-//      super(name, defaultValue, help);
-//      _min = min;
-//      _max = max;
-//    }
-//
-//    @Override
-//    protected Double parse(String input) throws Exception {
-//      double result;
-//      try {
-//        result = Double.parseDouble(input);
-//      } catch (NumberFormatException e) {
-//        throw new Exception(input+" is not a valid real number");
-//      }
-//      if ((result<_min) || (result>_max))
-//        throw new Exception(input+" is not from "+_min+" to "+_max+" (inclusive)");
-//      return result;
-//    }
-//
-//    @Override
-//    public String description() {
-//      if ((_min == Double.NEGATIVE_INFINITY) && (_max == Double.POSITIVE_INFINITY))
-//        return "any real number";
-//      return "real number from "+_min+" to "+_max+" (inclusive)";
-//    }
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  /** Boolean argument.
-//   *
-//   */
-//  public class Bool extends DefaultValueArgument<Boolean> {
-//
-//    public Bool(String name, String help) {
-//      super(name, false, help);
-//    }
-//
-//    public Bool(String name, boolean defaultValue, String help) {
-//      super(name, defaultValue, help);
-//    }
-//
-//    @Override protected Boolean parse(String input) throws Exception {
-//      if (input.equals("1"))
-//        return true;
-//      if (input.equals("0"))
-//        return false;
-//      throw new Exception("value "+input+" is not boolean (1 or 0 accepted only)");
-//    }
-//
-//    @Override public String description() {
-//      return super.help();
-//    }
-//
-//    @Override public String help() {
-//      return "";
-//    }
-//
-//    @Override protected String query() {
-//      return DOM.checkbox(_name, value(), description());
-//    }
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  public class H2OKey extends DefaultValueArgument<Key> {
-//
-//    public H2OKey(String name, String help) {
-//      super(name, help);
-//    }
-//
-//    public H2OKey(String name, String keyName, String help) {
-//      super(name, Key.make(keyName), help);
-//    }
-//
-//    public H2OKey(String name, Key key, String help) {
-//      super(name, key, help);
-//    }
-//
-//    @Override protected Key parse(String input) throws Exception {
-//      return Key.make(input);
-//    }
-//
-//    @Override public String description() {
-//      // TODO what actually is a valid key name? I know I should now, but it is
-//      // better to have tests for it:)
-//      return "a valid H2O key name";
-//    }
-//
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  private static final String _h2oKeysJavascript =
-//            "<script type='text/javascript'>"
-//          + "$('#%ID').typeahead({"
-//          + "  source:"
-//          + "    function(query,process) {"
-//          + "      return $.get('%TYPEAHEAD', { filter: query }, function (data) {"
-//          + "        return process(data.keys);"
-//          + "      });"
-//          + "    }"
-//          + "});"
-//          + "</script>"
-//          ;
-//
-//
-//  public class H2OExistingKey extends Argument<Value> {
-//
-//    // IS ALWAYS REQUIRED
-//    public H2OExistingKey(String name, String help) {
-//      super(name, true, help);
-//    }
-//
-//    @Override protected Value parse(String input) throws Exception {
-//      Key k = Key.make(input);
-//      Value v = DKV.get(k);
-//      if (v == null)
-//        throw new Exception("key "+input+" does not exist");
-//      return v;
-//    }
-//
-//    @Override public String description() {
-//      return "an existing H2O key";
-//    }
-//
-//    @Override protected String query() {
-//      RString js = new RString(_h2oKeysJavascript);
-//      js.replace("ID",_name);
-//      js.replace("TYPEAHEAD","WWWKeys.json");
-//      return super.query() + js.toString();
-//    }
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//
-//  public class H2OHexKey extends Argument<ValueArray> {
-//
-//    // IS ALWAYS REQUIRED
-//    public H2OHexKey(String name, String help) {
-//      super(name, true, help);
-//    }
-//
-//    @Override protected ValueArray parse(String input) throws Exception {
-//      Key k = Key.make(input);
-//      Value v = DKV.get(k);
-//      if (v == null)
-//        throw new Exception("key "+input+" does not exist!");
-//      if (!(v instanceof ValueArray))
-//        throw new Exception("key "+input+" does not point to a HEX file");
-//      ValueArray va = (ValueArray) v;
-//      if (va.num_cols()==0)
-//        throw new Exception("key "+input+" does not point to a HEX file");
-//      return va;
-//    }
-//
-//    @Override public String description() {
-//      // TODO how do we call these keys for customers?
-//      return "an existing hex key";
-//    }
-//
-//    @Override protected String query() {
-//      RString js = new RString(_h2oKeysJavascript);
-//      js.replace("ID",_name);
-//      js.replace("TYPEAHEAD","WWWHexKeys.json");
-//      return super.query() + js.toString();
-//    }
-//  }
-//
-//  // ---------------------------------------------------------------------------
-//
-//  /** Argument for a key column.
-//   *
-//   * Given a specific key.
-//   *
-//   */
-//  public class H2OKeyCol extends DefaultValueArgument<Integer> {
-//    protected final H2OHexKey _key;
-//
-//    public H2OKeyCol(H2OHexKey key, String name, String help) {
-//      super(name,help);
-//      _key = key;
-//    }
-//
-//    public H2OKeyCol(H2OHexKey key, String name, int defaultValue, String help) {
-//      super(name, defaultValue, help);
-//      _key = key;
-//    }
-//
-//    @Override protected Integer parse(String value) throws Exception {
-//      ValueArray ary = _key.notNullValue();
-//      for (int i = 0; i < ary.num_cols(); ++i)
-//        if (ary.col_name(i).equals(value))
-//          return i;
-//      try {
-//        int i = Integer.parseInt(value);
-//        if ((i<0) || (i>=ary.num_cols()))
-//          throw new Exception("Column index "+i+" out of range <0 , "+ary.num_cols()+") of columns for key "+ary._key);
-//        return i;
-//      } catch (NumberFormatException e) {
-//        throw new Exception(value+" does not name any column in key "+ary._key);
-//      }
-//    }
-//
-//    @Override public String description() {
-//      return "Index of the column, or the column name for key specified by argument "+_key._name;
-//    }
-//
-//    /** Checks that all requirements of the argument are met. If not it should
-//     * mark the argument as disabled.
-//     */
-//    @Override protected void checkRequirements() {
-//      if ((_key.disabled() != null)
-//        || (_key.value() == null))
-//        disable("Argument "+_key._name+" must be specified in order to edit.");
-//    }
-//  }
 //
 //  // ---------------------------------------------------------------------------
 //

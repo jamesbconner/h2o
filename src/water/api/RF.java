@@ -17,21 +17,21 @@ import water.web.*;
  */
 public class RF extends Request {
 
-  protected final H2OHexKey _dataKey = new H2OHexKey(JSON_DATA_KEY,"Data key");
-  protected final H2OKeyCol _classCol = new H2OKeyCol(_dataKey,JSON_CLASS,"Class column:");
-  protected final Int _numTrees = new Int(JSON_NUM_TREES,50,"Number of trees to build",0,Integer.MAX_VALUE);
-  protected final Int _depth = new Int(JSON_DEPTH,0,"Max tree depth",0,Integer.MAX_VALUE);
-  protected final Int _sample = new Int(JSON_SAMPLE, 67, "Sample rate", 0, 100);
-  protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, "Max # of bins",0,65535);
-  protected final Bool _gini = new Bool(JSON_GINI,true,"Use Gini statistics (default is Entropy)");
-  protected final Int _seed = new Int(JSON_SEED,0,"Random seed");
+  protected final H2OHexKey _dataKey = new H2OHexKey(JSON_DATA_KEY);
+  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,JSON_CLASS,0);
+  protected final Int _numTrees = new Int(JSON_NUM_TREES,50,0,Integer.MAX_VALUE);
+  protected final Int _depth = new Int(JSON_DEPTH,0,0,Integer.MAX_VALUE);
+  protected final Int _sample = new Int(JSON_SAMPLE, 67, 0, 100);
+  protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, 0,65535);
+  protected final Bool _gini = new Bool(JSON_GINI,true,"use gini statistic (otherwise entropy is used)");
+  protected final Int _seed = new Int(JSON_SEED,0);
   protected final Bool _parallel = new Bool(JSON_PARALLEL,true,"Build trees in parallel");
-  protected final H2OKey _modelKey = new H2OKey(JSON_MODEL_KEY,Key.make("model"),"Model key");
+  protected final H2OKey _modelKey = new H2OKey(JSON_MODEL_KEY,Key.make("model"));
   protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
-  protected final Bool _stratify = new Bool(JSON_STRATIFY,false,"Stratify");
-  protected final H2OCategoryDoubles _weights = new H2OCategoryDoubles(_dataKey, _classCol, JSON_WEIGHTS,1,"Category weights",0,Double.POSITIVE_INFINITY);
-  protected final H2OKeyCols _ignore = new H2OKeyCols(_dataKey,JSON_IGNORE,new int[0],"Ignore columns");
-  protected final Int _features = new Int(JSON_FEATURES, 0, "Features", 0, Integer.MAX_VALUE);
+  protected final Bool _stratify = new Bool(JSON_STRATIFY,false,"Use Stratified sampling");
+//  protected final H2OCategoryDoubles _weights = new H2OCategoryDoubles(_dataKey, _classCol, JSON_WEIGHTS,1,"Category weights",0,Double.POSITIVE_INFINITY);
+//  protected final H2OKeyCols _ignore = new H2OKeyCols(_dataKey,JSON_IGNORE,new int[0],"Ignore columns");
+  protected final Int _features = new Int(JSON_FEATURES, 0, 0, Integer.MAX_VALUE);
 
   /** Fires the random forest computation.
    *
@@ -44,7 +44,7 @@ public class RF extends Request {
     Tree.StatType statType = Tree.StatType.values()[_gini.value() ? 1 : 0];
     int classCol = _classCol.value();
     float sample = _sample.value() / 100f;
-    double[] weights = _weights.value();
+//    double[] weights = _weights.value();
     try {
    /*   DRF drf = hex.rf.DRF.web_main(
               ary,
@@ -62,7 +62,7 @@ public class RF extends Request {
               _features.value()
               ); */
       // Output a model with zero trees (so far).
-      final int classes = (short)((ary.col_max(classCol) - ary.col_min(classCol))+1);
+//      final int classes = (short)((ary.col_max(classCol) - ary.col_min(classCol))+1);
       // Output a model with zero trees (so far).
      // Model model = new Model(modelKey,drf._treeskey,ary.num_cols(),classes,sample,ary._key,_ignore.value());
       // Save it to the cloud
