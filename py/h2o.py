@@ -34,7 +34,7 @@ def drain(src, dst):
     t.start()
 
 def unit_main():
-    print "\nRunning python:", inspect.stack()[1][1]
+    print "\nRunning: python", inspect.stack()[1][1]
     clean_sandbox()
     parse_our_args()
     unittest.main()
