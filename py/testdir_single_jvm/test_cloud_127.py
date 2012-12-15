@@ -27,7 +27,8 @@ class Basic(unittest.TestCase):
             h2o.tear_down_cloud(nodes)
 
             # increment the base_port to avoid sticky ports when we do another
-            baseport += 3 * tryNodes
+            # we only use two ports now?
+            baseport += 2 * tryNodes
 
 if __name__ == '__main__':
     h2o.unit_main()
