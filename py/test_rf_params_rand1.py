@@ -26,6 +26,8 @@ import random, sys
 # only classes 0-8 in the last col of poker1000
 
 # FIX! lots of stratify for now..temporary testing
+# FIX! make binLimit minimum of 2 for now? bug with 1?
+print "Temporarily not using binLimit=1 to 3"
 paramDict = {
     'class': [None,10],
     'classWt': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2','8=2'],
@@ -34,7 +36,7 @@ paramDict = {
     'OOBEE': ['None', 'true', 'false'],
     'gini': [None, 0, 1],
     'depth': [None, 1,10,20,100],
-    'binLimit': [None,1,5,10,100,1000],
+    'binLimit': [None,4,5,10,100,1000],
     'parallel': [None,0,1],
     'ignore': [None,0,1,2,3,4,5,6,7,8,9],
     'sample': [None,20,40,60,80,100],

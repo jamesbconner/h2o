@@ -7,13 +7,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import water.H2O;
-import water.TimeLine;
-import water.UDP;
+import water.*;
+import water.H2ONode.H2Okey;
 
 /**
  * Wrapper around timeline snapshot. Implements iterator interface (events are
- * ordered according to send/rcv dependencues accross the nodes and trivial time
+ * ordered according to send/receive dependencies across the nodes and trivial time
  * dependencies inside node)
  *
  * @author tomas
@@ -157,8 +156,8 @@ public final class TimelineSnapshot implements
       UDP.udp udpType = UDP.udp.UDPS[udp_type];
       String operation = isSend() ? " SEND " : " RECV ";
       String host1 = addrString();
-      String host2 = _cloud._memary[nodeId()]._key._inet.toString() + ":"
-          + _cloud._memary[nodeId()]._key._port;
+      String host2 = _cloud._memary[nodeId()]._key.toString() + ":"
+          + _cloud._memary[nodeId()]._key.getPort();
       String networkPart = isSend() ? (host2 + " -> " + host1) : (host1
           + " -> " + host2);
 
@@ -193,18 +192,19 @@ public final class TimelineSnapshot implements
       case heartbeat:
       case rebooted:
       case timeline:
-      case log:
+//      case log:
         // compare only first 3 bytes here (udp type and port)
         if ((myl0 & 0xFFFFFFl) != (otherl0 & myl0 & 0xFFFFFFl))
           return false;
         break;
       case ack:
       case ackack:
-      case atomic:
-      case getkey:
-      case getkeys:
-      case putkey:
-      case rexec:
+//      case atomic:
+//      case getkey:
+//      case getkeys:
+//      case putkey:
+      case execlo:
+      case exechi:
         // compare 3 ctrl bytes + 4 bytes task #
         if ((myl0 & 0xFFFFFFFFFFFFFFl) != (otherl0 & 0xFFFFFFFFFFFFFFl))
           return false;
@@ -225,8 +225,8 @@ public final class TimelineSnapshot implements
       }
 
       // now compare addresses
-      InetAddress myAddrHost = _cloud._memary[_arr[0]]._key._inet;
-      InetAddress otherAddrHost = _cloud._memary[other._arr[0]]._key._inet;
+      H2Okey myAddrHost = _cloud._memary[_arr[0]]._key;
+      H2Okey otherAddrHost = _cloud._memary[other._arr[0]]._key;
       return isSend() ? (myAddrHost.equals(other.addrPack()) && (addrPack()
           .isMulticastAddress() || addrPack().equals(otherAddrHost)))
           : (otherAddrHost.equals(addrPack()) && (other.addrPack()
@@ -381,8 +381,10 @@ public final class TimelineSnapshot implements
       assert !_edges.containsKey(e);
       int senderIdx = -1;
       for (int i = 0; i < _events.length; ++i) {
-        if (_cloud._memary[i]._key._port == e.portPack()
-            && _cloud._memary[i]._key._inet.equals(e.addrPack())) {
+        // TODO: Matt is not sure if the .equals() below is correct
+        //  in the world of IO nirvana.
+        if (_cloud._memary[i]._key.getPort() == e.portPack()
+            && _cloud._memary[i]._key.getAddress().equals(e.addrPack())) {
           senderIdx = i;
           break;
         }

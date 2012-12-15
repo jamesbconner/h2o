@@ -1,15 +1,10 @@
 package water.web;
-
 import com.google.gson.JsonObject;
 import java.util.Properties;
-
 import water.Key;
 import water.UKV;
 
 public class Remove extends H2OPage {
-
-  
-  
   @Override public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {
     JsonObject result = new JsonObject();
     try {
@@ -23,7 +18,6 @@ public class Remove extends H2OPage {
     }
     return result;
   }
-  
   
   @Override public String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     Key key = ServletUtil.check_key(args,"Key");

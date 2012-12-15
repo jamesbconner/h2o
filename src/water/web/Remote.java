@@ -1,15 +1,9 @@
 package water.web;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Properties;
-
-import water.DKV;
-import water.H2O;
-import water.H2ONode;
-import water.Key;
-import water.TaskGetKeys;
-import water.Value;
+import water.*;
 import water.web.Page.PageError;
 
 public class Remote extends H2OPage {
@@ -39,10 +33,7 @@ public class Remote extends H2OPage {
     // Ask the remote H2ONode for 'len' keys from *his* local store, after
     // skipping 'off' keys.  This is NOT ALL his keys, thats too much.  Some
     // Day this should open a Stream of keys.  No guarantees on order.
-    Key[] keys = new TaskGetKeys(h2o,0,25).get();
-    if( keys == null )
-      return error("Unknown Node "+addr);
-
+    Key[] keys = new RPC<GetKeys>(h2o,new GetKeys()).call().get()._keys;
     // Build a click-able table of K/V pairs
     int alt=0;                  // Alternate color per row
     for( Key key : keys ) {     // For all keys returned
@@ -50,12 +41,30 @@ public class Remote extends H2OPage {
       if( val == null ) continue;   // Key was deleted before viewing
       RString row = response.restartGroup("tableRow");
       row.replace("key",key.toString());
-      row.replace("value",val.getString(100));
+      row.replace("value",val.getString(100,new StringBuilder()));
       row.append();
       alt++;
     }
     response.replace("noOfKeys",alt);
     return response.toString();
+  }
+
+  private static class GetKeys extends DTask {
+    Key[] _keys;
+    public GetKeys() {}
+    public GetKeys invoke(H2ONode sender) {
+      Key[] ks = new Key[25];
+      int i=0;
+      for( Key key : H2O.keySet() )
+        if( key.user_allowed() ) {
+          ks[i++] = key;
+          if( i >= ks.length )
+            break;
+        }
+      _keys = i<ks.length ? Arrays.copyOf(ks,i) : ks;
+      return this;
+    }
+    public void compute() { throw H2O.unimpl(); }
   }
 
   final static String html =

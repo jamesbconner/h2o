@@ -1,15 +1,9 @@
-
 package water.parser;
 
 import water.Key;
 
 
-/**
- *
- * @author peta
- */
 public abstract class CustomParser {
-  
   public enum Type { CSV, XLS, XLSX }
   
   public static final byte CHAR_TAB = '\t';

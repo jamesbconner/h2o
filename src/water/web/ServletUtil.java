@@ -20,9 +20,10 @@ public class ServletUtil {
     // Distributed get
     Value val = DKV.get(key);
     if( val == null ) throw new PageError("Key not found: "+ key);
-    if( !(val instanceof ValueArray) || ((ValueArray)val).num_cols() == 0 )
+    if( val._isArray == 0 )
       throw new PageError("Key not a structured (parsed) array");
-    return (ValueArray) val;
+    ValueArray ary = ValueArray.value(val);
+    return ary;
   }
 
   // Returns a Key or an error String
@@ -41,17 +42,19 @@ public class ServletUtil {
     public abstract String run(ValueArray ary, int colA, int colB);
   }
 
-  public static void createBestEffortSummary(Key key, RString row) {
+  public static void createBestEffortSummary(Key key, RString row, long len) {
     final int maxCols = 100;
     // Guess any separator
-    Key key0 = DKV.get(key).chunk_get(0); // Key for 1st chunk
-    byte[] bs = DKV.get(key0).get(); // First chunk
+    byte[] bs = DKV.get(key).getFirstBytes();
     int[] rows_cols = CsvParser.inspect(bs);
     // Inject into the HTML
     if (rows_cols != null) {
-      row.replace("rows",rows_cols[0]);
+      int rows = rows_cols[0];  // Rows in this first bit of data
+      double bytes_per_row = (double)bs.length/rows_cols[0]; // Estimated bytes/row
+      row.replace("rows",(long)((double)len/bytes_per_row));
       row.replace("cols",rows_cols[1]);
     }
     row.append();
   }
 }
+

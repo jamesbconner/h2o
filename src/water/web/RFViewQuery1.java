@@ -91,11 +91,11 @@ public class RFViewQuery1 extends H2OPage {
     Value v = DKV.get(Key.make(args.getProperty("dataKey")));
     if (v == null)
       throw new PageError("Key not found!");
-    if (!(v instanceof ValueArray))
+    if( v._isArray == 0 )
       throw new PageError("Key is not a dataframe");
-    ValueArray va = (ValueArray) v;
-    int classCol = getAsNumber(args, "class", va.num_cols()-1);
-    result.replace("classColName",va.col_name(classCol));
+    ValueArray va = ValueArray.value(v);
+    int classCol = getAsNumber(args, "class", va._cols.length-1);
+    result.replace("classColName",va._cols[classCol]._name);
     String[] classes = RandomForestPage.determineColumnClassNames(va, classCol, RandomForestPage.MAX_CLASSES);
     result.replace("numClasses",classes.length);
     for (int i = 0; i < classes.length; ++i) {

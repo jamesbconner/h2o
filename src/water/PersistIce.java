@@ -1,7 +1,6 @@
 package water;
+
 import java.io.*;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 
 // Persistence backend for the local storage device
 //
@@ -20,25 +19,6 @@ public abstract class PersistIce {
   public static final String DEFAULT_ROOT = "/tmp";
   private static final String ICE_DIR = "ice";
   private static final File iceRoot;
-
-  static String encode(String what) {
-    try {
-      return URLEncoder.encode(what,"UTF8").replace("%","=");
-    } catch (UnsupportedEncodingException e) {
-      //pass
-      return null;
-    }
-  }
-
-  static String decode(String what) {
-    try {
-      return URLDecoder.decode(what.replace("=","%"),"UTF8");
-    } catch (UnsupportedEncodingException e) {
-      //pass
-      return null;
-    }
-  }
-
 
   // Load into the K/V store all the files found on the local disk
   static void initialize() {}
@@ -70,7 +50,7 @@ public abstract class PersistIce {
         initializeFilesFromFolder(f); // Recursively keep loading K/V pairs
       } else {
         Key k = decodeKey(f);
-        Value ice = Value.construct((int)f.length(),0,k,Value.ICE,decodeType(f));
+        Value ice = new Value(k,(int)f.length(), Value.ICE);
         ice.setdsk();
         H2O.putIfAbsent_raw(k,ice);
       }
@@ -87,7 +67,42 @@ public abstract class PersistIce {
   private static final Key decodeKey(File f) {
     String key = f.getName();
     key = key.substring(0,key.lastIndexOf('.'));
-    return Key.make(decode(key),decodeReplication(f));
+    byte[] kb = null;
+    // a normal key - ASCII with special characters encoded after % sign
+    if ((key.length()<=2) || (key.charAt(0)!='%') || (key.charAt(1)<'0') || (key.charAt(1)>'9')) {
+      byte[] nkb = new byte[key.length()];
+      int j = 0;
+      for( int i = 0; i < key.length(); ++i ) {
+        byte b = (byte)key.charAt(i);
+        if( b == '%' ) {
+          switch( key.charAt(++i) ) {
+          case '%':  b = '%' ; break;
+          case 'b':  b = '\\'; break;
+          case 'c':  b = ':' ; break;
+          case 'd':  b = '.' ; break;
+          case 's':  b = '/' ; break;
+          default:   System.err.println("Invalid format of filename " + f.getName() + " at index " + i);
+          }
+        }
+        nkb[j++] = b;
+        kb = new byte[j];
+        System.arraycopy(nkb,0,kb,0,j);
+      }
+    } else {
+      // system key, encoded by % and then 2 bytes for each byte of the key
+      kb = new byte[(key.length()-1)/2];
+      int j = 0;
+      // Then hexelate the entire thing
+      for( int i = 1; i < key.length(); i+=2 ) {
+        char b0 = (char)(key.charAt(i+0)-'0');
+        if( b0 > 9 ) b0 += '0'+10-'A';
+        char b1 = (char)(key.charAt(i+1)-'0');
+        if( b1 > 9 ) b1 += '0'+10-'A';
+        kb[j++] = (byte)((b0<<4)|b1);  // De-hexelated byte
+      }
+    }
+    // now in kb we have the key name
+    return Key.make(kb,decodeReplication(f));
   }
 
   private static byte decodeReplication(File f) {
@@ -97,9 +112,9 @@ public abstract class PersistIce {
       return (byte)Integer.parseInt(ext.substring(1));
     } catch (NumberFormatException e) {
       Log.die("[ice] Unable to decode filename "+f.getAbsolutePath());
-      return 0; // unreachable
+      return 0;
     }
-   }
+  }
 
   private static byte decodeType(File f) {
     String ext = f.getName();
@@ -108,18 +123,42 @@ public abstract class PersistIce {
   }
 
   private static File encodeKeyToFile(Value v) {
-    return encodeKeyToFile(v._key,v.type());
+    return encodeKeyToFile(v._key,(byte)(v._isArray!=0?'A':'V'));
   }
   private static File encodeKeyToFile(Key k, byte type) {
-    StringBuilder sb = new StringBuilder();
-    // append the value type and replication factor */
-    sb.append(encode(k.toString()));
+    // check if we are system key
+    StringBuilder sb = null;
+    if (k._kb[0]<32) {
+      sb = new StringBuilder(k._kb.length/2+4);
+      sb.append('%');
+      for( byte b : k._kb ) {
+        int nib0 = ((b>>>4)&15)+'0';
+        if( nib0 > '9' ) nib0 += 'A'-10-'0';
+        int nib1 = ((b>>>0)&15)+'0';
+        if( nib1 > '9' ) nib1 += 'A'-10-'0';
+        sb.append((char)nib0).append((char)nib1);
+      }
+    // or a normal key
+    } else {
+      // Escapes special characters in the given key so that in can be used as a
+      // filename on the disk
+      sb = new StringBuilder(k._kb.length*2);
+      for( byte b : k._kb ) {
+        switch( b ) {
+        case '%':  sb.append("%%"); break;
+        case '.':  sb.append("%d"); break; // dot
+        case '/':  sb.append("%s"); break; // slash
+        case ':':  sb.append("%c"); break; // colon
+        case '\\': sb.append("%b"); break; // backslash
+        default:   sb.append((char)b); break;
+        }
+      }
+    }
+    // append the value type and replication factor
     sb.append('.');
     sb.append((char)type);
     sb.append(k.desired());
-    File f = new File(iceRoot, getDirectoryForKey(k));
-    return new File(f,sb.toString());
-    //return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
+    return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
   }
 
   private static String getDirectoryForKey(Key key) {
@@ -139,24 +178,22 @@ public abstract class PersistIce {
   // for, although it's hard to see the asserts).  A racing delete can trigger
   // a failure where we get a null return, but no crash (although one could
   // argue that a racing load&delete is a bug no matter what).
-  static byte[] file_load(Value v, int len) {
-    byte[] b = MemoryManager.allocateMemory(len);
+  static byte[] file_load(Value v) {
+    File f = encodeKeyToFile(v);
+    if( f.length() < v._max ) { // Should be fully on disk... or
+      assert !v.is_persisted(); // or it's a racey delete of a spilled value
+      return null;              // No value
+    }
+    byte[] b = MemoryManager.malloc1(v._max);
     try {
-      File f = encodeKeyToFile(v);
-      if( f.length() < v._max ) { // Should be fully on disk... or
-        System.out.println("Failed to file_load; file is short "+f.length());
-        assert !v.is_persisted(); // or it's a racey delete of a spilled value
-        return null;              // No value
-      }
       DataInputStream s = new DataInputStream(new FileInputStream(f));
       try {
-        s.readFully(b, 0, len);
+        s.readFully(b, 0, v._max);
         return b;
       } finally {
         s.close();
       }
     } catch( IOException e ) {  // Broken disk / short-file???
-      e.printStackTrace();
       throw new RuntimeException("File load failed: "+e);
     }
   }
@@ -193,7 +230,7 @@ public abstract class PersistIce {
     assert !v.is_persisted();   // Upper layers already cleared out
     File f = encodeKeyToFile(v);
     f.delete();
-    if( v instanceof ValueArray ) { // Also nuke directory if the top-level ValueArray dies
+    if( v._isArray != 0 ) { // Also nuke directory if the top-level ValueArray dies
       f = new File(iceRoot,getDirectoryForKey(v._key));
       f.delete();
     }
@@ -204,7 +241,7 @@ public abstract class PersistIce {
     assert key.home();          // Only do this on the home node
     File f = encodeKeyToFile(key,Value.ICE);
     if( !f.isFile() ) return null;
-    Value val = new Value((int)f.length(),0,key,Value.ICE);
+    Value val = new Value(key,(int)f.length());
     val.setdsk();               // But its already on disk.
     return val;
   }

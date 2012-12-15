@@ -224,11 +224,11 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
     if hosts is None:
         ip = get_ip_address()
         for i in xrange(node_count):
-            pff.write("/" + ip + ":" + str(base_port +3*i) + "\n")
+            pff.write("/" + ip + ":" + str(base_port +2*i) + "\n")
     else:
         for h in hosts:
             for i in xrange(node_count):
-                pff.write("/" + h.addr + ":" + str(base_port +3*i) + "\n")
+                pff.write("/" + h.addr + ":" + str(base_port +2*i) + "\n")
     pff.close()
 
 # node_count is per host if hosts is specified.
@@ -248,7 +248,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
     # hardwire this. don't need it to be an arg
-    ports_per_node = 3
+    ports_per_node = 2
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -257,7 +257,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             hostCount = 1
             for i in xrange(node_count):
                 verboseprint('psutil starting node', i)
-                newNode = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
+                newNode = LocalH2O(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                 node_list.append(newNode)
                 totalNodes += 1
         else:
@@ -265,7 +265,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
-                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
+                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                     node_list.append(newNode)
                     totalNodes += 1
 
@@ -300,7 +300,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 def upload_jar_to_remote_hosts(hosts, slow_connection=False):
     def prog(sofar, total):
         # output is bad for jenkins
-        if not getpass.getuser() is 'jenkins':
+        if not getpass.getuser() == 'jenkins':
             p = int(10.0 * sofar / total)
             sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
             sys.stdout.flush()
@@ -325,22 +325,27 @@ def check_sandbox_for_errors():
     # If timeouts are tuned reasonably, we'll get here quick
     # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
 
-    # if you find a problem, just keep printing till the end
-    # in that file. 
+    # if you find a problem, just keep printing till the end, in that file. 
     # The stdout/stderr is shared for the entire cloud session?
     # so don't want to dump it multiple times?
+
+    # "printing" is per file. foundAnyBadness is about the collection    `   
+    foundAnyBadness = False
     for filename in os.listdir(LOG_DIR):
         if re.search('stdout|stderr',filename):
             sandFile = open(LOG_DIR + "/" + filename, "r")
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile('exception|error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
+            regex = re.compile(
+                'exception|error|assert|warn|info|killing|killed|required ports',
+                re.IGNORECASE)
             printing = 0
             for line in sandFile:
                 newFound = regex.search(line) and ('error rate' not in line)
                 if (printing==0 and newFound):
                     printing = 1
+                    foundAnyBadness = True
                 elif (printing==1):
                     # if we've been printing, stop when you get to another error
                     # we don't care about seeing multiple prints scroll off the screen
@@ -350,10 +355,10 @@ def check_sandbox_for_errors():
                 if (printing==1):
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
-        
+
             sandFile.close()
 
-    return (printing!=0) # can test and cause exception
+    return (foundAnyBadness) # can test and cause exception
 
 
 def tear_down_cloud(node_list=None):
@@ -564,8 +569,8 @@ class H2O(object):
             'log': None,
             'colSwap': None,
             'makeEnum': None,
-            'browseAlso' : False,
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
 
         verboseprint("\nexec_query:", params_dict)
@@ -601,9 +606,9 @@ class H2O(object):
             'ntree' : trees,
             'modelKey' : 'pytest_model',
             'depth' : 30,
-            'browseAlso' : False,
             }
         
+        browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
         
@@ -643,13 +648,13 @@ class H2O(object):
             'OOBEE' : None,
             'classWt' : None
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         # only update params_dict..don't add
         # throw away anything else as it should come from the model (propagating what RF used)
         for k in kwargs:
             if k in params_dict:
                 params_dict[k] = kwargs[k]
 
-        browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
             self.__url('RFView.json'),
@@ -670,6 +675,7 @@ class H2O(object):
             'colA' : 0,
             'colB' : 1,
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
         a = self.__check_request(
             requests.get(self.__url('LR.json'),
@@ -841,7 +847,7 @@ class H2O(object):
 
     def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
         use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
-        java_heap_GB=None, use_home_for_ice=False, username=None):
+        java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -858,6 +864,7 @@ class H2O(object):
         self.java_heap_GB = java_heap_GB
 
         self.use_home_for_ice = use_home_for_ice
+        self.node_id = node_id
         self.username = username
 
     def __str__(self):
@@ -909,8 +916,12 @@ class LocalH2O(H2O):
         # FIX! no option for local /home/username ..always /tmp
         self.ice = tmp_dir('ice.')
         self.flatfile = flatfile_name()
-        spawn = spawn_cmd('local-h2o', self.get_args(),
-                capture_output=self.capture_output)
+        if self.node_id is not None:
+            logPrefix = 'local-h2o-' + str(self.node_id)
+        else:
+            logPrefix = 'local-h2o'
+
+        spawn = spawn_cmd(logPrefix, self.get_args(), capture_output=self.capture_output)
         self.ps = spawn[0]
 
     def get_h2o_jar(self):
@@ -1047,8 +1058,14 @@ class RemoteH2O(H2O):
         cmd = ' '.join(self.get_args())
         self.channel.exec_command(cmd)
         if self.capture_output:
-            outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
-            errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')
+            if self.node_id is not None:
+                logPrefix = 'remote-h2o-' + str(self.node_id)
+            else:
+                logPrefix = 'remote-h2o'
+
+            outfd,outpath = tmp_file(logPrefix + '.stdout.', '.log')
+            errfd,errpath = tmp_file(logPrefix + '.stderr.', '.log')
+
             drain(self.channel.makefile(), outfd)
             drain(self.channel.makefile_stderr(), errfd)
             comment = 'Remote on %s, stdout %s, stderr %s' % (

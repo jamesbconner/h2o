@@ -4,8 +4,8 @@ import water.*;
 import com.google.gson.JsonObject;
 
 /**
- * Calculate the covariance and correlation of two variables
- */
+* Calculate the covariance and correlation of two variables
+*/
 public abstract class Covariance {
 
   static public JsonObject run( ValueArray ary, int colA, int colB ) {
@@ -21,7 +21,7 @@ public abstract class Covariance {
     long pass1 = System.currentTimeMillis();
 
     // Pass 2: Compute the product of variance for variance and covariance
-    long n = ary.num_rows();
+    long n = ary._numrows;
     cov._pass = 2;
     cov._Xbar = cov._sumX / n;
     cov._Ybar = cov._sumY / n;
@@ -40,8 +40,8 @@ public abstract class Covariance {
 
     JsonObject res = new JsonObject();
     res.addProperty("Key", ary._key.toString());
-    res.addProperty("ColA", ary.col_name(colA));
-    res.addProperty("ColB", ary.col_name(colB));
+    res.addProperty("ColA", ary._cols[colA]._name);
+    res.addProperty("ColB", ary._cols[colB]._name);
     res.addProperty("Pass1Msecs", pass1 - start);
     res.addProperty("Pass2Msecs", pass2 - start);
     res.addProperty("Covariance", covariance);
@@ -56,47 +56,41 @@ public abstract class Covariance {
   }
 
   public static class COV_Task extends MRTask {
-    Key _arykey;                // Main ValueArray key
-    int _pass;                  // Pass 1, or 2.
-    int _colA, _colB;           // Which columns to work on
+    Key _arykey; // Main ValueArray key
+    int _pass; // Pass 1, or 2.
+    int _colA, _colB; // Which columns to work on
     double _sumX,_sumY;
     double _Xbar, _Ybar, _XXbar, _YYbar, _XYbar;
 
     public void map( Key key ) {
       // Get the root ValueArray for the metadata
-      ValueArray ary = (ValueArray)DKV.get(_arykey);
+      ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      byte[] bits = DKV.get(key).get();
-      // Split out all the loop-invariant meta-data offset into
-      int rowsize = ary.row_size();
-      int rows = bits.length/rowsize;
-      int colA_off  = ary.col_off  (_colA);
-      int colB_off  = ary.col_off  (_colB);
-      int colA_size = ary.col_size (_colA);
-      int colB_size = ary.col_size (_colB);
-      int colA_base = ary.col_base (_colA);
-      int colB_base = ary.col_base (_colB);
-      int colA_scale= ary.col_scale(_colA);
-      int colB_scale= ary.col_scale(_colB);
+      AutoBuffer bits = ary.getChunk(key);
+      final int rows = bits.remaining()/ary._rowsize;
+      // Columns to work on
+      ValueArray.Column A = ary._cols[_colA];
+      ValueArray.Column B = ary._cols[_colB];
+
       // Loop over the data
       switch( _pass ) {
-      case 1:                   // Pass 1
+      case 1: // Pass 1
         // Run pass 1
         // Calculate sums for averages
         for( int i=0; i<rows; i++ ) {
-          double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-          double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          double X = ary.datad(bits,i,A);
+          double Y = ary.datad(bits,i,B);
           _sumX += X;
           _sumY += Y;
         }
         break;
 
-      case 2:                   // Pass 2
+      case 2: // Pass 2
         // Run pass 2
         // Calculate the product of de-meaned variables
         for( int i=0; i<rows; i++ ) {
-          double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-          double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          double X = ary.datad(bits,i,A);
+          double Y = ary.datad(bits,i,B);
           double Xa = (X-_Xbar);
           double Ya = (Y-_Ybar);
           _XXbar += Xa*Xa;
@@ -108,7 +102,7 @@ public abstract class Covariance {
     }
 
     public void reduce( DRemoteTask rt ) {
-      COV_Task  cov = (COV_Task)rt;
+      COV_Task cov = (COV_Task)rt;
       switch( _pass ) {
       case 1:
         _sumX += cov._sumX ;

@@ -13,6 +13,12 @@ def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20):
         myKey2 = key2
     return node.parse(put['key'], myKey2, timeoutSecs)
 
+def runInspect(node=None,key=None,timeoutSecs=5,**kwargs):
+    if not key: raise Exception('No key for Inspect specified')
+    if not node: node = h2o.nodes[0]
+    # FIX! currently there is no such thing as a timeout on node.inspect
+    return node.inspect(key, **kwargs)
+
 # since we'll be doing lots of execs on a parsed file, not useful to have parse+exec
 # retryDelaySecs isn't used, 
 def runExecOnly(node=None,parseKey=None,timeoutSecs=20,**kwargs):

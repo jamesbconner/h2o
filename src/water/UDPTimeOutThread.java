@@ -13,7 +13,7 @@ public class UDPTimeOutThread extends Thread {
   // List of "in progress" tasks.  When they time-out we do the time-out action
   // which is possibly a re-send if we suspect a dropped UDP packet, or a
   // fail-out if the target has died.
-  static DelayQueue<DFutureTask> PENDING = new DelayQueue<DFutureTask>();
+  static DelayQueue<RPC> PENDING = new DelayQueue<RPC>();
 
   // The Run Method.
 
@@ -22,7 +22,7 @@ public class UDPTimeOutThread extends Thread {
     Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
     while( true ) {
       try {
-        DFutureTask t = PENDING.take();
+        RPC t = PENDING.take();
         // One-shot timeout effect.  Retries need to re-insert back in the queue
         if( H2O.CLOUD._memset.contains(t._target) )
           // A little unusual effect happens here: the resend typically does
@@ -34,7 +34,7 @@ public class UDPTimeOutThread extends Thread {
           // delays shouldn't cause much of a problem: if the I/O path is
           // slammed then stalled other tasks are OK to wait even longer, as
           // they'll just be blocked on the same overloaded I/O.
-          t.resend();
+          t.call();
         else
           t.cancel(true);
       } catch( InterruptedException e ) {

@@ -1,20 +1,17 @@
 package water.web;
 
-import init.Boot;
-
-import java.io.*;
-import java.util.HashMap;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-
-import water.H2O;
-import water.NanoHTTPD;
-import water.web.Page.PageError;
-
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.gson.JsonObject;
+import init.Boot;
+import java.io.*;
 import java.net.ServerSocket;
+import java.util.HashMap;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import water.H2O;
+import water.NanoHTTPD;
+import water.web.Page.PageError;
 
 /** This is a simple web server. */
 public class Server extends NanoHTTPD {
@@ -42,8 +39,8 @@ public class Server extends NanoHTTPD {
     _pages.put("Exec",new ExecWeb());
     _pages.put("ExecQuery",new ExecQuery());
     _pages.put("Get",new Get());
-    _pages.put("GetQuery",new GetQuery());
-    _pages.put("GetVector",new GetVector());
+    //_pages.put("GetQuery",new GetQuery());
+    //_pages.put("GetVector",new GetVector());
     _pages.put("ImportFolder",new ImportFolder());
     _pages.put("ImportQuery",new ImportQuery());
     _pages.put("ImportUrl",new ImportUrl());
@@ -53,16 +50,15 @@ public class Server extends NanoHTTPD {
     _pages.put("glm",new GLM());
     _pages.put("Glm",new GLM());
     _pages.put("Network",new Network());
-    _pages.put("NodeShuffle",new NodeShuffle());
     _pages.put("Parse",new Parse());
-    _pages.put("PR",new ProgressReport());
-    _pages.put("ProgressReport",new ProgressReport());
-    _pages.put("ProgressView",new ProgressView());
+    //_pages.put("PR",new ProgressReport());
+    //_pages.put("ProgressReport",new ProgressReport());
+    //_pages.put("ProgressView",new ProgressView());
     _pages.put("PutFile",new PutFile());
-    _pages.put("PutHDFS",new PutHDFS());
+    //_pages.put("PutHDFS",new PutHDFS());
     _pages.put("Put",new PutQuery());
     _pages.put("PutValue",new PutValue());
-    _pages.put("PutVector",new PutVector());
+    //_pages.put("PutVector",new PutVector());
     _pages.put("RFView",new RFView());
     _pages.put("Wait",new Wait());
     _pages.put("RFViewQuery",new RFViewQuery());
@@ -78,7 +74,7 @@ public class Server extends NanoHTTPD {
     _pages.put("RemoveAck",new RemoveAck());
     _pages.put("Shutdown",new Shutdown());
     _pages.put("StoreView",new StoreView());
-    _pages.put("Test",new Test());
+    //_pages.put("Test",new Test());
     _pages.put("Timeline",new TimelinePage());
     _pages.put("Store2HDFS",new Store2HDFS());
     _pages.put("loginQuery", new LoginQuery());
@@ -94,7 +90,7 @@ public class Server extends NanoHTTPD {
   // Keep spinning until we get to launch the NanoHTTPD
   public static void start() {
     new Thread( new Runnable() {
-        public void run()  {
+        public void run() {
           while( true ) {
             try {
               // Try to get the NanoHTTP daemon started
@@ -106,15 +102,13 @@ public class Server extends NanoHTTPD {
             }
           }
         }
-      }).start();
+      }, "HTTP Server Launcher").start();
   }
 
   /** Returns the sessionID stored in the cookie, or null if no such cookie was
    * found.
    *
    * Only a very simple cookie parser.
-   * @param header
-   * @return
    */
   private String getSessionIDFromCookie(Properties header) {
     String cks = header.getProperty("cookie","");

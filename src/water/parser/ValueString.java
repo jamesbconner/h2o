@@ -1,10 +1,5 @@
-
 package water.parser;
 
-/**
- *
- * @author peta
- */
 public final class ValueString {
    byte [] _buf;
    int _off;

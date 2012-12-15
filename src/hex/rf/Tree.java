@@ -91,47 +91,37 @@ public class Tree extends CountedCompleter {
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
-    AtomicModel am = new AtomicModel(_modelKey,_treesKey,_data.columns(),_data.classes(),_alltrees,_sample, _data._data._ary._key,_ignoreColumns, _features);
+    Model m = new Model(_modelKey, _treesKey, _data.columns(), _data.classes(), _sample, _data._data._ary._key,_ignoreColumns, _features);
+    AtomicModel am = new AtomicModel(_alltrees, m);
     am.invoke(_modelKey);
 
     Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
     tryComplete();
   }
 
-  static class AtomicModel extends Atomic {
-    Key _modelKey;
-    Key _treesKey;
-    int _features, _classes, _ntree, _splitFeatures;
-    boolean _nuke;
-    float _sample;
-    Key _dataset;
-    int[] _ignore;
+  static class AtomicModel extends TAtomic<Model> {
+    Model _model;
+    private int _ntree;
 
-    public AtomicModel( Key modelKey, Key treesKey, int f, int c, int n, float sample, Key dataset, int[] ignore, int splitFeatures) {
-      _modelKey = modelKey;
-      _treesKey = treesKey;
-      _features = f;
-      _classes = c;
-      _ntree = n;
-      _sample = sample;
-      _dataset = dataset;
-      _ignore = ignore;
-      _splitFeatures = splitFeatures;
+    public AtomicModel() { }
+    public AtomicModel( int tree, Model m ) {
+      _ntree = tree;
+      _model = m;
     }
-    public byte[] atomic( byte[] bits ) {
-      Model m_new = new Model(_modelKey,_treesKey,_features,_classes,_sample,_dataset,_ignore, _splitFeatures);
-      if( bits != null ) {
-        Model m_old = new Model();
-        m_old.read(new Stream(bits));
-        if( m_old.size() >= m_new.size() )
-          return bits;          // Abort the XTN with no change
-      }
-      Stream s = new Stream();
-      m_new.write(s);           // Write the larger model out
-      _nuke = (m_new.size() == _ntree);
-      return s._buf;
+
+    @Override public Model alloc() { return new Model(); }
+
+    @Override
+    public Model atomic(Model old) {
+      // Abort the XTN with no change
+      if( old != null && old.size() >= _model.size() ) return null;
+      return _model;
     }
-    public void onSuccess() { if( _nuke ) UKV.remove(_treesKey); }
+
+    public void onSuccess() {
+      if( _ntree == _model.size() && _model._treesKey != null)
+        UKV.remove(_model._treesKey);
+    }
   }
 
   private class FJBuild extends RecursiveTask<INode> {
@@ -177,7 +167,7 @@ public class Tree extends CountedCompleter {
     abstract StringBuilder toString( StringBuilder sb, int len );
 
     public abstract void print(TreePrinter treePrinter) throws IOException;
-    abstract void write( Stream bs );
+    abstract void write( AutoBuffer bs );
     int _size;                  // Byte-size in serialized form
     final int size( ) { return _size==0 ? (_size=size_impl()) : _size;  }
     abstract int size_impl();
@@ -192,15 +182,15 @@ public class Tree extends CountedCompleter {
     }
     @Override public int depth()  { return 0; }
     @Override public int leaves() { return 1; }
-    public int classify(Row r) { return _class; }
-    public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(_class).append(']'); }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    void write( Stream bs ) {
+    @Override public int classify(Row r) { return _class; }
+    @Override public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(_class).append(']'); }
+    @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    @Override void write( AutoBuffer bs ) {
       assert 0 <= _class && _class < 100;
-      bs.set1('[');             // Leaf indicator
-      bs.set1(_class);
+      bs.put1('[');             // Leaf indicator
+      bs.put1(_class);
     }
-    int size_impl( ) { return 2; } // 2 bytes in serialized form
+    @Override int size_impl( ) { return 2; } // 2 bytes in serialized form
   }
 
 
@@ -223,22 +213,22 @@ public class Tree extends CountedCompleter {
     @Override int classify(Row r) {
       return r.getEncodedColumnValue(_column) <= _split ? _l.classify(r) : _r.classify(r);
     }
-    public int depth() {
+    @Override public int depth() {
       if( _depth != 0 ) return _depth;
       return (_depth = Math.max(_l.depth(), _r.depth()) + 1);
     }
-    public int leaves() {
+    @Override public int leaves() {
       if( _leaves != 0 ) return _leaves;
       return (_leaves=_l.leaves() + _r.leaves());
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
     protected final float split_value() { return _originalSplit; }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    public String toString() {
+    @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    @Override public String toString() {
       return "S "+_column +"<=" + _split + " ("+_l+","+_r+")";
     }
-    public StringBuilder toString( StringBuilder sb, int n ) {
+    @Override public StringBuilder toString( StringBuilder sb, int n ) {
       sb.append(_name).append("<=").append(Utils.p2d(split_value())).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
@@ -247,18 +237,18 @@ public class Tree extends CountedCompleter {
       return sb;
     }
 
-    void write( Stream bs ) {
-      bs.set1('S');             // Node indicator
+    @Override void write( AutoBuffer bs ) {
+      bs.put1('S');             // Node indicator
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
-      bs.set2(_column);
-      bs.set4f(split_value());
+      bs.put2((short) _column);
+      bs.put4f(split_value());
       int skip = _l.size(); // Drop down the amount to skip over the left column
-      if( skip <= 254 ) bs.set1(skip);
-      else { bs.set1(0); bs.set3(skip); }
+      if( skip <= 254 )  bs.put1(skip);
+      else { bs.put1(0); bs.put3(skip); }
       _l.write(bs);
       _r.write(bs);
     }
-    public int size_impl( ) {
+    @Override public int size_impl( ) {
       // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
       return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
@@ -275,11 +265,11 @@ public class Tree extends CountedCompleter {
     @Override int classify(Row r) {
       return r.getEncodedColumnValue(_column) == _split ? _l.classify(r) : _r.classify(r);
     }
-    public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    public String toString() {
+    @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
+    @Override public String toString() {
       return "E "+_column +"==" + _split + " ("+_l+","+_r+")";
     }
-    public StringBuilder toString( StringBuilder sb, int n ) {
+    @Override public StringBuilder toString( StringBuilder sb, int n ) {
       sb.append(_name).append("==").append(_split).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
@@ -288,14 +278,14 @@ public class Tree extends CountedCompleter {
       return sb;
     }
 
-    void write( Stream bs ) {
-      bs.set1('E');             // Node indicator
+    @Override void write( AutoBuffer bs ) {
+      bs.put1('E');             // Node indicator
       assert Short.MIN_VALUE <= _column && _column < Short.MAX_VALUE;
-      bs.set2(_column);
-      bs.set4f(split_value());
+      bs.put2((short)_column);
+      bs.put4f(split_value());
       int skip = _l.size(); // Drop down the amount to skip over the left column
-      if( skip <= 254 ) bs.set1(skip);
-      else { bs.set1(0); bs.set3(skip); }
+      if( skip <= 254 )  bs.put1(skip);
+      else { bs.put1(0); bs.put3(skip); }
       _l.write(bs);
       _r.write(bs);
     }
@@ -309,54 +299,46 @@ public class Tree extends CountedCompleter {
 
   // Write the Tree to a random Key homed here.
   public Key toKey() {
-    Stream bs = new Stream();
-    bs.set4(_data_id);
-    bs.set8(_seed);
+    AutoBuffer bs = new AutoBuffer();
+    bs.put4(_data_id);
+    bs.put8(_seed);
     _tree.write(bs);
     Key key = Key.make(UUID.randomUUID().toString(),(byte)1,Key.DFJ_INTERNAL_USER, H2O.SELF);
-    DKV.put(key,new Value(key,bs.trim()));
+    DKV.put(key,new Value(key, bs.buf()));
     return key;
   }
 
   /** Classify this serialized tree - withOUT inflating it to a full tree.
      Use row 'row' in the dataset 'ary' (with pre-fetched bits 'databits' & 'rowsize')
      Returns classes from 0 to N-1*/
-  public static short classify( byte[] tbits, ValueArray ary, byte[] databits, int row, int rowsize, int[]offs, int[]size, int[]base, int[]scal, short badData ) {
-    Stream ts = new Stream(tbits);
+  public static short classify( AutoBuffer ts, ValueArray ary, AutoBuffer databits, int row, int rowsize, short badData ) {
     ts.get4();    // Skip tree-id
     ts.get8();    // Skip seed
 
     while( ts.get1() != '[' ) { // While not a leaf indicator
-      int o = ts._off-1;
-      byte b = tbits[o];
-      assert tbits[o] == '(' || tbits[o] == 'S' || tbits[o] == 'E';
+      int o = ts.position() - 1;
+      byte b = (byte) ts.get1(o);
+      assert b == '(' || b == 'S' || b == 'E';
       int col = ts.get2();      // Column number
       float fcmp = ts.get4f();  // Float to compare against
-      if( !ary.valid(databits,row,rowsize,offs[col],size[col]) ) return badData;
-      float fdat = (float)ary.datad(databits,row,rowsize,offs[col],size[col],base[col],scal[col],col);
+      if( ary.isNA(databits, row, col) ) return badData;
+      float fdat = (float)ary.datad(databits, row, col);
       int skip = (ts.get1()&0xFF);
       if( skip == 0 ) skip = ts.get3();
       if (b == 'E') {
         if (fdat != fcmp)
-          ts._off += skip;
+          ts.position(ts.position() + skip);
       } else {
-        if( fdat > fcmp )         // Picking right subtree?
-          ts._off += skip;        // Skip left subtree
+        // Picking right subtree? then skip left subtree
+        if( fdat > fcmp ) ts.position(ts.position() + skip);
       }
     }
     return (short) ( ts.get1()&0xFF );      // Return the leaf's class
   }
 
-  public static long seed( byte[] bits) {
-    Stream ts = new Stream(bits);
-    ts.get4();
-    return ts.get8();
-  }
+  public static int dataId( byte[] bits) { return UDP.get4(bits, 0); }
+  public static long seed ( byte[] bits) { return UDP.get8(bits, 4); }
 
-  public static int dataId( byte[] bits) {
-    Stream ts = new Stream(bits);
-    return ts.get4();
-  }
   // Abstract visitor class for serialized trees.
   public static abstract class TreeVisitor<T extends Exception> {
     TreeVisitor<T> leaf( int tclass          ) throws T { return this; }
@@ -364,29 +346,30 @@ public class Tree extends CountedCompleter {
     TreeVisitor<T>  mid( int col, float fcmp ) throws T { return this; }
     TreeVisitor<T> post( int col, float fcmp ) throws T { return this; }
     long  result( ) { return 0; }
-    protected final Stream _ts;
-    TreeVisitor( byte[] tbits ) {
-      _ts = new Stream(tbits);
+    protected final AutoBuffer _ts;
+    TreeVisitor( AutoBuffer tbits ) {
+      _ts = tbits;
       _ts.get4();               // Skip tree ID
       _ts.get8();               // Skip seed
     }
+
     final TreeVisitor<T> visit() throws T {
-      byte b = _ts.get1();
+      byte b = (byte) _ts.get1();
       if( b == '[' ) return leaf(_ts.get1()&0xFF);
       assert b == '(' || b == 'S' || b =='E';
-      int off0 = _ts._off-1;    // Offset to start of *this* node
+      int off0 = _ts.position()-1;    // Offset to start of *this* node
       int col = _ts.get2();     // Column number
       float fcmp = _ts.get4f(); // Float to compare against
       int skip = (_ts.get1()&0xFF);
       if( skip == 0 ) skip = _ts.get3();
-      int offl = _ts._off;      // Offset to start of *left* node
-      int offr = _ts._off+skip; // Offset to start of *right* node
+      int offl = _ts.position();      // Offset to start of *left* node
+      int offr = _ts.position()+skip; // Offset to start of *right* node
       return pre(col,fcmp,off0,offl,offr).visit().mid(col,fcmp).visit().post(col,fcmp);
     }
   }
 
   // Return (depth<<32)|(leaves), in 1 pass.
-  public static long depth_leaves( byte[] tbits ) {
+  public static long depth_leaves( AutoBuffer tbits ) {
     return new TreeVisitor<RuntimeException>(tbits) {
       int _maxdepth, _depth, _leaves;
       TreeVisitor leaf(int tclass ) { _leaves++; if( _depth > _maxdepth ) _maxdepth = _depth; return this; }

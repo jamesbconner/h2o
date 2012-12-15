@@ -1,13 +1,11 @@
 package test;
-import static org.junit.Assert.*;
-import hex.LinearRegression;
-
-import java.io.File;
-
-import org.junit.*;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotSame;
 import com.google.gson.JsonObject;
-
+import hex.LinearRegression;
+import java.io.File;
+import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
 import water.util.KeyUtil;
@@ -27,6 +25,7 @@ public class KVTest {
   }
 
   @AfterClass public static void checkLeakedKeys() {
+    DKV.write_barrier();
     int leaked_keys = H2O.store_size() - _initial_keycnt;
     assertEquals("No keys leaked", 0, leaked_keys);
   }
@@ -38,7 +37,7 @@ public class KVTest {
     Key k1 = Key.make("key1");
     Value v0 = DKV.get(k1);
     assertNull(v0);
-    Value v1 = new Value(k1,"test0 bits for Value1");
+    Value v1 = new Value(k1,"test0 bits for Value");
     DKV.put(k1,v1);
     assertEquals(v1._key,k1);
     Value v2 = DKV.get(k1);
@@ -76,36 +75,32 @@ public class KVTest {
 
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
-  @Test public void testRemoteBitSet() {
+  @Test public void testRemoteBitSet() throws Exception {
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
-    for( int i=0; i<keys.length; i++ ) {
+    for( int i = 0; i < keys.length; ++i ) {
       Key k = keys[i] = Key.make("key"+i);
-      Value val = new Value(k,4);
-      byte[] bits = val.mem();
-      UDP.set4(bits,0,i);       // Each value holds a shift-count
+      byte[] bits = new byte[4];
+      bits[0] = (byte)i;        // Each value holds a shift-count
+      Value val = new Value(k,bits);
       DKV.put(k,val);
     }
-    RemoteBitSet rbs = new RemoteBitSet();
-    rbs.invoke(keys);
-    assertEquals((int)((1L<<keys.length)-1),rbs._x);
+    Key master = Key.make("master",(byte)1,Key.KEY_OF_KEYS);
+    Value val = new Value(master,new AutoBuffer().putA(keys).buf());
+    DKV.put(master,val);
+
+    RemoteBitSet r = new RemoteBitSet();
+    r.invoke(master);
+    assertEquals((int)((1L<<keys.length)-1), r._x);
+    UKV.remove(master);
   }
 
   // Remote Bit Set: OR together the result of a single bit-mask where the
   // shift-amount is passed in in the Key.
   public static class RemoteBitSet extends MRTask {
-    // Set a single bit-mask based on the shift which is passed in the Value
     private int _x;
-    public void map( Key key ) {
-      assert _x == 0;                  // Never mapped into before
-      Value val = DKV.get(key);        // Get the Value for the Key
-      _x = 1<<(UDP.get4(val.get(),0)); // Get the shift amount, shift & set
-      DKV.remove(key);                 // Remove Key when done
-    }
-    // OR together all results
-    public void reduce( DRemoteTask rbs ) {
-      _x |= ((RemoteBitSet)rbs)._x;
-    }
+    public void map( Key key ) { _x = 1<<(DKV.get(key).get()[0]); }
+    public void reduce( DRemoteTask rbs ) { _x |= ((RemoteBitSet)rbs)._x; }
   }
 
   // ---
@@ -119,10 +114,10 @@ public class KVTest {
     Value v0 = DKV.get(remote_key);
     assertNull(v0);
     // It's a Big Value
-    Value v1 = new Value(remote_key,100000);
-    byte[] bits = v1.mem();
+    byte[] bits = new byte[100000];
     for( int i=0; i<bits.length; i++ )
       bits[i] = (byte)i;
+    Value v1 = new Value(remote_key,bits);
     // Start the remote-put operation
     DKV.put(remote_key,v1);
     assertEquals(v1._key,remote_key);
@@ -146,14 +141,13 @@ public class KVTest {
     for( int i=0; i<bh._x.length; i++ )
       sum += bh._x[i];
     assertEquals(file.length(),sum);
-
+  
     UKV.remove(h2okey);
   }
-
+  
   // Byte-wise histogram
   public static class ByteHisto extends MRTask {
     int[] _x;
-
     // Count occurrences of bytes
     public void map( Key key ) {
       _x = new int[256];        // One-time set histogram array
@@ -184,7 +178,7 @@ public class KVTest {
     // Remote-put operation
     DKV.put(key,v1);
     DKV.write_barrier();
-
+  
     // Atomically run this function on a clone of the bits from the existing
     // Key and install the result as the new Value.  This function may run
     // multiple times if there are collisions.
@@ -192,12 +186,12 @@ public class KVTest {
     q.invoke(key);              // Run remotely; block till done
     Value val3 = DKV.get(key);
     assertNotSame(v1,val3);
-    byte[] bits3 = val3.get();
-    assertEquals(2,UDP.get8(bits3,0));
-    assertEquals(2,UDP.get8(bits3,8));
+    AutoBuffer ab = new AutoBuffer(val3.get());
+    assertEquals(2,ab.get8(0));
+    assertEquals(2,ab.get8(8));
     DKV.remove(key);            // Cleanup after test
   }
-
+  
   public static class Atomic2 extends Atomic {
     @Override public byte[] atomic( byte[] bits1 ) {
       long l1 = UDP.get8(bits1,0);
@@ -210,7 +204,7 @@ public class KVTest {
       return bits2;
     }
   }
-
+  
   // ---
   // Test parsing "cars.csv" and running LinearRegression
   @Test public void testLinearRegression() {
@@ -218,13 +212,13 @@ public class KVTest {
     Key okey = Key.make("cars.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
-    ValueArray va = (ValueArray)DKV.get(okey);
+    ValueArray va = ValueArray.value(DKV.get(okey));
     // Compute LinearRegression between columns 2 & 3
     JsonObject res = LinearRegression.run(va,2,3);
-    assertEquals(58.326241377521995,  res.get("Beta1"      ).getAsDouble(), 0.000001);
+    assertEquals( 58.326241377521995, res.get("Beta1"      ).getAsDouble(), 0.000001);
     assertEquals(-124.57816399564385, res.get("Beta0"      ).getAsDouble(), 0.000001);
-    assertEquals(0.9058985668996267,  res.get("RSquared"   ).getAsDouble(), 0.000001);
-    assertEquals(0.9352584499359637,  res.get("Beta1StdErr").getAsDouble(), 0.000001);
+    assertEquals( 0.9058985668996267, res.get("RSquared"   ).getAsDouble(), 0.000001);
+    assertEquals( 0.9352584499359637, res.get("Beta1StdErr").getAsDouble(), 0.000001);
     UKV.remove(okey);
   }
 }
