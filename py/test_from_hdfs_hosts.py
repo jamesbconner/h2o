@@ -5,7 +5,6 @@ import h2o_browse as h2b
 import time
 import random
 
-
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -18,31 +17,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_B_hdfs_files(self):
-
-        # FIX! can update this to parse from local dir also (import keys from folder?)
-        # but everyone needs to have a copy then
-        def parseHdfsFile(node=None, csvFilename=None):
-            if not csvFilename: raise Exception('No csvFilename parameter in inspectHdfsFile')
-            if not node: node = h2o.nodes[0]
-
-            # assume the hdfs prefix is datasets, for now
-            print "Hacked the test to match the new behavior for key names created from hdfs files"
-            print "Was: hdfs:// prefix"
-            print "Now: hdfs://192.168.1.151/datasets/ prefix"
-            
-            # FIX! this is ugly..needs to change to use the name node from the config json/h2o args?
-            # also the hdfs dir
-            hdfsPrefix = "hdfs://192.168.1.151/datasets/"
-            hdfsKey = hdfsPrefix + csvFilename
-            print "hdfsKey:", hdfsKey
-
-            # FIX! getting H2O HPE?
-            inspect = node.inspect(hdfsKey)
-            print inspect
-            parseKey = node.parse(key=hdfsKey, key2=csvFilename + ".hex")
-            print parseKey
-            return parseKey
-
         # larger set in my local dir
         csvFilenameAll = [
             "3G_poker_shuffle",
@@ -59,7 +33,6 @@ class Basic(unittest.TestCase):
             "covtype.169x.data",
             "covtype.4x.shuffle.data",
             "covtype.data",
-            "covtype.names",
             "covtype4x.shuffle.data",
             "hhp.unbalanced.012.1x11.data.gz",
             "hhp.unbalanced.012.data.gz",
@@ -68,7 +41,6 @@ class Basic(unittest.TestCase):
             "hhp2.os.noisy.9_4.data",
             "hhp_9_14_12.data",
             "leads.csv",
-            "ph.full.933M.txt",
             "poker-hand.1244M.shuffled311M.full.txt",
             "poker_c1s1_testing_refresh.csv",
             "prostate_2g.csv",
@@ -87,14 +59,14 @@ class Basic(unittest.TestCase):
         firstglm = {}
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in hdfs dir 
-            parseKey = parseHdfsFile(csvFilename=csvFilename)
+            parseKey = h2o_cmd.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
             print "parse result:", parseKey['Key']
             # I use this if i want the larger set in my localdir
 
             print "\n" + csvFilename
             start = time.time()
-            RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=timeoutSecs)
+            RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=2000)
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
             # wait in case it recomputes it
             time.sleep(10)

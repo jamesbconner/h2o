@@ -13,6 +13,38 @@ def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20):
         myKey2 = key2
     return node.parse(put['key'], myKey2, timeoutSecs)
 
+# FIX! can update this to parse from local dir also (import keys from folder?)
+# but everyone needs to have a copy then
+def parseHdfsFile(node=None, csvFilename=None, timeoutSecs=3600):
+    if not csvFilename: raise Exception('No csvFilename parameter in inspectHdfsFile')
+    if not node: node = h2o.nodes[0]
+
+    # assume the hdfs prefix is datasets, for now
+    print "\nHacked the test to match the new behavior for key names created from hdfs files"
+    print "Was: hdfs:// prefix"
+    print "Now: hdfs://192.168.1.151/datasets/ prefix"
+    
+    # FIX! this is ugly..needs to change to use the name node from the config json/h2o args?
+    # also the hdfs dir
+    hdfsPrefix = "hdfs://192.168.1.151/datasets/"
+    hdfsKey = hdfsPrefix + csvFilename
+    print "parseHdfsFile hdfsKey:", hdfsKey
+
+    # FIX! getting H2O HPE?
+    # inspect = node.inspect(hdfsKey)
+    inspect = runInspect(key=hdfsKey)
+    print "parseHdfsFile:", inspect
+
+    parseKey = node.parse(key=hdfsKey, key2=csvFilename + ".hex", timeoutSecs=timeoutSecs)
+    print "parseHdfsFile:", parseKey
+    return parseKey
+
+def runInspect(node=None,key=None,timeoutSecs=5,**kwargs):
+    if not key: raise Exception('No key for Inspect specified')
+    if not node: node = h2o.nodes[0]
+    # FIX! currently there is no such thing as a timeout on node.inspect
+    return node.inspect(key, **kwargs)
+
 # since we'll be doing lots of execs on a parsed file, not useful to have parse+exec
 # retryDelaySecs isn't used, 
 def runExecOnly(node=None,parseKey=None,timeoutSecs=20,**kwargs):
