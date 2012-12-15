@@ -5,33 +5,93 @@ import java.util.*;
 import water.*;
 import water.web.RString;
 
-/**
+/** All arguments related classes are defined in this guy.
+ *
+ * Argument is the base class for all arguments, which then branches to
+ * different still abstract subclasses that specify how are any given HTML input
+ * elements being drawn.
+ *
+ * From these a proper Arguments that define particular value types are then
+ * subclassed.
+ *
+ * When an argument is created, its pointer is stored in the _arguments array
+ * list so that the request knows how many arguments and in which order it has.
+ *
+ * Because request objects and therefore also argument objects one per
+ * application, while the codepath can be multithreaded (server decides this),
+ * the argument state is not preserved in the argument itself, but in the
+ * Record static object that is kept thread local and must be properly
+ * initialized at each iteration by calling reset() method on the argument.
+ *
+ * See the respective classes for more details.
+ *
+ * NOTE add more arguments to this class as they are needed and keep them here.
  *
  * @author peta
  */
 public class RequestArguments extends RequestStatics {
 
+  /** List of arguments for the request. Automatically filled in by the argument
+   * constructors.
+   */
   protected ArrayList<Argument> _arguments = new ArrayList();
 
-  protected static class Record {
+  // ---------------------------------------------------------------------------
+
+  /** Argument state record.
+   *
+   * Contains all state required for the argument and a few functions to operate
+   * on the state.
+   */
+  protected static class Record<T> {
+
+    /** Determines the original input value of the argument. null if the value
+     * was not supplied, or was empty. Retains the original value even if the
+     * argument value is wrong.
+     */
     public String _originalValue = null;
-    public Object _parsedValue = null;
+
+    /** Parsed value. If the parse was successful, or default value if the
+     * checking failed, or the argument is not required and was missing. Note
+     * that default value may very well be null and thus you cannot check this
+     * for null of determine validity.
+     */
+    public T _value = null;
+
+    /** Reason why the argument is disabled, or null if it is enabled. A
+     * disabled argument cannot be edited by the user yet.
+     */
     public String _disabledReason = null;
+
+    /** True if the argument's value stored in _value is valid, that is either
+     * correctly parsed, or not present and default value used. Note that if
+     * checking fails, the defaultValue is stored in _value, but _valid is
+     * false.
+     */
     public boolean _valid = false;
 
+    /** Returns true if the argument is disabled.
+     */
     public boolean disabled() {
       return _disabledReason != null;
     }
 
+    /** Returns true if the argument is valid.
+     */
     public boolean valid() {
       return _valid;
     }
 
+    /** Returns if the argument is specified by user. returns true only if it is
+     * valid and parsing the argument was successful.
+     * @return
+     */
     public boolean specified() {
       return valid() && _originalValue != null;
     }
   }
 
+  // A string used to display the query element part of the argument
   protected static final String _queryHtml =
             "  <dl class='dl-horizontal'>"
           + "    <dt>%ASTERISK %NAME</dt>"
@@ -47,30 +107,77 @@ public class RequestArguments extends RequestStatics {
 
   public abstract class Argument<T> {
 
+    /** As with request's _requestHelp, this provides the extended help that
+     * will be displayed on the help and wiki pages. Specify this in the
+     * particular request constructor.
+     */
+    public String _requestHelp;
+
+    /** Override this method to provide parsing of the input string to the Java
+     * expected value. The input is guaranteed to be non-empty when this method
+     * is called and all prerequisities are guaranteed to be valid before this
+     * method is called.
+     */
     protected abstract T parse(String input) throws IllegalArgumentException;
 
+    /** Returns the default value of the argument. Note that the method will be
+     * called also on required arguments, in which case it is ok return null.
+     *
+     * It is kept abstract because defining a proper default value might be
+     * tricky and in many case you do not want it to be null. Overriding it
+     * always makes you think:)
+     */
     protected abstract T defaultValue();
 
-    protected abstract String queryElement();
-
+    /** Returns the javascript code that will be executed when the query is
+     * loaded that associates the given callback JS function with the on change
+     * event of the input. This method is only called if the element should
+     * refresh the webpage upon its change.
+     */
     protected abstract String jsRefresh(String callbackName);
 
+    /** Returns the javascript code that will be executed when the value of
+     * the argument is to be determined. It must contain a return statement,
+     * that returns the string that should be sent back to the request for the
+     * given arhument.
+     */
     protected abstract String jsValue();
 
+    /** If there is any additional javascript that should be dumped to the
+     * query page, it should be defined here. Please follow chaining rules.
+     */
     protected String jsAddons() {
       return "";
     }
 
+    /** Returns the HTML elements of the argument query only. This should return
+     * the elements in HTML that will be used to enter the value. For instance
+     * the input text, selection, etc.
+     */
+    protected abstract String queryElement();
+
+    /** Returns the query description. This is a concise description of a
+     * correct value for the argument. generally used as a placeholder in the
+     * html query elements.
+     */
     protected abstract String queryDescription();
 
+    /** Any query addons can be specified here. These will be displayed with
+     * the query html code and should be used for instance for default value
+     * calculators, etc.
+     */
     protected String queryAddons() {
       return "";
     }
 
-    protected String queryName() {
-      return _name;
-    }
-
+    /** Returns the html query for the given argument, including the full
+     * formatting. That means not only the queryElement, but also the argument
+     * name in front of it, etc. Required arguments are prefixed with red
+     * asterisk.
+     *
+     * You may want to override this if you wont different form layouts to be
+     * present.
+     */
     protected String query() {
       RString result = new RString(_queryHtml);
       result.replace("ID",_name);
@@ -96,15 +203,38 @@ public class RequestArguments extends RequestStatics {
       return sb.toString();
     }
 
-    public String _requestHelp;
+    /** Name of the argument. This must correspond to the name of the JSON
+     * request argument.
+     */
     public final String _name;
-    public final boolean _required;
-    private boolean _refreshOnChange;
-    public ArrayList<Argument> _dependencies = null;
 
+    /** True if the argument is required, false if it may be skipped.
+     */
+    public final boolean _required;
+
+    /** True if change of the value in the query controls should trigger an
+     * automatic refresh of the query form.
+     *
+     * This is set by the setrefreshOnChange() method. It is automatically set
+     * for any controls that are prerequisites for other controls and can be
+     * manually select for other controls by users (do it in the request
+     * constructor).
+     */
+    private boolean _refreshOnChange;
+
+    /** List of all prerequisite arguments for the current argument. All the
+     * prerequisite arguments must be created before the current argument.
+     */
+    private ArrayList<Argument<T>> _prerequisities = null;
+
+    /** The thread local argument state record. Must be initialized at the
+     * beginning of each request before it can be used.
+     */
     private ThreadLocal<Record> _argumentRecord = new ThreadLocal();
 
-
+    /** Creates the argument of given name. Also specifies whether the argument
+     * is required or not. This cannot be changed later.
+     */
     protected Argument(String name, boolean required) {
       _name = name;
       _required = required;
@@ -112,50 +242,104 @@ public class RequestArguments extends RequestStatics {
       _arguments.add(this);
     }
 
-
-    protected final void addDependency(Argument arg) {
-      if (_dependencies == null)
-        _dependencies = new ArrayList();
-      _dependencies.add(arg);
+    /** Adds the given argument as a prerequisite. This means that current
+     * argument will not be checked and/or reported in queries as a control form
+     * unless all its prerequisite arguments are in a valid state. (the argument
+     * will be disabled if not all its prerequisites are satisfied).
+     */
+    protected final void addPrerequisite(Argument arg) {
+      if (_prerequisities == null)
+        _prerequisities = new ArrayList();
+      _prerequisities.add(arg);
       arg.setRefreshOnChange();
     }
 
-    protected final Record record() {
+    /** Returns the thread local argument state record.
+     */
+    protected final Record<T> record() {
       return _argumentRecord.get();
     }
 
+    /** Disables the argument with given reason. If the argument is already
+     * disabled, its reason is overwritten by the new one.
+     *
+     * NOTE disable(null) effectively enables the argument, that is why the
+     * assert!
+     */
     public final void disable(String reason) {
+      assert (reason != null);
       record()._disabledReason = reason;
     }
 
+    /** Returns whether the argument is disabled or not.
+     */
     public final boolean disabled() {
       return record().disabled();
     }
 
+    /** Makes the argument refresh the query page on its change automatically.
+     * If you want this behavior to be disabled for the argument, overwrite this
+     * method to error.
+     */
     protected void setRefreshOnChange() {
       _refreshOnChange = true;
     }
 
+    /** Returns true if the argument refreshes the query automatically on its
+     * change.
+     */
     public boolean refreshOnChange() {
       return _refreshOnChange;
     }
 
+    /** Returns true if the argument is valid. Valid means specified by user
+     * and parsed properly, or not required and not specified.
+     */
     public final boolean valid() {
       return record().valid();
     }
 
+    /** Returns true of the argument is specified by the user. That is if the
+     * argument value was submitted by the user and parsed correctly.
+     */
     public final boolean specified() {
       return record().specified();
     }
 
+    /** Returns the value of the argument. This is either the value parsed, if
+     * specified, or defaultValue. Note that default value is returned also for
+     * invalid arguments.
+     */
     public final T value() {
-      return (T) record()._parsedValue;
+      return record()._value;
     }
 
+    /** Resets the argument by creating it a new thread local state. Everything
+     * is null and the argument is not valid.
+     */
     public final void reset() {
       _argumentRecord.set(new Record());
     }
 
+    /** Checks that the argument supplied is correct. This method is called for
+     * each argument and is given the HTTP supplied argument value. If the value
+     * was not supplied, input contains an empty string.
+     *
+     * The argument must already be reseted before calling this method.
+     *
+     * If the argument is disabled, the function does not do anything except
+     * setting the original value in the record.
+     *
+     * If the prerequisites of the argument are not all valid, then the argument
+     * is disabled and function returns.
+     *
+     * Then the argument is parsed if provided, or an error thrown if the input
+     * is empty and the argument is required.
+     *
+     * At the end of the function the value is either the result of a successful
+     * parse() call or a defaultValue no matter what the state of the argument
+     * is.
+     */
     public void check(String input) throws IllegalArgumentException {
       // get the record -- we assume we have been reset properly
       Record record = record();
@@ -165,13 +349,16 @@ public class RequestArguments extends RequestStatics {
         input = null;
       record._originalValue = input;
       // there is not much to do if we are disabled
-      if (record.disabled())
+      if (record.disabled()) {
+        record._value = defaultValue();
         return;
+      }
       // check that we have all prerequisities properly initialized
-      if (_dependencies != null) {
-        for (Argument dep : _dependencies)
+      if (_prerequisities != null) {
+        for (Argument dep : _prerequisities)
           if (!dep.valid()) {
             record._disabledReason = "Not all prerequisite arguments have been supplied: "+dep._name;
+            record._value = defaultValue();
             return;
           }
       }
@@ -179,12 +366,17 @@ public class RequestArguments extends RequestStatics {
       if (input == null) {
         if (_required)
           throw new IllegalArgumentException("Argument "+_name+" is required, but not specified");
-        record._parsedValue = defaultValue();
+        record._value = defaultValue();
         record._valid = true;
       // parse the argument, if parse throws we will still be invalid correctly
       } else {
-        record._parsedValue = parse(input);
-        record._valid = true;
+        try {
+          record._value = parse(input);
+          record._valid = true;
+        } catch (Exception e) {
+          record._value = defaultValue();
+          throw e;
+        }
       }
     }
   }
@@ -193,12 +385,25 @@ public class RequestArguments extends RequestStatics {
   // InputText
   // ===========================================================================
 
+  /** Argument that uses simple text input to define its value.
+   *
+   * This is the simplest argument. Uses the classic input element. All
+   * functionality is supported.
+   *
+   * @param <T>
+   */
   public abstract class InputText<T> extends Argument<T> {
 
     public InputText(String name, boolean required) {
       super(name, required);
     }
 
+    /** A query element is the default HTML form input.
+     *
+     * The id of the element is the name of the argument. Placeholder is the
+     * query description and the value is filled in either as the value
+     * submitted, or as the toString() method on defaultValue.
+     */
     @Override protected String queryElement() {
       // first determine the value to put in the field
       Record record = record();
@@ -212,10 +417,14 @@ public class RequestArguments extends RequestStatics {
       return "<input class='span5' type='text' name='"+_name+"' id='"+_name+"' placeholder='"+queryDescription()+"' "+ (!value.isEmpty() ? (" value='"+value+"' />") : "/>");
     }
 
+    /** JS refresh is a default jQuery hook to the change() method.
+     */
     @Override protected String jsRefresh(String callbackName) {
       return "$('#"+_name+"').change("+callbackName+");";
     }
 
+    /** JS value is the simple jQuery val() method.
+     */
     @Override protected String jsValue() {
       return "return $('#"+_name+"').val();";
     }
@@ -225,6 +434,7 @@ public class RequestArguments extends RequestStatics {
   // TypeaheadInputText
   // ===========================================================================
 
+  // typeahead assignment js
   private static final String _typeahead =
             "$('#%ID').typeahead({"
           + "  source:"
@@ -236,16 +446,40 @@ public class RequestArguments extends RequestStatics {
           + "});\n"
           ;
 
+  /** Typeahead enabled text input.
+   *
+   * Typeahead is enabled using the jQuery typeahead plugin. You must specify
+   * the JSON request which provides the typeahead, and the data name in the
+   * response that contains the array of strings corresponding to the typeahead
+   * options. Optionally you can specify the typeahead limit (how many options
+   * will be displayed), which is 1024 by default.
+   *
+   * The typeahead json request must take Str argument filter and Int optional
+   * argument limit.
+   */
   public abstract class TypeaheadInputText<T> extends InputText<T> {
 
+    /** href of the json request supplying the typeahead values.
+     */
     protected final String _typeaheadHref;
+    /** Name of the JSON attribute in the request that contains the typahead
+     * values. It must be an array of string primitives.
+     */
     protected final String _typeaheadDataName;
+
+    /** Typeahead limit. If more than this limit options will be available, the
+     * typeahead will be disabled.
+     */
     protected final int _typeaheadLimit;
 
+    /** Creates the typeahead. Default limit is 1024.
+     */
     protected TypeaheadInputText(String name, boolean required, String href, String dataName) {
       this(name, required, href, dataName, 1024);
     }
 
+    /** Creates the typeahead.
+     */
     protected TypeaheadInputText(String name, boolean required, String href, String dataName, int limit) {
       super(name, required);
       _typeaheadHref = href;
@@ -253,6 +487,9 @@ public class RequestArguments extends RequestStatics {
       _typeaheadLimit = limit;
     }
 
+    /** Adds the json to hook initialize the typeahead functionality. It is
+     * jQuery typeahead plugin standard initialization with async filler.
+     */
     @Override protected String jsAddons() {
       RString s = new RString(_typeahead);
       s.replace("ID", _name);
@@ -267,15 +504,48 @@ public class RequestArguments extends RequestStatics {
   // InputCheckBox
   // ===========================================================================
 
-  public class InputCheckBox extends Argument<Boolean> {
+  /** A boolean argument that is represented as the checkbox.
+   *
+   * The only allowed values for a boolean checkbox are "0" for false, "1" for
+   * true. If the argument is not required, then default value will be used.
+   *
+   * Please note that due to the nature of a checkbox, the html query will
+   * always specify this argument to its default value, or to false if the user
+   * did not specify it explicitly.
+   */
+  public abstract class InputCheckBox extends Argument<Boolean> {
 
-    public final boolean _defaultValue;
+    /** Default value.
+     */
+    public final Boolean _defaultValue;
 
+    /** Creates the argument with specified default value.
+     */
     public InputCheckBox(String name, boolean defaultValue) {
       super(name, false); // checkbox is never required
       _defaultValue = defaultValue;
     }
 
+    /** Creates the argument as required one. This has only effect on JSON, for
+     * HTML it means the default value is false effectively.
+     */
+    public InputCheckBox(String name) {
+      super(name, true);
+      _defaultValue = null;
+    }
+
+    /** Parses the value. 1 to true and 0 to false. Anything else is an error.
+     */
+    @Override public Boolean parse(String input) {
+      if (input.equals("1"))
+        return true;
+      if (input.equals("0"))
+        return false;
+      throw new IllegalArgumentException(input+" is not valid boolean value. Only 1 and 0 are allowed.");
+    }
+
+    /** Displays the query element. This is just the checkbox.
+     */
     @Override protected String queryElement() {
       // first determine the value to put in the field
       Record record = record();
@@ -285,36 +555,37 @@ public class RequestArguments extends RequestStatics {
         Boolean v = defaultValue();
         value = ((v == null) || (v == false)) ? "" : "1" ;
       }
-      return "<input class='span5' type='checkbox' name='"+_name+"' id='"+_name+"' "+ (value.isEmpty() ? (" checked />") : "/>");
+      return "<input value='1' class='span5' type='checkbox' name='"+_name+"' id='"+_name+"' "+ (value.equals("1") ? (" checked />") : "/>");
     }
 
+    /** Refresh only taps to jQuery change event.
+     */
     @Override protected String jsRefresh(String callbackName) {
       return "$('#"+_name+"').change('"+callbackName+"');";
     }
 
+    /** Returns 1 if the checkbox is checked and 0 otherwise.
+     */
     @Override protected String jsValue() {
-      return "return $('#"+_name+"').val();";
+      return "return $('#"+_name+"').val() == '1' ? '1' : '0';";
     }
 
-    @Override protected Boolean parse(String input) throws IllegalArgumentException {
-      throw new UnsupportedOperationException("Not supported yet.");
-    }
-
+    /** Returns the default value.
+     */
     @Override protected Boolean defaultValue() {
       return _defaultValue;
     }
-
-    @Override protected String queryDescription() {
-      throw new UnsupportedOperationException("Not supported yet.");
-    }
-
   }
-
 
   // ===========================================================================
   // InputSelect
   // ===========================================================================
 
+  /** Select element from the list of options.
+   *
+   * Array of values and arrays of names can be specified together with the
+   * selected element's value.
+   */
   public abstract class InputSelect<T> extends Argument<T> {
 
 
@@ -338,10 +609,16 @@ public class RequestArguments extends RequestStatics {
       return null;
     }
 
+    /** Constructor just calls super.
+     */
     public InputSelect(String name, boolean required) {
       super(name, required);
     }
 
+    /** Displays the query element. It is a select tag with option tags inside.
+     * If the argument is required then additional empty value is added with
+     * name "Please select..." that ensures that the user selects actual value.
+     */
     @Override protected String queryElement() {
       StringBuilder sb = new StringBuilder();
       sb.append("<select id='"+_name+"' name='"+_name+"'>");
@@ -363,16 +640,19 @@ public class RequestArguments extends RequestStatics {
       return sb.toString();
     }
 
+    /** Refresh is supported using standard jQuery change event.
+     */
     @Override protected String jsRefresh(String callbackName) {
       return "$('#"+_name+"').change('"+callbackName+"');";
     }
 
+    /** Get value is supported by the standard val() jQuery function.
+     */
     @Override protected String jsValue() {
       return "return $('#"+_name+"').val();";
     }
 
   }
-
 
   // ===========================================================================
   // UserDefinedArguments
@@ -385,6 +665,10 @@ public class RequestArguments extends RequestStatics {
   // Str
   // ---------------------------------------------------------------------------
 
+  /** A string value.
+   *
+   * Any string can be a proper value. If required, empty string is not allowed.
+   */
   public class Str extends InputText<String> {
 
     public final String _defaultValue;
