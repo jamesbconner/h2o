@@ -21,11 +21,10 @@ def runInspect(node=None,key=None,timeoutSecs=5,**kwargs):
 
 # since we'll be doing lots of execs on a parsed file, not useful to have parse+exec
 # retryDelaySecs isn't used, 
-def runExecOnly(node=None,parseKey=None,timeoutSecs=20,**kwargs):
-    if not parseKey: raise Exception('No parsed key for Exec specified')
+def runExecOnly(node=None,timeoutSecs=20,**kwargs):
     if not node: node = h2o.nodes[0]
     # no such thing as GLMView..don't use retryDelaySecs
-    return node.exec_query(parseKey['Key'], timeoutSecs, **kwargs)
+    return node.exec_query(timeoutSecs, **kwargs)
 
 def runGLM(node=None,csvPathname=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):

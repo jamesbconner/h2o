@@ -71,8 +71,7 @@ class Basic(unittest.TestCase):
 
                 start = time.time()
 
-                exec_result = h2o_cmd.runExecOnly(parseKey=parseKey, 
-                    timeoutSecs=70, Expr=execExpr)
+                exec_result = h2o_cmd.runExecOnly(Expr=execExpr, timeoutSecs=70)
                 # FIX! race conditions. If json is done, does that mean you can inspect it??
                 resultInspect = h2o.nodes[0].inspect('Result' + str(trial))
                 # h2o.verboseprint(h2o.dump_json(resultInspect))

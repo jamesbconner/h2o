@@ -599,9 +599,8 @@ class H2O(object):
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
-    def exec_query(self, key, timeoutSecs=20, **kwargs):
+    def exec_query(self, timeoutSecs=20, **kwargs):
         params_dict = {
-            'Key' : key,
             'min' : None,
             'max' : None,
             'mean' : None,

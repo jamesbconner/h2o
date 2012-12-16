@@ -49,6 +49,24 @@ class Basic(unittest.TestCase):
         csvFilenameAll = [
             ("covtype.data", "c"),
             ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype20x.data", "c200"),
+            ("covtype200x.data", "c200"),
+            ("covtype200x.data", "c200"),
+            ("covtype200x.data", "c200"),
+            ("covtype200x.data", "c200"),
+            ("covtype200x.data", "c200"),
+            ("covtype200x.data", "c200"),
             ("covtype200x.data", "c200"),
             ("billion_rows.csv.gz", "b"),
             ]
@@ -98,8 +116,7 @@ class Basic(unittest.TestCase):
                     print "\nexecExpr:", execExpr
 
                     start = time.time()
-                    exec_result = h2o_cmd.runExecOnly(parseKey=parseKey, 
-                        timeoutSecs=70, Expr=execExpr)
+                    exec_result = h2o_cmd.runExecOnly(Expr=execExpr,timeoutSecs=70)
                     resultInspect = h2o.nodes[0].inspect('Result' + str(trial))
                     # h2o.verboseprint(h2o.dump_json(resultInspect))
 
