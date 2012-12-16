@@ -18,7 +18,7 @@ class Basic(unittest.TestCase):
         # tree view failed with poker1000, passed with iris
         h2o_cmd.runRF(trees=50, timeoutSecs=10, csvPathname=csvPathname, key=csvFilename, modelKey="model0")
 
-        for n in range(50):
+        for n in range(3):
             # the default modelKey  is "model". and we know the dataKey from parseFile will be poker1000.hex
             a = h2o_cmd.runRFTreeView(n=n, modelKey="model0", dataKey=csvFilename + ".hex", timeoutSecs=10)
             print (h2o.dump_json(a))

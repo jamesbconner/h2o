@@ -43,11 +43,17 @@ class Basic(unittest.TestCase):
             tsv = glm['trainingSetValidation']
             print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
 
-            ted = glm['trainingErrorDetails']
-            print "trueNegative:", ted['trueNegative']
-            print "truePositive:", ted['truePositive']
-            print "falseNegative:", ted['falseNegative']
-            print "falsePositive:", ted['falsePositive']
+            glmParams = glm["glmParams"]
+            family = glmParams["family"]
+            # no trainingErrorDetails if poisson? 
+            if (family=="poisson"):
+                pass
+            else:
+                ted = glm['trainingErrorDetails']
+                print "trueNegative:", ted['trueNegative']
+                print "truePositive:", ted['truePositive']
+                print "falseNegative:", ted['falseNegative']
+                print "falsePositive:", ted['falsePositive']
 
             # it's a dicitionary!
             coefficients = glm['coefficients']
