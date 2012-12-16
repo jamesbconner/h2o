@@ -84,7 +84,7 @@ public abstract class Models {
         _data = new AutoBuffer(_rpc << 3);
       super.map(key);
       if( _resultChunk0 != null )
-        DKV.put(key, new Value(key, _data.bufClose()));
+        DKV.put(key, new Value(key, _data.buf()));
     }
 
     @Override
