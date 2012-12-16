@@ -3,7 +3,7 @@ import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
 import re
-import inspect
+import inspect, webbrowser
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -674,13 +674,7 @@ class H2O(object):
     # singlethreaded=0&     ..debug only..
     # dataKey=chess_2x2_500_int.hex
     # ignore=&   ...this is ignore columns
-    # UPDATE: jan says the ignore should be picked up from the model
-    def random_forest_view(self, dataKey, modelKey, ntree, timeoutSecs=300, **kwargs):
-
-        # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
-        # that would make sure we only pass the minimal?
-        # Note ntree in kwargs can overwrite trees! We use this for random param generation
-
+    def random_forest_view(self, dataKey, modelKey, timeoutSecs=300, **kwargs):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
         # Will need to update this list if we params for RfView
@@ -697,18 +691,45 @@ class H2O(object):
             if k in params_dict:
                 params_dict[k] = kwargs[k]
 
-
         a = self.__check_request(requests.get(
             self.__url('RFView.json'),
             timeout=timeoutSecs,
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
-        # we should know the json url from above, but heck lets just use
-        # the same history-based, global mechanism we use elsewhere
-        # look at the passed down enable, or the global args
         if (browseAlso | browse_json):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+        return a
+
+    def random_forest_treeview(self, timeoutSecs=10, **kwargs):
+        params_dict = {
+            'n' : 0,
+            'dataKey' : None,
+            'modelKey' : "model"
+            }
+        browseAlso = kwargs.pop('browseAlso',False)
+        params_dict.update(kwargs)
+
+        if (1==0):
+            a = self.__check_request(requests.get(
+                self.__url('RFTreeView.json'),
+                timeout=timeoutSecs,
+                params=params_dict))
+
+            verboseprint("\nrandom_forest_treeview result:", dump_json(a))
+            if (browseAlso | browse_json):
+                h2b.browseJsonHistoryAsUrlLastMatch("RFTreeView")
+        else:
+            a = "No RFTreeView.json implemented yet hacking a webbrowser instead"
+            print "\n", a
+            url = self.__url('RFTreeView')
+            # tack on the params. We're not logging this url
+            joiner = "?"
+            for k,v in params_dict.iteritems():
+                url = url + joiner + k + "=" + str(v)
+                joiner = "&"
+            webbrowser.open_new(url)
+            time.sleep(3) # to be able to see it
         return a
 
     def linear_reg(self, key, timeoutSecs=10, **kwargs):
