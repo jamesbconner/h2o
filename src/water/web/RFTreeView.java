@@ -100,8 +100,9 @@ public class RFTreeView extends H2OPage {
 
   private String errorRender(Exception e) {
     StringBuilder sb = new StringBuilder();
-    sb.append("Error Generating Dot file:\n");
+    sb.append("Error Generating Dot file:\n<pre>");
     e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
+    sb.append("</pre>");
     return sb.toString();
   }
 

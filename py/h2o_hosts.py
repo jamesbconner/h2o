@@ -1,7 +1,15 @@
 import getpass, json, h2o
-import random
+import random, os
 # UPDATE: all multi-machine testing will pass list of IP and base port addresses to H2O
 # means we won't realy on h2o self-discovery of cluster
+
+def find_config(base):
+    f = base
+    if not os.path.exists(f): f = 'testdir_hosts/' + base
+    if not os.path.exists(f): f = 'py/testdir_hosts/' + base
+    if not os.path.exists(f):
+        raise Exception("unable to find config %s" % base)
+    return f
 
 # None means the json will specify, or the default for json below
 # only these two args override for now. can add more.
@@ -15,9 +23,11 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     # allow user to specify the config json at the command line. config_json is a global.
     # shouldn't need this??
     if h2o.config_json:
-        configFilename = h2o.config_json
+        configFilename = find_config(h2o.config_json)
     else:
-        configFilename = './pytest_config-%s.json' %getpass.getuser()
+        # configs may be in the testdir_hosts
+        configFilename = find_config('pytest_config-%s.json' %getpass.getuser())
+
     h2o.verboseprint("Loading host config from", configFilename)
     with open(configFilename, 'rb') as fp:
          hostDict = json.load(fp)
@@ -85,6 +95,7 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     # use 60 sec min, 2 sec per node.
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
 
+    # sandbox gets cleaned in build_cloud
     h2o.build_cloud(h2oPerHost,
             base_port=basePort, hosts=hosts, timeoutSecs=timeoutSecs, sigar=sigar, 
             use_flatfile=useFlatfile,

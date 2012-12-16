@@ -3,7 +3,7 @@ import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
 import re
-import inspect
+import inspect, webbrowser
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -34,8 +34,8 @@ def drain(src, dst):
     t.start()
 
 def unit_main():
-    print "\nRunning python:", inspect.stack()[1][1]
-    clean_sandbox()
+    print "\nRunning: python", inspect.stack()[1][1]
+    # moved clean_sandbox out of here, because nosetests doesn't execute h2o.unit_main in our tests.
     parse_our_args()
     unittest.main()
 
@@ -96,7 +96,9 @@ def find_dataset(f):
 
 def find_file(base):
     f = base
-    if not os.path.exists(f): f = '../'+base
+    if not os.path.exists(f): f = '../' + base
+    if not os.path.exists(f): f = '../../' + base
+    if not os.path.exists(f): f = 'py/' + base
     if not os.path.exists(f):
         raise Exception("unable to find file %s" % base)
     return f
@@ -142,6 +144,13 @@ def log(cmd, comment=None):
             f.write('    #')
             f.write(comment)
         f.write("\n")
+
+def make_syn_dir():
+    SYNDATASETS_DIR = './syn_datasets'
+    if os.path.exists(SYNDATASETS_DIR):
+        shutil.rmtree(SYNDATASETS_DIR)
+    os.mkdir(SYNDATASETS_DIR)
+    return SYNDATASETS_DIR
 
 def dump_json(j):
     return json.dumps(j, sort_keys=True, indent=2)
@@ -209,11 +218,11 @@ json_url_history = []
 global nodes
 nodes = []
 
-# this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
-# if any. (in build_cloud)
 global use_hdfs
 use_hdfs = False
 
+# this is used by tests, to create hdfs URIs. 
+# it will always get set to the name node we're using, if any. (in build_cloud)
 global hdfs_name_node
 hdfs_name_node = "192.168.1.151"
 
@@ -235,8 +244,10 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
         timeoutSecs=20, retryDelaySecs=0.5, cleanup=True, **kwargs):
-    global nodes, use_hdfs, hdfs_name_node
+    # moved to here from unit_main. so will run with nosetests too!
+    clean_sandbox()
 
+    global nodes, use_hdfs, hdfs_name_node
     # set the hdfs info that tests will use from kwargs
     # the philosopy is that kwargs holds stuff that's used for node level building.
     if "use_hdfs" in kwargs:
@@ -290,7 +301,9 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for n in node_list: n.terminate()
         else:
             nodes[:] = node_list
-        check_sandbox_for_errors()
+        if (check_sandbox_for_errors()):
+            raise Exception("Errors in sandbox stdout or stderr." +  
+                "Could have occured at any prior time")
         raise
 
     # this is just in case they don't assign the return to the nodes global?
@@ -307,7 +320,8 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
         
     if not slow_connection:
         for h in hosts:
-            h.upload_file('build/h2o.jar', progress=prog)
+            f = find_file('build/h2o.jar')
+            h.upload_file(f, progress=prog)
             # skipping progress indicator for the flatfile
             h.upload_file(flatfile_name())
     else:
@@ -337,19 +351,31 @@ def check_sandbox_for_errors():
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile(
+            regex1 = re.compile(
                 'exception|error|assert|warn|info|killing|killed|required ports',
                 re.IGNORECASE)
+            regex2 = re.compile('Caused')
+
             printing = 0
+            lines = 0
             for line in sandFile:
-                newFound = regex.search(line) and ('error rate' not in line)
-                if (printing==0 and newFound):
+                foundBad = regex1.search(line) and ('error rate' not in line)
+                if (printing==0 and foundBad):
                     printing = 1
+                    lines = 1
                     foundAnyBadness = True
                 elif (printing==1):
+                    lines += 1
                     # if we've been printing, stop when you get to another error
-                    # we don't care about seeing multiple prints scroll off the screen
-                    if (newFound):
+                    # Matt is nice, so we are nice..keep printing if the pattern match for the condition
+                    # is on a line with "Caused" in it ("Caused by")
+                    # only use caused for overriding an end condition
+                    foundCaused = regex2.search(line)
+                    # since the "at ..." lines may have the "bad words" in them, we also don't want 
+                    # to stop if a line has " *at " at the beginning.
+                    # Update: Assertion can be followed by Exception. Make sure we keep printing for a min of 4 lines
+                    foundAt = re.match(r'[\t ]+at ',line)
+                    if foundBad and (lines>4) and not (foundCaused or foundAt):
                         printing = 2 
 
                 if (printing==1):
@@ -369,7 +395,9 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
-        check_sandbox_for_errors()
+        if (check_sandbox_for_errors()):
+            raise Exception("tear_down_cloud: Errors in sandbox stdout or stderr." +
+                "Could have occured at any prior time")
 
 # don't need this any more? used to need it to make sure cloud didn't go away between 
 # unittest defs
@@ -387,8 +415,12 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     # want node saying cloud = expected size, plus thinking everyone agrees with that.
     def test(n):
         c = n.get_cloud()
+        # don't want to check everything. But this will check that the keys are returned!
+        consensus  = c['consensus']
+        locked     = c['locked']
         cloud_size = c['cloud_size']
-        consensus = c['consensus']
+        cloud_name = c['cloud_name']
+        node_name  = c['node_name']
 
         if (cloud_size > node_count):
             emsg = (
@@ -398,12 +430,18 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
                 "\n\nYou probably don't have to do anything, as the cloud shutdown in this test should"  +
                 "\nhave sent a Shutdown.json to all in that cloud (you'll see a kill -2 in the *stdout*)." +
                 "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's." +
-                "\nIf you think you really have an intermittent cloud build, report it."
+                "\nIf you think you really have an intermittent cloud build, report it." +
+                "\n" +
+                "\nUPDATE: building cloud size of 2 with 127.0.0.1 may temporarily report 3 incorrectly, with no zombie?" 
                 )
-            raise Exception(emsg)
+            # raise Exception(emsg)
+            print emsg
 
+        
         a = (cloud_size==node_count and consensus)
-        ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
+        if (a):
+            verboseprint("\tLocked won't happen until after keys are written")
+
         return(a)
 
     node.stabilize(test, error=('A cloud of size %d' % node_count),
@@ -450,7 +488,18 @@ class H2O(object):
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
-        verboseprint("get_cloud:", a)
+        # don't want to print everything from get_cloud json (f/j info etc)
+        # but this will check the keys exist!
+        consensus  = a['consensus']
+        locked     = a['locked']
+        cloud_size = a['cloud_size']
+        cloud_name = a['cloud_name']
+        node_name  = a['node_name']
+        verboseprint('%s%s %s%s %s%s' %(
+            "\tcloud_size: ", cloud_size,
+            "\tconsensus: ", consensus,
+            "\tlocked: ", locked
+            ))
         return a
 
     def get_timeline(self):
@@ -556,9 +605,8 @@ class H2O(object):
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
-    def exec_query(self, key, timeoutSecs=20, **kwargs):
+    def exec_query(self, timeoutSecs=20, **kwargs):
         params_dict = {
-            'Key' : key,
             'min' : None,
             'max' : None,
             'mean' : None,
@@ -632,13 +680,7 @@ class H2O(object):
     # singlethreaded=0&     ..debug only..
     # dataKey=chess_2x2_500_int.hex
     # ignore=&   ...this is ignore columns
-    # UPDATE: jan says the ignore should be picked up from the model
-    def random_forest_view(self, dataKey, modelKey, ntree, timeoutSecs=300, **kwargs):
-
-        # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
-        # that would make sure we only pass the minimal?
-        # Note ntree in kwargs can overwrite trees! We use this for random param generation
-
+    def random_forest_view(self, dataKey, modelKey, timeoutSecs=300, **kwargs):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
         # Will need to update this list if we params for RfView
@@ -655,18 +697,45 @@ class H2O(object):
             if k in params_dict:
                 params_dict[k] = kwargs[k]
 
-
         a = self.__check_request(requests.get(
             self.__url('RFView.json'),
             timeout=timeoutSecs,
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
-        # we should know the json url from above, but heck lets just use
-        # the same history-based, global mechanism we use elsewhere
-        # look at the passed down enable, or the global args
         if (browseAlso | browse_json):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+        return a
+
+    def random_forest_treeview(self, timeoutSecs=10, **kwargs):
+        params_dict = {
+            'n' : 0,
+            'dataKey' : None,
+            'modelKey' : "model"
+            }
+        browseAlso = kwargs.pop('browseAlso',False)
+        params_dict.update(kwargs)
+
+        if (1==0):
+            a = self.__check_request(requests.get(
+                self.__url('RFTreeView.json'),
+                timeout=timeoutSecs,
+                params=params_dict))
+
+            verboseprint("\nrandom_forest_treeview result:", dump_json(a))
+            if (browseAlso | browse_json):
+                h2b.browseJsonHistoryAsUrlLastMatch("RFTreeView")
+        else:
+            a = "No RFTreeView.json implemented yet hacking a webbrowser instead"
+            print "\n", a
+            url = self.__url('RFTreeView')
+            # tack on the params. We're not logging this url
+            joiner = "?"
+            for k,v in params_dict.iteritems():
+                url = url + joiner + k + "=" + str(v)
+                joiner = "&"
+            webbrowser.open_new(url)
+            time.sleep(3) # to be able to see it
         return a
 
     def linear_reg(self, key, timeoutSecs=10, **kwargs):
@@ -830,11 +899,6 @@ class H2O(object):
                 '-hdfs_version cdh4',
                 '-hdfs_root /datasets'
             ]
-
-            # we need a global for hdfs_name_node for tests to build up hdfs URIs.
-            # They're all getting the same value
-            # passed down from build_cloud_with_hosts. so use that one? or if a LocalH2O 
-            # test uses just build_cloud directly. So do it up in build_cloud to handle both.
 
         if self.use_flatfile:
             args += [

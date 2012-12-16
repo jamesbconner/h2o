@@ -13,17 +13,22 @@ def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20):
         myKey2 = key2
     return node.parse(put['key'], myKey2, timeoutSecs)
 
+def runInspect(node=None,key=None,timeoutSecs=5,**kwargs):
+    if not key: raise Exception('No key for Inspect specified')
+    if not node: node = h2o.nodes[0]
+    # FIX! currently there is no such thing as a timeout on node.inspect
+    return node.inspect(key, **kwargs)
+
 # since we'll be doing lots of execs on a parsed file, not useful to have parse+exec
 # retryDelaySecs isn't used, 
-def runExecOnly(node=None,parseKey=None,timeoutSecs=20,**kwargs):
-    if not parseKey: raise Exception('No parsed key for Exec specified')
+def runExecOnly(node=None,timeoutSecs=20,**kwargs):
     if not node: node = h2o.nodes[0]
     # no such thing as GLMView..don't use retryDelaySecs
-    return node.exec_query(parseKey['Key'], timeoutSecs, **kwargs)
+    return node.exec_query(timeoutSecs, **kwargs)
 
-def runGLM(node=None,csvPathname=None,
+def runGLM(node=None,csvPathname=None,key=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):
-    parseKey = parseFile(node, csvPathname)
+    parseKey = parseFile(node, csvPathname, key)
     glm = runGLMOnly(node, parseKey, timeoutSecs, retryDelaySecs,**kwargs)
     return glm
 
@@ -34,8 +39,9 @@ def runGLMOnly(node=None,parseKey=None,
     # no such thing as GLMView..don't use retryDelaySecs
     return node.GLM(parseKey['Key'], timeoutSecs, **kwargs)
 
-def runLR(node=None, csvPathname=None, timeoutSecs=20, **kwargs):
-    parseKey = parseFile(node, csvPathname)
+def runLR(node=None, csvPathname=None,key=None,
+        timeoutSecs=20, **kwargs):
+    parseKey = parseFile(node, csvPathname, key)
     return runLROnly(node, parseKey, timeoutSecs, **kwargs)
 
 def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
@@ -45,10 +51,14 @@ def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
     return node.linear_reg(parseKey['Key'], timeoutSecs, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
-def runRF(node=None, csvPathname=None, trees=5, 
+def runRF(node=None, csvPathname=None, trees=5, key=None, 
         timeoutSecs=20, retryDelaySecs=2, **kwargs):
-    parseKey = parseFile(node, csvPathname)
+    parseKey = parseFile(node, csvPathname, key)
     return runRFOnly(node, parseKey, trees, timeoutSecs, retryDelaySecs, **kwargs)
+
+def runRFTreeView(node=None, timeoutSecs=20, **kwargs):
+    if not node: node = h2o.nodes[0]
+    return node.random_forest_treeview(timeoutSecs, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRFOnly(node=None, parseKey=None, trees=5,
@@ -86,13 +96,10 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     # output class?
     rfClass= rf['class']
 
-    # expect response to match the number of trees you asked for
-    # FIX! I guess extra kwargs to RFView shouldn't hurt it??
     def test(n):
-        # Only passing browse to this guy (and at the end)
-        rfView = n.random_forest_view(dataKey, modelKey, ntree, timeoutSecs, **kwargs)
+        rfView = n.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
         modelSize = rfView['modelSize']
-        if (modelSize!=trees and modelSize>0):
+        if (modelSize!=ntree and modelSize>0):
             # don't print the typical case of 0 (starting)
             print "Waiting for RF done: at %d of %d trees" % (modelSize, ntree)
         return modelSize==ntree
@@ -103,7 +110,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     # kind of wasteful re-read, but maybe good for testing
-    rfView = node.random_forest_view(dataKey, modelKey, ntree, timeoutSecs, **kwargs)
+    rfView = node.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
     modelSize = rfView['modelSize']
     confusionKey = rfView['confusionKey']
 

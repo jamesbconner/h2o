@@ -708,7 +708,7 @@ class InPlaceColSwap extends Function {
         assert (off % rowSize == 0);
       }
       // store the value
-      Value val = new Value(key, bits.bufClose());
+      Value val = new Value(key, bits.buf());
       DKV.put(key, val, getFutures());
     }
 
