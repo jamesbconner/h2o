@@ -95,6 +95,7 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
     # use 60 sec min, 2 sec per node.
     timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
 
+    # sandbox gets cleaned in build_cloud
     h2o.build_cloud(h2oPerHost,
             base_port=basePort, hosts=hosts, timeoutSecs=timeoutSecs, sigar=sigar, 
             use_flatfile=useFlatfile,

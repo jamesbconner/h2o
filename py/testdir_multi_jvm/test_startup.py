@@ -3,6 +3,7 @@ sys.path.extend(['.','..','py'])
 
 import h2o
 
+
 def quick_startup(num_babies=3, sigar=False):
     babies = []
     try:
@@ -20,6 +21,12 @@ def quick_startup(num_babies=3, sigar=False):
         for b in babies: b.terminate()
 
 class StartUp(unittest.TestCase):
+    # nosetests doesn't do the h2o.unit_main, so have to cleanup here
+    # normally build_cloud does it
+    @classmethod
+    def setUpClass(cls):
+        h2o.clean_sandbox()
+
     def test_concurrent_startup(self):
         quick_startup(num_babies=3)
 
@@ -30,5 +37,4 @@ class StartUp(unittest.TestCase):
        quick_startup(num_babies=3,sigar=True)
 
 if __name__ == '__main__':
-    h2o.clean_sandbox()
-    unittest.main()
+    h2o.unit_main()

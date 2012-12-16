@@ -6,7 +6,7 @@ import h2o, h2o_cmd
 class TestExcel(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(node_count=2)
+        h2o.build_cloud(node_count=3)
 
     @classmethod
     def tearDownClass(cls):

@@ -7,7 +7,6 @@ import h2o_browse as h2b
 
 class Basic(unittest.TestCase):
     def testCloud(self):
-        global nodes
         baseport = 54300
 
         print "\nTest was written because seeing a bigger cloud than we want sometimes"
@@ -22,20 +21,20 @@ class Basic(unittest.TestCase):
 
                 start = time.time()
                 ### this works
-                ### nodes = h2o.build_cloud(use_this_ip_addr="192.168.0.37",
+                ### h2o.build_cloud(use_this_ip_addr="192.168.0.37",
                 # this intermittently fails
-                nodes = h2o.build_cloud(use_this_ip_addr="127.0.0.1", node_count=tryNodes,
+                h2o.build_cloud(use_this_ip_addr="127.0.0.1", node_count=tryNodes,
                     timeoutSecs=15, retryDelaySecs=1)
                 print "trial #%d: Build cloud of %d in %d secs" % (trial, tryNodes, (time.time() - start)) 
-                h2b.browseTheCloud()
+                ### h2b.browseTheCloud()
 
-                h2o.verboseprint(nodes)
-                for n in nodes:
+                h2o.verboseprint(h2o.nodes)
+                for n in h2o.nodes:
                     c = n.get_cloud()
                     h2o.verboseprint(c)
-                    self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
+                    self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
-                h2o.tear_down_cloud(nodes)
+                h2o.tear_down_cloud()
 
                 # increment the base_port to avoid sticky ports when we do another
                 # we only use two ports now?

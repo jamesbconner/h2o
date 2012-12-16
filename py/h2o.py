@@ -35,7 +35,7 @@ def drain(src, dst):
 
 def unit_main():
     print "\nRunning: python", inspect.stack()[1][1]
-    clean_sandbox()
+    # moved clean_sandbox out of here, because nosetests doesn't execute h2o.unit_main in our tests.
     parse_our_args()
     unittest.main()
 
@@ -244,8 +244,10 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
         timeoutSecs=20, retryDelaySecs=0.5, cleanup=True, **kwargs):
-    global nodes, use_hdfs, hdfs_name_node
+    # moved to here from unit_main. so will run with nosetests too!
+    clean_sandbox()
 
+    global nodes, use_hdfs, hdfs_name_node
     # set the hdfs info that tests will use from kwargs
     # the philosopy is that kwargs holds stuff that's used for node level building.
     if "use_hdfs" in kwargs:
@@ -355,12 +357,15 @@ def check_sandbox_for_errors():
             regex2 = re.compile('Caused')
 
             printing = 0
+            lines = 0
             for line in sandFile:
                 foundBad = regex1.search(line) and ('error rate' not in line)
                 if (printing==0 and foundBad):
                     printing = 1
+                    lines = 1
                     foundAnyBadness = True
                 elif (printing==1):
+                    lines += 1
                     # if we've been printing, stop when you get to another error
                     # Matt is nice, so we are nice..keep printing if the pattern match for the condition
                     # is on a line with "Caused" in it ("Caused by")
@@ -368,8 +373,9 @@ def check_sandbox_for_errors():
                     foundCaused = regex2.search(line)
                     # since the "at ..." lines may have the "bad words" in them, we also don't want 
                     # to stop if a line has " *at " at the beginning.
+                    # Update: Assertion can be followed by Exception. Make sure we keep printing for a min of 4 lines
                     foundAt = re.match(r'[\t ]+at ',line)
-                    if foundBad and not (foundCaused or foundAt):
+                    if foundBad and (lines>4) and not (foundCaused or foundAt):
                         printing = 2 
 
                 if (printing==1):
