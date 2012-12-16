@@ -37,7 +37,7 @@ public class SliceFilter extends MRTask {
       iter.copyCurrentRow(bits,offset);
       ++_filteredRows;
     }
-    DKV.put(key, new Value(key,bits.bufClose()));
+    DKV.put(key, new Value(key,bits.buf()), getFutures());
   }
 
   @Override public void reduce(DRemoteTask drt) {
