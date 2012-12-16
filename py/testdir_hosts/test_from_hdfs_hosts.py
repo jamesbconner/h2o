@@ -10,7 +10,7 @@ import time, random
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts(1,use_hdfs=True)
+        h2o_hosts.build_cloud_with_hosts(use_hdfs=True)
 
     @classmethod
     def tearDownClass(cls):

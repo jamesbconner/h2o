@@ -28,7 +28,7 @@ class Basic(unittest.TestCase):
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
-        h2o_hosts.build_cloud_with_hosts(1)
+        h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
