@@ -62,7 +62,7 @@ public class CodeTreePrinter extends TreePrinter {
       _dest.incrementIndent();
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          String x = (tclass < _classNames.length)
+          String x = _classNames != null && tclass < _classNames.length
             ? String.format("return %s;\n",_classNames[tclass])
             : String.format("return %d;\n",tclass);
           _dest.append(x);
