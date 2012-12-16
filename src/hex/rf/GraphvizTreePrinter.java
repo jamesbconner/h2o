@@ -83,7 +83,7 @@ public class GraphvizTreePrinter extends TreePrinter {
       _dest.append("digraph {\n");
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          String x = (tclass < _classNames.length)
+          String x = _classNames != null && tclass < _classNames.length
             ? String.format("%d [label=\"%s\"];\n"      , _ts.position()-2, _classNames[tclass])
             : String.format("%d [label=\"Class %d\"];\n", _ts.position()-2, tclass);
           _dest.append(x);

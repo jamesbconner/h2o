@@ -54,9 +54,6 @@ public abstract class MRVectorBinaryOperator extends MRColumnProducer {
     VAIterator left = new VAIterator(_leftKey,_leftCol, rowOffset);
     VAIterator right = new VAIterator(_rightKey,_rightCol, rowOffset);
     int chunkRows = VABuilder.chunkSize(key, result.length(), result._rowsize) / result._rowsize;
-//    int chunkRows = (int) (ValueArray.chunk_size() / result.row_size());
-//    if (rowOffset + chunkRows >= result.num_rows())
-//      chunkRows = (int) (result.num_rows() - rowOffset);
     int chunkLength = chunkRows * 8;
     AutoBuffer bits = new AutoBuffer(chunkLength);
     for (int i = 0; i < chunkLength; i+=8) {
