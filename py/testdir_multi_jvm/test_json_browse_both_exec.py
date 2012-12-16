@@ -95,8 +95,7 @@ class Basic(unittest.TestCase):
                 start = time.time()
 
                 # pick a random node to execute it on
-                resultExec = h2o_cmd.runExecOnly(node=h2o.nodes[randNode],parseKey=parseKey, 
-                    timeoutSecs=5, Expr=execExpr)
+                resultExec = h2o_cmd.runExecOnly(node=h2o.nodes[randNode], Expr=execExpr, timeoutSecs=5)
                 h2o.verboseprint(h2o.dump_json(resultExec))
                 # print(h2o.dump_json(resultExec))
 
