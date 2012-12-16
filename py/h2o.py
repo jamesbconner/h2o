@@ -977,7 +977,7 @@ class LocalH2O(H2O):
     def __init__(self, *args, **kwargs):
         super(LocalH2O, self).__init__(*args, **kwargs)
         self.rc = None
-        # FIX! no option for local /home/username ..always /tmp
+        # FIX! no option for local /home/username ..always the sandbox (LOG_DIR)
         self.ice = tmp_dir('ice.')
         self.flatfile = flatfile_name()
         if self.node_id is not None:

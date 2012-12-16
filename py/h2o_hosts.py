@@ -33,7 +33,8 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
          hostDict = json.load(fp)
 
     slow_connection = hostDict.setdefault('slow_connection', False)
-    hostList = hostDict.setdefault('ip','192.168.0.161')
+    hostList = hostDict.setdefault('ip','127.0.0.1')
+
     h2oPerHost = hostDict.setdefault('h2o_per_host', 2)
     # default should avoid colliding with sri's demo cloud ports: 54321
     # we get some problems with sticky ports, during back to back tests in regressions
@@ -82,18 +83,28 @@ def build_cloud_with_hosts(node_count=None, use_flatfile=None,
 
     #********************
     global hosts
-    h2o.verboseprint("About to RemoteHost, likely bad ip if hangs")
-    hosts = []
-    for h in hostList:
-        h2o.verboseprint("Connecting to:", h)
-        hosts.append(h2o.RemoteHost(h, username, password))
+    # Update: special case hostList = ["127.0.0.1"] and use the normal build_cloud
+    # this allows all the tests in testdir_host to be run with a special config that points to 127.0.0.1
+    # hosts should be None for everyone if normal build_cloud is desired
+    if hostList == ["127.0.0.1"]:
+        hosts = None
+    else:
+        h2o.verboseprint("About to RemoteHost, likely bad ip if hangs")
+        hosts = []
+        for h in hostList:
+            h2o.verboseprint("Connecting to:", h)
+            hosts.append(h2o.RemoteHost(h, username, password))
    
+    # handles hosts=None correctly
     h2o.write_flatfile(node_count=h2oPerHost, base_port=basePort, hosts=hosts)
-    h2o.upload_jar_to_remote_hosts(hosts, slow_connection=slow_connection)
 
-    # timeout wants to be larger for large numbers of hosts * h2oPerHost
-    # use 60 sec min, 2 sec per node.
-    timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
+    if hosts is not None:
+        h2o.upload_jar_to_remote_hosts(hosts, slow_connection=slow_connection)
+        # timeout wants to be larger for large numbers of hosts * h2oPerHost
+        # use 60 sec min, 2 sec per node.
+        timeoutSecs = max(60, 2*(len(hosts) * h2oPerHost))
+    else: # for 127.0.0.1 case
+        timeoutSecs = 60
 
     # sandbox gets cleaned in build_cloud
     h2o.build_cloud(h2oPerHost,
