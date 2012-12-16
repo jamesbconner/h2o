@@ -68,7 +68,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     #! FIX! what else is in parseKey that we should check?
     h2o.verboseprint("runRFOnly parseKey:", parseKey)
     Key = parseKey['Key']
-    rf = node.random_forest(Key, timeoutSecs, trees, **kwargs)
+    rf = node.random_forest(Key, trees, timeoutSecs, **kwargs)
 
     # if we have something in Error, print it!
     # FIX! have to figure out unexpected vs expected errors
