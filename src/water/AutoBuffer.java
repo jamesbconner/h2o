@@ -225,7 +225,7 @@ public final class AutoBuffer {
 
   // Need a sock for a big read or write operation
   private void tcpOpen() throws IOException {
-    assert _firstPage && _bb.limit() >= 1+2+4+1; // At least something written
+    assert _firstPage && _bb.limit() >= 1+2+4; // At least something written
     assert _chan == null;
     SocketChannel sock = SocketChannel.open( _h2o._key );
     assert sock.isConnected();   // Supposed to be a blocking channel
