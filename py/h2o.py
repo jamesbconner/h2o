@@ -111,7 +111,6 @@ def iter_chunked_file(file, chunk_size=2048):
 
 LOG_DIR = 'sandbox'
 def clean_sandbox():
-    print "HELLO"
     if os.path.exists(LOG_DIR):
         # shutil.rmtree fails to delete very long filenames on Windoze
         #shutil.rmtree(LOG_DIR)
