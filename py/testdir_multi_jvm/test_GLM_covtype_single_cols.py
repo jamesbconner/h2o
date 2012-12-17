@@ -8,7 +8,8 @@ class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # uses two much memory with 4?
-        h2o.build_cloud(3)
+        # FIX! does it die with 3?
+        h2o.build_cloud(2)
 
     @classmethod
     def tearDownClass(cls):
@@ -65,7 +66,7 @@ class Basic(unittest.TestCase):
 
         print "GLM binomial wth 1 X column at a time" 
         print "Result check: abs. value of coefficient and intercept returned are bigger than zero"
-        for colX in xrange(55):
+        for colX in xrange(54):
             # do we have to exclud any columns?
             if (1==1):
                 if X == "": 
