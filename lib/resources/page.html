@@ -68,34 +68,11 @@
   <div class="row-fluid">
     <div class="span12">
 %CONTENTS
-
-
     </div>
   </div>
 </div>    
 
-<input type='text' data-provide='typeahead' id='test' name='test'>
 
-<script type="text/javascript">
-$("#test").typeahead({
-  source:
-    function(query,process) {
-      return $.get("/WWWKeys.json", { filter: query }, function (data) {
-        return process(data.keys);
-      });
-    }
-});
-$('#test').change( function() {
-  alert("change");
-  $.get("RF.checkArg", { __arg__: "key", key: $('#test').text() }, function (data) {
-    if (data.error == 'undefined') {
-      query_show_success('%ID','The argument is correct');
-    } else {
-      query_show_error('%ID', data.error);    
-    }
-  });
-});
-</script>
 
   </body>
 </html>

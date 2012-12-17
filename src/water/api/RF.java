@@ -32,6 +32,7 @@ public class RF extends Request {
 //  protected final H2OCategoryDoubles _weights = new H2OCategoryDoubles(_dataKey, _classCol, JSON_WEIGHTS,1,"Category weights",0,Double.POSITIVE_INFINITY);
 //  protected final H2OKeyCols _ignore = new H2OKeyCols(_dataKey,JSON_IGNORE,new int[0],"Ignore columns");
   protected final Int _features = new Int(JSON_FEATURES, 0, 0, Integer.MAX_VALUE);
+  protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
 
   /** Fires the random forest computation.
    *

@@ -31,6 +31,33 @@ import water.web.RString;
  */
 public class RequestArguments extends RequestStatics {
 
+  // ===========================================================================
+  // Helper functions
+  // ===========================================================================
+
+  protected static int vaColumnNameToIndex(ValueArray va, String input) {
+    // first check if we have string match
+    for (int i = 0; i < va._cols.length; ++i) {
+      String colName = va._cols[i]._name;
+      if (colName == null)
+        colName = String.valueOf(i);
+      if (colName.equals(input))
+        return i;
+    }
+    try {
+      int i = Integer.parseInt(input);
+      if ((i<0) || (i>=va._cols.length))
+        return -1;
+      return i;
+    } catch (NumberFormatException e) {
+      return -1;
+    }
+  }
+
+  // ===========================================================================
+  // Argument
+  // ===========================================================================
+
   /** List of arguments for the request. Automatically filled in by the argument
    * constructors.
    */
@@ -650,7 +677,98 @@ public class RequestArguments extends RequestStatics {
     @Override protected String jsValue() {
       return "return $('#"+_name+"').val();";
     }
+  }
 
+  // ===========================================================================
+  // MultipleSelect
+  // ===========================================================================
+
+  private static final String _multipleSelectValueJS =
+            "  var str = ''\n"
+          + "  for (var i = 0; i < %NUMITEMS; ++i) {\n"
+          + "    var element = $('#%NAME'+i);\n"
+          + "    if (element.is(':checked')) {\n"
+          + "      if (str == '')\n"
+          + "        str = element.val();\n"
+          + "      else\n"
+          + "        str = str + ',' + element.val();\n"
+          + "    }\n"
+          + "  }\n"
+          + "  return str;\n"
+          ;
+
+  public abstract class MultipleSelect<T> extends Argument<T> {
+
+    /** Override this method to provide the values for the options. These will
+     * be the possible values returned by the form's input and should be the
+     * possible values for the JSON argument.
+     */
+    protected abstract String[] selectValues();
+
+    /** Returns true if the given option (by its value) is selected. False
+     * otherwise.
+     */
+    protected abstract boolean isSelected(String value);
+
+    /** Override this method to determine the value names, that is the names
+     * displayed in the browser. Return null, if the value strings should be
+     * used (this is default behavior).
+     */
+    protected String[] selectNames() {
+      return null;
+    }
+
+    /** Constructor just calls super. Is never required, translates to the
+     * default value.
+     */
+    public MultipleSelect(String name) {
+      super(name, false);
+    }
+
+    /** Displays the query element. It is a tabled list of all possibilities
+     * with an optional scrollbar on the right.
+     */
+    @Override protected String queryElement() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<div style='max-height:300px;overflow:auto'>");
+      sb.append("<table class='table table-striped'>");
+      String[] values = selectValues();
+      String[] names = selectNames();
+      if (names == null)
+        names = values;
+      assert (values.length == names.length);
+      for (int i = 0 ; i < values.length; ++i) {
+        if (isSelected(values[i]))
+          sb.append("<tr><td><input style='position:relative;top:-2px' type='checkbox' checked id='"+(_name+String.valueOf(i))+"' value='"+values[i]+"' /> "+names[i]+"</td></tr>");
+        else
+          sb.append("<tr><td><input style='position:relative;top:-2px' type='checkbox' id='"+(_name+String.valueOf(i))+"' value='"+values[i]+"' /> "+names[i]+"</td></tr>");
+      }
+      sb.append("</table></div>");
+      return sb.toString();
+    }
+
+    /** Refresh is supported using standard jQuery change event. Each
+     * possibility's checkbox is instrumented.
+     */
+    @Override protected String jsRefresh(String callbackName) {
+      int size = selectValues().length;
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < size; ++i)
+        sb.append("$('#"+_name+String.valueOf(i)+"').change('"+callbackName+"');\n");
+      return sb.toString();
+    }
+
+    /** Get value is supported by a JS function that enumerates over the
+     * possibilities. If checked, the value of the possibility is appended to
+     * a comma separated list.
+     */
+    @Override protected String jsValue() {
+      int size = selectValues().length;
+      RString result = new RString(_multipleSelectValueJS);
+      result.replace("NUMITEMS",size);
+      result.replace("NAME",_name);
+      return result.toString();
+    }
   }
 
   // ===========================================================================
@@ -950,7 +1068,6 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
-
   // ---------------------------------------------------------------------------
   // StringListArgument
   // ---------------------------------------------------------------------------
@@ -1041,22 +1158,10 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected Integer parse(String input) throws IllegalArgumentException {
       ValueArray va = _key.value();
-      // first check if we have string match
-      for (int i = 0; i < va._cols.length; ++i) {
-        String colName = va._cols[i]._name;
-        if (colName == null)
-          colName = String.valueOf(i);
-        if (colName.equals(input))
-          return i;
-      }
-      try {
-        int i = Integer.parseInt(input);
-        if ((i<0) || (i>=va._cols.length))
-          throw new IllegalArgumentException("HEX key only has "+va._cols.length+" columns");
-        return i;
-      } catch (IllegalArgumentException e) {
+      int colIdx = vaColumnNameToIndex(va, input);
+      if (colIdx == -1)
         throw new IllegalArgumentException(input+" not a name of column, or a column index");
-      }
+      return colIdx;
     }
 
     @Override protected Integer defaultValue() {
@@ -1067,6 +1172,81 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected String queryDescription() {
       return "column of the key "+_key._name;
+    }
+
+  }
+
+  // ---------------------------------------------------------------------------
+  // IgnoreHexCols
+  // ---------------------------------------------------------------------------
+
+  public class IgnoreHexCols extends MultipleSelect<int[]> {
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+
+    public IgnoreHexCols(H2OHexKey key, H2OHexKeyCol classCol, String name) {
+      super(name);
+      _key = key;
+      _classCol = classCol;
+      addPrerequisite(key);
+      addPrerequisite(classCol);
+    }
+
+    @Override protected String[] selectValues() {
+      ValueArray va = _key.value();
+      int classCol = _classCol.value();
+      String[] result = new String[va._cols.length-1]; // no class col
+      int j = 0;
+      for (int i = 0; i < va._cols.length; ++i) {
+        if (i == classCol)
+          continue; // class column cannot be ignored
+        result[j] = va._cols[i]._name == null ? String.valueOf(i) : va._cols[i]._name;
+        ++j;
+      }
+      assert (j == result.length);
+      return result;
+    }
+
+    @Override protected boolean isSelected(String value) {
+      ValueArray va = _key.value();
+      int[] val = value();
+      if (val == null)
+        return false;
+      int idx = vaColumnNameToIndex(va,value);
+      for (int i = 0; i < val.length; ++i)
+        if (val[i] == idx)
+          return true;
+      return false;
+    }
+
+    @Override
+    protected int[] parse(String input) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      int classCol = _classCol.value();
+      ArrayList<Integer> al = new ArrayList();
+      for (String col : input.split(",")) {
+        col = col.trim();
+        int idx = vaColumnNameToIndex(va, col);
+        if (idx == -1)
+          throw new IllegalArgumentException("Column "+col+" not part of key "+va._key);
+        if (idx == classCol)
+          throw new IllegalArgumentException("Class column "+col+" cannot be ignored");
+        if (al.contains(idx))
+          throw new IllegalArgumentException("Column "+col+" is already ignored.");
+        al.add(idx);
+      }
+      int[] result = new int[al.size()];
+      for (int i = 0; i < result.length; ++i)
+        result[i] = al.get(i);
+      return result;
+    }
+
+    @Override protected int[] defaultValue() {
+      return null;
+    }
+
+    @Override protected String queryDescription() {
+      return "Columns to be ignored by the computation";
     }
 
   }

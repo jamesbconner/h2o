@@ -13,7 +13,7 @@ is.defined <- function(x) {
 # Public functions & declarations -------------------------------------------------------------------------------------
 
 # Determines the server and port to which the interop layer always connects
-h2o.SERVER = "localhost:54323"
+h2o.SERVER = "localhost:54321"
 
 # If verbose, messages will be printed when data is requested, and / or received from the server
 h2o.VERBOSE = TRUE
