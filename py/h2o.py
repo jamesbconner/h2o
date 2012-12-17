@@ -39,42 +39,40 @@ def unit_main():
     parse_our_args()
     unittest.main()
 
-
+# global disable. used to prevent browsing when running nosetests, or when given -bd arg
+# also, if user=jenkins. defaults to True, if h2o.unit_main isn't executed, so parse_our_args isn't executed.
+# since nosetests doesn't execute h2o.unit_main, it should have the browser disabled..I think?
+browse_disable = True
 browse_json = False
 verbose = False
 ipaddr = None
-use_hosts = False
 config_json = False
-debugger=False
+debugger = False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
+    parser.add_argument('--browse_disable', '-bd', help="Disable any web browser stuff. Needed for batch. nosetests and jenkins disable browser through other means already, so don't need", action='store_true')
     parser.add_argument('--browse_json','-b', help='Pops a browser to selected json equivalent urls. Selective. Also keeps test alive (and H2O alive) till you ctrl-c. Then should do clean exit', action='store_true')
     parser.add_argument('--verbose','-v', help='increased output', action='store_true')
     parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
-    parser.add_argument('--use_hosts', '-uh', help='pending...intent was conditional hosts use', action='store_true')
     parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
-
-    
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global browse_json, verbose, ipaddr, use_hosts, config_json, debugger
+    global browse_disable, browse_json, verbose, ipaddr, config_json, debugger
+
+    browse_disable = args.browse_disable or getpass.getuser()=='jenkins'
     browse_json = args.browse_json
     verbose = args.verbose
     ipaddr = args.ip
-    use_hosts = args.use_hosts
     config_json = args.config_json
     debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     # FIX! this isn't working to grab the args we don't care about
-    # pass "-f" to stop on first error to unittest. and -v
-    # We want this to be standard, always (note -f for unittest, nose uses -x?)
-    # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
-    # kbn: disabling failfast until we fix jenkins
+    # Pass "--failfast" to stop on first error to unittest. and -v
     sys.argv[1:] = ['-v', "--failfast"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
@@ -312,8 +310,8 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 
 def upload_jar_to_remote_hosts(hosts, slow_connection=False):
     def prog(sofar, total):
-        # output is bad for jenkins
-        if not getpass.getuser() == 'jenkins':
+        # output is bad for jenkins. ok to turn this off for all cases where we don't want a browser
+        if not browse_disable:
             p = int(10.0 * sofar / total)
             sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
             sys.stdout.flush()
@@ -977,7 +975,7 @@ class LocalH2O(H2O):
     def __init__(self, *args, **kwargs):
         super(LocalH2O, self).__init__(*args, **kwargs)
         self.rc = None
-        # FIX! no option for local /home/username ..always /tmp
+        # FIX! no option for local /home/username ..always the sandbox (LOG_DIR)
         self.ice = tmp_dir('ice.')
         self.flatfile = flatfile_name()
         if self.node_id is not None:
@@ -1041,7 +1039,14 @@ class RemoteHost(object):
             m.update(open(f).read())
             m.update(getpass.getuser())
             dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
-            log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+
+            ### sigh. we rm/create sandbox in build_cloud now (because nosetests doesn't exec h2o_main and we 
+            ### don't want to code "clean_sandbox()" in all the tests.
+            ### So: we don't have a sandbox here, or if we do, we're going to delete it.
+            ### Just don't log anything until build_cloud()? that should be okay?
+            ### we were just logging this upload message..not needed.
+            ### log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest, callback=progress)
             sftp.close()

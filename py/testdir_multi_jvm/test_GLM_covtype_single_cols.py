@@ -8,7 +8,8 @@ class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # uses two much memory with 4?
-        h2o.build_cloud(3)
+        # FIX! does it die with 3?
+        h2o.build_cloud(2)
 
     @classmethod
     def tearDownClass(cls):
@@ -54,18 +55,18 @@ class Basic(unittest.TestCase):
                 str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
                 ))
 
-        timeoutSecs = 6
+        timeoutSecs = 10
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
 
         # columns start at 0
         Y = "54"
         X = ""
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=15)
 
         print "GLM binomial wth 1 X column at a time" 
         print "Result check: abs. value of coefficient and intercept returned are bigger than zero"
-        for colX in xrange(55):
+        for colX in xrange(54):
             # do we have to exclud any columns?
             if (1==1):
                 if X == "": 

@@ -32,7 +32,8 @@ class Basic(unittest.TestCase):
 
         # hang for many hour, so you can play with the browser
         # FIX!, should be able to do something that waits till browser is quit?
-        time.sleep(500000)
+        if not h2o.browse_disable:
+            time.sleep(500000)
 
 if __name__ == '__main__':
 

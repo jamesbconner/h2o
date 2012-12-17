@@ -35,7 +35,8 @@ class Basic(unittest.TestCase):
         h2b.browseJsonHistoryAsUrlLastMatch("RFView")
 
         print "\n <ctrl-C> to quit sleeping here"
-        time.sleep(1500)
+        if not h2o.browse_disable:
+            time.sleep(1500)
 
 if __name__ == '__main__':
     h2o.unit_main()

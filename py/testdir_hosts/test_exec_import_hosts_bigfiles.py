@@ -47,7 +47,7 @@ def fill_in_expr_template(exprTemp,colX,trial,row,key2):
 
 def exec_expr(node, execExpr, resultKey="Result"):
         start = time.time()
-        resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=10)
+        resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=120)
         h2o.verboseprint(resultExec)
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
@@ -149,21 +149,12 @@ class Basic(unittest.TestCase):
         # Update: need unique key names apparently. can't overwrite prior parse output key?
         # replicating lines means they'll get reparsed. good! (but give new key names)
 
-        if (1==0): 
+        if (1==1): 
             csvFilenameAll = [
-                ("covtype.data", "cA"),
-                ("covtype.data", "cB"),
-                ("covtype.data", "cC"),
-                ("covtype20x.data", "cA20"),
+                ("covtype20x.data", "c20"),
                 ("covtype200x.data", "c200"),
                 ("billion_rows.csv.gz", "b"),
                 ]
-        else:
-            csvFilenameAll = [
-                ("covtype.data", "cA"),
-                ("covtype.data", "cB"),
-                ("covtype.data", "cC"),
-            ]
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll

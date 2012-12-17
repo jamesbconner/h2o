@@ -25,7 +25,7 @@ class Basic(unittest.TestCase):
         # columns start at 0
         Y = "54"
         X = ""
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname,timeoutSecs=2)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname,timeoutSecs=10)
 
         for appendX in xrange(55):
             if X == "": 

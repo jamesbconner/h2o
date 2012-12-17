@@ -9,25 +9,34 @@ import time, random
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        h2o.build_cloud(1,java_heap_GB=14)
 
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_B_importFolder_files(self):
-
-        # just do the import folder once
-        # importFolderPath = "/home/hduser/hdfs_datasets"
-        importFolderPath = "/home/0xdiag/datasets"
-        h2i.setupImportFolder(None, importFolderPath)
+    def test_B_putfile_files(self):
         timeoutSecs = 500
+
         #    "covtype169x.data",
         #    "covtype.13x.shuffle.data",
         #    "3G_poker_shuffle"
+        #    "covtype20x.data", 
+        #    "billion_rows.csv.gz",
         csvFilenameAll = [
-            "covtype20x.data", 
+            "covtype.data",
+            "covtype20x.data",
+            "covtype200x.data",
+            "a5m.csv",
+            "a10m.csv",
+            "a100m.csv",
+            "a200m.csv",
+            "a400m.csv",
+            "a600m.csv",
+            "100million_rows.csv",
+            "200million_rows.csv",
             "billion_rows.csv.gz",
+            "new-poker-hand.full.311M.txt.gz",
             ]
         # csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
@@ -36,13 +45,15 @@ class Basic(unittest.TestCase):
         h2b.browseTheCloud()
 
         for csvFilename in csvFilenameList:
-            # creates csvFilename.hex from file in importFolder dir 
-            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, timeoutSecs=500)
+            csvPathname = h2o.find_file('/home/0xdiag/datasets/' + csvFilename)
+
+            # creates csvFilename and csvFilename.hex  keys
+            parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key=csvFilename, timeoutSecs=500)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
             print "Parse result['Key']:", parseKey['Key']
 
             # We should be able to see the parse result?
-            inspect = h2o.nodes[0].inspect(parseKey['Key'])
+            inspect = h2o_cmd.runInspect(key=parseKey['Key'])
 
             print "\n" + csvFilename
             start = time.time()
