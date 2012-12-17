@@ -92,7 +92,8 @@ class Basic(unittest.TestCase):
 
         period = 7
         # start at result10, to allow goback of 10
-        for trial in range(1000):
+        trial = 0
+        while (trial < 100):
             for exprTemplate in exprList:
                 # copy it to keep python from changing the original when I modify it below!
                 exprTemp = list(exprTemplate)
@@ -104,19 +105,24 @@ class Basic(unittest.TestCase):
                 execExpr = fill_in_expr_template(exprTemp, number%period, (number-goback)%period)
                 execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr, number,
                     resultKey="Result" + str(trial%period))
-                # FIX! we should be able to compare result against Trial #? maybe divided by # len of the expresssion list
+                # FIX! we should be able to compare result against Trial #? 
+                # maybe divided by # len of the expresssion list
                 ### print "\nexecResult:", execResultInspect
 
                 columns = execResultInspect["columns"]
                 columnsDict = columns.pop()
                 min = columnsDict["min"]
                 h2o.verboseprint("min: ", min, "trial:", trial)
-                self.assertEqual(float(min), float(trial), 'Although the memory model allows write atomicity to be violated, this test was passing')
+                self.assertEqual(float(min), float(trial), 
+                    'Although the memory model allows write atomicity to be violated,' +
+                    'this test was passing with an assumption of multi-jvm write atomicity' + 
+                    'Be interesting if ever fails. Can disable assertion if so, and run without check')
 
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
                 ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+                trial += 1
 
 
 if __name__ == '__main__':

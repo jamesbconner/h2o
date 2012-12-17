@@ -71,10 +71,7 @@ def parse_our_args():
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     # FIX! this isn't working to grab the args we don't care about
-    # pass "-f" to stop on first error to unittest. and -v
-    # We want this to be standard, always (note -f for unittest, nose uses -x?)
-    # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
-    # kbn: disabling failfast until we fix jenkins
+    # Pass "--failfast" to stop on first error to unittest. and -v
     sys.argv[1:] = ['-v', "--failfast"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
