@@ -111,6 +111,7 @@ def iter_chunked_file(file, chunk_size=2048):
 
 LOG_DIR = 'sandbox'
 def clean_sandbox():
+    print "HELLO"
     if os.path.exists(LOG_DIR):
         # shutil.rmtree fails to delete very long filenames on Windoze
         #shutil.rmtree(LOG_DIR)
@@ -1039,7 +1040,14 @@ class RemoteHost(object):
             m.update(open(f).read())
             m.update(getpass.getuser())
             dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
-            log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+
+            ### sigh. we rm/create sandbox in build_cloud now (because nosetests doesn't exec h2o_main and we 
+            ### don't want to code "clean_sandbox()" in all the tests.
+            ### So: we don't have a sandbox here, or if we do, we're going to delete it.
+            ### Just don't log anything until build_cloud()? that should be okay?
+            ### we were just logging this upload message..not needed.
+            ### log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest, callback=progress)
             sftp.close()
