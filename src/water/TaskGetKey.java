@@ -64,29 +64,18 @@ public class TaskGetKey extends DTask {
       _val._key = _xkey;
     }
     // Now update the local store, caching the result.
-    // Rules on when this can fail:
-    // - Multiple active GETs for the same Key returning the same Value can be
-    //   in flight at once.  However, they all return semantically the same
-    //   Value ('equals' not '==').  Keeping either Value is correct.
-    // - The Value is not allowed to change until no GETs are in-flight at the
-    //   Home node.  However I cannot atomically call H2O.get-and-miss AND also
-    //   start a TGK.  So this Value may be muchly delayed from the original
-    //   local H2O.get-and-miss (with many updates inbetween and many TGK's
-    //   refreshing the Value).  However, _val must be the latest result from
-    //   Home, so keeping the new Value is correct.
-    // - We can have a racing PUT from a local thread, racing against our
-    //   returned Value (now stale) from Home.  This PUT Value will be flagged
-    //   as in-progress, and must be very recent so the PUT Value is correct.
-    Value old = H2O.get(_xkey);
-    while( true ) {
-      if( old != null && old.remote_put_in_flight() ) {
-        _val = old;             // Old value is an existing PUT-in-flight
-        break;                  // Take it as a more recent PUT
-      }
-      Value res = H2O.putIfMatch(_xkey,_val,old);
-      if( res == old ) break;   // Success!
-      old = res;                // Failed?  Changing values?
-    }
+
+    // We only started down the TGK path because we missed locally, so we only
+    // expect to find a NULL in the local store.  If somebody else installed
+    // another value (e.g. a racing TGK, or racing local Put) this value must
+    // be more recent than our NULL - but is UNORDERED relative to the Value
+    // returned from the Home.  We'll take the local Value to preserve ordering
+    // and rely on invalidates from Home to force refreshes as needed.
+
+    // Hence we can do a blind putIfMatch here over a null.
+    // If it fails, what is there is also the TGK result.
+    Value res = H2O.putIfMatch(_xkey,_val,null);
+    if( res != null ) _val = res;
   }
 
   // Received an ACKACK; executes on the node sending the Value

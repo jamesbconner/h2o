@@ -132,6 +132,7 @@ public class UDPReceiverThread extends Thread {
         rab.close();
         assert !rab.hasTCP();
       }
+      ab.close();
     } else {                  // Else not a repeat-packet
       // Announce new packet to workers.
       // "execlo" goes to "normal" priority queue.

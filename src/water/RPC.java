@@ -87,46 +87,44 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
 
   // Make an initial RPC, or re-send a packet.  Always called on 1st send; also
   // called on a timeout.
-  public RPC<V> call() {
-    synchronized(this) {
-      // Keep a global record, for awhile
-      TASKS.put(_tasknum,this);
-      // We could be racing timeouts-vs-replies.  Blow off timeout if we have an answer.
-      if( isDone() ) {
-        TASKS.remove(_tasknum);
-        return this;
-      }
-      // Default strategy: (re)fire the packet and (re)start the timeout.  We
-      // "count" exactly 1 failure: just whether or not we shipped via TCP ever
-      // once.  After that we fearlessly (re)send UDP-sized packets until the
-      // server replies.
-
-      // Pack classloader/class & the instance data into the outgoing
-      // AutoBuffer.  If it fits in a single UDP packet, ship it.  If not,
-      // finish off the current AutoBuffer (which is now going TCP style), and
-      // make a new UDP-sized packet.  On a re-send of a TCP-sized hunk, just
-      // send the basic UDP control packet.
-      if( !_did_tcp ) {
-        // Ship the UDP packet with clazz name to execute
-        // totally replace me with Michal's enums!!!
-        UDP.udp fjq = _dt instanceof TaskGetKey ? UDP.udp.exechi : UDP.udp.execlo;
-        AutoBuffer ab = new AutoBuffer(_target).putTask(fjq,_tasknum);
-        ab.put1(CLIENT_UDP_SEND).putStr(_dt.getClass().getName());
-        _dt.write(ab).close();  // Write the DTask
-        if( ab.hasTCP() )       // Fit in a single UDP packet?
-          _did_tcp = true;      // No, twas TCP.  Flag as TCP happened already.
-      }
-
-      // Double retry until we exceed existing age.  This is the time to delay
-      // until we try again.  Note that we come here immediately on creation,
-      // so the first doubling happens before anybody does any waiting.  Also
-      // note the generous 5sec cap: ping at least every 5 sec.
-      _retry += (_retry < 5000 ) ? _retry : 5000;
-      // Put self on the "TBD" list of tasks awaiting Timeout.
-      // So: dont really 'forget' but remember me in a little bit.
-      assert !UDPTimeOutThread.PENDING.contains(this);
-      UDPTimeOutThread.PENDING.add(this);
+  public synchronized RPC<V> call() {
+    // Keep a global record, for awhile
+    TASKS.put(_tasknum,this);
+    // We could be racing timeouts-vs-replies.  Blow off timeout if we have an answer.
+    if( isDone() ) {
+      TASKS.remove(_tasknum);
+      return this;
     }
+    // Default strategy: (re)fire the packet and (re)start the timeout.  We
+    // "count" exactly 1 failure: just whether or not we shipped via TCP ever
+    // once.  After that we fearlessly (re)send UDP-sized packets until the
+    // server replies.
+
+    // Pack classloader/class & the instance data into the outgoing
+    // AutoBuffer.  If it fits in a single UDP packet, ship it.  If not,
+    // finish off the current AutoBuffer (which is now going TCP style), and
+    // make a new UDP-sized packet.  On a re-send of a TCP-sized hunk, just
+    // send the basic UDP control packet.
+    if( !_did_tcp ) {
+      // Ship the UDP packet with clazz name to execute
+      // totally replace me with Michal's enums!!!
+      UDP.udp fjq = _dt instanceof TaskGetKey ? UDP.udp.exechi : UDP.udp.execlo;
+      AutoBuffer ab = new AutoBuffer(_target).putTask(fjq,_tasknum);
+      ab.put1(CLIENT_UDP_SEND).putStr(_dt.getClass().getName());
+      _dt.write(ab).close();  // Write the DTask
+      if( ab.hasTCP() )       // Fit in a single UDP packet?
+        _did_tcp = true;      // No, twas TCP.  Flag as TCP happened already.
+    }
+
+    // Double retry until we exceed existing age.  This is the time to delay
+    // until we try again.  Note that we come here immediately on creation,
+    // so the first doubling happens before anybody does any waiting.  Also
+    // note the generous 5sec cap: ping at least every 5 sec.
+    _retry += (_retry < 5000 ) ? _retry : 5000;
+    // Put self on the "TBD" list of tasks awaiting Timeout.
+    // So: dont really 'forget' but remember me in a little bit.
+    assert !UDPTimeOutThread.PENDING.contains(this);
+    UDPTimeOutThread.PENDING.add(this);
     return this;
   }
 
@@ -181,7 +179,7 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
   public static class RemoteHandler extends UDP {
     AutoBuffer call(AutoBuffer ab) {
       return ab.getFlag() == CLIENT_UDP_SEND // UDP vs TCP send?
-        ? remexec(DTask.make(ab.getStr(), ab), ab._h2o, ab.getTask())
+        ? remexec(DTask.make(ab.getStr(), ab), ab._h2o, ab.getTask(), ab)
         : ab; // Else all the work is being done in the TCP thread.
     }
 
@@ -204,7 +202,8 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
 
   // Do the remote execution in a F/J thread & send a reply packet.
   // Caller must call 'tryComplete'.
-  static AutoBuffer remexec( DTask dt, H2ONode client, int task) {
+  static private AutoBuffer remexec( DTask dt, H2ONode client, int task, AutoBuffer abold) {
+    abold.close();              // Closing the old guy, returning a new guy
     // Now compute on it!
     dt.invoke(client);
     // Send results back
@@ -232,15 +231,14 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
     assert dt1==null : "#"+task+" "+dt1.getClass(); // For TCP, no repeats, so 1st send is only send
     
     // Make a remote instance of this dude from the stream, but only if the
-    // racing UDP packet did not already make one.
+    // racing UDP packet did not already make one.  Start the bulk TCP read.
     final DTask dt = DTask.make(ab.getStr(), ab);
-    // Fill in the remote values: TCP bulk read
-    ab.close();
 
     // Here I want to execute on this, but not block for completion in the
     // TCP reader thread.  Jam the task on some F/J thread.
     UDP.udp.UDPS[ctrl].pool().execute(new CountedCompleter() {
-        public void compute() { remexec(dt, ab._h2o, task).close(); tryComplete(); }
+        public void compute() { remexec(dt, ab._h2o, task, ab).close(); tryComplete(); }
+        public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) { ex.printStackTrace(); return true; }
       });
     // All done for the TCP thread!  Work continues in the FJ thread...
   }
@@ -263,28 +261,29 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
     // remote, the remote will UDP ACK the RPC back, and back on the current
     // Node but in the correct Thread, we'd wake up and realize we received a
     // large result.
-    rpc.response(ab).close();
+    rpc.response(ab);
+    // ACKACK the remote, telling him "we got the answer"
+    new AutoBuffer(ab._h2o).putTask(UDP.udp.ackack.ordinal(),task).close(true);
   }
 
   // Got a response UDP packet, or completed a large TCP answer-receive.
   // Install it as The Answer packet and wake up anybody waiting on an answer.
-  protected AutoBuffer response( AutoBuffer ab ) {
-    if( _done ) return ab;      // Ignore duplicate response packet
+  protected void response( AutoBuffer ab ) {
+    assert _tasknum==ab.getTask();
+    if( _done ) { ab.close(); return; } // Ignore duplicate response packet
     int flag = ab.getFlag();    // Must read flag also, to advance ab
-    if( flag == SERVER_TCP_SEND ) return ab; // Ignore UDP packet for a TCP reply
+    if( flag == SERVER_TCP_SEND ) { ab.close(); return; } // Ignore UDP packet for a TCP reply
     assert flag == SERVER_UDP_SEND;
     synchronized(this) {        // Install the answer under lock
-      if( _done ) return ab;    // Ignore duplicate response packet
+      if( _done ) { ab.close(); return; } // Ignore duplicate response packet
       _dt.read(ab);             // Read the answer (under lock?)
-      ab.close();               // 
-      _dt.onAck();       // One time only execute (before sending ACKACK)
+      ab.close();               // Also finish the read (under lock?)
+      _dt.onAck();              // One time only execute (before sending ACKACK)
       _done = true;
       UDPTimeOutThread.PENDING.remove(this);
       TASKS.remove(_tasknum);   // Flag as task-completed, even if the result is null
       notifyAll();              // And notify in any case
     }
-    // ACKACK the remote, telling him "we got the answer"
-    return new AutoBuffer(ab._h2o).putTask(UDP.udp.ackack.ordinal(),_tasknum);
   }
 
   // ---
@@ -301,4 +300,3 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
     return nextTime == dtNextTime ? 0 : (nextTime > dtNextTime ? 1 : -1);
   }
 }
-
