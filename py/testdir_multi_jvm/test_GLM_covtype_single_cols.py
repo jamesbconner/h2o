@@ -55,14 +55,14 @@ class Basic(unittest.TestCase):
                 str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
                 ))
 
-        timeoutSecs = 6
+        timeoutSecs = 10
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
 
         # columns start at 0
         Y = "54"
         X = ""
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=15)
 
         print "GLM binomial wth 1 X column at a time" 
         print "Result check: abs. value of coefficient and intercept returned are bigger than zero"
