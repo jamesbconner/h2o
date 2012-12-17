@@ -30,7 +30,7 @@ class Basic(unittest.TestCase):
         random.seed(SEED)
         print "\nUsing random seed:", SEED
 
-        h2o.build_cloud(2)
+        h2o.build_cloud(2, java_heap_GB=7)
 
     @classmethod
     def tearDownClass(cls):
