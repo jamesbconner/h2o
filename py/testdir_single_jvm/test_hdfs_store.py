@@ -10,13 +10,23 @@ import time, random
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts(use_hdfs=True)
+        # assume we're at 0xdata with it's hdfs namenode
+        h2o.build_cloud(1,use_hdfs=True, hdfs_name_node="192.168.1.151")
 
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_B_hdfs_files(self):
+    def test_B_load_hdfs_and_store_hex_to_hdfs(self):
+        print "\nLoad a list of files from 0xdata hdfs, parse, and store the .hex to hdfs"
+        print "CAVEAT: apparently there is no H2O output if you don't have user/group permission"
+        print "to inspect the HDFS root specified. This will look like a 'Key not found' fail."
+        print "You can tell because no keys will have been preloaded from hdfs in the sandbox/*stdout*"
+        print "The username used will be the one that executed this test"
+        print "testdir_hosts/test_from_hdfs_hosts.py will use a config json-specified username (0xdiag)"
+        print "\nClicking on the popup browser on the Node page will show no preloaded hdfs keys"
+        print "\nYou can try running as hduser/hduser if fail"
+
         # larger set in my local dir
         # fails because classes aren't integers
         #    "allstate_claim_prediction_train_set.zip",
@@ -64,17 +74,19 @@ class Basic(unittest.TestCase):
         firstglm = {}
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in hdfs dir 
+            print "Loading", csvFilename, 'from HDFS'
             parseKey = h2i.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
             print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
             print "parse result:", parseKey['Key']
-            # I use this if i want the larger set in my localdir
 
             print "\n" + csvFilename
             start = time.time()
-            RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=2000)
-            h2b.browseJsonHistoryAsUrlLastMatch("RFView")
-            # wait in case it recomputes it
-            time.sleep(10)
+            print "Storing", parseKey['Key'], 'to HDFS'
+            print "FIX! temporarily disabling since it causes HDFS corruption"
+            ### storeKey = h2o_cmd.runStore2HDFS(key=parseKey['Key'], timeoutSecs=1000)
+
+
+            h2b.browseJsonHistoryAsUrlLastMatch("Parse")
 
             sys.stdout.write('.')
             sys.stdout.flush() 

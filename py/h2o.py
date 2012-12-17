@@ -216,14 +216,6 @@ json_url_history = []
 global nodes
 nodes = []
 
-global use_hdfs
-use_hdfs = False
-
-# this is used by tests, to create hdfs URIs. 
-# it will always get set to the name node we're using, if any. (in build_cloud)
-global hdfs_name_node
-hdfs_name_node = "192.168.1.151"
-
 def write_flatfile(node_count=2, base_port=54321, hosts=None):
     # we're going to always create the flatfile. 
     # Used for all remote cases now. (per sri)
@@ -244,17 +236,6 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         timeoutSecs=20, retryDelaySecs=0.5, cleanup=True, **kwargs):
     # moved to here from unit_main. so will run with nosetests too!
     clean_sandbox()
-
-    global nodes, use_hdfs, hdfs_name_node
-    # set the hdfs info that tests will use from kwargs
-    # the philosopy is that kwargs holds stuff that's used for node level building.
-    if "use_hdfs" in kwargs:
-        use_hdfs = kwargs["use_hdfs"]
-        verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
-
-    if "hdfs_name_node" in kwargs:
-        hdfs_name_node = kwargs["hdfs_name_node"]
-        verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
 
     # hardwire this. don't need it to be an arg
     ports_per_node = 2
@@ -594,6 +575,13 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
+    # H2O doesn't support yet?
+    def Store2HDFS(self, key):
+        a = self.__check_request(requests.get(self.__url('Store2HDFS.json'),
+            params={"Key": key}))
+        verboseprint("\ninspect result:", dump_json(a))
+        return a
+
     def import_folder(self, folder, repl=None):
         a = self.__check_request(requests.get(
             self.__url('ImportFolder.json'),
@@ -890,13 +878,15 @@ class H2O(object):
             ]
 
         if self.use_hdfs:
-            # '-hdfs_root /datasets'
-            # '-hdfs_nopreload',
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
-                '-hdfs_version cdh4',
-                '-hdfs_root /datasets'
+                '-hdfs_version ' + self.hdfs_version, 
+                '-hdfs_root ' + self.hdfs_root
             ]
+            if self.hdfs_nopreload:
+                args += [
+                    '-hdfs_nopreload ' + self.hdfs_nopreload
+                ]
 
         if self.use_flatfile:
             args += [
@@ -907,9 +897,11 @@ class H2O(object):
             args += ['--nosigar']
         return args
 
-    def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
-        java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
+    def __init__(self, 
+        use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, use_debugger=None, 
+        use_hdfs=False, hdfs_name_node="192.168.1.151", hdfs_root="/datasets", hdfs_version="cdh4",
+        hdfs_nopreload=None,
+        use_flatfile=False, java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -919,10 +911,14 @@ class H2O(object):
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.capture_output = capture_output
+
         self.use_hdfs = use_hdfs
         self.hdfs_name_node = hdfs_name_node
-        self.use_flatfile = use_flatfile
+        self.hdfs_version = hdfs_version
+        self.hdfs_root = hdfs_root
+        self.hdfs_nopreload = hdfs_nopreload
 
+        self.use_flatfile = use_flatfile
         self.java_heap_GB = java_heap_GB
 
         self.use_home_for_ice = use_home_for_ice
