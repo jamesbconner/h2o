@@ -9,25 +9,38 @@ import time, random
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        h2o.build_cloud(1,java_heap_GB=14)
 
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
     def test_B_importFolder_files(self):
-
         # just do the import folder once
         # importFolderPath = "/home/hduser/hdfs_datasets"
         importFolderPath = "/home/0xdiag/datasets"
         h2i.setupImportFolder(None, importFolderPath)
         timeoutSecs = 500
+
         #    "covtype169x.data",
         #    "covtype.13x.shuffle.data",
         #    "3G_poker_shuffle"
+        #    "covtype20x.data", 
+        #    "billion_rows.csv.gz",
         csvFilenameAll = [
-            "covtype20x.data", 
+            "covtype.data",
+            "covtype20x.data",
+            "covtype200x.data",
+            "100million_rows.csv",
+            "200million_rows.csv",
+            "a5m.csv",
+            "a10m.csv",
+            "a100m.csv",
+            "a200m.csv",
+            "a400m.csv",
+            "a600m.csv",
             "billion_rows.csv.gz",
+            "new-poker-hand.full.311M.txt.gz",
             ]
         # csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
@@ -42,7 +55,7 @@ class Basic(unittest.TestCase):
             print "Parse result['Key']:", parseKey['Key']
 
             # We should be able to see the parse result?
-            inspect = h2o.nodes[0].inspect(parseKey['Key'])
+            inspect = h2o_cmd.runInspect(key=parseKey['Key'])
 
             print "\n" + csvFilename
             start = time.time()
