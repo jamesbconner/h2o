@@ -156,6 +156,15 @@ public final class AutoBuffer {
     _firstPage = true;
   }
 
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("[AB ").append(_read ? "read " : "write ");
+    sb.append(_firstPage?"first ":"2nd ").append(_h2o);
+    sb.append("0 <= ").append(_bb.position()).append(" <= ").append(_bb.limit());
+    sb.append(" <= ").append(_bb.capacity());
+    return sb.append("]").toString();
+  }
+
   // Fetch a DBB from an objcet pool... they are fairly expensive to make
   // because a native call is required to get the backing memory.  I've
   // included BB count tracking code to help track leaks.  As of 12/17/2012 the
@@ -167,9 +176,10 @@ public final class AutoBuffer {
   private static final AtomicInteger BBCACHE= new AtomicInteger(0);
   private static final LinkedBlockingDeque<ByteBuffer> BBS = new LinkedBlockingDeque<ByteBuffer>();
   private static void bbstats( AtomicInteger ai ) {
-    if( DEBUG ) return;
-    if( (ai.incrementAndGet()&511)==511 )
+    if( !DEBUG ) return;
+    if( (ai.incrementAndGet()&511)==511 ) {
       System.err.println("BB make="+BBMAKE.get()+" free="+BBFREE.get()+" cache="+BBCACHE.get()+" size="+BBS.size());
+    }
   }
 
   private static final ByteBuffer bbMake() {
@@ -657,10 +667,10 @@ public final class AutoBuffer {
   public AutoBuffer putA1( byte[] ary, int length ) {
     int sofar = 0;
     while( sofar < length ) {
-      int len = Math.min(ary.length - sofar, _bb.remaining());
+      int len = Math.min(length - sofar, _bb.remaining());
       _bb.put(ary, sofar, len);
       sofar += len;
-      if( sofar < ary.length ) sendPartial();
+      if( sofar < length ) sendPartial();
     }
     return this;
   }
