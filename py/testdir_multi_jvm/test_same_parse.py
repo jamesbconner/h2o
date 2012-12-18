@@ -7,7 +7,8 @@ class glm_same_parse(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(node_count=3)
+        # fails with 3
+        h2o.build_cloud(3)
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud(h2o.nodes)
