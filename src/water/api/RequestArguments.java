@@ -400,7 +400,7 @@ public class RequestArguments extends RequestStatics {
           record._valid = true;
         } catch (Exception e) {
           record._value = defaultValue();
-          throw e;
+          throw new IllegalArgumentException(e.getMessage());
         }
       }
     }

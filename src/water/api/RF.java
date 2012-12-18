@@ -38,7 +38,8 @@ public class RF extends Request {
    *
    * @param response
    */
-  @Override public void serve(JsonObject response) {
+  @Override public Response serve() {
+    JsonObject response = new JsonObject();
     ValueArray ary = _dataKey.value();
     Key modelKey = _modelKey.value();
     // TODO this is ugly and should be changed completely
@@ -75,10 +76,11 @@ public class RF extends Request {
       response.addProperty(JSON_CLASS, classCol);
 //      response.addProperty(JSON_CLASS_WEIGHT, p.getProperty("classWt",""));
 //      response.addProperty(JSON_OOBEE,getBoolean(p,OOBEE));
+      return Response.done(response);
     } catch (Exception e) {
-      response.addProperty(JSON_ERROR,"Cannot start the RF computation. The following error was reported: "+e.getMessage());
-      return;
+      return Response.error("Cannot start the RF computation. The following error was reported: "+e.getMessage());
     }
+
   }
 
 }

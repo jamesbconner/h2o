@@ -31,8 +31,7 @@ public class WWWHexKeys extends Request {
             + " is returned with an error and larger filter must be specified.";
   }
 
-
-  @Override protected void serve(JsonObject response) {
+  @Override protected Response serve() {
     JsonArray array = new JsonArray();
     Key[] keys = new Key[_limit.value()];    // Limit size of what we'll display on this page
     int len = 0;
@@ -52,18 +51,16 @@ public class WWWHexKeys extends Request {
       if ((va._cols == null) || (va._cols.length == 0))
         continue; // VA, but not hex
       keys[len++] = key;        // Capture the key
-      if( len == keys.length ) {
-        response.addProperty(JSON_ERROR,"Too many keys for given options");
-        array.add(new JsonPrimitive(""));
-        response.add(JSON_KEYS,array);
-        return;
-      }
+      if( len == keys.length )
+        return Response.error("Too many keys for given options");
     }
     // sort the keys, for pretty display & reliable ordering
     Arrays.sort(keys,0,len);
     for (int i = 0; i < len; ++i)
       array.add(new JsonPrimitive(keys[i].toString()));
+    JsonObject response = new JsonObject();
     response.add(JSON_KEYS,array);
+    return Response.done(response);
   }
 
 }

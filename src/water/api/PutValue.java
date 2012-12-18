@@ -24,13 +24,15 @@ public class PutValue extends Request {
             + "The replication factor may also be specified.";
   }
 
-  @Override public void serve(JsonObject response) {
+  @Override public Response serve() {
+    JsonObject response = new JsonObject();
     Key k = Key.make(_key.value()._kb, (byte) (int)_rf.value());
     Value v = new Value(k,_value.value().getBytes());
     UKV.put(k,v);
     response.addProperty(JSON_KEY,k.toString());
     response.addProperty(JSON_RF,k.desired());
     response.addProperty(JSON_VALUE_SIZE,v._max);
+    return Response.done(response);
   }
 
 }

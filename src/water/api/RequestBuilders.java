@@ -23,11 +23,11 @@ import java.util.Map;
  */
 public class RequestBuilders extends RequestQueries {
 
-  public static final Builder OBJECT_BUILDER;
-  public static final Builder ARRAY_BUILDER;
-  public static final Builder ARRAY_ROW_BUILDER;
-  public static final Builder ELEMENT_BUILDER;
-  public static final Builder ARRAY_ROW_ELEMENT_BUILDER;
+  public static final Builder OBJECT_BUILDER = new ObjectBuilder();
+  public static final Builder ARRAY_BUILDER = new ArrayBuilder();
+  public static final Builder ARRAY_ROW_BUILDER = new ArrayRowBuilder();
+  public static final Builder ELEMENT_BUILDER = new ElementBuilder();
+  public static final Builder ARRAY_ROW_ELEMENT_BUILDER = new ArrayRowElementBuilder();
 
   /** This is a response class for the JSON.
    *
@@ -37,52 +37,36 @@ public class RequestBuilders extends RequestQueries {
     public static enum Status {
       done,
       poll,
-      redirect
+      redirect,
+      error
     }
 
     private final Status _status;
     private final JsonObject _response;
-
-    private Response(Status status) {
-      this(status, new JsonObject());
-    }
 
     private Response(Status status, JsonObject response) {
       _status = status;
       _response = response;
     }
 
-    public static Response done() {
-      return new Response(Status.done);
+    public static Response error(String message) {
+      JsonObject obj = new JsonObject();
+      obj.addProperty(JSON_ERROR,message);
+      return new Response(Status.error,obj);
     }
 
     public static Response done(JsonObject response) {
       return new Response(Status.done, response);
     }
 
-    public void add(String property, JsonElement value) {
-      _response.add(property,value);
-    }
-
-    public void addProperty(String property, String value) {
-      _response.addProperty(property, value);
-    }
-
-    public void addProperty(String property, Character value) {
-      _response.addProperty(property, value);
-    }
-
-    public void addProperty(String property, Number value) {
-      _response.addProperty(property, value);
-    }
-    public void addProperty(String property, Boolean value) {
-      _response.addProperty(property, value);
-    }
-
     private HashMap<String,Builder> _builders = new HashMap();
 
     protected Builder getBuilderFor(String name) {
       return _builders.get(name);
+    }
+
+    public JsonObject toJson() {
+      return _response;
     }
 
   }
@@ -106,16 +90,25 @@ public class RequestBuilders extends RequestQueries {
      return context.substring(idx+1);
     }
 
+    public Builder defaultBuilder(JsonElement element) {
+      if (element instanceof JsonArray)
+        return ARRAY_BUILDER;
+      else if (element instanceof JsonObject)
+        return OBJECT_BUILDER;
+      else
+        return ELEMENT_BUILDER;
+    }
+
   }
 
   // ---------------------------------------------------------------------------
   // ObjectBuilder
   // ---------------------------------------------------------------------------
 
-  public class ObjectBuilder extends Builder {
+  public static class ObjectBuilder extends Builder {
 
     public String caption(JsonObject object, String objectName) {
-      return "<h3>"+objectName+"</h3>";
+      return objectName.isEmpty() ? "" : "<h4>"+objectName+"</h4>";
     }
 
     public String header(JsonObject object, String objectName) {
@@ -127,7 +120,7 @@ public class RequestBuilders extends RequestQueries {
     }
 
     public String element(Response response, JsonElement element, String elementName, String elementContext, Builder elementBuilder) {
-      return "<dl><dt>"+elementName+"</dt><dd>"+elementBuilder.format(response, element, elementContext)+"</dd></dl>";
+      return elementBuilder.format(response,element,elementContext);
     }
 
     public String format(Response response, JsonObject object, String contextName) {
@@ -139,14 +132,8 @@ public class RequestBuilders extends RequestQueries {
         JsonElement e = entry.getValue();
         String elementContext = addToContext(contextName, entry.getKey());
         Builder builder = response.getBuilderFor(elementContext);
-        if (builder == null) {
-          if (e instanceof JsonArray)
-            builder = ARRAY_BUILDER;
-          else if (e instanceof JsonObject)
-            builder = OBJECT_BUILDER;
-          else
-            builder = ELEMENT_BUILDER;
-        }
+        if (builder == null)
+          builder = defaultBuilder(e);
         sb.append(element(response, e, entry.getKey(), elementContext, builder));
       }
       sb.append(footer(object, elementName(contextName)));
@@ -164,10 +151,10 @@ public class RequestBuilders extends RequestQueries {
   // Array builder
   // ---------------------------------------------------------------------------
 
-  public class ArrayBuilder extends Builder {
+  public static class ArrayBuilder extends Builder {
 
     public String caption(JsonArray array, String name) {
-      return "<h3>"+name+"</h3>";
+      return "<h4>"+name+"</h4>";
     }
 
     public String header(JsonArray array) {
@@ -188,14 +175,17 @@ public class RequestBuilders extends RequestQueries {
       return "";
     }
 
+    @Override public Builder defaultBuilder(JsonElement element) {
+      if (element instanceof JsonObject)
+        return ARRAY_ROW_BUILDER;
+      else
+        return ARRAY_ROW_ELEMENT_BUILDER;
+    }
+
     public String row(Response response, JsonArray array, JsonElement element, String contextName) {
       Builder builder = response.getBuilderFor(contextName+"_ROW");
-      if (builder == null) {
-        if (element instanceof JsonObject)
-          builder = ARRAY_ROW_BUILDER;
-        else
-          builder = ARRAY_ROW_ELEMENT_BUILDER;
-      }
+      if (builder == null)
+        builder = defaultBuilder(element);
       return builder.format(response, element, contextName);
     }
 
@@ -222,6 +212,10 @@ public class RequestBuilders extends RequestQueries {
 
   }
 
+  // ---------------------------------------------------------------------------
+  // ElementBuilder
+  // ---------------------------------------------------------------------------
+
   public static class ElementBuilder extends Builder {
 
     public String elementToString(JsonElement element) {
@@ -233,18 +227,73 @@ public class RequestBuilders extends RequestQueries {
     }
 
     public String arrayToString(JsonArray array) {
-      return array.to
+      return array.toString();
+    }
+
+    public String build(String elementContents, String elementName) {
+      return "<dl class='dl-horizontal'><dt>"+elementName+"</dt><dd>"+elementContents+"</dd></dl>";
     }
 
     @Override public String format(Response response, JsonElement element, String contextName) {
-      if (element instanceof JsonObject)
+      if (element instanceof JsonArray)
+        return build(arrayToString((JsonArray) element), elementName(contextName));
+      else if (element instanceof JsonObject)
+        return build(objectToString((JsonObject) element), elementName(contextName));
+      else
+        return build(elementToString(element), elementName(contextName));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ArrayRowBuilder
+  // ---------------------------------------------------------------------------
+  public static class ArrayRowBuilder extends ObjectBuilder {
+    public String caption(JsonObject object, String objectName) {
+      return "";
+    }
+
+    public String header(JsonObject object, String objectName) {
+      return "<tr>";
+    }
+
+    public String footer(JsonObject object, String objectName) {
+      return "</tr>";
+    }
+
+    public String element(Response response, JsonElement element, String elementName, String elementContext, Builder elementBuilder) {
+      return elementBuilder.format(response,element,elementContext);
+    }
+
+    @Override public Builder defaultBuilder(JsonElement element) {
+      return ARRAY_ROW_ELEMENT_BUILDER;
     }
 
   }
 
+  // ---------------------------------------------------------------------------
+  // ArrayRowElementBuilder
+  // ---------------------------------------------------------------------------
+
+  public static class ArrayRowElementBuilder extends ElementBuilder {
+    public String build(String elementContents, String elementName) {
+      return "<td>"+elementContents+"</td>";
+    }
+  }
+
+  protected String build(Response response) {
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("<h3>"+getClass().getSimpleName()+" response:</h3>");
+    Builder builder = response.getBuilderFor("");
+    if (builder == null)
+      builder = OBJECT_BUILDER;
+    sb.append(builder.format(response,response._response,""));
+    return sb.toString();
+  }
 
 
 
+/*
   protected String format(JsonObject response) {
     StringBuilder sb = new StringBuilder();
     sb.append(DOM.h3(getClass().getSimpleName()));
@@ -306,6 +355,6 @@ public class RequestBuilders extends RequestQueries {
 
   protected String _format(JsonElement element) {
     return element.getAsString();
-  }
+  } */
 
 }

@@ -25,7 +25,7 @@ public abstract class Request extends RequestBuilders {
 
   public String _requestHelp;
 
-  protected abstract void serve(JsonObject response);
+  protected abstract Response serve();
 
 
 
@@ -40,11 +40,10 @@ public abstract class Request extends RequestBuilders {
         String query = checkArguments(args, type);
         if (query != null)
           return wrap(server,query,type);
-        JsonObject result = new JsonObject();
-        serve(result);
+        Response response = serve();
         if (type == RequestType.json)
-          return wrap(server, result);
-        return wrap(server,format(result));
+          return wrap(server, response.toJson());
+        return wrap(server,build(response));
       case query:
         query = checkArguments(args, type);
         return wrap(server,query);

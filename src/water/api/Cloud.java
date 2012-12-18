@@ -13,7 +13,8 @@ import water.*;
  */
 public class Cloud extends Request {
 
-  @Override public void serve(JsonObject response) {
+  @Override public Response serve() {
+    JsonObject response = new JsonObject();
     final H2O cloud = H2O.CLOUD;
     final H2ONode self = H2O.SELF;
     response.addProperty(JSON_CLOUD_NAME, H2O.NAME);
@@ -26,7 +27,7 @@ public class Cloud extends Request {
       HeartBeat hb = h2o._heartbeat;
       JsonObject node = new JsonObject();
       node.addProperty(JSON_NODES_NAME,h2o.toString());
-      node.addProperty(JSON_NODES_NUM_CPUS, hb._num_cpus);
+      node.addProperty(JSON_NODES_NUM_CPUS, (int)hb._num_cpus);
       node.addProperty(JSON_NODES_FREE_MEM, PrettyPrint.bytes(hb.get_free_mem()));
       node.addProperty(JSON_NODES_TOT_MEM, PrettyPrint.bytes(hb.get_tot_mem()));
       node.addProperty(JSON_NODES_MAX_MEM, PrettyPrint.bytes(hb.get_max_mem()));
@@ -38,15 +39,16 @@ public class Cloud extends Request {
       node.addProperty(JSON_NODES_CPU_LOAD_1, pos_neg(hb.get_cpu_load1()));
       node.addProperty(JSON_NODES_CPU_LOAD_5, pos_neg(hb.get_cpu_load5()));
       node.addProperty(JSON_NODES_CPU_LOAD_15, pos_neg(hb.get_cpu_load15()));
-      node.addProperty(JSON_NODES_FJ_THREADS_HI, hb._fjthrds_hi);
-      node.addProperty(JSON_NODES_FJ_QUEUE_HI, hb._fjqueue_hi);
-      node.addProperty(JSON_NODES_FJ_THREADS_LO, hb._fjthrds_lo);
-      node.addProperty(JSON_NODES_FJ_QUEUE_LO, hb._fjqueue_lo);
+      node.addProperty(JSON_NODES_FJ_THREADS_HI, (int)hb._fjthrds_hi);
+      node.addProperty(JSON_NODES_FJ_QUEUE_HI, (int)hb._fjqueue_hi);
+      node.addProperty(JSON_NODES_FJ_THREADS_LO, (int)hb._fjthrds_lo);
+      node.addProperty(JSON_NODES_FJ_QUEUE_LO, (int)hb._fjqueue_lo);
       node.addProperty(JSON_NODES_RPCS, (int)hb._rpcs);
       node.addProperty(JSON_NODES_TCPS_ACTIVE, (int) hb._tcps_active);
       nodes.add(node);
     }
     response.add(JSON_NODES,nodes);
+    return Response.done(response);
   }
 
   public static String pos_neg(double d) {
