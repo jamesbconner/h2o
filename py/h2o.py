@@ -88,8 +88,14 @@ def verboseprint(*args, **kwargs):
 def find_dataset(f):
     (head, tail) = os.path.split(os.path.abspath('datasets'))
     verboseprint("find_dataset looking upwards from", head, "for", tail)
-    while not os.path.exists(os.path.join(head, tail)):
+    # don't spin forever 
+    levels = 0
+    while not (os.path.exists(os.path.join(head, tail))):
         head = os.path.split(head)[0]
+        levels += 1
+        if (levels==10): 
+            raise Exception("unable to find datasets. Did you git it?")
+
     return os.path.join(head, tail, f)
 
 def find_file(base):
