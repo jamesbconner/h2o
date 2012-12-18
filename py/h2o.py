@@ -219,15 +219,16 @@ nodes = []
 def write_flatfile(node_count=2, base_port=54321, hosts=None):
     # we're going to always create the flatfile. 
     # Used for all remote cases now. (per sri)
+    ports_per_node = 3
     pff = open(flatfile_name(), "w+")
     if hosts is None:
         ip = get_ip_address()
         for i in xrange(node_count):
-            pff.write("/" + ip + ":" + str(base_port +2*i) + "\n")
+            pff.write("/" + ip + ":" + str(base_port +ports_per_node*i) + "\n")
     else:
         for h in hosts:
             for i in xrange(node_count):
-                pff.write("/" + h.addr + ":" + str(base_port +2*i) + "\n")
+                pff.write("/" + h.addr + ":" + str(base_port +ports_per_node*i) + "\n")
     pff.close()
 
 # node_count is per host if hosts is specified.
