@@ -8,6 +8,7 @@ import h2o_browse as h2b
 class Basic(unittest.TestCase):
     def testCloud(self):
         baseport = 54300
+        ports_per_node = 3
 
         print "\nTest was written because seeing a bigger cloud than we want sometimes"
         print "You'll see the problem in the cloud in the browser"
@@ -38,7 +39,7 @@ class Basic(unittest.TestCase):
 
                 # increment the base_port to avoid sticky ports when we do another
                 # we only use two ports now?
-                baseport += 2 * tryNodes
+                baseport += ports_per_node * tryNodes
 
 if __name__ == '__main__':
     h2o.unit_main()

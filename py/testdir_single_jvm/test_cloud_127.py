@@ -9,6 +9,7 @@ class Basic(unittest.TestCase):
         global nodes
 
         baseport = 54300
+        ports_per_node = 3
         for tryNodes in range(2,8):
             sys.stdout.write('.')
             sys.stdout.flush()
@@ -28,7 +29,7 @@ class Basic(unittest.TestCase):
 
             # increment the base_port to avoid sticky ports when we do another
             # we only use two ports now?
-            baseport += 2 * tryNodes
+            baseport += ports_per_node * tryNodes
 
 if __name__ == '__main__':
     h2o.unit_main()

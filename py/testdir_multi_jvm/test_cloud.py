@@ -19,7 +19,7 @@ class Basic(unittest.TestCase):
             sys.stdout.flush()
 
             start = time.time()
-            h2o.build_cloud(node_count=tryNodes)
+            h2o.build_cloud(tryNodes)
             print "Built cloud of %d in %d s" % (tryNodes, (time.time() - start)) 
 
             c = h2o.nodes[0].get_cloud()

@@ -7,7 +7,9 @@ import time
 class Basic(unittest.TestCase):
     def test_Cloud(self):
         base_port = 54300
+        ports_per_node = 3
         for trials in range(0,2):
+            for tryNodes in range(3,5):
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
@@ -23,7 +25,7 @@ class Basic(unittest.TestCase):
                 # with so many jvms, wait for sticky ports to be freed up..slow os stuff?
                 # changed, to increment the base_port, to avoid reuse immediately
                 time.sleep(4)
-                base_port += 2 * tryNodes
+                base_port += ports_per_node * tryNodes
 
 
 if __name__ == '__main__':
