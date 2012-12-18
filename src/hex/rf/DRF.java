@@ -40,7 +40,7 @@ public class DRF extends water.DRemoteTask {
 
   // INTERNAL DATA
   /** Key for the data being classified */
-  Key _arykey;
+  public Key _arykey;
   UnbalancedClass [] _uClasses;
   int [] _strata;
   /** Key for the model being buildt */
@@ -54,7 +54,7 @@ public class DRF extends water.DRemoteTask {
   // Node-local data
   transient Data _validation;        // Data subset to validate with locally, or NULL
   transient RandomForest _rf;        // The local RandomForest
-  transient Timer _t_main;     // Main timer
+  transient public Timer _t_main;    // Main timer
 
   int [][] _nHist;
   int [] _gHist;

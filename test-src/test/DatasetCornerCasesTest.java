@@ -9,19 +9,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import water.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
-public class DatasetCornerCasesTest {
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 5000) {
-      if (H2O.CLOUD.size() > 2) break;
-      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
-    }
-    assertEquals("Cloud size of 3", 3, H2O.CLOUD.size());
-  }
+public class DatasetCornerCasesTest extends KeyUtil {
 
   /*
    * HTWO-87 bug test

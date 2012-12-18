@@ -1,22 +1,38 @@
-package water.util;
-
-import static org.junit.Assert.fail;
-
+package test;
+import static org.junit.Assert.*;
+import com.google.common.io.Closeables;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-
 import org.junit.Ignore;
-
-import com.google.common.io.Closeables;
-
-import water.DKV;
-import water.Key;
-import water.ValueArray;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import water.*;
 import water.parser.ParseDataset;
 
-@Ignore
 public class KeyUtil {
+  private static int _initial_keycnt = 0;
+
+  @BeforeClass public static void setupCloud() {
+    H2O.main(new String[] { });
+    long start = System.currentTimeMillis();
+    while (System.currentTimeMillis() - start < 10000) {
+      if (H2O.CLOUD.size() > 2) break;
+      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
+    }
+    assertEquals("Cloud size of 3", 3, H2O.CLOUD.size());
+    _initial_keycnt = H2O.store_size();
+  }
+
+  @AfterClass public static void checkLeakedKeys() {
+    DKV.write_barrier();
+    int leaked_keys = H2O.store_size() - _initial_keycnt;
+    if( leaked_keys != 0 ) 
+      for( Key k : H2O.keySet() )
+        System.err.println("Leaked key: "+k);
+    assertEquals("No keys leaked", 0, leaked_keys);
+  }
+
   public static File find_test_file( String fname ) {
     // When run from eclipse, the working directory is different.
     // Try pointing at another likely place

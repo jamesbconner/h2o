@@ -118,9 +118,11 @@ public class Tree extends CountedCompleter {
       return _model;
     }
 
+    @Override
     public void onSuccess() {
       if( _ntree == _model.size() && _model._treesKey != null)
         UKV.remove(_model._treesKey);
+      _model._treesKey = null;
     }
   }
 

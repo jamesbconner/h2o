@@ -6,21 +6,8 @@ import java.util.Arrays;
 import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
-public class ParserTest {
-  private static int _initial_keycnt = 0;
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] {});
-    _initial_keycnt = H2O.store_size();
-  }
-
-  @AfterClass public static void checkLeakedKeys() {
-    DKV.write_barrier();
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    assertEquals("No keys leaked", 0, leaked_keys);
-  }
+public class ParserTest extends KeyUtil {
 
   private double[] d(double... ds) { return ds; }
   private String[] s(String...ss) { return ss; }
