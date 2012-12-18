@@ -11,6 +11,7 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import water.H2O;
 import water.NanoHTTPD;
+import water.api.RequestServer;
 import water.web.Page.PageError;
 
 /** This is a simple web server. */
@@ -28,6 +29,7 @@ public class Server extends NanoHTTPD {
     // initialize pages
     _pages.put("",new Cloud());
     _pages.put("Cloud",new Cloud());
+    _pages.put("API",new ApiTest());
     _pages.put("COV",new Covariance());
     _pages.put("Covariance",new Covariance());
     _pages.put("cor",new Covariance());

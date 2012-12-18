@@ -35,6 +35,7 @@ public final class H2O {
   static final int DEFAULT_PORT = 54321;
   public static int WEB_PORT; // The HTML/web interface port - attach your browser here!
   public static int UDP_PORT; // Fast/small UDP transfers
+  public static int API_PORT; // RequestServer and the new API HTTP port
 
   // The multicast discovery port
   static MulticastSocket  CLOUD_MULTICAST_SOCKET;
@@ -481,6 +482,9 @@ public final class H2O {
     new Cleaner().start();
 
     water.web.Server.start();
+
+    water.api.RequestServer.start();
+
   }
 
   /** Finalizes the node startup.
@@ -494,6 +498,7 @@ public final class H2O {
 
   public static ServerSocket _webSocket;
   public static DatagramChannel _udpSocket;
+  public static ServerSocket _apiSocket;
 
 
   // Parse arguments and set cloud name in any case. Strip out "-name NAME"
@@ -506,8 +511,10 @@ public final class H2O {
 
     while (true) {
       UDP_PORT = WEB_PORT+1;
+      API_PORT = UDP_PORT+1;
       try {
         _webSocket = new ServerSocket(WEB_PORT);
+        _apiSocket = new ServerSocket(API_PORT);
         _udpSocket = DatagramChannel.open();
         _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
         break;
@@ -522,10 +529,11 @@ public final class H2O {
               ", " + (OPT_ARGS.port+1) +
               " are not available, change -port PORT and try again.");
       }
-      WEB_PORT += 2;
+      WEB_PORT += 3; // used to be 2 for only WEB + UDP
     }
     SELF = H2ONode.self(inet);
     System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", TCP/UDP port: "+UDP_PORT);
+    System.out.println("[h2o] API HTTP port "+API_PORT);
 
     NAME = OPT_ARGS.name==null? System.getProperty("user.name") : OPT_ARGS.name;
     // Read a flatfile of allowed nodes
