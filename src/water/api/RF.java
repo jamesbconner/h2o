@@ -1,4 +1,3 @@
-
 package water.api;
 
 import com.google.gson.JsonObject;
@@ -8,7 +7,6 @@ import hex.rf.Tree;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import org.apache.hadoop.security.Krb5AndCertsSslSocketConnector;
 import water.Key;
 import water.UKV;
 import water.ValueArray;
@@ -30,7 +28,7 @@ public class RF extends Request {
   protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
   protected final Int _features = new Int(JSON_FEATURES, null, 1, Integer.MAX_VALUE);
   protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
-  protected final Int _sample = new Int(JSON_SAMPLE, 67, 0, 100);
+  protected final Int _sample = new Int(JSON_SAMPLE, 67, 1, 100);
   protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, 0,65535);
   protected final Int _depth = new Int(JSON_DEPTH,0,0,Integer.MAX_VALUE);
   protected final Int _seed = new Int(JSON_SEED,0);
@@ -74,7 +72,7 @@ public class RF extends Request {
               ntree,
               _depth.value(),
               sample,
-              (short)(int)_binLimit.value(),
+              _binLimit.value().shortValue(),
               statType,
               _seed.value(),
               classCol,
