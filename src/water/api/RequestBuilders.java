@@ -4,8 +4,12 @@ package water.api;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
+import water.H2O;
+import water.web.RString;
 
 /** Builders & response object.
  *
@@ -31,6 +35,7 @@ public class RequestBuilders extends RequestQueries {
    */
   protected String build(Response response) {
     StringBuilder sb = new StringBuilder();
+    sb.append(buildResponseHeader(response));
     sb.append("<h3>"+getClass().getSimpleName()+" response:</h3>");
     Builder builder = response.getBuilderFor("");
     if (builder == null)
@@ -38,6 +43,112 @@ public class RequestBuilders extends RequestQueries {
     sb.append(builder.build(response,response._response,""));
     return sb.toString();
   }
+
+
+  private static final String _responseHeader =
+            "<table class='table table-bordered'><tr><td><table style='font-size:12px;margin:0px;' class='table-borderless'>"
+          + "  <tr>"
+          + "    <td rowspan='2' style='vertical-align:top;'>%BUTTON&nbsp&nbsp;</td>"
+          + "    <td colspan='6'>"
+          + "      %TEXT"
+          + "    </td>"
+          + "  </tr>"
+          + "  <tr>"
+          + "    <td><b>Cloud:</b></td>"
+          + "    <td style='padding-right:70px;'>%CLOUD_NAME</td>"
+          + "    <td><b>Node:</b></td>"
+          + "    <td style='padding-right:70px;'>%NODE_NAME</td>"
+          + "    <td><b>Time:</b></td>"
+          + "    <td style='padding-right:70px;'>%TIME [s]</td>"
+          + "  </tr>"
+          + "</table></td></tr></table>"
+          + "<script type='text/javascript'>"
+          + "%JSSTUFF"
+          + "</script>"
+          ;
+
+  private static final String _redirectJs =
+            "var timer = setTimeout('redirect()',10000);\n"
+          + "function countdown_stop() {\n"
+          + "  clearTimeout(timer);\n"
+          + "}\n"
+          + "function redirect() {\n"
+          + "  window.location = \"%REDIRECT_URL\";\n"
+          + "}\n"
+          ;
+
+  private static final String _pollJs =
+            "var timer = setTimeout('poll()',5000);\n"
+          + "function countdown_stop() {\n"
+          + "  clearTimeout(timer);\n"
+          + "}\n"
+          + "function poll() {\n"
+          + "  document.location.reload(true);\n"
+          + "}\n"
+          ;
+
+
+
+  private String encodeRedirectArgs(JsonObject args) {
+    if (args == null)
+      return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append("?");
+    for (Map.Entry<String,JsonElement> entry : args.entrySet()) {
+      JsonElement e = entry.getValue();
+      if (sb.length()!=1)
+        sb.append("&");
+      sb.append(entry.getKey());
+      sb.append("=");
+      try {
+        sb.append(URLEncoder.encode(e.getAsString(),"UTF-8"));
+      } catch (UnsupportedEncodingException ex) {
+        assert (false): ex.toString();
+      }
+    }
+    return sb.toString();
+  }
+
+  protected String buildResponseHeader(Response response) {
+    RString result = new RString(_responseHeader);
+    JsonObject obj = response.responseToJson();
+    result.replace("CLOUD_NAME",obj.get(JSON_H2O).getAsString());
+    result.replace("NODE_NAME",obj.get(JSON_H2O_NODE).getAsString());
+    result.replace("TIME",obj.get(JSON_REQUEST_TIME).getAsLong() / 1000.0);
+    switch (response._status) {
+      case error:
+        result.replace("BUTTON","<button class='btn btn-danger disabled'>"+response._status.toString()+"</button>");
+        result.replace("TEXT","An error has occured during the creation of the response. Details follow:");
+        break;
+      case done:
+        result.replace("BUTTON","<button class='btn btn-success disabled'>"+response._status.toString()+"</button>");
+        result.replace("TEXT","The result was a success and no further action is needed. JSON results are prettyprinted below.");
+        break;
+      case redirect:
+        result.replace("BUTTON","<button class='btn btn-primary' onclick='redirect()'>"+response._status.toString()+"</button>");
+        result.replace("TEXT","Request was successful and the process was started. You will be redirected to the new page in 10 seconds, or when you click on the redirect"
+                + " button on the left. If you want to keep this page for longer you can <a href='#' onclick='countdown_stop()'>stop the countdown</a>.");
+        RString redirect = new RString(_redirectJs);
+        redirect.replace("REDIRECT_URL",response._redirectName+".html"+encodeRedirectArgs(response._redirectArgs));
+        result.replace("JSSTUFF", redirect.toString());
+        break;
+      case poll:
+        int pct = (int) ((double)response._pollProgress / response._pollProgressElements * 100);
+        result.replace("BUTTON","<button class='btn btn-primary' onclick='poll()'>"+response._status.toString()+"</button>");
+        result.replace("TEXT","<div style='margin-bottom:0px;padding-bottom:0xp;height:5px;' class='progress progress-stripped'><div class='bar' style='width:"+pct+"%;'></div></div>"
+                + "Request was successful, but the process is not yet finished.  The page will refresh each 5 seconds, or you can any time click the button"
+                + " on the left. If you want you can <a href='#' onclick='countdown_stop()'>disable the automatic refresh</a>.");
+        result.replace("JSSTUFF", _pollJs);
+        break;
+      default:
+        result.replace("BUTTON","<button class='btn btn-inverse disabled'>"+response._status.toString()+"</button>");
+        result.replace("TEXT","This is an unknown response state not recognized by the automatic formatter. The rest of the response is displayed below.");
+        break;
+    }
+    return result.toString();
+  }
+
+
 
   /** Basic builder for objects. ()
    */
@@ -63,6 +174,10 @@ public class RequestBuilders extends RequestQueries {
    */
   public static final Builder ARRAY_ROW_SINGLECOL_BUILDER = new ArrayRowSingleColBuilder();
 
+  // ===========================================================================
+  // Response
+  // ===========================================================================
+
   /** This is a response class for the JSON.
    *
    * Instead of simply returning a JsonObject, each request returns a new
@@ -77,6 +192,22 @@ public class RequestBuilders extends RequestQueries {
    *
    * Otherwise a correct state response should be created at the end from the
    * json object and returned.
+   *
+   * JSON response structure:
+   *
+   * response -> status = (done,error,redirect, ...)
+   *             h2o = name of the cloud
+   *             node = answering node
+   *             time = time in MS it took to process the request serve()
+   *             other fields as per the response type
+   * other fields that should go to the user
+   * if error:
+   * error -> error reported
+   *
+   *
+   *
+   *
+   *
    *
    * TODO Work in progress. Please do not change.
    */
@@ -94,9 +225,31 @@ public class RequestBuilders extends RequestQueries {
       error ///< The request was an error.
     }
 
+    /** Time it took the request to finish. In ms.
+     */
+    protected long _time;
+
     /** Status of the request.
      */
     private final Status _status;
+
+    /** Name of the redirected request. This is only valid if the response is
+     * redirect status.
+     */
+    private final String _redirectName;
+
+    /** Arguments of the redirect object. These will be given to the redirect
+     * object when called.
+     */
+    private final JsonObject _redirectArgs;
+
+    /** Poll progress in terms of finished elements.
+     */
+    private final int _pollProgress;
+
+    /** Total elements to be finished before the poll will be done.
+     */
+    private final int _pollProgressElements;
 
     /** Response object for JSON requests.
      */
@@ -111,6 +264,30 @@ public class RequestBuilders extends RequestQueries {
     private Response(Status status, JsonObject response) {
       _status = status;
       _response = response;
+      _redirectName = null;
+      _redirectArgs = null;
+      _pollProgress = -1;
+      _pollProgressElements = -1;
+    }
+
+    private Response(Status status, JsonObject response, String redirectName, JsonObject redirectArgs) {
+      assert (status == Status.redirect);
+      _status = status;
+      _response = response;
+      _redirectName = redirectName;
+      _redirectArgs = redirectArgs;
+      _pollProgress = -1;
+      _pollProgressElements = -1;
+    }
+
+    private Response(Status status, JsonObject response, int progress, int total) {
+      assert (status == Status.poll);
+      _status = status;
+      _response = response;
+      _redirectName = null;
+      _redirectArgs = null;
+      _pollProgress = progress;
+      _pollProgressElements = total;
     }
 
     /** Returns new error response with given error message.
@@ -125,6 +302,41 @@ public class RequestBuilders extends RequestQueries {
      */
     public static Response done(JsonObject response) {
       return new Response(Status.done, response);
+    }
+
+    /** Creates the new response with status redirect. This response will be
+     * redirected to another request specified by redirectRequest with the
+     * redirection arguments provided in rediredtArgs.
+     */
+    public static Response redirect(JsonObject response, String redirectRequest, JsonObject redirectArgs) {
+      return new Response(Status.redirect, response, redirectRequest, redirectArgs);
+    }
+
+    /** Creates the new redirect response with no request arguments.
+     */
+    public static Response redirect(JsonObject response, String redirectRequest) {
+      return Response.redirect(response, redirectRequest, null);
+    }
+
+    /** Returns the poll response object.
+     */
+    public static Response poll(JsonObject response, int progress, int total) {
+      return new Response(Status.poll,response, progress, total);
+    }
+
+    /** Returns the poll response object initialized by percents completed.
+     */
+    public static Response poll(JsonObject response, float progress) {
+      int p = (int) (progress * 100);
+      return Response.poll(response, p, 100);
+    }
+
+    /** Sets the time of the response as a difference between the given time and
+     * now. Called automatically by serving request. Only available in JSON and
+     * HTML.
+     */
+    public final void setTimeStart(long timeStart) {
+      _time = System.currentTimeMillis() - timeStart;
     }
 
     /** Hashmap of custom builders for JSON elements when converting to HTML
@@ -156,13 +368,41 @@ public class RequestBuilders extends RequestQueries {
       return _builders.get(contextName);
     }
 
-    /** Returns the JSONified version of the request. At the moment just
-     * returns the response.
-     *
-     * TODO change this to reflect the status properly.
+
+    /** Returns the response system json. That is the response type, time,
+     * h2o basics and other automatic stuff.
      * @return
      */
-    public JsonObject toJson() {
+    protected JsonObject responseToJson() {
+      JsonObject resp = new JsonObject();
+      resp.addProperty(JSON_STATUS,_status.toString());
+      resp.addProperty(JSON_H2O, H2O.NAME);
+      resp.addProperty(JSON_H2O_NODE, H2O.SELF.toString());
+      resp.addProperty(JSON_REQUEST_TIME, _time);
+      switch (_status) {
+        case done:
+        case error:
+          break;
+        case redirect:
+          resp.addProperty(JSON_REDIRECT,_redirectName);
+          if (_redirectArgs != null)
+            resp.add(JSON_REDIRECT_ARGS,_redirectArgs);
+          break;
+        case poll:
+          resp.addProperty(JSON_PROGRESS, _pollProgress);
+          resp.addProperty(JSON_PROGRESS_TOTAL, _pollProgressElements);
+          break;
+        default:
+          assert(false): "Unknown response type "+_status.toString();
+      }
+      return resp;
+    }
+
+    /** Returns the JSONified version of the request. At the moment just
+     * returns the response.
+     */
+    protected JsonObject toJson() {
+      _response.add(JSON_RESPONSE,responseToJson());
       return _response;
     }
 

@@ -13,9 +13,16 @@ import java.util.regex.Pattern;
  */
 public class RequestStatics {
 
+  public static final String JSON_RESPONSE = "response";
   public static final String JSON_ERROR = "error";
+  public static final String JSON_REDIRECT = "redirect_request";
+  public static final String JSON_REDIRECT_ARGS = "redirect_request_args";
   public static final String JSON_STATUS = "status";
-  public static final String JSON_STATUS_DONE = "done";
+  public static final String JSON_H2O = "h2o";
+  public static final String JSON_H2O_NODE = "node";
+  public static final String JSON_REQUEST_TIME = "time";
+  public static final String JSON_PROGRESS = "progress";
+  public static final String JSON_PROGRESS_TOTAL = "progress_total";
 
 
   public static final String JSON_KEY = "key";
