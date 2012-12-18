@@ -25,6 +25,7 @@ public class RandomForestTest {
   }
 
   @AfterClass public static void checkLeakedKeys() {
+    DKV.write_barrier();
     int leaked_keys = H2O.store_size() - _initial_keycnt;
     assertEquals("No keys leaked", 0, leaked_keys);
   }
@@ -111,7 +112,7 @@ public class RandomForestTest {
 
 
   // Test kaggle/creditsample-test data
-  /*@org.junit.Test*/ public void kaggle_credit() throws Exception {
+  @org.junit.Test public void kaggle_credit() throws Exception {
     Key fkey = KeyUtil.load_test_file("smalldata/kaggle/creditsample-training.csv.gz");
     Key okey = Key.make("credit.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
