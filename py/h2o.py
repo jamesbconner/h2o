@@ -238,7 +238,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
     clean_sandbox()
 
     # hardwire this. don't need it to be an arg
-    ports_per_node = 2
+    ports_per_node = 3 # 3 because we have the API port now too
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
