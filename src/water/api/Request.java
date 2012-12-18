@@ -55,9 +55,9 @@ public abstract class Request extends RequestBuilders {
   private String serveHelp() {
     StringBuilder sb = new StringBuilder();
     String requestName = getClass().getSimpleName();
-    sb.append(DOM.h3(requestName));
+    sb.append("<h3>"+requestName+"</h3>");
     if (_requestHelp != null)
-      sb.append(DOM.p(_requestHelp));
+      sb.append("<p>"+_requestHelp+"</p>");
     for (Argument arg : _arguments)
       sb.append(arg.requestHelp());
     return sb.toString();
@@ -109,7 +109,7 @@ public abstract class Request extends RequestBuilders {
     }
     public void toHTML(StringBuilder sb) {
       sb.append("<li><a href='");
-      sb.append(DOM.urlEncode(_request.getClass().getSimpleName()+".html"));
+      sb.append(_request.getClass().getSimpleName()+".html");
       sb.append("'>");
       sb.append(_name);
       sb.append("</a></li>");
