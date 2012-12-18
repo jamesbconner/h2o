@@ -45,11 +45,12 @@ def fill_in_expr_template(exprTemp,colX,trial,row,key2):
         print "\nexecExpr:", execExpr
         return execExpr
 
-def exec_expr(node, execExpr, resultKey="Result"):
+def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
         start = time.time()
-        resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=10)
+        resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
         h2o.verboseprint(resultExec)
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
+        print 'exec took', time.time() - start, 'seconds'
 
         h2o.verboseprint("\nfirst look at the default Result key")
         defaultInspect = h2o.nodes[0].inspect("Result")
@@ -77,7 +78,7 @@ def exec_zero_list(zeroList):
             execResult = exec_expr(h2o.nodes[0], execExpr, "Result")
             ### print "\nexecResult:", execResult
 
-def exec_list_like_other_tests(exprList, lenNodes, csvFilename, key2):
+def exec_list_like_other_tests(exprList, lenNodes, csvFilename, key2, timeoutSecs):
         # start with trial = 1 because trial-1 is used to point to Result0 which must be initted
         trial = 1
         while (trial < 100):
@@ -93,7 +94,7 @@ def exec_list_like_other_tests(exprList, lenNodes, csvFilename, key2):
 
                 execExpr = fill_in_expr_template(exprTemp, colX, trial, row, key2)
                 execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr, 
-                    resultKey="Result"+str(trial))
+                    "Result"+str(trial), timeoutSecs)
                 ### print "\nexecResult:", execResultInspect
 
                 columns = execResultInspect["columns"]
@@ -141,7 +142,6 @@ class Basic(unittest.TestCase):
         # importFolderPath = "/home/hduser/hdfs_datasets"
         importFolderPath = "/home/0xdiag/datasets"
         h2i.setupImportFolder(None, importFolderPath)
-        timeoutSecs = 4000
 
         #    "covtype169x.data",
         #    "covtype.13x.shuffle.data",
@@ -149,20 +149,22 @@ class Basic(unittest.TestCase):
         # Update: need unique key names apparently. can't overwrite prior parse output key?
         # replicating lines means they'll get reparsed. good! (but give new key names)
 
-        if (1==0): 
+        # make the timeout variable per dataset. it can be 10 secs for covtype 20x (col key creation)
+        # so probably 10x that for covtype200
+        if (1==1): 
             csvFilenameAll = [
-                ("covtype.data", "cA"),
-                ("covtype.data", "cB"),
-                ("covtype.data", "cC"),
-                ("covtype20x.data", "cA20"),
-                ("covtype200x.data", "c200"),
-                ("billion_rows.csv.gz", "b"),
+                ("covtype200x.data", "c200",600),
+                ("covtype20x.data", "cA20",20),
+                ("covtype.data", "cA", 5),
+                ("covtype.data", "cB", 5),
+                ("covtype.data", "cC", 5),
+                ("billion_rows.csv.gz", "b", 200),
                 ]
         else:
             csvFilenameAll = [
-                ("covtype.data", "cA"),
-                ("covtype.data", "cB"),
-                ("covtype.data", "cC"),
+                ("covtype.data", "cA", 5),
+                ("covtype.data", "cB", 5),
+                ("covtype.data", "cC", 5),
             ]
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
@@ -171,7 +173,7 @@ class Basic(unittest.TestCase):
         lenNodes = len(h2o.nodes)
 
         cnum = 0
-        for (csvFilename, key2) in csvFilenameList:
+        for (csvFilename, key2, timeoutSecs) in csvFilenameList:
             cnum += 1
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, 
@@ -184,7 +186,7 @@ class Basic(unittest.TestCase):
 
             print "\n" + csvFilename
             exec_zero_list(zeroList)
-            exec_list_like_other_tests(exprList, lenNodes, csvFilename, key2)
+            exec_list_like_other_tests(exprList, lenNodes, csvFilename, key2, timeoutSecs)
 
 
 if __name__ == '__main__':
