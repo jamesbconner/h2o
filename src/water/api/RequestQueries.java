@@ -1,8 +1,6 @@
 
 package water.api;
 
-import com.google.gson.JsonObject;
-import java.util.HashMap;
 import java.util.Properties;
 import water.web.RString;
 

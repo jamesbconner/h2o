@@ -2,9 +2,7 @@
 package water.api;
 
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.util.Properties;
 import water.*;
 
 /**
@@ -12,6 +10,11 @@ import water.*;
  * @author peta
  */
 public class Cloud extends Request {
+
+  public Cloud() {
+    _requestHelp = "Displays the information about the current cloud. For each"
+            + " node displays its heartbeat information.";
+  }
 
   @Override public Response serve() {
     JsonObject response = new JsonObject();

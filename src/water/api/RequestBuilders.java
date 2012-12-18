@@ -39,11 +39,28 @@ public class RequestBuilders extends RequestQueries {
     return sb.toString();
   }
 
+  /** Basic builder for objects. ()
+   */
   public static final Builder OBJECT_BUILDER = new ObjectBuilder();
+
+  /** Basic builder for arrays. (table)
+   */
   public static final Builder ARRAY_BUILDER = new ArrayBuilder();
+
+  /** Basic builder for array rows. (tr)
+   */
   public static final Builder ARRAY_ROW_BUILDER = new ArrayRowBuilder();
+
+  /** Basic builder for elements inside objects. (dl,dt,dd)
+   */
   public static final Builder ELEMENT_BUILDER = new ElementBuilder();
+
+  /** Basic builder for elements in array row objects. (td)
+   */
   public static final Builder ARRAY_ROW_ELEMENT_BUILDER = new ArrayRowElementBuilder();
+
+  /** Basic builder for elements in array rows single col. (tr & td)
+   */
   public static final Builder ARRAY_ROW_SINGLECOL_BUILDER = new ArrayRowSingleColBuilder();
 
   /** This is a response class for the JSON.

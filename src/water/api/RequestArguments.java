@@ -1,8 +1,12 @@
 
 package water.api;
 
-import java.util.*;
-import water.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import water.DKV;
+import water.Key;
+import water.Value;
+import water.ValueArray;
 import water.web.RString;
 
 /** All arguments related classes are defined in this guy.

@@ -1,9 +1,6 @@
 
 package water.api;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import java.util.Properties;
 import water.web.RString;
 
 /**
@@ -13,6 +10,12 @@ import water.web.RString;
 public class HTTP404 extends Request {
 
   private final Str _error = new Str(JSON_ERROR,"Unknown error");
+
+  public HTTP404() {
+    _requestHelp = "Displays the HTTP 404 page with error specified in JSON"
+            + " argument error.";
+    _error._requestHelp = "Error description for the 404. Generally the URL not found.";
+  }
 
   @Override public Response serve() {
     return Response.error(_error.value());

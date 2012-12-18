@@ -2,8 +2,6 @@
 package water.api;
 
 import com.google.gson.JsonObject;
-import java.util.Properties;
-import water.H2O;
 import water.Key;
 import water.UKV;
 import water.Value;
@@ -21,7 +19,11 @@ public class PutValue extends Request {
 
   public PutValue() {
     _requestHelp = "Stores the given value to the cloud under the specified key."
-            + "The replication factor may also be specified.";
+            + " The replication factor may also be specified.";
+    _key._requestHelp = "Key under which the value should be stored.";
+    _value._requestHelp = "Value that will be stored under the given key.";
+    _rf._requestHelp = "Desired replication factor of the key. That is on how"
+            + " many nodes should the value be replicated at least";
   }
 
   @Override public Response serve() {

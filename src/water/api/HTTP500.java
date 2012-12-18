@@ -1,9 +1,6 @@
 
 package water.api;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import java.util.Properties;
 import water.web.RString;
 
 /**
@@ -13,6 +10,13 @@ import water.web.RString;
 public class HTTP500 extends Request {
 
   private final Str _error = new Str(JSON_ERROR,"Unknown error");
+
+  public HTTP500() {
+    _requestHelp = "Displays the HTTP 500 page with error specified in JSON"
+            + " argument error. This page is displayed when any unexpected"
+            + " exception is returned from the request processing at any level.";
+    _error._requestHelp = "Error description for the 500. Generally the exception message.";
+  }
 
   @Override public Response serve() {
     return Response.error(_error.value());

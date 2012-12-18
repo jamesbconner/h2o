@@ -4,7 +4,10 @@ package water.api;
 import com.google.gson.JsonObject;
 import java.util.regex.Pattern;
 
-/**
+/** All statics for the Request api.
+ *
+ * Especially the JSON property names should be defined here. Some helper
+ * functions too.
  *
  * @author peta
  */
@@ -127,7 +130,11 @@ public class RequestStatics {
     }
   }
 
-
+  /** Returns the name of the JSON property pretty printed. That is spaces
+   * instead of underscores and capital first letter.
+   * @param name
+   * @return
+   */
   public static String JSON2HTML(String name) {
     return name.substring(0,1).toUpperCase()+name.replace("_"," ").substring(1);
   }

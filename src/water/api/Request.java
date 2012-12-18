@@ -9,10 +9,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
-import water.*;
-import water.web.Page;
+import water.Log;
+import water.NanoHTTPD;
 import water.web.RString;
-import water.web.Server;
 
 /** A basic class for a JSON request.
  *

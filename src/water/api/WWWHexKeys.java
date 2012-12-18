@@ -9,7 +9,6 @@ import water.H2O;
 import water.Key;
 import water.Value;
 import water.ValueArray;
-import water.hdfs.PersistHdfs;
 
 /**
  *

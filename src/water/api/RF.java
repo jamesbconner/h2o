@@ -2,14 +2,9 @@
 package water.api;
 
 import com.google.gson.JsonObject;
-import hex.rf.Confusion;
-import hex.rf.DRF;
-import hex.rf.Model;
 import hex.rf.Tree;
-import java.util.HashMap;
-import java.util.Properties;
-import water.*;
-import water.web.*;
+import water.Key;
+import water.ValueArray;
 
 /**
  *

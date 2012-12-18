@@ -1,18 +1,18 @@
 
 package water.api;
 
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
 import init.Boot;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import water.H2O;
 import water.NanoHTTPD;
-import water.web.Page.PageError;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
-import com.google.gson.JsonObject;
-import java.net.ServerSocket;
 
 /** This is a simple web server. */
 public class RequestServer extends NanoHTTPD {
