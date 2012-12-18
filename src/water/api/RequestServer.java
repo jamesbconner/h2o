@@ -20,6 +20,7 @@ public class RequestServer extends NanoHTTPD {
   // cache of all loaded resources
   private static final ConcurrentHashMap<String,byte[]> _cache = new ConcurrentHashMap();
   private static final HashMap<String,Request> _requests = new HashMap();
+
   private static final Request _http404;
   private static final Request _http500;
 
@@ -72,7 +73,7 @@ public class RequestServer extends NanoHTTPD {
             }
           }
         }
-      }).start();
+      }, "Request Server launcher").start();
   }
 
   // uri serve -----------------------------------------------------------------
@@ -125,7 +126,7 @@ public class RequestServer extends NanoHTTPD {
       }
       Closeables.closeQuietly(resource);
     }
-    if (bytes == null) {
+    if ((bytes == null) || (bytes.length == 0)) {
       // make sure that no Exception is ever thrown out from the request
       Properties parms = new Properties();
       parms.setProperty(Request.JSON_ERROR,uri);
