@@ -31,7 +31,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new Cloud()),"Cloud");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
     Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
-
+    Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
 
 
 
