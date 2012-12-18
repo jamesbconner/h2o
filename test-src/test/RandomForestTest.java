@@ -1,35 +1,16 @@
 package test;
 import static org.junit.Assert.*;
+
+import com.google.gson.JsonObject;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
-
 import java.util.Properties;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-
 import water.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 import water.web.RFView;
 import water.web.RandomForestPage;
 
-import com.google.gson.JsonObject;
-
-public class RandomForestTest {
-  private static int _initial_keycnt = 0;
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    _initial_keycnt = H2O.store_size();
-  }
-
-  @AfterClass public static void checkLeakedKeys() {
-    DKV.write_barrier();
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    assertEquals("No keys leaked", 0, leaked_keys);
-  }
-
+public class RandomForestTest extends KeyUtil {
   // ---
   // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
   @org.junit.Test public void testRF_Iris() throws Exception {

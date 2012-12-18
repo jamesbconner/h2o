@@ -8,27 +8,8 @@ import java.io.File;
 import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
-public class KVTest {
-  private static int _initial_keycnt = 0;
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 10000) {
-      if (H2O.CLOUD.size() > 2) break;
-      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
-    }
-    assertEquals("Cloud size of 3", 3, H2O.CLOUD.size());
-    _initial_keycnt = H2O.store_size();
-  }
-
-  @AfterClass public static void checkLeakedKeys() {
-    DKV.write_barrier();
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    assertEquals("No keys leaked", 0, leaked_keys);
-  }
+public class KVTest extends KeyUtil {
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a

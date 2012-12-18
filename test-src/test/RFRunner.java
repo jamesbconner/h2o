@@ -1,15 +1,12 @@
 package test;
 
 import hex.rf.Utils;
-
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import water.Arguments;
-import water.util.KeyUtil;
 
 /** Launch RF in a new vm and records  results.
  */

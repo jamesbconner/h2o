@@ -16,6 +16,10 @@ public abstract class Atomic extends DTask {
   // installed as the new Value (the function is retried until it runs
   // atomically).  The original bits are supposed to be read-only.
   abstract public byte[] atomic( byte[] bits );
+
+  /** Executed on the transaction key's <em>home</em> node after any successful
+   *  atomic update.
+   */
   // override this if you need to perform some action after the update succeeds (eg cleanup)
   public void onSuccess(){}
 

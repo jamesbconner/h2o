@@ -6,27 +6,7 @@ import org.junit.*;
 
 import water.*;
 
-public class AppendKeyTest {
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 10000) {
-      if (H2O.CLOUD.size() > 1) break;
-      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
-    }
-    Assert.assertTrue(H2O.CLOUD.size() > 1);
-  }
-
-  private int _initialKeyCount;
-
-  @Before public void setupLeakedKeys() {
-    _initialKeyCount = H2O.store_size();
-  }
-
-  @After public void checkLeakedKeys() {
-    int leaked_keys = H2O.store_size() - _initialKeyCount;
-    Assert.assertEquals("No keys leaked", 0, leaked_keys);
-  }
+public class AppendKeyTest extends KeyUtil {
 
   public Key makeKey(String n, boolean remote) {
     if(!remote) return Key.make(n);

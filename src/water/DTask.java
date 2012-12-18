@@ -30,7 +30,7 @@ public abstract class DTask<T> extends CountedCompleter implements Freezable {
   public void onAck() {}
 
   /** 3rd top-level execution hook.  After the original vm sent an ACKACK,
-   * this method is executed on the <em>remote</vm>.  Transients from the remote
+   * this method is executed on the <em>remote</em>.  Transients from the remote
    * vm are available here.
    */
   public void onAckAck() {}
