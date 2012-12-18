@@ -7,17 +7,17 @@ import com.google.gson.JsonObject;
 import java.util.HashMap;
 import java.util.Map;
 
-/** My plan is to add formatters here, but since they appear not to be needed,
- * it has just a simple stuff in.
+/** Builders & response object.
  *
  * It just has a stuff of simple builders that walk through the JSON response
  * and format the stuff into basic html. Understands simplest form of tables,
  * objects and elements.
  *
+ * Also defines the response object that contains the response JSON, response
+ * state, other response related automatic variables (timing, etc) and the
+ * custom builders.
  *
- *
- *
- * _ROW append for array rows
+ * TODO work in progress.
  *
  * @author peta
  */
