@@ -352,7 +352,12 @@ public final class AutoBuffer {
     }
   }
 
-  public int peek1() { getSp(1); return get1(position()); }
+  public int peek1() {
+    if (eof())
+      return 0;
+    getSp(1);
+    return get1(position());
+  }
   public String getStr(int off, int len) {
     return new String(_bb.array(), _bb.arrayOffset()+off, len);
   }

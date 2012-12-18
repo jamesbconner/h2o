@@ -21,7 +21,7 @@ import water.web.Server;
  * @author peta
  */
 
-public abstract class Request extends RequestFormatters {
+public abstract class Request extends RequestBuilders {
 
   public String _requestHelp;
 
