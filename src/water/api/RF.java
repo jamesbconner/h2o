@@ -28,6 +28,7 @@ public class RF extends Request {
 //  protected final H2OKeyCols _ignore = new H2OKeyCols(_dataKey,JSON_IGNORE,new int[0],"Ignore columns");
   protected final Int _features = new Int(JSON_FEATURES, 0, 0, Integer.MAX_VALUE);
   protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
+  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, JSON_WEIGHTS, 1);
 
   /** Fires the random forest computation.
    *

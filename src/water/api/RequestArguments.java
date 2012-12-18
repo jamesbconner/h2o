@@ -3,6 +3,7 @@ package water.api;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import water.DKV;
 import water.Key;
 import water.Value;
@@ -59,7 +60,7 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ===========================================================================
-  // Argument
+  // Record
   // ===========================================================================
 
   /** List of arguments for the request. Automatically filled in by the argument
@@ -465,13 +466,13 @@ public class RequestArguments extends RequestStatics {
 
   // typeahead assignment js
   private static final String _typeahead =
-            "$('#%ID').typeahead({"
-          + "  source:"
-          + "    function(query,process) {"
-          + "      return $.get('%HREF', { filter: query, limit: %LIMIT }, function (data) {"
-          + "        return process(data.%DATA_NAME);"
-          + "      });"
-          + "    }"
+            "$('#%ID').typeahead({\n"
+          + "  source:\n"
+          + "    function(query,process) {\n"
+          + "      return $.get('%HREF', { filter: query, limit: %LIMIT }, function (data) {\n"
+          + "        return process(data.%DATA_NAME);\n"
+          + "      });\n"
+          + "    }\n"
           + "});\n"
           ;
 
@@ -673,7 +674,7 @@ public class RequestArguments extends RequestStatics {
     /** Refresh is supported using standard jQuery change event.
      */
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change('"+callbackName+"');";
+      return "$('#"+_name+"').change("+callbackName+");";
     }
 
     /** Get value is supported by the standard val() jQuery function.
@@ -684,10 +685,10 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ===========================================================================
-  // MultipleSelect
+  // MultipleCheckbox
   // ===========================================================================
 
-  private static final String _multipleSelectValueJS =
+  private static final String _multipleCheckboxValueJS =
             "  var str = ''\n"
           + "  for (var i = 0; i < %NUMITEMS; ++i) {\n"
           + "    var element = $('#%NAME'+i);\n"
@@ -701,7 +702,10 @@ public class RequestArguments extends RequestStatics {
           + "  return str;\n"
           ;
 
-  public abstract class MultipleSelect<T> extends Argument<T> {
+  /** Displays multiple checkboxes for different values. Returns a list of the
+   * checked values separated by commas.
+   */
+  public abstract class MultipleCheckbox<T> extends Argument<T> {
 
     /** Override this method to provide the values for the options. These will
      * be the possible values returned by the form's input and should be the
@@ -725,7 +729,7 @@ public class RequestArguments extends RequestStatics {
     /** Constructor just calls super. Is never required, translates to the
      * default value.
      */
-    public MultipleSelect(String name) {
+    public MultipleCheckbox(String name) {
       super(name, false);
     }
 
@@ -741,6 +745,8 @@ public class RequestArguments extends RequestStatics {
       if (names == null)
         names = values;
       assert (values.length == names.length);
+      if (values.length == 0)
+        sb.append("<div class='alert alert-error'>No editable controls under current setup</div>");
       for (int i = 0 ; i < values.length; ++i) {
         if (isSelected(values[i]))
           sb.append("<tr><td><input style='position:relative;top:-2px' type='checkbox' checked id='"+(_name+String.valueOf(i))+"' value='"+values[i]+"' /> "+names[i]+"</td></tr>");
@@ -768,12 +774,100 @@ public class RequestArguments extends RequestStatics {
      */
     @Override protected String jsValue() {
       int size = selectValues().length;
-      RString result = new RString(_multipleSelectValueJS);
+      RString result = new RString(_multipleCheckboxValueJS);
       result.replace("NUMITEMS",size);
       result.replace("NAME",_name);
       return result.toString();
     }
   }
+
+  // ===========================================================================
+  // MultipleText
+  // ===========================================================================
+
+  private static final String _multipleTextValueJS =
+            "  var str = ''\n"
+          + "  for (var i = 0; i < %NUMITEMS; ++i) {\n"
+          + "    var element = $('#%NAME'+i);\n"
+          + "    if (element.val() != '') {\n"
+          + "      if (str == '')\n"
+          + "        str = element.attr('name') + '=' +element.val();\n"
+          + "      else\n"
+          + "        str = str + ',' + element.attr('name') + '=' + element.val();\n"
+          + "    }\n"
+          + "  }\n"
+          + "  return str;\n"
+          ;
+
+
+  public abstract class MultipleText<T> extends Argument<T> {
+
+    protected abstract String[] textValues();
+
+    protected abstract String[] textNames();
+
+    protected String[] textPrefixes() {
+      return null;
+    }
+
+
+    public MultipleText(String name, boolean required) {
+      super(name, required);
+    }
+
+    /** Displays the query element. It is a tabled list of all possibilities
+     * with an optional scrollbar on the right.
+     */
+    @Override protected String queryElement() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<div style='max-height:300px;overflow:auto'>");
+      String[] prefixes = textPrefixes();
+      String[] values = textValues();
+      String[] names = textNames();
+      if (prefixes == null)
+        prefixes = names;
+      if (values == null) {
+        values = new String[prefixes.length];
+        for (int i = 0; i < values.length; ++i)
+          values[i] = "";
+      }
+      assert (prefixes.length == values.length);
+      if (values.length == 0)
+        sb.append("<div class='alert alert-error'>No editable controls under current setup</div>");
+      for (int i = 0 ; i < values.length; ++i) {
+        sb.append("<div class='input-append'>"
+                + "<input class='span3' name='"+names[i]+"' id='"+_name+String.valueOf(i)+"' type='text' value='"+values[i]+"' placeholder='"+queryDescription()+"'>"
+                + "<span class='add-on'>" + prefixes[i]+"</span>"
+                + "</div>");
+      }
+      sb.append("</div>");
+      return sb.toString();
+    }
+
+    /** Refresh is supported using standard jQuery change event. Each text
+     * input is instrumented.
+     */
+    @Override protected String jsRefresh(String callbackName) {
+      int size = textNames().length;
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < size; ++i)
+        sb.append("$('#"+_name+String.valueOf(i)+"').change('"+callbackName+"');\n");
+      return sb.toString();
+    }
+
+    /** Get value is supported by a JS function that enumerates over the
+     * possibilities. If checked, the value of the possibility is appended to
+     * a comma separated list.
+     */
+    @Override protected String jsValue() {
+      int size = textNames().length;
+      RString result = new RString(_multipleTextValueJS);
+      result.replace("NUMITEMS",size);
+      result.replace("NAME",_name);
+      return result.toString();
+    }
+  }
+
 
   // ===========================================================================
   // UserDefinedArguments
@@ -1184,7 +1278,7 @@ public class RequestArguments extends RequestStatics {
   // IgnoreHexCols
   // ---------------------------------------------------------------------------
 
-  public class IgnoreHexCols extends MultipleSelect<int[]> {
+  public class IgnoreHexCols extends MultipleCheckbox<int[]> {
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
 
@@ -1255,6 +1349,133 @@ public class RequestArguments extends RequestStatics {
 
   }
 
+  // ---------------------------------------------------------------------------
+  // H2OHexCategoryWeights
+  // ---------------------------------------------------------------------------
+
+  public class H2OCategoryWeights extends MultipleText<double[]> {
+
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+
+    public final double _defaultValue;
+
+    public H2OCategoryWeights(H2OHexKey key, H2OHexKeyCol classCol, String name, double defaultValue) {
+      super(name,false);
+      _key = key;
+      _classCol = classCol;
+      _defaultValue = defaultValue;
+      addPrerequisite(key);
+      addPrerequisite(classCol);
+    }
+
+    protected String[] determineColumnClassNames(int maxClasses) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ValueArray.Column classCol = va._cols[_classCol.value()];
+      String[] domain = classCol._domain;
+      if ((domain == null) || (domain.length == 0)) {
+        int min = (int) classCol._min;
+        if (classCol._min!= min)
+          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+        int max = (int) classCol._max;
+        if (classCol._max != max)
+          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+        if (max - min > maxClasses) // arbitrary number
+          throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+        String[] result = new String[max-min+1];
+        for (int i = 0; i <= max - min; ++i)
+          result[i] = String.valueOf(min+i);
+        return result;
+      } else {
+        return domain;
+      }
+    }
+
+    @Override protected String[] textValues() {
+      double[] val = value();
+      String[] result = new String[val.length];
+      for (int i = 0; i < val.length; ++i)
+        result[i] = String.valueOf(val[i]);
+      return result;
+    }
+
+    @Override protected String[] textNames() {
+      try {
+        return determineColumnClassNames(1024);
+      } catch (IllegalArgumentException e) {
+        return new String[0];
+      }
+    }
+
+    @Override protected double[] parse(String input) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ValueArray.Column classCOl = va._cols[_classCol.value()];
+      // determine the arity of the column
+      HashMap<String,Integer> classNames = new HashMap();
+      String[] names = determineColumnClassNames(1024);
+      for (int i = 0; i < names.length; ++i)
+        classNames.put(names[i],i);
+      double[] result = new double[names.length];
+      for (int i = 0; i < result.length; ++i)
+        result[i] = _defaultValue;
+      // now parse the given string and update the weights
+      int start = 0;
+      byte[] bsource = input.getBytes();
+      while (start < bsource.length) {
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        String className;
+        double classWeight;
+        int end = 0;
+        if (bsource[start] == ',') {
+          ++start;
+          end = input.indexOf(',',start);
+          className = input.substring(start,end);
+          ++end;
+
+        } else {
+          end = input.indexOf('=',start);
+          className = input.substring(start,end);
+        }
+        start = end;
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        if (bsource[start]!='=')
+          throw new IllegalArgumentException("Expected = after the class name.");
+        ++start;
+        end = input.indexOf(',',start);
+        if (end == -1) {
+          classWeight = Double.parseDouble(input.substring(start));
+          start = bsource.length;
+        } else {
+          classWeight = Double.parseDouble(input.substring(start,end));
+          start = end + 1;
+        }
+        if (!classNames.containsKey(className))
+          throw new IllegalArgumentException("Category "+className+" not found!");
+        result[classNames.get(className)] = classWeight;
+      }
+      return result;
+    }
+
+    @Override protected double[] defaultValue() {
+      try {
+        String[] names = determineColumnClassNames(1024);
+        double[] result = new double[names.length];
+        for (int i = 0; i < result.length; ++i)
+          result[i] = _defaultValue;
+        return result;
+      } catch (IllegalArgumentException e) {
+        return new double[0];
+      }
+    }
+
+    @Override protected String queryDescription() {
+      return "category weight (positive)";
+    }
+
+
+
+  }
+
 
 
 //
@@ -1313,76 +1534,8 @@ public class RequestArguments extends RequestStatics {
 //        disable("Arguments "+_key._name+" and "+_col._name+" must be specified in order to edit.");
 //    }
 //
-//    protected String[] determineColumnClassNames(ValueArray ary, int classColIdx, int maxClasses) throws Exception {
-//      int arity = ary.col_enum_domain_size(classColIdx);
-//      if (arity == 0) {
-//        int min = (int) ary.col_min(classColIdx);
-//        if (ary.col_min(classColIdx) != min)
-//          throw new Exception("Only integer or enum columns can be classes!");
-//        int max = (int) ary.col_max(classColIdx);
-//        if (ary.col_max(classColIdx) != max)
-//          throw new Exception("Only integer or enum columns can be classes!");
-//        if (max - min > maxClasses) // arbitrary number
-//          throw new Exception("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
-//        String[] result = new String[max-min+1];
-//        for (int i = 0; i <= max - min; ++i)
-//          result[i] = String.valueOf(min+i);
-//        return result;
-//      } else {
-//        return  ary.col_enum_domain(classColIdx);
-//      }
-//    }
 //
 //
-//    public double[] determineClassWeights(String source, ValueArray ary, int classColIdx, int maxClasses) throws Exception {
-//      assert classColIdx>=0 && classColIdx < ary.num_cols();
-//      // determine the arity of the column
-//      HashMap<String,Integer> classNames = new HashMap();
-//      String[] names = determineColumnClassNames(ary,classColIdx,maxClasses);
-//      for (int i = 0; i < names.length; ++i)
-//        classNames.put(names[i],i);
-//      if (source.isEmpty())
-//        return null;
-//      double[] result = new double[names.length];
-//      for (int i = 0; i < result.length; ++i)
-//        result[i] = 1;
-//      // now parse the given string and update the weights
-//      int start = 0;
-//      byte[] bsource = source.getBytes();
-//      while (start < bsource.length) {
-//        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
-//        String className;
-//        double classWeight;
-//        int end = 0;
-//        if (bsource[start] == ',') {
-//          ++start;
-//          end = source.indexOf(',',start);
-//          className = source.substring(start,end);
-//          ++end;
-//
-//        } else {
-//          end = source.indexOf('=',start);
-//          className = source.substring(start,end);
-//        }
-//        start = end;
-//        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
-//        if (bsource[start]!='=')
-//          throw new Exception("Expected = after the class name.");
-//        ++start;
-//        end = source.indexOf(',',start);
-//        if (end == -1) {
-//          classWeight = Double.parseDouble(source.substring(start));
-//          start = bsource.length;
-//        } else {
-//          classWeight = Double.parseDouble(source.substring(start,end));
-//          start = end + 1;
-//        }
-//        if (!classNames.containsKey(className))
-//          throw new Exception("Class "+className+" not found!");
-//        result[classNames.get(className)] = classWeight;
-//      }
-//      return result;
-//    }
 //
 //  }
 //
