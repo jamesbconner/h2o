@@ -10,6 +10,17 @@ import water.web.RString;
  */
 public class RequestQueries extends RequestArguments {
 
+  /** Overwrite this method to be able to change / disable values of other
+   * arguments on certain argument changes.
+   *
+   * This is only fired for queries. It is expected that in normal flow these
+   * events are of no use and should be fired as errors.
+   */
+  protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
+
+  }
+
+
   /** Checks the given arguments.
    *
    * When first argument is found wrong, generates the json error and returns the
@@ -103,6 +114,7 @@ public class RequestQueries extends RequestArguments {
     for (Argument arg: _arguments) {
       try {
         arg.check(args.getProperty(arg._name,""));
+        queryArgumentValueSet(arg, args);
       } catch (IllegalArgumentException e) {
         // in query mode only display error for arguments present
         if ((type != RequestType.query) || !args.getProperty(arg._name,"").isEmpty())

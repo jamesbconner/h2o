@@ -4,6 +4,7 @@ package water.api;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Properties;
 import water.DKV;
 import water.Key;
 import water.Value;
@@ -301,6 +302,15 @@ public class RequestArguments extends RequestStatics {
       record()._disabledReason = reason;
     }
 
+    /** Disables the argument and makes its input value empty. This is the
+     * preferred way of disabling arguments.
+     */
+    public final void disable(String reason, Properties args) {
+      assert (reason != null);
+      disable(reason);
+      args.remove(_name);
+    }
+
     /** Returns whether the argument is disabled or not.
      */
     public final boolean disabled() {
@@ -592,7 +602,7 @@ public class RequestArguments extends RequestStatics {
     /** Refresh only taps to jQuery change event.
      */
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change('"+callbackName+"');";
+      return "$('#"+_name+"').change("+callbackName+");";
     }
 
     /** Returns 1 if the checkbox is checked and 0 otherwise.
@@ -764,7 +774,7 @@ public class RequestArguments extends RequestStatics {
       int size = selectValues().length;
       StringBuilder sb = new StringBuilder();
       for (int i = 0; i < size; ++i)
-        sb.append("$('#"+_name+String.valueOf(i)+"').change('"+callbackName+"');\n");
+        sb.append("$('#"+_name+String.valueOf(i)+"').change("+callbackName+");\n");
       return sb.toString();
     }
 
@@ -851,7 +861,7 @@ public class RequestArguments extends RequestStatics {
       int size = textNames().length;
       StringBuilder sb = new StringBuilder();
       for (int i = 0; i < size; ++i)
-        sb.append("$('#"+_name+String.valueOf(i)+"').change('"+callbackName+"');\n");
+        sb.append("$('#"+_name+String.valueOf(i)+"').change("+callbackName+");\n");
       return sb.toString();
     }
 
@@ -1345,131 +1355,6 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected String queryDescription() {
       return "Columns to be ignored by the computation";
-    }
-
-  }
-
-  // ---------------------------------------------------------------------------
-  // H2OHexCategoryWeights
-  // ---------------------------------------------------------------------------
-
-  public class H2OCategoryWeights extends MultipleText<double[]> {
-
-    public final H2OHexKey _key;
-    public final H2OHexKeyCol _classCol;
-
-    public final double _defaultValue;
-
-    public H2OCategoryWeights(H2OHexKey key, H2OHexKeyCol classCol, String name, double defaultValue) {
-      super(name,false);
-      _key = key;
-      _classCol = classCol;
-      _defaultValue = defaultValue;
-      addPrerequisite(key);
-      addPrerequisite(classCol);
-    }
-
-    protected String[] determineColumnClassNames(int maxClasses) throws IllegalArgumentException {
-      ValueArray va = _key.value();
-      ValueArray.Column classCol = va._cols[_classCol.value()];
-      String[] domain = classCol._domain;
-      if ((domain == null) || (domain.length == 0)) {
-        int min = (int) classCol._min;
-        if (classCol._min!= min)
-          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
-        int max = (int) classCol._max;
-        if (classCol._max != max)
-          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
-        if (max - min > maxClasses) // arbitrary number
-          throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
-        String[] result = new String[max-min+1];
-        for (int i = 0; i <= max - min; ++i)
-          result[i] = String.valueOf(min+i);
-        return result;
-      } else {
-        return domain;
-      }
-    }
-
-    @Override protected String[] textValues() {
-      double[] val = value();
-      String[] result = new String[val.length];
-      for (int i = 0; i < val.length; ++i)
-        result[i] = String.valueOf(val[i]);
-      return result;
-    }
-
-    @Override protected String[] textNames() {
-      try {
-        return determineColumnClassNames(1024);
-      } catch (IllegalArgumentException e) {
-        return new String[0];
-      }
-    }
-
-    @Override protected double[] parse(String input) throws IllegalArgumentException {
-      ValueArray va = _key.value();
-      ValueArray.Column classCOl = va._cols[_classCol.value()];
-      // determine the arity of the column
-      HashMap<String,Integer> classNames = new HashMap();
-      String[] names = determineColumnClassNames(1024);
-      for (int i = 0; i < names.length; ++i)
-        classNames.put(names[i],i);
-      double[] result = new double[names.length];
-      for (int i = 0; i < result.length; ++i)
-        result[i] = _defaultValue;
-      // now parse the given string and update the weights
-      int start = 0;
-      byte[] bsource = input.getBytes();
-      while (start < bsource.length) {
-        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
-        String className;
-        double classWeight;
-        int end = 0;
-        if (bsource[start] == ',') {
-          ++start;
-          end = input.indexOf(',',start);
-          className = input.substring(start,end);
-          ++end;
-
-        } else {
-          end = input.indexOf('=',start);
-          className = input.substring(start,end);
-        }
-        start = end;
-        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
-        if (bsource[start]!='=')
-          throw new IllegalArgumentException("Expected = after the class name.");
-        ++start;
-        end = input.indexOf(',',start);
-        if (end == -1) {
-          classWeight = Double.parseDouble(input.substring(start));
-          start = bsource.length;
-        } else {
-          classWeight = Double.parseDouble(input.substring(start,end));
-          start = end + 1;
-        }
-        if (!classNames.containsKey(className))
-          throw new IllegalArgumentException("Category "+className+" not found!");
-        result[classNames.get(className)] = classWeight;
-      }
-      return result;
-    }
-
-    @Override protected double[] defaultValue() {
-      try {
-        String[] names = determineColumnClassNames(1024);
-        double[] result = new double[names.length];
-        for (int i = 0; i < result.length; ++i)
-          result[i] = _defaultValue;
-        return result;
-      } catch (IllegalArgumentException e) {
-        return new double[0];
-      }
-    }
-
-    @Override protected String queryDescription() {
-      return "category weight (positive)";
     }
 
   }

@@ -3,6 +3,8 @@ package water.api;
 
 import com.google.gson.JsonObject;
 import hex.rf.Tree;
+import java.util.HashMap;
+import java.util.Properties;
 import water.Key;
 import water.ValueArray;
 
@@ -15,20 +17,34 @@ public class RF extends Request {
   protected final H2OHexKey _dataKey = new H2OHexKey(JSON_DATA_KEY);
   protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,JSON_CLASS,0);
   protected final Int _numTrees = new Int(JSON_NUM_TREES,50,0,Integer.MAX_VALUE);
-  protected final Int _depth = new Int(JSON_DEPTH,0,0,Integer.MAX_VALUE);
-  protected final Int _sample = new Int(JSON_SAMPLE, 67, 0, 100);
-  protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, 0,65535);
   protected final Bool _gini = new Bool(JSON_GINI,true,"use gini statistic (otherwise entropy is used)");
-  protected final Int _seed = new Int(JSON_SEED,0);
-  protected final Bool _parallel = new Bool(JSON_PARALLEL,true,"Build trees in parallel");
+  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, JSON_WEIGHTS, 1);
+  protected final Bool _stratify = new Bool(JSON_STRATIFY,false,"Use Stratified sampling");
+  protected final H2OCategoryStrata _strata = new H2OCategoryStrata(_dataKey, _classCol, JSON_STRATA, 1);
   protected final H2OKey _modelKey = new H2OKey(JSON_MODEL_KEY,Key.make("model"));
   protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
-  protected final Bool _stratify = new Bool(JSON_STRATIFY,false,"Use Stratified sampling");
-//  protected final H2OCategoryDoubles _weights = new H2OCategoryDoubles(_dataKey, _classCol, JSON_WEIGHTS,1,"Category weights",0,Double.POSITIVE_INFINITY);
-//  protected final H2OKeyCols _ignore = new H2OKeyCols(_dataKey,JSON_IGNORE,new int[0],"Ignore columns");
   protected final Int _features = new Int(JSON_FEATURES, 0, 0, Integer.MAX_VALUE);
   protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
-  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, JSON_WEIGHTS, 1);
+  protected final Int _sample = new Int(JSON_SAMPLE, 67, 0, 100);
+  protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, 0,65535);
+  protected final Int _depth = new Int(JSON_DEPTH,0,0,Integer.MAX_VALUE);
+  protected final Int _seed = new Int(JSON_SEED,0);
+  protected final Bool _parallel = new Bool(JSON_PARALLEL,true,"Build trees in parallel");
+
+
+  public RF() {
+    _stratify.setRefreshOnChange();
+  }
+
+  @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
+    if (arg == _stratify) {
+      if (_stratify.value()) {
+        _oobee.disable("OOBEE is only meaningful if stratify is not specified.", inputArgs);
+      } else {
+        _strata.disable("Strata is only meaningful if stratify is on.", inputArgs);
+      }
+    }
+  }
 
   /** Fires the random forest computation.
    *
@@ -79,7 +95,273 @@ public class RF extends Request {
 
   }
 
+  // ---------------------------------------------------------------------------
+  // H2OHexCategoryWeights
+  // ---------------------------------------------------------------------------
+
+  public class H2OCategoryWeights extends MultipleText<double[]> {
+
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+
+    public final double _defaultValue;
+
+    public H2OCategoryWeights(H2OHexKey key, H2OHexKeyCol classCol, String name, double defaultValue) {
+      super(name,false);
+      _key = key;
+      _classCol = classCol;
+      _defaultValue = defaultValue;
+      addPrerequisite(key);
+      addPrerequisite(classCol);
+    }
+
+    protected String[] determineColumnClassNames(int maxClasses) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ValueArray.Column classCol = va._cols[_classCol.value()];
+      String[] domain = classCol._domain;
+      if ((domain == null) || (domain.length == 0)) {
+        int min = (int) classCol._min;
+        if (classCol._min!= min)
+          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+        int max = (int) classCol._max;
+        if (classCol._max != max)
+          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+        if (max - min > maxClasses) // arbitrary number
+          throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+        String[] result = new String[max-min+1];
+        for (int i = 0; i <= max - min; ++i)
+          result[i] = String.valueOf(min+i);
+        return result;
+      } else {
+        return domain;
+      }
+    }
+
+    @Override protected String[] textValues() {
+      double[] val = value();
+      String[] result = new String[val.length];
+      for (int i = 0; i < val.length; ++i)
+        result[i] = String.valueOf(val[i]);
+      return result;
+    }
+
+    @Override protected String[] textNames() {
+      try {
+        return determineColumnClassNames(1024);
+      } catch (IllegalArgumentException e) {
+        return new String[0];
+      }
+    }
+
+    @Override protected double[] parse(String input) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ValueArray.Column classCOl = va._cols[_classCol.value()];
+      // determine the arity of the column
+      HashMap<String,Integer> classNames = new HashMap();
+      String[] names = determineColumnClassNames(1024);
+      for (int i = 0; i < names.length; ++i)
+        classNames.put(names[i],i);
+      double[] result = new double[names.length];
+      for (int i = 0; i < result.length; ++i)
+        result[i] = _defaultValue;
+      // now parse the given string and update the weights
+      int start = 0;
+      byte[] bsource = input.getBytes();
+      while (start < bsource.length) {
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        String className;
+        double classWeight;
+        int end = 0;
+        if (bsource[start] == ',') {
+          ++start;
+          end = input.indexOf(',',start);
+          className = input.substring(start,end);
+          ++end;
+
+        } else {
+          end = input.indexOf('=',start);
+          className = input.substring(start,end);
+        }
+        start = end;
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        if (bsource[start]!='=')
+          throw new IllegalArgumentException("Expected = after the class name.");
+        ++start;
+        end = input.indexOf(',',start);
+        try {
+          if (end == -1) {
+            classWeight = Double.parseDouble(input.substring(start));
+            start = bsource.length;
+          } else {
+            classWeight = Double.parseDouble(input.substring(start,end));
+            start = end + 1;
+          }
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Invalid double format for weight value");
+        }
+
+        if (!classNames.containsKey(className))
+          throw new IllegalArgumentException("Category "+className+" not found!");
+        result[classNames.get(className)] = classWeight;
+      }
+      return result;
+    }
+
+    @Override protected double[] defaultValue() {
+      try {
+        String[] names = determineColumnClassNames(1024);
+        double[] result = new double[names.length];
+        for (int i = 0; i < result.length; ++i)
+          result[i] = _defaultValue;
+        return result;
+      } catch (IllegalArgumentException e) {
+        return new double[0];
+      }
+    }
+
+    @Override protected String queryDescription() {
+      return "category weight (positive)";
+    }
+
+  }
+
+  // ---------------------------------------------------------------------------
+  // H2OCategoryStrata
+  // ---------------------------------------------------------------------------
+
+  public class H2OCategoryStrata extends MultipleText<int[]> {
+
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+
+    public final int _defaultValue;
+
+    public H2OCategoryStrata(H2OHexKey key, H2OHexKeyCol classCol, String name, int defaultValue) {
+      super(name,false);
+      _key = key;
+      _classCol = classCol;
+      _defaultValue = defaultValue;
+      addPrerequisite(key);
+      addPrerequisite(classCol);
+    }
+
+    protected String[] determineColumnClassNames(int maxClasses) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ValueArray.Column classCol = va._cols[_classCol.value()];
+      String[] domain = classCol._domain;
+      if ((domain == null) || (domain.length == 0)) {
+        int min = (int) classCol._min;
+        if (classCol._min!= min)
+          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+        int max = (int) classCol._max;
+        if (classCol._max != max)
+          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+        if (max - min > maxClasses) // arbitrary number
+          throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+        String[] result = new String[max-min+1];
+        for (int i = 0; i <= max - min; ++i)
+          result[i] = String.valueOf(min+i);
+        return result;
+      } else {
+        return domain;
+      }
+    }
+
+    @Override protected String[] textValues() {
+      int[] val = value();
+      String[] result = new String[val.length];
+      for (int i = 0; i < val.length; ++i)
+        result[i] = String.valueOf(val[i]);
+      return result;
+    }
+
+    @Override protected String[] textNames() {
+      try {
+        return determineColumnClassNames(1024);
+      } catch (IllegalArgumentException e) {
+        return new String[0];
+      }
+    }
+
+    @Override protected int[] parse(String input) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ValueArray.Column classCOl = va._cols[_classCol.value()];
+      // determine the arity of the column
+      HashMap<String,Integer> classNames = new HashMap();
+      String[] names = determineColumnClassNames(1024);
+      for (int i = 0; i < names.length; ++i)
+        classNames.put(names[i],i);
+      int[] result = new int[names.length];
+      for (int i = 0; i < result.length; ++i)
+        result[i] = _defaultValue;
+      // now parse the given string and update the weights
+      int start = 0;
+      byte[] bsource = input.getBytes();
+      while (start < bsource.length) {
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        String className;
+        int classWeight;
+        int end = 0;
+        if (bsource[start] == ',') {
+          ++start;
+          end = input.indexOf(',',start);
+          className = input.substring(start,end);
+          ++end;
+
+        } else {
+          end = input.indexOf('=',start);
+          className = input.substring(start,end);
+        }
+        start = end;
+        while (start < bsource.length && bsource[start]==' ') ++start; // whitespace;
+        if (bsource[start]!='=')
+          throw new IllegalArgumentException("Expected = after the class name.");
+        ++start;
+        end = input.indexOf(',',start);
+        try {
+          if (end == -1) {
+            classWeight = Integer.parseInt(input.substring(start));
+            start = bsource.length;
+          } else {
+            classWeight = Integer.parseInt(input.substring(start,end));
+            start = end + 1;
+          }
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Invalid integer format for strata value");
+        }
+        if (!classNames.containsKey(className))
+          throw new IllegalArgumentException("Category "+className+" not found!");
+        result[classNames.get(className)] = classWeight;
+      }
+      return result;
+    }
+
+    @Override protected int[] defaultValue() {
+      try {
+        String[] names = determineColumnClassNames(1024);
+        int[] result = new int[names.length];
+        for (int i = 0; i < result.length; ++i)
+          result[i] = _defaultValue;
+        return result;
+      } catch (IllegalArgumentException e) {
+        return new int[0];
+      }
+    }
+
+    @Override protected String queryDescription() {
+      return "category strata (integer)";
+    }
+
+  }
+
+
+
+
 }
+
+
+
+
 /*
 
 // @author cliffc
