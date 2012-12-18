@@ -13,8 +13,7 @@ public class RequestQueries extends RequestArguments {
   /** Overwrite this method to be able to change / disable values of other
    * arguments on certain argument changes.
    *
-   * This is only fired for queries. It is expected that in normal flow these
-   * events are of no use and should be fired as errors.
+   * This is done for both query checking and request checking.
    */
   protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
 
@@ -41,6 +40,7 @@ public class RequestQueries extends RequestArguments {
     for (Argument arg: _arguments) {
       try {
         arg.check(args.getProperty(arg._name,""));
+        queryArgumentValueSet(arg, args);
       } catch (IllegalArgumentException e) {
         if (type == RequestType.json)
           return jsonError("Argument "+arg._name+" error: "+e.getMessage()).toString();

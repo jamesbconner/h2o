@@ -99,7 +99,7 @@ public class RequestServer extends NanoHTTPD {
     } catch (Exception e) {
       e.printStackTrace();
       // make sure that no Exception is ever thrown out from the request
-      parms.setProperty(Request.JSON_ERROR,e.getMessage());
+      parms.setProperty(Request.JSON_ERROR,e.getClass().getSimpleName()+": "+e.getMessage());
       return _http500.serve(this,parms,type);
     }
   }
