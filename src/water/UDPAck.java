@@ -11,10 +11,13 @@ import java.net.DatagramPacket;
 public class UDPAck extends UDP {
   // Received an ACK for a remote Task.  Ping the task.
   AutoBuffer call(AutoBuffer ab) {
-    RPC<?> t = RPC.TASKS.get(ab.getTask());
-    assert t== null || t._tasknum == ab.getTask();
-    return t == null ? ab       // Never heard of this task?  Just blow it off.
-      : t.response(ab);         // Do the 2nd half of this task
+    int tnum = ab.getTask();
+    RPC<?> t = RPC.TASKS.get(tnum);
+    assert t== null || t._tasknum == tnum;
+    if( t != null ) t.response(ab); // Do the 2nd half of this task, includes ACKACK
+    else ab.close();
+    // Else forgotten task, but still must ACKACK
+    return new AutoBuffer(ab._h2o).putTask(UDP.udp.ackack.ordinal(),tnum);
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum

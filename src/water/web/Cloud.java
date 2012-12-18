@@ -42,7 +42,7 @@ public class Cloud extends H2OPage {
       //String name = h2o._inet.getHostName();
       row.replace("host",h2o);
       row.replace("node",h2o);
-      row.replace("num_cpus" ,                 (hb._num_cpus));
+      row.replace("num_cpus" ,            (int)(hb._num_cpus));
       row.replace("free_mem" ,PrettyPrint.bytes(hb.get_free_mem()));
       row.replace("tot_mem"  ,PrettyPrint.bytes(hb.get_tot_mem  ()));
       row.replace("max_mem"  ,PrettyPrint.bytes(hb.get_max_mem  ()));

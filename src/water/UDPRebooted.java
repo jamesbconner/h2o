@@ -27,18 +27,21 @@ public class UDPRebooted extends UDP {
   public static void checkForSuicide(int first_byte, AutoBuffer ab) {
     if( first_byte != UDP.udp.rebooted.ordinal() ) return;
     int type = ab.get1();
-    if( type > 1 ) {
-      String m;
-      switch( T.values()[type] ) {
-      case error:    m = "Error leading to a cloud kill"              ; break;
-      case shutdown: m = "Orderly shutdown command"                   ; break;
-      case locked:   m = "Killed joining a locked cloud"              ; break;
-      case mismatch: m = "Killed joining a cloud with a different jar"; break;
-      default:       m = "Received kill "+type                        ; break;
-      }
-      System.err.println("[h2o] "+m+" from "+ab._h2o);
-      System.exit(-1);
+    String m;
+    switch( T.values()[type] ) {
+    case none:   return;
+    case reboot: return;
+    case shutdown:
+      System.out.println("[h2o] Orderly shutdown command from "+ab._h2o);
+      System.exit(0);
+      return;
+    case error:    m = "Error leading to a cloud kill"              ; break;
+    case locked:   m = "Killed joining a locked cloud"              ; break;
+    case mismatch: m = "Killed joining a cloud with a different jar"; break;
+    default:       m = "Received kill "+type                        ; break;
     }
+    System.err.println("[h2o] "+m+" from "+ab._h2o);
+    System.exit(-1);
   }
 
   AutoBuffer call(AutoBuffer ab) {

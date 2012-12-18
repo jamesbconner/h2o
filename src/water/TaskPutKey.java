@@ -13,29 +13,11 @@ public class TaskPutKey extends DTask {
   Value _val;
   transient Value _xval;
   static void put( H2ONode h2o, Key key, Value val, Futures fs ) {
-    // A Stronger MM is easier, in many ways than an weaker one.  In this case
-    // I am ordering writes from the same Node to the same Key, so that the
-    // last write from this Node wins.  The specific use-case is simply PUT
-    // then REMOVE, where the PUT and REMOVE swap over the wires and the REMOVE
-    // happens before any PUT, the PUT sticks and a Key is leaked.
-
-    // The fix is to stall until earlier outgoing writes to the same Key
-    // completed, i.e., I get the ACK back.  One pass through the pending TASKs
-    // is sufficient, because this thread cannot issue any more PUTs until the
-    // current one finishes.
-    for( RPC rpc : RPC.TASKS.values() )
-      if( rpc._target == h2o && rpc._dt instanceof TaskPutKey &&
-          ((TaskPutKey)rpc._dt)._key == key )
-        rpc.get();
-
     Future f = RPC.call(h2o,new TaskPutKey(key,val));
     if( fs != null ) fs.add(f);
   }
 
-  static void invalidate( H2ONode h2o, Key key, Futures fs ) {
-    Future f = RPC.call(h2o,new TaskPutKey(key,null));
-    if( fs != null ) fs.add(f);
-  }
+  static void invalidate( H2ONode h2o, Key key, Futures fs ) { put(h2o,key,null,fs); }
 
   private TaskPutKey( Key key, Value val ) { _key = key; _xval = _val = val; }
   public TaskPutKey invoke( H2ONode sender ) {

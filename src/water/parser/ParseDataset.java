@@ -1,16 +1,15 @@
 package water.parser;
-import com.google.common.io.Closeables;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.zip.*;
+
 import water.*;
 import water.ValueArray.Column;
-import water.parser.ValueString;
+
+import com.google.common.io.Closeables;
 
 /**
  * Helper class to parse an entire ValueArray data, and produce a structured

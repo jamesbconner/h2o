@@ -5,6 +5,7 @@ def setupImportFolder(node=None, importFolderPath='/home/0xdiag/datasets'):
     if not node: node = h2o.nodes[0]
     importFolderResult = node.import_folder(importFolderPath)
     h2o.dump_json(importFolderResult)
+    return importFolderResult
 
 # assumes you call setupImportFolder first
 def parseImportFolderFile(node=None, csvFilename=None, importFolderPath=None, key2=None,

@@ -44,7 +44,7 @@ public class Inspect extends H2OPage {
       for( ValueArray.Column C : ary._cols ) {
         JsonObject col = new JsonObject();
         col.addProperty("name", C._name);
-        col.addProperty("off", C._off);
+        col.addProperty("off", (int)C._off);
         if( C._domain != null ) {
           col.addProperty("type", "enum");
           JsonArray enums = new JsonArray();

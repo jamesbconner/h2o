@@ -1,5 +1,8 @@
 package hex;
 
+import com.google.common.collect.*;
+
+import hex.DGLM.*;
 import hex.RowVecTask.Sampling;
 import water.*;
 import water.ValueArray.Column;
@@ -11,6 +14,14 @@ public abstract class Models {
   }
 
   public static abstract class ModelValidation extends Iced {
+    public static final BiMap<Class<? extends ModelValidation>, Integer> TYPE;
+    static {
+      TYPE = HashBiMap.create();
+      TYPE.put(null, -1);
+      TYPE.put(GLMValidation.class, 0);
+      TYPE.put(GLMBinomialValidation.class, 1);
+    }
+
     public abstract void add(double yr, double ym);
     public abstract void add(ModelValidation other);
     public abstract double err();
@@ -54,11 +65,10 @@ public abstract class Models {
     protected NewModel        _m;
     protected ModelValidation _val;
     // transients
-    transient AutoBuffer          _data;
+    transient AutoBuffer      _data;
     transient int             _off;
 
-    public ModelTask() {
-    }
+    public ModelTask() { }
 
     public ModelTask(NewModel m, int[] colIds, Sampling s, double[][] pVals,
         double ymu) {
@@ -74,7 +84,7 @@ public abstract class Models {
         _data = new AutoBuffer(_rpc << 3);
       super.map(key);
       if( _resultChunk0 != null )
-        DKV.put(key, new Value(key, _data.bufClose()));
+        DKV.put(key, new Value(key, _data.buf()));
     }
 
     @Override
@@ -98,6 +108,14 @@ public abstract class Models {
   }
 
   public static abstract class NewModel extends Iced {
+    public static final BiMap<Class<? extends NewModel>, Integer> TYPE;
+    static {
+      TYPE = HashBiMap.create();
+      TYPE.put(null, -1);
+      TYPE.put(GLMModel.class, 0);
+      TYPE.put(GLMBinomialModel.class, 1);
+    }
+
     public transient String[] _warnings;   // warning messages from model
                                             // building
     transient String[]        _columnNames;

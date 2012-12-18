@@ -5,7 +5,9 @@ import java.net.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.util.Arrays;
+import java.lang.Boolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.*;
 
 /**
  * A ByteBuffer backed mixed Input/OutputStream class.
@@ -110,13 +112,13 @@ public final class AutoBuffer {
     _read = read;               // Mostly assert reading vs writing
   }
 
-  // Read from UDP.  Same as the byte[]-read variant, except there is an H2O.
+  // Read from UDP multicast.  Same as the byte[]-read variant, except there is an H2O.
   public AutoBuffer( DatagramPacket pack ) {
     _bb = ByteBuffer.wrap(pack.getData(), 0, pack.getLength()).order(ByteOrder.nativeOrder());
     _bb.position(0);
-    _chan = null;
     _read = true;
     _firstPage = true;
+    _chan = null;
     _h2o = H2ONode.intern(pack.getAddress(), getPort());
   }
 
@@ -127,9 +129,9 @@ public final class AutoBuffer {
     _bb = ByteBuffer.wrap(buf).order(ByteOrder.nativeOrder());
     _bb.position(off);
     _chan = null;
+    _h2o = null;
     _read = true;
     _firstPage = true;
-    _h2o = null;
   }
 
   /**  Write to an ever-expanding byte[].  Instead of calling {@link #close()},
@@ -154,12 +156,49 @@ public final class AutoBuffer {
     _firstPage = true;
   }
 
-  // Fetch a BB from a pool?
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("[AB ").append(_read ? "read " : "write ");
+    sb.append(_firstPage?"first ":"2nd ").append(_h2o);
+    sb.append("0 <= ").append(_bb.position()).append(" <= ").append(_bb.limit());
+    sb.append(" <= ").append(_bb.capacity());
+    return sb.append("]").toString();
+  }
+
+  // Fetch a DBB from an objcet pool... they are fairly expensive to make
+  // because a native call is required to get the backing memory.  I've
+  // included BB count tracking code to help track leaks.  As of 12/17/2012 the
+  // leaks are under control, but figure this may happen again so keeping these
+  // counters around.
+  private static final boolean DEBUG = Boolean.getBoolean("h2o.find-ByteBuffer-leaks");
+  private static final AtomicInteger BBMAKE = new AtomicInteger(0);
+  private static final AtomicInteger BBFREE = new AtomicInteger(0);
+  private static final AtomicInteger BBCACHE= new AtomicInteger(0);
+  private static final LinkedBlockingDeque<ByteBuffer> BBS = new LinkedBlockingDeque<ByteBuffer>();
+  private static void bbstats( AtomicInteger ai ) {
+    if( !DEBUG ) return;
+    if( (ai.incrementAndGet()&511)==511 ) {
+      System.err.println("BB make="+BBMAKE.get()+" free="+BBFREE.get()+" cache="+BBCACHE.get()+" size="+BBS.size());
+    }
+  }
+
   private static final ByteBuffer bbMake() {
+    ByteBuffer bb = null;
+    try { bb = BBS.pollFirst(0,TimeUnit.SECONDS); }
+    catch( InterruptedException ie ) { throw new Error(ie); }
+    if( bb != null ) {
+      bbstats(BBCACHE);
+      return bb;
+    }
+    bbstats(BBMAKE);
     return ByteBuffer.allocateDirect(64*1024).order(ByteOrder.nativeOrder());
   }
   private final int bbFree() {
-    _bb.clear();
+    if( _bb.isDirect() ) {
+      bbstats(BBFREE);
+      _bb.clear();
+      BBS.offerFirst(_bb);
+    }
     _bb = null;
     return 0;                   // Flow-coding
   }
@@ -168,13 +207,14 @@ public final class AutoBuffer {
   // For reads, just assert all was read and close and release resources.
   // (release ByteBuffer back to the common pool).  For writes, force any final
   // bytes out.  If the write is to an H2ONode and is short, send via UDP.
-  public final int close() {
+  public final int close() { return close(false); }
+  public final int close(boolean forceTcp ) {
     assert _h2o != null || _chan != null;      // Byte-array backed should not be closed
     try {
       if( _chan == null ) {     // No channel?
-        if( _read ) return _h2o == null ? 0 : bbFree();
+        if( _read ) return bbFree();
         // For small-packet write, send via UDP.
-        if( _bb.position() < MTU ) return udpSend();
+        if( !forceTcp && _bb.position() < MTU ) return udpSend();
       }
       if( !_read ) {            // Writing?
         _bb.flip();             // Write out any remaining data
@@ -195,7 +235,7 @@ public final class AutoBuffer {
 
   // Need a sock for a big read or write operation
   private void tcpOpen() throws IOException {
-    assert _firstPage && _bb.limit() >= 1+2+4+1; // At least something written
+    assert _firstPage && _bb.limit() >= 1+2+4; // At least something written
     assert _chan == null;
     SocketChannel sock = SocketChannel.open( _h2o._key );
     assert sock.isConnected();   // Supposed to be a blocking channel
@@ -219,7 +259,7 @@ public final class AutoBuffer {
 
   // Return byte[] from a writable AutoBuffer
   public final byte[] buf() {
-    assert _h2o==null && _chan==null && _read==false;
+    assert _h2o==null && _chan==null && _read==false && !_bb.isDirect();
     return Arrays.copyOfRange(_bb.array(), _bb.arrayOffset(), _bb.position());
   }
   public final byte[] bufClose() {
@@ -632,10 +672,10 @@ public final class AutoBuffer {
   public AutoBuffer putA1( byte[] ary, int length ) {
     int sofar = 0;
     while( sofar < length ) {
-      int len = Math.min(ary.length - sofar, _bb.remaining());
+      int len = Math.min(length - sofar, _bb.remaining());
       _bb.put(ary, sofar, len);
       sofar += len;
-      if( sofar < ary.length ) sendPartial();
+      if( sofar < length ) sendPartial();
     }
     return this;
   }

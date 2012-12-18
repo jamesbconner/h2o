@@ -4,6 +4,7 @@ import java.net.*;
 import java.nio.channels.DatagramChannel;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.*;
 
 import water.nbhm.NonBlockingHashMap;
 import water.nbhm.NonBlockingHashMapLong;
@@ -188,11 +189,11 @@ public class H2ONode extends Iced implements Comparable {
     assert old instanceof NOPTask : "Not a NOPTask #"+task+" "+(old == null ? "null" : old.getClass())+" "+dt.getClass()+" "+(old==dt);
   }
   // Stop tracking a remote task, because we got an ACKACK.
-  void remove_task_tracking( long task ) {
+  void remove_task_tracking( int task ) {
     DTask old = WORK.remove(task);
     if( old == null ) return;   // Already stopped tracking
     assert !(old instanceof NOPTask) : "Still NOPTask #"+task+" "+(old == null ? "null" : old.getClass());
- // Task was completed
+    // Task was completed
     old.onAckAck();                 // One-time call stop-tracking
   }
 

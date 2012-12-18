@@ -197,7 +197,8 @@ public abstract class MemoryManager {
 
   // allocates memory, will block until there is enough available memory
   public static byte[] malloc1(int size) {
-    assert size < 10000000 : "malloc1 size=0x"+Integer.toHexString(size);
+    // kbn was 10000000
+    assert size < 2000000000 : "malloc1 size=0x"+Integer.toHexString(size);
     while( true ) {
       if( !CAN_ALLOC && size > 256 ) {
         synchronized(_lock) {
