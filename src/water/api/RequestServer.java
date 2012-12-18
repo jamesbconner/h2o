@@ -64,7 +64,7 @@ public class RequestServer extends NanoHTTPD {
           while( true ) {
             try {
               // Try to get the NanoHTTP daemon started
-              new RequestServer(new ServerSocket(12345));
+              new RequestServer(H2O._apiSocket);
               break;
             } catch ( Exception ioe ) {
               System.err.println("Launching NanoHTTP server got "+ioe);
@@ -76,7 +76,6 @@ public class RequestServer extends NanoHTTPD {
   }
 
   // uri serve -----------------------------------------------------------------
-
 
   @Override public NanoHTTPD.Response serve( String uri, String method, Properties header, Properties parms, Properties files ) {
     // Jack priority for user-visible requests

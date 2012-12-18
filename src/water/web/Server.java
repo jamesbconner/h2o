@@ -11,6 +11,7 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import water.H2O;
 import water.NanoHTTPD;
+import water.api.RequestServer;
 import water.web.Page.PageError;
 
 /** This is a simple web server. */
