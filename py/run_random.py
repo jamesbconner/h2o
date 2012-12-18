@@ -7,12 +7,13 @@ h2o.parse_our_args()
 
 try:
     print 'Building cloud'
-    h2o.build_cloud(1, capture_output=False)
-    print 'Random Forest'
-    h2o_cmd.runRF(None, h2o.find_file('smalldata/iris/iris2.csv'))
-    print 'Completed'
-    h2b.browseJsonHistoryAsUrlLastMatch("RFView")
-    h2o_cmd.parseFile(None, h2o.find_file('smalldata/iris/iris.csv'), 'iris')
+    h2o.build_cloud(3, java_heap_GB=4, capture_output=False)
+    n = h2o.nodes[0]
+    print 'Import'
+    n.import_folder('/Users/fowles/dev/datasets')
+    print 'Parse'
+    k = 'nfs://Users/fowles/dev/datasets/allstate.csv'
+    n.parse(k)
     while True:
         time.sleep(1)
 except KeyboardInterrupt:

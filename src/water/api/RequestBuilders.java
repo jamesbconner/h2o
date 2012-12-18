@@ -1,15 +1,15 @@
 
 package water.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
+
 import water.H2O;
 import water.web.RString;
+
+import com.google.gson.*;
 
 /** Builders & response object.
  *
@@ -668,6 +668,19 @@ public class RequestBuilders extends RequestQueries {
         return build(objectToString((JsonObject) element), elementName(contextName));
       else
         return build(elementToString(element), elementName(contextName));
+    }
+  }
+
+  public static class KeyElementBuilder extends ElementBuilder {
+    @Override
+    public String build(String elementContents, String elementName) {
+      try {
+        String k = URLEncoder.encode(elementContents, "UTF-8");
+        return "<dl class='dl-horizontal'><dt>"+elementName+"</dt>" +
+        "<dd><a href='Inspect.html?key="+k+"'>"+elementContents+"</a></dd></dl>";
+      } catch( Throwable e ) {
+        throw new RuntimeException(e);
+      }
     }
   }
 

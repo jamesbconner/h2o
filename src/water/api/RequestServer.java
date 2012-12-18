@@ -32,17 +32,12 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
     Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
     Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
-
-
-
-
-
-
+    Request.addToNavbar(registerRequest(new ImportFile()),"File","Import");
+    Request.addToNavbar(registerRequest(new ImportDirectory()),"Directory","Import");
 
     registerRequest(new WWWKeys());
     registerRequest(new WWWHexKeys());
     registerRequest(new WWWModelKeys());
-
 
     Request.addToNavbar(registerRequest(new RedirectTest()),"Redirect test","Debug");
     Request.addToNavbar(registerRequest(new PollTest()),"Poll test","Debug");

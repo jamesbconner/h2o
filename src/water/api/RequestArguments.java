@@ -1,11 +1,10 @@
 
 package water.api;
 
+import java.io.File;
 import java.util.*;
-import water.DKV;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+
+import water.*;
 import water.web.RString;
 
 /** All arguments related classes are defined in this guy.
@@ -1059,6 +1058,60 @@ public class RequestArguments extends RequestStatics {
       return _description;
     }
 
+  }
+
+  // ---------------------------------------------------------------------------
+  // File
+  // ---------------------------------------------------------------------------
+
+  public class ExistingFile extends InputText<File> {
+    public ExistingFile(String name) {
+      super(name, true);
+    }
+
+    @Override protected File parse(String input) throws IllegalArgumentException {
+      File f = new File(input);
+      if( !f.exists() )
+        throw new IllegalArgumentException("File "+input+" not found!");
+      return f;
+    }
+
+    @Override protected String queryDescription() {
+      return "existing file";
+    }
+
+    @Override
+    protected File defaultValue() {
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Directory
+  // ---------------------------------------------------------------------------
+
+  public class ExistingDir extends InputText<File> {
+    public ExistingDir(String name) {
+      super(name, true);
+    }
+
+    @Override protected File parse(String input) throws IllegalArgumentException {
+      File f = new File(input);
+      if( !f.exists() )
+        throw new IllegalArgumentException("Directory "+input+" not found!");
+      if( !f.isDirectory() )
+        throw new IllegalArgumentException(input+" is not a directory!");
+      return f;
+    }
+
+    @Override protected String queryDescription() {
+      return "existing directory";
+    }
+
+    @Override
+    protected File defaultValue() {
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------

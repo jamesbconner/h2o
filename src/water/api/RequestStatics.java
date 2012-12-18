@@ -26,6 +26,9 @@ public class RequestStatics {
 
 
   public static final String JSON_KEY = "key";
+  public static final String JSON_FAILED = "failed";
+  public static final String JSON_SUCCEEDED = "succeeded";
+  public static final String JSON_FILE = "file";
   public static final String JSON_VALUE = "value";
   public static final String JSON_VALUE_SIZE = "value_size";
   public static final String JSON_RF = "rf";
