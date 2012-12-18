@@ -351,6 +351,13 @@ public class RequestArguments extends RequestStatics {
       return record()._value;
     }
 
+    /** Sets the value. use this only when disabling explicitly and want to
+     * specify a default value that will be used - otherwise null will be.
+     */
+    public final void setValue(T value) {
+      record()._value = value;
+    }
+
     /** Returns the input value submitted by the user, if specified.
      */
     public final String originalValue() {
@@ -1330,8 +1337,7 @@ public class RequestArguments extends RequestStatics {
       return false;
     }
 
-    @Override
-    protected int[] parse(String input) throws IllegalArgumentException {
+    @Override protected int[] parse(String input) throws IllegalArgumentException {
       ValueArray va = _key.value();
       int classCol = _classCol.value();
       ArrayList<Integer> al = new ArrayList();

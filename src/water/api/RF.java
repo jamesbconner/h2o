@@ -43,6 +43,7 @@ public class RF extends Request {
     if (arg == _stratify) {
       if (_stratify.value()) {
         _oobee.disable("OOBEE is only meaningful if stratify is not specified.", inputArgs);
+        _oobee.setValue(false);
       } else {
         _strata.disable("Strata is only meaningful if stratify is on.", inputArgs);
       }

@@ -39,7 +39,9 @@ public abstract class Request extends RequestBuilders {
         String query = checkArguments(args, type);
         if (query != null)
           return wrap(server,query,type);
+        long time = System.currentTimeMillis();
         Response response = serve();
+        response.setTimeStart(time);
         if (type == RequestType.json)
           return wrap(server, response.toJson());
         return wrap(server,build(response));
