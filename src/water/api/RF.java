@@ -89,9 +89,10 @@ public class RF extends Request {
       response.addProperty(JSON_MODEL_KEY, modelKey.toString());
       response.addProperty(JSON_NUM_TREES, ntree);
       response.addProperty(JSON_CLASS, classCol);
-      if (_weights.specified()) {
+      if (_weights.specified())
         response.addProperty(JSON_WEIGHTS, _weights.originalValue());
-      }
+      if (_ignore.specified())
+        response.addProperty(JSON_IGNORE, _ignore.originalValue());
       response.addProperty(JSON_OOBEE, _oobee.value());
     } catch (DRF.IllegalDataException e) {
       return Response.error("Incorrect input data: "+e.getMessage());

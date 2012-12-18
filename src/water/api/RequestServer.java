@@ -41,6 +41,7 @@ public class RequestServer extends NanoHTTPD {
 
     registerRequest(new WWWKeys());
     registerRequest(new WWWHexKeys());
+    registerRequest(new WWWModelKeys());
 
 
     Request.addToNavbar(registerRequest(new RedirectTest()),"Redirect test","Debug");
