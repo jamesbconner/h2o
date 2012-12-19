@@ -1,6 +1,7 @@
 
 package water.api;
 
+import com.google.gson.JsonObject;
 import java.io.File;
 import java.util.*;
 
@@ -37,6 +38,19 @@ public class RequestArguments extends RequestStatics {
   // Helper functions
   // ===========================================================================
 
+  /** Returns a json object containing all arguments specified to the page.
+   *
+   * Useful for redirects and polling.
+   */
+  protected JsonObject argumentsToJson() {
+    JsonObject result = new JsonObject();
+    for (Argument a : _arguments) {
+      if (a.specified())
+        result.addProperty(a._name,a.originalValue());
+    }
+    return result;
+  }
+
   protected static int vaColumnNameToIndex(ValueArray va, String input) {
     // first check if we have string match
     for (int i = 0; i < va._cols.length; ++i) {
@@ -53,6 +67,26 @@ public class RequestArguments extends RequestStatics {
       return i;
     } catch (NumberFormatException e) {
       return -1;
+    }
+  }
+
+  protected static String[] vaCategoryNames(ValueArray.Column col, int maxClasses) throws IllegalArgumentException {
+    String[] domain = col._domain;
+    if ((domain == null) || (domain.length == 0)) {
+      int min = (int) col._min;
+      if (col._min!= min)
+        throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+      int max = (int) col._max;
+      if (col._max != max)
+        throw new IllegalArgumentException("Only integer or enum columns can be classes!");
+      if (max - min > maxClasses) // arbitrary number
+        throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
+      String[] result = new String[max-min+1];
+      for (int i = 0; i <= max - min; ++i)
+        result[i] = String.valueOf(min+i);
+      return result;
+    } else {
+      return domain;
     }
   }
 
@@ -589,6 +623,10 @@ public class RequestArguments extends RequestStatics {
       if (input.equals("1"))
         return true;
       if (input.equals("0"))
+        return false;
+      if (input.equals("true"))
+        return true;
+      if (input.equals("false"))
         return false;
       throw new IllegalArgumentException(input+" is not valid boolean value. Only 1 and 0 are allowed.");
     }
@@ -1446,23 +1484,7 @@ public class RequestArguments extends RequestStatics {
     protected String[] determineColumnClassNames(int maxClasses) throws IllegalArgumentException {
       ValueArray va = _key.value();
       ValueArray.Column classCol = va._cols[_classCol.value()];
-      String[] domain = classCol._domain;
-      if ((domain == null) || (domain.length == 0)) {
-        int min = (int) classCol._min;
-        if (classCol._min!= min)
-          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
-        int max = (int) classCol._max;
-        if (classCol._max != max)
-          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
-        if (max - min > maxClasses) // arbitrary number
-          throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
-        String[] result = new String[max-min+1];
-        for (int i = 0; i <= max - min; ++i)
-          result[i] = String.valueOf(min+i);
-        return result;
-      } else {
-        return domain;
-      }
+      return vaCategoryNames(classCol, maxClasses);
     }
 
     @Override protected String[] textValues() {
@@ -1576,23 +1598,7 @@ public class RequestArguments extends RequestStatics {
     protected String[] determineColumnClassNames(int maxClasses) throws IllegalArgumentException {
       ValueArray va = _key.value();
       ValueArray.Column classCol = va._cols[_classCol.value()];
-      String[] domain = classCol._domain;
-      if ((domain == null) || (domain.length == 0)) {
-        int min = (int) classCol._min;
-        if (classCol._min!= min)
-          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
-        int max = (int) classCol._max;
-        if (classCol._max != max)
-          throw new IllegalArgumentException("Only integer or enum columns can be classes!");
-        if (max - min > maxClasses) // arbitrary number
-          throw new IllegalArgumentException("The column has more than "+maxClasses+" values. Are you sure you have that many classes?");
-        String[] result = new String[max-min+1];
-        for (int i = 0; i <= max - min; ++i)
-          result[i] = String.valueOf(min+i);
-        return result;
-      } else {
-        return domain;
-      }
+      return vaCategoryNames(classCol, maxClasses);
     }
 
     @Override protected String[] textValues() {

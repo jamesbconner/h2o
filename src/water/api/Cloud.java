@@ -51,7 +51,8 @@ public class Cloud extends Request {
       nodes.add(node);
     }
     response.add(JSON_NODES,nodes);
-    return Response.done(response);
+    Response r = Response.done(response);
+    return r;
   }
 
   public static String pos_neg(double d) {

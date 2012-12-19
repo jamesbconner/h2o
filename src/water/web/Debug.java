@@ -90,7 +90,7 @@ public class Debug extends JSONPage {
     // Output a model with zero trees (so far).
     Column c = ary._cols[classcol];
     final int classes = (int) (c._max - c._min + 1);
-    Model model = new Model(modelKey,drf._treeskey,ary.numCols(),classes,sample,ary._key,ignores, drf._features);
+    Model model = new Model(modelKey,drf._treeskey,ary.numCols(),classes,sample,ary._key,ignores, drf._features,ntree);
     // Save it to the cloud
     UKV.put(modelKey,model);
     // wait for the computation to finish

@@ -48,18 +48,18 @@ public class RequestBuilders extends RequestQueries {
   private static final String _responseHeader =
             "<table class='table table-bordered'><tr><td><table style='font-size:12px;margin:0px;' class='table-borderless'>"
           + "  <tr>"
-          + "    <td rowspan='2' style='vertical-align:top;'>%BUTTON&nbsp&nbsp;</td>"
-          + "    <td colspan='6'>"
+          + "    <td style='border:0px'rowspan='2' style='vertical-align:top;'>%BUTTON&nbsp&nbsp;</td>"
+          + "    <td style='border:0px' colspan='6'>"
           + "      %TEXT"
           + "    </td>"
           + "  </tr>"
           + "  <tr>"
-          + "    <td><b>Cloud:</b></td>"
-          + "    <td style='padding-right:70px;'>%CLOUD_NAME</td>"
-          + "    <td><b>Node:</b></td>"
-          + "    <td style='padding-right:70px;'>%NODE_NAME</td>"
-          + "    <td><b>Time:</b></td>"
-          + "    <td style='padding-right:70px;'>%TIME [s]</td>"
+          + "    <td style='border:0px'><b>Cloud:</b></td>"
+          + "    <td style='padding-right:70px;border:0px'>%CLOUD_NAME</td>"
+          + "    <td style='border:0px'><b>Node:</b></td>"
+          + "    <td style='padding-right:70px;border:0px'>%NODE_NAME</td>"
+          + "    <td style='border:0px'><b>Time:</b></td>"
+          + "    <td style='padding-right:70px;border:0px'>%TIME [s]</td>"
           + "  </tr>"
           + "</table></td></tr></table>"
           + "<script type='text/javascript'>"
@@ -82,7 +82,7 @@ public class RequestBuilders extends RequestQueries {
           + "function countdown_stop() {\n"
           + "  clearTimeout(timer);\n"
           + "}\n"
-          + "function poll() {\n"
+          + "function redirect() {\n"
           + "  document.location.reload(true);\n"
           + "}\n"
           ;
@@ -133,12 +133,18 @@ public class RequestBuilders extends RequestQueries {
         result.replace("JSSTUFF", redirect.toString());
         break;
       case poll:
+        if (response._redirectArgs != null) {
+          RString poll = new RString(_redirectJs);
+          poll.replace("REDIRECT_URL",getClass().getSimpleName()+".html"+encodeRedirectArgs(response._redirectArgs));
+          result.replace("JSSTUFF", poll.toString());
+        } else {
+          result.replace("JSSTUFF", _pollJs);
+        }
         int pct = (int) ((double)response._pollProgress / response._pollProgressElements * 100);
-        result.replace("BUTTON","<button class='btn btn-primary' onclick='poll()'>"+response._status.toString()+"</button>");
+        result.replace("BUTTON","<button class='btn btn-primary' onclick='redirect()'>"+response._status.toString()+"</button>");
         result.replace("TEXT","<div style='margin-bottom:0px;padding-bottom:0xp;height:5px;' class='progress progress-stripped'><div class='bar' style='width:"+pct+"%;'></div></div>"
                 + "Request was successful, but the process is not yet finished.  The page will refresh each 5 seconds, or you can any time click the button"
                 + " on the left. If you want you can <a href='#' onclick='countdown_stop()'>disable the automatic refresh</a>.");
-        result.replace("JSSTUFF", _pollJs);
         break;
       default:
         result.replace("BUTTON","<button class='btn btn-inverse disabled'>"+response._status.toString()+"</button>");
@@ -280,12 +286,12 @@ public class RequestBuilders extends RequestQueries {
       _pollProgressElements = -1;
     }
 
-    private Response(Status status, JsonObject response, int progress, int total) {
+    private Response(Status status, JsonObject response, int progress, int total, JsonObject pollArgs) {
       assert (status == Status.poll);
       _status = status;
       _response = response;
       _redirectName = null;
-      _redirectArgs = null;
+      _redirectArgs = pollArgs;
       _pollProgress = progress;
       _pollProgressElements = total;
     }
@@ -321,7 +327,7 @@ public class RequestBuilders extends RequestQueries {
     /** Returns the poll response object.
      */
     public static Response poll(JsonObject response, int progress, int total) {
-      return new Response(Status.poll,response, progress, total);
+      return new Response(Status.poll,response, progress, total, null);
     }
 
     /** Returns the poll response object initialized by percents completed.
@@ -329,6 +335,14 @@ public class RequestBuilders extends RequestQueries {
     public static Response poll(JsonObject response, float progress) {
       int p = (int) (progress * 100);
       return Response.poll(response, p, 100);
+    }
+
+    /** returns the poll response object with different arguments that was
+     * this call.
+     */
+    public static Response poll(JsonObject response, int progress, int total, JsonObject pollArgs) {
+      return new Response(Status.poll,response, progress, total, pollArgs);
+
     }
 
     /** Sets the time of the response as a difference between the given time and
