@@ -1,7 +1,11 @@
 
 package water.api;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /** All statics for the Request api.
@@ -166,5 +170,26 @@ public class RequestStatics {
     result.addProperty(JSON_ERROR, error);
     return result;
   }
+
+  protected static String encodeRedirectArgs(JsonObject args) {
+    if (args == null)
+      return "";
+    StringBuilder sb = new StringBuilder();
+    sb.append("?");
+    for (Map.Entry<String,JsonElement> entry : args.entrySet()) {
+      JsonElement e = entry.getValue();
+      if (sb.length()!=1)
+        sb.append("&");
+      sb.append(entry.getKey());
+      sb.append("=");
+      try {
+        sb.append(URLEncoder.encode(e.getAsString(),"UTF-8"));
+      } catch (UnsupportedEncodingException ex) {
+        assert (false): ex.toString();
+      }
+    }
+    return sb.toString();
+  }
+
 
 }

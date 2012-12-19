@@ -1025,6 +1025,61 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ---------------------------------------------------------------------------
+  // LongInt
+  // ---------------------------------------------------------------------------
+
+  public class LongInt extends InputText<Long> {
+
+    public final Long _defaultValue;
+
+    public final long _min;
+    public final long _max;
+
+    public LongInt(String name) {
+      this(name, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    public LongInt(String name, long min, long max) {
+      super(name,true);
+      _defaultValue = null;
+      _min = min;
+      _max = max;
+    }
+
+    public LongInt(String name, Long defaultValue) {
+      this(name, defaultValue, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    public LongInt(String name, Long defaultValue, long min, long max) {
+      super(name,false);
+      _defaultValue = defaultValue;
+      _min = min;
+      _max = max;
+    }
+
+    @Override protected Long parse(String input) throws IllegalArgumentException {
+      try {
+        long i = Long.parseLong(input);
+        if ((i< _min) || (i > _max))
+          throw new IllegalArgumentException("Value "+i+" is not between "+_min+" and "+_max+" (inclusive)");
+        return i;
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Value "+input+" is not a valid long integer.");
+      }
+    }
+
+    @Override protected Long defaultValue() {
+      return _defaultValue;
+    }
+
+    @Override protected String queryDescription() {
+      return ((_min == Long.MIN_VALUE) && (_max == Long.MAX_VALUE))
+              ? "integer value"
+              : "integer from "+_min+" to "+_max;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Real
   // ---------------------------------------------------------------------------
 

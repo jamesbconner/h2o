@@ -92,25 +92,6 @@ public class RequestBuilders extends RequestQueries {
 
 
 
-  private String encodeRedirectArgs(JsonObject args) {
-    if (args == null)
-      return "";
-    StringBuilder sb = new StringBuilder();
-    sb.append("?");
-    for (Map.Entry<String,JsonElement> entry : args.entrySet()) {
-      JsonElement e = entry.getValue();
-      if (sb.length()!=1)
-        sb.append("&");
-      sb.append(entry.getKey());
-      sb.append("=");
-      try {
-        sb.append(URLEncoder.encode(e.getAsString(),"UTF-8"));
-      } catch (UnsupportedEncodingException ex) {
-        assert (false): ex.toString();
-      }
-    }
-    return sb.toString();
-  }
 
   protected String buildResponseHeader(Response response) {
     RString result = new RString(_responseHeader);
