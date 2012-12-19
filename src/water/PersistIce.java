@@ -174,10 +174,9 @@ public abstract class PersistIce {
   }
 
   // Read up to 'len' bytes of Value.  Value should already be persisted to
-  // disk.  'len' should be sane: 0 <= len <= v._max (both ends are asserted
-  // for, although it's hard to see the asserts).  A racing delete can trigger
-  // a failure where we get a null return, but no crash (although one could
-  // argue that a racing load&delete is a bug no matter what).
+  // disk.  A racing delete can trigger a failure where we get a null return,
+  // but no crash (although one could argue that a racing load&delete is a bug
+  // no matter what).
   static byte[] file_load(Value v) {
     File f = encodeKeyToFile(v);
     if( f.length() < v._max ) { // Should be fully on disk... or

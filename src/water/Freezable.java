@@ -4,7 +4,7 @@ package water;
  *   public AutoBuffer write(AutoBuffer bb) { ... }
  *   public <this>     read (AutoBuffer bb) { ... }
  */
-interface Freezable extends Cloneable {
+public interface Freezable extends Cloneable {
   public AutoBuffer write(AutoBuffer bb);
   public <T extends Freezable> T read(AutoBuffer bb);
 }
