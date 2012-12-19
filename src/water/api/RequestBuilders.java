@@ -1,4 +1,3 @@
-
 package water.api;
 
 import java.io.UnsupportedEncodingException;
@@ -702,6 +701,17 @@ public class RequestBuilders extends RequestQueries {
     }
   }
 
+  public static class BooleanStringBuilder extends ElementBuilder {
+    final String _t, _f;
+    public BooleanStringBuilder(String t, String f) { _t=t; _f=f; }
+    @Override
+    public String build(String elementContents, String elementName) {
+      boolean b = elementContents.equals("true");
+      assert b || elementContents.equals("false");
+      return "<dl class='dl-horizontal'><dt></dt><dd>"+(b?_t:_f)+"</dd></dl>";
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // ArrayRowBuilder
   // ---------------------------------------------------------------------------
@@ -757,7 +767,4 @@ public class RequestBuilders extends RequestQueries {
       return "<tr><td>"+elementContents+"</td></tr>";
     }
   }
-
-
-
 }
