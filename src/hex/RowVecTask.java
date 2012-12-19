@@ -1,6 +1,7 @@
 package hex;
 
-import hex.HexDataFrame.HexRow;
+import hex.HexDataFrame.ChunkData;
+import hex.HexDataFrame.ChunkData.HexRow;
 import init.H2OSerializable;
 
 import java.util.Arrays;
@@ -15,6 +16,12 @@ public abstract class RowVecTask extends MRTask {
     STANDARDIZE, // x_new = (x - x_mu)/x_sigma  /// transforms data to have zero mean and unit variance
     AUTO
   };
+
+  @Override
+  public void init(){
+    super.init();
+    _data.init();
+  }
 
   public RowVecTask(HexDataFrame data){
     _data = data;
@@ -42,43 +49,14 @@ public abstract class RowVecTask extends MRTask {
     boolean skip(){
       return _idx++ % _step == _offset;
     }
-  }
-
-  public static double[][] getDataPreprocessingForColumns(DataPreprocessing dp, ValueArray ary, int [] colIds){
-    if( dp == DataPreprocessing.NONE ) return null;
-    double [][] res = new double[colIds.length][2];
-    switch(dp) {
-    case NORMALIZE:
-      for(int i = 0; i < colIds.length;++i){
-        if(ary.col_max(colIds[i]) > 1 || ary.col_min(colIds[i]) < 0){
-          double min = ary.col_min(colIds[i]);
-          double max = ary.col_max(colIds[i]);
-          res[i][0] = min;
-          res[i][1] = max == min ? 1 : 1/(max - min);
-        }
-      }
-      break;
-    case STANDARDIZE:
-      for(int i = 0; i < colIds.length;++i){
-        if(ary.col_has_enum_domain(i)) // do no standardize enums at the moment
-          res[i][1] = 0;
-        else if(ary.col_mean(colIds[i]) != 0 || ary.col_sigma(colIds[i]) != 1){
-          res[i][0] = ary.col_mean(colIds[i]);
-          res[i][1] = 1/Math.max(Double.MIN_NORMAL, ary.col_sigma(colIds[i]));
-        }
-      }
-      break;
-    default: throw new Error("unknown DataPreprocessing mode " + dp);
+    public String toString(){
+      return "Sampling(step="+_step + ",offset=" + _offset + "complement=" + _complement + ")";
     }
-    return res;
   }
 
   protected boolean _skipIncompleteLines = true; // if true, rows with invalid/missing values will be skipped
   protected int [] _colIds;
-
-  long _n;
   public RowVecTask() {}
-
   public RowVecTask(Sampling s){this(null,s,false,null);}
 
   public RowVecTask(int [] colIds, boolean skipInvalidLines, double[][] pVals){this(colIds,null, skipInvalidLines,pVals);}
@@ -98,27 +76,24 @@ public abstract class RowVecTask extends MRTask {
   public void setSampling(Sampling s){
     _s = s;
   }
-
   HexDataFrame _data;
-
   int [] _categoricals;
   int [] _numeric;
   int [] _colOffsets;
-
   double [] _normSub;
   double [] _normMul;
 
   protected transient ValueArray _ary;
   @Override
   public void map(Key key) {
-    _data.init(key);
-    init(_data);
+    ChunkData data = _data.getChunkData(key);
+    init(data);
     double [] x = new double[_data._colIds.length];
     Arrays.fill(x, 1.0);
     int [] indexes = new int[x.length];
     // compute offsets
 ROW:
-    for(HexRow r:_data.rows()){
+    for(HexRow r:data.rows()){
       if(_s != null && _s.skip())continue;
       if(_categoricals != null) for(int i:_categoricals){
         if(!r.valid(i))continue ROW;
@@ -139,5 +114,5 @@ ROW:
     _ary = null;
   }
   abstract void processRow(double [] x, int [] indexes);
-  protected void init(HexDataFrame data){}
+  protected void init(ChunkData r){}
 }

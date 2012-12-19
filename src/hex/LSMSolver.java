@@ -135,7 +135,7 @@ public final class LSMSolver implements H2OSerializable{
           xyPrime.set(j, 0, xy.get(j, 0) + _rho * (z[j] - u[j]));
         }
         // updated x
-        xm = lu.solve(xy);
+        xm = lu.solve(xyPrime);
         // vars to be used for stopping criteria
         double x_norm = 0;
         double z_norm = 0;
@@ -150,7 +150,7 @@ public final class LSMSolver implements H2OSerializable{
           x_norm += x_hat * x_hat;
           x_hat = x_hat * _alpha + (1 - _alpha) * z[j];
           double zold = z[j];
-          z[j] = shrinkage(x_hat + u[j], (j != (N-1))?kappa:1.0/_rho); // do not normalize intercept!
+          z[j] = shrinkage(x_hat + u[j], kappa);
           z_norm += z[j] * z[j];
           s_norm += (z[j] - zold) * (z[j] - zold);
           r_norm += (xm.get(j, 0) - z[j]) * (xm.get(j, 0) - z[j]);

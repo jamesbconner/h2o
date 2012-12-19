@@ -1,7 +1,5 @@
 package hex;
 
-import java.util.Arrays;
-
 import init.H2OSerializable;
 import Jama.Matrix;
 

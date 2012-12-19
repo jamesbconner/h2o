@@ -3,10 +3,7 @@ package hex;
 import hex.RowVecTask.Sampling;
 import init.H2OSerializable;
 
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-
-import org.omg.CORBA._PolicyStub;
+import java.util.Arrays;
 
 import water.*;
 
@@ -171,6 +168,7 @@ public class GLMSolver {
     Sampling _s;
     boolean _isDone;
     int _iterations;
+    long _time;
     LSMSolver _solver;
     transient String [] _colNames; /// TODO should not be transient!
     int [] _colIds;
@@ -235,14 +233,15 @@ public class GLMSolver {
       for(int i = 0; i < ary.num_cols(); ++i)
         if(ary.col_name(i).equals(_colNames[i]))
           colIds[idx++] = i;
-      GLMValidatoinTask val = new GLMValidatoinTask(colIds);
-      val._dataKey = ary._key;
+      GLMValidatoinTask val = new GLMValidatoinTask(ary._key,colIds);
       val._colOffsets = _colOffsets;
       val._categoricals = _categoricals;
       val._numeric = _numeric;
       val._normMul = _normMul;
       val._normSub = _normSub;
       val._val = new GLMValidation();
+      val._val._dataKey = ary._key;
+      val._val._s = s;
       val._val._f = _glmParams._f;
       val._val._l = _glmParams._l;
       val._val._beta = _beta;
@@ -259,6 +258,8 @@ public class GLMSolver {
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
+      res.addProperty("time", _time);
+      res.addProperty("isDone", _isDone);
       JsonArray coefs = new JsonArray();
       ValueArray ary = (ValueArray)DKV.get(_dataset);
       for(int i = 0; i < _colIds.length-1; ++i){
@@ -284,7 +285,8 @@ public class GLMSolver {
       coefs.add(c);
 
       res.add("coefficients", coefs);
-      res.add("LSM",_solver.toJson());
+      res.add("LSMParams",_solver.toJson());
+      res.add("GLMParams",_glmParams.toJson());
       res.addProperty("iterations", _iterations);
       if(_vals != null){
         JsonArray vals = new JsonArray();
@@ -305,8 +307,8 @@ public class GLMSolver {
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
-      res.addProperty("family", Family.values()[_f].toString());
-      res.addProperty("link", Family.values()[_l].toString());
+      res.addProperty("family", Family.values()[_f].name());
+      res.addProperty("link", Link.values()[_l].name());
       res.addProperty("betaEps", _betaEps);
       res.addProperty("maxIter", _maxIter);
       if(_familyArgs != null){
@@ -329,6 +331,7 @@ public class GLMSolver {
   public GLMModel computeGLM(ValueArray ary, int [] colIds, Sampling s){
     GLMModel res = new GLMModel(ary,colIds,_solver,_glmParams,s);
     GramMatrixTask gtask = null;
+    long t1 = System.currentTimeMillis();
     while(res._iterations++ < _glmParams._maxIter){
       gtask = new GramMatrixTask(res);
       gtask._s = s;
@@ -338,10 +341,12 @@ public class GLMSolver {
       for(int i = 0; i < gtask._beta.length; ++i)
         diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
       res._beta = beta;
+      res._time = System.currentTimeMillis() - t1;
       if(diff < _glmParams._betaEps)
         break;
     }
     res._beta = (gtask != null)?gtask._beta:null;
+    res._isDone = true;
     return res;
   }
 
@@ -368,7 +373,7 @@ public class GLMSolver {
     GramMatrix _gram;
 
     public GramMatrixTask(GLMModel m){
-      super(new HexDataFrame(m._colIds));
+      super(new HexDataFrame(m._dataset,m._colIds));
       _f = m._glmParams._f;
       _l = m._glmParams._l;
       _beta = m._beta;
@@ -421,7 +426,7 @@ public class GLMSolver {
     }
 
     @Override
-    protected void init(HexDataFrame data){
+    protected void init(HexDataFrame.ChunkData data){
       _gram = new GramMatrix(_beta.length);
       _link = Link.values()[_l];
       _family = Family.values()[_f];
@@ -439,6 +444,8 @@ public class GLMSolver {
 
   public static class GLMValidation implements H2OSerializable {
     int _l,_f;
+    Key _dataKey;
+    Sampling _s;
     double [] _beta;
     double [] _familyArgs;
     double _deviance;
@@ -449,6 +456,9 @@ public class GLMSolver {
 
     public JsonObject toJson() {
       JsonObject res = new JsonObject();
+      res.addProperty("dataKey", _dataKey.toString());
+      if(_s != null)
+        res.addProperty("sampling", _s.toString());
       res.addProperty("resDev", _deviance);
       res.addProperty("nullDev", _nullDeviance);
       res.addProperty("err", _err);
@@ -469,12 +479,11 @@ public class GLMSolver {
     transient Link _link;
     transient Family _family;
     GLMValidation _val;
-    Key _dataKey;
 
-    public GLMValidatoinTask(int [] colIds){
-      super(new HexDataFrame(colIds));
+    public GLMValidatoinTask(Key aryKey, int [] colIds){
+      super(new HexDataFrame(aryKey,colIds));
     }
-    @Override protected void init(HexDataFrame data){
+    @Override protected void init(HexDataFrame.ChunkData data){
       _link = Link.values()[_val._l];
       _family = Family.values()[_val._f];
       if(_family == Family.binomial)

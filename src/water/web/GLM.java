@@ -4,7 +4,6 @@ import hex.*;
 import hex.GLMSolver.Family;
 import hex.GLMSolver.GLMModel;
 import hex.GLMSolver.GLMParams;
-import hex.GLMSolver.GLMValidation;
 import hex.GLMSolver.Link;
 
 import java.text.DecimalFormat;
@@ -32,14 +31,7 @@ public class GLM extends H2OPage {
     return new String[] { "Key", "Y" };
   }
 
-  static JsonObject getCoefficients(int [] columnIds, String [] colNames, double [] beta){
-    JsonObject coefficients = new JsonObject();
-    for( int i = 0; i < beta.length; ++i ) {
-      String colName = (i == (beta.length - 1)) ? "Intercept" : getColName(columnIds[i], colNames);
-      coefficients.addProperty(colName, beta[i]);
-    }
-    return coefficients;
-  }
+
 
   double [] getFamilyArgs(Family f, Properties p){
     double [] res = null;
@@ -194,6 +186,7 @@ public class GLM extends H2OPage {
     return codeBldr.toString();
   }
 
+
   static String getCoefficientsStr(JsonObject x){
     StringBuilder bldr = new StringBuilder();
 
@@ -220,26 +213,6 @@ public class GLM extends H2OPage {
     }
   }
 
-  static String getGLMParams(JsonObject glmParams, JsonObject lsmParams){
-    StringBuilder bldr = new StringBuilder();
-    addGLMParamsHTML(glmParams, lsmParams, bldr);
-    return bldr.toString();
-  }
-
-  static void addGLMParamsHTML(JsonObject glmParams, JsonObject lsmParams, StringBuilder bldr){
-    bldr.append("<span><b>family: </b>" + glmParams.get("family").getAsString() + "</span>");
-    bldr.append(" <span><b>link: </b>" + glmParams.get("link").getAsString() + "</span>");
-    bldr.append(" <span><b>&epsilon;<sub>&beta;</sub>: </b>" + glmParams.get("betaEps").getAsString() + "</span>");
-    bldr.append(" <span><b>threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
-    String [] params = new String[]{"norm","lambda","lambda2","rho","alpha","weights"};
-    String [] paramHTML = new String[]{"norm","&lambda;<sub>1</sub>","&lambda;<sub>2</sub>","&rho;","&alpha;","weights"};
-    for(int i = 0; i < params.length; ++i){
-      if(!lsmParams.has(params[i]))continue;
-      String s = lsmParams.get(params[i]).getAsString();
-      if(s.equals("0.0"))continue;
-      bldr.append(" <span><b>" + paramHTML[i] + ":</b>" + s + "</span> ");
-    }
-  }
 
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
@@ -265,89 +238,106 @@ public class GLM extends H2OPage {
     bldr.append("</tbody></table>\n");
   }
 
+  public RString response() {
+    return new RString("<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a>. %iterations computed in %time[ms]. %warningMsgs</div> %Model %Validation");
+  }
+
+  public String getGLMParamsHTML(JsonObject glmParams, JsonObject lsmParams){
+    StringBuilder bldr = new StringBuilder();
+    bldr.append("<span><b>family: </b>" + glmParams.get("family").getAsString() + "</span>");
+    bldr.append(" <span><b>link: </b>" + glmParams.get("link").getAsString() + "</span>");
+    bldr.append(" <span><b>&epsilon;<sub>&beta;</sub>: </b>" + glmParams.get("betaEps").getAsString() + "</span>");
+    bldr.append(" <span><b>threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
+    String [] params = new String[]{"norm","lambda","lambda2","rho","alpha","weights"};
+    String [] paramHTML = new String[]{"norm","&lambda;<sub>1</sub>","&lambda;<sub>2</sub>","&rho;","&alpha;","weights"};
+    for(int i = 0; i < params.length; ++i){
+      if(!lsmParams.has(params[i]))continue;
+      String s = lsmParams.get(params[i]).getAsString();
+      if(s.equals("0.0"))continue;
+      bldr.append(" <span><b>" + paramHTML[i] + ":</b>" + s + "</span> ");
+    }
+    return bldr.toString();
+  }
+  public String getLSMParamsHTML(JsonObject json){
+
+    return "";
+  }
+
+  public String getCoefficientsHTML(JsonArray arr){
+    StringBuilder bldr = new StringBuilder();
+    bldr.append("<div>");
+
+    for(JsonElement e:arr){
+      JsonObject o = e.getAsJsonObject();
+      bldr.append(" <span><b>" + o.get("name").getAsString() + "</b>=" + dformat.format(o.get("value").getAsDouble()) + "</span> ");
+    }
+    bldr.append("</div>");
+    return bldr.toString();
+  }
+
+  public String getModelSRCHTML(Link l, JsonArray arr){
+    RString m = null;
+
+    switch(l){
+    case identity:
+      m = new RString("y = %equation");
+      break;
+    case logit:
+      m = new RString("y = 1/(1 + Math.exp(%equation))");
+      break;
+    default:
+      assert false;
+      return "";
+    }
+    boolean first = true;
+    StringBuilder bldr = new StringBuilder();
+    for(JsonElement e:arr){
+      JsonObject o = e.getAsJsonObject();
+      double v = o.get("value").getAsDouble();
+      if(v == 0)continue;
+      if(!first)
+        bldr.append(((v < 0)?" - ":" + ") + dformat.format(Math.abs(v)));
+      else
+        bldr.append(dformat.format(v));
+      first = false;
+      bldr.append("*x[" + o.get("name") + "]");
+
+    }
+    m.replace("equation",bldr.toString());
+    return m.toString();
+  }
+
+  public String getModelHTML(JsonObject json){
+    RString responseTemplate = new RString(
+        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a>. %iterations iterations computed in %time[ms]. %warningMsgs</div>"
+            + "<h3>GLM Parameters</h3>"
+            + " %LSMParams %GLMParams"
+            + "<h3>Coefficients</h3>"
+            + "<div>%coefficients</div>"
+            + "<h5>Model SRC</h5>"
+            + "<div><code>%modelSrc</code></div>");
+    if(json.has("warnings")){
+      responseTemplate.replace("succ","alert-warning");
+      responseTemplate.replace("warningMsgs",json.get("warnings").getAsString());
+    } else
+      responseTemplate.replace("succ","alert-success");
+    responseTemplate.replace("time",json.get("time").getAsString());
+    responseTemplate.replace("iterations",json.get("iterations").getAsString());
+    responseTemplate.replace("GLMParams",getGLMParamsHTML(json.get("GLMParams").getAsJsonObject(),json.get("LSMParams").getAsJsonObject()));
+    responseTemplate.replace("coefficients",getCoefficientsHTML(json.get("coefficients").getAsJsonArray()));
+    responseTemplate.replace("modelSrc",getModelSRCHTML(Link.valueOf(json.get("GLMParams").getAsJsonObject().get("link").getAsString()),json.get("coefficients").getAsJsonArray()));
+    return responseTemplate.toString() + (json.has("validations")?getValidationHTML(json.get("validations").getAsJsonArray()):"");
+  }
+
+  public String getValidationHTML(JsonArray arr){
+    return "";
+  }
+
   @Override
   protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
-    RString responseTemplate = new RString(
-        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a> finished in %iterations iterations. Computed in %time[ms]. %warningMsgs</div>"
-            + "<h3>GLM Parameters</h3>"
-            + "%parameters"
-            + "<h3>Coefficients</h3>"
-            + "<div>%coefficientHTML</div>"
-            + "<h5>Model SRC</h5>"
-            + "<div><code>%modelSrc</code></div>"
-            + "<br/> "
-            + "<h3> Training Set Validation</h3>"
-            + "<table class='table table-striped table-bordered table-condensed'>"
-            + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
-            + "<tr><th>Null Deviance</th><td>%NullDeviance</td></tr>"
-            + "<tr><th>Residual Deviance</th><td>%ResidualDeviance</td></tr>"
-            + "<tr><th>AIC</th><td>%AIC</td></tr>"
-            + "<tr><th>Training Error Rate Avg</th><td>%trainingSetErrorRate</td></tr>"
-            + "</table>"
-            + "<h4>Confusion Matrix</h4>"
-            + "%cm " + " %xval");
-    RString xTemplate = new RString(
-          "<h3> %foldfold Validation</h3>"
-        + "<h4>Average Confusion Matrix</h4>"
-        + "%avgCM"
-        + "<h4>Individual Models</h4>"
-        + "%imodels");
-
     JsonObject json = serverJson(server, args, sessionID);
     if( json.has("error") )
       return H2OPage.error(json.get("error").getAsString());
-    if(json.has("warnings")){
-      responseTemplate.replace("succ","alert-warning");
-      JsonArray warnings = (JsonArray)json.get("warnings");
-      StringBuilder wBldr = new StringBuilder("<div><b>Warnings:</b>");
-      for(JsonElement w:warnings){
-        wBldr.append("<div>" + w.getAsString() + "</div>");
-      }
-      wBldr.append("</div>");
-      responseTemplate.replace("warningMsgs",wBldr.toString());
-      json.remove("warnings");
-    } else {
-      responseTemplate.replace("succ","alert-success");
-    }
-
-    if(json.has("cm")){
-      JsonArray arr = json.get("cm").getAsJsonArray();
-      json.remove("cm");
-      StringBuilder b = new StringBuilder();
-      buildCM(arr, b);
-      responseTemplate.replace("cm",b.toString());
-    }
-    if(json.has("validation"))responseTemplate.replace(json.get("validation").getAsJsonObject());
-    StringBuilder bldr = new StringBuilder();
-
-    JsonObject x = json.get("coefficients").getAsJsonObject();
-    responseTemplate.replace("coefficientHTML",getCoefficientsStr(x));
-    JsonObject glmParams = json.get("glmParams").getAsJsonObject();
-    JsonObject lsmParams = json.get("lsmParams").getAsJsonObject();
-
-    responseTemplate.replace("parameters",getGLMParams(glmParams, lsmParams));
-    RString m = null;
-    if(glmParams.get("link").getAsString().equals("identity")){
-      m = new RString("y = %equation");
-      m.replace("equation", getFormulaSrc(x, false));
-    } else if( glmParams.get("link").getAsString().equals("logit") ) {
-      m = new RString("y = 1/(1 + Math.exp(%equation))");
-      m.replace("equation", getFormulaSrc(x, true));
-    } else if( glmParams.get("link").getAsString().equals("log") ) {
-      m = new RString("y = Math.exp(%equation)");
-      m.replace("equation", getFormulaSrc(x, false));
-    } else if( glmParams.get("link").getAsString().equals("inverse") ) {
-      m = new RString("y = 1/(%equation)");
-      m.replace("equation", getFormulaSrc(x, false));
-    }
-    responseTemplate.replace("modelSrc", m.toString());
-    JsonArray models = (JsonArray)json.get("models");
-    if(models != null){
-      bldr = new StringBuilder("<h3>Individual Models</h3>");
-      for(JsonElement e:models)
-        buildCM(e.getAsJsonArray(), bldr);
-    }
-    responseTemplate.replace("imodels", bldr.toString());
-    return responseTemplate.toString();
+    return getModelHTML(json.get("GLMModel").getAsJsonObject());
   }
 }
