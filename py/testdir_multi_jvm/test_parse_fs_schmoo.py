@@ -41,46 +41,7 @@ class glm_same_parse(unittest.TestCase):
         headerData = "ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON"
         rowData = "1,0,65,1,2,1,1.4,0,6"
 
-        # we know it started failing at 380 rows (row id was in data, so not exact since we're not mimicing
-        # the rows exactly.
-        # failing prostate_long.csv lines: # 194561 a
-
-        # fails
-        ### write_syn_dataset(csvPathname, 194500, headerData, rowData)
-        ### write_syn_dataset(csvPathname, 194000, headerData, rowData)
-        ### write_syn_dataset(csvPathname, 190000, headerData, rowData)
-        ### write_syn_dataset(csvPathname, 100000, headerData, rowData)
-
-#         write_syn_dataset(csvPathname,      99850, headerData, rowData)
-# fails with
-# Exception in thread "Uploader thread for: file" java.lang.ArrayIndexOutOfBoundsException
-#     at java.lang.System.arraycopy(Native Method)
-#     at water.web.PutFile$HttpMultipartEntity$InputStreamWrapper.readInternal(PutFile.java:296)
-#     at water.web.PutFile$HttpMultipartEntity$InputStreamWrapper.read(PutFile.java:283)
-#     at water.ValueArray.readPut(ValueArray.java:256)
-#     at water.ValueArray.readPut(ValueArray.java:243)
-#     at water.web.PutFile$UploaderThread.handlePOST(PutFile.java:182)
-#     at water.web.PutFile$UploaderThread.run(PutFile.java:119)
-
-#        write_syn_dataset(csvPathname,      99870, headerData, rowData)
-
-# fails with
-# Java.lang.NullPointerException
-#     at water.parser.CsvParser.parse(CsvParser.java:61)
-#     at water.parser.ParseDataset$DParseTask.map(ParseDataset.java:601)
-#     at water.MRTask.compute(MRTask.java:39)
-#     at jsr166y.CountedCompleter.exec(CountedCompleter.java:429)
-#     at jsr166y.ForkJoinTask.doExec(ForkJoinTask.java:263)
-#     at jsr166y.ForkJoinPool$WorkQueue.runTask(ForkJoinPool.java:974)
-#     at jsr166y.ForkJoinPool.runWorker(ForkJoinPool.java:1477)
-#     at jsr166y.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:104)
-
-# fails with arraycopy
-#        write_syn_dataset(csvPathname,      99860, headerData, rowData)
-# fails with arraycopy
-#        write_syn_dataset(csvPathname,      99850, headerData, rowData)
         write_syn_dataset(csvPathname,      99860, headerData, rowData)
-
 
         print "This is the same format/data file used by test_same_parse, but the non-gzed version"
         print "\nSchmoo the # of rows"
@@ -91,8 +52,6 @@ class glm_same_parse(unittest.TestCase):
             ### print "Trial #", trial, "parse end on ", "prostate.csv" , 'took', time.time() - start, 'seconds'
 
             start = time.time()
-            ### key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/a"))
-        
             key = h2o_cmd.parseFile(csvPathname=csvPathname, browseAlso=True, key=csvFilename, key2=csvFilename+".hex")
             print "trial #", trial, "parse end on ", csvFilename, 'took', time.time() - start, 'seconds'
 
@@ -101,8 +60,6 @@ class glm_same_parse(unittest.TestCase):
             
             if (h2o.check_sandbox_for_errors()):
                 raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
-
-
 
 if __name__ == '__main__':
     h2o.unit_main()
