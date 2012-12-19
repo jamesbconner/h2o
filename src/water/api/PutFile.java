@@ -17,7 +17,7 @@ public class PutFile extends HTMLOnlyRequest {
             "<script type='text/javascript' src='jquery.fileupload/js/vendor/jquery.ui.widget.js'></script>"
           + "<script type='text/javascript' src='jquery.fileupload/js/jquery.iframe-transport.js'></script>"
           + "<script type='text/javascript' src='jquery.fileupload/js/jquery.fileupload.js'></script>"
-          + "<script type='text/javascript' src='jquery.fileupload/js/main.js'></script>"
+          + "<script type='text/javascript' src='jquery.fileupload/js/main_api.js'></script>"
           + "<div class='container' style='margin: 0px auto'>"
           + "<h3>Request PutFile ( <a href='PutFile.help'>help</a> )</h3>"
           + "<p>Please specify the file to be uploaded.</p>"

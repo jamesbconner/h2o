@@ -1222,6 +1222,8 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected Value defaultValue() {
+      if (_defaultValue == null)
+        return null;
       return DKV.get(_defaultValue);
     }
 

@@ -54,7 +54,10 @@ public class RequestQueries extends RequestArguments {
   }
 
   protected static final String _queryHtml =
-            "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
+            "<div class='container'>"
+          + "<div class='row-fluid'>"
+          + "<div class='span12'>"
+          + "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
           + "<p>Please specify the arguments for the request. If you have"
           + " already specified them, but they are wrong, or missing,"
           + " appropriate errors are displayed next to the form inputs.</p>"
@@ -75,6 +78,7 @@ public class RequestQueries extends RequestArguments {
           + "  <script type='text/javascript'>"
           + "    %SCRIPT"
           + "  </script>"
+          + "</div></div></div>"
           ;
 
   private static final String _queryJs =
