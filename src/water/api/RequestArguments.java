@@ -1061,7 +1061,7 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ---------------------------------------------------------------------------
-  // File
+  // ExistingFile
   // ---------------------------------------------------------------------------
 
   public class ExistingFile extends InputText<File> {
@@ -1073,6 +1073,8 @@ public class RequestArguments extends RequestStatics {
       File f = new File(input);
       if( !f.exists() )
         throw new IllegalArgumentException("File "+input+" not found!");
+      if (!f.isFile())
+        throw new IllegalArgumentException("File "+input+" is not a file!");
       return f;
     }
 
@@ -1087,7 +1089,7 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ---------------------------------------------------------------------------
-  // Directory
+  // ExistingDirectory
   // ---------------------------------------------------------------------------
 
   public class ExistingDir extends InputText<File> {

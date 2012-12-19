@@ -129,7 +129,7 @@ public abstract class Request extends RequestBuilders {
         arl.get(0).toHTML(sb);
       } else {
         sb.append("<li class='dropdown'>");
-        sb.append("<a href='#' class='dropdown-togg;e' data-toggle='dropdown'>");
+        sb.append("<a href='#' class='dropdown-toggle' data-toggle='dropdown'>");
         sb.append(s);
         sb.append("<b class='caret'></b>");
         sb.append("</a>");

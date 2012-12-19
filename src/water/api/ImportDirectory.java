@@ -10,8 +10,8 @@ public class ImportDirectory extends Request {
   protected final ExistingDir _dir = new ExistingDir(JSON_FILE);
 
   public ImportDirectory() {
-    _requestHelp = "Imports the given file.  All nodes in the cloud must have" +
-        " an identical copy of the file in their local file systems.";
+    _requestHelp = "Imports the given directory recursively.  All nodes in the cloud must have" +
+        " an identical copy of the file structure in their local file systems.";
     _dir._requestHelp = "Dir to import from.";
   }
 

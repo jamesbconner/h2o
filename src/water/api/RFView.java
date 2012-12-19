@@ -19,16 +19,31 @@ public class RFView extends Request {
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, JSON_WEIGHTS, 1);
   protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
   protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
-
+  protected final Bool _noCM = new Bool(JSON_NO_CM, false,"Do not produce confusion matrix");
 
   @Override protected Response serve() {
     Model model = _modelKey.value();
+    int[] ignores = _ignore.specified() ? _ignore.value() : model._ignoredColumns;
+    double[] weights = _weights.value();
+
+
+    
+
+    JsonObject response = new JsonObject();
+    response.addProperty(JSON_DATA_KEY, _dataKey.originalValue());
+    response.addProperty(JSON_MODEL_KEY, _modelKey.originalValue());
+    response.addProperty(JSON_CLASS, _classCol.value());
+    response.addProperty(JSON_NUM_TREES, model.size());
 
 
 
     return Response.done(new JsonObject());
   }
 
+
+  // ---------------------------------------------------------------------------
+  // ModelKey
+  // ---------------------------------------------------------------------------
 
   public class ModelKey extends TypeaheadInputText<Model> {
 

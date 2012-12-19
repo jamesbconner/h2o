@@ -54,8 +54,7 @@ public class RequestQueries extends RequestArguments {
   }
 
   private static final String _queryHtml =
-            "<script type='text/javascript' src='queries.js'></script>"
-          + "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
+            "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
           + "<p>Please specify the arguments for the request. If you have"
           + " already specified them, but they are wrong, or missing,"
           + " appropriate errors are displayed next to the form inputs.</p>"

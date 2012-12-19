@@ -32,7 +32,7 @@ public class RequestStatics {
   public static final String JSON_VALUE = "value";
   public static final String JSON_VALUE_SIZE = "value_size";
   public static final String JSON_RF = "rf";
-  public static final String JSON_DATA_KEY = "key";
+  public static final String JSON_DATA_KEY = "data_key";
   public static final String JSON_NUM_TREES = "ntree";
   public static final String JSON_DEPTH = "depth";
   public static final String JSON_SAMPLE = "sample";
@@ -52,6 +52,7 @@ public class RequestStatics {
   public static final String JSON_KEYS = "keys";
   public static final String JSON_LIMIT = "limit";
   public static final String JSON_COLUMNS = "columns";
+  public static final String JSON_NO_CM = "no_cm";
 
   public static final String JSON_CLOUD_NAME = "cloud_name";
   public static final String JSON_NODE_NAME = "node_name";
