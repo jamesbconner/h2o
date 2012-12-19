@@ -230,9 +230,11 @@ public class GLMSolver {
     public void validateOn(ValueArray ary, Sampling s){
       int [] colIds = new int [_colNames.length];
       int idx = 0;
-      for(int i = 0; i < ary.num_cols(); ++i)
-        if(ary.col_name(i).equals(_colNames[i]))
-          colIds[idx++] = i;
+        for(int j = 0; j < ary.num_cols(); ++j)
+          for(int i = 0; i < ary.num_cols(); ++i)
+            if(ary.col_name(i).equals(_colNames[j]))
+              colIds[idx++] = i;
+      if(idx != colIds.length)throw new Error("incompatible dataset");
       GLMValidatoinTask val = new GLMValidatoinTask(ary._key,colIds);
       val._colOffsets = _colOffsets;
       val._categoricals = _categoricals;
@@ -260,6 +262,7 @@ public class GLMSolver {
       JsonObject res = new JsonObject();
       res.addProperty("time", _time);
       res.addProperty("isDone", _isDone);
+      res.addProperty("dataset", _dataset.toString());
       JsonArray coefs = new JsonArray();
       ValueArray ary = (ValueArray)DKV.get(_dataset);
       for(int i = 0; i < _colIds.length-1; ++i){
@@ -441,37 +444,102 @@ public class GLMSolver {
 
   }
 
+  public static final class ConfusionMatrix implements H2OSerializable {
+    int [][] _arr;
+    long _n;
+
+    public ConfusionMatrix(int n){
+      _arr = new int[n][n];
+    }
+    public void add(int i, int j){
+      add(i, j, 1);
+    }
+    public void add(int i, int j, int c){
+      _arr[i][j] += c;
+      _n += c;
+    }
+
+    public double err(){
+      long err = _n;
+      for(int i = 0; i < _arr.length;++i){
+        err -= _arr[i][i];
+      }
+      return (double)err/_n;
+    }
+
+    public void add(ConfusionMatrix other){
+      for(int i = 0; i < _arr.length; ++i)
+        for(int j = 0; j < _arr.length; ++j)
+          _arr[i][j] += other._arr[i][j];
+    }
+
+    public JsonArray toJson(){
+      JsonArray res = new JsonArray();
+      JsonArray header = new JsonArray();
+      header.add(new JsonPrimitive("Actual / Predicted"));
+      for(int i = 0; i < _arr.length;++i)
+        header.add(new JsonPrimitive("class " + i));
+      header.add(new JsonPrimitive("Error"));
+      res.add(header);
+      for(int i = 0; i < _arr.length; ++i){
+        JsonArray row = new JsonArray();
+        row.add(new JsonPrimitive("class " + i));
+        long s = 0;
+        for(int j = 0; j < _arr.length; ++j){
+          s += _arr[i][j];
+          row.add(new JsonPrimitive(_arr[i][j]));
+        }
+        double err = s - _arr[i][i];
+        err /= s;
+        row.add(new JsonPrimitive(err + " = " + (s - _arr[i][i]) + " / " + s));
+        res.add(row);
+      }
+      JsonArray totals = new JsonArray();
+      totals.add(new JsonPrimitive("Totals"));
+      long S = 0;
+      long DS = 0;
+      for(int i = 0; i < _arr.length; ++i){
+        long s = 0;
+        for(int j = 0; j < _arr.length; ++j)
+          s += _arr[j][i];
+        totals.add(new JsonPrimitive(s));
+        S += s;
+        DS += _arr[i][i];
+      }
+      double err = (S - DS)/(double)S;
+      totals.add(new JsonPrimitive(err + " = " + (S - DS) + " / " + S));
+      res.add(totals);
+      return res;
+    }
+  }
 
   public static class GLMValidation implements H2OSerializable {
     int _l,_f;
     Key _dataKey;
     Sampling _s;
+    long _n;
     double [] _beta;
     double [] _familyArgs;
     double _deviance;
     double _nullDeviance;
     double _err;
     double _ymu; // null hypothesis value
-    int [][] _cm;
+    ConfusionMatrix _cm;
 
     public JsonObject toJson() {
       JsonObject res = new JsonObject();
-      res.addProperty("dataKey", _dataKey.toString());
+      res.addProperty("dataset", _dataKey.toString());
       if(_s != null)
         res.addProperty("sampling", _s.toString());
+      res.addProperty("nrows", _n);
       res.addProperty("resDev", _deviance);
       res.addProperty("nullDev", _nullDeviance);
-      res.addProperty("err", _err);
+
       if(_cm != null){
-        JsonArray jsonCM = new JsonArray();
-        for(int i = 0; i < _cm.length; ++i){
-          JsonArray row = new JsonArray();
-          for(int j = 0; j < _cm.length; ++j)
-            row.add(new JsonPrimitive(_cm[i][j]));
-          jsonCM.add(row);
-        }
-        res.add("cm", jsonCM);
-      }
+        res.addProperty("err", _cm.err());
+        res.add("cm", _cm.toJson());
+      } else
+        res.addProperty("err", _err);
       return res;
     }
   }
@@ -487,16 +555,21 @@ public class GLMSolver {
       _link = Link.values()[_val._l];
       _family = Family.values()[_val._f];
       if(_family == Family.binomial)
-        _val._cm = new int[2][2];
+        _val._cm = new ConfusionMatrix(2);
     }
 
     @Override
     void processRow(double[] x, int[] indexes) {
+      System.out.println(Arrays.toString(x));
       double yr = x[x.length-1];
+      x[x.length-1] = 1.0;
       double ym = 0;
-      for(int i = 0; i < (x.length-1); ++i)
+      for(int i = 0; i < x.length; ++i)
         ym += _val._beta[indexes[i]] * x[i];
+      System.out.println("mu = " + ym);
       ym = _link.linkInv(ym);
+      System.out.println("Ym = " + ym);
+
       if(_family == Family.binomial)
         yr = yr == _val._familyArgs[FAMILY_ARGS_CASE]?1:0;
 
@@ -504,7 +577,7 @@ public class GLMSolver {
       _val._nullDeviance += _family.deviance(yr, _val._ymu);
       if(_family == Family.binomial) {
         ym = ym >= _val._familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]?1:0;
-        ++_val._cm[(int)yr][(int)ym];
+        _val._cm.add((int)yr,(int)ym);
       } else
         _val._err += (ym - yr)*(ym - yr);
     }
@@ -519,9 +592,7 @@ public class GLMSolver {
         _val._deviance += other._val._deviance;
         _val._err += other._val._err;
         if(_val._cm != null){
-          for(int i = 0; i < _val._cm.length; ++i)
-            for(int j = 0; j < _val._cm.length; ++j)
-              _val._cm[i][j] += other._val._cm[i][j];
+          _val._cm.add(other._val._cm);
         } else
           _val._cm = other._val._cm;
       }

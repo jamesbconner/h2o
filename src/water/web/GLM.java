@@ -217,7 +217,8 @@ public class GLM extends H2OPage {
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
 
-  static void buildCM(JsonArray arr,StringBuilder bldr){
+  static String buildCM(JsonArray arr){
+    StringBuilder bldr = new StringBuilder();
     bldr.append("<table class='table table-striped table-bordered table-condensed'><thead>");
     boolean firstRow = true;
     for(JsonElement e:arr){
@@ -236,6 +237,7 @@ public class GLM extends H2OPage {
       firstRow = false;
     }
     bldr.append("</tbody></table>\n");
+    return bldr.toString();
   }
 
   public RString response() {
@@ -300,7 +302,7 @@ public class GLM extends H2OPage {
       else
         bldr.append(dformat.format(v));
       first = false;
-      bldr.append("*x[" + o.get("name") + "]");
+      bldr.append("*x[" + o.get("name").getAsString() + "]");
 
     }
     m.replace("equation",bldr.toString());
@@ -309,7 +311,7 @@ public class GLM extends H2OPage {
 
   public String getModelHTML(JsonObject json){
     RString responseTemplate = new RString(
-        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%$key'>%key</a>. %iterations iterations computed in %time[ms]. %warningMsgs</div>"
+        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time[ms]. %warningMsgs</div>"
             + "<h3>GLM Parameters</h3>"
             + " %LSMParams %GLMParams"
             + "<h3>Coefficients</h3>"
@@ -321,6 +323,7 @@ public class GLM extends H2OPage {
       responseTemplate.replace("warningMsgs",json.get("warnings").getAsString());
     } else
       responseTemplate.replace("succ","alert-success");
+    responseTemplate.replace("key",json.get("dataset").getAsString());
     responseTemplate.replace("time",json.get("time").getAsString());
     responseTemplate.replace("iterations",json.get("iterations").getAsString());
     responseTemplate.replace("GLMParams",getGLMParamsHTML(json.get("GLMParams").getAsJsonObject(),json.get("LSMParams").getAsJsonObject()));
@@ -330,7 +333,25 @@ public class GLM extends H2OPage {
   }
 
   public String getValidationHTML(JsonArray arr){
-    return "";
+    StringBuilder res = new StringBuilder("<h2>Validations</h2>");
+
+    for(JsonElement e:arr){
+      RString template = new RString("<table class='table table-striped table-bordered table-condensed'>"
+            + "<tr><th>Dataset:</th><td>%dataset</td></tr>"
+            + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
+            + "<tr><th>Null Deviance</th><td>%nullDev</td></tr>"
+            + "<tr><th>Residual Deviance</th><td>%resDev</td></tr>"
+            + "<tr><th>AIC</th><td>%AIC</td></tr>"
+            + "<tr><th>Training Error Rate Avg</th><td>%err</td></tr>"
+            + "</table> %cm");
+
+      JsonObject val = e.getAsJsonObject();
+      if(val.has("cm"))
+        val.addProperty("cm", buildCM(val.get("cm").getAsJsonArray()));
+      template.replace(val);
+      res.append(template.toString());
+    }
+    return res.toString();
   }
 
   @Override
