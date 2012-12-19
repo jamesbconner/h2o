@@ -2,7 +2,7 @@ import os, json, unittest, time, shutil, sys
 import h2o
 import h2o_browse as h2b
 
-def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20):
+def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20, **kwargs):
     if not csvPathname: raise Exception('No file name specified')
     if not node: node = h2o.nodes[0]
     put = node.put_file(csvPathname, key=key)
@@ -11,7 +11,7 @@ def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20):
         myKey2 = put['key'] + '.hex'
     else:
         myKey2 = key2
-    return node.parse(put['key'], myKey2, timeoutSecs)
+    return node.parse(put['key'], myKey2, timeoutSecs, **kwargs)
 
 def runInspect(node=None,key=None,timeoutSecs=5,**kwargs):
     if not key: raise Exception('No key for Inspect specified')
