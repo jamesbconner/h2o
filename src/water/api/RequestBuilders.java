@@ -35,12 +35,16 @@ public class RequestBuilders extends RequestQueries {
    */
   protected String build(Response response) {
     StringBuilder sb = new StringBuilder();
+    sb.append("<div class='container'>");
+    sb.append("<div class='row-fluid'>");
+    sb.append("<div class='span12'>");
     sb.append(buildResponseHeader(response));
     sb.append("<h3>"+getClass().getSimpleName()+" response:</h3>");
     Builder builder = response.getBuilderFor("");
     if (builder == null)
       builder = OBJECT_BUILDER;
     sb.append(builder.build(response,response._response,""));
+    sb.append("</div></div></div>");
     return sb.toString();
   }
 

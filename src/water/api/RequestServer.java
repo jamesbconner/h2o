@@ -30,15 +30,18 @@ public class RequestServer extends NanoHTTPD {
     _http500 = registerRequest(new HTTP500());
     Request.addToNavbar(registerRequest(new Cloud()),"Cloud");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
+    Request.addToNavbar(registerRequest(new PutFile()),"File","Put");
     Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
     Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
     Request.addToNavbar(registerRequest(new ImportDirectory()),"Directory","Import");
     Request.addToNavbar(registerRequest(new ImportFile()),"File","Import");
     Request.addToNavbar(registerRequest(new ImportUrl()),"URL","Import");
 
+
     registerRequest(new WWWKeys());
     registerRequest(new WWWHexKeys());
     registerRequest(new WWWModelKeys());
+    registerRequest(new WWWFileUpload());
 
     Request.addToNavbar(registerRequest(new RedirectTest()),"Redirect test","Debug");
     Request.addToNavbar(registerRequest(new PollTest()),"Poll test","Debug");

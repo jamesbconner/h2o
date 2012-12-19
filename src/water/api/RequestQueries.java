@@ -53,7 +53,7 @@ public class RequestQueries extends RequestArguments {
     return null;
   }
 
-  private static final String _queryHtml =
+  protected static final String _queryHtml =
             "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
           + "<p>Please specify the arguments for the request. If you have"
           + " already specified them, but they are wrong, or missing,"
