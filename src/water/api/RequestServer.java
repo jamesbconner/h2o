@@ -20,6 +20,7 @@ public class RequestServer extends NanoHTTPD {
   // cache of all loaded resources
   private static final ConcurrentHashMap<String,byte[]> _cache = new ConcurrentHashMap();
   private static final HashMap<String,Request> _requests = new HashMap();
+
   private static final Request _http404;
   private static final Request _http500;
 
@@ -30,16 +31,16 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new Cloud()),"Cloud");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
     Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
-
-
-
-
-
-
-
+    Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
+    Request.addToNavbar(registerRequest(new ImportFile()),"File","Import");
+    Request.addToNavbar(registerRequest(new ImportDirectory()),"Directory","Import");
 
     registerRequest(new WWWKeys());
     registerRequest(new WWWHexKeys());
+    registerRequest(new WWWModelKeys());
+
+    Request.addToNavbar(registerRequest(new RedirectTest()),"Redirect test","Debug");
+    Request.addToNavbar(registerRequest(new PollTest()),"Poll test","Debug");
 
     Request.initializeNavBar();
   }
@@ -72,7 +73,7 @@ public class RequestServer extends NanoHTTPD {
             }
           }
         }
-      }).start();
+      }, "Request Server launcher").start();
   }
 
   // uri serve -----------------------------------------------------------------
@@ -99,7 +100,7 @@ public class RequestServer extends NanoHTTPD {
     } catch (Exception e) {
       e.printStackTrace();
       // make sure that no Exception is ever thrown out from the request
-      parms.setProperty(Request.JSON_ERROR,e.getMessage());
+      parms.setProperty(Request.JSON_ERROR,e.getClass().getSimpleName()+": "+e.getMessage());
       return _http500.serve(this,parms,type);
     }
   }
@@ -125,7 +126,7 @@ public class RequestServer extends NanoHTTPD {
       }
       Closeables.closeQuietly(resource);
     }
-    if (bytes == null) {
+    if ((bytes == null) || (bytes.length == 0)) {
       // make sure that no Exception is ever thrown out from the request
       Properties parms = new Properties();
       parms.setProperty(Request.JSON_ERROR,uri);

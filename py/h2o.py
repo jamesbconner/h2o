@@ -556,7 +556,8 @@ class H2O(object):
     # timeout has to be big to cover longest expected parse? timeout is float. secs?
     # looks like max_retries is part of configuration defaults
     # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
-    def parse(self, key, key2=None, timeoutSecs=300):
+    def parse(self, key, key2=None, timeoutSecs=300, **kwargs):
+        browseAlso = kwargs.pop('browseAlso',False)
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
@@ -567,7 +568,10 @@ class H2O(object):
                 url=self.__url('Parse.json'),
                 timeout=timeoutSecs,
                 params={"Key": key, "Key2": key2}))
+
         verboseprint("\nparse result:",dump_json(a))
+        if (browseAlso | browse_json):
+            h2b.browseJsonHistoryAsUrlLastMatch("Parse")
         return a
 
     def netstat(self):

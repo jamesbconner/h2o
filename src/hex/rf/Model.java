@@ -27,7 +27,7 @@ public class Model extends Iced {
   public int[]     _ignoredColumns;
   /** Number of split features */
   public int       _splitFeatures;
-  public transient Key _treesKey;
+  public Key       _treesKey;
 
   public Model() { }
 

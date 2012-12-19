@@ -6,21 +6,8 @@ import org.junit.Test;
 import water.*;
 import water.exec.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
-public class ExprTest {
-  private static int _initial_keycnt = 0;
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    _initial_keycnt = H2O.store_size();
-  }
-
-  @AfterClass public static void checkLeakedKeys() {
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    assertEquals("No keys leaked", 0, leaked_keys);
-  }
-
+public class ExprTest extends KeyUtil {
   int i = 0;
 
   @Test public void testMultiChunkFile() {

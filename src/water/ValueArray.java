@@ -269,7 +269,8 @@ public class ValueArray extends Iced {
     Key ckey0 = getChunkKey(0,key);
     DKV.put(ckey0,new Value(ckey0,Arrays.copyOfRange(buf,            0,(int) CHUNK_SZ    )),fs);
     Key ckey1 = getChunkKey(1,key);
-    DKV.put(ckey1,new Value(ckey1,Arrays.copyOfRange(buf,(int)CHUNK_SZ,(int)(CHUNK_SZ<<1))),fs);
+    buf = Arrays.copyOfRange(buf,(int)CHUNK_SZ,(int)(CHUNK_SZ<<1));
+    DKV.put(ckey1,new Value(ckey1,buf),fs);
 
     // Read the rest out
     long szl = off;
