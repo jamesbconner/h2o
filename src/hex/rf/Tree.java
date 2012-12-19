@@ -91,7 +91,7 @@ public class Tree extends CountedCompleter {
     _stats = null; // GC
     new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
     // Atomically improve the Model as well
-    Model m = new Model(_modelKey, _treesKey, _data.columns(), _data.classes(), _sample, _data._data._ary._key,_ignoreColumns, _features);
+    Model m = new Model(_modelKey, _treesKey, _data.columns(), _data.classes(), _sample, _data._data._ary._key,_ignoreColumns, _features,_alltrees);
     AtomicModel am = new AtomicModel(_alltrees, m);
     am.invoke(_modelKey);
 

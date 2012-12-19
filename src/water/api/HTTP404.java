@@ -27,9 +27,16 @@ public class HTTP404 extends Request {
           ;
 
   @Override protected String build(Response response) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("<div class='container'>");
+    sb.append("<div class='row-fluid'>");
+    sb.append("<div class='span12'>");
+    sb.append(buildResponseHeader(response));
     RString str = new RString(_html);
     str.replace("ERROR", response.error());
-    return str.toString();
+    sb.append(str.toString());
+    sb.append("</div></div></div>");
+    return sb.toString();
   }
 
 }

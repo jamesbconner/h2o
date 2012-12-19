@@ -154,7 +154,7 @@ public class DRF extends water.DRemoteTask {
     DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     Column c = ary._cols[classcol];
     final int classes = (short)((c._max - c._min)+1);
-    UKV.put(modelKey, new Model(modelKey,drf._treeskey,ary._cols.length,classes,sample,ary._key,ignores,drf._features));
+    UKV.put(modelKey, new Model(modelKey,drf._treeskey,ary._cols.length,classes,sample,ary._key,ignores,drf._features, ntrees));
 
     DKV.write_barrier();
     drf.fork(drf._arykey);

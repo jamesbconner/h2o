@@ -27,6 +27,9 @@ public class Model extends Iced {
   public int[]     _ignoredColumns;
   /** Number of split features */
   public int       _splitFeatures;
+
+  /** Number of keys the model expects to be built for it */
+  public int       _totalTrees;
   public Key       _treesKey;
 
   public Model() { }
@@ -36,7 +39,7 @@ public class Model extends Iced {
    * @param classes     the number of response classes
    * @param data        the dataset
    */
-  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures) {
+  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures, int totalTrees) {
     _key            = key;
     _treesKey       = treeskey;
     _classes        = classes;
@@ -45,6 +48,7 @@ public class Model extends Iced {
     _dataset        = dataset;
     _ignoredColumns = ignoredColumns;
     _splitFeatures  = splitFeatures;
+    _totalTrees      = totalTrees;
 
     Key[] tkeys = treeskey.flatten(); // Trees
     if( tkeys == null ) return;       // Broken model?  quit now

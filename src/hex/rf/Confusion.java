@@ -15,6 +15,8 @@ import com.google.common.primitives.Ints;
  */
 public class Confusion extends MRTask {
 
+
+  public int _treesUsed;
   /** Key for the model used for construction of the confusion matrix. */
   public Key _modelKey;
   /** Model used for construction of the confusion matrix. */
@@ -61,6 +63,7 @@ public class Confusion extends MRTask {
     _classcol = classcol;
     _classWt = classWt;
     _ignores = ignores;
+    _treesUsed = model.size();
     _computeOOB = computeOOB;
     shared_init();
   }

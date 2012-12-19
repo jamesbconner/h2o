@@ -68,17 +68,17 @@ public abstract class Request extends RequestBuilders {
     return "WIKI NOT IMPLEMENTED YET";
   }
 
-  private NanoHTTPD.Response wrap(NanoHTTPD server, String response) {
+  protected NanoHTTPD.Response wrap(NanoHTTPD server, String response) {
     RString html = new RString(_htmlTemplate);
     html.replace("CONTENTS",response);
     return server.new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_HTML, html.toString());
   }
 
-  private NanoHTTPD.Response wrap(NanoHTTPD server, JsonObject response) {
+  protected NanoHTTPD.Response wrap(NanoHTTPD server, JsonObject response) {
     return server.new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_JSON, response.toString());
   }
 
-  private NanoHTTPD.Response wrap(NanoHTTPD server, String value, RequestType type) {
+  protected NanoHTTPD.Response wrap(NanoHTTPD server, String value, RequestType type) {
     if (type == RequestType.json)
       return server.new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_JSON, value);
     return wrap(server,value);

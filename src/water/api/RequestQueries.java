@@ -53,7 +53,7 @@ public class RequestQueries extends RequestArguments {
     return null;
   }
 
-  private static final String _queryHtml =
+  protected static final String _queryHtml =
             "<h3>Request %REQ_NAME ( <a href='%REQ_NAME.help'>help</a> )</h3>"
           + "<p>Please specify the arguments for the request. If you have"
           + " already specified them, but they are wrong, or missing,"
@@ -110,6 +110,7 @@ public class RequestQueries extends RequestArguments {
     RString result = new RString(_queryHtml);
     result.replace("REQ_NAME", this.getClass().getSimpleName());
     StringBuilder query = new StringBuilder();
+    query.append("<form onsubmit='return false;'>");
     RString script = new RString(_queryJs);
     script.replace("REQUEST_NAME", getClass().getSimpleName());
     for (Argument arg: _arguments) {
@@ -140,6 +141,7 @@ public class RequestQueries extends RequestArguments {
       x.replace("BODY", arg.jsAddons());
       x.append();
     }
+    query.append("</form>");
     result.replace("QUERY",query.toString());
     result.replace("SCRIPT",script.toString());
     return result.toString();

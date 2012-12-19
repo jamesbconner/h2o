@@ -30,7 +30,7 @@ public class RF extends Request {
   protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
   protected final Int _sample = new Int(JSON_SAMPLE, 67, 1, 100);
   protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, 0,65535);
-  protected final Int _depth = new Int(JSON_DEPTH,0,0,Integer.MAX_VALUE);
+  protected final Int _depth = new Int(JSON_DEPTH,Integer.MAX_VALUE,0,Integer.MAX_VALUE);
   protected final Int _seed = new Int(JSON_SEED,0);
   protected final Bool _parallel = new Bool(JSON_PARALLEL,true,"Build trees in parallel");
 
