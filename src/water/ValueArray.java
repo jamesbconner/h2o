@@ -239,15 +239,17 @@ public class ValueArray extends Iced {
   // Read a (possibly VERY large file) and put it in the K/V store and return a
   // Value for it. Files larger than 2Meg are broken into arraylets of 1Meg each.
   static public Key readPut(String keyname, InputStream is) throws IOException {
+    return readPut(Key.make(keyname), is);
+  }
+
+  static public Key readPut(Key k, InputStream is) throws IOException {
     Futures fs = new Futures();
-    Key k = readPut(keyname,is,fs);
+    k = readPut(k,is,fs);
     fs.block_pending();
     return k;
   }
 
-  static private Key readPut(String keyname, InputStream is, Futures fs) throws IOException {
-    final Key key = Key.make(keyname);
-
+  static public Key readPut(Key key, InputStream is, Futures fs) throws IOException {
     // try to read 2-chunks or less into the buffer
     byte[] buf = MemoryManager.malloc1((int)(CHUNK_SZ<<1));
     int off=0;
