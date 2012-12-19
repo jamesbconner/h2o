@@ -25,7 +25,7 @@ public class PutFile extends H2OPage {
   // Maximal waiting time for client connection.
   // If the timeout is reached, server socket is closed.
   public static final int ACCEPT_CLIENT_TIMEOUT = 1*60*1000; // = 1mins
-  
+
   public static int uploadFile(String filename, String key) throws PageError {
     // Open a new port to listen by creating a server socket to permit upload.
     // The socket is closed by the uploader thread.
@@ -328,6 +328,7 @@ public class PutFile extends H2OPage {
             if (boundary[i+idx] != lookAheadBuf[i]) return -1; // There is not boundary => preserve lookahed buffer
           }
           // Boundary found => do not care about lookAheadBuffer since all remaining data are ignored
+          lookAheadLen = 0;
         }
 
         return bidx;
