@@ -18,7 +18,7 @@ public class Remote extends H2OPage {
     String[] adrs = addr.split(":");
     H2ONode h2o=null;
     try {
-      h2o = H2ONode.intern(InetAddress.getByName(adrs[0]),Integer.decode(adrs[1]));
+      h2o = H2ONode.intern(InetAddress.getByName(adrs[0]),Integer.decode(adrs[1])+1);
     } catch( UnknownHostException uhe ) {
       return error("Unknown address "+addr);
     } catch( NumberFormatException nfe ) {
