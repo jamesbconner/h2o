@@ -25,7 +25,7 @@ class TestExcel(unittest.TestCase):
 
     def test_poker_xlsx(self):
         # was 51
-        h2o_cmd.runRF(None, h2o.find_dataset('poker/poker-hand-testing.xlsx'), trees=31, timeoutSecs=13)
+        h2o_cmd.runRF(None, h2o.find_dataset('poker/poker-hand-testing.xlsx'), trees=31, timeoutSecs=60)
 
 if __name__ == '__main__':
     h2o.unit_main()
