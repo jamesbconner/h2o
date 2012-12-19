@@ -16,9 +16,9 @@ class glm_same_parse(unittest.TestCase):
     def test_prostate_then_prostate_long_parse(self):
         print "\nput and parse of same file, but both key and key2 are the h2o defaults..always different"
         for trial in range (10):
-            start = time.time()
-            key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"))
-            print "Trial #", trial, "parse end on ", "prostate.csv" , 'took', time.time() - start, 'seconds'
+            ### start = time.time()
+            ### key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"))
+            ### print "Trial #", trial, "parse end on ", "prostate.csv" , 'took', time.time() - start, 'seconds'
 
             start = time.time()
             key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"))
