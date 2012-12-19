@@ -491,7 +491,7 @@ public class GLMSolver {
         }
         double err = s - _arr[i][i];
         err /= s;
-        row.add(new JsonPrimitive(err + " = " + (s - _arr[i][i]) + " / " + s));
+        row.add(new JsonPrimitive(err));
         res.add(row);
       }
       JsonArray totals = new JsonArray();
@@ -507,7 +507,7 @@ public class GLMSolver {
         DS += _arr[i][i];
       }
       double err = (S - DS)/(double)S;
-      totals.add(new JsonPrimitive(err + " = " + (S - DS) + " / " + S));
+      totals.add(new JsonPrimitive(err));
       res.add(totals);
       return res;
     }
@@ -560,15 +560,12 @@ public class GLMSolver {
 
     @Override
     void processRow(double[] x, int[] indexes) {
-      System.out.println(Arrays.toString(x));
       double yr = x[x.length-1];
       x[x.length-1] = 1.0;
       double ym = 0;
       for(int i = 0; i < x.length; ++i)
         ym += _val._beta[indexes[i]] * x[i];
-      System.out.println("mu = " + ym);
       ym = _link.linkInv(ym);
-      System.out.println("Ym = " + ym);
 
       if(_family == Family.binomial)
         yr = yr == _val._familyArgs[FAMILY_ARGS_CASE]?1:0;

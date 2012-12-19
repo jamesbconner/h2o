@@ -169,51 +169,6 @@ public class GLM extends H2OPage {
     return res;
   }
 
-  static String getFormulaSrc(JsonObject x, boolean neg) {
-    StringBuilder codeBldr = new StringBuilder();
-    for( Entry<String, JsonElement> e : x.entrySet() ) {
-      double val = e.getValue().getAsDouble();
-      if(val == 0)continue;
-      if(neg) val *= -1;
-      if( codeBldr.length() > 0 ) {
-        if(val >= 0)codeBldr.append(" + " + dformat.format(val));
-        else codeBldr.append(" - " + dformat.format(-val));
-      } else
-        codeBldr.append(dformat.format(val));
-      if( !e.getKey().equals("Intercept") )
-        codeBldr.append("*x[" + e.getKey()+ "]");
-    }
-    return codeBldr.toString();
-  }
-
-
-  static String getCoefficientsStr(JsonObject x){
-    StringBuilder bldr = new StringBuilder();
-
-    if( x.entrySet().size() < 10 ) {
-      for( Entry<String, JsonElement> e : x.entrySet() ) {
-        double val = e.getValue().getAsDouble();
-        bldr.append("<span style=\"margin:5px;font-weight:normal;\">"
-            + e.getKey() + " = " + dformat.format(val) + "</span>");
-      }
-      return bldr.toString();
-    } else {
-      StringBuilder headerbldr = new StringBuilder();
-      headerbldr
-          .append("<table class='table table-striped table-bordered table-condensed'><thead><tr>");
-      bldr.append("<tbody><tr>");
-      for( Entry<String, JsonElement> e : x.entrySet() ) {
-        double val = e.getValue().getAsDouble();
-        headerbldr.append("<th>" + e.getKey() + "</th>");
-        bldr.append("<td>" + dformat.format(val) + "</td>");
-      }
-      headerbldr.append("</tr></thead>");
-      bldr.append("</tr></tbody></table>");
-      return headerbldr.toString() + bldr.toString();
-    }
-  }
-
-
   static DecimalFormat dformat = new DecimalFormat("###.####");
 
 
@@ -230,7 +185,7 @@ public class GLM extends H2OPage {
         if(firstCol || firstRow)
           bldr.append(htags[0] + f.getAsString() + htags[1]);
         else
-          bldr.append(tags[0] + f.getAsString() + tags[1]);
+          bldr.append(tags[0] + dformat.format(f.getAsDouble()) + tags[1]);
         firstCol = false;
       }
       bldr.append("</tr>\n");

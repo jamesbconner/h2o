@@ -106,6 +106,7 @@ public final class LSMSolver implements H2OSerializable{
       break;
     case EL_PENALTY:
       lambda= _rho + _lambda2;
+      break;
     default:
       throw new Error("unexpected penalty " + _penalty);
     }
