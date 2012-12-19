@@ -17,6 +17,10 @@ import java.util.regex.Pattern;
  */
 public class RequestStatics {
 
+  public static final String JSON_OFFSET = "offset";
+  public static final String JSON_VIEW = "view";
+
+
   public static final String JSON_RESPONSE = "response";
   public static final String JSON_ERROR = "error";
   public static final String JSON_REDIRECT = "redirect_request";

@@ -748,4 +748,102 @@ public class RequestBuilders extends RequestQueries {
       return "<tr><td>"+elementContents+"</td></tr>";
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // PaginatedTable
+  // ---------------------------------------------------------------------------
+
+  /** A table with pagination controls.
+   *
+   * Use this builder when large data is returned not at once.
+   */
+
+  public static class PaginatedTable extends ArrayBuilder {
+    protected final String _offsetJSON;
+    protected final String _viewJSON;
+    protected final JsonObject _query;
+    protected final long _max;
+    protected final boolean _allowInfo;
+    protected final long _offset;
+    protected final int _view;
+
+
+
+    public PaginatedTable(JsonObject query, long offset, int view, long max, boolean allowInfo, String offsetJSON, String viewJSON) {
+      _offsetJSON = offsetJSON;
+      _viewJSON = viewJSON;
+      _query = query;
+      _max = max;
+      _allowInfo = allowInfo;
+      _offset = offset;
+      _view = view;
+    }
+
+    public PaginatedTable(JsonObject query, long offset, int view, long max, boolean allowInfo) {
+      this(query, offset, view, max, allowInfo, JSON_OFFSET, JSON_VIEW);
+    }
+
+
+    protected String link(String caption, long offset, int view, boolean disabled) {
+      _query.addProperty(_offsetJSON, offset);
+      _query.addProperty(_viewJSON, view);
+      if (disabled)
+        return "<li class='disabled'><a href='"+RequestStatics.encodeRedirectArgs(_query)+"'>"+caption+"</a></li>";
+      else
+        return "<li><a href='"+RequestStatics.encodeRedirectArgs(_query)+"'>"+caption+"</a></li>";
+    }
+
+    protected String infoButton() {
+      if (!_allowInfo)
+        return "";
+      return "<span class='pagination'><ul>"+link("info",-1,_view,_offset==1)+"</ul></span>&nbsp;&nbsp;";
+    }
+
+
+    protected String pagination() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<div style='text-align:center;'>");
+      sb.append(infoButton());
+      long lastOffset = (_max / _view) * _view;
+      long lastIdx = (_max / _view);
+      long currentIdx = _offset / _view;
+      long startIdx = Math.max(currentIdx-5,0);
+      long endIdx = Math.min(startIdx + 11, lastIdx);
+      if (_offset == -1)
+        currentIdx = -1;
+
+      sb.append("<span class='pagination'><ul>");
+      sb.append(link("|&lt;",0,_view, _offset == 0));
+      sb.append(link("&lt;",_offset-_view,_view, _offset-_view <0));
+      if (startIdx>0)
+        sb.append(link("...",0,0,true));
+      for (long i = startIdx; i <= endIdx; ++i)
+        sb.append(link(String.valueOf(i),_view*i,_view,i == currentIdx));
+      if (endIdx<lastIdx)
+        sb.append(link("...",0,0,true));
+      sb.append(link("&gt;",_offset+_view,_view, _offset+_view >lastOffset));
+      sb.append(link("&gt;|",lastOffset,_view, _offset == lastOffset));
+      sb.append("</ul></span>");
+      sb.append("</div>");
+      return sb.toString();
+    }
+
+
+    @Override public String header(JsonArray array) {
+      StringBuilder sb = new StringBuilder();
+      sb.append(pagination());
+      sb.append(super.header(array));
+      return sb.toString();
+    }
+
+    @Override public String footer(JsonArray array) {
+      StringBuilder sb = new StringBuilder();
+      sb.append(super.footer(array));
+      sb.append(pagination());
+      return sb.toString();
+    }
+
+  }
+
+
 }
