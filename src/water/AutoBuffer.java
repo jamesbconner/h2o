@@ -785,7 +785,7 @@ public final class AutoBuffer {
     byte[] dst = _bb.array();
     offset += _bb.arrayOffset();
     byte[] src = ab._bb.array();
-    abOff = ab._bb.arrayOffset();
+    abOff += ab._bb.arrayOffset();
     System.arraycopy(src, abOff, dst, offset, len);
     return this;
   }
