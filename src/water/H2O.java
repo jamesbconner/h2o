@@ -383,6 +383,7 @@ public final class H2O {
     public String hdfs_nopreload; // do not preload HDFS keys
     public String nosigar; // Disable Sigar-based statistics
     public String keepice; // Do not delete ice on startup
+    public String soft; // soft launch for demos
     public String auth; // Require authentication for the webpages
   }
   public static boolean IS_SYSTEM_RUNNING = false;
@@ -572,7 +573,9 @@ public final class H2O {
           CLOUD_MULTICAST_SOCKET.send(new DatagramPacket(buf, buf.length, CLOUD_MULTICAST_GROUP,CLOUD_MULTICAST_PORT));
         } catch( Exception e ) {
           // On any error from anybody, close all sockets & re-open
-          System.err.println("Multicast Error "+e);
+		  // and if not a soft launch (hibernate mode)
+		  if(H2O.OPT_ARGS.soft == null) 
+           System.err.println("Multicast Error "+e);
           if( CLOUD_MULTICAST_SOCKET != null )
             try { CLOUD_MULTICAST_SOCKET.close(); }
             catch( Exception e2 ) { }
