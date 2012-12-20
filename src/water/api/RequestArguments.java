@@ -517,18 +517,6 @@ public class RequestArguments extends RequestStatics {
   // TypeaheadInputText
   // ===========================================================================
 
-  // typeahead assignment js
-  private static final String _typeahead =
-            "$('#%ID').typeahead({\n"
-          + "  source:\n"
-          + "    function(query,process) {\n"
-          + "      return $.get('%HREF', { filter: query, limit: %LIMIT }, function (data) {\n"
-          + "        return process(data.%DATA_NAME);\n"
-          + "      });\n"
-          + "    }\n"
-          + "});\n"
-          ;
-
   /** Typeahead enabled text input.
    *
    * Typeahead is enabled using the jQuery typeahead plugin. You must specify
@@ -574,7 +562,20 @@ public class RequestArguments extends RequestStatics {
      * jQuery typeahead plugin standard initialization with async filler.
      */
     @Override protected String jsAddons() {
-      RString s = new RString(_typeahead);
+      RString s = new RString("" +
+          "$('#%ID').typeahead({\n" +
+          "  source:\n" +
+          "    function(query,process) {\n" +
+          "      return $.get('%HREF', { filter: query, limit: %LIMIT }, function (data) {\n" +
+          "        return process(data.%DATA_NAME);\n" +
+          "      });\n" +
+          "    },\n" +
+          "});\n" +
+//          "$('#%ID').change(function (evt) {\n" +
+//          "  var ev = jQuery.Event('keyup');\n" +
+//          "  $('#%ID').trigger(ev);\n" +
+//          "});\n"  +
+          "\n");
       s.replace("ID", _name);
       s.replace("HREF", _typeaheadHref);
       s.replace("LIMIT", _typeaheadLimit);
@@ -1102,9 +1103,9 @@ public class RequestArguments extends RequestStatics {
   // ExistingFile
   // ---------------------------------------------------------------------------
 
-  public class ExistingFile extends InputText<File> {
+  public class ExistingFile extends TypeaheadInputText<File> {
     public ExistingFile(String name) {
-      super(name, true);
+      super(name, true, WWWFiles.class.getSimpleName(), JSON_FILES);
     }
 
     @Override protected File parse(String input) throws IllegalArgumentException {
