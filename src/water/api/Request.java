@@ -53,18 +53,22 @@ public abstract class Request extends RequestBuilders {
     }
   }
 
-  private String serveHelp() {
+  protected String serveHelp() {
     StringBuilder sb = new StringBuilder();
+    sb.append("<div class='container'>");
+    sb.append("<div class='row-fluid'>");
+    sb.append("<div class='span12'>");
     String requestName = getClass().getSimpleName();
     sb.append("<h3>"+requestName+"</h3>");
     if (_requestHelp != null)
       sb.append("<p>"+_requestHelp+"</p>");
     for (Argument arg : _arguments)
       sb.append(arg.requestHelp());
+    sb.append("</div></div></div>");
     return sb.toString();
   }
 
-  private String serveWiki() {
+  protected String serveWiki() {
     return "WIKI NOT IMPLEMENTED YET";
   }
 
