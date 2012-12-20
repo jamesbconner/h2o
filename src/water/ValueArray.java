@@ -43,7 +43,7 @@ public class ValueArray extends Iced {
   public long _numrows;    // Number of rows; the Y dimension.  Can be >>2^32
   public final int _rowsize;     // Size in bytes for an entire row
   public transient int _rpc;     // Rows per standard chunk
-  public final byte _persist;    // Persistance in ICE, NFS, HDFS, S3, etc
+  public byte _persist;          // Persistance in ICE, NFS, HDFS, S3, etc
 
   public ValueArray(Key key, long numrows, int rowsize, Column[] cols ) {
     this(key,numrows,rowsize,cols,Value.ICE);
@@ -61,7 +61,6 @@ public class ValueArray extends Iced {
 
   // Plain unstructured data wrapper.  Just a vast byte array
   public ValueArray(Key key, long len, byte persist ) { this(key,len,1,new Column[]{new Column(len)},persist); }
-
   public ValueArray clone() {
     try {
       return (ValueArray) super.clone();
@@ -80,7 +79,7 @@ public class ValueArray extends Iced {
 
   /** Get a Value wrapping a serialized ValueArray */
   public Value value() {
-    return new Value(_key,new AutoBuffer().put(this).buf(),_persist,(byte)1);
+    return new Value(_key,write(new AutoBuffer()).buf(),_persist,(byte)1);
   }
   /** Deserialize wrapper from a Key */
   public static ValueArray value(Key k) {
@@ -89,7 +88,10 @@ public class ValueArray extends Iced {
   /** Deserialize wrapper from a Value */
   public static ValueArray value(Value val) {
     assert val._isArray!=0;
-    return new AutoBuffer(val.get()).get(ValueArray.class).init(val._key);
+    ValueArray ary = new ValueArray(val._key,0,Value.ICE);
+    ary.read(new AutoBuffer(val.get()));
+    ary.init(val._key);
+    return ary;
   }
 
   public int rowSize() { return _rowsize; }

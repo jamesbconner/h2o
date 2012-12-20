@@ -6,9 +6,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import water.H2O;
+import water.PrettyPrint;
 import water.web.RString;
 
+import com.google.common.base.Throwables;
 import com.google.gson.*;
+import com.sun.corba.se.spi.legacy.connection.GetEndPointInfoAgainException;
 
 /** Builders & response object.
  *
@@ -62,7 +65,7 @@ public class RequestBuilders extends RequestQueries {
           + "    <td style='border:0px'><b>Node:</b></td>"
           + "    <td style='padding-right:70px;border:0px'>%NODE_NAME</td>"
           + "    <td style='border:0px'><b>Time:</b></td>"
-          + "    <td style='padding-right:70px;border:0px'>%TIME [s]</td>"
+          + "    <td style='padding-right:70px;border:0px'>%TIME</td>"
           + "  </tr>"
           + "</table></td></tr></table>"
           + "<script type='text/javascript'>"
@@ -117,7 +120,7 @@ public class RequestBuilders extends RequestQueries {
     JsonObject obj = response.responseToJson();
     result.replace("CLOUD_NAME",obj.get(JSON_H2O).getAsString());
     result.replace("NODE_NAME",obj.get(JSON_H2O_NODE).getAsString());
-    result.replace("TIME",obj.get(JSON_REQUEST_TIME).getAsLong() / 1000.0);
+    result.replace("TIME", PrettyPrint.msecs(obj.get(JSON_REQUEST_TIME).getAsLong(), true));
     switch (response._status) {
       case error:
         result.replace("BUTTON","<button class='btn btn-danger disabled'>"+response._status.toString()+"</button>");
@@ -656,22 +659,10 @@ public class RequestBuilders extends RequestQueries {
    */
   public static class ElementBuilder extends Builder {
 
-    public String elementToString(JsonElement element) {
-      return element.getAsString();
-    }
-
-    public String objectToString(JsonObject object) {
-      return object.toString();
-    }
-
-    public String arrayToString(JsonArray array) {
-      return array.toString();
-    }
-
     /** Displays the element in the horizontal dl layout. Override this method
      * to change the layout.
      */
-    public String build(String elementContents, String elementName) {
+    protected String build(String elementContents, String elementName) {
       return "<dl class='dl-horizontal'><dt>"+elementName+"</dt><dd>"+elementContents+"</dd></dl>";
     }
 
@@ -679,24 +670,31 @@ public class RequestBuilders extends RequestQueries {
      * the string build version.
      */
     @Override public String build(Response response, JsonElement element, String contextName) {
-      if (element instanceof JsonArray)
-        return build(arrayToString((JsonArray) element), elementName(contextName));
-      else if (element instanceof JsonObject)
-        return build(objectToString((JsonObject) element), elementName(contextName));
-      else
-        return build(elementToString(element), elementName(contextName));
+      if (element instanceof JsonArray) {
+        return build(element.toString(), elementName(contextName));
+      } else if (element instanceof JsonObject) {
+        return build(element.toString(), elementName(contextName));
+      } else {
+        String elementName = elementName(contextName);
+        if( elementName.endsWith(JSON_BYTE_SUFFIX) ) {
+          return build(PrettyPrint.bytes(element.getAsLong()), elementName);
+        } else if( elementName.endsWith(JSON_TIME_SUFFIX) ) {
+          return build(PrettyPrint.msecs(element.getAsLong(), true), elementName);
+        } else{
+          return build(element.getAsString(), elementName);
+        }
+      }
     }
   }
 
   public static class KeyElementBuilder extends ElementBuilder {
     @Override
-    public String build(String elementContents, String elementName) {
+    protected String build(String content, String name) {
       try {
-        String k = URLEncoder.encode(elementContents, "UTF-8");
-        return "<dl class='dl-horizontal'><dt>"+elementName+"</dt>" +
-        "<dd><a href='Inspect.html?key="+k+"'>"+elementContents+"</a></dd></dl>";
+        String k = URLEncoder.encode(content, "UTF-8");
+        return super.build("<a href='Inspect.html?key="+k+"'>"+content+"</a>", name);
       } catch( Throwable e ) {
-        throw new RuntimeException(e);
+        throw Throwables.propagate(e);
       }
     }
   }
@@ -704,10 +702,8 @@ public class RequestBuilders extends RequestQueries {
   public static class BooleanStringBuilder extends ElementBuilder {
     final String _t, _f;
     public BooleanStringBuilder(String t, String f) { _t=t; _f=f; }
-    @Override
-    public String build(String elementContents, String elementName) {
-      boolean b = elementContents.equals("true");
-      assert b || elementContents.equals("false");
+    @Override public String build(Response response, JsonElement element, String contextName) {
+      boolean b = element.getAsBoolean();
       return "<dl class='dl-horizontal'><dt></dt><dd>"+(b?_t:_f)+"</dd></dl>";
     }
   }

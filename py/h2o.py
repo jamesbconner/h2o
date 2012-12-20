@@ -873,11 +873,13 @@ class H2O(object):
 
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
-        # FIX! need to be able to specify name node/path for non-0xdata hdfs
-        # specifying hdfs stuff when not used shouldn't hurt anything
-
+        args += ["-ea"]
+        if self.classpath:
+            cp = find_file("build/classes")
+            args += ["-classpath", cp+";lib/sigar/sigar.jar;lib/hadoop/cdh4/hadoop-common.jar;lib/hadoop/cdh4/hadoop-auth.jar;lib/hadoop/cdh4/slf4j-api-1.6.1.jar;lib/hadoop/cdh4/slf4j-nop-1.6.1.jar;lib/hadoop/cdh4/hadoop-hdfs.jar;lib/hadoop/cdh4/protobuf-java-2.4.0a.jar;lib/apache/commons-codec-1.3.jar;lib/apache/commons-configuration-1.6.jar;lib/apache/commons-lang-2.4.jar;lib/apache/commons-logging-1.1.1.jar;lib/apache/commons-logging-api-1.0.4.jar;lib/apache/httpclient-4.1.1.jar;lib/apache/httpcore-4.1.jar;lib/junit/junit-4.11.jar;lib/apache/guava-12.0.1.jar;lib/gson/gson-2.2.2.jar;lib/javassist.jar;lib/trove/trove-3.0.3.jar;lib/poi/poi-3.8-20120326.jar;lib/poi/poi-ooxml-3.8-20120326.jar;lib/poi/poi-ooxml-schemas-3.8-20120326.jar", "init.Boot"]
+        else: 
+            args += ["-jar", self.get_h2o_jar()]
         args += [
-            "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
@@ -888,6 +890,8 @@ class H2O(object):
             '--name=' + cloud_name()
             ]
 
+        # FIX! need to be able to specify name node/path for non-0xdata hdfs
+        # specifying hdfs stuff when not used shouldn't hurt anything
         if self.use_hdfs:
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
@@ -909,7 +913,7 @@ class H2O(object):
         return args
 
     def __init__(self, 
-        use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, use_debugger=None, 
+        use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, use_debugger=None, classpath=None,
         use_hdfs=False, hdfs_name_node="192.168.1.151", hdfs_root="/datasets", hdfs_version="cdh4",
         hdfs_nopreload=None,
         use_flatfile=False, java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
@@ -921,6 +925,7 @@ class H2O(object):
         self.addr = use_this_ip_addr
         self.sigar = sigar
         self.use_debugger = use_debugger
+        self.classpath = classpath
         self.capture_output = capture_output
 
         self.use_hdfs = use_hdfs
