@@ -105,7 +105,7 @@ public class Inspect extends Request {
             col.add(JSON_VALUE_COLUMN_ENUM_DOMAIN,new JsonArray());
           }
           col.addProperty(JSON_VALUE_COLUMN_SIZE, (int)c._size);
-          col.addProperty(JSON_VALUE_COLUMN_BASE, (int)c._base);
+          col.addProperty(JSON_VALUE_COLUMN_BASE,      c._base);
           col.addProperty(JSON_VALUE_COLUMN_SCALE, (int)c._scale);
           col.addProperty(JSON_VALUE_COLUMN_MIN, c._min);
           col.addProperty(JSON_VALUE_COLUMN_MAX, c._max);
