@@ -132,6 +132,18 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     }
   }
 
+  // Set persistence to HDFS from ICE
+  public void setHdfs() {
+    assert onICE();
+    byte[] mem = get();         // Get into stable memory
+    remove_persist();           // Remove from ICE disk
+    _persist = Value.HDFS|Value.NOTdsk;
+    assert onHDFS();            // Flip to HDFS
+    _mem = mem; // Close a rare race with the H2O cleaner zapping _mem whilst removing from ice
+    store_persist();            // Store back to HDFS
+  }
+
+
   // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray.
   // Probably should be moved into HDFS-land, except that the same logic applies
   // to all stores providing large-file access by default including S3.

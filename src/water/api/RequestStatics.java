@@ -32,6 +32,8 @@ public class RequestStatics {
   public static final String JSON_PROGRESS = "progress";
   public static final String JSON_PROGRESS_TOTAL = "progress_total";
 
+  public static final String JSON_BYTE_SUFFIX = "_bytes";
+  public static final String JSON_TIME_SUFFIX = "_ms";
 
   public static final String JSON_KEY = "key";
   public static final String JSON_FAILED = "failed";
@@ -71,13 +73,13 @@ public class RequestStatics {
   public static final String JSON_NODES = "nodes";
   public static final String JSON_NODES_NAME = "name";
   public static final String JSON_NODES_NUM_CPUS = "num_cpus";
-  public static final String JSON_NODES_FREE_MEM = "free_mem";
-  public static final String JSON_NODES_TOT_MEM = "tot_mem";
-  public static final String JSON_NODES_MAX_MEM = "max_mem";
+  public static final String JSON_NODES_FREE_MEM = "free_mem" + JSON_BYTE_SUFFIX;
+  public static final String JSON_NODES_TOT_MEM = "tot_mem" + JSON_BYTE_SUFFIX;
+  public static final String JSON_NODES_MAX_MEM = "max_mem" + JSON_BYTE_SUFFIX;
   public static final String JSON_NODES_NUM_KEYS = "num_keys";
-  public static final String JSON_NODES_VAL_SIZE = "val_size";
-  public static final String JSON_NODES_FREE_DISK = "free_disk";
-  public static final String JSON_NODES_MAX_DISK = "max_disk";
+  public static final String JSON_NODES_VAL_SIZE = "val_size" + JSON_BYTE_SUFFIX;
+  public static final String JSON_NODES_FREE_DISK = "free_disk" + JSON_BYTE_SUFFIX;
+  public static final String JSON_NODES_MAX_DISK = "max_disk" + JSON_BYTE_SUFFIX;
   public static final String JSON_NODES_CPU_UTIL = "cpu_util";
   public static final String JSON_NODES_CPU_LOAD_1 = "cpu_load_1";
   public static final String JSON_NODES_CPU_LOAD_5 = "cpu_load_5";

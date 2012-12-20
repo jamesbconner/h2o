@@ -38,11 +38,13 @@ def parseHdfsFile(node=None, csvFilename=None, timeoutSecs=3600):
     # assume the hdfs prefix is datasets, for now
     print "\nHacked the test to match the new behavior for key names created from hdfs files"
     print "Was: hdfs:// prefix"
-    print "Now: hdfs://192.168.1.151/datasets/ prefix"
+    print "Was: hdfs://192.168.1.151/datasets/ prefix"
+    print "Now: hdfs:// prefix"
     
     # FIX! this is ugly..needs to change to use the name node from the config json/h2o args?
     # also the hdfs dir
     hdfsPrefix = "hdfs://192.168.1.151/datasets/"
+    hdfsPrefix = "hdfs://"
     hdfsKey = hdfsPrefix + csvFilename
     print "parseHdfsFile hdfsKey:", hdfsKey
 
