@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 
 import water.*;
 import water.UDP.udp;
+import water.util.TimelineSnapshot;
 
 public class TimelinePage extends H2OPage {
 

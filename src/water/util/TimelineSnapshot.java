@@ -1,4 +1,4 @@
-package water.web;
+package water.util;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ public final class TimelineSnapshot implements
   long[][] _snapshot;
   Event[] _events;
   HashMap<Event, Event> _edges;
-  HashMap<Event, ArrayList<Event>> _sends;
+  public HashMap<Event, ArrayList<Event>> _sends;
   H2O _cloud;
   boolean _processed;
 
@@ -127,27 +127,27 @@ public final class TimelineSnapshot implements
       return send_recv() == 1;
     }
 
-    final InetAddress addrPack() {
+    public final InetAddress addrPack() {
       return TimeLine.inet(_val, _arr[1]);
     }
 
-    final String addrString() {
+    public final String addrString() {
       InetAddress inet = addrPack();
       return (inet.isMulticastAddress() ? "multicast" : inet.toString())
           + (isRecv() ? ":" + portPack() : "");
     }
 
-    final int portPack() {
+    public final int portPack() {
       assert !isSend(); // the port is always sender's port!!!
       int i = (int) TimeLine.l0(_val, _arr[1]);
       return (0xFFFF) & (i >> 8);
     }
 
-    final long dataLo() {
+    public final long dataLo() {
       return TimeLine.l0(_val, _arr[1]);
     }
 
-    final long dataHi() {
+    public final long dataHi() {
       return TimeLine.l8(_val, _arr[1]);
     }
 
@@ -325,11 +325,11 @@ public final class TimelineSnapshot implements
       return res;
     }
 
-    long ns() {
+    public long ns() {
       return TimeLine.ns(_val, _arr[1]);
     }
 
-    long ms() {
+    public long ms() {
       return TimeLine.ms(_val, _arr[1]);
     }
   }
