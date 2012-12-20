@@ -76,7 +76,7 @@ class Basic(unittest.TestCase):
 
             print "\n" + csvFilename
             h2e.exec_zero_list(zeroList)
-            h2e.exec_list_of_expr(lenNodes, exprList, key2, 
+            h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
                 maxCol=54, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
 
 
