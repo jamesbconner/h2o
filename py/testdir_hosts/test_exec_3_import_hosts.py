@@ -11,14 +11,26 @@ zeroList = [
         ['Result0 = 0'],
 ]
 
-# 'randomBitVector'
+# FIX! put these in 3?
+# 'randomBitVector' ?? hardwire size to 19?
 # 'randomFilter'
 # 'log"
-# 'makeEnum'
+# do we have to restrict ourselves?
+# 'makeEnum' (hardware the enum colum to col 53
 # bug?
-# ['Result','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
-#        ['Result','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
+#        ['Result','<n>',' = makeEnum(','<keyX>','[53]) + Result', '<n-1>'],
+#        ['Result','<n>',' = randomFilter(','<keyX>','[', '<col1>','],' ,'<row>', ')'],
 exprList = [
+        ['Result','<n>',' = randomBitVector(19,0) + Result', '<n-1>'],
+        ['Result','<n>',' = log(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
+        ['Result','<n>',' = ',
+            '<keyX>','[', '<col1>', '] + ',
+            '<keyX>','[', '<col2>', '] + ',
+            '<keyX>','[', '2', ']'
+        ],
+
+        ['Result','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
+        ['Result','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
         ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
         ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
         ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
@@ -77,8 +89,10 @@ class Basic(unittest.TestCase):
 
             print "\n" + csvFilename
             h2e.exec_zero_list(zeroList)
+            # we use colX+1 so keep it to 53
+            # we use makeEnum in this test...so timeout has to be bigger!
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
-                maxCol=54, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
+                maxCol=53, maxRow=400000, maxTrials=100, timeoutSecs=(timeoutSecs))
 
 
 if __name__ == '__main__':

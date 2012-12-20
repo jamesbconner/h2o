@@ -57,13 +57,20 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     h2o.verboseprint('exec took', time.time() - start, 'seconds')
     print 'exec took', time.time() - start, 'seconds'
 
-    h2o.verboseprint("\nfirst look at the default Result key")
-    defaultInspect = h2o_cmd.runInspect(None, "Result")
-    h2o.verboseprint(h2o.dump_json(defaultInspect))
+    # normal
+    if 1==1:
+        h2o.verboseprint("\nfirst look at the default Result key")
+        defaultInspect = h2o_cmd.runInspect(None, "Result")
+        h2o.verboseprint(h2o.dump_json(defaultInspect))
 
-    h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
-    resultInspect = h2o_cmd.runInspect(None, resultKey)
-    h2o.verboseprint(h2o.dump_json(resultInspect))
+        h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
+        resultInspect = h2o_cmd.runInspect(None, resultKey)
+        h2o.verboseprint(h2o.dump_json(resultInspect))
+
+    # for debug
+    # for debug! dummy assign because of removed inspect above
+    else:
+        resultInspect = {u'rows': 19, u'rowsize': 8, u'cols': 1, u'key': u'Result1', u'type': u'ary', u'columns': [{u'scale': u'\x01', u'off': 0, u'name': u'0', u'min': u'0.0', u'max': u'0.0', u'badat': u'19', u'base': 0, u'var': u'0.0', u'mean': u'0.0', u'type': u'float', u'size': 8}], u'size': 152}
 
     return resultInspect
 
