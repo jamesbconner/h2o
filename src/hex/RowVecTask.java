@@ -97,9 +97,11 @@ ROW:
       if(_s != null && _s.skip())continue;
       if(_categoricals != null) for(int i:_categoricals){
         if(!r.valid(i))continue ROW;
-        indexes[i] = r.getI(i) + _colOffsets[i];
+        indexes[i] = r.getI(i) + _colOffsets[i] + i;
         if(_normSub != null)
-          x[i] = _normSub[indexes[i]];
+          x[i] = _normMul[indexes[i]];
+        else
+          x[i] = 1.0;
       }
       if(_numeric != null) for (int i:_numeric){
         if(!r.valid(i))continue ROW;

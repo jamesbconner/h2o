@@ -163,6 +163,13 @@ public class GLM extends H2OPage {
       }
       m.validateOn(ary, null);
       res.add("GLMModel", m.toJson());
+      if(p.containsKey("xval")){
+        int fold = getIntArg(p, "xval", 10);
+        JsonArray models = new JsonArray();
+        for(GLMModel xm:glm.xvalidate(ary, columns, fold))
+          models.add(xm.toJson());
+        res.add("xval", models);
+      }
     } catch( GLMInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());
     }
@@ -204,7 +211,10 @@ public class GLM extends H2OPage {
     bldr.append("<span><b>family: </b>" + glmParams.get("family").getAsString() + "</span>");
     bldr.append(" <span><b>link: </b>" + glmParams.get("link").getAsString() + "</span>");
     bldr.append(" <span><b>&epsilon;<sub>&beta;</sub>: </b>" + glmParams.get("betaEps").getAsString() + "</span>");
-    bldr.append(" <span><b>threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
+    if(glmParams.has("weight"))
+      bldr.append(" <span><b>weight<sub>1</sub>:</b>" + dformat.format(glmParams.get("weight").getAsDouble()) + "</span>");
+    if(glmParams.has("threshold"))
+      bldr.append(" <span><b>threshold: </b>" + glmParams.get("threshold").getAsString() + "</span>");
     String [] params = new String[]{"norm","lambda","lambda2","rho","alpha","weights"};
     String [] paramHTML = new String[]{"norm","&lambda;<sub>1</sub>","&lambda;<sub>2</sub>","&rho;","&alpha;","weights"};
     for(int i = 0; i < params.length; ++i){
@@ -287,6 +297,23 @@ public class GLM extends H2OPage {
     return responseTemplate.toString() + (json.has("validations")?getValidationHTML(json.get("validations").getAsJsonArray()):"");
   }
 
+  public String getXModelHTML(JsonObject json){
+    RString responseTemplate = new RString(
+        "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time[ms]. %warningMsgs</div>"
+            + "<div>%coefficients</div>");
+
+    if(json.has("warnings")){
+      responseTemplate.replace("succ","alert-warning");
+      responseTemplate.replace("warningMsgs",json.get("warnings").getAsString());
+    } else
+      responseTemplate.replace("succ","alert-success");
+    responseTemplate.replace("key",json.get("dataset").getAsString());
+    responseTemplate.replace("time",json.get("time").getAsString());
+    responseTemplate.replace("iterations",json.get("iterations").getAsString());
+    responseTemplate.replace("coefficients",getCoefficientsHTML(json.get("coefficients").getAsJsonArray()));
+    return responseTemplate.toString() + getXValidationHTML(json.get("validations").getAsJsonArray());
+  }
+
   public String getValidationHTML(JsonArray arr){
     StringBuilder res = new StringBuilder("<h2>Validations</h2>");
 
@@ -304,9 +331,15 @@ public class GLM extends H2OPage {
       if(val.has("cm"))
         val.addProperty("cm", buildCM(val.get("cm").getAsJsonArray()));
       template.replace(val);
+      template.replace("DegreesOfFreedom",val.get("nrows").getAsLong()-1);
+      template.replace("ResidualDegreesOfFreedom",val.get("dof").getAsLong());
       res.append(template.toString());
     }
     return res.toString();
+  }
+
+  public String getXValidationHTML(JsonArray arr){
+    return buildCM(arr.get(0).getAsJsonObject().get("cm").getAsJsonArray());
   }
 
   @Override
@@ -314,6 +347,16 @@ public class GLM extends H2OPage {
     JsonObject json = serverJson(server, args, sessionID);
     if( json.has("error") )
       return H2OPage.error(json.get("error").getAsString());
-    return getModelHTML(json.get("GLMModel").getAsJsonObject());
+    String res = getModelHTML(json.get("GLMModel").getAsJsonObject());
+    if(args.containsKey("xval")){
+      StringBuilder xvalStr = new StringBuilder("<h3>Cross Validation</h3>");
+      JsonArray arr = json.get("xval").getAsJsonArray();
+      for(JsonElement e:arr){
+        xvalStr.append("<br/>");
+        xvalStr.append(getXModelHTML(e.getAsJsonObject()));
+      }
+      res = res + xvalStr.toString();
+    }
+    return res;
   }
 }

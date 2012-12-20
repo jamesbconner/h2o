@@ -5,6 +5,8 @@ import init.H2OSerializable;
 
 import java.util.Arrays;
 
+import sun.security.util.PendingException;
+
 import water.*;
 
 import com.google.gson.*;
@@ -199,7 +201,7 @@ public class GLMSolver {
         _colOffsets[i+1] = _colOffsets[i];
         if(ary.col_has_enum_domain(col)){
           categoricals[ncat++] = i;
-          _colOffsets[i+1] += ary.col_enum_domain_size(col);
+          _colOffsets[i+1] += ary.col_enum_domain_size(col)-1;
         } else
           numeric[nnum++] = i;
         ++i;
@@ -271,7 +273,7 @@ public class GLMSolver {
           String [] dom = ary.col_enum_domain(col);
           for(int j = 0; j < dom.length; ++j){
             JsonObject c = new JsonObject();
-            c.addProperty("name", dom[j]);
+            c.addProperty("name", _colNames[i] + "." + dom[j]);
             c.addProperty("value", _beta[_colOffsets[i]+i+j]);
             coefs.add(c);
           }
@@ -331,6 +333,7 @@ public class GLMSolver {
     _glmParams = glmParams;
   }
 
+  public static final double MAX_LAMBDA = 10;
   public GLMModel computeGLM(ValueArray ary, int [] colIds, Sampling s){
     GLMModel res = new GLMModel(ary,colIds,_solver,_glmParams,s);
     GramMatrixTask gtask = null;
@@ -339,7 +342,16 @@ public class GLMSolver {
       gtask = new GramMatrixTask(res);
       gtask._s = s;
       gtask.invoke(ary._key);
-      double [] beta = _solver.solve(gtask._gram);
+      double [] beta = null;
+      for(int i = 0; i < 100; ++i){
+        try{
+          beta = _solver.solve(gtask._gram);
+          break;
+        } catch (Exception e){
+          _solver._penalty = Math.max(_solver._penalty, LSMSolver.L2_PENALTY);
+          _solver._lambda = Math.max(_solver._lambda*10, 1e-8);
+        }
+      }
       double diff = 0.0;
       for(int i = 0; i < gtask._beta.length; ++i)
         diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
@@ -353,7 +365,7 @@ public class GLMSolver {
     return res;
   }
 
-  public GLMModel [] xvalidate(ValueArray ary, int [] colIds, LSMSolver lsm, Family f, Link l, double [] fargs, int fold){
+  public GLMModel [] xvalidate(ValueArray ary, int [] colIds, int fold){
     GLMModel [] models = new GLMModel[fold];
     for(int i = 0; i < fold; ++i){
       models[i] = computeGLM(ary, colIds, new Sampling(i, fold, false));
@@ -445,11 +457,11 @@ public class GLMSolver {
   }
 
   public static final class ConfusionMatrix implements H2OSerializable {
-    int [][] _arr;
+    long [][] _arr;
     long _n;
 
     public ConfusionMatrix(int n){
-      _arr = new int[n][n];
+      _arr = new long[n][n];
     }
     public void add(int i, int j){
       add(i, j, 1);
@@ -468,6 +480,7 @@ public class GLMSolver {
     }
 
     public void add(ConfusionMatrix other){
+      _n += other._n;
       for(int i = 0; i < _arr.length; ++i)
         for(int j = 0; j < _arr.length; ++j)
           _arr[i][j] += other._arr[i][j];
@@ -532,6 +545,7 @@ public class GLMSolver {
       if(_s != null)
         res.addProperty("sampling", _s.toString());
       res.addProperty("nrows", _n);
+      res.addProperty("dof", _n-1-_beta.length);
       res.addProperty("resDev", _deviance);
       res.addProperty("nullDev", _nullDeviance);
 
@@ -560,6 +574,7 @@ public class GLMSolver {
 
     @Override
     void processRow(double[] x, int[] indexes) {
+      ++_val._n;
       double yr = x[x.length-1];
       x[x.length-1] = 1.0;
       double ym = 0;
@@ -582,6 +597,7 @@ public class GLMSolver {
     @Override
     public void reduce(DRemoteTask drt) {
       GLMValidatoinTask other = (GLMValidatoinTask)drt;
+      _val._n += other._val._n;
       if(_val == null)
         _val = other._val;
       else {
