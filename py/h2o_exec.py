@@ -51,6 +51,8 @@ def fill_in_expr_template(exprTemp, colX, n, row, key2):
 def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     start = time.time()
     resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
+    print "HACK! do exec twice to avoid the race in shape/result against the next inspect"
+    resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
     h2o.verboseprint(resultExec)
     h2o.verboseprint('exec took', time.time() - start, 'seconds')
     print 'exec took', time.time() - start, 'seconds'
