@@ -875,8 +875,10 @@ class H2O(object):
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
         args += ["-ea"]
         if self.classpath:
-            cp = find_file("build/classes")
-            args += ["-classpath", cp+";lib/sigar/sigar.jar;lib/hadoop/cdh4/hadoop-common.jar;lib/hadoop/cdh4/hadoop-auth.jar;lib/hadoop/cdh4/slf4j-api-1.6.1.jar;lib/hadoop/cdh4/slf4j-nop-1.6.1.jar;lib/hadoop/cdh4/hadoop-hdfs.jar;lib/hadoop/cdh4/protobuf-java-2.4.0a.jar;lib/apache/commons-codec-1.3.jar;lib/apache/commons-configuration-1.6.jar;lib/apache/commons-lang-2.4.jar;lib/apache/commons-logging-1.1.1.jar;lib/apache/commons-logging-api-1.0.4.jar;lib/apache/httpclient-4.1.1.jar;lib/apache/httpcore-4.1.jar;lib/junit/junit-4.11.jar;lib/apache/guava-12.0.1.jar;lib/gson/gson-2.2.2.jar;lib/javassist.jar;lib/trove/trove-3.0.3.jar;lib/poi/poi-3.8-20120326.jar;lib/poi/poi-ooxml-3.8-20120326.jar;lib/poi/poi-ooxml-schemas-3.8-20120326.jar", "init.Boot"]
+            entries = [ find_file('build/classes'), find_file('lib/javassist.jar') ] 
+            entries += glob.glob(find_file('lib')+'/*/*.jar')
+            entries += glob.glob(find_file('lib')+'/*/*/*.jar')
+            args += ['-classpath', os.pathsep.join(entries), 'init.Boot']
         else: 
             args += ["-jar", self.get_h2o_jar()]
         args += [
