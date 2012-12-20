@@ -28,7 +28,8 @@ class glm_same_parse(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if not h2o.browse_disable:
-            time.sleep(500000)
+            ### time.sleep(500000)
+            pass
 
         h2o.tear_down_cloud(h2o.nodes)
     
@@ -48,15 +49,17 @@ class glm_same_parse(unittest.TestCase):
         for trial in range (200):
             append_syn_dataset(csvPathname, rowData)
             ### start = time.time()
+            # this was useful to cause failures early on. Not needed eventually
             ### key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"))
             ### print "Trial #", trial, "parse end on ", "prostate.csv" , 'took', time.time() - start, 'seconds'
 
             start = time.time()
-            key = h2o_cmd.parseFile(csvPathname=csvPathname, browseAlso=True, key=csvFilename, key2=csvFilename+".hex")
+            key = h2o_cmd.parseFile(csvPathname=csvPathname, key=csvFilename, key2=csvFilename+".hex")
             print "trial #", trial, "parse end on ", csvFilename, 'took', time.time() - start, 'seconds'
 
             h2o_cmd.runInspect(key=key2)
-            h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+            # only used this for debug to look at parse (red last row) on failure
+            ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
             
             if (h2o.check_sandbox_for_errors()):
                 raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
