@@ -520,7 +520,7 @@ public class RequestBuilders extends RequestQueries {
     public String build(Response response, JsonObject object, String contextName) {
       StringBuilder sb = new StringBuilder();
       String name = elementName(contextName);
-      sb.append(header(object, name));
+      sb.append(caption(object, name));
       sb.append(header(object, name));
       for (Map.Entry<String,JsonElement> entry : object.entrySet()) {
         JsonElement e = entry.getValue();
@@ -713,15 +713,15 @@ public class RequestBuilders extends RequestQueries {
    * table row tags. Default builder is array row element (td).
    */
   public static class ArrayRowBuilder extends ObjectBuilder {
-    public String caption(JsonObject object, String objectName) {
+    @Override public String caption(JsonObject object, String objectName) {
       return "";
     }
 
-    public String header(JsonObject object, String objectName) {
+    @Override public String header(JsonObject object, String objectName) {
       return "<tr>";
     }
 
-    public String footer(JsonObject object, String objectName) {
+    @Override public String footer(JsonObject object, String objectName) {
       return "</tr>";
     }
 
