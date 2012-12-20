@@ -93,6 +93,9 @@ public class RequestStatics {
   public static final String JSON_NODES_RPCS = "rpcs";
   public static final String JSON_NODES_TCPS_ACTIVE = "tcps_active";
 
+  public static final String JSON_COL_MIN = "min";
+  public static final String JSON_COL_AVG = "avg";
+  public static final String JSON_COL_MAX = "max";
 
   public String requestName() {
     return getClass().getSimpleName();

@@ -838,7 +838,6 @@ public class RequestBuilders extends RequestQueries {
       return sb.toString();
     }
 
-
     @Override public String header(JsonArray array) {
       StringBuilder sb = new StringBuilder();
       sb.append(pagination());
@@ -853,6 +852,27 @@ public class RequestBuilders extends RequestQueries {
       return sb.toString();
     }
 
+  }
+
+  public class KeyCellBuilder extends ArrayRowElementBuilder {
+    @Override protected String elementToString(JsonElement element, String contextName) {
+      String str = element.getAsString();
+      try {
+        return "<a href='Inspect.html?key="+URLEncoder.encode(str,"UTF-8")+"'>"+str+"</a>";
+      } catch (UnsupportedEncodingException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  public class KeyMinAvgMaxBuilder extends ArrayRowElementBuilder {
+    @Override protected String objectToString(JsonObject obj, String contextName) {
+      if (!obj.has(JSON_COL_MIN))
+        return "";
+      return obj.get(JSON_COL_MIN).getAsString() + " / "
+             + obj.get(JSON_COL_AVG).getAsString() + " / "
+             + obj.get(JSON_COL_MAX).getAsString();
+    }
   }
 
 

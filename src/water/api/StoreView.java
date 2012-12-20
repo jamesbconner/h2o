@@ -25,9 +25,6 @@ public class StoreView extends Request {
 
   public static final String JSON_KEY_ROWS = "rows";
   public static final String JSON_KEY_COLS = "cols";
-  public static final String JSON_COL_MIN = "min";
-  public static final String JSON_COL_AVG = "avg";
-  public static final String JSON_COL_MAX = "max";
 
 
   protected Str _filter = new Str(JSON_FILTER, "");
@@ -92,29 +89,6 @@ public class StoreView extends Request {
     sb.append(" <button type='submit' class='btn btn-primary'>Filter keys!</button>");
     sb.append("</form>");
     return sb.toString();
-  }
-
-
-
-  public class KeyCellBuilder extends ArrayRowElementBuilder {
-    @Override public String elementToString(JsonElement element) {
-      String str = element.getAsString();
-      try {
-        return "<a href='Inspect.html?key="+URLEncoder.encode(str,"UTF-8")+"'>"+str+"</a>";
-      } catch (UnsupportedEncodingException e) {
-        throw new RuntimeException(e);
-      }
-    }
-  }
-
-  public class KeyMinAvgMaxBuilder extends ArrayRowElementBuilder {
-    @Override public String objectToString(JsonObject element) {
-      if (!element.has(JSON_COL_MIN))
-        return "";
-      return element.get(JSON_COL_MIN).getAsString() + " / "
-             + element.get(JSON_COL_AVG).getAsString() + " / "
-             + element.get(JSON_COL_MAX).getAsString();
-    }
   }
 
   private JsonObject formatKeyRow(H2O cloud, Key key, Value val) {
