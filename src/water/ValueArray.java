@@ -94,6 +94,17 @@ public class ValueArray extends Iced {
     return ary;
   }
 
+  /** Pretty print! */
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("VA[").append(_numrows).append("][").append(_cols.length).append("]{");
+    sb.append("bpr=").append(_rowsize).append(", rpc=").append(_rpc).append(", ");
+    sb.append("chunks=").append(_chunks).append(", key=").append(_key);
+    sb.append("}");
+    return sb.toString();
+  }
+
   public int rowSize() { return _rowsize; }
   public long numRows() { return _numrows; }
   public int numCols() { return _cols.length; }
@@ -251,7 +262,7 @@ public class ValueArray extends Iced {
     return k;
   }
 
-  static public Key readPut(Key key, InputStream is, Futures fs) throws IOException {
+  static private Key readPut(Key key, InputStream is, Futures fs) throws IOException {
     // try to read 2-chunks or less into the buffer
     byte[] buf = MemoryManager.malloc1((int)(CHUNK_SZ<<1));
     int off=0;
