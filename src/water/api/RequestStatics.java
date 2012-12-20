@@ -12,6 +12,10 @@ import java.util.regex.Pattern;
  * @author peta
  */
 public class RequestStatics {
+  // JSON fields with these suffixes will automatically provide some
+  // pretty printing.  Users can still override the fields later
+  public static final String JSON_BYTE_SUFFIX = "_bytes";
+  public static final String JSON_TIME_SUFFIX = "_ms";
 
   public static final String JSON_RESPONSE = "response";
   public static final String JSON_ERROR = "error";
@@ -24,14 +28,12 @@ public class RequestStatics {
   public static final String JSON_PROGRESS = "progress";
   public static final String JSON_PROGRESS_TOTAL = "progress_total";
 
-  public static final String JSON_BYTE_SUFFIX = "_bytes";
-  public static final String JSON_TIME_SUFFIX = "_ms";
-
   public static final String JSON_KEY = "key";
   public static final String JSON_FAILED = "failed";
   public static final String JSON_SUCCEEDED = "succeeded";
   public static final String JSON_URL = "url";
   public static final String JSON_FILE = "file";
+  public static final String JSON_FILES = "files";
   public static final String JSON_VALUE = "value";
   public static final String JSON_VALUE_SIZE = "value_size";
   public static final String JSON_RF = "rf";
