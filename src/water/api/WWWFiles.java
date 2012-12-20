@@ -12,7 +12,7 @@ public class WWWFiles extends Request {
   public WWWFiles() {
     _requestHelp = "Provides a simple JSON array of filtered local files.";
     _filter._requestHelp = "Only files whose names contain the given filter " +
-    		"will be returned.";
+        "will be returned.";
     _limit._requestHelp = "Max number of file names to be returned.";
   }
 
