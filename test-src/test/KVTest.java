@@ -66,14 +66,11 @@ public class KVTest extends KeyUtil {
       Value val = new Value(k,bits);
       DKV.put(k,val);
     }
-    Key master = Key.make("master",(byte)1,Key.KEY_OF_KEYS);
-    Value val = new Value(master,new AutoBuffer().putA(keys).buf());
-    DKV.put(master,val);
 
     RemoteBitSet r = new RemoteBitSet();
-    r.invoke(master);
+    r.invoke(keys);
     assertEquals((int)((1L<<keys.length)-1), r._x);
-    UKV.remove(master);
+    for( Key k : keys ) UKV.remove(k);
   }
 
   // Remote Bit Set: OR together the result of a single bit-mask where the

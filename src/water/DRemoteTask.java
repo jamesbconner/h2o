@@ -13,15 +13,8 @@ import jsr166y.ForkJoinWorkerThread;
 // @author <a href="mailto:cliffc@0xdata.com"></a>
 // @version 1.0
 public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneable {
-  // Master key: either a Key-of-Keys (to distribute) or a single Key (same as
-  // an array of 1 Key) or ValueVector (essentially a set of Keys for the
-  // vector length).
-  private Key _arg;
-  boolean _delete_on_done;      // Key is temp; nuke after use
-
-  // Some useful fields for *local* execution.  These fields are never passed
-  // over the wire, and so do not need to be in the users' read/write methods.
-  transient protected Key[] _keys; // Keys to work on
+  // Keys to be worked over
+  protected Key[] _keys;
 
   // We can add more things to block on - in case we want a bunch of lazy tasks
   // produced by children to all end before this top-level task ends.
@@ -46,10 +39,6 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
     } catch( CloneNotSupportedException e ) { throw new Error(e); }
   }
 
-  // Call with a master arg key, "as if" called from RPC.
-  public DRemoteTask invoke( Key arg ) { _arg = arg; return fork( (H2ONode)null).get(); }
-  public DFuture fork  ( Key arg ) { _arg = arg; return fork( (H2ONode)null); }
-
   // Invokes the task on all nodes
   public void invokeOnAllNodes() {
     H2O cloud = H2O.CLOUD;
@@ -64,19 +53,13 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
 
   // Top-level remote execution hook (called from RPC).  Was passed the keys to
   // execute in _arg.  Fires off jobs to remote machines based on Keys.
-  @Override public DRemoteTask invoke( H2ONode sender ) { return fork(sender).get(); }
-  public DFuture fork( H2ONode sender ) {
-    Key[] keys = flatten_keys(_arg);
-    if( _delete_on_done ) DKV.remove(_arg);
-    return fork(keys);
-  }
+  @Override public DRemoteTask invoke( H2ONode sender ) { return dfork().get(); }
 
   // Invoked with a set of keys
-  public DRemoteTask invoke( Key[] keys ) {
-    return fork(keys).get();
-  }
-  public DFuture fork( Key[] keys ) {
-    _keys = keys;
+  public DRemoteTask invoke( Key... keys ) { return fork(keys).get(); }
+  public DFuture fork( Key... keys ) { _keys = flatten(keys); return dfork(); }
+
+  public DFuture dfork( ) {
 
     // Split out the keys into disjointly-homed sets of keys.
     // Find the split point.  First find the range of home-indices.
@@ -141,51 +124,32 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
 
   private final RPC<DRemoteTask> remote_compute( ArrayList<Key> keys ) {
     if( keys.size() == 0 ) return null;
-    H2O cloud = H2O.CLOUD;
-    Key arg = keys.get(0);
-    H2ONode target = cloud._memary[arg.home(cloud)];
     DRemoteTask rpc = clone2();
-
-    // Optimization: if sending just 1 key, and it is not a form which the
-    // remote-side will expand, then send just the key, instead of a
-    // key-of-keys containing 1 key.
-    if( keys.size() ==1 && arg._kb[0] != Key.KEY_OF_KEYS && !arg.user_allowed() ) {
-      // we can use arg directly
-    } else {
-      // pack our keys into a Key_of_Keys
-      arg = Key.make(UUID.randomUUID().toString(), (byte)0, Key.KEY_OF_KEYS, target);
-      Key[] xkeys = keys.toArray(new Key[keys.size()]);
-      Value vkeys = new Value(arg, new AutoBuffer().putA(xkeys).buf());
-      DKV.put(arg, vkeys);
-      DKV.write_barrier();
-      rpc._delete_on_done = true;
-    }
-
-    rpc._arg = arg;
-    return RPC.call(target, rpc);
+    rpc._keys = keys.toArray(new Key[keys.size()]);
+    return RPC.call(keys.get(0).home_node(), rpc);
   }
 
-  private final Key[] flatten_keys( Key args ) {
-    Value val = DKV.get(args);
-    if( args._kb[0] == Key.KEY_OF_KEYS ) { // Key-of-keys: break out into array of keys
-      if( val == null ) {
-        throw new Error("Missing args in fork call: " +
-        		"possibly the caller did not fence out a DKV.put(args) " +
-        		"before calling "+getClass()+".fork(,,args,) with key "+args);
+  private final Key[] flatten( Key[] args ) {
+    if( args.length==1 ) {
+      Value val = DKV.get(args[0]);
+      // Arraylet: expand into the chunk keys
+      if( val != null && val._isArray != 0 ) {
+        ValueArray ary = ValueArray.value(val);
+        Key[] keys = new Key[(int)ary._chunks];
+        for( int i=0; i<keys.length; i++ )
+          keys[i] = ary.getChunkKey(i);
+        return keys;
       }
-      return val.flatten();     // Parse all the keys out
     }
+    assert !has_key_of_keys(args);
+    return args;
+  }
 
-    // Arraylet: expand into the chunk keys
-    if( val != null && val._isArray != 0 ) {
-      ValueArray ary = ValueArray.value(val);
-      Key[] keys = new Key[(int)ary._chunks];
-      for( int i=0; i<keys.length; i++ )
-        keys[i] = ary.getChunkKey(i);
-      return keys;
-    }
-    // Handy wrap single key into a array-of-1 key
-    return new Key[]{args};
+  private boolean has_key_of_keys( Key[] args ) {
+    for( Key k : args )
+      if( k._kb[0] == Key.KEY_OF_KEYS )
+        return true;
+    return false;
   }
 
   public Futures getFutures() {
