@@ -647,24 +647,38 @@ public class RequestBuilders extends RequestQueries {
       return "<dl class='dl-horizontal'><dt>"+elementName+"</dt><dd>"+elementContents+"</dd></dl>";
     }
 
+    protected String arrayToString(JsonArray array, String contextName) {
+      return array.toString();
+    }
+
+    protected String objectToString(JsonObject obj, String contextName) {
+      return obj.toString();
+    }
+
+    protected String elementToString(JsonElement elm, String contextName) {
+        String elementName = elementName(contextName);
+        if( elementName.endsWith(JSON_BYTE_SUFFIX) ) {
+          return PrettyPrint.bytes(elm.getAsLong());
+        } else if( elementName.endsWith(JSON_TIME_SUFFIX) ) {
+          return PrettyPrint.msecs(elm.getAsLong(), true);
+        } else{
+          return elm.getAsString();
+        }
+    }
+
     /** Based of the element type determines its string value and then calls
      * the string build version.
      */
     @Override public String build(Response response, JsonElement element, String contextName) {
+      String base;
       if (element instanceof JsonArray) {
-        return build(element.toString(), elementName(contextName));
+        base = arrayToString((JsonArray)element, contextName);
       } else if (element instanceof JsonObject) {
-        return build(element.toString(), elementName(contextName));
+        base = objectToString((JsonObject)element, contextName);
       } else {
-        String elementName = elementName(contextName);
-        if( elementName.endsWith(JSON_BYTE_SUFFIX) ) {
-          return build(PrettyPrint.bytes(element.getAsLong()), elementName);
-        } else if( elementName.endsWith(JSON_TIME_SUFFIX) ) {
-          return build(PrettyPrint.msecs(element.getAsLong(), true), elementName);
-        } else{
-          return build(element.getAsString(), elementName);
-        }
+        base = elementToString(element, contextName);
       }
+      return build(base, contextName);
     }
   }
 

@@ -41,6 +41,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new ImportUrl()),"URL","Import");
 
     registerRequest(new WWWKeys());
+    registerRequest(new WWWFiles());
     registerRequest(new WWWHexKeys());
     registerRequest(new WWWModelKeys());
     registerRequest(new WWWFileUpload());
