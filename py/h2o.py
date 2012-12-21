@@ -245,7 +245,7 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
 def check_port_group(baseport):
     # for now, only check for jenkins or kevin
     username = getpass.getuser()
-    if username=='jenkins' or username=='kevin':
+    if username=='jenkins' or username=='kevin' or username=='michal':
         # assumes you want to know about 3 ports starting at baseport
         command1Split = ['netstat', '-anp']
         command2Split = ['egrep']
@@ -1220,6 +1220,9 @@ class RemoteH2O(H2O):
             return False
 
     def terminate(self):
+        # kbn new 12/20/12
+        self.shutdown_all()
+
         self.channel.close()
         # kbn: it should be dead now? want to make sure we don't have zombies
         # we should get a connection error. doing a is_alive subset.
