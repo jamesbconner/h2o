@@ -402,7 +402,7 @@ public abstract class Paxos {
     assert n._heartbeat != null;
     if(!PROPOSED_MEMBERS.contains(n)){
 		// H2O.OPT_ARGS.soft is a demo/hibernate mode launch
-      if( _cloudLocked  && (H2O.OPT_ARGS.soft != null) ) {
+      if( _cloudLocked  && (H2O.OPT_ARGS.soft == null) ) {
         System.err.println("[h2o] Killing "+n+" because the cloud is locked.");
         UDPRebooted.T.locked.send(n);
         return false;
