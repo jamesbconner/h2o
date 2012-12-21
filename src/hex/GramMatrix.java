@@ -1,9 +1,9 @@
 package hex;
 
-import init.H2OSerializable;
+import water.Iced;
 import Jama.Matrix;
 
-public final class GramMatrix implements H2OSerializable {
+public final class GramMatrix extends Iced {
   int _n;
   private double [][] _xx;
   private double [] _xy;

@@ -1,23 +1,17 @@
 
 package hex;
 
-import init.H2OSerializable;
+
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import water.*;
 
-public final class HexDataFrame implements H2OSerializable {
+public final class HexDataFrame extends Iced {
   int [] _colIds;
   Key _aryKey;
   transient ValueArray _ary;
-  transient int [] _colIdxBases;
-  transient int [] _off;
-  transient int [] _base;
-  transient int [] _scale;
-  transient int [] _csize;
-  transient int _rowsize;
   transient int [] _indexes;
   transient double [] _values;
 
@@ -32,28 +26,28 @@ public final class HexDataFrame implements H2OSerializable {
 
   public class ChunkData {
     int _n;
-    byte [] _bits;
+    AutoBuffer _bits;
     public ChunkData(byte [] bits){
-      _bits = bits;
-      _n = _bits.length/_rowsize;
+      _bits = new AutoBuffer(bits);
+      _n = bits.length/_ary._rowsize;
     }
 
     public final class HexRow {
       int _rid;
 
       boolean valid(int i){
-        return _ary.valid(_bits, _rid, _rowsize, _off[i], _csize[i]);
+        return !_ary.isNA(_bits, _rid, i);
       }
       public double getD(int i) {
-        return _ary.datad(_bits, _rid, _rowsize, _off[i], _csize[i], _base[i], _scale[i], _colIds[i]);
+        return _ary.datad(_bits, _rid, i);
       }
 
       public int getI(int i) {
-        return (int)_ary.data(_bits, _rid, _rowsize, _off[i], _csize[i], _base[i], _scale[i], _colIds[i]);
+        return (int)_ary.data(_bits, _rid,i);
       }
 
       public long getL(int i) {
-        return _ary.data(_bits, _rid, _rowsize, _off[i], _csize[i], _base[i], _scale[i], _colIds[i]);
+        return (int)_ary.data(_bits, _rid,i);
       }
       public double last(){
         return getD(_colIds.length-1);
@@ -93,20 +87,7 @@ public final class HexDataFrame implements H2OSerializable {
   }
 
   public void init(){
-    _ary = (ValueArray)DKV.get(_aryKey);
-    _rowsize = _ary.row_size();
-    _off = new int[_colIds.length];
-    _base = new int[_colIds.length];
-    _scale = new int[_colIds.length];
-    _csize = new int[_colIds.length];
-    int i = 0;
-    for(int c:_colIds){
-      _off[i] = _ary.col_off(c);
-      _base[i] = _ary.col_base(c);
-      _scale[i] = _ary.col_scale(c);
-      _csize[i] = _ary.col_size(c);
-      ++i;
-    }
+    _ary = ValueArray.value(_aryKey);
   }
 
   public ChunkData getChunkData(Key k){

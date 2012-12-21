@@ -1,7 +1,7 @@
 package hex;
 
 import hex.RowVecTask.Sampling;
-import init.H2OSerializable;
+
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -164,7 +164,7 @@ public class GLMSolver {
   double [] _normSub;
   double [] _normMul;
 
-  public static class GLMModel implements H2OSerializable {
+  public static class GLMModel extends Iced {
     Key _dataset;
     Sampling _s;
     boolean _isDone;
@@ -187,7 +187,7 @@ public class GLMSolver {
       _dataset = ary._key;
       ArrayList<Integer> validCols = new ArrayList<Integer>();
       for(int col:colIds){
-        if(ary.col_max(col) != ary.col_min(col))
+        if(ary._cols[col]._max != ary._cols[col]._min)
           validCols.add(col);
         else
           System.out.println("ignoring constant column " + col);
@@ -211,11 +211,11 @@ public class GLMSolver {
       for(int col:_colIds){
 //        if(ary.col_min(col) == ary.col_max(col))
 //          continue; // skip constant columns!
-        _colNames[i] = ary.col_name(col);
+        _colNames[i] = ary._cols[col]._name;
         _colOffsets[i+1] = _colOffsets[i];
-        if(_glmParams._expandCat && ary.col_has_enum_domain(col)){
+        if(_glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0){
           categoricals[ncat++] = i;
-          _colOffsets[i+1] += ary.col_enum_domain_size(col)-1;
+          _colOffsets[i+1] += ary._cols[col]._domain.length;
         } else
           numeric[nnum++] = i;
         ++i;
@@ -234,11 +234,11 @@ public class GLMSolver {
         i = 0;
         for(int j = 0; j < _colIds.length-1;++j){
           int col = _colIds[j];
-          if(!ary.col_has_enum_domain(col)) {
+          if(!(ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0)) {
             int idx = j + _colOffsets[j];
-            _normSub[idx] = ary.col_mean(col);
-            if(ary.col_sigma(col) != 0)
-              _normMul[idx] = 1.0/ary.col_sigma(col);
+            _normSub[idx] = ary._cols[col]._mean;
+            if(ary._cols[col]._sigma != 0)
+              _normMul[idx] = 1.0/ary._cols[col]._sigma;
           } else if(_glmParams._expandCat){
 
           }
@@ -250,8 +250,8 @@ public class GLMSolver {
       int [] colIds = new int [_colNames.length];
       int idx = 0;
         for(int j = 0; j < _colNames.length; ++j)
-          for(int i = 0; i < ary.num_cols(); ++i)
-            if(ary.col_name(i).equals(_colNames[j]))
+          for(int i = 0; i < ary._cols.length; ++i)
+            if(ary._cols[i]._name.equals(_colNames[j]))
               colIds[idx++] = i;
       if(idx != colIds.length)throw new Error("incompatible dataset");
       GLMValidatoinTask valTsk = new GLMValidatoinTask(ary._key,colIds);
@@ -292,11 +292,11 @@ public class GLMSolver {
       res.addProperty("isDone", _isDone);
       res.addProperty("dataset", _dataset.toString());
       JsonObject coefs = new JsonObject();
-      ValueArray ary = (ValueArray)DKV.get(_dataset);
+      ValueArray ary = ValueArray.value(_dataset);
       for(int i = 0; i < _colIds.length-1; ++i){
         int col = _colIds[i];
-        if(_glmParams._expandCat && ary.col_has_enum_domain(col)){
-          String [] dom = ary.col_enum_domain(col);
+        if(_glmParams._expandCat && (ary._cols[col]._domain != null && ary._cols[col]._domain.length != 0)){
+          String [] dom = ary._cols[col]._domain;
           for(int j = 0; j < dom.length; ++j)
             coefs.addProperty(_colNames[i] + "." + dom[j],_beta[_colOffsets[i]+i+j]);
         } else
@@ -317,7 +317,7 @@ public class GLMSolver {
     }
   }
 
-  public static class GLMParams implements H2OSerializable {
+  public static class GLMParams extends Iced {
     public int _f = Family.gaussian.ordinal();
     public int _l;
     public double [] _familyArgs;
@@ -486,7 +486,7 @@ public class GLMSolver {
 
   }
 
-  public static final class ConfusionMatrix implements H2OSerializable {
+  public static final class ConfusionMatrix extends Iced {
     long [][] _arr;
     long _n;
 
@@ -556,7 +556,7 @@ public class GLMSolver {
     }
   }
 
-  public static class GLMValidation implements H2OSerializable {
+  public static class GLMValidation extends Iced {
     int _l,_f;
     Key _dataKey;
     Sampling _s;

@@ -2,7 +2,6 @@ package hex;
 
 import hex.HexDataFrame.ChunkData;
 import hex.HexDataFrame.ChunkData.HexRow;
-import init.H2OSerializable;
 
 import java.util.Arrays;
 
@@ -26,7 +25,7 @@ public abstract class RowVecTask extends MRTask {
   public RowVecTask(HexDataFrame data){
     _data = data;
   }
-  public static class Sampling implements H2OSerializable{
+  public static class Sampling extends Iced {
     final int _step;
     final int _offset;
     final boolean _complement;
@@ -80,14 +79,14 @@ public abstract class RowVecTask extends MRTask {
   protected transient ValueArray _ary;
   @Override
   public void map(Key key) {
-    ChunkData data = _data.getChunkData(key);
-    init(data);
+    ChunkData chunk = _data.getChunkData(key);
+    init(chunk);
     double [] x = new double[_data._colIds.length];
     Arrays.fill(x, 1.0);
     int [] indexes = new int[x.length];
     // compute offsets
 ROW:
-    for(HexRow r:data.rows()){
+    for(HexRow r:chunk.rows()){
       if(_s != null && _s.skip())continue;
       if(_categoricals != null) for(int i:_categoricals){
         if(!r.valid(i))continue ROW;
@@ -98,8 +97,9 @@ ROW:
           x[i] = 1.0;
       }
       if(_numeric != null) for (int i:_numeric){
-        if(!r.valid(i))continue ROW;
-        x[i] = r.getD(i);
+        int col = _data._colIds[i];
+        if(!r.valid(col))continue ROW;
+        x[i] = r.getD(col);
         indexes[i] = i + _colOffsets[i];
         if(_normSub != null)
           x[i] = (x[i] - _normSub[indexes[i]]) * _normMul[indexes[i]];

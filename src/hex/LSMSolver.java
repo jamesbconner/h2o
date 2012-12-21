@@ -1,12 +1,12 @@
 package hex;
 
-import init.H2OSerializable;
+import water.Iced;
 import Jama.CholeskyDecomposition;
 import Jama.Matrix;
 
 import com.google.gson.JsonObject;
 
-public final class LSMSolver implements H2OSerializable{
+public final class LSMSolver extends Iced {
 
   static final int NO_PENALTY = 0;
   static final int L1_PENALTY = 1;
