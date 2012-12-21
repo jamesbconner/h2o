@@ -210,7 +210,7 @@ public class Inspect extends H2OPage {
     // Data layout scheme
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td> +").append(ary._cols[i]._off).append("</td>");
+      sb.append("<td> +").append((int)ary._cols[i]._off).append("</td>");
     response.replace("offset_row",sb);
 
     sb = new StringBuilder();
