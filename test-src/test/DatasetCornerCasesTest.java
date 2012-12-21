@@ -25,7 +25,7 @@ public class DatasetCornerCasesTest extends KeyUtil {
     ValueArray val = ValueArray.value(DKV.get(okey));
 
     // Check parsed dataset
-    assertEquals("Number of chunks == 1", 1, val._chunks);
+    assertEquals("Number of chunks == 1", 1, val.chunks());
     assertEquals("Number of rows   == 2", 2, val._numrows);
     assertEquals("Number of cols   == 9", 9, val._cols.length);
 
@@ -86,7 +86,7 @@ public class DatasetCornerCasesTest extends KeyUtil {
     ParseDataset.parse(okey,DKV.get(fkey));
 
     ValueArray val = ValueArray.value(DKV.get(okey));
-    assertEquals(filename + ": number of chunks == 1", 1, val._chunks);
+    assertEquals(filename + ": number of chunks == 1", 1, val.chunks());
     assertEquals(filename + ": number of rows   == 2", 2, val._numrows);
     assertEquals(filename + ": number of cols   == 9", 9, val._cols.length);
 

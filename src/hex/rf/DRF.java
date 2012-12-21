@@ -84,7 +84,7 @@ public class DRF extends water.DRemoteTask {
     _nHist = MinorityClasses.histogram(ary, _classcol);
     _gHist = MinorityClasses.globalHistogram(_nHist);
     final int num_nodes = H2O.CLOUD.size();
-    final long num_chunks = ary._chunks;
+    final long num_chunks = ary.chunks();
     HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {
       nodes.add(ary.getChunk(i)._h2o);
@@ -525,7 +525,7 @@ public class DRF extends water.DRemoteTask {
     // Divide equally amongst all the nodes that actually have data.
     // First: compute how many nodes have data.
     ValueArray ary = ValueArray.value(DKV.get(_arykey));
-    final long num_chunks = ary._chunks;
+    final long num_chunks = ary.chunks();
     final int num_nodes = H2O.CLOUD.size();
     HashSet<H2ONode> nodes = new HashSet();
     for( long i=0; i<num_chunks; i++ ) {

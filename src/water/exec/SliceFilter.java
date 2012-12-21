@@ -28,8 +28,10 @@ public class SliceFilter extends MRTask {
 
 
   @Override public void map(Key key) {
-    long startRow = ValueArray.getChunkIndex(key) * (ValueArray.CHUNK_SZ / _rowSize);
-    int rowsInChunk = VABuilder.chunkSize(key, _length*_rowSize, _rowSize) / _rowSize;
+    ValueArray ary = ValueArray.value(_source);
+    long cidx = ValueArray.getChunkIndex(key);
+    long startRow = ary.startRow(cidx);
+    int rowsInChunk = ary.rpc(cidx);
     VAIterator iter = new VAIterator(_source,0,_start+startRow);
     AutoBuffer bits = new AutoBuffer(rowsInChunk*_rowSize);
     for (int offset = 0; offset < bits.remaining(); offset += _rowSize) {

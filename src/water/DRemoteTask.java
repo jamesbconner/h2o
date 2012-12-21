@@ -135,7 +135,7 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
       // Arraylet: expand into the chunk keys
       if( val != null && val._isArray != 0 ) {
         ValueArray ary = ValueArray.value(val);
-        Key[] keys = new Key[(int)ary._chunks];
+        Key[] keys = new Key[(int)ary.chunks()];
         for( int i=0; i<keys.length; i++ )
           keys[i] = ary.getChunkKey(i);
         return keys;

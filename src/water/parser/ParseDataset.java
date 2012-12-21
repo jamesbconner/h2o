@@ -391,7 +391,7 @@ public final class ParseDataset {
           // if parsing value array, initialize the nrows array
           if( _sourceDataset._isArray != 0 ) {
             ValueArray ary = ValueArray.value(_sourceDataset);
-            _nrows = new int[(int)ary._chunks];
+            _nrows = new int[(int)ary.chunks()];
           }
           // launch the distributed parser on its chunks.
           this.invoke(_sourceDataset._key);

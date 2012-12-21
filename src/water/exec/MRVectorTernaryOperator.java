@@ -45,14 +45,14 @@ public abstract class MRVectorTernaryOperator extends MRColumnProducer {
    */
   @Override public void map(Key key) {
     ValueArray result = ValueArray.value(_resultKey);
-    long rowOffset = ValueArray.getChunkOffset(key) / result._rowsize;
+    long cidx = ValueArray.getChunkIndex(key);
+    long rowOffset = result.startRow(cidx);
     VAIterator op1 = new VAIterator(_opnd1Key, _opnd1Col, rowOffset);
     VAIterator op2 = new VAIterator(_opnd2Key, _opnd2Col, rowOffset);
     VAIterator op3 = new VAIterator(_opnd3Key, _opnd3Col, rowOffset);
-    int chunkRows = VABuilder.chunkSize(key, result.length(), result._rowsize) / result._rowsize;
-    int chunkLength = chunkRows * 8;
-    AutoBuffer bits = new AutoBuffer(chunkLength);
-    for (int i = 0; i < chunkLength; i+=8) {
+    int chunkRows = result.rpc(cidx);
+    AutoBuffer bits = new AutoBuffer(chunkRows * 8);
+    for (int i = 0; i < chunkRows; i++) {
       op1.next();
       op2.next();
       op3.next();

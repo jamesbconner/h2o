@@ -245,9 +245,9 @@ class DeepSingleColumnAssignment extends MRTask {
     ValueArray vFrom = ValueArray.value(_from);
     int colSize = vFrom._cols[_colIndex]._size;
     assert colSize == vTo._cols[0]._size;
-    long chunkOffset = ValueArray.getChunkOffset(key);
-    long row = chunkOffset / vTo._rowsize;
-    long chunkRows = VABuilder.chunkSize(key, vTo.length(), vTo.rowSize()) / vTo.rowSize();
+    long cidx = ValueArray.getChunkIndex(key);
+    long row = vTo.startRow(cidx);
+    long chunkRows = vTo.rpc(cidx);
     AutoBuffer bits = new AutoBuffer((int)chunkRows*vTo._rowsize);
     try {
       for (int i = 0; i < chunkRows; ++i) {

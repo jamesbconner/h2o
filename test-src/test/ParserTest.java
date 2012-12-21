@@ -16,8 +16,11 @@ public class ParserTest extends KeyUtil {
 
   private Key k(String kname, String... data) {
     Key[] keys = new Key[data.length];
+    int[] rpc  = new int[data.length];
+    for( int i = 0; i < data.length; ++i)
+      rpc[i] = data[i].length();
     Key k = Key.make(kname);
-    ValueArray va = new ValueArray(k, data.length << ValueArray.LOG_CHK, Value.ICE);
+    ValueArray va = new ValueArray(k, rpc, 1, new ValueArray.Column[]{new ValueArray.Column(1)}, Value.ICE);
     DKV.put(k, va.value());
     for (int i = 0; i < data.length; ++i) {
       keys[i] = va.getChunkKey(i);
