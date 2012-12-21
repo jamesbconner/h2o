@@ -515,9 +515,12 @@ public final class H2O {
       API_PORT = UDP_PORT+1;
       try {
         _webSocket = new ServerSocket(WEB_PORT);
+        System.out.println("[h2o] HTTP okay on port: "+WEB_PORT);
         _apiSocket = new ServerSocket(API_PORT);
+        System.out.println("[h2o] API okay on port: "+API_PORT);
         _udpSocket = DatagramChannel.open();
         _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
+        System.out.println("[h2o] TCP/UDP okay on port: "+UDP_PORT);
         break;
       } catch (IOException e) {
         try { if( _webSocket != null ) _webSocket.close(); } catch( IOException ohwell ) { }
