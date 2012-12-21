@@ -18,7 +18,7 @@ class GLMTest(unittest.TestCase):
     
     def process_dataset(self,key,Y, e_coefs, e_ndev, e_rdev, e_aic, **kwargs):
         glm = h2o_cmd.runGLMOnly(parseKey = key, Y = 'CAPSULE', timeoutSecs=10, **kwargs)
-        coefs = glm['coefficients']
+        coefs = glm['GLMModel']['coefficients']        
         errors = ['%s: %f != %f' % (x,e_coefs[x],coefs[x]) for x in coefs if abs(float(coefs[x]) - e_coefs[x]) > 1e-2]
 #        if(abs(round(float(glm['trainingSetValidation']['NullDeviance']),1) - e_ndev) > 1e-1): errors.append('NullDeviance: %f != %s' % (e_ndev,glm['trainingSetValidation']['NullDeviance']))
 #        if(abs(round(float(glm['trainingSetValidation']['ResidualDeviance']),1) - e_rdev) > 1e-1): errors.append('ResidualDeviance %f != %s' % (e_rdev,glm['trainingSetValidation']['ResidualDeviance']))
