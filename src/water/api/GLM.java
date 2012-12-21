@@ -1,6 +1,7 @@
 package water.api;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import hex.GLMSolver;
@@ -8,8 +9,10 @@ import hex.GLMSolver.*;
 import hex.LSMSolver.*;
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 import water.ValueArray;
+import water.web.RString;
 
 /**
  *
@@ -52,7 +55,7 @@ public class GLM extends Request {
 //
 //
 //  protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian);
-//  protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.NO);
+//  protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.NONE);
 //
 //  protected final Real _lambda = new Real(JSON_GLM_LAMBDA, 0.1); // TODO I do not know the bounds
 //
@@ -63,7 +66,6 @@ public class GLM extends Request {
 //  protected final Real _threshold = new Real(JSON_GLM_THRESHOLD,0.5d,0d,1d);
 //  protected final Real _case = new Real(JSON_GLM_CASE, 1.0); // TODO I do not know the bounds
 //  protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
-//
 //  protected final Int _xval = new Int(JSON_GLM_XVAL, 1, 1, Integer.MAX_VALUE);
 //
 //  @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
@@ -76,7 +78,7 @@ public class GLM extends Request {
 //  }
 //
 //  public GLM() {
-//    _family.refreshOnChange();
+//    _family.setRefreshOnChange();
 //  }
 //
 //
@@ -136,6 +138,7 @@ public class GLM extends Request {
     return null;
 //    try {
 //      JsonObject result = new JsonObject();
+//      Response r = Response.done(result); // so that we can add the builders
 //      ValueArray va = _key.value();
 //      int[] cols = createColumns();
 //      Link link = _link.value();
@@ -144,7 +147,7 @@ public class GLM extends Request {
 //        link = family.defaultLink;
 //
 //      JsonObject jLsmParams = new JsonObject();
-//      GLMSolver.GLM_Params glmParams = new GLMSolver.GLM_Params(family, link);
+//      DGLM.GLM_Params glmParams = new DGLM.GLM_Params(family, link);
 //      FamilyArgs fargs = null;
 //      if (family == Family.binomial) {
 //        double[] wt = new double[] {1.0, Math.sqrt(_weight.value()) };
@@ -177,13 +180,15 @@ public class GLM extends Request {
 //        result.add("warnings",w);
 //      }
 //
-//      result.add("glmParams", jGlmParams);
-//      result.add("lsmParams",jLsmParams);
 //
 //      result.addProperty(JSON_ROWS, cols.length); // WHY????
 //      result.addProperty(JSON_TIME, deltaT);
 //      result.add(JSON_COEFFICIENTS, getCoefficients(cols, va, m.beta()));
 //
+//      result.add("glmParams", jGlmParams);
+//      result.add("lsmParams",jLsmParams);
+//
+//      r.setBuilder(JSON_COEFFICIENTS, new GLMCoeffBuilder(link));
 //
 //      DGLM.GLMValidation val = (DGLM.GLMValidation)m.validateOn(va._key, null);
 //      if(val != null){
@@ -219,7 +224,7 @@ public class GLM extends Request {
 //      // Cross Validation
 //      int xfactor = _xval.value();
 //      if(xfactor <= 1)
-//        return Response.done(result);
+//        return r;
 //      if(xfactor > m.n())xfactor = (int)m.n();
 //      result.addProperty("xfactor", xfactor);
 //      result.addProperty("threshold", _threshold.value());
@@ -254,13 +259,63 @@ public class GLM extends Request {
 //        result.addProperty("errRate", dformat.format(val.err()));
 //      //res.addProperty("errRateVar", dformat.format(val.errVar()));
 //      }
-//      return Response.done(result);
+//      return r;
 //
 //    } catch( DGLM.GLSMException e2 ) {
 //      return Response.error("Unable to run the regression on this data: '"
 //          + e2.getMessage() + "'");
 //    }
   }
-
-
+//
+//  public class GLMCoeffBuilder extends ElementBuilder {
+//
+//    final Link _link;
+//
+//    public GLMCoeffBuilder(Link link) {
+//      _link = link;
+//    }
+//
+//    @Override protected String objectToString(JsonObject obj, String contextName) {
+//      RString m = null;
+//      switch (_link) {
+//        case identity:
+//          m = new RString("y = %equation");
+//          m.replace("equation", getFormulaSrc(obj, false));
+//          break;
+//        case logit:
+//          m = new RString("y = 1/(1 + Math.exp(%equation))");
+//          m.replace("equation", getFormulaSrc(obj, true));
+//          break;
+//        case log:
+//          m = new RString("y = Math.exp(%equation)");
+//          m.replace("equation", getFormulaSrc(obj, false));
+//          break;
+//        case inverse:
+//          m = new RString("y = 1/(%equation)");
+//          m.replace("equation", getFormulaSrc(obj, false));
+//          break;
+//        default:
+//          assert (false);
+//      }
+//      return "<pre>"+m.toString()+"</pre>";
+//    }
+//
+//    String getFormulaSrc(JsonObject x, boolean neg) {
+//      StringBuilder codeBldr = new StringBuilder();
+//      for( Map.Entry<String, JsonElement> e : x.entrySet() ) {
+//        double val = e.getValue().getAsDouble();
+//        if(val == 0)continue;
+//        if(neg) val *= -1;
+//        if( codeBldr.length() > 0 ) {
+//          if(val >= 0)codeBldr.append(" + " + dformat.format(val));
+//          else codeBldr.append(" - " + dformat.format(-val));
+//        } else
+//          codeBldr.append(dformat.format(val));
+//        if( !e.getKey().equals("Intercept") )
+//          codeBldr.append("*x[" + e.getKey()+ "]");
+//      }
+//      return codeBldr.toString();
+//    }
+//  }
+//
 }
