@@ -81,7 +81,7 @@ public class GLM extends Request {
   }
 
   public GLM() {
-    _family.refreshOnChange();
+    _family.setRefreshOnChange();
   }
 
 
