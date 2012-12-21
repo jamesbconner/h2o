@@ -1,14 +1,10 @@
 package hex;
 
-import java.io.IOException;
-import java.util.Arrays;
-
 import init.H2OSerializable;
-
-import com.google.gson.JsonObject;
-
 import Jama.CholeskyDecomposition;
 import Jama.Matrix;
+
+import com.google.gson.JsonObject;
 
 public final class LSMSolver implements H2OSerializable{
 

@@ -232,19 +232,18 @@ public class GLM extends H2OPage {
     return "";
   }
 
-  public String getCoefficientsHTML(JsonArray arr){
+  public String getCoefficientsHTML(JsonObject coefs){
     StringBuilder bldr = new StringBuilder();
     bldr.append("<div>");
 
-    for(JsonElement e:arr){
-      JsonObject o = e.getAsJsonObject();
-      bldr.append(" <span><b>" + o.get("name").getAsString() + "</b>=" + dformat.format(o.get("value").getAsDouble()) + "</span> ");
+    for(Entry<String,JsonElement> e:coefs.entrySet()){
+      bldr.append(" <span><b>" + e.getKey() + "</b>=" + dformat.format(e.getValue().getAsDouble()) + "</span> ");
     }
     bldr.append("</div>");
     return bldr.toString();
   }
 
-  public String getModelSRCHTML(Link l, JsonArray arr){
+  public String getModelSRCHTML(Link l, JsonObject obj){
     RString m = null;
 
     switch(l){
@@ -260,17 +259,16 @@ public class GLM extends H2OPage {
     }
     boolean first = true;
     StringBuilder bldr = new StringBuilder();
-    for(JsonElement e:arr){
-      JsonObject o = e.getAsJsonObject();
-      double v = o.get("value").getAsDouble();
+    for(Entry<String,JsonElement> e:obj.entrySet()){
+
+      double v = e.getValue().getAsDouble();
       if(v == 0)continue;
       if(!first)
         bldr.append(((v < 0)?" - ":" + ") + dformat.format(Math.abs(v)));
       else
         bldr.append(dformat.format(v));
       first = false;
-      bldr.append("*x[" + o.get("name").getAsString() + "]");
-
+      bldr.append("*x[" + e.getKey() + "]");
     }
     m.replace("equation",bldr.toString());
     return m.toString();
@@ -294,8 +292,8 @@ public class GLM extends H2OPage {
     responseTemplate.replace("time",json.get("time").getAsString());
     responseTemplate.replace("iterations",json.get("iterations").getAsString());
     responseTemplate.replace("GLMParams",getGLMParamsHTML(json.get("GLMParams").getAsJsonObject(),json.get("LSMParams").getAsJsonObject()));
-    responseTemplate.replace("coefficients",getCoefficientsHTML(json.get("coefficients").getAsJsonArray()));
-    responseTemplate.replace("modelSrc",getModelSRCHTML(Link.valueOf(json.get("GLMParams").getAsJsonObject().get("link").getAsString()),json.get("coefficients").getAsJsonArray()));
+    responseTemplate.replace("coefficients",getCoefficientsHTML(json.get("coefficients").getAsJsonObject()));
+    responseTemplate.replace("modelSrc",getModelSRCHTML(Link.valueOf(json.get("GLMParams").getAsJsonObject().get("link").getAsString()),json.get("coefficients").getAsJsonObject()));
     return responseTemplate.toString() + (json.has("validations")?getValidationHTML(json.get("validations").getAsJsonArray()):"");
   }
 
@@ -312,7 +310,7 @@ public class GLM extends H2OPage {
     responseTemplate.replace("key",json.get("dataset").getAsString());
     responseTemplate.replace("time",json.get("time").getAsString());
     responseTemplate.replace("iterations",json.get("iterations").getAsString());
-    responseTemplate.replace("coefficients",getCoefficientsHTML(json.get("coefficients").getAsJsonArray()));
+    responseTemplate.replace("coefficients",getCoefficientsHTML(json.get("coefficients").getAsJsonObject()));
     return responseTemplate.toString() + getXValidationHTML(json.get("validations").getAsJsonArray());
   }
 

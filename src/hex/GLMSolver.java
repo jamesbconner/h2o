@@ -234,13 +234,14 @@ public class GLMSolver {
         i = 0;
         for(int j = 0; j < _colIds.length-1;++j){
           int col = _colIds[j];
-          if((/*!_glmParams._expandCat || */!ary.col_has_enum_domain(col))) { // sigma should be 0 only for constant columns
+          if(!ary.col_has_enum_domain(col)) {
             int idx = j + _colOffsets[j];
-
             _normSub[idx] = ary.col_mean(col);
             if(ary.col_sigma(col) != 0)
               _normMul[idx] = 1.0/ary.col_sigma(col);
-          } // TODO add normalization for expanded cathegoricals
+          } else if(_glmParams._expandCat){
+
+          }
         }
       }
     }
@@ -290,30 +291,18 @@ public class GLMSolver {
       res.addProperty("time", _time);
       res.addProperty("isDone", _isDone);
       res.addProperty("dataset", _dataset.toString());
-      JsonArray coefs = new JsonArray();
+      JsonObject coefs = new JsonObject();
       ValueArray ary = (ValueArray)DKV.get(_dataset);
       for(int i = 0; i < _colIds.length-1; ++i){
         int col = _colIds[i];
         if(_glmParams._expandCat && ary.col_has_enum_domain(col)){
           String [] dom = ary.col_enum_domain(col);
-          for(int j = 0; j < dom.length; ++j){
-            JsonObject c = new JsonObject();
-            c.addProperty("name", _colNames[i] + "." + dom[j]);
-            c.addProperty("value", _beta[_colOffsets[i]+i+j]);
-            coefs.add(c);
-          }
-        } else {
-          JsonObject c = new JsonObject();
-          c.addProperty("name", _colNames[i]);
-          c.addProperty("value", _beta[_colOffsets[i]+i]);
-          coefs.add(c);
-        }
+          for(int j = 0; j < dom.length; ++j)
+            coefs.addProperty(_colNames[i] + "." + dom[j],_beta[_colOffsets[i]+i+j]);
+        } else
+          coefs.addProperty(_colNames[i],_beta[_colOffsets[i]+i]);
       }
-      JsonObject c = new JsonObject();
-      c.addProperty("name", "Intercept");
-      c.addProperty("value", _beta[_beta.length-1]);
-      coefs.add(c);
-
+      coefs.addProperty("Intercept",_beta[_beta.length-1]);
       res.add("coefficients", coefs);
       res.add("LSMParams",_solver.toJson());
       res.add("GLMParams",_glmParams.toJson());

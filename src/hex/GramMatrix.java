@@ -41,8 +41,8 @@ public final class GramMatrix implements H2OSerializable {
     for( int i = 0; i < _xx.length; ++i ) {
       for( int j = 0; j < _xx[i].length; ++j ) {
         if(i == j) {
-          //xx.set(i, j, _xx[i][j] + ((i != _n)?lambda:0.0)); // constant is not regularized
-          xx.set(i, j, _xx[i][j] + lambda);
+          xx.set(i, j, _xx[i][j] + ((i != _n)?lambda:0.0)); // constant is not regularized
+          //xx.set(i, j, _xx[i][j] + lambda);
         } else {
           xx.set(i, j, _xx[i][j]);
           xx.set(j, i, _xx[i][j]);
