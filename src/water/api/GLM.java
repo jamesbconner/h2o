@@ -2,6 +2,7 @@
 package water.api;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import hex.DGLM;
@@ -14,8 +15,10 @@ import hex.DLSM.LSM_Params;
 import hex.Models;
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 import water.ValueArray;
+import water.web.RString;
 
 /**
  *
@@ -140,6 +143,7 @@ public class GLM extends Request {
   protected Response serve() {
     try {
       JsonObject result = new JsonObject();
+      Response r = Response.done(result); // so that we can add the builders
       ValueArray va = _key.value();
       int[] cols = createColumns();
       Link link = _link.value();
@@ -181,13 +185,15 @@ public class GLM extends Request {
         result.add("warnings",w);
       }
 
-      result.add("glmParams", jGlmParams);
-      result.add("lsmParams",jLsmParams);
 
       result.addProperty(JSON_ROWS, cols.length); // WHY????
       result.addProperty(JSON_TIME, deltaT);
       result.add(JSON_COEFFICIENTS, getCoefficients(cols, va, m.beta()));
 
+      result.add("glmParams", jGlmParams);
+      result.add("lsmParams",jLsmParams);
+
+      r.setBuilder(JSON_COEFFICIENTS, new GLMCoeffBuilder(link));
 
       DGLM.GLMValidation val = (DGLM.GLMValidation)m.validateOn(va._key, null);
       if(val != null){
@@ -223,7 +229,7 @@ public class GLM extends Request {
       // Cross Validation
       int xfactor = _xval.value();
       if(xfactor <= 1)
-        return Response.done(result);
+        return r;
       if(xfactor > m.n())xfactor = (int)m.n();
       result.addProperty("xfactor", xfactor);
       result.addProperty("threshold", _threshold.value());
@@ -258,7 +264,7 @@ public class GLM extends Request {
         result.addProperty("errRate", dformat.format(val.err()));
       //res.addProperty("errRateVar", dformat.format(val.errVar()));
       }
-      return Response.done(result);
+      return r;
 
     } catch( DGLM.GLSMException e2 ) {
       return Response.error("Unable to run the regression on this data: '"
@@ -266,5 +272,55 @@ public class GLM extends Request {
     }
   }
 
+  public class GLMCoeffBuilder extends ElementBuilder {
+
+    final Link _link;
+
+    public GLMCoeffBuilder(Link link) {
+      _link = link;
+    }
+
+    @Override protected String objectToString(JsonObject obj, String contextName) {
+      RString m = null;
+      switch (_link) {
+        case identity:
+          m = new RString("y = %equation");
+          m.replace("equation", getFormulaSrc(obj, false));
+          break;
+        case logit:
+          m = new RString("y = 1/(1 + Math.exp(%equation))");
+          m.replace("equation", getFormulaSrc(obj, true));
+          break;
+        case log:
+          m = new RString("y = Math.exp(%equation)");
+          m.replace("equation", getFormulaSrc(obj, false));
+          break;
+        case inverse:
+          m = new RString("y = 1/(%equation)");
+          m.replace("equation", getFormulaSrc(obj, false));
+          break;
+        default:
+          assert (false);
+      }
+      return "<pre>"+m.toString()+"</pre>";
+    }
+
+    String getFormulaSrc(JsonObject x, boolean neg) {
+      StringBuilder codeBldr = new StringBuilder();
+      for( Map.Entry<String, JsonElement> e : x.entrySet() ) {
+        double val = e.getValue().getAsDouble();
+        if(val == 0)continue;
+        if(neg) val *= -1;
+        if( codeBldr.length() > 0 ) {
+          if(val >= 0)codeBldr.append(" + " + dformat.format(val));
+          else codeBldr.append(" - " + dformat.format(-val));
+        } else
+          codeBldr.append(dformat.format(val));
+        if( !e.getKey().equals("Intercept") )
+          codeBldr.append("*x[" + e.getKey()+ "]");
+      }
+      return codeBldr.toString();
+    }
+  }
 
 }
