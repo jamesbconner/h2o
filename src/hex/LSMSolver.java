@@ -8,12 +8,8 @@ import com.google.gson.JsonObject;
 
 public final class LSMSolver extends Iced {
 
-  static final int NO_PENALTY = 0;
-  static final int L1_PENALTY = 1;
-  static final int L2_PENALTY = 2;
-  static final int EL_PENALTY = 3;
-
-  int _penalty;
+  public static enum Norm { NO, L1, L2, EL; }
+  Norm _penalty;
 
   public static final double DEFAULT_LAMBDA = 1e-5;
   public static final double DEFAULT_LAMBDA2 = 1e-8;
@@ -21,7 +17,7 @@ public final class LSMSolver extends Iced {
   public static final double DEFAULT_RHO = 1e-2;
 
   public boolean normalize() {
-    return _penalty != NO_PENALTY;
+    return _penalty != Norm.NO;
   }
 
   public LSMSolver () {}
@@ -31,14 +27,14 @@ public final class LSMSolver extends Iced {
 
   public static LSMSolver makeL2Solver(double lambda){
     LSMSolver res = new LSMSolver();
-    res._penalty = L2_PENALTY;
+    res._penalty = Norm.L2;
     res._lambda = lambda;
     return res;
   }
 
   public static LSMSolver makeL1Solver(double lambda, double rho, double alpha){
     LSMSolver res = new LSMSolver();
-    res._penalty = L1_PENALTY;
+    res._penalty = Norm.L1;
     res._lambda = lambda;
     res._rho = rho;
     res._alpha = alpha;
@@ -47,7 +43,7 @@ public final class LSMSolver extends Iced {
 
   public static LSMSolver makeElasticNetSolver(double lambda, double lambda2, double rho, double alpha){
     LSMSolver res = new LSMSolver();
-    res._penalty = EL_PENALTY;
+    res._penalty = Norm.EL;
     res._lambda = lambda;
     res._lambda2 = lambda2;
     res._rho = rho;
@@ -64,20 +60,20 @@ public final class LSMSolver extends Iced {
   public JsonObject toJson(){
     JsonObject res = new JsonObject();
     switch(_penalty){
-    case NO_PENALTY:
+    case NO:
       res.addProperty("penalty", "none");
       break;
-    case L2_PENALTY:
+    case L2:
       res.addProperty("penalty","L2");
       res.addProperty("lambda",_lambda);
       break;
-    case L1_PENALTY:
+    case L1:
       res.addProperty("penalty","L1");
       res.addProperty("lambda",_lambda);
       res.addProperty("rho",_rho);
       res.addProperty("alpha",_alpha);
       break;
-    case EL_PENALTY:
+    case EL:
       res.addProperty("penalty","L1 + L2");
       res.addProperty("lambda",_lambda);
       res.addProperty("lambda2",_lambda2);
@@ -94,18 +90,10 @@ public final class LSMSolver extends Iced {
   public double [] solve(GramMatrix m){
     double lambda;
     switch( _penalty ) {
-    case NO_PENALTY:
-      lambda = 0.0;
-      break;
-    case L1_PENALTY:
-      lambda = _rho;
-      break;
-    case L2_PENALTY:
-      lambda = _lambda;
-      break;
-    case EL_PENALTY:
-      lambda= _rho + _lambda2;
-      break;
+    case NO:  lambda = 0.0;              break;
+    case L1:  lambda = _rho;             break;
+    case L2:  lambda =        _lambda ;  break;
+    case EL:  lambda = _rho + _lambda2;  break;
     default:
       throw new Error("unexpected penalty " + _penalty);
     }
@@ -115,11 +103,11 @@ public final class LSMSolver extends Iced {
     CholeskyDecomposition lu = new CholeskyDecomposition(xx);
 
     switch(_penalty) {
-    case NO_PENALTY:
-    case L2_PENALTY: // L2 and no penalty need only one iteration
+    case NO:
+    case L2: // L2 and no penalty need only one iteration
       return lu.solve(xy).getColumnPackedCopy();
-    case EL_PENALTY:
-    case L1_PENALTY:  // use ADMM to solve LASSO
+    case EL:
+    case L1:  // use ADMM to solve LASSO
       final int N = xx.getRowDimension();
       final double ABSTOL = Math.sqrt(N) * 1e-4;
       final double RELTOL = 1e-2;

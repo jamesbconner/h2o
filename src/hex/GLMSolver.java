@@ -1,15 +1,10 @@
 package hex;
 
+import com.google.gson.*;
 import hex.RowVecTask.Sampling;
-
-
 import java.util.ArrayList;
 import java.util.Arrays;
-
 import water.*;
-
-import com.google.gson.*;
-
 
 public class GLMSolver {
   public static final int DEFAULT_MAX_ITER = 50;
@@ -17,6 +12,7 @@ public class GLMSolver {
   private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
 
   public static enum Link {
+    familyDefault(0),
     identity(0),
     logit(0),
     log(0),
@@ -95,7 +91,6 @@ public class GLMSolver {
     public final Link defaultLink;
     public final double [] defaultArgs;
     Family(Link l, double [] d){defaultLink = l; defaultArgs = d;}
-
 
     public double variance(double mu){
       switch(this){
@@ -364,18 +359,18 @@ public class GLMSolver {
           break;
         } catch (Exception e){
           switch(_solver._penalty){
-          case LSMSolver.NO_PENALTY:
-            _solver._penalty = LSMSolver.L2_PENALTY;
+          case NO:
+            _solver._penalty = LSMSolver.Norm.L2;
             _solver._lambda = 1e-8;
             break;
-          case LSMSolver.L2_PENALTY:
+          case L2:
             _solver._lambda *= 10;
             break;
-          case LSMSolver.L1_PENALTY:
-            _solver._penalty = LSMSolver.EL_PENALTY;
+          case L1:
+            _solver._penalty = LSMSolver.Norm.EL;
             _solver._lambda2 = 1e-8;
             break;
-          case LSMSolver.EL_PENALTY:
+          case EL:
             _solver._lambda2 *= 10;
             break;
           default:

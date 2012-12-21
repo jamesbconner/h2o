@@ -1,11 +1,7 @@
-
 package hex;
-
-
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
 import water.*;
 
 public final class HexDataFrame extends Iced {
