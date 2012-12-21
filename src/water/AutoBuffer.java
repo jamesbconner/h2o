@@ -787,6 +787,7 @@ public final class AutoBuffer {
     byte[] src = ab._bb.array();
     abOff += ab._bb.arrayOffset();
     System.arraycopy(src, abOff, dst, offset, len);
+    _bb.position(_bb.position()+len); // Bump dest buffer offset
     return this;
   }
 }

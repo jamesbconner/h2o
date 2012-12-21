@@ -52,7 +52,7 @@ public class TaskStore2HDFS extends DTask {
     long idx = 0;
     while( UKV.get(selfKey,ts) != null ) {
       if( ts._indexFrom != idx ) {
-        System.out.print(" "+idx+"/"+ary._chunks);
+        System.out.print(" "+idx+"/"+ary.chunks());
         idx = ts._indexFrom;
       }
       if( ts._err != null ) {   // Found an error?
@@ -61,7 +61,7 @@ public class TaskStore2HDFS extends DTask {
       }
       try { Thread.sleep(100); } catch( InterruptedException e ) { }
     }
-    System.out.println(" "+ary._chunks+"/"+ary._chunks);
+    System.out.println(" "+ary.chunks()+"/"+ary.chunks());
 
     //PersistHdfs.refreshHDFSKeys();
     return null;
@@ -81,7 +81,7 @@ public class TaskStore2HDFS extends DTask {
     ValueArray ary = ValueArray.value(_arykey);
     Key self = selfKey();
 
-    while( _indexFrom < ary._chunks ) {
+    while( _indexFrom < ary.chunks() ) {
       Key ckey = ary.getChunkKey(_indexFrom++);
       if( !ckey.home() ) {      // Next chunk not At Home?
         RPC.call(chunkHome(),this); // Hand the baton off to the next node/chunk

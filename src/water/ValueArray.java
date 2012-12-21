@@ -38,11 +38,10 @@ public class ValueArray extends Iced {
   // an optional offset & scale factor.  These are described in the meta-data.
 
   public transient Key _key;     // Main Array Key
-  public transient long _chunks; // Total chunks at about 1M a pop
   public final Column[] _cols;   // The array of column descriptors; the X dimension
-  public long _numrows;    // Number of rows; the Y dimension.  Can be >>2^32
+  public long[] _rpc;            // Row# for start of each chunk
+  public long _numrows;      // Number of rows; the Y dimension.  Can be >>2^32
   public final int _rowsize;     // Size in bytes for an entire row
-  public transient int _rpc;     // Rows per standard chunk
   public byte _persist;          // Persistance in ICE, NFS, HDFS, S3, etc
 
   public ValueArray(Key key, long numrows, int rowsize, Column[] cols ) {
@@ -61,6 +60,28 @@ public class ValueArray extends Iced {
 
   // Plain unstructured data wrapper.  Just a vast byte array
   public ValueArray(Key key, long len, byte persist ) { this(key,len,1,new Column[]{new Column(len)},persist); }
+
+  // Variable-sized chunks.  Pass in the number of whole rows in each chunk.
+  public ValueArray(Key key, int[] rows, int rowsize, Column[] cols, byte persist ) { 
+    assert rowsize > 0;
+    _rowsize = rowsize;
+    _cols = cols;
+    _persist = persist;
+    _key = key;
+    // Roll-up summary the number rows in each chunk, to the starting row# per chunk.
+    _rpc = new long[rows.length+1];
+    long sum = 0;
+    for( int i=0; i<rows.length; i++ ) { // Variable-sized chunks
+      int r = rows[i];                   // Rows in chunk# i
+      assert r*rowsize < (CHUNK_SZ*4);   // Keep them reasonably sized please
+      _rpc[i] = sum;                     // Starting row# for chunk i
+      sum += r;
+    }
+    _rpc[_rpc.length-1] = _numrows = sum;
+    assert rpc(0) == rows[0];   // Some quicky sanity checks
+    assert rpc(chunks()-1) == rows[(int)(chunks()-1)];
+  }
+
   public ValueArray clone() {
     try {
       return (ValueArray) super.clone();
@@ -72,8 +93,6 @@ public class ValueArray extends Iced {
   // Init of transient fields from deserialization calls
   private final ValueArray init( Key key ) {
     _key = key;
-    _rpc = (int)(CHUNK_SZ/_rowsize); // Rows per chunk
-    _chunks= Math.max(1,_numrows/_rpc);
     return this;
   }
 
@@ -100,7 +119,7 @@ public class ValueArray extends Iced {
     StringBuilder sb = new StringBuilder();
     sb.append("VA[").append(_numrows).append("][").append(_cols.length).append("]{");
     sb.append("bpr=").append(_rowsize).append(", rpc=").append(_rpc).append(", ");
-    sb.append("chunks=").append(_chunks).append(", key=").append(_key);
+    sb.append("chunks=").append(chunks()).append(", key=").append(_key);
     sb.append("}");
     return sb.toString();
   }
@@ -110,6 +129,47 @@ public class ValueArray extends Iced {
   public int numCols() { return _cols.length; }
   public long length() { return _numrows*_rowsize; }
   public boolean hasInvalidRows(int colnum) { return _cols[colnum]._n != _numrows; }
+
+  /** Rows in this chunk */
+  public int rpc(long chunknum) {
+    if( (long)(int)chunknum!=chunknum ) throw H2O.unimpl(); // more than 2^31 chunks?
+    if( _rpc != null ) return (int)(_rpc[(int)chunknum+1]-_rpc[(int)chunknum]);
+    int rpc = (int)(CHUNK_SZ/_rowsize);
+    long chunks = Math.max(1,_numrows/rpc);
+    assert chunknum < chunks;
+    if( chunknum < chunks-1 )   // Not last chunk?
+      return rpc;               // Rows per chunk
+    return (int)(_numrows - (chunks-1)*rpc);
+  }
+
+  /** Row number at the start of this chunk */
+  public long startRow( long chunknum) {
+    if( (long)(int)chunknum!=chunknum ) throw H2O.unimpl(); // more than 2^31 chunks?
+    if( _rpc != null ) return _rpc[(int)chunknum];
+    int rpc = (int)(CHUNK_SZ/_rowsize); // Rows per chunk
+    return rpc*chunknum;
+  }
+
+  // Which row in the chunk?
+  public int rowInChunk( long chknum, long rownum ) {
+    return (int)(rownum - startRow(chknum));
+  }
+
+  /** Number of chunks */
+  public long chunks() {
+    if( _rpc != null ) return _rpc.length-1; // one row# per chunk
+    // Else uniform-size chunks
+    int rpc = (int)(CHUNK_SZ/_rowsize); // Rows per chunk
+    return Math.max(1,_numrows/rpc);
+  }
+
+  /** Chunk number containing a row */
+  private long chknum( long rownum ) {
+    int rpc = (int)(CHUNK_SZ/_rowsize);
+    return ( _rpc != null ) 
+      ? Math.abs(Arrays.binarySearch(_rpc,rownum))
+      : Math.min(rownum/rpc,Math.max(1,_numrows/rpc)-1);
+  }
 
   // internal convience class for building structured ValueArrays
   static public class Column extends Iced {
@@ -138,10 +198,10 @@ public class ValueArray extends Iced {
 
   // Get a usable pile-o-bits
   public AutoBuffer getChunk( long chknum ) { return getChunk(getChunkKey(chknum)); }
-  public AutoBuffer getChunk( Key key ) { return new AutoBuffer(DKV.get(key).get()); }
-  // Which row in the chunk?
-  public int rowInChunk( long chknum, long rownum ) {
-    return (int)(rownum - chknum*_rpc);
+  public AutoBuffer getChunk( Key key ) { 
+    byte[] b = DKV.get(key).get();
+    assert b.length == rpc(getChunkIndex(key))*_rowsize : "actual="+b.length+" expected="+rpc(getChunkIndex(key))*_rowsize;
+    return new AutoBuffer(b);
   }
 
   // Value extracted, then scaled & based - the double version. Note that this
@@ -149,7 +209,7 @@ public class ValueArray extends Iced {
   // invariant when run inside real numeric loops... but that the compiler will
   // probably need help pulling out the loop invariants.
   public double datad(long rownum, int colnum) {
-    long chknum= Math.min(rownum/_rpc,_chunks-1);
+    long chknum = chknum(rownum);
     return datad(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
 
@@ -176,7 +236,7 @@ public class ValueArray extends Iced {
 
   // Value extracted, then scaled & based - the integer version.
   public long data(long rownum, int colnum) throws IOException {
-    long chknum= Math.min(rownum/_rpc,_chunks-1);
+    long chknum = chknum(rownum);
     return data(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
   public long data(AutoBuffer ab, int row_in_chunk, int colnum) {
@@ -202,7 +262,7 @@ public class ValueArray extends Iced {
 
   // Test if the value is valid, or was missing in the orginal dataset
   public boolean isNA(long rownum, int colnum) throws IOException {
-    long chknum= Math.min(rownum/_rpc,_chunks-1);
+    long chknum = chknum(rownum);
     return isNA(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
   public boolean isNA(AutoBuffer ab, int row_in_chunk, int colnum ) {
@@ -225,7 +285,7 @@ public class ValueArray extends Iced {
 
   // Get the proper Key for a given chunk number
   public Key getChunkKey( long chknum ) {
-    assert 0 <= chknum && chknum < _chunks : "AIOOB "+chknum+" < "+_chunks;
+    assert 0 <= chknum && chknum < chunks() : "AIOOB "+chknum+" < "+chunks();
     return getChunkKey(chknum,_key);
   }
   public static Key getChunkKey( long chknum, Key arrayKey ) {
@@ -321,12 +381,12 @@ public class ValueArray extends Iced {
       private long _chkidx;
       @Override public int available() throws IOException {
         if( _ab==null || _ab.remaining()==0 ) {
-          if( _chkidx >= _chunks ) return 0;
+          if( _chkidx >= chunks() ) return 0;
           _ab = getChunk(_chkidx++);
         }
         return _ab.remaining();
       }
-      @Override public void close() { _chkidx = _chunks; _ab = null; }
+      @Override public void close() { _chkidx = chunks(); _ab = null; }
       @Override public int read() throws IOException {
         return available() == 0 ? -1 : _ab.get1();
       }

@@ -50,13 +50,13 @@ public abstract class MRVectorBinaryOperator extends MRColumnProducer {
    */
   @Override public void map(Key key) {
     ValueArray result = ValueArray.value(_resultKey);
-    long rowOffset = ValueArray.getChunkOffset(key) / result._rowsize;
+    long cidx = ValueArray.getChunkIndex(key);
+    long rowOffset = result.startRow(cidx);
     VAIterator left = new VAIterator(_leftKey,_leftCol, rowOffset);
     VAIterator right = new VAIterator(_rightKey,_rightCol, rowOffset);
-    int chunkRows = VABuilder.chunkSize(key, result.length(), result._rowsize) / result._rowsize;
-    int chunkLength = chunkRows * 8;
-    AutoBuffer bits = new AutoBuffer(chunkLength);
-    for (int i = 0; i < chunkLength; i+=8) {
+    int chunkRows = result.rpc(cidx);
+    AutoBuffer bits = new AutoBuffer(chunkRows * 8);
+    for( int i = 0; i < chunkRows; i++ ) {
       left.next();
       right.next();
       double x = operator(left.datad(), right.datad());

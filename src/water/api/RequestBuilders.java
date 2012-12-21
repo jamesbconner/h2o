@@ -661,8 +661,10 @@ public class RequestBuilders extends RequestQueries {
           return PrettyPrint.bytes(elm.getAsLong());
         } else if( elementName.endsWith(JSON_TIME_SUFFIX) ) {
           return PrettyPrint.msecs(elm.getAsLong(), true);
-        } else{
+        } else if( elm instanceof JsonPrimitive && ((JsonPrimitive)elm).isString() ) {
           return elm.getAsString();
+        } else {
+          return elm.toString();
         }
     }
 

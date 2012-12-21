@@ -395,9 +395,11 @@ class RandBitVect extends Function {
     }
 
     @Override public void map(Key key) {
-      byte[] bits = MemoryManager.malloc1(VABuilder.chunkSize(key, _size, 8));
-      int rows = bits.length / 8;
-      long start = ValueArray.getChunkOffset(key) / 8;
+      ValueArray va = ValueArray.value(_key);
+      long cidx = ValueArray.getChunkIndex(key);
+      int rows = va.rpc(cidx);
+      byte[] bits = MemoryManager.malloc1(rows*8);
+      long start = va.startRow(cidx);
       double expectedBefore = start * ( (double)_selected / (_size / 8));
       double expectedAfter = (start + rows) * ((double)  _selected / (_size / 8));
       int create = (int) (Math.round(expectedAfter) - Math.round(expectedBefore));
@@ -572,26 +574,20 @@ class MakeEnum extends Function {
 
     @Override public void map(Key key) {
       ValueArray result = ValueArray.value(_resultKey);
-      long rowOffset = ValueArray.getChunkOffset(key) / result._rowsize;
+      long cidx = ValueArray.getChunkIndex(key);
+      long rowOffset = result.startRow(cidx);
       VAIterator source = new VAIterator(_sourceKey,_sourceCol, rowOffset);
-      int chunkRows = VABuilder.chunkSize(key, result.length(), result._rowsize) / result._rowsize;
-      if (rowOffset + chunkRows >= result.numRows())
-        chunkRows = (int) (result.numRows() - rowOffset);
       int size = _domain.size() < 255 ? 1 : 2;
-      int chunkLength = chunkRows * size;
-      AutoBuffer bits = new AutoBuffer(chunkLength);
-      for (int i = 0; i < chunkLength;) {
+      int chunkRows = result.rpc(cidx);
+      AutoBuffer bits = new AutoBuffer(chunkRows * size);
+      for( int i = 0; i < chunkRows; i++ ) {
         source.next();
         int id = _domain.getTokenId(String.valueOf(source.datad()));
         _tot += id;
         // we do not expect any misses here
         assert 0 <= id && id < _domain.size();
-        switch (size) {
-            case 1: bits.put1(id); break;
-            case 2: bits.put2((short) id); break;
-            case 4: bits.put4(id); break; // not used
-            default: assert false:"illegal size: " + size;
-            }
+        if( size == 1 ) bits.put1(       id);
+        else            bits.put2((short)id);
       }
       Value val = new Value(key, bits.bufClose());
       DKV.put(key, val, getFutures());
@@ -684,11 +680,12 @@ class InPlaceColSwap extends Function {
       // a simple MR, get the row offset for the given key, then initialize the
       // iterators and patch the result
       ValueArray result = ValueArray.value(_resultKey);
+      long cidx = ValueArray.getChunkIndex(key);
       int rowSize = result._rowsize;
-      long rowOffset = ValueArray.getChunkOffset(key) / result._rowsize;
+      long rowOffset = result.startRow(cidx);
       VAIterator oldVal = new VAIterator(_oldKey,_oldCol, rowOffset);
       VAIterator newVal = new VAIterator(_newKey,_newCol, rowOffset);
-      int chunkRows = VABuilder.chunkSize(key, result.length(), rowSize) / rowSize;
+      int chunkRows = result.rpc(cidx);
       AutoBuffer bits = new AutoBuffer(chunkRows*rowSize);
       // calculate the markers
       Column oldCol = oldVal._ary._cols[_oldCol];

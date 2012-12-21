@@ -30,7 +30,7 @@ public abstract class UKV {
     // bigger or smaller than the old Value.
     if( res != null && res._isArray!=0 ) {
       ValueArray ary = ValueArray.value(res);
-      for( long i=0; i<ary._chunks; i++ ) // Delete all the chunks
+      for( long i=0; i<ary.chunks(); i++ ) // Delete all the chunks
         DKV.remove(ary.getChunkKey(i),fs);
     }
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
@@ -50,7 +50,7 @@ public abstract class UKV {
     if( val == null ) return;    // Trivial delete
     if( val._isArray != 0 ) { // See if this is an Array
       ValueArray ary = ValueArray.value(val);
-      for( long i=0; i<ary._chunks; i++ ) // Delete all the chunks
+      for( long i=0; i<ary.chunks(); i++ ) // Delete all the chunks
         remove(ary.getChunkKey(i),fs);
     }
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?

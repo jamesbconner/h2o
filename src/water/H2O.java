@@ -383,6 +383,7 @@ public final class H2O {
     public String hdfs_nopreload; // do not preload HDFS keys
     public String nosigar; // Disable Sigar-based statistics
     public String keepice; // Do not delete ice on startup
+    public String soft = null; // soft launch for demos
     public String auth; // Require authentication for the webpages
   }
   public static boolean IS_SYSTEM_RUNNING = false;
@@ -513,27 +514,40 @@ public final class H2O {
       UDP_PORT = WEB_PORT+1;
       API_PORT = UDP_PORT+1;
       try {
+        // kbn. seems like we need to set SO_REUSEADDR before binding?
+        // http://www.javadocexamples.com/java/net/java.net.ServerSocket.html#setReuseAddress:boolean
+        // When a TCP connection is closed the connection may remain in a timeout state 
+        // for a period of time after the connection is closed (typically known as the 
+        // TIME_WAIT state or 2MSL wait state). For applications using a well known socket address 
+        // or port it may not be possible to bind a socket to the required SocketAddress 
+        // if there is a connection in the timeout state involving the socket address or port.
+        // Enabling SO_REUSEADDR prior to binding the socket using bind(SocketAddress) 
+        // allows the socket to be bound even though a previous connection is in a timeout state. 
+        // cnc: this is busted on windows.  Back to the old code.
         _webSocket = new ServerSocket(WEB_PORT);
         _apiSocket = new ServerSocket(API_PORT);
         _udpSocket = DatagramChannel.open();
+        _udpSocket.socket().setReuseAddress(true);
         _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
         break;
       } catch (IOException e) {
         try { if( _webSocket != null ) _webSocket.close(); } catch( IOException ohwell ) { }
+        try { if( _apiSocket != null ) _apiSocket.close(); } catch( IOException ohwell ) { }
         Closeables.closeQuietly(_udpSocket);
         _webSocket = null;
+        _apiSocket = null;
         _udpSocket = null;
         if( OPT_ARGS.port != 0 )
           Log.die("On " + H2O.findInetAddressForSelf() +
               " some of the required ports " + (OPT_ARGS.port+0) +
               ", " + (OPT_ARGS.port+1) +
+              ", " + (OPT_ARGS.port+2) +
               " are not available, change -port PORT and try again.");
       }
       WEB_PORT += 3; // used to be 2 for only WEB + UDP
     }
     SELF = H2ONode.self(inet);
-    System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", TCP/UDP port: "+UDP_PORT);
-    System.out.println("[h2o] API HTTP port "+API_PORT);
+    System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", TCP/UDP port: "+UDP_PORT+", API HTTP port "+API_PORT);
 
     NAME = OPT_ARGS.name==null? System.getProperty("user.name") : OPT_ARGS.name;
     // Read a flatfile of allowed nodes
@@ -572,7 +586,9 @@ public final class H2O {
           CLOUD_MULTICAST_SOCKET.send(new DatagramPacket(buf, buf.length, CLOUD_MULTICAST_GROUP,CLOUD_MULTICAST_PORT));
         } catch( Exception e ) {
           // On any error from anybody, close all sockets & re-open
-          System.err.println("Multicast Error "+e);
+		  // and if not a soft launch (hibernate mode)
+		  if(H2O.OPT_ARGS.soft == null) 
+           System.err.println("Multicast Error "+e);
           if( CLOUD_MULTICAST_SOCKET != null )
             try { CLOUD_MULTICAST_SOCKET.close(); }
             catch( Exception e2 ) { }

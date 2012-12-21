@@ -5,7 +5,7 @@ import hex.rf.Tree.StatType;
 import java.io.File;
 
 // Drive Random Forest directly
-class RFDriver {
+public class RFDriver {
   public static class OptArgs extends Arguments.Opt {
 	String file = "smalldata/poker/poker-hand-testing.data";
 	String rawKey;

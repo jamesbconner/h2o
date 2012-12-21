@@ -43,8 +43,6 @@ public class Confusion extends MRTask {
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42. */
   private transient Random    _rand;
-  /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
-  transient private int       _rows_per_normal_chunk;
   /** Data to replay the sampling algorithm */
   transient private int[]     _chunk_row_mapping;
   private int[] _ignores;
@@ -126,7 +124,6 @@ public class Confusion extends MRTask {
     Column c = _data._cols[_classcol];
     _N = (int)((c._max - c._min)+1);
     assert _N > 0;
-    _rows_per_normal_chunk = _data._rpc;
   }
 
   /**
@@ -146,7 +143,7 @@ public class Confusion extends MRTask {
       if( k.home() ) {
         l = ValueArray.getChunkIndex(k);
         _chunk_row_mapping[(int)l] = off;
-        off += _rows_per_normal_chunk;
+        off += _data.rpc(l);
       }
   }
 

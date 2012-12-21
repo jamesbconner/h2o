@@ -5,6 +5,10 @@ import h2o_browse as h2b
 import re
 import inspect, webbrowser
 
+# for checking ports in use, using netstat thru a subprocess.
+# hopefully this works in windows
+from subprocess import Popen, PIPE
+
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
 # if that's sufficient, it should be fine to uniquely identify the flatfile by name only also
@@ -237,6 +241,26 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
                 pff.write("/" + h.addr + ":" + str(base_port +ports_per_node*i) + "\n")
     pff.close()
 
+
+def check_port_group(baseport):
+    # for now, only check for jenkins or kevin
+    username = getpass.getuser()
+    if username=='jenkins' or username=='kevin' or username=='michal':
+        # assumes you want to know about 3 ports starting at baseport
+        command1Split = ['netstat', '-anp']
+        command2Split = ['egrep']
+        # colon so only match ports. space at end? so no submatches
+        command2Split.append("(" + str(baseport) + "|" + str(baseport+1) + "|" + str(baseport+2) + ")")
+
+        print "Checking 3 ports starting at ", baseport
+        print ' '.join(command2Split)
+
+        # use netstat thru subprocess
+        p1 = Popen(command1Split, stdout=PIPE)
+        p2 = Popen(command2Split, stdin=p1.stdout, stdout=PIPE)
+        output = p2.communicate()[0]
+        print output
+
 # node_count is per host if hosts is specified.
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
@@ -253,7 +277,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         if hosts is None:
             hostCount = 1
             for i in xrange(node_count):
-                verboseprint('psutil starting node', i)
+                verboseprint("psutil starting node", i)
                 newNode = LocalH2O(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                 node_list.append(newNode)
                 totalNodes += 1
@@ -997,6 +1021,8 @@ class LocalH2O(H2O):
         else:
             logPrefix = 'local-h2o'
 
+        check_port_group(self.port)
+
         spawn = spawn_cmd(logPrefix, self.get_args(), capture_output=self.capture_output)
         self.ps = spawn[0]
 
@@ -1138,6 +1164,20 @@ class RemoteH2O(H2O):
             self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
+
+        # this fires off netstat/egrep over there
+        ### FIX! TODO...we don't check on remote hosts yet
+        baseport = self.port
+        commandSplit = ['netstat', '-anp']
+        commandSplit.append(';')
+        ## commandSplit.append('egrep')
+        # colon so only match ports. space at end? so no submatches
+        ## commandSplit.append("(:" + str(baseport) + "|:" + str(baseport+1) + "|:" + str(baseport+2) + ")")
+
+        cmd = ' '.join(commandSplit)
+        # self.channel.exec_command(cmd)
+       
+        # this fires up h2o over there
         cmd = ' '.join(self.get_args())
         self.channel.exec_command(cmd)
         if self.capture_output:
@@ -1180,6 +1220,9 @@ class RemoteH2O(H2O):
             return False
 
     def terminate(self):
+        # kbn new 12/20/12
+        self.shutdown_all()
+
         self.channel.close()
         # kbn: it should be dead now? want to make sure we don't have zombies
         # we should get a connection error. doing a is_alive subset.

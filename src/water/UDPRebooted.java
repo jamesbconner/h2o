@@ -1,4 +1,5 @@
 package water;
+import java.io.IOException;
 import java.net.DatagramPacket;
 
 /**
@@ -33,6 +34,9 @@ public class UDPRebooted extends UDP {
     case reboot: return;
     case shutdown:
       System.out.println("[h2o] Orderly shutdown command from "+ab._h2o);
+      try { H2O._webSocket.close(); } catch( IOException x ) { }
+      try { H2O._udpSocket.close(); } catch( IOException x ) { }
+      try { H2O._apiSocket.close(); } catch( IOException x ) { }
       System.exit(0);
       return;
     case error:    m = "Error leading to a cloud kill"              ; break;
@@ -41,6 +45,9 @@ public class UDPRebooted extends UDP {
     default:       m = "Received kill "+type                        ; break;
     }
     System.err.println("[h2o] "+m+" from "+ab._h2o);
+    try { H2O._webSocket.close(); } catch( IOException x ) { }
+    try { H2O._udpSocket.close(); } catch( IOException x ) { }
+    try { H2O._apiSocket.close(); } catch( IOException x ) { }
     System.exit(-1);
   }
 

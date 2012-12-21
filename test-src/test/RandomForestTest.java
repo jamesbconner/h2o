@@ -103,7 +103,7 @@ public class RandomForestTest extends KeyUtil {
     ValueArray val = ValueArray.value(okey);
 
     // Check parsed dataset
-    assertEquals("Number of chunks", 4, val._chunks);
+    assertEquals("Number of chunks", 4, val.chunks());
     assertEquals("Number of rows", 150000, val.numRows());
     assertEquals("Number of cols", 12, val.numCols());
 

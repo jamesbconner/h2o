@@ -34,11 +34,9 @@ public abstract class CustomFilter extends MRTask {
       if (filter(bits,offset)) {
         ++_filteredRows;
         newBits.copyArrayFrom(wo,bits, offset, _rowSize);
-//        System.arraycopy(bits._bb.array(),offset,newBits._bb.array(),wo,_rowSize);
         wo += _rowSize;
       }
     }
-    newBits._bb.position(wo);
     Key d = ValueArray.getChunkKey(ValueArray.getChunkIndex(key), _destKey);
     Value v = new Value(d, newBits.buf());
     DKV.put(d,v);

@@ -21,7 +21,7 @@ public class RFRunner {
       pfinish = Pattern.compile("Random forest finished in[ ]*(.*)"),
       pntrees = Pattern.compile("Number of trees:[ ]*([0-9]+)"),
       pfeatures = Pattern.compile("No of variables tried at each split:[ ]*([0-9]+)"),
-      perror = Pattern.compile("Estimate of error rate:[ ]*([0-9]+)"),
+      perror = Pattern.compile("Estimate of err. rate:[ ]*([0-9]+)"),
       pdepth = Pattern.compile("Avg tree depth \\(min, max\\):[ ]*([0-9]+).*"),
       pleaves = Pattern.compile("Avg tree leaves \\(min, max\\):[ ]*([0-9]+).*"),
       prows = Pattern.compile("Validated on \\(rows\\):[ ]*([0-9]+).*"),
@@ -66,7 +66,7 @@ public class RFRunner {
 
   static final String JAVA         = "java";
   static final String JAR          = "-jar build/h2o.jar";
-  static final String MAIN         = "-mainClass hex.rf.RandomForest";
+  static final String MAIN         = "-mainClass test.RFDriver";
   static final String[] stat_types = new String[] { "gini", "entropy" };
   static final int[] ntrees        = new int[] { 1, 50, 100, 300 };
   static final int[] sizeMultiples = new int[]{ 1, 4, 12, 24, 32, 64};
