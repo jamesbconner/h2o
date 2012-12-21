@@ -1,12 +1,9 @@
 package hex.rf;
 
-import init.H2OSerializable;
-
-import java.io.*;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 import water.*;
+import water.ValueArray.Column;
 
 /**
  * Contains methods for extracting minority classes out of value array and redistributing them to all nodes.
@@ -36,7 +33,8 @@ public class MinorityClasses {
 
   public static int [][] histogram(ValueArray data, int classIdx){
     HistogramTask tsk = new HistogramTask();
-    tsk._n = (int)(data.col_max(classIdx) - data.col_min(classIdx))+1;
+    Column c = data._cols[classIdx];
+    tsk._n = (int)(c._max - c._min)+1;
     tsk._classIdx = classIdx;
     tsk._aryKey = data._key;
     tsk.invoke(data._key);
@@ -45,8 +43,8 @@ public class MinorityClasses {
 
   public static int [][] histogram(ValueArray data, Key[] keys, int classIdx){
     HistogramTask tsk = new HistogramTask();
-    tsk._n = (int)(data.col_max(classIdx) - data.col_min(classIdx))+1;
-    tsk._n = (int)data.col_max(classIdx)+1;
+    Column c = data._cols[classIdx];
+    tsk._n = (int)(c._max - c._min)+1;
     tsk._classIdx = classIdx;
     tsk._aryKey = data._key;
     tsk.invoke(keys);
@@ -96,16 +94,12 @@ public class MinorityClasses {
     long _res;
     @Override
     public void map(Key key) {
-      ValueArray ary = ((_aryKey != null)?(ValueArray)DKV.get(_aryKey):null);
-      byte [] bits = DKV.get(key).get();
-      int row_size = ary.row_size();
-      int off = ary.col_off(_classIdx);
-      int size = ary.col_size(_classIdx);
-      int scale = ary.col_scale(_classIdx);
-      int base = ary.col_base(_classIdx);
-      int rows = bits.length/ary.row_size();
+      ValueArray ary = ValueArray.value(_aryKey);
+      AutoBuffer bits = ary.getChunk(key);
+      Column c = ary._cols[_classIdx];
+      int rows = bits.remaining()/ary.rowSize();
       for(int i = 0; i < rows; ++i)
-        if(Arrays.binarySearch(_minorities, (int)ary.data(bits, i, row_size, off, size, base, scale, _classIdx)) < 0)
+        if(Arrays.binarySearch(_minorities, (int)ary.datad(bits, i, c)) < 0)
           ++_res;
     }
 
@@ -116,7 +110,7 @@ public class MinorityClasses {
 
   };
 
-  public static class UnbalancedClass implements H2OSerializable {
+  public static class UnbalancedClass extends Iced {
     public int _c;
     public Key [] _chunks;
     public int _rows;
@@ -131,7 +125,7 @@ public class MinorityClasses {
     ClassExtractTask tsk = new ClassExtractTask();
     tsk._imbalancedClasses = classIds;
     tsk._classColumnIdx = classIdx;
-    tsk._rowsize = data.row_size();
+    tsk._rowsize = data.rowSize();
     tsk.invoke(data._key);
     // deal with the remainders
     for(int i = 0; i < tsk._offsets.length; ++i)
@@ -164,18 +158,13 @@ public class MinorityClasses {
 
     @Override
     public void map(Key key) {
-      ValueArray ary = ((_aryKey != null)?(ValueArray)DKV.get(_aryKey):null);
+      ValueArray ary = ValueArray.value(_aryKey);
       _histogram = new int[H2O.CLOUD.size()][_n];
-      byte [] bits = DKV.get(key).get();
-      int row_size = ary.row_size();
-      int off = ary.col_off(_classIdx);
-      int size = ary.col_size(_classIdx);
-      int scale = ary.col_scale(_classIdx);
-      int base = ary.col_base(_classIdx);
-      int rows = bits.length/ary.row_size();
-      int min = (int)ary.col_min(_classIdx);
+      AutoBuffer bits = ary.getChunk(key);
+      Column c = ary._cols[_classIdx];
+      int rows = bits.remaining()/ary.rowSize();
       for(int i = 0; i < rows; ++i)
-        ++_histogram[H2O.SELF.index()][(int)ary.data(bits, i, row_size, off, size, base, scale, _classIdx) - min];
+        ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
     }
 
     @Override
@@ -236,89 +225,32 @@ public class MinorityClasses {
     }
 
     @Override
-    public int wire_len(){
-      return 4 + 4
-          + UDP.wire_len(_imbalancedClasses)
-          + UDP.wire_len(_bufs)
-          + UDP.wire_len(_offsets)
-          + SerializationUtils.wire_len(_createdKeys)
-          + UDP.wire_len(_histogram);
-    }
-
-    @Override
-    public void read(DataInputStream dis) throws IOException{
-      _classColumnIdx = dis.readInt();
-      _rowsize = dis.readInt();
-      _imbalancedClasses = TCPReceiverThread.readIntAry(dis);
-      _bufs = TCPReceiverThread.readByteByteAry(dis);
-      _offsets = TCPReceiverThread.readIntAry(dis);
-      _createdKeys = SerializationUtils.read2DKeyArray(dis);
-      _histogram = TCPReceiverThread.readIntAry(dis);
-    }
-
-    @Override
-    public void read(Stream s){
-      _classColumnIdx = s.get4();
-      _rowsize = s.get4();
-      _imbalancedClasses = s.getAry4();
-      _bufs = s.getAry11();
-      _offsets = s.getAry4();
-      _createdKeys = SerializationUtils.read2DKeyArray(s);
-      _histogram = s.getAry4();
-    }
-
-    @Override
-    public void write(DataOutputStream dos) throws IOException{
-      dos.writeInt(_classColumnIdx);
-      dos.writeInt(_rowsize);
-      TCPReceiverThread.writeAry(dos, _imbalancedClasses);
-      TCPReceiverThread.writeAry(dos,_bufs);
-      TCPReceiverThread.writeAry(dos,_offsets);
-      SerializationUtils.write(_createdKeys,dos);
-      TCPReceiverThread.writeAry(dos,_histogram);
-    }
-
-    @Override
-    public void write(Stream s){
-      s.set4(_classColumnIdx);
-      s.set4(_rowsize);
-      s.setAry4(_imbalancedClasses);
-      s.setAry11(_bufs);
-      s.setAry4(_offsets);
-      SerializationUtils.write(_createdKeys, s);
-      s.setAry4(_histogram);
-    }
-
-
-    @Override
     public void map(Key key) {
-      Key aryKey = Key.make(ValueArray.getArrayKeyBytes(key));
-      ValueArray ary = (ValueArray)DKV.get(aryKey);
+      Key aryKey = ValueArray.getArrayKey(key);
+      ValueArray ary = ValueArray.value(aryKey);
       _offsets = new int[_imbalancedClasses.length];
       _histogram = new int[_imbalancedClasses.length];
       _createdKeys = new Key[_imbalancedClasses.length][];
       _bufs = new byte[_imbalancedClasses.length][];
       for(int i = 0; i < _bufs.length; ++i)
         _bufs[i] = new byte[1 << (ValueArray.LOG_CHK - 5)];
-      byte [] bits = DKV.get(key).get();
-      int _rowsize = ary.row_size();
-      int off = ary.col_off(_classColumnIdx);
-      int size = ary.col_size(_classColumnIdx);
-      int scale = ary.col_scale(_classColumnIdx);
-      int base = ary.col_base(_classColumnIdx);
-      int rows = bits.length/ary.row_size();
-      int chunksize = rows*_rowsize;
+      AutoBuffer bits = ary.getChunk(key);
+      int rowsize = ary.rowSize();
+      Column c = ary._cols[_classColumnIdx];
+      int rows = bits.remaining()/ary.rowSize();
+      int chunksize = rows*rowsize;
       for(int i = 0; i < rows; ++i) {
-        int idx = Arrays.binarySearch(_imbalancedClasses, (int)ary.data(bits, i, _rowsize, off, size, base, scale, _classColumnIdx));
+        int idx = Arrays.binarySearch(_imbalancedClasses, (int)ary.datad(bits, i, c));
         if(idx >= 0) {
           ++_histogram[idx];
           // if we run out of space ,go to the full chunk size
-          if((_offsets[idx] + _rowsize) >= _bufs[idx].length)
+          if((_offsets[idx] + rowsize) >= _bufs[idx].length)
             _bufs[idx] = Arrays.copyOf(_bufs[idx], chunksize);
-          if((_offsets[idx] + _rowsize) >= chunksize)
+          if((_offsets[idx] + rowsize) >= chunksize)
             System.out.println("haha");
-          System.arraycopy(bits,i*_rowsize, _bufs[idx], _offsets[idx], _rowsize);
-          _offsets[idx] += _rowsize;
+          System.arraycopy(bits._bb.array(),i*rowsize + bits._bb.arrayOffset(),
+              _bufs[idx], _offsets[idx], rowsize);
+          _offsets[idx] += rowsize;
         }
       }
       // now check if any of the chunks is ready to be written
@@ -352,13 +284,13 @@ public class MinorityClasses {
             _bufs[i] = other._bufs[i];
             _offsets[i] = other._offsets[i];
           } else if (other._offsets[i] > 0){
-            if(_offsets[i] + other._offsets[i] < ValueArray.chunk_size()){
+            if(_offsets[i] + other._offsets[i] < ValueArray.CHUNK_SZ){
               _bufs[i] = Arrays.copyOf(_bufs[i], _offsets[i] + other._offsets[i]);
               System.arraycopy(other._bufs[i], 0, _bufs[i], _offsets[i], other._offsets[i]);
               _offsets[i] += other._offsets[i];
             } else {
               // create a new value
-              int rpc = (int)ValueArray.chunk_size() / _rowsize;
+              int rpc = (int)ValueArray.CHUNK_SZ / _rowsize;
               int chunksize = rpc*_rowsize;
               byte [] bits = MemoryManager.arrayCopyOf(_bufs[i], chunksize);
               storeValue(i, bits);

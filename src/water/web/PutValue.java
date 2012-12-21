@@ -33,7 +33,7 @@ public class PutValue extends H2OPage {
 
     JsonObject res = new JsonObject();
     res.addProperty("key", key.toString());
-    res.addProperty( "rf",    rf);
+    res.addProperty( "rf", rf);
     res.addProperty( "vsize", valS.length());
     return res;
   }

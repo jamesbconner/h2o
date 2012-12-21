@@ -1,10 +1,11 @@
 package hex;
 
-import java.util.Arrays;
+import com.google.common.collect.*;
 
+import hex.DGLM.*;
 import hex.RowVecTask.Sampling;
-import init.H2OSerializable;
 import water.*;
+import water.ValueArray.Column;
 
 public abstract class Models {
 
@@ -12,7 +13,15 @@ public abstract class Models {
     public NewModel trainOn(ValueArray data, int[] colIds, Sampling s);
   }
 
-  public static abstract class ModelValidation implements Cloneable, H2OSerializable {
+  public static abstract class ModelValidation extends Iced {
+    public static final BiMap<Class<? extends ModelValidation>, Integer> TYPE;
+    static {
+      TYPE = HashBiMap.create();
+      TYPE.put(null, -1);
+      TYPE.put(GLMValidation.class, 0);
+      TYPE.put(GLMBinomialValidation.class, 1);
+    }
+
     public abstract void add(double yr, double ym);
     public abstract void add(ModelValidation other);
     public abstract double err();
@@ -49,7 +58,6 @@ public abstract class Models {
 
   public static class ModelTask extends RowVecTask {
     boolean                   _validate     = true;
-    boolean                   _reduce;
     boolean                   _storeResults;
     int                       _rpc;
     double                    _ymu;
@@ -57,11 +65,10 @@ public abstract class Models {
     protected NewModel        _m;
     protected ModelValidation _val;
     // transients
-    transient byte[]          _data;
+    transient AutoBuffer      _data;
     transient int             _off;
 
-    public ModelTask() {
-    }
+    public ModelTask() { }
 
     public ModelTask(NewModel m, int[] colIds, Sampling s, double[][] pVals,
         double ymu) {
@@ -74,13 +81,10 @@ public abstract class Models {
     public void map(Key key) {
       if( _validate ) _val = _m.makeValidation();
       if( _resultChunk0 != null )
-        _data = MemoryManager.allocateMemory(_rpc << 3);
+        _data = new AutoBuffer(_rpc << 3);
       super.map(key);
-      if( _resultChunk0 != null ) {
-        Key k = ValueArray.getChunk(_resultChunk0, ValueArray.getOffset(key));
-        DKV.put(k, new Value(k, _data));
-      }
-      _reduce = true;
+      if( _resultChunk0 != null )
+        DKV.put(key, new Value(key, _data.buf()));
     }
 
     @Override
@@ -88,14 +92,13 @@ public abstract class Models {
       double ym = _m.getYm(x);
       if( _validate ) _val.add(_m.getYr(x), ym);
       if( _storeResults ) {
-        UDP.set8d(_data, _off, ym);
+        _data.put8d(_off, ym);
         _off += 8;
       }
     }
 
     @Override
     public void reduce(DRemoteTask drt) {
-      _reduce = true;
       if( _validate ) {
         ModelTask other = (ModelTask) drt;
         if( _val == null ) _val = other._val;
@@ -104,7 +107,15 @@ public abstract class Models {
     }
   }
 
-  public static abstract class NewModel implements H2OSerializable {
+  public static abstract class NewModel extends Iced {
+    public static final BiMap<Class<? extends NewModel>, Integer> TYPE;
+    static {
+      TYPE = HashBiMap.create();
+      TYPE.put(null, -1);
+      TYPE.put(GLMModel.class, 0);
+      TYPE.put(GLMBinomialModel.class, 1);
+    }
+
     public transient String[] _warnings;   // warning messages from model
                                             // building
     transient String[]        _columnNames;
@@ -141,16 +152,6 @@ public abstract class Models {
       return x[x.length - 1];
     }
 
-    public void addWarning(String s){
-      int n = 0;
-      if(_warnings != null){
-        n = _warnings.length;
-        _warnings = Arrays.copyOf(_warnings, n+1);
-      } else
-        _warnings = new String [1];
-      _warnings[n] = s;
-    }
-
     abstract ModelValidation makeValidation();
 
     public Key applyOn(Key k) {
@@ -169,14 +170,15 @@ public abstract class Models {
     }
 
     public ModelValidation validateOn(Key k, Sampling s) {
-      ValueArray ary = (ValueArray) DKV.get(k);
+      ValueArray ary = ValueArray.value(DKV.get(k));
       // get colIds
       int[] colIds = _colIds;
       if(_columnNames != null){
         colIds = new int[_columnNames.length];
         L0: for( int i = 0; i < _columnNames.length; ++i ) {
-          for( int j = 0; j < ary.num_cols(); ++j ) {
-            if( _columnNames[i].equalsIgnoreCase(ary.col_name(j)) ) {
+          Column[] cols = ary._cols;
+          for( int j = 0; j < cols.length; ++j ) {
+            if( _columnNames[i].equalsIgnoreCase(cols[j]._name) ) {
               colIds[i] = j;
               continue L0;
             }

@@ -17,7 +17,10 @@ import org.hyperic.sigar.Tcp;
  * @version 1.0
  */
 public class HeartBeatThread extends Thread {
-  public HeartBeatThread() { super("Heartbeat Thread"); }
+  public HeartBeatThread() {
+    super("Heartbeat Thread");
+    setDaemon(true);
+  }
 
   // Time between heartbeats.  Strictly several iterations less than the
   // timeout.
@@ -25,7 +28,7 @@ public class HeartBeatThread extends Thread {
 
   // Timeout in msec before we decide to not include a Node in the next round
   // of Paxos Cloud Membership voting.
-  static final int TIMEOUT = 600000;
+  static final int TIMEOUT = 60000;
 
   // Timeout in msec before we decide a Node is suspect, and call for a vote
   // to remove him.  This must be strictly greater than the TIMEOUT.
@@ -35,7 +38,7 @@ public class HeartBeatThread extends Thread {
   // to remove him.
   static public final int QUEUEDEPTH = 100;
 
-  // My Histogram.  Called from any thread calling into the MM.
+  // My Histogram. Called from any thread calling into the MM.
   // Singleton, allocated now so I do not allocate during an OOM event.
   static private final H2O.Cleaner.Histo myHisto = new H2O.Cleaner.Histo();
 
@@ -47,8 +50,6 @@ public class HeartBeatThread extends Thread {
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
     Sigar sigar = new Sigar();
-    final long start = System.currentTimeMillis();
-    boolean warn_isolated_cloud = false;
 
     while( true ) {
       // Once per second, for the entire cloud a Node will multi-cast publish
@@ -57,30 +58,29 @@ public class HeartBeatThread extends Thread {
       catch( InterruptedException e ) { }
 
       // Update the interesting health self-info for publication also
+      HeartBeat hb = new HeartBeat();
       final Runtime run = Runtime.getRuntime();
-      final H2ONode me  = H2O.SELF;
-      final long maxmem = run.maxMemory();
-      me.set_num_cpus(run.availableProcessors());
-      me.set_free_mem(run. freeMemory());
-      me.set_max_mem (           maxmem);
-      me.set_tot_mem (run.totalMemory());
-      me.set_keys    (H2O.STORE.size());
-      me.set_valsz   (myHisto.histo(false)._cached);
-      me.set_rpcs    (DFutureTask.TASKS.size());
-      me.set_fjthrds_hi(H2O.FJP_HI  .getPoolSize());
-      me.set_fjthrds_lo(H2O.FJP_NORM.getPoolSize());
-      me.set_fjqueue_hi(H2O.FJP_HI  .getQueuedSubmissionCount());
-      me.set_fjqueue_lo(H2O.FJP_NORM.getQueuedSubmissionCount());
-      me.set_tcps_active(TCPReceiverThread.TCPS_IN_PROGRESS.get());
+      hb.set_free_mem  (run. freeMemory());
+      hb.set_max_mem   (run.  maxMemory());
+      hb.set_tot_mem   (run.totalMemory());
+      hb._keys       = (H2O.STORE.size ());
+      hb.set_valsz     (myHisto.histo(false)._cached);
+      hb._num_cpus   = (char)run.availableProcessors();
+      hb._rpcs       = (char)RPC.TASKS.size();
+      hb._fjthrds_hi = (char)H2O.FJP_HI  .getPoolSize();
+      hb._fjthrds_lo = (char)H2O.FJP_NORM.getPoolSize();
+      hb._fjqueue_hi = (char)H2O.FJP_HI  .getQueuedSubmissionCount();
+      hb._fjqueue_lo = (char)H2O.FJP_NORM.getQueuedSubmissionCount();
+      hb._tcps_active= (char)TCPReceiverThread.TCPS_IN_PROGRESS.get();
       // get the usable and total disk storage for the partition where the
       // persistent KV pairs are stored
       if (PersistIce.ROOT==null) {
-        me.set_free_disk(0); // not applicable
-        me.set_max_disk(0); // not applicable
+        hb.set_free_disk(0); // not applicable
+        hb.set_max_disk(0); // not applicable
       } else {
         File f = new File(PersistIce.ROOT);
-        me.set_free_disk(f.getUsableSpace());
-        me.set_max_disk(f.getTotalSpace());
+        hb.set_free_disk(f.getUsableSpace());
+        hb.set_max_disk(f.getTotalSpace());
       }
 
       // Disable collecting Sigar-based statistics if the command line contains --nosigar
@@ -88,58 +88,41 @@ public class HeartBeatThread extends Thread {
 
         // get cpu utilization from sigar if available
         try {
-          me.set_cpu_util(1.0 - sigar.getCpuPerc().getIdle());
+          hb.set_cpu_util(1.0 - sigar.getCpuPerc().getIdle());
         } catch (SigarException ex) {
-          me.set_cpu_util(-1.0);
+          hb.set_cpu_util(-1.0);
         }
 
         // get cpu load from sigar if available
         try {
           double [] cpu_load = sigar.getLoadAverage();
-          me.set_cpu_load(cpu_load[0],cpu_load[1],cpu_load[2]);
+          hb.set_cpu_load(cpu_load[0],cpu_load[1],cpu_load[2]);
         } catch (SigarException ex) {
-          me.set_cpu_load(-1.0,-1.0,-1.0);
+          hb.set_cpu_load(-1.0,-1.0,-1.0);
         }
         // Get network statistics from sigar
-        fillNetworkStatistics(sigar, me);
+        fillNetworkStatistics(sigar, hb);
       }
 
       // Announce what Cloud we think we are in.
       // Publish our health as well.
       H2O cloud = H2O.CLOUD;
-      UDPHeartbeat.build_and_multicast(cloud);
+      UDPHeartbeat.build_and_multicast(cloud, hb);
 
       // If we have no internet connection, then the multicast goes
       // nowhere and we never receive a heartbeat from ourselves!
       // Fake it now.
-      final long now = System.currentTimeMillis();
+      long now = System.currentTimeMillis();
       H2O.SELF._last_heard_from = now;
 
       // Look for napping Nodes & propose removing from Cloud
       for( H2ONode h2o : cloud._memary ) {
         if( now - h2o._last_heard_from > SUSPECT ) {  // We suspect this Node has taken a dirt nap
-          Paxos.print_debug("hart: announce suspect node",cloud._memset,h2o.toString());
-          Paxos.do_change_announcement(cloud);
+          Paxos.print("hart: announce suspect node",cloud._memset,h2o.toString());
+          Paxos.doChangeAnnouncement(cloud);
           break;
         }
       }
-
-      // ---
-      // After 20secs, one time only, report if we find no other nodes.
-      if( !warn_isolated_cloud && (start-now) > 20000 ) {
-        if( H2O.OPT_ARGS.flatfile==null && cloud._memary.length == 1 ) {
-          if( MultiReceiverThread.receivedMCastMsgCount == 0 ) {
-            System.err.println("WARNING: No other nodes are visible.  No flatfile argument was given, and no multicast messages have been received.  Perhaps multicast has been disabled?");
-          }
-        } else {                // Flat-file case.
-          for( H2ONode n : H2O.CLOUD._memary ) {
-            if( n == H2O.SELF ) continue;
-            if( n._last_heard_from == 0 )
-              System.err.println("WARNING Never heard from " + n);
-          }
-        }
-      }
-
     }
   }
 
@@ -155,23 +138,23 @@ public class HeartBeatThread extends Thread {
   long _last_stat_collection_time;
 
   // Prepare network statistics with help of Sigar.
-  private void fillNetworkStatistics(final Sigar sigar, final H2ONode me) {
+  private void fillNetworkStatistics(final Sigar sigar, final HeartBeat hb) {
     // Setup number of IN and OUT connections.
     try {
       final NetStat netStats = sigar.getNetStat();
-      me.set_total_in_conn(netStats.getAllInboundTotal());
-      me.set_total_out_conn(netStats.getAllOutboundTotal());
-      me.set_tcp_in_conn(netStats.getTcpInboundTotal());
-      me.set_tcp_out_conn(netStats.getTcpOutboundTotal());
-      //me.set_udp_in_conn(netStats.getUdpInboundTotal());
-      //me.set_udp_out_conn(netStats.getUdpOutboundTotal());
+      hb._total_in_conn = (netStats.getAllInboundTotal());
+      hb._total_out_conn= (netStats.getAllOutboundTotal());
+      hb._tcp_in_conn   = (netStats.getTcpInboundTotal());
+      hb._tcp_out_conn  = (netStats.getTcpOutboundTotal());
+      //hb.set_udp_in_conn(netStats.getUdpInboundTotal());
+      //hb.set_udp_out_conn(netStats.getUdpOutboundTotal());
     } catch (SigarException e) {
-      me.set_total_in_conn(-1);
-      me.set_total_out_conn(-1);
-      me.set_tcp_in_conn(-1);
-      me.set_tcp_out_conn(-1);
-      me.set_udp_in_conn(-1);
-      me.set_udp_out_conn(-1);
+      hb._total_in_conn = -1;
+      hb._total_out_conn = -1;
+      hb._tcp_in_conn = -1;
+      hb._tcp_out_conn = -1;
+      hb._udp_in_conn = -1;
+      hb._udp_out_conn = -1;
     }
 
     // Setup overall statistics of a network interface.
@@ -182,7 +165,7 @@ public class HeartBeatThread extends Thread {
       // It is not fully correct since IP can be bound to multiple networks.
       // However, the method NetworkInterface.getByInetAddress returns one of the interfaces.
       // Another possibility is to compute traffic over all interfaces.
-      final String netIfaceName = NetworkInterface.getByInetAddress(me._key._inet).getName();
+      final String netIfaceName = NetworkInterface.getByInetAddress(H2O.SELF._key.getAddress()).getName();
       // Get interface statistics.
       final NetInterfaceStat netInterfaceStat = sigar.getNetInterfaceStat(netIfaceName);
 
@@ -206,40 +189,40 @@ public class HeartBeatThread extends Thread {
       // Setup overall traffic statistics.
       // TODO: decide if it is better to show total number of packets/bytes reported by Sigar
       // or compute their sum manually.
-      me.set_total_packets_recv(netInterfaceStat.getRxPackets());
-      me.set_total_packets_sent(netInterfaceStat.getTxPackets());
-      me.set_total_bytes_recv(_rx_bytes);
-      me.set_total_bytes_sent(_tx_bytes);
-      me.set_total_bytes_recv_rate((int) _rx_bytes_rate);
-      me.set_total_bytes_sent_rate((int) _tx_bytes_rate);
+      hb._total_packets_recv = (netInterfaceStat.getRxPackets());
+      hb._total_packets_sent = (netInterfaceStat.getTxPackets());
+      hb._total_bytes_recv = (_rx_bytes);
+      hb._total_bytes_sent = (_tx_bytes);
+      hb._total_bytes_recv_rate = ((int) _rx_bytes_rate);
+      hb._total_bytes_sent_rate = ((int) _tx_bytes_rate);
 
     } catch (Exception e) {
-      me.set_total_packets_recv(-1);
-      me.set_total_packets_sent(-1);
-      me.set_total_bytes_recv(-1);
-      me.set_total_bytes_sent(-1);
-      me.set_total_bytes_recv_rate(-1);
-      me.set_total_bytes_recv_rate(-1);
+      hb._total_packets_recv = -1;
+      hb._total_packets_sent = -1;
+      hb._total_bytes_recv = -1;
+      hb._total_bytes_sent = -1;
+      hb._total_bytes_recv_rate = -1;
+      hb._total_bytes_recv_rate = -1;
     }
 
     // Setup TCP statistics.
     try {
       final Tcp tcpStats = sigar.getTcp();
-      me.set_tcp_packets_recv(tcpStats.getInSegs());
-      me.set_tcp_packets_sent(tcpStats.getOutSegs());
-      me.set_tcp_bytes_recv(-1);
-      me.set_tcp_bytes_sent(-1);
+      hb._tcp_packets_recv = (tcpStats.getInSegs());
+      hb._tcp_packets_sent = (tcpStats.getOutSegs());
+      hb._tcp_bytes_recv = -1;
+      hb._tcp_bytes_sent = -1;
     } catch (SigarException e) {
-      me.set_tcp_packets_recv(-1);
-      me.set_tcp_packets_sent(-1);
-      me.set_tcp_bytes_recv(-1);
-      me.set_tcp_bytes_sent(-1);
+      hb._tcp_packets_recv = -1;
+      hb._tcp_packets_sent = -1;
+      hb._tcp_bytes_recv = -1;
+      hb._tcp_bytes_sent = -1;
     }
 
     // Setup UDP statistics.
-    me.set_udp_packets_recv(-1);
-    me.set_udp_packets_sent(-1);
-    me.set_udp_bytes_recv(-1);
-    me.set_udp_bytes_sent(-1);
+    hb._udp_packets_recv = -1;
+    hb._udp_packets_sent = -1;
+    hb._udp_bytes_recv = -1;
+    hb._udp_bytes_sent = -1;
   }
 }

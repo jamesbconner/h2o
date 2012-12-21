@@ -5,158 +5,102 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import water.*;
+import water.hdfs.PersistHdfs;
 
 /**
  * Distributed task to store key on HDFS.
  *
- * If it is a simple value, task is sent to the home of the value and the value
- * is simply stored on hdfs.  For arraylets, chunks are stored in order by
- * their home nodes.  Each node continues storing chunks until the next to be
- * stored has different home in which case the task is passed to the home node
- * of that chunk.
+ * If it is a simple value, it is simply stored on hdfs.  For arraylets, chunks
+ * are stored in order by their home nodes.  Each node continues storing chunks
+ * until the next to be stored has different home in which case the task is
+ * passed to the home node of that chunk.
  *
- * Optionally, progress can be monitored by passing a key to a value containing
- * number of chunks stored.  If not null, this value will be updated as
- * additional chunks are stored.
- *
- * @author tomasnykodym
+ * @author tomasnykodym, cliffc
  *
  */
-public class TaskStore2HDFS extends RemoteTask {
-  Key _key;
-  long _indexFrom;
-  final long _indexTo;
-  final Key _progressK;
+public class TaskStore2HDFS extends DTask {
+  Key _arykey;                  // Base array key
+  long _indexFrom;              // Chunk number
+  String _err;                  // Error reporting string
 
-  public static Key store2Hdfs(Key srcKey) {
-    Value v = DKV.get((srcKey._kb[0] == Key.ARRAYLET_CHUNK) ? Key.make(ValueArray.getArrayKeyBytes(srcKey)) : srcKey);
-    String p = getPathFromValue(v);
-    Key result = PersistHdfs.getKeyForPath(p);
-    final long N = v.chunks();
+  public static String store2Hdfs(Key srcKey) {
+    assert srcKey._kb[0] != Key.ARRAYLET_CHUNK;
+    assert PersistHdfs.getPathForKey(srcKey) != null; // Validate key name
+    Value v = DKV.get(srcKey);
+    if( v == null ) return "Key "+srcKey+" not found";
+    if( v._isArray == 0 ) {     // Simple chunk?
+      v.setHdfs();              // Set to HDFS and be done
+      return null;              // Success
+    }
+
     // For ValueArrays, make the .hex header
-    if( v != null && v instanceof ValueArray ) {
-      try {         // for .hex files we need to store the header with metadata
-        PersistHdfs.createFile(v, p);
-      } catch( IOException e ) {
-        throw new Error(e);
+    ValueArray ary = ValueArray.value(v);
+    String err = PersistHdfs.freeze(srcKey,ary);
+    if( err != null ) return err;
+
+    // The task managing which chunks to write next,
+    // store in a known key
+    TaskStore2HDFS ts = new TaskStore2HDFS(srcKey);
+    Key selfKey = ts.selfKey();
+    UKV.put(selfKey,ts);
+
+    // Then start writing chunks in-order with the zero chunk
+    H2ONode chk0_home = ValueArray.getChunkKey(0,srcKey).home_node();
+    RPC.call(ts.chunkHome(),ts);
+
+    // Watch the progress key until it gets removed or an error appears
+    long idx = 0;
+    while( UKV.get(selfKey,ts) != null ) {
+      if( ts._indexFrom != idx ) {
+        System.out.print(" "+idx+"/"+ary.chunks());
+        idx = ts._indexFrom;
       }
-    }
-    // The progress key
-    Key pK = Key.make(Key.make()._kb, (byte) 1, Key.DFJ_INTERNAL_USER, H2O.SELF);
-    Value progress = new Value(pK, 8);
-    DKV.put(pK, progress);
-
-    try {
-      TaskStore2HDFS tsk = new TaskStore2HDFS(0, N, srcKey, pK);
-      tsk.invoke((v instanceof ValueArray) ? ValueArray.make_chunkkey(srcKey,0) : srcKey);
-      // HTML file save of Value
-      long storedCount = 0;
-      while( (storedCount = UDP.get8(DKV.get(pK).get(), 0)) < N ) {
-        try { Thread.sleep(100); } catch( InterruptedException e ) { }
+      if( ts._err != null ) {   // Found an error?
+        UKV.remove(selfKey);    // Cleanup & report
+        return ts._err;
       }
-    } finally {
-      // remove progress info
-      DKV.remove(pK);
+      try { Thread.sleep(100); } catch( InterruptedException e ) { }
     }
-    PersistHdfs.refreshHDFSKeys();
-    return result;
+    System.out.println(" "+ary.chunks()+"/"+ary.chunks());
+
+    //PersistHdfs.refreshHDFSKeys();
+    return null;
   }
 
-  public TaskStore2HDFS(long indexFrom, long indexTo, Key srcKey, Key progressKey) {
-    _key = srcKey;
-    _indexFrom = indexFrom;
-    _indexTo = indexTo;
-    _progressK = progressKey;
-  }
-
-  static private String getPathFromValue(Value v) {
-    int prefixLen = 0;
-    byte[] kb = (v._key._kb[0] == Key.ARRAYLET_CHUNK) ? ValueArray.getArrayKeyBytes(v._key) : v._key._kb;
-    switch( v._persist & Value.BACKEND_MASK ) {
-    case Value.NFS:
-      prefixLen = PersistNFS.KEY_PREFIX_LENGTH;
-      break;
-    case Value.ICE:
-      prefixLen = 0;
-      break;
-    case Value.HDFS:
-      throw new Error("attempting to move file from hdfs to hdfs?");
-    default:
-      throw new Error("unimplemented");
-    }
-    // just to be sure
-    if( kb.length >= prefixLen + 7 && kb[prefixLen] == 'h'
-        && kb[prefixLen] == 'd' && kb[prefixLen] == 'f' && kb[prefixLen] == 's'
-        && kb[prefixLen] == ':' && kb[prefixLen] == '/' && kb[prefixLen] == '/' )
-      prefixLen += 7;
-    else if( kb.length >= 4 && kb[prefixLen] == 'n' && kb[prefixLen] == 'f'
-        && kb[prefixLen] == 's' && kb[prefixLen] == ':' )
-      prefixLen += 4;
-
-    return new String(kb, prefixLen, kb.length - prefixLen);
-  }
-
-  static void removeOldValue(Value v) {
-    Key k = v._key;
-    if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
-      k = Key.make(ValueArray.getArrayKeyBytes(k));
-    }
-    UKV.remove(k);
-  }
+  public TaskStore2HDFS(Key srcKey) { _arykey = srcKey; }
 
   @Override
-  public final void invoke(Key key) {
-    _key = key;
+  public final TaskStore2HDFS invoke(H2ONode sender) {
     compute();
+    return this;
   }
 
   @Override
   public void compute() {
     String path = null;// getPathFromValue(val);
-    while( _key.home() ) {
-      Value val = UKV.get(_key);
-      // first store the data (so that the cleaner does not get into our way)
-      if( path == null )
-        path = getPathFromValue(val);
-      try {
-        PersistHdfs.storeChunk(val, path);
-      } catch( IOException e ) {
-        throw new Error(e);
+    ValueArray ary = ValueArray.value(_arykey);
+    Key self = selfKey();
+
+    while( _indexFrom < ary.chunks() ) {
+      Key ckey = ary.getChunkKey(_indexFrom++);
+      if( !ckey.home() ) {      // Next chunk not At Home?
+        RPC.call(chunkHome(),this); // Hand the baton off to the next node/chunk
+        return;
       }
-      // val.switch2HdfsBackend(true); // switch the value persist backend to
-      // hdfs and status to ON DISK
-      if( ++_indexFrom == _indexTo ) { // all done, load value to the store
-        try {
-          PersistHdfs.importPath(path);
-        } catch (IOException e) {
-          throw new Error(e);
-        }
-        // remove the old value
-        removeOldValue(val);
-        break;
-      }
-      _key = ValueArray.getChunk(val._key, _indexFrom);
+      Value val = DKV.get(ckey); // It IS home, so get the data
+      _err = PersistHdfs.appendChunk(_arykey,val);
+      if( _err != null ) return;
+      UKV.put(self,this);       // Update the progress/self key
     }
-    // store the rest
-    if( _indexFrom < _indexTo )
-      new TaskRemExec<TaskStore2HDFS>(_key.home_node(), this, _key);
-    // update the progress info
-    if( _progressK != null ) {
-      AtomicMax amax = new AtomicMax(_indexFrom);
-      amax.invoke(_progressK);
-    }
+    // We did the last chunk.  Removing the selfKey is the signal to the web
+    // thread that All Done.
+    UKV.remove(self);
   }
 
-  public static class AtomicMax extends Atomic {
-    private final long _myVal;
-    public AtomicMax(long val) { _myVal = val; }
-
-    @Override
-    public byte[] atomic(byte[] bits) {
-      assert bits != null;
-      byte[] res = new byte[8];
-      UDP.set8(res, 0, Math.max(_myVal, UDP.get8(bits, 0)));
-      return res;
-    }
+  private Key selfKey() {
+    return Key.make("Store2HDFS"+_arykey);
+  }
+  private H2ONode chunkHome() {
+    return ValueArray.getChunkKey(_indexFrom,_arykey).home_node();
   }
 }

@@ -3,7 +3,11 @@ import requests, psutil, argparse, sys, unittest
 import glob
 import h2o_browse as h2b
 import re
-import inspect
+import inspect, webbrowser
+
+# for checking ports in use, using netstat thru a subprocess.
+# hopefully this works in windows
+from subprocess import Popen, PIPE
 
 # pytestflatfile name
 # the cloud is uniquely named per user (only)
@@ -34,47 +38,45 @@ def drain(src, dst):
     t.start()
 
 def unit_main():
-    print "\nRunning python:", inspect.stack()[1][1]
-    clean_sandbox()
+    print "\nRunning: python", inspect.stack()[1][1]
+    # moved clean_sandbox out of here, because nosetests doesn't execute h2o.unit_main in our tests.
     parse_our_args()
     unittest.main()
 
-
+# global disable. used to prevent browsing when running nosetests, or when given -bd arg
+# also, if user=jenkins. defaults to True, if h2o.unit_main isn't executed, so parse_our_args isn't executed.
+# since nosetests doesn't execute h2o.unit_main, it should have the browser disabled..I think?
+browse_disable = True
 browse_json = False
 verbose = False
 ipaddr = None
-use_hosts = False
 config_json = False
-debugger=False
+debugger = False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
+    parser.add_argument('--browse_disable', '-bd', help="Disable any web browser stuff. Needed for batch. nosetests and jenkins disable browser through other means already, so don't need", action='store_true')
     parser.add_argument('--browse_json','-b', help='Pops a browser to selected json equivalent urls. Selective. Also keeps test alive (and H2O alive) till you ctrl-c. Then should do clean exit', action='store_true')
     parser.add_argument('--verbose','-v', help='increased output', action='store_true')
     parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
-    parser.add_argument('--use_hosts', '-uh', help='pending...intent was conditional hosts use', action='store_true')
     parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
-
-    
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global browse_json, verbose, ipaddr, use_hosts, config_json, debugger
+    global browse_disable, browse_json, verbose, ipaddr, config_json, debugger
+
+    browse_disable = args.browse_disable or getpass.getuser()=='jenkins'
     browse_json = args.browse_json
     verbose = args.verbose
     ipaddr = args.ip
-    use_hosts = args.use_hosts
     config_json = args.config_json
     debugger = args.debugger
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     # FIX! this isn't working to grab the args we don't care about
-    # pass "-f" to stop on first error to unittest. and -v
-    # We want this to be standard, always (note -f for unittest, nose uses -x?)
-    # sys.argv[1:] = ["-v", "--failfast"] + args.unittest_args
-    # kbn: disabling failfast until we fix jenkins
+    # Pass "--failfast" to stop on first error to unittest. and -v
     sys.argv[1:] = ['-v', "--failfast"] + args.unittest_args
 
 def verboseprint(*args, **kwargs):
@@ -90,13 +92,21 @@ def verboseprint(*args, **kwargs):
 def find_dataset(f):
     (head, tail) = os.path.split(os.path.abspath('datasets'))
     verboseprint("find_dataset looking upwards from", head, "for", tail)
-    while not os.path.exists(os.path.join(head, tail)):
+    # don't spin forever 
+    levels = 0
+    while not (os.path.exists(os.path.join(head, tail))):
         head = os.path.split(head)[0]
+        levels += 1
+        if (levels==10): 
+            raise Exception("unable to find datasets. Did you git it?")
+
     return os.path.join(head, tail, f)
 
 def find_file(base):
     f = base
-    if not os.path.exists(f): f = '../'+base
+    if not os.path.exists(f): f = '../' + base
+    if not os.path.exists(f): f = '../../' + base
+    if not os.path.exists(f): f = 'py/' + base
     if not os.path.exists(f):
         raise Exception("unable to find file %s" % base)
     return f
@@ -142,6 +152,13 @@ def log(cmd, comment=None):
             f.write('    #')
             f.write(comment)
         f.write("\n")
+
+def make_syn_dir():
+    SYNDATASETS_DIR = './syn_datasets'
+    if os.path.exists(SYNDATASETS_DIR):
+        shutil.rmtree(SYNDATASETS_DIR)
+    os.mkdir(SYNDATASETS_DIR)
+    return SYNDATASETS_DIR
 
 def dump_json(j):
     return json.dumps(j, sort_keys=True, indent=2)
@@ -209,46 +226,50 @@ json_url_history = []
 global nodes
 nodes = []
 
-# this is used by tests, to create hdfs URIs. it will always get set to the name node we're using
-# if any. (in build_cloud)
-global use_hdfs
-use_hdfs = False
-
-global hdfs_name_node
-hdfs_name_node = "192.168.1.151"
-
 def write_flatfile(node_count=2, base_port=54321, hosts=None):
     # we're going to always create the flatfile. 
     # Used for all remote cases now. (per sri)
+    ports_per_node = 3
     pff = open(flatfile_name(), "w+")
     if hosts is None:
         ip = get_ip_address()
         for i in xrange(node_count):
-            pff.write("/" + ip + ":" + str(base_port +3*i) + "\n")
+            pff.write("/" + ip + ":" + str(base_port +ports_per_node*i) + "\n")
     else:
         for h in hosts:
             for i in xrange(node_count):
-                pff.write("/" + h.addr + ":" + str(base_port +3*i) + "\n")
+                pff.write("/" + h.addr + ":" + str(base_port +ports_per_node*i) + "\n")
     pff.close()
+
+
+def check_port_group(baseport):
+    # for now, only check for jenkins or kevin
+    username = getpass.getuser()
+    if username=='jenkins' or username=='kevin' or username=='michal':
+        # assumes you want to know about 3 ports starting at baseport
+        command1Split = ['netstat', '-anp']
+        command2Split = ['egrep']
+        # colon so only match ports. space at end? so no submatches
+        command2Split.append("(" + str(baseport) + "|" + str(baseport+1) + "|" + str(baseport+2) + ")")
+
+        print "Checking 3 ports starting at ", baseport
+        print ' '.join(command2Split)
+
+        # use netstat thru subprocess
+        p1 = Popen(command1Split, stdout=PIPE)
+        p2 = Popen(command2Split, stdin=p1.stdout, stdout=PIPE)
+        output = p2.communicate()[0]
+        print output
 
 # node_count is per host if hosts is specified.
 # FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
         timeoutSecs=20, retryDelaySecs=0.5, cleanup=True, **kwargs):
-    global nodes, use_hdfs, hdfs_name_node
-
-    # set the hdfs info that tests will use from kwargs
-    # the philosopy is that kwargs holds stuff that's used for node level building.
-    if "use_hdfs" in kwargs:
-        use_hdfs = kwargs["use_hdfs"]
-        verboseprint("use_hdfs passed to build_cloud:", use_hdfs)
-
-    if "hdfs_name_node" in kwargs:
-        hdfs_name_node = kwargs["hdfs_name_node"]
-        verboseprint("hdfs_name_node passed to build_cloud:", hdfs_name_node)
+    # moved to here from unit_main. so will run with nosetests too!
+    clean_sandbox()
 
     # hardwire this. don't need it to be an arg
-    ports_per_node = 3
+    ports_per_node = 3 # 3 because we have the API port now too
     node_list = []
     try:
         # if no hosts list, use psutil method on local host.
@@ -256,8 +277,8 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
         if hosts is None:
             hostCount = 1
             for i in xrange(node_count):
-                verboseprint('psutil starting node', i)
-                newNode = LocalH2O(port=base_port + i*ports_per_node, **kwargs)
+                verboseprint("psutil starting node", i)
+                newNode = LocalH2O(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                 node_list.append(newNode)
                 totalNodes += 1
         else:
@@ -265,7 +286,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for h in hosts:
                 for i in xrange(node_count):
                     verboseprint('ssh starting node', i, 'via', h)
-                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, **kwargs)
+                    newNode = h.remote_h2o(port=base_port + i*ports_per_node, node_id=totalNodes, **kwargs)
                     node_list.append(newNode)
                     totalNodes += 1
 
@@ -290,7 +311,9 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
             for n in node_list: n.terminate()
         else:
             nodes[:] = node_list
-        check_sandbox_for_errors()
+        if (check_sandbox_for_errors()):
+            raise Exception("Errors in sandbox stdout or stderr." +  
+                "Could have occured at any prior time")
         raise
 
     # this is just in case they don't assign the return to the nodes global?
@@ -299,15 +322,16 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 
 def upload_jar_to_remote_hosts(hosts, slow_connection=False):
     def prog(sofar, total):
-        # output is bad for jenkins
-        if not getpass.getuser() is 'jenkins':
+        # output is bad for jenkins. ok to turn this off for all cases where we don't want a browser
+        if not browse_disable:
             p = int(10.0 * sofar / total)
             sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
             sys.stdout.flush()
         
     if not slow_connection:
         for h in hosts:
-            h.upload_file('build/h2o.jar', progress=prog)
+            f = find_file('build/h2o.jar')
+            h.upload_file(f, progress=prog)
             # skipping progress indicator for the flatfile
             h.upload_file(flatfile_name())
     else:
@@ -325,35 +349,52 @@ def check_sandbox_for_errors():
     # If timeouts are tuned reasonably, we'll get here quick
     # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
 
-    # if you find a problem, just keep printing till the end
-    # in that file. 
+    # if you find a problem, just keep printing till the end, in that file. 
     # The stdout/stderr is shared for the entire cloud session?
     # so don't want to dump it multiple times?
+
+    # "printing" is per file. foundAnyBadness is about the collection    `   
+    foundAnyBadness = False
     for filename in os.listdir(LOG_DIR):
         if re.search('stdout|stderr',filename):
             sandFile = open(LOG_DIR + "/" + filename, "r")
             # just in case rror/ssert is lower or upper case
             # FIX! aren't we going to get the cloud building info failure messages
             # oh well...if so ..it's a bug! "killing" is temp to detect jar mismatch error
-            regex = re.compile('exception|error|assert|warn|info|killing|killed|required ports',re.IGNORECASE)
+            regex1 = re.compile(
+                'exception|error|assert|warn|info|killing|killed|required ports',
+                re.IGNORECASE)
+            regex2 = re.compile('Caused')
+
             printing = 0
+            lines = 0
             for line in sandFile:
-                newFound = regex.search(line) and ('error rate' not in line)
-                if (printing==0 and newFound):
+                foundBad = regex1.search(line) and ('error rate' not in line)
+                if (printing==0 and foundBad):
                     printing = 1
+                    lines = 1
+                    foundAnyBadness = True
                 elif (printing==1):
+                    lines += 1
                     # if we've been printing, stop when you get to another error
-                    # we don't care about seeing multiple prints scroll off the screen
-                    if (newFound):
+                    # Matt is nice, so we are nice..keep printing if the pattern match for the condition
+                    # is on a line with "Caused" in it ("Caused by")
+                    # only use caused for overriding an end condition
+                    foundCaused = regex2.search(line)
+                    # since the "at ..." lines may have the "bad words" in them, we also don't want 
+                    # to stop if a line has " *at " at the beginning.
+                    # Update: Assertion can be followed by Exception. Make sure we keep printing for a min of 4 lines
+                    foundAt = re.match(r'[\t ]+at ',line)
+                    if foundBad and (lines>4) and not (foundCaused or foundAt):
                         printing = 2 
 
                 if (printing==1):
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
-        
+
             sandFile.close()
 
-    return (printing!=0) # can test and cause exception
+    return (foundAnyBadness) # can test and cause exception
 
 
 def tear_down_cloud(node_list=None):
@@ -364,7 +405,9 @@ def tear_down_cloud(node_list=None):
             verboseprint("tear_down_cloud n:", n)
     finally:
         node_list[:] = []
-        check_sandbox_for_errors()
+        if (check_sandbox_for_errors()):
+            raise Exception("tear_down_cloud: Errors in sandbox stdout or stderr." +
+                "Could have occured at any prior time")
 
 # don't need this any more? used to need it to make sure cloud didn't go away between 
 # unittest defs
@@ -382,8 +425,12 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
     # want node saying cloud = expected size, plus thinking everyone agrees with that.
     def test(n):
         c = n.get_cloud()
+        # don't want to check everything. But this will check that the keys are returned!
+        consensus  = c['consensus']
+        locked     = c['locked']
         cloud_size = c['cloud_size']
-        consensus = c['consensus']
+        cloud_name = c['cloud_name']
+        node_name  = c['node_name']
 
         if (cloud_size > node_count):
             emsg = (
@@ -393,12 +440,18 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
                 "\n\nYou probably don't have to do anything, as the cloud shutdown in this test should"  +
                 "\nhave sent a Shutdown.json to all in that cloud (you'll see a kill -2 in the *stdout*)." +
                 "\nIf you try again, and it still fails, go to those IPs and kill the zombie h2o's." +
-                "\nIf you think you really have an intermittent cloud build, report it."
+                "\nIf you think you really have an intermittent cloud build, report it." +
+                "\n" +
+                "\nUPDATE: building cloud size of 2 with 127.0.0.1 may temporarily report 3 incorrectly, with no zombie?" 
                 )
-            raise Exception(emsg)
+            # raise Exception(emsg)
+            print emsg
 
+        
         a = (cloud_size==node_count and consensus)
-        ### verboseprint("at stabilize_cloud:", cloud_size, node_count, consensus, a)
+        if (a):
+            verboseprint("\tLocked won't happen until after keys are written")
+
         return(a)
 
     node.stabilize(test, error=('A cloud of size %d' % node_count),
@@ -445,7 +498,18 @@ class H2O(object):
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json')))
-        verboseprint("get_cloud:", a)
+        # don't want to print everything from get_cloud json (f/j info etc)
+        # but this will check the keys exist!
+        consensus  = a['consensus']
+        locked     = a['locked']
+        cloud_size = a['cloud_size']
+        cloud_name = a['cloud_name']
+        node_name  = a['node_name']
+        verboseprint('%s%s %s%s %s%s' %(
+            "\tcloud_size: ", cloud_size,
+            "\tconsensus: ", consensus,
+            "\tlocked: ", locked
+            ))
         return a
 
     def get_timeline(self):
@@ -516,7 +580,8 @@ class H2O(object):
     # timeout has to be big to cover longest expected parse? timeout is float. secs?
     # looks like max_retries is part of configuration defaults
     # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
-    def parse(self, key, key2=None, timeoutSecs=300):
+    def parse(self, key, key2=None, timeoutSecs=300, **kwargs):
+        browseAlso = kwargs.pop('browseAlso',False)
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
@@ -527,7 +592,10 @@ class H2O(object):
                 url=self.__url('Parse.json'),
                 timeout=timeoutSecs,
                 params={"Key": key, "Key2": key2}))
+
         verboseprint("\nparse result:",dump_json(a))
+        if (browseAlso | browse_json):
+            h2b.browseJsonHistoryAsUrlLastMatch("Parse")
         return a
 
     def netstat(self):
@@ -542,6 +610,13 @@ class H2O(object):
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
+    # H2O doesn't support yet?
+    def Store2HDFS(self, key):
+        a = self.__check_request(requests.get(self.__url('Store2HDFS.json'),
+            params={"Key": key}))
+        verboseprint("\ninspect result:", dump_json(a))
+        return a
+
     def import_folder(self, folder, repl=None):
         a = self.__check_request(requests.get(
             self.__url('ImportFolder.json'),
@@ -551,9 +626,8 @@ class H2O(object):
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
-    def exec_query(self, key, timeoutSecs=20, **kwargs):
+    def exec_query(self, timeoutSecs=20, **kwargs):
         params_dict = {
-            'Key' : key,
             'min' : None,
             'max' : None,
             'mean' : None,
@@ -564,8 +638,8 @@ class H2O(object):
             'log': None,
             'colSwap': None,
             'makeEnum': None,
-            'browseAlso' : False,
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
 
         verboseprint("\nexec_query:", params_dict)
@@ -601,9 +675,9 @@ class H2O(object):
             'ntree' : trees,
             'modelKey' : 'pytest_model',
             'depth' : 30,
-            'browseAlso' : False,
             }
         
+        browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
         
@@ -627,13 +701,7 @@ class H2O(object):
     # singlethreaded=0&     ..debug only..
     # dataKey=chess_2x2_500_int.hex
     # ignore=&   ...this is ignore columns
-    # UPDATE: jan says the ignore should be picked up from the model
-    def random_forest_view(self, dataKey, modelKey, ntree, timeoutSecs=300, **kwargs):
-
-        # FIX! maybe we should pop off values from kwargs that RFView is not supposed to need?
-        # that would make sure we only pass the minimal?
-        # Note ntree in kwargs can overwrite trees! We use this for random param generation
-
+    def random_forest_view(self, dataKey, modelKey, timeoutSecs=300, **kwargs):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
         # Will need to update this list if we params for RfView
@@ -643,13 +711,12 @@ class H2O(object):
             'OOBEE' : None,
             'classWt' : None
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         # only update params_dict..don't add
         # throw away anything else as it should come from the model (propagating what RF used)
         for k in kwargs:
             if k in params_dict:
                 params_dict[k] = kwargs[k]
-
-        browseAlso = kwargs.pop('browseAlso',False)
 
         a = self.__check_request(requests.get(
             self.__url('RFView.json'),
@@ -657,11 +724,39 @@ class H2O(object):
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
-        # we should know the json url from above, but heck lets just use
-        # the same history-based, global mechanism we use elsewhere
-        # look at the passed down enable, or the global args
         if (browseAlso | browse_json):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+        return a
+
+    def random_forest_treeview(self, timeoutSecs=10, **kwargs):
+        params_dict = {
+            'n' : 0,
+            'dataKey' : None,
+            'modelKey' : "model"
+            }
+        browseAlso = kwargs.pop('browseAlso',False)
+        params_dict.update(kwargs)
+
+        if (1==0):
+            a = self.__check_request(requests.get(
+                self.__url('RFTreeView.json'),
+                timeout=timeoutSecs,
+                params=params_dict))
+
+            verboseprint("\nrandom_forest_treeview result:", dump_json(a))
+            if (browseAlso | browse_json):
+                h2b.browseJsonHistoryAsUrlLastMatch("RFTreeView")
+        else:
+            a = "No RFTreeView.json implemented yet hacking a webbrowser instead"
+            print "\n", a
+            url = self.__url('RFTreeView')
+            # tack on the params. We're not logging this url
+            joiner = "?"
+            for k,v in params_dict.iteritems():
+                url = url + joiner + k + "=" + str(v)
+                joiner = "&"
+            webbrowser.open_new(url)
+            time.sleep(3) # to be able to see it
         return a
 
     def linear_reg(self, key, timeoutSecs=10, **kwargs):
@@ -670,6 +765,7 @@ class H2O(object):
             'colA' : 0,
             'colB' : 1,
             }
+        browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
         a = self.__check_request(
             requests.get(self.__url('LR.json'),
@@ -801,11 +897,15 @@ class H2O(object):
 
         if self.use_debugger:
             args += ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000']
-        # FIX! need to be able to specify name node/path for non-0xdata hdfs
-        # specifying hdfs stuff when not used shouldn't hurt anything
-
+        args += ["-ea"]
+        if self.classpath:
+            entries = [ find_file('build/classes'), find_file('lib/javassist.jar') ] 
+            entries += glob.glob(find_file('lib')+'/*/*.jar')
+            entries += glob.glob(find_file('lib')+'/*/*/*.jar')
+            args += ['-classpath', os.pathsep.join(entries), 'init.Boot']
+        else: 
+            args += ["-jar", self.get_h2o_jar()]
         args += [
-            "-ea", "-jar", self.get_h2o_jar(),
             "--port=%d" % self.port,
             '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
@@ -816,19 +916,18 @@ class H2O(object):
             '--name=' + cloud_name()
             ]
 
+        # FIX! need to be able to specify name node/path for non-0xdata hdfs
+        # specifying hdfs stuff when not used shouldn't hurt anything
         if self.use_hdfs:
-            # '-hdfs_root /datasets'
-            # '-hdfs_nopreload',
             args += [
                 '-hdfs hdfs://' + self.hdfs_name_node,
-                '-hdfs_version cdh4',
-                '-hdfs_root /datasets'
+                '-hdfs_version ' + self.hdfs_version, 
+                '-hdfs_root ' + self.hdfs_root
             ]
-
-            # we need a global for hdfs_name_node for tests to build up hdfs URIs.
-            # They're all getting the same value
-            # passed down from build_cloud_with_hosts. so use that one? or if a LocalH2O 
-            # test uses just build_cloud directly. So do it up in build_cloud to handle both.
+            if self.hdfs_nopreload:
+                args += [
+                    '-hdfs_nopreload ' + self.hdfs_nopreload
+                ]
 
         if self.use_flatfile:
             args += [
@@ -839,9 +938,11 @@ class H2O(object):
             args += ['--nosigar']
         return args
 
-    def __init__(self, use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, 
-        use_debugger=None, use_hdfs=False, hdfs_name_node="192.168.1.151", use_flatfile=False, 
-        java_heap_GB=None, use_home_for_ice=False, username=None):
+    def __init__(self, 
+        use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, use_debugger=None, classpath=None,
+        use_hdfs=False, hdfs_name_node="192.168.1.151", hdfs_root="/datasets", hdfs_version="cdh4",
+        hdfs_nopreload=None,
+        use_flatfile=False, java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
         if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
@@ -850,14 +951,20 @@ class H2O(object):
         self.addr = use_this_ip_addr
         self.sigar = sigar
         self.use_debugger = use_debugger
+        self.classpath = classpath
         self.capture_output = capture_output
+
         self.use_hdfs = use_hdfs
         self.hdfs_name_node = hdfs_name_node
-        self.use_flatfile = use_flatfile
+        self.hdfs_version = hdfs_version
+        self.hdfs_root = hdfs_root
+        self.hdfs_nopreload = hdfs_nopreload
 
+        self.use_flatfile = use_flatfile
         self.java_heap_GB = java_heap_GB
 
         self.use_home_for_ice = use_home_for_ice
+        self.node_id = node_id
         self.username = username
 
     def __str__(self):
@@ -906,11 +1013,17 @@ class LocalH2O(H2O):
     def __init__(self, *args, **kwargs):
         super(LocalH2O, self).__init__(*args, **kwargs)
         self.rc = None
-        # FIX! no option for local /home/username ..always /tmp
+        # FIX! no option for local /home/username ..always the sandbox (LOG_DIR)
         self.ice = tmp_dir('ice.')
         self.flatfile = flatfile_name()
-        spawn = spawn_cmd('local-h2o', self.get_args(),
-                capture_output=self.capture_output)
+        if self.node_id is not None:
+            logPrefix = 'local-h2o-' + str(self.node_id)
+        else:
+            logPrefix = 'local-h2o'
+
+        check_port_group(self.port)
+
+        spawn = spawn_cmd(logPrefix, self.get_args(), capture_output=self.capture_output)
         self.ps = spawn[0]
 
     def get_h2o_jar(self):
@@ -966,7 +1079,14 @@ class RemoteHost(object):
             m.update(open(f).read())
             m.update(getpass.getuser())
             dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
-            log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+
+            ### sigh. we rm/create sandbox in build_cloud now (because nosetests doesn't exec h2o_main and we 
+            ### don't want to code "clean_sandbox()" in all the tests.
+            ### So: we don't have a sandbox here, or if we do, we're going to delete it.
+            ### Just don't log anything until build_cloud()? that should be okay?
+            ### we were just logging this upload message..not needed.
+            ### log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest, callback=progress)
             sftp.close()
@@ -1044,11 +1164,31 @@ class RemoteH2O(H2O):
             self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
+
+        # this fires off netstat/egrep over there
+        ### FIX! TODO...we don't check on remote hosts yet
+        baseport = self.port
+        commandSplit = ['netstat', '-anp']
+        commandSplit.append(';')
+        ## commandSplit.append('egrep')
+        # colon so only match ports. space at end? so no submatches
+        ## commandSplit.append("(:" + str(baseport) + "|:" + str(baseport+1) + "|:" + str(baseport+2) + ")")
+
+        cmd = ' '.join(commandSplit)
+        # self.channel.exec_command(cmd)
+       
+        # this fires up h2o over there
         cmd = ' '.join(self.get_args())
         self.channel.exec_command(cmd)
         if self.capture_output:
-            outfd,outpath = tmp_file('remote-h2o.stdout.', '.log')
-            errfd,errpath = tmp_file('remote-h2o.stderr.', '.log')
+            if self.node_id is not None:
+                logPrefix = 'remote-h2o-' + str(self.node_id)
+            else:
+                logPrefix = 'remote-h2o'
+
+            outfd,outpath = tmp_file(logPrefix + '.stdout.', '.log')
+            errfd,errpath = tmp_file(logPrefix + '.stderr.', '.log')
+
             drain(self.channel.makefile(), outfd)
             drain(self.channel.makefile_stderr(), errfd)
             comment = 'Remote on %s, stdout %s, stderr %s' % (
@@ -1080,6 +1220,9 @@ class RemoteH2O(H2O):
             return False
 
     def terminate(self):
+        # kbn new 12/20/12
+        self.shutdown_all()
+
         self.channel.close()
         # kbn: it should be dead now? want to make sure we don't have zombies
         # we should get a connection error. doing a is_alive subset.

@@ -1,9 +1,6 @@
 
 package water.exec;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import water.*;
 
 
@@ -27,23 +24,21 @@ public abstract class CustomFilter extends MRTask {
   protected CustomFilter() { }
 
   @Override public void map(Key key) {
-    ValueArray ary = (ValueArray) DKV.get(Key.make(ValueArray.getArrayKeyBytes(key)));
-    byte[] bits = DKV.get(key).get();
-    byte[] newBits = MemoryManager.allocateMemory(bits.length);
+    ValueArray ary = ValueArray.value(ValueArray.getArrayKey(key));
+    AutoBuffer bits = ary.getChunk(key);
     int wo = 0;
-    _rowSize = ary.row_size();
-    filterInitMap(ary,key,bits.length);
-    for (int offset = 0; offset < bits.length; offset += _rowSize) {
+    _rowSize = ary._rowsize;
+    filterInitMap(ary, key, bits.remaining());
+    AutoBuffer newBits = new AutoBuffer(bits.remaining());
+    for (int offset = 0; offset < bits.remaining(); offset += _rowSize) {
       if (filter(bits,offset)) {
         ++_filteredRows;
-        System.arraycopy(bits,offset,newBits,wo,_rowSize);
+        newBits.copyArrayFrom(wo,bits, offset, _rowSize);
         wo += _rowSize;
       }
     }
-    byte[] x = MemoryManager.allocateMemory(wo);
-    System.arraycopy(newBits,0,x,0,wo);
-    Key d = ValueArray.make_chunkkey(_destKey, ValueArray.getOffset(key));
-    Value v = new Value(d,x);
+    Key d = ValueArray.getChunkKey(ValueArray.getChunkIndex(key), _destKey);
+    Value v = new Value(d, newBits.buf());
     DKV.put(d,v);
   }
 
@@ -62,7 +57,7 @@ public abstract class CustomFilter extends MRTask {
    * @param rowOffset
    * @return
    */
-  protected abstract boolean filter(byte[] bits, int rowOffset);
+  protected abstract boolean filter(AutoBuffer bits, int rowOffset);
 
   /** Override this if you need some code to be called when map is
    *
@@ -90,13 +85,13 @@ class BooleanVectorFilter extends CustomFilter {
     _bCol = bCol;
   }
 
-  @Override protected boolean filter(byte[] bits, int rowOffset) {
+  @Override protected boolean filter(AutoBuffer bits, int rowOffset) {
     _bIter.next();
     return _bIter.datad() != 0;
   }
 
   @Override protected void filterInitMap(ValueArray ary, Key k, int rows) {
-    long row = ValueArray.getChunkIndex(k) * ValueArray.chunk_size() / ary.row_size();
+    long row = ValueArray.getChunkIndex(k) * ValueArray.CHUNK_SZ / ary._rowsize;
     _bIter = new VAIterator(_bVect,_bCol,row);
   }
 

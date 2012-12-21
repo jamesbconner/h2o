@@ -6,21 +6,8 @@ import org.junit.Test;
 import water.*;
 import water.exec.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
-public class RBigDataTest {
-  private static int _initial_keycnt = 0;
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    _initial_keycnt = H2O.store_size();
-  }
-
-  @AfterClass public static void checkLeakedKeys() {
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    assertEquals("No keys leaked", 0, leaked_keys);
-  }
-  
+public class RBigDataTest extends KeyUtil {
   int i = 0;
 
   
@@ -77,9 +64,9 @@ public class RBigDataTest {
   
   protected void testScalarExpression(String expr, double result) {
     Key key = executeExpression(expr);
-    ValueArray va = (ValueArray) DKV.get(key);
-    assertEquals(va.num_rows(), 1);
-    assertEquals(va.num_cols(), 1);
+    ValueArray va = ValueArray.value(key);
+    assertEquals(va.numRows(), 1);
+    assertEquals(va.numCols(), 1);
     assertEquals(result,va.datad(0,0), 0.0);
     UKV.remove(key);
   }
@@ -93,13 +80,13 @@ public class RBigDataTest {
   }
   
   protected void testKeyValues(Key k, double n1, double n2, double n3, double nx3, double nx2, double nx1) {
-    ValueArray v = (ValueArray) DKV.get(k);
+    ValueArray v = ValueArray.value(k);
     assertEquals(v.datad(0,0),n1,0.0);
     assertEquals(v.datad(1,0),n2,0.0);
     assertEquals(v.datad(2,0),n3,0.0);
-    assertEquals(v.datad(v.num_rows()-3,0),nx3,0.0);
-    assertEquals(v.datad(v.num_rows()-2,0),nx2,0.0);
-    assertEquals(v.datad(v.num_rows()-1,0),nx1,0.0);
+    assertEquals(v.datad(v.numRows()-3,0),nx3,0.0);
+    assertEquals(v.datad(v.numRows()-2,0),nx2,0.0);
+    assertEquals(v.datad(v.numRows()-1,0),nx1,0.0);
   }
   
   public void testVectorExpression(String expr, double n1, double n2, double n3, double nx3, double nx2, double nx1) {
@@ -109,9 +96,9 @@ public class RBigDataTest {
   }
   
   public void testDataFrameStructure(Key k, int rows, int cols) {
-    ValueArray v = (ValueArray) DKV.get(k);
-    assertEquals(v.num_rows(), rows);
-    assertEquals(v.num_cols(), cols);
+    ValueArray v = ValueArray.value(k);
+    assertEquals(v.numRows(), rows);
+    assertEquals(v.numCols(), cols);
   }
   
   @Test public void testFullVectAssignment() {

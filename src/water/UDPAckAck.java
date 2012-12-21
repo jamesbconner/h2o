@@ -10,14 +10,11 @@ import java.net.DatagramPacket;
 
 public class UDPAckAck extends UDP {
   // Received an ACKACK for a remote Task.  Drop the task tracking
-  void call(DatagramPacket pack, H2ONode h2o) {
-    int tasknum = get_task(pack.getData());
-    h2o.remove_task_tracking(tasknum);
-    UDPReceiverThread.free_pack(pack);
+  AutoBuffer call(AutoBuffer ab) {
+    ab._h2o.remove_task_tracking(ab.getTask());
+    return ab;
   }
 
   // Pretty-print bytes 1-15; byte 0 is the udp_type enum
-  public String print16( byte[] buf ) {
-    return "task# "+get_task(buf)+" 0x"+super.print16(buf);
-  }
+  public String print16( AutoBuffer ab ) { return "task# "+ab.getTask(); }
 }

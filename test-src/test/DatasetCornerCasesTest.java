@@ -9,19 +9,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import water.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 
-public class DatasetCornerCasesTest {
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 5000) {
-      if (H2O.CLOUD.size() > 2) break;
-      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
-    }
-    assertEquals("Cloud size of 3", 3, H2O.CLOUD.size());
-  }
+public class DatasetCornerCasesTest extends KeyUtil {
 
   /*
    * HTWO-87 bug test
@@ -33,22 +22,22 @@ public class DatasetCornerCasesTest {
     Key okey = Key.make("HTWO-87-two-lines-dataset.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
-    ValueArray val = (ValueArray) DKV.get(okey);
+    ValueArray val = ValueArray.value(DKV.get(okey));
 
     // Check parsed dataset
     assertEquals("Number of chunks == 1", 1, val.chunks());
-    assertEquals("Number of rows   == 2", 2, val.num_rows());
-    assertEquals("Number of cols   == 9", 9, val.num_cols());
+    assertEquals("Number of rows   == 2", 2, val._numrows);
+    assertEquals("Number of cols   == 9", 9, val._cols.length);
 
     // setup default values for DRF
     int ntrees  = 5;
     int depth   = 30;
     int gini    = StatType.GINI.ordinal();
-    int seed =  42;
+    long seed   =  42L;
     StatType statType = StatType.values()[gini];
-    final int num_cols = val.num_cols();
+    final int num_cols = val.numCols();
     final int classcol = num_cols-1; // For iris: classify the last column
-    final int classes = (short)((val.col_max(classcol) - val.col_min(classcol))+1);
+    final int classes = (short)((val._cols[classcol]._max - val._cols[classcol]._min)+1);
 
     // Start the distributed Random Forest
     try {
@@ -96,15 +85,12 @@ public class DatasetCornerCasesTest {
     Key okey = Key.make(keyname);
     ParseDataset.parse(okey,DKV.get(fkey));
 
-    ValueArray val = (ValueArray) DKV.get(okey);
+    ValueArray val = ValueArray.value(DKV.get(okey));
     assertEquals(filename + ": number of chunks == 1", 1, val.chunks());
-    assertEquals(filename + ": number of rows   == 2", 2, val.num_rows());
-    assertEquals(filename + ": number of cols   == 9", 9, val.num_cols());
+    assertEquals(filename + ": number of rows   == 2", 2, val._numrows);
+    assertEquals(filename + ": number of cols   == 9", 9, val._cols.length);
 
     UKV.remove(fkey);
     UKV.remove(okey);
   }
-
-
-
 }

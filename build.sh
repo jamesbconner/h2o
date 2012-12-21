@@ -30,6 +30,7 @@ DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"
 JAVAC=`which javac`
 JAVAC_ARGS='-g
+	-encoding ISO-8859-1
     -source 1.6
     -target 1.6
     -XDignore.symbol.file

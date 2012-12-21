@@ -14,5 +14,4 @@ public class RStringTest {
     r1.replace("go","why");
     assertEquals("hello  + and +%2B and why",r1.toString());
   }
-  
 }

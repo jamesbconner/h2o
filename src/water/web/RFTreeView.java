@@ -1,12 +1,17 @@
 package water.web;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.CharStreams;
 import hex.rf.*;
+
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.Properties;
+
 import org.apache.commons.codec.binary.Base64;
+
 import water.*;
+import water.ValueArray.Column;
+
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CharStreams;
 
 public class RFTreeView extends H2OPage {
   private static final String DOT_PATH;
@@ -23,10 +28,8 @@ public class RFTreeView extends H2OPage {
 
   @Override protected String serveImpl(Server server, Properties args, String sessionID) throws PageError {
     Key modelKey = ServletUtil.check_key(args,"modelKey");
-    final Value modelVal = UKV.get(modelKey);
-    if( modelVal == null ) throw new PageError("Model key is missing");
-    Model model = new Model();
-    model.read(new Stream(modelVal.get()));
+    Model model = UKV.get(modelKey, new Model());
+    if( model == null ) throw new PageError("Model key is missing");
 
     // Which tree?
     final int n = getAsNumber(args,"n",0);
@@ -34,7 +37,7 @@ public class RFTreeView extends H2OPage {
 
     byte[] tbits = model._trees[n];
 
-    long dl = Tree.depth_leaves(tbits);
+    long dl = Tree.depth_leaves(new AutoBuffer(tbits));
     int depth = (int)(dl>>>32);
     int leaves= (int)(dl&0xFFFFFFFFL);
 
@@ -47,33 +50,32 @@ public class RFTreeView extends H2OPage {
     response.replace("depth",     depth);
 
     ValueArray ary = ServletUtil.check_array(args,"dataKey");
-    int clz = getAsNumber(args,"class",ary.num_cols()-1);
-    String[]names = ary.col_names();
-    String[]clz_names = ary.col_enum_domain(clz);
+    int clz = getAsNumber(args, "class", ary._cols.length-1);
+    String[] clz_names = ary._cols[clz]._domain;
 
     String graph;
     if( DOT_PATH == null ) {
       graph = "Install <a href=\"http://www.graphviz.org/\">graphviz</a> to " +
       		"see visualizations of small trees<p>";
     } else if( nodeCount < 1000 ) {
-      graph = dotRender(names, clz_names, tbits);
+      graph = dotRender(ary._cols, clz_names, tbits);
     } else {
       graph = "Tree is too large to graph.<p>";
     }
     String code;
     if( nodeCount < 10000 ) {
-      code = codeRender(names, clz_names, tbits);
+      code = codeRender(ary._cols, clz_names, tbits);
     } else {
       code = "Tree is too large to print pseudo code.<p>";
     }
     return response.toString() + graph + code;
   }
 
-  private String codeRender(String[] col_names, String[] clz_names, byte[] tbits) {
+  private String codeRender(Column[] _cols, String[] clz_names, byte[] tbits) {
     try {
       StringBuilder sb = new StringBuilder();
       sb.append("<pre><code>");
-      new CodeTreePrinter(sb, col_names, clz_names).walk_serialized_tree(tbits);
+      new CodeTreePrinter(sb, _cols, clz_names).walk_serialized_tree(new AutoBuffer(tbits));
       sb.append("</code></pre>");
       return sb.toString();
     } catch( Exception e ) {
@@ -81,11 +83,11 @@ public class RFTreeView extends H2OPage {
     }
   }
 
-  private String dotRender(String[] col_names, String[] clz_names, byte[] tbits) {
+  private String dotRender(Column[] _cols, String[] clz_names, byte[] tbits) {
     try {
       RString img = new RString("<img src=\"data:image/svg+xml;base64,%rawImage\" width='80%%' ></img><p>");
       Process exec = Runtime.getRuntime().exec(new String[] { DOT_PATH, "-Tsvg" });
-      new GraphvizTreePrinter(exec.getOutputStream(), col_names, clz_names).walk_serialized_tree(tbits);
+      new GraphvizTreePrinter(exec.getOutputStream(), _cols, clz_names).walk_serialized_tree(new AutoBuffer(tbits));
       exec.getOutputStream().close();
       byte[] data = ByteStreams.toByteArray(exec.getInputStream());
 
@@ -98,8 +100,9 @@ public class RFTreeView extends H2OPage {
 
   private String errorRender(Exception e) {
     StringBuilder sb = new StringBuilder();
-    sb.append("Error Generating Dot file:\n");
+    sb.append("Error Generating Dot file:\n<pre>");
     e.printStackTrace(new PrintWriter(CharStreams.asWriter(sb)));
+    sb.append("</pre>");
     return sb.toString();
   }
 

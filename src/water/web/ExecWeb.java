@@ -17,12 +17,15 @@ public class ExecWeb extends H2OPage {
     if( x==null || x.isEmpty() ) throw new PageError("Expression is missing");
     JsonObject res = new JsonObject();
     try {
+      long time = System.currentTimeMillis();
       Key k = water.exec.Exec.exec(x);
+      time = System.currentTimeMillis() - time;
       res.addProperty("Expr", x);
       res.addProperty("ResultKey", k.toString());
+      res.addProperty("Time",time);
     } catch( PositionedException e ) {
       res.addProperty("Expr", x);
-      res.addProperty("Error", e.report(x));      
+      res.addProperty("Error", e.report(x));
     }
     return res;
   }
@@ -32,9 +35,11 @@ public class ExecWeb extends H2OPage {
     RString query = new RString(ExecQuery.html);
     query.replace("expr",args.getProperty("Expr"));
     try {
+      long time = System.currentTimeMillis();
       Key k = water.exec.Exec.exec(args.getProperty("Expr"));
+      time = System.currentTimeMillis() - time;
       args.put("Key",k.toString());
-      return query.toString() + new Inspect().serveImpl(server,args,sessionId);
+      return query.toString() + "<p>Query execution took "+(time/1000.0)+" [s]</p>"+ new Inspect().serveImpl(server,args,sessionId);
     } catch (PositionedException e) {
       return query.toString() + error("<span style='font-family:monospace'>"+e.reportHTML(args.getProperty("Expr")) +"</span>");
     }

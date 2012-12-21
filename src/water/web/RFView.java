@@ -2,14 +2,12 @@ package water.web;
 import hex.rf.Confusion;
 import hex.rf.Model;
 
+import java.util.Arrays;
 import java.util.Properties;
 
 import water.*;
 
 import com.google.gson.JsonObject;
-import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class RFView extends H2OPage {
   public static final String DATA_KEY  = "dataKey";
@@ -35,8 +33,8 @@ public class RFView extends H2OPage {
     if( model == null ) throw new PageError("Model key is missing");
 
     // Class is optional
-    int classcol = getAsNumber(p, CLASS_COL, ary.num_cols()-1);
-    if( classcol < 0 || classcol >= ary.num_cols() )
+    int classcol = getAsNumber(p, CLASS_COL, ary._cols.length-1);
+    if( classcol < 0 || classcol >= ary._cols.length )
       throw new PageError("Class out of range");
 
     // Atree & Ntree are optional.
@@ -120,7 +118,7 @@ public class RFView extends H2OPage {
       // Display the confusion-matrix table here
       // First the title line
       final int N = model._classes;
-      int cmin = (int)ary.col_min(classcol);
+      int cmin = (int)ary._cols[classcol]._min;
       StringBuilder sb = new StringBuilder();
       sb.append("<th>Actual \\ Predicted");
       for( int i=0; i<N; i++ )
