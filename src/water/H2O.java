@@ -523,37 +523,31 @@ public final class H2O {
         // if there is a connection in the timeout state involving the socket address or port.
         // Enabling SO_REUSEADDR prior to binding the socket using bind(SocketAddress) 
         // allows the socket to be bound even though a previous connection is in a timeout state. 
-        _webSocket = new ServerSocket();
-        _webSocket.setReuseAddress(true);
-        _webSocket.bind(new InetSocketAddress(inet, WEB_PORT));
-        System.out.println("[h2o] HTTP okay on port: "+WEB_PORT);
-
-        _apiSocket = new ServerSocket();
-        _apiSocket.setReuseAddress(true);
-        _apiSocket.bind(new InetSocketAddress(inet, API_PORT));
-        System.out.println("[h2o] API okay on port: "+API_PORT);
-
+        // cnc: this is busted on windows.  Back to the old code.
+        _webSocket = new ServerSocket(WEB_PORT);
+        _apiSocket = new ServerSocket(API_PORT);
         _udpSocket = DatagramChannel.open();
         _udpSocket.socket().setReuseAddress(true);
         _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
-        System.out.println("[h2o] TCP/UDP okay on port: "+UDP_PORT);
         break;
       } catch (IOException e) {
         try { if( _webSocket != null ) _webSocket.close(); } catch( IOException ohwell ) { }
+        try { if( _apiSocket != null ) _apiSocket.close(); } catch( IOException ohwell ) { }
         Closeables.closeQuietly(_udpSocket);
         _webSocket = null;
+        _apiSocket = null;
         _udpSocket = null;
         if( OPT_ARGS.port != 0 )
           Log.die("On " + H2O.findInetAddressForSelf() +
               " some of the required ports " + (OPT_ARGS.port+0) +
               ", " + (OPT_ARGS.port+1) +
+              ", " + (OPT_ARGS.port+2) +
               " are not available, change -port PORT and try again.");
       }
       WEB_PORT += 3; // used to be 2 for only WEB + UDP
     }
     SELF = H2ONode.self(inet);
-    System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", TCP/UDP port: "+UDP_PORT);
-    System.out.println("[h2o] API HTTP port "+API_PORT);
+    System.out.println("[h2o] HTTP listening on port: "+WEB_PORT+", TCP/UDP port: "+UDP_PORT+", API HTTP port "+API_PORT);
 
     NAME = OPT_ARGS.name==null? System.getProperty("user.name") : OPT_ARGS.name;
     // Read a flatfile of allowed nodes

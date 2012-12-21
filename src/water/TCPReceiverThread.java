@@ -63,6 +63,8 @@ public class TCPReceiverThread extends Thread {
         default: throw new RuntimeException("Unknown Packet Type: " + ab.getCtrl());
         }
 
+      } catch( java.nio.channels.AsynchronousCloseException ex ) {
+        break;                  // Socket closed for shutdown
       } catch( Exception e ) {
         // On any error from anybody, close all sockets & re-open
         System.err.println("IO error on TCP port "+H2O.UDP_PORT+": "+e);
