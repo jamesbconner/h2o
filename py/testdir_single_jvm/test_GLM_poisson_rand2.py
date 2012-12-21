@@ -104,7 +104,7 @@ class Basic(unittest.TestCase):
             print kwargs
             
             start = time.time()
-            glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
+            glm = h2o_cmd.runGLMOnly(timeoutSecs=120, parseKey=parseKey, **kwargs)
             simpleCheckGLM(glm,colX)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
