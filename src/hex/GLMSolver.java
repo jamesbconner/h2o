@@ -3,9 +3,8 @@ package hex;
 import hex.RowVecTask.Sampling;
 import init.H2OSerializable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-
-import sun.security.util.PendingException;
 
 import water.*;
 
@@ -186,20 +185,35 @@ public class GLMSolver {
     transient public String [] _warnings; // TODO should not be transient
     public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s){
       _dataset = ary._key;
-      _colIds = colIds;
-      _colNames = new String[colIds.length];
+      ArrayList<Integer> validCols = new ArrayList<Integer>();
+      for(int col:colIds){
+        if(ary.col_max(col) != ary.col_min(col))
+          validCols.add(col);
+        else
+          System.out.println("ignoring constant column " + col);
+      }
+      colIds = null;
+      _colIds = new int [validCols.size()];
+      int cid = 0;
+      for(int c:validCols){
+        _colIds[cid++] = c;
+      }
+      _colNames = new String[_colIds.length];
       _solver = lsm;
       _s = s;
       _glmParams = params;
+
       int i = 0;
-      int [] categoricals = new int[colIds.length];
-      int [] numeric = new int[colIds.length];
-      _colOffsets = new int[colIds.length+1];
+      int [] categoricals = new int[_colIds.length];
+      int [] numeric = new int[_colIds.length];
+      _colOffsets = new int[_colIds.length+1];
       int ncat = 0,nnum = 0;
       for(int col:_colIds){
+//        if(ary.col_min(col) == ary.col_max(col))
+//          continue; // skip constant columns!
         _colNames[i] = ary.col_name(col);
         _colOffsets[i+1] = _colOffsets[i];
-        if(ary.col_has_enum_domain(col)){
+        if(_glmParams._expandCat && ary.col_has_enum_domain(col)){
           categoricals[ncat++] = i;
           _colOffsets[i+1] += ary.col_enum_domain_size(col)-1;
         } else
@@ -218,13 +232,15 @@ public class GLMSolver {
         Arrays.fill(_normMul, 1.0);
         Arrays.fill(_normSub, 0.0);
         i = 0;
-        for(int j = 0; j < colIds.length-1;++j){
-          int col = colIds[j];
-          if(!ary.col_has_enum_domain(col)){
-            int idx = i + _colOffsets[i];
+        for(int j = 0; j < _colIds.length-1;++j){
+          int col = _colIds[j];
+          if((/*!_glmParams._expandCat || */!ary.col_has_enum_domain(col))) { // sigma should be 0 only for constant columns
+            int idx = j + _colOffsets[j];
+
             _normSub[idx] = ary.col_mean(col);
-            _normMul[idx] = 1.0/ary.col_sigma(col);
-          }
+            if(ary.col_sigma(col) != 0)
+              _normMul[idx] = 1.0/ary.col_sigma(col);
+          } // TODO add normalization for expanded cathegoricals
         }
       }
     }
@@ -232,31 +248,40 @@ public class GLMSolver {
     public void validateOn(ValueArray ary, Sampling s){
       int [] colIds = new int [_colNames.length];
       int idx = 0;
-        for(int j = 0; j < ary.num_cols(); ++j)
+        for(int j = 0; j < _colNames.length; ++j)
           for(int i = 0; i < ary.num_cols(); ++i)
             if(ary.col_name(i).equals(_colNames[j]))
               colIds[idx++] = i;
       if(idx != colIds.length)throw new Error("incompatible dataset");
-      GLMValidatoinTask val = new GLMValidatoinTask(ary._key,colIds);
-      val._colOffsets = _colOffsets;
-      val._categoricals = _categoricals;
-      val._numeric = _numeric;
-      val._normMul = _normMul;
-      val._normSub = _normSub;
-      val._val = new GLMValidation();
-      val._val._dataKey = ary._key;
-      val._val._s = s;
-      val._val._f = _glmParams._f;
-      val._val._l = _glmParams._l;
-      val._val._beta = _beta;
-      val._val._familyArgs= _glmParams._familyArgs;
-      val.invoke(ary._key);
+      GLMValidatoinTask valTsk = new GLMValidatoinTask(ary._key,colIds);
+      valTsk._colOffsets = _colOffsets;
+      valTsk._categoricals = _categoricals;
+      valTsk._numeric = _numeric;
+      valTsk._normMul = _normMul;
+      valTsk._normSub = _normSub;
+      valTsk._s = s;
+      valTsk._f = _glmParams._f;
+      valTsk._l = _glmParams._l;
+      valTsk._beta = _beta;
+      valTsk._familyArgs= _glmParams._familyArgs;
+      valTsk.invoke(ary._key);
+      GLMValidation val = new GLMValidation();
+      val._beta = _beta;
+      val._dataKey = ary._key;
+      val._s = s;
+      val._f = _glmParams._f;
+      val._l = _glmParams._l;
+      val._n = valTsk._n;
+      val._nullDeviance = valTsk._nullDeviance;
+      val._deviance = valTsk._deviance;
+      val._err = valTsk._err;
+      val._cm = valTsk._cm;
       if(_vals == null)
-        _vals = new GLMValidation[]{val._val};
+        _vals = new GLMValidation[]{val};
       else {
         int n = _vals.length;
         _vals = Arrays.copyOf(_vals, n+1);
-        _vals[n] = val._val;
+        _vals[n] = val;
       }
     }
 
@@ -269,7 +294,7 @@ public class GLMSolver {
       ValueArray ary = (ValueArray)DKV.get(_dataset);
       for(int i = 0; i < _colIds.length-1; ++i){
         int col = _colIds[i];
-        if(ary.col_has_enum_domain(col)){
+        if(_glmParams._expandCat && ary.col_has_enum_domain(col)){
           String [] dom = ary.col_enum_domain(col);
           for(int j = 0; j < dom.length; ++j){
             JsonObject c = new JsonObject();
@@ -309,6 +334,7 @@ public class GLMSolver {
     public double [] _familyArgs;
     public double _betaEps;
     public int _maxIter;
+    public boolean _expandCat;
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
@@ -343,15 +369,32 @@ public class GLMSolver {
       gtask._s = s;
       gtask.invoke(ary._key);
       double [] beta = null;
-      for(int i = 0; i < 100; ++i){
+      for(int i = 0; i < 20; ++i){
         try{
           beta = _solver.solve(gtask._gram);
           break;
         } catch (Exception e){
-          _solver._penalty = Math.max(_solver._penalty, LSMSolver.L2_PENALTY);
-          _solver._lambda = Math.max(_solver._lambda*10, 1e-8);
+          switch(_solver._penalty){
+          case LSMSolver.NO_PENALTY:
+            _solver._penalty = LSMSolver.L2_PENALTY;
+            _solver._lambda = 1e-8;
+            break;
+          case LSMSolver.L2_PENALTY:
+            _solver._lambda *= 10;
+            break;
+          case LSMSolver.L1_PENALTY:
+            _solver._penalty = LSMSolver.EL_PENALTY;
+            _solver._lambda2 = 1e-8;
+            break;
+          case LSMSolver.EL_PENALTY:
+            _solver._lambda2 *= 10;
+            break;
+          default:
+            throw new Error("unexpected penalty "+ _solver._penalty);
+          }
         }
       }
+      if(beta == null)throw new Error("can not solve this problem");
       double diff = 0.0;
       for(int i = 0; i < gtask._beta.length; ++i)
         diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
@@ -380,8 +423,6 @@ public class GLMSolver {
     double [] _beta;
     double [] _familyArgs;
     int [] _raw;
-    double [] _normSub;
-    double [] _normMul;
     transient Link _link;
     transient Family _family;
 
@@ -536,7 +577,6 @@ public class GLMSolver {
     double _deviance;
     double _nullDeviance;
     double _err;
-    double _ymu; // null hypothesis value
     ConfusionMatrix _cm;
 
     public JsonObject toJson() {
@@ -560,58 +600,64 @@ public class GLMSolver {
   public static class GLMValidatoinTask extends RowVecTask {
     transient Link _link;
     transient Family _family;
-    GLMValidation _val;
+    int _l;
+    int _f;
+    double _ymu;
+    double _deviance;
+    double _nullDeviance;
+    double [] _beta;
+    double [] _familyArgs;
+    ConfusionMatrix _cm;
+    double _err;
+    long _n;
 
     public GLMValidatoinTask(Key aryKey, int [] colIds){
       super(new HexDataFrame(aryKey,colIds));
     }
     @Override protected void init(HexDataFrame.ChunkData data){
-      _link = Link.values()[_val._l];
-      _family = Family.values()[_val._f];
+      _link = Link.values()[_l];
+      _family = Family.values()[_f];
       if(_family == Family.binomial)
-        _val._cm = new ConfusionMatrix(2);
+        _cm = new ConfusionMatrix(2);
     }
 
     @Override
     void processRow(double[] x, int[] indexes) {
-      ++_val._n;
+      ++_n;
       double yr = x[x.length-1];
       x[x.length-1] = 1.0;
       double ym = 0;
       for(int i = 0; i < x.length; ++i)
-        ym += _val._beta[indexes[i]] * x[i];
+        ym += _beta[indexes[i]] * x[i];
       ym = _link.linkInv(ym);
 
       if(_family == Family.binomial)
-        yr = yr == _val._familyArgs[FAMILY_ARGS_CASE]?1:0;
+        yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
 
-      _val._deviance += _family.deviance(yr, ym);
-      _val._nullDeviance += _family.deviance(yr, _val._ymu);
+      _deviance += _family.deviance(yr, ym);
+      _nullDeviance += _family.deviance(yr, _ymu);
       if(_family == Family.binomial) {
-        ym = ym >= _val._familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]?1:0;
-        _val._cm.add((int)yr,(int)ym);
+        ym = ym >= _familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]?1:0;
+        _cm.add((int)yr,(int)ym);
       } else
-        _val._err += (ym - yr)*(ym - yr);
+        _err += (ym - yr)*(ym - yr);
     }
 
     @Override
     public void reduce(DRemoteTask drt) {
       GLMValidatoinTask other = (GLMValidatoinTask)drt;
-      _val._n += other._val._n;
-      if(_val == null)
-        _val = other._val;
-      else {
-        _val._nullDeviance += other._val._nullDeviance;
-        _val._deviance += other._val._deviance;
-        _val._err += other._val._err;
-        if(_val._cm != null){
-          _val._cm.add(other._val._cm);
+      _n += other._n;
+      _nullDeviance += other._nullDeviance;
+        _deviance += other._deviance;
+        _err += other._err;
+        if(_cm != null){
+          _cm.add(other._cm);
         } else
-          _val._cm = other._val._cm;
+          _cm = other._cm;
       }
     }
   }
-}
+
 
 
 

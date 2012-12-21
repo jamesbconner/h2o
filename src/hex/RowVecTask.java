@@ -55,27 +55,21 @@ public abstract class RowVecTask extends MRTask {
   }
 
   protected boolean _skipIncompleteLines = true; // if true, rows with invalid/missing values will be skipped
-  protected int [] _colIds;
-  public RowVecTask() {}
-  public RowVecTask(Sampling s){this(null,s,false,null);}
 
-  public RowVecTask(int [] colIds, boolean skipInvalidLines, double[][] pVals){this(colIds,null, skipInvalidLines,pVals);}
-  public RowVecTask(int [] colIds, Sampling s, boolean skipInvalidLines, double[][] pVals){
-    _skipIncompleteLines = skipInvalidLines;
-    _colIds = colIds;
-    _s = s;
-  }
+  public RowVecTask() {}
+
   public RowVecTask(RowVecTask other){
     _skipIncompleteLines = other._skipIncompleteLines;
-    _colIds = other._colIds;
     _s = other._s;
   }
 
-  Sampling _s;
+
 
   public void setSampling(Sampling s){
     _s = s;
   }
+
+  Sampling _s;
   HexDataFrame _data;
   int [] _categoricals;
   int [] _numeric;
@@ -108,7 +102,7 @@ ROW:
         x[i] = r.getD(i);
         indexes[i] = i + _colOffsets[i];
         if(_normSub != null)
-          x[i] = x[i] - _normSub[indexes[i]] * _normMul[indexes[i]];
+          x[i] = (x[i] - _normSub[indexes[i]]) * _normMul[indexes[i]];
       }
       processRow(x, indexes);
     }

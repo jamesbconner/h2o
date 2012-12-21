@@ -54,6 +54,8 @@ public class GLM extends H2OPage {
      try{res._l = Link.valueOf(p.getProperty("link").toLowerCase()).ordinal();}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
     else
       res._l = Family.values()[res._f].defaultLink.ordinal();
+    if(p.containsKey("expandCat"))
+      res._expandCat = true;
     res._maxIter = getIntArg(p, "ITER", GLMSolver.DEFAULT_MAX_ITER);
     res._betaEps = getDoubleArg(p, "betaEps", GLMSolver.DEFAULT_BETA_EPS);
     res._familyArgs = getFamilyArgs(Family.values()[res._f], p);

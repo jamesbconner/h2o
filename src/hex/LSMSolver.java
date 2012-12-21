@@ -1,5 +1,8 @@
 package hex;
 
+import java.io.IOException;
+import java.util.Arrays;
+
 import init.H2OSerializable;
 
 import com.google.gson.JsonObject;
@@ -19,7 +22,7 @@ public final class LSMSolver implements H2OSerializable{
   public static final double DEFAULT_LAMBDA = 1e-5;
   public static final double DEFAULT_LAMBDA2 = 1e-8;
   public static final double DEFAULT_ALPHA = 1;
-  public static final double DEFAULT_RHO = 1e-5;
+  public static final double DEFAULT_RHO = 1e-2;
 
   public boolean normalize() {
     return _penalty != NO_PENALTY;
@@ -129,14 +132,20 @@ public final class LSMSolver implements H2OSerializable{
       Matrix xm = null;
       Matrix xyPrime = (Matrix)xy.clone();
       double kappa = _lambda / _rho;
+      //System.out.println("XX");
+      //System.out.println(xx);
       for( int i = 0; i < 10000; ++i ) {
         // first compute the x update
         // add rho*(z-u) to A'*y and add rho to diagonal of A'A
         for( int j = 0; j < N; ++j ) {
           xyPrime.set(j, 0, xy.get(j, 0) + _rho * (z[j] - u[j]));
         }
+        //System.out.println("XY");
+        //System.out.println(xyPrime);
         // updated x
         xm = lu.solve(xyPrime);
+        //System.out.println("X");
+        //System.out.println(xm);
         // vars to be used for stopping criteria
         double x_norm = 0;
         double z_norm = 0;
@@ -163,6 +172,16 @@ public final class LSMSolver implements H2OSerializable{
         s_norm = _rho * Math.sqrt(s_norm);
         eps_pri = ABSTOL + RELTOL * Math.sqrt(Math.max(x_norm, z_norm));
         eps_dual = ABSTOL + _rho * RELTOL * Math.sqrt(u_norm);
+        //System.out.println("u = " + Arrays.toString(u));
+        //System.out.println("z = " + Arrays.toString(z));
+        //System.out.println(xyPrime);
+//        try {
+//          System.in.read();
+//        } catch( IOException e ) {
+//          // TODO Auto-generated catch block
+//          throw new RuntimeException(e);
+//
+//        }
         if( r_norm < eps_pri && s_norm < eps_dual ) break;
       }
       return z;
