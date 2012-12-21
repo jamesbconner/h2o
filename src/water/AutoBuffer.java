@@ -260,7 +260,7 @@ public final class AutoBuffer {
   // Return byte[] from a writable AutoBuffer
   public final byte[] buf() {
     assert _h2o==null && _chan==null && _read==false && !_bb.isDirect();
-    return Arrays.copyOfRange(_bb.array(), _bb.arrayOffset(), _bb.position());
+    return MemoryManager.arrayCopyOfRange(_bb.array(), _bb.arrayOffset(), _bb.position());
   }
   public final byte[] bufClose() {
     assert eof();
@@ -371,7 +371,7 @@ public final class AutoBuffer {
       byte[] ary = _bb.array();
       int newlen = ary.length<<1; // New size is 2x old size
       int oldpos = _bb.position();
-      _bb = ByteBuffer.wrap(Arrays.copyOf(ary,newlen),oldpos,newlen-oldpos)
+      _bb = ByteBuffer.wrap(MemoryManager.arrayCopyOfRange(ary,0,newlen),oldpos,newlen-oldpos)
         .order(ByteOrder.nativeOrder());
       return _bb;
     }
