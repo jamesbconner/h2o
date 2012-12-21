@@ -514,11 +514,27 @@ public final class H2O {
       UDP_PORT = WEB_PORT+1;
       API_PORT = UDP_PORT+1;
       try {
-        _webSocket = new ServerSocket(WEB_PORT);
+        // kbn. seems like we need to set SO_REUSEADDR before binding?
+        // http://www.javadocexamples.com/java/net/java.net.ServerSocket.html#setReuseAddress:boolean
+        // When a TCP connection is closed the connection may remain in a timeout state 
+        // for a period of time after the connection is closed (typically known as the 
+        // TIME_WAIT state or 2MSL wait state). For applications using a well known socket address 
+        // or port it may not be possible to bind a socket to the required SocketAddress 
+        // if there is a connection in the timeout state involving the socket address or port.
+        // Enabling SO_REUSEADDR prior to binding the socket using bind(SocketAddress) 
+        // allows the socket to be bound even though a previous connection is in a timeout state. 
+        _webSocket = new ServerSocket();
+        _webSocket.setReuseAddress(true);
+        _webSocket.bind(new InetSocketAddress(inet, WEB_PORT));
         System.out.println("[h2o] HTTP okay on port: "+WEB_PORT);
-        _apiSocket = new ServerSocket(API_PORT);
+
+        _apiSocket = new ServerSocket();
+        _apiSocket.setReuseAddress(true);
+        _apiSocket.bind(new InetSocketAddress(inet, API_PORT));
         System.out.println("[h2o] API okay on port: "+API_PORT);
+
         _udpSocket = DatagramChannel.open();
+        _udpSocket.socket().setReuseAddress(true);
         _udpSocket.socket().bind(new InetSocketAddress(inet, UDP_PORT));
         System.out.println("[h2o] TCP/UDP okay on port: "+UDP_PORT);
         break;
