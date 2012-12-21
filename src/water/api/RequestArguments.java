@@ -1107,7 +1107,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     public Real(String name, Double defaultValue, double min, double max) {
-      super(name,true);
+      super(name,false);
       _defaultValue = defaultValue;
       _min = min;
       _max = max;
@@ -1153,7 +1153,7 @@ public class RequestArguments extends RequestStatics {
     }
 
   }
-  
+
   // ---------------------------------------------------------------------------
   // EnumClass
   // ---------------------------------------------------------------------------
@@ -1477,7 +1477,9 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected String selectedItemValue() {
-      return String.valueOf(value());
+      if (value() == null) return "";
+      if (_key.value() == null) return "";
+      return String.valueOf(_key.value()._cols[value()]._name);
     }
 
     @Override protected Integer parse(String input) throws IllegalArgumentException {

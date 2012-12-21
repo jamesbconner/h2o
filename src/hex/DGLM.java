@@ -34,6 +34,7 @@ public class DGLM implements Models.ModelBuilder {
   public final static int MAX_ITER = 50;
 
   public static enum Link {
+    familyDefault(0),
     identity(0),
     logit(0),
     log(0),
