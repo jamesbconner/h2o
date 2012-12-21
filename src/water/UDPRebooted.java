@@ -33,10 +33,11 @@ public class UDPRebooted extends UDP {
     case none:   return;
     case reboot: return;
     case shutdown:
-      System.out.println("[h2o] Orderly shutdown command from "+ab._h2o);
       try { H2O._webSocket.close(); } catch( IOException x ) { }
       try { H2O._udpSocket.close(); } catch( IOException x ) { }
       try { H2O._apiSocket.close(); } catch( IOException x ) { }
+      try { TCPReceiverThread.SOCK.close(); } catch( IOException x ) { }
+      System.out.println("[h2o] Orderly shutdown command from "+ab._h2o);
       System.exit(0);
       return;
     case error:    m = "Error leading to a cloud kill"              ; break;
@@ -44,10 +45,11 @@ public class UDPRebooted extends UDP {
     case mismatch: m = "Killed joining a cloud with a different jar"; break;
     default:       m = "Received kill "+type                        ; break;
     }
-    System.err.println("[h2o] "+m+" from "+ab._h2o);
     try { H2O._webSocket.close(); } catch( IOException x ) { }
     try { H2O._udpSocket.close(); } catch( IOException x ) { }
     try { H2O._apiSocket.close(); } catch( IOException x ) { }
+    try { TCPReceiverThread.SOCK.close(); } catch( IOException x ) { }
+    System.err.println("[h2o] "+m+" from "+ab._h2o);
     System.exit(-1);
   }
 

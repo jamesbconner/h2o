@@ -18,6 +18,7 @@ public class TCPReceiverThread extends Thread {
 
   // How many threads would like to do TCP right now?
   public static final AtomicInteger TCPS_IN_PROGRESS = new AtomicInteger(0);
+  public static ServerSocketChannel SOCK;
 
   // The Run Method.
 
@@ -25,7 +26,7 @@ public class TCPReceiverThread extends Thread {
   @SuppressWarnings("resource")
   public void run() {
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
-    ServerSocketChannel sock = null, errsock = null;
+    ServerSocketChannel errsock = null;
     boolean saw_error = false;
 
     while( true ) {
@@ -40,13 +41,13 @@ public class TCPReceiverThread extends Thread {
 
         // ---
         // More common-case setup of a ServerSocket
-        if( sock == null ) {
-          sock = ServerSocketChannel.open();
-          sock.socket().bind(H2O.SELF._key);
+        if( SOCK == null ) {
+          SOCK = ServerSocketChannel.open();
+          SOCK.socket().bind(H2O.SELF._key);
         }
 
         // Block for TCP connection and setup to read from it.
-        AutoBuffer ab = new AutoBuffer(sock.accept());
+        AutoBuffer ab = new AutoBuffer(SOCK.accept());
         int ctrl = ab.getCtrl();
         ab.getPort();
 
@@ -70,7 +71,7 @@ public class TCPReceiverThread extends Thread {
         System.err.println("IO error on TCP port "+H2O.UDP_PORT+": "+e);
         e.printStackTrace();
         saw_error = true;
-        errsock = sock ;  sock = null; // Signal error recovery on the next loop
+        errsock = SOCK ;  SOCK = null; // Signal error recovery on the next loop
       }
     }
   }

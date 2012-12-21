@@ -397,6 +397,8 @@ public class NanoHTTPD
         } catch ( Throwable t ) {}
       } catch ( InterruptedException ie ) {
         // Thrown by sendError, ignore and exit the thread.
+      } finally {
+        try { mySocket.close(); } catch( IOException ex ) { }
       }
     }
 
