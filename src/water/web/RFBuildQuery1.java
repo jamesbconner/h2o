@@ -2,6 +2,9 @@
 package water.web;
 
 import java.util.Properties;
+
+import com.google.common.base.Objects;
+
 import water.DKV;
 import water.Key;
 import water.Value;
@@ -73,25 +76,25 @@ public class RFBuildQuery1 extends H2OPage {
     Value v = DKV.get(Key.make(args.getProperty("dataKey")));
     if (v == null)
       throw new PageError("Key not found!");
-    if (!(v instanceof ValueArray))
+    if( v._isArray == 0 )
       throw new PageError("Key is not a dataframe");
-    ValueArray va = (ValueArray) v;
-    if (va.num_rows() <= 0)
+    ValueArray va = ValueArray.value(v);
+    if (va._numrows <= 0)
       throw new PageError("Key is not a parsed dataframe");
-    int numCols = va.num_cols();
+    int numCols = va._cols.length;
     assert (numCols>=2);
-    result.replace("col0",va.col_name(0));
-    result.replace("col1",va.col_name(1));
+    result.replace("col0", va._cols[0]._name);
+    result.replace("col1", va._cols[1]._name);
     if (numCols>2) {
       result.replace("colLastIdx",numCols-1);
-      result.replace("colLast",va.col_name(numCols-1));
+      result.replace("colLast", va._cols[numCols-1]._name);
       result.replace("checkLast","checked");
       result.replace("classIdx",numCols-1);
       if (numCols>3) {
-        for (int i = 0; i < va.num_cols(); ++i) {
+        for (int i = 0; i < va._cols.length; ++i) {
           RString str = result.restartGroup("colClass");
           str.replace("colIdx",i);
-          str.replace("colName",va.col_name(i) == null ? i : va.col_name(i));
+          str.replace("colName", Objects.firstNonNull(va._cols[i]._name, i));
           str.append();
         }
       } else {

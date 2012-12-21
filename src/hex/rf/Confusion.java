@@ -1,7 +1,11 @@
 package hex.rf;
 
 import java.util.Random;
+
 import water.*;
+import water.ValueArray.Column;
+
+import com.google.common.primitives.Ints;
 
 /**
  * Confusion Matrix. Incrementally computes a Confusion Matrix for a KEY_OF_KEYS
@@ -11,6 +15,8 @@ import water.*;
  */
 public class Confusion extends MRTask {
 
+
+  public int _treesUsed;
   /** Key for the model used for construction of the confusion matrix. */
   public Key _modelKey;
   /** Model used for construction of the confusion matrix. */
@@ -37,8 +43,6 @@ public class Confusion extends MRTask {
   /** For reproducibility we can control the randomness in the computation of the
       confusion matrix. The default seed when deserializing is 42. */
   private transient Random    _rand;
-  /** Rows in a chunk. The last chunk is bigger, use this for all other chuncks. */
-  transient private int       _rows_per_normal_chunk;
   /** Data to replay the sampling algorithm */
   transient private int[]     _chunk_row_mapping;
   private int[] _ignores;
@@ -57,6 +61,7 @@ public class Confusion extends MRTask {
     _classcol = classcol;
     _classWt = classWt;
     _ignores = ignores;
+    _treesUsed = model.size();
     _computeOOB = computeOOB;
     shared_init();
   }
@@ -81,8 +86,7 @@ public class Confusion extends MRTask {
      for that Key to already exist, returning a prior CM if one is available.*/
   static public Confusion make(Model model, Key datakey, int classcol, int[] ignores, double[] classWt,boolean computeOOB) {
     Key key = keyFor(model._key, model.size(), datakey, classcol, computeOOB);
-    byte[] inProgress = "IN_PROGRESS".getBytes();
-    Confusion C = UKV.get(key,new Confusion());
+    Confusion C = UKV.get(key, new Confusion());
     if( C != null ) {         // Look for a prior cached result
       C.shared_init();
       return C;
@@ -90,7 +94,7 @@ public class Confusion extends MRTask {
 
     // mark that we are computing the matrix now
     Key progressKey = keyForProgress(model._key, model.size(), datakey, classcol, computeOOB);
-    Value v = H2O.putIfMatch(progressKey, new Value(progressKey,"IN_PROGRESS"), null);
+    Value v = DKV.DputIfMatch(progressKey, new Value(progressKey,"IN_PROGRESS"), null, null);
     C = new Confusion(model,datakey,classcol,ignores,classWt,computeOOB);
     if (v != null) { // someone is already working on the matrix, stop
       C._matrix = null;
@@ -114,13 +118,12 @@ public class Confusion extends MRTask {
   /** Shared init: for new Confusions, for remote Confusions*/
   private void shared_init() {
     _rand   = new Random(42L<<32);
-    _data = (ValueArray) DKV.get(_datakey); // load the dataset
-    _model = UKV.get(_modelKey,new Model());
+    _data = ValueArray.value(DKV.get(_datakey));
+    _model = UKV.get(_modelKey, new Model());
     assert !_computeOOB || _model._dataset==_datakey ;
-    _N = (int)((_data.col_max(_classcol) - _data.col_min(_classcol))+1);
+    Column c = _data._cols[_classcol];
+    _N = (int)((c._max - c._min)+1);
     assert _N > 0;
-    byte[] chunk_bits = DKV.get(_data.chunk_get(0)).get(); // get the 0-th chunk and figure out its size
-    _rows_per_normal_chunk = chunk_bits.length / _data.row_size();
   }
 
   /**
@@ -133,43 +136,35 @@ public class Confusion extends MRTask {
     super.init();
     shared_init();
     // Make a mapping from chunk# to row# just for chunks on this node
-    _chunk_row_mapping = new int[ValueArray.getChunkIndex(_keys[_keys.length-1])+1];
+    long l = ValueArray.getChunkIndex(_keys[_keys.length-1])+1;
+    _chunk_row_mapping = new int[Ints.checkedCast(l)];
     int off=0;
     for( Key k : _keys )
       if( k.home() ) {
-        _chunk_row_mapping[ValueArray.getChunkIndex(k)] = off;
-        off += _rows_per_normal_chunk;
+        l = ValueArray.getChunkIndex(k);
+        _chunk_row_mapping[(int)l] = off;
+        off += _data.rpc(l);
       }
   }
 
 
   /**A classic Map/Reduce style incremental computation of the confusion matrix on a chunk of data. */
   public void map(Key chunk_key) {
-    byte[] chunk_bits = DKV.get(chunk_key).get(); // Get the raw dataset bits
-    final int rowsize = _data.row_size();
-    final int rows = chunk_bits.length / rowsize;
-    final int ncols= _data.num_cols();
-    final int cmin = (int) _data.col_min(_classcol); // Typically 0-(n-1) or 1-N
-    int nchk = ValueArray.getChunkIndex(chunk_key);
-    // Break out all the ValueArray Column schema into an easier-to-read
-    // format.  Its used in the hot inner loop of Tree.classify.
-    final int offs[] = new int[ncols];
-    final int size[] = new int[ncols];
-    final int base[] = new int[ncols];
-    final int scal[] = new int[ncols];
-    for( int k = 0; k < ncols; k++ ) {
-      offs[k] = _data.col_off  (k);
-      size[k] = _data.col_size (k);
-      base[k] = _data.col_base (k);
-      scal[k] = _data.col_scale(k);
-    }
+    AutoBuffer bits = _data.getChunk(chunk_key);
+    final int rowsize = _data._rowsize;
+    final int rows = bits.remaining() / rowsize;
+    final int cmin = (int) _data._cols[_classcol]._min;
+    int nchk = (int) ValueArray.getChunkIndex(chunk_key);
+
+    final Column[] cols = _data._cols;
 
     // Votes: we vote each tree on each row, holding on to the votes until the end
     int[][] votes = new int[rows][_N];
 
     // Build fast cutout for ignored columns
-    final boolean icols[] = new boolean[ncols];
-    for( int k : _ignores ) icols[k]=true;
+    final boolean icols[] = new boolean[cols.length];
+    for( int k : _ignores ) icols[k] = true;
+
     // Replay the Data.java's "sample_fair" sampling algorithm to exclude data
     // we trained on during voting.
 
@@ -181,13 +176,15 @@ public class Confusion extends MRTask {
 
       // Now for all rows, classify & vote!
       ROWS: for( int i = 0; i < rows; i++ ) {
-        for(int c = 0; c < ncols; ++c) // Bail out of broken rows in not-ignored columns
-          if( !icols[c] && !_data.valid(chunk_bits,i,rowsize,c))
-            continue ROWS;      // Skip partial row
-        if( _computeOOB &&  r.nextFloat() < _model._sample )
-          continue ROWS;        // Skip row used during training
+        // Bail out of broken rows in not-ignored columns
+        for(int c = 0; c < cols.length; ++c)
+          if( !icols[c] && _data.isNA(bits, i, cols[c])) continue ROWS;
+
+        // Skip row used during training
+        if( _computeOOB &&  r.nextFloat() < _model._sample ) continue ROWS;
+
         // Predict with this tree
-        int prediction = _model.classify0(ntree, chunk_bits, i, rowsize, _data, offs, size, base, scal);
+        int prediction = _model.classify0(ntree, bits, i, rowsize, _data);
         if( prediction >= _N ) continue ROWS; // Junk row cannot be predicted
         votes[i][prediction]++; // Vote the row
       }
@@ -214,7 +211,7 @@ public class Confusion extends MRTask {
           if( vi[l]==vi[result] && (k++ >= j) )
             { result = l; break; }
       }
-      int cclass = (int) _data.data(chunk_bits, i, rowsize, _classcol) - cmin;
+      int cclass = (int) _data.data(bits, i, _classcol) - cmin;
       assert 0 <= cclass && cclass < _N : ("cclass " + cclass + " < " + _N);
       _matrix[cclass][result]++;
       if( result != cclass ) _errors++;

@@ -1,7 +1,6 @@
 package hex;
-import water.*;
-
 import com.google.gson.JsonObject;
+import water.*;
 
 public abstract class LinearRegression {
 
@@ -33,20 +32,20 @@ public abstract class LinearRegression {
     lr3._colB = colB;
     lr3._beta1 = lr2._XYbar / lr2._XXbar;
     lr3._beta0 = lr2._Ybar - lr3._beta1 * lr2._Xbar;
-    lr3._Ybar  = lr2._Ybar;
+    lr3._Ybar = lr2._Ybar;
     lr3.invoke(ary._key);
     long pass3 = System.currentTimeMillis();
 
     long df = n - 2;
-    double R2    = lr3._ssr / lr2._YYbar;
-    double svar  = lr3._rss / df;
+    double R2 = lr3._ssr / lr2._YYbar;
+    double svar = lr3._rss / df;
     double svar1 = svar / lr2._XXbar;
     double svar0 = svar/n + lr2._Xbar*lr2._Xbar*svar1;
 
     JsonObject res = new JsonObject();
     res.addProperty("Key", ary._key.toString());
-    res.addProperty("ColA", ary.col_name(colA));
-    res.addProperty("ColB", ary.col_name(colB));
+    res.addProperty("ColA", ary._cols[colA]._name);
+    res.addProperty("ColB", ary._cols[colB]._name);
     res.addProperty("Pass1Msecs", pass1 - start);
     res.addProperty("Pass2Msecs", pass2-pass1);
     res.addProperty("Pass3Msecs", pass3-pass2);
@@ -63,33 +62,26 @@ public abstract class LinearRegression {
   }
 
   public static class CalcSumsTask extends MRTask {
-    Key _arykey;                // Main ValueArray key
-    int _colA, _colB;           // Which columns to work on
-    long _rows;                 // Rows used
-    double _sumX,_sumY,_sumX2;  // Sum of X's, Y's, X^2's
+    Key _arykey; // Main ValueArray key
+    int _colA, _colB; // Which columns to work on
+    long _rows; // Rows used
+    double _sumX,_sumY,_sumX2; // Sum of X's, Y's, X^2's
 
     public void map( Key key ) {
       assert key.home();
       // Get the root ValueArray for the metadata
-      ValueArray ary = (ValueArray)DKV.get(_arykey);
+      ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      byte[] bits = DKV.get(key).get();
-      // Split out all the loop-invariant meta-data offset into
-      int rowsize = ary.row_size();
-      int rows = bits.length/rowsize;
-      int colA_off  = ary.col_off  (_colA);
-      int colB_off  = ary.col_off  (_colB);
-      int colA_size = ary.col_size (_colA);
-      int colB_size = ary.col_size (_colB);
-      int colA_base = ary.col_base (_colA);
-      int colB_base = ary.col_base (_colB);
-      int colA_scale= ary.col_scale(_colA);
-      int colB_scale= ary.col_scale(_colB);
+      AutoBuffer bits = ary.getChunk(key);
+      final int rows = bits.remaining()/ary._rowsize;
+      // Columns to work on
+      ValueArray.Column A = ary._cols[_colA];
+      ValueArray.Column B = ary._cols[_colB];
 
-      if( ary.col_badat(_colA) == 0 && ary.col_badat(_colB) == 0 ) {
+      if( !ary.hasInvalidRows(_colA) && !ary.hasInvalidRows(_colB) ) {
         for( int i=0; i<rows; i++ ) {
-          double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-          double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          double X = ary.datad(bits,i,A);
+          double Y = ary.datad(bits,i,B);
           _sumX += X;
           _sumY += Y;
           _sumX2+= X*X;
@@ -98,15 +90,14 @@ public abstract class LinearRegression {
       } else {
         int bad = 0;
         for( int i=0; i<rows; i++ ) {
-          if( ary.valid(bits,i,rowsize,colA_off,colA_size) &&
-              ary.valid(bits,i,rowsize,colB_off,colB_size) ) {
-            double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-            double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          if( ary.isNA(bits,i,A) || ary.isNA(bits,i,B) ) {
+            bad++;
+          } else {
+            double X = ary.datad(bits,i,A);
+            double Y = ary.datad(bits,i,B);
             _sumX += X;
             _sumY += Y;
             _sumX2+= X*X;
-          } else {
-            bad++;
           }
         }
         _rows = rows-bad;
@@ -124,34 +115,28 @@ public abstract class LinearRegression {
 
 
   public static class CalcSquareErrorsTasks extends MRTask {
-    Key _arykey;                // Main ValueArray key
-    int _colA, _colB;           // Which columns to work on
+    Key _arykey; // Main ValueArray key
+    int _colA, _colB; // Which columns to work on
     double _Xbar, _Ybar, _XXbar, _YYbar, _XYbar;
 
     public void map( Key key ) {
       assert key.home();
       // Get the root ValueArray for the metadata
-      ValueArray ary = (ValueArray)DKV.get(_arykey);
+      ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      byte[] bits = DKV.get(key).get();
-      // Split out all the loop-invariant meta-data offset into
-      int rowsize = ary.row_size();
-      int rows = bits.length/rowsize;
-      int colA_off  = ary.col_off  (_colA);
-      int colB_off  = ary.col_off  (_colB);
-      int colA_size = ary.col_size (_colA);
-      int colB_size = ary.col_size (_colB);
-      int colA_base = ary.col_base (_colA);
-      int colB_base = ary.col_base (_colB);
-      int colA_scale= ary.col_scale(_colA);
-      int colB_scale= ary.col_scale(_colB);
+      AutoBuffer bits = ary.getChunk(key);
+      final int rows = bits.remaining()/ary._rowsize;
+      // Columns to work on
+      ValueArray.Column A = ary._cols[_colA];
+      ValueArray.Column B = ary._cols[_colB];
+
       final double Xbar = _Xbar;
       final double Ybar = _Ybar;
 
-      if( ary.col_badat(_colA) == 0 && ary.col_badat(_colB) == 0 ) {
+      if( !ary.hasInvalidRows(_colA) && !ary.hasInvalidRows(_colB) ) {
         for( int i=0; i<rows; i++ ) {
-          double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-          double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          double X = ary.datad(bits,i,A);
+          double Y = ary.datad(bits,i,B);
           double Xa = (X-Xbar);
           double Ya = (Y-Ybar);
           _XXbar += Xa*Xa;
@@ -160,10 +145,9 @@ public abstract class LinearRegression {
         }
       } else {
         for( int i=0; i<rows; i++ ) {
-          if( ary.valid(bits,i,rowsize,colA_off,colA_size) &&
-              ary.valid(bits,i,rowsize,colB_off,colB_size) ) {
-            double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-            double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          if( !ary.isNA(bits,i,A) && !ary.isNA(bits,i,B) ) {
+            double X = ary.datad(bits,i,A);
+            double Y = ary.datad(bits,i,B);
             double Xa = (X-Xbar);
             double Ya = (Y-Ybar);
             _XXbar += Xa*Xa;
@@ -184,8 +168,8 @@ public abstract class LinearRegression {
 
 
   public static class CalcRegressionTask extends MRTask {
-    Key _arykey;                // Main ValueArray key
-    int _colA, _colB;           // Which columns to work on
+    Key _arykey; // Main ValueArray key
+    int _colA, _colB; // Which columns to work on
     double _Ybar;
     double _beta0, _beta1;
     double _rss, _ssr;
@@ -193,27 +177,22 @@ public abstract class LinearRegression {
     public void map( Key key ) {
       assert key.home();
       // Get the root ValueArray for the metadata
-      ValueArray ary = (ValueArray)DKV.get(_arykey);
+      ValueArray ary = ValueArray.value(DKV.get(_arykey));
       // Get the raw bits to work on
-      byte[] bits = DKV.get(key).get();
-      // Split out all the loop-invariant meta-data offset into
-      int rowsize = ary.row_size();
-      int rows = bits.length/rowsize;
-      int colA_off  = ary.col_off  (_colA);
-      int colB_off  = ary.col_off  (_colB);
-      int colA_size = ary.col_size (_colA);
-      int colB_size = ary.col_size (_colB);
-      int colA_base = ary.col_base (_colA);
-      int colB_base = ary.col_base (_colB);
-      int colA_scale= ary.col_scale(_colA);
-      int colB_scale= ary.col_scale(_colB);
+      AutoBuffer bits = ary.getChunk(key);
+      final int rows = bits.remaining()/ary._rowsize;
+      // Columns to work on
+      ValueArray.Column A = ary._cols[_colA];
+      ValueArray.Column B = ary._cols[_colB];
+
       final double beta0 = _beta0;
       final double beta1 = _beta1;
-      final double Ybar  = _Ybar ;
-      if( ary.col_badat(_colA) == 0 && ary.col_badat(_colB) == 0 ) {
+      final double Ybar = _Ybar ;
+
+      if( !ary.hasInvalidRows(_colA) && !ary.hasInvalidRows(_colB) ) {
         for( int i=0; i<rows; i++ ) {
-          double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-          double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          double X = ary.datad(bits,i,A);
+          double Y = ary.datad(bits,i,B);
           final double fit = beta1*X + beta0;
           final double rs = fit-Y;
           _rss += rs*rs;
@@ -222,10 +201,9 @@ public abstract class LinearRegression {
         }
       } else {
         for( int i=0; i<rows; i++ ) {
-          if( ary.valid(bits,i,rowsize,colA_off,colA_size) &&
-              ary.valid(bits,i,rowsize,colB_off,colB_size) ) {
-            double X = ary.datad(bits,i,rowsize,colA_off,colA_size,colA_base,colA_scale,_colA);
-            double Y = ary.datad(bits,i,rowsize,colB_off,colB_size,colB_base,colB_scale,_colB);
+          if( !ary.isNA(bits,i,A) && !ary.isNA(bits,i,B) ) {
+            double X = ary.datad(bits,i,A);
+            double Y = ary.datad(bits,i,B);
             final double fit = beta1*X + beta0;
             final double rs = fit-Y;
             _rss += rs*rs;
@@ -243,4 +221,3 @@ public abstract class LinearRegression {
     }
   }
 }
-

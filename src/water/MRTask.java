@@ -45,7 +45,7 @@ public abstract class MRTask extends DRemoteTask {
     // Reduce results into 'this' so they collapse going up the execution tree.
     // NULL out child-references so we don't accidentally keep large subtrees
     // alive: each one may be holding large partial results.
-    if( _left != null ) reduce_merge_pending(_left); _left = null;
-    if( _rite != null ) reduce_merge_pending(_rite); _rite = null;
+    if( _left != null ) reduceAlsoBlock(_left); _left = null;
+    if( _rite != null ) reduceAlsoBlock(_rite); _rite = null;
   }
 }

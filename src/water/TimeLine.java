@@ -1,9 +1,7 @@
 package water;
-import java.io.*;
-import java.net.DatagramPacket;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.UnknownHostException;
+
 import sun.misc.Unsafe;
 import water.nbhm.UtilUnsafe;
 
@@ -69,21 +67,21 @@ public class TimeLine extends UDP {
 
   // Record 1 event, the first 16 bytes of this buffer.  This is expected to be
   // a high-volume multi-thread operation so needs to be fast.
-  private static void record( DatagramPacket p, int sr ) {
+  private static void record( AutoBuffer b, int sr ) {
     final long ms = System.currentTimeMillis(); // Read first, in case we're slow storing values
     final long ns = System.nanoTime();
     final long[] tl = TIMELINE; // Read once, in case the whole array shifts out from under us
     final int idx = next_idx(tl); // Next free index
     long deltams = ms-JVM_BOOT_MSEC;
     assert deltams < 0x0FFFFFFFFL; // No daily overflow
-    int ip4 = get4(p.getAddress().getAddress(),0);
-    tl[idx*WORDS_PER_EVENT+0+1] = (deltams)<<32 | (ip4&0x0FFFFFFFFL);
+    if( b.position() < 16 ) b.position(16);
+    tl[idx*WORDS_PER_EVENT+0+1] = (deltams)<<32 | (b._h2o.ip4()&0x0FFFFFFFFL);
     tl[idx*WORDS_PER_EVENT+1+1] = (ns&~1)|sr;
-    tl[idx*WORDS_PER_EVENT+2+1] = get8(p.getData(),0);
-    tl[idx*WORDS_PER_EVENT+3+1] = get8(p.getData(),8);
+    tl[idx*WORDS_PER_EVENT+2+1] = b.get8(0);
+    tl[idx*WORDS_PER_EVENT+3+1] = b.get8(8);
   }
-  public static void record_send( DatagramPacket p ) { record(p,0); }
-  public static void record_recv( DatagramPacket p ) { record(p,1); }
+  public static void record_send( AutoBuffer b ) { record(b,0); }
+  public static void record_recv( AutoBuffer b ) { record(b,1); }
 
   // Accessors, for TimeLines that come from all over the system
   public static int length( ) { return MAX_EVENTS; }
@@ -92,10 +90,14 @@ public class TimeLine extends UDP {
   // That first long is complex: compressed CTM and IP4
   private static long x0( long[] tl, int idx ) { return tl[idx(tl,idx)+0]; }
   public static long ms( long[] tl, int idx ) { return (x0(tl,idx)>>>32)+JVM_BOOT_MSEC; }
-  private static final byte _inet[] = new byte[4];
   public static InetAddress inet( long[] tl, int idx ) {
-    set4(_inet,0,(int)x0(tl,idx));
-    try { return InetAddress.getByAddress(_inet); }
+    int adr = (int)x0(tl,idx);
+    byte[] ip4 = new byte[4];
+    ip4[0] = (byte)(adr>> 0);
+    ip4[1] = (byte)(adr>> 8);
+    ip4[2] = (byte)(adr>>16);
+    ip4[3] = (byte)(adr>>24);
+    try { return InetAddress.getByAddress(ip4); }
     catch( UnknownHostException e ) { }
     return null;
   }
@@ -132,9 +134,7 @@ public class TimeLine extends UDP {
         SNAPSHOT = new long[CLOUD.size()][];
         // Broadcast a UDP packet, with the hopes of getting all SnapShots as close
         // as possible to the same point in time.
-        byte[] buf = new byte[16];
-        buf[0] = (byte)UDP.udp.timeline.ordinal();
-        MultiCast.multicast(buf);
+        new AutoBuffer(H2O.SELF).putUdp(udp.timeline).close();
       }
       // Spin until all snapshots appear
       while( true ) {
@@ -151,52 +151,25 @@ public class TimeLine extends UDP {
   }
 
   // Send our most recent timeline to the remote via TCP
-  public void call( DatagramPacket p, H2ONode target ) {
+  public AutoBuffer call( AutoBuffer ab ) {
     long[] a = snapshot();
-    if( target == H2O.SELF ) {
+    if( ab._h2o == H2O.SELF ) {
       synchronized(TimeLine.class) {
         for( int i=0; i<CLOUD._memary.length; i++ )
           if( CLOUD._memary[i]==H2O.SELF )
             SNAPSHOT[i] = a;
         TimeLine.class.notify();
       }
-      return; // No I/O needed for my own snapshot
+      return ab; // No I/O needed for my own snapshot
     }
-    try {
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(1);
-      Socket sock = new Socket( p.getAddress(), target._key.tcp_port() );
-      DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
-      // Write out the initial operation
-      dos.writeByte(UDP.udp.timeline.ordinal());
-      dos.writeShort(H2O.UDP_PORT); // Our node identifier
-      dos.writeInt(a.length);
-      for( int i=0; i<a.length; i++ )
-        dos.writeLong(a[i]);
-      dos.flush();
-      InputStream is = sock.getInputStream();
-      int ack = is.read();      // Read 1 byte of ack
-      sock.close();
-      if( ack != 99 ) throw new IOException("missing tcp ack "+ack);
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
-    } catch( IOException e ) {  // Failure?
-      // Silently ignore failure, and the poor target does not get his dump.  I
-      // am probably REALLY REALLY sick, which is why the dump is being asked for.
-      TCPReceiverThread.TCPS_IN_PROGRESS.addAndGet(-1);
-    }
+    // Send timeline to remote
+    return ab.clearForWriting().putUdp(UDP.udp.timeline).putA8(a);
   }
 
   // Receive a remote timeline
-  void tcp_read_call( DataInputStream dis, H2ONode h2o ) throws IOException {
-    int len = dis.readInt();
-    long[] timeline = new long[len];
-    for( int i=0; i<len; i++ )
-      timeline[i] = dis.readLong();
-    synchronized(TimeLine.class) {
-      for( int i=0; i<CLOUD._memary.length; i++ )
-        if( CLOUD._memary[i]==h2o )
-          SNAPSHOT[i] = timeline;
-      TimeLine.class.notify();
-    }
+  static void tcp_call( final AutoBuffer ab ) {
+    SNAPSHOT[CLOUD.nidx(ab._h2o)] = ab.getA8();
+    ab.close();
+    synchronized(TimeLine.class) {  TimeLine.class.notify();   }
   }
 }
-

@@ -1,7 +1,7 @@
 package water.exec;
 
+import water.AutoBuffer;
 import water.Key;
-import water.Stream;
 
 /**
  *
@@ -159,7 +159,7 @@ public class RLikeParser {
     }
 
   }
-  private Stream _s;
+  private AutoBuffer _s;
   private Token _top;
 
   protected Token top() {
@@ -215,129 +215,95 @@ public class RLikeParser {
 
   private Token parseNextToken() throws ParserException {
     skipWhitespace();
-    int pos = _s._off;
+    int pos = _s.position();
     if( _s.eof() )
       return new Token(pos, Token.Type.ttEOF);
-    char c = (char) _s.peek1();
+    char c = (char) _s.get1();
     switch( c ) {
       case '=':
-        ++_s._off;
         if (_s.peek1() == '=') {
-          ++_s._off;
+          _s.get1();
           return new Token(pos, Token.Type.ttOpEq);
         } else {
           return new Token(pos, Token.Type.ttOpAssign);
         }
       case '&':
-        ++_s._off;
         if (_s.peek1() == '&') {
-          ++_s._off;
+          _s.get1();
           return new Token(pos, Token.Type.ttOpAnd);
         } else {
           throw new ParserException(pos,"&& expected");
         }
-      case '?':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpIif);
-      case ':':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpColon);
-      case '$':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpDollar);
-      case '%':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpMod);
-      case '+':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpAdd);
+      case '?': return new Token(pos, Token.Type.ttOpIif);
+      case ':': return new Token(pos, Token.Type.ttOpColon);
+      case '$': return new Token(pos, Token.Type.ttOpDollar);
+      case '%': return new Token(pos, Token.Type.ttOpMod);
+      case '+': return new Token(pos, Token.Type.ttOpAdd);
       case '-':
-        ++_s._off;
         if( _s.peek1() == '>' ) {
-          ++_s._off;
+          _s.get1();
           return new Token(pos, Token.Type.ttOpRightAssign);
         } else {
           return new Token(pos, Token.Type.ttOpSub);
         }
-      case '*':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpMul);
-      case '/':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpDiv);
-      case '(':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpParOpen);
-      case ')':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpParClose);
-      case '[':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpBracketOpen);
-      case ']':
-        ++_s._off;
-        return new Token(pos, Token.Type.ttOpBracketClose);
+      case '*': return new Token(pos, Token.Type.ttOpMul);
+      case '/': return new Token(pos, Token.Type.ttOpDiv);
+      case '(': return new Token(pos, Token.Type.ttOpParOpen);
+      case ')': return new Token(pos, Token.Type.ttOpParClose);
+      case '[': return new Token(pos, Token.Type.ttOpBracketOpen);
+      case ']': return new Token(pos, Token.Type.ttOpBracketClose);
       case '<':
-        ++_s._off;
         if( _s.peek1() == '-' ) {
-          ++_s._off;
+          _s.get1();
           return new Token(pos, Token.Type.ttOpAssign);
         } else if (_s.peek1() == '=') {
-          ++_s._off;
+          _s.get1();
           return new Token(pos, Token.Type.ttOpLessOrEq);
         } else {
           return new Token(pos, Token.Type.ttOpLess);
         }
       case '>':
-        ++_s._off;
         if (_s.peek1() == '=') {
-          ++_s._off;
+          _s.get1();
           return new Token(pos, Token.Type.ttOpGreaterOrEq);
         } else {
           return new Token(pos, Token.Type.ttOpGreater);
         }
-      case ',':
-        ++_s._off;
-        return new Token(pos,Token.Type.ttOpComma);
+      case ',': return new Token(pos,Token.Type.ttOpComma);
       case '!':
-        ++_s._off;
-        if (_s.peek1() != '=')
+        if (_s.get1() != '=')
           throw new ParserException(pos," != operator expected");
-        ++_s._off;
         return new Token(pos,Token.Type.ttOpNeq);
       case '"':
       case '\'':
         return parseString();
       case '|':
-        ++_s._off;
-        if (_s.peek1() =='|') {
-          ++_s._off;
+        if (_s.get1() =='|') {
           return new Token(pos, Token.Type.ttOpOr);
-        } else {
-          --_s._off;
         }
+        // back up for both pipes
+        _s.position(_s.position() - 2);
         return parseIdent();
       default:
-        if( isCharacter(c) )
-          return parseIdent();
-        if( isDigit(c) )
-          return parseNumber();
+        _s.position(_s.position() - 1);
+        if( isCharacter(c) ) return parseIdent();
+        if( isDigit(c)     ) return parseNumber();
     }
     return new Token(pos, Token.Type.ttUnknown);
   }
 
   private Token parseString() throws ParserException {
-    int start = _s._off;
+    int start = _s.position();
     char end = (char) _s.get1() == '"' ? '"' : '\'';
     StringBuilder sb = new StringBuilder();
     while (true) {
       if( _s.eof() )
         throw new ParserException(start, "String does not finish before the end of input");
       if( _s.peek1() == end ) {
-        ++_s._off;
+        _s.get1();
         break; // end of the string
       } else if( _s.peek1() == '\\' ) {
-        ++_s._off;
+        _s.get1();
         if( _s.eof() )
           throw new ParserException(start, "String does not finish before the end of input");
         char add;
@@ -356,7 +322,7 @@ public class RLikeParser {
           default:
             throw new ParserException(start, "Quotes slashes and \\n and \\t are allowed to be slashed in strings.");
         }
-        ++_s._off;
+        _s.get1();
         sb.append(add);
       } else {
         sb.append((char) _s.get1());
@@ -366,18 +332,18 @@ public class RLikeParser {
   }
 
   private Token parseIdent() throws ParserException {
-    int start = _s._off;
+    int start = _s.position();
     if( _s.peek1() == '|' ) { // escaped string
-      ++_s._off;
+      _s.get1();
       StringBuilder sb = new StringBuilder();
       while( true ) {
         if( _s.eof() )
           throw new ParserException(start, "String does not finish before the end of input");
         if( _s.peek1() == '|' ) {
-          ++_s._off;
+          _s.get1();
           break; // end of the string
         } else if( _s.peek1() == '\\' ) {
-          ++_s._off;
+          _s.get1();
           if( _s.eof() )
             throw new ParserException(start, "String does not finish before the end of input");
           switch( _s.peek1() ) {
@@ -397,17 +363,17 @@ public class RLikeParser {
           break;
         char c = (char) _s.peek1();
         if( isCharacter(c) || isDigit(c) || (c == '.') ) {
-          ++_s._off;
+          _s.get1();
           continue;
         }
         break;
       }
     }
-    return new Token(start, new String(_s._buf, start, _s._off - start));
+    return new Token(start, _s.getStr(start, _s.position()-start));
   }
 
   private Token parseNumber() throws ParserException {
-    int start = _s._off;
+    int start = _s.position();
     boolean dot = false;
     boolean e = false;
     while( true ) {
@@ -415,29 +381,29 @@ public class RLikeParser {
         break;
       char c = (char) _s.peek1();
       if( isDigit(c) ) {
-        ++_s._off;
+        _s.get1();
         continue;
       }
       if( c == '.' ) {
         if( dot != false )
-          throw new ParserException(_s._off, "Only one dot can be present in number.");
+          throw new ParserException(_s.position(), "Only one dot can be present in number.");
         dot = true;
-        ++_s._off;
+        _s.get1();
         continue;
       }
       if( (c == 'e') || (c == 'E') ) {
         if( e != false )
-          throw new ParserException(_s._off, "Only one exponent can be present in number.");
+          throw new ParserException(_s.position(), "Only one exponent can be present in number.");
         e = true;
-        ++_s._off;
+        _s.get1();
         continue;
       }
       break;
     }
     if( (dot == false) && (e == false) )
-      return new Token(start, Integer.parseInt(new String(_s._buf, start, _s._off - start)));
+      return new Token(start, Integer.parseInt(_s.getStr(start, _s.position()-start)));
     else
-      return new Token(start, Double.parseDouble(new String(_s._buf, start, _s._off - start)));
+      return new Token(start, Double.parseDouble(_s.getStr(start, _s.position()-start)));
   }
 
   // ---------------------------------------------------------------------------
@@ -445,10 +411,10 @@ public class RLikeParser {
   //
   // A simple LL(1) recursive descent guy. With the following grammar:
   public Expr parse(String x) throws ParserException {
-    return parse(new Stream(x.getBytes()));
+    return parse(new AutoBuffer(x.getBytes()));
   }
 
-  public Expr parse(Stream x) throws ParserException {
+  public Expr parse(AutoBuffer x) throws ParserException {
     _s = x;
     pop(); // load the first token in the stream
     Expr result = parse_S();
@@ -671,7 +637,7 @@ public class RLikeParser {
         f.addArgument(e, t._id);
         return true;
       }
-      _s._off = t._pos; // go back to do unnamed
+      _s.position(t._pos);
     }
     if (seenNamedArgsBefore)
       throw new ParserException(t._pos,"After a named argument is used, only named arguments can follow");

@@ -3,298 +3,27 @@ import java.io.*;
 import java.util.Arrays;
 
 /**
- * Large Arrays & Arraylets
- *
- * Large arrays are broken into 1Meg chunks (except the last chunk which may be
- * from 1 to 2Megs).  Large arrays have a metadata section in this ValueArray.
- *
- * @author <a href="mailto:cliffc@0xdata.com"></a>
- * @version 1.0
- */
+* Large Arrays & Arraylets
+*
+* Large arrays are broken into 1Meg chunks (except the last chunk which may be
+* from 1 to 2Megs). Large arrays have a metadata section in this ValueArray.
+*
+* @author <a href="mailto:cliffc@0xdata.com"></a>
+* @version 1.0
+*/
 
 
-public class ValueArray extends Value {
+public class ValueArray extends Iced {
 
   public static final int LOG_CHK = 20; // Chunks are 1<<20, or 1Meg
-
-  // Large datasets need metadata.   :-)
-  // Which is described further below, for structured ValueArrays.
-
-  // The unstructured-data array
-  public ValueArray( Key key, long sz, byte mode ) {
-    super(COLUMN0_OFF,COLUMN0_OFF,key,mode);
-    // The unstructured-data array has zero everywhere, except the length
-    UDP.set8(_mem,LENGTH_OFF,sz);
-  }
-
-  public ValueArray( int max, int len, Key key, byte mode ) {
-    super(max,len,key,mode);
-  }
-
-  public ValueArray(Key k, byte [] mem) {
-    super(k,mem);
-  }
-
-  public ValueArray(Key k, byte [] mem, byte mode) {
-    super(k,mem,mode);
-  }
-
-  @Override public long length() { return UDP.get8(get(LENGTH_OFF+8),LENGTH_OFF); }
-
-  @Override public byte type() { return ARRAY; }
-
-  @Override protected boolean getString_impl( int len, StringBuilder sb ) {
-    sb.append("[array] size=").append(length());
-    return true;
-  }
-
-  // Make a system chunk-key from an offset into the main array.
-  // No auto-create-on-demand for arraylet sub-parts
-  public static Key make_chunkkey( Key key, long off ) {
-    assert ((off >> LOG_CHK)<<LOG_CHK) == off;
-    // The key layout is:
-    //  0 - Key.ARRAYLET_CHUNK
-    //  0 - No IP forcing
-    //  12345678 - offset
-    //  key name
-    byte[] kb = new byte[2+8+key._kb.length];
-    UDP.set8(kb,2,off);         // Blast down the offset.
-    System.arraycopy(key._kb,0,kb,2+8,key._kb.length);
-    Key k = Key.make(kb,(byte)key.desired()); // Presto!  A unique arraylet key!
-    return k;
-  }
-  public Key make_chunkkey( long off ) { return make_chunkkey(_key,off); }
-
-  // Get the chunk with the given index.
-  // The returned key is *not* guaranteed to exist in K/V store.
-  // @param k - key of arraylet chunk
-  // @param index - the requested chunk number
-  // @return - Key of the chunk with offset == index
-  public static Key getChunk(Key k, long index) {
-    assert k._kb[0] == Key.ARRAYLET_CHUNK;
-    byte[] arr = k._kb.clone();
-    long n = index << ValueArray.LOG_CHK;
-    UDP.set8(arr, 2, n);
-    return Key.make(arr);
-  }
-
-  /**
-   * Get offset of this file in an underlying backing file.
-   *
-   * If this is unstructured data, the offset is simply the chunk number * chunk size.
-   *
-   * For structured (.hex) data, the computation is slightly more complicated:
-   *  1) Chunks do have different size (closest multiple of rowsize())
-   *  2) there is a header stored in the beginning of the file.
-   *
-   * @param k chunk key
-   * @return The offset (in bytes) into the file backing this ValueArray
-   */
-  public long getChunkFileOffset(Key k){
-    if(row_size() > 0) {
-      long chunkIdx = ValueArray.getChunkIndex(k);
-      long rpc = chunk_size()/row_size();
-      return  header_size() + chunkIdx * rpc * row_size();
-    } else {
-      return ValueArray.getOffset(k);
-    }
-  }
-
-  // Number of chunks in this array
-  // Divide by 1Meg into chunks.  The last chunk is between 1 and 2 megs
-  static public long chunks(long sz) { return sz>>LOG_CHK; }
-
-  @Override public long chunks() {
-    if(row_size() == 0)return Math.max(1, chunks(length()));
-    int rpc = (int)chunk_size()/row_size();
-    return Math.max(1,num_rows()/rpc);
-  }
-
-  // Get a Key for the chunk; fetching the Value for this Key gets this chunk
-  @Override public Key chunk_get( long chunknum ) {
-    if( chunknum < 0 || chunknum > chunks() )
-      throw new ArrayIndexOutOfBoundsException(Long.toString(chunknum));
-    return make_chunkkey(chunk_offset(chunknum));
-  }
-
-  public long chunk_size_structured() {
-    if(row_size() > 0) {
-      long rpc = chunk_size()/row_size();
-      return rpc*row_size();
-    } else {
-      return chunk_size();
-    }
-  }
-  public static long chunk_size() {
-    return 1L << LOG_CHK;
-  }
-
-  // Get the offset from a random arraylet sub-key
-  public static long getOffset(Key k) {
-    assert k._kb[0] == Key.ARRAYLET_CHUNK;
-    return UDP.get8(k._kb, 2);
-  }
-  // Get the chunk-index from a random arraylet sub-key
-  public static int getChunkIndex(Key k) {
-    return (int) (getOffset(k) >> ValueArray.LOG_CHK);
-  }
-  // Get the root array Key from a random arraylet sub-key
-  public static byte[] getArrayKeyBytes( Key k ) {
-    assert k._kb[0] == Key.ARRAYLET_CHUNK;
-    return Arrays.copyOfRange(k._kb,2+8,k._kb.length);
-  }
-
-  // Get a chunk - expected to exist
-  Value get( long idx ) throws IOException {
-    Value v = DKV.get(chunk_get(idx));
-    if( v != null ) return v;
-    throw new IOException("Missing chunk "+idx+", broken "+H2O.OPT_ARGS.ice_root+"?");
-  }
-
-  /** Returns the start row of the given chunk.
-   *
-   * Assumes all chunks up to the last one are of the same size (fully
-   * popullated).
-   *
-   * @param k key of the chunk
-   * @return Index of the first row in the chunk.
-   */
-  long startRowForChunk(Key k) {
-    return getOffset(k) / row_size();
-  }
-
-  static public Key read_put_stream(String keyname, InputStream is, byte rf) throws IOException {
-    // Main Key
-    Key key = Key.make(keyname,rf);
-    return read_put_stream(key,is);
-  }
-
-  // Reads the given stream and creates a value for it, or a list of chunks and
-  // an arraylet if the value is too big.
-  // Maybe this should be somehow merged with read_put_file ?
-  static public Key read_put_stream(Key key, InputStream is) throws IOException {
-    BufferedInputStream bis = new BufferedInputStream(is,(int)chunk_size()*2);
-
-    // try to read 2-chunks into the buffer
-    byte[] buffer = MemoryManager.allocateMemory((int)chunk_size()*2);
-    int sz = 0;
-    while (sz!=buffer.length) {
-      int i = bis.read(buffer,sz,buffer.length-sz);
-      if (i==-1)
-        break;
-      sz += i;
-    }
-    if (sz<buffer.length) { // buffer is 2-chunks
-      // it is a single simple value
-      Value val = new Value(key,sz);
-      System.arraycopy(buffer,0,val._mem,0,sz);
-      UKV.put(key,val);
-    } else { // sz == buffer.length => there is enough data to write two 1MG chunks
-      assert sz == buffer.length;
-      long totalLen = 0;
-      Key ck        = null;
-      Value val     = null;
-      boolean readFirstChunk = true; // identify read position in buffer [ [chunk_size()] [chunk_size()]
-
-      DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
-          public void reduce(DRemoteTask dt) {}
-          public void compute() {}
-        };
-
-      // Treat buffer as round buffer, write one chunk and try to read new chunk per iteration
-      while (true) {
-        if (sz < buffer.length) { // almost 2 chunks (but at least one) are in the buffer (and there are no more data) => write them all
-          ck = make_chunkkey(key,totalLen);
-          val = new Value(ck,sz);
-          if (readFirstChunk) {
-            System.arraycopy(buffer,0,val._mem,0,sz);
-          } else {
-            System.arraycopy(buffer, (int)chunk_size(), val._mem,0, (int)chunk_size() ); // we know there is at least on full chunk
-            System.arraycopy(buffer, 0, val._mem, (int)chunk_size(), sz-(int)chunk_size() );
-          }
-          drt.lazy_complete(DKV.put(ck,val));
-          totalLen += sz;
-          break; // it was the last chunk => there are no more data in input stream;
-        } else { // Write the first chunk into the buffer
-          ck = make_chunkkey(key,totalLen);
-          val = new Value(ck,(int)chunk_size());
-          System.arraycopy(buffer, (readFirstChunk?0:1)*(int)chunk_size(), val._mem, 0, (int)chunk_size());
-          drt.lazy_complete(DKV.put(ck,val));
-          totalLen += chunk_size();
-          sz -= chunk_size();
-        }
-
-        // Try to read another chunk
-        int off = (readFirstChunk?0:1)*(int)chunk_size(); // Rewrite the data, which was already stored as Value
-        while (sz!=buffer.length) {
-          int i = bis.read(buffer,off,buffer.length-sz);
-          if (i==-1)
-            break;
-          sz += i; off += i;
-        }
-        // Switch chunk to read
-        readFirstChunk = !readFirstChunk;
-      }
-      ValueArray ary = new ValueArray(key,totalLen,ICE);
-      UKV.put(key,ary);
-      drt.block_pending();      // Block for the DKV.puts to complete
-    }
-    bis.close();
-    return key;
-  }
-
-  // Read a (possibly VERY large file) and put it in the K/V store and return a
-  // Value for it.  Files larger than 2Meg are broken into arraylets of 1Meg each.
-  static public Key read_put_file(String keyname, FileInputStream fis, byte rf) throws IOException {
-    final long sz = fis.getChannel().size();
-    final DataInputStream dis = new DataInputStream(fis);
-    // Main Key
-    final Key key = Key.make(keyname,rf);
-    // Files of modest size, from 0 to <2Megs we represent as a single Value.
-    // Larger files are broken up in 1Meg chunks
-    long chunks = chunks(sz);   // Divide by 1Meg into chunks, rounding up
-    if( chunks < 2 ) {          // Not enough chunks, so use a single Value
-      Value val = new Value(key,(int)sz);
-      dis.readFully(val._mem);
-      UKV.put(key,val);         // Insert in distributed store
-      return key;
-    }
-
-    // Must be a large file; break it up!  Main key first
-    ValueArray ary = new ValueArray(key,sz,ICE);
-    UKV.put(key,ary);         // Insert in distributed store
-
-    // Begin to read & build chunks.
-    DRemoteTask drt = new DRemoteTask() { // Collect DKV.puts to force DKV.put completion
-        public void reduce(DRemoteTask dt) {}
-        public void compute() {}
-      };
-    long off = 0;
-    for( int i=0; i<chunks; i++ ) {
-      // All-the-rest for the last chunk, or 1Meg for other chunks
-      long szl = (i==chunks-1) ? (sz-off) : (1<<LOG_CHK);
-      int sz2 = (int)szl;       // Truncate
-      assert sz2 == szl;        // No int/long truncation
-
-      Key ckey = make_chunkkey(key,off);
-      Value val = new Value(ckey,sz2);
-      dis.readFully(val._mem);
-
-      drt.lazy_complete(DKV.put(ckey,val)); // Insert in distributed store
-
-      off += szl;               // Advance the cursor
-    }
-    assert off == sz;           // Got them all
-    drt.block_pending();        // Block for the DKV.puts to complete
-    return key;
-  }
+  public static final long CHUNK_SZ = 1L << LOG_CHK;
 
   // --------------------------------------------------------
-  // Large datasets need metadata.   :-)
+  // Large datasets need metadata. :-)
   //
   // We describe datasets as either being "raw" ascii or unformatted binary
   // data, or as being "structured binary" data - i.e., binary, floats, or
-  // ints.  Structured data is efficient for doing math & matrix manipulation.
+  // ints. Structured data is efficient for doing math & matrix manipulation.
   //
   // Structured data is limited to being 2-D, a collection of rows and columns.
   // The count of columns is expected to be small - from 1 to 1000.  The count
@@ -308,449 +37,362 @@ public class ValueArray extends Value {
   // The primary compression is to use 1-byte, 2-byte, or 4-byte columns, with
   // an optional offset & scale factor.  These are described in the meta-data.
 
-  // Layout of structured ValueArrays
-  static public  final int LENGTH_OFF  =0;              // Total byte length
-  static public  final int NUM_ROWS_OFF=LENGTH_OFF  +8; // Number of rows; length=#rows*size(row)
-  static private final int PRIORKEY_OFF=NUM_ROWS_OFF+8; // prior key string offset
-  static private final int XFORM_OFF   =PRIORKEY_OFF+4; // prior xforms string offset
-  static private final int ROW_SIZE_OFF=XFORM_OFF   +4; // Size of each row (sum of column widths)
-  static private final int NUM_COLS_OFF=ROW_SIZE_OFF+4; // number of columns; 0 for unstructured data
-  static private final int PAD_OFF     =NUM_COLS_OFF+4; // pad to multiple of 8
-  static private final int COLUMN0_OFF =PAD_OFF     +4; // Start of column 0 metadata
+  public transient Key _key;     // Main Array Key
+  public final Column[] _cols;   // The array of column descriptors; the X dimension
+  public long[] _rpc;            // Row# for start of each chunk
+  public long _numrows;      // Number of rows; the Y dimension.  Can be >>2^32
+  public final int _rowsize;     // Size in bytes for an entire row
+  public byte _persist;          // Persistance in ICE, NFS, HDFS, S3, etc
 
-  // Most datasets are obtained by transformations on a prior set.
-  // The prior set, or null if none
-  public Key prior_key() {
-    byte[] mem = get();
-    int off = UDP.get4(mem,PRIORKEY_OFF);
-    if( off==0 ) return null;
-    return Key.read(mem,off);
+  public ValueArray(Key key, long numrows, int rowsize, Column[] cols ) {
+    this(key,numrows,rowsize,cols,Value.ICE);
   }
-  // The transformation leading to this key, from the prior key
-  public String xform() {
-    byte[] mem = get();
-    int off = UDP.get4(mem,XFORM_OFF);
-    if( off==0 ) return null;
-    int len = UDP.get2(mem,off);
-    return new String(mem,off+2,len);
+  private ValueArray(Key key, long numrows, int rowsize, Column[] cols, byte persist ) {
+    // Always some kind of rowsize.  For plain unstructured data use a single
+    // byte column format.
+    assert rowsize > 0;
+    _numrows = numrows;
+    _rowsize = rowsize;
+    _cols = cols;
+    _persist = persist;
+    init(key);
   }
 
-  // Number of columns in this dataset.  0 for not-structured data.
-  public int  num_cols() { return UDP.get4(get(),NUM_COLS_OFF); }
-  // Number of rows    in this dataset.  0 for not-structured data.
-  public long num_rows() { return UDP.get8(get(),NUM_ROWS_OFF); }
-  // Size of each row (sum of column widths) in bytes
-  public int  row_size() { return UDP.get4(get(),ROW_SIZE_OFF); }
+  // Plain unstructured data wrapper.  Just a vast byte array
+  public ValueArray(Key key, long len, byte persist ) { this(key,len,1,new Column[]{new Column(len)},persist); }
 
-
-  // structured data needs to store header describing the data at the beginning of the file
-  // header contains bytes of the arraylet head
-  // therefore, return the size of _mem if structured, 0 if unstructured
-  public long header_size(){return (num_cols() == 0 && num_rows() == 0 && row_size() == 0)?0: 2 + get().length;}
-
-
-  // Additional column layout (meta-data); repeat per column
-  static private final int    MAX_COL_OFF =0;                // max in column
-  static private final int    MIN_COL_OFF =   MAX_COL_OFF+8; // min in column
-  static private final int   BASE_COL_OFF =   MIN_COL_OFF+8; // base-offset for all; often 0
-  static private final int   NAME_COL_OFF =  BASE_COL_OFF+4; // name offset in the array header
-  static private final int    OFF_COL_OFF =  NAME_COL_OFF+4; // offset to column data within row
-  static private final int  SCALE_COL_OFF =   OFF_COL_OFF+2; // scale for all; often 1
-  static private final int  BADAT_COL_OFF = SCALE_COL_OFF+2; // number of bad rows, capped at 65535
-  static private final int   SIZE_COL_OFF = BADAT_COL_OFF+2; // bytesize of column; 1,2,4,8 or -4,-8 for double
-  static private final int DOMAIN_COL_OFF =  SIZE_COL_OFF+1; // domain offset in the array header
-  static private final int   MEAN_COL_OFF =DOMAIN_COL_OFF+4; // column mean
-  static private final int  SIGMA_COL_OFF =  MEAN_COL_OFF+8; // column var
-  static private final int      N_COL_OFF = SIGMA_COL_OFF+8; // # of column valid values
-  static private final int  PAD0_COL_OFF  =     N_COL_OFF+8;
-  static private final int  META_COL_SIZE =  PAD0_COL_OFF + (((PAD0_COL_OFF & 7) != 0)?(8 - (PAD0_COL_OFF & 7)):0); // pad to 8 bytes
-
-
-  public static class ColumnDomain {
-    String [] _str;
-    public ColumnDomain(){}
-    public ColumnDomain(String [] str){_str= str;}
-    public String getStr(int i){return _str[i];}
-    public int wire_len(){
-      int res = 2;
-      if(_str != null) for(String s:_str) {
-        res += s.length() + 2;
-      }
-      return res;
+  // Variable-sized chunks.  Pass in the number of whole rows in each chunk.
+  public ValueArray(Key key, int[] rows, int rowsize, Column[] cols, byte persist ) { 
+    assert rowsize > 0;
+    _rowsize = rowsize;
+    _cols = cols;
+    _persist = persist;
+    _key = key;
+    // Roll-up summary the number rows in each chunk, to the starting row# per chunk.
+    _rpc = new long[rows.length+1];
+    long sum = 0;
+    for( int i=0; i<rows.length; i++ ) { // Variable-sized chunks
+      int r = rows[i];                   // Rows in chunk# i
+      assert r*rowsize < (CHUNK_SZ*4);   // Keep them reasonably sized please
+      _rpc[i] = sum;                     // Starting row# for chunk i
+      sum += r;
     }
+    _rpc[_rpc.length-1] = _numrows = sum;
+    assert rpc(0) == rows[0];   // Some quicky sanity checks
+    assert rpc(chunks()-1) == rows[(int)(chunks()-1)];
+  }
 
-    public void read(Stream s){
-      int n = s.get2();
-      if(n != 0){
-        _str = new String[n];
-        for(int i = 0; i < n; ++i){
-          _str[i] = s.getLen2Str();
-        }
-      }
-    }
-    public void write(Stream s){
-      if(_str != null){
-        s.set2(_str.length);
-        for(String str:_str)s.setLen2Bytes(str.getBytes());
-      } else s.set2(0);
+  public ValueArray clone() {
+    try {
+      return (ValueArray) super.clone();
+    } catch( CloneNotSupportedException e ) {
+      throw new RuntimeException(e);
     }
   }
 
+  // Init of transient fields from deserialization calls
+  private final ValueArray init( Key key ) {
+    _key = key;
+    return this;
+  }
 
+  /** Get a Value wrapping a serialized ValueArray */
+  public Value value() {
+    return new Value(_key,write(new AutoBuffer()).buf(),_persist,(byte)1);
+  }
+  /** Deserialize wrapper from a Key */
+  public static ValueArray value(Key k) {
+    return value(DKV.get(k));
+  }
+  /** Deserialize wrapper from a Value */
+  public static ValueArray value(Value val) {
+    assert val._isArray!=0;
+    ValueArray ary = new ValueArray(val._key,0,Value.ICE);
+    ary.read(new AutoBuffer(val.get()));
+    ary.init(val._key);
+    return ary;
+  }
+
+  /** Pretty print! */
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("VA[").append(_numrows).append("][").append(_cols.length).append("]{");
+    sb.append("bpr=").append(_rowsize).append(", rpc=").append(_rpc).append(", ");
+    sb.append("chunks=").append(chunks()).append(", key=").append(_key);
+    sb.append("}");
+    return sb.toString();
+  }
+
+  public int rowSize() { return _rowsize; }
+  public long numRows() { return _numrows; }
+  public int numCols() { return _cols.length; }
+  public long length() { return _numrows*_rowsize; }
+  public boolean hasInvalidRows(int colnum) { return _cols[colnum]._n != _numrows; }
+
+  /** Rows in this chunk */
+  public int rpc(long chunknum) {
+    if( (long)(int)chunknum!=chunknum ) throw H2O.unimpl(); // more than 2^31 chunks?
+    if( _rpc != null ) return (int)(_rpc[(int)chunknum+1]-_rpc[(int)chunknum]);
+    int rpc = (int)(CHUNK_SZ/_rowsize);
+    long chunks = Math.max(1,_numrows/rpc);
+    assert chunknum < chunks;
+    if( chunknum < chunks-1 )   // Not last chunk?
+      return rpc;               // Rows per chunk
+    return (int)(_numrows - (chunks-1)*rpc);
+  }
+
+  /** Row number at the start of this chunk */
+  public long startRow( long chunknum) {
+    if( (long)(int)chunknum!=chunknum ) throw H2O.unimpl(); // more than 2^31 chunks?
+    if( _rpc != null ) return _rpc[(int)chunknum];
+    int rpc = (int)(CHUNK_SZ/_rowsize); // Rows per chunk
+    return rpc*chunknum;
+  }
+
+  // Which row in the chunk?
+  public int rowInChunk( long chknum, long rownum ) {
+    return (int)(rownum - startRow(chknum));
+  }
+
+  /** Number of chunks */
+  public long chunks() {
+    if( _rpc != null ) return _rpc.length-1; // one row# per chunk
+    // Else uniform-size chunks
+    int rpc = (int)(CHUNK_SZ/_rowsize); // Rows per chunk
+    return Math.max(1,_numrows/rpc);
+  }
+
+  /** Chunk number containing a row */
+  private long chknum( long rownum ) {
+    int rpc = (int)(CHUNK_SZ/_rowsize);
+    return ( _rpc != null ) 
+      ? Math.abs(Arrays.binarySearch(_rpc,rownum))
+      : Math.min(rownum/rpc,Math.max(1,_numrows/rpc)-1);
+  }
 
   // internal convience class for building structured ValueArrays
-  static public class Column {
-    public String       _name;
-    // Domain of the column - all the strings which represents the column's domain.
-    // The order of the strings corresponds to numbering utilized in dataset.
-    public ColumnDomain _domain;
-    public double       _min, _max, _mean, _sigma;  // Min/Max/mean/var per column; requires a 1st pass to discover + 2nd pass for variance
-    public long         _n;          // number of valid values
-    public int          _base;       // Base
-    public short        _off;        // Offset of column data within row
-    public short        _scale;      // Actual value is (((double)(stored_value+base))/scale); 1,10,100,1000
-    public char         _badat;      // Number of bad rows, capped at 65535
-    public byte         _size;       // Size is 1,2,4 or 8 bytes, or -4,-8 for float/double data
+  static public class Column extends Iced {
+    public String _name;
+    // Domain of the column - all the strings which represents the column's
+    // domain.  The order of the strings corresponds to numbering utilized in
+    // dataset.  Null for numeric columns.
+    public String[] _domain;
+    public double _min, _max, _mean; // Min/Max/mean/var per column; requires a 1st pass
+    public double _sigma;            // Requires a 2nd pass
+    // Number of valid values; different than the rows for the entire ValueArray in some rows
+    // have bad data
+    public long _n;
+    public int  _base;  // Base
+    public char _scale; // Actual value is (((double)(stored_value+base))/scale); 1,10,100,1000
+    public char _off;   // Offset within a row
+    public byte _size;  // Size is 1,2,4 or 8 bytes, or -4,-8 for float/double data
 
-    public Column() {
-      _min =  Double.MAX_VALUE;
-      _max = -Double.MAX_VALUE;
-      _scale = 1;
-      _base = 0;
-    }
-
-    static public int wire_len() { return META_COL_SIZE; }
-
-    public void write( Stream s ) {
-      UDP.set8d(s._buf,s._off+  MAX_COL_OFF,_max);
-      UDP.set8d(s._buf,s._off+  MIN_COL_OFF,_min);
-      UDP.set4 (s._buf,s._off+ BASE_COL_OFF,_base);
-      //                       NAME_COL_OFF is filled in later
-      UDP.set2 (s._buf,s._off+  OFF_COL_OFF,_off);
-      UDP.set2 (s._buf,s._off+SCALE_COL_OFF,_scale);
-      UDP.set2 (s._buf,s._off+BADAT_COL_OFF,_badat);
-                s._buf[s._off+ SIZE_COL_OFF]=_size;
-      UDP.set8d(s._buf,s._off+ MEAN_COL_OFF,_mean);
-      UDP.set8d(s._buf,s._off+SIGMA_COL_OFF,_sigma);
-      UDP.set8 (s._buf,s._off+    N_COL_OFF,_n);
-      s._off+=META_COL_SIZE;
-    }
-
-    public void write( DataOutputStream dos ) throws IOException {
-      dos.writeDouble(_max);
-      dos.writeDouble(_min);
-      dos.writeInt(_base);
-      dos.writeShort(_off);
-      dos.writeShort(_scale);
-      dos.writeShort(_badat);
-      dos.writeByte(_size);
-      dos.writeDouble(_mean);
-      dos.writeDouble(_sigma);
-      dos.writeLong(_n);
-    }
-
-    static public Column read( Stream s ) {
-      Column col = new Column();
-      col._max  =       UDP.get8d(s._buf,s._off+  MAX_COL_OFF);
-      col._min  =       UDP.get8d(s._buf,s._off+  MIN_COL_OFF);
-      col._base =       UDP.get4 (s._buf,s._off+ BASE_COL_OFF);
-      col._off  =(short)UDP.get2 (s._buf,s._off+  OFF_COL_OFF);
-      col._scale=(short)UDP.get2 (s._buf,s._off+SCALE_COL_OFF);
-      col._badat= (char)UDP.get2 (s._buf,s._off+BADAT_COL_OFF);
-      col._size =                 s._buf[s._off+ SIZE_COL_OFF];
-      col._mean =       UDP.get8d(s._buf,s._off+ MEAN_COL_OFF);
-      col._sigma=       UDP.get8d(s._buf,s._off+SIGMA_COL_OFF);
-      col._n    =       UDP.get8 (s._buf,s._off+    N_COL_OFF);
-      s._off+=META_COL_SIZE;
-      return col;
-    }
-
-    static public Column read( DataInputStream dis ) throws IOException {
-      Column col = new Column();
-      col._max  = dis.readDouble();
-      col._min  = dis.readDouble();
-      col._base = dis.readInt();
-      col._off  = dis.readShort();
-      col._scale= dis.readShort();
-      col._badat= dis.readChar();
-      col._size = dis.readByte();
-      col._mean = dis.readDouble();
-      col._sigma= dis.readDouble();
-      col._n    = dis.readLong();
-      return col;
+    public Column() { _min = Double.MAX_VALUE; _max = -Double.MAX_VALUE; _scale = 1; }
+    // Plain unstructured byte array; min/max/mean/sigma are all bogus.
+    // No 'NA' options, e.g. 255 is a valid datum.
+    public Column(long len) {
+      _min=0; _max=255; _mean=128; _n = len; _scale=1; _size=1;
     }
   }
 
-  // Byte offset to column meta-data within the ValueArray
-  private final int col(int cnum) {
-    if( 0 <= cnum && cnum < num_cols() )
-      return cnum*META_COL_SIZE + COLUMN0_OFF;
-    throw new ArrayIndexOutOfBoundsException(cnum);
+  // Get a usable pile-o-bits
+  public AutoBuffer getChunk( long chknum ) { return getChunk(getChunkKey(chknum)); }
+  public AutoBuffer getChunk( Key key ) { 
+    byte[] b = DKV.get(key).get();
+    assert b.length == rpc(getChunkIndex(key))*_rowsize : "actual="+b.length+" expected="+rpc(getChunkIndex(key))*_rowsize;
+    return new AutoBuffer(b);
   }
 
-  // Column name (may be null)
-  public String col_name(int cnum) {
-    byte[] mem = get();
-    int off = UDP.get4(mem,col(cnum)+NAME_COL_OFF);
-    int len = UDP.get2(mem,off);
-    return len > 0 ? new String(mem,off+2,len) : Integer.toString(cnum);
-  }
-
-  /** Returns the column object for the given column id.
-   *
-   * This is useful when we are restructuralizing the
-   *
-   * @param idx
-   * @return
-   */
-  public Column getColumn(int idx) {
-    byte[] mem = get();
-    Column c = new Column();
-    c._badat = (char) col_badat(idx);
-    c._base = col_base(idx);
-    c._max = col_max(idx);
-    c._mean = col_mean(idx);
-    c._min = col_min(idx);
-    c._n = UDP.get8(mem,col(idx)+N_COL_OFF);
-    c._name = col_name(idx);
-    c._off = (short) col_off(idx);
-    c._scale = (short) col_scale(idx);
-    c._sigma = col_sigma(idx);
-    c._size = (byte) col_size(idx);
-    c._domain = new ColumnDomain(col_enum_domain(idx));
-    return c;
-  }
-
-  // All the column names.  Unlike the above version, this one replaces null
-  // strings with a column number and never returns null names
-  public String[] col_names() {
-    final int num_cols = num_cols();
-    String[] names = new String[num_cols];
-    for( int i=0; i<num_cols; i++ ) {
-      String s = col_name(i);
-      names[i] = (s==null)?Integer.toString(i):s;
-    }
-    return names;
-  }
-
-  // Column domain (may be empty).
-  // Index in array corresponds to number in table cell.
-  public String[] col_enum_domain(int cnum) {
-    byte[] mem = get();
-    Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
-    int domainSize = s.get2();
-    if( domainSize == 65535 ) domainSize=0; // The no-domain-info flag
-    String[] domain = new String[domainSize];
-    for( int i = 0; i < domain.length; i++)
-      domain[i] = s.getLen2Str();
-    return domain;
-  }
-
-  // Returns string representation of of given ord in column domain.
-  public String col_enum_domain_val(int cnum, int ord) {
-    byte[] mem = get();
-    Stream s = new Stream(mem,UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF));
-    int domainSize = s.get2();
-    if (ord < 0 || ord >= domainSize)
-      throw new ArrayIndexOutOfBoundsException(ord);
-    for( int i = 0; i < ord; i++)
-      s.getLen2Str();
-    return s.getLen2Str();
-  }
-
-  // Returns size of given column enum domain.
-  public int col_enum_domain_size(int cnum) {
-    byte[] mem = get();
-    int off        = UDP.get4(mem,col(cnum)+DOMAIN_COL_OFF);
-    int domainSize = UDP.get2(mem, off);
-    return domainSize;
-  }
-
-  // Returns true if column's enum domain is not empty
-  public boolean col_has_enum_domain(int cnum) {
-    int sz = col_enum_domain_size(cnum);
-    return sz!= 65535 && sz != 0 ;
-  }
-
-  // Offset (within a row) of this column start
-  public int col_off(int cnum) { return UDP.get2(get(),col(cnum)+OFF_COL_OFF)&0xFFFF; }
-
-  // Size in bytes of this column, either 1,2,4 or 8 (integer) or -4 or -8 (float/double)
-  public int col_size(int cnum) { return get()[col(cnum)+SIZE_COL_OFF]; }
-
-  // Max/min/base/scale value seen in column
-  public double col_max  (int cnum) { return UDP.get8d(get(),col(cnum)+  MAX_COL_OFF); }
-  public double col_min  (int cnum) { return UDP.get8d(get(),col(cnum)+  MIN_COL_OFF); }
-  public int    col_base (int cnum) { return UDP.get4 (get(),col(cnum)+ BASE_COL_OFF); }
-  public int    col_scale(int cnum) { return UDP.get2 (get(),col(cnum)+SCALE_COL_OFF); }
-  public int    col_badat(int cnum) { return UDP.get2 (get(),col(cnum)+BADAT_COL_OFF)&0xFFFF; }
-  public double col_mean (int cnum) { return UDP.get8d(get(),col(cnum)+ MEAN_COL_OFF); }
-  public double col_sigma(int cnum) { return UDP.get8d(get(),col(cnum)+SIGMA_COL_OFF); }
-  public double col_var  (int cnum) { double s = col_sigma(cnum); return s*s;}
-
-  /** Sets the sigma - note this should *not* be used on already stored values.
-   */
-  public void set_col_sigma(int cnum,double value) {
-    UDP.set8d(get(),col(cnum)+SIGMA_COL_OFF,value);
-  }
-
-
-  // Row# when offset from chunk start
-  public final int row_in_chunk(long row, int rpc, long chknum) {
-    long rows = chknum*rpc; // Number of rows so far; row-start in this chunk
-    return (int)(row - rows);
-  }
-
-  public final long chunk_for_row( long row, int rpc ) {
-    return Math.min(row/rpc,chunks()-1);
-  }
-
-  // Value extracted, then scaled & based - the double version.  Note that this
+  // Value extracted, then scaled & based - the double version. Note that this
   // is not terrible efficient, and that 99% of this code I expect to be loop-
   // invariant when run inside real numeric loops... but that the compiler will
   // probably need help pulling out the loop invariants.
   public double datad(long rownum, int colnum) {
-    int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
-    long chknum = chunk_for_row(rownum,rpc);
-    int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
-    Key k = chunk_get(chknum);  // Get the chunk key
-    Value val = DKV.get(k);     // Get the chunk
-    // Get the whole row.  Note that in structured arrays, no row splits a chunk.
-    byte[] bits = val.get((row_in_chunk+1)*row_size());
-    return datad(bits,row_in_chunk,row_size(),colnum);
+    long chknum = chknum(rownum);
+    return datad(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
 
   // This is a version where the colnum data is not yet pulled out.
-  public double datad(byte[] bits, int row_in_chunk, int row_size, int colnum) {
-    return datad(bits,row_in_chunk,row_size,col_off(colnum),col_size(colnum), col_base(colnum), col_scale(colnum), colnum);
+  public double datad(AutoBuffer ab, int row_in_chunk, int colnum) {
+    return datad(ab,row_in_chunk,_cols[colnum]);
   }
 
   // This is a version where all the loop-invariants are hoisted already.
-  public double datad(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size, int col_base, int col_scale, int colnum) {
-    assert row_size() == row_size;
-    assert col_off  (colnum)==col_off  ;
-    assert col_base (colnum)==col_base ;
-    assert col_scale(colnum)==col_scale;
-    assert col_size (colnum)==col_size ;
-    int off = (row_in_chunk * row_size) + col_off;
+  public double datad(AutoBuffer ab, int row_in_chunk, Column col) {
+    int off = (row_in_chunk * _rowsize) + col._off;
     double res=0;
-    switch( col_size ) {
-    case  1:         res =    0xff&  bits[off]; break;
-    case  2:         res = UDP.get2 (bits,off); break;
-    case  4:         res = UDP.get4 (bits,off); break;
-    case  8:return         UDP.get8 (bits,off); // No scale/offset for long   data
-    case -4:return         UDP.get4f(bits,off); // No scale/offset for float  data
-    case -8:return         UDP.get8d(bits,off); // No scale/offset for double data
+    switch( col._size ) {
+    case  1: res = ab.get1 (off); break;
+    case  2: res = ab.get2 (off); break;
+    case  4: res = ab.get4 (off); break;
+    case  8:return ab.get8 (off); // No scale/offset for long data
+    case -4:return ab.get4f(off); // No scale/offset for float data
+    case -8:return ab.get8d(off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
-    return (res+col_base)/col_scale;
+    return (res+col._base)/col._scale;
   }
 
   // Value extracted, then scaled & based - the integer version.
   public long data(long rownum, int colnum) throws IOException {
-    int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
-    long chknum = chunk_for_row(rownum,rpc);
-    int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
-    int off = row_in_chunk * row_size();
-    // Get the whole row.  Note that in structured arrays, no row splits a chunk.
-    byte[] bits = get(chknum).get(off+row_size());
-    return data(bits,row_in_chunk,row_size(),colnum);
+    long chknum = chknum(rownum);
+    return data(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
-  public long data(byte[] bits, int row_in_chunk, int row_size, int colnum) {
-    return data(bits,row_in_chunk,row_size,col_off(colnum),col_size(colnum), col_base(colnum), col_scale(colnum), colnum);
+  public long data(AutoBuffer ab, int row_in_chunk, int colnum) {
+    return data(ab,row_in_chunk,_cols[colnum]);
   }
   // This is a version where all the loop-invariants are hoisted already.
-  public long data(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size, int col_base, int col_scale, int colnum) {
-    assert row_size() == row_size;
-    assert col_off  (colnum)==col_off  ;
-    assert col_base (colnum)==col_base ;
-    assert col_scale == 1;
-    assert col_scale(colnum)==col_scale;
-    assert col_size (colnum)==col_size ;
-    int off = (row_in_chunk * row_size) + col_off;
+  public long data(AutoBuffer ab, int row_in_chunk, Column col) {
+    int off = (row_in_chunk * _rowsize) + col._off;
     long res=0;
-    switch( col_size ) {
-    case  1:       res =    0xff&  bits[off]; break;
-    case  2:       res = UDP.get2 (bits,off); break;
-    case  4:       res = UDP.get4 (bits,off); break;
-    case  8:return       UDP.get8 (bits,off); // No scale/offset for long   data
-    case -4:return (long)UDP.get4f(bits,off); // No scale/offset for float  data
-    case -8:return (long)UDP.get8d(bits,off); // No scale/offset for double data
+    switch( col._size ) {
+    case  1: res = ab.get1 (off); break;
+    case  2: res = ab.get2 (off); break;
+    case  4: res = ab.get4 (off); break;
+    case  8:return ab.get8 (off); // No scale/offset for long data
+    case -4:return (long)ab.get4f(off); // No scale/offset for float data
+    case -8:return (long)ab.get8d(off); // No scale/offset for double data
     }
     // Apply scale & base for the smaller numbers
-    return res + col_base;
+    assert col._scale==1;
+    return (res + col._base);
   }
 
 
   // Test if the value is valid, or was missing in the orginal dataset
-  public boolean valid(long rownum, int colnum) throws IOException {
-    int rpc = (int)(chunk_size()/row_size()); // Rows per chunk
-    long chknum = chunk_for_row(rownum,rpc);
-    int row_in_chunk = row_in_chunk(rownum,rpc,chknum);
-    // Get the whole row.  Note that in structured arrays, no row splits a chunk.
-    byte[] bits = get(chknum).get();
-    return valid(bits,row_in_chunk,row_size(),colnum);
+  public boolean isNA(long rownum, int colnum) throws IOException {
+    long chknum = chknum(rownum);
+    return isNA(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
-  public boolean valid(byte[] bits, int row_in_chunk, int row_size, int colnum ) {
-    return valid(bits,row_in_chunk,row_size,col_off(colnum),col_size(colnum));
+  public boolean isNA(AutoBuffer ab, int row_in_chunk, int colnum ) {
+    return isNA(ab,row_in_chunk,_cols[colnum]);
   }
   // Test if the value is valid, or was missing in the orginal dataset
   // This is a version where all the loop-invariants are hoisted already.
-  public boolean valid(byte[] bits, int row_in_chunk, int row_size, int col_off, int col_size ) {
-    int off = (row_in_chunk * row_size) + col_off;
-    switch( col_size ) {
-    case  1:  return           bits[off] != -1;
-    case  2:  return UDP.get2 (bits,off) != 65535;
-    case  4:  return UDP.get4 (bits,off) != Integer.MIN_VALUE;
-    case  8:  return UDP.get8 (bits,off) !=    Long.MIN_VALUE;
-    case -4:  return ! Float.isNaN(UDP.get4f(bits,off));
-    case -8:  return !Double.isNaN(UDP.get8d(bits,off));
+  public boolean isNA(AutoBuffer ab, int row_in_chunk, Column col ) {
+    int off = (row_in_chunk * _rowsize) + col._off;
+    switch( col._size ) {
+    case  1: return ab.get1(off) == 255;
+    case  2: return ab.get2(off) == 65535;
+    case  4: return ab.get4(off) == Integer.MIN_VALUE;
+    case  8: return ab.get8(off) == Long.MIN_VALUE;
+    case -4: return  Float.isNaN(ab.get4f(off));
+    case -8: return Double.isNaN(ab.get8d(off));
     }
-    return false;
+    return true;
   }
 
-  static public ValueArray make(Key key, byte persistence_mode, Key priorkey, String xform, long num_rows, int row_size, Column[] cols ) {
-    // Size of base meta-data, plus column meta-data.
-    int sz = COLUMN0_OFF+cols.length*META_COL_SIZE;
-    // Also include String column-name metadata
-    for( Column column : cols )
-      sz += column._name.length()+2/*2 bytes of pre-length*/;
-    // Also priorkey & xform
-    sz += priorkey.wire_len() + xform.length() + 2;
-    // Also include meta-data representing column domains.
-    for( Column column : cols)
-      sz += column._domain.wire_len();
-    // Make it.
-    ValueArray ary = new ValueArray(sz,sz,key,persistence_mode);
-    byte[] mem = ary._mem;
-    // Fill it.
-    UDP.set8(mem,LENGTH_OFF,(num_rows*row_size));
-    UDP.set4(mem,NUM_COLS_OFF,cols.length);
-    UDP.set4(mem,ROW_SIZE_OFF,row_size);
-    UDP.set8(mem,NUM_ROWS_OFF,num_rows);
-    Stream s = new Stream(mem,ary.col(0)); // Set to start of columns
-    for( Column column : cols)  // Fill the columns
-      column.write(s);
-    // Offset for data past the columns
-    s._off = cols.length*META_COL_SIZE + COLUMN0_OFF;
-    // Prior key
-    UDP.set4(mem,PRIORKEY_OFF,s._off);
-    priorkey.write(s);
-    // XForm string, with leading 2 bytes of length
-    UDP.set4(mem,XFORM_OFF,s._off);
-    // XForm string, with leading 2 bytes of length
-    s.setLen2Str(xform);
-    // Now the column names
-    for( int i=0; i<cols.length; i++ ) {
-      UDP.set4(mem,ary.col(i)+NAME_COL_OFF,s._off); // First the offset to the name
-      s.setLen2Str(cols[i]._name);                  // Then the name
+  // Get the proper Key for a given chunk number
+  public Key getChunkKey( long chknum ) {
+    assert 0 <= chknum && chknum < chunks() : "AIOOB "+chknum+" < "+chunks();
+    return getChunkKey(chknum,_key);
+  }
+  public static Key getChunkKey( long chknum, Key arrayKey ) {
+    byte[] buf = new AutoBuffer().put1(Key.ARRAYLET_CHUNK).put1(0)
+      .put8(chknum<<LOG_CHK).putA1(arrayKey._kb,arrayKey._kb.length).buf();
+    return Key.make(buf,(byte)arrayKey.desired());
+  }
+
+  // Get the root array Key from a random arraylet sub-key
+  public static Key getArrayKey( Key k ) { return Key.make(getArrayKeyBytes(k)); }
+  public static byte[] getArrayKeyBytes( Key k ) {
+    assert k._kb[0] == Key.ARRAYLET_CHUNK;
+    return Arrays.copyOfRange(k._kb,2+8,k._kb.length);
+  }
+
+  // Get the chunk-index from a random arraylet sub-key
+  public static long getChunkIndex(Key k) {
+    assert k._kb[0] == Key.ARRAYLET_CHUNK;
+    return UDP.get8(k._kb, 2) >> LOG_CHK;
+  }
+  public static long getChunkOffset(Key k) { return getChunkIndex(k)<<LOG_CHK; }
+
+  // ---
+  // Read a (possibly VERY large file) and put it in the K/V store and return a
+  // Value for it. Files larger than 2Meg are broken into arraylets of 1Meg each.
+  static public Key readPut(String keyname, InputStream is) throws IOException {
+    return readPut(Key.make(keyname), is);
+  }
+
+  static public Key readPut(Key k, InputStream is) throws IOException {
+    Futures fs = new Futures();
+    k = readPut(k,is,fs);
+    fs.block_pending();
+    return k;
+  }
+
+  static private Key readPut(Key key, InputStream is, Futures fs) throws IOException {
+    // try to read 2-chunks or less into the buffer
+    byte[] buf = MemoryManager.malloc1((int)(CHUNK_SZ<<1));
+    int off=0;
+    int len=buf.length;
+    int sz=0;
+    while( off<len && (sz = is.read(buf,off,len-off)) != -1 )
+      off+=sz;
+    if( off<(CHUNK_SZ<<1) ) {   // buffer is 2-chunks or less
+      assert is.read(new byte[1]) == -1;
+      // it is a single simple value
+      UKV.put(key,new Value(key,Arrays.copyOf(buf,off)),fs);
+      return key;
     }
-    // Now the columns meta-data: domains
-    for( int i=0; i<cols.length; i++ ) {
-      UDP.set4(mem,ary.col(i)+DOMAIN_COL_OFF,s._off); // First write the offset of domain to column header.
-      cols[i]._domain.write(s);                       // Then the domain names
+    UKV.remove(key);
+
+    // Oops - read 2 chunks worth of data and still more coming.  Switch over
+    // to a ValueArray, and write out what we got as the first two of possibly
+    // many chunks.
+    Key ckey0 = getChunkKey(0,key);
+    DKV.put(ckey0,new Value(ckey0,Arrays.copyOfRange(buf,            0,(int) CHUNK_SZ    )),fs);
+    Key ckey1 = getChunkKey(1,key);
+    buf = Arrays.copyOfRange(buf,(int)CHUNK_SZ,(int)(CHUNK_SZ<<1));
+    DKV.put(ckey1,new Value(ckey1,buf),fs);
+
+    // Read the rest out
+    long szl = off;
+    long cidx = 2;
+    byte[] oldbuf;
+    while( true ) {
+      oldbuf = buf;
+      buf = MemoryManager.malloc1((int)CHUNK_SZ);
+      off=0;
+      while( off<CHUNK_SZ && (sz = is.read(buf,off,(int)(CHUNK_SZ-off))) != -1 )
+        off+=sz;
+      szl += off;
+      if( off<CHUNK_SZ ) break;
+      Key ckey = getChunkKey(cidx++,key);
+      DKV.put(ckey,new Value(ckey,buf),fs);
     }
-    assert s._off == mem.length:"s.off("+s._off+") != mem.length (" + mem.length + ")";
-    return ary;
+    assert is.read(new byte[1]) == -1;
+
+    // Last chunk is short, read it; combine buffers and make the last chunk larger
+    Key ckey = getChunkKey(cidx-1,key); // Get last chunk written out
+    assert DKV.get(ckey).get()==oldbuf; // Maybe false-alarms under high-memory-pressure?
+    byte[] newbuf = Arrays.copyOf(oldbuf,(int)(off+CHUNK_SZ));
+    System.arraycopy(buf,0,newbuf,(int)CHUNK_SZ,off);
+    DKV.put(ckey,new Value(ckey,newbuf),fs); // Overwrite the old too-small Value
+    UKV.put(key,new ValueArray(key,szl,Value.ICE).value(),fs);
+    return key;
+  }
+
+  // Wrap a InputStream over this ValueArray
+  public InputStream openStream() {
+    return new InputStream() {
+      private AutoBuffer _ab;
+      private long _chkidx;
+      @Override public int available() throws IOException {
+        if( _ab==null || _ab.remaining()==0 ) {
+          if( _chkidx >= chunks() ) return 0;
+          _ab = getChunk(_chkidx++);
+        }
+        return _ab.remaining();
+      }
+      @Override public void close() { _chkidx = chunks(); _ab = null; }
+      @Override public int read() throws IOException {
+        return available() == 0 ? -1 : _ab.get1();
+      }
+      @Override public int read(byte[] b, int off, int len) throws IOException {
+        return available() == 0 ? -1 : _ab.read(b,off,len);
+      }
+    };
   }
 }

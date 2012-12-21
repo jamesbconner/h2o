@@ -15,18 +15,17 @@ public class Cloud extends H2OPage {
     JsonObject res = new JsonObject();
     final H2O cloud = H2O.CLOUD;
     final H2ONode self = H2O.SELF;
+    HeartBeat hb = self._heartbeat;
     res.addProperty("cloud_name", H2O.NAME);
-    res.addProperty("node_name", self.toString());
-    res.addProperty("cloud_size",cloud._memary.length);
-    res.addProperty("consensus",Paxos._commonKnowledge); // Cloud is globally accepted
-    res.addProperty("locked",Paxos._cloud_locked); // Cloud is locked against changes
-
-    res.addProperty("fjthrds_hi",self.get_fjthrds_hi());
-    res.addProperty("fjqueue_hi",self.get_fjqueue_hi());
-    res.addProperty("fjthrds_lo",self.get_fjthrds_lo());
-    res.addProperty("fjqueue_lo",self.get_fjqueue_lo());
-    res.addProperty("rpcs"      ,self.get_rpcs()      );
-
+    res.addProperty("node_name",  self.toString());
+    res.addProperty("cloud_size", cloud._memary.length);
+    res.addProperty("consensus",  Paxos._commonKnowledge); // Cloud is globally accepted
+    res.addProperty("locked",     Paxos._cloudLocked); // Cloud is locked against changes
+    res.addProperty("fjthrds_hi", hb._fjthrds_hi);
+    res.addProperty("fjqueue_hi", hb._fjqueue_hi);
+    res.addProperty("fjthrds_lo", hb._fjthrds_lo);
+    res.addProperty("fjqueue_lo", hb._fjqueue_lo);
+    res.addProperty("rpcs"      , hb._rpcs);
     return res;
   }
 
@@ -36,48 +35,48 @@ public class Cloud extends H2OPage {
     response.replace("node_name",H2O.SELF.toString());
     final H2O cloud = H2O.CLOUD;
     for( H2ONode h2o : cloud._memary ) {
+      HeartBeat hb = h2o._heartbeat;
       // restart the table line
       RString row = response.restartGroup("tableRow");
       // This hangs on ipv6 name resolution
       //String name = h2o._inet.getHostName();
       row.replace("host",h2o);
       row.replace("node",h2o);
-      row.replace("num_cpus" ,                 (h2o.get_num_cpus ()));
-      row.replace("free_mem" ,PrettyPrint.bytes(h2o.get_free_mem ()));
-      row.replace("tot_mem"  ,PrettyPrint.bytes(h2o.get_tot_mem  ()));
-      row.replace("max_mem"  ,PrettyPrint.bytes(h2o.get_max_mem  ()));
-      row.replace("num_keys" ,                 (h2o.get_keys     ()));
-      row.replace("val_size" ,PrettyPrint.bytes(h2o.get_valsz    ()));
-      row.replace("free_disk",PrettyPrint.bytes(h2o.get_free_disk()));
-      row.replace("max_disk" ,PrettyPrint.bytes(h2o.get_max_disk ()));
+      row.replace("num_cpus" ,            (int)(hb._num_cpus));
+      row.replace("free_mem" ,PrettyPrint.bytes(hb.get_free_mem()));
+      row.replace("tot_mem"  ,PrettyPrint.bytes(hb.get_tot_mem  ()));
+      row.replace("max_mem"  ,PrettyPrint.bytes(hb.get_max_mem  ()));
+      row.replace("num_keys" ,                 (hb._keys));
+      row.replace("val_size" ,PrettyPrint.bytes(hb.get_valsz    ()));
+      row.replace("free_disk",PrettyPrint.bytes(hb.get_free_disk()));
+      row.replace("max_disk" ,PrettyPrint.bytes(hb.get_max_disk ()));
 
-      row.replace("cpu_util" ,pos_neg(h2o.get_cpu_util()));
+      row.replace("cpu_util" ,pos_neg(hb.get_cpu_util()));
 
-      double [] cpu_load = h2o.get_cpu_load();
-      row.replace("cpu_load_1" ,pos_neg(cpu_load[0]));
-      row.replace("cpu_load_5" ,pos_neg(cpu_load[1]));
-      row.replace("cpu_load_15",pos_neg(cpu_load[2]));
+      row.replace("cpu_load_1" ,pos_neg(hb.get_cpu_load1()));
+      row.replace("cpu_load_5" ,pos_neg(hb.get_cpu_load5()));
+      row.replace("cpu_load_15",pos_neg(hb.get_cpu_load15()));
 
-      int fjq_hi = h2o.get_fjqueue_hi();
-      int fjt_hi = h2o.get_fjthrds_hi();
+      int fjq_hi = hb._fjqueue_hi;
+      int fjt_hi = hb._fjthrds_hi;
       if(fjq_hi > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyleHi","background-color:green;");
       row.replace("fjthrds_hi",  fjt_hi);
       row.replace("fjqueue_hi",  fjq_hi);
-      int fjq_lo = h2o.get_fjqueue_lo();
-      int fjt_lo = h2o.get_fjthrds_lo();
+      int fjq_lo = hb._fjqueue_lo;
+      int fjt_lo = hb._fjthrds_lo;
       if(fjq_lo > HeartBeatThread.QUEUEDEPTH)
         row.replace("queueStyleLo","background-color:green;");
       row.replace("fjthrds_lo",  fjt_lo);
       row.replace("fjqueue_lo",  fjq_lo);
-      row.replace("rpcs",        h2o.get_rpcs());
-      row.replace("tcps_active", h2o.get_tcps_active());
+      row.replace("rpcs",        (int)hb._rpcs);
+      row.replace("tcps_active", (int)hb._tcps_active);
 
       row.append();
     }
     response.replace("size",cloud._memary.length);
     response.replace("voting",Paxos._commonKnowledge?"":"Voting in progress");
-    response.replace("locked",Paxos._cloud_locked?"Cloud locked":"");
+    response.replace("locked",Paxos._cloudLocked?"Cloud locked":"");
     return response.toString();
   }
 

@@ -1,34 +1,16 @@
 package test;
 import static org.junit.Assert.*;
+
+import com.google.gson.JsonObject;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
-
 import java.util.Properties;
-
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-
 import water.*;
 import water.parser.ParseDataset;
-import water.util.KeyUtil;
 import water.web.RFView;
 import water.web.RandomForestPage;
 
-import com.google.gson.JsonObject;
-
-public class RandomForestTest {
-  private static int _initial_keycnt = 0;
-
-  @BeforeClass public static void setupCloud() {
-    H2O.main(new String[] { });
-    _initial_keycnt = H2O.store_size();
-  }
-
-  @AfterClass public static void checkLeakedKeys() {
-    int leaked_keys = H2O.store_size() - _initial_keycnt;
-    assertEquals("No keys leaked", 0, leaked_keys);
-  }
-
+public class RandomForestTest extends KeyUtil {
   // ---
   // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
   @org.junit.Test public void testRF_Iris() throws Exception {
@@ -111,19 +93,19 @@ public class RandomForestTest {
 
 
   // Test kaggle/creditsample-test data
-  /*@org.junit.Test*/ public void kaggle_credit() throws Exception {
+  @org.junit.Test public void kaggle_credit() throws Exception {
     Key fkey = KeyUtil.load_test_file("smalldata/kaggle/creditsample-training.csv.gz");
     Key okey = Key.make("credit.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
     UKV.remove(Key.make("smalldata/kaggle/creditsample-training.csv.gz_UNZIPPED"));
     UKV.remove(Key.make("smalldata\\kaggle\\creditsample-training.csv.gz_UNZIPPED"));
-    ValueArray val = (ValueArray) DKV.get(okey);
+    ValueArray val = ValueArray.value(okey);
 
     // Check parsed dataset
     assertEquals("Number of chunks", 4, val.chunks());
-    assertEquals("Number of rows", 150000, val.num_rows());
-    assertEquals("Number of cols", 12, val.num_cols());
+    assertEquals("Number of rows", 150000, val.numRows());
+    assertEquals("Number of cols", 12, val.numCols());
 
     // setup default values for DRF
     int ntrees  = 3;

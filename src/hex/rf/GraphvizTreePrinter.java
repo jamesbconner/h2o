@@ -7,15 +7,18 @@ import hex.rf.Tree.SplitNode;
 import java.io.*;
 import java.text.MessageFormat;
 
+import water.AutoBuffer;
+import water.ValueArray.Column;
+
 
 public class GraphvizTreePrinter extends TreePrinter {
   private final Appendable _dest;
 
-  public GraphvizTreePrinter(OutputStream dest, String[] columns, String[]classNames) {
+  public GraphvizTreePrinter(OutputStream dest, Column[] columns, String[]classNames) {
     this(new OutputStreamWriter(dest), columns, classNames);
   }
 
-  public GraphvizTreePrinter(Appendable dest, String[] columns, String[]classNames) {
+  public GraphvizTreePrinter(Appendable dest, Column[] columns, String[]classNames) {
     super(columns,classNames);
     _dest = dest;
   }
@@ -42,7 +45,7 @@ public class GraphvizTreePrinter extends TreePrinter {
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
         MessageFormat.format("data[{0}] <= {1} (gini)",
-            _columnNames[t._column], t._split)));
+            _cols[t._column]._name, t._split)));
 
     t._l.print(this);
     t._r.print(this);
@@ -60,7 +63,7 @@ public class GraphvizTreePrinter extends TreePrinter {
     _dest.append(String.format("%d [label=\"%s\\n%s\"];\n",
         obj, "Node",
         MessageFormat.format("data[{0}] == {1} (gini)",
-            _columnNames[t._column], t._split)));
+            _cols[t._column]._name, t._split)));
 
     t._l.print(this);
     t._r.print(this);
@@ -75,21 +78,21 @@ public class GraphvizTreePrinter extends TreePrinter {
 
   // Walk and print a serialized tree - we do not get a proper tree structure,
   // instead the deserializer walks us on the fly.
-  public void walk_serialized_tree( byte[] tbits ) {
+  public void walk_serialized_tree( AutoBuffer tbits ) {
     try {
       _dest.append("digraph {\n");
       new Tree.TreeVisitor<IOException>(tbits) {
         Tree.TreeVisitor leaf(int tclass ) throws IOException {
-          String x = (tclass < _classNames.length) 
-            ? String.format("%d [label=\"%s\"];\n"      , _ts._off-2, _classNames[tclass])
-            : String.format("%d [label=\"Class %d\"];\n", _ts._off-2, tclass);
+          String x = _classNames != null && tclass < _classNames.length
+            ? String.format("%d [label=\"%s\"];\n"      , _ts.position()-2, _classNames[tclass])
+            : String.format("%d [label=\"Class %d\"];\n", _ts.position()-2, tclass);
           _dest.append(x);
           return this;
         }
         Tree.TreeVisitor pre (int col, float fcmp, int off0, int offl, int offr ) throws IOException {
-          byte b = _ts._buf[off0];
+          byte b = (byte) _ts.get1(off0);
           _dest.append(String.format("%d [label=\"%s %s %f\"];\n",
-                                     off0, _columnNames[col], ((b=='E')?"==":"<="), fcmp));
+                                     off0, _cols[col]._name, ((b=='E')?"==":"<="), fcmp));
           _dest.append(String.format("%d -> %d;\n", off0, offl));
           _dest.append(String.format("%d -> %d;\n", off0, offr));
           return this;

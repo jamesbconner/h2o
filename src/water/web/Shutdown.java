@@ -3,6 +3,7 @@ package water.web;
 import java.util.Properties;
 import java.util.TimerTask;
 
+import water.H2O;
 import water.UDPRebooted;
 
 import com.google.gson.JsonObject;
@@ -13,7 +14,7 @@ public class Shutdown extends H2OPage {
     t.schedule(new TimerTask() {
       @Override
       public void run() {
-        UDPRebooted.T.shutdown.broadcast();
+        UDPRebooted.T.shutdown.send(H2O.SELF);
         System.exit(-1);
       }
     }, 100);
@@ -28,6 +29,4 @@ public class Shutdown extends H2OPage {
     serverJson(server, args, sessionID);
     return "Shutting down";
   }
-
-
 }

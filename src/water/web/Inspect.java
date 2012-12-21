@@ -1,10 +1,10 @@
 package water.web;
+
+import com.google.gson.*;
+import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Properties;
-
-import com.google.gson.*;
-
 import water.*;
 
 public class Inspect extends H2OPage {
@@ -33,37 +33,35 @@ public class Inspect extends H2OPage {
 
     JsonObject result = new JsonObject();
     result.addProperty("key", key.toString());
-    if (val instanceof ValueArray) {
+    if( val._isArray != 0 ) {
       result.addProperty("type", "ary");
-      ValueArray ary = (ValueArray) val;
-      result.addProperty("rows", ary.num_rows());
-      result.addProperty("cols", ary.num_cols());
-      result.addProperty("rowsize",ary.row_size());
+      ValueArray ary = ValueArray.value(val);
+      result.addProperty("rows", ary._numrows);
+      result.addProperty("cols", ary._cols.length);
+      result.addProperty("rowsize",ary._rowsize);
       result.addProperty("size",ary.length());
-      result.addProperty("priorKey",ary.prior_key() == null ? "" : ary.prior_key().toString());
       JsonArray columns = new JsonArray();
-      for( int i=0; i<ary.num_cols(); i++ ) {
+      for( ValueArray.Column C : ary._cols ) {
         JsonObject col = new JsonObject();
-        col.addProperty("name",  ary.col_name(i));
-        col.addProperty("off",   ary.col_off(i));
-        if (ary.col_has_enum_domain(i)) {
-          col.addProperty("type",  "enum");
+        col.addProperty("name", C._name);
+        col.addProperty("off", (int)C._off);
+        if( C._domain != null ) {
+          col.addProperty("type", "enum");
           JsonArray enums = new JsonArray();
-          for (String e : ary.col_enum_domain(i)) {
+          for( String e : C._domain )
             enums.add(new JsonPrimitive(e));
-          }
           col.add("enumdomain", enums);
         } else {
-          col.addProperty("type",  ary.col_size(i) > 0 ? "int" : "float");
+          col.addProperty("type", C._size > 0 ? "int" : "float");
         }
-        col.addProperty("size",  Math.abs(ary.col_size(i)));
-        col.addProperty("base",  ary.col_base(i));
-        col.addProperty("scale", ary.col_scale(i));
-        col.addProperty("min",   String.valueOf(ary.col_min(i)));
-        col.addProperty("max",   String.valueOf(ary.col_max(i)));
-        col.addProperty("badat", String.valueOf(ary.col_badat(i)));
-        col.addProperty("mean",  String.valueOf(ary.col_mean(i)));
-        col.addProperty("var",  String.valueOf(ary.col_sigma(i)));
+        col.addProperty("size", Math.abs(C._size));
+        col.addProperty("base", C._base);
+        col.addProperty("scale", C._scale);
+        col.addProperty("min", String.valueOf(C._min));
+        col.addProperty("max", String.valueOf(C._max));
+        col.addProperty("badat", String.valueOf(ary._numrows-C._n));
+        col.addProperty("mean", String.valueOf(C._mean));
+        col.addProperty("var", String.valueOf(C._sigma));
         columns.add(col);
       }
       result.add("columns", columns);
@@ -82,9 +80,11 @@ public class Inspect extends H2OPage {
     if( val == null )
       return wrap(error("Key not found: "+ ks));
 
-    if( val instanceof ValueArray &&
-        ((ValueArray)val).num_cols() > 0 )
-      return structured_array(key,(ValueArray)val);
+    if( val._isArray != 0 ) {
+      ValueArray ary = ValueArray.value(val);
+      if( ary._cols.length > 1 || ary._cols[0]._size != 1 )
+        return structured_array(key,ary,val.onHDFS());
+    }
 
     RString response = new RString(html);
 
@@ -100,7 +100,7 @@ public class Inspect extends H2OPage {
       response.replace("storeHdfs", "");
     }
 
-    // ASCII file?  Give option to do a binary parse
+    // ASCII file? Give option to do a binary parse
     String p_keys = ks;
     int idx = ks.lastIndexOf('.');
     if( idx != -1 )
@@ -108,8 +108,8 @@ public class Inspect extends H2OPage {
     p_keys += ".hex";
     if(p_keys.startsWith("hdfs://"))
       p_keys = p_keys.substring(7);
-    else if (p_keys.startsWith("nfs:"))
-      p_keys = p_keys.substring(4);
+    else if (p_keys.startsWith("nfs:"+File.separator))
+      p_keys = p_keys.substring(5);
     if( p_keys.equals(ks) ) p_keys += "2";
 
     Key p_key = Key.make(p_keys);
@@ -128,7 +128,7 @@ public class Inspect extends H2OPage {
     RString row = response.restartGroup("tableRow");
 
     // Now the first 100 bytes of Value as a String
-    byte[] b = new byte[100];   // Amount to read
+    byte[] b = new byte[100]; // Amount to read
     int len=0;
     try {
       len = val.openStream().read(b); // Read, which might force loading.
@@ -144,11 +144,12 @@ public class Inspect extends H2OPage {
         sb.append(", ");
       else sb.append((char)c);
     }
-    if( val.length() > len ) sb.append("...");
+    final long length = val.length();
+    if( length > len ) sb.append("...");
     row.replace("value",sb);
-    row.replace("size", PrettyPrint.bytes(val.length()));
+    row.replace("size", PrettyPrint.bytes(length));
 
-    ServletUtil.createBestEffortSummary(key, row);
+    ServletUtil.createBestEffortSummary(key, row, length);
   }
 
 
@@ -157,21 +158,21 @@ public class Inspect extends H2OPage {
     + "%storeHdfs"
     + "<table class='table table-striped table-bordered table-condensed'>"
     + "<colgroup><col/><col/><col/><col/><col colspan=5 align=center/></colgroup>\n"
-    + "<thead><tr><th>    <th>    <th>    <th align=center colspan=5>Min / Average / Max <th>   </tr>\n"
-    + "       <tr><th>Size<th>Rows<th>Cols<th>Col 0<th>Col 1<th>Col 2<th>Col 3<th>Col 4<th>Value</tr></thead>\n"
+    + "<thead><tr><th> <th> <th> <th align=center colspan=5>Min / Average / Max <th> </tr>\n"
+    + " <tr><th>Size<th>Rows<th>Cols<th>Col 0<th>Col 1<th>Col 2<th>Col 3<th>Col 4<th>Value</tr></thead>\n"
     + "<tbody>\n"
     + "%tableRow{\n"
-    + "  <tr>"
-    + "    <td>%size</td>"
-    + "    <td>%rows</td>"
-    + "    <td>%cols</td>"
-    + "    <td>%col0</td>"
-    + "    <td>%col1</td>"
-    + "    <td>%col2</td>"
-    + "    <td>%col3</td>"
-    + "    <td>%col4</td>"
-    + "    <td>%value</td>"
-    + "  </tr>\n"
+    + " <tr>"
+    + " <td>%size</td>"
+    + " <td>&#126;%rows</td>"
+    + " <td>%cols</td>"
+    + " <td>%col0</td>"
+    + " <td>%col1</td>"
+    + " <td>%col2</td>"
+    + " <td>%col3</td>"
+    + " <td>%col4</td>"
+    + " <td>%value</td>"
+    + " </tr>\n"
     + "}\n"
     + "</tbody>\n"
     + "</table>\n"
@@ -183,9 +184,9 @@ public class Inspect extends H2OPage {
   // ---------------------
   // Structured Array / Dataset display
 
-  String structured_array( Key key, ValueArray ary ) {
+  String structured_array( Key key, ValueArray ary, boolean onHDFS ) {
     RString response = new RString(html_ary);
-    if(H2O.OPT_ARGS.hdfs != null && !ary.onHDFS()){
+    if( H2O.OPT_ARGS.hdfs != null && onHDFS ) {
       RString hdfs = new RString("<a href='Store2HDFS?Key=%$key'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
       response.replace("storeHdfs", hdfs.toString());
@@ -194,54 +195,51 @@ public class Inspect extends H2OPage {
     }
     // Pretty-print the key
     response.replace("key",key);
-    response.replace("priorKey",ary.prior_key());
-    response.replace("rows",ary.num_rows());
-    response.replace("rowsize", ary.row_size());
+    response.replace("rows",ary._numrows);
+    response.replace("rowsize", ary._rowsize);
     response.replace("size", PrettyPrint.bytes(ary.length()));
-    response.replace("ncolumns",ary.num_cols());
-    response.replace("xform",ary.xform());
+    response.replace("ncolumns",ary._cols.length);
 
     // Header row
     StringBuilder sb = new StringBuilder();
-    final int num_col = Math.min(255,ary.num_cols());
-    String[] names = ary.col_names();
+    final int num_col = Math.min(255,ary._cols.length);
     for( int i=0; i<num_col; i++ )
-      sb.append("<th>").append(names[i]);
+      sb.append("<th>").append(ary._cols[i]._name);
     response.replace("head_row",sb);
 
     // Data layout scheme
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td> +").append(ary.col_off(i)).append("</td>");
+      sb.append("<td> +").append(ary._cols[i]._off).append("</td>");
     response.replace("offset_row",sb);
 
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(Math.abs(ary.col_size(i))).append("b</td>");
+      sb.append("<td>").append(Math.abs(ary._cols[i]._size)).append("b</td>");
     response.replace("size_row",sb);
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(format(ary.col_mean(i))).append("</td>");
+      sb.append("<td>").append(format(ary._cols[i]._mean)).append("</td>");
     response.replace("mean_row",sb);
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ )
-      sb.append("<td>").append(format(ary.col_sigma(i))).append("</td>");
+      sb.append("<td>").append(format(ary._cols[i]._sigma)).append("</td>");
     response.replace("sigma_row",sb);
     // Compression/math function: Ax+B
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ ) {
       sb.append("<td>");
-      int sz = ary.col_size(i);
+      int sz = ary._cols[i]._size;
       if( sz != 0 ) {
         sb.append("(X");
-        int base = ary.col_base(i);
+        int base = ary._cols[i]._base;
         if( base != 0 ) {
           if( base > 0 ) sb.append('+');
           sb.append(base);
         }
         sb.append(")");
         if( sz == 1 || sz == 2 ) {
-          int s = ary.col_scale(i);
+          int s = ary._cols[i]._scale;
           if( s != 1.0 ) sb.append("/").append(s);
         }
       }
@@ -253,13 +251,13 @@ public class Inspect extends H2OPage {
     sb = new StringBuilder();
     for( int i=0; i<num_col; i++ ) {
       sb.append("<td>");
-      int sz = ary.col_size(i);
+      int sz = ary._cols[i]._size;
       if( sz != 0 ) {
-        double min = ary.col_min(i);
-        if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)min); else sb.append(min);
+        double min = ary._cols[i]._min;
+        if( sz > 0 && ary._cols[i]._scale == 1 ) sb.append((long)min); else sb.append(min);
         sb.append(" - ");
-        double max = ary.col_max(i);
-        if( sz > 0 && ary.col_scale(i) == 1 ) sb.append((long)max); else sb.append(max);
+        double max = ary._cols[i]._max;
+        if( sz > 0 && ary._cols[i]._scale == 1 ) sb.append((long)max); else sb.append(max);
       }
       sb.append("</td>");
     }
@@ -268,7 +266,7 @@ public class Inspect extends H2OPage {
     // Missing data
     boolean found=false;
     for( int i=0; i<num_col; i++ )
-      if( ary.col_badat(i) != 0 ) {
+      if( ary._cols[i]._n != ary._numrows ) {
         found=true;
         break;
       }
@@ -278,7 +276,7 @@ public class Inspect extends H2OPage {
       sb.append("<td>Rows missing data</td>");
       for( int i=0; i<num_col; i++ ) {
         sb.append("<td>");
-        int sz = ary.col_badat(i);
+        long sz = ary._numrows - ary._cols[i]._n;
         sb.append(sz != 0 ? sz : "");
         sb.append("</td>");
       }
@@ -288,7 +286,7 @@ public class Inspect extends H2OPage {
 
     // If we have more than 7 rows, display the first & last 3 rows, else
     // display all the rows.
-    long num_rows = ary.num_rows();
+    long num_rows = ary._numrows;
     if( num_rows > 7 ) {
       display_row(ary,0,response,num_col);
       display_row(ary,1,response,num_col);
@@ -311,14 +309,16 @@ public class Inspect extends H2OPage {
       StringBuilder sb = new StringBuilder();
       sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
       for( int i=0; i<num_col; i++ ) {
-        if( r == -1 || ary.valid(r,i) ) {
+        if( r == -1 || !ary.isNA(r,i) ) {
           sb.append("<td>");
-          int sz = ary.col_size(i);
+          int sz = ary._cols[i]._size;
           if( sz != 0 ) {
             if( r == -1 ) sb.append("...");
             else {
-              if( ary.col_has_enum_domain(i) ) sb.append(ary.col_enum_domain_val(i, (int)ary.data(r,i)));
-              else if( ary.col_size(i) >= 0 && ary.col_scale(i)==1 ) sb.append(ary.data(r,i)); // int/long
+              if( ary._cols[i]._domain != null ) 
+                sb.append(ary._cols[i]._domain[(int)ary.data(r,i)]);
+              else if( ary._cols[i]._size >= 0 && ary._cols[i]._scale==1 ) 
+                sb.append(ary.data(r,i)); // int/long
               else sb.append(ary.datad(r,i)); // float/double
             }
           }

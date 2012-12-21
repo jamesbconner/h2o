@@ -8,8 +8,7 @@ import water.*;
  * A model is an ensemble of trees that can be serialized and that can be used
  * to classify data.
  */
-public class Model extends RemoteTask {
-
+public class Model extends Iced {
   /** Key model is stored in the cloud with */
   public Key _key;
   /** Number of trees in the model. */
@@ -29,6 +28,10 @@ public class Model extends RemoteTask {
   /** Number of split features */
   public int       _splitFeatures;
 
+  /** Number of keys the model expects to be built for it */
+  public int       _totalTrees;
+  public Key       _treesKey;
+
   public Model() { }
 
   /** A RandomForest Model
@@ -36,14 +39,16 @@ public class Model extends RemoteTask {
    * @param classes     the number of response classes
    * @param data        the dataset
    */
-  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures) {
+  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures, int totalTrees) {
     _key            = key;
+    _treesKey       = treeskey;
     _classes        = classes;
     _features       = features;
     _sample         = sample;
     _dataset        = dataset;
     _ignoredColumns = ignoredColumns;
     _splitFeatures  = splitFeatures;
+    _totalTrees      = totalTrees;
 
     Key[] tkeys = treeskey.flatten(); // Trees
     if( tkeys == null ) return;       // Broken model?  quit now
@@ -74,19 +79,19 @@ public class Model extends RemoteTask {
    * @param rowsize  the size in byte of each row
    * @return the predicted response class, or class+1 for broken rows
    */
-  public short classify0(int tree_id, byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal ) {
-    return Tree.classify(_trees[tree_id], data, chunk, row, rowsize, offs, size, base, scal, (short)_classes);
+  public short classify0(int tree_id, AutoBuffer chunk, int row, int rowsize, ValueArray data ) {
+    return Tree.classify(new AutoBuffer(_trees[tree_id]), data, chunk, row, rowsize, (short)_classes);
   }
 
-  private void vote(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes ) {
+  private void vote(AutoBuffer chunk, int row, int rowsize, ValueArray data, int[] votes ) {
     assert votes.length == _classes+1/*+1 to catch broken rows*/;
     for( int i = 0; i < _ntrees; i++ )
-      votes[classify0(i, chunk, row, rowsize, data, offs, size, base, scal)]++;
+      votes[classify0(i, chunk, row, rowsize, data)]++;
   }
 
-  public short classify(byte[] chunk, int row, int rowsize, ValueArray data, int[]offs, int[]size, int[]base, int[]scal, int[] votes, double[] classWt, Random rand ) {
+  public short classify(AutoBuffer chunk, int row, int rowsize, ValueArray data, int[] votes, double[] classWt, Random rand ) {
     // Vote all the trees for the row
-    vote(chunk, row, rowsize, data, offs, size, base, scal, votes);
+    vote(chunk, row, rowsize, data, votes);
     // Scale the votes by class weights: it as-if rows of the weighted classes
     // were replicated many times so get many votes.
     if( classWt != null )
@@ -122,7 +127,7 @@ public class Model extends RemoteTask {
     _td = new Counter();
     _tl = new Counter();
     for( byte[] tbits : _trees ) {
-      long dl = Tree.depth_leaves(tbits);
+      long dl = Tree.depth_leaves(new AutoBuffer(tbits));
       _td.add((int) (dl >> 32));
       _tl.add((int) dl);
     }
@@ -144,8 +149,6 @@ public class Model extends RemoteTask {
     @Override public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,avg(),_max); }
   }
 
-  public void invoke( Key args ) { throw H2O.unimpl(); }
-  public void compute( )         { throw H2O.unimpl(); }
   /** Return the random seed used to sample this tree. */
   public long getTreeSeed(int i) {  return Tree.seed(_trees[i]); }
 }

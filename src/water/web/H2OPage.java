@@ -122,8 +122,7 @@ public abstract class H2OPage extends Page {
     return args.getProperty(arg,"false").equals("true");
   }
 
-  static String colName(int colId, ValueArray ary   ) { return colName(colId,ary.col_name(colId)); }
-  static String colName(int colId, String[] colNames) { return colName(colId,    colNames[colId]); }
+  static String colName(int colId, ValueArray ary   ) { return colName(colId,ary._cols[colId]._name); }
   static String colName(int colId, String n) { return n==null ? "Column "+colId : n; }
 
   static class InvalidInputException extends PageError {
@@ -138,7 +137,7 @@ public abstract class H2OPage extends Page {
     }
   }
 
-  public static int[] parseVariableExpression(String[] colNames, String vexp) throws PageError {
+  public static int[] parseVariableExpression(ValueArray ary, String vexp) throws PageError {
     if( vexp.trim().isEmpty() ) return new int[0];
     String[] colExps = vexp.split(",");
     int[] res = new int[colExps.length];
@@ -148,8 +147,8 @@ public abstract class H2OPage extends Page {
       if( colExp.contains(":") ) {
         String[] parts = colExp.split(":");
         if( parts.length != 2 ) throw new InvalidColumnIdException(colExp);
-        int from = parseVariableExpression(colNames, parts[0])[0];
-        int to   = parseVariableExpression(colNames, parts[1])[0];
+        int from = parseVariableExpression(ary, parts[0])[0];
+        int to   = parseVariableExpression(ary, parts[1])[0];
         int[] new_res = new int[res.length + to - from];
         System.arraycopy(res, 0, new_res, 0, idx);
         for( int j = from; j <= to; ++j )
@@ -157,19 +156,19 @@ public abstract class H2OPage extends Page {
         res = new_res;
         continue __OUTER;
       }
-      res[idx++] = parseColumnNameOrIndex(colNames, colExp);
+      res[idx++] = parseColumnNameOrIndex(ary, colExp);
     }
     return res;
   }
 
-  public static int parseColumnNameOrIndex(String[] colNames, String s) throws InvalidColumnIdException {
+  public static int parseColumnNameOrIndex(ValueArray ary, String s) throws InvalidColumnIdException {
     s = s.trim();
-    for( int j = 0; j < colNames.length; ++j )
-      if( colNames[j].equalsIgnoreCase(s) )
+    for( int j = 0; j < ary._cols.length; ++j )
+      if( s.equalsIgnoreCase(ary._cols[j]._name) )
         return j;
     try {
       int i = Integer.valueOf(s);
-      if(i < 0 || colNames.length <= i) throw new InvalidColumnIdException(s);
+      if( i < 0 || ary._cols.length <= i) throw new InvalidColumnIdException(s);
       return i;
     } catch( NumberFormatException e ) {
       throw new InvalidColumnIdException(s);

@@ -10,8 +10,8 @@ public class Covariance extends H2OPage {
   @Override
   public JsonObject serverJson(Server server, Properties args, String sessionID) throws PageError {
     ValueArray ary = ServletUtil.check_array(args,"Key");
-    int colA = parseColumnNameOrIndex(ary.col_names(), args.getProperty("colA", "0"));
-    int colB = parseColumnNameOrIndex(ary.col_names(), args.getProperty("colB", "1"));
+    int colA = parseColumnNameOrIndex(ary, args.getProperty("colA", "0"));
+    int colB = parseColumnNameOrIndex(ary, args.getProperty("colB", "1"));
     return hex.Covariance.run(ary,colA,colB);
   }
 
