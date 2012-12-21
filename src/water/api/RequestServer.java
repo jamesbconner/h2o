@@ -38,6 +38,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new Inspect()),"Inspect","Key actions");
     Request.addToNavbar(registerRequest(new Get()),"Get","Key actions");
     Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
+    Request.addToNavbar(registerRequest(new GLM()),"GLM","Functions");
     Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
     Request.addToNavbar(registerRequest(new ImportDirectory()),"Directory","Import");
     Request.addToNavbar(registerRequest(new ImportFile()),"File","Import");

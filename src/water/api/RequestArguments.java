@@ -1153,6 +1153,61 @@ public class RequestArguments extends RequestStatics {
     }
 
   }
+  
+  // ---------------------------------------------------------------------------
+  // EnumClass
+  // ---------------------------------------------------------------------------
+
+  public class EnumArgument<T extends Enum<T>> extends InputSelect<T> {
+
+    protected final Class<T> _enumClass;
+    protected final T _defaultValue;
+
+
+    public EnumArgument(String name, T defaultValue) {
+      super(name, false);
+      _defaultValue = defaultValue;
+      _enumClass = (Class<T>) defaultValue.getClass();
+    }
+
+    public EnumArgument(String name, Class enumClass) {
+      super(name, true);
+      _defaultValue = null;
+      _enumClass = enumClass;
+    }
+
+
+    @Override protected String[] selectValues() {
+      T[] _enums = _enumClass.getEnumConstants();
+      String[] result = new String[_enums.length];
+      for (int i = 0; i < _enums.length; ++i)
+        result[i] = _enums[i].name();
+      return result;
+    }
+
+    @Override protected String selectedItemValue() {
+      T v = value();
+      if (v == null)
+        return "";
+      return v.name();
+    }
+
+    @Override protected T parse(String input) throws IllegalArgumentException {
+      for (T v : _enumClass.getEnumConstants())
+        if (v.name().equals(input))
+          return v;
+      throw new IllegalArgumentException("Only "+Arrays.toString(selectValues())+" accepted for argument "+_name);
+    }
+
+    @Override protected T defaultValue() {
+      return _defaultValue;
+    }
+
+    @Override protected String queryDescription() {
+      return "any of "+Arrays.toString(selectValues());
+    }
+
+  }
 
   // ---------------------------------------------------------------------------
   // ExistingFile
