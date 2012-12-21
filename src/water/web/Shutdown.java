@@ -15,7 +15,6 @@ public class Shutdown extends H2OPage {
       @Override
       public void run() {
         UDPRebooted.T.shutdown.send(H2O.SELF);
-        System.exit(-1);
       }
     }, 100);
 

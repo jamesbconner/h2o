@@ -1018,6 +1018,8 @@ public final class ParseDataset {
       for( SimpleDateFormat sdf : SDFS ) {
         try { return sdf.parse(s).getTime(); }
         catch( ParseException pe ) { }
+        catch( NumberFormatException nfe ) { }
+        catch( ArrayIndexOutOfBoundsException aiooe ) { }
       }
       return Long.MIN_VALUE;
     }

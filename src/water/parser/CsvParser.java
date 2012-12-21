@@ -115,7 +115,7 @@ NEXT_CHAR:
           // fallthrough to STRING_END
         // ---------------------------------------------------------------------
         case STRING_END:
-          if ((c != CHAR_SEPARATOR) && ((c == CHAR_SPACE) || (c == CHAR_TAB)))
+          if ((c != CHAR_SEPARATOR) && (c == CHAR_SPACE))
             break NEXT_CHAR;
           // we have parsed the string enum correctly
           if((_str._off + _str._length) > _str._buf.length){ // crossing chunk boundary
@@ -133,7 +133,7 @@ NEXT_CHAR:
             state = WHITESPACE_BEFORE_TOKEN;
             break NEXT_CHAR;
           }
-          if (isWhitespace(c))
+          if (c==CHAR_SPACE)
             break NEXT_CHAR;
           // fallthrough to EOL
         // ---------------------------------------------------------------------
@@ -175,7 +175,7 @@ NEXT_CHAR:
           // fallthrough to WHITESPACE_BEFORE_TOKEN
         // ---------------------------------------------------------------------
         case WHITESPACE_BEFORE_TOKEN:
-          if ((c == CHAR_SPACE) || ( c == CHAR_TAB)) {
+          if (c == CHAR_SPACE) {
               break NEXT_CHAR;
           } else if (c == CHAR_SEPARATOR) {
             // we have empty token, store as NaN
@@ -510,9 +510,9 @@ NEXT_CHAR:
     byte[] bits = from.getBytes();
     int offset = 0;
     int quotes = 0;
-    while ((offset < bits.length) && (bits[offset] == CHAR_SPACE)) ++offset; // skip first whitespace
     while (offset < bits.length) {
-    StringBuilder t = new StringBuilder();
+      while ((offset < bits.length) && (bits[offset] == CHAR_SPACE)) ++offset; // skip first whitespace
+      StringBuilder t = new StringBuilder();
       byte c = bits[offset];
       if ((c == '"') || (c == '\'')) {
         quotes = c;
@@ -542,9 +542,13 @@ NEXT_CHAR:
         break;
       if (c != separator)
         return new String[0]; // an error
-      ++offset;
-      while ((offset < bits.length) && ( bits[offset] == ' ')) ++offset;
+      ++offset;               // Skip separator
     }
+    // If we have trailing empty columns (split by seperators) such as ",,\n"
+    // then we did not add the final (empty) column, so the column count will
+    // be down by 1.  Add an extra empty column here
+    if( bits[bits.length-1] == separator )
+      tokens.add("");
     return tokens.toArray(new String[tokens.size()]);
   }
 
