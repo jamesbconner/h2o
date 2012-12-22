@@ -16,7 +16,6 @@ public class ExprTest extends KeyUtil {
     Key k2 = executeExpression("g=hhp.hex");
     Key kg = Key.make("g");
     ValueArray va2 = ValueArray.value(kg);
-    //System.out.println(" kg="+kg+" va["+va2._numrows+"]["+va2._cols.length+"]");
     UKV.remove(kg);
     UKV.remove(k1);
     UKV.remove(k2);
