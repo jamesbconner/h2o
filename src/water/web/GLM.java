@@ -48,17 +48,17 @@ public class GLM extends H2OPage {
   }
   GLMParams getGLMParams(Properties p){
     GLMParams res = new GLMParams();
-    try{res._f = GLMSolver.Family.valueOf(p.getProperty("family", "gaussian").toLowerCase()).ordinal();}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
+    try{res._f = GLMSolver.Family.valueOf(p.getProperty("family", "gaussian").toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
 
     if(p.containsKey("link"))
-     try{res._l = Link.valueOf(p.getProperty("link").toLowerCase()).ordinal();}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
+     try{res._l = Link.valueOf(p.getProperty("link").toLowerCase());}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
     else
-      res._l = Family.values()[res._f].defaultLink.ordinal();
+      res._l = res._f.defaultLink;
     if(p.containsKey("expandCat"))
       res._expandCat = true;
     res._maxIter = getIntArg(p, "ITER", GLMSolver.DEFAULT_MAX_ITER);
     res._betaEps = getDoubleArg(p, "betaEps", GLMSolver.DEFAULT_BETA_EPS);
-    res._familyArgs = getFamilyArgs(Family.values()[res._f], p);
+    res._familyArgs = getFamilyArgs(res._f, p);
     return res;
   }
 

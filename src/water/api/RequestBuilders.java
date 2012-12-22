@@ -357,8 +357,9 @@ public class RequestBuilders extends RequestQueries {
      * and changing their behavior an arbitrarily complex webpage can be
      * created.
      */
-    public void setBuilder(String contextName, Builder builder) {
+    public Response setBuilder(String contextName, Builder builder) {
       _builders.put(contextName, builder);
+      return this;
     }
 
     /** Returns the builder for given JSON context element. Null if not found
@@ -680,7 +681,7 @@ public class RequestBuilders extends RequestQueries {
       } else {
         base = elementToString(element, contextName);
       }
-      return build(base, contextName);
+      return build(base, elementName(contextName));
     }
   }
 
