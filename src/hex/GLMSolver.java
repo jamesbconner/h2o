@@ -219,7 +219,7 @@ public class GLMSolver {
       _numeric = Arrays.copyOf(numeric, nnum);
       int fullLen = _colIds.length + _colOffsets[_colIds.length];
       _beta = new double[fullLen];
-      Arrays.fill(_beta, Link.values()[_glmParams._l].defaultBeta);
+      Arrays.fill(_beta, _glmParams._l.defaultBeta);
       if(_solver.normalize()){
         _normMul = new double[fullLen];
         _normSub = new double[fullLen];
@@ -313,8 +313,8 @@ public class GLMSolver {
   }
 
   public static class GLMParams extends Iced {
-    public int _f = Family.gaussian.ordinal();
-    public int _l;
+    public Family _f = Family.gaussian;
+    public Link _l;
     public double [] _familyArgs;
     public double _betaEps;
     public int _maxIter;
@@ -322,12 +322,12 @@ public class GLMSolver {
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
-      res.addProperty("family", Family.values()[_f].name());
-      res.addProperty("link", Link.values()[_l].name());
+      res.addProperty("family", _f.toString());
+      res.addProperty("link", _l.toString());
       res.addProperty("betaEps", _betaEps);
       res.addProperty("maxIter", _maxIter);
       if(_familyArgs != null){
-        assert _f == Family.binomial.ordinal();
+        assert _f == Family.binomial;
         res.addProperty("caseVal",_familyArgs[FAMILY_ARGS_CASE]);
         res.addProperty("weight",_familyArgs[FAMILY_ARGS_WEIGHT]);
         res.addProperty("threshold",_familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]);
@@ -359,7 +359,7 @@ public class GLMSolver {
           break;
         } catch (Exception e){
           switch(_solver._penalty){
-          case NO:
+          case NONE:
             _solver._penalty = LSMSolver.Norm.L2;
             _solver._lambda = 1e-8;
             break;
@@ -367,10 +367,10 @@ public class GLMSolver {
             _solver._lambda *= 10;
             break;
           case L1:
-            _solver._penalty = LSMSolver.Norm.EL;
+            _solver._penalty = LSMSolver.Norm.ELASTIC;
             _solver._lambda2 = 1e-8;
             break;
-          case EL:
+          case ELASTIC:
             _solver._lambda2 *= 10;
             break;
           default:
@@ -402,8 +402,8 @@ public class GLMSolver {
   }
 
   public static class GramMatrixTask extends RowVecTask {
-    int _f;
-    int _l;
+    Family _f;
+    Link _l;
     double [] _beta;
     double [] _familyArgs;
     int [] _raw;
@@ -468,8 +468,8 @@ public class GLMSolver {
     @Override
     protected void init(HexDataFrame.ChunkData data){
       _gram = new GramMatrix(_beta.length);
-      _link = Link.values()[_l];
-      _family = Family.values()[_f];
+      _link = _l;
+      _family = _f;
     }
 
     @Override
@@ -552,7 +552,8 @@ public class GLMSolver {
   }
 
   public static class GLMValidation extends Iced {
-    int _l,_f;
+    Link _l;
+    Family _f;
     Key _dataKey;
     Sampling _s;
     long _n;
@@ -582,10 +583,8 @@ public class GLMSolver {
     }
   }
   public static class GLMValidatoinTask extends RowVecTask {
-    transient Link _link;
-    transient Family _family;
-    int _l;
-    int _f;
+    Link _l;
+    Family _f;
     double _ymu;
     double _deviance;
     double _nullDeviance;
@@ -599,9 +598,7 @@ public class GLMSolver {
       super(new HexDataFrame(aryKey,colIds));
     }
     @Override protected void init(HexDataFrame.ChunkData data){
-      _link = Link.values()[_l];
-      _family = Family.values()[_f];
-      if(_family == Family.binomial)
+      if(_f == Family.binomial)
         _cm = new ConfusionMatrix(2);
     }
 
@@ -613,14 +610,14 @@ public class GLMSolver {
       double ym = 0;
       for(int i = 0; i < x.length; ++i)
         ym += _beta[indexes[i]] * x[i];
-      ym = _link.linkInv(ym);
+      ym = _l.linkInv(ym);
 
-      if(_family == Family.binomial)
+      if(_f == Family.binomial)
         yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
 
-      _deviance += _family.deviance(yr, ym);
-      _nullDeviance += _family.deviance(yr, _ymu);
-      if(_family == Family.binomial) {
+      _deviance += _f.deviance(yr, ym);
+      _nullDeviance += _f.deviance(yr, _ymu);
+      if(_f == Family.binomial) {
         ym = ym >= _familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]?1:0;
         _cm.add((int)yr,(int)ym);
       } else
