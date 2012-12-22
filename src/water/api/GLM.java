@@ -236,50 +236,40 @@ public class GLM extends Request {
 
     final Link _link;
 
-    public GLMCoeffBuilder(Link link) {
-      _link = link;
-    }
 
     @Override protected String objectToString(JsonObject obj, String contextName) {
       RString m = null;
-      switch (_link) {
-        case identity:
-          m = new RString("y = %equation");
-          m.replace("equation", getFormulaSrc(obj, false));
-          break;
-        case logit:
-          m = new RString("y = 1/(1 + Math.exp(%equation))");
-          m.replace("equation", getFormulaSrc(obj, true));
-          break;
-        case log:
-          m = new RString("y = Math.exp(%equation)");
-          m.replace("equation", getFormulaSrc(obj, false));
-          break;
-        case inverse:
-          m = new RString("y = 1/(%equation)");
-          m.replace("equation", getFormulaSrc(obj, false));
-          break;
-        default:
-          assert (false);
+
+      switch(_link){
+      case identity:
+        m = new RString("y = %equation");
+        break;
+      case logit:
+        m = new RString("y = 1/(1 + Math.exp(%equation))");
+        break;
+      default:
+        assert false;
+        return "";
       }
+      boolean first = true;
+      StringBuilder bldr = new StringBuilder();
+      for(Map.Entry<String,JsonElement> e:obj.entrySet()){
+
+        double v = e.getValue().getAsDouble();
+        if(v == 0)continue;
+        if(!first)
+          bldr.append(((v < 0)?" - ":" + ") + dformat.format(Math.abs(v)));
+        else
+          bldr.append(dformat.format(v));
+        first = false;
+        bldr.append("*x[" + e.getKey() + "]");
+      }
+      m.replace("equation",bldr.toString());
       return "<pre>"+m.toString()+"</pre>";
     }
 
-    String getFormulaSrc(JsonObject x, boolean neg) {
-      StringBuilder codeBldr = new StringBuilder();
-      for( Map.Entry<String, JsonElement> e : x.entrySet() ) {
-        double val = e.getValue().getAsDouble();
-        if(val == 0)continue;
-        if(neg) val *= -1;
-        if( codeBldr.length() > 0 ) {
-          if(val >= 0)codeBldr.append(" + " + dformat.format(val));
-          else codeBldr.append(" - " + dformat.format(-val));
-        } else
-          codeBldr.append(dformat.format(val));
-        if( !e.getKey().equals("Intercept") )
-          codeBldr.append("*x[" + e.getKey()+ "]");
-      }
-      return codeBldr.toString();
+    public GLMCoeffBuilder(Link link) {
+      _link = link;
     }
   }
 
