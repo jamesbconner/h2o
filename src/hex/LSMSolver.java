@@ -8,7 +8,7 @@ import com.google.gson.JsonObject;
 
 public final class LSMSolver extends Iced {
 
-  public static enum Norm { NO, L1, L2, EL; }
+  public static enum Norm { NONE, L1, L2, ELASTIC; }
   Norm _penalty;
 
   public static final double DEFAULT_LAMBDA = 1e-5;
@@ -17,10 +17,13 @@ public final class LSMSolver extends Iced {
   public static final double DEFAULT_RHO = 1e-2;
 
   public boolean normalize() {
-    return _penalty != Norm.NO;
+    return _penalty != Norm.NONE;
   }
 
-  public LSMSolver () {}
+  public LSMSolver () {
+    _penalty = Norm.NONE;
+  }
+  
   public static LSMSolver makeSolver(){
     return new LSMSolver();
   }
@@ -43,7 +46,7 @@ public final class LSMSolver extends Iced {
 
   public static LSMSolver makeElasticNetSolver(double lambda, double lambda2, double rho, double alpha){
     LSMSolver res = new LSMSolver();
-    res._penalty = Norm.EL;
+    res._penalty = Norm.ELASTIC;
     res._lambda = lambda;
     res._lambda2 = lambda2;
     res._rho = rho;
@@ -60,7 +63,7 @@ public final class LSMSolver extends Iced {
   public JsonObject toJson(){
     JsonObject res = new JsonObject();
     switch(_penalty){
-    case NO:
+    case NONE:
       res.addProperty("penalty", "none");
       break;
     case L2:
@@ -73,7 +76,7 @@ public final class LSMSolver extends Iced {
       res.addProperty("rho",_rho);
       res.addProperty("alpha",_alpha);
       break;
-    case EL:
+    case ELASTIC:
       res.addProperty("penalty","L1 + L2");
       res.addProperty("lambda",_lambda);
       res.addProperty("lambda2",_lambda2);
@@ -90,10 +93,10 @@ public final class LSMSolver extends Iced {
   public double [] solve(GramMatrix m){
     double lambda;
     switch( _penalty ) {
-    case NO:  lambda = 0.0;              break;
+    case NONE:  lambda = 0.0;              break;
     case L1:  lambda = _rho;             break;
     case L2:  lambda =        _lambda ;  break;
-    case EL:  lambda = _rho + _lambda2;  break;
+    case ELASTIC:  lambda = _rho + _lambda2;  break;
     default:
       throw new Error("unexpected penalty " + _penalty);
     }
@@ -103,10 +106,10 @@ public final class LSMSolver extends Iced {
     CholeskyDecomposition lu = new CholeskyDecomposition(xx);
 
     switch(_penalty) {
-    case NO:
+    case NONE:
     case L2: // L2 and no penalty need only one iteration
       return lu.solve(xy).getColumnPackedCopy();
-    case EL:
+    case ELASTIC:
     case L1:  // use ADMM to solve LASSO
       final int N = xx.getRowDimension();
       final double ABSTOL = Math.sqrt(N) * 1e-4;
