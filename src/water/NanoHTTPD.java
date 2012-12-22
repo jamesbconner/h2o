@@ -204,6 +204,7 @@ public class NanoHTTPD
     myTcpPort = socket.getLocalPort();
     this.myRootDir = wwwroot;
     myServerSocket = socket;
+    myServerSocket.setReuseAddress(true);
     myThread = new Thread(new Runnable() {
       public void run() {
         try {
