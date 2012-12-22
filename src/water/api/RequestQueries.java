@@ -126,6 +126,8 @@ public class RequestQueries extends RequestArguments {
         if ((type != RequestType.query) || !args.getProperty(arg._name,"").isEmpty())
           query.append("<div class='alert alert-error'>"+e.getMessage()+"</div>");
       }
+      if (arg._hideInQuery)
+        continue;
       query.append(arg.query());
       if (!arg.disabled()) {
         RString x = script.restartGroup("REQUEST_ELEMENT");

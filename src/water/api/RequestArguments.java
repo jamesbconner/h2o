@@ -174,6 +174,11 @@ public class RequestArguments extends RequestStatics {
      */
     public String _requestHelp;
 
+    /** True if the argument should not appear in the automatically generated
+     * query.
+     */
+    public boolean _hideInQuery = false;
+
     /** Override this method to provide parsing of the input string to the Java
      * expected value. The input is guaranteed to be non-empty when this method
      * is called and all prerequisities are guaranteed to be valid before this

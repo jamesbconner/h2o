@@ -101,6 +101,7 @@ public class GLM extends Request {
   public GLM() {
     _family.setRefreshOnChange();
     _norm.setRefreshOnChange();
+    _negX._hideInQuery = true;
   }
 
 
