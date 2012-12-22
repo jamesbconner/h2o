@@ -781,6 +781,10 @@ public final class AutoBuffer {
     return put2((char)b.length).putA1(b,b.length);
   }
 
+  public AutoBuffer putEnum( Enum x ) {
+    return put1(x==null ? -1 : x.ordinal());
+  }
+
   public AutoBuffer copyArrayFrom(int offset, AutoBuffer ab, int abOff, int len) {
     byte[] dst = _bb.array();
     offset += _bb.arrayOffset();
