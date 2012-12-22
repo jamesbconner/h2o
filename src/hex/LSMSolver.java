@@ -93,10 +93,10 @@ public final class LSMSolver extends Iced {
   public double [] solve(GramMatrix m){
     double lambda;
     switch( _penalty ) {
-    case NONE:  lambda = 0.0;              break;
-    case L1:  lambda = _rho;             break;
-    case L2:  lambda =        _lambda ;  break;
-    case ELASTIC:  lambda = _rho + _lambda2;  break;
+    case NONE:    lambda = 0.0;              break;
+    case L1:      lambda = _rho;             break;
+    case L2:      lambda =        _lambda ;  break;
+    case ELASTIC: lambda = _rho + _lambda2;  break;
     default:
       throw new Error("unexpected penalty " + _penalty);
     }
