@@ -152,7 +152,7 @@ public class RFRunner {
       String path = tk.nextToken();
       if( path.endsWith("*") ) {
         path = path.substring(0, path.length() - 1);
-        File f = KeyUtil.find_test_file(path);
+        File f = TestUtil.find_test_file(path);
         if( !f.isDirectory() ) throw new Error("invalid path '" + path + "*'");
         for( File x : f.listFiles() ) {
           if( x.isFile() && (x.getName().endsWith(".csv") || x.getName().endsWith(".data")) )
@@ -160,7 +160,7 @@ public class RFRunner {
           else if( x.isDirectory() )
             files.addAll(parseDatasetArg(x.getAbsolutePath() + "*"));
         }
-      } else files.add(KeyUtil.find_test_file(path));
+      } else files.add(TestUtil.find_test_file(path));
     }
     return files;
   }

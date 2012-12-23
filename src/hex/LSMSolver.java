@@ -98,7 +98,7 @@ public final class LSMSolver extends Iced {
     case L2:      lambda =        _lambda ;  break;
     case ELASTIC: lambda = _rho + _lambda2;  break;
     default:
-      throw new Error("unexpected penalty " + _penalty);
+      throw new IllegalArgumentException("unexpected penalty " + _penalty);
     }
     Matrix [] mm = m.getXandY(lambda);
     Matrix xx = mm[0];
@@ -173,7 +173,7 @@ public final class LSMSolver extends Iced {
       }
       return z;
    default:
-     throw new Error("unexpected penalty " + _penalty);
+     throw new IllegalArgumentException("unexpected penalty " + _penalty);
     }
   }
 }

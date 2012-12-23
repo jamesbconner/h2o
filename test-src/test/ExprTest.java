@@ -7,7 +7,7 @@ import water.*;
 import water.exec.*;
 import water.parser.ParseDataset;
 
-public class ExprTest extends KeyUtil {
+public class ExprTest extends TestUtil {
   int i = 0;
 
   @Test public void testMultiChunkFile() {
@@ -111,7 +111,7 @@ public class ExprTest extends KeyUtil {
   }
 
   protected Key loadAndParseKey(String keyName, String path) {
-    Key fkey = KeyUtil.load_test_file(path);
+    Key fkey = load_test_file(path);
     Key okey = Key.make(keyName);
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);

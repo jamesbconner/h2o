@@ -10,12 +10,13 @@ import water.parser.ParseDataset;
 import water.web.RFView;
 import water.web.RandomForestPage;
 
-public class RandomForestTest extends KeyUtil {
+public class RandomForestTest extends TestUtil {
   // ---
   // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
   @org.junit.Test public void testRF_Iris() throws Exception {
+    stall_till_cloudsize(3);
     final int CLASSES=3;        // Number of output classes in iris dataset
-    Key fkey = KeyUtil.load_test_file("smalldata/iris/iris2.csv");
+    Key fkey = load_test_file("smalldata/iris/iris2.csv");
     Key okey = Key.make("iris.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
@@ -94,7 +95,8 @@ public class RandomForestTest extends KeyUtil {
 
   // Test kaggle/creditsample-test data
   @org.junit.Test public void kaggle_credit() throws Exception {
-    Key fkey = KeyUtil.load_test_file("smalldata/kaggle/creditsample-training.csv.gz");
+    stall_till_cloudsize(3);
+    Key fkey = load_test_file("smalldata/kaggle/creditsample-training.csv.gz");
     Key okey = Key.make("credit.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
@@ -135,5 +137,4 @@ public class RandomForestTest extends KeyUtil {
     UKV.remove(drf._modelKey);
     UKV.remove(okey);
   }
-
 }

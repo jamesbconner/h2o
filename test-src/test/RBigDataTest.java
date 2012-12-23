@@ -7,7 +7,7 @@ import water.*;
 import water.exec.*;
 import water.parser.ParseDataset;
 
-public class RBigDataTest extends KeyUtil {
+public class RBigDataTest extends TestUtil {
   int i = 0;
 
   
@@ -72,7 +72,7 @@ public class RBigDataTest extends KeyUtil {
   }
   
   protected Key loadAndParseKey(String keyName, String path) {
-    Key fkey = KeyUtil.load_test_file(path);
+    Key fkey = load_test_file(path);
     Key okey = Key.make(keyName);
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);

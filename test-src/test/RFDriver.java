@@ -44,12 +44,12 @@ public class RFDriver {
     if(ARGS.parsdedKey != null) // data already parsed
       va = ValueArray.value(DKV.get(Key.make(ARGS.parsdedKey)));
     else if(ARGS.rawKey != null) // data loaded in K/V, not parsed yet
-      va = KeyUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(KeyUtil.getHexKeyFromRawKey(ARGS.rawKey)));
+      va = TestUtil.parse_test_key(Key.make(ARGS.rawKey),Key.make(TestUtil.getHexKeyFromRawKey(ARGS.rawKey)));
     else { // data outside of H2O, load and parse
       File f = new File(ARGS.file);
       System.out.println("[RF] Loading file " + f);
-      Key fk = KeyUtil.load_test_file(f);
-      va = KeyUtil.parse_test_key(fk,Key.make(KeyUtil.getHexKeyFromFile(f)));
+      Key fk = TestUtil.load_test_file(f);
+      va = TestUtil.parse_test_key(fk,Key.make(TestUtil.getHexKeyFromFile(f)));
       DKV.remove(fk);
     }
     if(ARGS.ntrees == 0) {
@@ -84,8 +84,8 @@ public class RFDriver {
     if(ARGS.validationFile != null && !ARGS.validationFile.isEmpty()){ // validate on the supplied file
       File f = new File(ARGS.validationFile);
       System.out.println("[RF] Loading validation file " + f);
-      Key fk = KeyUtil.load_test_file(f);
-      ValueArray v = KeyUtil.parse_test_key(fk,Key.make(KeyUtil.getHexKeyFromFile(f)));
+      Key fk = TestUtil.load_test_file(f);
+      ValueArray v = TestUtil.parse_test_key(fk,Key.make(TestUtil.getHexKeyFromFile(f)));
       valKey = v._key;
       DKV.remove(fk);
       Confusion.make( model, valKey, classcol,ignores, null, false).report();
