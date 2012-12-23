@@ -85,7 +85,7 @@ public class GLMSolver {
   // supported families
   public static enum Family {
     gaussian(Link.identity,null),
-    binomial(Link.logit,new double[]{1.0,1.0}),
+      binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
     poisson(Link.log,null),
     gamma(Link.inverse,null);
     public final Link defaultLink;
@@ -249,7 +249,7 @@ public class GLMSolver {
             if(ary._cols[i]._name.equals(_colNames[j]))
               colIds[idx++] = i;
       if(idx != colIds.length)throw new Error("incompatible dataset");
-      GLMValidatoinTask valTsk = new GLMValidatoinTask(ary._key,colIds);
+      GLMValidationTask valTsk = new GLMValidationTask(ary._key,colIds);
       valTsk._colOffsets = _colOffsets;
       valTsk._categoricals = _categoricals;
       valTsk._numeric = _numeric;
@@ -353,28 +353,34 @@ public class GLMSolver {
       gtask._s = s;
       gtask.invoke(ary._key);
       double [] beta = null;
-      for(int i = 0; i < 20; ++i){
-        try{
+      for( int i = 0; i < 20; ++i) {
+        try {
           beta = _solver.solve(gtask._gram);
           break;
-        } catch (Exception e){
-          switch(_solver._penalty){
+        } catch( RuntimeException e ) {
+          if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
+            throw e;
+          switch(_solver._penalty) {
           case NONE:
+            System.out.println("[glm] Warning: not solvable without normalization, switching to L2 penalty");
             _solver._penalty = LSMSolver.Norm.L2;
             _solver._lambda = 1e-8;
             break;
           case L2:
+            System.out.println("[glm] Warning: not solvable without more normalization, increasing L2 penalty");
             _solver._lambda *= 10;
             break;
           case L1:
+            System.out.println("[glm] Warning: not solvable without normalization, switching to ELASTIC penalty");
             _solver._penalty = LSMSolver.Norm.ELASTIC;
             _solver._lambda2 = 1e-8;
             break;
           case ELASTIC:
+            System.out.println("[glm] Warning: not solvable without more normalization, increasing ELASTIC penalty");
             _solver._lambda2 *= 10;
             break;
           default:
-            throw new Error("unexpected penalty "+ _solver._penalty);
+            throw new IllegalArgumentException();
           }
         }
       }
@@ -402,20 +408,16 @@ public class GLMSolver {
   }
 
   public static class GramMatrixTask extends RowVecTask {
-    Family _f;
-    Link _l;
+    Family _family;
+    Link _link;
     double [] _beta;
     double [] _familyArgs;
-    int [] _raw;
-    transient Link _link;
-    transient Family _family;
-
     GramMatrix _gram;
 
     public GramMatrixTask(GLMModel m){
-      super(new HexDataFrame(m._dataset,m._colIds));
-      _f = m._glmParams._f;
-      _l = m._glmParams._l;
+      super(m._dataset,m._colIds);
+      _family = m._glmParams._f;
+      _link = m._glmParams._l;
       _beta = m._beta;
       _familyArgs = m._glmParams._familyArgs;
       _normSub = m._normSub;
@@ -425,17 +427,20 @@ public class GLMSolver {
       _numeric = m._numeric;
     }
 
-    int rowId;
     public void processRow(double [] x, int [] indexes){
       double y = x[x.length-1];
       // set the intercept
       double w = 1;
-      if(_family == Family.binomial){
-        if(y == _familyArgs[FAMILY_ARGS_CASE]){
-          y = 1.0;
+      // For binomials over enum response variables, allow one case to be
+      // "success" and all other cases to be "fails".
+      if( _family == Family.binomial && 
+          !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) ) {
+        if( _familyArgs[FAMILY_ARGS_CASE] == y ) {
+          y = 1.0;              // Success case; map to 1
           w = _familyArgs[FAMILY_ARGS_WEIGHT];
-        } else
-          y = 0;
+        } else {
+          y = 0;                // Fail case; map to 0
+        }
       }
 
       x[x.length-1] = 1.0; // constant (Intercept)
@@ -466,10 +471,8 @@ public class GLMSolver {
     }
 
     @Override
-    protected void init(HexDataFrame.ChunkData data){
+    protected void init2(){
       _gram = new GramMatrix(_beta.length);
-      _link = _l;
-      _family = _f;
     }
 
     @Override
@@ -478,7 +481,6 @@ public class GLMSolver {
       if(_gram != null)_gram.add(other._gram);
       else _gram = other._gram;
     }
-
   }
 
   public static final class ConfusionMatrix extends Iced {
@@ -582,7 +584,7 @@ public class GLMSolver {
       return res;
     }
   }
-  public static class GLMValidatoinTask extends RowVecTask {
+  public static class GLMValidationTask extends RowVecTask {
     Link _l;
     Family _f;
     double _ymu;
@@ -594,10 +596,10 @@ public class GLMSolver {
     double _err;
     long _n;
 
-    public GLMValidatoinTask(Key aryKey, int [] colIds){
-      super(new HexDataFrame(aryKey,colIds));
+    public GLMValidationTask(Key aryKey, int [] colIds){
+      super(aryKey,colIds);
     }
-    @Override protected void init(HexDataFrame.ChunkData data){
+    @Override protected void init2() {
       if(_f == Family.binomial)
         _cm = new ConfusionMatrix(2);
     }
@@ -626,7 +628,7 @@ public class GLMSolver {
 
     @Override
     public void reduce(DRemoteTask drt) {
-      GLMValidatoinTask other = (GLMValidatoinTask)drt;
+      GLMValidationTask other = (GLMValidationTask)drt;
       _n += other._n;
       _nullDeviance += other._nullDeviance;
         _deviance += other._deviance;

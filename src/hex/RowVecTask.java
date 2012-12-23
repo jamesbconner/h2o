@@ -1,13 +1,19 @@
 package hex;
 
-import hex.HexDataFrame.ChunkData;
-import hex.HexDataFrame.ChunkData.HexRow;
-
 import java.util.Arrays;
-
 import water.*;
 
 public abstract class RowVecTask extends MRTask {
+  Sampling _s;
+  int [] _categoricals;
+  int [] _numeric;
+  int [] _colOffsets;
+  double [] _normSub;
+  double [] _normMul;
+
+  int [] _colIds;
+  Key _aryKey;
+  transient ValueArray _ary;
 
   public enum DataPreprocessing {
     NONE,        // x_new = x
@@ -16,22 +22,25 @@ public abstract class RowVecTask extends MRTask {
     AUTO
   };
 
+  // Set once per Node, shared ValueArray unpack
   @Override
   public void init(){
     super.init();
-    _data.init();
+    _ary = ValueArray.value(_aryKey);
   }
 
-  public RowVecTask(HexDataFrame data){
-    _data = data;
+  public RowVecTask(Key aryKey, int[] colIds){
+    _aryKey = aryKey;
+    _colIds = colIds;
   }
+
   public static class Sampling extends Iced {
     final int _step;
     final int _offset;
     final boolean _complement;
     int _idx;
 
-    public Sampling(int offset, int step, boolean complement){
+    public Sampling(int offset, int step, boolean complement) {
       _step = step;
       _complement = complement;
       _offset = offset;
@@ -53,62 +62,46 @@ public abstract class RowVecTask extends MRTask {
     }
   }
 
-  protected boolean _skipIncompleteLines = true; // if true, rows with invalid/missing values will be skipped
-
   public RowVecTask() {}
-
   public RowVecTask(RowVecTask other){
-    _skipIncompleteLines = other._skipIncompleteLines;
     _s = other._s;
   }
-
-
 
   public void setSampling(Sampling s){
     _s = s;
   }
 
-  Sampling _s;
-  HexDataFrame _data;
-  int [] _categoricals;
-  int [] _numeric;
-  int [] _colOffsets;
-  double [] _normSub;
-  double [] _normMul;
-
-  protected transient ValueArray _ary;
   @Override
   public void map(Key key) {
-    ChunkData chunk = _data.getChunkData(key);
-    init(chunk);
-    double [] x = new double[_data._colIds.length];
+    init2();                    // Specialized subtask per-chunk init
+    AutoBuffer bits = _ary.getChunk(key);
+    final int rows = bits.remaining()/_ary._rowsize;
+    double [] x = new double[_colIds.length];
     Arrays.fill(x, 1.0);
     int [] indexes = new int[x.length];
     // compute offsets
 ROW:
-    for(HexRow r:chunk.rows()){
+    for( int r=0; r<rows; r++ ) {
       if(_s != null && _s.skip())continue;
-      if(_categoricals != null) for(int i:_categoricals){
-        if(!r.valid(i))continue ROW;
-        indexes[i] = r.getI(i) + _colOffsets[i] + i;
+      if( _categoricals != null ) for( int i : _categoricals ) {
+        if( _ary.isNA(bits,r,i) ) continue ROW;
+        indexes[i] = (int)_ary.data(bits,r,i) + _colOffsets[i] + i;
         if(_normSub != null)
           x[i] = _normMul[indexes[i]];
         else
           x[i] = 1.0;
       }
       if(_numeric != null) for (int i:_numeric){
-        int col = _data._colIds[i];
-        if(!r.valid(col))continue ROW;
-        x[i] = r.getD(col);
+        int col = _colIds[i];
+        if( _ary.isNA(bits,r,col) ) continue ROW;
+        x[i] = _ary.datad(bits,r,col);
         indexes[i] = i + _colOffsets[i];
         if(_normSub != null)
           x[i] = (x[i] - _normSub[indexes[i]]) * _normMul[indexes[i]];
       }
       processRow(x, indexes);
     }
-    // do not pass this back...
-    _ary = null;
   }
   abstract void processRow(double [] x, int [] indexes);
-  protected void init(ChunkData r){}
+  protected void init2(){}
 }

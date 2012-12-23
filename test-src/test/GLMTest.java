@@ -15,76 +15,19 @@ import water.parser.ParseDataset;
 
 public class GLMTest extends TestUtil {
 
-  // --------
-  // Build a ValueArray from a collection of normal arrays
-  ValueArray va_maker( Key key, Object... arys ) {
-
-    // Gather basic column info, 1 column per array
-    ValueArray.Column cols[] = new ValueArray.Column[arys.length];
-    char off = 0;
-    int numrows = -1;
-    for( int i=0; i<arys.length; i++ ) {
-      ValueArray.Column col = cols[i] = new ValueArray.Column();
-      col._name = Integer.toString(i);
-      col._off = off;
-      col._scale = 1;
-      col._min = Double.MAX_VALUE;
-      col._max = Double.MIN_VALUE;
-      col._mean = 0.0;
-      Object ary = arys[i];
-      if( ary instanceof byte[] ) {
-        col._size = 1;
-        col._n = ((byte[])ary).length;
-      } else if( ary instanceof float[] ) {
-        col._size = -4;
-        col._n = ((float[])ary).length;
-      } else {
-        throw H2O.unimpl();
-      }
-      off += Math.abs(col._size);
-      if( numrows == -1 ) numrows = (int)col._n;
-      else assert numrows == col._n;
-    }
-    int rowsize = off;
-
-    // Compact data into VA format, and compute min/max/mean
-    AutoBuffer ab = new AutoBuffer(numrows*rowsize);
-    for( int i=0; i<numrows; i++ ) {
-      for( int j=0; j<arys.length; j++ ) {
-        ValueArray.Column col = cols[j];
-        double d;  float f;  byte b;
-        switch( col._size ) {
-        case  1: ab.put1 (b = ((byte [])arys[j])[i]);  d = b;  break;
-        case -4: ab.put4f(f = ((float[])arys[j])[i]);  d = f;  break;
-        default: throw H2O.unimpl();
-        }
-        if( d > col._max ) col._max = d;
-        if( d < col._min ) col._min = d;
-        col._mean += d;
-      }
-    }
-    // Sum to mean
-    for( ValueArray.Column col : cols )
-      col._mean /= col._n;
-
-    // Write out data & keys
-    ValueArray ary = new ValueArray(key,numrows,rowsize,cols);
-    Key ckey0 = ary.getChunkKey(0);
-    UKV.put(ckey0,new Value(ckey0,ab.bufClose()));
-    UKV.put( key ,ary.value());
-    return ary;
-  }
-
-
   // ---
+  // Test GLM on a simple dataset that has an easy Linear Regression.
   @Test public void testLinearRegression() {
     Key datakey = Key.make("datakey");
     try {
-      // Make some data to test with
+      // Make some data to test with.
+      // Equation is: y = 0.1*x+0
       ValueArray va = 
         va_maker(datakey,
                  new byte []{  0 ,  1 ,  2 ,  3 ,  4 ,  5 ,  6 ,  7 ,  8 ,  9 },
                  new float[]{0.0f,0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f});
+      // Columns to solve over; last column is the result column
+      int[] cols = new int[]{0,1};
       
       // Compute LinearRegression between columns 0 & 1
       JsonObject lr = LinearRegression.run(va,0,1);
@@ -103,8 +46,6 @@ public class GLMTest extends TestUtil {
       LSMSolver lsms = LSMSolver.makeSolver(); // Default normalization of NONE
       // Solver
       GLMSolver glms = new GLMSolver(lsms,glmp);
-      // Columns to solve over; last column is the result column
-      int[] cols = new int[]{0,1};
 
       // Solve it!
       GLMSolver.GLMModel m = glms.computeGLM(va, cols, null);
@@ -113,6 +54,54 @@ public class GLMTest extends TestUtil {
       JsonObject coefs = glm.get("coefficients").getAsJsonObject();
       assertEquals( 0.0, coefs.get("Intercept").getAsDouble(), 0.000001);
       assertEquals( 0.1, coefs.get("0")        .getAsDouble(), 0.000001);
+
+    } finally {
+      UKV.remove(datakey);
+    }
+  }
+
+  // Now try with a more complex binomial regression
+  @Test public void testLogisticRegression0() {
+    Key datakey = Key.make("datakey");
+    try {
+      // Make some data to test with.  2 columns, all numbers from 0-9
+      final int n = 10;
+      byte[] x0 = new byte[n*n];
+      byte[] x1 = new byte[n*n];
+      for( int i=0; i<n; i++ )  
+        for( int j=0; j<n; j++ ) {
+          x0[i*n+j] = (byte)i;
+          x1[i*n+j] = (byte)j;
+        }
+
+      // Equation is: y = 1/(1+Math.exp(0.1*x[0] + 0.3*x[1] - 2.5));
+      double[] d  = new double[n*n];
+      for( int i=0; i<d.length; i++ )   
+        d[i] = 1.0/(1.0+Math.exp(-(0.1*x0[i]+0.3*x1[i]-2.5)));
+      ValueArray va = va_maker(datakey,x0,x1,d);
+      // Columns to solve over; last column is the result column
+      int[] cols = new int[]{0,1,2};
+
+      // Now a Binomial GLM model 
+      GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
+      glmp._f = GLMSolver.Family.binomial;
+      glmp._l = glmp._f.defaultLink;
+      glmp._familyArgs = glmp._f.defaultArgs;
+      glmp._betaEps = 0.00001;
+      glmp._maxIter = 10000;
+      glmp._expandCat = false;
+      LSMSolver lsms = LSMSolver.makeSolver(); // Default normalization of NONE
+      // Solver
+      GLMSolver glms = new GLMSolver(lsms,glmp);
+
+      // Solve it!
+      GLMSolver.GLMModel m = glms.computeGLM(va, cols, null);
+      JsonObject glm = m.toJson();
+
+      JsonObject coefs = glm.get("coefficients").getAsJsonObject();
+      assertEquals(-2.5, coefs.get("Intercept").getAsDouble(), 0.000001);
+      assertEquals( 0.1, coefs.get("0")        .getAsDouble(), 0.000001);
+      assertEquals( 0.3, coefs.get("1")        .getAsDouble(), 0.000001);
 
     } finally {
       UKV.remove(datakey);
