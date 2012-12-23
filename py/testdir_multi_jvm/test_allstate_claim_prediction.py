@@ -14,7 +14,7 @@ class Basic(unittest.TestCase):
 
     def test_claim_prediction(self):
         csvPathname = h2o.find_file('smalldata/allstate/claim_prediction_train_set_10000_int.csv.gz')
-        h2o_cmd.runRF(trees=50, timeoutSecs=10, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=50, timeoutSecs=50, csvPathname=csvPathname)
 
 if __name__ == '__main__':
     h2o.unit_main() 

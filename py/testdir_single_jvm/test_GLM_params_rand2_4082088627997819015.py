@@ -2,7 +2,7 @@ import unittest
 import random, sys, time
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd
+import h2o, h2o_cmd, h2o_glm
 
 # none is illegal for threshold
 # always run with xval, to make sure we get the trainingErrorDetails
@@ -37,40 +37,6 @@ class Basic(unittest.TestCase):
 
     def test_loop_random_param_covtype(self):
 
-        def simpleCheckGLM(glm,colX):
-            # h2o GLM will verboseprint the result and print errors. 
-            # so don't have to do that
-            # different when xvalidation is used? No trainingErrorDetails?
-            print "GLM time", glm['time']
-            tsv = glm['trainingSetValidation']
-            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-
-            ted = glm['trainingErrorDetails']
-            print "trueNegative:", ted['trueNegative']
-            print "truePositive:", ted['truePositive']
-            print "falseNegative:", ted['falseNegative']
-            print "falsePositive:", ted['falsePositive']
-
-            # it's a dicitionary!
-            coefficients = glm['coefficients']
-            print "\ncoefficients:", coefficients
-            # pick out the coefficent for the column we enabled.
-            absXCoeff = abs(float(coefficients[str(colX)]))
-            # intercept is buried in there too
-            absIntercept = abs(float(coefficients['Intercept']))
-
-            if (1==0):
-                self.assertGreater(absXCoeff, 0.000001, (
-                    "abs. value of GLM coefficients['" + str(colX) + "'] is " +
-                    str(absXCoeff) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-                self.assertGreater(absIntercept, 0.000001, (
-                    "abs. value of GLM coefficients['Intercept'] is " +
-                    str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
@@ -90,7 +56,7 @@ class Basic(unittest.TestCase):
             # in the json(below)
             # force family=binomial to avoid the assertion error above with gaussian
             # seed norm to L2, so have that or the selection above
-            kwargs = {'Y': 54, 'xval' : 3, 'family' : 'binomial', 'norm' : 'L2'}
+            kwargs = {'Y': 54, 'xval' : 3, 'family' : 'binomial', 'norm' : 'L2', 'iterations' : 5}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -106,7 +72,7 @@ class Basic(unittest.TestCase):
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=150, parseKey=parseKey, **kwargs)
-            simpleCheckGLM(glm,colX)
+            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
             # FIX! I suppose we have the problem of stdout/stderr not having flushed?
             # should hook in some way of flushing the remote node stdout/stderr
             if (h2o.check_sandbox_for_errors()):

@@ -3,7 +3,8 @@ import random, sys, time
 sys.path.extend(['.','..','py'])
 import json
 
-import h2o, h2o_cmd, h2o_glm
+import h2o, h2o_cmd
+import h2o_glm
 
 # none is illegal for threshold
 # always run with xval, to make sure we get the trainingErrorDetails
@@ -13,7 +14,7 @@ paramDict = {
     'Y': [54],
     'X': [0,1,15,33,34],
     '-X': [None,'40:53'],
-    'family': ['binomial', 'poisson'],
+    'family': [None, 'gaussian', 'binomial', 'poisson'],
     'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
     'norm': [None,'L1', 'L2'],
@@ -51,8 +52,7 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details 
             # in the json(below)
-            # force family=binomial to avoid the assertion error above with gaussian
-            kwargs = {'Y': 54, 'xval' : 3, 'family' : "binomial"}
+            kwargs = {'Y': 54}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -64,13 +64,10 @@ class Basic(unittest.TestCase):
                     # keep track of what column we're picking
                     colX = randomValue
 
-            print kwargs
-            
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
-
-            # everything is under GLMModel now?
-            h2o_glm.simpleCheckGLM(glm,colX)
+            # pass the kwargs with all the params, so we know what we asked for!
+            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 

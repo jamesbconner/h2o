@@ -1,8 +1,6 @@
 import os, json, unittest, time, shutil, sys
 sys.path.extend(['.','..','py'])
-
-import h2o, h2o_cmd
-
+import h2o, h2o_cmd, h2o_glm
 
 class Basic(unittest.TestCase):
 
@@ -15,15 +13,11 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_A_Basic(self):
-        for n in nodes:
-            c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
-
     def test_B_benign(self):
         print "\nStarting benign.csv"
-        timeoutSecs = 2
-        
+        csvFilename = "benign.csv"
+        csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
         # columns start at 0
         Y = "3"
         X = ""
@@ -49,24 +43,18 @@ class Basic(unittest.TestCase):
                 print "\nX:", X
                 print "Y:", Y
 
-                ### FIX! add some expected result checking
-                glm = h2o_cmd.runGLM(csvPathname=csvPathname, X=X, Y=Y, xval=4,
-                    timeoutSecs=timeoutSecs)
-
-                h2o.verboseprint("glm: ", glm)
-                print "\ncoefficients:", glm['coefficients']
+                kwargs = {'X': X, 'Y':  Y, 'xval': 4}
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=5, **kwargs)
+                h2o_glm.simpleCheckGLM(self, glm, 'STR', **kwargs)
 
     def test_C_prostate(self):
-        timeoutSecs = 2
-        
-
         print "\nStarting prostate.csv"
         # columns start at 0
         Y = "1"
         X = ""
         csvFilename = "prostate.csv"
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
 
         for appendX in xrange(9):
             if (appendX == 0):
@@ -86,37 +74,10 @@ class Basic(unittest.TestCase):
                 print "\nX:", X
                 print "Y:", Y
 
-                ### FIX! add some expected result checking
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, X=X, Y=Y, xval=5, timeoutSecs=timeoutSecs)
-
-                # different json entries when xvalidation is used? No trainingErrorDetails?
-                # h2o GLM does dump of json result now with verbose
-
-                if 'warnings' in glm:
-                    print "\nwarnings:", glm['warnings']
-
-                print "GLM time", glm['time']
-                coefficients = glm['coefficients']
-                print "coefficients:", coefficients
-                # quick and dirty check: if all the coefficients are zero, something is broken
-                # intercept is in there too, but this will get it okay
-                # just sum the abs value  up..look for greater than 0
-                s = 0.0
-                for c in coefficients:
-                    v = coefficients[c]
-                    s += abs(float(v))
-                    self.assertGreater(s, 0.000001, (
-                        "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 0.000001"
-                        ))
-
-                tsv = glm['trainingSetValidation']
-                print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-                ted = glm['trainingErrorDetails']
-                print "trueNegative:", ted['trueNegative']
-                print "truePositive:", ted['truePositive']
-                print "falseNegative:", ted['falseNegative']
-                print "falsePositive:", ted['falsePositive']
-
+                kwargs = {'X': X, 'Y':  Y, 'xval': 5}
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=2, **kwargs)
+                # ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON
+                h2o_glm.simpleCheckGLM(self, glm, 'AGE', **kwargs)
 
 if __name__ == '__main__':
     h2o.unit_main()

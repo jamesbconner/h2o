@@ -1,7 +1,8 @@
 import os, json, unittest, time, shutil, sys
+import copy
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd
+import h2o, h2o_cmd, h2o_glm
 import h2o_hosts
 import h2o_browse as h2b
 import time
@@ -40,9 +41,8 @@ class Basic(unittest.TestCase):
         # pop open a browser on the cloud
         h2b.browseTheCloud()
 
-        timeoutSecs = 200
         # save the first, for all comparisions, to avoid slow drift with each iteration
-        firstglm = {}
+        validations1 = {}
         for csvFilename in csvFilenameList:
             csvPathname = h2o.find_file('smalldata/' + csvFilename)
             # I use this if i want the larger set in my localdir
@@ -51,19 +51,16 @@ class Basic(unittest.TestCase):
             print "\n" + csvPathname
 
             start = time.time()
-            ### FIX! add some expected result checking
             # can't pass lamba as kwarg because it's a python reserved word
-            glm = h2o_cmd.runGLM(csvPathname=csvPathname, 
-                Y=7, glm_notX='1:52', family="binomial", 
-                xval=10, norm="L1", glm_lambda=1e-4,
-                timeoutSecs=timeoutSecs)
+            kwargs = {'Y': 7, 'glm_notX': '1:52', 'family': "binomial", 'xval': 10, 
+                'norm': "L1", 'glm_lambda': 1e-4}
+            timeoutSecs = 200
+            glm = h2o_cmd.runGLM(csvPathname=csvPathname, timeoutSecs=timeoutSecs, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, 27, **kwargs)
+
 
             # different when xvalidation is used? No trainingErrorDetails?
             h2o.verboseprint("\nglm:", glm)
-            print "GLM time", glm['time']
-            print "coefficients:", glm['coefficients']
-            tsv = glm['trainingSetValidation']
-            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
             # maybe we can see the GLM results in a browser?
@@ -75,18 +72,15 @@ class Basic(unittest.TestCase):
             # compare this glm to the last one. since the files are concatenations, the results
             # should be similar?
 
-            def glmCompareToFirst(self,key,glm,firstglm):
-                # 10% of first is allowed delta
-                delta = .1 * float(firstglm[key])
-                msg = "Too large a delta (" + str(delta) + ") comparing current and first for: " + key
-                self.assertAlmostEqual(float(glm[key]), float(firstglm[key]), delta=delta, msg=msg)
-                self.assertGreaterEqual(float(glm[key]), 0.0, key + " not >= 0.0 in current")
+            GLMModel = glm['GLMModel']
+            validationsList = GLMModel['validations']
+            validations = validationsList.pop()
+            # validations['err']
 
-            if firstglm:
-                glmCompareToFirst(self, 'trainingSetErrorRate', tsv, firstglm)
+            if validations1:
+                h2o_glm.glmCompareToFirst(self, 'err', validations, validations1)
             else:
-                # dicts are references? Make a real copy
-                firstglm['trainingSetErrorRate'] = tsv['trainingSetErrorRate']
+                validations1 = deepcopy(validations)
 
             sys.stdout.write('.')
             sys.stdout.flush() 

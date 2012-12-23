@@ -1,7 +1,7 @@
 import os, json, unittest, time, shutil, sys
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd
+import h2o, h2o_cmd, h2o_glm
 
 
 class Basic(unittest.TestCase):
@@ -14,46 +14,6 @@ class Basic(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
-
-    def test_A_Basic(self):
-        for n in h2o.nodes:
-            c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
-
-    def test_B_covtype_single_cols(self):
-
-        def simpleCheckGLM(glm,colX):
-            # h2o GLM will verboseprint the result and print errors. 
-            # so don't have to do that
-            # different when xvalidation is used? No trainingErrorDetails?
-            print "GLM time", glm['time']
-            tsv = glm['trainingSetValidation']
-            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-
-            ted = glm['trainingErrorDetails']
-            print "trueNegative:", ted['trueNegative']
-            print "truePositive:", ted['truePositive']
-            print "falseNegative:", ted['falseNegative']
-            print "falsePositive:", ted['falsePositive']
-
-            # it's a dicitionary!
-            coefficients = glm['coefficients']
-            print "\ncoefficients:", coefficients
-            # pick out the coefficent for the column we enabled. This only works if no labels were in the dataset
-            # because we're using col for the key
-            absXCoeff = abs(float(coefficients[str(colX)]))
-            # intercept is buried in there too
-            absIntercept = abs(float(coefficients['Intercept']))
-            
-            self.assertGreater(absXCoeff, 0.000001, (
-                "abs. value of GLM coefficients['" + str(colX) + "'] is " + 
-                str(absXCoeff) + ", not >= 0.000001 for X=" + str(colX)
-                ))
-
-            self.assertGreater(absIntercept, 0.000001, (
-                "abs. value of GLM coefficients['intercept'] is " + 
-                str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
-                ))
 
         timeoutSecs = 10
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
@@ -81,9 +41,9 @@ class Basic(unittest.TestCase):
                 print "Y:", Y
 
                 start = time.time()
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, xval=6, X=X, Y=Y, timeoutSecs=timeoutSecs)
-
-                simpleCheckGLM(glm,colX)
+                kwargs = {'X': X, 'Y': Y, 'xval': 6}
+                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
+                h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 

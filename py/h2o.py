@@ -784,16 +784,33 @@ class H2O(object):
         verboseprint("linear_reg_view result:", dump_json(a))
         return a
 
-    # kwargs used to pass:
-    # Y
-    # X
-    # -X
-    # family
-    # threshold
-    # norm
-    # glm_lambda (becomes lambda)
-    # rho
-    # alpha
+# kwargs used to pass:
+# Y
+# X
+# -X
+# family
+# threshold
+# norm
+# glm_lambda (becomes lambda)
+# rho
+# alpha
+# xval
+
+#     "GLMParams": {
+#       "betaEps": 0.0001, 
+#       "caseVal": 1.0, 
+#       "family": "binomial", 
+#       "link": "logit", 
+#       "maxIter": 50, 
+#       "threshold": 0.5, 
+#       "weight": 1.0
+#     }, 
+#     "LSMParams": {
+#       "alpha": 1.0, 
+#       "lambda": 1e-05, 
+#       "penalty": "L1", 
+#       "rho": 0.01
+#     }, 
 
     def GLM(self, key, timeoutSecs=300, **kwargs):
         # for defaults

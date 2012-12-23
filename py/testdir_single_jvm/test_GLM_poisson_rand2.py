@@ -2,7 +2,7 @@ import unittest
 import random, sys, time
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd
+import h2o, h2o_cmd, h2o_glm
 
 # none is illegal for threshold
 # always run with xval, to make sure we get the trainingErrorDetails
@@ -35,42 +35,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_loop_random_param_covtype(self):
-
-        def simpleCheckGLM(glm,colX):
-            # h2o GLM will verboseprint the result and print errors. 
-            # so don't have to do that
-            # different when xvalidation is used? No trainingErrorDetails?
-            print "GLM time", glm['time']
-            tsv = glm['trainingSetValidation']
-            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-
-            if (1==0):
-                ted = glm['trainingErrorDetails']
-                print "trueNegative:", ted['trueNegative']
-                print "truePositive:", ted['truePositive']
-                print "falseNegative:", ted['falseNegative']
-                print "falsePositive:", ted['falsePositive']
-
-            # it's a dicitionary!
-            coefficients = glm['coefficients']
-            print "\ncoefficients:", coefficients
-            # pick out the coefficent for the column we enabled.
-            absXCoeff = abs(float(coefficients[str(colX)]))
-            # intercept is buried in there too
-            absIntercept = abs(float(coefficients['Intercept']))
-
-            if (1==0):
-                self.assertGreater(absXCoeff, 0.000001, (
-                    "abs. value of GLM coefficients['" + str(colX) + "'] is " +
-                    str(absXCoeff) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-                self.assertGreater(absIntercept, 0.000001, (
-                    "abs. value of GLM coefficients['Intercept'] is " +
-                    str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
@@ -105,7 +69,7 @@ class Basic(unittest.TestCase):
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=120, parseKey=parseKey, **kwargs)
-            simpleCheckGLM(glm,colX)
+            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 

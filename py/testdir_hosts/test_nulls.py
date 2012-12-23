@@ -30,21 +30,21 @@ class Basic(unittest.TestCase):
         with open(csvPathname, "rb") as in_file:
             with open(nulPathname, "wb") as out_file:
                 while True:
-                    piece = in_file.read(4096)
+                    piece = in_file.read(103)
                     if piece == "":
                         break # end of file
 
+                    # we could just extend piece?
                     # start with a null
-                    withNulls = bytearray.fromhex('00')
-                    for b in piece:
-                        # FIX! we'll eventually stick a <NUL> after every byte!
-                        withNulls.append(b)          # Add to the end of the message
-                    out_file.write(withNulls)
+                    withNuls = bytearray(piece)
+                    # FIX! we'll eventually stick a <NUL> after every byte!
+                    withNuls.extend(bytearray.fromhex('00'))
+                    out_file.write(withNuls)
 
 
-        for trials in xrange(1,7):
+        for trials in xrange(1,2):
             trees = 6
-            for x in xrange (161,240,20):
+            for x in xrange (161,240,40):
                 y = 10000 * x
                 print "\nTrial:", trials, ", y:", y
 
