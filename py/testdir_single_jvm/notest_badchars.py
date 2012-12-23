@@ -1,6 +1,13 @@
 import unittest, sys
 sys.path.extend(['.','..','py'])
 
+# we have this rule for NUL. This test is not really following the  rule (afte eol)
+# so will say it's not a valid test.
+# Since NUL (0x00) characters may be used for padding, NULs are allowed, 
+# and ignored after any line end, until the first non-NUL character. 
+# NUL is not a end of line character, though. 
+# verify: NUL (0x00) can be used as a character in tokens, and not be ignored. 
+
 import h2o, h2o_cmd
 
 class Basic(unittest.TestCase):
