@@ -1,16 +1,14 @@
 import unittest
 import random, sys, time
 sys.path.extend(['.','..','py'])
+import json
 
-import h2o, h2o_cmd
+import h2o, h2o_cmd, h2o_glm
 
 # none is illegal for threshold
 # always run with xval, to make sure we get the trainingErrorDetails
-# family gaussian gives us there
-# Exception in thread "Thread-6" java.lang.RuntimeException: Matrix is not symmetric positive definite.
-# at Jama.CholeskyDecomposition.solve(CholeskyDecomposition.java:173)
-
 # FIX! we'll have to do something for gaussian. It doesn't return the ted keys below
+
 paramDict = {
     'Y': [54],
     'X': [0,1,15,33,34],
@@ -35,47 +33,8 @@ class Basic(unittest.TestCase):
 
     def test_loop_random_param_covtype(self):
 
-        def simpleCheckGLM(glm,colX):
-            # h2o GLM will verboseprint the result and print errors. 
-            # so don't have to do that
-            # different when xvalidation is used? No trainingErrorDetails?
-            print "GLM time", glm['time']
-            tsv = glm['trainingSetValidation']
-            print "\ntrainingSetErrorRate:", tsv['trainingSetErrorRate']
-
-            glmParams = glm["glmParams"]
-            family = glmParams["family"]
-            # no trainingErrorDetails if poisson? 
-            if (family=="poisson"):
-                pass
-            else:
-                ted = glm['trainingErrorDetails']
-                print "trueNegative:", ted['trueNegative']
-                print "truePositive:", ted['truePositive']
-                print "falseNegative:", ted['falseNegative']
-                print "falsePositive:", ted['falsePositive']
-
-            # it's a dicitionary!
-            coefficients = glm['coefficients']
-            print "\ncoefficients:", coefficients
-            # pick out the coefficent for the column we enabled.
-            absXCoeff = abs(float(coefficients[str(colX)]))
-            # intercept is buried in there too
-            absIntercept = abs(float(coefficients['Intercept']))
-
-            if (1==0):
-                self.assertGreater(absXCoeff, 0.000001, (
-                    "abs. value of GLM coefficients['" + str(colX) + "'] is " +
-                    str(absXCoeff) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-                self.assertGreater(absIntercept, 0.000001, (
-                    "abs. value of GLM coefficients['Intercept'] is " +
-                    str(absIntercept) + ", not >= 0.000001 for X=" + str(colX)
-                    ))
-
-
-        csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
+        # csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
+        csvPathname = h2o.find_file('smalldata/covtype/covtype.20k.data')
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
         # for determinism, I guess we should spit out the seed?
@@ -109,10 +68,11 @@ class Basic(unittest.TestCase):
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
-            simpleCheckGLM(glm,colX)
+
+            # everything is under GLMModel now?
+            h2o_glm.simpleCheckGLM(glm,colX)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
-
 
 if __name__ == '__main__':
     h2o.unit_main()
