@@ -41,13 +41,18 @@ class Basic(unittest.TestCase):
 
         # make the timeout variable per dataset. it can be 10 secs for covtype 20x (col key creation)
         # so probably 10x that for covtype200
-        #    ("covtype20x.data", "cD", 50, 20),
-        #    ("covtype200x.data", "cE", 50, 200),
-        csvFilenameAll = [
-            ("covtype.data", "cA", 5,  1),
-            ("covtype.data", "cB", 5,  1),
-            ("covtype.data", "cC", 5,  1),
-        ]
+        if 1==0:
+            csvFilenameAll = [
+                ("covtype.data", "cA", 5,  1),
+                ("covtype.data", "cB", 5,  1),
+                ("covtype.data", "cC", 5,  1),
+            ]
+        else:
+            csvFilenameAll = [
+                ("covtype.data", "cA", 5,  1),
+                ("covtype20x.data", "cD", 50, 20),
+                ("covtype200x.data", "cE", 50, 200),
+            ]
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
