@@ -24,7 +24,7 @@ class Basic(unittest.TestCase):
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
 
         # always match the gen above!
-        for trial in xrange (1,5,1):
+        for trial in xrange (1,3,1):
             sys.stdout.write('.')
             sys.stdout.flush()
 
