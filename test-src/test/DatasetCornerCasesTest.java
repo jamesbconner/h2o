@@ -10,7 +10,7 @@ import org.junit.Test;
 import water.*;
 import water.parser.ParseDataset;
 
-public class DatasetCornerCasesTest extends KeyUtil {
+public class DatasetCornerCasesTest extends TestUtil {
 
   /*
    * HTWO-87 bug test
@@ -18,7 +18,7 @@ public class DatasetCornerCasesTest extends KeyUtil {
    *  - two lines dataset (one line is a comment) throws assertion java.lang.AssertionError: classOf no dists > 0? 1
    */
   @Test public void testTwoLineDataset() throws Exception {
-    Key fkey = KeyUtil.load_test_file("smalldata/test/HTWO-87-two-lines-dataset.csv");
+    Key fkey = load_test_file("smalldata/test/HTWO-87-two-lines-dataset.csv");
     Key okey = Key.make("HTWO-87-two-lines-dataset.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
@@ -81,7 +81,7 @@ public class DatasetCornerCasesTest extends KeyUtil {
   }
 
   private void testOneLineDataset(String filename, String keyname) {
-    Key fkey = KeyUtil.load_test_file(filename);
+    Key fkey = load_test_file(filename);
     Key okey = Key.make(keyname);
     ParseDataset.parse(okey,DKV.get(fkey));
 

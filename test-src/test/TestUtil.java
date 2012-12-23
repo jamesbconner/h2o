@@ -9,17 +9,11 @@ import org.junit.BeforeClass;
 import water.*;
 import water.parser.ParseDataset;
 
-public class KeyUtil {
+public class TestUtil {
   private static int _initial_keycnt = 0;
 
   @BeforeClass public static void setupCloud() {
     H2O.main(new String[] { });
-    long start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < 10000) {
-      if (H2O.CLOUD.size() > 2) break;
-      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
-    }
-    assertEquals("Cloud size of 3", 3, H2O.CLOUD.size());
     _initial_keycnt = H2O.store_size();
   }
 
@@ -30,6 +24,16 @@ public class KeyUtil {
       for( Key k : H2O.keySet() )
         System.err.println("Leaked key: "+k);
     assertEquals("No keys leaked", 0, leaked_keys);
+  }
+
+  // Stall test until we see at least X members of the Cloud
+  public static void stall_till_cloudsize(int x) {
+    long start = System.currentTimeMillis();
+    while (System.currentTimeMillis() - start < 10000) {
+      if (H2O.CLOUD.size() >= x) break;
+      try { Thread.sleep(100); } catch( InterruptedException ie ) {}
+    }
+    assertTrue("Cloud size of "+x, H2O.CLOUD.size() >=x );
   }
 
   public static File find_test_file( String fname ) {

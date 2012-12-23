@@ -13,7 +13,7 @@ import water.parser.ParseDataset;
 // i.e. correct behavior when handed bad/broken/null arguments (although those
 // tests are also good).  
 
-public class GLMTest extends KeyUtil {
+public class GLMTest extends TestUtil {
 
   // --------
   // Build a ValueArray from a collection of normal arrays

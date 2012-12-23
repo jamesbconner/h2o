@@ -6,7 +6,7 @@ import org.junit.*;
 
 import water.*;
 
-public class AppendKeyTest extends KeyUtil {
+public class AppendKeyTest extends TestUtil {
 
   public Key makeKey(String n, boolean remote) {
     if(!remote) return Key.make(n);

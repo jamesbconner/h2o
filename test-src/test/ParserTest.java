@@ -7,7 +7,7 @@ import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
 
-public class ParserTest extends KeyUtil {
+public class ParserTest extends TestUtil {
 
   private double[] d(double... ds) { return ds; }
   private String[] s(String...ss) { return ss; }
@@ -353,7 +353,7 @@ public class ParserTest extends KeyUtil {
   }
 
   @Test public void testTimeParse() {
-    Key fkey = KeyUtil.load_test_file("smalldata/kaggle/bestbuy_train_10k.csv.gz");
+    Key fkey = load_test_file("smalldata/kaggle/bestbuy_train_10k.csv.gz");
     Key okey = Key.make("bestbuy.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);

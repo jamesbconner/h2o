@@ -9,7 +9,7 @@ import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
 
-public class KVTest extends KeyUtil {
+public class KVTest extends TestUtil {
 
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
@@ -57,6 +57,7 @@ public class KVTest extends KeyUtil {
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
   @Test public void testRemoteBitSet() throws Exception {
+    stall_till_cloudsize(3);
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
     for( int i = 0; i < keys.length; ++i ) {
@@ -84,6 +85,7 @@ public class KVTest extends KeyUtil {
   // ---
   // Issue a large Key/Value put/get - testing the TCP path
   @Test public void testTcpCRUD() {
+    stall_till_cloudsize(2);
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -111,8 +113,9 @@ public class KVTest extends KeyUtil {
   // Map in h2o.jar - a multi-megabyte file - into Arraylets.
   // Run a distributed byte histogram.
   @Test public void testMultiMbFile() throws Exception {
-    File file = KeyUtil.find_test_file("h2o.jar");
-    Key h2okey = KeyUtil.load_test_file(file);
+    stall_till_cloudsize(3);
+    File file = find_test_file("h2o.jar");
+    Key h2okey = load_test_file(file);
     ByteHisto bh = new ByteHisto();
     bh.invoke(h2okey);
     int sum=0;
@@ -146,6 +149,7 @@ public class KVTest extends KeyUtil {
   // ---
   // Run an atomic function remotely, one time only
   @Test public void testRemoteAtomic() {
+    stall_till_cloudsize(2);
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -186,7 +190,7 @@ public class KVTest extends KeyUtil {
   // ---
   // Test parsing "cars.csv" and running LinearRegression
   @Test public void testLinearRegression() {
-    Key fkey = KeyUtil.load_test_file("smalldata/cars.csv");
+    Key fkey = load_test_file("smalldata/cars.csv");
     Key okey = Key.make("cars.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
     UKV.remove(fkey);
