@@ -251,6 +251,7 @@ def check_port_group(baseport):
         command2Split = ['egrep']
         # colon so only match ports. space at end? so no submatches
         command2Split.append("(" + str(baseport) + "|" + str(baseport+1) + "|" + str(baseport+2) + ")")
+        command3Split = ['wc','-l']
 
         print "Checking 3 ports starting at ", baseport
         print ' '.join(command2Split)
@@ -258,7 +259,8 @@ def check_port_group(baseport):
         # use netstat thru subprocess
         p1 = Popen(command1Split, stdout=PIPE)
         p2 = Popen(command2Split, stdin=p1.stdout, stdout=PIPE)
-        output = p2.communicate()[0]
+        p3 = Popen(command3Split, stdin=p2.stdout, stdout=PIPE)
+        output = p3.communicate()[0]
         print output
 
 # node_count is per host if hosts is specified.
