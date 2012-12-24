@@ -85,7 +85,7 @@ public class GLMSolver {
   // supported families
   public static enum Family {
     gaussian(Link.identity,null),
-      binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
+    binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
     poisson(Link.log,null),
     gamma(Link.inverse,null);
     public final Link defaultLink;
@@ -288,16 +288,26 @@ public class GLMSolver {
       res.addProperty("dataset", _dataset.toString());
       JsonObject coefs = new JsonObject();
       ValueArray ary = ValueArray.value(_dataset);
+      double norm = 0.0;        // Reverse any normalization on the intercept
       for(int i = 0; i < _colIds.length-1; ++i){
         int col = _colIds[i];
+        int ii = _colOffsets[i]+i;
         if(_glmParams._expandCat && (ary._cols[col]._domain != null && ary._cols[col]._domain.length != 0)){
           String [] dom = ary._cols[col]._domain;
           for(int j = 0; j < dom.length; ++j)
-            coefs.addProperty(_colNames[i] + "." + dom[j],_beta[_colOffsets[i]+i+j]);
-        } else
-          coefs.addProperty(_colNames[i],_beta[_colOffsets[i]+i]);
+            coefs.addProperty(_colNames[i] + "." + dom[j],_beta[ii+j]);
+        } else {
+          double b = _beta[ii]; // Compute cooeficients
+          if( _normSub != null ) { // Remove any normalization
+            b *= _normMul[ii];
+            norm += b*_normSub[ii];
+          }
+          coefs.addProperty(_colNames[i],b);
+        }
       }
-      coefs.addProperty("Intercept",_beta[_beta.length-1]);
+      double icpt = _beta[_beta.length-1];
+      if( _normSub != null ) icpt -= norm;
+      coefs.addProperty("Intercept",icpt);
       res.add("coefficients", coefs);
       res.add("LSMParams",_solver.toJson());
       res.add("GLMParams",_glmParams.toJson());

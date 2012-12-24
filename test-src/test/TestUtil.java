@@ -150,11 +150,61 @@ public class TestUtil {
     for( ValueArray.Column col : cols )
       col._mean /= col._n;
 
+    // 2nd pass for sigma.  Sum of squared errors, then divide by n and sqrt
+    for( int i=0; i<numrows; i++ ) {
+      for( int j=0; j<arys.length; j++ ) {
+        ValueArray.Column col = cols[j];
+        double d;
+        switch( col._size ) {
+        case  1: d = ((byte  [])arys[j])[i];  break;
+        case -4: d = ((float [])arys[j])[i];  break;
+        case -8: d = ((double[])arys[j])[i];  break;
+        default: throw H2O.unimpl();
+        }
+        col._sigma += (d - col._mean)*(d-col._mean);
+      }
+    }
+    // RSS to sigma
+    for( ValueArray.Column col : cols )
+      col._sigma = Math.sqrt(col._sigma/col._n);
+
     // Write out data & keys
     ValueArray ary = new ValueArray(key,numrows,rowsize,cols);
     Key ckey0 = ary.getChunkKey(0);
     UKV.put(ckey0,new Value(ckey0,ab.bufClose()));
     UKV.put( key ,ary.value());
     return ary;
+  }
+
+  // Make a M-dimensional data grid, with N points on each dimension running
+  // from 0 to N-1.  The grid is flattened, so all N^M points are in the same
+  // ValueArray.  Add a final column which is computed by running an expression
+  // over the other columns, typically this final column is the input to GLM
+  // which then attempts to recover the expression.
+  public abstract static class DataExpr { abstract double expr( byte[] cols ); }
+  ValueArray va_maker( Key key, int M, int N, DataExpr expr ) {
+    if( N <= 0 || N > 127 || M <= 0 ) throw H2O.unimpl();
+    long Q = 1;
+    for( int i=0; i<M; i++ ) { Q *= N; if( (long)(int)Q != Q ) throw H2O.unimpl(); }
+    byte[][] x = new byte[M][(int)Q];
+    double[] d = new double [(int)Q];
+
+    byte[] bs = new byte[M];
+    int q = 0;
+    int idx = M-1;
+    d[q++] = expr.expr(bs);
+    while( idx >= 0 ) {
+      if( ++bs[idx] >= N ) {
+        bs[idx--] = 0;
+      } else {
+        idx = M-1;
+        for( int i=0; i<M; i++ ) x[i][q] = bs[i];
+        d[q++] = expr.expr(bs);
+      }
+    }
+    Object[] arys = new Object[M+1];
+    for( int i=0; i<M; i++ ) arys[i] = x[i];
+    arys[M] = d;
+    return va_maker(key,arys);
   }
 }
