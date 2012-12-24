@@ -157,4 +157,36 @@ public class TestUtil {
     UKV.put( key ,ary.value());
     return ary;
   }
+
+  // Make a M-dimensional data grid, with N points on each dimension running
+  // from 0 to N-1.  The grid is flattened, so all N^M points are in the same
+  // ValueArray.  Add a final column which is computed by running an expression
+  // over the other columns, typically this final column is the input to GLM
+  // which then attempts to recover the expression.
+  public abstract static class DataExpr { abstract double expr( byte[] cols ); }
+  ValueArray va_maker( Key key, int M, int N, DataExpr expr ) {
+    if( N <= 0 || N > 127 || M <= 0 ) throw H2O.unimpl();
+    long Q = 1;
+    for( int i=0; i<M; i++ ) { Q *= N; if( (long)(int)Q != Q ) throw H2O.unimpl(); }
+    byte[][] x = new byte[M][(int)Q];
+    double[] d = new double [(int)Q];
+
+    byte[] bs = new byte[M];
+    int q = 0;
+    int idx = M-1;
+    d[q++] = expr.expr(bs);
+    while( idx >= 0 ) {
+      if( ++bs[idx] >= N ) {
+        bs[idx--] = 0;
+      } else {
+        idx = M-1;
+        for( int i=0; i<M; i++ ) x[i][q] = bs[i];
+        d[q++] = expr.expr(bs);
+      }
+    }
+    Object[] arys = new Object[M+1];
+    for( int i=0; i<M; i++ ) arys[i] = x[i];
+    arys[M] = d;
+    return va_maker(key,arys);
+  }
 }

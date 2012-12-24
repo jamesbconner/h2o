@@ -5,6 +5,7 @@ import hex.LinearRegression;
 import hex.GLMSolver;
 import hex.LSMSolver;
 import java.util.Map;
+import java.util.Random;
 import org.junit.*;
 import water.*;
 import water.parser.ParseDataset;
@@ -61,26 +62,12 @@ public class GLMTest extends TestUtil {
   }
 
   // Now try with a more complex binomial regression
-  @Test public void testLogisticRegression0() {
+  @Test public void testLogReg_Basic() {
     Key datakey = Key.make("datakey");
     try {
       // Make some data to test with.  2 columns, all numbers from 0-9
-      final int n = 10;
-      byte[] x0 = new byte[n*n];
-      byte[] x1 = new byte[n*n];
-      for( int i=0; i<n; i++ )  
-        for( int j=0; j<n; j++ ) {
-          x0[i*n+j] = (byte)i;
-          x1[i*n+j] = (byte)j;
-        }
-
-      // Equation is: y = 1/(1+Math.exp(0.1*x[0] + 0.3*x[1] - 2.5));
-      double[] d  = new double[n*n];
-      for( int i=0; i<d.length; i++ )   
-        d[i] = 1.0/(1.0+Math.exp(-(0.1*x0[i]+0.3*x1[i]-2.5)));
-      ValueArray va = va_maker(datakey,x0,x1,d);
-      // Columns to solve over; last column is the result column
-      int[] cols = new int[]{0,1,2};
+      ValueArray va = va_maker(datakey,2,10, new DataExpr() {
+          double expr( byte[] x ) { return 1.0/(1.0+Math.exp(-(0.1*x[0]+0.3*x[1]-2.5))); } } );
 
       // Now a Binomial GLM model 
       GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
@@ -95,7 +82,7 @@ public class GLMTest extends TestUtil {
       GLMSolver glms = new GLMSolver(lsms,glmp);
 
       // Solve it!
-      GLMSolver.GLMModel m = glms.computeGLM(va, cols, null);
+      GLMSolver.GLMModel m = glms.computeGLM(va, new int[]{0,1,2}, null);
       JsonObject glm = m.toJson();
 
       JsonObject coefs = glm.get("coefficients").getAsJsonObject();
@@ -107,4 +94,55 @@ public class GLMTest extends TestUtil {
       UKV.remove(datakey);
     }
   }
+
+  // Compute the 'expr' result from the sum of coefficients,
+  // plus a small random value.
+  public static class DataExpr_Dirty extends DataExpr {
+    final Random _R;
+    final double _coefs[];
+    DataExpr_Dirty( Random R, double[] coefs ) { _R = R; _coefs = coefs; }
+    double expr( byte[] cols ) {
+      double sum = _coefs[_coefs.length-1]+
+        (_R.nextDouble()-0.5)/1000.0; // Add some noise
+      for( int i = 0; i< cols.length; i++ )
+        sum += cols[i]*_coefs[i];
+      return 1.0/(1.0+Math.exp(-sum));
+    }
+  }
+
+  @Test public void testLogReg_Dirty() {
+    Key datakey = Key.make("datakey");
+    try {
+      Random R = new Random(0x987654321L);
+      for( int i=0; i<10; i++ ) {
+        double[] coefs = new double[] { R.nextDouble(),R.nextDouble(),R.nextDouble() };
+        ValueArray va = va_maker(datakey,2,10, new DataExpr_Dirty(R, coefs));
+
+        // Now a Binomial GLM model 
+        GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
+        glmp._f = GLMSolver.Family.binomial;
+        glmp._l = glmp._f.defaultLink;
+        glmp._familyArgs = glmp._f.defaultArgs;
+        glmp._betaEps = 0.00001;
+        glmp._maxIter = 10000;
+        glmp._expandCat = false;
+        LSMSolver lsms = LSMSolver.makeSolver(); // Default normalization of NONE
+        // Solver
+        GLMSolver glms = new GLMSolver(lsms,glmp);
+
+        // Solve it!
+        GLMSolver.GLMModel m = glms.computeGLM(va, new int[]{0,1,2}, null);
+        JsonObject glm = m.toJson();
+        
+        JsonObject res = glm.get("coefficients").getAsJsonObject();
+        assertEquals(coefs[0], res.get("0")        .getAsDouble(), 0.001);
+        assertEquals(coefs[1], res.get("1")        .getAsDouble(), 0.001);
+        assertEquals(coefs[2], res.get("Intercept").getAsDouble(), 0.001);
+        UKV.remove(datakey);
+      }
+    } finally {
+      UKV.remove(datakey);
+    }
+  }
+
 }
