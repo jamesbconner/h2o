@@ -150,6 +150,24 @@ public class TestUtil {
     for( ValueArray.Column col : cols )
       col._mean /= col._n;
 
+    // 2nd pass for sigma.  Sum of squared errors, then divide by n and sqrt
+    for( int i=0; i<numrows; i++ ) {
+      for( int j=0; j<arys.length; j++ ) {
+        ValueArray.Column col = cols[j];
+        double d;
+        switch( col._size ) {
+        case  1: d = ((byte  [])arys[j])[i];  break;
+        case -4: d = ((float [])arys[j])[i];  break;
+        case -8: d = ((double[])arys[j])[i];  break;
+        default: throw H2O.unimpl();
+        }
+        col._sigma += (d - col._mean)*(d-col._mean);
+      }
+    }
+    // RSS to sigma
+    for( ValueArray.Column col : cols )
+      col._sigma = Math.sqrt(col._sigma/col._n);
+
     // Write out data & keys
     ValueArray ary = new ValueArray(key,numrows,rowsize,cols);
     Key ckey0 = ary.getChunkKey(0);
