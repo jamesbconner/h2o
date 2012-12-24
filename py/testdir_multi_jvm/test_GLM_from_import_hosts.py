@@ -10,23 +10,31 @@ import time, random, copy
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        global local_host
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            h2o.build_cloud(3,java_heap_GB=4)
+        else:
+            h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
     def test_B_importFolder_GLM_bigger_and_bigger(self):
-        # We don't drop anything from csvFilename, unlike H2O default
-        # FIX! for local 0xdata, this will be different (/home/0xdiag/datasets)
-        csvFilenameList = [
-            'covtype200x.data',
-            'covtype200x.data',
-            'covtype.data',
-            'covtype.data',
-            'covtype20x.data',
-            'covtype20x.data',
-            ]
+        if (local_host):
+            csvFilenameList = [
+                'covtype.data',
+                ]
+        else:
+            csvFilenameList = [
+                'covtype200x.data',
+                'covtype200x.data',
+                'covtype.data',
+                'covtype.data',
+                'covtype20x.data',
+                'covtype20x.data',
+                ]
 
         # a browser window too, just because we can
         h2b.browseTheCloud()
@@ -41,7 +49,7 @@ class Basic(unittest.TestCase):
             print "Parse result['Key']:", parseKey['Key']
 
             # We should be able to see the parse result?
-            inspect = h2o.runInspect(parseKey['Key'])
+            inspect = h2o_cmd.runInspect(key=parseKey['Key'])
             print "\n" + csvFilename
 
             start = time.time()
