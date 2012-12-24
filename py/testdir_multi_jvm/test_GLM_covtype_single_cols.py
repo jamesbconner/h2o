@@ -15,6 +15,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
+    def test_glm_covtype_single_cols(self):
         timeoutSecs = 10
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
@@ -43,7 +44,7 @@ class Basic(unittest.TestCase):
                 start = time.time()
                 kwargs = {'X': X, 'Y': Y, 'xval': 6}
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
-                h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
+                h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
                 print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 
