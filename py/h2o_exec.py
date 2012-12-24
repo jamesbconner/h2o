@@ -120,7 +120,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
                 raise Exception(
                     "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
 
-            print "Trial #", trial, "completed\n"
+        print "Trial #", trial, "completed\n"
 
 
 
