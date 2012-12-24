@@ -711,9 +711,12 @@ class H2O(object):
             'dataKey' : dataKey,
             'modelKey' : modelKey,
             'OOBEE' : None,
-            'classWt' : None
+            'classWt' : None,
+            'class' : None, # FIX! apparently this is needed now?
             }
         browseAlso = kwargs.pop('browseAlso',False)
+        clazz = kwargs.pop('clazz', None)
+        if clazz is not None: params_dict['class'] = clazz
         # only update params_dict..don't add
         # throw away anything else as it should come from the model (propagating what RF used)
         for k in kwargs:
