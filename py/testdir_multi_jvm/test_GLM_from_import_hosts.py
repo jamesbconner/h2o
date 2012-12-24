@@ -41,7 +41,8 @@ class Basic(unittest.TestCase):
 
         importFolderPath = '/home/0xdiag/datasets'
         h2i.setupImportFolder(None, importFolderPath)
-        firstglm= {}
+        validations1= {}
+        coefficients1= {}
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, timeoutSecs=2000)
@@ -60,11 +61,12 @@ class Basic(unittest.TestCase):
 
             # different when xvalidation is used? No trainingErrorDetails?
             h2o.verboseprint("\nglm:", glm)
-            print "GLM time", glm['time']
 
             h2b.browseJsonHistoryAsUrlLastMatch("GLM")
 
             GLMModel = glm['GLMModel']
+            print "GLM time", GLMModel['time']
+
             coefficients = GLMModel['coefficients']
             validationsList = GLMModel['validations']
             validations = validationsList.pop()
@@ -73,12 +75,12 @@ class Basic(unittest.TestCase):
             if validations1:
                 h2o_glm.glmCompareToFirst(self, 'err', validations, validations1)
             else:
-                validations1 = deepcopy(validations)
+                validations1 = copy.deepcopy(validations)
 
             if coefficients1:
                 h2o_glm.glmCompareToFirst(self, '0', coefficients, coefficients1)
             else:
-                coefficients1 = deepcopy(coefficients)
+                coefficients1 = copy.deepcopy(coefficients)
 
             sys.stdout.write('.')
             sys.stdout.flush() 
