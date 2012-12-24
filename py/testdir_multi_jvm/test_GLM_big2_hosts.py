@@ -58,6 +58,7 @@ class Basic(unittest.TestCase):
                     X = X + "," + str(appendX)
 
         # go right to the big X and iterate on that case
+        ### for trial in range(2):
         for trial in range(2):
             print "\nTrial #", trial, "start"
             print "\nX:", X
@@ -67,6 +68,9 @@ class Basic(unittest.TestCase):
             kwargs = {'X': X, 'Y': Y, 'xval': 7}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=200, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
+
+            if (h2o.check_sandbox_for_errors()):
+                raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
 
             ### h2b.browseJsonHistoryAsUrlLastMatch("GLM")
             print "\nTrial #", trial
