@@ -1,14 +1,19 @@
-import unittest, sys
+import unittest, sys, os
 sys.path.extend(['.','..','py'])
-
 import h2o_cmd, h2o, h2o_hosts
 
-# Uses your username specific json: pytest_config-<username>.json
-# copy pytest_config-simple.json and modify to your needs.
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        # default to local unless you've got hosts somewhere in the path to cwd
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            h2o.build_cloud(3,java_heap_GB=7)
+        else:
+            #  could have different config jsons, in different dirs (and execute out of those dirs)
+            # Uses your username specific json: pytest_config-<username>.json
+            # copy pytest_config-simple.json and modify to your needs.
+            h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
