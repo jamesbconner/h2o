@@ -6,7 +6,13 @@ import h2o, h2o_cmd, h2o_hosts
 class TestExcel(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        global local_host
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            h2o.build_cloud(3,java_heap_GB=4)
+        else:
+            h2o_hosts.build_cloud_with_hosts()
+
 
     @classmethod
     def tearDownClass(cls):

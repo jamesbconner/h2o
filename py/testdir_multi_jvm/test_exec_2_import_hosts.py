@@ -1,5 +1,5 @@
 import unittest
-import random, sys, time
+import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
@@ -12,17 +12,13 @@ zeroList = [
 ]
 
 # FIX! put these in 3?
-# 'randomBitVector' ?? hardwire size to 19?
+# 'randomBitVector'
 # 'randomFilter'
 # 'log"
 # do we have to restrict ourselves?
-# 'makeEnum' (hardware the enum colum to col 53
+# 'makeEnum'
 # bug?
-#        ['Result','<n>',' = makeEnum(','<keyX>','[53]) + Result', '<n-1>'],
-#        ['Result','<n>',' = randomFilter(','<keyX>','[', '<col1>','],' ,'<row>', ')'],
 exprList = [
-        ['Result','<n>',' = randomBitVector(19,0) + Result', '<n-1>'],
-        ['Result','<n>',' = log(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
         ['Result','<n>',' = ',
             '<keyX>','[', '<col1>', '] + ',
             '<keyX>','[', '<col2>', '] + ',
@@ -47,7 +43,12 @@ class Basic(unittest.TestCase):
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
-        h2o_hosts.build_cloud_with_hosts()
+        global local_host
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            h2o.build_cloud(3,java_heap_GB=4)
+        else:
+            h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
@@ -63,12 +64,17 @@ class Basic(unittest.TestCase):
 
         # make the timeout variable per dataset. it can be 10 secs for covtype 20x (col key creation)
         # so probably 10x that for covtype200
-        csvFilenameAll = [
-            ("covtype.data", "cA", 5),
-            ("covtype.data", "cB", 5),
-            ("covtype20x.data", "cC", 50),
-            ("covtype20x.data", "cD", 50),
-        ]
+        if local_host:
+            csvFilenameAll = [
+                ("covtype.data", "cA", 5),
+            ]
+        else:
+            csvFilenameAll = [
+                ("covtype.data", "cA", 5),
+                ("covtype.data", "cB", 5),
+                ("covtype20x.data", "cC", 50),
+                ("covtype20x.data", "cD", 50),
+            ]
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
@@ -90,9 +96,8 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
             h2e.exec_zero_list(zeroList)
             # we use colX+1 so keep it to 53
-            # we use makeEnum in this test...so timeout has to be bigger!
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
-                maxCol=53, maxRow=400000, maxTrials=100, timeoutSecs=(timeoutSecs))
+                maxCol=53, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
 
 
 if __name__ == '__main__':
