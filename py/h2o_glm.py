@@ -57,6 +57,9 @@ def simpleCheckGLM(self,glm,colX, **kwargs):
     GLMParams = GLMModel["GLMParams"]
     family = GLMParams["family"]
 
+    iterations = GLMModel['iterations']
+    print "\nGLMModel/iterations:", iterations
+
     # pop the first validation from the list
     validationsList = GLMModel['validations']
     validations = validationsList.pop()

@@ -6,18 +6,11 @@ import h2o, h2o_cmd as cmd
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        global nodes
-        nodes = h2o.build_cloud(node_count=1)
+        h2o.build_cloud(node_count=1)
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
-
-
-    def test_A_Basic(self):
-        for n in nodes:
-            c = n.get_cloud()
-            self.assertEqual(c['cloud_size'], len(nodes), 'inconsistent cloud size')
+        h2o.tear_down_cloud()
 
     def test_B_LR_iris2(self):
         timeoutSecs = 2
