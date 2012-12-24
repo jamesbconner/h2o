@@ -1,5 +1,5 @@
 import unittest
-import random, sys, time
+import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
@@ -25,7 +25,12 @@ class Basic(unittest.TestCase):
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
-        h2o_hosts.build_cloud_with_hosts()
+        global local_host
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            h2o.build_cloud(3,java_heap_GB=4)
+        else:
+            h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
@@ -41,7 +46,7 @@ class Basic(unittest.TestCase):
 
         # make the timeout variable per dataset. it can be 10 secs for covtype 20x (col key creation)
         # so probably 10x that for covtype200
-        if 1==0:
+        if local_host:
             csvFilenameAll = [
                 ("covtype.data", "cA", 5,  1),
                 ("covtype.data", "cB", 5,  1),
@@ -74,7 +79,9 @@ class Basic(unittest.TestCase):
             h2o_exec.exec_zero_list(zeroList)
             colResultList = h2o_exec.exec_expr_list_across_cols(lenNodes, exprList, key2, maxCol=54, 
                 timeoutSecs=timeoutSecs)
-            print "\ncolResultList", colResultList
+            print "\n*************"
+            print "colResultList", colResultList
+            print "*************"
 
             if not firstDone:
                 colResultList0 = list(colResultList)

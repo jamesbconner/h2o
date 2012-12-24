@@ -367,10 +367,18 @@ def check_sandbox_for_errors():
                 'exception|error|assert|warn|info|killing|killed|required ports',
                 re.IGNORECASE)
             regex2 = re.compile('Caused')
+            regex3 = re.compile('warn|info', re.IGNORECASE)
+
+            # if we started due to "warning" ...then if we hit exception, we don't want to stop
+            # we want that to act like a new beginning. Maybe just treat "warning" and "info" as
+            # single line events? that's better
 
             printing = 0
             lines = 0
             for line in sandFile:
+                # no multiline FSM on this 
+                printSingleLine = regex3.search(line)
+
                 foundBad = regex1.search(line) and ('error rate' not in line)
                 if (printing==0 and foundBad):
                     printing = 1
@@ -390,7 +398,7 @@ def check_sandbox_for_errors():
                     if foundBad and (lines>4) and not (foundCaused or foundAt):
                         printing = 2 
 
-                if (printing==1):
+                if (printing==1 or printSingleLine):
                     # to avoid extra newline from print. line already has one
                     sys.stdout.write(line)
 

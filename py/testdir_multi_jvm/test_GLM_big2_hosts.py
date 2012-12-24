@@ -9,7 +9,13 @@ import time
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        h2o_hosts.build_cloud_with_hosts()
+        global local_host
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            # maybe fails more reliably with just 2 jvms?
+            h2o.build_cloud(2,java_heap_GB=7)
+        else:
+            h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
@@ -59,10 +65,10 @@ class Basic(unittest.TestCase):
 
             start = time.time()
             kwargs = {'X': X, 'Y': Y, 'xval': 7}
-            glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=300, **kwargs)
+            glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=200, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
 
-            h2b.browseJsonHistoryAsUrlLastMatch("GLM")
+            ### h2b.browseJsonHistoryAsUrlLastMatch("GLM")
             print "\nTrial #", trial
 
 
