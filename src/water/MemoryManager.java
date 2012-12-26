@@ -200,7 +200,9 @@ public abstract class MemoryManager {
   // Will block until there is enough available memory.
   // Catches OutOfMemory, clears cache & retries.
   public static Object malloc(int elems, long bytes, int type, byte[] orig, int from ) {
-    assert bytes < Value.MAX : "malloc size=0x"+Long.toHexString(bytes);
+    // Do not assert on large-size here.  RF's temp internal datastructures are
+    // single very large arrays.
+    //assert bytes < Value.MAX : "malloc size=0x"+Long.toHexString(bytes);
     while( true ) {
       if( !CAN_ALLOC && bytes > 256 ) {
         synchronized(_lock) {
