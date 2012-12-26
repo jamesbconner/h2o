@@ -211,7 +211,7 @@ public abstract class Function {
     new RandomFilter("randomFilter");
     new Log("log");
     new InPlaceColSwap("colSwap");
-    new MakeEnum("makeEnum");
+    new MakeEnum("factor");
   }
 }
 
@@ -509,9 +509,6 @@ class Log extends Function {
 
 // makeEnum --------------------------------------------------------------------
 
-
-// colSwap ---------------------------------------------------------------------
-
 /** Makes an enum from given class.
  *
  * @author peta
@@ -648,9 +645,8 @@ class MakeEnum extends Function {
     }
     return null;
   }
-
-
 }
+
 
 // colSwap ---------------------------------------------------------------------
 
@@ -758,6 +754,7 @@ class InPlaceColSwap extends Function {
     return result;
   }
 }
+
 
 // GLM -------------------------------------------------------------------------
 
