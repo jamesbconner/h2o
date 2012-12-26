@@ -468,8 +468,9 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
 class H2O(object):
-    def __url(self, loc, port=None):
+    def __url(self, loc, port=None, new=False):
         if port is None: port = self.port
+        if new: port += 2
         u = 'http://%s:%d/%s' % (self.addr, port, loc)
         return u 
 
@@ -507,7 +508,7 @@ class H2O(object):
 
 
     def get_cloud(self):
-        a = self.__check_request(requests.get(self.__url('Cloud.json')))
+        a = self.__check_request(requests.get(self.__url('Cloud.json', new=True)))
         # don't want to print everything from get_cloud json (f/j info etc)
         # but this will check the keys exist!
         consensus  = a['consensus']
