@@ -86,7 +86,8 @@ def exec_zero_list(zeroList):
 def exec_expr_list_rand(lenNodes, exprList, key2, 
     maxCol=54, maxRow=400000, maxTrials=100, timeoutSecs=10):
 
-    for trial in range(maxTrials):
+    trial = 0
+    while trial < maxTrials: 
         for exprTemplate in exprList:
             # copy it to keep python from changing the original when I modify it below!
             exprTemp = list(exprTemplate)
@@ -119,6 +120,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
             if (h2o.check_sandbox_for_errors()):
                 raise Exception(
                     "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
+            trial += 1
 
         print "Trial #", trial, "completed\n"
 
