@@ -7,6 +7,8 @@ import h2o, h2o_cmd, h2o_hosts
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        global SYNDATASETS_DIR
+        SYNDATASETS_DIR = h2o.make_syn_dir()
         h2o.build_cloud(node_count=1) 
 
     @classmethod 
@@ -206,5 +208,4 @@ class Basic(unittest.TestCase):
                     sys.stdout.flush()
     
 if __name__ == '__main__':
-    SYNDATASETS_DIR = h2o.make_syn_dir()
     h2o.unit_main()
