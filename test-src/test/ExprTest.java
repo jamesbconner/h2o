@@ -15,7 +15,7 @@ public class ExprTest extends TestUtil {
     try {
       k1 = loadAndParseKey("h.hex","smalldata/cars.csv");
       ValueArray va1 = ValueArray.value(k1);
-      k2 = executeExpression("g=colSwap(h.hex,2,makeEnum(h.hex[2]))");
+      k2 = executeExpression("g=colSwap(h.hex,2,factor(h.hex[2]))");
       kg = Key.make("g");
       ValueArray va2 = ValueArray.value(kg);
       ValueArray.Column col = va2._cols[2];
