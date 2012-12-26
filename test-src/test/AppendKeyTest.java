@@ -8,6 +8,8 @@ import water.*;
 
 public class AppendKeyTest extends TestUtil {
 
+  @BeforeClass public static void stall() { stall_till_cloudsize(3); }
+
   public Key makeKey(String n, boolean remote) {
     if(!remote) return Key.make(n);
     H2O cloud = H2O.CLOUD;

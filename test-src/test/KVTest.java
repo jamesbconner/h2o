@@ -11,6 +11,8 @@ import water.parser.ParseDataset;
 
 public class KVTest extends TestUtil {
 
+  @BeforeClass public static void stall() { stall_till_cloudsize(3); }
+
   // ---
   // Run some basic tests.  Create a key, test that it does not exist, insert a
   // value for it, get the value for it, delete it.
@@ -57,7 +59,6 @@ public class KVTest extends TestUtil {
   // ---
   // Issue a slew of remote puts, then issue a DFJ job on the array of keys.
   @Test public void testRemoteBitSet() throws Exception {
-    stall_till_cloudsize(3);
     // Issue a slew of remote key puts
     Key[] keys = new Key[32];
     for( int i = 0; i < keys.length; ++i ) {
@@ -85,7 +86,6 @@ public class KVTest extends TestUtil {
   // ---
   // Issue a large Key/Value put/get - testing the TCP path
   @Test public void testTcpCRUD() {
-    stall_till_cloudsize(2);
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
@@ -113,7 +113,6 @@ public class KVTest extends TestUtil {
   // Map in h2o.jar - a multi-megabyte file - into Arraylets.
   // Run a distributed byte histogram.
   @Test public void testMultiMbFile() throws Exception {
-    stall_till_cloudsize(3);
     File file = find_test_file("h2o.jar");
     Key h2okey = load_test_file(file);
     ByteHisto bh = new ByteHisto();
@@ -149,7 +148,6 @@ public class KVTest extends TestUtil {
   // ---
   // Run an atomic function remotely, one time only
   @Test public void testRemoteAtomic() {
-    stall_till_cloudsize(2);
     // Make an execution key homed to the remote node
     H2O cloud = H2O.CLOUD;
     H2ONode target = cloud._memary[0];
