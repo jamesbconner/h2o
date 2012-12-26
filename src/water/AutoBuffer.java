@@ -255,6 +255,7 @@ public final class AutoBuffer {
   public int remaining() { return _bb.remaining(); }
   public int position () { return _bb.position (); }
   public void position(int pos) { _bb.position(pos); }
+  public int limit() { return _bb.limit(); }
   public boolean firstPage() { return _firstPage; }
 
   // Return byte[] from a writable AutoBuffer

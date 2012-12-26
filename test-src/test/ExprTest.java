@@ -10,6 +10,28 @@ import water.parser.ParseDataset;
 public class ExprTest extends TestUtil {
   int i = 0;
 
+  @Test public void testMakeEnum() {
+    Key k1=null,k2=null,kg=null,k3=null,ki=null;
+    try {
+      k1 = loadAndParseKey("h.hex","smalldata/cars.csv");
+      ValueArray va1 = ValueArray.value(k1);
+      k2 = executeExpression("g=colSwap(h.hex,2,makeEnum(h.hex[2]))");
+      kg = Key.make("g");
+      ValueArray va2 = ValueArray.value(kg);
+      ValueArray.Column col = va2._cols[2];
+      assertEquals(col._domain,new String[]{"3.0","4.0","5.0","6.0","8.0"});
+      k3 = executeExpression("i=colSwap(h.hex,2,h.hex[2]==3?1:0)");
+      ki = Key.make("i");
+    } finally {
+      UKV.remove(kg);
+      UKV.remove(k1);
+      UKV.remove(k2);
+      UKV.remove(k3);
+      UKV.remove(ki);
+    }
+  }
+
+
   @Test public void testMultiChunkFile() {
     Key k1 = loadAndParseKey("hhp.hex","smalldata/hhp.cut3.214.data.gz");
     ValueArray va1 = ValueArray.value(k1);

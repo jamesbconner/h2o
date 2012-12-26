@@ -27,7 +27,9 @@ class JUnit(unittest.TestCase):
                     'test.KeyToString',
                     'test.RStringTest',
                     'test.ParserTest',
-                    'test.MinorityClassTest'
+                    'test.MinorityClassTest',
+                    'test.GLMTest',
+                    'test.RBigDataTest'
                     ])
 
             rc = ps.wait(None)

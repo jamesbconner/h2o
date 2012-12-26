@@ -669,6 +669,8 @@ class FunctionCall extends Expr {
       return _function.eval(args);
     } catch (Exception e) {
       throw new EvaluationException(_pos,e.getMessage());
+    } finally {
+      for( Result r : args ) if( r != null ) r.dispose();
     }
   }
 }
@@ -705,37 +707,41 @@ class Iif extends Expr {
 
   @Override public Result eval() throws EvaluationException {
     Result cond = _cond.eval();
-    // if condition is a scalar, return true or false arg unmodified
-    if (cond._type == Result.Type.rtNumberLiteral)
-      return cond._const != 0 ? _ifTrue.eval() : _ifFalse.eval();
-    if (cond._type == Result.Type.rtKey) {
-      cond.convertToSingleColumn(_pos);
-      ValueArray vc = getValueArray(cond._key);
-      Result result = Result.temporary();
-      Result ifTrue = _ifTrue.eval();
-      Result ifFalse = _ifFalse.eval();
-      ifTrue.convertToSingleColumn(_pos);
-      ifFalse.convertToSingleColumn(_pos);
-      MRColumnProducer task = null;
-      if (ifTrue._type == Result.Type.rtNumberLiteral) {
-        if (ifFalse._type == Result.Type.rtNumberLiteral)
-          task = new IifOperatorScalar23(cond._key, ifTrue._const, ifFalse._const, result._key, cond.colIndex());
-        else
-          task = new IifOperatorScalar2(cond._key, ifTrue._const, ifFalse._key, result._key, cond.colIndex(), ifFalse.colIndex());
-      } else {
-        if (ifFalse._type == Result.Type.rtNumberLiteral)
-          task = new IifOperatorScalar3(cond._key, ifTrue._key, ifFalse._const, result._key, cond.colIndex(), ifTrue.colIndex());
-        else
-          task = new IifOperator(cond._key, ifTrue._key, ifFalse._key, result._key, cond.colIndex(), ifTrue.colIndex(), ifFalse.colIndex());
+    try {
+      // if condition is a scalar, return true or false arg unmodified
+      if (cond._type == Result.Type.rtNumberLiteral)
+        return cond._const != 0 ? _ifTrue.eval() : _ifFalse.eval();
+      if (cond._type == Result.Type.rtKey) {
+        cond.convertToSingleColumn(_pos);
+        ValueArray vc = getValueArray(cond._key);
+        Result result = Result.temporary();
+        Result ifTrue = _ifTrue.eval();
+        Result ifFalse = _ifFalse.eval();
+        ifTrue.convertToSingleColumn(_pos);
+        ifFalse.convertToSingleColumn(_pos);
+        MRColumnProducer task = null;
+        if (ifTrue._type == Result.Type.rtNumberLiteral) {
+          if (ifFalse._type == Result.Type.rtNumberLiteral)
+            task = new IifOperatorScalar23(cond._key, ifTrue._const, ifFalse._const, result._key, cond.colIndex());
+          else
+            task = new IifOperatorScalar2(cond._key, ifTrue._const, ifFalse._key, result._key, cond.colIndex(), ifFalse.colIndex());
+        } else {
+          if (ifFalse._type == Result.Type.rtNumberLiteral)
+            task = new IifOperatorScalar3(cond._key, ifTrue._key, ifFalse._const, result._key, cond.colIndex(), ifTrue.colIndex());
+          else
+            task = new IifOperator(cond._key, ifTrue._key, ifFalse._key, result._key, cond.colIndex(), ifTrue.colIndex(), ifFalse.colIndex());
+        }
+        VABuilder b = new VABuilder("temp", vc.numRows()).addDoubleColumn("0").createAndStore(result._key);
+        task.invoke(result._key);
+        b.setColumnStats(0, task._min, task._max, task._tot / vc.numRows()).createAndStore(result._key);
+        ifTrue .dispose();
+        ifFalse.dispose();
+        return result;
       }
-      VABuilder b = new VABuilder("temp", vc.numRows()).addDoubleColumn("0").createAndStore(result._key);
-      task.invoke(result._key);
-      b.setColumnStats(0, task._min, task._max, task._tot / vc.numRows()).createAndStore(result._key);
-      return result;
+
+      return null;
+    } finally {
+      cond.dispose();
     }
-
-    return null;
   }
-
-
 }

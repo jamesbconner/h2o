@@ -172,12 +172,12 @@ public class Helpers {
         ValueArray r = v.clone();
         r._key = to;
         MRTask copyTask = new MRTask() {
-          @Override public void map(Key key) {
-            long chkidx = ValueArray.getChunkIndex(key);
-            Key k = ValueArray.getChunkKey(chkidx, to);
-            byte[] bits = DKV.get(key).get();
-            Value v = new Value(k, MemoryManager.arrayCopyOfRange(bits, 0, bits.length));
-            DKV.put(k, v, getFutures());
+          @Override public void map(Key fromk) {
+            long chkidx = ValueArray.getChunkIndex(fromk);
+            Key tok = ValueArray.getChunkKey(chkidx, to);
+            byte[] bits = DKV.get(fromk).get();
+            Value tov = new Value(tok, MemoryManager.arrayCopyOf(bits, bits.length));
+            DKV.put(tok, tov, getFutures());
           }
           @Override  public void reduce(DRemoteTask drt) { }
         };

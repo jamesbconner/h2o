@@ -695,7 +695,7 @@ class InPlaceColSwap extends Function {
       int oldMark2 = Math.abs(oldCol._size) + oldMark1;
       int newMark2 = Math.abs(newCol._size) + newMark1;
       int oldMark3 = oldVal._ary._rowsize;
-      for (int off = 0; off < bits.remaining(); /* done in the body */) {
+      for (int off = 0; off < bits.limit(); /* done in the body */) {
         oldVal.next();
         newVal.next();
         // copy & patch the data
@@ -751,9 +751,9 @@ class InPlaceColSwap extends Function {
     Result result = Result.temporary();
     // we now have the new column layout and must do the copying, create the
     // value array
-    ValueArray ary = new ValueArray(result._key, oldAry.numRows(), off, cols);
-    DKV.put(result._key, ary.value());
     ColSwapTask task = new ColSwapTask(result._key, oldKey, newKey, oldCol, newCol);
+    ValueArray ary = new ValueArray(result._key, oldAry.numRows(), off, cols);
+    DKV.put(result._key, ary.value(),task.getFutures());
     task.invoke(result._key);
     return result;
   }
