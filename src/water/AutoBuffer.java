@@ -388,6 +388,8 @@ public final class AutoBuffer {
       _bb.clear();
       return _bb;
     } catch( IOException e ) {   // Dunno how to handle so crash-n-burn
+      if( e.getMessage().equals("Connection reset by peer") )
+        UDPRebooted.suicide( UDPRebooted.T.error, _h2o );
       throw new RuntimeException(e);
     }
   }

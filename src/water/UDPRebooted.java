@@ -28,33 +28,39 @@ public class UDPRebooted extends UDP {
   public static void checkForSuicide(int first_byte, AutoBuffer ab) {
     if( first_byte != UDP.udp.rebooted.ordinal() ) return;
     int type = ab.get1();
+    suicide( T.values()[type], ab._h2o);
+  }
+
+  public static void suicide( T cause, H2ONode killer ) {
     String m;
-    switch( T.values()[type] ) {
+    switch( cause ) {
     case none:   return;
     case reboot: return;
     case shutdown:
-      try { H2O._webSocket.close(); } catch( IOException x ) { }
-      try { H2O._udpSocket.close(); } catch( IOException x ) { }
-      try { H2O._apiSocket.close(); } catch( IOException x ) { }
-      try { TCPReceiverThread.SOCK.close(); } catch( IOException x ) { }
-      System.out.println("[h2o] Orderly shutdown command from "+ab._h2o);
+      closeAll();
+      System.out.println("[h2o] Orderly shutdown command from "+killer);
       System.exit(0);
       return;
     case error:    m = "Error leading to a cloud kill"              ; break;
     case locked:   m = "Killed joining a locked cloud"              ; break;
     case mismatch: m = "Killed joining a cloud with a different jar"; break;
-    default:       m = "Received kill "+type                        ; break;
+    default:       m = "Received kill "+cause                       ; break;
     }
-    try { H2O._webSocket.close(); } catch( IOException x ) { }
-    try { H2O._udpSocket.close(); } catch( IOException x ) { }
-    try { H2O._apiSocket.close(); } catch( IOException x ) { }
-    try { TCPReceiverThread.SOCK.close(); } catch( IOException x ) { }
-    System.err.println("[h2o] "+m+" from "+ab._h2o);
+    closeAll();
+    System.err.println("[h2o] "+m+" from "+killer);
     System.exit(-1);
   }
 
   AutoBuffer call(AutoBuffer ab) {
     if( ab._h2o != null ) ab._h2o.rebooted();
     return ab;
+  }
+
+  // Try to gracefully close/shutdown all i/o channels.
+  public static void closeAll() {
+    try { H2O._webSocket.close(); } catch( IOException x ) { }
+    try { H2O._udpSocket.close(); } catch( IOException x ) { }
+    try { H2O._apiSocket.close(); } catch( IOException x ) { }
+    try { TCPReceiverThread.SOCK.close(); } catch( IOException x ) { }
   }
 }
