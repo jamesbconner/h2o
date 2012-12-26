@@ -82,6 +82,7 @@ public class RandomForestTest extends TestUtil {
         assertArrayEquals(ans[i],C._matrix[i]);
 
       // Cleanup
+      UKV.get(modelKey,new Model()).deleteKeys();
       UKV.remove(modelKey);
       UKV.remove(confKey);
 
@@ -134,6 +135,7 @@ public class RandomForestTest extends TestUtil {
     assertEquals("Number of classes", 2,  model._classes);
     assertEquals("Number of trees", ntrees, model.size());
 
+    model.deleteKeys();
     UKV.remove(drf._modelKey);
     UKV.remove(okey);
   }

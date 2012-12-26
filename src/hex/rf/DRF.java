@@ -45,8 +45,6 @@ public class DRF extends water.DRemoteTask {
   int [] _strata;
   /** Key for the model being buildt */
   public Key _modelKey;
-  /** Key for the trees built so far*/
-  public Key _treeskey;
 
   /* Number of features which are tried at each split */
   public int _features;
@@ -140,7 +138,6 @@ public class DRF extends water.DRemoteTask {
     drf._stat = stat.ordinal();
     drf._arykey = ary._key;
     drf._classcol = classcol;
-    drf._treeskey = Key.make("Trees of " + ary._key,(byte)1,Key.KEY_OF_KEYS);
     drf._seed = seed;
     drf._ignores = ignores;
     drf._modelKey = modelKey;
@@ -151,10 +148,9 @@ public class DRF extends water.DRemoteTask {
     drf.validateInputData(ary);
     drf._t_main = new Timer();
 
-    DKV.put(drf._treeskey, new Value(drf._treeskey, 4)); //4 bytes for the key-count, which is zero
     Column c = ary._cols[classcol];
     final int classes = (short)((c._max - c._min)+1);
-    UKV.put(modelKey, new Model(modelKey,drf._treeskey,ary._cols.length,classes,sample,ary._key,ignores,drf._features, ntrees));
+    UKV.put(modelKey, new Model(modelKey,new Key[0],ary._cols.length,classes,sample,ary._key,ignores,drf._features, ntrees));
 
     DKV.write_barrier();
     drf.fork(drf._arykey);

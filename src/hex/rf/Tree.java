@@ -20,7 +20,6 @@ public class Tree extends CountedCompleter {
   final double _min_error_rate; // Error rate below which a split isn't worth it
   INode _tree;                  // Root of decision tree
   ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
-  final Key _treesKey;
   final Key _modelKey;
   final int _alltrees;          // Number of trees expected to build a complete model
   final long _seed;             // Pseudo random seed: used to playback sampling
@@ -32,14 +31,13 @@ public class Tree extends CountedCompleter {
   int [] _strata;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, long seed, Key treesKey, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns, boolean stratify, int [] strata) {
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, long seed, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns, boolean stratify, int [] strata) {
     _type = stat;
     _data = data;
     _data_id = treeId; //data.dataId();
     _max_depth = max_depth-1;
     _min_error_rate = min_error_rate;
     _features = features;
-    _treesKey = treesKey;
     _modelKey = modelKey;
     _alltrees = alltrees;
     _seed = seed;
@@ -89,41 +87,21 @@ public class Tree extends CountedCompleter {
     StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
     Utils.pln(_tree.toString(sb,200).toString());
     _stats = null; // GC
-    new AppendKey(toKey()).invoke(_treesKey); // Atomic-append to the list of trees
+
     // Atomically improve the Model as well
-    Model m = new Model(_modelKey, _treesKey, _data.columns(), _data.classes(), _sample, _data._data._ary._key,_ignoreColumns, _features,_alltrees);
-    AtomicModel am = new AtomicModel(_alltrees, m);
-    am.invoke(_modelKey);
+    appendKey(_modelKey,toKey());
 
     Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
     tryComplete();
   }
 
-  static class AtomicModel extends TAtomic<Model> {
-    Model _model;
-    private int _ntree;
-
-    public AtomicModel() { }
-    public AtomicModel( int tree, Model m ) {
-      _ntree = tree;
-      _model = m;
-    }
-
-    @Override public Model alloc() { return new Model(); }
-
-    @Override
-    public Model atomic(Model old) {
-      // Abort the XTN with no change
-      if( old != null && old.size() >= _model.size() ) return null;
-      return _model;
-    }
-
-    @Override
-    public void onSuccess() {
-      if( _ntree == _model.size() && _model._treesKey != null)
-        UKV.remove(_model._treesKey);
-      _model._treesKey = null;
-    }
+  // Stupid static method to make a static anonymous inner class
+  // which serializes "for free".
+  static void appendKey(Key model, final Key tKey) {
+    new TAtomic<Model>() {
+      @Override public Model alloc() { return new Model(); }
+      @Override public Model atomic(Model old) { return Model.make(old,tKey); }
+    }.invoke(model);
   }
 
   private class FJBuild extends RecursiveTask<INode> {

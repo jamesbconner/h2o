@@ -8,13 +8,9 @@ import water.*;
  * A model is an ensemble of trees that can be serialized and that can be used
  * to classify data.
  */
-public class Model extends Iced {
+public class Model extends Iced implements Cloneable {
   /** Key model is stored in the cloud with */
   public Key _key;
-  /** Number of trees in the model. */
-  private int      _ntrees;
-  /** Compressed tree data. */
-  public byte[][]  _trees;
   /** Number of response classes in the source data. */
   public int       _classes;
   /** Number of features these trees are built for */
@@ -30,46 +26,60 @@ public class Model extends Iced {
 
   /** Number of keys the model expects to be built for it */
   public int       _totalTrees;
-  public Key       _treesKey;
-
-  public Model() { }
+  /** All the trees in the model */
+  public Key[]     _tkeys; 
 
   /** A RandomForest Model
    * @param treeskey    a key of keys of trees
    * @param classes     the number of response classes
    * @param data        the dataset
    */
-  public Model(Key key, Key treeskey, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures, int totalTrees) {
+  public Model(Key key, Key[] tkeys, int features, int classes, float sample, Key dataset, int[] ignoredColumns, int splitFeatures, int totalTrees) {
     _key            = key;
-    _treesKey       = treeskey;
     _classes        = classes;
     _features       = features;
     _sample         = sample;
     _dataset        = dataset;
     _ignoredColumns = ignoredColumns;
     _splitFeatures  = splitFeatures;
-    _totalTrees      = totalTrees;
+    _totalTrees     = totalTrees;
+    _tkeys          = tkeys;
+    for( Key tkey : _tkeys ) assert DKV.get(tkey)!=null;
+  }
 
-    Key[] tkeys = treeskey.flatten(); // Trees
-    if( tkeys == null ) return;       // Broken model?  quit now
-    _trees = new byte[tkeys.length][];
-    for( int i = 0; i < tkeys.length; i++ ) {
-      Value v = DKV.get(tkeys[i]);
-      if( v == null )   return;     // Broken model; quit now
-      _trees[i] = v.get();
-    }
-    _ntrees = tkeys.length;
+  /** Empty constructor for deserialization */
+  public Model() { }
+
+  static public Model make(Model old, Key tkey) {
+    try { 
+      Model m = (Model)old.clone();
+      m._tkeys = Arrays.copyOf(old._tkeys,old._tkeys.length+1);
+      m._tkeys[m._tkeys.length-1] = tkey;
+      return m;
+    } catch( CloneNotSupportedException cnse ) { throw H2O.unimpl();/*cannot happen*/ }
   }
 
   /** The number of trees in this model. */
-  public int treeCount() { return _ntrees; }
-  public int size() { return _ntrees; }
+  public int treeCount() { return _tkeys.length; }
+  public int size() { return _tkeys.length; }
 
   public String name(int atree) {
     if( atree == -1 ) atree = size();
     assert atree <= size();
     return _key.toString()+"["+atree+"]";
   }
+
+  // Return the bits for a particular tree
+  public byte[] tree( int tree_id ) {
+    return DKV.get(_tkeys[tree_id]).get();
+  }
+
+  // Bad name, I know.  But free all internal tree keys.
+  public void deleteKeys() {
+    for( Key k : _tkeys )
+      UKV.remove(k);
+  }
+
 
   /**
    * Classify a row according to one particular tree.
@@ -80,12 +90,12 @@ public class Model extends Iced {
    * @return the predicted response class, or class+1 for broken rows
    */
   public short classify0(int tree_id, AutoBuffer chunk, int row, int rowsize, ValueArray data ) {
-    return Tree.classify(new AutoBuffer(_trees[tree_id]), data, chunk, row, rowsize, (short)_classes);
+    return Tree.classify(new AutoBuffer(tree(tree_id)), data, chunk, row, rowsize, (short)_classes);
   }
 
   private void vote(AutoBuffer chunk, int row, int rowsize, ValueArray data, int[] votes ) {
     assert votes.length == _classes+1/*+1 to catch broken rows*/;
-    for( int i = 0; i < _ntrees; i++ )
+    for( int i = 0; i < size(); i++ )
       votes[classify0(i, chunk, row, rowsize, data)]++;
   }
 
@@ -115,7 +125,7 @@ public class Model extends Iced {
 
   // The seed for a given tree
   long seed( int ntree ) {
-    return UDP.get8(_trees[ntree],4);
+    return UDP.get8(tree(ntree),4);
   }
 
   // Lazy initialization of tree leaves, depth
@@ -126,8 +136,8 @@ public class Model extends Iced {
     if( _tl != null ) return;
     _td = new Counter();
     _tl = new Counter();
-    for( byte[] tbits : _trees ) {
-      long dl = Tree.depth_leaves(new AutoBuffer(tbits));
+    for( Key tkey : _tkeys ) {
+      long dl = Tree.depth_leaves(new AutoBuffer(DKV.get(tkey).get()));
       _td.add((int) (dl >> 32));
       _tl.add((int) dl);
     }
@@ -150,5 +160,5 @@ public class Model extends Iced {
   }
 
   /** Return the random seed used to sample this tree. */
-  public long getTreeSeed(int i) {  return Tree.seed(_trees[i]); }
+  public long getTreeSeed(int i) {  return Tree.seed(tree(i)); }
 }

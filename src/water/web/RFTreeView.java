@@ -35,7 +35,7 @@ public class RFTreeView extends H2OPage {
     final int n = getAsNumber(args,"n",0);
     if( !(0 <= n && n < model.size()) ) return wrap(error("Tree number of out bounds"));
 
-    byte[] tbits = model._trees[n];
+    byte[] tbits = model.tree(n);
 
     long dl = Tree.depth_leaves(new AutoBuffer(tbits));
     int depth = (int)(dl>>>32);

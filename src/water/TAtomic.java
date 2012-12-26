@@ -6,8 +6,7 @@ package water;
 public abstract class TAtomic<T extends Freezable> extends Atomic {
   /** Atomically update an old value to a new one.
    * @param old  The old value, it may be null
-   * @return The new value of null if this atomic update no longer needs to be
-   *   run
+   * @return The new value; if null if this atomic update no longer needs to be run
    */
   public abstract T atomic(T old);
 
