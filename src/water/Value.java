@@ -13,6 +13,13 @@ import water.hdfs.PersistHdfs;
  */
 public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
 
+  // Max size of Values before we start asserting.
+  // Sizes around this big, or larger are probably true errors.
+  // In any case, they will cause issues with both GC (giant pause times on
+  // many collectors) and I/O (long term blocking of TCP I/O channels to
+  // service a single request, causing starvation of other requests).
+  public static int MAX = 10*1024*1024;
+
   // ---
   // Values are wads of bits; known small enough to 'chunk' politely on disk,
   // or fit in a Java heap (larger Values are built via arraylets) but (much)
@@ -213,6 +220,8 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   // --------------------------------------------------------------------------
   // Set just the initial fields
   public Value(Key k, int max, byte[] mem, byte be, byte isArray ) {
+    assert mem==null || mem.length==max;
+    assert max < MAX : "Value size=0x"+Integer.toHexString(max);
     _key = k;
     _max = max;
     _mem = mem;

@@ -195,99 +195,44 @@ public abstract class MemoryManager {
     }
   }
 
-  // allocates memory, will block until there is enough available memory
-  public static byte[] malloc1(int size) {
-    // kbn was 10000000
-    assert size < 2000000000 : "malloc1 size=0x"+Integer.toHexString(size);
+
+  // Allocates memory with cache management
+  // Will block until there is enough available memory.
+  // Catches OutOfMemory, clears cache & retries.
+  public static Object malloc(int elems, long bytes, int type, byte[] orig, int from ) {
+    assert bytes < Value.MAX : "malloc size=0x"+Long.toHexString(bytes);
     while( true ) {
-      if( !CAN_ALLOC && size > 256 ) {
+      if( !CAN_ALLOC && bytes > 256 ) {
         synchronized(_lock) {
           try { _lock.wait(1000); } catch (InterruptedException ex) { }
         }
       }
-      try { return new byte[size]; }
+      try { 
+        switch( type ) {
+        case  1: return new byte   [elems];
+        case  2: return new short  [elems];
+        case  4: return new int    [elems];
+        case -4: return new float  [elems];
+        case  0: return new boolean[elems];
+        case -1: return Arrays.copyOfRange(orig,from,elems);
+        default: throw H2O.unimpl();
+        }
+      }
       catch( OutOfMemoryError e ) { }
       set_goals("OOM",true); // Low memory; block for swapping
     }
   }
 
-  public static short[] malloc2(int size) {
-    while( true ) {
-      if( !CAN_ALLOC && size > 128 ) {
-        synchronized(_lock) {
-          try { _lock.wait(1000); } catch (InterruptedException ex) { }
-        }
-      }
-      try { return new short[size]; }
-      catch( OutOfMemoryError e ) { }
-      set_goals("OOM",true); // Low memory; block for swapping
-    }
+  // Allocates memory with cache management
+  public static byte   [] malloc1 (int size) { return (byte   [])malloc(size,size*1, 1,null,0); }
+  public static short  [] malloc2 (int size) { return (short  [])malloc(size,size*2, 2,null,0); }
+  public static float  [] malloc4f(int size) { return (float  [])malloc(size,size*4,-4,null,0); }
+  public static int    [] malloc4 (int size) { return (int    [])malloc(size,size*4, 4,null,0); }
+  public static boolean[] mallocZ (int size) { return (boolean[])malloc(size,size*1, 0,null,0); }
+  public static byte[] arrayCopyOfRange(byte[] orig, int from, int sz) { 
+    return (byte[]) malloc(sz,(sz-from),-1,orig,from);
   }
-
-  public static float[] malloc4f(int size) {
-    while( true ) {
-      if( !CAN_ALLOC && size > 64 ) {
-        synchronized(_lock) {
-          try { _lock.wait(1000); } catch (InterruptedException ex) { }
-        }
-      }
-      try { return new float[size]; }
-      catch( OutOfMemoryError e ) { }
-      set_goals("OOM",true); // Low memory; block for swapping
-    }
-
-  }
-  public static int[] malloc4(int size) {
-    while( true ) {
-        if( !CAN_ALLOC && size > 64 ) {
-            synchronized(_lock) {
-                try { _lock.wait(1000); } catch (InterruptedException ex) { }
-            }
-        }
-        try { return new int[size]; }
-        catch( OutOfMemoryError e ) { }
-        set_goals("OOM",true); // Low memory; block for swapping
-    }
-  }
-
-  public static boolean[] mallocZ(int size) {
-    while( true ) {
-      if( !CAN_ALLOC && size > 256 ) {
-        synchronized(_lock) {
-          try { _lock.wait(1000); } catch (InterruptedException ex) { }
-        }
-      }
-      try { return new boolean[size]; }
-      catch( OutOfMemoryError e ) { }
-      set_goals("OOM",true); // Low memory; block for swapping
-    }
-  }
-
-
-  //allocates memory, will block until there is enough available memory
-  public static byte[] arrayCopyOf(byte [] original, int sz ) {
-    while( true ) {
-      if( !CAN_ALLOC && sz > 256 ) {
-        synchronized(_lock) {
-          try { _lock.wait(1000); } catch (InterruptedException ex) { }
-        }
-      }
-      try { return Arrays.copyOf(original, sz); }
-      catch( OutOfMemoryError e ) { }
-      set_goals("OOM",true);    // Low memory; block for swapping
-    }
-  }
-  //allocates memory, will block until there is enough available memory
-  public static byte[] arrayCopyOfRange(byte [] original, int from, int to ) {
-    while( true ) {
-      if( !CAN_ALLOC && (to - from) > 256 ) {
-        synchronized(_lock) {
-          try { _lock.wait(1000); } catch (InterruptedException ex) { }
-        }
-      }
-      try { return Arrays.copyOfRange(original, from, to); }
-      catch( OutOfMemoryError e ) { }
-      set_goals("OOM",true); // Low memory; block for swapping
-    }
+  public static byte[] arrayCopyOf( byte[] orig, int sz) { 
+    return arrayCopyOfRange(orig,0,sz);
   }
 }
