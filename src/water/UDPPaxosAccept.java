@@ -8,7 +8,8 @@ package water;
  */
 public class UDPPaxosAccept extends UDP {
   @Override AutoBuffer call(AutoBuffer ab) {
-    Paxos.doAccept(ab.get(Paxos.State.class), ab._h2o);
+    Paxos.State s = ab.get(Paxos.State.class);
+    Paxos.doAccept(s, ab._h2o);
     return ab;
   }
 

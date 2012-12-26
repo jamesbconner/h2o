@@ -35,9 +35,6 @@ public class Boot extends ClassLoader {
   // javassist support for rewriting class files
   private ClassPool _pool; // The pool of altered classes
   private CtClass[] _serBases;
-  private CtClass _enum;
-  private static enum x { x };  // junk enum to force early loading for javaassist
-  private static x _x;
 
   static {
     try {
@@ -232,16 +229,13 @@ public class Boot extends ClassLoader {
       if( _serBases == null ) {
         _serBases = new CtClass[] {
             _pool.get("water.Iced"),
-            _pool.get("water.DTask")
+            _pool.get("water.DTask"),
         };
-        for(CtClass base : _serBases) base.toClass(this, null);
+        for( CtClass c : _serBases ) c.toClass(this, null);
       }
       for( CtClass base : _serBases )
         if( cc != base && cc.subclassOf(base) )
           return javassistLoadClass(cc);
-      if( _enum == null ) _enum = _pool.get("java.lang.Enum");
-      if( cc != _enum && cc.subclassOf(_enum) )
-        return javassistLoadClass(cc);
       return cc.toClass(this, null);
     } catch( NotFoundException nfe ) {
       return null;              // Not found?  Use the normal loader then
@@ -253,15 +247,8 @@ public class Boot extends ClassLoader {
   public synchronized Class javassistLoadClass( CtClass cc ) throws NotFoundException, CannotCompileException {
     // Serialize parent class first
     CtClass scc = cc.getSuperclass(); // See if the super is already done
-    if( !scc.isFrozen() && scc != _enum ) // Super not done?
+    if( !scc.isFrozen() && !scc.getPackageName().startsWith("java.lang") )
       javassistLoadClass(scc);        // Recursively serialize
-
-    // Serialize enums first, since we need the raw_enum function for this class
-    for( CtField ctf : cc.getDeclaredFields() ) {
-      CtClass base = ctf.getType();
-      if( base != _enum && base != cc && !base.isFrozen() && base.subclassOf(_enum) )
-        javassistLoadClass(base); // Recursively serialize
-    }
     return addSerializationMethods(cc);
   }
 
@@ -278,22 +265,6 @@ public class Boot extends ClassLoader {
   // This method is handed a CtClass which is known to be a subclass of
   // water.DTask.  Add any missing serialization methods.
   Class addSerializationMethods( CtClass cc ) throws CannotCompileException, NotFoundException {
-
-    // For enums, add a function to reverse serialize a byte to the enum via
-    // array lookup
-    if( cc.subclassOf(_enum) ) {
-      String body = "static "+cc.getName()+" raw_enum(int i) { return i==255?null:$VALUES[i]; } ";
-      try {
-        cc.addMethod(CtNewMethod.make(body,cc));
-        return cc.toClass(this, null);
-      } catch( CannotCompileException ce ) {
-        System.out.println("--- Compilation failure while compiler raw_enum for "+cc.getName());
-        System.out.println(body);
-        System.out.println("------");
-        throw ce;
-      }
-    }
-
     // Check for having "read" and "write".  Either All or None of read & write
     // must be defined.  Note that I use getDeclaredMethods which returns only
     // the local methods.  The singular getDeclaredMethod searches for a
@@ -334,9 +305,7 @@ public class Boot extends ClassLoader {
               "public water.AutoBuffer write(water.AutoBuffer ab) {\n",
               "  super.write(ab);\n",
               "  ab.put%z(%s);\n",
-              "  ab.putEnum(%s);\n",
               "  ab.put%z(%s);\n",
-
               // there is a bug in javassist and this must be broken
               // onto several separate lines
               "  Class cz%s = %s == null ? null : %s.getClass();\n" +
@@ -357,9 +326,7 @@ public class Boot extends ClassLoader {
               "public water.Freezable read(water.AutoBuffer s) {\n",
               "  super.read(s);\n",
               "  %s = s.get%z();\n",
-              "  %s = %c.raw_enum(s.get1());\n",
               "  %s = (%C)s.get%z(%c.class);\n",
-
               // there is a bug in javassist and this must be broken
               // onto several separate lines
               "  Integer i%s = Integer.valueOf(s.get1());\n" +
@@ -389,7 +356,6 @@ public class Boot extends ClassLoader {
                                String header,
                                String supers,
                                String prims,
-                               String enums,
                                String freezables,
                                String abstractFreezables,
                                String trailer
@@ -417,8 +383,6 @@ public class Boot extends ClassLoader {
         } else {
           sb.append(freezables);
         }
-      } else if( ftype%20 == 10 ) { // Enums
-        sb.append(enums);
       } else {
         sb.append(prims);
       }
@@ -448,14 +412,14 @@ public class Boot extends ClassLoader {
   }
 
   static private final String[] FLDSZ1 = {
-    "Z","1","2","2","4","4f","8","8d","Str","","Enum" // prims, String, Freezable, Enum
+    "Z","1","2","2","4","4f","8","8d","Str","" // prims, String, Freezable or Enum
   };
 
   // Field types:
   // 0-7: primitives
-  // 8,9, 10: String, Freezable, Enum
+  // 8,9: String, Freezable or Enum
   // 20-27: array-of-prim
-  // 28,29, 30: array-of-String, Freezable, Enum
+  // 28,29: array-of-String, Freezable, Enum
   // Barfs on all others (eg Values or array-of-Frob, etc)
   private int ftype( CtClass ct, String sig ) throws NotFoundException {
     switch( sig.charAt(0) ) {
@@ -473,7 +437,7 @@ public class Boot extends ClassLoader {
       String clz = sig.substring(1,sig.length()-1).replace('/', '.');
       CtClass argClass = _pool.get(clz);
       if( argClass.subtypeOf(_pool.get("water.Freezable")) ) return 9;
-      if( argClass.subtypeOf(_pool.get("java.lang.Enum")) ) return 10;
+      if( argClass.subtypeOf(_pool.get("java.lang.Enum" )) ) return 9;
       break;
     case '[':                   // Arrays
       return ftype(ct, sig.substring(1))+20; // Same as prims, plus 20

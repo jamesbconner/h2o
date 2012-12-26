@@ -453,24 +453,27 @@ public final class AutoBuffer {
   public AutoBuffer put8 (  long l) { putSp(8).putLong  (l); return this; }
   public AutoBuffer put8d(double d) { putSp(8).putDouble(d); return this; }
 
+  public AutoBuffer put(Enum e) {
+    return put1(e == null ? 0 : e.ordinal()+1);
+  }
+  public AutoBuffer putA(Enum[] es)    {
+    if( es == null ) return put4(-1);
+    put4(es.length);
+    for( Enum e : es ) put(e);
+    return this;
+  }
+  public AutoBuffer putAA(Enum[][] es)    {
+    if( es == null ) return put4(-1);
+    put4(es.length);
+    for( Enum[] e : es ) putA(e);
+    return this;
+  }
+
   public AutoBuffer put(Freezable f) {
     if( f == null ) return put1(0);
     put1(1);
     return f.write(this);
   }
-  public <T extends Freezable> T get(Class<T> t) {
-    int b = get1();
-    if( b == 0 ) return null;
-    assert b==1 : "broken bool "+b+" for "+t;
-    try {
-      return t.newInstance().read(this);
-    } catch( InstantiationException e ) {
-      throw new RuntimeException(e);
-    } catch( IllegalAccessException e ) {
-      throw new RuntimeException(e);
-    }
-  }
-
   public AutoBuffer putA(Freezable[] fs)    {
     if( fs == null ) return put4(-1);
     put4(fs.length);
@@ -483,19 +486,42 @@ public final class AutoBuffer {
     for( Freezable[] f : fs ) putA(f);
     return this;
   }
-  public <T extends Freezable> T[] getA(Class<T> tc) {
+
+  /** get either a Freezable or an Enum.  Thanks to erasure, we must
+   * handle both here.
+   */
+  public <T> T get(Class<?> t) {
+    int b = get1();
+    if( b == 0 ) return null;
+
+    assert b>0 : "broken id "+b+" for "+t;
+    T[] ts = (T[]) t.getEnumConstants();
+    if( ts != null ) return ts[b-1];
+
+    try {
+      assert Freezable.class.isAssignableFrom(t);
+      T ti = (T) t.newInstance();
+      return ((Freezable)ti).read(this);
+    } catch( InstantiationException e ) {
+      throw new RuntimeException(e);
+    } catch( IllegalAccessException e ) {
+      throw new RuntimeException(e);
+    }
+  }
+  public <T> T[] getA(Class<T> tc) {
     int len = get4(); if( len == -1 ) return null;
     T[] ts = (T[]) Array.newInstance(tc, len);
     for( int i = 0; i < len; ++i ) ts[i] = get(tc);
     return ts;
   }
-  public <T extends Freezable> T[][] getAA(Class<T> tc) {
+  public <T> T[][] getAA(Class<T> tc) {
     int len = get4(); if( len == -1 ) return null;
     Class<T[]> tcA = (Class<T[]>) Array.newInstance(tc, 0).getClass();
     T[][] ts = (T[][]) Array.newInstance(tcA, len);
     for( int i = 0; i < len; ++i ) ts[i] = getA(tc);
     return ts;
   }
+
   public AutoBuffer putAStr(String[] fs)    {
     if( fs == null ) return put4(-1);
     put4(fs.length);
