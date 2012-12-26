@@ -19,10 +19,10 @@ class JUnit(unittest.TestCase):
                     '-mainClass', 'org.junit.runner.JUnitCore',
                     # The tests
                     'test.KVTest',
-                    'test.AutoSerialTest',
-                    'test.DatasetCornerCasesTest',
                     'test.AppendKeyTest',
                     'test.RandomForestTest',
+                    'test.AutoSerialTest',
+                    'test.DatasetCornerCasesTest',
                     'test.ExprTest',
                     'test.KeyToString',
                     'test.RStringTest',

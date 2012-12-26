@@ -5,16 +5,19 @@ import com.google.gson.JsonObject;
 import hex.rf.*;
 import hex.rf.Tree.StatType;
 import java.util.Properties;
+import org.junit.BeforeClass;
 import water.*;
 import water.parser.ParseDataset;
 import water.web.RFView;
 import water.web.RandomForestPage;
 
 public class RandomForestTest extends TestUtil {
+
+  @BeforeClass public static void stall() { stall_till_cloudsize(3); }
+
   // ---
   // Test parsing "iris2.csv" and running Random Forest - by driving the web interface
   @org.junit.Test public void testRF_Iris() throws Exception {
-    stall_till_cloudsize(3);
     final int CLASSES=3;        // Number of output classes in iris dataset
     Key fkey = load_test_file("smalldata/iris/iris2.csv");
     Key okey = Key.make("iris.hex");
@@ -96,7 +99,6 @@ public class RandomForestTest extends TestUtil {
 
   // Test kaggle/creditsample-test data
   @org.junit.Test public void kaggle_credit() throws Exception {
-    stall_till_cloudsize(3);
     Key fkey = load_test_file("smalldata/kaggle/creditsample-training.csv.gz");
     Key okey = Key.make("credit.hex");
     ParseDataset.parse(okey,DKV.get(fkey));
