@@ -524,14 +524,14 @@ class H2O(object):
         return a
 
     def get_timeline(self):
-        return self.__check_request(requests.get(self.__url('Timeline.json')))
+        return self.__check_request(requests.get(self.__url('Timeline.json', new=True)))
 
     # Shutdown url is like a reset button. Doesn't send a response before it kills stuff
     # safer if random things are wedged, rather than requiring response
     # so request library might retry and get exception. allow that.
     def shutdown_all(self):
         try:
-            self.__check_request(requests.get(self.__url('Shutdown.json')))
+            self.__check_request(requests.get(self.__url('Shutdown.json', new=True)))
         except:
             pass
         return(True)
