@@ -35,7 +35,7 @@ def fill_in_expr_template(exprTemp, colX, n, row, key2):
         if e == '<n>':
             exprTemp[i] = str(n) 
         if e == '<n-1>':
-            exprTemp[i] = str(n-1) # we start with trial=0, so n-1 is Result0
+            exprTemp[i] = str(n-1) # we start with trial=1, so n-1 is Result0
         if e == '<row>':
             exprTemp[i] = str(row)
         if e == '<keyX>':
@@ -103,7 +103,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         # FIX! should tune this for covtype20x vs 200x vs covtype.data..but for now
         row = str(random.randint(1,maxRow))
 
-        execExpr = fill_in_expr_template(exprTemp, colX, trial+1, row, key2)
+        execExpr = fill_in_expr_template(exprTemp, colX, ((trial+1)%4)+1, row, key2)
         execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
             "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
