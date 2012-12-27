@@ -566,16 +566,6 @@ class H2O(object):
             prefetch=False,
             params={"key": key})
 
-    # FIX! placeholder..what does the JSON really want?
-    def get_file(self, f):
-        a = self.__check_request(
-            requests.post(
-                self.__url('GetFile.json'), 
-                files={"File": open(f, 'rb')}),
-            extraComment = str(f))
-        verboseprint("\nget_file result:", dump_json(a))
-        return a
-
     # FIX! TEMP: right now H2O does blocking response ..i.e. we get nothing until 
     # the parse is done. Parse can take a long time. Should be intermediate views of something?
     # if we timeout repeatedly, we can exceed the default retry count in the requests library
