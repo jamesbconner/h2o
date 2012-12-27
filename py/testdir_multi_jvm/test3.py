@@ -35,7 +35,6 @@ class Basic(unittest.TestCase):
             # broke out the put separately so we can iterate a test just on the RF
             parseKey = h2o_cmd.parseFile(None, csvPathname)
 
-            ### print 'put TimeMS:', parseKey['TimeMS']
             h2o.verboseprint("Trial", trial)
             h2o_cmd.runRFOnly(parseKey=parseKey, trees=237, depth=45, timeoutSecs=30)
 

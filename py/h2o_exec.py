@@ -85,7 +85,7 @@ def exec_zero_list(zeroList):
         ### print "\nexecResult:", execResult
 
 def exec_expr_list_rand(lenNodes, exprList, key2, 
-    minCol=0, maxCol=54, minRow=1, maxRow=400000, maxTrials=100, timeoutSecs=10):
+    minCol=0, maxCol=54, minRow=1, maxRow=400000, maxTrials=200, timeoutSecs=10):
 
     trial = 0
     while trial < maxTrials: 
@@ -93,15 +93,15 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
 
         # copy it to keep python from changing the original when I modify it below!
         exprTemp = list(exprTemplate)
-        # do each expression at a random node, to facilate key movement
+        # UPDATE: all execs are to a single node. No mixed node streams
+        # eliminates some store/store race conditions that caused problems.
+        # always go to node 0 (forever?)
         if lenNodes is None:
             execNode = 0
         else:
-            execNode = random.randint(0,lenNodes-1)
-        # test_dkv.py passes if we don't bounce between nodes
-        ## execNode = 0
-        ## execNode = 1
-        print "execNode:", execNode
+            # execNode = random.randint(0,lenNodes-1)
+            execNode = 0
+        ## print "execNode:", execNode
 
         colX = random.randint(minCol,maxCol)
 
@@ -141,10 +141,14 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
             exprTemp = list(exprTemplate)
 
             # do each expression at a random node, to facilate key movement
+            # UPDATE: all execs are to a single node. No mixed node streams
+            # eliminates some store/store race conditions that caused problems.
+            # always go to node 0 (forever?)
             if lenNodes is None:
                 execNode = 0
             else:
-                execNode = random.randint(0,lenNodes-1)
+                # execNode = random.randint(0,lenNodes-1)
+                execNode = 0
 
             print execNode
             execExpr = fill_in_expr_template(exprTemp, colX, colX, 0, key2)

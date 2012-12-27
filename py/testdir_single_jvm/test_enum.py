@@ -97,7 +97,7 @@ class Basic(unittest.TestCase):
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
-        h2b.browseTheCloud()
+        ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
         cnum = 0
@@ -108,11 +108,11 @@ class Basic(unittest.TestCase):
             write_syn_dataset(csvPathname, 1000000, SEED)
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=2000)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "Parse result['Key']:", parseKey['Key']
+            print csvFilename, 'parse time:', parseKey['response']['time']
+            print "Parse result['destination_key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
-            inspect = h2o_cmd.runInspect(None, parseKey['Key'])
+            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
             h2e.exec_zero_list(zeroList)

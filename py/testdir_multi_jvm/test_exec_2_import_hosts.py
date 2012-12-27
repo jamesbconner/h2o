@@ -7,9 +7,11 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
 # the shared exec expression creator and executor
 import h2o_exec as h2e
 
-zeroList = [
-        ['Result0 = 0'],
-]
+zeroList = []
+for i in range(5):
+    zeroList.append('ColumnRes' + str(i) + ' = 0')
+    zeroList.append('ScalarRes' + str(i) + ' = 0')
+    zeroList.append('MatrixRes' + str(i) + ' = 0')
 
 # FIX! put these in 3?
 # 'randomBitVector'
@@ -17,21 +19,21 @@ zeroList = [
 # 'log"
 # do we have to restrict ourselves?
 # 'makeEnum'
-# bug?
+#        ['MatrixRes','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
 exprList = [
-        ['Result','<n>',' = ',
+        ['ColumnRes','<n>',' = ',
             '<keyX>','[', '<col1>', '] + ',
             '<keyX>','[', '<col2>', '] + ',
             '<keyX>','[', '2', ']'
         ],
 
-        ['Result','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
-        ['Result','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
-        ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
-        ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-        ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-        ['Result','<n>',' = mean(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
+        ['ColumnRes','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
+        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', ']'],
+        ['ScalarRes','<n>',' = log(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n>', '[0]'],
+        ['ScalarRes','<n>',' = min(','<keyX>','[', '<col1>', '])'],
+        ['ScalarRes','<n>',' = max(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>', '[0]'],
+        ['ScalarRes','<n>',' = mean(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>', '[0]'],
+        ['ScalarRes','<n>',' = sum(','<keyX>','[', '<col1>', ']) + ScalarRes0'],
     ]
 
 class Basic(unittest.TestCase):
@@ -87,17 +89,17 @@ class Basic(unittest.TestCase):
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "Parse result['Key']:", parseKey['Key']
+            print csvFilename, 'parse time:', parseKey['response']['time']
+            print "Parse result['desination_key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
-            inspect = h2o_cmd.runInspect(None, parseKey['Key'])
+            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
             h2e.exec_zero_list(zeroList)
             # we use colX+1 so keep it to 53
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
-                maxCol=53, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
+                maxCol=53, maxRow=400000, maxTrials=200, timeoutSecs=timeoutSecs)
 
 
 if __name__ == '__main__':

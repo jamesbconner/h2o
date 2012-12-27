@@ -550,14 +550,14 @@ class H2O(object):
                 params={"key": key}), 
             extraComment = str(f) + "," + str(key))
 
-        verboseprint("\nput_file #1 phase response: ", resp1)
+        verboseprint("\nput_file #1 phase response: ", dump_json(resp1))
         resp2 = self.__check_request(
             requests.post(
                 self.__url('Upload.json', port=resp1['port']), 
                 files={"File": open(f, 'rb')}),
             extraComment = str(f))
 
-        verboseprint("put_file #2 phase response: ", resp2)
+        verboseprint("put_file #2 phase response: ", dump_json(resp2))
 
         return resp2[0]
     
