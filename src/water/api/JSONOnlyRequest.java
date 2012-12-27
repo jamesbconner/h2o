@@ -13,7 +13,7 @@ public abstract class JSONOnlyRequest extends Request {
 
   public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     if (type == RequestType.json) {
-    return super.serve(server,args,type);
+      return super.serve(server,args,type);
     } else {
       JsonObject resp = new JsonObject();
       resp.addProperty(JSON_ERROR,"This request is only provided for browser connections");
