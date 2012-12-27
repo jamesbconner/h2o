@@ -11,11 +11,11 @@ class SigarApi(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        h2o.tear_down_cloud(nodes)
+        h2o.tear_down_cloud()
 
     def test_netstat(self):
         # Ask each node for network statistics
-        for n in nodes:
+        for n in h2o.nodes:
             a = n.netstat()
             print a
 
