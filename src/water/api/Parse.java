@@ -13,8 +13,12 @@ public class Parse extends Request {
   @Override protected Response serve() {
     Value source = _source.value();
     Key dest = _dest.value();
-    if (dest == null)
-      dest = Key.make(source._key.toString()+".hex");
+    if (dest == null) {
+      String n = source._key.toString();
+      int dot = n.lastIndexOf('.');
+      if( dot > 0 ) n = n.substring(0, dot);
+      dest = Key.make(n+".hex");
+    }
     try {
       ParseDataset.parse(dest, source);
       JsonObject response = new JsonObject();
