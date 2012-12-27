@@ -42,14 +42,14 @@ exprList = [
 #            '<keyX>','[', '2', ']'
 #        ],
 
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','0','])'],
-        ['Result','<n>',' = makeEnum(','<keyX>','[','1','])'],
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','2','])'],
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','3','])'],
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','4','])'],
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','5','])'],
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','6','])'],
-        # ['Result','<n>',' = makeEnum(','<keyX>','[','7','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','0','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','1','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','2','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','3','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','4','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','5','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','6','])'],
+        # ['Result','<n>',' = factor(','<keyX>','[','7','])'],
         # ['Result','<n>',' = randomBitVector(','<row>',',1)'],
         # ['Result','<n>',' = randomBitVector(','<row>',',0)'],
 # FIX! bugs in all of these?
@@ -76,7 +76,7 @@ class Basic(unittest.TestCase):
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
             # h2o.build_cloud(3,java_heap_GB=4)
-            h2o.build_cloud(1,java_heap_GB=4)
+            h2o.build_cloud(1,java_heap_GB=1)
         else:
             h2o_hosts.build_cloud_with_hosts()
 

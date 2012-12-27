@@ -167,6 +167,8 @@ public class ConcurrentAutoTable implements Serializable {
         if( CAS( t, idx, old, old+x ) ) break; // Got it!
         cnt++;
       }
+      if( _sum_cache != Long.MIN_VALUE )
+        _sum_cache = Long.MIN_VALUE; // Blow out cache
       if( cnt < MAX_SPIN ) return old; // Allowable spin loop count
       if( t.length >= 1024*1024 ) return old; // too big already
 
