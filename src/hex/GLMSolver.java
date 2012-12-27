@@ -372,21 +372,21 @@ public class GLMSolver {
             throw e;
           switch(_solver._penalty) {
           case NONE:
-            System.out.println("[glm] Warning: not solvable without normalization, switching to L2 penalty");
+            System.out.println("[glm] not solvable without normalization, switching to L2 penalty");
             _solver._penalty = LSMSolver.Norm.L2;
             _solver._lambda = 1e-8;
             break;
           case L2:
-            System.out.println("[glm] Warning: not solvable without more normalization, increasing L2 penalty");
+            System.out.println("[glm] not solvable without more normalization, increasing L2 penalty");
             _solver._lambda *= 10;
             break;
           case L1:
-            System.out.println("[glm] Warning: not solvable without normalization, switching to ELASTIC penalty");
+            System.out.println("[glm] not solvable without normalization, switching to ELASTIC penalty");
             _solver._penalty = LSMSolver.Norm.ELASTIC;
             _solver._lambda2 = 1e-8;
             break;
           case ELASTIC:
-            System.out.println("[glm] Warning: not solvable without more normalization, increasing ELASTIC penalty");
+            System.out.println("[glm] not solvable without more normalization, increasing ELASTIC penalty");
             _solver._lambda2 *= 10;
             break;
           default:
