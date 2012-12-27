@@ -132,14 +132,6 @@ public class ExprTest extends TestUtil {
     UKV.remove(key);
   }
 
-  protected Key loadAndParseKey(String keyName, String path) {
-    Key fkey = load_test_file(path);
-    Key okey = Key.make(keyName);
-    ParseDataset.parse(okey,DKV.get(fkey));
-    UKV.remove(fkey);
-    return okey;
-  }
-
   protected void testKeyValues(Key k, double n1, double n2, double n3, double nx3, double nx2, double nx1) {
     ValueArray v = ValueArray.value(k);
     assertEquals(v.datad(0,0),n1,0.0);
