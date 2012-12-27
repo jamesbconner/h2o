@@ -88,39 +88,40 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
 
     trial = 0
     while trial < maxTrials: 
-        for exprTemplate in exprList:
-            # copy it to keep python from changing the original when I modify it below!
-            exprTemp = list(exprTemplate)
-            # do each expression at a random node, to facilate key movement
-            if lenNodes is None:
-                nodeX = 0
-            else:
-                nodeX = random.randint(0,lenNodes-1)
+        exprTemplate = random.choice(exprList)
 
-            colX = random.randint(1,maxCol)
+        # copy it to keep python from changing the original when I modify it below!
+        exprTemp = list(exprTemplate)
+        # do each expression at a random node, to facilate key movement
+        if lenNodes is None:
+            nodeX = 0
+        else:
+            nodeX = random.randint(0,lenNodes-1)
 
-            # FIX! should tune this for covtype20x vs 200x vs covtype.data..but for now
-            row = str(random.randint(1,maxRow))
+        colX = random.randint(1,maxCol)
 
-            execExpr = fill_in_expr_template(exprTemp, colX, trial+1, row, key2)
-            execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
-                "Result"+str(trial+1), timeoutSecs)
-            ### print "\nexecResult:", execResultInspect
+        # FIX! should tune this for covtype20x vs 200x vs covtype.data..but for now
+        row = str(random.randint(1,maxRow))
 
-            columns = execResultInspect["columns"]
-            columnsDict = columns.pop()
-            min = columnsDict["min"]
-            h2o.verboseprint("min: ", min, "trial:", trial)
+        execExpr = fill_in_expr_template(exprTemp, colX, trial+1, row, key2)
+        execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
+            "Result"+str(trial+1), timeoutSecs)
+        ### print "\nexecResult:", execResultInspect
 
-            sys.stdout.write('.')
-            sys.stdout.flush()
+        columns = execResultInspect["columns"]
+        columnsDict = columns.pop()
+        min = columnsDict["min"]
+        h2o.verboseprint("min: ", min, "trial:", trial)
 
-            ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-            # slows things down to check every iteration, but good for isolation
-            if (h2o.check_sandbox_for_errors()):
-                raise Exception(
-                    "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
-            trial += 1
+        sys.stdout.write('.')
+        sys.stdout.flush()
+
+        ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+        # slows things down to check every iteration, but good for isolation
+        if (h2o.check_sandbox_for_errors()):
+            raise Exception(
+                "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
+        trial += 1
 
         print "Trial #", trial, "completed\n"
 

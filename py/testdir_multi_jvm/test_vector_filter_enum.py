@@ -19,9 +19,9 @@ exprList = [
         ],
 
 # FIX! bug due to missing value in col 54
-#        ['Result','<n>',' = makeEnum(','<keyX>','[','54','])'],
-        ['Result','<n>',' = makeEnum(','<keyX>','[','53','])'],
-        ['Result','<n>',' = makeEnum(','<keyX>','[','28','])'],
+#        ['Result','<n>',' = factor(','<keyX>','[','54','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','53','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','28','])'],
         ['Result','<n>',' = randomBitVector(','<row>',',1)'],
         ['Result','<n>',' = randomBitVector(','<row>',',0)'],
 # FIX! bugs in all of these?
@@ -102,7 +102,7 @@ class Basic(unittest.TestCase):
             h2e.exec_zero_list(zeroList)
             # does n+1 so use maxCol 53
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
-                maxCol=53, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
+                maxCol=53, maxRow=400000, maxTrials=200, timeoutSecs=timeoutSecs)
 
 
 if __name__ == '__main__':

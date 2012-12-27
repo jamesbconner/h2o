@@ -33,34 +33,36 @@ def write_syn_dataset(csvPathname, rowCount, SEED):
 
 zeroList = [
         ['Result0 = 0'],
+        ['Result = 0'],
 ]
 
 exprList = [
-#        ['Result','<n>',' = ',
-#            '<keyX>','[', '<col1>', '] + ',
-#            '<keyX>','[', '<col2>', '] + ',
-#            '<keyX>','[', '2', ']'
-#        ],
+        ['Result','<n>',' = ',
+            '<keyX>','[', '<col1>', '] + ',
+            '<keyX>','[', '<col2>', '] + ',
+            '<keyX>','[', '2', ']'
+        ],
 
-        # ['Result','<n>',' = factor(','<keyX>','[','0','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','0','])'],
         ['Result','<n>',' = factor(','<keyX>','[','1','])'],
-        # ['Result','<n>',' = factor(','<keyX>','[','2','])'],
-        # ['Result','<n>',' = factor(','<keyX>','[','3','])'],
-        # ['Result','<n>',' = factor(','<keyX>','[','4','])'],
-        # ['Result','<n>',' = factor(','<keyX>','[','5','])'],
-        # ['Result','<n>',' = factor(','<keyX>','[','6','])'],
-        # ['Result','<n>',' = factor(','<keyX>','[','7','])'],
-        # ['Result','<n>',' = randomBitVector(','<row>',',1)'],
-        # ['Result','<n>',' = randomBitVector(','<row>',',0)'],
+        ['Result','<n>',' = factor(','<keyX>','[','2','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','3','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','4','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','5','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','6','])'],
+        ['Result','<n>',' = factor(','<keyX>','[','7','])'],
+
+        ['Result','<n>',' = randomBitVector(','<row>',',1)'],
+        ['Result','<n>',' = randomBitVector(','<row>',',0)'],
 # FIX! bugs in all of these?
 #        ['Result','<n>',' = randomFilter(','<keyX>','[','<col1>','],','<row>',')'],
 #        ['Result','<n>',' = randomFilter(','<keyX>',',','<row>',')'],
 #        ['Result','<n>',' = randomFilter(','<keyX>',',','3',')'],
 
-#        ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
-#        ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-#        ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-#        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
+        ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
+        ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
+        ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
+        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
     ]
 
 class Basic(unittest.TestCase):

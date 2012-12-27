@@ -1,8 +1,15 @@
 import unittest, sys
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_browse as h2b
+import h2o, h2o_cmd, h2o_browse as h2b, h2o_exec as h2e
 import random, sys, time
+
+
+
+zeroList = [
+        ['Result0 = 0'],
+        ['Result = 0'],
+]
 
 # randomBitVector
 # randomFilter
@@ -14,9 +21,9 @@ exprList = [
         ['Result','<n>',' = colSwap(c.hex,', '<col1>', ',(c.hex[2]==0 ? 54321 : 54321))'],
         ['Result','<n>',' = c.hex[', '<col1>', ']'],
         ['Result','<n>',' = min(c.hex[', '<col1>', '])'],
-        ['Result','<n>',' = max(c.hex[', '<col1>', ']) + Result'],
-        ['Result','<n>',' = mean(c.hex[', '<col1>', ']) + Result'],
-        ['Result','<n>',' = sum(c.hex[', '<col1>', ']) + Result'],
+        ['Result','<n>',' = max(c.hex[', '<col1>', ']) + Result[0]'],
+        ['Result','<n>',' = mean(c.hex[', '<col1>', ']) + Result[0]'],
+        ['Result','<n>',' = sum(c.hex[', '<col1>', ']) + Result[0]'],
     ]
 
 class Basic(unittest.TestCase):
@@ -40,61 +47,21 @@ class Basic(unittest.TestCase):
 
     def test_loop_random_exec_covtype(self):
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
-        parseKey = h2o_cmd.parseFile(None, csvPathname, 'covtype.data', 'c.hex', 10000)
+        parseKey = h2o_cmd.parseFile(None, csvPathname, 'covtype.data', 'c.hex', 15)
         print "\nParse key is:", parseKey['Key']
 
         h2b.browseTheCloud()
-        # for trial in range(53):
-        trial = 0
-        while (trial < 100):
-            for exprTemplate in exprList:
-                # have to copy it to keep python from changing the original when I modify it below!
-                exprTemp = list(exprTemplate)
-                trial = trial + 1
-                colX = random.randint(1,54)
 
-                # replace any <col2> in the template
-                # FIX! does this push col2 too far? past the output col?
-                for i,e in enumerate(exprTemp):
-                    if e == '<col1>':
-                        exprTemp[i] = str(colX)
-                    if e == '<col2>':
-                        exprTemp[i] = str(colX+1)
-                    if e == '<n>':
-                        exprTemp[i] = str(trial)
-                    if e == '<row>':
-                        exprTemp[i] = str(random.randint(1,400000))
+        h2e.exec_zero_list(zeroList)
+        start = time.time()
+        h2e.exec_expr_list_rand(len(h2o.nodes), exprList, 'c.hex',
+            maxCol=54, maxRow=400000, maxTrials=200, timeoutSecs=5)
 
-                # form the expression in a single string
-                execExpr = ''.join(exprTemp)
-                print "\nexecExpr:", execExpr
+        if (h2o.check_sandbox_for_errors()):
+            raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
 
-                start = time.time()
+        print "exec end on ", "covtype.data" , 'took', time.time() - start, 'seconds'
 
-                exec_result = h2o_cmd.runExecOnly(Expr=execExpr, timeoutSecs=70)
-                # FIX! race conditions. If json is done, does that mean you can inspect it??
-                resultInspect = h2o.nodes[0].inspect('Result' + str(trial))
-                # h2o.verboseprint(h2o.dump_json(resultInspect))
-
-                print(h2o.dump_json(exec_result))
-                h2o.verboseprint(h2o.dump_json(exec_result))
-
-                # WARNING! we can't browse the Exec url history, since that will 
-                # cause the Exec to execute again thru the browser..i.e. it has side effects
-                # just look at the last inspect, which should be the resultInspect!
-                ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-
-                # FIX! I suppose we have the problem of stdout/stderr not having flushed?
-                # should hook in some way of flushing the remote node stdout/stderr
-                if (h2o.check_sandbox_for_errors()):
-                    raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
-
-                print "exec end on ", "covtype.data" , 'took', time.time() - start, 'seconds'
-                print "Trial #", trial, "completed\n"
-
-                # use the result as the next thing to work on? (copy over)
-                parseKey['Key'] = exec_result['ResultKey']
- 
 
 if __name__ == '__main__':
     h2o.unit_main()
