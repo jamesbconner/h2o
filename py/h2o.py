@@ -582,9 +582,9 @@ class H2O(object):
         # don't need extraComment because
         a = self.__check_request(
             requests.get(
-                url=self.__url('Parse.json'),
+                url=self.__url('Parse.json', new=True),
                 timeout=timeoutSecs,
-                params={"Key": key, "Key2": key2}))
+                params={"source_key": key, "destination_key": key2}))
 
         verboseprint("\nparse result:",dump_json(a))
         if (browseAlso | browse_json):

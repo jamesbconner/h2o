@@ -44,7 +44,7 @@ def runGLMOnly(node=None,parseKey=None,
     if not parseKey: raise Exception('No parsed key for GLM specified')
     if not node: node = h2o.nodes[0]
     # no such thing as GLMView..don't use retryDelaySecs
-    return node.GLM(parseKey['Key'], timeoutSecs, **kwargs)
+    return node.GLM(parseKey['destination_key'], timeoutSecs, **kwargs)
 
 def runLR(node=None, csvPathname=None,key=None,
         timeoutSecs=20, **kwargs):
@@ -55,7 +55,7 @@ def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
     if not parseKey: raise Exception('No parsed key for LR specified')
     if not node: node = h2o.nodes[0]
     # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    return node.linear_reg(parseKey['Key'], timeoutSecs, **kwargs)
+    return node.linear_reg(parseKey['destination_key'], timeoutSecs, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRF(node=None, csvPathname=None, trees=5, key=None, 
@@ -74,7 +74,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     if not node: node = h2o.nodes[0]
     #! FIX! what else is in parseKey that we should check?
     h2o.verboseprint("runRFOnly parseKey:", parseKey)
-    Key = parseKey['Key']
+    Key = parseKey['destination_key']
     rf = node.random_forest(Key, trees, timeoutSecs, **kwargs)
 
     # if we have something in Error, print it!

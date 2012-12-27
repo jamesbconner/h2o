@@ -96,6 +96,8 @@ public class RequestStatics {
   public static final String JSON_COL_MIN = "min";
   public static final String JSON_COL_AVG = "avg";
   public static final String JSON_COL_MAX = "max";
+  public static final String JSON_SOURCE_KEY = "source_key";
+  public static final String JSON_DEST_KEY = "destination_key";
 
   public String requestName() {
     return getClass().getSimpleName();
