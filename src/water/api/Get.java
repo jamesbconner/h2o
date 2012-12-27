@@ -1,25 +1,14 @@
 
 package water.api;
 
-import com.google.gson.JsonObject;
-import java.io.IOException;
 import java.util.Properties;
-import water.DKV;
-import water.Key;
-import water.NanoHTTPD;
-import water.Value;
-import water.web.H2OPage;
-import water.web.Page;
-import water.web.Server;
 
-/**
- *
- * @author peta
- */
+import water.*;
+
+import com.google.gson.JsonObject;
+
 public class Get extends Request {
-
   protected H2OExistingKey _key = new H2OExistingKey(JSON_KEY);
-
 
   @Override public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     switch (type) {
@@ -64,7 +53,4 @@ public class Get extends Request {
       return wrap(server,build(Response.error(e.getMessage())));
     }
   }
-
-
-
 }

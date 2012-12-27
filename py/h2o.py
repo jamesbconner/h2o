@@ -539,24 +539,16 @@ class H2O(object):
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
             requests.get(
-                self.__url('PutValue.json'), 
-                params={"Value": value, "Key": key, "RF": repl}),
+                self.__url('PutValue.json', new=True), 
+                params={"value": value, "key": key, "replication_factor": repl}),
             extraComment = str(value) + "," + str(key) + "," + str(repl))
 
-    def put_file_old(self, f, key=None, repl=None):
-        return self.__check_request(
-            requests.post(
-                self.__url('PutFile.json'), 
-                files={"File": open(f, 'rb')},
-                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
-            extraComment = str(f) + "," + str(key) + "," + str(repl))
-
-    def put_file(self, f, key=None, repl=None):
+    def put_file(self, f, key=None):
         resp1 =  self.__check_request(
             requests.get(
-                self.__url('PutFile.json'), 
-                params={"Key": key, "RF": repl}), # key is optional. so is repl factor (called RF)
-            extraComment = str(f) + "," + str(key) + "," + str(repl))
+                self.__url('WWWFileUpload.json', new=True), 
+                params={"key": key}), 
+            extraComment = str(f) + "," + str(key))
 
         verboseprint("\nput_file #1 phase response: ", resp1)
         resp2 = self.__check_request(

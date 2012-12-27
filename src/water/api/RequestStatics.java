@@ -44,7 +44,7 @@ public class RequestStatics {
   public static final String JSON_FILES = "files";
   public static final String JSON_VALUE = "value";
   public static final String JSON_VALUE_SIZE = "value_size";
-  public static final String JSON_RF = "rf";
+  public static final String JSON_REPLICATION_FACTOR = "replication_factor";
   public static final String JSON_DATA_KEY = "data_key";
   public static final String JSON_NUM_TREES = "ntree";
   public static final String JSON_DEPTH = "depth";

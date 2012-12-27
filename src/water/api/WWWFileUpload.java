@@ -1,16 +1,13 @@
 
 package water.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
-import java.util.Properties;
 import java.util.UUID;
+
 import org.apache.http.*;
 import org.apache.http.entity.HttpEntityWrapper;
 import org.apache.http.entity.StringEntity;
@@ -19,46 +16,33 @@ import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
-import water.*;
-import water.web.Page;
-import water.web.PutFile;
-import water.web.RString;
-import water.web.Server;
 
-/**
- *
- * @author peta
- */
+import water.*;
+
+import com.google.gson.*;
+
 public class WWWFileUpload extends JSONOnlyRequest {
+  protected final Str _key = new Str(JSON_KEY,"");
+  protected final Str _file = new Str(JSON_FILE,"file");
+
   // Maximal waiting time for client connection.
   // If the timeout is reached, server socket is closed.
-  public static final int ACCEPT_CLIENT_TIMEOUT = 1*60*1000; // = 1mins
+  private static final int ACCEPT_TIMEOUT_MS = 60*1000; // = 1mins
 
   public static int uploadFile(String filename, String key) throws Exception {
     // Open a new port to listen by creating a server socket to permit upload.
     // The socket is closed by the uploader thread.
-    ServerSocket serverSocket;
-    try {
-      // Setup server socket and get it port.
-      serverSocket = new ServerSocket(0, 1); // 0 = find an empty port, 1 = maximum length of queue
-      serverSocket.setSoTimeout(ACCEPT_CLIENT_TIMEOUT);
-      serverSocket.setReuseAddress(true);
-      int port = serverSocket.getLocalPort();
-      // Launch uploader thread which retrieve a byte stream from client
-      // and store it to key.
-      // If the client is not connected withing a specifed timeout, the
-      // thread is destroyed.
-      new WWWFileUpload.UploaderThread(serverSocket, filename, key).start();
+    ServerSocket serverSocket = new ServerSocket(0/*any port*/, 1/*queue len*/);
+    serverSocket.setSoTimeout(ACCEPT_TIMEOUT_MS);
+    serverSocket.setReuseAddress(true);
+    int port = serverSocket.getLocalPort();
 
-      return port;
-
-    } catch( IOException e ) {
-      throw new Exception("Cannot create server socket - please try one more time.");
-    }
+    // Launch uploader thread which retrieve a byte stream from client and
+    // store it to key. If the client is not connected within a specified
+    // timeout, the thread is destroyed.
+    new WWWFileUpload.UploaderThread(serverSocket, filename, key).start();
+    return port;
   }
-
-  protected final Str _key = new Str("Key","");
-  protected final Str _file = new Str("File","file");
 
   @Override protected Response serve() {
     try {
@@ -74,11 +58,8 @@ public class WWWFileUpload extends JSONOnlyRequest {
     }
   }
 
-
-
   // Thread handling upload of a (possibly large) file.
   private static class UploaderThread extends Thread {
-
     // Server socket
     ServerSocket ssocket;
     // Key properties
