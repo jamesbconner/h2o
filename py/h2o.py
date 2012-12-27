@@ -562,9 +562,9 @@ class H2O(object):
         return resp2[0]
     
     def get_key(self, key):
-        return requests.get(self.__url('Get'),
+        return requests.get(self.__url('Get.html', new=True),
             prefetch=False,
-            params={"Key": key})
+            params={"key": key})
 
     # FIX! placeholder..what does the JSON really want?
     def get_file(self, f):
