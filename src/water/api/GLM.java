@@ -45,7 +45,7 @@ public class GLM extends Request {
   public static final String JSON_TIME = "time";
   public static final String JSON_COEFFICIENTS = "coefficients";
 
-  protected final H2OHexKey _key = new H2OHexKey(JSON_KEY);
+  protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
   protected final IgnoreHexCols _x = new IgnoreHexCols(_key, _y, JSON_GLM_X);
   protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X);

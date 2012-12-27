@@ -8,40 +8,10 @@ import java.io.IOException;
 import water.Value;
 import water.ValueArray;
 
-/**
- *
- * @author peta
- */
 public class Inspect extends Request {
-
-
-  public static final String JSON_VALUE_TYPE = "type";
-  public static final String JSON_VALUE_ROWS = "rows";
-  public static final String JSON_VALUE_COLS = "cols";
-  public static final String JSON_VALUE_ROWSIZE = "rowsize";
-  public static final String JSON_VALUE_COLUMNS = "columns";
-
-  public static final String JSON_ROWS = "row_data";
-  public static final String JSON_ROWS_ROW = "row";
-
-  public static final String JSON_VALUE_COLUMN_NAME = "name";
-  public static final String JSON_VALUE_COLUMN_OFFSET = "offset";
-  public static final String JSON_VALUE_COLUMN_TYPE = "type";
-  public static final String JSON_VALUE_COLUMN_ENUM_DOMAIN = "enum_domain";
-  public static final String JSON_VALUE_COLUMN_SIZE = "size";
-  public static final String JSON_VALUE_COLUMN_BASE = "base";
-  public static final String JSON_VALUE_COLUMN_SCALE = "scale";
-  public static final String JSON_VALUE_COLUMN_MIN = "min";
-  public static final String JSON_VALUE_COLUMN_MAX = "max";
-  public static final String JSON_VALUE_COLUMN_BADAT = "badat";
-  public static final String JSON_VALUE_COLUMN_MEAN = "mean";
-  public static final String JSON_VALUE_COLUMN_VAR = "var";
-
-
-  protected final H2OExistingKey _key = new H2OExistingKey(JSON_KEY);
-  protected final LongInt _offset = new LongInt(JSON_OFFSET,-1l,-1l,Long.MAX_VALUE);
-  protected final Int _view = new Int(JSON_VIEW, 100, 0, 10000);
-
+  protected final H2OExistingKey _key = new H2OExistingKey(KEY);
+  protected final LongInt _offset = new LongInt(OFFSET,-1l,-1l,Long.MAX_VALUE);
+  protected final Int _view = new Int(VIEW, 100, 0, 10000);
 
   protected void formatAryData(JsonObject obj, ValueArray ary, long rowIdx, int colIdx, String name) {
     if (rowIdx < 0)
@@ -81,37 +51,37 @@ public class Inspect extends Request {
     if (val._isArray != 0) {
       ValueArray ary = ValueArray.value(val);
       t = new PaginatedTable(argumentsToJson(),_offset.value(), _view.value(), ary._numrows, true);
-      result.addProperty(JSON_VALUE_TYPE, "ary");
-      result.addProperty(JSON_VALUE_ROWS, ary._numrows);
-      result.addProperty(JSON_VALUE_COLS, ary._cols.length);
-      result.addProperty(JSON_VALUE_ROWSIZE,ary._rowsize);
-      result.addProperty(JSON_VALUE_SIZE, ary.length());
+      result.addProperty(RequestStatics.VALUE_TYPE, "ary");
+      result.addProperty(RequestStatics.ROWS, ary._numrows);
+      result.addProperty(RequestStatics.COLS, ary._cols.length);
+      result.addProperty(RequestStatics.ROW_SIZE,ary._rowsize);
+      result.addProperty(VALUE_SIZE, ary.length());
       // if offset is -1 display the overview
       if (_offset.value() == -1) {
         JsonArray cols = new JsonArray();
         for (int i = 0; i < ary._cols.length; ++i ) {
           ValueArray.Column c = ary._cols[i];
           JsonObject col = new JsonObject();
-          col.addProperty(JSON_VALUE_COLUMN_NAME, c._name);
-          col.addProperty(JSON_VALUE_COLUMN_OFFSET, (int)c._off);
+          col.addProperty(RequestStatics.NAME, c._name);
+          col.addProperty(OFFSET, (int)c._off);
           if (c._domain != null) {
-            col.addProperty(JSON_VALUE_COLUMN_TYPE, "enum");
+            col.addProperty(RequestStatics.TYPE, "enum");
             JsonArray domain = new JsonArray();
             for (String s: c._domain)
               domain.add(new JsonPrimitive(s));
-            col.add(JSON_VALUE_COLUMN_ENUM_DOMAIN,domain);
+            col.add(RequestStatics.ENUM_DOMAIN,domain);
           } else {
-            col.addProperty(JSON_VALUE_COLUMN_TYPE, c._size > 0 ? "int" : "float");
-            col.add(JSON_VALUE_COLUMN_ENUM_DOMAIN,new JsonArray());
+            col.addProperty(RequestStatics.TYPE, c._size > 0 ? "int" : "float");
+            col.add(RequestStatics.ENUM_DOMAIN,new JsonArray());
           }
-          col.addProperty(JSON_VALUE_COLUMN_SIZE, (int)c._size);
-          col.addProperty(JSON_VALUE_COLUMN_BASE,      c._base);
-          col.addProperty(JSON_VALUE_COLUMN_SCALE, (int)c._scale);
-          col.addProperty(JSON_VALUE_COLUMN_MIN, c._min);
-          col.addProperty(JSON_VALUE_COLUMN_MAX, c._max);
-          col.addProperty(JSON_VALUE_COLUMN_BADAT, ary._numrows - c._n);
-          col.addProperty(JSON_VALUE_COLUMN_MEAN, c._mean);
-          col.addProperty(JSON_VALUE_COLUMN_VAR, c._sigma);
+          col.addProperty(RequestStatics.SIZE, (int)c._size);
+          col.addProperty(RequestStatics.BASE,      c._base);
+          col.addProperty(RequestStatics.SCALE, (int)c._scale);
+          col.addProperty(RequestStatics.MIN, c._min);
+          col.addProperty(RequestStatics.MAX, c._max);
+          col.addProperty(RequestStatics.BADAT, ary._numrows - c._n);
+          col.addProperty(RequestStatics.MEAN, c._mean);
+          col.addProperty(RequestStatics.VARIANCE, c._sigma);
           formatRowData(col,ary,0,i);
           formatRowData(col,ary,1,i);
           formatRowData(col,ary,2,i);
@@ -120,7 +90,7 @@ public class Inspect extends Request {
           formatRowData(col,ary,-1,i);
           cols.add(col);
         }
-        result.add(JSON_VALUE_COLUMNS,cols);
+        result.add(RequestStatics.COLS,cols);
       // otherwise display the column values
       } else {
         if (_offset.value() >= ary._numrows)
@@ -131,23 +101,23 @@ public class Inspect extends Request {
           endRow = ary._numrows - 1;
         for (long row = _offset.value(); row < endRow; ++row) {
           JsonObject obj = new JsonObject();
-          obj.addProperty(JSON_ROWS_ROW,row);
+          obj.addProperty(RequestStatics.ROW,row);
           for (int i = 0; i < ary._cols.length; ++i) {
             formatColData(obj,ary,row,i);
           }
           rows.add(obj);
         }
-        result.add(JSON_ROWS, rows);
+        result.add(RequestStatics.ROW_DATA, rows);
       }
     // It is not an array, do whatever you want to
     } else {
-      result.addProperty(JSON_VALUE_TYPE,"value");
+      result.addProperty(RequestStatics.VALUE_TYPE,"value");
 
     }
     Response r = Response.done(result);
     if (t != null) {
-      r.setBuilder (JSON_VALUE_COLUMNS,t);
-      r.setBuilder (JSON_ROWS,t);
+      r.setBuilder (RequestStatics.COLS,t);
+      r.setBuilder (RequestStatics.ROW_DATA,t);
     }
     return r;
   }

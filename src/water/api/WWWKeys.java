@@ -15,8 +15,8 @@ import water.Key;
 public class WWWKeys extends Request {
 
 
-  private final Str _filter = new Str(JSON_FILTER,"");
-  private final Int _limit = new Int(JSON_LIMIT,1024,0,10240);
+  private final Str _filter = new Str(FILTER,"");
+  private final Int _limit = new Int(LIMIT,1024,0,10240);
 
   public WWWKeys() {
     _requestHelp = "Provides a simple JSON array of filtered keys known to the "
@@ -51,7 +51,7 @@ public class WWWKeys extends Request {
     for (int i = 0; i < len; ++i)
       array.add(new JsonPrimitive(keys[i].toString()));
     JsonObject response = new JsonObject();
-    response.add(JSON_KEYS,array);
+    response.add(KEYS,array);
     return Response.done(response);
   }
 

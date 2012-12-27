@@ -16,14 +16,14 @@ import water.UKV;
  */
 public class RFView extends Request {
 
-  protected final H2OHexKey _dataKey = new H2OHexKey(JSON_DATA_KEY);
-  protected final ModelKey _modelKey = new ModelKey(JSON_MODEL_KEY);
-  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,JSON_CLASS,0);
-  protected final Int _numTrees = new Int(JSON_NUM_TREES,50,0,Integer.MAX_VALUE);
-  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, JSON_WEIGHTS, 1);
-  protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
-  protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
-  protected final Bool _noCM = new Bool(JSON_NO_CM, false,"Do not produce confusion matrix");
+  protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
+  protected final ModelKey _modelKey = new ModelKey(MODEL_KEY);
+  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,CLASS,0);
+  protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
+  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
+  protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
+  protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, IGNORE);
+  protected final Bool _noCM = new Bool(NO_CM, false,"Do not produce confusion matrix");
   protected final Bool _clearCM = new Bool(JSON_CLEAR_CM, false, "Clear cache of model confusion matrices");
 
   public static final String JSON_BUILT_TREES = "built_trees";
@@ -49,10 +49,10 @@ public class RFView extends Request {
     double[] weights = _weights.value();
     JsonObject response = new JsonObject();
 
-    response.addProperty(JSON_DATA_KEY, _dataKey.originalValue());
-    response.addProperty(JSON_MODEL_KEY, _modelKey.originalValue());
-    response.addProperty(JSON_CLASS, _classCol.value());
-    response.addProperty(JSON_NUM_TREES, model._totalTrees);
+    response.addProperty(DATA_KEY, _dataKey.originalValue());
+    response.addProperty(MODEL_KEY, _modelKey.originalValue());
+    response.addProperty(CLASS, _classCol.value());
+    response.addProperty(NUM_TREES, model._totalTrees);
     response.addProperty(JSON_BUILT_TREES, model.size());
 
     tasks += model._totalTrees;
@@ -173,7 +173,7 @@ public class RFView extends Request {
   public class ModelKey extends TypeaheadInputText<Model> {
 
     public ModelKey(String name) {
-      super(name, true, "WWWModelKeys", JSON_KEYS);
+      super(name, true, "WWWModelKeys", KEYS);
     }
 
     @Override protected Model parse(String input) throws IllegalArgumentException {

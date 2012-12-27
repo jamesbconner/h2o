@@ -15,90 +15,7 @@ import java.util.regex.Pattern;
  *
  * @author peta
  */
-public class RequestStatics {
-  // JSON fields with these suffixes will automatically provide some
-  // pretty printing.  Users can still override the fields later
-  public static final String JSON_BYTE_SUFFIX = "_bytes";
-  public static final String JSON_TIME_SUFFIX = "_ms";
-
-  public static final String JSON_OFFSET = "offset";
-  public static final String JSON_VIEW = "view";
-
-
-  public static final String JSON_RESPONSE = "response";
-  public static final String JSON_ERROR = "error";
-  public static final String JSON_REDIRECT = "redirect_request";
-  public static final String JSON_REDIRECT_ARGS = "redirect_request_args";
-  public static final String JSON_STATUS = "status";
-  public static final String JSON_H2O = "h2o";
-  public static final String JSON_H2O_NODE = "node";
-  public static final String JSON_REQUEST_TIME = "time";
-  public static final String JSON_PROGRESS = "progress";
-  public static final String JSON_PROGRESS_TOTAL = "progress_total";
-
-  public static final String JSON_KEY = "key";
-  public static final String JSON_FAILED = "failed";
-  public static final String JSON_SUCCEEDED = "succeeded";
-  public static final String JSON_URL = "url";
-  public static final String JSON_FILE = "file";
-  public static final String JSON_FILES = "files";
-  public static final String JSON_VALUE = "value";
-  public static final String JSON_VALUE_SIZE = "value_size";
-  public static final String JSON_REPLICATION_FACTOR = "replication_factor";
-  public static final String JSON_DATA_KEY = "data_key";
-  public static final String JSON_NUM_TREES = "ntree";
-  public static final String JSON_DEPTH = "depth";
-  public static final String JSON_SAMPLE = "sample";
-  public static final String JSON_BIN_LIMIT = "bin_limit";
-  public static final String JSON_GINI = "gini";
-  public static final String JSON_SEED = "seed";
-  public static final String JSON_PARALLEL = "parallel";
-  public static final String JSON_MODEL_KEY = "model_key";
-  public static final String JSON_CLASS = "class";
-  public static final String JSON_IGNORE = "ignore";
-  public static final String JSON_OOBEE = "oobee";
-  public static final String JSON_FEATURES = "features";
-  public static final String JSON_STRATIFY = "stratify";
-  public static final String JSON_STRATA = "strata";
-  public static final String JSON_WEIGHTS = "class_wt";
-  public static final String JSON_FILTER = "filter";
-  public static final String JSON_KEYS = "keys";
-  public static final String JSON_LIMIT = "limit";
-  public static final String JSON_COLUMNS = "columns";
-  public static final String JSON_NO_CM = "no_cm";
-
-  public static final String JSON_CLOUD_NAME = "cloud_name";
-  public static final String JSON_NODE_NAME = "node_name";
-  public static final String JSON_CLOUD_SIZE = "cloud_size";
-  public static final String JSON_CONSENSUS = "consensus";
-  public static final String JSON_LOCKED = "locked";
-  public static final String JSON_NODES = "nodes";
-  public static final String JSON_NODES_NAME = "name";
-  public static final String JSON_NODES_NUM_CPUS = "num_cpus";
-  public static final String JSON_NODES_FREE_MEM = "free_mem" + JSON_BYTE_SUFFIX;
-  public static final String JSON_NODES_TOT_MEM = "tot_mem" + JSON_BYTE_SUFFIX;
-  public static final String JSON_NODES_MAX_MEM = "max_mem" + JSON_BYTE_SUFFIX;
-  public static final String JSON_NODES_NUM_KEYS = "num_keys";
-  public static final String JSON_NODES_VAL_SIZE = "val_size" + JSON_BYTE_SUFFIX;
-  public static final String JSON_NODES_FREE_DISK = "free_disk" + JSON_BYTE_SUFFIX;
-  public static final String JSON_NODES_MAX_DISK = "max_disk" + JSON_BYTE_SUFFIX;
-  public static final String JSON_NODES_CPU_UTIL = "cpu_util";
-  public static final String JSON_NODES_CPU_LOAD_1 = "cpu_load_1";
-  public static final String JSON_NODES_CPU_LOAD_5 = "cpu_load_5";
-  public static final String JSON_NODES_CPU_LOAD_15 = "cpu_load_15";
-  public static final String JSON_NODES_FJ_THREADS_HI = "fj_threads_hi";
-  public static final String JSON_NODES_FJ_QUEUE_HI = "fj_queue_hi";
-  public static final String JSON_NODES_FJ_THREADS_LO = "fj_threads_lo";
-  public static final String JSON_NODES_FJ_QUEUE_LO = "fj_queue_lo";
-  public static final String JSON_NODES_RPCS = "rpcs";
-  public static final String JSON_NODES_TCPS_ACTIVE = "tcps_active";
-
-  public static final String JSON_COL_MIN = "min";
-  public static final String JSON_COL_AVG = "avg";
-  public static final String JSON_COL_MAX = "max";
-  public static final String JSON_SOURCE_KEY = "source_key";
-  public static final String JSON_DEST_KEY = "destination_key";
-
+public class RequestStatics extends Constants {
   public String requestName() {
     return getClass().getSimpleName();
   }
@@ -180,7 +97,7 @@ public class RequestStatics {
 
   protected static JsonObject jsonError(String error) {
     JsonObject result = new JsonObject();
-    result.addProperty(JSON_ERROR, error);
+    result.addProperty(ERROR, error);
     return result;
   }
 

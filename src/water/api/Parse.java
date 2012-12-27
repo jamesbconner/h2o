@@ -7,8 +7,8 @@ import water.Value;
 import water.parser.ParseDataset;
 
 public class Parse extends Request {
-  protected final H2OExistingKey _source = new H2OExistingKey(RequestStatics.JSON_SOURCE_KEY);
-  protected final H2OKey _dest = new H2OKey(RequestStatics.JSON_DEST_KEY, (Key)null);
+  protected final H2OExistingKey _source = new H2OExistingKey(RequestStatics.SOURCE_KEY);
+  protected final H2OKey _dest = new H2OKey(RequestStatics.DEST_KEY, (Key)null);
 
   @Override protected Response serve() {
     Value source = _source.value();
@@ -18,9 +18,9 @@ public class Parse extends Request {
     try {
       ParseDataset.parse(dest, source);
       JsonObject response = new JsonObject();
-      response.addProperty(RequestStatics.JSON_DEST_KEY,dest.toString());
+      response.addProperty(RequestStatics.DEST_KEY,dest.toString());
       Response r = Response.done(response);
-      r.setBuilder(RequestStatics.JSON_DEST_KEY, new KeyElementBuilder());
+      r.setBuilder(RequestStatics.DEST_KEY, new KeyElementBuilder());
       return r;
     } catch (IllegalArgumentException e) {
       return Response.error(e.getMessage());

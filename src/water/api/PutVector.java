@@ -44,8 +44,8 @@ public class PutVector extends JSONOnlyRequest {
     return d;
   }
 
-  protected H2OKey _key = new H2OKey(JSON_KEY);
-  protected Str _value = new Str(JSON_VALUE);
+  protected H2OKey _key = new H2OKey(KEY);
+  protected Str _value = new Str(VALUE);
 
   @Override protected Response serve() {
     JsonObject result = new JsonObject();
@@ -55,7 +55,7 @@ public class PutVector extends JSONOnlyRequest {
       if (d.length>200000)
         return Response.error("Only vectors of up to 200000 values are supported for now.");
       k = storeDoublesAsValue(k,d);
-      result.addProperty(JSON_KEY,k.toString());
+      result.addProperty(KEY,k.toString());
     } catch (Exception e) {
       return Response.error(e.toString());
     }

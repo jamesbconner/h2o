@@ -1,35 +1,20 @@
 
 package water.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.Arrays;
+
 import water.*;
 import water.parser.CsvParser;
-import water.web.RString;
-import water.web.ServletUtil;
 
-/**
- *
- * @author peta
- */
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 public class StoreView extends Request {
 
-  public static final String JSON_MORE = "more";
-
-  public static final String JSON_NUM_KEYS = "num_keys";
-
-  public static final String JSON_KEY_ROWS = "rows";
-  public static final String JSON_KEY_COLS = "cols";
-
-
-  protected Str _filter = new Str(JSON_FILTER, "");
-  protected final Int _offset = new Int(JSON_OFFSET,0,0,1024);
-  protected final Int _view = new Int(JSON_VIEW, 20, 0, 1024);
+  protected Str _filter = new Str(FILTER, "");
+  protected final Int _offset = new Int(OFFSET,0,0,1024);
+  protected final Int _view = new Int(VIEW, 20, 0, 1024);
 
   @Override protected Response serve() {
     JsonObject result = new JsonObject();
@@ -51,7 +36,7 @@ public class StoreView extends Request {
       keys[len++] = key; // Capture the key
       if( len == keys.length ) {
         // List is full; stop
-        result.addProperty(JSON_MORE,true);
+        result.addProperty(Constants.MORE,true);
         break;
       }
     }
@@ -66,18 +51,18 @@ public class StoreView extends Request {
       ary.add(formatKeyRow(cloud,keys[i],val));
     }
 
-    result.add(JSON_KEYS,ary);
-    result.addProperty(JSON_NUM_KEYS, len);
-    result.addProperty(JSON_CLOUD_NAME, H2O.NAME);
-    result.addProperty(JSON_NODE_NAME, H2O.SELF.toString());
+    result.add(KEYS,ary);
+    result.addProperty(NUM_KEYS, len);
+    result.addProperty(CLOUD_NAME, H2O.NAME);
+    result.addProperty(NODE_NAME, H2O.SELF.toString());
     Response r = Response.done(result);
-    r.setBuilder(JSON_KEYS, new PaginatedTable(argumentsToJson(),offset,_view.value(), len, false));
-    r.setBuilder(JSON_KEYS+"."+JSON_KEY, new KeyCellBuilder());
-    r.setBuilder(JSON_KEYS+".col_0", new KeyMinAvgMaxBuilder());
-    r.setBuilder(JSON_KEYS+".col_1", new KeyMinAvgMaxBuilder());
-    r.setBuilder(JSON_KEYS+".col_2", new KeyMinAvgMaxBuilder());
-    r.setBuilder(JSON_KEYS+".col_3", new KeyMinAvgMaxBuilder());
-    r.setBuilder(JSON_KEYS+".col_4", new KeyMinAvgMaxBuilder());
+    r.setBuilder(KEYS, new PaginatedTable(argumentsToJson(),offset,_view.value(), len, false));
+    r.setBuilder(KEYS+"."+KEY, new KeyCellBuilder());
+    r.setBuilder(KEYS+".col_0", new KeyMinAvgMaxBuilder());
+    r.setBuilder(KEYS+".col_1", new KeyMinAvgMaxBuilder());
+    r.setBuilder(KEYS+".col_2", new KeyMinAvgMaxBuilder());
+    r.setBuilder(KEYS+".col_3", new KeyMinAvgMaxBuilder());
+    r.setBuilder(KEYS+".col_4", new KeyMinAvgMaxBuilder());
     return r;
   }
 
@@ -93,8 +78,8 @@ public class StoreView extends Request {
 
   private JsonObject formatKeyRow(H2O cloud, Key key, Value val) {
     JsonObject result = new JsonObject();
-    result.addProperty(JSON_KEY, key.toString());
-    result.addProperty(JSON_VALUE_SIZE,val.length());
+    result.addProperty(KEY, key.toString());
+    result.addProperty(VALUE_SIZE,val.length());
 
     createBestEffortSummary(key, result, val.length());
 
@@ -102,17 +87,17 @@ public class StoreView extends Request {
     if( val._isArray != 0 ) {
       ValueArray ary = ValueArray.value(val);
       if( ary._cols.length > 1 || ary._cols[0]._size != 1 ) {
-        result.addProperty(JSON_KEY_ROWS,ary._numrows);
+        result.addProperty(ROWS,ary._numrows);
         int cols = ary._cols.length;
-        result.addProperty(JSON_KEY_COLS,cols);
+        result.addProperty(COLS,cols);
         for (int i = 0; i < 5; ++i) {
           JsonObject col = new JsonObject();
           if (i <= cols) {
             ValueArray.Column c = ary._cols[i];
             if (c._size!=0) {
-              col.addProperty(JSON_COL_MIN, c._min);
-              col.addProperty(JSON_COL_AVG, c._mean);
-              col.addProperty(JSON_COL_MAX, c._max);
+              col.addProperty(MIN, c._min);
+              col.addProperty(MEAN, c._mean);
+              col.addProperty(MAX, c._max);
             }
           }
           result.add("col_"+i,col);
@@ -146,7 +131,7 @@ public class StoreView extends Request {
       else sb.append((char)c);
     }
     if( val.length() > len ) sb.append("...");
-    result.addProperty(JSON_VALUE,sb.toString());
+    result.addProperty(VALUE,sb.toString());
 
     return result;
   }
@@ -161,8 +146,8 @@ public class StoreView extends Request {
     if (rows_cols != null) {
       int rows = rows_cols[0];  // Rows in this first bit of data
       double bytes_per_row = (double)bs.length/rows_cols[0]; // Estimated bytes/row
-      row.addProperty(JSON_KEY_ROWS,(long)((double)len/bytes_per_row));
-      row.addProperty(JSON_KEY_COLS,rows_cols[1]);
+      row.addProperty(ROWS,(long)((double)len/bytes_per_row));
+      row.addProperty(COLS,rows_cols[1]);
     }
   }
 

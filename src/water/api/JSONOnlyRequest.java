@@ -16,7 +16,7 @@ public abstract class JSONOnlyRequest extends Request {
       return super.serve(server,args,type);
     } else {
       JsonObject resp = new JsonObject();
-      resp.addProperty(JSON_ERROR,"This request is only provided for browser connections");
+      resp.addProperty(ERROR,"This request is only provided for browser connections");
       return wrap(server, resp);
     }
   }

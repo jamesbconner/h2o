@@ -26,7 +26,7 @@ public class GetVector extends JSONOnlyRequest {
 
 
 
-  protected H2OHexKey _key = new H2OHexKey(JSON_KEY);
+  protected H2OHexKey _key = new H2OHexKey(KEY);
   protected Int _maxRows = new Int(JSON_MAX_ROWS,Integer.MAX_VALUE);
 
   @Override
@@ -63,8 +63,8 @@ public class GetVector extends JSONOnlyRequest {
         col.add(JSON_CONTENTS,cols[i]);
         columns.add(col);
       }
-      result.addProperty(JSON_KEY,va._key.toString());
-      result.add(JSON_COLUMNS,columns);
+      result.addProperty(KEY,va._key.toString());
+      result.add(COLUMNS,columns);
       result.addProperty(JSON_NUM_ROWS,iter._ary.numRows());
       result.addProperty(JSON_NUM_COLS,iter._ary.numCols());
       result.addProperty(JSON_SENT_ROWS,maxRows);

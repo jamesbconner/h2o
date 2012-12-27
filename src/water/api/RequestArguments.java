@@ -1220,7 +1220,7 @@ public class RequestArguments extends RequestStatics {
 
   public class ExistingFile extends TypeaheadInputText<File> {
     public ExistingFile(String name) {
-      super(name, true, WWWFiles.class.getSimpleName(), JSON_FILES);
+      super(name, true, WWWFiles.class.getSimpleName(), FILES);
     }
 
     @Override protected File parse(String input) throws IllegalArgumentException {
@@ -1316,7 +1316,7 @@ public class RequestArguments extends RequestStatics {
     public final Key _defaultValue;
 
     public H2OExistingKey(String name) {
-      super(name, true, "WWWKeys.json",JSON_KEYS);
+      super(name, true, "WWWKeys.json",KEYS);
       _defaultValue = null;
     }
 
@@ -1325,7 +1325,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     public H2OExistingKey(String name, Key key) {
-      super(name, false,"WWWKeys.json", JSON_KEYS);
+      super(name, false,"WWWKeys.json", KEYS);
       _defaultValue = key;
     }
 
@@ -1357,7 +1357,7 @@ public class RequestArguments extends RequestStatics {
     public final Key _defaultKey;
 
     public H2OHexKey(String name) {
-      super(name, true, "WWWHexKeys.json",JSON_KEYS);
+      super(name, true, "WWWHexKeys.json",KEYS);
       _defaultKey = null;
     }
 
@@ -1367,7 +1367,7 @@ public class RequestArguments extends RequestStatics {
 
 
     public H2OHexKey(String name, Key key) {
-      super(name, false,"WWWHexKeys.json", JSON_KEYS);
+      super(name, false,"WWWHexKeys.json", KEYS);
       _defaultKey = key;
     }
 

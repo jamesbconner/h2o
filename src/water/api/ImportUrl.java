@@ -10,8 +10,8 @@ import com.google.common.io.Closeables;
 import com.google.gson.JsonObject;
 
 public class ImportUrl extends Request {
-  private final Str _url = new Str(JSON_URL);
-  private final H2OKey _key = new H2OKey(JSON_KEY, (Key)null);
+  private final Str _url = new Str(URL);
+  private final H2OKey _key = new H2OKey(KEY, (Key)null);
 
   public ImportUrl() {
     _requestHelp = "Imports the given URL.";
@@ -39,10 +39,10 @@ public class ImportUrl extends Request {
       k = ValueArray.readPut(k, s);
 
       JsonObject json = new JsonObject();
-      json.addProperty(JSON_KEY, k.toString());
-      json.addProperty(JSON_URL, urlStr);
+      json.addProperty(KEY, k.toString());
+      json.addProperty(URL, urlStr);
       Response r = Response.done(json);
-      r.setBuilder(JSON_KEY, new KeyElementBuilder());
+      r.setBuilder(KEY, new KeyElementBuilder());
       return r;
     } catch( IllegalArgumentException e ) {
       return Response.error("Not a valid key: "+ urlStr);

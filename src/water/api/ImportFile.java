@@ -6,7 +6,7 @@ import water.Key;
 import water.util.FileIntegrityChecker;
 
 public class ImportFile extends Request {
-  protected final ExistingFile _file = new ExistingFile(JSON_FILE);
+  protected final ExistingFile _file = new ExistingFile(FILE);
 
   public ImportFile() {
     _requestHelp = "Imports the given file.  All nodes in the cloud must have" +
@@ -22,11 +22,11 @@ public class ImportFile extends Request {
       return Response.error("Unable to import file: " + c.getFileName(0));
 
     JsonObject json = new JsonObject();
-    json.addProperty(JSON_FILE, c.getFileName(0));
-    json.addProperty(JSON_KEY, k.toString());
+    json.addProperty(FILE, c.getFileName(0));
+    json.addProperty(KEY, k.toString());
 
     Response r = Response.done(json);
-    r.setBuilder(JSON_KEY, new KeyElementBuilder());
+    r.setBuilder(KEY, new KeyElementBuilder());
     return r;
   }
 }
