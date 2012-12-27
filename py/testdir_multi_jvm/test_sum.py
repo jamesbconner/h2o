@@ -36,11 +36,12 @@ class Basic(unittest.TestCase):
     def test_sum_import_hosts(self):
         # just do the import folder once
         # importFolderPath = "/home/hduser/hdfs_datasets"
+        # importFolderPath = '/Users/boots/dev/0xdata/datasets'
         importFolderPath = "/home/0xdiag/datasets"
         h2i.setupImportFolder(None, importFolderPath)
 
-        # make the timeout variable per dataset. it can be 10 secs for covtype 20x (col key creation)
-        # so probably 10x that for covtype200
+        # make the timeout variable per dataset. it can be 10 secs for covtype 20x
+        # (col key creation) so probably 10x that for covtype200
         #    ("covtype20x.data", "cD", 50, 20),
         #    ("covtype200x.data", "cE", 50, 200),
         csvFilenameAll = [
@@ -59,11 +60,10 @@ class Basic(unittest.TestCase):
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "Parse result['Key']:", parseKey['Key']
+            print "Parse result['Key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
-            inspect = h2o_cmd.runInspect(None, parseKey['Key'])
+            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
             h2o_exec.exec_zero_list(zeroList)
