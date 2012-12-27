@@ -249,7 +249,7 @@ public class GLM extends H2OPage {
       m = new RString("y = %equation");
       break;
     case logit:
-      m = new RString("y = 1/(1 + Math.exp(%equation))");
+      m = new RString("y = 1/(1 + Math.exp(-(%equation)))");
       break;
     default:
       assert false;

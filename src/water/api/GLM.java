@@ -246,7 +246,7 @@ public class GLM extends Request {
         m = new RString("y = %equation");
         break;
       case logit:
-        m = new RString("y = 1/(1 + Math.exp(%equation))");
+        m = new RString("y = 1/(1 + Math.exp(-(%equation)))");
         break;
       default:
         assert false;
@@ -254,7 +254,7 @@ public class GLM extends Request {
       }
       boolean first = true;
       StringBuilder bldr = new StringBuilder();
-      for(Map.Entry<String,JsonElement> e:obj.entrySet()){
+      for( Map.Entry<String,JsonElement> e : obj.entrySet() ) {
 
         double v = e.getValue().getAsDouble();
         if(v == 0)continue;
