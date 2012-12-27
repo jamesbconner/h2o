@@ -13,6 +13,10 @@ then
 else
     SEP=":"
 fi
+
+# Setup script error handling
+set -o errexit   ## set -e : exit the script if any statement returns a non-true return value
+
 # ------------------------------------------------------------------------------
 # basic build properties
 # ------------------------------------------------------------------------------
@@ -30,7 +34,7 @@ DEFAULT_HADOOP_VERSION="1.0.0"
 OUTDIR="build"
 JAVAC=`which javac`
 JAVAC_ARGS='-g
-	-encoding ISO-8859-1
+    -encoding ISO-8859-1
     -source 1.6
     -target 1.6
     -XDignore.symbol.file
