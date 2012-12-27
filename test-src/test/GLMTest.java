@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Random;
 import org.junit.*;
 import water.*;
+import water.exec.Exec;
+import water.exec.PositionedException;
 import water.parser.ParseDataset;
 
 // A series of tests designed to validate GLM's *statistical results* and not,
@@ -17,19 +19,21 @@ import water.parser.ParseDataset;
 public class GLMTest extends TestUtil {
 
   JsonObject computeGLMlog( LSMSolver lsms, ValueArray va, boolean cat ) {
-    return computeGLM( GLMSolver.Family.binomial, lsms, va, cat); }
+    return computeGLM( GLMSolver.Family.binomial, lsms, va, cat, null); }
 
-  JsonObject computeGLM( GLMSolver.Family family, LSMSolver lsms, ValueArray va, boolean cat ) {
+  JsonObject computeGLM( GLMSolver.Family family, LSMSolver lsms, ValueArray va, boolean cat, int[] cols ) {
     // All columns in order, and use last as response variable
-    int[] cols= new int[va._cols.length];
-    for( int i=0; i<cols.length; i++ ) cols[i]=i;
+    if( cols == null ) {
+      cols= new int[va._cols.length];
+      for( int i=0; i<cols.length; i++ ) cols[i]=i;
+    }
 
     // Now a Gaussian GLM model for the same thing
     GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
     glmp._f = family;
     glmp._l = glmp._f.defaultLink;
     glmp._familyArgs = glmp._f.defaultArgs;
-    glmp._betaEps = 0.00001;
+    glmp._betaEps = 0.000001;
     glmp._maxIter = 100;
     glmp._expandCat = cat;
     // Solver
@@ -59,7 +63,7 @@ public class GLMTest extends TestUtil {
       assertEquals( 1.0, lr.get("RSquared").getAsDouble(), 0.000001);
 
       LSMSolver lsms = LSMSolver.makeSolver(); // Default normalization of NONE
-      JsonObject glm = computeGLM(GLMSolver.Family.gaussian,lsms,va,false); // Solve it!
+      JsonObject glm = computeGLM(GLMSolver.Family.gaussian,lsms,va,false,null); // Solve it!
       JsonObject coefs = glm.get("coefficients").getAsJsonObject();
       assertEquals( 0.0, coefs.get("Intercept").getAsDouble(), 0.000001);
       assertEquals( 0.1, coefs.get("0")        .getAsDouble(), 0.000001);
@@ -175,6 +179,56 @@ public class GLMTest extends TestUtil {
   }
 
 
+  // Predict whether or not a car has a 3-cylinder engine
+  @Test public void testLogReg_CARS_CSV() {
+    Key k1=null,k2=null;
+    try {
+      k1 = loadAndParseKey("h.hex","smalldata/cars.csv");
+      // Fold the cylinders down to 1/0 for 3/not-3
+      k2 = Exec.exec("colSwap(h.hex,2,h.hex$cylinders==3?1:0)","h2.hex");
+      // Columns for displacement, power, weight, 0-60, year, then response is cylinders
+      int[] cols= new int[]{3,4,5,6,7,2};
+      ValueArray va = ValueArray.value(DKV.get(k2));
+      // Compute the coefficients
+      LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA,
+                                                       LSMSolver.DEFAULT_LAMBDA2,
+                                                       LSMSolver.DEFAULT_RHO,
+                                                       LSMSolver.DEFAULT_ALPHA);
+      JsonObject glm = computeGLM( GLMSolver.Family.binomial, lsmsx, va, false, cols );
+
+      // Now run the dataset through the equation and see how close we got
+      JsonObject coefs = glm.get("coefficients").getAsJsonObject();
+      double icept = coefs.get("Intercept").getAsDouble();
+      double disp  = coefs.get("displacement (cc)").getAsDouble();
+      double power = coefs.get("power (hp)").getAsDouble();
+      double weight= coefs.get("weight (lb)").getAsDouble();
+      double accel = coefs.get("0-60 mph (s)").getAsDouble();
+      double year  = coefs.get("year").getAsDouble();
+      AutoBuffer ab = va.getChunk(0);
+
+      ROWS:                     // Skip bad rows
+      for( int i=0; i<va._numrows; i++ ) {
+        for( int j=2; j<8; j++ ) if( va.isNA(ab,i,j) ) continue ROWS;
+        double x = 
+          disp  *va.datad(ab,i,3) +
+          power *va.datad(ab,i,4) +
+          weight*va.datad(ab,i,5) +
+          accel *va.datad(ab,i,6) +
+          year  *va.datad(ab,i,7) +
+          icept;
+        double p = 1.0/(1.0+Math.exp(-x)); // Prediction
+        double cyl = va.data(ab,i,2); // 1==3-cyl, 0==not-3-cyl
+        assertEquals(cyl,p,0.005); // Hopefully fairly close to 0 for 3-cylinder, 1 for not-3
+      }
+
+    } catch( PositionedException pe ) {
+      throw new Error(pe);
+    } finally {
+      UKV.remove(k1);
+      if( k2 != null ) UKV.remove(k2);
+    }
+  }
+
   // Categorical Test!  Lets make a simple categorical test case
   @Test public void testLogRegCat_Basic() {
     Key datakey = Key.make("datakey");
@@ -193,17 +247,16 @@ public class GLMTest extends TestUtil {
       JsonObject jcoefs = glm.get("coefficients").getAsJsonObject();
       double icept = jcoefs.get("Intercept").getAsDouble();
 
-      String[] domain = va._cols[0]._domain;
-      assertCat(domain,jcoefs,icept,"Low" ,0.0      );
-      assertCat(domain,jcoefs,icept,"Med" ,0.3333333);
-      assertCat(domain,jcoefs,icept,"High",1.0      );
+      assertCat(jcoefs,icept,"Low" ,0.0      );
+      assertCat(jcoefs,icept,"Med" ,0.3333333);
+      assertCat(jcoefs,icept,"High",1.0      );
     } finally {
       UKV.remove(datakey);
     }
   }
 
   // Assert reasonable results for the categorical predictor
-  static void assertCat(String[] domain, JsonObject jcoefs, double icept, String category, double expected) {
+  static void assertCat(JsonObject jcoefs, double icept, String category, double expected) {
     // For categoricals, we expanded the terms into an array of boolean
     // predictors all zero, except for the given term which is set to 1.
     // Example: factors/categories: Low, Med, High.
@@ -213,7 +266,6 @@ public class GLMTest extends TestUtil {
     // When computing the math, all predictors are zero except the one...  so
     // the equation expansion only needs to sum the one coeficient multiplied
     // by 1, plus the intercept.
-    int x = TestUtil.index(domain,category);
     double coef = jcoefs.get("0."+category).getAsDouble();
     double predict = 1.0/(1.0+Math.exp(-(coef*1.0/* + all other terms are 0 */+icept)));
     assertEquals(expected,predict,0.000001);
