@@ -547,7 +547,7 @@ class H2O(object):
         resp1 =  self.__check_request(
             requests.get(
                 self.__url('WWWFileUpload.json', new=True), 
-                params={"key": key}), 
+                params={"Key": key}), 
             extraComment = str(f) + "," + str(key))
 
         verboseprint("\nput_file #1 phase response: ", resp1)

@@ -22,8 +22,10 @@ import water.*;
 import com.google.gson.*;
 
 public class WWWFileUpload extends JSONOnlyRequest {
-  protected final Str _key = new Str(JSON_KEY,"");
-  protected final Str _file = new Str(JSON_FILE,"file");
+  // we are explicitly breaking the naming convention here to maintain compat
+  // with the shared javascript between the old and new web api
+  protected final Str _key = new Str("Key","");
+  protected final Str _file = new Str("File","file");
 
   // Maximal waiting time for client connection.
   // If the timeout is reached, server socket is closed.
