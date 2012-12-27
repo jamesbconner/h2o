@@ -48,12 +48,14 @@ public class Inspect extends Request {
     Value val = _key.value();
     JsonObject result = new JsonObject();
     // If it is array, do the array result inspection
-    if (val._isArray != 0) {
+    if (val._isArray == 0) {
+      result.addProperty(RequestStatics.VALUE_TYPE,"value");
+    } else {
       ValueArray ary = ValueArray.value(val);
       t = new PaginatedTable(argumentsToJson(),_offset.value(), _view.value(), ary._numrows, true);
       result.addProperty(RequestStatics.VALUE_TYPE, "ary");
-      result.addProperty(RequestStatics.ROWS, ary._numrows);
-      result.addProperty(RequestStatics.COLS, ary._cols.length);
+      result.addProperty(RequestStatics.NUM_ROWS, ary._numrows);
+      result.addProperty(RequestStatics.NUM_COLS, ary._cols.length);
       result.addProperty(RequestStatics.ROW_SIZE,ary._rowsize);
       result.addProperty(VALUE_SIZE, ary.length());
       // if offset is -1 display the overview
@@ -93,13 +95,12 @@ public class Inspect extends Request {
         result.add(RequestStatics.COLS,cols);
       // otherwise display the column values
       } else {
-        if (_offset.value() >= ary._numrows)
+        if (_offset.value() > ary._numrows)
           return Response.error("Value only has "+ary._numrows+" rows");
         JsonArray rows = new JsonArray();
-        long endRow = _offset.value() + _view.value();
-        if (endRow >= ary._numrows)
-          endRow = ary._numrows - 1;
-        for (long row = _offset.value(); row < endRow; ++row) {
+        long endRow = Math.min(_offset.value() + _view.value(), ary._numrows);
+        long startRow = Math.min(_offset.value(), ary._numrows - _view.value());
+        for (long row = startRow; row < endRow; ++row) {
           JsonObject obj = new JsonObject();
           obj.addProperty(RequestStatics.ROW,row);
           for (int i = 0; i < ary._cols.length; ++i) {
@@ -109,11 +110,8 @@ public class Inspect extends Request {
         }
         result.add(RequestStatics.ROW_DATA, rows);
       }
-    // It is not an array, do whatever you want to
-    } else {
-      result.addProperty(RequestStatics.VALUE_TYPE,"value");
-
     }
+
     Response r = Response.done(result);
     if (t != null) {
       r.setBuilder (RequestStatics.COLS,t);

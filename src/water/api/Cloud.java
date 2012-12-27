@@ -25,7 +25,7 @@ public class Cloud extends Request {
       JsonObject node = new JsonObject();
       node.addProperty(NAME,h2o.toString());
       node.addProperty(NUM_KEYS, hb._keys);
-      node.addProperty(VAL_SIZE, hb.get_valsz());
+      node.addProperty(VALUE_SIZE, hb.get_valsz());
       node.addProperty(FREE_MEM, hb.get_free_mem());
       node.addProperty(TOT_MEM, hb.get_tot_mem());
       node.addProperty(MAX_MEM, hb.get_max_mem());

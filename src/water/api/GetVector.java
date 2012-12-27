@@ -1,33 +1,16 @@
 
 package water.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import water.Key;
 import water.ValueArray;
 import water.exec.VAIterator;
-import water.web.ServletUtil;
 
-/**
- *
- * @author peta
- */
+import com.google.gson.*;
+
 public class GetVector extends JSONOnlyRequest {
-
   public static int MAX_REQUEST_ITEMS = 200000;
 
-  public static final String JSON_MAX_ROWS = "max_rows";
-  public static final String JSON_NAME = "name";
-  public static final String JSON_CONTENTS = "contents";
-  public static final String JSON_NUM_ROWS = "num_rows";
-  public static final String JSON_NUM_COLS = "num_cols";
-  public static final String JSON_SENT_ROWS = "sent_rows";
-
-
-
   protected H2OHexKey _key = new H2OHexKey(KEY);
-  protected Int _maxRows = new Int(JSON_MAX_ROWS,Integer.MAX_VALUE);
+  protected Int _maxRows = new Int(Constants.MAX_ROWS,Integer.MAX_VALUE);
 
   @Override
   protected Response serve() {
@@ -59,15 +42,15 @@ public class GetVector extends JSONOnlyRequest {
       for (int i = 0; i < cols.length; ++i) {
         JsonObject col = new JsonObject();
         String name = iter._ary._cols[i]._name;
-        col.addProperty(JSON_NAME, (name == null || name.isEmpty()) ? String.valueOf(i) : name);
-        col.add(JSON_CONTENTS,cols[i]);
+        col.addProperty(Constants.NAME, (name == null || name.isEmpty()) ? String.valueOf(i) : name);
+        col.add(Constants.CONTENTS,cols[i]);
         columns.add(col);
       }
       result.addProperty(KEY,va._key.toString());
-      result.add(COLUMNS,columns);
-      result.addProperty(JSON_NUM_ROWS,iter._ary.numRows());
-      result.addProperty(JSON_NUM_COLS,iter._ary.numCols());
-      result.addProperty(JSON_SENT_ROWS,maxRows);
+      result.add(COLS, columns);
+      result.addProperty(Constants.NUM_ROWS,iter._ary.numRows());
+      result.addProperty(Constants.NUM_COLS,iter._ary.numCols());
+      result.addProperty(Constants.SENT_ROWS,maxRows);
     } catch (Exception e) {
       return Response.error(e.toString());
     }

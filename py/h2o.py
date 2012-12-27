@@ -598,8 +598,8 @@ class H2O(object):
         return self.__check_request(requests.get(self.__url("JStack.json")))
 
     def inspect(self, key):
-        a = self.__check_request(requests.get(self.__url('Inspect.json'),
-            params={"Key": key}))
+        a = self.__check_request(requests.get(self.__url('Inspect.json', new=True),
+            params={"key": key}))
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
