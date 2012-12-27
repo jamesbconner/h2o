@@ -51,7 +51,8 @@ def fill_in_expr_template(exprTemp, colX, n, row, key2):
 def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     start = time.time()
     resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
-    print "HACK! do exec twice to avoid the race in shape/result against the next inspect"
+    ## print "HACK! do exec twice to avoid the race in shape/result against the next inspect"
+    ## good for testing store/store races? should sequence thru different nodes too 
     resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
     h2o.verboseprint(resultExec)
     h2o.verboseprint('exec took', time.time() - start, 'seconds')
@@ -94,9 +95,13 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         exprTemp = list(exprTemplate)
         # do each expression at a random node, to facilate key movement
         if lenNodes is None:
-            nodeX = 0
+            execNode = 0
         else:
-            nodeX = random.randint(0,lenNodes-1)
+            execNode = random.randint(0,lenNodes-1)
+        # test_dkv.py passes if we don't bounce between nodes
+        ## execNode = 0
+        ## execNode = 1
+        print "execNode:", execNode
 
         colX = random.randint(minCol,maxCol)
 
@@ -104,7 +109,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         row = str(random.randint(minRow,maxRow))
 
         execExpr = fill_in_expr_template(exprTemp, colX, ((trial+1)%4)+1, row, key2)
-        execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
+        execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
             "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
@@ -137,12 +142,13 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
 
             # do each expression at a random node, to facilate key movement
             if lenNodes is None:
-                nodeX = 0
+                execNode = 0
             else:
-                nodeX = random.randint(0,lenNodes-1)
+                execNode = random.randint(0,lenNodes-1)
 
+            print execNode
             execExpr = fill_in_expr_template(exprTemp, colX, colX, 0, key2)
-            execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
+            execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
                 "Result"+str(colX), timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
