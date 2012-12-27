@@ -1,15 +1,15 @@
 package test;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.AfterClass;
-import static org.junit.Assert.*;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import static org.junit.Assert.*;
 import water.*;
 import water.exec.*;
 import water.parser.ParseDataset;
 
 public class RBigDataTest extends TestUtil {
-  int i = 0;
-
+  static private final AtomicInteger UNIQUE = new AtomicInteger(1);
   
   protected void testParseFail(String expr, int errorPos) {
     try {
@@ -30,6 +30,7 @@ public class RBigDataTest extends TestUtil {
     DKV.write_barrier();
     int keys = H2O.store_size();
     try {
+      int i = UNIQUE.getAndIncrement();
       System.err.println("result"+(new Integer(i).toString())+": "+expr);
       Key key = Exec.exec(expr, "result"+(new Integer(i).toString()));
       UKV.remove(key);
@@ -51,8 +52,8 @@ public class RBigDataTest extends TestUtil {
   protected Key executeExpression(String expr) {
     DKV.write_barrier();
     try {
-      ++i;
-      Key key = Exec.exec(expr, "result"+(new Integer(i).toString()));
+      int i = UNIQUE.getAndIncrement();
+      Key key = Exec.exec(expr, "RBigResult"+i);
       return key;
     } catch (PositionedException e) {
       System.out.println(e.report(expr));
@@ -105,6 +106,7 @@ public class RBigDataTest extends TestUtil {
     Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
     Key k2 = executeExpression("cars.hex");
     testDataFrameStructure(k2, 406, 8);    
+    UKV.remove(k2);
     k2 = executeExpression("a5 = cars.hex[2]");
     testVectorExpression("a5",8,8,8,4,6,6);
     UKV.remove(k2);
@@ -131,6 +133,7 @@ public class RBigDataTest extends TestUtil {
     Key k2 = executeExpression("cars.hex[2]");
     testDataFrameStructure(k2, 406, 1);    
     testKeyValues(k2, 8, 8, 8, 4, 6, 6);
+    UKV.remove(k2);
     k2 = executeExpression("cars.hex$year");
     testDataFrameStructure(k2, 406, 1);    
     testKeyValues(k2, 73, 70, 72, 76, 78, 81);
@@ -171,7 +174,6 @@ public class RBigDataTest extends TestUtil {
   // ---
   // Test some basic expressions on "cars.csv"
   @Test public void testBasicCrud() {
-    
     Key k = loadAndParseKey("cars.hex", "smalldata/cars.csv");
     testVectorExpression("cars.hex[1] + cars.hex$cylinders", 21,23,25,24,23,36.7);
     UKV.remove(k);
