@@ -7,6 +7,7 @@ import hex.rf.MinorityClasses.UnbalancedClass;
 import java.io.FileInputStream;
 import java.util.Arrays;
 
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.JUnitCore;
@@ -22,7 +23,7 @@ public class MinorityClassTest {
   static final int _classIdx = 10;
   static int _nodes = 3;
 
-  @BeforeClass public static void setupCloud() throws Exception {
+  @BeforeClass public static void setUp() throws Exception {
 //    _cloud = H2OTestCloud.startCloud(1, System.out, 20000);
     H2O.main(new String[]{});
     if(_nodes > 1)Thread.sleep(1000);
@@ -31,11 +32,12 @@ public class MinorityClassTest {
     _key = Key.make("poker_parsed");
     ParseDataset.parse(_key, DKV.get(k1));
     _data = ValueArray.value(_key);
+    UKV.remove(k1);
   }
 
-//  @AfterClass public static void destroyCloud() throws IOException {
-//    _cloud.cleanup();
-//  }
+  @AfterClass public static void tearDown() {
+    UKV.remove(_key);
+  }
   static int [] expectedHist = new int [] {501209,422498,47622,21121,3885,1996,1424,230,12,3};
 
 
