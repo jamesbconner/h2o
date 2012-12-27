@@ -2,8 +2,10 @@ package test;
 import static org.junit.Assert.*;
 import com.google.common.io.Closeables;
 import java.io.File;
+import java.util.Arrays;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import water.*;
@@ -20,7 +22,7 @@ public class TestUtil {
   @AfterClass public static void checkLeakedKeys() {
     DKV.write_barrier();
     int leaked_keys = H2O.store_size() - _initial_keycnt;
-    if( leaked_keys != 0 ) 
+    if( leaked_keys != 0 )
       for( Key k : H2O.keySet() )
         System.err.println("Leaked key: "+k);
     assertEquals("No keys leaked", 0, leaked_keys);
@@ -120,6 +122,13 @@ public class TestUtil {
       } else if( ary instanceof double[] ) {
         col._size = -8;
         col._n = ((double[])ary).length;
+      } else if( ary instanceof String[] ) {
+        col._size = 2;          // Catagorical: assign size==2
+        col._n = ((String[])ary).length;
+        col._domain = new String[0];
+      } else if( ary instanceof short[] ) {
+        // currently using size==2 (shorts) for Enums instead
+        throw H2O.unimpl();
       } else {
         throw H2O.unimpl();
       }
@@ -139,6 +148,16 @@ public class TestUtil {
         case  1: ab.put1 (b = ((byte  [])arys[j])[i]);  d = b;  break;
         case -4: ab.put4f(f = ((float [])arys[j])[i]);  d = f;  break;
         case -8: ab.put8d(d = ((double[])arys[j])[i]);  d = d;  break;
+        case  2:                // Catagoricals or enums
+          String s = ((String[])arys[j])[i];
+          String[] dom = col._domain;
+          int k = index(dom,s);
+          if( k == dom.length ) {
+            col._domain = dom = Arrays.copyOf(dom,k+1);
+            dom[k] = s;
+          }
+          ab.put2((short)k);  d = k;
+          break;
         default: throw H2O.unimpl();
         }
         if( d > col._max ) col._max = d;
@@ -157,6 +176,7 @@ public class TestUtil {
         double d;
         switch( col._size ) {
         case  1: d = ((byte  [])arys[j])[i];  break;
+        case  2: d = index(col._domain,((String[])arys[j])[i]);  break;
         case -4: d = ((float [])arys[j])[i];  break;
         case -8: d = ((double[])arys[j])[i];  break;
         default: throw H2O.unimpl();
@@ -175,6 +195,14 @@ public class TestUtil {
     UKV.put( key ,ary.value());
     return ary;
   }
+
+  static int index(String[] dom, String s) {
+    for( int k=0; k<dom.length; k++ )
+      if( dom[k].equals(s) )
+        return k;
+    return dom.length;
+  }
+
 
   // Make a M-dimensional data grid, with N points on each dimension running
   // from 0 to N-1.  The grid is flattened, so all N^M points are in the same
