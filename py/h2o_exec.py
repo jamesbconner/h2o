@@ -84,7 +84,7 @@ def exec_zero_list(zeroList):
         ### print "\nexecResult:", execResult
 
 def exec_expr_list_rand(lenNodes, exprList, key2, 
-    maxCol=54, maxRow=400000, maxTrials=100, timeoutSecs=10):
+    minCol=0, maxCol=54, minRow=1, maxRow=400000, maxTrials=100, timeoutSecs=10):
 
     trial = 0
     while trial < maxTrials: 
@@ -98,10 +98,10 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         else:
             nodeX = random.randint(0,lenNodes-1)
 
-        colX = random.randint(1,maxCol)
+        colX = random.randint(minCol,maxCol)
 
         # FIX! should tune this for covtype20x vs 200x vs covtype.data..but for now
-        row = str(random.randint(1,maxRow))
+        row = str(random.randint(minRow,maxRow))
 
         execExpr = fill_in_expr_template(exprTemp, colX, ((trial+1)%4)+1, row, key2)
         execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
@@ -127,9 +127,10 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
 
 
 
-def exec_expr_list_across_cols(lenNodes, exprList, key2, maxCol=54, timeoutSecs=10):
+def exec_expr_list_across_cols(lenNodes, exprList, key2, 
+    minCol=0, maxCol=54, timeoutSecs=10):
     colResultList = []
-    for colX in range(maxCol):
+    for colX in range(minCol, maxCol):
         for exprTemplate in exprList:
             # copy it to keep python from changing the original when I modify it below!
             exprTemp = list(exprTemplate)
