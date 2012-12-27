@@ -105,7 +105,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
 
         execExpr = fill_in_expr_template(exprTemp, colX, trial+1, row, key2)
         execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr,
-            "Result"+str(trial+1), timeoutSecs)
+            "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
         columns = execResultInspect["columns"]
