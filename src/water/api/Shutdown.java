@@ -25,7 +25,7 @@ public class Shutdown extends Request {
     }, 100);
 
     JsonObject json = new JsonObject();
-    json.addProperty(JSON_STATUS, "shutting down");
+    json.addProperty(STATUS, "shutting down");
     return Response.done(json);
   }
 }

@@ -9,7 +9,7 @@ import water.web.RString;
  */
 public class HTTP500 extends Request {
 
-  private final Str _error = new Str(JSON_ERROR,"Unknown error");
+  private final Str _error = new Str(ERROR,"Unknown error");
 
   public HTTP500() {
     _requestHelp = "Displays the HTTP 500 page with error specified in JSON"

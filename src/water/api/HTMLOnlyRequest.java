@@ -16,7 +16,7 @@ public abstract class HTMLOnlyRequest extends Request {
   public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     if (type == RequestType.json) {
       JsonObject resp = new JsonObject();
-      resp.addProperty(JSON_ERROR,"This request is only provided for browser connections");
+      resp.addProperty(ERROR,"This request is only provided for browser connections");
       return wrap(server, resp);
     }
     return super.serve(server,args,type);

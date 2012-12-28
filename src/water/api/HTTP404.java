@@ -8,7 +8,7 @@ import water.web.RString;
  */
 public class HTTP404 extends Request {
 
-  private final Str _error = new Str(JSON_ERROR,"Unknown error");
+  private final Str _error = new Str(ERROR,"Unknown error");
 
   public HTTP404() {
     _requestHelp = "Displays the HTTP 404 page with error specified in JSON"

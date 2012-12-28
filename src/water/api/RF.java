@@ -17,22 +17,22 @@ import water.ValueArray;
  */
 public class RF extends Request {
 
-  protected final H2OHexKey _dataKey = new H2OHexKey(JSON_DATA_KEY);
-  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,JSON_CLASS,0);
-  protected final Int _numTrees = new Int(JSON_NUM_TREES,50,0,Integer.MAX_VALUE);
-  protected final Bool _gini = new Bool(JSON_GINI,true,"use gini statistic (otherwise entropy is used)");
-  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, JSON_WEIGHTS, 1);
-  protected final Bool _stratify = new Bool(JSON_STRATIFY,false,"Use Stratified sampling");
-  protected final H2OCategoryStrata _strata = new H2OCategoryStrata(_dataKey, _classCol, JSON_STRATA, 1);
-  protected final H2OKey _modelKey = new H2OKey(JSON_MODEL_KEY,Key.make("model"));
-  protected final Bool _oobee = new Bool(JSON_OOBEE,false,"Out of bag errors");
-  protected final Int _features = new Int(JSON_FEATURES, null, 1, Integer.MAX_VALUE);
-  protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, JSON_IGNORE);
-  protected final Int _sample = new Int(JSON_SAMPLE, 67, 1, 100);
-  protected final Int _binLimit = new Int(JSON_BIN_LIMIT,1024, 0,65535);
-  protected final Int _depth = new Int(JSON_DEPTH,Integer.MAX_VALUE,0,Integer.MAX_VALUE);
-  protected final Int _seed = new Int(JSON_SEED,0);
-  protected final Bool _parallel = new Bool(JSON_PARALLEL,true,"Build trees in parallel");
+  protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
+  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,CLASS,0);
+  protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
+  protected final Bool _gini = new Bool(GINI,true,"use gini statistic (otherwise entropy is used)");
+  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
+  protected final Bool _stratify = new Bool(STRATIFY,false,"Use Stratified sampling");
+  protected final H2OCategoryStrata _strata = new H2OCategoryStrata(_dataKey, _classCol, STRATA, 1);
+  protected final H2OKey _modelKey = new H2OKey(MODEL_KEY,Key.make("model"));
+  protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
+  protected final Int _features = new Int(FEATURES, null, 1, Integer.MAX_VALUE);
+  protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, IGNORE);
+  protected final Int _sample = new Int(SAMPLE, 67, 1, 100);
+  protected final Int _binLimit = new Int(BIN_LIMIT,1024, 0,65535);
+  protected final Int _depth = new Int(DEPTH,Integer.MAX_VALUE,0,Integer.MAX_VALUE);
+  protected final Int _seed = new Int(SEED,0);
+  protected final Bool _parallel = new Bool(PARALLEL,true,"Build trees in parallel");
 
 
   public RF() {
@@ -85,15 +85,15 @@ public class RF extends Request {
               _stratify.value(),
               _strata.convertToMap()
               );
-      response.addProperty(JSON_DATA_KEY, dataKey.toString());
-      response.addProperty(JSON_MODEL_KEY, modelKey.toString());
-      response.addProperty(JSON_NUM_TREES, ntree);
-      response.addProperty(JSON_CLASS, classCol);
+      response.addProperty(DATA_KEY, dataKey.toString());
+      response.addProperty(MODEL_KEY, modelKey.toString());
+      response.addProperty(NUM_TREES, ntree);
+      response.addProperty(CLASS, classCol);
       if (_weights.specified())
-        response.addProperty(JSON_WEIGHTS, _weights.originalValue());
+        response.addProperty(WEIGHTS, _weights.originalValue());
       if (_ignore.specified())
-        response.addProperty(JSON_IGNORE, _ignore.originalValue());
-      response.addProperty(JSON_OOBEE, _oobee.value());
+        response.addProperty(IGNORE, _ignore.originalValue());
+      response.addProperty(OOBEE, _oobee.value());
     } catch (DRF.IllegalDataException e) {
       return Response.error("Incorrect input data: "+e.getMessage());
     }

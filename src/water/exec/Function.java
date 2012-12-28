@@ -613,7 +613,6 @@ class MakeEnum extends Function {
       // error if we have too many of them
       if (etask._domain.isKilled())
         throw new Exception("More than 65535 unique values found. The column is too big for enums.");
-      System.out.println("domain="+etask._domain.size());
       // compute the domain and determine the column properties
       Column oldCol = oldAry._cols[args[0].colIndex()];
       Column c = new Column();

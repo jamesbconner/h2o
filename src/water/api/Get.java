@@ -8,7 +8,7 @@ import water.*;
 import com.google.gson.JsonObject;
 
 public class Get extends Request {
-  protected H2OExistingKey _key = new H2OExistingKey(JSON_KEY);
+  protected H2OExistingKey _key = new H2OExistingKey(KEY);
 
   @Override public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     switch (type) {
@@ -18,7 +18,7 @@ public class Get extends Request {
         return wrap(server,serveWiki());
       case json:
         JsonObject resp = new JsonObject();
-        resp.addProperty(JSON_ERROR,"This request is only provided for browser connections");
+        resp.addProperty(ERROR,"This request is only provided for browser connections");
         return wrap(server, resp);
       case www:
         String query = checkArguments(args, type);

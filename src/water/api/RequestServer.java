@@ -114,7 +114,7 @@ public class RequestServer extends NanoHTTPD {
     } catch (Exception e) {
       e.printStackTrace();
       // make sure that no Exception is ever thrown out from the request
-      parms.setProperty(Request.JSON_ERROR,e.getClass().getSimpleName()+": "+e.getMessage());
+      parms.setProperty(Request.ERROR,e.getClass().getSimpleName()+": "+e.getMessage());
       return _http500.serve(this,parms,type);
     }
   }
@@ -143,7 +143,7 @@ public class RequestServer extends NanoHTTPD {
     if ((bytes == null) || (bytes.length == 0)) {
       // make sure that no Exception is ever thrown out from the request
       Properties parms = new Properties();
-      parms.setProperty(Request.JSON_ERROR,uri);
+      parms.setProperty(Request.ERROR,uri);
       return _http404.serve(this,parms,Request.RequestType.www);
     }
     String mime = NanoHTTPD.MIME_DEFAULT_BINARY;

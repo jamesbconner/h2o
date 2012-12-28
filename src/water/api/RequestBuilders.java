@@ -11,7 +11,6 @@ import water.web.RString;
 
 import com.google.common.base.Throwables;
 import com.google.gson.*;
-import com.sun.corba.se.spi.legacy.connection.GetEndPointInfoAgainException;
 
 /** Builders & response object.
  *
@@ -100,8 +99,8 @@ public class RequestBuilders extends RequestQueries {
     RString result = new RString(_responseHeader);
     JsonObject obj = response.responseToJson();
     result.replace("CLOUD_NAME",obj.get(JSON_H2O).getAsString());
-    result.replace("NODE_NAME",obj.get(JSON_H2O_NODE).getAsString());
-    result.replace("TIME", PrettyPrint.msecs(obj.get(JSON_REQUEST_TIME).getAsLong(), true));
+    result.replace("NODE_NAME",obj.get(NODE).getAsString());
+    result.replace("TIME", PrettyPrint.msecs(obj.get(REQUEST_TIME).getAsLong(), true));
     switch (response._status) {
       case error:
         result.replace("BUTTON","<button class='btn btn-danger disabled'>"+response._status.toString()+"</button>");
@@ -287,7 +286,7 @@ public class RequestBuilders extends RequestQueries {
      */
     public static Response error(String message) {
       JsonObject obj = new JsonObject();
-      obj.addProperty(JSON_ERROR,message);
+      obj.addProperty(ERROR,message);
       return new Response(Status.error,obj);
     }
 
@@ -377,22 +376,22 @@ public class RequestBuilders extends RequestQueries {
      */
     protected JsonObject responseToJson() {
       JsonObject resp = new JsonObject();
-      resp.addProperty(JSON_STATUS,_status.toString());
+      resp.addProperty(STATUS,_status.toString());
       resp.addProperty(JSON_H2O, H2O.NAME);
-      resp.addProperty(JSON_H2O_NODE, H2O.SELF.toString());
-      resp.addProperty(JSON_REQUEST_TIME, _time);
+      resp.addProperty(NODE, H2O.SELF.toString());
+      resp.addProperty(REQUEST_TIME, _time);
       switch (_status) {
         case done:
         case error:
           break;
         case redirect:
-          resp.addProperty(JSON_REDIRECT,_redirectName);
+          resp.addProperty(REDIRECT,_redirectName);
           if (_redirectArgs != null)
-            resp.add(JSON_REDIRECT_ARGS,_redirectArgs);
+            resp.add(REDIRECT_ARGS,_redirectArgs);
           break;
         case poll:
-          resp.addProperty(JSON_PROGRESS, _pollProgress);
-          resp.addProperty(JSON_PROGRESS_TOTAL, _pollProgressElements);
+          resp.addProperty(PROGRESS, _pollProgress);
+          resp.addProperty(PROGRESS_TOTAL, _pollProgressElements);
           break;
         default:
           assert(false): "Unknown response type "+_status.toString();
@@ -404,7 +403,7 @@ public class RequestBuilders extends RequestQueries {
      * returns the response.
      */
     protected JsonObject toJson() {
-      _response.add(JSON_RESPONSE,responseToJson());
+      _response.add(RESPONSE,responseToJson());
       return _response;
     }
 
@@ -414,7 +413,7 @@ public class RequestBuilders extends RequestQueries {
     public String error() {
       if (_status != Status.error)
         return null;
-      return _response.get(JSON_ERROR).getAsString();
+      return _response.get(ERROR).getAsString();
     }
 
   }
@@ -658,9 +657,9 @@ public class RequestBuilders extends RequestQueries {
 
     protected String elementToString(JsonElement elm, String contextName) {
         String elementName = elementName(contextName);
-        if( elementName.endsWith(JSON_BYTE_SUFFIX) ) {
+        if( elementName.endsWith(Suffixes.BYTES) ) {
           return PrettyPrint.bytes(elm.getAsLong());
-        } else if( elementName.endsWith(JSON_TIME_SUFFIX) ) {
+        } else if( elementName.endsWith(Suffixes.MILLIS) ) {
           return PrettyPrint.msecs(elm.getAsLong(), true);
         } else if( elm instanceof JsonPrimitive && ((JsonPrimitive)elm).isString() ) {
           return elm.getAsString();
@@ -793,7 +792,7 @@ public class RequestBuilders extends RequestQueries {
     }
 
     public PaginatedTable(JsonObject query, long offset, int view, long max, boolean allowInfo) {
-      this(query, offset, view, max, allowInfo, JSON_OFFSET, JSON_VIEW);
+      this(query, offset, view, max, allowInfo, OFFSET, VIEW);
     }
 
 
@@ -870,11 +869,11 @@ public class RequestBuilders extends RequestQueries {
 
   public class KeyMinAvgMaxBuilder extends ArrayRowElementBuilder {
     @Override protected String objectToString(JsonObject obj, String contextName) {
-      if (!obj.has(JSON_COL_MIN))
+      if (!obj.has(MIN))
         return "";
-      return obj.get(JSON_COL_MIN).getAsString() + " / "
-             + obj.get(JSON_COL_AVG).getAsString() + " / "
-             + obj.get(JSON_COL_MAX).getAsString();
+      return obj.get(MIN).getAsString() + " / "
+             + obj.get(MEAN).getAsString() + " / "
+             + obj.get(MAX).getAsString();
     }
   }
 

@@ -6,8 +6,8 @@ import java.io.File;
 import com.google.gson.*;
 
 public class WWWFiles extends Request {
-  private final Str _filter = new Str(JSON_FILTER,"");
-  private final Int _limit = new Int(JSON_LIMIT,1024,0,10240);
+  private final Str _filter = new Str(FILTER,"");
+  private final Int _limit = new Int(LIMIT,1024,0,10240);
 
   public WWWFiles() {
     _requestHelp = "Provides a simple JSON array of filtered local files.";
@@ -44,7 +44,7 @@ public class WWWFiles extends Request {
     }
 
     JsonObject response = new JsonObject();
-    response.add(JSON_FILES, array);
+    response.add(FILES, array);
     return Response.done(response);
   }
 }

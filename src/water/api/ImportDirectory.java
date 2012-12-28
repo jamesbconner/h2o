@@ -7,7 +7,7 @@ import water.Key;
 import water.util.FileIntegrityChecker;
 
 public class ImportDirectory extends Request {
-  protected final ExistingDir _dir = new ExistingDir(JSON_FILE);
+  protected final ExistingDir _dir = new ExistingDir(FILE);
 
   public ImportDirectory() {
     _requestHelp = "Imports the given directory recursively.  All nodes in the cloud must have" +
@@ -30,18 +30,18 @@ public class ImportDirectory extends Request {
         fail.add(new JsonPrimitive(c.getFileName(i)));
       } else {
         JsonObject o = new JsonObject();
-        o.addProperty(JSON_KEY, k.toString());
-        o.addProperty(JSON_FILE, c.getFileName(i));
+        o.addProperty(KEY, k.toString());
+        o.addProperty(FILE, c.getFileName(i));
         succ.add(o);
       }
     }
     fs.block_pending();
 
-    json.add(JSON_SUCCEEDED, succ);
-    json.add(JSON_FAILED, fail);
+    json.add(SUCCEEDED, succ);
+    json.add(FAILED, fail);
 
     Response r = Response.done(json);
-    r.setBuilder(JSON_SUCCEEDED, new ArrayBuilder() {
+    r.setBuilder(SUCCEEDED, new ArrayBuilder() {
       @Override
       public String header(JsonArray array) {
         return "<table class='table table-striped table-bordered'>" +
@@ -55,8 +55,8 @@ public class ImportDirectory extends Request {
           public String build(Response response, JsonObject object,
               String contextName) {
             return "<tr><td>" +
-                "<a href='Inspect.html?key="+object.get(JSON_KEY).getAsString()+"'>" +
-                object.get(JSON_FILE).getAsString() +
+                "<a href='Inspect.html?key="+object.get(KEY).getAsString()+"'>" +
+                object.get(FILE).getAsString() +
                 "</a></td></tr>";
           }
         };

@@ -45,7 +45,7 @@ public class GLM extends Request {
   public static final String JSON_TIME = "time";
   public static final String JSON_COEFFICIENTS = "coefficients";
 
-  protected final H2OHexKey _key = new H2OHexKey(JSON_KEY);
+  protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
   protected final IgnoreHexCols _x = new IgnoreHexCols(_key, _y, JSON_GLM_X);
   protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X);
@@ -246,7 +246,7 @@ public class GLM extends Request {
         m = new RString("y = %equation");
         break;
       case logit:
-        m = new RString("y = 1/(1 + Math.exp(%equation))");
+        m = new RString("y = 1/(1 + Math.exp(-(%equation)))");
         break;
       default:
         assert false;
@@ -254,7 +254,7 @@ public class GLM extends Request {
       }
       boolean first = true;
       StringBuilder bldr = new StringBuilder();
-      for(Map.Entry<String,JsonElement> e:obj.entrySet()){
+      for( Map.Entry<String,JsonElement> e : obj.entrySet() ) {
 
         double v = e.getValue().getAsDouble();
         if(v == 0)continue;
