@@ -621,23 +621,14 @@ class H2O(object):
 
     def exec_query(self, timeoutSecs=20, **kwargs):
         params_dict = {
-            'min' : None,
-            'max' : None,
-            'mean' : None,
-            'filter': None,
-            'slice': None,
-            'randomBitVector': None,
-            'randomFilter': None,
-            'log': None,
-            'colSwap': None,
-            'makeEnum': None,
+            'Expr': None,
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
 
         verboseprint("\nexec_query:", params_dict)
         a = self.__check_request(requests.get(
-            url=self.__url('Exec.json'), 
+            url=self.__url('Exec.json', new=False),
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nexec_query result:", dump_json(a))
