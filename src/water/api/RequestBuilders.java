@@ -157,7 +157,7 @@ public class RequestBuilders extends RequestQueries {
 
   /** Basic builder for elements inside objects. (dl,dt,dd)
    */
-  public static final Builder ELEMENT_BUILDER = new ElementBuilder();
+  public static final ElementBuilder ELEMENT_BUILDER = new ElementBuilder();
 
   /** Basic builder for elements in array row objects. (td)
    */
@@ -648,21 +648,23 @@ public class RequestBuilders extends RequestQueries {
     /** Displays the element in the horizontal dl layout. Override this method
      * to change the layout.
      */
-    protected String build(String elementContents, String elementName) {
+    public String build(String elementContents, String elementName) {
       return "<dl class='dl-horizontal'><dt>"+elementName+"</dt><dd>"+elementContents+"</dd></dl>";
     }
 
-    protected String arrayToString(JsonArray array, String contextName) {
+    public String arrayToString(JsonArray array, String contextName) {
       return array.toString();
     }
 
-    protected String objectToString(JsonObject obj, String contextName) {
+    public String objectToString(JsonObject obj, String contextName) {
       return obj.toString();
     }
 
-    protected String elementToString(JsonElement elm, String contextName) {
+    public String elementToString(JsonElement elm, String contextName) {
         String elementName = elementName(contextName);
-        if( elementName.endsWith(Suffixes.BYTES) ) {
+        if( elementName.endsWith(Suffixes.BYTES_PER_SECOND) ) {
+          return PrettyPrint.bytesPerSecond(elm.getAsLong());
+        } else if( elementName.endsWith(Suffixes.BYTES) ) {
           return PrettyPrint.bytes(elm.getAsLong());
         } else if( elementName.endsWith(Suffixes.MILLIS) ) {
           return PrettyPrint.msecs(elm.getAsLong(), true);
@@ -691,7 +693,7 @@ public class RequestBuilders extends RequestQueries {
 
   public static class KeyElementBuilder extends ElementBuilder {
     @Override
-    protected String build(String content, String name) {
+    public String build(String content, String name) {
       try {
         String k = URLEncoder.encode(content, "UTF-8");
         return super.build("<a href='Inspect.html?key="+k+"'>"+content+"</a>", name);
@@ -881,7 +883,7 @@ public class RequestBuilders extends RequestQueries {
   }
 
   public class KeyCellBuilder extends ArrayRowElementBuilder {
-    @Override protected String elementToString(JsonElement element, String contextName) {
+    @Override public String elementToString(JsonElement element, String contextName) {
       String str = element.getAsString();
       try {
         return "<a href='Inspect.html?key="+URLEncoder.encode(str,"UTF-8")+"'>"+str+"</a>";
@@ -892,7 +894,7 @@ public class RequestBuilders extends RequestQueries {
   }
 
   public class KeyMinAvgMaxBuilder extends ArrayRowElementBuilder {
-    @Override protected String objectToString(JsonObject obj, String contextName) {
+    @Override public String objectToString(JsonObject obj, String contextName) {
       if (!obj.has(MIN))
         return "";
       return obj.get(MIN).getAsString() + " / "

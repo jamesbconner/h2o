@@ -28,7 +28,8 @@ public class RequestServer extends NanoHTTPD {
   static {
     _http404 = registerRequest(new HTTP404());
     _http500 = registerRequest(new HTTP500());
-    Request.addToNavbar(registerRequest(new Cloud()),"Status", "Cloud");
+    Request.addToNavbar(registerRequest(new Cloud()),   "Status",   "Cloud");
+    Request.addToNavbar(registerRequest(new Network()), "Network",  "Cloud");
     Request.addToNavbar(registerRequest(new Shutdown()),"Shutdown", "Cloud");
 
     Request.addToNavbar(registerRequest(new StoreView()),"Node");
