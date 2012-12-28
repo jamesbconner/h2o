@@ -95,6 +95,7 @@ public class Constants {
   public static final String TCP_PACKETS_RECV      = "tcp_received_packets";
   public static final String TCP_PACKETS_SENT      = "tcp_sent_packets";
   public static final String TCPS_ACTIVE           = "tcps_active";
+  public static final String TIME                  = "time";
   public static final String TOT_MEM               = "tot_mem" + Suffixes.BYTES;
   public static final String TOTAL_BYTES_RECV      = "total_received" + Suffixes.BYTES;
   public static final String TOTAL_BYTES_RECV_RATE = "total_received" + Suffixes.BYTES_PER_SECOND;
@@ -104,6 +105,7 @@ public class Constants {
   public static final String TOTAL_CONN_OUT        = "total_outgoing_connections";
   public static final String TOTAL_PACKETS_RECV    = "total_received_packets";
   public static final String TOTAL_PACKETS_SENT    = "total_sent_packets";
+  public static final String STACK_TRACES          = "stack_traces";
   public static final String TYPE                  = "type";
   public static final String UDP_BYTES_RECV        = "udp_received" + Suffixes.BYTES;
   public static final String UDP_BYTES_SENT        = "udp_sent" + Suffixes.BYTES;

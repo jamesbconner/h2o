@@ -53,9 +53,8 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new PutVector());
     registerRequest(new GetVector());
 
-    Request.addToNavbar(registerRequest(new Timeline()),"Timeline","Debug");
-    Request.addToNavbar(registerRequest(new RedirectTest()),"Redirect test","Debug");
-    Request.addToNavbar(registerRequest(new PollTest()),"Poll test","Debug");
+    Request.addToNavbar(registerRequest(new Timeline()), "Timeline",   "Debug");
+    Request.addToNavbar(registerRequest(new JStack()),   "Stack Dump", "Debug");
 
     Request.initializeNavBar();
   }
