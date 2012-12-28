@@ -592,10 +592,10 @@ class H2O(object):
         return a
 
     def netstat(self):
-        return self.__check_request(requests.get(self.__url('Network.json')))
+        return self.__check_request(requests.get(self.__url('Network.json', new=True)))
 
     def jstack(self):
-        return self.__check_request(requests.get(self.__url("JStack.json")))
+        return self.__check_request(requests.get(self.__url("JStack.json", new=True)))
 
     def inspect(self, key):
         a = self.__check_request(requests.get(self.__url('Inspect.json', new=True),
