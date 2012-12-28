@@ -19,27 +19,19 @@ for i in range(5):
 # 'log"
 # do we have to restrict ourselves?
 # 'makeEnum'
-if 1==1:
-    exprList = [
-            ['MatrixRes', '<n>', ' = slice(', '<keyX>', '[', '<col1>', '], ', '<row>', ')'],
-            ['slice(', '<keyX>', '[', '<col1>', '], ', '<row>', ')'],
-            ['MatrixRes', '<n>', ' = slice(', '<keyX>', ', ', '<row>', ')'],
-            ['slice(', '<keyX>',  ', ', '<row>',  ')'],
+exprList = [
+        ['MatrixRes','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
+
+        ['ColumnRes','<n>',' = ',
+            '<keyX>','[', '<col1>', '] + ',
+            '<keyX>','[', '<col2>', '] + ',
+            '<keyX>','[', '2', ']'
+        ],
+
+        ['ColumnRes','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
+        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', ']'],
+        ['ScalarRes','<n>',' = sum(','<keyX>','[', '<col1>', ']) + ScalarRes0'],
     ]
-else:
-    exprList = [
-            ['MatrixRes', '<n>', ' = slice(', '<keyX>', '[', '<col1>', '], ',  '<row>',  ')'],
-
-            ['ColumnRes', '<n>', ' = ',
-                '<keyX>', '[', '<col1>', '] + ',
-                '<keyX>', '[', '<col2>', '] + ',
-                '<keyX>', '[', '2', ']'
-            ],
-
-            ['ColumnRes', '<n>', ' = colSwap(', '<keyX>', ', ', '<col1>', ', (', '<keyX>', '[2]==0 ? 54321 : 54321))'],
-            ['ColumnRes', '<n>', ' = ', '<keyX>', '[', '<col1>', ']'],
-            ['ScalarRes', '<n>', ' = sum(', '<keyX>', '[', '<col1>', ']) + ScalarRes0'],
-        ]
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -53,7 +45,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(1,java_heap_GB=4)
+            h2o.build_cloud(1)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -85,7 +77,7 @@ class Basic(unittest.TestCase):
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
-        ### h2b.browseTheCloud()
+        # h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
         cnum = 0
