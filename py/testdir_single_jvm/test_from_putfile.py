@@ -49,11 +49,11 @@ class Basic(unittest.TestCase):
 
             # creates csvFilename and csvFilename.hex  keys
             parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key=csvFilename, timeoutSecs=500)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "Parse result['Key']:", parseKey['Key']
+            print csvFilename, 'parse time:', parseKey['response']['time']
+            print "Parse result['destination_key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
-            inspect = h2o_cmd.runInspect(key=parseKey['Key'])
+            inspect = h2o_cmd.runInspect(key=parseKey['destination_key'])
 
             print "\n" + csvFilename
             start = time.time()

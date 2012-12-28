@@ -80,8 +80,8 @@ class Basic(unittest.TestCase):
             # creates csvFilename.hex from file in hdfs dir 
             print "Loading", csvFilename, 'from HDFS'
             parseKey = h2i.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "parse result:", parseKey['Key']
+            print csvFilename, 'parse time:', parseKey['response']['time']
+            print "parse result:", parseKey['destination_key']
             # I use this if i want the larger set in my localdir
 
             print "\n" + csvFilename

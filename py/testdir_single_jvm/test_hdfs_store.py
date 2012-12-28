@@ -31,6 +31,7 @@ class Basic(unittest.TestCase):
         # fails because classes aren't integers
         #    "allstate_claim_prediction_train_set.zip",
         csvFilenameAll = [
+            "covtype.data",
             "TEST-poker1000.csv",
             "leads.csv",
             "and-testing.data",
@@ -38,7 +39,6 @@ class Basic(unittest.TestCase):
             "arcene_train.both",
             "bestbuy_test.csv",
             "bestbuy_train.csv",
-            "covtype.data",
             "covtype.4x.shuffle.data",
             "covtype4x.shuffle.data",
             "covtype.13x.data",
@@ -76,14 +76,14 @@ class Basic(unittest.TestCase):
             # creates csvFilename.hex from file in hdfs dir 
             print "Loading", csvFilename, 'from HDFS'
             parseKey = h2i.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "parse result:", parseKey['Key']
+            print csvFilename, 'parse time:', parseKey['response']['time']
+            print "parse result:", parseKey['destination_key']
 
             print "\n" + csvFilename
             start = time.time()
-            print "Storing", parseKey['Key'], 'to HDFS'
+            print "Storing", parseKey['destination_key'], 'to HDFS'
             print "FIX! temporarily disabling since it causes HDFS corruption"
-            ### storeKey = h2o_cmd.runStore2HDFS(key=parseKey['Key'], timeoutSecs=1000)
+            ### storeKey = h2o_cmd.runStore2HDFS(key=parseKey['destination_key'], timeoutSecs=1000)
 
 
             h2b.browseJsonHistoryAsUrlLastMatch("Parse")

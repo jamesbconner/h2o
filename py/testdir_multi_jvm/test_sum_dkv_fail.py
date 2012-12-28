@@ -60,11 +60,11 @@ class Basic(unittest.TestCase):
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
-            print csvFilename, 'parse TimeMS:', parseKey['TimeMS']
-            print "Parse result['Key']:", parseKey['Key']
+            print csvFilename, 'parse time:', parseKey['response']['time']
+            print "Parse result['destination_key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
-            inspect = h2o_cmd.runInspect(None, parseKey['Key'])
+            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
             h2o_exec.exec_zero_list(zeroList)

@@ -24,7 +24,7 @@ class Basic(unittest.TestCase):
         # broke out the put separately so we can iterate a test just on the RF
         # FIX! trying node 1..0 was failing?
 	parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=1000)
-        print 'parse TimeMS:', parseKey['TimeMS']
+        print 'parse time:', parseKey['response']['time']
 
         trials = 0
         trees = 4
