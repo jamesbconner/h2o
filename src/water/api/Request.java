@@ -9,8 +9,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
-import water.Log;
-import water.NanoHTTPD;
+import water.*;
 import water.web.RString;
 
 /** A basic class for a JSON request.
@@ -26,7 +25,7 @@ public abstract class Request extends RequestBuilders {
 
   protected abstract Response serve();
 
-
+  protected Response serve_debug() { throw H2O.unimpl(); }
 
   public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     switch (type) {
@@ -44,6 +43,9 @@ public abstract class Request extends RequestBuilders {
         response.setTimeStart(time);
         if (type == RequestType.json)
           return wrap(server, response.toJson());
+        return wrap(server,build(response));
+      case debug:
+        response = serve_debug();
         return wrap(server,build(response));
       case query:
         query = checkArguments(args, type);

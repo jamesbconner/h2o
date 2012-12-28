@@ -107,8 +107,9 @@ public class RequestBuilders extends RequestQueries {
         result.replace("TEXT","An error has occured during the creation of the response. Details follow:");
         break;
       case done:
-        result.replace("BUTTON","<button class='btn btn-success disabled'>"+response._status.toString()+"</button>");
-        result.replace("TEXT","The result was a success and no further action is needed. JSON results are prettyprinted below.");
+        //result.replace("BUTTON","<button class='btn btn-success disabled'>"+response._status.toString()+"</button>");
+        //result.replace("TEXT","The result was a success and no further action is needed. JSON results are prettyprinted below.");
+        result = new RString("");
         break;
       case redirect:
         result.replace("BUTTON","<button class='btn btn-primary' onclick='redirect()'>"+response._status.toString()+"</button>");
@@ -544,6 +545,10 @@ public class RequestBuilders extends RequestQueries {
     }
   }
 
+  public static class NoCaptionObjectBuilder extends ObjectBuilder {
+    public String caption(JsonObject object, String objectName) { return ""; }
+  }
+
   // ---------------------------------------------------------------------------
   // Array builder
   // ---------------------------------------------------------------------------
@@ -696,6 +701,19 @@ public class RequestBuilders extends RequestQueries {
     }
   }
 
+  // Just the Key as a link, without any other cruft
+  public static class KeyLinkElementBuilder extends ElementBuilder {
+    @Override public String build(Response response, JsonElement element, String contextName) {
+      try {
+        String key = element.getAsString();
+        String k = URLEncoder.encode(key, "UTF-8");
+        return "<a href='Inspect.html?key="+k+"'>"+key+"</a>";
+      } catch( Throwable e ) {
+        throw Throwables.propagate(e);
+      }
+    }
+  }
+
   public static class BooleanStringBuilder extends ElementBuilder {
     final String _t, _f;
     public BooleanStringBuilder(String t, String f) { _t=t; _f=f; }
@@ -704,6 +722,12 @@ public class RequestBuilders extends RequestQueries {
       return "<dl class='dl-horizontal'><dt></dt><dd>"+(b?_t:_f)+"</dd></dl>";
     }
   }
+  public static class HideBuilder extends ElementBuilder {
+    @Override public String build(Response response, JsonElement element, String contextName) {
+      return "";
+    }
+  }
+
 
   // ---------------------------------------------------------------------------
   // ArrayRowBuilder
