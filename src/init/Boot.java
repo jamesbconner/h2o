@@ -282,7 +282,14 @@ public class Boot extends ClassLoader {
     // For enums, add a function to reverse serialize a byte to the enum via
     // array lookup
     if( cc.subclassOf(_enum) ) {
-      String body = "static "+cc.getName()+" raw_enum(int i) { return i==255?null:$VALUES[i]; } ";
+      CtField field;
+      try {
+        field = cc.getField("$VALUES");
+      } catch( NotFoundException nfe ) {
+        // Eclipse apparently stores this in a different place.
+        field = cc.getField("ENUM$VALUES");
+      }
+      String body = "static "+cc.getName()+" raw_enum(int i) { return i==255?null:"+field.getName()+"[i]; } ";
       try {
         cc.addMethod(CtNewMethod.make(body,cc));
         return cc.toClass(this, null);
