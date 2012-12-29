@@ -15,7 +15,7 @@ public class Constants {
   public static final String CLASS                 = "class";
   public static final String CLOUD_NAME            = "cloud_name";
   public static final String CLOUD_SIZE            = "cloud_size";
-  public static final String COLS                  = "columns";
+  public static final String COLS                  = "cols";
   public static final String CONSENSUS             = "consensus";
   public static final String CONTENTS              = "contents";
   public static final String CPU_LOAD_1            = "cpu_load_1";
