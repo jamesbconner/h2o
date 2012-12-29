@@ -1,7 +1,7 @@
-
 package water.api;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import water.*;
 
@@ -50,6 +50,7 @@ public class Cloud extends Request {
     Response r = Response.done(response);
     r.setBuilder(CONSENSUS, new BooleanStringBuilder("","Voting new members"));
     r.setBuilder(LOCKED, new BooleanStringBuilder("Locked","Accepting new members"));
+    r.setBuilder(NODES+"."+NAME, new NodeCellBuilder());
     return r;
   }
 
@@ -57,4 +58,13 @@ public class Cloud extends Request {
     return d >= 0 ? String.valueOf(d) : "n/a";
   }
 
+  // Just the Node as a link
+  public class NodeCellBuilder extends ArrayRowElementBuilder {
+    @Override public String elementToString(JsonElement element, String contextName) {
+      String str = element.getAsString();
+      if( str.equals(H2O.SELF.toString()) )
+        return "<a href='StoreView.html'>"+str+"</a>";
+      return "<a href='Remote.html?Node="+str+"'>"+str+"</a>";
+    }
+  }
 }

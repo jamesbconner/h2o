@@ -40,7 +40,7 @@ public class RequestBuilders extends RequestQueries {
     sb.append("<div class='row-fluid'>");
     sb.append("<div class='span12'>");
     sb.append(buildResponseHeader(response));
-    sb.append("<h3>"+getClass().getSimpleName()+" response:</h3>");
+    sb.append("<h3>"+getClass().getSimpleName()+":</h3>");
     Builder builder = response.getBuilderFor("");
     if (builder == null)
       builder = OBJECT_BUILDER;
@@ -894,14 +894,13 @@ public class RequestBuilders extends RequestQueries {
   }
 
   public class KeyMinAvgMaxBuilder extends ArrayRowElementBuilder {
+    private String trunc(JsonObject obj, String fld) {
+      String s = obj.get(fld).getAsString();
+      return s.length() > 6 ?  s.substring(0,6) : s;
+    }
     @Override public String objectToString(JsonObject obj, String contextName) {
-      if (!obj.has(MIN))
-        return "";
-      return obj.get(MIN).getAsString() + " / "
-             + obj.get(MEAN).getAsString() + " / "
-             + obj.get(MAX).getAsString();
+      if (!obj.has(MIN)) return "";
+      return trunc(obj,MIN) + " / " + trunc(obj,MEAN) + " / " + trunc(obj,MAX);
     }
   }
-
-
 }

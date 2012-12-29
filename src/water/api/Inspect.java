@@ -49,7 +49,7 @@ public class Inspect extends Request {
     JsonObject result = new JsonObject();
     // If it is array, do the array result inspection
     if (val._isArray == 0) {
-      result.addProperty(RequestStatics.VALUE_TYPE,"value");
+      result.addProperty(VALUE_TYPE,"value");
     } else {
       ValueArray ary = ValueArray.value(val);
       t = new PaginatedTable(argumentsToJson(),_offset.value(), _view.value(), ary._numrows, true);
@@ -113,6 +113,7 @@ public class Inspect extends Request {
     }
 
     Response r = Response.done(result);
+    r.setBuilder(VALUE_TYPE, new HideBuilder());
     if (t != null) {
       r.setBuilder (RequestStatics.COLS,t);
       r.setBuilder (RequestStatics.ROW_DATA,t);
