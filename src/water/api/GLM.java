@@ -102,7 +102,6 @@ public class GLM extends Request {
   }
 
 
-
   /** Returns an array of columns to use for GLM, the last of them being the
    * result column y.
    */
@@ -204,17 +203,13 @@ public class GLM extends Request {
       LSMSolver lsm = getLSMSolver();
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
-      if(m._warnings != null){
-        JsonArray warnings = new JsonArray();
-        for(String w:m._warnings)warnings.add(new JsonPrimitive(w));
-        res.add("warnings", warnings);
-      }
-      m.validateOn(ary, null);
+      if( m.is_solved() ) m.validateOn(ary, null);
       res.add("GLMModel", m.toJson());
-      if (_xval.specified()) {
+
+      if( m.is_solved() && _xval.specified() ) {
         int fold = _xval.value();
         JsonArray models = new JsonArray();
-        for(GLMModel xm:glm.xvalidate(ary, columns, fold))
+        for( GLMModel xm:glm.xvalidate(ary, columns, fold) )
           models.add(xm.toJson());
         res.add("xval", models);
       }
@@ -237,6 +232,7 @@ public class GLM extends Request {
     r.setBuilder("GLMModel.coefficients", new GLMCoeffBuilder(Link.logit));
     r.setBuilder("GLMModel.LSMParams", new LSMParamsBuilder());
     r.setBuilder("GLMModel.GLMParams", new GLMParamsBuilder());
+    r.setBuilder("GLMModel.warnings", new ArrayBuilder());
     return r;
   }  
 

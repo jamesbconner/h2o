@@ -140,7 +140,6 @@ public class GLMSolver {
   public static final int FAMILY_ARGS_WEIGHT = 1;
   public static final int FAMILY_ARGS_DECISION_THRESHOLD = 2;
 
-  String [] _colNames;
   int [] _colIds;
 
   LSMSolver _solver;
@@ -151,7 +150,6 @@ public class GLMSolver {
   int _iterations;
   long _time;
   boolean _finished;
-  String [] _warnings;
   transient ValueArray _ary;
 
   int [] _categoricals;
@@ -162,11 +160,11 @@ public class GLMSolver {
   public static class GLMModel extends Iced {
     Key _dataset;
     Sampling _s;
-    boolean _isDone;
+    boolean _isDone;            // Model is "being worked on" or "is stable"
     int _iterations;
     long _time;
     LSMSolver _solver;
-    transient String [] _colNames; /// TODO should not be transient!
+    String [] _colNames;
     int [] _colIds;
     int [] _colOffsets;
     int [] _categoricals;
@@ -177,11 +175,14 @@ public class GLMSolver {
 
     GLMValidation [] _vals;
     GLMParams _glmParams;
-    transient public String [] _warnings; // TODO should not be transient
-    public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s){
+    String [] _warnings;
+    public boolean is_solved() { return _beta != null; }
+
+    public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s) {
       _dataset = ary._key;
+
       ArrayList<Integer> validCols = new ArrayList<Integer>();
-      for(int col:colIds){
+      for( int col : colIds ) {
         if(ary._cols[col]._max != ary._cols[col]._min)
           validCols.add(col);
         else
@@ -203,12 +204,11 @@ public class GLMSolver {
       int [] numeric = new int[_colIds.length];
       _colOffsets = new int[_colIds.length+1];
       int ncat = 0,nnum = 0;
-      for(int col:_colIds){
-//        if(ary.col_min(col) == ary.col_max(col))
-//          continue; // skip constant columns!
+      for( int col : _colIds ) {
+        assert ary._cols[col]._min != ary._cols[col]._max : "already skipped constant cols";
         _colNames[i] = ary._cols[col]._name;
         _colOffsets[i+1] = _colOffsets[i];
-        if(_glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0){
+        if( _glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0 ) {
           categoricals[ncat++] = i;
           _colOffsets[i+1] += ary._cols[col]._domain.length;
         } else
@@ -217,6 +217,7 @@ public class GLMSolver {
       }
       _categoricals = Arrays.copyOf(categoricals, ncat);
       _numeric = Arrays.copyOf(numeric, nnum);
+
       int fullLen = _colIds.length + _colOffsets[_colIds.length];
       _beta = new double[fullLen];
       Arrays.fill(_beta, _glmParams._l.defaultBeta);
@@ -286,10 +287,17 @@ public class GLMSolver {
       res.addProperty("time", _time);
       res.addProperty("isDone", _isDone);
       res.addProperty("dataset", _dataset.toString());
+      if( _warnings != null ) {
+        JsonArray warnings = new JsonArray();
+        for( String w : _warnings )
+          warnings.add(new JsonPrimitive(w));
+        res.add("warnings", warnings);
+      }
+      if( _beta == null ) return res; // Not solved!
       JsonObject coefs = new JsonObject();
       ValueArray ary = ValueArray.value(_dataset);
       double norm = 0.0;        // Reverse any normalization on the intercept
-      for(int i = 0; i < _colIds.length-1; ++i){
+      for( int i = 0; i < _colIds.length-1; ++i ) {
         int col = _colIds[i];
         int ii = _colOffsets[i]+i;
         if(_glmParams._expandCat && (ary._cols[col]._domain != null && ary._cols[col]._domain.length != 0)){
@@ -312,7 +320,7 @@ public class GLMSolver {
       res.add("LSMParams",_solver.toJson());
       res.add("GLMParams",_glmParams.toJson());
       res.addProperty("iterations", _iterations);
-      if(_vals != null){
+      if(_vals != null) {
         JsonArray vals = new JsonArray();
         for(GLMValidation v:_vals)
           vals.add(v.toJson());
@@ -353,12 +361,12 @@ public class GLMSolver {
     _glmParams = glmParams;
   }
 
-  public static final double MAX_LAMBDA = 10;
-  public GLMModel computeGLM(ValueArray ary, int [] colIds, Sampling s){
+  public GLMModel computeGLM(ValueArray ary, int [] colIds, Sampling s) {
     GLMModel res = new GLMModel(ary,colIds,_solver,_glmParams,s);
     GramMatrixTask gtask = null;
+    ArrayList<String> warns = new ArrayList();
     long t1 = System.currentTimeMillis();
-    while(res._iterations++ < _glmParams._maxIter){
+    while( res._iterations++ < _glmParams._maxIter ) {
       gtask = new GramMatrixTask(res);
       gtask._s = s;
       gtask.invoke(ary._key);
@@ -372,29 +380,33 @@ public class GLMSolver {
             throw e;
           switch(_solver._penalty) {
           case NONE:
-            System.out.println("[glm] not solvable without normalization, switching to L2 penalty");
             _solver._penalty = LSMSolver.Norm.L2;
             _solver._lambda = 1e-8;
+            warns.add("Gram matrix is not SPD; adding L2 penalty of "+_solver._lambda);
             break;
           case L2:
-            System.out.println("[glm] not solvable without more normalization, increasing L2 penalty");
             _solver._lambda *= 10;
+            warns.add("Gram matrix is still not SPD; increasing L2 to penalty "+_solver._lambda);
             break;
           case L1:
-            System.out.println("[glm] not solvable without normalization, switching to ELASTIC penalty");
             _solver._penalty = LSMSolver.Norm.ELASTIC;
             _solver._lambda2 = 1e-8;
+            warns.add("Gram matrix is not SPD; adding L2 penalty of "+_solver._lambda2);
             break;
           case ELASTIC:
-            System.out.println("[glm] not solvable without more normalization, increasing ELASTIC penalty");
             _solver._lambda2 *= 10;
+            warns.add("Gram matrix is not SPD; increasing L2 penalty to "+_solver._lambda2);
             break;
           default:
             throw new IllegalArgumentException();
           }
         }
       }
-      if(beta == null)throw new Error("can not solve this problem");
+      if( beta == null ) {      // Failed after 20 goes?
+        warns.add("Cannot solve");
+        gtask = null;
+        break;
+      }
       double diff = 0.0;
       for(int i = 0; i < gtask._beta.length; ++i)
         diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
@@ -405,6 +417,7 @@ public class GLMSolver {
     }
     res._beta = (gtask != null)?gtask._beta:null;
     res._isDone = true;
+    res._warnings = warns.toArray(new String[warns.size()]);
     return res;
   }
 

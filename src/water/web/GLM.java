@@ -156,14 +156,10 @@ public class GLM extends H2OPage {
       LSMSolver lsm = getLSMSolver(p);
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
-      if(m._warnings != null){
-        JsonArray warnings = new JsonArray();
-        for(String w:m._warnings)warnings.add(new JsonPrimitive(w));
-        res.add("warnings", warnings);
-      }
-      m.validateOn(ary, null);
+      if( m.is_solved() ) m.validateOn(ary, null);
       res.add("GLMModel", m.toJson());
-      if(p.containsKey("xval")){
+
+      if( m.is_solved() && p.containsKey("xval") ) {
         int fold = getIntArg(p, "xval", 10);
         JsonArray models = new JsonArray();
         for(GLMModel xm:glm.xvalidate(ary, columns, fold))

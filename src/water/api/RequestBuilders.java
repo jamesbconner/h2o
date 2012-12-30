@@ -579,8 +579,6 @@ public class RequestBuilders extends RequestQueries {
         for (Map.Entry<String,JsonElement> entry : ((JsonObject)array.get(0)).entrySet())
           sb.append("<th>"+JSON2HTML(entry.getKey()+"</th>"));
         sb.append("</tr>");
-      } else {
-        return "<tr><th>Value</th></tr>";
       }
       return sb.toString();
     }
@@ -596,10 +594,7 @@ public class RequestBuilders extends RequestQueries {
      * or another array.
      */
     @Override public Builder defaultBuilder(JsonElement element) {
-      if (element instanceof JsonObject)
-        return ARRAY_ROW_BUILDER;
-      else
-        return ARRAY_ROW_SINGLECOL_BUILDER;
+      return element instanceof JsonObject ? ARRAY_ROW_BUILDER : ARRAY_ROW_SINGLECOL_BUILDER;
     }
 
     /** Builds the array. Creates the caption, header, all the rows and the
@@ -805,8 +800,6 @@ public class RequestBuilders extends RequestQueries {
     protected final long _offset;
     protected final int _view;
 
-
-
     public PaginatedTable(JsonObject query, long offset, int view, long max, boolean allowInfo, String offsetJSON, String viewJSON) {
       _offsetJSON = offsetJSON;
       _viewJSON = viewJSON;
@@ -820,7 +813,6 @@ public class RequestBuilders extends RequestQueries {
     public PaginatedTable(JsonObject query, long offset, int view, long max, boolean allowInfo) {
       this(query, offset, view, max, allowInfo, OFFSET, VIEW);
     }
-
 
     protected String link(String caption, long offset, int view, boolean disabled) {
       _query.addProperty(_offsetJSON, offset);
