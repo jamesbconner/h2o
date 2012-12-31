@@ -35,21 +35,19 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new Parse()),       "Parse",        "Data");
     Request.addToNavbar(registerRequest(new ImportFiles()), "Import Files", "Data");
     Request.addToNavbar(registerRequest(new ImportUrl()),   "Import URL",   "Data");
+    Request.addToNavbar(registerRequest(new PutFile()),     "Upload",       "Data");
     Request.addToNavbar(registerRequest(new Get()),         "Download",     "Data");
     Request.addToNavbar(registerRequest(new StoreView()),   "View All",     "Data");
 
     Request.addToNavbar(registerRequest(new RF()),  "Random Forest", "Model");
     Request.addToNavbar(registerRequest(new GLM()), "GLM",           "Model");
-
     Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
-
-    Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
-    Request.addToNavbar(registerRequest(new PutFile()),"File","Put");
 
     Request.addToNavbar(registerRequest(new Cloud()),    "Cloud Status", "Admin");
     Request.addToNavbar(registerRequest(new Network()),  "Network",      "Admin");
     Request.addToNavbar(registerRequest(new Timeline()), "Timeline",     "Admin");
     Request.addToNavbar(registerRequest(new JStack()),   "Stack Dump",   "Admin");
+    Request.addToNavbar(registerRequest(new PutValue()), "Put Value",    "Admin");
     Request.addToNavbar(registerRequest(new Shutdown()), "Shutdown",     "Admin");
 
     registerRequest(new TypeaheadKeysRequest());
