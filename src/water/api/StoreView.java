@@ -97,7 +97,7 @@ public class StoreView extends Request {
         cols = ary._cols.length;
         for( int i = 0; i < 5; ++i ) {
           JsonObject col = new JsonObject();
-          if (i <= cols) {
+          if (i < cols) {
             ValueArray.Column c = ary._cols[i];
             if (c._size!=0) {
               if( c._domain==null ) {

@@ -14,8 +14,8 @@ public class Inspect extends Request {
   protected final Int _view = new Int(VIEW, 100, 0, 10000);
 
   protected void formatAryData(JsonObject obj, ValueArray ary, long rowIdx, int colIdx, String name) {
-    if (rowIdx < 0)
-      rowIdx = ary._numrows + rowIdx;
+    if( rowIdx < 0 || rowIdx >= ary._numrows ) return;
+    if( colIdx >= ary._cols.length ) return;
     ValueArray.Column c = ary._cols[colIdx];
     try {
       if (ary.isNA(rowIdx,colIdx)) {
@@ -23,7 +23,7 @@ public class Inspect extends Request {
       } else if (c._domain != null) {
         obj.addProperty(name,c._domain[(int)ary.data(rowIdx, colIdx)]);
       } else if ((c._size > 0) && (c._scale == 1))  {
-        obj.addProperty(name,ary.data(rowIdx, colIdx));
+        obj.addProperty(name,ary.data (rowIdx, colIdx));
       } else {
         obj.addProperty(name,ary.datad(rowIdx, colIdx));
       }
@@ -73,10 +73,10 @@ public class Inspect extends Request {
               domain.add(new JsonPrimitive(s));
             col.add(RequestStatics.ENUM_DOMAIN,domain);
           } else {
-            col.addProperty(RequestStatics.TYPE, c._size > 0 ? "int" : "float");
+            col.addProperty(RequestStatics.TYPE, (c._size > 0 && c._scale==1.0) ? "int" : "float");
             col.add(RequestStatics.ENUM_DOMAIN,new JsonArray());
           }
-          col.addProperty(RequestStatics.SIZE, (int)c._size);
+          col.addProperty(RequestStatics.SIZE, Math.abs(c._size));
           col.addProperty(RequestStatics.BASE,      c._base);
           col.addProperty(RequestStatics.SCALE, (int)c._scale);
           col.addProperty(RequestStatics.MIN, c._min);
