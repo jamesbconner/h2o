@@ -173,7 +173,7 @@ public class RFView extends Request {
   public class ModelKey extends TypeaheadInputText<Model> {
 
     public ModelKey(String name) {
-      super(name, true, "WWWModelKeys", KEYS);
+      super(TypeaheadModelRequest.class, name, true);
     }
 
     @Override protected Model parse(String input) throws IllegalArgumentException {

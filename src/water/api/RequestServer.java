@@ -1,18 +1,19 @@
 
 package water.api;
 
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
 import init.Boot;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
 import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+
 import water.H2O;
 import water.NanoHTTPD;
+
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
 
 /** This is a simple web server. */
 public class RequestServer extends NanoHTTPD {
@@ -28,6 +29,14 @@ public class RequestServer extends NanoHTTPD {
   static {
     _http404 = registerRequest(new HTTP404());
     _http500 = registerRequest(new HTTP500());
+
+
+    Request.addToNavbar(registerRequest(new Inspect()),     "Inspect",      "Data");
+    Request.addToNavbar(registerRequest(new Parse()),       "Parse",        "Data");
+    Request.addToNavbar(registerRequest(new ImportFiles()), "Import Files", "Data");
+    Request.addToNavbar(registerRequest(new ImportUrl()),   "Import URL",   "Data");
+
+
     Request.addToNavbar(registerRequest(new Cloud()),   "Status",   "Cloud");
     Request.addToNavbar(registerRequest(new Network()), "Network",  "Cloud");
     Request.addToNavbar(registerRequest(new Shutdown()),"Shutdown", "Cloud");
@@ -35,20 +44,15 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new StoreView()),"Node");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
     Request.addToNavbar(registerRequest(new PutFile()),"File","Put");
-    Request.addToNavbar(registerRequest(new Parse()),"Parse","Key actions");
-    Request.addToNavbar(registerRequest(new Inspect()),"Inspect","Key actions");
     Request.addToNavbar(registerRequest(new Get()),"Get","Key actions");
     Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
     Request.addToNavbar(registerRequest(new GLM()),"GLM","Functions");
     Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
-    Request.addToNavbar(registerRequest(new ImportDirectory()),"Directory","Import");
-    Request.addToNavbar(registerRequest(new ImportFile()),"File","Import");
-    Request.addToNavbar(registerRequest(new ImportUrl()),"URL","Import");
 
-    registerRequest(new WWWKeys());
-    registerRequest(new WWWFiles());
-    registerRequest(new WWWHexKeys());
-    registerRequest(new WWWModelKeys());
+    registerRequest(new TypeaheadKeysRequest());
+    registerRequest(new TypeaheadFileRequest());
+    registerRequest(new TypeaheadHexKeyRequest());
+    registerRequest(new TypeaheadModelRequest());
     registerRequest(new WWWFileUpload());
     registerRequest(new PutVector());
     registerRequest(new GetVector());

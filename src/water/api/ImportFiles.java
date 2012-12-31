@@ -1,23 +1,24 @@
 package water.api;
 
-import com.google.gson.*;
-
 import water.Futures;
 import water.Key;
 import water.util.FileIntegrityChecker;
 
-public class ImportDirectory extends Request {
-  protected final ExistingDir _dir = new ExistingDir(FILE);
+import com.google.gson.*;
 
-  public ImportDirectory() {
-    _requestHelp = "Imports the given directory recursively.  All nodes in the cloud must have" +
-        " an identical copy of the file structure in their local file systems.";
-    _dir._requestHelp = "Dir to import from.";
+public class ImportFiles extends Request {
+  protected final ExistingFile _file = new ExistingFile(FILE);
+
+  public ImportFiles() {
+    _requestHelp = "Imports the given file or directory.  All nodes in the " +
+        "cloud must have an identical copy of the files in their local " +
+        "file systems.";
+    _file._requestHelp = "File or directory to import.";
   }
 
   @Override
   protected Response serve() {
-    FileIntegrityChecker c = FileIntegrityChecker.check(_dir.value());
+    FileIntegrityChecker c = FileIntegrityChecker.check(_file.value());
 
     JsonObject json = new JsonObject();
 

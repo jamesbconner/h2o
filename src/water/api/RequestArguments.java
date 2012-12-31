@@ -538,29 +538,20 @@ public class RequestArguments extends RequestStatics {
     /** href of the json request supplying the typeahead values.
      */
     protected final String _typeaheadHref;
-    /** Name of the JSON attribute in the request that contains the typahead
-     * values. It must be an array of string primitives.
-     */
-    protected final String _typeaheadDataName;
 
     /** Typeahead limit. If more than this limit options will be available, the
      * typeahead will be disabled.
      */
     protected final int _typeaheadLimit;
 
-    /** Creates the typeahead. Default limit is 1024.
-     */
-    protected TypeaheadInputText(String name, boolean required, String href, String dataName) {
-      this(name, required, href, dataName, 1024);
-    }
 
     /** Creates the typeahead.
      */
-    protected TypeaheadInputText(String name, boolean required, String href, String dataName, int limit) {
+    protected TypeaheadInputText(Class<? extends TypeaheadRequest> href,
+        String name, boolean required) {
       super(name, required);
-      _typeaheadHref = href;
-      _typeaheadDataName = dataName;
-      _typeaheadLimit = limit;
+      _typeaheadHref = href.getSimpleName();
+      _typeaheadLimit = 1024;
     }
 
     /** Adds the json to hook initialize the typeahead functionality. It is
@@ -576,15 +567,11 @@ public class RequestArguments extends RequestStatics {
           "      });\n" +
           "    },\n" +
           "});\n" +
-//          "$('#%ID').change(function (evt) {\n" +
-//          "  var ev = jQuery.Event('keyup');\n" +
-//          "  $('#%ID').trigger(ev);\n" +
-//          "});\n"  +
           "\n");
       s.replace("ID", _name);
       s.replace("HREF", _typeaheadHref);
       s.replace("LIMIT", _typeaheadLimit);
-      s.replace("DATA_NAME", _typeaheadDataName);
+      s.replace("DATA_NAME", ITEMS);
       return super.jsAddons()+s.toString();
     }
   }
@@ -1220,48 +1207,18 @@ public class RequestArguments extends RequestStatics {
 
   public class ExistingFile extends TypeaheadInputText<File> {
     public ExistingFile(String name) {
-      super(name, true, WWWFiles.class.getSimpleName(), FILES);
+      super(TypeaheadFileRequest.class, name, true);
     }
 
     @Override protected File parse(String input) throws IllegalArgumentException {
       File f = new File(input);
       if( !f.exists() )
         throw new IllegalArgumentException("File "+input+" not found!");
-      if( !f.isFile() )
-        throw new IllegalArgumentException("File "+input+" is not a file!");
       return f;
     }
 
     @Override protected String queryDescription() {
-      return "existing file";
-    }
-
-    @Override
-    protected File defaultValue() {
-      return null;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // ExistingDirectory
-  // ---------------------------------------------------------------------------
-
-  public class ExistingDir extends InputText<File> {
-    public ExistingDir(String name) {
-      super(name, true);
-    }
-
-    @Override protected File parse(String input) throws IllegalArgumentException {
-      File f = new File(input);
-      if( !f.exists() )
-        throw new IllegalArgumentException("Directory "+input+" not found!");
-      if( !f.isDirectory() )
-        throw new IllegalArgumentException(input+" is not a directory!");
-      return f;
-    }
-
-    @Override protected String queryDescription() {
-      return "existing directory";
+      return "existing file or directory";
     }
 
     @Override
@@ -1316,7 +1273,7 @@ public class RequestArguments extends RequestStatics {
     public final Key _defaultValue;
 
     public H2OExistingKey(String name) {
-      super(name, true, "WWWKeys.json",KEYS);
+      super(TypeaheadKeysRequest.class, name, true);
       _defaultValue = null;
     }
 
@@ -1325,7 +1282,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     public H2OExistingKey(String name, Key key) {
-      super(name, false,"WWWKeys.json", KEYS);
+      super(TypeaheadKeysRequest.class, name, false);
       _defaultValue = key;
     }
 
@@ -1357,7 +1314,7 @@ public class RequestArguments extends RequestStatics {
     public final Key _defaultKey;
 
     public H2OHexKey(String name) {
-      super(name, true, "WWWHexKeys.json",KEYS);
+      super(TypeaheadHexKeyRequest.class, name, true);
       _defaultKey = null;
     }
 
@@ -1367,7 +1324,7 @@ public class RequestArguments extends RequestStatics {
 
 
     public H2OHexKey(String name, Key key) {
-      super(name, false,"WWWHexKeys.json", KEYS);
+      super(TypeaheadHexKeyRequest.class, name, false);
       _defaultKey = key;
     }
 
