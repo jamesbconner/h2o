@@ -23,7 +23,7 @@ public class GLM extends Request {
   public static final String JSON_GLM_NEG_X = "neg_x";
   public static final String JSON_GLM_FAMILY = "family";
   public static final String JSON_GLM_NORM = "norm";
-  public static final String JSON_GLM_LAMBDA = "lambda";
+  public static final String JSON_GLM_LAMBDA = "lambda_1";
   public static final String JSON_GLM_LAMBDA_2 = "lambda_2";
   public static final String JSON_GLM_RHO = "rho";
   public static final String JSON_GLM_ALPHA = "alpha";
@@ -42,14 +42,14 @@ public class GLM extends Request {
 
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
-  protected final IgnoreHexCols _x = new IgnoreHexCols(_key, _y, JSON_GLM_X);
-  protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X);
+  protected final IgnoreHexCols _x = new IgnoreHexCols(_key, _y, JSON_GLM_X, true);
+  protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X, false);
 
 
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian);
   protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.NONE);
 
-  protected final Real _lambda = new Real(JSON_GLM_LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
+  protected final Real _lambda1 = new Real(JSON_GLM_LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
 
   protected final Real _lambda2 = new Real(JSON_GLM_LAMBDA_2, LSMSolver.DEFAULT_LAMBDA2);
   protected final Real _alpha = new Real(JSON_GLM_ALPHA, LSMSolver.DEFAULT_ALPHA, -1d, 1.8d);
@@ -75,7 +75,7 @@ public class GLM extends Request {
     if (arg == _norm) {
       switch (_norm.value()) {
       case NONE:
-        _lambda.disable("Not available for this type of normalization");
+        _lambda1.disable("Not available for this type of normalization");
         _lambda2.disable("Not available for this type of normalization");
         _alpha.disable("Not available for this type of normalization");
         _rho.disable("Not available for this type of normalization");
@@ -176,11 +176,11 @@ public class GLM extends Request {
     case NONE:
       return LSMSolver.makeSolver();
     case L1:
-      return LSMSolver.makeL1Solver(_lambda.value(), _rho.value(), _alpha.value());
+      return LSMSolver.makeL1Solver(_lambda1.value(), _rho.value(), _alpha.value());
     case L2:
-      return LSMSolver.makeL2Solver(_lambda.value());
+      return LSMSolver.makeL2Solver(_lambda1.value());
     case ELASTIC:
-      return LSMSolver.makeElasticNetSolver(_lambda.value(), _lambda2.value(), _rho.value(), _alpha.value());
+      return LSMSolver.makeElasticNetSolver(_lambda1.value(), _lambda2.value(), _rho.value(), _alpha.value());
     default:
       throw new Error("Unexpected solver type");
     }
@@ -239,7 +239,7 @@ public class GLM extends Request {
         sb.append("<h4>Cross Validation</h4>");
         JsonArray ja = json.getAsJsonArray("xval");
         for( int i=0; i<_xms.length; i++ )
-          XmodelHTML(_xms[i],ja.get(i).getAsJsonObject(),sb);
+          XmodelHTML(i,_xms[i],ja.get(i).getAsJsonObject(),sb);
       }
       return sb.toString();
     }
@@ -279,10 +279,10 @@ public class GLM extends Request {
       // Validation / scoring
       validationHTML(m._vals,sb);
     }
-    private static void XmodelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
+    private static void XmodelHTML( int i, GLMModel m, JsonObject json, StringBuilder sb ) {
       sb.append("<div class='alert ");
       sb.append(m._warnings == null ? "alert-success" : "alert-warning");
-      sb.append("'></div>");
+      sb.append("'>Model ").append(i).append("</div>");
       JsonObject coefs = json.get("coefficients").getAsJsonObject();
       sb.append(coefsHTML(coefs));
       if( m._vals != null )     // Confusion matrix
@@ -411,9 +411,12 @@ public class GLM extends Request {
 
     private static void cmRow( StringBuilder sb, String hd, double c0, double c1, double cerr ) {
       sb.append("<tr><th>").append(hd).append("</th><td>");
-      sb.append( dformat.format(c0  )).append("</td><td>");
-      sb.append( dformat.format(c1  )).append("</td><td>");
-      sb.append( dformat.format(cerr)).append("</td></tr>");
+      if( !Double.isNaN(c0  )) sb.append( dformat.format(c0  ));
+      sb.append("</td><td>");
+      if( !Double.isNaN(c1  )) sb.append( dformat.format(c1  ));
+      sb.append("</td><td>");
+      if( !Double.isNaN(cerr)) sb.append( dformat.format(cerr));
+      sb.append("</td></tr>");
     }
 
     private static void confusionHTML( GLMSolver.ConfusionMatrix cm, StringBuilder sb) {

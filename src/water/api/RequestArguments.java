@@ -1471,11 +1471,13 @@ public class RequestArguments extends RequestStatics {
   public class IgnoreHexCols extends MultipleCheckbox<int[]> {
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
+    public final boolean _def_on; // default is ON/CHECKED or OFF/UNCHECKED
 
-    public IgnoreHexCols(H2OHexKey key, H2OHexKeyCol classCol, String name) {
+    public IgnoreHexCols(H2OHexKey key, H2OHexKeyCol classCol, String name, boolean def_on) {
       super(name);
       _key = key;
       _classCol = classCol;
+      _def_on = def_on;
       addPrerequisite(key);
       addPrerequisite(classCol);
     }
@@ -1529,7 +1531,13 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected int[] defaultValue() {
-      return new int[0];
+      if( !_def_on ) return new int[0];
+      ValueArray va = _key.value();
+      int[] res = new int[va._cols.length-1]; // no class col
+      for( int i=0; i<res.length; i++ ) res[i] = i;
+      int classCol = _classCol.value();
+      if( classCol < res.length ) res[classCol] = res.length;
+      return res;
     }
 
     @Override protected String queryDescription() {
