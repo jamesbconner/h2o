@@ -9,7 +9,7 @@ import com.google.gson.JsonObject;
 public final class LSMSolver extends Iced {
 
   public static enum Norm { NONE, L1, L2, ELASTIC; }
-  Norm _penalty;
+  public Norm _penalty;
 
   public static final double DEFAULT_LAMBDA = 1e-5;
   public static final double DEFAULT_LAMBDA2 = 1e-8;
@@ -55,10 +55,10 @@ public final class LSMSolver extends Iced {
   }
 
 
-  double _lambda = 0.0;
-  double _lambda2 = 0.0;
-  double _rho = 1e-5;
-  double _alpha = 1.0;
+  public double _lambda = 0.0;
+  public double _lambda2 = 0.0;
+  public double _rho = 1e-5;
+  public double _alpha = 1.0;
 
   public JsonObject toJson(){
     JsonObject res = new JsonObject();

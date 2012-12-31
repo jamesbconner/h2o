@@ -40,10 +40,11 @@ public class RequestBuilders extends RequestQueries {
     sb.append("<div class='row-fluid'>");
     sb.append("<div class='span12'>");
     sb.append(buildResponseHeader(response));
-    sb.append("<h3>"+getClass().getSimpleName()+":</h3>");
     Builder builder = response.getBuilderFor("");
-    if (builder == null)
+    if (builder == null) {
+      sb.append("<h3>"+getClass().getSimpleName()+":</h3>");
       builder = OBJECT_BUILDER;
+    }
     sb.append(builder.build(response,response._response,""));
     sb.append("</div></div></div>");
     return sb.toString();
@@ -541,7 +542,7 @@ public class RequestBuilders extends RequestQueries {
     public String build(Response response, JsonElement element, String contextName) {
       if (element instanceof JsonObject)
         return build(response, (JsonObject) element, contextName);
-      return "<div class='alert alert-error'>Response element "+contextName+" expected to be JsonObject. Automatic display not available</div><pre>"+element.toString()+"</pre>";
+      return "<div class='alert alert-error'>Response element "+contextName+" expected to be JsonObject.  Automatic display not available</div><pre>"+element.toString()+"</pre>";
     }
   }
 

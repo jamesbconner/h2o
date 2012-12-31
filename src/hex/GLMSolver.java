@@ -158,12 +158,12 @@ public class GLMSolver {
   double [] _normMul;
 
   public static class GLMModel extends Iced {
-    Key _dataset;
+    public Key _dataset;
     Sampling _s;
     boolean _isDone;            // Model is "being worked on" or "is stable"
-    int _iterations;
-    long _time;
-    LSMSolver _solver;
+    public int _iterations;
+    public long _time;
+    public LSMSolver _solver;
     String [] _colNames;
     int [] _colIds;
     int [] _colOffsets;
@@ -173,9 +173,9 @@ public class GLMSolver {
     double [] _normSub;
     double [] _normMul;
 
-    GLMValidation [] _vals;
-    GLMParams _glmParams;
-    String [] _warnings;
+    public GLMValidation [] _vals;
+    public GLMParams _glmParams;
+    public String [] _warnings;
     public boolean is_solved() { return _beta != null; }
 
     public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s) {
@@ -421,7 +421,7 @@ public class GLMSolver {
     return res;
   }
 
-  public GLMModel [] xvalidate(ValueArray ary, int [] colIds, int fold){
+  public GLMModel [] xvalidate(ValueArray ary, int [] colIds, int fold) {
     GLMModel [] models = new GLMModel[fold];
     for(int i = 0; i < fold; ++i){
       models[i] = computeGLM(ary, colIds, new Sampling(i, fold, false));
@@ -507,7 +507,7 @@ public class GLMSolver {
   }
 
   public static final class ConfusionMatrix extends Iced {
-    long [][] _arr;
+    public long [][] _arr;
     long _n;
 
     public ConfusionMatrix(int n){
@@ -581,13 +581,13 @@ public class GLMSolver {
     Family _f;
     Key _dataKey;
     Sampling _s;
-    long _n;
-    double [] _beta;
+    public long _n;
+    public double [] _beta;
     double [] _familyArgs;
-    double _deviance;
-    double _nullDeviance;
-    double _err;
-    ConfusionMatrix _cm;
+    public double _deviance;
+    public double _nullDeviance;
+    public double _err;
+    public ConfusionMatrix _cm;
 
     public JsonObject toJson() {
       JsonObject res = new JsonObject();
@@ -605,6 +605,9 @@ public class GLMSolver {
       } else
         res.addProperty("err", _err);
       return res;
+    }
+    public double AIC() {
+      return 2*(_beta.length+1) + _deviance;
     }
   }
   public static class GLMValidationTask extends RowVecTask {
@@ -637,7 +640,8 @@ public class GLMSolver {
         ym += _beta[indexes[i]] * x[i];
       ym = _l.linkInv(ym);
 
-      if(_f == Family.binomial)
+      if( _f == Family.binomial &&
+          !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) )
         yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
 
       _deviance += _f.deviance(yr, ym);
@@ -654,19 +658,12 @@ public class GLMSolver {
       GLMValidationTask other = (GLMValidationTask)drt;
       _n += other._n;
       _nullDeviance += other._nullDeviance;
-        _deviance += other._deviance;
-        _err += other._err;
-        if(_cm != null){
-          _cm.add(other._cm);
-        } else
-          _cm = other._cm;
-      }
+      _deviance += other._deviance;
+      _err += other._err;
+      if(_cm != null)
+        _cm.add(other._cm);
+      else
+        _cm = other._cm;
     }
   }
-
-
-
-
-
-
-
+}

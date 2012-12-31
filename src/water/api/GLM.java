@@ -1,16 +1,14 @@
 package water.api;
 
 import com.google.gson.*;
-import hex.GLMSolver;
 import hex.GLMSolver.*;
-import hex.LSMSolver;
+import hex.GLMSolver;
 import hex.LSMSolver.Norm;
+import hex.LSMSolver;
 import java.text.DecimalFormat;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Properties;
-import water.H2O;
-import water.ValueArray;
+import java.util.*;
+import java.util.Map.Entry;
+import water.*;
 import water.web.RString;
 import water.web.ServletUtil;
 
@@ -57,12 +55,12 @@ public class GLM extends Request {
   protected final Real _alpha = new Real(JSON_GLM_ALPHA, LSMSolver.DEFAULT_ALPHA, -1d, 1.8d);
   protected final Real _rho = new Real(JSON_GLM_RHO, LSMSolver.DEFAULT_RHO); // TODO I do not know the bounds
 
-  protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 100);
+  protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
   protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
   protected final Real _threshold = new Real(JSON_GLM_THRESHOLD,0.5d,0d,1d);
-  protected final Real _case = new Real(JSON_GLM_CASE, 1.0); // TODO I do not know the bounds
+  protected final Real _case = new Real(JSON_GLM_CASE, Double.NaN); 
   protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
-  protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 1, Integer.MAX_VALUE);
+  protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
 
   protected final Bool _expandCat = new Bool(JSON_GLM_EXPAND_CAT,false,"Expand categories");
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
@@ -203,17 +201,26 @@ public class GLM extends Request {
       LSMSolver lsm = getLSMSolver();
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
-      if( m.is_solved() ) m.validateOn(ary, null);
-      res.add("GLMModel", m.toJson());
+      GLMModel[] xms = null;    // cross-validation models
+      if( m.is_solved() ) {     // Solved at all?
+        m.validateOn(ary, null);// Validate...
+        if( _xval.specified() ) // ... and x-validate
+          xms = glm.xvalidate(ary, columns, _xval.value());
+      }
 
-      if( m.is_solved() && _xval.specified() ) {
-        int fold = _xval.value();
+      // Convert to JSON
+      res.add("GLMModel", m.toJson());
+      if( xms != null ) {
         JsonArray models = new JsonArray();
-        for( GLMModel xm:glm.xvalidate(ary, columns, fold) )
+        for( GLMModel xm : xms )
           models.add(xm.toJson());
         res.add("xval", models);
       }
-      return display(res);
+
+      // Display HTML setup
+      Response r = Response.done(res);
+      r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m,xms));
+      return r;
 
     } catch (Throwable t) {
       t.printStackTrace();
@@ -221,117 +228,205 @@ public class GLM extends Request {
     }
   }
 
-  // Add on all the builders
-  private Response display( JsonObject res ) {
-    Response r = Response.done(res);
-    r.setBuilder("key", new KeyLinkElementBuilder());
-    r.setBuilder("h2o", new HideBuilder());
-    r.setBuilder("GLMModel", new NoCaptionObjectBuilder());
-    r.setBuilder("GLMModel.isDone", new HideBuilder());
-    r.setBuilder("GLMModel.dataset", new HideBuilder());
-    r.setBuilder("GLMModel.coefficients", new GLMCoeffBuilder(Link.logit));
-    r.setBuilder("GLMModel.LSMParams", new LSMParamsBuilder());
-    r.setBuilder("GLMModel.GLMParams", new GLMParamsBuilder());
-    r.setBuilder("GLMModel.warnings", new WarningsBuilder());
-    return r;
-  }  
 
-  static DecimalFormat dformat = new DecimalFormat("###.#####");
-  public class GLMCoeffBuilder extends ElementBuilder {
-    final Link _link;
-    public GLMCoeffBuilder(Link link) { _link = link; }
-    @Override public String build(Response response, JsonElement elem, String contextName) {
-      JsonObject obj = (JsonObject)elem;
-      RString m = null;
-      switch(_link) {
-      case identity: m = new RString("y = %equation");   break;
-      case logit:    m = new RString("y = 1/(1 + Math.exp(-(%equation)))");  break;
-      default:       assert false;  return "";
+  private static class GLMBuilder extends ObjectBuilder {
+    final GLMModel _m, _xms[];
+    GLMBuilder( GLMModel m, GLMModel xms[] ) { _m=m; _xms=xms; }
+    public String build(Response response, JsonObject json, String contextName) {
+      StringBuilder sb = new StringBuilder();;
+      modelHTML(_m,json.get("GLMModel").getAsJsonObject(),sb);
+      if( _xms != null && _xms.length > 0 ) {
+        sb.append("<h4>Cross Validation</h4>");
+        JsonArray ja = json.getAsJsonArray("xval");
+        for( int i=0; i<_xms.length; i++ )
+          XmodelHTML(_xms[i],ja.get(i).getAsJsonObject(),sb);
       }
-      StringBuilder bldr = new StringBuilder();
-      for( Map.Entry<String,JsonElement> e : obj.entrySet() ) {
+      return sb.toString();
+    }
+    
+    private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
+      RString R = new RString(
+          "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time[ms]. %warnings</div>" +
+          "<h4>GLM Parameters</h4>" +
+          " %GLMParams %LSMParams" +
+          "<h4>Equation: </h4>" +
+          "<div><code>%modelSrc</code></div>"+
+          "<h4>Coefficients</h4>" +
+          "<div>%coefficients</div>");
+
+      // Warnings
+      R.replace("succ",m._warnings == null ? "alert-success" : "alert-warning");
+      if( m._warnings != null ) {
+        StringBuilder wsb = new StringBuilder();
+        for( String s : m._warnings )
+          wsb.append(s).append("<br>");
+        R.replace("warnings",wsb);
+      }
+
+      // Basic model stuff
+      R.replace("key",m._dataset);
+      R.replace("time",PrettyPrint.msecs(m._time,true));
+      R.replace("iterations",m._iterations);
+      R.replace("GLMParams",glmParamsHTML(m));
+      R.replace("LSMParams",lsmParamsHTML(m));
+
+      // Pretty equations
+      JsonObject coefs = json.get("coefficients").getAsJsonObject();
+      R.replace("modelSrc",equationHTML(m,coefs));
+      R.replace("coefficients",coefsHTML(coefs));
+      sb.append(R);
+
+      // Validation / scoring
+      validationHTML(m._vals,sb);
+    }
+    private static void XmodelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
+      sb.append("<div class='alert ");
+      sb.append(m._warnings == null ? "alert-success" : "alert-warning");
+      sb.append("'></div>");
+      JsonObject coefs = json.get("coefficients").getAsJsonObject();
+      sb.append(coefsHTML(coefs));
+      if( m._vals != null )     // Confusion matrix
+        for( GLMValidation val : m._vals )
+          confusionHTML(val._cm,sb);
+    }
+
+    private static final DecimalFormat dformat = new DecimalFormat("###.####");
+    private static final String LAMBDA1 = "&lambda;<sub>1</sub>";
+    private static final String LAMBDA2 = "&lambda;<sub>2</sub>";
+    private static final String RHO     = "&rho;";
+    private static final String ALPHA   = "&alpha;";
+    private static final String EPSILON = "&epsilon;<sub>&beta;</sub>";
+
+    private static void parm( StringBuilder sb, String x, Object... y ) {
+      sb.append("<span><b>").append(x).append(": </b>").append(y[0]).append("</span> ");
+    }
+    
+    private static String glmParamsHTML( GLMModel m ) {
+      StringBuilder sb = new StringBuilder();
+      GLMParams glmp = m._glmParams;
+      parm(sb,"family",glmp._f);
+      parm(sb,"link",glmp._l);
+      parm(sb,EPSILON,glmp._betaEps);
+      double[] fa = glmp._familyArgs;
+      if( glmp._f == GLMSolver.Family.binomial ) {
+        if( !Double.isNaN(fa[GLMSolver.FAMILY_ARGS_CASE]) ) {
+          parm(sb,"case",(int)fa[GLMSolver.FAMILY_ARGS_WEIGHT]);
+          if( fa[GLMSolver.FAMILY_ARGS_WEIGHT] != 1.0 )
+            parm(sb,"weight",fa[GLMSolver.FAMILY_ARGS_WEIGHT]);
+        }
+        parm(sb,"threshold",fa[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD]);
+      }
+      return sb.toString();
+    }
+
+    private static String lsmParamsHTML( GLMModel m ) {
+      StringBuilder sb = new StringBuilder();
+      LSMSolver lsm = m._solver;
+      switch( lsm._penalty ) {
+      case NONE: break;
+      case L1:
+        parm(sb,"penalty","l1");
+        parm(sb,LAMBDA1,lsm._lambda);
+        parm(sb,RHO    ,lsm._rho);
+        parm(sb,ALPHA  ,lsm._alpha);
+        break;
+      case L2:
+        parm(sb,"penalty","l2");
+        parm(sb,LAMBDA1,lsm._lambda);
+        break;
+      case ELASTIC:
+        parm(sb,"penalty","l1+l2");
+        parm(sb,LAMBDA1,lsm._lambda);
+        parm(sb,LAMBDA2,lsm._lambda2);
+        parm(sb,RHO    ,lsm._rho);
+        parm(sb,ALPHA  ,lsm._alpha);
+        break;
+      }
+      return sb.toString();
+    }
+
+    // Pretty equations
+    private static String equationHTML( GLMModel m, JsonObject coefs ) {
+      RString eq = null;
+      switch( m._glmParams._l ) {
+      case identity: eq = new RString("y = %equation");   break;
+      case logit:    eq = new RString("y = 1/(1 + Math.exp(-(%equation)))");  break;
+      default:       eq = new RString("equation display not implemented"); break;
+      }
+      StringBuilder sb = new StringBuilder();
+      for( Entry<String,JsonElement> e : coefs.entrySet() ) {
         if( e.getKey().equals("Intercept") ) continue;
         double v = e.getValue().getAsDouble();
         if( v == 0 ) continue;
-        bldr.append(dformat.format(v)).append("*x[" + e.getKey() + "]").append(" + ");
+        sb.append(dformat.format(v)).append("*x[").append(e.getKey()).append("] + ");
       }
-      bldr.append(obj.get("Intercept").getAsDouble());
-      m.replace("equation",bldr.toString());
-      return build("<pre>"+m.toString()+"</pre>","equation");
-    }
-  }
-
-  private static double doubleOrNaN( JsonObject obj, String elem ) {
-    JsonElement e = obj.get(elem);
-    return e==null ? Double.NaN : e.getAsDouble();
-  }
-
-  public class LSMParamsBuilder extends NoCaptionObjectBuilder {
-    private void parm( StringBuilder sb, String name, double d ) { parm(sb,name,Double.toString(d)); }
-    private void parm( StringBuilder sb, String name, String s ) {
-      sb.append("<b>"+name+"</b> ="+s+"&nbsp;&nbsp;&nbsp;");
-    }
-    @Override public String build(Response response, JsonElement elem, String contextName) {
-      JsonObject obj = (JsonObject)elem;
+      sb.append(coefs.get("Intercept").getAsDouble());
+      eq.replace("equation",sb.toString());
+      return eq.toString();
+    }  
+   
+    private static String coefsHTML( JsonObject coefs ) {
       StringBuilder sb = new StringBuilder();
-      String pen = obj.get("penalty").getAsString();
-      double lambda = doubleOrNaN(obj,"lambda" );
-      double lambda2= doubleOrNaN(obj,"lambda2");
-      double rho    = doubleOrNaN(obj,"rho"    );
-      double alpha  = doubleOrNaN(obj,"alpha"  );
-      parm(sb,"Normalization Strategy",pen);
-      if( pen.equals("none") ) {
-      } else if( pen.equals("L1") ) {
-        parm(sb,"Lambda", lambda);
-        parm(sb,"rho",rho);
-        parm(sb,"alpha",alpha);
-      } else if( pen.equals("L2") ) {
-        parm(sb,"Lambda",lambda);
-      } else if( pen.equals("L1 + L2") ) {
-        parm(sb,"Lambda",lambda);
-        parm(sb,"rho",rho);
-        parm(sb,"alpha",alpha);
-        parm(sb,"Lambda2",lambda2);
-      }
-      sb.append("<br>");
+      sb.append("<table class='table table-bordered table-condensed'>");
+      sb.append("<tr>");
+      for( Entry<String,JsonElement> e : coefs.entrySet() )
+        sb.append("<th>").append(e.getKey()).append("</th>");
+      sb.append("</tr>");
+      sb.append("<tr>");
+      for( Entry<String,JsonElement> e : coefs.entrySet() )
+        sb.append("<td>").append(e.getValue().getAsDouble()).append("</td>");
+      sb.append("</tr>");
+      sb.append("</table>");
       return sb.toString();
     }
-  }
 
-  public class GLMParamsBuilder extends NoCaptionObjectBuilder {
-    private void parm( StringBuilder sb, String name, double d ) { parm(sb,name,Double.toString(d)); }
-    private void parm( StringBuilder sb, String name, String s ) {
-      sb.append("<b>"+name+"</b> ="+s+"&nbsp;&nbsp;&nbsp;");
+    private static void validationHTML( GLMValidation[] vals, StringBuilder sb) {
+      if( vals == null ) return;
+      sb.append("<h4>Validations</h4>");
+
+      for( GLMValidation val : vals ) {
+        RString R = new RString("<table class='table table-striped table-bordered table-condensed'>"
+            + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
+            + "<tr><th>Null Deviance</th><td>%nullDev</td></tr>"
+            + "<tr><th>Residual Deviance</th><td>%resDev</td></tr>"
+            + "<tr><th>AIC</th><td>%AIC</td></tr>"
+            + "<tr><th>Training Error Rate Avg</th><td>%err</td></tr>"
+            + "</table>");
+
+        R.replace("DegreesOfFreedom",val._n-1);
+        R.replace("ResidualDegreesOfFreedom",val._n-1-val._beta.length);
+        R.replace("nullDev",val._nullDeviance);
+        R.replace("resDev",val._deviance);
+        R.replace("AIC", dformat.format(val.AIC()));
+        if( val._cm != null ) {
+          R.replace("err",val._cm.err());
+        //  val.addProperty("cm", buildCM(val.get("cm").getAsJsonArray()));
+        } else {
+          R.replace("err",val._err);
+        }
+        sb.append(R);
+        confusionHTML(val._cm,sb);
+      }
     }
-    @Override public String build(Response response, JsonElement elem, String contextName) {
-      JsonObject obj = (JsonObject)elem;
-      StringBuilder sb = new StringBuilder();
-      parm(sb,"family",obj.get("family").getAsString());
-      parm(sb,"link",obj.get("link").getAsString());
-      parm(sb,"betaEps",obj.get("betaEps").getAsDouble());
-      parm(sb,"maxIter",obj.get("maxIter").getAsDouble());
-      parm(sb,"threshold",obj.get("threshold").getAsDouble());
-      // Not displaying caseVal until it gets debugged right
-      obj.get("caseVal").getAsDouble();
-      obj.get("weight").getAsDouble();
 
-      sb.append("<br>");
-      return sb.toString();
+    private static void cmRow( StringBuilder sb, String hd, double c0, double c1, double cerr ) {
+      sb.append("<tr><th>").append(hd).append("</th><td>");
+      sb.append( dformat.format(c0  )).append("</td><td>");
+      sb.append( dformat.format(c1  )).append("</td><td>");
+      sb.append( dformat.format(cerr)).append("</td></tr>");
+    }
+
+    private static void confusionHTML( GLMSolver.ConfusionMatrix cm, StringBuilder sb) {
+      sb.append("<table class='table table-bordered table-condensed'>");
+      sb.append("<tr><th>Actual / Predicted</th><th>false</th><th>true</th><th>Err</th></tr>");
+      double err0 = cm._arr[0][1]/(double)(cm._arr[0][0]+cm._arr[0][1]);
+      cmRow(sb,"false",cm._arr[0][0],cm._arr[0][1],err0);
+      double err1 = cm._arr[1][0]/(double)(cm._arr[1][0]+cm._arr[1][1]);
+      cmRow(sb,"true ",cm._arr[1][0],cm._arr[1][1],err1);
+      double err2 = cm._arr[1][0]/(double)(cm._arr[0][0]+cm._arr[1][0]);
+      double err3 = cm._arr[0][1]/(double)(cm._arr[0][1]+cm._arr[1][1]);
+      cmRow(sb,"Err ",err2,err3,cm.err());
+      sb.append("</table>");
     }
   }
-
-  public class WarningsBuilder extends ArrayBuilder {
-    public String build(Response response, JsonArray array, String contextName) {
-      if( array.size()==0 ) return ""; // No title or 'nuttin
-      return super.build(response,array,contextName);
-    }    
-  }
-
-  // Feed this horrible json straight in to more rapidly turn around html debugging
-  @Override protected Response serve_debug() {
-    JsonObject res = (JsonObject)new JsonParser().parse(JUNK);
-    return display(res);
-  }
-
-  static final String JUNK= "{\"key\":\"cars.csv.hex\",\"h2o\":\"/192.168.1.55:54321\",\"GLMModel\":{\"time\":171,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":1.1,\"power (hp)\":2.2,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.0,\"year\":0.0,\"Intercept\":-14.269496989557405},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"nrows\":400,\"dof\":393,\"resDev\":5.080729189823018E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",400,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",400,0,0.0]]}]},\"xval\":[{\"time\":47,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":0.0,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.0,\"year\":0.0,\"Intercept\":-14.168984028783525},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=0complement=true)\",\"nrows\":360,\"dof\":353,\"resDev\":5.056159504729022E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",360,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",360,0,0.0]]}]},{\"time\":31,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":-8.228925975925305E-5,\"power (hp)\":4.5422785697973364E-5,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.0,\"year\":0.0,\"Intercept\":-14.156244312461233},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=1complement=true)\",\"nrows\":359,\"dof\":352,\"resDev\":5.04989902234529E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",359,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",359,0,0.0]]}]},{\"time\":31,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":-1.430784564257528E-4,\"power (hp)\":0.0,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.0,\"year\":0.0,\"Intercept\":-14.128655739573883},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=2complement=true)\",\"nrows\":359,\"dof\":352,\"resDev\":5.105673411408031E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",359,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",359,0,0.0]]}]},{\"time\":16,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":0.001881180457588478,\"weight (lb)\":-5.6235295299388565E-5,\"0-60 mph (s)\":0.010631344527047145,\"year\":0.01648784032289129,\"Intercept\":-15.615126790137586},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=3complement=true)\",\"nrows\":360,\"dof\":353,\"resDev\":5.066194232876015E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",360,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",360,0,0.0]]}]},{\"time\":16,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":0.0,\"weight (lb)\":-4.002087280111213E-6,\"0-60 mph (s)\":0.0,\"year\":0.01162473765384227,\"Intercept\":-15.052477065356488},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=4complement=true)\",\"nrows\":359,\"dof\":352,\"resDev\":4.97981385233808E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",359,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",359,0,0.0]]}]},{\"time\":31,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":5.504302404714807E-4,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.00810503982221933,\"year\":0.00854363964058845,\"Intercept\":-15.006182535290819},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=5complement=true)\",\"nrows\":360,\"dof\":353,\"resDev\":5.030786124969234E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",360,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",360,0,0.0]]}]},{\"time\":16,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":-2.7570227729564402E-5,\"power (hp)\":0.0011407022533520697,\"weight (lb)\":-1.1242627273864829E-5,\"0-60 mph (s)\":0.0,\"year\":0.0026874297123769624,\"Intercept\":-14.462803572212145},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=6complement=true)\",\"nrows\":360,\"dof\":353,\"resDev\":5.014566796191885E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",360,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",360,0,0.0]]}]},{\"time\":31,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":0.0,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.0,\"year\":-0.010485169450336021,\"Intercept\":-13.380637144596069},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=7complement=true)\",\"nrows\":362,\"dof\":355,\"resDev\":5.054433419276856E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",362,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",362,0,0.0]]}]},{\"time\":31,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":0.0,\"weight (lb)\":5.367326813241483E-6,\"0-60 mph (s)\":0.004204034380553801,\"year\":-0.005054697435203621,\"Intercept\":-13.863863451418654},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=8complement=true)\",\"nrows\":361,\"dof\":354,\"resDev\":5.086187013942853E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",361,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",361,0,0.0]]}]},{\"time\":16,\"isDone\":true,\"dataset\":\"cars.csv.hex\",\"coefficients\":{\"displacement (cc)\":0.0,\"power (hp)\":0.0,\"weight (lb)\":0.0,\"0-60 mph (s)\":0.0,\"year\":-0.011620424177219849,\"Intercept\":-13.292627124298592},\"LSMParams\":{\"penalty\":\"L1 + L2\",\"lambda\":1.0E-5,\"lambda2\":1.0E-8,\"rho\":0.01,\"alpha\":1.0},\"GLMParams\":{\"family\":\"binomial\",\"link\":\"logit\",\"betaEps\":1.0E-4,\"maxIter\":50,\"caseVal\":1.0,\"weight\":1.0,\"threshold\":0.5},\"iterations\":51,\"validations\":[{\"dataset\":\"cars.csv.hex\",\"sampling\":\"Sampling(step=10,offset=9complement=true)\",\"nrows\":360,\"dof\":353,\"resDev\":5.032894829266778E-4,\"nullDev\":0.0,\"err\":0.0,\"cm\":[[\"Actual / Predicted\",\"class 0\",\"class 1\",\"Error\"],[\"class 0\",360,0,0.0],[\"class 1\",0,0,NaN],[\"Totals\",360,0,0.0]]}]}]}";
 }
