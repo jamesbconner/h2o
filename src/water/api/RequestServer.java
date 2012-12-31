@@ -35,19 +35,22 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new Parse()),       "Parse",        "Data");
     Request.addToNavbar(registerRequest(new ImportFiles()), "Import Files", "Data");
     Request.addToNavbar(registerRequest(new ImportUrl()),   "Import URL",   "Data");
+    Request.addToNavbar(registerRequest(new Get()),         "Download",     "Data");
+    Request.addToNavbar(registerRequest(new StoreView()),   "View All",     "Data");
 
+    Request.addToNavbar(registerRequest(new RF()),  "Random Forest", "Model");
+    Request.addToNavbar(registerRequest(new GLM()), "GLM",           "Model");
 
-    Request.addToNavbar(registerRequest(new Cloud()),   "Status",   "Cloud");
-    Request.addToNavbar(registerRequest(new Network()), "Network",  "Cloud");
-    Request.addToNavbar(registerRequest(new Shutdown()),"Shutdown", "Cloud");
+    Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
 
-    Request.addToNavbar(registerRequest(new StoreView()),"Node");
     Request.addToNavbar(registerRequest(new PutValue()),"Value","Put");
     Request.addToNavbar(registerRequest(new PutFile()),"File","Put");
-    Request.addToNavbar(registerRequest(new Get()),"Get","Key actions");
-    Request.addToNavbar(registerRequest(new RF()),"Random Forest","Functions");
-    Request.addToNavbar(registerRequest(new GLM()),"GLM","Functions");
-    Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
+
+    Request.addToNavbar(registerRequest(new Cloud()),    "Cloud Status", "Admin");
+    Request.addToNavbar(registerRequest(new Network()),  "Network",      "Admin");
+    Request.addToNavbar(registerRequest(new Timeline()), "Timeline",     "Admin");
+    Request.addToNavbar(registerRequest(new JStack()),   "Stack Dump",   "Admin");
+    Request.addToNavbar(registerRequest(new Shutdown()), "Shutdown",     "Admin");
 
     registerRequest(new TypeaheadKeysRequest());
     registerRequest(new TypeaheadFileRequest());
@@ -56,10 +59,6 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new WWWFileUpload());
     registerRequest(new PutVector());
     registerRequest(new GetVector());
-
-    Request.addToNavbar(registerRequest(new Timeline()), "Timeline",   "Debug");
-    Request.addToNavbar(registerRequest(new JStack()),   "Stack Dump", "Debug");
-
     Request.initializeNavBar();
   }
 

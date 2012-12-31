@@ -13,12 +13,7 @@ import water.*;
 import water.web.RString;
 
 /** A basic class for a JSON request.
- *
- *
- *
- * @author peta
  */
-
 public abstract class Request extends RequestBuilders {
 
   public String _requestHelp;
