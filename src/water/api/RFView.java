@@ -39,7 +39,7 @@ public class RFView extends Request {
   public static final String JSON_TREE_LEAVES = "leaves";
 
 
-  private static final ConfusionMatrixBuilder CONFUISION_BUILDER = new ConfusionMatrixBuilder();
+  private static final ConfusionMatrixBuilder CONFUSION_BUILDER = new ConfusionMatrixBuilder();
 
   @Override protected Response serve() {
     int tasks = 0;
@@ -99,7 +99,7 @@ public class RFView extends Request {
     JsonObject pollArgs = argumentsToJson();
     //pollArgs.addProperty(JSON_NO_CM,"1"); // not yet - CM runs in the same thread TODO
     Response r = (finished == tasks) ? Response.done(response) : Response.poll(response, finished, tasks, pollArgs);
-    r.setBuilder(JSON_CM, CONFUISION_BUILDER);
+    r.setBuilder(JSON_CM, CONFUSION_BUILDER);
     return r;
   }
 

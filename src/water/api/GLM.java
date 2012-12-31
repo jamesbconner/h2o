@@ -232,7 +232,7 @@ public class GLM extends Request {
     r.setBuilder("GLMModel.coefficients", new GLMCoeffBuilder(Link.logit));
     r.setBuilder("GLMModel.LSMParams", new LSMParamsBuilder());
     r.setBuilder("GLMModel.GLMParams", new GLMParamsBuilder());
-    r.setBuilder("GLMModel.warnings", new ArrayBuilder());
+    r.setBuilder("GLMModel.warnings", new WarningsBuilder());
     return r;
   }  
 
@@ -261,6 +261,11 @@ public class GLM extends Request {
     }
   }
 
+  private static double doubleOrNaN( JsonObject obj, String elem ) {
+    JsonElement e = obj.get(elem);
+    return e==null ? Double.NaN : e.getAsDouble();
+  }
+
   public class LSMParamsBuilder extends NoCaptionObjectBuilder {
     private void parm( StringBuilder sb, String name, double d ) { parm(sb,name,Double.toString(d)); }
     private void parm( StringBuilder sb, String name, String s ) {
@@ -270,10 +275,10 @@ public class GLM extends Request {
       JsonObject obj = (JsonObject)elem;
       StringBuilder sb = new StringBuilder();
       String pen = obj.get("penalty").getAsString();
-      double lambda = obj.get("lambda" ).getAsDouble();
-      double lambda2= obj.get("lambda2").getAsDouble();
-      double rho    = obj.get("rho"    ).getAsDouble();
-      double alpha  = obj.get("alpha"  ).getAsDouble();
+      double lambda = doubleOrNaN(obj,"lambda" );
+      double lambda2= doubleOrNaN(obj,"lambda2");
+      double rho    = doubleOrNaN(obj,"rho"    );
+      double alpha  = doubleOrNaN(obj,"alpha"  );
       parm(sb,"Normalization Strategy",pen);
       if( pen.equals("none") ) {
       } else if( pen.equals("L1") ) {
@@ -292,6 +297,7 @@ public class GLM extends Request {
       return sb.toString();
     }
   }
+
   public class GLMParamsBuilder extends NoCaptionObjectBuilder {
     private void parm( StringBuilder sb, String name, double d ) { parm(sb,name,Double.toString(d)); }
     private void parm( StringBuilder sb, String name, String s ) {
@@ -312,6 +318,13 @@ public class GLM extends Request {
       sb.append("<br>");
       return sb.toString();
     }
+  }
+
+  public class WarningsBuilder extends ArrayBuilder {
+    public String build(Response response, JsonArray array, String contextName) {
+      if( array.size()==0 ) return ""; // No title or 'nuttin
+      return super.build(response,array,contextName);
+    }    
   }
 
   // Feed this horrible json straight in to more rapidly turn around html debugging
