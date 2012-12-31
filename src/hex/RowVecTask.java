@@ -35,10 +35,10 @@ public abstract class RowVecTask extends MRTask {
   }
 
   public static class Sampling extends Iced {
-    final int _step;
-    final int _offset;
-    final boolean _complement;
-    int _idx;
+    private final int _step;
+    private final int _offset;
+    private final boolean _complement;
+    private int _next;
 
     public Sampling(int offset, int step, boolean complement) {
       _step = step;
@@ -54,8 +54,10 @@ public abstract class RowVecTask extends MRTask {
       return new Sampling(_offset,_step,_complement);
     }
 
-    boolean skip(){
-      return _idx++ % _step == _offset;
+    boolean skip(int row) {
+      if( row < _next+_offset ) return _complement;
+      _next += _step;
+      return !_complement;
     }
     public String toString(){
       return "Sampling(step="+_step + ",offset=" + _offset + "complement=" + _complement + ")";
@@ -82,7 +84,7 @@ public abstract class RowVecTask extends MRTask {
     // compute offsets
 ROW:
     for( int r=0; r<rows; r++ ) {
-      if(_s != null && _s.skip())continue;
+      if( _s != null && _s.skip(r) ) continue;
       if( _categoricals != null ) for( int i : _categoricals ) {
         if( _ary.isNA(bits,r,i) ) continue ROW;
         indexes[i] = (int)_ary.data(bits,r,i) + _colOffsets[i] + i;

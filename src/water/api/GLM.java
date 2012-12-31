@@ -104,38 +104,15 @@ public class GLM extends Request {
    * result column y.
    */
   private  int[] createColumns() {
-    int y = _y.value();
-    int[] cols = new int[_key.value()._cols.length];
-    int[] x = _x.value();
-    int[] negX = _negX.value();
-    // get the X columns as 1
-    for (int i : x)
-      cols[i] = 1;
-    // get the negX columns
-    for (int i : negX) {
-      if (cols[i] != 0)
-        throw new Error("Column "+i+" has already been selected as X, cannot be also negX");
-      cols[i] = -1;
-    }
-    // if no X were specified, create everyone that is not y or -1 as X
-    int size = 1; // for the y column
-    if (x.length == 0) {
-      for (int i = 0; i < cols.length; ++i)
-        if ((cols[i] == 0) && (i != y)) {
-          cols[i] = 1;
-          ++size;
-        }
-    } else {
-      size += x.length;
-    }
-    int[] result = new int[size];
-    int idx = 0;
-    for (int i = 0; i < cols.length; ++i)
-      if (cols[i] == 1)
-        result[idx++] = i;
-    result[idx++] = y;
-    assert (idx == result.length);
-    return result;
+    BitSet cols = new BitSet();
+    for( int i :    _x.value() ) cols.set  (i);
+    for( int i : _negX.value() ) cols.clear(i);
+    int[] res = new int[cols.cardinality()+1];
+    int x=0;
+    for( int i = cols.nextSetBit(0); i >= 0; i = cols.nextSetBit(i+1))
+      res[x++] = i;
+    res[x] = _y.value();
+    return res;
   }
 
   static JsonObject getCoefficients(int [] columnIds, ValueArray ary, double [] beta){
@@ -210,7 +187,7 @@ public class GLM extends Request {
 
       // Convert to JSON
       res.add("GLMModel", m.toJson());
-      if( xms != null ) {
+      if( xms != null && xms.length > 0 ) {
         JsonArray models = new JsonArray();
         for( GLMModel xm : xms )
           models.add(xm.toJson());
@@ -271,9 +248,11 @@ public class GLM extends Request {
       R.replace("LSMParams",lsmParamsHTML(m));
 
       // Pretty equations
-      JsonObject coefs = json.get("coefficients").getAsJsonObject();
-      R.replace("modelSrc",equationHTML(m,coefs));
-      R.replace("coefficients",coefsHTML(coefs));
+      if( m.is_solved() ) {
+        JsonObject coefs = json.get("coefficients").getAsJsonObject();
+        R.replace("modelSrc",equationHTML(m,coefs));
+        R.replace("coefficients",coefsHTML(coefs));
+      }
       sb.append(R);
 
       // Validation / scoring
@@ -381,7 +360,7 @@ public class GLM extends Request {
     }
 
     private static void validationHTML( GLMValidation[] vals, StringBuilder sb) {
-      if( vals == null ) return;
+      if( vals == null || vals.length == 0 ) return;
       sb.append("<h4>Validations</h4>");
 
       for( GLMValidation val : vals ) {

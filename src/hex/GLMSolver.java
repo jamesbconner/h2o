@@ -148,7 +148,6 @@ public class GLMSolver {
   Sampling _sampling;
   double [] _beta;
   int _iterations;
-  long _time;
   boolean _finished;
   transient ValueArray _ary;
 
