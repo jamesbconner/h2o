@@ -800,6 +800,7 @@ class H2O(object):
 #     }, 
 
     def GLM(self, key, timeoutSecs=300, **kwargs):
+        browseAlso = kwargs.pop('browseAlso',False)
         # for defaults
         params_dict = { 
             'family': 'binomial',
@@ -830,6 +831,12 @@ class H2O(object):
         
         verboseprint("\nNot printing the CMs returned by cross validation, if any")
         verboseprint("GLM:", dump_json(b))
+
+        if (browseAlso | browse_json):
+            print "Redoing the GLM through the browser, no results saved though"
+            h2b.browseJsonHistoryAsUrlLastMatch("GLM")
+            # wait so we can see it
+            time.sleep(3)
         return a 
 
     def stabilize(self, test_func, error,

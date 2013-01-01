@@ -33,22 +33,28 @@ class Basic(unittest.TestCase):
         Y = "106"
         X = ""
         for appendX in range(1,107):
+            # constant col
             if (appendX == 9):
                 print "9 causes singularity. not used"
+            # constant col
             elif (appendX == 12): 
                 print "12 causes singularity. not used"
+            # constant col
             elif (appendX == 25): 
                 print "25 causes singularity. not used"
-            elif (appendX == 53): 
-                print "53 causes singularity. not used"
+            # constant col
             elif (appendX == 54): 
                 print "54 causes singularity. not used"
+            # constant col
             elif (appendX == 76): 
                 print "76 causes singularity. not used"
+            # constant col
             elif (appendX == 91): 
                 print "91 causes singularity. not used"
+            # constant col
             elif (appendX == 103): 
                 print "103 causes singularity. not used"
+            # output
             elif (appendX == 106):
                 print "106 is output."
             else:
@@ -66,6 +72,8 @@ class Basic(unittest.TestCase):
 
             start = time.time()
             kwargs = {'X': X, 'Y': Y, 'xval': 7}
+            kwargs = {'X': X, 'Y': Y}
+            kwargs = {'Y': Y}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=200, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
 
