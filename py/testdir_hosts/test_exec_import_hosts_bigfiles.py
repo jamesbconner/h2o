@@ -96,7 +96,7 @@ def exec_list_like_other_tests(exprList, lenNodes, csvFilename, key2):
                     resultKey="Result"+str(trial))
                 ### print "\nexecResult:", execResultInspect
 
-                columns = execResultInspect["columns"]
+                columns = execResultInspect["cols"]
                 columnsDict = columns.pop()
                 min = columnsDict["min"]
                 h2o.verboseprint("min: ", min, "trial:", trial)

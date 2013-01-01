@@ -109,7 +109,7 @@ class Basic(unittest.TestCase):
                 # maybe divided by # len of the expresssion list
                 ### print "\nexecResult:", execResultInspect
 
-                columns = execResultInspect["columns"]
+                columns = execResultInspect["cols"]
                 columnsDict = columns.pop()
                 min = columnsDict["min"]
                 h2o.verboseprint("min: ", min, "trial:", trial)
