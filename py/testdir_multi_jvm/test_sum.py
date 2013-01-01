@@ -2,7 +2,7 @@ import unittest
 import random, sys, time
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_util
 
 # the shared exec expression creator and executor
 import h2o_exec
@@ -26,6 +26,8 @@ class Basic(unittest.TestCase):
         random.seed(SEED)
         print "\nUsing random seed:", SEED
         h2o.build_cloud(2)
+        global SYNDATASETS_DIR
+        SYNDATASETS_DIR = h2o.make_syn_dir()
 
     @classmethod
     def tearDownClass(cls):
@@ -34,38 +36,32 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_sum_import_hosts(self):
-        # just do the import folder once
-        # importFolderPath = "/home/hduser/hdfs_datasets"
-        # importFolderPath = '/Users/boots/dev/0xdata/datasets'
-        importFolderPath = "/home/0xdiag/datasets"
-        h2i.setupImportFolder(None, importFolderPath)
 
-        # make the timeout variable per dataset. it can be 10 secs for covtype 20x
-        # (col key creation) so probably 10x that for covtype200
-        #    ("covtype20x.data", "cD", 50, 20),
-        #    ("covtype200x.data", "cE", 50, 200),
-        csvFilenameAll = [
-            ("covtype.data", "cA", 5,  1),
-            ("covtype.data", "cB", 5,  1),
-            ("covtype.data", "cC", 5,  1),
+        print "Replicating covtype.data by 2x for results comparison to 1x"
+        filename1x = 'covtype.data'
+        pathname1x = h2o.find_dataset('UCI/UCI-large/covtype' + '/' + filename1x)
+        filename2x = "covtype_2x.data"
+        pathname2x = SYNDATASETS_DIR + '/' + filename2x
+        h2o_util.file_cat(pathname1x,pathname1x,pathname2x)
+
+        csvAll = [
+            (pathname1x, "cA", 5,  1),
+            (pathname2x, "cB", 5,  2),
+            (pathname2x, "cC", 5,  2),
         ]
 
-        ### csvFilenameList = random.sample(csvFilenameAll,1)
-        csvFilenameList = csvFilenameAll
         h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
         firstDone = False
-        for (csvFilename, key2, timeoutSecs, resultMult) in csvFilenameList:
-            # creates csvFilename.hex from file in importFolder dir 
-            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
-                key2=key2, timeoutSecs=2000)
+        for (csvPathname, key2, timeoutSecs, resultMult) in csvAll:
+            parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=key2, timeoutSecs=2000)
             print "Parse result['Key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
-            print "\n" + csvFilename
+            print "\n" + csvPathname
             h2o_exec.exec_zero_list(zeroList)
             colResultList = h2o_exec.exec_expr_list_across_cols(lenNodes, exprList, key2, maxCol=54, 
                 timeoutSecs=timeoutSecs)
