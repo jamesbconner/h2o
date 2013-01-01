@@ -235,7 +235,7 @@ public class ValueArray extends Iced {
   }
 
   // Value extracted, then scaled & based - the integer version.
-  public long data(long rownum, int colnum) throws IOException {
+  public long data(long rownum, int colnum) {
     long chknum = chknum(rownum);
     return data(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }
@@ -261,7 +261,7 @@ public class ValueArray extends Iced {
 
 
   // Test if the value is valid, or was missing in the orginal dataset
-  public boolean isNA(long rownum, int colnum) throws IOException {
+  public boolean isNA(long rownum, int colnum) {
     long chknum = chknum(rownum);
     return isNA(getChunk(chknum),rowInChunk(chknum,rownum),colnum);
   }

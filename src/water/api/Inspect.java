@@ -17,18 +17,14 @@ public class Inspect extends Request {
     if( rowIdx < 0 || rowIdx >= ary._numrows ) return;
     if( colIdx >= ary._cols.length ) return;
     ValueArray.Column c = ary._cols[colIdx];
-    try {
-      if (ary.isNA(rowIdx,colIdx)) {
-        obj.addProperty(name,"NA");
-      } else if (c._domain != null) {
-        obj.addProperty(name,c._domain[(int)ary.data(rowIdx, colIdx)]);
-      } else if ((c._size > 0) && (c._scale == 1))  {
-        obj.addProperty(name,ary.data (rowIdx, colIdx));
-      } else {
-        obj.addProperty(name,ary.datad(rowIdx, colIdx));
-      }
-    } catch (IOException e) {
-      obj.addProperty(name,"IOE");
+    if (ary.isNA(rowIdx,colIdx)) {
+      obj.addProperty(name,"NA");
+    } else if (c._domain != null) {
+      obj.addProperty(name,c._domain[(int)ary.data(rowIdx, colIdx)]);
+    } else if ((c._size > 0) && (c._scale == 1))  {
+      obj.addProperty(name,ary.data (rowIdx, colIdx));
+    } else {
+      obj.addProperty(name,ary.datad(rowIdx, colIdx));
     }
   }
   protected void formatRowData(JsonObject obj, ValueArray ary, long rowIdx, int colIdx) {

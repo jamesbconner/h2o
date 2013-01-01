@@ -305,33 +305,28 @@ public class Inspect extends H2OPage {
 
   static private void display_row(ValueArray ary, long r, RString response, int num_col) {
     RString row = response.restartGroup("tableRow");
-    try {
-      StringBuilder sb = new StringBuilder();
-      sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
-      for( int i=0; i<num_col; i++ ) {
-        if( r == -1 || !ary.isNA(r,i) ) {
-          sb.append("<td>");
-          int sz = ary._cols[i]._size;
-          if( sz != 0 ) {
-            if( r == -1 ) sb.append("...");
-            else {
-              if( ary._cols[i]._domain != null ) 
-                sb.append(ary._cols[i]._domain[(int)ary.data(r,i)]);
-              else if( ary._cols[i]._size >= 0 && ary._cols[i]._scale==1 ) 
-                sb.append(ary.data(r,i)); // int/long
-              else sb.append(ary.datad(r,i)); // float/double
-            }
+    StringBuilder sb = new StringBuilder();
+    sb.append("<td>Row ").append(r==-1 ? "..." : r).append("</td>");
+    for( int i=0; i<num_col; i++ ) {
+      if( r == -1 || !ary.isNA(r,i) ) {
+        sb.append("<td>");
+        int sz = ary._cols[i]._size;
+        if( sz != 0 ) {
+          if( r == -1 ) sb.append("...");
+          else {
+            if( ary._cols[i]._domain != null ) 
+              sb.append(ary._cols[i]._domain[(int)ary.data(r,i)]);
+            else if( ary._cols[i]._size >= 0 && ary._cols[i]._scale==1 ) 
+              sb.append(ary.data(r,i)); // int/long
+            else sb.append(ary.datad(r,i)); // float/double
           }
-          sb.append("</td>");
-        } else {
-          sb.append("<td style='background-color:IndianRed'>NA</td>");
         }
+        sb.append("</td>");
+      } else {
+        sb.append("<td style='background-color:IndianRed'>NA</td>");
       }
-      row.replace("data_row",sb);
-    } catch( IOException e ) {
-      // do not display this row
-      row.replace("data_row","<td>Row "+r+"</td><td>IOError</td>");
     }
+    row.replace("data_row",sb);
     row.append();
   }
 

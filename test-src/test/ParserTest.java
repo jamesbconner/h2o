@@ -44,20 +44,16 @@ public class ParserTest extends TestUtil {
     return ((e1 == e2) && Math.abs(a - b) < threshold);
   }
   public static void testParsed(Key k, double[][] expected, Key inputkey) {
-    try {
-      ValueArray va = ValueArray.value(DKV.get(k));
-      Assert.assertEquals(expected.length,va._numrows);
-      Assert.assertEquals(expected[0].length,va._cols.length);
-      for (int i = 0; i < va._numrows; ++i)
-        for (int j = 0; j < va._cols.length; ++j) {
-          if (Double.isNaN(expected[i][j]))
-            Assert.assertFalse(i+" -- "+j, !va.isNA(i,j));
-          else
-            Assert.assertTrue(compareDoubles(expected[i][j],va.datad(i,j),0.001));
-        }
-    } catch (IOException e) {
-      Assert.assertTrue(false);
-    }
+    ValueArray va = ValueArray.value(DKV.get(k));
+    Assert.assertEquals(expected.length,va._numrows);
+    Assert.assertEquals(expected[0].length,va._cols.length);
+    for (int i = 0; i < va._numrows; ++i)
+      for (int j = 0; j < va._cols.length; ++j) {
+        if (Double.isNaN(expected[i][j]))
+          Assert.assertFalse(i+" -- "+j, !va.isNA(i,j));
+        else
+          Assert.assertTrue(compareDoubles(expected[i][j],va.datad(i,j),0.001));
+      }
     UKV.remove(k);
     UKV.remove(inputkey);
   }
@@ -359,5 +355,21 @@ public class ParserTest extends TestUtil {
     UKV.remove(fkey);
     ValueArray va = ValueArray.value(DKV.get(okey));
     UKV.remove(okey);
+  }
+
+  @Test public void testMixedSeps() {
+    double[][] exp = new double[][] {
+      d(NaN,   1,   1),
+      d(NaN,   2, NaN),
+      d(  3, NaN,   3),
+      d(  4, NaN, NaN),
+      d(NaN, NaN, NaN),
+      d(NaN, NaN, NaN),
+      d(NaN, NaN,   6),
+    };
+    Key fkey = load_test_file("smalldata/test/is_NA.csv");
+    Key okey = Key.make("NA.hex");
+    ParseDataset.parse(okey,DKV.get(fkey));
+    testParsed(okey,exp,fkey);
   }
 }

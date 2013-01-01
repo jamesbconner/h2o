@@ -249,21 +249,17 @@ class DeepSingleColumnAssignment extends MRTask {
     long row = vTo.startRow(cidx);
     long chunkRows = vTo.rpc(cidx);
     AutoBuffer bits = new AutoBuffer((int)chunkRows*vTo._rowsize);
-    try {
-      for (int i = 0; i < chunkRows; ++i) {
-        switch (colSize) {
-        case 1:  bits.put1 ((int  )vFrom.datad(i+row, _colIndex)); break;
-        case 2:  bits.put2 ((char )vFrom.datad(i+row, _colIndex)); break;
-        case 4:  bits.put4 ((int  )vFrom.datad(i+row, _colIndex)); break;
-        case 8:  bits.put8 (       vFrom.data (i+row, _colIndex)); break;
-        case -4: bits.put4f((float)vFrom.datad(i+row, _colIndex)); break;
-        case -8: bits.put8d(       vFrom.datad(i+row, _colIndex)); break;
-        default:
-          throw new RuntimeException("Unsupported colSize "+colSize);
-        }
+    for (int i = 0; i < chunkRows; ++i) {
+      switch (colSize) {
+      case 1:  bits.put1 ((int  )vFrom.datad(i+row, _colIndex)); break;
+      case 2:  bits.put2 ((char )vFrom.datad(i+row, _colIndex)); break;
+      case 4:  bits.put4 ((int  )vFrom.datad(i+row, _colIndex)); break;
+      case 8:  bits.put8 (       vFrom.data (i+row, _colIndex)); break;
+      case -4: bits.put4f((float)vFrom.datad(i+row, _colIndex)); break;
+      case -8: bits.put8d(       vFrom.datad(i+row, _colIndex)); break;
+      default:
+        throw new RuntimeException("Unsupported colSize "+colSize);
       }
-    } catch(IOException e) {
-      throw Throwables.propagate(e);
     }
     // we have the bytes now, just store the value
     Value val = new Value(key, bits.buf());
