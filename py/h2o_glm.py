@@ -45,15 +45,16 @@
 # }, 
 
 def simpleCheckGLM(self,glm,colX, **kwargs):
-    if 'warnings' in glm:
-        print "\nwarnings:", glm['warnings']
-
     # h2o GLM will verboseprint the result and print errors. 
     # so don't have to do that
     # different when xvalidation is used? No trainingErrorDetails?
     GLMModel = glm['GLMModel']
+    if 'warnings' in GLMModel:
+        print "\nwarnings:", GLMModel['warnings']
+
     print "GLM time", GLMModel['time']
 
+    # FIX! don't get GLMParams if it can't solve?
     GLMParams = GLMModel["GLMParams"]
     family = GLMParams["family"]
 
@@ -62,7 +63,8 @@ def simpleCheckGLM(self,glm,colX, **kwargs):
 
     # pop the first validation from the list
     validationsList = GLMModel['validations']
-    validations = validationsList.pop()
+    # don't want to modify validationsList in case someone else looks at it
+    validations = validationsList[0]
     print "\nGLMModel/validations/err:", validations['err']
 
     if (not family in kwargs) or kwargs['family']=='poisson' or kwargs['family']=="gaussian":
@@ -74,10 +76,10 @@ def simpleCheckGLM(self,glm,colX, **kwargs):
             cmList = validations['cm']
 
             xvalList = glm['xval']
-            xval = xvalList.pop()
+            xval = xvalList[0]
             # FIX! why is this returned as a list? no reason?
             validationsList = xval['validations']
-            validations = validationsList.pop()
+            validations = validationsList[0]
             print "\nxval/../validations/err:", validations['err']
 
     # it's a dictionary!

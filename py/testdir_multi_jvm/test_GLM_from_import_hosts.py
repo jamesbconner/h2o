@@ -73,12 +73,12 @@ class Basic(unittest.TestCase):
             # validations['err']
 
             if validations1:
-                h2o_glm.glmCompareToFirst(self, 'err', validations, validations1)
+                h2o_glm.compareToFirstGlm(self, 'err', validations, validations1)
             else:
                 validations1 = copy.deepcopy(validations)
 
             if coefficients1:
-                h2o_glm.glmCompareToFirst(self, '0', coefficients, coefficients1)
+                h2o_glm.compareToFirstGlm(self, '0', coefficients, coefficients1)
             else:
                 coefficients1 = copy.deepcopy(coefficients)
 

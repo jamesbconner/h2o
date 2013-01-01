@@ -113,8 +113,8 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
             "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
-        columns = execResultInspect["columns"]
-        columnsDict = columns.pop()
+        columns = execResultInspect["cols"]
+        columnsDict = columns[0]
         min = columnsDict["min"]
         h2o.verboseprint("min: ", min, "trial:", trial)
 
@@ -156,8 +156,8 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
                 "Result"+str(colX), timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
-            columns = execResultInspect["columns"]
-            columnsDict = columns.pop()
+            columns = execResultInspect["cols"]
+            columnsDict = columns[0]
             min = columnsDict["min"]
 
             h2o.verboseprint("min: ", min, "col:", colX)
