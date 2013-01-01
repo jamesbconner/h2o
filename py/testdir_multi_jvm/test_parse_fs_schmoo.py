@@ -37,7 +37,6 @@ class glm_same_parse(unittest.TestCase):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         csvFilename = "syn_prostate.csv"
         csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-        key2 = csvFilename + ".hex"
 
         headerData = "ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON"
         rowData = "1,0,65,1,2,1,1.4,0,6"
@@ -46,6 +45,7 @@ class glm_same_parse(unittest.TestCase):
 
         print "This is the same format/data file used by test_same_parse, but the non-gzed version"
         print "\nSchmoo the # of rows"
+        print "Updating the key and key2 names for each trial"
         for trial in range (200):
             append_syn_dataset(csvPathname, rowData)
             ### start = time.time()
@@ -54,7 +54,9 @@ class glm_same_parse(unittest.TestCase):
             ### print "Trial #", trial, "parse end on ", "prostate.csv" , 'took', time.time() - start, 'seconds'
 
             start = time.time()
-            key = h2o_cmd.parseFile(csvPathname=csvPathname, key=csvFilename, key2=csvFilename+".hex")
+            key = csvFilename + "_" + str(trial)
+            key2 = csvFilename + "_" + str(trial) + ".hex"
+            key = h2o_cmd.parseFile(csvPathname=csvPathname, key=key, key2=key2)
             print "trial #", trial, "parse end on ", csvFilename, 'took', time.time() - start, 'seconds'
 
             h2o_cmd.runInspect(key=key2)
