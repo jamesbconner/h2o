@@ -27,10 +27,6 @@ class glm_same_parse(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if not h2o.browse_disable:
-            ### time.sleep(500000)
-            pass
-
         h2o.tear_down_cloud(h2o.nodes)
     
     def test_sort_of_prostate_with_row_schmoo(self):
