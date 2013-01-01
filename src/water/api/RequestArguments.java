@@ -238,8 +238,7 @@ public class RequestArguments extends RequestStatics {
 
     /** Returns the html query for the given argument, including the full
      * formatting. That means not only the queryElement, but also the argument
-     * name in front of it, etc. Required arguments are prefixed with red
-     * asterisk.
+     * name in front of it, etc.
      *
      * You may want to override this if you wont different form layouts to be
      * present.
@@ -1542,6 +1541,27 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected String queryDescription() {
       return "Columns to be ignored by the computation";
+    }
+  }
+
+  // By default, all on - except *constant* columns
+  public class IgnoreHexCols2 extends IgnoreHexCols {
+    public IgnoreHexCols2(H2OHexKey key, H2OHexKeyCol classCol, String name) {
+      super(key,classCol,name,true);
+    }
+    @Override protected int[] defaultValue() {
+      int classCol = _classCol.value();
+      ValueArray va = _key.value();
+      int cnum = 0;
+      for( int i=0; i<va._cols.length; i++ )
+        if( va._cols[i]._min != va._cols[i]._max && i!=classCol )
+          cnum++;               // Bump count of cols-in-use
+      int[] res = new int[cnum];
+      cnum = 0;
+      for( int i=0; i<va._cols.length; i++ )
+        if( va._cols[i]._min != va._cols[i]._max && i!=classCol )
+          res[cnum++]=i;        // Bump count of cols-in-use
+      return res;
     }
 
   }

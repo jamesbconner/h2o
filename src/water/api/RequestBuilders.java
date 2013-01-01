@@ -54,7 +54,7 @@ public class RequestBuilders extends RequestQueries {
   private static final String _responseHeader =
             "<table class='table table-bordered'><tr><td><table style='font-size:12px;margin:0px;' class='table-borderless'>"
           + "  <tr>"
-          + "    <td style='border:0px'rowspan='2' style='vertical-align:top;'>%BUTTON&nbsp&nbsp;</td>"
+          + "    <td style='border:0px' rowspan='2' style='vertical-align:top;'>%BUTTON&nbsp;&nbsp;</td>"
           + "    <td style='border:0px' colspan='6'>"
           + "      %TEXT"
           + "    </td>"
@@ -84,7 +84,7 @@ public class RequestBuilders extends RequestQueries {
           ;
 
   private static final String _pollJs =
-            "var timer = setTimeout('poll()',5000);\n"
+            "var timer = setTimeout(redirect,5000);\n"
           + "function countdown_stop() {\n"
           + "  clearTimeout(timer);\n"
           + "}\n"
@@ -132,7 +132,7 @@ public class RequestBuilders extends RequestQueries {
         result.replace("BUTTON","<button class='btn btn-primary' onclick='redirect()'>"+response._status.toString()+"</button>");
         result.replace("TEXT","<div style='margin-bottom:0px;padding-bottom:0xp;height:5px;' class='progress progress-stripped'><div class='bar' style='width:"+pct+"%;'></div></div>"
                 + "Request was successful, but the process is not yet finished.  The page will refresh each 5 seconds, or you can any time click the button"
-                + " on the left. If you want you can <a href='#' onclick='countdown_stop()'>disable the automatic refresh</a>.");
+                + " on the left.  If you want you can <a href='#' onclick='countdown_stop()'>disable the automatic refresh</a>.");
         break;
       default:
         result.replace("BUTTON","<button class='btn btn-inverse disabled'>"+response._status.toString()+"</button>");

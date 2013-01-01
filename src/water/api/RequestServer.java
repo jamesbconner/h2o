@@ -41,6 +41,7 @@ public class RequestServer extends NanoHTTPD {
 
     Request.addToNavbar(registerRequest(new RF()),  "Random Forest", "Model");
     Request.addToNavbar(registerRequest(new GLM()), "GLM",           "Model");
+    Request.addToNavbar(registerRequest(new GLMGrid()),"GLMGrid",    "Model");
     Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
 
     Request.addToNavbar(registerRequest(new Cloud()),    "Cloud Status", "Admin");
