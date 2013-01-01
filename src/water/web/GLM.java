@@ -279,7 +279,12 @@ public class GLM extends H2OPage {
             + "<div><code>%modelSrc</code></div>");
     if(json.has("warnings")){
       responseTemplate.replace("succ","alert-warning");
-      responseTemplate.replace("warningMsgs",json.get("warnings").getAsString());
+      System.err.println(json.get("warnings"));
+      String[] warn = new Gson().fromJson(json.get("warnings"),String[].class);
+      StringBuilder wsb = new StringBuilder();
+      for( String s : warn )
+        wsb.append(s).append("<br>");
+      responseTemplate.replace("warningMsgs",wsb);
     } else
       responseTemplate.replace("succ","alert-success");
     responseTemplate.replace("key",json.get("dataset").getAsString());
