@@ -4,11 +4,12 @@ import hex.GLMSolver;
 import hex.LSMSolver;
 import org.junit.Test;
 import water.*;
+import java.util.Arrays;
 
 // Test grid-search over GLM args
 public class GLMGridTest extends TestUtil {
 
-  private static GLMSolver.GLMModel compute_glm_score( ValueArray va, int[] cols, GLMSolver.GLMParams glmp, LSMSolver lsms, double thresh ) {
+  private static GLMSolver.GLMModel compute_glm_score( ValueArray va, int[] cols, GLMSolver.GLMParams glmp, LSMSolver lsms, double thresh, String msg ) {
     // Binomial (logistic) GLM solver
     glmp._f = GLMSolver.Family.binomial;
     glmp._l = glmp._f.defaultLink; // logit
@@ -18,10 +19,7 @@ public class GLMGridTest extends TestUtil {
     glmp._maxIter = 100;
     GLMSolver glms = new GLMSolver(lsms,glmp);
 
-    StringBuilder sb = new StringBuilder("[cols ");
-    for( int i=0; i<cols.length-1; i++ ) sb.append(cols[i]).append(" ");
-    sb.append("] thresh=").append(thresh);
-    System.out.print(sb.toString());
+    System.out.print(msg);
 
     // Solve it!
     GLMSolver.GLMModel m = glms.computeGLM(va, cols, null);
@@ -32,8 +30,8 @@ public class GLMGridTest extends TestUtil {
     // Validate / compute results
     if( m.is_solved() ) {
       m.validateOn(va,null);
-      double res = m._vals[0]._deviance;
-      System.out.println(", res dev="+res+" err="+m._vals[0]._cm.err());
+      long[][] arr = m._vals[0]._cm._arr;
+      System.out.println(", score="+score(m)+Arrays.deepToString(arr));
     }
     return m;
   }
@@ -50,25 +48,41 @@ public class GLMGridTest extends TestUtil {
     cols[j] = class_col;
   }
 
-  // Minimize residual deviance of prostate
+  // Which model is better?  Weeny optimization function seeks to minimize the
+  // max error rate per-class.  
+  private static boolean better( GLMSolver.GLMModel best, GLMSolver.GLMModel x ) {
+    if( best == null || !best.is_solved() ) return true;
+    if( x    == null || !x.   is_solved() ) return false;
+    return score(best) > score(x);
+  }
+
+  // Max of error-rates per-row.  Lower score is better (lower max-error)
+  private static double score( GLMSolver.GLMModel m ) {
+    long[][] arr = m._vals[0]._cm._arr;
+    double err0 = arr[0][1]/(double)(arr[0][0]+arr[0][1]);
+    double err1 = arr[1][0]/(double)(arr[1][0]+arr[1][1]);
+    return Math.max(err0,err1);
+  }
+
+  // Minimize max-errors of prostate or hhp
   @Test public void test_PROSTATE_CSV() {
     Key k1=null;
     try {
       // Load dataset
-      //k1 = loadAndParseKey("h.hex","smalldata/logreg/prostate.csv");
-      k1 = loadAndParseKey("h.hex","smalldata/hhp_107_01.data.gz");
+      //k1 = loadAndParseKey("h.hex","smalldata/logreg/prostate.csv"); final int class_col = 1;
+      k1 = loadAndParseKey("h.hex","smalldata/hhp_107_01.data.gz"); final int class_col = 106;
       ValueArray va = ValueArray.value(DKV.get(k1));
       // Default normalization solver
-      LSMSolver lsms = LSMSolver.makeSolver(); // Default normalization of NONE
+      LSMSolver lsms = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA, LSMSolver.DEFAULT_LAMBDA2, LSMSolver.DEFAULT_RHO, LSMSolver.DEFAULT_ALPHA);
       // Binomial (logistic) GLM solver
       GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
 
       // Initial columns: all, with the class moved to the end
-      final int class_col = 1;
       int[] cols = new int[va._cols.length];
       cols(cols,class_col,-1);
 
-      GLMSolver.GLMModel m = compute_glm_score(va,cols,glmp,lsms,0.5);
+      GLMSolver.GLMModel m = compute_glm_score(va,cols,glmp,lsms,0.5,"initial");
+      GLMSolver.GLMModel best = m.is_solved() ? m : null;
 
       // Try with 1 column removed
       cols = new int[va._cols.length-1];
@@ -76,17 +90,21 @@ public class GLMGridTest extends TestUtil {
       for( int skip=0; skip<va._cols.length; skip++ ) {
         if( skip != class_col ) {
           cols(cols,class_col,skip);
-          m = compute_glm_score(va,cols,glmp,lsms,0.5);
+          m = compute_glm_score(va,cols,glmp,lsms,0.5,"ignoring col "+skip);
+          if( better(best,m) ) {
+            best = m;
+            System.out.println("Picking better model");
+          }
         }
       }          
 
       // Pick with 'IDX' removed
       cols(cols,class_col,0);
-      compute_glm_score(va,cols,glmp,lsms,0.5);
+      compute_glm_score(va,cols,glmp,lsms,0.5,"ignoring col "+0);
 
       // Schmoo over threshold
       for( double t = 0.0; t<=1.0; t += 0.1 )
-        compute_glm_score(va,cols,glmp,lsms,t);
+        compute_glm_score(va,cols,glmp,lsms,t,"thresh="+t);
         
     } finally {
       UKV.remove(k1);
