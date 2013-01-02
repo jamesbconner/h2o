@@ -68,7 +68,7 @@ public class Inspect extends Request {
     result.addProperty(VALUE_SIZE, v.length());
 
     Response r = Response.done(result);
-    r.addHeader("<div class='alert alert-info'>" +
+    r.addHeader("<div class='alert'>" +
         Parse.link(v._key, "Parse into hex format") +
         "</div>");
     return r;
