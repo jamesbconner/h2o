@@ -56,7 +56,7 @@ public class ImportFiles extends Request {
           public String build(Response response, JsonObject object,
               String contextName) {
             return "<tr><td>" +
-                "<a href='Inspect.html?key="+object.get(KEY).getAsString()+"'>" +
+                "<a href='Parse.html?source_key="+object.get(KEY).getAsString()+"'>" +
                 object.get(FILE).getAsString() +
                 "</a></td></tr>";
           }
