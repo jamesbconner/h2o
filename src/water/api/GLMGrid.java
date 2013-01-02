@@ -27,6 +27,15 @@ public class GLMGrid extends Request {
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
   protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
 
+  public static String link(Key k, String content) {
+    RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
+    rs.replace("key_param", KEY);
+    rs.replace("key", k.toString());
+    rs.replace("content", content);
+    return rs.toString();
+  }
+
+
   @Override protected Response serve() {
     try {
       if( _task._progress == 0 && !_task._stop && !_task._working ) {

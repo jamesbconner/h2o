@@ -45,6 +45,14 @@ public class GLM extends Request {
   protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
   protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X, false);
 
+  public static String link(Key k, String content) {
+    RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
+    rs.replace("key_param", KEY);
+    rs.replace("key", k.toString());
+    rs.replace("content", content);
+    return rs.toString();
+  }
+
 
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian);
   protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.NONE);
@@ -58,7 +66,7 @@ public class GLM extends Request {
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
   protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
   protected final Real _threshold = new Real(JSON_GLM_THRESHOLD,0.5d,0d,1d);
-  protected final Real _case = new Real(JSON_GLM_CASE, Double.NaN); 
+  protected final Real _case = new Real(JSON_GLM_CASE, Double.NaN);
   protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
 
@@ -220,7 +228,7 @@ public class GLM extends Request {
       }
       return sb.toString();
     }
-    
+
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
       RString R = new RString(
           "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
@@ -279,7 +287,7 @@ public class GLM extends Request {
     private static void parm( StringBuilder sb, String x, Object... y ) {
       sb.append("<span><b>").append(x).append(": </b>").append(y[0]).append("</span> ");
     }
-    
+
     private static String glmParamsHTML( GLMModel m ) {
       StringBuilder sb = new StringBuilder();
       GLMParams glmp = m._glmParams;
@@ -342,8 +350,8 @@ public class GLM extends Request {
       sb.append(coefs.get("Intercept").getAsDouble());
       eq.replace("equation",sb.toString());
       return eq.toString();
-    }  
-   
+    }
+
     private static String coefsHTML( JsonObject coefs ) {
       StringBuilder sb = new StringBuilder();
       sb.append("<table class='table table-bordered table-condensed'>");
