@@ -1,18 +1,21 @@
 
 package water.api;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import java.io.IOException;
-import water.Value;
-import water.ValueArray;
+import water.*;
 import water.parser.CsvParser;
+
+import com.google.gson.*;
 
 public class Inspect extends Request {
   protected final H2OExistingKey _key = new H2OExistingKey(KEY);
   protected final LongInt _offset = new LongInt(OFFSET,-1l,-1l,Long.MAX_VALUE);
   protected final Int _view = new Int(VIEW, 100, 0, 10000);
+
+  public static Response redirect(JsonObject resp, Key dest) {
+    JsonObject redir = new JsonObject();
+    redir.addProperty(KEY, dest.toString());
+    return Response.redirect(resp, "Inspect", redir);
+  }
 
   protected void formatAryData(JsonObject obj, ValueArray ary, long rowIdx, int colIdx, String name) {
     if( rowIdx < 0 || rowIdx >= ary._numrows ) return;

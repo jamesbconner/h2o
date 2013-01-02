@@ -33,7 +33,8 @@ public class Parse extends Request {
       ParseDataset.parse(dest, source);
       JsonObject response = new JsonObject();
       response.addProperty(RequestStatics.DEST_KEY,dest.toString());
-      Response r = Response.done(response);
+
+      Response r = Inspect.redirect(response, dest);
       r.setBuilder(RequestStatics.DEST_KEY, new KeyElementBuilder());
       return r;
     } catch (IllegalArgumentException e) {
