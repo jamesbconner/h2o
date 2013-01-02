@@ -379,7 +379,6 @@ public class GLM extends Request {
         R.replace("AIC", dformat.format(val.AIC()));
         if( val._cm != null ) {
           R.replace("err",val._cm.err());
-        //  val.addProperty("cm", buildCM(val.get("cm").getAsJsonArray()));
         } else {
           R.replace("err",val._err);
         }
@@ -399,6 +398,7 @@ public class GLM extends Request {
     }
 
     private static void confusionHTML( GLMSolver.ConfusionMatrix cm, StringBuilder sb) {
+      if( cm == null ) return;
       sb.append("<table class='table table-bordered table-condensed'>");
       sb.append("<tr><th>Actual / Predicted</th><th>false</th><th>true</th><th>Err</th></tr>");
       double err0 = cm._arr[0][1]/(double)(cm._arr[0][0]+cm._arr[0][1]);
