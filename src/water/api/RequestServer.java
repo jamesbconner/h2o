@@ -104,7 +104,7 @@ public class RequestServer extends NanoHTTPD {
     // Jack priority for user-visible requests
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
     // update arguments and determine control variables
-    if( uri.isEmpty() || uri.equals("/") ) uri = "/Cloud.html";
+    if( uri.isEmpty() || uri.equals("/") ) uri = "/Tutorials.html";
     // determine the request type
     Request.RequestType type = Request.RequestType.requestType(uri);
     String requestName = type.requestName(uri);
