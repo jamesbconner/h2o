@@ -122,4 +122,5 @@ public class Constants {
   public static final String VARIANCE              = "variance";
   public static final String VIEW                  = "view";
   public static final String WEIGHTS               = "class_weights";
+  public static final String STEP                  = "step";
 }

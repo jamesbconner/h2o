@@ -1,9 +1,11 @@
 
 package water.api;
 
-import com.google.gson.JsonObject;
 import java.util.Properties;
+
 import water.NanoHTTPD;
+
+import com.google.gson.JsonObject;
 
 /** Request that only supports browser (html, query, help, wiki) request types.
  *
@@ -13,7 +15,7 @@ import water.NanoHTTPD;
  */
 public abstract class HTMLOnlyRequest extends Request {
 
-  public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
+  @Override public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     if (type == RequestType.json) {
       JsonObject resp = new JsonObject();
       resp.addProperty(ERROR,"This request is only provided for browser connections");
@@ -22,4 +24,7 @@ public abstract class HTMLOnlyRequest extends Request {
     return super.serve(server,args,type);
   }
 
+  @Override protected Response serve() {
+    return Response.doneEmpty();
+  }
 }
