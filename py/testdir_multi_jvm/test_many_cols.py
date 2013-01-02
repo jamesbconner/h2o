@@ -79,7 +79,7 @@ class Basic(unittest.TestCase):
         cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
             cnum += 1
-            csvFilename = 'syn_' + str(rowCount) + 'x' + str(colCount) + '.csv'
+            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname
