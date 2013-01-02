@@ -206,7 +206,7 @@ public class GLM extends Request {
   }
 
 
-  private static class GLMBuilder extends ObjectBuilder {
+  static class GLMBuilder extends ObjectBuilder {
     final GLMModel _m, _xms[];
     GLMBuilder( GLMModel m, GLMModel xms[] ) { _m=m; _xms=xms; }
     public String build(Response response, JsonObject json, String contextName) {

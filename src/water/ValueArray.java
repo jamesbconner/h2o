@@ -102,7 +102,9 @@ public class ValueArray extends Iced {
   }
   /** Deserialize wrapper from a Key */
   public static ValueArray value(Key k) {
-    return value(DKV.get(k));
+    Value v = DKV.get(k);
+    assert v != null : "Missed Value for "+k;
+    return value(v);
   }
   /** Deserialize wrapper from a Value */
   public static ValueArray value(Value val) {

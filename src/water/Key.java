@@ -38,6 +38,8 @@ public final class Key extends Iced implements Comparable {
 
   public static final byte KEY_OF_KEYS = 1;
 
+  public static final byte TASK = 2;
+
   public static final byte HDFS_INTERNAL_BLOCK = 10;
 
   public static final byte HDFS_INODE = 11;

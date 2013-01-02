@@ -89,6 +89,7 @@ public class Constants {
   public static final String STRATA                = "strata";
   public static final String STRATIFY              = "stratify";
   public static final String SUCCEEDED             = "succeeded";
+  public static final String TASK_KEY              = "task_key";
   public static final String TCP_BYTES_RECV        = "tcp_received" + Suffixes.BYTES;
   public static final String TCP_BYTES_SENT        = "tcp_sent" + Suffixes.BYTES;
   public static final String TCP_CONN_IN           = "tcp_incoming_connections";
