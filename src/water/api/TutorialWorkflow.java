@@ -25,6 +25,7 @@ abstract public class TutorialWorkflow extends HTMLOnlyRequest {
   @Override
   protected String build(Response response) {
     StringBuilder sb = new StringBuilder();
+    sb.append("<script type='text/javascript' src='tutorials/js/basic.js'></script>");
     decorateWorkflow(getWorkflow(), sb, _step.value());
 
     return sb.toString();
@@ -154,7 +155,7 @@ abstract public class TutorialWorkflow extends HTMLOnlyRequest {
 
         reader = new BufferedReader(new InputStreamReader(is));
         String line = null;
-        while( (line = reader.readLine())!=null) sb.append(line);
+        while( (line = reader.readLine())!=null) sb.append(line).append('\n');
 
       } catch (IOException e){ /* Silently ignoring */
         e.printStackTrace();
