@@ -22,3 +22,5 @@ build/
 nbproject/
 nbbuild.xml
 TAGS
+build.local.conf
+
