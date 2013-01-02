@@ -2,8 +2,7 @@ package water.api;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import water.H2O;
 import water.PrettyPrint;
@@ -45,6 +44,7 @@ public class RequestBuilders extends RequestQueries {
       sb.append("<h3>"+getClass().getSimpleName()+":</h3>");
       builder = OBJECT_BUILDER;
     }
+    for( String h : response.getHeaders() ) sb.append(h);
     sb.append(builder.build(response,response._response,""));
     sb.append("</div></div></div>");
     return sb.toString();
@@ -197,13 +197,6 @@ public class RequestBuilders extends RequestQueries {
    * other fields that should go to the user
    * if error:
    * error -> error reported
-   *
-   *
-   *
-   *
-   *
-   *
-   * TODO Work in progress. Please do not change.
    */
   public static final class Response {
 
@@ -248,6 +241,14 @@ public class RequestBuilders extends RequestQueries {
     /** Response object for JSON requests.
      */
     private final JsonObject _response;
+
+    /** Custom builders for JSON elements when converting to HTML automatically.
+     */
+    private final HashMap<String,Builder> _builders = new HashMap();
+
+    /** Custom headers to show in the html.
+     */
+    private final List<String> _headers = new ArrayList();
 
     /** Private constructor creating the request with given type and response
      * JSON object.
@@ -341,11 +342,6 @@ public class RequestBuilders extends RequestQueries {
       _time = System.currentTimeMillis() - timeStart;
     }
 
-    /** Hashmap of custom builders for JSON elements when converting to HTML
-     * automatically.
-     */
-    private HashMap<String,Builder> _builders = new HashMap();
-
     /** Associates a given builder with the specified JSON context. JSON context
      * is a dot separated path to the JSON object/element starting from root.
      *
@@ -370,6 +366,10 @@ public class RequestBuilders extends RequestQueries {
     protected Builder getBuilderFor(String contextName) {
       return _builders.get(contextName);
     }
+
+    public void addHeader(String h) { _headers.add(h); }
+
+    public List<String> getHeaders() { return _headers; }
 
 
     /** Returns the response system json. That is the response type, time,
@@ -671,6 +671,19 @@ public class RequestBuilders extends RequestQueries {
         }
     }
 
+    public String elementToName(String contextName) {
+      String base = elementName(contextName);
+      for( String s : new String[] {
+          Suffixes.BYTES_PER_SECOND,
+          Suffixes.BYTES,
+          Suffixes.MILLIS,
+      }) {
+        if( base.endsWith(s) )
+          return base.substring(0, base.length() - s.length());
+      }
+      return base;
+    }
+
     /** Based of the element type determines its string value and then calls
      * the string build version.
      */
@@ -683,7 +696,7 @@ public class RequestBuilders extends RequestQueries {
       } else {
         base = elementToString(element, contextName);
       }
-      return build(base, elementName(contextName));
+      return build(base, elementToName(contextName));
     }
   }
 
