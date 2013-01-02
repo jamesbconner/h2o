@@ -28,24 +28,22 @@ class Basic(unittest.TestCase):
         print "GLM binomial wth 1 X column at a time" 
         print "Result check: abs. value of coefficient and intercept returned are bigger than zero"
         for colX in xrange(54):
-            # do we have to exclud any columns?
-            if (1==1):
-                if X == "": 
-                    X = str(colX)
-                else:
-                    # X = X + "," + str(colX)
-                    X = str(colX)
+            if X == "": 
+                X = str(colX)
+            else:
+                # X = X + "," + str(colX)
+                X = str(colX)
 
-                sys.stdout.write('.')
-                sys.stdout.flush() 
-                print "\nX:", X
-                print "Y:", Y
+            sys.stdout.write('.')
+            sys.stdout.flush() 
+            print "\nX:", X
+            print "Y:", Y
 
-                start = time.time()
-                kwargs = {'X': X, 'Y': Y, 'xval': 6}
-                glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
-                h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
-                print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
+            start = time.time()
+            kwargs = {'X': X, 'Y': Y, 'xval': 6}
+            glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
+            print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 
 if __name__ == '__main__':

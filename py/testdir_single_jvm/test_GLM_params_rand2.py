@@ -12,15 +12,26 @@ import h2o_glm
 
 paramDict = {
     'Y': [54],
-    'X': [0,1,15,33,34],
-    '-X': [None,'40:53'],
-    'family': [None, 'gaussian', 'binomial', 'poisson'],
-    'xval': [2,3,4,9,15],
+    'X': [0,1,15,33],
+    '-X': [None,'20,28,40:53'],
+    'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
+    'xval': [2,3,4,9],
     'threshold': [0.1, 0.5, 0.7, 0.9],
-    'norm': [None,'L1', 'L2'],
+    # 'norm': [None,'L1', 'L2'],
+    # always need L1 or L2? to avoid Gram Matrix SPD
+    'norm': ['L1', 'L2'],
     'glm_lamba': [None, 1e-4,1,10,1e4],
     'rho': [None, 1e-4,1,10,1e4],
     'alpha': [None, 1e-4,1,10,1e4],
+    # new?
+    'betaEps': [None, 0.0001],
+    'caseVal': [None, 1.0],
+    # inverse and log causing problems
+    # 'link': [None, 'logit','identity', 'log', 'inverse'],
+    # 'link': [None, 'logit','identity'],
+    'maxIter': [None, 10],
+    'weight': [None, 1, 2, 4],
+
     }
 
 class Basic(unittest.TestCase):
@@ -42,17 +53,17 @@ class Basic(unittest.TestCase):
         # random.seed(SEED)
         SEED = random.randint(0, sys.maxint)
         # if you have to force to redo a test
-        # SEED = 
+        # SEED =
         random.seed(SEED)
         print "\nUsing random seed:", SEED
         for trial in range(20):
             # default
-            colX = 0 
+            colX = 0
             # form random selections of RF parameters
             # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details 
+            # with a different choice. we need the xval to get the error details
             # in the json(below)
-            kwargs = {'Y': 54}
+            kwargs = {'Y': 54, 'norm': 'L2'}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
