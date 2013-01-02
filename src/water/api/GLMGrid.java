@@ -49,6 +49,7 @@ public class GLMGrid extends Request {
 
 
 
+
   protected final Str _lambda1 = new Str(JSON_GLM_LAMBDA, ""+LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
   protected final Str _lambda2 = new Str(JSON_GLM_LAMBDA_2, ""+LSMSolver.DEFAULT_LAMBDA2);
   protected final Str _alpha = new Str(JSON_GLM_ALPHA, ""+LSMSolver.DEFAULT_ALPHA);
@@ -99,6 +100,14 @@ public class GLMGrid extends Request {
       return new double [] {Double.parseDouble(str)};
     }
   }
+  public static String link(Key k, String content) {
+    RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
+    rs.replace("key_param", KEY);
+    rs.replace("key", k.toString());
+    rs.replace("content", content);
+    return rs.toString();
+  }
+
   @Override protected Response serve() {
     try {
       if( _task._progress == 0 && !_task._stop && !_task._working ) {

@@ -3,14 +3,9 @@ package water.api;
 
 import com.google.gson.JsonObject;
 
-/**
- *
- * @author peta
- */
-public class PollTest extends Request {
-
-  // not thread safe I do not care
-  public static int _counter = 0;
+public class TestPoll extends Request {
+  // not isolated to the context, don't care
+  public static volatile int _counter = 0;
 
   public final Str _haha = new Str("hoho");
 

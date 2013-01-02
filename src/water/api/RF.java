@@ -1,24 +1,18 @@
 package water.api;
 
-import com.google.gson.JsonObject;
-import hex.rf.Confusion;
-import hex.rf.DRF;
-import hex.rf.Tree;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import water.Key;
-import water.UKV;
-import water.ValueArray;
+import hex.rf.*;
 
-/**
- *
- * @author peta
- */
+import java.util.Properties;
+
+import water.*;
+import water.web.RString;
+
+import com.google.gson.JsonObject;
+
 public class RF extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
-  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,CLASS,0);
+  protected final IntOrEnumHexKeyCol _classCol = new IntOrEnumHexKeyCol(_dataKey,CLASS);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final Bool _gini = new Bool(GINI,true,"use gini statistic (otherwise entropy is used)");
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
@@ -34,6 +28,13 @@ public class RF extends Request {
   protected final Int _seed = new Int(SEED,0);
   protected final Bool _parallel = new Bool(PARALLEL,true,"Build trees in parallel");
 
+  public static String link(Key k, String content) {
+    RString rs = new RString("<a href='RF.query?%key_param=%$key'>%content</a>");
+    rs.replace("key_param", DATA_KEY);
+    rs.replace("key", k.toString());
+    rs.replace("content", content);
+    return rs.toString();
+  }
 
   public RF() {
     _stratify.setRefreshOnChange();
@@ -98,6 +99,6 @@ public class RF extends Request {
       return Response.error("Incorrect input data: "+e.getMessage());
     }
 
-    return Response.redirect(response,"RFView",response);
+    return Response.redirect(response, RFView.class, response);
   }
 }
