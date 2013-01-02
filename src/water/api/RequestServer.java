@@ -58,6 +58,9 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new WWWFileUpload());
     registerRequest(new PutVector());
     registerRequest(new GetVector());
+
+    registerRequest(new TestPoll());
+    registerRequest(new TestRedirect());
     Request.initializeNavBar();
   }
 

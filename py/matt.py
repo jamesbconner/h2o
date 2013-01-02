@@ -7,11 +7,13 @@ h2o.parse_our_args()
 
 try:
     print 'Building cloud'
-    h2o.build_cloud(3, java_heap_GB=4, capture_output=False)
-    while True:
-        time.sleep(1)
+    #h2o.build_cloud(1, java_heap_GB=1, capture_output=False)
+    h2o.nodes = [h2o.ExternalH2O()]
+    h2o_cmd.parseFile(
+            csvPathname=h2o.find_file('smalldata/iris/iris.csv'),
+            key='iris.csv')
 except KeyboardInterrupt:
     print 'Interrupted'
 finally:
     print 'EAT THE BABIES'
-    h2o.tear_down_cloud()
+    #h2o.tear_down_cloud()

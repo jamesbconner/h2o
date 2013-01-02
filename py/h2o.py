@@ -506,6 +506,13 @@ class H2O(object):
 
         return rjson
 
+    def test_redirect(self):
+        return self.__check_request(requests.get(self.__url('TestRedirect.json', new=True)))
+    def test_poll(self, args):
+        return self.__check_request(requests.get(
+                    self.__url('TestPoll.json', new=True),
+                    params=args))
+
 
     def get_cloud(self):
         a = self.__check_request(requests.get(self.__url('Cloud.json', new=True)))

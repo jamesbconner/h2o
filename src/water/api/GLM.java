@@ -223,7 +223,7 @@ public class GLM extends Request {
     
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
       RString R = new RString(
-          "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time[ms]. %warnings</div>" +
+          "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
           "<h4>GLM Parameters</h4>" +
           " %GLMParams %LSMParams" +
           "<h4>Equation: </h4>" +

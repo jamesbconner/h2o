@@ -58,6 +58,13 @@ public class StoreView extends Request {
     result.addProperty(CLOUD_NAME, H2O.NAME);
     result.addProperty(NODE_NAME, H2O.SELF.toString());
     Response r = Response.done(result);
+    r.addHeader(
+        "<form class='well form-inline' action='StoreView.html'>" +
+        " <input type='text' class='input-small span10' placeholder='filter' " +
+        "    name='filter' id='filter' value='"+_filter.value()+"' maxlength='512'>" +
+        " <button type='submit' class='btn btn-primary'>Filter keys!</button>" +
+        "</form>");
+
     r.setBuilder(KEYS, new PaginatedTable(argumentsToJson(),offset,_view.value(), len, false));
     r.setBuilder(KEYS+"."+KEY, new KeyCellBuilder());
     r.setBuilder(KEYS+".col_0", new KeyMinAvgMaxBuilder());
@@ -67,16 +74,6 @@ public class StoreView extends Request {
     r.setBuilder(KEYS+".col_4", new KeyMinAvgMaxBuilder());
     r.setBuilder(MORE, new HideBuilder());
     return r;
-  }
-
-  @Override protected String buildResponseHeader(Response response) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(super.buildResponseHeader(response));
-    sb.append("<form class='well form-inline' action='StoreView.html'>");
-    sb.append(" <input type='text' class='input-small span10' placeholder='filter' name='filter' id='filter' value='"+_filter.value()+"' maxlength='512'>");
-    sb.append(" <button type='submit' class='btn btn-primary'>Filter keys!</button>");
-    sb.append("</form>");
-    return sb.toString();
   }
 
   private JsonObject formatKeyRow(H2O cloud, Key key, Value val) {
@@ -123,7 +120,7 @@ public class StoreView extends Request {
       int[] rows_cols = CsvParser.inspect(bs);
       if( rows_cols != null && rows_cols[1] != 0 ) { // Able to parse sanely?
         double bytes_per_row = (double)bs.length/rows_cols[0];
-        rows = (long)((double)val.length()/bytes_per_row);
+        rows = (long)(val.length()/bytes_per_row);
         cols = rows_cols[1];
         result.addProperty(ROWS,"~"+rows); // approx rows
       } else

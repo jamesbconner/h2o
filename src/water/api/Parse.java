@@ -1,14 +1,24 @@
 
 package water.api;
 
-import com.google.gson.JsonObject;
 import water.Key;
 import water.Value;
 import water.parser.ParseDataset;
+import water.web.RString;
+
+import com.google.gson.JsonObject;
 
 public class Parse extends Request {
-  protected final H2OExistingKey _source = new H2OExistingKey(RequestStatics.SOURCE_KEY);
-  protected final H2OKey _dest = new H2OKey(RequestStatics.DEST_KEY, (Key)null);
+  protected final H2OExistingKey _source = new H2OExistingKey(SOURCE_KEY);
+  protected final H2OKey _dest = new H2OKey(DEST_KEY, (Key)null);
+
+  public static String link(Key k, String content) {
+    RString rs = new RString("<a href='Parse.html?%key_param=%$key'>%content</a>");
+    rs.replace("key_param", SOURCE_KEY);
+    rs.replace("key", k.toString());
+    rs.replace("content", content);
+    return rs.toString();
+  }
 
   @Override protected Response serve() {
     Value source = _source.value();
@@ -23,7 +33,8 @@ public class Parse extends Request {
       ParseDataset.parse(dest, source);
       JsonObject response = new JsonObject();
       response.addProperty(RequestStatics.DEST_KEY,dest.toString());
-      Response r = Response.done(response);
+
+      Response r = Inspect.redirect(response, dest);
       r.setBuilder(RequestStatics.DEST_KEY, new KeyElementBuilder());
       return r;
     } catch (IllegalArgumentException e) {

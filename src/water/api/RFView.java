@@ -10,10 +10,6 @@ import hex.rf.Model;
 import water.Key;
 import water.UKV;
 
-/**
- *
- * @author peta
- */
 public class RFView extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
@@ -191,7 +187,6 @@ public class RFView extends Request {
     @Override protected String queryDescription() {
       return "key of the RF model";
     }
-
   }
 
 }
