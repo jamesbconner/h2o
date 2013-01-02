@@ -36,7 +36,7 @@ Extensions
 Community & Marketing
 ----------------------
 - We will make our simplified vision of Mining BigData public & immediate along the way to our product readiness.
-     (& foster a clean image with pictures and bios of every contributor within the company & it's advisors.)
+     (& foster a clean image with bios of every contributor)
 
 We will breathe & sustain a vibrant community with the sharp focus of scaling datascience.
 
