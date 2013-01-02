@@ -14,7 +14,7 @@ public class Inspect extends Request {
   public static Response redirect(JsonObject resp, Key dest) {
     JsonObject redir = new JsonObject();
     redir.addProperty(KEY, dest.toString());
-    return Response.redirect(resp, "Inspect", redir);
+    return Response.redirect(resp, Inspect.class, redir);
   }
 
   protected void formatAryData(JsonObject obj, ValueArray ary, long rowIdx, int colIdx, String name) {

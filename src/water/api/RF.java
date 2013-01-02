@@ -98,6 +98,6 @@ public class RF extends Request {
       return Response.error("Incorrect input data: "+e.getMessage());
     }
 
-    return Response.redirect(response,"RFView",response);
+    return Response.redirect(response, RFView.class, response);
   }
 }

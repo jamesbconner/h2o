@@ -3,6 +3,7 @@ package water.api;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.*;
+import java.util.Map.Entry;
 
 import water.H2O;
 import water.PrettyPrint;
@@ -303,14 +304,10 @@ public class RequestBuilders extends RequestQueries {
      * redirected to another request specified by redirectRequest with the
      * redirection arguments provided in rediredtArgs.
      */
-    public static Response redirect(JsonObject response, String redirectRequest, JsonObject redirectArgs) {
-      return new Response(Status.redirect, response, redirectRequest, redirectArgs);
-    }
-
-    /** Creates the new redirect response with no request arguments.
-     */
-    public static Response redirect(JsonObject response, String redirectRequest) {
-      return Response.redirect(response, redirectRequest, null);
+    public static Response redirect(JsonObject response,
+        Class<? extends Request> req, JsonObject args) {
+      return new Response(Status.redirect, response,
+          req.getSimpleName(), args);
     }
 
     /** Returns the poll response object.
@@ -405,8 +402,17 @@ public class RequestBuilders extends RequestQueries {
      * returns the response.
      */
     protected JsonObject toJson() {
-      _response.add(RESPONSE,responseToJson());
-      return _response;
+      JsonObject res = _response;
+      // in this case, creating a cyclical structure would kill us.
+      if( _response == _redirectArgs ) {
+        res = new JsonObject();
+        for( Entry<String, JsonElement> e : _response.entrySet() ) {
+          res.add(e.getKey(), e.getValue());
+        }
+
+      }
+      res.add(RESPONSE, responseToJson());
+      return res;
     }
 
     /** Returns the error of the request object if any. Returns null if the
