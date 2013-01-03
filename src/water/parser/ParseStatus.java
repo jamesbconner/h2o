@@ -19,6 +19,10 @@ public class ParseStatus extends Iced {
     return (_sofar/(double)_total + _phase.ordinal() ) / Pass.values().length;
   }
 
+  public static void initialize(Key statusKey, long steps) {
+    UKV.put(statusKey, new ParseStatus(steps));
+  }
+
   public static void update(Key statusKey, final long steps, final Pass phase) {
     new TAtomic<ParseStatus>() {
       @Override

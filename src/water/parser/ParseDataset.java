@@ -32,13 +32,12 @@ public final class ParseDataset {
 
   // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
   // result.
-  public static void parse( Key result, Value dataset ) {
+  private static void parseImpl( Key result, Value dataset ) {
     if( dataset._isArray != 0 ) {
       ValueArray ary = ValueArray.value(dataset);
       if( ary._cols.length > 1 || ary._cols[0]._size != 1 )
         throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
     }
-    UKV.put(result, new ParseStatus(dataset.length()));
     try {
       // try if it is XLS file first
       try {
@@ -66,12 +65,17 @@ public final class ParseDataset {
       throw new Error(e);
     }
   }
+  public static void parse( Key result, Value dataset ) {
+    ParseStatus.initialize(result, dataset.length());
+    parseImpl(result, dataset);
+  }
 
   public static void forkParseDataset( final Key result, final Value dataset ) {
+    ParseStatus.initialize(result, dataset.length());
     H2O.FJP_NORM.submit(new RecursiveAction() {
       @Override
       protected void compute() {
-        parse(result, dataset);
+        parseImpl(result, dataset);
       }
     });
   }

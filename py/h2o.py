@@ -576,6 +576,17 @@ class H2O(object):
             prefetch=False,
             params={"key": key})
 
+    def poll_url(self, response, delay=0.2):
+        url = self.__url(response['redirect_request'], new=True)
+        args = response['redirect_request_args']
+        status = 'poll'
+        r = None
+        while status == 'poll':
+            if r: time.sleep(delay)
+            r = self.__check_request(requests.get(url=url, params=args))
+            status = r['response']['status']
+        return r
+
     def parse(self, key, key2=None, timeoutSecs=300, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
@@ -588,10 +599,7 @@ class H2O(object):
                 url=self.__url('Parse.json', new=True),
                 timeout=timeoutSecs,
                 params={"source_key": key, "destination_key": key2}))
-
-        verboseprint("\nparse result:",dump_json(a))
-        if (browseAlso | browse_json):
-            h2b.browseJsonHistoryAsUrlLastMatch("Parse")
+        a = self.poll_url(a['response'])
         return a
 
     def netstat(self):
