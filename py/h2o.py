@@ -781,29 +781,28 @@ class H2O(object):
         return a
 
     def linear_reg(self, key, timeoutSecs=10, **kwargs):
-        params_dict = {
-            'Key' : key,
-            'colA' : 0,
-            'colB' : 1,
+        if new_json:
+            params_dict = {
+                'key' : key,
+                'colA' : 0,
+                'colB' : 1,
+            }
+        else:
+            params_dict = {
+                'Key' : key,
+                'colA' : 0,
+                'colB' : 1,
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
-        a = self.__check_request(
-            requests.get(self.__url('LR.json'),
+        a = self.__check_request(requests.get(
+            self.__url('LR.json', new=new_json),
             timeout=timeoutSecs,
             params=params_dict))
 
         verboseprint("\nlinear_reg result:", dump_json(a))
         return a
 
-    def linear_reg_view(self, key, timeoutSecs=10):
-        a = self.__check_request(
-            requests.get(self.__url('LRView.json'),
-            timeout=timeoutSecs,
-            params={'Key': key}))
-
-        verboseprint("linear_reg_view result:", dump_json(a))
-        return a
 
 # kwargs used to pass:
 # Y
