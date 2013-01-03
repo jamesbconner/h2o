@@ -30,11 +30,11 @@ public class Parse extends Request {
       dest = Key.make(n+".hex");
     }
     try {
-      ParseDataset.parse(dest, source);
+      ParseDataset.forkParseDataset(dest, source);
       JsonObject response = new JsonObject();
       response.addProperty(RequestStatics.DEST_KEY,dest.toString());
 
-      Response r = Inspect.redirect(response, dest);
+      Response r = ParseProgress.redirect(response, dest);
       r.setBuilder(RequestStatics.DEST_KEY, new KeyElementBuilder());
       return r;
     } catch (IllegalArgumentException e) {

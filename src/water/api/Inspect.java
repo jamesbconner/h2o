@@ -45,12 +45,11 @@ public class Inspect extends Request {
 
   @Override protected Response serve() {
     Value val = _key.value();
-    if (val._isArray == 1) {
-      ValueArray ary = ValueArray.value(val);
-      return serveValueArray(ary);
-    } else {
-      return serveUnparsedValue(val);
+    if( val._key.toString().endsWith(".hex") ) {
+      ValueArray va = ValueArray.value(val);
+      return serveValueArray(va);
     }
+    return serveUnparsedValue(val);
   }
 
   private Response serveUnparsedValue(Value v) {

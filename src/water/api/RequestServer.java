@@ -55,6 +55,8 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new TutorialRFIris()),      "Random Forest", "Tutorials");
     Request.addToNavbar(registerRequest(new TutorialGLMProstate()), "GLM",           "Tutorials");
 
+    // internal handlers
+    registerRequest(new ParseProgress());
     registerRequest(new TypeaheadKeysRequest());
     registerRequest(new TypeaheadFileRequest());
     registerRequest(new TypeaheadHexKeyRequest());
@@ -63,6 +65,7 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new PutVector());
     registerRequest(new GetVector());
 
+    // testing hooks
     registerRequest(new TestPoll());
     registerRequest(new TestRedirect());
     Request.initializeNavBar();

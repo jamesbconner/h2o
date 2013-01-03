@@ -9,9 +9,9 @@ try:
     print 'Building cloud'
     #h2o.build_cloud(1, java_heap_GB=1, capture_output=False)
     h2o.nodes = [h2o.ExternalH2O()]
-    h2o_cmd.parseFile(
-            csvPathname=h2o.find_file('smalldata/iris/iris.csv'),
-            key='iris.csv')
+    f = h2o.find_dataset('UCI/UCI-large/covtype/covtype.1g.data')
+    print 'Uploading'
+    h2o.nodes[0].put_file(f, 'covtype.csv')
 except KeyboardInterrupt:
     print 'Interrupted'
 finally:

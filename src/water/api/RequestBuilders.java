@@ -75,12 +75,12 @@ public class RequestBuilders extends RequestQueries {
           ;
 
   private static final String _redirectJs =
-            "var timer = setTimeout('redirect()',10000);\n"
+            "var timer = setTimeout('redirect()',000);\n"
           + "function countdown_stop() {\n"
           + "  clearTimeout(timer);\n"
           + "}\n"
           + "function redirect() {\n"
-          + "  window.location = \"%REDIRECT_URL\";\n"
+          + "  window.location.replace('%REDIRECT_URL');\n"
           + "}\n"
           ;
 
@@ -115,7 +115,7 @@ public class RequestBuilders extends RequestQueries {
         break;
       case redirect:
         result.replace("BUTTON","<button class='btn btn-primary' onclick='redirect()'>"+response._status.toString()+"</button>");
-        result.replace("TEXT","Request was successful and the process was started. You will be redirected to the new page in 10 seconds, or when you click on the redirect"
+        result.replace("TEXT","Request was successful and the process was started. You will be redirected to the new page in 1 seconds, or when you click on the redirect"
                 + " button on the left. If you want to keep this page for longer you can <a href='#' onclick='countdown_stop()'>stop the countdown</a>.");
         RString redirect = new RString(_redirectJs);
         redirect.replace("REDIRECT_URL",response._redirectName+".html"+encodeRedirectArgs(response._redirectArgs));

@@ -15,6 +15,10 @@ public class ParseStatus extends Iced {
     _total = total;
   }
 
+  public double getProgress() {
+    return (_sofar/(double)_total + _phase.ordinal() ) / Pass.values().length;
+  }
+
   public static void update(Key statusKey, final long steps, final Pass phase) {
     new TAtomic<ParseStatus>() {
       @Override
