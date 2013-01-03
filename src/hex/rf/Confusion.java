@@ -59,7 +59,7 @@ public class Confusion extends MRTask {
     _modelKey = model._key;
     _datakey = datakey;
     _classcol = classcol;
-    _classWt = classWt;
+    _classWt = classWt != null && classWt.length > 0 ? classWt : null;
     _ignores = ignores;
     _treesUsed = model.size();
     _computeOOB = computeOOB;
