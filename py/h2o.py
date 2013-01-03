@@ -663,12 +663,24 @@ class H2O(object):
 
     # note ntree in kwargs can overwrite trees!
     def random_forest(self, key, trees, timeoutSecs=300, **kwargs):
-        params_dict = {
-            'Key' : key,
-            'ntree' : trees,
-            'modelKey' : 'pytest_model',
-            'depth' : 30,
-            }
+        # print "new_json:", new_json
+        # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
+        # param names
+        if new_json:
+            params_dict = {
+                'data_key' : key,
+                'ntree' : trees,
+                'model_key' : 'pytest_model',
+                'depth' : 30,
+                'class' : 8,
+                }
+        else:
+            params_dict = {
+                'Key' : key,
+                'ntree' : trees,
+                'modelKey' : 'pytest_model',
+                'depth' : 30,
+                }
         
         browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
@@ -678,7 +690,7 @@ class H2O(object):
 
         verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
-            url=self.__url('RF.json'), 
+            url=self.__url('RF.json', new=new_json), 
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nrandom_forest result:", dump_json(a))
@@ -698,13 +710,26 @@ class H2O(object):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
         # Will need to update this list if we params for RfView
-        params_dict = {
-            'dataKey' : dataKey,
-            'modelKey' : modelKey,
-            'OOBEE' : None,
-            'classWt' : None,
-            'class' : None, # FIX! apparently this is needed now?
-            }
+
+        # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
+        # param names
+        if new_json:
+            params_dict = {
+                'data_key' : dataKey,
+                'model_key' : modelKey,
+                'OOBEE' : None,
+                'classWt' : None,
+                'class' : None, # FIX! apparently this is needed now?
+                }
+        else: 
+            params_dict = {
+                'dataKey' : dataKey,
+                'modelKey' : modelKey,
+                'OOBEE' : None,
+                'classWt' : None,
+                'class' : None, # FIX! apparently this is needed now?
+                }
+
         browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
@@ -715,7 +740,7 @@ class H2O(object):
                 params_dict[k] = kwargs[k]
 
         a = self.__check_request(requests.get(
-            self.__url('RFView.json'),
+            self.__url('RFView.json', new=new_json), 
             timeout=timeoutSecs,
             params=params_dict))
 

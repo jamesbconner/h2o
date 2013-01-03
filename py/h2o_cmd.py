@@ -88,28 +88,42 @@ def runRFOnly(node=None, parseKey=None, trees=5,
             print "Unexpected Error key/value in rf result:", rf
 
     # FIX! check all of these somehow?
-    dataKey  = rf['dataKey']
     # if we modelKey was given to rf via **kwargs, remove it, since we're passing 
     # modelKey from rf. can't pass it in two places. (ok if it doesn't exist in kwargs)
-    kwargs.pop('modelKey',None)
-    modelKey = rf['modelKey']
+    if h2o.new_json:
+        dataKey  = rf['data_key']
+        kwargs.pop('model_key',None)
+        modelKey = rf['model_key']
+        rfCloud = rf['response']['h2o']
+
+    else:
+        dataKey  = rf['dataKey']
+        kwargs.pop('modelKey',None)
+        modelKey = rf['modelKey']
+        rfCloud = rf['h2o']
 
     # same thing. if we use random param generation and have ntree in kwargs, get rid of it.
     kwargs.pop('ntree',None)
     ntree    = rf['ntree']
 
     # /ip:port of cloud (can't use h2o name)
-    rfCloud = rf['h2o']
     # output class?
     rfClass= rf['class']
 
     def test(n):
         rfView = n.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
-        modelSize = rfView['modelSize']
-        if (modelSize!=ntree and modelSize>0):
-            # don't print the typical case of 0 (starting)
-            print "Waiting for RF done: at %d of %d trees" % (modelSize, ntree)
-        return modelSize==ntree
+        if h2o.new_json:
+            status = rfView['response']['status']
+            if (status!='done'):
+                print "Waiting for RFView  status=done: at ? of %d trees" % (ntree)
+            return (status=='done')
+
+        else:
+            modelSize = rfView['modelSize']
+            if (modelSize!=ntree and modelSize>0):
+                # don't print the typical case of 0 (starting)
+                print "Waiting for RF done: at %d of %d trees" % (modelSize, ntree)
+            return modelSize==ntree
 
     node.stabilize(
             test,
@@ -118,8 +132,12 @@ def runRFOnly(node=None, parseKey=None, trees=5,
 
     # kind of wasteful re-read, but maybe good for testing
     rfView = node.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
-    modelSize = rfView['modelSize']
-    confusionKey = rfView['confusionKey']
+    if h2o.new_json:
+        modelSize = None
+        confusionKey = rfView['confusion_key']
+    else:
+        modelSize = rfView['modelSize']
+        confusionKey = rfView['confusionKey']
 
     # FIX! how am I supposed to verify results, or get results/
     # touch all these just to do something

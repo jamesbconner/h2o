@@ -57,7 +57,9 @@ class Basic(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        time.sleep(3600)
         h2o.tear_down_cloud()
+
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
