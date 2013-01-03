@@ -1454,7 +1454,7 @@ public class RequestArguments extends RequestStatics {
     @Override protected Integer defaultValue() {
       if (_defaultCol>=0)
         return _defaultCol;
-      return _key.value()._cols.length - _defaultCol;
+      return _key.value()._cols.length + _defaultCol;
     }
 
     @Override protected String queryDescription() {
@@ -1463,13 +1463,9 @@ public class RequestArguments extends RequestStatics {
 
   }
 
-  public class IntOrEnumHexKeyCol extends H2OHexKeyCol {
-    public IntOrEnumHexKeyCol(H2OHexKey key, String name) {
-      super(key, name);
-    }
-
-    public IntOrEnumHexKeyCol(H2OHexKey key, String name, int defaultCol) {
-      super(key, name, defaultCol);
+  public class HexKeyClassCol extends H2OHexKeyCol {
+    public HexKeyClassCol(H2OHexKey key, String name) {
+      super(key, name, -1);
     }
 
     @Override protected Integer parse(String input) throws IllegalArgumentException {

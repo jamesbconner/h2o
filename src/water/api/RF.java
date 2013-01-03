@@ -12,7 +12,7 @@ import com.google.gson.JsonObject;
 public class RF extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
-  protected final IntOrEnumHexKeyCol _classCol = new IntOrEnumHexKeyCol(_dataKey,CLASS);
+  protected final HexKeyClassCol _classCol = new HexKeyClassCol(_dataKey,CLASS);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final Bool _gini = new Bool(GINI,true,"use gini statistic (otherwise entropy is used)");
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
