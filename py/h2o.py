@@ -828,6 +828,11 @@ class H2O(object):
                 'key': key,
                 'y': y,
                 'x': x,
+                # 'case" is apparently used for matching against an output value
+                # it needs to be something..anything none matching is forced to 0? 
+                # used to create binary choices in output for logistic regression
+                # FIX! default is bad if you have no 1's in your data. (like 2 and -2
+                'case': 1,
             }
         else:
             params_dict = { 
