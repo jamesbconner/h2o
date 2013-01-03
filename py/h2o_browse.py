@@ -30,7 +30,14 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
         # webbrowser.open_new_tab(json_url)
         # UPDATE: with the new API port, the browser stuff has .html
         # but we've not switched everything to new. So do it selectively
+
+        # this is always the new port
         url = re.sub("Inspect.json","Inspect.html",json_url)
+
+        # this could be the old or new port
+        if h2o.new_json:
+            url = re.sub("GLM.json","GLM.html",json_url)
+
         url = re.sub(".json","",url)
 
         h2o.verboseprint("browseJsonHistoryAsUrlLastMatch:", url)
