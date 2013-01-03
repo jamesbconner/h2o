@@ -104,26 +104,57 @@ def runRFOnly(node=None, parseKey=None, trees=5,
 
     # same thing. if we use random param generation and have ntree in kwargs, get rid of it.
     kwargs.pop('ntree',None)
+
+    # this is important. it's the only accurate value for how many trees RF was asked for.
     ntree    = rf['ntree']
 
     # /ip:port of cloud (can't use h2o name)
-    # output class?
     rfClass= rf['class']
 
     def test(n):
         rfView = n.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
-        if h2o.new_json:
-            status = rfView['response']['status']
-            if (status!='done'):
-                print "Waiting for RFView  status=done: at ? of %d trees" % (ntree)
-            return (status=='done')
+        # ntree in rfView is actually wrong. it always matches atree and modelSize
+        # for old port, have to remember ntree from RF
+        # ntree = rfView['ntree']
 
-        else:
+        if not h2o.new_json:
             modelSize = rfView['modelSize']
             if (modelSize!=ntree and modelSize>0):
                 # don't print the typical case of 0 (starting)
                 print "Waiting for RF done: at %d of %d trees" % (modelSize, ntree)
             return modelSize==ntree
+
+        else:
+            status = rfView['response']['status']
+            progress = rfView['response']['progress']
+            progressTotal = rfView['response']['progress_total']
+            treesDone = rfView['trees']['number_built']
+            status = rfView['response']['status']
+
+            # want to double check all this because it's new
+            # and we had problems with races/doneness before
+            errorFastDone = \
+                treesDone<0 or ntree<0 or treesDone>ntree or \
+                progress<0 or progressTotal<0 or progress>progressTotal or \
+                progressTotal!=(ntree+1) or \
+                status!='poll' and status!='done' or \
+                ntree!=rfView['ntree']
+                # rfView better always agree with what RF ntree was
+
+            if errorFastDone:
+                raise Exception("\nBad values in response during RFView polling.\n" + 
+                    "progress: %s, progressTotal: %s, ntree: %s, treesDone: %s, status: %s" % \
+                    (progress, progressTotal, ntree, treesDone, status))
+
+            if (status!='done'):
+                print "\nRFView polling. Status: %s. %s trees done of %s desired" % \
+                    (status, treesDone, ntree)
+                # detect the special case of all trees done but waiting for CM
+                # progress is trees + 1 (1 for the confusion matrix)
+                # progress_total is desired trees + 1
+
+                # FIX! could check that trees done is always in the correct range?
+            return (status=='done')
 
     node.stabilize(
             test,
@@ -133,7 +164,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     # kind of wasteful re-read, but maybe good for testing
     rfView = node.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
     if h2o.new_json:
-        modelSize = None
+        modelSize = rfView['trees']['count']
         confusionKey = rfView['confusion_key']
     else:
         modelSize = rfView['modelSize']
