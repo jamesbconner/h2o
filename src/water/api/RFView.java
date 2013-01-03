@@ -7,13 +7,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import hex.rf.Confusion;
 import hex.rf.Model;
-import water.Key;
-import water.UKV;
 
 public class RFView extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
-  protected final ModelKey _modelKey = new ModelKey(MODEL_KEY);
+  protected final RFModelKey _modelKey = new RFModelKey(MODEL_KEY);
   protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,CLASS,0);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
@@ -22,20 +20,14 @@ public class RFView extends Request {
   protected final Bool _noCM = new Bool(NO_CM, false,"Do not produce confusion matrix");
   protected final Bool _clearCM = new Bool(JSON_CLEAR_CM, false, "Clear cache of model confusion matrices");
 
-  public static final String JSON_BUILT_TREES = "built_trees";
   public static final String JSON_CONFUSION_KEY = "confusion_key";
-  public static final String JSON_CLEAR_CM = "clear_cm";
-  public static final String JSON_CM_FLAVOUR = "flavour";
+  public static final String JSON_CLEAR_CM = "clear_confusion_matrix";
+
+  public static final String JSON_CM        = "confusion_matrix";
+  public static final String JSON_CM_TYPE   = "type";
   public static final String JSON_CM_HEADER = "header";
-  public static final String JSON_CM_MATRIX = "matrix";
-  public static final String JSON_CM = "confusion_matrix";
-  public static final String JSON_CM_TREES = "used_trees";
-  public static final String JSON_TREES = "trees";
-  public static final String JSON_TREE_DEPTH = "depth";
-  public static final String JSON_TREE_LEAVES = "leaves";
-
-
-  private static final ConfusionMatrixBuilder CONFUSION_BUILDER = new ConfusionMatrixBuilder();
+  public static final String JSON_CM_MATRIX = "scores";
+  public static final String JSON_CM_TREES  = "used_trees";
 
   @Override protected Response serve() {
     int tasks = 0;
@@ -49,7 +41,6 @@ public class RFView extends Request {
     response.addProperty(MODEL_KEY, _modelKey.originalValue());
     response.addProperty(CLASS, _classCol.value());
     response.addProperty(NUM_TREES, model._totalTrees);
-    response.addProperty(JSON_BUILT_TREES, model.size());
 
     tasks += model._totalTrees;
     finished += model.size();
@@ -66,7 +57,7 @@ public class RFView extends Request {
         JsonObject cm = new JsonObject();
         JsonArray cmHeader = new JsonArray();
         JsonArray matrix = new JsonArray();
-        cm.addProperty(JSON_CM_FLAVOUR, _oobee.value() ? "OOB error estimate" : "full scoring");
+        cm.addProperty(JSON_CM_TYPE, _oobee.value() ? "OOB error estimate" : "full scoring");
         // create the header
         for (String s : vaCategoryNames(_dataKey.value()._cols[_classCol.value()],1024))
           cmHeader.add(new JsonPrimitive(s));
@@ -85,29 +76,41 @@ public class RFView extends Request {
     }
 
     // Trees
-
     JsonObject trees = new JsonObject();
-    trees.addProperty(JSON_TREE_DEPTH,model.depth());
-    trees.addProperty(JSON_TREE_LEAVES, model.leaves());
-
-    response.add(JSON_TREES,trees);
+    trees.addProperty(Constants.TREE_COUNT,  model.size());
+    trees.addProperty(Constants.TREE_DEPTH,  model.depth());
+    trees.addProperty(Constants.TREE_LEAVES, model.leaves());
+    response.add(Constants.TREES,trees);
 
     JsonObject pollArgs = argumentsToJson();
     //pollArgs.addProperty(JSON_NO_CM,"1"); // not yet - CM runs in the same thread TODO
     Response r = (finished == tasks) ? Response.done(response) : Response.poll(response, finished, tasks, pollArgs);
-    r.setBuilder(JSON_CM, CONFUSION_BUILDER);
+    r.setBuilder(JSON_CM, new ConfusionMatrixBuilder());
+    r.setBuilder(Constants.TREES, new TreeListBuilder());
     return r;
   }
-
-  // ---------------------------------------------------------------------------
-  // ConfusionMatrixBuilder
-  // ---------------------------------------------------------------------------
+  public class TreeListBuilder extends ObjectBuilder {
+    @Override public String build(Response response, JsonObject t, String contextName) {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<h3>Trees</h3>");
+      sb.append(t.get(Constants.TREE_COUNT)).append(" trees with min/max/mean depth of ");
+      sb.append(t.get(Constants.TREE_DEPTH)).append(" and leaf of ");
+      sb.append(t.get(Constants.TREE_LEAVES)).append(".<br>");
+      int n = t.get(Constants.TREE_COUNT).getAsInt();
+      for( int i = 0; i < n; ++i ) {
+        sb.append(RFTreeView.link(_modelKey.value(), i,
+            _dataKey.value(), _classCol.value(),
+            Integer.toString(i))).append(" ");
+      }
+      return sb.toString();
+    }
+  }
 
   public static class ConfusionMatrixBuilder extends ObjectBuilder {
     @Override public String build(Response response, JsonObject cm, String contextName) {
       StringBuilder sb = new StringBuilder();
       if (cm.has(JSON_CM_MATRIX)) {
-        sb.append("<h3>Confusion matrix - "+cm.get(JSON_CM_FLAVOUR).getAsString()+"</h3>");
+        sb.append("<h3>Confusion matrix - "+cm.get(JSON_CM_TYPE).getAsString()+"</h3>");
         sb.append("<table class='table table-striped table-bordered table-condensed'>");
         sb.append("<tr><th>Actual \\ Predicted</th>");
         JsonArray header = (JsonArray) cm.get(JSON_CM_HEADER);
@@ -158,34 +161,6 @@ public class RFView extends Request {
         sb.append("</div>");
       }
       return sb.toString();
-    }
-  }
-
-
-  // ---------------------------------------------------------------------------
-  // ModelKey
-  // ---------------------------------------------------------------------------
-
-  public class ModelKey extends TypeaheadInputText<Model> {
-
-    public ModelKey(String name) {
-      super(TypeaheadModelRequest.class, name, true);
-    }
-
-    @Override protected Model parse(String input) throws IllegalArgumentException {
-      try {
-        return UKV.get(Key.make(input), new Model());
-      } catch (Exception e) {
-        throw new IllegalArgumentException("Key "+input+" is not found or is not a model key");
-      }
-    }
-
-    @Override protected Model defaultValue() {
-      return null;
-    }
-
-    @Override protected String queryDescription() {
-      return "key of the RF model";
     }
   }
 

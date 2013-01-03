@@ -57,6 +57,7 @@ public class RequestServer extends NanoHTTPD {
 
     // internal handlers
     registerRequest(new ParseProgress());
+    registerRequest(new RFTreeView());
     registerRequest(new TypeaheadKeysRequest());
     registerRequest(new TypeaheadFileRequest());
     registerRequest(new TypeaheadHexKeyRequest());

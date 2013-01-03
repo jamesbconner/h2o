@@ -1,12 +1,15 @@
 
 package water.api;
 
-import com.google.gson.JsonObject;
+import hex.rf.Model;
+
 import java.io.File;
 import java.util.*;
 
 import water.*;
 import water.web.RString;
+
+import com.google.gson.JsonObject;
 
 /** All arguments related classes are defined in this guy.
  *
@@ -1814,7 +1817,27 @@ public class RequestArguments extends RequestStatics {
     }
 
   }
+  
+  public class RFModelKey extends TypeaheadInputText<Model> {
 
+    public RFModelKey(String name) {
+      super(TypeaheadModelRequest.class, name, true);
+    }
 
+    @Override protected Model parse(String input) throws IllegalArgumentException {
+      try {
+        return UKV.get(Key.make(input), new Model());
+      } catch (Exception e) {
+        throw new IllegalArgumentException("Key "+input+" is not found or is not a model key");
+      }
+    }
 
+    @Override protected Model defaultValue() {
+      return null;
+    }
+
+    @Override protected String queryDescription() {
+      return "key of the RF model";
+    }
+  }
 }
