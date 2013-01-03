@@ -77,15 +77,8 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     Key = parseKey['destination_key']
     rf = node.random_forest(Key, trees, timeoutSecs, **kwargs)
 
-    # if we have something in Error, print it!
-    # FIX! have to figure out unexpected vs expected errors
     # {u'Error': u'Only integer or enum columns can be classes!'}
-
-    # FIX! right now, the json doesn't always return the same dict keys
-    # so have to look to see if Error is present
-    if 'Error' in rf:
-        if rf['Error'] is not None:
-            print "Unexpected Error key/value in rf result:", rf
+    # ..this should be covered now by all the error/Error variants in the json result checking?
 
     # FIX! check all of these somehow?
     # if we modelKey was given to rf via **kwargs, remove it, since we're passing 
@@ -126,30 +119,35 @@ def runRFOnly(node=None, parseKey=None, trees=5,
 
         else:
             status = rfView['response']['status']
-            if status == 'done': return True
+            numberBuilt = rfView['trees']['number_built']
+
+            if status == 'done': 
+                if numberBuilt!=ntree: 
+                    raise Exception("RFview done but number_built!=ntree: %s %s", 
+                        numberBuilt, ntree)
+                return True
             if status != 'poll': raise Exception('Unexpected status: ' + status)
+
             progress = rfView['response']['progress']
             progressTotal = rfView['response']['progress_total']
-            treesDone = rfView['trees']['number_built']
 
             # want to double check all this because it's new
             # and we had problems with races/doneness before
-            errorFastDone = \
-                treesDone<0 or ntree<0 or treesDone>ntree or \
+            errorInResponse = \
+                numberBuilt<0 or ntree<0 or numberBuilt>ntree or \
                 progress<0 or progressTotal<0 or progress>progressTotal or \
                 progressTotal!=(ntree+1) or \
-                status!='poll' and status!='done' or \
                 ntree!=rfView['ntree']
                 # rfView better always agree with what RF ntree was
 
-            if errorFastDone:
+            if errorInResponse:
                 raise Exception("\nBad values in response during RFView polling.\n" + 
-                    "progress: %s, progressTotal: %s, ntree: %s, treesDone: %s, status: %s" % \
-                    (progress, progressTotal, ntree, treesDone, status))
+                    "progress: %s, progressTotal: %s, ntree: %s, numberBuilt: %s, status: %s" % \
+                    (progress, progressTotal, ntree, numberBuilt, status))
 
             if (status!='done'):
                 print "\nRFView polling. Status: %s. %s trees done of %s desired" % \
-                    (status, treesDone, ntree)
+                    (status, numberBuilt, ntree)
 
             return (status=='done')
 
@@ -161,7 +159,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     # kind of wasteful re-read, but maybe good for testing
     rfView = node.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
     if h2o.new_json:
-        modelSize = rfView['trees']['count']
+        modelSize = rfView['trees']['number_built']
         confusionKey = rfView['confusion_key']
     else:
         modelSize = rfView['modelSize']
