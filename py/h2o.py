@@ -52,6 +52,7 @@ verbose = False
 ipaddr = None
 config_json = False
 debugger = False
+new_json = False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
@@ -62,10 +63,11 @@ def parse_our_args():
     parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
     parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
+    parser.add_argument('--new_json', '-new', help='do all functions through the new API port', action='store_true')
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global browse_disable, browse_json, verbose, ipaddr, config_json, debugger
+    global browse_disable, browse_json, verbose, ipaddr, config_json, debugger, new_json
 
     browse_disable = args.browse_disable or getpass.getuser()=='jenkins'
     browse_json = args.browse_json
@@ -73,6 +75,7 @@ def parse_our_args():
     ipaddr = args.ip
     config_json = args.config_json
     debugger = args.debugger
+    new_json = args.new_json
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     # FIX! this isn't working to grab the args we don't care about
@@ -487,7 +490,7 @@ class H2O(object):
         # the browser can walk back until it hits a RFview. I suppose this should be an object.
         json_url_history.append(r.url)
 
-        # HACK: excessive variance in GLM/RF/other..so check a bunch...should jira this issue
+        # HACK: excessive messaging variance ..so check a bunch...should jira this issue
         rjson = r.json
         if 'error' in rjson:
             print rjson
@@ -573,13 +576,6 @@ class H2O(object):
             prefetch=False,
             params={"key": key})
 
-    # FIX! TEMP: right now H2O does blocking response ..i.e. we get nothing until 
-    # the parse is done. Parse can take a long time. Should be intermediate views of something?
-    # if we timeout repeatedly, we can exceed the default retry count in the requests library
-    # set retries and timeout specifically here, so we can learn more about this
-    # timeout has to be big to cover longest expected parse? timeout is float. secs?
-    # looks like max_retries is part of configuration defaults
-    # maybe we should limit retries everywhere, for better visibiltiy into intermmitent H2O rejects?
     def parse(self, key, key2=None, timeoutSecs=300, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
@@ -604,9 +600,15 @@ class H2O(object):
     def jstack(self):
         return self.__check_request(requests.get(self.__url("JStack.json", new=True)))
 
-    def inspect(self, key):
+    # &offset=
+    # &view=
+    def inspect(self, key, offset=None, view=None):
         a = self.__check_request(requests.get(self.__url('Inspect.json', new=True),
-            params={"key": key}))
+            params={
+                "key": key,
+                "offset": offset,
+                "view": view,
+                }))
         ### verboseprint("\ninspect result:", dump_json(a))
         return a
 
@@ -806,13 +808,32 @@ class H2O(object):
 #       "rho": 0.01
 #     }, 
 
+    # new_json is only enabled by "python test_* -new"
     def GLM(self, key, timeoutSecs=300, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
         # for defaults
-        params_dict = { 
-            'family': 'binomial',
-            'Key': key,
-            'Y': 1
+        # global
+
+        print "new_json:", new_json
+        # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
+        # param names
+        if new_json:
+            # if the old 'Y' param is in use, change it to the new 'y' param
+            # if 'y' is used, it will override this
+            # same with x. key changed also.
+            y = kwargs.pop('Y', 1)
+            x = kwargs.pop('X', None)
+            params_dict = { 
+                'family': 'binomial',
+                'key': key,
+                'y': y,
+                'x': x,
+            }
+        else:
+            params_dict = { 
+                'family': 'binomial',
+                'Key': key,
+                'Y': 1,
             }
 
         # special case these two because of name issues.
@@ -820,24 +841,26 @@ class H2O(object):
         # use glm_notX, not -X
         glm_lambda = kwargs.pop('glm_lambda', None)
         if glm_lambda is not None: params_dict['lambda'] = glm_lambda
+
+        # hackery for new/old transition, accept either
         glm_notX = kwargs.pop('glm_-X', None)
-        if glm_notX is not None: params_dict['-X'] = glm_notX
+        if not glm_notX:
+            glm_notX = kwargs.pop('glm_-x', None)
+
+        if new_json:
+            if glm_notX is not None: params_dict['-x'] = glm_notX
+        else:
+            if glm_notX is not None: params_dict['-X'] = glm_notX
 
         params_dict.update(kwargs)
         verboseprint("GLM params list", params_dict)
 
         a = self.__check_request(requests.get(
-            self.__url('GLM.json'), 
+            self.__url('GLM.json', new=new_json),
             timeout=timeoutSecs,
             params=params_dict))
-        # remove the 'models' key that has all the CMs from cross validation..too much to print
-        b = dict.copy(a)
-        # if you don't do xval, there is no models, so have to check first
-        if 'models' in b:
-            del b['models']
         
-        verboseprint("\nNot printing the CMs returned by cross validation, if any")
-        verboseprint("GLM:", dump_json(b))
+        verboseprint("GLM:", dump_json(a))
 
         if (browseAlso | browse_json):
             print "Redoing the GLM through the browser, no results saved though"

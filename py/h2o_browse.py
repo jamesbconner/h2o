@@ -28,7 +28,11 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
         # chop out the .json to get a browser-able url (can look at json too)
         # Open URL in new window, raising the window if possible.
         # webbrowser.open_new_tab(json_url)
-        url = re.sub(".json","",json_url)
+        # UPDATE: with the new API port, the browser stuff has .html
+        # but we've not switched everything to new. So do it selectively
+        url = re.sub("Inspect.json","Inspect.html",json_url)
+        url = re.sub(".json","",url)
+
         h2o.verboseprint("browseJsonHistoryAsUrlLastMatch:", url)
         h2o.verboseprint("same, decoded:", urllib.unquote(url))
         webbrowser.open_new_tab(url)
