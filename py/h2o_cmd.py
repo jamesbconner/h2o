@@ -126,6 +126,8 @@ def runRFOnly(node=None, parseKey=None, trees=5,
 
         else:
             status = rfView['response']['status']
+            if status == 'done': return True
+            if status != 'poll': raise Exception('Unexpected status: ' + status)
             progress = rfView['response']['progress']
             progressTotal = rfView['response']['progress_total']
             treesDone = rfView['trees']['number_built']
