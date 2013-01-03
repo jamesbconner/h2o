@@ -142,6 +142,12 @@ public class Inspect extends Request {
     r.setBuilder(VALUE_TYPE, new HideBuilder());
     r.setBuilder(RequestStatics.COLS, t);
     r.setBuilder(RequestStatics.ROW_DATA, t);
+    r.addHeader("<div class='alert'>" +
+        "Build models using " +
+        RF.link(ary._key, "Random Forest") + ", " +
+        GLM.link(ary._key, "GLM") + ", or " +
+        GLMGrid.link(ary._key, "GLM Grid Search") +
+        "</div>");
     return r;
   }
 

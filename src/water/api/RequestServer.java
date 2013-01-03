@@ -51,6 +51,10 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new PutValue()), "Put Value",    "Admin");
     Request.addToNavbar(registerRequest(new Shutdown()), "Shutdown",     "Admin");
 
+    Request.addToNavbar(registerRequest(new Tutorials()),           "View All",      "Tutorials");
+    Request.addToNavbar(registerRequest(new TutorialRFIris()),      "Random Forest", "Tutorials");
+    Request.addToNavbar(registerRequest(new TutorialGLMProstate()), "GLM",           "Tutorials");
+
     registerRequest(new TypeaheadKeysRequest());
     registerRequest(new TypeaheadFileRequest());
     registerRequest(new TypeaheadHexKeyRequest());
@@ -101,7 +105,7 @@ public class RequestServer extends NanoHTTPD {
     // Jack priority for user-visible requests
     Thread.currentThread().setPriority(Thread.MAX_PRIORITY-1);
     // update arguments and determine control variables
-    if( uri.isEmpty() || uri.equals("/") ) uri = "/Cloud.html";
+    if( uri.isEmpty() || uri.equals("/") ) uri = "/Tutorials.html";
     // determine the request type
     Request.RequestType type = Request.RequestType.requestType(uri);
     String requestName = type.requestName(uri);

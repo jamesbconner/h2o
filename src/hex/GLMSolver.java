@@ -420,6 +420,28 @@ public class GLMSolver {
     return res;
   }
 
+//  public static class GLMXValidation extends Iced{
+//    int _fold;
+//    GLMModel [] _models;
+//    double [][] _errAvg;
+//    double [][] _errVar;
+//
+//    public GLMXValidation(GLMModel [] models) {
+//      _models = models;
+//      int nclasses = _models[0]._vals[0]._cm._arr.length;
+//      _errAvg = new double[nclasses+1][2];
+//      _errVar = new double[nclasses+1][2];
+//      for(int i = 0; i < _models.length; ++i){
+//        for(int c = 0; c < nclasses; ++c){
+//          //double [] cerr = _models[i].
+//        }
+//      }
+//    }
+//
+//    public JsonObject toJson(){
+//      return null;
+//    }
+//  }
   public GLMModel [] xvalidate(ValueArray ary, int [] colIds, int fold) {
     GLMModel [] models = new GLMModel[fold];
     for(int i = 0; i < fold; ++i){
@@ -520,6 +542,15 @@ public class GLMSolver {
       _n += c;
     }
 
+    public double [] err(int c){
+      double s1 = 0,s2 = 0;
+      for(int i = 0; i < _arr.length; ++i){
+        s1 += _arr[i][c];
+        s2 += _arr[c][i];
+      }
+      return new double[]{_arr[c][c]/s1,_arr[c][c]/s2};
+    }
+
     public double err(){
       long err = _n;
       for(int i = 0; i < _arr.length;++i){
@@ -587,6 +618,9 @@ public class GLMSolver {
     public double _nullDeviance;
     public double _err;
     public ConfusionMatrix _cm;
+
+    double [] err(int c) {return _cm.err(c);}
+    double err(){return _cm.err();}
 
     public JsonObject toJson() {
       JsonObject res = new JsonObject();

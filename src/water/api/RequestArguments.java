@@ -1463,6 +1463,23 @@ public class RequestArguments extends RequestStatics {
 
   }
 
+  public class IntOrEnumHexKeyCol extends H2OHexKeyCol {
+    public IntOrEnumHexKeyCol(H2OHexKey key, String name) {
+      super(key, name);
+    }
+
+    public IntOrEnumHexKeyCol(H2OHexKey key, String name, int defaultCol) {
+      super(key, name, defaultCol);
+    }
+
+    @Override protected Integer parse(String input) throws IllegalArgumentException {
+      Integer i = super.parse(input);
+      // called for error checking
+      vaCategoryNames(_key.value()._cols[i], Integer.MAX_VALUE);
+      return i;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // IgnoreHexCols
   // ---------------------------------------------------------------------------
@@ -1609,8 +1626,6 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected double[] parse(String input) throws IllegalArgumentException {
-      ValueArray va = _key.value();
-      ValueArray.Column classCOl = va._cols[_classCol.value()];
       // determine the arity of the column
       HashMap<String,Integer> classNames = new HashMap();
       String[] names = determineColumnClassNames(1024);
@@ -1662,14 +1677,14 @@ public class RequestArguments extends RequestStatics {
       return result;
     }
 
-    @Override protected double[] defaultValue() {
+    @Override protected double[] defaultValue() throws IllegalArgumentException {
       try {
         String[] names = determineColumnClassNames(1024);
         double[] result = new double[names.length];
         for (int i = 0; i < result.length; ++i)
           result[i] = _defaultValue;
         return result;
-      } catch (IllegalArgumentException e) {
+      } catch( IllegalArgumentException e ) {
         return new double[0];
       }
     }

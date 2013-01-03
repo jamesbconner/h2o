@@ -1,31 +1,112 @@
 package water.api;
 
-import water.web.RString;
-import com.google.gson.*;
-import hex.GLMSolver.*;
-import hex.GLMSolver;
-import hex.LSMSolver.Norm;
-import hex.LSMSolver;
+import hex.*;
+import hex.GLMSolver.GLMModel;
+import hex.GLMSolver.GLMParams;
+import hex.GLMSolver.Link;
+
 import java.util.BitSet;
-import java.util.UUID;
+
 import water.*;
+import water.api.RequestArguments.InputText;
+import water.web.RString;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /**
  * @author cliffc
  */
 public class GLMGrid extends Request {
 
+
+
   public static final String JSON_GLM_Y = "y";
   public static final String JSON_GLM_X = "x";
+  public static final String JSON_GLM_NEG_X = "neg_x";
+  public static final String JSON_GLM_FAMILY = "family";
+  public static final String JSON_GLM_NORM = "norm";
+  public static final String JSON_GLM_LAMBDA = "lambda_1";
+  public static final String JSON_GLM_LAMBDA_2 = "lambda_2";
+  public static final String JSON_GLM_RHO = "rho";
+  public static final String JSON_GLM_ALPHA = "alpha";
+  public static final String JSON_GLM_MAX_ITER = "max_iter";
+  public static final String JSON_GLM_BETA_EPS = "beta_eps";
+  public static final String JSON_GLM_WEIGHT = "weight";
   public static final String JSON_GLM_THRESHOLD = "threshold";
+  public static final String JSON_GLM_XVAL = "xval";
+  public static final String JSON_GLM_CASE = "case";
+  public static final String JSON_GLM_LINK = "link";
+  public static final String JSON_GLM_EXPAND_CAT = "expand_cat";
+
+  public static final String JSON_ROWS = "rows";
+  public static final String JSON_TIME = "time";
+  public static final String JSON_COEFFICIENTS = "coefficients";
+
+  protected final H2OHexKey _key = new H2OHexKey(KEY);
+  protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
+  protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
+
+
+
+
+  protected final Str _lambda1 = new Str(JSON_GLM_LAMBDA, ""+LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
+  protected final Str _lambda2 = new Str(JSON_GLM_LAMBDA_2, ""+LSMSolver.DEFAULT_LAMBDA2);
+  protected final Str _alpha = new Str(JSON_GLM_ALPHA, ""+LSMSolver.DEFAULT_ALPHA);
+  protected final Str _rho = new Str(JSON_GLM_RHO, ""+LSMSolver.DEFAULT_RHO); // TODO I do not know the bounds
+
+  protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
+  protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
+  protected final Real _case = new Real(JSON_GLM_CASE, Double.NaN);
+  protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
+  protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
+
+  protected final Bool _expandCat = new Bool(JSON_GLM_EXPAND_CAT,false,"Expand categories");
+  protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
+
 
   // The "task key" for this Grid search.  Used to track job progress, to shutdown
   // early, to collect best-so-far & grid results, etc.
   final GLMGridTask _task = new GLMGridTask();
 
-  protected final H2OHexKey _key = new H2OHexKey(KEY);
-  protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
-  protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
+
+  protected static double [] parsePRange(String str){
+    str = str.trim().toLowerCase();
+    if(str.startsWith("seq")){
+      throw new Error("unimplemented");
+    } if(str.contains(":")){
+      String [] parts = str.split(":");
+      if(parts.length != 3)throw new Error("unexpected sequence format \"" + str + "\"");
+      double from = Double.parseDouble(parts[0]);
+      double to = Double.parseDouble(parts[1]);
+      double step = Double.parseDouble(parts[2]);
+      if(to == from) return new double[]{from};
+      if(to < from)throw new Error("");
+      if(step == 0)throw new Error();
+      int n = (int)((Math.log(to) - Math.log(from))/Math.log(step));
+      double [] res = new double[n];
+      for(int i = 0; i < n; ++i){
+        res[i] = from;
+        from *= step;
+      }
+      return res;
+    } else if(str.contains(",")){
+      String [] parts = str.split(",");
+      double [] res = new double[parts.length];
+      for(int i = 0; i < parts.length; ++i)
+        res[i] = Double.parseDouble(parts[i]);
+      return res;
+    } else {
+      return new double [] {Double.parseDouble(str)};
+    }
+  }
+  public static String link(Key k, String content) {
+    RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
+    rs.replace("key_param", KEY);
+    rs.replace("key", k.toString());
+    rs.replace("content", content);
+    return rs.toString();
+  }
 
   @Override protected Response serve() {
     try {
@@ -33,6 +114,13 @@ public class GLMGrid extends Request {
         _task._ary = _key.value();
         _task._y = _y.value();
         _task._xs = _x.value();
+        _task._lambda1Vec = parsePRange(_lambda1.value());
+        _task._lambda2Vec = parsePRange(_lambda2.value());
+        _task._rhoVec = parsePRange(_rho.value());
+        _task._alphaVec = parsePRange(_alpha.value());
+        _task._progress_max = _task._lambda1Vec.length*_task._lambda2Vec.length*_task._rhoVec.length*_task._alphaVec.length;
+        if(_task._ms == null || _task._ms.length < _task._progress_max)
+          _task._ms = new GLMModel[_task._progress_max];
         _task.start();          // One-shot start the task
       }
 
@@ -140,15 +228,13 @@ public class GLMGrid extends Request {
     ValueArray _ary;            // Array to work on
     int _y;                     // Y column; class
     int _xs[];                  // Array of columns to use
+    double [] _lambda1Vec;
+    double [] _lambda2Vec;
+    double [] _rhoVec;
+    double [] _alphaVec;
 
     // Compute 11 threshold GLM models
-    GLMModel _ms[] = new GLMModel[11];
-
-    public void start() {
-      _progress_max = _ms.length; // For now, just run thresholds from 0 to 1 by 0.1
-
-      super.start();
-    }
+    GLMModel _ms[];
 
     // Do a single step (blocking).
     // In this case, run 1 GLM model.
@@ -161,23 +247,44 @@ public class GLMGrid extends Request {
       glmp._maxIter = 20;
       glmp._betaEps = GLMSolver.DEFAULT_BETA_EPS;
       glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
-      glmp._familyArgs[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD] = thresh(step);
+      //glmp._familyArgs[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD] = thresh(step);
 
       // Always use elastic-net
-      LSMSolver lsms = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA, LSMSolver.DEFAULT_LAMBDA2, LSMSolver.DEFAULT_RHO, LSMSolver.DEFAULT_ALPHA);
-
+      LSMSolver lsms = LSMSolver.makeElasticNetSolver(lambda1(step), lambda2(step), rho(step), alpha(step));
       GLMSolver glm = new GLMSolver(lsms, glmp);
-      GLMModel m = _ms[step] = glm.computeGLM(_ary, createColumns(), null);
-      if( m.is_solved() )        // Solved ?
-        m.validateOn(_ary, null);// Validate...
+      GLMModel m = _ms[step] = glm.xvalidate(_ary, createColumns(),10)[0]; // fixme, it should contain link to crossvalidatoin results and aggreaget info
     }
 
     // Threshold from total progress bar
     final double thresh( int step ) {
       return (double)step/(_ms.length-1);
     }
+
+    // lambda1 from total progress bar
+    final double lambda1(int step){
+      int idx = step/(_lambda2Vec.length*_alphaVec.length*_rhoVec.length);
+      return _lambda1Vec[idx];
+    }
+
+    // lambda2 from total progress bar
+    final double lambda2(int step){
+      int idx = step/(_alphaVec.length*_rhoVec.length);
+      return _lambda2Vec[idx % _lambda2Vec.length];
+    }
+
+ // alpha from total progress bar
+    final double alpha(int step){
+      int idx = step/(_rhoVec.length);
+      return _alphaVec[idx % _alphaVec.length];
+    }
+
+ // rho from total progress bar
+    final double rho(int step){
+      return _rhoVec[step % _rhoVec.length];
+    }
+
     String model_name( int step ) {
-      return "GLMModel_thresh_"+thresh(step);
+      return "GLMModel["+step + "]";
     }
 
 

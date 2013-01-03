@@ -297,7 +297,19 @@ public class RequestBuilders extends RequestQueries {
     /** Returns new done response with given JSON response object.
      */
     public static Response done(JsonObject response) {
+      assert response != null : "Called Response.done with null JSON response - perhaps you should call Response.doneEmpty";
       return new Response(Status.done, response);
+    }
+
+    /** A unique empty response which carries an empty JSON object */
+    public static final Response EMPTY_RESPONSE = Response.done(new JsonObject());
+
+    /** Returns new done empty done response.
+     * Should be called only in cases which does not need json response.
+     * @See {@link HTMLOnlyRequest}
+     */
+    public static Response doneEmpty() {
+      return EMPTY_RESPONSE;
     }
 
     /** Creates the new response with status redirect. This response will be
