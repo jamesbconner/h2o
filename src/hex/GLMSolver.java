@@ -420,28 +420,102 @@ public class GLMSolver {
     return res;
   }
 
-//  public static class GLMXValidation extends Iced{
-//    int _fold;
-//    GLMModel [] _models;
-//    double [][] _errAvg;
-//    double [][] _errVar;
-//
-//    public GLMXValidation(GLMModel [] models) {
-//      _models = models;
-//      int nclasses = _models[0]._vals[0]._cm._arr.length;
-//      _errAvg = new double[nclasses+1][2];
-//      _errVar = new double[nclasses+1][2];
-//      for(int i = 0; i < _models.length; ++i){
-//        for(int c = 0; c < nclasses; ++c){
-//          //double [] cerr = _models[i].
-//        }
-//      }
-//    }
-//
-//    public JsonObject toJson(){
-//      return null;
-//    }
-//  }
+  public static final double DTHRESHOLD_STEP = 0.01;
+  public static final double DTHRESHOLD_LB = 0.01;
+  public static final double DTHRESHOLD_UB = 0.99;
+  public static final int N_THRESHOLD_POINTS = 1 + (int)((DTHRESHOLD_UB - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
+
+  public static int getThresholdIdx(double t){
+    if( 0 > t || t > 1) throw new Error("illegal threshold " + t);
+    if(t <= DTHRESHOLD_LB) return 0;
+    if(t >= DTHRESHOLD_UB) return N_THRESHOLD_POINTS-1;
+    return (int) Math.round((t - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
+  }
+
+  public static double getThresholdValue(int idx){
+    return DTHRESHOLD_LB + idx*DTHRESHOLD_STEP;
+  }
+
+  public static final double DEFAULT_THRESHOLD_VAL = 0.5;
+  public static final int DEFAULT_THRESHOLD_IDX = getThresholdIdx(DEFAULT_THRESHOLD_VAL);
+
+
+  public enum ErrMetric {
+    MAXC,
+    SUMC,
+    TOTAL;
+
+    public double computeErr(ConfusionMatrix cm){
+      double [] cerr = cm.classErr();
+      double res = 0;
+      switch(this){
+      case MAXC:
+         res = cerr[0];
+        for(double d:cerr)if(d > res)res = d;
+        break;
+      case SUMC:
+        for(double d:cerr)res += d;
+        break;
+      case TOTAL:
+        res = cm.err();
+        break;
+      default:
+        throw new Error("unexpected err metric " + this);
+      }
+      return res;
+    }
+
+  }
+
+  public static class GLMXValidation extends Iced{
+    GLMModel [] _models;
+    ConfusionMatrix [] _cm;
+    int _tid;
+    ErrMetric _errMetric;
+
+    public GLMXValidation(GLMModel [] models, ErrMetric m) {
+      _errMetric = m;
+      _models = models;
+      _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
+      for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
+        _cm[t] = _models[0]._vals[0]._cm[t];
+      for(int i = 1; i < _models.length; ++i){
+        for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
+          _cm[t].add(_models[i]._vals[0]._cm[t]);
+      }
+      double err = _errMetric.computeErr(_cm[0]);
+      for(int t = 0; t < N_THRESHOLD_POINTS; ++t){
+        double e = _errMetric.computeErr(_cm[t]);
+        if(e < err){
+          err = e;
+          _tid = t;
+        }
+      }
+    }
+
+    public double errM(){
+      return _errMetric.computeErr(_cm[_tid]);
+    }
+    public LSMSolver lsmSolver(){
+      return _models[0]._solver;
+    }
+
+    public ConfusionMatrix cm() {
+      return _cm[_tid];
+    }
+    public JsonObject toJson(){
+      JsonObject res = new JsonObject();
+      res.add("lsm", _models[0]._solver.toJson());
+      double [] err = _cm[_tid].classErr();
+      JsonArray arr = new JsonArray();
+      for(int i = 0; i < err.length; ++i)
+        arr.add(new JsonPrimitive(err[i]));
+      res.add("err", arr);
+      res.addProperty("threshold", getThresholdValue(_tid));
+      return res;
+    }
+  }
+
   public GLMModel [] xvalidate(ValueArray ary, int [] colIds, int fold) {
     GLMModel [] models = new GLMModel[fold];
     for(int i = 0; i < fold; ++i){
@@ -530,6 +604,7 @@ public class GLMSolver {
   public static final class ConfusionMatrix extends Iced {
     public long [][] _arr;
     long _n;
+    double _threshold;
 
     public ConfusionMatrix(int n){
       _arr = new long[n][n];
@@ -542,13 +617,20 @@ public class GLMSolver {
       _n += c;
     }
 
-    public double [] err(int c){
-      double s1 = 0,s2 = 0;
+    public final double [] classErr(){
+      double [] res = new double[_arr.length];
+      for(int i = 0; i < res.length; ++i)
+        res[i] = classErr(i);
+      return res;
+    }
+    public final int size() {return _arr.length;}
+
+    public final double classErr(int c){
+      double s = 0;
       for(int i = 0; i < _arr.length; ++i){
-        s1 += _arr[i][c];
-        s2 += _arr[c][i];
+        s += _arr[c][i];
       }
-      return new double[]{_arr[c][c]/s1,_arr[c][c]/s2};
+      return (s-_arr[c][c])/s;
     }
 
     public double err(){
@@ -617,10 +699,54 @@ public class GLMSolver {
     public double _deviance;
     public double _nullDeviance;
     public double _err;
-    public ConfusionMatrix _cm;
+    public ConfusionMatrix [] _cm;
+    int _cmid = DEFAULT_THRESHOLD_IDX;
+    double _threshold = DEFAULT_THRESHOLD_VAL;
+    public GLMValidation(){
+    }
 
-    double [] err(int c) {return _cm.err(c);}
-    double err(){return _cm.err();}
+    public ConfusionMatrix getConfusionMatrix(double threshold){
+      return _cm[getThresholdIdx(threshold)];
+    }
+
+    public ConfusionMatrix bestCM(){
+      return bestCM(ErrMetric.SUMC);
+    }
+    public ConfusionMatrix bestCM(ErrMetric errM){
+      computeBestThreshold(errM);
+      return _cm[_cmid];
+    }
+
+    public double bestThreshold() {
+      return _threshold;
+    }
+    public void computeBestThreshold(ErrMetric errM){
+      double e = errM.computeErr(_cm[0]);
+      _cmid = 0;
+      for(int i = 1; i < _cm.length; ++i){
+        double r = errM.computeErr(_cm[i]);
+        if(r < e){
+          e = r;
+          _cmid = i;
+        }
+      }
+      _threshold = getThresholdValue(_cmid);
+    }
+    public void setThreshold(double t){
+      _cmid = getThresholdIdx(t);
+    }
+
+    double [] err(int c) {
+      double [] res = new double[_cm.length];
+      for(int i = 0; i < res.length; ++i)
+        res[i] = _cm[i].classErr(c);
+      return res;
+    }
+
+    double err(int c, int threshold) {
+      return _cm[threshold].classErr(c);
+    }
+
 
     public JsonObject toJson() {
       JsonObject res = new JsonObject();
@@ -632,13 +758,14 @@ public class GLMSolver {
       res.addProperty("resDev", _deviance);
       res.addProperty("nullDev", _nullDeviance);
 
-      if(_cm != null){
-        res.addProperty("err", _cm.err());
-        res.add("cm", _cm.toJson());
+      if(_cm != null) {
+        res.addProperty("err", _cm[_cmid].err());
+        res.add("cm", _cm[_cmid].toJson());
       } else
         res.addProperty("err", _err);
       return res;
     }
+
     public double AIC() {
       return 2*(_beta.length+1) + _deviance;
     }
@@ -651,7 +778,7 @@ public class GLMSolver {
     double _nullDeviance;
     double [] _beta;
     double [] _familyArgs;
-    ConfusionMatrix _cm;
+    ConfusionMatrix [] _cm;
     double _err;
     long _n;
 
@@ -659,8 +786,11 @@ public class GLMSolver {
       super(aryKey,colIds);
     }
     @Override protected void init2() {
-      if(_f == Family.binomial)
-        _cm = new ConfusionMatrix(2);
+      if(_f == Family.binomial) {
+        _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
+        for(int i = 0; i < N_THRESHOLD_POINTS; ++i)
+          _cm[i] = new ConfusionMatrix(2);
+      }
     }
 
     @Override
@@ -676,12 +806,15 @@ public class GLMSolver {
       if( _f == Family.binomial &&
           !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) )
         yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
-
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {
-        ym = ym >= _familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]?1:0;
-        _cm.add((int)yr,(int)ym);
+        double t = DTHRESHOLD_LB;
+        for(int i = 0; i < N_THRESHOLD_POINTS; ++i){
+          int p = ym >= t?1:0;
+          _cm[i].add((int)yr,p);
+          t += DTHRESHOLD_STEP;
+        }
       } else
         _err += (ym - yr)*(ym - yr);
     }
@@ -693,9 +826,10 @@ public class GLMSolver {
       _nullDeviance += other._nullDeviance;
       _deviance += other._deviance;
       _err += other._err;
-      if(_cm != null)
-        _cm.add(other._cm);
-      else
+      if(_cm != null) {
+        for(int i = 0; i < N_THRESHOLD_POINTS; ++i)
+          _cm[i].add(other._cm[i]);
+      } else
         _cm = other._cm;
     }
   }

@@ -1,18 +1,21 @@
 package water.api;
 
 import hex.*;
+import hex.GLMSolver.ErrMetric;
 import hex.GLMSolver.GLMModel;
 import hex.GLMSolver.GLMParams;
+import hex.GLMSolver.GLMXValidation;
 import hex.GLMSolver.Link;
 
-import java.util.BitSet;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.Map.Entry;
 
 import water.*;
 import water.api.RequestArguments.InputText;
 import water.web.RString;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 
 /**
  * @author cliffc
@@ -46,6 +49,10 @@ public class GLMGrid extends Request {
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
   protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
+
+  private static final DecimalFormat dformat = new DecimalFormat("###.###");
+  private static final DecimalFormat sci_dformat = new DecimalFormat("#.#E0");
+
 
 
 
@@ -120,7 +127,7 @@ public class GLMGrid extends Request {
         _task._alphaVec = parsePRange(_alpha.value());
         _task._progress_max = _task._lambda1Vec.length*_task._lambda2Vec.length*_task._rhoVec.length*_task._alphaVec.length;
         if(_task._ms == null || _task._ms.length < _task._progress_max)
-          _task._ms = new GLMModel[_task._progress_max];
+          _task._ms = new GLMXValidation[_task._progress_max];
         _task.start();          // One-shot start the task
       }
 
@@ -142,25 +149,41 @@ public class GLMGrid extends Request {
     public String build(Response response, JsonObject json, String contextName) {
       StringBuilder sb = new StringBuilder();
       int step = _task._progress;
-
+      int nclasses = 2; //TODO
       // Mention something at the top about which model I am currently working on
       RString R = new RString( "<div class='alert alert-%succ'>GLMGrid search on <a href='/Inspect?Key=%key'>%key</a>, %prog</div>");
       R.replace("succ",_task._working ? "warning" : "success");
       R.replace("key" ,_task._ary._key);
       R.replace("prog",_task._working ? "working on "+_task.model_name(step) : "stopped");
       sb.append(R);
-
+      sb.append("<table class='table table-bordered table-condensed'>");
+      sb.append("<tr><th>Model</th><th>&lambda;<sub>1</sub></th><th>&lambda;<sub>2</sub></th><th>&rho;</th><th>&alpha;</th><th>Best Threshold</th>");
+      for(int c = 0; c < nclasses; ++c)
+        sb.append("<th>Err(" + c + ")</th>");
+      sb.append("</tr>");
       // Display all completed models
       for( int i=0; i<step; i++ ) {
+
         String mname = _task.model_name(i);
         JsonElement je = json.get(mname);
         if( je != null ) {
-          sb.append("<h4>").append(mname).append("</h4>");
-          JsonObject tmp = new JsonObject();
-          tmp.add("GLMModel",je);
-          sb.append(new GLM.GLMBuilder(_task._ms[i],null).build(response,tmp,"yoink"));
+          sb.append("<tr>");
+          JsonObject jo = je.getAsJsonObject();
+          JsonObject lsm = jo.get("lsm").getAsJsonObject();
+          sb.append("<td>" + mname + "</td>");
+          sb.append("<td>" + sci_dformat.format(lsm.get("lambda").getAsDouble()) + "</td>");
+          sb.append("<td>" + sci_dformat.format(lsm.get("lambda2").getAsDouble()) + "</td>");
+          sb.append("<td>" + sci_dformat.format(lsm.get("rho").getAsDouble()) + "</td>");
+          sb.append("<td>" + dformat.format(lsm.get("alpha").getAsDouble()) + "</td>");
+          sb.append("<td>" + dformat.format(jo.get("threshold").getAsDouble()) + "</td>");
+          JsonArray arr = jo.get("err").getAsJsonArray();
+          for(JsonElement e:arr)
+            sb.append("<td>" + dformat.format(e.getAsDouble()) + "</td>");
+          sb.append("</tr>");
         }
       }
+      sb.append("</table>");
+
       return sb.toString();
     }
   }
@@ -233,8 +256,9 @@ public class GLMGrid extends Request {
     double [] _rhoVec;
     double [] _alphaVec;
 
-    // Compute 11 threshold GLM models
-    GLMModel _ms[];
+    GLMXValidation _ms[];
+
+    ErrMetric _errM = ErrMetric.SUMC;
 
     // Do a single step (blocking).
     // In this case, run 1 GLM model.
@@ -252,12 +276,7 @@ public class GLMGrid extends Request {
       // Always use elastic-net
       LSMSolver lsms = LSMSolver.makeElasticNetSolver(lambda1(step), lambda2(step), rho(step), alpha(step));
       GLMSolver glm = new GLMSolver(lsms, glmp);
-      GLMModel m = _ms[step] = glm.xvalidate(_ary, createColumns(),10)[0]; // fixme, it should contain link to crossvalidatoin results and aggreaget info
-    }
-
-    // Threshold from total progress bar
-    final double thresh( int step ) {
-      return (double)step/(_ms.length-1);
+      _ms[step] = new GLMXValidation(glm.xvalidate(_ary, createColumns(),10),_errM); // fixme, it should contain link to crossvalidatoin results and aggreaget info
     }
 
     // lambda1 from total progress bar
@@ -303,6 +322,20 @@ public class GLMGrid extends Request {
     // Convert all models to Json (expensive!)
     JsonObject toJson() {
       JsonObject j = super.toJson();
+      // sort models according to their performance
+      Arrays.sort(_ms, new Comparator<GLMXValidation>() {
+        @Override
+        public int compare(GLMXValidation o1, GLMXValidation o2) {
+          if(o1 == null && o2 == null)return 0;
+          if(o1 == null)return -1;
+          if(o2 == null)return 1;
+          double x = o1.errM();
+          double y = o2.errM();
+          if(x > y) return 1;
+          if(x < y) return -1;
+          return 0;
+        }
+      });
       for( int i=0; i<_ms.length; i++ )
         if( _ms[i] != null )
           j.add(model_name(i),_ms[i].toJson());

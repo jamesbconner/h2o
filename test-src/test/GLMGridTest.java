@@ -30,13 +30,13 @@ public class GLMGridTest extends TestUtil {
     // Validate / compute results
     if( m.is_solved() ) {
       m.validateOn(va,null);
-      long[][] arr = m._vals[0]._cm._arr;
+      long[][] arr = m._vals[0].bestCM()._arr;
       System.out.println(", score="+score(m)+Arrays.deepToString(arr));
     }
     return m;
   }
 
-  // An array from 0 to length with increasing int columns, 
+  // An array from 0 to length with increasing int columns,
   // skipping 'skip' and 'class_col'  Add class_col at the end.
   private static void cols( int[] cols, int class_col, int skip ) {
     int i=0, j=0;
@@ -49,7 +49,7 @@ public class GLMGridTest extends TestUtil {
   }
 
   // Which model is better?  Weeny optimization function seeks to minimize the
-  // max error rate per-class.  
+  // max error rate per-class.
   private static boolean better( GLMSolver.GLMModel best, GLMSolver.GLMModel x ) {
     if( best == null || !best.is_solved() ) return true;
     if( x    == null || !x.   is_solved() ) return false;
@@ -58,7 +58,7 @@ public class GLMGridTest extends TestUtil {
 
   // Max of error-rates per-row.  Lower score is better (lower max-error)
   private static double score( GLMSolver.GLMModel m ) {
-    long[][] arr = m._vals[0]._cm._arr;
+    long[][] arr = m._vals[0].bestCM()._arr;
     double err0 = arr[0][1]/(double)(arr[0][0]+arr[0][1]);
     double err1 = arr[1][0]/(double)(arr[1][0]+arr[1][1]);
     return Math.max(err0,err1);
@@ -96,7 +96,7 @@ public class GLMGridTest extends TestUtil {
             System.out.println("Picking better model");
           }
         }
-      }          
+      }
 
       // Pick with 'IDX' removed
       cols(cols,class_col,0);
@@ -105,7 +105,7 @@ public class GLMGridTest extends TestUtil {
       // Schmoo over threshold
       for( double t = 0.0; t<=1.0; t += 0.1 )
         compute_glm_score(va,cols,glmp,lsms,t,"thresh="+t);
-        
+
     } finally {
       UKV.remove(k1);
     }
