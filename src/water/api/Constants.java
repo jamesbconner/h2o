@@ -107,6 +107,11 @@ public class Constants {
   public static final String TOTAL_CONN_OUT        = "total_outgoing_connections";
   public static final String TOTAL_PACKETS_RECV    = "total_received_packets";
   public static final String TOTAL_PACKETS_SENT    = "total_sent_packets";
+  public static final String TREES                 = "trees";
+  public static final String TREE_NUM              = "tree_number";
+  public static final String TREE_COUNT            = "number_built";
+  public static final String TREE_DEPTH            = "depth";
+  public static final String TREE_LEAVES           = "leaves";
   public static final String STACK_TRACES          = "stack_traces";
   public static final String TYPE                  = "type";
   public static final String UDP_BYTES_RECV        = "udp_received" + Suffixes.BYTES;

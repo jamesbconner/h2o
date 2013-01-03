@@ -155,8 +155,8 @@ public class Model extends Iced implements Cloneable {
       _max = Math.max(what, _max);
       ++_count;
     }
-    double avg() { return _total / _count; }
-    @Override public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,avg(),_max); }
+    double mean() { return _total / _count; }
+    @Override public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,mean(),_max); }
   }
 
   /** Return the random seed used to sample this tree. */
