@@ -129,7 +129,6 @@ def runRFOnly(node=None, parseKey=None, trees=5,
             progress = rfView['response']['progress']
             progressTotal = rfView['response']['progress_total']
             treesDone = rfView['trees']['number_built']
-            status = rfView['response']['status']
 
             # want to double check all this because it's new
             # and we had problems with races/doneness before
@@ -149,11 +148,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
             if (status!='done'):
                 print "\nRFView polling. Status: %s. %s trees done of %s desired" % \
                     (status, treesDone, ntree)
-                # detect the special case of all trees done but waiting for CM
-                # progress is trees + 1 (1 for the confusion matrix)
-                # progress_total is desired trees + 1
 
-                # FIX! could check that trees done is always in the correct range?
             return (status=='done')
 
     node.stabilize(
