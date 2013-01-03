@@ -680,7 +680,6 @@ class H2O(object):
                 'ntree' : trees,
                 'model_key' : 'pytest_model',
                 'depth' : 30,
-                'class' : 8,
                 }
         else:
             params_dict = {
