@@ -12,7 +12,7 @@ public class RFView extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
   protected final RFModelKey _modelKey = new RFModelKey(MODEL_KEY);
-  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,CLASS,0);
+  protected final HexKeyClassCol _classCol = new HexKeyClassCol(_dataKey, CLASS);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
   protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
