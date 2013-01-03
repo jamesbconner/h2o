@@ -1,6 +1,4 @@
 package water;
-import java.net.DatagramPacket;
-import java.util.concurrent.Future;
 
 /**
  * Distributed Key/Value Store
@@ -75,7 +73,7 @@ public abstract class DKV {
   // Used to order successive writes.
   static public void write_barrier() {
     for( RPC rpc : RPC.TASKS.values() )
-      if( rpc._dt instanceof TaskPutKey )
+      if( rpc._dt instanceof TaskPutKey || rpc._dt instanceof Atomic )
         rpc.get();
   }
 

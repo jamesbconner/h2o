@@ -13,7 +13,6 @@ import org.apache.poi.hssf.record.*;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import water.DKV;
 import water.Key;
-import water.parser.ParseDataset.DParseTask;
 import water.parser.ValueString;
 
 public class XlsParser extends CustomParser implements HSSFListener {

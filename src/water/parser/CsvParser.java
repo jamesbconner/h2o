@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import water.*;
-import water.parser.ParseDataset.DParseTask;
 import water.parser.ValueString;
 
 public class CsvParser extends CustomParser {
