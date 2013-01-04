@@ -159,11 +159,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
         if(o1 == null && o2 == null)return 0;
         if(o1 == null)return 1; // drive the nulls to the end
         if(o2 == null)return -1;
-        double x = o1.errM();
-        double y = o2.errM();
-        if(x > y) return 1;
-        if(x < y) return -1;
-        return 0;
+        return o1.compareTo(o2);
       }
     });
     final GLMXValidation [] models = _ms;

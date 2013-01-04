@@ -477,11 +477,13 @@ public class GLMSolver {
 
   }
 
-  public static class GLMXValidation extends Iced{
+  public static class GLMXValidation extends Iced implements Comparable<GLMXValidation>{
     GLMModel [] _models;
     ConfusionMatrix [] _cm;
     int _tid;
     ErrMetric _errMetric;
+    boolean _compareByAUC = true;
+    double _auc;
 
     public GLMXValidation(GLMModel [] models, ErrMetric m) {
       _errMetric = m;
@@ -501,6 +503,7 @@ public class GLMSolver {
           _tid = t;
         }
       }
+      computeAUC();
     }
 
     public double bestThreshold() {
@@ -512,6 +515,38 @@ public class GLMSolver {
     public double [] classError() {
       return _cm[_tid].classErr();
     }
+
+    private double trapeziod_area(double x1, double x2, double y1, double y2){
+      double base = Math.abs(x1-x2);
+      double havg = 0.5*(y1 + y2);
+      return base*havg;
+    }
+
+    public double AUC(){
+      return _auc;
+    }
+    /**
+     * Computes area under the ROC curve.
+     * The ROC curve is computed from the confusion matrices (there is one for each computed threshold).
+     * Area under this curve is then computed as a sum of areas of trapezoids formed by each neighboring points.
+     *
+     * @return estimate of the area under ROC curve of this classifier.
+     */
+    private void computeAUC() {
+      _auc = 0;
+      double TP_pre = 1;
+      double FP_pre = 1;
+
+      for(int t = 0; t < _cm.length; ++t){
+        double TP = 1 - _cm[t].classErr(1);
+        double FP = _cm[t].classErr(0);
+        _auc += trapeziod_area(FP_pre, FP, TP_pre, TP);
+        TP_pre = TP;
+        FP_pre = FP;
+      }
+      _auc += trapeziod_area(FP_pre, 0, TP_pre, 0);
+    }
+
     public double errM(){
       return _errMetric.computeErr(_cm[_tid]);
     }
@@ -532,6 +567,21 @@ public class GLMSolver {
       res.add("err", arr);
       res.addProperty("threshold", getThresholdValue(_tid));
       return res;
+    }
+
+    @Override
+    public int compareTo(GLMXValidation o) {
+      double x,y;
+      if(_compareByAUC){
+        x = -AUC();
+        y = -o.AUC();
+      } else {
+        x = _errMetric.computeErr(_cm[_tid]);
+        y = _errMetric.computeErr(o._cm[o._tid]);
+      }
+      if(x < y)return -1;
+      if(x > y) return 1;
+      return 0;
     }
   }
 
@@ -644,6 +694,12 @@ public class GLMSolver {
     }
     public final int size() {return _arr.length;}
 
+    public int classN(int c){
+      int s = 0;
+      for(int j = 0; j < _arr.length; ++j)
+        s += _arr[c][j];
+      return s;
+    }
     public final double classErr(int c){
       double s = 0;
       for(int i = 0; i < _arr.length; ++i){
