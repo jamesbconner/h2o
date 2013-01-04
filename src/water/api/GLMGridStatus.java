@@ -73,26 +73,38 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
         final GLMModel m = do_task(l1,0,0,0,t); // Do a step; get a model
 
         // Now update this Status. 
-        final int l1f = l1;
-        final int tf = t;
-        new TAtomic<GLMGridStatus>() {
-          @Override public GLMGridStatus atomic(GLMGridStatus old) {
-            old._ms[l1f][tf] = m; old._progress++; return old; }
-          @Override public GLMGridStatus alloc() { return new GLMGridStatus(); }
-        }.invoke(_taskey);
+        update(_taskey,m,l1,t);
         // Fetch over the 'this' all new bits.  Mostly witness updates to
         // _progress and _stop fields.
         UKV.get(_taskey,this);
       }
 
     // Update _working to 'false' - we have stopped working
-    new TAtomic<GLMGridStatus>() {
-      @Override public GLMGridStatus atomic(GLMGridStatus old) {
-        old._working = false; return old; }
-      @Override public GLMGridStatus alloc() { return new GLMGridStatus(); }
-    }.invoke(_taskey);
+    set_working(_taskey,false);
 
     tryComplete();            // This task is done
+  }
+
+  // Update status for a new model.  In a static function, to avoid closing
+  // over the 'this' pointer of a GLMGridStatus and thus serializing it as part
+  // of the atomic update.
+  static void update( Key taskey, final GLMModel m, final int l1, final int t) {
+    new TAtomic<GLMGridStatus>() {
+      @Override public GLMGridStatus atomic(GLMGridStatus old) {
+        old._ms[l1][t] = m; old._progress++; return old; }
+      @Override public GLMGridStatus alloc() { return new GLMGridStatus(); }
+    }.invoke(taskey);
+  }
+
+  // Update the _working field atomically.  In a static function, to avoid
+  // closing over the 'this' pointer of a GLMGridStatus and thus serializing it
+  // as part of the atomic update.
+  static void set_working( Key taskey, final boolean working) {
+    new TAtomic<GLMGridStatus>() {
+      @Override public GLMGridStatus atomic(GLMGridStatus old) {
+        old._working = working; return old; }
+      @Override public GLMGridStatus alloc() { return new GLMGridStatus(); }
+    }.invoke(taskey);
   }
 
   // ---
