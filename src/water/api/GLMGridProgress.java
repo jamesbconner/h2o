@@ -62,7 +62,7 @@ public class GLMGridProgress extends Request {
         String mname = _status.model_name(i++);
         LSMSolver lsm = m.lsmSolver();
         sb.append("<tr>");
-        sb.append("<td>" + "Model[" + i++ + "]"  + "</td>");
+        sb.append("<td>" + mname + "</td>");
         sb.append("<td>" + sci_dformat.format(lsm._lambda) + "</td>");
         sb.append("<td>" + sci_dformat.format(lsm._lambda2) + "</td>");
         sb.append("<td>" + sci_dformat.format(lsm._rho) + "</td>");
