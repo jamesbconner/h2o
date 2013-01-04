@@ -1,13 +1,7 @@
 
 package water.api;
 
-import com.google.gson.JsonObject;
-
 public class PutFile extends HTMLOnlyRequest {
-  @Override protected Response serve() {
-    return Response.done(new JsonObject()); // return empty response
-  }
-
   protected String build(Response response) {
     return "<script type='text/javascript' src='jquery.fileupload/js/vendor/jquery.ui.widget.js'></script>"
     + "<script type='text/javascript' src='jquery.fileupload/js/jquery.iframe-transport.js'></script>"

@@ -19,15 +19,15 @@ public class ExprTest extends TestUtil {
       kg = Key.make("g");
       ValueArray va2 = ValueArray.value(kg);
       ValueArray.Column col = va2._cols[2];
-      assertEquals(col._domain,new String[]{"3.0","4.0","5.0","6.0","8.0"});
+      assertEquals(col._domain,new String[]{"3","4","5","6","8"});
       k3 = executeExpression("i=colSwap(h.hex,2,h.hex[2]==3?1:0)");
       ki = Key.make("i");
     } finally {
-      UKV.remove(kg);
-      UKV.remove(k1);
-      UKV.remove(k2);
-      UKV.remove(k3);
-      UKV.remove(ki);
+      if( k1 != null ) UKV.remove(k1);
+      if( k2 != null ) UKV.remove(k2);
+      if( kg != null ) UKV.remove(kg);
+      if( k3 != null ) UKV.remove(k3);
+      if( ki != null ) UKV.remove(ki);
     }
   }
 

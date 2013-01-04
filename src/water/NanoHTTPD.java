@@ -201,8 +201,7 @@ public class NanoHTTPD
    * Throws an IOException if the socket is already in use
    */
   public NanoHTTPD( ServerSocket socket, File wwwroot ) throws IOException {
-    myTcpPort = socket.getLocalPort();
-    this.myRootDir = wwwroot;
+    myRootDir = wwwroot;
     myServerSocket = socket;
     myServerSocket.setReuseAddress(true);
     myThread = new Thread(new Runnable() {
@@ -272,7 +271,7 @@ public class NanoHTTPD
   private class HTTPSession implements Runnable {
     public HTTPSession( Socket s ) {
       mySocket = s;
-      Thread t = new Thread( this );
+      Thread t = new Thread( this, "NanoHTTPD Session" );
       t.setDaemon( true );
       t.setPriority(Thread.MAX_PRIORITY-1);
       t.start();
@@ -762,7 +761,6 @@ public class NanoHTTPD
     return newUri;
   }
 
-  private int myTcpPort;
   private final ServerSocket myServerSocket;
   private Thread myThread;
   private File myRootDir;

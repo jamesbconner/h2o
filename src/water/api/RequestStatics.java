@@ -39,7 +39,6 @@ public class RequestStatics extends Constants {
     json(".json"), ///< json type request, a result is a JSON structure
     www(".html"), ///< webpage request
     help(".help"), ///< should display the help on the given request
-    wiki(".wiki"), ///< displays the help for the given request in a markup for wiki
     query(".query"), ///< Displays the query for the argument in html mode
     debug(".debug"), ///< Displays the webpage without query
     ;
@@ -59,8 +58,6 @@ public class RequestStatics extends Constants {
         return www;
       if (requestUrl.endsWith(help._suffix))
         return help;
-      if (requestUrl.endsWith(wiki._suffix))
-        return wiki;
       if (requestUrl.endsWith(query._suffix))
         return query;
       if (requestUrl.endsWith(debug._suffix))

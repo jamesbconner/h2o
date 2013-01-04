@@ -538,7 +538,10 @@ class MakeEnum extends Function {
       Column c = ary._cols[_colIndex];
       final int rowsInChunk = ary.rpc(ValueArray.getChunkIndex(key));
       for (int i = 0; i < rowsInChunk; ++i)
-        _domain.addKey(String.valueOf(ary.datad(bits,i,c)));
+        if( !ary.isNA(bits,i,c) )
+          _domain.addKey(c._size < 0 // double or int string conversion?
+                         ? String.valueOf(ary.datad(bits,i,c))   // double conversion
+                         : String.valueOf(ary.data (bits,i,c))); // int conversion
     }
 
     @Override public void reduce(DRemoteTask drt) {
@@ -578,10 +581,17 @@ class MakeEnum extends Function {
       AutoBuffer bits = new AutoBuffer(chunkRows * size);
       for( int i = 0; i < chunkRows; i++ ) {
         source.next();
-        int id = _domain.getTokenId(String.valueOf(source.datad()));
-        _tot += id;
-        // we do not expect any misses here
-        assert 0 <= id && id < _domain.size();
+        int id;
+        if( source.isNA() ) {
+          id = -1;              // Default miss value for enums
+        } else {
+          String s = source.defaultColumn()._size < 0 // double or int string conversion?
+            ? String.valueOf(source.datad())          // double conversion
+            : String.valueOf(source.data ());         // int conversion
+          id = _domain.getTokenId(s);
+          assert 0 <= id && id < _domain.size(); // we do not expect any misses here
+          _tot += id;
+        }
         if( size == 1 ) bits.put1(       id);
         else            bits.put2((short)id);
       }
@@ -627,6 +637,7 @@ class MakeEnum extends Function {
       c._size = (domainStr.length < 255) ? (byte)1 : (byte)2;
       c._name = oldCol._name;
       c._off = 0;
+      c._n = oldCol._n;
       // create the temporary result and VA
       Result result = Result.temporary();
       ValueArray ary = new ValueArray(result._key, oldAry.numRows(), c._size, new Column[] { c });
@@ -635,7 +646,7 @@ class MakeEnum extends Function {
       PackToEnumTask ptask = new PackToEnumTask(result._key, args[0]._key, args[0].colIndex(),etask._domain);
       ptask.invoke(result._key);
       // update the mean
-      c._mean = ptask._tot / oldAry.numRows();
+      c._mean = ptask._tot / c._n;
       ary = new ValueArray(result._key, oldAry.numRows(), c._size, new Column[] { c });
       DKV.put(result._key, ary.value());
       return result;

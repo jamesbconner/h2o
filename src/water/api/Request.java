@@ -3,6 +3,7 @@ package water.api;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import init.Boot;
 import java.io.InputStream;
@@ -25,9 +26,7 @@ public abstract class Request extends RequestBuilders {
   public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     switch (type) {
       case help:
-        return wrap(server,serveHelp());
-      case wiki:
-        return wrap(server,serveWiki());
+        return wrap(server, build(Response.done(serveHelp())));
       case json:
       case www:
         String query = checkArguments(args, type);
@@ -50,23 +49,16 @@ public abstract class Request extends RequestBuilders {
     }
   }
 
-  protected String serveHelp() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("<div class='container'>");
-    sb.append("<div class='row-fluid'>");
-    sb.append("<div class='span12'>");
-    String requestName = getClass().getSimpleName();
-    sb.append("<h3>"+requestName+"</h3>");
-    if (_requestHelp != null)
-      sb.append("<p>"+_requestHelp+"</p>");
-    for (Argument arg : _arguments)
-      sb.append(arg.requestHelp());
-    sb.append("</div></div></div>");
-    return sb.toString();
-  }
-
-  protected String serveWiki() {
-    return "WIKI NOT IMPLEMENTED YET";
+  protected JsonObject serveHelp() {
+    JsonObject r = new JsonObject();
+    r.addProperty(NAME, getClass().getSimpleName());
+    r.addProperty(DESCRIPTION, _requestHelp);
+    JsonArray args = new JsonArray();
+    for( Argument arg : _arguments ) {
+      args.add(arg.requestHelp());
+    }
+    r.add(ARGUMENTS, args);
+    return r;
   }
 
   protected NanoHTTPD.Response wrap(NanoHTTPD server, String response) {

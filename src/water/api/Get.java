@@ -11,34 +11,16 @@ public class Get extends Request {
   protected H2OExistingKey _key = new H2OExistingKey(KEY);
 
   @Override public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
-    switch (type) {
-      case help:
-        return wrap(server,serveHelp());
-      case wiki:
-        return wrap(server,serveWiki());
-      case json:
-        JsonObject resp = new JsonObject();
-        resp.addProperty(ERROR,"This request is only provided for browser connections");
-        return wrap(server, resp);
-      case www:
-        String query = checkArguments(args, type);
-        if (query != null)
-          return wrap(server,query,type);
-        // do the get
-        return serve(server);
-      case query:
-        query = checkArguments(args, type);
-        return wrap(server,query);
-      default:
-        throw new RuntimeException("Invalid request type "+type.toString());
+    if( type == RequestType.json ) {
+      JsonObject resp = new JsonObject();
+      resp.addProperty(ERROR,"This request is only provided for browser connections");
+      return wrap(server, resp);
+    } else if( type != RequestType.www ) {
+      return super.serve(server, args, type);
     }
-  }
 
-  @Override protected Response serve() {
-    throw new Error("NOT IMPLEMENTED YET");
-  }
-
-  protected NanoHTTPD.Response serve(NanoHTTPD server) {
+    String query = checkArguments(args, type);
+    if (query != null) return wrap(server,query,type);
     try {
       Value val = _key.value();
       Key key = val._key;
@@ -52,5 +34,9 @@ public class Get extends Request {
     } catch (Exception e) {
       return wrap(server,build(Response.error(e.getMessage())));
     }
+  }
+
+  @Override protected Response serve() {
+    throw new Error("Get should not be called from this context");
   }
 }

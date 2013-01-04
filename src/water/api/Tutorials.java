@@ -1,14 +1,9 @@
-/**
- *
- */
 package water.api;
-
 
 /**
  * Summary page referencing all tutorials.
  *
  * @author michal
- *
  */
 public class Tutorials extends HTMLOnlyRequest {
 

@@ -62,7 +62,7 @@ public class ValueArray extends Iced {
   public ValueArray(Key key, long len, byte persist ) { this(key,len,1,new Column[]{new Column(len)},persist); }
 
   // Variable-sized chunks.  Pass in the number of whole rows in each chunk.
-  public ValueArray(Key key, int[] rows, int rowsize, Column[] cols, byte persist ) { 
+  public ValueArray(Key key, int[] rows, int rowsize, Column[] cols, byte persist ) {
     assert rowsize > 0;
     _rowsize = rowsize;
     _cols = cols;
@@ -168,7 +168,7 @@ public class ValueArray extends Iced {
   /** Chunk number containing a row */
   private long chknum( long rownum ) {
     int rpc = (int)(CHUNK_SZ/_rowsize);
-    return ( _rpc != null ) 
+    return ( _rpc != null )
       ? Math.abs(Arrays.binarySearch(_rpc,rownum))
       : Math.min(rownum/rpc,Math.max(1,_numrows/rpc)-1);
   }
@@ -200,7 +200,7 @@ public class ValueArray extends Iced {
 
   // Get a usable pile-o-bits
   public AutoBuffer getChunk( long chknum ) { return getChunk(getChunkKey(chknum)); }
-  public AutoBuffer getChunk( Key key ) { 
+  public AutoBuffer getChunk( Key key ) {
     byte[] b = DKV.get(key).get();
     assert b.length == rpc(getChunkIndex(key))*_rowsize : "actual="+b.length+" expected="+rpc(getChunkIndex(key))*_rowsize;
     return new AutoBuffer(b);
@@ -260,7 +260,6 @@ public class ValueArray extends Iced {
     assert col._scale==1;
     return (res + col._base);
   }
-
 
   // Test if the value is valid, or was missing in the orginal dataset
   public boolean isNA(long rownum, int colnum) {
