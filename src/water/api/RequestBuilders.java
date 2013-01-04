@@ -314,7 +314,7 @@ public class RequestBuilders extends RequestQueries {
 
     /** Creates the new response with status redirect. This response will be
      * redirected to another request specified by redirectRequest with the
-     * redirection arguments provided in rediredtArgs.
+     * redirection arguments provided in redirectArgs.
      */
     public static Response redirect(JsonObject response,
         Class<? extends Request> req, JsonObject args) {
