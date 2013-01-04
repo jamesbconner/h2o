@@ -33,11 +33,9 @@ public final class ParseDataset {
   // Parse the dataset (uncompressed, zippped) as a CSV-style thingy and produce a structured dataset as a
   // result.
   private static void parseImpl( Key result, Value dataset ) {
-    if( dataset._isArray != 0 ) {
-      ValueArray ary = ValueArray.value(dataset);
-      if( ary._cols.length > 1 || ary._cols[0]._size != 1 )
-        throw new IllegalArgumentException("This is a binary structured dataset; parse() only works on text files.");
-    }
+    if( dataset.isHex() )
+      throw new IllegalArgumentException("This is a binary structured dataset; "
+          + "parse() only works on text files.");
     try {
       // try if it is XLS file first
       try {

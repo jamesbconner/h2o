@@ -45,9 +45,8 @@ public class Inspect extends Request {
 
   @Override protected Response serve() {
     Value val = _key.value();
-    if( val._key.toString().endsWith(".hex") ) {
-      ValueArray va = ValueArray.value(val);
-      return serveValueArray(va);
+    if( val.isHex() ) {
+      return serveValueArray(ValueArray.value(val));
     }
     return serveUnparsedValue(val);
   }

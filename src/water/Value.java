@@ -446,6 +446,15 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     }
   }
 
+  public boolean isHex() {
+    if( _isArray != 1 ) return false;
+    ValueArray va = ValueArray.value(this);
+    if( va._cols == null || va._cols.length == 0 ) return false;
+    if( va._cols.length > 1 ) return true;
+    if( va._cols[0]._size != 1 ) return true;
+    return _key.toString().endsWith(".hex");
+  }
+
   // Return true if blocking is unnecessary.
   // Alas, used in TWO places and the blocking API forces them to share here.
   public boolean isReleasable() {
