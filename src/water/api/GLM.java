@@ -274,7 +274,7 @@ public class GLM extends Request {
       sb.append(coefsHTML(coefs));
       if( m._vals != null )     // Confusion matrix
         for( GLMValidation val : m._vals )
-          confusionHTML(val._cm,sb);
+          confusionHTML(val.bestCM(),sb);
     }
 
     private static final DecimalFormat dformat = new DecimalFormat("###.####");
@@ -386,12 +386,12 @@ public class GLM extends Request {
         R.replace("resDev",val._deviance);
         R.replace("AIC", dformat.format(val.AIC()));
         if( val._cm != null ) {
-          R.replace("err",val._cm.err());
+          R.replace("err",val.bestCM().err());
         } else {
           R.replace("err",val._err);
         }
         sb.append(R);
-        confusionHTML(val._cm,sb);
+        confusionHTML(val.bestCM(),sb);
       }
     }
 

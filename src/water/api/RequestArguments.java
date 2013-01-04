@@ -1,4 +1,3 @@
-
 package water.api;
 
 import hex.rf.Model;
