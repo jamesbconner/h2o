@@ -17,13 +17,12 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     for i in range(rowCount):
         rowData = []
         rowTotal = 0
-        # -1 because we're copying the output col down below
-        for j in range(colCount-1):
+        for j in range(colCount):
             # fails with just randint 0,1
             # r = r1.randint(0,1)
             # ri1 = r1.randint(0,1)
             # ri1 = int(r1.randint(0,3))
-            ri1 = int(r1.triangular(0,4,3.5))
+            ri1 = int(r1.triangular(0,2,1.5))
             # ri2 = r2.randint(0,20)
             # no NA
             ri2 = 1
@@ -39,7 +38,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             rowTotal += rs
 
         # sum the row, and make output 1 if > (5 * rowCount)
-        if (rowTotal > (2 * colCount)): 
+        if (rowTotal > (.7 * colCount)): 
             result = 1
         else:
             result = 0
@@ -54,48 +53,26 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
 
 
-if h2o.new_json:
-    paramDict = {
-        # 'key': ['cA'],
-        # 'y': [11],
-        'family': ['binomial'],
-        # 'norm': ['ELASTIC'],
-        'norm': ['L2'],
-        'lambda_1': [1.0E-5],
-        'lambda_2': [1.0E-8],
-        'alpha': [1.0],
-        'rho': [0.01],
-        'max_iter': [50],
-        'weight': [1.0],
-        'threshold': [0.5],
-        # 'case': [NaN],
-        'case': [None],
-        # 'link': [familyDefault],
-        'xval': [1],
-        'expand_cat': [1],
-        'beta_eps': [1.0E-4],
-        }
-else: 
-    paramDict = {
-        # 'key': ['cA'],
-        # 'Y': [11],
-        'family': ['binomial'],
-        # 'norm': ['ELASTIC'],
-        'norm': ['L2'],
-        'lambda_1': [1.0E-5],
-        'lambda_2': [1.0E-8],
-        'alpha': [1.0],
-        'rho': [0.01],
-        'max_iter': [50],
-        'weight': [1.0],
-        'threshold': [0.5],
-        # 'case': [NaN],
-        'case': [None],
-        # 'link': [familyDefault],
-        'xval': [1],
-        'expand_cat': [1],
-        'beta_eps': [1.0E-4],
-        }
+paramDict = {
+    # 'key': ['cA'],
+    'y': [11],
+    'family': ['binomial'],
+    # 'norm': ['ELASTIC'],
+    'norm': ['L2'],
+    'lambda_1': [1.0E-5],
+    'lambda_2': [1.0E-8],
+    'alpha': [1.0],
+    'rho': [0.01],
+    'max_iter': [50],
+    'weight': [1.0],
+    'threshold': [0.5],
+    # 'case': [NaN],
+    'case': [None],
+    # 'link': [familyDefault],
+    'xval': [1],
+    'expand_cat': [1],
+    'beta_eps': [1.0E-4],
+    }
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -124,29 +101,23 @@ class Basic(unittest.TestCase):
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
-        if h2o.new_json:
-            tryList = [
-                (10000,  10, 'cA', 300),
-                ]
-
-        else:
-            tryList = [
-                (10000,  10, 'cA', 300),
-                (10000,  20, 'cB', 300),
-                (10000,  30, 'cC', 300),
-                (10000,  40, 'cD', 300),
-                (10000,  50, 'cE', 300),
-                (10000,  60, 'cF', 300),
-                (10000,  70, 'cG', 300),
-                (10000,  80, 'cH', 300),
-                (10000,  90, 'cI', 300),
-                (10000, 100, 'cJ', 300),
-                (10000, 200, 'cK', 300),
-                (10000, 300, 'cL', 300),
-                (10000, 400, 'cM', 300),
-                (10000, 500, 'cN', 300),
-                (10000, 600, 'cO', 300),
-                ]
+        tryList = [
+            (10000,  10, 'cA', 300),
+            (10000,  20, 'cB', 300),
+            (10000,  30, 'cC', 300),
+            (10000,  40, 'cD', 300),
+            (10000,  50, 'cE', 300),
+            (10000,  60, 'cF', 300),
+            (10000,  70, 'cG', 300),
+            (10000,  80, 'cH', 300),
+            (10000,  90, 'cI', 300),
+            (10000, 100, 'cJ', 300),
+            (10000, 200, 'cK', 300),
+            (10000, 300, 'cL', 300),
+            (10000, 400, 'cM', 300),
+            (10000, 500, 'cN', 300),
+            (10000, 600, 'cO', 300),
+            ]
 
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
