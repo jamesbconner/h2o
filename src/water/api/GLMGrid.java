@@ -3,13 +3,9 @@ package water.api;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import hex.*;
-import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.GLMParams;
-import hex.GLMSolver.Link;
-import java.util.BitSet;
+import hex.GLMSolver.*;
 import java.util.UUID;
 import water.*;
-import water.api.RequestArguments.InputText;
 import water.web.RString;
 
 /**

@@ -1,7 +1,5 @@
 package water;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 
 /**
  * User-View Key/Value Store
@@ -85,6 +83,6 @@ public abstract class UKV {
   public static <T extends Freezable> T get(Key k, T t) {
     Value v = UKV.get(k);
     if( v == null ) return null;
-    return t.read(new AutoBuffer(v.get()));
+    return v.get(t);
   }
 }

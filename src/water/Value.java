@@ -1,7 +1,7 @@
 package water;
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
+
 import jsr166y.ForkJoinPool;
 import water.hdfs.PersistHdfs;
 
@@ -35,6 +35,10 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   // explicit PUT action).
   protected volatile byte[] _mem;
   public final byte[] mem() { return _mem; }
+
+  public final <T extends Freezable> T get(T t) {
+    return t.read(new AutoBuffer(get()));
+  }
 
   // The FAST path get-byte-array - final method for speed.
   // Returns a NULL if the Value is deleted already.
