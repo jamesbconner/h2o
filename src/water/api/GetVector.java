@@ -32,12 +32,10 @@ public class GetVector extends JSONOnlyRequest {
         cols[i] = new JsonArray();
       for (int j = 0; j < maxRows; ++j) {
         iter.next();
-        for (int i = 0 ; i < cols.length; ++i) {
-          if (iter.isValid(i))
-            cols[i].add(new JsonPrimitive(String.valueOf(iter.datad(i))));
-          else
-            cols[i].add(new JsonPrimitive("NaN"));
-        }
+        for (int i = 0 ; i < cols.length; ++i)
+          cols[i].add( iter.isNA(i)
+                       ? new JsonPrimitive("NaN")
+                       : new JsonPrimitive(String.valueOf(iter.datad(i))));
       }
       for (int i = 0; i < cols.length; ++i) {
         JsonObject col = new JsonObject();

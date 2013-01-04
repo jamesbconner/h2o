@@ -104,21 +104,12 @@ public final class VAIterator implements Iterator<VAIterator> {
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
-  public long data() {
-    return _ary.data(_chunkBits, _rowInChunk, _defaultCol);
-  }
-
-  public long data(int column) {
-    return _ary.data(_chunkBits,_rowInChunk,column);
-  }
-
-  public double datad() {
-    return _ary.datad(_chunkBits, _rowInChunk, _defaultCol);
-  }
-
-  public double datad(int column) {
-    return _ary.datad(_chunkBits, _rowInChunk, column);
-  }
+  public long    data () { return _ary.data (_chunkBits, _rowInChunk, _defaultCol); }
+  public double  datad() { return _ary.datad(_chunkBits, _rowInChunk, _defaultCol); }
+  public boolean isNA () { return _ary.isNA (_chunkBits, _rowInChunk, _defaultCol); }
+  public long    data (int column) { return _ary.data (_chunkBits,_rowInChunk,column); }
+  public double  datad(int column) { return _ary.datad(_chunkBits,_rowInChunk,column); }
+  public boolean isNA (int column) { return _ary.isNA (_chunkBits,_rowInChunk,column); }
 
   public int copyCurrentRow(AutoBuffer bits, int offset) {
     bits.copyArrayFrom(offset, _chunkBits, _rowInChunk*_rowSize, _rowSize);
@@ -129,14 +120,4 @@ public final class VAIterator implements Iterator<VAIterator> {
     dest.copyArrayFrom(offset, _chunkBits, _rowInChunk*_rowSize+rowStart, rowEnd-rowStart);
     return rowEnd - rowStart + offset;
   }
-
-  public boolean isValid(int column) {
-    return !_ary.isNA(_chunkBits, _rowInChunk, column);
-  }
-
-  public boolean isValid() {
-    return !_ary.isNA(_chunkBits, _rowInChunk, _defaultCol);
-  }
-
-
 }
