@@ -11,11 +11,14 @@ public class Get extends Request {
   protected H2OExistingKey _key = new H2OExistingKey(KEY);
 
   @Override public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
-    if( type != RequestType.www ) {
-        JsonObject resp = new JsonObject();
-        resp.addProperty(ERROR,"This request is only provided for browser connections");
-        return wrap(server, resp);
+    if( type == RequestType.json ) {
+      JsonObject resp = new JsonObject();
+      resp.addProperty(ERROR,"This request is only provided for browser connections");
+      return wrap(server, resp);
+    } else if( type != RequestType.www ) {
+      return super.serve(server, args, type);
     }
+
     String query = checkArguments(args, type);
     if (query != null) return wrap(server,query,type);
     try {
