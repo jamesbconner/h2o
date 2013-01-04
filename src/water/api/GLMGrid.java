@@ -1,12 +1,14 @@
 package water.api;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import hex.*;
-import hex.GLMSolver.*;
+import hex.GLMSolver.Link;
+
 import java.util.UUID;
+
 import water.*;
 import water.web.RString;
+
+import com.google.gson.JsonObject;
 
 /**
  * @author cliffc
@@ -14,7 +16,6 @@ import water.web.RString;
 public class GLMGrid extends Request {
   public static final String JSON_GLM_Y = "y";
   public static final String JSON_GLM_X = "x";
-  public static final String JSON_GLM_NEG_X = "neg_x";
   public static final String JSON_GLM_FAMILY = "family";
   public static final String JSON_GLM_NORM = "norm";
   public static final String JSON_GLM_LAMBDA = "lambda_1";
@@ -24,7 +25,7 @@ public class GLMGrid extends Request {
   public static final String JSON_GLM_MAX_ITER = "max_iter";
   public static final String JSON_GLM_BETA_EPS = "beta_eps";
   public static final String JSON_GLM_WEIGHT = "weight";
-  public static final String JSON_GLM_THRESHOLD = "threshold";
+
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
   public static final String JSON_GLM_LINK = "link";
@@ -53,7 +54,6 @@ public class GLMGrid extends Request {
   protected final Str _lambda2 = new Str(JSON_GLM_LAMBDA_2, ""+LSMSolver.DEFAULT_LAMBDA2);
   protected final Str _alpha = new Str(JSON_GLM_ALPHA, ""+LSMSolver.DEFAULT_ALPHA);
   protected final Str _rho = new Str(JSON_GLM_RHO, ""+LSMSolver.DEFAULT_RHO);
-  protected final Str _threshold = new Str(JSON_GLM_THRESHOLD, ""+0.5);
 
 
   // ---
@@ -63,7 +63,7 @@ public class GLMGrid extends Request {
     // shutdown early, to collect best-so-far & grid results, etc.  Pinned to
     // self, because it's almost always updated locally.
     Key taskey = Key.make("Task"+UUID.randomUUID().toString(),(byte)0,Key.TASK,H2O.SELF);
-    GLMGridStatus task = 
+    GLMGridStatus task =
       new GLMGridStatus(taskey,       // Self/status/task key
                         _key.value(), // Hex data
                         _y.value(),   // Column to classify
@@ -71,8 +71,7 @@ public class GLMGrid extends Request {
                         parsePRange( true, _lambda1.value()),   // Grid ranges
                         parsePRange( true, _lambda2.value()),   // Grid ranges
                         parsePRange( true, _rho.value()),       // Grid ranges
-                        parsePRange( true, _alpha.value()),     // Grid ranges
-                        parsePRange(false, _threshold.value()));// Grid ranges
+                        parsePRange( true, _alpha.value()));     // Grid ranges
 
     // Put the task Out There for all to find
     UKV.put(taskey,task);
@@ -103,7 +102,7 @@ public class GLMGrid extends Request {
       if(to == from) return new double[]{from};
       if(to < from)throw new Error("");
       if(step == 0)throw new Error();
-      int n = multiply 
+      int n = multiply
         ? (int)((Math.log(to) - Math.log(from))/Math.log(step))
         : (int)((         to  -          from )/         step );
       double [] res = new double[n];

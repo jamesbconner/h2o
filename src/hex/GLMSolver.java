@@ -493,6 +493,13 @@ public class GLMSolver {
       }
     }
 
+    public double bestThreshold() {
+      return getThresholdValue(_tid);
+    }
+
+    public double [] classError() {
+      return _cm[_tid].classErr();
+    }
     public double errM(){
       return _errMetric.computeErr(_cm[_tid]);
     }
@@ -551,7 +558,7 @@ public class GLMSolver {
       double w = 1;
       // For binomials over enum response variables, allow one case to be
       // "success" and all other cases to be "fails".
-      if( _family == Family.binomial && 
+      if( _family == Family.binomial &&
           !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) ) {
         if( _familyArgs[FAMILY_ARGS_CASE] == y ) {
           y = 1.0;              // Success case; map to 1

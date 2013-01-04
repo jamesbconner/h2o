@@ -34,7 +34,9 @@ public class GLMGridProgress extends Request {
 
   private class GridBuilder extends ElementBuilder {
     final GLMGridStatus _status;
-    GridBuilder( GLMGridStatus s ) { _status = s; }
+    GridBuilder( GLMGridStatus s ) {
+      _status = s;
+    }
     @Override
     public String build(Response response, JsonElement json, String contextName) {
       StringBuilder sb = new StringBuilder();
@@ -53,24 +55,22 @@ public class GLMGridProgress extends Request {
       for(int c = 0; c < nclasses; ++c)
         sb.append("<th>Err(" + c + ")</th>");
       sb.append("</tr>");
-      
+
       // Display all completed models
       int i=0;
-      for( int l1=0; l1<_status._lambda1s.length; l1++ ) {
-        for( int t=0; t<_status._threshes.length; t++ ) {
-          GLMModel m = _status._ms[l1][t];
-          if( m == null ) break;
-          String mname = _status.model_name(i++);
-          LSMSolver lsm = m._solver;
-          sb.append("<tr>");
-          sb.append("<td>" + mname + "</td>");
-          sb.append("<td>" + sci_dformat.format(lsm._lambda) + "</td>");
-          sb.append("<td>" + sci_dformat.format(lsm._lambda2) + "</td>");
-          sb.append("<td>" + sci_dformat.format(lsm._rho) + "</td>");
-          sb.append("<td>" + dformat.format(lsm._alpha) + "</td>");
-          sb.append("<td>" + dformat.format(m._glmParams._familyArgs[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD]) + "</td>");
-          sb.append("</tr>");
-        }
+      for(GLMXValidation m:_status.computedModels()) {
+        String mname = _status.model_name(i++);
+        LSMSolver lsm = m.lsmSolver();
+        sb.append("<tr>");
+        sb.append("<td>" + "Model[" + i++ + "]"  + "</td>");
+        sb.append("<td>" + sci_dformat.format(lsm._lambda) + "</td>");
+        sb.append("<td>" + sci_dformat.format(lsm._lambda2) + "</td>");
+        sb.append("<td>" + sci_dformat.format(lsm._rho) + "</td>");
+        sb.append("<td>" + dformat.format(lsm._alpha) + "</td>");
+        sb.append("<td>" + dformat.format(m.bestThreshold()) + "</td>");
+        for(double e:m.classError())
+          sb.append("<td>" + dformat.format(e) + "</td>");
+        sb.append("</tr>");
       }
       sb.append("</table>");
       return sb.toString();
