@@ -59,7 +59,7 @@ paramDict = {
     # 'case': [NaN],
     'case': [None],
     # 'link': [familyDefault],
-    'xval': [1],
+    'xval': [2],
     'expand_cat': [1],
     'beta_eps': [1.0E-4],
     }
@@ -113,7 +113,7 @@ class Basic(unittest.TestCase):
             csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
-            print "Creating random", csvPathname
+            print "\nCreating random", csvPathname
             write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
@@ -129,21 +129,23 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
-            Y = colCount - 1
-            kwargs = {'Y': Y, 'iterations': 10, 'case': 1}
+            # since we add the output twice, it's no longer colCount-1
+            Y = colCount+1
+            kwargs = {'Y': Y, 'max_iter': 40, 'case': 1}
             kwargs.update(paramDict2)
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
+            print "Y:", Y 
             h2o_glm.simpleCheckGLM(self, glm, Y-1, **kwargs)
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("GLM")
-                time.sleep(1)
-                # h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-                # time.sleep(5)
+                time.sleep(15)
+                h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+                time.sleep(15)
 
             # try new offset/view
             ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
