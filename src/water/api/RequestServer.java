@@ -56,6 +56,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new TutorialGLMProstate()), "GLM",           "Tutorials");
 
     // internal handlers
+    registerRequest(new GLMGridProgress());
     registerRequest(new ParseProgress());
     registerRequest(new TypeaheadKeysRequest());
     registerRequest(new TypeaheadFileRequest());
