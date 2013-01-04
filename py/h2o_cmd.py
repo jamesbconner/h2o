@@ -86,6 +86,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     if h2o.new_json:
         dataKey  = rf['data_key']
         kwargs.pop('model_key',None)
+        kwargs.pop('modelKey',None)
         modelKey = rf['model_key']
         rfCloud = rf['response']['h2o']
 

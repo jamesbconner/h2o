@@ -2,55 +2,45 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
+# FIX! add cases with shuffled data!
+import h2o, h2o_cmd, h2o_hosts, h2o_glm
+import h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
-# the shared exec expression creator and executor
-import h2o_exec as h2e
-
-def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
-    # 8 random generatators, 1 per column
+def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
+    # do we need more than one random generator?
     r1 = random.Random(SEED)
-    r2 = random.Random(SEED)
-    r3 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
         rowData = []
-        rowTotal = 0
         for j in range(colCount):
-            # fails with just randint 0,1
-            # r = r1.randint(0,1)
             # ri1 = r1.randint(0,1)
-            # ri1 = int(r1.randint(0,3))
             ri1 = int(r1.triangular(0,2,1.5))
-            # ri2 = r2.randint(0,20)
-            # no NA
-            ri2 = 1
+            rowData.append(ri1)
 
-            # 5% NA
-            if (ri2==0):
-                # rs = ""
-                rs = ri1
-            else:
-                rs = ri1
+        # before translation
+        rowTotal = sum(rowData)
 
-            rowData.append(str(rs))
-            rowTotal += rs
+        if translateList is not None:
+            for i, iNum in enumerate(rowData):
+                rowData[i] = translateList[iNum]
 
-        # sum the row, and make output 1 if > (5 * rowCount)
         if (rowTotal > (.7 * colCount)): 
             result = 1
         else:
             result = 0
-        rowData.append(str(result))
+
+        ### print colCount, rowTotal, result
+
+        rowDataStr = map(str,rowData)
+        rowDataStr.append(str(result))
         # add the output twice, to try to match to it?
-        rowData.append(str(result))
-        print colCount, rowTotal, result
-        rowDataCsv = ",".join(rowData)
+        rowDataStr.append(str(result))
+
+        rowDataCsv = ",".join(rowDataStr)
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
-
 
 
 paramDict = {
@@ -79,7 +69,6 @@ class Basic(unittest.TestCase):
     def setUpClass(cls):
         global SEED
         SEED = random.randint(0, sys.maxint)
-
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
@@ -90,33 +79,29 @@ class Basic(unittest.TestCase):
         else:
             h2o_hosts.build_cloud_with_hosts()
 
-
     @classmethod
     def tearDownClass(cls):
-        ### time.sleep(3600)
         h2o.tear_down_cloud()
-
-# http://192.168.1.171:55322/GLM.query?
-
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
+        translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
-            (10000,  10, 'cA', 300),
-            (10000,  20, 'cB', 300),
-            (10000,  30, 'cC', 300),
-            (10000,  40, 'cD', 300),
-            (10000,  50, 'cE', 300),
-            (10000,  60, 'cF', 300),
-            (10000,  70, 'cG', 300),
-            (10000,  80, 'cH', 300),
-            (10000,  90, 'cI', 300),
-            (10000, 100, 'cJ', 300),
-            (10000, 200, 'cK', 300),
-            (10000, 300, 'cL', 300),
-            (10000, 400, 'cM', 300),
-            (10000, 500, 'cN', 300),
-            (10000, 600, 'cO', 300),
+            (10000,  100, 'cA', 300),
+            (10000,  200, 'cB', 300),
+            (10000,  300, 'cC', 300),
+            (10000,  400, 'cD', 300),
+            (10000,  500, 'cE', 300),
+            (10000,  600, 'cF', 300),
+            (10000,  700, 'cG', 300),
+            (10000,  800, 'cH', 300),
+            (10000,  900, 'cI', 300),
+            (10000, 1000, 'cJ', 300),
+            (10000, 2000, 'cK', 300),
+            (10000, 3000, 'cL', 300),
+            (10000, 4000, 'cM', 300),
+            (10000, 5000, 'cN', 300),
+            (10000, 6000, 'cO', 300),
             ]
 
         ### h2b.browseTheCloud()
@@ -129,7 +114,7 @@ class Basic(unittest.TestCase):
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
@@ -151,17 +136,19 @@ class Basic(unittest.TestCase):
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            h2o_glm.simpleCheckGLM(self, glm, 8, **kwargs)
+            # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
+            h2o_glm.simpleCheckGLM(self, glm, Y-1, **kwargs)
 
             if not h2o.browse_disable:
-                h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-                time.sleep(5)
+                h2b.browseJsonHistoryAsUrlLastMatch("GLM")
+                time.sleep(1)
+                # h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+                # time.sleep(5)
 
             # try new offset/view
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=99, view=89)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=-1, view=53)
-
+            ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
+            ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=99, view=89)
+            ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=-1, view=53)
 
 if __name__ == '__main__':
     h2o.unit_main()
