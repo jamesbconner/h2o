@@ -1076,13 +1076,10 @@ public class RequestArguments extends RequestStatics {
   // ---------------------------------------------------------------------------
   // Real
   // ---------------------------------------------------------------------------
-
   public class Real extends InputText<Double> {
-
     public final Double _defaultValue;
-
-    public final double _min;
-    public final double _max;
+    public double _min;
+    public double _max;
 
     public Real(String name) {
       this(name, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
@@ -1125,6 +1122,41 @@ public class RequestArguments extends RequestStatics {
       return ((_min == Double.NEGATIVE_INFINITY) && (_max == Double.POSITIVE_INFINITY))
               ? "integer value"
               : "integer from "+_min+" to "+_max;
+    }
+  }
+
+  // Binomial GLM 'case' selection.  Only useful for binomial GLM where the
+  // response column is NOT 0/1 - names a value to be treated as 1 and all
+  // other values are treated as zero.
+  public class CaseSelect extends Real {
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+
+    public CaseSelect(H2OHexKey key, H2OHexKeyCol classCol, String name) {
+      super(name);
+      addPrerequisite(_key=key);
+      addPrerequisite(_classCol=classCol);
+    }
+
+    @Override protected Double defaultValue() {
+      ValueArray va = _key.value();
+      int classCol = _classCol.value();
+      ValueArray.Column C = va._cols[classCol];
+      if( C._max != 1.0 ) return C._max;
+      return Double.NaN;
+    }
+
+    @Override protected Double parse(String input) throws IllegalArgumentException {
+      // Set min & max at the last second, after key/column selection has been
+      // cleared up
+      ValueArray.Column C = _key.value()._cols[_classCol.value()];
+      _min = C._min;
+      _max = C._max;
+      return super.parse(input); // Then the normal parsing step
+    }
+
+    @Override protected String queryDescription() {
+      return "Treat "+_classCol+" as a logical column, with values equal to this as true/1 and all other values as false/0";
     }
   }
 

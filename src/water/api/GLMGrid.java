@@ -43,8 +43,8 @@ public class GLMGrid extends Request {
 
   // Args NOT Grid Searched
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
+  protected final CaseSelect _case = new CaseSelect(_key,_y,JSON_GLM_CASE);
   protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
-  protected final Real _case = new Real(JSON_GLM_CASE, Double.NaN);
   protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
@@ -71,7 +71,8 @@ public class GLMGrid extends Request {
                         parsePRange( true, _lambda1.value()),   // Grid ranges
                         parsePRange( true, _lambda2.value()),   // Grid ranges
                         parsePRange( true, _rho.value()),       // Grid ranges
-                        parsePRange( true, _alpha.value()));     // Grid ranges
+                        parsePRange( true, _alpha.value()),     // Grid ranges
+                        _case.value());
 
     // Put the task Out There for all to find
     UKV.put(taskey,task);

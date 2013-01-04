@@ -31,6 +31,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   transient ValueArray _ary;  // Expanded VA bits
   int _ccol;                  // Y column; class
   int _xs[];                  // Array of columns to use
+  double _caseval;            // Selected CASE/factor value or NaN usually
   double [] _lambda1s;        // Grid search values
   double [] _lambda2s;        // Grid search values
   double [] _rhos;            // Grid search values
@@ -46,12 +47,13 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // Fraction complete
   float progress() { return (float)_progress/_ms.length; }
 
-  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as) {
+  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as, double caseval) {
     _taskey = taskey;           // Capture the args
     _ary = va;                  // VA is large, and already in a Key so make it transient
     _datakey = va._key;         // ... and use the datakey instead when reloading
     _ccol = ccol;
     _xs = xs;
+    _caseval = caseval;
     _lambda1s = l1s;
     _lambda2s = l2s;
     _rhos     = rs;
@@ -124,6 +126,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     glmp._maxIter = 20;
     glmp._betaEps = GLMSolver.DEFAULT_BETA_EPS;
     glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
+    glmp._familyArgs[GLMSolver.FAMILY_ARGS_CASE] = _caseval;
 
     // The 'step' is the folded iterator
     // Break the step into iterations over the various parameters.
