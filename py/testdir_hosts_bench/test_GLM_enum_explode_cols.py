@@ -127,6 +127,20 @@ class Basic(unittest.TestCase):
         if h2o.new_json:
             tryList = [
                 (10000,  10, 'cA', 300),
+                (10000,  20, 'cB', 300),
+                (10000,  30, 'cC', 300),
+                (10000,  40, 'cD', 300),
+                (10000,  50, 'cE', 300),
+                (10000,  60, 'cF', 300),
+                (10000,  70, 'cG', 300),
+                (10000,  80, 'cH', 300),
+                (10000,  90, 'cI', 300),
+                (10000, 100, 'cJ', 300),
+                (10000, 200, 'cK', 300),
+                (10000, 300, 'cL', 300),
+                (10000, 400, 'cM', 300),
+                (10000, 500, 'cN', 300),
+                (10000, 600, 'cO', 300),
                 ]
 
         else:
@@ -152,7 +166,12 @@ class Basic(unittest.TestCase):
         lenNodes = len(h2o.nodes)
 
         cnum = 0
-        for (rowCount, colCount, key2, timeoutSecs) in tryList:
+        for (rowCount, colCount, key, timeoutSecs) in tryList:
+            if 1==1:
+                key2 = key
+            else:
+                key2 = key + ".hex"
+
             cnum += 1
             csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
@@ -185,11 +204,6 @@ class Basic(unittest.TestCase):
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
                 time.sleep(5)
-
-            # try new offset/view
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=99, view=89)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=-1, view=53)
 
 
 if __name__ == '__main__':

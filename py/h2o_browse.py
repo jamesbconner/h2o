@@ -36,7 +36,7 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
 
         # this could be the old or new port
         if h2o.new_json:
-            url = re.sub("GLM.json","GLM.html",json_url)
+            url = re.sub("GLM.json","GLM.html",url)
 
         url = re.sub(".json","",url)
 
