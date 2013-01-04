@@ -365,6 +365,7 @@ public class GLMSolver {
     GramMatrixTask gtask = null;
     ArrayList<String> warns = new ArrayList();
     long t1 = System.currentTimeMillis();
+ OUTER:
     while( res._iterations++ < _glmParams._maxIter ) {
       gtask = new GramMatrixTask(res);
       gtask._s = s;
@@ -373,10 +374,19 @@ public class GLMSolver {
       for( int i = 0; i < 20; ++i) {
         try {
           beta = _solver.solve(gtask._gram);
+          for(double d:beta)if(Double.isNaN(d) || Double.isInfinite(d)){
+            warns.add("Failed to converge!");
+            break OUTER;
+          }
           break;
         } catch( RuntimeException e ) {
           if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
             throw e;
+          if(gtask._gram.hasNaNsOrInfs()){
+            warns.add("Failed to converge!");
+            break OUTER;
+          }
+          System.out.println(gtask._gram);
           switch(_solver._penalty) {
           case NONE:
             _solver._penalty = LSMSolver.Norm.L2;
@@ -496,6 +506,8 @@ public class GLMSolver {
     public double bestThreshold() {
       return getThresholdValue(_tid);
     }
+
+
 
     public double [] classError() {
       return _cm[_tid].classErr();

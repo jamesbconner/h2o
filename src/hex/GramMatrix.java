@@ -1,5 +1,7 @@
 package hex;
 
+import java.util.Arrays;
+
 import water.Iced;
 import Jama.Matrix;
 
@@ -50,6 +52,24 @@ public final class GramMatrix extends Iced {
       }
     }
     return new Matrix[]{xx,new Matrix(_xy, _xy.length)};
+  }
+
+  public boolean hasNaNsOrInfs(){
+    for(int i = 0; i < _xx.length; ++i){
+      if(Double.isNaN(_xy[i]) || Double.isInfinite(_xy[i])) return true;
+      for(double d:_xx[i])
+        if(Double.isNaN(d) || Double.isInfinite(d))
+          return true;
+    }
+    return false;
+  }
+  public String toString(){
+    StringBuilder sb = new StringBuilder();
+    for(int i = 0; i < _xx.length; ++i){
+      sb.append(_xy[i] + " | ");
+      sb.append(Arrays.toString(_xx[i]) + "\n");
+    }
+    return sb.toString();
   }
 
 }
