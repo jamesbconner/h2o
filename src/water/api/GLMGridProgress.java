@@ -51,7 +51,7 @@ public class GLMGridProgress extends Request {
       sb.append(R);
 
       sb.append("<table class='table table-bordered table-condensed'>");
-      sb.append("<tr><th>Model</th><th>&lambda;<sub>1</sub></th><th>&lambda;<sub>2</sub></th><th>&rho;</th><th>&alpha;</th><th>Best Threshold</th>");
+      sb.append("<tr><th>Model</th><th>&lambda;<sub>1</sub></th><th>&lambda;<sub>2</sub></th><th>&rho;</th><th>&alpha;</th><th>Best Threshold</th><th>AUC</th>");
       for(int c = 0; c < nclasses; ++c)
         sb.append("<th>Err(" + c + ")</th>");
       sb.append("</tr>");
@@ -68,6 +68,7 @@ public class GLMGridProgress extends Request {
         sb.append("<td>" + sci_dformat.format(lsm._rho) + "</td>");
         sb.append("<td>" + dformat.format(lsm._alpha) + "</td>");
         sb.append("<td>" + dformat.format(m.bestThreshold()) + "</td>");
+        sb.append("<td>" + dformat.format(m.AUC()) + "</td>");
         for(double e:m.classError())
           sb.append("<td>" + dformat.format(e) + "</td>");
         sb.append("</tr>");
