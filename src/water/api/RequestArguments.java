@@ -262,12 +262,12 @@ public class RequestArguments extends RequestStatics {
      * JSON name, query name (the one in HTML), value type and the request help
      * provided by the argument.
      */
-    public String requestHelp() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("<h4>"+_name+"</h4>");
-      sb.append("<p>"+queryDescription()+"</p>");
-      sb.append("<p>"+_requestHelp+"</p>");
-      return sb.toString();
+    public final JsonObject requestHelp() {
+      JsonObject r = new JsonObject();
+      r.addProperty(NAME, _name);
+      r.addProperty(DESCRIPTION, queryDescription());
+      r.addProperty(HELP, _requestHelp);
+      return r;
     }
 
     /** Name of the argument. This must correspond to the name of the JSON
@@ -1736,8 +1736,6 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected int[] parse(String input) throws IllegalArgumentException {
-      ValueArray va = _key.value();
-      ValueArray.Column classCOl = va._cols[_classCol.value()];
       // determine the arity of the column
       HashMap<String,Integer> classNames = new HashMap();
       String[] names = determineColumnClassNames(1024);
@@ -1816,7 +1814,7 @@ public class RequestArguments extends RequestStatics {
     }
 
   }
-  
+
   public class RFModelKey extends TypeaheadInputText<Model> {
 
     public RFModelKey(String name) {

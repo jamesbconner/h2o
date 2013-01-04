@@ -9,6 +9,7 @@ public class Constants {
     public static final String MILLIS              = "_ms";
   }
 
+  public static final String ARGUMENTS             = "arguments";
   public static final String BADAT                 = "badat";
   public static final String BASE                  = "base";
   public static final String BIN_LIMIT             = "bin_limit";
@@ -24,6 +25,7 @@ public class Constants {
   public static final String CPU_UTIL              = "cpu_util";
   public static final String DATA_KEY              = "data_key";
   public static final String DEPTH                 = "depth";
+  public static final String DESCRIPTION           = "description";
   public static final String DEST_KEY              = "destination_key";
   public static final String ENUM_DOMAIN           = "enum_domain";
   public static final String ERROR                 = "error";
@@ -39,6 +41,7 @@ public class Constants {
   public static final String FREE_DISK             = "free_disk" + Suffixes.BYTES;
   public static final String FREE_MEM              = "free_mem" + Suffixes.BYTES;
   public static final String GINI                  = "gini";
+  public static final String HELP                  = "help";
   public static final String ITEMS                 = "items";
   public static final String IGNORE                = "ignore";
   public static final String JSON_H2O              = "h2o";

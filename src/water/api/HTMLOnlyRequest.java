@@ -15,7 +15,7 @@ import com.google.gson.JsonObject;
  */
 public abstract class HTMLOnlyRequest extends Request {
 
-  @Override public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
+  @Override final public NanoHTTPD.Response serve(NanoHTTPD server, Properties args, RequestType type) {
     if (type == RequestType.json) {
       JsonObject resp = new JsonObject();
       resp.addProperty(ERROR,"This request is only provided for browser connections");
