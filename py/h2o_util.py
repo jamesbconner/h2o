@@ -1,5 +1,5 @@
 import subprocess
-import gzip, shutil, random
+import gzip, shutil, random, time
 
 # since we hang if hosts has bad IP addresses, thought it'd be nice
 # to have simple obvious feedback to user if he's running with -v 
