@@ -2,7 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 # keep two lists the same size
 # best if prime relative to the # jvms (len(h2o.nodes))
@@ -68,23 +68,14 @@ class Basic(unittest.TestCase):
             for exprTemplate in initList:
                 execExpr = list(exprTemplate)
 
-                if (trial==100):
-                    print "\nNow switching between nodes"
-
-                if (trial < 100):
-                    nodeX = 0
-                else:
-                    nodeX = random.randint(0,lenNodes-1)
-                ### print nodeX
-
+                # always a one node stream. shouldn't fail
+                nodeX = 0
                 execResultInspect = my_exec_expr(h2o.nodes[nodeX], execExpr, 0,
                     resultKey="Result" + str(trial%period))
                 
                 ### print "\nexecResult:", execResultInspect
 
-                columns = execResultInspect["cols"]
-                columnsDict = columns[0]
-                min = columnsDict["min"]
+                min = h2e.checkScalarResult(execResultInspect)
 
                 print "trial: #" + str(trial), min, execExpr
                 h2o.verboseprint("min: ", min, "trial:", trial)
