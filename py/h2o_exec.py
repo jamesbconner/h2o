@@ -25,6 +25,8 @@ if (1==0):
         ]
 
 def checkForBadFP(min):
+    if ('built-in' in str(min)) or ('Built-in' in str(min)):
+        raise Exception("Weird 'built-in' string in inspected min (proxy for scalar result): %s" % str(min))
     if 'Infinity' in str(min):
         raise Exception("Infinity in inspected min (proxy for scalar result) can't be good: %s" % str(min))
     if 'NaN' in str(min):
@@ -34,20 +36,26 @@ def checkScalarResult(resultInspect):
     # make the common problems easier to debug
     h2o.verboseprint(h2o.dump_json(resultInspect))
     if 'cols' not in resultInspect:
-        print "\nSome result being inspected. Use -v for more:\n", h2o.dump_json(resultInspect)
+        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
         raise Exception("Inspect response: 'cols' missing. Look at the json just printed")
     columns = resultInspect["cols"]
 
     if not isinstance(columns, list):
-        print "\nSome result being inspected. Use -v for more:\n", h2o.dump_json(resultInspect)
+        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
         raise Exception("Inspect response: 'cols' is supposed to be a one element list. Look at the json just printed")
     columnsDict = columns[0]
 
     if 'min' not in columnsDict:
-        print "\nSome result being inspected. Use -v for more:\n", h2o.dump_json(resultInspect)
+        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
         raise Exception("Inspect response: 'cols' doesn't have 'min'. Look at the json just printed")
+
+    if 'built-in' in columnsDict:
+        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
+        raise Exception("Inspect response: Some weird 'built-in' response. Look at the json just printed")
+
     min = columnsDict["min"]
     checkForBadFP(min)
+    return min
 
 def fill_in_expr_template(exprTemp, colX, n, row, key2):
     # FIX! does this push col2 too far? past the output col?
@@ -86,11 +94,11 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     if 1==1:
         h2o.verboseprint("\nfirst look at the default Result key")
         defaultInspect = h2o_cmd.runInspect(None, "Result")
-        checkScalarResult(defaultInspect)
+        min = checkScalarResult(defaultInspect)
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
         resultInspect = h2o_cmd.runInspect(None, resultKey)
-        checkScalarResult(resultInspect)
+        min = checkScalarResult(resultInspect)
 
     # for debug
     # for debug! dummy assign because of removed inspect above
@@ -138,7 +146,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
             "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
-        checkScalarResult(execResultInspect)
+        min = checkScalarResult(execResultInspect)
 
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -175,7 +183,7 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
                 "Result"+str(colX), timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
-            checkScalarResult(execResultInspect)
+            min = checkScalarResult(execResultInspect)
             h2o.verboseprint("min: ", min, "col:", colX)
             print "min: ", min, "col:", colX
 
