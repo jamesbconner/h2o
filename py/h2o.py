@@ -645,7 +645,7 @@ class H2O(object):
 
         verboseprint("\nexec_query:", params_dict)
         a = self.__check_request(requests.get(
-            url=self.__url('Exec.json', new=False),
+            url=self.__url('Exec.json', new=new_json),
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nexec_query result:", dump_json(a))

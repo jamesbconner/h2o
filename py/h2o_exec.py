@@ -24,6 +24,30 @@ if (1==0):
             ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
         ]
 
+def checkForBadFP(min):
+    if 'Infinity' in str(min):
+        raise Exception("Infinity in inspected min (proxy for scalar result) can't be good: %s" % str(min))
+    if 'NaN' in str(min):
+        raise Exception("NaNin inspected min (proxy for scalar result)  can't be good: %s" % str(min))
+
+def checkScalarResult(resultInspect):
+    # make the common problems easier to debug
+    h2o.verboseprint(h2o.dump_json(resultInspect))
+    if 'cols' not in resultInspect:
+        print "\nSome result being inspected. Use -v for more:\n", h2o.dump_json(resultInspect)
+        raise Exception("Inspect response: 'cols' missing. Look at the json just printed")
+    columns = resultInspect["cols"]
+
+    if not isinstance(columns, list):
+        print "\nSome result being inspected. Use -v for more:\n", h2o.dump_json(resultInspect)
+        raise Exception("Inspect response: 'cols' is supposed to be a one element list. Look at the json just printed")
+    columnsDict = columns[0]
+
+    if 'min' not in columnsDict:
+        print "\nSome result being inspected. Use -v for more:\n", h2o.dump_json(resultInspect)
+        raise Exception("Inspect response: 'cols' doesn't have 'min'. Look at the json just printed")
+    min = columnsDict["min"]
+    checkForBadFP(min)
 
 def fill_in_expr_template(exprTemp, colX, n, row, key2):
     # FIX! does this push col2 too far? past the output col?
@@ -53,20 +77,20 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
     ## print "HACK! do exec twice to avoid the race in shape/result against the next inspect"
     ## good for testing store/store races? should sequence thru different nodes too 
-    resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
+    ### resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
     h2o.verboseprint(resultExec)
     h2o.verboseprint('exec took', time.time() - start, 'seconds')
-    print 'exec took', time.time() - start, 'seconds'
+    ### print 'exec took', time.time() - start, 'seconds'
 
     # normal
     if 1==1:
         h2o.verboseprint("\nfirst look at the default Result key")
         defaultInspect = h2o_cmd.runInspect(None, "Result")
-        h2o.verboseprint(h2o.dump_json(defaultInspect))
+        checkScalarResult(defaultInspect)
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
         resultInspect = h2o_cmd.runInspect(None, resultKey)
-        h2o.verboseprint(h2o.dump_json(resultInspect))
+        checkScalarResult(resultInspect)
 
     # for debug
     # for debug! dummy assign because of removed inspect above
@@ -83,6 +107,7 @@ def exec_zero_list(zeroList):
         execExpr = fill_in_expr_template(exprTemp,0,0,0,"Result")
         execResult = exec_expr(h2o.nodes[0], execExpr, "Result")
         ### print "\nexecResult:", execResult
+
 
 def exec_expr_list_rand(lenNodes, exprList, key2, 
     minCol=0, maxCol=54, minRow=1, maxRow=400000, maxTrials=200, timeoutSecs=10):
@@ -113,10 +138,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
             "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
-        columns = execResultInspect["cols"]
-        columnsDict = columns[0]
-        min = columnsDict["min"]
-        h2o.verboseprint("min: ", min, "trial:", trial)
+        checkScalarResult(execResultInspect)
 
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -127,10 +149,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
             raise Exception(
                 "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
         trial += 1
-
         print "Trial #", trial, "completed\n"
-
-
 
 def exec_expr_list_across_cols(lenNodes, exprList, key2, 
     minCol=0, maxCol=54, timeoutSecs=10):
@@ -156,10 +175,7 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
                 "Result"+str(colX), timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
-            columns = execResultInspect["cols"]
-            columnsDict = columns[0]
-            min = columnsDict["min"]
-
+            checkScalarResult(execResultInspect)
             h2o.verboseprint("min: ", min, "col:", colX)
             print "min: ", min, "col:", colX
 
