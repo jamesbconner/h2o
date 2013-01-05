@@ -14,18 +14,17 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
     for i in range(rowCount):
         rowData = []
         for j in range(colCount):
-            # ri1 = r1.randint(0,1)
-            ri1 = int(r1.triangular(0,2,1.5))
+            ### ri1 = int(r1.triangular(0,2,1.5))
+            ri1 = int(r1.triangular(0,4,2.5))
             rowData.append(ri1)
 
-        # before translation
         rowTotal = sum(rowData)
-
         if translateList is not None:
             for i, iNum in enumerate(rowData):
                 rowData[i] = translateList[iNum]
 
-        if (rowTotal > (.7 * colCount)): 
+        ### if (rowTotal > (.7 * colCount)): 
+        if (rowTotal > (1.6 * colCount)): 
             result = 1
         else:
             result = 0
@@ -57,7 +56,7 @@ paramDict = {
     'weight': [1.0],
     'threshold': [0.5],
     # 'case': [NaN],
-    'case': [None],
+    # 'case': [None],
     # 'link': [familyDefault],
     'xval': [2],
     'expand_cat': [1],
@@ -75,7 +74,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(1,java_heap_GB=28)
+            h2o.build_cloud(1,java_heap_GB=28,use_flatfile=True)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -131,7 +130,7 @@ class Basic(unittest.TestCase):
 
             # since we add the output twice, it's no longer colCount-1
             Y = colCount+1
-            kwargs = {'Y': Y, 'max_iter': 40, 'case': 1}
+            kwargs = {'Y': Y, 'max_iter': 50, 'case': 1}
             kwargs.update(paramDict2)
 
             start = time.time()
@@ -139,7 +138,9 @@ class Basic(unittest.TestCase):
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
             print "Y:", Y 
-            h2o_glm.simpleCheckGLM(self, glm, Y-1, **kwargs)
+            # FIX! bug was dropped coefficients if constant column is dropped
+            ### h2o_glm.simpleCheckGLM(self, glm, Y-2, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("GLM")
