@@ -33,7 +33,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             else:
                 rs = ri1
 
-            rowData.append(str(rs)+".1")
+            rowData.append(str(rs))
             rowTotal += rs
 
         # sum the row, and make output 1 if > (5 * rowCount)
@@ -121,7 +121,7 @@ class Basic(unittest.TestCase):
 
             Y = colCount - 1
             # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
-            kwargs = {'Y': Y, 'iterations': 10, 'case': 1}
+            kwargs = {'Y': Y, 'max_iter': 50, 'case': 1}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
@@ -129,6 +129,8 @@ class Basic(unittest.TestCase):
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+                time.sleep(5)
+                h2b.browseJsonHistoryAsUrlLastMatch("GLM")
                 time.sleep(5)
 
             # try new offset/view

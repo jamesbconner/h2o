@@ -1,6 +1,7 @@
 import subprocess
 import gzip, shutil, random, time
 
+
 # since we hang if hosts has bad IP addresses, thought it'd be nice
 # to have simple obvious feedback to user if he's running with -v 
 # and machines are down or his hosts definition has bad IPs.
@@ -31,12 +32,15 @@ def file_cat(file1, file2, outfile):
     destination.close()
     print "\nCat took",  (time.time() - start), "secs"
 
-def file_shuffle(inoutfile):
-    print "\nShuffle'ing", inoutfile
+def file_shuffle(infile, outfile):
+    print "\nShuffle'ing", infile, "to", outfile
     start = time.time()
-    lines = open(inoutfile).readlines()
-    random.shuffle(lines)
-    open(inoutfile, 'w').writelines(lines)
+#    lines = open(infile).readlines()
+#    random.shuffle(lines)
+#    open(outfile, 'w').writelines(lines)
+    fi = open(infile, 'r')
+    fo = open(outfile, 'w')
+    subprocess.call(["sort", "-R"],stdin=fi, stdout=fo)
     print "\nShuffle took",  (time.time() - start), "secs"
 
 
