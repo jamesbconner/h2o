@@ -44,7 +44,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowData.append(str(result))
         # add the output twice, to try to match to it?
         rowData.append(str(result))
-        print colCount, rowTotal, result
+        ### print colCount, rowTotal, result
         rowDataCsv = ",".join(rowData)
         dsf.write(rowDataCsv + "\n")
 

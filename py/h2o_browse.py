@@ -33,7 +33,7 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
 
         # this is always the new port
         url = re.sub("Inspect.json","Inspect.html",json_url)
-        url = re.sub("RFView.json","RFView.html",json_url)
+        url = re.sub("RFView.json","RFView.html",url)
 
         # this could be the old or new port
         if h2o.new_json:

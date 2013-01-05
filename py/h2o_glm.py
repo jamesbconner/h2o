@@ -50,7 +50,12 @@ def simpleCheckGLM(self,glm,colX, **kwargs):
     # different when xvalidation is used? No trainingErrorDetails?
     GLMModel = glm['GLMModel']
     if 'warnings' in GLMModel:
-        print "\nwarnings:", GLMModel['warnings']
+        warnings = GLMModel['warnings']
+        # catch the 'Failed to converge" for now
+        for w in warnings:
+            print "\nwarning:", w
+            if ('Failed' in w) or ('failed' in w):
+                raise Exception(w)
 
     print "GLM time", GLMModel['time']
 
