@@ -55,7 +55,7 @@ public class GLM extends Request {
 
 
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian);
-  protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.NONE);
+  protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.ELASTIC);
 
   protected final Real _lambda1 = new Real(JSON_GLM_LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
 
