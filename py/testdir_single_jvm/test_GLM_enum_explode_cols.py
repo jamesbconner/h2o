@@ -18,13 +18,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowTotal = 0
         # -1 because we're copying the output col down below
         for j in range(colCount-1):
-            # fails with just randint 0,1
-            # r = r1.randint(0,1)
-            # ri1 = r1.randint(0,1)
-            # ri1 = int(r1.randint(0,3))
             ri1 = int(r1.triangular(0,4,3.5))
-            # ri2 = r2.randint(0,20)
-            # no NA
             ri2 = 1
 
             # 5% NA
@@ -45,7 +39,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowData.append(str(result))
         # add the output twice, to try to match to it?
         rowData.append(str(result))
-        print colCount, rowTotal, result
+        ### print colCount, rowTotal, result
         rowDataCsv = ",".join(rowData)
         dsf.write(rowDataCsv + "\n")
 
@@ -127,7 +121,7 @@ class Basic(unittest.TestCase):
                 'weight': [1.0],
                 'threshold': [0.5],
                 # 'case': [NaN],
-                'case': ['Nan'],
+                'case': ['NaN'],
                 # 'link': [familyDefault],
                 'xval': [1],
                 'expand_cat': [1],
@@ -159,12 +153,7 @@ class Basic(unittest.TestCase):
         lenNodes = len(h2o.nodes)
 
         cnum = 0
-        for (rowCount, colCount, key, timeoutSecs) in tryList:
-            if 1==1:
-                key2 = key
-            else:
-                key2 = key + ".hex"
-
+        for (rowCount, colCount, key2, timeoutSecs) in tryList:
             cnum += 1
             csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
@@ -175,8 +164,6 @@ class Basic(unittest.TestCase):
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
-
-            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
@@ -196,7 +183,6 @@ class Basic(unittest.TestCase):
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
                 time.sleep(5)
-
 
 if __name__ == '__main__':
     h2o.unit_main()
