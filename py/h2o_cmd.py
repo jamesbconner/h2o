@@ -5,7 +5,7 @@ import h2o_browse as h2b, h2o_rf as h2f
 def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20, **kwargs):
     if not csvPathname: raise Exception('No file name specified')
     if not node: node = h2o.nodes[0]
-    put = node.put_file(csvPathname, key=key)
+    put = node.put_file(csvPathname, key=key, timeoutSecs=timeoutSecs)
     if key2 is None:
         # don't rely on h2o default key name
         myKey2 = put['key'] + '.hex'

@@ -70,6 +70,7 @@ def checkScalarResult(resultInspect, resultKey):
 
     if emsg is not None:
         print "\nKey: '" + resultKey + "' being inspected:\n", h2o.dump_json(resultInspect)
+        sys.stdout.flush()
         raise Exception("Inspect problem:" + emsg)
 
     checkForBadFP(min)

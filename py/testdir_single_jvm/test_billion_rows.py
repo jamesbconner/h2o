@@ -15,7 +15,11 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_B_putfile_files(self):
+    def test_B_importFolder_files(self):
+        # just do the import folder once
+        # importFolderPath = "/home/hduser/hdfs_datasets"
+        importFolderPath = "/home/0xdiag/datasets"
+        h2i.setupImportFolder(None, importFolderPath)
         timeoutSecs = 500
 
         #    "covtype169x.data",
@@ -24,19 +28,7 @@ class Basic(unittest.TestCase):
         #    "covtype20x.data", 
         #    "billion_rows.csv.gz",
         csvFilenameAll = [
-            "covtype.data",
-            "covtype20x.data",
-            # "covtype200x.data",
-            # "a5m.csv",
-            # "a10m.csv",
-            # "a100m.csv",
-            # "a200m.csv",
-            # "a400m.csv",
-            # "a600m.csv",
-            # "100million_rows.csv",
-            # "200million_rows.csv",
             "billion_rows.csv.gz",
-            "new-poker-hand.full.311M.txt.gz",
             ]
         # csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
@@ -45,10 +37,8 @@ class Basic(unittest.TestCase):
         h2b.browseTheCloud()
 
         for csvFilename in csvFilenameList:
-            csvPathname = h2o.find_file('/home/0xdiag/datasets/' + csvFilename)
-
-            # creates csvFilename and csvFilename.hex  keys
-            parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key=csvFilename, timeoutSecs=500)
+            # creates csvFilename.hex from file in importFolder dir 
+            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, timeoutSecs=500)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
 

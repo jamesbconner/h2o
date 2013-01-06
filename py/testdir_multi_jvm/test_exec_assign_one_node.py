@@ -67,15 +67,12 @@ class Basic(unittest.TestCase):
         while (trial < 200):
             for exprTemplate in initList:
                 execExpr = list(exprTemplate)
-
                 # always a one node stream. shouldn't fail
                 nodeX = 0
-                execResultInspect = my_exec_expr(h2o.nodes[nodeX], execExpr, 0,
-                    resultKey="Result" + str(trial%period))
-                
+                resultKey="Result" + str(trial%period)
+                execResultInspect = my_exec_expr(h2o.nodes[nodeX], execExpr, 0, resultKey=resultKey)
                 ### print "\nexecResult:", execResultInspect
-
-                min = h2e.checkScalarResult(execResultInspect)
+                min = h2e.checkScalarResult(execResultInspect,resultKey)
 
                 print "trial: #" + str(trial), min, execExpr
                 h2o.verboseprint("min: ", min, "trial:", trial)
@@ -84,10 +81,8 @@ class Basic(unittest.TestCase):
 
                 sys.stdout.write('.')
                 sys.stdout.flush()
-
                 ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
                 trial += 1
-
 
 if __name__ == '__main__':
     h2o.unit_main()
