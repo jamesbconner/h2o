@@ -654,7 +654,9 @@ class H2O(object):
 
         verboseprint("\nexec_query:", params_dict)
         a = self.__check_request(requests.get(
-            url=self.__url('Exec.json', new=new_json),
+            # FIX! force to old because doesn't exist in new yet
+            # url=self.__url('Exec.json', new=new_json),
+            url=self.__url('Exec.json', new=False),
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nexec_query result:", dump_json(a))
