@@ -51,51 +51,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
     dsf.close()
 
-
-
-if h2o.new_json:
-    paramDict = {
-        # 'key': ['cA'],
-        # 'y': [11],
-        'family': ['binomial'],
-        # 'norm': ['ELASTIC'],
-        'norm': ['L2'],
-        'lambda_1': [1.0E-5],
-        'lambda_2': [1.0E-8],
-        'alpha': [1.0],
-        'rho': [0.01],
-        'max_iter': [50],
-        'weight': [1.0],
-        'threshold': [0.5],
-        # 'case': [NaN],
-        'case': ['Nan'],
-        # 'link': [familyDefault],
-        'xval': [1],
-        'expand_cat': [1],
-        'beta_eps': [1.0E-4],
-        }
-else: 
-    paramDict = {
-        # 'key': ['cA'],
-        # 'Y': [11],
-        'family': ['binomial'],
-        # 'norm': ['ELASTIC'],
-        'norm': ['L2'],
-        'lambda_1': [1.0E-5],
-        'lambda_2': [1.0E-8],
-        'alpha': [1.0],
-        'rho': [0.01],
-        'max_iter': [50],
-        'weight': [1.0],
-        'threshold': [0.5],
-        # 'case': [NaN],
-        'case': [None],
-        # 'link': [familyDefault],
-        'xval': [1],
-        'expand_cat': [1],
-        'beta_eps': [1.0E-4],
-        }
-
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -112,14 +67,10 @@ class Basic(unittest.TestCase):
         else:
             h2o_hosts.build_cloud_with_hosts()
 
-
     @classmethod
     def tearDownClass(cls):
         ### time.sleep(3600)
         h2o.tear_down_cloud()
-
-# http://192.168.1.171:55322/GLM.query?
-
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
@@ -160,6 +111,49 @@ class Basic(unittest.TestCase):
                 (10000, 500, 'cN', 300),
                 (10000, 600, 'cO', 300),
                 ]
+
+        if h2o.new_json:
+            paramDict = {
+                # 'key': ['cA'],
+                # 'y': [11],
+                'family': ['binomial'],
+                # 'norm': ['ELASTIC'],
+                'norm': ['L2'],
+                'lambda_1': [1.0E-5],
+                'lambda_2': [1.0E-8],
+                'alpha': [1.0],
+                'rho': [0.01],
+                'max_iter': [50],
+                'weight': [1.0],
+                'threshold': [0.5],
+                # 'case': [NaN],
+                'case': ['Nan'],
+                # 'link': [familyDefault],
+                'xval': [1],
+                'expand_cat': [1],
+                'beta_eps': [1.0E-4],
+                }
+        else: 
+            paramDict = {
+                # 'key': ['cA'],
+                # 'Y': [11],
+                'family': ['binomial'],
+                # 'norm': ['ELASTIC'],
+                'norm': ['L2'],
+                'lambda_1': [1.0E-5],
+                'lambda_2': [1.0E-8],
+                'alpha': [1.0],
+                'rho': [0.01],
+                'max_iter': [50],
+                'weight': [1.0],
+                'threshold': [0.5],
+                # 'case': [NaN],
+                'case': [None],
+                # 'link': [familyDefault],
+                'xval': [1],
+                'expand_cat': [1],
+                'beta_eps': [1.0E-4],
+                }
 
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)

@@ -32,7 +32,7 @@ def checkForBadFP(min):
     if 'NaN' in str(min):
         raise Exception("NaNin inspected min (proxy for scalar result)  can't be good: %s" % str(min))
 
-def checkScalarResult(resultInspect):
+def checkScalarResult(resultInspect, resultKey):
     # make the common problems easier to debug
     h2o.verboseprint(h2o.dump_json(resultInspect))
     emsg = None
@@ -69,7 +69,7 @@ def checkScalarResult(resultInspect):
         break
 
     if emsg is not None:
-        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
+        print "\nKey: '" + resultKey + "' being inspected:\n", h2o.dump_json(resultInspect)
         raise Exception("Inspect problem:" + emsg)
 
     checkForBadFP(min)
@@ -112,11 +112,11 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     if 1==1:
         h2o.verboseprint("\nfirst look at the default Result key")
         defaultInspect = h2o_cmd.runInspect(None, "Result")
-        min = checkScalarResult(defaultInspect)
+        min = checkScalarResult(defaultInspect, "Result")
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
         resultInspect = h2o_cmd.runInspect(None, resultKey)
-        min = checkScalarResult(resultInspect)
+        min = checkScalarResult(resultInspect, resultKey)
 
     # for debug
     # for debug! dummy assign because of removed inspect above
@@ -164,7 +164,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
             "Result", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
-        min = checkScalarResult(execResultInspect)
+        min = checkScalarResult(execResultInspect, "Result")
 
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -197,11 +197,12 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
 
             print execNode
             execExpr = fill_in_expr_template(exprTemp, colX, colX, 0, key2)
+            resultKey = "Result"+str(colX)
             execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
-                "Result"+str(colX), timeoutSecs)
+                resultKey, timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
-            min = checkScalarResult(execResultInspect)
+            min = checkScalarResult(execResultInspect, resultKey)
             h2o.verboseprint("min: ", min, "col:", colX)
             print "min: ", min, "col:", colX
 

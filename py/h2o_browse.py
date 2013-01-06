@@ -21,7 +21,8 @@ def browseTheCloud():
         h2o.verboseprint("browseTheCloud:", cloud_url)
         webbrowser.open_new(cloud_url)
 
-def browseJsonHistoryAsUrlLastMatch(matchme):
+# match the first, swap the 2nd
+def browseJsonHistoryAsUrlLastMatch(matchme,swapme=None):
     if not h2o.browse_disable:
         # get rid of the ".json" from the last url used by the test framework.
         # if we hit len(), we point to 0, so stop
@@ -51,6 +52,7 @@ def browseJsonHistoryAsUrlLastMatch(matchme):
             url = re.sub("GLMProgress","GLMProgress.html",url)
             url = re.sub("GLMGridProgress","GLMGridProgress.html",url)
 
+        if swapme is not None: url = re.sub(matchme, swapme, url)
         url = re.sub(".json","",url)
 
         h2o.verboseprint("browseJsonHistoryAsUrlLastMatch:", url)

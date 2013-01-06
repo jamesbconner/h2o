@@ -14,17 +14,18 @@ class TestPoll(unittest.TestCase):
 
     def test_redirect_poll_loop(self):
         n = h2o.nodes[0]
-        redir = n.test_redirect()['response']
-        self.assertEqual(redir['status'], 'redirect')
-        self.assertEqual(redir['redirect_request'], 'TestPoll')
-        args = redir['redirect_request_args']
-        status = 'poll'
-        i = 0
-        while status == 'poll':
-            status = n.test_poll(args)['response']['status']
-            i += 1
-            if i > 100: self.fail('polling took too many iterations')
-        self.assertEqual(status, 'done')
+        for i in range(3):
+            redir = n.test_redirect()['response']
+            self.assertEqual(redir['status'], 'redirect')
+            self.assertEqual(redir['redirect_request'], 'TestPoll')
+            args = redir['redirect_request_args']
+            status = 'poll'
+            i = 0
+            while status == 'poll':
+                status = n.test_poll(args)['response']['status']
+                i += 1
+                if i > 100: self.fail('polling took too many iterations')
+            self.assertEqual(status, 'done')
             
 
 

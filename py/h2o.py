@@ -884,14 +884,34 @@ class H2O(object):
     def GLM(self, key, timeoutSecs=300, retryDelaySecs=0.5, **kwargs):
         a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLM", **kwargs)
 
+        # placeholder
+        # FIX! seems like GLMProgress doesn't exist yet? at least not a redirect
+        # note there is no RF redirect to RFView?
+        if new_json and 1==0:
+            # Check that the response has the right GLMProgress url it's going to steer us to.
+            if a['response']['redirect_request']!='GLMProgress':
+                print dump_json(a)
+                raise Exception('H2O GLM redirect is not GLMProgress. GLMGrid json response precedes.')
+            a = self.poll_url(a['response'], timeoutSecs, retryDelaySecs)
+            verboseprint("GLM done:", dump_json(a))
+
         browseAlso = kwargs.get('browseAlso', False)
         if (browseAlso | browse_json):
-            print "Redoing the GLM through the browser, no results saved though"
-            h2b.browseJsonHistoryAsUrlLastMatch('GLMProgress')
+            # FIX! GLMProgress doesn't exist yet.
+            if new_json:
+                print "Redoing (in Parallel?) the GLM through the browser, no results saved though"
+                print "How come no GLMProgress for long GLMs?"
+                # find a match on the first. Swap in the 2nd to the url (as well as xlate to html)
+                # because we don't want to restart the GLM?
+                h2b.browseJsonHistoryAsUrlLastMatch('GLM')
+            else:
+                print "Redoing the GLM through the browser, no results saved though"
+                h2b.browseJsonHistoryAsUrlLastMatch('GLM')
             # wait so we can see it
             time.sleep(5)
         return a
 
+    # this only exists in new. old will fail
     def GLMGrid(self, key, timeoutSecs=300, retryDelaySecs=1.0, **kwargs):
         a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLMGrid", **kwargs)
 

@@ -120,7 +120,7 @@ class Basic(unittest.TestCase):
 
             Y = colCount - 1
             # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
-            kwargs = {'Y': Y, 'max_iter': 50, 'case': 'NaN'}
+            kwargs = {'Y': Y, 'max_iter': 50, 'case': 'NaN', 'norm': 'L2', 'glm_lambda': 1e-4}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
