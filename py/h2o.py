@@ -545,10 +545,11 @@ class H2O(object):
                 params={"value": value, "key": key, "replication_factor": repl}),
             extraComment = str(value) + "," + str(key) + "," + str(repl))
 
-    def put_file(self, f, key=None):
+    def put_file(self, f, key=None, timeoutSecs=60):
         resp1 =  self.__check_request(
             requests.get(
                 self.__url('WWWFileUpload.json', new=True), 
+                timeout=timeoutSecs,
                 params={"Key": key}), 
             extraComment = str(f) + "," + str(key))
 
