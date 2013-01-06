@@ -59,7 +59,7 @@ paramDict = {
     # 'case': [None],
     # 'link': [familyDefault],
     'xval': [2],
-    'expand_cat': [1],
+    'expand_cat': [0],
     'beta_eps': [1.0E-4],
     }
 
@@ -74,7 +74,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(3,java_heap_GB=8,use_flatfile=True)
+            h2o.build_cloud(2,java_heap_GB=7,use_flatfile=True)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -86,9 +86,7 @@ class Basic(unittest.TestCase):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
-            (10000000,  10, 'cA', 300),
-            (10000000,  50, 'cB', 600),
-            (10000000,  100, 'cC', 900),
+            (10000000,  50, 'cA', 600),
             ]
 
         ### h2b.browseTheCloud()
@@ -104,7 +102,7 @@ class Basic(unittest.TestCase):
             write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList)
 
             print "\nUpload and parse", csvPathname
-            parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=30, retryDelaySecs=0.5)
+            parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=240, retryDelaySecs=0.5)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
 
