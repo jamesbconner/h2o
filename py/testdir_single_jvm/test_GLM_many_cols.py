@@ -20,16 +20,8 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             # r = r1.randint(0,1)
             ri1 = r1.randint(0,1)
             # ri2 = r2.randint(0,20)
-            # no NA
-            ri2 = 1
-
-            # 5% NA
-            if (ri2==0):
-                rs = ""
-                # rs = str(ri1)
-            else:
-                rs = str(ri1)
-
+            # FIX! no NAs allowed for now (rows are thrown out!)
+            rs = str(ri1)
             rowData.append(rs)
 
         rowDataCsv = ",".join(rowData)
@@ -75,7 +67,7 @@ class Basic(unittest.TestCase):
             # (100, 9000, 'cI', 50),
             # (100, 2000, 'cJ', 50),
             # (100, 3000, 'cK', 100), # 97 secs total
-            (100, 3000, 'cK', 100),
+            (100, 3000, 'cK', 300),
             ]
 
         ### h2b.browseTheCloud()
@@ -99,7 +91,11 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             Y = colCount - 1
-            kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': -1}
+
+            # FIX! what are the legal values for case? is it one of the values in the output? or
+            # the encoded value or ??
+            # {u'error': u'Argument case error: Value -1.0 is not between 0.0 and 1.0 (inclusive)'}
+            kwargs = {'Y': Y, 'norm': 'L2', 'max_iter': 50, 'case': 1}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

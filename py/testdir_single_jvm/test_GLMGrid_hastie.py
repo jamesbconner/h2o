@@ -26,6 +26,9 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
 
     # nan = float('inf')/float('inf') 
     # kwargs = {'X': X, 'Y':  Y, 'case': float('nan')}
+
+    # FIX! what are the legal values for case?
+    # {u'error': u'Argument case error: Value -1.0 is not between 0.0 and 1.0 (inclusive)'} 
     kwargs = {'X': X, 'Y':  Y, 'case': 1, 'destination_key': 'gg'}
 
     start = time.time() 
