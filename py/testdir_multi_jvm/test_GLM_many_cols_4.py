@@ -103,7 +103,8 @@ class Basic(unittest.TestCase):
             print "\nCreating random", csvPathname
             write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList)
 
-            parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
+            print "\nUpload and parse", csvPathname
+            parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=30, retryDelaySecs=0.5)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
 
@@ -129,17 +130,6 @@ class Basic(unittest.TestCase):
             # FIX! bug was dropped coefficients if constant column is dropped
             ### h2o_glm.simpleCheckGLM(self, glm, Y-2, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
-
-            if not h2o.browse_disable:
-                h2b.browseJsonHistoryAsUrlLastMatch("GLM")
-                time.sleep(15)
-                h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-                time.sleep(15)
-
-            # try new offset/view
-            ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
-            ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=99, view=89)
-            ### inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=-1, view=53)
 
 if __name__ == '__main__':
     h2o.unit_main()

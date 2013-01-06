@@ -14,7 +14,7 @@ class Basic(unittest.TestCase):
 
     def test_RFhhp(self):
         csvPathnamegz = h2o.find_file('smalldata/hhp_107_01.data.gz')
-        print "RF start on ", csvPathnamegz, "this will probably take a minute.."
+        print "\nRF start on ", csvPathnamegz, "this will probably take a minute.."
         start = time.time()
         h2o_cmd.runRF(csvPathname=csvPathnamegz, trees=23,
                 timeoutSecs=120, retryDelaySecs=10)
