@@ -62,6 +62,7 @@ def parse_our_args():
     parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
     parser.add_argument('--new_json', '-new', help='do all functions through the new API port', action='store_true')
+    parser.add_argument('--old_json', '-old', help='do GLM and RF functions through the old HTTP port', action='store_true')
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
@@ -73,7 +74,9 @@ def parse_our_args():
     ipaddr = args.ip
     config_json = args.config_json
     debugger = args.debugger
-    new_json = args.new_json
+    # defaults to new_json=true if neither new nor old. 
+    # old controls if new not present.
+    new_json = args.new_json or (not args.old_json)
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     # FIX! this isn't working to grab the args we don't care about
