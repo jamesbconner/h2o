@@ -24,7 +24,7 @@ def parseImportFolderFile(node=None, csvFilename=None, importFolderPath=None, ke
     # We like the short parse key2 name. 
     # We don't drop anything from csvFilename, unlike H2O default
     print "Waiting for the slow parse of the file:", csvFilename
-    parseKey = node.parse(csvPathnameForH2O, myKey2, timeoutSecs)
+    parseKey = node.parse(csvPathnameForH2O, myKey2, timeoutSecs=timeoutSecs)
     print "\nParse result:", parseKey
 
     return parseKey

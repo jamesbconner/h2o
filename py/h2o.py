@@ -5,14 +5,12 @@ import h2o_browse as h2b
 import re
 import inspect, webbrowser
 
-# for checking ports in use, using netstat thru a subprocess.
-# hopefully this works in windows
+# For checking ports in use, using netstat thru a subprocess.
 from subprocess import Popen, PIPE
 
-# pytestflatfile name
 # the cloud is uniquely named per user (only)
 # if that's sufficient, it should be fine to uniquely identify the flatfile by name only also
-# (both are the user that runs the test. Note the config might have a different username on the
+# (both are the user that runs the test. The config might have a different username on the
 # remote machine (0xdiag, say, or hduser)
 def flatfile_name():
     return('pytest_flatfile-%s' %getpass.getuser())
@@ -168,9 +166,6 @@ def dump_json(j):
 
 # Hackery: find the ip address that gets you to Google's DNS
 # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
-# Will fail if local proxy? we don't have one.
-# Watch out to see if there are NAT issues here (home router?)
-# Could parse ifconfig, but would need something else on windows
 def get_ip_address():
     if ipaddr:
         verboseprint("get_ip case 1:", ipaddr)
@@ -230,8 +225,7 @@ global nodes
 nodes = []
 
 def write_flatfile(node_count=2, base_port=54321, hosts=None):
-    # we're going to always create the flatfile. 
-    # Used for all remote cases now. (per sri)
+    # always create the flatfile. 
     ports_per_node = 3
     pff = open(flatfile_name(), "w+")
     if hosts is None:
@@ -267,13 +261,10 @@ def check_port_group(baseport):
         print output
 
 # node_count is per host if hosts is specified.
-# FIX! should rename node_count to nodes_per_host, but have to fix all tests that keyword it.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
         timeoutSecs=20, retryDelaySecs=0.5, cleanup=True, **kwargs):
     # moved to here from unit_main. so will run with nosetests too!
     clean_sandbox()
-
-    # hardwire this. don't need it to be an arg
     ports_per_node = 3 # 3 because we have the API port now too
     node_list = []
     try:
@@ -305,8 +296,7 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 
         # FIX! using "consensus" in node[0] should mean this is unnecessary?
         # maybe there's a bug. For now do this. long term: don't want?
-        # For now, only do this for remote case. It's a good check too, for the more stressful
-        # remote cases
+        # For now, only do this for remote case.
         if hosts is not None:
             for n in nodes:
                 stabilize_cloud(n, len(nodes), timeoutSecs=15)
@@ -327,7 +317,8 @@ def build_cloud(node_count=2, base_port=54321, hosts=None,
 
 def upload_jar_to_remote_hosts(hosts, slow_connection=False):
     def prog(sofar, total):
-        # output is bad for jenkins. ok to turn this off for all cases where we don't want a browser
+        # output is bad for jenkins. 
+        # ok to turn this off for all cases where we don't want a browser
         if not browse_disable:
             p = int(10.0 * sofar / total)
             sys.stdout.write('\rUploading jar [%s%s] %02d%%' % ('#'*p, ' '*(10-p), 100*sofar/total))
@@ -351,8 +342,6 @@ def upload_jar_to_remote_hosts(hosts, slow_connection=False):
 def check_sandbox_for_errors():
     # Dump any assertion or error line to the screen
     # Both "passing" and failing tests??? I guess that's good.
-    # If timeouts are tuned reasonably, we'll get here quick
-    # There's a way to run nosetest to stop on first subtest error..Maybe we should do that.
 
     # if you find a problem, just keep printing till the end, in that file. 
     # The stdout/stderr is shared for the entire cloud session?
@@ -381,7 +370,6 @@ def check_sandbox_for_errors():
             for line in sandFile:
                 # no multiline FSM on this 
                 printSingleLine = regex3.search(line)
-
                 foundBad = regex1.search(line) and ('error rate' not in line)
                 if (printing==0 and foundBad):
                     printing = 1
@@ -390,13 +378,14 @@ def check_sandbox_for_errors():
                 elif (printing==1):
                     lines += 1
                     # if we've been printing, stop when you get to another error
-                    # Matt is nice, so we are nice..keep printing if the pattern match for the condition
+                    # keep printing if the pattern match for the condition
                     # is on a line with "Caused" in it ("Caused by")
                     # only use caused for overriding an end condition
                     foundCaused = regex2.search(line)
                     # since the "at ..." lines may have the "bad words" in them, we also don't want 
                     # to stop if a line has " *at " at the beginning.
-                    # Update: Assertion can be followed by Exception. Make sure we keep printing for a min of 4 lines
+                    # Update: Assertion can be followed by Exception. 
+                    # Make sure we keep printing for a min of 4 lines
                     foundAt = re.match(r'[\t ]+at ',line)
                     if foundBad and (lines>4) and not (foundCaused or foundAt):
                         printing = 2 
@@ -422,8 +411,8 @@ def tear_down_cloud(node_list=None):
             raise Exception("tear_down_cloud: Errors in sandbox stdout or stderr." +
                 "Could have occured at any prior time")
 
-# don't need this any more? used to need it to make sure cloud didn't go away between 
-# unittest defs
+# don't need this any more? 
+# used to need it to make sure cloud didn't go away between unittest defs
 def touch_cloud(node_list=None):
     # Only need to use this if we're using hosts? 
     # So far, we don't need hosts as global ..so don't look at it here
@@ -576,30 +565,47 @@ class H2O(object):
             prefetch=False,
             params={"key": key})
 
-    def poll_url(self, response, delay=0.2):
+    def poll_url(self, response, timeoutSecs=10, retryDelaySecs=0.2):
         url = self.__url(response['redirect_request'], new=True)
         args = response['redirect_request_args']
         status = 'poll'
         r = None
+        start = time.time()
+        count = 0
         while status == 'poll':
-            if r: time.sleep(delay)
-            r = self.__check_request(requests.get(url=url, params=args))
+            if r: time.sleep(retryDelaySecs)
+            r = self.__check_request(
+                requests.get(
+                    url=url, 
+                    timeout=7, # polling should never take more than 7 secs to respond
+                    params=args))
+            if ((count%10)==0):
+                verboseprint('Polling with', url, 'Response:', dump_json(r['response']))
+
             status = r['response']['status']
+            if ((time.time()-start)>timeoutSecs):
+                raise Exception("Timeout while polling. status:", status, "Using:", url, "and", args)
+            count += 1
         return r
 
-    def parse(self, key, key2=None, timeoutSecs=300, **kwargs):
+    def parse(self, key, key2=None, timeoutSecs=300, retryDelaySecs=0.2, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
         # this doesn't work. webforums indicate max_retries might be 0 already? (as of 3 months ago)
         # requests.defaults({max_retries : 4})
         # https://github.com/kennethreitz/requests/issues/719
         # it was closed saying Requests doesn't do retries. (documentation implies otherwise)
-        # don't need extraComment because
+        verboseprint("\nParsing key:", key, "to key2:", key2, "(if None, means default)")
+
         a = self.__check_request(
             requests.get(
                 url=self.__url('Parse.json', new=True),
                 timeout=timeoutSecs,
                 params={"source_key": key, "destination_key": key2}))
-        a = self.poll_url(a['response'])
+        # Check that the response has the right ParseProgress url it's going to steer us to.
+        if a['response']['redirect_request']!='ParseProgress':
+            print dump_json(a)
+            raise Exception('H2O parse redirect is not ParseProgress. Parse json response precedes.')
+        a = self.poll_url(a['response'], timeoutSecs=timeoutSecs, retryDelaySecs=0.2)
         return a
 
     def netstat(self):
@@ -717,8 +723,7 @@ class H2O(object):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
         # Will need to update this list if we params for RfView
-
-        # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
+        # FIX!. new/old if-else stuff can go away once we transition and migrate the tests to new
         # param names
         if new_json:
             params_dict = {
@@ -811,42 +816,13 @@ class H2O(object):
         return a
 
 
-# kwargs used to pass:
-# Y
-# X
-# -X
-# family
-# threshold
-# norm
-# glm_lambda (becomes lambda)
-# rho
-# alpha
-# xval
-
-#     "GLMParams": {
-#       "betaEps": 0.0001, 
-#       "caseVal": 1.0, 
-#       "family": "binomial", 
-#       "link": "logit", 
-#       "maxIter": 50, 
-#       "threshold": 0.5, 
-#       "weight": 1.0
-#     }, 
-#     "LSMParams": {
-#       "alpha": 1.0, 
-#       "lambda": 1e-05, 
-#       "penalty": "L1", 
-#       "rho": 0.01
-#     }, 
-
+    # kwargs used to pass many params
+    # names are changing (old/new port)
     # new_json is only enabled by "python test_* -new"
-    def GLM(self, key, timeoutSecs=300, **kwargs):
+    def GLM_shared(self, key, timeoutSecs=300, retryDelaySecs=0.5, parentName=None, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
-        # for defaults
-        # global
-
         print "new_json:", new_json
-        # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
+        # FIX!.new/old if-else stuff can go away once we transition and migrate the tests to new
         # param names
         if new_json:
             # if the old 'Y' param is in use, change it to the new 'y' param
@@ -863,7 +839,7 @@ class H2O(object):
                 # it needs to be something..anything none matching is forced to 0? 
                 # used to create binary choices in output for logistic regression
                 # FIX! default is bad if you have no 1's in your data. (like 2 and -2
-                'case': 1,
+                # 'case': 1,
             }
         else:
             params_dict = { 
@@ -889,21 +865,35 @@ class H2O(object):
             if glm_notX is not None: params_dict['-X'] = glm_notX
 
         params_dict.update(kwargs)
-        verboseprint("GLM params list", params_dict)
+        print "GLM params list", params_dict
 
         a = self.__check_request(requests.get(
-            self.__url('GLM.json', new=new_json),
+            self.__url(parentName + '.json', new=new_json),
             timeout=timeoutSecs,
             params=params_dict))
         
-        verboseprint("GLM:", dump_json(a))
+        verboseprint(parentName, dump_json(a))
 
         if (browseAlso | browse_json):
             print "Redoing the GLM through the browser, no results saved though"
-            h2b.browseJsonHistoryAsUrlLastMatch("GLM")
+            h2b.browseJsonHistoryAsUrlLastMatch(parentName)
             # wait so we can see it
             time.sleep(3)
         return a 
+
+    def GLM(self, key, timeoutSecs=300, retryDelaySecs=0.5, **kwargs):
+        a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLM", **kwargs)
+        return a
+
+    def GLMGrid(self, key, timeoutSecs=300, retryDelaySecs=1.0, **kwargs):
+        a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLMGrid", **kwargs)
+
+        # Check that the response has the right ParseProgress url it's going to steer us to.
+        if a['response']['redirect_request']!='GLMGridProgress':
+            print dump_json(a)
+            raise Exception('H2O GLMGrid redirect is not GLMGridProgress. GLMGrid json response precedes.')
+        a = self.poll_url(a['response'], timeoutSecs, retryDelaySecs)
+        return a
 
     def stabilize(self, test_func, error,
             timeoutSecs=10, retryDelaySecs=0.5):
@@ -988,7 +978,8 @@ class H2O(object):
             '--ice_root=%s' % self.get_ice_dir(),
             # if I have multiple jenkins projects doing different h2o clouds, I need
             # I need different ports and different cloud name.
-            # does different cloud name prevent them from joining up (even if same multicast ports?)
+            # does different cloud name prevent them from joining up 
+            # (even if same multicast ports?)
             # I suppose I can force a base address. or run on another machine?
             '--name=' + cloud_name()
             ]
@@ -1157,12 +1148,13 @@ class RemoteHost(object):
             m.update(getpass.getuser())
             dest = '/tmp/' +m.hexdigest() +"-"+ os.path.basename(f)
 
-            ### sigh. we rm/create sandbox in build_cloud now (because nosetests doesn't exec h2o_main and we 
-            ### don't want to code "clean_sandbox()" in all the tests.
-            ### So: we don't have a sandbox here, or if we do, we're going to delete it.
-            ### Just don't log anything until build_cloud()? that should be okay?
-            ### we were just logging this upload message..not needed.
-            ### log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+            # sigh. we rm/create sandbox in build_cloud now 
+            # (because nosetests doesn't exec h2o_main and we 
+            # don't want to code "clean_sandbox()" in all the tests.
+            # So: we don't have a sandbox here, or if we do, we're going to delete it.
+            # Just don't log anything until build_cloud()? that should be okay?
+            # we were just logging this upload message..not needed.
+            # log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
 
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest, callback=progress)
@@ -1241,18 +1233,7 @@ class RemoteH2O(H2O):
             self.ice = '/tmp/ice.%d.%s' % (self.port, time.time())
 
         self.channel = host.open_channel()
-
-        # this fires off netstat/egrep over there
         ### FIX! TODO...we don't check on remote hosts yet
-        baseport = self.port
-        commandSplit = ['netstat', '-anp']
-        commandSplit.append(';')
-        ## commandSplit.append('egrep')
-        # colon so only match ports. space at end? so no submatches
-        ## commandSplit.append("(:" + str(baseport) + "|:" + str(baseport+1) + "|:" + str(baseport+2) + ")")
-
-        cmd = ' '.join(commandSplit)
-        # self.channel.exec_command(cmd)
        
         # this fires up h2o over there
         cmd = ' '.join(self.get_args())
@@ -1297,9 +1278,7 @@ class RemoteH2O(H2O):
             return False
 
     def terminate(self):
-        # kbn new 12/20/12
         self.shutdown_all()
-
         self.channel.close()
         # kbn: it should be dead now? want to make sure we don't have zombies
         # we should get a connection error. doing a is_alive subset.

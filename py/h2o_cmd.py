@@ -11,7 +11,7 @@ def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20, 
         myKey2 = put['key'] + '.hex'
     else:
         myKey2 = key2
-    return node.parse(put['key'], myKey2, timeoutSecs, **kwargs)
+    return node.parse(put['key'], myKey2, timeoutSecs=timeoutSecs, **kwargs)
 
 def runInspect(node=None,key=None,timeoutSecs=5,**kwargs):
     if not key: raise Exception('No key for Inspect specified')
@@ -45,6 +45,19 @@ def runGLMOnly(node=None,parseKey=None,
     if not node: node = h2o.nodes[0]
     # no such thing as GLMView..don't use retryDelaySecs
     return node.GLM(parseKey['destination_key'], timeoutSecs, **kwargs)
+
+def runGLMGrid(node=None,csvPathname=None,key=None,
+        timeoutSecs=20,retryDelaySecs=2,**kwargs):
+    parseKey = parseFile(node, csvPathname, key)
+    glm = runGLMGridOnly(node, parseKey, timeoutSecs, retryDelaySecs,**kwargs)
+    return glm
+
+def runGLMGridOnly(node=None,parseKey=None,
+        timeoutSecs=20,retryDelaySecs=2,**kwargs):
+    if not parseKey: raise Exception('No parsed key for GLMGrid specified')
+    if not node: node = h2o.nodes[0]
+    # no such thing as GLMGridView..don't use retryDelaySecs
+    return node.GLMGrid(parseKey['destination_key'], timeoutSecs, **kwargs)
 
 def runLR(node=None, csvPathname=None,key=None,
         timeoutSecs=20, **kwargs):

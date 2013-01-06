@@ -35,25 +35,33 @@ def checkForBadFP(min):
 def checkScalarResult(resultInspect):
     # make the common problems easier to debug
     h2o.verboseprint(h2o.dump_json(resultInspect))
+    emsg = None
+    if 'type' not in resultInspect:
+        emsg = "'type' missing. Look at the json just printed"
+    type = resultInspect["type"]
+    if 'unparsed' in type:
+        emsg = "'cols' has 'type' of unparsed. Look at the json just printed"
+
     if 'cols' not in resultInspect:
-        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
-        raise Exception("Inspect response: 'cols' missing. Look at the json just printed")
-    columns = resultInspect["cols"]
+        emsg = "Inspect response: 'cols' missing. Look at the json just printed"
+    cols = resultInspect["cols"]
+    if not isinstance(cols, list):
+        emsg = "'cols' is supposed to be a one element list. Look at the json just printed"
+    if 'unknown' in cols:
+        emsg = "'cols' has 'unknown'. Look at the json just printed"
+    colsDict = cols[0]
 
-    if not isinstance(columns, list):
-        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
-        raise Exception("Inspect response: 'cols' is supposed to be a one element list. Look at the json just printed")
-    columnsDict = columns[0]
+    if 'min' not in colsDict:
+        emsg = "'cols' doesn't have 'min'. Look at the json just printed"
+    min = colsDict["min"]
 
-    if 'min' not in columnsDict:
-        print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
-        raise Exception("Inspect response: 'cols' doesn't have 'min'. Look at the json just printed")
+    if 'built-in' in colsDict:
+        emsg = "Some weird 'built-in' response. Look at the json just printed"
 
-    if 'built-in' in columnsDict:
+    if emsg is not None:
         print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
-        raise Exception("Inspect response: Some weird 'built-in' response. Look at the json just printed")
+        raise Exception("Inspect problem:" + emsg)
 
-    min = columnsDict["min"]
     checkForBadFP(min)
     return min
 

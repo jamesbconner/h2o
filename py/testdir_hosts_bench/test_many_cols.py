@@ -57,7 +57,6 @@ class Basic(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        time.sleep(3600)
         h2o.tear_down_cloud()
 
 
@@ -84,7 +83,7 @@ class Basic(unittest.TestCase):
             csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
-            print "Creating random", csvPathname
+            print "\nCreating random", csvPathname
             write_syn_dataset(csvPathname, rowCount, colCount, SEED)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)

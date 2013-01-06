@@ -7,9 +7,9 @@
     "password": "0xdiag", 
     "use_home_for_ice": true,
 
-    "h2o_per_host": 1, 
+    "h2o_per_host": 2, 
     "sigar": true,
-    "java_heap_GB": 29, 
+    "java_heap_GB": 8, 
 
     "hdfs_name_node": "192.168.1.151",
     "use_hdfs": false,
@@ -23,7 +23,7 @@
         "192.168.1.175"
     ],
     "ip": [
-        "192.168.1.27"
+        "192.168.0.37"
 
     ],
     "_ip": [
