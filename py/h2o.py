@@ -55,14 +55,14 @@ new_json = False
 def parse_our_args():
     parser = argparse.ArgumentParser()
     # can add more here
-    parser.add_argument('--browse_disable', '-bd', help="Disable any web browser stuff. Needed for batch. nosetests and jenkins disable browser through other means already, so don't need", action='store_true')
-    parser.add_argument('--browse_json','-b', help='Pops a browser to selected json equivalent urls. Selective. Also keeps test alive (and H2O alive) till you ctrl-c. Then should do clean exit', action='store_true')
-    parser.add_argument('--verbose','-v', help='increased output', action='store_true')
-    parser.add_argument('--ip', type=str, help='IP address to use for single host H2O with psutil control')
-    parser.add_argument('--config_json', '-cj', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
-    parser.add_argument('--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
-    parser.add_argument('--new_json', '-new', help='do all functions through the new API port', action='store_true')
-    parser.add_argument('--old_json', '-old', help='do GLM and RF functions through the old HTTP port', action='store_true')
+    parser.add_argument('-bd', '--browse_disable', help="Disable any web browser stuff. Needed for batch. nosetests and jenkins disable browser through other means already, so don't need", action='store_true')
+    parser.add_argument('-b', '--browse_json', help='Pops a browser to selected json equivalent urls. Selective. Also keeps test alive (and H2O alive) till you ctrl-c. Then should do clean exit', action='store_true')
+    parser.add_argument('-v', '--verbose', help='increased output', action='store_true')
+    parser.add_argument('-ip', '--ip', type=str, help='IP address to use for single host H2O with psutil control')
+    parser.add_argument('-cj', '--config_json', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
+    parser.add_argument('-dbg', '--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
+    parser.add_argument('-new', '--new_json', help='do all functions through the new API port', action='store_true')
+    parser.add_argument('-old', '--old_json', help='do GLM and RF functions through the old HTTP port', action='store_true')
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
@@ -560,7 +560,6 @@ class H2O(object):
             extraComment = str(f))
 
         verboseprint("put_file #2 phase response: ", dump_json(resp2))
-
         return resp2[0]
     
     def get_key(self, key):
@@ -609,6 +608,7 @@ class H2O(object):
             print dump_json(a)
             raise Exception('H2O parse redirect is not ParseProgress. Parse json response precedes.')
         a = self.poll_url(a['response'], timeoutSecs=timeoutSecs, retryDelaySecs=0.2)
+        verboseprint("\nParse result:", dump_json(a))
         return a
 
     def netstat(self):
@@ -651,7 +651,6 @@ class H2O(object):
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
-
         verboseprint("\nexec_query:", params_dict)
         a = self.__check_request(requests.get(
             # FIX! force to old because doesn't exist in new yet
@@ -703,9 +702,8 @@ class H2O(object):
         browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
-        
-        params_dict.update(kwargs)
 
+        params_dict.update(kwargs)
         verboseprint("\nrandom_forest parameters:", params_dict)
         a = self.__check_request(requests.get(
             url=self.__url('RF.json', new=new_json), 
@@ -762,7 +760,6 @@ class H2O(object):
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
-
         if (browseAlso | browse_json):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
 
@@ -814,6 +811,7 @@ class H2O(object):
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
+
         a = self.__check_request(requests.get(
             self.__url('LR.json', new=new_json),
             timeout=timeoutSecs,
@@ -846,7 +844,9 @@ class H2O(object):
                 # it needs to be something..anything none matching is forced to 0? 
                 # used to create binary choices in output for logistic regression
                 # FIX! default is bad if you have no 1's in your data. (like 2 and -2
-                'case': 0,
+                'case': 'NaN',
+                # just want to try this out to see if legal
+                'link': 'familyDefault'
             }
         else:
             params_dict = { 
@@ -856,8 +856,7 @@ class H2O(object):
             }
 
         # special case these two because of name issues.
-        # use glm_lamba, not lambda
-        # use glm_notX, not -X
+        # use glm_lamba, not lambda. use glm_notX, not -X
         glm_lambda = kwargs.pop('glm_lambda', None)
         if glm_lambda is not None: params_dict['lambda'] = glm_lambda
 
@@ -880,16 +879,17 @@ class H2O(object):
             params=params_dict))
         
         verboseprint(parentName, dump_json(a))
-
-        if (browseAlso | browse_json):
-            print "Redoing the GLM through the browser, no results saved though"
-            h2b.browseJsonHistoryAsUrlLastMatch(parentName)
-            # wait so we can see it
-            time.sleep(3)
         return a 
 
     def GLM(self, key, timeoutSecs=300, retryDelaySecs=0.5, **kwargs):
         a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLM", **kwargs)
+
+        browseAlso = kwargs.get('browseAlso', False)
+        if (browseAlso | browse_json):
+            print "Redoing the GLM through the browser, no results saved though"
+            h2b.browseJsonHistoryAsUrlLastMatch('GLMProgress')
+            # wait so we can see it
+            time.sleep(5)
         return a
 
     def GLMGrid(self, key, timeoutSecs=300, retryDelaySecs=1.0, **kwargs):
@@ -900,6 +900,13 @@ class H2O(object):
             print dump_json(a)
             raise Exception('H2O GLMGrid redirect is not GLMGridProgress. GLMGrid json response precedes.')
         a = self.poll_url(a['response'], timeoutSecs, retryDelaySecs)
+        verboseprint("GLMGrid done:", dump_json(a))
+
+        browseAlso = kwargs.get('browseAlso', False)
+        if (browseAlso | browse_json):
+            print "Viewing the GLM grid result through the browser"
+            h2b.browseJsonHistoryAsUrlLastMatch('GLMGridProgress')
+            time.sleep(5)
         return a
 
     def stabilize(self, test_func, error,
@@ -1078,7 +1085,6 @@ class ExternalH2O(H2O):
     def terminate(self):
         # try/except for this is inside shutdown_all now
         self.shutdown_all()
-
         if self.is_alive():
             raise 'Unable to terminate externally launched node: %s' % self
 
@@ -1095,9 +1101,7 @@ class LocalH2O(H2O):
             logPrefix = 'local-h2o-' + str(self.node_id)
         else:
             logPrefix = 'local-h2o'
-
         check_port_group(self.port)
-
         spawn = spawn_cmd(logPrefix, self.get_args(), capture_output=self.capture_output)
         self.ps = spawn[0]
 

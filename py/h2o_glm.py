@@ -44,6 +44,8 @@
 # "penalty": "L2"
 # }, 
 
+import h2o_cmd, h2o
+
 def simpleCheckGLM(self,glm,colX, **kwargs):
     # h2o GLM will verboseprint the result and print errors. 
     # so don't have to do that
@@ -131,4 +133,21 @@ def compareToFirstGlm(self, key, glm, firstglm):
     self.assertAlmostEqual(float(glm[key]), float(firstglm[key]), delta=delta, msg=msg)
     self.assertGreaterEqual(float(glm[key]), 0.0, key + " not >= 0.0 in current")
 
+
+def simpleCheckGLMGrid(self, glmGridResult, **kwargs):
+    destination_key = glmGridResult['destination_key']
+    inspectGG = h2o_cmd.runInspect(None, destination_key)
+    print "Inspect of destination_key", destination_key,":\n", h2o.dump_json(inspectGG)
+
+    # FIX! currently this is all unparsed!
+    type = inspectGG['type']
+    if 'unparsed' in type:
+        print "Warning: GLM Grid result destination_key is unparsed, can't interpret. Ignoring for now"
+        print "Run with -b arg to look at the browser output, for minimal checking of result"
+
+
+    cols = inspectGG['cols']
+    response = inspectGG['response'] # dict
+    rows = inspectGG['rows']
+    value_size_bytes = inspectGG['value_size_bytes']
 

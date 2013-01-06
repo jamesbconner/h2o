@@ -22,7 +22,7 @@ if h2o.new_json:
         'weight': [1.0],
         'threshold': [0.5],
         # 'case': [NaN],
-        'case': [None],
+        'case': ['NaN'],
         # 'link': [familyDefault],
         'xval': [1],
         'expand_cat': [1],
@@ -97,7 +97,7 @@ class Basic(unittest.TestCase):
 
         Y = 10
         # FIX! what should we have for case? 1 should be okay because we have 1's in output col
-        kwargs = {'Y': Y, 'max_iter': 30, 'case': 1}
+        kwargs = {'Y': Y, 'max_iter': 30, 'case': 'NaN'}
         kwargs.update(paramDict2)
 
         start = time.time()

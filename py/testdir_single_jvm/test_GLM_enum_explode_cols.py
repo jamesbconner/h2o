@@ -11,7 +11,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
     r2 = random.Random(SEED)
-    r3 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -69,7 +68,7 @@ if h2o.new_json:
         'weight': [1.0],
         'threshold': [0.5],
         # 'case': [NaN],
-        'case': [None],
+        'case': ['Nan'],
         # 'link': [familyDefault],
         'xval': [1],
         'expand_cat': [1],
@@ -187,13 +186,12 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
             paramDict2 = {}
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
             Y = colCount - 1
-            kwargs = {'Y': Y, 'iterations': 10, 'case': 1}
+            kwargs = {'Y': Y, 'iterations': 10, 'case': 'NaN'}
             kwargs.update(paramDict2)
 
             start = time.time()

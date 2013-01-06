@@ -25,7 +25,7 @@ paramDict = {
     'alpha': [None, 1e-4,1,10,1e4],
     # new?
     'betaEps': [None, 0.0001],
-    'caseVal': [None, 1.0],
+    'case': ['NaN'],
     # inverse and log causing problems
     # 'link': [None, 'logit','identity', 'log', 'inverse'],
     # 'link': [None, 'logit','identity'],

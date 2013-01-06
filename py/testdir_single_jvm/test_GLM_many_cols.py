@@ -95,7 +95,7 @@ class Basic(unittest.TestCase):
             # FIX! what are the legal values for case? is it one of the values in the output? or
             # the encoded value or ??
             # {u'error': u'Argument case error: Value -1.0 is not between 0.0 and 1.0 (inclusive)'}
-            kwargs = {'Y': Y, 'norm': 'L2', 'max_iter': 50, 'case': 1}
+            kwargs = {'Y': Y, 'norm': 'L2', 'max_iter': 50, 'case': 'NaN'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

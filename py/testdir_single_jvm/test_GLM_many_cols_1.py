@@ -11,7 +11,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
     r2 = random.Random(SEED)
-    r3 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -33,7 +32,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             else:
                 rs = ri1
 
-            rowData.append(str(rs)+".1")
+            rowData.append(str(rs))
             rowTotal += rs
 
         # sum the row, and make output 1 if > (5 * rowCount)
@@ -44,7 +43,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowData.append(str(result))
         # add the output twice, to try to match to it?
         rowData.append(str(result))
-        print colCount, rowTotal, result
+        ### print colCount, rowTotal, result
         rowDataCsv = ",".join(rowData)
         dsf.write(rowDataCsv + "\n")
 
@@ -63,7 +62,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(1,java_heap_GB=28,use_flatfile=True)
+            h2o.build_cloud(1,use_flatfile=True)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -121,7 +120,7 @@ class Basic(unittest.TestCase):
 
             Y = colCount - 1
             # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
-            kwargs = {'Y': Y, 'iterations': 10, 'case': 1}
+            kwargs = {'Y': Y, 'max_iter': 50, 'case': 'NaN'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
@@ -129,6 +128,8 @@ class Basic(unittest.TestCase):
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+                time.sleep(5)
+                h2b.browseJsonHistoryAsUrlLastMatch("GLM")
                 time.sleep(5)
 
             # try new offset/view
