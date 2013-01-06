@@ -762,8 +762,10 @@ class H2O(object):
             params=params_dict))
 
         verboseprint("\nrandom_forest_view result:", dump_json(a))
+
         if (browseAlso | browse_json):
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+
         return a
 
     def random_forest_treeview(self, timeoutSecs=10, **kwargs):

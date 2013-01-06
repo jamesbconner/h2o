@@ -1,6 +1,6 @@
 import os, json, unittest, time, shutil, sys
 import h2o
-import h2o_browse as h2b
+import h2o_browse as h2b, h2o_rf as h2f
 
 def parseFile(node=None, csvPathname=None, key=None, key2=None, timeoutSecs=20, **kwargs):
     if not csvPathname: raise Exception('No file name specified')
@@ -173,16 +173,12 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     # kind of wasteful re-read, but maybe good for testing
     rfView = node.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
     if h2o.new_json:
-        modelSize = rfView['trees']['number_built']
-        confusionKey = rfView['confusion_key']
+        h2f.simpleCheckRFView(node, rfView)
     else:
         modelSize = rfView['modelSize']
         confusionKey = rfView['confusionKey']
-
-    # FIX! how am I supposed to verify results, or get results/
-    # touch all these just to do something
-    cmInspect = node.inspect(confusionKey)
-    modelInspect = node.inspect(modelKey)
-    dataInspect = node.inspect(dataKey)
+        cmInspect = node.inspect(confusionKey)
+        modelInspect = node.inspect(modelKey)
+        dataInspect = node.inspect(dataKey)
 
     return rfView
