@@ -1,9 +1,7 @@
-        These data come from  Hosmer and Lemeshow (2000) Applied Logistic
- Regression: Second Edition.  These data are copyrighted by John Wiley &
- Sons Inc. and must be acknowledged and used accordingly.
-
-        Pair #  LOW    AGE    LWT    RACE    SMOKE    PTD    HT    UI
-
+#        These data come from  Hosmer and Lemeshow (2000) Applied Logistic
+# Regression: Second Edition.  These data are copyrighted by John Wiley &
+# Sons Inc. and must be acknowledged and used accordingly.
+        Pair#   LOW    AGE    LWT    RACE    SMOKE    PTD    HT    UI
            1      0     14    135       1        0      0     0     0
            1      1     14    101       3        1      1     0     0
            2      0     15     98       2        0      0     0     0

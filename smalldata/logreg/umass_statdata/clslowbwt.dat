@@ -1,7 +1,6 @@
-        These data come from  Hosmer and Lemeshow (2000) Applied Logistic
- Regression: Second Edition.  These data are copyrighted by John Wiley &
- Sons Inc. and must be acknowledged and used accordingly.
-
+#        These data come from  Hosmer and Lemeshow (2000) Applied Logistic
+# Regression: Second Edition.  These data are copyrighted by John Wiley &
+# Sons Inc. and must be acknowledged and used accordingly.
         1          1          1          3         28        120       2865          0  
         1          2          1          3         33        141       2609          0  
         2          1          0          1         29        130       2613          0  
