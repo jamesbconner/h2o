@@ -36,27 +36,37 @@ def checkScalarResult(resultInspect):
     # make the common problems easier to debug
     h2o.verboseprint(h2o.dump_json(resultInspect))
     emsg = None
-    if 'type' not in resultInspect:
-        emsg = "'type' missing. Look at the json just printed"
-    type = resultInspect["type"]
-    if 'unparsed' in type:
-        emsg = "'cols' has 'type' of unparsed. Look at the json just printed"
+    while(True):
+        if 'type' not in resultInspect:
+            emsg = "'type' missing. Look at the json just printed"
+            break 
+        type = resultInspect["type"]
+        if 'unparsed' in type:
+            emsg = "'cols' has 'type' of unparsed. Look at the json just printed"
+            break 
 
-    if 'cols' not in resultInspect:
-        emsg = "Inspect response: 'cols' missing. Look at the json just printed"
-    cols = resultInspect["cols"]
-    if not isinstance(cols, list):
-        emsg = "'cols' is supposed to be a one element list. Look at the json just printed"
-    if 'unknown' in cols:
-        emsg = "'cols' has 'unknown'. Look at the json just printed"
-    colsDict = cols[0]
+        if 'cols' not in resultInspect:
+            emsg = "Inspect response: 'cols' missing. Look at the json just printed"
+            break 
 
-    if 'min' not in colsDict:
-        emsg = "'cols' doesn't have 'min'. Look at the json just printed"
-    min = colsDict["min"]
+        cols = resultInspect["cols"]
+        if not isinstance(cols, list):
+            emsg = "'cols' is supposed to be a one element list. Look at the json just printed"
+            break 
+        if 'unknown' in cols:
+            emsg = "'cols' has 'unknown'. Look at the json just printed"
+            break 
+        colsDict = cols[0]
 
-    if 'built-in' in colsDict:
-        emsg = "Some weird 'built-in' response. Look at the json just printed"
+        if 'min' not in colsDict:
+            emsg = "'cols' doesn't have 'min'. Look at the json just printed"
+            break 
+        min = colsDict["min"]
+
+        if 'built-in' in colsDict:
+            emsg = "Some weird 'built-in' response. Look at the json just printed"
+            break 
+        break
 
     if emsg is not None:
         print "\nSome result being inspected:\n", h2o.dump_json(resultInspect)
