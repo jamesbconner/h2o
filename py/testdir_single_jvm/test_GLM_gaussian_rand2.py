@@ -4,15 +4,6 @@ sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_glm
 
-# none is illegal for threshold
-# always run with xval, to make sure we get the trainingErrorDetails
-# family gaussian gives us there
-# Exception in thread "Thread-6" java.lang.RuntimeException: Matrix is not symmetric positive definite.
-# at Jama.CholeskyDecomposition.solve(CholeskyDecomposition.java:173)
-
-# FIX! we'll have to do something for gaussian. It doesn't return the ted keys below
-# Always do gaussian!
-
 # FIX! update for new port?
 paramDict = {
     'Y': [54],
