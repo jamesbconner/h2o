@@ -24,6 +24,24 @@ import h2o_hosts, h2o_glm
 import h2o_browse as h2b
 import time
 
+# can expand this with specific combinations
+# I suppose these args will be ignored with old??
+argcaseList = [
+    {   'X': '0,1,2,3,4,5,6,7,8,9,10,11',
+        'Y': 54,
+        'case': 1,
+        'family': 'gaussian',
+        'norm': 'L2',
+        'lambda_1': 1.0E-5,
+        'max_iter': 50,
+        'weight': 1.0,
+        'threshold': 0.5,
+        'link': 'familyDefault',
+        'xval': 0,
+        'expand_cat': 0,
+        'beta_eps': 1.0E-4 },
+    ]
+
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -52,15 +70,20 @@ class Basic(unittest.TestCase):
         X = ""
         # go right to the big X and iterate on that case
         ### for trial in range(2):
-        for trial in range(2):
+        trial = 0
+        for argcase in argcaseList:
             print "\nTrial #", trial, "start"
-            print "Y:", Y
+            kwargs = argcase
+
+            # Y will always be there
+            print 'Y:', kwargs['Y']
 
             start = time.time()
-            kwargs = {'Y': Y}
-            # error when also done thru the browser
+            # we get some errors thru the browser that are unique. browseAlso should run the GLM thru the browser?
+            # there's no GLM "view" so we should be redoing the GLM there...keep an eye on changes there
+            # interesting question for RF..does browseAlso hit RF or just RFView?
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, browseAlso=True, timeoutSecs=200, **kwargs)
-            h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 
             print "\nTrial #", trial
 
