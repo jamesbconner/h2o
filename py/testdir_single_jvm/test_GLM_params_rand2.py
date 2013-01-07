@@ -12,7 +12,7 @@ import h2o_glm
 
 paramDict = {
     'Y': [54],
-    'X': [0,1,15,33],
+    'X': ['0:3','14:17','5:10',0,1,15,33],
     '-X': [None,'20,28,40:53'],
     'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
     'xval': [2,3,4,9],
@@ -73,7 +73,12 @@ class Basic(unittest.TestCase):
 
                 if (randomKey=='X'):
                     # keep track of what column we're picking
-                    colX = randomValue
+                    # don't track a column if we're using a range (range had a GLM bug, so have to test)
+                    # the shared check code knows to ignore colX if None, now.
+                    if ':' in randomValue:
+                        colX = None
+                    else:
+                        colX = randomValue
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
