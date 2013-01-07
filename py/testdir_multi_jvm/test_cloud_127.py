@@ -19,7 +19,7 @@ class Basic(unittest.TestCase):
             h2o.verboseprint(h2o.nodes)
             for n in h2o.nodes:
                 c = n.get_cloud()
-                h2o.verboseprint(c)
+                h2o.verboseprint(h2o.dump_json(c))
                 self.assertEqual(c['cloud_size'], len(h2o.nodes), 'inconsistent cloud size')
 
             h2o.tear_down_cloud(h2o.nodes)

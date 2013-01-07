@@ -436,8 +436,13 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
         cloud_size = c['cloud_size']
         cloud_name = c['cloud_name']
         node_name  = c['node_name']
+        cnodes      = c['nodes'] # list of dicts 
 
         if (cloud_size > node_count):
+            print "\nNodes in current cloud:"
+            for c in cnodes:
+                print c['name']
+        
             emsg = (
                 "\n\nERROR: cloud_size: %d reported via json is bigger than we expect: %d" % (cloud_size, node_count) +
                 "\nYou likely have zombie(s) with the same cloud name on the network, that's forming up with you." +
@@ -456,6 +461,9 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
         a = (cloud_size==node_count and consensus)
         if (a):
             verboseprint("\tLocked won't happen until after keys are written")
+            verboseprint("\nNodes in current cloud:")
+            for c in cnodes:
+                verboseprint(c['name'])
 
         return(a)
 
