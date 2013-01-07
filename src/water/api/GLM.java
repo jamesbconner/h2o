@@ -1,16 +1,24 @@
 package water.api;
 
-import com.google.gson.*;
-import hex.GLMSolver.*;
-import hex.GLMSolver;
+import hex.*;
+import hex.GLMSolver.Family;
+import hex.GLMSolver.GLMModel;
+import hex.GLMSolver.GLMParams;
+import hex.GLMSolver.GLMValidation;
+import hex.GLMSolver.GLMXValidation;
+import hex.GLMSolver.Link;
 import hex.LSMSolver.Norm;
-import hex.LSMSolver;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
+
 import water.*;
 import water.web.RString;
-import water.web.ServletUtil;
+
+import com.google.gson.*;
 
 /**
  *
@@ -186,25 +194,20 @@ public class GLM extends Request {
       LSMSolver lsm = getLSMSolver();
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
-      GLMModel[] xms = null;    // cross-validation models
       if( m.is_solved() ) {     // Solved at all?
-        m.validateOn(ary, null);// Validate...
         if( _xval.specified() ) // ... and x-validate
-          xms = glm.xvalidate(ary, columns, _xval.value());
+          glm.xvalidate(m,ary,columns,_xval.value());
+        else
+          m.validateOn(ary, null);// Validate...
       }
 
+      UKV.put(Key.make("__GLMModel_" + Key.make()), m);
       // Convert to JSON
       res.add("GLMModel", m.toJson());
-      if( xms != null && xms.length > 0 ) {
-        JsonArray models = new JsonArray();
-        for( GLMModel xm : xms )
-          models.add(xm.toJson());
-        res.add("xval", models);
-      }
 
       // Display HTML setup
       Response r = Response.done(res);
-      r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m,xms));
+      r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m));
       return r;
 
     } catch (Throwable t) {
@@ -215,17 +218,11 @@ public class GLM extends Request {
 
 
   static class GLMBuilder extends ObjectBuilder {
-    final GLMModel _m, _xms[];
-    GLMBuilder( GLMModel m, GLMModel xms[] ) { _m=m; _xms=xms; }
+    final GLMModel _m;
+    GLMBuilder( GLMModel m) { _m=m; }
     public String build(Response response, JsonObject json, String contextName) {
       StringBuilder sb = new StringBuilder();;
       modelHTML(_m,json.get("GLMModel").getAsJsonObject(),sb);
-      if( _xms != null && _xms.length > 0 ) {
-        sb.append("<h4>Cross Validation</h4>");
-        JsonArray ja = json.getAsJsonArray("xval");
-        for( int i=0; i<_xms.length; i++ )
-          XmodelHTML(i,_xms[i],ja.get(i).getAsJsonObject(),sb);
-      }
       return sb.toString();
     }
 
@@ -240,13 +237,15 @@ public class GLM extends Request {
           "<div>%coefficients</div>");
 
       // Warnings
-      R.replace("succ",m._warnings == null ? "alert-success" : "alert-warning");
+
       if( m._warnings != null ) {
         StringBuilder wsb = new StringBuilder();
         for( String s : m._warnings )
           wsb.append(s).append("<br>");
         R.replace("warnings",wsb);
-      }
+        R.replace("succ","alert-warning");
+      } else
+        R.replace("succ","alert-success");
 
       // Basic model stuff
       R.replace("key",m._dataset);
@@ -378,20 +377,70 @@ public class GLM extends Request {
             + "<tr><th>Residual Deviance</th><td>%resDev</td></tr>"
             + "<tr><th>AIC</th><td>%AIC</td></tr>"
             + "<tr><th>Training Error Rate Avg</th><td>%err</td></tr>"
+            +"%CM"
             + "</table>");
+        RString R2 = new RString(
+            "<tr><th>AUC</th><td>%AUC</td></tr>"
+            + "<tr><th>Best Threshold</th><td>%threshold</td></tr>");
 
         R.replace("DegreesOfFreedom",val._n-1);
-        R.replace("ResidualDegreesOfFreedom",val._n-1-val._beta.length);
+        R.replace("ResidualDegreesOfFreedom",val._dof);
         R.replace("nullDev",val._nullDeviance);
         R.replace("resDev",val._deviance);
         R.replace("AIC", dformat.format(val.AIC()));
-        if( val._cm != null ) {
-          R.replace("err",val.bestCM().err());
-        } else {
-          R.replace("err",val._err);
+        R.replace("err",val.err());
+
+        if(val._cm != null){
+          R2.replace("AUC", dformat.format(val.AUC()));
+          R2.replace("threshold", dformat.format(val.bestThreshold()));
+          R.replace("CM",R2);
         }
         sb.append(R);
         confusionHTML(val.bestCM(),sb);
+        if(val instanceof GLMXValidation){
+          GLMXValidation xval = (GLMXValidation)val;
+          int nclasses = 2;
+          sb.append("<table class='table table-bordered table-condensed'>");
+          if(xval._cm != null){
+            sb.append("<tr><th>Model</th><th>Best Threshold</th><th>AUC</th>");
+            for(int c = 0; c < nclasses; ++c)
+              sb.append("<th>Err(" + c + ")</th>");
+            sb.append("</tr>");
+            // Display all completed models
+            int i=0;
+            for(GLMModel xm:xval.models()){
+              String mname = "Model " + i++;
+              sb.append("<tr>");
+              try {
+                sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+              } catch( UnsupportedEncodingException e1 ) {
+                throw new Error(e1);
+              }
+              sb.append("<td>" + dformat.format(xm._vals[0].bestThreshold()) + "</td>");
+              sb.append("<td>" + dformat.format(xm._vals[0].AUC()) + "</td>");
+              for(double e:xm._vals[0].classError())
+                sb.append("<td>" + dformat.format(e) + "</td>");
+              sb.append("</tr>");
+            }
+          } else {
+            sb.append("<tr><th>Model</th><th>Error</th>");
+            sb.append("</tr>");
+            // Display all completed models
+            int i=0;
+            for(GLMModel xm:xval.models()){
+              String mname = "Model " + i++;
+              sb.append("<tr>");
+              try {
+                sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+              } catch( UnsupportedEncodingException e1 ) {
+                throw new Error(e1);
+              }
+              sb.append("<td>" + xm._vals[0]._err + "</td>");
+              sb.append("</tr>");
+            }
+          }
+          sb.append("</table>");
+        }
       }
     }
 

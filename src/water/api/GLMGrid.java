@@ -72,7 +72,7 @@ public class GLMGrid extends Request {
                         parsePRange( true, _lambda2.value()),   // Grid ranges
                         parsePRange( true, _rho.value()),       // Grid ranges
                         parsePRange( true, _alpha.value()),     // Grid ranges
-                        _case.value());
+                        _case.value(), _xval.value());
 
     // Put the task Out There for all to find
     UKV.put(taskey,task);

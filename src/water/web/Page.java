@@ -41,7 +41,7 @@ public abstract class Page {
     + "            <span class=\"icon-bar\"></span>"
     + "            <span class=\"icon-bar\"></span>"
     + "          </a>"
-    + "          <a class=\"brand\" href=\"#\">H<sub>2</sub>O</a>"
+    + "          <a class=\"brand\" href=\"/\">H<sub>2</sub>O</a>"
     + "          <div class=\"nav\">"
     + "            <ul class=\"nav\">"
     + "              %navbar"
@@ -58,7 +58,7 @@ public abstract class Page {
     + "    </div>"
     + "  </body>"
     + "</html>";
-  
+
   public static class PageError extends Exception {
     public PageError(String msg) { super(msg); }
   }
@@ -66,18 +66,18 @@ public abstract class Page {
   public String[] requiredArguments() {
     return null;
   }
-  
+
   /** Returns true, if the page can be viewed by the given user. By default all
-   * pages can only be viewed by the H2O user. 
-   * 
+   * pages can only be viewed by the H2O user.
+   *
    * NOTE temporarily disabled to allow nice debugging. re-enable when you
-   * actually want to use the feature. 
-   * 
+   * actually want to use the feature.
+   *
    * @param username
-   * @return 
+   * @return
    */
   public boolean authenticate(String username) {
-    if (H2O.OPT_ARGS.auth == null)    
+    if (H2O.OPT_ARGS.auth == null)
       return true; // sessions disabled, everyone is allowed to view everything
     else
       return "H2O".equals(username);

@@ -23,7 +23,11 @@ public class ParseProgress extends Request {
       r = Inspect.redirect(response, v._key);
     } else {
       ParseStatus ps = v.get(new ParseStatus());
-      r = Response.poll(response, (float) ps.getProgress());
+      if( ps._error != null ) {
+        r = Response.error(ps._error);
+      } else {
+        r = Response.poll(response, (float) ps.getProgress());
+      }
     }
     r.setBuilder(RequestStatics.DEST_KEY, new KeyElementBuilder());
     return r;
