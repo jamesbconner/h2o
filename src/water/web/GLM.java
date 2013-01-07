@@ -162,7 +162,7 @@ public class GLM extends H2OPage {
       if( m.is_solved() && p.containsKey("xval") ) {
         int fold = getIntArg(p, "xval", 10);
         JsonArray models = new JsonArray();
-        for(GLMModel xm:glm.xvalidate(ary, columns, fold))
+        for(GLMModel xm:glm.xvalidate(m,ary, columns, fold))
           models.add(xm.toJson());
         res.add("xval", models);
       }

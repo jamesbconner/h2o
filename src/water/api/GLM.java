@@ -1,16 +1,22 @@
 package water.api;
 
-import com.google.gson.*;
-import hex.GLMSolver.*;
-import hex.GLMSolver;
+import hex.*;
+import hex.GLMSolver.Family;
+import hex.GLMSolver.GLMModel;
+import hex.GLMSolver.GLMParams;
+import hex.GLMSolver.GLMValidation;
+import hex.GLMSolver.GLMXValidation;
+import hex.GLMSolver.Link;
 import hex.LSMSolver.Norm;
-import hex.LSMSolver;
+
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
+
 import water.*;
 import water.web.RString;
-import water.web.ServletUtil;
+
+import com.google.gson.*;
 
 /**
  *
@@ -188,19 +194,14 @@ public class GLM extends Request {
       GLMModel m = glm.computeGLM(ary, columns, null);
       GLMModel[] xms = null;    // cross-validation models
       if( m.is_solved() ) {     // Solved at all?
-        m.validateOn(ary, null);// Validate...
         if( _xval.specified() ) // ... and x-validate
-          xms = glm.xvalidate(ary, columns, _xval.value());
+          glm.xvalidate(m,ary,columns,_xval.value());
+        else
+          m.validateOn(ary, null);// Validate...
       }
 
       // Convert to JSON
       res.add("GLMModel", m.toJson());
-      if( xms != null && xms.length > 0 ) {
-        JsonArray models = new JsonArray();
-        for( GLMModel xm : xms )
-          models.add(xm.toJson());
-        res.add("xval", models);
-      }
 
       // Display HTML setup
       Response r = Response.done(res);
@@ -378,20 +379,62 @@ public class GLM extends Request {
             + "<tr><th>Residual Deviance</th><td>%resDev</td></tr>"
             + "<tr><th>AIC</th><td>%AIC</td></tr>"
             + "<tr><th>Training Error Rate Avg</th><td>%err</td></tr>"
+            +"%CM"
             + "</table>");
+        RString R2 = new RString(
+            "<tr><th>AUC</th><td>%AUC</td></tr>"
+            + "<tr><th>Best Threshold</th><td>%threshold</td></tr>");
 
         R.replace("DegreesOfFreedom",val._n-1);
-        R.replace("ResidualDegreesOfFreedom",val._n-1-val._beta.length);
+        R.replace("ResidualDegreesOfFreedom",val._dof);
         R.replace("nullDev",val._nullDeviance);
         R.replace("resDev",val._deviance);
         R.replace("AIC", dformat.format(val.AIC()));
-        if( val._cm != null ) {
-          R.replace("err",val.bestCM().err());
-        } else {
-          R.replace("err",val._err);
+        R.replace("err",val.err());
+
+        if(val._cm != null){
+          R2.replace("AUC", dformat.format(val.AUC()));
+          R2.replace("threshold", dformat.format(val.bestThreshold()));
+          R.replace("CM",R2);
         }
         sb.append(R);
         confusionHTML(val.bestCM(),sb);
+        if(val instanceof GLMXValidation){
+          GLMXValidation xval = (GLMXValidation)val;
+          int nclasses = 2;
+          sb.append("<table class='table table-bordered table-condensed'>");
+          if(xval._cm != null){
+            sb.append("<tr><th>Model</th><th>Best Threshold</th><th>AUC</th>");
+            for(int c = 0; c < nclasses; ++c)
+              sb.append("<th>Err(" + c + ")</th>");
+            sb.append("</tr>");
+            // Display all completed models
+            int i=0;
+            for(GLMModel xm:xval.models()){
+              String mname = "Model " + i++;
+              sb.append("<tr>");
+              sb.append("<td>" + mname + "</td>");
+              sb.append("<td>" + dformat.format(xm._vals[0].bestThreshold()) + "</td>");
+              sb.append("<td>" + dformat.format(xm._vals[0].AUC()) + "</td>");
+              for(double e:xm._vals[0].classError())
+                sb.append("<td>" + dformat.format(e) + "</td>");
+              sb.append("</tr>");
+            }
+          } else {
+            sb.append("<tr><th>Model</th><th>Error</th>");
+            sb.append("</tr>");
+            // Display all completed models
+            int i=0;
+            for(GLMModel xm:xval.models()){
+              String mname = "Model " + i++;
+              sb.append("<tr>");
+              sb.append("<td>" + mname + "</td>");
+              sb.append("<td>" + xm._vals[0]._err + "</td>");
+              sb.append("</tr>");
+            }
+          }
+          sb.append("</table>");
+        }
       }
     }
 

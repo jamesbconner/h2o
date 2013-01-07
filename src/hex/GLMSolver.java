@@ -4,6 +4,8 @@ import com.google.gson.*;
 import hex.RowVecTask.Sampling;
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import test.GLMTest;
 import water.*;
 
 public class GLMSolver {
@@ -261,17 +263,13 @@ public class GLMSolver {
       valTsk._beta = _beta;
       valTsk._familyArgs= _glmParams._familyArgs;
       valTsk.invoke(ary._key);
-      GLMValidation val = new GLMValidation();
-      val._beta = _beta;
+      GLMValidation val = new GLMValidation(valTsk);
+//      val._beta = _beta;
       val._dataKey = ary._key;
       val._s = s;
       val._f = _glmParams._f;
       val._l = _glmParams._l;
-      val._n = valTsk._n;
-      val._nullDeviance = valTsk._nullDeviance;
-      val._deviance = valTsk._deviance;
-      val._err = valTsk._err;
-      val._cm = valTsk._cm;
+
       if(_vals == null)
         _vals = new GLMValidation[]{val};
       else {
@@ -280,6 +278,8 @@ public class GLMSolver {
         _vals[n] = val;
       }
     }
+
+
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
@@ -477,33 +477,43 @@ public class GLMSolver {
 
   }
 
-  public static class GLMXValidation extends Iced implements Comparable<GLMXValidation>{
+  public static class GLMXValidation extends GLMValidation implements Comparable<GLMXValidation>{
     GLMModel [] _models;
-    ConfusionMatrix [] _cm;
-    int _tid;
-    ErrMetric _errMetric;
     boolean _compareByAUC = true;
-    double _auc;
+
+    public GLMModel [] models(){
+      return _models;
+    }
 
     public GLMXValidation(GLMModel [] models, ErrMetric m) {
       _errMetric = m;
       _models = models;
-      _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
-      for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
-        _cm[t] = _models[0]._vals[0]._cm[t];
-      for(int i = 1; i < _models.length; ++i){
+      if(_models[0]._vals[0]._cm != null){
+        _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
         for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
-          _cm[t].add(_models[i]._vals[0]._cm[t]);
-      }
-      double err = _errMetric.computeErr(_cm[0]);
-      for(int t = 0; t < N_THRESHOLD_POINTS; ++t){
-        double e = _errMetric.computeErr(_cm[t]);
-        if(e < err){
-          err = e;
-          _tid = t;
+          _cm[t] = _models[0]._vals[0]._cm[t];
+        _n += _models[0]._vals[0]._n;
+        _deviance = _models[0]._vals[0]._deviance;
+        _nullDeviance = _models[0]._vals[0]._nullDeviance;
+        for(int i = 1; i < _models.length; ++i){
+          _n += _models[i]._vals[0]._n;
+          _deviance += _models[0]._vals[0]._deviance;
+          _nullDeviance += _models[0]._vals[0]._nullDeviance;
+          for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
+            _cm[t].add(_models[i]._vals[0]._cm[t]);
+        }
+
+        computeBestThreshold(m);
+        computeAUC();
+      } else {
+        for(GLMModel xm:_models){
+          _n += xm._vals[0]._n;
+          _deviance += xm._vals[0]._deviance;
+          _nullDeviance += xm._vals[0]._nullDeviance;
+          _err += xm._vals[0]._err;
         }
       }
-      computeAUC();
+      _aic = 2*(models[0]._beta.length+1) + _deviance;
     }
 
     public double bestThreshold() {
@@ -512,40 +522,8 @@ public class GLMSolver {
 
 
 
-    public double [] classError() {
-      return _cm[_tid].classErr();
-    }
 
-    private double trapeziod_area(double x1, double x2, double y1, double y2){
-      double base = Math.abs(x1-x2);
-      double havg = 0.5*(y1 + y2);
-      return base*havg;
-    }
 
-    public double AUC(){
-      return _auc;
-    }
-    /**
-     * Computes area under the ROC curve.
-     * The ROC curve is computed from the confusion matrices (there is one for each computed threshold).
-     * Area under this curve is then computed as a sum of areas of trapezoids formed by each neighboring points.
-     *
-     * @return estimate of the area under ROC curve of this classifier.
-     */
-    private void computeAUC() {
-      _auc = 0;
-      double TP_pre = 1;
-      double FP_pre = 1;
-
-      for(int t = 0; t < _cm.length; ++t){
-        double TP = 1 - _cm[t].classErr(1);
-        double FP = _cm[t].classErr(0);
-        _auc += trapeziod_area(FP_pre, FP, TP_pre, TP);
-        TP_pre = TP;
-        FP_pre = FP;
-      }
-      _auc += trapeziod_area(FP_pre, 0, TP_pre, 0);
-    }
 
     public double errM(){
       return _errMetric.computeErr(_cm[_tid]);
@@ -558,14 +536,8 @@ public class GLMSolver {
       return _cm[_tid];
     }
     public JsonObject toJson(){
-      JsonObject res = new JsonObject();
-      res.add("lsm", _models[0]._solver.toJson());
-      double [] err = _cm[_tid].classErr();
-      JsonArray arr = new JsonArray();
-      for(int i = 0; i < err.length; ++i)
-        arr.add(new JsonPrimitive(err[i]));
-      res.add("err", arr);
-      res.addProperty("threshold", getThresholdValue(_tid));
+      JsonObject res = super.toJson();
+
       return res;
     }
 
@@ -585,12 +557,14 @@ public class GLMSolver {
     }
   }
 
-  public GLMModel [] xvalidate(ValueArray ary, int [] colIds, int fold) {
+
+  public GLMModel [] xvalidate(GLMModel m, ValueArray ary, int [] colIds, int fold) {
     GLMModel [] models = new GLMModel[fold];
     for(int i = 0; i < fold; ++i){
       models[i] = computeGLM(ary, colIds, new Sampling(i, fold, false));
       models[i].validateOn(ary, new Sampling(i, fold, true));
     }
+    m._vals = new GLMValidation[]{new GLMXValidation(models, ErrMetric.SUMC)};
     return models;
   }
 
@@ -769,15 +743,33 @@ public class GLMSolver {
     Key _dataKey;
     Sampling _s;
     public long _n;
-    public double [] _beta;
-    double [] _familyArgs;
+//    public double [] _beta;
+//    double [] _familyArgs;
+    public double _dof;
+    public double _aic;
     public double _deviance;
     public double _nullDeviance;
     public double _err;
+    ErrMetric _errMetric = ErrMetric.SUMC;
+    double _auc;
     public ConfusionMatrix [] _cm;
-    int _cmid = DEFAULT_THRESHOLD_IDX;
+    int _tid = DEFAULT_THRESHOLD_IDX;
     double _threshold = DEFAULT_THRESHOLD_VAL;
-    public GLMValidation(){
+    public GLMValidation(){}
+
+
+    public GLMValidation(GLMValidationTask tsk){
+      _n = tsk._n;
+      _nullDeviance = tsk._nullDeviance;
+      _deviance = tsk._deviance;
+      _err = tsk._err;
+      _cm = tsk._cm;
+      _dof = _n-1-tsk._beta.length;
+      _aic = 2*(tsk._beta.length+1) + _deviance;
+      if(_cm != null){
+        computeBestThreshold(ErrMetric.SUMC);
+        computeAUC();
+      }
     }
 
     public ConfusionMatrix getConfusionMatrix(double threshold){
@@ -785,11 +777,17 @@ public class GLMSolver {
     }
 
     public ConfusionMatrix bestCM(){
+      if(_cm == null)return null;
       return bestCM(ErrMetric.SUMC);
+    }
+
+    public double err() {
+      if(_cm != null)return bestCM().err();
+      return _err;
     }
     public ConfusionMatrix bestCM(ErrMetric errM){
       computeBestThreshold(errM);
-      return _cm[_cmid];
+      return _cm[_tid];
     }
 
     public double bestThreshold() {
@@ -797,18 +795,18 @@ public class GLMSolver {
     }
     public void computeBestThreshold(ErrMetric errM){
       double e = errM.computeErr(_cm[0]);
-      _cmid = 0;
+      _tid = 0;
       for(int i = 1; i < _cm.length; ++i){
         double r = errM.computeErr(_cm[i]);
         if(r < e){
           e = r;
-          _cmid = i;
+          _tid = i;
         }
       }
-      _threshold = getThresholdValue(_cmid);
+      _threshold = getThresholdValue(_tid);
     }
     public void setThreshold(double t){
-      _cmid = getThresholdIdx(t);
+      _tid = getThresholdIdx(t);
     }
 
     double [] err(int c) {
@@ -822,27 +820,69 @@ public class GLMSolver {
       return _cm[threshold].classErr(c);
     }
 
+    public double [] classError() {
+      return _cm[_tid].classErr();
+    }
+    private double trapeziod_area(double x1, double x2, double y1, double y2){
+      double base = Math.abs(x1-x2);
+      double havg = 0.5*(y1 + y2);
+      return base*havg;
+    }
+
+    public double AUC(){
+      return _auc;
+    }
+    /**
+     * Computes area under the ROC curve.
+     * The ROC curve is computed from the confusion matrices (there is one for each computed threshold).
+     * Area under this curve is then computed as a sum of areas of trapezoids formed by each neighboring points.
+     *
+     * @return estimate of the area under ROC curve of this classifier.
+     */
+    protected void computeAUC() {
+      _auc = 0;
+      double TP_pre = 1;
+      double FP_pre = 1;
+
+      for(int t = 0; t < _cm.length; ++t){
+        double TP = 1 - _cm[t].classErr(1);
+        double FP = _cm[t].classErr(0);
+        _auc += trapeziod_area(FP_pre, FP, TP_pre, TP);
+        TP_pre = TP;
+        FP_pre = FP;
+      }
+      _auc += trapeziod_area(FP_pre, 0, TP_pre, 0);
+    }
+
 
     public JsonObject toJson() {
       JsonObject res = new JsonObject();
-      res.addProperty("dataset", _dataKey.toString());
+      if(_dataKey != null)
+        res.addProperty("dataset", _dataKey.toString());
+      else
+        res.addProperty("dataset", "");
       if(_s != null)
         res.addProperty("sampling", _s.toString());
       res.addProperty("nrows", _n);
-      res.addProperty("dof", _n-1-_beta.length);
+      res.addProperty("dof", _dof);
       res.addProperty("resDev", _deviance);
       res.addProperty("nullDev", _nullDeviance);
 
       if(_cm != null) {
-        res.addProperty("err", _cm[_cmid].err());
-        res.add("cm", _cm[_cmid].toJson());
+        double [] err = _cm[_tid].classErr();
+        JsonArray arr = new JsonArray();
+        for(int i = 0; i < err.length; ++i)
+          arr.add(new JsonPrimitive(err[i]));
+        res.add("err", arr);
+        res.addProperty("threshold", getThresholdValue(_tid));
+        res.add("cm", _cm[_tid].toJson());
       } else
         res.addProperty("err", _err);
       return res;
     }
 
     public double AIC() {
-      return 2*(_beta.length+1) + _deviance;
+      return _aic;
     }
   }
   public static class GLMValidationTask extends RowVecTask {

@@ -1,9 +1,7 @@
 package water.api;
 
 import hex.*;
-import hex.GLMSolver.ErrMetric;
-import hex.GLMSolver.GLMParams;
-import hex.GLMSolver.GLMXValidation;
+import hex.GLMSolver.*;
 
 import java.util.*;
 
@@ -135,8 +133,10 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     // Always use elastic-net, but set the various parameters
     LSMSolver lsms = LSMSolver.makeElasticNetSolver(_lambda1s[l1], _lambda2s[l2], _rhos[rho], _alphas[alpha]);
     GLMSolver glm = new GLMSolver(lsms, glmp);
+    int [] colIds = createColumns();
+    GLMModel m = glm.computeGLM(_ary, colIds, null);
     //GLMModel m = glm.xvalidate(_ary, createColumns(),10)[0]; // fixme, it should contain link to crossvalidatoin results and aggreaget info
-    return new GLMXValidation(glm.xvalidate(_ary, createColumns(),10),ErrMetric.SUMC);
+    return new GLMXValidation(glm.xvalidate(m,_ary, createColumns(),10),ErrMetric.SUMC);
   }
   // ---
 
