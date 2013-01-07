@@ -5,6 +5,7 @@ import java.util.zip.*;
 import jsr166y.RecursiveAction;
 import water.*;
 
+import com.google.common.base.Throwables;
 import com.google.common.io.Closeables;
 
 /**
@@ -60,7 +61,8 @@ public final class ParseDataset {
         default : throw new Error("Uknown compression of dataset!");
       }
     } catch( Exception e ) {
-      throw new Error(e);
+      ParseStatus.error(result, e.getMessage());
+      throw Throwables.propagate(e);
     }
   }
   public static void parse( Key result, Value dataset ) {

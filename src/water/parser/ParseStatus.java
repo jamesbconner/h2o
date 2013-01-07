@@ -7,12 +7,15 @@ public class ParseStatus extends Iced {
   public DParseTask.Pass _phase;
   public long _sofar;
   public long _total;
+  public String _error;
 
   public ParseStatus() { }
   public ParseStatus(long total) {
     _phase = Pass.ONE;
-    _sofar = 0;
     _total = total;
+  }
+  public ParseStatus(String err) {
+    _error = err;
   }
 
   public double getProgress() {
@@ -21,6 +24,10 @@ public class ParseStatus extends Iced {
 
   public static void initialize(Key statusKey, long steps) {
     UKV.put(statusKey, new ParseStatus(steps));
+  }
+
+  public static void error(Key statusKey, String msg) {
+    UKV.put(statusKey, new ParseStatus(msg));
   }
 
   public static void update(Key statusKey, final long steps, final Pass phase) {
