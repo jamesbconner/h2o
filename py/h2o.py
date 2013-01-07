@@ -689,18 +689,19 @@ class H2O(object):
         # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
         # param names
         if new_json:
+            modelKey = kwargs.pop('modelKey', 'pytest_model')
             params_dict = {
-                'data_key' : key,
-                'ntree' : trees,
-                'model_key' : 'pytest_model',
-                'depth' : 30,
+                'data_key': key,
+                'ntree':  trees,
+                'model_key': modelKey,
+                'depth': 30,
                 }
         else:
             params_dict = {
-                'Key' : key,
-                'ntree' : trees,
-                'modelKey' : 'pytest_model',
-                'depth' : 30,
+                'Key': key,
+                'ntree': trees,
+                'modelKey': 'pytest_model',
+                'depth': 30,
                 }
         
         browseAlso = kwargs.pop('browseAlso',False)
@@ -734,19 +735,19 @@ class H2O(object):
         # param names
         if new_json:
             params_dict = {
-                'data_key' : dataKey,
-                'model_key' : modelKey,
-                'OOBEE' : None,
-                'classWt' : None,
-                'class' : None, # FIX! apparently this is needed now?
+                'data_key': dataKey,
+                'model_key': modelKey,
+                'OOBEE': None,
+                'classWt': None,
+                'class': None, # FIX! apparently this is needed now?
                 }
         else: 
             params_dict = {
-                'dataKey' : dataKey,
-                'modelKey' : modelKey,
-                'OOBEE' : None,
-                'classWt' : None,
-                'class' : None, # FIX! apparently this is needed now?
+                'dataKey': dataKey,
+                'modelKey': modelKey,
+                'OOBEE': None,
+                'classWt': None,
+                'class': None, # FIX! apparently this is needed now?
                 }
 
         browseAlso = kwargs.pop('browseAlso',False)
@@ -769,18 +770,26 @@ class H2O(object):
 
         return a
 
-    def random_forest_treeview(self, timeoutSecs=10, **kwargs):
-        params_dict = {
-            'n' : 0,
-            'dataKey' : None,
-            'modelKey' : "model"
-            }
+    def random_forest_treeview(self, n, dataKey, modelKey, timeoutSecs=10, **kwargs):
+        if new_json:
+            params_dict = {
+                'tree_number': n,
+                'data_key': dataKey,
+                'model_key': modelKey,
+                }
+        else:
+            params_dict = {
+                'n': n,
+                'dataKey': dataKey,
+                'modelKey': modelKey
+                }
+
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
 
         if (1==0):
             a = self.__check_request(requests.get(
-                self.__url('RFTreeView.json'),
+                self.__url('RFTreeView.json', new=new_json),
                 timeout=timeoutSecs,
                 params=params_dict))
 
@@ -790,7 +799,10 @@ class H2O(object):
         else:
             a = "No RFTreeView.json implemented yet hacking a webbrowser instead"
             print "\n", a
-            url = self.__url('RFTreeView')
+            if new_json:
+                url = self.__url('RFTreeView.html', new=True)
+            else:
+                url = self.__url('RFTreeView', new=False)
             # tack on the params. We're not logging this url
             joiner = "?"
             for k,v in params_dict.iteritems():
@@ -803,15 +815,15 @@ class H2O(object):
     def linear_reg(self, key, timeoutSecs=10, **kwargs):
         if new_json:
             params_dict = {
-                'key' : key,
-                'colA' : 0,
-                'colB' : 1,
+                'key': key,
+                'colA': 0,
+                'colB': 1,
             }
         else:
             params_dict = {
-                'Key' : key,
-                'colA' : 0,
-                'colB' : 1,
+                'Key': key,
+                'colA': 0,
+                'colB': 1,
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)

@@ -84,9 +84,9 @@ def runRF(node=None, csvPathname=None, trees=5, key=None,
     parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     return runRFOnly(node, parseKey, trees, timeoutSecs, retryDelaySecs, **kwargs)
 
-def runRFTreeView(node=None, timeoutSecs=20, **kwargs):
+def runRFTreeView(node=None, n=None, dataKey=None, modelKey=None, timeoutSecs=20, **kwargs):
     if not node: node = h2o.nodes[0]
-    return node.random_forest_treeview(timeoutSecs, **kwargs)
+    return node.random_forest_treeview(n, dataKey, modelKey, timeoutSecs, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRFOnly(node=None, parseKey=None, trees=5,
