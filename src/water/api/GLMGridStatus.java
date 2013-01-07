@@ -34,18 +34,20 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   double [] _lambda2s;        // Grid search values
   double [] _rhos;            // Grid search values
   double [] _alphas;          // Grid search values
+  int _xfold;
+
 
   // Progress: Count of GLM models computed so far.
   int _progress;
   int _max;
 
   // The computed GLM models: product of length of lamda1s,lambda2s,rhos,alphas
-  GLMXValidation _ms[];
+  Key _ms[];
 
   // Fraction complete
   float progress() { return (float)_progress/_ms.length; }
 
-  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as, double caseval) {
+  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as, double caseval, int xfold) {
     _taskey = taskey;           // Capture the args
     _ary = va;                  // VA is large, and already in a Key so make it transient
     _datakey = va._key;         // ... and use the datakey instead when reloading
@@ -57,7 +59,8 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     _rhos     = rs;
     _alphas   = as;
     _max = l1s.length*l2s.length*rs.length*as.length;
-    _ms = new GLMXValidation[_max];
+    _ms = new Key[_max];
+    _xfold = xfold;
   }
   // Void constructor for serialization
   public GLMGridStatus() {}
@@ -77,7 +80,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
         for( int r=0; r<_rhos.length; r++ )
           for( int a=0; a<_alphas.length; a++) {
             if( _stop ) break OUTER;
-            final GLMXValidation m = do_task(l1,l2,r,a); // Do a step; get a model
+            final GLMModel m = do_task(l1,l2,r,a); // Do a step; get a model
             // Now update this Status.
             update(_taskey,m,l1*M+l2*N+r*O+a);
             // Fetch over the 'this' all new bits.  Mostly witness updates to
@@ -93,10 +96,11 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // Update status for a new model.  In a static function, to avoid closing
   // over the 'this' pointer of a GLMGridStatus and thus serializing it as part
   // of the atomic update.
-  static void update( Key taskey, final GLMXValidation m, final int idx) {
+  static void update( Key taskey, final GLMModel m, final int idx) {
     new TAtomic<GLMGridStatus>() {
       @Override public GLMGridStatus atomic(GLMGridStatus old) {
-        old._ms[idx] = m; old._progress++; return old; }
+        if(m.key() == null)m.store();
+        old._ms[idx] = m.key(); old._progress++; return old; }
       @Override public GLMGridStatus alloc() { return new GLMGridStatus(); }
     }.invoke(taskey);
   }
@@ -115,7 +119,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // ---
   // Do a single step (blocking).
   // In this case, run 1 GLM model.
-  private GLMXValidation do_task( int l1, int l2, int rho, int alpha) {
+  private GLMModel do_task( int l1, int l2, int rho, int alpha) {
     // Default GLM args.  Binomial, logit, expanded cats, max iter, etc
     GLMParams glmp = new GLMParams();
     glmp._f = GLMSolver.Family.binomial;
@@ -135,13 +139,17 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     GLMSolver glm = new GLMSolver(lsms, glmp);
     int [] colIds = createColumns();
     GLMModel m = glm.computeGLM(_ary, colIds, null);
+    if(_xfold <= 1)
+      m.validateOn(_ary, null);
+    else
+      glm.xvalidate(m,_ary, createColumns(),_xfold);
     //GLMModel m = glm.xvalidate(_ary, createColumns(),10)[0]; // fixme, it should contain link to crossvalidatoin results and aggreaget info
-    return new GLMXValidation(glm.xvalidate(m,_ary, createColumns(),10),ErrMetric.SUMC);
+    return m;
   }
   // ---
 
   String model_name( int step ) {
-    return "GLMModel["+step+"]";
+    return "Model "+step;
   }
 
   private int[] createColumns() {
@@ -155,30 +163,51 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     return res;
   }
 
-  public Iterable<GLMXValidation> computedModels(){
-    Arrays.sort(_ms, new Comparator<GLMXValidation>() {
+  public Iterable<GLMModel> computedModels(){
+    Arrays.sort(_ms, new Comparator<Key>() {
       @Override
-      public int compare(GLMXValidation o1, GLMXValidation o2) {
-        if(o1 == null && o2 == null)return 0;
-        if(o1 == null)return 1; // drive the nulls to the end
-        if(o2 == null)return -1;
-        return o1.compareTo(o2);
+      public int compare(Key k1, Key k2) {
+        Value v1 = null, v2 = null;
+        if(k1 != null)v1 = DKV.get(k1);
+        if(k2 != null)v2 = DKV.get(k2);
+        if(v1 == null && v2 == null)return 0;
+        if(v1 == null)return 1; // drive the nulls to the end
+        if(v2 == null)return -1;
+        GLMModel m1 = new GLMModel().read(new AutoBuffer(v1.get()));
+        GLMModel m2 = new GLMModel().read(new AutoBuffer(v2.get()));
+        double cval1 = m1._vals[0].AUC(), cval2 = m2._vals[0].AUC();
+        if(cval1 == cval2){
+          if(m1._vals[0].classError() != null){
+            double [] cerr1 = m1._vals[0].classError(), cerr2 = m2._vals[0].classError();
+            assert (cerr2 != null && cerr1.length == cerr2.length);
+            for(int i = 0; i < cerr1.length; ++i){
+              cval1 += cerr1[i];
+              cval2 += cerr2[i];
+            }
+          }
+        }
+        if(cval1 == cval2){
+          cval1 = m1._vals[0].err();
+          cval1 = m2._vals[0].err();
+        }
+        if(cval1 == cval2)return 0;
+        return (cval2 < cval1)?-1:1;
       }
     });
-    final GLMXValidation [] models = _ms;
+    final Key [] keys = _ms;
     int lastIdx = _ms.length;
     for(int i = 0; i < _ms.length; ++i){
-      if(models[i] == null){
+      if(keys[i] == null || DKV.get(keys[i]) == null){
         lastIdx = i;
         break;
       }
     }
     final int N = lastIdx;
-    return new Iterable<GLMSolver.GLMXValidation>() {
+    return new Iterable<GLMSolver.GLMModel>() {
 
       @Override
-      public Iterator<GLMXValidation> iterator() {
-        return new Iterator<GLMSolver.GLMXValidation>() {
+      public Iterator<GLMModel> iterator() {
+        return new Iterator<GLMSolver.GLMModel>() {
           int _idx = 0;
           @Override
           public void remove() {
@@ -186,8 +215,8 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
           }
 
           @Override
-          public GLMXValidation next() {
-            return models[_idx++];
+          public GLMModel next() {
+            return new GLMModel().read(new AutoBuffer(DKV.get(keys[_idx++]).get()));
           }
 
           @Override
@@ -204,8 +233,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
  // sort models according to their performance
 
     JsonArray arr = new JsonArray();
-    for(GLMXValidation m:_ms){
-      if(m == null)break;
+    for(GLMModel m:computedModels()){
       arr.add(m.toJson());
     }
     j.add("models", arr);

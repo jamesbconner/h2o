@@ -1,14 +1,17 @@
 package water.api;
 
+import hex.GLMSolver.GLMModel;
+import hex.LSMSolver;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.text.DecimalFormat;
+
+import water.*;
+import water.web.RString;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import hex.GLMSolver;
-import hex.GLMSolver.*;
-import hex.LSMSolver;
-import java.text.DecimalFormat;
-import water.*;
-import water.parser.ParseStatus;
-import water.web.RString;
 
 public class GLMGridProgress extends Request {
   protected final H2OExistingKey _taskey = new H2OExistingKey(DEST_KEY);
@@ -58,18 +61,22 @@ public class GLMGridProgress extends Request {
 
       // Display all completed models
       int i=0;
-      for(GLMXValidation m:_status.computedModels()) {
+      for(GLMModel m:_status.computedModels()) {
         String mname = _status.model_name(i++);
-        LSMSolver lsm = m.lsmSolver();
+        LSMSolver lsm = m._solver;
         sb.append("<tr>");
-        sb.append("<td>" + mname + "</td>");
+        try {
+          sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(m.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+        } catch( UnsupportedEncodingException e1 ) {
+          throw new Error(e1);
+        }
         sb.append("<td>" + sci_dformat.format(lsm._lambda) + "</td>");
         sb.append("<td>" + sci_dformat.format(lsm._lambda2) + "</td>");
         sb.append("<td>" + sci_dformat.format(lsm._rho) + "</td>");
         sb.append("<td>" + dformat.format(lsm._alpha) + "</td>");
-        sb.append("<td>" + dformat.format(m.bestThreshold()) + "</td>");
-        sb.append("<td>" + dformat.format(m.AUC()) + "</td>");
-        for(double e:m.classError())
+        sb.append("<td>" + dformat.format(m._vals[0].bestThreshold()) + "</td>");
+        sb.append("<td>" + dformat.format(m._vals[0].AUC()) + "</td>");
+        for(double e:m._vals[0].classError())
           sb.append("<td>" + dformat.format(e) + "</td>");
         sb.append("</tr>");
       }

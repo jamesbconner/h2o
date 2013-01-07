@@ -1,12 +1,12 @@
 package hex;
 
-import com.google.gson.*;
 import hex.RowVecTask.Sampling;
-import java.util.ArrayList;
-import java.util.Arrays;
 
-import test.GLMTest;
+import java.util.*;
+
 import water.*;
+
+import com.google.gson.*;
 
 public class GLMSolver {
   public static final int DEFAULT_MAX_ITER = 50;
@@ -160,6 +160,7 @@ public class GLMSolver {
 
   public static class GLMModel extends Iced {
     public Key _dataset;
+    Key _key;
     Sampling _s;
     boolean _isDone;            // Model is "being worked on" or "is stable"
     public int _iterations;
@@ -174,10 +175,30 @@ public class GLMSolver {
     double [] _normSub;
     double [] _normMul;
 
-    public GLMValidation [] _vals;
     public GLMParams _glmParams;
     public String [] _warnings;
+    public GLMValidation [] _vals;
+
     public boolean is_solved() { return _beta != null; }
+
+
+    public static final String KEY_PREFIX = "__GLMModel_";
+
+
+    public static final Key makeKey() {
+      return Key.make(KEY_PREFIX + Key.make());
+    }
+
+    public final void store() {
+      if(_key == null)
+        _key = makeKey();
+      UKV.put(_key, this);
+    }
+
+    public final Key key(){
+      return _key;
+    }
+    public GLMModel(){}
 
     public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s) {
       _dataset = ary._key;
@@ -426,7 +447,8 @@ public class GLMSolver {
     }
     res._beta = (gtask != null)?gtask._beta:null;
     res._isDone = true;
-    res._warnings = warns.toArray(new String[warns.size()]);
+    if(!warns.isEmpty())
+      res._warnings = warns.toArray(new String[warns.size()]);
     return res;
   }
 
@@ -478,35 +500,63 @@ public class GLMSolver {
   }
 
   public static class GLMXValidation extends GLMValidation implements Comparable<GLMXValidation>{
-    GLMModel [] _models;
+
+
+    Key [] _modelKeys;
     boolean _compareByAUC = true;
 
-    public GLMModel [] models(){
-      return _models;
+    public Key [] modelKeys(){
+      return _modelKeys;
+    }
+
+    public Iterable<GLMModel> models(){
+      final Key [] keys = _modelKeys;
+      return new Iterable<GLMModel> (){
+        int idx;
+        @Override
+        public Iterator<GLMModel> iterator() {
+          return new Iterator<GLMSolver.GLMModel>() {
+            @Override
+            public void remove() {
+              throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public GLMModel next() {
+              if(idx == keys.length) throw new NoSuchElementException();
+              return new GLMModel().read(new AutoBuffer(DKV.get(keys[idx++]).get()));
+            }
+              @Override
+            public boolean hasNext() {
+              return idx < keys.length;
+            }
+          };
+        }
+      };
     }
 
     public GLMXValidation(GLMModel [] models, ErrMetric m) {
       _errMetric = m;
-      _models = models;
-      if(_models[0]._vals[0]._cm != null){
+
+      if(models[0]._vals[0]._cm != null){
         _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
         for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
-          _cm[t] = _models[0]._vals[0]._cm[t];
-        _n += _models[0]._vals[0]._n;
-        _deviance = _models[0]._vals[0]._deviance;
-        _nullDeviance = _models[0]._vals[0]._nullDeviance;
-        for(int i = 1; i < _models.length; ++i){
-          _n += _models[i]._vals[0]._n;
-          _deviance += _models[0]._vals[0]._deviance;
-          _nullDeviance += _models[0]._vals[0]._nullDeviance;
+          _cm[t] = models[0]._vals[0]._cm[t];
+        _n += models[0]._vals[0]._n;
+        _deviance = models[0]._vals[0]._deviance;
+        _nullDeviance = models[0]._vals[0]._nullDeviance;
+        for(int i = 1; i < models.length; ++i){
+          _n += models[i]._vals[0]._n;
+          _deviance += models[0]._vals[0]._deviance;
+          _nullDeviance += models[0]._vals[0]._nullDeviance;
           for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
-            _cm[t].add(_models[i]._vals[0]._cm[t]);
+            _cm[t].add(models[i]._vals[0]._cm[t]);
         }
 
         computeBestThreshold(m);
         computeAUC();
       } else {
-        for(GLMModel xm:_models){
+        for(GLMModel xm:models){
           _n += xm._vals[0]._n;
           _deviance += xm._vals[0]._deviance;
           _nullDeviance += xm._vals[0]._nullDeviance;
@@ -514,22 +564,21 @@ public class GLMSolver {
         }
       }
       _aic = 2*(models[0]._beta.length+1) + _deviance;
+      _dof = _n - models[0]._beta.length - 1;
+      _modelKeys = new Key[models.length];
+      int i = 0;
+      for(GLMModel xm:models){
+        if(xm.key() == null)xm.store();
+        _modelKeys[i++] = xm.key();
+      }
     }
 
     public double bestThreshold() {
       return getThresholdValue(_tid);
     }
 
-
-
-
-
-
     public double errM(){
       return _errMetric.computeErr(_cm[_tid]);
-    }
-    public LSMSolver lsmSolver(){
-      return _models[0]._solver;
     }
 
     public ConfusionMatrix cm() {

@@ -9,6 +9,8 @@ import hex.GLMSolver.GLMXValidation;
 import hex.GLMSolver.Link;
 import hex.LSMSolver.Norm;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
@@ -192,7 +194,6 @@ public class GLM extends Request {
       LSMSolver lsm = getLSMSolver();
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
-      GLMModel[] xms = null;    // cross-validation models
       if( m.is_solved() ) {     // Solved at all?
         if( _xval.specified() ) // ... and x-validate
           glm.xvalidate(m,ary,columns,_xval.value());
@@ -200,12 +201,13 @@ public class GLM extends Request {
           m.validateOn(ary, null);// Validate...
       }
 
+      UKV.put(Key.make("__GLMModel_" + Key.make()), m);
       // Convert to JSON
       res.add("GLMModel", m.toJson());
 
       // Display HTML setup
       Response r = Response.done(res);
-      r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m,xms));
+      r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m));
       return r;
 
     } catch (Throwable t) {
@@ -216,17 +218,11 @@ public class GLM extends Request {
 
 
   static class GLMBuilder extends ObjectBuilder {
-    final GLMModel _m, _xms[];
-    GLMBuilder( GLMModel m, GLMModel xms[] ) { _m=m; _xms=xms; }
+    final GLMModel _m;
+    GLMBuilder( GLMModel m) { _m=m; }
     public String build(Response response, JsonObject json, String contextName) {
       StringBuilder sb = new StringBuilder();;
       modelHTML(_m,json.get("GLMModel").getAsJsonObject(),sb);
-      if( _xms != null && _xms.length > 0 ) {
-        sb.append("<h4>Cross Validation</h4>");
-        JsonArray ja = json.getAsJsonArray("xval");
-        for( int i=0; i<_xms.length; i++ )
-          XmodelHTML(i,_xms[i],ja.get(i).getAsJsonObject(),sb);
-      }
       return sb.toString();
     }
 
@@ -241,13 +237,15 @@ public class GLM extends Request {
           "<div>%coefficients</div>");
 
       // Warnings
-      R.replace("succ",m._warnings == null ? "alert-success" : "alert-warning");
+
       if( m._warnings != null ) {
         StringBuilder wsb = new StringBuilder();
         for( String s : m._warnings )
           wsb.append(s).append("<br>");
         R.replace("warnings",wsb);
-      }
+        R.replace("succ","alert-warning");
+      } else
+        R.replace("succ","alert-success");
 
       // Basic model stuff
       R.replace("key",m._dataset);
@@ -413,7 +411,11 @@ public class GLM extends Request {
             for(GLMModel xm:xval.models()){
               String mname = "Model " + i++;
               sb.append("<tr>");
-              sb.append("<td>" + mname + "</td>");
+              try {
+                sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+              } catch( UnsupportedEncodingException e1 ) {
+                throw new Error(e1);
+              }
               sb.append("<td>" + dformat.format(xm._vals[0].bestThreshold()) + "</td>");
               sb.append("<td>" + dformat.format(xm._vals[0].AUC()) + "</td>");
               for(double e:xm._vals[0].classError())
@@ -428,7 +430,11 @@ public class GLM extends Request {
             for(GLMModel xm:xval.models()){
               String mname = "Model " + i++;
               sb.append("<tr>");
-              sb.append("<td>" + mname + "</td>");
+              try {
+                sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+              } catch( UnsupportedEncodingException e1 ) {
+                throw new Error(e1);
+              }
               sb.append("<td>" + xm._vals[0]._err + "</td>");
               sb.append("</tr>");
             }

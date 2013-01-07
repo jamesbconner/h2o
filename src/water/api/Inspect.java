@@ -1,7 +1,10 @@
 
 package water.api;
 
+import hex.GLMSolver.GLMModel;
 import water.*;
+import water.api.GLM.GLMBuilder;
+import water.api.RequestBuilders.Response;
 import water.parser.CsvParser;
 
 import com.google.gson.*;
@@ -47,6 +50,16 @@ public class Inspect extends Request {
     Value val = _key.value();
     if( val.isHex() ) {
       return serveValueArray(ValueArray.value(val));
+    }
+    if(_key.originalValue().startsWith(GLMModel.KEY_PREFIX)){
+      GLMModel m = new GLMModel().read(new AutoBuffer(val.get(),0));
+      JsonObject res = new JsonObject();
+      // Convert to JSON
+      res.add("GLMModel", m.toJson());
+      // Display HTML setup
+      Response r = Response.done(res);
+      r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m));
+      return r;
     }
     return serveUnparsedValue(val);
   }
