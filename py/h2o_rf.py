@@ -49,9 +49,15 @@ def simpleCheckRFView(node, rfv,**kwargs):
     # the simple assigns will at least check the key exists
     cm = rfv['confusion_matrix']
     header = cm['header'] # list
-    scores = cm['scores'][0] # list
-    if (sum(scores) < 1):
-        raise Exception("scores in RFView seems wrong. scores:", oscores)
+
+    scoresList = cm['scores'] # list
+    totalScores = 0
+    # individual scores can be all 0 if nothing for that output class
+    # due to sampling
+    for s in scoresList:
+        totalScores += sum(s)
+    if (totalScores<=0 or totalScores>5e9):
+        raise Exception("scores in RFView seems wrong. scores:", scoresList)
 
     type = cm['type']
     used_trees = cm['used_trees']
