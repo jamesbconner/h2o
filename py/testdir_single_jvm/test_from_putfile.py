@@ -23,28 +23,26 @@ class Basic(unittest.TestCase):
         #    "3G_poker_shuffle"
         #    "covtype20x.data", 
         #    "billion_rows.csv.gz",
-        csvFilenameAll = [
-            "covtype.data",
-            "covtype20x.data",
-            # "covtype200x.data",
-            # "a5m.csv",
-            # "a10m.csv",
-            # "a100m.csv",
-            # "a200m.csv",
-            # "a400m.csv",
-            # "a600m.csv",
-            # "100million_rows.csv",
-            # "200million_rows.csv",
-            "billion_rows.csv.gz",
-            "new-poker-hand.full.311M.txt.gz",
+        csvFilenameList = [
+            ("covtype.data", 1),
+            ("covtype20x.data", 1),
+            # ("covtype200x.data", None),
+            # ("a5m.csv", None),
+            # ("a10m.csv", None),
+            # ("a100m.csv", None),
+            # ("a200m.csv", None),
+            # ("a400m.csv", None),
+            # ("a600m.csv", None),
+            # ("100million_rows.csv,  None"),
+            # ("200million_rows.csv", None),
+            ("billion_rows.csv.gz", 1),
+            # memory issue on one machine. no RF
+            ("new-poker-hand.full.311M.txt.gz", None),
             ]
-        # csvFilenameList = random.sample(csvFilenameAll,1)
-        csvFilenameList = csvFilenameAll
-
         # pop open a browser on the cloud
         h2b.browseTheCloud()
 
-        for csvFilename in csvFilenameList:
+        for (csvFilename, trees) in csvFilenameList:
             csvPathname = h2o.find_file('/home/0xdiag/datasets/' + csvFilename)
 
             # creates csvFilename and csvFilename.hex  keys
@@ -57,10 +55,10 @@ class Basic(unittest.TestCase):
 
             print "\n" + csvFilename
             start = time.time()
-            # poker and the water.UDP.set3(UDP.java) fail issue..
             # constrain depth to 25
-            RFview = h2o_cmd.runRFOnly(trees=1,depth=25,parseKey=parseKey,
-                timeoutSecs=timeoutSecs)
+            if trees is not None:
+                RFview = h2o_cmd.runRFOnly(trees=trees,depth=25,parseKey=parseKey,
+                    timeoutSecs=timeoutSecs)
 
             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
             # wait in case it recomputes it
