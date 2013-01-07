@@ -22,7 +22,8 @@ paramDict = {
     'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
     'norm': ['L1', 'L2'],
-    'glm_lamba': [None, 1e-8, 1e-4,1,10,1e4],
+    # 'glm_lamba': [None, 1e-8, 1e-4,1,10,1e4],
+    'glm_lamba': [None, 1e-1, 1],
     'rho': [None, 1e-4,1,10,1e4],
     # alpha must be between -1 and 1.8?
     'alpha': [None, -1,0,1,1.8],
