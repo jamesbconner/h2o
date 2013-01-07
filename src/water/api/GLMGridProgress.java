@@ -24,7 +24,7 @@ public class GLMGridProgress extends Request {
 
   @Override protected Response serve() {
     Value v = _taskey.value();
-    GLMGridStatus status = new GLMGridStatus().read(new AutoBuffer(v.get(),0));
+    GLMGridStatus status = v.get(new GLMGridStatus());
 
     JsonObject response = new JsonObject();
     response.addProperty(Constants.DEST_KEY, v._key.toString());
