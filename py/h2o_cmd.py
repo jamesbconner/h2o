@@ -35,7 +35,9 @@ def runExecOnly(node=None,timeoutSecs=20,**kwargs):
 
 def runGLM(node=None,csvPathname=None,key=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):
-    parseKey = parseFile(node, csvPathname, key)
+    # use 1/5th the GLM timeoutSecs for allowed parse time.
+    pto = max(timeoutSecs/5,10)
+    parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     glm = runGLMOnly(node, parseKey, timeoutSecs, retryDelaySecs,**kwargs)
     return glm
 
@@ -47,8 +49,10 @@ def runGLMOnly(node=None,parseKey=None,
     return node.GLM(parseKey['destination_key'], timeoutSecs, **kwargs)
 
 def runGLMGrid(node=None,csvPathname=None,key=None,
-        timeoutSecs=20,retryDelaySecs=2,**kwargs):
-    parseKey = parseFile(node, csvPathname, key)
+        timeoutSecs=60,retryDelaySecs=2,**kwargs):
+    # use 1/5th the GLM timeoutSecs for allowed parse time.
+    pto = max(timeoutSecs/5,10)
+    parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     glm = runGLMGridOnly(node, parseKey, timeoutSecs, retryDelaySecs,**kwargs)
     return glm
 
@@ -61,7 +65,9 @@ def runGLMGridOnly(node=None,parseKey=None,
 
 def runLR(node=None, csvPathname=None,key=None,
         timeoutSecs=20, **kwargs):
-    parseKey = parseFile(node, csvPathname, key)
+    # use 1/5th the GLM timeoutSecs for allowed parse time.
+    pto = max(timeoutSecs/5,10)
+    parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     return runLROnly(node, parseKey, timeoutSecs, **kwargs)
 
 def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
@@ -73,7 +79,9 @@ def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
 # there are more RF parameters in **kwargs. see h2o.py
 def runRF(node=None, csvPathname=None, trees=5, key=None, 
         timeoutSecs=20, retryDelaySecs=2, **kwargs):
-    parseKey = parseFile(node, csvPathname, key)
+    # use 1/10th the GLM timeoutSecs for allowed parse time.
+    pto = max(timeoutSecs/10,10)
+    parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     return runRFOnly(node, parseKey, trees, timeoutSecs, retryDelaySecs, **kwargs)
 
 def runRFTreeView(node=None, timeoutSecs=20, **kwargs):

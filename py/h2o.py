@@ -587,7 +587,10 @@ class H2O(object):
 
             status = r['response']['status']
             if ((time.time()-start)>timeoutSecs):
-                raise Exception("Timeout while polling. status:", status, "Using:", url, "and", args)
+                # show what we're polling with 
+                argsStr =  '&'.join(['%s=%s' % (k,v) for (k,v) in args.items()])
+                emsg = "Timeout while polling. status: " + status + " url: " + url + "?" + argsStr
+                raise Exception(emsg)
             count += 1
         return r
 

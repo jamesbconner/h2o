@@ -46,7 +46,7 @@
 
 import h2o_cmd, h2o
 
-def simpleCheckGLM(self,glm,colX, **kwargs):
+def simpleCheckGLM(self, glm, colX, **kwargs):
     # h2o GLM will verboseprint the result and print errors. 
     # so don't have to do that
     # different when xvalidation is used? No trainingErrorDetails?
@@ -107,7 +107,7 @@ def simpleCheckGLM(self,glm,colX, **kwargs):
     absIntercept = abs(float(coefficients['Intercept']))
     self.assertGreater(absIntercept, 1e-18, (
         "abs. value of GLM coefficients['Intercept'] is " +
-        str(absIntercept) + ", not >= 1e-18 for X=" + str(colX)
+        str(absIntercept) + ", not >= 1e-18 for Intercept"
                 ))
 
     # many of the GLM tests aren't single column though.
