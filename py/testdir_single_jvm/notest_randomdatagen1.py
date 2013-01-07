@@ -18,7 +18,7 @@ class Basic(unittest.TestCase):
 
     def test_A_randomdata2(self):
         csvPathname = h2o.find_file('smalldata/datagen1.csv')
-        h2o_cmd.runRF(trees=37, timeoutSecs=10, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=1, timeoutSecs=10, csvPathname=csvPathname)
 
     def test_B_randomdata2_1_lineend(self):
         # change lineend, case 1
@@ -34,7 +34,7 @@ class Basic(unittest.TestCase):
         infile.close()
         outfile.close()
 
-        h2o_cmd.runRF(trees=7, timeoutSecs=10, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=1, timeoutSecs=10, csvPathname=csvPathname)
 
 
 if __name__ == '__main__':
