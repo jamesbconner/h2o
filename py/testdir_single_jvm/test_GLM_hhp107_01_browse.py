@@ -48,7 +48,6 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            # maybe fails more reliably with just 2 jvms?
             h2o.build_cloud(1,java_heap_GB=7)
         else:
             h2o_hosts.build_cloud_with_hosts()
@@ -64,12 +63,6 @@ class Basic(unittest.TestCase):
 
         # pop open a browser on the cloud
         h2b.browseTheCloud()
-
-        # build up the parameter string in X
-        Y = "106"
-        X = ""
-        # go right to the big X and iterate on that case
-        ### for trial in range(2):
         trial = 0
         for argcase in argcaseList:
             print "\nTrial #", trial, "start"
