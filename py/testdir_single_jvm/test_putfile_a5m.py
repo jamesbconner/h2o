@@ -19,6 +19,7 @@ class Basic(unittest.TestCase):
         timeoutSecs = 500
         csvFilenameList = [
             # use different names for each parse 
+            # doesn't fail if gzipped?
             ("a5m.csv", 'A', None),
             ("a5m.csv", 'B', None),
             ("a5m.csv", 'C', None),
@@ -27,7 +28,7 @@ class Basic(unittest.TestCase):
         h2b.browseTheCloud()
 
         for (csvFilename, key, trees) in csvFilenameList:
-            csvPathname = h2o.find_file('/home/0xdiag/datasets/' + csvFilename)
+            csvPathname = h2o.find_dataset(csvFilename)
 
             # creates csvFilename and csvFilename.hex  keys
             parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key=key, timeoutSecs=500)
