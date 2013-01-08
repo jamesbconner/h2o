@@ -16,12 +16,12 @@ import h2o, h2o_cmd, h2o_glm
 paramDict = {
     'Y': [54],
     'X': [0,1,15,33,34],
-    '-X': [None,'40:53'],
+    'glm_-X': [None,'40:53'],
     'family': ['binomial'],
     'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
     'norm': ['L1', 'L2'],
-    'glm_lamba': [None, 1e-4,1,10,1e4],
+    'glm_lambda': [None, 1e-4,1,10,1e4],
     'rho': [None, 1e-4,1,10,1e4],
     'alpha': [None, 1e-4,1,10,1e4],
     }

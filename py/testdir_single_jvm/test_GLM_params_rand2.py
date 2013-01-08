@@ -13,14 +13,14 @@ import h2o_glm
 paramDict = {
     'Y': [54],
     'X': ['0:3','14:17','5:10',0,1,15,33],
-    '-X': [None,'20,28,40:53'],
+    'glm_-X': [None,'20,28,40:53'],
     'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
     'xval': [2,3,4,9],
     'threshold': [0.1, 0.5, 0.7, 0.9],
     # 'norm': [None,'L1', 'L2'],
     # always need L1 or L2? to avoid Gram Matrix SPD
     'norm': ['L1', 'L2'],
-    'glm_lamba': [None, 1e-4,1,10,1e4],
+    'glm_lambda': [None, 1e-4,1,10,1e4],
     'rho': [None, 1e-4,1,10,1e4],
     'alpha': [None, 1e-4,1,10,1e4],
     # new?

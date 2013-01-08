@@ -8,13 +8,13 @@ import h2o, h2o_cmd, h2o_glm
 paramDict = {
     'Y': [54],
     'X': [0,1,15,33,34],
-    '-X': [None,'40:53'],
+    'glm_-X': [None,'40:53'],
     'family': ['gaussian'],
     'xval': [2,3,4,9,15],
     'threshold': [0.1, 0.5, 0.7, 0.9],
     'norm': ['L1', 'L2'],
-    # 'glm_lamba': [None, 1e-8, 1e-4,1,10,1e4],
-    'glm_lamba': [None, 1e-1, 1],
+    # 'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
+    'glm_lambda': [None, 1e-1, 1],
     'rho': [None, 1e-4,1,10,1e4],
     # alpha must be between -1 and 1.8?
     'alpha': [None, -1,0,1,1.8],
@@ -48,7 +48,7 @@ class Basic(unittest.TestCase):
             # with a different choice. we need the xval to get the error details 
             # in the json(below)
             # always do gaussian!
-            kwargs = {'Y': 54, 'xval': 3, 'family': "gaussian", 'glm_lamba': 1e-4}
+            kwargs = {'Y': 54, 'xval': 3, 'family': "gaussian", 'glm_lambda': 1e-4}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

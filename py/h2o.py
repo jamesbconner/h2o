@@ -884,11 +884,7 @@ class H2O(object):
         glm_lambda = kwargs.pop('glm_lambda', None)
         if glm_lambda is not None: params_dict['lambda'] = glm_lambda
 
-        # hackery for new/old transition, accept either
         glm_notX = kwargs.pop('glm_-X', None)
-        if not glm_notX:
-            glm_notX = kwargs.pop('glm_-x', None)
-
         if new_json:
             if glm_notX is not None: params_dict['-x'] = glm_notX
         else:
