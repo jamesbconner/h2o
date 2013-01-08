@@ -33,6 +33,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   double [] _lambda1s;        // Grid search values
   double [] _lambda2s;        // Grid search values
   double [] _rhos;            // Grid search values
+  double [] _ts;
   double [] _alphas;          // Grid search values
   int _xfold;
 
@@ -47,7 +48,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // Fraction complete
   float progress() { return (float)_progress/_ms.length; }
 
-  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as, double caseval, int xfold) {
+  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as, double[]thresholds, double caseval, int xfold) {
     _taskey = taskey;           // Capture the args
     _ary = va;                  // VA is large, and already in a Key so make it transient
     _datakey = va._key;         // ... and use the datakey instead when reloading
@@ -57,6 +58,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     _lambda1s = l1s;
     _lambda2s = l2s;
     _rhos     = rs;
+    _ts       = thresholds;
     _alphas   = as;
     _max = l1s.length*l2s.length*rs.length*as.length;
     _ms = new Key[_max];
@@ -140,9 +142,9 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     int [] colIds = createColumns();
     GLMModel m = glm.computeGLM(_ary, colIds, null);
     if(_xfold <= 1)
-      m.validateOn(_ary, null);
+      m.validateOn(_ary, null,_ts);
     else
-      glm.xvalidate(m,_ary, createColumns(),_xfold);
+      glm.xvalidate(m,_ary, createColumns(),_xfold,_ts);
     //GLMModel m = glm.xvalidate(_ary, createColumns(),10)[0]; // fixme, it should contain link to crossvalidatoin results and aggreaget info
     return m;
   }

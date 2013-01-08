@@ -36,13 +36,11 @@ public class GLM extends H2OPage {
   double [] getFamilyArgs(Family f, Properties p){
     double [] res = null;
     if(f == Family.binomial){
-      res = new double []{1.0,1.0,0.5};
+      res = new double []{1.0,1.0};
       try{res[GLMSolver.FAMILY_ARGS_CASE] = Double.valueOf(p.getProperty("case", "1.0"));}catch(NumberFormatException e){throw new GLMInputException("illegal case value" + p.getProperty("case", "1.0"));}
       if(p.containsKey("weight")){
         try{res[GLMSolver.FAMILY_ARGS_WEIGHT] = Double.valueOf(p.getProperty("weight", "1.0"));}catch(NumberFormatException e){throw new GLMInputException("illegal weight value " + p.getProperty("weight"));}
       }
-      if(p.containsKey("threshold"))
-        try{res[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD] = Double.valueOf(p.getProperty("threshold"));}catch(NumberFormatException e){throw new GLMInputException("illegal threshold value " + p.getProperty("threshold"));}
     }
     return res;
   }
@@ -93,6 +91,7 @@ public class GLM extends H2OPage {
       throw new GLMInputException("unknown norm " + norm);
   }
 
+  static final double [] thresholds = new double [] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
   @Override
   public JsonObject serverJson(Server s, Properties p, String sessionID) throws PageError {
     JsonObject res = new JsonObject();
@@ -156,13 +155,13 @@ public class GLM extends H2OPage {
       LSMSolver lsm = getLSMSolver(p);
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
-      if( m.is_solved() ) m.validateOn(ary, null);
+      if( m.is_solved() ) m.validateOn(ary, null,thresholds);
       res.add("GLMModel", m.toJson());
 
       if( m.is_solved() && p.containsKey("xval") ) {
         int fold = getIntArg(p, "xval", 10);
         JsonArray models = new JsonArray();
-        for(GLMModel xm:glm.xvalidate(m,ary, columns, fold))
+        for(GLMModel xm:glm.xvalidate(m,ary, columns, fold,thresholds))
           models.add(xm.toJson());
         res.add("xval", models);
       }

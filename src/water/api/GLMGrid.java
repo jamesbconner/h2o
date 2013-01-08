@@ -46,10 +46,11 @@ public class GLMGrid extends Request {
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
 
   // Args that ARE Grid Searched
-  protected final RSeq _lambda1 = new RSeq(Constants.LAMBDA_1, false, new double[]{0.001*LSMSolver.DEFAULT_LAMBDA,LSMSolver.DEFAULT_LAMBDA*0.1,10*LSMSolver.DEFAULT_LAMBDA,100*LSMSolver.DEFAULT_LAMBDA,1000*LSMSolver.DEFAULT_LAMBDA},true);
-  protected final RSeq _lambda2 = new RSeq(Constants.LAMBDA_2, false,new double[]{0.001*LSMSolver.DEFAULT_LAMBDA2,LSMSolver.DEFAULT_LAMBDA2*0.1,10*LSMSolver.DEFAULT_LAMBDA2,100*LSMSolver.DEFAULT_LAMBDA2,1000*LSMSolver.DEFAULT_LAMBDA2},true);
-  protected final RSeq _alpha = new RSeq(Constants.ALPHA, false, new double[]{1.0,1.4,1.8},false);
-  protected final RSeq _rho = new RSeq(Constants.RHO, false,new double[]{0.001*LSMSolver.DEFAULT_RHO,LSMSolver.DEFAULT_RHO*0.1,10*LSMSolver.DEFAULT_RHO,100*LSMSolver.DEFAULT_RHO,1000*LSMSolver.DEFAULT_RHO},true);
+  protected final RSeq _lambda1 = new RSeq(Constants.LAMBDA_1, false, new NumberSequence("1e-8:1e3:100",true,10),true);
+  protected final RSeq _lambda2 = new RSeq(Constants.LAMBDA_2, false,new NumberSequence("1e-8:1e3:100",true,10),true);
+  protected final RSeq _alpha = new RSeq(Constants.ALPHA, false, new NumberSequence("1,1.4,1.8",false,1),false);
+  protected final RSeq _rho = new RSeq(Constants.RHO, false,new NumberSequence("1e-8:1e3:100",true,10),true);
+  protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false,new NumberSequence("0:1:0.01",false,0.1),false);
 
   // ---
   // Make a new Grid Search object.
@@ -67,6 +68,7 @@ public class GLMGrid extends Request {
                         _lambda2.value().arr,   // Grid ranges
                         _rho.value().arr,       // Grid ranges
                         _alpha.value().arr,     // Grid ranges
+                        _thresholds.value().arr,
                         _case.value(), _xval.value());
 
     // Put the task Out There for all to find

@@ -965,11 +965,18 @@ public class RequestArguments extends RequestStatics {
 
   public static class NumberSequence {
     public double [] arr;
+    String _str;
 
     public NumberSequence(double [] val){
       arr = val;
     }
-    static NumberSequence parse(String input, boolean multiplicative, double defaultStep){
+
+    public NumberSequence(String str, boolean mul, double defaultStep){
+      this(parseArray(str,mul,defaultStep));
+      _str = str;
+    }
+
+    private static double [] parseArray(String input, boolean mul, double defaultStep){
       String str = input.trim().toLowerCase();
       if( str.startsWith("seq") ) {
         throw new Error("unimplemented");
@@ -983,31 +990,36 @@ public class RequestArguments extends RequestStatics {
         }
         double from = Double.parseDouble(parts[0]);
         double to = Double.parseDouble(parts[1]);
-        if(to == from) return new NumberSequence(new double[]{from});
+        if(to == from) return new double[]{from};
         if(to < from)throw new IllegalArgumentException("Value "+input+" is not a valid number sequence.");
         if(step == 0)throw new IllegalArgumentException("Value "+input+" is not a valid number sequence.");
-        int n = multiplicative
+        int n = mul
           ? (int)((Math.log(to) - Math.log(from))/Math.log(step))
           : (int)((         to  -          from )/         step );
         double [] res = new double[n];
         for( int i = 0; i < n; ++i ) {
           res[i] = from;
-          if( multiplicative ) from *= step; else from += step;
+          if( mul) from *= step; else from += step;
         }
-        return new NumberSequence(res);
+        return res;
       } else if( str.contains(",") ) {
         String [] parts = str.split(",");
         double [] res = new double[parts.length];
         for(int i = 0; i < parts.length; ++i)
           res[i] = Double.parseDouble(parts[i]);
-        return new NumberSequence(res);
+        return res;
       } else {
-        return new NumberSequence(new double [] {Double.parseDouble(str)});
+        return new double [] {Double.parseDouble(str)};
       }
 
     }
+    static NumberSequence parse(String input, boolean mul, double defaultStep){
+      return new NumberSequence(parseArray(input, mul, defaultStep));
+    }
     public String toString(){
-      if(arr == null || arr.length == 0)return"[]";
+      if(_str != null)return _str;
+      if(arr == null || arr.length == 0)return"";
+
       StringBuilder res = new StringBuilder();
       res.append(arr[0]);
       for(int i = 1; i < arr.length; ++i)
@@ -1025,9 +1037,9 @@ public class RequestArguments extends RequestStatics {
       this(name,req,null,mul);
 
     }
-    public RSeq(String name, boolean req, double [] dVal, boolean mul){
+    public RSeq(String name, boolean req, NumberSequence dVal, boolean mul){
       super(name,req);
-      _dVal = new NumberSequence(dVal);
+      _dVal = dVal;
       _multiplicative = mul;
       _defaultStep = mul?10:1;
     }

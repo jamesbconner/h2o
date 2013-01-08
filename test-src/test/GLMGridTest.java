@@ -9,12 +9,12 @@ import java.util.Arrays;
 // Test grid-search over GLM args
 public class GLMGridTest extends TestUtil {
 
+  static final double [] thresholds = new double [] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
   private static GLMSolver.GLMModel compute_glm_score( ValueArray va, int[] cols, GLMSolver.GLMParams glmp, LSMSolver lsms, double thresh, String msg ) {
     // Binomial (logistic) GLM solver
     glmp._f = GLMSolver.Family.binomial;
     glmp._l = glmp._f.defaultLink; // logit
     glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
-    glmp._familyArgs[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD] = thresh;
     glmp._betaEps = 0.000001;
     glmp._maxIter = 100;
     GLMSolver glms = new GLMSolver(lsms,glmp);
@@ -29,7 +29,7 @@ public class GLMGridTest extends TestUtil {
 
     // Validate / compute results
     if( m.is_solved() ) {
-      m.validateOn(va,null);
+      m.validateOn(va,null,thresholds);
       long[][] arr = m._vals[0].bestCM()._arr;
       System.out.println(", score="+score(m)+Arrays.deepToString(arr));
     }

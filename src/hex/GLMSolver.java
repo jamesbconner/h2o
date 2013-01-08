@@ -140,7 +140,9 @@ public class GLMSolver {
 
   public static final int FAMILY_ARGS_CASE = 0;
   public static final int FAMILY_ARGS_WEIGHT = 1;
-  public static final int FAMILY_ARGS_DECISION_THRESHOLD = 2;
+
+  public static final double [] DEFAULT_THRESHOLDS = new double [] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
+
 
   int [] _colIds;
 
@@ -264,7 +266,11 @@ public class GLMSolver {
       }
     }
 
+
     public void validateOn(ValueArray ary, Sampling s){
+      validateOn(ary, s,DEFAULT_THRESHOLDS);
+    }
+    public void validateOn(ValueArray ary, Sampling s, double [] thresholds){
       int [] colIds = new int [_colNames.length];
       int idx = 0;
         for(int j = 0; j < _colNames.length; ++j)
@@ -283,6 +289,7 @@ public class GLMSolver {
       valTsk._l = _glmParams._l;
       valTsk._beta = _beta;
       valTsk._familyArgs= _glmParams._familyArgs;
+      valTsk._thresholds = thresholds;
       valTsk.invoke(ary._key);
       GLMValidation val = new GLMValidation(valTsk);
 //      val._beta = _beta;
@@ -368,7 +375,6 @@ public class GLMSolver {
         assert _f == Family.binomial;
         res.addProperty("caseVal",_familyArgs[FAMILY_ARGS_CASE]);
         res.addProperty("weight",_familyArgs[FAMILY_ARGS_WEIGHT]);
-        res.addProperty("threshold",_familyArgs[FAMILY_ARGS_DECISION_THRESHOLD]);
       }
       return res;
     }
@@ -452,24 +458,24 @@ public class GLMSolver {
     return res;
   }
 
-  public static final double DTHRESHOLD_STEP = 0.01;
-  public static final double DTHRESHOLD_LB = 0.01;
-  public static final double DTHRESHOLD_UB = 0.99;
-  public static final int N_THRESHOLD_POINTS = 1 + (int)((DTHRESHOLD_UB - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
+//  public static final double DTHRESHOLD_STEP = 0.01;
+//  public static final double DTHRESHOLD_LB = 0.01;
+//  public static final double DTHRESHOLD_UB = 0.99;
+  //public static final int N_THRESHOLD_POINTS = 1 + (int)((DTHRESHOLD_UB - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
 
-  public static int getThresholdIdx(double t){
-    if( 0 > t || t > 1) throw new Error("illegal threshold " + t);
-    if(t <= DTHRESHOLD_LB) return 0;
-    if(t >= DTHRESHOLD_UB) return N_THRESHOLD_POINTS-1;
-    return (int) Math.round((t - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
-  }
+//  public static int getThresholdIdx(double t){
+//    if( 0 > t || t > 1) throw new Error("illegal threshold " + t);
+//    if(t <= DTHRESHOLD_LB) return 0;
+//    if(t >= DTHRESHOLD_UB) return N_THRESHOLD_POINTS-1;
+//    return (int) Math.round((t - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
+//  }
+//
+//  public static double getThresholdValue(int idx){
+//    return DTHRESHOLD_LB + idx*DTHRESHOLD_STEP;
+//  }
 
-  public static double getThresholdValue(int idx){
-    return DTHRESHOLD_LB + idx*DTHRESHOLD_STEP;
-  }
-
-  public static final double DEFAULT_THRESHOLD_VAL = 0.5;
-  public static final int DEFAULT_THRESHOLD_IDX = getThresholdIdx(DEFAULT_THRESHOLD_VAL);
+//  public static final double DEFAULT_THRESHOLD_VAL = 0.5;
+//  public static final int DEFAULT_THRESHOLD_IDX = getThresholdIdx(DEFAULT_THRESHOLD_VAL);
 
 
   public enum ErrMetric {
@@ -535,12 +541,12 @@ public class GLMSolver {
       };
     }
 
-    public GLMXValidation(GLMModel [] models, ErrMetric m) {
+    public GLMXValidation(GLMModel [] models, ErrMetric m, double [] thresholds) {
       _errMetric = m;
-
       if(models[0]._vals[0]._cm != null){
-        _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
-        for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
+        int nthresholds = models[0]._vals[0]._cm.length;
+        _cm = new ConfusionMatrix[nthresholds];
+        for(int t = 0; t < nthresholds; ++t)
           _cm[t] = models[0]._vals[0]._cm[t];
         _n += models[0]._vals[0]._n;
         _deviance = models[0]._vals[0]._deviance;
@@ -549,10 +555,10 @@ public class GLMSolver {
           _n += models[i]._vals[0]._n;
           _deviance += models[0]._vals[0]._deviance;
           _nullDeviance += models[0]._vals[0]._nullDeviance;
-          for(int t = 0; t < N_THRESHOLD_POINTS; ++t)
+          for(int t = 0; t < nthresholds; ++t)
             _cm[t].add(models[i]._vals[0]._cm[t]);
         }
-
+        _thresholds = thresholds;
         computeBestThreshold(m);
         computeAUC();
       } else {
@@ -573,9 +579,7 @@ public class GLMSolver {
       }
     }
 
-    public double bestThreshold() {
-      return getThresholdValue(_tid);
-    }
+
 
     public double errM(){
       return _errMetric.computeErr(_cm[_tid]);
@@ -606,14 +610,16 @@ public class GLMSolver {
     }
   }
 
-
-  public GLMModel [] xvalidate(GLMModel m, ValueArray ary, int [] colIds, int fold) {
+  public GLMModel [] xvalidate(GLMModel m, ValueArray ary, int [] colIds, int fold){
+    return xvalidate(m, ary, colIds, fold,DEFAULT_THRESHOLDS);
+  }
+  public GLMModel [] xvalidate(GLMModel m, ValueArray ary, int [] colIds, int fold, double [] thresholds) {
     GLMModel [] models = new GLMModel[fold];
     for(int i = 0; i < fold; ++i){
       models[i] = computeGLM(ary, colIds, new Sampling(i, fold, false));
-      models[i].validateOn(ary, new Sampling(i, fold, true));
+      models[i].validateOn(ary, new Sampling(i, fold, true),thresholds);
     }
-    m._vals = new GLMValidation[]{new GLMXValidation(models, ErrMetric.SUMC)};
+    m._vals = new GLMValidation[]{new GLMXValidation(models, ErrMetric.SUMC,thresholds)};
     return models;
   }
 
@@ -800,8 +806,8 @@ public class GLMSolver {
     ErrMetric _errMetric = ErrMetric.SUMC;
     double _auc;
     public ConfusionMatrix [] _cm;
-    int _tid = DEFAULT_THRESHOLD_IDX;
-    double _threshold = DEFAULT_THRESHOLD_VAL;
+    int _tid;
+    double [] _thresholds;
     public GLMValidation(){}
 
 
@@ -813,14 +819,11 @@ public class GLMSolver {
       _cm = tsk._cm;
       _dof = _n-1-tsk._beta.length;
       _aic = 2*(tsk._beta.length+1) + _deviance;
+      _thresholds = tsk._thresholds;
       if(_cm != null){
         computeBestThreshold(ErrMetric.SUMC);
         computeAUC();
       }
-    }
-
-    public ConfusionMatrix getConfusionMatrix(double threshold){
-      return _cm[getThresholdIdx(threshold)];
     }
 
     public ConfusionMatrix bestCM(){
@@ -838,7 +841,7 @@ public class GLMSolver {
     }
 
     public double bestThreshold() {
-      return _threshold;
+      return _thresholds[_tid];
     }
     public void computeBestThreshold(ErrMetric errM){
       double e = errM.computeErr(_cm[0]);
@@ -850,11 +853,8 @@ public class GLMSolver {
           _tid = i;
         }
       }
-      _threshold = getThresholdValue(_tid);
     }
-    public void setThreshold(double t){
-      _tid = getThresholdIdx(t);
-    }
+
 
     double [] err(int c) {
       double [] res = new double[_cm.length];
@@ -921,7 +921,7 @@ public class GLMSolver {
         for(int i = 0; i < err.length; ++i)
           arr.add(new JsonPrimitive(err[i]));
         res.add("err", arr);
-        res.addProperty("threshold", getThresholdValue(_tid));
+        res.addProperty("threshold", _thresholds[_tid]);
         res.add("cm", _cm[_tid].toJson());
       } else
         res.addProperty("err", _err);
@@ -940,6 +940,7 @@ public class GLMSolver {
     double _nullDeviance;
     double [] _beta;
     double [] _familyArgs;
+    double [] _thresholds;
     ConfusionMatrix [] _cm;
     double _err;
     long _n;
@@ -949,8 +950,8 @@ public class GLMSolver {
     }
     @Override protected void init2() {
       if(_f == Family.binomial) {
-        _cm = new ConfusionMatrix[N_THRESHOLD_POINTS];
-        for(int i = 0; i < N_THRESHOLD_POINTS; ++i)
+        _cm = new ConfusionMatrix[_thresholds.length];
+        for(int i = 0; i < _thresholds.length; ++i)
           _cm[i] = new ConfusionMatrix(2);
       }
     }
@@ -971,11 +972,10 @@ public class GLMSolver {
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {
-        double t = DTHRESHOLD_LB;
-        for(int i = 0; i < N_THRESHOLD_POINTS; ++i){
+        int i = 0;
+        for(double t:_thresholds){
           int p = ym >= t?1:0;
-          _cm[i].add((int)yr,p);
-          t += DTHRESHOLD_STEP;
+          _cm[i++].add((int)yr,p);
         }
       } else
         _err += (ym - yr)*(ym - yr);
@@ -989,7 +989,7 @@ public class GLMSolver {
       _deviance += other._deviance;
       _err += other._err;
       if(_cm != null) {
-        for(int i = 0; i < N_THRESHOLD_POINTS; ++i)
+        for(int i = 0; i < _thresholds.length; ++i)
           _cm[i].add(other._cm[i]);
       } else
         _cm = other._cm;

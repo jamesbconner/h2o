@@ -84,6 +84,7 @@ public class Constants {
   public static final String REQUEST_TIME          = "time";
   public static final String RESPONSE              = "response";
   public static final String RHO                   = "rho";
+  public static final String DTHRESHOLDS           = "thresholds";
   public static final String ROW                   = "row";
   public static final String ROW_DATA              = "row_data";
   public static final String ROW_SIZE              = "row_size";

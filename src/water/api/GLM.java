@@ -39,7 +39,7 @@ public class GLM extends Request {
   public static final String JSON_GLM_MAX_ITER = "max_iter";
   public static final String JSON_GLM_BETA_EPS = "beta_eps";
   public static final String JSON_GLM_WEIGHT = "weight";
-  public static final String JSON_GLM_THRESHOLD = "threshold";
+  public static final String JSON_GLM_THRESHOLD = "thresholds";
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
   public static final String JSON_GLM_LINK = "link";
@@ -74,13 +74,13 @@ public class GLM extends Request {
 
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
   protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
-  protected final Real _threshold = new Real(JSON_GLM_THRESHOLD,0.5d,0d,1d);
   protected final CaseSelect _case = new CaseSelect(_key,_y,JSON_GLM_CASE);
   protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
 
   protected final Bool _expandCat = new Bool(JSON_GLM_EXPAND_CAT,false,"Expand categories");
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
+  protected final RSeq _thresholds = new RSeq(JSON_GLM_THRESHOLD, false, new NumberSequence("0:1:0.01", false, 0.01),false);
 
   @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
     if (arg == _family) {
@@ -144,10 +144,9 @@ public class GLM extends Request {
   double [] getFamilyArgs(Family f){
     double [] res = null;
     if( f == Family.binomial ) {
-      res = new double []{1.0,1.0,0.5};
+      res = new double []{1.0,1.0};
       res[GLMSolver.FAMILY_ARGS_CASE] = _case.value();
       res[GLMSolver.FAMILY_ARGS_WEIGHT] = _weight.value();
-      res[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD] = _threshold.value();
     }
     return res;
   }
@@ -196,9 +195,9 @@ public class GLM extends Request {
       GLMModel m = glm.computeGLM(ary, columns, null);
       if( m.is_solved() ) {     // Solved at all?
         if( _xval.specified() ) // ... and x-validate
-          glm.xvalidate(m,ary,columns,_xval.value());
+          glm.xvalidate(m,ary,columns,_xval.value(),_thresholds.value().arr);
         else
-          m.validateOn(ary, null);// Validate...
+          m.validateOn(ary, null,_thresholds.value().arr);// Validate...
       }
       m.store();
       // Convert to JSON
@@ -289,7 +288,6 @@ public class GLM extends Request {
           if( fa[GLMSolver.FAMILY_ARGS_WEIGHT] != 1.0 )
             parm(sb,"weight",fa[GLMSolver.FAMILY_ARGS_WEIGHT]);
         }
-        parm(sb,"threshold",fa[GLMSolver.FAMILY_ARGS_DECISION_THRESHOLD]);
       }
       return sb.toString();
     }
