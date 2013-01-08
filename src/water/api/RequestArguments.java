@@ -797,14 +797,15 @@ public class RequestArguments extends RequestStatics {
         return "<div class='alert alert-error'>No editable controls under current setup</div>";
 
       StringBuilder sb = new StringBuilder();
-      sb.append("<div style='max-height:300px;overflow:auto'>");
-      sb.append("<select multiple id='").append(_name).append("' >");
+      sb.append("<select multiple");
+      sb.append(" size='").append(Math.min(10, values.length)).append("'");
+      sb.append(" id='").append(_name).append("' >");
       for (int i = 0 ; i < values.length; ++i) {
         sb.append("<option value='").append(values[i]).append("' ");
         if( isSelected(values[i]) ) sb.append("selected='true' ");
         sb.append(">").append(names[i]).append("</option>");
       }
-      sb.append("</select></div>");
+      sb.append("</select>");
       return sb.toString();
     }
 
