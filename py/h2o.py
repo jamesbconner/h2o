@@ -169,6 +169,7 @@ def dump_json(j):
 
 # Hackery: find the ip address that gets you to Google's DNS
 # Trickiness because you might have multiple IP addresses (Virtualbox), or Windows.
+# we used to not like giving ip 127.0.0.1 to h2o?
 def get_ip_address():
     if ipaddr:
         verboseprint("get_ip case 1:", ipaddr)
@@ -474,7 +475,7 @@ class H2O(object):
     def __url(self, loc, port=None, new=False):
         if port is None: port = self.port
         if new: port += 2
-        u = 'http://%s:%d/%s' % (self.addr, port, loc)
+        u = 'http://%s:%d/%s' % (self.http_addr, port, loc)
         return u 
 
     def __check_request(self, r, extraComment=None):
@@ -869,7 +870,7 @@ class H2O(object):
                 # used to create binary choices in output for logistic regression
                 # FIX! default is bad if you have no 1's in your data. (like 2 and -2
                 'case': 'NaN',
-                # just want to try this out to see if legal
+                # just want to try this out to see if legal. shouldn't need to specify a default?
                 'link': 'familyDefault'
             }
         else:
@@ -881,13 +882,14 @@ class H2O(object):
 
         # special case these two because of name issues.
         # use glm_lamba, not lambda. use glm_notX, not -X
-        glm_lambda = kwargs.pop('glm_lambda', None)
-        if glm_lambda is not None: params_dict['lambda'] = glm_lambda
 
         glm_notX = kwargs.pop('glm_-X', None)
+        # lambda1 and lambda2 just get passed normally for new_json now
         if new_json:
             if glm_notX is not None: params_dict['-x'] = glm_notX
         else:
+            glm_lambda = kwargs.pop('glm_lambda', None)
+            if glm_lambda is not None: params_dict['lambda'] = glm_lambda
             if glm_notX is not None: params_dict['-X'] = glm_notX
 
         params_dict.update(kwargs)
@@ -1026,9 +1028,15 @@ class H2O(object):
             args += ['-classpath', os.pathsep.join(entries), 'init.Boot']
         else: 
             args += ["-jar", self.get_h2o_jar()]
+
+        # H2O should figure it out, if not specified
+        if self.addr is not None:
+            args += [
+                '--ip=%s' % self.addr,
+                ]
+
         args += [
             "--port=%d" % self.port,
-            '--ip=%s' % self.addr,
             '--ice_root=%s' % self.get_ice_dir(),
             # if I have multiple jenkins projects doing different h2o clouds, I need
             # I need different ports and different cloud name.
@@ -1067,10 +1075,17 @@ class H2O(object):
         use_flatfile=False, java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
-        if use_this_ip_addr is None: use_this_ip_addr = get_ip_address()
 
         self.port = port
+        # None is legal for self.addr. means we won't give an ip to the jar when we start, and it should
+        # figure out the right thing. Or we can say use use_this_ip_addr=127.0.0.1, or the known address 
+        # if use_this_addr is None, use 127.0.0.1 for urls and json
         self.addr = use_this_ip_addr
+        if use_this_ip_addr is not None:
+            self.http_addr = use_this_ip_addr
+        else:
+            self.http_addr = get_ip_address()
+
         self.sigar = sigar
         self.use_debugger = use_debugger
         self.classpath = classpath
@@ -1090,7 +1105,7 @@ class H2O(object):
         self.username = username
 
     def __str__(self):
-        return '%s - http://%s:%d/' % (type(self), self.addr, self.port)
+        return '%s - http://%s:%d/' % (type(self), self.http_addr, self.port)
 
     def get_ice_dir(self):
         raise Exception('%s must implement %s' % (type(self), inspect.stack()[0][3]))
@@ -1205,7 +1220,7 @@ class RemoteHost(object):
             # So: we don't have a sandbox here, or if we do, we're going to delete it.
             # Just don't log anything until build_cloud()? that should be okay?
             # we were just logging this upload message..not needed.
-            # log('Uploading to %s: %s -> %s' % (self.addr, f, dest))
+            # log('Uploading to %s: %s -> %s' % (self.http_addr, f, dest))
 
             sftp = self.ssh.open_sftp()
             sftp.put(f, dest, callback=progress)
@@ -1240,6 +1255,7 @@ class RemoteHost(object):
     def __init__(self, addr, username, password=None, **kwargs):
         import paramiko
         self.addr = addr
+        self.http_addr = addr
         self.username = username
         self.ssh = paramiko.SSHClient()
 

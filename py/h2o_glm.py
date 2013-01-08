@@ -128,10 +128,15 @@ def simpleCheckGLM(self, glm, colX, **kwargs):
 # compare this glm to last one. since the files are concatenations, 
 # the results should be similar? 10% of first is allowed delta
 def compareToFirstGlm(self, key, glm, firstglm):
-    delta = .1 * float(firstglm[key])
-    msg = "Too large a delta (" + str(delta) + ") comparing current and first for: " + key
-    self.assertAlmostEqual(float(glm[key]), float(firstglm[key]), delta=delta, msg=msg)
-    self.assertGreaterEqual(float(glm[key]), 0.0, key + " not >= 0.0 in current")
+    # if isinstance(firstglm[key], list):
+    # in case it's not a list allready (err is a list)
+    kList = list(glm[key])
+    firstkList = list(firstglm[key])
+    for k, firstk in zip(kList, firstkList):
+        delta = .1 * float(firstk)
+        msg = "Too large a delta (" + str(delta) + ") comparing current and first for: " + key
+        self.assertAlmostEqual(float(k), float(firstk), delta=delta, msg=msg)
+        self.assertGreaterEqual(float(k), 0.0, str(k) + " not >= 0.0 in current")
 
 
 def simpleCheckGLMGrid(self, glmGridResult, **kwargs):

@@ -12,10 +12,10 @@ def browseTheCloud():
         # after cloud building, node[0] should have the right info for us
         if h2o.new_json:
             port = h2o.nodes[0].port + 2
-            cloud_url = "http://" + h2o.nodes[0].addr + ":" + str(port) + "/Cloud.html"
+            cloud_url = "http://" + h2o.nodes[0].http_addr + ":" + str(port) + "/Cloud.html"
         else:
             port = h2o.nodes[0].port
-            cloud_url = "http://" + h2o.nodes[0].addr + ":" + str(port)
+            cloud_url = "http://" + h2o.nodes[0].http_addr + ":" + str(port)
 
         # Open URL in new window, raising the window if possible.
         h2o.verboseprint("browseTheCloud:", cloud_url)

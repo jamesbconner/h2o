@@ -46,7 +46,10 @@ class Basic(unittest.TestCase):
             # can't pass lamba as kwarg because it's a python reserved word
             # FIX! why can't I include 0 here? it keeps getting 'unable to solve" if 0 is included
             # 0 by itself is okay?
-            kwargs = {'Y': 7, 'X': '1,2,3,4,5,6', 'family': "binomial", 'xval': 3, 'norm': "L1", 'glm_lambda': 1e-4}
+            if h2o.new_json:
+                kwargs = {'Y': 7, 'X': '1,2,3,4,5,6', 'family': "binomial", 'xval': 3, 'norm': "L1", 'glm_lambda': 1e-4}
+            else:
+                kwargs = {'Y': 7, 'X': '1,2,3,4,5,6', 'family': "binomial", 'xval': 3, 'norm': "L1", 'lambda1': 1e-4}
             timeoutSecs = 200
             glm = h2o_cmd.runGLM(csvPathname=csvPathname, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, 6, **kwargs)

@@ -14,19 +14,43 @@ import h2o, h2o_cmd, h2o_glm
 # Always do poisson!
 
 # FIX! update for new port?
-paramDict = {
-    'Y': [54],
-    'X': [0,1,15,33,34],
-    'glm_-X': [None,'40:53'],
-    'family': ['poisson'],
-    'xval': [2,3,4,9,15],
-    'threshold': [0.1, 0.5, 0.7, 0.9],
-    'norm': ['L1', 'L2'],
-    'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
-    'rho': [None, 1e-4,1,10,1e4],
-    # alpha must be between -1 and 1.8?
-    'alpha': [None, -1,0,1,1.8],
-    }
+if h2o.new_json:
+    paramDict = {
+        'Y': [54],
+        'X': [0,1,15,33,34],
+        'glm_-X': [None,'40:53'],
+        'family': ['poisson'],
+        'xval': [2,3,4,9,15],
+        'threshold': [0.1, 0.5, 0.7, 0.9],
+        'norm': ['L1', 'L2', 'LASSO'],
+        'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
+        'lambda2': [None, 1e-8, 1e-4,1,10,1e4],
+        'rho': [None, 1e-4,1,10,1e4],
+        # alpha must be between -1 and 1.8?
+        'alpha': [None, -1,0,1,1.8],
+        'rho': [None, 1e-4,1,10,1e4],
+        'alpha': [None, 1e-4,1,10,1e4],
+        'beta_eps': [None, 0.0001],
+        'case': ['NaN'],
+        # inverse and log causing problems
+        # 'link': [None, 'logit','identity', 'log', 'inverse'],
+        'max_iter': [None, 10],
+        'weight': [None, 1, 2, 4],
+        }
+else:
+    paramDict = {
+        'Y': [54],
+        'X': [0,1,15,33,34],
+        'glm_-X': [None,'40:53'],
+        'family': ['poisson'],
+        'xval': [2,3,4,9,15],
+        'threshold': [0.1, 0.5, 0.7, 0.9],
+        'norm': ['L1', 'L2'],
+        'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
+        'rho': [None, 1e-4,1,10,1e4],
+        # alpha must be between -1 and 1.8?
+        'alpha': [None, -1,0,1,1.8],
+        }
 
 class Basic(unittest.TestCase):
     @classmethod

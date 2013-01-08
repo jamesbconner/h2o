@@ -77,8 +77,9 @@ def simpleCheckRFView(node, rfv,**kwargs):
 
     trees = rfv['trees'] # Dict
     depth = trees['depth']
-    if ' 0.0 ' in depth:
-        raise Exception("depth in RFView seems wrong. depth:", depth)
+    # zero depth okay?
+    ## if ' 0.0 ' in depth:
+    ##     raise Exception("depth in RFView seems wrong. depth:", depth)
     leaves = trees['leaves']
     if ' 0.0 ' in leaves:
         raise Exception("leaves in RFView seems wrong. leaves:", leaves)
