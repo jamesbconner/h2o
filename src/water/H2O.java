@@ -248,7 +248,7 @@ public final class H2O {
     } catch( Throwable t ) {
       return null;
     } finally {
-      Closeables.closeQuietly(s);
+      try { if(s != null) s.close(); } catch( Throwable t ) { }
     }
   }
 
