@@ -1,7 +1,6 @@
 import subprocess
 import gzip, shutil, random, time
 
-
 # since we hang if hosts has bad IP addresses, thought it'd be nice
 # to have simple obvious feedback to user if he's running with -v 
 # and machines are down or his hosts definition has bad IPs.
@@ -32,6 +31,7 @@ def file_cat(file1, file2, outfile):
     destination.close()
     print "\nCat took",  (time.time() - start), "secs"
 
+
 def file_shuffle(infile, outfile):
     print "\nShuffle'ing", infile, "to", outfile
     start = time.time()
@@ -44,4 +44,15 @@ def file_shuffle(infile, outfile):
     print "\nShuffle took",  (time.time() - start), "secs"
 
 
+# FIX! This is a hack to deal with parser bug
+def file_strip_trailing_spaces(csvPathname1, csvPathname2):
+        infile = open(csvPathname1, 'r')
+        outfile = open(csvPathname2,'w') # existing file gets erased
+        for line in infile.readlines():
+            # remove various lineends and whitespace (leading and trailing)
+            # make it unix linend
+            outfile.write(line.strip(" \n\r") + "\n")
+        infile.close()
+        outfile.close()
+        print "\n" + csvPathname1 + " stripped to " + csvPathname2
 
