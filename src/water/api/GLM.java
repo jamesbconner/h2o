@@ -202,7 +202,8 @@ public class GLM extends Request {
       Response r = Response.done(res);
       r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m));
       return r;
-
+    }catch(GLMException e){
+      return Response.error(e.getMessage());
     } catch (Throwable t) {
       t.printStackTrace();
       return Response.error(t.getMessage());
