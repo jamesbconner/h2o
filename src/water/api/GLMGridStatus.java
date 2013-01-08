@@ -187,11 +187,12 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
               cval2 += cerr2[i];
             }
           }
+          if(cval1 == cval2){
+            cval1 = m1._vals[0].err();
+            cval2 = m2._vals[0].err();
+          }
         }
-        if(cval1 == cval2){
-          cval1 = m1._vals[0].err();
-          cval1 = m2._vals[0].err();
-        }
+
         if(cval1 == cval2)return 0;
         return (cval2 < cval1)?-1:1;
       }
