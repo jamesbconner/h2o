@@ -14,6 +14,16 @@ public class Inspect extends Request {
   protected final LongInt _offset = new LongInt(OFFSET,-1l,-1l,Long.MAX_VALUE);
   protected final Int _view = new Int(VIEW, 100, 0, 10000);
 
+  // Constructor called from 'Exec' query instead of the direct view links
+  Inspect(Key k) {
+    _key   .reset();  _key   .check(k.toString());
+    _offset.reset();  _offset.check("");
+    _view  .reset();  _view  .check("");
+  }
+  // Default no-args constructor
+  Inspect() {}
+
+
   public static Response redirect(JsonObject resp, Key dest) {
     JsonObject redir = new JsonObject();
     redir.addProperty(KEY, dest.toString());
@@ -88,7 +98,7 @@ public class Inspect extends Request {
     return r;
   }
 
-  private Response serveValueArray(ValueArray ary) {
+  public Response serveValueArray(ValueArray ary) {
     PaginatedTable t = new PaginatedTable(argumentsToJson(),_offset.value(), _view.value(), ary._numrows, true);
     JsonObject result = new JsonObject();
     result.addProperty(RequestStatics.VALUE_TYPE, "parsed");
