@@ -3,14 +3,14 @@ package water.api;
 import hex.GLMSolver.GLMModel;
 import hex.LSMSolver;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.text.DecimalFormat;
+import java.util.Map;
 
-import water.*;
-import water.web.RString;
+import water.Key;
+import water.Value;
 
-import com.google.gson.JsonElement;
+import com.google.common.base.Objects;
+import com.google.common.collect.Maps;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 public class GLMGridProgress extends Request {
@@ -28,62 +28,49 @@ public class GLMGridProgress extends Request {
 
     JsonObject response = new JsonObject();
     response.addProperty(Constants.DEST_KEY, v._key.toString());
+
+    JsonArray models = new JsonArray();
+    int i = 0;
+    for( GLMModel m : status.computedModels() ) {
+      JsonObject o = new JsonObject();
+
+      LSMSolver lsm = m._solver;
+      o.addProperty(KEY, status.model_name(i++));
+      o.addProperty(LAMBDA_1, lsm._lambda);
+      o.addProperty(LAMBDA_2, lsm._lambda2);
+      o.addProperty(RHO, lsm._rho);
+      o.addProperty(ALPHA, lsm._alpha);
+      o.addProperty(BEST_THRESHOLD, m._vals[0].bestThreshold());
+      o.addProperty(AUC, m._vals[0].AUC());
+      double[] classErr = m._vals[0].classError();
+      for( int j = 0; j < classErr.length; ++j ) {
+        o.addProperty(ERROR +"_"+ j, classErr[j]);
+      }
+      models.add(o);
+    }
+    response.add(MODELS, models);
+
     Response r = status._working
       ? Response.poll(response,status.progress())
       : Response.done(response);
-    r.setBuilder(Constants.DEST_KEY, new GridBuilder(status));
+
+    r.setBuilder(Constants.DEST_KEY, new HideBuilder());
+    r.setBuilder(MODELS, new GridBuilder2());
+    r.setBuilder(MODELS+"."+KEY, new KeyCellBuilder());
     return r;
   }
 
-  private class GridBuilder extends ElementBuilder {
-    final GLMGridStatus _status;
-    GridBuilder( GLMGridStatus s ) {
-      _status = s;
+  private static class GridBuilder2 extends ArrayBuilder {
+    private final Map<String, String> _m = Maps.newHashMap(); {
+      _m.put(KEY, "Model");
+      _m.put(LAMBDA_1, "&lambda;<sub>1</sub>");
+      _m.put(LAMBDA_2, "&lambda;<sub>2</sub>");
+      _m.put(RHO, "&rho;");
+      _m.put(ALPHA, "&alpha;");
     }
     @Override
-    public String build(Response response, JsonElement json, String contextName) {
-      StringBuilder sb = new StringBuilder();
-      int step = _status._progress;
-      int nclasses = 2; //TODO
-
-      // Mention something at the top about which model I am currently working on
-      RString R = new RString( "<div class='alert alert-%succ'>GLMGrid search on <a href='/Inspect?Key=%key'>%key</a>, %prog</div>");
-      R.replace("succ",_status._working ? "warning" : "success");
-      R.replace("key" ,_status._datakey);
-      R.replace("prog",_status._working ? "working on "+_status.model_name(step) : "stopped with "+step+" models built");
-      sb.append(R);
-
-      sb.append("<table class='table table-bordered table-condensed'>");
-      sb.append("<tr><th>Model</th><th>&lambda;<sub>1</sub></th><th>&lambda;<sub>2</sub></th><th>&rho;</th><th>&alpha;</th><th>Best Threshold</th><th>AUC</th>");
-      for(int c = 0; c < nclasses; ++c)
-        sb.append("<th>Err(" + c + ")</th>");
-      sb.append("</tr>");
-
-      // Display all completed models
-      int i=0;
-      for(GLMModel m:_status.computedModels()) {
-        String mname = _status.model_name(i++);
-        LSMSolver lsm = m._solver;
-        sb.append("<tr>");
-        try {
-          sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(m.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
-        } catch( UnsupportedEncodingException e1 ) {
-          throw new Error(e1);
-        }
-        sb.append("<td>" + sci_dformat.format(lsm._lambda) + "</td>");
-        sb.append("<td>" + sci_dformat.format(lsm._lambda2) + "</td>");
-        sb.append("<td>" + sci_dformat.format(lsm._rho) + "</td>");
-        sb.append("<td>" + dformat.format(lsm._alpha) + "</td>");
-        sb.append("<td>" + dformat.format(m._vals[0].bestThreshold()) + "</td>");
-        sb.append("<td>" + dformat.format(m._vals[0].AUC()) + "</td>");
-        for(double e:m._vals[0].classError())
-          sb.append("<td>" + dformat.format(e) + "</td>");
-        sb.append("</tr>");
-      }
-      sb.append("</table>");
-      return sb.toString();
+    public String header(String key) {
+      return Objects.firstNonNull(_m.get(key), super.header(key));
     }
   }
-  private static final DecimalFormat dformat = new DecimalFormat("###.###");
-  private static final DecimalFormat sci_dformat = new DecimalFormat("#.#E0");
 }

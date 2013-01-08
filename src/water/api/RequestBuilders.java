@@ -596,10 +596,14 @@ public class RequestBuilders extends RequestQueries {
       if (array.get(0) instanceof JsonObject) {
         sb.append("<tr>");
         for (Map.Entry<String,JsonElement> entry : ((JsonObject)array.get(0)).entrySet())
-          sb.append("<th>"+JSON2HTML(entry.getKey()+"</th>"));
+          sb.append("<th>").append(header(entry.getKey())).append("</th>");
         sb.append("</tr>");
       }
       return sb.toString();
+    }
+
+    public String header(String key) {
+      return JSON2HTML(key);
     }
 
     /** Footer of the table, the end of table tag.

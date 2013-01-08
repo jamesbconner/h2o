@@ -18,10 +18,6 @@ public class GLMGrid extends Request {
   public static final String JSON_GLM_X = "x";
   public static final String JSON_GLM_FAMILY = "family";
   public static final String JSON_GLM_NORM = "norm";
-  public static final String JSON_GLM_LAMBDA = "lambda_1";
-  public static final String JSON_GLM_LAMBDA_2 = "lambda_2";
-  public static final String JSON_GLM_RHO = "rho";
-  public static final String JSON_GLM_ALPHA = "alpha";
   public static final String JSON_GLM_MAX_ITER = "max_iter";
   public static final String JSON_GLM_BETA_EPS = "beta_eps";
   public static final String JSON_GLM_WEIGHT = "weight";
@@ -50,10 +46,10 @@ public class GLMGrid extends Request {
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
 
   // Args that ARE Grid Searched
-  protected final Str _lambda1 = new Str(JSON_GLM_LAMBDA, ""+LSMSolver.DEFAULT_LAMBDA);
-  protected final Str _lambda2 = new Str(JSON_GLM_LAMBDA_2, ""+LSMSolver.DEFAULT_LAMBDA2);
-  protected final Str _alpha = new Str(JSON_GLM_ALPHA, ""+LSMSolver.DEFAULT_ALPHA);
-  protected final Str _rho = new Str(JSON_GLM_RHO, ""+LSMSolver.DEFAULT_RHO);
+  protected final Str _lambda1 = new Str(Constants.LAMBDA_1, ""+LSMSolver.DEFAULT_LAMBDA);
+  protected final Str _lambda2 = new Str(Constants.LAMBDA_2, ""+LSMSolver.DEFAULT_LAMBDA2);
+  protected final Str _alpha = new Str(Constants.ALPHA, ""+LSMSolver.DEFAULT_ALPHA);
+  protected final Str _rho = new Str(Constants.RHO, ""+LSMSolver.DEFAULT_RHO);
 
 
   // ---

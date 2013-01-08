@@ -9,9 +9,12 @@ public class Constants {
     public static final String MILLIS              = "_ms";
   }
 
+  public static final String ALPHA                 = "alpha";
   public static final String ARGUMENTS             = "arguments";
+  public static final String AUC                   = "area_under_curve";
   public static final String BADAT                 = "badat";
   public static final String BASE                  = "base";
+  public static final String BEST_THRESHOLD        = "best_threshold";
   public static final String BIN_LIMIT             = "bin_limit";
   public static final String CLASS                 = "class";
   public static final String CLOUD_NAME            = "cloud_name";
@@ -42,11 +45,13 @@ public class Constants {
   public static final String FREE_MEM              = "free_mem" + Suffixes.BYTES;
   public static final String GINI                  = "gini";
   public static final String HELP                  = "help";
-  public static final String ITEMS                 = "items";
   public static final String IGNORE                = "ignore";
+  public static final String ITEMS                 = "items";
   public static final String JSON_H2O              = "h2o";
   public static final String KEY                   = "key";
   public static final String KEYS                  = "keys";
+  public static final String LAMBDA_1              = "lambda_1";
+  public static final String LAMBDA_2              = "lambda_2";
   public static final String LIMIT                 = "limit";
   public static final String LOCKED                = "locked";
   public static final String MAX                   = "max";
@@ -56,6 +61,7 @@ public class Constants {
   public static final String MEAN                  = "mean";
   public static final String MIN                   = "min";
   public static final String MODEL_KEY             = "model_key";
+  public static final String MODELS                = "models";
   public static final String MORE                  = "more";
   public static final String NAME                  = "name";
   public static final String NO_CM                 = "no_confusion_matrix";
@@ -77,6 +83,7 @@ public class Constants {
   public static final String REPLICATION_FACTOR    = "replication_factor";
   public static final String REQUEST_TIME          = "time";
   public static final String RESPONSE              = "response";
+  public static final String RHO                   = "rho";
   public static final String ROW                   = "row";
   public static final String ROW_DATA              = "row_data";
   public static final String ROW_SIZE              = "row_size";
@@ -88,7 +95,9 @@ public class Constants {
   public static final String SENT_ROWS             = "sent_rows";
   public static final String SIZE                  = "size";
   public static final String SOURCE_KEY            = "source_key";
+  public static final String STACK_TRACES          = "stack_traces";
   public static final String STATUS                = "status";
+  public static final String STEP                  = "step";
   public static final String STRATA                = "strata";
   public static final String STRATIFY              = "stratify";
   public static final String SUCCEEDED             = "succeeded";
@@ -110,12 +119,11 @@ public class Constants {
   public static final String TOTAL_CONN_OUT        = "total_outgoing_connections";
   public static final String TOTAL_PACKETS_RECV    = "total_received_packets";
   public static final String TOTAL_PACKETS_SENT    = "total_sent_packets";
-  public static final String TREES                 = "trees";
-  public static final String TREE_NUM              = "tree_number";
   public static final String TREE_COUNT            = "number_built";
   public static final String TREE_DEPTH            = "depth";
   public static final String TREE_LEAVES           = "leaves";
-  public static final String STACK_TRACES          = "stack_traces";
+  public static final String TREE_NUM              = "tree_number";
+  public static final String TREES                 = "trees";
   public static final String TYPE                  = "type";
   public static final String UDP_BYTES_RECV        = "udp_received" + Suffixes.BYTES;
   public static final String UDP_BYTES_SENT        = "udp_sent" + Suffixes.BYTES;
@@ -130,5 +138,4 @@ public class Constants {
   public static final String VARIANCE              = "variance";
   public static final String VIEW                  = "view";
   public static final String WEIGHTS               = "class_weights";
-  public static final String STEP                  = "step";
 }
