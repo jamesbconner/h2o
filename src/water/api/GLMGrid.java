@@ -35,7 +35,7 @@ public class GLMGrid extends Request {
   // Column to classify on
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
   // Columns used to run the GLM
-  protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
+  protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
 
   // Args NOT Grid Searched
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
