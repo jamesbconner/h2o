@@ -13,6 +13,7 @@ import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 
@@ -178,8 +179,7 @@ public final class H2O {
           ips.add(ias.nextElement());
         }
       }
-    } catch( SocketException e ) {
-    }
+    } catch( SocketException e ) { }
 
     InetAddress local = null;   // My final choice
 
@@ -197,46 +197,35 @@ public final class H2O {
         System.err.println("Only IP4 addresses allowed.");
         System.exit(-1);
       }
-      for( InetAddress ip : ips ){ // Do a check to make sure the given IP
-        if( ip.equals(arg) ){  // address refers can be found here
-          local = arg; // Found it, so its a valid user-specified argument
-          break;
-        }
-      }
-      if( local == null ) {
+      if( !ips.contains(arg) ) {
         System.err.println("IP address not found on this machine");
         System.exit(-1);
       }
+      local = arg;
     } else {
-        // No user-specified IP address.  Attempt auto-discovery.  Roll through
-        // all the network choices on looking for a single Inet4.  Complain about
-        // them ALL if I see multiple valid addresses - the user must pick.
-        InetAddress first = null;   // A first one
-        for( InetAddress ip : ips ) { // Do a check to make sure the given IP address refers can be found here
-          if( ip instanceof Inet4Address &&
-              !ip.isLoopbackAddress() &&
-              !ip.isLinkLocalAddress() ) {
-            if( first == null ) local = first = ip; // Found a 1st valid address
-            else {                  // Else found multiple addresses
-              if( local == first ) {
-                System.err.println("Found multiple valid IP4 addresses - pick one and rerun with the -ip option");
-                System.err.println("  -ip "+first);
-                first = ip;
-              }
-              System.err.println("  -ip "+ip);
-            }
-          }
+      // No user-specified IP address.  Attempt auto-discovery.  Roll through
+      // all the network choices on looking for a single Inet4.
+      List<InetAddress> validIps = Lists.newArrayList();
+      for( InetAddress ip : ips ) {
+        // make sure the given IP address can be found here
+        if( ip instanceof Inet4Address &&
+            !ip.isLoopbackAddress() &&
+            !ip.isLinkLocalAddress() ) {
+          validIps.add(ip);
         }
-        if( local != first ) {
-          System.err.println("local!=first");
-          System.exit(-1);
-        }
+      }
+      if( validIps.size() == 1 ) {
+        local = validIps.get(0);
+      } else {
+        local = guessInetAddress(validIps);
+      }
     }
 
     // The above fails with no network connection, in that case go for a truly
     // local host.
     if( local == null ) {
       try {
+        System.err.println("Failed to determine IP, falling back to localhost.");
         // set default ip address to be 127.0.0.1 /localhost
         local = InetAddress.getByName("127.0.0.1");
       } catch( UnknownHostException e ) {
@@ -244,6 +233,23 @@ public final class H2O {
       }
     }
     return local;
+  }
+
+  private static InetAddress guessInetAddress(List<InetAddress> ips) {
+    System.err.println("Multiple local IPs detected:");
+    for(InetAddress ip : ips) System.err.println("  " + ip);
+    System.err.println("Attempting to determine correct address...");
+    Socket s = null;
+    try {
+      // using google's DNS server as an external IP to find
+      s = new Socket("8.8.8.8", 53);
+      System.err.println("Using " + s.getLocalAddress());
+      return s.getLocalAddress();
+    } catch( Throwable t ) {
+      return null;
+    } finally {
+      Closeables.closeQuietly(s);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -516,13 +522,13 @@ public final class H2O {
       try {
         // kbn. seems like we need to set SO_REUSEADDR before binding?
         // http://www.javadocexamples.com/java/net/java.net.ServerSocket.html#setReuseAddress:boolean
-        // When a TCP connection is closed the connection may remain in a timeout state 
-        // for a period of time after the connection is closed (typically known as the 
-        // TIME_WAIT state or 2MSL wait state). For applications using a well known socket address 
-        // or port it may not be possible to bind a socket to the required SocketAddress 
+        // When a TCP connection is closed the connection may remain in a timeout state
+        // for a period of time after the connection is closed (typically known as the
+        // TIME_WAIT state or 2MSL wait state). For applications using a well known socket address
+        // or port it may not be possible to bind a socket to the required SocketAddress
         // if there is a connection in the timeout state involving the socket address or port.
-        // Enabling SO_REUSEADDR prior to binding the socket using bind(SocketAddress) 
-        // allows the socket to be bound even though a previous connection is in a timeout state. 
+        // Enabling SO_REUSEADDR prior to binding the socket using bind(SocketAddress)
+        // allows the socket to be bound even though a previous connection is in a timeout state.
         // cnc: this is busted on windows.  Back to the old code.
         _webSocket = new ServerSocket(WEB_PORT);
         _apiSocket = new ServerSocket(API_PORT);
@@ -587,7 +593,7 @@ public final class H2O {
         } catch( Exception e ) {
           // On any error from anybody, close all sockets & re-open
 		  // and if not a soft launch (hibernate mode)
-		  if(H2O.OPT_ARGS.soft == null) 
+		  if(H2O.OPT_ARGS.soft == null)
            System.err.println("Multicast Error "+e);
           if( CLOUD_MULTICAST_SOCKET != null )
             try { CLOUD_MULTICAST_SOCKET.close(); }
