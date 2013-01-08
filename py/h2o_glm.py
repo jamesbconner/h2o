@@ -45,19 +45,21 @@
 # }, 
 
 import h2o_cmd, h2o
+import re
 
-def simpleCheckGLM(self, glm, colX, **kwargs):
+def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # h2o GLM will verboseprint the result and print errors. 
     # so don't have to do that
     # different when xvalidation is used? No trainingErrorDetails?
     GLMModel = glm['GLMModel']
+    warnings = None
     if 'warnings' in GLMModel:
         warnings = GLMModel['warnings']
         # catch the 'Failed to converge" for now
+        x = re.compile("[Ff]ailed")
         for w in warnings:
             print "\nwarning:", w
-            if ('Failed' in w) or ('failed' in w):
-                raise Exception(w)
+            if re.search(x,w) and not allowFailWarning: raise Exception(w)
 
     print "GLM time", GLMModel['time']
 
@@ -123,6 +125,9 @@ def simpleCheckGLM(self, glm, colX, **kwargs):
         self.assertGreater(s, 1e-18, (
             "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
             ))
+
+    
+    return warnings
 
 
 # compare this glm to last one. since the files are concatenations, 

@@ -367,7 +367,7 @@ public class GLMSolver {
     public double [] _familyArgs;
     public double _betaEps;
     public int _maxIter;
-    public boolean _expandCat;
+    public boolean _expandCat = true; // Always on for now
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();

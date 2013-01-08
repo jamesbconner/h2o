@@ -21,7 +21,7 @@ public class RF extends Request {
   protected final H2OKey _modelKey = new H2OKey(MODEL_KEY,Key.make("model"));
   protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
   protected final Int _features = new Int(FEATURES, null, 1, Integer.MAX_VALUE);
-  protected final IgnoreHexCols _ignore = new IgnoreHexCols(_dataKey, _classCol, IGNORE, false);
+  protected final HexColumnSelect _ignore = new HexColumnSelect(IGNORE, _dataKey, _classCol);
   protected final Int _sample = new Int(SAMPLE, 67, 1, 100);
   protected final Int _binLimit = new Int(BIN_LIMIT,1024, 0,65535);
   protected final Int _depth = new Int(DEPTH,Integer.MAX_VALUE,0,Integer.MAX_VALUE);

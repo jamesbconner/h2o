@@ -38,7 +38,6 @@ public class GLM extends Request {
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
   public static final String JSON_GLM_LINK = "link";
-  public static final String JSON_GLM_EXPAND_CAT = "expand_cat";
 
   public static final String JSON_ROWS = "rows";
   public static final String JSON_TIME = "time";
@@ -46,8 +45,8 @@ public class GLM extends Request {
 
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
-  protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
-  protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X, false);
+  protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
+  protected final HexColumnSelect _negX = new HexColumnSelect(JSON_GLM_NEG_X, _key, _y);
 
   public static String link(Key k, String content) {
     RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
@@ -73,7 +72,6 @@ public class GLM extends Request {
   protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
 
-  protected final Bool _expandCat = new Bool(JSON_GLM_EXPAND_CAT,false,"Expand categories");
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
   protected final RSeq _thresholds = new RSeq(JSON_GLM_THRESHOLD, false, new NumberSequence("0:1:0.01", false, 0.01),false);
 
@@ -152,7 +150,6 @@ public class GLM extends Request {
     res._l = _link.value();
     if( res._l == Link.familyDefault )
       res._l = res._f.defaultLink;
-    res._expandCat = _expandCat.value();
     res._maxIter = _maxIter.value();
     res._betaEps = _betaEps.value();
     res._familyArgs = getFamilyArgs(res._f);
@@ -189,7 +186,7 @@ public class GLM extends Request {
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
       if( m.is_solved() ) {     // Solved at all?
-        if( _xval.specified() ) // ... and x-validate
+        if( _xval.specified() && _xval.value() > 0 ) // ... and x-validate
           glm.xvalidate(m,ary,columns,_xval.value(),_thresholds.value().arr);
         else
           m.validateOn(ary, null,_thresholds.value().arr);// Validate...
@@ -222,7 +219,7 @@ public class GLM extends Request {
 
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
       RString R = new RString(
-          "<div class='alert %succ'>GLM on data <a href='/Inspect?Key=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
+          "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
           "<h4>GLM Parameters</h4>" +
           " %GLMParams %LSMParams" +
           "<h4>Equation: </h4>" +
@@ -399,7 +396,7 @@ public class GLM extends Request {
               String mname = "Model " + i++;
               sb.append("<tr>");
               try {
-                sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+                sb.append("<td>" + "<a href='Inspect.html?"+KEY+"="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
               } catch( UnsupportedEncodingException e1 ) {
                 throw new Error(e1);
               }
@@ -418,7 +415,7 @@ public class GLM extends Request {
               String mname = "Model " + i++;
               sb.append("<tr>");
               try {
-                sb.append("<td>" + "<a href='Inspect.html?key="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+                sb.append("<td>" + "<a href='Inspect.html?"+KEY+"="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
               } catch( UnsupportedEncodingException e1 ) {
                 throw new Error(e1);
               }

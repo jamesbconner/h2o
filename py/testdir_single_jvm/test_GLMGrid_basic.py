@@ -48,7 +48,7 @@ class Basic(unittest.TestCase):
                 # fails with xval
                 print "Not doing xval with benign. Fails with 'unable to solve?'"
                 # kwargs = {'X': X, 'Y':  Y, 'xval': 4}
-                glm = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=30, **kwargs)
+                glm = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
                 # h2o_glm.simpleCheckGLM(self, glm, 'STR', **kwargs)
 
     def test_C_prostate(self):
@@ -79,7 +79,7 @@ class Basic(unittest.TestCase):
                 print "Y:", Y
 
                 kwargs = {'X': X, 'Y':  Y, 'xval': 5}
-                glm = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=30, **kwargs)
+                glm = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
                 # ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON
                 # h2o_glm.simpleCheckGLM(self, glm, 'AGE', **kwargs)
 

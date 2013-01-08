@@ -1,5 +1,5 @@
 import unittest
-import random, sys, time, os
+import random, sys, time, os, re
 sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
@@ -128,13 +128,21 @@ class Basic(unittest.TestCase):
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
+            # we can pass the warning, without stopping in the test, so we can 
+            # redo it in the browser for comparison
+            warnings = h2o_glm.simpleCheckGLM(self, glm, 13, allowFailWarning=True, **kwargs)
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
                 time.sleep(5)
                 h2b.browseJsonHistoryAsUrlLastMatch("GLM")
                 time.sleep(5)
+
+            # gets the failed to converge, here, after we see it in the browser too
+            x = re.compile("[Ff]ailed")
+            if warnings:
+                for w in warnings:
+                    if (re.search(x,w)): raise Exception(w)
 
             # try new offset/view
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
