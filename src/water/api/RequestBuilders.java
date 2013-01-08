@@ -207,7 +207,7 @@ public class RequestBuilders extends RequestQueries {
      * the user in either in JSON or in HTML in a meaningful manner.
      */
     public static enum Status {
-      done, ///< Indicates that the request has completed and no further actuion from the user is required
+      done, ///< Indicates that the request has completed and no further action from the user is required
       poll, ///< Indicates that the same request should be repeated to see some progress
       redirect, ///< Indicates that the request was successful, but new request must be filled to obtain results
       error ///< The request was an error.

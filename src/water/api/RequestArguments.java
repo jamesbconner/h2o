@@ -375,7 +375,7 @@ public class RequestArguments extends RequestStatics {
       return record().valid();
     }
 
-    /** Returns true of the argument is specified by the user. That is if the
+    /** Returns true if the argument is specified by the user. That is if the
      * argument value was submitted by the user and parsed correctly.
      */
     public final boolean specified() {
@@ -390,8 +390,8 @@ public class RequestArguments extends RequestStatics {
       return record()._value;
     }
 
-    /** Sets the value. use this only when disabling explicitly and want to
-     * specify a default value that will be used - otherwise null will be.
+    /** Sets the value.  Use this only when disabling explicitly and want to
+     * specify a default value that will be used - otherwise null will be used.
      */
     public final void setValue(T value) {
       record()._value = value;

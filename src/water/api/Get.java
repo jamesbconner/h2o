@@ -1,11 +1,8 @@
-
 package water.api;
 
-import java.util.Properties;
-
-import water.*;
-
 import com.google.gson.JsonObject;
+import java.util.Properties;
+import water.*;
 
 public class Get extends Request {
   protected H2OExistingKey _key = new H2OExistingKey(KEY);
