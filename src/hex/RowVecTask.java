@@ -60,7 +60,7 @@ public abstract class RowVecTask extends MRTask {
       return !_complement;
     }
     public String toString(){
-      return "Sampling(step="+_step + ",offset=" + _offset + "complement=" + _complement + ")";
+      return "Sampling(step="+_step + ",offset=" + _offset + ",complement=" + _complement + ")";
     }
   }
 
