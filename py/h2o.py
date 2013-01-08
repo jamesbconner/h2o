@@ -1080,7 +1080,12 @@ class H2O(object):
         # None is legal for self.addr. means we won't give an ip to the jar when we start, and it should
         # figure out the right thing. Or we can say use use_this_ip_addr=127.0.0.1, or the known address 
         # if use_this_addr is None, use 127.0.0.1 for urls and json
-        self.addr = use_this_ip_addr
+        # Command line arg dominates:
+        if ipaddr:
+            self.addr = ipaddr
+        else:
+            self.addr = use_this_ip_addr
+
         if use_this_ip_addr is not None:
             self.http_addr = use_this_ip_addr
         else:
