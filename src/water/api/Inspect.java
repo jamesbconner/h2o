@@ -1,13 +1,11 @@
-
 package water.api;
 
+import com.google.gson.*;
 import hex.GLMSolver.GLMModel;
 import water.*;
 import water.api.GLM.GLMBuilder;
 import water.api.RequestBuilders.Response;
 import water.parser.CsvParser;
-
-import com.google.gson.*;
 
 public class Inspect extends Request {
   protected final H2OExistingKey _key = new H2OExistingKey(KEY);

@@ -723,18 +723,12 @@ public class GLMSolver {
     }
     public final int size() {return _arr.length;}
 
-    public int classN(int c){
-      int s = 0;
-      for(int j = 0; j < _arr.length; ++j)
-        s += _arr[c][j];
-      return s;
-    }
     public final double classErr(int c){
-      double s = 0;
-      for(int i = 0; i < _arr.length; ++i){
-        s += _arr[c][i];
-      }
-      return (s-_arr[c][c])/s;
+      long s = 0;
+      for( long x : _arr[c] )
+        s += x;
+      if( s==0 ) return 0.0;    // Either 0 or NaN, but 0 is nicer
+      return (double)(s-_arr[c][c])/s;
     }
 
     public double err(){
@@ -879,26 +873,29 @@ public class GLMSolver {
     public double AUC(){
       return _auc;
     }
+
     /**
      * Computes area under the ROC curve.
-     * The ROC curve is computed from the confusion matrices (there is one for each computed threshold).
-     * Area under this curve is then computed as a sum of areas of trapezoids formed by each neighboring points.
+     * The ROC curve is computed from the confusion matrices (there is one for
+     * each computed threshold).  Area under this curve is then computed as a
+     * sum of areas of trapezoids formed by each neighboring points.
      *
      * @return estimate of the area under ROC curve of this classifier.
      */
     protected void computeAUC() {
-      _auc = 0;
-      double TP_pre = 1;
-      double FP_pre = 1;
+      double auc = 0;           // Area-under-ROC
+      double TPR_pre = 1;
+      double FPR_pre = 1;
 
       for(int t = 0; t < _cm.length; ++t){
-        double TP = 1 - _cm[t].classErr(1);
-        double FP = _cm[t].classErr(0);
-        _auc += trapeziod_area(FP_pre, FP, TP_pre, TP);
-        TP_pre = TP;
-        FP_pre = FP;
+        double TPR = 1 - _cm[t].classErr(1); // =TP/(TP+FN) = true -positive-rate
+        double FPR =     _cm[t].classErr(0); // =FP/(FP+TN) = false-positive-rate
+        auc += trapeziod_area(FPR_pre, FPR, TPR_pre, TPR);
+        TPR_pre = TPR;
+        FPR_pre = FPR;
       }
-      _auc += trapeziod_area(FP_pre, 0, TP_pre, 0);
+      auc += trapeziod_area(FPR_pre, 0, TPR_pre, 0);
+      _auc = auc;
     }
 
 

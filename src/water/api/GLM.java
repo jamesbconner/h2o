@@ -1,12 +1,7 @@
 package water.api;
 
 import hex.*;
-import hex.GLMSolver.Family;
-import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.GLMParams;
-import hex.GLMSolver.GLMValidation;
-import hex.GLMSolver.GLMXValidation;
-import hex.GLMSolver.Link;
+import hex.GLMSolver.*;
 import hex.LSMSolver.Norm;
 
 import java.io.UnsupportedEncodingException;
@@ -264,12 +259,16 @@ public class GLM extends Request {
       validationHTML(m._vals,sb);
     }
 
-    private static final DecimalFormat dformat = new DecimalFormat("###.####");
     private static final String LAMBDA1 = "&lambda;<sub>1</sub>";
     private static final String LAMBDA2 = "&lambda;<sub>2</sub>";
     private static final String RHO     = "&rho;";
     private static final String ALPHA   = "&alpha;";
     private static final String EPSILON = "&epsilon;<sub>&beta;</sub>";
+
+    private static final DecimalFormat DFORMAT = new DecimalFormat("###.####");
+    private static final String dformat( double d ) {
+      return Double.isNaN(d) ? "NaN" : DFORMAT.format(d);
+    }
 
     private static void parm( StringBuilder sb, String x, Object... y ) {
       sb.append("<span><b>").append(x).append(": </b>").append(y[0]).append("</span> ");
@@ -331,7 +330,7 @@ public class GLM extends Request {
         if( e.getKey().equals("Intercept") ) continue;
         double v = e.getValue().getAsDouble();
         if( v == 0 ) continue;
-        sb.append(dformat.format(v)).append("*x[").append(e.getKey()).append("] + ");
+        sb.append(dformat(v)).append("*x[").append(e.getKey()).append("] + ");
       }
       sb.append(coefs.get("Intercept").getAsDouble());
       eq.replace("equation",sb.toString());
@@ -374,12 +373,12 @@ public class GLM extends Request {
         R.replace("ResidualDegreesOfFreedom",val._dof);
         R.replace("nullDev",val._nullDeviance);
         R.replace("resDev",val._deviance);
-        R.replace("AIC", dformat.format(val.AIC()));
+        R.replace("AIC", dformat(val.AIC()));
         R.replace("err",val.err());
 
         if(val._cm != null){
-          R2.replace("AUC", dformat.format(val.AUC()));
-          R2.replace("threshold", dformat.format(val.bestThreshold()));
+          R2.replace("AUC", dformat(val.AUC()));
+          R2.replace("threshold", dformat(val.bestThreshold()));
           R.replace("CM",R2);
         }
         sb.append(R);
@@ -403,10 +402,10 @@ public class GLM extends Request {
               } catch( UnsupportedEncodingException e1 ) {
                 throw new Error(e1);
               }
-              sb.append("<td>" + dformat.format(xm._vals[0].bestThreshold()) + "</td>");
-              sb.append("<td>" + dformat.format(xm._vals[0].AUC()) + "</td>");
+              sb.append("<td>" + dformat(xm._vals[0].bestThreshold()) + "</td>");
+              sb.append("<td>" + dformat(xm._vals[0].AUC()) + "</td>");
               for(double e:xm._vals[0].classError())
-                sb.append("<td>" + dformat.format(e) + "</td>");
+                sb.append("<td>" + dformat(e) + "</td>");
               sb.append("</tr>");
             }
           } else {
@@ -433,11 +432,11 @@ public class GLM extends Request {
 
     private static void cmRow( StringBuilder sb, String hd, double c0, double c1, double cerr ) {
       sb.append("<tr><th>").append(hd).append("</th><td>");
-      if( !Double.isNaN(c0  )) sb.append( dformat.format(c0  ));
+      if( !Double.isNaN(c0  )) sb.append( dformat(c0  ));
       sb.append("</td><td>");
-      if( !Double.isNaN(c1  )) sb.append( dformat.format(c1  ));
+      if( !Double.isNaN(c1  )) sb.append( dformat(c1  ));
       sb.append("</td><td>");
-      if( !Double.isNaN(cerr)) sb.append( dformat.format(cerr));
+      if( !Double.isNaN(cerr)) sb.append( dformat(cerr));
       sb.append("</td></tr>");
     }
 
