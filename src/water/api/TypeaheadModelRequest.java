@@ -1,8 +1,8 @@
 
 package water.api;
 
-import water.H2O;
-import water.Key;
+import hex.rf.Model;
+import water.*;
 
 public class TypeaheadModelRequest extends TypeaheadKeysRequest {
 
@@ -13,9 +13,13 @@ public class TypeaheadModelRequest extends TypeaheadKeysRequest {
 
   @Override
   protected boolean shouldIncludeKey(Key k) {
-    return H2O.get(k) != null;
-    // TODO make sure that we only show model keys, but I would have to create
-    // a model key for each key now which would be painfully slow, so I am
-    // just returning all keys, leaving the refinement for future generations
+    Value v = UKV.get(k);
+    if( v == null ) return false;
+    try {
+      v.get(new Model());
+      return true;
+    } catch( Throwable t ) {
+      return false;
+    }
   }
 }

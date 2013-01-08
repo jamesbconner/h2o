@@ -1854,10 +1854,13 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected Model parse(String input) throws IllegalArgumentException {
+      Value v = UKV.get(Key.make(input));
+      if( v == null )
+        throw new IllegalArgumentException("Key "+input+" was not found");
       try {
-        return UKV.get(Key.make(input), new Model());
+        return v.get(new Model());
       } catch (Exception e) {
-        throw new IllegalArgumentException("Key "+input+" is not found or is not a model key");
+        throw new IllegalArgumentException("Key "+input+" is not a model key");
       }
     }
 
