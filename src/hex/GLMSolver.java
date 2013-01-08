@@ -792,8 +792,6 @@ public class GLMSolver {
     Key _dataKey;
     Sampling _s;
     public long _n;
-//    public double [] _beta;
-//    double [] _familyArgs;
     public double _dof;
     public double _aic;
     public double _deviance;

@@ -30,12 +30,10 @@ public class GLMGridProgress extends Request {
     response.addProperty(Constants.DEST_KEY, v._key.toString());
 
     JsonArray models = new JsonArray();
-    int i = 0;
     for( GLMModel m : status.computedModels() ) {
       JsonObject o = new JsonObject();
-
       LSMSolver lsm = m._solver;
-      o.addProperty(KEY, status.model_name(i++));
+      o.addProperty(KEY, m.key().toString());
       o.addProperty(LAMBDA_1, lsm._lambda);
       o.addProperty(LAMBDA_2, lsm._lambda2);
       o.addProperty(RHO, lsm._rho);

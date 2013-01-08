@@ -12,7 +12,7 @@ public final class LSMSolver extends Iced {
   public Norm _penalty;
 
   public static final double DEFAULT_LAMBDA = 1e-5;
-  public static final double DEFAULT_LAMBDA2 = 1e-8;
+  public static final double DEFAULT_LAMBDA2 = 1e-5;
   public static final double DEFAULT_ALPHA = 1;
   public static final double DEFAULT_RHO = 1e-2;
 
@@ -23,7 +23,7 @@ public final class LSMSolver extends Iced {
   public LSMSolver () {
     _penalty = Norm.NONE;
   }
-  
+
   public static LSMSolver makeSolver(){
     return new LSMSolver();
   }

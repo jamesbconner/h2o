@@ -46,11 +46,10 @@ public class GLMGrid extends Request {
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
 
   // Args that ARE Grid Searched
-  protected final Str _lambda1 = new Str(Constants.LAMBDA_1, ""+LSMSolver.DEFAULT_LAMBDA);
-  protected final Str _lambda2 = new Str(Constants.LAMBDA_2, ""+LSMSolver.DEFAULT_LAMBDA2);
-  protected final Str _alpha = new Str(Constants.ALPHA, ""+LSMSolver.DEFAULT_ALPHA);
-  protected final Str _rho = new Str(Constants.RHO, ""+LSMSolver.DEFAULT_RHO);
-
+  protected final RSeq _lambda1 = new RSeq(Constants.LAMBDA_1, false, new double[]{0.001*LSMSolver.DEFAULT_LAMBDA,LSMSolver.DEFAULT_LAMBDA*0.1,10*LSMSolver.DEFAULT_LAMBDA,100*LSMSolver.DEFAULT_LAMBDA,1000*LSMSolver.DEFAULT_LAMBDA},true);
+  protected final RSeq _lambda2 = new RSeq(Constants.LAMBDA_2, false,new double[]{0.001*LSMSolver.DEFAULT_LAMBDA2,LSMSolver.DEFAULT_LAMBDA2*0.1,10*LSMSolver.DEFAULT_LAMBDA2,100*LSMSolver.DEFAULT_LAMBDA2,1000*LSMSolver.DEFAULT_LAMBDA2},true);
+  protected final RSeq _alpha = new RSeq(Constants.ALPHA, false, new double[]{1.0,1.4,1.8},false);
+  protected final RSeq _rho = new RSeq(Constants.RHO, false,new double[]{0.001*LSMSolver.DEFAULT_RHO,LSMSolver.DEFAULT_RHO*0.1,10*LSMSolver.DEFAULT_RHO,100*LSMSolver.DEFAULT_RHO,1000*LSMSolver.DEFAULT_RHO},true);
 
   // ---
   // Make a new Grid Search object.
@@ -64,10 +63,10 @@ public class GLMGrid extends Request {
                         _key.value(), // Hex data
                         _y.value(),   // Column to classify
                         _x.value(),   // Columns to run GLM over
-                        parsePRange( true, _lambda1.value()),   // Grid ranges
-                        parsePRange( true, _lambda2.value()),   // Grid ranges
-                        parsePRange( true, _rho.value()),       // Grid ranges
-                        parsePRange( true, _alpha.value()),     // Grid ranges
+                        _lambda1.value().arr,   // Grid ranges
+                        _lambda2.value().arr,   // Grid ranges
+                        _rho.value().arr,       // Grid ranges
+                        _alpha.value().arr,     // Grid ranges
                         _case.value(), _xval.value());
 
     // Put the task Out There for all to find
@@ -84,40 +83,6 @@ public class GLMGrid extends Request {
     return r;
   }
 
-  // ----
-  // TODO: Move this into a argument 'checker'
-  protected static double [] parsePRange( boolean multiply, String str ) {
-    str = str.trim().toLowerCase();
-    if( str.startsWith("seq") ) {
-      throw new Error("unimplemented");
-    } if( str.contains(":") ) {
-      String [] parts = str.split(":");
-      if( parts.length != 3 )throw new Error("unexpected sequence format \"" + str + "\"");
-      double from = Double.parseDouble(parts[0]);
-      double to = Double.parseDouble(parts[1]);
-      double step = Double.parseDouble(parts[2]);
-      if(to == from) return new double[]{from};
-      if(to < from)throw new Error("");
-      if(step == 0)throw new Error();
-      int n = multiply
-        ? (int)((Math.log(to) - Math.log(from))/Math.log(step))
-        : (int)((         to  -          from )/         step );
-      double [] res = new double[n];
-      for( int i = 0; i < n; ++i ) {
-        res[i] = from;
-        if( multiply ) from *= step; else from += step;
-      }
-      return res;
-    } else if( str.contains(",") ) {
-      String [] parts = str.split(",");
-      double [] res = new double[parts.length];
-      for(int i = 0; i < parts.length; ++i)
-        res[i] = Double.parseDouble(parts[i]);
-      return res;
-    } else {
-      return new double [] {Double.parseDouble(str)};
-    }
-  }
 
   // Make a link that lands on this page
   public static String link(Key k, String content) {

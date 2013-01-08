@@ -963,6 +963,97 @@ public class RequestArguments extends RequestStatics {
 
   }
 
+  public static class NumberSequence {
+    public double [] arr;
+
+    public NumberSequence(double [] val){
+      arr = val;
+    }
+    static NumberSequence parse(String input, boolean multiplicative, double defaultStep){
+      String str = input.trim().toLowerCase();
+      if( str.startsWith("seq") ) {
+        throw new Error("unimplemented");
+      } if( str.contains(":") ) {
+        String [] parts = str.split(":");
+        if(parts.length != 2 &&  parts.length != 3 )throw new IllegalArgumentException("Value "+input+" is not a valid number sequence.");
+        double step = defaultStep;
+
+        if( parts.length == 3 ){
+          step = Double.parseDouble(parts[2]);
+        }
+        double from = Double.parseDouble(parts[0]);
+        double to = Double.parseDouble(parts[1]);
+        if(to == from) return new NumberSequence(new double[]{from});
+        if(to < from)throw new IllegalArgumentException("Value "+input+" is not a valid number sequence.");
+        if(step == 0)throw new IllegalArgumentException("Value "+input+" is not a valid number sequence.");
+        int n = multiplicative
+          ? (int)((Math.log(to) - Math.log(from))/Math.log(step))
+          : (int)((         to  -          from )/         step );
+        double [] res = new double[n];
+        for( int i = 0; i < n; ++i ) {
+          res[i] = from;
+          if( multiplicative ) from *= step; else from += step;
+        }
+        return new NumberSequence(res);
+      } else if( str.contains(",") ) {
+        String [] parts = str.split(",");
+        double [] res = new double[parts.length];
+        for(int i = 0; i < parts.length; ++i)
+          res[i] = Double.parseDouble(parts[i]);
+        return new NumberSequence(res);
+      } else {
+        return new NumberSequence(new double [] {Double.parseDouble(str)});
+      }
+
+    }
+    public String toString(){
+      if(arr == null || arr.length == 0)return"[]";
+      StringBuilder res = new StringBuilder();
+      res.append(arr[0]);
+      for(int i = 1; i < arr.length; ++i)
+        res.append("," + arr[i]);
+      return res.toString();
+    }
+  }
+  public class RSeq extends InputText<NumberSequence> {
+    boolean _multiplicative;
+    NumberSequence _dVal;
+    double _defaultStep;
+
+
+    public RSeq(String name, boolean req, boolean mul){
+      this(name,req,null,mul);
+
+    }
+    public RSeq(String name, boolean req, double [] dVal, boolean mul){
+      super(name,req);
+      _dVal = new NumberSequence(dVal);
+      _multiplicative = mul;
+      _defaultStep = mul?10:1;
+    }
+
+    @Override protected NumberSequence parse(String input) throws IllegalArgumentException {
+      try {
+        return NumberSequence.parse(input, _multiplicative, _defaultStep);
+      } catch (NumberFormatException e) {
+        throw new IllegalArgumentException("Value "+input+" is not a valid number sequence.");
+      }
+    }
+
+    @Override
+    protected NumberSequence defaultValue() {
+      return _dVal;
+    }
+
+    @Override
+    protected String queryDescription() {
+      return "Number sequence. Comma separated list of values. Or range specified as from:to:step.";
+    }
+
+  }
+
+
+
   // ---------------------------------------------------------------------------
   // Int
   // ---------------------------------------------------------------------------

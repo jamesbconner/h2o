@@ -18,7 +18,8 @@ import java.util.Map.Entry;
 import water.*;
 import water.web.RString;
 
-import com.google.gson.*;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 /**
  *
@@ -184,7 +185,6 @@ public class GLM extends Request {
     try {
       JsonObject res = new JsonObject();
       ValueArray ary = _key.value();
-      int Y = _y.value();
       int[] columns = createColumns();
 
       res.addProperty("key", ary._key.toString());
@@ -200,8 +200,7 @@ public class GLM extends Request {
         else
           m.validateOn(ary, null);// Validate...
       }
-
-      UKV.put(Key.make("__GLMModel_" + Key.make()), m);
+      m.store();
       // Convert to JSON
       res.add("GLMModel", m.toJson());
 
@@ -264,16 +263,6 @@ public class GLM extends Request {
 
       // Validation / scoring
       validationHTML(m._vals,sb);
-    }
-    private static void XmodelHTML( int i, GLMModel m, JsonObject json, StringBuilder sb ) {
-      sb.append("<div class='alert ");
-      sb.append(m._warnings == null ? "alert-success" : "alert-warning");
-      sb.append("'>Model ").append(i).append("</div>");
-      JsonObject coefs = json.get("coefficients").getAsJsonObject();
-      sb.append(coefsHTML(coefs));
-      if( m._vals != null )     // Confusion matrix
-        for( GLMValidation val : m._vals )
-          confusionHTML(val.bestCM(),sb);
     }
 
     private static final DecimalFormat dformat = new DecimalFormat("###.####");
