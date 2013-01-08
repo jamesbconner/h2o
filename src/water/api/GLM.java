@@ -46,8 +46,8 @@ public class GLM extends Request {
 
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
-  protected final IgnoreHexCols _x = new IgnoreHexCols2(_key, _y, JSON_GLM_X);
-  protected final IgnoreHexCols _negX = new IgnoreHexCols(_key, _y, JSON_GLM_NEG_X, false);
+  protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
+  protected final HexColumnSelect _negX = new HexColumnSelect(JSON_GLM_NEG_X, _key, _y);
 
   public static String link(Key k, String content) {
     RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");

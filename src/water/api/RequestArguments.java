@@ -8,6 +8,8 @@ import java.util.*;
 import water.*;
 import water.web.RString;
 
+import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
 import com.google.gson.JsonObject;
 
 /** All arguments related classes are defined in this guy.
@@ -756,8 +758,7 @@ public class RequestArguments extends RequestStatics {
   /** Displays multiple checkboxes for different values. Returns a list of the
    * checked values separated by commas.
    */
-  public abstract class MultipleCheckbox<T> extends Argument<T> {
-
+  public abstract class MultipleSelect<T> extends Argument<T> {
     /** Override this method to provide the values for the options. These will
      * be the possible values returned by the form's input and should be the
      * possible values for the JSON argument.
@@ -780,7 +781,7 @@ public class RequestArguments extends RequestStatics {
     /** Constructor just calls super. Is never required, translates to the
      * default value.
      */
-    public MultipleCheckbox(String name) {
+    public MultipleSelect(String name) {
       super(name, false);
     }
 
@@ -788,23 +789,22 @@ public class RequestArguments extends RequestStatics {
      * with an optional scrollbar on the right.
      */
     @Override protected String queryElement() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("<div style='max-height:300px;overflow:auto'>");
-      sb.append("<table class='table table-striped'>");
       String[] values = selectValues();
       String[] names = selectNames();
-      if (names == null)
-        names = values;
+      if (names == null) names = values;
       assert (values.length == names.length);
       if (values.length == 0)
-        sb.append("<div class='alert alert-error'>No editable controls under current setup</div>");
+        return "<div class='alert alert-error'>No editable controls under current setup</div>";
+
+      StringBuilder sb = new StringBuilder();
+      sb.append("<div style='max-height:300px;overflow:auto'>");
+      sb.append("<select multiple id='").append(_name).append("' >");
       for (int i = 0 ; i < values.length; ++i) {
-        if (isSelected(values[i]))
-          sb.append("<tr><td><input style='position:relative;top:-2px' type='checkbox' checked id='"+(_name+String.valueOf(i))+"' value='"+values[i]+"' /> "+names[i]+"</td></tr>");
-        else
-          sb.append("<tr><td><input style='position:relative;top:-2px' type='checkbox' id='"+(_name+String.valueOf(i))+"' value='"+values[i]+"' /> "+names[i]+"</td></tr>");
+        sb.append("<option value='").append(values[i]).append("' ");
+        if( isSelected(values[i]) ) sb.append("selected='true' ");
+        sb.append(">").append(names[i]).append("</option>");
       }
-      sb.append("</table></div>");
+      sb.append("</select></div>");
       return sb.toString();
     }
 
@@ -812,11 +812,7 @@ public class RequestArguments extends RequestStatics {
      * possibility's checkbox is instrumented.
      */
     @Override protected String jsRefresh(String callbackName) {
-      int size = selectValues().length;
-      StringBuilder sb = new StringBuilder();
-      for (int i = 0; i < size; ++i)
-        sb.append("$('#"+_name+String.valueOf(i)+"').change("+callbackName+");\n");
-      return sb.toString();
+      return "$('#"+_name+"').change("+callbackName+");\n";
     }
 
     /** Get value is supported by a JS function that enumerates over the
@@ -824,11 +820,7 @@ public class RequestArguments extends RequestStatics {
      * a comma separated list.
      */
     @Override protected String jsValue() {
-      int size = selectValues().length;
-      RString result = new RString(_multipleCheckboxValueJS);
-      result.replace("NUMITEMS",size);
-      result.replace("NAME",_name);
-      return result.toString();
+      return "return $('#"+_name+"').val().join(',');";
     }
   }
 
@@ -852,7 +844,6 @@ public class RequestArguments extends RequestStatics {
 
 
   public abstract class MultipleText<T> extends Argument<T> {
-
     protected abstract String[] textValues();
 
     protected abstract String[] textNames();
@@ -1617,18 +1608,14 @@ public class RequestArguments extends RequestStatics {
   // IgnoreHexCols
   // ---------------------------------------------------------------------------
 
-  public class IgnoreHexCols extends MultipleCheckbox<int[]> {
+  public class HexColumnSelect extends MultipleSelect<int[]> {
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
-    public final boolean _def_on; // default is ON/CHECKED or OFF/UNCHECKED
 
-    public IgnoreHexCols(H2OHexKey key, H2OHexKeyCol classCol, String name, boolean def_on) {
+    public HexColumnSelect(String name, H2OHexKey key, H2OHexKeyCol classCol) {
       super(name);
-      _key = key;
-      _classCol = classCol;
-      _def_on = def_on;
-      addPrerequisite(key);
-      addPrerequisite(classCol);
+      addPrerequisite(_key = key);
+      addPrerequisite(_classCol = classCol);
     }
 
     @Override protected String[] selectValues() {
@@ -1680,13 +1667,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected int[] defaultValue() {
-      if( !_def_on ) return new int[0];
-      ValueArray va = _key.value();
-      int[] res = new int[va._cols.length-1]; // no class col
-      for( int i=0; i<res.length; i++ ) res[i] = i;
-      int classCol = _classCol.value();
-      if( classCol < res.length ) res[classCol] = res.length;
-      return res;
+      return new int[0];
     }
 
     @Override protected String queryDescription() {
@@ -1695,25 +1676,19 @@ public class RequestArguments extends RequestStatics {
   }
 
   // By default, all on - except *constant* columns
-  public class IgnoreHexCols2 extends IgnoreHexCols {
-    public IgnoreHexCols2(H2OHexKey key, H2OHexKeyCol classCol, String name) {
-      super(key,classCol,name,true);
+  public class HexNonConstantColumnSelect extends HexColumnSelect {
+    public HexNonConstantColumnSelect(String name, H2OHexKey key, H2OHexKeyCol classCol) {
+      super(name, key, classCol);
     }
     @Override protected int[] defaultValue() {
       int classCol = _classCol.value();
       ValueArray va = _key.value();
-      int cnum = 0;
+      List<Integer> res = Lists.newArrayList();
       for( int i=0; i<va._cols.length; i++ )
         if( va._cols[i]._min != va._cols[i]._max && i!=classCol )
-          cnum++;               // Bump count of cols-in-use
-      int[] res = new int[cnum];
-      cnum = 0;
-      for( int i=0; i<va._cols.length; i++ )
-        if( va._cols[i]._min != va._cols[i]._max && i!=classCol )
-          res[cnum++]=i;        // Bump count of cols-in-use
-      return res;
+          res.add(i);
+      return Ints.toArray(res);
     }
-
   }
 
   // ---------------------------------------------------------------------------
