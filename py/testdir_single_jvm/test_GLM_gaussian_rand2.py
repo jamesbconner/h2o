@@ -5,45 +5,44 @@ sys.path.extend(['.','..','py'])
 import h2o, h2o_cmd, h2o_glm
 
 # FIX! update for new port?
-if h2o.new_json:
-    paramDict = {
-        'Y': [54],
-        'X': [0,1,15,33,34],
-        'glm_-X': [None,'40:53'],
-        'family': ['gaussian'],
-        'xval': [2,3,4,9,15],
-        'threshold': [0.1, 0.5, 0.7, 0.9],
-        'norm': [None, 'L1', 'L2', 'LASSO'],
-        'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
-        'lambda2': [None, 1e-8, 1e-4,1,10,1e4],
-        'rho': [None, 1e-4,1,10,1e4],
-        # alpha must be between -1 and 1.8?
-        'alpha': [None, -1,0,1,1.8],
-        'rho': [None, 1e-4,1,10,1e4],
-        'alpha': [None, 1e-4,1,10,1e4],
-        'beta_eps': [None, 0.0001],
-        'case': ['NaN'],
-        # inverse and log causing problems
-        # 'link': [None, 'logit','identity', 'log', 'inverse'],
-        'max_iter': [None, 10],
-        'weight': [None, 1, 2, 4],
-        }
-else:
-    paramDict = {
-        'Y': [54],
-        'X': [0,1,15,33,34],
-        'glm_-X': [None,'40:53'],
-        'family': ['gaussian'],
-        'xval': [2,3,4,9,15],
-        'threshold': [0.1, 0.5, 0.7, 0.9],
-        'norm': ['L1', 'L2'],
-        # 'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
-        'glm_lambda': [None, 1e-1, 1],
-        'rho': [None, 1e-4,1,10,1e4],
-        # alpha must be between -1 and 1.8?
-        'alpha': [None, -1,0,1,1.8],
-        }
-
+def define_params():
+    if h2o.new_json:
+        paramDict = {
+            'Y': [54],
+            'X': [0,1,15,33,34],
+            'glm_-X': [None,'40:53'],
+            'family': ['gaussian'],
+            'xval': [2,3,4,9,15],
+            'threshold': [0.1, 0.5, 0.7, 0.9],
+            'norm': [None, 'L1', 'L2', 'ELASTIC'],
+            'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
+            'lambda2': [None, 1e-8, 1e-4,1,10,1e4],
+            'rho': [None, 1e-4,1,10,1e4],
+            # alpha must be between -1 and 1.8?
+            'alpha': [None, -1,0,1,1.8],
+            'beta_eps': [None, 0.0001],
+            'case': [1,2,3,4,5,6,7],
+            # inverse and log causing problems
+            # 'link': [None, 'logit','identity', 'log', 'inverse'],
+            'max_iter': [None, 10],
+            'weight': [None, 1, 2, 4],
+            }
+    else:
+        paramDict = {
+            'Y': [54],
+            'X': [0,1,15,33,34],
+            'glm_-X': [None,'40:53'],
+            'family': ['gaussian'],
+            'xval': [2,3,4,9,15],
+            'threshold': [0.1, 0.5, 0.7, 0.9],
+            'norm': ['L1', 'L2'],
+            # 'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
+            'glm_lambda': [None, 1e-1, 1],
+            'rho': [None, 1e-4,1,10,1e4],
+            # alpha must be between -1 and 1.8?
+            'alpha': [None, -1,0,1,1.8],
+            }
+    return paramDict
 
 
 class Basic(unittest.TestCase):
@@ -66,6 +65,7 @@ class Basic(unittest.TestCase):
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
+        paramDict = define_params()
         for trial in range(20):
             # default
             colX = 0 
@@ -74,7 +74,7 @@ class Basic(unittest.TestCase):
             # with a different choice. we need the xval to get the error details 
             # in the json(below)
             # always do gaussian!
-            kwargs = {'Y': 54, 'xval': 3, 'family': "gaussian", 'glm_lambda': 1e-4}
+            kwargs = {'Y': 54, 'xval': 3, 'family': "gaussian", 'glm_lambda': 1e-4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

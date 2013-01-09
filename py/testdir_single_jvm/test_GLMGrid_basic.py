@@ -42,7 +42,7 @@ class Basic(unittest.TestCase):
         print "\nX:", X
         print "Y:", Y
         
-        # FIX! hacking with norm = L2 to get it to pass now. LASSO default won't? maybe
+        # FIX! hacking with norm = L2 to get it to pass now. ELASTIC default won't? maybe
         # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
         kwargs = {
             'X': X, 'Y':  Y, 'xval': 2, 

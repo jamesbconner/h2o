@@ -14,43 +14,43 @@ import h2o, h2o_cmd, h2o_glm
 # Always do poisson!
 
 # FIX! update for new port?
-if h2o.new_json:
-    paramDict = {
-        'Y': [54],
-        'X': [0,1,15,33,34],
-        'glm_-X': [None,'40:53'],
-        'family': ['poisson'],
-        'xval': [2,3,4,9,15],
-        'threshold': [0.1, 0.5, 0.7, 0.9],
-        'norm': ['L1', 'L2', 'LASSO'],
-        'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
-        'lambda2': [None, 1e-8, 1e-4,1,10,1e4],
-        'rho': [None, 1e-4,1,10,1e4],
-        # alpha must be between -1 and 1.8?
-        'alpha': [None, -1,0,1,1.8],
-        'rho': [None, 1e-4,1,10,1e4],
-        'alpha': [None, 1e-4,1,10,1e4],
-        'beta_eps': [None, 0.0001],
-        'case': ['NaN'],
-        # inverse and log causing problems
-        # 'link': [None, 'logit','identity', 'log', 'inverse'],
-        'max_iter': [None, 10],
-        'weight': [None, 1, 2, 4],
-        }
-else:
-    paramDict = {
-        'Y': [54],
-        'X': [0,1,15,33,34],
-        'glm_-X': [None,'40:53'],
-        'family': ['poisson'],
-        'xval': [2,3,4,9,15],
-        'threshold': [0.1, 0.5, 0.7, 0.9],
-        'norm': ['L1', 'L2'],
-        'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
-        'rho': [None, 1e-4,1,10,1e4],
-        # alpha must be between -1 and 1.8?
-        'alpha': [None, -1,0,1,1.8],
-        }
+def define_params():
+    if h2o.new_json:
+        paramDict = {
+            'Y': [54],
+            'X': [0,1,15,33,34],
+            'glm_-X': [None,'40:53'],
+            'family': ['poisson'],
+            'xval': [2,3,4,9,15],
+            'threshold': [0.1, 0.5, 0.7, 0.9],
+            'norm': ['L1', 'L2', 'ELASTIC'],
+            'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
+            'lambda2': [None, 1e-8, 1e-4,1,10,1e4],
+            'rho': [None, 1e-4,1,10,1e4],
+            # alpha must be between -1 and 1.8?
+            'alpha': [None, -1,0,1,1.8],
+            'beta_eps': [None, 0.0001],
+            'case': [1,2,3,4,5,6,7],
+            # inverse and log causing problems
+            # 'link': [None, 'logit','identity', 'log', 'inverse'],
+            'max_iter': [None, 10],
+            'weight': [None, 1, 2, 4],
+            }
+    else:
+        paramDict = {
+            'Y': [54],
+            'X': [0,1,15,33,34],
+            'glm_-X': [None,'40:53'],
+            'family': ['poisson'],
+            'xval': [2,3,4,9,15],
+            'threshold': [0.1, 0.5, 0.7, 0.9],
+            'norm': ['L1', 'L2'],
+            'glm_lambda': [None, 1e-8, 1e-4,1,10,1e4],
+            'rho': [None, 1e-4,1,10,1e4],
+            # alpha must be between -1 and 1.8?
+            'alpha': [None, -1,0,1,1.8],
+            }
+    return paramDict
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -71,6 +71,7 @@ class Basic(unittest.TestCase):
         # if you have to force to redo a test
         # SEED = 
         random.seed(SEED)
+        paramDict = define_params()
         print "\nUsing random seed:", SEED
         for trial in range(20):
             # default
@@ -80,7 +81,7 @@ class Basic(unittest.TestCase):
             # with a different choice. we need the xval to get the error details 
             # in the json(below)
             # always do poisson!
-            kwargs = {'Y': 54, 'xval': 3, 'family': "poisson", 'glm_lambda': 1e-4}
+            kwargs = {'Y': 54, 'xval': 3, 'family': "poisson", 'glm_lambda': 1e-4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -96,7 +97,7 @@ class Basic(unittest.TestCase):
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=120, parseKey=parseKey, **kwargs)
-            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 

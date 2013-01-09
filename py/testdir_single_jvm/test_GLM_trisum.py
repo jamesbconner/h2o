@@ -4,6 +4,51 @@ sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 
+def define_params():
+    if h2o.new_json:
+        paramDict = {
+            # 'key': ['cA'],
+            # 'y': [11],
+            'family': ['binomial'],
+            # 'norm': ['ELASTIC'],
+            'norm': ['L2'],
+            'lambda_1': [1.0E-5],
+            'lambda_2': [1.0E-8],
+            'alpha': [1.0],
+            'rho': [0.01],
+            'max_iter': [50],
+            'weight': [1.0],
+            'threshold': [0.5],
+            # 'case': [NaN],
+            'case': ['NaN'],
+            # 'link': [familyDefault],
+            'xval': [1],
+            'expand_cat': [1],
+            'beta_eps': [1.0E-4],
+            }
+    else: 
+        paramDict = {
+            # 'key': ['cA'],
+            # 'Y': [11],
+            'family': ['binomial'],
+            # 'norm': ['ELASTIC'],
+            'norm': ['L2'],
+            'lambda_1': [1.0E-5],
+            'lambda_2': [1.0E-8],
+            'alpha': [1.0],
+            'rho': [0.01],
+            'max_iter': [50],
+            'weight': [1.0],
+            'threshold': [0.5],
+            # 'case': [NaN],
+            'case': [None],
+            # 'link': [familyDefault],
+            'xval': [1],
+            'expand_cat': [1],
+            'beta_eps': [1.0E-4],
+            }
+    return paramDict
+
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -26,48 +71,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_many_cols_with_syn(self):
-        if h2o.new_json:
-            paramDict = {
-                # 'key': ['cA'],
-                # 'y': [11],
-                'family': ['binomial'],
-                # 'norm': ['ELASTIC'],
-                'norm': ['L2'],
-                'lambda_1': [1.0E-5],
-                'lambda_2': [1.0E-8],
-                'alpha': [1.0],
-                'rho': [0.01],
-                'max_iter': [50],
-                'weight': [1.0],
-                'threshold': [0.5],
-                # 'case': [NaN],
-                'case': ['NaN'],
-                # 'link': [familyDefault],
-                'xval': [1],
-                'expand_cat': [1],
-                'beta_eps': [1.0E-4],
-                }
-        else: 
-            paramDict = {
-                # 'key': ['cA'],
-                # 'Y': [11],
-                'family': ['binomial'],
-                # 'norm': ['ELASTIC'],
-                'norm': ['L2'],
-                'lambda_1': [1.0E-5],
-                'lambda_2': [1.0E-8],
-                'alpha': [1.0],
-                'rho': [0.01],
-                'max_iter': [50],
-                'weight': [1.0],
-                'threshold': [0.5],
-                # 'case': [NaN],
-                'case': [None],
-                # 'link': [familyDefault],
-                'xval': [1],
-                'expand_cat': [1],
-                'beta_eps': [1.0E-4],
-                }
         ### h2b.browseTheCloud()
 
         csvFilename = "logreg_trisum_int_cat_10000x10.csv"
@@ -82,6 +85,7 @@ class Basic(unittest.TestCase):
         inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
         print "\n" + csvFilename
 
+        paramDict = define_params()
         paramDict2 = {}
         for k in paramDict:
             # sometimes we have a list to pick from in the value. now it's just list of 1.
