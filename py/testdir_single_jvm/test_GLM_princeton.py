@@ -21,8 +21,8 @@ class Basic(unittest.TestCase):
         csvFilenameList = [
             ('cuse.dat', 'gaussian', 3, 5), # notUsing
             ('cuse.dat', 'gaussian', 4, 5), # using
-            ('copen.dat', 'binomial', 5, 5),
-            ('housing.raw', 'binomial', 4, 5),
+            ('copen.dat', 'gaussian', 4, 5),
+            ('housing.raw', 'gaussian', 4, 5),
             ]
 
         trial = 0
