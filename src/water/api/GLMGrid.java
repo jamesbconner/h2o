@@ -16,8 +16,6 @@ import com.google.gson.JsonObject;
 public class GLMGrid extends Request {
   public static final String JSON_GLM_Y = "y";
   public static final String JSON_GLM_X = "x";
-  public static final String JSON_GLM_FAMILY = "family";
-  public static final String JSON_GLM_NORM = "norm";
   public static final String JSON_GLM_MAX_ITER = "max_iter";
   public static final String JSON_GLM_BETA_EPS = "beta_eps";
   public static final String JSON_GLM_WEIGHT = "weight";
