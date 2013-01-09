@@ -20,27 +20,27 @@ class Basic(unittest.TestCase):
         # fix. the ones with comments may want to be a gaussian?
         csvFilenameList = [
             # ('cgd.dat', None, 10)
-            ('chdage.dat', 2, 5),
+            ('chdage.dat', 'binomial', 2, 5),
             # hangs during parse for some reason
             # ('clslowbwt.dat', 7, 5),
-            ('icu.dat', 11, 5),
-            ('lowbwt.dat', 1, 5),
-            ('lowbwtm11.dat', 1, 5),
+            ('icu.dat', 'binomial', 1, 5),
+            ('lowbwt.dat', 'binomial', 1, 5),
+            ('lowbwtm11.dat', 'binomial', 1, 5),
             # ('meexp.dat', None, 5),
-            ('nhanes3.dat', 15, 5),
+            ('nhanes3.dat', 'binomial', 15, 5),
             # ('pbc.dat', None, 5),
             # ('pharynx.dat', None, 5),
-            ('pros.dat', 1, 5),
-            ('uis.dat', 8, 5),
+            ('pros.dat', 'binomial', 1, 5),
+            ('uis.dat', 'binomial', 8, 5),
             ]
 
         trial = 0
-        for (csvFilename, Y, timeoutSecs) in csvFilenameList:
+        for (csvFilename, family, Y, timeoutSecs) in csvFilenameList:
             csvPathname1 = h2o.find_file("smalldata/logreg/umass_statdata/" + csvFilename)
             csvPathname2 = SYNDATASETS_DIR + '/' + csvFilename + '_stripped.csv'
             h2o_util.file_strip_trailing_spaces(csvPathname1, csvPathname2)
 
-            kwargs = {'xval': 0, 'case': 'NaN', 'family': 'binomial', 'link': 'familyDefault', 'Y': Y}
+            kwargs = {'xval': 0, 'case': 'NaN', 'family': family, 'link': 'familyDefault', 'Y': Y}
             start = time.time()
             glm = h2o_cmd.runGLM(csvPathname=csvPathname2, key=csvFilename, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
