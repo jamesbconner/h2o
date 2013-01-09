@@ -27,14 +27,9 @@ public class GLM extends Request {
   public static final String JSON_GLM_NEG_X = "neg_x";
   public static final String JSON_GLM_FAMILY = "family";
   public static final String JSON_GLM_NORM = "norm";
-  public static final String JSON_GLM_LAMBDA = "lambda_1";
-  public static final String JSON_GLM_LAMBDA_2 = "lambda_2";
-  public static final String JSON_GLM_RHO = "rho";
-  public static final String JSON_GLM_ALPHA = "alpha";
   public static final String JSON_GLM_MAX_ITER = "max_iter";
   public static final String JSON_GLM_BETA_EPS = "beta_eps";
   public static final String JSON_GLM_WEIGHT = "weight";
-  public static final String JSON_GLM_THRESHOLD = "thresholds";
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
   public static final String JSON_GLM_LINK = "link";
@@ -60,11 +55,11 @@ public class GLM extends Request {
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian);
   protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.ELASTIC);
 
-  protected final Real _lambda1 = new Real(JSON_GLM_LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
+  protected final Real _lambda1 = new Real(Constants.LAMBDA_1, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
 
-  protected final Real _lambda2 = new Real(JSON_GLM_LAMBDA_2, LSMSolver.DEFAULT_LAMBDA2);
-  protected final Real _alpha = new Real(JSON_GLM_ALPHA, LSMSolver.DEFAULT_ALPHA, -1d, 1.8d);
-  protected final Real _rho = new Real(JSON_GLM_RHO, LSMSolver.DEFAULT_RHO); // TODO I do not know the bounds
+  protected final Real _lambda2 = new Real(Constants.LAMBDA_2, LSMSolver.DEFAULT_LAMBDA2);
+  protected final Real _alpha = new Real(Constants.ALPHA, LSMSolver.DEFAULT_ALPHA, -1d, 1.8d);
+  protected final Real _rho = new Real(Constants.RHO, LSMSolver.DEFAULT_RHO); // TODO I do not know the bounds
 
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
   protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
@@ -73,7 +68,7 @@ public class GLM extends Request {
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
 
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
-  protected final RSeq _thresholds = new RSeq(JSON_GLM_THRESHOLD, false, new NumberSequence("0:1:0.01", false, 0.01),false);
+  protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
 
   @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
     if (arg == _family) {
@@ -199,7 +194,8 @@ public class GLM extends Request {
       Response r = Response.done(res);
       r.setBuilder(""/*top-level do-it-all builder*/,new GLMBuilder(m));
       return r;
-
+    }catch(GLMException e){
+      return Response.error(e.getMessage());
     } catch (Throwable t) {
       t.printStackTrace();
       return Response.error(t.getMessage());

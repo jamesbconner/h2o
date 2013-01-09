@@ -1247,7 +1247,10 @@ public class RequestArguments extends RequestStatics {
       ValueArray.Column C = _key.value()._cols[_classCol.value()];
       _min = C._min;
       _max = C._max;
-      return super.parse(input); // Then the normal parsing step
+      double x = super.parse(input); // Then the normal parsing step
+      if( Double.isNaN(x) && (C._scale!=1 || _min != 0 || _max != 1) )
+        throw new IllegalArgumentException("Class column is not boolean, 'case' needs to specify what value to treat as TRUE; valid values range from "+_min+" to "+_max);
+      return x;
     }
 
     @Override protected String queryDescription() {

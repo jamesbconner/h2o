@@ -13,6 +13,10 @@ public class GLMSolver {
   public static final double DEFAULT_BETA_EPS = 1e-4;
   private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
 
+  public static class GLMException extends RuntimeException {
+    public GLMException(String msg){super(msg);}
+  }
+
   public static enum Link {
     familyDefault(0),
     identity(0),
@@ -277,7 +281,7 @@ public class GLMSolver {
           for(int i = 0; i < ary._cols.length; ++i)
             if(ary._cols[i]._name.equals(_colNames[j]))
               colIds[idx++] = i;
-      if(idx != colIds.length)throw new Error("incompatible dataset");
+      if(idx != colIds.length)throw new GLMException("incompatible dataset");
       GLMValidationTask valTsk = new GLMValidationTask(ary._key,colIds);
       valTsk._colOffsets = _colOffsets;
       valTsk._categoricals = _categoricals;
@@ -388,6 +392,12 @@ public class GLMSolver {
   }
 
   public GLMModel computeGLM(ValueArray ary, int [] colIds, Sampling s) {
+    // check range of response variable (y)
+    if(_glmParams._f == Family.binomial && Double.isNaN(_glmParams._familyArgs[FAMILY_ARGS_CASE])){
+      int ycol = colIds[colIds.length-1];
+      if(ary._cols[ycol]._max > 1 || ary._cols[ycol]._min < 0)
+        throw new GLMException("Response variable out of range, 0:1 range is required, got " + ary._cols[ycol]._min + ":" + ary._cols[ycol]._max);
+    }
     GLMModel res = new GLMModel(ary,colIds,_solver,_glmParams,s);
     GramMatrixTask gtask = null;
     ArrayList<String> warns = new ArrayList();
@@ -966,6 +976,8 @@ public class GLMSolver {
       if( _f == Family.binomial &&
           !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) )
         yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
+      if(yr < 0 || yr > 1 )
+        throw new Error("response variable value out of range: " + yr);
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {
