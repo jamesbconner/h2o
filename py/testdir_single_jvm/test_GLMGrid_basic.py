@@ -10,6 +10,7 @@ class Basic(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        ## time.sleep(3600)
         h2o.tear_down_cloud()
 
     def test_B_benign(self):
@@ -18,48 +19,59 @@ class Basic(unittest.TestCase):
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
         # columns start at 0
-        Y = "3"
-        X = ""
         # cols 0-13. 3 is output
         # no member id in this one
+        Y = "3"
+        xList = []  
         for appendX in xrange(14):
-            if (appendX == 1): 
-                print "\nSkipping 1. Causes NaN. Ok now, later though?"
-            elif (appendX == 2): 
-                print "\nSkipping 2. Causes NaN. Ok now, later though?"
+            if (appendX == 0): 
+                print "\nSkipping 0. Causes coefficient of 0 when used alone"
+            ## elif (appendX == 1): 
+            ##    print "\nSkipping 1. Causes NaN. Ok now, later though?"
+            ## elif (appendX == 2): 
+            ##     print "\nSkipping 2. Causes NaN. Ok now, later though?"
             elif (appendX == 3): 
                 print "\n3 is output."
             else:
-                if X == "": 
-                    X = str(appendX)
-                else:
-                    X = X + "," + str(appendX)
+                xList.append(appendX)
+                X = ','.join(map(str, xList))
 
-                sys.stdout.write('.')
-                sys.stdout.flush()
-                csvFilename = "benign.csv"
-                csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
-                print "\nX:", X
-                print "Y:", Y
-                
-                # FIX! hacking with norm = L2 to get it to pass now. LASSO default won't? maybe
-                # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
-                kwargs = {'X': X, 'Y':  Y, 'norm': 'L2'}
-                # fails with xval
-                print "Not doing xval with benign. Fails with 'unable to solve?'"
-                # kwargs = {'X': X, 'Y':  Y, 'xval': 4}
-                glm = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
-                # h2o_glm.simpleCheckGLM(self, glm, 'STR', **kwargs)
+        # just run the test with all x, not the intermediate results
+        csvFilename = "benign.csv"
+        csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
+        print "\nX:", X
+        print "Y:", Y
+        
+        # FIX! hacking with norm = L2 to get it to pass now. LASSO default won't? maybe
+        # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
+        kwargs = {
+            'X': X, 'Y':  Y, 'xval': 2, 
+            'lambda1': '1e-8:1e3:100', 
+            'lambda2': '1e-8:1e3:100',
+            'alpha': '1,1.4,1.8',
+            'thresholds': '0:1:0.01'
+            }
+        # fails with xval
+        print "Not doing xval with benign. Fails with 'unable to solve?'"
+        # kwargs = {'X': X, 'Y':  Y, 'xval': 4}
+
+        gg = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
+        # check the first in the models list. It should be the best
+        colNames = [ 'STR','OBS','AGMT','FNDX','HIGD','DEG','CHK',
+                     'AGP1','AGMN','NLV','LIV','WT','AGLP','MST' ]
+
+        # h2o_glm.simpleCheckGLMGrid(self, gg, colNames[xList[-1]], **kwargs)
+        h2o_glm.simpleCheckGLMGrid(self, gg, None, **kwargs)
 
     def test_C_prostate(self):
         print "\nStarting prostate.csv"
         # columns start at 0
-        Y = "1"
-        X = ""
         csvFilename = "prostate.csv"
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
 
+        Y = "1"
+        xList = []  
         for appendX in xrange(9):
             if (appendX == 0):
                 print "\n0 is member ID. not used"
@@ -68,20 +80,30 @@ class Basic(unittest.TestCase):
             elif (appendX == 7): 
                 print "\nSkipping 7. Causes NaN. Ok now, later though?"
             else:
-                if X == "": 
-                    X = str(appendX)
-                else:
-                    X = X + "," + str(appendX)
+                xList.append(appendX)
+                X = ','.join(map(str, xList))
 
-                sys.stdout.write('.')
-                sys.stdout.flush() 
-                print "\nX:", X
-                print "Y:", Y
+        # just run the test with all x, not the intermediate results
+        print "\nX:", X
+        print "Y:", Y
 
-                kwargs = {'X': X, 'Y':  Y, 'xval': 5}
-                glm = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
-                # ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON
-                # h2o_glm.simpleCheckGLM(self, glm, 'AGE', **kwargs)
+        # lambda1, lambda2, alpha, rho, threshold
+        # FIX! thresholds is used in GLMGrid. threshold is used in GLM
+        # comma separated means use discrete values
+        # colon separated is min/max/step
+        # FIX! have to update other GLMGrid tests
+        kwargs = {
+            'X': X, 'Y':  Y, 'xval': 2, 
+            'lambda1': '1e-8:1e3:100', 
+            'lambda2': '1e-8:1e3:100',
+            'alpha': '1,1.4,1.8',
+            'thresholds': '0:1:0.01'
+            }
+
+        gg = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
+        colNames = ['D','CAPSULE','AGE','RACE','DPROS','DCAPS','PSA','VOL','GLEASON']
+        # h2o_glm.simpleCheckGLMGrid(self, gg, colNames[xList[0]], **kwargs)
+        h2o_glm.simpleCheckGLMGrid(self, gg, None, **kwargs)
 
 if __name__ == '__main__':
     h2o.unit_main()

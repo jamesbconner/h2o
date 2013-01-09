@@ -144,7 +144,7 @@ def compareToFirstGlm(self, key, glm, firstglm):
         self.assertGreaterEqual(float(k), 0.0, str(k) + " not >= 0.0 in current")
 
 
-def simpleCheckGLMGrid(self, glmGridResult, **kwargs):
+def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, **kwargs):
     destination_key = glmGridResult['destination_key']
     inspectGG = h2o_cmd.runInspect(None, destination_key)
     print "Inspect of destination_key", destination_key,":\n", h2o.dump_json(inspectGG)
@@ -155,9 +155,37 @@ def simpleCheckGLMGrid(self, glmGridResult, **kwargs):
         print "Warning: GLM Grid result destination_key is unparsed, can't interpret. Ignoring for now"
         print "Run with -b arg to look at the browser output, for minimal checking of result"
 
-
     cols = inspectGG['cols']
     response = inspectGG['response'] # dict
     rows = inspectGG['rows']
     value_size_bytes = inspectGG['value_size_bytes']
+
+# models entries look like this:
+#     {
+#       "alpha": 1.0, 
+#       "area_under_curve": 0.16666666666666669, 
+#       "best_threshold": 0.0, 
+#       "error_0": 1.0, 
+#       "error_1": 0.0, 
+#       "key": "__GLMModel_8b0fc26c-3a9c-4c4b-8cf6-240cc5b60508", 
+#       "lambda_1": 0.009999999999999998, 
+#       "lambda_2": 0.9999999999999999, 
+#       "rho": 1e-06
+#     }, 
+    model0 = glmGridResult['models'][0]
+    alpha = model0['alpha']
+    area_under_curve = model0['area_under_curve']
+    error_0 = model0['error_0']
+    error_1 = model0['error_1']
+    key = model0['key']
+    print "best GLM model key:", key
+
+    lambda_1 = model0['lambda_1']
+    lambda_2 = model0['lambda_2']
+    rho = model0['rho']
+
+    # now indirect to the GLM result/model that's first in the list (best)
+    inspectGLM = h2o_cmd.runInspect(None, key)
+    print "GLMGrid inspectGLM:", h2o.dump_json(inspectGLM)
+    simpleCheckGLM(self, inspectGLM, colX, allowFailWarning=allowFailWarning, **kwargs)
 
