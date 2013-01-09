@@ -1237,7 +1237,7 @@ public class RequestArguments extends RequestStatics {
       ValueArray va = _key.value();
       int classCol = _classCol.value();
       ValueArray.Column C = va._cols[classCol];
-      if( C._max != 1.0 ) return C._max;
+      if(C._min != 0 ||  C._max != 1.0 ) return C._max;
       return Double.NaN;
     }
 
