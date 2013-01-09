@@ -232,17 +232,21 @@ public class GLMSolver {
       int [] numeric = new int[_colIds.length];
       _colOffsets = new int[_colIds.length+1];
       int ncat = 0,nnum = 0;
-      for( int col : _colIds ) {
+      for( int j = 0; j < _colIds.length;++j ) {
+        int col = _colIds[j];
         assert ary._cols[col]._min != ary._cols[col]._max : "already skipped constant cols";
         _colNames[i] = ary._cols[col]._name;
         _colOffsets[i+1] = _colOffsets[i];
-        if( _glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0 ) {
+        if(j != (_colIds.length-1) && _glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0 ) {
           categoricals[ncat++] = i;
           _colOffsets[i+1] += ary._cols[col]._domain.length;
         } else
           numeric[nnum++] = i;
         ++i;
       }
+
+
+
       _categoricals = Arrays.copyOf(categoricals, ncat);
       _numeric = Arrays.copyOf(numeric, nnum);
 
