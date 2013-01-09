@@ -86,8 +86,9 @@ ROW:
     for( int r=0; r<rows; r++ ) {
       if( _s != null && _s.skip(r) ) continue;
       if( _categoricals != null ) for( int i : _categoricals ) {
-        if( _ary.isNA(bits,r,i) ) continue ROW;
-        indexes[i] = (int)_ary.data(bits,r,i) + _colOffsets[i] + i;
+        int col = _colIds[i];
+        if( _ary.isNA(bits,r,col) ) continue ROW;
+        indexes[i] = (int)_ary.data(bits,r,col) + _colOffsets[i] + i;
         if(_normSub != null)
           x[i] = _normMul[indexes[i]];
         else
