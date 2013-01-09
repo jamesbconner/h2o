@@ -821,7 +821,7 @@ public class RequestArguments extends RequestStatics {
      * a comma separated list.
      */
     @Override protected String jsValue() {
-      return "return $('#"+_name+"').val().join(',');";
+      return "var tmp = $('#"+_name+"').val(); return tmp == null ? \"\" : tmp.join(',');";
     }
   }
 
