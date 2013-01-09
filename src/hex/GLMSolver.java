@@ -210,12 +210,9 @@ public class GLMSolver {
       _dataset = ary._key;
 
       ArrayList<Integer> validCols = new ArrayList<Integer>();
-      for( int col : colIds ) {
+      for( int col : colIds )
         if(ary._cols[col]._max != ary._cols[col]._min)
           validCols.add(col);
-        else
-          System.out.println("ignoring constant column " + col);
-      }
       colIds = null;
       _colIds = new int [validCols.size()];
       int cid = 0;
