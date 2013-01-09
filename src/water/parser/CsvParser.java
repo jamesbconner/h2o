@@ -511,6 +511,7 @@ NEXT_CHAR:
     int quotes = 0;
     while (offset < bits.length) {
       while ((offset < bits.length) && (bits[offset] == CHAR_SPACE)) ++offset; // skip first whitespace
+      if(offset == bits.length)break;
       StringBuilder t = new StringBuilder();
       byte c = bits[offset];
       if ((c == '"') || (c == '\'')) {
