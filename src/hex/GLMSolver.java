@@ -976,11 +976,11 @@ public class GLMSolver {
       if( _f == Family.binomial &&
           !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) )
         yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
-      if(yr < 0 || yr > 1 )
-        throw new Error("response variable value out of range: " + yr);
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {
+        if(yr < 0 || yr > 1 )
+          throw new Error("response variable value out of range: " + yr);
         int i = 0;
         for(double t:_thresholds){
           int p = ym >= t?1:0;
