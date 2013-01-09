@@ -546,7 +546,7 @@ NEXT_CHAR:
     // If we have trailing empty columns (split by seperators) such as ",,\n"
     // then we did not add the final (empty) column, so the column count will
     // be down by 1.  Add an extra empty column here
-    if( bits[bits.length-1] == separator )
+    if( bits[bits.length-1] == separator  && bits[bits.length-1] != CHAR_SPACE)
       tokens.add("");
     return tokens.toArray(new String[tokens.size()]);
   }
