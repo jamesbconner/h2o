@@ -7,7 +7,6 @@ import h2o_hosts
 import h2o_browse as h2b
 import time
 
-
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

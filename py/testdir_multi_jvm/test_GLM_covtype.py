@@ -21,7 +21,7 @@ class Basic(unittest.TestCase):
         Y = "54"
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname,timeoutSecs=10)
         start = time.time()
-        kwargs = {'Y': Y, 'norm': 'L2', 'xval': 3}
+        kwargs = {'Y': Y, 'norm': 'L2', 'xval': 3, 'case': 1}
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
 

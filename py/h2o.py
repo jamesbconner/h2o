@@ -937,6 +937,10 @@ class H2O(object):
     def GLMGrid(self, key, timeoutSecs=300, retryDelaySecs=1.0, **kwargs):
         a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLMGrid", **kwargs)
 
+        if kwargs.get('norm'):
+            # don't have to pop, GLMGrid ignores
+            print "\nWARNING: norm param is ignored by GLMGrid. Always uses LASSO (L1+L2). Best per advisors"
+
         # Check that the response has the right ParseProgress url it's going to steer us to.
         if a['response']['redirect_request']!='GLMGridProgress':
             print dump_json(a)

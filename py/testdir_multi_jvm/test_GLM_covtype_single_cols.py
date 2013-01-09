@@ -40,7 +40,7 @@ class Basic(unittest.TestCase):
             print "Y:", Y
 
             start = time.time()
-            kwargs = {'X': X, 'Y': Y, 'xval': 6}
+            kwargs = {'X': X, 'Y': Y, 'xval': 6, 'case': 2}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
