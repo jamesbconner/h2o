@@ -210,12 +210,9 @@ public class GLMSolver {
       _dataset = ary._key;
 
       ArrayList<Integer> validCols = new ArrayList<Integer>();
-      for( int col : colIds ) {
+      for( int col : colIds )
         if(ary._cols[col]._max != ary._cols[col]._min)
           validCols.add(col);
-        else
-          System.out.println("ignoring constant column " + col);
-      }
       colIds = null;
       _colIds = new int [validCols.size()];
       int cid = 0;
@@ -980,11 +977,11 @@ public class GLMSolver {
       if( _f == Family.binomial &&
           !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) )
         yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
-      if(yr < 0 || yr > 1 )
-        throw new Error("response variable value out of range: " + yr);
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {
+        if(yr < 0 || yr > 1 )
+          throw new Error("response variable value out of range: " + yr);
         int i = 0;
         for(double t:_thresholds){
           int p = ym >= t?1:0;

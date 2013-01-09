@@ -21,8 +21,8 @@ class Basic(unittest.TestCase):
         csvFilenameList = [
             ('cuse.dat', 'gaussian', 3, 5), # notUsing
             ('cuse.dat', 'gaussian', 4, 5), # using
-            ('copen.dat', 'binomial', 5, 5),
-            ('housing.raw', 'binomial', 4, 5),
+            ('copen.dat', 'gaussian', 4, 5),
+            ('housing.raw', 'gaussian', 4, 5),
             ]
 
         trial = 0
@@ -35,7 +35,7 @@ class Basic(unittest.TestCase):
             start = time.time()
             glm = h2o_cmd.runGLM(csvPathname=csvPathname2, key=csvFilename, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
-            print "glm end (w/check) on ", csvPathname, 'took', time.time() - start, 'seconds'
+            print "glm end (w/check) on ", csvPathname2, 'took', time.time() - start, 'seconds'
             trial += 1
             print "\nTrial #", trial
 
