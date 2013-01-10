@@ -18,9 +18,10 @@ import copy
 def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     print "\nStarting parse of", csvFilename
     parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename, timeoutSecs=10)
-    Y = "9"
+    Y = "10"
     X = ""
-    kwargs = {'X': X, 'Y':  Y, 'case': 'NaN', 'destination_key': 'gg'}
+    # NOTE: hastie has two values, -1 and 1. To make H2O work if two valued and not 0,1 have
+    kwargs = {'X': X, 'Y':  Y, 'case': '1', 'destination_key': 'gg'}
 
     start = time.time() 
     print "\nStarting GLMGrid of", csvFilename
@@ -47,7 +48,7 @@ class Basic(unittest.TestCase):
         # in other tests. (catdata?)
         csvFilename = "1mx10_hastie_10_2.data.gz"
         csvPathname = h2o.find_dataset('logreg' + '/' + csvFilename)
-        glm_doit(self,csvFilename, csvPathname, timeoutSecs=30)
+        glm_doit(self,csvFilename, csvPathname, timeoutSecs=120)
 
         filename1x = "hastie_1x.data"
         pathname1x = SYNDATASETS_DIR + '/' + filename1x
