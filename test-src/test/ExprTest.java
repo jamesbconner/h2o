@@ -31,13 +31,19 @@ public class ExprTest extends TestUtil {
     }
   }
 
-
+  // Test a big slice
   @Test public void testMultiChunkFile() {
     Key k1 = loadAndParseKey("hhp.hex","smalldata/hhp.cut3.214.data.gz");
     ValueArray va1 = ValueArray.value(k1);
-    Key k2 = executeExpression("g=hhp.hex");
+    Key k2 = executeExpression("g=slice(hhp.hex,1,131248)");
     Key kg = Key.make("g");
     ValueArray va2 = ValueArray.value(kg);
+    assertEquals(va2.data(0, 72), 1);
+    assertEquals(va2.data(0, 77), 1);
+    assertEquals(va2.data(2,105),10);
+    assertEquals(va2.data(va2.numRows()-1, 13), 8);
+    assertEquals(va2.data(va2.numRows()-1,179),28);
+    assertEquals(va2.data(va2.numRows()-1,184),13);
     UKV.remove(kg);
     UKV.remove(k1);
     UKV.remove(k2);
