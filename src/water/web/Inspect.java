@@ -80,11 +80,8 @@ public class Inspect extends H2OPage {
     if( val == null )
       return wrap(error("Key not found: "+ ks));
 
-    if( val._isArray != 0 ) {
-      ValueArray ary = ValueArray.value(val);
-      if( ary._cols.length > 1 || ary._cols[0]._size != 1 )
-        return structured_array(key,ary,val.onHDFS());
-    }
+    if( val.isHex() )
+      return structured_array(key,ValueArray.value(val),val.onHDFS());
 
     RString response = new RString(html);
 
