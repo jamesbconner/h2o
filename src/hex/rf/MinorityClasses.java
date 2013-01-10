@@ -163,8 +163,11 @@ public class MinorityClasses {
       AutoBuffer bits = ary.getChunk(key);
       Column c = ary._cols[_classIdx];
       int rows = bits.remaining()/ary.rowSize();
-      for(int i = 0; i < rows; ++i)
-        ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
+      for(int i = 0; i < rows; ++i) {
+        if (!ary.isNA(bits, i, _classIdx)) {
+          ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
+        }
+      }
     }
 
     @Override

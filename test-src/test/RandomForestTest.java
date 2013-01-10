@@ -80,7 +80,7 @@ public class RandomForestTest extends TestUtil {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{47,0,0},{0,44,4},{0,1,47}};
+      long ans[][] = new long[][]{{47,2,0},{0,46,0},{0,0,46}};
       for( int i=0; i<ans.length; i++ )
         assertArrayEquals(ans[i],C._matrix[i]);
 
@@ -122,7 +122,8 @@ public class RandomForestTest extends TestUtil {
     final int ignore[] = new int[]{6}; // Ignore column 6
 
     // Start the distributed Random Forest
-    DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, Key.make("model"),true,null,-1,false,null);
+    final Key modelKey = Key.make("model");
+    DRF drf = hex.rf.DRF.webMain(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,ignore, modelKey, true, null, -1, false, null, 0, 0);
     // Just wait little bit
     drf.get();
     // Create incremental confusion matrix.
@@ -130,7 +131,7 @@ public class RandomForestTest extends TestUtil {
     while( true ) {
       // RACEY BUG HERE: Model is supposed to be complete after drf.get, but as
       // of 11/5/2012 it takes a little while for all trees to appear.
-      model = UKV.get(drf._modelKey,new Model());
+      model = UKV.get(modelKey, new Model());
       if( model.size()==ntrees ) break;
       Thread.sleep(100);
     }
@@ -138,7 +139,7 @@ public class RandomForestTest extends TestUtil {
     assertEquals("Number of trees", ntrees, model.size());
 
     model.deleteKeys();
-    UKV.remove(drf._modelKey);
+    UKV.remove(modelKey);
     UKV.remove(okey);
   }
 }

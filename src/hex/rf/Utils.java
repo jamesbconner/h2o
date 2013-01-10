@@ -1,5 +1,10 @@
 package hex.rf;
 
+import hex.rng.*;
+import hex.rng.H2ORandomRNG.RNGKind;
+import hex.rng.H2ORandomRNG.RNGType;
+
+import java.security.SecureRandom;
 import java.text.DecimalFormat;
 import java.util.Random;
 
@@ -65,4 +70,117 @@ public class Utils {
   }
 
   public static void pln(String s) { System.out.println(s); }
+
+  /* Always returns a deterministic java.util.Random RNG.
+   *
+   * The determinism is important for re-playing sampling.
+   */
+  public static Random getDeterRNG(long seed) { return new H2ORandomRNG(seed); }
+
+  public static void setUsedRNGKind(final RNGKind kind) {
+    switch (kind) {
+    case DETERMINISTIC:
+      setUsedRNGType(RNGType.MersenneTwisterRNG);
+      break;
+    case NON_DETERMINISTIC:
+      setUsedRNGType(RNGType.SecureRNG);
+      break;
+    }
+  }
+
+  /* Returns the configured random generator */
+  public synchronized static Random getRNG(long... seed) {
+    assert _rngType != null : "Random generator type has to be configured";
+    switch (_rngType) {
+    case JavaRNG:
+      assert seed.length >= 1;
+      return new H2ORandomRNG(seed[0]);
+    case MersenneTwisterRNG:
+      // do not copy the seeds - use them, and initialize the first two ints by seeds based given argument
+      // the call is locked, and also MersenneTwisterRNG will just copy the seeds into its datastructures
+      assert seed.length == 1;
+      int[] seeds    = MersenneTwisterRNG.SEEDS;
+      int[] inSeeds = unpackInts(seed);
+      seeds[0] = inSeeds[0];
+      seeds[1] = inSeeds[1];
+      return new MersenneTwisterRNG(seeds);
+    case XorShiftRNG:
+      assert seed.length >= 1;
+      return new XorShiftRNG(seed[0]);
+    case SecureRNG:
+      return new SecureRandom();
+    }
+
+    throw new IllegalArgumentException("Unknown random generator type: " + _rngType);
+  }
+
+  private static RNGType _rngType = RNGType.MersenneTwisterRNG;
+
+  public static void setUsedRNGType(RNGType rngType) {
+    Utils._rngType = rngType;
+  }
+
+  public static RNGType getUsedRNGType() {
+    return Utils._rngType;
+  }
+
+  public static RNGKind getUsedRNGKind() {
+    return Utils._rngType.kind();
+  }
+
+  /*
+   * Compute entropy value for an array of bytes.
+   *
+   * The returned number represents entropy per bit!
+   * For good long number seed (8bytes seed) it should be in range <2.75,3> (higher is better)
+   *
+   * For large set of bytes (>100) it should be almost 8 (means almost 8 random bits per byte).
+   */
+  public static float entropy(byte[] f) {
+    int counts[] = new int[256];
+    float entropy = 0;
+    float total = f.length;
+
+    for (byte b : f) counts[b+128]++;
+    for (int c : counts) {
+      if (c == 0) continue;
+      float p = c / total;
+
+      /* Compute entropy per bit in byte.
+       *
+       * To compute entropy per byte compute log with base 256 = log(p)/log(256).
+       */
+      entropy -= p * Math.log(p)/Math.log(2);
+    }
+
+    return entropy;
+  }
+
+  public static int[] unpackInts(long... longs) {
+    int len      = 2*longs.length;
+    int result[] = new int[len];
+    int i = 0;
+    for (long l : longs) {
+      result[i++] = (int) (l & 0xffffffffL);
+      result[i++] = (int) (l>>32);
+    }
+    return result;
+  }
+
+  public static void shuffleArray(long[] a) {
+    int n = a.length;
+    Random random = new Random();
+    random.nextInt();
+    for (int i = 0; i < n; i++) {
+      int change = i + random.nextInt(n - i);
+      swap(a, i, change);
+    }
+  }
+
+  private static void swap(long[] a, int i, int change) {
+    long helper = a[i];
+    a[i] = a[change];
+    a[change] = helper;
+  }
+
 }

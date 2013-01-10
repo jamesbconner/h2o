@@ -1,4 +1,4 @@
-package hex.rf;
+  package hex.rf;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -20,14 +20,12 @@ class DataAdapter  {
   public final int _classIdx;
   public final int _numRows;
   public final double[] _classWt;
-
-
-  /** Maximum arity for a column (not a hard limit at this point) */
+  /** Maximum arity for a column (not a hard limit) */
   final short _bin_limit;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
               long unique, long seed, short bin_limit, double[] classWt) {
-    _seed = seed+(unique<<16);
+    _seed = seed+(unique<<16); // This is important to preserve sampling selection!!!
     _ary = ary;
     _bin_limit = bin_limit;
     Column[] cols = ary._cols;
@@ -43,13 +41,16 @@ class DataAdapter  {
       Column c = cols[i];
       double range = c._max - c._min;
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
-      if (range==0) { ignore = true; Utils.pln("Ignoring column " + i + " as all values are identical.");   }
-      boolean raw = (c._size > 0 && c._scale == 1.0 && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
+      if (range==0) { ignore = true; Utils.pln("[DA] Ignoring column " + i + " as all values are identical.");   }
+      boolean raw = (c._size > 0 && !c.isScaled() && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
+      // FIXME: do not understand the meaning of the following line
+      raw = (i==_classIdx); // It is actually faster to ignore this "optimization"
+
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1 ) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
       boolean do_bin = !raw && !ignore;
-      _c[i]= new C(c._name, rows, i==_classIdx, t, do_bin, ignore,_bin_limit);
+      _c[i]= new C(c._name, rows, i==_classIdx, t, do_bin, ignore,_bin_limit, c._scale>1);
       if( raw ) {
         _c[i]._smax = (short)range;
         _c[i]._min = (float)c._min;
@@ -71,25 +72,23 @@ class DataAdapter  {
     _intervalsStarts[i] = S;
   }
 
-  /** Given a value in enum format, returns a value in the original range. */
-  public float unmap(int col, int v){  // FIXME should this be a short???? JAN
-    short idx = (short)v; // Convert split-point of the form X.5 to a (short)X
+  /** Given a value in enum format, returns:  the value in the original format if no
+   * binning was applied,  or if binning was applied a value that is inbetween
+   * the idx and the next value.  If the idx is the last value return (2*idx+1)/2. */
+  public float unmap(int col, int idx){
     C c = _c[col];
-    if ( !c._bin ) return v + c._min;
+    if ( !c._bin ) return idx + c._min;
 
-    if (v == idx) {  // this value isn't a split
-      return c._binned2raw[idx+0];
-    } else {
-      float flo = c._binned2raw[idx+0]; // Convert to the original values
-      float fhi = (idx < _numRows) ? c._binned2raw[idx+1] : flo+1.0f;
-      float fmid = (flo+fhi)/2.0f; // Compute an original split-value
-      assert flo < fmid && fmid < fhi; // Assert that the float will properly split
-      return fmid;
-    }
+    assert idx < c._binned2raw.length : "Trying to reference binned value out of binned2raw array!";
+    float flo = c._binned2raw[idx+0]; // Convert to the original values
+    float fhi = c._binned2raw[idx+1];
+    float fmid = (flo+fhi)/2.0f; // Compute a split-value
+    assert flo < fmid && fmid < fhi; // Assert that the float will properly split
+    return fmid;
   }
 
   public void computeBins(int col){_c[col].shrink();}
-
+  public boolean isFloat(int col) { return _c[col]._isFloat; }
   public long seed()          { return _seed; }
   public int columns()        { return _c.length;}
   public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
@@ -109,34 +108,27 @@ class DataAdapter  {
   /** Return the array of all column names including ignored and class. */
   public String columnNames(int i) { return _c[i]._name; }
 
-  public void addValueRaw(float v, int row, int col){
-    _c[col].addRaw(v, row);
-  }
+  public void addValueRaw(float v, int row, int col){ _c[col].addRaw(v, row); }
 
-
-  public void addValue(short v, int row, int col){
-    _c[col].setValue(row,v);
-  }
+  public void addValue(short v, int row, int col){ _c[col].setValue(row,v); }
 
   public void addValue(float v, int row, int col){
     // Find the bin value by lookup in _bin2raw array which is sorted so we can do binary lookup.
     // The index returned is - length - 1 in case the value
     int idx = Arrays.binarySearch(_c[col]._binned2raw,v);
     if(idx < 0)idx = -idx - 1;
-    if(idx >= _c[col]._smax)System.err.println("unexpected sv = " + idx);
+    if(idx >= _c[col]._smax)
+      System.err.println("[DA] unexpected sv = " + idx);
     // The array lookup can return the length of the array in case the value
     // would be > max, which should (does) not happen right now, but just in
     // case for the future, cap it to the max bin value)
     _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
   }
 
-  // Mark this row as being invalid for tree-building, typically because it
-  // contains invalid data in some columns.
+  /** Mark this row as being invalid for tree-building, typically because it
+     contains invalid data in some columns.*/
   public void setBad(int row) {
-    if(_c[_classIdx].getValue(row) != -1){
-      ++_badRows;
-      _c[_classIdx].setValue(row,(short)-1);
-    }
+    if(_c[_classIdx].getValue(row) != -1){ ++_badRows; _c[_classIdx].setValue(row,(short)-1); }
   }
 
   /** Should we bin this column? */
@@ -146,12 +138,11 @@ class DataAdapter  {
     enum ColType {BOOL,BYTE,SHORT};
     ColType _ctype;
     String _name;
-    public final boolean _ignore, _isClass, _bin;
+    public final boolean _ignore, _isClass, _bin, _isFloat;
     float _min=Float.MAX_VALUE, _max=Float.MIN_VALUE, _tot;
     short[] _binned;
     byte [] _bvalues;
     float[]  _raw;
-    // TFloatIntHashMap _freq;
     float[] _binned2raw;
     BitSet _booleanValues;
     short _smax = -1;
@@ -159,8 +150,9 @@ class DataAdapter  {
     final short _bin_limit;
     static final DecimalFormat df = new  DecimalFormat ("0.##");
 
-    C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore, short bin_limit) {
+    C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore, short bin_limit, boolean isFloat) {
       _name = s;
+      _isFloat = isFloat;
       _isClass = isClass;
       _ignore = ignore;
       _bin = bin;
@@ -207,7 +199,6 @@ class DataAdapter  {
     }
 
     void addRaw(float x, int row) {
-      assert _bin;
       _min=Math.min(x,_min);
       _max=Math.max(x,_max);
       _tot+=x;
@@ -229,8 +220,7 @@ class DataAdapter  {
      *  Sometimes the class allows a zero class (e.g. iris, poker) and sometimes
      *  it's one-based (e.g. covtype) or -1/+1 (arcene).   */
     void shrink() {
-      if( _ignore ) return;
-      assert !_isClass;
+      if( _ignore || _isClass ) return;
       Arrays.sort(_raw);
       int ndups = 0;
       int i = 0;

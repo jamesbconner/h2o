@@ -4,12 +4,10 @@ import hex.rf.Data.Row;
 
 import java.util.*;
 
-/** A general statistic framework. Keeps track of the column distributions and
- * analyzes the column splits in the end producing the single split that will
- * be used for the node.
- */
+/** Keeps track of the column distributions and analyzes the column splits in the
+ * end producing the single split that will be used for the node. */
 abstract class Statistic {
-  /** Column distributions:  column index x column arity x classes
+  /** Column distributions:  column  x  arity x classes
    *  Remembers the number of rows of the given column index, encodedValue, class.  */
   protected final int[][][] _columnDists;
   protected final int[] _features;         // Columns/features that are currently used.
@@ -17,41 +15,38 @@ abstract class Statistic {
   private long _seed;                      // Seed for prng
   private HashSet<Integer> _remembered;    // Features already used
   final double[] _classWt;                 // Class weights
+  private int _exclusiveSplitLimit;
+
 
   /** Returns the best split for a given column   */
-  protected abstract Split columnSplit    (int colIndex, Data d, int[] dist, int distWeight);
-  protected abstract Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight);
+  protected abstract Split ltSplit(int colIndex, Data d, int[] dist, int distWeight, Random rand);
+  protected abstract Split eqSplit(int colIndex, Data d, int[] dist, int distWeight, Random rand);
 
   /** Split descriptor for a particular column.
-   *
    * Holds the column name and the split point, which is the last column class
    * that will go to the left tree. If the column index is -1 then the split
    * value indicates the return value of the node.
    */
   static class Split {
-    final int _column;
-    final int _split;
+    final int _column, _split;
     final double _fitness;
 
     Split(int column, int split, double fitness) {
       _column = column;  _split = split;  _fitness = fitness;
     }
-
     /** A constant split used for true leaf nodes where all rows are of the same class.  */
     static Split constant(int result) {  return new Split(-1, result, -1); }
-
     /** An impossible split, which behaves like a constant split. However impossible split
      * occurs when there are different row classes present, but they all have
      * the same column value and therefore no split can be made.
      */
     static Split impossible(int result) { return new Split(-2, result, -1);  }
-
     /** Classic split. All lower or equal than split value go left, all greater go right.  */
     static Split split(int column, int split, double fitness) { return new Split(column, split,fitness); }
-
+    /** Return an impossible split that has the best fitness */
+    static Split defaultSplit() { return new Split(-2,0,-Double.MAX_VALUE); }
     /** Exclusion split. All equal to split value go left, all different go right.  */
     static Split exclusion(int column, int split, double fitness) { return new ExclusionSplit(column,split,fitness); }
-
     final boolean isLeafNode()   { return _column < 0; }
     final boolean isConstant()   { return _column == -1; }
     final boolean isImpossible() { return _column == -2;  }
@@ -78,8 +73,8 @@ abstract class Statistic {
     return sum;
   }
 
-  Statistic(Data data, int features, long seed) {
-    _random = new Random(seed);
+  Statistic(Data data, int features, long seed, int exclusiveSplitLimit) {
+    _random = Utils.getRNG(seed);
     // first create the column distributions
     _columnDists = new int[data.columns()][][];
     for (int i = 0; i < _columnDists.length; ++i)
@@ -88,12 +83,13 @@ abstract class Statistic {
     _features = new int[features];
     _remembered = null;
     _classWt = data.classWt();  // Class weights
+    _exclusiveSplitLimit = exclusiveSplitLimit;
   }
 
-  // Remember a set of features that were useless in splitting this set of rows
-  // - so we can grab new random features and avoid these useless ones.
-  // Returns false if all features have been grabbed and we simple cannot
-  // distinguish this set of rows.
+  /** Remember a set of features that were useless in splitting this set of rows
+   - so we can grab new random features and avoid these useless ones.
+    Returns false if all features have been grabbed and we simple cannot
+   distinguish this set of rows.*/
   boolean remember_features(Data data) {
     // Check that we have enough properties left
     if( _remembered == null ) _remembered = new HashSet<Integer>();
@@ -108,16 +104,14 @@ abstract class Statistic {
 
   private boolean isColumnUsable(Data d, int i) {
     assert i < d.columns() : ""+i+"<"+d.columns();
-    return d.classIdx() != i
-        && !d.ignore(i)
-        && (_remembered == null || !_remembered.contains(i));
+    return d.classIdx() != i && !d.ignore(i) && (_remembered == null || !_remembered.contains(i));
   }
 
   /** Resets the statistic so that it can be used to compute new node. Creates
    * a new subset of columns that will be analyzed and clears their
    * distribution arrays.   */
   void reset(Data data, long seed) {
-    _random = new Random(_seed = seed);
+    _random = Utils.getRNG(_seed = seed);
     // first get the columns for current split via Reservoir Sampling
     // http://en.wikipedia.org/wiki/Reservoir_sampling
     // Pick from all the columns-1, and if we chose the class column,
@@ -127,25 +121,23 @@ abstract class Statistic {
     for( ; j<_features.length; i++) if (isColumnUsable(data, i)) _features[j++] = i;
     for( ; i<data.columns(); i++ ) {
       if( !isColumnUsable(data, i) ) continue;
-      int off = _random.nextInt(i+1); // Reservoir sampling says: take a random number in the interval <0,index> (inclusive ranges are important !!!)
+      int off = _random.nextInt(j+1); // Reservoir sampling says: take a random number in the interval <0,index> (inclusive ranges)
       if( off < _features.length ) _features[off] = i;
+      j++;
     }
     for( int k : _features) assert !data.ignore(k);
     for( int k : _features) assert k != data.classIdx();
-    // reset the column distributions for those
-    for( int k : _features) for( int[] d: _columnDists[k]) Arrays.fill(d,0);
+    for( int k : _features) for( int[] d: _columnDists[k]) Arrays.fill(d,0);  // reset the column distributions
   }
 
   /** Adds the given row to the statistic. Updates the column distributions for
-   * the analyzed columns.
-   */
+   * the analyzed columns. */
   void addQ(Row row) {
     final int cls = row.classOf();
-    for (int i : _features)
-      _columnDists[i][row.getEncodedColumnValue(i)][cls]++;
+    for (int i : _features) _columnDists[i][row.getEncodedColumnValue(i)][cls]++;
   }
 
-  // Apply any class weights to the distributions.
+  /** Apply any class weights to the distributions.*/
   void applyClassWeights() {
     if( _classWt == null ) return;
     for( int f : _features ) // For all columns, get the distribution
@@ -161,38 +153,34 @@ abstract class Statistic {
    * split value go to the left and all others go to the right.
    */
   Split split(Data d,boolean expectLeaf) {
-    // initialize the distribution array
     int[] dist = new int[d.classes()];
-    int distWeight = aggregateColumn(_features[0], dist);
-    // check if we are leaf node
-    int m = Utils.maxIndex(dist, _random); //FIXME:take care of the case where there are several classes
-    if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m);
-    // try the splits
-    Split bestSplit = Split.split(_features[0], 0, -Double.MAX_VALUE);
-    for( int j = 0; j < _features.length; ++j ) {
-      Split s = columnSplit(_features[j],d, dist, distWeight);
-      if( s.betterThan(bestSplit) )
-        bestSplit = s;
+    int distWeight = aggregateColumn(_features[0], dist);    // initialize the distribution array
+    int m = Utils.maxIndex(dist, _random);
+    if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m); // check if we are leaf node
+    Split bestSplit = Split.defaultSplit();
+    for( int j = 0; j < _features.length; ++j ) {  // try the splits
+      Split s = pickAndSplit(d,_features[j], dist, distWeight, _random);
+      if( s.betterThan(bestSplit) ) bestSplit = s;
     }
-    // if we are an impossible split now, we can't get better by the exclusion
-    if( bestSplit.isImpossible() ) {
-      // See if we have enough features to try again with all new features.
-      if( !remember_features(d) ) return bestSplit;
-      reset(d,_seed+(1L<<16));  // Reset with new features
-      for(Row r: d)  addQ(r);   // Reload the distributions
-      applyClassWeights();      // Weight the distributions
-      bestSplit = split(d,expectLeaf);
-      if (bestSplit.isImpossible()) return bestSplit;
-    }
-    assert !bestSplit.isLeafNode(); // Constant leaf splits already tested for above
+    if( !bestSplit.isImpossible() ) return bestSplit;
+    if( !remember_features(d) ) return bestSplit;  // Enough features to try again?
+    reset(d,_seed+(1L<<16));  // Reset with new features
+    for(Row r: d)  addQ(r);   // Reload the distributions
+    applyClassWeights();      // Weight the distributions
+    return split(d,expectLeaf);
+  }
 
-    // try the exclusions now if some of them will be better
-    for( int j = 0; j < _features.length; ++j) {
-      Split s = columnExclusion(_features[j],d,dist,distWeight);
-      if( s.betterThan(bestSplit) )
-        bestSplit = s;
+  private Split pickAndSplit(Data d, int col, int[] dist, int distWeight, Random rand) {
+    boolean isBool = d.columnArity(col) == 1; //screwed up api, 1 means 2.
+    boolean isBig = d.columnArity(col) > _exclusiveSplitLimit;
+    boolean isFloat = d.isFloat(col);
+    if (isBool) return eqSplit(col,d,dist,distWeight,_random);
+    else if (isBig || isFloat) return ltSplit(col,d, dist, distWeight, _random);
+    else {
+      Split s1 = eqSplit(col,d,dist,distWeight,_random);
+      if (s1.isImpossible()) return s1;
+      Split s2 = ltSplit(col,d, dist, distWeight, _random);
+      return s1.betterThan(s2) ? s1 : s2;
     }
-    return bestSplit;
   }
 }
-
