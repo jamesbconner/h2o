@@ -1,4 +1,3 @@
-
 package water.exec;
 
 import water.*;
@@ -10,11 +9,10 @@ import water.*;
  * @author peta
  */
 public class SliceFilter extends MRTask {
-
-  Key _source;
-  long _start;
-  long _length;
-  int _rowSize;
+  final Key _source;
+  final long _start;
+  final long _length;
+  final int _rowSize;
   long _filteredRows;
 
   public SliceFilter(Key source, long start, long length) {
@@ -31,10 +29,10 @@ public class SliceFilter extends MRTask {
     ValueArray ary = ValueArray.value(_source);
     long cidx = ValueArray.getChunkIndex(key);
     long startRow = ary.startRow(cidx);
-    int rowsInChunk = ary.rpc(cidx);
+    int rowsInChunk = chunkSize(key, _length*_rowSize, _rowSize) / _rowSize;
     VAIterator iter = new VAIterator(_source,0,_start+startRow);
     AutoBuffer bits = new AutoBuffer(rowsInChunk*_rowSize);
-    for (int offset = 0; offset < bits.remaining(); offset += _rowSize) {
+    for (int offset = 0; offset < bits.limit(); offset += _rowSize) {
       iter.next();
       iter.copyCurrentRow(bits,offset);
       ++_filteredRows;
@@ -47,4 +45,13 @@ public class SliceFilter extends MRTask {
     _filteredRows += other._filteredRows;
   }
 
+  public static int chunkSize(Key k, long aryLength, int rowSize) {
+    int result = (int) ValueArray.CHUNK_SZ;
+    result = (result / rowSize) * rowSize; //- (result % rowSize);
+    long offset = ValueArray.getChunkIndex(k) * result;
+    if (offset + result + result >= aryLength)
+      return (int) (aryLength - offset);
+    else
+      return result;
+  }
 }
