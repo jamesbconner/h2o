@@ -44,7 +44,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
 
 paramDict = {
     # 'key': ['cA'],
-    'y': [11],
     'family': ['binomial'],
     # 'norm': ['ELASTIC'],
     'norm': ['L2'],
