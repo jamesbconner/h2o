@@ -145,7 +145,6 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
       m.validateOn(_ary, null,_ts);
     else
       glm.xvalidate(m,_ary, createColumns(),_xfold,_ts);
-    //GLMModel m = glm.xvalidate(_ary, createColumns(),10)[0]; // fixme, it should contain link to crossvalidatoin results and aggreaget info
     return m;
   }
   // ---

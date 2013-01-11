@@ -181,7 +181,7 @@ public class GLM extends Request {
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
       if( m.is_solved() ) {     // Solved at all?
-        if( _xval.specified() && _xval.value() > 0 ) // ... and x-validate
+        if( _xval.specified() && _xval.value() > 1 ) // ... and x-validate
           glm.xvalidate(m,ary,columns,_xval.value(),_thresholds.value().arr);
         else
           m.validateOn(ary, null,_thresholds.value().arr);// Validate...

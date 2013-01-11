@@ -424,7 +424,6 @@ public class GLMSolver {
             warns.add("Failed to converge!");
             break OUTER;
           }
-          System.out.println(gtask._gram);
           switch(_solver._penalty) {
           case NONE:
             _solver._penalty = LSMSolver.Norm.L2;
@@ -928,7 +927,8 @@ public class GLMSolver {
         JsonArray arr = new JsonArray();
         for(int i = 0; i < err.length; ++i)
           arr.add(new JsonPrimitive(err[i]));
-        res.add("err", arr);
+        res.add("classErr", arr);
+        res.addProperty("err", err());
         res.addProperty("threshold", _thresholds[_tid]);
         res.add("cm", _cm[_tid].toJson());
       } else

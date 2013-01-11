@@ -332,6 +332,8 @@ public class GLM extends H2OPage {
       JsonObject val = e.getAsJsonObject();
       if(val.has("cm"))
         val.addProperty("cm", buildCM(val.get("cm").getAsJsonArray()));
+      if(val.has("classErr"))
+        val.remove("classErr");
       template.replace(val);
       template.replace("DegreesOfFreedom",val.get("nrows").getAsLong()-1);
       template.replace("ResidualDegreesOfFreedom",val.get("dof").getAsLong());
