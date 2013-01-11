@@ -50,7 +50,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(2,java_heap_GB=4,use_flatfile=True)
+            h2o.build_cloud(2,java_heap_GB=1,use_flatfile=True)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
