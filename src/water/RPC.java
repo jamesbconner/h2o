@@ -228,7 +228,7 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
     // packet is used to stop dup-actions on dup-sends.  Racily inserted, keep
     // only the last one.
     DTask dt1 = ab._h2o.record_task(task);
-    assert dt1==null : "#"+task+" "+dt1.getClass(); // For TCP, no repeats, so 1st send is only send
+    assert dt1==null||dt1 instanceof NOPTask : "#"+task+" "+dt1.getClass(); // For TCP, no repeats, so 1st send is only send (except for UDP timeout retries)
     
     // Make a remote instance of this dude from the stream, but only if the
     // racing UDP packet did not already make one.  Start the bulk TCP read.
