@@ -135,8 +135,19 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
 def compareToFirstGlm(self, key, glm, firstglm):
     # if isinstance(firstglm[key], list):
     # in case it's not a list allready (err is a list)
-    kList = list(glm[key])
-    firstkList = list(firstglm[key])
+    h2o.verboseprint("compareToFirstGlm key:", key)
+    h2o.verboseprint("compareToFirstGlm glm[key]:", glm[key])
+    # key could be a list or not. if a list, don't want to create list of that list
+    # so use extend on an empty list. covers all cases?
+    if type(glm[key]) is list:
+        kList  = glm[key]
+        firstkList = firstglm[key]
+    elif type(glm[key]) is dict:
+        raise Exception("compareToFirstGLm: Not expecting dict for " + key)
+    else:
+        kList  = [glm[key]]
+        firstkList = [firstglm[key]]
+
     for k, firstk in zip(kList, firstkList):
         delta = .1 * float(firstk)
         msg = "Too large a delta (" + str(delta) + ") comparing current and first for: " + key

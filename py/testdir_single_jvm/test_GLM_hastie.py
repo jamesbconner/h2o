@@ -43,7 +43,6 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
         self.validations1 = copy.deepcopy(validations)
 
 
-
 class Basic(unittest.TestCase):
 
     @classmethod
