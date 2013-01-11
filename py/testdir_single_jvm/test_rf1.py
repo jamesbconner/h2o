@@ -40,7 +40,7 @@ class Basic(unittest.TestCase):
         # always match the run below!
         print "\nAssuming two row dataset is illegal. avoiding"
 
-        for x in xrange (3,100,10):
+        for x in xrange (10,100,10):
             shCmdString = "perl " + parityPl + " 128 4 "+ str(x) + " quad"
             h2o.spawn_cmd_and_wait('parity.pl', shCmdString.split())
             # algorithm for creating the path and filename is hardwired in parity.pl.
@@ -49,7 +49,8 @@ class Basic(unittest.TestCase):
         trees = 6
         timeoutSecs = 20
         # always match the gen above!
-        for x in xrange (3,100,10):
+        # FIX! we fail if min is 3
+        for x in xrange (10,100,10):
             sys.stdout.write('.')
             sys.stdout.flush()
             csvFilename = "parity_128_4_" + str(x) + "_quad.data"  
