@@ -37,7 +37,7 @@ paramDict = {
     'gini': [None, 0, 1],
     'depth': [None, 1,10,20,100],
     'binLimit': [None,5,10,100,1000],
-    'parallel': [None,0,1],
+    'parallel': [None,1,1],
     'ignore': [None,0,1,2,3,4,5,6,7,8,9],
     'sample': [None,20,40,60,80,100],
     'seed': [None,'0','1','11111','19823134','0x1231231'],
