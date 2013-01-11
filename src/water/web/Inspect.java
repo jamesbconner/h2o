@@ -81,7 +81,7 @@ public class Inspect extends H2OPage {
       return wrap(error("Key not found: "+ ks));
 
     if( val.isHex() )
-      return structured_array(key,ValueArray.value(val),val.onHDFS());
+      return structured_array(key,ValueArray.value(val), val.onHDFS());
 
     RString response = new RString(html);
 
@@ -89,7 +89,7 @@ public class Inspect extends H2OPage {
 
     response.replace("key",key);
 
-    if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
+    if( H2O.OPT_ARGS.hdfs != null && !val.onHDFS() ) {
       RString hdfs = new RString("<a href='Store2HDFS?Key=%$key'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
       response.replace("storeHdfs", hdfs.toString());
@@ -311,9 +311,9 @@ public class Inspect extends H2OPage {
         if( sz != 0 ) {
           if( r == -1 ) sb.append("...");
           else {
-            if( ary._cols[i]._domain != null ) 
+            if( ary._cols[i]._domain != null )
               sb.append(ary._cols[i]._domain[(int)ary.data(r,i)]);
-            else if( ary._cols[i]._size >= 0 && ary._cols[i]._scale==1 ) 
+            else if( ary._cols[i]._size >= 0 && ary._cols[i]._scale==1 )
               sb.append(ary.data(r,i)); // int/long
             else sb.append(ary.datad(r,i)); // float/double
           }

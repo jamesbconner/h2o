@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import jsr166y.ForkJoinPool;
 import water.hdfs.PersistHdfs;
+import water.store.s3.PersistS3;
 
 /**
  * Values
@@ -97,6 +98,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   public boolean onICE (){ return (_persist & BACKEND_MASK) ==  ICE; }
   public boolean onHDFS(){ return (_persist & BACKEND_MASK) == HDFS; }
   public boolean onNFS (){ return (_persist & BACKEND_MASK) ==  NFS; }
+  public boolean onS3  (){ return (_persist & BACKEND_MASK) ==   S3; }
 
   // Store complete Values to disk
   void store_persist() {
@@ -105,6 +107,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     case ICE : PersistIce .file_store(this); break;
     case HDFS: PersistHdfs.file_store(this); break;
     case NFS : PersistNFS .file_store(this); break;
+    case S3  : PersistS3  .file_store(this); break;
     default  : throw H2O.unimpl();
     }
   }
@@ -119,6 +122,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     case ICE : PersistIce .file_delete(this); break;
     case HDFS: PersistHdfs.file_delete(this); break;
     case NFS : PersistNFS .file_delete(this); break;
+    case S3  : PersistS3  .file_delete(this); break;
     default  : throw H2O.unimpl();
     }
   }
@@ -129,6 +133,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     case ICE : return PersistIce .file_load(this);
     case HDFS: return PersistHdfs.file_load(this);
     case NFS : return PersistNFS .file_load(this);
+    case S3  : return PersistS3  .file_load(this);
     default  : throw H2O.unimpl();
     }
   }
@@ -169,6 +174,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
                return PersistIce .lazy_array_chunk(key);
     case HDFS: return PersistHdfs.lazy_array_chunk(key);
     case NFS : return PersistNFS .lazy_array_chunk(key);
+    case S3  : return PersistS3  .lazy_array_chunk(key);
     default  : throw H2O.unimpl();
     }
   }
