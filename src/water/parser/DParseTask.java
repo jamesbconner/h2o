@@ -627,6 +627,10 @@ public final class DParseTask extends MRTask {
     return powers10i[exp];
   }
 
+  static final boolean fitsIntoInt(double d){
+    return Math.abs((int)d - d) < 1e-8;
+  }
+
   @SuppressWarnings("fallthrough")
   private void calculateColumnEncodings() {
     assert (_bases != null);
@@ -667,21 +671,25 @@ public final class DParseTask extends MRTask {
         if(_scale[i] >= -4 && (_max[i] <= powers10i[powers10i.length-1]) && (_min[i] >= -powers10i[powers10i.length-1])){
           double s = pow10(-_scale[i]);
           double range = s*(_max[i]-_min[i]);
+          double base = s*_min[i];
           if(range < 256){
-            _colTypes[i] = DBYTE;
-            _bases[i] = (int)(s*_min[i]);
-            break;
+            if(fitsIntoInt(base)) { // check if base fits into int!
+              _colTypes[i] = DBYTE;
+              _bases[i] = (int)base;
+              break;
+            }
           } else if(range < 65535){
-            _colTypes[i] = DSHORT;
-            _bases[i] = (int)(s*_min[i]);
-            break;
+            if(fitsIntoInt(base)){
+              _colTypes[i] = DSHORT;
+              _bases[i] = (int)(base);
+              break;
+            }
           }
         }
         _scale[i] = 0;
         _bases[i] = 0;
         _colTypes[i] = (_colTypes[i] == FCOL)?FLOAT:DOUBLE;
         break;
-
       case TCOL:                // Time; millis since jan 1, 1970
         _scale[i] = -1;
         _bases[i] = 0;
