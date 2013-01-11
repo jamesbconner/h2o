@@ -59,10 +59,10 @@ class GLMTest(unittest.TestCase):
         # First try on small data (1 chunk)
         key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"),key2='prostate_g')
         # R results
-        gaussian_coefficients = {"Intercept":-0.7514884, "ID":0.0002837,"AGE":-0.0018095,"RACE":-0.0899998, "DPROS":0.0915640,"DCAPS":0.1087697,"PSA":0.0035715, "VOL":-0.0020102,"GLEASON":0.1514025}
-        gaussian_nd  = 90.36
-        gaussian_rd  = 64.85
-        gaussian_aic = 426.2
+        gaussian_coefficients = {"Intercept":-0.8052693, "ID":0.0002764,"AGE":-0.0011601,"RACE":-0.0826932, "DPROS":0.0924781,"DCAPS":0.1089754,"PSA":0.0036211, "VOL":-0.0020560,"GLEASON":0.1515751}
+        gaussian_nd  = 91.4
+        gaussian_rd  = 65.04
+        gaussian_aic = 427.6
         errors = self.process_dataset(key, 'CAPSULE', gaussian_coefficients, gaussian_nd, gaussian_rd, gaussian_aic, family = 'gaussian')
         if errors:
             self.fail(str(errors))
@@ -77,10 +77,10 @@ class GLMTest(unittest.TestCase):
         # First try on small data (1 chunk)
         key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"), key2='prostate_b')
         # R results
-        binomial_coefficients = {"Intercept":-7.774101, "ID":0.001628,"AGE":-0.011777,"RACE":-0.681977, "DPROS":0.547378,"DCAPS":0.543187,"PSA":0.027015, "VOL":-0.011149,"GLEASON":1.006152}
-        binomial_nd  = 506.6
-        binomial_rd  = 375.5
-        binomial_aic = 393.5
+        binomial_coefficients = {"Intercept":-8.126278, "ID":0.001609,"AGE":-0.008138,"RACE":-0.617597, "DPROS":0.553065,"DCAPS":0.546087,"PSA":0.027297, "VOL":-0.011540,"GLEASON":1.010125}
+        binomial_nd  = 512.3
+        binomial_rd  = 376.9
+        binomial_aic = 394.9
         errors = self.process_dataset(key, 'CAPSULE', binomial_coefficients, binomial_nd, binomial_rd, binomial_aic, family = 'binomial')
         if errors:
             self.fail(str(errors))
@@ -95,10 +95,10 @@ class GLMTest(unittest.TestCase):
         # First try on small data (1 chunk)
         key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"), key2='prostate_p')
         # R results
-        poisson_coefficients = {"Intercept":-3.981788, "ID":0.000529,"AGE":-0.005709,"RACE":-0.165628, "DPROS":0.227885,"DCAPS":0.075427,"PSA":0.002904, "VOL":-0.007350,"GLEASON":0.438839}
-        poisson_nd  = 275.5
-        poisson_rd  = 214.7
-        poisson_aic = 534.7
+        poisson_coefficients = {"Intercept":-4.107484, "ID":0.000508,"AGE":-0.004357,"RACE":-0.149412, "DPROS":0.230458,"DCAPS":0.071546,"PSA":0.002944, "VOL":-0.007488,"GLEASON":0.441659}
+        poisson_nd  = 278.4
+        poisson_rd  = 215.7
+        poisson_aic = 539.7
         errors = self.process_dataset(key, 'CAPSULE', poisson_coefficients, poisson_nd, poisson_rd, poisson_aic, family = 'poisson')
         if errors:
             self.fail(str(errors))
