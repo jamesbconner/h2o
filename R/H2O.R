@@ -13,7 +13,7 @@ is.defined <- function(x) {
 # Public functions & declarations -------------------------------------------------------------------------------------
 
 # Determines the server and port to which the interop layer always connects
-h2o.SERVER = "localhost:54321"
+h2o.SERVER = "localhost:54323"
 
 # If verbose, messages will be printed when data is requested, and / or received from the server
 h2o.VERBOSE = TRUE
@@ -43,8 +43,8 @@ h2o.exec <- function(expr) {
   if (type != "character")
     expr = deparse(substitute(expr))
   h2o.__printIfVerbose("  Executing expression ",expr)
-  res = h2o.__remoteSend(h2o.__PAGE_EXEC,Expr=expr)
-  res$ResultKey
+  res = h2o.__remoteSend(h2o.__PAGE_EXEC,Exec=expr)
+  res$Result.hex
 }
 
 # Returns the key of given name as R data. The key can either be a string, or a name which is then automatically
@@ -57,7 +57,7 @@ h2o.get <- function(keyName, maxRows = h2o.MAX_GET_ROWS, forceDataFrame = FALSE)
   if (type != "character")
     keyName = deparse(substitute(keyName))
   h2o.__printIfVerbose("  Getting key ",keyName)
-  res = h2o.__remoteSend(h2o.__PAGE_GET, Key = keyName, maxRows = as.character(maxRows))
+  res = h2o.__remoteSend(h2o.__PAGE_GET, key = keyName, maxRows = as.character(maxRows))
   h2o.__convertToRData(res,forceDataFrame = forceDataFrame)
 }
 
@@ -84,7 +84,7 @@ h2o.inspect <- function(keyName) {
   if (type != "character")
     keyName = deparse(substitute(keyName))
   h2o.__printIfVerbose("  Inspecting key ",keyName)
-  res = h2o.__remoteSend(h2o.__PAGE_INSPECT, Key = keyName)
+  res = h2o.__remoteSend(h2o.__PAGE_INSPECT, key = keyName)
   result = list()
   result$key = res$key
   result$type = res$type
@@ -133,17 +133,14 @@ h2o.importUrl <- function(keyName, url, parse = TRUE) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
     keyName = deparse(substitute(keyName))
-  if (parse)
-    uploadKey = ""
-  else
-    uploadKey = keyName
+  uploadKey = keyName
   h2o.__printIfVerbose("  Importing url ",url," to key ",uploadKey)
-  res = h2o.__remoteSend(h2o.__PAGE_IMPORT, Key = uploadKey, Url = url)
+  res = h2o.__remoteSend(h2o.__PAGE_IMPORT, key = uploadKey, url = url)
   if (parse) {
     h2o.__printIfVerbose("  parsing key ",uploadKey," to key ",keyName)
-    res = h2o.__remoteSend(h2o.__PAGE_PARSE, Key = res$Key, Key2 = keyName)    
+    res = h2o.__remoteSend(h2o.__PAGE_PARSE, source_key = uploadKey, destination_key = paste(keyName,".hex",sep=""))    
   } 
-  res$Key
+  #res$destination_key
 }
 
 # Imports a file local to the server the interop is connecting to. Other arguments are the same as for the importUrl
@@ -193,7 +190,7 @@ h2o.filter <- function(keyName, expr, maxRows = h2o.MAX_GET_ROWS, forceDataFrame
 
 # GLM function. This should be rewiewed by someone who actually understands the GLM:-D
 # Please note that the x and negX arguments cannot be specified without quotes as lists are expected. 
-h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
+h2o.glm = function(keyName, y, case="1.0", x = "", negX = "", family = "gaussian", xval = 0, threshold = 0.5, norm = "NONE", lambda = 0.1, rho = 1.0, alpha = 1.0) {
   type = tryCatch({ typeof(keyName) }, error = function(e) { "expr" })
   if (type != "character")
     keyName = deparse(substitute(keyName))
@@ -209,7 +206,7 @@ h2o.glm = function(keyName, y, x = "", negX = "", family = "gaussian", xval = 0,
   x = paste(x,sep="",collapse=",")
   negX = paste(negX,sep="",collapse=",")
   h2o.__printIfVerbose("  running GLM on vector ",keyName," response column ",y)
-  res = h2o.__remoteSend(h2o.__PAGE_GLM, Key = keyName, Y = y, X = x, "-X" = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
+  res = h2o.__remoteSend(h2o.__PAGE_GLM, key = keyName, y = y, case=case, x = x, "-x" = negX, family = family, xval = xval, threshold = threshold, norm = norm, lambda = lambda, rho = rho, alpha = alpha)
   res
 }
 
@@ -225,7 +222,7 @@ h2o.rf = function(keyName, ntree="", class = "", negX = "", family = "gaussian",
  
   
   h2o.__printIfVerbose("  running RF on vector ",keyName," class column ",class, " number of trees", ntree)
-  res = h2o.__remoteSend(h2o.__PAGE_RF, Key = keyName, ntree = ntree, class = class)
+  res = h2o.__remoteSend(h2o.__PAGE_RF, data_key = keyName, ntree = ntree, class = class)
   res
 }
 
@@ -250,6 +247,7 @@ h2o.__printIfVerbose <- function(...) {
 
 h2o.__remoteSend <- function(page,...) {
   # Sends the given arguments as URL arguments to the given page on the specified server
+  #h2o.__printIfVerbose(page)
   url = paste(h2o.SERVER,page,sep="/")
   res = fromJSON(postForm(url,...))
   if (is.defined(res$Error))
