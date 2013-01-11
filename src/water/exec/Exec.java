@@ -9,7 +9,7 @@ import water.Key;
 public class Exec {
   // Execute some generic R string.  Return a
   public static Key exec( String x ) throws ParserException, EvaluationException {
-    return exec(x,"Result");
+    return exec(x,"Result.hex");
   }
   
   public static Key exec(String x, String to) throws ParserException, EvaluationException {

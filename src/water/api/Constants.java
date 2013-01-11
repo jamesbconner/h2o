@@ -30,6 +30,7 @@ public class Constants {
   public static final String DEPTH                 = "depth";
   public static final String DESCRIPTION           = "description";
   public static final String DEST_KEY              = "destination_key";
+  public static final String EXCLUSIVE_SPLIT_LIMIT = "exclusive_split_limit";
   public static final String ENUM_DOMAIN           = "enum_domain";
   public static final String ERROR                 = "error";
   public static final String FAILED                = "failed";

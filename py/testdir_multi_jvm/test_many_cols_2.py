@@ -50,7 +50,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(2,java_heap_GB=1)
+            h2o.build_cloud(2,java_heap_GB=4)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -58,7 +58,6 @@ class Basic(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
-
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
@@ -80,7 +79,7 @@ class Basic(unittest.TestCase):
         cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
             cnum += 1
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            csvFilename = 'syn_' + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname

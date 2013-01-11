@@ -86,11 +86,28 @@ public class Debug extends JSONPage {
 
     // Start the distributed Random Forest
     long startTrees = System.currentTimeMillis();
-    DRF drf = hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features,false,null);
+    DRF drf = hex.rf.DRF.webMain(ary,
+        ntree,
+        depth,
+        sample,
+        (short)binLimit,
+        statType,
+        seed,
+        classcol,
+        ignores,
+        modelKey,
+        parallel,
+        classWt,
+        features,
+        false,
+        null,
+        0, /* verbosity disabled*/
+        0  /* exclusive split limit, 0 = exclusive split is disabled*/
+        );
     // Output a model with zero trees (so far).
     Column c = ary._cols[classcol];
     final int classes = (int) (c._max - c._min + 1);
-    Model model = new Model(modelKey,new Key[0],ary.numCols(),classes,sample,ary._key,ignores, drf._features,ntree);
+    Model model = new Model(modelKey,new Key[0],ary.numCols(),classes,sample,ary._key,ignores, drf.numSplitFeatures(),ntree);
     // Save it to the cloud
     UKV.put(modelKey,model);
     // wait for the computation to finish

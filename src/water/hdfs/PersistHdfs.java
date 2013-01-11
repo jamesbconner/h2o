@@ -43,13 +43,13 @@ public abstract class PersistHdfs {
         if (H2O.OPT_ARGS.hdfs_nopreload==null) {
           // This code blocks alot, and does not have FJBlock support coded in
           assert !(Thread.currentThread() instanceof ForkJoinWorkerThread);
+          _fs.listStatus(new Path(ROOT)); // Initial touch of top-level path
           int num = addFolder(new Path(ROOT));
           System.out.println("[h2o,hdfs] " + H2O.OPT_ARGS.hdfs+ROOT+" loaded " + num + " keys");
         }
       } catch( IOException e ) {
-        // pass
         System.out.println(e.getMessage());
-        Log.die("[h2o,hdfs] Unable to initialize persistency store home at " + ROOT);
+        Log.die("[h2o,hdfs] Unable to initialize persistency store home at " + H2O.OPT_ARGS.hdfs+ROOT);
       }
     } else {
       HDFS_LEN = 0;
@@ -87,8 +87,7 @@ public abstract class PersistHdfs {
         }
       }
     } catch( IOException e ) {
-      e.printStackTrace();
-      System.err.println("[hdfs] Unable to list the folder " + p.toString());
+      System.err.println("[hdfs] Unable to list the folder " + p.toString()+" : "+e);
     }
     return num;
   }
@@ -223,7 +222,6 @@ public abstract class PersistHdfs {
       _fs.mkdirs(p.getParent());
       s = _fs.create(p);
       byte[] b = f.write(new AutoBuffer()).buf();
-      System.err.println("[hdfs] create="+b.length);
       s.write(b);
     } catch( IOException e ) {
       res = e.getMessage(); // Just the exception message, throwing the stack trace away

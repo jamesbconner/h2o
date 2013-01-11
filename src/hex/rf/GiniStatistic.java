@@ -1,5 +1,7 @@
 package hex.rf;
 
+import java.util.Random;
+
 /** Computes the gini split statistics.
  *
  * The Gini fitness is calculated as a probability that the element will be
@@ -20,7 +22,7 @@ package hex.rf;
  */
 public class GiniStatistic extends Statistic {
 
-  public GiniStatistic(Data data, int features, long seed) { super(data, features, seed); }
+  public GiniStatistic(Data data, int features, long seed, int exclusiveSplitLimit) { super(data, features, seed, exclusiveSplitLimit); }
 
   private double gini(int[] dd, int sum) {
     double result = 1.0;
@@ -32,32 +34,32 @@ public class GiniStatistic extends Statistic {
     return result;
   }
 
-  @Override protected Split columnSplit(int colIndex, Data d, int[] dist, int distWeight) {
+  @Override protected Split ltSplit(int col, Data d, int[] dist, int distWeight, Random _) {
     int[] leftDist = new int[d.classes()];
     int[] riteDist = dist.clone();
-    int leftWeight = 0;
-    int riteWeight = distWeight;
-    double totWeight = (double)riteWeight;
+    int lW = 0;
+    int rW = distWeight;
+    double totWeight = rW;
     // we are not a single class, calculate the best split for the column
     int bestSplit = -1;
     double bestFitness = 0.0;
-    assert !d.ignore(colIndex);
-    assert leftDist.length==_columnDists[colIndex][0].length;
+    assert !d.ignore(col);
+    assert leftDist.length==_columnDists[col][0].length;
 
-    for (int i = 0; i < _columnDists[colIndex].length-1; ++i) {
+    for (int i = 0; i < _columnDists[col].length-1; ++i) {
       // first copy the i-th guys from rite to left
       for (int j = 0; j < leftDist.length; ++j) {
-        int t = _columnDists[colIndex][i][j];
-        leftWeight += t;
-        riteWeight -= t;
+        int t = _columnDists[col][i][j];
+        lW += t;
+        rW -= t;
         leftDist[j] += t;
         riteDist[j] -= t;
       }
       // now make sure we have something to split
-      if( leftWeight == 0 || riteWeight == 0 ) continue;
+      if( lW == 0 || rW == 0 ) continue;
       double f = 1.0 -
-        (gini(leftDist,leftWeight) * ((double)leftWeight / totWeight) +
-         gini(riteDist,riteWeight) * ((double)riteWeight / totWeight));
+        (gini(leftDist,lW) * ((double)lW / totWeight) +
+         gini(riteDist,rW) * ((double)rW / totWeight));
       if( f>bestFitness ) { // Take split with largest fitness
         bestSplit = i;
         bestFitness = f;
@@ -65,10 +67,10 @@ public class GiniStatistic extends Statistic {
     }
     return bestSplit == -1
       ? Split.impossible(Utils.maxIndex(dist, _random))
-      : Split.split(colIndex, bestSplit, bestFitness);
+      : Split.split(col, bestSplit, bestFitness);
   }
 
-  @Override protected Split columnExclusion(int colIndex, Data d, int[] dist, int distWeight) {
+  @Override protected Split eqSplit(int colIndex, Data d, int[] dist, int distWeight, Random _) {
     int[] inclDist = new int[d.classes()];
     int[] exclDist = dist.clone();
     // we are not a single class, calculate the best split for the column

@@ -13,12 +13,20 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_RFhhp(self):
-        csvPathnamegz = h2o.find_file('smalldata/hhp.cut3.214.data.gz')
-        print "RF start on ", csvPathnamegz, "this will probably take a minute.."
-        start = time.time()
-        h2o_cmd.runRF(csvPathname=csvPathnamegz, trees=23,
-                timeoutSecs=60, retryDelaySecs=10)
-        print "RF end on ", csvPathnamegz, 'took', time.time() - start, 'seconds'
+        csvFilenameList = {
+            'hhp_9_17_12.predict.data.gz',
+            'hhp.cut3.214.data.gz',
+            # 'hhp_9_17_12.predict.100rows.data.gz',
+            }
+
+        print "\nTemporarily won't run some because NAs cause CM=0"
+        for csvFilename in csvFilenameList:
+            csvPathname = h2o.find_file('smalldata/' + csvFilename)
+            print "RF start on ", csvPathname, "this will probably take a minute.."
+            start = time.time()
+            h2o_cmd.runRF(csvPathname=csvPathname, trees=6,
+                    timeoutSecs=60, retryDelaySecs=10)
+            print "RF end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
     h2o.unit_main()

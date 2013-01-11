@@ -196,6 +196,10 @@ public class ValueArray extends Iced {
     public Column(long len) {
       _min=0; _max=255; _mean=128; _n = len; _scale=1; _size=1;
     }
+
+    public final boolean isScaled() {
+      return _scale != 1;
+    }
   }
 
   // Get a usable pile-o-bits

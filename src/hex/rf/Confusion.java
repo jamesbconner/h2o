@@ -22,13 +22,13 @@ public class Confusion extends MRTask {
   /** Model used for construction of the confusion matrix. */
   transient private Model _model;
   /** Dataset we are building the matrix on.  The column count must match the Trees.*/
-  public Key                  _datakey;
+  public Key    _datakey;
   /** Column holding the class, defaults to last column */
-  int                         _classcol;
+  int   _classcol;
   /** The dataset */
   transient public ValueArray _data;
   /** Number of response classes */
-  transient public int        _N;
+  transient public int  _N;
   /** The Confusion Matrix - a NxN matrix of [actual] -vs- [predicted] classes,
       referenced as _matrix[actual][predicted]. Each row in the dataset is
       voted on by all trees, and the majority vote is the predicted class for
@@ -100,24 +100,21 @@ public class Confusion extends MRTask {
       C._matrix = null;
       return C;
     }
-    if( model.size() > 0 )
-      C.invoke(datakey);        // Compute on it: count votes
-    UKV.put(key,C);             // Output to cloud
+    if( model.size() > 0 ) C.invoke(datakey); // Compute on it: count votes
+    UKV.put(key,C);          // Output to cloud
     UKV.remove(progressKey); // signal that we have done computing the matrix
     if( classWt != null )
       for( int i=0; i<classWt.length; i++ )
         if( classWt[i] != 1.0 )
-          System.out.println("[CM] Weighted votes "+i+" by "+classWt[i]);
+          Utils.pln("[CM] Weighted votes "+i+" by "+classWt[i]);
     return C;
   }
 
-  public boolean isValid() {
-    return _matrix != null;
-  }
+  public boolean isValid() { return _matrix != null; }
 
   /** Shared init: for new Confusions, for remote Confusions*/
   private void shared_init() {
-    _rand   = new Random(42L<<32);
+    _rand   = Utils.getRNG(0x92b5023f2cd40b7cL); // big random seed
     _data = ValueArray.value(DKV.get(_datakey));
     _model = UKV.get(_modelKey, new Model());
     assert !_computeOOB || _model._dataset==_datakey ;
@@ -160,20 +157,18 @@ public class Confusion extends MRTask {
 
     // Votes: we vote each tree on each row, holding on to the votes until the end
     int[][] votes = new int[rows][_N];
-
     // Build fast cutout for ignored columns
     final boolean icols[] = new boolean[cols.length];
     for( int k : _ignores ) icols[k] = true;
 
     // Replay the Data.java's "sample_fair" sampling algorithm to exclude data
     // we trained on during voting.
-
-    // For all trees, re-iterate the data on this chunk
     for( int ntree = 0; ntree < _model.treeCount(); ntree++ ) {
       long seed = _model.seed(ntree);
       long init_row = _chunk_row_mapping[nchk];
-      Random r = new Random(seed+(init_row<<16)  + (nchk==0?1111:0));
-
+      /* NOTE: Before changing used generator think about which kind of random generator you need:
+       * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
+      Random r = Utils.getDeterRNG(seed+(init_row<<16)  + (nchk==0?1111:0));
       // Now for all rows, classify & vote!
       ROWS: for( int i = 0; i < rows; i++ ) {
         // Bail out of broken rows in not-ignored columns
@@ -196,19 +191,17 @@ public class Confusion extends MRTask {
     for( int i = 0; i < rows; i++ ) {
       int[] vi = votes[i];
       if( _classWt != null )
-        for( int v = 0; v<_N; v++)
-          vi[v] = (int)(vi[v]*_classWt[v]);
-      int result = 0;
-      int tied = 1;
+        for( int v = 0; v<_N; v++) vi[v] = (int)(vi[v]*_classWt[v]);
+      int result = 0, tied = 1;
       for( int l = 1; l<_N; l++)
         if( vi[l] > vi[result] ) { result=l; tied=1; }
         else if( vi[l] == vi[result] ) { tied++; }
       if( vi[result]==0 ) continue; // Ignore rows with zero votes
       if( tied>1 ) {                // Tie-breaker logic
-        int j = _rand.nextInt(tied); // From zero to number of tied classes-1
+        int j = _rand.nextInt(tied);
         int k = 0;
         for( int l=0; l<_N; l++ )
-          if( vi[l]==vi[result] && (k++ >= j) )
+          if( vi[l]==vi[result] && (k++ >= j) )  // From zero to number of tied classes-1
             { result = l; break; }
       }
       int cclass = (int) _data.data(bits, i, _classcol) - cmin;
@@ -217,6 +210,8 @@ public class Confusion extends MRTask {
       if( result != cclass ) _errors++;
       validation_rows++;
     }
+
+    assert (_rows  == 0) : "Confusion matrix.map(): _rows!=0 ";
     _rows=Math.max(validation_rows,_rows);
   }
 
@@ -246,9 +241,9 @@ public class Confusion extends MRTask {
     }
     String[][] cms = new String[K][K + 1];
     cms[0][0] = "";
-    for( int i = 1; i < K; i++ ) cms[0][i] = "" + (i - 1); // cn[i-1];
+    for( int i = 1; i < K; i++ ) cms[0][i] = "" + (i - 1);
     cms[0][K] = "err/class";
-    for( int j = 1; j < K; j++ ) cms[j][0] = "" + (j - 1); // cn[j-1];
+    for( int j = 1; j < K; j++ ) cms[j][0] = "" + (j - 1);
     for( int j = 1; j < K; j++ ) cms[j][K] = "" + e2c[j - 1];
     for( int i = 1; i < K; i++ )
       for( int j = 1; j < K; j++ ) cms[j][i] = "" + _matrix[j - 1][i - 1];
@@ -266,9 +261,7 @@ public class Confusion extends MRTask {
   }
 
   /** Pad a string with spaces. */
-  private String pad(String s, int l) {
-    String p = "";  for( int i = 0; i < l - s.length(); i++ )  p += " ";  return " " + p + s;
-  }
+  private String pad(String s, int l){ String p=""; for(int i=0; i<l-s.length();i++)p+=" "; return " "+p+s; }
 
   /** Output information about this RF. */
   public final void report() {
@@ -286,4 +279,12 @@ public class Confusion extends MRTask {
     Utils.pln(s);
   }
 
+  /**
+   * Reports size of dataset and computed classification error.
+   */
+  public final void report(StringBuilder sb) {
+    double err = _errors / (double) _rows;
+    sb.append(_rows).append(',');
+    sb.append(err).append(',');
+  }
 }

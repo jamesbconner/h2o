@@ -17,6 +17,8 @@ class GLMTest(unittest.TestCase):
         h2o.tear_down_cloud(h2o.nodes)
     
     def process_dataset(self,key,Y, e_coefs, e_ndev, e_rdev, e_aic, **kwargs):
+        # fails with slightly different answers if default norm is used with H2O
+        kwargs = {'norm': 'NONE'}
         glm = h2o_cmd.runGLMOnly(parseKey = key, Y = 'CAPSULE', timeoutSecs=10, **kwargs)
 
         GLMModel = glm['GLMModel']
@@ -55,7 +57,7 @@ class GLMTest(unittest.TestCase):
     def test_prostate_gaussian(self):
         errors = []
         # First try on small data (1 chunk)
-        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"),key2='prostate1')
+        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"),key2='prostate_g')
         # R results
         gaussian_coefficients = {"Intercept":-0.7514884, "ID":0.0002837,"AGE":-0.0018095,"RACE":-0.0899998, "DPROS":0.0915640,"DCAPS":0.1087697,"PSA":0.0035715, "VOL":-0.0020102,"GLEASON":0.1514025}
         gaussian_nd  = 90.36
@@ -65,7 +67,7 @@ class GLMTest(unittest.TestCase):
         if errors:
             self.fail(str(errors))
         # Now try on larger data (replicated), will be chunked this time, should produce same results
-        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"), key2='prostate_long1')
+        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"), key2='prostate_long_g')
         errors = self.process_dataset(key, 'CAPSULE', gaussian_coefficients, gaussian_nd, gaussian_rd, gaussian_aic, family = 'gaussian')
         if errors:
             self.fail(str(errors))
@@ -73,7 +75,7 @@ class GLMTest(unittest.TestCase):
     def test_prostate_binomial(self):
         errors = []
         # First try on small data (1 chunk)
-        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"), key2='prostate2')
+        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"), key2='prostate_b')
         # R results
         binomial_coefficients = {"Intercept":-7.774101, "ID":0.001628,"AGE":-0.011777,"RACE":-0.681977, "DPROS":0.547378,"DCAPS":0.543187,"PSA":0.027015, "VOL":-0.011149,"GLEASON":1.006152}
         binomial_nd  = 506.6
@@ -83,7 +85,7 @@ class GLMTest(unittest.TestCase):
         if errors:
             self.fail(str(errors))
         # Now try on larger data (replicated), will be chunked this time, should produce same results
-        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"), key2='prostate_long2')
+        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"), key2='prostate_long_b')
         errors = self.process_dataset(key, 'CAPSULE', binomial_coefficients, binomial_nd, binomial_rd, binomial_aic, family = 'binomial')
         if errors:
             self.fail(str(errors))
@@ -91,7 +93,7 @@ class GLMTest(unittest.TestCase):
     def test_prostate_poisson(self):
         errors = []
         # First try on small data (1 chunk)
-        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"), key2='prostate3')
+        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"), key2='prostate_p')
         # R results
         poisson_coefficients = {"Intercept":-3.981788, "ID":0.000529,"AGE":-0.005709,"RACE":-0.165628, "DPROS":0.227885,"DCAPS":0.075427,"PSA":0.002904, "VOL":-0.007350,"GLEASON":0.438839}
         poisson_nd  = 275.5
@@ -101,7 +103,7 @@ class GLMTest(unittest.TestCase):
         if errors:
             self.fail(str(errors))
         # Now try on larger data (replicated), will be chunked this time, should produce same results
-        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"), key2='poisson_long3')
+        key = h2o_cmd.parseFile(csvPathname=h2o.find_file("smalldata/logreg/prostate_long.csv.gz"), key2='poisson_long_p')
         errors = self.process_dataset(key, 'CAPSULE', poisson_coefficients, poisson_nd, poisson_rd, poisson_aic, family = 'poisson')
         if errors:
             self.fail(str(errors))

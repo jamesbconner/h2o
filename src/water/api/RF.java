@@ -14,7 +14,7 @@ public class RF extends Request {
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
   protected final HexKeyClassCol _classCol = new HexKeyClassCol(_dataKey,CLASS);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
-  protected final Bool _gini = new Bool(GINI,true,"use gini statistic (otherwise entropy is used)");
+  protected final Bool _gini = new Bool(GINI,false,"use gini statistic (otherwise entropy is used)");
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
   protected final Bool _stratify = new Bool(STRATIFY,false,"Use Stratified sampling");
   protected final H2OCategoryStrata _strata = new H2OCategoryStrata(_dataKey, _classCol, STRATA, 1);
@@ -25,8 +25,9 @@ public class RF extends Request {
   protected final Int _sample = new Int(SAMPLE, 67, 1, 100);
   protected final Int _binLimit = new Int(BIN_LIMIT,1024, 0,65535);
   protected final Int _depth = new Int(DEPTH,Integer.MAX_VALUE,0,Integer.MAX_VALUE);
-  protected final Int _seed = new Int(SEED,0);
+  protected final LongInt _seed = new LongInt(SEED,0xae44a87f9edf1cbL);
   protected final Bool _parallel = new Bool(PARALLEL,true,"Build trees in parallel");
+  protected final Int _exclusiveSplitLimit = new Int(EXCLUSIVE_SPLIT_LIMIT, null, 0, Integer.MAX_VALUE);
 
   public static String link(Key k, String content) {
     RString rs = new RString("<a href='RF.query?%key_param=%$key'>%content</a>");
@@ -62,6 +63,7 @@ public class RF extends Request {
     int ntree = _numTrees.value();
     int features = _features.value() == null ? -1 : _features.value();
     float sample = _sample.value() / 100.0f;
+    int exclusiveSplitLimit = _exclusiveSplitLimit.value() == null ? 0 : _exclusiveSplitLimit.value();
     Tree.StatType statType = _gini.value() ? Tree.StatType.GINI : Tree.StatType.ENTROPY;
     UKV.remove(modelKey);
     for (int i = 0; i < ntree; ++i) {
@@ -69,7 +71,7 @@ public class RF extends Request {
       UKV.remove(Confusion.keyFor(modelKey,i,dataKey,classCol,false));
     }
     try {
-      hex.rf.DRF.web_main(
+      hex.rf.DRF.webMain(
               ary,
               ntree,
               _depth.value(),
@@ -84,7 +86,9 @@ public class RF extends Request {
               _weights.value(),
               features,
               _stratify.value(),
-              _strata.convertToMap()
+              _strata.convertToMap(),
+              0, /* verbose level is minimal here */
+              exclusiveSplitLimit
               );
       response.addProperty(DATA_KEY, dataKey.toString());
       response.addProperty(MODEL_KEY, modelKey.toString());

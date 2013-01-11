@@ -338,7 +338,8 @@ public final class AutoBuffer {
     assert _read : "Reading from a buffer in write mode";
     assert _chan != null : "Read to much data from a byte[] backed buffer";
     _bb.compact();            // Move remaining unread bytes to start of buffer; prep for reading
-    assert _bb.position()+sz <= _bb.capacity(); // Its got to fit or we asked for too much
+    // Its got to fit or we asked for too much
+    assert _bb.position()+sz <= _bb.capacity() : "("+_bb.position()+"+"+sz+" <= "+_bb.capacity()+")";
     while( _bb.position() < sz ) { // Read until we got enuf
       try {
         int res = _chan.read(_bb); // Read more
@@ -580,7 +581,7 @@ public final class AutoBuffer {
       as.get(buf, sofar, more);
       sofar += more;
       _bb.position(_bb.position() + as.position()*2);
-      if( sofar < len ) getSp(Math.min(_bb.capacity(), (len-sofar)*2));
+      if( sofar < len ) getSp(Math.min(_bb.capacity()-1, (len-sofar)*2));
     }
     return buf;
   }
@@ -595,7 +596,7 @@ public final class AutoBuffer {
       as.get(buf, sofar, more);
       sofar += more;
       _bb.position(_bb.position() + as.position()*4);
-      if( sofar < len ) getSp(Math.min(_bb.capacity(), (len-sofar)*4));
+      if( sofar < len ) getSp(Math.min(_bb.capacity()-3, (len-sofar)*4));
     }
     return buf;
   }
@@ -609,7 +610,7 @@ public final class AutoBuffer {
       as.get(buf, sofar, more);
       sofar += more;
       _bb.position(_bb.position() + as.position()*4);
-      if( sofar < len ) getSp(Math.min(_bb.capacity(), (len-sofar)*4));
+      if( sofar < len ) getSp(Math.min(_bb.capacity()-3, (len-sofar)*4));
     }
     return buf;
   }
@@ -623,7 +624,7 @@ public final class AutoBuffer {
       as.get(buf, sofar, more);
       sofar += more;
       _bb.position(_bb.position() + as.position()*8);
-      if( sofar < len ) getSp(Math.min(_bb.capacity(), (len-sofar)*8));
+      if( sofar < len ) getSp(Math.min(_bb.capacity()-7, (len-sofar)*8));
     }
     return buf;
   }
@@ -637,7 +638,7 @@ public final class AutoBuffer {
       as.get(buf, sofar, more);
       sofar += more;
       _bb.position(_bb.position() + as.position()*8);
-      if( sofar < len ) getSp(Math.min(_bb.capacity(), (len-sofar)*8));
+      if( sofar < len ) getSp(Math.min(_bb.capacity()-7, (len-sofar)*8));
     }
     return buf;
   }

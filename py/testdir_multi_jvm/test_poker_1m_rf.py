@@ -12,9 +12,9 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_RF_poker_1m_rf(self):
+    def test_RF_poker_hand_testing_data(self):
         csvPathname = h2o.find_file('smalldata/poker/poker-hand-testing.data')
-        h2o_cmd.runRF(trees=50, timeoutSecs=50, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=50, timeoutSecs=100, csvPathname=csvPathname)
 
 if __name__ == '__main__':
     h2o.unit_main()

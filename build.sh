@@ -49,7 +49,7 @@ CLASSES="${OUTDIR}/classes"
 
 # Clean up also /tmp content (/tmp/h2o-temp-*, /tmp/File*tmp)
 # Note: /tmp is specific for Linux.
-WIPE_TMP=false
+WIPE_TMP=true
 
 # Load user-specific properties if they are exist.
 # The properties can override the settings above.

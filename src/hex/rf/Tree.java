@@ -1,23 +1,32 @@
 package hex.rf;
 
 import hex.rf.Data.Row;
+import hex.rf.Tree.SplitNode.SplitInfo;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.util.*;
 
 import jsr166y.CountedCompleter;
 import jsr166y.RecursiveTask;
 import water.*;
+import water.Timer;
 
 public class Tree extends CountedCompleter {
   static public enum StatType { ENTROPY, GINI };
+
+  /* Left and right seed initializer number for statistics */
+  public static final long LTSS_INIT = 0xe779aef0a6fd0c16L;
+  public static final long RTSS_INIT = 0x5e63c6377e5297a7L;
+  /* Left and right seed initializer number for subtrees */
+  public static final long RTS_INIT = 0xa7a34721109d3708L;
+  public static final long LTS_INIT = 0x264ccf88cf4dec32L;
+
 
   final StatType _type;         // Flavor of split logic
   final Data _data;             // Data source
   final int _data_id;           // Data-subset identifier (so trees built on this subset are not validated on it)
   final int _max_depth;         // Tree-depth cutoff
-  final int _features;          // Number of features to check at each splitting (~ split features)
-  final double _min_error_rate; // Error rate below which a split isn't worth it
+  final int _numSplitFeatures;  // Number of features to check at each splitting (~ split features)
   INode _tree;                  // Root of decision tree
   ThreadLocal<Statistic>[] _stats  = new ThreadLocal[2];
   final Key _modelKey;
@@ -25,43 +34,44 @@ public class Tree extends CountedCompleter {
   final long _seed;             // Pseudo random seed: used to playback sampling
   final int _numrows;           // Used to playback sampling
   final float _sample;          // Sample rate
-  transient Timer _timer;
   int[] _ignoreColumns;         // columns ignored by the tree
   boolean _stratify;
   int [] _strata;
+  transient int _verbose ;
+  int _exclusiveSplitLimit;
 
   // Constructor used to define the specs when building the tree from the top
-  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int features, long seed, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns, boolean stratify, int [] strata) {
-    _type = stat;
-    _data = data;
-    _data_id = treeId; //data.dataId();
-    _max_depth = max_depth-1;
-    _min_error_rate = min_error_rate;
-    _features = features;
-    _modelKey = modelKey;
-    _alltrees = alltrees;
-    _seed = seed;
-    _sample = sample;
-    _numrows = rowsize;
-    _ignoreColumns = ignoreColumns;
-    assert sample <= 1.0f;
-    _timer = new Timer();
-    _stratify = stratify;
-    _strata = strata;
+  public Tree( Data data, int max_depth, double min_error_rate, StatType stat, int numSplitFeatures, long seed, Key modelKey, int treeId, int alltrees, float sample, int rowsize, int[] ignoreColumns, boolean stratify, int [] strata, int verbose, int exclusiveSplitLimit) {
+    _type             = stat;
+    _data             = data;
+    _data_id          = treeId; //data.dataId();
+    _max_depth        = max_depth-1;
+    _numSplitFeatures = numSplitFeatures;
+    _modelKey         = modelKey;
+    _alltrees         = alltrees;
+    _seed             = seed;
+    assert sample <= 1.0f : "Stratify sampling should in interval (0,1] but it is " + sample;
+    _sample           = sample;
+    _numrows          = rowsize;
+    _ignoreColumns    = ignoreColumns;
+    _stratify         = stratify;
+    _strata           = strata;
+    _verbose          = verbose;
+    _exclusiveSplitLimit = exclusiveSplitLimit;
   }
 
   // Oops, uncaught exception
-  public boolean onExceptionalCompletion( Throwable ex, CountedCompleter caller ) {
+  public boolean onExceptionalCompletion( Throwable ex, CountedCompleter _) {
     ex.printStackTrace();
     return true;
   }
 
-  private Statistic getStatistic(int index, Data data, long seed) {
+  private Statistic getStatistic(int index, Data data, long seed, int exclusiveSplitLimit) {
     Statistic result = _stats[index].get();
     if( result==null ) {
       result  = _type == StatType.GINI ?
-          new GiniStatistic   (data,_features, _seed) :
-          new EntropyStatistic(data,_features, _seed);
+          new GiniStatistic   (data,_numSplitFeatures, _seed, exclusiveSplitLimit) :
+          new EntropyStatistic(data,_numSplitFeatures, _seed, exclusiveSplitLimit);
       _stats[index].set(result);
     }
     result.forget_features();   // All new features
@@ -69,29 +79,54 @@ public class Tree extends CountedCompleter {
     return result;
   }
 
+  StringBuffer computeStatistics() {
+    StringBuffer sb = new StringBuffer();
+    ArrayList<SplitInfo>[] stats = new ArrayList[_data.columns()];
+    for (int i = 0; i < _data.columns(); i++) stats[i] = new ArrayList<Tree.SplitNode.SplitInfo>();
+    _tree.computeStats(stats);
+    for (int i = 0; i < _data.columns(); i++) {
+      if (i == _data.classIdx()) continue;
+      String colname = _data.colName(i);
+      ArrayList<SplitInfo> colSplitStats = stats[i];
+      Collections.sort(colSplitStats);
+      int usage = 0;
+      for (SplitInfo si : colSplitStats) {
+        usage += si._used;
+      }
+      sb.append(colname).append(':').append(usage).append("x");
+      for (SplitInfo si : colSplitStats) {
+        sb.append(", ").append("<=").append(Utils.p2d(si.splitNode().split_value())).append('{').append(si.affectedLeaves()).append("} ");
+      }
+
+      sb.append('\n');
+    }
+    return sb;
+  }
+
   // Actually build the tree
   public void compute() {
+    Timer timer = new Timer();
     _stats[0] = new ThreadLocal<Statistic>();
     _stats[1] = new ThreadLocal<Statistic>();
-    Timer t_sample = new Timer();
     Data d = (true && _stratify)?_data.sample(_strata,_seed):_data.sample(_sample,_seed,_numrows);
-    Utils.pln("[RF] Tree " + (_data_id+1)+ " sample done in "+ t_sample + ", seed = " + _seed);
-    Statistic left = getStatistic(0, d, _seed);
+    Statistic left = getStatistic(0, d, _seed, _exclusiveSplitLimit);
     // calculate the split
     for( Row r : d ) left.addQ(r);
     left.applyClassWeights();   // Weight the distributions
     Statistic.Split spl = left.split(d, false);
     _tree = spl.isLeafNode()
-      ? new LeafNode(spl._split)
-      : new FJBuild (spl, d, 0, _seed + (1L)<<16).compute();
-    StringBuilder sb = new StringBuilder("Tree : " +(_data_id+1)+" d="+_tree.depth()+" leaves="+_tree.leaves()+"  ");
-    Utils.pln(_tree.toString(sb,200).toString());
+      ? new LeafNode(spl._split, d.rows())
+      : new FJBuild (spl, d, 0, _seed).compute();
+
+    if (_verbose > 1)
+      Utils.pln(computeStatistics().toString());
     _stats = null; // GC
 
     // Atomically improve the Model as well
     appendKey(_modelKey,toKey());
-
-    Utils.pln("[RF] Tree "+(_data_id+1) + " done in "+ _timer);
+    StringBuilder sb = new StringBuilder("[RF] Tree : ").append(_data_id+1);
+    sb.append(" d=").append(_tree.depth()).append(" leaves=").append(_tree.leaves()).append(" done in ").append(timer).append('\n');
+    Utils.pln(_tree.toString(sb,  _verbose > 0 ? Integer.MAX_VALUE : 200).toString());
     tryComplete();
   }
 
@@ -115,27 +150,35 @@ public class Tree extends CountedCompleter {
     }
 
     @Override public INode compute() {
-      Statistic left = getStatistic(0,_data, _seed + (10101L<<16)); // first get the statistics
-      Statistic rite = getStatistic(1,_data, _seed + ( 2020L<<16));
+      Statistic left = getStatistic(0,_data, _seed + LTSS_INIT, _exclusiveSplitLimit); // first get the statistics
+      Statistic rite = getStatistic(1,_data, _seed + RTSS_INIT, _exclusiveSplitLimit);
       Data[] res = new Data[2]; // create the data, node and filter the data
       int c = _split._column, s = _split._split;
       assert c != _data.classIdx();
       SplitNode nd = _split.isExclusion() ?
         new ExclusionNode(c, s, _data.colName(c), _data.unmap(c,s)) :
-        new SplitNode    (c, s, _data.colName(c), _data.unmap(c, s) );
+        new SplitNode    (c, s, _data.colName(c), _data.unmap(c,s));
       _data.filter(nd,res,left,rite);
-
       FJBuild fj0 = null, fj1 = null;
       Statistic.Split ls = left.split(res[0], _depth >= _max_depth); // get the splits
       Statistic.Split rs = rite.split(res[1], _depth >= _max_depth);
-      if (ls.isLeafNode())  nd._l = new LeafNode(ls._split); // create leaf nodes if any
-      else                    fj0 = new  FJBuild(ls,res[0],_depth+1, _seed + (1L<<16));
-      if (rs.isLeafNode())  nd._r = new LeafNode(rs._split);
-      else                    fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - (1L<<16));
+      if (ls.isLeafNode() || ls.isImpossible())
+            nd._l = new LeafNode(ls._split, res[0].rows()); // create leaf nodes if any
+      else  fj0 = new FJBuild(ls,res[0],_depth+1, _seed + LTS_INIT);
+      if (rs.isLeafNode() || rs.isImpossible())
+            nd._r = new LeafNode(rs._split, res[1].rows());
+      else  fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - RTS_INIT);
       // Recursively build the splits, in parallel
       if( fj0 != null &&        (fj1!=null ) ) fj0.fork();
       if( fj1 != null ) nd._r = fj1.compute();
       if( fj0 != null ) nd._l = (fj1!=null ) ? fj0.join() : fj0.compute();
+      /* Degenerate trees such as the following  can occur when an impossible split was found.
+              y<=1.1        This is unusual enough to ignore.
+              /    \
+           y<=1.0   0
+           / \
+          1   1   */
+      // FIXME there is still issue with redundant trees!
       return nd;
     }
   }
@@ -144,7 +187,9 @@ public class Tree extends CountedCompleter {
     abstract int classify(Row r);
     abstract int depth();       // Depth of deepest leaf
     abstract int leaves();      // Number of leaves
+    abstract void computeStats(ArrayList<SplitInfo>[] stats);
     abstract StringBuilder toString( StringBuilder sb, int len );
+    final boolean isLeaf() { return depth() == 0; }
 
     public abstract void print(TreePrinter treePrinter) throws IOException;
     abstract void write( AutoBuffer bs );
@@ -156,14 +201,17 @@ public class Tree extends CountedCompleter {
   /** Leaf node that for any row returns its the data class it belongs to. */
   static class LeafNode extends INode {
     final int _class;    // A category reported by the inner node
-    LeafNode(int c) {
+    final int _rows;     // A number of classified rows (only meaningful for training)
+    LeafNode(int c, int rows) {
       assert 0 <= c && c < 65534; // sanity check
       _class = c;               // Class from 0 to _N-1
+      _rows  = rows;
     }
     @Override public int depth()  { return 0; }
     @Override public int leaves() { return 1; }
+    @Override public void computeStats(ArrayList<SplitInfo>[] stats) { /* do nothing for leaves */ }
     @Override public int classify(Row r) { return _class; }
-    @Override public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(_class).append(']'); }
+    @Override public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(_class).append(']').append('{').append(_rows).append('}'); }
     @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
     @Override void write( AutoBuffer bs ) {
       assert 0 <= _class && _class < 100;
@@ -172,7 +220,6 @@ public class Tree extends CountedCompleter {
     }
     @Override int size_impl( ) { return 2; } // 2 bytes in serialized form
   }
-
 
   /** Gini classifier node. */
   static class SplitNode extends INode {
@@ -190,26 +237,54 @@ public class Tree extends CountedCompleter {
       _originalSplit = originalSplit;
     }
 
-    @Override int classify(Row r) {
-      return r.getEncodedColumnValue(_column) <= _split ? _l.classify(r) : _r.classify(r);
+    static class SplitInfo implements Comparable<SplitInfo> {
+      /**first node which introduce split*/
+      final SplitNode _splitNode;
+      int _affectedLeaves;
+      int _used;
+      SplitInfo (SplitNode splitNode, int affectedLeaves) { _splitNode = splitNode; _affectedLeaves = affectedLeaves; _used = 1; }
+      final SplitNode splitNode() { return _splitNode; }
+      final int affectedLeaves()  { return _affectedLeaves; }
+
+      static SplitInfo info(SplitNode splitNode, int leavesAffected) {
+        return new SplitInfo(splitNode, leavesAffected);
+      }
+
+      @Override public int compareTo(SplitInfo o) {
+        if (o._affectedLeaves == _affectedLeaves)  return 0;
+        else if (_affectedLeaves < o._affectedLeaves) return 1;
+        else return -1;
+      }
     }
-    @Override public int depth() {
-      if( _depth != 0 ) return _depth;
-      return (_depth = Math.max(_l.depth(), _r.depth()) + 1);
-    }
-    @Override public int leaves() {
-      if( _leaves != 0 ) return _leaves;
-      return (_leaves=_l.leaves() + _r.leaves());
+
+    @Override int classify(Row r) { return r.getEncodedColumnValue(_column) <= _split ? _l.classify(r) : _r.classify(r);  }
+    @Override public int depth() { return  _depth != 0 ? _depth : (_depth = Math.max(_l.depth(), _r.depth()) + 1); }
+    @Override public int leaves() { return  _leaves != 0 ? _leaves : (_leaves=_l.leaves() + _r.leaves()); }
+    @Override void computeStats(ArrayList<SplitInfo>[] stats) {
+      SplitInfo splitInfo = null;
+      // Find the same split
+      for (SplitInfo si : stats[_column]) {
+        if (si.splitNode()._split == _split) {
+          splitInfo = si;
+          break;
+        }
+      }
+      if (splitInfo == null) {
+        stats[_column].add(SplitInfo.info(this, _leaves));
+      } else {
+        splitInfo._affectedLeaves += _leaves;
+        splitInfo._used += 1;
+      }
+      _l.computeStats(stats);
+      _r.computeStats(stats);
     }
     // Computes the original split-value, as a float.  Returns a float to keep
     // the final size small for giant trees.
     protected final float split_value() { return _originalSplit; }
     @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    @Override public String toString() {
-      return "S "+_column +"<=" + _split + " ("+_l+","+_r+")";
-    }
+    @Override public String toString() { return "S "+_column +"<=" + _originalSplit + " ("+_l+","+_r+")";  }
     @Override public StringBuilder toString( StringBuilder sb, int n ) {
-      sb.append(_name).append("<=").append(Utils.p2d(split_value())).append(" (");
+      sb.append(_name).append("<=").append(Utils.p2d(split_value())).append('@').append(leaves()).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
       if( sb.length() > n ) return sb;
@@ -235,27 +310,25 @@ public class Tree extends CountedCompleter {
     public boolean isIn(Row row) {  return row.getEncodedColumnValue(_column) <= _split; }
   }
 
-  /** Node that classifies one column category to the left and the others to the
-   * right.
-   */
+  /** Node that classifies one column category to the left and the others to the right. */
   static class ExclusionNode extends SplitNode {
-    public ExclusionNode(int column, int split, String colName, float origSplit) {
-      super(column,split,colName,origSplit);
-    }
-    @Override int classify(Row r) {
-      return r.getEncodedColumnValue(_column) == _split ? _l.classify(r) : _r.classify(r);
-    }
+
+    public ExclusionNode(int column, int val, String cname, float origSplit) { super(column,val,cname,origSplit);  }
+
+    @Override int classify(Row r) { return r.getEncodedColumnValue(_column) == _split ? _l.classify(r) : _r.classify(r); }
     @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
-    @Override public String toString() {
-      return "E "+_column +"==" + _split + " ("+_l+","+_r+")";
-    }
+    @Override public String toString() { return "E "+_column +"==" + _split + " ("+_l+","+_r+")"; }
     @Override public StringBuilder toString( StringBuilder sb, int n ) {
-      sb.append(_name).append("==").append(_split).append(" (");
+      sb.append(_name).append("==").append(_split).append('@').append(leaves()).append(" (");
       if( sb.length() > n ) return sb;
       sb = _l.toString(sb,n).append(',');
       if( sb.length() > n ) return sb;
       sb = _r.toString(sb,n).append(')');
       return sb;
+    }
+    public int size_impl( ) {
+      // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
+      return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
 
     @Override void write( AutoBuffer bs ) {
@@ -269,7 +342,7 @@ public class Tree extends CountedCompleter {
       _l.write(bs);
       _r.write(bs);
     }
-    public boolean isIn(Row row) {  return row.getEncodedColumnValue(_column) == _split; }
+    public boolean isIn(Row row) { return row.getEncodedColumnValue(_column) == _split; }
   }
 
   public int classify(Row r) { return _tree.classify(r); }
@@ -319,9 +392,9 @@ public class Tree extends CountedCompleter {
   public static int dataId( byte[] bits) { return UDP.get4(bits, 0); }
   public static long seed ( byte[] bits) { return UDP.get8(bits, 4); }
 
-  // Abstract visitor class for serialized trees.
+  /** Abstract visitor class for serialized trees.*/
   public static abstract class TreeVisitor<T extends Exception> {
-    TreeVisitor<T> leaf( int tclass          ) throws T { return this; }
+    TreeVisitor<T> leaf( int tclass ) throws T { return this; }
     TreeVisitor<T>  pre( int col, float fcmp, int off0, int offl, int offr ) throws T { return this; }
     TreeVisitor<T>  mid( int col, float fcmp ) throws T { return this; }
     TreeVisitor<T> post( int col, float fcmp ) throws T { return this; }
@@ -348,7 +421,7 @@ public class Tree extends CountedCompleter {
     }
   }
 
-  // Return (depth<<32)|(leaves), in 1 pass.
+  /** Return (depth<<32)|(leaves), in 1 pass. */
   public static long depth_leaves( AutoBuffer tbits ) {
     return new TreeVisitor<RuntimeException>(tbits) {
       int _maxdepth, _depth, _leaves;

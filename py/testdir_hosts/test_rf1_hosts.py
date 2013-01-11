@@ -1,9 +1,6 @@
 import unittest, sys
 sys.path.extend(['.','..','py'])
 
-# easy_install nose-testconfig if you don't have this
-from testconfig import config
-
 import h2o_cmd, h2o, h2o_hosts
 
 # Uses your username specific json: pytest_config-<username>.json
