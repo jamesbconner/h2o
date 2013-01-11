@@ -165,7 +165,7 @@ public final class AutoBuffer {
     return sb.append("]").toString();
   }
 
-  // Fetch a DBB from an objcet pool... they are fairly expensive to make
+  // Fetch a DBB from an object pool... they are fairly expensive to make
   // because a native call is required to get the backing memory.  I've
   // included BB count tracking code to help track leaks.  As of 12/17/2012 the
   // leaks are under control, but figure this may happen again so keeping these
@@ -207,20 +207,28 @@ public final class AutoBuffer {
   // For reads, just assert all was read and close and release resources.
   // (release ByteBuffer back to the common pool).  For writes, force any final
   // bytes out.  If the write is to an H2ONode and is short, send via UDP.
+  // AutoBuffer close calls order; i.e. a reader close() will block until the
+  // writer does a close().
   public final int close() { return close(false); }
   public final int close(boolean forceTcp ) {
     assert _h2o != null || _chan != null;      // Byte-array backed should not be closed
     try {
       if( _chan == null ) {     // No channel?
         if( _read ) return bbFree();
-        // For small-packet write, send via UDP.
+        // For small-packet write, send via UDP.  Since nothing is sent until
+        // now, this close() call trivially orders - since the reader will not
+        // even start (much less close()) until this packet is sent.
         if( !forceTcp && _bb.position() < MTU ) return udpSend();
       }
-      if( !_read ) {            // Writing?
-        _bb.flip();             // Write out any remaining data
-        if( _chan == null )     // Went to UDP if it fit, so must require TCP now
-          tcpOpen();            // Open the TCP socket for bulk writing
-        _chan.write(_bb);       // Write any remaining
+      // Force AutoBuffer 'close' calls to order; i.e. block readers until
+      // writers do a 'close' - by writing 1 more byte in the close-call which
+      // the reader will have to wait for.
+      if( _read ) {             // Reader?
+        int x = get1();         // Read 1 more byte
+        assert x == 0xab;
+      } else {                  // Writer?
+        put1(0xab);             // Write one-more byte
+        sendPartial();          // Finish partial TCP writes
       }
       _chan.close();
     } catch( IOException e ) {  // Dunno how to handle so crash-n-burn
@@ -380,10 +388,8 @@ public final class AutoBuffer {
     // Doing I/O with the full ByteBuffer - ship partial results
     try {
       _bb.flip(); // Prep for writing.
-      if( _chan == null ) {
-        assert _firstPage;
+      if( _chan == null )
         tcpOpen(); // This is a big operation.  Open a TCP socket as-needed.
-      }
       while( _bb.hasRemaining() ) _chan.write(_bb);
       if( _bb.capacity() < 16*1024 ) _bb = bbMake();
       _firstPage = false;
