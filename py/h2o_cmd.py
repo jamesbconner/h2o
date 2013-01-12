@@ -167,9 +167,13 @@ def runRFOnly(node=None, parseKey=None, trees=5,
                     "progress: %s, progressTotal: %s, ntree: %s, numberBuilt: %s, status: %s" % \
                     (progress, progressTotal, ntree, numberBuilt, status))
 
+            # don't print the useless first poll. ma
             if (status!='done'):
-                print "\nRFView polling. Status: %s. %s trees done of %s desired" % \
-                    (status, numberBuilt, ntree)
+                if numberBuilt==0:
+                    print "."
+                else:
+                    print "\nRFView polling. Status: %s. %s trees done of %s desired" % \
+                        (status, numberBuilt, ntree)
 
             return (status=='done')
 
