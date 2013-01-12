@@ -241,6 +241,20 @@ public final class AutoBuffer {
     return bbFree();
   }
 
+  public void drainClose() {
+    try {
+      while( _chan.read(_bb) != -1 )
+        _bb.clear();
+      _chan.close();
+      TCPS.decrementAndGet();
+      restorePriority();        // And if we raised priority, lower it back
+      bbFree();
+    } catch( IOException e ) {  // Dunno how to handle so crash-n-burn
+      throw new RuntimeException(e);
+    }
+  }
+
+
   // Need a sock for a big read or write operation
   private void tcpOpen() throws IOException {
     assert _firstPage && _bb.limit() >= 1+2+4; // At least something written

@@ -32,8 +32,6 @@ public class TaskGetKey extends DTask {
         rpc.call();             // Start the op
         break;
       }
-      // Oops, colliding parallel RPC installs... try again
-      rpc.cancel(true);         // Cancel the duplicate fetch
     }
     Value val = rpc.get()._val; // Block for, then fetch out the result
     TGKS.putIfMatchUnlocked(key,null,rpc); // Clear from cache
