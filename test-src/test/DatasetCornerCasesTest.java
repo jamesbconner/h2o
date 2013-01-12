@@ -50,7 +50,7 @@ public class DatasetCornerCasesTest extends TestUtil {
       assertTrue("Number of trees > 0 ", model.size()> 0);
       model.deleteKeys();
     } catch( DRF.IllegalDataException e ) {
-      assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be in interval [2,65534], found 1",e.toString());
+      assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be in interval [2,254], found 1",e.toString());
     }
     UKV.remove(okey);
   }

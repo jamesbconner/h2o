@@ -203,7 +203,7 @@ public class Tree extends CountedCompleter {
     final int _class;    // A category reported by the inner node
     final int _rows;     // A number of classified rows (only meaningful for training)
     LeafNode(int c, int rows) {
-      assert 0 <= c && c < 65534; // sanity check
+      assert 0 <= c && c <= 254; // sanity check
       _class = c;               // Class from 0 to _N-1
       _rows  = rows;
     }
@@ -214,7 +214,6 @@ public class Tree extends CountedCompleter {
     @Override public StringBuilder toString(StringBuilder sb, int n ) { return sb.append('[').append(_class).append(']').append('{').append(_rows).append('}'); }
     @Override public void print(TreePrinter p) throws IOException { p.printNode(this); }
     @Override void write( AutoBuffer bs ) {
-      assert 0 <= _class && _class < 100;
       bs.put1('[');             // Leaf indicator
       bs.put1(_class);
     }

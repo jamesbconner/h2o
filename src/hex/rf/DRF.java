@@ -138,8 +138,8 @@ public class DRF extends water.DRemoteTask {
     if(c._size < 0)
       throw new IllegalDataException("Regression is not supported. (class column can't be a float)");
     final int classes = (int)(c._max - c._min)+1;
-    if( !(2 <= classes && classes <= 65534 ) )
-      throw new IllegalDataException("Number of classes must be in interval [2,65534], found " + classes);
+    if( !(2 <= classes && classes <= 254 ) )
+      throw new IllegalDataException("Number of classes must be in interval [2,254], found " + classes);
     if (0.0f > _sample || _sample > 1.0f)
       throw new IllegalDataException("Sampling rate is incorrect must be in [0,1]");
     if (_numSplitFeatures!=-1 && (_numSplitFeatures< 1 || _numSplitFeatures>=ary.numCols()))
