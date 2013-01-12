@@ -185,6 +185,8 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
         for exprTemplate in exprList:
             # copy it to keep python from changing the original when I modify it below!
             exprTemp = list(exprTemplate)
+            # print "exprTemp", exprTemp
+            # print "exprTemplate", exprTemplate
 
             # do each expression at a random node, to facilate key movement
             # UPDATE: all execs are to a single node. No mixed node streams

@@ -14,6 +14,7 @@ zeroList = [
 # the first column should use this
 exprList = [
         # ['Result','<n>',' = sum(','<keyX>','[', '<col1>', '])'],
+        # all sum to 179 if you use this. used to fail?
         ['Result','<n>',' = sum(','<keyX>','[', '21', '])'],
     ]
 
