@@ -179,7 +179,7 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         print "Trial #", trial, "completed\n"
 
 def exec_expr_list_across_cols(lenNodes, exprList, key2, 
-    minCol=0, maxCol=54, timeoutSecs=10):
+    minCol=0, maxCol=54, timeoutSecs=10, incrementingResult=True):
     colResultList = []
     for colX in range(minCol, maxCol):
         for exprTemplate in exprList:
@@ -200,14 +200,22 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
 
             print execNode
             execExpr = fill_in_expr_template(exprTemp, colX, colX, 0, key2)
-            resultKey = "Result"+str(colX)
+            if incrementingResult: # the Result<col> pattern
+                resultKey = "Result"+str(colX)
+            else: # assume it's a re-assign to self
+                resultKey = key2
+
             execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
                 resultKey, timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
-            min = checkScalarResult(execResultInspect, resultKey)
-            h2o.verboseprint("min: ", min, "col:", colX)
-            print "min: ", min, "col:", colX
+            # min is keyword. shouldn't use.
+            if incrementingResult: # a col will have a single min
+                min = checkScalarResult(execResultInspect, resultKey)
+                h2o.verboseprint("min: ", min, "col:", colX)
+                print "min: ", min, "col:", colX
+            else:
+                min = None
 
             sys.stdout.write('.')
             sys.stdout.flush()

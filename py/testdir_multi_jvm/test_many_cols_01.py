@@ -15,24 +15,10 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     for i in range(rowCount):
         rowData = []
         for j in range(colCount):
-            # fails with just randint 0,1
-            # r = r1.randint(0,1)
-            # r = r1.randint(0,2)
+            r = r1.randint(0,1)
+            rowData.append(r)
 
-            # passes with just 1
-            # r = 1
-            # fails with just 0
-            r = 0
-            if (r==2):
-                # was injecting NAs, but it doesn't matter
-                # rs = "" # NA
-                rs = str(r)
-            else:
-                rs = str(r)
-
-            rowData.append(rs)
-
-        rowDataCsv = ",".join(rowData)
+        rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
@@ -50,7 +36,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(2,java_heap_GB=4)
+            h2o.build_cloud(2,java_heap_GB=1)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -58,6 +44,7 @@ class Basic(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
+
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
@@ -79,7 +66,7 @@ class Basic(unittest.TestCase):
         cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
             cnum += 1
-            csvFilename = 'syn_' + str(rowCount) + 'x' + str(colCount) + '.csv'
+            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname
@@ -96,11 +83,6 @@ class Basic(unittest.TestCase):
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
                 time.sleep(5)
-
-            # try new offset/view
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=99, view=89)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=-1, view=53)
 
 
 if __name__ == '__main__':
