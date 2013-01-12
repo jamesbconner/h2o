@@ -30,9 +30,13 @@ class Basic(unittest.TestCase):
 
         ### h2b.browseTheCloud()
         start = time.time()
+        # passes with suffix, fails without?
+        suffix = ".hex"
+        suffix = ""
         for i in range(54):
-            execExpr = "Result" + str(i) + " = c.hex[" + str(i) + "]"
-            h2e.exec_expr(h2o.nodes[0], execExpr, resultKey="Result" + str(i), timeoutSecs=4)
+            execExpr = "Result" + str(i) + suffix + " = c.hex[" + str(i) + "]"
+            print "execExpr:", execExpr
+            h2e.exec_expr(h2o.nodes[0], execExpr, resultKey="Result" + str(i) + suffix, timeoutSecs=4)
 
         if (h2o.check_sandbox_for_errors()):
             raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)

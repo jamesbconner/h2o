@@ -2,10 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 zeroList = []
 for i in range(5):
@@ -19,21 +16,16 @@ for i in range(5):
 # 'log"
 # do we have to restrict ourselves?
 # 'makeEnum'
-#        ['MatrixRes','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
+#        'MatrixRes<n> = slice(<keyX>[<col1>],<row>)',
 exprList = [
-        ['ColumnRes','<n>',' = ',
-            '<keyX>','[', '<col1>', '] + ',
-            '<keyX>','[', '<col2>', '] + ',
-            '<keyX>','[', '2', ']'
-        ],
-
-        ['ColumnRes','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', ']'],
-        ['ScalarRes','<n>',' = log(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n>', '[0]'],
-        ['ScalarRes','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-        ['ScalarRes','<n>',' = max(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>', '[0]'],
-        ['ScalarRes','<n>',' = mean(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>', '[0]'],
-        ['ScalarRes','<n>',' = sum(','<keyX>','[', '<col1>', ']) + ScalarRes0'],
+        'ColumnRes<n> = <keyX>[<col1>] + <keyX>[<col2>] + <keyX>[2]' ,
+        'ColumnRes<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',
+        'ColumnRes<n> = <keyX>[<col1>]',
+        'ScalarRes<n> = log(<keyX>[<col1>]) + ColumnRes<n>[0]',
+        'ScalarRes<n> = min(<keyX>[<col1>])',
+        'ScalarRes<n> = max(<keyX>[<col1>]) + ColumnRes<n-1>[0]',
+        'ScalarRes<n> = mean(<keyX>[<col1>]) + ColumnRes<n-1>[0]',
+        'ScalarRes<n> = sum(<keyX>[<col1>]) + ScalarRes0',
     ]
 
 class Basic(unittest.TestCase):
@@ -83,16 +75,13 @@ class Basic(unittest.TestCase):
         h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
-        cnum = 0
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
-            cnum += 1
+            SEEDPERFILE = random.randint(0, sys.maxint)
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['desination_key']:", parseKey['destination_key']
-
-            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename

@@ -5,23 +5,23 @@ sys.path.extend(['.','..','py'])
 import h2o, h2o_cmd, h2o_browse as h2b, h2o_exec as h2e
 
 zeroList = [
-        ['Result0 = 0'],
-        ['Result = 0'],
-]
+        'Result0 = 0',
+        'Result = 0',
+        ]
 # randomBitVector
 # randomFilter
 # factor
 # bug?
-#        ['Result','<n>',' = slice(c.hex[','<col1>','],', '<row>', ')'],
 exprList = [
-        ['Result','<n>',' = colSwap(c.hex,', '<col1>', ',(c.hex[2]==0 ? 54321 : 54321))'],
-        ['Result','<n>',' = c.hex[', '<col1>', ']'],
-        ['Result','<n>',' = min(c.hex[', '<col1>', '])'],
-        ['Result','<n>',' = max(c.hex[', '<col1>', ']) + Result[0]'],
-        ['Result','<n>',' = mean(c.hex[', '<col1>', ']) + Result[0]'],
-        ['Result','<n>',' = sum(c.hex[', '<col1>', ']) + Result[0]'],
-        ['Result','<n>',' = log(c.hex[', '<col1>', ']) + Result[0]'],
-    ]
+        'Result<n> = slice(c.hex[<col1>],<row>)',
+        'Result<n> = colSwap(c.hex,<col1>,(c.hex[2]==0 ? 54321 : 54321))',
+        'Result<n> = c.hex[<col1>]',
+        'Result<n> = min(c.hex[<col1>])',
+        'Result<n> = max(c.hex[<col1>]) + Result[0]',
+        'Result<n> = mean(c.hex[<col1>]) + Result[0]',
+        'Result<n> = sum(c.hex[<col1>]) + Result[0]',
+        'Result<n> = log(c.hex[<col1>]) + Result[0]',
+        ]
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -48,7 +48,6 @@ class Basic(unittest.TestCase):
         print "\nParse key is:", parseKey['destination_key']
 
         h2b.browseTheCloud()
-
         h2e.exec_zero_list(zeroList)
         start = time.time()
         h2e.exec_expr_list_rand(len(h2o.nodes), exprList, 'c.hex', 
@@ -56,7 +55,6 @@ class Basic(unittest.TestCase):
 
         if (h2o.check_sandbox_for_errors()):
             raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
-
         print "exec end on ", "covtype.data" , 'took', time.time() - start, 'seconds'
 
 

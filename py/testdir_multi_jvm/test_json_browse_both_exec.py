@@ -1,5 +1,5 @@
 import unittest
-import random, sys, time, webbrowser
+import random, sys, time, webbrowser, re
 sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_browse as h2b
@@ -15,24 +15,24 @@ import h2o, h2o_cmd, h2o_browse as h2b
 # log
 # makeEnum
 # bug?
-#        ['Result','<n>',' = slice(c.hex[','<col1>','],', '<row>', ')'],
+#        'Result<n> = slice(<keyX>[<col1>,<row>)',
 exprList = [
-        ['Result1',' = c.hex[', '<col1>', ']'],
-        ['Result2',' = min(c.hex[', '<col1>', '])'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = max(c.hex[', '<col1>', ']) + Result2'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = mean(c.hex[', '<col1>', ']) + Result2'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = sum(c.hex[', '<col1>', ']) + Result2'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = min(c.hex[', '<col1>', ']) + Result2'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = max(c.hex[', '<col1>', ']) + Result2'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = mean(c.hex[', '<col1>', ']) + Result2'],
-        ['Result1',' = c.hex[', '<col1>', '] + Result1'],
-        ['Result1',' = sum(c.hex[', '<col1>', ']) + Result2'],
+        'Result1 = <keyX>[<col1>]',
+        'Result2 = min(<keyX>[<col1>])',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = max(<keyX>[<col1>]) + Result2',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = mean(<keyX>[<col1>]) + Result2',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = sum(<keyX>[<col1>]) + Result2',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = min(<keyX>[<col1>]) + Result2',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = max(<keyX>[<col1>]) + Result2',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = mean(<keyX>[<col1>]) + Result2',
+        'Result1 = <keyX>[<col1>] + Result1',
+        'Result1 = sum(<keyX>[<col1>]) + Result2',
     ]
 
 inspectList = ['Result1', 'Result2']
@@ -61,7 +61,8 @@ class Basic(unittest.TestCase):
 
     def test_loop_random_exec_covtype(self):
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
-        parseKey = h2o_cmd.parseFile(None, csvPathname, 'covtype.data', 'c.hex', 10)
+        key2 = 'c.hex'
+        parseKey = h2o_cmd.parseFile(None, csvPathname, 'covtype.data', key2, 10)
         print "\nParse key is:", parseKey['destination_key']
 
         h2b.browseTheCloud()
@@ -69,32 +70,23 @@ class Basic(unittest.TestCase):
         trial = 0
         while (trial < 100):
             for exprTemplate in exprList:
-                # have to copy it to keep python from changing the original when I modify it below!
-                exprTemp = list(exprTemplate)
                 trial = trial + 1
+                n = trial
                 colX = random.randint(1,54)
+                row = random.randint(1,400000)
 
-                # replace any <col2> in the template
-                # FIX! does this push col2 too far? past the output col?
-                for i,e in enumerate(exprTemp):
-                    if e == '<col1>':
-                        exprTemp[i] = str(colX)
-                    if e == '<col2>':
-                        exprTemp[i] = str(colX+1)
-                    if e == '<n>':
-                        exprTemp[i] = str(trial)
-                    if e == '<row>':
-                        # in the range of covtype row #'s
-                        exprTemp[i] = str(random.randint(1,400000))
+                execExpr = exprTemplate
+                execExpr = re.sub('<col1>',str(colX),execExpr)
+                execExpr = re.sub('<col2>',str(colX+1),execExpr)
+                execExpr = re.sub('<n>',str(n),execExpr)
+                execExpr = re.sub('<row>',str(row),execExpr)
+                execExpr = re.sub('<keyX>',str(key2),execExpr)
 
-                # form the expression in a single string
-                execExpr = ''.join(exprTemp)
+                # pick a random node to execute it on
                 randNode = random.randint(0,lenNodes-1)
                 print "\nexecExpr:", execExpr, "on node", randNode
 
                 start = time.time()
-
-                # pick a random node to execute it on
                 resultExec = h2o_cmd.runExecOnly(node=h2o.nodes[randNode], Expr=execExpr, timeoutSecs=5)
                 h2o.verboseprint(h2o.dump_json(resultExec))
                 # print(h2o.dump_json(resultExec))
@@ -131,9 +123,6 @@ class Basic(unittest.TestCase):
                 print "exec end on ", "covtype.data" , 'took', time.time() - start, 'seconds'
                 print "Trial #", trial, "completed\n"
 
-                # use the result as the next thing to work on? (copy over)
-                parseKey['Key'] = resultExec['ResultKey']
- 
 
 if __name__ == '__main__':
     h2o.unit_main()

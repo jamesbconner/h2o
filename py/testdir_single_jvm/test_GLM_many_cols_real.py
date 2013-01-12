@@ -11,7 +11,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
     for i in range(rowCount):
         rowData = []
-        rowTotal = 0
         for j in range(colCount):
             # fails with just randint 0,1
             # r = r1.randint(0,1)
@@ -24,23 +23,24 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             # 5% NA
             if (ri2==0):
                 # rs = ""
-                rs = ri1
+                r = ri1
             else:
-                rs = ri1
+                r = ri1
 
-            rowData.append(str(rs)+".1")
-            rowTotal += rs
+            rowData.append(r + 0.1)
 
         # sum the row, and make output 1 if > (5 * rowCount)
+        rowTotal = sum(rowData)
         if (rowTotal > (0.5 * colCount)): 
             result = 1
         else:
             result = 0
-        rowData.append(str(result))
+
+        rowData.append(result)
         # add the output twice, to try to match to it?
-        rowData.append(str(result))
+        rowData.append(result)
         ###  print colCount, rowTotal, result
-        rowDataCsv = ",".join(rowData)
+        rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
@@ -93,11 +93,12 @@ class Basic(unittest.TestCase):
 
         ### h2b.browseTheCloud()
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            SEEDPERFILE = random.randint(0, sys.maxint)
+            csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
@@ -108,8 +109,7 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             Y = colCount - 1
-            # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
-            kwargs = {'Y': Y, 'iterations': 10, 'case': 'NaN'}
+            kwargs = {'Y': Y, 'iterations': 10, 'case': '0.1', 'norm': 'L2'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

@@ -29,12 +29,21 @@ def write_syn_dataset(csvPathname, rowCount, SEED):
     dsf.close()
 
 zeroList = [
+        'Result2 = 0',
+        'Result1 = 0',
         'Result0 = 0',
         'Result.hex = 0',
 ]
 
 exprList = [
-        'Result<n> = max(<keyX>[<col1>])',
+        'Result<n> = factor(<keyX>[0])',
+        'Result<n> = factor(<keyX>[1])',
+        'Result<n> = factor(<keyX>[2])',
+        'Result<n> = factor(<keyX>[3])',
+        'Result<n> = factor(<keyX>[4])',
+        'Result<n> = factor(<keyX>[5])',
+        'Result<n> = factor(<keyX>[6])',
+        'Result<n> = factor(<keyX>[7])',
     ]
 
 class Basic(unittest.TestCase):
@@ -42,6 +51,7 @@ class Basic(unittest.TestCase):
     def setUpClass(cls):
         global SEED
         SEED = random.randint(0, sys.maxint)
+
         # if you have to force to redo a test
         # SEED = 
         random.seed(SEED)
@@ -49,9 +59,11 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(2,java_heap_GB=1)
+            # h2o.build_cloud(3,java_heap_GB=4)
+            h2o.build_cloud(3,java_heap_GB=4)
         else:
             h2o_hosts.build_cloud_with_hosts()
+
 
     @classmethod
     def tearDownClass(cls):
@@ -59,22 +71,22 @@ class Basic(unittest.TestCase):
         # time.sleep(1500)
         h2o.tear_down_cloud()
 
-    def test_enum_with_syn(self):
+    def test_factor_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
+        # use SEED so the file isn't cached?
         csvFilenameAll = [
-            ("syn_10x8.csv", 'cA', 5),
+            ('syn_1mx8_' + str(SEED) + '.csv', 'cA', 5),
             ]
 
         ### csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
-
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
             SEEDPERFILE = random.randint(0, sys.maxint)
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
-            print "Creating random 10x8 csv"
-            write_syn_dataset(csvPathname, 10, SEEDPERFILE)
+            print "Creating random 1mx8 csv"
+            write_syn_dataset(csvPathname, 1000000, SEEDPERFILE)
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']
@@ -87,7 +99,7 @@ class Basic(unittest.TestCase):
             h2e.exec_zero_list(zeroList)
             # does n+1 so use maxCol 6
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
-                maxCol=0, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
+                maxCol=6, maxRow=400000, maxTrials=200, timeoutSecs=timeoutSecs)
 
 
 if __name__ == '__main__':

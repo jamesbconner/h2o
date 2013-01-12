@@ -1,65 +1,57 @@
 import unittest
-import random, sys, time, os
+import random, sys, time, os, re
 sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
 
-# keep two lists the same size
-# best if prime relative to the # jvms (len(h2o.nodes))
 initList = [
-        ['Result0 = 0'],
-        ['Result1 = 1'],
-        ['Result2 = 2'],
-        ['Result3 = 3'],
-        ['Result4 = 4'],
-        ['Result5 = 5'],
-        ['Result6 = 6'],
-        ['Result7 = 7'],
-        ['Result8 = 8'],
-        ['Result9 = 9'],
-        ['Result10 = 10'],
+        'Result0 = 0',
+        'Result1 = 1',
+        'Result2 = 2',
+        'Result3 = 3',
+        'Result4 = 4',
+        'Result5 = 5',
+        'Result6 = 6',
+        'Result7 = 7',
+        'Result8 = 8',
+        'Result9 = 9',
+        'Result10 = 10',
     ]
 
 # NOTE. the inc has to match the goback used below
 goback = 7
 exprList = [
-        ['Result','<n>',' = Result','<m>',' + ' + str(goback)],
+        'Result<n> = Result<m> + ' + str(goback),
     ]
 
-def fill_in_expr_template(exprTemp,n, m):
-        for i,e in enumerate(exprTemp):
-            if e == '<n>':
-                exprTemp[i] = str(n)
-            if e == '<m>':
-                exprTemp[i] = str(m)
-
-        # form the expression in a single string
-        execExpr = ''.join(exprTemp)
-        h2o.verboseprint("\nexecExpr:", execExpr)
-        return execExpr
+def fill_in_expr_template(exprTemplate, n, m):
+    execExpr = exprTemplate
+    execExpr = re.sub('<n>',str(n),execExpr)
+    execExpr = re.sub('<m>',str(m),execExpr)
+    h2o.verboseprint("\nexecExpr:", execExpr)
+    return execExpr
 
 def exec_expr(node, execExpr, trial, resultKey="Result.hex"):
-        start = time.time()
-        resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=70)
-        h2o.verboseprint(resultExec)
-        h2o.verboseprint('exec took', time.time() - start, 'seconds')
+    start = time.time()
+    resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=70)
+    h2o.verboseprint(resultExec)
+    h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
-        h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o.nodes[0].inspect("Result.hex")
-        h2o.verboseprint(h2o.dump_json(defaultInspect))
+    h2o.verboseprint("\nfirst look at the default Result key")
+    defaultInspect = h2o.nodes[0].inspect("Result.hex")
+    h2o.verboseprint(h2o.dump_json(defaultInspect))
 
-        h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
-        resultInspect = h2o.nodes[0].inspect(resultKey)
-        h2o.verboseprint(h2o.dump_json(resultInspect))
+    h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
+    resultInspect = h2o.nodes[0].inspect(resultKey)
+    h2o.verboseprint(h2o.dump_json(resultInspect))
 
-        ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-        ### if (h2o.check_sandbox_for_errors()):
-        ###     raise Exception(
-        ###     "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
+    ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+    ### if (h2o.check_sandbox_for_errors()):
+    ###     raise Exception(
+    ###     "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
 
-        ### print "Trial #", trial, "completed\n"
-        # use the result as the next thing to work on? (copy over)
-        return resultInspect
+    ### print "Trial #", trial, "completed\n"
+    return resultInspect
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -90,8 +82,7 @@ class Basic(unittest.TestCase):
         # zero the list of Results using node[0]
         # FIX! is the zerolist not eing seen correctl? is it not initializing to non-zero?
         for exprTemplate in initList:
-            exprTemp = list(exprTemplate)
-            execExpr = fill_in_expr_template(exprTemp, 0, "Result")
+            execExpr = fill_in_expr_template(exprTemplate, '0', '0')
             print execExpr
             execResult = exec_expr(h2o.nodes[0], execExpr, 0)
             ### print "\nexecResult:", execResult
@@ -101,8 +92,6 @@ class Basic(unittest.TestCase):
         trial = 0
         while (trial < 200):
             for exprTemplate in exprList:
-                # copy it to keep python from changing the original when I modify it below!
-                exprTemp = list(exprTemplate)
                 # for the first 100 trials: do each expression at node 0,
                 # for the second 100 trials: do each expression at a random node, to facilate key movement
                 # FIX! there's some problem with the initList not taking if rotated amongst nodes?
@@ -113,9 +102,8 @@ class Basic(unittest.TestCase):
                 ### print nodeX
                 
                 number = trial + 10
-                execExpr = fill_in_expr_template(exprTemp, number%period, (number-goback)%period)
-
-                # FIX! temp
+                execExpr = fill_in_expr_template(exprTemplate, 
+                    str(number%period), str((number-goback)%period))
                 execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr, number,
                     resultKey="Result" + str(number%period))
                 # FIX! we should be able to compare result against Trial #? 
@@ -138,7 +126,6 @@ class Basic(unittest.TestCase):
 
                 ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
                 trial += 1
-
 
 if __name__ == '__main__':
     h2o.unit_main()

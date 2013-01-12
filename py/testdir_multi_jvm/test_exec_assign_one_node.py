@@ -62,7 +62,6 @@ class Basic(unittest.TestCase):
     def test_exec_assign(self):
         ### h2b.browseTheCloud()
 
-        lenNodes = len(h2o.nodes)
         trial = 0
         while (trial < 200):
             for exprTemplate in initList:

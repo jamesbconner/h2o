@@ -2,20 +2,17 @@ import unittest
 import random, sys, time
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 zeroList = [
-        ['Result0 = 0'],
+        'Result0 = 0',
 ]
 
 # the first column should use this
 exprList = [
-        # ['Result','<n>',' = sum(','<keyX>','[', '<col1>', '])'],
+        # 'Result<n> = sum(<keyX>[<col1>])',
         # all sum to 179 if you use this. used to fail?
-        ['Result','<n>',' = sum(','<keyX>','[', '21', '])'],
+        'Result<n> = sum(<keyX>[21])',
     ]
 
 class Basic(unittest.TestCase):
@@ -68,8 +65,8 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
-            h2o_exec.exec_zero_list(zeroList)
-            colResultList = h2o_exec.exec_expr_list_across_cols(lenNodes, exprList, key2, 
+            h2e.exec_zero_list(zeroList)
+            colResultList = h2e.exec_expr_list_across_cols(lenNodes, exprList, key2, 
                 minCol=0, maxCol=54, timeoutSecs=timeoutSecs)
             print "\ncolResultList", colResultList
 

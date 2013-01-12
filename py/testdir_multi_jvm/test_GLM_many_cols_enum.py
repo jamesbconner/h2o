@@ -40,7 +40,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
 
     dsf.close()
 
-
 paramDict = {
     # 'key': ['cA'],
     'family': ['binomial'],
@@ -102,16 +101,14 @@ class Basic(unittest.TestCase):
             ]
 
         ### h2b.browseTheCloud()
-        lenNodes = len(h2o.nodes)
 
-        cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            cnum += 1
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            SEEDPERFILE = random.randint(0, sys.maxint)
+            csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "\nCreating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE, translateList)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']

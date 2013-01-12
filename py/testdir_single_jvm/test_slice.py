@@ -2,10 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 zeroList = []
 for i in range(5):
@@ -20,17 +17,11 @@ for i in range(5):
 # do we have to restrict ourselves?
 # 'makeEnum'
 exprList = [
-        ['MatrixRes','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
-
-        ['ColumnRes','<n>',' = ',
-            '<keyX>','[', '<col1>', '] + ',
-            '<keyX>','[', '<col2>', '] + ',
-            '<keyX>','[', '2', ']'
-        ],
-
-        ['ColumnRes','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', ']'],
-        ['ScalarRes','<n>',' = sum(','<keyX>','[', '<col1>', ']) + ScalarRes0'],
+        'MatrixRes<n> = slice(<keyX>[<col1>],<row>)',
+        'ColumnRes<n> = <keyX>[<col1>] + <keyX>[<col2>] + <keyX>[2]',
+        'ColumnRes<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',
+        'ColumnRes<n> = <keyX>[<col1>]',
+        'ScalarRes<n> = sum(<keyX>[<col1>]) + ScalarRes0',
     ]
 
 class Basic(unittest.TestCase):
@@ -56,7 +47,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_exec_import_hosts(self):
-        # just do the import folder once
         # importFolderPath = "/home/hduser/hdfs_datasets"
         importFolderPath = "/home/0xdiag/datasets"
         h2i.setupImportFolder(None, importFolderPath)
@@ -79,17 +69,12 @@ class Basic(unittest.TestCase):
         csvFilenameList = csvFilenameAll
         # h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
-
-        cnum = 0
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
-            cnum += 1
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['desination_key']:", parseKey['destination_key']
-
-            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
@@ -97,7 +82,6 @@ class Basic(unittest.TestCase):
             # we use colX+1 so keep it to 53
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
                 maxCol=53, maxRow=400000, maxTrials=200, timeoutSecs=timeoutSecs)
-
 
 if __name__ == '__main__':
     h2o.unit_main()

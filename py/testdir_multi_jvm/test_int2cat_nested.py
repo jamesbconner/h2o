@@ -57,24 +57,34 @@ class Basic(unittest.TestCase):
     def test_many_cols_int2cat(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
-            (100000,  10, 'cA', 100),
-            (100000,  20, 'cB', 100),
-            (100000,  30, 'cC', 100),
-            (100000,  40, 'cD', 100),
-            (100000,  10, 'cE', 100),
-            (100000,  20, 'cF', 100),
-            (100000,  30, 'cG', 100),
-            (100000,  40, 'cH', 100),
+            (1000,  10, 'cA', 100),
+            (1000,  20, 'cB', 100),
+            (1000,  30, 'cC', 100),
+            (1000,  40, 'cD', 100),
+            (1000,  10, 'cE', 100),
+            (1000,  20, 'cF', 100),
+            (1000,  30, 'cG', 100),
+            (1000,  40, 'cH', 100),
             ]
 
         ### h2b.browseTheCloud()
-        lenNodes = len(h2o.nodes)
-
         # we're going to do a special exec across all the columns to turn them into enums
         # including the duplicate of the output!
-        exprList = [
-                '<keyX> = colSwap(<keyX>,<col1>,factor(<keyX>[<col1>]))',
-            ]
+        if 1==0:
+            exprList = [
+                    '<keyX> = colSwap(<keyX>,<col1>,' +
+                                 'colSwap(<keyX>,<col2>,' +
+                                 'colSwap(<keyX>,<col1>,' +
+                                 'colSwap(<keyX>,<col2>,' +
+                                 '<keyX>[0]' +
+                                 '))))',
+                ]
+        else:
+            exprList = [
+                    '<keyX> = colSwap(<keyX>,<col1>,' + 
+                                 '<keyX>[0]' +
+                                 ')',
+                ]
 
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
             SEEDPERFILE = random.randint(0, sys.maxint)
@@ -86,7 +96,6 @@ class Basic(unittest.TestCase):
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
-
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 

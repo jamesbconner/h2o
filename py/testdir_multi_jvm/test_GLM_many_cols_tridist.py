@@ -2,10 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm, h2o_exec as h2e
 
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     # 8 random generatators, 1 per column
@@ -70,14 +67,10 @@ class Basic(unittest.TestCase):
         else:
             h2o_hosts.build_cloud_with_hosts()
 
-
     @classmethod
     def tearDownClass(cls):
         ### time.sleep(3600)
         h2o.tear_down_cloud()
-
-# http://192.168.1.171:55322/GLM.query?
-
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
@@ -100,16 +93,13 @@ class Basic(unittest.TestCase):
             ]
 
         ### h2b.browseTheCloud()
-        lenNodes = len(h2o.nodes)
-
-        cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            cnum += 1
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            SEEDPERFILE = random.randint(0, sys.maxint)
+            csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "\nCreating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']

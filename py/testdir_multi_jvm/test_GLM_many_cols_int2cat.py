@@ -85,20 +85,20 @@ class Basic(unittest.TestCase):
             ]
 
         ### h2b.browseTheCloud()
-        lenNodes = len(h2o.nodes)
 
         # we're going to do a special exec across all the columns to turn them into enums
         # including the duplicate of the output!
         exprList = [
-                ['<keyX>',' = colSwap(','<keyX>',',','<col1>',',factor(','<keyX>','[','<col1>',']))'],
+                '<keyX>= colSwap(<keyX>,<col1>,factor(<keyX>[<col1>]))',
             ]
 
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            SEEDPERFILE = random.randint(0, sys.maxint)
+            csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "\nCreating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE)
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']

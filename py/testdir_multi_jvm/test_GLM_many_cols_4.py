@@ -89,16 +89,14 @@ class Basic(unittest.TestCase):
             ]
 
         ### h2b.browseTheCloud()
-        lenNodes = len(h2o.nodes)
 
-        cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            cnum += 1
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            SEEDPERFILE = random.randint(0, sys.maxint)
+            csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "\nCreating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE, translateList)
 
             print "\nUpload and parse", csvPathname
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=240, retryDelaySecs=0.5)

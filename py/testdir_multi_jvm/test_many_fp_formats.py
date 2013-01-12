@@ -2,10 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 def write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE, sel):
     # we can do all sorts of methods off the r object
@@ -131,8 +128,6 @@ class Basic(unittest.TestCase):
                 parseKey = h2o_cmd.parseFile(None, csvPathname, key2=selKey2, timeoutSecs=5)
                 print csvFilename, 'parse time:', parseKey['response']['time']
                 print "Parse result['destination_key']:", parseKey['destination_key']
-
-                # We should be able to see the parse result?
                 inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
                 print "\n" + csvFilename
 

@@ -2,13 +2,9 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
-    # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
@@ -22,7 +18,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
-
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -60,22 +55,17 @@ class Basic(unittest.TestCase):
             ]
 
         ### h2b.browseTheCloud()
-        lenNodes = len(h2o.nodes)
-
-        cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            cnum += 1
+            SEEDPERFILE = random.randint(0, sys.maxint)
             csvFilename = 'syn_' + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
-
-            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 

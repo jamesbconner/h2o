@@ -4,9 +4,6 @@ sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 
-# the shared exec expression creator and executor
-import h2o_exec as h2e
-
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
@@ -17,14 +14,9 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowData = []
         rowTotal = 0
         for j in range(colCount):
-            # fails with just randint 0,1
-            # r = r1.randint(0,1)
-            # ri1 = r1.randint(0,1)
             ri1 = int(r1.gauss(1,.1))
-            # ri2 = r2.randint(0,20)
             # no NA
             ri2 = 1
-
             # 5% NA
             if (ri2==0):
                 # rs = ""
@@ -49,13 +41,11 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
     dsf.close()
 
-
 class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global SEED
         SEED = random.randint(0, sys.maxint)
-
         # SEED = 
         random.seed(SEED)
         print "\nUsing random seed:", SEED
@@ -66,12 +56,10 @@ class Basic(unittest.TestCase):
         else:
             h2o_hosts.build_cloud_with_hosts()
 
-
     @classmethod
     def tearDownClass(cls):
         ### time.sleep(3600)
         h2o.tear_down_cloud()
-
 
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
@@ -101,14 +89,13 @@ class Basic(unittest.TestCase):
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
-        cnum = 0
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            cnum += 1
-            csvFilename = 'syn_' + str(SEED) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
+            SEEDPERFILEPERFILE = random.randint(0, sys.maxint)
+            csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "Creating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEED)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE)
 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
@@ -143,12 +130,6 @@ class Basic(unittest.TestCase):
             if warnings:
                 for w in warnings:
                     if (re.search(x,w)): raise Exception(w)
-
-            # try new offset/view
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=100, view=100)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=99, view=89)
-            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'], offset=-1, view=53)
-
 
 if __name__ == '__main__':
     h2o.unit_main()

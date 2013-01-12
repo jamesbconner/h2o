@@ -12,14 +12,14 @@
     "java_heap_GB": 28, 
 
     "hdfs_name_node": "192.168.1.151",
-    "use_hdfs": true,
+    "use_hdfs": false,
 
     "use_flatfile": true,
 
-    "_ip": [
+    "ip": [
         "192.168.0.37"
     ],
-    "ip": [
+    "_ip": [
         "192.168.1.172", 
         "192.168.1.173", 
         "192.168.1.174", 
