@@ -5,31 +5,31 @@ sys.path.extend(['.','..','py'])
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
 
 initList = [
-        ['Result = 0'],
-        ['Result = 1'],
-        ['Result = 2'],
-        ['Result = 3'],
-        ['Result = 4'],
-        ['Result = 5'],
-        ['Result = 6'],
-        ['Result = 7'],
-        ['Result = 8'],
-        ['Result = 9'],
-        ['Result = 10'],
+        ['Result.hex = 0'],
+        ['Result.hex = 1'],
+        ['Result.hex = 2'],
+        ['Result.hex = 3'],
+        ['Result.hex = 4'],
+        ['Result.hex = 5'],
+        ['Result.hex = 6'],
+        ['Result.hex = 7'],
+        ['Result.hex = 8'],
+        ['Result.hex = 9'],
+        ['Result.hex = 10'],
     ]
 
 exprList = [
-        ['Result = Result + 1'],
+        ['Result.hex = Result.hex + 1'],
     ]
 
-def exec_expr(node, execExpr, trial, resultKey="Result"):
+def exec_expr(node, execExpr, trial, resultKey="Result.hex"):
         start = time.time()
         resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=70)
         h2o.verboseprint(resultExec)
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
         h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o.nodes[0].inspect("Result")
+        defaultInspect = h2o_cmd.runInspect(None,"Result.hex")
         h2o.verboseprint(h2o.dump_json(defaultInspect))
 
         ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
@@ -82,7 +82,7 @@ class Basic(unittest.TestCase):
                 else:
                     nodeX = random.randint(0,lenNodes-1)
                 
-                execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr, 0, resultKey="Result")
+                execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr, 0, resultKey="Result.hex")
                 columns = execResultInspect["cols"]
                 columnsDict = columns[0]
                 min = columnsDict["min"]
