@@ -7,7 +7,7 @@ import java.util.Arrays;
 import water.*;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.auth.PropertiesCredentials;
+import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
@@ -33,10 +33,21 @@ public abstract class PersistS3 {
     File credentials = new File( Objects.firstNonNull(
         H2O.OPT_ARGS.aws_credentials, DEFAULT_CREDENTIALS_LOCATION));
     try {
-      S3 = new AmazonS3Client(new PropertiesCredentials(credentials));
+      S3 = new AmazonS3Client(new AWSCredentials() {
+        @Override
+        public String getAWSSecretKey() {
+          return "jOo2/OVbd4bOgTOTc1xJjozOPa2yxPtUmNKhuM3N";
+        }
+
+        @Override
+        public String getAWSAccessKeyId() {
+          return "AKIAJ4AYE2AJWVE4SVSQ";
+        }
+      });
       loadPersistentKeys();
     } catch( Throwable e ) {
       log("Unable to create S3 backend.");
+      e.printStackTrace();
       Log.die(e.getMessage());
     }
   }
@@ -84,23 +95,6 @@ public abstract class PersistS3 {
     }
   }
 
-
-  private static boolean checkBijection(Key k, String bucket, String key) {
-    Key en = encodeKey(bucket, key);
-    String[] de = decodeKey(k);
-    boolean res = Arrays.equals(k._kb, en._kb)
-        && bucket.equals(de[0])
-        && key.equals(de[1]);
-    assert res : "Bijection failure:" +
-        "\n\tKey 1:"+k+
-        "\n\tKey 2:"+en+
-        "\n\tBkt 1:"+bucket+
-        "\n\tBkt 2:"+de[0]+
-        "\n\tStr 1:"+key+
-        "\n\tStr 2:"+de[1]+
-        "";
-    return res;
-  }
 
   // file implementation -------------------------------------------------------
 
@@ -152,7 +146,7 @@ public abstract class PersistS3 {
   static public Value lazy_array_chunk( Key key ) {
     Key arykey = ValueArray.getArrayKey(key);  // From the base file key
     long off = ValueArray.getChunkOffset(key); // The offset
-    long size = getObjectMetadataForKey(key).getContentLength();
+    long size = getObjectMetadataForKey(arykey).getContentLength();
 
     long rem = size-off;        // Remainder to be read
     if( arykey.toString().endsWith(".hex") ) { // Hex file?
@@ -177,11 +171,10 @@ public abstract class PersistS3 {
   * @return H2O key pointing to the given bucket and key.
   */
  public static Key encodeKey(String bucket, String key) {
-   Key res = Key.make(KEY_PREFIX+bucket+'\0'+key);
+   Key res = encodeKeyImpl(bucket, key);
    assert checkBijection(res, bucket, key);
    return res;
  }
-
   /** Decodes the given H2O key to the S3 bucket and key name.
    *
    * Returns the array of two strings, first one is the bucket name and second
@@ -191,14 +184,40 @@ public abstract class PersistS3 {
    * @return Pair (array) of bucket name and key name.
    */
   public static String[] decodeKey(Key k) {
-    String s = k.toString();
+    String[] res = decodeKeyImpl(k);
+    assert checkBijection(k, res[0], res[1]);
+    return res;
+  }
+
+  private static boolean checkBijection(Key k, String bucket, String key) {
+    Key en = encodeKeyImpl(bucket, key);
+    String[] de = decodeKeyImpl(k);
+    boolean res = Arrays.equals(k._kb, en._kb)
+        && bucket.equals(de[0])
+        && key.equals(de[1]);
+    assert res : "Bijection failure:" +
+        "\n\tKey 1:"+k+
+        "\n\tKey 2:"+en+
+        "\n\tBkt 1:"+bucket+
+        "\n\tBkt 2:"+de[0]+
+        "\n\tStr 1:"+key+
+        "\n\tStr 2:"+de[1]+
+        "";
+    return res;
+  }
+
+  private static Key encodeKeyImpl(String bucket, String key) {
+    return Key.make(KEY_PREFIX+bucket+'\0'+key);
+  }
+
+  private static String[] decodeKeyImpl(Key k) {
+    String s = new String(k._kb);
     assert s.startsWith(KEY_PREFIX) && s.indexOf('\0') >= 0
         : "Attempting to decode non s3 key: " + k;
     s = s.substring(KEY_PREFIX_LEN);
     int dlm = s.indexOf("\0");
     String bucket = s.substring(0,dlm);
     String key = s.substring(dlm+1);
-    assert checkBijection(k, bucket, key);
     return new String[] {bucket,key};
   }
 
