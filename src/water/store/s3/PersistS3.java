@@ -7,7 +7,6 @@ import java.util.Arrays;
 import water.*;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.PropertiesCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -22,7 +21,7 @@ public abstract class PersistS3 {
     System.err.printf("[s3] "+printf+"\n", args);
   }
 
-  private static AmazonS3 S3 = null;
+  public static final AmazonS3 S3;
   // Default location of the S3 credentials file
   private static final String DEFAULT_CREDENTIALS_LOCATION = "AwsCredentials.properties";
   private static final String KEY_PREFIX = "s3:";
@@ -33,59 +32,43 @@ public abstract class PersistS3 {
   static {
     File credentials = new File( Objects.firstNonNull(
         H2O.OPT_ARGS.aws_credentials, DEFAULT_CREDENTIALS_LOCATION));
+    AmazonS3 s3 = null;
     try {
-      S3 = new AmazonS3Client(new PropertiesCredentials(credentials));
-      loadPersistentKeys();
+      s3 = new AmazonS3Client(new PropertiesCredentials(credentials));
     } catch( Throwable e ) {
-      log("Unable to create S3 backend.");
       e.printStackTrace();
-      Log.die(e.getMessage());
+      log("Unable to create S3 backend.");
+      if( H2O.OPT_ARGS.aws_credentials == null )
+        log("You can specify a credentials properties file with the " +
+        		"-aws_credentials command line switch.");
     }
+    S3 = s3;
   }
 
+  public static Key loadKey(S3ObjectSummary obj) throws IOException {
+    Key k = encodeKey(obj.getBucketName(), obj.getKey());
+    long size = obj.getSize();
+    Value val = null;
+    if( obj.getKey().endsWith(".hex") ) { // Hex file?
+      S3Object s3obj = getObjectForKey(k, 0, ValueArray.CHUNK_SZ);
+      S3ObjectInputStream is = s3obj.getObjectContent();
 
-  // Load persistent keys from all the buckets
-  private static void loadPersistentKeys() {
-    for( Bucket b : S3.listBuckets() )
-      loadPersistentKeysFromBucket(b);
-    log("all keys loaded");
-  }
-
-  // Loads all keys from the given bucket.
-  private static void loadPersistentKeysFromBucket(Bucket b) {
-    log("Loading keys from bucket %s...", b.getName());
-    for( S3ObjectSummary obj : S3.listObjects(b.getName()).getObjectSummaries() ) {
-      log("  adding key %s", obj.getKey());
-      Key k = encodeKey(b.getName(), obj.getKey());
-      long size = obj.getSize();
-      Value val = null;
-      if( obj.getKey().endsWith(".hex") ) { // Hex file?
-        S3Object s3obj = getObjectForKey(k, 0, ValueArray.CHUNK_SZ);
-        S3ObjectInputStream is = s3obj.getObjectContent();
-
-        int sz = (int)Math.min(ValueArray.CHUNK_SZ, size);
-        byte[] mem = MemoryManager.malloc1(sz);
-        try {
-          ByteStreams.readFully(is, mem);
-        } catch( IOException e ) {
-          log("  error reading key:");
-          e.printStackTrace();
-          continue;
-        }
-        ValueArray ary = new ValueArray(k, sz, Value.S3).read(new AutoBuffer(mem));
-        ary._persist = Value.S3|Value.ON_dsk;
-        val = ary.value();
-      } else if( size >= 2*ValueArray.CHUNK_SZ ) {
-        // ValueArray byte wrapper over a large file
-        val = new ValueArray(k,size,Value.S3).value();
-      } else {
-        val = new Value(k,(int)size,Value.S3); // Plain Value
-      }
-      val.setdsk();
-      H2O.putIfAbsent_raw(k,val);
+      int sz = (int)Math.min(ValueArray.CHUNK_SZ, size);
+      byte[] mem = MemoryManager.malloc1(sz);
+      ByteStreams.readFully(is, mem);
+      ValueArray ary = new ValueArray(k, sz, Value.S3).read(new AutoBuffer(mem));
+      ary._persist = Value.S3|Value.ON_dsk;
+      val = ary.value();
+    } else if( size >= 2*ValueArray.CHUNK_SZ ) {
+      // ValueArray byte wrapper over a large file
+      val = new ValueArray(k,size,Value.S3).value();
+    } else {
+      val = new Value(k,(int)size,Value.S3); // Plain Value
     }
+    val.setdsk();
+    H2O.putIfAbsent_raw(k,val);
+    return k;
   }
-
 
   // file implementation -------------------------------------------------------
 
