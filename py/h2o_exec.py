@@ -195,10 +195,10 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
             if lenNodes is None:
                 execNode = 0
             else:
-                # execNode = random.randint(0,lenNodes-1)
+                ### execNode = random.randint(0,lenNodes-1)
+                ### print execNode
                 execNode = 0
 
-            print execNode
             execExpr = fill_in_expr_template(exprTemp, colX, colX, 0, key2)
             if incrementingResult: # the Result<col> pattern
                 resultKey = "Result"+str(colX)

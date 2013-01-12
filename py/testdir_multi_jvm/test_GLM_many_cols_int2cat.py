@@ -66,7 +66,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(3,java_heap_GB=8,use_flatfile=True)
+            h2o.build_cloud(3)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -106,9 +106,9 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            print "\Now running the int 2 enum exec command across all input cols"
+            print "\nNow running the int 2 enum exec command across all input cols"
             colResultList = h2e.exec_expr_list_across_cols(None, exprList, key2, maxCol=colCount, 
-                timeoutSecs=timeoutSecs, incrementingResult=False)
+                timeoutSecs=4, incrementingResult=False)
             print "\nexec colResultList", colResultList
 
             paramDict2 = {}
