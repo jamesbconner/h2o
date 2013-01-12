@@ -33,14 +33,14 @@ def write_syn_dataset(csvPathname, rowCount, SEED):
 
 zeroList = [
         ['Result0 = 0'],
-        ['Result = 0'],
+        ['Result.hex = 0'],
 ]
 
 exprList = [
         # this fails
         ['Result','<n>',' = max(','<keyX>','[', '<col1>', '])'],
         # this passes
-        # ['Result = sum(','<keyX>','[', '<col1>', '])'],
+        # ['Result.hex = sum(','<keyX>','[', '<col1>', '])'],
         # This passes
         # ['sum(','<keyX>','[', '<col1>', '])'],
     ]

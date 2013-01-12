@@ -659,16 +659,22 @@ class H2O(object):
         return a
 
     def exec_query(self, timeoutSecs=20, **kwargs):
-        params_dict = {
-            'Expr': None,
-            }
+        if new_json:
+            e = kwargs.pop('Expr',None)
+            params_dict = {
+                'Exec': e,
+                }
+        else:
+            params_dict = {
+                'Expr': None,
+                }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
         verboseprint("\nexec_query:", params_dict)
         a = self.__check_request(requests.get(
             # FIX! force to old because doesn't exist in new yet
             # url=self.__url('Exec.json', new=new_json),
-            url=self.__url('Exec.json', new=False),
+            url=self.__url('Exec.json', new=new_json),
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nexec_query result:", dump_json(a))

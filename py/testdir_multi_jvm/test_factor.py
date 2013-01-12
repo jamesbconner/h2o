@@ -35,7 +35,7 @@ zeroList = [
         ['Result2 = 0'],
         ['Result1 = 0'],
         ['Result0 = 0'],
-        ['Result = 0'],
+        ['Result.hex = 0'],
 ]
 
 exprList = [
@@ -64,7 +64,7 @@ exprList = [
         ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
         ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
         ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
+        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result.hex'],
     ]
 
 class Basic(unittest.TestCase):

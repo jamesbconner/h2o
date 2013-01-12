@@ -21,7 +21,7 @@ if (1==0):
             ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
             ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
             ['Result','<n>',' = mean(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-            ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
+            ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result.hex'],
         ]
 
 def checkForBadFP(min):
@@ -99,7 +99,7 @@ def fill_in_expr_template(exprTemp, colX, n, row, key2):
     return execExpr
 
 
-def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
+def exec_expr(node, execExpr, resultKey="Result.hex", timeoutSecs=10):
     start = time.time()
     resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
     ## print "HACK! do exec twice to avoid the race in shape/result against the next inspect"
@@ -112,8 +112,8 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     # normal
     if 1==1:
         h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o_cmd.runInspect(None, "Result")
-        min = checkScalarResult(defaultInspect, "Result")
+        defaultInspect = h2o_cmd.runInspect(None, "Result.hex")
+        min = checkScalarResult(defaultInspect, "Result.hex")
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
         resultInspect = h2o_cmd.runInspect(None, resultKey)
@@ -131,8 +131,8 @@ def exec_zero_list(zeroList):
     # zero the list of Results using node[0]
     for exprTemplate in zeroList:
         exprTemp = list(exprTemplate)
-        execExpr = fill_in_expr_template(exprTemp,0,0,0,"Result")
-        execResult = exec_expr(h2o.nodes[0], execExpr, "Result")
+        execExpr = fill_in_expr_template(exprTemp,0,0,0,"Result.hex")
+        execResult = exec_expr(h2o.nodes[0], execExpr, "Result.hex")
         ### print "\nexecResult:", execResult
 
 
@@ -162,10 +162,10 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
 
         execExpr = fill_in_expr_template(exprTemp, colX, ((trial+1)%4)+1, row, key2)
         execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
-            "Result", timeoutSecs)
+            "Result.hex", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
-        min = checkScalarResult(execResultInspect, "Result")
+        min = checkScalarResult(execResultInspect, "Result.hex")
 
         sys.stdout.write('.')
         sys.stdout.flush()

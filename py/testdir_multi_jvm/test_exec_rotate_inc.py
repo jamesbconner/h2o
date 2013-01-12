@@ -21,7 +21,7 @@ initList = [
     ]
 
 # NOTE. the inc has to match the goback used below
-goback = 4
+goback = 7
 exprList = [
         ['Result','<n>',' = Result','<m>',' + ' + str(goback)],
     ]
@@ -38,14 +38,14 @@ def fill_in_expr_template(exprTemp,n, m):
         h2o.verboseprint("\nexecExpr:", execExpr)
         return execExpr
 
-def exec_expr(node, execExpr, trial, resultKey="Result"):
+def exec_expr(node, execExpr, trial, resultKey="Result.hex"):
         start = time.time()
         resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=70)
         h2o.verboseprint(resultExec)
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
         h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o.nodes[0].inspect("Result")
+        defaultInspect = h2o.nodes[0].inspect("Result.hex")
         h2o.verboseprint(h2o.dump_json(defaultInspect))
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
@@ -92,10 +92,11 @@ class Basic(unittest.TestCase):
         for exprTemplate in initList:
             exprTemp = list(exprTemplate)
             execExpr = fill_in_expr_template(exprTemp, 0, "Result")
+            print execExpr
             execResult = exec_expr(h2o.nodes[0], execExpr, 0)
             ### print "\nexecResult:", execResult
 
-        period = 7
+        period = 10
         # start at result10, to allow goback of 10
         trial = 0
         while (trial < 200):
@@ -113,8 +114,10 @@ class Basic(unittest.TestCase):
                 
                 number = trial + 10
                 execExpr = fill_in_expr_template(exprTemp, number%period, (number-goback)%period)
+
+                # FIX! temp
                 execResultInspect = exec_expr(h2o.nodes[nodeX], execExpr, number,
-                    resultKey="Result" + str(trial%period))
+                    resultKey="Result" + str(number%period))
                 # FIX! we should be able to compare result against Trial #? 
                 # maybe divided by # len of the expresssion list
                 ### print "\nexecResult:", execResultInspect
@@ -123,9 +126,9 @@ class Basic(unittest.TestCase):
                 columnsDict = columns[0]
                 min = columnsDict["min"]
 
-                print min, execExpr
+                print "min:", min, "execExpr:", execExpr, "number:", number
                 h2o.verboseprint("min: ", min, "trial:", trial)
-                self.assertEqual(float(min), float(trial), 
+                self.assertEqual(int(min), int(number),
                     'Although the memory model allows write atomicity to be violated,' +
                     'this test was passing with an assumption of multi-jvm write atomicity' + 
                     'Be interesting if ever fails. Can disable assertion if so, and run without check')
