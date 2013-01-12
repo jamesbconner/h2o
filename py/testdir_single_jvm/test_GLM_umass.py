@@ -40,7 +40,8 @@ class Basic(unittest.TestCase):
             csvPathname2 = SYNDATASETS_DIR + '/' + csvFilename + '_stripped.csv'
             h2o_util.file_strip_trailing_spaces(csvPathname1, csvPathname2)
 
-            kwargs = {'xval': 0, 'case': 'NaN', 'family': family, 'link': 'familyDefault', 'Y': Y}
+            kwargs = {'xval': 0, 'case': 'NaN', 'Y': Y, \
+                    'family': family, 'norm': 'ELASTIC', 'lambda1': 1e-8, 'link': 'familyDefault'}
             start = time.time()
             glm = h2o_cmd.runGLM(csvPathname=csvPathname2, key=csvFilename, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
