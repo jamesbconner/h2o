@@ -11,6 +11,7 @@ import jsr166y.ForkJoinWorkerThread;
 import water.exec.Function;
 import water.hdfs.Hdfs;
 import water.nbhm.NonBlockingHashMap;
+import water.store.s3.PersistS3;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -715,6 +716,7 @@ public final class H2O {
     PersistIce.initialize();
     PersistNFS.initialize();
     if( OPT_ARGS.hdfs!=null ) Hdfs.initialize();
+    if( OPT_ARGS.aws_credentials!=null ) PersistS3.initialize();
   }
 
 
