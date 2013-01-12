@@ -16,6 +16,7 @@ public class Constants {
   public static final String BASE                  = "base";
   public static final String BEST_THRESHOLD        = "best_threshold";
   public static final String BIN_LIMIT             = "bin_limit";
+  public static final String BUCKET                = "bucket";
   public static final String CLASS                 = "class";
   public static final String CLOUD_NAME            = "cloud_name";
   public static final String CLOUD_SIZE            = "cloud_size";

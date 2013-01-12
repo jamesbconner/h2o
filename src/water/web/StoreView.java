@@ -1,15 +1,11 @@
 package water.web;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
-import water.DKV;
-import water.H2O;
-import water.Key;
-import water.Value;
-import water.ValueArray;
+
+import water.*;
+
+import com.google.gson.*;
 //import water.hdfs.PersistHdfs;
 
 public class StoreView extends H2OPage {
@@ -164,7 +160,7 @@ public class StoreView extends H2OPage {
     row.replace("value",sb);
     row.replace("size",val.length());
 
-    if(H2O.OPT_ARGS.hdfs != null && !val.onHDFS()){
+    if( H2O.OPT_ARGS.hdfs != null && !val.onHDFS() ) {
       RString hdfs = new RString("<a href='Store2HDFS?Key=%$key'><button class='btn btn-primary btn-mini'>store on HDFS</button></a>");
       hdfs.replace("key", key);
       row.replace("storeHdfs", hdfs.toString());
