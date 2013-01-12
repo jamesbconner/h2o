@@ -37,7 +37,7 @@ def exec_expr(node, execExpr, trial, resultKey="Result"):
         ###     raise Exception(
         ###     "Found errors in sandbox stdout or stderr, on trial #%s." % trial)
 
-        return resultInspect
+        return defaultInspect
 
 class Basic(unittest.TestCase):
     @classmethod
