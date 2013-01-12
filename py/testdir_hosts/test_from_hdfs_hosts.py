@@ -64,17 +64,43 @@ class Basic(unittest.TestCase):
         firstglm = {}
         for csvFilename in csvFilenameList:
             # creates csvFilename.hex from file in hdfs dir 
-            parseKey = h2i.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000)
+            parseKey = h2i.parseHdfsFile(csvFilename=csvFilename, timeoutSecs=1000, retryDelaySecs=1.0)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "parse result:", parseKey['destination_key']
             # I use this if i want the larger set in my localdir
+            inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
+
+            print h2o.dump_json(inspect)
+            cols = inspect['cols']
+
+            # look for nonzero badat count in each col
+            for i, colDict in enumerate(cols):
+                badat = colDict['badat']
+                if badat != 0:
+                    print "%s: col: %d, badat: %d" % csvFilename, i, badat
+
+            print h2o.dump_json(cols[0])
+
+            num_columns = inspect['num_columns']
+            num_rows = inspect['num_rows']
+            row_size = inspect['row_size']
+            ptype = inspect['type']
+            value_size_bytes = inspect['value_size_bytes']
+            response = inspect['response']
+            time = response['time']
+
+            print "num_columns: %s, num_rows: %s, row-size: %s, ptype: %s, \
+                   value_size_bytes: %s, response: %s, time; %s" % \
+                   num_columns, num_rows, row_size, ptype, value_size_bytes, response, time
+
+            h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
 
             print "\n" + csvFilename
-            start = time.time()
-            RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=2000)
-            h2b.browseJsonHistoryAsUrlLastMatch("RFView")
-            # wait in case it recomputes it
-            time.sleep(10)
+#             start = time.time()
+#             RFview = h2o_cmd.runRFOnly(trees=1,parseKey=parseKey,timeoutSecs=2000)
+#             h2b.browseJsonHistoryAsUrlLastMatch("RFView")
+#             # wait in case it recomputes it
+#             time.sleep(10)
 
             sys.stdout.write('.')
             sys.stdout.flush() 

@@ -40,10 +40,11 @@ paramDict = {
     'parallel': [None,0,1],
     'ignore': [None,0,1,2,3,4,5,6,7,8,9],
     'sample': [None,20,40,60,80,100],
-    'seed': [None,'0','1','11111','19823134','0x1231231'],
+    'seed': [None,'0','1','11111','19823134','1231231'],
     # stack trace if we use more features than legal. dropped or redundanct cols reduce 
     # legal max also.
     'features': [None,1,3,5,7,9,11,13,17,19,23,37,53],
+    'exclusive_split_limit': [None,0,3,5],
     'stratify': [None,0,1,1,1,1,1,1,1,1,1],
     'strata': [
         None,

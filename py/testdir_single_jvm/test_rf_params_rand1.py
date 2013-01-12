@@ -44,6 +44,8 @@ paramDict = {
     'sample': [None,20,40,60,80,100],
     'seed': [None,'0','1','11111','19823134','1231231'],
     'features': [None,1,2,3,4,5,6,7,8,9],
+    # only works on new
+    'exclusive_split_limit': [None,0,3,5],
 # FIX! other test shows the problems with strata (index -1 errors)
 #     'stratify': [None,0,1,1,1,1,1,1,1,1,1],
 #     'strata': [

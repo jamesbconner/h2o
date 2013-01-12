@@ -705,6 +705,11 @@ class H2O(object):
                 'model_key': modelKey,
                 'depth': 30,
                 }
+            classWt = kwargs.pop('classWt', None)
+            if classWt: params_dict['class_weights'] = classWt
+            binLimit = kwargs.pop('binLimit', None)
+            if binLimit: params_dict['bin_limit'] = binLimit
+
         else:
             params_dict = {
                 'Key': key,

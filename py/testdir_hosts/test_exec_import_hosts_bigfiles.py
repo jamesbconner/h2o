@@ -52,11 +52,11 @@ def exec_expr(node, execExpr, resultKey="Result"):
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
         h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o.nodes[0].inspect("Result")
+        defaultInspect = h2o_cmd.runInspect("Result")
         h2o.verboseprint(h2o.dump_json(defaultInspect))
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
-        resultInspect = h2o.nodes[0].inspect(resultKey)
+        resultInspect = h2o_cmd.runInspect(resultKey)
         h2o.verboseprint(h2o.dump_json(resultInspect))
 
         ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
