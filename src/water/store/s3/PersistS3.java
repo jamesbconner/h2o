@@ -8,6 +8,7 @@ import water.*;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.PropertiesCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
@@ -33,17 +34,7 @@ public abstract class PersistS3 {
     File credentials = new File( Objects.firstNonNull(
         H2O.OPT_ARGS.aws_credentials, DEFAULT_CREDENTIALS_LOCATION));
     try {
-      S3 = new AmazonS3Client(new AWSCredentials() {
-        @Override
-        public String getAWSSecretKey() {
-          return "jOo2/OVbd4bOgTOTc1xJjozOPa2yxPtUmNKhuM3N";
-        }
-
-        @Override
-        public String getAWSAccessKeyId() {
-          return "AKIAJ4AYE2AJWVE4SVSQ";
-        }
-      });
+      S3 = new AmazonS3Client(new PropertiesCredentials(credentials));
       loadPersistentKeys();
     } catch( Throwable e ) {
       log("Unable to create S3 backend.");
