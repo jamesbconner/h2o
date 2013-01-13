@@ -31,7 +31,7 @@ public class GLMGrid extends Request {
   // Need a HEX key for GLM
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   // Column to classify on
-  protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
+  protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
   // Columns used to run the GLM
   protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
 

@@ -1542,19 +1542,17 @@ public class RequestArguments extends RequestStatics {
   // ---------------------------------------------------------------------------
 
   public class H2OHexKeyCol extends InputSelect<Integer> {
-
     public final int _defaultCol;
-
     public final H2OHexKey _key;
 
-    public H2OHexKeyCol(H2OHexKey key, String name) {
+    public H2OHexKeyCol(String name, H2OHexKey key) {
       super(name, true);
       _key = key;
       _defaultCol = 0;
       addPrerequisite(key);
     }
 
-    public H2OHexKeyCol(H2OHexKey key, String name, int defaultCol) {
+    public H2OHexKeyCol(String name, H2OHexKey key, int defaultCol) {
       super(name, false);
       _key = key;
       _defaultCol = defaultCol;
@@ -1596,8 +1594,8 @@ public class RequestArguments extends RequestStatics {
   }
 
   public class HexKeyClassCol extends H2OHexKeyCol {
-    public HexKeyClassCol(H2OHexKey key, String name) {
-      super(key, name, -1);
+    public HexKeyClassCol(String name, H2OHexKey key ) {
+      super(name, key, -1);
     }
 
     @Override protected Integer parse(String input) throws IllegalArgumentException {
@@ -1700,13 +1698,11 @@ public class RequestArguments extends RequestStatics {
   // ---------------------------------------------------------------------------
 
   public class H2OCategoryWeights extends MultipleText<double[]> {
-
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
-
     public final double _defaultValue;
 
-    public H2OCategoryWeights(H2OHexKey key, H2OHexKeyCol classCol, String name, double defaultValue) {
+    public H2OCategoryWeights(String name, H2OHexKey key, H2OHexKeyCol classCol, double defaultValue) {
       super(name,false);
       _key = key;
       _classCol = classCol;
@@ -1812,13 +1808,11 @@ public class RequestArguments extends RequestStatics {
   // ---------------------------------------------------------------------------
 
   public class H2OCategoryStrata extends MultipleText<int[]> {
-
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
-
     public final int _defaultValue;
 
-    public H2OCategoryStrata(H2OHexKey key, H2OHexKeyCol classCol, String name, int defaultValue) {
+    public H2OCategoryStrata(String name, H2OHexKey key, H2OHexKeyCol classCol, int defaultValue) {
       super(name,false);
       _key = key;
       _classCol = classCol;
