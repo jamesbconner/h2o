@@ -2,8 +2,7 @@ package water.api;
 
 import java.io.IOException;
 
-import water.H2O;
-import water.Key;
+import water.*;
 import water.store.s3.PersistS3;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
@@ -65,6 +64,7 @@ public class ImportS3 extends Request {
     }
     json.add(SUCCEEDED, succ);
     json.add(FAILED, fail);
+    DKV.write_barrier();
 
     Response r = Response.done(json);
     r.setBuilder(SUCCEEDED+"."+KEY, new KeyCellBuilder());

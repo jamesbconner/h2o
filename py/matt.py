@@ -7,7 +7,8 @@ h2o.parse_our_args()
 
 try:
     print 'Building cloud'
-    h2o.build_cloud(3, java_heap_GB=1, capture_output=False, aws_credentials='/tmp/key.props')
+    #h2o.build_cloud(2, java_heap_GB=1, capture_output=False, aws_credentials='/tmp/key.props')
+    h2o.nodes = [ h2o.ExternalH2O() ]
     print 'Importing'
     h2o.nodes[0].import_s3('test-s3-integration')
     print 'Parsing'

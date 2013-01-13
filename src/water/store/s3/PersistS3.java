@@ -66,7 +66,7 @@ public abstract class PersistS3 {
       val = new Value(k,(int)size,Value.S3); // Plain Value
     }
     val.setdsk();
-    H2O.putIfAbsent_raw(k,val);
+    DKV.put(k, val);
     return k;
   }
 
