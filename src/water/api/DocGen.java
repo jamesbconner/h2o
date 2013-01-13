@@ -38,6 +38,9 @@ public class DocGen {
       f = new File(f, "h2o_base.py");
     }
     IndentingAppender ia = new IndentingAppender(Files.newWriter(f, Charsets.UTF_8));
+    ia.appendln("##################################");
+    ia.appendln("### GENERATED CODE DO NOT EDIT ###");
+    ia.appendln("##################################");
     ia.appendln("import requests");
     ia.appendln("");
     ia.appendln("class H2OBase(object):");
