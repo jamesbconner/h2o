@@ -181,15 +181,15 @@ public abstract class PersistS3 {
   }
 
   private static Key encodeKeyImpl(String bucket, String key) {
-    return Key.make(KEY_PREFIX+bucket+'\0'+key);
+    return Key.make(KEY_PREFIX+bucket+'/'+key);
   }
 
   private static String[] decodeKeyImpl(Key k) {
     String s = new String(k._kb);
-    assert s.startsWith(KEY_PREFIX) && s.indexOf('\0') >= 0
+    assert s.startsWith(KEY_PREFIX) && s.indexOf('/') >= 0
         : "Attempting to decode non s3 key: " + k;
     s = s.substring(KEY_PREFIX_LEN);
-    int dlm = s.indexOf("\0");
+    int dlm = s.indexOf('/');
     String bucket = s.substring(0,dlm);
     String key = s.substring(dlm+1);
     return new String[] {bucket,key};
