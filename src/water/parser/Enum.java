@@ -37,15 +37,15 @@ public final class Enum extends Iced {
    * All keys are added with value = 1.
    * @param str
    */
-  void addKey(ValueString str){
+  void addKey(ValueString str) {
     // _map is shared and be cast to null (if enum is killed) -> grab local copy
     NonBlockingHashMap<ValueString, Integer> m = _map;
-    if(m == null)return;
-    if(m.get(str) == null){
-      m.put(new ValueString(Arrays.copyOfRange(str._buf, str._off, str._off + str._length)), 1);
-      if(m.size() > MAX_ENUM_SIZE)
-        kill();
-    }
+    if( m == null ) return;     // Nuked already
+    if( m.get(str) != null ) return; // Recorded already
+    assert str._length < 65535;      // Length limit so 65535 can be used as a sentinel
+    m.put(new ValueString(Arrays.copyOfRange(str._buf, str._off, str._off + str._length)), 1);
+    if(m.size() > MAX_ENUM_SIZE)
+      kill();
   }
 
   public void addKey(String str) {
@@ -62,18 +62,15 @@ public final class Enum extends Iced {
   }
 
   public void merge(Enum other){
-    if(this != other) {
-      if(isKilled() || other.isKilled()){
-        kill(); // too many values, enum should be killed!
-      } else { // do the merge
-        NonBlockingHashMap<ValueString, Integer> myMap = _map;
-        for(ValueString str:other._map.keySet()){
-          myMap.put(str, 0);
-        }
-        if(myMap.size() > MAX_ENUM_SIZE)
-          kill();
-      }
+    if( this == other ) return;
+    if( isKilled() ) return;
+    if( !other.isKilled() ) {   // do the merge
+      NonBlockingHashMap<ValueString, Integer> myMap = _map;
+      for( ValueString str : other._map.keySet() )
+        myMap.put(str, 0);
+      if( myMap.size() <= MAX_ENUM_SIZE ) return;
     }
+    kill(); // too many values, enum should be killed!
   }
   public int size() { return _map.size(); }
   public boolean isKilled() { return _map == null; }
@@ -96,22 +93,25 @@ public final class Enum extends Iced {
     return res;
   }
 
+  // Since this is a *concurrent* hashtable, writing it whilst its being
+  // updated is tricky.  If the table is NOT being updated, then all is written
+  // as expected.  If the table IS being updated we only promise to write the
+  // Keys that existed at the time the table write began.  If elements are
+  // being deleted, they may be written anyways.  If the Values are changing, a
+  // random Value is written.
   public AutoBuffer write( AutoBuffer ab ) {
-    if( _map == null ) return ab.put4(0);
-    ab.put4(_map.size());
-    for( Map.Entry<ValueString,Integer> e : _map.entrySet() )
-      ab.putA1(e.getKey()._buf).put4(e.getValue());
-    return ab;
+    if( _map != null ) 
+      for( ValueString key : _map.keySet() )
+        ab.put2((char)key._length).putA1(key._buf,key._length).put4(_map.get(key));
+    return ab.put2((char)65535); // End of map marker
   }
 
   public Enum read( AutoBuffer ab ) {
     assert _map == null || _map.size()==0;
     _map = new NonBlockingHashMap<ValueString, Integer>();
-    int n = ab.get4();
-    for( int i=0; i<n; i++ ) {
-      byte[] buf = ab.getA1();
-      _map.put(new ValueString(buf),ab.get4());
-    }
+    int len = 0;
+    while( (len = ab.get2()) != 65535 ) // Read until end-of-map marker
+      _map.put(new ValueString(ab.getA1(len)),ab.get4());
     return this;
   }
 }

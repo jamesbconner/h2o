@@ -517,7 +517,6 @@ class Log extends Function {
 class MakeEnum extends Function {
 
   static class GetEnumTask extends MRTask {
-
     water.parser.Enum _domain;
     final int _colIndex;
     final Key _aryKey;
@@ -553,11 +552,9 @@ class MakeEnum extends Function {
         _domain.merge(other._domain);
       }
     }
-
   }
 
   static class PackToEnumTask extends MRTask {
-
     final water.parser.Enum _domain;
     final Key _resultKey;
     final Key _sourceKey;
