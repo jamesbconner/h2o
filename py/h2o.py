@@ -658,6 +658,13 @@ class H2O(object):
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 
+    def import_s3(self, bucket, repl=None):
+        a = self.__check_request(requests.get(
+            self.__url('ImportS3.json', new=True),
+            params={"bucket": bucket}))
+        verboseprint("\nimport_folder result:", dump_json(a))
+        return a
+
     def exec_query(self, timeoutSecs=20, **kwargs):
         if new_json:
             e = kwargs.pop('Expr',None)
@@ -1081,16 +1088,19 @@ class H2O(object):
 
         if not self.sigar:
             args += ['--nosigar']
+
+        if self.aws_credentials:
+            args += [ '--aws_credentials='+self.aws_credentials ]
         return args
 
     def __init__(self, 
         use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, use_debugger=None, classpath=None,
         use_hdfs=False, hdfs_name_node="192.168.1.151", hdfs_root="/datasets", hdfs_version="cdh4",
-        hdfs_nopreload=None,
+        hdfs_nopreload=None, aws_credentials=None,
         use_flatfile=False, java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
-
+        self.aws_credentials = aws_credentials
         self.port = port
         # None is legal for self.addr. means we won't give an ip to the jar when we start, and it should
         # figure out the right thing. Or we can say use use_this_ip_addr=127.0.0.1, or the known address 
