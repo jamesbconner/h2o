@@ -11,23 +11,10 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
     for i in range(rowCount):
         rowData = []
+        # having reals makes it less likely to fail to converge?
         for j in range(colCount):
-            # fails with just randint 0,1
-            # r = r1.randint(0,1)
-            # ri1 = r1.randint(0,1)
             ri1 = int(r1.gauss(1,.1))
-            # ri2 = r2.randint(0,20)
-            # no NA
-            ri2 = 1
-
-            # 5% NA
-            if (ri2==0):
-                # rs = ""
-                r = ri1
-            else:
-                r = ri1
-
-            rowData.append(r + 0.1)
+            rowData.append(ri1 + 0.1) # odd bias shift
 
         # sum the row, and make output 1 if > (5 * rowCount)
         rowTotal = sum(rowData)

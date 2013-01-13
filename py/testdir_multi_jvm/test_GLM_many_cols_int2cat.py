@@ -8,6 +8,7 @@ import h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     r1 = random.Random(SEED)
+    r2 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -17,18 +18,11 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             rowData.append(ri1)
 
         rowTotal = sum(rowData)
+        result = r2.randint(0,1)
 
-        if (rowTotal > (1.6 * colCount)): 
-            result = 1
-        else:
-            result = 0
-
-        ### print colCount, rowTotal, result
+        print colCount, rowTotal, result
         rowDataStr = map(str,rowData)
         rowDataStr.append(str(result))
-        # add the output twice, to try to match to it?
-        rowDataStr.append(str(result))
-
         rowDataCsv = ",".join(rowDataStr)
         dsf.write(rowDataCsv + "\n")
 
@@ -112,7 +106,7 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
             # since we add the output twice, it's no longer colCount-1
-            y = colCount+1
+            y = colCount
             kwargs = {'y': y, 'max_iter': 50, 'case': 1}
             kwargs.update(paramDict2)
 

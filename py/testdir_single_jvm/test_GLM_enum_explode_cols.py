@@ -34,30 +34,14 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowData = []
         rowTotal = 0
         # -1 because we're copying the output col down below
-        for j in range(colCount-1):
+        for j in range(colCount):
             ri1 = int(r1.triangular(0,4,3.5))
-            ri2 = 1
+            rowData.append(ri1)
 
-            # 5% NA
-            if (ri2==0):
-                # rs = ""
-                rs = ri1
-            else:
-                rs = ri1
-
-            rowData.append(str(rs))
-            rowTotal += rs
-
-        # sum the row, and make output 1 if > (5 * rowCount)
-        if (rowTotal > (2 * colCount)): 
-            result = 1
-        else:
-            result = 0
-        rowData.append(str(result))
-        # add the output twice, to try to match to it?
+        result = r2.randint(0,1)
         rowData.append(str(result))
         ### print colCount, rowTotal, result
-        rowDataCsv = ",".join(rowData)
+        rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
@@ -125,7 +109,7 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
-            y = colCount - 1
+            y = colCount
             kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
             kwargs.update(paramDict2)
 

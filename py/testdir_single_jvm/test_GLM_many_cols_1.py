@@ -15,28 +15,15 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowTotal = 0
         for j in range(colCount):
             ri1 = int(r1.gauss(1,.1))
-            # no NA
-            ri2 = 1
-            # 5% NA
-            if (ri2==0):
-                # rs = ""
-                rs = ri1
-            else:
-                rs = ri1
+            rowData.append(ri1)
 
-            rowData.append(str(rs))
-            rowTotal += rs
-
-        # sum the row, and make output 1 if > (5 * rowCount)
-        if (rowTotal > (0.5 * colCount)): 
-            result = 1
-        else:
-            result = 0
+        result = r2.randint(0,1)
         rowData.append(str(result))
         # add the output twice, to try to match to it?
-        rowData.append(str(result))
+        # Hauck Donner effect. Can't have copy of output in the input??
+        # http://kups.ku.edu/maillist/classes/ps707/2005/msg00023.html
         ### print colCount, rowTotal, result
-        rowDataCsv = ",".join(rowData)
+        rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
@@ -64,26 +51,16 @@ class Basic(unittest.TestCase):
     def test_many_cols_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
-            (1000, 101, 'cA', 300),
-            (1000, 201, 'cB', 300),
-            (1000, 301, 'cC', 300),
-            (1000, 401, 'cD', 300),
+            # (1000, 101, 'cA', 300),
+            # (1000, 201, 'cB', 300),
+            # (1000, 301, 'cC', 300),
+            # (1000, 401, 'cD', 300),
             (1000, 501, 'cE', 300),
             (1000, 601, 'cF', 300),
             (1000, 701, 'cG', 300),
             (1000, 801, 'cH', 300),
             (1000, 901, 'cI', 300),
             (1000, 1001, 'cJ', 300),
-            (1000, 2001, 'cK', 300),
-            (1000, 3001, 'cL', 300),
-            (1000, 4001, 'cM', 300),
-            (1000, 5001, 'cN', 300),
-            (100, 6001, 'cO', 300),
-            (100, 7001, 'cP', 300),
-            (100, 8001, 'cQ', 300),
-            (100, 9001, 'cR', 300),
-            (100, 10001, 'cS', 300),
-            (100, 11001, 'cT', 300),
             ]
 
         ### h2b.browseTheCloud()
@@ -103,8 +80,8 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            y = colCount - 1
-            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN', 'norm': 'L2', 'lambda1': 1e-4}
+            y = colCount
+            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN', 'norm': 'ELASTIC'}
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)

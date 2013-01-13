@@ -14,7 +14,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             ri1 = r1.randint(0,1)
             rowData.append(ri1)
 
-        rowDataCsv = ",".join(map(str,rowData0)
+        rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()

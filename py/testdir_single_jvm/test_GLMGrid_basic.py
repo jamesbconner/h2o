@@ -14,14 +14,14 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_B_benign(self):
-        print "\nStarting benign.csv"
         csvFilename = "benign.csv"
+        print "\nStarting", csvFilename 
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
         # columns start at 0
         # cols 0-13. 3 is output
         # no member id in this one
-        Y = "3"
+        y = "3"
         xList = []  
         for appendx in xrange(14):
             if (appendx == 0): 
@@ -34,8 +34,6 @@ class Basic(unittest.TestCase):
         x = ','.join(map(str, xList))
 
         # just run the test with all x, not the intermediate results
-        csvFilename = "benign.csv"
-        csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         print "\nx:", x
         print "y:", y
         
@@ -60,13 +58,13 @@ class Basic(unittest.TestCase):
         h2o_glm.simpleCheckGLMGrid(self, gg, None, **kwargs)
 
     def test_C_prostate(self):
-        print "\nStarting prostate.csv"
-        # columns start at 0
         csvFilename = "prostate.csv"
+        print "\nStarting", csvFilename
+        # columns start at 0
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
 
-        Y = "1"
+        y = "1"
         xList = []  
         for appendx in xrange(9):
             if (appendx == 0):

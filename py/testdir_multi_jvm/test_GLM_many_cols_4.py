@@ -9,12 +9,12 @@ import h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
     # do we need more than one random generator?
     r1 = random.Random(SEED)
+    r2 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
         rowData = []
         for j in range(colCount):
-            ### ri1 = int(r1.triangular(0,2,1.5))
             ri1 = int(r1.triangular(0,4,2.5))
             rowData.append(ri1)
 
@@ -23,18 +23,10 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
             for i, iNum in enumerate(rowData):
                 rowData[i] = translateList[iNum]
 
-        ### if (rowTotal > (.7 * colCount)): 
-        if (rowTotal > (1.6 * colCount)): 
-            result = 1
-        else:
-            result = 0
-
+        result = r2.randint(0,1)
         ### print colCount, rowTotal, result
         rowDataStr = map(str,rowData)
         rowDataStr.append(str(result))
-        # add the output twice, to try to match to it?
-        rowDataStr.append(str(result))
-
         rowDataCsv = ",".join(rowDataStr)
         dsf.write(rowDataCsv + "\n")
 
@@ -79,7 +71,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_many_cols_with_syn(self):
+    def test_GLM_many_cols_4(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
@@ -110,7 +102,7 @@ class Basic(unittest.TestCase):
                 paramDict2[k] = paramDict[k][0]
 
             # since we add the output twice, it's no longer colCount-1
-            y = colCount + 1
+            y = colCount
             kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
             kwargs.update(paramDict2)
 

@@ -9,6 +9,7 @@ import h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
     # do we need more than one random generator?
     r1 = random.Random(SEED)
+    r2 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -23,17 +24,13 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
             for i, iNum in enumerate(rowData):
                 rowData[i] = translateList[iNum]
 
-        ### if (rowTotal > (.7 * colCount)): 
-        if (rowTotal > (1.6 * colCount)): 
-            result = 1
-        else:
-            result = 0
-
+        result = r2.randint(0,1)
         ### print colCount, rowTotal, result
         rowDataStr = map(str,rowData)
         rowDataStr.append(str(result))
         # add the output twice, to try to match to it?
-        rowDataStr.append(str(result))
+        # can't include output in input, pefect separation, failure to converge?
+        ### rowDataStr.append(str(result))
 
         rowDataCsv = ",".join(rowDataStr)
         dsf.write(rowDataCsv + "\n")
@@ -121,8 +118,7 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
-            # since we add the output twice, it's no longer colCount-1
-            y = colCount+1
+            y = colCount
             kwargs = {'y': y, 'max_iter': 50, 'case': 1}
             kwargs.update(paramDict2)
 
@@ -130,7 +126,7 @@ class Basic(unittest.TestCase):
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
-            print "Y:", Y 
+            print "y:", y 
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 
             if not h2o.browse_disable:

@@ -7,6 +7,7 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm, h
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
+    r2 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -14,33 +15,29 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowTotal = 0
         for j in range(colCount):
             ri1 = int(r1.triangular(0,2,1.5))
-            rowData.append(str(ri1))
-            rowTotal += ri1
+            rowData.append(ri1)
 
-        # sum the row, and make output 1 if > (5 * rowCount)
-        if (rowTotal > (.7 * colCount)): 
-            result = 1
-        else:
-            result = 0
+        result = r2.randint(0,1)
         rowData.append(str(result))
         # add the output twice, to try to match to it?
-        rowData.append(str(result))
+        # can't duplicate output in input, perfect separation, failure to converge
+        ### rowData.append(str(result))
         ### print colCount, rowTotal, result
-        rowDataCsv = ",".join(rowData)
+        rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
 
 paramDict = {
     'family': ['binomial'],
-    'norm': ['L2'],
+    'norm': ['ELASTIC'],
     'lambda_1': [1.0E-5],
     'lambda_2': [1.0E-8],
     'alpha': [1.0],
     'rho': [0.01],
     'max_iter': [50],
     'weight': [1.0],
-    'threshold': [0.5],
+    'threshold': [0.4],
     'case': ['NaN'],
     # 'link': [familyDefault],
     'xval': [1],
@@ -110,7 +107,7 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
-            y = colCount - 1
+            y = colCount
             kwargs = {'y': y, 'case': 'NaN'}
             kwargs.update(paramDict2)
 
