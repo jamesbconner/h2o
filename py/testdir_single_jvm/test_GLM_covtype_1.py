@@ -48,14 +48,14 @@ class Basic(unittest.TestCase):
     def test_D_covtype_xval_2(self):
         start = time.time()
         kwargs = {'Y': Y, 'norm': norm, 'xval': 2, 'case': 1}
-        glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
+        glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
         print "glm xval=2 end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
     def test_E_covtype_xval_10(self):
         start = time.time()
         kwargs = {'Y': Y, 'norm': norm, 'xval': 10, 'case': 1}
-        glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
+        glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
         print "glm xval=10 end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
