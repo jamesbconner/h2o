@@ -1,9 +1,8 @@
 package water.util;
 
-import java.io.Flushable;
-import java.io.IOException;
+import java.io.*;
 
-public class IndentingAppender implements Appendable, Flushable {
+public class IndentingAppender implements Appendable, Flushable, Closeable {
   private final String _indent;
   private final Appendable _a;
   private boolean _pendingNewline = false;
@@ -16,6 +15,9 @@ public class IndentingAppender implements Appendable, Flushable {
 
   public IndentingAppender incrementIndent() { ++_l; return this; }
   public IndentingAppender decrementIndent() { --_l; return this; }
+  public IndentingAppender appendln(CharSequence csq) throws IOException {
+    return append(csq, 0, csq.length()).append('\n');
+  }
 
   @Override public IndentingAppender append(CharSequence csq) throws IOException {
     return append(csq, 0, csq.length());
@@ -41,6 +43,12 @@ public class IndentingAppender implements Appendable, Flushable {
   public void flush() throws IOException {
     handlePending();
     if( _a instanceof Flushable ) ((Flushable) _a).flush();
+  }
+
+  @Override
+  public void close() throws IOException {
+    flush();
+    if( _a instanceof Closeable ) ((Closeable) _a).close();
   }
 
   private void handlePending() throws IOException {

@@ -1,16 +1,20 @@
 
 package water.api;
 
+import com.google.common.base.Objects;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import init.Boot;
+
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
 import water.*;
+import water.util.IndentingAppender;
 import water.web.RString;
 
 /** A basic class for a JSON request.
@@ -59,6 +63,37 @@ public abstract class Request extends RequestBuilders {
     }
     r.add(ARGUMENTS, args);
     return r;
+  }
+
+  protected void buildPython(IndentingAppender ia) throws IOException {
+    String name = getClass().getSimpleName();
+
+    ia.append("def ").append(name).append("(self");
+    ia.incrementIndent().incrementIndent();
+    for( Argument arg : _arguments ) {
+      ia.append(", ").append(arg._name);
+      if( !arg._required ) ia.append("=None");
+    }
+    ia.appendln("):");
+    ia.decrementIndent().decrementIndent();
+    ia.incrementIndent();
+    ia.appendln("'''");
+    ia.appendln(Objects.firstNonNull(_requestHelp, "MISSING HELP STRING"));
+
+    if( !_arguments.isEmpty() ) ia.appendln("Arguments:");
+    ia.incrementIndent();
+    for( Argument arg : _arguments ) {
+      ia.append(arg._name).append(" -- ");
+      if( arg._required ) ia.append("required -- ");
+      ia.appendln(arg.queryDescription());
+      ia.incrementIndent();
+      ia.appendln(Objects.firstNonNull(arg._requestHelp, "MISSING HELP STRING"));
+      ia.decrementIndent();
+    }
+    ia.decrementIndent();
+    ia.appendln("'''");
+    ia.appendln("pass");
+    ia.decrementIndent();
   }
 
   protected NanoHTTPD.Response wrap(NanoHTTPD server, String response) {
