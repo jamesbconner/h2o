@@ -108,8 +108,8 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            Y = colCount - 1
-            kwargs = {'Y': Y, 'iterations': 10, 'case': '0.1', 'norm': 'L2'}
+            y = colCount - 1
+            kwargs = {'y': y, 'max_iter': 50, 'case': '0.1', 'norm': 'L2'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

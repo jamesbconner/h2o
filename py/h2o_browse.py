@@ -10,12 +10,8 @@ def browseTheCloud():
     # disable browser stuff for jenkins
     if not h2o.browse_disable:
         # after cloud building, node[0] should have the right info for us
-        if h2o.new_json:
-            port = h2o.nodes[0].port + 2
-            cloud_url = "http://" + h2o.nodes[0].http_addr + ":" + str(port) + "/Cloud.html"
-        else:
-            port = h2o.nodes[0].port
-            cloud_url = "http://" + h2o.nodes[0].http_addr + ":" + str(port)
+        port = h2o.nodes[0].port + 2
+        cloud_url = "http://" + h2o.nodes[0].http_addr + ":" + str(port) + "/Cloud.html"
 
         # Open URL in new window, raising the window if possible.
         h2o.verboseprint("browseTheCloud:", cloud_url)
@@ -38,22 +34,9 @@ def browseJsonHistoryAsUrlLastMatch(matchme,swapme=None):
         # UPDATE: with the new API port, the browser stuff has .html
         # but we've not switched everything to new. So do it selectively
 
-        # this is always the new port
-        url = re.sub("Inspect.json","Inspect.html",json_url)
-
-        # this could be the old or new port
-        if h2o.new_json:
-            url = re.sub("Cloud.json","Cloud.html",url)
-            url = re.sub("GLM.json","GLM.html",url)
-            url = re.sub("GLMGrid.json","GLMGrid.html",url)
-            url = re.sub("RF.json","RF.html",url)
-            url = re.sub("RFView.json","RFView.html",url)
-            # these are auto re-directed. so no json suffix from python code
-            url = re.sub("GLMProgress","GLMProgress.html",url)
-            url = re.sub("GLMGridProgress","GLMGridProgress.html",url)
-
+        url = json_url
         if swapme is not None: url = re.sub(matchme, swapme, url)
-        url = re.sub(".json","",url)
+        url = re.sub(".json",".html",url)
 
         h2o.verboseprint("browseJsonHistoryAsUrlLastMatch:", url)
         h2o.verboseprint("same, decoded:", urllib.unquote(url))

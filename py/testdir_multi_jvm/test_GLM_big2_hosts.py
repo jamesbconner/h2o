@@ -30,20 +30,18 @@ class Basic(unittest.TestCase):
         h2b.browseTheCloud()
 
         # build up the parameter string in X
-        Y = "106"
-        X = ""
+        y = "106"
+        x = ""
 
         # go right to the big X and iterate on that case
         ### for trial in range(2):
         for trial in range(2):
             print "\nTrial #", trial, "start"
-            print "\nX:", X
-            print "Y:", Y
+            print "\nx:", x
+            print "y:", y
 
             start = time.time()
-            kwargs = {'X': X, 'Y': Y, 'xval': 7}
-            kwargs = {'X': X, 'Y': Y}
-            kwargs = {'Y': Y}
+            kwargs = {'y': y}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=200, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, 57, **kwargs)
 

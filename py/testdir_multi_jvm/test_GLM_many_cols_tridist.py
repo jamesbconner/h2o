@@ -32,9 +32,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     dsf.close()
 
 paramDict = {
-    # 'key': ['cA'],
     'family': ['binomial'],
-    # 'norm': ['ELASTIC'],
     'norm': ['L2'],
     'lambda_1': [1.0E-5],
     'lambda_2': [1.0E-8],
@@ -43,7 +41,6 @@ paramDict = {
     'max_iter': [50],
     'weight': [1.0],
     'threshold': [0.5],
-    # 'case': [NaN],
     'case': ['NaN'],
     # 'link': [familyDefault],
     'xval': [1],
@@ -72,7 +69,7 @@ class Basic(unittest.TestCase):
         ### time.sleep(3600)
         h2o.tear_down_cloud()
 
-    def test_many_cols_with_syn(self):
+    def test_GLM_many_cols_tridist(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
             (1000000,  10, 'cA', 300),
@@ -113,8 +110,8 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
-            Y = colCount - 1
-            kwargs = {'Y': Y, 'case': 'NaN'}
+            y = colCount - 1
+            kwargs = {'y': y, 'case': 'NaN'}
             kwargs.update(paramDict2)
 
             start = time.time()

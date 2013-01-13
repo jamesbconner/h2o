@@ -18,10 +18,10 @@ import copy
 def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     print "\nStarting parse of", csvFilename
     parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename, timeoutSecs=10)
-    Y = "10"
-    X = ""
+    y = "10"
+    x = ""
     # NOTE: hastie has two values, -1 and 1. To make H2O work if two valued and not 0,1 have
-    kwargs = {'X': X, 'Y':  Y, 'case': '1', 'destination_key': 'gg'}
+    kwargs = {'x': x, 'y':  y, 'case': '1', 'destination_key': 'gg'}
 
     start = time.time() 
     print "\nStarting GLMGrid of", csvFilename

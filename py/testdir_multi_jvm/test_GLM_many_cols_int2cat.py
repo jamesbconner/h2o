@@ -34,11 +34,8 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
     dsf.close()
 
-
 paramDict = {
-    # 'key': ['cA'],
     'family': ['binomial'],
-    # 'norm': ['ELASTIC'],
     'norm': ['L2'],
     'lambda_1': [1.0E-5],
     'lambda_2': [1.0E-8],
@@ -74,7 +71,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_many_cols_int2cat(self):
+    def test_GLM_many_cols_int2cat(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
             (10000,  10, 'cA', 100),
@@ -115,15 +112,15 @@ class Basic(unittest.TestCase):
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
             # since we add the output twice, it's no longer colCount-1
-            Y = colCount+1
-            kwargs = {'Y': Y, 'max_iter': 50, 'case': 1}
+            y = colCount+1
+            kwargs = {'y': y, 'max_iter': 50, 'case': 1}
             kwargs.update(paramDict2)
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
-            print "Y:", Y 
+            # only col y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
+            print "y:", y 
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 
             if not h2o.browse_disable:

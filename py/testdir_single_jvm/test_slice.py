@@ -2,7 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import, h2o_exec as h2e
 
 zeroList = []
 for i in range(5):
@@ -49,7 +49,7 @@ class Basic(unittest.TestCase):
     def test_exec_import_hosts(self):
         # importFolderPath = "/home/hduser/hdfs_datasets"
         importFolderPath = "/home/0xdiag/datasets"
-        h2i.setupImportFolder(None, importFolderPath)
+        h2o_import.setupImportFolder(None, importFolderPath)
 
         # make the timeout variable per dataset. it can be 10 secs for covtype 20x (col key creation)
         # so probably 10x that for covtype200
@@ -71,7 +71,7 @@ class Basic(unittest.TestCase):
         lenNodes = len(h2o.nodes)
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
             # creates csvFilename.hex from file in importFolder dir 
-            parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
+            parseKey = h2o_import.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['desination_key']:", parseKey['destination_key']

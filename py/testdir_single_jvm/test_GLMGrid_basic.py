@@ -23,29 +23,26 @@ class Basic(unittest.TestCase):
         # no member id in this one
         Y = "3"
         xList = []  
-        for appendX in xrange(14):
-            if (appendX == 0): 
+        for appendx in xrange(14):
+            if (appendx == 0): 
                 print "\nSkipping 0. Causes coefficient of 0 when used alone"
-            ## elif (appendX == 1): 
-            ##    print "\nSkipping 1. Causes NaN. Ok now, later though?"
-            ## elif (appendX == 2): 
-            ##     print "\nSkipping 2. Causes NaN. Ok now, later though?"
-            elif (appendX == 3): 
+            elif (appendx == 3): 
                 print "\n3 is output."
             else:
-                xList.append(appendX)
-                X = ','.join(map(str, xList))
+                xList.append(appendx)
+
+        x = ','.join(map(str, xList))
 
         # just run the test with all x, not the intermediate results
         csvFilename = "benign.csv"
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
-        print "\nX:", X
-        print "Y:", Y
+        print "\nx:", x
+        print "y:", y
         
         # FIX! hacking with norm = L2 to get it to pass now. ELASTIC default won't? maybe
         # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
         kwargs = {
-            'X': X, 'Y':  Y, 'xval': 2, 
+            'x': x, 'y':  y, 'xval': 2, 
             'lambda1': '1e-8:1e3:100', 
             'lambda2': '1e-8:1e3:100',
             'alpha': '1,1.4,1.8',
@@ -53,7 +50,6 @@ class Basic(unittest.TestCase):
             }
         # fails with xval
         print "Not doing xval with benign. Fails with 'unable to solve?'"
-        # kwargs = {'X': X, 'Y':  Y, 'xval': 4}
 
         gg = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         # check the first in the models list. It should be the best
@@ -72,20 +68,20 @@ class Basic(unittest.TestCase):
 
         Y = "1"
         xList = []  
-        for appendX in xrange(9):
-            if (appendX == 0):
+        for appendx in xrange(9):
+            if (appendx == 0):
                 print "\n0 is member ID. not used"
-            elif (appendX == 1):
+            elif (appendx == 1):
                 print "\n1 is output."
-            elif (appendX == 7): 
+            elif (appendx == 7): 
                 print "\nSkipping 7. Causes NaN. Ok now, later though?"
             else:
-                xList.append(appendX)
-                X = ','.join(map(str, xList))
+                xList.append(appendx)
 
+        x = ','.join(map(str, xList))
         # just run the test with all x, not the intermediate results
-        print "\nX:", X
-        print "Y:", Y
+        print "\nx:", x
+        print "y:", y
 
         # lambda1, lambda2, alpha, rho, threshold
         # FIX! thresholds is used in GLMGrid. threshold is used in GLM
@@ -93,7 +89,7 @@ class Basic(unittest.TestCase):
         # colon separated is min/max/step
         # FIX! have to update other GLMGrid tests
         kwargs = {
-            'X': X, 'Y':  Y, 'xval': 2, 
+            'x': x, 'y':  y, 'xval': 2, 
             'lambda1': '1e-8:1e3:100', 
             'lambda2': '1e-8:1e3:100',
             'alpha': '1,1.4,1.8',

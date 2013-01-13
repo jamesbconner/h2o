@@ -16,45 +16,45 @@ class Basic(unittest.TestCase):
         csvPathname = h2o.find_file("smalldata/hhp_107_01.data.gz")
         print "\n" + csvPathname
 
-        Y = "106"
-        X = ""
+        y = "106"
+        x = ""
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=2)
 
         # create the X that excludes some columns
         trial = 0
-        for appendX in xrange(107):
-            if (appendX == 9):
+        for appendx in xrange(107):
+            if (appendx == 9):
                 print "9 causes singularity. not used"
-            elif (appendX == 12): 
+            elif (appendx == 12): 
                 print "12 causes singularity. not used"
-            elif (appendX == 25): 
+            elif (appendx == 25): 
                 print "25 causes singularity. not used"
-            elif (appendX == 53): 
+            elif (appendx == 53): 
                 print "53 causes singularity. not used"
-            elif (appendX == 54): 
+            elif (appendx == 54): 
                 print "54 causes singularity. not used"
-            elif (appendX == 76): 
+            elif (appendx == 76): 
                 print "76 causes singularity. not used"
-            elif (appendX == 91): 
+            elif (appendx == 91): 
                 print "91 causes singularity. not used"
-            elif (appendX == 103): 
+            elif (appendx == 103): 
                 print "103 causes singularity. not used"
-            elif (appendX == 106):
+            elif (appendx == 106):
                 print "106 is output."
             else:
-                if X == "": 
-                    X = str(appendX)
+                if x == "": 
+                    x = str(appendx)
                 else:
-                    X = X + "," + str(appendX)
+                    x = x + "," + str(appendx)
 
         for trial in xrange(3):
             sys.stdout.write('.')
             sys.stdout.flush() 
-            print "\nX:", X
-            print "Y:", Y
+            print "\nx:", x
+            print "y:", y
 
             start = time.time()
-            kwargs = {'X': X, 'Y': Y, 'xval': 6}
+            kwargs = {'x': x, 'y': y, 'xval': 6}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=300, **kwargs)
 
             # pass the kwargs with all the params, so we know what we asked for!

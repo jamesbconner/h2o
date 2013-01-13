@@ -17,10 +17,10 @@ exprList = [
         'Result<n> = colSwap(c.hex,<col1>,(c.hex[2]==0 ? 54321 : 54321))',
         'Result<n> = c.hex[<col1>]',
         'Result<n> = min(c.hex[<col1>])',
-        'Result<n> = max(c.hex[<col1>]) + Result[0]',
-        'Result<n> = mean(c.hex[<col1>]) + Result[0]',
-        'Result<n> = sum(c.hex[<col1>]) + Result[0]',
-        'Result<n> = log(c.hex[<col1>]) + Result[0]',
+        'Result<n> = max(c.hex[<col1>]) + Result.hex[0]',
+        'Result<n> = mean(c.hex[<col1>]) + Result.hex[0]',
+        'Result<n> = sum(c.hex[<col1>]) + Result.hex[0]',
+        'Result<n> = log(c.hex[<col1>]) + Result.hex[0]',
         ]
 
 class Basic(unittest.TestCase):

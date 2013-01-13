@@ -5,23 +5,16 @@ sys.path.extend(['.','..','py'])
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 
 def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
-    # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
-    r2 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
         rowData = []
         for j in range(colCount):
-            # fails with just randint 0,1
-            # r = r1.randint(0,1)
             ri1 = r1.randint(0,1)
-            # ri2 = r2.randint(0,20)
-            # FIX! no NAs allowed for now (rows are thrown out!)
-            rs = str(ri1)
-            rowData.append(rs)
+            rowData.append(ri1)
 
-        rowDataCsv = ",".join(rowData)
+        rowDataCsv = ",".join(map(str,rowData0)
         dsf.write(rowDataCsv + "\n")
 
     dsf.close()
@@ -47,7 +40,7 @@ class Basic(unittest.TestCase):
         ### time.sleep(3600)
         h2o.tear_down_cloud()
 
-    def test_many_cols_with_syn(self):
+    def test_GLM_many_cols(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
             (100, 1000, 'cK', 300), 
@@ -73,12 +66,8 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            Y = colCount - 1
-
-            # FIX! what are the legal values for case? is it one of the values in the output? or
-            # the encoded value or ??
-            # {u'error': u'Argument case error: Value -1.0 is not between 0.0 and 1.0 (inclusive)'}
-            kwargs = {'Y': Y, 'norm': 'L2', 'max_iter': 50, 'case': 'NaN'}
+            y = colCount - 1
+            kwargs = {'y': y, 'norm': 'L2', 'max_iter': 50, 'case': 'NaN'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

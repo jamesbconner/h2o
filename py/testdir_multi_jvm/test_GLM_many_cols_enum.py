@@ -41,7 +41,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
     dsf.close()
 
 paramDict = {
-    # 'key': ['cA'],
     'family': ['binomial'],
     # 'norm': ['ELASTIC'],
     'norm': ['L2'],
@@ -79,7 +78,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_many_cols_with_syn(self):
+    def test_GLM_many_cols_enum(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
@@ -118,14 +117,13 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
             paramDict2 = {}
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
             # since we add the output twice, it's no longer colCount-1
-            Y = colCount+1
-            kwargs = {'Y': Y, 'max_iter': 50, 'case': 1}
+            y = colCount+1
+            kwargs = {'y': y, 'max_iter': 50, 'case': 1}
             kwargs.update(paramDict2)
 
             start = time.time()

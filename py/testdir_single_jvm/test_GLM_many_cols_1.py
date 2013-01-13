@@ -90,7 +90,7 @@ class Basic(unittest.TestCase):
         lenNodes = len(h2o.nodes)
 
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
-            SEEDPERFILEPERFILE = random.randint(0, sys.maxint)
+            SEEDPERFILE = random.randint(0, sys.maxint)
             csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
@@ -100,17 +100,11 @@ class Basic(unittest.TestCase):
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
-
-            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            Y = colCount - 1
-            # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
-            if h2o.new_json:
-                kwargs = {'Y': Y, 'max_iter': 50, 'case': 'NaN', 'norm': 'L2', 'glm_lambda': 1e-4}
-            else:
-                kwargs = {'Y': Y, 'max_iter': 50, 'case': 'NaN', 'norm': 'L2', 'lambda1': 1e-4}
+            y = colCount - 1
+            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN', 'norm': 'L2', 'lambda1': 1e-4}
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)

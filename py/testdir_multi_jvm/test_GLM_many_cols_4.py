@@ -30,7 +30,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
             result = 0
 
         ### print colCount, rowTotal, result
-
         rowDataStr = map(str,rowData)
         rowDataStr.append(str(result))
         # add the output twice, to try to match to it?
@@ -43,7 +42,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
 
 
 paramDict = {
-    # 'key': ['cA'],
     'family': ['binomial'],
     # 'norm': ['ELASTIC'],
     'norm': ['L2'],
@@ -107,21 +105,20 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            # kwargs = {'Y': Y, 'norm': 'L2', 'iterations': 10, 'case': 1}
             paramDict2 = {}
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
 
             # since we add the output twice, it's no longer colCount-1
-            Y = colCount+1
-            kwargs = {'Y': Y, 'max_iter': 50, 'case': 'NaN'}
+            y = colCount + 1
+            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
             kwargs.update(paramDict2)
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
-            print "Y:", Y 
+            print "y:", y 
             # FIX! bug was dropped coefficients if constant column is dropped
             ### h2o_glm.simpleCheckGLM(self, glm, Y-2, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)

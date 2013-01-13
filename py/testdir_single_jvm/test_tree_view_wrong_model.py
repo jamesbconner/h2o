@@ -17,12 +17,12 @@ class Basic(unittest.TestCase):
         csvPathname = h2o.find_file('smalldata/poker/' + csvFilename)
         # tree view failed with poker1000, passed with iris
         h2o_cmd.runRF(trees=1, csvPathname=csvPathname, key=csvFilename, 
-            modelKey="model0", timeoutSecs=10)
+            model_key="model0", timeoutSecs=10)
 
         for n in range(1):
-            # Give it the wrong modelKey name. This caused a stack track
+            # Give it the wrong model_key name. This caused a stack track
             a = h2o_cmd.runRFTreeView(n=n, 
-                dataKey=csvFilename + ".hex", modelKey="wrong_model_name", timeoutSecs=10)
+                dataKey=csvFilename + ".hex", model_key="wrong_model_name", timeoutSecs=10)
             print (h2o.dump_json(a))
 
 if __name__ == '__main__':

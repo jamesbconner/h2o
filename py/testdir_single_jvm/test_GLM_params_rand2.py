@@ -7,50 +7,30 @@ import h2o, h2o_cmd
 import h2o_glm
 
 def define_params():
-    if h2o.new_json:
-        paramDict = {
-            'Y': [54],
-            # 'X': ['0:3','14:17','5:10',0,1,15,33],
-            'X': [0,1,15,33],
-            'glm_-X': [None,'20,28,40:53'],
-            'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
-            'xval': [2,3,4,9],
-            'threshold': [0.1, 0.5, 0.7, 0.9],
-            # 'norm': [None,'L1', 'L2'],
-            # always need L1 or L2? to avoid Gram Matrix SPD
-            'norm': ['L1', 'L2'],
-            'glm_lambda': [None, 1e-4,1,10,1e4],
-            'rho': [None, 1e-4,1,10,1e4],
-            'alpha': [None, -1,0,1.8],
-            # new?
-            'beta_eps': [None, 0.0001],
-            'case': [1,2,3,4,5,6,7],
-            # inverse and log causing problems
-            # 'link': [None, 'logit','identity', 'log', 'inverse'],
-            # 'link': [None, 'logit','identity'],
-            # This is the new name? fine, we don't care for old or old testing (maxIter?)
-            'max_iter': [None, 10],
-            'weight': [None, 1, 2, 4],
-            }
-    else:
-        print "hello"
-        paramDict = {
-            'Y': [54],
-            'X': ['0:3','14:17','5:10',0,1,15,33],
-            'glm_-X': [None,'20,28,40:53'],
-            'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
-            'xval': [2,3,4,9],
-            'threshold': [0.1, 0.5, 0.7, 0.9],
-            'norm': ['L1', 'L2'],
-            'glm_lambda': [None, 1e-4,1,10,1e4],
-            'rho': [None, 1e-4,1,10,1e4],
-            'alpha': [None, 1e-4,1,10,1e4],
-            'betaEps': [None, 0.0001],
-            'maxIter': [None, 10],
-            'weight': [None, 1, 2, 4],
-            }
+    paramDict = {
+        # 'x': ['0:3','14:17','5:10',0,1,15,33],
+        'x': [0,1,15,33],
+        'glm_-X': [None,'20,28,40:53'],
+        'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
+        'xval': [2,3,4,9],
+        'threshold': [0.1, 0.5, 0.7, 0.9],
+        # 'norm': [None,'L1', 'L2'],
+        # always need L1 or L2? to avoid Gram Matrix SPD
+        'norm': ['L1', 'L2'],
+        'glm_lambda': [None, 1e-4,1,10,1e4],
+        'rho': [None, 1e-4,1,10,1e4],
+        'alpha': [None, -1,0,1.8],
+        # new?
+        'beta_eps': [None, 0.0001],
+        'case': [1,2,3,4,5,6,7],
+        # inverse and log causing problems
+        # 'link': [None, 'logit','identity', 'log', 'inverse'],
+        # 'link': [None, 'logit','identity'],
+        # This is the new name? fine, we don't care for old or old testing (maxIter?)
+        'max_iter': [None, 10],
+        'weight': [None, 1, 2, 4],
+        }
     return paramDict
-
 
 class Basic(unittest.TestCase):
     @classmethod
@@ -81,7 +61,7 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details
             # in the json(below)
-            kwargs = {'Y': 54, 'norm': 'L2', 'case': 1}
+            kwargs = {'y': 54, 'norm': 'L2', 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -90,10 +70,10 @@ class Basic(unittest.TestCase):
                 kwargs[randomKey] = randomValue
 
                 if 1==1:
-                    if (randomKey=='X'):
+                    if (randomKey=='x'):
                         colX = randomValue
                 else:
-                    if (randomKey=='X'):
+                    if (randomKey=='x'):
                         # keep track of what column we're picking
                         # don't track a column if we're using a range (range had a GLM bug, so have to test)
                         # the shared check code knows to ignore colX if None, now.
