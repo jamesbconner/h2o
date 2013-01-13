@@ -88,7 +88,7 @@ public class Helpers {
     sc.invoke(key);
     ValueArray va = ValueArray.value(key);
     va._cols[col]._sigma = sc.sigma();
-    DKV.put(key, va.value());
+    DKV.put(va._key, va.value());
     DKV.write_barrier();
   }
 
