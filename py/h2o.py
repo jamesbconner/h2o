@@ -653,12 +653,10 @@ class H2O(object):
     # 192.168.0.37:54323/ImportFiles.html?file=%2Fhome%2F0xdiag%2Fdatasets
 
     # this can be used to import just a file or a whole folder
-    def import_folder(self, folder, repl=None):
+    def import_files(self, path):
         a = self.__check_request(requests.get(
-            self.__url('ImportFiles.json'), 
-            params={
-                "file": folder,
-                "rf": repl}))
+            self.__url('ImportFiles.json', new=True), 
+            params={ "path": path}))
         verboseprint("\nimport_folder result:", dump_json(a))
         return a
 

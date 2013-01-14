@@ -77,6 +77,7 @@ public class Constants {
   public static final String NUM_TREES             = "ntree";
   public static final String OFFSET                = "offset";
   public static final String OOBEE                 = "oobee";
+  public static final String PATH                  = "path";
   public static final String PARALLEL              = "parallel";
   public static final String PROGRESS              = "progress";
   public static final String PROGRESS_TOTAL        = "progress_total";
