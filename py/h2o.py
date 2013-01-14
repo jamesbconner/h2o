@@ -657,14 +657,14 @@ class H2O(object):
         a = self.__check_request(requests.get(
             self.__url('ImportFiles.json', new=True), 
             params={ "path": path}))
-        verboseprint("\nimport_folder result:", dump_json(a))
+        verboseprint("\nimport_files result:", dump_json(a))
         return a
 
     def import_s3(self, bucket, repl=None):
         a = self.__check_request(requests.get(
             self.__url('ImportS3.json', new=True),
             params={"bucket": bucket}))
-        verboseprint("\nimport_folder result:", dump_json(a))
+        verboseprint("\nimport_s3 result:", dump_json(a))
         return a
 
     def exec_query(self, timeoutSecs=20, **kwargs):
