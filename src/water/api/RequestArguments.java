@@ -294,7 +294,7 @@ public class RequestArguments extends RequestStatics {
     /** List of all prerequisite arguments for the current argument. All the
      * prerequisite arguments must be created before the current argument.
      */
-    private ArrayList<Argument<T>> _prerequisities = null;
+    public ArrayList<Argument<T>> _prerequisites = null;
 
     /** The thread local argument state record. Must be initialized at the
      * beginning of each request before it can be used.
@@ -317,9 +317,9 @@ public class RequestArguments extends RequestStatics {
      * will be disabled if not all its prerequisites are satisfied).
      */
     protected final void addPrerequisite(Argument arg) {
-      if (_prerequisities == null)
-        _prerequisities = new ArrayList();
-      _prerequisities.add(arg);
+      if (_prerequisites == null)
+        _prerequisites = new ArrayList();
+      _prerequisites.add(arg);
       arg.setRefreshOnChange();
     }
 
@@ -392,13 +392,6 @@ public class RequestArguments extends RequestStatics {
       return record()._value;
     }
 
-    /** Sets the value.  Use this only when disabling explicitly and want to
-     * specify a default value that will be used - otherwise null will be used.
-     */
-    public final void setValue(T value) {
-      record()._value = value;
-    }
-
     /** Returns the input value submitted by the user, if specified.
      */
     public final String originalValue() {
@@ -445,8 +438,8 @@ public class RequestArguments extends RequestStatics {
         return;
       }
       // check that we have all prerequisities properly initialized
-      if (_prerequisities != null) {
-        for (Argument dep : _prerequisities)
+      if (_prerequisites != null) {
+        for (Argument dep : _prerequisites)
           if (!dep.valid()) {
             record._disabledReason = "Not all prerequisite arguments have been supplied: "+dep._name;
             record._value = null;
@@ -511,7 +504,7 @@ public class RequestArguments extends RequestStatics {
     /** JS refresh is a default jQuery hook to the change() method.
      */
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change("+callbackName+");";
+      return "$('#"+_name+"').change('"+_name+"',"+callbackName+");";
     }
 
     /** JS value is the simple jQuery val() method.
@@ -645,7 +638,7 @@ public class RequestArguments extends RequestStatics {
     /** Refresh only taps to jQuery change event.
      */
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change("+callbackName+");";
+      return "$('#"+_name+"').change('"+_name+"',"+callbackName+");";
     }
 
     /** Returns 1 if the checkbox is checked and 0 otherwise.
@@ -727,7 +720,7 @@ public class RequestArguments extends RequestStatics {
     /** Refresh is supported using standard jQuery change event.
      */
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change("+callbackName+");";
+      return "$('#"+_name+"').change('"+_name+"',"+callbackName+");";
     }
 
     /** Get value is supported by the standard val() jQuery function.
@@ -813,7 +806,7 @@ public class RequestArguments extends RequestStatics {
      * possibility's checkbox is instrumented.
      */
     @Override protected String jsRefresh(String callbackName) {
-      return "$('#"+_name+"').change("+callbackName+");\n";
+      return "$('#"+_name+"').change('"+_name+"',"+callbackName+");";
     }
 
     /** Get value is supported by a JS function that enumerates over the
@@ -894,7 +887,7 @@ public class RequestArguments extends RequestStatics {
       int size = textNames().length;
       StringBuilder sb = new StringBuilder();
       for (int i = 0; i < size; ++i)
-        sb.append("$('#"+_name+String.valueOf(i)+"').change("+callbackName+");\n");
+        sb.append("$('#"+_name+String.valueOf(i)+"').change('"+_name+"',"+callbackName+");\n");
       return sb.toString();
     }
 
