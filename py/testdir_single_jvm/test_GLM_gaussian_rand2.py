@@ -10,7 +10,7 @@ def define_params():
         'glm_-X': [None,'40:53'],
         'family': ['gaussian'],
         'xval': [2,3,4,9,15],
-        'threshold': [0.1, 0.5, 0.7, 0.9],
+        'thresholds': [0.1, 0.5, 0.7, 0.9],
         'norm': [None, 'L1', 'L2', 'ELASTIC'],
         'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
         'lambda2': [None, 1e-8, 1e-4,1,10,1e4],

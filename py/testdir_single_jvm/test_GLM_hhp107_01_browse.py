@@ -25,7 +25,7 @@ argcaseList = [
         'lambda1': 1.0E-5,
         'max_iter': 50,
         'weight': 1.0,
-        'threshold': 0.5,
+        'thresholds': 0.5,
         'link': 'familyDefault',
         'xval': 0,
         'expand_cat': 0,

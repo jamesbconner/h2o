@@ -14,7 +14,7 @@ def define_params():
         'rho': [0.01],
         'max_iter': [50],
         'weight': [1.0],
-        'threshold': [0.5],
+        'thresholds': [0.5],
         # 'case': [NaN],
         'case': ['NaN'],
         # 'link': [familyDefault],

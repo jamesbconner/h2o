@@ -26,7 +26,7 @@ def browseJsonHistoryAsUrlLastMatch(matchme,swapme=None):
         i = -1
         while (len_history+i!=0 and not re.search(matchme,h2o.json_url_history[i]) ):
             i = i - 1
-        json_url = h2o.json_url_history[i]
+        url = h2o.json_url_history[i]
 
         # chop out the .json to get a browser-able url (can look at json too)
         # Open URL in new window, raising the window if possible.
@@ -34,8 +34,9 @@ def browseJsonHistoryAsUrlLastMatch(matchme,swapme=None):
         # UPDATE: with the new API port, the browser stuff has .html
         # but we've not switched everything to new. So do it selectively
 
-        url = json_url
         if swapme is not None: url = re.sub(matchme, swapme, url)
+        url = re.sub("GLMGridProgress","GLMGridProgress.html",url)
+        url = re.sub("ParseProgress","ParseProgress.html",url)
         url = re.sub(".json",".html",url)
 
         h2o.verboseprint("browseJsonHistoryAsUrlLastMatch:", url)
@@ -56,8 +57,10 @@ def browseJsonHistoryAsUrl():
             # ignore the Cloud "alive" views
             # FIX! we probably want to expand ignoring to more than Cloud?
             if not re.search(ignoring,h2o.json_url_history[i]):
-                json_url = h2o.json_url_history[i]
-                url = re.sub(".json","",json_url)
+                url = h2o.json_url_history[i]
+                url = re.sub("GLMGridProgress","GLMGridProgress.html",url)
+                url = re.sub("ParseProgress","ParseProgress.html",url)
+                url = re.sub(".json",".html",url)
                 print "browseJsonHistoryAsUrl:", url
                 print "same, decoded:", urllib.unquote(url)
                 webbrowser.open(url)
