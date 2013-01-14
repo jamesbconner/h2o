@@ -11,9 +11,9 @@ public class RFView extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
   protected final RFModelKey _modelKey = new RFModelKey(MODEL_KEY);
-  protected final HexKeyClassCol _classCol = new HexKeyClassCol(_dataKey, CLASS);
+  protected final HexKeyClassCol _classCol = new HexKeyClassCol(CLASS, _dataKey);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
-  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
+  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(WEIGHTS, _dataKey, _classCol, 1);
   protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
   protected final HexColumnSelect _ignore = new HexColumnSelect(IGNORE, _dataKey, _classCol);
   protected final Bool _noCM = new Bool(NO_CM, false,"Do not produce confusion matrix");

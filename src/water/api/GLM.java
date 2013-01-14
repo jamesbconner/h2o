@@ -39,7 +39,7 @@ public class GLM extends Request {
   public static final String JSON_COEFFICIENTS = "coefficients";
 
   protected final H2OHexKey _key = new H2OHexKey(KEY);
-  protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
+  protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
   protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
   protected final HexColumnSelect _negX = new HexColumnSelect(JSON_GLM_NEG_X, _key, _y);
 

@@ -1,6 +1,6 @@
 package water.api;
 
-import java.util.Properties;
+import java.util.*;
 import water.web.RString;
 
 /**
@@ -76,18 +76,16 @@ public class RequestQueries extends RequestArguments {
           ;
 
   private static final String _queryJs =
-            "function query_refresh() {\n"
-          + "  query_submit('.query');\n"
+            "\nfunction query_refresh(event) {\n"
+          + "  query_submit('.query', event.data, null);\n"
           + "}\n"
           + "function query_submit(requestType, specArg, specValue) {\n"
           + "  if (typeof(requestType) === 'undefined')\n"
           + "    requestType='.html';\n"
           + "  var request = {};\n"
-          + "  %REQUEST_ELEMENT{\n"
-          + "    request.%ELEMENT_NAME = query_value_%ELEMENT_NAME();\n"
+          + "  %REQUEST_ELEMENT{"
+          + "%ELEMENT_PREQ request.%ELEMENT_NAME = query_value_%ELEMENT_NAME();\n"
           + "  }\n"
-          + "  if (typeof(specArg) !== 'undefined')\n"
-          + "    request[specArg] = specValue;\n"
           + "  var location = '%REQUEST_NAME'+requestType+'?'+$.param(request);\n"
           + "  window.location.replace(location);\n"
           + "}\n"
@@ -126,6 +124,19 @@ public class RequestQueries extends RequestArguments {
       if (!arg.disabled()) {
         RString x = script.restartGroup("REQUEST_ELEMENT");
         x.replace("ELEMENT_NAME",arg._name);
+        // If some Argument has prerequisites, and those pre-reqs changed on
+        // this very page load then we do not assign the arg here: the values
+        // passed will be something valid from the PRIOR page - based on the
+        // old pre-req - and won't be correct.  Not assigning them here means
+        // we'll act "as if" the field was never filled in.
+        if( arg._prerequisites != null ) {
+          StringBuilder sb = new StringBuilder("if( ");
+          ArrayList<RequestArguments.Argument> preqs = arg._prerequisites;
+          for( RequestArguments.Argument dep : preqs )
+            sb.append("specArg!=='").append(dep._name).append("' && ");
+          sb.append("true ) ");
+          x.replace("ELEMENT_PREQ",sb);
+        }
         x.append();
         x = script.restartGroup("ELEMENT_VALUE");
         x.replace("ELEMENT_NAME",arg._name);

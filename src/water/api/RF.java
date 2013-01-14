@@ -12,12 +12,12 @@ import com.google.gson.JsonObject;
 public class RF extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
-  protected final HexKeyClassCol _classCol = new HexKeyClassCol(_dataKey,CLASS);
+  protected final HexKeyClassCol _classCol = new HexKeyClassCol(CLASS,_dataKey);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final Bool _gini = new Bool(GINI,false,"use gini statistic (otherwise entropy is used)");
-  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(_dataKey, _classCol, WEIGHTS, 1);
+  protected final H2OCategoryWeights _weights = new H2OCategoryWeights(WEIGHTS, _dataKey, _classCol, 1);
   protected final Bool _stratify = new Bool(STRATIFY,false,"Use Stratified sampling");
-  protected final H2OCategoryStrata _strata = new H2OCategoryStrata(_dataKey, _classCol, STRATA, 1);
+  protected final H2OCategoryStrata _strata = new H2OCategoryStrata(STRATA, _dataKey, _classCol, 1);
   protected final H2OKey _modelKey = new H2OKey(MODEL_KEY,Key.make("model"));
   protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
   protected final Int _features = new Int(FEATURES, null, 1, Integer.MAX_VALUE);
@@ -45,7 +45,7 @@ public class RF extends Request {
     if (arg == _stratify) {
       if (_stratify.value()) {
         _oobee.disable("OOBEE is only meaningful if stratify is not specified.", inputArgs);
-        _oobee.setValue(false);
+        _oobee.record()._value = false;
       } else {
         _strata.disable("Strata is only meaningful if stratify is on.", inputArgs);
       }
