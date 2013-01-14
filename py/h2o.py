@@ -670,7 +670,7 @@ class H2O(object):
     def exec_query(self, timeoutSecs=20, **kwargs):
         e = kwargs.pop('Expr',None)
         params_dict = {
-            'Exec': e,
+            'expression': e,
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
