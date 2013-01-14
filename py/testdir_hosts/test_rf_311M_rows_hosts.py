@@ -27,7 +27,7 @@ class Basic(unittest.TestCase):
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, timeoutSecs=500)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
-            inspect = h2o.nodes[0].inspect(parseKey['destination_key'])
+            inspect = h2o_cmd.runInspect(None,parseKey['destination_key'])
 
             print "\n" + csvFilename
             start = time.time()
