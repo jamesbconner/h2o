@@ -87,7 +87,8 @@ class Basic(unittest.TestCase):
                 print "\nexecExpr:", execExpr, "on node", randNode
 
                 start = time.time()
-                resultExec = h2o_cmd.runExecOnly(node=h2o.nodes[randNode], Expr=execExpr, timeoutSecs=5)
+                resultExec = h2o_cmd.runExecOnly(node=h2o.nodes[randNode], 
+                    expression=execExpr, timeoutSecs=5)
                 h2o.verboseprint(h2o.dump_json(resultExec))
                 # print(h2o.dump_json(resultExec))
 

@@ -33,7 +33,7 @@ def fill_in_expr_template(exprTemplate, n, m):
 
 def exec_expr(node, execExpr, trial, resultKey="Result.hex"):
     start = time.time()
-    resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=70)
+    resultExec = h2o_cmd.runExecOnly(node, expression=execExpr, timeoutSecs=70)
     h2o.verboseprint(resultExec)
     h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
