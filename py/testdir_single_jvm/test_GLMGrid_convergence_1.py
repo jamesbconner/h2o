@@ -70,7 +70,7 @@ class Basic(unittest.TestCase):
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
-        USEKNOWNFAILURE = False
+        USEKNOWNFAILURE = True
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
             SEEDPERFILE = random.randint(0, sys.maxint)
             csvFilename = 'syn_%s_%sx%s.csv' % (SEEDPERFILE,rowCount,colCount)

@@ -653,26 +653,23 @@ class H2O(object):
     # 192.168.0.37:54323/ImportFiles.html?file=%2Fhome%2F0xdiag%2Fdatasets
 
     # this can be used to import just a file or a whole folder
-    def import_folder(self, folder, repl=None):
+    def import_files(self, path):
         a = self.__check_request(requests.get(
-            self.__url('ImportFiles.json'), 
-            params={
-                "file": folder,
-                "rf": repl}))
-        verboseprint("\nimport_folder result:", dump_json(a))
+            self.__url('ImportFiles.json', new=True), 
+            params={ "path": path}))
+        verboseprint("\nimport_files result:", dump_json(a))
         return a
 
     def import_s3(self, bucket, repl=None):
         a = self.__check_request(requests.get(
             self.__url('ImportS3.json', new=True),
             params={"bucket": bucket}))
-        verboseprint("\nimport_folder result:", dump_json(a))
+        verboseprint("\nimport_s3 result:", dump_json(a))
         return a
 
     def exec_query(self, timeoutSecs=20, **kwargs):
-        e = kwargs.pop('Expr',None)
         params_dict = {
-            'Exec': e,
+            'expression': None,
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
@@ -1020,7 +1017,7 @@ class ExternalH2O(H2O):
         # try/except for this is inside shutdown_all now
         self.shutdown_all()
         if self.is_alive():
-            raise 'Unable to terminate externally launched node: %s' % self
+            raise Exception('Unable to terminate externally launched node: %s' % self)
 
 
 class LocalH2O(H2O):
@@ -1230,7 +1227,7 @@ class RemoteH2O(H2O):
         # we should get a connection error. doing a is_alive subset.
         try:
             gc_output = self.get_cloud()
-            raise "get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output)
+            raise Exception("get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output))
         except:
             return True
     

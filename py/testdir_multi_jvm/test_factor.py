@@ -7,24 +7,17 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec a
 def write_syn_dataset(csvPathname, rowCount, SEED):
     # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
-    r2 = random.Random(SEED)
-    r3 = random.Random(SEED)
-    r4 = random.Random(SEED)
-    r5 = random.Random(SEED)
-    r6 = random.Random(SEED)
-    r7 = random.Random(SEED)
-    r8 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
     for i in range(rowCount):
         rowData = "%s,%s,%s,%s,%s,%s,%s,%s" % (
             r1.randint(0,1),
-            r2.randint(0,2),
-            r3.randint(-4,4),
-            r4.randint(0,8),
-            r5.randint(-16,16),
-            r6.randint(-32,32),
+            r1.randint(0,2),
+            r1.randint(-4,4),
+            r1.randint(0,8),
+            r1.randint(-16,16),
+            r1.randint(-32,32),
             0,
-            r8.randint(0,1))
+            r1.randint(0,1))
         dsf.write(rowData + "\n")
     dsf.close()
 
@@ -50,7 +43,7 @@ exprList = [
         'Result<n> = randomBitVector(<row>,1)',
         'Result<n> = randomBitVector(<row>,0)',
 # FIX! bugs in all of these?
-#        'Result<n> = randomFilter(<keyX><col1>,<row>)',
+#        'Result<n> = randomFilter(<keyX>,<col1>,<row>)',
 #        'Result<n> = randomFilter(<keyX>,<row>)',
 #        'Result<n> = randomFilter(<keyX>,3)',
 

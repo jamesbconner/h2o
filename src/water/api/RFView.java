@@ -77,8 +77,10 @@ public class RFView extends Request {
     // Trees
     JsonObject trees = new JsonObject();
     trees.addProperty(Constants.TREE_COUNT,  model.size());
-    trees.addProperty(Constants.TREE_DEPTH,  model.depth());
-    trees.addProperty(Constants.TREE_LEAVES, model.leaves());
+    if( model.size() > 0 ) {
+      trees.add(Constants.TREE_DEPTH,  model.depth().toJson());
+      trees.add(Constants.TREE_LEAVES, model.leaves().toJson());
+    }
     response.add(Constants.TREES,trees);
 
     JsonObject pollArgs = argumentsToJson();
@@ -88,13 +90,26 @@ public class RFView extends Request {
     r.setBuilder(Constants.TREES, new TreeListBuilder());
     return r;
   }
+
+  private StringBuilder stats(StringBuilder sb, JsonElement json) {
+    if( json == null ) {
+      return sb.append(" / / ");
+    } else {
+      JsonObject obj = json.getAsJsonObject();
+      return sb.append(String.format("%4.1f / %4.1f / %4.1f",
+          obj.get(MIN).getAsDouble(),
+          obj.get(MAX).getAsDouble(),
+          obj.get(MEAN).getAsDouble()));
+    }
+  }
+
   public class TreeListBuilder extends ObjectBuilder {
     @Override public String build(Response response, JsonObject t, String contextName) {
       StringBuilder sb = new StringBuilder();
       sb.append("<h3>Trees</h3>");
       sb.append(t.get(Constants.TREE_COUNT)).append(" trees with min/max/mean depth of ");
-      sb.append(t.get(Constants.TREE_DEPTH)).append(" and leaf of ");
-      sb.append(t.get(Constants.TREE_LEAVES)).append(".<br>");
+      stats(sb, t.get(TREE_DEPTH )).append(" and leaf of ");
+      stats(sb, t.get(TREE_LEAVES)).append(".<br>");
       int n = t.get(Constants.TREE_COUNT).getAsInt();
       for( int i = 0; i < n; ++i ) {
         sb.append(RFTreeView.link(_modelKey.value(), i,

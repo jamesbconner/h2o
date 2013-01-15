@@ -42,7 +42,7 @@ class Basic(unittest.TestCase):
             print "Parse result['destination_key']:", parseKey['destination_key']
 
             # We should be able to see the parse result?
-            inspect = h2o.nodes[0].inspect(parseKey['destination_key'])
+            inspect = h2o_cmd.runInspect(None,parseKey['destination_key'])
 
             print "\n" + csvFilename
             start = time.time()
