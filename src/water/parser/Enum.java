@@ -1,11 +1,10 @@
 package water.parser;
 
-import java.io.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
 import water.AutoBuffer;
 import water.Iced;
-import water.TCPReceiverThread;
-import water.nbhm.NonBlockingHashMap;
 
 /**
  * Class for tracking enum columns.
@@ -26,10 +25,10 @@ public final class Enum extends Iced {
 
   public static final int MAX_ENUM_SIZE = 65535;
 
-  NonBlockingHashMap<ValueString, Integer> _map;
+  volatile ConcurrentHashMap<ValueString, Integer> _map;
 
   public Enum(){
-    _map = new NonBlockingHashMap<ValueString, Integer>();
+    _map = new ConcurrentHashMap<ValueString, Integer>();
   }
 
   /**
@@ -39,7 +38,7 @@ public final class Enum extends Iced {
    */
   void addKey(ValueString str) {
     // _map is shared and be cast to null (if enum is killed) -> grab local copy
-    NonBlockingHashMap<ValueString, Integer> m = _map;
+    Map<ValueString, Integer> m = _map;
     if( m == null ) return;     // Nuked already
     if( m.get(str) != null ) return; // Recorded already
     assert str._length < 65535;      // Length limit so 65535 can be used as a sentinel
@@ -65,9 +64,11 @@ public final class Enum extends Iced {
     if( this == other ) return;
     if( isKilled() ) return;
     if( !other.isKilled() ) {   // do the merge
-      NonBlockingHashMap<ValueString, Integer> myMap = _map;
-      for( ValueString str : other._map.keySet() )
-        myMap.put(str, 0);
+      Map<ValueString, Integer> myMap = _map;
+      Map<ValueString, Integer> otMap = other._map;
+      if( myMap == otMap ) return;
+      for( ValueString str : otMap.keySet() )
+        myMap.put(str, 1);
       if( myMap.size() <= MAX_ENUM_SIZE ) return;
     }
     kill(); // too many values, enum should be killed!
@@ -80,12 +81,12 @@ public final class Enum extends Iced {
   public String [] computeColumnDomain(){
     if( isKilled() ) return null;
     String [] res = new String[_map.size()];
-    NonBlockingHashMap<ValueString, Integer> oldMap = _map;
+    Map<ValueString, Integer> oldMap = _map;
     Iterator<ValueString> it = oldMap.keySet().iterator();
     for( int i = 0; i < res.length; ++i )
       res[i] = it.next().toString();
     Arrays.sort(res);
-    NonBlockingHashMap<ValueString, Integer> newMap = new NonBlockingHashMap<ValueString, Integer>();
+    ConcurrentHashMap<ValueString, Integer> newMap = new ConcurrentHashMap<ValueString, Integer>();
     for( int j = 0; j < res.length; ++j )
       newMap.put(new ValueString(res[j]), j);
     oldMap.clear();
@@ -100,7 +101,7 @@ public final class Enum extends Iced {
   // being deleted, they may be written anyways.  If the Values are changing, a
   // random Value is written.
   public AutoBuffer write( AutoBuffer ab ) {
-    if( _map != null ) 
+    if( _map != null )
       for( ValueString key : _map.keySet() )
         ab.put2((char)key._length).putA1(key._buf,key._length).put4(_map.get(key));
     return ab.put2((char)65535); // End of map marker
@@ -108,7 +109,7 @@ public final class Enum extends Iced {
 
   public Enum read( AutoBuffer ab ) {
     assert _map == null || _map.size()==0;
-    _map = new NonBlockingHashMap<ValueString, Integer>();
+    _map = new ConcurrentHashMap<ValueString, Integer>();
     int len = 0;
     while( (len = ab.get2()) != 65535 ) // Read until end-of-map marker
       _map.put(new ValueString(ab.getA1(len)),ab.get4());
