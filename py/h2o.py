@@ -1017,7 +1017,7 @@ class ExternalH2O(H2O):
         # try/except for this is inside shutdown_all now
         self.shutdown_all()
         if self.is_alive():
-            raise 'Unable to terminate externally launched node: %s' % self
+            raise Exception('Unable to terminate externally launched node: %s' % self)
 
 
 class LocalH2O(H2O):
@@ -1227,7 +1227,7 @@ class RemoteH2O(H2O):
         # we should get a connection error. doing a is_alive subset.
         try:
             gc_output = self.get_cloud()
-            raise "get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output)
+            raise Exception("get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output))
         except:
             return True
     
