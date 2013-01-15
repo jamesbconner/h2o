@@ -9,6 +9,7 @@ import water.H2O;
 import water.PrettyPrint;
 import water.web.RString;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.gson.*;
 
@@ -908,6 +909,18 @@ public class RequestBuilders extends RequestQueries {
       return sb.toString();
     }
 
+  }
+
+  public class WarningCellBuilder extends ArrayRowElementBuilder {
+    @Override public String arrayToString(JsonArray arr, String contextName) {
+      StringBuilder sb = new StringBuilder();
+      String sep = "";
+      for( JsonElement e : arr ) {
+        sb.append(sep).append(e.getAsString());
+        sep = "</br>";
+      }
+      return sb.toString();
+    }
   }
 
   public class KeyCellBuilder extends ArrayRowElementBuilder {
