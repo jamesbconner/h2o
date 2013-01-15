@@ -13,6 +13,8 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     # keep a single thread from the original SEED, for repeatability.
     SEED2 = r1.randint(0, sys.maxint)
     r2 = random.Random(SEED2)
+    SEED3 = r1.randint(0, sys.maxint)
+    r3 = random.Random(SEED3)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -22,12 +24,20 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         # doesn't allow prediction of the RNG so well? (an issue with 500 col datasets)
         r1.jumpahead(922377089)   
         r2.jumpahead(488915466)
+        r3.jumpahead(743976213)
+
+        # use r3 to randomly inject 5% noise. noise is complement
         for j in range(colCount):
             # ri1 = int(r1.gauss(1,.1))
             ri1 = r1.randint(0,1)
-            rowData.append(ri1)
+            ri3 = r3.randint(0,1)
+            rs = (ri1 + ri3) % 2
+            rowData.append(rs)
 
-        result = r2.randint(0,1)
+        # use r3 to randomly inject 5% noise. noise is complement
+        ri2 = r2.randint(0,1)
+        ri3 = r3.randint(0,1)
+        result = (ri2 + ri3) % 2
         rowData.append(str(result))
         ### print colCount, rowTotal, result
         rowDataCsv = ",".join(map(str,rowData))
@@ -59,12 +69,12 @@ class Basic(unittest.TestCase):
     def test_GLM_convergence_1(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
-            (100, 50,  'cD', 300),
-            (100, 100, 'cE', 300),
-            (100, 200, 'cF', 300),
-            (100, 300, 'cG', 300),
-            (100, 400, 'cH', 300),
-            (100, 500, 'cI', 300),
+            (10000, 50,  'cD', 300),
+            (10000, 100, 'cE', 300),
+            (10000, 200, 'cF', 300),
+            (10000, 300, 'cG', 300),
+            (10000, 400, 'cH', 300),
+            (10000, 500, 'cI', 300),
         ]
 
         ### h2b.browseTheCloud()
@@ -101,17 +111,18 @@ class Basic(unittest.TestCase):
             kwargs = {
                     'max_iter': 40, 
                     'case': 'NaN', 
-                    'norm': 'NONE',
-                    'lambda1': 1e0,
-                    'lambda2': 1e4,
+                    'norm': 'ELASTIC',
+                    'lambda1': 1e-4,
+                    'lambda2': 1e-4,
                     'alpha': 1.0,
-                    'rho': 1,
+                    # 'rho': 1e4,
+                    'rho': 1e2,
                     'weight': 1.0,
                     'link': 'familyDefault',
                     # 'link': 'familyDefault',
-                    'xval': 0,
+                    'xval': 2,
                     'beta_eps': 1e-4,
-                    'thresholds': '0:1:0.01',
+                    'thresholds': '0.5',
                     }
 
             if USEKNOWNFAILURE:
@@ -120,7 +131,7 @@ class Basic(unittest.TestCase):
                 kwargs['y'] = y
 
             emsg = None
-            for i in range(25):
+            for i in range(1):
                 start = time.time()
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
                 print 'glm #', i, 'end on', csvPathname, 'took', time.time() - start, 'seconds'

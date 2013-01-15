@@ -108,11 +108,12 @@ class Basic(unittest.TestCase):
                     # 'link': 'familyDefault',
                     'xval': 0,
                     'beta_eps': 1e-4,
-                    'thresholds': '0:1:0.01',
                     #***********
                     'lambda1': '1e-3:1e3:1e1',
                     'lambda2': '1e-3:1e3:1e1',
                     'alpha': '1,1.4,1.8',
+                    # 'rho:': '1e-8:1e3:100',
+                    'rho:': 1,
                     'thresholds': '0:1:0.2'
                     }
 
