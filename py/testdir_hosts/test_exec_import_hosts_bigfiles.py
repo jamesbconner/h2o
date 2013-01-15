@@ -8,13 +8,12 @@ zeroList = [
         'Result0 = 0',
 ]
 
-# 'randomBitVector'
-# 'randomFilter'
-# 'log"
-# 'makeEnum'
-# bug?
-# ['Result<n> = slice(<keyX>[<col1>,<row>)'],
 exprList = [
+        'Result<n> = log(<keyX>[<col1>])',
+        'Result<n> = randomBitVector(19,0) + Result<n-1>',
+        'Result<n> = randomFilter(<keyX>[<col1>],<row>)',
+        'Result<n> = factor(<keyX>[col1])',
+        'Result<n> = slice(<keyX>[<col1>,<row>)',
         'Result<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',
         'Result<n> = <keyX>[<col1>]',
         'Result<n> = min(<keyX>[<col1>])',

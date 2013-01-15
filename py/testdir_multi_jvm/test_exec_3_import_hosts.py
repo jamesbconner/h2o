@@ -20,8 +20,8 @@ for i in range(8):
 # do we have to restrict ourselves?
 # 'factor' (hardware the enum colum to col 53
 # bug?
-#        ['Result<n> = randomFilter(<keyX>[<col1>],' ,'<row>)'],
-#        ['MatrixRes<n> = slice(<keyX>[<col1>],<row>)'],
+#        'Result<n> = randomFilter(<keyX>[<col1>],<row>)',
+#        'MatrixRes<n> = slice(<keyX>[<col1>],<row>)',
 exprList = [
         'ColumnRes<n> = factor(<keyX>[53]) + ColumnRes<n-1>',
         'ColumnRes<n> = randomBitVector(19,0) + ColumnRes<n-1>',
