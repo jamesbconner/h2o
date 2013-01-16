@@ -25,6 +25,18 @@
           }
         });
       };
+      // Move to line start Ctrl+A.
+      jqconsole.RegisterShortcut('A', function() {
+        jqconsole.MoveToStart();
+      });
+      // Move to line start Ctrl+E.
+      jqconsole.RegisterShortcut('E', function() {
+        jqconsole.MoveToEnd();
+      });
+      // Delete to end of line
+      jqconsole.RegisterShortcut('K', function() {
+        jqconsole.SetPromptText(jqconsole.$prompt_left.text())
+      });
       startPrompt();
     });
   </script>
