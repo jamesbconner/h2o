@@ -14,8 +14,7 @@
               if( data.error ) {
                 jqconsole.Write(data.error + '\n', 'jqconsole-error');
               } else {
-                console.log(data);
-                jqconsole.Write('non error \n', 'jqconsole-output');
+                jqconsole.Write(JSON.stringify(data) + '\n', 'jqconsole-output');
               }
               startPrompt();
             }
@@ -25,21 +24,4 @@
       startPrompt();
     });
   </script>
-  <!-- 
-        RString s = new RString("" +
-          "$('#%ID').typeahead({\n" +
-          "  source:\n" +
-          "    function(query,process) {\n" +
-          "      return $.get('%HREF', { filter: query, limit: %LIMIT }, function (data) {\n" +
-          "        return process(data.%DATA_NAME);\n" +
-          "      });\n" +
-          "    },\n" +
-          "});\n" +
-          "\n");
-      s.replace("ID", _name);
-      s.replace("HREF", _typeaheadHref);
-      s.replace("LIMIT", _typeaheadLimit);
-      s.replace("DATA_NAME", ITEMS);
-      return super.jsAddons()+s.toString();
-  -->
 </div>
