@@ -40,11 +40,12 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new PutFile()),     "Upload",       "Data");
     Request.addToNavbar(registerRequest(new Get()),         "Download",     "Data");
 
-    Request.addToNavbar(registerRequest(new RF()),  "Random Forest", "Model");
-    Request.addToNavbar(registerRequest(new GLM()), "GLM",           "Model");
-    Request.addToNavbar(registerRequest(new GLMGrid()),"GLMGrid",    "Model");
-    Request.addToNavbar(registerRequest(new Exec()),   "Console",    "Model");
-    Request.addToNavbar(registerRequest(new RFView()),"Random Forest","Views");
+    Request.addToNavbar(registerRequest(new RF()),      "Random Forest", "Model");
+    Request.addToNavbar(registerRequest(new GLM()),     "GLM",           "Model");
+    Request.addToNavbar(registerRequest(new GLMGrid()), "GLMGrid",       "Model");
+    Request.addToNavbar(registerRequest(new Console()), "Console",       "Model");
+
+    Request.addToNavbar(registerRequest(new RFView()),  "Random Forest","Views");
 
     Request.addToNavbar(registerRequest(new Cloud()),    "Cloud Status", "Admin");
     Request.addToNavbar(registerRequest(new Network()),  "Network",      "Admin");
@@ -58,7 +59,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new TutorialGLMProstate()), "GLM",           "Tutorials");
 
     // internal handlers
-    registerRequest(new Console());
+    registerRequest(new Exec());
     registerRequest(new GLMGridProgress());
     registerRequest(new ParseProgress());
     registerRequest(new RFTreeView());
