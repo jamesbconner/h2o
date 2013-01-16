@@ -5,6 +5,7 @@ import water.ValueArray;
 
 public class Exec extends Request {
   private final Str _exec = new Str(EXPRESSION);
+  private final Bool _safe = new Bool(ESCAPE_NAN, false, "Escape NaN and Infinity in the result JSON");
 
   @Override
   protected Response serve() {
@@ -12,7 +13,9 @@ public class Exec extends Request {
     try {
       Key k = water.exec.Exec.exec(s);
       ValueArray va = ValueArray.value(k);
-      return new Inspect(k).serveValueArray(va);
+      Response r = new Inspect(k).serveValueArray(va);
+      if( _safe.value() ) r.escapeIllegalJsonElements();
+      return r;
     } catch( Exception e ) {
       return Response.error(e.getMessage());
     }

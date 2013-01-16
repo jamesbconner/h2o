@@ -4,8 +4,8 @@ package water.api;
 import com.google.common.base.Objects;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
+
 import init.Boot;
 
 import java.io.IOException;
@@ -103,7 +103,11 @@ public abstract class Request extends RequestBuilders {
   }
 
   protected NanoHTTPD.Response wrap(NanoHTTPD server, JsonObject response) {
-    return server.new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_JSON, response.toString());
+    Gson gson = new GsonBuilder().
+//        serializeSpecialFloatingPointValues().
+        create();
+    return server.new Response(NanoHTTPD.HTTP_OK, NanoHTTPD.MIME_JSON,
+        gson.toJson(response));
   }
 
   protected NanoHTTPD.Response wrap(NanoHTTPD server, String value, RequestType type) {
