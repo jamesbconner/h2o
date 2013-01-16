@@ -1,0 +1,20 @@
+<div class='container' style='margin: 0px auto'>
+  <link rel="stylesheet" type="text/css" href="h2o/console.css">
+  <div id="console"></div>
+  <script src="jquery/jqconsole.min.js" type="text/javascript" charset="utf-8"></script>
+  <script>
+    $(function () {
+      var jqconsole = $('#console').jqconsole('Welcome to the H2O interactive repl\n', '$ ');
+      var startPrompt = function () {
+        // Start the prompt with history enabled.
+        jqconsole.Prompt(true, function (input) {
+          // Output input with the class jqconsole-output.
+          jqconsole.Write(input + '\n', 'jqconsole-output');
+          // Restart the prompt.
+          startPrompt();
+        });
+      };
+      startPrompt();
+    });
+  </script>
+</div>
