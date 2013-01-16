@@ -8,6 +8,10 @@
 /* The inner console element. */
 .jqconsole {
     padding: 10px;
+    background-color: black;
+}
+.jqconsole-header {
+    color: yellow;
 }
 /* The cursor. */
 .jqconsole-cursor {
@@ -19,7 +23,7 @@
 }
 /* The current prompt text color */
 .jqconsole-prompt {
-    color: black;
+    color: #0d0;
 }
 /* The command history */
 .jqconsole-old-prompt {
@@ -37,7 +41,7 @@
 }
 /* The text color of the output. */
 .jqconsole-output {
-    color: black;
+    color: green;
 }
 /* The text color of error output. */
 .jqconsole-error {
