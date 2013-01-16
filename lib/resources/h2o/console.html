@@ -8,17 +8,21 @@
       var startPrompt = function () {
         // Start the prompt with history enabled.
         jqconsole.Prompt(true, function (input) {
-          $.get('Exec',
-            { expression: input, escape_nan : true },
-            function (data, status, jqXHR) {
-              if( data.error ) {
-                jqconsole.Write(data.error + '\n', 'jqconsole-error');
-              } else {
-                jqconsole.Write(JSON.stringify(data) + '\n', 'jqconsole-output');
+          if( input ) {
+            $.get('Exec',
+              { expression: input, escape_nan : true },
+              function (data, status, jqXHR) {
+                if( data.error ) {
+                  jqconsole.Write(data.error + '\n', 'jqconsole-error');
+                } else {
+                  jqconsole.Write(JSON.stringify(data) + '\n', 'jqconsole-output');
+                }
+                startPrompt();
               }
-              startPrompt();
-            }
-          );
+            );
+          } else {
+            startPrompt();
+          }
         });
       };
       startPrompt();
