@@ -5,18 +5,42 @@
   <script>
     $(function () {
       var jqconsole = $('#console').jqconsole('Welcome to the H\u2082O interactive repl\n', 'H\u2082O> ');
+      var formatColumn = function(c, num_rows) {
+        return c.name +': '+ num_rows +' rows (min '+ c.min
+            +'/mean '+ c.mean +'/max '+ c.max +')';
+      }
+      
+      var resultNumber = 0;
       var startPrompt = function () {
         // Start the prompt with history enabled.
         jqconsole.Prompt(true, function (input) {
           if( input ) {
             $.get('Exec',
-              { expression: input, escape_nan : true },
+              { expression: input, destination_key : 'Result_'+resultNumber++, escape_nan : true },
               function (data, status, jqXHR) {
                 if( data.error ) {
-                  jqconsole.Write(data.error + '\n', 'jqconsole-error');
+                  jqconsole.Write(data.error, 'jqconsole-error');
+                } else if( data.type == 'parsed' ) {
+                  var res = $('<a href="Inspect.html?key='+data.key+'" target="_blank"/>');
+                  res.append(data.key);
+                  jqconsole.Append(res);
+                  jqconsole.Write(': ');
+                  if( data.num_rows == 1 && data.num_columns == 1 ) {
+                    jqconsole.Write(data.cols[0][0], 'jqconsole-output');
+                  } else if( data.num_columns == 1 ) {
+                    var msg = formatColumn(data.cols[0], data.num_rows)
+                    jqconsole.Write(msg, 'jqconsole-output');
+                  } else {
+                    var msg = data.num_columns + " columns";
+                    for( var i = 0; i < data.num_columns; ++i ) {
+                      msg += "\n" + formatColumn(data.cols[i], data.num_rows)
+                    }
+                    jqconsole.Write(msg, 'jqconsole-output');
+                  }
                 } else {
-                  jqconsole.Write(JSON.stringify(data) + '\n', 'jqconsole-output');
+                  jqconsole.Write(JSON.stringify(data), 'jqconsole-output');
                 }
+                jqconsole.Write('\n')
                 startPrompt();
               }
             );
