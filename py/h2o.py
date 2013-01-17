@@ -602,12 +602,32 @@ class H2O(object):
             count += 1
         return r
     
-    def kmeans(self, response, key, k, epsilon, **kwargs):
-        return self.__check_request(
+    # additional params include: cols=. don't need to include in params_dict it doesn't need a default
+    def kmeans(self, key, key2=None, timeoutSecs=10, retryDelaySecs=0.2, **kwargs):
+        params_dict = {
+            'epsilon': 1e-6,
+            'k': 1,
+            'source_key': key,
+            'destination_key': None,
+            }
+        # alternate name, to match what parse has
+        # don't really need this, maybe better if tests all use 'destination_key'
+        if key2 is not None: params_dict['destination_key'] = key2
+        params_dict.update(kwargs)
+        print "KMeans params list", params_dict
+        a = self.__check_request(
             requests.get(
-                url=self.__url('KMeans.json', new=True),
-                timeout=300,
-                params={"source_key": key, "k": k}))
+                url=self.__url('KMeans.json'),
+                timeout=timeoutSecs,
+                params=params_dict))
+
+        # Check that the response has the right ParseProgress url it's going to steer us to.
+        if a['response']['redirect_request']!='KMeansProgress':
+            print dump_json(a)
+            raise Exception('H2O kmeans redirect is not KMeansProgress. KMeans json response precedes.')
+        a = self.poll_url(a['response'], timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
+        verboseprint("\nKMeans result:", dump_json(a))
+        return a
 
     def parse(self, key, key2=None, timeoutSecs=300, retryDelaySecs=0.2, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)

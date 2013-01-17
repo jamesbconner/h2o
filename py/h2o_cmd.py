@@ -33,6 +33,21 @@ def runExecOnly(node=None,timeoutSecs=20,**kwargs):
     # no such thing as GLMView..don't use retryDelaySecs
     return node.exec_query(timeoutSecs, **kwargs)
 
+def runKMeans(node=None,csvPathname=None,key=None,
+        timeoutSecs=20,retryDelaySecs=2,**kwargs):
+    # use 1/5th the KMeans timeoutSecs for allowed parse time.
+    pto = max(timeoutSecs/5,10)
+    parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
+    kmeans = runKMeansOnly(node, parseKey, timeoutSecs, retryDelaySecs,**kwargs)
+    return kmeans
+
+def runKMeansOnly(node=None,parseKey=None,
+        timeoutSecs=20,retryDelaySecs=2,**kwargs):
+    if not parseKey: raise Exception('No parsed key for KMeans specified')
+    if not node: node = h2o.nodes[0]
+    print parseKey['destination_key']
+    return node.kmeans(parseKey['destination_key'], timeoutSecs, retryDelaySecs, **kwargs)
+
 def runGLM(node=None,csvPathname=None,key=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):
     # use 1/5th the GLM timeoutSecs for allowed parse time.
@@ -62,19 +77,6 @@ def runGLMGridOnly(node=None,parseKey=None,
     if not node: node = h2o.nodes[0]
     # no such thing as GLMGridView..don't use retryDelaySecs
     return node.GLMGrid(parseKey['destination_key'], timeoutSecs, **kwargs)
-
-def runLR(node=None, csvPathname=None,key=None,
-        timeoutSecs=20, **kwargs):
-    # use 1/5th the GLM timeoutSecs for allowed parse time.
-    pto = max(timeoutSecs/5,10)
-    parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
-    return runLROnly(node, parseKey, timeoutSecs, **kwargs)
-
-def runLROnly(node=None, parseKey=None, timeoutSecs=20, **kwargs):
-    if not parseKey: raise Exception('No parsed key for LR specified')
-    if not node: node = h2o.nodes[0]
-    # FIX! add something like stabilize in RF to check results, and also retry/timeout
-    return node.linear_reg(parseKey['destination_key'], timeoutSecs, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRF(node=None, csvPathname=None, trees=5, key=None, 
