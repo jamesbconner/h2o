@@ -51,7 +51,29 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # get the intercept out of there into it's own dictionary
     intercept = coefficients.pop('Intercept', None)
 
-    print "\ncoefficients:", coefficients
+    ### print "\ncoefficients:", coefficients
+
+    # have to skip the output col! get it from kwargs
+    # better always be there!
+    y = kwargs['y']
+    cstring = "\n"
+    # the dict keys are column headers if they exist...how to order those?
+    # check if 0 exists, if not, assume it's column headers
+    if u'0' in coefficients:
+        for c in range(len(coefficients)):
+            if c!=y:
+                cstring = cstring + "%s: %.5e   " % (c, coefficients[unicode(c)])
+            
+    else:
+        # instead, sort the keys? Get a list of tuple k/v pairs and sort
+        items = coefficients.items()
+        items.sort()
+        for key, value in items:
+            cstring = cstring + "%s: %.5e   " % (key, value)
+    
+    print cstring
+    print "intercept:\t", intercept
+
     # pick out the coefficent for the column we enabled.
 
     # FIX! temporary hack to deal with disappaering/renaming columns in GLM

@@ -794,8 +794,8 @@ class H2O(object):
         }
 
         # special case because of name issues
-        glm_notX = kwargs.pop('glm_-x', None)
-        if glm_notX is not None: params_dict['-x'] = glm_notX
+        glm_notx = kwargs.pop('glm_-x', None)
+        if glm_notx is not None: params_dict['-x'] = glm_notx
 
         params_dict.update(kwargs)
         print "GLM params list", params_dict
@@ -816,7 +816,6 @@ class H2O(object):
         if (browseAlso | browse_json):
             # FIX! GLMProgress doesn't exist yet.
             print "Redoing (in Parallel?) the GLM through the browser, no results saved though"
-            print "How come no GLMProgress for long GLMs?"
             # find a match on the first. Swap in the 2nd to the url (as well as xlate to html)
             # because we don't want to restart the GLM?
             h2b.browseJsonHistoryAsUrlLastMatch('GLM')
