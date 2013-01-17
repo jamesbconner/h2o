@@ -1,74 +1,102 @@
 package test;
 
-import static org.junit.Assert.assertEquals;
 import hex.KMeans;
-import hex.KMeans.KMeansTask;
 
 import java.util.Arrays;
+import java.util.Random;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import water.*;
-import water.parser.ParseDataset;
 
 public class KMeansTest extends TestUtil {
 
-  // @Test
+  @Test
   public void test1Dimension() {
-    Key key = Key.make("datakey");
+    Key source = Key.make("datakey");
+    Key target = Key.make("datakey.kmeans");
 
     try {
-      ValueArray value = va_maker(key, //
+      ValueArray va = va_maker(source, //
           new double[] { 1.2, 5.6, 3.7, 0.6, 0.1, 2.6 });
 
-      double[][] clusters = KMeans.run(value, 2, 1e-6, 0);
+      KMeans.run(target, va, 2, 1e-6, 0);
+      KMeans.Res res = UKV.get(target, new KMeans.Res());
+      double[][] clusters = res._clusters;
 
       for( int cluster = 0; cluster < clusters.length; cluster++ )
         System.out.println(cluster + ": " + Arrays.toString(clusters[cluster]));
 
-      assertEquals(1.125, clusters[0][0], 0.000001);
-      assertEquals(4.65, clusters[1][0], 0.000001);
+      Assert.assertEquals(1.125, clusters[0][0], 0.000001);
+      Assert.assertEquals(4.65, clusters[1][0], 0.000001);
     } finally {
-      UKV.remove(key);
+      UKV.remove(source);
+      UKV.remove(target);
     }
   }
 
   @Test
-  public void testCovtype() {
-    Key fkey = load_test_file("smalldata/covtype/covtype.20k.data");
-    Key okey = Key.make("covtype.hex");
-    ParseDataset.parse(okey, DKV.get(fkey));
-    UKV.remove(fkey);
-    ValueArray va = ValueArray.value(DKV.get(okey));
-    int[] cols = new int[54];
+  public void testGaussian() {
+    Key source = Key.make("datakey");
+    Key target = Key.make("datakey.kmeans");
 
-    for( int i = 0; i < cols.length; i++ )
-      cols[i] = i;
+    try {
+      final int columns = 100, rows = 10000;
+      double[][] goals = new double[8][columns];
+      double[][] array = gauss(columns, rows, goals);
+      int[] cols = new int[columns];
 
-    double[][] clusters = KMeans.run(va, 7, 1e-6, cols);
+      for( int i = 0; i < cols.length; i++ )
+        cols[i] = i;
 
-    AutoBuffer bits = va.getChunk(0);
-    double[] values = new double[cols.length];
-    int[][] confusion = new int[7][];
+      ValueArray va = va_maker(source, (Object[]) array);
+      KMeans.run(target, va, 8, 1e-6, cols);
+      KMeans.Res res = UKV.get(target, new KMeans.Res());
+      double[][] clusters = res._clusters;
 
-    for( int i = 0; i < confusion.length; i++ )
-      confusion[i] = new int[7];
+      for( double[] goal : goals ) {
+        boolean found = false;
 
-    for( int row = 0; row < va.numRows(); row++ ) {
-      for( int column = 0; column < cols.length; column++ )
-        values[column] = va.datad(bits, row, va._cols[cols[column]]);
+        for( double[] cluster : clusters ) {
+          if( match(cluster, goal) ) {
+            found = true;
+            break;
+          }
+        }
 
-      int cluster = KMeansTask.closest(clusters, values);
-      int expected = (int) va.data(bits, row, va._cols[cols.length]);
-      confusion[cluster][expected - 1]++;
+        Assert.assertTrue(found);
+      }
+    } finally {
+      UKV.remove(source);
+      UKV.remove(target);
+    }
+  }
+
+  static double[][] gauss(int columns, int rows, double[][] goals) {
+    // rows and cols are reversed on this one for va_maker
+    double[][] array = new double[columns][rows];
+    Random rand = new Random();
+
+    for( int goal = 0; goal < goals.length; goal++ )
+      for( int c = 0; c < columns; c++ )
+        goals[goal][c] = rand.nextDouble() * 100;
+
+    for( int r = 0; r < rows; r++ ) {
+      int goal = rand.nextInt(goals.length);
+
+      for( int c = 0; c < columns; c++ )
+        array[c][r] = goals[goal][c] + rand.nextGaussian();
     }
 
-    for( int i = 0; i < confusion.length; i++ )
-      System.out.println(Arrays.toString(confusion[i]));
+    return array;
+  }
 
-    for( int cluster = 0; cluster < clusters.length; cluster++ )
-      System.out.println(cluster + ": " + Arrays.toString(clusters[cluster]));
+  static boolean match(double[] cluster, double[] goal) {
+    for( int i = 0; i < cluster.length; i++ )
+      if( Math.abs(cluster[i] - goal[i]) > 1 )
+        return false;
 
-    UKV.remove(okey);
+    return true;
   }
 }
