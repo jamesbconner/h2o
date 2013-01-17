@@ -19,7 +19,6 @@ import water.exec.Expr.Result;
 public abstract class Function {
 
   // ArgCheck ------------------------------------------------------------------
-
   public abstract class ArgCheck {
     public final String _name;
     public final Result _defaultValue;
@@ -44,17 +43,13 @@ public abstract class Function {
       _defaultValue = Result.string(defaultValue);
     }
 
-
     public abstract void checkResult(Result r) throws Exception;
   }
 
   // ArgScalar -----------------------------------------------------------------
-
   public class ArgValue extends ArgCheck {
-
     public ArgValue() { }
     public ArgValue(String name) { super(name); }
-
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtKey)
         throw new Exception("Expected value (possibly multiple columns)");
@@ -63,13 +58,10 @@ public abstract class Function {
 
 
   // ArgScalar -----------------------------------------------------------------
-
   public class ArgScalar extends ArgCheck {
-
     public ArgScalar() { }
     public ArgScalar(String name) { super(name); }
     public ArgScalar(String name, double defaultValue) { super(name,defaultValue); }
-
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtNumberLiteral)
         throw new Exception("Expected number literal");
@@ -77,13 +69,10 @@ public abstract class Function {
   }
 
   // ArgInt --------------------------------------------------------------------
-
   public class ArgInt extends ArgCheck {
-
     public ArgInt() { }
     public ArgInt(String name) { super(name); }
     public ArgInt(String name, long defaultValue) { super(name,defaultValue); }
-
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtNumberLiteral)
         throw new Exception("Expected number");
@@ -93,13 +82,10 @@ public abstract class Function {
   }
 
   // ArgIntPositive-------------------------------------------------------------
-
   public class ArgIntPositive extends ArgCheck {
-
     public ArgIntPositive() { }
     public ArgIntPositive(String name) { super(name); }
     public ArgIntPositive(String name, long defaultValue) { super(name,defaultValue); }
-
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtNumberLiteral)
         throw new Exception("Expected number");
@@ -111,13 +97,10 @@ public abstract class Function {
   }
 
   // ArgString -----------------------------------------------------------------
-
   public class ArgString extends ArgCheck {
-
     public ArgString() { }
     public ArgString(String name) { super(name); }
     public ArgString(String name, String defaultValue) { super(name,defaultValue); }
-
     @Override public void checkResult(Result r) throws Exception {
       if (r._type != Result.Type.rtStringLiteral)
         throw new Exception("Expected string literal");
@@ -125,9 +108,7 @@ public abstract class Function {
   }
 
   // ArgColIdent ---------------------------------------------------------------
-
   public class ArgColIdent extends ArgCheck {
-
     public ArgColIdent() { }
     public ArgColIdent(String name) { super(name); }
     public ArgColIdent(String name, String defaultValue) { super(name,defaultValue); }
@@ -143,9 +124,7 @@ public abstract class Function {
     }
   }
 
-
   // ArgSingleColumn -----------------------------------------------------------
-
   public class ArgVector extends ArgCheck {
     public ArgVector() { }
     public ArgVector(String name) { super(name); }
@@ -161,11 +140,10 @@ public abstract class Function {
     }
   }
 
-  // Function implementation ---------------------------------------------------
 
+  // Function implementation ---------------------------------------------------
   private ArrayList<ArgCheck> _argCheckers = new ArrayList();
   private HashMap<String,Integer> _argNames = new HashMap();
-
   public final String _name;
 
   protected void addChecker(ArgCheck checker) {
@@ -332,10 +310,19 @@ class Filter extends Function {
 
   @Override public Result eval(Result... args) throws Exception {
     Result r = Result.temporary();
-    BooleanVectorFilter filter = new BooleanVectorFilter(r._key,args[1]._key, args[1].colIndex());
+    BooleanVectorFilter filter = new BooleanVectorFilter(r._key, args[0]._key, args[1]._key, args[1].colIndex());
     filter.invoke(args[0]._key);
+    // Convert rows-per-chunk into start row# per chunk
+    long numrows = 0;           // Filtered total row count
+    for( int i=0; i<filter._rpc.length; i++ ) {
+      long tmp = filter._rpc[i];
+      filter._rpc[i] = numrows;
+      numrows += tmp;
+    }
+    // Build target header
     ValueArray va = ValueArray.value(args[0]._key);
-    va = VABuilder.updateRows(va, r._key, filter._filteredRows);
+    va = VABuilder.updateRows(va, r._key, numrows);
+    va._rpc = filter._rpc;      // Variable rows-per-chunk
     DKV.put(va._key, va.value());
     DKV.write_barrier();
     return r;
@@ -378,47 +365,41 @@ class Slice extends Function {
 }
 
 // RandBitVect -----------------------------------------------------------------
-
 class RandBitVect extends Function {
-
   static class RandVectBuilder extends MRTask {
-
-    Key _key;
-    long _selected;
-    long _size;
+    final Key _key;
+    final long _selected;
+    final long _numrows;
+    final long _seed;
     long _createdSelected;
 
-    public RandVectBuilder(Key k, long selected) {
+    public RandVectBuilder(Key k, long selected, long seed) {
       _key = k;
       _selected = selected;
       ValueArray va = ValueArray.value(k);
-      _size = va.length();
+      _numrows = va._numrows;
+      _seed = seed;
     }
 
     @Override public void map(Key key) {
       ValueArray va = ValueArray.value(_key);
       long cidx = ValueArray.getChunkIndex(key);
       int rows = va.rpc(cidx);
-      byte[] bits = MemoryManager.malloc1(rows*8);
       long start = va.startRow(cidx);
-      double expectedBefore = start * ( (double)_selected / (_size / 8));
-      double expectedAfter = (start + rows) * ((double)  _selected / (_size / 8));
-      int create = (int) (Math.round(expectedAfter) - Math.round(expectedBefore));
-      //System.out.println("RVB: before "+ expectedBefore+" after "+expectedAfter+" to be created "+create+" on rows "+rows);
+      double ratio = (double)_selected/_numrows;
+      int create = (int)(Math.round((start+rows)*ratio) - Math.round((start)*ratio));
       _createdSelected += create;
-      boolean[] t = MemoryManager.mallocZ(rows);
-      for (int i = 0; i < create; ++i)
-        t[i] = true;
-      Random r = new Random();
-      for (int i = rows-1; i >=1; --i) {
+      // Fisher-Yates Shuffle
+      byte[] bits = MemoryManager.malloc1(rows);
+      for( int i = 0; i < create; ++i )
+        bits[i] = 1;
+      Random r = hex.rf.Utils.getDeterRNG(_seed+cidx);
+      for( int i = rows-1; i >=1; --i) {
         int j = r.nextInt(i+1);
-        boolean x = t[i];
-        t[i] = t[j];
-        t[j] = x;
+        byte x = bits[i];
+        bits[i] = bits[j];
+        bits[j] = x;
       }
-      int offset = 0;
-      for (int i = 0; i < rows; ++i)
-        offset += UDP.set8d(bits,offset, t[i] ? 1 : 0);
       DKV.put(key, new Value(key,bits));
     }
 
@@ -429,30 +410,30 @@ class RandBitVect extends Function {
 
   }
 
-
   public RandBitVect(String name) {
     super(name);
     addChecker(new ArgIntPositive("size"));
     addChecker(new ArgIntPositive("selected"));
+    addChecker(new ArgInt("seed"));
   }
 
   @Override  public Result eval(Result... args) throws Exception {
     Result r = Result.temporary();
     long size = (long) args[0]._const;
     long selected = (long) args[1]._const;
+    long seed = (long) args[2]._const;
     if (selected > size)
       throw new Exception("Number of selected rows must be smaller or equal than total number of rows for a random bit vector");
     double min = 0;
     double max = 1;
     double mean = selected / size;
     double var = Math.sqrt((1 - mean) * ( 1-mean) * selected + (mean*mean*(size-selected)) / size);
-    new VABuilder("",size).addDoubleColumn("bits",min,max,mean,var).createAndStore(r._key);
-    RandVectBuilder rvb = new RandVectBuilder(r._key,selected);
+    new VABuilder("",size).addColumn("bits",1,1,min,max,mean,var).createAndStore(r._key);
+    RandVectBuilder rvb = new RandVectBuilder(r._key,selected,seed);
     rvb.invoke(r._key);
     assert (rvb._createdSelected == selected) : rvb._createdSelected + " != " + selected;
     return r;
   }
-
 }
 
 // RandomFilter ----------------------------------------------------------------
@@ -463,14 +444,15 @@ class RandomFilter extends Function {
     super(name);
     addChecker(new ArgValue("src"));
     addChecker(new ArgIntPositive("rows"));
+    addChecker(new ArgInt("seed"));
   }
 
   @Override public Result eval(Result... args) throws Exception {
     ValueArray ary = ValueArray.value(args[0]._key);
     long rows = (long) args[1]._const;
-    if (rows > ary.numRows())
+    if( rows < 0 || rows > ary.numRows())
       throw new Exception("Unable to sample more rows that are already present in the data frame");
-    Result bVect = Function.FUNCTIONS.get("randomBitVector").eval(Result.scalar(ary.numRows()), args[1]);
+    Result bVect = Function.FUNCTIONS.get("randomBitVector").eval(Result.scalar(ary.numRows()), args[1], args[2]);
     Result result = Function.FUNCTIONS.get("filter").eval(args[0],bVect);
     bVect.dispose();
     return result;
@@ -478,14 +460,9 @@ class RandomFilter extends Function {
 }
 
 // Log ------------------------------------------------------------------------
-
 class Log extends Function {
-
   static class MRLog extends MRVectorUnaryOperator {
-
     public MRLog(Key key, Key result, int col) { super(key, result, col); }
-
-
     @Override public double operator(double opnd) {
       return Math.log(opnd);
     }
@@ -505,7 +482,6 @@ class Log extends Function {
     b.setColumnStats(0,task._min, task._max, task._tot / va.numRows()).createAndStore(r._key);
     return r;
   }
-
 }
 
 // makeEnum --------------------------------------------------------------------

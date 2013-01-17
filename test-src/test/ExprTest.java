@@ -50,6 +50,29 @@ public class ExprTest extends TestUtil {
   }
 
 
+  // Test a big random filter
+  @Test public void testRandomFilter() {
+    Key k1=null, k2=null, kg=null;
+    try {
+      k1 = loadAndParseKey("kaggle.hex","smalldata/kaggle/creditsample-training.csv.gz");
+      ValueArray va1 = ValueArray.value(k1);
+      k2 = executeExpression("g=randomFilter(kaggle.hex,5432,1232123)");
+      kg = Key.make("g");
+      ValueArray va2 = ValueArray.value(kg);
+      assertEquals(va2.data(0, 0),  5);
+      assertEquals(va2.data(1, 0), 29);
+      assertEquals(va2.data(2, 0), 46);
+      assertEquals(va2.data(va2.numRows()-3, 0), 149943);
+      assertEquals(va2.data(va2.numRows()-2, 0), 149948);
+      assertEquals(va2.data(va2.numRows()-1, 0), 149951);
+    } finally {
+      UKV.remove(k1);
+      if( k2 != null ) UKV.remove(k2);
+      if( kg != null ) UKV.remove(kg);
+    }
+  }
+
+
   protected void testParseFail(String expr, int errorPos) {
     try {
       RLikeParser parser = new RLikeParser();
