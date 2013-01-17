@@ -41,7 +41,7 @@ public class GLM extends Request {
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
   protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
-  protected final HexColumnSelect _negX = new HexColumnSelect(JSON_GLM_NEG_X, _key, _y);
+
 
   public static String link(Key k, String content) {
     RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
@@ -101,7 +101,6 @@ public class GLM extends Request {
   public GLM() {
     _family.setRefreshOnChange();
     _norm.setRefreshOnChange();
-    _negX._hideInQuery = true;
   }
 
 
@@ -111,7 +110,7 @@ public class GLM extends Request {
   private  int[] createColumns() {
     BitSet cols = new BitSet();
     for( int i :    _x.value() ) cols.set  (i);
-    for( int i : _negX.value() ) cols.clear(i);
+    //for( int i : _negX.value() ) cols.clear(i);
     int[] res = new int[cols.cardinality()+1];
     int x=0;
     for( int i = cols.nextSetBit(0); i >= 0; i = cols.nextSetBit(i+1))

@@ -18,7 +18,7 @@ class GLMTest(unittest.TestCase):
     
     def process_dataset(self,key,Y, e_coefs, e_ndev, e_rdev, e_aic, **kwargs):
         # fails with slightly different answers if default norm is used with H2O
-        kwargs = {'norm': 'NONE'}
+        kwargs['norm'] = 'NONE'
         glm = h2o_cmd.runGLMOnly(parseKey = key, Y = 'CAPSULE', timeoutSecs=10, **kwargs)
 
         GLMModel = glm['GLMModel']
