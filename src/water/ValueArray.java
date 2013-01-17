@@ -167,10 +167,14 @@ public class ValueArray extends Iced {
 
   /** Chunk number containing a row */
   private long chknum( long rownum ) {
-    int rpc = (int)(CHUNK_SZ/_rowsize);
-    return ( _rpc != null )
-      ? Math.abs(Arrays.binarySearch(_rpc,rownum))
-      : Math.min(rownum/rpc,Math.max(1,_numrows/rpc)-1);
+    if( _rpc == null ) {
+      int rpc = (int)(CHUNK_SZ/_rowsize);
+      return Math.min(rownum/rpc,Math.max(1,_numrows/rpc)-1);
+    }
+    int bs = Arrays.binarySearch(_rpc,rownum);
+    if( bs < 0 ) bs = -bs-2;
+    while( _rpc[bs+1]==rownum ) bs++;
+    return bs;
   }
 
   // internal convience class for building structured ValueArrays

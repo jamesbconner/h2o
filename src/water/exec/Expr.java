@@ -668,7 +668,7 @@ class FunctionCall extends Expr {
     try {
       return _function.eval(args);
     } catch (Exception e) {
-      throw new EvaluationException(_pos,e.getMessage());
+      throw new EvaluationException(_pos,e.toString());
     } finally {
       for( Result r : args ) if( r != null ) r.dispose();
     }
