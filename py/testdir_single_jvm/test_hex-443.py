@@ -13,7 +13,7 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_hex_443(self):
-        csvPathname = h2o.find_file('smalldata/hex-432.parsetmp_1_0_0_0.data')
+        csvPathname = h2o.find_file('smalldata/hex-443.parsetmp_1_0_0_0.data')
         h2o_cmd.runRF(trees=1, timeoutSecs=5, csvPathname=csvPathname)
 
 if __name__ == '__main__':
