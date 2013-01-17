@@ -108,7 +108,9 @@ class Basic(unittest.TestCase):
                     'rho': 1,
                     'weight': 1.0,
                     'link': 'familyDefault',
-                    # 'link': 'familyDefault',
+                    # what about these?
+                    # 'link': [None, 'logit','identity', 'log', 'inverse'],
+
                     'xval': 0,
                     'beta_eps': 1e-4,
                     'thresholds': '0:1:0.01',

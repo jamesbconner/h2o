@@ -31,8 +31,10 @@ public class Constants {
   public static final String DEPTH                 = "depth";
   public static final String DESCRIPTION           = "description";
   public static final String DEST_KEY              = "destination_key";
+  public static final String ESCAPE_NAN            = "escape_nan";
   public static final String EXCLUSIVE_SPLIT_LIMIT = "exclusive_split_limit";
   public static final String ENUM_DOMAIN           = "enum_domain";
+  public static final String EPSILON               = "epsilon";
   public static final String ERROR                 = "error";
   public static final String EXPRESSION            = "expression";
   public static final String FAILED                = "failed";
@@ -51,6 +53,7 @@ public class Constants {
   public static final String IGNORE                = "ignore";
   public static final String ITEMS                 = "items";
   public static final String JSON_H2O              = "h2o";
+  public static final String K                     = "k";
   public static final String KEY                   = "key";
   public static final String KEYS                  = "keys";
   public static final String LAMBDA_1              = "lambda_1";

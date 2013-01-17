@@ -1600,27 +1600,31 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ---------------------------------------------------------------------------
-  // IgnoreHexCols
+  // HexColumnSelect
   // ---------------------------------------------------------------------------
 
   public class HexColumnSelect extends MultipleSelect<int[]> {
     public final H2OHexKey _key;
-    public final H2OHexKeyCol _classCol;
+    public final H2OHexKeyCol _avoid;
 
-    public HexColumnSelect(String name, H2OHexKey key, H2OHexKeyCol classCol) {
+    public HexColumnSelect(String name, H2OHexKey key, H2OHexKeyCol avoid) {
       super(name);
       addPrerequisite(_key = key);
-      addPrerequisite(_classCol = classCol);
+      _avoid = avoid;
     }
 
     @Override protected String[] selectValues() {
       ValueArray va = _key.value();
-      int classCol = _classCol.value();
-      String[] result = new String[va._cols.length-1]; // no class col
+      int avoid = -1, count = va._cols.length;
+      if(_avoid != null) {
+        avoid=_avoid.value();
+        count--;
+      }
+      String[] result = new String[count];
       int j = 0;
       for (int i = 0; i < va._cols.length; ++i) {
-        if (i == classCol)
-          continue; // class column cannot be ignored
+        if (i == avoid)
+          continue;
         result[j] = va._cols[i]._name == null ? String.valueOf(i) : va._cols[i]._name;
         ++j;
       }
@@ -1642,17 +1646,17 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected int[] parse(String input) throws IllegalArgumentException {
       ValueArray va = _key.value();
-      int classCol = _classCol.value();
+      int avoid = _avoid != null ? _avoid.value() : -1;
       ArrayList<Integer> al = new ArrayList();
       for (String col : input.split(",")) {
         col = col.trim();
         int idx = vaColumnNameToIndex(va, col);
         if (idx == -1)
           throw new IllegalArgumentException("Column "+col+" not part of key "+va._key);
-        if (idx == classCol)
-          throw new IllegalArgumentException("Class column "+col+" cannot be ignored");
+        if (idx == avoid)
+          throw new IllegalArgumentException("Class column "+col+" cannot be selected");
         if (al.contains(idx))
-          throw new IllegalArgumentException("Column "+col+" is already ignored.");
+          throw new IllegalArgumentException("Column "+col+" is already selected.");
         al.add(idx);
       }
       int[] result = new int[al.size()];
@@ -1662,11 +1666,14 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected int[] defaultValue() {
-      return new int[0];
+      int[] cols = new int[_key.value()._cols.length];
+      for( int i = 0; i < cols.length; i++ )
+        cols[i]=i;
+      return cols;
     }
 
     @Override protected String queryDescription() {
-      return "Columns to be ignored by the computation";
+      return "Columns selection";
     }
   }
 
@@ -1676,7 +1683,7 @@ public class RequestArguments extends RequestStatics {
       super(name, key, classCol);
     }
     @Override protected int[] defaultValue() {
-      int classCol = _classCol.value();
+      int classCol = _avoid.value();
       ValueArray va = _key.value();
       List<Integer> res = Lists.newArrayList();
       for( int i=0; i<va._cols.length; i++ )
