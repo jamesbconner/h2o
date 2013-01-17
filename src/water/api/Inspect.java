@@ -51,7 +51,9 @@ public class Inspect extends Request {
   protected void formatColData(JsonObject obj, ValueArray ary, long rowIdx, int colIdx) {
     if (rowIdx < 0)
       rowIdx = ary._numrows + rowIdx;
-    formatAryData(obj, ary, rowIdx, colIdx, ary._cols[colIdx]._name);
+    String colname = ary._cols[colIdx]._name;
+    if( colname == null || colname.isEmpty() ) colname = String.valueOf(colIdx);
+    formatAryData(obj, ary, rowIdx, colIdx, colname);
   }
 
   @Override protected Response serve() {
