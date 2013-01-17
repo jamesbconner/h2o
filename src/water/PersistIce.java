@@ -81,6 +81,7 @@ public abstract class PersistIce {
           case 'c':  b = ':' ; break;
           case 'd':  b = '.' ; break;
           case 's':  b = '/' ; break;
+          case 'z':  b = '\0' ; break;
           default:   System.err.println("Invalid format of filename " + f.getName() + " at index " + i);
           }
         }
@@ -140,19 +141,7 @@ public abstract class PersistIce {
       }
     // or a normal key
     } else {
-      // Escapes special characters in the given key so that in can be used as a
-      // filename on the disk
-      sb = new StringBuilder(k._kb.length*2);
-      for( byte b : k._kb ) {
-        switch( b ) {
-        case '%':  sb.append("%%"); break;
-        case '.':  sb.append("%d"); break; // dot
-        case '/':  sb.append("%s"); break; // slash
-        case ':':  sb.append("%c"); break; // colon
-        case '\\': sb.append("%b"); break; // backslash
-        default:   sb.append((char)b); break;
-        }
-      }
+      sb = escapeBytes(k._kb);
     }
     // append the value type and replication factor
     sb.append('.');
@@ -161,16 +150,28 @@ public abstract class PersistIce {
     return new File(iceRoot,getDirectoryForKey(k)+File.separator+sb.toString());
   }
 
+  private static StringBuilder escapeBytes(byte[] bytes) {
+    StringBuilder sb = new StringBuilder(bytes.length*2);
+    for( byte b : bytes ) {
+      switch( b ) {
+      case '%':  sb.append("%%"); break;
+      case '.':  sb.append("%d"); break; // dot
+      case '/':  sb.append("%s"); break; // slash
+      case ':':  sb.append("%c"); break; // colon
+      case '\\': sb.append("%b"); break; // backslash
+      case '\0': sb.append("%z"); break; // nullbit
+      default:   sb.append((char)b); break;
+      }
+    }
+    return sb;
+  }
+
   private static String getDirectoryForKey(Key key) {
     if( key._kb[0] != Key.ARRAYLET_CHUNK )
       return "not_an_arraylet";
     // Reverse arraylet key generation
     byte[] b = ValueArray.getArrayKeyBytes(key);
-    int j=0;                    // Strip out ':' in directory names
-    for( int i=0; i<b.length; i++ )
-      if( b[i] != ':' )
-        b[j++] = b[i];
-    return new String(b,0,j);
+    return escapeBytes(b).toString();
   }
 
   // Read up to 'len' bytes of Value.  Value should already be persisted to
@@ -208,8 +209,10 @@ public abstract class PersistIce {
       try {
         s = new FileOutputStream(encodeKeyToFile(v));
       } catch (FileNotFoundException e) {
-        System.out.println("Key: "+v._key.toString());
-        System.out.println("Encoded: "+encodeKeyToFile(v));
+        System.err.println("Encoding a key to a file failed!");
+        System.err.println("Key: "+v._key.toString());
+        System.err.println("Encoded: "+encodeKeyToFile(v));
+        e.printStackTrace();
       }
       try {
         byte[] m = v._mem; // we are not single threaded anymore

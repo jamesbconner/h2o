@@ -50,6 +50,7 @@ Petr Maj
 Kevin Normoyle
 Tomas Nykodym
 Matt Fowles
+Cyprien Noel
 Michal Malohlava
 Lauren Brems
 ```

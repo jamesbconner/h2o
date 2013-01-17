@@ -229,17 +229,21 @@ public class GLMSolver {
       int [] numeric = new int[_colIds.length];
       _colOffsets = new int[_colIds.length+1];
       int ncat = 0,nnum = 0;
-      for( int col : _colIds ) {
+      for( int j = 0; j < _colIds.length;++j ) {
+        int col = _colIds[j];
         assert ary._cols[col]._min != ary._cols[col]._max : "already skipped constant cols";
         _colNames[i] = ary._cols[col]._name;
         _colOffsets[i+1] = _colOffsets[i];
-        if( _glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0 ) {
+        if(j != (_colIds.length-1) && _glmParams._expandCat && ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0 ) {
           categoricals[ncat++] = i;
           _colOffsets[i+1] += ary._cols[col]._domain.length;
         } else
           numeric[nnum++] = i;
         ++i;
       }
+
+
+
       _categoricals = Arrays.copyOf(categoricals, ncat);
       _numeric = Arrays.copyOf(numeric, nnum);
 
@@ -420,7 +424,6 @@ public class GLMSolver {
             warns.add("Failed to converge!");
             break OUTER;
           }
-          System.out.println(gtask._gram);
           switch(_solver._penalty) {
           case NONE:
             _solver._penalty = LSMSolver.Norm.L2;
@@ -924,7 +927,8 @@ public class GLMSolver {
         JsonArray arr = new JsonArray();
         for(int i = 0; i < err.length; ++i)
           arr.add(new JsonPrimitive(err[i]));
-        res.add("err", arr);
+        res.add("classErr", arr);
+        res.addProperty("err", err());
         res.addProperty("threshold", _thresholds[_tid]);
         res.add("cm", _cm[_tid].toJson());
       } else

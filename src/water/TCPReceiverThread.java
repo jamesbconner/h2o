@@ -49,7 +49,6 @@ public class TCPReceiverThread extends Thread {
         // Block for TCP connection and setup to read from it.
         AutoBuffer ab = new AutoBuffer(SOCK.accept());
         int ctrl = ab.getCtrl();
-        ab.getPort();
 
         // Record the last time we heard from any given Node
         ab._h2o._last_heard_from = System.currentTimeMillis();

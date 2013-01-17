@@ -15,8 +15,7 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_GLM_princeton(self):
-        # filename, Y, timeoutSecs
-        # fix. the ones with comments may want to be a gaussian?
+        # filename, y, timeoutSecs
         # these are all counts? using gaussian?
         csvFilenameList = [
             ('cuse.dat', 'gaussian', 3, 5), # notUsing
@@ -26,12 +25,12 @@ class Basic(unittest.TestCase):
             ]
 
         trial = 0
-        for (csvFilename, family, Y, timeoutSecs) in csvFilenameList:
+        for (csvFilename, family, y, timeoutSecs) in csvFilenameList:
             csvPathname1 = h2o.find_file("smalldata/logreg/princeton/" + csvFilename)
             csvPathname2 = SYNDATASETS_DIR + '/' + csvFilename + '_stripped.csv'
             h2o_util.file_strip_trailing_spaces(csvPathname1, csvPathname2)
 
-            kwargs = {'xval': 0, 'case': 'NaN', 'family': family, 'link': 'familyDefault', 'Y': Y}
+            kwargs = {'xval': 0, 'case': 'NaN', 'family': family, 'link': 'familyDefault', 'y': y}
             start = time.time()
             glm = h2o_cmd.runGLM(csvPathname=csvPathname2, key=csvFilename, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)

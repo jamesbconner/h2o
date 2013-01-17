@@ -1,49 +1,3 @@
-# cheatsheet for current GLM json return hierachy
-# h2o
-# key
-# GLMModel
-#     GLMParams
-#         betaEps
-#         caseVal 
-#         family
-#         link
-#         maxIter
-#         threshold
-#         weight
-#     LSMParams
-#         penalty
-#     coefficients
-#         <col>
-#         Intercept
-#     dataset
-#     isDone
-#     iterations
-#     time
-#     validations
-#         cm
-#         dataset
-#         dof
-#         err
-#         nrows
-#         nullDev
-#         resDev
-# xval
-#     is a list of things that match GLMModel?
-
-# params on family=gaussian? No xval?
-# conditional set depends on family=
-# {
-# "GLMParams": {
-# "betaEps": 0.0001, 
-# "family": "gaussian", 
-# "link": "identity", 
-# "maxIter": 50
-# }, 
-# "LSMParams": {
-# "lambda": 1e-08, 
-# "penalty": "L2"
-# }, 
-
 import h2o_cmd, h2o
 import re
 
@@ -92,10 +46,13 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
             print "\nxval/../validations/err:", validations['err']
 
     # it's a dictionary!
-    coefficients = GLMModel['coefficients']
+    # get a copy, so we don't destroy the original when we pop the intercept
+    coefficients = GLMModel['coefficients'].copy()
+    # get the intercept out of there into it's own dictionary
+    intercept = coefficients.pop('Intercept', None)
+
     print "\ncoefficients:", coefficients
     # pick out the coefficent for the column we enabled.
-
 
     # FIX! temporary hack to deal with disappaering/renaming columns in GLM
     if colX is not None:
@@ -106,18 +63,24 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
             ))
 
     # intercept is buried in there too
-    absIntercept = abs(float(coefficients['Intercept']))
+    absIntercept = abs(float(intercept))
     self.assertGreater(absIntercept, 1e-18, (
         "abs. value of GLM coefficients['Intercept'] is " +
         str(absIntercept) + ", not >= 1e-18 for Intercept"
                 ))
 
-    # many of the GLM tests aren't single column though.
 
+    maxCoeff = max(coefficients, key=coefficients.get)
+    print "Largest coefficient value:", maxCoeff, coefficients[maxCoeff]
+    minCoeff = min(coefficients, key=coefficients.get)
+    print "Smallest coefficient value:", minCoeff, coefficients[minCoeff]
+
+    # many of the GLM tests aren't single column though.
     # quick and dirty check: if all the coefficients are zero, 
     # something is broken
     # intercept is in there too, but this will get it okay
     # just sum the abs value  up..look for greater than 0
+
     s = 0.0
     for c in coefficients:
         v = coefficients[c]
@@ -135,8 +98,19 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
 def compareToFirstGlm(self, key, glm, firstglm):
     # if isinstance(firstglm[key], list):
     # in case it's not a list allready (err is a list)
-    kList = list(glm[key])
-    firstkList = list(firstglm[key])
+    h2o.verboseprint("compareToFirstGlm key:", key)
+    h2o.verboseprint("compareToFirstGlm glm[key]:", glm[key])
+    # key could be a list or not. if a list, don't want to create list of that list
+    # so use extend on an empty list. covers all cases?
+    if type(glm[key]) is list:
+        kList  = glm[key]
+        firstkList = firstglm[key]
+    elif type(glm[key]) is dict:
+        raise Exception("compareToFirstGLm: Not expecting dict for " + key)
+    else:
+        kList  = [glm[key]]
+        firstkList = [firstglm[key]]
+
     for k, firstk in zip(kList, firstkList):
         delta = .1 * float(firstk)
         msg = "Too large a delta (" + str(delta) + ") comparing current and first for: " + key

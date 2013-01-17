@@ -15,7 +15,7 @@ public class RFTreeView extends Request {
   protected final RFModelKey _modelKey = new RFModelKey(MODEL_KEY);
   protected final Int _tree = new Int(TREE_NUM, 0);
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
-  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(_dataKey,CLASS,0);
+  protected final H2OHexKeyCol _classCol = new H2OHexKeyCol(CLASS,_dataKey,0);
 
   public static String link(Model model, int tree, ValueArray va, int clz, String body) {
     RString rs = new RString("<a href='/RFTreeView.html?" +

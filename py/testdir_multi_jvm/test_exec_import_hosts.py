@@ -2,19 +2,18 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 zeroList = [
-        ['ScalarRes0 = 0'],
-        ['ScalarRes1 = 0'],
-        ['ScalarRes2 = 0'],
-        ['ScalarRes3 = 0'],
+        'ScalarRes0 = 0',
+        'ScalarRes1 = 0',
+        'ScalarRes2 = 0',
+        'ScalarRes3 = 0',
         # FIX! how can this work? no size specified??, so scalar?
-        ['ColumnRes0 = 0'],
-        ['ColumnRes1 = 0'],
-        ['ColumnRes2 = 0'],
-        ['ColumnRes3 = 0'],
+        'ColumnRes0 = 0',
+        'ColumnRes1 = 0',
+        'ColumnRes2 = 0',
+        'ColumnRes3 = 0',
 ]
 
 # 'randomBitVector'
@@ -22,19 +21,19 @@ zeroList = [
 # 'log"
 # 'makeEnum'
 # bug?
-# ['ScalarRes','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
-#        ['ScalarRes','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
+# ['ScalarRes<n> = slice(<keyX>[<col1>],<row>)',
+#        ['ScalarRes<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',
 exprList = [
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', ']'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', '] + ColumnRes', '<n-1>'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', '] + ColumnRes0'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', '] + ColumnRes1'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', '] + ColumnRes2'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', '] + ColumnRes3'],
-        ['ScalarRes','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-        ['ScalarRes','<n>',' = max(','<keyX>','[', '<col1>', ']) + ScalarRes', '<n-1>'],
-        ['ScalarRes','<n>',' = mean(','<keyX>','[', '<col1>', ']) + ScalarRes', '<n-1>'],
-        ['ScalarRes0',' = sum(','<keyX>','[', '<col1>', ']) + ScalarRes0'],
+        'ColumnRes<n> = <keyX>[<col1>]',
+        'ColumnRes<n> = <keyX>[<col1>] + ColumnRes<n-1>',
+        'ColumnRes<n> = <keyX>[<col1>] + ColumnRes0',
+        'ColumnRes<n> = <keyX>[<col1>] + ColumnRes1',
+        'ColumnRes<n> = <keyX>[<col1>] + ColumnRes2',
+        'ColumnRes<n> = <keyX>[<col1>] + ColumnRes3',
+        'ScalarRes<n> = min(<keyX>[<col1>])',
+        'ScalarRes<n> = max(<keyX>[<col1>]) + ScalarRes<n-1>',
+        'ScalarRes<n> = mean(<keyX>[<col1>]) + ScalarRes<n-1>',
+        'ScalarRes0 = sum(<keyX>[<col1>]) + ScalarRes0',
     ]
 
 class Basic(unittest.TestCase):
@@ -53,7 +52,6 @@ class Basic(unittest.TestCase):
         else:
             h2o_hosts.build_cloud_with_hosts()
 
-
     @classmethod
     def tearDownClass(cls):
         # wait while I inspect things
@@ -61,7 +59,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_exec_import_hosts(self):
-        # just do the import folder once
         # importFolderPath = "/home/hduser/hdfs_datasets"
         importFolderPath = "/home/0xdiag/datasets"
         h2i.setupImportFolder(None, importFolderPath)
@@ -85,24 +82,18 @@ class Basic(unittest.TestCase):
         csvFilenameList = csvFilenameAll
         h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
-
-        cnum = 0
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
-            cnum += 1
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2i.parseImportFolderFile(None, csvFilename, importFolderPath, 
                 key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['Key']:", parseKey['destination_key']
-
-            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
 
             print "\n" + csvFilename
             h2e.exec_zero_list(zeroList)
             h2e.exec_expr_list_rand(lenNodes, exprList, key2, 
                 maxCol=54, maxRow=400000, maxTrials=100, timeoutSecs=timeoutSecs)
-
 
 if __name__ == '__main__':
     h2o.unit_main()

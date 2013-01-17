@@ -5,48 +5,23 @@ sys.path.extend(['.','..','py'])
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 
 def define_params():
-    if h2o.new_json:
-        paramDict = {
-            # 'key': ['cA'],
-            # 'y': [11],
-            'family': ['binomial'],
-            # 'norm': ['ELASTIC'],
-            'norm': ['L2'],
-            'lambda_1': [1.0E-5],
-            'lambda_2': [1.0E-8],
-            'alpha': [1.0],
-            'rho': [0.01],
-            'max_iter': [50],
-            'weight': [1.0],
-            'threshold': [0.5],
-            # 'case': [NaN],
-            'case': ['NaN'],
-            # 'link': [familyDefault],
-            'xval': [1],
-            'expand_cat': [1],
-            'beta_eps': [1.0E-4],
-            }
-    else: 
-        paramDict = {
-            # 'key': ['cA'],
-            # 'Y': [11],
-            'family': ['binomial'],
-            # 'norm': ['ELASTIC'],
-            'norm': ['L2'],
-            'lambda_1': [1.0E-5],
-            'lambda_2': [1.0E-8],
-            'alpha': [1.0],
-            'rho': [0.01],
-            'max_iter': [50],
-            'weight': [1.0],
-            'threshold': [0.5],
-            # 'case': [NaN],
-            'case': [None],
-            # 'link': [familyDefault],
-            'xval': [1],
-            'expand_cat': [1],
-            'beta_eps': [1.0E-4],
-            }
+    paramDict = {
+        'family': ['binomial'],
+        'norm': ['L1', 'L2', 'ELASTIC'],
+        'lambda_1': [1.0E-5],
+        'lambda_2': [1.0E-8],
+        'alpha': [1.0],
+        'rho': [0.01],
+        'max_iter': [50],
+        'weight': [1.0],
+        'thresholds': [0.5],
+        # 'case': [NaN],
+        'case': ['NaN'],
+        # 'link': [familyDefault],
+        'xval': [1],
+        'expand_cat': [1],
+        'beta_eps': [1.0E-4],
+        }
     return paramDict
 
 class Basic(unittest.TestCase):
@@ -91,9 +66,9 @@ class Basic(unittest.TestCase):
             # sometimes we have a list to pick from in the value. now it's just list of 1.
             paramDict2[k] = paramDict[k][0]
 
-        Y = 10
+        y = 10
         # FIX! what should we have for case? 1 should be okay because we have 1's in output col
-        kwargs = {'Y': Y, 'max_iter': 30, 'case': 'NaN'}
+        kwargs = {'y': y, 'max_iter': 30, 'case': 'NaN'}
         kwargs.update(paramDict2)
 
         start = time.time()

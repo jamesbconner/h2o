@@ -16,6 +16,7 @@ public class Constants {
   public static final String BASE                  = "base";
   public static final String BEST_THRESHOLD        = "best_threshold";
   public static final String BIN_LIMIT             = "bin_limit";
+  public static final String BUCKET                = "bucket";
   public static final String CLASS                 = "class";
   public static final String CLOUD_NAME            = "cloud_name";
   public static final String CLOUD_SIZE            = "cloud_size";
@@ -30,9 +31,12 @@ public class Constants {
   public static final String DEPTH                 = "depth";
   public static final String DESCRIPTION           = "description";
   public static final String DEST_KEY              = "destination_key";
+  public static final String ESCAPE_NAN            = "escape_nan";
+  public static final String EXCLUSIVE_SPLIT_LIMIT = "exclusive_split_limit";
   public static final String ENUM_DOMAIN           = "enum_domain";
   public static final String EPSILON               = "epsilon";
   public static final String ERROR                 = "error";
+  public static final String EXPRESSION            = "expression";
   public static final String FAILED                = "failed";
   public static final String FEATURES              = "features";
   public static final String FILE                  = "file";
@@ -77,6 +81,7 @@ public class Constants {
   public static final String NUM_TREES             = "ntree";
   public static final String OFFSET                = "offset";
   public static final String OOBEE                 = "oobee";
+  public static final String PATH                  = "path";
   public static final String PARALLEL              = "parallel";
   public static final String PROGRESS              = "progress";
   public static final String PROGRESS_TOTAL        = "progress_total";
@@ -140,5 +145,6 @@ public class Constants {
   public static final String VALUE_TYPE            = "type";
   public static final String VARIANCE              = "variance";
   public static final String VIEW                  = "view";
+  public static final String WARNINGS              = "warnings";
   public static final String WEIGHTS               = "class_weights";
 }

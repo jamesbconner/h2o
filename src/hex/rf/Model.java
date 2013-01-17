@@ -1,8 +1,10 @@
 package hex.rf;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Random;
 
 import water.*;
+import water.util.Counter;
 
 /**
  * A model is an ensemble of trees that can be serialized and that can be used
@@ -27,7 +29,7 @@ public class Model extends Iced implements Cloneable {
   /** Number of keys the model expects to be built for it */
   public int       _totalTrees;
   /** All the trees in the model */
-  public Key[]     _tkeys; 
+  public Key[]     _tkeys;
 
   /** A RandomForest Model
    * @param treeskey    a key of keys of trees
@@ -51,7 +53,7 @@ public class Model extends Iced implements Cloneable {
   public Model() { }
 
   static public Model make(Model old, Key tkey) {
-    try { 
+    try {
       Model m = (Model)old.clone();
       m._tkeys = Arrays.copyOf(old._tkeys,old._tkeys.length+1);
       m._tkeys[m._tkeys.length-1] = tkey;
@@ -61,7 +63,7 @@ public class Model extends Iced implements Cloneable {
 
   /** The number of trees in this model. */
   public int treeCount() { return _tkeys.length; }
-  public int size() { return _tkeys.length; }
+  public int size()      { return _tkeys.length; }
 
   public String name(int atree) {
     if( atree == -1 ) atree = size();
@@ -69,17 +71,16 @@ public class Model extends Iced implements Cloneable {
     return _key.toString()+"["+atree+"]";
   }
 
-  // Return the bits for a particular tree
+  /** Return the bits for a particular tree */
   public byte[] tree( int tree_id ) {
     return DKV.get(_tkeys[tree_id]).get();
   }
 
-  // Bad name, I know.  But free all internal tree keys.
+  /** Bad name, I know.  But free all internal tree keys. */
   public void deleteKeys() {
     for( Key k : _tkeys )
       UKV.remove(k);
   }
-
 
   /**
    * Classify a row according to one particular tree.
@@ -142,23 +143,10 @@ public class Model extends Iced implements Cloneable {
       _tl.add((int) dl);
     }
   }
-  public String leaves() { find_leaves_depth(); return _tl.toString(); }
-  public String depth()  { find_leaves_depth(); return _td.toString(); }
-
-  private static class Counter {
-    double _min = Double.MAX_VALUE, _max = Double.MIN_VALUE;
-    int    _count;
-    double _total;
-    void add(double what) {
-      _total += what;
-      _min = Math.min(what, _min);
-      _max = Math.max(what, _max);
-      ++_count;
-    }
-    double mean() { return _total / _count; }
-    @Override public String toString() { return _count==0 ? " / / " : String.format("%4.1f / %4.1f / %4.1f",_min,mean(),_max); }
-  }
+  public Counter leaves() { find_leaves_depth(); return _tl; }
+  public Counter depth()  { find_leaves_depth(); return _td; }
 
   /** Return the random seed used to sample this tree. */
   public long getTreeSeed(int i) {  return Tree.seed(tree(i)); }
+
 }

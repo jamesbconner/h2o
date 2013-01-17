@@ -21,7 +21,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_100kx7cat(self):
+    def test_GLM_catdata_hosts(self):
         # these are still in /home/kevin/scikit/datasets/logreg
         # FIX! just two for now..
         csvFilenameList = [
@@ -42,28 +42,15 @@ class Basic(unittest.TestCase):
             print "\n" + csvPathname
 
             start = time.time()
-            # can't pass lamba as kwarg because it's a python reserved word
             # FIX! why can't I include 0 here? it keeps getting 'unable to solve" if 0 is included
             # 0 by itself is okay?
-            if h2o.new_json:
-                kwargs = {'Y': 7, 'X': '1,2,3,4,5,6', 'family': "binomial", 'xval': 3, 'norm': "L1", 'glm_lambda': 1e-4}
-            else:
-                kwargs = {'Y': 7, 'X': '1,2,3,4,5,6', 'family': "binomial", 'xval': 3, 'norm': "L1", 'lambda1': 1e-4}
+            kwargs = {'y': 7, 'x': '1,2,3,4,5,6', 'family': "binomial", 'xval': 3, 'norm': "L1", 'lambda1': 1e-4}
             timeoutSecs = 200
             glm = h2o_cmd.runGLM(csvPathname=csvPathname, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, 6, **kwargs)
 
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-
-            # maybe we can see the GLM results in a browser?
-            # FIX! does it recompute it??
-            # FIX! Got stack trace in java if I did this 
             ### h2b.browseJsonHistoryAsUrlLastMatch("GLM")
-            # wait in case it recomputes it
-            # time.sleep(10)
-
-            # compare this glm to the last one. since the files are concatenations, the results
-            # should be similar?
 
             GLMModel = glm['GLMModel']
             validationsList = glm['GLMModel']['validations']

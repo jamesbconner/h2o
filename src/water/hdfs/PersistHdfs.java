@@ -6,11 +6,11 @@ import jsr166y.ForkJoinWorkerThread;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 
-// Persistence backend for HDFS
-//
-// @author peta, cliffc
-public abstract class PersistHdfs {
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
 
+/** Persistence backend for HDFS */
+public abstract class PersistHdfs {
   static         final String KEY_PREFIX="hdfs:";
   static         final int    KEY_PREFIX_LEN = KEY_PREFIX.length();
   static         final int    HDFS_LEN;
@@ -128,31 +128,29 @@ public abstract class PersistHdfs {
   // no matter what).
   public static byte[] file_load(Value v) {
     byte[] b = MemoryManager.malloc1(v._max);
+    FSDataInputStream s = null;
     try {
-      FSDataInputStream s = null;
-      try {
-        long skip = 0;
-        Key k = v._key;
-        // Convert an arraylet chunk into a long-offset from the base file.
-        if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
-          skip = ValueArray.getChunkOffset(k); // The offset
-          k = ValueArray.getArrayKey(k);       // From the base file key
-          if( k.toString().endsWith(".hex") ) { // Hex file?
-            int value_len = DKV.get(k).get().length;  // How long is the ValueArray header?
-            skip += value_len;
-          }
+      long skip = 0;
+      Key k = v._key;
+      // Convert an arraylet chunk into a long-offset from the base file.
+      if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
+        skip = ValueArray.getChunkOffset(k); // The offset
+        k = ValueArray.getArrayKey(k);       // From the base file key
+        if( k.toString().endsWith(".hex") ) { // Hex file?
+          int value_len = DKV.get(k).get().length;  // How long is the ValueArray header?
+          skip += value_len;
         }
-        s = _fs.open(getPathForKey(k));
-        while( (skip -= s.skip(skip)) > 0 ) ; // Skip to offset
-        for( int off = 0; off < v._max; off += s.read(b,off,v._max) ) ; // Read whole
-        assert v.is_persisted();
-        return b;
-      } finally {
-        if( s != null ) s.close();
       }
+      s = _fs.open(getPathForKey(k));
+      ByteStreams.skipFully(s, skip);
+      ByteStreams.readFully(s, b);
+      assert v.is_persisted();
+      return b;
     } catch( IOException e ) { // Broken disk / short-file???
       System.err.println(e);
       return null;
+    } finally {
+      Closeables.closeQuietly(s);
     }
   }
 
@@ -160,8 +158,8 @@ public abstract class PersistHdfs {
   public static void file_store(Value v) {
     // Only the home node does persistence on NFS
     if( !v._key.home() ) return;
-    // A perhaps useless cutout: the upper layers should test this first.
-    if( v.is_persisted() ) return;
+    assert !v.is_persisted();
+
     // Never store arraylets on NFS, instead we'll store the entire array.
     assert v._isArray==0;
     throw H2O.unimpl();

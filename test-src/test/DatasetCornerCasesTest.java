@@ -5,7 +5,6 @@ import static junit.framework.Assert.assertTrue;
 import hex.rf.DRF;
 import hex.rf.Model;
 import hex.rf.Tree.StatType;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import water.*;
 import water.parser.ParseDataset;
@@ -36,20 +35,22 @@ public class DatasetCornerCasesTest extends TestUtil {
     long seed   =  42L;
     StatType statType = StatType.values()[gini];
     final int num_cols = val.numCols();
-    final int classcol = num_cols-1; // For iris: classify the last column
+    final int classcol = num_cols-1; // Classify the last column
     final int classes = (short)((val._cols[classcol]._max - val._cols[classcol]._min)+1);
 
     // Start the distributed Random Forest
     try {
-      DRF drf = hex.rf.DRF.web_main(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,new int[0], Key.make("model"),true,null,-1,false,null);
+      final Key modelKey = Key.make("model");
+      DRF drf = hex.rf.DRF.webMain(val,ntrees,depth,1.0f,(short)1024,statType,seed,classcol,new int[0], modelKey,true,null,-1,false,null,0,0);
       // Just wait little bit
       drf.get();
       // Create incremental confusion matrix
-      Model model = UKV.get(drf._modelKey,new Model());
+      Model model = UKV.get(modelKey, new Model());
       assertEquals("Number of classes == 1", 1,  model._classes);
       assertTrue("Number of trees > 0 ", model.size()> 0);
+      model.deleteKeys();
     } catch( DRF.IllegalDataException e ) {
-      assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be >= 2 and <= 65534, found 1",e.toString());
+      assertEquals("hex.rf.DRF$IllegalDataException: Number of classes must be in interval [2,254], found 1",e.toString());
     }
     UKV.remove(okey);
   }

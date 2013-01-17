@@ -8,12 +8,12 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_util
 import h2o_exec
 
 zeroList = [
-        ['Result0 = 0'],
+        'Result0 = 0',
 ]
 
 # the first column should use this
 exprList = [
-        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', '])'],
+        'Result<n> = sum(<keyX>[<col1>])',
     ]
 
 class Basic(unittest.TestCase):
@@ -35,8 +35,7 @@ class Basic(unittest.TestCase):
         # time.sleep(1500)
         h2o.tear_down_cloud()
 
-    def test_sum_import_hosts(self):
-
+    def test_sum(self):
         print "Replicating covtype.data by 2x for results comparison to 1x"
         filename1x = 'covtype.data'
         pathname1x = h2o.find_dataset('UCI/UCI-large/covtype' + '/' + filename1x)

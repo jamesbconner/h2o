@@ -2,7 +2,6 @@ package water.exec;
 
 import water.*;
 
-
 /**
  *
  * @author peta
@@ -25,15 +24,14 @@ public abstract class CustomFilter extends MRTask {
   @Override public void map(Key key) {
     ValueArray ary = ValueArray.value(ValueArray.getArrayKey(key));
     AutoBuffer bits = ary.getChunk(key);
-    int wo = 0;
     _rowSize = ary._rowsize;
-    filterInitMap(ary, key, bits.remaining());
-    AutoBuffer newBits = new AutoBuffer(bits.remaining());
-    for (int offset = 0; offset < bits.remaining(); offset += _rowSize) {
+    int len = bits.remaining();
+    filterInitMap(ary, key, len);
+    AutoBuffer newBits = new AutoBuffer(len);
+    for (int offset = 0; offset < len; offset += _rowSize) {
       if (filter(bits,offset)) {
+        newBits.copyArrayFrom(0,bits, offset, _rowSize);
         ++_filteredRows;
-        newBits.copyArrayFrom(wo,bits, offset, _rowSize);
-        wo += _rowSize;
       }
     }
     Key d = ValueArray.getChunkKey(ValueArray.getChunkIndex(key), _destKey);
@@ -65,7 +63,6 @@ public abstract class CustomFilter extends MRTask {
   protected void filterInitMap(ValueArray ary, Key k, int rows) {
     // pass
   }
-
 }
 
 // =============================================================================
@@ -73,7 +70,6 @@ public abstract class CustomFilter extends MRTask {
 // =============================================================================
 
 class BooleanVectorFilter extends CustomFilter {
-
   Key _bVect;
   int _bCol;
   transient VAIterator _bIter;
@@ -89,38 +85,10 @@ class BooleanVectorFilter extends CustomFilter {
     return _bIter.datad() != 0;
   }
 
-  @Override protected void filterInitMap(ValueArray ary, Key k, int rows) {
-    long row = ValueArray.getChunkIndex(k) * ValueArray.CHUNK_SZ / ary._rowsize;
+  @Override protected void filterInitMap(ValueArray ary, Key k, int bytes) {
+    long row = ary.startRow(ValueArray.getChunkIndex(k));
     _bIter = new VAIterator(_bVect,_bCol,row);
   }
-
-/*  @Override public int wire_len() {
-    return super.wire_len()+_bVect.wire_len()+4;
-  }
-
-  @Override public void read(Stream s) {
-    super.read(s);
-    _bVect = Key.read(s);
-    _bCol = s.get4();
-  }
-
-  @Override public void write(Stream s) {
-    super.write(s);
-    _bVect.write(s);
-    s.set4(_bCol);
-  }
-
-  @Override public void read(DataInputStream ds) throws IOException {
-    super.read(ds);
-    _bVect = Key.read(ds);
-    _bCol = ds.readInt();
-  }
-
-  @Override public void write(DataOutputStream ds) throws IOException {
-    super.write(ds);
-    _bVect.write(ds);
-    ds.writeInt(_bCol);
-  } */
 }
 
 

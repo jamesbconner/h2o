@@ -337,6 +337,7 @@ class Filter extends Function {
     ValueArray va = ValueArray.value(args[0]._key);
     va = VABuilder.updateRows(va, r._key, filter._filteredRows);
     DKV.put(va._key, va.value());
+    DKV.write_barrier();
     return r;
   }
 }
@@ -516,7 +517,6 @@ class Log extends Function {
 class MakeEnum extends Function {
 
   static class GetEnumTask extends MRTask {
-
     water.parser.Enum _domain;
     final int _colIndex;
     final Key _aryKey;
@@ -552,11 +552,9 @@ class MakeEnum extends Function {
         _domain.merge(other._domain);
       }
     }
-
   }
 
   static class PackToEnumTask extends MRTask {
-
     final water.parser.Enum _domain;
     final Key _resultKey;
     final Key _sourceKey;
@@ -642,6 +640,7 @@ class MakeEnum extends Function {
       Result result = Result.temporary();
       ValueArray ary = new ValueArray(result._key, oldAry.numRows(), c._size, new Column[] { c });
       DKV.put(result._key, ary.value());
+      DKV.write_barrier();
       // invoke the pack task
       PackToEnumTask ptask = new PackToEnumTask(result._key, args[0]._key, args[0].colIndex(),etask._domain);
       ptask.invoke(result._key);
@@ -649,6 +648,7 @@ class MakeEnum extends Function {
       c._mean = ptask._tot / c._n;
       ary = new ValueArray(result._key, oldAry.numRows(), c._size, new Column[] { c });
       DKV.put(result._key, ary.value());
+      DKV.write_barrier();
       return result;
     } catch (Exception e) {
       e.printStackTrace();
@@ -757,9 +757,10 @@ class InPlaceColSwap extends Function {
     Result result = Result.temporary();
     // we now have the new column layout and must do the copying, create the
     // value array
-    ColSwapTask task = new ColSwapTask(result._key, oldKey, newKey, oldCol, newCol);
     ValueArray ary = new ValueArray(result._key, oldAry.numRows(), off, cols);
-    DKV.put(result._key, ary.value(),task.getFutures());
+    DKV.put(result._key, ary.value());
+    DKV.write_barrier();
+    ColSwapTask task = new ColSwapTask(result._key, oldKey, newKey, oldCol, newCol);
     task.invoke(result._key);
     return result;
   }

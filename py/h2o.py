@@ -50,7 +50,6 @@ verbose = False
 ipaddr = None
 config_json = False
 debugger = False
-new_json = False
 
 def parse_our_args():
     parser = argparse.ArgumentParser()
@@ -61,12 +60,10 @@ def parse_our_args():
     parser.add_argument('-ip', '--ip', type=str, help='IP address to use for single host H2O with psutil control')
     parser.add_argument('-cj', '--config_json', help='Use this json format file to provide multi-host defaults. Overrides the default file pytest_config-<username>.json. These are used only if you do build_cloud_with_hosts()')
     parser.add_argument('-dbg', '--debugger', help='Launch java processes with java debug attach mechanisms', action='store_true')
-    parser.add_argument('-new', '--new_json', help='do all functions through the new API port', action='store_true')
-    parser.add_argument('-old', '--old_json', help='do GLM and RF functions through the old HTTP port', action='store_true')
     parser.add_argument('unittest_args', nargs='*')
 
     args = parser.parse_args()
-    global browse_disable, browse_json, verbose, ipaddr, config_json, debugger, new_json
+    global browse_disable, browse_json, verbose, ipaddr, config_json, debugger
 
     browse_disable = args.browse_disable or getpass.getuser()=='jenkins'
     browse_json = args.browse_json
@@ -74,9 +71,6 @@ def parse_our_args():
     ipaddr = args.ip
     config_json = args.config_json
     debugger = args.debugger
-    # defaults to new_json=true if neither new nor old. 
-    # old controls if new not present.
-    new_json = args.new_json or (not args.old_json)
 
     # set sys.argv to the unittest args (leav sys.argv[0] as is)
     # FIX! this isn't working to grab the args we don't care about
@@ -437,8 +431,8 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
         cloud_size = c['cloud_size']
         cloud_name = c['cloud_name']
         node_name  = c['node_name']
-        cnodes      = c['nodes'] # list of dicts 
 
+        cnodes      = c['nodes'] # list of dicts 
         if (cloud_size > node_count):
             print "\nNodes in current cloud:"
             for c in cnodes:
@@ -472,9 +466,13 @@ def stabilize_cloud(node, node_count, timeoutSecs=14.0, retryDelaySecs=0.25):
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
 class H2O(object):
-    def __url(self, loc, port=None, new=False):
-        if port is None: port = self.port
-        if new: port += 2
+    def __url(self, loc, port=None,new=True):
+        # always use the new api port
+        if new is False:
+            if port is None: port = self.port
+        else:
+            if port is None: port = self.port + 2
+
         u = 'http://%s:%d/%s' % (self.http_addr, port, loc)
         return u 
 
@@ -493,6 +491,7 @@ class H2O(object):
 
         # HACK: excessive messaging variance ..so check a bunch...should jira this issue
         rjson = r.json
+        ### print dump_json(rjson)
         if 'error' in rjson:
             print rjson
             raise Exception('rjson error in %s: %s' % (inspect.stack()[1][3], rjson['error']))
@@ -511,15 +510,15 @@ class H2O(object):
         return rjson
 
     def test_redirect(self):
-        return self.__check_request(requests.get(self.__url('TestRedirect.json', new=True)))
+        return self.__check_request(requests.get(self.__url('TestRedirect.json')))
     def test_poll(self, args):
         return self.__check_request(requests.get(
-                    self.__url('TestPoll.json', new=True),
+                    self.__url('TestPoll.json'),
                     params=args))
 
 
     def get_cloud(self):
-        a = self.__check_request(requests.get(self.__url('Cloud.json', new=True)))
+        a = self.__check_request(requests.get(self.__url('Cloud.json')))
         # don't want to print everything from get_cloud json (f/j info etc)
         # but this will check the keys exist!
         consensus  = a['consensus']
@@ -535,14 +534,14 @@ class H2O(object):
         return a
 
     def get_timeline(self):
-        return self.__check_request(requests.get(self.__url('Timeline.json', new=True)))
+        return self.__check_request(requests.get(self.__url('Timeline.json')))
 
     # Shutdown url is like a reset button. Doesn't send a response before it kills stuff
     # safer if random things are wedged, rather than requiring response
     # so request library might retry and get exception. allow that.
     def shutdown_all(self):
         try:
-            self.__check_request(requests.get(self.__url('Shutdown.json', new=True)))
+            self.__check_request(requests.get(self.__url('Shutdown.json')))
         except:
             pass
         return(True)
@@ -550,14 +549,14 @@ class H2O(object):
     def put_value(self, value, key=None, repl=None):
         return self.__check_request(
             requests.get(
-                self.__url('PutValue.json', new=True), 
+                self.__url('PutValue.json'), 
                 params={"value": value, "key": key, "replication_factor": repl}),
             extraComment = str(value) + "," + str(key) + "," + str(repl))
 
     def put_file(self, f, key=None, timeoutSecs=60):
         resp1 =  self.__check_request(
             requests.get(
-                self.__url('WWWFileUpload.json', new=True), 
+                self.__url('WWWFileUpload.json'), 
                 timeout=timeoutSecs,
                 params={"Key": key}), 
             extraComment = str(f) + "," + str(key))
@@ -573,12 +572,12 @@ class H2O(object):
         return resp2[0]
     
     def get_key(self, key):
-        return requests.get(self.__url('Get.html', new=True),
+        return requests.get(self.__url('Get.html'),
             prefetch=False,
             params={"key": key})
 
     def poll_url(self, response, timeoutSecs=10, retryDelaySecs=0.2):
-        url = self.__url(response['redirect_request'], new=True)
+        url = self.__url(response['redirect_request'])
         args = response['redirect_request_args']
         status = 'poll'
         r = None
@@ -620,7 +619,7 @@ class H2O(object):
 
         a = self.__check_request(
             requests.get(
-                url=self.__url('Parse.json', new=True),
+                url=self.__url('Parse.json'),
                 timeout=timeoutSecs,
                 params={"source_key": key, "destination_key": key2}))
         # Check that the response has the right ParseProgress url it's going to steer us to.
@@ -632,15 +631,15 @@ class H2O(object):
         return a
 
     def netstat(self):
-        return self.__check_request(requests.get(self.__url('Network.json', new=True)))
+        return self.__check_request(requests.get(self.__url('Network.json')))
 
     def jstack(self):
-        return self.__check_request(requests.get(self.__url("JStack.json", new=True)))
+        return self.__check_request(requests.get(self.__url("JStack.json")))
 
     # &offset=
     # &view=
     def inspect(self, key, offset=None, view=None):
-        a = self.__check_request(requests.get(self.__url('Inspect.json', new=True),
+        a = self.__check_request(requests.get(self.__url('Inspect.json'),
             params={
                 "key": key,
                 "offset": offset,
@@ -656,119 +655,74 @@ class H2O(object):
         verboseprint("\ninspect result:", dump_json(a))
         return a
 
-    def import_folder(self, folder, repl=None):
+    # ImportFiles replaces ImportFolder, with a param that can be a folder or a file.
+    # the param name is 'file', but it can take a directory or a file.
+    # 192.168.0.37:54323/ImportFiles.html?file=%2Fhome%2F0xdiag%2Fdatasets
+
+    # this can be used to import just a file or a whole folder
+    def import_files(self, path):
         a = self.__check_request(requests.get(
-            self.__url('ImportFolder.json'),
-            params={
-                "Folder": folder,
-                "rf": repl}))
-        verboseprint("\nimport_folder result:", dump_json(a))
+            self.__url('ImportFiles.json', new=True), 
+            params={ "path": path}))
+        verboseprint("\nimport_files result:", dump_json(a))
+        return a
+
+    def import_s3(self, bucket, repl=None):
+        a = self.__check_request(requests.get(
+            self.__url('ImportS3.json', new=True),
+            params={"bucket": bucket}))
+        verboseprint("\nimport_s3 result:", dump_json(a))
         return a
 
     def exec_query(self, timeoutSecs=20, **kwargs):
         params_dict = {
-            'Expr': None,
+            'expression': None,
             }
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
         verboseprint("\nexec_query:", params_dict)
         a = self.__check_request(requests.get(
-            # FIX! force to old because doesn't exist in new yet
-            # url=self.__url('Exec.json', new=new_json),
-            url=self.__url('Exec.json', new=False),
+            url=self.__url('Exec.json'),
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nexec_query result:", dump_json(a))
         return a
 
-    # kwargs used to pass:
-    # RF?
-    # classWt=&
-    # class=2&
-    # ntree=&
-    # modelKey=& 
-    # OOBEE=true&
-    # gini=1&
-    # depth=&
-    # binLimit=&
-    # parallel=&
-    # ignore=&   ...this is ignore columns
-    # sample=&
-    # seed=&
-    # features=1&
-    # singlethreaded=0&     ..debug only..may be gone
-    # Key=chess_2x2_500_int.hex
-
-    # note ntree in kwargs can overwrite trees!
-    def random_forest(self, key, trees, timeoutSecs=300, **kwargs):
-        # print "new_json:", new_json
-        # FIX!. this new/old if-else stuff can go away once we transition and migrate the tests to new
-        # param names
-        if new_json:
-            modelKey = kwargs.pop('modelKey', 'pytest_model')
-            params_dict = {
-                'data_key': key,
-                'ntree':  trees,
-                'model_key': modelKey,
-                'depth': 30,
-                }
-        else:
-            params_dict = {
-                'Key': key,
-                'ntree': trees,
-                'modelKey': 'pytest_model',
-                'depth': 30,
-                }
-        
+    # note ntree in kwargs can overwrite trees! (trees is legacy param)
+    def random_forest(self, data_key, trees, timeoutSecs=300, **kwargs):
+        params_dict = {
+            'data_key': data_key,
+            'ntree':  trees,
+            'model_key': 'pytest_model',
+            }
         browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
 
         params_dict.update(kwargs)
-        verboseprint("\nrandom_forest parameters:", params_dict)
+        print "\nrandom_forest parameters:", params_dict
         a = self.__check_request(requests.get(
-            url=self.__url('RF.json', new=new_json), 
+            url=self.__url('RF.json'),
             timeout=timeoutSecs,
             params=params_dict))
         verboseprint("\nrandom_forest result:", dump_json(a))
         return a
 
-    # kwargs used to pass:
-    # RFView?
-    # classWt=classWt=B=1,W=2&
-    # class=2&
-    # ntree=50&
-    # modelKey=model&
-    # OOBEE=true&
-    # singlethreaded=0&     ..debug only..
-    # dataKey=chess_2x2_500_int.hex
-    # ignore=&   ...this is ignore columns
-    def random_forest_view(self, dataKey, modelKey, timeoutSecs=300, **kwargs):
+    def random_forest_view(self, data_key, model_key, timeoutSecs=300, **kwargs):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
-        # Will need to update this list if we params for RfView
-        # FIX!. new/old if-else stuff can go away once we transition and migrate the tests to new
-        # param names
-        if new_json:
-            params_dict = {
-                'data_key': dataKey,
-                'model_key': modelKey,
-                'OOBEE': None,
-                'classWt': None,
-                'class': None, # FIX! apparently this is needed now?
-                }
-        else: 
-            params_dict = {
-                'dataKey': dataKey,
-                'modelKey': modelKey,
-                'OOBEE': None,
-                'classWt': None,
-                'class': None, # FIX! apparently this is needed now?
-                }
+        params_dict = {
+            'data_key': data_key,
+            'model_key': model_key,
+            'OOBEE': None,
+            'class_weights': None,
+            'class': None, # FIX! apparently this is needed now?
+            }
 
         browseAlso = kwargs.pop('browseAlso',False)
         clazz = kwargs.pop('clazz', None)
         if clazz is not None: params_dict['class'] = clazz
+
         # only update params_dict..don't add
         # throw away anything else as it should come from the model (propagating what RF used)
         for k in kwargs:
@@ -776,7 +730,7 @@ class H2O(object):
                 params_dict[k] = kwargs[k]
 
         a = self.__check_request(requests.get(
-            self.__url('RFView.json', new=new_json), 
+            self.__url('RFView.json'),
             timeout=timeoutSecs,
             params=params_dict))
 
@@ -786,124 +740,48 @@ class H2O(object):
 
         return a
 
-    def random_forest_treeview(self, n, dataKey, modelKey, timeoutSecs=10, **kwargs):
-        if new_json:
-            params_dict = {
-                'tree_number': n,
-                'data_key': dataKey,
-                'model_key': modelKey,
-                }
-        else:
-            params_dict = {
-                'n': n,
-                'dataKey': dataKey,
-                'modelKey': modelKey
-                }
-
-        browseAlso = kwargs.pop('browseAlso',False)
-        params_dict.update(kwargs)
-
-        if (1==0):
-            a = self.__check_request(requests.get(
-                self.__url('RFTreeView.json', new=new_json),
-                timeout=timeoutSecs,
-                params=params_dict))
-
-            verboseprint("\nrandom_forest_treeview result:", dump_json(a))
-            if (browseAlso | browse_json):
-                h2b.browseJsonHistoryAsUrlLastMatch("RFTreeView")
-        else:
-            a = "No RFTreeView.json implemented yet hacking a webbrowser instead"
-            print "\n", a
-            if new_json:
-                url = self.__url('RFTreeView.html', new=True)
-            else:
-                url = self.__url('RFTreeView', new=False)
-            # tack on the params. We're not logging this url
-            joiner = "?"
-            for k,v in params_dict.iteritems():
-                url = url + joiner + k + "=" + str(v)
-                joiner = "&"
-            webbrowser.open_new(url)
-            time.sleep(3) # to be able to see it
-        return a
-
-    def linear_reg(self, key, timeoutSecs=10, **kwargs):
-        if new_json:
-            params_dict = {
-                'key': key,
-                'colA': 0,
-                'colB': 1,
+    def random_forest_treeview(self, tree_number, data_key, model_key, timeoutSecs=10, **kwargs):
+        params_dict = {
+            'tree_number': tree_number,
+            'data_key': data_key,
+            'model_key': model_key,
             }
-        else:
-            params_dict = {
-                'Key': key,
-                'colA': 0,
-                'colB': 1,
-            }
+
         browseAlso = kwargs.pop('browseAlso',False)
         params_dict.update(kwargs)
 
         a = self.__check_request(requests.get(
-            self.__url('LR.json', new=new_json),
+            self.__url('RFTreeView.json'),
             timeout=timeoutSecs,
             params=params_dict))
 
-        verboseprint("\nlinear_reg result:", dump_json(a))
+        verboseprint("\nrandom_forest_treeview result:", dump_json(a))
+        # Always do it to eyeball?
+        if (browseAlso | browse_json | True):
+            h2b.browseJsonHistoryAsUrlLastMatch("RFTreeView")
+            time.sleep(3) # to be able to see it
         return a
 
-
     # kwargs used to pass many params
-    # names are changing (old/new port)
-    # new_json is only enabled by "python test_* -new"
     def GLM_shared(self, key, timeoutSecs=300, retryDelaySecs=0.5, parentName=None, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
-        print "new_json:", new_json
-        # FIX!.new/old if-else stuff can go away once we transition and migrate the tests to new
-        # param names
-        if new_json:
-            # if the old 'Y' param is in use, change it to the new 'y' param
-            # if 'y' is used, it will override this
-            # same with x. key changed also.
-            y = kwargs.pop('Y', 1)
-            x = kwargs.pop('X', None)
-            params_dict = { 
-                'family': 'binomial',
-                'key': key,
-                'y': y,
-                'x': x,
-                # 'case" is apparently used for matching against an output value
-                # it needs to be something..anything none matching is forced to 0? 
-                # used to create binary choices in output for logistic regression
-                # FIX! default is bad if you have no 1's in your data. (like 2 and -2
-                'case': 'NaN',
-                # just want to try this out to see if legal. shouldn't need to specify a default?
-                'link': 'familyDefault'
-            }
-        else:
-            params_dict = { 
-                'family': 'binomial',
-                'Key': key,
-                'Y': 1,
-            }
+        params_dict = { 
+            'family': 'binomial',
+            'key': key,
+            'y': 1,
+            'case': 'NaN',
+            'link': 'familyDefault'
+        }
 
-        # special case these two because of name issues.
-        # use glm_lamba, not lambda. use glm_notX, not -X
-
-        glm_notX = kwargs.pop('glm_-X', None)
-        # lambda1 and lambda2 just get passed normally for new_json now
-        if new_json:
-            if glm_notX is not None: params_dict['-x'] = glm_notX
-        else:
-            glm_lambda = kwargs.pop('glm_lambda', None)
-            if glm_lambda is not None: params_dict['lambda'] = glm_lambda
-            if glm_notX is not None: params_dict['-X'] = glm_notX
+        # special case because of name issues
+        glm_notX = kwargs.pop('glm_-x', None)
+        if glm_notX is not None: params_dict['-x'] = glm_notX
 
         params_dict.update(kwargs)
         print "GLM params list", params_dict
 
         a = self.__check_request(requests.get(
-            self.__url(parentName + '.json', new=new_json),
+            self.__url(parentName + '.json'),
             timeout=timeoutSecs,
             params=params_dict))
         
@@ -913,29 +791,15 @@ class H2O(object):
     def GLM(self, key, timeoutSecs=300, retryDelaySecs=0.5, **kwargs):
         a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLM", **kwargs)
 
-        # placeholder
-        # FIX! seems like GLMProgress doesn't exist yet? at least not a redirect
-        # note there is no RF redirect to RFView?
-        if new_json and 1==0:
-            # Check that the response has the right GLMProgress url it's going to steer us to.
-            if a['response']['redirect_request']!='GLMProgress':
-                print dump_json(a)
-                raise Exception('H2O GLM redirect is not GLMProgress. GLMGrid json response precedes.')
-            a = self.poll_url(a['response'], timeoutSecs, retryDelaySecs)
-            verboseprint("GLM done:", dump_json(a))
-
+        # FIX! seems like GLMProgress doesn't exist yet?
         browseAlso = kwargs.get('browseAlso', False)
         if (browseAlso | browse_json):
             # FIX! GLMProgress doesn't exist yet.
-            if new_json:
-                print "Redoing (in Parallel?) the GLM through the browser, no results saved though"
-                print "How come no GLMProgress for long GLMs?"
-                # find a match on the first. Swap in the 2nd to the url (as well as xlate to html)
-                # because we don't want to restart the GLM?
-                h2b.browseJsonHistoryAsUrlLastMatch('GLM')
-            else:
-                print "Redoing the GLM through the browser, no results saved though"
-                h2b.browseJsonHistoryAsUrlLastMatch('GLM')
+            print "Redoing (in Parallel?) the GLM through the browser, no results saved though"
+            print "How come no GLMProgress for long GLMs?"
+            # find a match on the first. Swap in the 2nd to the url (as well as xlate to html)
+            # because we don't want to restart the GLM?
+            h2b.browseJsonHistoryAsUrlLastMatch('GLM')
             # wait so we can see it
             time.sleep(5)
         return a
@@ -1077,16 +941,19 @@ class H2O(object):
 
         if not self.sigar:
             args += ['--nosigar']
+
+        if self.aws_credentials:
+            args += [ '--aws_credentials='+self.aws_credentials ]
         return args
 
     def __init__(self, 
         use_this_ip_addr=None, port=54321, capture_output=True, sigar=False, use_debugger=None, classpath=None,
         use_hdfs=False, hdfs_name_node="192.168.1.151", hdfs_root="/datasets", hdfs_version="cdh4",
-        hdfs_nopreload=None,
+        hdfs_nopreload=None, aws_credentials=None,
         use_flatfile=False, java_heap_GB=None, use_home_for_ice=False, node_id=None, username=None):
 
         if use_debugger is None: use_debugger = debugger
-
+        self.aws_credentials = aws_credentials
         self.port = port
         # None is legal for self.addr. means we won't give an ip to the jar when we start, and it should
         # figure out the right thing. Or we can say use use_this_ip_addr=127.0.0.1, or the known address 
@@ -1157,7 +1024,7 @@ class ExternalH2O(H2O):
         # try/except for this is inside shutdown_all now
         self.shutdown_all()
         if self.is_alive():
-            raise 'Unable to terminate externally launched node: %s' % self
+            raise Exception('Unable to terminate externally launched node: %s' % self)
 
 
 class LocalH2O(H2O):
@@ -1367,7 +1234,7 @@ class RemoteH2O(H2O):
         # we should get a connection error. doing a is_alive subset.
         try:
             gc_output = self.get_cloud()
-            raise "get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output)
+            raise Exception("get_cloud() should fail after we terminate a node. It isn't. %s %s" % (self, gc_output))
         except:
             return True
     

@@ -1,31 +1,24 @@
 package water.api;
 
-import java.io.*;
-import java.net.URL;
-
 import water.Key;
 import water.ValueArray;
 
-import com.google.common.io.Closeables;
-import com.google.gson.JsonObject;
-
 public class Exec extends Request {
-  private final Str _exec = new Str("Exec");
+  private final Str _exec = new Str(EXPRESSION);
+  private final Str _dest = new Str(DEST_KEY, "Result.hex");
+  private final Bool _safe = new Bool(ESCAPE_NAN, false, "Escape NaN and Infinity in the result JSON");
 
   @Override
   protected Response serve() {
     String s = _exec.value();
-    JsonObject res = new JsonObject();
-    res.addProperty("Expr", s);
     try {
-      long time = System.currentTimeMillis();
-      Key k = water.exec.Exec.exec(s);
-      time = System.currentTimeMillis() - time;
+      Key k = water.exec.Exec.exec(s, _dest.value());
       ValueArray va = ValueArray.value(k);
-      return new Inspect(k).serveValueArray(va);
+      Response r = new Inspect(k).serveValueArray(va);
+      if( _safe.value() ) r.escapeIllegalJsonElements();
+      return r;
     } catch( Exception e ) {
-      res.addProperty("Error", e.toString());
-      return Response.done(res);
+      return Response.error(e.getMessage());
     }
   }
 }

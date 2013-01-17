@@ -10,8 +10,7 @@ import water.Value;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Maps;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 
 public class GLMGridProgress extends Request {
   protected final H2OExistingKey _taskey = new H2OExistingKey(DEST_KEY);
@@ -44,6 +43,13 @@ public class GLMGridProgress extends Request {
       for( int j = 0; j < classErr.length; ++j ) {
         o.addProperty(ERROR +"_"+ j, classErr[j]);
       }
+      JsonArray arr = new JsonArray();
+      if( m._warnings != null ) {
+        for( String w : m._warnings ) {
+          arr.add(new JsonPrimitive(w));
+        }
+      }
+      o.add(WARNINGS, arr);
       models.add(o);
     }
     response.add(MODELS, models);
@@ -55,6 +61,7 @@ public class GLMGridProgress extends Request {
     r.setBuilder(Constants.DEST_KEY, new HideBuilder());
     r.setBuilder(MODELS, new GridBuilder2());
     r.setBuilder(MODELS+"."+KEY, new KeyCellBuilder());
+    r.setBuilder(MODELS+"."+WARNINGS, new WarningCellBuilder());
     return r;
   }
 

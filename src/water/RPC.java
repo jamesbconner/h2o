@@ -3,7 +3,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import jsr166y.ForkJoinPool;
 import jsr166y.CountedCompleter;
-import water.nbhm.NonBlockingHashMapLong;
 
 /**
  * A remotely executed FutureTask.  Flow is:
@@ -63,7 +62,7 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
   boolean _did_tcp;
 
   // The set of current pending tasks.  Basically a map from task# to RPC.
-  static public NonBlockingHashMapLong<RPC<?>> TASKS = new NonBlockingHashMapLong<RPC<?>>();
+  static public ConcurrentHashMap<Integer,RPC<?>> TASKS = new ConcurrentHashMap<Integer,RPC<?>>();
 
   // Magic Cookies
   static final byte SERVER_UDP_SEND = 10;
@@ -228,7 +227,7 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
     // packet is used to stop dup-actions on dup-sends.  Racily inserted, keep
     // only the last one.
     DTask dt1 = ab._h2o.record_task(task);
-    assert dt1==null : "#"+task+" "+dt1.getClass(); // For TCP, no repeats, so 1st send is only send
+    assert dt1==null||dt1 instanceof NOPTask : "#"+task+" "+dt1.getClass(); // For TCP, no repeats, so 1st send is only send (except for UDP timeout retries)
     
     // Make a remote instance of this dude from the stream, but only if the
     // racing UDP packet did not already make one.  Start the bulk TCP read.
@@ -253,15 +252,18 @@ public class RPC<V extends DTask> implements Future<V>, Delayed, ForkJoinPool.Ma
     RPC rpc = TASKS.get(task);
     // Race with canceling a large RPC fetch: Task is already dead.  Do not
     // bother reading from the TCP socket, just bail out & close socket.
-    if( rpc == null ) return;
-    assert rpc._tasknum == task;
-    assert !rpc._done;
-    // Here we have the result, and we're on the correct Node but wrong
-    // Thread.  If we just return, the TCP reader thread will close the
-    // remote, the remote will UDP ACK the RPC back, and back on the current
-    // Node but in the correct Thread, we'd wake up and realize we received a
-    // large result.
-    rpc.response(ab);
+    if( rpc == null ) {
+      ab.drainClose();
+    } else {
+      assert rpc._tasknum == task;
+      assert !rpc._done;
+      // Here we have the result, and we're on the correct Node but wrong
+      // Thread.  If we just return, the TCP reader thread will close the
+      // remote, the remote will UDP ACK the RPC back, and back on the current
+      // Node but in the correct Thread, we'd wake up and realize we received a
+      // large result.
+      rpc.response(ab);
+    }
     // ACKACK the remote, telling him "we got the answer"
     new AutoBuffer(ab._h2o).putTask(UDP.udp.ackack.ordinal(),task).close(true);
   }

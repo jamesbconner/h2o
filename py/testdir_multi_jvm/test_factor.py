@@ -2,69 +2,55 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 def write_syn_dataset(csvPathname, rowCount, SEED):
     # 8 random generatators, 1 per column
     r1 = random.Random(SEED)
-    r2 = random.Random(SEED)
-    r3 = random.Random(SEED)
-    r4 = random.Random(SEED)
-    r5 = random.Random(SEED)
-    r6 = random.Random(SEED)
-    r7 = random.Random(SEED)
-    r8 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
     for i in range(rowCount):
         rowData = "%s,%s,%s,%s,%s,%s,%s,%s" % (
             r1.randint(0,1),
-            r2.randint(0,2),
-            r3.randint(-4,4),
-            r4.randint(0,8),
-            r5.randint(-16,16),
-            r6.randint(-32,32),
+            r1.randint(0,2),
+            r1.randint(-4,4),
+            r1.randint(0,8),
+            r1.randint(-16,16),
+            r1.randint(-32,32),
             0,
-            r8.randint(0,1))
+            r1.randint(0,1))
         dsf.write(rowData + "\n")
     dsf.close()
 
 zeroList = [
-        ['Result2 = 0'],
-        ['Result1 = 0'],
-        ['Result0 = 0'],
-        ['Result = 0'],
+        'Result2 = 0',
+        'Result1 = 0',
+        'Result0 = 0',
+        'Result.hex = 0',
 ]
 
 exprList = [
-        ['Result','<n>',' = ',
-            '<keyX>','[', '<col1>', '] + ',
-            '<keyX>','[', '<col2>', '] + ',
-            '<keyX>','[', '2', ']'
-        ],
+        'Result<n> = <keyX>[<col1>] + <keyX>[<col2>] + <keyX>[2]' ,
 
-        ['Result','<n>',' = factor(','<keyX>','[','0','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','1','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','2','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','3','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','4','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','5','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','6','])'],
-        ['Result','<n>',' = factor(','<keyX>','[','7','])'],
+        'Result<n> = factor(<keyX>[0])',
+        'Result<n> = factor(<keyX>[1])',
+        'Result<n> = factor(<keyX>[2])',
+        'Result<n> = factor(<keyX>[3])',
+        'Result<n> = factor(<keyX>[4])',
+        'Result<n> = factor(<keyX>[5])',
+        'Result<n> = factor(<keyX>[6])',
+        'Result<n> = factor(<keyX>[7])',
 
-        ['Result','<n>',' = randomBitVector(','<row>',',1)'],
-        ['Result','<n>',' = randomBitVector(','<row>',',0)'],
+        'Result<n> = randomBitVector(<row>,1)',
+        'Result<n> = randomBitVector(<row>,0)',
 # FIX! bugs in all of these?
-#        ['Result','<n>',' = randomFilter(','<keyX>','[','<col1>','],','<row>',')'],
-#        ['Result','<n>',' = randomFilter(','<keyX>',',','<row>',')'],
-#        ['Result','<n>',' = randomFilter(','<keyX>',',','3',')'],
+#        'Result<n> = randomFilter(<keyX>,<col1>,<row>)',
+#        'Result<n> = randomFilter(<keyX>,<row>)',
+#        'Result<n> = randomFilter(<keyX>,3)',
 
-        ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
-        ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-        ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
+        'Result<n> = <keyX>[<col1>]',
+        'Result<n> = min(<keyX>[<col1>])',
+        'Result<n> = max(<keyX>[<col1>]) + Result<n-1>',
+        'Result<n> = sum(<keyX>[<col1>]) + Result.hex',
     ]
 
 class Basic(unittest.TestCase):
@@ -92,7 +78,7 @@ class Basic(unittest.TestCase):
         # time.sleep(1500)
         h2o.tear_down_cloud()
 
-    def test_enum_with_syn(self):
+    def test_factor_with_syn(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         # use SEED so the file isn't cached?
         csvFilenameAll = [
@@ -103,13 +89,11 @@ class Basic(unittest.TestCase):
         csvFilenameList = csvFilenameAll
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
-
-        cnum = 0
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
-            cnum += 1
+            SEEDPERFILE = random.randint(0, sys.maxint)
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
             print "Creating random 1mx8 csv"
-            write_syn_dataset(csvPathname, 1000000, SEED)
+            write_syn_dataset(csvPathname, 1000000, SEEDPERFILE)
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']

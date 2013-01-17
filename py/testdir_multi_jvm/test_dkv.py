@@ -2,10 +2,7 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec as h2e
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 def write_syn_dataset(csvPathname, rowCount, SEED):
     # 8 random generatators, 1 per column
@@ -32,17 +29,12 @@ def write_syn_dataset(csvPathname, rowCount, SEED):
     dsf.close()
 
 zeroList = [
-        ['Result0 = 0'],
-        ['Result = 0'],
+        'Result0 = 0',
+        'Result.hex = 0',
 ]
 
 exprList = [
-        # this fails
-        ['Result','<n>',' = max(','<keyX>','[', '<col1>', '])'],
-        # this passes
-        # ['Result = sum(','<keyX>','[', '<col1>', '])'],
-        # This passes
-        # ['sum(','<keyX>','[', '<col1>', '])'],
+        'Result<n> = max(<keyX>[<col1>])',
     ]
 
 class Basic(unittest.TestCase):
@@ -61,7 +53,6 @@ class Basic(unittest.TestCase):
         else:
             h2o_hosts.build_cloud_with_hosts()
 
-
     @classmethod
     def tearDownClass(cls):
         # wait while I inspect things
@@ -79,12 +70,11 @@ class Basic(unittest.TestCase):
         ### h2b.browseTheCloud()
         lenNodes = len(h2o.nodes)
 
-        cnum = 0
         for (csvFilename, key2, timeoutSecs) in csvFilenameList:
-            cnum += 1
+            SEEDPERFILE = random.randint(0, sys.maxint)
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
             print "Creating random 10x8 csv"
-            write_syn_dataset(csvPathname, 10, SEED)
+            write_syn_dataset(csvPathname, 10, SEEDPERFILE)
             # creates csvFilename.hex from file in importFolder dir 
             parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=2000)
             print csvFilename, 'parse time:', parseKey['response']['time']

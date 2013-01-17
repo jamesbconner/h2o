@@ -13,17 +13,17 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_GLM_umass(self):
-        # filename, Y, timeoutSecs
+        # filename, y, timeoutSecs
         # this hangs during parse for some reason
         csvFilenameList = [
             ('clslowbwt.dat', 7, 5),
             ]
 
         trial = 0
-        for (csvFilename, Y, timeoutSecs) in csvFilenameList:
+        for (csvFilename, y, timeoutSecs) in csvFilenameList:
             csvPathname = h2o.find_file("smalldata/logreg/umass_statdata/" + csvFilename)
             print "\n" + csvPathname
-            kwargs = {'xval': 0, 'case': 'NaN', 'family': 'binomial', 'link': 'familyDefault', 'Y': Y}
+            kwargs = {'xval': 0, 'case': 'NaN', 'family': 'binomial', 'link': 'familyDefault', 'y': y}
             start = time.time()
             glm = h2o_cmd.runGLM(csvPathname=csvPathname, key=csvFilename, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)

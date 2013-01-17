@@ -1,12 +1,12 @@
 
 import h2o, h2o_cmd, sys
-import time, random
+import time, random, re
 # Trying to share some functions useful for creating random exec expressions
 # and executing them
 # these lists are just included for example
 if (1==0):
     zeroList = [
-            ['Result0 = 0'],
+            'Result0 = 0',
     ]
 
     # 'randomBitVector'
@@ -14,14 +14,14 @@ if (1==0):
     # 'log"
     # 'makeEnum'
     # bug?
-    # ['Result','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
+    # 'Result<n> = slice(<keyX>[<col1>],<row>)',
     exprList = [
-            ['Result','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
-            ['Result','<n>',' = ','<keyX>','[', '<col1>', ']'],
-            ['Result','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-            ['Result','<n>',' = max(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-            ['Result','<n>',' = mean(','<keyX>','[', '<col1>', ']) + Result', '<n-1>'],
-            ['Result','<n>',' = sum(','<keyX>','[', '<col1>', ']) + Result'],
+            'Result<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',
+            'Result<n> = <keyX>[<col1>]',
+            'Result<n> = min(<keyX>[<col1>])',
+            'Result<n> = max(<keyX>[<col1>]) + Result<n-1>',
+            'Result<n> = mean(<keyX>[<col1>]) + Result<n-1>',
+            'Result<n> = sum(<keyX>[<col1>]) + Result.hex',
         ]
 
 def checkForBadFP(min):
@@ -76,35 +76,24 @@ def checkScalarResult(resultInspect, resultKey):
     checkForBadFP(min)
     return min
 
-def fill_in_expr_template(exprTemp, colX, n, row, key2):
+def fill_in_expr_template(exprTemplate, colX, n, row, key2):
     # FIX! does this push col2 too far? past the output col?
-    for i,e in enumerate(exprTemp):
-        if e == '<col1>':
-            exprTemp[i] = str(colX)
-        if e == '<col2>':
-            exprTemp[i] = str(colX+1)
-        if e == '<n>':
-            exprTemp[i] = str(n) 
-        if e == '<n-1>':
-            exprTemp[i] = str(n-1) # we start with trial=1, so n-1 is Result0
-        if e == '<row>':
-            exprTemp[i] = str(row)
-        if e == '<keyX>':
-            exprTemp[i] = key2
-
-    # form the expression in a single string
-    execExpr = ''.join(exprTemp)
+    # just a string? 
+    execExpr = exprTemplate
+    execExpr = re.sub('<col1>',str(colX),execExpr)
+    execExpr = re.sub('<col2>',str(colX+1),execExpr)
+    execExpr = re.sub('<n>',str(n),execExpr)
+    execExpr = re.sub('<n-1>',str(n-1),execExpr)
+    execExpr = re.sub('<row>',str(row),execExpr)
+    execExpr = re.sub('<keyX>',str(key2),execExpr)
     ### h2o.verboseprint("\nexecExpr:", execExpr)
-    print "\nexecExpr:", execExpr
+    print "execExpr:", execExpr
     return execExpr
 
 
-def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
+def exec_expr(node, execExpr, resultKey="Result.hex", timeoutSecs=10):
     start = time.time()
-    resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
-    ## print "HACK! do exec twice to avoid the race in shape/result against the next inspect"
-    ## good for testing store/store races? should sequence thru different nodes too 
-    ### resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=timeoutSecs)
+    resultExec = h2o_cmd.runExecOnly(node, expression=execExpr, timeoutSecs=timeoutSecs)
     h2o.verboseprint(resultExec)
     h2o.verboseprint('exec took', time.time() - start, 'seconds')
     ### print 'exec took', time.time() - start, 'seconds'
@@ -112,8 +101,8 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
     # normal
     if 1==1:
         h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o_cmd.runInspect(None, "Result")
-        min = checkScalarResult(defaultInspect, "Result")
+        defaultInspect = h2o_cmd.runInspect(None, "Result.hex")
+        min = checkScalarResult(defaultInspect, "Result.hex")
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")
         resultInspect = h2o_cmd.runInspect(None, resultKey)
@@ -130,9 +119,8 @@ def exec_expr(node, execExpr, resultKey="Result", timeoutSecs=10):
 def exec_zero_list(zeroList):
     # zero the list of Results using node[0]
     for exprTemplate in zeroList:
-        exprTemp = list(exprTemplate)
-        execExpr = fill_in_expr_template(exprTemp,0,0,0,"Result")
-        execResult = exec_expr(h2o.nodes[0], execExpr, "Result")
+        execExpr = fill_in_expr_template(exprTemplate,0,0,0,"Result.hex")
+        execResult = exec_expr(h2o.nodes[0], execExpr, "Result.hex")
         ### print "\nexecResult:", execResult
 
 
@@ -143,8 +131,6 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
     while trial < maxTrials: 
         exprTemplate = random.choice(exprList)
 
-        # copy it to keep python from changing the original when I modify it below!
-        exprTemp = list(exprTemplate)
         # UPDATE: all execs are to a single node. No mixed node streams
         # eliminates some store/store race conditions that caused problems.
         # always go to node 0 (forever?)
@@ -160,12 +146,11 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         # FIX! should tune this for covtype20x vs 200x vs covtype.data..but for now
         row = str(random.randint(minRow,maxRow))
 
-        execExpr = fill_in_expr_template(exprTemp, colX, ((trial+1)%4)+1, row, key2)
-        execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
-            "Result", timeoutSecs)
+        execExpr = fill_in_expr_template(exprTemplate, colX, ((trial+1)%4)+1, row, key2)
+        execResultInspect = exec_expr(h2o.nodes[execNode], execExpr, "Result.hex", timeoutSecs)
         ### print "\nexecResult:", execResultInspect
 
-        min = checkScalarResult(execResultInspect, "Result")
+        min = checkScalarResult(execResultInspect, "Result.hex")
 
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -179,13 +164,10 @@ def exec_expr_list_rand(lenNodes, exprList, key2,
         print "Trial #", trial, "completed\n"
 
 def exec_expr_list_across_cols(lenNodes, exprList, key2, 
-    minCol=0, maxCol=54, timeoutSecs=10):
+    minCol=0, maxCol=54, timeoutSecs=10, incrementingResult=True):
     colResultList = []
     for colX in range(minCol, maxCol):
         for exprTemplate in exprList:
-            # copy it to keep python from changing the original when I modify it below!
-            exprTemp = list(exprTemplate)
-
             # do each expression at a random node, to facilate key movement
             # UPDATE: all execs are to a single node. No mixed node streams
             # eliminates some store/store race conditions that caused problems.
@@ -193,19 +175,27 @@ def exec_expr_list_across_cols(lenNodes, exprList, key2,
             if lenNodes is None:
                 execNode = 0
             else:
-                # execNode = random.randint(0,lenNodes-1)
+                ### execNode = random.randint(0,lenNodes-1)
+                ### print execNode
                 execNode = 0
 
-            print execNode
-            execExpr = fill_in_expr_template(exprTemp, colX, colX, 0, key2)
-            resultKey = "Result"+str(colX)
+            execExpr = fill_in_expr_template(exprTemplate, colX, colX, 0, key2)
+            if incrementingResult: # the Result<col> pattern
+                resultKey = "Result"+str(colX)
+            else: # assume it's a re-assign to self
+                resultKey = key2
+
             execResultInspect = exec_expr(h2o.nodes[execNode], execExpr,
                 resultKey, timeoutSecs)
             ### print "\nexecResult:", execResultInspect
 
-            min = checkScalarResult(execResultInspect, resultKey)
-            h2o.verboseprint("min: ", min, "col:", colX)
-            print "min: ", min, "col:", colX
+            # min is keyword. shouldn't use.
+            if incrementingResult: # a col will have a single min
+                min = checkScalarResult(execResultInspect, resultKey)
+                h2o.verboseprint("min: ", min, "col:", colX)
+                print "min: ", min, "col:", colX
+            else:
+                min = None
 
             sys.stdout.write('.')
             sys.stdout.flush()

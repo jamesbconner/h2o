@@ -7,6 +7,7 @@ import java.util.Map.Entry;
 
 import water.H2O;
 import water.PrettyPrint;
+import water.util.JsonUtil;
 import water.web.RString;
 
 import com.google.common.base.Throwables;
@@ -243,6 +244,8 @@ public class RequestBuilders extends RequestQueries {
      */
     private final JsonObject _response;
 
+    private boolean _strictJsonCompliance = false;
+
     /** Custom builders for JSON elements when converting to HTML automatically.
      */
     private final HashMap<String,Builder> _builders = new HashMap();
@@ -415,6 +418,8 @@ public class RequestBuilders extends RequestQueries {
      */
     protected JsonObject toJson() {
       JsonObject res = _response;
+      if( _strictJsonCompliance ) res = JsonUtil.escape(res);
+
       // in this case, creating a cyclical structure would kill us.
       if( _response == _redirectArgs ) {
         res = new JsonObject();
@@ -427,13 +432,17 @@ public class RequestBuilders extends RequestQueries {
       return res;
     }
 
-    /** Returns the error of the request object if any. Returns null if the
+     /** Returns the error of the request object if any. Returns null if the
      * response is not in error state.
      */
     public String error() {
       if (_status != Status.error)
         return null;
       return _response.get(ERROR).getAsString();
+    }
+
+    public void escapeIllegalJsonElements() {
+      _strictJsonCompliance = true;
     }
 
   }
@@ -908,6 +917,18 @@ public class RequestBuilders extends RequestQueries {
       return sb.toString();
     }
 
+  }
+
+  public class WarningCellBuilder extends ArrayRowElementBuilder {
+    @Override public String arrayToString(JsonArray arr, String contextName) {
+      StringBuilder sb = new StringBuilder();
+      String sep = "";
+      for( JsonElement e : arr ) {
+        sb.append(sep).append(e.getAsString());
+        sep = "</br>";
+      }
+      return sb.toString();
+    }
   }
 
   public class KeyCellBuilder extends ArrayRowElementBuilder {

@@ -5,6 +5,7 @@ import hex.rf.Tree.StatType;
 
 import java.util.*;
 
+import test.RFDriver;
 import water.*;
 import water.ValueArray.Column;
 
@@ -155,7 +156,7 @@ public class RandomForestPage extends H2OPage {
 
     Map<Integer,Integer>  strata = null;
     if(stratify && p.containsKey("strata"))
-      strata = RandomForest.parseStrata(p.getProperty("strata").trim());
+      strata = RFDriver.parseStrata(p.getProperty("strata").trim());
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
@@ -177,7 +178,12 @@ public class RandomForestPage extends H2OPage {
     JsonObject res = new JsonObject();
     res.addProperty("h2o", H2O.SELF.toString());
     try {
-      hex.rf.DRF.web_main(ary,ntree,depth, sample, (short)binLimit, statType,seed, classcol,ignores,modelKey,parallel,classWt,features, stratify, strata);
+      // Launch RF
+      hex.rf.DRF.webMain(ary, ntree, depth, sample, (short) binLimit, statType,
+                          seed, classcol,ignores,modelKey,parallel,classWt,
+                          features, stratify, strata,
+                          0 /* console verbosity is disabled */,
+                          0 /* exclusive split is disabled */);
       // Pass along all to the viewer
       res.addProperty("dataKey", ary._key.toString());
       res.addProperty("modelKey", modelKey.toString());

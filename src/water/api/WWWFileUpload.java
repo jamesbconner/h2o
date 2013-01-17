@@ -268,14 +268,23 @@ public class WWWFileUpload extends JSONOnlyRequest {
       }
 
       private int readInternal(byte b[], int off, int len) throws IOException {
+        if (len < lookAheadLen ) {
+          System.arraycopy(lookAheadBuf, 0, b, off, len);
+          lookAheadLen -= len;
+          System.arraycopy(lookAheadBuf, len, lookAheadBuf, 0, lookAheadLen);
+          return len;
+        }
+
         if (lookAheadLen > 0) {
           System.arraycopy(lookAheadBuf, 0, b, off, lookAheadLen);
           off += lookAheadLen;
           len -= lookAheadLen;
+          int r = Math.max(wrappedIs.read(b, off, len), 0) + lookAheadLen;
+          lookAheadLen = 0;
+          return r;
+        } else {
+          return wrappedIs.read(b, off, len);
         }
-        int readLen = wrappedIs.read(b, off, len) + lookAheadLen;
-        lookAheadLen = 0;
-        return readLen;
       }
 
       // Find boundary in read buffer

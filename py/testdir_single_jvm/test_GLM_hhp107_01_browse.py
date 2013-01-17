@@ -9,15 +9,6 @@ sys.path.extend(['.','..','py'])
 # ignoring constant column 76
 # ignoring constant column 91
 # ignoring constant column 103
-# Exception in thread "Thread-39" java.lang.IllegalStateException
-#     at com.google.gson.JsonArray.getAsString(JsonArray.java:124)
-#     at water.web.GLM.getModelHTML(GLM.java:282)
-#     at water.web.GLM.serveImpl(GLM.java:344)
-#     at water.web.H2OPage.serve(H2OPage.java:46)
-#     at water.web.H2OPage.serve(H2OPage.java:14)
-#     at water.web.Server.serve(Server.java:168)
-#     at water.NanoHTTPD$HTTPSession.run(NanoHTTPD.java:387)
-#     at java.lang.Thread.run(Thread.java:722)
 
 import h2o, h2o_cmd
 import h2o_hosts, h2o_glm
@@ -27,15 +18,14 @@ import time
 # can expand this with specific combinations
 # I suppose these args will be ignored with old??
 argcaseList = [
-    {   'X': '0,1,2,3,4,5,6,7,8,9,10,11',
-        'Y': 54,
+    {   'x': '0,1,2,3,4,5,6,7,8,9,10,11',
         'case': 1,
         'family': 'gaussian',
         'norm': 'L2',
-        'lambda_1': 1.0E-5,
+        'lambda1': 1.0E-5,
         'max_iter': 50,
         'weight': 1.0,
-        'threshold': 0.5,
+        'thresholds': 0.5,
         'link': 'familyDefault',
         'xval': 0,
         'expand_cat': 0,
@@ -67,14 +57,8 @@ class Basic(unittest.TestCase):
         for argcase in argcaseList:
             print "\nTrial #", trial, "start"
             kwargs = argcase
-
-            # Y will always be there
-            print 'Y:', kwargs['Y']
-
+            print 'y:', kwargs['y']
             start = time.time()
-            # we get some errors thru the browser that are unique. browseAlso should run the GLM thru the browser?
-            # there's no GLM "view" so we should be redoing the GLM there...keep an eye on changes there
-            # interesting question for RF..does browseAlso hit RF or just RFView?
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, browseAlso=True, timeoutSecs=200, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 

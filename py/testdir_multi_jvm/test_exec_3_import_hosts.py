@@ -13,7 +13,6 @@ for i in range(8):
     zeroList.append('MatrixRes' + str(i) + ' = 0')
     zeroList.append('ScalarRes' + str(i) + ' = 0')
 
-
 # FIX! put these in 3?
 # 'randomBitVector' ?? hardwire size to 19?
 # 'randomFilter'
@@ -21,24 +20,19 @@ for i in range(8):
 # do we have to restrict ourselves?
 # 'factor' (hardware the enum colum to col 53
 # bug?
-#        ['Result','<n>',' = randomFilter(','<keyX>','[', '<col1>','],' ,'<row>', ')'],
-#        ['MatrixRes','<n>',' = slice(','<keyX>','[','<col1>','],', '<row>', ')'],
+#        'Result<n> = randomFilter(<keyX>[<col1>],<row>)',
+#        'MatrixRes<n> = slice(<keyX>[<col1>],<row>)',
 exprList = [
-        ['ColumnRes','<n>',' = factor(','<keyX>','[53]) + ColumnRes', '<n-1>'],
-        ['ColumnRes','<n>',' = randomBitVector(19,0) + ColumnRes', '<n-1>'],
-        ['ColumnRes','<n>',' = log(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>'],
-        ['ColumnRes','<n>',' = ',
-            '<keyX>','[', '<col1>', '] + ',
-            '<keyX>','[', '<col2>', '] + ',
-            '<keyX>','[', '2', ']'
-        ],
-
-        ['MatrixRes','<n>',' = colSwap(','<keyX>',',', '<col1>', ',(','<keyX>','[2]==0 ? 54321 : 54321))'],
-        ['ColumnRes','<n>',' = ','<keyX>','[', '<col1>', ']'],
-        ['ScalarRes','<n>',' = min(','<keyX>','[', '<col1>', '])'],
-        ['ScalarRes','<n>',' = max(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>'],
-        ['ScalarRes','<n>',' = mean(','<keyX>','[', '<col1>', ']) + ColumnRes', '<n-1>'],
-        ['ScalarRes','<n>',' = sum(','<keyX>','[', '<col1>', ']) + ScalarRes', '<n-1>'],
+        'ColumnRes<n> = factor(<keyX>[53]) + ColumnRes<n-1>',
+        'ColumnRes<n> = randomBitVector(19,0) + ColumnRes<n-1>',
+        'ColumnRes<n> = log(<keyX>[<col1>]) + ColumnRes<n-1>',
+        'ColumnRes<n> = <keyX>[<col1>] + <keyX>[<col2>] + <keyX>[2]',
+        'MatrixRes<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',
+        'ColumnRes<n> = <keyX>[<col1>]',
+        'ScalarRes<n> = min(<keyX>[<col1>])',
+        'ScalarRes<n> = max(<keyX>[<col1>]) + ColumnRes<n-1>',
+        'ScalarRes<n> = mean(<keyX>[<col1>]) + ColumnRes<n-1>',
+        'ScalarRes<n> = sum(<keyX>[<col1>]) + ScalarRes<n-1>',
     ]
 
 class Basic(unittest.TestCase):
@@ -56,7 +50,6 @@ class Basic(unittest.TestCase):
             h2o.build_cloud(3,java_heap_GB=4)
         else:
             h2o_hosts.build_cloud_with_hosts()
-
 
     @classmethod
     def tearDownClass(cls):

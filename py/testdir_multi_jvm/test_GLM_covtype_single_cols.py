@@ -21,26 +21,26 @@ class Basic(unittest.TestCase):
         print "\n" + csvPathname
 
         # columns start at 0
-        Y = "54"
-        X = ""
+        y = "54"
+        x = ""
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, timeoutSecs=15)
 
         print "GLM binomial wth 1 X column at a time" 
         print "Result check: abs. value of coefficient and intercept returned are bigger than zero"
         for colX in xrange(54):
-            if X == "": 
-                X = str(colX)
+            if x == "": 
+                x = str(colX)
             else:
-                # X = X + "," + str(colX)
-                X = str(colX)
+                # x = x + "," + str(colX)
+                x = str(colX)
 
             sys.stdout.write('.')
             sys.stdout.flush() 
-            print "\nX:", X
-            print "Y:", Y
+            print "\nx:", x
+            print "y:", y
 
             start = time.time()
-            kwargs = {'X': X, 'Y': Y, 'xval': 6, 'case': 2}
+            kwargs = {'x': x, 'y': y, 'xval': 6, 'case': 2}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

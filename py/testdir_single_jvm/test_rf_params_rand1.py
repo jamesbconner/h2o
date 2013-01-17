@@ -4,23 +4,6 @@ sys.path.extend(['.','..','py'])
 
 import h2o, h2o_cmd
 
-# RF?
-# classWt=&
-# class=2&
-# ntree=&
-# modelKey=& 
-# OOBEE=true&
-# gini=1&
-# depth=&
-# binLimit=&
-# parallel=&
-# ignore=&   ...this is ignore columns
-# sample=&
-# seed=&
-# features=1&
-# singlethreaded=0&     ..debug only..may be gone
-# Key=chess_2x2_500_int.hex
-
 # make a dict of lists, with some legal choices for each. None means no value.
 # assume poker1000 datset
 
@@ -29,21 +12,23 @@ import h2o, h2o_cmd
 
 # FIX! lots of stratify for now..temporary testing
 # FIX! make binLimit minimum of 2 for now? bug with 1?
-print "Temporarily not using binLimit=1 to 3"
+print "Temporarily not using bin_limit=1 to 3"
 paramDict = {
     'class': [None,10],
-    'classWt': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2','8=2'],
+    'class_weights': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2','8=2'],
     'ntree': [None,1,10,100],
-    'modelKey': ['modelkeyA', '012345', '__hello'],
+    'model_key': ['model_keyA', '012345', '__hello'],
     'OOBEE': ['None', 'true', 'false'],
     'gini': [None, 0, 1],
     'depth': [None, 1,10,20,100],
-    'binLimit': [None,4,5,10,100,1000],
+    'bin_limit': [None,4,5,10,100,1000],
     'parallel': [None,0,1],
     'ignore': [None,0,1,2,3,4,5,6,7,8,9],
     'sample': [None,20,40,60,80,100],
     'seed': [None,'0','1','11111','19823134','1231231'],
     'features': [None,1,2,3,4,5,6,7,8,9],
+    # only works on new
+    'exclusive_split_limit': [None,0,3,5],
 # FIX! other test shows the problems with strata (index -1 errors)
 #     'stratify': [None,0,1,1,1,1,1,1,1,1,1],
 #     'strata': [

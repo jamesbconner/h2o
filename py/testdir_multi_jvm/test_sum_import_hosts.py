@@ -2,18 +2,15 @@ import unittest
 import random, sys, time, os
 sys.path.extend(['.','..','py'])
 
-import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
-
-# the shared exec expression creator and executor
-import h2o_exec
+import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
 zeroList = [
-        ['Result0 = 0'],
+        'Result0 = 0',
 ]
 
 # the first column should use this
 exprList = [
-        ['Result','<n>',' = sum(','<keyX>','[', '<col1>', '])'],
+        'Result<n> = sum(<keyX>[<col1>])',
     ]
 
 class Basic(unittest.TestCase):

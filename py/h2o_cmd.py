@@ -84,9 +84,9 @@ def runRF(node=None, csvPathname=None, trees=5, key=None,
     parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     return runRFOnly(node, parseKey, trees, timeoutSecs, retryDelaySecs, **kwargs)
 
-def runRFTreeView(node=None, n=None, dataKey=None, modelKey=None, timeoutSecs=20, **kwargs):
+def runRFTreeView(node=None, n=None, data_key=None, model_key=None, timeoutSecs=20, **kwargs):
     if not node: node = h2o.nodes[0]
-    return node.random_forest_treeview(n, dataKey, modelKey, timeoutSecs, **kwargs)
+    return node.random_forest_treeview(n, data_key, model_key, timeoutSecs, **kwargs)
 
 # there are more RF parameters in **kwargs. see h2o.py
 def runRFOnly(node=None, parseKey=None, trees=5,
@@ -102,20 +102,13 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     # ..this should be covered now by all the error/Error variants in the json result checking?
 
     # FIX! check all of these somehow?
-    # if we modelKey was given to rf via **kwargs, remove it, since we're passing 
-    # modelKey from rf. can't pass it in two places. (ok if it doesn't exist in kwargs)
-    if h2o.new_json:
-        dataKey  = rf['data_key']
-        kwargs.pop('model_key',None)
-        kwargs.pop('modelKey',None)
-        modelKey = rf['model_key']
-        rfCloud = rf['response']['h2o']
-
-    else:
-        dataKey  = rf['dataKey']
-        kwargs.pop('modelKey',None)
-        modelKey = rf['modelKey']
-        rfCloud = rf['h2o']
+    # if we model_key was given to rf via **kwargs, remove it, since we're passing 
+    # model_key from rf. can't pass it in two places. (ok if it doesn't exist in kwargs)
+    data_key  = rf['data_key']
+    kwargs.pop('model_key',None)
+    kwargs.pop('model_key',None)
+    model_key = rf['model_key']
+    rfCloud = rf['response']['h2o']
 
     # same thing. if we use random param generation and have ntree in kwargs, get rid of it.
     kwargs.pop('ntree',None)
@@ -127,51 +120,43 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     rfClass= rf['class']
 
     def test(n):
-        rfView = n.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
-        # ntree in rfView is actually wrong. it always matches atree and modelSize
-        # for old port, have to remember ntree from RF
-        # ntree = rfView['ntree']
+        rfView = n.random_forest_view(data_key, model_key, timeoutSecs, **kwargs)
+        status = rfView['response']['status']
+        numberBuilt = rfView['trees']['number_built']
 
-        if not h2o.new_json:
-            modelSize = rfView['modelSize']
-            if (modelSize!=ntree and modelSize>0):
-                # don't print the typical case of 0 (starting)
-                print "Waiting for RF done: at %d of %d trees" % (modelSize, ntree)
-            return modelSize==ntree
+        if status == 'done': 
+            if numberBuilt!=ntree: 
+                raise Exception("RFview done but number_built!=ntree: %s %s", 
+                    numberBuilt, ntree)
+            return True
+        if status != 'poll': raise Exception('Unexpected status: ' + status)
 
-        else:
-            status = rfView['response']['status']
-            numberBuilt = rfView['trees']['number_built']
+        progress = rfView['response']['progress']
+        progressTotal = rfView['response']['progress_total']
 
-            if status == 'done': 
-                if numberBuilt!=ntree: 
-                    raise Exception("RFview done but number_built!=ntree: %s %s", 
-                        numberBuilt, ntree)
-                return True
-            if status != 'poll': raise Exception('Unexpected status: ' + status)
+        # want to double check all this because it's new
+        # and we had problems with races/doneness before
+        errorInResponse = \
+            numberBuilt<0 or ntree<0 or numberBuilt>ntree or \
+            progress<0 or progressTotal<0 or progress>progressTotal or \
+            progressTotal!=(ntree+1) or \
+            ntree!=rfView['ntree']
+            # rfView better always agree with what RF ntree was
 
-            progress = rfView['response']['progress']
-            progressTotal = rfView['response']['progress_total']
+        if errorInResponse:
+            raise Exception("\nBad values in response during RFView polling.\n" + 
+                "progress: %s, progressTotal: %s, ntree: %s, numberBuilt: %s, status: %s" % \
+                (progress, progressTotal, ntree, numberBuilt, status))
 
-            # want to double check all this because it's new
-            # and we had problems with races/doneness before
-            errorInResponse = \
-                numberBuilt<0 or ntree<0 or numberBuilt>ntree or \
-                progress<0 or progressTotal<0 or progress>progressTotal or \
-                progressTotal!=(ntree+1) or \
-                ntree!=rfView['ntree']
-                # rfView better always agree with what RF ntree was
-
-            if errorInResponse:
-                raise Exception("\nBad values in response during RFView polling.\n" + 
-                    "progress: %s, progressTotal: %s, ntree: %s, numberBuilt: %s, status: %s" % \
-                    (progress, progressTotal, ntree, numberBuilt, status))
-
-            if (status!='done'):
+        # don't print the useless first poll. ma
+        if (status!='done'):
+            if numberBuilt==0:
+                print "."
+            else:
                 print "\nRFView polling. Status: %s. %s trees done of %s desired" % \
                     (status, numberBuilt, ntree)
 
-            return (status=='done')
+        return (status=='done')
 
     node.stabilize(
             test,
@@ -179,14 +164,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
             timeoutSecs=timeoutSecs, retryDelaySecs=retryDelaySecs)
 
     # kind of wasteful re-read, but maybe good for testing
-    rfView = node.random_forest_view(dataKey, modelKey, timeoutSecs, **kwargs)
-    if h2o.new_json:
-        h2f.simpleCheckRFView(node, rfView)
-    else:
-        modelSize = rfView['modelSize']
-        confusionKey = rfView['confusionKey']
-        cmInspect = node.inspect(confusionKey)
-        modelInspect = node.inspect(modelKey)
-        dataInspect = node.inspect(dataKey)
+    rfView = node.random_forest_view(data_key, model_key, timeoutSecs, **kwargs)
+    h2f.simpleCheckRFView(node, rfView)
 
     return rfView

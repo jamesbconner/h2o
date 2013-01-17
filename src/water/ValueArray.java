@@ -108,7 +108,7 @@ public class ValueArray extends Iced {
   }
   /** Deserialize wrapper from a Value */
   public static ValueArray value(Value val) {
-    assert val._isArray!=0;
+    assert val != null && val._isArray!=0;
     ValueArray ary = new ValueArray(val._key,0,Value.ICE);
     ary.read(new AutoBuffer(val.get()));
     ary.init(val._key);
@@ -195,6 +195,10 @@ public class ValueArray extends Iced {
     // No 'NA' options, e.g. 255 is a valid datum.
     public Column(long len) {
       _min=0; _max=255; _mean=128; _n = len; _scale=1; _size=1;
+    }
+
+    public final boolean isScaled() {
+      return _scale != 1;
     }
   }
 

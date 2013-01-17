@@ -36,8 +36,9 @@ public class Boot extends ClassLoader {
   private ClassPool _pool; // The pool of altered classes
   private CtClass[] _serBases;
   private CtClass _enum;
-  private static enum x { x };  // junk enum to force early loading for javaassist
-  private static x _x;
+
+  // junk enum to force early loading for javaassist
+  private static enum x { x }; @SuppressWarnings("unused") private static x _x;
 
   static {
     try {
@@ -109,6 +110,7 @@ public class Boot extends ClassLoader {
       addInternalJars("junit");
       addInternalJars("jama");
       addInternalJars("poi");
+      addInternalJars("s3");
     } else {
       System.setProperty("org.hyperic.sigar.path", "lib/binlib");
     }

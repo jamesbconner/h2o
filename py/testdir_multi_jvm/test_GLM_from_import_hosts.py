@@ -21,7 +21,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_B_importFolder_GLM_bigger_and_bigger(self):
+    def test_GLM_from_import_hosts(self):
         if (local_host):
             csvFilenameList = [
                 'covtype.data',
@@ -56,7 +56,7 @@ class Basic(unittest.TestCase):
             start = time.time()
             # can't pass lamba as kwarg because it's a python reserved word
             # FIX! just look at X=0:1 for speed, for now
-            kwargs = {'Y': 54, 'norm': "L2", 'xval': 2, 'family': "binomial", 'case': 0}
+            kwargs = {'y': 54, 'norm': "L2", 'xval': 2, 'family': "binomial", 'case': 0}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=2000, **kwargs)
 
             # different when xvalidation is used? No trainingErrorDetails?

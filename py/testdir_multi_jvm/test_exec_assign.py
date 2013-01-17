@@ -9,9 +9,9 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
 period = 11
 initList = [
         ['Result0 = -1'],
-        ['Result1 = Result + 1'],
-        ['Result2 = Result + 1'],
-        ['Result3 = Result + 1'],
+        ['Result1 = Result.hex + 1'],
+        ['Result2 = Result.hex + 1'],
+        ['Result3 = Result.hex + 1'],
         ['Result4 = 3'],
         ['Result5 = 4'],
         ['Result6 = 5'],
@@ -21,14 +21,14 @@ initList = [
         ['Result10 = 9'],
     ]
 
-def my_exec_expr(node, execExpr, trial, resultKey="Result"):
+def my_exec_expr(node, execExpr, trial, resultKey="Result.hex"):
         start = time.time()
-        resultExec = h2o_cmd.runExecOnly(node, Expr=execExpr, timeoutSecs=70)
+        resultExec = h2o_cmd.runExecOnly(node, expression=execExpr, timeoutSecs=70)
         h2o.verboseprint(resultExec)
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
-        h2o.verboseprint("\nfirst look at the default Result key")
-        defaultInspect = h2o.nodes[0].inspect("Result")
+        h2o.verboseprint("\nfirst look at the default Result.hex key")
+        defaultInspect = h2o.nodes[0].inspect("Result.hex")
         h2o.verboseprint(h2o.dump_json(defaultInspect))
 
         h2o.verboseprint("\nNow look at the assigned " + resultKey + " key")

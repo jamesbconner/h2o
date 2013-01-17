@@ -1,9 +1,6 @@
 import os, json, unittest, time, shutil, sys
 sys.path.extend(['.','..','py'])
-import h2o, h2o_cmd
-import h2o_hosts
-import h2o_browse as h2b
-import h2o_import as h2i
+import h2o, h2o_cmd,h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_hosts
 import time, random
 
 class Basic(unittest.TestCase):
@@ -15,10 +12,11 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_B_importFolder_files(self):
+    def test_from_import(self):
         # just do the import folder once
         # importFolderPath = "/home/hduser/hdfs_datasets"
-        importFolderPath = "/home/0xdiag/datasets"
+        importFolderPath = '/home/0xdiag/datasets'
+
         h2i.setupImportFolder(None, importFolderPath)
         timeoutSecs = 500
 
@@ -30,7 +28,7 @@ class Basic(unittest.TestCase):
         csvFilenameAll = [
             "covtype.data",
             "covtype20x.data",
-            "covtype200x.data",
+            # "covtype200x.data",
             # "100million_rows.csv",
             # "200million_rows.csv",
             # "a5m.csv",

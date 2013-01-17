@@ -1,4 +1,3 @@
-
 package water.exec;
 
 import java.io.IOException;
@@ -89,7 +88,8 @@ public class Helpers {
     sc.invoke(key);
     ValueArray va = ValueArray.value(key);
     va._cols[col]._sigma = sc.sigma();
-    DKV.put(key, va.value());
+    DKV.put(va._key, va.value());
+    DKV.write_barrier();
   }
 
   static class SigmaCalc extends MRTask {
@@ -171,6 +171,8 @@ public class Helpers {
           throw new EvaluationException(pos, "Key " + what._key + " not found");
         ValueArray r = v.clone();
         r._key = to;
+        DKV.put(to, r.value());
+        DKV.write_barrier();
         MRTask copyTask = new MRTask() {
           @Override public void map(Key fromk) {
             long chkidx = ValueArray.getChunkIndex(fromk);
@@ -181,7 +183,6 @@ public class Helpers {
           }
           @Override  public void reduce(DRemoteTask drt) { }
         };
-        DKV.put(to, r.value(), copyTask.getFutures());
         copyTask.invoke(what._key);
       }
     } else {

@@ -2,11 +2,10 @@ package hex.rf;
 
 import hex.rf.Data.Row;
 import hex.rf.Tree.SplitNode;
-import water.MemoryManager;
 
 import java.util.*;
 
-import org.apache.hadoop.mapred.lib.InputSampler.IntervalSampler;
+import water.MemoryManager;
 
 public class Data implements Iterable<Row> {
   boolean _stratify;
@@ -45,6 +44,7 @@ public class Data implements Iterable<Row> {
   public float unmap(int col, int split) { return _data.unmap(col, split); }
   public int columnArity(int colIndex) { return _data.columnArity(colIndex); }
   public boolean ignore(int col) { return _data.ignore(col);   }
+  public boolean isFloat(int col){ return _data.isFloat(col); }
   public double[] classWt()      { return _data._classWt; }
 
   public final Iterator<Row> iterator() { return new RowIter(start(), end()); }
@@ -83,7 +83,9 @@ public class Data implements Iterable<Row> {
     // Make sure that values come in order
     short[] in = complement;
     int size = (int)(rows() * bagSizePct);
-    Random r = new Random(seed());
+    /* NOTE: Before changing used generator think about which kind of random generator you need:
+     * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
+    Random r = Utils.getRNG(seed());
     for( int i = 0; i < size; ++i)
       in[permute(r.nextInt(rows()))]++;
     int[] sample = MemoryManager.malloc4(size);
@@ -102,7 +104,9 @@ public class Data implements Iterable<Row> {
     // j    is the number of *valid* rows seen so far.
     // rows is the number of *valid* rows total.
     // invariant:  size/rows==bagSizePct
-    Random r = new Random(seed);
+    /* NOTE: Before changing used generator think about which kind of random generator you need:
+     * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
+    Random r = Utils.getRNG(seed);
     int rows = rows();
     int size = bagsz(rows,bagSizePct);
     int[] sample = MemoryManager.malloc4(size);
@@ -140,7 +144,9 @@ public class Data implements Iterable<Row> {
     int j=0;                    // Number of selected samples
     for( int i=0; i<rows(); i++ ) {
       if( cnt--==0 ) {
-        r = new Random(seed+(i<<16)); // Seed is seed+(chunk#*numrows)
+        /* NOTE: Before changing used generator think about which kind of random generator you need:
+         * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
+        r = Utils.getDeterRNG(seed+(i<<16)); // Seed is seed+(chunk#*numrows)
         cnt=numrows-1;          //
         if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
       }
@@ -157,7 +163,12 @@ public class Data implements Iterable<Row> {
     int iEnd = _data._intervalsStarts[c+1];
     int iWidth = iEnd - iStart;
     for(int i = 0; i < n; ++i){
-      sample[startIdx++] = iStart + r.nextInt(iWidth);
+      int candidate = iStart + r.nextInt(iWidth);
+      while(_data.classOf(candidate) == -1){
+        if(candidate == iStart)candidate = iStart + iWidth;
+        --candidate;
+      }
+      sample[startIdx++] = candidate;
     }
     return startIdx;
   }
@@ -167,7 +178,9 @@ public class Data implements Iterable<Row> {
     for(int s:strata)sz += s;
     int [] sample = new int[sz];
     int idx = 0;
-    Random r = new Random(seed);
+    /* NOTE: Before changing used generator think about which kind of random generator you need:
+     * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
+    Random r = Utils.getRNG(seed);
     for(int i = 0; i < strata.length; ++i){
       idx = sampleFromClass(i, strata[i], idx, sample,r);
     }

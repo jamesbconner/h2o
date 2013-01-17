@@ -7,18 +7,18 @@ import water.util.FileIntegrityChecker;
 import com.google.gson.*;
 
 public class ImportFiles extends Request {
-  protected final ExistingFile _file = new ExistingFile(FILE);
+  protected final ExistingFile _path = new ExistingFile(PATH);
 
   public ImportFiles() {
     _requestHelp = "Imports the given file or directory.  All nodes in the " +
         "cloud must have an identical copy of the files in their local " +
         "file systems.";
-    _file._requestHelp = "File or directory to import.";
+    _path._requestHelp = "File or directory to import.";
   }
 
   @Override
   protected Response serve() {
-    FileIntegrityChecker c = FileIntegrityChecker.check(_file.value());
+    FileIntegrityChecker c = FileIntegrityChecker.check(_path.value());
 
     JsonObject json = new JsonObject();
 

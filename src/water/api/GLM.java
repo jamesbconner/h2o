@@ -39,7 +39,7 @@ public class GLM extends Request {
   public static final String JSON_COEFFICIENTS = "coefficients";
 
   protected final H2OHexKey _key = new H2OHexKey(KEY);
-  protected final H2OHexKeyCol _y = new H2OHexKeyCol(_key, JSON_GLM_Y);
+  protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
   protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
   protected final HexColumnSelect _negX = new HexColumnSelect(JSON_GLM_NEG_X, _key, _y);
 
@@ -181,7 +181,7 @@ public class GLM extends Request {
       GLMSolver glm = new GLMSolver(lsm, glmParams);
       GLMModel m = glm.computeGLM(ary, columns, null);
       if( m.is_solved() ) {     // Solved at all?
-        if( _xval.specified() && _xval.value() > 0 ) // ... and x-validate
+        if( _xval.specified() && _xval.value() > 1 ) // ... and x-validate
           glm.xvalidate(m,ary,columns,_xval.value(),_thresholds.value().arr);
         else
           m.validateOn(ary, null,_thresholds.value().arr);// Validate...

@@ -18,67 +18,64 @@ class Basic(unittest.TestCase):
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
         # columns start at 0
-        Y = "3"
-        X = ""
+        y = "3"
+        x = ""
         # cols 0-13. 3 is output
         # no member id in this one
-        for appendX in xrange(14):
-            if (appendX == 1): 
+        for appendx in xrange(14):
+            if (appendx == 1): 
                 print "\nSkipping 1. Causes NaN. Ok now, later though?"
-            elif (appendX == 2): 
+            elif (appendx == 2): 
                 print "\nSkipping 2. Causes NaN. Ok now, later though?"
-            elif (appendX == 3): 
+            elif (appendx == 3): 
                 print "\n3 is output."
             else:
-                if X == "": 
-                    X = str(appendX)
+                if x == "": 
+                    x = str(appendx)
                 else:
-                    X = X + "," + str(appendX)
+                    x = x + "," + str(appendx)
 
-                sys.stdout.write('.')
-                sys.stdout.flush()
                 csvFilename = "benign.csv"
                 csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
-                print "\nX:", X
-                print "Y:", Y
+                print "\nx:", x
+                print "y:", y
                 
                 # FIX! hacking with norm = L2 to get it to pass now. ELASTIC default won't? maybe
                 # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
-                kwargs = {'X': X, 'Y':  Y, 'norm': 'L2'}
+                kwargs = {'x': x, 'y':  y, 'norm': 'L2'}
                 # fails with xval
                 print "Not doing xval with benign. Fails with 'unable to solve?'"
-                # kwargs = {'X': X, 'Y':  Y, 'xval': 4}
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=5, **kwargs)
                 h2o_glm.simpleCheckGLM(self, glm, 'STR', **kwargs)
 
     def test_C_prostate(self):
         print "\nStarting prostate.csv"
         # columns start at 0
-        Y = "1"
-        X = ""
+        y = "1"
+        x = ""
         csvFilename = "prostate.csv"
         csvPathname = h2o.find_file('smalldata/logreg' + '/' + csvFilename)
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename)
 
-        for appendX in xrange(9):
-            if (appendX == 0):
+        for appendx in xrange(9):
+            if (appendx == 0):
                 print "\n0 is member ID. not used"
-            elif (appendX == 1):
+            elif (appendx == 1):
                 print "\n1 is output."
-            elif (appendX == 7): 
+            elif (appendx == 7): 
                 print "\nSkipping 7. Causes NaN. Ok now, later though?"
             else:
-                if X == "": 
-                    X = str(appendX)
+                if x == "": 
+                    x = str(appendx)
                 else:
-                    X = X + "," + str(appendX)
+                    x = x + "," + str(appendx)
 
                 sys.stdout.write('.')
                 sys.stdout.flush() 
-                print "\nX:", X
-                print "Y:", Y
+                print "\nx:", x
+                print "y:", y
 
-                kwargs = {'X': X, 'Y':  Y, 'xval': 5}
+                kwargs = {'x': x, 'y':  y, 'xval': 5}
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=2, **kwargs)
                 # ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON
                 h2o_glm.simpleCheckGLM(self, glm, 'AGE', **kwargs)
